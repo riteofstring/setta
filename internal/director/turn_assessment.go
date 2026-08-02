@@ -16,17 +16,20 @@ const directorAssessRequestTool = "assess_request"
 
 const maxDirectorAssessmentQuestionBytes = 4 * 1024
 
+const maxDirectorAssessmentEvidenceBytes = 4 * 1024
+
 type directorAssessmentBasis string
 
 const (
 	directorAssessmentNonWorkOrControl        directorAssessmentBasis = "non_work_or_control"
-	directorAssessmentFullySpecified          directorAssessmentBasis = "fully_specified"
-	directorAssessmentObjectivelyDiscoverable directorAssessmentBasis = "objectively_discoverable"
-	directorAssessmentMissingUserRequirement  directorAssessmentBasis = "missing_user_requirement"
+	directorAssessmentExplicitlyCheckable     directorAssessmentBasis = "explicitly_checkable_outcome"
+	directorAssessmentNamedAuthority          directorAssessmentBasis = "named_authority_yields_one_answer"
+	directorAssessmentMissingOutcomeAuthority directorAssessmentBasis = "missing_outcome_authority"
 )
 
 type directorAssessmentArguments struct {
 	Basis    directorAssessmentBasis `json:"basis"`
+	Evidence string                  `json:"evidence"`
 	Question string                  `json:"question"`
 }
 
@@ -75,30 +78,42 @@ func (assessment *directorTurnAssessment) tool(requestUserChoice SettaTool) Sett
 	return SettaTool{
 		Name: directorAssessRequestTool,
 		Description: "Make the required first decision before any other Setta tool. Classify the current request " +
-			"as non_work_or_control, fully_specified, objectively_discoverable, or missing_user_requirement. " +
-			"Use objectively_discoverable only when the request or recent conversation identifies a concrete " +
-			"authoritative source available to the worker that yields one objectively correct answer; the possibility " +
-			"of investigation and an outside consumer's unstated contract are not authority. For " +
-			"missing_user_requirement, supply one concise outcome-defining question; this assessment records that work " +
-			"is waiting for the user's answer, so ask exactly that question in prose and call no other tool. For every " +
-			"other basis, question must be empty. Do not call this for a prose-only conversational response.",
+			"as non_work_or_control, explicitly_checkable_outcome, named_authority_yields_one_answer, or " +
+			"missing_outcome_authority. explicitly_checkable_outcome means the request or recent conversation already " +
+			"states the externally observable completion contract; a restatement of the goal is not that contract. " +
+			"named_authority_yields_one_answer requires an exact authoritative source explicitly named there and " +
+			"available to the worker. The workspace or repository in general, the possibility of investigation, and an " +
+			"outside consumer whose contract is unstated are not authority. Put one concise, directly grounded reason in " +
+			"evidence: identify the supplied completion contract, the exact named source and fact it resolves, the missing " +
+			"outcome authority, or why this is only conversation/control. If a format, interface, value, identity, preference, " +
+			"or other externally constrained property can still have materially different valid answers, use " +
+			"missing_outcome_authority. For that basis, also supply one concise outcome-defining question; this assessment " +
+			"records that work is waiting for the user's answer, so ask exactly that question in prose and call no other " +
+			"tool. For every other basis, question must be empty. Do not call this for a prose-only conversational response.",
 		InputSchema: settaToolSchema(map[string]any{
 			"basis": settaToolEnum(
 				"The authority for responding to the current request.",
 				[]string{
 					string(directorAssessmentNonWorkOrControl),
-					string(directorAssessmentFullySpecified),
-					string(directorAssessmentObjectivelyDiscoverable),
-					string(directorAssessmentMissingUserRequirement),
+					string(directorAssessmentExplicitlyCheckable),
+					string(directorAssessmentNamedAuthority),
+					string(directorAssessmentMissingOutcomeAuthority),
 				},
 			),
+			"evidence": map[string]any{
+				"type":      "string",
+				"minLength": 1,
+				"maxLength": maxDirectorAssessmentEvidenceBytes,
+				"description": "One concise, directly grounded reason for the selected basis. Do not merely restate " +
+					"the requested goal or speculate about what investigation might find.",
+			},
 			"question": map[string]any{
 				"type":      "string",
 				"maxLength": maxDirectorAssessmentQuestionBytes,
-				"description": "One concise outcome-defining question for missing_user_requirement, " +
+				"description": "One concise outcome-defining question for missing_outcome_authority, " +
 					"or an empty string for every other basis.",
 			},
-		}, []string{"basis", "question"}),
+		}, []string{"basis", "evidence", "question"}),
 		Handler: assessment.handle(requestUserChoice),
 	}
 }
@@ -122,7 +137,7 @@ func (assessment *directorTurnAssessment) handle(requestUserChoice SettaTool) Se
 			}, nil
 		}
 
-		if payload.Basis == directorAssessmentMissingUserRequirement {
+		if payload.Basis == directorAssessmentMissingOutcomeAuthority {
 			encoded, err := json.Marshal(settaRequestUserChoiceArguments{Question: payload.Question})
 			if err != nil {
 				return SettaToolReceipt{}, fmt.Errorf("encode Director user-choice request: %w", err)
@@ -159,7 +174,7 @@ func (assessment *directorTurnAssessment) guard(tool SettaTool) SettaToolHandler
 					"selected basis permits it.",
 			}, nil
 		}
-		if basis == directorAssessmentMissingUserRequirement {
+		if basis == directorAssessmentMissingOutcomeAuthority {
 			return SettaToolReceipt{
 				Tool:    tool.Name,
 				Summary: "This call did not run. Work is waiting for the user's answer; ask the recorded question and call no other tool.",
@@ -170,15 +185,22 @@ func (assessment *directorTurnAssessment) guard(tool SettaTool) SettaToolHandler
 }
 
 func (arguments directorAssessmentArguments) validate() error {
+	if err := validateDecisionText(
+		"Director assessment evidence",
+		arguments.Evidence,
+		maxDirectorAssessmentEvidenceBytes,
+	); err != nil {
+		return err
+	}
 	switch arguments.Basis {
 	case directorAssessmentNonWorkOrControl,
-		directorAssessmentFullySpecified,
-		directorAssessmentObjectivelyDiscoverable:
+		directorAssessmentExplicitlyCheckable,
+		directorAssessmentNamedAuthority:
 		if arguments.Question != "" {
 			return fmt.Errorf("basis %s requires an empty question", arguments.Basis)
 		}
 		return nil
-	case directorAssessmentMissingUserRequirement:
+	case directorAssessmentMissingOutcomeAuthority:
 		return validateDecisionText(
 			"Director assessment question",
 			arguments.Question,

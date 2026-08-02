@@ -31,7 +31,8 @@ func readyDirectorCalls(calls ...scriptedDirectorToolCall) []scriptedDirectorToo
 	return append([]scriptedDirectorToolCall{{
 		tool: directorAssessRequestTool,
 		arguments: map[string]any{
-			"basis":    string(directorAssessmentFullySpecified),
+			"basis":    string(directorAssessmentExplicitlyCheckable),
+			"evidence": "The scripted request states the completion contract.",
 			"question": "",
 		},
 	}}, calls...)
@@ -41,7 +42,8 @@ func missingRequirementDirectorCall(question string) []scriptedDirectorToolCall 
 	return []scriptedDirectorToolCall{{
 		tool: directorAssessRequestTool,
 		arguments: map[string]any{
-			"basis":    string(directorAssessmentMissingUserRequirement),
+			"basis":    string(directorAssessmentMissingOutcomeAuthority),
+			"evidence": "The user has not supplied the outcome-defining choice.",
 			"question": question,
 		},
 	}}

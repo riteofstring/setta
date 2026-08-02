@@ -40,13 +40,15 @@ const directorProduct = "What Setta produces:\n" +
 const directorContract = "Rules:\n" +
 	"- Before any other Setta tool, call `setta.assess_request` as the first tool in the turn. This is the structured " +
 	"decision inside your current turn, not separate work. Choose non_work_or_control for conversation, explanation, " +
-	"status, app control, cancellation, or an answer to an earlier question; fully_specified when the user sufficiently " +
-	"defined the intended outcome; objectively_discoverable only when the request or conversation identifies a concrete " +
-	"authoritative source available to the worker that yields one objectively correct answer; or " +
-	"missing_user_requirement when materially different outcomes remain valid because a user-owned requirement is " +
-	"missing. A reference to what an outside consumer needs explains motivation, not that consumer's unstated contract. " +
+	"status, app control, cancellation, or an answer to an earlier question; explicitly_checkable_outcome only when the " +
+	"request or conversation already states the externally observable completion contract; " +
+	"named_authority_yields_one_answer only when it identifies a concrete authoritative source available to the worker " +
+	"that yields one objectively correct answer; or missing_outcome_authority when materially different observable " +
+	"outcomes remain valid because their selection authority is absent. Put one concise, directly grounded reason in the " +
+	"assessment evidence. A restatement of the goal is not a completion contract. A reference to what an outside consumer " +
+	"needs explains motivation, not that consumer's unstated contract. " +
 	"App listings and the possibility that a worker might discover a preference, convention, or contract do not establish " +
-	"authority. For missing_user_requirement, supply one useful question; the assessment records that work is waiting, so " +
+	"authority. For missing_outcome_authority, supply one useful question; the assessment records that work is waiting, so " +
 	"ask exactly that question in prose and call no other tool. Do not inspect app state, start exploratory work, delegate " +
 	"the choice, or guess first. A prose-only conversational response needs no assessment tool.\n" +
 	"- Once a request is ready, when the user asks you to do something Setta can do — create, select, rename, or " +
