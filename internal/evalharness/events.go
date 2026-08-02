@@ -1,6 +1,8 @@
 package evalharness
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sort"
@@ -13,7 +15,7 @@ import (
 )
 
 const (
-	EvaluationEventSchemaVersion   = 4
+	EvaluationEventSchemaVersion   = 5
 	EvaluationMaximumEvents        = 8192
 	EvaluationMaximumAttemptEvents = 4096
 	EvaluationMaximumEventBytes    = 256 * 1024
@@ -34,9 +36,10 @@ const (
 )
 
 type EvaluationUserSubmission struct {
-	StepIndex int              `json:"stepIndex"`
-	Trigger   *ScenarioTrigger `json:"trigger"`
-	Text      string           `json:"text"`
+	StepIndex int                            `json:"stepIndex"`
+	Trigger   *ScenarioTrigger               `json:"trigger"`
+	Text      string                         `json:"text"`
+	Workspace EvaluationWorkspaceObservation `json:"workspace"`
 }
 
 type EvaluationDirectorReceipt struct {
@@ -45,15 +48,24 @@ type EvaluationDirectorReceipt struct {
 }
 
 type EvaluationTriggerObservation struct {
-	StepIndex              int                      `json:"stepIndex"`
-	Trigger                ScenarioTrigger          `json:"trigger"`
-	WorkstreamID           *string                  `json:"workstreamId"`
-	ConversationID         *string                  `json:"conversationId"`
-	ObservedTurnID         *string                  `json:"observedTurnId"`
-	ObservedTurnStatus     *conversation.TurnStatus `json:"observedTurnStatus"`
-	ObservedApprovalID     *string                  `json:"observedApprovalId"`
-	QueueTurnIDs           []string                 `json:"queueTurnIds"`
-	WorkspaceMutationCount int                      `json:"workspaceMutationCount"`
+	StepIndex          int                            `json:"stepIndex"`
+	Trigger            ScenarioTrigger                `json:"trigger"`
+	WorkstreamID       *string                        `json:"workstreamId"`
+	ConversationID     *string                        `json:"conversationId"`
+	ObservedTurnID     *string                        `json:"observedTurnId"`
+	ObservedTurnStatus *conversation.TurnStatus       `json:"observedTurnStatus"`
+	ObservedApprovalID *string                        `json:"observedApprovalId"`
+	QueueTurnIDs       []string                       `json:"queueTurnIds"`
+	Workspace          EvaluationWorkspaceObservation `json:"workspace"`
+}
+
+// EvaluationWorkspaceObservation is a content-derived view of the isolated
+// fixture at one temporal boundary. Revision advances whenever two consecutive
+// observations differ, including when a later observation returns to an older
+// digest, so a detected write-and-revert cannot erase earlier evidence.
+type EvaluationWorkspaceObservation struct {
+	Digest   string `json:"digest"`
+	Revision int    `json:"revision"`
 }
 
 type EvaluationConversationTurnState struct {
@@ -68,24 +80,26 @@ type EvaluationConversationState struct {
 	ConversationID string                            `json:"conversationId"`
 	Turns          []EvaluationConversationTurnState `json:"turns"`
 	QueueTurnIDs   []string                          `json:"queueTurnIds"`
+	Workspace      EvaluationWorkspaceObservation    `json:"workspace"`
 }
 
 type EvaluationEvent struct {
-	SchemaVersion     int                                 `json:"schemaVersion"`
-	ScenarioID        string                              `json:"scenarioId"`
-	Attempt           int                                 `json:"attempt"`
-	Sequence          int                                 `json:"sequence"`
-	RecordedAt        string                              `json:"recordedAt"`
-	Kind              EvaluationEventKind                 `json:"kind"`
-	UserSubmission    *EvaluationUserSubmission           `json:"userSubmission"`
-	DirectorReceipt   *EvaluationDirectorReceipt          `json:"directorReceipt"`
-	DirectorEvent     *director.DirectorEvent             `json:"directorEvent"`
-	TriggerObserved   *EvaluationTriggerObservation       `json:"triggerObserved"`
-	ConversationState *EvaluationConversationState        `json:"conversationState"`
-	Trajectory        *conversation.TrajectoryEvent       `json:"trajectory"`
-	Narration         *conversation.NarrationEvent        `json:"narration"`
-	SideTrajectory    *conversation.SideConversationEvent `json:"sideTrajectory"`
-	TokenUsage        *agent.TokenUsageObservation        `json:"tokenUsage"`
+	SchemaVersion       int                                 `json:"schemaVersion"`
+	ScenarioID          string                              `json:"scenarioId"`
+	Attempt             int                                 `json:"attempt"`
+	Sequence            int                                 `json:"sequence"`
+	RecordedAt          string                              `json:"recordedAt"`
+	Kind                EvaluationEventKind                 `json:"kind"`
+	UserSubmission      *EvaluationUserSubmission           `json:"userSubmission"`
+	DirectorReceipt     *EvaluationDirectorReceipt          `json:"directorReceipt"`
+	DirectorEvent       *director.DirectorEvent             `json:"directorEvent"`
+	TriggerObserved     *EvaluationTriggerObservation       `json:"triggerObserved"`
+	ConversationState   *EvaluationConversationState        `json:"conversationState"`
+	Trajectory          *conversation.TrajectoryEvent       `json:"trajectory"`
+	TrajectoryWorkspace *EvaluationWorkspaceObservation     `json:"trajectoryWorkspace"`
+	Narration           *conversation.NarrationEvent        `json:"narration"`
+	SideTrajectory      *conversation.SideConversationEvent `json:"sideTrajectory"`
+	TokenUsage          *agent.TokenUsageObservation        `json:"tokenUsage"`
 }
 
 type evaluationEventCandidate struct {
@@ -112,7 +126,11 @@ func buildEvaluationEvents(
 	if err != nil {
 		return nil, err
 	}
-	candidates, err = appendTrajectoryEventCandidates(candidates, snapshot.Trajectory.Events)
+	candidates, err = appendTrajectoryEventCandidates(
+		candidates,
+		snapshot.Trajectory.Events,
+		observation.trajectoryWorkspaces,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -179,6 +197,7 @@ func directorSubmissionEventCandidates(
 					StepIndex: index,
 					Trigger:   trigger,
 					Text:      step.Text,
+					Workspace: submission.workspace,
 				},
 			},
 			when:    submission.submittedAt.UTC(),
@@ -235,6 +254,7 @@ func appendConversationStateCandidate(
 		ConversationID: observation.ConversationID,
 		Turns:          make([]EvaluationConversationTurnState, len(snapshot.Turns.Turns)),
 		QueueTurnIDs:   make([]string, len(snapshot.Queue)),
+		Workspace:      observation.finalWorkspace,
 	}
 	for index, turn := range snapshot.Turns.Turns {
 		state.Turns[index] = EvaluationConversationTurnState{
@@ -296,6 +316,7 @@ func appendDirectorEventCandidates(
 func appendTrajectoryEventCandidates(
 	candidates []evaluationEventCandidate,
 	trajectories []conversation.TrajectoryEvent,
+	workspaces map[string]EvaluationWorkspaceObservation,
 ) ([]evaluationEventCandidate, error) {
 	for index := range trajectories {
 		trajectory := trajectories[index]
@@ -303,8 +324,16 @@ func appendTrajectoryEventCandidates(
 		if err != nil {
 			return nil, fmt.Errorf("parse trajectory event %s timestamp: %w", trajectory.ID, err)
 		}
+		workspace, found := workspaces[trajectory.ID]
+		if !found {
+			return nil, fmt.Errorf("trajectory event %s omitted its workspace observation", trajectory.ID)
+		}
 		candidates = append(candidates, evaluationEventCandidate{
-			event:   EvaluationEvent{Kind: EvaluationEventTrajectory, Trajectory: &trajectory},
+			event: EvaluationEvent{
+				Kind:                EvaluationEventTrajectory,
+				Trajectory:          &trajectory,
+				TrajectoryWorkspace: &workspace,
+			},
 			when:    emittedAt.UTC(),
 			ordinal: len(candidates),
 		})
@@ -462,6 +491,9 @@ func (event EvaluationEvent) Validate() error {
 	if err := validateEvaluationEventPayloadPresence(event); err != nil {
 		return err
 	}
+	if err := validateEvaluationEventWorkspace(event); err != nil {
+		return err
+	}
 	return validateEvaluationEventPayload(event)
 }
 
@@ -500,6 +532,19 @@ func validateEvaluationEventPayloadPresence(event EvaluationEvent) error {
 		if populated != (event.Kind == kind) {
 			return fmt.Errorf("evaluation event kind %s payload presence is inconsistent", event.Kind)
 		}
+	}
+	return nil
+}
+
+func validateEvaluationEventWorkspace(event EvaluationEvent) error {
+	if event.Kind == EvaluationEventTrajectory {
+		if event.TrajectoryWorkspace == nil {
+			return errors.New("trajectory evaluation event requires a workspace observation")
+		}
+		return event.TrajectoryWorkspace.Validate()
+	}
+	if event.TrajectoryWorkspace != nil {
+		return fmt.Errorf("evaluation event kind %s cannot carry a trajectory workspace observation", event.Kind)
 	}
 	return nil
 }
@@ -545,6 +590,26 @@ func validateEvaluationUserSubmission(submission EvaluationUserSubmission) error
 		len(submission.Text) > ScenarioMaximumMessageBytes {
 		return errors.New("evaluation user submission text is invalid")
 	}
+	if err := submission.Workspace.Validate(); err != nil {
+		return fmt.Errorf("evaluation user submission workspace: %w", err)
+	}
+	if submission.StepIndex == 0 && submission.Workspace.Revision != 0 {
+		return errors.New("initial evaluation user submission must capture workspace revision zero")
+	}
+	return nil
+}
+
+func (observation EvaluationWorkspaceObservation) Validate() error {
+	if observation.Revision < 0 {
+		return errors.New("workspace observation revision must be non-negative")
+	}
+	if len(observation.Digest) != sha256.Size*2 {
+		return fmt.Errorf("workspace observation digest must be %d lowercase hexadecimal characters", sha256.Size*2)
+	}
+	decoded, err := hex.DecodeString(observation.Digest)
+	if err != nil || hex.EncodeToString(decoded) != observation.Digest {
+		return errors.New("workspace observation digest must be lowercase hexadecimal")
+	}
 	return nil
 }
 
@@ -565,8 +630,8 @@ func (observation EvaluationTriggerObservation) Validate() error {
 	if observation.QueueTurnIDs == nil {
 		return errors.New("trigger observation queueTurnIds must be an array")
 	}
-	if observation.WorkspaceMutationCount < 0 {
-		return errors.New("trigger observation workspaceMutationCount must be non-negative")
+	if err := observation.Workspace.Validate(); err != nil {
+		return fmt.Errorf("trigger observation workspace: %w", err)
 	}
 	identities := []struct {
 		label string
@@ -618,8 +683,8 @@ func validateActiveTurnTriggerShape(observation EvaluationTriggerObservation) er
 		if observation.ObservedApprovalID != nil {
 			return errors.New("first_workspace_mutation trigger cannot observe an approval")
 		}
-		if observation.WorkspaceMutationCount == 0 {
-			return errors.New("first_workspace_mutation trigger requires a completed workspace mutation")
+		if observation.Workspace.Revision == 0 {
+			return errors.New("first_workspace_mutation trigger requires an observed workspace revision")
 		}
 	case ScenarioTriggerAgentTurnRunning:
 		if observation.ObservedApprovalID != nil {
@@ -647,6 +712,9 @@ func (state EvaluationConversationState) Validate() error {
 	}
 	if err := validateEvaluationRuntimeIdentifier("conversation state conversation id", state.ConversationID); err != nil {
 		return err
+	}
+	if err := state.Workspace.Validate(); err != nil {
+		return fmt.Errorf("conversation state workspace: %w", err)
 	}
 	if err := validateConversationStateBounds(state); err != nil {
 		return err

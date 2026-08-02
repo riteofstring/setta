@@ -9,14 +9,18 @@ import (
 )
 
 type evaluationConversationState struct {
-	snapshot conversation.ConversationSnapshot
-	reader   eventStreamReader[conversation.ConversationEvent]
+	snapshot            conversation.ConversationSnapshot
+	reader              eventStreamReader[conversation.ConversationEvent]
+	workspaceObserver   *evaluationWorkspaceObserver
+	workspace           EvaluationWorkspaceObservation
+	trajectoryWorkspace map[string]EvaluationWorkspaceObservation
 }
 
 func newEvaluationConversationState(
 	snapshot conversation.ConversationSnapshot,
 	stream *EventStream[conversation.ConversationEvent],
-) *evaluationConversationState {
+	workspaceObserver *evaluationWorkspaceObserver,
+) (*evaluationConversationState, error) {
 	snapshot.Turns = conversation.ConversationTurnWindow{
 		Turns: []conversation.ConversationTurn{},
 	}
@@ -33,10 +37,20 @@ func newEvaluationConversationState(
 		Limit:  conversation.MaxSnapshotSideEvents,
 	}
 	snapshot.EventCursor.Sequence = 0
-	return &evaluationConversationState{
-		snapshot: snapshot,
-		reader:   newEventStreamReader("conversation", stream),
+	state := &evaluationConversationState{
+		snapshot:            snapshot,
+		reader:              newEventStreamReader("conversation", stream),
+		workspaceObserver:   workspaceObserver,
+		trajectoryWorkspace: map[string]EvaluationWorkspaceObservation{},
 	}
+	if workspaceObserver != nil {
+		workspace, err := workspaceObserver.Current()
+		if err != nil {
+			return nil, err
+		}
+		state.workspace = workspace
+	}
+	return state, nil
 }
 
 func (state *evaluationConversationState) replayThrough(
@@ -66,6 +80,10 @@ func (state *evaluationConversationState) next(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	return state.accept(event)
+}
+
+func (state *evaluationConversationState) accept(event conversation.ConversationEvent) error {
 	if event.Type() == conversation.ConversationEventTypeResyncRequired {
 		return errors.New("conversation event stream required a snapshot resync")
 	}
@@ -83,7 +101,33 @@ func (state *evaluationConversationState) next(ctx context.Context) error {
 		return err
 	}
 	state.snapshot.EventCursor.Sequence = event.Sequence
+	if err := state.observeWorkspace(); err != nil {
+		return err
+	}
+	if payload, ok := event.Payload.(*conversation.ConversationTrajectoryAppendedEventPayload); ok {
+		state.trajectoryWorkspace[payload.Event.ID] = state.workspace
+	}
 	return nil
+}
+
+func (state *evaluationConversationState) observeWorkspace() error {
+	if state.workspaceObserver == nil {
+		return nil
+	}
+	workspace, err := state.workspaceObserver.Observe()
+	if err != nil {
+		return err
+	}
+	state.workspace = workspace
+	return nil
+}
+
+func (state *evaluationConversationState) workspaceByTrajectory() map[string]EvaluationWorkspaceObservation {
+	result := make(map[string]EvaluationWorkspaceObservation, len(state.trajectoryWorkspace))
+	for eventID, workspace := range state.trajectoryWorkspace {
+		result[eventID] = workspace
+	}
+	return result
 }
 
 func (state *evaluationConversationState) apply(
@@ -137,22 +181,6 @@ func (state *evaluationConversationState) queueTurnIDs() []string {
 	return ids
 }
 
-func (state *evaluationConversationState) completedWorkspaceMutationCount(
-	turnID string,
-) int {
-	count := 0
-	for _, event := range state.snapshot.Trajectory.Events {
-		if event.TurnID != nil && *event.TurnID == turnID &&
-			event.Kind == conversation.TrajectoryEventFileChangeCompleted &&
-			event.FileChangeCompleted != nil &&
-			event.FileChangeCompleted.Outcome == conversation.FileChangeOutcomeCompleted &&
-			len(event.FileChangeCompleted.Changes) > 0 {
-			count++
-		}
-	}
-	return count
-}
-
 func (state *evaluationConversationState) pendingUserInputApprovals(
 	turnID string,
 ) []conversation.TrajectoryApprovalRequest {
@@ -204,7 +232,6 @@ func (state *evaluationConversationState) triggerObservation(
 		)
 	}
 	queueIDs := state.queueTurnIDs()
-	mutationCount := state.completedWorkspaceMutationCount(observedTurnID)
 	inputApprovals := state.pendingUserInputApprovals(observedTurnID)
 	ready := false
 	switch trigger {
@@ -213,7 +240,7 @@ func (state *evaluationConversationState) triggerObservation(
 	case ScenarioTriggerAgentTurnRunning:
 		ready = turn.Status == conversation.TurnStatusRunning
 	case ScenarioTriggerFirstWorkspaceMutation:
-		ready = turn.Status == conversation.TurnStatusRunning && mutationCount > 0
+		ready = turn.Status == conversation.TurnStatusRunning && state.workspace.Revision > 0
 	case ScenarioTriggerQueueNonempty:
 		ready = turn.Status == conversation.TurnStatusRunning && len(queueIDs) > 0
 	default:
@@ -231,15 +258,15 @@ func (state *evaluationConversationState) triggerObservation(
 		approvalID = evaluationStringPointer(inputApprovals[0].ID)
 	}
 	observation := EvaluationTriggerObservation{
-		StepIndex:              stepIndex,
-		Trigger:                trigger,
-		WorkstreamID:           evaluationStringPointer(workstreamID),
-		ConversationID:         evaluationStringPointer(state.snapshot.Conversation.ID),
-		ObservedTurnID:         evaluationStringPointer(observedTurnID),
-		ObservedTurnStatus:     &status,
-		ObservedApprovalID:     approvalID,
-		QueueTurnIDs:           queueIDs,
-		WorkspaceMutationCount: mutationCount,
+		StepIndex:          stepIndex,
+		Trigger:            trigger,
+		WorkstreamID:       evaluationStringPointer(workstreamID),
+		ConversationID:     evaluationStringPointer(state.snapshot.Conversation.ID),
+		ObservedTurnID:     evaluationStringPointer(observedTurnID),
+		ObservedTurnStatus: &status,
+		ObservedApprovalID: approvalID,
+		QueueTurnIDs:       queueIDs,
+		Workspace:          state.workspace,
 	}
 	if err := observation.Validate(); err != nil {
 		return EvaluationTriggerObservation{}, false, err

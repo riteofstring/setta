@@ -72,9 +72,10 @@ func directorPendingInputContext(approvals []ApprovalRequest) string {
 	for _, approval := range approvals {
 		if !approval.Secret && (approval.Kind == conversation.TrajectoryApprovalKindStructuredInput ||
 			approval.Kind == conversation.TrajectoryApprovalKindUserInput) {
-			return " Setta currently has a non-secret interactive Worker question in the fresh current-turn " +
-				"activity observation. If this user message answers that question, call resolve_approval directly instead " +
-				"of rediscovering it with read_activity or treating the answer as new or changed work."
+			return " Setta currently has a non-secret interactive Worker request in the fresh current-turn " +
+				"activity observation. If it contains exactly one question and this user message answers it, call " +
+				"resolve_approval directly instead of rediscovering it with read_activity or treating the answer as new " +
+				"or changed work. A request containing multiple questions must be answered explicitly in the app."
 		}
 	}
 	return ""
@@ -223,13 +224,21 @@ func (box *SettaToolbox) resolveApproval(intent SubmittedIntent) SettaToolHandle
 		if payload.Decision == conversation.TrajectoryApprovalDecisionAnswered &&
 			(approval.Kind == conversation.TrajectoryApprovalKindStructuredInput ||
 				approval.Kind == conversation.TrajectoryApprovalKindUserInput) {
-			answers = make([]conversation.ConversationApprovalAnswer, 0, len(approval.Questions))
-			for _, question := range approval.Questions {
-				answers = append(answers, conversation.ConversationApprovalAnswer{
-					QuestionID: question.ID,
-					Answers:    []string{intent.Text},
-				})
+			// One submitted message is an answer to one question. Refusing a
+			// multi-question call keeps the approval pending and gives the
+			// Director a tool receipt it can repair within the same turn.
+			if len(approval.Questions) != 1 {
+				return SettaToolReceipt{}, fmt.Errorf(
+					"%w: approval %s asks %d questions; resolve_approval can relay the current user message only when exactly one question is pending, so ask the user to answer this request in the app",
+					ErrDirectorIntentRejected,
+					payload.ApprovalID,
+					len(approval.Questions),
+				)
 			}
+			answers = []conversation.ConversationApprovalAnswer{{
+				QuestionID: approval.Questions[0].ID,
+				Answers:    []string{intent.Text},
+			}}
 		}
 		// The conversation owns what an approval answer may carry, so its own
 		// rule is what the arguments are checked against rather than a second

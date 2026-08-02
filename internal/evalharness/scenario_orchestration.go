@@ -2,6 +2,7 @@ package evalharness
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -75,7 +76,7 @@ func prepareEvaluationWorkingSubmission(
 	scenario Scenario,
 	observation Phase1HTTPObservation,
 ) (Phase1HTTPObservation, int, error) {
-	observation, err := dispatchEvaluationStep(ctx, client, scenario, 0, observation)
+	observation, err := dispatchEvaluationStep(ctx, client, nil, scenario, 0, observation)
 	return observation, 0, err
 }
 
@@ -98,6 +99,7 @@ func evaluationWorkstreamTargetsWorkspace(workstream director.Workstream, worksp
 func dispatchEvaluationStep(
 	ctx context.Context,
 	client *BackendClient,
+	state *evaluationConversationState,
 	scenario Scenario,
 	stepIndex int,
 	observation Phase1HTTPObservation,
@@ -105,25 +107,142 @@ func dispatchEvaluationStep(
 	if stepIndex != len(observation.submissions) || stepIndex < 0 || stepIndex >= len(scenario.Steps) {
 		return observation, fmt.Errorf("dispatch evaluation step %d out of order", stepIndex)
 	}
+	var workspace EvaluationWorkspaceObservation
+	var err error
+	if stepIndex == 0 {
+		workspace, err = observation.workspace.CaptureBaseline()
+	} else {
+		workspace, err = observation.workspace.Observe()
+	}
+	if err != nil {
+		return observation, fmt.Errorf("capture workspace before evaluation step %d: %w", stepIndex, err)
+	}
+	if state != nil {
+		state.workspace = workspace
+	}
 	submittedAt := time.Now().UTC()
-	receipt, err := client.DispatchDirectorIntent(ctx, phase1SubmitIntent(scenario.Steps[stepIndex].Text))
-	receivedAt := time.Now().UTC()
+	dispatch, err := dispatchDirectorIntentWhileObserving(
+		ctx,
+		client,
+		state,
+		phase1SubmitIntent(scenario.Steps[stepIndex].Text),
+	)
 	if err != nil {
 		return observation, err
 	}
 	observation.submissions = append(observation.submissions, scenarioSubmissionObservation{
 		stepIndex:   stepIndex,
 		submittedAt: submittedAt,
-		receivedAt:  receivedAt,
-		receipt:     receipt,
+		receivedAt:  dispatch.receivedAt,
+		receipt:     dispatch.receipt,
+		workspace:   workspace,
 	})
-	if receipt.Submit != nil {
+	if dispatch.receipt.Submit != nil {
 		observation.ResolvedInvocations = append(
 			observation.ResolvedInvocations,
-			receipt.Submit.ResolvedInvocations...,
+			dispatch.receipt.Submit.ResolvedInvocations...,
 		)
 	}
 	return observation, nil
+}
+
+type evaluationDirectorDispatch struct {
+	receipt    director.DirectorReceipt
+	receivedAt time.Time
+}
+
+type evaluationDirectorDispatchResult struct {
+	dispatch evaluationDirectorDispatch
+	err      error
+}
+
+func dispatchDirectorIntentWhileObserving(
+	ctx context.Context,
+	client *BackendClient,
+	state *evaluationConversationState,
+	intent director.DirectorIntent,
+) (evaluationDirectorDispatch, error) {
+	if state == nil {
+		receipt, err := client.DispatchDirectorIntent(ctx, intent)
+		return evaluationDirectorDispatch{receipt: receipt, receivedAt: time.Now().UTC()}, err
+	}
+	dispatchCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	completed := make(chan evaluationDirectorDispatchResult, 1)
+	go func() {
+		receipt, err := client.DispatchDirectorIntent(dispatchCtx, intent)
+		completed <- evaluationDirectorDispatchResult{
+			dispatch: evaluationDirectorDispatch{
+				receipt:    receipt,
+				receivedAt: time.Now().UTC(),
+			},
+			err: err,
+		}
+	}()
+	return awaitEvaluationDirectorDispatch(ctx, state, completed)
+}
+
+func awaitEvaluationDirectorDispatch(
+	ctx context.Context,
+	state *evaluationConversationState,
+	completed <-chan evaluationDirectorDispatchResult,
+) (evaluationDirectorDispatch, error) {
+	for state.reader.events != nil || state.reader.errors != nil {
+		select {
+		case result := <-completed:
+			if err := drainAvailableEvaluationConversationEvents(state); err != nil {
+				return evaluationDirectorDispatch{}, err
+			}
+			return result.dispatch, result.err
+		case event, open := <-state.reader.events:
+			if !open {
+				state.reader.events = nil
+				continue
+			}
+			if err := state.accept(event); err != nil {
+				return evaluationDirectorDispatch{}, err
+			}
+		case err, open := <-state.reader.errors:
+			if !open {
+				state.reader.errors = nil
+				continue
+			}
+			if err != nil {
+				return evaluationDirectorDispatch{}, err
+			}
+		case <-ctx.Done():
+			return evaluationDirectorDispatch{}, ctx.Err()
+		}
+	}
+	return evaluationDirectorDispatch{}, errors.New(
+		"conversation event stream closed while the Director action was in flight",
+	)
+}
+
+func drainAvailableEvaluationConversationEvents(state *evaluationConversationState) error {
+	for state.reader.events != nil || state.reader.errors != nil {
+		select {
+		case event, open := <-state.reader.events:
+			if !open {
+				state.reader.events = nil
+				continue
+			}
+			if err := state.accept(event); err != nil {
+				return err
+			}
+		case err, open := <-state.reader.errors:
+			if !open {
+				state.reader.errors = nil
+				continue
+			}
+			if err != nil {
+				return err
+			}
+		default:
+			return nil
+		}
+	}
+	return nil
 }
 
 func evaluationWorkingReceiptWorkstream(
@@ -170,7 +289,10 @@ func orchestrateEvaluationConversation(
 		return observation, err
 	}
 	defer conversationEvents.Close()
-	state := newEvaluationConversationState(snapshot, conversationEvents)
+	state, err := newEvaluationConversationState(snapshot, conversationEvents, observation.workspace)
+	if err != nil {
+		return observation, err
+	}
 	if err := state.replayThrough(ctx, snapshot.EventCursor); err != nil {
 		return observation, err
 	}
@@ -218,6 +340,7 @@ func orchestrateEvaluationConversation(
 			behavior.message,
 		)
 	}
+	observation.trajectoryWorkspaces = state.workspaceByTrajectory()
 	return completeEvaluationConversationEvidence(
 		scenario,
 		observation,
@@ -276,7 +399,7 @@ func orchestrateTriggeredEvaluationSteps(
 		if trigger.Trigger == ScenarioTriggerQueueNonempty {
 			queuedTurnID = trigger.QueueTurnIDs[0]
 		}
-		observation, err = dispatchEvaluationStep(ctx, client, scenario, stepIndex, observation)
+		observation, err = dispatchEvaluationStep(ctx, client, state, scenario, stepIndex, observation)
 		if err != nil {
 			return observation, queuedTurnID, err
 		}
@@ -339,8 +462,13 @@ func completeEvaluationConversationEvidence(
 	finalSnapshot conversation.ConversationSnapshot,
 ) (Phase1HTTPObservation, error) {
 	observation.TurnID = finalTurn.ID
+	workspace, err := observation.workspace.Observe()
+	if err != nil {
+		return observation, fmt.Errorf("capture final evaluation workspace: %w", err)
+	}
+	observation.finalWorkspace = workspace
 	observation.finalSnapshotAt = time.Now().UTC()
-	observation, err := collectPhase2ConversationEvidence(scenario, observation, finalSnapshot)
+	observation, err = collectPhase2ConversationEvidence(scenario, observation, finalSnapshot)
 	if err != nil {
 		return observation, err
 	}
@@ -395,6 +523,9 @@ func awaitEvaluationTrigger(
 ) (EvaluationTriggerObservation, *scenarioBehaviorFailure, error) {
 	trigger := scenario.Steps[stepIndex].Trigger
 	for {
+		if err := state.observeWorkspace(); err != nil {
+			return EvaluationTriggerObservation{}, nil, err
+		}
 		turn, found := state.turn(observedTurnID)
 		if !found {
 			return EvaluationTriggerObservation{}, nil, fmt.Errorf(

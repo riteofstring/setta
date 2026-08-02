@@ -116,6 +116,7 @@ func TestEvaluationTriggerAcceptsProductionOpaqueIdentifiers(t *testing.T) {
 		ObservedTurnID:     &turnID,
 		ObservedTurnStatus: &running,
 		QueueTurnIDs:       []string{},
+		Workspace:          testWorkspaceObservation(0),
 	}
 	if err := observation.Validate(); err != nil {
 		t.Fatalf("validate production opaque ids: %v", err)

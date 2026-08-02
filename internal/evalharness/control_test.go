@@ -2,6 +2,7 @@ package evalharness
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"setta/internal/conversation"
@@ -142,38 +143,160 @@ func TestScenarioControlEvidenceRejectsMismatchedDirectorControl(t *testing.T) {
 	}
 }
 
-func TestConversationStateObservesOnlyExactTypedTriggers(t *testing.T) {
+func TestNoMutationBeforeReplyUsesWorkspaceEvidenceForCompletedCommands(t *testing.T) {
+	scenario := controlTestGenuineAmbiguityScenario()
+	events := genuineAmbiguityControlEvents()
+	for index := range events {
+		if events[index].Sequence < 4 {
+			continue
+		}
+		switch events[index].Kind {
+		case EvaluationEventUserSubmission:
+			events[index].UserSubmission.Workspace = testWorkspaceObservation(1)
+		case EvaluationEventTriggerObserved:
+			events[index].TriggerObserved.Workspace = testWorkspaceObservation(1)
+		case EvaluationEventTrajectory:
+			events[index].TrajectoryWorkspace = testWorkspaceObservationPointer(1)
+		case EvaluationEventConversationState:
+			events[index].ConversationState.Workspace = testWorkspaceObservation(1)
+		}
+	}
+	verification := evalverifier.NewResult(
+		scenario.Verifier,
+		[]evalverifier.Check{{ID: "ready_route", Passed: true, Detail: "Ready."}},
+		[]string{},
+	)
+	result, err := buildScenarioControlResult(
+		scenario,
+		ScenarioExecutionCompleted,
+		events,
+		&verification,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("build control result: %v", err)
+	}
+	for _, assertion := range result.Assertions {
+		if assertion.Assertion == ScenarioControlNoMutationBeforeReply {
+			if assertion.Passed {
+				t.Fatal("completed command workspace mutation passed no-mutation assertion")
+			}
+			return
+		}
+	}
+	t.Fatal("no-mutation assertion was omitted")
+}
+
+func TestNoMutationAfterCancelRejectsMutationAfterObservedInterruption(t *testing.T) {
+	scenario := controlTestQueueScenario()
+	events := queueControlEvents()
+	for index := range events {
+		if events[index].Sequence < 12 {
+			continue
+		}
+		switch events[index].Kind {
+		case EvaluationEventTrajectory:
+			events[index].TrajectoryWorkspace = testWorkspaceObservationPointer(1)
+		case EvaluationEventConversationState:
+			events[index].ConversationState.Workspace = testWorkspaceObservation(1)
+		}
+	}
+	verification := evalverifier.NewResult(
+		scenario.Verifier,
+		[]evalverifier.Check{{ID: "version_route", Passed: true, Detail: "Version."}},
+		[]string{},
+	)
+	result, err := buildScenarioControlResult(
+		scenario,
+		ScenarioExecutionCompleted,
+		events,
+		&verification,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("build control result: %v", err)
+	}
+	for _, assertion := range result.Assertions {
+		if assertion.Assertion == ScenarioControlNoMutationAfterCancel {
+			if assertion.Passed {
+				t.Fatal("post-cancel workspace mutation passed no-mutation assertion")
+			}
+			return
+		}
+	}
+	t.Fatal("post-cancel no-mutation assertion was omitted")
+}
+
+func TestNoMutationAfterCancelStartsAtObservedInterruption(t *testing.T) {
+	scenario := controlTestQueueScenario()
+	events := queueControlEvents()
+	// The cancellation submission observes revision 0. A legitimate write lands
+	// before the interruption is observed at revision 1, which then remains
+	// unchanged through queued-work promotion.
+	for index := range events {
+		if events[index].Sequence < 11 {
+			continue
+		}
+		switch events[index].Kind {
+		case EvaluationEventTrajectory:
+			events[index].TrajectoryWorkspace = testWorkspaceObservationPointer(1)
+		case EvaluationEventConversationState:
+			events[index].ConversationState.Workspace = testWorkspaceObservation(1)
+		}
+	}
+	verification := evalverifier.NewResult(
+		scenario.Verifier,
+		[]evalverifier.Check{{ID: "version_route", Passed: true, Detail: "Version."}},
+		[]string{},
+	)
+	result, err := buildScenarioControlResult(
+		scenario,
+		ScenarioExecutionCompleted,
+		events,
+		&verification,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("build control result: %v", err)
+	}
+	for _, assertion := range result.Assertions {
+		if assertion.Assertion == ScenarioControlNoMutationAfterCancel {
+			if !assertion.Passed {
+				t.Fatal("mutation before observed interruption failed no-mutation assertion")
+			}
+			return
+		}
+	}
+	t.Fatal("post-cancel no-mutation assertion was omitted")
+}
+
+func TestConversationStateObservesConversationAndWorkspaceTriggers(t *testing.T) {
 	observedID := "turn-observed"
 	queuedID := "turn-queued"
-	state := &evaluationConversationState{snapshot: conversation.ConversationSnapshot{
-		Conversation: conversation.TopicConversation{ID: "conversation-eval"},
-		Turns: conversation.ConversationTurnWindow{Turns: []conversation.ConversationTurn{
-			{ID: observedID, Status: conversation.TurnStatusRunning},
-			{ID: queuedID, Status: conversation.TurnStatusQueued},
-		}},
-		Queue: []conversation.QueuedConversationTurn{{TurnID: queuedID}},
-		Trajectory: conversation.ConversationTrajectoryWindow{Events: []conversation.TrajectoryEvent{
-			{
-				TurnID: &observedID,
-				Kind:   conversation.TrajectoryEventFileChangeCompleted,
-				FileChangeCompleted: &conversation.TrajectoryFileChangeCompleted{
-					Outcome: conversation.FileChangeOutcomeCompleted,
-					Changes: []conversation.FileChange{{Path: "src/server.ts", Kind: conversation.FileChangeUpdate}},
-				},
-			},
-			{
-				TurnID: &observedID,
-				Kind:   conversation.TrajectoryEventApprovalRequested,
-				ApprovalRequested: &conversation.TrajectoryApprovalRequested{Approval: conversation.TrajectoryApprovalRequest{
-					ID:   "approval-input",
-					Kind: conversation.TrajectoryApprovalKindStructuredInput,
-					Questions: []conversation.TrajectoryApprovalQuestion{{
-						ID: "question-input", Question: "Which contract should be used?",
+	state := &evaluationConversationState{
+		workspace: testWorkspaceObservation(1),
+		snapshot: conversation.ConversationSnapshot{
+			Conversation: conversation.TopicConversation{ID: "conversation-eval"},
+			Turns: conversation.ConversationTurnWindow{Turns: []conversation.ConversationTurn{
+				{ID: observedID, Status: conversation.TurnStatusRunning},
+				{ID: queuedID, Status: conversation.TurnStatusQueued},
+			}},
+			Queue: []conversation.QueuedConversationTurn{{TurnID: queuedID}},
+			Trajectory: conversation.ConversationTrajectoryWindow{Events: []conversation.TrajectoryEvent{
+				{
+					TurnID: &observedID,
+					Kind:   conversation.TrajectoryEventApprovalRequested,
+					ApprovalRequested: &conversation.TrajectoryApprovalRequested{Approval: conversation.TrajectoryApprovalRequest{
+						ID:   "approval-input",
+						Kind: conversation.TrajectoryApprovalKindStructuredInput,
+						Questions: []conversation.TrajectoryApprovalQuestion{{
+							ID: "question-input", Question: "Which contract should be used?",
+						}},
 					}},
-				}},
-			},
-		}},
-	}}
+				},
+			}},
+		},
+	}
 	for _, trigger := range []ScenarioTrigger{
 		ScenarioTriggerAgentUserInputRequested,
 		ScenarioTriggerAgentTurnRunning,
@@ -225,10 +348,13 @@ func TestConversationStateReplaysTruncatedSnapshotHistoryFromStreamStart(t *test
 	close(events)
 	errors := make(chan error)
 	close(errors)
-	state := newEvaluationConversationState(snapshot, &EventStream[conversation.ConversationEvent]{
+	state, err := newEvaluationConversationState(snapshot, &EventStream[conversation.ConversationEvent]{
 		events: events,
 		errors: errors,
-	})
+	}, nil)
+	if err != nil {
+		t.Fatalf("create conversation state: %v", err)
+	}
 	if err := state.replayThrough(context.Background(), target); err != nil {
 		t.Fatalf("replay conversation event history: %v", err)
 	}
@@ -394,7 +520,7 @@ func steeringControlEvents() []EvaluationEvent {
 	workstreamID := "workstream-eval"
 	turnID := "turn-health"
 	running := conversation.TurnStatusRunning
-	return controlScenarioEvents(ScenarioVerifierMidRunSteering, []EvaluationEvent{
+	events := []EvaluationEvent{
 		controlUserEvent(1, 0, nil, "Add health."),
 		controlReceiptEvent(2, 0, "create_workstream", workstreamID),
 		controlTrajectoryEvent(3, turnID, conversation.TrajectoryEventFileChangeCompleted, func(event *conversation.TrajectoryEvent) {
@@ -410,7 +536,12 @@ func steeringControlEvents() []EvaluationEvent {
 			TurnID: turnID, AuthoredInput: conversation.AuthoredInput{Text: "Implement the service health route."},
 			Delivery: conversation.TurnDeliveryNormal, Status: conversation.TurnStatusCompleted,
 		}}),
-	})
+	}
+	events[2].TrajectoryWorkspace = testWorkspaceObservationPointer(1)
+	events[3].TriggerObserved.Workspace = testWorkspaceObservation(1)
+	events[4].UserSubmission.Workspace = testWorkspaceObservation(1)
+	events[6].ConversationState.Workspace = testWorkspaceObservation(1)
+	return controlScenarioEvents(ScenarioVerifierMidRunSteering, events)
 }
 
 func queueControlEvents() []EvaluationEvent {
@@ -468,6 +599,7 @@ func controlUserEvent(
 			StepIndex: stepIndex,
 			Trigger:   trigger,
 			Text:      text,
+			Workspace: testWorkspaceObservation(0),
 		},
 	}
 }
@@ -508,6 +640,7 @@ func controlTriggerEvent(
 		Trigger:            trigger,
 		QueueTurnIDs:       []string{},
 		ObservedTurnStatus: status,
+		Workspace:          testWorkspaceObservation(0),
 	}
 	if workstreamID != "" {
 		observation.WorkstreamID = &workstreamID
@@ -519,7 +652,7 @@ func controlTriggerEvent(
 		observation.ObservedTurnID = &observedID
 	}
 	if trigger == ScenarioTriggerFirstWorkspaceMutation {
-		observation.WorkspaceMutationCount = 1
+		observation.Workspace = testWorkspaceObservation(1)
 	}
 	return EvaluationEvent{
 		Sequence:        sequence,
@@ -537,9 +670,10 @@ func controlTrajectoryEvent(
 	trajectory := conversation.TrajectoryEvent{TurnID: &turnID, Kind: kind}
 	populate(&trajectory)
 	return EvaluationEvent{
-		Sequence:   sequence,
-		Kind:       EvaluationEventTrajectory,
-		Trajectory: &trajectory,
+		Sequence:            sequence,
+		Kind:                EvaluationEventTrajectory,
+		Trajectory:          &trajectory,
+		TrajectoryWorkspace: testWorkspaceObservationPointer(0),
 	}
 }
 
@@ -556,8 +690,21 @@ func controlFinalStateEvent(
 			ConversationID: "conversation-eval",
 			Turns:          turns,
 			QueueTurnIDs:   []string{},
+			Workspace:      testWorkspaceObservation(0),
 		},
 	}
+}
+
+func testWorkspaceObservation(revision int) EvaluationWorkspaceObservation {
+	return EvaluationWorkspaceObservation{
+		Digest:   fmt.Sprintf("%064x", revision+1),
+		Revision: revision,
+	}
+}
+
+func testWorkspaceObservationPointer(revision int) *EvaluationWorkspaceObservation {
+	observation := testWorkspaceObservation(revision)
+	return &observation
 }
 
 func triggerPointer(trigger ScenarioTrigger) *ScenarioTrigger {

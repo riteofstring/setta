@@ -246,11 +246,12 @@ func validateControlEvidenceSequences(sequences []int) error {
 }
 
 type controlEvidenceIndex struct {
-	submissions  map[int]EvaluationEvent
-	receipts     map[int]EvaluationEvent
-	triggers     map[ScenarioTrigger]EvaluationEvent
-	trajectories []EvaluationEvent
-	finalState   EvaluationEvent
+	submissions     map[int]EvaluationEvent
+	receipts        map[int]EvaluationEvent
+	triggers        map[ScenarioTrigger]EvaluationEvent
+	trajectories    []EvaluationEvent
+	workspaceEvents []EvaluationEvent
+	finalState      EvaluationEvent
 }
 
 func newControlEvidenceIndex(
@@ -258,10 +259,11 @@ func newControlEvidenceIndex(
 	events []EvaluationEvent,
 ) (controlEvidenceIndex, error) {
 	index := controlEvidenceIndex{
-		submissions:  map[int]EvaluationEvent{},
-		receipts:     map[int]EvaluationEvent{},
-		triggers:     map[ScenarioTrigger]EvaluationEvent{},
-		trajectories: make([]EvaluationEvent, 0),
+		submissions:     map[int]EvaluationEvent{},
+		receipts:        map[int]EvaluationEvent{},
+		triggers:        map[ScenarioTrigger]EvaluationEvent{},
+		trajectories:    make([]EvaluationEvent, 0),
+		workspaceEvents: make([]EvaluationEvent, 0),
 	}
 	for _, event := range events {
 		if event.ScenarioID == scenario.ID {
@@ -276,6 +278,9 @@ func newControlEvidenceIndex(
 	if err := index.validateTimeline(scenario); err != nil {
 		return controlEvidenceIndex{}, err
 	}
+	if err := index.validateWorkspaceTimeline(); err != nil {
+		return controlEvidenceIndex{}, err
+	}
 	return index, nil
 }
 
@@ -287,6 +292,7 @@ func (index *controlEvidenceIndex) add(event EvaluationEvent) error {
 			return fmt.Errorf("control evidence repeats submission step %d", stepIndex)
 		}
 		index.submissions[stepIndex] = event
+		index.workspaceEvents = append(index.workspaceEvents, event)
 	case EvaluationEventDirectorReceipt:
 		stepIndex := event.DirectorReceipt.StepIndex
 		if _, exists := index.receipts[stepIndex]; exists {
@@ -299,13 +305,16 @@ func (index *controlEvidenceIndex) add(event EvaluationEvent) error {
 			return fmt.Errorf("control evidence repeats trigger %s", trigger)
 		}
 		index.triggers[trigger] = event
+		index.workspaceEvents = append(index.workspaceEvents, event)
 	case EvaluationEventTrajectory:
 		index.trajectories = append(index.trajectories, event)
+		index.workspaceEvents = append(index.workspaceEvents, event)
 	case EvaluationEventConversationState:
 		if index.finalState.Sequence != 0 {
 			return errors.New("control evidence contains multiple final conversation states")
 		}
 		index.finalState = event
+		index.workspaceEvents = append(index.workspaceEvents, event)
 	}
 	return nil
 }
@@ -325,6 +334,57 @@ func (index controlEvidenceIndex) validateTimeline(scenario Scenario) error {
 		}
 	}
 	return nil
+}
+
+func (index controlEvidenceIndex) validateWorkspaceTimeline() error {
+	events := append([]EvaluationEvent{}, index.workspaceEvents...)
+	sort.Slice(events, func(left int, right int) bool {
+		return events[left].Sequence < events[right].Sequence
+	})
+	previousRevision := -1
+	previousDigest := ""
+	for _, event := range events {
+		workspace, err := controlEventWorkspace(event)
+		if err != nil {
+			return err
+		}
+		if err := workspace.Validate(); err != nil {
+			return fmt.Errorf("control workspace evidence event %d: %w", event.Sequence, err)
+		}
+		if workspace.Revision < previousRevision {
+			return fmt.Errorf("control workspace revision regressed at event %d", event.Sequence)
+		}
+		if workspace.Revision == previousRevision && workspace.Digest != previousDigest {
+			return fmt.Errorf("control workspace digest changed without a revision at event %d", event.Sequence)
+		}
+		previousRevision = workspace.Revision
+		previousDigest = workspace.Digest
+	}
+	return nil
+}
+
+func controlEventWorkspace(event EvaluationEvent) (EvaluationWorkspaceObservation, error) {
+	switch event.Kind {
+	case EvaluationEventUserSubmission:
+		return event.UserSubmission.Workspace, nil
+	case EvaluationEventTriggerObserved:
+		return event.TriggerObserved.Workspace, nil
+	case EvaluationEventTrajectory:
+		if event.TrajectoryWorkspace == nil {
+			return EvaluationWorkspaceObservation{}, fmt.Errorf(
+				"control trajectory event %d omitted workspace evidence",
+				event.Sequence,
+			)
+		}
+		return *event.TrajectoryWorkspace, nil
+	case EvaluationEventConversationState:
+		return event.ConversationState.Workspace, nil
+	default:
+		return EvaluationWorkspaceObservation{}, fmt.Errorf(
+			"control event %d cannot carry workspace evidence",
+			event.Sequence,
+		)
+	}
 }
 
 func (index controlEvidenceIndex) validateStepTimeline(stepIndex int, step ScenarioStep) error {
@@ -437,16 +497,15 @@ func (index controlEvidenceIndex) assertionResult(
 func (index controlEvidenceIndex) noMutationBeforeReply() ScenarioControlAssertionResult {
 	submission := index.submissions[1]
 	trigger := index.triggers[ScenarioTriggerAgentUserInputRequested]
-	passed := trigger.Sequence != 0
-	for _, event := range index.trajectories {
-		if event.Sequence < submission.Sequence && completedWorkspaceMutation(event.Trajectory) {
-			passed = false
-		}
-	}
+	baseline := index.submissions[0].UserSubmission.Workspace
+	beforeReply := submission.UserSubmission.Workspace
+	passed := trigger.Sequence != 0 &&
+		beforeReply.Revision == baseline.Revision &&
+		beforeReply.Digest == baseline.Digest
 	return controlAssertionResult(
 		ScenarioControlNoMutationBeforeReply,
 		passed,
-		[]int{trigger.Sequence, submission.Sequence},
+		[]int{index.submissions[0].Sequence, trigger.Sequence, submission.Sequence},
 		nil,
 	)
 }
@@ -578,30 +637,56 @@ func (index controlEvidenceIndex) observedRunCancelled() ScenarioControlAssertio
 }
 
 func (index controlEvidenceIndex) noMutationAfterCancel() ScenarioControlAssertionResult {
-	observedID, _, triggerSequence := index.queueControlTurnIDs()
+	observedID, queuedID, triggerSequence := index.queueControlTurnIDs()
+	cancellation := index.submissionForTrigger(ScenarioTriggerQueueNonempty)
 	interruptions := index.trajectoryMatches(func(event *conversation.TrajectoryEvent) bool {
 		return trajectoryTargets(event, observedID) &&
 			event.Kind == conversation.TrajectoryEventTurnInterrupted &&
 			event.TurnInterrupted != nil &&
 			event.TurnInterrupted.Reason == conversation.TurnInterruptionUserRequested
 	})
-	passed := len(interruptions) > 0
+	promotions := index.trajectoryMatches(func(event *conversation.TrajectoryEvent) bool {
+		return trajectoryTargets(event, queuedID) &&
+			event.Kind == conversation.TrajectoryEventTurnPromoted
+	})
+	// The observed interruption starts the interval in which the cancelled run
+	// no longer has workspace authority. Promotion is the last boundary before
+	// the queued successor may legitimately write.
+	passed := cancellation.Sequence > 0 && len(interruptions) > 0 && len(promotions) == 1
 	firstInterruption := 0
+	endBoundary := EvaluationEvent{}
 	if passed {
 		firstInterruption = interruptions[0].Sequence
-		for _, event := range index.trajectories {
-			if event.Sequence > firstInterruption && trajectoryTargets(event.Trajectory, observedID) &&
-				completedWorkspaceMutation(event.Trajectory) {
-				passed = false
-			}
-		}
+		endBoundary = promotions[0]
+		passed = firstInterruption > cancellation.Sequence &&
+			endBoundary.Sequence > firstInterruption &&
+			workspaceObservationsEqual(
+				*interruptions[0].TrajectoryWorkspace,
+				*endBoundary.TrajectoryWorkspace,
+			)
 	}
+	sequences := []int{
+		triggerSequence,
+		cancellation.Sequence,
+		firstInterruption,
+		endBoundary.Sequence,
+		index.finalState.Sequence,
+	}
+	sequences = append(sequences, controlEventSequences(interruptions)...)
+	sequences = append(sequences, controlEventSequences(promotions)...)
 	return controlAssertionResult(
 		ScenarioControlNoMutationAfterCancel,
 		passed,
-		[]int{triggerSequence, firstInterruption, index.finalState.Sequence},
+		sequences,
 		nil,
 	)
+}
+
+func workspaceObservationsEqual(
+	left EvaluationWorkspaceObservation,
+	right EvaluationWorkspaceObservation,
+) bool {
+	return left.Revision == right.Revision && left.Digest == right.Digest
 }
 
 func (index controlEvidenceIndex) queuedRequestPresentOnce() ScenarioControlAssertionResult {
@@ -667,6 +752,16 @@ func (index controlEvidenceIndex) queueControlTurnIDs() (string, string, int) {
 	return *trigger.TriggerObserved.ObservedTurnID,
 		trigger.TriggerObserved.QueueTurnIDs[0],
 		trigger.Sequence
+}
+
+func (index controlEvidenceIndex) submissionForTrigger(trigger ScenarioTrigger) EvaluationEvent {
+	for _, submission := range index.submissions {
+		if submission.UserSubmission.Trigger != nil &&
+			*submission.UserSubmission.Trigger == trigger {
+			return submission
+		}
+	}
+	return EvaluationEvent{}
 }
 
 func (index controlEvidenceIndex) trajectoryMatches(
@@ -748,13 +843,6 @@ func conversationStateTurn(
 
 func trajectoryTargets(event *conversation.TrajectoryEvent, turnID string) bool {
 	return turnID != "" && event.TurnID != nil && *event.TurnID == turnID
-}
-
-func completedWorkspaceMutation(event *conversation.TrajectoryEvent) bool {
-	return event.Kind == conversation.TrajectoryEventFileChangeCompleted &&
-		event.FileChangeCompleted != nil &&
-		event.FileChangeCompleted.Outcome == conversation.FileChangeOutcomeCompleted &&
-		len(event.FileChangeCompleted.Changes) > 0
 }
 
 func receiptHasExpectedControlAction(

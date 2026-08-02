@@ -345,6 +345,62 @@ func TestDirectorRelaysCurrentUserMessageToWorkerQuestion(t *testing.T) {
 	}
 }
 
+func TestDirectorDoesNotApplyOneUserMessageToMultipleWorkerQuestions(t *testing.T) {
+	harness := newRegistryHarness(t)
+	workspaceID := registryTestWorkspaceID
+	harness.createConversation("conversation-release", "Release", &workspaceID)
+	harness.startTurn("conversation-release", "turn-release-1")
+	harness.appendTrajectory(
+		"conversation-release",
+		stringPointer("turn-release-1"),
+		conversation.TrajectoryEventApprovalRequested,
+		conversation.TrajectoryActorAgent,
+		func(event *conversation.TrajectoryEvent) {
+			event.ApprovalRequested = &conversation.TrajectoryApprovalRequested{
+				Approval: conversation.TrajectoryApprovalRequest{
+					ID:             "approval-release",
+					ProviderItemID: "item-approval-release",
+					Kind:           conversation.TrajectoryApprovalKindStructuredInput,
+					Title:          "Release choices",
+					Body:           "Choose the release channel and rollout window.",
+					FilePaths:      []string{},
+					Questions: []conversation.TrajectoryApprovalQuestion{
+						{
+							ID: "question-channel", Header: "Channel", Question: "Which release channel?",
+							Options: []string{}, AllowsOther: true,
+						},
+						{
+							ID: "question-window", Header: "Window", Question: "Which rollout window?",
+							Options: []string{}, AllowsOther: true,
+						},
+					},
+					RequestedAt: event.EmittedAt,
+				},
+			}
+		},
+	)
+	registry := harness.start()
+	execution := &recordedExecution{}
+
+	outcome := callSettaTool(t, harness, registry, execution, scriptedDirectorToolCall{
+		tool: "resolve_approval",
+		arguments: map[string]any{
+			"approvalId": "approval-release",
+			"decision":   string(conversation.TrajectoryApprovalDecisionAnswered),
+		},
+	})
+
+	if outcome.succeeded {
+		t.Fatalf("multi-question approval was answered: %+v", outcome.receipt)
+	}
+	if !strings.Contains(outcome.receipt.Summary, "asks 2 questions") {
+		t.Fatalf("multi-question refusal = %q", outcome.receipt.Summary)
+	}
+	if len(execution.approvals) != 0 {
+		t.Fatalf("fabricated answers reached execution: %+v", execution.approvals)
+	}
+}
+
 // TestDirectorRefusesToAnswerASecretApproval proves the one answer that is not
 // the Director's to give. A secret answer is a credential the user supplies, so
 // a model authoring one would be inventing it on their behalf.

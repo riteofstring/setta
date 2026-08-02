@@ -14,22 +14,25 @@ import (
 )
 
 type Phase1HTTPObservation struct {
-	Attempt             int
-	WorkspaceID         string
-	WorkstreamID        string
-	ConversationID      string
-	ObservedTurnID      string
-	TurnID              string
-	Roles               []EvaluatedRoleConfiguration
-	ResolvedInvocations []conversation.ResolvedInvocation
-	ExecutionOutcome    ScenarioExecutionOutcome
-	ScenarioDiagnostic  *ScenarioDiagnostic
-	transcript          *ScenarioTranscript
-	submissions         []scenarioSubmissionObservation
-	triggers            []evaluationTriggerCandidate
-	directorEvents      []director.DirectorEvent
-	finalSnapshotAt     time.Time
-	events              []EvaluationEvent
+	Attempt              int
+	WorkspaceID          string
+	WorkstreamID         string
+	ConversationID       string
+	ObservedTurnID       string
+	TurnID               string
+	Roles                []EvaluatedRoleConfiguration
+	ResolvedInvocations  []conversation.ResolvedInvocation
+	ExecutionOutcome     ScenarioExecutionOutcome
+	ScenarioDiagnostic   *ScenarioDiagnostic
+	transcript           *ScenarioTranscript
+	submissions          []scenarioSubmissionObservation
+	triggers             []evaluationTriggerCandidate
+	directorEvents       []director.DirectorEvent
+	workspace            *evaluationWorkspaceObserver
+	trajectoryWorkspaces map[string]EvaluationWorkspaceObservation
+	finalWorkspace       EvaluationWorkspaceObservation
+	finalSnapshotAt      time.Time
+	events               []EvaluationEvent
 }
 
 type scenarioSubmissionObservation struct {
@@ -37,6 +40,7 @@ type scenarioSubmissionObservation struct {
 	submittedAt time.Time
 	receivedAt  time.Time
 	receipt     director.DirectorReceipt
+	workspace   EvaluationWorkspaceObservation
 }
 
 type evaluationTriggerCandidate struct {
@@ -129,6 +133,8 @@ func runPhase1ScenarioOverHTTP(
 		return observation, err
 	}
 	observation.Attempt = attempt
+	observation.workspace = newEvaluationWorkspaceObserver(workspaceRoot)
+	observation.trajectoryWorkspaces = map[string]EvaluationWorkspaceObservation{}
 	defer directorEvents.Close()
 	return orchestrateEvaluationScenario(
 		ctx,

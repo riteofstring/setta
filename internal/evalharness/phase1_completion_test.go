@@ -367,6 +367,7 @@ func phase2CompletedTestState(
 			UserSubmission: &EvaluationUserSubmission{
 				StepIndex: 0,
 				Text:      scenario.Steps[0].Text,
+				Workspace: testWorkspaceObservation(0),
 			},
 		},
 		{
@@ -410,6 +411,7 @@ func phase2CompletedTestState(
 					Status:        conversation.TurnStatusCompleted,
 				}},
 				QueueTurnIDs: []string{},
+				Workspace:    testWorkspaceObservation(0),
 			},
 		},
 	}

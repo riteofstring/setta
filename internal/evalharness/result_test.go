@@ -759,6 +759,7 @@ func testArtifactEvents(
 			UserSubmission: &EvaluationUserSubmission{
 				StepIndex: 0,
 				Text:      scenarios[attempt.scenarioIndex].Steps[0].Text,
+				Workspace: testWorkspaceObservation(0),
 			},
 		})
 		sequence++
@@ -817,6 +818,7 @@ func testArtifactEvents(
 					Status:        conversation.TurnStatusCompleted,
 				}},
 				QueueTurnIDs: []string{},
+				Workspace:    testWorkspaceObservation(0),
 			},
 		})
 		for _, bucket := range []TokenUsageBucketResult{

@@ -54,6 +54,7 @@ func TestPhase2TranscriptContainsOnlyPublicSpeech(t *testing.T) {
 			UserSubmission: &EvaluationUserSubmission{
 				StepIndex: 0,
 				Text:      validTestScenario().Steps[0].Text,
+				Workspace: testWorkspaceObservation(0),
 			},
 		},
 		{
@@ -69,12 +70,13 @@ func TestPhase2TranscriptContainsOnlyPublicSpeech(t *testing.T) {
 			},
 		},
 		{
-			SchemaVersion: EvaluationEventSchemaVersion,
-			ScenarioID:    ScenarioVerifierStraightforward,
-			Attempt:       EvaluationAttemptFirst,
-			Sequence:      3,
-			RecordedAt:    workerQuestionAt.Format(time.RFC3339Nano),
-			Kind:          EvaluationEventTrajectory,
+			SchemaVersion:       EvaluationEventSchemaVersion,
+			ScenarioID:          ScenarioVerifierStraightforward,
+			Attempt:             EvaluationAttemptFirst,
+			Sequence:            3,
+			RecordedAt:          workerQuestionAt.Format(time.RFC3339Nano),
+			Kind:                EvaluationEventTrajectory,
+			TrajectoryWorkspace: testWorkspaceObservationPointer(0),
 			Trajectory: &conversation.TrajectoryEvent{
 				Kind: conversation.TrajectoryEventApprovalRequested,
 				ApprovalRequested: &conversation.TrajectoryApprovalRequested{
