@@ -65,24 +65,6 @@ export async function saveOpenAIVoiceCredentialThroughSettingsAndClose(
   return setup;
 }
 
-export async function selectOpenAIVoiceProvider(client) {
-  const selection = await client.evaluate(`(async () => {
-    const speech = window.setta?.speech;
-    if (!speech?.updateProviderSelection) {
-      throw new Error("speech provider selection API is unavailable");
-    }
-    return speech.updateProviderSelection({ provider: "openai" });
-  })()`);
-  if (
-    selection.provider !== "openai" ||
-    !Array.isArray(selection.supportedProviders) ||
-    !selection.supportedProviders.includes("openai")
-  ) {
-    throw new Error(`OpenAI speech provider was not selected: ${JSON.stringify(selection)}`);
-  }
-  return selection;
-}
-
 export async function rejectOpenAIVoiceCredentialReplacementThroughSettings(
   client,
   apiKey,

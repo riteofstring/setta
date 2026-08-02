@@ -5,8 +5,8 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
-    file: "director-command-center-local-voice-workflow.test.mjs",
-    name: "director-command-center-local-voice",
+    file: "openai-speech-workflow.test.mjs",
+    name: "openai-speech",
     tiers: ["required"],
   },
   {

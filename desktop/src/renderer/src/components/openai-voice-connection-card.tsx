@@ -649,8 +649,6 @@ function activeRuntimeVoiceStatusPresentation(status: ActiveRuntimeVoiceStatus):
 
 function providerLabel(provider: SpeechProvider): string {
   switch (provider) {
-    case "local_macos":
-      return "Local macOS";
     case "openai":
       return "OpenAI";
     default:

@@ -148,7 +148,7 @@ func validateSpeechAudioEncoding(audio SpeechAudio) error {
 	return validateWAV(decoded)
 }
 
-func ValidateSpeechSynthesisInput(input SpeechSynthesisInput) error {
+func validateResolvedSynthesisInput(input resolvedSynthesisInput) error {
 	if !validValue(input.Provider, speechProviderValues) {
 		return fmt.Errorf("unsupported speech synthesis provider %q", input.Provider)
 	}

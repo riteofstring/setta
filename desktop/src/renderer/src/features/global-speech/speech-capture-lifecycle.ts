@@ -1,4 +1,3 @@
-import type { LocalMacOSVoiceModelDownloadStatus } from "@shared/speech-ipc";
 import type { SettaAPI } from "@shared/types";
 
 interface SpeechCapabilityRefreshController {
@@ -13,27 +12,7 @@ export function subscribeSpeechCapabilityRefresh(
     setta.speech.onCredentialSettingsChanged?.(() => {
       void controller.refreshCapabilities();
     }) ?? (() => {});
-  const unsubscribeProvider =
-    setta.speech.onProviderSelectionChanged?.(() => {
-      void controller.refreshCapabilities();
-    }) ?? (() => {});
-  const unsubscribeLocalMacOSDownload =
-    setta.speech.onLocalMacOSVoiceModelDownloadChanged?.((status) => {
-      if (localMacOSDownloadChangesCaptureReadiness(status)) {
-        void controller.refreshCapabilities();
-      }
-    }) ?? (() => {});
-  return () => {
-    unsubscribeCredential();
-    unsubscribeLocalMacOSDownload();
-    unsubscribeProvider();
-  };
-}
-
-function localMacOSDownloadChangesCaptureReadiness(
-  status: LocalMacOSVoiceModelDownloadStatus,
-): boolean {
-  return status.status === "ready";
+  return unsubscribeCredential;
 }
 
 interface SpeechCaptureControllerDisposable {

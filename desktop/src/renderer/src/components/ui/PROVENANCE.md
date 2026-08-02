@@ -125,8 +125,7 @@ imported primitive's responsibility:
   in this directory with `primary`/`secondary`, `neutral`/`success`/`danger`,
   and compact-input APIs. All three were replaced by the official source, and
   every consumer moved to the official variant, size, and composition contracts.
-- the badge-shaped spans in `speech-provider-selection-card.tsx` and
-  `openai-voice-connection-card.tsx` duplicated Badge and hard-coded raw
+- the badge-shaped spans in `openai-voice-connection-card.tsx` duplicated Badge and hard-coded raw
   emerald/sky palette colours. They now render through `SettaStatusBadge`,
   which is the Setta-domain status component built on the official Badge.
 - the hand-rolled API-key `<input>` in `codex-account-panel.tsx` duplicated

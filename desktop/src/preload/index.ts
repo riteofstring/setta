@@ -6,11 +6,7 @@ import {
   decodeDirectorEvent,
 } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents } from "@shared/ipc";
-import {
-  decodeLocalMacOSVoiceModelDownloadStatus,
-  decodeSpeechCredentialSettings,
-  decodeSpeechProviderSelectionSettings,
-} from "@shared/speech-ipc";
+import { decodeSpeechCredentialSettings } from "@shared/speech-ipc";
 import type {
   BackendProcessStatus,
   DesktopPlatform,
@@ -113,12 +109,8 @@ const api: SettaAPI = {
     updateWorkspace: (request) => invoke("roleConfigurationUpdateWorkspace", request),
   },
   speech: {
-    cancelLocalMacOSVoiceCapture: (request) =>
-      invoke("speechCancelLocalMacOSVoiceCapture", request),
     cancelSynthesis: (operationId) => invoke("speechCancelSynthesis", operationId),
     createTranscriptionSession: (request) => invoke("speechCreateTranscriptionSession", request),
-    finishLocalMacOSVoiceCapture: (request) =>
-      invoke("speechFinishLocalMacOSVoiceCapture", request),
     onCredentialSettingsChanged: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
         listener(decodeSpeechCredentialSettings(payload));
@@ -128,41 +120,16 @@ const api: SettaAPI = {
         ipcRenderer.removeListener(ipcEvents.speechCredentialSettingsChanged, handler);
       };
     },
-    onProviderSelectionChanged: (listener) => {
-      const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeSpeechProviderSelectionSettings(payload));
-      };
-      ipcRenderer.on(ipcEvents.speechProviderSelectionChanged, handler);
-      return () => {
-        ipcRenderer.removeListener(ipcEvents.speechProviderSelectionChanged, handler);
-      };
-    },
-    onLocalMacOSVoiceModelDownloadChanged: (listener) => {
-      const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeLocalMacOSVoiceModelDownloadStatus(payload));
-      };
-      ipcRenderer.on(ipcEvents.speechLocalMacOSVoiceModelDownloadChanged, handler);
-      return () => {
-        ipcRenderer.removeListener(ipcEvents.speechLocalMacOSVoiceModelDownloadChanged, handler);
-      };
-    },
     readCapabilities: () => invoke("speechReadCapabilities"),
     readCredentialSettings: (request) => invoke("speechReadCredentialSettings", request),
-    listLocalMacOSVoices: () => invoke("speechListLocalMacOSVoices"),
-    readLocalMacOSVoiceHealth: () => invoke("speechReadLocalMacOSVoiceHealth"),
-    readLocalMacOSVoiceModelDownload: () => invoke("speechReadLocalMacOSVoiceModelDownload"),
     readDirectorVoiceSelection: () => invoke("speechReadDirectorVoiceSelection"),
     readNarratorVoiceDefault: () => invoke("speechReadNarratorVoiceDefault"),
-    readProviderSelection: () => invoke("speechReadProviderSelection"),
     removeCredential: (request) => invoke("speechRemoveCredential", request),
     saveCredential: (request) => invoke("speechSaveCredential", request),
-    startLocalMacOSVoiceCapture: (request) => invoke("speechStartLocalMacOSVoiceCapture", request),
-    startLocalMacOSVoiceModelDownload: () => invoke("speechStartLocalMacOSVoiceModelDownload"),
     synthesize: (request, operationId) => invoke("speechSynthesize", { operationId, request }),
     updateDirectorVoiceSelection: (request) =>
       invoke("speechUpdateDirectorVoiceSelection", request),
     updateNarratorVoiceDefault: (request) => invoke("speechUpdateNarratorVoiceDefault", request),
-    updateProviderSelection: (request) => invoke("speechUpdateProviderSelection", request),
   },
   appearance: {
     presets: () => invoke("appearancePresets"),

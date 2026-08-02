@@ -7,7 +7,6 @@ import {
   decodeBoolean,
   decodeInteger,
   decodeNullable,
-  decodeNumber,
   decodeString,
   assertTaggedUnionBranch,
   requestBackend,
@@ -16,8 +15,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 113;
-export const backendContractSchemaHash = "sha256:83173c9c5ef77fb11a7c1107e48524e1cd164c386c89f3c3c31bb2f6ef4956d6";
+export const backendProtocolVersion = 114;
+export const backendContractSchemaHash = "sha256:1541baf086df99c6b04639fda10e6e2368fd49bada9ce137c3d01c20fc59adf6";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -1410,16 +1409,14 @@ export function decodeSpeechProviderStatus(value: unknown, label = "SpeechProvid
   }
 }
 
-export type SpeechProvider = "openai" | "local_macos";
+export type SpeechProvider = "openai";
 
-export const speechProviderValues = ["openai", "local_macos"] as const satisfies readonly SpeechProvider[];
+export const speechProviderValues = ["openai"] as const satisfies readonly SpeechProvider[];
 
 export function decodeSpeechProvider(value: unknown, label = "SpeechProvider"): SpeechProvider {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "openai":
-      return decoded;
-    case "local_macos":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3115,14 +3112,6 @@ export interface SpeechSynthesisRequest {
   resolvedVoiceId: SpeechVoiceID;
 }
 
-export interface SpeechSynthesisInput {
-  provider: SpeechProvider;
-  source: SpeechSource;
-  text: string;
-  resolvedVoiceId: SpeechVoiceID;
-  rate: number;
-}
-
 export interface SpeechAudio {
   audioBase64: string;
   mediaType: string;
@@ -3430,11 +3419,6 @@ export const backendEndpoints = {
   CreateSpeechTranscriptionSession: {
     method: "POST",
     path: "/speech/transcription/sessions",
-    requestBodyLimitBytes: 16384,
-  },
-  ResolveSpeechSynthesisInput: {
-    method: "POST",
-    path: "/speech/synthesis/resolve",
     requestBodyLimitBytes: 16384,
   },
   SynthesizeSpeech: {
@@ -6063,18 +6047,6 @@ export function decodeSpeechSynthesisRequest(value: unknown): SpeechSynthesisReq
   };
 }
 
-export function decodeSpeechSynthesisInput(value: unknown): SpeechSynthesisInput {
-  const record = assertRecord(value, "SpeechSynthesisInput");
-  assertKnownFields(record, "SpeechSynthesisInput", ["provider", "source", "text", "resolvedVoiceId", "rate"]);
-  return {
-    provider: decodeSpeechProvider(requireField(record, "provider", "SpeechSynthesisInput"), "SpeechSynthesisInput.provider"),
-    source: decodeSpeechSource(requireField(record, "source", "SpeechSynthesisInput")),
-    text: decodeString(requireField(record, "text", "SpeechSynthesisInput"), "SpeechSynthesisInput.text"),
-    resolvedVoiceId: decodeSpeechVoiceID(requireField(record, "resolvedVoiceId", "SpeechSynthesisInput"), "SpeechSynthesisInput.resolvedVoiceId"),
-    rate: decodeNumber(requireField(record, "rate", "SpeechSynthesisInput"), "SpeechSynthesisInput.rate"),
-  };
-}
-
 export function decodeSpeechAudio(value: unknown): SpeechAudio {
   const record = assertRecord(value, "SpeechAudio");
   assertKnownFields(record, "SpeechAudio", ["audioBase64", "mediaType", "format", "source", "resolvedVoiceId"]);
@@ -6275,7 +6247,6 @@ export interface BackendClient {
   loadDesktopSpeechCredential: (request: SpeechCredentialRequest, options?: BackendRequestOptions) => Promise<SpeechCredentialStatus>;
   clearDesktopSpeechCredential: (request: ClearDesktopSpeechCredentialRequest, options?: BackendRequestOptions) => Promise<SpeechCredentialStatus>;
   createSpeechTranscriptionSession: (request: CreateSpeechTranscriptionSessionRequest, options?: BackendRequestOptions) => Promise<SpeechTranscriptionSession>;
-  resolveSpeechSynthesisInput: (request: SpeechSynthesisRequest, options?: BackendRequestOptions) => Promise<SpeechSynthesisInput>;
   synthesizeSpeech: (request: SpeechSynthesisRequest, options?: BackendRequestOptions) => Promise<SpeechAudio>;
   readCodexAccount: (options?: BackendRequestOptions) => Promise<CodexAccountState>;
   refreshCodexAccount: (request: RefreshCodexAccountRequest, options?: BackendRequestOptions) => Promise<CodexAccountState>;
@@ -6687,15 +6658,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSpeechTranscriptionSession,
       endpoint: backendEndpoints.CreateSpeechTranscriptionSession,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    resolveSpeechSynthesisInput: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeSpeechSynthesisInput,
-      endpoint: backendEndpoints.ResolveSpeechSynthesisInput,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,
