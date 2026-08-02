@@ -308,16 +308,37 @@ func directorCarrierTestTool() director.SettaTool {
 // The scripted replay and cleanup rejections stay unset unless a test is about
 // what happens when the provider refuses.
 type recordingDirectorProvider struct {
-	threadID     string
-	start        agent.StartThreadRequest
-	injected     []agent.InjectedTextItem
-	replayErr    error
-	cleanupErr   error
-	runRequest   agent.TurnRequest
-	runEvents    []agent.Event
-	runResult    agent.TurnResult
-	runErr       error
-	unsubscribed []string
+	threadID         string
+	start            agent.StartThreadRequest
+	injected         []agent.InjectedTextItem
+	structured       agent.FreshStructuredCallRequest
+	structuredResult agent.FreshStructuredCallResult
+	structuredErr    error
+	replayErr        error
+	cleanupErr       error
+	runRequest       agent.TurnRequest
+	runEvents        []agent.Event
+	runResult        agent.TurnResult
+	runErr           error
+	unsubscribed     []string
+}
+
+func (provider *recordingDirectorProvider) RunFreshStructuredCall(
+	_ context.Context,
+	request agent.FreshStructuredCallRequest,
+) (agent.FreshStructuredCallResult, error) {
+	provider.structured = request
+	if provider.structuredErr != nil {
+		return agent.FreshStructuredCallResult{}, provider.structuredErr
+	}
+	if len(provider.structuredResult.Output) == 0 {
+		return agent.FreshStructuredCallResult{
+			ProviderThreadID: "provider-readiness-thread",
+			ProviderTurnID:   "provider-readiness-turn",
+			Output:           json.RawMessage(`{"disposition":"work_permitted","question":""}`),
+		}, nil
+	}
+	return provider.structuredResult, nil
 }
 
 func (provider *recordingDirectorProvider) StartThread(

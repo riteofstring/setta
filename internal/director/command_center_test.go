@@ -18,6 +18,13 @@ import (
 // reached a provider would be a routing path the product never asked for.
 type silentDirectorProvider struct{}
 
+func (silentDirectorProvider) ReviewDirectorReadiness(
+	context.Context,
+	DirectorReadinessRequest,
+) (DirectorReadinessReview, error) {
+	return DirectorReadinessReview{}, errors.New("this dispatch must not reach the director conversation")
+}
+
 func (silentDirectorProvider) StartDirectorCarrier(
 	context.Context,
 	DirectorCarrierRequest,
