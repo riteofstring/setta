@@ -227,7 +227,8 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 		},
 		{
 			Name: "create_workstream",
-			Description: "Create a new workstream and select it. Supply workspaceId from list_workspaces when the " +
+			Description: "Create and select an independent ongoing topic, not merely another task for a matching " +
+				"existing workstream. Supply workspaceId from list_workspaces when the " +
 				"work is about the files in that folder, or set it to null when it is not. Supply initialInput to " +
 				"start work only when unresolved inputs are discoverable from authorized evidence. If an outcome-defining " +
 				"user decision remains, use request_user_choice instead and do not create the workstream yet.",
@@ -284,7 +285,8 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 		},
 		{
 			Name: "submit_work",
-			Description: "Send an instruction to an existing workstream. Setta starts it immediately when the " +
+			Description: "Send another task to an existing workstream whose topic matches the user's context. " +
+				"Setta starts it immediately when the " +
 				"workstream is idle and queues it behind the active run when it is busy. Use this only when unresolved " +
 				"inputs are discoverable from authorized evidence; use request_user_choice instead when a missing user " +
 				"decision determines which outcome is correct.",
@@ -300,7 +302,8 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 		},
 		{
 			Name: "steer_work",
-			Description: "Change what the active run in a workstream is doing, without waiting for it to finish. " +
+			Description: "Change the objective of the active run in a workstream, without waiting for it to finish. " +
+				"Do not use this for an additional task that should run later; submit that task instead. " +
 				"Only valid while that workstream has a run in flight.",
 			InputSchema: settaToolSchema(map[string]any{
 				"workstreamId": settaToolString("The workstream id whose active run should change course.", MaxDecisionReferenceBytes),

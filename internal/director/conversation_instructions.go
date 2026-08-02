@@ -59,6 +59,10 @@ const directorContract = "Rules:\n" +
 	"- Author each work delivery from the current user turn. Include only its objective and applicable constraints. " +
 	"The app owns ordering and cancellation; do not copy another turn's unfinished objective into this delivery or " +
 	"infer authorization from its position in a queue.\n" +
+	"- A workstream is an ongoing topic; each submitted run is one task within it. When the selected workstream " +
+	"matches the user's context, send additional tasks there with `setta.submit_work`; Setta queues them when a run " +
+	"is active. Use `setta.steer_work` only to change the active task. Create or fork a workstream only when the user " +
+	"wants independent context or history.\n" +
 	"- An approval marked secret is the user's to answer, never yours. Tell them it is waiting and what it is " +
 	"asking for.\n" +
 	"- When a tool refuses, read the reason it gives you. Fix the call, call a different tool, or tell the user " +
