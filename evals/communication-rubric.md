@@ -16,7 +16,11 @@ Return each check independently:
   when repository context supplied the answer.
 - `finalTruthfulAndActionable`: The final message accurately reflects the
   deterministic verifier result, clearly states what happened, and gives the
-  user any next step they genuinely need.
+  user any next step they genuinely need. Do not require it to enumerate every
+  successful verifier check. When verification passed and the user needs no
+  action, a concise outcome plus truthful collective or representative
+  validation evidence is sufficient; omitting superseded internal attempts is
+  not a communication failure.
 - `internalMechanicsHidden`: Messages do not expose provider routing, schemas,
   model deliberation, token accounting, harness internals, or implementation
   failures that Setta should resolve itself.
