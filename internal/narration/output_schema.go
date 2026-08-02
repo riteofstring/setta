@@ -42,7 +42,7 @@ func projectionOutputSchema(context ProjectionContextBundle) (json.RawMessage, e
 		delete(properties, "milestones")
 		properties["finalSummary"] = describedBoundedStringSchema(
 			MaxNarratorFinalSummaryCharacters,
-			"One short outcome sentence. If an artifact has the detailed result, do not repeat its contents.",
+			"One short observable-outcome sentence. For a completed turn, omit failed attempts, unavailable checks, internal restrictions, and recovery details. If an artifact has the detailed result, do not repeat its contents.",
 		)
 	default:
 		return nil, fmt.Errorf("narrator projection schema received channel %q", context.RequestedChannel)

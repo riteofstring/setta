@@ -97,6 +97,7 @@ func topicAgentDeveloperInstructions() string {
 Durable user-facing deliverables are emitted through setta.emit_artifact.
 Each setta.emit_artifact call publishes one artifact. Use judgment to decide whether the content belongs in one coherent mixed-content artifact or in several independently useful ones, and publish independent artifacts separately rather than wrapping them in one gallery document.
 Prose, tables, charts, code, metrics, and file references that belong to the same artifact belong in the same document.
+Changes made directly to authorized workspace files are already durable deliverables. Do not emit a separate artifact merely to summarize file changes, implementation work, or routine validation unless the user asked for a standalone document or report.
 Name each artifact's kind in one or two words describing its form, not its subject: Story, Report, Protocol, Decision, Checklist, Memo, Benchmark, Diff. Setta shows it above the title and never interprets it, so choose the word a reader would use to say what sort of document this is.
 Write each artifact's summary as one sentence a reader uses to decide whether to open it. It is a claim about the document, not its first line: say what the artifact covers and what it concludes.
 Do not repeat the title as the document's first heading. Setta already renders the title above the document.

@@ -53,10 +53,9 @@ type NarratorSemanticTaskStarted struct {
 }
 
 type NarratorSemanticProgress struct {
-	AssistantMessage  *NarratorSemanticAssistantMessage `json:"assistantMessage"`
-	Plan              *TrajectoryPlanChanged            `json:"plan"`
-	ActivityCompleted *TrajectoryActivityCompleted      `json:"activityCompleted"`
-	ActivityFailed    *TrajectoryActivityFailed         `json:"activityFailed"`
+	Plan              *TrajectoryPlanChanged       `json:"plan"`
+	ActivityCompleted *TrajectoryActivityCompleted `json:"activityCompleted"`
+	ActivityFailed    *TrajectoryActivityFailed    `json:"activityFailed"`
 }
 
 type NarratorSemanticAssistantMessage struct {
@@ -105,17 +104,16 @@ type narratorSemanticBuilder func(narratorSemanticBuildContext, TrajectoryEvent)
 type narratorSemanticPayloadValidator func(NarratorSemanticEvent) error
 
 var narratorSemanticBuilders = map[TrajectoryEventKind]narratorSemanticBuilder{
-	TrajectoryEventUserInputAccepted:     semanticTaskStartedFromAcceptedInput,
-	TrajectoryEventTurnStarted:           semanticTaskStartedFromQueuedStart,
-	TrajectoryEventAgentMessageCompleted: semanticAssistantMessageProgress,
-	TrajectoryEventPlanChanged:           semanticPlanProgress,
-	TrajectoryEventActivityCompleted:     semanticActivityCompletedProgress,
-	TrajectoryEventActivityFailed:        semanticActivityFailedProgress,
-	TrajectoryEventApprovalRequested:     semanticApprovalNeeded,
-	TrajectoryEventArtifactEmitted:       semanticArtifactOrResultEmitted,
-	TrajectoryEventTurnCompleted:         semanticTaskCompleted,
-	TrajectoryEventTurnFailed:            semanticTaskFailed,
-	TrajectoryEventTurnInterrupted:       semanticTaskCanceled,
+	TrajectoryEventUserInputAccepted: semanticTaskStartedFromAcceptedInput,
+	TrajectoryEventTurnStarted:       semanticTaskStartedFromQueuedStart,
+	TrajectoryEventPlanChanged:       semanticPlanProgress,
+	TrajectoryEventActivityCompleted: semanticActivityCompletedProgress,
+	TrajectoryEventActivityFailed:    semanticActivityFailedProgress,
+	TrajectoryEventApprovalRequested: semanticApprovalNeeded,
+	TrajectoryEventArtifactEmitted:   semanticArtifactOrResultEmitted,
+	TrajectoryEventTurnCompleted:     semanticTaskCompleted,
+	TrajectoryEventTurnFailed:        semanticTaskFailed,
+	TrajectoryEventTurnInterrupted:   semanticTaskCanceled,
 }
 
 var narratorSemanticPayloadValidators = map[NarratorSemanticEventKind]narratorSemanticPayloadValidator{
@@ -199,29 +197,6 @@ func semanticTaskStartedFromQueuedStart(
 				Objective:   context.Turn.AuthoredInput,
 				Delivery:    context.Turn.Delivery,
 				RoleProfile: context.Turn.RequestedRoleProfile,
-			},
-		},
-	), true
-}
-
-func semanticAssistantMessageProgress(
-	context narratorSemanticBuildContext,
-	event TrajectoryEvent,
-) (NarratorSemanticEvent, bool) {
-	if event.AgentMessageCompleted == nil {
-		return NarratorSemanticEvent{}, false
-	}
-	return narratorSemanticEvent(
-		context.Conversation,
-		context.Turn.ID,
-		event,
-		NarratorSemanticEventMeaningfulProgress,
-		NarratorSemanticEvent{
-			MeaningfulProgress: &NarratorSemanticProgress{
-				AssistantMessage: &NarratorSemanticAssistantMessage{
-					ProviderItemID: event.AgentMessageCompleted.ProviderItemID,
-					Text:           event.AgentMessageCompleted.Text,
-				},
 			},
 		},
 	), true
@@ -558,7 +533,6 @@ func (event NarratorSemanticTaskStarted) Validate() error {
 func (event NarratorSemanticProgress) Validate() error {
 	count := 0
 	for _, populated := range []bool{
-		event.AssistantMessage != nil,
 		event.Plan != nil,
 		event.ActivityCompleted != nil,
 		event.ActivityFailed != nil,
@@ -571,8 +545,6 @@ func (event NarratorSemanticProgress) Validate() error {
 		return fmt.Errorf("meaningful_progress semantic event must populate exactly one progress branch, found %d", count)
 	}
 	switch {
-	case event.AssistantMessage != nil:
-		return event.AssistantMessage.Validate()
 	case event.Plan != nil:
 		return event.Plan.Validate()
 	case event.ActivityCompleted != nil:
