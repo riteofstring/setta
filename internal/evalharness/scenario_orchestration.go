@@ -195,19 +195,11 @@ func awaitEvaluationDirectorDispatch(
 			}
 			return result.dispatch, result.err
 		case event, open := <-state.reader.events:
-			if !open {
-				state.reader.events = nil
-				continue
-			}
-			if err := state.accept(event); err != nil {
+			if err := acceptEvaluationConversationEvent(state, event, open); err != nil {
 				return evaluationDirectorDispatch{}, err
 			}
 		case err, open := <-state.reader.errors:
-			if !open {
-				state.reader.errors = nil
-				continue
-			}
-			if err != nil {
+			if err := acceptEvaluationConversationError(state, err, open); err != nil {
 				return evaluationDirectorDispatch{}, err
 			}
 		case <-ctx.Done():
@@ -217,6 +209,30 @@ func awaitEvaluationDirectorDispatch(
 	return evaluationDirectorDispatch{}, errors.New(
 		"conversation event stream closed while the Director action was in flight",
 	)
+}
+
+func acceptEvaluationConversationEvent(
+	state *evaluationConversationState,
+	event conversation.ConversationEvent,
+	open bool,
+) error {
+	if !open {
+		state.reader.events = nil
+		return nil
+	}
+	return state.accept(event)
+}
+
+func acceptEvaluationConversationError(
+	state *evaluationConversationState,
+	err error,
+	open bool,
+) error {
+	if !open {
+		state.reader.errors = nil
+		return nil
+	}
+	return err
 }
 
 func drainAvailableEvaluationConversationEvents(state *evaluationConversationState) error {
@@ -634,31 +650,50 @@ func validateTriggeredDirectorAction(
 	}
 	matched := 0
 	for _, call := range receipt.Submit.ToolCalls {
-		if call.Succeeded && call.Tool == wantTool && call.WorkstreamID != nil &&
-			*call.WorkstreamID == workstreamID {
+		if triggeredDirectorCallMatches(call, wantTool, workstreamID) {
 			matched++
 		}
-		if trigger == ScenarioTriggerAgentUserInputRequested && call.Succeeded &&
-			!directorClarificationToolAllowed(call.Tool) {
-			return controlBehaviorFailure(
-				"clarification_started_replacement_work",
-				fmt.Sprintf(
-					"Director called %s instead of only inspecting and answering the waiting Agent",
-					call.Tool,
-				),
-			)
-		}
-		if call.Succeeded && call.WorkstreamID != nil && *call.WorkstreamID != workstreamID {
-			return controlBehaviorFailure(
-				"follow_up_routed_to_other_workstream",
-				"Director routed a scripted follow-up outside the observed fixture workstream",
-			)
+		if failure := validateTriggeredDirectorCall(trigger, workstreamID, call); failure != nil {
+			return failure
 		}
 	}
 	if matched != 1 {
 		return controlBehaviorFailure(
 			"triggered_director_action_missing",
 			fmt.Sprintf("Director used %s %d times for the scripted follow-up, want exactly once", wantTool, matched),
+		)
+	}
+	return nil
+}
+
+func triggeredDirectorCallMatches(
+	call director.DirectorToolCall,
+	wantTool string,
+	workstreamID string,
+) bool {
+	return call.Succeeded && call.Tool == wantTool && call.WorkstreamID != nil &&
+		*call.WorkstreamID == workstreamID
+}
+
+func validateTriggeredDirectorCall(
+	trigger ScenarioTrigger,
+	workstreamID string,
+	call director.DirectorToolCall,
+) *scenarioBehaviorFailure {
+	if trigger == ScenarioTriggerAgentUserInputRequested && call.Succeeded &&
+		!directorClarificationToolAllowed(call.Tool) {
+		return controlBehaviorFailure(
+			"clarification_started_replacement_work",
+			fmt.Sprintf(
+				"Director called %s instead of only inspecting and answering the waiting Agent",
+				call.Tool,
+			),
+		)
+	}
+	if call.Succeeded && call.WorkstreamID != nil && *call.WorkstreamID != workstreamID {
+		return controlBehaviorFailure(
+			"follow_up_routed_to_other_workstream",
+			"Director routed a scripted follow-up outside the observed fixture workstream",
 		)
 	}
 	return nil

@@ -187,22 +187,10 @@ func (state *evaluationConversationState) pendingUserInputApprovals(
 	pending := map[string]conversation.TrajectoryApprovalRequest{}
 	order := make([]string, 0)
 	for _, event := range state.snapshot.Trajectory.Events {
-		if event.TurnID == nil || *event.TurnID != turnID {
+		if !trajectoryEventTargetsTurn(event, turnID) {
 			continue
 		}
-		if event.Kind == conversation.TrajectoryEventApprovalRequested &&
-			event.ApprovalRequested != nil &&
-			isUserInputApproval(event.ApprovalRequested.Approval.Kind) {
-			approval := event.ApprovalRequested.Approval
-			if _, exists := pending[approval.ID]; !exists {
-				order = append(order, approval.ID)
-			}
-			pending[approval.ID] = approval
-		}
-		if event.Kind == conversation.TrajectoryEventApprovalResolved &&
-			event.ApprovalResolved != nil {
-			delete(pending, event.ApprovalResolved.Resolution.ApprovalID)
-		}
+		updatePendingUserInputApprovals(event, pending, &order)
 	}
 	result := make([]conversation.TrajectoryApprovalRequest, 0, len(pending))
 	for _, approvalID := range order {
@@ -211,6 +199,30 @@ func (state *evaluationConversationState) pendingUserInputApprovals(
 		}
 	}
 	return result
+}
+
+func trajectoryEventTargetsTurn(event conversation.TrajectoryEvent, turnID string) bool {
+	return event.TurnID != nil && *event.TurnID == turnID
+}
+
+func updatePendingUserInputApprovals(
+	event conversation.TrajectoryEvent,
+	pending map[string]conversation.TrajectoryApprovalRequest,
+	order *[]string,
+) {
+	if event.Kind == conversation.TrajectoryEventApprovalRequested &&
+		event.ApprovalRequested != nil &&
+		isUserInputApproval(event.ApprovalRequested.Approval.Kind) {
+		approval := event.ApprovalRequested.Approval
+		if _, exists := pending[approval.ID]; !exists {
+			*order = append(*order, approval.ID)
+		}
+		pending[approval.ID] = approval
+		return
+	}
+	if event.Kind == conversation.TrajectoryEventApprovalResolved && event.ApprovalResolved != nil {
+		delete(pending, event.ApprovalResolved.Resolution.ApprovalID)
+	}
 }
 
 func isUserInputApproval(kind conversation.TrajectoryApprovalKind) bool {
@@ -233,21 +245,9 @@ func (state *evaluationConversationState) triggerObservation(
 	}
 	queueIDs := state.queueTurnIDs()
 	inputApprovals := state.pendingUserInputApprovals(observedTurnID)
-	ready := false
-	switch trigger {
-	case ScenarioTriggerAgentUserInputRequested:
-		ready = turn.Status == conversation.TurnStatusRunning && len(inputApprovals) > 0
-	case ScenarioTriggerAgentTurnRunning:
-		ready = turn.Status == conversation.TurnStatusRunning
-	case ScenarioTriggerFirstWorkspaceMutation:
-		ready = turn.Status == conversation.TurnStatusRunning && state.workspace.Revision > 0
-	case ScenarioTriggerQueueNonempty:
-		ready = turn.Status == conversation.TurnStatusRunning && len(queueIDs) > 0
-	default:
-		return EvaluationTriggerObservation{}, false, fmt.Errorf(
-			"conversation state cannot observe trigger %s",
-			trigger,
-		)
+	ready, err := evaluationTriggerReady(trigger, turn.Status, len(inputApprovals), len(queueIDs), state.workspace.Revision)
+	if err != nil {
+		return EvaluationTriggerObservation{}, false, err
 	}
 	if !ready {
 		return EvaluationTriggerObservation{}, false, nil
@@ -272,6 +272,27 @@ func (state *evaluationConversationState) triggerObservation(
 		return EvaluationTriggerObservation{}, false, err
 	}
 	return observation, true, nil
+}
+
+func evaluationTriggerReady(
+	trigger ScenarioTrigger,
+	turnStatus conversation.TurnStatus,
+	inputApprovalCount int,
+	queueCount int,
+	workspaceRevision int,
+) (bool, error) {
+	switch trigger {
+	case ScenarioTriggerAgentUserInputRequested:
+		return turnStatus == conversation.TurnStatusRunning && inputApprovalCount > 0, nil
+	case ScenarioTriggerAgentTurnRunning:
+		return turnStatus == conversation.TurnStatusRunning, nil
+	case ScenarioTriggerFirstWorkspaceMutation:
+		return turnStatus == conversation.TurnStatusRunning && workspaceRevision > 0, nil
+	case ScenarioTriggerQueueNonempty:
+		return turnStatus == conversation.TurnStatusRunning && queueCount > 0, nil
+	default:
+		return false, fmt.Errorf("conversation state cannot observe trigger %s", trigger)
+	}
 }
 
 func evaluationStringPointer(value string) *string {

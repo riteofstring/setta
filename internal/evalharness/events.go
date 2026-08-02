@@ -575,6 +575,22 @@ func validateEvaluationEventPayload(event EvaluationEvent) error {
 }
 
 func validateEvaluationUserSubmission(submission EvaluationUserSubmission) error {
+	if err := validateEvaluationSubmissionStep(submission); err != nil {
+		return err
+	}
+	if err := validateEvaluationSubmissionText(submission.Text); err != nil {
+		return err
+	}
+	if err := submission.Workspace.Validate(); err != nil {
+		return fmt.Errorf("evaluation user submission workspace: %w", err)
+	}
+	if submission.StepIndex == 0 && submission.Workspace.Revision != 0 {
+		return errors.New("initial evaluation user submission must capture workspace revision zero")
+	}
+	return nil
+}
+
+func validateEvaluationSubmissionStep(submission EvaluationUserSubmission) error {
 	if submission.StepIndex < 0 || submission.StepIndex >= ScenarioMaximumSteps {
 		return fmt.Errorf("evaluation user submission stepIndex %d is invalid", submission.StepIndex)
 	}
@@ -585,16 +601,14 @@ func validateEvaluationUserSubmission(submission EvaluationUserSubmission) error
 	} else if submission.Trigger == nil || !supportedScenarioTrigger(*submission.Trigger) {
 		return errors.New("triggered evaluation user submission requires a supported trigger")
 	}
-	if strings.TrimSpace(submission.Text) == "" ||
-		strings.TrimSpace(submission.Text) != submission.Text ||
-		len(submission.Text) > ScenarioMaximumMessageBytes {
+	return nil
+}
+
+func validateEvaluationSubmissionText(text string) error {
+	if strings.TrimSpace(text) == "" ||
+		strings.TrimSpace(text) != text ||
+		len(text) > ScenarioMaximumMessageBytes {
 		return errors.New("evaluation user submission text is invalid")
-	}
-	if err := submission.Workspace.Validate(); err != nil {
-		return fmt.Errorf("evaluation user submission workspace: %w", err)
-	}
-	if submission.StepIndex == 0 && submission.Workspace.Revision != 0 {
-		return errors.New("initial evaluation user submission must capture workspace revision zero")
 	}
 	return nil
 }
@@ -674,29 +688,38 @@ func validateActiveTurnTriggerShape(observation EvaluationTriggerObservation) er
 	if *observation.ObservedTurnStatus != conversation.TurnStatusRunning {
 		return fmt.Errorf("%s trigger observed turn status is %s, want running", observation.Trigger, *observation.ObservedTurnStatus)
 	}
+	return validateActiveTurnTriggerDetails(observation)
+}
+
+func validateActiveTurnTriggerDetails(observation EvaluationTriggerObservation) error {
 	switch observation.Trigger {
 	case ScenarioTriggerAgentUserInputRequested:
 		if observation.ObservedApprovalID == nil {
 			return errors.New("agent_user_input_requested trigger requires an observed approval")
 		}
 	case ScenarioTriggerFirstWorkspaceMutation:
-		if observation.ObservedApprovalID != nil {
-			return errors.New("first_workspace_mutation trigger cannot observe an approval")
+		if err := validateTriggerWithoutApproval(observation); err != nil {
+			return err
 		}
 		if observation.Workspace.Revision == 0 {
 			return errors.New("first_workspace_mutation trigger requires an observed workspace revision")
 		}
 	case ScenarioTriggerAgentTurnRunning:
-		if observation.ObservedApprovalID != nil {
-			return errors.New("agent_turn_running trigger cannot observe an approval")
-		}
+		return validateTriggerWithoutApproval(observation)
 	case ScenarioTriggerQueueNonempty:
-		if observation.ObservedApprovalID != nil {
-			return errors.New("queue_nonempty trigger cannot observe an approval")
+		if err := validateTriggerWithoutApproval(observation); err != nil {
+			return err
 		}
 		if len(observation.QueueTurnIDs) != 1 {
 			return fmt.Errorf("queue_nonempty trigger observed %d queued turns, want one", len(observation.QueueTurnIDs))
 		}
+	}
+	return nil
+}
+
+func validateTriggerWithoutApproval(observation EvaluationTriggerObservation) error {
+	if observation.ObservedApprovalID != nil {
+		return fmt.Errorf("%s trigger cannot observe an approval", observation.Trigger)
 	}
 	return nil
 }

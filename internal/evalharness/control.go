@@ -477,6 +477,15 @@ func (index controlEvidenceIndex) assertionResult(
 		return index.followUpThroughDirector(scenario), nil
 	case ScenarioControlLatestInstructionWins:
 		return index.latestInstructionWins(verification), nil
+	default:
+		return index.terminalAssertionResult(assertion)
+	}
+}
+
+func (index controlEvidenceIndex) terminalAssertionResult(
+	assertion ScenarioControlAssertion,
+) (ScenarioControlAssertionResult, error) {
+	switch assertion {
 	case ScenarioControlObservedRunCancelled:
 		return index.observedRunCancelled(), nil
 	case ScenarioControlNoMutationAfterCancel:
@@ -559,20 +568,12 @@ func (index controlEvidenceIndex) scriptedReplyConsumed() ScenarioControlAsserti
 		approvalID = *trigger.TriggerObserved.ObservedApprovalID
 	}
 	requested := index.trajectoryMatches(func(event *conversation.TrajectoryEvent) bool {
-		return approvalID != "" && event.Kind == conversation.TrajectoryEventApprovalRequested &&
-			event.ApprovalRequested != nil && event.ApprovalRequested.Approval.ID == approvalID
+		return trajectoryRequestsApproval(event, approvalID)
 	})
 	resolved := index.trajectoryMatches(func(event *conversation.TrajectoryEvent) bool {
-		return approvalID != "" && event.Kind == conversation.TrajectoryEventApprovalResolved &&
-			event.ApprovalResolved != nil &&
-			event.ApprovalResolved.Resolution.ApprovalID == approvalID
+		return trajectoryResolvesApproval(event, approvalID)
 	})
-	passed := len(requested) == 1 && len(resolved) == 1 &&
-		requested[0].Sequence < index.submissions[1].Sequence &&
-		index.submissions[1].Sequence < resolved[0].Sequence &&
-		resolved[0].Trajectory.ApprovalResolved.Resolution.Decision ==
-			conversation.TrajectoryApprovalDecisionAnswered &&
-		len(resolved[0].Trajectory.ApprovalResolved.Resolution.Answers) > 0
+	passed := scriptedReplyEvidenceValid(index.submissions[1].Sequence, requested, resolved)
 	sequences := []int{index.submissions[1].Sequence, index.finalState.Sequence}
 	sequences = append(sequences, controlEventSequences(requested)...)
 	sequences = append(sequences, controlEventSequences(resolved)...)
@@ -582,6 +583,31 @@ func (index controlEvidenceIndex) scriptedReplyConsumed() ScenarioControlAsserti
 		sequences,
 		nil,
 	)
+}
+
+func trajectoryRequestsApproval(event *conversation.TrajectoryEvent, approvalID string) bool {
+	return approvalID != "" && event.Kind == conversation.TrajectoryEventApprovalRequested &&
+		event.ApprovalRequested != nil && event.ApprovalRequested.Approval.ID == approvalID
+}
+
+func trajectoryResolvesApproval(event *conversation.TrajectoryEvent, approvalID string) bool {
+	return approvalID != "" && event.Kind == conversation.TrajectoryEventApprovalResolved &&
+		event.ApprovalResolved != nil && event.ApprovalResolved.Resolution.ApprovalID == approvalID
+}
+
+func scriptedReplyEvidenceValid(
+	submissionSequence int,
+	requested []EvaluationEvent,
+	resolved []EvaluationEvent,
+) bool {
+	if len(requested) != 1 || len(resolved) != 1 {
+		return false
+	}
+	resolution := resolved[0].Trajectory.ApprovalResolved.Resolution
+	return requested[0].Sequence < submissionSequence &&
+		submissionSequence < resolved[0].Sequence &&
+		resolution.Decision == conversation.TrajectoryApprovalDecisionAnswered &&
+		len(resolution.Answers) > 0
 }
 
 func (index controlEvidenceIndex) followUpThroughDirector(
