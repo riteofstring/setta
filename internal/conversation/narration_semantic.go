@@ -266,6 +266,14 @@ func semanticApprovalNeeded(
 		return NarratorSemanticEvent{}, false
 	}
 	approval := event.ApprovalRequested.Approval
+	// Interactive input already carries a complete user-facing question and is
+	// rendered as first-class conversation activity. Sending it through the
+	// Narrator would create a second, potentially stale paraphrase of the same
+	// question while the user's answer is already resuming the Worker.
+	if approval.Kind == TrajectoryApprovalKindStructuredInput ||
+		approval.Kind == TrajectoryApprovalKindUserInput {
+		return NarratorSemanticEvent{}, false
+	}
 	return narratorSemanticEvent(
 		context.Conversation,
 		context.Turn.ID,

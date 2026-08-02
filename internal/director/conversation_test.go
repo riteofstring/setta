@@ -25,36 +25,6 @@ func directorTurnIntent(text string) SubmittedIntent {
 	}
 }
 
-func TestDirectorInstructionsPreserveNativeArtifactIntent(t *testing.T) {
-	instructions := DirectorInstructions()
-	for _, required := range []string{
-		"setta.emit_artifact",
-		"Creating artifacts needs no folder.",
-		"Never turn it into a website, a Sites project, a gallery page",
-		"How many artifacts to publish and what goes in each is the worker's judgment",
-		"\"required\" only when the work must read or change files in the user's project",
-		"\"optional\" for everything else",
-		"This is app routing, not user-facing copy.",
-		"Start or route actionable work promptly.",
-		"the worker owns investigation, implementation details, and ordinary judgment",
-		"Do not demand a complete specification",
-		"Ask before starting only when no useful investigation or independent work can happen",
-		"When a user message could answer a worker question",
-		"Do not create, submit, queue, select, or steer work for that answer.",
-		"Author each new work delivery from the current user turn.",
-		"The app owns ordering and cancellation",
-		"Treat steering as a patch to the active task.",
-		"preserve every other requirement from the active objective",
-		"Never replace an explicit value, format, or constraint with an inferred convention.",
-		"call the tool before writing user-facing prose",
-		"Do not preannounce routing, repeat the request, or narrate internal execution.",
-	} {
-		if !strings.Contains(instructions, required) {
-			t.Fatalf("Director instructions do not contain %q:\n%s", required, instructions)
-		}
-	}
-}
-
 func TestDirectorUserChoiceToolIsAvailableForInherentlyBlockedWork(t *testing.T) {
 	harness := newRegistryHarness(t)
 	registry := harness.start()

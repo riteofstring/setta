@@ -66,6 +66,22 @@ type settaResourceArguments struct {
 	WorkspaceID string `json:"workspaceId"`
 }
 
+// directorPendingInputContext puts the app's current interactive Worker
+// state beside the tools it might otherwise misuse. Approval text remains a
+// lower-trust tool result from read_activity rather than being promoted into a
+// tool description. The Director still decides whether the user's words answer
+// the question, and the approval handler authorizes the eventual answer.
+func directorPendingInputContext(approvals []ApprovalRequest) string {
+	for _, approval := range approvals {
+		if !approval.Secret && (approval.Kind == conversation.TrajectoryApprovalKindStructuredInput ||
+			approval.Kind == conversation.TrajectoryApprovalKindUserInput) {
+			return " Setta currently has a non-secret interactive Worker question pending. Call read_activity before " +
+				"treating this user message as new or changed work; if it answers that question, call resolve_approval instead."
+		}
+	}
+	return ""
+}
+
 // readActivity answers "what is happening?" from durable state. It is the only
 // tool that reports the app-wide counts, and it is where the ids for answering
 // an approval or supplying a folder come from, so the Director never has to

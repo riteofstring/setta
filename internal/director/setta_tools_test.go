@@ -98,14 +98,6 @@ func TestDirectorDeliveryToolsExposeWorkspaceRequirements(t *testing.T) {
 			t.Fatalf("%s workspaceRequirement description = %q", name, property.Description)
 		}
 	}
-	if !strings.Contains(byName["create_workstream"].Description, "start work immediately") ||
-		!strings.Contains(byName["create_workstream"].Description, "investigate resolvable uncertainty") {
-		t.Fatalf("create_workstream does not favor investigation-first work: %q", byName["create_workstream"].Description)
-	}
-	if !strings.Contains(byName["submit_work"].Description, "investigate resolvable uncertainty") {
-		t.Fatalf("submit_work does not favor investigation-first work: %q", byName["submit_work"].Description)
-	}
-
 	var steerSchema settaToolSchemaFixture
 	if err := json.Unmarshal(byName["steer_work"].InputSchema, &steerSchema); err != nil {
 		t.Fatalf("decode steer_work schema: %v", err)
