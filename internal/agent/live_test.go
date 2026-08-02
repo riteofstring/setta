@@ -51,6 +51,13 @@ func TestLiveCodexRuntimeFreshStructuredCall(t *testing.T) {
 			PermissionMode:  PermissionModeReadOnly,
 			ApprovalMode:    ApprovalModeNever,
 		},
+		TokenUsageAttribution: TokenUsageAttribution{
+			Bucket:          TokenUsageBucketSystem,
+			Role:            TokenUsageRoleNarrator,
+			InvocationID:    "live-fresh-structured-invocation",
+			Model:           "gpt-5.4-mini",
+			ReasoningEffort: "low",
+		},
 		DeveloperInstructions: "Read the instruction field and return the exact requested answer in the schema.",
 		Input:                 json.RawMessage(`{"instruction":"Return FRESH_STRUCTURED_OK."}`),
 		OutputSchema:          schema,
@@ -309,6 +316,14 @@ func liveTurnRequest(
 		Text:             text,
 		WorkspaceRoot:    workspace,
 		Invocation:       invocation,
+		TokenUsageAttribution: TokenUsageAttribution{
+			Bucket:          TokenUsageBucketSystem,
+			Role:            TokenUsageRoleAgent,
+			InvocationID:    turnID + "-invocation",
+			Model:           invocation.Model,
+			ReasoningEffort: invocation.ReasoningEffort,
+			ServiceTier:     invocation.ServiceTier,
+		},
 	}
 }
 

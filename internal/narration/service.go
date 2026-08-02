@@ -16,9 +16,12 @@ import (
 )
 
 const (
-	MaxStatusQuestionBytes         = 16 * 1024
-	defaultProgressWindow          = 30 * time.Second
-	defaultCheckpointWindowEvents  = 64
+	MaxStatusQuestionBytes = 16 * 1024
+	defaultProgressWindow  = 60 * time.Second
+	// Start AI checkpoint maintenance only when uncheckpointed history can
+	// exceed the narrator reader's context window. Short streaming turns should
+	// not pay repeatedly to summarize history the reader can still consume.
+	defaultCheckpointWindowEvents  = conversation.MaxNarratorContextTrajectoryEvents
 	projectionRecentFinalSummaries = 8
 	statusRecentFinalSummaries     = 8
 	maxCheckpointHistoricalSummary = 16 * 1024

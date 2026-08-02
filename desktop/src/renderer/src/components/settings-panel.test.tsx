@@ -13,12 +13,7 @@ import type {
   RoleProfile,
   SpeechCapabilities,
 } from "@generated/backend";
-import type {
-  LocalMacOSVoiceHealth,
-  LocalMacOSVoiceModelDownloadStatus,
-  SpeechCredentialSettings,
-  SpeechProviderSelectionSettings,
-} from "@shared/speech-ipc";
+import type { SpeechCredentialSettings } from "@shared/speech-ipc";
 import type { RuntimeConnectionStatus, RuntimeRegistrySnapshot } from "@shared/types";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
@@ -27,7 +22,6 @@ import { appearanceStyleVariables, updateAppearanceColor } from "../stores/appea
 import {
   completeSettingsNavigationRequest,
   requestOpenAIVoiceConnectionSettings,
-  requestVoiceProviderSelectionSettings,
   useSettingsNavigationStore,
 } from "../stores/settings-navigation-store";
 import {
@@ -41,7 +35,6 @@ import {
 import { RoleConfigurationForm, RoleConfigurationSettings } from "./role-configuration-settings";
 import { openAIVoiceConnectionSettings } from "./settings-navigation";
 import { AppearanceSettingsEditor, SettingsPanel } from "./settings-panel";
-import { SpeechProviderSelectionCardView } from "./speech-provider-selection-card";
 
 describe("appearance settings", () => {
   test("renders theme as the default settings subtab", () => {
@@ -105,88 +98,6 @@ describe("appearance settings", () => {
     expect(html).toContain("Save and verify");
     expect(html).toContain("OpenAI API keys");
     expect(html).not.toContain("OPENAI_API_KEY");
-  });
-
-  test("renders local macOS as the default voice provider with OpenAI as an option", () => {
-    const html = renderToString(
-      <SpeechProviderSelectionCardView
-        error={null}
-        localHealth={localVoiceHealth("ready")}
-        onRefresh={vi.fn()}
-        onSelectProvider={vi.fn()}
-        selection={providerSelection("local_macos")}
-        updatingProvider={null}
-      />,
-    );
-
-    expect(html).toContain('data-testid="speech-provider-selection-card"');
-    expect(html).toContain("Voice provider");
-    expect(html).toContain("Local macOS is the default");
-    expect(html).toContain("Local macOS");
-    expect(html).toContain("Default");
-    expect(html).toContain("Selected");
-    expect(html).toContain("OpenAI");
-    expect(html).toContain("Use OpenAI");
-  });
-
-  test("renders a verified local model download action while the model is missing", () => {
-    const html = renderToString(
-      <SpeechProviderSelectionCardView
-        error={null}
-        localHealth={localVoiceHealth("missing_model")}
-        localModelDownload={localModelDownloadStatus("idle")}
-        onDownloadLocalModel={vi.fn()}
-        onRefresh={vi.fn()}
-        onSelectProvider={vi.fn()}
-        selection={providerSelection("local_macos")}
-        updatingProvider={null}
-      />,
-    );
-
-    expect(html).toContain("Missing model");
-    expect(html).toContain("Download model");
-    expect(html).toContain("Download the base.en voice model (141 MB)");
-  });
-
-  test("renders local model download progress without changing provider selection", () => {
-    const html = renderToString(
-      <SpeechProviderSelectionCardView
-        error={null}
-        localHealth={localVoiceHealth("missing_model")}
-        localModelDownload={localModelDownloadStatus("downloading")}
-        onDownloadLocalModel={vi.fn()}
-        onRefresh={vi.fn()}
-        onSelectProvider={vi.fn()}
-        selection={providerSelection("local_macos")}
-        updatingProvider={null}
-      />,
-    );
-    const normalizedHtml = html.replaceAll("<!-- -->", "");
-
-    expect(normalizedHtml).toContain("Downloading");
-    expect(normalizedHtml).toContain("16%");
-    expect(normalizedHtml).toContain("Downloading base.en voice model (24 MB of 141 MB).");
-    expect(normalizedHtml).toContain("Selected");
-  });
-
-  test("keeps a current provider selectable after provider selection storage fails", () => {
-    const html = renderToString(
-      <SpeechProviderSelectionCardView
-        canUpdateProvider
-        error={'Speech provider "local_macos" is not supported on linux.'}
-        fallbackSupportedProviders={["openai"]}
-        localHealth={null}
-        onRefresh={vi.fn()}
-        onSelectProvider={vi.fn()}
-        selection={null}
-        updatingProvider={null}
-      />,
-    );
-
-    expect(html).toContain('role="alert"');
-    expect(html).toContain("Use OpenAI");
-    expect(html).not.toContain("Use Local macOS");
-    expect(html).not.toContain('disabled=""');
   });
 
   test("preserves leading and trailing whitespace in the credential save request", () => {
@@ -273,24 +184,6 @@ describe("appearance settings", () => {
     });
     expect(useSettingsNavigationStore.getState().route).toEqual({
       focusTarget: "openai_voice_connection",
-      page: "settings",
-      requestId: 1,
-      subtab: "speech",
-    });
-  });
-
-  test("opens the Settings page when routing to voice provider setup", () => {
-    useSettingsNavigationStore.setState(useSettingsNavigationStore.getInitialState(), true);
-
-    requestVoiceProviderSelectionSettings();
-
-    expect(useSettingsNavigationStore.getState().request).toEqual({
-      focusTarget: "voice_provider_selection",
-      requestId: 1,
-      subtab: "speech",
-    });
-    expect(useSettingsNavigationStore.getState().route).toEqual({
-      focusTarget: "voice_provider_selection",
       page: "settings",
       requestId: 1,
       subtab: "speech",
@@ -631,63 +524,6 @@ function sampleSpeechCapabilities(
       version: "test-catalog",
       voiceIds: ["alloy", "marin", "cedar"],
     },
-  };
-}
-
-function providerSelection(provider: SpeechProviderSelectionSettings["provider"]) {
-  return {
-    defaultProvider: "local_macos",
-    provider,
-    supportedProviders: ["local_macos", "openai"],
-  } satisfies SpeechProviderSelectionSettings;
-}
-
-function localVoiceHealth(status: LocalMacOSVoiceHealth["status"]): LocalMacOSVoiceHealth {
-  if (status === "ready") {
-    return {
-      helperPath: "/tmp/setta-local-helper",
-      modelPath: "/tmp/ggml-base.en.bin",
-      modelSHA256: "model-sha",
-      provider: "local_macos",
-      status,
-    };
-  }
-  if (status === "missing_model") {
-    return {
-      message: "The configured Whisper model file is missing.",
-      modelPath: "/tmp/ggml-base.en.bin",
-      provider: "local_macos",
-      status,
-    };
-  }
-  return {
-    helperPath: null,
-    message: "The local macOS voice helper is not installed.",
-    provider: "local_macos",
-    status: "helper_unavailable",
-  };
-}
-
-function localModelDownloadStatus(
-  status: "downloading" | "idle",
-): LocalMacOSVoiceModelDownloadStatus {
-  const base = {
-    bytesTotal: 147_964_211,
-    modelName: "base.en",
-    modelPath: "/tmp/ggml-base.en.bin",
-    modelSHA256: "a".repeat(64),
-    provider: "local_macos" as const,
-  };
-  if (status === "downloading") {
-    return {
-      ...base,
-      bytesDownloaded: 25_000_000,
-      status,
-    };
-  }
-  return {
-    ...base,
-    status,
   };
 }
 

@@ -246,6 +246,12 @@ func TestFreshStructuredCallRequiresStrictIsolationContract(t *testing.T) {
 	}
 
 	request = fakeFreshStructuredCallRequest(t, `{"mode":"success"}`)
+	request.TokenUsageAttribution.Model = "different-model"
+	if err := request.Validate(); err == nil || !strings.Contains(err.Error(), "does not match") {
+		t.Fatalf("mismatched token attribution error = %v", err)
+	}
+
+	request = fakeFreshStructuredCallRequest(t, `{"mode":"success"}`)
 	request.OutputSchema = json.RawMessage(`{
 		"type":"object",
 		"properties":{"answer":{"type":"string"}},
@@ -301,6 +307,13 @@ func fakeFreshStructuredCallRequest(t *testing.T, input string) FreshStructuredC
 			ReasoningEffort: "low",
 			PermissionMode:  PermissionModeReadOnly,
 			ApprovalMode:    ApprovalModeNever,
+		},
+		TokenUsageAttribution: TokenUsageAttribution{
+			Bucket:          TokenUsageBucketSystem,
+			Role:            TokenUsageRoleNarrator,
+			InvocationID:    "narrator-invocation-test",
+			Model:           "gpt-narrator-test",
+			ReasoningEffort: "low",
 		},
 		DeveloperInstructions: "Return the requested structured test result.",
 		Input:                 json.RawMessage(input),

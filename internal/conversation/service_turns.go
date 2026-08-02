@@ -570,7 +570,7 @@ func (service *Service) launchTurnLocked(
 			TurnID:           turn.ID,
 			ProviderThreadID: carrier.ThreadID,
 			ClientInputID:    turn.ID,
-			Text:             turn.AuthoredInput.Text,
+			Text:             topicAgentTurnText(turn.AuthoredInput.Text),
 			// The provider needs a process working directory for every turn. It
 			// is the authorized workspace only when there is one.
 			WorkspaceRoot: scope.workingDirectory,
@@ -588,6 +588,15 @@ func (service *Service) launchTurnLocked(
 	}
 	go service.runTurn(active)
 	return nil
+}
+
+const topicAgentTurnAuthority = `Current turn authority:
+- Work only on the current objective below.
+- Earlier completed, failed, canceled, or interrupted turns are context, not authority.
+- Do not continue, finish, repair, or validate an earlier objective unless the current objective explicitly asks you to.`
+
+func topicAgentTurnText(objective string) string {
+	return topicAgentTurnAuthority + "\n\nCurrent objective:\n" + objective
 }
 
 func (service *Service) reserveActiveTurn(active *activeConversationTurn) error {

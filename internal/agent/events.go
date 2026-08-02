@@ -26,21 +26,22 @@ const (
 )
 
 type Event struct {
-	Kind               EventKind                `json:"kind"`
-	ConversationID     string                   `json:"conversationId"`
-	TurnID             string                   `json:"turnId"`
-	ProviderThreadID   string                   `json:"providerThreadId"`
-	ProviderTurnID     string                   `json:"providerTurnId"`
-	ProviderEventID    *string                  `json:"providerEventId,omitempty"`
-	Text               *TextEvent               `json:"text,omitempty"`
-	Plan               *PlanEvent               `json:"plan,omitempty"`
-	Activity           *ActivityEvent           `json:"activity,omitempty"`
-	Approval           *ApprovalRequest         `json:"approval,omitempty"`
-	ApprovalSuperseded *ApprovalSupersededEvent `json:"approvalSuperseded,omitempty"`
-	Validation         *ValidationEvent         `json:"validation,omitempty"`
-	ModelReroute       *ModelRerouteEvent       `json:"modelReroute,omitempty"`
-	Terminal           *TerminalEvent           `json:"terminal,omitempty"`
-	Lifecycle          *LifecycleEvent          `json:"lifecycle,omitempty"`
+	Kind                  EventKind                `json:"kind"`
+	ConversationID        string                   `json:"conversationId"`
+	TurnID                string                   `json:"turnId"`
+	ProviderThreadID      string                   `json:"providerThreadId"`
+	ProviderTurnID        string                   `json:"providerTurnId"`
+	ProviderEventID       *string                  `json:"providerEventId,omitempty"`
+	Text                  *TextEvent               `json:"text,omitempty"`
+	Plan                  *PlanEvent               `json:"plan,omitempty"`
+	Activity              *ActivityEvent           `json:"activity,omitempty"`
+	Approval              *ApprovalRequest         `json:"approval,omitempty"`
+	ApprovalSuperseded    *ApprovalSupersededEvent `json:"approvalSuperseded,omitempty"`
+	Validation            *ValidationEvent         `json:"validation,omitempty"`
+	ModelReroute          *ModelRerouteEvent       `json:"modelReroute,omitempty"`
+	Terminal              *TerminalEvent           `json:"terminal,omitempty"`
+	Lifecycle             *LifecycleEvent          `json:"lifecycle,omitempty"`
+	tokenUsageAttribution TokenUsageAttribution
 }
 
 type TextEvent struct {

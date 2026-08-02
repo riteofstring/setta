@@ -39,7 +39,7 @@ func callSettaTool(
 	call scriptedDirectorToolCall,
 ) settaToolOutcome {
 	t.Helper()
-	provider := &scriptedDirectorProvider{reply: "Done.", calls: []scriptedDirectorToolCall{call}}
+	provider := &scriptedDirectorProvider{reply: "Done.", calls: directorCalls(call)}
 	director := newDirectorConversationForTest(
 		t,
 		harness,
@@ -98,13 +98,15 @@ func TestDirectorDeliveryToolsExposeWorkspaceRequirements(t *testing.T) {
 			t.Fatalf("%s workspaceRequirement description = %q", name, property.Description)
 		}
 	}
-
 	var steerSchema settaToolSchemaFixture
 	if err := json.Unmarshal(byName["steer_work"].InputSchema, &steerSchema); err != nil {
 		t.Fatalf("decode steer_work schema: %v", err)
 	}
 	if _, found := steerSchema.Properties["workspaceRequirement"]; found {
 		t.Fatalf("steer_work redeclares the active run's workspace requirement")
+	}
+	if !strings.Contains(steerSchema.Properties["input"].Description, "preserving active requirements") {
+		t.Fatalf("steer_work input does not preserve unchanged requirements: %+v", steerSchema.Properties["input"])
 	}
 }
 
@@ -250,7 +252,6 @@ func TestDirectorAnswersAnApproval(t *testing.T) {
 		arguments: map[string]any{
 			"approvalId": "approval-migrate",
 			"decision":   string(conversation.TrajectoryApprovalDecisionApproved),
-			"answers":    nil,
 		},
 	})
 
@@ -272,6 +273,134 @@ func TestDirectorAnswersAnApproval(t *testing.T) {
 	}
 }
 
+func TestDirectorRelaysCurrentUserMessageToWorkerQuestion(t *testing.T) {
+	const userAnswer = "Use readiness: GET /ready with the established readiness body."
+
+	harness := newRegistryHarness(t)
+	workspaceID := registryTestWorkspaceID
+	harness.createConversation("conversation-diagnostics", "Diagnostics", &workspaceID)
+	harness.startTurn("conversation-diagnostics", "turn-diagnostics-1")
+	harness.appendTrajectory(
+		"conversation-diagnostics",
+		stringPointer("turn-diagnostics-1"),
+		conversation.TrajectoryEventApprovalRequested,
+		conversation.TrajectoryActorAgent,
+		func(event *conversation.TrajectoryEvent) {
+			event.ApprovalRequested = &conversation.TrajectoryApprovalRequested{
+				Approval: conversation.TrajectoryApprovalRequest{
+					ID:             "approval-diagnostic",
+					ProviderItemID: "item-approval-diagnostic",
+					Kind:           conversation.TrajectoryApprovalKindStructuredInput,
+					Title:          "Choose diagnostic",
+					Body:           "A maintainer must choose the diagnostic.",
+					FilePaths:      []string{},
+					Questions: []conversation.TrajectoryApprovalQuestion{{
+						ID:          "question-diagnostic",
+						Header:      "Diagnostic",
+						Question:    "Which diagnostic should be used?",
+						Options:     []string{"Liveness", "Readiness"},
+						AllowsOther: true,
+						Secret:      false,
+					}},
+					RequestedAt: event.EmittedAt,
+				},
+			}
+		},
+	)
+	registry := harness.start()
+	execution := &recordedExecution{}
+	provider := &scriptedDirectorProvider{
+		reply: "Work resumed.",
+		calls: directorCalls(scriptedDirectorToolCall{
+			tool: "resolve_approval",
+			arguments: map[string]any{
+				"approvalId": "approval-diagnostic",
+				"decision":   string(conversation.TrajectoryApprovalDecisionAnswered),
+			},
+		}),
+	}
+	director := newDirectorConversationForTest(
+		t,
+		harness,
+		registry,
+		provider,
+		execution,
+		newDirectorConversationStoreForTest(),
+	)
+
+	receipt, err := director.Submit(context.Background(), directorTurnIntent(userAnswer))
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	if len(receipt.ToolCalls) != 1 || !receipt.ToolCalls[0].Succeeded {
+		t.Fatalf("resolve worker question calls = %+v", receipt.ToolCalls)
+	}
+	if len(execution.approvals) != 1 || len(execution.approvals[0].Answers) != 1 {
+		t.Fatalf("resolved Worker answers = %+v", execution.approvals)
+	}
+	answer := execution.approvals[0].Answers[0]
+	if answer.QuestionID != "question-diagnostic" ||
+		len(answer.Answers) != 1 || answer.Answers[0] != userAnswer {
+		t.Fatalf("resolved Worker answer = %+v", answer)
+	}
+}
+
+func TestDirectorDoesNotApplyOneUserMessageToMultipleWorkerQuestions(t *testing.T) {
+	harness := newRegistryHarness(t)
+	workspaceID := registryTestWorkspaceID
+	harness.createConversation("conversation-release", "Release", &workspaceID)
+	harness.startTurn("conversation-release", "turn-release-1")
+	harness.appendTrajectory(
+		"conversation-release",
+		stringPointer("turn-release-1"),
+		conversation.TrajectoryEventApprovalRequested,
+		conversation.TrajectoryActorAgent,
+		func(event *conversation.TrajectoryEvent) {
+			event.ApprovalRequested = &conversation.TrajectoryApprovalRequested{
+				Approval: conversation.TrajectoryApprovalRequest{
+					ID:             "approval-release",
+					ProviderItemID: "item-approval-release",
+					Kind:           conversation.TrajectoryApprovalKindStructuredInput,
+					Title:          "Release choices",
+					Body:           "Choose the release channel and rollout window.",
+					FilePaths:      []string{},
+					Questions: []conversation.TrajectoryApprovalQuestion{
+						{
+							ID: "question-channel", Header: "Channel", Question: "Which release channel?",
+							Options: []string{}, AllowsOther: true,
+						},
+						{
+							ID: "question-window", Header: "Window", Question: "Which rollout window?",
+							Options: []string{}, AllowsOther: true,
+						},
+					},
+					RequestedAt: event.EmittedAt,
+				},
+			}
+		},
+	)
+	registry := harness.start()
+	execution := &recordedExecution{}
+
+	outcome := callSettaTool(t, harness, registry, execution, scriptedDirectorToolCall{
+		tool: "resolve_approval",
+		arguments: map[string]any{
+			"approvalId": "approval-release",
+			"decision":   string(conversation.TrajectoryApprovalDecisionAnswered),
+		},
+	})
+
+	if outcome.succeeded {
+		t.Fatalf("multi-question approval was answered: %+v", outcome.receipt)
+	}
+	if !strings.Contains(outcome.receipt.Summary, "asks 2 questions") {
+		t.Fatalf("multi-question refusal = %q", outcome.receipt.Summary)
+	}
+	if len(execution.approvals) != 0 {
+		t.Fatalf("fabricated answers reached execution: %+v", execution.approvals)
+	}
+}
+
 // TestDirectorRefusesToAnswerASecretApproval proves the one answer that is not
 // the Director's to give. A secret answer is a credential the user supplies, so
 // a model authoring one would be inventing it on their behalf.
@@ -289,10 +418,6 @@ func TestDirectorRefusesToAnswerASecretApproval(t *testing.T) {
 		arguments: map[string]any{
 			"approvalId": "approval-token",
 			"decision":   string(conversation.TrajectoryApprovalDecisionAnswered),
-			"answers": []any{map[string]any{
-				"questionId": "question-token",
-				"answers":    []any{"guessed-token"},
-			}},
 		},
 	})
 

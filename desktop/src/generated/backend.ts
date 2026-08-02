@@ -7,7 +7,6 @@ import {
   decodeBoolean,
   decodeInteger,
   decodeNullable,
-  decodeNumber,
   decodeString,
   assertTaggedUnionBranch,
   requestBackend,
@@ -16,8 +15,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 112;
-export const backendContractSchemaHash = "sha256:37fb730ef905ed1b4b32c09ec42ff421fa201fb88089ebf8ad9aeb385ab87ef5";
+export const backendProtocolVersion = 114;
+export const backendContractSchemaHash = "sha256:1541baf086df99c6b04639fda10e6e2368fd49bada9ce137c3d01c20fc59adf6";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -1410,16 +1409,14 @@ export function decodeSpeechProviderStatus(value: unknown, label = "SpeechProvid
   }
 }
 
-export type SpeechProvider = "openai" | "local_macos";
+export type SpeechProvider = "openai";
 
-export const speechProviderValues = ["openai", "local_macos"] as const satisfies readonly SpeechProvider[];
+export const speechProviderValues = ["openai"] as const satisfies readonly SpeechProvider[];
 
 export function decodeSpeechProvider(value: unknown, label = "SpeechProvider"): SpeechProvider {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "openai":
-      return decoded;
-    case "local_macos":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2949,6 +2946,7 @@ export interface DirectorTurnReceipt {
   intentId: string;
   replyText: string;
   toolCalls: DirectorToolCall[];
+  resolvedInvocations: ResolvedInvocation[];
 }
 
 export interface DirectorReceipt {
@@ -3112,14 +3110,6 @@ export interface SpeechSynthesisRequest {
   provider: SpeechProvider;
   source: SpeechSource;
   resolvedVoiceId: SpeechVoiceID;
-}
-
-export interface SpeechSynthesisInput {
-  provider: SpeechProvider;
-  source: SpeechSource;
-  text: string;
-  resolvedVoiceId: SpeechVoiceID;
-  rate: number;
 }
 
 export interface SpeechAudio {
@@ -3429,11 +3419,6 @@ export const backendEndpoints = {
   CreateSpeechTranscriptionSession: {
     method: "POST",
     path: "/speech/transcription/sessions",
-    requestBodyLimitBytes: 16384,
-  },
-  ResolveSpeechSynthesisInput: {
-    method: "POST",
-    path: "/speech/synthesis/resolve",
     requestBodyLimitBytes: 16384,
   },
   SynthesizeSpeech: {
@@ -5773,11 +5758,12 @@ export function decodeDirectorToolCall(value: unknown): DirectorToolCall {
 
 export function decodeDirectorTurnReceipt(value: unknown): DirectorTurnReceipt {
   const record = assertRecord(value, "DirectorTurnReceipt");
-  assertKnownFields(record, "DirectorTurnReceipt", ["intentId", "replyText", "toolCalls"]);
+  assertKnownFields(record, "DirectorTurnReceipt", ["intentId", "replyText", "toolCalls", "resolvedInvocations"]);
   return {
     intentId: decodeString(requireField(record, "intentId", "DirectorTurnReceipt"), "DirectorTurnReceipt.intentId"),
     replyText: decodeString(requireField(record, "replyText", "DirectorTurnReceipt"), "DirectorTurnReceipt.replyText"),
     toolCalls: decodeArray(requireField(record, "toolCalls", "DirectorTurnReceipt"), "DirectorTurnReceipt.toolCalls", (item) => decodeDirectorToolCall(item)),
+    resolvedInvocations: decodeArray(requireField(record, "resolvedInvocations", "DirectorTurnReceipt"), "DirectorTurnReceipt.resolvedInvocations", (item) => decodeResolvedInvocation(item)),
   };
 }
 
@@ -6061,18 +6047,6 @@ export function decodeSpeechSynthesisRequest(value: unknown): SpeechSynthesisReq
   };
 }
 
-export function decodeSpeechSynthesisInput(value: unknown): SpeechSynthesisInput {
-  const record = assertRecord(value, "SpeechSynthesisInput");
-  assertKnownFields(record, "SpeechSynthesisInput", ["provider", "source", "text", "resolvedVoiceId", "rate"]);
-  return {
-    provider: decodeSpeechProvider(requireField(record, "provider", "SpeechSynthesisInput"), "SpeechSynthesisInput.provider"),
-    source: decodeSpeechSource(requireField(record, "source", "SpeechSynthesisInput")),
-    text: decodeString(requireField(record, "text", "SpeechSynthesisInput"), "SpeechSynthesisInput.text"),
-    resolvedVoiceId: decodeSpeechVoiceID(requireField(record, "resolvedVoiceId", "SpeechSynthesisInput"), "SpeechSynthesisInput.resolvedVoiceId"),
-    rate: decodeNumber(requireField(record, "rate", "SpeechSynthesisInput"), "SpeechSynthesisInput.rate"),
-  };
-}
-
 export function decodeSpeechAudio(value: unknown): SpeechAudio {
   const record = assertRecord(value, "SpeechAudio");
   assertKnownFields(record, "SpeechAudio", ["audioBase64", "mediaType", "format", "source", "resolvedVoiceId"]);
@@ -6273,7 +6247,6 @@ export interface BackendClient {
   loadDesktopSpeechCredential: (request: SpeechCredentialRequest, options?: BackendRequestOptions) => Promise<SpeechCredentialStatus>;
   clearDesktopSpeechCredential: (request: ClearDesktopSpeechCredentialRequest, options?: BackendRequestOptions) => Promise<SpeechCredentialStatus>;
   createSpeechTranscriptionSession: (request: CreateSpeechTranscriptionSessionRequest, options?: BackendRequestOptions) => Promise<SpeechTranscriptionSession>;
-  resolveSpeechSynthesisInput: (request: SpeechSynthesisRequest, options?: BackendRequestOptions) => Promise<SpeechSynthesisInput>;
   synthesizeSpeech: (request: SpeechSynthesisRequest, options?: BackendRequestOptions) => Promise<SpeechAudio>;
   readCodexAccount: (options?: BackendRequestOptions) => Promise<CodexAccountState>;
   refreshCodexAccount: (request: RefreshCodexAccountRequest, options?: BackendRequestOptions) => Promise<CodexAccountState>;
@@ -6685,15 +6658,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSpeechTranscriptionSession,
       endpoint: backendEndpoints.CreateSpeechTranscriptionSession,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    resolveSpeechSynthesisInput: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeSpeechSynthesisInput,
-      endpoint: backendEndpoints.ResolveSpeechSynthesisInput,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

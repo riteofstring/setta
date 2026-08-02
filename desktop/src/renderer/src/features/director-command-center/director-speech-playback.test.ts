@@ -85,7 +85,54 @@ function directorReplyReceipt(replyText: string): DirectorReceipt {
       intentId: "director-intent-answer",
       replyText,
       toolCalls: [],
+      resolvedInvocations: [directorResolvedInvocation()],
     },
+  };
+}
+
+function directorResolvedInvocation(): NonNullable<
+  DirectorReceipt["submit"]
+>["resolvedInvocations"][number] {
+  const permissionProfile = {
+    approvalPolicy: "never" as const,
+    providerPermissionProfile: ":read-only",
+    toolAccess: { mode: "none" as const, allowedTools: [] },
+    workspaceMutation: false,
+    approvals: false,
+  };
+  return {
+    id: "director-invocation-answer",
+    role: "director",
+    provider: "codex",
+    requested: {
+      role: "director",
+      provider: "codex",
+      modelSelection: { mode: "exact", modelId: "gpt-director" },
+      reasoningEffort: "high",
+      serviceTier: null,
+      permissionProfile,
+      contextBudget: {
+        maxInputBytes: 65536,
+        maxInputTokens: 16384,
+        reservedOutputTokens: 2048,
+      },
+    },
+    resolved: {
+      modelId: "gpt-director",
+      reasoningEffort: "high",
+      serviceTier: null,
+      permissionProfile,
+    },
+    providerReferences: {
+      turnId: "provider-director-answer",
+      requestId: null,
+      responseId: null,
+    },
+    modelReroutes: [],
+    startedAt: "2026-07-25T17:59:59Z",
+    endedAt: "2026-07-25T18:00:00Z",
+    outcome: "succeeded",
+    failure: null,
   };
 }
 

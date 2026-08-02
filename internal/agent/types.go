@@ -147,6 +147,8 @@ type StartThreadRequest struct {
 	Ephemeral             bool          `json:"ephemeral"`
 	DeveloperInstructions string        `json:"developerInstructions,omitempty"`
 	DynamicTools          []DynamicTool `json:"-"`
+	EnableShellTools      bool          `json:"-"`
+	EnableUserInput       bool          `json:"-"`
 }
 
 type ForkThreadRequest struct {
@@ -157,6 +159,8 @@ type ForkThreadRequest struct {
 	Ephemeral             bool          `json:"ephemeral"`
 	DeveloperInstructions string        `json:"developerInstructions,omitempty"`
 	DynamicTools          []DynamicTool `json:"-"`
+	EnableShellTools      bool          `json:"-"`
+	EnableUserInput       bool          `json:"-"`
 }
 
 type ListThreadsRequest struct {
@@ -179,15 +183,16 @@ type InjectedTextItem struct {
 }
 
 type TurnRequest struct {
-	ConversationID   string        `json:"conversationId"`
-	TurnID           string        `json:"turnId"`
-	ProviderThreadID string        `json:"providerThreadId"`
-	ClientInputID    string        `json:"clientInputId"`
-	Text             string        `json:"text"`
-	WorkspaceRoot    string        `json:"workspaceRoot"`
-	Invocation       Invocation    `json:"invocation"`
-	OutputSchema     []byte        `json:"outputSchema,omitempty"`
-	DynamicTools     []DynamicTool `json:"-"`
+	ConversationID        string                `json:"conversationId"`
+	TurnID                string                `json:"turnId"`
+	ProviderThreadID      string                `json:"providerThreadId"`
+	ClientInputID         string                `json:"clientInputId"`
+	Text                  string                `json:"text"`
+	WorkspaceRoot         string                `json:"workspaceRoot"`
+	Invocation            Invocation            `json:"invocation"`
+	TokenUsageAttribution TokenUsageAttribution `json:"-"`
+	OutputSchema          []byte                `json:"outputSchema,omitempty"`
+	DynamicTools          []DynamicTool         `json:"-"`
 }
 
 type TurnResult struct {

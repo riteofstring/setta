@@ -6,11 +6,8 @@ import {
   AppShellSpeechPlaybackController,
   type SpeechPlaybackControllerDependencies,
 } from "./app-shell-speech-playback-controller";
-import { selectDesktopVoiceOutputProvider } from "./desktop-speech-provider-coordinator";
-import { createLocalMacOSSpeechOutputProvider } from "./local-macos-speech-output-provider";
 import { createOpenAIBackendSpeechOutputProvider } from "./openai-speech-output-provider";
 import { readSpeechPlaybackMutePreference } from "./speech-playback-mute-preference";
-import type { VoiceOutputProvider } from "./voice-provider-boundary";
 
 /**
  * Owns the app-shell playback controller and hands it to the one subtree that
@@ -83,8 +80,7 @@ function scheduleMicrotask(handler: () => void): void {
 }
 
 function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerDependencies {
-  const openAIOutputProvider = createOpenAIBackendSpeechOutputProvider(setta);
-  const localMacOSOutputProvider = createLocalMacOSSpeechOutputProvider(setta);
+  const outputProvider = createOpenAIBackendSpeechOutputProvider(setta);
   return {
     createAbortController: () => new AbortController(),
     createAudio: (url) => new Audio(url),
@@ -100,22 +96,9 @@ function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerD
     revokeObjectURL: (url) => URL.revokeObjectURL(url),
     synthesize: (request, signal) => {
       const operationId = createSpeechSynthesisOperationId();
-      let outputProvider: VoiceOutputProvider | null = null;
       return abortableSpeechRequest(
-        async () => {
-          outputProvider = await selectDesktopVoiceOutputProvider({
-            localMacOS: localMacOSOutputProvider,
-            openAI: openAIOutputProvider,
-            platform: setta.app.platform,
-            readLocalMacOSVoiceHealth: setta.speech.readLocalMacOSVoiceHealth,
-            readProviderSelection: setta.speech.readProviderSelection,
-          });
-          if (signal.aborted) {
-            throw speechSynthesisStoppedError();
-          }
-          return outputProvider.synthesize(request, operationId);
-        },
-        () => outputProvider?.cancel(operationId) ?? Promise.resolve(),
+        () => outputProvider.synthesize(request, operationId),
+        () => outputProvider.cancel(operationId),
         signal,
       );
     },

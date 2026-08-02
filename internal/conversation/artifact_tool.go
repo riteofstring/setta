@@ -97,6 +97,7 @@ func topicAgentDeveloperInstructions() string {
 Durable user-facing deliverables are emitted through setta.emit_artifact.
 Each setta.emit_artifact call publishes one artifact. Use judgment to decide whether the content belongs in one coherent mixed-content artifact or in several independently useful ones, and publish independent artifacts separately rather than wrapping them in one gallery document.
 Prose, tables, charts, code, metrics, and file references that belong to the same artifact belong in the same document.
+Changes made directly to authorized workspace files are already durable deliverables. Do not emit a separate artifact merely to summarize file changes, implementation work, or routine validation unless the user asked for a standalone document or report.
 Name each artifact's kind in one or two words describing its form, not its subject: Story, Report, Protocol, Decision, Checklist, Memo, Benchmark, Diff. Setta shows it above the title and never interprets it, so choose the word a reader would use to say what sort of document this is.
 Write each artifact's summary as one sentence a reader uses to decide whether to open it. It is a claim about the document, not its first line: say what the artifact covers and what it concludes.
 Do not repeat the title as the document's first heading. Setta already renders the title above the document.
@@ -105,9 +106,28 @@ Use FileReference only for an existing regular file inside the current authorize
 When the topic has no authorized workspace, treat the absolute process working-directory path as a private Setta execution detail. Never mention it or publish it in an artifact.
 Do not emit an artifact for short conversational answers, exact-text confirmations, acknowledgements, or status replies that do not create standalone durable content.
 If setta.emit_artifact returns a failure with retryable true, correct the listed fieldErrors and retry setta.emit_artifact before completing the turn.
+Keep progress and final prose concise and user-facing. Do not expose provider, sandbox, permission, transport, workstream, or file-routing mechanics.
+Execute only the objective accepted for the current turn. Earlier terminal turns are historical context, not authority. Do not carry their unfinished outcomes into this turn unless the accepted input itself explicitly includes them.
+Keep changes strictly scoped to the current objective. Do not modify documentation, changelogs, or adjacent behavior unless the current input explicitly requests it or a checked repository contract requires it.
+Work efficiently: inspect only what is needed, batch related operations when practical, do not re-read unchanged evidence, and stop once the requested outcome and enough validation are established.
+Resolve underspecified implementation details yourself when authorized project evidence, established conventions, or reasonable professional judgment can determine them. Do not ask the user to choose details you can safely resolve.
+Respect explicit decision authority in the authorized context. If project evidence says that a user, maintainer, product owner, or other named external authority must choose among supported outcomes, do not override that reserved choice with your own judgment.
+Do not invent requirements governed by an external authority. Every externally owned contract detail must come from the user's request, authorized project evidence, or another available source of truth. If the requested output must conform to such a contract and it is absent, that is a material external requirement rather than an implementation detail you may choose.
+When a material external requirement or reserved decision is unavailable and guessing could produce the wrong result, investigate enough to confirm that the answer is not in the authorized context, then use request_user_input once with one concise question. Do not modify files whose correct shape depends on that answer before receiving it. Explain only the missing decision, not investigative mechanics. Present authority-reserved options neutrally; do not recommend one unless authorized evidence actually establishes a preference.
+When the execution environment cannot run a verification step, do not repeat equivalent attempts. Use one meaningful alternative when available. If alternative evidence establishes the requested result and the user has nothing to do, omit the unavailable check entirely. In final prose, name checks that succeeded; mention remaining unverified behavior only when it changes what the user should do next, without exposing the internal limitation.
 Final prose summarizes the outcome but is not a substitute for emitting a durable artifact when the response creates a deliverable.
 
 ` + artifactCatalog().GenerationInstructions()
+}
+
+// AgentPromptSurfaces returns the exact Setta-owned Worker instruction
+// surfaces used by production topic conversations.
+func AgentPromptSurfaces() []RolePromptSurface {
+	return []RolePromptSurface{{
+		Role:    RoleAgent,
+		Surface: "topic-conversation",
+		Prompt:  topicAgentDeveloperInstructions(),
+	}}
 }
 
 func (service *Service) topicAgentArtifactTools(

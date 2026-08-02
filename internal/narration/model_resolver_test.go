@@ -24,11 +24,11 @@ func TestModelResolverUsesIndependentLightweightNarratorDefault(t *testing.T) {
 	if !reflect.DeepEqual(profiles.builtIn, wantProfile) || !reflect.DeepEqual(resolution.RequestedProfile, wantProfile) {
 		t.Fatalf("narrator default profile = %+v/%+v, want %+v", profiles.builtIn, resolution.RequestedProfile, wantProfile)
 	}
-	if resolution.Invocation.Model != "gpt-5.4-mini" || resolution.Invocation.ReasoningEffort != "low" {
-		t.Fatalf("narrator invocation = %+v, want gpt-5.4-mini/low", resolution.Invocation)
+	if resolution.Invocation.Model != "gpt-5.4-mini" || resolution.Invocation.ReasoningEffort != "high" {
+		t.Fatalf("narrator invocation = %+v, want gpt-5.4-mini/high", resolution.Invocation)
 	}
-	if resolution.Settings.ModelID != "gpt-5.4-mini" || resolution.Settings.ReasoningEffort != conversation.ReasoningEffortLow {
-		t.Fatalf("narrator settings = %+v, want gpt-5.4-mini/low", resolution.Settings)
+	if resolution.Settings.ModelID != "gpt-5.4-mini" || resolution.Settings.ReasoningEffort != conversation.ReasoningEffortHigh {
+		t.Fatalf("narrator settings = %+v, want gpt-5.4-mini/high", resolution.Settings)
 	}
 	assertRestrictedNarratorInvocation(t, resolution.Invocation)
 

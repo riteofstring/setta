@@ -213,19 +213,19 @@ func TestProviderSynthesisInputRequiresValidatedTextVoiceAndRate(t *testing.T) {
 	}
 }
 
-func TestSpeechSynthesisInputRequiresValidatedProviderSourceTextVoiceAndRate(t *testing.T) {
+func TestResolvedSynthesisInputRequiresValidatedProviderSourceTextVoiceAndRate(t *testing.T) {
 	conversationID := "conversation"
-	valid := SpeechSynthesisInput{
-		Provider:        SpeechProviderLocalMacOS,
+	valid := resolvedSynthesisInput{
+		Provider:        SpeechProviderOpenAI,
 		Source:          SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "director-answer-1"},
 		Text:            "The persisted answer is ready.",
 		ResolvedVoiceID: SpeechVoiceMarin,
 		Rate:            AssistantSynthesisRate,
 	}
-	if err := ValidateSpeechSynthesisInput(valid); err != nil {
+	if err := validateResolvedSynthesisInput(valid); err != nil {
 		t.Fatalf("validate speech synthesis input: %v", err)
 	}
-	invalid := []SpeechSynthesisInput{
+	invalid := []resolvedSynthesisInput{
 		{Provider: "", Source: valid.Source, Text: valid.Text, ResolvedVoiceID: valid.ResolvedVoiceID, Rate: valid.Rate},
 		{Provider: valid.Provider, Source: SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "answer", ConversationID: &conversationID}, Text: valid.Text, ResolvedVoiceID: valid.ResolvedVoiceID, Rate: valid.Rate},
 		{Provider: valid.Provider, Source: valid.Source, Text: "", ResolvedVoiceID: valid.ResolvedVoiceID, Rate: valid.Rate},
@@ -233,7 +233,7 @@ func TestSpeechSynthesisInputRequiresValidatedProviderSourceTextVoiceAndRate(t *
 		{Provider: valid.Provider, Source: valid.Source, Text: valid.Text, ResolvedVoiceID: valid.ResolvedVoiceID, Rate: 0.24},
 	}
 	for _, input := range invalid {
-		if err := ValidateSpeechSynthesisInput(input); err == nil {
+		if err := validateResolvedSynthesisInput(input); err == nil {
 			t.Fatalf("invalid speech synthesis input passed: %+v", input)
 		}
 	}
@@ -263,7 +263,7 @@ func TestSpeechContractValueSetsOwnClosedSpeechValues(t *testing.T) {
 	if strings.Join(sets[0].Values, ",") != strings.Join(want, ",") {
 		t.Fatalf("provider statuses = %v, want %v", sets[0].Values, want)
 	}
-	if strings.Join(sets[1].Values, ",") != "openai,local_macos" {
+	if strings.Join(sets[1].Values, ",") != "openai" {
 		t.Fatalf("speech providers = %v", sets[1].Values)
 	}
 	if strings.Join(sets[2].Values, ",") != "director,narrator" {

@@ -25,19 +25,52 @@ func directorTurnIntent(text string) SubmittedIntent {
 	}
 }
 
-func TestDirectorInstructionsPreserveNativeArtifactIntent(t *testing.T) {
-	instructions := DirectorInstructions()
-	for _, required := range []string{
-		"setta.emit_artifact",
-		"Creating artifacts needs no folder.",
-		"Never turn it into a website, a Sites project, a gallery page",
-		"How many artifacts to publish and what goes in each is the worker's judgment",
-		"\"required\" only when the work must read or change files in their project",
-		"\"optional\" for everything else",
-	} {
-		if !strings.Contains(instructions, required) {
-			t.Fatalf("Director instructions do not contain %q:\n%s", required, instructions)
-		}
+func TestDirectorUserChoiceToolIsAvailableForInherentlyBlockedWork(t *testing.T) {
+	harness := newRegistryHarness(t)
+	registry := harness.start()
+	execution := &recordedExecution{}
+	provider := &scriptedDirectorProvider{
+		reply: "Should the launch announcement target customers or investors?",
+		calls: missingRequirementDirectorCall(
+			"Should the launch announcement target customers or investors?",
+		),
+	}
+	director := newDirectorConversationForTest(
+		t,
+		harness,
+		registry,
+		provider,
+		execution,
+		newDirectorConversationStoreForTest(),
+	)
+
+	receipt, err := director.Submit(
+		context.Background(),
+		directorTurnIntent("Do not start the launch announcement until I choose whether it targets customers or investors."),
+	)
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	if len(provider.turns) != 1 {
+		t.Fatalf("clarification triggered %d provider turns, want one", len(provider.turns))
+	}
+	visibleTools := map[string]bool{}
+	for _, tool := range provider.turns[0].Tools {
+		visibleTools[tool.Name] = true
+	}
+	if !visibleTools["request_user_choice"] {
+		t.Fatalf("Director turn tools omit request_user_choice: %+v", visibleTools)
+	}
+	if len(receipt.ToolCalls) != 1 ||
+		receipt.ToolCalls[0].Tool != "request_user_choice" ||
+		!receipt.ToolCalls[0].Succeeded {
+		t.Fatalf("clarification tool calls = %+v", receipt.ToolCalls)
+	}
+	if receipt.ReplyText != provider.reply {
+		t.Fatalf("clarification reply = %q, want %q", receipt.ReplyText, provider.reply)
+	}
+	if len(execution.starts) != 0 || len(execution.sends) != 0 || len(execution.queues) != 0 {
+		t.Fatalf("clarification started work: starts=%+v sends=%+v queues=%+v", execution.starts, execution.sends, execution.queues)
 	}
 }
 
@@ -50,7 +83,7 @@ func TestDirectorToolCallCreatesAndSelectsAWorkstream(t *testing.T) {
 	execution := &publishingStartExecution{harness: harness}
 	provider := &scriptedDirectorProvider{
 		reply: "Started it in setta.",
-		calls: []scriptedDirectorToolCall{{
+		calls: directorCalls(scriptedDirectorToolCall{
 			tool: "create_workstream",
 			arguments: map[string]any{
 				"title":                "Parser rewrite",
@@ -58,7 +91,7 @@ func TestDirectorToolCallCreatesAndSelectsAWorkstream(t *testing.T) {
 				"workspaceRequirement": string(WorkspaceRequired),
 				"initialInput":         nil,
 			},
-		}},
+		}),
 	}
 	store := newDirectorConversationStoreForTest()
 	director := newDirectorConversationForTest(t, harness, registry, provider, execution, store)
@@ -110,7 +143,7 @@ func TestDirectorRepairsAProseOnlyAppControlAnswerInTheSameConversation(t *testi
 			{
 				reply: "Created and selected the parser rewrite.",
 				model: "gpt-first-draft",
-				calls: []scriptedDirectorToolCall{{
+				calls: directorCalls(scriptedDirectorToolCall{
 					tool: "create_workstream",
 					arguments: map[string]any{
 						"title":                "Parser rewrite",
@@ -118,7 +151,7 @@ func TestDirectorRepairsAProseOnlyAppControlAnswerInTheSameConversation(t *testi
 						"workspaceRequirement": string(WorkspaceRequired),
 						"initialInput":         nil,
 					},
-				}},
+				}),
 			},
 		},
 	}
@@ -158,7 +191,7 @@ func TestDirectorTurnIsDurableInOrder(t *testing.T) {
 	execution := &publishingStartExecution{harness: harness}
 	provider := &scriptedDirectorProvider{
 		reply: "Started it in setta.",
-		calls: []scriptedDirectorToolCall{{
+		calls: directorCalls(scriptedDirectorToolCall{
 			tool: "create_workstream",
 			arguments: map[string]any{
 				"title":                "Parser rewrite",
@@ -166,7 +199,7 @@ func TestDirectorTurnIsDurableInOrder(t *testing.T) {
 				"workspaceRequirement": string(WorkspaceRequired),
 				"initialInput":         nil,
 			},
-		}},
+		}),
 	}
 	store := newDirectorConversationStoreForTest()
 	director := newDirectorConversationForTest(t, harness, registry, provider, execution, store)
@@ -215,7 +248,7 @@ func TestDirectorToolCallSurvivesAProviderTurnFailure(t *testing.T) {
 	registry := harness.start()
 	execution := &publishingStartExecution{harness: harness}
 	provider := &scriptedDirectorProvider{
-		calls: []scriptedDirectorToolCall{{
+		calls: directorCalls(scriptedDirectorToolCall{
 			tool: "create_workstream",
 			arguments: map[string]any{
 				"title":                "Durable parser work",
@@ -223,7 +256,7 @@ func TestDirectorToolCallSurvivesAProviderTurnFailure(t *testing.T) {
 				"workspaceRequirement": string(WorkspaceRequired),
 				"initialInput":         nil,
 			},
-		}},
+		}),
 		turnErr: errors.New("provider failed after tool execution"),
 	}
 	store := newDirectorConversationStoreForTest()
@@ -368,14 +401,14 @@ func TestDirectorToolRefusalStaysInsideTheConversation(t *testing.T) {
 	execution := &recordedExecution{}
 	provider := &scriptedDirectorProvider{
 		reply: "I could not find that workstream — which one did you mean?",
-		calls: []scriptedDirectorToolCall{{
+		calls: directorCalls(scriptedDirectorToolCall{
 			tool: "submit_work",
 			arguments: map[string]any{
 				"workstreamId":         "workstream-missing",
 				"input":                "rewrite the parser",
 				"workspaceRequirement": string(WorkspaceRequired),
 			},
-		}},
+		}),
 	}
 	store := newDirectorConversationStoreForTest()
 	director := newDirectorConversationForTest(t, harness, registry, provider, execution, store)
@@ -407,11 +440,11 @@ func TestDirectorToolsRejectUndeclaredArguments(t *testing.T) {
 	execution := &recordedExecution{}
 	provider := &scriptedDirectorProvider{
 		reply: "Let me try that again.",
-		calls: []scriptedDirectorToolCall{{
+		calls: directorCalls(scriptedDirectorToolCall{
 			tool: "create_workstream",
 			rawArguments: json.RawMessage(`{"title":"Parser rewrite","workspaceId":null,"workspaceRequirement":"optional",` +
 				`"initialInput":null,"folderPath":"/tmp/setta"}`),
-		}},
+		}),
 	}
 	store := newDirectorConversationStoreForTest()
 	director := newDirectorConversationForTest(t, harness, registry, provider, execution, store)
@@ -437,10 +470,10 @@ func TestDirectorToolsRejectTrailingJSONValues(t *testing.T) {
 	execution := &recordedExecution{}
 	provider := &scriptedDirectorProvider{
 		reply: "That call was malformed.",
-		calls: []scriptedDirectorToolCall{{
+		calls: directorCalls(scriptedDirectorToolCall{
 			tool:         "list_workspaces",
 			rawArguments: json.RawMessage(`{} {}`),
-		}},
+		}),
 	}
 	store := newDirectorConversationStoreForTest()
 	director := newDirectorConversationForTest(t, harness, registry, provider, execution, store)
@@ -464,7 +497,7 @@ func TestDirectorApprovalToolArgumentsAreRedactedBeforePersistence(t *testing.T)
 	registry := harness.start()
 	provider := &scriptedDirectorProvider{
 		reply: "That approval is not available.",
-		calls: []scriptedDirectorToolCall{{
+		calls: directorCalls(scriptedDirectorToolCall{
 			tool: "resolve_approval",
 			arguments: map[string]any{
 				"approvalId": "approval-secret",
@@ -474,7 +507,7 @@ func TestDirectorApprovalToolArgumentsAreRedactedBeforePersistence(t *testing.T)
 					"answers":    []string{privateAnswer},
 				}},
 			},
-		}},
+		}),
 	}
 	store := newDirectorConversationStoreForTest()
 	director := newDirectorConversationForTest(

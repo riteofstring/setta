@@ -12,8 +12,7 @@ const (
 	SpeechProviderStatusConfigured    SpeechProviderStatus = "configured"
 	SpeechProviderStatusNotConfigured SpeechProviderStatus = "not_configured"
 
-	SpeechProviderLocalMacOS SpeechProvider = "local_macos"
-	SpeechProviderOpenAI     SpeechProvider = "openai"
+	SpeechProviderOpenAI SpeechProvider = "openai"
 
 	SpeechSpeakerDirector SpeechSpeaker = "director"
 	SpeechSpeakerNarrator SpeechSpeaker = "narrator"
@@ -41,7 +40,7 @@ var speechProviderStatusValues = []SpeechProviderStatus{
 	SpeechProviderStatusNotConfigured,
 }
 
-var speechProviderValues = []SpeechProvider{SpeechProviderOpenAI, SpeechProviderLocalMacOS}
+var speechProviderValues = []SpeechProvider{SpeechProviderOpenAI}
 
 var speechSpeakerValues = []SpeechSpeaker{
 	SpeechSpeakerDirector,
@@ -180,7 +179,7 @@ type SpeechAudio struct {
 	ResolvedVoiceID SpeechVoiceID `json:"resolvedVoiceId"`
 }
 
-type SpeechSynthesisInput struct {
+type resolvedSynthesisInput struct {
 	Provider        SpeechProvider `json:"provider"`
 	Source          SpeechSource   `json:"source"`
 	Text            string         `json:"text"`

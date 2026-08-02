@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"setta/internal/conversation"
 )
@@ -24,6 +25,19 @@ type scriptedDirectorToolCall struct {
 	// rawArguments overrides arguments when a test needs to send something the
 	// schema does not describe.
 	rawArguments json.RawMessage
+}
+
+func directorCalls(calls ...scriptedDirectorToolCall) []scriptedDirectorToolCall {
+	return append([]scriptedDirectorToolCall{}, calls...)
+}
+
+func missingRequirementDirectorCall(question string) []scriptedDirectorToolCall {
+	return []scriptedDirectorToolCall{{
+		tool: "request_user_choice",
+		arguments: map[string]any{
+			"question": question,
+		},
+	}}
 }
 
 type scriptedDirectorTurn struct {
@@ -99,7 +113,43 @@ func (provider *scriptedDirectorProvider) RunDirectorTurn(
 	if provider.turnErr != nil {
 		return DirectorProviderTurn{}, provider.turnErr
 	}
-	return DirectorProviderTurn{ReplyText: reply, Model: model}, nil
+	providerTurnID := fmt.Sprintf("provider-turn-%d", len(provider.turns))
+	invocationID := fmt.Sprintf("director-invocation-%d", len(provider.turns))
+	return DirectorProviderTurn{
+		ReplyText: reply,
+		Invocation: scriptedDirectorInvocation(
+			invocationID,
+			providerTurnID,
+			model,
+		),
+	}, nil
+}
+
+func scriptedDirectorInvocation(
+	invocationID string,
+	providerTurnID string,
+	model string,
+) conversation.ResolvedInvocation {
+	profile := conversation.DefaultDirectorRoleProfile()
+	startedAt := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	endedAt := startedAt.Add(time.Nanosecond).Format(time.RFC3339Nano)
+	return conversation.ResolvedInvocation{
+		ID:        invocationID,
+		Role:      conversation.RoleDirector,
+		Provider:  conversation.ProviderCodex,
+		Requested: profile,
+		Resolved: conversation.ResolvedInvocationSettings{
+			ModelID:           model,
+			ReasoningEffort:   profile.ReasoningEffort,
+			ServiceTier:       profile.ServiceTier,
+			PermissionProfile: profile.PermissionProfile,
+		},
+		ProviderReferences: conversation.InvocationProviderReferences{TurnID: &providerTurnID},
+		ModelReroutes:      []conversation.InvocationModelReroute{},
+		StartedAt:          startedAt.Format(time.RFC3339Nano),
+		EndedAt:            &endedAt,
+		Outcome:            conversation.InvocationOutcomeSucceeded,
+	}
 }
 
 func (provider *scriptedDirectorProvider) dispatch(

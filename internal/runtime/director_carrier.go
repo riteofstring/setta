@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"setta/internal/agent"
 	"setta/internal/conversation"
@@ -46,6 +47,7 @@ type directorCarrierPort struct {
 	provider      directorProviderRuntime
 	workspaceRoot string
 	newID         func(string) (string, error)
+	now           func() time.Time
 }
 
 func newDirectorCarrierPort(
@@ -64,11 +66,12 @@ func newDirectorCarrierPort(
 		provider:      provider,
 		workspaceRoot: filepath.Clean(workspaceRoot),
 		newID:         randomDirectorRequestID,
+		now:           time.Now,
 	}, nil
 }
 
-// randomDirectorRequestID names one provider call. It is provider-facing
-// correlation only.
+// randomDirectorRequestID names provider requests and their durable invocation
+// records. The generated values carry identity only, never product meaning.
 func randomDirectorRequestID(prefix string) (string, error) {
 	var data [16]byte
 	if _, err := rand.Read(data[:]); err != nil {
@@ -94,7 +97,7 @@ func (port *directorCarrierPort) StartDirectorCarrier(
 	if ctx == nil {
 		return "", errors.New("director carrier context is required")
 	}
-	invocation, maxInputBytes, err := port.invocation(ctx)
+	configuration, invocation, err := port.resolvedInvocation(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -115,7 +118,7 @@ func (port *directorCarrierPort) StartDirectorCarrier(
 	if replayErr := port.replay(
 		ctx,
 		thread.ID,
-		directorHistoryWithinBudget(request.History, maxInputBytes),
+		directorHistoryWithinBudget(request.History, configuration.MaxInputBytes),
 	); replayErr != nil {
 		cause := fmt.Errorf("replay director carrier %s: %w", thread.ID, replayErr)
 		if cleanupErr := port.provider.UnsubscribeThread(context.Background(), thread.ID); cleanupErr != nil {
@@ -180,53 +183,88 @@ func directorHistoryWithinBudget(
 const directorCarrierInitialization = "Setta started this Director conversation. This is an inert history marker, not a request. Respond only to later user turns."
 
 // RunDirectorTurn runs one Director turn and returns the assistant text plus
-// the exact resolved model that authored it. Tool calls reach their Setta
+// the resolved invocation that authored it. Tool calls reach their Setta
 // handlers while the turn runs, so by the time this returns the app has already
 // changed.
 func (port *directorCarrierPort) RunDirectorTurn(
 	ctx context.Context,
 	request director.DirectorTurnRequest,
 ) (director.DirectorProviderTurn, error) {
-	invocation, providerRequest, err := port.prepareDirectorTurn(ctx, request)
+	prepared, err := port.prepareDirectorTurn(ctx, request)
 	if err != nil {
 		return director.DirectorProviderTurn{}, err
 	}
 	sink := &directorTurnSink{}
-	result, runErr := port.provider.RunTurn(ctx, providerRequest, sink)
-	return finishDirectorProviderTurn(request.TurnID, invocation, sink, result, runErr)
+	result, runErr := port.provider.RunTurn(ctx, prepared.request, sink)
+	return finishDirectorProviderTurn(
+		request.TurnID,
+		prepared,
+		sink,
+		result,
+		port.timestampAfter(prepared.startedAt),
+		runErr,
+	)
+}
+
+type preparedDirectorTurn struct {
+	request    agent.TurnRequest
+	invocation conversation.ResolvedInvocation
+	startedAt  time.Time
 }
 
 func (port *directorCarrierPort) prepareDirectorTurn(
 	ctx context.Context,
 	request director.DirectorTurnRequest,
-) (agent.Invocation, agent.TurnRequest, error) {
-	if port == nil || port.roles == nil || port.provider == nil {
-		return agent.Invocation{}, agent.TurnRequest{}, errors.New("director carrier port is unavailable")
+) (preparedDirectorTurn, error) {
+	if err := validateDirectorTurnPreparationBoundary(port, ctx); err != nil {
+		return preparedDirectorTurn{}, err
 	}
-	if ctx == nil {
-		return agent.Invocation{}, agent.TurnRequest{}, errors.New("director turn context is required")
-	}
-	invocation, maxInputBytes, err := port.invocation(ctx)
+	configuration, invocation, err := port.resolvedInvocation(ctx)
 	if err != nil {
-		return agent.Invocation{}, agent.TurnRequest{}, err
+		return preparedDirectorTurn{}, err
 	}
-	if len(request.Text) > maxInputBytes {
-		return agent.Invocation{}, agent.TurnRequest{}, fmt.Errorf(
+	if len(request.Text) > configuration.MaxInputBytes {
+		return preparedDirectorTurn{}, fmt.Errorf(
 			"%w: the submitted request needs %d bytes, and the Director role allows %d",
 			director.ErrDirectorIntentRejected,
 			len(request.Text),
-			maxInputBytes,
+			configuration.MaxInputBytes,
 		)
 	}
 	tools, err := directorDynamicTools(request.Tools)
 	if err != nil {
-		return agent.Invocation{}, agent.TurnRequest{}, err
+		return preparedDirectorTurn{}, err
 	}
 	clientInputID, err := port.newID("director_turn")
 	if err != nil {
-		return agent.Invocation{}, agent.TurnRequest{}, err
+		return preparedDirectorTurn{}, err
 	}
-	return invocation, agent.TurnRequest{
+	invocationID, err := port.newID("director_invocation")
+	if err != nil {
+		return preparedDirectorTurn{}, err
+	}
+	requested, err := configuration.RequestedRoleProfile()
+	if err != nil {
+		return preparedDirectorTurn{}, fmt.Errorf("read resolved Director request profile: %w", err)
+	}
+	startedAt := port.now().UTC()
+	resolvedInvocation := conversation.ResolvedInvocation{
+		ID:        invocationID,
+		Role:      conversation.RoleDirector,
+		Provider:  conversation.ProviderCodex,
+		Requested: requested,
+		Resolved: conversation.ResolvedInvocationSettings{
+			ModelID:           configuration.ResolvedInvocation.Model,
+			ReasoningEffort:   configuration.ResolvedInvocation.ReasoningEffort,
+			ServiceTier:       cloneRuntimeStringPointer(configuration.ResolvedInvocation.ServiceTier),
+			PermissionProfile: requested.PermissionProfile,
+		},
+		ProviderReferences: conversation.InvocationProviderReferences{},
+		ModelReroutes:      []conversation.InvocationModelReroute{},
+		StartedAt:          startedAt.Format(time.RFC3339Nano),
+		Outcome:            conversation.InvocationOutcomeRunning,
+	}
+	providerRequest := agent.TurnRequest{
 		ConversationID:   request.Carrier.OwnerID,
 		TurnID:           request.TurnID,
 		ProviderThreadID: request.Carrier.ThreadID,
@@ -234,15 +272,48 @@ func (port *directorCarrierPort) prepareDirectorTurn(
 		Text:             request.Text,
 		WorkspaceRoot:    port.workspaceRoot,
 		Invocation:       invocation,
-		DynamicTools:     tools,
+		TokenUsageAttribution: agent.TokenUsageAttribution{
+			Bucket:          agent.TokenUsageBucketSystem,
+			Role:            agent.TokenUsageRoleDirector,
+			InvocationID:    invocationID,
+			Model:           configuration.ResolvedInvocation.Model,
+			ReasoningEffort: configuration.ResolvedInvocation.ReasoningEffort,
+			ServiceTier:     cloneRuntimeStringPointer(configuration.ResolvedInvocation.ServiceTier),
+		},
+		DynamicTools: tools,
+	}
+	if err := providerRequest.Validate(); err != nil {
+		return preparedDirectorTurn{}, fmt.Errorf("validate Director provider turn: %w", err)
+	}
+	return preparedDirectorTurn{
+		request:    providerRequest,
+		invocation: resolvedInvocation,
+		startedAt:  startedAt,
 	}, nil
+}
+
+func validateDirectorTurnPreparationBoundary(
+	port *directorCarrierPort,
+	ctx context.Context,
+) error {
+	if port == nil {
+		return errors.New("director carrier port is unavailable")
+	}
+	if port.roles == nil || port.provider == nil || port.newID == nil || port.now == nil {
+		return errors.New("director carrier port is unavailable")
+	}
+	if ctx == nil {
+		return errors.New("director turn context is required")
+	}
+	return nil
 }
 
 func finishDirectorProviderTurn(
 	turnID string,
-	invocation agent.Invocation,
+	prepared preparedDirectorTurn,
 	sink *directorTurnSink,
 	result agent.TurnResult,
+	endedAt time.Time,
 	runErr error,
 ) (director.DirectorProviderTurn, error) {
 	if runErr != nil {
@@ -251,9 +322,18 @@ func finishDirectorProviderTurn(
 	if result.Outcome != agent.TurnOutcomeCompleted {
 		return director.DirectorProviderTurn{}, fmt.Errorf("director turn %s ended as %s", turnID, result.Outcome)
 	}
+	invocation := prepared.invocation
+	invocation.ProviderReferences.TurnID = cloneRuntimeStringPointer(&result.ProviderTurnID)
+	invocation.ModelReroutes = append([]conversation.InvocationModelReroute{}, sink.modelReroutes...)
+	endedAtText := endedAt.UTC().Format(time.RFC3339Nano)
+	invocation.EndedAt = &endedAtText
+	invocation.Outcome = conversation.InvocationOutcomeSucceeded
+	if err := invocation.Validate(); err != nil {
+		return director.DirectorProviderTurn{}, fmt.Errorf("validate Director resolved invocation: %w", err)
+	}
 	return director.DirectorProviderTurn{
-		ReplyText: sink.replyText(),
-		Model:     invocation.Model,
+		ReplyText:  sink.replyText(),
+		Invocation: invocation,
 	}, nil
 }
 
@@ -272,19 +352,21 @@ func directorProviderTurnError(turnID string, err error) error {
 	return fmt.Errorf("run director turn %s: %w", turnID, err)
 }
 
-// invocation resolves the app-global Director role for one provider call. It is
+// resolvedInvocation resolves the app-global Director role for one provider call. It is
 // resolved per call rather than cached, because the user can change the
 // Director's model while the conversation is running.
-func (port *directorCarrierPort) invocation(ctx context.Context) (agent.Invocation, int, error) {
+func (port *directorCarrierPort) resolvedInvocation(
+	ctx context.Context,
+) (conversation.DirectorRoleConfiguration, agent.Invocation, error) {
 	configuration, err := port.roles.ResolveDirectorRoleConfiguration(ctx)
 	if err != nil {
-		return agent.Invocation{}, 0, fmt.Errorf("resolve director role: %w", err)
+		return conversation.DirectorRoleConfiguration{}, agent.Invocation{}, fmt.Errorf("resolve director role: %w", err)
 	}
 	invocation, err := configuration.PinnedInvocation()
 	if err != nil {
-		return agent.Invocation{}, 0, err
+		return conversation.DirectorRoleConfiguration{}, agent.Invocation{}, err
 	}
-	return invocation, configuration.MaxInputBytes, nil
+	return configuration, invocation, nil
 }
 
 // directorTurnSink collects the Director's own words. Everything else the turn
@@ -293,9 +375,30 @@ func (port *directorCarrierPort) invocation(ctx context.Context) (agent.Invocati
 type directorTurnSink struct {
 	completedText string
 	deltaText     string
+	modelReroutes []conversation.InvocationModelReroute
 }
 
 func (sink *directorTurnSink) HandleAgentEvent(event agent.Event) error {
+	// Text before a Setta tool call is provider process narration, not the
+	// Director's answer. Keep only text authored after the last app action so a
+	// tool-first turn produces one user-facing confirmation.
+	if event.Kind == agent.EventKindActivityStarted &&
+		event.Activity != nil &&
+		event.Activity.Kind == agent.ActivityKindDynamicTool {
+		sink.completedText = ""
+		sink.deltaText = ""
+	}
+	if event.Kind == agent.EventKindModelRerouted && event.ModelReroute != nil {
+		reason, err := directorInvocationRerouteReason(event.ModelReroute.Reason)
+		if err != nil {
+			return err
+		}
+		sink.modelReroutes = append(sink.modelReroutes, conversation.InvocationModelReroute{
+			FromModelID: event.ModelReroute.FromModel,
+			ToModelID:   event.ModelReroute.ToModel,
+			Reason:      reason,
+		})
+	}
 	if event.Text == nil {
 		return nil
 	}
@@ -309,6 +412,33 @@ func (sink *directorTurnSink) HandleAgentEvent(event agent.Event) error {
 		sink.completedText += event.Text.Text
 	}
 	return nil
+}
+
+func directorInvocationRerouteReason(
+	reason agent.ModelRerouteReason,
+) (conversation.InvocationModelRerouteReason, error) {
+	switch reason {
+	case agent.ModelRerouteReasonHighRiskCyberActivity:
+		return conversation.InvocationModelRerouteReasonHighRiskCyberActivity, nil
+	default:
+		return "", fmt.Errorf("unsupported Director model reroute reason %q", reason)
+	}
+}
+
+func (port *directorCarrierPort) timestampAfter(startedAt time.Time) time.Time {
+	endedAt := port.now().UTC()
+	if endedAt.Before(startedAt) {
+		return startedAt
+	}
+	return endedAt
+}
+
+func cloneRuntimeStringPointer(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }
 
 // replyText prefers completed provider items, which are the authoritative

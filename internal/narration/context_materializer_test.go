@@ -776,9 +776,13 @@ func fakeSemanticProgressForIDs(
 		},
 		CreatedAt: narratorContextTestTime,
 		MeaningfulProgress: &conversation.NarratorSemanticProgress{
-			AssistantMessage: &conversation.NarratorSemanticAssistantMessage{
-				ProviderItemID: fmt.Sprintf("semantic-provider-message-%d", sequence),
-				Text:           fmt.Sprintf("Semantic progress %d completed.", sequence),
+			ActivityCompleted: &conversation.TrajectoryActivityCompleted{
+				Activity: conversation.TrajectoryActivity{
+					ID:    fmt.Sprintf("semantic-activity-%d", sequence),
+					Kind:  conversation.TrajectoryActivityDynamicTool,
+					Title: "Inspect the requested result",
+				},
+				Summary: fmt.Sprintf("Semantic progress %d completed.", sequence),
 			},
 		},
 	}

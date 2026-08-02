@@ -169,6 +169,11 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 	if err := validateSubmittedIntent(intent); err != nil {
 		return nil, err
 	}
+	activity, err := box.registry.Activity()
+	if err != nil {
+		return nil, err
+	}
+	pendingInputContext := directorPendingInputContext(activity.PendingApprovals)
 	return []SettaTool{
 		{
 			Name: "list_workspaces",
@@ -189,9 +194,38 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 			Description: "Report what Setta is doing right now: the app-wide counts, every tracked workstream " +
 				"with the narrator's own account of what it has come to, the approvals waiting for an answer, " +
 				"and the folders work is waiting for. Call this to answer \"what is happening?\" instead of " +
-				"guessing, and to get the ids resolve_approval and resolve_resource_request need.",
+				"guessing, and to get the ids resolve_approval and resolve_resource_request need." + pendingInputContext,
 			InputSchema: settaToolSchema(nil, nil),
 			Handler:     box.readActivity(intent),
+		},
+		{
+			Name: "resolve_approval",
+			Description: "Resolve an approval a run is waiting on, using an approvalId from the fresh current-turn " +
+				"activity observation or read_activity. " +
+				"Use the \"answered\" decision only for an interactive Worker request containing exactly one question. Setta relays the current " +
+				"user message verbatim; do not summarize it into an option label. " +
+				"If the approval contains multiple questions, tell the user to answer the request explicitly in the app. " +
+				"An approval marked secret is the user's to answer: tell them it is waiting instead of calling this." +
+				pendingInputContext,
+			InputSchema: settaToolSchema(map[string]any{
+				"approvalId": settaToolString("The approval id from the current-turn activity observation or read_activity.", MaxDecisionReferenceBytes),
+				"decision": settaToolEnum(
+					"What to answer the approval with.",
+					approvalDecisionValues(),
+				),
+			}, []string{"approvalId", "decision"}),
+			Handler: box.resolveApproval(intent),
+		},
+		{
+			Name: "request_user_choice",
+			Description: "Mark that no useful work or investigation can start without one material decision only the user " +
+				"can make. Use this rarely: do not ask for implementation details a worker can resolve from project evidence, " +
+				"an identified source of truth, existing context, or reasonable judgment. Make this the only action in the " +
+				"turn. After the receipt, ask exactly the supplied question in concise user-facing prose. This tool starts no work.",
+			InputSchema: settaToolSchema(map[string]any{
+				"question": settaToolString("The one outcome-changing question only the user can answer.", MaxDirectorReplyBytes),
+			}, []string{"question"}),
+			Handler: box.requestUserChoice(),
 		},
 		{
 			Name: "ask_conversation",
@@ -216,9 +250,12 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 		},
 		{
 			Name: "create_workstream",
-			Description: "Create a new workstream and select it. Supply workspaceId from list_workspaces when the " +
-				"work is about the files in that folder, or set it to null when it is not. Supply initialInput to " +
-				"start work immediately, or set it to null to create the workstream idle.",
+			Description: "Create and select an independent ongoing topic, not merely another task for a matching " +
+				"existing workstream. Supply workspaceId from list_workspaces when the " +
+				"work is about the files in that folder, or set it to null when it is not. Supply initialInput to start " +
+				"work immediately; the worker should investigate resolvable uncertainty before asking the user. Never " +
+				"use this to deliver an answer to a pending worker question; read_activity and resolve_approval own that." +
+				pendingInputContext,
 			InputSchema: settaToolSchema(map[string]any{
 				"title":       settaToolString("A short human title for the new workstream.", MaxDecisionTitleBytes),
 				"workspaceId": settaToolNullableString("The workspace id from list_workspaces, or null to create the workstream with no folder.", MaxDecisionReferenceBytes),
@@ -272,8 +309,12 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 		},
 		{
 			Name: "submit_work",
-			Description: "Send an instruction to an existing workstream. Setta starts it immediately when the " +
-				"workstream is idle and queues it behind the active run when it is busy.",
+			Description: "Send another task to an existing workstream whose topic matches the user's context. " +
+				"Setta starts it immediately when the " +
+				"workstream is idle and queues it behind the active run when it is busy. Let the worker investigate " +
+				"resolvable uncertainty instead of asking the user for implementation details up front. Never use this " +
+				"to deliver an answer to a pending worker question; read_activity and resolve_approval own that." +
+				pendingInputContext,
 			InputSchema: settaToolSchema(map[string]any{
 				"workstreamId": settaToolString("The workstream id from list_workstreams.", MaxDecisionReferenceBytes),
 				"input":        settaToolString("The instruction to run in that workstream.", MaxDecisionAuthoredInputBytes),
@@ -286,11 +327,18 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 		},
 		{
 			Name: "steer_work",
-			Description: "Change what the active run in a workstream is doing, without waiting for it to finish. " +
-				"Only valid while that workstream has a run in flight.",
+			Description: "Change the objective of the active run in a workstream, without waiting for it to finish. " +
+				"Treat the user's change as a patch: retain active requirements they did not explicitly change, and " +
+				"send one complete updated instruction without substituting inferred conventions. " +
+				"Do not use this for an additional task that should run later; submit that task instead. " +
+				"Do not use it to answer a pending worker question; use resolve_approval. " +
+				"Only valid while that workstream has a run in flight." + pendingInputContext,
 			InputSchema: settaToolSchema(map[string]any{
 				"workstreamId": settaToolString("The workstream id whose active run should change course.", MaxDecisionReferenceBytes),
-				"input":        settaToolString("The new instruction for the run in flight.", MaxDecisionAuthoredInputBytes),
+				"input": settaToolString(
+					"The complete updated instruction for the run in flight, preserving active requirements the user did not explicitly change.",
+					MaxDecisionAuthoredInputBytes,
+				),
 			}, []string{"workstreamId", "input"}),
 			Handler: box.steerWork(intent),
 		},
@@ -302,23 +350,6 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 				"workstreamId": settaToolString("The workstream whose run should stop.", MaxDecisionReferenceBytes),
 			}, []string{"workstreamId"}),
 			Handler: box.cancelRun(intent),
-		},
-		{
-			Name: "resolve_approval",
-			Description: "Answer an approval a run is waiting on, using an approvalId from read_activity. " +
-				"Supply answers only for the \"answered\" decision, one entry per question the approval asks. " +
-				"An approval marked secret is the user's to answer: tell them it is waiting instead of calling this.",
-			InputSchema: settaToolSchema(map[string]any{
-				"approvalId": settaToolString("The approval id from read_activity.", MaxDecisionReferenceBytes),
-				"decision": settaToolEnum(
-					"What to answer the approval with.",
-					approvalDecisionValues(),
-				),
-				"answers": settaToolApprovalAnswers(
-					"The structured answers for an \"answered\" decision, or null for every other decision.",
-				),
-			}, []string{"approvalId", "decision", "answers"}),
-			Handler: box.resolveApproval(),
 		},
 		{
 			Name: "resolve_resource_request",
@@ -353,6 +384,10 @@ type settaCreateWorkstreamArguments struct {
 
 type settaWorkstreamArguments struct {
 	WorkstreamID string `json:"workstreamId"`
+}
+
+type settaRequestUserChoiceArguments struct {
+	Question string `json:"question"`
 }
 
 // settaWorkArguments delivers new work, so it declares what that work needs
@@ -423,6 +458,22 @@ func (box *SettaToolbox) listWorkspaces(intent SubmittedIntent) SettaToolHandler
 			Tool:       "list_workspaces",
 			Summary:    fmt.Sprintf("%d workspace(s) are open.", len(decisionContext.Workspaces)),
 			Workspaces: append([]DecisionWorkspaceOption{}, decisionContext.Workspaces...),
+		}, nil
+	}
+}
+
+func (box *SettaToolbox) requestUserChoice() SettaToolHandler {
+	return func(_ context.Context, arguments json.RawMessage) (SettaToolReceipt, error) {
+		var decoded settaRequestUserChoiceArguments
+		if err := decodeSettaToolArguments(arguments, &decoded); err != nil {
+			return SettaToolReceipt{}, err
+		}
+		if err := validateDecisionText("user choice question", decoded.Question, MaxDirectorReplyBytes); err != nil {
+			return SettaToolReceipt{}, err
+		}
+		return SettaToolReceipt{
+			Tool:    "request_user_choice",
+			Summary: "Waiting for the user's answer before starting work.",
 		}, nil
 	}
 }

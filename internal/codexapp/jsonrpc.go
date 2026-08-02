@@ -156,12 +156,33 @@ func processEnvironment(inherited []string, overrides []string, excluded []strin
 	for _, name := range excluded {
 		excludedNames[name] = struct{}{}
 	}
-	result := make([]string, 0, len(inherited)+len(overrides))
-	for _, entry := range append(append([]string(nil), inherited...), overrides...) {
+	overrideIndexes := make(map[string]int, len(overrides))
+	for index, entry := range overrides {
 		name, _, _ := strings.Cut(entry, "=")
-		if _, blocked := excludedNames[name]; !blocked {
-			result = append(result, entry)
+		overrideIndexes[name] = index
+	}
+	// ProcessConfig.Env is an override boundary, so inherited entries with the
+	// same name must not remain earlier in the child process environment.
+	result := make([]string, 0, len(inherited)+len(overrides))
+	for _, entry := range inherited {
+		name, _, _ := strings.Cut(entry, "=")
+		if _, blocked := excludedNames[name]; blocked {
+			continue
 		}
+		if _, overridden := overrideIndexes[name]; overridden {
+			continue
+		}
+		result = append(result, entry)
+	}
+	for index, entry := range overrides {
+		name, _, _ := strings.Cut(entry, "=")
+		if _, blocked := excludedNames[name]; blocked {
+			continue
+		}
+		if overrideIndexes[name] != index {
+			continue
+		}
+		result = append(result, entry)
 	}
 	return result
 }

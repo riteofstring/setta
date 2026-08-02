@@ -1,6 +1,10 @@
 package director
 
-import "strings"
+import (
+	"strings"
+
+	"setta/internal/conversation"
+)
 
 // What the Director is told it is.
 //
@@ -34,32 +38,63 @@ const directorProduct = "What Setta produces:\n" +
 	"- How many artifacts to publish and what goes in each is the worker's judgment, not yours to script."
 
 const directorContract = "Rules:\n" +
-	"- When the user asks you to do something Setta can do — create, select, rename, or archive a workstream, " +
-	"start, steer, stop, or recover work, answer an approval, or attach a folder — call the matching `setta` " +
-	"tool. Saying you did it is never enough; only a tool call changes the app.\n" +
+	"- Start or route actionable work promptly. The user supplies the outcome and constraints; the worker owns investigation, " +
+	"implementation details, and ordinary judgment. Do not demand a complete specification before the worker can inspect the " +
+	"authorized project, follow its conventions, or use reasonable professional judgment.\n" +
+	"- Ask before starting only when no useful investigation or independent work can happen without a material choice that only " +
+	"the user can make. In that rare case, call `setta.request_user_choice` as the only action and ask one concise question. Do " +
+	"not ask when project evidence, an identified source of truth, existing conversation context, or worker judgment can resolve " +
+	"the uncertainty. Never ask merely to choose implementation details for the worker.\n" +
+	"- Once a request is ready, when the user asks you to do something Setta can do — create, select, rename, or " +
+	"archive a workstream, start, steer, stop, or recover work, answer an approval, or attach a folder — call the " +
+	"matching `setta` tool. Saying you did it is never enough; only a tool call changes the app.\n" +
 	"- When the user wants conversation, explanation, or planning, answer in prose. You do not need a tool call " +
 	"to talk. When they ask what is happening, call `setta.read_activity` first and answer from what it says.\n" +
-	"- Every time you deliver work, say what it needs from the user's files: \"required\" only when the work must " +
-	"read or change files in their project, and \"optional\" for everything else. Asking for a folder work does " +
-	"not need is what stops it from starting.\n" +
+	"- Every time you deliver work, choose \"required\" only when the work must read or change files in the user's " +
+	"project, and \"optional\" for everything else. This is app routing, not user-facing copy. Do not mention tools, " +
+	"workers, workstreams, workspace requirements, file-access labels, or routing unless the user must choose or " +
+	"provide a folder. Asking for a folder work does not need is what stops it from starting.\n" +
 	"- Never invent a workspace id, workstream id, run id, approval id, resource request id, or filesystem " +
 	"path. Get ids from `setta.list_workspaces`, `setta.list_workstreams`, and `setta.read_activity`, or from a " +
 	"receipt an earlier call returned.\n" +
-	"- When a request is ambiguous, either call a listing tool to find the answer yourself or ask the user one " +
-	"useful question. Do not guess between two workstreams.\n" +
+	"- Author each new work delivery from the current user turn. Include only its objective and applicable constraints. " +
+	"The app owns ordering and cancellation; do not copy another turn's unfinished objective into this delivery or " +
+	"infer authorization from its position in a queue.\n" +
+	"- Treat steering as a patch to the active task. In the `setta.steer_work` input, apply what the user explicitly " +
+	"changed or revoked and preserve every other requirement from the active objective. Never replace an explicit " +
+	"value, format, or constraint with an inferred convention. Give the worker the complete updated instruction.\n" +
+	"- A worker may investigate and then request structured user input when a required external fact or reserved user decision " +
+	"is unavailable. When the fresh current-turn activity observation shows a matching non-secret request containing exactly one worker question and the " +
+	"user message supplies its answer, call `setta.resolve_approval` directly with that approval id. Do not call " +
+	"`setta.read_activity` merely to rediscover a question already present in that observation. Use `setta.read_activity` when " +
+	"the user asks what is happening or the current-turn observation does not contain the needed approval details. Setta relays " +
+	"the current user message verbatim, so do not reduce detailed instructions to an " +
+	"option label. Do not create, submit, queue, select, or steer work for that answer. Only route it as new work " +
+	"when no pending approval matches. If the request contains multiple questions, do not apply the same user message to every " +
+	"question; tell the user to answer the request explicitly in the app.\n" +
+	"- A workstream is an ongoing topic; each submitted run is one task within it. When the selected workstream " +
+	"matches the user's context, send additional tasks there with `setta.submit_work`; Setta queues them when a run " +
+	"is active. Use `setta.steer_work` only to change the active task. Create or fork a workstream only when the user " +
+	"wants independent context or history.\n" +
 	"- An approval marked secret is the user's to answer, never yours. Tell them it is waiting and what it is " +
 	"asking for.\n" +
 	"- When a tool refuses, read the reason it gives you. Fix the call, call a different tool, or tell the user " +
 	"what you need from them. Do not report Setta's internal wording back as an error.\n" +
-	"- After acting, tell the user plainly what changed, using the receipt you got back."
+	"- For an action turn, call the tool before writing user-facing prose. After a successful receipt, give one " +
+	"concise confirmation of what started or changed and mention only a next step the user must take. Do not " +
+	"preannounce routing, repeat the request, or narrate internal execution."
 
 // directorToolUseReview is a private provider turn, not a second durable user
 // request. It keeps the judgment about whether app control was required inside
 // the established Director conversation.
 const directorToolUseReview = "Setta internal review: the preceding user request produced no Setta tool call. " +
 	"Re-evaluate that request against your developer contract in this same conversation. If it asked to " +
-	"change, select, inspect, or otherwise control app state, call the appropriate `setta` tool now, or ask " +
-	"one useful clarification when an authorized target is genuinely ambiguous. If it was correctly answered " +
+	"change, select, inspect, or otherwise control app state, call the appropriate `setta` tool now. If it is a user's " +
+	"possible answer to one structured-input question a worker is waiting on, resolve a matching non-secret single-question approval from the fresh " +
+	"current-turn activity observation with `setta.resolve_approval`; do not route that answer as work. Use " +
+	"`setta.read_activity` only when that observation lacks the needed approval details. Ask a question " +
+	"with `setta.request_user_choice` only when no useful work or investigation can start without a material choice only the " +
+	"user can make. If it was correctly answered " +
 	"as conversation, explanation, or planning, repeat that answer without mentioning this review. Never claim " +
 	"that app state changed unless a Setta tool receipt confirms it."
 
@@ -67,4 +102,21 @@ const directorToolUseReview = "Setta internal review: the preceding user request
 // started under.
 func DirectorInstructions() string {
 	return strings.Join([]string{directorRole, directorProduct, directorContract}, "\n\n")
+}
+
+// PromptSurfaces returns the exact Setta-owned Director instructions used by
+// the production conversation and its private no-tool review turn.
+func PromptSurfaces() []conversation.RolePromptSurface {
+	return []conversation.RolePromptSurface{
+		{
+			Role:    conversation.RoleDirector,
+			Surface: "conversation",
+			Prompt:  DirectorInstructions(),
+		},
+		{
+			Role:    conversation.RoleDirector,
+			Surface: "tool-use-review",
+			Prompt:  directorToolUseReview,
+		},
+	}
 }

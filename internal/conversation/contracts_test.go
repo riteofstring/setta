@@ -180,11 +180,84 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 		if !bytes.Contains(encoded, []byte(`"type":"`+string(kind)+`"`)) {
 			t.Errorf("marshaled %s event omits its payload discriminator: %s", kind, encoded)
 		}
+		decoded, err := DecodeConversationEvent(encoded)
+		if err != nil {
+			t.Errorf("decode %s wire event: %v", kind, err)
+			continue
+		}
+		if decoded.EventID != event.EventID || decoded.Type() != kind {
+			t.Errorf(
+				"decoded %s event = %s/%s, want %s/%s",
+				kind,
+				decoded.EventID,
+				decoded.Type(),
+				event.EventID,
+				kind,
+			)
+		}
 	}
 	for _, kind := range conversationEventTypeValues {
 		if !seen[kind] {
 			t.Errorf("conversation event type %s has no payload fixture", kind)
 		}
+	}
+}
+
+func TestDecodeConversationEventRejectsNonCurrentWireShapes(t *testing.T) {
+	snapshot := validConversationSnapshot()
+	streamID, err := ConversationStreamID(snapshot.Conversation.ID)
+	if err != nil {
+		t.Fatalf("conversation stream id: %v", err)
+	}
+	eventID, err := ConversationEventID(streamID, 1)
+	if err != nil {
+		t.Fatalf("conversation event id: %v", err)
+	}
+	event := ConversationEvent{
+		SchemaVersion:  ConversationContractSchemaVersion,
+		StreamID:       streamID,
+		Sequence:       1,
+		EventID:        eventID,
+		EmittedAt:      testTimeStarted,
+		WorkspaceID:    snapshot.Conversation.WorkspaceID,
+		ConversationID: snapshot.Conversation.ID,
+		Payload: ConversationTurnUpdatedEventPayload{
+			Type: ConversationEventTypeTurnUpdated,
+			Turn: snapshot.Turns.Turns[0],
+		},
+	}
+	encoded, err := json.Marshal(event)
+	if err != nil {
+		t.Fatalf("marshal conversation event: %v", err)
+	}
+
+	tests := map[string][]byte{
+		"unknown envelope field": bytes.Replace(
+			encoded,
+			[]byte(`"schemaVersion":1`),
+			[]byte(`"unexpected":true,"schemaVersion":1`),
+			1,
+		),
+		"unknown payload field": bytes.Replace(
+			encoded,
+			[]byte(`"type":"conversation.turn.updated"`),
+			[]byte(`"type":"conversation.turn.updated","unexpected":true`),
+			1,
+		),
+		"unknown payload type": bytes.Replace(
+			encoded,
+			[]byte(`"type":"conversation.turn.updated"`),
+			[]byte(`"type":"conversation.unknown"`),
+			1,
+		),
+		"trailing JSON value": append(append([]byte{}, encoded...), []byte(`{}`)...),
+	}
+	for name, payload := range tests {
+		t.Run(name, func(t *testing.T) {
+			if _, err := DecodeConversationEvent(payload); err == nil {
+				t.Fatal("non-current conversation event wire shape was accepted")
+			}
+		})
 	}
 }
 

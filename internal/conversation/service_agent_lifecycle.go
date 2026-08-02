@@ -37,6 +37,14 @@ func (service *Service) runTurn(active *activeConversationTurn) {
 		service.finishRunTurn(active, fmt.Errorf("resolve agent invocation: %w", err))
 		return
 	}
+	active.request.TokenUsageAttribution = agent.TokenUsageAttribution{
+		Bucket:          agent.TokenUsageBucketSystem,
+		Role:            agent.TokenUsageRoleAgent,
+		InvocationID:    invocationID,
+		Model:           resolved.Model,
+		ReasoningEffort: resolved.ReasoningEffort,
+		ServiceTier:     cloneStringPointer(resolved.ServiceTier),
+	}
 	_, err = service.agent.RunTurn(
 		service.lifecycleCtx,
 		active.request,

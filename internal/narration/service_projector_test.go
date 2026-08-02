@@ -755,9 +755,13 @@ func projectorProgressSemantic(
 		},
 		CreatedAt: serviceTestTimestamp,
 		MeaningfulProgress: &conversation.NarratorSemanticProgress{
-			AssistantMessage: &conversation.NarratorSemanticAssistantMessage{
-				ProviderItemID: fmt.Sprintf("projector-semantic-message-%d", sequence),
-				Text:           fmt.Sprintf("Projector semantic progress %d completed.", sequence),
+			ActivityCompleted: &conversation.TrajectoryActivityCompleted{
+				Activity: conversation.TrajectoryActivity{
+					ID:    fmt.Sprintf("projector-semantic-activity-%d", sequence),
+					Kind:  conversation.TrajectoryActivityDynamicTool,
+					Title: "Inspect the requested result",
+				},
+				Summary: fmt.Sprintf("Projector semantic progress %d completed.", sequence),
 			},
 		},
 	}

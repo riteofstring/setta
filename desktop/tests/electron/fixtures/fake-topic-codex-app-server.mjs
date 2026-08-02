@@ -133,7 +133,7 @@ function listModels(message) {
       fakeModel("gpt-5.6-sol", "high", true),
       fakeModel("gpt-5.6-terra", "medium", false),
       fakeModel("gpt-5.6-luna", "medium", false),
-      fakeModel("gpt-5.4-mini", "low", false),
+      fakeModel("gpt-5.4-mini", "high", false),
     ],
     nextCursor: null,
   });
@@ -725,19 +725,26 @@ function emitInterruptingTurnScenario(threadId, turnId, text) {
 }
 
 function emitFailingTurnScenario(threadId, turnId, text) {
-  if (text === "director fail" && failedDirectorInputs.has(text)) {
+  const objective = turnObjective(text);
+  if (objective === "director fail" && failedDirectorInputs.has(objective)) {
     emitAgentMessage(threadId, turnId, "Recovered director fail.");
     completeTurn(threadId, turnId, "completed");
     return true;
   }
-  if (!text.includes("fail")) {
+  if (!objective.includes("fail")) {
     return false;
   }
-  if (text === "director fail") {
-    failedDirectorInputs.add(text);
+  if (objective === "director fail") {
+    failedDirectorInputs.add(objective);
   }
   completeTurn(threadId, turnId, "failed", "Scripted topic failure");
   return true;
+}
+
+function turnObjective(text) {
+  const marker = "\n\nCurrent objective:\n";
+  const markerIndex = text.lastIndexOf(marker);
+  return markerIndex < 0 ? text : text.slice(markerIndex + marker.length);
 }
 
 function emitDirectorGraphBurst(threadId, turnId) {
@@ -1301,7 +1308,7 @@ function sandboxPolicy(mode) {
 }
 
 function modelReasoningEffort(model) {
-  if (model === "gpt-5.4-mini") return "low";
+  if (model === "gpt-5.4-mini") return "high";
   if (model === "gpt-5.6-terra") return "medium";
   if (model === "gpt-5.6-luna") return "medium";
   return "high";

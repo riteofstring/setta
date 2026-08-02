@@ -3,19 +3,46 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEST_TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/setta-plan-loop-test.XXXXXX")"
-trap 'rm -rf "${TEST_TMP_DIR}"' EXIT
+TEST_LOOP_PID=""
 
 TEST_REPO="${TEST_TMP_DIR}/repo"
 TEST_BIN="${TEST_TMP_DIR}/bin"
 TEST_OUTPUT="${TEST_TMP_DIR}/output"
+TEST_BLOCKED_OUTPUT="${TEST_TMP_DIR}/blocked-output"
+TEST_TERMINATION_OUTPUT="${TEST_TMP_DIR}/termination-output"
 TEST_REFERENCE_REPO="${TEST_TMP_DIR}/codex-reference"
 TEST_AGENT_STATE="${TEST_TMP_DIR}/agent-call-count"
+TEST_AGENT_CHILD_PID="${TEST_TMP_DIR}/agent-child-pid"
+
+cleanup_test() {
+  local cleanup_child_pid=""
+
+  if [[ "${TEST_LOOP_PID}" =~ ^[1-9][0-9]*$ ]] \
+    && kill -0 "${TEST_LOOP_PID}" 2>/dev/null; then
+    kill -TERM "${TEST_LOOP_PID}" 2>/dev/null || true
+    wait "${TEST_LOOP_PID}" 2>/dev/null || true
+  fi
+
+  if [[ -s "${TEST_AGENT_CHILD_PID}" ]]; then
+    read -r cleanup_child_pid <"${TEST_AGENT_CHILD_PID}"
+    if [[ "${cleanup_child_pid}" =~ ^[1-9][0-9]*$ ]] \
+      && kill -0 "${cleanup_child_pid}" 2>/dev/null; then
+      kill -KILL "${cleanup_child_pid}" 2>/dev/null || true
+    fi
+  fi
+
+  rm -rf "${TEST_TMP_DIR}"
+}
+
+trap cleanup_test EXIT
 
 mkdir -p \
   "${TEST_REPO}/scripts/automation/codex-loop" \
   "${TEST_REPO}/docs" \
   "${TEST_BIN}" \
   "${TEST_OUTPUT}" \
+  "${TEST_BLOCKED_OUTPUT}" \
+  "${TEST_TERMINATION_OUTPUT}" \
   "${TEST_REFERENCE_REPO}"
 cp \
   "${SCRIPT_DIR}/run-plan-implementation-loop.sh" \
@@ -34,9 +61,10 @@ model=""
 effort=""
 skip_permissions="0"
 no_session_persistence="0"
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    -p|--print)
+    --print)
       print_mode="1"
       shift
       ;;
@@ -72,11 +100,15 @@ if [[ "${print_mode}" != "1" ]]; then
   exit 1
 fi
 if [[ "${output_format}" != "text" ]]; then
-  echo "expected text output format" >&2
+  echo "claude output format = ${output_format}, want text" >&2
   exit 1
 fi
-if [[ "${effort}" != "xhigh" ]]; then
-  echo "effort = ${effort}, want xhigh" >&2
+if [[ "${model}" != "agent-1-test-model" ]]; then
+  echo "claude model = ${model}, want agent-1-test-model" >&2
+  exit 1
+fi
+if [[ "${effort}" != "high" ]]; then
+  echo "claude effort = ${effort}, want high" >&2
   exit 1
 fi
 if [[ "${skip_permissions}" != "1" ]]; then
@@ -95,30 +127,56 @@ fi
 call_count="$((call_count + 1))"
 printf '%s\n' "${call_count}" >"${FAKE_AGENT_STATE}"
 
-expected_model=""
-case "${call_count}" in
-  1|2|4)
-    expected_model="claude-opus-5"
+case "${FAKE_AGENT_MODE:-complete}" in
+  blocked)
+    if [[ "${call_count}" -ne 1 ]] || [[ "${prompt}" != *"PLAN_IMPLEMENTATION_BLOCKED"* ]]; then
+      echo "blocked mode did not receive the Agent 1 blocker contract" >&2
+      exit 1
+    fi
+    git -C "${repo}" commit --allow-empty --quiet -m "test: record implementation blocker"
+    printf 'PLAN_IMPLEMENTATION_BLOCKED\n'
+    exit 0
+    ;;
+  hang)
+    if [[ "${call_count}" -ne 1 ]] || [[ -z "${FAKE_AGENT_CHILD_PID:-}" ]]; then
+      echo "hang mode is missing its child-process contract" >&2
+      exit 1
+    fi
+    sleep 300 &
+    child_pid="$!"
+    printf '%s\n' "${child_pid}" >"${FAKE_AGENT_CHILD_PID}"
+    wait "${child_pid}"
+    exit 0
+    ;;
+  complete)
     ;;
   *)
-    echo "unexpected Claude call ${call_count}" >&2
+    echo "unsupported fake Agent mode ${FAKE_AGENT_MODE}" >&2
     exit 1
     ;;
 esac
-if [[ "${model}" != "${expected_model}" ]]; then
-  echo "model = ${model}, want ${expected_model}" >&2
-  exit 1
-fi
 
 case "${call_count}" in
   1)
+    if [[ "${prompt}" != *"Before acting, inspect docs/plan.md"* ]]; then
+      echo "first agent call was not an implementation batch" >&2
+      exit 1
+    fi
     git -C "${repo}" commit --allow-empty --quiet -m "test: coherent implementation batch"
     printf 'Committed a coherent implementation batch.\n'
     ;;
   2)
+    if [[ "${prompt}" != *"Before acting, inspect docs/plan.md"* ]]; then
+      echo "second agent call was not an implementation batch" >&2
+      exit 1
+    fi
     printf 'PLAN_PHASE_READY_FOR_AUDIT\n'
     ;;
   4)
+    if [[ "${prompt}" != *"Before acting, inspect docs/plan.md"* ]]; then
+      echo "fourth agent call was not an implementation batch" >&2
+      exit 1
+    fi
     printf 'PLAN_IMPLEMENTATION_READY_FOR_FINAL_AUDIT\n'
     ;;
   *)
@@ -138,7 +196,6 @@ prompt=""
 model=""
 effort_config=""
 sandbox=""
-approval_policy=""
 bypass_permissions="0"
 ephemeral="0"
 cd_arg=""
@@ -164,10 +221,6 @@ while [[ $# -gt 0 ]]; do
       sandbox="$2"
       shift 2
       ;;
-    --ask-for-approval|-a)
-      approval_policy="$2"
-      shift 2
-      ;;
     --dangerously-bypass-approvals-and-sandbox)
       bypass_permissions="1"
       shift
@@ -191,20 +244,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "${model}" != "gpt-5.6-sol" ]]; then
-  echo "codex model = ${model}, want gpt-5.6-sol" >&2
-  exit 1
-fi
-if [[ "${effort_config}" != 'model_reasoning_effort="max"' ]]; then
-  echo "codex effort config = ${effort_config}, want model_reasoning_effort=\"max\"" >&2
-  exit 1
-fi
 if [[ "${sandbox}" != "danger-full-access" ]]; then
   echo "codex sandbox = ${sandbox}, want danger-full-access" >&2
-  exit 1
-fi
-if [[ "${approval_policy}" != "never" ]]; then
-  echo "codex approval policy = ${approval_policy}, want never" >&2
   exit 1
 fi
 if [[ "${bypass_permissions}" != "1" ]]; then
@@ -230,6 +271,25 @@ if [[ -f "${FAKE_AGENT_STATE}" ]]; then
 fi
 call_count="$((call_count + 1))"
 printf '%s\n' "${call_count}" >"${FAKE_AGENT_STATE}"
+
+case "${call_count}" in
+  3|5)
+    expected_model="agent-2-test-model"
+    expected_effort_config='model_reasoning_effort="low"'
+    ;;
+  *)
+    echo "unexpected Codex call ${call_count}" >&2
+    exit 1
+    ;;
+esac
+if [[ "${model}" != "${expected_model}" ]]; then
+  echo "codex model = ${model}, want ${expected_model}" >&2
+  exit 1
+fi
+if [[ "${effort_config}" != "${expected_effort_config}" ]]; then
+  echo "codex effort config = ${effort_config}, want ${expected_effort_config}" >&2
+  exit 1
+fi
 
 case "${call_count}" in
   3)
@@ -268,6 +328,12 @@ PATH="${TEST_BIN}:${PATH}" \
   docs/plan.md \
   --codex-reference-repo "${TEST_REFERENCE_REPO}" \
   --output-dir "${TEST_OUTPUT}" \
+  --agent-1-runner claude \
+  --agent-1-model agent-1-test-model \
+  --agent-1-reasoning-effort high \
+  --agent-2-runner codex \
+  --agent-2-model agent-2-test-model \
+  --agent-2-reasoning-effort low \
   --progress-log-interval-seconds 0 \
   >"${TEST_TMP_DIR}/loop.log"
 
@@ -289,4 +355,83 @@ if [[ ! -s "${TEST_OUTPUT}/iteration-0003/agent-2.status.txt" ]]; then
   exit 1
 fi
 
-printf 'Plan loop cadence test passed.\n'
+printf '0\n' >"${TEST_AGENT_STATE}"
+set +e
+PATH="${TEST_BIN}:${PATH}" \
+  FAKE_AGENT_MODE=blocked \
+  FAKE_AGENT_STATE="${TEST_AGENT_STATE}" \
+  "${TEST_REPO}/scripts/automation/codex-loop/run-plan-implementation-loop.sh" \
+  docs/plan.md \
+  --codex-reference-repo "${TEST_REFERENCE_REPO}" \
+  --output-dir "${TEST_BLOCKED_OUTPUT}" \
+  --agent-1-runner claude \
+  --agent-1-model agent-1-test-model \
+  --agent-1-reasoning-effort high \
+  --agent-2-runner codex \
+  --agent-2-model agent-2-test-model \
+  --agent-2-reasoning-effort low \
+  --progress-log-interval-seconds 0 \
+  >"${TEST_TMP_DIR}/blocked-loop.log"
+blocked_status="$?"
+set -e
+if [[ "${blocked_status}" -ne 3 ]]; then
+  echo "Blocked loop exit = ${blocked_status}, want 3" >&2
+  exit 1
+fi
+read -r agent_call_count <"${TEST_AGENT_STATE}"
+if [[ "${agent_call_count}" -ne 1 ]]; then
+  echo "Blocked Agent call count = ${agent_call_count}, want 1" >&2
+  exit 1
+fi
+
+printf '0\n' >"${TEST_AGENT_STATE}"
+PATH="${TEST_BIN}:${PATH}" \
+  FAKE_AGENT_CHILD_PID="${TEST_AGENT_CHILD_PID}" \
+  FAKE_AGENT_MODE=hang \
+  FAKE_AGENT_STATE="${TEST_AGENT_STATE}" \
+  "${TEST_REPO}/scripts/automation/codex-loop/run-plan-implementation-loop.sh" \
+  docs/plan.md \
+  --codex-reference-repo "${TEST_REFERENCE_REPO}" \
+  --output-dir "${TEST_TERMINATION_OUTPUT}" \
+  --agent-1-runner claude \
+  --agent-1-model agent-1-test-model \
+  --agent-1-reasoning-effort high \
+  --agent-2-runner codex \
+  --agent-2-model agent-2-test-model \
+  --agent-2-reasoning-effort low \
+  --progress-log-interval-seconds 0 \
+  >"${TEST_TMP_DIR}/termination-loop.log" &
+TEST_LOOP_PID="$!"
+
+for ((wait_attempt = 0; wait_attempt < 100; wait_attempt += 1)); do
+  if [[ -s "${TEST_AGENT_CHILD_PID}" ]]; then
+    break
+  fi
+  if ! kill -0 "${TEST_LOOP_PID}" 2>/dev/null; then
+    echo "Termination loop exited before its child started" >&2
+    exit 1
+  fi
+  sleep 0.1
+done
+if [[ ! -s "${TEST_AGENT_CHILD_PID}" ]]; then
+  echo "Termination loop did not expose its child pid" >&2
+  exit 1
+fi
+read -r agent_child_pid <"${TEST_AGENT_CHILD_PID}"
+kill -TERM "${TEST_LOOP_PID}"
+set +e
+wait "${TEST_LOOP_PID}"
+termination_status="$?"
+set -e
+TEST_LOOP_PID=""
+if [[ "${termination_status}" -ne 130 ]]; then
+  echo "Terminated loop exit = ${termination_status}, want 130" >&2
+  exit 1
+fi
+if kill -0 "${agent_child_pid}" 2>/dev/null; then
+  kill -KILL "${agent_child_pid}" 2>/dev/null || true
+  echo "Terminated loop left Agent child ${agent_child_pid} running" >&2
+  exit 1
+fi
+
+printf 'Plan loop cadence, blocked-exit, and process-cleanup tests passed.\n'

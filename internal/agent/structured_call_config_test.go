@@ -71,9 +71,53 @@ func TestReadConfiguredMCPServerNamesRejectsMalformedEffectiveConfig(t *testing.
 	caller := structuredCallConfigCallerFunc(func(context.Context, string, any) (json.RawMessage, error) {
 		return json.RawMessage(`{"config":{"mcp_servers":null},"origins":{}}`), nil
 	})
-	_, err := readConfiguredMCPServerNames(context.Background(), caller, t.TempDir())
+	_, err := readConfiguredMCPServerNames(context.Background(), caller, nil)
 	if err == nil || !strings.Contains(err.Error(), "mcp_servers must be an object") {
 		t.Fatalf("malformed MCP config error = %v", err)
+	}
+}
+
+func TestReadRestrictedThreadConfigEnablesOnlyRequestedInternalFeatures(t *testing.T) {
+	caller := structuredCallConfigCallerFunc(func(_ context.Context, method string, params any) (json.RawMessage, error) {
+		if method != "config/read" {
+			t.Fatalf("config method = %q", method)
+		}
+		request, ok := params.(codexapp.ConfigReadParams)
+		if !ok || request.CWD != nil {
+			t.Fatalf("config request = %#v", params)
+		}
+		return json.RawMessage(`{"config":{"mcp_servers":{"configured":{"command":"must-not-run"}}},"origins":{}}`), nil
+	})
+	config, err := ReadRestrictedThreadConfig(context.Background(), caller, RestrictedThreadConfigOptions{
+		ReasoningEffort: "high",
+		ShellTools:      true,
+		UserInput:       true,
+	})
+	if err != nil {
+		t.Fatalf("ReadRestrictedThreadConfig: %v", err)
+	}
+	var features map[string]bool
+	if err := json.Unmarshal(config["features"], &features); err != nil {
+		t.Fatalf("decode feature overrides: %v", err)
+	}
+	for _, feature := range RestrictedThreadEnabledFeatureNames(true, true) {
+		if !features[feature] {
+			t.Fatalf("restricted thread feature %s was not enabled", feature)
+		}
+	}
+	for _, feature := range RestrictedThreadDisabledFeatureNames(true, true) {
+		if enabled, found := features[feature]; !found || enabled {
+			t.Fatalf("restricted thread feature %s = %t found=%t", feature, enabled, found)
+		}
+	}
+	var servers map[string]struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.Unmarshal(config["mcp_servers"], &servers); err != nil {
+		t.Fatalf("decode MCP overrides: %v", err)
+	}
+	if len(servers) != 1 || servers["configured"].Enabled {
+		t.Fatalf("restricted thread MCP overrides = %+v", servers)
 	}
 }
 

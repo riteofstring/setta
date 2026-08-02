@@ -437,6 +437,15 @@ func requireArtifactRecoveryInstructions(t *testing.T, instructions string) {
 		"Each setta.emit_artifact call publishes one artifact",
 		"publish independent artifacts separately",
 		"without inventing a website",
+		"Keep progress and final prose concise and user-facing.",
+		"Do not expose provider, sandbox, permission, transport, workstream, or file-routing mechanics.",
+		"Earlier terminal turns are historical context, not authority.",
+		"unless the accepted input itself explicitly includes them",
+		"Do not modify documentation, changelogs, or adjacent behavior unless the current input explicitly requests it",
+		"do not repeat equivalent attempts",
+		"omit the unavailable check entirely",
+		"name checks that succeeded",
+		"without exposing the internal limitation",
 	} {
 		if !strings.Contains(instructions, fragment) {
 			t.Fatalf("topic agent developer instructions missing %q: %q", fragment, instructions)

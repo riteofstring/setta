@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"setta/internal/agent"
 	"setta/internal/conversation"
@@ -52,6 +53,110 @@ func TestDirectorTurnSinkPrefersCompletedAssistantText(t *testing.T) {
 	}
 }
 
+func TestDirectorTurnSinkKeepsOnlyTextAfterTheLastToolCall(t *testing.T) {
+	sink := &directorTurnSink{}
+	events := []agent.Event{
+		{
+			Kind: agent.EventKindAgentTextCompleted,
+			Text: &agent.TextEvent{ProviderItemID: "preamble", Text: "I'll route this now."},
+		},
+		{
+			Kind: agent.EventKindActivityStarted,
+			Activity: &agent.ActivityEvent{
+				ProviderItemID: "setta-call",
+				Kind:           agent.ActivityKindDynamicTool,
+			},
+		},
+		{
+			Kind: agent.EventKindAgentTextCompleted,
+			Text: &agent.TextEvent{ProviderItemID: "confirmation", Text: "Started the requested work."},
+		},
+	}
+	for _, event := range events {
+		if err := sink.HandleAgentEvent(event); err != nil {
+			t.Fatalf("HandleAgentEvent: %v", err)
+		}
+	}
+	if reply := sink.replyText(); reply != "Started the requested work." {
+		t.Fatalf("Director reply = %q, want post-tool confirmation", reply)
+	}
+}
+
+func TestRunDirectorTurnCarriesOneResolvedInvocationThroughTokenAccountingAndProviderResult(t *testing.T) {
+	provider := &recordingDirectorProvider{
+		runEvents: []agent.Event{
+			{
+				Kind: agent.EventKindModelRerouted,
+				ModelReroute: &agent.ModelRerouteEvent{
+					FromModel: "gpt-5.6-sol",
+					ToModel:   "gpt-5.6-terra",
+					Reason:    agent.ModelRerouteReasonHighRiskCyberActivity,
+				},
+			},
+			{
+				Kind: agent.EventKindAgentTextCompleted,
+				Text: &agent.TextEvent{ProviderItemID: "director-message", Text: "The work is underway."},
+			},
+		},
+		runResult: agent.TurnResult{
+			ProviderThreadID: "provider-director-carrier",
+			ProviderTurnID:   "provider-director-turn",
+			Outcome:          agent.TurnOutcomeCompleted,
+		},
+	}
+	port, err := newDirectorCarrierPort(
+		staticDirectorRoleResolver{configuration: directorCarrierTestRoleConfiguration(t)},
+		provider,
+		"/tmp/setta-director-carrier-test",
+	)
+	if err != nil {
+		t.Fatalf("newDirectorCarrierPort: %v", err)
+	}
+	port.newID = func(prefix string) (string, error) { return prefix + "-test", nil }
+	times := []time.Time{
+		time.Date(2026, time.July, 31, 12, 0, 0, 0, time.UTC),
+		time.Date(2026, time.July, 31, 12, 0, 1, 0, time.UTC),
+	}
+	port.now = func() time.Time {
+		value := times[0]
+		times = times[1:]
+		return value
+	}
+
+	turn, err := port.RunDirectorTurn(context.Background(), director.DirectorTurnRequest{
+		Carrier: conversation.Carrier{
+			OwnerID:  "director-owner",
+			ThreadID: "provider-director-carrier",
+		},
+		TurnID: "director-intent",
+		Text:   "Start the work.",
+		Tools:  []director.SettaTool{directorCarrierTestTool()},
+	})
+	if err != nil {
+		t.Fatalf("RunDirectorTurn: %v", err)
+	}
+	if turn.ReplyText != "The work is underway." {
+		t.Fatalf("Director reply = %q", turn.ReplyText)
+	}
+	if err := turn.Invocation.Validate(); err != nil {
+		t.Fatalf("Director resolved invocation: %v", err)
+	}
+	if turn.Invocation.ID != "director_invocation-test" ||
+		turn.Invocation.ProviderReferences.TurnID == nil ||
+		*turn.Invocation.ProviderReferences.TurnID != "provider-director-turn" ||
+		len(turn.Invocation.ModelReroutes) != 1 {
+		t.Fatalf("Director resolved invocation = %+v", turn.Invocation)
+	}
+	attribution := provider.runRequest.TokenUsageAttribution
+	if attribution.Bucket != agent.TokenUsageBucketSystem ||
+		attribution.Role != agent.TokenUsageRoleDirector ||
+		attribution.InvocationID != turn.Invocation.ID ||
+		attribution.Model != turn.Invocation.Resolved.ModelID ||
+		attribution.ReasoningEffort != string(turn.Invocation.Resolved.ReasoningEffort) {
+		t.Fatalf("Director token attribution = %+v", attribution)
+	}
+}
+
 // The Director reaches Codex the way every other Setta conversation does: an
 // ephemeral carrier, opened with its own tools, seeded with the durable history
 // Setta already owns.
@@ -82,6 +187,7 @@ func TestStartDirectorCarrierIsEphemeralAndReplaysDurableHistory(t *testing.T) {
 	}
 	start := provider.start
 	if !start.Ephemeral ||
+		start.EnableShellTools ||
 		start.DeveloperInstructions != "Coordinate Setta work." ||
 		len(start.DynamicTools) != 1 ||
 		start.DynamicTools[0].Namespace != director.SettaToolNamespace {
@@ -207,6 +313,10 @@ type recordingDirectorProvider struct {
 	injected     []agent.InjectedTextItem
 	replayErr    error
 	cleanupErr   error
+	runRequest   agent.TurnRequest
+	runEvents    []agent.Event
+	runResult    agent.TurnResult
+	runErr       error
 	unsubscribed []string
 }
 
@@ -232,11 +342,23 @@ func (provider *recordingDirectorProvider) InjectItems(
 }
 
 func (provider *recordingDirectorProvider) RunTurn(
-	context.Context,
-	agent.TurnRequest,
-	agent.EventSink,
+	_ context.Context,
+	request agent.TurnRequest,
+	sink agent.EventSink,
 ) (agent.TurnResult, error) {
-	return agent.TurnResult{}, errors.New("unexpected Director test turn")
+	provider.runRequest = request
+	if provider.runErr != nil {
+		return agent.TurnResult{}, provider.runErr
+	}
+	if provider.runResult.ProviderTurnID == "" {
+		return agent.TurnResult{}, errors.New("unexpected Director test turn")
+	}
+	for _, event := range provider.runEvents {
+		if err := sink.HandleAgentEvent(event); err != nil {
+			return agent.TurnResult{}, err
+		}
+	}
+	return provider.runResult, nil
 }
 
 func (provider *recordingDirectorProvider) UnsubscribeThread(

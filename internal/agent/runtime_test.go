@@ -46,6 +46,35 @@ func TestRuntimeThreadPrimitivesAndModelCatalog(t *testing.T) {
 	assertFakeModelResolution(t, ctx, runtime)
 }
 
+func TestRuntimeRestrictedThreadsDisableExternalToolsBeforeStart(t *testing.T) {
+	runtime := newFakeRuntimeWithExternalToolRestriction(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	workspace := t.TempDir()
+
+	for _, test := range []struct {
+		name       string
+		shellTools bool
+		marker     string
+	}{
+		{name: "execution tools", shellTools: true, marker: "EXPECT_SHELL_TOOLS_ENABLED"},
+		{name: "dynamic tools only", marker: "EXPECT_SHELL_TOOLS_DISABLED"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := runtime.StartThread(ctx, StartThreadRequest{
+				WorkspaceRoot:         workspace,
+				Invocation:            testInvocation(),
+				Ephemeral:             true,
+				DeveloperInstructions: test.marker,
+				EnableShellTools:      test.shellTools,
+			})
+			if err != nil {
+				t.Fatalf("start restricted thread: %v", err)
+			}
+		})
+	}
+}
+
 func TestForkThreadParamsPinsReasoningAndClearsInheritedServiceTier(t *testing.T) {
 	params, err := forkThreadParams(ForkThreadRequest{
 		ParentThreadID: "thread-parent",
@@ -73,6 +102,46 @@ func TestForkThreadParamsPinsReasoningAndClearsInheritedServiceTier(t *testing.T
 	}
 	if !strings.Contains(string(encoded), `"serviceTier":null`) {
 		t.Fatalf("fork params = %s, want explicit null service tier", encoded)
+	}
+}
+
+func TestThreadConfigsEnableUserInputWithoutReasoningOverride(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		build func() (*map[string]json.RawMessage, error)
+	}{
+		{
+			name: "start",
+			build: func() (*map[string]json.RawMessage, error) {
+				return modelThreadConfig(Invocation{}, true)
+			},
+		},
+		{
+			name: "fork",
+			build: func() (*map[string]json.RawMessage, error) {
+				return forkThreadConfig(Invocation{}, true)
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config, err := test.build()
+			if err != nil {
+				t.Fatalf("build thread config: %v", err)
+			}
+			if config == nil {
+				t.Fatal("thread config omitted the requested user-input feature")
+			}
+			var features map[string]bool
+			if err := json.Unmarshal((*config)["features"], &features); err != nil {
+				t.Fatalf("decode thread features: %v", err)
+			}
+			if len(features) != 1 || !features[restrictedThreadUserInputFeatureName] {
+				t.Fatalf("thread features = %#v", features)
+			}
+			if _, found := (*config)["model_reasoning_effort"]; found {
+				t.Fatal("thread config invented a reasoning override")
+			}
+		})
 	}
 }
 
@@ -498,12 +567,21 @@ func TestAgentRuntimeFakeAppServer(t *testing.T) {
 }
 
 func newFakeRuntime(t *testing.T) *Runtime {
+	return newConfiguredFakeRuntime(t, false)
+}
+
+func newFakeRuntimeWithExternalToolRestriction(t *testing.T) *Runtime {
+	return newConfiguredFakeRuntime(t, true)
+}
+
+func newConfiguredFakeRuntime(t *testing.T, restrictExternalTools bool) *Runtime {
 	t.Helper()
 	runtime := NewRuntime(Config{
-		Command: os.Args[0],
-		Args:    []string{"-test.run=TestAgentRuntimeFakeAppServer", "--"},
-		Env:     append(os.Environ(), "SETTA_AGENT_FAKE_APP_SERVER=1"),
-		Version: "test",
+		Command:               os.Args[0],
+		Args:                  []string{"-test.run=TestAgentRuntimeFakeAppServer", "--"},
+		Env:                   append(os.Environ(), "SETTA_AGENT_FAKE_APP_SERVER=1"),
+		RestrictExternalTools: restrictExternalTools,
+		Version:               "test",
 	})
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -533,6 +611,13 @@ func testTurnRequest(index int, threadID string, workspace string, text string) 
 		Text:             text,
 		WorkspaceRoot:    workspace,
 		Invocation:       testInvocation(),
+		TokenUsageAttribution: TokenUsageAttribution{
+			Bucket:          TokenUsageBucketSystem,
+			Role:            TokenUsageRoleAgent,
+			InvocationID:    "invocation-" + string(rune('a'+index)),
+			Model:           "gpt-agent-test",
+			ReasoningEffort: "high",
+		},
 	}
 }
 

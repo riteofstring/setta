@@ -78,8 +78,6 @@ export const ipcEvents = {
   directorEvent: "director:event",
   runtimeConnectionState: "runtimes:connection-state",
   speechCredentialSettingsChanged: "speech:credential-settings-changed",
-  speechLocalMacOSVoiceModelDownloadChanged: "speech:local-macos-voice-model-download-changed",
-  speechProviderSelectionChanged: "speech:provider-selection-changed",
 } as const;
 
 interface IpcContract

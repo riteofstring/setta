@@ -74,7 +74,10 @@ func (request TurnRequest) Validate() error {
 	if err := validateDynamicTools(request.DynamicTools); err != nil {
 		return err
 	}
-	return request.Invocation.Validate()
+	if err := request.Invocation.Validate(); err != nil {
+		return err
+	}
+	return validateTokenUsageAttributionForInvocation(request.TokenUsageAttribution, request.Invocation)
 }
 
 func (request TurnControlRequest) Validate(requireText bool) error {

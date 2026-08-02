@@ -161,35 +161,28 @@ func (service *Service) SynthesizeSpeech(
 	return audio, nil
 }
 
-func (service *Service) ResolveSynthesisInput(
-	ctx context.Context,
-	request SpeechSynthesisRequest,
-) (SpeechSynthesisInput, error) {
-	return service.resolveSynthesisInput(ctx, request)
-}
-
 func (service *Service) resolveSynthesisInput(
 	ctx context.Context,
 	request SpeechSynthesisRequest,
-) (SpeechSynthesisInput, error) {
+) (resolvedSynthesisInput, error) {
 	if err := request.Validate(); err != nil {
-		return SpeechSynthesisInput{}, err
+		return resolvedSynthesisInput{}, err
 	}
 	if service.sourceResolver == nil {
-		return SpeechSynthesisInput{}, errors.New("speech source resolver is required")
+		return resolvedSynthesisInput{}, errors.New("speech source resolver is required")
 	}
 	resolved, err := service.sourceResolver.ResolveSpeechSource(ctx, request.Source)
 	if err != nil {
-		return SpeechSynthesisInput{}, err
+		return resolvedSynthesisInput{}, err
 	}
 	if err := resolved.Validate(); err != nil {
-		return SpeechSynthesisInput{}, fmt.Errorf("validate resolved speech source: %w", err)
+		return resolvedSynthesisInput{}, fmt.Errorf("validate resolved speech source: %w", err)
 	}
 	if !equalSpeechSources(resolved.Source, request.Source) {
-		return SpeechSynthesisInput{}, SourceUnavailable("The requested speech source no longer matches the persisted event.", nil)
+		return resolvedSynthesisInput{}, SourceUnavailable("The requested speech source no longer matches the persisted event.", nil)
 	}
 	if resolved.ResolvedVoiceID != request.ResolvedVoiceID {
-		return SpeechSynthesisInput{}, SourceUnavailable(
+		return resolvedSynthesisInput{}, SourceUnavailable(
 			fmt.Sprintf(
 				"The requested speech source now resolves to voice %q instead of %q.",
 				resolved.ResolvedVoiceID,
@@ -198,15 +191,15 @@ func (service *Service) resolveSynthesisInput(
 			nil,
 		)
 	}
-	input := SpeechSynthesisInput{
+	input := resolvedSynthesisInput{
 		Provider:        request.Provider,
 		Source:          cloneSpeechSource(resolved.Source),
 		Text:            resolved.Text,
 		ResolvedVoiceID: resolved.ResolvedVoiceID,
 		Rate:            AssistantSynthesisRate,
 	}
-	if err := ValidateSpeechSynthesisInput(input); err != nil {
-		return SpeechSynthesisInput{}, fmt.Errorf("validate resolved speech synthesis input: %w", err)
+	if err := validateResolvedSynthesisInput(input); err != nil {
+		return resolvedSynthesisInput{}, fmt.Errorf("validate resolved speech synthesis input: %w", err)
 	}
 	return input, nil
 }
@@ -464,8 +457,6 @@ func speechCredentialStatus(controller ProviderController) (SpeechCredentialStat
 
 func speechProviderDisplayName(provider SpeechProvider) string {
 	switch provider {
-	case SpeechProviderLocalMacOS:
-		return "Local macOS"
 	case SpeechProviderOpenAI:
 		return "OpenAI"
 	default:

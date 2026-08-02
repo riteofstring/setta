@@ -5,12 +5,12 @@ package conversation
 // only its typed app-control tools and replays the durable Director
 // conversation.
 func DefaultDirectorRoleProfile() RoleProfile {
-	modelID := "gpt-5.6-terra"
+	modelID := "gpt-5.6-sol"
 	return RoleProfile{
 		Role:            RoleDirector,
 		Provider:        ProviderCodex,
 		ModelSelection:  ModelSelection{Mode: ModelSelectionExact, ModelID: &modelID},
-		ReasoningEffort: ReasoningEffortMedium,
+		ReasoningEffort: ReasoningEffortHigh,
 		PermissionProfile: PermissionProfile{
 			ApprovalPolicy:            ApprovalPolicyNever,
 			ProviderPermissionProfile: ":read-only",
@@ -49,15 +49,16 @@ func DefaultAgentRoleProfile() RoleProfile {
 }
 
 // DefaultNarratorRoleProfile is deliberately exact and lightweight. Narrator
-// calls receive only supplied context and cannot use tools, mutate a workspace,
-// or request approvals.
+// calls receive only typed supplied context and cannot use tools, mutate a
+// workspace, or request approvals, so concise user-facing projections do not
+// need the cost of a primary coding model.
 func DefaultNarratorRoleProfile() RoleProfile {
 	modelID := "gpt-5.4-mini"
 	return RoleProfile{
 		Role:            RoleNarrator,
 		Provider:        ProviderCodex,
 		ModelSelection:  ModelSelection{Mode: ModelSelectionExact, ModelID: &modelID},
-		ReasoningEffort: ReasoningEffortLow,
+		ReasoningEffort: ReasoningEffortHigh,
 		PermissionProfile: PermissionProfile{
 			ApprovalPolicy:            ApprovalPolicyNever,
 			ProviderPermissionProfile: ":read-only",

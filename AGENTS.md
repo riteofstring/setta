@@ -39,6 +39,7 @@
 - Tests must use temporary directories, never mutate real git history in this repo or any non-disposable developer worktree, and exercise production paths instead of mocks or test-only paths. Skips must be narrow and justified; missing dependencies or capabilities should usually fail loudly.
 - Do not add tautological tests or generator drift tests that only rerun generators or formatters and compare checked-in artifacts against current output.
 - During user-requested merge verification, after a broad gate fails, fix the reported issue and rerun the narrowest relevant check first. Rerun the broad gate only when the change still requires it.
+- When user-requested verification covers an eval Dockerfile, the pinned eval toolchain or scanner, the Codex Linux bundle, or an eval image-building input, run `./scripts/check_eval_container_security.sh` after the normal supply-chain gate. The exact ARM64 images and matching Codex bundle are required; do not weaken, skip, or replace the scan with a source-only check.
 - Do not run `./check_quality.sh`, `./scripts/check_supply_chain.sh`, or other automated verification gates unless the user explicitly asks for verification.
 - Formatting changed files is allowed during implementation, but formatting is not a reason to start the test suite or broader verification gates.
 - For documentation-only, planning-only, research-only, README-only, or AGENTS-only commits, inspect the diff; do not run automated checks unless the user asks.

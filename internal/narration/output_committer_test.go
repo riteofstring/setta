@@ -248,7 +248,7 @@ func TestOutputCommitterRejectsMismatchedMutatedOrInvalidSuccessfulResults(t *te
 	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"working_projection",
-		"milestones":[]
+		"milestones":["original"]
 	}`)}
 	caller := newTimedTestCaller(t, provider)
 	callRequest := CallRequest{
@@ -266,6 +266,7 @@ func TestOutputCommitterRejectsMismatchedMutatedOrInvalidSuccessfulResults(t *te
 		mutate func(*CallResult)
 	}{
 		{name: "generation", mutate: func(value *CallResult) { value.Generation++ }},
+		{name: "invocation id", mutate: func(value *CallResult) { value.InvocationID = "mutated-invocation" }},
 		{name: "input bytes", mutate: func(value *CallResult) { value.InputBytes++ }},
 		{name: "output bytes", mutate: func(value *CallResult) { value.OutputBytes++ }},
 		{name: "decoded output", mutate: func(value *CallResult) { value.NarratorOutput.WorkingProjection.Milestones = []string{"changed"} }},
@@ -448,6 +449,7 @@ func assertCommittedNarratorInvocation(
 	}
 	if invocation.Role != conversation.RoleNarrator ||
 		invocation.Outcome != conversation.InvocationOutcomeSucceeded ||
+		invocation.ID != result.InvocationID ||
 		invocation.Resolved.ModelID != "gpt-5.4-mini" ||
 		invocation.StartedAt != narratorCallStarted || invocation.EndedAt == nil ||
 		*invocation.EndedAt != narratorCallEnded {

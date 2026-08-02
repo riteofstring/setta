@@ -223,10 +223,11 @@ func textUserInput(text string) (codexapp.UserInput, error) {
 
 func eventBase(request TurnRequest, providerTurnID string) Event {
 	return Event{
-		ConversationID:   request.ConversationID,
-		TurnID:           request.TurnID,
-		ProviderThreadID: request.ProviderThreadID,
-		ProviderTurnID:   providerTurnID,
+		ConversationID:        request.ConversationID,
+		TurnID:                request.TurnID,
+		ProviderThreadID:      request.ProviderThreadID,
+		ProviderTurnID:        providerTurnID,
+		tokenUsageAttribution: cloneTokenUsageAttribution(request.TokenUsageAttribution),
 	}
 }
 

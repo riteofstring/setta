@@ -6,7 +6,9 @@ import (
 )
 
 const (
+	CodexMethodCommandExec                        = "command/exec"
 	CodexMethodConfigRead                         = "config/read"
+	CodexMethodEnvironmentInfo                    = "environment/info"
 	CodexMethodInitialize                         = "initialize"
 	CodexMethodModelList                          = "model/list"
 	CodexMethodThreadBackgroundTerminalsTerminate = "thread/backgroundTerminals/terminate"
@@ -28,7 +30,9 @@ const (
 )
 
 var CodexMethodValues = []string{
+	CodexMethodCommandExec,
 	CodexMethodConfigRead,
+	CodexMethodEnvironmentInfo,
 	CodexMethodInitialize,
 	CodexMethodModelList,
 	CodexMethodThreadBackgroundTerminalsTerminate,
@@ -139,7 +143,9 @@ const (
 )
 
 var CodexSupportedMethodValues = []string{
+	CodexMethodCommandExec,
 	CodexMethodConfigRead,
+	CodexMethodEnvironmentInfo,
 	CodexMethodInitialize,
 	CodexMethodModelList,
 	CodexMethodThreadBackgroundTerminalsTerminate,
@@ -1019,6 +1025,87 @@ const (
 	CommandExecOutputStreamStderr CommandExecOutputStream = "stderr"
 )
 
+type CommandExecParams struct {
+	Command            []string                    `json:"command"`
+	CWD                *string                     `json:"cwd,omitempty"`
+	DisableOutputCap   *bool                       `json:"disableOutputCap,omitempty"`
+	DisableTimeout     *bool                       `json:"disableTimeout,omitempty"`
+	Env                *map[string]json.RawMessage `json:"env,omitempty"`
+	OutputBytesCap     *int                        `json:"outputBytesCap,omitempty"`
+	ProcessId          *string                     `json:"processId,omitempty"`
+	SandboxPolicy      *SandboxPolicy              `json:"sandboxPolicy,omitempty"`
+	Size               *CommandExecTerminalSize    `json:"size,omitempty"`
+	StreamStdin        *bool                       `json:"streamStdin,omitempty"`
+	StreamStdoutStderr *bool                       `json:"streamStdoutStderr,omitempty"`
+	TimeoutMs          *int                        `json:"timeoutMs,omitempty"`
+	Tty                *bool                       `json:"tty,omitempty"`
+}
+
+func validateCommandExecParams(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "command"}}); err != nil {
+		return err
+	}
+	if err := validateCodexObjectField(fields, "size", name+".size", true, validateCommandExecTerminalSize); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeCommandExecParams(raw json.RawMessage) (CommandExecParams, error) {
+	var value CommandExecParams
+	err := decodeCodexObject(raw, "CommandExecParams", validateCommandExecParams, &value)
+	return value, err
+}
+
+type CommandExecResponse struct {
+	ExitCode int    `json:"exitCode"`
+	Stderr   string `json:"stderr"`
+	Stdout   string `json:"stdout"`
+}
+
+func validateCommandExecResponse(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "exitCode"}, {name: "stderr"}, {name: "stdout"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeCommandExecResponse(raw json.RawMessage) (CommandExecResponse, error) {
+	var value CommandExecResponse
+	err := decodeCodexObject(raw, "CommandExecResponse", validateCommandExecResponse, &value)
+	return value, err
+}
+
+type CommandExecTerminalSize struct {
+	Cols int `json:"cols"`
+	Rows int `json:"rows"`
+}
+
+func validateCommandExecTerminalSize(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "cols"}, {name: "rows"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeCommandExecTerminalSize(raw json.RawMessage) (CommandExecTerminalSize, error) {
+	var value CommandExecTerminalSize
+	err := decodeCodexObject(raw, "CommandExecTerminalSize", validateCommandExecTerminalSize, &value)
+	return value, err
+}
+
 type CommandExecutionOutputDeltaNotification struct {
 	Delta    string `json:"delta"`
 	ItemId   string `json:"itemId"`
@@ -1384,6 +1471,74 @@ func validateEnvironmentConnectionNotification(raw json.RawMessage, name string)
 func DecodeEnvironmentConnectionNotification(raw json.RawMessage) (EnvironmentConnectionNotification, error) {
 	var value EnvironmentConnectionNotification
 	err := decodeCodexObject(raw, "EnvironmentConnectionNotification", validateEnvironmentConnectionNotification, &value)
+	return value, err
+}
+
+type EnvironmentInfoParams struct {
+	EnvironmentId string `json:"environmentId"`
+}
+
+func validateEnvironmentInfoParams(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "environmentId"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeEnvironmentInfoParams(raw json.RawMessage) (EnvironmentInfoParams, error) {
+	var value EnvironmentInfoParams
+	err := decodeCodexObject(raw, "EnvironmentInfoParams", validateEnvironmentInfoParams, &value)
+	return value, err
+}
+
+type EnvironmentInfoResponse struct {
+	CWD   *PathUri             `json:"cwd,omitempty"`
+	Shell EnvironmentShellInfo `json:"shell"`
+}
+
+func validateEnvironmentInfoResponse(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "shell"}}); err != nil {
+		return err
+	}
+	if err := validateCodexObjectField(fields, "shell", name+".shell", false, validateEnvironmentShellInfo); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeEnvironmentInfoResponse(raw json.RawMessage) (EnvironmentInfoResponse, error) {
+	var value EnvironmentInfoResponse
+	err := decodeCodexObject(raw, "EnvironmentInfoResponse", validateEnvironmentInfoResponse, &value)
+	return value, err
+}
+
+type EnvironmentShellInfo struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
+func validateEnvironmentShellInfo(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "name"}, {name: "path"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeEnvironmentShellInfo(raw json.RawMessage) (EnvironmentShellInfo, error) {
+	var value EnvironmentShellInfo
+	err := decodeCodexObject(raw, "EnvironmentShellInfo", validateEnvironmentShellInfo, &value)
 	return value, err
 }
 
@@ -3440,6 +3595,8 @@ func decodePatchChangeKind(raw json.RawMessage, name string) (PatchChangeKind, e
 	}
 	return item, nil
 }
+
+type PathUri = string
 
 type PermissionsRequestApprovalParams struct {
 	CWD           AbsolutePathBuf          `json:"cwd"`

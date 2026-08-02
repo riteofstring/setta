@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "rambling-port-validation",
+  "fixture": "typescript-service",
+  "timeoutSeconds": 1800,
+  "steps": [
+    {
+      "kind": "submit",
+      "text": "Okay, one small thing that has been bothering me: the PORT setting looks like it may accept values such as `3000oops` as if they were valid. Please make it reject anything that is not an entire valid port number, keep valid ports working, add focused automated coverage, and avoid turning this into a broader configuration rewrite or documentation project. Run the relevant checks."
+    }
+  ],
+  "expect": {
+    "terminalState": "completed",
+    "clarification": "forbidden",
+    "controlAssertions": []
+  },
+  "verifier": "rambling-port-validation",
+  "budget": {
+    "hardTotalTokens": 400000
+  },
+  "communication": {
+    "progress": "when_useful",
+    "finalResultRequired": true
+  }
+}

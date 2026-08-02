@@ -123,6 +123,47 @@ func TestModelRerouteNotificationMapsToSettaTypedReason(t *testing.T) {
 	}
 }
 
+func TestTokenUsageNotificationReachesOnlyTheEphemeralObserver(t *testing.T) {
+	base := providerNotificationTestBase()
+	observer := &recordingTokenUsageObserver{}
+	runtime := NewRuntime(Config{TokenUsageObserver: observer})
+	contextWindow := 128000
+	events, terminal, err := normalizedProviderNotification(
+		runtime,
+		providerNotificationMessage(t, codexapp.CodexNotificationThreadTokenUsageUpdated, map[string]any{
+			"threadId": base.ProviderThreadID,
+			"turnId":   base.ProviderTurnID,
+			"tokenUsage": map[string]any{
+				"last": map[string]any{
+					"cachedInputTokens": 3, "inputTokens": 7, "outputTokens": 5,
+					"reasoningOutputTokens": 2, "totalTokens": 12,
+				},
+				"modelContextWindow": contextWindow,
+				"total": map[string]any{
+					"cachedInputTokens": 3, "inputTokens": 7, "outputTokens": 5,
+					"reasoningOutputTokens": 2, "totalTokens": 12,
+				},
+			},
+		}),
+		base,
+	)
+	if err != nil || terminal != nil || len(events) != 0 {
+		t.Fatalf("observe token usage: events=%d terminal=%v err=%v", len(events), terminal, err)
+	}
+	if len(observer.observations) != 1 {
+		t.Fatalf("token observations = %d, want 1", len(observer.observations))
+	}
+	observation := observer.observations[0]
+	if observation.Attribution.InvocationID != base.tokenUsageAttribution.InvocationID ||
+		observation.ProviderThreadID != base.ProviderThreadID ||
+		observation.ProviderTurnID != base.ProviderTurnID ||
+		observation.TokenUsage.Total.TotalTokens != 12 ||
+		observation.TokenUsage.ModelContextWindow == nil ||
+		*observation.TokenUsage.ModelContextWindow != contextWindow {
+		t.Fatalf("token observation = %+v", observation)
+	}
+}
+
 func TestNormalizedProviderNotificationsCarryTypedActivityFacts(t *testing.T) {
 	base := providerNotificationTestBase()
 	for _, testCase := range []struct {
@@ -514,11 +555,27 @@ func providerNotificationTestBase() Event {
 		TurnID:           "turn-director",
 		ProviderThreadID: "provider-thread-1",
 		ProviderTurnID:   "provider-turn-1",
+		tokenUsageAttribution: TokenUsageAttribution{
+			Bucket:          TokenUsageBucketSystem,
+			Role:            TokenUsageRoleAgent,
+			InvocationID:    "invocation-provider-test",
+			Model:           "gpt-agent-test",
+			ReasoningEffort: "high",
+		},
 	}
 }
 
 func newTestRuntime() *Runtime {
 	return NewRuntime(Config{})
+}
+
+type recordingTokenUsageObserver struct {
+	observations []TokenUsageObservation
+}
+
+func (observer *recordingTokenUsageObserver) ObserveTokenUsage(observation TokenUsageObservation) error {
+	observer.observations = append(observer.observations, observation)
+	return nil
 }
 
 func providerNotificationMessage(t *testing.T, method string, params any) codexapp.Message {

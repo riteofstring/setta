@@ -37,6 +37,7 @@ type CallRequest struct {
 }
 
 type CallResult struct {
+	InvocationID     string
 	RequestID        string
 	Generation       uint64
 	Kind             RequestKind
@@ -58,6 +59,7 @@ type CallResult struct {
 type Caller struct {
 	models   *ModelResolver
 	provider FreshStructuredCallProvider
+	newID    func(string) (string, error)
 	now      func() time.Time
 }
 
@@ -73,6 +75,16 @@ func WithCallerClock(now func() time.Time) CallerOption {
 	}
 }
 
+func WithCallerIDGenerator(generator func(string) (string, error)) CallerOption {
+	return func(caller *Caller) error {
+		if generator == nil {
+			return errors.New("narrator caller id generator is required")
+		}
+		caller.newID = generator
+		return nil
+	}
+}
+
 func NewCaller(
 	models *ModelResolver,
 	provider FreshStructuredCallProvider,
@@ -84,7 +96,7 @@ func NewCaller(
 	if provider == nil {
 		return nil, errors.New("narrator caller structured provider is required")
 	}
-	caller := &Caller{models: models, provider: provider, now: time.Now}
+	caller := &Caller{models: models, provider: provider, newID: randomOutputID, now: time.Now}
 	for _, option := range options {
 		if option == nil {
 			return nil, errors.New("narrator caller option must not be nil")
@@ -105,13 +117,23 @@ func (caller *Caller) Call(ctx context.Context, request CallRequest) (CallResult
 		return CallResult{}, narratorCallFailure(ctx, FailureKindInternal, err)
 	}
 	result := preparedCallResult(request, prepared)
+	result.InvocationID, err = caller.newID("narrator_invocation")
+	if err != nil {
+		return result, narratorCallFailure(ctx, FailureKindInternal, err)
+	}
 	result.StartedAt = caller.timestamp()
 	resolution, err := caller.resolveModel(ctx, prepared)
 	result.Model = cloneModelResolution(resolution)
 	if err != nil {
 		return result, narratorModelResolutionFailure(ctx, err)
 	}
-	providerResult, err := caller.runProviderCall(ctx, request, prepared, resolution)
+	providerResult, err := caller.runProviderCall(
+		ctx,
+		request,
+		prepared,
+		resolution,
+		result.InvocationID,
+	)
 	if err != nil {
 		return result, narratorCallFailure(ctx, FailureKindProviderUnavailable, err)
 	}
@@ -225,11 +247,20 @@ func (caller *Caller) runProviderCall(
 	request CallRequest,
 	prepared preparedCallRequest,
 	resolution ModelResolution,
+	invocationID string,
 ) (agent.FreshStructuredCallResult, error) {
 	providerRequest := agent.FreshStructuredCallRequest{
-		ID:                    request.ID,
-		WorkspaceRoot:         request.WorkspaceRoot,
-		Invocation:            resolvedProviderInvocation(resolution),
+		ID:            request.ID,
+		WorkspaceRoot: request.WorkspaceRoot,
+		Invocation:    resolvedProviderInvocation(resolution),
+		TokenUsageAttribution: agent.TokenUsageAttribution{
+			Bucket:          agent.TokenUsageBucketSystem,
+			Role:            agent.TokenUsageRoleNarrator,
+			InvocationID:    invocationID,
+			Model:           resolution.Settings.ModelID,
+			ReasoningEffort: string(resolution.Settings.ReasoningEffort),
+			ServiceTier:     cloneOptionalString(resolution.Settings.ServiceTier),
+		},
 		DeveloperInstructions: prepared.instructions,
 		Input:                 append(json.RawMessage{}, prepared.input...),
 		OutputSchema:          append(json.RawMessage{}, prepared.outputSchema...),
@@ -580,7 +611,9 @@ func projectionInstructions(channel ProjectionChannel) string {
 		"Milestones are shown in the Now rail and read aloud when narrator voice is enabled; treat each milestone as an audible interruption.",
 		"Emit at most one milestone only when the user learned a new result, a blocker needs user action, or the work entered a materially different phase.",
 		"Use semanticEvents as the only event feed for working projections; do not infer progress from raw trajectory gaps or cursor numbers.",
+		"Raw assistant messages are context, not user-facing milestones. Do not echo their progress, troubleshooting, verification caveats, or final prose.",
 		"For working projections, prefer an empty milestone list for normal progress, repeated blocked states, waiting updates, partial output streaming, or when semanticEvents do not show a meaningful change.",
+		"Working projections report durable user-relevant changes, never troubleshooting. While the turn remains active, emit no milestone for a failed attempt, diagnostic observation, recovery step, provisional verification gap, or any issue that does not require the user's action; later work may supersede it.",
 		"Do not update currentFocus or topicDescriptor from this projection channel.",
 		"Never repeat an exact prior active-turn milestone supplied in the context. Do not infer phases from keywords or command names.",
 	}
@@ -590,6 +623,9 @@ func projectionInstructions(channel ProjectionChannel) string {
 			lines,
 			"Return the terminal projection with exactly one finalSummary for this turn.",
 			"For terminal projections, use currentInstructions.latestAssistantMessage, artifacts, turn status, and semanticEvents as the terminal snapshot.",
+			"Resolve conflicts in favor of terminal status and the latest assistant message; do not repeat issues that later evidence resolved.",
+			"When turn status is completed, failed attempts, unavailable checks, environment limitations, and recovery details are superseded internal troubleshooting. Never mention them in finalSummary, even when the latest assistant message does. State the observable result and only positive validation known to have succeeded.",
+			"If the current objective explicitly asks for tests, checks, or verification, finalSummary is incomplete unless it reports the positive validation evidence. Name only checks known to have succeeded; do not imply an unavailable check passed.",
 			"finalSummary is one short sentence summarizing the outcome. If an artifact contains the detailed result, mention the artifact without repeating its contents.",
 			"If the turn failed or was stopped, say so directly and include only the important caveat.",
 		)
@@ -625,6 +661,38 @@ func checkpointInstructions() string {
 	}, "\n")
 }
 
+// PromptSurfaces returns every exact Setta-owned Narrator instruction surface
+// used by production focus, progress, terminal, status, and checkpoint calls.
+func PromptSurfaces() []conversation.RolePromptSurface {
+	return []conversation.RolePromptSurface{
+		{
+			Role:    conversation.RoleNarrator,
+			Surface: "focus",
+			Prompt:  focusInstructions(),
+		},
+		{
+			Role:    conversation.RoleNarrator,
+			Surface: "working-projection",
+			Prompt:  projectionInstructions(ProjectionChannelWorking),
+		},
+		{
+			Role:    conversation.RoleNarrator,
+			Surface: "terminal-projection",
+			Prompt:  projectionInstructions(ProjectionChannelTerminal),
+		},
+		{
+			Role:    conversation.RoleNarrator,
+			Surface: "status",
+			Prompt:  statusInstructions(),
+		},
+		{
+			Role:    conversation.RoleNarrator,
+			Surface: "checkpoint",
+			Prompt:  checkpointInstructions(),
+		},
+	}
+}
+
 func userVisibleNarratorLanguageInstructions() []string {
 	return []string{
 		"Write for the user whose objective appears in the supplied context.",
@@ -635,16 +703,19 @@ func userVisibleNarratorLanguageInstructions() []string {
 		"Prefer words already used in the user's objective.",
 		"Use a technical term when the user's task or result genuinely depends on that term; otherwise explain the result in ordinary language.",
 		"Omit Setta's bookkeeping, including projection passes, trajectory cursors, sequence numbers, provider calls, schemas, and typed boundaries, unless that machinery is itself the user's subject.",
+		"Never mention workers, workstreams, provider runtimes, internal execution environments or their restrictions, permission policies, internal file routing, or raw internal error codes.",
+		"A completed turn must end with the observable result. Never surface failed attempts, unavailable checks, internal restrictions, or alternative verification from a completed turn; name only checks known to have succeeded, and never claim an unverified check passed.",
+		"For successful work, summarize the requested outcome. Mention routine validation only when the user requested it or it materially qualifies confidence; never describe diagnostic or recovery mechanics.",
 		"Do not prefix text with \"Narrator,\" \"Milestone,\" \"Update,\" or similar meta narration.",
 		"Do not restate the current objective or paraphrase a prior milestone.",
-		"State failures and blockers directly. Brevity must not turn an incomplete or failed result into a success claim.",
+		"State outcome-changing failures and user-actionable blockers directly. Brevity must not turn an incomplete or failed result into a success claim.",
 	}
 }
 
 func narratorLanguageExamples() []string {
 	return []string{
 		"Examples teach voice and relevance:",
-		"Avoid: \"Narrator evaluated the deployment through sequence 41.\" Prefer: \"The deployment now completes successfully, and failed releases keep the previous version running.\"",
+		"Avoid: \"Narrator evaluated the checkout update through sequence 41.\" Prefer: \"Checkout now preserves the cart when payment is declined and explains how to try again.\"",
 		"Avoid: \"The provider boundary is now typed.\" Prefer: \"Voice requests now preserve the configured narrator and speaking pace across restarts.\"",
 		"Avoid: \"A terminal projection was durably committed.\" Prefer: \"The final summary is saved with the conversation and remains available after restart.\"",
 		"Avoid: \"Continued working on the current objective.\" Prefer: no milestone.",

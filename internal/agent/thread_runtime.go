@@ -19,7 +19,7 @@ func (runtime *Runtime) StartThread(ctx context.Context, request StartThreadRequ
 	if err := request.Validate(); err != nil {
 		return Thread{}, err
 	}
-	params, err := startThreadParams(request)
+	params, err := runtime.startThreadParams(ctx, request)
 	if err != nil {
 		return Thread{}, err
 	}
@@ -150,7 +150,7 @@ func (runtime *Runtime) ForkThread(ctx context.Context, request ForkThreadReques
 	if err := request.Validate(); err != nil {
 		return Thread{}, err
 	}
-	params, err := forkThreadParams(request)
+	params, err := runtime.forkThreadParams(ctx, request)
 	if err != nil {
 		return Thread{}, err
 	}
@@ -257,7 +257,7 @@ func startThreadParams(request StartThreadRequest) (codexapp.ThreadStartParams, 
 	if err != nil {
 		return codexapp.ThreadStartParams{}, err
 	}
-	config, err := modelThreadConfig(request.Invocation)
+	config, err := modelThreadConfig(request.Invocation, request.EnableUserInput)
 	if err != nil {
 		return codexapp.ThreadStartParams{}, err
 	}
@@ -285,15 +285,54 @@ func startThreadParams(request StartThreadRequest) (codexapp.ThreadStartParams, 
 	return params, nil
 }
 
-func modelThreadConfig(invocation Invocation) (*map[string]json.RawMessage, error) {
-	if invocation.ReasoningEffort == "" {
+func (runtime *Runtime) startThreadParams(
+	ctx context.Context,
+	request StartThreadRequest,
+) (codexapp.ThreadStartParams, error) {
+	params, err := startThreadParams(request)
+	if err != nil || !runtime.restrictExternalTools {
+		return params, err
+	}
+	config, err := ReadRestrictedThreadConfig(
+		ctx,
+		runtime.manager,
+		RestrictedThreadConfigOptions{
+			CWD:             &request.WorkspaceRoot,
+			ReasoningEffort: request.Invocation.ReasoningEffort,
+			ShellTools:      request.EnableShellTools,
+			UserInput:       request.EnableUserInput,
+		},
+	)
+	if err != nil {
+		return codexapp.ThreadStartParams{}, fmt.Errorf("configure restricted agent thread: %w", err)
+	}
+	capabilityRoots := []codexapp.SelectedCapabilityRoot{}
+	params.Config = &config
+	params.SelectedCapabilityRoots = &capabilityRoots
+	return params, nil
+}
+
+func modelThreadConfig(invocation Invocation, enableUserInput bool) (*map[string]json.RawMessage, error) {
+	config := map[string]json.RawMessage{}
+	if invocation.ReasoningEffort != "" {
+		effort, err := json.Marshal(invocation.ReasoningEffort)
+		if err != nil {
+			return nil, fmt.Errorf("encode thread reasoning effort: %w", err)
+		}
+		config["model_reasoning_effort"] = effort
+	}
+	if enableUserInput {
+		features, err := json.Marshal(map[string]bool{
+			restrictedThreadUserInputFeatureName: true,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("encode thread user-input feature: %w", err)
+		}
+		config["features"] = features
+	}
+	if len(config) == 0 {
 		return nil, nil
 	}
-	effort, err := json.Marshal(invocation.ReasoningEffort)
-	if err != nil {
-		return nil, fmt.Errorf("encode thread reasoning effort: %w", err)
-	}
-	config := map[string]json.RawMessage{"model_reasoning_effort": effort}
 	return &config, nil
 }
 
@@ -418,7 +457,7 @@ func forkThreadParams(request ForkThreadRequest) (codexapp.ThreadForkParams, err
 	if err != nil {
 		return codexapp.ThreadForkParams{}, err
 	}
-	config, err := forkThreadConfig(request.Invocation)
+	config, err := forkThreadConfig(request.Invocation, request.EnableUserInput)
 	if err != nil {
 		return codexapp.ThreadForkParams{}, err
 	}
@@ -439,15 +478,52 @@ func forkThreadParams(request ForkThreadRequest) (codexapp.ThreadForkParams, err
 	return params, nil
 }
 
-func forkThreadConfig(invocation Invocation) (*map[string]json.RawMessage, error) {
-	if invocation.ReasoningEffort == "" {
+func (runtime *Runtime) forkThreadParams(
+	ctx context.Context,
+	request ForkThreadRequest,
+) (codexapp.ThreadForkParams, error) {
+	params, err := forkThreadParams(request)
+	if err != nil || !runtime.restrictExternalTools {
+		return params, err
+	}
+	config, err := ReadRestrictedThreadConfig(
+		ctx,
+		runtime.manager,
+		RestrictedThreadConfigOptions{
+			CWD:             &request.WorkspaceRoot,
+			ReasoningEffort: request.Invocation.ReasoningEffort,
+			ShellTools:      request.EnableShellTools,
+			UserInput:       request.EnableUserInput,
+		},
+	)
+	if err != nil {
+		return codexapp.ThreadForkParams{}, fmt.Errorf("configure restricted forked agent thread: %w", err)
+	}
+	params.Config = &config
+	return params, nil
+}
+
+func forkThreadConfig(invocation Invocation, enableUserInput bool) (*map[string]json.RawMessage, error) {
+	config := map[string]json.RawMessage{}
+	if invocation.ReasoningEffort != "" {
+		effort, err := json.Marshal(invocation.ReasoningEffort)
+		if err != nil {
+			return nil, fmt.Errorf("encode fork reasoning effort: %w", err)
+		}
+		config["model_reasoning_effort"] = effort
+	}
+	if enableUserInput {
+		features, err := json.Marshal(map[string]bool{
+			restrictedThreadUserInputFeatureName: true,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("encode forked thread user-input feature: %w", err)
+		}
+		config["features"] = features
+	}
+	if len(config) == 0 {
 		return nil, nil
 	}
-	effort, err := json.Marshal(invocation.ReasoningEffort)
-	if err != nil {
-		return nil, fmt.Errorf("encode fork reasoning effort: %w", err)
-	}
-	config := map[string]json.RawMessage{"model_reasoning_effort": effort}
 	return &config, nil
 }
 

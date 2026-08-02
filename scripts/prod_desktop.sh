@@ -91,7 +91,6 @@ build_production() {
   command -v pnpm >/dev/null 2>&1 || fail "pnpm is required to build the desktop app."
   "${ROOT_DIR}/scripts/go.sh" version >/dev/null
   pnpm -C "${DESKTOP_DIR}" build
-  "${ROOT_DIR}/scripts/build_local_macos_voice_helper.sh"
   mkdir -p "$(dirname "${BACKEND_BIN}")"
   (
     cd "${ROOT_DIR}"

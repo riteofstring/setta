@@ -248,6 +248,10 @@ func handleFakeAgentThreadStart(state *fakeAgentServerState, message map[string]
 	if structured {
 		assertFakeFreshStructuredThreadStart(params)
 		state.structured[threadID] = true
+	} else if config, ok := params["config"].(map[string]any); ok {
+		if _, restricted := config["orchestrator"]; restricted {
+			assertFakeRestrictedExecutionThreadStart(params, config)
+		}
 	}
 	if !ephemeral {
 		state.threads = append(state.threads, threadID)
@@ -260,6 +264,31 @@ func handleFakeAgentThreadStart(state *fakeAgentServerState, message map[string]
 		response["runtimeWorkspaceRoots"] = []any{"/tmp/unexpected-runtime-root"}
 	}
 	writeFakeAgentResponse(message["id"], response)
+}
+
+func assertFakeRestrictedExecutionThreadStart(params map[string]any, config map[string]any) {
+	if config["web_search"] != "disabled" || config["project_doc_max_bytes"] != float64(0) {
+		panic("restricted execution thread must disable web search and project instructions")
+	}
+	features, ok := config["features"].(map[string]any)
+	if !ok || features["apps"] != false || features["hooks"] != false ||
+		features["multi_agent"] != false || features["plugins"] != false {
+		panic("restricted execution thread must disable external feature families")
+	}
+	developer, _ := params["developerInstructions"].(string)
+	wantShell := strings.Contains(developer, "EXPECT_SHELL_TOOLS_ENABLED")
+	if features["shell_tool"] != wantShell || features["unified_exec"] != wantShell {
+		panic("restricted execution thread shell policy does not match its owner")
+	}
+	assertFakeEmptyArray(params, "selectedCapabilityRoots")
+	servers, ok := config["mcp_servers"].(map[string]any)
+	if !ok {
+		panic("restricted execution thread must configure effective MCP servers")
+	}
+	server, ok := servers["configured-test-server"].(map[string]any)
+	if !ok || server["enabled"] != false {
+		panic("restricted execution thread must disable every effective MCP server")
+	}
 }
 
 func handleFakeAgentThreadResume(state *fakeAgentServerState, message map[string]any) {

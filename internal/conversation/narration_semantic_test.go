@@ -50,7 +50,6 @@ func TestNarratorSemanticEventsForLiveCommitUseTypedSources(t *testing.T) {
 	)
 
 	wantKinds := []NarratorSemanticEventKind{
-		NarratorSemanticEventMeaningfulProgress,
 		NarratorSemanticEventApprovalNeeded,
 		NarratorSemanticEventMeaningfulProgress,
 		NarratorSemanticEventArtifactOrResultEmitted,
@@ -67,15 +66,11 @@ func TestNarratorSemanticEventsForLiveCommitUseTypedSources(t *testing.T) {
 			t.Fatalf("semantic event %d is invalid: %v", index, err)
 		}
 	}
-	if semantic[0].SourceTrajectoryRange.Start != 2 ||
-		semantic[0].MeaningfulProgress.AssistantMessage.Text != "The implementation is ready." {
-		t.Fatalf("assistant message semantic did not collapse delta noise: %+v", semantic[0])
-	}
-	result := semantic[3].ArtifactOrResultEmitted
+	result := semantic[2].ArtifactOrResultEmitted
 	if result.Artifact == nil || result.Artifact.ID != artifact.ID || result.Artifact.Title != artifact.Title {
 		t.Fatalf("artifact semantic payload = %+v, want metadata %+v", result, artifact)
 	}
-	if got := semantic[4].TaskCompleted.Artifacts; len(got) != 1 || got[0].ID != artifact.ID {
+	if got := semantic[3].TaskCompleted.Artifacts; len(got) != 1 || got[0].ID != artifact.ID {
 		t.Fatalf("terminal semantic artifacts = %+v, want %+v", got, artifact)
 	}
 }

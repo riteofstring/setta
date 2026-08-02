@@ -85,11 +85,14 @@ func populateStructuredApproval(result *TrajectoryApprovalRequest, approval *age
 	result.Kind = TrajectoryApprovalKindStructuredInput
 	for _, question := range approval.Questions {
 		result.Questions = append(result.Questions, TrajectoryApprovalQuestion{
-			ID:          question.ID,
-			Header:      question.Header,
-			Question:    question.Question,
-			Options:     append([]string{}, question.Options...),
-			AllowsOther: len(question.Options) == 0,
+			ID:       question.ID,
+			Header:   question.Header,
+			Question: question.Question,
+			Options:  append([]string{}, question.Options...),
+			// Options help the user answer quickly; they must not turn a public
+			// Worker question into a lossy closed enum. Secret questions stay
+			// closed when the provider supplied explicit allowed values.
+			AllowsOther: !question.Secret || len(question.Options) == 0,
 			Secret:      question.Secret,
 		})
 	}

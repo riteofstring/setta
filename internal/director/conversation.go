@@ -86,13 +86,18 @@ type DirectorTurnRequest struct {
 	Tools   []SettaTool
 }
 
-// DirectorProviderTurn is the provider-authored result of one turn. Model is
-// returned per turn rather than read from the carrier: the user can change the
-// Director role while the carrier remains alive, and graph provenance must name
-// the model that authored this reply.
+// DirectorProviderTurn is the provider-authored result of one turn. The
+// resolved invocation is minted before provider work starts and completed with
+// the provider turn reference, so eval accounting and durable provenance name
+// the same call even when one submitted intent needs a tool-use review turn.
 type DirectorProviderTurn struct {
-	ReplyText string
-	Model     string
+	ReplyText  string
+	Invocation conversation.ResolvedInvocation
+}
+
+type submittedDirectorTurn struct {
+	ReplyText   string
+	Invocations []conversation.ResolvedInvocation
 }
 
 // DirectorCarrierPort is the consumer-owned half of the Director's provider
@@ -106,8 +111,8 @@ type DirectorCarrierPort interface {
 	// conversation is running, never which thread carried it.
 	StartDirectorCarrier(context.Context, DirectorCarrierRequest) (string, error)
 	// RunDirectorTurn runs one turn to completion and returns the assistant
-	// text and model that produced it. Tool calls reach their handlers during
-	// the turn.
+	// text and resolved invocation that produced it. Tool calls reach their
+	// handlers during the turn.
 	RunDirectorTurn(context.Context, DirectorTurnRequest) (DirectorProviderTurn, error)
 }
 
@@ -135,9 +140,10 @@ type DirectorToolCall struct {
 // carries only the conversation: what the Director said, and which Setta tools
 // it called saying it.
 type DirectorTurnReceipt struct {
-	IntentID  string             `json:"intentId"`
-	ReplyText string             `json:"replyText"`
-	ToolCalls []DirectorToolCall `json:"toolCalls"`
+	IntentID            string                            `json:"intentId"`
+	ReplyText           string                            `json:"replyText"`
+	ToolCalls           []DirectorToolCall                `json:"toolCalls"`
+	ResolvedInvocations []conversation.ResolvedInvocation `json:"resolvedInvocations"`
 }
 
 // Validate proves the receipt describes a turn that actually happened.
@@ -148,13 +154,68 @@ func (receipt DirectorTurnReceipt) Validate() error {
 	if receipt.ToolCalls == nil {
 		return errors.New("director turn tool calls must be an array")
 	}
+	if err := validateDirectorTurnInvocations(receipt.ResolvedInvocations); err != nil {
+		return err
+	}
+	if err := validateDirectorTurnReply(receipt); err != nil {
+		return err
+	}
+	return validateDirectorToolCalls(receipt.ToolCalls)
+}
+
+func validateDirectorTurnInvocations(invocations []conversation.ResolvedInvocation) error {
+	if len(invocations) == 0 {
+		return errors.New("director turn resolved invocations must be a non-empty array")
+	}
+	if len(invocations) > 2 {
+		return errors.New("director turn may contain only the submitted call and one tool-use review call")
+	}
+	seenInvocations := map[string]bool{}
+	seenProviderTurns := map[string]bool{}
+	for index, invocation := range invocations {
+		providerTurnID, err := validateDirectorTurnInvocation(index, invocation)
+		if err != nil {
+			return err
+		}
+		if seenInvocations[invocation.ID] {
+			return fmt.Errorf("director turn resolved invocation id %s is duplicated", invocation.ID)
+		}
+		if seenProviderTurns[providerTurnID] {
+			return fmt.Errorf("director provider turn id %s is duplicated", providerTurnID)
+		}
+		seenInvocations[invocation.ID] = true
+		seenProviderTurns[providerTurnID] = true
+	}
+	return nil
+}
+
+func validateDirectorTurnInvocation(
+	index int,
+	invocation conversation.ResolvedInvocation,
+) (string, error) {
+	if err := invocation.Validate(); err != nil {
+		return "", fmt.Errorf("director turn resolved invocation[%d]: %w", index, err)
+	}
+	if invocation.Role != conversation.RoleDirector ||
+		invocation.Outcome != conversation.InvocationOutcomeSucceeded ||
+		invocation.ProviderReferences.TurnID == nil {
+		return "", fmt.Errorf("director turn resolved invocation[%d] is not a successful Director provider turn", index)
+	}
+	return *invocation.ProviderReferences.TurnID, nil
+}
+
+func validateDirectorTurnReply(receipt DirectorTurnReceipt) error {
 	if receipt.ReplyText == "" && len(receipt.ToolCalls) == 0 {
 		return fmt.Errorf("director turn %s neither answered nor acted", receipt.IntentID)
 	}
 	if receipt.ReplyText != "" && len(receipt.ReplyText) > MaxDirectorReplyBytes {
 		return fmt.Errorf("director reply exceeds %d bytes", MaxDirectorReplyBytes)
 	}
-	for index, call := range receipt.ToolCalls {
+	return nil
+}
+
+func validateDirectorToolCalls(toolCalls []DirectorToolCall) error {
+	for index, call := range toolCalls {
 		if err := validateIdentifier("director tool call name", call.Tool); err != nil {
 			return fmt.Errorf("director turn tool call[%d]: %w", index, err)
 		}
@@ -260,6 +321,10 @@ func (director *DirectorConversation) Submit(
 	if err != nil {
 		return DirectorTurnReceipt{}, err
 	}
+	turnContext, err := director.toolbox.CurrentTurnContext()
+	if err != nil {
+		return DirectorTurnReceipt{}, err
+	}
 	carrier, err := director.establish(ctx, recorded)
 	if err != nil {
 		return DirectorTurnReceipt{}, err
@@ -267,15 +332,14 @@ func (director *DirectorConversation) Submit(
 	if err := director.persistUserTurn(ctx, intent); err != nil {
 		return DirectorTurnReceipt{}, err
 	}
-	providerTurn, err := director.runSubmittedIntent(ctx, intent, carrier, recorded, recorder)
+	providerTurn, err := director.runSubmittedIntent(ctx, intent, carrier, recorded, recorder, turnContext)
 	if err != nil {
 		return DirectorTurnReceipt{}, err
 	}
 	return director.finishTurn(
 		ctx,
 		intent,
-		strings.TrimSpace(providerTurn.ReplyText),
-		providerTurn.Model,
+		providerTurn,
 		recorder,
 	)
 }
@@ -334,16 +398,18 @@ func (director *DirectorConversation) runSubmittedIntent(
 	carrier conversation.Carrier,
 	tools []SettaTool,
 	recorder *directorToolRecorder,
-) (DirectorProviderTurn, error) {
+	turnContext string,
+) (submittedDirectorTurn, error) {
 	providerTurn, err := director.runTurn(ctx, DirectorTurnRequest{
 		Carrier: carrier,
 		TurnID:  intent.ID,
-		Text:    intent.Text,
+		Text:    directorProviderTurnText(intent.Text, turnContext),
 		Tools:   tools,
 	})
 	if err != nil {
-		return DirectorProviderTurn{}, err
+		return submittedDirectorTurn{}, err
 	}
+	invocations := []conversation.ResolvedInvocation{providerTurn.Invocation}
 	// A prose-only answer may be exactly right, or it may be the failure mode
 	// this product replaced: answering an app-control request without acting.
 	// Setta does not guess from keywords. It asks the same Director conversation
@@ -357,10 +423,21 @@ func (director *DirectorConversation) runSubmittedIntent(
 			Tools:   tools,
 		})
 		if err != nil {
-			return DirectorProviderTurn{}, err
+			return submittedDirectorTurn{}, err
 		}
+		invocations = append(invocations, providerTurn.Invocation)
 	}
-	return providerTurn, nil
+	return submittedDirectorTurn{
+		ReplyText:   providerTurn.ReplyText,
+		Invocations: invocations,
+	}, nil
+}
+
+func directorProviderTurnText(userText string, turnContext string) string {
+	if turnContext == "" {
+		return userText
+	}
+	return turnContext + "\n\nCurrent user message:\n" + userText
 }
 
 // finishTurn makes the Director's reply durable and reports the turn. The reply
@@ -371,14 +448,15 @@ func (director *DirectorConversation) runSubmittedIntent(
 func (director *DirectorConversation) finishTurn(
 	ctx context.Context,
 	intent SubmittedIntent,
-	reply string,
-	model string,
+	providerTurn submittedDirectorTurn,
 	recorder *directorToolRecorder,
 ) (DirectorTurnReceipt, error) {
+	reply := strings.TrimSpace(providerTurn.ReplyText)
 	receipt := DirectorTurnReceipt{
-		IntentID:  intent.ID,
-		ReplyText: reply,
-		ToolCalls: recorder.calls(),
+		IntentID:            intent.ID,
+		ReplyText:           reply,
+		ToolCalls:           recorder.calls(),
+		ResolvedInvocations: append([]conversation.ResolvedInvocation{}, providerTurn.Invocations...),
 	}
 	if err := receipt.Validate(); err != nil {
 		return DirectorTurnReceipt{}, err
@@ -386,9 +464,7 @@ func (director *DirectorConversation) finishTurn(
 	if reply == "" {
 		return receipt, nil
 	}
-	if err := validateIdentifier("director reply model", model); err != nil {
-		return DirectorTurnReceipt{}, err
-	}
+	model := directorInvocationModel(receipt.ResolvedInvocations[len(receipt.ResolvedInvocations)-1])
 	entry, err := director.textEntry(
 		conversation.DirectorConversationAssistantText,
 		intent.ID,
@@ -406,6 +482,13 @@ func (director *DirectorConversation) finishTurn(
 		return DirectorTurnReceipt{}, err
 	}
 	return receipt, nil
+}
+
+func directorInvocationModel(invocation conversation.ResolvedInvocation) string {
+	if len(invocation.ModelReroutes) == 0 {
+		return invocation.Resolved.ModelID
+	}
+	return invocation.ModelReroutes[len(invocation.ModelReroutes)-1].ToModelID
 }
 
 // persistUserTurn records the request before the provider is asked to serve it.

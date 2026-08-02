@@ -9,13 +9,17 @@ from the current plan phase. They use focused checks while behavior is still
 changing and update all assumptions affected by a contract change before
 rerunning a long end-to-end scenario.
 
-The implementer runs through Claude Code. The reviewer runs through Codex and
-only at a phase boundary. That audit reviews the whole phase and runs its broad
-deterministic and live-provider gates once against the stable implementation.
-Failed broad gates are narrowed while fixes are in progress, followed by one
-final broad rerun. Routine batches do not pay for a second-agent review or
-repeat release-level suites. A separate whole-plan audit must still pass before
-the loop finishes.
+The implementer and reviewer can each run through Codex or Claude Code. The
+reviewer runs only at a phase boundary. Routine batches do not pay for a
+second-agent review, and a separate whole-plan audit must still pass before the
+loop finishes.
+
+Verification authorization is explicit per invocation. The default `none`
+permits static inspection and formatting but no automated checks or live
+execution. Use `plan-probes` only when the user has authorized the bounded,
+non-destructive probes named by the plan. Use `tests` only when the user has
+explicitly requested automated verification; repository policy and phase
+readiness still apply.
 
 The script intentionally runs in the current clean checkout with Claude Code and
 Codex permission checks bypassed. Its purpose is unattended repository-local
@@ -24,5 +28,6 @@ working tree.
 
 ```sh
 scripts/automation/codex-loop/run-plan-implementation-loop.sh \
-  PATH/TO/PLAN.md
+  PATH/TO/PLAN.md \
+  --verification-authorization plan-probes
 ```

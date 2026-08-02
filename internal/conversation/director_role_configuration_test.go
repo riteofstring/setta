@@ -14,8 +14,8 @@ func TestDefaultDirectorRoleProfileOwnsRestrictedIndependentDefaults(t *testing.
 		t.Fatalf("validate default director role: %v", err)
 	}
 	if profile.Role != RoleDirector || profile.ModelSelection.Mode != ModelSelectionExact ||
-		profile.ModelSelection.ModelID == nil || *profile.ModelSelection.ModelID != "gpt-5.6-terra" ||
-		profile.ReasoningEffort != ReasoningEffortMedium || profile.ServiceTier != nil ||
+		profile.ModelSelection.ModelID == nil || *profile.ModelSelection.ModelID != "gpt-5.6-sol" ||
+		profile.ReasoningEffort != ReasoningEffortHigh || profile.ServiceTier != nil ||
 		profile.PermissionProfile.ApprovalPolicy != ApprovalPolicyNever ||
 		profile.PermissionProfile.ProviderPermissionProfile != ":read-only" ||
 		profile.PermissionProfile.ToolAccess.Mode != ToolAccessNone ||
@@ -23,8 +23,10 @@ func TestDefaultDirectorRoleProfileOwnsRestrictedIndependentDefaults(t *testing.
 		profile.PermissionProfile.WorkspaceMutation || profile.PermissionProfile.Approvals {
 		t.Fatalf("default director role = %+v", profile)
 	}
-	if DefaultAgentRoleProfile().ModelSelection.ModelID == nil ||
-		*DefaultAgentRoleProfile().ModelSelection.ModelID == "gpt-5.6-terra" {
+	agentProfile := DefaultAgentRoleProfile()
+	if agentProfile.Role != RoleAgent || agentProfile.ModelSelection.ModelID == nil ||
+		agentProfile.PermissionProfile.ProviderPermissionProfile == profile.PermissionProfile.ProviderPermissionProfile ||
+		!agentProfile.PermissionProfile.WorkspaceMutation {
 		t.Fatal("director default leaked into the primary agent role")
 	}
 }

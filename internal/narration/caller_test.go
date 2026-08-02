@@ -75,7 +75,8 @@ func testCallerFocusProjection(t *testing.T) {
 		t.Fatalf("focus Call: %v", err)
 	}
 	if result.Kind != RequestKindFocus || result.Trigger != conversation.NarrationTriggerInputAccepted ||
-		result.NarratorOutput == nil || result.NarratorOutput.FocusProjection == nil {
+		result.NarratorOutput == nil || result.NarratorOutput.FocusProjection == nil ||
+		result.InvocationID != provider.requests[0].TokenUsageAttribution.InvocationID {
 		t.Fatalf("focus call result = %+v", result)
 	}
 	assertCallerProviderRequest(t, provider, bundle.InputBytes, string(CallOutputFocusProjection))
@@ -87,7 +88,7 @@ func testCallerFocusProjection(t *testing.T) {
 	assertInstructionsContain(t, provider.requests[0].DeveloperInstructions, []string{
 		"Write for the user whose objective appears in the supplied context.",
 		"Omit Setta's bookkeeping",
-		"Avoid: \"Narrator evaluated the deployment through sequence 41.\"",
+		"Avoid: \"Narrator evaluated the checkout update through sequence 41.\"",
 	})
 }
 
@@ -114,6 +115,8 @@ func testCallerWorkingProjection(t *testing.T) {
 		"prefer an empty milestone list for normal progress, repeated blocked states",
 		"Write for the user whose objective appears in the supplied context.",
 		"Lead with the observable outcome",
+		"Working projections report durable user-relevant changes, never troubleshooting.",
+		"Continued working on the current objective.",
 		"Prefer: no milestone.",
 	})
 }
@@ -141,6 +144,9 @@ func testCallerTerminalProjection(t *testing.T) {
 		"If an artifact contains the detailed result, mention the artifact without repeating its contents.",
 		"Write for the user whose objective appears in the supplied context.",
 		"If the turn failed or was stopped, say so directly and include only the important caveat.",
+		"Never mention workers, workstreams, provider runtimes, internal execution environments",
+		"Omit execution limitations and unavailable checks when the user has no action to take",
+		"name only checks known to have succeeded",
 	})
 }
 
@@ -705,9 +711,16 @@ func assertCallerProviderRequest(
 	if len(request.Input) != wantInputBytes {
 		t.Fatalf("provider input bytes = %d, want %d", len(request.Input), wantInputBytes)
 	}
-	if request.Invocation.Model != "gpt-5.4-mini" || request.Invocation.ReasoningEffort != "low" ||
+	if request.Invocation.Model != "gpt-5.4-mini" || request.Invocation.ReasoningEffort != "high" ||
 		request.Invocation.PermissionMode != agent.PermissionModeReadOnly || request.Invocation.ApprovalMode != agent.ApprovalModeNever {
 		t.Fatalf("provider narrator invocation = %+v", request.Invocation)
+	}
+	if request.TokenUsageAttribution.Bucket != agent.TokenUsageBucketSystem ||
+		request.TokenUsageAttribution.Role != agent.TokenUsageRoleNarrator ||
+		!strings.HasPrefix(request.TokenUsageAttribution.InvocationID, "narrator_invocation_") ||
+		request.TokenUsageAttribution.Model != request.Invocation.Model ||
+		request.TokenUsageAttribution.ReasoningEffort != request.Invocation.ReasoningEffort {
+		t.Fatalf("provider narrator token attribution = %+v", request.TokenUsageAttribution)
 	}
 	var contextEnvelope map[string]any
 	if err := json.Unmarshal(request.Input, &contextEnvelope); err != nil {

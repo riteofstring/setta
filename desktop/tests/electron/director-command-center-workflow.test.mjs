@@ -62,7 +62,6 @@ import {
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
-import { directorInventedSecretApprovalAnswer } from "./fixtures/fake-topic-codex-director-tools.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "director-command-center";
@@ -709,7 +708,7 @@ try {
 
   await stopElectronCdpContext(context);
   context = null;
-  const privateApprovalMarkers = [directorInventedSecretApprovalAnswer, secretApprovalAnswer];
+  const privateApprovalMarkers = [secretApprovalAnswer];
   await assertArtifactsExcludeMarkers(
     firstLaunchDir,
     privateApprovalMarkers,

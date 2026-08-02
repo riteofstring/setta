@@ -32,9 +32,9 @@ export function speechAvailabilityForCapabilities(
   if (capabilities.providerStatus === "not_configured") {
     const provider = capabilities.voiceCatalog.provider;
     return {
-      message: voiceProviderSetupMessage(provider),
+      message: "OpenAI voice is not connected. Add an OpenAI API key in Settings -> Voices.",
       provider,
-      setupAction: voiceProviderSetupAction(provider),
+      setupAction: "open_voice_credential_settings",
       type: "not_configured",
     };
   }
@@ -58,28 +58,6 @@ export function voiceProviderSetupActionLabel(action: VoiceProviderSetupAction):
   }
 }
 
-function voiceProviderSetupAction(provider: SpeechProvider): VoiceProviderSetupAction {
-  switch (provider) {
-    case "local_macos":
-      return "open_voice_credential_settings";
-    case "openai":
-      return "open_voice_credential_settings";
-    default:
-      return assertNever(provider);
-  }
-}
-
-function voiceProviderSetupMessage(provider: SpeechProvider): string {
-  switch (provider) {
-    case "local_macos":
-      return "Local macOS voice is not ready. Check local voice setup in Settings -> Voices.";
-    case "openai":
-      return "OpenAI voice is not connected. Add an OpenAI API key in Settings -> Voices.";
-    default:
-      return assertNever(provider);
-  }
-}
-
 function assertNever(value: never): never {
-  throw new Error(`Unsupported voice provider setup value: ${JSON.stringify(value)}`);
+  throw new Error(`Unsupported voice provider setup action: ${JSON.stringify(value)}`);
 }

@@ -67,13 +67,6 @@ func newHTTPSpeechEndpointFixture(t *testing.T) httpSpeechEndpointFixture {
 		},
 		ResolvedVoiceID: speech.SpeechVoiceCedar,
 	}
-	service.synthesisInput = speech.SpeechSynthesisInput{
-		Provider:        speech.SpeechProviderLocalMacOS,
-		Source:          service.synthesisAudio.Source,
-		Text:            "The local helper can synthesize this narration.",
-		ResolvedVoiceID: speech.SpeechVoiceCedar,
-		Rate:            speech.AssistantSynthesisRate,
-	}
 	handler := NewHandler(HandlerConfig{
 		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
 		RuntimeAuthService: authStore,
@@ -198,24 +191,6 @@ func TestSpeechRealtimeEndpointsExposeTypedOperationsAndAuthenticatedDeviceScope
 		fixture.service.transcriptionDeviceID != fixture.deviceID {
 		t.Fatalf("created=%+v provider=%q device=%q", created, fixture.service.transcriptionProvider, fixture.service.transcriptionDeviceID)
 	}
-	resolved := postJSONWithToken[speech.SpeechSynthesisInput](
-		t,
-		fixture.handler,
-		"/speech/synthesis/resolve",
-		speech.SpeechSynthesisRequest{
-			Provider:        speech.SpeechProviderLocalMacOS,
-			Source:          fixture.service.synthesisInput.Source,
-			ResolvedVoiceID: fixture.service.synthesisInput.ResolvedVoiceID,
-		},
-		fixture.token,
-		http.StatusOK,
-	)
-	if !reflect.DeepEqual(resolved, fixture.service.synthesisInput) ||
-		!reflect.DeepEqual(fixture.service.synthesisInputRequest.Source, fixture.service.synthesisInput.Source) ||
-		fixture.service.synthesisInputRequest.Provider != speech.SpeechProviderLocalMacOS ||
-		fixture.service.synthesisInputRequest.ResolvedVoiceID != fixture.service.synthesisInput.ResolvedVoiceID {
-		t.Fatalf("resolved=%+v request=%+v", resolved, fixture.service.synthesisInputRequest)
-	}
 	synthesized := postJSONWithToken[speech.SpeechAudio](
 		t,
 		fixture.handler,
@@ -257,7 +232,6 @@ func TestSpeechEndpointsRequireAuthentication(t *testing.T) {
 		{method: http.MethodPost, path: "/speech/credentials/desktop/load", body: `{"provider":"openai","apiKey":"sk-setta-http-speech-credential"}`},
 		{method: http.MethodPost, path: "/speech/credentials/desktop/clear", body: `{"provider":"openai"}`},
 		{method: http.MethodPost, path: "/speech/transcription/sessions", body: `{"provider":"openai"}`},
-		{method: http.MethodPost, path: "/speech/synthesis/resolve", body: `{"provider":"local_macos","source":{"speaker":"director","eventId":"answer","conversationId":null},"resolvedVoiceId":"marin"}`},
 		{method: http.MethodPost, path: "/speech/synthesis", body: `{"provider":"openai","source":{"speaker":"director","eventId":"answer","conversationId":null},"resolvedVoiceId":"marin"}`},
 	}
 	for _, test := range tests {
@@ -397,40 +371,35 @@ func TestSpeechSynthesisEndpointMapsSourceStateFailures(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			for _, path := range []string{"/speech/synthesis", "/speech/synthesis/resolve"} {
-				t.Run(path, func(t *testing.T) {
-					handler := newAuthenticatedTestHandler(t, HandlerConfig{
-						Metadata: BackendMetadata{Name: BackendName, Version: "test"},
-						SpeechService: &fakeHTTPSpeechService{
-							synthesisErr:      test.err,
-							synthesisInputErr: test.err,
-						},
-					})
-					response := postJSON[ErrorResponse](
-						t,
-						handler,
-						path,
-						speech.SpeechSynthesisRequest{
-							Provider: speech.SpeechProviderOpenAI,
-							Source: speech.SpeechSource{
-								Speaker: speech.SpeechSpeakerDirector,
-								EventID: "director-answer",
-							},
-							ResolvedVoiceID: speech.SpeechVoiceMarin,
-						},
-						test.wantStatus,
-					)
-					if response.Error.Code != test.wantCode {
-						t.Fatalf("error = %+v", response.Error)
-					}
-				})
+			handler := newAuthenticatedTestHandler(t, HandlerConfig{
+				Metadata: BackendMetadata{Name: BackendName, Version: "test"},
+				SpeechService: &fakeHTTPSpeechService{
+					synthesisErr: test.err,
+				},
+			})
+			response := postJSON[ErrorResponse](
+				t,
+				handler,
+				"/speech/synthesis",
+				speech.SpeechSynthesisRequest{
+					Provider: speech.SpeechProviderOpenAI,
+					Source: speech.SpeechSource{
+						Speaker: speech.SpeechSpeakerDirector,
+						EventID: "director-answer",
+					},
+					ResolvedVoiceID: speech.SpeechVoiceMarin,
+				},
+				test.wantStatus,
+			)
+			if response.Error.Code != test.wantCode {
+				t.Fatalf("error = %+v", response.Error)
 			}
 		})
 	}
 }
 
 func TestSpeechEndpointRejectsRemovedWorkspaceScope(t *testing.T) {
-	for _, path := range []string{"/speech/transcription/sessions", "/speech/synthesis/resolve"} {
+	for _, path := range []string{"/speech/transcription/sessions", "/speech/synthesis"} {
 		t.Run(path, func(t *testing.T) {
 			service := &fakeHTTPSpeechService{}
 			handler := newAuthenticatedTestHandler(t, HandlerConfig{
@@ -480,7 +449,7 @@ func TestSpeechEndpointRejectsOversizedRequestBeforeAuthenticationOrDecode(t *te
 			body: `{"workspaceId":"` + strings.Repeat("x", int(speechRequestBodyLimitBytes)+1) + `"}`,
 		},
 		{
-			path: "/speech/synthesis/resolve",
+			path: "/speech/synthesis",
 			body: `{"source":{"eventId":"` + strings.Repeat("x", int(speechRequestBodyLimitBytes)+1) + `"}}`,
 		},
 		{
@@ -523,9 +492,6 @@ type fakeHTTPSpeechService struct {
 	synthesisAudio                speech.SpeechAudio
 	synthesisErr                  error
 	synthesisRequest              speech.SpeechSynthesisRequest
-	synthesisInput                speech.SpeechSynthesisInput
-	synthesisInputErr             error
-	synthesisInputRequest         speech.SpeechSynthesisRequest
 	session                       speech.SpeechTranscriptionSession
 	transcriptionErr              error
 	transcriptionProvider         speech.SpeechProvider
@@ -624,15 +590,6 @@ func (service *fakeHTTPSpeechService) CreateTranscriptionSession(
 	service.transcriptionProvider = provider
 	service.transcriptionDeviceID = deviceID
 	return service.session, service.transcriptionErr
-}
-
-func (service *fakeHTTPSpeechService) ResolveSynthesisInput(
-	_ context.Context,
-	request speech.SpeechSynthesisRequest,
-) (speech.SpeechSynthesisInput, error) {
-	service.calls++
-	service.synthesisInputRequest = request
-	return service.synthesisInput, service.synthesisInputErr
 }
 
 func (service *fakeHTTPSpeechService) SynthesizeSpeech(

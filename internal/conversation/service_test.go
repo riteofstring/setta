@@ -633,6 +633,10 @@ func (runtime *serviceTestAgentRuntime) RunTurn(
 	request agent.TurnRequest,
 	sink agent.EventSink,
 ) (agent.TurnResult, error) {
+	objective := strings.TrimPrefix(
+		request.Text,
+		topicAgentTurnAuthority+"\n\nCurrent objective:\n",
+	)
 	runtime.mu.Lock()
 	runtime.turns++
 	runtime.runRequests = append(runtime.runRequests, request)
@@ -673,11 +677,11 @@ func (runtime *serviceTestAgentRuntime) RunTurn(
 	if err := sink.HandleAgentEvent(started); err != nil {
 		return agent.TurnResult{}, err
 	}
-	runtime.started <- request.Text
-	result, err := runtime.runTestTurnScenario(ctx, request.Text, sink, base, control, request.WorkspaceRoot)
+	runtime.started <- objective
+	result, err := runtime.runTestTurnScenario(ctx, objective, sink, base, control, request.WorkspaceRoot)
 	runtime.mu.Lock()
 	thread = runtime.providerThreads[request.ProviderThreadID]
-	if request.Text == "side reroute" {
+	if objective == "side reroute" {
 		thread.Model = "gpt-5.4-mini"
 	}
 	for index := range thread.Turns {

@@ -40,6 +40,7 @@ func newServiceRegistry(
 		return nil, err
 	}
 	var callerOptions []CallerOption
+	callerOptions = append(callerOptions, WithCallerIDGenerator(service.newID))
 	if service.callerClock != nil {
 		callerOptions = append(callerOptions, WithCallerClock(service.callerClock))
 	}

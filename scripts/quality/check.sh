@@ -210,6 +210,15 @@ is_node_tool_path() {
   return 1
 }
 
+is_eval_fixture_path() {
+  case "$1" in
+    evals/fixtures/typescript-service/*)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
 is_prettier_path() {
   case "$1" in
     *.css|*.html|*.js|*.jsx|*.json|*.jsonc|*.md|*.mjs|*.cjs|*.mts|*.cts|*.ts|*.tsx|*.yaml|*.yml)
@@ -356,6 +365,17 @@ has_format_project() {
   return 1
 }
 
+has_eval_fixture_project() {
+  local candidate="$1"
+  local existing
+  for existing in "${eval_fixture_projects[@]+"${eval_fixture_projects[@]}"}"; do
+    if [[ "${existing}" == "${candidate}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 cd "${repo_root}"
 
 declare -a go_files=()
@@ -369,6 +389,8 @@ declare -a all_supported_files=()
 declare -a electron_test_template_files=()
 declare -a length_files=()
 declare -a format_projects=()
+declare -a eval_fixture_projects=()
+collection_status=0
 
 while IFS= read -r raw_path; do
   file_path="$(normalize_path "${raw_path}")"
@@ -388,6 +410,18 @@ while IFS= read -r raw_path; do
       electron_test_template_files+=("${file_path}")
       ;;
   esac
+
+  if is_eval_fixture_path "${file_path}"; then
+    if eval_fixture_project="$(find_ts_project "${file_path}")"; then
+      if ! has_eval_fixture_project "${eval_fixture_project}"; then
+        eval_fixture_projects+=("${eval_fixture_project}")
+      fi
+    else
+      echo "Evaluation fixture has no owning package.json: ${file_path}" >&2
+      collection_status=1
+    fi
+    continue
+  fi
 
   if is_prettier_path "${file_path}" && format_project="$(find_ts_project "${file_path}")"; then
     if ! has_format_project "${format_project}"; then
@@ -426,12 +460,12 @@ while IFS= read -r raw_path; do
   esac
 done < <(collect_files | LC_ALL=C sort -u)
 
-if [[ ${#all_supported_files[@]} -eq 0 ]]; then
+if [[ ${#all_supported_files[@]} -eq 0 && ${#eval_fixture_projects[@]} -eq 0 ]]; then
   echo "No supported files to check."
   exit 0
 fi
 
-status=0
+status="${collection_status}"
 
 echo "File length checks..."
 if [[ ${#length_files[@]} -gt 0 ]]; then
@@ -531,6 +565,18 @@ if [[ ${#format_projects[@]} -gt 0 ]]; then
         echo "Project formatting checks (${format_project})..."
         pnpm -C "${repo_root}/${format_project}" run format || status=1
       fi
+    done
+  fi
+fi
+
+if [[ ${#eval_fixture_projects[@]} -gt 0 ]]; then
+  if ! command -v pnpm >/dev/null 2>&1; then
+    echo "pnpm is required for evaluation fixture quality checks." >&2
+    status=1
+  else
+    for eval_fixture_project in "${eval_fixture_projects[@]}"; do
+      echo "Evaluation fixture quality checks (${eval_fixture_project})..."
+      pnpm -C "${repo_root}/${eval_fixture_project}" run quality || status=1
     done
   fi
 fi
