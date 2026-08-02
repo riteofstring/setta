@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "platform": "linux/arm64",
+  "baseImage": "cgr.dev/chainguard/node@sha256:d543de1e29036a65ab270e2069672aa29fae3999e089bc491a9f9094ad2d6ac2",
+  "baseImageId": "sha256:e7cd8d9ec8af4c4d84ab55d89768d1f1f84787db64f785b9b80bad3cd0b5b438",
+  "nodeVersion": "26.5.1",
+  "pnpmVersion": "10.23.0",
+  "pnpmBundleSha256": "c16c2ad0d17f80b8ec5e8acf1ad8ad7c5ad608d1638eb6531f6e5aafcddc75a6",
+  "pnpmLicenseSha256": "e0a867ff513ea7be2a0ddc339ac6a031e459a38668e077b8f0e649544062f9f2"
+}

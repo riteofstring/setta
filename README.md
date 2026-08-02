@@ -1,87 +1,188 @@
 # Setta
 
-Setta is a visual app/workflow environment with a React frontend, a Go backend,
-and a Python package surface for CLI dispatch, source SDKs, and packaging.
+Setta 3 is a local-first Electron app with a Go backend and TypeScript
+frontend.
 
-## Repo shape
+## Development
 
-- `cmd/setta` and `cmd/setta-server` are the CLI and server entrypoints.
-- `internal/` owns the backend runtime, HTTP/ws transports, state, services,
-  codegen, packaging helpers, and frontend binding generation.
-- `backend/setta/` is the Python package and SDK surface:
-  - `python -m setta` / installed `setta` dispatch through
-    `backend/setta/entrypoint.py`
-  - `backend/setta/api/*` contains the source Python SDK/runtime helpers
-    (`SettaListener`, `ListenerHotReloader`, `chat_toolkit`, `SettaRunner`)
-  - package-level helpers such as `local_core_client.py`, `runtime_compat.py`,
-    and `plugin_runtime/*` are thin Go-backed/package-facing surfaces shipped
-    in the wheel
-  - packaged assets, sidecars, and bundled binaries ship from here
-- `plugins/` contains first-party Setta plugin packages, including
-  package-managed language-server plugins, the Watch Code provider, the JSON
-  Render app-subsystem provider, and their manifests/config schemas.
-- `frontend/` contains the Vite/React UI and generated TS bindings.
-- `tests/` contains Python/package pytest coverage; Go tests are
-  co-located under `cmd/*` and `internal/*`.
-
-## Dev loop
-
-Default setup:
-
-```sh
-./dev_install.sh
-./scripts/run-dev-instance.sh
-```
-
-Refresh dependency lockfiles explicitly when dependency manifests change:
+Try the Electron app locally:
 
 ```sh
 ./update_dependencies.sh
+./scripts/dev_desktop.sh
 ```
 
-Common commands:
+The desktop dev command starts the Electron shell. The Electron main process
+starts the Go backend automatically, so a separate backend terminal is not
+required.
 
-- `./scripts/go.sh test ./... -count=1` or `./scripts/run_go_tests.sh`
-- `./scripts/run_backend_tests.sh`
-- `pnpm -C frontend exec vitest run`
-- `./scripts/run-playwright-e2e.sh`
-- `./build.sh`
-- `./verify_install.sh`
-
-`./dev_install.sh` also creates the repo Python environment used for package
-tooling, tests, and the first-party defaults plugin. Activate it when you need
-direct Python/package commands:
+For throwaway local app state:
 
 ```sh
-source activate.sh
+SETTA_APP_DATA_DIR="$(mktemp -d)" ./scripts/dev_desktop.sh
 ```
 
-`dev_install.sh` uses frozen installs and should not rewrite lockfiles.
+Run the last production build when dogfooding Setta while editing this repo:
 
-On a fresh workspace, the repo-local defaults install profile bootstraps
-`setta-basedpyright` as the selected Python language server when that
-first-party plugin is available. Watch Code is available through the optional
-first-party `setta-watch-code` plugin. See
-[`docs/reference/plugin-language-servers.md`](docs/reference/plugin-language-servers.md)
-and [`docs/reference/watch-code.md`](docs/reference/watch-code.md).
+```sh
+./scripts/prod_desktop.sh --build
+./scripts/prod_desktop.sh
+```
 
-## Packaging boundary
+The production launcher uses the compiled Electron bundle and a compiled
+backend binary under `desktop/out`; it does not rebuild unless `--build` is
+passed. Set `SETTA_APP_DATA_DIR` when you want a separate dogfood profile.
 
-The shipped package is a Python wheel that dispatches into packaged Go
-binaries:
+Record a production desktop dogfood session:
 
-- installed `setta` and `python -m setta` resolve through the package
-  entrypoint wrapper
-- the wrapper dispatches into packaged Go binaries under `backend/setta/go_bin`
-- the slim wheel includes dispatch plus package-facing runtime helpers; broader
-  source-only Python SDK modules stay outside the packaged-user install path
-- source-checkout dev flows run the Go entrypoints directly through
-  `./scripts/go.sh`
+```sh
+./scripts/prod_record_desktop_session.sh --build
+```
 
-## Docs
+Configure OpenAI voice inside the app through Settings -> Voices. Production
+desktop launches use the saved in-app credential rather than shell-provided
+speech credentials.
 
-- [Docs overview](docs/README.md)
-- [Dev quickstart](docs/guides/dev-quickstart.md)
-- [Dev scripts](docs/guides/dev-scripts.md)
-- [Dev vs built runtime](docs/reference/dev-vs-built.md)
-- [Worktree dev quickstart](docs/guides/worktree-dev-quickstart.md)
+To reset the default global app state:
+
+```sh
+./scripts/reset_global_setta_state.sh
+./scripts/reset_global_setta_state.sh --yes
+```
+
+The first command is a dry run. The reset script refuses to follow a symlinked
+state directory, refuses to run while a Setta backend appears active, and does
+not touch workspace-local `.setta` directories. It clears backend app data under
+`~/.setta`, including the known-workspace records under `~/.setta/workspaces`,
+and Setta Electron user data.
+
+Record a desktop dogfood session:
+
+```sh
+./scripts/dev_record_desktop_session.sh
+```
+
+Recordings are written under `.recordings/` by default.
+
+The convenience script checks the repo Go wrapper and then runs:
+
+```sh
+pnpm -C desktop dev
+```
+
+The repo-owned supply-chain release-age policy lives in
+`supply_chain_policy.env`. `./update_dependencies.sh` and
+`./scripts/check_supply_chain.sh` read that file directly, and
+`./configure_supply_chain.sh --local-only --days 7` updates the policy plus
+package-local pnpm config files such as `desktop/.npmrc`. Environment
+variables do not override the checked-in release-age policy.
+
+Run the Go backend directly only for backend-only or manual API development:
+
+```sh
+./scripts/go.sh run ./cmd/setta-backend
+```
+
+If the repo Go wrapper cannot find the required Go version, install the
+repo-local toolchain:
+
+```sh
+./scripts/install_go_toolchain.sh
+```
+
+Run verification:
+
+```sh
+./scripts/run_go_tests.sh
+pnpm -C desktop test
+pnpm -C desktop build
+pnpm -C desktop run test:electron:built
+./scripts/test_topic_conversation_workflows.sh
+./check_quality.sh --all
+./scripts/check_supply_chain.sh
+```
+
+The normal supply-chain command includes static eval-container policy checks.
+When an eval Dockerfile, pinned toolchain image, scanner pin, Codex Linux bundle,
+or image-building input changes, also run the local container gate:
+
+```sh
+./scripts/pull_eval_container_security_inputs.sh
+./scripts/check_eval_container_security.sh \
+  --codex-linux-bundle /absolute/path/to/codex-package-aarch64-unknown-linux-musl
+```
+
+The scanner image and vulnerability policy are pinned in
+`evals/sandbox/container-security-policy.json`. The gate builds the production
+eval images without build-time network access, exports them to bounded archives,
+generates CycloneDX SBOMs, and fails on `HIGH` or `CRITICAL` vulnerability,
+secret, or misconfiguration findings—or an end-of-life base OS. Trivy receives
+neither the Docker socket nor developer credentials. Exact scanner-only
+OpenVEX assessments remain visible in the report; every unmatched finding is
+blocking. Reports are local under
+`.recordings/setta-container-security/`. See
+`docs/security/eval-container-scanning.md` for the trust boundary and limits.
+
+`pnpm -C desktop run test:electron:built` runs the required Electron workflow
+manifest against temporary app data after the app has been built. Use
+`node desktop/tests/electron/run-workflows.mjs --list` to inspect the registered
+workflow names and tiers.
+
+`./scripts/test_topic_conversation_workflows.sh` runs the deterministic
+topic-conversation workflow and the live backend Codex workflow when the local
+Codex CLI is signed in with ChatGPT auth; the live-provider skip is printed
+explicitly when ChatGPT auth is unavailable. Use `--visible` to debug with
+windows shown, `--deterministic-only` or `--live-only` to narrow the gate, and
+`--keep-artifacts` to retain prior recordings.
+`./check_quality.sh --all` runs the required Electron workflow manifest after
+the production desktop build.
+
+Regenerate Go-owned TypeScript contracts after changing HTTP endpoint contracts
+or their owning Go types:
+
+```sh
+./scripts/go.sh run ./cmd/generate-contracts
+```
+
+HTTP endpoint request and response contracts are discovered from the Go endpoint
+registry in `internal/httpapi`; add endpoints there instead of editing the
+contract generator.
+
+External provider contracts are checked in at exact upstream commits and are
+advanced intentionally. OpenAI's snapshot, Setta's supported-operation/event
+registry, and its generated Go/TypeScript surfaces live under
+`internal/speech/openaischema`, `internal/speech/openai_contract_gen.go`, and
+`desktop/src/generated/openai-realtime.ts`. To update them, first change the
+commit in `internal/speech/openaischema/UPSTREAM`, check out that exact commit in
+an `openai/openai-openapi` clone, and run:
+
+```sh
+OPENAI_OPENAPI_REPO=/path/to/openai-openapi ./scripts/refresh_openai_api_schema.sh
+```
+
+The refresh fails if the checkout commit, selected endpoint media contracts,
+speech model/voice/format, transcription settings, or Realtime event
+discriminators no longer match. Exact live response media types are also owned
+by that registry and emitted into both generated surfaces; the live workflow
+validates provider representations that are more specific than the OpenAPI
+media declaration. Do not edit either generated output directly.
+The schema gate is complemented by a real provider workflow because published
+OpenAPI metadata and the live wire can change at different times:
+
+```sh
+node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-phase0-live-openai --skip-build
+```
+
+The live workflow uses temporary app data and exercises production
+Electron/main/preload/renderer/HTTP/store paths through OpenAI synthesis and a
+WebRTC transcription session. The Node test runner resolves `OPENAI_API_KEY`
+from its environment or the ignored repository `.env` file, strips it from the
+Electron child environment, and provisions the app through Settings -> Voices.
+
+Codex uses the parallel pinned snapshot at
+`internal/codexapp/protocolschema/UPSTREAM`. Advance its commit, check out the
+same commit in a local Codex clone, then regenerate with:
+
+```sh
+CODEX_REPO=/path/to/codex ./scripts/refresh_codex_protocol_schema.sh
+```
