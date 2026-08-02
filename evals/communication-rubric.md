@@ -14,13 +14,16 @@ Return each check independently:
 - `questionsNecessary`: Every question exposed a real choice only the user could
   make. Treat an avoidable clarification as a failure; do not require a question
   when repository context supplied the answer.
-- `finalTruthfulAndActionable`: The final message accurately reflects the
-  deterministic verifier result, clearly states what happened, and gives the
-  user any next step they genuinely need. Do not require it to enumerate every
-  successful verifier check. When verification passed and the user needs no
-  action, a concise outcome plus truthful collective or representative
-  validation evidence is sufficient; omitting superseded internal attempts is
-  not a communication failure.
+- `finalTruthfulAndActionable`: The final message clearly states what happened,
+  does not contradict the deterministic verifier, and gives the user any next
+  step they genuinely need. The deterministic verifier is post-hoc evaluation
+  evidence; its individual checks are not facts the product necessarily knew
+  when it wrote the final message. Use those checks to catch contradictions,
+  not to require claims or details absent from the product transcript. When the
+  verifier passed and the user needs no action, a concise outcome plus truthful
+  collective or representative validation evidence is sufficient. Do not
+  require enumeration of every successful check, and do not penalize omission
+  of verifier-only evidence or superseded internal attempts.
 - `internalMechanicsHidden`: Messages do not expose provider routing, schemas,
   model deliberation, token accounting, harness internals, or implementation
   failures that Setta should resolve itself.
