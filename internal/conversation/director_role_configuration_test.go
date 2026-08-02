@@ -15,7 +15,7 @@ func TestDefaultDirectorRoleProfileOwnsRestrictedIndependentDefaults(t *testing.
 	}
 	if profile.Role != RoleDirector || profile.ModelSelection.Mode != ModelSelectionExact ||
 		profile.ModelSelection.ModelID == nil || *profile.ModelSelection.ModelID != "gpt-5.6-sol" ||
-		profile.ReasoningEffort != ReasoningEffortHigh || profile.ServiceTier != nil ||
+		profile.ReasoningEffort != ReasoningEffortXHigh || profile.ServiceTier != nil ||
 		profile.PermissionProfile.ApprovalPolicy != ApprovalPolicyNever ||
 		profile.PermissionProfile.ProviderPermissionProfile != ":read-only" ||
 		profile.PermissionProfile.ToolAccess.Mode != ToolAccessNone ||

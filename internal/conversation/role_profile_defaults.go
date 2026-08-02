@@ -10,7 +10,7 @@ func DefaultDirectorRoleProfile() RoleProfile {
 		Role:            RoleDirector,
 		Provider:        ProviderCodex,
 		ModelSelection:  ModelSelection{Mode: ModelSelectionExact, ModelID: &modelID},
-		ReasoningEffort: ReasoningEffortHigh,
+		ReasoningEffort: ReasoningEffortXHigh,
 		PermissionProfile: PermissionProfile{
 			ApprovalPolicy:            ApprovalPolicyNever,
 			ProviderPermissionProfile: ":read-only",
