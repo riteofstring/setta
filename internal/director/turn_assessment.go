@@ -79,17 +79,13 @@ func (assessment *directorTurnAssessment) tool(requestUserChoice SettaTool) Sett
 		Name: directorAssessRequestTool,
 		Description: "Make the required first decision before any other Setta tool. Classify the current request " +
 			"as non_work_or_control, explicitly_checkable_outcome, named_authority_yields_one_answer, or " +
-			"missing_outcome_authority. explicitly_checkable_outcome means the request or recent conversation already " +
-			"states the externally observable completion contract; a restatement of the goal is not that contract. " +
-			"named_authority_yields_one_answer requires a concrete authoritative source or established convention explicitly " +
-			"named there and available to the worker. A repository merely being available is not authority, but an existing " +
-			"rule, convention, specification, fixture, or source within it that the user explicitly directs the worker to " +
-			"follow is. The possibility of investigation and an outside consumer whose contract is unstated are not authority. " +
-			"Put one concise, directly grounded reason in " +
-			"evidence: identify the supplied completion contract, the exact named source and fact it resolves, the missing " +
-			"outcome authority, or why this is only conversation/control. If a format, interface, value, identity, preference, " +
-			"or other externally constrained property can still have materially different valid answers, use " +
-			"missing_outcome_authority. For that basis, also supply one concise outcome-defining question; this assessment " +
+			"missing_outcome_authority. Proceed only when the accepted request states an observable completion contract, or " +
+			"delegates every material outcome choice to an identified authority available to the worker that can uniquely " +
+			"resolve it. An objective or motivation alone is not a completion contract. Context merely being available, or " +
+			"the possibility that investigation might find authority, is not delegation. Put one concise, directly grounded " +
+			"reason in evidence: identify the supplied contract, the delegated authority and choice it uniquely resolves, " +
+			"the unresolved material choice, or why this is only conversation/control. When neither form of authority exists, " +
+			"use missing_outcome_authority. For that basis, also supply one concise outcome-defining question; this assessment " +
 			"records that work is waiting for the user's answer, so ask exactly that question in prose and call no other " +
 			"tool. For every other basis, question must be empty. Do not call this for a prose-only conversational response.",
 		InputSchema: settaToolSchema(map[string]any{
@@ -107,7 +103,7 @@ func (assessment *directorTurnAssessment) tool(requestUserChoice SettaTool) Sett
 				"minLength": 1,
 				"maxLength": maxDirectorAssessmentEvidenceBytes,
 				"description": "One concise, directly grounded reason for the selected basis. Do not merely restate " +
-					"the requested goal or speculate about what investigation might find.",
+					"the objective or speculate about what investigation might find.",
 			},
 			"question": map[string]any{
 				"type":      "string",
