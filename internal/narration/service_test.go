@@ -117,7 +117,7 @@ func assertStatusNarrationReply(
 		t.Fatalf("status narration event = %+v", reply)
 	}
 	if reply.ResolvedInvocation.Role != conversation.RoleNarrator ||
-		reply.ResolvedInvocation.Resolved.ModelID != "gpt-5.4-mini" {
+		reply.ResolvedInvocation.Resolved.ModelID != "gpt-5.6-terra" {
 		t.Fatalf("status invocation audit = %+v", reply.ResolvedInvocation)
 	}
 }

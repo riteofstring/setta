@@ -48,16 +48,17 @@ func DefaultAgentRoleProfile() RoleProfile {
 	}
 }
 
-// DefaultNarratorRoleProfile is deliberately exact and lightweight. Narrator
+// DefaultNarratorRoleProfile is deliberately exact and balanced. Narrator
 // calls receive only supplied context and cannot use tools, mutate a workspace,
-// or request approvals.
+// or request approvals, but their user-facing judgments still need reliable
+// instruction following.
 func DefaultNarratorRoleProfile() RoleProfile {
-	modelID := "gpt-5.4-mini"
+	modelID := "gpt-5.6-terra"
 	return RoleProfile{
 		Role:            RoleNarrator,
 		Provider:        ProviderCodex,
 		ModelSelection:  ModelSelection{Mode: ModelSelectionExact, ModelID: &modelID},
-		ReasoningEffort: ReasoningEffortLow,
+		ReasoningEffort: ReasoningEffortMedium,
 		PermissionProfile: PermissionProfile{
 			ApprovalPolicy:            ApprovalPolicyNever,
 			ProviderPermissionProfile: ":read-only",

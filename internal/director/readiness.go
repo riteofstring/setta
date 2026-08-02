@@ -24,9 +24,11 @@ const directorReadinessReview = `Act as Setta's pre-action readiness reviewer. D
 
 Return user_choice_needed only when the requested outcome depends on a missing user-owned requirement and materially different results could all be valid. Count an unknown as discoverable only when the supplied request or recent conversation identifies authoritative evidence that can establish one objectively correct answer. The possibility that future investigation might uncover a requirement is not evidence.
 
+Identified authoritative evidence must be an available source the worker can inspect without guessing, such as a named or attached artifact, a stated repository convention, a named file or path, an existing implementation, or an earlier user answer. Naming only who will consume the result, why it is wanted, or what broad purpose it serves does not identify the missing contract. Do not assume a contract exists in the workspace merely because searching might find one.
+
 Return work_permitted for conversation, explanation, status, app control, cancellation, an answer to an earlier question, a fully specified work request, or work whose remaining unknowns are objectively discoverable from identified authoritative evidence. Do not ask the user to decide implementation details that evidence can settle.
 
-When a user choice is needed, return one concise question whose answer would make the intended outcome objectively evaluable. Otherwise return an empty question. Do not perform, route, plan, or narrate the work.`
+When a user choice is needed, return one concise question about only the outcome-defining information. Do not ask for secondary implementation details that normal conventions can settle after that answer. Otherwise return an empty question. Do not perform, route, plan, or narrate the work.`
 
 type DirectorReadinessRequest struct {
 	Intent  SubmittedIntent
