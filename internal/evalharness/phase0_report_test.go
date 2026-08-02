@@ -156,8 +156,8 @@ func validPhase0SandboxEvidenceForTest(t *testing.T, commit string) Phase0Sandbo
 		},
 		Tools: Phase0ToolPolicyEvidence{
 			AllowedActivityKinds:         phase0AllowedActivityKinds(),
-			DisabledFeatureNames:         agent.RestrictedThreadDisabledFeatureNames(true),
-			EnabledFeatureNames:          agent.RestrictedThreadEnabledFeatureNames(true),
+			DisabledFeatureNames:         agent.RestrictedThreadDisabledFeatureNames(true, true),
+			EnabledFeatureNames:          agent.RestrictedThreadEnabledFeatureNames(true, true),
 			DynamicToolsEmpty:            true,
 			EffectiveMCPServersDisabled:  true,
 			OrchestratorMCPDisabled:      true,

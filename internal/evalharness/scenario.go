@@ -43,10 +43,10 @@ const (
 type ScenarioTrigger string
 
 const (
-	ScenarioTriggerDirectorTurnCompleted  ScenarioTrigger = "director_turn_completed"
-	ScenarioTriggerFirstWorkspaceMutation ScenarioTrigger = "first_workspace_mutation"
-	ScenarioTriggerAgentTurnRunning       ScenarioTrigger = "agent_turn_running"
-	ScenarioTriggerQueueNonempty          ScenarioTrigger = "queue_nonempty"
+	ScenarioTriggerAgentUserInputRequested ScenarioTrigger = "agent_user_input_requested"
+	ScenarioTriggerFirstWorkspaceMutation  ScenarioTrigger = "first_workspace_mutation"
+	ScenarioTriggerAgentTurnRunning        ScenarioTrigger = "agent_turn_running"
+	ScenarioTriggerQueueNonempty           ScenarioTrigger = "queue_nonempty"
 )
 
 type ScenarioTerminalState string
@@ -66,6 +66,7 @@ type ScenarioControlAssertion string
 
 const (
 	ScenarioControlNoMutationBeforeReply    ScenarioControlAssertion = "no_mutation_before_scripted_reply"
+	ScenarioControlInvestigationBeforeReply ScenarioControlAssertion = "investigation_before_scripted_reply"
 	ScenarioControlScriptedReplyConsumed    ScenarioControlAssertion = "scripted_reply_consumed_once"
 	ScenarioControlFollowUpThroughDirector  ScenarioControlAssertion = "follow_up_routed_through_director"
 	ScenarioControlLatestInstructionWins    ScenarioControlAssertion = "latest_instruction_wins"
@@ -341,7 +342,7 @@ func supportedScenarioVerifier(verifier string) bool {
 
 func supportedScenarioTrigger(trigger ScenarioTrigger) bool {
 	switch trigger {
-	case ScenarioTriggerDirectorTurnCompleted,
+	case ScenarioTriggerAgentUserInputRequested,
 		ScenarioTriggerFirstWorkspaceMutation,
 		ScenarioTriggerAgentTurnRunning,
 		ScenarioTriggerQueueNonempty:
@@ -354,6 +355,7 @@ func supportedScenarioTrigger(trigger ScenarioTrigger) bool {
 func supportedScenarioControlAssertion(assertion ScenarioControlAssertion) bool {
 	switch assertion {
 	case ScenarioControlNoMutationBeforeReply,
+		ScenarioControlInvestigationBeforeReply,
 		ScenarioControlScriptedReplyConsumed,
 		ScenarioControlFollowUpThroughDirector,
 		ScenarioControlLatestInstructionWins,
@@ -401,17 +403,19 @@ func validateScenarioClarificationContract(
 	assertions map[ScenarioControlAssertion]bool,
 ) error {
 	hasAssertions := assertions[ScenarioControlNoMutationBeforeReply] &&
+		assertions[ScenarioControlInvestigationBeforeReply] &&
 		assertions[ScenarioControlScriptedReplyConsumed]
 	switch policy {
 	case ScenarioClarificationRequiredOnce:
-		if triggers[ScenarioTriggerDirectorTurnCompleted] != 1 || !hasAssertions {
+		if triggers[ScenarioTriggerAgentUserInputRequested] != 1 || !hasAssertions {
 			return errors.New(
-				"required_once clarification requires one director_turn_completed reply and both clarification assertions",
+				"required_once clarification requires one agent_user_input_requested reply and all clarification assertions",
 			)
 		}
 	case ScenarioClarificationForbidden:
-		if triggers[ScenarioTriggerDirectorTurnCompleted] != 0 ||
+		if triggers[ScenarioTriggerAgentUserInputRequested] != 0 ||
 			assertions[ScenarioControlNoMutationBeforeReply] ||
+			assertions[ScenarioControlInvestigationBeforeReply] ||
 			assertions[ScenarioControlScriptedReplyConsumed] {
 			return errors.New("forbidden clarification cannot declare a scripted clarification reply")
 		}

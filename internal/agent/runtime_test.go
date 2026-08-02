@@ -105,6 +105,46 @@ func TestForkThreadParamsPinsReasoningAndClearsInheritedServiceTier(t *testing.T
 	}
 }
 
+func TestThreadConfigsEnableUserInputWithoutReasoningOverride(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		build func() (*map[string]json.RawMessage, error)
+	}{
+		{
+			name: "start",
+			build: func() (*map[string]json.RawMessage, error) {
+				return modelThreadConfig(Invocation{}, true)
+			},
+		},
+		{
+			name: "fork",
+			build: func() (*map[string]json.RawMessage, error) {
+				return forkThreadConfig(Invocation{}, true)
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config, err := test.build()
+			if err != nil {
+				t.Fatalf("build thread config: %v", err)
+			}
+			if config == nil {
+				t.Fatal("thread config omitted the requested user-input feature")
+			}
+			var features map[string]bool
+			if err := json.Unmarshal((*config)["features"], &features); err != nil {
+				t.Fatalf("decode thread features: %v", err)
+			}
+			if len(features) != 1 || !features[restrictedThreadUserInputFeatureName] {
+				t.Fatalf("thread features = %#v", features)
+			}
+			if _, found := (*config)["model_reasoning_effort"]; found {
+				t.Fatal("thread config invented a reasoning override")
+			}
+		})
+	}
+}
+
 func TestValidateForkThreadResponseRejectsProviderSettingDrift(t *testing.T) {
 	workspaceRoot := t.TempDir()
 	effort := codexapp.ReasoningEffort("medium")

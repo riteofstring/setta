@@ -1040,21 +1040,38 @@ func validTestRoleConfigurations() (conversation.RoleConfiguration, conversation
 		DefaultModelID: *profiles[conversation.RoleAgent].ModelSelection.ModelID,
 		Models:         []conversation.RoleModelOption{},
 	}
-	for index, role := range []conversation.Role{
+	modelIndexes := map[string]int{}
+	for _, role := range []conversation.Role{
 		conversation.RoleAgent,
 		conversation.RoleNarrator,
 		conversation.RoleDirector,
 		conversation.RoleSideAgent,
 	} {
 		profile := profiles[role]
+		modelID := *profile.ModelSelection.ModelID
+		if modelIndex, exists := modelIndexes[modelID]; exists {
+			option := &catalog.Models[modelIndex]
+			effortFound := false
+			for _, effort := range option.SupportedReasoningEfforts {
+				effortFound = effortFound || effort == profile.ReasoningEffort
+			}
+			if !effortFound {
+				option.SupportedReasoningEfforts = append(
+					option.SupportedReasoningEfforts,
+					profile.ReasoningEffort,
+				)
+			}
+			continue
+		}
+		modelIndexes[modelID] = len(catalog.Models)
 		catalog.Models = append(catalog.Models, conversation.RoleModelOption{
 			Provider:                  conversation.ProviderCodex,
-			ModelID:                   *profile.ModelSelection.ModelID,
+			ModelID:                   modelID,
 			DisplayName:               string(role) + " model",
 			DefaultReasoningEffort:    profile.ReasoningEffort,
 			SupportedReasoningEfforts: []conversation.ReasoningEffort{profile.ReasoningEffort},
 			ServiceTiers:              []string{},
-			IsDefault:                 index == 0,
+			IsDefault:                 modelID == catalog.DefaultModelID,
 		})
 	}
 	configurationProfiles := func(roles []conversation.Role) []conversation.RoleProfileConfiguration {

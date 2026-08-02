@@ -153,6 +153,43 @@ func (state *evaluationConversationState) completedWorkspaceMutationCount(
 	return count
 }
 
+func (state *evaluationConversationState) pendingUserInputApprovals(
+	turnID string,
+) []conversation.TrajectoryApprovalRequest {
+	pending := map[string]conversation.TrajectoryApprovalRequest{}
+	order := make([]string, 0)
+	for _, event := range state.snapshot.Trajectory.Events {
+		if event.TurnID == nil || *event.TurnID != turnID {
+			continue
+		}
+		if event.Kind == conversation.TrajectoryEventApprovalRequested &&
+			event.ApprovalRequested != nil &&
+			isUserInputApproval(event.ApprovalRequested.Approval.Kind) {
+			approval := event.ApprovalRequested.Approval
+			if _, exists := pending[approval.ID]; !exists {
+				order = append(order, approval.ID)
+			}
+			pending[approval.ID] = approval
+		}
+		if event.Kind == conversation.TrajectoryEventApprovalResolved &&
+			event.ApprovalResolved != nil {
+			delete(pending, event.ApprovalResolved.Resolution.ApprovalID)
+		}
+	}
+	result := make([]conversation.TrajectoryApprovalRequest, 0, len(pending))
+	for _, approvalID := range order {
+		if approval, exists := pending[approvalID]; exists {
+			result = append(result, approval)
+		}
+	}
+	return result
+}
+
+func isUserInputApproval(kind conversation.TrajectoryApprovalKind) bool {
+	return kind == conversation.TrajectoryApprovalKindStructuredInput ||
+		kind == conversation.TrajectoryApprovalKindUserInput
+}
+
 func (state *evaluationConversationState) triggerObservation(
 	stepIndex int,
 	trigger ScenarioTrigger,
@@ -168,8 +205,11 @@ func (state *evaluationConversationState) triggerObservation(
 	}
 	queueIDs := state.queueTurnIDs()
 	mutationCount := state.completedWorkspaceMutationCount(observedTurnID)
+	inputApprovals := state.pendingUserInputApprovals(observedTurnID)
 	ready := false
 	switch trigger {
+	case ScenarioTriggerAgentUserInputRequested:
+		ready = turn.Status == conversation.TurnStatusRunning && len(inputApprovals) > 0
 	case ScenarioTriggerAgentTurnRunning:
 		ready = turn.Status == conversation.TurnStatusRunning
 	case ScenarioTriggerFirstWorkspaceMutation:
@@ -186,6 +226,10 @@ func (state *evaluationConversationState) triggerObservation(
 		return EvaluationTriggerObservation{}, false, nil
 	}
 	status := turn.Status
+	var approvalID *string
+	if trigger == ScenarioTriggerAgentUserInputRequested {
+		approvalID = evaluationStringPointer(inputApprovals[0].ID)
+	}
 	observation := EvaluationTriggerObservation{
 		StepIndex:              stepIndex,
 		Trigger:                trigger,
@@ -193,6 +237,7 @@ func (state *evaluationConversationState) triggerObservation(
 		ConversationID:         evaluationStringPointer(state.snapshot.Conversation.ID),
 		ObservedTurnID:         evaluationStringPointer(observedTurnID),
 		ObservedTurnStatus:     &status,
+		ObservedApprovalID:     approvalID,
 		QueueTurnIDs:           queueIDs,
 		WorkspaceMutationCount: mutationCount,
 	}

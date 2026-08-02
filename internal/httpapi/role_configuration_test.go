@@ -308,7 +308,7 @@ func validHTTPRoleModelCatalog() conversation.RoleModelCatalog {
 			httpRoleModel("gpt-5.6-sol", conversation.ReasoningEffortHigh, true),
 			httpRoleModel("gpt-5.6-terra", conversation.ReasoningEffortMedium, false),
 			httpRoleModel("gpt-5.6-luna", conversation.ReasoningEffortMedium, false),
-			httpRoleModel("gpt-5.4-mini", conversation.ReasoningEffortLow, false),
+			httpRoleModel("gpt-5.4-mini", conversation.ReasoningEffortHigh, false),
 		},
 	}
 }

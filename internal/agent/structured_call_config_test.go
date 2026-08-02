@@ -77,7 +77,7 @@ func TestReadConfiguredMCPServerNamesRejectsMalformedEffectiveConfig(t *testing.
 	}
 }
 
-func TestReadRestrictedThreadConfigEnablesOnlyRemoteShellFeatures(t *testing.T) {
+func TestReadRestrictedThreadConfigEnablesOnlyRequestedInternalFeatures(t *testing.T) {
 	caller := structuredCallConfigCallerFunc(func(_ context.Context, method string, params any) (json.RawMessage, error) {
 		if method != "config/read" {
 			t.Fatalf("config method = %q", method)
@@ -91,6 +91,7 @@ func TestReadRestrictedThreadConfigEnablesOnlyRemoteShellFeatures(t *testing.T) 
 	config, err := ReadRestrictedThreadConfig(context.Background(), caller, RestrictedThreadConfigOptions{
 		ReasoningEffort: "high",
 		ShellTools:      true,
+		UserInput:       true,
 	})
 	if err != nil {
 		t.Fatalf("ReadRestrictedThreadConfig: %v", err)
@@ -99,12 +100,12 @@ func TestReadRestrictedThreadConfigEnablesOnlyRemoteShellFeatures(t *testing.T) 
 	if err := json.Unmarshal(config["features"], &features); err != nil {
 		t.Fatalf("decode feature overrides: %v", err)
 	}
-	for _, feature := range RestrictedThreadEnabledFeatureNames(true) {
+	for _, feature := range RestrictedThreadEnabledFeatureNames(true, true) {
 		if !features[feature] {
 			t.Fatalf("restricted thread feature %s was not enabled", feature)
 		}
 	}
-	for _, feature := range RestrictedThreadDisabledFeatureNames(true) {
+	for _, feature := range RestrictedThreadDisabledFeatureNames(true, true) {
 		if enabled, found := features[feature]; !found || enabled {
 			t.Fatalf("restricted thread feature %s = %t found=%t", feature, enabled, found)
 		}

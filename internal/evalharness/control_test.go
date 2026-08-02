@@ -91,7 +91,34 @@ func TestScenarioControlEvidenceRejectsMismatchedDirectorControl(t *testing.T) {
 			checks:   []evalverifier.Check{{ID: "ready_route", Passed: true, Detail: "Ready."}},
 			mutate: func(events []EvaluationEvent) {
 				other := "workstream-other"
-				events[2].TriggerObserved.WorkstreamID = &other
+				for index := range events {
+					if events[index].TriggerObserved != nil {
+						events[index].TriggerObserved.WorkstreamID = &other
+						return
+					}
+				}
+			},
+		},
+		{
+			name:     "clarification started replacement work",
+			scenario: controlTestGenuineAmbiguityScenario(),
+			events:   genuineAmbiguityControlEvents(),
+			checks:   []evalverifier.Check{{ID: "ready_route", Passed: true, Detail: "Ready."}},
+			mutate: func(events []EvaluationEvent) {
+				for index := range events {
+					receipt := events[index].DirectorReceipt
+					if receipt == nil || receipt.StepIndex != 1 {
+						continue
+					}
+					workstreamID := "workstream-eval"
+					receipt.Receipt.Submit.ToolCalls = append(
+						receipt.Receipt.Submit.ToolCalls,
+						director.DirectorToolCall{
+							Tool: "submit_work", Succeeded: true, WorkstreamID: &workstreamID,
+						},
+					)
+					return
+				}
 			},
 		},
 	} {
@@ -125,16 +152,30 @@ func TestConversationStateObservesOnlyExactTypedTriggers(t *testing.T) {
 			{ID: queuedID, Status: conversation.TurnStatusQueued},
 		}},
 		Queue: []conversation.QueuedConversationTurn{{TurnID: queuedID}},
-		Trajectory: conversation.ConversationTrajectoryWindow{Events: []conversation.TrajectoryEvent{{
-			TurnID: &observedID,
-			Kind:   conversation.TrajectoryEventFileChangeCompleted,
-			FileChangeCompleted: &conversation.TrajectoryFileChangeCompleted{
-				Outcome: conversation.FileChangeOutcomeCompleted,
-				Changes: []conversation.FileChange{{Path: "src/server.ts", Kind: conversation.FileChangeUpdate}},
+		Trajectory: conversation.ConversationTrajectoryWindow{Events: []conversation.TrajectoryEvent{
+			{
+				TurnID: &observedID,
+				Kind:   conversation.TrajectoryEventFileChangeCompleted,
+				FileChangeCompleted: &conversation.TrajectoryFileChangeCompleted{
+					Outcome: conversation.FileChangeOutcomeCompleted,
+					Changes: []conversation.FileChange{{Path: "src/server.ts", Kind: conversation.FileChangeUpdate}},
+				},
 			},
-		}}},
+			{
+				TurnID: &observedID,
+				Kind:   conversation.TrajectoryEventApprovalRequested,
+				ApprovalRequested: &conversation.TrajectoryApprovalRequested{Approval: conversation.TrajectoryApprovalRequest{
+					ID:   "approval-input",
+					Kind: conversation.TrajectoryApprovalKindStructuredInput,
+					Questions: []conversation.TrajectoryApprovalQuestion{{
+						ID: "question-input", Question: "Which contract should be used?",
+					}},
+				}},
+			},
+		}},
 	}}
 	for _, trigger := range []ScenarioTrigger{
+		ScenarioTriggerAgentUserInputRequested,
 		ScenarioTriggerAgentTurnRunning,
 		ScenarioTriggerFirstWorkspaceMutation,
 		ScenarioTriggerQueueNonempty,
@@ -212,11 +253,12 @@ func controlTestGenuineAmbiguityScenario() Scenario {
 		ScenarioVerifierGenuineAmbiguity,
 		[]ScenarioStep{
 			{Kind: ScenarioStepSubmit, Text: "Choose the diagnostics endpoint."},
-			{Kind: ScenarioStepSubmitWhen, Trigger: ScenarioTriggerDirectorTurnCompleted, Text: "Use readiness."},
+			{Kind: ScenarioStepSubmitWhen, Trigger: ScenarioTriggerAgentUserInputRequested, Text: "Use readiness."},
 		},
 		ScenarioClarificationRequiredOnce,
 		[]ScenarioControlAssertion{
 			ScenarioControlNoMutationBeforeReply,
+			ScenarioControlInvestigationBeforeReply,
 			ScenarioControlScriptedReplyConsumed,
 			ScenarioControlFollowUpThroughDirector,
 		},
@@ -288,20 +330,61 @@ func controlTestScenario(
 func genuineAmbiguityControlEvents() []EvaluationEvent {
 	workstreamID := "workstream-eval"
 	turnID := "turn-ready"
+	approvalID := "approval-ready-contract"
+	questionID := "ready-contract"
+	running := conversation.TurnStatusRunning
+	command := "rg -n 'ready|live' docs src"
+	cwd := "/workspace"
+	trigger := controlTriggerEvent(
+		6,
+		1,
+		ScenarioTriggerAgentUserInputRequested,
+		workstreamID,
+		"conversation-eval",
+		turnID,
+		&running,
+	)
+	trigger.TriggerObserved.ObservedApprovalID = &approvalID
 	return controlScenarioEvents(ScenarioVerifierGenuineAmbiguity, []EvaluationEvent{
 		controlUserEvent(1, 0, nil, "Choose the diagnostics endpoint."),
-		controlReceiptEvent(2, 0, "", workstreamID),
-		controlTriggerEvent(3, 1, ScenarioTriggerDirectorTurnCompleted, "", "", "", nil),
-		controlUserEvent(4, 1, triggerPointer(ScenarioTriggerDirectorTurnCompleted), "Use readiness."),
-		controlReceiptEvent(5, 1, "create_workstream", workstreamID),
-		controlTrajectoryEvent(6, turnID, conversation.TrajectoryEventUserInputAccepted, func(event *conversation.TrajectoryEvent) {
+		controlReceiptEvent(2, 0, "create_workstream", workstreamID),
+		controlTrajectoryEvent(3, turnID, conversation.TrajectoryEventUserInputAccepted, func(event *conversation.TrajectoryEvent) {
 			event.UserInputAccepted = &conversation.TrajectoryUserInputAccepted{
-				Input:    conversation.AuthoredInput{Text: "Implement the standard readiness endpoint and cover it."},
+				Input:    conversation.AuthoredInput{Text: "Choose and implement the diagnostics endpoint."},
 				Delivery: conversation.TurnDeliveryNormal,
 			}
 		}),
-		controlFinalStateEvent(7, workstreamID, []EvaluationConversationTurnState{{
-			TurnID: turnID, AuthoredInput: conversation.AuthoredInput{Text: "Implement the standard readiness endpoint and cover it."},
+		controlTrajectoryEvent(4, turnID, conversation.TrajectoryEventActivityCompleted, func(event *conversation.TrajectoryEvent) {
+			event.ActivityCompleted = &conversation.TrajectoryActivityCompleted{
+				Activity: conversation.TrajectoryActivity{
+					ID: "activity-inspect-contract", Kind: conversation.TrajectoryActivityCommand,
+					Title: "Inspect diagnostics conventions", Command: &command, CWD: &cwd,
+				},
+				Summary: "Inspected the repository's diagnostics contracts.",
+			}
+		}),
+		controlTrajectoryEvent(5, turnID, conversation.TrajectoryEventApprovalRequested, func(event *conversation.TrajectoryEvent) {
+			event.ApprovalRequested = &conversation.TrajectoryApprovalRequested{Approval: conversation.TrajectoryApprovalRequest{
+				ID: approvalID, Kind: conversation.TrajectoryApprovalKindStructuredInput,
+				Questions: []conversation.TrajectoryApprovalQuestion{{
+					ID: questionID, Question: "Should the deployment monitor use liveness or readiness?",
+				}},
+			}}
+		}),
+		trigger,
+		controlUserEvent(7, 1, triggerPointer(ScenarioTriggerAgentUserInputRequested), "Use readiness."),
+		controlReceiptEvent(8, 1, "resolve_approval", workstreamID),
+		controlTrajectoryEvent(9, turnID, conversation.TrajectoryEventApprovalResolved, func(event *conversation.TrajectoryEvent) {
+			event.ApprovalResolved = &conversation.TrajectoryApprovalResolved{Resolution: conversation.TrajectoryApprovalResolution{
+				ApprovalID: approvalID,
+				Decision:   conversation.TrajectoryApprovalDecisionAnswered,
+				Answers: []conversation.ConversationApprovalAnswer{{
+					QuestionID: questionID, Answers: []string{"Use readiness."},
+				}},
+			}}
+		}),
+		controlFinalStateEvent(10, workstreamID, []EvaluationConversationTurnState{{
+			TurnID: turnID, AuthoredInput: conversation.AuthoredInput{Text: "Choose and implement the diagnostics endpoint."},
 			Delivery: conversation.TurnDeliveryNormal, Status: conversation.TurnStatusCompleted,
 		}}),
 	})

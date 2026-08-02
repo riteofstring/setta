@@ -27,23 +27,14 @@ type scriptedDirectorToolCall struct {
 	rawArguments json.RawMessage
 }
 
-func readyDirectorCalls(calls ...scriptedDirectorToolCall) []scriptedDirectorToolCall {
-	return append([]scriptedDirectorToolCall{{
-		tool: directorAssessRequestTool,
-		arguments: map[string]any{
-			"basis":    string(directorAssessmentExplicitlyCheckable),
-			"evidence": "The scripted request states the completion contract.",
-			"question": "",
-		},
-	}}, calls...)
+func directorCalls(calls ...scriptedDirectorToolCall) []scriptedDirectorToolCall {
+	return append([]scriptedDirectorToolCall{}, calls...)
 }
 
 func missingRequirementDirectorCall(question string) []scriptedDirectorToolCall {
 	return []scriptedDirectorToolCall{{
-		tool: directorAssessRequestTool,
+		tool: "request_user_choice",
 		arguments: map[string]any{
-			"basis":    string(directorAssessmentMissingOutcomeAuthority),
-			"evidence": "The user has not supplied the outcome-defining choice.",
 			"question": question,
 		},
 	}}

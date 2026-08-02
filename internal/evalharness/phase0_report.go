@@ -255,15 +255,15 @@ func validatePhase0ToolPolicyEvidence(evidence Phase0ToolPolicyEvidence) error {
 	}
 	if !reflect.DeepEqual(
 		evidence.DisabledFeatureNames,
-		agent.RestrictedThreadDisabledFeatureNames(true),
+		agent.RestrictedThreadDisabledFeatureNames(true, true),
 	) {
 		return errors.New("Phase 0 evidence did not disable the exact external feature set")
 	}
 	if !reflect.DeepEqual(
 		evidence.EnabledFeatureNames,
-		agent.RestrictedThreadEnabledFeatureNames(true),
+		agent.RestrictedThreadEnabledFeatureNames(true, true),
 	) {
-		return errors.New("Phase 0 evidence did not enable only the required shell features")
+		return errors.New("Phase 0 evidence did not enable only the required agent features")
 	}
 	if !evidence.DynamicToolsEmpty || !evidence.EffectiveMCPServersDisabled ||
 		!evidence.OrchestratorMCPDisabled || !evidence.OrchestratorSkillsDisabled ||
@@ -402,7 +402,7 @@ func RenderPhase0SandboxReport(evidence Phase0SandboxEvidence) (string, error) {
 	)
 	report.WriteString("- The host canary and fake host endpoint were unreachable from the sandbox.\n")
 	report.WriteString("- Docker inspection and the boundary helper observed only allowlisted environment names; the strict remote shell policy inherited none.\n")
-	report.WriteString("- The turn config disabled every effective MCP server and external feature; only remote shell execution and container-confined image viewing were accepted.\n")
+	report.WriteString("- The turn config disabled every effective MCP server and external feature; only remote shell execution, internal user-input requests, and container-confined image viewing were accepted.\n")
 	report.WriteString("- The app-server, host control relay, container, volume, network, image tag, and canary were removed.\n")
 	return report.String(), nil
 }

@@ -195,10 +195,10 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 		},
 		{
 			Name: "request_user_choice",
-			Description: "Mark that work must wait for one outcome-defining user decision. Use this when materially " +
-				"different results could all be valid and the request plus authorized evidence cannot prove which one " +
-				"is correct. Make this the only action in the turn; do not create, submit, queue, or explore work first. " +
-				"After the receipt, ask exactly the supplied question in concise user-facing prose. This tool starts no work.",
+			Description: "Mark that no useful work or investigation can start without one material decision only the user " +
+				"can make. Use this rarely: do not ask for implementation details a worker can resolve from project evidence, " +
+				"an identified source of truth, existing context, or reasonable judgment. Make this the only action in the " +
+				"turn. After the receipt, ask exactly the supplied question in concise user-facing prose. This tool starts no work.",
 			InputSchema: settaToolSchema(map[string]any{
 				"question": settaToolString("The one outcome-changing question only the user can answer.", MaxDirectorReplyBytes),
 			}, []string{"question"}),
@@ -229,9 +229,8 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 			Name: "create_workstream",
 			Description: "Create and select an independent ongoing topic, not merely another task for a matching " +
 				"existing workstream. Supply workspaceId from list_workspaces when the " +
-				"work is about the files in that folder, or set it to null when it is not. Supply initialInput to " +
-				"start work only when the accepted request assessment permits work. If an outcome-defining user decision " +
-				"remains, the assessment must request that choice instead and the workstream must not be created yet.",
+				"work is about the files in that folder, or set it to null when it is not. Supply initialInput to start " +
+				"work immediately; the worker should investigate resolvable uncertainty before asking the user.",
 			InputSchema: settaToolSchema(map[string]any{
 				"title":       settaToolString("A short human title for the new workstream.", MaxDecisionTitleBytes),
 				"workspaceId": settaToolNullableString("The workspace id from list_workspaces, or null to create the workstream with no folder.", MaxDecisionReferenceBytes),
@@ -287,8 +286,8 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 			Name: "submit_work",
 			Description: "Send another task to an existing workstream whose topic matches the user's context. " +
 				"Setta starts it immediately when the " +
-				"workstream is idle and queues it behind the active run when it is busy. Use this only when the accepted " +
-				"request assessment permits work; a missing user decision must be requested by the assessment instead.",
+				"workstream is idle and queues it behind the active run when it is busy. Let the worker investigate " +
+				"resolvable uncertainty instead of asking the user for implementation details up front.",
 			InputSchema: settaToolSchema(map[string]any{
 				"workstreamId": settaToolString("The workstream id from list_workstreams.", MaxDecisionReferenceBytes),
 				"input":        settaToolString("The instruction to run in that workstream.", MaxDecisionAuthoredInputBytes),

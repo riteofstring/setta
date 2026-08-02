@@ -10,7 +10,7 @@
     },
     {
       "kind": "submit_when",
-      "trigger": "director_turn_completed",
+      "trigger": "agent_user_input_requested",
       "text": "Use readiness: GET /ready with the repository's standard readiness body."
     }
   ],
@@ -19,6 +19,7 @@
     "clarification": "required_once",
     "controlAssertions": [
       "no_mutation_before_scripted_reply",
+      "investigation_before_scripted_reply",
       "scripted_reply_consumed_once",
       "follow_up_routed_through_director"
     ]

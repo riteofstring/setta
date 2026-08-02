@@ -148,6 +148,7 @@ type StartThreadRequest struct {
 	DeveloperInstructions string        `json:"developerInstructions,omitempty"`
 	DynamicTools          []DynamicTool `json:"-"`
 	EnableShellTools      bool          `json:"-"`
+	EnableUserInput       bool          `json:"-"`
 }
 
 type ForkThreadRequest struct {
@@ -159,6 +160,7 @@ type ForkThreadRequest struct {
 	DeveloperInstructions string        `json:"developerInstructions,omitempty"`
 	DynamicTools          []DynamicTool `json:"-"`
 	EnableShellTools      bool          `json:"-"`
+	EnableUserInput       bool          `json:"-"`
 }
 
 type ListThreadsRequest struct {

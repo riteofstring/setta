@@ -14,6 +14,7 @@ import (
 func TestPhase2TranscriptContainsOnlyPublicSpeech(t *testing.T) {
 	startedAt := time.Date(2026, time.July, 31, 20, 0, 0, 0, time.UTC)
 	receivedAt := startedAt.Add(time.Second)
+	workerQuestionAt := receivedAt.Add(time.Second)
 	narrations := []conversation.NarrationEvent{
 		{
 			Kind:            conversation.NarrationEventKindTopicDescriptor,
@@ -67,6 +68,27 @@ func TestPhase2TranscriptContainsOnlyPublicSpeech(t *testing.T) {
 				Receipt:   receipt,
 			},
 		},
+		{
+			SchemaVersion: EvaluationEventSchemaVersion,
+			ScenarioID:    ScenarioVerifierStraightforward,
+			Attempt:       EvaluationAttemptFirst,
+			Sequence:      3,
+			RecordedAt:    workerQuestionAt.Format(time.RFC3339Nano),
+			Kind:          EvaluationEventTrajectory,
+			Trajectory: &conversation.TrajectoryEvent{
+				Kind: conversation.TrajectoryEventApprovalRequested,
+				ApprovalRequested: &conversation.TrajectoryApprovalRequested{
+					Approval: conversation.TrajectoryApprovalRequest{
+						Kind: conversation.TrajectoryApprovalKindStructuredInput,
+						Questions: []conversation.TrajectoryApprovalQuestion{{
+							Header:   "Diagnostic",
+							Question: "Should this use liveness or readiness?",
+							Options:  []string{"Liveness", "Readiness"},
+						}},
+					},
+				},
+			},
+		},
 	}
 	for _, narration := range narrations {
 		events = append(events, EvaluationEvent{
@@ -86,6 +108,7 @@ func TestPhase2TranscriptContainsOnlyPublicSpeech(t *testing.T) {
 	wantKinds := []TranscriptEntryKind{
 		TranscriptEntryUserSubmission,
 		TranscriptEntryDirectorReply,
+		TranscriptEntryWorkerQuestion,
 		TranscriptEntryNarratorMilestone,
 		TranscriptEntryNarratorStatus,
 		TranscriptEntryNarratorFinal,
@@ -100,6 +123,11 @@ func TestPhase2TranscriptContainsOnlyPublicSpeech(t *testing.T) {
 		if strings.Contains(transcript.Entries[index].Text, "topic label") {
 			t.Fatalf("transcript exposed topic metadata: %#v", transcript.Entries)
 		}
+	}
+	workerQuestion := transcript.Entries[2].Text
+	if !strings.Contains(workerQuestion, "Diagnostic") ||
+		!strings.Contains(workerQuestion, "Options: Liveness, Readiness") {
+		t.Fatalf("transcript omitted user-visible Worker question content: %q", workerQuestion)
 	}
 }
 

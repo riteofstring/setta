@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	EvaluationEventSchemaVersion   = 3
+	EvaluationEventSchemaVersion   = 4
 	EvaluationMaximumEvents        = 8192
 	EvaluationMaximumAttemptEvents = 4096
 	EvaluationMaximumEventBytes    = 256 * 1024
@@ -51,6 +51,7 @@ type EvaluationTriggerObservation struct {
 	ConversationID         *string                  `json:"conversationId"`
 	ObservedTurnID         *string                  `json:"observedTurnId"`
 	ObservedTurnStatus     *conversation.TurnStatus `json:"observedTurnStatus"`
+	ObservedApprovalID     *string                  `json:"observedApprovalId"`
 	QueueTurnIDs           []string                 `json:"queueTurnIds"`
 	WorkspaceMutationCount int                      `json:"workspaceMutationCount"`
 }
@@ -263,6 +264,7 @@ func cloneEvaluationTriggerObservation(
 	cloned.WorkstreamID = cloneStringPointer(observation.WorkstreamID)
 	cloned.ConversationID = cloneStringPointer(observation.ConversationID)
 	cloned.ObservedTurnID = cloneStringPointer(observation.ObservedTurnID)
+	cloned.ObservedApprovalID = cloneStringPointer(observation.ObservedApprovalID)
 	if observation.ObservedTurnStatus != nil {
 		status := *observation.ObservedTurnStatus
 		cloned.ObservedTurnStatus = &status
@@ -573,6 +575,7 @@ func (observation EvaluationTriggerObservation) Validate() error {
 		{label: "trigger workstream id", value: observation.WorkstreamID},
 		{label: "trigger conversation id", value: observation.ConversationID},
 		{label: "trigger observed turn id", value: observation.ObservedTurnID},
+		{label: "trigger observed approval id", value: observation.ObservedApprovalID},
 	}
 	for _, identity := range identities {
 		if identity.value != nil {
@@ -589,23 +592,14 @@ func (observation EvaluationTriggerObservation) Validate() error {
 
 func validateTriggerObservationShape(observation EvaluationTriggerObservation) error {
 	switch observation.Trigger {
-	case ScenarioTriggerDirectorTurnCompleted:
-		return validateDirectorCompletionTriggerShape(observation)
-	case ScenarioTriggerFirstWorkspaceMutation,
+	case ScenarioTriggerAgentUserInputRequested,
+		ScenarioTriggerFirstWorkspaceMutation,
 		ScenarioTriggerAgentTurnRunning,
 		ScenarioTriggerQueueNonempty:
 		return validateActiveTurnTriggerShape(observation)
 	default:
 		return fmt.Errorf("unsupported trigger observation %q", observation.Trigger)
 	}
-}
-
-func validateDirectorCompletionTriggerShape(observation EvaluationTriggerObservation) error {
-	if observation.ObservedTurnID != nil || observation.ObservedTurnStatus != nil ||
-		len(observation.QueueTurnIDs) != 0 || observation.WorkspaceMutationCount != 0 {
-		return errors.New("director_turn_completed trigger must precede Agent work and queued work")
-	}
-	return nil
 }
 
 func validateActiveTurnTriggerShape(observation EvaluationTriggerObservation) error {
@@ -615,12 +609,29 @@ func validateActiveTurnTriggerShape(observation EvaluationTriggerObservation) er
 	if *observation.ObservedTurnStatus != conversation.TurnStatusRunning {
 		return fmt.Errorf("%s trigger observed turn status is %s, want running", observation.Trigger, *observation.ObservedTurnStatus)
 	}
-	if observation.Trigger == ScenarioTriggerFirstWorkspaceMutation &&
-		observation.WorkspaceMutationCount == 0 {
-		return errors.New("first_workspace_mutation trigger requires a completed workspace mutation")
-	}
-	if observation.Trigger == ScenarioTriggerQueueNonempty && len(observation.QueueTurnIDs) != 1 {
-		return fmt.Errorf("queue_nonempty trigger observed %d queued turns, want one", len(observation.QueueTurnIDs))
+	switch observation.Trigger {
+	case ScenarioTriggerAgentUserInputRequested:
+		if observation.ObservedApprovalID == nil {
+			return errors.New("agent_user_input_requested trigger requires an observed approval")
+		}
+	case ScenarioTriggerFirstWorkspaceMutation:
+		if observation.ObservedApprovalID != nil {
+			return errors.New("first_workspace_mutation trigger cannot observe an approval")
+		}
+		if observation.WorkspaceMutationCount == 0 {
+			return errors.New("first_workspace_mutation trigger requires a completed workspace mutation")
+		}
+	case ScenarioTriggerAgentTurnRunning:
+		if observation.ObservedApprovalID != nil {
+			return errors.New("agent_turn_running trigger cannot observe an approval")
+		}
+	case ScenarioTriggerQueueNonempty:
+		if observation.ObservedApprovalID != nil {
+			return errors.New("queue_nonempty trigger cannot observe an approval")
+		}
+		if len(observation.QueueTurnIDs) != 1 {
+			return fmt.Errorf("queue_nonempty trigger observed %d queued turns, want one", len(observation.QueueTurnIDs))
+		}
 	}
 	return nil
 }

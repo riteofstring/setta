@@ -103,7 +103,7 @@ func TestScenarioValidateTriggeredControlContracts(t *testing.T) {
 				{Kind: ScenarioStepSubmit, Text: "Ask for the diagnostics endpoint."},
 				{
 					Kind:    ScenarioStepSubmitWhen,
-					Trigger: ScenarioTriggerDirectorTurnCompleted,
+					Trigger: ScenarioTriggerAgentUserInputRequested,
 					Text:    "Use readiness.",
 				},
 			},
@@ -112,6 +112,7 @@ func TestScenarioValidateTriggeredControlContracts(t *testing.T) {
 				Clarification: ScenarioClarificationRequiredOnce,
 				ControlAssertions: []ScenarioControlAssertion{
 					ScenarioControlNoMutationBeforeReply,
+					ScenarioControlInvestigationBeforeReply,
 					ScenarioControlScriptedReplyConsumed,
 					ScenarioControlFollowUpThroughDirector,
 				},

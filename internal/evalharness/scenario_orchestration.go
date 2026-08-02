@@ -44,9 +44,6 @@ func orchestrateEvaluationScenario(
 			message,
 		)
 	}
-	if behavior := validateClarificationWorkstream(observation.triggers, workstreamID); behavior != nil {
-		return scenarioBehaviorObservation(observation, behavior.outcome, behavior.code, behavior.message)
-	}
 	observation.WorkstreamID = workstreamID
 	workstream, workstreamEvent, err := awaitPhase1Workstream(ctx, directorEvents, workstreamID)
 	if err != nil {
@@ -65,6 +62,7 @@ func orchestrateEvaluationScenario(
 	return orchestrateEvaluationConversation(
 		ctx,
 		client,
+		directorEvents,
 		scenario,
 		workingStepIndex,
 		observation,
@@ -78,18 +76,7 @@ func prepareEvaluationWorkingSubmission(
 	observation Phase1HTTPObservation,
 ) (Phase1HTTPObservation, int, error) {
 	observation, err := dispatchEvaluationStep(ctx, client, scenario, 0, observation)
-	if err != nil {
-		return observation, 0, err
-	}
-	if !scenarioHasDirectorCompletionTrigger(scenario) {
-		return observation, 0, nil
-	}
-	observation, err = observeDirectorCompletionTrigger(ctx, client, scenario, observation)
-	if err != nil || observation.ExecutionOutcome != "" {
-		return observation, 1, err
-	}
-	observation, err = dispatchEvaluationStep(ctx, client, scenario, 1, observation)
-	return observation, 1, err
+	return observation, 0, err
 }
 
 func missingEvaluationWorkOutcome(
@@ -139,115 +126,6 @@ func dispatchEvaluationStep(
 	return observation, nil
 }
 
-func scenarioHasDirectorCompletionTrigger(scenario Scenario) bool {
-	return len(scenario.Steps) > 1 &&
-		scenario.Steps[1].Trigger == ScenarioTriggerDirectorTurnCompleted
-}
-
-func observeDirectorCompletionTrigger(
-	ctx context.Context,
-	client *BackendClient,
-	scenario Scenario,
-	observation Phase1HTTPObservation,
-) (Phase1HTTPObservation, error) {
-	snapshot, err := client.ReadDirectorSnapshot(ctx)
-	if err != nil {
-		return observation, err
-	}
-	trigger, failure := directorCompletionTriggerObservation(
-		observation.WorkspaceID,
-		snapshot,
-	)
-	if failure != nil {
-		observation, err = collectPartialDirectorEvidence(scenario, observation)
-		if err != nil {
-			return observation, err
-		}
-		return scenarioBehaviorObservation(
-			observation,
-			failure.outcome,
-			failure.code,
-			failure.message,
-		)
-	}
-	observation.triggers = append(observation.triggers, evaluationTriggerCandidate{
-		observation: trigger,
-		observedAt:  time.Now().UTC(),
-	})
-	return observation, nil
-}
-
-func directorCompletionTriggerObservation(
-	workspaceID string,
-	snapshot director.DirectorSnapshot,
-) (EvaluationTriggerObservation, *scenarioBehaviorFailure) {
-	if directorSnapshotHasExtraWorkstreams(snapshot) {
-		return EvaluationTriggerObservation{}, controlBehaviorFailure(
-			"clarification_started_multiple_workstreams",
-			"Director created more than one workstream before the scripted clarification reply",
-		)
-	}
-	if directorSnapshotHasAgentWork(snapshot) {
-		return EvaluationTriggerObservation{}, controlBehaviorFailure(
-			"clarification_started_agent_work",
-			"Director started or queued Agent work before the scripted clarification reply",
-		)
-	}
-	observation := EvaluationTriggerObservation{
-		StepIndex:    1,
-		Trigger:      ScenarioTriggerDirectorTurnCompleted,
-		QueueTurnIDs: []string{},
-	}
-	if len(snapshot.Workstreams) == 1 {
-		workstream := snapshot.Workstreams[0].Workstream
-		if directorWorkstreamHasAgentWork(workstream) {
-			return EvaluationTriggerObservation{}, controlBehaviorFailure(
-				"clarification_started_agent_work",
-				"Director started or queued Agent work before the scripted clarification reply",
-			)
-		}
-		if directorClarificationOutsideWorkspace(workstream, workspaceID) {
-			return EvaluationTriggerObservation{}, controlBehaviorFailure(
-				"clarification_routed_outside_fixture",
-				"Director created clarification context outside the opened fixture workspace",
-			)
-		}
-		observation.WorkstreamID = evaluationStringPointer(workstream.ID)
-		observation.ConversationID = evaluationStringPointer(workstream.ConversationID)
-	}
-	if err := observation.Validate(); err != nil {
-		return EvaluationTriggerObservation{}, &scenarioBehaviorFailure{
-			outcome: ScenarioExecutionInfrastructureFailed,
-			code:    "trigger_evidence_invalid",
-			message: boundedResultDiagnostic(err.Error()),
-		}
-	}
-	return observation, nil
-}
-
-func directorSnapshotHasExtraWorkstreams(snapshot director.DirectorSnapshot) bool {
-	return snapshot.HasMoreWorkstreams ||
-		snapshot.Aggregates.WorkstreamCount != len(snapshot.Workstreams) ||
-		len(snapshot.Workstreams) > 1
-}
-
-func directorSnapshotHasAgentWork(snapshot director.DirectorSnapshot) bool {
-	return snapshot.Aggregates.RunningCount != 0 || snapshot.Aggregates.QueuedCount != 0
-}
-
-func directorWorkstreamHasAgentWork(workstream director.Workstream) bool {
-	return workstream.ActiveRunID != nil || workstream.QueuedRunCount != 0
-}
-
-func directorClarificationOutsideWorkspace(
-	workstream director.Workstream,
-	workspaceID string,
-) bool {
-	return workstream.ResourceScope.Kind == director.WorkstreamResourceScopeFolder &&
-		(workstream.ResourceScope.Folder == nil ||
-			workstream.ResourceScope.Folder.WorkspaceID != workspaceID)
-}
-
 func evaluationWorkingReceiptWorkstream(
 	receipt director.DirectorReceipt,
 ) (string, string, string) {
@@ -264,28 +142,10 @@ func evaluationWorkingReceiptWorkstream(
 	return "", "director_did_not_start_work", "Director completed its turn without starting fixture work"
 }
 
-func validateClarificationWorkstream(
-	triggers []evaluationTriggerCandidate,
-	workstreamID string,
-) *scenarioBehaviorFailure {
-	for _, trigger := range triggers {
-		if trigger.observation.Trigger != ScenarioTriggerDirectorTurnCompleted ||
-			trigger.observation.WorkstreamID == nil {
-			continue
-		}
-		if *trigger.observation.WorkstreamID != workstreamID {
-			return controlBehaviorFailure(
-				"clarification_changed_workstream",
-				"Director started the clarified request in a different workstream from its clarification context",
-			)
-		}
-	}
-	return nil
-}
-
 func orchestrateEvaluationConversation(
 	ctx context.Context,
 	client *BackendClient,
+	directorEvents *EventStream[director.DirectorEvent],
 	scenario Scenario,
 	workingStepIndex int,
 	observation Phase1HTTPObservation,
@@ -331,6 +191,7 @@ func orchestrateEvaluationConversation(
 	observation, queuedTurnID, err := orchestrateTriggeredEvaluationSteps(
 		ctx,
 		client,
+		directorEvents,
 		state,
 		scenario,
 		workingStepIndex,
@@ -344,6 +205,7 @@ func orchestrateEvaluationConversation(
 		state,
 		observation.ObservedTurnID,
 		queuedTurnID,
+		evaluationAnsweredApprovalID(observation.triggers),
 	)
 	if err != nil {
 		return observation, err
@@ -367,6 +229,7 @@ func orchestrateEvaluationConversation(
 func orchestrateTriggeredEvaluationSteps(
 	ctx context.Context,
 	client *BackendClient,
+	directorEvents *EventStream[director.DirectorEvent],
 	state *evaluationConversationState,
 	scenario Scenario,
 	workingStepIndex int,
@@ -398,6 +261,18 @@ func orchestrateTriggeredEvaluationSteps(
 			observation: trigger,
 			observedAt:  time.Now().UTC(),
 		})
+		if trigger.Trigger == ScenarioTriggerAgentUserInputRequested {
+			approvalEvent, err := awaitEvaluationDirectorApproval(
+				ctx,
+				directorEvents,
+				*trigger.ObservedApprovalID,
+				observation.WorkstreamID,
+			)
+			if err != nil {
+				return observation, queuedTurnID, err
+			}
+			observation.directorEvents = append(observation.directorEvents, approvalEvent)
+		}
 		if trigger.Trigger == ScenarioTriggerQueueNonempty {
 			queuedTurnID = trigger.QueueTurnIDs[0]
 		}
@@ -420,6 +295,41 @@ func orchestrateTriggeredEvaluationSteps(
 		}
 	}
 	return observation, queuedTurnID, nil
+}
+
+func awaitEvaluationDirectorApproval(
+	ctx context.Context,
+	events *EventStream[director.DirectorEvent],
+	approvalID string,
+	workstreamID string,
+) (director.DirectorEvent, error) {
+	reader := newEventStreamReader("Director", events)
+	for {
+		event, err := reader.Next(ctx)
+		if err != nil {
+			return director.DirectorEvent{}, err
+		}
+		if event.Kind == director.DirectorEventResyncRequired {
+			return director.DirectorEvent{}, fmt.Errorf(
+				"Director event stream required a snapshot resync while awaiting approval %s",
+				approvalID,
+			)
+		}
+		if event.Kind != director.DirectorEventApprovalUpdated ||
+			event.ApprovalUpdated.Approval.ID != approvalID {
+			continue
+		}
+		approval := event.ApprovalUpdated.Approval
+		if approval.WorkstreamID != workstreamID || approval.Status != director.ApprovalStatusPending {
+			return director.DirectorEvent{}, fmt.Errorf(
+				"Director approval %s appeared as %s in workstream %s",
+				approvalID,
+				approval.Status,
+				approval.WorkstreamID,
+			)
+		}
+		return event, nil
+	}
 }
 
 func completeEvaluationConversationEvidence(
@@ -536,6 +446,30 @@ func validateReadyEvaluationTrigger(
 	state *evaluationConversationState,
 	observation EvaluationTriggerObservation,
 ) *scenarioBehaviorFailure {
+	if observation.Trigger == ScenarioTriggerAgentUserInputRequested {
+		approvals := state.pendingUserInputApprovals(*observation.ObservedTurnID)
+		if len(approvals) != 1 || observation.ObservedApprovalID == nil ||
+			approvals[0].ID != *observation.ObservedApprovalID {
+			return controlBehaviorFailure(
+				"agent_requested_multiple_user_inputs",
+				"Agent did not pause on exactly one bounded user-input request",
+			)
+		}
+		approval := approvals[0]
+		if len(approval.Questions) != 1 {
+			return controlBehaviorFailure(
+				"agent_requested_multiple_clarifications",
+				"Agent did not ask exactly one clarification question",
+			)
+		}
+		if approval.Questions[0].Secret {
+			return controlBehaviorFailure(
+				"agent_requested_secret_clarification",
+				"The scripted clarification cannot answer a secret request through the Director",
+			)
+		}
+		return nil
+	}
 	if observation.Trigger != ScenarioTriggerQueueNonempty {
 		return nil
 	}
@@ -556,9 +490,10 @@ func validateTriggeredDirectorAction(
 	receipt director.DirectorReceipt,
 ) *scenarioBehaviorFailure {
 	wantTool := map[ScenarioTrigger]string{
-		ScenarioTriggerFirstWorkspaceMutation: "steer_work",
-		ScenarioTriggerAgentTurnRunning:       "submit_work",
-		ScenarioTriggerQueueNonempty:          "cancel_run",
+		ScenarioTriggerAgentUserInputRequested: "resolve_approval",
+		ScenarioTriggerFirstWorkspaceMutation:  "steer_work",
+		ScenarioTriggerAgentTurnRunning:        "submit_work",
+		ScenarioTriggerQueueNonempty:           "cancel_run",
 	}[trigger]
 	if wantTool == "" {
 		return controlBehaviorFailure(
@@ -571,6 +506,13 @@ func validateTriggeredDirectorAction(
 		if call.Succeeded && call.Tool == wantTool && call.WorkstreamID != nil &&
 			*call.WorkstreamID == workstreamID {
 			matched++
+		}
+		if trigger == ScenarioTriggerAgentUserInputRequested && call.Succeeded &&
+			!directorClarificationToolAllowed(call.Tool) {
+			return controlBehaviorFailure(
+				"clarification_started_replacement_work",
+				"Director performed another app action instead of only inspecting and answering the waiting Agent",
+			)
 		}
 		if call.Succeeded && call.WorkstreamID != nil && *call.WorkstreamID != workstreamID {
 			return controlBehaviorFailure(
@@ -593,17 +535,35 @@ func awaitEvaluationTerminal(
 	state *evaluationConversationState,
 	observedTurnID string,
 	queuedTurnID string,
+	answeredApprovalID string,
 ) (conversation.ConversationTurn, *scenarioBehaviorFailure, error) {
 	if queuedTurnID != "" {
-		return awaitQueuedEvaluationTerminal(ctx, state, observedTurnID, queuedTurnID)
+		return awaitQueuedEvaluationTerminal(
+			ctx,
+			state,
+			observedTurnID,
+			queuedTurnID,
+			answeredApprovalID,
+		)
 	}
-	return awaitSingleEvaluationTerminal(ctx, state, observedTurnID)
+	return awaitSingleEvaluationTerminal(ctx, state, observedTurnID, answeredApprovalID)
+}
+
+func evaluationAnsweredApprovalID(triggers []evaluationTriggerCandidate) string {
+	for _, trigger := range triggers {
+		if trigger.observation.Trigger == ScenarioTriggerAgentUserInputRequested &&
+			trigger.observation.ObservedApprovalID != nil {
+			return *trigger.observation.ObservedApprovalID
+		}
+	}
+	return ""
 }
 
 func awaitSingleEvaluationTerminal(
 	ctx context.Context,
 	state *evaluationConversationState,
 	turnID string,
+	answeredApprovalID string,
 ) (conversation.ConversationTurn, *scenarioBehaviorFailure, error) {
 	for {
 		turn, found := state.turn(turnID)
@@ -613,6 +573,9 @@ func awaitSingleEvaluationTerminal(
 		if phase1TurnTerminal(turn.Status) &&
 			(turn.Status != conversation.TurnStatusCompleted || phase1NarrationSettled(state.snapshot, turn.ID)) {
 			return turn, nil, nil
+		}
+		if behavior := unexpectedUserInputFailure(state, []string{turnID}, answeredApprovalID); behavior != nil {
+			return conversation.ConversationTurn{}, behavior, nil
 		}
 		if err := state.next(ctx); err != nil {
 			return conversation.ConversationTurn{}, nil, err
@@ -625,6 +588,7 @@ func awaitQueuedEvaluationTerminal(
 	state *evaluationConversationState,
 	observedTurnID string,
 	queuedTurnID string,
+	answeredApprovalID string,
 ) (conversation.ConversationTurn, *scenarioBehaviorFailure, error) {
 	for {
 		observed, found := state.turn(observedTurnID)
@@ -647,10 +611,36 @@ func awaitQueuedEvaluationTerminal(
 		if queued.Status == conversation.TurnStatusFailed || queuedEvaluationSettled(state, observed, queued) {
 			return queued, nil, nil
 		}
+		if behavior := unexpectedUserInputFailure(
+			state,
+			[]string{observedTurnID, queuedTurnID},
+			answeredApprovalID,
+		); behavior != nil {
+			return conversation.ConversationTurn{}, behavior, nil
+		}
 		if err := state.next(ctx); err != nil {
 			return conversation.ConversationTurn{}, nil, err
 		}
 	}
+}
+
+func unexpectedUserInputFailure(
+	state *evaluationConversationState,
+	turnIDs []string,
+	answeredApprovalID string,
+) *scenarioBehaviorFailure {
+	for _, turnID := range turnIDs {
+		for _, approval := range state.pendingUserInputApprovals(turnID) {
+			if approval.ID == answeredApprovalID {
+				continue
+			}
+			return controlBehaviorFailure(
+				"agent_requested_unexpected_user_input",
+				"Agent requested user input that the scenario did not require",
+			)
+		}
+	}
+	return nil
 }
 
 func observedQueueCancellationFailure(

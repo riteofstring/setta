@@ -363,7 +363,7 @@ func (index controlEvidenceIndex) clarificationResult(
 	passed := true
 	workstreamID := index.finalState.ConversationState.WorkstreamID
 	if scenario.Expect.Clarification == ScenarioClarificationRequiredOnce {
-		trigger, found := index.triggers[ScenarioTriggerDirectorTurnCompleted]
+		trigger, found := index.triggers[ScenarioTriggerAgentUserInputRequested]
 		if !found {
 			passed = false
 		} else {
@@ -372,16 +372,19 @@ func (index controlEvidenceIndex) clarificationResult(
 		sequences = append(sequences, index.submissions[1].Sequence, index.receipts[1].Sequence)
 		replyCount = 1
 		if !receiptHasExpectedControlAction(
-			ScenarioTriggerDirectorTurnCompleted,
+			ScenarioTriggerAgentUserInputRequested,
 			index.receipts[1].DirectorReceipt.Receipt,
 			workstreamID,
 		) || triggerWorkstreamDiffers(trigger, workstreamID) {
 			passed = false
 		}
-	} else if _, found := index.triggers[ScenarioTriggerDirectorTurnCompleted]; found {
+		if len(index.finalState.ConversationState.Turns) != 1 ||
+			len(index.finalState.ConversationState.QueueTurnIDs) != 0 {
+			passed = false
+		}
+	} else if _, found := index.triggers[ScenarioTriggerAgentUserInputRequested]; found {
 		passed = false
-	} else if !receiptHasExpectedControlAction(
-		ScenarioTriggerDirectorTurnCompleted,
+	} else if !receiptStartedWork(
 		index.receipts[0].DirectorReceipt.Receipt,
 		workstreamID,
 	) {
@@ -406,6 +409,8 @@ func (index controlEvidenceIndex) assertionResult(
 	switch assertion {
 	case ScenarioControlNoMutationBeforeReply:
 		return index.noMutationBeforeReply(), nil
+	case ScenarioControlInvestigationBeforeReply:
+		return index.investigationBeforeReply(), nil
 	case ScenarioControlScriptedReplyConsumed:
 		return index.scriptedReplyConsumed(), nil
 	case ScenarioControlFollowUpThroughDirector:
@@ -431,7 +436,7 @@ func (index controlEvidenceIndex) assertionResult(
 
 func (index controlEvidenceIndex) noMutationBeforeReply() ScenarioControlAssertionResult {
 	submission := index.submissions[1]
-	trigger := index.triggers[ScenarioTriggerDirectorTurnCompleted]
+	trigger := index.triggers[ScenarioTriggerAgentUserInputRequested]
 	passed := trigger.Sequence != 0
 	for _, event := range index.trajectories {
 		if event.Sequence < submission.Sequence && completedWorkspaceMutation(event.Trajectory) {
@@ -446,21 +451,72 @@ func (index controlEvidenceIndex) noMutationBeforeReply() ScenarioControlAsserti
 	)
 }
 
-func (index controlEvidenceIndex) scriptedReplyConsumed() ScenarioControlAssertionResult {
-	turn, found := singleConversationStateTurnByDelivery(
-		index.finalState,
-		conversation.TurnDeliveryNormal,
-	)
-	accepted := index.trajectoryMatches(func(event *conversation.TrajectoryEvent) bool {
-		return found && trajectoryTargets(event, turn.TurnID) &&
-			event.Kind == conversation.TrajectoryEventUserInputAccepted &&
-			event.UserInputAccepted != nil &&
-			event.UserInputAccepted.Input == turn.AuthoredInput &&
-			event.UserInputAccepted.Delivery == conversation.TurnDeliveryNormal
+func (index controlEvidenceIndex) investigationBeforeReply() ScenarioControlAssertionResult {
+	trigger := index.triggers[ScenarioTriggerAgentUserInputRequested]
+	turnID := ""
+	if trigger.TriggerObserved.ObservedTurnID != nil {
+		turnID = *trigger.TriggerObserved.ObservedTurnID
+	}
+	investigation := index.trajectoryMatches(func(event *conversation.TrajectoryEvent) bool {
+		return trajectoryTargets(event, turnID) &&
+			event.Kind == conversation.TrajectoryEventActivityCompleted &&
+			event.ActivityCompleted != nil &&
+			isInvestigationActivity(event.ActivityCompleted.Activity.Kind)
 	})
-	passed := found && len(accepted) == 1
+	beforeReply := make([]EvaluationEvent, 0, len(investigation))
+	for _, event := range investigation {
+		if event.Sequence < trigger.Sequence {
+			beforeReply = append(beforeReply, event)
+		}
+	}
+	sequences := []int{trigger.Sequence}
+	sequences = append(sequences, controlEventSequences(beforeReply)...)
+	return controlAssertionResult(
+		ScenarioControlInvestigationBeforeReply,
+		len(beforeReply) > 0,
+		sequences,
+		nil,
+	)
+}
+
+func isInvestigationActivity(kind conversation.TrajectoryActivityKind) bool {
+	switch kind {
+	case conversation.TrajectoryActivityCommand,
+		conversation.TrajectoryActivityMCPTool,
+		conversation.TrajectoryActivityDynamicTool,
+		conversation.TrajectoryActivityWebSearch,
+		conversation.TrajectoryActivityImageView,
+		conversation.TrajectoryActivitySubagent:
+		return true
+	default:
+		return false
+	}
+}
+
+func (index controlEvidenceIndex) scriptedReplyConsumed() ScenarioControlAssertionResult {
+	trigger := index.triggers[ScenarioTriggerAgentUserInputRequested]
+	approvalID := ""
+	if trigger.TriggerObserved.ObservedApprovalID != nil {
+		approvalID = *trigger.TriggerObserved.ObservedApprovalID
+	}
+	requested := index.trajectoryMatches(func(event *conversation.TrajectoryEvent) bool {
+		return approvalID != "" && event.Kind == conversation.TrajectoryEventApprovalRequested &&
+			event.ApprovalRequested != nil && event.ApprovalRequested.Approval.ID == approvalID
+	})
+	resolved := index.trajectoryMatches(func(event *conversation.TrajectoryEvent) bool {
+		return approvalID != "" && event.Kind == conversation.TrajectoryEventApprovalResolved &&
+			event.ApprovalResolved != nil &&
+			event.ApprovalResolved.Resolution.ApprovalID == approvalID
+	})
+	passed := len(requested) == 1 && len(resolved) == 1 &&
+		requested[0].Sequence < index.submissions[1].Sequence &&
+		index.submissions[1].Sequence < resolved[0].Sequence &&
+		resolved[0].Trajectory.ApprovalResolved.Resolution.Decision ==
+			conversation.TrajectoryApprovalDecisionAnswered &&
+		len(resolved[0].Trajectory.ApprovalResolved.Resolution.Answers) > 0
 	sequences := []int{index.submissions[1].Sequence, index.finalState.Sequence}
-	sequences = append(sequences, controlEventSequences(accepted)...)
+	sequences = append(sequences, controlEventSequences(requested)...)
+	sequences = append(sequences, controlEventSequences(resolved)...)
 	return controlAssertionResult(
 		ScenarioControlScriptedReplyConsumed,
 		passed,
@@ -678,25 +734,6 @@ func countConversationStateTurnsByDelivery(
 	return count
 }
 
-func singleConversationStateTurnByDelivery(
-	state EvaluationEvent,
-	delivery conversation.TurnDelivery,
-) (EvaluationConversationTurnState, bool) {
-	var matched EvaluationConversationTurnState
-	found := false
-	for _, turn := range state.ConversationState.Turns {
-		if turn.Delivery != delivery {
-			continue
-		}
-		if found {
-			return EvaluationConversationTurnState{}, false
-		}
-		matched = turn
-		found = true
-	}
-	return matched, found
-}
-
 func conversationStateTurn(
 	state EvaluationEvent,
 	turnID string,
@@ -726,10 +763,43 @@ func receiptHasExpectedControlAction(
 	workstreamID string,
 ) bool {
 	wantTool := map[ScenarioTrigger]string{
-		ScenarioTriggerFirstWorkspaceMutation: "steer_work",
-		ScenarioTriggerAgentTurnRunning:       "submit_work",
-		ScenarioTriggerQueueNonempty:          "cancel_run",
+		ScenarioTriggerAgentUserInputRequested: "resolve_approval",
+		ScenarioTriggerFirstWorkspaceMutation:  "steer_work",
+		ScenarioTriggerAgentTurnRunning:        "submit_work",
+		ScenarioTriggerQueueNonempty:           "cancel_run",
 	}[trigger]
+	matched := 0
+	for _, call := range receipt.Submit.ToolCalls {
+		if !call.Succeeded {
+			continue
+		}
+		if trigger == ScenarioTriggerAgentUserInputRequested &&
+			!directorClarificationToolAllowed(call.Tool) {
+			return false
+		}
+		if call.WorkstreamID == nil {
+			continue
+		}
+		if *call.WorkstreamID != workstreamID {
+			return false
+		}
+		if call.Tool == wantTool {
+			matched++
+		}
+	}
+	return matched == 1
+}
+
+func directorClarificationToolAllowed(tool string) bool {
+	switch tool {
+	case "list_workspaces", "list_workstreams", "read_activity", "ask_conversation", "resolve_approval":
+		return true
+	default:
+		return false
+	}
+}
+
+func receiptStartedWork(receipt director.DirectorReceipt, workstreamID string) bool {
 	matched := 0
 	for _, call := range receipt.Submit.ToolCalls {
 		if !call.Succeeded || call.WorkstreamID == nil {
@@ -738,11 +808,7 @@ func receiptHasExpectedControlAction(
 		if *call.WorkstreamID != workstreamID {
 			return false
 		}
-		if trigger == ScenarioTriggerDirectorTurnCompleted {
-			if call.Tool == "create_workstream" || call.Tool == "submit_work" {
-				matched++
-			}
-		} else if call.Tool == wantTool {
+		if call.Tool == "create_workstream" || call.Tool == "submit_work" {
 			matched++
 		}
 	}

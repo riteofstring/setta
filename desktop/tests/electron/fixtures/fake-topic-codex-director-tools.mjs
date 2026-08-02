@@ -13,6 +13,7 @@ const directorToolNames = [
   "read_activity",
   "recover_run",
   "rename_workstream",
+  "request_user_choice",
   "resolve_approval",
   "resolve_resource_request",
   "select_workstream",

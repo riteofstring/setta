@@ -195,6 +195,7 @@ func (runtime *phase0CodexRuntime) restrictExternalTools(ctx context.Context) er
 		agent.RestrictedThreadConfigOptions{
 			ReasoningEffort: runtime.reasoningEffort,
 			ShellTools:      true,
+			UserInput:       true,
 		},
 	)
 	if err != nil {
@@ -239,8 +240,8 @@ func phase0ToolPolicyFromConfig(
 	}
 	return Phase0ToolPolicyEvidence{
 		AllowedActivityKinds:         phase0AllowedActivityKinds(),
-		DisabledFeatureNames:         agent.RestrictedThreadDisabledFeatureNames(true),
-		EnabledFeatureNames:          agent.RestrictedThreadEnabledFeatureNames(true),
+		DisabledFeatureNames:         agent.RestrictedThreadDisabledFeatureNames(true, true),
+		EnabledFeatureNames:          agent.RestrictedThreadEnabledFeatureNames(true, true),
 		DynamicToolsEmpty:            true,
 		EffectiveMCPServersDisabled:  true,
 		OrchestratorMCPDisabled:      true,
@@ -256,8 +257,8 @@ func validatePhase0FeaturePolicy(raw json.RawMessage) error {
 	if err := jsonio.DecodeSingle(strings.NewReader(string(raw)), &features); err != nil {
 		return fmt.Errorf("decode Phase 0 restricted features: %w", err)
 	}
-	enabled := agent.RestrictedThreadEnabledFeatureNames(true)
-	disabled := agent.RestrictedThreadDisabledFeatureNames(true)
+	enabled := agent.RestrictedThreadEnabledFeatureNames(true, true)
+	disabled := agent.RestrictedThreadDisabledFeatureNames(true, true)
 	if len(features) != len(enabled)+len(disabled) {
 		return errors.New("Phase 0 restricted thread has an unexpected feature set")
 	}

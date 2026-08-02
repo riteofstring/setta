@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	TranscriptSchemaVersion     = 2
+	TranscriptSchemaVersion     = 3
 	TranscriptMaximumEntries    = 256
 	TranscriptMaximumEntryBytes = 16 * 1024
 	TranscriptMaximumTotalBytes = 256 * 1024
@@ -22,6 +22,7 @@ type TranscriptSpeaker string
 const (
 	TranscriptSpeakerUser     TranscriptSpeaker = "user"
 	TranscriptSpeakerDirector TranscriptSpeaker = "director"
+	TranscriptSpeakerWorker   TranscriptSpeaker = "worker"
 	TranscriptSpeakerNarrator TranscriptSpeaker = "narrator"
 )
 
@@ -30,6 +31,7 @@ type TranscriptEntryKind string
 const (
 	TranscriptEntryUserSubmission    TranscriptEntryKind = "user_submission"
 	TranscriptEntryDirectorReply     TranscriptEntryKind = "director_reply"
+	TranscriptEntryWorkerQuestion    TranscriptEntryKind = "worker_question"
 	TranscriptEntryNarratorMilestone TranscriptEntryKind = "narrator_milestone"
 	TranscriptEntryNarratorStatus    TranscriptEntryKind = "narrator_status_reply"
 	TranscriptEntryNarratorFinal     TranscriptEntryKind = "narrator_final_summary"
@@ -110,6 +112,18 @@ func transcriptEntryFromEvaluationEvent(event EvaluationEvent) (*TranscriptEntry
 			Text:       event.DirectorReceipt.Receipt.Submit.ReplyText,
 			OccurredAt: event.RecordedAt,
 		}, nil
+	case EvaluationEventTrajectory:
+		if event.Trajectory.Kind != conversation.TrajectoryEventApprovalRequested ||
+			event.Trajectory.ApprovalRequested == nil ||
+			!isUserInputApproval(event.Trajectory.ApprovalRequested.Approval.Kind) {
+			return nil, nil
+		}
+		return &TranscriptEntry{
+			Speaker:    TranscriptSpeakerWorker,
+			Kind:       TranscriptEntryWorkerQuestion,
+			Text:       workerQuestionTranscriptText(event.Trajectory.ApprovalRequested.Approval.Questions),
+			OccurredAt: event.RecordedAt,
+		}, nil
 	case EvaluationEventNarration:
 		text, visible := event.Narration.UserVisibleText()
 		if !visible {
@@ -128,6 +142,22 @@ func transcriptEntryFromEvaluationEvent(event EvaluationEvent) (*TranscriptEntry
 	default:
 		return nil, nil
 	}
+}
+
+func workerQuestionTranscriptText(questions []conversation.TrajectoryApprovalQuestion) string {
+	entries := make([]string, 0, len(questions))
+	for _, question := range questions {
+		lines := make([]string, 0, 3)
+		if question.Header != "" {
+			lines = append(lines, question.Header)
+		}
+		lines = append(lines, question.Question)
+		if len(question.Options) > 0 {
+			lines = append(lines, "Options: "+strings.Join(question.Options, ", "))
+		}
+		entries = append(entries, strings.Join(lines, "\n"))
+	}
+	return strings.Join(entries, "\n\n")
 }
 
 func transcriptNarrationKind(kind conversation.NarrationEventKind) (TranscriptEntryKind, error) {
@@ -293,6 +323,8 @@ func transcriptSpeakerForEntryKind(kind TranscriptEntryKind) (TranscriptSpeaker,
 		return TranscriptSpeakerUser, nil
 	case TranscriptEntryDirectorReply:
 		return TranscriptSpeakerDirector, nil
+	case TranscriptEntryWorkerQuestion:
+		return TranscriptSpeakerWorker, nil
 	case TranscriptEntryNarratorMilestone, TranscriptEntryNarratorStatus, TranscriptEntryNarratorFinal:
 		return TranscriptSpeakerNarrator, nil
 	default:

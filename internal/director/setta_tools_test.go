@@ -39,7 +39,7 @@ func callSettaTool(
 	call scriptedDirectorToolCall,
 ) settaToolOutcome {
 	t.Helper()
-	provider := &scriptedDirectorProvider{reply: "Done.", calls: readyDirectorCalls(call)}
+	provider := &scriptedDirectorProvider{reply: "Done.", calls: directorCalls(call)}
 	director := newDirectorConversationForTest(
 		t,
 		harness,
@@ -52,10 +52,10 @@ func callSettaTool(
 	if err != nil {
 		t.Fatalf("Submit %s: %v", call.tool, err)
 	}
-	if len(receipt.ToolCalls) != 1 || len(provider.receipts) != 2 {
+	if len(receipt.ToolCalls) != 1 || len(provider.receipts) != 1 {
 		t.Fatalf("director tool calls = %+v", receipt.ToolCalls)
 	}
-	return settaToolOutcome{receipt: provider.receipts[1], succeeded: receipt.ToolCalls[0].Succeeded}
+	return settaToolOutcome{receipt: provider.receipts[0], succeeded: receipt.ToolCalls[0].Succeeded}
 }
 
 func TestDirectorDeliveryToolsExposeWorkspaceRequirements(t *testing.T) {
@@ -98,11 +98,12 @@ func TestDirectorDeliveryToolsExposeWorkspaceRequirements(t *testing.T) {
 			t.Fatalf("%s workspaceRequirement description = %q", name, property.Description)
 		}
 	}
-	if !strings.Contains(byName["create_workstream"].Description, "accepted request assessment permits work") {
-		t.Fatalf("create_workstream does not guard unresolved user choices: %q", byName["create_workstream"].Description)
+	if !strings.Contains(byName["create_workstream"].Description, "start work immediately") ||
+		!strings.Contains(byName["create_workstream"].Description, "investigate resolvable uncertainty") {
+		t.Fatalf("create_workstream does not favor investigation-first work: %q", byName["create_workstream"].Description)
 	}
-	if !strings.Contains(byName["submit_work"].Description, "missing user decision must be requested by the assessment") {
-		t.Fatalf("submit_work does not guard unresolved user choices: %q", byName["submit_work"].Description)
+	if !strings.Contains(byName["submit_work"].Description, "investigate resolvable uncertainty") {
+		t.Fatalf("submit_work does not favor investigation-first work: %q", byName["submit_work"].Description)
 	}
 
 	var steerSchema settaToolSchemaFixture

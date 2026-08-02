@@ -205,9 +205,9 @@ scripts/run_setta_evals.sh
 A scenario contains only typed inputs and expectations. It cannot contain an
 arbitrary JSONPath predicate, a fixed sleep, or a large executable command
 string. A small closed trigger catalog maps directly to existing events:
-`director_turn_completed`, `agent_turn_running`, `first_workspace_mutation`,
-and `queue_nonempty`. Adding a trigger requires adding a typed runner
-implementation and validation.
+`agent_user_input_requested`, `agent_turn_running`,
+`first_workspace_mutation`, and `queue_nonempty`. Adding a trigger requires
+adding a typed runner implementation and validation.
 
 For example:
 
@@ -264,7 +264,7 @@ not an adaptive timeout heuristic.
 
 All natural-language scenario messages enter through a `submit` Director
 intent. The scenario never names an Agent conversation or invokes steer, queue,
-or cancel APIs behind the Director's back. Whether the Director sends, steers,
+or cancel APIs behind the Director's back. Whether the system sends, steers,
 queues, answers, or asks a useful question is exactly what the scenario is
 measuring.
 
@@ -280,12 +280,12 @@ The standard scenarios are:
 | Scenario                               | What it proves                                                                                                                                        |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Straightforward multi-step task        | Correct multi-file work, command execution, restrained progress, truthful completion                                                                  |
-| Apparent ambiguity resolved by context | The Director inspects available context and starts useful work without involving the user                                                             |
-| Genuine ambiguity                      | The Director does not mutate first, asks one useful question, consumes the scripted answer, and then succeeds                                         |
+| Apparent ambiguity resolved by context | The Worker inspects available context and completes useful work without involving the user                                                            |
+| Genuine ambiguity                      | The Worker investigates first, does not mutate, asks one useful question, consumes the Director-routed answer, and then succeeds                      |
 | Mid-run steering                       | A follow-up sent after the first real mutation replaces the obsolete requirement                                                                      |
 | Queue then cancel                      | A second request is retained exactly once while work is active; cancelling the observed run stops it without losing or duplicating the queued request |
 | Documentation only                     | A narrow documentation request changes only the requested document and preserves source, tests, and scripts                                         |
-| External file contract                 | A genuinely unspecified external contract produces one useful clarification before work begins                                                       |
+| External file contract                 | The Worker investigates a genuinely unspecified external contract, asks once, and resumes the same run after the answer                              |
 | Rambling port validation               | The Director extracts a precise task and constraints from conversational, non-spec-like input                                                         |
 | Request logging                        | A focused behavioral change includes runtime behavior and automated coverage without unrelated work                                                   |
 | Stable release data                    | The system performs a deterministic data transformation while respecting explicit source and application-code boundaries                              |
@@ -358,17 +358,20 @@ the verifier container, and reject unrelated mutations.
    > Add the diagnostics endpoint needed by the deployment monitor and cover
    > it with the relevant automated test.
 
-   The runner waits for the Director turn to finish with no Agent run started,
-   no workspace mutation, and no queued work. It then supplies exactly one
-   scripted reply through another Director submission:
+   The Director starts one Worker run. The runner requires the Worker to inspect
+   the available project context, make no workspace mutation, and then pause on
+   exactly one structured question. It supplies exactly one scripted reply
+   through another Director submission:
 
    > Use readiness: GET /ready with the repository's standard readiness body.
 
-   The deterministic contract requires no mutation before that reply, exactly
-   one consumed scripted reply, and then successful work. The verifier requires
+   The Director resolves that question into the same Worker run rather than
+   steering, queueing, or starting replacement work. The deterministic contract
+   requires typed investigation before the question, no mutation before the
+   reply, exactly one consumed scripted reply, and then successful work. The verifier requires
    `/ready` with the standard `1.2.3` body, no `/live`, passing build and tests,
    and no unrelated change. The communication judge decides whether the first
-   Director reply was one concise, targeted question that let the user make the
+   Worker question was concise and targeted enough to let the user make the
    liveness-versus-readiness choice; punctuation and keywords are not used.
 
 4. `mid-run-steering`
@@ -431,12 +434,13 @@ the verifier container, and reject unrelated mutations.
 7. `external-file-contract`
 
    The initial request asks for an unspecified release metadata file needed by
-   an external packaging job. The Director must ask one useful question before
-   mutation. The scripted reply then requires root `release-manifest.json`
-   containing only `package` and `release`, derived from the package name and
-   version. Control assertions require no mutation before that reply and one
-   Director-routed consumption of it; the verifier requires exactly that JSON
-   file and no unrelated change.
+   an external packaging job. The Director starts one Worker run; the Worker
+   must investigate the project and ask one useful question only after finding
+   no local contract, without mutating first. The scripted reply then requires
+   root `release-manifest.json` containing only `package` and `release`, derived
+   from the package name and version. Control assertions require no mutation
+   before that reply and one Director-routed consumption of it; the verifier
+   requires exactly that JSON file and no unrelated change.
 
 8. `rambling-port-validation`
 
@@ -471,12 +475,12 @@ and additional task domains remain future scenarios only when product evidence
 justifies their implementation cost.
 
 The genuine-ambiguity scenario does not detect questions by punctuation or
-keywords. It waits for the Director turn to finish without starting or mutating
-work, asserts that no mutation occurred, and supplies the declared answer. The
-communication judge decides whether the returned prose was actually a targeted
-question. In the apparent-ambiguity scenario there is no scripted answer, so a
-Director that stalls for user input fails rather than receiving an eval-only
-rescue.
+keywords. It waits for a typed Worker user-input request after typed
+investigation, asserts that no mutation occurred, and supplies the declared
+answer through the Director. The communication judge decides whether the
+user-visible Worker question was actually targeted. In the apparent-ambiguity
+scenario there is no scripted answer, so a Worker that stalls for user input
+fails rather than receiving an eval-only rescue.
 
 ### Deterministic grading owns outcomes and control
 
@@ -546,12 +550,13 @@ override any judge field.
 The judge receives only:
 
 - the scripted user messages;
-- the Director replies and Narrator text that the product made user-visible;
+- the Director replies, Worker questions, and Narrator text that the product
+  made user-visible;
 - the scenario's small communication contract;
 - the deterministic verifier result.
 
-It does not receive private reasoning, raw provider messages, internal Agent
-text, model identities, token totals, or the detailed execution trace.
+It does not receive private reasoning, raw provider messages, non-question
+Worker text, model identities, token totals, or the detailed execution trace.
 
 Its result is five binary checks:
 
@@ -1700,7 +1705,7 @@ transcript and verdict ready for the one-time MVP verification review.
 
 The benchmark-contract and hidden-verifier batch is implemented. The strict
 scenario schema now owns only the four event triggers the ten standard scenarios
-need—`director_turn_completed`, `first_workspace_mutation`,
+need—`agent_user_input_requested`, `first_workspace_mutation`,
 `agent_turn_running`, and `queue_nonempty`—plus the closed clarification and
 control-assertion vocabulary needed to grade their user-control contracts. It
 requires one initial Director submission, triggered later submissions, unique
@@ -1720,13 +1725,14 @@ that identity through both normal and invalid-workspace verification paths.
 The multi-turn orchestration and typed-control batch is also implemented. The
 per-scenario production HTTP boundary now dispatches every scripted message
 through the Director and drives later steps from the snapshot cursor plus the
-existing pushed conversation stream. Genuine ambiguity records the completed
-Director turn only after a typed snapshot proves there is no running or queued
-Agent work. Steering waits for a completed file-change event on the observed
-turn. Queue-then-cancel waits first for the observed turn to be running and
-then for one queued turn from the second Director submission before it submits
-the cancellation request. Every action must target the same fixture workstream;
-no trigger uses prose parsing, polling, or a fixed sleep.
+existing pushed conversation stream. Genuine ambiguity starts one Worker run,
+requires typed investigation before one structured user-input request, and
+routes the scripted answer through the Director into that same run. Steering
+waits for a completed file-change event on the observed turn. Queue-then-cancel
+waits first for the observed turn to be running and then for one queued turn
+from the second Director submission before it submits the cancellation request.
+Every action must target the same fixture workstream; no trigger uses prose
+parsing, polling, or a fixed sleep.
 
 Complete attempt evidence uses the fresh renderer-safe snapshot as an atomic
 cursor, then replays the production durable conversation stream from sequence
@@ -1875,10 +1881,11 @@ the production Agent runtime before every normal thread or fork starts. It
 reads the actual effective app-server configuration, disables every configured
 MCP server, external feature family, web search, project instructions, and
 orchestrator capability, and supplies empty selected capability roots. Topic
-Agent and Side Agent carriers retain only the same remote shell and unified-exec
-features proved by Phase 0; the Director retains its Setta-owned dynamic routing
-tools but receives no shell feature. The fixed judge and Phase 0 probe continue
-to use their existing stricter owners. No app-server protocol rewriting, prompt
+Agent carriers retain the same remote shell and unified-exec features proved by
+Phase 0 plus the internal structured user-input channel. Side Agent carriers
+retain only the shell features. The Director retains its Setta-owned dynamic
+routing tools but receives no shell or Worker user-input feature. The fixed
+judge keeps its stricter owner. No app-server protocol rewriting, prompt
 heuristic, host execution fallback, or alternate scenario path was added.
 
 Static review and formatting were the only verification authorized for that

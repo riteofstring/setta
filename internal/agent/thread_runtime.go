@@ -257,7 +257,7 @@ func startThreadParams(request StartThreadRequest) (codexapp.ThreadStartParams, 
 	if err != nil {
 		return codexapp.ThreadStartParams{}, err
 	}
-	config, err := modelThreadConfig(request.Invocation)
+	config, err := modelThreadConfig(request.Invocation, request.EnableUserInput)
 	if err != nil {
 		return codexapp.ThreadStartParams{}, err
 	}
@@ -300,6 +300,7 @@ func (runtime *Runtime) startThreadParams(
 			CWD:             &request.WorkspaceRoot,
 			ReasoningEffort: request.Invocation.ReasoningEffort,
 			ShellTools:      request.EnableShellTools,
+			UserInput:       request.EnableUserInput,
 		},
 	)
 	if err != nil {
@@ -311,15 +312,27 @@ func (runtime *Runtime) startThreadParams(
 	return params, nil
 }
 
-func modelThreadConfig(invocation Invocation) (*map[string]json.RawMessage, error) {
-	if invocation.ReasoningEffort == "" {
+func modelThreadConfig(invocation Invocation, enableUserInput bool) (*map[string]json.RawMessage, error) {
+	config := map[string]json.RawMessage{}
+	if invocation.ReasoningEffort != "" {
+		effort, err := json.Marshal(invocation.ReasoningEffort)
+		if err != nil {
+			return nil, fmt.Errorf("encode thread reasoning effort: %w", err)
+		}
+		config["model_reasoning_effort"] = effort
+	}
+	if enableUserInput {
+		features, err := json.Marshal(map[string]bool{
+			restrictedThreadUserInputFeatureName: true,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("encode thread user-input feature: %w", err)
+		}
+		config["features"] = features
+	}
+	if len(config) == 0 {
 		return nil, nil
 	}
-	effort, err := json.Marshal(invocation.ReasoningEffort)
-	if err != nil {
-		return nil, fmt.Errorf("encode thread reasoning effort: %w", err)
-	}
-	config := map[string]json.RawMessage{"model_reasoning_effort": effort}
 	return &config, nil
 }
 
@@ -444,7 +457,7 @@ func forkThreadParams(request ForkThreadRequest) (codexapp.ThreadForkParams, err
 	if err != nil {
 		return codexapp.ThreadForkParams{}, err
 	}
-	config, err := forkThreadConfig(request.Invocation)
+	config, err := forkThreadConfig(request.Invocation, request.EnableUserInput)
 	if err != nil {
 		return codexapp.ThreadForkParams{}, err
 	}
@@ -480,6 +493,7 @@ func (runtime *Runtime) forkThreadParams(
 			CWD:             &request.WorkspaceRoot,
 			ReasoningEffort: request.Invocation.ReasoningEffort,
 			ShellTools:      request.EnableShellTools,
+			UserInput:       request.EnableUserInput,
 		},
 	)
 	if err != nil {
@@ -489,15 +503,27 @@ func (runtime *Runtime) forkThreadParams(
 	return params, nil
 }
 
-func forkThreadConfig(invocation Invocation) (*map[string]json.RawMessage, error) {
-	if invocation.ReasoningEffort == "" {
+func forkThreadConfig(invocation Invocation, enableUserInput bool) (*map[string]json.RawMessage, error) {
+	config := map[string]json.RawMessage{}
+	if invocation.ReasoningEffort != "" {
+		effort, err := json.Marshal(invocation.ReasoningEffort)
+		if err != nil {
+			return nil, fmt.Errorf("encode fork reasoning effort: %w", err)
+		}
+		config["model_reasoning_effort"] = effort
+	}
+	if enableUserInput {
+		features, err := json.Marshal(map[string]bool{
+			restrictedThreadUserInputFeatureName: true,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("encode forked thread user-input feature: %w", err)
+		}
+		config["features"] = features
+	}
+	if len(config) == 0 {
 		return nil, nil
 	}
-	effort, err := json.Marshal(invocation.ReasoningEffort)
-	if err != nil {
-		return nil, fmt.Errorf("encode fork reasoning effort: %w", err)
-	}
-	config := map[string]json.RawMessage{"model_reasoning_effort": effort}
 	return &config, nil
 }
 

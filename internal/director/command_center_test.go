@@ -395,7 +395,7 @@ func TestCommandCenterSubmitCarriesOneRequestIntoWork(t *testing.T) {
 	registry := harness.start()
 	provider := &scriptedDirectorProvider{
 		reply: "Sent it to the parser workstream.",
-		calls: readyDirectorCalls(scriptedDirectorToolCall{
+		calls: directorCalls(scriptedDirectorToolCall{
 			tool: "submit_work",
 			arguments: map[string]any{
 				"workstreamId":         idle,

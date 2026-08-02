@@ -21,6 +21,7 @@ type RestrictedThreadConfigOptions struct {
 	CWD             *string
 	ReasoningEffort string
 	ShellTools      bool
+	UserInput       bool
 }
 
 var restrictedThreadFeatureNames = []string{
@@ -101,6 +102,8 @@ var restrictedThreadFeatureNames = []string{
 
 var restrictedThreadShellFeatureNames = []string{"shell_tool", "unified_exec"}
 
+const restrictedThreadUserInputFeatureName = "default_mode_request_user_input"
+
 func readStructuredCallThreadConfig(
 	ctx context.Context,
 	caller RestrictedThreadConfigCaller,
@@ -125,10 +128,11 @@ func ReadRestrictedThreadConfig(
 	return restrictedThreadConfig(options, serverNames)
 }
 
-func RestrictedThreadDisabledFeatureNames(shellTools bool) []string {
+func RestrictedThreadDisabledFeatureNames(shellTools bool, userInput bool) []string {
 	disabled := make([]string, 0, len(restrictedThreadFeatureNames))
 	for _, feature := range restrictedThreadFeatureNames {
-		if shellTools && containsString(restrictedThreadShellFeatureNames, feature) {
+		if (shellTools && containsString(restrictedThreadShellFeatureNames, feature)) ||
+			(userInput && feature == restrictedThreadUserInputFeatureName) {
 			continue
 		}
 		disabled = append(disabled, feature)
@@ -136,11 +140,15 @@ func RestrictedThreadDisabledFeatureNames(shellTools bool) []string {
 	return disabled
 }
 
-func RestrictedThreadEnabledFeatureNames(shellTools bool) []string {
-	if !shellTools {
-		return []string{}
+func RestrictedThreadEnabledFeatureNames(shellTools bool, userInput bool) []string {
+	enabled := make([]string, 0, len(restrictedThreadShellFeatureNames)+1)
+	if shellTools {
+		enabled = append(enabled, restrictedThreadShellFeatureNames...)
 	}
-	return append([]string{}, restrictedThreadShellFeatureNames...)
+	if userInput {
+		enabled = append(enabled, restrictedThreadUserInputFeatureName)
+	}
+	return enabled
 }
 
 func readConfiguredMCPServerNames(
@@ -218,12 +226,12 @@ func restrictedThreadConfig(
 	if err != nil {
 		return nil, err
 	}
-	disabledFeatures := RestrictedThreadDisabledFeatureNames(options.ShellTools)
+	disabledFeatures := RestrictedThreadDisabledFeatureNames(options.ShellTools, options.UserInput)
 	features := make(map[string]bool, len(disabledFeatures))
 	for _, feature := range disabledFeatures {
 		features[feature] = false
 	}
-	for _, feature := range RestrictedThreadEnabledFeatureNames(options.ShellTools) {
+	for _, feature := range RestrictedThreadEnabledFeatureNames(options.ShellTools, options.UserInput) {
 		features[feature] = true
 	}
 	featuresJSON, err := json.Marshal(features)

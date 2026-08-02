@@ -3,10 +3,8 @@ package evalharness
 import (
 	"strings"
 	"testing"
-	"time"
 	"unicode/utf8"
 
-	"setta/internal/agent"
 	"setta/internal/conversation"
 	"setta/internal/director"
 )
@@ -99,77 +97,6 @@ func TestEvaluationObservedTurnAcceptsOneParaphrasedNormalDisposableTurn(t *test
 		!strings.Contains(failure.message, string(conversation.TurnDeliveryQueued)) ||
 		!strings.Contains(failure.message, turn.AuthoredInput.Text) {
 		t.Fatalf("queued delivery failure = %#v", failure)
-	}
-}
-
-func TestClarificationWorkstreamMustRemainStable(t *testing.T) {
-	clarificationWorkstream := "workstream-clarification"
-	triggers := []evaluationTriggerCandidate{{observation: EvaluationTriggerObservation{
-		Trigger:      ScenarioTriggerDirectorTurnCompleted,
-		WorkstreamID: &clarificationWorkstream,
-	}}}
-	if failure := validateClarificationWorkstream(triggers, clarificationWorkstream); failure != nil {
-		t.Fatalf("stable clarification workstream failed: %#v", failure)
-	}
-	failure := validateClarificationWorkstream(triggers, "workstream-other")
-	if failure == nil || failure.outcome != ScenarioExecutionControlFailed ||
-		failure.code != "clarification_changed_workstream" {
-		t.Fatalf("changed clarification workstream failure = %#v", failure)
-	}
-}
-
-func TestPartialDirectorEvidencePreservesEarlyControlFailureReceipt(t *testing.T) {
-	scenario := controlTestGenuineAmbiguityScenario()
-	submittedAt := time.Date(2026, time.August, 1, 12, 0, 0, 0, time.UTC)
-	workstreamID := "workstream-started-too-early"
-	attribution := testTokenAttribution(
-		agent.TokenUsageBucketSystem,
-		agent.TokenUsageRoleDirector,
-		"director-early-control-failure",
-		*conversation.DefaultDirectorRoleProfile().ModelSelection.ModelID,
-	)
-	attribution.ReasoningEffort = conversation.DefaultDirectorRoleProfile().ReasoningEffort
-	invocation := testResolvedTokenInvocation(
-		conversation.RoleDirector,
-		attribution,
-		"provider-director-early-control-failure",
-	)
-	observation := Phase1HTTPObservation{
-		Attempt: EvaluationAttemptFirst,
-		submissions: []scenarioSubmissionObservation{{
-			stepIndex:   0,
-			submittedAt: submittedAt,
-			receivedAt:  submittedAt.Add(time.Second),
-			receipt: director.DirectorReceipt{
-				Kind: director.DirectorIntentSubmit,
-				Submit: &director.DirectorTurnReceipt{
-					IntentID:  "director-intent-early-control-failure",
-					ReplyText: "Started the diagnostics endpoint work.",
-					ToolCalls: []director.DirectorToolCall{{
-						Tool:         "create_workstream",
-						Succeeded:    true,
-						Summary:      "Started the diagnostics endpoint work.",
-						WorkstreamID: &workstreamID,
-					}},
-					ResolvedInvocations: []conversation.ResolvedInvocation{invocation},
-				},
-			},
-		}},
-	}
-
-	collected, err := collectPartialDirectorEvidence(scenario, observation)
-	if err != nil {
-		t.Fatalf("collect partial Director evidence: %v", err)
-	}
-	if len(collected.events) != 2 ||
-		collected.events[1].DirectorReceipt == nil ||
-		len(collected.events[1].DirectorReceipt.Receipt.Submit.ToolCalls) != 1 {
-		t.Fatalf("partial Director events = %+v", collected.events)
-	}
-	if collected.transcript == nil ||
-		len(collected.transcript.Entries) != 2 ||
-		collected.transcript.Entries[1].Text != "Started the diagnostics endpoint work." {
-		t.Fatalf("partial Director transcript = %+v", collected.transcript)
 	}
 }
 

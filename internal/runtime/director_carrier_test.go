@@ -88,8 +88,8 @@ func TestRunDirectorTurnCarriesOneResolvedInvocationThroughTokenAccountingAndPro
 			{
 				Kind: agent.EventKindModelRerouted,
 				ModelReroute: &agent.ModelRerouteEvent{
-					FromModel: "gpt-5.6-terra",
-					ToModel:   "gpt-5.6-sol",
+					FromModel: "gpt-5.6-sol",
+					ToModel:   "gpt-5.6-terra",
 					Reason:    agent.ModelRerouteReasonHighRiskCyberActivity,
 				},
 			},
