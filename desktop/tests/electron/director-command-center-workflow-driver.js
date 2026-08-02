@@ -149,6 +149,7 @@
       documentText: elementText(artifactDocument),
       liveText: elementText(queryDescendant(browser, ".sr-only[role='status']")),
       nextDisabled: disabledState(next),
+      particleStyle: elementAttribute(browser, "data-particle-style"),
       position: elementText(queryDescendant(browser, ".director-artifact-browser-position")),
       previousDisabled: disabledState(previous),
       status: elementAttribute(browser, "data-artifact-load-state"),

@@ -548,7 +548,7 @@ export function DirectorCommandCenterShell({
   });
   const [canvas, setCanvas] = useState<DirectorGraphCanvas | null>(null);
   const [artifactParticleStyle, setArtifactParticleStyle] =
-    useState<GraphArtifactParticleStyle>("particle-flow");
+    useState<GraphArtifactParticleStyle>("fluid");
   const previousGraphLayoutSignatureRef = useRef<string | undefined>(undefined);
   const previousGraphCompositionRef = useRef<PreviousDirectorGraphComposition | null>(null);
   // Selection is a view: no workstream means the Director's own.

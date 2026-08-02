@@ -566,6 +566,7 @@ try {
     openedArtifactMarker,
   );
   assertEqual(artifactDetail.status, "ready", "Director artifact browser load state");
+  assertEqual(artifactDetail.particleStyle, "fluid", "Director artifact background style");
   assertEqual(artifactDetail.position, "Artifact 2 / 2", "Director artifact browser position");
   assertArtifactBrowserTheme(artifactDetail);
   assertArtifactBrowserModalIsolation(artifactDetail);
