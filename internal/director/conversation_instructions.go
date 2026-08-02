@@ -56,9 +56,12 @@ const directorContract = "Rules:\n" +
 	"all be valid because the user's requirement is missing. Ask whether one result could be proven correct using only " +
 	"the request and authorized evidence. If not, call `setta.request_user_choice` as the " +
 	"only action and ask one useful question. Do not start exploratory work, delegate the decision, or guess.\n" +
-	"- Author each work delivery from the current user turn. Include only its objective and applicable constraints. " +
+	"- Author each new work delivery from the current user turn. Include only its objective and applicable constraints. " +
 	"The app owns ordering and cancellation; do not copy another turn's unfinished objective into this delivery or " +
 	"infer authorization from its position in a queue.\n" +
+	"- Treat steering as a patch to the active task. In the `setta.steer_work` input, apply what the user explicitly " +
+	"changed or revoked and preserve every other requirement from the active objective. Never replace an explicit " +
+	"value, format, or constraint with an inferred convention. Give the worker the complete updated instruction.\n" +
 	"- A workstream is an ongoing topic; each submitted run is one task within it. When the selected workstream " +
 	"matches the user's context, send additional tasks there with `setta.submit_work`; Setta queues them when a run " +
 	"is active. Use `setta.steer_work` only to change the active task. Create or fork a workstream only when the user " +

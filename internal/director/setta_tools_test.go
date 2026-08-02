@@ -112,6 +112,9 @@ func TestDirectorDeliveryToolsExposeWorkspaceRequirements(t *testing.T) {
 	if _, found := steerSchema.Properties["workspaceRequirement"]; found {
 		t.Fatalf("steer_work redeclares the active run's workspace requirement")
 	}
+	if !strings.Contains(steerSchema.Properties["input"].Description, "preserving active requirements") {
+		t.Fatalf("steer_work input does not preserve unchanged requirements: %+v", steerSchema.Properties["input"])
+	}
 }
 
 func TestDirectorReportsTheCommittedWorkspaceRequirement(t *testing.T) {

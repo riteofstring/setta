@@ -303,11 +303,16 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 		{
 			Name: "steer_work",
 			Description: "Change the objective of the active run in a workstream, without waiting for it to finish. " +
+				"Treat the user's change as a patch: retain active requirements they did not explicitly change, and " +
+				"send one complete updated instruction without substituting inferred conventions. " +
 				"Do not use this for an additional task that should run later; submit that task instead. " +
 				"Only valid while that workstream has a run in flight.",
 			InputSchema: settaToolSchema(map[string]any{
 				"workstreamId": settaToolString("The workstream id whose active run should change course.", MaxDecisionReferenceBytes),
-				"input":        settaToolString("The new instruction for the run in flight.", MaxDecisionAuthoredInputBytes),
+				"input": settaToolString(
+					"The complete updated instruction for the run in flight, preserving active requirements the user did not explicitly change.",
+					MaxDecisionAuthoredInputBytes,
+				),
 			}, []string{"workstreamId", "input"}),
 			Handler: box.steerWork(intent),
 		},

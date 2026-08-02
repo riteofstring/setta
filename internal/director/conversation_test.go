@@ -38,8 +38,11 @@ func TestDirectorInstructionsPreserveNativeArtifactIntent(t *testing.T) {
 		"An unknown is discoverable when authorized evidence can establish one objectively correct answer",
 		"An unknown is an outcome-defining user decision",
 		"call `setta.request_user_choice` as the only action and ask one useful question",
-		"Author each work delivery from the current user turn.",
+		"Author each new work delivery from the current user turn.",
 		"The app owns ordering and cancellation",
+		"Treat steering as a patch to the active task.",
+		"preserve every other requirement from the active objective",
+		"Never replace an explicit value, format, or constraint with an inferred convention.",
 		"call the tool before writing user-facing prose",
 		"Do not preannounce routing, repeat the request, or narrate internal execution.",
 	} {
