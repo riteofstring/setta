@@ -9,7 +9,6 @@
 import type { SemanticEdge, SemanticNode, WorkstreamGraph } from "@generated/backend";
 
 import {
-  semanticEdgeChannels,
   semanticEdgeMode,
   semanticEvidenceEmphases,
   semanticNodeKindVisuals,
@@ -24,83 +23,244 @@ import {
   type PackedGraphSnapshot,
   type PackedGraphTurnInput,
 } from "./packed-graph-snapshot";
-import type { PackedGraphMode, PackedGraphOutcome } from "./packed-graph-vocabulary";
+import type {
+  PackedGraphEdgeChannel,
+  PackedGraphMode,
+  PackedGraphOutcome,
+} from "./packed-graph-vocabulary";
+import { graphFitFrame } from "./render/graph-visual-language";
 
 /*
  * What the canvas is being asked to show.
  *
  * The three are genuinely different presentations, not one with settings: they
- * differ in how columns are placed and how much of each graph a cell shows.
- * Folding is not one of the differences — finished work eases shut into its
- * outcome node on every presentation, because the single success node is the
- * reward for a completed run wherever it is read.
+ * differ in how columns are placed and how much of each graph the overview shows.
+ * A conversation may fold completed work into its outcome. Director overviews
+ * are already bounded here: the Director remains a full spine, while each side
+ * thread is either a short trail or one current activity node.
  */
 export type SemanticGraphPresentation = "conversation" | "columns" | "grid";
+
+export interface SemanticGraphViewport {
+  readonly width: number;
+  readonly height: number;
+}
 
 export interface SemanticGraphComposition {
   readonly workstreamId: string;
   readonly graphs: readonly WorkstreamGraph[];
   readonly presentation: SemanticGraphPresentation;
   /**
-   * How much room the viewport has. A spacious window earns the grid its
-   * trails; a compact one folds finished tiles to single dots, because a
-   * trail that cannot fit is worse than a dot that can.
+   * The real canvas size. Grid columns and rows are packed in screen-space
+   * proportions, then converted back to the renderer's authored world units.
+   * Omitting it keeps fixture callers deterministic in the reference frame.
    */
-  readonly density?: "spacious" | "compact";
+  readonly viewport?: SemanticGraphViewport;
 }
 
 /*
  * The presentation a set of Director graphs should be drawn in.
  *
- * How many conversations is too many for columns is the backend's decision —
- * it is the same judgement that decides how much of each graph to send, and
- * two copies of one threshold in two languages would drift. So this reads what
- * the backend already said: a graph it compacted is one it does not expect to
- * be read as a column.
+ * Detail remains the backend's decision, but fit belongs to the renderer: a
+ * set of full-detail graphs may be readable as columns in a wide window and
+ * need the existing grid presentation after that same window narrows. The
+ * minimum is based on the title and node envelopes, not a device preset.
  */
+const directorColumnMinimumWidthPx = 176;
+/** The outer canvas bands belong to flanking context even though the graph draws beneath them. */
+const directorColumnBandFraction = 0.64;
+
 export function directorPresentationFor(
   graphs: readonly WorkstreamGraph[],
   selectedWorkstreamId: string | null,
+  viewport?: SemanticGraphViewport,
 ): SemanticGraphPresentation {
   if (selectedWorkstreamId !== null) {
     return "conversation";
   }
-  return graphs.some((graph) => graph.detailLevel !== "selected") ? "grid" : "columns";
+  if (graphs.some((graph) => graph.detailLevel !== "selected")) {
+    return "grid";
+  }
+  if (
+    viewport !== undefined &&
+    viewport.width * directorColumnBandFraction < graphs.length * directorColumnMinimumWidthPx
+  ) {
+    return "grid";
+  }
+  return "columns";
 }
 
 const settleWindowSeconds = 1.45;
 const compactDelaySeconds = 2.5;
 const workstreamLaneSpacing = 0.42;
+/** Wide column views can spend more room on names without becoming sparse. */
+const workstreamMaximumLaneSpacingPx = 320;
 /*
- * Where the Director's view stops being columns and becomes a grid.
+ * How many worker threads can still carry a short readable trail in the grid.
  *
- * Past a handful of conversations, side-by-side columns are slivers: each one
- * loses the width its labels need and the view stops being readable at exactly
- * the moment it has the most to say. So the lane keeps its full column and the
- * conversations become tiles — each one its own cell, showing what it is doing
- * now rather than how it got there.
+ * The first graph is the Director's own full-height centre lane. Beyond six
+ * workers, each worker becomes one centred activity node; the Director keeps
+ * its trajectory because it is the primary object in this view.
  */
-const directorGridWidth = 1.45;
-const directorGridBias = -0.36;
+const directorGridTrailThreadLimit = 6;
+/**
+ * How much of a side conversation a grid tile shows: the newest node in focus
+ * with a short trail behind it. The Director's first graph is never reduced.
+ */
+export const directorGridTrailNodeCount = 3;
+const defaultGridViewport = { width: 800, height: 1024 } as const;
+/**
+ * Fixed node envelopes remain distinct here; longer names disclose through
+ * the title tooltip.
+ */
+const expandedGridMinimumCellWidthPx = 156;
 /*
- * A tile's own vertical room, before its rows are laid inside it. It must
- * exceed the tallest trail a tile can show — `maxTileNodes` rows plus the
- * outcome gap and the title above — or neighbouring tiles overlap.
+ * Three-node tiles need more than their graph's centre-to-centre height.
+ *
+ * The next row's title occupies the band above its input, while the previous
+ * row's outcome carries a large particle envelope below its last edge. At the
+ * compact tall-window size, viewport division could collapse that pitch to
+ * about 260px, putting both in the same band. This is therefore a fit
+ * threshold: if every trail cannot retain the pitch, workers reduce to current
+ * activity instead of creating vertical scroll.
  */
-const directorTileHeight = 0.74;
-// In from the mockup's -0.86: the lead column read as pushed off the edge.
-const directorLeadLane = -0.66;
+const expandedGridMinimumCellHeightPx = 440;
+/*
+ * A high-count grid is allowed to become taller than the viewport.
+ *
+ * Squeezing a hundred activity nodes into one screen made the graph look like
+ * a status matrix and left no honest width for thread names. The camera already
+ * supports vertical look-back, so spend that dimension: four worker columns per
+ * flank at a 1920px viewport leaves a readable title measure and a full node of
+ * clearance between rows.
+ */
+const activityGridMinimumCellWidthPx = 150;
+const activityGridMinimumCellHeightPx = 144;
+
+interface GridPlacementFrame {
+  readonly availableHeight: number;
+  readonly directorGridGapPx: number;
+  readonly directorWidthPx: number;
+  readonly flankWidthPx: number;
+  readonly fullestFlankCount: number;
+  readonly workerCount: number;
+  readonly worldPixelsX: number;
+  readonly worldPixelsY: number;
+}
+
+interface GridCellLayout {
+  readonly across: number;
+  readonly cellHeightPx: number;
+  readonly cellWidthPx: number;
+  readonly fitsViewport: boolean;
+}
+
+function gridPlacementFrame(
+  graphCount: number,
+  viewport: SemanticGraphViewport | undefined,
+): GridPlacementFrame {
+  const safeViewport = {
+    width: Math.max(1, viewport?.width ?? defaultGridViewport.width),
+    height: Math.max(1, viewport?.height ?? defaultGridViewport.height),
+  };
+  const fit = graphFitFrame(safeViewport.width, safeViewport.height);
+  const worldPixelsX = Math.max(1, safeViewport.width * fit.fitX * 0.5);
+  const worldPixelsY = Math.max(1, safeViewport.height * fit.fitY * 0.5);
+  const inlineInset = Math.min(64, Math.max(32, safeViewport.width * 0.03));
+  const availableWidth = Math.max(240, safeViewport.width - inlineInset * 2);
+  /*
+   * The title bar and composer own this vertical band. Do not invent minimum
+   * scene height below it: a tiny viewport must reduce its worker detail, not
+   * create a supporting-grid scroll range just to preserve an ideal pitch.
+   */
+  const availableHeight = Math.max(1, safeViewport.height - 260);
+  const workerCount = Math.max(0, graphCount - 1);
+  const directorWidthPx = Math.min(260, Math.max(112, availableWidth * 0.2));
+  const directorGridGapPx = Math.min(28, Math.max(16, availableWidth * 0.02));
+  const flankWidthPx = Math.max(
+    1,
+    (availableWidth - directorWidthPx - directorGridGapPx * 2) * 0.5,
+  );
+  return {
+    availableHeight,
+    directorGridGapPx,
+    directorWidthPx,
+    flankWidthPx,
+    fullestFlankCount: Math.ceil(workerCount * 0.5),
+    workerCount,
+    worldPixelsX,
+    worldPixelsY,
+  };
+}
+
+function gridCellLayout(
+  frame: GridPlacementFrame,
+  minimumCellWidthPx: number,
+  minimumCellHeightPx: number,
+): GridCellLayout {
+  const { availableHeight, flankWidthPx, fullestFlankCount } = frame;
+  if (fullestFlankCount === 0) {
+    return {
+      across: 1,
+      cellHeightPx: availableHeight,
+      cellWidthPx: flankWidthPx,
+      fitsViewport: true,
+    };
+  }
+  const idealAcross = Math.ceil(Math.sqrt(fullestFlankCount * (flankWidthPx / availableHeight)));
+  const maximumAcross = Math.max(1, Math.floor(flankWidthPx / minimumCellWidthPx));
+  const rowsThatFit = Math.max(1, Math.floor(availableHeight / minimumCellHeightPx));
+  const minimumAcrossToFit = Math.ceil(fullestFlankCount / rowsThatFit);
+  const across = Math.max(
+    1,
+    Math.min(fullestFlankCount, maximumAcross, Math.max(idealAcross, minimumAcrossToFit)),
+  );
+  const down = Math.ceil(fullestFlankCount / across);
+  return {
+    across,
+    // Fit the authored rows to the usable area. Minimums choose the level of
+    // detail and column count; they never manufacture off-screen scene height.
+    cellHeightPx: availableHeight / down,
+    cellWidthPx: flankWidthPx / across,
+    fitsViewport: down * minimumCellHeightPx <= availableHeight,
+  };
+}
+
+function singleRowGridCellLayout(frame: GridPlacementFrame): GridCellLayout {
+  const across = Math.max(1, frame.fullestFlankCount);
+  return {
+    across,
+    cellHeightPx: frame.availableHeight,
+    cellWidthPx: frame.flankWidthPx / across,
+    fitsViewport: true,
+  };
+}
+
 /**
- * How much of a conversation a tile shows: the newest node in focus with a
- * short trail behind it, the mockup's grid tile. Bounded by the tile height.
+ * Whether worker tiles need to collapse to their one current activity node.
+ *
+ * Count is the hard density ceiling. At lower counts, trail detail is retained
+ * only when all three-node tiles fit the actual viewport at their readable
+ * envelope; otherwise the same threads become activity nodes without adding a
+ * scroll range. Callers without a viewport retain the deterministic reference
+ * behavior used by contract fixtures.
  */
-const maxTileNodes = 3;
-/**
- * Where the grid's level of detail steps down. Up to this many tiles, each
- * shows its trail; past it, finished tiles fold to single outcome dots. The
- * fold eases, so crossing the threshold is an animation rather than a swap.
- */
-const gridFoldTileCount = 12;
+export function directorGridUsesActivityNodes(
+  graphCount: number,
+  viewport?: SemanticGraphViewport,
+): boolean {
+  if (Math.max(0, graphCount - 1) > directorGridTrailThreadLimit) {
+    return true;
+  }
+  if (viewport === undefined) {
+    return false;
+  }
+  return !gridCellLayout(
+    gridPlacementFrame(graphCount, viewport),
+    expandedGridMinimumCellWidthPx,
+    expandedGridMinimumCellHeightPx,
+  ).fitsViewport;
+}
 
 interface OrderedNode {
   readonly node: SemanticNode;
@@ -121,12 +281,14 @@ interface PlannedNode {
   readonly role: "input" | "step" | "outcome";
   /** Lateral offset when this node is one branch of a concurrent fan. */
   readonly fanLane: number;
+  /** A dense-grid activity node stays centred in its collision-free cell. */
+  readonly centered: boolean;
   readonly mode: PackedGraphMode;
   /**
-   * When this outcome failed, or null. `terminalAt` is the renderer's failure
-   * visual — the red burst and the eclipse — so a successful outcome must never
-   * carry it: packing it for every outcome painted the end of every finished
-   * run in the failure colour.
+   * When this reasoning fact failed, or null. `terminalAt` drives the mockup's
+   * brief burst/suck transition for a failed dead end. Inputs and final failed
+   * outcomes stay full-size fail-mode nodes: their red eclipse comes from
+   * `mode`, not from this transition clock.
    */
   readonly failedAt: number | null;
 }
@@ -190,14 +352,18 @@ function graphNodes(graphs: readonly WorkstreamGraph[]): OrderedNode[] {
 }
 
 /*
- * A tile is the latest activity, not the trajectory behind it.
+ * A Director grid is a bounded summary, not every complete trajectory.
  *
- * The grid exists because there is no room to read every conversation at once,
- * so it answers what each one is doing now. Reducing here rather than folding
- * later keeps the reduction a property of the view: nothing has to animate
- * closed, and nothing can quietly re-open.
+ * Side-by-side columns retain complete visible trajectories because each
+ * column can scroll and clamp at its own ends. Grid tiles keep a short recent
+ * trail; once the grid crosses the activity threshold, they answer only what
+ * each conversation is doing now. The Director's first graph always remains
+ * its full spine.
  */
-function tiledGraphs(composition: SemanticGraphComposition): readonly WorkstreamGraph[] {
+function gridGraphs(
+  composition: SemanticGraphComposition,
+  activityNodesOnly: boolean,
+): readonly WorkstreamGraph[] {
   if (composition.presentation !== "grid") {
     return composition.graphs;
   }
@@ -205,7 +371,10 @@ function tiledGraphs(composition: SemanticGraphComposition): readonly Workstream
     if (index === 0) {
       return graph;
     }
-    const kept = graph.nodes.slice(-maxTileNodes);
+    const kept = graph.nodes.slice(activityNodesOnly ? -1 : -directorGridTrailNodeCount);
+    if (activityNodesOnly) {
+      return { ...graph, nodes: kept, edges: [] };
+    }
     const keptIds = new Set(kept.map((node) => node.id));
     return {
       ...graph,
@@ -281,8 +450,24 @@ function plannedRole(
  * Exported for the column-title overlay, which names each thread above its
  * column and must agree with the packer about where a column is.
  */
-export function workstreamLane(graphIndex: number, graphCount: number): number {
-  return (graphIndex - (graphCount - 1) / 2) * workstreamLaneSpacing;
+function workstreamLane(
+  graphIndex: number,
+  graphCount: number,
+  viewport?: SemanticGraphViewport,
+): number {
+  if (viewport === undefined) {
+    return (graphIndex - (graphCount - 1) / 2) * workstreamLaneSpacing;
+  }
+  const safeWidth = Math.max(1, viewport.width);
+  const fit = graphFitFrame(safeWidth, Math.max(1, viewport.height));
+  const worldPixelsX = Math.max(1, safeWidth * fit.fitX * 0.5);
+  const referenceSpacingPx = workstreamLaneSpacing * worldPixelsX;
+  const availableSpacingPx = Math.max(
+    referenceSpacingPx,
+    (safeWidth * directorColumnBandFraction) / Math.max(1, graphCount),
+  );
+  const spacing = Math.min(workstreamMaximumLaneSpacingPx, availableSpacingPx) / worldPixelsX;
+  return (graphIndex - (graphCount - 1) / 2) * spacing;
 }
 
 interface ColumnPlacement {
@@ -294,51 +479,85 @@ interface ColumnPlacement {
  * Where each column sits.
  *
  * Few enough conversations and they are columns across the view, all starting
- * at the top. Too many and the first graph — the Director's own lane — keeps a
- * column on the left while the rest tile into a square-ish grid beside it, in
- * reading order: oldest top-left, newest bottom-right.
+ * at the top. The grid reserves a full-height centre spine for the Director and
+ * alternates workers into viewport-shaped flanks on either side. It is authored
+ * in CSS pixels and converted to world coordinates with the same fit the
+ * renderer applies. A landscape window therefore earns more columns instead
+ * of a wider empty letterbox around the same narrow square.
  */
 function columnPlacements(
-  graphCount: number,
+  graphs: readonly WorkstreamGraph[],
   presentation: SemanticGraphPresentation,
+  viewport: SemanticGraphViewport | undefined,
 ): ColumnPlacement[] {
+  const graphCount = graphs.length;
   if (presentation !== "grid") {
-    return Array.from({ length: graphCount }, (_unused, index) => ({
-      lane: workstreamLane(index, graphCount),
-      top: 0,
-    }));
+    return linearColumnPlacements(graphCount, viewport);
   }
-  const tiles = graphCount - 1;
-  const across = Math.ceil(Math.sqrt(tiles));
-  const down = Math.ceil(tiles / across);
-  const cellWidth = directorGridWidth / across;
-  const placements: ColumnPlacement[] = [{ lane: directorLeadLane, top: 0 }];
-  for (let tile = 0; tile < tiles; tile += 1) {
+  const frame = gridPlacementFrame(graphCount, viewport);
+  if (frame.workerCount === 0) {
+    return [{ lane: 0, top: 0 }];
+  }
+  return gridColumnPlacements(frame, graphCount, viewport);
+}
+
+function linearColumnPlacements(
+  graphCount: number,
+  viewport: SemanticGraphViewport | undefined,
+): ColumnPlacement[] {
+  return Array.from({ length: graphCount }, (_unused, index) => ({
+    lane: workstreamLane(index, graphCount, viewport),
+    top: 0,
+  }));
+}
+
+function gridColumnPlacements(
+  frame: GridPlacementFrame,
+  graphCount: number,
+  viewport: SemanticGraphViewport | undefined,
+): ColumnPlacement[] {
+  const activityNodesOnly = directorGridUsesActivityNodes(graphCount, viewport);
+  const minimumCellWidth = activityNodesOnly
+    ? activityGridMinimumCellWidthPx
+    : expandedGridMinimumCellWidthPx;
+  const minimumCellHeight = activityNodesOnly
+    ? activityGridMinimumCellHeightPx
+    : expandedGridMinimumCellHeightPx;
+  const fitFallback = usesSingleRowGridFallback(activityNodesOnly, frame.workerCount, viewport);
+  const { across, cellHeightPx, cellWidthPx } = fitFallback
+    ? // A low-count view that could not afford trail envelopes gets one quiet
+      // row of current activity. It must not turn into a scrollable mini-grid.
+      singleRowGridCellLayout(frame)
+    : gridCellLayout(frame, minimumCellWidth, minimumCellHeight);
+  const placements: ColumnPlacement[] = [
+    {
+      lane: 0,
+      top: 0,
+    },
+  ];
+  const leftInnerEdgePx = -frame.directorWidthPx * 0.5 - frame.directorGridGapPx;
+  const rightInnerEdgePx = frame.directorWidthPx * 0.5 + frame.directorGridGapPx;
+  for (let workerIndex = 0; workerIndex < frame.workerCount; workerIndex += 1) {
+    const localIndex = Math.floor(workerIndex * 0.5);
+    const column = localIndex % across;
+    const leftFlank = workerIndex % 2 === 0;
+    const centerPx = leftFlank
+      ? leftInnerEdgePx - (column + 0.5) * cellWidthPx
+      : rightInnerEdgePx + (column + 0.5) * cellWidthPx;
     placements.push({
-      lane: 0.24 + ((tile % across) - (across - 1) / 2) * cellWidth,
-      top: (Math.floor(tile / across) - (down - 1) / 2) * directorTileHeight + directorGridBias,
+      lane: centerPx / frame.worldPixelsX,
+      top: (Math.floor(localIndex / across) * cellHeightPx) / frame.worldPixelsY,
     });
   }
   return placements;
 }
 
-function semanticLane(node: SemanticNode): number {
-  switch (node.kind) {
-    case "delegation":
-      return 0.28;
-    case "investigation":
-      return -0.2;
-    case "approval_required":
-    case "resource_required":
-    case "blocked":
-    case "retry":
-      return 0.2;
-    case "artifact":
-    case "validation":
-      return -0.16;
-    default:
-      return 0;
-  }
+function usesSingleRowGridFallback(
+  activityNodesOnly: boolean,
+  workerCount: number,
+  viewport: SemanticGraphViewport | undefined,
+): boolean {
+  return activityNodesOnly && workerCount <= directorGridTrailThreadLimit && viewport !== undefined;
 }
 
 /*
@@ -353,12 +572,17 @@ function semanticLane(node: SemanticNode): number {
  * Nodes arrive grouped by workstream and ordered within it, which is what lets
  * a turn own one contiguous run of nodes.
  */
-function planNodes(nodes: readonly OrderedNode[], edges: readonly SemanticEdge[]): PlannedNode[] {
+function planNodes(
+  nodes: readonly OrderedNode[],
+  edges: readonly SemanticEdge[],
+  activityNodesOnly: boolean,
+  fanLanes: ReadonlyMap<string, number>,
+): PlannedNode[] {
   const outgoing = outgoingNodeIDs(edges);
-  const fanOffsets = fanLaneOffsets(nodes, edges);
   const planned: PlannedNode[] = [];
   for (const group of groupedByGraph(nodes)) {
     const outcomeId = outcomeNodeID(group.nodes, outgoing);
+    const singleActivityNode = activityNodesOnly && group.nodes.length === 1;
     group.nodes.forEach((ordered, row) => {
       const role = plannedRole(ordered, row, outcomeId);
       planned.push({
@@ -366,10 +590,13 @@ function planNodes(nodes: readonly OrderedNode[], edges: readonly SemanticEdge[]
         turn: group.turn,
         row,
         role,
-        fanLane: fanOffsets.get(ordered.packedId) ?? 0,
+        fanLane: singleActivityNode ? 0 : (fanLanes.get(ordered.packedId) ?? 0),
+        centered: singleActivityNode,
         mode: semanticNodeMode(ordered.node.kind, ordered.node.status),
         failedAt:
-          role === "outcome" && semanticStatusOutcomes[ordered.node.status] === "failed"
+          role === "step" &&
+          !singleActivityNode &&
+          semanticStatusOutcomes[ordered.node.status] === "failed"
             ? terminalSeconds(ordered)
             : null,
       });
@@ -378,56 +605,131 @@ function planNodes(nodes: readonly OrderedNode[], edges: readonly SemanticEdge[]
   return planned;
 }
 
+interface FanLayout {
+  readonly laneByNodeID: ReadonlyMap<string, number>;
+  readonly branchEdgeIDs: ReadonlySet<string>;
+  readonly mergeEdgeIDs: ReadonlySet<string>;
+}
+
+interface FanCandidate {
+  readonly edgeKey: string;
+  readonly target: string;
+}
+
+interface FlowTopology {
+  readonly incomingFlowCount: ReadonlyMap<string, number>;
+  readonly siblingsBySource: ReadonlyMap<string, readonly FanCandidate[]>;
+}
+
+function edgeKey(edge: SemanticEdge): string {
+  return `${edge.workstreamId}:${edge.id}`;
+}
+
 /*
- * Where a fan's branches sit. Concurrent work — parallel commands, spun-off
- * subagents — arrives as siblings whose flow edges leave one fork node, and
- * the merge that reconverges them has several flow edges in. Siblings spread
- * across lanes centred on the spine, the mockup's fan spacing, so parallel
- * work reads as parallel instead of stacking on one line.
+ * Where genuine concurrent branches sit and which chronology edges enter and
+ * leave them.
  *
- * Sharing a source is necessary but not sufficient: a node that also chains a
- * side fact — an artifact recorded off a step — sources two flow edges without
- * any concurrency, and spreading those pushed spine nodes (outcomes included)
- * off their lane. Only siblings whose lifetimes actually overlap fan out.
+ * The projector already expresses real parallel work as overlapping
+ * `followed_by` siblings from one fork and several `followed_by` edges into the
+ * merge. Semantic relationships such as `delegated_to`, `depends_on`, or
+ * `validated_by` describe why two facts relate; they do not, on their own, say
+ * that those facts ran in parallel. Keeping that distinction here prevents a
+ * linear delegation or approval from being drawn as an invented fork.
  */
-function fanLaneOffsets(
-  nodes: readonly OrderedNode[],
-  edges: readonly SemanticEdge[],
-): ReadonlyMap<string, number> {
-  const spacing = 0.3;
+function fanLayout(nodes: readonly OrderedNode[], edges: readonly SemanticEdge[]): FanLayout {
   const timing = new Map(nodes.map((ordered) => [ordered.packedId, ordered]));
-  const siblingsBySource = new Map<string, string[]>();
-  const flowSourceCount = new Map<string, number>();
+  const topology = flowTopology(edges);
+  const { branchEdgeIDs, laneByNodeID } = branchFanLayout(topology, timing);
+  return {
+    laneByNodeID,
+    branchEdgeIDs,
+    mergeEdgeIDs: fanMergeEdgeIDs(edges, laneByNodeID),
+  };
+}
+
+function flowTopology(edges: readonly SemanticEdge[]): FlowTopology {
+  const siblingsBySource = new Map<string, FanCandidate[]>();
+  const incomingFlowCount = new Map<string, number>();
   for (const edge of edges) {
-    if (semanticEdgeChannels[edge.kind] !== "flow") {
+    if (edge.kind !== "followed_by") {
       continue;
     }
     const target = `${edge.workstreamId}:${edge.toNodeId}`;
-    flowSourceCount.set(target, (flowSourceCount.get(target) ?? 0) + 1);
+    incomingFlowCount.set(target, (incomingFlowCount.get(target) ?? 0) + 1);
     const source = `${edge.workstreamId}:${edge.fromNodeId}`;
     const members = siblingsBySource.get(source);
+    const candidate = { edgeKey: edgeKey(edge), target } satisfies FanCandidate;
     if (members === undefined) {
-      siblingsBySource.set(source, [target]);
+      siblingsBySource.set(source, [candidate]);
     } else {
-      members.push(target);
+      members.push(candidate);
     }
   }
-  const offsets = new Map<string, number>();
-  for (const members of siblingsBySource.values()) {
+  return { incomingFlowCount, siblingsBySource };
+}
+
+function branchFanLayout(
+  topology: FlowTopology,
+  timing: ReadonlyMap<string, OrderedNode>,
+): Pick<FanLayout, "branchEdgeIDs" | "laneByNodeID"> {
+  const spacing = 0.3;
+  const laneByNodeID = new Map<string, number>();
+  const branchEdgeIDs = new Set<string>();
+  for (const candidates of topology.siblingsBySource.values()) {
+    const members = candidates.map((candidate) => candidate.target);
     if (members.length < 2) {
       continue;
     }
     const cluster = concurrentCluster(members, timing).filter(
-      (member) => (flowSourceCount.get(member) ?? 0) <= 1,
+      (member) => (topology.incomingFlowCount.get(member) ?? 0) <= 1,
     );
     if (cluster.length < 2) {
       continue;
     }
+    const clusterIDs = new Set(cluster);
     cluster.forEach((member, index) => {
-      offsets.set(member, (index - (cluster.length - 1) / 2) * spacing);
+      laneByNodeID.set(member, (index - (cluster.length - 1) / 2) * spacing);
     });
+    for (const candidate of candidates) {
+      if (clusterIDs.has(candidate.target)) {
+        branchEdgeIDs.add(candidate.edgeKey);
+      }
+    }
   }
-  return offsets;
+  return { laneByNodeID, branchEdgeIDs };
+}
+
+function fanMergeEdgeIDs(
+  edges: readonly SemanticEdge[],
+  laneByNodeID: ReadonlyMap<string, number>,
+): ReadonlySet<string> {
+  const mergeCandidates = new Map<string, string[]>();
+  for (const edge of edges) {
+    if (edge.kind !== "followed_by") {
+      continue;
+    }
+    const source = `${edge.workstreamId}:${edge.fromNodeId}`;
+    if (!laneByNodeID.has(source)) {
+      continue;
+    }
+    const target = `${edge.workstreamId}:${edge.toNodeId}`;
+    const candidates = mergeCandidates.get(target);
+    if (candidates === undefined) {
+      mergeCandidates.set(target, [edgeKey(edge)]);
+    } else {
+      candidates.push(edgeKey(edge));
+    }
+  }
+  const mergeEdgeIDs = new Set<string>();
+  for (const candidates of mergeCandidates.values()) {
+    if (candidates.length < 2) {
+      continue;
+    }
+    for (const edgeID of candidates) {
+      mergeEdgeIDs.add(edgeID);
+    }
+  }
+  return mergeEdgeIDs;
 }
 
 /** The members whose lifetimes overlap the sibling before them. */
@@ -495,9 +797,12 @@ function packedNodeInput(planned: PlannedNode, placement: ColumnPlacement): Pack
     glyph: visual.glyph,
     emphasis: semanticEvidenceEmphases[planned.ordered.node.evidenceClass],
     detail: planned.ordered.node.kind === "milestone" ? "compacted" : "detailed",
-    lane:
-      placement.lane +
-      (planned.fanLane === 0 ? semanticLane(planned.ordered.node) : planned.fanLane),
+    /*
+     * Node kind does not imply topology. Ordinary actions, delegations,
+     * approvals, artifacts, and validations all stay on their workstream's
+     * spine. Only a concurrently planned sibling earns a lateral lane.
+     */
+    lane: placement.lane + (planned.centered ? 0 : planned.fanLane),
     row: planned.row,
     bornAt: planned.ordered.bornAt,
     /*
@@ -558,21 +863,20 @@ function turnInputs(
       continue;
     }
     const outcome = graphOutcome(nodes);
+    const placement = placementFor(input.ordered.graphIndex);
     turns.push({
       index,
       column: index,
-      columnTop: placementFor(input.ordered.graphIndex).top,
+      columnTop: placement.top,
       inputNodeId: input.ordered.packedId,
       outcomeNodeId: outcome.outcomeNodeId,
       rowSpan: nodes.length,
       outcome: outcome.outcome,
       answerAt: outcome.answerAt,
       /*
-       * Finished work folds itself where the view wants dots: conversations
-       * and columns ease shut a beat after the answer lands, leaving the
-       * outcome node carrying the verdict, and a crowded grid folds its tiles
-       * the same way. A small grid keeps each tile's trail open instead —
-       * the newest node in focus, trailing off into what led to it.
+       * A conversation folds finished work a beat after the answer lands. A
+       * Director overview was already reduced to a short trail or one activity
+       * node before it reached this turn representation, so it stays open.
        */
       compactAt:
         !folding || outcome.answerAt === null ? null : outcome.answerAt + compactDelaySeconds,
@@ -587,6 +891,7 @@ function edgeInputs(
   nodeIndexByID: ReadonlyMap<string, number>,
   nodeModeByID: ReadonlyMap<string, PackedGraphMode>,
   terminalByID: ReadonlyMap<string, boolean>,
+  fans: FanLayout,
 ): PackedGraphEdgeInput[] {
   return edges
     .map((edge) => {
@@ -609,7 +914,7 @@ function edgeInputs(
         fromNodeId: visualFromNodeId,
         toNodeId: visualToNodeId,
         mode: semanticEdgeMode(edge.kind, childMode),
-        channel: semanticEdgeChannels[edge.kind],
+        channel: edgeChannel(edge, fans),
         confidence: edge.kind === "blocked_by" || edge.kind === "recovered_by" ? 0.58 : 0.92,
         terminated: terminalByID.get(visualToNodeId) ?? false,
       };
@@ -628,6 +933,17 @@ function edgeInputs(
     });
 }
 
+function edgeChannel(edge: SemanticEdge, fans: FanLayout): PackedGraphEdgeChannel {
+  const key = edgeKey(edge);
+  if (fans.branchEdgeIDs.has(key)) {
+    return "branch";
+  }
+  if (fans.mergeEdgeIDs.has(key)) {
+    return "merge";
+  }
+  return "flow";
+}
+
 function compileSemanticGraphComposition(
   composition: SemanticGraphComposition,
 ): readonly PackedGraphBatch[] {
@@ -637,14 +953,18 @@ function compileSemanticGraphComposition(
   // One reduced set for both. Reading edges from the full graphs while nodes
   // came from the tiles let a dropped edge still decide which node is the
   // outcome, so a tile could be classified by history it is not showing.
-  const graphs = tiledGraphs(composition);
+  const activityNodesOnly =
+    composition.presentation === "grid" &&
+    directorGridUsesActivityNodes(composition.graphs.length, composition.viewport);
+  const graphs = gridGraphs(composition, activityNodesOnly);
   const nodes = graphNodes(graphs);
   if (nodes.length === 0) {
     return [];
   }
   const edges = graphEdges(graphs);
-  const planned = planNodes(nodes, edges);
-  const placements = columnPlacements(graphs.length, composition.presentation);
+  const fans = fanLayout(nodes, edges);
+  const planned = planNodes(nodes, edges, activityNodesOnly, fans.laneByNodeID);
+  const placements = columnPlacements(graphs, composition.presentation, composition.viewport);
   const placementFor = (graphIndex: number): ColumnPlacement =>
     placements[graphIndex] ?? { lane: 0, top: 0 };
   const packedNodes = planned.map((node) =>
@@ -655,11 +975,8 @@ function compileSemanticGraphComposition(
   const terminalByID = new Map(
     planned.map((node) => [node.ordered.packedId, node.failedAt !== null]),
   );
-  const packedEdges = edgeInputs(edges, nodeIndexByID, nodeModeByID, terminalByID);
-  const folding =
-    composition.presentation !== "grid" ||
-    graphs.length - 1 >= gridFoldTileCount ||
-    composition.density === "compact";
+  const packedEdges = edgeInputs(edges, nodeIndexByID, nodeModeByID, terminalByID, fans);
+  const folding = composition.presentation === "conversation";
   return [
     {
       cursorSequence: packedNodes.length + packedEdges.length,

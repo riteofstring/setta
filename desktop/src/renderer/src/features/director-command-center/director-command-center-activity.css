@@ -54,12 +54,23 @@
   margin-block-start: 7px;
 }
 
-.director-narration-item[data-narration-outcome="succeeded"] .director-narration-mark {
+.director-narration-item[data-narration-outcome="succeeded"] .director-narration-mark,
+.director-now-minimized-marker[data-narration-outcome="succeeded"] .director-narration-mark {
   color: var(--graph-mode-success);
 }
 
-.director-narration-item[data-narration-outcome="failed"] .director-narration-mark {
+.director-narration-item[data-narration-outcome="failed"] .director-narration-mark,
+.director-now-minimized-marker[data-narration-outcome="failed"] .director-narration-mark {
   color: var(--graph-mode-fail);
+}
+
+.director-now-minimized-marker .director-narration-mark {
+  margin-block-start: 0;
+}
+
+.director-now-minimized-marker {
+  /* Match the recency strength of the same entry in the expanded Now rail. */
+  opacity: 0.55;
 }
 
 .director-narration-text {
@@ -71,6 +82,10 @@
 
 .director-narration-item[data-narration-latest="true"] .director-narration-text {
   color: var(--director-bright);
+}
+
+.director-rail-tooltip-narration {
+  opacity: 1;
 }
 
 /*

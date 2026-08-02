@@ -1,5 +1,16 @@
 import type { WorkstreamNarration, WorkstreamStatus } from "@generated/backend";
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@renderer/components/ui/tooltip";
+
+import { useDirectorRailArrivalKeys } from "./director-rail-arrivals";
+
+const directorNowMinimizedItemLimit = 8;
+
 /**
  * The Now rail: what the narrator has said about the work in focus.
  *
@@ -20,23 +31,114 @@ import type { WorkstreamNarration, WorkstreamStatus } from "@generated/backend";
  */
 export function NowRail({
   narration,
+  visible,
   workstreamStatus,
 }: {
   narration: readonly WorkstreamNarration[];
+  visible: boolean;
   workstreamStatus: WorkstreamStatus | null;
 }) {
+  const arrivingIds = useDirectorRailArrivalKeys(narration.map((entry) => entry.id));
   return (
-    <aside aria-label="Now" className="director-now-rail" id="director-now-rail">
-      <p className="director-rail-kicker">Now</p>
-      <DirectorNarrationList narration={narration} workstreamStatus={workstreamStatus} />
-    </aside>
+    <TooltipProvider delay={120}>
+      <aside aria-label="Now" className="director-now-rail" id="director-now-rail">
+        <div
+          aria-hidden={!visible || undefined}
+          className="director-rail-expanded-content"
+          inert={!visible || undefined}
+        >
+          <p
+            aria-hidden={narration.length === 0 || undefined}
+            className="director-rail-kicker"
+            data-visible={narration.length > 0 ? "true" : "false"}
+          >
+            Now
+          </p>
+          <DirectorNarrationList
+            arrivingIds={arrivingIds}
+            narration={narration}
+            workstreamStatus={workstreamStatus}
+          />
+        </div>
+        <DirectorNowMinimized
+          arrivingIds={arrivingIds}
+          narration={narration}
+          visible={!visible}
+          workstreamStatus={workstreamStatus}
+        />
+      </aside>
+    </TooltipProvider>
+  );
+}
+
+function DirectorNowMinimized({
+  arrivingIds,
+  narration,
+  visible,
+  workstreamStatus,
+}: {
+  arrivingIds: ReadonlySet<string>;
+  narration: readonly WorkstreamNarration[];
+  visible: boolean;
+  workstreamStatus: WorkstreamStatus | null;
+}) {
+  const newestFirst = [...narration].reverse().slice(0, directorNowMinimizedItemLimit);
+  return (
+    <div
+      aria-hidden={!visible || undefined}
+      aria-label="Recent Now activity"
+      className="director-rail-minimized director-now-minimized"
+      inert={!visible || undefined}
+      role="group"
+    >
+      {newestFirst.map((entry, index) => {
+        const outcome = narrationOutcome(entry, index === 0, workstreamStatus);
+        return (
+          <Tooltip key={entry.id}>
+            <TooltipTrigger
+              render={
+                <button
+                  aria-label={`Preview update: ${entry.text}`}
+                  className="director-rail-minimized-marker director-now-minimized-marker"
+                  data-narration-kind={entry.kind}
+                  data-narration-latest={index === 0 ? "true" : "false"}
+                  data-narration-outcome={outcome ?? undefined}
+                  data-rail-arriving={arrivingIds.has(entry.id) ? "true" : undefined}
+                  data-rail-latest={index === 0 ? "true" : "false"}
+                  type="button"
+                />
+              }
+            >
+              <span aria-hidden="true" className="director-narration-mark" />
+            </TooltipTrigger>
+            <TooltipContent
+              align="start"
+              className="director-rail-preview-tooltip director-rail-now-tooltip"
+              side="right"
+              sideOffset={10}
+            >
+              <div
+                className="director-narration-item director-rail-tooltip-narration"
+                data-narration-kind={entry.kind}
+                data-narration-latest={index === 0 ? "true" : "false"}
+                data-narration-outcome={outcome ?? undefined}
+              >
+                <DirectorNarrationContent entry={entry} />
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
+    </div>
   );
 }
 
 function DirectorNarrationList({
+  arrivingIds,
   narration,
   workstreamStatus,
 }: {
+  arrivingIds: ReadonlySet<string>;
   narration: readonly WorkstreamNarration[];
   workstreamStatus: WorkstreamStatus | null;
 }) {
@@ -55,16 +157,25 @@ function DirectorNarrationList({
           className="director-narration-item"
           data-narration-kind={entry.kind}
           data-narration-latest={index === 0 ? "true" : "false"}
+          data-rail-arriving={arrivingIds.has(entry.id) ? "true" : undefined}
           data-narration-outcome={
             narrationOutcome(entry, index === 0, workstreamStatus) ?? undefined
           }
           key={entry.id}
         >
-          <span aria-hidden="true" className="director-narration-mark" />
-          <span className="director-narration-text">{entry.text}</span>
+          <DirectorNarrationContent entry={entry} />
         </li>
       ))}
     </ol>
+  );
+}
+
+function DirectorNarrationContent({ entry }: { entry: WorkstreamNarration }) {
+  return (
+    <>
+      <span aria-hidden="true" className="director-narration-mark" />
+      <span className="director-narration-text">{entry.text}</span>
+    </>
   );
 }
 

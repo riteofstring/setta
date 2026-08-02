@@ -14,14 +14,16 @@
  * 4. the halftone/CRT post pass, resolving the scene onto the canvas
  * 5. glyphs, alpha-blended on top so they stay crisp through the dither
  *
- * Cost is bounded three ways: the scene pass is capped and adaptively scaled,
- * only the visible node and edge slices are drawn, and per-frame uploads are
- * one range of one RG32F texture.
+ * Cost is bounded three ways: the scene and post passes have fixed pixel
+ * ceilings, only the visible node and edge slices are drawn, and per-frame
+ * uploads are one range of one RG32F texture.
  */
 
 import {
   graphBarrel,
   graphEdgeGeometry,
+  graphFieldDrawCount,
+  graphFieldGeometry,
   graphFieldTint,
   graphFitFrame,
   graphModeColor,
@@ -34,6 +36,7 @@ import {
   graphEdgeVertexShader,
   graphFieldFragmentShader,
   graphFieldHaloSlots,
+  graphLoadingTargetSlots,
   graphFieldVertexShader,
   graphGlyphFragmentShader,
   graphGlyphVertexShader,
@@ -44,7 +47,7 @@ import {
 } from "./graph-shaders";
 import { createGraphProgram, graphSeededRandom, graphUniforms } from "./graph-gl-programs";
 import { createGraphGlyphAtlas } from "./graph-glyph-atlas";
-import { collectGraphHalos } from "./graph-halos";
+import { collectGraphHalos, collectGraphLoadingTargets } from "./graph-halos";
 import {
   graphEdgeStaticStride,
   graphNodeStateStride,
@@ -72,6 +75,14 @@ const particleTemplateBytes = particleTemplateStride * floatSize;
 export interface GraphRenderView {
   readonly timeSeconds: number;
   readonly cameraWorldY: number;
+  /** End-exclusive contiguous overview range owned by the Director lane. */
+  readonly directorNodeEnd: number;
+  /** 1 when faded side-grid history should keep complete edge geometry. */
+  readonly gridTrailOpacity: number;
+  /** Fixed visual scale for nodes after the Director range. */
+  readonly supportingNodeScale: number;
+  /** 0..1 opt-in wake applied only while drawing the Director range. */
+  readonly directorEdgeDisturbance: number;
   readonly hoverLaneX: number;
   readonly hoverWorldY: number;
   readonly hoverAmount: number;
@@ -79,8 +90,19 @@ export interface GraphRenderView {
   readonly shiftX: number;
   /** 0..1 signal tear and aberration during a workstream switch. */
   readonly glitch: number;
+  /** 0..1 bloom of a replacement thread-count layout; the field stays put. */
+  readonly layoutReveal: number;
   /** 1 while the app is actually capturing the user's voice; 0 otherwise. */
   readonly listening: number;
+  /** 0..1 visual mix for Director state loading or resynchronisation. */
+  readonly loadingAmount: number;
+  /** Whole-surface mix for the artifact reader's streaming particle field. */
+  readonly artifactParticleFlowAmount: number;
+  /** Whole-surface mix for the artifact reader's broad milky fluid field. */
+  readonly artifactFluidAmount: number;
+  /** Stable per-artifact shader phases, smoothly advanced by the canvas. */
+  readonly artifactSeedX: number;
+  readonly artifactSeedY: number;
   /**
    * Seconds since this canvas first drew, for the ambient field only. The
    * field compares against no event time, and the committed-time clock grows
@@ -103,14 +125,18 @@ export interface GraphRenderFrame {
 const fieldUniformNames = [
   "u_time",
   "u_cam",
-  "u_pointScale",
+  "u_dpr",
+  "u_xshift",
+  "u_bgstyle",
   "u_aspect",
-  "u_shiftX",
-  "u_flow",
-  "u_halo",
-  "u_haloCount",
-  "u_near",
-  "u_far",
+  "u_densityScale",
+  "u_nodes",
+  "u_nodeCount",
+  "u_loading",
+  "u_loadingTargets",
+  "u_loadingTargetCount",
+  "u_cyan",
+  "u_violet",
 ] as const;
 
 const edgeUniformNames = [
@@ -122,8 +148,10 @@ const edgeUniformNames = [
   "u_fitX",
   "u_fitY",
   "u_motion",
+  "u_layoutReveal",
+  "u_gridTrailOpacity",
+  "u_directorNodeEnd",
   "u_modeColor",
-  "u_channel",
   "u_nodeState",
   "u_nodeTexWidth",
   "u_failColor",
@@ -136,13 +164,16 @@ const nodeUniformNames = [
   "u_shiftX",
   "u_fitX",
   "u_fitY",
-  "u_scale",
   "u_maxPoint",
   "u_motion",
+  "u_layoutReveal",
   "u_listen",
   "u_hoverX",
   "u_hoverY",
   "u_hoverAmount",
+  "u_disturbance",
+  "u_directorNodeEnd",
+  "u_supportingNodeScale",
   "u_instanceBase",
   "u_modeColor",
   "u_role",
@@ -163,6 +194,9 @@ const glyphUniformNames = [
   "u_fitX",
   "u_fitY",
   "u_motion",
+  "u_layoutReveal",
+  "u_directorNodeEnd",
+  "u_supportingNodeScale",
   "u_instanceBase",
   "u_modeColor",
   "u_role",
@@ -171,6 +205,8 @@ const glyphUniformNames = [
   "u_nodeTexWidth",
   "u_atlas",
   "u_scanlines",
+  "u_res",
+  "u_artifactAmount",
 ] as const;
 
 const postUniformNames = [
@@ -182,6 +218,12 @@ const postUniformNames = [
   "u_glitch",
   "u_grain",
   "u_barrel",
+  "u_cssRes",
+  "u_artifactFlow",
+  "u_artifactFluid",
+  "u_artifactSeed",
+  "u_cyan",
+  "u_violet",
 ] as const;
 
 interface GraphSurfaces {
@@ -233,6 +275,7 @@ export class DirectorGraphRenderer {
   private readonly sceneFramebuffer: WebGLFramebuffer;
 
   private readonly halos = new Float32Array(graphFieldHaloSlots * 3);
+  private readonly loadingTargets = new Float32Array(graphLoadingTargetSlots * 2);
   private readonly maximumPointSize: number;
   private profile: GraphQualityProfile;
   private surfaces: GraphSurfaces = {
@@ -358,34 +401,24 @@ export class DirectorGraphRenderer {
     this.stateTexelCapacity = graphNodeStateTextureWidth;
   }
 
-  /**
-   * Applies a quality tier. Only the tier-sized geometry is rebuilt; snapshot
-   * data is untouched, so a tier step costs one buffer rebuild rather than a
-   * re-projection.
-   */
+  /** Applies accessibility effects without rebuilding unchanged geometry. */
   applyProfile(profile: GraphQualityProfile): void {
     this.profile = profile;
-    this.uploadFieldParticles(this.scaledFieldParticles());
-    this.uploadParticleTemplate(profile.particlesPerNode);
-    this.uploadEdgeSegments(profile.edgeSegments);
-  }
-
-  /*
-   * The field's particle count follows the viewport's area, so its density on
-   * screen is a constant rather than an accident of window size: a fixed count
-   * over a wrapped unit square reads dense on a laptop and sparse on a 6K
-   * display. The scale is quantised so ordinary window drags do not rebuild
-   * the buffer, and clamped so the tier's count stays the budget's anchor.
-   */
-  private scaledFieldParticles(): number {
-    const referenceArea = 1280 * 820;
-    const area = this.surfaces.cssWidth * this.surfaces.cssHeight;
-    // Wide bounds on purpose: the old clamps bit at ordinary window sizes,
-    // which is what made a shrunken window read too dense and a fullscreen
-    // display too sparse. The bounds are sanity rails, not tuning.
-    const scale = Math.min(6, Math.max(0.25, area / referenceArea));
-    const quantised = Math.round(scale * 4) / 4;
-    return Math.round(this.profile.fieldParticles * quantised);
+    /*
+     * Compare the target with the geometry actually on the GPU, not with the
+     * last profile object. On construction the requested profile is already
+     * current while every draw count is still zero; comparing profile-to-profile
+     * skipped all three uploads and left only the separate glyph pass visible.
+     */
+    if (profile.fieldParticles !== this.fieldCount) {
+      this.uploadFieldParticles(profile.fieldParticles);
+    }
+    if (profile.particlesPerNode !== this.particleCount) {
+      this.uploadParticleTemplate(profile.particlesPerNode);
+    }
+    if (profile.edgeSegments * 6 !== this.segmentVertexCount) {
+      this.uploadEdgeSegments(profile.edgeSegments);
+    }
   }
 
   /** The context the instrumentation samples GPU frame time from. */
@@ -393,30 +426,19 @@ export class DirectorGraphRenderer {
     return this.gl;
   }
 
-  /** Sizes both passes for the viewport, tier, and adaptive render scale. */
+  /** Sizes both passes for the viewport and the fixed rendering profile. */
   resize(
     cssWidth: number,
     cssHeight: number,
     devicePixelRatio: number,
-    renderScale: number,
     canvas: HTMLCanvasElement,
   ): void {
-    const sizes = graphSurfaceSizes(
-      cssWidth,
-      cssHeight,
-      devicePixelRatio,
-      this.profile,
-      renderScale,
-    );
+    const sizes = graphSurfaceSizes(cssWidth, cssHeight, devicePixelRatio, this.profile);
     this.surfaces = {
       ...sizes,
       cssWidth: Math.max(1, cssWidth),
       cssHeight: Math.max(1, cssHeight),
     };
-    const fieldParticles = this.scaledFieldParticles();
-    if (fieldParticles !== this.fieldCount) {
-      this.uploadFieldParticles(fieldParticles);
-    }
     if (canvas.width !== sizes.postWidth || canvas.height !== sizes.postHeight) {
       canvas.width = sizes.postWidth;
       canvas.height = sizes.postHeight;
@@ -441,6 +463,11 @@ export class DirectorGraphRenderer {
     );
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    /*
+     * The post map is normalized into this texture, so an edge never needs a
+     * reflected copy of the scene. Clamp is a guard for transient glitch and
+     * chromatic offsets only; the shader attenuates both before the boundary.
+     */
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.sceneFramebuffer);
@@ -507,23 +534,32 @@ export class DirectorGraphRenderer {
     const gl = this.gl;
     const fit = graphFitFrame(this.cssWidth(), this.cssHeight());
     const motion = frame.view.reducedMotion ? 0 : 1;
+    const artifactAmount = Math.min(
+      1,
+      frame.view.artifactParticleFlowAmount + frame.view.artifactFluidAmount,
+    );
+    const graphVisible = artifactAmount < 0.999;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.sceneFramebuffer);
     gl.viewport(0, 0, this.surfaces.sceneWidth, this.surfaces.sceneHeight);
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
-    this.drawField(frame, fit, motion);
-    this.drawEdges(frame, fit, motion);
-    this.drawNodes(frame, fit, motion);
+    this.drawField(frame, fit);
+    if (graphVisible) {
+      this.drawEdges(frame, fit, motion);
+      this.drawNodes(frame, fit, motion);
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, this.surfaces.postWidth, this.surfaces.postHeight);
     gl.disable(gl.BLEND);
     this.drawPost(frame, motion);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    this.drawGlyphs(frame, fit, motion);
-    gl.disable(gl.BLEND);
+    if (graphVisible) {
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      this.drawGlyphs(frame, fit, motion);
+      gl.disable(gl.BLEND);
+    }
   }
 
   /**
@@ -664,8 +700,10 @@ export class DirectorGraphRenderer {
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
     this.fieldCount = count;
     gl.bindVertexArray(this.fieldArray);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 16, 0);
+    for (let index = 0; index < 4; index += 1) {
+      gl.enableVertexAttribArray(index);
+      gl.vertexAttribPointer(index, 1, gl.FLOAT, false, 16, index * floatSize);
+    }
     gl.bindVertexArray(null);
   }
 
@@ -852,7 +890,6 @@ export class DirectorGraphRenderer {
     const fail = graphModeColor.fail;
     gl.useProgram(this.edgeProgram);
     gl.uniform3fv(this.edgeUniforms.u_modeColor, graphVisualUniforms.modeColor);
-    gl.uniform2fv(this.edgeUniforms.u_channel, graphVisualUniforms.edgeChannel);
     gl.uniform3f(this.edgeUniforms.u_failColor, fail[0], fail[1], fail[2]);
     gl.uniform1i(this.edgeUniforms.u_nodeState, 0);
     gl.uniform1i(this.edgeUniforms.u_nodeTexWidth, graphNodeStateTextureWidth);
@@ -875,19 +912,21 @@ export class DirectorGraphRenderer {
     gl.uniform1i(this.glyphUniforms.u_atlas, 1);
     gl.useProgram(this.fieldProgram);
     gl.uniform3f(
-      this.fieldUniforms.u_near,
+      this.fieldUniforms.u_cyan,
       graphFieldTint.near[0],
       graphFieldTint.near[1],
       graphFieldTint.near[2],
     );
     gl.uniform3f(
-      this.fieldUniforms.u_far,
+      this.fieldUniforms.u_violet,
       graphFieldTint.far[0],
       graphFieldTint.far[1],
       graphFieldTint.far[2],
     );
     gl.useProgram(this.postProgram);
     gl.uniform1i(this.postUniforms.u_tex, 0);
+    gl.uniform3fv(this.postUniforms.u_cyan, graphFieldTint.near);
+    gl.uniform3fv(this.postUniforms.u_violet, graphFieldTint.far);
     gl.useProgram(null);
   }
 
@@ -897,23 +936,36 @@ export class DirectorGraphRenderer {
     gl.bindTexture(gl.TEXTURE_2D, this.stateTexture);
   }
 
-  private drawField(frame: GraphRenderFrame, fit: GraphFitFrame, motion: number): void {
+  private drawField(frame: GraphRenderFrame, fit: GraphFitFrame): void {
     const gl = this.gl;
     gl.useProgram(this.fieldProgram);
-    const count = this.collectHalos(frame, fit);
+    const haloCount = this.collectHalos(frame, fit);
+    const loadingTargetCount = collectGraphLoadingTargets(frame, fit, this.loadingTargets);
     gl.uniform1f(this.fieldUniforms.u_time, frame.view.fieldTimeSeconds);
     gl.uniform1f(this.fieldUniforms.u_cam, frame.view.cameraWorldY);
-    gl.uniform1f(this.fieldUniforms.u_pointScale, this.surfaces.scenePixelScale);
+    gl.uniform1f(this.fieldUniforms.u_dpr, this.surfaces.scenePixelScale);
+    gl.uniform1f(this.fieldUniforms.u_xshift, frame.view.shiftX);
+    gl.uniform1f(this.fieldUniforms.u_bgstyle, 1);
     gl.uniform1f(
       this.fieldUniforms.u_aspect,
       this.surfaces.sceneWidth / Math.max(1, this.surfaces.sceneHeight),
     );
-    gl.uniform1f(this.fieldUniforms.u_shiftX, frame.view.shiftX);
-    gl.uniform1f(this.fieldUniforms.u_flow, this.profile.effects.fieldFlow ? motion : 0);
-    gl.uniform3fv(this.fieldUniforms.u_halo, this.halos);
-    gl.uniform1i(this.fieldUniforms.u_haloCount, count);
+    gl.uniform2f(
+      this.fieldUniforms.u_densityScale,
+      Math.min(1, graphFieldGeometry.referenceWidth / this.cssWidth()),
+      Math.min(1, graphFieldGeometry.referenceHeight / this.cssHeight()),
+    );
+    gl.uniform3fv(this.fieldUniforms.u_nodes, this.halos);
+    gl.uniform1i(this.fieldUniforms.u_nodeCount, haloCount);
+    gl.uniform1f(this.fieldUniforms.u_loading, frame.view.loadingAmount);
+    gl.uniform2fv(this.fieldUniforms.u_loadingTargets, this.loadingTargets);
+    gl.uniform1i(this.fieldUniforms.u_loadingTargetCount, loadingTargetCount);
     gl.bindVertexArray(this.fieldArray);
-    gl.drawArrays(gl.POINTS, 0, this.fieldCount);
+    gl.drawArrays(
+      gl.POINTS,
+      0,
+      graphFieldDrawCount(this.fieldCount, this.cssWidth(), this.cssHeight()),
+    );
   }
 
   private drawEdges(frame: GraphRenderFrame, fit: GraphFitFrame, motion: number): void {
@@ -936,6 +988,9 @@ export class DirectorGraphRenderer {
     gl.uniform1f(this.edgeUniforms.u_fitX, fit.fitX);
     gl.uniform1f(this.edgeUniforms.u_fitY, fit.fitY);
     gl.uniform1f(this.edgeUniforms.u_motion, motion);
+    gl.uniform1f(this.edgeUniforms.u_layoutReveal, frame.view.layoutReveal);
+    gl.uniform1f(this.edgeUniforms.u_gridTrailOpacity, frame.view.gridTrailOpacity);
+    gl.uniform1i(this.edgeUniforms.u_directorNodeEnd, frame.view.directorNodeEnd);
     gl.bindVertexArray(this.edgeArray);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, this.segmentVertexCount, count);
   }
@@ -946,7 +1001,6 @@ export class DirectorGraphRenderer {
     if (count <= 0) {
       return;
     }
-    this.bindNodeInstances(frame.nodes.from);
     gl.useProgram(this.nodeProgram);
     this.bindStateTexture();
     gl.uniform1f(this.nodeUniforms.u_time, frame.view.timeSeconds);
@@ -955,13 +1009,34 @@ export class DirectorGraphRenderer {
     gl.uniform1f(this.nodeUniforms.u_shiftX, frame.view.shiftX);
     gl.uniform1f(this.nodeUniforms.u_fitX, fit.fitX);
     gl.uniform1f(this.nodeUniforms.u_fitY, fit.fitY);
-    gl.uniform1f(this.nodeUniforms.u_scale, fit.size);
     gl.uniform1f(this.nodeUniforms.u_motion, motion);
+    gl.uniform1f(this.nodeUniforms.u_layoutReveal, frame.view.layoutReveal);
     gl.uniform1f(this.nodeUniforms.u_listen, frame.view.listening);
     gl.uniform1f(this.nodeUniforms.u_hoverX, frame.view.hoverLaneX);
     gl.uniform1f(this.nodeUniforms.u_hoverY, frame.view.hoverWorldY);
     gl.uniform1f(this.nodeUniforms.u_hoverAmount, frame.view.hoverAmount);
-    gl.uniform1i(this.nodeUniforms.u_instanceBase, frame.nodes.from);
+    gl.uniform1i(this.nodeUniforms.u_directorNodeEnd, frame.view.directorNodeEnd);
+    gl.uniform1f(this.nodeUniforms.u_supportingNodeScale, frame.view.supportingNodeScale);
+
+    const directorTo = Math.min(frame.nodes.to, frame.view.directorNodeEnd);
+    if (frame.view.directorEdgeDisturbance <= 0 || directorTo <= frame.nodes.from) {
+      this.drawNodeInstances(frame.nodes.from, frame.nodes.to, 0);
+      return;
+    }
+    this.drawNodeInstances(frame.nodes.from, directorTo, frame.view.directorEdgeDisturbance);
+    this.drawNodeInstances(directorTo, frame.nodes.to, 0);
+  }
+
+  /** Draws one contiguous range without allocating or changing particle data. */
+  private drawNodeInstances(from: number, to: number, disturbance: number): void {
+    const count = to - from;
+    if (count <= 0) {
+      return;
+    }
+    const gl = this.gl;
+    this.bindNodeInstances(from);
+    gl.uniform1f(this.nodeUniforms.u_disturbance, disturbance);
+    gl.uniform1i(this.nodeUniforms.u_instanceBase, from);
     gl.bindVertexArray(this.nodeArray);
     gl.drawArraysInstanced(gl.POINTS, 0, this.particleCount, count);
   }
@@ -978,7 +1053,15 @@ export class DirectorGraphRenderer {
     );
     gl.uniform1f(this.postUniforms.u_scanlines, this.profile.effects.scanlines ? 1 : 0);
     gl.uniform1f(this.postUniforms.u_grain, this.profile.effects.grain ? 1 : 0);
-    gl.uniform1f(this.postUniforms.u_time, frame.view.timeSeconds);
+    gl.uniform1f(this.postUniforms.u_time, frame.view.fieldTimeSeconds);
+    gl.uniform2f(this.postUniforms.u_cssRes, this.cssWidth(), this.cssHeight());
+    gl.uniform1f(this.postUniforms.u_artifactFlow, frame.view.artifactParticleFlowAmount);
+    gl.uniform1f(this.postUniforms.u_artifactFluid, frame.view.artifactFluidAmount);
+    gl.uniform2f(
+      this.postUniforms.u_artifactSeed,
+      frame.view.artifactSeedX,
+      frame.view.artifactSeedY,
+    );
     gl.uniform1f(
       this.postUniforms.u_glitch,
       this.profile.effects.switchTear ? frame.view.glitch * motion : 0,
@@ -1005,12 +1088,20 @@ export class DirectorGraphRenderer {
     gl.uniform1f(this.glyphUniforms.u_shiftX, frame.view.shiftX);
     gl.uniform1f(
       this.glyphUniforms.u_glyphY,
-      (fit.size * graphReferenceFrame.height) / Math.max(1, this.cssHeight()),
+      graphReferenceFrame.height / Math.max(1, this.cssHeight()),
     );
     gl.uniform1f(this.glyphUniforms.u_fitX, fit.fitX);
     gl.uniform1f(this.glyphUniforms.u_fitY, fit.fitY);
     gl.uniform1f(this.glyphUniforms.u_motion, motion);
+    gl.uniform1f(this.glyphUniforms.u_layoutReveal, frame.view.layoutReveal);
+    gl.uniform1i(this.glyphUniforms.u_directorNodeEnd, frame.view.directorNodeEnd);
+    gl.uniform1f(this.glyphUniforms.u_supportingNodeScale, frame.view.supportingNodeScale);
     gl.uniform1f(this.glyphUniforms.u_scanlines, this.profile.effects.scanlines ? 1 : 0);
+    gl.uniform2f(this.glyphUniforms.u_res, this.surfaces.postWidth, this.surfaces.postHeight);
+    gl.uniform1f(
+      this.glyphUniforms.u_artifactAmount,
+      Math.min(1, frame.view.artifactParticleFlowAmount + frame.view.artifactFluidAmount),
+    );
     gl.uniform1i(this.glyphUniforms.u_instanceBase, frame.nodes.from);
     gl.bindVertexArray(this.glyphArray);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count);

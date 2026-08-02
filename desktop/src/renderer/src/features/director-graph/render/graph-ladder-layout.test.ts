@@ -24,7 +24,6 @@ function advance(
     deltaSeconds,
     pinnedTurns,
     reducedMotion: false,
-    alignColumnsToLiveEdge: false,
   });
 }
 
@@ -178,7 +177,6 @@ describe("graph ladder layout", () => {
       deltaSeconds: 1 / 120,
       pinnedTurns: noPins,
       reducedMotion: true,
-      alignColumnsToLiveEdge: false,
     });
     expect(frame.foldAnimating).toBe(true);
     expect(layout.turnOpenness(0)).toBe(0);
@@ -192,7 +190,6 @@ describe("graph ladder layout", () => {
       deltaSeconds: 1 / 120,
       pinnedTurns: noPins,
       reducedMotion: true,
-      alignColumnsToLiveEdge: false,
     });
     expect(frame.quietUntilSeconds).toBe(timeSeconds);
   });
@@ -206,7 +203,6 @@ describe("graph ladder layout", () => {
       deltaSeconds: 0,
       pinnedTurns: noPins,
       reducedMotion: true,
-      alignColumnsToLiveEdge: false,
     });
     expect(layout.turnOpenness(0)).toBe(0);
   });
@@ -311,11 +307,25 @@ describe("graph ladder columns", () => {
         cursorSequence: 1,
         hasEarlier: false,
         nodes: [
-          columnNode("left-input", 0, 0, -0.4, 0),
-          columnNode("left-step", 0, 1, -0.4, 1),
-          columnNode("left-outcome", 0, 2, -0.4, 2, "outcome"),
-          columnNode("right-input", 1, 0, 0.4, 0),
-          columnNode("right-outcome", 1, 1, 0.4, 1, "outcome"),
+          columnNode({ bornAt: 0, id: "left-input", lane: -0.4, row: 0, turn: 0 }),
+          columnNode({ bornAt: 1, id: "left-step", lane: -0.4, row: 1, turn: 0 }),
+          columnNode({
+            bornAt: 2,
+            id: "left-outcome",
+            lane: -0.4,
+            role: "outcome",
+            row: 2,
+            turn: 0,
+          }),
+          columnNode({ bornAt: 0, id: "right-input", lane: 0.4, row: 0, turn: 1 }),
+          columnNode({
+            bornAt: 1,
+            id: "right-outcome",
+            lane: 0.4,
+            role: "outcome",
+            row: 1,
+            turn: 1,
+          }),
         ],
         edges: [],
         turns: [
@@ -348,18 +358,26 @@ describe("graph ladder columns", () => {
     ]);
   }
 
-  function columnNode(
-    id: string,
-    turn: number,
-    row: number,
-    lane: number,
-    bornAt: number,
-    role: "input" | "step" | "outcome" = row === 0 ? "input" : "step",
-  ) {
+  function columnNode({
+    bornAt,
+    id,
+    lane,
+    role,
+    row,
+    turn,
+  }: {
+    bornAt: number;
+    id: string;
+    lane: number;
+    role?: "input" | "step" | "outcome";
+    row: number;
+    turn: number;
+  }) {
+    const resolvedRole = role ?? (row === 0 ? "input" : "step");
     return {
       id,
       turn,
-      role,
+      role: resolvedRole,
       mode: "success" as const,
       glyph: "terminal" as const,
       emphasis: "declared" as const,
@@ -368,7 +386,7 @@ describe("graph ladder columns", () => {
       row,
       bornAt,
       settleAt: bornAt + 1,
-      terminalAt: role === "outcome" ? bornAt : null,
+      terminalAt: resolvedRole === "outcome" ? bornAt : null,
       label: id,
       labelPlacement: "below" as const,
     };
@@ -383,24 +401,20 @@ describe("graph ladder columns", () => {
     expect(layout.nodeWorldY(0)).toBeCloseTo(layout.nodeWorldY(3), 5);
   });
 
-  /*
-   * One camera looks at one depth. Columns left at their own depths hide each
-   * other — a short conversation ends far above a long one and falls off the
-   * top while the long one is being watched — so their live edges share a line.
-   */
-  it("aligns every column's newest fact when asked to", () => {
+  it("reports the furthest column without changing the selected camera column", () => {
     const snapshot = twoColumnSnapshot();
     const layout = new GraphLadderLayout();
-    layout.advance(snapshot, {
+    const frame = layout.advance(snapshot, {
       timeSeconds: 10,
-      deltaSeconds: 1 / 120,
+      deltaSeconds: 1 / 60,
       pinnedTurns: noPins,
-      reducedMotion: true,
-      alignColumnsToLiveEdge: true,
+      reducedMotion: false,
+      cameraColumn: 1,
     });
 
-    // The right column is one row shorter, so aligning has to have moved it.
-    expect(layout.nodeWorldY(4)).toBeCloseTo(layout.nodeWorldY(2), 5);
+    expect(frame.furthestLiveEdgeWorldY).toBeGreaterThan(frame.liveEdgeWorldY);
+    expect(frame.liveEdgeWorldY).toBe(layout.nodeWorldY(4));
+    expect(frame.furthestLiveEdgeWorldY).toBe(layout.nodeWorldY(2));
   });
 
   it("folds one column without moving the other", () => {

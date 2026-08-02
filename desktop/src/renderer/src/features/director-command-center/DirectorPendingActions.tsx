@@ -532,11 +532,6 @@ function ResourceRequestItem({
   );
 }
 
-export function workspaceWorkstreamTitle(workspace: WorkspaceSummary): string {
-  const title = workspace.displayName.trim();
-  return title.length > 0 ? title : "New workstream";
-}
-
 function resolveApprovalIntent(
   approvalId: string,
   decision: TrajectoryApprovalDecision,
@@ -562,19 +557,6 @@ function resolveResourceRequestIntent(requestId: string, workspaceId: string): D
     moveSelection: null,
     resolveApproval: null,
     resolveResourceRequest: { requestId, workspaceId },
-    selectWorkstream: null,
-    submit: null,
-  };
-}
-
-export function createWorkstreamIntent(workspaceId: string, title: string): DirectorIntent {
-  return {
-    cancelRun: null,
-    createWorkstream: { title, workspaceId },
-    kind: "create_workstream",
-    moveSelection: null,
-    resolveApproval: null,
-    resolveResourceRequest: null,
     selectWorkstream: null,
     submit: null,
   };

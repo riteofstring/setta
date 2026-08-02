@@ -6,19 +6,26 @@ import type {
   Workstream,
 } from "@generated/backend";
 import type { DesktopPlatform } from "@shared/types";
+import graphFillIcon from "@phosphor-icons/core/fill/graph-fill.svg";
 import {
   Captions,
   CaptionsOff,
   ChevronLeft,
   ChevronRight,
-  FolderPlus,
   PanelLeft,
   PanelRight,
   Settings,
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useSyncExternalStore,
+  type CSSProperties,
+  type ReactNode,
+  type RefObject,
+} from "react";
 
 import { useAppWindowDragHandlers } from "../../app-window-drag";
 import { SettaLogoMark } from "../../components/setta-logo-mark";
@@ -30,6 +37,15 @@ import { directorWorkstreamStatusLabels } from "./director-workstream-status";
 export interface DirectorRailVisibility {
   readonly artifacts: boolean;
   readonly now: boolean;
+}
+
+export interface DirectorGraphDevToolbarControl {
+  readonly active: boolean;
+  readonly keyShortcuts: string;
+  readonly onToggle: () => void;
+  readonly open: boolean;
+  readonly panelId: string;
+  readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }
 
 type DirectorRailName = keyof DirectorRailVisibility;
@@ -56,8 +72,8 @@ const unwindowedWorkstreamLimit = 24;
  */
 export function CommandCenterTopBar({
   dispatch,
+  graphDevTools,
   labelsVisible,
-  onStartWorkstream,
   onToggleLabels,
   onToggleRail,
   onOpenSettingsPage,
@@ -67,8 +83,8 @@ export function CommandCenterTopBar({
   speechPlayback,
 }: {
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
+  graphDevTools: DirectorGraphDevToolbarControl | null;
   labelsVisible: boolean;
-  onStartWorkstream: () => void;
   onToggleLabels: () => void;
   onToggleRail: (rail: DirectorRailName, trigger: HTMLButtonElement) => void;
   onOpenSettingsPage: () => void;
@@ -92,9 +108,9 @@ export function CommandCenterTopBar({
       </div>
       <WorkstreamNavigation dispatch={dispatch} snapshot={snapshot} />
       <DirectorRailControls
+        graphDevTools={graphDevTools}
         labelsVisible={labelsVisible}
         onOpenSettingsPage={onOpenSettingsPage}
-        onStartWorkstream={onStartWorkstream}
         onToggleLabels={onToggleLabels}
         onToggleRail={onToggleRail}
         railVisibility={railVisibility}
@@ -119,7 +135,7 @@ function WorkstreamNavigation({
     centerSelectedWorkstreamDot(workstreamStripRef.current);
   }, [snapshot?.selectedWorkstreamId, snapshot?.workstreams]);
   return (
-    <nav aria-label="Workstreams" className="director-workstream-nav app-no-drag">
+    <nav aria-label="Workstreams" className="director-workstream-nav">
       <IconButton
         disabled={!canMoveSelection}
         label="Previous workstream"
@@ -146,7 +162,7 @@ function WorkstreamNavigation({
       {navigation.visibleEntries.length > 0 ? (
         <div
           aria-label="Views"
-          className="director-workstream-strip"
+          className="director-workstream-strip app-no-drag"
           ref={workstreamStripRef}
           role="list"
         >
@@ -172,6 +188,45 @@ function WorkstreamNavigation({
           ))}
         </div>
       ) : null}
+    </nav>
+  );
+}
+
+/**
+ * Thumb-reachable paging for compact windows.
+ *
+ * The full identity and destination strip stay in the top bar on wide
+ * layouts. At compact widths CSS replaces that whole group with these two
+ * controls beside the composer, where changing focus does not require reaching
+ * across the window.
+ */
+export function CompactWorkstreamNavigation({
+  dispatch,
+  snapshot,
+}: {
+  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
+  snapshot: DirectorSnapshot | null;
+}) {
+  const canMoveSelection = workstreamSelectionCanMove(directorWorkstreamNavigation(snapshot));
+  return (
+    <nav
+      aria-label="Page through workstreams"
+      className="director-compact-workstream-nav app-no-drag"
+    >
+      <IconButton
+        disabled={!canMoveSelection}
+        label="Previous workstream"
+        onClick={() => dispatchDirectorIntent(dispatch, moveSelectionIntent("previous"))}
+      >
+        <ChevronLeft aria-hidden="true" size={18} />
+      </IconButton>
+      <IconButton
+        disabled={!canMoveSelection}
+        label="Next workstream"
+        onClick={() => dispatchDirectorIntent(dispatch, moveSelectionIntent("next"))}
+      >
+        <ChevronRight aria-hidden="true" size={18} />
+      </IconButton>
     </nav>
   );
 }
@@ -270,36 +325,24 @@ function focusMetaLabel(focus: DirectorFocus): string {
 }
 
 function DirectorRailControls({
+  graphDevTools,
   labelsVisible,
   onOpenSettingsPage,
-  onStartWorkstream,
   onToggleLabels,
   onToggleRail,
   railVisibility,
   speechPlayback,
 }: {
+  graphDevTools: DirectorGraphDevToolbarControl | null;
   labelsVisible: boolean;
   onOpenSettingsPage: () => void;
-  onStartWorkstream: () => void;
   onToggleLabels: () => void;
   onToggleRail: (rail: DirectorRailName, trigger: HTMLButtonElement) => void;
   railVisibility: DirectorRailVisibility;
   speechPlayback: AppShellSpeechPlaybackController;
 }) {
   return (
-    <div
-      aria-label="View controls"
-      className="director-command-center-view-controls app-no-drag"
-      role="group"
-    >
-      {/*
-       * Starting work in a folder is a way in, not something the Director is
-       * waiting on, so it belongs with the other view-level controls rather
-       * than as a panel stacked over the composer.
-       */}
-      <IconButton label="Start a workstream in a folder" onClick={onStartWorkstream}>
-        <FolderPlus aria-hidden="true" size={16} />
-      </IconButton>
+    <div aria-label="View controls" className="director-command-center-view-controls" role="group">
       <IconButton
         controls="director-now-rail"
         expanded={railVisibility.now}
@@ -316,6 +359,30 @@ function DirectorRailControls({
       >
         <PanelRight aria-hidden="true" size={16} />
       </IconButton>
+      {graphDevTools === null ? null : (
+        <IconButton
+          active={graphDevTools.active}
+          buttonRef={graphDevTools.triggerRef}
+          className="director-graph-dev-trigger"
+          controls={graphDevTools.panelId}
+          expanded={graphDevTools.open}
+          keyShortcuts={graphDevTools.keyShortcuts}
+          label={`${graphDevTools.open ? "Close" : "Open"} graph simulator`}
+          onClick={graphDevTools.onToggle}
+          testId="director-graph-dev-trigger"
+        >
+          <span
+            aria-hidden="true"
+            className="director-graph-dev-trigger-icon"
+            style={
+              {
+                WebkitMaskImage: `url("${graphFillIcon}")`,
+                maskImage: `url("${graphFillIcon}")`,
+              } satisfies CSSProperties
+            }
+          />
+        </IconButton>
+      )}
       <IconButton
         label={labelsVisible ? "Hide graph labels" : "Show graph labels"}
         onClick={onToggleLabels}
@@ -434,19 +501,27 @@ function dispatchDirectorIntent(
 }
 
 function IconButton({
+  active,
+  buttonRef,
   children,
+  className,
   controls,
   disabled,
   expanded,
+  keyShortcuts,
   label,
   onClick,
   pressed,
   testId,
 }: {
+  active?: boolean;
+  buttonRef?: RefObject<HTMLButtonElement | null>;
   children: ReactNode;
+  className?: string;
   controls?: string;
   disabled?: boolean;
   expanded?: boolean;
+  keyShortcuts?: string;
   label: string;
   onClick: (trigger: HTMLButtonElement) => void;
   pressed?: boolean;
@@ -456,12 +531,15 @@ function IconButton({
     <button
       aria-controls={controls}
       aria-expanded={expanded}
+      aria-keyshortcuts={keyShortcuts}
       aria-label={label}
       aria-pressed={pressed}
-      className="director-icon-button"
+      className={`director-icon-button app-no-drag${className === undefined ? "" : ` ${className}`}`}
+      data-active={active || undefined}
       data-testid={testId}
       disabled={disabled}
       onClick={(event) => onClick(event.currentTarget)}
+      ref={buttonRef}
       title={label}
       type="button"
     >

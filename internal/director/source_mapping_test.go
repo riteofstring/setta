@@ -87,6 +87,16 @@ func TestRunProgressUpdatesOneNode(t *testing.T) {
 	}
 }
 
+func TestPlanChangeDeclaresItsStepMilestones(t *testing.T) {
+	rule, err := TrajectoryFactRule(conversation.TrajectoryEventPlanChanged)
+	if err != nil {
+		t.Fatalf("plan_changed has no rule: %v", err)
+	}
+	if len(rule.AdditionalNodeKinds) != 1 || rule.AdditionalNodeKinds[0] != SemanticNodeMilestone {
+		t.Fatalf("plan_changed additional node kinds = %v, want milestone", rule.AdditionalNodeKinds)
+	}
+}
+
 func TestInterruptionRequestIsConditionalOnTerminalAuthority(t *testing.T) {
 	rule, err := TrajectoryFactRule(conversation.TrajectoryEventTurnInterrupted)
 	if err != nil {

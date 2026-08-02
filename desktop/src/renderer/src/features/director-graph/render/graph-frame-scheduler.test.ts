@@ -132,16 +132,6 @@ describe("graph frame scheduler", () => {
     expect(seen[1]?.deltaSeconds).toBe(0);
   });
 
-  it("reports the shortest observed delta as the refresh period", () => {
-    const { source, instance } = scheduler(["continue", "continue", "continue", "idle"]);
-    instance.requestFrame();
-    source.fire(0);
-    source.fire(16);
-    source.fire(24.3);
-    source.fire(40);
-    expect(instance.observedShortestDeltaMs()).toBeCloseTo(8.3, 5);
-  });
-
   it("stays asleep after stop", () => {
     const { source, instance } = scheduler(["continue"]);
     instance.stop();

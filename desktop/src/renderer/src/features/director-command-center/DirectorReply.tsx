@@ -34,11 +34,12 @@ export function DirectorReply({
   message: string | null;
   receiptText: string | null;
 }) {
-  const text = stripInlineMarkdown(message ?? receiptText ?? loadStateMessage(loadState));
+  const text = directorReplyText(message, receiptText, loadState);
   const [expanded, setExpanded] = useState(false);
   const [clamped, setClamped] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const textRef = useRef<HTMLParagraphElement | null>(null);
+  const showToggle = shouldShowReplyToggle(expanded, clamped);
   /** Height captured in the click, before React re-lays the disclosure out. */
   const morphFromHeightRef = useRef<number | null>(null);
 
@@ -93,16 +94,16 @@ export function DirectorReply({
     <div
       aria-live="polite"
       className="director-reply"
-      data-answering={answering ? "true" : "false"}
-      data-empty={text === "" && !answering ? "true" : "false"}
-      data-expanded={expanded ? "true" : "false"}
+      data-answering={booleanDataValue(answering)}
+      data-empty={booleanDataValue(isReplyEmpty(text, answering))}
+      data-expanded={booleanDataValue(expanded)}
       ref={containerRef}
       role="status"
     >
-      <p className="director-reply-text" data-expanded={expanded ? "true" : "false"} ref={textRef}>
+      <p className="director-reply-text" data-expanded={booleanDataValue(expanded)} ref={textRef}>
         {text}
       </p>
-      {expanded || clamped ? (
+      {showToggle ? (
         <button
           className="director-reply-toggle"
           onClick={() => {
@@ -111,19 +112,44 @@ export function DirectorReply({
           }}
           type="button"
         >
-          {expanded ? "Show less" : "Show more"}
+          {replyToggleLabel(expanded)}
         </button>
       ) : null}
     </div>
   );
 }
 
+function directorReplyText(
+  message: string | null,
+  receiptText: string | null,
+  loadState: DirectorLoadState,
+): string {
+  return stripInlineMarkdown(message ?? receiptText ?? loadStateMessage(loadState));
+}
+
+function shouldShowReplyToggle(expanded: boolean, clamped: boolean): boolean {
+  return expanded || clamped;
+}
+
+function isReplyEmpty(text: string, answering: boolean): boolean {
+  return text === "" && !answering;
+}
+
+function booleanDataValue(value: boolean): "true" | "false" {
+  return value ? "true" : "false";
+}
+
+function replyToggleLabel(expanded: boolean): string {
+  return expanded ? "Show less" : "Show more";
+}
+
 function loadStateMessage(state: DirectorLoadState): string {
   switch (state) {
     case "loading":
-      return "Loading Director state.";
     case "resyncing":
-      return "Resyncing Director state.";
+      // Transport progress belongs to the Director graph's particle field, not
+      // to the conversation reply above the composer.
+      return "";
     case "error":
       return "The Director command center is unavailable.";
     case "ready":

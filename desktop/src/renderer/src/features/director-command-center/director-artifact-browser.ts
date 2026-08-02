@@ -15,6 +15,7 @@ import {
   type ArtifactDocumentEntry,
   type ReadArtifact,
 } from "../artifacts/artifact-document-cache";
+import { prepareArtifactBrowserUi } from "./artifact-browser-loader";
 
 /**
  * How many artifacts the rail shows, and therefore how many the artifact
@@ -65,29 +66,41 @@ export interface DirectorArtifactBrowser {
   readonly close: () => void;
   readonly documents: ArtifactDocumentCache | null;
   readonly open: (artifact: WorkstreamArtifact, trigger: HTMLElement) => void;
-  /** The artifact whose document is being prepared before its browser opens. */
+  /** Warms one document and the heavy renderer before an explicit open. */
+  readonly prepare: (artifact: WorkstreamArtifact) => void;
+  /** The artifact whose document is currently being prepared. */
   readonly pendingArtifactId: string | null;
   readonly showNext: () => void;
   readonly showPrevious: () => void;
-  readonly triggerRef: React.RefObject<HTMLElement | null>;
 }
 
-/**
- * How long an open may wait on the document read before opening anyway. The
- * read settles on its own success or failure; this cap only covers a hung
- * transport, where opening with the in-dialog loading line beats a card that
- * pulses forever.
- */
-const artifactOpenPrepareCapMs = 4000;
+function currentArtifactBrowserTrigger(
+  trigger: HTMLElement | null,
+  artifactId: string | null,
+): HTMLElement | null {
+  if (trigger === null) {
+    return null;
+  }
+  const ownerDocument = trigger.ownerDocument;
+  if (ownerDocument.contains(trigger)) {
+    return trigger;
+  }
+  if (artifactId === null || !trigger.classList.contains("director-artifact-expand")) {
+    return null;
+  }
+  return ownerDocument.querySelector<HTMLElement>(
+    `.director-artifact-preview[data-artifact-id="${CSS.escape(artifactId)}"] .director-artifact-expand`,
+  );
+}
 
 /**
  * The Director's artifact-browser lifecycle.
  *
  * Everything here is local React state owned by the command-center shell: which
- * artifact is active, the bounded document cache the previews and the overlay
- * share, and the control the overlay returns focus to. Nothing is persisted in
- * Go, SQLite, or Zustand, and a runtime change builds a new cache rather than
- * reusing another runtime's documents.
+ * artifact is active, the bounded document cache the previews and the reading
+ * surface share, along with the control the surface returns focus to. Nothing is
+ * persisted in Go, SQLite, or Zustand, and a runtime change builds a new cache
+ * rather than reusing another runtime's documents.
  */
 export function useDirectorArtifactBrowser({
   artifacts,
@@ -99,7 +112,10 @@ export function useDirectorArtifactBrowser({
   runtimeId: string | null;
 }): DirectorArtifactBrowser {
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
+  const [pendingArtifactId, setPendingArtifactId] = useState<string | null>(null);
+  const openEpochRef = useRef(0);
   const triggerRef = useRef<HTMLElement | null>(null);
+  const triggerArtifactIdRef = useRef<string | null>(null);
   const browsable = useMemo(() => directorBrowsableArtifacts(artifacts), [artifacts]);
   const documents = useMemo(
     () => (readArtifact === undefined ? null : new ArtifactDocumentCache({ readArtifact })),
@@ -119,24 +135,58 @@ export function useDirectorArtifactBrowser({
   }, [activeArtifactId, activeIndex]);
 
   useEffect(() => {
+    openEpochRef.current += 1;
+    setPendingArtifactId(null);
     setActiveArtifactId(null);
-  }, [runtimeId]);
+  }, [documents, runtimeId]);
 
-  // Focus returns to the expand control that opened the browser. The Dialog
-  // aims at the same element through `finalFocus`; this covers the close paths
-  // where the popup is already gone by the time focus moves.
+  // Focus returns to the expand control that opened this application surface.
   const wasOpenRef = useRef(false);
   useLayoutEffect(() => {
     const isOpen = activeArtifactId !== null;
     if (wasOpenRef.current && !isOpen) {
-      const trigger = triggerRef.current;
-      if (trigger !== null && document.contains(trigger)) {
+      const trigger = currentArtifactBrowserTrigger(
+        triggerRef.current,
+        triggerArtifactIdRef.current,
+      );
+      if (trigger !== null) {
         trigger.focus({ preventScroll: true });
       }
       triggerRef.current = null;
+      triggerArtifactIdRef.current = null;
     }
     wasOpenRef.current = isOpen;
   }, [activeArtifactId]);
+
+  const prepareArtifact = useCallback(
+    async (artifact: WorkstreamArtifact): Promise<void> => {
+      const documentReady =
+        documents === null || lookupArtifactDocument(documents, artifact).status !== "miss"
+          ? Promise.resolve()
+          : documents.load(artifact).then(
+              () => undefined,
+              () => undefined,
+            );
+      await Promise.all([documentReady, prepareArtifactBrowserUi()]);
+    },
+    [documents],
+  );
+  const prepare = useCallback(
+    (artifact: WorkstreamArtifact): void => {
+      void prepareArtifact(artifact).catch(() => undefined);
+    },
+    [prepareArtifact],
+  );
+
+  // The latest available artifact is the rail's primary action. Start its one
+  // bounded read immediately rather than waiting for IntersectionObserver's
+  // first callback; the cache deduplicates the visible card's own request.
+  useEffect(() => {
+    const latest = browsable[0];
+    if (latest !== undefined) {
+      prepare(latest);
+    }
+  }, [browsable, prepare]);
 
   // Only the artifacts either side of the active one are read ahead, so moving
   // through the browser is instant without mounting an adjacent document.
@@ -152,24 +202,13 @@ export function useDirectorArtifactBrowser({
   }, [activeIndex, browsable, documents]);
 
   /*
-   * Opening waits for the document, on the card. The browser must never
-   * appear with an empty body, even for a frame: the card carries the
-   * preparing state, and the small-to-large morph runs only once the
-   * document is ready to fill it. A document already cached — or a read that
-   * has already failed, whose contained failure surface is deliberate —
-   * opens immediately.
+   * The browser shell activates immediately from snapshot metadata. Its title
+   * and controls therefore respond in the click frame while the document read
+   * and heavyweight renderer finish behind the already-open surface. Loading
+   * adds no placeholder surface or copy; the actual document fades in when ready.
    */
-  const [pendingArtifactId, setPendingArtifactId] = useState<string | null>(null);
-  const openEpochRef = useRef(0);
-  const open = useCallback(
-    (artifact: WorkstreamArtifact, trigger: HTMLElement) => {
-      triggerRef.current = trigger;
-      if (documents === null || lookupArtifactDocument(documents, artifact).status !== "miss") {
-        openEpochRef.current += 1;
-        setPendingArtifactId(null);
-        setActiveArtifactId(artifact.id);
-        return;
-      }
+  const prepareAndActivate = useCallback(
+    (artifact: WorkstreamArtifact): void => {
       openEpochRef.current += 1;
       const epoch = openEpochRef.current;
       setPendingArtifactId(artifact.id);
@@ -177,17 +216,20 @@ export function useDirectorArtifactBrowser({
         if (openEpochRef.current !== epoch) {
           return;
         }
-        globalThis.clearTimeout(cap);
         setPendingArtifactId(null);
-        setActiveArtifactId(artifact.id);
       };
-      const cap = globalThis.setTimeout(settle, artifactOpenPrepareCapMs);
-      documents
-        .load(artifact)
-        .catch(() => undefined)
-        .then(settle);
+      setActiveArtifactId(artifact.id);
+      void prepareArtifact(artifact).then(settle, settle);
     },
-    [documents],
+    [prepareArtifact],
+  );
+  const open = useCallback(
+    (artifact: WorkstreamArtifact, trigger: HTMLElement) => {
+      triggerRef.current = trigger;
+      triggerArtifactIdRef.current = artifact.id;
+      prepareAndActivate(artifact);
+    },
+    [prepareAndActivate],
   );
   const close = useCallback(() => {
     openEpochRef.current += 1;
@@ -196,12 +238,12 @@ export function useDirectorArtifactBrowser({
   }, []);
   const step = useCallback(
     (offset: number) => {
-      setActiveArtifactId((current) => {
-        const index = browsable.findIndex((artifact) => artifact.id === current);
-        return index === -1 ? current : (browsable[index + offset]?.id ?? current);
-      });
+      const artifact = browsable[activeIndex + offset];
+      if (artifact !== undefined) {
+        prepareAndActivate(artifact);
+      }
     },
-    [browsable],
+    [activeIndex, browsable, prepareAndActivate],
   );
   const showPrevious = useCallback(() => step(-1), [step]);
   const showNext = useCallback(() => step(1), [step]);
@@ -214,9 +256,9 @@ export function useDirectorArtifactBrowser({
     documents,
     open,
     pendingArtifactId,
+    prepare,
     showNext,
     showPrevious,
-    triggerRef,
   };
 }
 
@@ -331,7 +373,7 @@ function resolveArtifactDocumentState(
     return { status: "failed" };
   }
   // A cache hit always outranks local request state. In particular, moving the
-  // persistent Dialog to a prefetched neighbour must never render the prior
+  // persistent reading surface to a prefetched neighbour must never render the prior
   // artifact for one commit while the effect catches up.
   if (cached.status === "ready") {
     return { entry: cached.entry, status: "ready" };

@@ -566,7 +566,7 @@ try {
     openedArtifactMarker,
   );
   assertEqual(artifactDetail.status, "ready", "Director artifact browser load state");
-  assertEqual(artifactDetail.position, "2 of 2", "Director artifact browser position");
+  assertEqual(artifactDetail.position, "Artifact 2 / 2", "Director artifact browser position");
   assertArtifactBrowserTheme(artifactDetail);
   assertArtifactBrowserModalIsolation(artifactDetail);
   assertArtifactBrowserBoundaries(artifactDetail, {
@@ -588,7 +588,7 @@ try {
     newestArtifactId,
     newestArtifactMarker,
   );
-  assertEqual(previousDetail.position, "1 of 2", "previous artifact position");
+  assertEqual(previousDetail.position, "Artifact 1 / 2", "previous artifact position");
   assertArtifactBrowserBoundaries(previousDetail, {
     nextDisabled: false,
     previousDisabled: true,
@@ -599,7 +599,7 @@ try {
     openedArtifactId,
     openedArtifactMarker,
   );
-  assertEqual(keyboardDetail.position, "2 of 2", "keyboard artifact position");
+  assertEqual(keyboardDetail.position, "Artifact 2 / 2", "keyboard artifact position");
   await closeDirectorArtifactBrowser(context.client);
   await assertArtifactExpandControlRegainedFocus(context.client, openedArtifactId);
   await assertDirectorGraphCanvasPreserved(context.client);
@@ -611,7 +611,7 @@ try {
     openedArtifactId,
     openedArtifactMarker,
   );
-  assertEqual(doubleClickDetail.position, "2 of 2", "double-click artifact position");
+  assertEqual(doubleClickDetail.position, "Artifact 2 / 2", "double-click artifact position");
   assertArtifactBrowserTheme(doubleClickDetail);
 
   // The browser's active identity is local state. A newer Director snapshot
@@ -640,8 +640,9 @@ try {
     context.client,
     openedArtifactId,
     openedArtifactMarker,
+    "Artifact 3 / 3",
   );
-  assertEqual(retainedDetail.position, "3 of 3", "retained active artifact position");
+  assertEqual(retainedDetail.position, "Artifact 3 / 3", "retained active artifact position");
 
   const middleDetail = await activateArtifactBrowserControl(
     context.client,
@@ -649,14 +650,14 @@ try {
     newestArtifactId,
     newestArtifactMarker,
   );
-  assertEqual(middleDetail.position, "2 of 3", "middle artifact position");
+  assertEqual(middleDetail.position, "Artifact 2 / 3", "middle artifact position");
   const firstDetail = await navigateArtifactBrowserWithArrow(
     context.client,
     "ArrowLeft",
     arrivedArtifactId,
     arrivedArtifactMarker,
   );
-  assertEqual(firstDetail.position, "1 of 3", "first artifact position");
+  assertEqual(firstDetail.position, "Artifact 1 / 3", "first artifact position");
   if (firstDetail.tableCount !== 1) {
     throw new Error(`Mixed Director artifact omitted its table: ${JSON.stringify(firstDetail)}`);
   }
@@ -671,14 +672,14 @@ try {
     newestArtifactId,
     newestArtifactMarker,
   );
-  assertEqual(middleAgain.position, "2 of 3", "middle keyboard artifact position");
+  assertEqual(middleAgain.position, "Artifact 2 / 3", "middle keyboard artifact position");
   const lastDetail = await activateArtifactBrowserControl(
     context.client,
     "Next artifact",
     openedArtifactId,
     openedArtifactMarker,
   );
-  assertEqual(lastDetail.position, "3 of 3", "last artifact position");
+  assertEqual(lastDetail.position, "Artifact 3 / 3", "last artifact position");
   assertArtifactBrowserBoundaries(lastDetail, {
     nextDisabled: true,
     previousDisabled: false,

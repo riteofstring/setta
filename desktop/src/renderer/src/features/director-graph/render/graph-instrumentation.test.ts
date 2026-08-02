@@ -44,7 +44,6 @@ describe("graph frame sampler", () => {
 
   it("counts dropped frames and the slow-frame ratio against the budget", () => {
     const sampler = new GraphFrameSampler();
-    sampler.setFrameBudgetMs(8.33);
     sampler.record(sample({ frameDeltaMs: 8 }));
     sampler.record(sample({ frameDeltaMs: 12 }));
     sampler.record(sample({ frameDeltaMs: 60 }));
@@ -61,18 +60,13 @@ describe("graph frame sampler", () => {
     expect(graphCpuMarks.map((mark) => summary.marks[mark].p50)).toEqual([1, 2, 3, 4]);
   });
 
-  it("records long tasks and quality changes alongside the frames", () => {
+  it("records long tasks alongside the frames", () => {
     const sampler = new GraphFrameSampler();
     sampler.recordLongTask(53);
     sampler.recordLongTask(70);
-    sampler.recordQuality(1, false);
-    sampler.recordQuality(0.72, true);
     const summary = sampler.summary();
     expect(summary.longTasks).toBe(2);
     expect(summary.longTaskTotalMs).toBe(123);
-    expect(summary.renderScaleMinimum).toBe(0.72);
-    expect(summary.renderScaleMaximum).toBe(1);
-    expect(summary.tierChanges).toBe(1);
   });
 
   it("starts clean after a reset", () => {
@@ -84,7 +78,6 @@ describe("graph frame sampler", () => {
     expect(summary.frames).toBe(0);
     expect(summary.longTasks).toBe(0);
     expect(summary.cpuFrameMs.p95).toBe(0);
-    expect(summary.renderScaleMinimum).toBe(1);
   });
 
   it("bounds memory by keeping a fixed sample window", () => {
@@ -177,7 +170,9 @@ describe("graph GPU timer", () => {
     context.available = true;
     expect(timer.poll()).toBe(4);
     expect(timer.poll()).toBeNull();
-    expect(context.deleted).toBe(1);
+    expect(context.deleted).toBe(0);
+    timer.dispose();
+    expect(context.deleted).toBe(2);
   });
 
   it("drops disjoint and reset queries", () => {
@@ -191,7 +186,9 @@ describe("graph GPU timer", () => {
     timer.beginFrame();
     timer.reset();
     expect(context.ended).toBe(2);
-    expect(context.deleted).toBe(2);
+    expect(context.deleted).toBe(1);
     expect(timer.poll()).toBeNull();
+    timer.dispose();
+    expect(context.deleted).toBe(2);
   });
 });

@@ -53,7 +53,8 @@ while IFS= read -r project_dir; do
   if [[ -f "${repo_root}/${project_dir}/pnpm-lock.yaml" ]]; then
     "${python_bin}" "${repo_root}/scripts/check_pnpm_lock_release_age.py" \
       --days "${min_release_age_days}" \
-      --lockfile "${repo_root}/${project_dir}/pnpm-lock.yaml"
+      --lockfile "${repo_root}/${project_dir}/pnpm-lock.yaml" \
+      --npmrc "${repo_root}/${project_dir}/.npmrc"
     pnpm -C "${repo_root}/${project_dir}" install --frozen-lockfile
   fi
 done < <(discover_pnpm_projects)

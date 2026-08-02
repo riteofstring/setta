@@ -97,12 +97,8 @@ export const packedGraphOutcomes = ["running", "succeeded", "failed", "cancelled
 export type PackedGraphOutcome = (typeof packedGraphOutcomes)[number];
 export const packedGraphOutcomeCode = codeTable(packedGraphOutcomes);
 
-/**
- * Where the DOM label layer anchors a node's label. Every production label
- * sits below its node so the node itself stays visible; `over` remains in the
- * vocabulary for surfaces that deliberately eclipse (none currently do).
- */
-export const packedGraphLabelPlacements = ["none", "below", "over"] as const;
+/** Where the DOM label layer anchors a durable node label. */
+export const packedGraphLabelPlacements = ["none", "below"] as const;
 export type PackedGraphLabelPlacement = (typeof packedGraphLabelPlacements)[number];
 export const packedGraphLabelPlacementCode = codeTable(packedGraphLabelPlacements);
 

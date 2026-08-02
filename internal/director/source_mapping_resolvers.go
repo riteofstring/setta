@@ -251,6 +251,9 @@ func markProducedNodeKind(produced map[SemanticNodeKind]bool, rule SourceFactRul
 	if rule.Resolution == SourceFactResolutionFixed {
 		produced[rule.NodeKind] = true
 	}
+	for _, kind := range rule.AdditionalNodeKinds {
+		produced[kind] = true
+	}
 }
 
 func markResolvedNodeKinds(produced map[SemanticNodeKind]bool) error {
@@ -414,6 +417,9 @@ func validateSourceFactRule(label string, rule SourceFactRule) error {
 	if err := validateSourceFactResolution(label, rule, producesNode); err != nil {
 		return err
 	}
+	if err := validateAdditionalNodeKinds(label, rule, producesNode); err != nil {
+		return err
+	}
 	if err := validateSourceFactNodeIdentity(label, rule, producesNode); err != nil {
 		return err
 	}
@@ -421,6 +427,26 @@ func validateSourceFactRule(label string, rule SourceFactRule) error {
 		return err
 	}
 	return validateTrimmedText(fmt.Sprintf("source fact %s note", label), rule.Note)
+}
+
+func validateAdditionalNodeKinds(label string, rule SourceFactRule, producesNode bool) error {
+	if len(rule.AdditionalNodeKinds) > 0 && !producesNode {
+		return fmt.Errorf("source fact %s declares additional node kinds without projecting a node", label)
+	}
+	seen := map[SemanticNodeKind]bool{}
+	if rule.Resolution == SourceFactResolutionFixed {
+		seen[rule.NodeKind] = true
+	}
+	for _, kind := range rule.AdditionalNodeKinds {
+		if !isSemanticNodeKind(kind) {
+			return fmt.Errorf("source fact %s has unknown additional node kind %q", label, kind)
+		}
+		if seen[kind] {
+			return fmt.Errorf("source fact %s declares duplicate node kind %q", label, kind)
+		}
+		seen[kind] = true
+	}
+	return nil
 }
 
 func validateSourceFactDisposition(

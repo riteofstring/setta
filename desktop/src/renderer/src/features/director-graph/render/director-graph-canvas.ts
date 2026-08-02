@@ -29,47 +29,69 @@ import {
   type GraphFrameTiming,
 } from "./graph-frame-scheduler";
 import {
+  graphArtifactParticleSeed,
+  type GraphArtifactParticleStyle,
+} from "./graph-artifact-presentation";
+import {
   GraphFrameSampler,
   GraphFrameStopwatch,
   GraphGpuTimer,
   observeGraphLongTasks,
   type GraphPerformanceSummary,
 } from "./graph-instrumentation";
-import { GraphLabelLayer } from "./graph-label-layer";
+import { GraphLabelLayer, type GraphColumnTitlePlacement } from "./graph-label-layer";
 import { checkGraphCanvasPixels, type GraphCanvasPixelCheck } from "./graph-pixel-check";
-import { GraphLadderLayout, advanceGraphCamera } from "./graph-ladder-layout";
+import {
+  GraphLadderLayout,
+  advanceGraphCamera,
+  type GraphLadderFrame,
+} from "./graph-ladder-layout";
 import {
   computeGraphLabelPlacements,
   graphActiveTurn,
   type GraphLabelPlacement,
 } from "./graph-labels";
 import {
-  GraphQualityController,
   graphReducedMotionProfile,
-  graphRefreshPeriodMs,
   graphStartingQualityProfile,
+  type GraphQualityProfile,
   type GraphQualityTier,
 } from "./graph-quality";
 import {
   GraphScenePacker,
   graphVisibleEdgeRange,
   graphVisibleNodeRange,
+  type GraphPackedScene,
+  type GraphUploadRange,
 } from "./graph-scene-packer";
 import {
+  GraphBoundedScrollController,
   GraphViewController,
   advanceHoverAmount,
+  graphDirectorAnchoredScrollBounds,
+  graphDirectorBoundedThreadWorldOffset,
   graphNodeAtPointer,
   graphNodeScreenPosition,
+  graphOverviewScrollOwner,
   graphOutcomeAtPointer,
   type GraphScreenPoint,
+  type GraphScrollOwner,
   type GraphViewport,
-  graphLookBackMargin,
+  graphOldestCameraWorldY,
   graphNodeActivation,
   type GraphCameraBounds,
 } from "./graph-view-state";
-import { graphFitFrame, graphMotionRates, graphWarpToScreen } from "./graph-visual-language";
+import {
+  graphFitFrame,
+  graphMotionRates,
+  graphNodeHierarchyScale,
+  graphWarpToScreen,
+} from "./graph-visual-language";
 import { packedValueAt } from "../packed-graph-vocabulary";
-import type { SemanticGraphPresentation } from "../semantic-graph-packer";
+import {
+  directorGridUsesActivityNodes,
+  type SemanticGraphPresentation,
+} from "../semantic-graph-packer";
 
 export interface GraphCanvasQuality {
   readonly tier: GraphQualityTier;
@@ -80,7 +102,6 @@ export interface GraphCanvasQuality {
    */
   readonly viewport: GraphViewport;
   readonly devicePixelRatio: number;
-  readonly renderScale: number;
   readonly postWidth: number;
   readonly postHeight: number;
   readonly sceneWidth: number;
@@ -90,6 +111,8 @@ export interface GraphCanvasQuality {
 export interface DirectorGraphCanvasOptions {
   readonly canvas: HTMLCanvasElement;
   readonly labelRoot: HTMLElement;
+  /** Focusable graph region described by contextual node tooltips. */
+  readonly interactionRoot?: HTMLElement;
   readonly ownerDocument: Document;
   /** Current CSS size of the canvas; the component observes it. */
   readonly viewportOf: () => GraphViewport;
@@ -101,6 +124,8 @@ export interface DirectorGraphCanvasOptions {
    */
   readonly timeSecondsAt: (timestampMs: number) => number;
   readonly reducedMotion: boolean;
+  /** The callback is stable, while this reports whether its current ref has a destination. */
+  readonly canOpenWorkstream?: () => boolean;
   /**
    * Opens the thread a click landed on. Supplied by the Director's views, where
    * a column or a tile is a destination; a conversation has nothing to open.
@@ -123,14 +148,145 @@ const defaultFrameHost: GraphFrameSchedulerHost = {
 
 /** The in-phase of the mockup's 620ms switch: the half after the swap. */
 const workstreamSwitchSlideMs = 310;
+/** A changed thread count blooms from a compact constellation into its new grid. */
+const graphLayoutTransitionMs = 520;
+/**
+ * A pushed overview snapshot retargets from the currently drawn positions.
+ *
+ * Slightly longer than a quick UI fade, but short enough that a 2x development
+ * simulation can interrupt and retarget it without ever building a queue of
+ * motion behind the data.
+ */
+const graphOverviewSnapshotTransitionMs = 260;
+/** Each older node in a short grid trail loses this share of opacity. */
+const graphGridTrailOpacityDecay = 0.24;
 
 /** Where the columns view pins its title row, just under the top bar. */
 const columnTitleTopPx = 64;
+const columnTitleTooltipMaxWidthPx = 320;
+const columnTitleTooltipViewportInsetPx = 16;
+/** Grid titles sit above their own node and follow the tile's bounded scroll. */
+const gridTitleNodeOffsetPx = 44;
+const graphTooltipMaxWidthPx = 280;
+const graphTooltipViewportInsetPx = 16;
+const graphTooltipEstimatedHeightPx = 112;
 
 /** How long fresh activity speaks on side-by-side views before fading. */
 const temporaryLabelSeconds = 2.4;
 /** The tail of that window over which the label fades out. */
 const temporaryLabelFadeSeconds = 0.8;
+/** Director particle wake settles quickly after the elastic camera returns. */
+const directorEdgeDisturbanceDecayPerSecond = 5.5;
+const directorEdgeDisturbanceEpsilon = 0.002;
+/** The field completes a normal-to-artifact morph in roughly 360ms. */
+const artifactParticleTransitionPerSecond = 2.8;
+const artifactParticleTransitionEpsilon = 0.001;
+
+/** Geometric growth keeps the grid projection allocation off the scroll path. */
+function graphProjectionCapacity(required: number): number {
+  let capacity = 64;
+  while (capacity < required) {
+    capacity *= 2;
+  }
+  return capacity;
+}
+
+interface GraphOverviewSnapshotNodeState {
+  readonly open: number;
+  readonly worldY: number;
+}
+
+interface GraphOverviewSnapshotTransition {
+  /** Camera at capture time, so a simultaneous camera clamp cannot move the old frame. */
+  readonly cameraWorldY: number;
+  readonly from: ReadonlyMap<string, GraphOverviewSnapshotNodeState>;
+  /** Stable recency slot when the newest durable node itself was replaced. */
+  readonly latestByWorkstream: ReadonlyMap<string, GraphOverviewSnapshotNodeState>;
+  readonly startMs: number;
+}
+
+interface GraphFrameContext {
+  readonly devicePixelRatio: number;
+  readonly frameStart: number;
+  readonly timeSeconds: number;
+  readonly viewport: GraphViewport;
+}
+
+interface GraphProjectedFrame {
+  readonly arrived: boolean;
+  readonly cameraMoved: boolean;
+  readonly hovering: boolean;
+  readonly ladder: GraphLadderFrame;
+  readonly projection: {
+    readonly dirtyFrom: number;
+    readonly dirtyTo: number;
+    readonly open: Float32Array;
+    readonly worldY: Float32Array;
+  };
+  readonly visualCamera: number;
+}
+
+interface GraphPackedFrame {
+  readonly edges: GraphUploadRange;
+  readonly nodes: GraphUploadRange;
+  readonly scene: GraphPackedScene;
+}
+
+function graphSnapshotsShareReflowShape(
+  current: PackedGraphSnapshot,
+  next: PackedGraphSnapshot,
+): boolean {
+  return (
+    next.workstreamId === current.workstreamId &&
+    next.nodeCount === current.nodeCount &&
+    next.edgeCount === current.edgeCount &&
+    next.turnCount === current.turnCount
+  );
+}
+
+function assertGraphReflowNodes(current: PackedGraphSnapshot, next: PackedGraphSnapshot): void {
+  for (let index = 0; index < next.nodeCount; index += 1) {
+    if (
+      next.nodes.ids[index] !== current.nodes.ids[index] ||
+      packedValueAt(next.nodes.turn, index) !== packedValueAt(current.nodes.turn, index)
+    ) {
+      throw new Error(`director graph reflow changed node ${index}`);
+    }
+  }
+}
+
+function assertGraphReflowEdges(current: PackedGraphSnapshot, next: PackedGraphSnapshot): void {
+  for (let index = 0; index < next.edgeCount; index += 1) {
+    if (
+      packedValueAt(next.edges.from, index) !== packedValueAt(current.edges.from, index) ||
+      packedValueAt(next.edges.to, index) !== packedValueAt(current.edges.to, index)
+    ) {
+      throw new Error(`director graph reflow changed edge ${index}`);
+    }
+  }
+}
+
+function assertGraphReflowTurns(current: PackedGraphSnapshot, next: PackedGraphSnapshot): void {
+  for (let index = 0; index < next.turnCount; index += 1) {
+    if (
+      next.turnWorkstreamIds[index] !== current.turnWorkstreamIds[index] ||
+      packedValueAt(next.turns.inputNode, index) !==
+        packedValueAt(current.turns.inputNode, index) ||
+      packedValueAt(next.turns.outcomeNode, index) !==
+        packedValueAt(current.turns.outcomeNode, index)
+    ) {
+      throw new Error(`director graph reflow changed turn ${index}`);
+    }
+  }
+}
+
+function graphArtifactFieldIsSettled(
+  style: GraphArtifactParticleStyle | null,
+  particleFlowAmount: number,
+  fluidAmount: number,
+): boolean {
+  return style === null && particleFlowAmount + fluidAmount <= artifactParticleTransitionEpsilon;
+}
 
 /** Hover animates only in the normal-motion profile; reduced motion snaps once. */
 export function graphHoverNeedsAnimation(
@@ -148,6 +304,52 @@ export function graphAmbientFieldNeedsAnimation(
   return ambientMotion && !reducedMotion;
 }
 
+/** Loading borrows the ambient field, so reduced motion holds one static frame. */
+export function graphLoadingFieldNeedsAnimation(
+  reducedMotion: boolean,
+  loading: boolean,
+  loadingAmount: number,
+): boolean {
+  return !reducedMotion && (loading || loadingAmount > 0);
+}
+
+/** Interruptible loading fades without allocating or queuing an animation. */
+export function advanceGraphLoadingAmount(
+  current: number,
+  loading: boolean,
+  deltaSeconds: number,
+  reducedMotion: boolean,
+): number {
+  const target = loading ? 1 : 0;
+  if (reducedMotion) {
+    return target;
+  }
+  const speed = loading ? 3.6 : 5.2;
+  const step = Math.max(0, deltaSeconds) * speed;
+  return target > current ? Math.min(target, current + step) : Math.max(target, current - step);
+}
+
+/** One interruptible scalar for a whole-canvas particle-system morph. */
+function advanceGraphArtifactParticleAmount(
+  current: number,
+  target: number,
+  deltaSeconds: number,
+  reducedMotion: boolean,
+): number {
+  if (reducedMotion) {
+    return target;
+  }
+  const step = Math.max(0, deltaSeconds) * artifactParticleTransitionPerSecond;
+  const next =
+    target > current ? Math.min(target, current + step) : Math.max(target, current - step);
+  return Math.abs(next - target) <= artifactParticleTransitionEpsilon ? target : next;
+}
+
+/** Natural grid-title position. Overflow clips it after it scrolls off-screen. */
+export function graphGridTitleAnchorY(nodeScreenY: number): number {
+  return nodeScreenY - gridTitleNodeOffsetPx;
+}
+
 export class DirectorGraphCanvas {
   private readonly renderer: DirectorGraphRenderer;
   private readonly scheduler: GraphFrameScheduler;
@@ -157,18 +359,51 @@ export class DirectorGraphCanvas {
   private readonly labels: GraphLabelLayer;
   private readonly sampler = new GraphFrameSampler();
   private readonly stopwatch: GraphFrameStopwatch;
-  private readonly gpuTimer: GraphGpuTimer;
-  private readonly stopLongTasks: () => void;
   private readonly placements: GraphLabelPlacement[] = [];
-  private readonly quality: GraphQualityController;
   private readonly now: () => number;
   private readonly ambientMotion: boolean;
+  /** Camera-relative grid positions; Director layout itself remains immutable. */
+  private projectedWorldY: Float32Array<ArrayBufferLike> = new Float32Array(0);
+  private frameWorldY: Float32Array<ArrayBufferLike> = this.projectedWorldY;
+  /** Overview trail opacity shares the node-state texture's existing openness slot. */
+  private projectedOpen: Float32Array<ArrayBufferLike> = new Float32Array(0);
+  private frameOpen: Float32Array<ArrayBufferLike> = this.projectedOpen;
+  /** Scratch columns for independently bounded side-by-side thread regions. */
+  private overviewColumnTopWorldY = new Float32Array(0);
+  private overviewColumnBottomWorldY = new Float32Array(0);
+  private overviewColumnOffsetWorldY = new Float32Array(0);
+  private lastOverviewColumnOffsetWorldY = new Float32Array(0);
+  /**
+   * One independently scrollable activity list shared by both grid flanks.
+   * It opens on its newest rows and follows from there.
+   */
+  private readonly supportingGridScroll = new GraphBoundedScrollController("live");
+  private readonly supportingGridBounds: { oldestCameraWorldY: number; liveEdgeWorldY: number } = {
+    oldestCameraWorldY: 0,
+    liveEdgeWorldY: 0,
+  };
+  private supportingGridStickyOffsetWorldY = 0;
+  /** Interruptible motion between replacement snapshots of one overview. */
+  private overviewSnapshotTransition: GraphOverviewSnapshotTransition | null = null;
 
   private snapshot: PackedGraphSnapshot;
+  private profile: GraphQualityProfile;
+  private gpuTimer: GraphGpuTimer | null = null;
+  private stopLongTasks: (() => void) | null = null;
+  private performanceSampling = false;
   private queued: PackedGraphBatch[] = [];
   private pendingPixelChecks: ((check: GraphCanvasPixelCheck) => void)[] = [];
   private reducedMotion: boolean;
   private hoverAmount = 0;
+  /** End-exclusive contiguous node range belonging to overview column zero. */
+  private directorNodeEnd = 0;
+  /** Cached split between the centre spine and either supporting grid flank. */
+  private nearestSupportingGridLaneDistance = Number.POSITIVE_INFINITY;
+  /** A single row follows the Director; only a real row list owns its own scroll. */
+  private supportingGridHasMultipleRows = false;
+  /** Dev-gated particle response; elastic camera motion itself is always on. */
+  private directorEdgeDisturbanceEnabled = false;
+  private directorEdgeDisturbance = 0;
   /*
    * Whether the next frame puts the camera at the live edge outright.
    *
@@ -179,17 +414,27 @@ export class DirectorGraphCanvas {
    */
   private arriveAtLiveEdge = false;
   private presentation: SemanticGraphPresentation = "conversation";
+  /** A presentation change uses its own reveal, not a same-grid retarget. */
+  private presentationChanged = false;
   private bounds: GraphCameraBounds = {
-    contentTopWorldY: 0,
+    oldestCameraWorldY: 0,
     liveEdgeWorldY: 0,
-    lookBackMargin: 0,
   };
+  /** Director's own stops remain the anchors for every supporting thread. */
+  private readonly directorCameraBounds: {
+    oldestCameraWorldY: number;
+    liveEdgeWorldY: number;
+  } = {
+    oldestCameraWorldY: 0,
+    liveEdgeWorldY: 0,
+  };
+  /** Attached one-row overviews follow whichever visible thread advances furthest. */
+  private automaticLiveEdgeWorldY = 0;
   private lastSurfaceKey = "";
   private lastFrameTimestampMs = 0;
   private disposed = false;
-  /** The ambient field's session clock origin. See GraphRenderView.fieldTimeSeconds. */
-  private firstFrameTimeSeconds: number | null = null;
-  private lastHeartbeatMs = 0;
+  /** The mockup's clamped frame-delta clock, independent of durable event time. */
+  private fieldTimeSeconds = 0;
   /*
    * The mockup's thread-switch slide (mockup lines 1278–1285). By the time the
    * shell knows the selection changed, the new snapshot is already on screen,
@@ -197,10 +442,25 @@ export class DirectorGraphCanvas {
    * the arrow's direction while the post pass glitches, both easing out.
    */
   private workstreamSwitch: { direction: -1 | 0 | 1; startMs: number } | null = null;
+  private layoutTransition: { from: number; startMs: number } | null = null;
   /** True while the app is capturing the user's voice; the input node breathes. */
   private listening = false;
+  /** State loading is drawn in the medium, never as reply copy by the composer. */
+  private loading = false;
+  private loadingAmount = 0;
+  /** Artifact reading mode morphs the existing post pass; React chooses only the target. */
+  private artifactParticleStyle: GraphArtifactParticleStyle | null = null;
+  private artifactParticleSeedKey: string | null = null;
+  private artifactParticleFlowAmount = 0;
+  private artifactFluidAmount = 0;
+  private artifactSeedX = 0.5;
+  private artifactSeedY = 0.5;
+  private artifactSeedTargetX = 0.5;
+  private artifactSeedTargetY = 0.5;
   /** Whether the DOM label layer draws at all; the canvas is legible alone. */
   private labelsEnabled = true;
+  /** Ambient field frames do not need to recompute a settled DOM overlay. */
+  private labelsDirty = true;
   /** The lane whose turns fold on click because it is the view's own thread. */
   private selfWorkstreamId: string | null = null;
   /** Thread names, drawn above each column by the label layer. */
@@ -219,50 +479,80 @@ export class DirectorGraphCanvas {
     this.ambientMotion = options.ambientMotion === true;
     this.now = options.now ?? (() => performance.now());
     const viewport = options.viewportOf();
-    const profile = this.profileFor();
-    this.quality = new GraphQualityController(profile);
-    this.renderer = new DirectorGraphRenderer(options.canvas, options.ownerDocument, profile);
+    this.profile = this.profileFor();
+    this.renderer = new DirectorGraphRenderer(options.canvas, options.ownerDocument, this.profile);
     this.renderer.resize(
       viewport.width,
       viewport.height,
       options.devicePixelRatioOf(),
-      this.quality.current().renderScale,
       options.canvas,
     );
     this.renderer.prewarm();
     this.labels = new GraphLabelLayer(options.labelRoot, options.ownerDocument, {
+      interactionRoot: options.interactionRoot ?? options.labelRoot,
+      onColumnTitleActivated: (workstreamId) => this.openWorkstream(workstreamId),
+      onColumnTitleHovered: (workstreamId) => this.hoverWorkstream(workstreamId),
       onPillActivated: (nodeIndex) => this.activateNode(nodeIndex),
     });
     this.stopwatch = new GraphFrameStopwatch(this.now);
-    this.gpuTimer = new GraphGpuTimer(
-      // The renderer already proved the context exists; reuse it for timing.
-      this.renderer.context(),
-    );
-    this.stopLongTasks = observeGraphLongTasks(this.sampler);
     this.scheduler = new GraphFrameScheduler(options.frameHost ?? defaultFrameHost, (timing) =>
       this.frame(timing),
     );
   }
 
   /**
-   * Replaces the whole graph: a workstream switch, a resync, or a cold replay
-   * after restart. Everything incremental resets, because a replacement is not
-   * an extension even when it carries the same workstream id — the ladder's
-   * turn ranges and the packer's upload ranges both describe the snapshot they
-   * were built from, not this one.
+   * Replaces semantic graph state: a workstream switch, resync, or cold replay.
+   * Ladder ranges and packed upload ranges reset because a replacement is not
+   * an extension. View state may survive a same-overview replacement: keeping
+   * its bounded column offsets prevents a live node arrival from resetting a
+   * scroll-direction transition halfway between sticky edges.
    */
   setSnapshot(snapshot: PackedGraphSnapshot): void {
-    if (snapshot.workstreamId !== this.snapshot.workstreamId) {
+    const overviewSnapshotTransition = this.captureOverviewSnapshotTransition(snapshot);
+    const workstreamChanged = snapshot.workstreamId !== this.snapshot.workstreamId;
+    const projectionChanged = workstreamChanged || this.presentationChanged;
+    if (workstreamChanged) {
       this.view.reset();
       this.hoverAmount = 0;
       this.arriveAtLiveEdge = true;
     } else {
       this.view.clearNodeFocus();
     }
+    this.options.interactionRoot?.removeAttribute("data-openable-thread");
     this.snapshot = snapshot;
+    this.updateOverviewRanges();
     this.queued = [];
     this.layout.reset();
+    this.frameWorldY = this.projectedWorldY;
+    this.frameOpen = this.projectedOpen;
+    if (projectionChanged) {
+      this.lastOverviewColumnOffsetWorldY.fill(Number.NaN);
+      this.resetSupportingGridScroll();
+    }
+    this.overviewSnapshotTransition = overviewSnapshotTransition;
+    this.presentationChanged = false;
     this.packer.noteChanged(0, 0);
+    this.labelsDirty = true;
+    this.scheduler.requestFrame();
+  }
+
+  /**
+   * Replaces viewport-authored coordinates without replaying the graph.
+   *
+   * Grid cell lanes, row scales, and column tops depend on the CSS viewport.
+   * Everything else is the same durable graph. Keeping ladder openness, hover,
+   * and animation time turns a resize into a reflow instead of a cold replay.
+   */
+  reflowSnapshot(snapshot: PackedGraphSnapshot): void {
+    this.assertReflowTopology(snapshot);
+    this.snapshot = snapshot;
+    this.updateOverviewRanges();
+    this.layout.reflow();
+    this.overviewSnapshotTransition = null;
+    this.presentationChanged = false;
+    this.packer.noteChanged(0, 0);
+    this.arriveAtLiveEdge = true;
+    this.labelsDirty = true;
     this.scheduler.requestFrame();
   }
 
@@ -285,10 +575,18 @@ export class DirectorGraphCanvas {
       return;
     }
     this.reducedMotion = reducedMotion;
-    const decision = this.quality.setProfile(this.profileFor());
-    this.renderer.applyProfile(decision.profile);
-    // Reduced motion re-derives the profile, so both the tier and the surfaces
-    // have to be reapplied rather than only redrawn.
+    if (reducedMotion) {
+      this.view.advanceElastic(0, true);
+      this.directorEdgeDisturbance = 0;
+      this.loadingAmount = this.loading ? 1 : 0;
+      this.layoutTransition = null;
+      this.overviewSnapshotTransition = null;
+      this.options.labelRoot.style.opacity = "";
+    }
+    this.profile = this.profileFor();
+    this.renderer.applyProfile(this.profile);
+    // Reduced motion re-derives the effects while retaining the same geometry
+    // and surfaces.
     this.lastSurfaceKey = "";
     this.scheduler.requestFrame();
   }
@@ -300,20 +598,16 @@ export class DirectorGraphCanvas {
   /** Wakes the loop after a viewport or layout change. */
   invalidate(): void {
     this.lastSurfaceKey = "";
+    this.labelsDirty = true;
     this.scheduler.requestFrame();
   }
 
   pointerMoved(point: GraphScreenPoint): void {
-    const hovered = graphNodeAtPointer(this.pointerScene(), point);
-    if (this.view.setHovered(hovered)) {
-      this.scheduler.requestFrame();
-    }
+    this.setHoveredNode(graphNodeAtPointer(this.pointerScene(), point));
   }
 
-  pointerLeft(): void {
-    if (this.view.setHovered(null)) {
-      this.scheduler.requestFrame();
-    }
+  pointerLeft(): boolean {
+    return this.setHoveredNode(null);
   }
 
   /**
@@ -349,11 +643,7 @@ export class DirectorGraphCanvas {
    * is two answers to one gesture.
    */
   private activateNode(nodeIndex: number): void {
-    const turn = packedValueAt(this.snapshot.nodes.turn, nodeIndex);
-    const openable =
-      this.options.onOpenWorkstream === undefined
-        ? undefined
-        : this.snapshot.turnWorkstreamIds[turn];
+    const openable = this.openableWorkstreamId(nodeIndex) ?? undefined;
     const activation = graphNodeActivation(
       this.presentation,
       nodeIndex,
@@ -372,9 +662,83 @@ export class DirectorGraphCanvas {
     this.scheduler.requestFrame();
   }
 
-  /** Wheel look-back through the trajectory; live work keeps running. */
-  wheeled(deltaYPx: number): void {
-    this.view.lookBack(deltaYPx, this.bounds);
+  private setHoveredNode(nodeIndex: number | null): boolean {
+    const interactionRoot = this.options.interactionRoot;
+    interactionRoot?.toggleAttribute(
+      "data-openable-thread",
+      nodeIndex !== null && this.openableWorkstreamId(nodeIndex) !== null,
+    );
+    if (!this.view.setHovered(nodeIndex)) {
+      return false;
+    }
+    this.labelsDirty = true;
+    this.scheduler.requestFrame();
+    return true;
+  }
+
+  private canOpenWorkstream(): boolean {
+    return (
+      this.options.onOpenWorkstream !== undefined && (this.options.canOpenWorkstream?.() ?? true)
+    );
+  }
+
+  private openableWorkstreamId(nodeIndex: number): string | null {
+    if (
+      !this.canOpenWorkstream() ||
+      this.presentation === "conversation" ||
+      nodeIndex < 0 ||
+      nodeIndex >= this.snapshot.nodeCount
+    ) {
+      return null;
+    }
+    const turn = packedValueAt(this.snapshot.nodes.turn, nodeIndex);
+    const workstreamId = this.snapshot.turnWorkstreamIds[turn];
+    return workstreamId === undefined || workstreamId === this.selfWorkstreamId
+      ? null
+      : workstreamId;
+  }
+
+  private openWorkstream(workstreamId: string): void {
+    if (!this.canOpenWorkstream() || workstreamId === this.selfWorkstreamId) {
+      return;
+    }
+    this.options.onOpenWorkstream?.(workstreamId);
+  }
+
+  /** Title hover/focus previews the newest node in the same thread. */
+  private hoverWorkstream(workstreamId: string | null): void {
+    if (workstreamId === null) {
+      this.setHoveredNode(null);
+      return;
+    }
+    const turn = this.snapshot.turnWorkstreamIds.indexOf(workstreamId);
+    if (turn < 0) {
+      this.setHoveredNode(null);
+      return;
+    }
+    for (let index = this.snapshot.nodeCount - 1; index >= 0; index -= 1) {
+      if (packedValueAt(this.snapshot.nodes.turn, index) === turn) {
+        this.setHoveredNode(index);
+        return;
+      }
+    }
+    this.setHoveredNode(null);
+  }
+
+  /** Routes wheel input to the graph region beneath the pointer. */
+  wheeled(deltaYPx: number, point: GraphScreenPoint): void {
+    if (this.scrollOwnerAt(point) === "supporting-grid") {
+      if (!this.supportingGridScroll.scroll(deltaYPx, this.supportingGridBounds)) {
+        return;
+      }
+      this.labelsDirty = true;
+      this.scheduler.requestFrame();
+      return;
+    }
+    if (!this.view.lookBack(deltaYPx, this.bounds, !this.reducedMotion)) {
+      return;
+    }
+    this.labelsDirty = true;
     this.scheduler.requestFrame();
   }
 
@@ -390,8 +754,16 @@ export class DirectorGraphCanvas {
     presentation: SemanticGraphPresentation,
     selfWorkstreamId: string | null = null,
   ): void {
+    if (presentation !== this.presentation) {
+      this.presentationChanged = true;
+      this.overviewSnapshotTransition = null;
+      this.resetSupportingGridScroll();
+    }
     this.presentation = presentation;
     this.selfWorkstreamId = selfWorkstreamId;
+    this.options.interactionRoot?.removeAttribute("data-openable-thread");
+    this.updateOverviewRanges();
+    this.labelsDirty = true;
   }
 
   /**
@@ -401,6 +773,7 @@ export class DirectorGraphCanvas {
    */
   setColumnTitles(titles: ReadonlyMap<string, string>): void {
     this.columnTitles = titles;
+    this.labelsDirty = true;
     this.scheduler.requestFrame();
   }
 
@@ -413,6 +786,7 @@ export class DirectorGraphCanvas {
       return;
     }
     this.labelsEnabled = enabled;
+    this.labelsDirty = true;
     this.scheduler.requestFrame();
   }
 
@@ -429,6 +803,71 @@ export class DirectorGraphCanvas {
     this.scheduler.requestFrame();
   }
 
+  /** Streams the ambient medium into the visible Director nodes while state loads. */
+  setLoading(loading: boolean): void {
+    if (loading === this.loading) {
+      return;
+    }
+    this.loading = loading;
+    if (this.reducedMotion) {
+      this.loadingAmount = loading ? 1 : 0;
+    }
+    this.scheduler.requestFrame();
+  }
+
+  /** Selects a stable per-artifact field, or returns to the normal graph field. */
+  setArtifactParticleStyle(
+    style: GraphArtifactParticleStyle | null,
+    artifactId = "setta-artifact-preview",
+  ): void {
+    const seedKey = style === null ? null : artifactId;
+    if (style === this.artifactParticleStyle && seedKey === this.artifactParticleSeedKey) {
+      return;
+    }
+    const enteringSettledField = graphArtifactFieldIsSettled(
+      this.artifactParticleStyle,
+      this.artifactParticleFlowAmount,
+      this.artifactFluidAmount,
+    );
+    this.artifactParticleStyle = style;
+    this.artifactParticleSeedKey = seedKey;
+    this.updateArtifactSeed(seedKey, enteringSettledField);
+    this.snapArtifactFieldForReducedMotion(style);
+    this.labelsDirty = true;
+    this.scheduler.requestFrame();
+  }
+
+  private updateArtifactSeed(seedKey: string | null, enteringSettledField: boolean): void {
+    if (seedKey === null) {
+      return;
+    }
+    [this.artifactSeedTargetX, this.artifactSeedTargetY] = graphArtifactParticleSeed(seedKey);
+    if (this.reducedMotion || enteringSettledField) {
+      this.artifactSeedX = this.artifactSeedTargetX;
+      this.artifactSeedY = this.artifactSeedTargetY;
+    }
+  }
+
+  private snapArtifactFieldForReducedMotion(style: GraphArtifactParticleStyle | null): void {
+    if (!this.reducedMotion) {
+      return;
+    }
+    this.artifactParticleFlowAmount = style === "particle-flow" ? 1 : 0;
+    this.artifactFluidAmount = style === "fluid" ? 1 : 0;
+  }
+
+  /** Enables the opt-in Director-only particle wake after elastic overscroll. */
+  setDirectorEdgeDisturbance(enabled: boolean): void {
+    if (enabled === this.directorEdgeDisturbanceEnabled) {
+      return;
+    }
+    this.directorEdgeDisturbanceEnabled = enabled;
+    if (!enabled) {
+      this.directorEdgeDisturbance = 0;
+    }
+    this.scheduler.requestFrame();
+  }
+
   /**
    * Plays the workstream-switch slide: the graph and its field sweep in from
    * the direction of travel with a signal glitch that settles as they land.
@@ -439,6 +878,24 @@ export class DirectorGraphCanvas {
       return;
     }
     this.workstreamSwitch = { direction, startMs: this.now() };
+    this.scheduler.requestFrame();
+  }
+
+  /**
+   * Reveals a replacement layout without moving the ambient field underneath
+   * it. The graph expands from a tighter constellation while its labels fade
+   * in; another selection during the reveal continues from the current value
+   * rather than replaying from zero.
+   */
+  playLayoutTransition(): void {
+    if (this.reducedMotion) {
+      this.layoutTransition = null;
+      this.options.labelRoot.style.opacity = "";
+      return;
+    }
+    const now = this.now();
+    const from = this.layoutTransition === null ? 0 : this.layoutTransitionRevealAt(now);
+    this.layoutTransition = { from, startMs: now };
     this.scheduler.requestFrame();
   }
 
@@ -458,6 +915,7 @@ export class DirectorGraphCanvas {
           : this.snapshot.nodeCount - 1
         : Math.min(this.snapshot.nodeCount - 1, Math.max(0, current + direction));
     if (this.view.setHovered(next)) {
+      this.labelsDirty = true;
       this.scheduler.requestFrame();
     }
   }
@@ -487,7 +945,16 @@ export class DirectorGraphCanvas {
   }
 
   resetPerformanceSampling(): void {
-    this.gpuTimer.reset();
+    this.performanceSampling = true;
+    if (this.gpuTimer === null) {
+      // Timer queries are diagnostic work. Production never creates them; the
+      // purpose-built harness opts in before its first measured frame.
+      this.gpuTimer = new GraphGpuTimer(this.renderer.context());
+    } else {
+      this.gpuTimer.reset();
+    }
+    this.stopLongTasks?.();
+    this.stopLongTasks = observeGraphLongTasks(this.sampler);
     this.sampler.reset();
   }
 
@@ -495,19 +962,13 @@ export class DirectorGraphCanvas {
     return this.snapshot;
   }
 
-  /**
-   * The tier, adaptive scale, and pass sizes a performance report has to state.
-   * Derived values would drift from the ones actually in force, because both the
-   * tier and the scale move while a sample runs.
-   */
+  /** The fixed profile and pass sizes a performance report has to state. */
   qualityState(): GraphCanvasQuality {
-    const decision = this.quality.current();
     const surfaces = this.renderer.surfaceSizes();
     return {
-      tier: decision.profile.tier,
+      tier: this.profile.tier,
       viewport: this.options.viewportOf(),
       devicePixelRatio: this.options.devicePixelRatioOf(),
-      renderScale: decision.renderScale,
       postWidth: surfaces.postWidth,
       postHeight: surfaces.postHeight,
       sceneWidth: surfaces.sceneWidth,
@@ -520,9 +981,10 @@ export class DirectorGraphCanvas {
       return;
     }
     this.disposed = true;
+    this.options.interactionRoot?.removeAttribute("data-openable-thread");
     this.scheduler.stop();
-    this.stopLongTasks();
-    this.gpuTimer.dispose();
+    this.stopLongTasks?.();
+    this.gpuTimer?.dispose();
     this.labels.dispose();
     this.renderer.dispose();
   }
@@ -549,19 +1011,53 @@ export class DirectorGraphCanvas {
         anchorOffset: this.layout.nodeWorldY(anchor) - this.view.camera(),
       };
     }
+    this.labelsDirty = true;
     this.scheduler.requestFrame();
   }
 
+  private assertReflowTopology(next: PackedGraphSnapshot): void {
+    if (!graphSnapshotsShareReflowShape(this.snapshot, next)) {
+      throw new Error("director graph reflow changed snapshot topology");
+    }
+    assertGraphReflowNodes(this.snapshot, next);
+    assertGraphReflowEdges(this.snapshot, next);
+    assertGraphReflowTurns(this.snapshot, next);
+  }
+
   private pointerScene() {
+    const viewport = this.options.viewportOf();
+    const fit = graphFitFrame(viewport.width, viewport.height);
     return {
       snapshot: this.snapshot,
       placedNodeCount: Math.min(this.snapshot.nodeCount, this.layout.placedNodeCount()),
-      worldY: this.layout.worldYColumn(),
-      open: this.layout.openColumn(),
-      cameraWorldY: this.view.camera(),
+      worldY: this.frameWorldY,
+      open: this.frameOpen,
+      cameraWorldY: this.view.visualCamera(fit, viewport),
       timeSeconds: this.options.timeSecondsAt(this.lastFrameTimestampMs),
-      viewport: this.options.viewportOf(),
+      viewport,
+      directorNodeEnd: this.directorNodeEnd,
+      supportingNodeScale: this.supportingNodeScale(),
     };
+  }
+
+  /** A multi-row grid splits wheel ownership; one row travels with the Director. */
+  private scrollOwnerAt(point: GraphScreenPoint): GraphScrollOwner {
+    if (!this.supportingGridHasMultipleRows) {
+      return "director";
+    }
+    return graphOverviewScrollOwner(
+      this.presentation,
+      point.x,
+      this.options.viewportOf(),
+      this.nearestSupportingGridLaneDistance,
+    );
+  }
+
+  private resetSupportingGridScroll(): void {
+    this.supportingGridScroll.reset();
+    this.supportingGridBounds.oldestCameraWorldY = 0;
+    this.supportingGridBounds.liveEdgeWorldY = 0;
+    this.supportingGridStickyOffsetWorldY = 0;
   }
 
   private drainQueue(): boolean {
@@ -573,54 +1069,139 @@ export class DirectorGraphCanvas {
     const next = extendPackedGraphSnapshot(this.snapshot, batch);
     this.packer.noteChanged(next.changed.nodesFrom, next.changed.edgesFrom);
     this.snapshot = next;
+    this.updateOverviewRanges();
+    this.labelsDirty = true;
     return true;
   }
 
+  /** Caches overview ranges so wheel input and split draws stay constant-time. */
+  private updateOverviewRanges(): void {
+    this.nearestSupportingGridLaneDistance = Number.POSITIVE_INFINITY;
+    this.supportingGridHasMultipleRows = false;
+    let supportingGridTop: number | null = null;
+    for (let turn = 0; turn < this.snapshot.turnCount; turn += 1) {
+      if (packedValueAt(this.snapshot.turns.column, turn) === 0) {
+        continue;
+      }
+      const columnTop = packedValueAt(this.snapshot.turns.columnTop, turn);
+      if (supportingGridTop === null) {
+        supportingGridTop = columnTop;
+      } else if (Math.abs(columnTop - supportingGridTop) > 0.001) {
+        this.supportingGridHasMultipleRows = true;
+      }
+      const inputNode = packedValueAt(this.snapshot.turns.inputNode, turn);
+      this.nearestSupportingGridLaneDistance = Math.min(
+        this.nearestSupportingGridLaneDistance,
+        Math.abs(packedValueAt(this.snapshot.nodes.lane, inputNode)),
+      );
+    }
+
+    // Director nodes are packed first, so their particle draw is one range.
+    const directorWorkstreamId = this.selfWorkstreamId;
+    if (
+      directorWorkstreamId === null ||
+      this.snapshot.turnWorkstreamIds[0] !== directorWorkstreamId
+    ) {
+      this.directorNodeEnd = 0;
+      return;
+    }
+    let end = 0;
+    while (end < this.snapshot.nodeCount) {
+      const turn = packedValueAt(this.snapshot.nodes.turn, end);
+      if (this.snapshot.turnWorkstreamIds[turn] !== directorWorkstreamId) {
+        break;
+      }
+      end += 1;
+    }
+    this.directorNodeEnd = end;
+  }
+
   private frame(timing: GraphFrameTiming): GraphFrameOutcome {
-    const frameStart = this.stopwatch.beginFrame();
+    const context = this.beginGraphFrame(timing);
+    const projection = this.advanceGraphProjection(timing, context);
+    const packed = this.packGraphProjection(projection);
+    this.drawGraphFrame(context, projection, packed);
+    this.refreshFrameLabels(context, projection, packed.nodes);
+    this.finishFramePerformance(context.frameStart, timing);
+    return this.decideOutcome(
+      projection.ladder,
+      context.timeSeconds,
+      projection.arrived,
+      projection.hovering,
+    );
+  }
+
+  private beginGraphFrame(timing: GraphFrameTiming): GraphFrameContext {
+    const frameStart = this.performanceSampling ? this.stopwatch.beginFrame() : 0;
     this.lastFrameTimestampMs = timing.timestampMs;
     const timeSeconds = this.options.timeSecondsAt(timing.timestampMs);
-    const viewport = this.options.viewportOf();
-    const devicePixelRatio = this.options.devicePixelRatioOf();
+    if (!this.reducedMotion) {
+      this.fieldTimeSeconds += timing.deltaSeconds;
+    }
+    this.loadingAmount = advanceGraphLoadingAmount(
+      this.loadingAmount,
+      this.loading,
+      timing.deltaSeconds,
+      this.reducedMotion,
+    );
+    this.advanceArtifactField(timing.deltaSeconds);
+    return {
+      devicePixelRatio: this.options.devicePixelRatioOf(),
+      frameStart,
+      timeSeconds,
+      viewport: this.options.viewportOf(),
+    };
+  }
 
-    this.stopwatch.begin("projection");
+  private advanceArtifactField(deltaSeconds: number): void {
+    this.artifactParticleFlowAmount = advanceGraphArtifactParticleAmount(
+      this.artifactParticleFlowAmount,
+      this.artifactParticleStyle === "particle-flow" ? 1 : 0,
+      deltaSeconds,
+      this.reducedMotion,
+    );
+    this.artifactFluidAmount = advanceGraphArtifactParticleAmount(
+      this.artifactFluidAmount,
+      this.artifactParticleStyle === "fluid" ? 1 : 0,
+      deltaSeconds,
+      this.reducedMotion,
+    );
+    this.artifactSeedX = advanceGraphArtifactParticleAmount(
+      this.artifactSeedX,
+      this.artifactSeedTargetX,
+      deltaSeconds,
+      this.reducedMotion,
+    );
+    this.artifactSeedY = advanceGraphArtifactParticleAmount(
+      this.artifactSeedY,
+      this.artifactSeedTargetY,
+      deltaSeconds,
+      this.reducedMotion,
+    );
+  }
+
+  private advanceGraphProjection(
+    timing: GraphFrameTiming,
+    context: GraphFrameContext,
+  ): GraphProjectedFrame {
+    if (this.performanceSampling) {
+      this.stopwatch.begin("projection");
+    }
     const arrived = this.drainQueue();
     const ladder = this.layout.advance(this.snapshot, {
-      timeSeconds,
+      timeSeconds: context.timeSeconds,
       deltaSeconds: timing.deltaSeconds,
       pinnedTurns: this.view.pins(),
       reducedMotion: this.reducedMotion,
-      alignColumnsToLiveEdge: this.presentation === "columns",
+      cameraColumn: this.presentation === "conversation" ? undefined : 0,
       anchorFoldsToOutcome: this.presentation === "grid",
     });
-    this.bounds = {
-      contentTopWorldY: ladder.contentTopWorldY,
-      liveEdgeWorldY: ladder.liveEdgeWorldY,
-      lookBackMargin: graphLookBackMargin(graphFitFrame(viewport.width, viewport.height).fitY),
-    };
-    if (this.unfoldFocus !== null && !ladder.foldAnimating) {
-      // The expansion has landed; the camera may drift back to the live edge.
-      this.unfoldFocus = null;
-    }
-    this.view.followLiveEdge(
-      this.unfoldFocus !== null
-        ? // Hold the clicked outcome still while its ladder unfurls: the
-          // camera rides the node's own layout motion instead of easing to
-          // the live edge mid-expansion.
-          this.layout.nodeWorldY(this.unfoldFocus.nodeIndex) - this.unfoldFocus.anchorOffset
-        : this.arriveAtLiveEdge
-          ? ladder.liveEdgeWorldY
-          : advanceGraphCamera(
-              this.view.camera(),
-              ladder.liveEdgeWorldY,
-              timing.deltaSeconds,
-              this.reducedMotion,
-            ),
+    const { cameraMoved, visualCamera } = this.advanceGraphCamera(
+      ladder,
+      timing.deltaSeconds,
+      context.viewport,
     );
-    // Every frame, detached included: the content moves under a camera that has
-    // not, and a camera outside it draws nothing with no way to say so.
-    this.view.clampToContent(this.bounds);
-    this.arriveAtLiveEdge = false;
+    const projection = this.projectWorldY(ladder);
     const hovering = this.view.hovered() !== null;
     this.hoverAmount = advanceHoverAmount(
       this.hoverAmount,
@@ -629,13 +1210,79 @@ export class DirectorGraphCanvas {
       graphMotionRates.hover,
       this.reducedMotion,
     );
+    return { arrived, cameraMoved, hovering, ladder, projection, visualCamera };
+  }
 
-    this.stopwatch.begin("packing");
-    const scene = this.packer.sync(this.snapshot, ladder, {
-      from: ladder.dirtyFrom,
-      to: ladder.dirtyTo,
-    });
-    const profile = this.quality.current().profile;
+  private advanceGraphCamera(
+    ladder: GraphLadderFrame,
+    deltaSeconds: number,
+    viewport: GraphViewport,
+  ): { readonly cameraMoved: boolean; readonly visualCamera: number } {
+    const fit = graphFitFrame(viewport.width, viewport.height);
+    const cameraBefore = this.view.camera();
+    const visualCameraBefore = this.view.visualCamera(fit, viewport);
+    this.updateGraphCameraBounds(ladder, fit.fitY);
+    if (this.unfoldFocus !== null && !ladder.foldAnimating) {
+      // The expansion has landed; the camera may drift back to the live edge.
+      this.unfoldFocus = null;
+    }
+    this.view.followLiveEdge(this.graphCameraFollowTarget(deltaSeconds));
+    // Every frame, detached included: the content moves under a camera that has
+    // not, and a camera outside it draws nothing with no way to say so.
+    this.view.clampToContent(this.bounds);
+    const elasticReturnIntensity = this.view.advanceElastic(deltaSeconds, this.reducedMotion);
+    this.advanceDirectorEdgeDisturbance(elasticReturnIntensity, deltaSeconds);
+    const visualCamera = this.view.visualCamera(fit, viewport);
+    const cameraMoved = this.view.camera() !== cameraBefore || visualCamera !== visualCameraBefore;
+    this.arriveAtLiveEdge = false;
+    return { cameraMoved, visualCamera };
+  }
+
+  private updateGraphCameraBounds(ladder: GraphLadderFrame, fitY: number): void {
+    this.directorCameraBounds.oldestCameraWorldY = graphOldestCameraWorldY(
+      ladder.contentTopWorldY,
+      fitY,
+      this.presentation,
+    );
+    this.directorCameraBounds.liveEdgeWorldY = ladder.liveEdgeWorldY;
+    this.automaticLiveEdgeWorldY =
+      this.presentation === "columns" ||
+      (this.presentation === "grid" && !this.supportingGridHasMultipleRows)
+        ? ladder.furthestLiveEdgeWorldY
+        : ladder.liveEdgeWorldY;
+    this.bounds = {
+      oldestCameraWorldY: this.directorCameraBounds.oldestCameraWorldY,
+      liveEdgeWorldY: this.automaticLiveEdgeWorldY,
+    };
+  }
+
+  private graphCameraFollowTarget(deltaSeconds: number): number {
+    if (this.unfoldFocus !== null) {
+      // Hold the clicked outcome still while its ladder unfurls: the camera
+      // rides the node's own layout motion instead of easing to the live edge.
+      return this.layout.nodeWorldY(this.unfoldFocus.nodeIndex) - this.unfoldFocus.anchorOffset;
+    }
+    if (this.arriveAtLiveEdge) {
+      return this.automaticLiveEdgeWorldY;
+    }
+    return advanceGraphCamera(
+      this.view.camera(),
+      this.automaticLiveEdgeWorldY,
+      deltaSeconds,
+      this.reducedMotion,
+    );
+  }
+
+  private packGraphProjection(projection: GraphProjectedFrame): GraphPackedFrame {
+    if (this.performanceSampling) {
+      this.stopwatch.begin("packing");
+    }
+    const scene = this.packer.sync(
+      this.snapshot,
+      { worldY: projection.projection.worldY, open: projection.projection.open },
+      { from: projection.projection.dirtyFrom, to: projection.projection.dirtyTo },
+    );
+    const profile = this.profile;
     /*
      * Culling reads worldY as sorted, which it is down one column and is not
      * across several: each column restarts at its own top, so a binary search
@@ -644,37 +1291,499 @@ export class DirectorGraphCanvas {
      * wrongly.
      */
     const nodes =
-      ladder.columnCount > 1
+      projection.ladder.columnCount > 1
         ? { from: 0, to: this.snapshot.nodeCount }
         : graphVisibleNodeRange(
-            ladder.worldY,
+            projection.projection.worldY,
             this.snapshot.nodeCount,
-            this.view.camera(),
+            projection.visualCamera,
             profile.visibleHalfWindow,
           );
     const edges = graphVisibleEdgeRange(this.snapshot.edges.to, this.snapshot.edgeCount, nodes);
+    return { edges, nodes, scene };
+  }
 
-    this.stopwatch.begin("upload");
-    this.applyViewport(viewport, devicePixelRatio);
-    this.renderer.upload(scene);
+  private drawGraphFrame(
+    context: GraphFrameContext,
+    projection: GraphProjectedFrame,
+    packed: GraphPackedFrame,
+  ): void {
+    if (this.performanceSampling) {
+      this.stopwatch.begin("upload");
+    }
+    this.applyViewport(context.viewport, context.devicePixelRatio);
+    this.renderer.upload(packed.scene);
 
-    this.stopwatch.begin("draw");
-    this.gpuTimer.beginFrame();
+    if (this.performanceSampling) {
+      this.stopwatch.begin("draw");
+      this.gpuTimer?.beginFrame();
+    }
     this.renderer.render({
       snapshot: this.snapshot,
-      scene,
-      worldY: ladder.worldY,
-      nodes,
-      edges,
-      view: this.renderView(timeSeconds),
+      scene: packed.scene,
+      worldY: projection.projection.worldY,
+      nodes: packed.nodes,
+      edges: packed.edges,
+      view: this.renderView(context.timeSeconds, projection.visualCamera),
     });
-    this.gpuTimer.endFrame();
-    this.stopwatch.end();
-    this.resolvePixelChecks(viewport);
+    if (this.performanceSampling) {
+      this.gpuTimer?.endFrame();
+      this.stopwatch.end();
+    }
+    this.resolvePixelChecks(context.viewport);
+  }
 
-    this.updateLabels(timeSeconds, viewport, nodes);
-    this.recordFrame(frameStart, timing);
-    return this.decideOutcome(ladder, timeSeconds, arrived, hovering);
+  private refreshFrameLabels(
+    context: GraphFrameContext,
+    projection: GraphProjectedFrame,
+    nodes: GraphUploadRange,
+  ): void {
+    if (
+      this.labelsDirty ||
+      projection.cameraMoved ||
+      projection.projection.dirtyFrom < projection.projection.dirtyTo ||
+      context.timeSeconds < projection.ladder.quietUntilSeconds
+    ) {
+      this.updateLabels(context.timeSeconds, context.viewport, nodes, projection.visualCamera);
+      this.labelsDirty = false;
+    }
+  }
+
+  private finishFramePerformance(frameStart: number, timing: GraphFrameTiming): void {
+    if (this.performanceSampling) {
+      this.recordFrame(frameStart, timing);
+    }
+  }
+
+  /** Decays one scalar; the opt-in wake adds no buffers or particles. */
+  private advanceDirectorEdgeDisturbance(returnIntensity: number, deltaSeconds: number): void {
+    if (
+      !this.directorEdgeDisturbanceEnabled ||
+      this.reducedMotion ||
+      this.presentation === "conversation" ||
+      this.directorNodeEnd === 0
+    ) {
+      this.directorEdgeDisturbance = 0;
+      return;
+    }
+    const decayed =
+      this.directorEdgeDisturbance *
+      Math.exp(-Math.max(0, deltaSeconds) * directorEdgeDisturbanceDecayPerSecond);
+    this.directorEdgeDisturbance = Math.max(returnIntensity, decayed);
+    if (this.directorEdgeDisturbance < directorEdgeDisturbanceEpsilon) {
+      this.directorEdgeDisturbance = 0;
+    }
+  }
+
+  /**
+   * Projects side-thread summaries without moving Director history.
+   *
+   * Columns and a one-row grid move with the Director camera until each shorter
+   * thread reaches the Director's own top or bottom. Only a multi-row grid owns
+   * an independent camera shared by both flanks; its final offset cancels
+   * Director camera motion while its start and end remain the Director's own
+   * two stops. Grid rows therefore scroll as one coherent document and never
+   * shear apart. Both overview presentations share trail fading and
+   * interruptible snapshot motion.
+   */
+  private projectWorldY(ladder: GraphLadderFrame): {
+    readonly worldY: Float32Array;
+    readonly open: Float32Array;
+    readonly dirtyFrom: number;
+    readonly dirtyTo: number;
+  } {
+    if (this.presentation === "conversation" || this.snapshot.turnCount <= 1) {
+      return this.useLadderProjection(ladder);
+    }
+
+    const { columnCount, columnsReallocated, firstSideNode } = this.prepareOverviewColumns(ladder);
+    if (firstSideNode >= this.snapshot.nodeCount) {
+      return this.useLadderProjection(ladder);
+    }
+
+    this.applyOverviewColumnOffsets(ladder, columnCount);
+    const reallocated = this.ensureOverviewProjectionCapacity();
+    this.writeOverviewProjection(ladder);
+    this.applyOverviewTrailOpacity();
+    const transitionActive = this.applyOverviewSnapshotTransition();
+    const offsetChanged = this.commitOverviewColumnOffsets(columnsReallocated, columnCount);
+    this.frameWorldY = this.projectedWorldY;
+    this.frameOpen = this.projectedOpen;
+    return {
+      worldY: this.projectedWorldY,
+      open: this.projectedOpen,
+      dirtyFrom: this.overviewProjectionDirtyFrom({
+        firstSideNode,
+        ladderDirtyFrom: ladder.dirtyFrom,
+        offsetChanged,
+        reallocated,
+        transitionActive,
+      }),
+      dirtyTo: this.snapshot.nodeCount,
+    };
+  }
+
+  private useLadderProjection(ladder: GraphLadderFrame) {
+    this.frameWorldY = ladder.worldY;
+    this.frameOpen = ladder.open;
+    this.lastOverviewColumnOffsetWorldY.fill(Number.NaN);
+    this.resetSupportingGridScroll();
+    this.overviewSnapshotTransition = null;
+    return {
+      dirtyFrom: ladder.dirtyFrom,
+      dirtyTo: ladder.dirtyTo,
+      open: ladder.open,
+      worldY: ladder.worldY,
+    };
+  }
+
+  private prepareOverviewColumns(ladder: GraphLadderFrame): {
+    readonly columnCount: number;
+    readonly columnsReallocated: boolean;
+    readonly firstSideNode: number;
+  } {
+    const columnCount = ladder.columnCount;
+    const columnsReallocated = this.overviewColumnTopWorldY.length < columnCount;
+    if (columnsReallocated) {
+      this.allocateOverviewColumns(columnCount);
+    }
+    this.overviewColumnTopWorldY.fill(Number.POSITIVE_INFINITY, 0, columnCount);
+    this.overviewColumnBottomWorldY.fill(Number.NEGATIVE_INFINITY, 0, columnCount);
+    this.overviewColumnOffsetWorldY.fill(0, 0, columnCount);
+    return {
+      columnCount,
+      columnsReallocated,
+      firstSideNode: this.measureOverviewColumns(ladder),
+    };
+  }
+
+  private allocateOverviewColumns(columnCount: number): void {
+    const capacity = graphProjectionCapacity(columnCount);
+    this.overviewColumnTopWorldY = new Float32Array(capacity);
+    this.overviewColumnBottomWorldY = new Float32Array(capacity);
+    this.overviewColumnOffsetWorldY = new Float32Array(capacity);
+    this.lastOverviewColumnOffsetWorldY = new Float32Array(capacity);
+    this.lastOverviewColumnOffsetWorldY.fill(Number.NaN);
+  }
+
+  private measureOverviewColumns(ladder: GraphLadderFrame): number {
+    let firstSideNode = this.snapshot.nodeCount;
+    for (let index = 0; index < this.snapshot.nodeCount; index += 1) {
+      const turn = packedValueAt(this.snapshot.nodes.turn, index);
+      const column = packedValueAt(this.snapshot.turns.column, turn);
+      if (column === 0) {
+        continue;
+      }
+      const worldY = packedValueAt(ladder.worldY, index);
+      this.overviewColumnTopWorldY[column] = Math.min(
+        packedValueAt(this.overviewColumnTopWorldY, column),
+        worldY,
+      );
+      this.overviewColumnBottomWorldY[column] = Math.max(
+        packedValueAt(this.overviewColumnBottomWorldY, column),
+        worldY,
+      );
+      firstSideNode = Math.min(firstSideNode, index);
+    }
+    return firstSideNode;
+  }
+
+  private applyOverviewColumnOffsets(ladder: GraphLadderFrame, columnCount: number): void {
+    const directorBounds = { bottom: ladder.liveEdgeWorldY, top: ladder.contentTopWorldY };
+    if (this.presentation === "grid" && this.supportingGridHasMultipleRows) {
+      this.applySupportingGridColumnOffsets(columnCount, directorBounds);
+      return;
+    }
+    this.applyIndependentOverviewColumnOffsets(columnCount, directorBounds);
+  }
+
+  private applySupportingGridColumnOffsets(
+    columnCount: number,
+    directorBounds: { readonly bottom: number; readonly top: number },
+  ): void {
+    let sideTop = Number.POSITIVE_INFINITY;
+    let sideBottom = Number.NEGATIVE_INFINITY;
+    for (let column = 1; column < columnCount; column += 1) {
+      sideTop = Math.min(sideTop, packedValueAt(this.overviewColumnTopWorldY, column));
+      sideBottom = Math.max(sideBottom, packedValueAt(this.overviewColumnBottomWorldY, column));
+    }
+    const sideBounds = { bottom: sideBottom, top: sideTop };
+    graphDirectorAnchoredScrollBounds(
+      sideBounds,
+      directorBounds,
+      this.directorCameraBounds,
+      this.supportingGridBounds,
+    );
+    this.supportingGridScroll.reconcile(this.supportingGridBounds);
+    const gridCameraWorldY = this.supportingGridScroll.camera();
+    this.supportingGridStickyOffsetWorldY = graphDirectorBoundedThreadWorldOffset(
+      sideBounds,
+      directorBounds,
+      this.directorCameraBounds,
+      gridCameraWorldY,
+      this.supportingGridStickyOffsetWorldY,
+    );
+    const offset = this.view.camera() - gridCameraWorldY + this.supportingGridStickyOffsetWorldY;
+    this.overviewColumnOffsetWorldY.fill(offset, 1, columnCount);
+  }
+
+  private applyIndependentOverviewColumnOffsets(
+    columnCount: number,
+    directorBounds: { readonly bottom: number; readonly top: number },
+  ): void {
+    this.resetSupportingGridScroll();
+    for (let column = 1; column < columnCount; column += 1) {
+      const top = packedValueAt(this.overviewColumnTopWorldY, column);
+      const bottom = packedValueAt(this.overviewColumnBottomWorldY, column);
+      if (!Number.isFinite(top) || !Number.isFinite(bottom)) {
+        continue;
+      }
+      this.overviewColumnOffsetWorldY[column] = graphDirectorBoundedThreadWorldOffset(
+        { bottom, top },
+        directorBounds,
+        this.directorCameraBounds,
+        this.view.camera(),
+        packedValueAt(this.lastOverviewColumnOffsetWorldY, column),
+      );
+    }
+  }
+
+  private ensureOverviewProjectionCapacity(): boolean {
+    const reallocated =
+      this.projectedWorldY.length < this.snapshot.nodeCount ||
+      this.projectedOpen.length < this.snapshot.nodeCount;
+    if (reallocated) {
+      const capacity = graphProjectionCapacity(this.snapshot.nodeCount);
+      this.projectedWorldY = new Float32Array(capacity);
+      this.projectedOpen = new Float32Array(capacity);
+    }
+    return reallocated;
+  }
+
+  private writeOverviewProjection(ladder: GraphLadderFrame): void {
+    for (let index = 0; index < this.snapshot.nodeCount; index += 1) {
+      const turn = packedValueAt(this.snapshot.nodes.turn, index);
+      const column = packedValueAt(this.snapshot.turns.column, turn);
+      this.projectedWorldY[index] =
+        packedValueAt(ladder.worldY, index) +
+        packedValueAt(this.overviewColumnOffsetWorldY, column);
+      this.projectedOpen[index] = packedValueAt(ladder.open, index);
+    }
+  }
+
+  private commitOverviewColumnOffsets(reallocated: boolean, columnCount: number): boolean {
+    let changed = reallocated;
+    for (let column = 1; column < columnCount; column += 1) {
+      const offset = packedValueAt(this.overviewColumnOffsetWorldY, column);
+      const previous = packedValueAt(this.lastOverviewColumnOffsetWorldY, column);
+      if (!Number.isFinite(previous) || Math.abs(offset - previous) > 0.000_000_1) {
+        changed = true;
+      }
+      this.lastOverviewColumnOffsetWorldY[column] = offset;
+    }
+    return changed;
+  }
+
+  private overviewProjectionDirtyFrom({
+    firstSideNode,
+    ladderDirtyFrom,
+    offsetChanged,
+    reallocated,
+    transitionActive,
+  }: {
+    readonly firstSideNode: number;
+    readonly ladderDirtyFrom: number;
+    readonly offsetChanged: boolean;
+    readonly reallocated: boolean;
+    readonly transitionActive: boolean;
+  }): number {
+    if (reallocated) {
+      return 0;
+    }
+    const overviewDirtyFrom =
+      offsetChanged || transitionActive ? firstSideNode : this.snapshot.nodeCount;
+    return Math.min(ladderDirtyFrom, overviewDirtyFrom);
+  }
+
+  /**
+   * Fades a grid tile from its newest fact into at most two hints of history.
+   * Side-by-side columns retain their complete thread shapes. Dense grids
+   * already contain one node per side thread, so their sole node stays fully
+   * opaque and simply adopts the latest visual type.
+   */
+  private applyOverviewTrailOpacity(): void {
+    if (this.presentation !== "grid") {
+      return;
+    }
+    let first = 0;
+    while (first < this.snapshot.nodeCount) {
+      const turn = packedValueAt(this.snapshot.nodes.turn, first);
+      let end = first + 1;
+      while (
+        end < this.snapshot.nodeCount &&
+        packedValueAt(this.snapshot.nodes.turn, end) === turn
+      ) {
+        end += 1;
+      }
+      const side = packedValueAt(this.snapshot.turns.column, turn) !== 0;
+      if (side) {
+        for (let index = first; index < end; index += 1) {
+          const distanceFromNewest = end - index - 1;
+          this.projectedOpen[index] =
+            packedValueAt(this.projectedOpen, index) *
+            Math.pow(graphGridTrailOpacityDecay, distanceFromNewest);
+        }
+      }
+      first = end;
+    }
+  }
+
+  /** Captures the currently drawn state so the next snapshot can retarget it. */
+  private captureOverviewSnapshotTransition(
+    next: PackedGraphSnapshot,
+  ): GraphOverviewSnapshotTransition | null {
+    if (!this.canCaptureOverviewSnapshotTransition(next)) {
+      return null;
+    }
+    const { from, latestByWorkstream } = this.captureOverviewSnapshotNodeStates(next);
+    if (from.size === 0 && latestByWorkstream.size === 0) {
+      return null;
+    }
+    const viewport = this.options.viewportOf();
+    const fit = graphFitFrame(viewport.width, viewport.height);
+    return {
+      cameraWorldY: this.view.visualCamera(fit, viewport),
+      from,
+      latestByWorkstream,
+      startMs: this.now(),
+    };
+  }
+
+  private canCaptureOverviewSnapshotTransition(next: PackedGraphSnapshot): boolean {
+    return (
+      !this.reducedMotion &&
+      this.presentation !== "conversation" &&
+      !this.presentationChanged &&
+      next.workstreamId === this.snapshot.workstreamId &&
+      this.snapshot.turnCount > 1 &&
+      next.turnCount > 1
+    );
+  }
+
+  private captureOverviewSnapshotNodeStates(next: PackedGraphSnapshot): {
+    readonly from: Map<string, GraphOverviewSnapshotNodeState>;
+    readonly latestByWorkstream: Map<string, GraphOverviewSnapshotNodeState>;
+  } {
+    const from = new Map<string, GraphOverviewSnapshotNodeState>();
+    const latestByWorkstream = new Map<string, GraphOverviewSnapshotNodeState>();
+    const nextWorkstreams = new Set(next.turnWorkstreamIds);
+    const placed = Math.min(
+      this.snapshot.nodeCount,
+      this.layout.placedNodeCount(),
+      this.frameWorldY.length,
+      this.frameOpen.length,
+    );
+    for (let index = 0; index < placed; index += 1) {
+      const id = this.snapshot.nodes.ids[index];
+      const turn = packedValueAt(this.snapshot.nodes.turn, index);
+      if (packedValueAt(this.snapshot.turns.column, turn) === 0) {
+        continue;
+      }
+      const state = {
+        open: packedValueAt(this.frameOpen, index),
+        worldY: packedValueAt(this.frameWorldY, index),
+      } satisfies GraphOverviewSnapshotNodeState;
+      if (id !== undefined && next.nodeIndexById.has(id)) {
+        from.set(id, state);
+      }
+      this.captureLatestOverviewWorkstreamState({
+        index,
+        latestByWorkstream,
+        nextWorkstreams,
+        placed,
+        state,
+        turn,
+      });
+    }
+    return { from, latestByWorkstream };
+  }
+
+  private captureLatestOverviewWorkstreamState({
+    index,
+    latestByWorkstream,
+    nextWorkstreams,
+    placed,
+    state,
+    turn,
+  }: {
+    readonly index: number;
+    readonly latestByWorkstream: Map<string, GraphOverviewSnapshotNodeState>;
+    readonly nextWorkstreams: ReadonlySet<string>;
+    readonly placed: number;
+    readonly state: GraphOverviewSnapshotNodeState;
+    readonly turn: number;
+  }): void {
+    const lastInTurn =
+      index + 1 >= placed || packedValueAt(this.snapshot.nodes.turn, index + 1) !== turn;
+    const workstreamId = this.snapshot.turnWorkstreamIds[turn];
+    if (lastInTurn && workstreamId !== undefined && nextWorkstreams.has(workstreamId)) {
+      latestByWorkstream.set(workstreamId, state);
+    }
+  }
+
+  /** Applies one interruptible smooth step to matching nodes in the new snapshot. */
+  private applyOverviewSnapshotTransition(): boolean {
+    const transition = this.overviewSnapshotTransition;
+    if (transition === null) {
+      return false;
+    }
+    const progress = Math.max(
+      0,
+      Math.min(1, (this.now() - transition.startMs) / graphOverviewSnapshotTransitionMs),
+    );
+    // Smoothstep starts at zero velocity, so the first painted frame cannot
+    // preserve a smaller version of the snap this transition is removing.
+    const eased = progress * progress * (3 - 2 * progress);
+    const viewport = this.options.viewportOf();
+    const fit = graphFitFrame(viewport.width, viewport.height);
+    const visualCamera = this.view.visualCamera(fit, viewport);
+    for (let index = 0; index < this.snapshot.nodeCount; index += 1) {
+      const from = this.overviewTransitionSourceAt(index, transition);
+      if (from === undefined) {
+        continue;
+      }
+      const screenStableFromWorldY = from.worldY + (visualCamera - transition.cameraWorldY);
+      this.projectedWorldY[index] =
+        screenStableFromWorldY +
+        (packedValueAt(this.projectedWorldY, index) - screenStableFromWorldY) * eased;
+      this.projectedOpen[index] =
+        from.open + (packedValueAt(this.projectedOpen, index) - from.open) * eased;
+    }
+    if (progress >= 1) {
+      this.overviewSnapshotTransition = null;
+    }
+    // The completion frame still changed state: upload and place labels at the
+    // exact target before the scheduler is allowed to sleep.
+    return true;
+  }
+
+  private overviewTransitionSourceAt(
+    index: number,
+    transition: GraphOverviewSnapshotTransition,
+  ): GraphOverviewSnapshotNodeState | undefined {
+    const id = this.snapshot.nodes.ids[index];
+    const matching = id === undefined ? undefined : transition.from.get(id);
+    if (matching !== undefined) {
+      return matching;
+    }
+    const turn = packedValueAt(this.snapshot.nodes.turn, index);
+    const newestInTurn =
+      index + 1 >= this.snapshot.nodeCount ||
+      packedValueAt(this.snapshot.nodes.turn, index + 1) !== turn;
+    const workstreamId = this.snapshot.turnWorkstreamIds[turn];
+    return newestInTurn && workstreamId !== undefined
+      ? transition.latestByWorkstream.get(workstreamId)
+      : undefined;
   }
 
   private resolvePixelChecks(viewport: GraphViewport): void {
@@ -697,22 +1806,38 @@ export class DirectorGraphCanvas {
     }
   }
 
-  private renderView(timeSeconds: number): GraphRenderView {
+  private renderView(timeSeconds: number, visualCameraWorldY: number): GraphRenderView {
     const hovered = this.view.hovered();
-    const switchMotion = this.workstreamSwitchMotion();
-    if (this.firstFrameTimeSeconds === null) {
-      this.firstFrameTimeSeconds = timeSeconds;
+    const now = this.now();
+    const switchMotion = this.workstreamSwitchMotion(now);
+    const layoutReveal = this.layoutTransitionRevealAt(now);
+    const artifactAmount = Math.min(1, this.artifactParticleFlowAmount + this.artifactFluidAmount);
+    const labelOpacity =
+      switchMotion.labelOpacity * layoutReveal * layoutReveal * (1 - artifactAmount);
+    const labelOpacityValue = labelOpacity >= 0.999 ? "" : String(labelOpacity);
+    if (this.options.labelRoot.style.opacity !== labelOpacityValue) {
+      this.options.labelRoot.style.opacity = labelOpacityValue;
     }
     return {
       timeSeconds,
-      fieldTimeSeconds: timeSeconds - this.firstFrameTimeSeconds,
-      cameraWorldY: this.view.camera(),
+      fieldTimeSeconds: this.fieldTimeSeconds,
+      cameraWorldY: visualCameraWorldY,
+      directorNodeEnd: this.directorNodeEnd,
+      gridTrailOpacity: this.presentation === "grid" ? 1 : 0,
+      supportingNodeScale: this.supportingNodeScale(),
+      directorEdgeDisturbance: this.directorEdgeDisturbance,
       hoverLaneX: hovered === null ? 0 : packedValueAt(this.snapshot.nodes.lane, hovered),
-      hoverWorldY: hovered === null ? 0 : this.layout.nodeWorldY(hovered),
+      hoverWorldY: hovered === null ? 0 : packedValueAt(this.frameWorldY, hovered),
       hoverAmount: this.hoverAmount,
       shiftX: switchMotion.shiftX,
       glitch: switchMotion.glitch,
+      layoutReveal,
       listening: this.listening ? 1 : 0,
+      loadingAmount: this.loadingAmount,
+      artifactParticleFlowAmount: this.artifactParticleFlowAmount,
+      artifactFluidAmount: this.artifactFluidAmount,
+      artifactSeedX: this.artifactSeedX,
+      artifactSeedY: this.artifactSeedY,
       reducedMotion: this.reducedMotion,
     };
   }
@@ -722,139 +1847,290 @@ export class DirectorGraphCanvas {
    * cubically from a full viewport off to rest, and the glitch is the tail of
    * the sine that peaked at the swap (mockup lines 1281–1283).
    */
-  private workstreamSwitchMotion(): { shiftX: number; glitch: number } {
+  private workstreamSwitchMotion(now: number): {
+    shiftX: number;
+    glitch: number;
+    labelOpacity: number;
+  } {
     const active = this.workstreamSwitch;
     if (active === null) {
-      return { shiftX: 0, glitch: 0 };
+      return { shiftX: 0, glitch: 0, labelOpacity: 1 };
     }
-    const progress = (this.now() - active.startMs) / workstreamSwitchSlideMs;
+    const progress = (now - active.startMs) / workstreamSwitchSlideMs;
     if (progress >= 1) {
       this.workstreamSwitch = null;
-      this.options.labelRoot.style.opacity = "";
-      return { shiftX: 0, glitch: 0 };
+      return { shiftX: 0, glitch: 0, labelOpacity: 1 };
     }
     const remaining = 1 - progress;
-    // Labels are DOM and cannot ride the shader's shift, so they fade in with
-    // the slide instead of standing still while the nodes move under them.
-    this.options.labelRoot.style.opacity = String(progress * progress);
     return {
       shiftX: active.direction * remaining * remaining * remaining * 1.7,
       glitch: Math.cos(progress * Math.PI * 0.5),
+      // Labels are DOM and cannot ride the shader's shift, so they fade in
+      // instead of standing still while the nodes move under them.
+      labelOpacity: progress * progress,
     };
+  }
+
+  private layoutTransitionRevealAt(now: number): number {
+    const active = this.layoutTransition;
+    if (active === null) {
+      return 1;
+    }
+    const progress = Math.max(0, (now - active.startMs) / graphLayoutTransitionMs);
+    if (progress >= 1) {
+      this.layoutTransition = null;
+      return 1;
+    }
+    const eased = 1 - (1 - progress) * (1 - progress) * (1 - progress);
+    return active.from + (1 - active.from) * eased;
   }
 
   /**
    * Resizing is the only thing a viewport change decides.
    *
-   * It does not touch the tier. The tier is not chosen from how many pixels the
-   * surface has — see `graphStartingQualityProfile` — so re-deriving it here
-   * would only throw away a tier the graph had earned from measured GPU time,
-   * and pay for a geometry rebuild, every time the window moved a pixel.
-   *
-   * The surface key covers the viewport, the tier, and the scale, so an
-   * adaptive step in either knob reaches the framebuffers on the next frame
-   * instead of waiting for a viewport change to carry it.
+   * It never touches fidelity. The fixed profile's own ceilings bound the
+   * surfaces, and only a real viewport or device-scale change can reallocate
+   * them.
    */
   private applyViewport(viewport: GraphViewport, devicePixelRatio: number): void {
-    const current = this.quality.current();
-    const surfaceKey =
-      `${viewport.width}x${viewport.height}@${devicePixelRatio}` +
-      `|${current.profile.tier}|${current.renderScale}`;
+    const surfaceKey = `${viewport.width}x${viewport.height}@${devicePixelRatio}`;
     if (surfaceKey === this.lastSurfaceKey) {
       return;
     }
     this.lastSurfaceKey = surfaceKey;
-    this.renderer.resize(
-      viewport.width,
-      viewport.height,
-      devicePixelRatio,
-      current.renderScale,
-      this.options.canvas,
-    );
+    this.renderer.resize(viewport.width, viewport.height, devicePixelRatio, this.options.canvas);
   }
 
   private updateLabels(
     timeSeconds: number,
     viewport: GraphViewport,
     nodes: { readonly from: number; readonly to: number },
+    visualCameraWorldY: number,
   ): void {
     if (!this.labelsEnabled) {
-      this.labels.apply(this.snapshot, this.placements, 0, this.presentation === "conversation");
+      this.clearLabels();
       return;
     }
-    let count = computeGraphLabelPlacements(
+    let count = this.computeLabelPlacements(timeSeconds, viewport, nodes, visualCameraWorldY);
+    if (this.presentation !== "conversation") {
+      const hovered = this.view.hovered();
+      count = this.filterOverviewLabels(count, timeSeconds, hovered);
+      this.applyLabelWidthBudget(viewport);
+      this.constrainHoveredTooltip(count, hovered, viewport);
+    }
+    this.applyLabels(count, viewport);
+  }
+
+  private clearLabels(): void {
+    this.labels.apply({
+      count: 0,
+      foldable: this.presentation === "conversation",
+      placements: this.placements,
+      snapshot: this.snapshot,
+    });
+    this.labels.applyColumnTitles([]);
+  }
+
+  private computeLabelPlacements(
+    timeSeconds: number,
+    viewport: GraphViewport,
+    nodes: { readonly from: number; readonly to: number },
+    visualCameraWorldY: number,
+  ): number {
+    return computeGraphLabelPlacements(
       {
         snapshot: this.snapshot,
-        worldY: this.layout.worldYColumn(),
-        open: this.layout.openColumn(),
-        cameraWorldY: this.view.camera(),
+        worldY: this.frameWorldY,
+        open: this.frameOpen,
+        cameraWorldY: visualCameraWorldY,
         timeSeconds,
         viewport,
         hoveredNode: this.view.hovered(),
         visibleFrom: nodes.from,
         visibleTo: nodes.to,
-        activeTurn: graphActiveTurn(this.snapshot, timeSeconds),
+        // Sticky questions belong to the single-thread conversation. In a
+        // composition they fabricate a shared header out of unrelated tiles.
+        activeTurn:
+          this.presentation === "conversation" ? graphActiveTurn(this.snapshot, timeSeconds) : -1,
         reducedMotion: this.reducedMotion,
+        directorNodeEnd: this.directorNodeEnd,
+        supportingNodeScale: this.supportingNodeScale(),
       },
       this.placements,
     );
+  }
+
+  private filterOverviewLabels(
+    count: number,
+    timeSeconds: number,
+    hoveredNode: number | null,
+  ): number {
     /*
      * Threads side by side read as shapes, not sentences: labels stay off so
-     * the constellation is legible. Two things speak — the hovered node, for
-     * as long as it is hovered, and each thread's single freshest change,
-     * which fades quickly. One voice per thread is the overlap rule: two
-     * labels in one tile is already the mess this exists to prevent.
+     * the constellation is legible. A small grid lets each thread's freshest
+     * change speak briefly. A dense activity grid is quieter still: only the
+     * hovered node speaks, so text can never collide with a neighbouring cell.
      */
-    if (this.presentation !== "conversation") {
-      const hovered = this.view.hovered();
-      const freshestPerTurn = new Map<number, { index: number; spokeAt: number }>();
-      for (let index = 0; index < count; index += 1) {
-        const placement = this.placements[index];
-        if (placement === undefined || placement.nodeIndex === hovered) {
-          continue;
-        }
-        const spokeAt = Math.max(
-          packedValueAt(this.snapshot.nodes.bornAt, placement.nodeIndex),
-          packedValueAt(this.snapshot.nodes.settleAt, placement.nodeIndex) - 1,
-        );
-        const age = timeSeconds - spokeAt;
-        if (age < 0 || age >= temporaryLabelSeconds) {
-          continue;
-        }
-        const turn = packedValueAt(this.snapshot.nodes.turn, placement.nodeIndex);
-        const current = freshestPerTurn.get(turn);
-        if (current === undefined || spokeAt > current.spokeAt) {
-          freshestPerTurn.set(turn, { index, spokeAt });
-        }
-      }
-      const keep = new Set([...freshestPerTurn.values()].map((entry) => entry.index));
-      let kept = 0;
-      for (let index = 0; index < count; index += 1) {
-        const placement = this.placements[index];
-        if (placement === undefined) {
-          continue;
-        }
-        if (placement.nodeIndex === hovered) {
-          this.placements[kept] = placement;
-          kept += 1;
-          continue;
-        }
-        if (!keep.has(index)) {
-          continue;
-        }
-        const entry = freshestPerTurn.get(
-          packedValueAt(this.snapshot.nodes.turn, placement.nodeIndex),
-        );
-        const age = timeSeconds - (entry?.spokeAt ?? timeSeconds);
-        placement.opacity *= Math.min(1, (temporaryLabelSeconds - age) / temporaryLabelFadeSeconds);
-        this.placements[kept] = placement;
+    if (this.usesActivityNodeGrid()) {
+      return this.keepHoveredOverviewLabel(count, hoveredNode);
+    }
+    const freshestPerTurn = this.freshestOverviewLabels(count, timeSeconds, hoveredNode);
+    return this.compactFreshOverviewLabels(count, timeSeconds, hoveredNode, freshestPerTurn);
+  }
+
+  private keepHoveredOverviewLabel(count: number, hoveredNode: number | null): number {
+    let kept = 0;
+    for (let index = 0; index < count; index += 1) {
+      const placement = this.placements[index];
+      if (placement?.nodeIndex === hoveredNode) {
+        this.copyLabelPlacement(index, kept);
         kept += 1;
       }
-      count = kept;
-      this.applyLabelWidthBudget(viewport);
     }
-    this.labels.apply(this.snapshot, this.placements, count, this.presentation === "conversation");
+    return kept;
+  }
+
+  private freshestOverviewLabels(
+    count: number,
+    timeSeconds: number,
+    hoveredNode: number | null,
+  ): ReadonlyMap<number, { readonly index: number; readonly spokeAt: number }> {
+    const freshestPerTurn = new Map<number, { index: number; spokeAt: number }>();
+    for (let index = 0; index < count; index += 1) {
+      const placement = this.placements[index];
+      if (placement === undefined || placement.nodeIndex === hoveredNode) {
+        continue;
+      }
+      const spokeAt = Math.max(
+        packedValueAt(this.snapshot.nodes.bornAt, placement.nodeIndex),
+        packedValueAt(this.snapshot.nodes.settleAt, placement.nodeIndex) - 1,
+      );
+      const age = timeSeconds - spokeAt;
+      if (age < 0 || age >= temporaryLabelSeconds) {
+        continue;
+      }
+      const turn = packedValueAt(this.snapshot.nodes.turn, placement.nodeIndex);
+      const current = freshestPerTurn.get(turn);
+      if (current === undefined || spokeAt > current.spokeAt) {
+        freshestPerTurn.set(turn, { index, spokeAt });
+      }
+    }
+    return freshestPerTurn;
+  }
+
+  private compactFreshOverviewLabels(
+    count: number,
+    timeSeconds: number,
+    hoveredNode: number | null,
+    freshestPerTurn: ReadonlyMap<number, { readonly index: number; readonly spokeAt: number }>,
+  ): number {
+    let kept = 0;
+    for (let index = 0; index < count; index += 1) {
+      const placement = this.placements[index];
+      if (placement === undefined) {
+        continue;
+      }
+      if (placement.nodeIndex === hoveredNode) {
+        this.copyLabelPlacement(index, kept);
+        kept += 1;
+        continue;
+      }
+      const turn = packedValueAt(this.snapshot.nodes.turn, placement.nodeIndex);
+      const freshest = freshestPerTurn.get(turn);
+      if (freshest?.index !== index) {
+        continue;
+      }
+      const age = timeSeconds - freshest.spokeAt;
+      placement.opacity *= Math.min(1, (temporaryLabelSeconds - age) / temporaryLabelFadeSeconds);
+      this.copyLabelPlacement(index, kept);
+      kept += 1;
+    }
+    return kept;
+  }
+
+  private applyLabels(count: number, viewport: GraphViewport): void {
+    this.labels.apply({
+      activityNodesOnly: this.usesActivityNodeGrid(),
+      count,
+      foldable: this.presentation === "conversation",
+      hoveredNode: this.view.hovered(),
+      placements: this.placements,
+      snapshot: this.snapshot,
+      titles: this.columnTitles,
+    });
     this.labels.applyColumnTitles(this.columnTitlePlacements(viewport));
+  }
+
+  /**
+   * Compacts label candidates without aliasing their pooled placement objects.
+   * Reassigning an object reference here lets a later frame overwrite several
+   * slots at once, which duplicated one hovered label across the DOM pool.
+   */
+  private copyLabelPlacement(from: number, to: number): void {
+    if (from === to) {
+      return;
+    }
+    const source = this.placements[from];
+    const target = this.placements[to];
+    if (source === undefined || target === undefined) {
+      return;
+    }
+    target.nodeIndex = source.nodeIndex;
+    target.x = source.x;
+    target.y = source.y;
+    target.opacity = source.opacity;
+    target.anchor = source.anchor;
+    target.sticky = source.sticky;
+    target.expanded = source.expanded;
+  }
+
+  private usesActivityNodeGrid(): boolean {
+    return (
+      this.presentation === "grid" &&
+      directorGridUsesActivityNodes(this.snapshot.turnCount, this.options.viewportOf())
+    );
+  }
+
+  /** Supporting grid cells stay subordinate without changing with viewport size. */
+  private supportingNodeScale(): number {
+    return this.presentation === "grid"
+      ? graphNodeHierarchyScale.gridSupporting
+      : graphNodeHierarchyScale.director;
+  }
+
+  /** Keeps the one contextual card readable at the viewport edges. */
+  private constrainHoveredTooltip(
+    count: number,
+    hoveredNode: number | null,
+    viewport: GraphViewport,
+  ): void {
+    if (hoveredNode === null || this.presentation === "conversation") {
+      return;
+    }
+    const width = Math.min(
+      graphTooltipMaxWidthPx,
+      Math.max(1, viewport.width - graphTooltipViewportInsetPx * 2),
+    );
+    const minimumX = graphTooltipViewportInsetPx + width * 0.5;
+    const maximumX = viewport.width - graphTooltipViewportInsetPx - width * 0.5;
+    for (let index = 0; index < count; index += 1) {
+      const placement = this.placements[index];
+      if (placement?.nodeIndex !== hoveredNode) {
+        continue;
+      }
+      placement.x =
+        maximumX < minimumX
+          ? viewport.width * 0.5
+          : Math.min(maximumX, Math.max(minimumX, placement.x));
+      if (placement.y > viewport.height - graphTooltipEstimatedHeightPx) {
+        placement.y = Math.max(
+          graphTooltipEstimatedHeightPx * 0.5,
+          placement.y - graphTooltipEstimatedHeightPx,
+        );
+        placement.anchor = "over";
+      }
+      return;
+    }
   }
 
   /**
@@ -879,7 +2155,7 @@ export class DirectorGraphCanvas {
       }
     }
     const budget = Number.isFinite(minimumGap)
-      ? Math.max(72, minimumGap * fit.fitX * 0.5 * viewport.width - 14)
+      ? Math.max(0, minimumGap * fit.fitX * 0.5 * viewport.width - 24)
       : 260;
     const value = `${Math.round(budget)}px`;
     if (this.options.labelRoot.style.getPropertyValue("--graph-label-max") !== value) {
@@ -890,62 +2166,90 @@ export class DirectorGraphCanvas {
   /**
    * Where each thread's name sits: over its column's input node, computed by
    * the same node-to-screen projection the labels use, so titles and threads
-   * cannot disagree. Columns pin the row just under the bar; the grid hangs
-   * each name above its own tile.
+   * cannot disagree. Columns pin the row just under the bar. In a grid the
+   * Director remains in that stable row while worker names stay attached to
+   * their tiles through a multi-row grid's bounded viewport projection. A
+   * single supporting row shares the Director's stable heading line.
    */
-  private columnTitlePlacements(
-    viewport: GraphViewport,
-  ): readonly { text: string; x: number; y: number; self: boolean }[] {
+  private columnTitlePlacements(viewport: GraphViewport): readonly GraphColumnTitlePlacement[] {
     if (this.presentation === "conversation" || this.columnTitles.size === 0) {
       return [];
     }
     const fit = graphFitFrame(viewport.width, viewport.height);
-    const camera = this.view.camera();
-    const placements: { text: string; x: number; y: number; self: boolean }[] = [];
+    const camera = this.view.visualCamera(fit, viewport);
+    const placements: GraphColumnTitlePlacement[] = [];
     for (let turn = 0; turn < this.snapshot.turnCount; turn += 1) {
-      const workstreamId = this.snapshot.turnWorkstreamIds[turn];
-      if (workstreamId === undefined) {
-        continue;
+      const placement = this.columnTitlePlacement(turn, viewport, fit, camera);
+      if (placement !== null) {
+        placements.push(placement);
       }
-      const text = this.columnTitles.get(workstreamId);
-      if (text === undefined) {
-        continue;
-      }
-      const input = packedValueAt(this.snapshot.turns.inputNode, turn);
-      const position = graphNodeScreenPosition(
-        packedValueAt(this.snapshot.nodes.lane, input),
-        this.layout.nodeWorldY(input),
-        camera,
-        fit,
-        viewport,
-      );
-      const anchorY =
-        this.presentation === "columns" ? columnTitleTopPx : Math.max(52, position.y - 44);
-      const warped = graphWarpToScreen(position.x, anchorY, viewport.width, viewport.height);
-      placements.push({
-        text,
-        x: warped.x,
-        y: warped.y,
-        self: workstreamId === this.selfWorkstreamId,
-      });
     }
     return placements;
   }
 
-  private recordFrame(frameStart: number, timing: GraphFrameTiming): void {
-    this.logMotionHeartbeat(timing);
-    const gpuFrameMs = this.gpuTimer.poll();
-    const refreshPeriodMs = graphRefreshPeriodMs(timing.shortestDeltaMs);
-    this.sampler.setFrameBudgetMs(refreshPeriodMs);
-    if (gpuFrameMs !== null) {
-      const decision = this.quality.sample(gpuFrameMs, refreshPeriodMs);
-      this.sampler.recordQuality(decision.renderScale, decision.tierChanged);
-      if (decision.tierChanged) {
-        this.renderer.applyProfile(decision.profile);
-      }
-      // The surfaces follow both knobs; `applyViewport` resizes on the next
-      // frame when either moved.
+  private columnTitlePlacement(
+    turn: number,
+    viewport: GraphViewport,
+    fit: ReturnType<typeof graphFitFrame>,
+    camera: number,
+  ): GraphColumnTitlePlacement | null {
+    const workstreamId = this.snapshot.turnWorkstreamIds[turn];
+    if (workstreamId === undefined) {
+      return null;
     }
+    const text = this.columnTitles.get(workstreamId);
+    if (text === undefined) {
+      return null;
+    }
+    const input = packedValueAt(this.snapshot.turns.inputNode, turn);
+    const position = graphNodeScreenPosition(
+      packedValueAt(this.snapshot.nodes.lane, input),
+      packedValueAt(this.frameWorldY, input),
+      camera,
+      fit,
+      viewport,
+    );
+    const self = workstreamId === this.selfWorkstreamId;
+    const pinned = this.columnTitleIsPinned(self);
+    const anchorY = pinned ? columnTitleTopPx : this.columnTitleAnchorY(position.y);
+    const warped = graphWarpToScreen(position.x, anchorY, viewport.width, viewport.height);
+    return {
+      key: workstreamId,
+      text,
+      x: warped.x,
+      // A pinned heading row is interface chrome, not scene geometry. Its X
+      // follows the warped column, while its baseline remains shared.
+      y: pinned ? columnTitleTopPx : warped.y,
+      tooltipX: this.columnTitleTooltipX(warped.x, viewport.width),
+      self,
+      pinned,
+      openable: !self && this.canOpenWorkstream(),
+    };
+  }
+
+  private columnTitleIsPinned(self: boolean): boolean {
+    return (
+      this.presentation === "columns" ||
+      (this.presentation === "grid" && (self || !this.supportingGridHasMultipleRows))
+    );
+  }
+
+  private columnTitleAnchorY(nodeScreenY: number): number {
+    return this.presentation === "grid" ? graphGridTitleAnchorY(nodeScreenY) : 0;
+  }
+
+  private columnTitleTooltipX(warpedX: number, viewportWidth: number): number {
+    const tooltipHalfWidth = Math.min(
+      columnTitleTooltipMaxWidthPx * 0.5,
+      Math.max(0, (viewportWidth - columnTitleTooltipViewportInsetPx * 2) * 0.5),
+    );
+    const minimum = columnTitleTooltipViewportInsetPx + tooltipHalfWidth;
+    const maximum = viewportWidth - columnTitleTooltipViewportInsetPx - tooltipHalfWidth;
+    return maximum < minimum ? viewportWidth * 0.5 : Math.min(maximum, Math.max(minimum, warpedX));
+  }
+
+  private recordFrame(frameStart: number, timing: GraphFrameTiming): void {
+    const gpuFrameMs = this.gpuTimer?.poll() ?? null;
     this.sampler.record({
       cpuFrameMs: this.now() - frameStart,
       gpuFrameMs,
@@ -954,61 +2258,68 @@ export class DirectorGraphCanvas {
     });
   }
 
-  /**
-   * One line every ten seconds naming every input the ambient motion depends
-   * on. The field was observed frozen in a session whose code was verified
-   * fluid, so the next observation must be of the running values, not the
-   * source: which clock is advancing, whether flow is gated off, and what the
-   * quality controller currently holds.
-   */
-  private logMotionHeartbeat(timing: GraphFrameTiming): void {
-    if (timing.timestampMs - this.lastHeartbeatMs < 10_000) {
-      return;
-    }
-    this.lastHeartbeatMs = timing.timestampMs;
-    const decision = this.quality.current();
-    console.info(
-      JSON.stringify({
-        type: "graph_motion_heartbeat",
-        timeSeconds: +this.options.timeSecondsAt(timing.timestampMs).toFixed(3),
-        fieldTimeSeconds: +(
-          this.options.timeSecondsAt(timing.timestampMs) - (this.firstFrameTimeSeconds ?? 0)
-        ).toFixed(3),
-        reducedMotion: this.reducedMotion,
-        fieldFlow: decision.profile.effects.fieldFlow,
-        ambientMotion: this.ambientMotion,
-        tier: decision.profile.tier,
-        renderScale: +decision.renderScale.toFixed(3),
-        fieldParticles: decision.profile.fieldParticles,
-        awake: this.scheduler.isAwake(),
-      }),
-    );
-  }
-
   private decideOutcome(
     ladder: { readonly foldAnimating: boolean; readonly quietUntilSeconds: number },
     timeSeconds: number,
     arrived: boolean,
     hovering: boolean,
   ): GraphFrameOutcome {
-    if (arrived || ladder.foldAnimating || this.queued.length > 0) {
-      return "continue";
-    }
-    if (this.workstreamSwitch !== null) {
-      return "continue";
-    }
-    if (timeSeconds < ladder.quietUntilSeconds) {
-      return "continue";
-    }
-    if (graphHoverNeedsAnimation(this.reducedMotion, hovering, this.hoverAmount)) {
-      return "continue";
-    }
-    if (graphAmbientFieldNeedsAnimation(this.reducedMotion, this.ambientMotion)) {
-      return "continue";
-    }
-    if (this.view.camera() !== this.layout.liveEdge() && !this.view.isDetached()) {
-      return "continue";
-    }
-    return "idle";
+    const continueAnimating =
+      this.semanticMotionActive(ladder, arrived) ||
+      this.transitionMotionActive() ||
+      this.interactionMotionActive(ladder, timeSeconds, hovering) ||
+      this.fieldMotionActive() ||
+      this.cameraMotionActive();
+    return continueAnimating ? "continue" : "idle";
+  }
+
+  private semanticMotionActive(
+    ladder: { readonly foldAnimating: boolean },
+    arrived: boolean,
+  ): boolean {
+    return arrived || ladder.foldAnimating || this.queued.length > 0;
+  }
+
+  private transitionMotionActive(): boolean {
+    return (
+      this.workstreamSwitch !== null ||
+      this.layoutTransition !== null ||
+      this.overviewSnapshotTransition !== null
+    );
+  }
+
+  private interactionMotionActive(
+    ladder: { readonly quietUntilSeconds: number },
+    timeSeconds: number,
+    hovering: boolean,
+  ): boolean {
+    return (
+      this.view.elasticActive() ||
+      this.directorEdgeDisturbance > 0 ||
+      timeSeconds < ladder.quietUntilSeconds ||
+      graphHoverNeedsAnimation(this.reducedMotion, hovering, this.hoverAmount)
+    );
+  }
+
+  private fieldMotionActive(): boolean {
+    return (
+      graphLoadingFieldNeedsAnimation(this.reducedMotion, this.loading, this.loadingAmount) ||
+      this.artifactFieldMotionActive() ||
+      graphAmbientFieldNeedsAnimation(this.reducedMotion, this.ambientMotion)
+    );
+  }
+
+  private artifactFieldMotionActive(): boolean {
+    return (
+      this.artifactParticleFlowAmount !==
+        (this.artifactParticleStyle === "particle-flow" ? 1 : 0) ||
+      this.artifactFluidAmount !== (this.artifactParticleStyle === "fluid" ? 1 : 0) ||
+      this.artifactSeedX !== this.artifactSeedTargetX ||
+      this.artifactSeedY !== this.artifactSeedTargetY
+    );
+  }
+
+  private cameraMotionActive(): boolean {
+    return this.view.camera() !== this.automaticLiveEdgeWorldY && !this.view.isDetached();
   }
 }

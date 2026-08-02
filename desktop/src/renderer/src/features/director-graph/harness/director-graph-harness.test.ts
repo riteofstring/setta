@@ -102,7 +102,6 @@ class FakeCanvas implements DirectorGraphCanvasPort {
   performanceSummary(): GraphPerformanceSummary {
     return {
       frames: this.applications,
-      adaptationBudgetMs: frameMs,
       frameDeltasMs: [],
       cpuFrameMs: { p50: 0, p95: 0, p99: 0, maximum: 0 },
       frameDeltaMs: { p50: 0, p95: 0, p99: 0, maximum: 0 },
@@ -117,9 +116,6 @@ class FakeCanvas implements DirectorGraphCanvasPort {
       longTaskTotalMs: 0,
       framesOverDroppedThreshold: 0,
       slowFrameRatio: 0,
-      renderScaleMinimum: 1,
-      renderScaleMaximum: 1,
-      tierChanges: 0,
     };
   }
 
@@ -137,7 +133,6 @@ class FakeCanvas implements DirectorGraphCanvasPort {
       tier: "full" as const,
       viewport: { width: 1512, height: 982 },
       devicePixelRatio: 2,
-      renderScale: 1,
       postWidth: 2000,
       postHeight: 1299,
       sceneWidth: 1569,

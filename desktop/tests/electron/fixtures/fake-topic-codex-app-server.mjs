@@ -663,7 +663,7 @@ function emitDirectorScenario(threadId, turnId, scenario) {
     completeDirectorScenario(threadId, turnId, scenario);
     return;
   }
-  emitDirectorToolCall(threadId, turnId, scenario, 0, [], call);
+  emitDirectorToolCall({ call, index: 0, receipts: [], scenario, threadId, turnId });
 }
 
 function emitTurnScenario(threadId, turnId, text) {
@@ -1002,14 +1002,14 @@ function handleDirectorToolCallResponse(requestId, pending, message) {
   const next = directorToolCallForStep(pending.scenario, nextIndex, receipts);
   if (next !== null) {
     setImmediate(() =>
-      emitDirectorToolCall(
-        pending.threadId,
-        pending.turnId,
-        pending.scenario,
-        nextIndex,
+      emitDirectorToolCall({
+        call: next,
+        index: nextIndex,
         receipts,
-        next,
-      ),
+        scenario: pending.scenario,
+        threadId: pending.threadId,
+        turnId: pending.turnId,
+      }),
     );
     return;
   }
@@ -1054,7 +1054,7 @@ function emitAgentMessage(threadId, turnId, text, itemId = `agent-${turnId}`) {
   });
 }
 
-function emitDirectorToolCall(threadId, turnId, scenario, index, receipts, call) {
+function emitDirectorToolCall({ call, index, receipts, scenario, threadId, turnId }) {
   const thread = loadedThreads.get(threadId);
   if (!threadHasDirectorTools(thread)) {
     completeTurn(threadId, turnId, "failed", "Director Setta tools were not registered");

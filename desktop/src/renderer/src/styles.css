@@ -8,6 +8,7 @@
 @import "./features/director-command-center/director-command-center-navigation.css";
 @import "./features/director-command-center/director-command-center-composer.css";
 @import "./features/director-command-center/director-command-center-activity.css";
+@import "./features/director-command-center/director-graph-dev-panel.css";
 @import "./features/director-command-center/director-workstream-switch-transition.css";
 
 /* Official shadcn/ui component source expects `dark:` to follow the app's own
@@ -298,7 +299,7 @@ h3 {
 }
 
 .setta-shell-top-bar[data-desktop-platform="darwin"] {
-  --setta-shell-top-bar-chrome-inset: 80px;
+  --setta-shell-top-bar-chrome-inset: 96px;
 }
 
 .setta-shell-top-bar-chrome-shield {
@@ -531,7 +532,7 @@ h3 {
 }
 
 .setta-settings-page[data-desktop-platform="darwin"] .setta-settings-page-header {
-  --setta-settings-page-chrome-inset: 80px;
+  --setta-settings-page-chrome-inset: 96px;
 }
 
 .setta-settings-page-chrome-shield {

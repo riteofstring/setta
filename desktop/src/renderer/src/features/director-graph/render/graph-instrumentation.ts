@@ -1,10 +1,11 @@
 /**
  * Measurement ownership for the graph renderer.
  *
- * The graph owns CPU marks for projection, packing, buffer upload, and draw
- * submission; GPU timer-query sampling; p50/p95/p99 rather than average FPS;
- * and long-task counting. The percentile convention is deliberately the same
- * one the committed E2E budget harness asserts against, so a graph report and a
+ * The explicit performance harness enables CPU marks for projection, packing,
+ * buffer upload, and draw submission; GPU timer-query sampling; p50/p95/p99
+ * rather than average FPS; and long-task counting. Production leaves this
+ * entire path dormant. The percentile convention is deliberately the same one
+ * the committed E2E budget harness asserts against, so a graph report and a
  * workflow report mean the same thing by p95.
  */
 
@@ -16,6 +17,8 @@ const sampleCapacity = 1200;
 
 /** A frame at or over this is a dropped frame in every report. */
 const droppedFrameMs = 50;
+/** ProMotion deadline used only to classify captured samples, never to mutate rendering. */
+const slowFrameBudgetMs = 1000 / 120;
 
 export interface GraphFrameSample {
   readonly cpuFrameMs: number;
@@ -33,14 +36,6 @@ interface GraphPercentiles {
 
 export interface GraphPerformanceSummary {
   readonly frames: number;
-  /**
-   * The period the renderer *adapted* against: derived from the single shortest
-   * observed frame delta, which is deliberately optimistic so a renderer stuck
-   * at half rate cannot redefine the target as half rate. It is an adaptation
-   * input, not the display's refresh period, so a report resolves its own frame
-   * budget from the delta distribution rather than reusing this.
-   */
-  readonly adaptationBudgetMs: number;
   /** Every frame delta still in the percentile window, for exact reporting. */
   readonly frameDeltasMs: readonly number[];
   readonly cpuFrameMs: GraphPercentiles;
@@ -51,9 +46,6 @@ export interface GraphPerformanceSummary {
   readonly longTaskTotalMs: number;
   readonly framesOverDroppedThreshold: number;
   readonly slowFrameRatio: number;
-  readonly renderScaleMinimum: number;
-  readonly renderScaleMaximum: number;
-  readonly tierChanges: number;
 }
 
 class RingBuffer {
@@ -132,14 +124,6 @@ export class GraphFrameSampler {
   private readonly markBuffers = emptyMarks();
   private longTasks = 0;
   private longTaskTotalMs = 0;
-  private renderScaleMinimum = Number.POSITIVE_INFINITY;
-  private renderScaleMaximum = Number.NEGATIVE_INFINITY;
-  private tierChanges = 0;
-  private slowFrameBudgetMs = 1000 / 120;
-
-  setFrameBudgetMs(budgetMs: number): void {
-    this.slowFrameBudgetMs = budgetMs;
-  }
 
   record(sample: GraphFrameSample): void {
     this.cpuFrames.push(sample.cpuFrameMs);
@@ -157,14 +141,6 @@ export class GraphFrameSampler {
     this.longTaskTotalMs += durationMs;
   }
 
-  recordQuality(renderScale: number, tierChanged: boolean): void {
-    this.renderScaleMinimum = Math.min(this.renderScaleMinimum, renderScale);
-    this.renderScaleMaximum = Math.max(this.renderScaleMaximum, renderScale);
-    if (tierChanged) {
-      this.tierChanges += 1;
-    }
-  }
-
   reset(): void {
     this.cpuFrames.reset();
     this.frameDeltas.reset();
@@ -174,16 +150,12 @@ export class GraphFrameSampler {
     }
     this.longTasks = 0;
     this.longTaskTotalMs = 0;
-    this.renderScaleMinimum = Number.POSITIVE_INFINITY;
-    this.renderScaleMaximum = Number.NEGATIVE_INFINITY;
-    this.tierChanges = 0;
   }
 
   summary(): GraphPerformanceSummary {
     const frames = this.cpuFrames.size();
     return {
       frames,
-      adaptationBudgetMs: this.slowFrameBudgetMs,
       frameDeltasMs: this.frameDeltas.samples(),
       cpuFrameMs: this.cpuFrames.percentiles(),
       frameDeltaMs: this.frameDeltas.percentiles(),
@@ -198,10 +170,7 @@ export class GraphFrameSampler {
       longTaskTotalMs: this.longTaskTotalMs,
       framesOverDroppedThreshold: this.frameDeltas.countAtLeast(droppedFrameMs),
       slowFrameRatio:
-        frames === 0 ? 0 : this.frameDeltas.countAtLeast(this.slowFrameBudgetMs * 1.25) / frames,
-      renderScaleMinimum: Number.isFinite(this.renderScaleMinimum) ? this.renderScaleMinimum : 1,
-      renderScaleMaximum: Number.isFinite(this.renderScaleMaximum) ? this.renderScaleMaximum : 1,
-      tierChanges: this.tierChanges,
+        frames === 0 ? 0 : this.frameDeltas.countAtLeast(slowFrameBudgetMs * 1.25) / frames,
     };
   }
 }
@@ -266,12 +235,21 @@ export class GraphGpuTimer {
   } | null;
   private active: WebGLQuery | null = null;
   private pending: WebGLQuery | null = null;
+  private readonly available: WebGLQuery[] = [];
 
   constructor(private readonly gl: WebGL2RenderingContext) {
     this.extension = gl.getExtension("EXT_disjoint_timer_query_webgl2") as {
       readonly TIME_ELAPSED_EXT: number;
       readonly GPU_DISJOINT_EXT: number;
     } | null;
+    if (this.extension !== null) {
+      for (let index = 0; index < 2; index += 1) {
+        const query = this.gl.createQuery();
+        if (query !== null) {
+          this.available.push(query);
+        }
+      }
+    }
   }
 
   supported(): boolean {
@@ -282,7 +260,7 @@ export class GraphGpuTimer {
     if (this.extension === null || this.pending !== null || this.active !== null) {
       return;
     }
-    const query = this.gl.createQuery();
+    const query = this.available.pop() ?? this.gl.createQuery();
     if (query === null) {
       return;
     }
@@ -317,7 +295,7 @@ export class GraphGpuTimer {
       const nanoseconds = this.gl.getQueryParameter(this.pending, this.gl.QUERY_RESULT) as number;
       result = nanoseconds / 1e6;
     }
-    this.gl.deleteQuery(this.pending);
+    this.available.push(this.pending);
     this.pending = null;
     return result;
   }
@@ -337,6 +315,10 @@ export class GraphGpuTimer {
 
   dispose(): void {
     this.reset();
+    for (const query of this.available) {
+      this.gl.deleteQuery(query);
+    }
+    this.available.length = 0;
   }
 }
 
@@ -353,6 +335,8 @@ export function observeGraphLongTasks(sampler: GraphFrameSampler): () => void {
       sampler.recordLongTask(entry.duration);
     }
   });
-  observer.observe({ type: "longtask", buffered: true });
+  // Sampling is explicitly enabled by the harness, so earlier page work must
+  // not leak into its fresh measurement window.
+  observer.observe({ type: "longtask" });
   return () => observer.disconnect();
 }

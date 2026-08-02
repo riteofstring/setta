@@ -24,8 +24,6 @@ export interface GraphFrameSchedulerHost {
 export interface GraphFrameTiming {
   readonly timestampMs: number;
   readonly deltaSeconds: number;
-  /** Shortest delta observed so far; the display's refresh period. */
-  readonly shortestDeltaMs: number;
 }
 
 /** `continue` keeps the loop awake for another frame; `idle` lets it sleep. */
@@ -37,7 +35,6 @@ export const graphMaximumFrameDeltaSeconds = 0.05;
 export class GraphFrameScheduler {
   private handle: number | null = null;
   private lastTimestampMs: number | null = null;
-  private shortestDeltaMs = Number.POSITIVE_INFINITY;
   private visible = true;
   private stopped = false;
   private pendingRequest = false;
@@ -92,11 +89,6 @@ export class GraphFrameScheduler {
     return this.handle !== null;
   }
 
-  /** The frame budget the quality controller adapts against. */
-  observedShortestDeltaMs(): number {
-    return Number.isFinite(this.shortestDeltaMs) ? this.shortestDeltaMs : 1000 / 120;
-  }
-
   private cancel(): void {
     if (this.handle === null) {
       return;
@@ -113,14 +105,10 @@ export class GraphFrameScheduler {
     }
     const rawDeltaMs = this.lastTimestampMs === null ? 0 : timestampMs - this.lastTimestampMs;
     this.lastTimestampMs = timestampMs;
-    if (rawDeltaMs > 3 && rawDeltaMs < this.shortestDeltaMs) {
-      this.shortestDeltaMs = rawDeltaMs;
-    }
     const deltaSeconds = Math.min(graphMaximumFrameDeltaSeconds, Math.max(0, rawDeltaMs) / 1000);
     const outcome = this.render({
       timestampMs,
       deltaSeconds,
-      shortestDeltaMs: this.observedShortestDeltaMs(),
     });
     if (outcome === "continue" || this.pendingRequest) {
       this.pendingRequest = false;

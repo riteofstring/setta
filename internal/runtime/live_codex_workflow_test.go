@@ -275,7 +275,8 @@ func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
 		client,
 		baseURL,
 		isolation.prompt(fmt.Sprintf(
-			"Using only this supplied dataset: Go=34, TypeScript=21, CSS=8. Create a durable "+
+			"Using only this supplied dataset: Go=34, TypeScript=21, CSS=8. Write the values "+
+				"to language-line-counts.csv in the currently open workspace, then create a durable "+
 				"user-facing table titled %s with columns language and lines, and one row per "+
 				"supplied language. Final prose should only confirm that the table is ready.",
 			expectedTableTitle,

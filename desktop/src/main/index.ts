@@ -342,6 +342,12 @@ async function createWindow() {
       : {}),
     title: "Setta",
     webPreferences: {
+      // The Director is a continuously animated spatial surface. Chromium's
+      // default background policy can defer BeginMainFrame for hundreds of
+      // milliseconds when macOS briefly deprioritizes or occludes the window,
+      // which presents as a particle/scroll hitch even though a graph frame
+      // itself takes only a couple of milliseconds.
+      backgroundThrottling: false,
       contextIsolation: true,
       nodeIntegration: false,
       preload: join(__dirname, "../preload/index.js"),

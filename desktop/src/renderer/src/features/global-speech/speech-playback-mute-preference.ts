@@ -9,13 +9,15 @@ const speechPlaybackMuteStorageKey = "setta.speech-playback.muted";
 
 type MutePreferenceStorage = Pick<Storage, "getItem" | "setItem">;
 
-export function readSpeechPlaybackMutePreference(storage: MutePreferenceStorage): boolean {
-  return storage.getItem(speechPlaybackMuteStorageKey) === "true";
+export function readSpeechPlaybackMutePreference(
+  storage: MutePreferenceStorage | null | undefined,
+): boolean {
+  return storage?.getItem(speechPlaybackMuteStorageKey) === "true";
 }
 
 export function writeSpeechPlaybackMutePreference(
-  storage: MutePreferenceStorage,
+  storage: MutePreferenceStorage | null | undefined,
   muted: boolean,
 ): void {
-  storage.setItem(speechPlaybackMuteStorageKey, muted ? "true" : "false");
+  storage?.setItem(speechPlaybackMuteStorageKey, muted ? "true" : "false");
 }

@@ -8,7 +8,7 @@ import type { ArtifactComponentProps } from "../generated/artifact-catalog-props
 /**
  * The artifact document surface.
  *
- * Unframed on purpose: the rail preview card and the artifact browser overlay
+ * Unframed on purpose: the rail preview card and the artifact reading surface
  * own the frame, so a document nested inside either of them must not add a
  * second one.
  */

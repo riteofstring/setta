@@ -97,13 +97,6 @@ export const directorGraphBudgets = {
   cpuFrameP95Ms: 2,
   gpuFrameP95Ms: 4,
   minimumFrames: 30,
-  /**
-   * A tier step costs a geometry rebuild, so the controller is meant to settle
-   * and stay settled. A handful of steps is adaptation; hundreds is a loop
-   * between two decisions, which is invisible in frame time until the hardware
-   * is slower than this one.
-   */
-  maximumTierChanges: 8,
 };
 
 export function directorGraphTierNames() {
@@ -127,12 +120,8 @@ export async function applyDirectorGraphTier(client, tier) {
  * Reshapes a harness run into the sample the committed budget harness asserts
  * against, so a graph report and a workflow report mean the same thing by p95.
  *
- * The renderer's own `adaptationBudgetMs` is deliberately not carried across.
- * It comes from the single shortest frame delta ever observed, which on a
- * ProMotion panel lands about a millisecond under the real period because rAF
- * timestamps jitter; using it as the report budget would fail a perfectly
- * on-cadence sample. `performance-frame-budget.mjs` resolves the budget from
- * the delta distribution, which is the committed convention the matrix names.
+ * `performance-frame-budget.mjs` resolves the display budget from the delta
+ * distribution, which is the committed convention the matrix names.
  */
 export function directorGraphFrameSample(run) {
   const { summary } = run;
@@ -163,23 +152,8 @@ export function assertDirectorGraphRun(run, tier) {
     minFrameCount: directorGraphBudgets.minimumFrames,
   });
   assertBudgets(run, label);
-  assertQualitySettled(run, label);
   assertPixelCheck(run, label);
   assertScenarioDetails(run, label);
-}
-
-function assertQualitySettled(run, label) {
-  if (run.summary.tierChanges <= directorGraphBudgets.maximumTierChanges) {
-    return;
-  }
-  throw new Error(
-    `${label} kept changing quality tier: ${JSON.stringify({
-      tierChanges: run.summary.tierChanges,
-      frames: run.summary.frames,
-      renderScale: [run.summary.renderScaleMinimum, run.summary.renderScaleMaximum],
-      gpuFrameMs: run.summary.gpuFrameMs,
-    })}`,
-  );
 }
 
 function assertFrameCount(run, label) {

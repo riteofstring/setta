@@ -17,6 +17,7 @@ import {
   graphFitFrame,
   graphLiveEdgeClipY,
   graphNodeGeometry,
+  graphReferenceFrame,
   graphWarpToScreen,
   type GraphFitFrame,
 } from "./graph-visual-language";
@@ -25,28 +26,96 @@ import type { PackedGraphSnapshot } from "../packed-graph-snapshot";
 
 /** How far one wheel notch looks back, in reference clip units per pixel. */
 const lookBackPerPixel = 0.0013;
-/*
- * How far past the first fact the view may scroll.
- *
- * The point of stopping there is that the first fact is still on screen, so the
- * margin has to come from the projection rather than be picked: with the live
- * edge sitting at clip -0.35, a flat 0.7 put the top node at clip -1.05, off
- * the bottom of the viewport, and the canvas went blank at exactly the position
- * the bound was supposed to make safe.
- *
- * The limit keeps that node inside clip space with room to spare, so it is
- * drawn rather than just barely intersecting the edge.
- */
-const visibleClipLimit = 0.9;
+/** Clip position used to keep an old conversation row barely on screen. */
+const conversationVisibleClipLimit = 0.9;
 
-export function graphLookBackMargin(fitY: number): number {
-  if (!(fitY > 0)) {
+export interface GraphWorldBounds {
+  readonly top: number;
+  readonly bottom: number;
+}
+
+/**
+ * World offset that binds a supporting thread to the Director's own extent.
+ *
+ * The previous offset is the natural position for the next frame. It remains
+ * unchanged while the thread can travel with the Director, then clamps only
+ * when the next top or bottom edge reaches the matching Director anchor. This
+ * gives direction changes release hysteresis without a second scroll state
+ * machine. A new composition starts top-aligned. No viewport inset
+ * participates, so resizing chrome cannot move either stop.
+ */
+export function graphDirectorBoundedThreadWorldOffset(
+  threadBounds: GraphWorldBounds,
+  directorBounds: GraphWorldBounds,
+  cameraBounds: GraphCameraBounds,
+  cameraWorldY: number,
+  previousOffsetWorldY: number,
+): number {
+  if (threadBounds.bottom < threadBounds.top || directorBounds.bottom < directorBounds.top) {
     return 0;
   }
-  return Math.max(0, graphLiveEdgeClipY + visibleClipLimit / fitY);
+  const topAlignedOffset = directorBounds.top - threadBounds.top;
+  const oldestCameraWorldY = Math.min(cameraBounds.oldestCameraWorldY, cameraBounds.liveEdgeWorldY);
+  const directorTopAnchor = directorBounds.top - oldestCameraWorldY;
+  const directorBottomAnchor = directorBounds.bottom - cameraBounds.liveEdgeWorldY;
+  if (directorBottomAnchor < directorTopAnchor) {
+    return topAlignedOffset;
+  }
+  const threadTop = threadBounds.top - cameraWorldY;
+  const threadBottom = threadBounds.bottom - cameraWorldY;
+  const threadSpan = threadBottom - threadTop;
+  const directorSpan = directorBottomAnchor - directorTopAnchor;
+  const lower =
+    threadSpan <= directorSpan
+      ? directorTopAnchor - threadTop
+      : directorBottomAnchor - threadBottom;
+  const upper =
+    threadSpan <= directorSpan
+      ? directorBottomAnchor - threadBottom
+      : directorTopAnchor - threadTop;
+  const preferredOffset = Number.isFinite(previousOffsetWorldY)
+    ? previousOffsetWorldY
+    : topAlignedOffset;
+  return Math.max(lower, Math.min(upper, preferredOffset));
+}
+
+/**
+ * Oldest camera position for the current presentation.
+ *
+ * An overview behaves like a bounded document: its Director first row mirrors
+ * the live row around the viewport centre, giving both scroll stops the same
+ * barrel-warped edge clearance. A single conversation preserves looser
+ * look-back framing, where the first fact may travel toward the bottom before
+ * the camera stops.
+ */
+export function graphOldestCameraWorldY(
+  contentTopWorldY: number,
+  fitY: number,
+  presentation: SemanticGraphPresentation,
+): number {
+  if (!(fitY > 0)) {
+    return contentTopWorldY;
+  }
+  if (presentation !== "conversation") {
+    return contentTopWorldY - graphLiveEdgeClipY * 2;
+  }
+  const lookBackMargin = Math.max(0, graphLiveEdgeClipY + conversationVisibleClipLimit / fitY);
+  return contentTopWorldY - lookBackMargin;
 }
 /** Camera distance from the live edge that counts as detached. */
 const detachEpsilon = 0.02;
+/** Maximum visual travel beyond a graph boundary, independent of viewport size. */
+const elasticMaximumOffsetPx = 76;
+/** Trackpad/wheel travel is resisted before it reaches the visual spring. */
+const elasticInputResistance = 0.26;
+/** Briefly hold the stretched position while a wheel gesture is still arriving. */
+const elasticInputHoldSeconds = 0.06;
+/** Slightly under-critical spring: one soft return, no repeated bounce. */
+const elasticSpringStiffness = 150;
+const elasticSpringDamping = 20;
+const elasticStopOffsetPx = 0.08;
+const elasticStopVelocityPxPerSecond = 2;
+const elasticDisturbanceSpeedPxPerSecond = 150;
 /** Pointer radius for selecting a node, in CSS pixels. */
 const selectRadiusPx = 44;
 /** Extra radius around an outcome node's fold toggle. */
@@ -96,15 +165,123 @@ export function graphNodeActivation(
 
 /** Where the camera may sit: not above what is drawn, not past the live edge. */
 export interface GraphCameraBounds {
-  readonly contentTopWorldY: number;
+  readonly oldestCameraWorldY: number;
   readonly liveEdgeWorldY: number;
-  /** Overscroll past the top that still leaves the first fact drawn. */
-  readonly lookBackMargin: number;
+}
+
+interface MutableGraphCameraBounds {
+  oldestCameraWorldY: number;
+  liveEdgeWorldY: number;
 }
 
 export interface GraphViewport {
   readonly width: number;
   readonly height: number;
+}
+
+/** The two independently scrollable regions in a Director grid. */
+export type GraphScrollOwner = "director" | "supporting-grid";
+
+/**
+ * Chooses the scroll owner from the pointer's horizontal grid region.
+ *
+ * The boundary is halfway between the Director spine and the nearest side
+ * column. That is the same Voronoi split the visible columns imply, so it
+ * adapts with the semantic packer instead of duplicating its viewport rules.
+ */
+export function graphOverviewScrollOwner(
+  presentation: SemanticGraphPresentation,
+  pointerX: number,
+  viewport: GraphViewport,
+  nearestSideLaneDistance: number,
+): GraphScrollOwner {
+  if (
+    presentation !== "grid" ||
+    !Number.isFinite(nearestSideLaneDistance) ||
+    !(nearestSideLaneDistance > 0)
+  ) {
+    return "director";
+  }
+  const nearestSideDistancePx = nearestSideLaneDistance * graphReferenceFrame.width * 0.5;
+  const distanceFromDirectorPx = Math.abs(pointerX - viewport.width * 0.5);
+  return distanceFromDirectorPx >= nearestSideDistancePx * 0.5 ? "supporting-grid" : "director";
+}
+
+/**
+ * Camera range for one supporting document inside the Director's two stops.
+ *
+ * The start aligns both tops. If the supporting document is taller than the
+ * Director's visible extent, the end aligns both bottoms; otherwise the range
+ * collapses at the top because there is nothing independent to scroll.
+ */
+export function graphDirectorAnchoredScrollBounds(
+  threadBounds: GraphWorldBounds,
+  directorBounds: GraphWorldBounds,
+  directorCameraBounds: GraphCameraBounds,
+  output?: MutableGraphCameraBounds,
+): GraphCameraBounds {
+  const directorOldestCameraWorldY = Math.min(
+    directorCameraBounds.oldestCameraWorldY,
+    directorCameraBounds.liveEdgeWorldY,
+  );
+  const directorTopAnchor = directorBounds.top - directorOldestCameraWorldY;
+  const directorBottomAnchor = directorBounds.bottom - directorCameraBounds.liveEdgeWorldY;
+  const oldestCameraWorldY = threadBounds.top - directorTopAnchor;
+  const bounds = output ?? { oldestCameraWorldY: 0, liveEdgeWorldY: 0 };
+  bounds.oldestCameraWorldY = oldestCameraWorldY;
+  bounds.liveEdgeWorldY = Math.max(oldestCameraWorldY, threadBounds.bottom - directorBottomAnchor);
+  return bounds;
+}
+
+/** Allocation-free bounded camera for a secondary scroll document. */
+export class GraphBoundedScrollController {
+  private cameraWorldY = 0;
+  private initialized = false;
+  private followingLiveEdge = false;
+
+  constructor(private readonly initialEdge: "oldest" | "live") {}
+
+  camera(): number {
+    return this.cameraWorldY;
+  }
+
+  reset(): void {
+    this.cameraWorldY = 0;
+    this.initialized = false;
+    this.followingLiveEdge = false;
+  }
+
+  /** Keeps a user's independent position through live data and reflow. */
+  reconcile(bounds: GraphCameraBounds): boolean {
+    const before = this.cameraWorldY;
+    if (!this.initialized) {
+      this.followingLiveEdge = this.initialEdge === "live";
+      this.cameraWorldY = this.followingLiveEdge
+        ? bounds.liveEdgeWorldY
+        : Math.min(bounds.oldestCameraWorldY, bounds.liveEdgeWorldY);
+      this.initialized = true;
+      return this.cameraWorldY !== before;
+    }
+    this.cameraWorldY = this.followingLiveEdge
+      ? bounds.liveEdgeWorldY
+      : clampedCamera(this.cameraWorldY, bounds);
+    return this.cameraWorldY !== before;
+  }
+
+  /** Scrolls only this document; reaching its end opts into future live follow. */
+  scroll(deltaYPx: number, bounds: GraphCameraBounds): boolean {
+    if (!this.initialized) {
+      this.reconcile(bounds);
+    }
+    const before = this.cameraWorldY;
+    this.cameraWorldY = clampedCamera(this.cameraWorldY + deltaYPx * lookBackPerPixel, bounds);
+    if (deltaYPx < 0) {
+      this.followingLiveEdge = false;
+    } else if (deltaYPx > 0 && this.cameraWorldY >= bounds.liveEdgeWorldY - detachEpsilon) {
+      this.followingLiveEdge = true;
+    }
+    return this.cameraWorldY !== before;
+  }
 }
 
 /** Where a node lands on screen, before the barrel warp. */
@@ -132,14 +309,23 @@ export function graphNodeCssDiameter(
   worldY: number,
   cameraWorldY: number,
   working: boolean,
-  fit: GraphFitFrame,
+  visualScale = 1,
 ): number {
   const recent = Math.exp(-Math.max(0, cameraWorldY - worldY) * graphNodeGeometry.recencyFalloff);
   const size =
     graphNodeGeometry.baseDiameter +
     recent * graphNodeGeometry.recentBonus +
     (working ? graphNodeGeometry.workingBonus : 0);
-  return size * graphNodeGeometry.cssDiameterScale * fit.size;
+  return size * graphNodeGeometry.cssDiameterScale * visualScale;
+}
+
+/** Matches the renderer's Director/supporting-node split for CPU overlays. */
+export function graphNodeVisualScale(
+  nodeIndex: number,
+  directorNodeEnd: number,
+  supportingNodeScale: number,
+): number {
+  return nodeIndex < directorNodeEnd ? 1 : supportingNodeScale;
 }
 
 export interface GraphPointerScene {
@@ -162,6 +348,9 @@ export interface GraphPointerScene {
   readonly cameraWorldY: number;
   readonly timeSeconds: number;
   readonly viewport: GraphViewport;
+  /** End-exclusive contiguous range kept at Director's canonical scale. */
+  readonly directorNodeEnd: number;
+  readonly supportingNodeScale: number;
 }
 
 interface GraphHit {
@@ -240,7 +429,6 @@ export function graphOutcomeAtPointer(
   scene: GraphPointerScene,
   pointer: GraphScreenPoint,
 ): number | null {
-  const fit = graphFitFrame(scene.viewport.width, scene.viewport.height);
   const hit = hitTest(
     scene,
     pointer,
@@ -254,7 +442,7 @@ export function graphOutcomeAtPointer(
     packedValueAt(scene.worldY, hit.nodeIndex),
     scene.cameraWorldY,
     false,
-    fit,
+    graphNodeVisualScale(hit.nodeIndex, scene.directorNodeEnd, scene.supportingNodeScale),
   );
   return hit.distancePx < diameter * 0.6 + outcomeRadiusPx ? hit.nodeIndex : null;
 }
@@ -275,6 +463,10 @@ export interface GraphViewSnapshot {
 export class GraphViewController {
   private cameraWorldY = 0;
   private detached = false;
+  /** Visual-only spring displacement. Semantic camera bounds remain clamped. */
+  private elasticOffsetPx = 0;
+  private elasticVelocityPxPerSecond = 0;
+  private elasticHoldSeconds = 0;
   private hoveredNode: number | null = null;
   private selectedNode: number | null = null;
   private readonly pinnedTurns = new Map<number, boolean>();
@@ -293,6 +485,7 @@ export class GraphViewController {
   reset(): void {
     this.cameraWorldY = 0;
     this.detached = false;
+    this.resetElastic();
     this.hoveredNode = null;
     this.selectedNode = null;
     this.pinnedTurns.clear();
@@ -300,6 +493,23 @@ export class GraphViewController {
 
   camera(): number {
     return this.cameraWorldY;
+  }
+
+  /** Camera used for drawing while the bounded semantic camera stays stable. */
+  visualCamera(fit: GraphFitFrame, viewport: GraphViewport): number {
+    const worldPixelsY = viewport.height * fit.fitY * 0.5;
+    if (!(worldPixelsY > 0)) {
+      return this.cameraWorldY;
+    }
+    return this.cameraWorldY + this.elasticOffsetPx / worldPixelsY;
+  }
+
+  elasticOffsetPixels(): number {
+    return this.elasticOffsetPx;
+  }
+
+  elasticActive(): boolean {
+    return this.elasticOffsetPx !== 0 || this.elasticVelocityPxPerSecond !== 0;
   }
 
   isDetached(): boolean {
@@ -319,8 +529,60 @@ export class GraphViewController {
    * the live edge reattaches it. Live work never stops, so there is nothing to
    * return to and no "back to live" control to hunt for.
    */
-  lookBack(deltaYPx: number, bounds: GraphCameraBounds): void {
-    this.settleCamera(this.cameraWorldY + deltaYPx * lookBackPerPixel, bounds);
+  lookBack(deltaYPx: number, bounds: GraphCameraBounds, elastic = false): boolean {
+    const before = this.cameraWorldY;
+    const candidate = this.cameraWorldY + deltaYPx * lookBackPerPixel;
+    const next = clampedCamera(candidate, bounds);
+    this.settleCamera(next, bounds);
+    const moved = this.cameraWorldY !== before;
+    const overflowWorldY = candidate - next;
+    if (elastic && overflowWorldY !== 0) {
+      const overflowPx = overflowWorldY / lookBackPerPixel;
+      const input = overflowPx * elasticInputResistance;
+      const proposed = this.elasticOffsetPx + input;
+      this.elasticOffsetPx = elasticMaximumOffsetPx * Math.tanh(proposed / elasticMaximumOffsetPx);
+      this.elasticVelocityPxPerSecond = 0;
+      this.elasticHoldSeconds = elasticInputHoldSeconds;
+      return true;
+    }
+    if (moved && this.elasticActive()) {
+      this.resetElastic();
+    }
+    return moved;
+  }
+
+  /** Advances the spring and returns a 0..1 wake intensity without allocating. */
+  advanceElastic(deltaSeconds: number, reducedMotion: boolean): number {
+    if (reducedMotion) {
+      this.resetElastic();
+      return 0;
+    }
+    if (!this.elasticActive()) {
+      return 0;
+    }
+    const delta = Math.min(0.05, Math.max(0, deltaSeconds));
+    if (this.elasticHoldSeconds > 0) {
+      this.elasticHoldSeconds = Math.max(0, this.elasticHoldSeconds - delta);
+      return 0;
+    }
+    const before = this.elasticOffsetPx;
+    const acceleration =
+      -elasticSpringStiffness * this.elasticOffsetPx -
+      elasticSpringDamping * this.elasticVelocityPxPerSecond;
+    this.elasticVelocityPxPerSecond += acceleration * delta;
+    this.elasticOffsetPx += this.elasticVelocityPxPerSecond * delta;
+    const returning = Math.abs(this.elasticOffsetPx) < Math.abs(before);
+    const returnIntensity = returning
+      ? Math.min(1, Math.abs(this.elasticVelocityPxPerSecond) / elasticDisturbanceSpeedPxPerSecond)
+      : 0;
+    if (
+      Math.abs(this.elasticOffsetPx) <= elasticStopOffsetPx &&
+      Math.abs(this.elasticVelocityPxPerSecond) <= elasticStopVelocityPxPerSecond
+    ) {
+      this.resetElastic();
+      return returnIntensity;
+    }
+    return returnIntensity;
   }
 
   /*
@@ -333,15 +595,36 @@ export class GraphViewController {
    * the live edge, not that it may point at nothing.
    */
   clampToContent(bounds: GraphCameraBounds): void {
-    this.settleCamera(this.cameraWorldY, bounds);
+    const wasDetached = this.detached;
+    /*
+     * An attached camera is allowed to trail a live edge that just moved
+     * forward. This matters while the Director is shorter than the visible
+     * overview range: its oldest and live bounds collapse to the same point,
+     * and a full clamp would otherwise replace the eased follow with a
+     * one-frame jump. It may never lead past live. A user-detached camera still
+     * receives both bounds so history cannot point outside drawn content.
+     */
+    this.cameraWorldY = wasDetached
+      ? clampedCamera(this.cameraWorldY, bounds)
+      : Math.min(this.cameraWorldY, bounds.liveEdgeWorldY);
+    /*
+     * Following deliberately trails the live edge while it eases. That lag is
+     * motion state, not user intent. A camera that was already detached does
+     * reattach when shrinking content clamps it all the way to live.
+     */
+    this.detached = wasDetached && this.cameraWorldY < bounds.liveEdgeWorldY - detachEpsilon;
   }
 
   private settleCamera(candidate: number, bounds: GraphCameraBounds): void {
-    const floor = bounds.contentTopWorldY - bounds.lookBackMargin;
-    const ceiling = Math.max(floor, bounds.liveEdgeWorldY);
-    const next = Math.max(floor, Math.min(ceiling, candidate));
+    const next = clampedCamera(candidate, bounds);
     this.cameraWorldY = next;
     this.detached = next < bounds.liveEdgeWorldY - detachEpsilon;
+  }
+
+  private resetElastic(): void {
+    this.elasticOffsetPx = 0;
+    this.elasticVelocityPxPerSecond = 0;
+    this.elasticHoldSeconds = 0;
   }
 
   setHovered(nodeIndex: number | null): boolean {
@@ -388,6 +671,12 @@ export class GraphViewController {
   pins(): ReadonlyMap<number, boolean> {
     return this.pinnedTurns;
   }
+}
+
+function clampedCamera(candidate: number, bounds: GraphCameraBounds): number {
+  const ceiling = bounds.liveEdgeWorldY;
+  const floor = Math.min(ceiling, bounds.oldestCameraWorldY);
+  return Math.max(floor, Math.min(ceiling, candidate));
 }
 
 /**

@@ -11,12 +11,13 @@
   inline-size: 100%;
   block-size: 100%;
   background: #05060a;
+  box-shadow: inset 0 0 0 1px oklch(0.74 0.08 220 / 0.12);
   overflow: hidden;
 }
 
 .director-graph-surface:focus-visible {
-  outline: 2px solid oklch(0.78 0.13 220);
-  outline-offset: -2px;
+  box-shadow: inset 0 0 0 1px oklch(0.78 0.1 220 / 0.24);
+  outline: none;
 }
 
 .director-graph-canvas {
@@ -25,10 +26,15 @@
   block-size: 100%;
 }
 
+.director-graph-surface[data-openable-thread] .director-graph-canvas {
+  cursor: pointer;
+}
+
 .director-graph-labels {
   position: absolute;
   inset: 0;
   z-index: 8;
+  isolation: isolate;
   pointer-events: none;
   font-size: 12px;
   line-height: 1.35;
@@ -63,7 +69,7 @@
   font-size: 11.5px;
   letter-spacing: 0.01em;
   text-align: center;
-  will-change: transform, opacity;
+  will-change: transform, translate, opacity;
 }
 
 /*
@@ -76,6 +82,93 @@
   background: oklch(from var(--director-ground) l c h / 0.9);
   box-shadow: 0 6px 18px oklch(0 0 0 / 0.55);
   color: var(--director-foreground);
+}
+
+/*
+ * Hover/focus detail for a node in a multi-thread view.
+ *
+ * Titles remain attached to every visible thread; this is the second layer of
+ * information: the full thread name, a plain-language current state, and the
+ * node's public activity summary. Only one exists on screen at a time.
+ */
+.director-graph-tooltip {
+  position: absolute;
+  z-index: 12;
+  display: grid;
+  gap: 4px;
+  inline-size: fit-content;
+  max-inline-size: min(280px, calc(100% - 32px));
+  padding: 10px 12px 11px;
+  border: 1px solid oklch(0.82 0.125 210 / 0.46);
+  border-radius: 11px;
+  background: oklch(from var(--director-ground) calc(l - 0.015) c h / 0.96);
+  box-shadow:
+    0 12px 34px oklch(0 0 0 / 0.62),
+    inset 0 1px 0 oklch(1 0 0 / 0.045);
+  color: var(--director-foreground);
+  pointer-events: none;
+}
+
+.director-graph-tooltip-title {
+  color: var(--director-foreground);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.director-graph-tooltip-status {
+  color: var(--director-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.director-graph-tooltip-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  margin-block-start: 2px;
+  overflow: hidden;
+  color: oklch(0.82 0.025 240);
+  font-size: 11.5px;
+  line-height: 1.42;
+}
+
+.director-graph-tooltip[data-mode="do"] .director-graph-tooltip-status,
+.director-graph-tooltip[data-mode="listening"] .director-graph-tooltip-status {
+  color: oklch(0.84 0.13 205);
+}
+
+.director-graph-tooltip[data-mode="risk"] .director-graph-tooltip-status {
+  color: oklch(0.85 0.15 85);
+}
+
+.director-graph-tooltip[data-mode="success"] .director-graph-tooltip-status {
+  color: oklch(0.86 0.19 155);
+}
+
+.director-graph-tooltip[data-mode="fail"] .director-graph-tooltip-status {
+  color: oklch(0.72 0.19 24);
+}
+
+.director-graph-tooltip[data-mode="merge"] .director-graph-tooltip-status {
+  color: oklch(0.79 0.13 300);
+}
+
+.director-graph-announcer {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 /*
@@ -102,7 +195,16 @@
   pointer-events: auto;
   cursor: pointer;
   touch-action: manipulation;
-  will-change: transform, opacity;
+  transition-duration: 120ms;
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  will-change: transform, translate, opacity;
+}
+
+.director-graph-pill:hover {
+  border-color: color-mix(in oklch, var(--director-primary) 46%, var(--director-border));
+  background: oklch(from var(--director-ground) calc(l + 0.035) c h / 0.94);
+  box-shadow: 0 8px 24px -16px oklch(0 0 0 / 0.72);
 }
 
 .director-graph-pill::after {
@@ -118,6 +220,16 @@
 .director-graph-pill:focus-visible {
   outline: 2px solid oklch(0.82 0.13 220);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .director-graph-pill {
+    transition-property: background-color, border-color, color, box-shadow, scale;
+  }
+
+  .director-graph-pill:active {
+    scale: 0.96;
+  }
 }
 
 .director-graph-pill-summary {

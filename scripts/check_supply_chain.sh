@@ -84,7 +84,8 @@ check_pnpm_project() {
   echo "pnpm release-age check (${project_dir})..."
   "${python_bin}" "${repo_root}/scripts/check_pnpm_lock_release_age.py" \
     --days "${min_release_age_days}" \
-    --lockfile "${repo_root}/${project_dir}/pnpm-lock.yaml"
+    --lockfile "${repo_root}/${project_dir}/pnpm-lock.yaml" \
+    --npmrc "${repo_root}/${project_dir}/.npmrc"
 
   echo "pnpm vulnerability audit (${project_dir})..."
   pnpm -C "${repo_root}/${project_dir}" audit --audit-level moderate

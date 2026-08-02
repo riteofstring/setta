@@ -7,7 +7,11 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from supply_chain_policy import days_to_minutes
+from supply_chain_policy import (
+    PolicyError,
+    days_to_minutes,
+    read_pnpm_release_age_exclusions,
+)
 
 IGNORED_PROJECT_PARTS = (
     ".git",
@@ -101,6 +105,16 @@ def stale_key_findings(repo_root: Path) -> list[str]:
     return findings
 
 
+def release_age_exclusion_findings(repo_root: Path) -> list[str]:
+    findings: list[str] = []
+    for path in npmrc_files(repo_root):
+        try:
+            read_pnpm_release_age_exclusions(path)
+        except PolicyError as error:
+            findings.append(str(error))
+    return findings
+
+
 def release_age_policy_findings(repo_root: Path, *, days: int) -> list[str]:
     expected_minutes = days_to_minutes(days)
     findings: list[str] = []
@@ -141,6 +155,7 @@ def release_age_policy_findings(repo_root: Path, *, days: int) -> list[str]:
 def main() -> int:
     repo_root = args.repo_root.resolve()
     findings = stale_key_findings(repo_root)
+    findings.extend(release_age_exclusion_findings(repo_root))
     if args.days is not None:
         findings.extend(release_age_policy_findings(repo_root, days=args.days))
     if findings:

@@ -10,6 +10,7 @@ import {
   packSemanticGraphComposition,
   semanticGraphTimeOriginSeconds,
   type SemanticGraphPresentation,
+  type SemanticGraphViewport,
 } from "../director-graph/semantic-graph-packer";
 import { selectViewIntent } from "./DirectorWorkstreamNavigation";
 
@@ -87,14 +88,14 @@ export interface DirectorGraphComposition {
 export function packDirectorGraphs(
   graphs: DirectorSnapshot["graphs"] | undefined,
   selectedWorkstreamId: string | null,
-  density: "spacious" | "compact" = "spacious",
+  viewport?: SemanticGraphViewport,
 ): DirectorGraphComposition {
   const composed = graphs ?? [];
   const visible =
     selectedWorkstreamId === null
       ? composed
       : composed.filter((graph) => graph.workstreamId === selectedWorkstreamId);
-  const presentation = directorPresentationFor(visible, selectedWorkstreamId);
+  const presentation = directorPresentationFor(visible, selectedWorkstreamId, viewport);
   const compositionId = directorGraphCompositionId(selectedWorkstreamId);
   if (visible.length === 0) {
     return { presentation, snapshot: emptyPackedGraphSnapshot(compositionId) };
@@ -102,9 +103,9 @@ export function packDirectorGraphs(
   return {
     presentation,
     snapshot: packSemanticGraphComposition({
-      density,
       graphs: visible,
       presentation,
+      viewport,
       workstreamId: compositionId,
     }),
   };

@@ -127,24 +127,24 @@ export async function backendProbe(recordingDir) {
   return {
     baseURL,
     deviceToken,
-    get: (path) => backendRequest(recordingDir, baseURL, deviceToken, "GET", path),
+    get: (path) => backendRequest({ baseURL, deviceToken, method: "GET", path, recordingDir }),
     post: (path, payload) =>
-      backendRequest(recordingDir, baseURL, deviceToken, "POST", path, payload),
+      backendRequest({ baseURL, deviceToken, method: "POST", path, payload, recordingDir }),
     request: (method, path, payload) =>
-      backendFetch(recordingDir, baseURL, deviceToken, method, path, payload),
+      backendFetch({ baseURL, deviceToken, method, path, payload, recordingDir }),
   };
 }
 
-async function backendRequest(recordingDir, baseURL, deviceToken, method, path, payload) {
-  const response = await backendFetch(recordingDir, baseURL, deviceToken, method, path, payload);
+async function backendRequest(request) {
+  const response = await backendFetch(request);
   const body = await response.text();
   if (!response.ok) {
-    throw new Error(`${method} ${path} returned ${response.status}: ${body}`);
+    throw new Error(`${request.method} ${request.path} returned ${response.status}: ${body}`);
   }
   return JSON.parse(body);
 }
 
-async function backendFetch(recordingDir, baseURL, deviceToken, method, path, payload) {
+async function backendFetch({ baseURL, deviceToken, method, path, payload, recordingDir }) {
   const response = await globalThis.fetch(baseURL + path, {
     body: payload === undefined ? undefined : JSON.stringify(payload),
     headers: backendRequestHeaders(deviceToken, payload),

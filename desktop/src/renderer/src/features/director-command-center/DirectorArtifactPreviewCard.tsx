@@ -29,45 +29,54 @@ const artifactStatusLabels = {
  */
 export function DirectorArtifactPreviewCard({
   artifact,
+  arriving,
   documents,
   isActive,
   isOpening,
   onOpen,
+  onPrepare,
+  previewOnly = false,
 }: {
   artifact: WorkstreamArtifact;
+  arriving: boolean;
   documents: ArtifactDocumentCache | null;
   isActive: boolean;
-  /** True while the browser prepares this artifact's document before opening. */
+  /** True while this artifact's document is being prepared. */
   isOpening: boolean;
   onOpen: (artifact: WorkstreamArtifact, trigger: HTMLElement) => void;
+  onPrepare: (artifact: WorkstreamArtifact) => void;
+  /** Reuses the card as noninteractive preview-card content for a minimized marker. */
+  previewOnly?: boolean;
 }) {
   const cardRef = useRef<HTMLElement | null>(null);
   const expandRef = useRef<HTMLButtonElement | null>(null);
   const visible = useRailViewportVisibility(cardRef);
   const document = useArtifactDocument({ artifact, documents, enabled: visible });
   const canOpen = artifact.status === "available" && documents !== null;
-  const openLabel = isOpening
-    ? `Opening artifact: ${artifact.title}`
-    : canOpen
-      ? `Open artifact: ${artifact.title}`
-      : artifact.status === "declared"
-        ? `Artifact is still being written: ${artifact.title}`
-        : `Artifact is not available: ${artifact.title}`;
+  const openEnabled = canOpen && !isOpening;
+  const openLabel = artifactOpenLabel(artifact, canOpen, isOpening);
+  const handleDoubleClick = previewOnly
+    ? undefined
+    : () => {
+        if (openEnabled && expandRef.current !== null) {
+          onOpen(artifact, expandRef.current);
+        }
+      };
 
   return (
     <article
-      aria-busy={isOpening || undefined}
+      aria-busy={optionalTrue(isOpening)}
       className="director-artifact-preview"
-      data-artifact-active={isActive ? "true" : "false"}
+      data-artifact-active={booleanDataValue(isActive)}
       data-artifact-id={artifact.id}
-      data-artifact-opening={isOpening ? "true" : "false"}
+      data-artifact-opening={booleanDataValue(isOpening)}
       data-artifact-status={artifact.status}
-      data-preview-state={document?.status ?? "idle"}
-      onDoubleClick={() => {
-        if (canOpen && !isOpening && expandRef.current !== null) {
-          onOpen(artifact, expandRef.current);
-        }
-      }}
+      data-preview-state={artifactDocumentStatus(document)}
+      data-preview-only={optionalDataValue(previewOnly)}
+      data-rail-arriving={optionalDataValue(arriving)}
+      onDoubleClick={handleDoubleClick}
+      onFocusCapture={() => onPrepare(artifact)}
+      onPointerEnter={() => onPrepare(artifact)}
       ref={cardRef}
     >
       <header className="director-artifact-preview-header">
@@ -80,14 +89,16 @@ export function DirectorArtifactPreviewCard({
           <p className="director-artifact-preview-kind">{artifact.kind}</p>
           <h3 className="director-artifact-preview-title">{artifact.title}</h3>
         </div>
-        <ArtifactExpandControl
-          artifact={artifact}
-          canOpen={canOpen && !isOpening}
-          isOpening={isOpening}
-          label={openLabel}
-          onOpen={onOpen}
-          ref={expandRef}
-        />
+        {previewOnly ? null : (
+          <ArtifactExpandControl
+            artifact={artifact}
+            canOpen={openEnabled}
+            isOpening={isOpening}
+            label={openLabel}
+            onOpen={onOpen}
+            ref={expandRef}
+          />
+        )}
       </header>
       {/* The card's body is noninteractive and ignores pointer input, so the
           expand control above remains the only way into the full document. Its
@@ -97,6 +108,38 @@ export function DirectorArtifactPreviewCard({
       </div>
     </article>
   );
+}
+
+function artifactOpenLabel(
+  artifact: WorkstreamArtifact,
+  canOpen: boolean,
+  isOpening: boolean,
+): string {
+  if (isOpening) {
+    return `Opening artifact: ${artifact.title}`;
+  }
+  if (canOpen) {
+    return `Open artifact: ${artifact.title}`;
+  }
+  return artifact.status === "declared"
+    ? `Artifact is still being written: ${artifact.title}`
+    : `Artifact is not available: ${artifact.title}`;
+}
+
+function artifactDocumentStatus(document: ArtifactDocumentState | null): string {
+  return document?.status ?? "idle";
+}
+
+function booleanDataValue(value: boolean): "true" | "false" {
+  return value ? "true" : "false";
+}
+
+function optionalDataValue(value: boolean): "true" | undefined {
+  return value ? "true" : undefined;
+}
+
+function optionalTrue(value: boolean): true | undefined {
+  return value ? true : undefined;
 }
 
 function ArtifactExpandControl({

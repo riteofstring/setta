@@ -9,14 +9,15 @@
  * Text density decays with distance from the live edge, so a long trajectory
  * stays legible instead of turning into a wall of overlapping sentences. The
  * question driving the current work sticks to the top of the viewport while its
- * turn is open, and an outcome pill sits over a success and below a failure so
- * the eclipsed node stays visible.
+ * turn is open. Durable labels sit below their nodes; interaction-only tooltips
+ * may temporarily move over a hovered node.
  */
 
 import { graphFitFrame, graphWarpToScreen, type GraphFitFrame } from "./graph-visual-language";
 import {
   graphNodeCssDiameter,
   graphNodeScreenPosition,
+  graphNodeVisualScale,
   type GraphViewport,
 } from "./graph-view-state";
 import {
@@ -64,6 +65,8 @@ export interface GraphLabelScene {
   /** The turn whose question sticks to the top of the viewport. */
   readonly activeTurn: number;
   readonly reducedMotion: boolean;
+  readonly directorNodeEnd: number;
+  readonly supportingNodeScale: number;
 }
 
 function labelOpacity(scene: GraphLabelScene, index: number, worldY: number): number {
@@ -113,7 +116,7 @@ function labelCandidate(scene: GraphLabelScene, index: number): LabelCandidate |
   }
   const role = packedValueAt(scene.snapshot.nodes.role, index);
   const isOutcome = role === packedGraphRoleCode.outcome;
-  if (!labelReady(scene, index, bornAt, isOutcome)) {
+  if (scene.hoveredNode !== index && !labelReady(scene, index, bornAt, isOutcome)) {
     return null;
   }
   const worldY = packedValueAt(scene.worldY, index);
@@ -126,7 +129,7 @@ function labelCandidate(scene: GraphLabelScene, index: number): LabelCandidate |
     bornAt,
     worldY,
     opacity,
-    anchor: anchorCode === packedGraphLabelPlacementCode.over ? "over" : "below",
+    anchor: "below",
     isQuestion,
   };
 }
@@ -165,7 +168,7 @@ function placementFor(
   target.anchor = anchor;
   target.sticky = false;
   target.expanded = labelExpanded(scene, index);
-  return placeLabelVertically(scene, index, fit, target, candidate);
+  return placeLabelVertically(scene, index, target, candidate);
 }
 
 function labelExpanded(scene: GraphLabelScene, index: number): boolean {
@@ -177,7 +180,6 @@ function labelExpanded(scene: GraphLabelScene, index: number): boolean {
 function placeLabelVertically(
   scene: GraphLabelScene,
   index: number,
-  fit: GraphFitFrame,
   target: GraphLabelPlacement,
   candidate: LabelCandidate,
 ): boolean {
@@ -189,7 +191,12 @@ function placeLabelVertically(
     !scene.reducedMotion &&
     scene.timeSeconds < packedValueAt(scene.snapshot.nodes.settleAt, index) &&
     scene.timeSeconds >= bornAt;
-  const diameter = graphNodeCssDiameter(worldY, scene.cameraWorldY, working, fit);
+  const diameter = graphNodeCssDiameter(
+    worldY,
+    scene.cameraWorldY,
+    working,
+    graphNodeVisualScale(index, scene.directorNodeEnd, scene.supportingNodeScale),
+  );
   const below = target.y + diameter * 0.5 + belowGapPx;
   const sticky =
     isQuestion &&

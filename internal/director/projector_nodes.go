@@ -165,41 +165,78 @@ var concurrentWorkKinds = map[SemanticNodeKind]bool{
 func (projector *DirectorGraphProjector) chainFollowedBy(context factContext, node SemanticNode) error {
 	workstream := context.workstream
 	from := workstream.lastNodeID
-	if node.RunID != nil {
-		runID := *node.RunID
-		if runLast, found := workstream.lastRunNodeID[runID]; found {
-			from = runLast
-		}
-		if tipIndex, exists := workstream.nodeIndex[from]; exists {
-			tip := workstream.nodes[tipIndex]
-			sameRun := tip.RunID != nil && *tip.RunID == runID
-			if sameRun && concurrentWorkKinds[node.Kind] && concurrentWorkKinds[tip.Kind] &&
-				!IsTerminalSemanticNodeStatus(tip.Status) {
-				if len(workstream.parallelTips[runID]) == 0 {
-					workstream.forkParent[runID] = workstream.chainParent[from]
-					workstream.parallelTips[runID] = []string{from}
-				}
-				workstream.parallelTips[runID] = append(workstream.parallelTips[runID], node.ID)
-				fork := workstream.forkParent[runID]
-				workstream.chainParent[node.ID] = fork
-				return projector.addEdge(context, SemanticEdgeFollowedBy, fork, node.ID)
-			}
-			if tips := workstream.parallelTips[runID]; len(tips) > 0 {
-				// The fan is over: this fact follows all of it.
-				delete(workstream.parallelTips, runID)
-				delete(workstream.forkParent, runID)
-				workstream.chainParent[node.ID] = from
-				for _, tipID := range tips {
-					if err := projector.addEdge(context, SemanticEdgeFollowedBy, tipID, node.ID); err != nil {
-						return err
-					}
-				}
-				return nil
-			}
+	if node.RunID == nil {
+		return projector.chainNodeFrom(context, node.ID, from)
+	}
+	runID := *node.RunID
+	if runLast, found := workstream.lastRunNodeID[runID]; found {
+		from = runLast
+	}
+	tipIndex, exists := workstream.nodeIndex[from]
+	if !exists {
+		return projector.chainNodeFrom(context, node.ID, from)
+	}
+	tip := workstream.nodes[tipIndex]
+	if canExtendParallelFan(node, tip, runID) {
+		return projector.extendParallelFan(context, node.ID, from, runID)
+	}
+	if tips := workstream.parallelTips[runID]; len(tips) > 0 {
+		return projector.mergeParallelFan(context, node.ID, from, runID, tips)
+	}
+	return projector.chainNodeFrom(context, node.ID, from)
+}
+
+func canExtendParallelFan(node SemanticNode, tip SemanticNode, runID string) bool {
+	return tip.RunID != nil &&
+		*tip.RunID == runID &&
+		concurrentWorkKinds[node.Kind] &&
+		concurrentWorkKinds[tip.Kind] &&
+		!IsTerminalSemanticNodeStatus(tip.Status)
+}
+
+func (projector *DirectorGraphProjector) extendParallelFan(
+	context factContext,
+	nodeID string,
+	from string,
+	runID string,
+) error {
+	workstream := context.workstream
+	if len(workstream.parallelTips[runID]) == 0 {
+		workstream.forkParent[runID] = workstream.chainParent[from]
+		workstream.parallelTips[runID] = []string{from}
+	}
+	workstream.parallelTips[runID] = append(workstream.parallelTips[runID], nodeID)
+	fork := workstream.forkParent[runID]
+	workstream.chainParent[nodeID] = fork
+	return projector.addEdge(context, SemanticEdgeFollowedBy, fork, nodeID)
+}
+
+func (projector *DirectorGraphProjector) mergeParallelFan(
+	context factContext,
+	nodeID string,
+	from string,
+	runID string,
+	tips []string,
+) error {
+	workstream := context.workstream
+	delete(workstream.parallelTips, runID)
+	delete(workstream.forkParent, runID)
+	workstream.chainParent[nodeID] = from
+	for _, tipID := range tips {
+		if err := projector.addEdge(context, SemanticEdgeFollowedBy, tipID, nodeID); err != nil {
+			return err
 		}
 	}
-	workstream.chainParent[node.ID] = from
-	return projector.addEdge(context, SemanticEdgeFollowedBy, from, node.ID)
+	return nil
+}
+
+func (projector *DirectorGraphProjector) chainNodeFrom(
+	context factContext,
+	nodeID string,
+	from string,
+) error {
+	context.workstream.chainParent[nodeID] = from
+	return projector.addEdge(context, SemanticEdgeFollowedBy, from, nodeID)
 }
 
 // addEdge records one typed relationship inside the workstream that owns both

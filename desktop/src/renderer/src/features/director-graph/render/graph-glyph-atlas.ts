@@ -12,166 +12,73 @@
  * text, so the glyph arrives as a packed column and this module only draws it.
  */
 
+import checkFillSvg from "@phosphor-icons/core/fill/check-fat-fill.svg?raw";
+import crossFillSvg from "@phosphor-icons/core/fill/x-circle-fill.svg?raw";
+import dotFillSvg from "@phosphor-icons/core/fill/dot-outline-fill.svg?raw";
+import editFillSvg from "@phosphor-icons/core/fill/pencil-simple-fill.svg?raw";
+import measureFillSvg from "@phosphor-icons/core/fill/gauge-fill.svg?raw";
+import microphoneFillSvg from "@phosphor-icons/core/fill/microphone-fill.svg?raw";
+import readFillSvg from "@phosphor-icons/core/fill/eye-fill.svg?raw";
+import searchFillSvg from "@phosphor-icons/core/fill/magnifying-glass-fill.svg?raw";
+import synthesisFillSvg from "@phosphor-icons/core/fill/diamond-fill.svg?raw";
+import terminalFillSvg from "@phosphor-icons/core/fill/terminal-window-fill.svg?raw";
+import documentFillSvg from "@phosphor-icons/core/fill/file-text-fill.svg?raw";
+import warningFillSvg from "@phosphor-icons/core/fill/warning-fill.svg?raw";
+
 import { packedGraphGlyphs, type PackedGraphGlyph } from "../packed-graph-vocabulary";
 
 /** Draws one glyph centred on the origin of a 64×64 cell. */
 export type GraphGlyphDrawing = (context: CanvasRenderingContext2D) => void;
 
-const circle = (context: CanvasRenderingContext2D, x: number, y: number, radius: number): void => {
-  context.beginPath();
-  context.arc(x, y, radius, 0, Math.PI * 2);
-};
+const phosphorViewBoxSize = 256;
+const phosphorAtlasIconSize = 52;
 
-const path = (context: CanvasRenderingContext2D, points: readonly (readonly number[])[]): void => {
-  context.beginPath();
-  points.forEach(([x, y], index) => {
-    if (x === undefined || y === undefined) {
-      throw new Error("glyph path point is missing a coordinate");
+/**
+ * Converts the selected Phosphor Fill asset into a cached canvas path. The SVG
+ * strings are build-time imports, and each Path2D is created only when the
+ * renderer builds its one shared atlas — never during a frame.
+ *
+ * Phosphor Icons is MIT licensed: https://phosphoricons.com
+ */
+function phosphorFillDrawing(
+  glyph: PackedGraphGlyph,
+  svg: string,
+  atlasIconSize = phosphorAtlasIconSize,
+): GraphGlyphDrawing {
+  const pathData = Array.from(svg.matchAll(/\sd="([^"]+)"/g), (match) => match[1]).filter(
+    (data): data is string => data !== undefined,
+  );
+  if (pathData.length === 0) {
+    throw new Error(`Phosphor Fill asset for graph glyph "${glyph}" has no path data`);
+  }
+
+  let paths: readonly Path2D[] | undefined;
+  return (context) => {
+    paths ??= pathData.map((data) => new Path2D(data));
+    const scale = atlasIconSize / phosphorViewBoxSize;
+    context.save();
+    context.scale(scale, scale);
+    context.translate(-phosphorViewBoxSize / 2, -phosphorViewBoxSize / 2);
+    for (const iconPath of paths) {
+      context.fill(iconPath);
     }
-    if (index === 0) {
-      context.moveTo(x, y);
-      return;
-    }
-    context.lineTo(x, y);
-  });
-};
+    context.restore();
+  };
+}
 
 export const graphGlyphDrawings = {
-  read: (context) => {
-    context.beginPath();
-    context.moveTo(-19, 0);
-    context.quadraticCurveTo(0, -14, 19, 0);
-    context.quadraticCurveTo(0, 14, -19, 0);
-    context.closePath();
-    context.stroke();
-    circle(context, 0, 0, 5);
-    context.fill();
-  },
-  terminal: (context) => {
-    context.strokeRect(-19, -15, 38, 30);
-    path(context, [
-      [-10, -4],
-      [-3, 3],
-      [-10, 10],
-    ]);
-    context.stroke();
-    path(context, [
-      [2, 10],
-      [12, 10],
-    ]);
-    context.stroke();
-  },
-  edit: (context) => {
-    context.beginPath();
-    for (let corner = 0; corner < 6; corner += 1) {
-      const angle = (corner * Math.PI) / 3;
-      const x = Math.cos(angle) * 18;
-      const y = Math.sin(angle) * 18;
-      if (corner === 0) {
-        context.moveTo(x, y);
-        continue;
-      }
-      context.lineTo(x, y);
-    }
-    context.closePath();
-    context.stroke();
-    circle(context, 0, 0, 6);
-    context.stroke();
-  },
-  measure: (context) => {
-    path(context, [
-      [-20, 0],
-      [-10, -13],
-      [0, 9],
-      [10, -7],
-      [20, 0],
-    ]);
-    context.stroke();
-  },
-  warning: (context) => {
-    path(context, [
-      [0, -18],
-      [18, 16],
-      [-18, 16],
-    ]);
-    context.closePath();
-    context.stroke();
-    path(context, [
-      [0, -5],
-      [0, 5],
-    ]);
-    context.stroke();
-    circle(context, 0, 11, 2);
-    context.fill();
-  },
-  check: (context) => {
-    path(context, [
-      [-15, 0],
-      [-4, 13],
-      [17, -13],
-    ]);
-    context.stroke();
-  },
-  cross: (context) => {
-    context.beginPath();
-    context.moveTo(-13, -13);
-    context.lineTo(13, 13);
-    context.moveTo(13, -13);
-    context.lineTo(-13, 13);
-    context.stroke();
-  },
-  synthesis: (context) => {
-    path(context, [
-      [0, -18],
-      [18, 0],
-      [0, 18],
-      [-18, 0],
-    ]);
-    context.closePath();
-    context.stroke();
-  },
-  search: (context) => {
-    circle(context, -4, -4, 12);
-    context.stroke();
-    path(context, [
-      [5, 5],
-      [17, 17],
-    ]);
-    context.stroke();
-  },
-  document: (context) => {
-    context.strokeRect(-12, -17, 24, 34);
-    context.beginPath();
-    context.moveTo(-6, -7);
-    context.lineTo(6, -7);
-    context.moveTo(-6, 1);
-    context.lineTo(6, 1);
-    context.moveTo(-6, 9);
-    context.lineTo(2, 9);
-    context.stroke();
-  },
-  dot: (context) => {
-    circle(context, 0, 0, 8);
-    context.fill();
-  },
-  microphone: (context) => {
-    context.beginPath();
-    context.moveTo(-6, -16);
-    context.arc(0, -16, 6, Math.PI, 0, false);
-    context.lineTo(6, -2);
-    context.arc(0, -2, 6, 0, Math.PI, false);
-    context.closePath();
-    context.stroke();
-    context.beginPath();
-    context.arc(0, -2, 12, 0.35, Math.PI - 0.35, false);
-    context.stroke();
-    context.beginPath();
-    context.moveTo(0, 10);
-    context.lineTo(0, 18);
-    context.moveTo(-8, 18);
-    context.lineTo(8, 18);
-    context.stroke();
-  },
+  read: phosphorFillDrawing("read", readFillSvg),
+  terminal: phosphorFillDrawing("terminal", terminalFillSvg),
+  edit: phosphorFillDrawing("edit", editFillSvg),
+  measure: phosphorFillDrawing("measure", measureFillSvg),
+  warning: phosphorFillDrawing("warning", warningFillSvg),
+  check: phosphorFillDrawing("check", checkFillSvg),
+  cross: phosphorFillDrawing("cross", crossFillSvg),
+  synthesis: phosphorFillDrawing("synthesis", synthesisFillSvg),
+  search: phosphorFillDrawing("search", searchFillSvg),
+  document: phosphorFillDrawing("document", documentFillSvg),
+  dot: phosphorFillDrawing("dot", dotFillSvg, 72),
+  microphone: phosphorFillDrawing("microphone", microphoneFillSvg),
 } satisfies Record<PackedGraphGlyph, GraphGlyphDrawing>;
 
 /** Cell edge in atlas pixels. */
@@ -196,11 +103,7 @@ export function createGraphGlyphAtlas(ownerDocument: Document): GraphGlyphAtlas 
   if (context === null) {
     throw new Error("director graph glyph atlas requires a 2d canvas context");
   }
-  context.strokeStyle = "#fff";
   context.fillStyle = "#fff";
-  context.lineWidth = 6;
-  context.lineCap = "round";
-  context.lineJoin = "round";
   packedGraphGlyphs.forEach((glyph, index) => {
     context.save();
     context.translate(index * cell + cell / 2, cell / 2);

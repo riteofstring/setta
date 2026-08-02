@@ -594,7 +594,7 @@ async function openArtifactBrowser(client, snapshot, artifact, documentMarker) {
   const position = inView.findIndex((candidate) => candidate.id === artifact.id) + 1;
   assertEqual(
     detail.position,
-    `${position} of ${inView.length}`,
+    `Artifact ${position} / ${inView.length}`,
     `artifact browser position for ${artifact.id}`,
   );
   return detail;

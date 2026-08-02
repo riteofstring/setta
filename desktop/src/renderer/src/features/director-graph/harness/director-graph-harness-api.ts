@@ -8,6 +8,7 @@
  */
 
 import type { DirectorGraphCanvas, GraphCanvasQuality } from "../render/director-graph-canvas";
+import type { GraphArtifactParticleStyle } from "../render/graph-artifact-presentation";
 import type { GraphCanvasPixelCheck } from "../render/graph-pixel-check";
 import {
   DirectorGraphHarness,
@@ -50,6 +51,13 @@ interface DirectorGraphHarnessApi {
   environment(): DirectorGraphHarnessEnvironment;
   /** Judges whatever is on the canvas now; the empty graph is the check's floor. */
   pixelCheck(): Promise<GraphCanvasPixelCheck>;
+  /** Holds the renderer in its Director-state loading visual for inspection. */
+  setLoading(loading: boolean): boolean;
+  /** Selects the production artifact particle field for GPU profiling. */
+  setArtifactParticles(
+    style: GraphArtifactParticleStyle | null,
+    artifactId?: string,
+  ): GraphArtifactParticleStyle | null;
   /**
    * Starts a scenario and returns immediately. A soak runs for minutes, which
    * is longer than a single evaluation may block the debugging channel, so the
@@ -154,6 +162,14 @@ export function installDirectorGraphHarnessApi(
       scenarios: directorGraphScenarioNames,
     }),
     pixelCheck: () => requireCanvas().requestPixelCheck(),
+    setArtifactParticles: (style: GraphArtifactParticleStyle | null, artifactId?: string) => {
+      requireCanvas().setArtifactParticleStyle(style, artifactId);
+      return style;
+    },
+    setLoading: (loading: boolean) => {
+      requireCanvas().setLoading(loading);
+      return loading;
+    },
     start: (scenario: string, overrides: DirectorGraphScenarioOverrides = {}) => {
       if (status.state === "running") {
         throw new Error(`a director graph scenario is already running: ${status.scenario}`);

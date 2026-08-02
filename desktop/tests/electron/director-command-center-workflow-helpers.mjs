@@ -144,11 +144,10 @@ export async function verifyCompactRailFocusRestoration(client) {
     /*
      * Escape, as the shell actually hears it.
      *
-     * This used to focus the rail's history button and press Escape on it. The
-     * rail has no controls now — it is narration and nothing else — and the
-     * shell listens on the window anyway, so the real user action is pressing
-     * Escape while the compact rail is open. The guarantee is unchanged: the
-     * rail collapses and focus returns to the trigger that opened it.
+     * The shell listens on the window, so the real user action is pressing
+     * Escape while the compact rail is open. The expanded history collapses,
+     * its edge activity strip remains available, and focus returns to the
+     * disclosure trigger that opened it.
      */
     await client.evaluate(`document.dispatchEvent(new KeyboardEvent("keydown", {
       bubbles: true,
@@ -160,13 +159,28 @@ export async function verifyCompactRailFocusRestoration(client) {
       `(() => {
         const rail = document.querySelector("#director-now-rail");
         const trigger = document.querySelector('button[aria-controls="director-now-rail"]');
+        const expanded = rail?.querySelector(".director-rail-expanded-content");
+        const minimized = rail?.querySelector(".director-rail-minimized");
         return {
           collapsed: trigger?.getAttribute("aria-expanded") === "false",
+          expandedHidden:
+            expanded instanceof HTMLElement &&
+            expanded.inert &&
+            getComputedStyle(expanded).visibility === "hidden",
           focusedTrigger: document.activeElement === trigger,
-          hidden: rail instanceof HTMLElement && getComputedStyle(rail).display === "none"
+          minimizedVisible:
+            minimized instanceof HTMLElement &&
+            !minimized.inert &&
+            getComputedStyle(minimized).display !== "none",
+          railVisible: rail instanceof HTMLElement && getComputedStyle(rail).display !== "none"
         };
       })()`,
-      (state) => state.collapsed && state.focusedTrigger && state.hidden,
+      (state) =>
+        state.collapsed &&
+        state.expandedHidden &&
+        state.focusedTrigger &&
+        state.minimizedVisible &&
+        state.railVisible,
       workflowTimeoutMs,
     );
     await verifyMinimumCompactWidth(client);
@@ -310,15 +324,21 @@ export async function assertArtifactPreviewIgnoresSingleClick(client, artifactId
 }
 
 export async function assertArtifactExpandControlRegainedFocus(client, artifactId) {
-  const focused = await client.evaluate(`(() => {
-    const card = document.querySelector(
-      ${JSON.stringify(`.director-artifact-preview[data-artifact-id="${artifactId}"]`)}
-    );
-    return card?.querySelector(".director-artifact-expand") === document.activeElement;
-  })()`);
-  if (!focused) {
-    throw new Error("Director artifact browser did not restore focus to its expand control");
-  }
+  await waitForState(
+    client,
+    `(() => {
+      const card = document.querySelector(
+        ${JSON.stringify(`.director-artifact-preview[data-artifact-id="${artifactId}"]`)}
+      );
+      const expand = card?.querySelector(".director-artifact-expand");
+      return {
+        activeElement: document.activeElement?.outerHTML ?? "",
+        focused: expand === document.activeElement
+      };
+    })()`,
+    (state) => state.focused,
+    5_000,
+  );
 }
 
 export async function openDirectorArtifactBrowser(client, artifactId, documentMarker) {
@@ -354,7 +374,7 @@ export async function openDirectorArtifactBrowserByDoubleClick(client, artifactI
   return waitForOpenDirectorArtifact(client, artifactId, documentMarker);
 }
 
-export function waitForOpenDirectorArtifact(client, artifactId, documentMarker) {
+export function waitForOpenDirectorArtifact(client, artifactId, documentMarker, expectedPosition) {
   return waitForState(
     client,
     driverCallExpression("directorCommandCenterWorkflowArtifactBrowserState", { artifactId }),
@@ -364,7 +384,8 @@ export function waitForOpenDirectorArtifact(client, artifactId, documentMarker) 
       detail.status === "ready" &&
       detail.documentText.includes(documentMarker) &&
       detail.position !== "" &&
-      detail.liveText.includes(detail.position),
+      (expectedPosition === undefined || detail.position === expectedPosition) &&
+      detail.liveText.toLowerCase().includes(detail.position.toLowerCase()),
     workflowTimeoutMs,
   );
 }
@@ -656,7 +677,7 @@ export function assertProjectedDirectorCreation(snapshot, workstreamId) {
   const reply = requiredGraphNode(
     lane,
     (node) =>
-      node.kind === "milestone" && node.publicSummary === "Created and selected Director root.",
+      node.kind === "completed" && node.publicSummary === "Created and selected Director root.",
     "Director creation reply",
   );
   for (const [from, to, label] of [

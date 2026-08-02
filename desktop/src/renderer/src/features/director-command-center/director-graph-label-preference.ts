@@ -8,10 +8,15 @@ const graphLabelStorageKey = "setta.graph-labels.hidden";
 
 type LabelPreferenceStorage = Pick<Storage, "getItem" | "setItem">;
 
-export function readGraphLabelsVisible(storage: LabelPreferenceStorage): boolean {
-  return storage.getItem(graphLabelStorageKey) !== "true";
+export function readGraphLabelsVisible(
+  storage: LabelPreferenceStorage | null | undefined,
+): boolean {
+  return storage?.getItem(graphLabelStorageKey) !== "true";
 }
 
-export function writeGraphLabelsVisible(storage: LabelPreferenceStorage, visible: boolean): void {
-  storage.setItem(graphLabelStorageKey, visible ? "false" : "true");
+export function writeGraphLabelsVisible(
+  storage: LabelPreferenceStorage | null | undefined,
+  visible: boolean,
+): void {
+  storage?.setItem(graphLabelStorageKey, visible ? "false" : "true");
 }

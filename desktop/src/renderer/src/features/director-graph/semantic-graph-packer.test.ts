@@ -8,11 +8,26 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { projectionGalleryFixtures } from "./projection-gallery-fixtures";
+import type { PackedGraphSnapshot } from "./packed-graph-snapshot";
 import {
   packSemanticGraphComposition,
   type SemanticGraphPresentation,
 } from "./semantic-graph-packer";
-import { packedValueAt } from "./packed-graph-vocabulary";
+import {
+  packedGraphEdgeChannelCode,
+  packedGraphModeCode,
+  packedGraphNever,
+  packedValueAt,
+} from "./packed-graph-vocabulary";
+
+function nodeCountsByTurn(snapshot: PackedGraphSnapshot): ReadonlyMap<number, number> {
+  const counts = new Map<number, number>();
+  for (let index = 0; index < snapshot.nodeCount; index += 1) {
+    const turn = packedValueAt(snapshot.nodes.turn, index);
+    counts.set(turn, (counts.get(turn) ?? 0) + 1);
+  }
+  return counts;
+}
 
 /*
  * A tile whose kept last node points back at one the tile drops.
@@ -69,6 +84,118 @@ function tileNode(
   };
 }
 
+function concurrentFanGraph(): WorkstreamGraph {
+  const workstreamId = "workstream:parallel";
+  const node = (
+    id: string,
+    kind: SemanticNode["kind"],
+    createdAt: string,
+    completedAt: string,
+  ): SemanticNode => ({
+    actor: "worker",
+    artifactIds: [],
+    completedAt,
+    createdAt,
+    evidenceClass: "runtime_fact",
+    id,
+    interpretation: null,
+    kind,
+    publicSummary: id,
+    runId: "run-parallel",
+    sourceEventIds: [`event:${id}`],
+    status: "succeeded",
+    updatedAt: completedAt,
+    workstreamId,
+  });
+  const nodes = [
+    node("fork", "action", "2026-07-25T17:00:01Z", "2026-07-25T17:00:01Z"),
+    node("terminal", "action", "2026-07-25T17:00:02Z", "2026-07-25T17:00:05Z"),
+    node("reader", "investigation", "2026-07-25T17:00:03Z", "2026-07-25T17:00:04Z"),
+    node("merge", "completed", "2026-07-25T17:00:06Z", "2026-07-25T17:00:06Z"),
+  ];
+  const edge = (
+    id: string,
+    fromNodeId: string,
+    toNodeId: string,
+    createdAt: string,
+  ): WorkstreamGraph["edges"][number] => ({
+    createdAt,
+    fromNodeId,
+    id,
+    kind: "followed_by",
+    sourceEventIds: [`event:${id}`],
+    toNodeId,
+    workstreamId,
+  });
+  return {
+    detailLevel: "selected",
+    edges: [
+      edge("fork-terminal", "fork", "terminal", "2026-07-25T17:00:02Z"),
+      edge("fork-reader", "fork", "reader", "2026-07-25T17:00:03Z"),
+      edge("terminal-merge", "terminal", "merge", "2026-07-25T17:00:06Z"),
+      edge("reader-merge", "reader", "merge", "2026-07-25T17:00:06Z"),
+    ],
+    hasEarlier: false,
+    nodes,
+    workstreamId,
+  };
+}
+
+function failedOutcomeGraph(workstreamId: string): WorkstreamGraph {
+  const node = (
+    id: string,
+    kind: SemanticNode["kind"],
+    status: SemanticNode["status"],
+    second: number,
+  ): SemanticNode => {
+    const at = `2026-07-25T17:00:0${second}Z`;
+    return {
+      actor: kind === "user_goal" ? "user" : "worker",
+      artifactIds: [],
+      completedAt: at,
+      createdAt: at,
+      evidenceClass: "runtime_fact",
+      id,
+      interpretation: null,
+      kind,
+      publicSummary: id,
+      runId: "run-failed",
+      sourceEventIds: [`event:${id}`],
+      status,
+      updatedAt: at,
+      workstreamId,
+    };
+  };
+  const edge = (
+    id: string,
+    fromNodeId: string,
+    toNodeId: string,
+    second: number,
+  ): WorkstreamGraph["edges"][number] => ({
+    createdAt: `2026-07-25T17:00:0${second}Z`,
+    fromNodeId,
+    id,
+    kind: "followed_by",
+    sourceEventIds: [`event:${id}`],
+    toNodeId,
+    workstreamId,
+  });
+  return {
+    detailLevel: "selected",
+    edges: [
+      edge("input-step", "input", "failed-step", 2),
+      edge("step-outcome", "failed-step", "failed-outcome", 3),
+    ],
+    hasEarlier: false,
+    nodes: [
+      node("input", "user_goal", "failed", 1),
+      node("failed-step", "action", "failed", 2),
+      node("failed-outcome", "failed", "failed", 3),
+    ],
+    workstreamId,
+  };
+}
+
 /** Copies a fixture graph under a new workstream id, so a composition can hold many. */
 function renameGraph(graph: WorkstreamGraph | undefined, workstreamId: string): WorkstreamGraph {
   if (graph === undefined) {
@@ -119,7 +246,7 @@ describe("semantic graph gallery fixtures", () => {
 describe("semantic graph packer", () => {
   it.each(projectionGalleryFixtures)("packs $name into a drawable snapshot", (fixture) => {
     const snapshot = packSemanticGraphComposition({
-      presentation: "columns",
+      presentation: "conversation",
       workstreamId: fixture.name,
       graphs: fixture.graphs,
     });
@@ -182,10 +309,9 @@ describe("semantic graph packer", () => {
   });
 
   /*
-   * Past a handful of conversations the view becomes a grid. Every conversation
-   * still gets a cell — none of them stop being drawn because another one
-   * started — and the cells occupy more than one row, which is the difference
-   * between a grid and a row of slivers.
+   * Past a handful of conversations the view becomes a grid. The Director keeps
+   * its centre spine, every worker still gets a flanking cell, and the cells
+   * occupy more than one row instead of becoming one row of slivers.
    */
   it("tiles the conversations into a grid once there are too many for columns", () => {
     const fixture = projectionGalleryFixtures.find((candidate) =>
@@ -216,12 +342,47 @@ describe("semantic graph packer", () => {
     expect(lanes.size).toBeGreaterThan(1);
   });
 
+  it("keeps Director row geometry unchanged when a grid viewport resizes", () => {
+    const fixture = projectionGalleryFixtures.find((candidate) =>
+      candidate.graphs.some((graph) => graph.nodes.length > 3),
+    );
+    expect(fixture).toBeDefined();
+    const director = fixture?.graphs.find((graph) => graph.nodes.length > 3);
+    expect(director).toBeDefined();
+    if (director === undefined) {
+      return;
+    }
+    const graphs = [
+      director,
+      ...Array.from({ length: 8 }, (_unused, index) =>
+        renameGraph(director, `invariant-grid-${index}`),
+      ),
+    ];
+    const packAt = (width: number, height: number) =>
+      packSemanticGraphComposition({
+        graphs,
+        presentation: "grid",
+        viewport: { height, width },
+        workstreamId: "invariant-grid",
+      });
+    const directorRows = (snapshot: ReturnType<typeof packSemanticGraphComposition>) =>
+      Array.from({ length: snapshot.nodeCount }, (_unused, index) => index)
+        .filter((index) => packedValueAt(snapshot.nodes.turn, index) === 0)
+        .map((index) => packedValueAt(snapshot.nodes.row, index));
+
+    const compact = packAt(800, 700);
+    const expansive = packAt(2000, 1400);
+
+    expect(directorRows(expansive)).toEqual(directorRows(compact));
+    expect(packedValueAt(expansive.turns.rowSpan, 0)).toBe(packedValueAt(compact.turns.rowSpan, 0));
+  });
+
   /*
-   * Finished work folds itself on every presentation: the reader's reward for
-   * a completed run is the single success node, and the trajectory stays one
-   * activation away.
+   * Finished work folds only while reading one conversation. Director overview
+   * level of detail is decided while packing, so short trails do not
+   * independently fold after arrival.
    */
-  it("sets a fold clock for finished turns on every presentation", () => {
+  it("sets a fold clock only for a conversation", () => {
     const fixture = projectionGalleryFixtures.find((candidate) =>
       candidate.graphs.some((graph) => graph.nodes.length > 0),
     );
@@ -243,11 +404,11 @@ describe("semantic graph packer", () => {
     };
 
     expect(compactClocks("conversation").some((clock) => Number.isFinite(clock))).toBe(true);
-    expect(compactClocks("columns").some((clock) => Number.isFinite(clock))).toBe(true);
-    expect(compactClocks("grid").some((clock) => Number.isFinite(clock))).toBe(true);
+    expect(compactClocks("columns").every((clock) => !Number.isFinite(clock))).toBe(true);
+    expect(compactClocks("grid").every((clock) => !Number.isFinite(clock))).toBe(true);
   });
 
-  it("reduces a grid tile to its latest activity", () => {
+  it("keeps complete columns, short grid trails through six workers, and one activity node beyond", () => {
     const fixture = projectionGalleryFixtures.find(
       (candidate) => candidate.graphs.filter((graph) => graph.nodes.length > 3).length > 0,
     );
@@ -260,26 +421,49 @@ describe("semantic graph packer", () => {
     if (long === undefined) {
       return;
     }
-    const graphs = [long, ...Array.from({ length: 8 }, (_u, i) => renameGraph(long, `tile-${i}`))];
-    const snapshot = packSemanticGraphComposition({
-      graphs,
+    const expandedGraphs = [
+      long,
+      ...Array.from({ length: 6 }, (_u, i) => renameGraph(long, `expanded-tile-${i}`)),
+    ];
+    const expanded = packSemanticGraphComposition({
+      graphs: expandedGraphs,
       presentation: "grid",
-      workstreamId: "grid",
+      workstreamId: "expanded-grid",
     });
 
-    // The lead column keeps its trajectory; every tile is cut down to its end.
-    const perTurn = new Map<number, number>();
-    for (let index = 0; index < snapshot.nodeCount; index += 1) {
-      const turn = packedValueAt(snapshot.nodes.turn, index);
-      perTurn.set(turn, (perTurn.get(turn) ?? 0) + 1);
-    }
-    expect(perTurn.get(0)).toBe(long.nodes.length);
-    for (const [turn, count] of perTurn) {
+    const expandedPerTurn = nodeCountsByTurn(expanded);
+    expect(expandedPerTurn.get(0)).toBe(long.nodes.length);
+    for (const [turn, count] of expandedPerTurn) {
       if (turn === 0) {
         continue;
       }
       expect(count).toBeLessThanOrEqual(3);
     }
+
+    const columns = packSemanticGraphComposition({
+      graphs: expandedGraphs.slice(0, 5),
+      presentation: "columns",
+      workstreamId: "expanded-columns",
+    });
+    const columnsPerTurn = nodeCountsByTurn(columns);
+    expect(columnsPerTurn.get(0)).toBe(long.nodes.length);
+    for (const [turn, count] of columnsPerTurn) {
+      if (turn !== 0) {
+        expect(count).toBe(long.nodes.length);
+      }
+    }
+
+    const activityGraphs = [
+      long,
+      ...Array.from({ length: 7 }, (_u, i) => renameGraph(long, `activity-tile-${i}`)),
+    ];
+    const activity = packSemanticGraphComposition({
+      graphs: activityGraphs,
+      presentation: "grid",
+      workstreamId: "activity-grid",
+    });
+    expect(activity.nodeCount).toBe(long.nodes.length + activityGraphs.length - 1);
+    expect(activity.edgeCount).toBe(long.edges.length);
   });
 
   /*
@@ -315,7 +499,7 @@ describe("semantic graph packer", () => {
     expect(snapshot.nodes.ids[leadOutcome] ?? null).not.toBe("workstream:lead:node-5");
   });
 
-  it("draws cross-workstream delegation inside the gallery composition", () => {
+  it("keeps a linear delegation on one spine", () => {
     const fixture = projectionGalleryFixtures.find((candidate) => candidate.name === "delegation");
     expect(fixture).toBeDefined();
     if (fixture === undefined) {
@@ -332,9 +516,101 @@ describe("semantic graph packer", () => {
     expect(delegatedEdges.length).toBeGreaterThan(0);
     expect(snapshot.edgeCount).toBeGreaterThanOrEqual(delegatedEdges.length);
 
-    const branchEdges = Array.from({ length: snapshot.edgeCount }, (_unused, index) =>
+    const channels = Array.from({ length: snapshot.edgeCount }, (_unused, index) =>
       packedValueAt(snapshot.edges.channel, index),
-    ).filter((channel) => channel === 1);
-    expect(branchEdges.length).toBeGreaterThan(0);
+    );
+    expect(new Set(channels)).toEqual(new Set([packedGraphEdgeChannelCode.flow]));
+    const lanes = Array.from({ length: snapshot.nodeCount }, (_unused, index) =>
+      packedValueAt(snapshot.nodes.lane, index),
+    );
+    expect(new Set(lanes).size).toBe(1);
+  });
+
+  it("spreads only overlapping siblings and brings their edges back to the merge", () => {
+    const snapshot = packSemanticGraphComposition({
+      presentation: "columns",
+      workstreamId: "parallel",
+      graphs: [concurrentFanGraph()],
+    });
+    const laneByID = new Map(
+      snapshot.nodes.ids.map((id, index) => [id, packedValueAt(snapshot.nodes.lane, index)]),
+    );
+    expect(laneByID.get("workstream:parallel:fork")).toBe(0);
+    expect(laneByID.get("workstream:parallel:terminal")).toBeLessThan(0);
+    expect(laneByID.get("workstream:parallel:reader")).toBeGreaterThan(0);
+    expect(laneByID.get("workstream:parallel:merge")).toBe(0);
+
+    const channels = Array.from({ length: snapshot.edgeCount }, (_unused, index) =>
+      packedValueAt(snapshot.edges.channel, index),
+    );
+    expect(
+      channels.filter((channel) => channel === packedGraphEdgeChannelCode.branch),
+    ).toHaveLength(2);
+    expect(channels.filter((channel) => channel === packedGraphEdgeChannelCode.merge)).toHaveLength(
+      2,
+    );
+  });
+
+  it("animates failed reasoning facts but keeps failed inputs and outcomes full", () => {
+    const graph = failedOutcomeGraph("workstream:failed");
+    const snapshot = packSemanticGraphComposition({
+      presentation: "columns",
+      workstreamId: graph.workstreamId,
+      graphs: [graph],
+    });
+    const input = snapshot.nodeIndexById.get("workstream:failed:input");
+    const step = snapshot.nodeIndexById.get("workstream:failed:failed-step");
+    const outcome = snapshot.nodeIndexById.get("workstream:failed:failed-outcome");
+    expect(input).toBeDefined();
+    expect(step).toBeDefined();
+    expect(outcome).toBeDefined();
+    if (input === undefined || step === undefined || outcome === undefined) {
+      return;
+    }
+
+    expect(packedValueAt(snapshot.nodes.mode, input)).toBe(packedGraphModeCode.fail);
+    expect(packedValueAt(snapshot.nodes.terminal, input)).toBe(0);
+    expect(packedValueAt(snapshot.nodes.terminalAt, input)).toBe(packedGraphNever);
+    expect(packedValueAt(snapshot.nodes.mode, step)).toBe(packedGraphModeCode.fail);
+    expect(packedValueAt(snapshot.nodes.terminal, step)).toBe(1);
+    expect(packedValueAt(snapshot.nodes.terminalAt, step)).toBeLessThan(packedGraphNever);
+    expect(packedValueAt(snapshot.nodes.mode, outcome)).toBe(packedGraphModeCode.fail);
+    expect(packedValueAt(snapshot.nodes.terminal, outcome)).toBe(0);
+    expect(packedValueAt(snapshot.nodes.terminalAt, outcome)).toBe(packedGraphNever);
+
+    const edgeIntoStep = Array.from({ length: snapshot.edgeCount }, (_unused, index) => index).find(
+      (index) => packedValueAt(snapshot.edges.to, index) === step,
+    );
+    const edgeIntoOutcome = Array.from(
+      { length: snapshot.edgeCount },
+      (_unused, index) => index,
+    ).find((index) => packedValueAt(snapshot.edges.to, index) === outcome);
+    expect(edgeIntoStep).toBeDefined();
+    expect(edgeIntoOutcome).toBeDefined();
+    if (edgeIntoStep === undefined || edgeIntoOutcome === undefined) {
+      return;
+    }
+    expect(packedValueAt(snapshot.edges.terminated, edgeIntoStep)).toBe(1);
+    expect(packedValueAt(snapshot.edges.terminated, edgeIntoOutcome)).toBe(0);
+  });
+
+  it("keeps a dense-grid failure node in the full fail-mode state", () => {
+    const director = failedOutcomeGraph("workstream:director");
+    const workers = Array.from({ length: 7 }, (_unused, index) =>
+      failedOutcomeGraph(`workstream:worker-${index}`),
+    );
+    const snapshot = packSemanticGraphComposition({
+      presentation: "grid",
+      workstreamId: director.workstreamId,
+      graphs: [director, ...workers],
+    });
+    const activity = snapshot.nodeIndexById.get("workstream:worker-0:failed-outcome");
+    expect(activity).toBeDefined();
+    if (activity === undefined) {
+      return;
+    }
+    expect(packedValueAt(snapshot.nodes.mode, activity)).toBe(packedGraphModeCode.fail);
+    expect(packedValueAt(snapshot.nodes.terminal, activity)).toBe(0);
+    expect(packedValueAt(snapshot.nodes.terminalAt, activity)).toBe(packedGraphNever);
   });
 });

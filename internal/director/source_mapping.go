@@ -113,10 +113,11 @@ var semanticNodeIdentities = []SemanticNodeIdentity{
 
 // SourceFactRule is one row of the mapping.
 type SourceFactRule struct {
-	Disposition  SourceFactDisposition
-	Resolution   SourceFactResolution
-	NodeKind     SemanticNodeKind
-	NodeIdentity SemanticNodeIdentity
+	Disposition         SourceFactDisposition
+	Resolution          SourceFactResolution
+	NodeKind            SemanticNodeKind
+	AdditionalNodeKinds []SemanticNodeKind
+	NodeIdentity        SemanticNodeIdentity
 	// EdgeKinds are the typed relationships this fact may create. A rule may
 	// create fewer edges than it lists; it may never create one it omits.
 	EdgeKinds     []SemanticEdgeKind
@@ -250,13 +251,14 @@ var trajectoryFactRules = map[conversation.TrajectoryEventKind]SourceFactRule{
 		Note:          "Public reasoning summaries update accessible text only. Private reasoning is never received.",
 	},
 	conversation.TrajectoryEventPlanChanged: {
-		Disposition:   SourceFactUpsertsNode,
-		Resolution:    SourceFactResolutionFixed,
-		NodeKind:      SemanticNodePlan,
-		NodeIdentity:  SemanticNodeIdentityPlan,
-		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy, SemanticEdgeDependsOn},
-		EvidenceClass: EvidenceStructuredDeclaration,
-		Note:          "A committed plan creates one plan node plus a milestone per step; step ids come from PlanStepNodeID.",
+		Disposition:         SourceFactUpsertsNode,
+		Resolution:          SourceFactResolutionFixed,
+		NodeKind:            SemanticNodePlan,
+		AdditionalNodeKinds: []SemanticNodeKind{SemanticNodeMilestone},
+		NodeIdentity:        SemanticNodeIdentityPlan,
+		EdgeKinds:           []SemanticEdgeKind{SemanticEdgeFollowedBy, SemanticEdgeDependsOn},
+		EvidenceClass:       EvidenceStructuredDeclaration,
+		Note:                "A committed plan creates one plan node plus a milestone per step; step ids come from PlanStepNodeID.",
 	},
 	conversation.TrajectoryEventActivityStarted: {
 		Disposition:   SourceFactConditionalNode,

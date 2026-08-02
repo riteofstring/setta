@@ -96,8 +96,12 @@ export class ArtifactDocumentCache {
   private async readAndProject(
     request: ReadConversationArtifactRequest,
   ): Promise<ArtifactDocumentEntry> {
-    const artifact = await this.readWithRetry(request);
-    const { projectArtifactCardFigures } = await import("./artifact-card-projection");
+    // Network/IPC and the projection chunk are independent cold work. Starting
+    // them together removes a full serial boundary from the first artifact.
+    const [artifact, { projectArtifactCardFigures }] = await Promise.all([
+      this.readWithRetry(request),
+      import("./artifact-card-projection"),
+    ]);
     // The backend accepted this source before it was stored, so the parser
     // disagreeing with the compiler here is not something the reader can act
     // on. The cache is where that fault is observed, so it is where it is

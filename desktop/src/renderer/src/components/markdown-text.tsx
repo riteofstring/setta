@@ -243,16 +243,22 @@ const emphasisExpression = /(\*\*[^*]+\*\*|\*[^*]+\*|\b_[^_]+_\b)/g;
 
 function renderInlineEmphasis(text: string): ReactNode {
   const parts = text.split(emphasisExpression);
-  return parts.map((part, index) => {
-    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
-      return <strong key={index}>{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
-      return <em key={index}>{part.slice(1, -1)}</em>;
-    }
-    if (part.startsWith("_") && part.endsWith("_") && part.length > 2) {
-      return <em key={index}>{part.slice(1, -1)}</em>;
-    }
-    return <Fragment key={index}>{part}</Fragment>;
-  });
+  return parts.map(renderInlineEmphasisPart);
+}
+
+function renderInlineEmphasisPart(part: string, index: number): ReactNode {
+  if (hasInlineDelimiter(part, "**", 4)) {
+    return <strong key={index}>{part.slice(2, -2)}</strong>;
+  }
+  if (hasInlineDelimiter(part, "*", 2)) {
+    return <em key={index}>{part.slice(1, -1)}</em>;
+  }
+  if (hasInlineDelimiter(part, "_", 2)) {
+    return <em key={index}>{part.slice(1, -1)}</em>;
+  }
+  return <Fragment key={index}>{part}</Fragment>;
+}
+
+function hasInlineDelimiter(part: string, delimiter: string, minimumLength: number): boolean {
+  return part.startsWith(delimiter) && part.endsWith(delimiter) && part.length > minimumLength;
 }

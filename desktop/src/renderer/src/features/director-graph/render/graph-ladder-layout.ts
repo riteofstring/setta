@@ -36,17 +36,12 @@ export interface GraphLadderInput {
   readonly deltaSeconds: number;
   /** Turn index to manual fold pin. A pin overrides the automatic fold. */
   readonly pinnedTurns: ReadonlyMap<number, boolean>;
-  /*
-   * Whether columns share a live edge.
-   *
-   * One camera looks at one depth, so columns left at their own depths hide
-   * each other: a short conversation ends far above a long one and falls off
-   * the top while the long one is being watched. Aligning their live edges puts
-   * every column's newest fact on the same line, which is the row the camera is
-   * already following. The grid does not do this — a tile's cell is where it
-   * belongs — and a conversation has only one column to align.
+  /**
+   * The column that owns vertical history and sticky anchors. A Director grid
+   * uses column zero; an attached one-row overview may still choose the
+   * separately reported furthest live edge as its automatic follow target.
    */
-  readonly alignColumnsToLiveEdge: boolean;
+  readonly cameraColumn?: number;
   /*
    * Where a fold collapses to. Top-anchored (the default) is the
    * conversation's ladder: the rows compress toward the question.
@@ -66,8 +61,10 @@ export interface GraphLadderFrame {
   readonly open: Float32Array;
   readonly dirtyFrom: number;
   readonly dirtyTo: number;
-  /** World position of the newest visible fact; the camera follows this. */
+  /** World position of the newest visible fact in the selected camera column. */
   readonly liveEdgeWorldY: number;
+  /** Lowest newest fact across every column, for an attached overview camera. */
+  readonly furthestLiveEdgeWorldY: number;
   /*
    * The top of what has been drawn. The camera clamps to it, so the view can
    * scroll back to the first fact and no further — a fixed bound assumed
@@ -132,9 +129,12 @@ export class GraphLadderLayout {
   private turnFirstNode = new Int32Array(0);
   private turnNodeEnd = new Int32Array(0);
   private lastLiveEdge = 0;
+  private lastFurthestLiveEdge = 0;
   private anchorFoldsToOutcome = false;
   /** Whether the next advance arrives at its resting state instead of easing. */
   private settleNextAdvance = false;
+  /** Re-place the existing topology without resetting fold/view animation. */
+  private reflowNextAdvance = false;
 
   /**
    * Advances fold animation and repositions everything below the first turn
@@ -158,20 +158,20 @@ export class GraphLadderLayout {
     const anchorFolds = input.anchorFoldsToOutcome === true;
     const anchorChanged = anchorFolds !== this.anchorFoldsToOutcome;
     this.anchorFoldsToOutcome = anchorFolds;
-    const firstDirtyTurn = anchorChanged
-      ? 0
-      : Math.min(firstAnimating, this.firstTurnOf(appendedFrom, snapshot));
+    const reflowing = this.reflowNextAdvance;
+    this.reflowNextAdvance = false;
+    const firstDirtyTurn =
+      anchorChanged || reflowing
+        ? 0
+        : Math.min(firstAnimating, this.firstTurnOf(appendedFrom, snapshot));
     const dirtyFrom =
       firstDirtyTurn >= snapshot.turnCount
         ? snapshot.nodeCount
         : Math.min(appendedFrom, packedValueAt(this.turnFirstNode, firstDirtyTurn));
     this.placeTurns(snapshot, firstDirtyTurn);
-    if (input.alignColumnsToLiveEdge) {
-      this.alignColumns(snapshot);
-    }
     this.syncedNodeCount = snapshot.nodeCount;
     this.syncedTurnCount = snapshot.turnCount;
-    this.lastLiveEdge = this.computeLiveEdge(snapshot, input.timeSeconds);
+    this.computeLiveEdges(snapshot, input.timeSeconds, input.cameraColumn);
     return {
       nodeCount: snapshot.nodeCount,
       worldY: this.worldY,
@@ -179,7 +179,8 @@ export class GraphLadderLayout {
       dirtyFrom: Math.min(dirtyFrom, snapshot.nodeCount),
       dirtyTo: snapshot.nodeCount,
       liveEdgeWorldY: this.lastLiveEdge,
-      contentTopWorldY: this.computeContentTop(snapshot),
+      furthestLiveEdgeWorldY: this.lastFurthestLiveEdge,
+      contentTopWorldY: this.computeContentTop(snapshot, input.cameraColumn),
       columnCount: this.lastTurnPerColumn(snapshot).length,
       foldAnimating: !settling && firstAnimating < snapshot.turnCount,
       quietUntilSeconds: this.quietUntil(snapshot, input),
@@ -233,11 +234,24 @@ export class GraphLadderLayout {
     this.settleNextAdvance = true;
   }
 
+  /**
+   * Recomputes authored rows and column tops on the next frame.
+   *
+   * A viewport resize changes those coordinates but not the graph's topology.
+   * Keeping the indexed turn ranges and current openness means resizing is a
+   * reflow, not a cold replay of every fold and node entrance.
+   */
+  reflow(): void {
+    this.reflowNextAdvance = true;
+  }
+
   private clear(workstreamId: string): void {
     this.workstreamId = workstreamId;
     this.syncedNodeCount = 0;
     this.syncedTurnCount = 0;
     this.lastLiveEdge = 0;
+    this.lastFurthestLiveEdge = 0;
+    this.reflowNextAdvance = false;
     this.worldY = new Float32Array(0);
     this.open = new Float32Array(0);
     this.openness = new Float32Array(0);
@@ -430,9 +444,15 @@ export class GraphLadderLayout {
    * columns that no longer holds — the deepest point can be at the bottom of
    * any of them — so this takes the lowest across the last turn of each.
    */
-  private computeLiveEdge(snapshot: PackedGraphSnapshot, timeSeconds: number): number {
-    let edge = Number.NEGATIVE_INFINITY;
+  private computeLiveEdges(
+    snapshot: PackedGraphSnapshot,
+    timeSeconds: number,
+    onlyColumn?: number,
+  ): void {
+    let cameraEdge = Number.NEGATIVE_INFINITY;
+    let furthestEdge = Number.NEGATIVE_INFINITY;
     for (const turn of this.lastTurnPerColumn(snapshot)) {
+      const column = packedValueAt(snapshot.turns.column, turn);
       const first = packedValueAt(this.turnFirstNode, turn);
       if (first < 0) {
         continue;
@@ -442,57 +462,26 @@ export class GraphLadderLayout {
         if (packedValueAt(snapshot.nodes.bornAt, index) > timeSeconds) {
           continue;
         }
-        edge = Math.max(edge, packedValueAt(this.worldY, index));
+        const worldY = packedValueAt(this.worldY, index);
+        furthestEdge = Math.max(furthestEdge, worldY);
+        if (onlyColumn === undefined || column === onlyColumn) {
+          cameraEdge = Math.max(cameraEdge, worldY);
+        }
       }
     }
-    return edge > Number.NEGATIVE_INFINITY ? edge : 0;
-  }
-
-  /*
-   * Shifts every column so their live edges line up.
-   *
-   * A column's own depth is set by how much history it has, which is not
-   * something the reader chose to care about; what they are watching is the
-   * newest fact in each. So each column moves by the difference between its
-   * bottom and the deepest one, and nothing inside a column moves relative to
-   * the rest of it.
-   */
-  private alignColumns(snapshot: PackedGraphSnapshot): void {
-    const bottoms = new Map<number, number>();
-    for (let turn = 0; turn < snapshot.turnCount; turn += 1) {
-      const column = packedValueAt(snapshot.turns.column, turn);
-      const first = packedValueAt(this.turnFirstNode, turn);
-      if (first < 0) {
-        continue;
-      }
-      const end = packedValueAt(this.turnNodeEnd, turn);
-      let bottom = bottoms.get(column) ?? Number.NEGATIVE_INFINITY;
-      for (let index = first; index < end; index += 1) {
-        bottom = Math.max(bottom, packedValueAt(this.worldY, index));
-      }
-      bottoms.set(column, bottom);
-    }
-    let deepest = Number.NEGATIVE_INFINITY;
-    for (const bottom of bottoms.values()) {
-      deepest = Math.max(deepest, bottom);
-    }
-    if (!Number.isFinite(deepest)) {
-      return;
-    }
-    for (let index = 0; index < snapshot.nodeCount; index += 1) {
-      const turn = packedValueAt(snapshot.nodes.turn, index);
-      const bottom = bottoms.get(packedValueAt(snapshot.turns.column, turn));
-      if (bottom === undefined) {
-        continue;
-      }
-      this.worldY[index] = packedValueAt(this.worldY, index) + (deepest - bottom);
-    }
+    this.lastLiveEdge = cameraEdge > Number.NEGATIVE_INFINITY ? cameraEdge : 0;
+    this.lastFurthestLiveEdge =
+      furthestEdge > Number.NEGATIVE_INFINITY ? furthestEdge : this.lastLiveEdge;
   }
 
   /** The highest placed node, which is as far back as the view can scroll. */
-  private computeContentTop(snapshot: PackedGraphSnapshot): number {
+  private computeContentTop(snapshot: PackedGraphSnapshot, onlyColumn?: number): number {
     let top = Number.POSITIVE_INFINITY;
     for (let index = 0; index < snapshot.nodeCount; index += 1) {
+      const turn = packedValueAt(snapshot.nodes.turn, index);
+      if (onlyColumn !== undefined && packedValueAt(snapshot.turns.column, turn) !== onlyColumn) {
+        continue;
+      }
       top = Math.min(top, packedValueAt(this.worldY, index));
     }
     return Number.isFinite(top) ? top : 0;

@@ -34,30 +34,35 @@
  * macOS draws its window buttons inside this bar.
  *
  * The window is `titleBarStyle: "hidden"` with the traffic lights positioned at
- * 13px, so without a reserved inset the brand mark is drawn underneath them.
- * The settings shell already reserves the same 80px
+ * 13px. The inset clears their full native cluster and leaves the logo one
+ * control-spacing step away instead of making it look attached to Close.
+ * The settings shell reserves the same 96px
  * (`styles.css`, `--setta-shell-top-bar-chrome-inset`); the command center set
  * the platform attribute and nothing read it.
  */
 .director-command-center-top[data-desktop-platform="darwin"] {
-  --director-chrome-inset: 80px;
+  --director-chrome-inset: 96px;
 }
 
 .director-command-center-chrome-shield {
-  inset: 0;
+  block-size: 100%;
+  inline-size: var(--director-chrome-inset, 0px);
+  inset-block-start: 0;
+  inset-inline-start: 0;
   position: absolute;
   z-index: -1;
 }
 
 .director-command-center-brand {
   align-items: center;
+  align-self: stretch;
   display: inline-flex;
   justify-self: start;
-  min-block-size: 34px;
 }
 
 .director-workstream-nav {
   align-items: center;
+  align-self: stretch;
   display: flex;
   gap: 4px;
   justify-self: start;
@@ -81,7 +86,7 @@
  * mockup's `.tb-conv` makes too. A title longer than the room ellipsises.
  */
 .director-workstream-title {
-  align-items: baseline;
+  align-items: center;
   display: flex;
   gap: 8px;
   justify-content: safe center;
@@ -96,7 +101,7 @@
  */
 @media (min-width: 641px) {
   .director-workstream-title {
-    inline-size: clamp(190px, 22vw, 270px);
+    inline-size: clamp(190px, 19vw, 240px);
   }
 }
 
@@ -115,12 +120,18 @@
 
 .director-workstream-title[data-focus="director"] .director-focus-title {
   color: color-mix(in oklch, var(--director-role-accent) 62%, var(--director-bright));
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .director-focus-meta {
   color: oklch(0.68 0.04 240);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
   min-inline-size: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -303,6 +314,7 @@
 
 .director-command-center-view-controls {
   align-items: center;
+  align-self: stretch;
   display: inline-flex;
   gap: 8px;
   justify-content: end;
@@ -310,10 +322,31 @@
   min-inline-size: 0;
 }
 
+.director-compact-workstream-nav {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .director-command-center-top {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .director-workstream-nav {
+    display: none;
+  }
+
+  .director-command-center-brand {
+    grid-column: 1;
+  }
+
+  .director-command-center-view-controls {
+    grid-column: 2;
+  }
+}
+
 @media (max-width: 640px) {
   .director-command-center-top {
     gap: 8px;
-    grid-template-columns: auto minmax(0, 1fr) auto;
     padding-inline: var(--director-chrome-inset, 10px) 10px;
   }
 
@@ -341,16 +374,19 @@
   }
 }
 
-@media (max-width: 420px) {
-  .director-command-center-top {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .director-command-center-brand {
+/*
+ * The focus status is useful context, but it is the first header item allowed
+ * to yield. Keeping it through medium window widths made its sentence collide
+ * with the fixed utility controls before the compact header took over.
+ */
+@media (max-width: 900px) {
+  .director-focus-meta {
     display: none;
   }
+}
 
-  .director-focus-meta {
+@media (max-width: 520px) {
+  .director-command-center-brand {
     display: none;
   }
 }

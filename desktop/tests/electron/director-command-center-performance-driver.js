@@ -196,15 +196,15 @@
       running = false;
       longTaskObserver?.disconnect();
       mutationObserver.disconnect();
-      return frameSample(
-        startedAt,
+      return frameSample({
+        endHeapBytes: usedHeapBytes(),
         frames,
         longTasks,
         mutations,
-        startHeapBytes,
         peakHeapBytes,
-        usedHeapBytes(),
-      );
+        startedAt,
+        startHeapBytes,
+      });
     }
 
     return { recordFrame, stop };
@@ -249,15 +249,15 @@
     return observer;
   }
 
-  function frameSample(
-    startedAt,
+  function frameSample({
+    endHeapBytes,
     frames,
     longTasks,
     mutations,
-    startHeapBytes,
     peakHeapBytes,
-    endHeapBytes,
-  ) {
+    startedAt,
+    startHeapBytes,
+  }) {
     const samples = frames.filter((value) => Number.isFinite(value) && value >= 0);
     const sorted = [...samples].sort((left, right) => left - right);
     const averageFrameDeltaMs = average(samples);

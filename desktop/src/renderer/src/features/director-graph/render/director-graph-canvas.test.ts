@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  advanceGraphLoadingAmount,
   DirectorGraphCanvas,
   graphAmbientFieldNeedsAnimation,
+  graphGridTitleAnchorY,
   graphHoverNeedsAnimation,
+  graphLoadingFieldNeedsAnimation,
 } from "./director-graph-canvas";
 import { DirectorGraphRenderer } from "./director-graph-renderer";
 import { graphSeededRandom } from "./graph-gl-programs";
-import { graphQualityProfiles } from "./graph-quality";
+import { graphQualityProfile } from "./graph-quality";
 
 /**
  * A canvas whose WebGL2 request fails, which is the one failure mode the graph
@@ -25,7 +28,7 @@ describe("director graph renderer", () => {
         new DirectorGraphRenderer(
           canvasWithoutWebgl2(),
           undefined as unknown as Document,
-          graphQualityProfiles.full,
+          graphQualityProfile,
         ),
     ).toThrow(/WebGL2/u);
   });
@@ -58,6 +61,21 @@ describe("director graph canvas host", () => {
     expect(graphAmbientFieldNeedsAnimation(false, true)).toBe(true);
     expect(graphAmbientFieldNeedsAnimation(false, false)).toBe(false);
     expect(graphAmbientFieldNeedsAnimation(true, true)).toBe(false);
+  });
+
+  it("animates loading through its fade and holds one reduced-motion frame", () => {
+    expect(advanceGraphLoadingAmount(0, true, 0.1, false)).toBeCloseTo(0.36);
+    expect(advanceGraphLoadingAmount(1, false, 0.1, false)).toBeCloseTo(0.48);
+    expect(advanceGraphLoadingAmount(0.4, true, 0.1, true)).toBe(1);
+    expect(graphLoadingFieldNeedsAnimation(false, true, 1)).toBe(true);
+    expect(graphLoadingFieldNeedsAnimation(false, false, 0.2)).toBe(true);
+    expect(graphLoadingFieldNeedsAnimation(true, true, 1)).toBe(false);
+  });
+
+  it("keeps grid titles attached while overflow clips them", () => {
+    expect(graphGridTitleAnchorY(120)).toBe(76);
+    expect(graphGridTitleAnchorY(50)).toBe(6);
+    expect(graphGridTitleAnchorY(940)).toBe(896);
   });
 });
 

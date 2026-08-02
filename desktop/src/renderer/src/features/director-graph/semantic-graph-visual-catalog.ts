@@ -15,7 +15,6 @@ import type {
 } from "@generated/backend";
 
 import type {
-  PackedGraphEdgeChannel,
   PackedGraphEmphasis,
   PackedGraphGlyph,
   PackedGraphLabelPlacement,
@@ -175,16 +174,6 @@ export const semanticEvidenceEmphases = {
   structured_declaration: "declared",
   director_interpretation: "interpreted",
 } satisfies Record<EvidenceClass, PackedGraphEmphasis>;
-
-export const semanticEdgeChannels = {
-  followed_by: "flow",
-  delegated_to: "branch",
-  depends_on: "branch",
-  blocked_by: "branch",
-  produced: "merge",
-  validated_by: "merge",
-  recovered_by: "merge",
-} satisfies Record<SemanticEdgeKind, PackedGraphEdgeChannel>;
 
 const semanticEdgeModes = {
   followed_by: "think",

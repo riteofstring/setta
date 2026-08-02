@@ -17,12 +17,10 @@
 
 import {
   packedGraphDetails,
-  packedGraphEdgeChannels,
   packedGraphEmphases,
   packedGraphModes,
   packedGraphRoles,
   type PackedGraphDetail,
-  type PackedGraphEdgeChannel,
   type PackedGraphEmphasis,
   type PackedGraphMode,
   type PackedGraphRole,
@@ -50,6 +48,38 @@ export const graphFieldTint = {
   near: [0.3, 0.8, 0.95],
   far: [0.62, 0.45, 1.0],
 } satisfies Record<"near" | "far", GraphRgb>;
+
+/**
+ * The ambient field's authored density.
+ *
+ * The 800×800 view is the visual reference. Larger windows keep that density
+ * around the centre and let particles become gradually scarcer toward the
+ * perimeter, like a lit volume receding into an unbounded dark space. The
+ * particle count stays fixed, so a resize changes neither GPU allocation nor
+ * the deterministic seed sequence.
+ */
+export const graphFieldGeometry = {
+  referenceWidth: 800,
+  referenceHeight: 800,
+  outerSpreadExponent: 3,
+  edgeFadeStrength: 0.62,
+} as const;
+
+/**
+ * Smaller windows draw a deterministic prefix of the fixed field buffer so
+ * particles per CSS pixel stay at the 800×800 reference density. Larger
+ * windows keep the full buffer and use the centre-weighted spread in the
+ * shader; neither path reallocates or reseeds on resize.
+ */
+export function graphFieldDrawCount(
+  available: number,
+  viewportWidth: number,
+  viewportHeight: number,
+): number {
+  const referenceArea = graphFieldGeometry.referenceWidth * graphFieldGeometry.referenceHeight;
+  const viewportArea = Math.max(1, viewportWidth) * Math.max(1, viewportHeight);
+  return Math.max(1, Math.round(available * Math.min(1, viewportArea / referenceArea)));
+}
 
 /**
  * How a node's structural position sizes it. The mockup made its input node
@@ -108,31 +138,13 @@ const graphDetailVisual = {
 } satisfies Record<PackedGraphDetail, GraphDetailVisual>;
 
 /**
- * How an edge is routed. `bow` is the lateral offset at the midpoint in
- * reference-frame clip units: a branch leaves the spine, a merge converges onto
- * it, and ordinary flow runs straight.
- */
-interface GraphEdgeChannelVisual {
-  readonly widthScale: number;
-  readonly bow: number;
-}
-
-const graphEdgeChannelVisual = {
-  flow: { widthScale: 1.0, bow: 0.0 },
-  branch: { widthScale: 0.82, bow: 0.055 },
-  merge: { widthScale: 0.9, bow: -0.045 },
-} satisfies Record<PackedGraphEdgeChannel, GraphEdgeChannelVisual>;
-
-/**
- * The authored reference frame. Layout is written for an 800×1024 portrait
- * frame and letterboxed into the window, so graph shape and on-screen node size
- * stay put instead of stretching (mockup lines 274–285).
+ * The authored reference frame. One world unit always maps through this fixed
+ * CSS-pixel frame: resizing changes how much graph is visible, never the size
+ * of a node, glyph, edge interval, or ladder step.
  */
 export const graphReferenceFrame = {
   width: 800,
   height: 1024,
-  /** Caps growth on large displays: 4K and 6K show more context, not bigger nodes. */
-  maxFit: 1.1,
 } as const;
 
 /**
@@ -150,9 +162,9 @@ export const graphLadderSpacing = {
 } as const;
 
 /**
- * Node geometry in reference points, before the fit multiplier. `working` is
- * the envelope between a node's birth and the moment it produced its next
- * fact; `recent` decays with distance behind the live edge.
+ * Node geometry in fixed reference points. `working` is the envelope between a
+ * node's birth and the moment it produced its next fact; `recent` decays with
+ * distance behind the live edge.
  */
 export const graphNodeGeometry = {
   baseDiameter: 40,
@@ -163,6 +175,19 @@ export const graphNodeGeometry = {
   cssDiameterScale: 0.55,
   /** Distance-behind-the-live-edge falloff for `recent`. */
   recencyFalloff: 0.85,
+} as const;
+
+/**
+ * Visual hierarchy within an overview.
+ *
+ * Director always keeps the authored node size. A dense worker grid is
+ * supporting context, so its nodes use one smaller fixed scale; because this
+ * is independent of the fit frame, resizing reveals more graph without
+ * enlarging or shrinking either hierarchy level.
+ */
+export const graphNodeHierarchyScale = {
+  director: 1,
+  gridSupporting: 0.62,
 } as const;
 
 /** Edge beam geometry. Confident threads draw thicker (mockup `EDGE_VS`). */
@@ -253,38 +278,27 @@ export const graphVisualUniforms = {
     ],
     3,
   ),
-  /** vec2(widthScale, bow) */
-  edgeChannel: flatten(
-    packedGraphEdgeChannels,
-    (channel) => [graphEdgeChannelVisual[channel].widthScale, graphEdgeChannelVisual[channel].bow],
-    2,
-  ),
 } as const;
 
 export interface GraphFitFrame {
   /** Authored graph clip X multiplied by this lands in window clip X. */
   readonly fitX: number;
   readonly fitY: number;
-  /** Node and glyph size multiplier for this viewport. */
-  readonly size: number;
 }
 
 /**
- * Letterboxes the reference frame into a viewport. "Contain", never past
- * `maxFit`, so a 6K display shows more graph rather than a magnified one.
+ * Projects the fixed reference frame into a viewport without zooming it.
+ *
+ * Dividing by the viewport here and multiplying by that same viewport in the
+ * clip-to-screen transform leaves one stable CSS-pixel scale. Small windows
+ * crop or repack the graph; large windows reveal more context.
  */
 export function graphFitFrame(viewportWidth: number, viewportHeight: number): GraphFitFrame {
   const width = Math.max(1, viewportWidth);
   const height = Math.max(1, viewportHeight);
-  const fit = Math.min(
-    graphReferenceFrame.maxFit,
-    width / graphReferenceFrame.width,
-    height / graphReferenceFrame.height,
-  );
   return {
-    fitX: (graphReferenceFrame.width * fit) / width,
-    fitY: (graphReferenceFrame.height * fit) / height,
-    size: fit,
+    fitX: graphReferenceFrame.width / width,
+    fitY: graphReferenceFrame.height / height,
   };
 }
 
@@ -293,12 +307,12 @@ export function graphFitFrame(viewportWidth: number, viewportHeight: number): Gr
  * and pointer hit-tests all go through this so they land on the warped node
  * rather than on where an unwarped projection would have put it.
  *
- * The post pass warps by sampling the scene at `t·(1 + |t|²·barrel)` for the
- * output position `t`, so the screen position of a scene point is that map's
- * inverse. Approximating the inverse with the scene radius — the mockup's
- * shortcut — was off by up to sixteen pixels in the corners, which is why
- * labels drifted from their nodes toward the edges; three fixed-point
- * iterations solve it to under a tenth of a pixel.
+ * The post pass warps by sampling the scene at
+ * `t·barrelScale·(1 + |t|²·barrel)` for the output position `t`, so the screen
+ * position of a scene point is that map's inverse. `barrelScale` keeps every
+ * sample inside the source instead of reflecting it at an edge. Six fixed-
+ * point iterations keep DOM labels and crisp glyphs attached to the warped
+ * particle bodies to under a hundredth of a pixel.
  */
 export function graphWarpToScreen(
   x: number,
@@ -308,13 +322,17 @@ export function graphWarpToScreen(
 ): { readonly x: number; readonly y: number } {
   const centeredX = x / Math.max(1, viewportWidth) - 0.5;
   const centeredY = y / Math.max(1, viewportHeight) - 0.5;
-  const radiusSquared = centeredX * centeredX + centeredY * centeredY;
-  let factor = 1 + graphBarrel * radiusSquared;
-  factor = 1 + (graphBarrel * radiusSquared) / (factor * factor);
-  factor = 1 + (graphBarrel * radiusSquared) / (factor * factor);
-  factor = 1 + (graphBarrel * radiusSquared) / (factor * factor);
+  const barrelScale = 1 / (1 + graphBarrel * 0.5);
+  let warpedX = centeredX / barrelScale;
+  let warpedY = centeredY / barrelScale;
+  for (let iteration = 0; iteration < 6; iteration += 1) {
+    const radiusSquared = warpedX * warpedX + warpedY * warpedY;
+    const factor = barrelScale * (1 + graphBarrel * radiusSquared);
+    warpedX = centeredX / factor;
+    warpedY = centeredY / factor;
+  }
   return {
-    x: (centeredX / factor + 0.5) * viewportWidth,
-    y: (centeredY / factor + 0.5) * viewportHeight,
+    x: (warpedX + 0.5) * viewportWidth,
+    y: (warpedY + 0.5) * viewportHeight,
   };
 }

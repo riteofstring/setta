@@ -10,6 +10,7 @@ import type {
 } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
 import {
+  startTransition,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -17,6 +18,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type ComponentProps,
 } from "react";
 
 import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
@@ -29,6 +31,8 @@ import type { AppShellSpeechPlaybackController } from "../global-speech/app-shel
 import { createBrowserVoiceInputProvider } from "../global-speech/browser-voice-input-provider";
 import { DirectorGraphSurface } from "../director-graph/render/DirectorGraphSurface";
 import type { DirectorGraphCanvas } from "../director-graph/render/director-graph-canvas";
+import type { GraphArtifactParticleStyle } from "../director-graph/render/graph-artifact-presentation";
+import type { GraphViewport } from "../director-graph/render/graph-view-state";
 import {
   DirectorComposer,
   directorComposerInputId,
@@ -39,21 +43,26 @@ import {
 import { applyDirectorEvent, selectedWorkstreamEntry } from "./director-command-center-state";
 import { enqueueDirectorSpeechPlayback } from "./director-speech-playback";
 import { DirectorSpeechCaptureController } from "./director-speech-capture";
-import { ArtifactBrowserOverlaySlot } from "./ArtifactBrowserOverlaySlot";
+import { ArtifactBrowserSurfaceSlot } from "./ArtifactBrowserSurfaceSlot";
 import { ArtifactsRail } from "./DirectorArtifactsRail";
 import {
-  createWorkstreamIntent,
-  PendingActions,
-  workspaceWorkstreamTitle,
-} from "./DirectorPendingActions";
+  DirectorGraphDevPanel,
+  directorGraphDevPanelId,
+  directorGraphDevShortcut,
+} from "./DirectorGraphDevPanel";
+import { PendingActions } from "./DirectorPendingActions";
 import { NowRail } from "./DirectorNowRail";
 import { DirectorReply, type DirectorLoadState } from "./DirectorReply";
 import { useDirectorArtifactBrowser } from "./director-artifact-browser";
-import { useDirectorWorkstreamSwitchTransition } from "./director-workstream-switch-transition";
+import {
+  useDirectorWorkstreamSwitchTransition,
+  type DirectorWorkstreamSwitchDirection,
+} from "./director-workstream-switch-transition";
 import { directorFocus, type DirectorFocus } from "./director-focus";
 import { readGraphLabelsVisible, writeGraphLabelsVisible } from "./director-graph-label-preference";
 import { directorSubmitIntent } from "./director-view-submit";
 import {
+  CompactWorkstreamNavigation,
   CommandCenterTopBar,
   directorWorkstreamKeyboardDirection,
   moveSelectionIntent,
@@ -65,6 +74,24 @@ import {
   packDirectorGraphs,
   useDirectorGraphPresentation,
 } from "./director-graph-presentation";
+import {
+  createDirectorGraphDevScenario,
+  createDirectorGraphDevSimulation,
+  createDirectorGraphDevTimeline,
+  directorGraphDevCycleDurationSeconds,
+  directorGraphDevDefaultNodeCount,
+  directorGraphDevDefaultSpeed,
+  directorGraphDevFrameIndexAt,
+  directorGraphDevFrameStepSeconds,
+  directorGraphDevThreadPhaseCount,
+  directorGraphDevTimeInCycle,
+  rescheduleDirectorGraphDevTimeline,
+  type DirectorGraphDevNodeCount,
+  type DirectorGraphDevRunningSpeed,
+  type DirectorGraphDevSpeed,
+  type DirectorGraphDevThreadCount,
+  type DirectorGraphDevTimeline,
+} from "./director-graph-dev-simulation";
 
 interface DirectorCommandCenterShellProps {
   connectedRuntimeId: string | null;
@@ -127,6 +154,331 @@ const defaultRailVisibility = {
  * on when a rail floats.
  */
 const compactRailQuery = "(max-width: 760px)";
+const directorGraphDevToolsEnabled = import.meta.env.DEV;
+
+interface DirectorGraphDevClock {
+  readonly animationAnchorSeconds: number;
+  readonly speed: DirectorGraphDevSpeed;
+  readonly timeline: DirectorGraphDevTimeline;
+  readonly virtualAnchorSeconds: number;
+  readonly wallAnchorMs: number;
+}
+
+type DirectorGraphDevSimulation = ReturnType<typeof createDirectorGraphDevSimulation>;
+
+interface DirectorGraphComposition {
+  readonly presentation: "conversation" | "columns" | "grid";
+  readonly snapshot: NonNullable<DirectorGraphDevSimulation>["snapshot"];
+}
+
+interface PreviousDirectorGraphComposition {
+  readonly canvas: DirectorGraphCanvas;
+  readonly devFrameKey: string | null;
+  readonly devNodeCount: DirectorGraphDevNodeCount;
+  readonly devThreadCount: DirectorGraphDevThreadCount | null;
+  readonly graphs: DirectorSnapshot["graphs"] | undefined;
+  readonly presentation: DirectorGraphComposition["presentation"];
+  readonly snapshotEdgeCount: number;
+  readonly snapshotNodeCount: number;
+  readonly selectedWorkstreamId: string | null;
+  readonly viewportHeight: number;
+  readonly viewportWidth: number;
+}
+
+function directorGraphCanvasSelfWorkstreamId(
+  simulation: DirectorGraphDevSimulation | null,
+  selectedWorkstreamId: string | null,
+): string | null {
+  return simulation !== null || selectedWorkstreamId === null ? directorGraphLaneId : null;
+}
+
+function sameDirectorGraphComposition(
+  previous: PreviousDirectorGraphComposition | null,
+  next: PreviousDirectorGraphComposition,
+): boolean {
+  return (
+    previous !== null &&
+    previous.canvas === next.canvas &&
+    previous.devFrameKey === next.devFrameKey &&
+    previous.devNodeCount === next.devNodeCount &&
+    previous.devThreadCount === next.devThreadCount &&
+    previous.graphs === next.graphs &&
+    previous.presentation === next.presentation &&
+    previous.selectedWorkstreamId === next.selectedWorkstreamId
+  );
+}
+
+function sameDirectorGraphViewport(
+  previous: PreviousDirectorGraphComposition | null,
+  next: PreviousDirectorGraphComposition,
+): boolean {
+  return (
+    previous?.viewportWidth === next.viewportWidth &&
+    previous.viewportHeight === next.viewportHeight
+  );
+}
+
+function sameDirectorGraphTopology(
+  previous: PreviousDirectorGraphComposition | null,
+  next: PreviousDirectorGraphComposition,
+): boolean {
+  return (
+    previous?.snapshotNodeCount === next.snapshotNodeCount &&
+    previous.snapshotEdgeCount === next.snapshotEdgeCount
+  );
+}
+
+function applyDirectorGraphSnapshot(
+  canvas: DirectorGraphCanvas,
+  snapshot: DirectorGraphComposition["snapshot"],
+  sameGraph: boolean,
+  sameViewport: boolean,
+  sameTopology: boolean,
+): void {
+  const viewportOnly = sameGraph && !sameViewport;
+  if (viewportOnly && sameTopology) {
+    canvas.reflowSnapshot(snapshot);
+    return;
+  }
+  if (!sameGraph || viewportOnly) {
+    // Crossing the grid's fit boundary changes each worker from a short trail
+    // to one activity node. That is a real projection transition, not a pure
+    // coordinate reflow, so let the canvas retarget it smoothly.
+    canvas.setSnapshot(snapshot);
+  }
+}
+
+function directorGraphLayoutSignature(
+  simulation: DirectorGraphDevSimulation | null,
+  composition: DirectorGraphComposition,
+): string {
+  const source =
+    simulation === null ? "live" : `dev:${simulation.threadCount}:${simulation.nodeCount}`;
+  return [source, composition.presentation, composition.snapshot.turnCount].join(":");
+}
+
+function applyDirectorGraphCanvasComposition({
+  canvas,
+  composition,
+  devNodeCount,
+  devThreadCount,
+  graphViewport,
+  previous,
+  previousLayoutSignature,
+  selectedWorkstreamId,
+  simulation,
+  snapshotGraphs,
+}: {
+  readonly canvas: DirectorGraphCanvas;
+  readonly composition: DirectorGraphComposition;
+  readonly devNodeCount: DirectorGraphDevNodeCount;
+  readonly devThreadCount: DirectorGraphDevThreadCount | null;
+  readonly graphViewport: GraphViewport;
+  readonly previous: PreviousDirectorGraphComposition | null;
+  readonly previousLayoutSignature: string | undefined;
+  readonly selectedWorkstreamId: string | null;
+  readonly simulation: DirectorGraphDevSimulation | null;
+  readonly snapshotGraphs: DirectorSnapshot["graphs"] | undefined;
+}): {
+  readonly layoutSignature: string;
+  readonly next: PreviousDirectorGraphComposition;
+} {
+  canvas.setPresentation(
+    composition.presentation,
+    directorGraphCanvasSelfWorkstreamId(simulation, selectedWorkstreamId),
+  );
+  const next = {
+    canvas,
+    devFrameKey: simulation?.frameKey ?? null,
+    devNodeCount,
+    devThreadCount,
+    graphs: snapshotGraphs,
+    presentation: composition.presentation,
+    selectedWorkstreamId,
+    snapshotEdgeCount: composition.snapshot.edgeCount,
+    snapshotNodeCount: composition.snapshot.nodeCount,
+    viewportHeight: graphViewport.height,
+    viewportWidth: graphViewport.width,
+  } satisfies PreviousDirectorGraphComposition;
+  applyDirectorGraphSnapshot(
+    canvas,
+    composition.snapshot,
+    sameDirectorGraphComposition(previous, next),
+    sameDirectorGraphViewport(previous, next),
+    sameDirectorGraphTopology(previous, next),
+  );
+  const layoutSignature = directorGraphLayoutSignature(simulation, composition);
+  if (previousLayoutSignature !== undefined && previousLayoutSignature !== layoutSignature) {
+    canvas.playLayoutTransition();
+  }
+  return { layoutSignature, next };
+}
+
+function selectedDirectorWorkstreamId(snapshot: DirectorSnapshot | null): string | null {
+  return snapshot === null ? null : snapshot.selectedWorkstreamId;
+}
+
+function initialDirectorGraphViewport(): GraphViewport {
+  return {
+    height: Math.max(1, globalThis.window?.innerHeight ?? 1024),
+    width: Math.max(1, globalThis.window?.innerWidth ?? 800),
+  };
+}
+
+function directorSnapshotGraphs(
+  snapshot: DirectorSnapshot | null,
+): DirectorSnapshot["graphs"] | undefined {
+  return snapshot === null ? undefined : snapshot.graphs;
+}
+
+function directorGraphTimeSource(
+  simulation: DirectorGraphDevSimulation | null,
+  live: (timestampMs: number) => number,
+): (timestampMs: number) => number {
+  return simulation?.timeSecondsAt ?? live;
+}
+
+function directorGraphIsLoading(loadState: DirectorLoadState): boolean {
+  return loadState === "loading" || loadState === "resyncing";
+}
+
+function directorOptionalBoolean(value: boolean): true | undefined {
+  return value || undefined;
+}
+
+function directorBooleanDataAttribute(value: boolean): "true" | undefined {
+  return value ? "true" : undefined;
+}
+
+function directorArtifactViewAttribute(active: boolean): "true" | undefined {
+  return directorBooleanDataAttribute(active);
+}
+
+function directorGraphSimulationSpeedAttribute(
+  simulation: DirectorGraphDevSimulation | null,
+  speed: DirectorGraphDevSpeed,
+): DirectorGraphDevSpeed | undefined {
+  return simulation === null ? undefined : speed;
+}
+
+function directorGraphDevDescription(simulation: DirectorGraphDevSimulation | null): string {
+  return simulation?.description ?? "Live data · production projection";
+}
+
+function directorRailLayoutAttribute(floating: boolean): "floating" | "flanking" {
+  return floating ? "floating" : "flanking";
+}
+
+function directorSwitchDirectionAttribute(
+  direction: DirectorWorkstreamSwitchDirection | null,
+): DirectorWorkstreamSwitchDirection | undefined {
+  return direction ?? undefined;
+}
+
+function directorGraphOpenWorkstreamHandler(
+  simulation: DirectorGraphDevSimulation | null,
+  openWorkstream: (workstreamId: string) => void,
+): ((workstreamId: string) => void) | undefined {
+  return simulation === null ? openWorkstream : undefined;
+}
+
+function directorWorkstreamStatus(workstream: Workstream | null): Workstream["status"] | null {
+  return workstream?.status ?? null;
+}
+
+function directorGraphDevTopBarTools({
+  active,
+  onToggle,
+  open,
+  triggerRef,
+}: {
+  readonly active: boolean;
+  readonly onToggle: () => void;
+  readonly open: boolean;
+  readonly triggerRef: ComponentProps<typeof DirectorGraphDevPanel>["triggerRef"];
+}): ComponentProps<typeof CommandCenterTopBar>["graphDevTools"] {
+  if (!directorGraphDevToolsEnabled) {
+    return null;
+  }
+  return {
+    active,
+    keyShortcuts: directorGraphDevShortcut,
+    onToggle,
+    open,
+    panelId: directorGraphDevPanelId,
+    triggerRef,
+  };
+}
+
+function DirectorGraphEmptyStateSlot({
+  focus,
+  loadState,
+  nodeCount,
+}: {
+  readonly focus: DirectorFocus;
+  readonly loadState: DirectorLoadState;
+  readonly nodeCount: number;
+}): React.JSX.Element | null {
+  if (loadState !== "ready" || nodeCount !== 0) {
+    return null;
+  }
+  return <GraphEmptyState focus={focus} />;
+}
+
+function DirectorGraphDevPanelSlot({
+  enabled,
+  panel,
+}: {
+  readonly enabled: boolean;
+  readonly panel: ComponentProps<typeof DirectorGraphDevPanel>;
+}): React.JSX.Element | null {
+  if (!enabled) {
+    return null;
+  }
+  return <DirectorGraphDevPanel {...panel} />;
+}
+
+function directorGraphDevEventSecondsAt(
+  clock: DirectorGraphDevClock,
+  timestampMs: number,
+  nodeCount: DirectorGraphDevNodeCount,
+): number {
+  return directorGraphDevTimeInCycle(
+    clock.virtualAnchorSeconds + ((timestampMs - clock.wallAnchorMs) / 1000) * clock.speed,
+    nodeCount,
+  );
+}
+
+function directorGraphDevAnimationSecondsAt(
+  clock: DirectorGraphDevClock,
+  timestampMs: number,
+): number {
+  return clock.animationAnchorSeconds + (timestampMs - clock.wallAnchorMs) / 1000;
+}
+
+function directorGraphDevScheduledSpeed(
+  timeline: DirectorGraphDevTimeline,
+): DirectorGraphDevRunningSpeed {
+  const latest = timeline[timeline.length - 1];
+  if (latest === undefined) {
+    throw new Error("graph simulator timeline requires a scheduled speed");
+  }
+  return latest.speed;
+}
+
+function resetDirectorGraphDevClock(
+  speed: DirectorGraphDevSpeed,
+  wallAnchorMs: number,
+  scheduledSpeed: DirectorGraphDevRunningSpeed,
+): DirectorGraphDevClock {
+  return {
+    animationAnchorSeconds: 0,
+    speed,
+    timeline: createDirectorGraphDevTimeline(scheduledSpeed),
+    virtualAnchorSeconds: 0,
+    wallAnchorMs,
+  };
+}
 const directorEventVisibility = {
   "director.aggregates.updated": true,
   "director.approval.updated": true,
@@ -195,42 +547,237 @@ export function DirectorCommandCenterShell({
     runtimeId: connectedRuntimeId,
   });
   const [canvas, setCanvas] = useState<DirectorGraphCanvas | null>(null);
+  const [artifactParticleStyle, setArtifactParticleStyle] =
+    useState<GraphArtifactParticleStyle>("particle-flow");
+  const previousGraphLayoutSignatureRef = useRef<string | undefined>(undefined);
+  const previousGraphCompositionRef = useRef<PreviousDirectorGraphComposition | null>(null);
   // Selection is a view: no workstream means the Director's own.
   // Read once. Which workstream is selected decides the view, the composition
   // and what a click on the canvas does, and re-deriving it at each of those
   // invited them to disagree.
   const snapshot = director.snapshot;
-  const selectedWorkstreamId = snapshot === null ? null : snapshot.selectedWorkstreamId;
-  const {
-    closeCompactRail,
-    compactRail,
-    effectiveVisibility: effectiveRailVisibility,
-    toggleRail,
-  } = useDirectorRailDisclosure();
-  const snapshotGraphs = snapshot === null ? undefined : snapshot.graphs;
-  const graphTimeSecondsAt = useMemo(
+  const selectedWorkstreamId = selectedDirectorWorkstreamId(snapshot);
+  const [graphDevThreadCount, setGraphDevThreadCount] =
+    useState<DirectorGraphDevThreadCount | null>(null);
+  const [graphDevNodeCount, setGraphDevNodeCount] = useState<DirectorGraphDevNodeCount>(
+    directorGraphDevDefaultNodeCount,
+  );
+  const [graphDevSpeed, setGraphDevSpeed] = useState<DirectorGraphDevSpeed>(
+    directorGraphDevDefaultSpeed,
+  );
+  const [graphDevDirectorEdgeDisturbance, setGraphDevDirectorEdgeDisturbance] = useState(false);
+  const [graphDevPanelOpen, setGraphDevPanelOpen] = useState(false);
+  const graphDevTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [graphDevTimeline, setGraphDevTimeline] = useState<DirectorGraphDevTimeline>(() =>
+    createDirectorGraphDevTimeline(directorGraphDevDefaultSpeed),
+  );
+  const graphDevClockRef = useRef<DirectorGraphDevClock>({
+    animationAnchorSeconds: 0,
+    speed: directorGraphDevDefaultSpeed,
+    timeline: graphDevTimeline,
+    virtualAnchorSeconds: 0,
+    wallAnchorMs: globalThis.performance.now(),
+  });
+  const [graphDevFrameIndex, setGraphDevFrameIndex] = useState(0);
+  /*
+   * A simulator count replaces the whole graph composition. It is useful
+   * development work, but it must not monopolise the urgent input lane: React
+   * can prepare the new shell between frames while the pressed control paints
+   * immediately.
+   */
+  const selectGraphDevThreadCount = useCallback(
+    (threadCount: DirectorGraphDevThreadCount | null): void => {
+      const scheduledSpeed =
+        graphDevSpeed === 0
+          ? directorGraphDevScheduledSpeed(graphDevClockRef.current.timeline)
+          : graphDevSpeed;
+      const clock = resetDirectorGraphDevClock(
+        graphDevSpeed,
+        globalThis.performance.now(),
+        scheduledSpeed,
+      );
+      graphDevClockRef.current = clock;
+      setGraphDevTimeline(clock.timeline);
+      setGraphDevFrameIndex(0);
+      startTransition(() => {
+        setGraphDevThreadCount(threadCount);
+      });
+    },
+    [graphDevSpeed],
+  );
+  const selectGraphDevNodeCount = useCallback(
+    (nodeCount: DirectorGraphDevNodeCount): void => {
+      const scheduledSpeed =
+        graphDevSpeed === 0
+          ? directorGraphDevScheduledSpeed(graphDevClockRef.current.timeline)
+          : graphDevSpeed;
+      const clock = resetDirectorGraphDevClock(
+        graphDevSpeed,
+        globalThis.performance.now(),
+        scheduledSpeed,
+      );
+      graphDevClockRef.current = clock;
+      setGraphDevTimeline(clock.timeline);
+      setGraphDevFrameIndex(0);
+      startTransition(() => {
+        setGraphDevNodeCount(nodeCount);
+      });
+    },
+    [graphDevSpeed],
+  );
+  const selectGraphDevSpeed = useCallback(
+    (speed: DirectorGraphDevSpeed): void => {
+      const now = globalThis.performance.now();
+      const current = graphDevClockRef.current;
+      const virtualAnchorSeconds = directorGraphDevEventSecondsAt(current, now, graphDevNodeCount);
+      const animationAnchorSeconds = directorGraphDevAnimationSecondsAt(current, now);
+      const timeline =
+        speed === 0
+          ? current.timeline
+          : rescheduleDirectorGraphDevTimeline(
+              current.timeline,
+              virtualAnchorSeconds,
+              animationAnchorSeconds,
+              speed,
+            );
+      graphDevClockRef.current = {
+        animationAnchorSeconds,
+        speed,
+        timeline,
+        virtualAnchorSeconds,
+        wallAnchorMs: now,
+      };
+      if (timeline !== current.timeline) {
+        setGraphDevTimeline(timeline);
+      }
+      setGraphDevSpeed(speed);
+      setGraphDevFrameIndex(directorGraphDevFrameIndexAt(virtualAnchorSeconds, graphDevNodeCount));
+      canvas?.invalidate();
+    },
+    [canvas, graphDevNodeCount],
+  );
+  const [graphViewport, setGraphViewport] = useState<GraphViewport>(initialDirectorGraphViewport);
+  const onGraphViewportChange = useCallback((next: GraphViewport): void => {
+    setGraphViewport((current) =>
+      current.width === next.width && current.height === next.height ? current : next,
+    );
+  }, []);
+  const snapshotGraphs = directorSnapshotGraphs(snapshot);
+  const liveGraphTimeSecondsAt = useMemo(
     () => directorGraphTimeSecondsAt(director.snapshot),
     [snapshot === null ? null : snapshot.connection.lastEventAt, snapshotGraphs],
   );
-  // A compact window folds the grid's tiles to dots; a spacious one earns
-  // their trails. The same viewport fact reaches the packer, not a second
-  // measurement that could disagree with it.
-  const compactViewport = useMediaQueryMatch("(max-width: 1080px), (max-height: 720px)");
-  const composition = useMemo(
-    () =>
-      packDirectorGraphs(
-        snapshotGraphs,
-        selectedWorkstreamId,
-        compactViewport ? "compact" : "spacious",
-      ),
-    [compactViewport, snapshotGraphs, selectedWorkstreamId],
+  const graphDevTimeSecondsAt = useCallback(
+    (timestampMs: number): number =>
+      directorGraphDevAnimationSecondsAt(graphDevClockRef.current, timestampMs),
+    [],
   );
+  const graphDevScenario = useMemo(
+    () =>
+      directorGraphDevToolsEnabled && graphDevThreadCount !== null
+        ? createDirectorGraphDevScenario(graphDevThreadCount, graphDevNodeCount, graphDevTimeline)
+        : null,
+    [graphDevNodeCount, graphDevThreadCount, graphDevTimeline],
+  );
+  const graphDevSimulation = useMemo(
+    () =>
+      graphDevScenario === null
+        ? null
+        : createDirectorGraphDevSimulation(
+            graphDevScenario,
+            graphViewport,
+            graphDevFrameIndex * directorGraphDevFrameStepSeconds,
+            graphDevTimeSecondsAt,
+          ),
+    [graphDevFrameIndex, graphDevScenario, graphDevTimeSecondsAt, graphViewport],
+  );
+  useEffect(() => {
+    if (graphDevThreadCount === null || graphDevSpeed === 0) {
+      return;
+    }
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleNextFrame = (): void => {
+      if (cancelled) {
+        return;
+      }
+      const now = globalThis.performance.now();
+      const timeSeconds = directorGraphDevEventSecondsAt(
+        graphDevClockRef.current,
+        now,
+        graphDevNodeCount,
+      );
+      const frameIndex = directorGraphDevFrameIndexAt(timeSeconds, graphDevNodeCount);
+      const maximumFrame = (graphDevNodeCount - 1) * directorGraphDevThreadPhaseCount;
+      const nextTimeSeconds =
+        frameIndex >= maximumFrame
+          ? directorGraphDevCycleDurationSeconds(graphDevNodeCount)
+          : (frameIndex + 1) * directorGraphDevFrameStepSeconds;
+      const delayMs = Math.max(16, ((nextTimeSeconds - timeSeconds) / graphDevSpeed) * 1000 + 1);
+      timer = globalThis.setTimeout(() => {
+        const callbackNow = globalThis.performance.now();
+        const nextFrameIndex = directorGraphDevFrameIndexAt(
+          directorGraphDevEventSecondsAt(graphDevClockRef.current, callbackNow, graphDevNodeCount),
+          graphDevNodeCount,
+        );
+        if (frameIndex >= maximumFrame || nextFrameIndex < frameIndex) {
+          const current = graphDevClockRef.current;
+          if (current.speed === 0) {
+            return;
+          }
+          const reset = resetDirectorGraphDevClock(current.speed, callbackNow, current.speed);
+          graphDevClockRef.current = reset;
+          setGraphDevTimeline(reset.timeline);
+          setGraphDevFrameIndex(0);
+          scheduleNextFrame();
+          return;
+        }
+        setGraphDevFrameIndex((current) => (current === nextFrameIndex ? current : nextFrameIndex));
+        scheduleNextFrame();
+      }, delayMs);
+    };
+    scheduleNextFrame();
+    return () => {
+      cancelled = true;
+      if (timer !== null) {
+        globalThis.clearTimeout(timer);
+      }
+    };
+  }, [graphDevNodeCount, graphDevSpeed, graphDevThreadCount]);
+  const composition = useMemo(() => {
+    if (graphDevSimulation !== null) {
+      return {
+        presentation: graphDevSimulation.presentation,
+        snapshot: graphDevSimulation.snapshot,
+      };
+    }
+    return packDirectorGraphs(snapshotGraphs, selectedWorkstreamId, graphViewport);
+  }, [graphDevSimulation, graphViewport, snapshotGraphs, selectedWorkstreamId]);
+  /*
+   * A dense grid owns the full canvas until the user asks for supporting
+   * context. Its rails use the same mutually exclusive floating disclosure as
+   * a narrow window, so Now and Artifacts remain reachable even at 100 threads
+   * without permanently covering the graph.
+   */
+  const {
+    closeCompactRail,
+    compactRail,
+    effectiveVisibility: visibleRailVisibility,
+    floating: railsFloat,
+    toggleRail,
+  } = useDirectorRailDisclosure(composition.presentation === "grid");
+  const graphTimeSecondsAt = directorGraphTimeSource(graphDevSimulation, liveGraphTimeSecondsAt);
   const packedSnapshot = composition.snapshot;
+  const graphColumnTitles = useMemo(
+    () => graphDevSimulation?.titles ?? directorColumnTitles(snapshot),
+    [graphDevSimulation?.threadCount, snapshot?.workstreams],
+  );
   const { openWorkstream: openWorkstreamFromGraph } = useDirectorGraphPresentation({
     dispatch: director.dispatch,
   });
-  const railAttributes = directorRailVisibilityAttributes(effectiveRailVisibility);
+  const railAttributes = directorRailVisibilityAttributes(visibleRailVisibility);
   const focus = directorFocus(snapshotView.selectedWorkstream);
+  const graphLoading = directorGraphIsLoading(director.loadState);
   const switchTransition = useDirectorWorkstreamSwitchTransition(director.snapshot);
   const contentInert = artifactBrowser.activeArtifact !== null;
   const onGraphReady = useCallback((host: DirectorGraphCanvas | null) => {
@@ -269,18 +816,6 @@ export function DirectorCommandCenterShell({
     speechPlayback,
     submitTranscript: submitTranscriptToCurrentView,
   });
-  const startWorkstreamInFolder = useCallback(() => {
-    void (async () => {
-      const workspace = await workspaceBinding.openLocalFolder();
-      if (workspace === null) {
-        return;
-      }
-      await director.dispatch(
-        createWorkstreamIntent(workspace.id, workspaceWorkstreamTitle(workspace)),
-      );
-    })();
-  }, [director.dispatch, workspaceBinding.openLocalFolder]);
-
   useEffect(() => {
     if (canvas === null) {
       return;
@@ -289,13 +824,45 @@ export function DirectorCommandCenterShell({
     // must never see a new composition under the old rules. The Director's
     // own lane is the view's self on its view, so its turns fold on click
     // instead of "opening" the view the user is already on.
-    canvas.setPresentation(
-      composition.presentation,
-      selectedWorkstreamId === null ? directorGraphLaneId : null,
+    const applied = applyDirectorGraphCanvasComposition({
+      canvas,
+      composition,
+      devNodeCount: graphDevNodeCount,
+      devThreadCount: graphDevThreadCount,
+      graphViewport,
+      previous: previousGraphCompositionRef.current,
+      previousLayoutSignature: previousGraphLayoutSignatureRef.current,
+      selectedWorkstreamId,
+      simulation: graphDevSimulation,
+      snapshotGraphs,
+    });
+    previousGraphLayoutSignatureRef.current = applied.layoutSignature;
+    previousGraphCompositionRef.current = applied.next;
+  }, [
+    canvas,
+    composition,
+    graphDevNodeCount,
+    graphDevSimulation,
+    graphDevThreadCount,
+    graphViewport,
+    selectedWorkstreamId,
+    snapshotGraphs,
+  ]);
+
+  useEffect(() => {
+    canvas?.setColumnTitles(graphColumnTitles);
+  }, [canvas, graphColumnTitles]);
+
+  useEffect(() => {
+    canvas?.setDirectorEdgeDisturbance(graphDevDirectorEdgeDisturbance);
+  }, [canvas, graphDevDirectorEdgeDisturbance]);
+
+  useEffect(() => {
+    canvas?.setArtifactParticleStyle(
+      artifactBrowser.activeArtifact === null ? null : artifactParticleStyle,
+      artifactBrowser.activeArtifact?.id,
     );
-    canvas.setColumnTitles(directorColumnTitles(snapshot));
-    canvas.setSnapshot(composition.snapshot);
-  }, [canvas, composition, selectedWorkstreamId, snapshot]);
+  }, [artifactBrowser.activeArtifact, artifactParticleStyle, canvas]);
 
   // The input node breathes only while the microphone is actually capturing.
   useEffect(() => {
@@ -348,30 +915,48 @@ export function DirectorCommandCenterShell({
   return (
     <main
       className="director-command-center"
+      data-artifact-view={directorArtifactViewAttribute(artifactBrowser.activeArtifact !== null)}
       data-artifacts-rail={railAttributes.artifacts}
       data-desktop-platform={platform}
+      data-graph-simulation-nodes={graphDevSimulation?.nodeCount}
+      data-graph-simulation-rendered-nodes={graphDevSimulation?.snapshot.nodeCount}
+      data-graph-simulation-source-nodes={graphDevSimulation?.sourceNodeCount}
+      data-graph-simulation={graphDevSimulation?.threadCount}
+      data-graph-simulation-frame={graphDevSimulation?.frameKey}
+      data-graph-simulation-speed={directorGraphSimulationSpeedAttribute(
+        graphDevSimulation,
+        graphDevSpeed,
+      )}
       data-now-rail={railAttributes.now}
+      data-rail-layout={directorRailLayoutAttribute(railsFloat)}
       data-testid="director-command-center-shell"
-      data-workstream-switch-direction={switchTransition.direction ?? undefined}
-      data-workstream-switching={switchTransition.active ? "true" : "false"}
+      data-workstream-switch-direction={directorSwitchDirectionAttribute(
+        switchTransition.direction,
+      )}
+      data-workstream-switching={directorBooleanDataAttribute(switchTransition.active)}
     >
       <div
-        aria-hidden={contentInert || undefined}
+        aria-hidden={directorOptionalBoolean(contentInert)}
         className="director-command-center-content"
-        inert={contentInert || undefined}
+        inert={directorOptionalBoolean(contentInert)}
       >
         <a className="director-command-center-skip" href={`#${directorComposerInputId}`}>
           Skip to composer
         </a>
         <CommandCenterTopBar
           dispatch={director.dispatch}
+          graphDevTools={directorGraphDevTopBarTools({
+            active: graphDevThreadCount !== null,
+            onToggle: () => setGraphDevPanelOpen((current) => !current),
+            open: graphDevPanelOpen,
+            triggerRef: graphDevTriggerRef,
+          })}
           labelsVisible={labelsVisible}
-          onStartWorkstream={startWorkstreamInFolder}
           onToggleLabels={toggleLabels}
           onToggleRail={toggleRail}
           onOpenSettingsPage={onOpenSettingsPage}
           platform={platform}
-          railVisibility={effectiveRailVisibility}
+          railVisibility={visibleRailVisibility}
           snapshot={director.snapshot}
           speechPlayback={speechPlayback}
         />
@@ -379,20 +964,32 @@ export function DirectorCommandCenterShell({
           <DirectorGraphSurface
             ambientMotion
             label="Director semantic graph"
-            onOpenWorkstream={openWorkstreamFromGraph}
+            loading={graphLoading}
+            onOpenWorkstream={directorGraphOpenWorkstreamHandler(
+              graphDevSimulation,
+              openWorkstreamFromGraph,
+            )}
             onReady={onGraphReady}
+            onViewportChange={onGraphViewportChange}
             timeSecondsAt={graphTimeSecondsAt}
           />
-          {packedSnapshot.nodeCount === 0 ? <GraphEmptyState focus={focus} /> : null}
+          <DirectorLoadStatus state={director.loadState} />
+          <DirectorGraphEmptyStateSlot
+            focus={focus}
+            loadState={director.loadState}
+            nodeCount={packedSnapshot.nodeCount}
+          />
           <NowRail
             narration={snapshotView.narration}
-            workstreamStatus={snapshotView.selectedWorkstream?.status ?? null}
+            visible={visibleRailVisibility.now}
+            workstreamStatus={directorWorkstreamStatus(snapshotView.selectedWorkstream)}
           />
           <ArtifactsRail
             approvals={snapshotView.approvals}
             artifactBrowser={artifactBrowser}
             artifacts={snapshotView.artifacts}
             requests={snapshotView.requests}
+            visible={visibleRailVisibility.artifacts}
           />
           {/*
            * Waiting-on-you and the composer share a dock so they stack in one
@@ -430,10 +1027,36 @@ export function DirectorCommandCenterShell({
               onSubmit={submitToCurrentView}
               speechCapture={speechCapture}
             />
+            <CompactWorkstreamNavigation
+              dispatch={director.dispatch}
+              snapshot={director.snapshot}
+            />
           </div>
         </section>
+        <DirectorGraphDevPanelSlot
+          enabled={directorGraphDevToolsEnabled}
+          panel={{
+            description: directorGraphDevDescription(graphDevSimulation),
+            directorEdgeDisturbance: graphDevDirectorEdgeDisturbance,
+            nodeCount: graphDevNodeCount,
+            onOpenChange: setGraphDevPanelOpen,
+            onSelectNodeCount: selectGraphDevNodeCount,
+            onSelectSpeed: selectGraphDevSpeed,
+            onSelectThreadCount: selectGraphDevThreadCount,
+            onToggleDirectorEdgeDisturbance: setGraphDevDirectorEdgeDisturbance,
+            open: graphDevPanelOpen,
+            speed: graphDevSpeed,
+            threadCount: graphDevThreadCount,
+            triggerRef: graphDevTriggerRef,
+          }}
+        />
       </div>
-      <ArtifactBrowserOverlaySlot browser={artifactBrowser} />
+      <ArtifactBrowserSurfaceSlot
+        browser={artifactBrowser}
+        onParticleStyleChange={setArtifactParticleStyle}
+        particleStyle={artifactParticleStyle}
+        showParticleStyleControls={directorGraphDevToolsEnabled}
+      />
     </main>
   );
 }
@@ -460,6 +1083,36 @@ function GraphEmptyState({ focus }: { focus: DirectorFocus }) {
       <p className="director-graph-empty-hint">Ask the Director below to start.</p>
     </div>
   );
+}
+
+/** Canvas motion has an equivalent polite announcement without visible chrome. */
+function DirectorLoadStatus({ state }: { state: DirectorLoadState }) {
+  const text = directorLoadStatusText(state);
+  return (
+    <span aria-atomic="true" aria-live="polite" className="sr-only" role="status">
+      {text}
+    </span>
+  );
+}
+
+function directorLoadStatusText(state: DirectorLoadState): string {
+  switch (state) {
+    case "loading":
+      return "Director is loading.";
+    case "resyncing":
+      return "Director is updating.";
+    case "ready":
+      return "Director ready.";
+    case "error":
+      // The visible reply is already a live status and carries the useful error.
+      return "";
+    default:
+      return exhaustiveDirectorLoadState(state);
+  }
+}
+
+function exhaustiveDirectorLoadState(state: never): never {
+  throw new Error(`unsupported Director load state ${state}`);
 }
 
 function useDirectorRuntime(
@@ -526,7 +1179,7 @@ function useDirectorRuntime(
         }
         cancelPendingVisibleFrame();
         setLoadState(requestedState);
-        setMessage(requestedState === "resyncing" ? "Resyncing Director state." : null);
+        setMessage(null);
         disposeEvents?.();
         disposeEvents = null;
         try {
@@ -730,15 +1383,16 @@ function directorRailVisibilityAttributes(visibility: DirectorRailVisibility) {
   };
 }
 
-function useDirectorRailDisclosure() {
+function useDirectorRailDisclosure(floatForPresentation: boolean) {
   const [railVisibility, setRailVisibility] =
     useState<DirectorRailVisibility>(defaultRailVisibility);
   const [compactRail, setCompactRail] = useState<DirectorCompactRail>(null);
   const compactRailTriggerRef = useRef<HTMLButtonElement | null>(null);
   const wasCompactRailOpenRef = useRef(false);
   const compact = useCompactRailLayout();
+  const floating = compact || floatForPresentation;
   const effectiveVisibility = effectiveDirectorRailVisibility({
-    compact,
+    compact: floating,
     compactRail,
     railVisibility,
   });
@@ -756,13 +1410,13 @@ function useDirectorRailDisclosure() {
     wasCompactRailOpenRef.current = compactRail !== null;
   }, [compactRail]);
   useEffect(() => {
-    if (!compact) {
+    if (!floating) {
       closeCompactRail();
     }
-  }, [closeCompactRail, compact]);
+  }, [closeCompactRail, floating]);
   const toggleRail = useCallback(
     (rail: Exclude<DirectorCompactRail, null>, trigger: HTMLButtonElement) => {
-      if (compact) {
+      if (floating) {
         if (compactRail !== rail) {
           compactRailTriggerRef.current = trigger;
         }
@@ -771,9 +1425,9 @@ function useDirectorRailDisclosure() {
       }
       setRailVisibility((current) => ({ ...current, [rail]: !current[rail] }));
     },
-    [compact, compactRail],
+    [compactRail, floating],
   );
-  return { closeCompactRail, compactRail, effectiveVisibility, toggleRail };
+  return { closeCompactRail, compactRail, effectiveVisibility, floating, toggleRail };
 }
 
 function useDirectorShellKeyboardNavigation({
@@ -793,9 +1447,9 @@ function useDirectorShellKeyboardNavigation({
       if (event.defaultPrevented) {
         return;
       }
-      // The artifact browser is a modal Dialog: it owns Escape, arrow keys, and
-      // every keystroke inside it, so the shell's own shortcuts stand down
-      // rather than steering the graph or the composer behind it.
+      // The artifact browser is the active application surface: it owns Escape,
+      // arrow keys, and every keystroke inside it, so shell shortcuts stand down
+      // rather than steering the inert graph or composer behind it.
       if (artifactBrowserOpen) {
         return;
       }
