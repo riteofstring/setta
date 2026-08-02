@@ -41,47 +41,17 @@ type ranDirectorTurn struct {
 }
 
 type scriptedDirectorProvider struct {
-	reply             string
-	model             string
-	calls             []scriptedDirectorToolCall
-	scripted          []scriptedDirectorTurn
-	readiness         DirectorReadinessDisposition
-	readinessQuestion string
-	err               error
-	turnErr           error
+	reply    string
+	model    string
+	calls    []scriptedDirectorToolCall
+	scripted []scriptedDirectorTurn
+	err      error
+	turnErr  error
 
 	started []DirectorCarrierRequest
 	turns   []ranDirectorTurn
-	reviews int
 	// receipts are what the scripted calls reported back, in order.
 	receipts []SettaToolReceipt
-}
-
-func (provider *scriptedDirectorProvider) ReviewDirectorReadiness(
-	_ context.Context,
-	_ DirectorReadinessRequest,
-) (DirectorReadinessReview, error) {
-	if provider.err != nil {
-		return DirectorReadinessReview{}, provider.err
-	}
-	provider.reviews++
-	disposition := provider.readiness
-	if disposition == "" {
-		disposition = DirectorReadinessWorkPermitted
-	}
-	model := provider.model
-	if model == "" {
-		model = "gpt-test"
-	}
-	return DirectorReadinessReview{
-		Disposition: disposition,
-		Question:    provider.readinessQuestion,
-		Invocation: scriptedDirectorInvocation(
-			fmt.Sprintf("director-readiness-invocation-%d", provider.reviews),
-			fmt.Sprintf("provider-readiness-turn-%d", provider.reviews),
-			model,
-		),
-	}, nil
 }
 
 func (provider *scriptedDirectorProvider) StartDirectorCarrier(

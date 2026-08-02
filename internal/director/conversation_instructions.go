@@ -105,10 +105,5 @@ func PromptSurfaces() []conversation.RolePromptSurface {
 			Surface: "tool-use-review",
 			Prompt:  directorToolUseReview,
 		},
-		{
-			Role:    conversation.RoleDirector,
-			Surface: "readiness-review",
-			Prompt:  DirectorReadinessInstructions(),
-		},
 	}
 }

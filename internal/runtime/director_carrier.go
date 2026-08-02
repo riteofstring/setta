@@ -38,7 +38,6 @@ type directorProviderRuntime interface {
 	StartThread(context.Context, agent.StartThreadRequest) (agent.Thread, error)
 	InjectItems(context.Context, string, []agent.InjectedTextItem) error
 	RunTurn(context.Context, agent.TurnRequest, agent.EventSink) (agent.TurnResult, error)
-	RunFreshStructuredCall(context.Context, agent.FreshStructuredCallRequest) (agent.FreshStructuredCallResult, error)
 	UnsubscribeThread(context.Context, string) error
 }
 
@@ -79,92 +78,6 @@ func randomDirectorRequestID(prefix string) (string, error) {
 		return "", fmt.Errorf("generate %s id: %w", prefix, err)
 	}
 	return prefix + "_" + hex.EncodeToString(data[:]), nil
-}
-
-// ReviewDirectorReadiness gives trusted code one typed judgment before the
-// conversational Director receives tools. It uses the same resolved Director
-// role but a fresh, tool-free thread, so deciding whether work may start cannot
-// itself mutate app or workspace state.
-func (port *directorCarrierPort) ReviewDirectorReadiness(
-	ctx context.Context,
-	request director.DirectorReadinessRequest,
-) (director.DirectorReadinessReview, error) {
-	if err := validateDirectorTurnPreparationBoundary(port, ctx); err != nil {
-		return director.DirectorReadinessReview{}, err
-	}
-	configuration, invocation, err := port.resolvedInvocation(ctx)
-	if err != nil {
-		return director.DirectorReadinessReview{}, err
-	}
-	input, err := director.EncodeDirectorReadinessInput(request, configuration.MaxInputBytes)
-	if err != nil {
-		return director.DirectorReadinessReview{}, err
-	}
-	requestID, err := port.newID("director_readiness")
-	if err != nil {
-		return director.DirectorReadinessReview{}, err
-	}
-	invocationID, err := port.newID("director_invocation")
-	if err != nil {
-		return director.DirectorReadinessReview{}, err
-	}
-	requested, err := configuration.RequestedRoleProfile()
-	if err != nil {
-		return director.DirectorReadinessReview{}, fmt.Errorf("read resolved Director readiness profile: %w", err)
-	}
-	startedAt := port.now().UTC()
-	result, err := port.provider.RunFreshStructuredCall(ctx, agent.FreshStructuredCallRequest{
-		ID:                    requestID,
-		WorkspaceRoot:         port.workspaceRoot,
-		Invocation:            invocation,
-		DeveloperInstructions: director.DirectorReadinessInstructions(),
-		Input:                 input,
-		OutputSchema:          director.DirectorReadinessOutputSchema(),
-		TokenUsageAttribution: agent.TokenUsageAttribution{
-			Bucket:          agent.TokenUsageBucketSystem,
-			Role:            agent.TokenUsageRoleDirector,
-			InvocationID:    invocationID,
-			Model:           configuration.ResolvedInvocation.Model,
-			ReasoningEffort: configuration.ResolvedInvocation.ReasoningEffort,
-			ServiceTier:     cloneRuntimeStringPointer(configuration.ResolvedInvocation.ServiceTier),
-		},
-	})
-	if err != nil {
-		return director.DirectorReadinessReview{}, fmt.Errorf("review Director readiness: %w", err)
-	}
-	disposition, question, err := director.DecodeDirectorReadinessOutput(result.Output)
-	if err != nil {
-		return director.DirectorReadinessReview{}, err
-	}
-	endedAt := port.timestampAfter(startedAt).Format(time.RFC3339Nano)
-	resolved := conversation.ResolvedInvocation{
-		ID:        invocationID,
-		Role:      conversation.RoleDirector,
-		Provider:  conversation.ProviderCodex,
-		Requested: requested,
-		Resolved: conversation.ResolvedInvocationSettings{
-			ModelID:           configuration.ResolvedInvocation.Model,
-			ReasoningEffort:   configuration.ResolvedInvocation.ReasoningEffort,
-			ServiceTier:       cloneRuntimeStringPointer(configuration.ResolvedInvocation.ServiceTier),
-			PermissionProfile: requested.PermissionProfile,
-		},
-		ProviderReferences: conversation.InvocationProviderReferences{
-			TurnID: cloneRuntimeStringPointer(&result.ProviderTurnID),
-		},
-		ModelReroutes: []conversation.InvocationModelReroute{},
-		StartedAt:     startedAt.Format(time.RFC3339Nano),
-		EndedAt:       &endedAt,
-		Outcome:       conversation.InvocationOutcomeSucceeded,
-	}
-	review := director.DirectorReadinessReview{
-		Disposition: disposition,
-		Question:    question,
-		Invocation:  resolved,
-	}
-	if err := review.Validate(); err != nil {
-		return director.DirectorReadinessReview{}, fmt.Errorf("validate Director readiness review: %w", err)
-	}
-	return review, nil
 }
 
 // StartDirectorCarrier opens the ephemeral provider thread the Director

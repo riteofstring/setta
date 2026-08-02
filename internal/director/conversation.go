@@ -105,11 +105,6 @@ type submittedDirectorTurn struct {
 // it; what crosses is a tool catalog the Director owns and the text of one
 // turn.
 type DirectorCarrierPort interface {
-	// ReviewDirectorReadiness runs an isolated, typed judgment before the
-	// Director receives tools for the current turn. Trusted code uses the
-	// result to withhold work-starting authority when a user decision is still
-	// required.
-	ReviewDirectorReadiness(context.Context, DirectorReadinessRequest) (DirectorReadinessReview, error)
 	// StartDirectorCarrier starts the ephemeral provider thread this app run's
 	// Director turns run on, replays the supplied history into it, and returns
 	// its provider id. The id is runtime correlation only: Setta records which
@@ -172,8 +167,8 @@ func validateDirectorTurnInvocations(invocations []conversation.ResolvedInvocati
 	if len(invocations) == 0 {
 		return errors.New("director turn resolved invocations must be a non-empty array")
 	}
-	if len(invocations) > 3 {
-		return errors.New("director turn may contain only readiness, submitted, and tool-use review calls")
+	if len(invocations) > 2 {
+		return errors.New("director turn may contain only the submitted call and one tool-use review call")
 	}
 	seenInvocations := map[string]bool{}
 	seenProviderTurns := map[string]bool{}
@@ -322,21 +317,7 @@ func (director *DirectorConversation) Submit(
 	}
 	director.turnMutex.Lock()
 	defer director.turnMutex.Unlock()
-	history, err := director.replayHistory(ctx)
-	if err != nil {
-		return DirectorTurnReceipt{}, err
-	}
-	readiness, err := director.provider.ReviewDirectorReadiness(ctx, DirectorReadinessRequest{
-		Intent:  intent,
-		History: history,
-	})
-	if err != nil {
-		return DirectorTurnReceipt{}, err
-	}
-	if err := readiness.Validate(); err != nil {
-		return DirectorTurnReceipt{}, err
-	}
-	recorder, recorded, err := director.recordedTools(intent, readiness)
+	recorder, recorded, err := director.recordedTools(intent)
 	if err != nil {
 		return DirectorTurnReceipt{}, err
 	}
@@ -347,14 +328,7 @@ func (director *DirectorConversation) Submit(
 	if err := director.persistUserTurn(ctx, intent); err != nil {
 		return DirectorTurnReceipt{}, err
 	}
-	providerTurn, err := director.runSubmittedIntent(
-		ctx,
-		intent,
-		carrier,
-		recorded,
-		recorder,
-		readiness.Invocation,
-	)
+	providerTurn, err := director.runSubmittedIntent(ctx, intent, carrier, recorded, recorder)
 	if err != nil {
 		return DirectorTurnReceipt{}, err
 	}
@@ -385,13 +359,8 @@ func validateDirectorSubmission(
 
 func (director *DirectorConversation) recordedTools(
 	intent SubmittedIntent,
-	readiness DirectorReadinessReview,
 ) (*directorToolRecorder, []SettaTool, error) {
 	tools, err := director.toolbox.Tools(intent)
-	if err != nil {
-		return nil, nil, err
-	}
-	tools, err = toolsForDirectorReadiness(tools, readiness)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -425,7 +394,6 @@ func (director *DirectorConversation) runSubmittedIntent(
 	carrier conversation.Carrier,
 	tools []SettaTool,
 	recorder *directorToolRecorder,
-	readinessInvocation conversation.ResolvedInvocation,
 ) (submittedDirectorTurn, error) {
 	providerTurn, err := director.runTurn(ctx, DirectorTurnRequest{
 		Carrier: carrier,
@@ -436,7 +404,7 @@ func (director *DirectorConversation) runSubmittedIntent(
 	if err != nil {
 		return submittedDirectorTurn{}, err
 	}
-	invocations := []conversation.ResolvedInvocation{readinessInvocation, providerTurn.Invocation}
+	invocations := []conversation.ResolvedInvocation{providerTurn.Invocation}
 	// A prose-only answer may be exactly right, or it may be the failure mode
 	// this product replaced: answering an app-control request without acting.
 	// Setta does not guess from keywords. It asks the same Director conversation
