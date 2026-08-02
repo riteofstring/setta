@@ -385,7 +385,11 @@ func (director *DirectorConversation) recordedTools(
 			},
 		},
 	}
-	return recorder, recorder.instrument(tools), nil
+	assessed, err := assessDirectorTurnTools(recorder.instrument(tools))
+	if err != nil {
+		return nil, nil, err
+	}
+	return recorder, assessed, nil
 }
 
 func (director *DirectorConversation) runSubmittedIntent(

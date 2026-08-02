@@ -230,8 +230,8 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 			Description: "Create and select an independent ongoing topic, not merely another task for a matching " +
 				"existing workstream. Supply workspaceId from list_workspaces when the " +
 				"work is about the files in that folder, or set it to null when it is not. Supply initialInput to " +
-				"start work only when unresolved inputs are discoverable from authorized evidence. If an outcome-defining " +
-				"user decision remains, use request_user_choice instead and do not create the workstream yet.",
+				"start work only when the accepted request assessment permits work. If an outcome-defining user decision " +
+				"remains, the assessment must request that choice instead and the workstream must not be created yet.",
 			InputSchema: settaToolSchema(map[string]any{
 				"title":       settaToolString("A short human title for the new workstream.", MaxDecisionTitleBytes),
 				"workspaceId": settaToolNullableString("The workspace id from list_workspaces, or null to create the workstream with no folder.", MaxDecisionReferenceBytes),
@@ -287,9 +287,8 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 			Name: "submit_work",
 			Description: "Send another task to an existing workstream whose topic matches the user's context. " +
 				"Setta starts it immediately when the " +
-				"workstream is idle and queues it behind the active run when it is busy. Use this only when unresolved " +
-				"inputs are discoverable from authorized evidence; use request_user_choice instead when a missing user " +
-				"decision determines which outcome is correct.",
+				"workstream is idle and queues it behind the active run when it is busy. Use this only when the accepted " +
+				"request assessment permits work; a missing user decision must be requested by the assessment instead.",
 			InputSchema: settaToolSchema(map[string]any{
 				"workstreamId": settaToolString("The workstream id from list_workstreams.", MaxDecisionReferenceBytes),
 				"input":        settaToolString("The instruction to run in that workstream.", MaxDecisionAuthoredInputBytes),

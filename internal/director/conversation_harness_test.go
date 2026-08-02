@@ -27,6 +27,26 @@ type scriptedDirectorToolCall struct {
 	rawArguments json.RawMessage
 }
 
+func readyDirectorCalls(calls ...scriptedDirectorToolCall) []scriptedDirectorToolCall {
+	return append([]scriptedDirectorToolCall{{
+		tool: directorAssessRequestTool,
+		arguments: map[string]any{
+			"basis":    string(directorAssessmentFullySpecified),
+			"question": "",
+		},
+	}}, calls...)
+}
+
+func missingRequirementDirectorCall(question string) []scriptedDirectorToolCall {
+	return []scriptedDirectorToolCall{{
+		tool: directorAssessRequestTool,
+		arguments: map[string]any{
+			"basis":    string(directorAssessmentMissingUserRequirement),
+			"question": question,
+		},
+	}}
+}
+
 type scriptedDirectorTurn struct {
 	reply string
 	model string

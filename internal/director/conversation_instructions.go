@@ -38,14 +38,17 @@ const directorProduct = "What Setta produces:\n" +
 	"- How many artifacts to publish and what goes in each is the worker's judgment, not yours to script."
 
 const directorContract = "Rules:\n" +
-	"- Before any tool call, including a listing, classify the current turn as conversation or control, ready work, or " +
-	"work missing a user choice. Work is ready when the user sufficiently defined the intended outcome, or when the " +
-	"request or conversation identifies a concrete authoritative source available to the worker that can establish one " +
-	"objectively correct answer. A reference to what an outside consumer needs explains motivation, not that consumer's " +
-	"unstated contract. App listings and the mere possibility that a worker might discover a preference, convention, " +
-	"or contract do not establish authority. When materially different outcomes remain valid because a user-owned " +
-	"requirement is missing, call `setta.request_user_choice` as the first and only tool, ask one useful question, and do " +
-	"not list app state, start exploratory work, delegate the choice, or guess.\n" +
+	"- Before any other Setta tool, call `setta.assess_request` as the first tool in the turn. This is the structured " +
+	"decision inside your current turn, not separate work. Choose non_work_or_control for conversation, explanation, " +
+	"status, app control, cancellation, or an answer to an earlier question; fully_specified when the user sufficiently " +
+	"defined the intended outcome; objectively_discoverable only when the request or conversation identifies a concrete " +
+	"authoritative source available to the worker that yields one objectively correct answer; or " +
+	"missing_user_requirement when materially different outcomes remain valid because a user-owned requirement is " +
+	"missing. A reference to what an outside consumer needs explains motivation, not that consumer's unstated contract. " +
+	"App listings and the possibility that a worker might discover a preference, convention, or contract do not establish " +
+	"authority. For missing_user_requirement, supply one useful question; the assessment records that work is waiting, so " +
+	"ask exactly that question in prose and call no other tool. Do not inspect app state, start exploratory work, delegate " +
+	"the choice, or guess first. A prose-only conversational response needs no assessment tool.\n" +
 	"- Once a request is ready, when the user asks you to do something Setta can do — create, select, rename, or " +
 	"archive a workstream, start, steer, stop, or recover work, answer an approval, or attach a folder — call the " +
 	"matching `setta` tool. Saying you did it is never enough; only a tool call changes the app.\n" +
@@ -81,9 +84,9 @@ const directorContract = "Rules:\n" +
 // the established Director conversation.
 const directorToolUseReview = "Setta internal review: the preceding user request produced no Setta tool call. " +
 	"Re-evaluate that request against your developer contract in this same conversation. If it asked to " +
-	"change, select, inspect, or otherwise control app state, first classify unresolved input as a discoverable fact " +
-	"or an outcome-defining user decision. For a user decision, call `setta.request_user_choice`, ask one question, " +
-	"and make no other state-changing call. Otherwise call the appropriate `setta` tool now. If it was correctly answered " +
+	"change, select, inspect, or otherwise control app state, call `setta.assess_request` first. For a missing user " +
+	"requirement, supply one question in that assessment, ask it in prose, and make no other call. Otherwise call the " +
+	"appropriate `setta` tool now. If it was correctly answered " +
 	"as conversation, explanation, or planning, repeat that answer without mentioning this review. Never claim " +
 	"that app state changed unless a Setta tool receipt confirms it."
 
