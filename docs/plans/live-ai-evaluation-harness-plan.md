@@ -1,18 +1,14 @@
 # Live AI Evaluation Harness Plan
 
 **Date:** 2026-07-31
-**Status:** Phase 0 achieved a schema-6 `PASS` on 2026-08-01 from clean source
-commit `b9c2074e9e3161465edcb46024550b5da8eef119`; the canonical report is
-recorded at `docs/reports/live-ai-eval-sandbox-phase0.md`. The proof disables
-effective MCP servers and external Codex features before either model turn,
-rejects untyped provider activity, and records the exact hardened `/tmp` mount
-options. Both benign tasks passed on their first attempt, and teardown was
-complete. Phase 1 through Phase 3 repository implementation and their prior
-audits remain complete. The final whole-plan containment audit repair is now
-implemented: every Phase 1 model thread disables inherited host-side external
-capabilities before it starts, while only Agent and Side Agent threads retain
-the proved remote shell surface. Full Phase 1 live harness execution is now
-authorized for this verification run.
+**Status:** Implemented and live-verified. On 2026-08-02, production-baseline
+commit `4ada9a4a5a41b6921efce9abd9d8e0b7956daa8c` passed all ten scenarios on
+their first attempt and passed every ability, user-control, communication, and
+efficiency gate. The prompt-genericity audit scored `100/100` with no findings.
+The report is recorded locally at
+`.recordings/setta-eval/20260802T123349.657518000Z/report.md`. Phase 0's
+credential-safe Docker proof remains recorded at
+`docs/reports/live-ai-eval-sandbox-phase0.md`.
 
 The current framework uses one fixed ten-scenario catalog plus one run-level
 prompt-genericity judge. There is intentionally no holdout, generated batch, or
@@ -75,8 +71,8 @@ The implementation starts with substantial existing machinery.
   configuration service instead of adding eval-only model overrides.
 - The current release defaults in
   `internal/conversation/role_profile_defaults.go` are Director
-  `gpt-5.6-terra`/medium, Agent `gpt-5.6-sol`/high, and Narrator
-  `gpt-5.4-mini`/low. Those defaults are the initial baseline, not constants to
+  `gpt-5.6-sol`/high, Agent `gpt-5.6-sol`/high, and Narrator
+  `gpt-5.4-mini`/high. Those defaults are the current baseline, not constants to
   mirror in the eval runner. The implementation calls the task-performing role
   `Agent`; this plan uses that repository term for the Worker in the product
   description.
@@ -1885,16 +1881,15 @@ tools but receives no shell feature. The fixed judge and Phase 0 probe continue
 to use their existing stricter owners. No app-server protocol rewriting, prompt
 heuristic, host execution fallback, or alternate scenario path was added.
 
-Static review and formatting are the only verification authorized for this
-completion audit. The focused checks affected by this repair, the applicable
-deterministic production workflow gate, the live Codex matrix including the
-pre-existing topic-artifact case, the Phase 1 vertical classifications, fixed
-judge review, ten-scenario live suite, prompt-genericity audit,
-successful-scenario timing evidence,
-and the previously unavailable remote pnpm checks remain explicit merge or
-release gates. None is retried by this audit, and the already-passing Phase 0
-probe remains applicable because this repair does not change its proof inputs
-or contract.
+Static review and formatting were the only verification authorized for that
+completion audit. Subsequent user-authorized live evaluation on 2026-08-02 ran
+the complete production baseline at commit
+`4ada9a4a5a41b6921efce9abd9d8e0b7956daa8c`: all ten scenarios passed on their
+first attempt, every deterministic verifier and communication judgment passed,
+and the run-level prompt-genericity audit scored `100/100`. Successful scenario
+durations ranged from 1m06s to 3m46s, well below the checked-in 1,800-second
+runaway ceiling. The Phase 0 proof remains applicable because the later repairs
+do not change its boundary or contract.
 
 Run once by default and rerun only failed scenarios once. Report first-attempt
 passes, stable failures, flaky scenarios, infrastructure failures, user-control
