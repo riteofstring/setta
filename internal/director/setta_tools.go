@@ -102,10 +102,6 @@ type SettaWorkstreamSummary struct {
 type SettaToolReceipt struct {
 	Tool    string `json:"tool"`
 	Summary string `json:"summary"`
-	// AssessmentReviewToken is a private continuation challenge returned only
-	// by the turn assessment. It forces a fresh provider continuation before
-	// work can start and is never copied into durable Director tool activity.
-	AssessmentReviewToken string `json:"assessmentReviewToken,omitempty"`
 	// WorkstreamID is the workstream the call acted on or created.
 	WorkstreamID *string `json:"workstreamId,omitempty"`
 	// SelectedWorkstreamID is the app-wide selection after the call.

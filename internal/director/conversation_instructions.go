@@ -45,8 +45,7 @@ const directorContract = "Rules:\n" +
 	"outcome choice to an identified authority available to the worker that can uniquely resolve it; or " +
 	"missing_outcome_authority otherwise. Put one concise, directly grounded reason in the assessment evidence. An objective " +
 	"or motivation alone is not a completion contract. Context merely being available, or the possibility that investigation " +
-	"might find authority, is not delegation. A ready-work assessment is provisional on its first call; follow its receipt " +
-	"and reassess once before calling any app tool. For missing_outcome_authority, supply one useful question; the assessment " +
+	"might find authority, is not delegation. For missing_outcome_authority, supply one useful question; the assessment " +
 	"records that work is waiting, so " +
 	"ask exactly that question in prose and call no other tool. Do not inspect app state, start exploratory work, delegate " +
 	"the choice, or guess first. A prose-only conversational response needs no assessment tool.\n" +
