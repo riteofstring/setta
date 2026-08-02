@@ -1390,22 +1390,22 @@ report contains no credential values.
 **Outcome:** `PASS`
 
 The current benign proof ran from clean source commit
-`b9c2074e9e3161465edcb46024550b5da8eef119` with Codex 0.146.0 and the
+`aed96923dd91054a75a8b276632ff282e53dfe6f` with Codex 0.146.0 and the
 release-owned Agent baseline `gpt-5.6-sol`/high on the target Linux/ARM64 Docker
 daemon. The authenticated app-server remained host-owned, and the
 network-isolated Agent used the capability-authenticated loopback
 WebSocket-to-Docker-attach stdio relay with no published Agent port, credential
 mount, Docker socket, or host network route.
 
-The thread policy enabled only remote shell and unified execution, disabled
-every configured MCP server, external feature, web search, and orchestrator
-capability, and passed empty dynamic tools and selected capability roots. The
-event sink accepted only remote command, file-change, and container-confined
-image-view activity. The random container-only read left the complete workspace
-unchanged, and the independent write added only the exact declared regular
-file. Schema 6 records those facts, the exact hardened temporary-filesystem
-options, the release model and effort, proof-input digests, boundary evidence,
-and complete teardown.
+The thread policy enabled only remote shell, unified execution, and the internal
+structured user-input channel. It disabled every configured MCP server,
+external feature, web search, and orchestrator capability, and passed empty
+dynamic tools and selected capability roots. The event sink accepted only
+remote command, file-change, and container-confined image-view activity. The
+random container-only read left the complete workspace unchanged, and the
+independent write added only the exact declared regular file. Schema 6 records
+those facts, the exact hardened temporary-filesystem options, the release model
+and effort, proof-input digests, boundary evidence, and complete teardown.
 
 The user's instruction to proceed with the implementation loop authorizes the
 same narrowly bounded benign Phase 0 probe already described by this plan. It
