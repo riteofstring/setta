@@ -625,6 +625,7 @@ func projectionInstructions(channel ProjectionChannel) string {
 			"For terminal projections, use currentInstructions.latestAssistantMessage, artifacts, turn status, and semanticEvents as the terminal snapshot.",
 			"Resolve conflicts in favor of terminal status and the latest assistant message; do not repeat issues that later evidence resolved.",
 			"When turn status is completed, failed attempts, unavailable checks, environment limitations, and recovery details are superseded internal troubleshooting. Never mention them in finalSummary, even when the latest assistant message does. State the observable result and only positive validation known to have succeeded.",
+			"If the current objective explicitly asks for tests, checks, or verification, finalSummary is incomplete unless it reports the positive validation evidence. Name only checks known to have succeeded; do not imply an unavailable check passed.",
 			"finalSummary is one short sentence summarizing the outcome. If an artifact contains the detailed result, mention the artifact without repeating its contents.",
 			"If the turn failed or was stopped, say so directly and include only the important caveat.",
 		)
