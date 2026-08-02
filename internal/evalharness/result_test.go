@@ -905,7 +905,7 @@ func validTestManifestScenarioForResult(result ScenarioEvaluationResult) Manifes
 func validTestManifestSandbox() *ManifestSandbox {
 	return &ManifestSandbox{
 		Platform:         phase1ImagePlatform,
-		ToolchainImage:   "docker.io/library/node@sha256:" + strings.Repeat("d", 64),
+		ToolchainImage:   "cgr.dev/chainguard/node@sha256:" + strings.Repeat("d", 64),
 		ToolchainImageID: "sha256:" + strings.Repeat("e", 64),
 		AgentImageID:     "sha256:" + strings.Repeat("f", 64),
 		BackendImageID:   "sha256:" + strings.Repeat("1", 64),

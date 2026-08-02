@@ -84,7 +84,7 @@ func (pin phase1ToolchainPin) validate() error {
 		return fmt.Errorf("platform is %q, want %q", pin.Platform, phase1ImagePlatform)
 	}
 	if !validPhase1PinnedImageReference(pin.BaseImage) {
-		return errors.New("baseImage must be the exact docker.io/library/node ARM64 manifest digest")
+		return errors.New("baseImage must be the exact cgr.dev/chainguard/node ARM64 manifest digest")
 	}
 	if !validPhase1ImageID(pin.BaseImageID) {
 		return errors.New("baseImageId must be an exact lowercase sha256 image id")
@@ -105,7 +105,7 @@ func (pin phase1ToolchainPin) validate() error {
 }
 
 func validPhase1PinnedImageReference(value string) bool {
-	const prefix = "docker.io/library/node@sha256:"
+	const prefix = "cgr.dev/chainguard/node@sha256:"
 	return strings.HasPrefix(value, prefix) && validPhase1SHA256(strings.TrimPrefix(value, prefix))
 }
 

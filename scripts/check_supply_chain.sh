@@ -96,6 +96,9 @@ min_release_age_days="$(load_min_release_age_days)"
 echo "npmrc release-age policy checks..."
 check_npmrc_release_age_policy
 
+echo "Evaluation container supply-chain policy checks..."
+"${python_bin}" "${repo_root}/scripts/check_eval_container_policy.py" --repo-root "${repo_root}"
+
 check_go_supply_chain
 
 found_pnpm_project=0
