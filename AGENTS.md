@@ -1,68 +1,63 @@
 # Repository Guidelines
 
-## Source Of Truth
+## Product Philosophy
 
-- Treat `cmd/` and `internal/` as the backend runtime, `backend/setta/` as the Python package and SDK surface with `backend/setta/api/` kept thin, `plugins/` as first-party Setta plugin packages and plugin-owned config/probe surfaces, and `frontend/` as the React/Vite UI with app code in `src/`, shared templates in `generation/`, and static assets in `public/`.
-- Go owns canonical behavior, validation, derived metadata, shared contracts, endpoint shapes, and correctness-sensitive local runtime behavior unless the developer explicitly says otherwise.
-- Prefer solutions in this order: `1.` Go-owned logic, `2.` Go-owned contracts with generated Python/TypeScript surfaces, `3.` duplicated Python/TypeScript logic only with explicit justification.
-- Any duplicated non-trivial Python or TypeScript logic must have a concrete justification such as latency, offline requirements, or a platform constraint. Convenience alone is not enough.
-- Before adding a new Python or TypeScript type, alias, helper, adapter, or normalizer, search for an existing authoritative generated or owner-defined one first. Reuse it, or export it from the owner. Do not create a parallel local definition.
-- When duplication is unavoidable, keep the duplicated surface minimal and document the reason near the implementation or in the relevant design notes.
-- Go tests belong with packages under `cmd/*` and `internal/*`. Frontend unit and integration tests belong alongside frontend code under `frontend/src/*` where appropriate, and frontend E2E coverage belongs under `frontend/tests/`. Python/package pytest coverage belongs under `tests/`.
-- Python SDK/runtime ownership boundaries are defined in `docs/reference/go-backed-python.md`.
+- Setta should feel like it just works. The user should not have to deal with internal app failures.
+- When the user gives a request, the app should start the work, continue the current work, route the request somewhere useful, or ask a genuinely useful clarification question.
+- Do not show errors like "the narrator model returned an invalid decision." That is an internal implementation problem. The app should retry, repair the AI output, or use an obvious product rule when the right behavior is clear.
+- Ask the user only when the user can make a meaningful choice, such as whether to change the current run or queue something as the next task. Do not ask the user to retry routing, schema, projection, or formatting work.
+- AI should still make judgment calls when judgment is needed. Product code should enforce basic invariants so bad JSON, invalid schema output, or routing-format mistakes do not break the UX.
+
+## Unreleased Product Policy
+
+- Setta is unreleased. There is no legacy code or legacy behavior to preserve.
+- Never spend effort on backward compatibility. Do not add compatibility shims, migrations, transitional adapters, dual-read/write paths, old-field aliases, silent compatibility fallbacks, or support for superseded behavior.
+- Change current contracts, data shapes, and implementations directly to the design the product should have now. Remove superseded code instead of preserving it alongside the replacement.
 
 ## Generation & Contracts
 
-- When Go-owned contracts need downstream Python or TypeScript surfaces, prefer generation over hand-maintained mirrors.
-- Drive generators from authoritative Go-side structure or metadata, prefer broad discovery plus pruning over brittle inventories, and keep generator-specific design constraints in `docs/reference/generation-contracts.md`.
-- When a generated helper, union, type guard, or exported value is missing, first extend or export the existing authoritative generator path such as semantic sidecar metadata, discovery-driven declarations, or owner-owned metadata. Do not add handwritten compatibility declarations, hard-coded member inventories, or parallel generator-only mirrors when the same surface can be derived from an existing owner path.
-- If a generator exception is truly unavoidable, keep it minimal, document in code why the authoritative path could not be used, and prefer a Go-owned metadata input over restating downstream TypeScript or Python structure in generator code.
-- For HTTP, frontend callers must use the standard OpenAPI-generated client/types rather than bespoke generated endpoint wrappers. For non-HTTP route/constants surfaces, use the current Go-owned generated or value-exported frontend surface rather than hand-maintained mirrors.
-- If you edit `frontend/generation/`, backend endpoints, or Go-owned types used by the frontend or Python surface, regenerate affected outputs before cleanup and before finishing the task.
-- Prefer `./gcf.sh` when full generate/cleanup/format is appropriate. Large diffs after generation or cleanup are normal.
-- Do not manually edit `backend/setta/types/generated`, checked-in OpenAPI artifacts under `frontend/generation/`, or generated frontend clients under `frontend/src/openapi/*/generated`.
+- Generate TypeScript surfaces from Go-owned contracts or values programmatically; do not maintain hardcoded mirrors or scattered cross-language constants.
+- HTTP endpoint request and response contracts are owned by the `internal/httpapi` endpoint registry; do not maintain a separate generated-type list in the contract generator.
+- If you edit generated inputs or owner-defined contracts, regenerate affected outputs before cleanup and before finishing the task.
+- Do not manually edit generated outputs.
 
-## Workflow & Verification
+## Dependencies & Tooling
 
-- Use `dev_install.sh` for the default local setup, including the repo Python environment and first-party dev plugins.
-- Neither install script should rewrite lockfiles. Use `./update_dependencies.sh` when a dependency update needs lockfile changes.
-- Use `docs/guides/dev-scripts.md` when you need the exact command map for generation, cleanup, or the source-checkout dev loop.
-- Use `docs/guides/browser-mcp-quickstart.md`, `docs/guides/verification-checklist.md`, and `docs/guides/chrome-repro-recording.md` for browser verification workflows when relevant.
-- For dependency audit or upgrade work, use `docs/guides/dependency-audits.md`.
-- For Python/package tooling, use `source activate.sh && <command>`.
-- Pin checked-in direct dependency versions exactly. Do not use floating version ranges like `^`, `~`, `>=`, `>`, `*`, or `latest` in dependency manifests.
-- Run Go through `./scripts/go.sh`.
-- For Go API and documentation inspection, prefer `./scripts/go.sh doc <pkg-or-symbol>` for authoritative docs and `./scripts/gopls.sh` for semantic navigation before falling back to text search.
-- Format Go with `GOROOT="$(./scripts/go.sh env GOROOT)" && "$GOROOT/bin/gofmt" -w <files>`.
-- Default test entrypoints are `./scripts/run_go_tests.sh`, `./scripts/run_backend_tests.sh` for Python/package pytest, `pnpm -C frontend exec vitest run <path>`, and `./scripts/run-playwright-e2e.sh`.
-- When changing runtime behavior, add Go tests beside the backend owner. When changing Python SDK or package boundaries, add focused pytest coverage under `tests/`.
-- Unless the developer explicitly narrows verification scope, run `./check_quality.sh` before committing. Its default scope is the current git changes; use `--staged` only when you intentionally want to verify exactly what is staged.
-- Do not skip tests broadly. Missing dependencies or capabilities should usually fail loudly. Any skip must be narrow and justified.
-- A `Chrome recording` means a bundle produced by `./scripts/record-chrome-repro.sh`, and `see the latest Chrome recording` means `./scripts/latest-chrome-recording.sh --json`.
-- Do not add generator drift tests that only rerun generators or formatters and compare checked-in artifacts against current output.
-- Tests must use temporary directories instead of `setta_files`, must never mutate real git history in this repo or any non-disposable developer worktree, and should exercise production paths instead of mocks or test-only code paths.
-- Do not add tautological tests that only restate the implementation or reproduce the same logic to compute the expected result.
+- Pin checked-in direct dependency versions exactly. Do not use floating version ranges like `^`, `~`, `>=`, `>`, `*`, or `latest`.
+- Use `./update_dependencies.sh` when a dependency update needs lockfile changes.
+- Use `./scripts/go.sh` for all Go commands so the repo-pinned Go toolchain is used. Do not call `go` directly unless intentionally debugging outside the pinned toolchain.
+- Prefer `./scripts/format.sh` for formatting. If direct `gofmt` is needed, run it through the pinned toolchain with `"$("./scripts/go.sh" env GOROOT)/bin/gofmt" -w <files>`.
+
+## Verification
+
+- Do not run automated tests or the test suite during implementation.
+- Run tests only when both conditions are true: the branch is ready to merge, and the user explicitly asks for tests. The user decides when verification begins.
+- When the user asks for tests, run the narrowest checks that exercise the changed behavior first. Broaden only after the implementation is stable, generated outputs change, or a focused check exposes cross-boundary risk.
+- When requested verification covers topic-conversation behavior, Codex harness behavior, provider protocol handling, run lifecycle, queueing, steering, approvals, event streaming, IPC/preload contracts, generated backend contracts, renderer conversation state, or topic-projection UI, include deterministic end-to-end app workflow tests through the production Electron/main/preload/renderer/HTTP/store paths. Use temporary app data; a scripted fake Codex/provider harness is fine, but unit, store, component, service, or HTTP-only coverage is insufficient.
+- Topic-conversation workflow tests must cover the relevant parts of opening a workspace, creating a conversation, submitting input, receiving streamed assistant output, queueing during an active run, steering, completion/cancellation/failure, queued-work promotion or preservation, approvals when touched, and restart/reload behavior when persistence is touched.
+- When user-requested merge verification covers topic-conversation workflows, Codex harness behavior, provider protocol handling, run lifecycle, queueing, steering, approvals, or streaming, run the live Codex E2E tests when the local Codex CLI is signed in with ChatGPT auth. Live tests must not use `OPENAI_API_KEY`; if ChatGPT auth is unavailable, say the live-provider tests were skipped, and do not treat the skip as proof of provider integration.
+- Tests must use temporary directories, never mutate real git history in this repo or any non-disposable developer worktree, and exercise production paths instead of mocks or test-only paths. Skips must be narrow and justified; missing dependencies or capabilities should usually fail loudly.
+- Do not add tautological tests or generator drift tests that only rerun generators or formatters and compare checked-in artifacts against current output.
+- During user-requested merge verification, after a broad gate fails, fix the reported issue and rerun the narrowest relevant check first. Rerun the broad gate only when the change still requires it.
+- Do not run `./check_quality.sh`, `./scripts/check_supply_chain.sh`, or other automated verification gates unless the user explicitly asks for verification.
+- Formatting changed files is allowed during implementation, but formatting is not a reason to start the test suite or broader verification gates.
+- For documentation-only, planning-only, research-only, README-only, or AGENTS-only commits, inspect the diff; do not run automated checks unless the user asks.
 
 ## UI Rules
 
 - Frontend code must handle very large DOMs efficiently.
-- Default dropdown and selection UIs to the shared combobox system unless there is a documented reason not to.
-- Use `docs/reference/ui-style-consistency.md` as the UI style anchor map.
-- Do not add borders by default unless they convey structure.
-- Prefer backend-initiated websocket updates over polling when the backend already knows when state changes.
-- Treat frontend performance verification as first-class. Prefer automated guardrails, and use chrome-devtools profiling when deeper analysis is needed.
-- UI changes require chrome-devtools visual verification when relevant.
-- Never start `pnpm ai`, `pnpm -C frontend ai`, or `pnpm -C frontend aireset` yourself.
-- Final responses for UI work must include `CDP visual check: done (...)` or `CDP visual check: not run (reason)`.
+- Treat frontend performance verification as first-class. Prefer automated guardrails; use chrome-devtools profiling when deeper analysis is needed.
+- For performance-relevant refactors, baseline first, re-measure after, and record before/after results as append-only reports under `docs/reports/performance/`.
+- When the user refers to the latest recording or a `./scripts/dev_record_desktop_session.sh` session, inspect `.recordings/latest.json` first and then the referenced artifact directory. These recordings are repo-local event, log, and screenshot artifacts under `.recordings/`, not normal `.mov` or `.mp4` desktop captures.
+- Avoid div soup.
 
 ## Code Shape & Safety
 
-- Keep Go HTTP routes thin under `internal/httpapi`, websocket transports thin under `internal/wsapi`, and business logic in focused `internal/*` services.
-- Keep code explicit and avoid div soup.
-- Do not add `try/except` or `try/catch` blocks unless they are actually needed to handle a specific failure path.
-- If a robust solution is not possible, say so explicitly and present the real tradeoffs.
-- Prefer failing loudly and specifically over silent fallbacks, fake estimates, brittle keyword heuristics, or broad catch-all handling. Do not implement heuristic fallbacks without explicit approval.
-- Prefer provider or runtime metadata, typed APIs, deterministic parsing, or explicit protocol fields over heuristics.
-- Never add backward-compatibility shims, legacy support paths, migrations, transitional adapters, dual-read/write paths, old-field aliases, silent compatibility fallbacks, or compatibility layers unless the developer explicitly asks for that exact compatibility work.
-- If behavior is unclear, stop and ask.
-- For performance-relevant refactors, baseline first, re-measure after, and record before/after results in `perf/` as append-only reports.
+- Keep shared constants at the owning domain boundary, not scattered at the top of unrelated files. Avoid a global constants junk drawer. File-local constants are fine only for private implementation details.
+- Prefer TypeScript discriminated unions, `satisfies` mappings, and `never` assertions so switch statements and status handling are checked exhaustively.
+- Prefer push-based updates over polling. Do not add polling unless there is a strong, explicit justification and the tradeoffs are documented.
+- Do not embed large blocks of executable code in string literals. Prefer normal source files, typed helpers, fixtures, or templates that can be formatted, linted, typechecked, and tested. Keep string-embedded code limited to small fixtures, small generated fragments, or APIs that explicitly require source text.
+- Add `try/except` or `try/catch` blocks only when they handle a specific failure path.
+- Prefer failing loudly and specifically over silent fallbacks, fake estimates, brittle keyword heuristics, or broad catch-all handling. Use provider or runtime metadata, typed APIs, deterministic parsing, or explicit protocol fields instead of heuristics. Do not implement heuristic fallbacks without explicit approval.
+- Follow the unreleased-product policy: replace superseded behavior directly and remove the old implementation.
+- If behavior is unclear or a robust solution is not possible, stop and ask or present the real tradeoffs.

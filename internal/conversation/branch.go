@@ -1,0 +1,241 @@
+package conversation
+
+import "fmt"
+
+type BranchKind string
+type SideConversationStatus string
+
+const (
+	// BranchKindFork carries one completed run of the parent forward. The child
+	// continues from that Setta turn by replaying the parent's own conversation
+	// log, not by inheriting provider history.
+	BranchKindFork BranchKind = "fork"
+
+	SideConversationStatusPreparing SideConversationStatus = "preparing"
+	SideConversationStatusActive    SideConversationStatus = "active"
+	SideConversationStatusDisposing SideConversationStatus = "disposing"
+	SideConversationStatusFailed    SideConversationStatus = "failed"
+)
+
+type ConversationBranch struct {
+	ChildConversationID      string               `json:"childConversationId"`
+	ParentConversationID     string               `json:"parentConversationId"`
+	Kind                     BranchKind           `json:"kind"`
+	DecisionSource           BranchDecisionSource `json:"decisionSource"`
+	ForkedAtTurnID           string               `json:"forkedAtTurnId"`
+	SourceTrajectorySequence int                  `json:"sourceTrajectorySequence"`
+	CreatedAt                string               `json:"createdAt"`
+}
+
+// SideConversation is the durable Setta record of one side conversation. It
+// names Setta ids only: the ephemeral carrier the side runs on lives in the
+// process-local carrier registry, and DisposedAt — not a provider handle — is
+// what says whether anything is still owed cleanup.
+type SideConversation struct {
+	ID                          string                 `json:"id"`
+	ParentConversationID        string                 `json:"parentConversationId"`
+	ParentStatus                ConversationStatus     `json:"parentStatus"`
+	DecisionSource              BranchDecisionSource   `json:"decisionSource"`
+	SourceTurnID                *string                `json:"sourceTurnId"`
+	SourceTrajectorySequence    int                    `json:"sourceTrajectorySequence"`
+	LastEventSequence           int                    `json:"lastEventSequence"`
+	ActiveTurnID                *string                `json:"activeTurnId"`
+	Status                      SideConversationStatus `json:"status"`
+	ResolvedSideAgentInvocation ResolvedInvocation     `json:"resolvedSideAgentInvocation"`
+	CreatedAt                   string                 `json:"createdAt"`
+	UpdatedAt                   string                 `json:"updatedAt"`
+	DisposedAt                  *string                `json:"disposedAt"`
+	Failure                     *Failure               `json:"failure"`
+}
+
+func (branch ConversationBranch) Validate() error {
+	if err := validateBranchIdentity(branch); err != nil {
+		return err
+	}
+	if err := validateBranchForkPoint(branch); err != nil {
+		return err
+	}
+	if branch.SourceTrajectorySequence < 0 {
+		return fmt.Errorf("branch %s source trajectory sequence must be non-negative", branch.ChildConversationID)
+	}
+	_, err := validateTimestamp("branch createdAt", branch.CreatedAt)
+	return err
+}
+
+func validateBranchIdentity(branch ConversationBranch) error {
+	if err := validateIdentifier("branch child conversation id", branch.ChildConversationID); err != nil {
+		return err
+	}
+	if err := validateIdentifier("branch parent conversation id", branch.ParentConversationID); err != nil {
+		return err
+	}
+	if branch.ChildConversationID == branch.ParentConversationID {
+		return fmt.Errorf("branch child and parent conversation ids must differ")
+	}
+	if branch.Kind != BranchKindFork {
+		return fmt.Errorf("branch %s has unsupported kind %q", branch.ChildConversationID, branch.Kind)
+	}
+	if !validBranchDecisionSource(branch.DecisionSource) {
+		return fmt.Errorf("branch %s has unsupported decision source %q", branch.ChildConversationID, branch.DecisionSource)
+	}
+	return nil
+}
+
+// validateBranchForkPoint requires the completed parent turn every branch
+// carries forward. A branch exists because history was carried, so a branch
+// without a fork point would claim a child resumed work it never saw.
+func validateBranchForkPoint(branch ConversationBranch) error {
+	return validateIdentifier("branch forked-at turn id", branch.ForkedAtTurnID)
+}
+
+func (side SideConversation) Validate() error {
+	if err := validateSideConversationIdentity(side); err != nil {
+		return err
+	}
+	if err := validateSideConversationInvocation(side); err != nil {
+		return err
+	}
+	timeline, err := validateSideConversationTimeline(side)
+	if err != nil {
+		return err
+	}
+	if side.Failure != nil {
+		if err := side.Failure.Validate(); err != nil {
+			return fmt.Errorf("side conversation %s failure: %w", side.ID, err)
+		}
+	}
+	return validateSideConversationLifecycle(side, timeline.hasDisposed)
+}
+
+func validateSideConversationIdentity(side SideConversation) error {
+	if err := validateSideConversationIdentifiers(side); err != nil {
+		return err
+	}
+	if !validConversationStatus(side.ParentStatus) {
+		return fmt.Errorf("side conversation %s has unsupported parent status %q", side.ID, side.ParentStatus)
+	}
+	if !validSideConversationStatus(side.Status) {
+		return fmt.Errorf("side conversation %s has unsupported status %q", side.ID, side.Status)
+	}
+	if !validBranchDecisionSource(side.DecisionSource) {
+		return fmt.Errorf("side conversation %s has unsupported decision source %q", side.ID, side.DecisionSource)
+	}
+	return validateSideConversationSequenceState(side)
+}
+
+func validateSideConversationIdentifiers(side SideConversation) error {
+	if err := validateIdentifier("side conversation id", side.ID); err != nil {
+		return err
+	}
+	if err := validateIdentifier("side conversation parent id", side.ParentConversationID); err != nil {
+		return err
+	}
+	if err := validateOptionalIdentifier("side conversation source turn id", side.SourceTurnID); err != nil {
+		return err
+	}
+	return validateOptionalIdentifier("side conversation active turn id", side.ActiveTurnID)
+}
+
+func validateSideConversationSequenceState(side SideConversation) error {
+	if side.SourceTrajectorySequence < 0 {
+		return fmt.Errorf("side conversation %s source trajectory sequence must be non-negative", side.ID)
+	}
+	if side.LastEventSequence < 0 {
+		return fmt.Errorf("side conversation %s last event sequence must be non-negative", side.ID)
+	}
+	return nil
+}
+
+func validateSideConversationInvocation(side SideConversation) error {
+	if err := side.ResolvedSideAgentInvocation.Validate(); err != nil {
+		return fmt.Errorf("side conversation %s invocation: %w", side.ID, err)
+	}
+	if side.ResolvedSideAgentInvocation.Role != RoleSideAgent {
+		return fmt.Errorf("side conversation %s invocation role must be %s", side.ID, RoleSideAgent)
+	}
+	return nil
+}
+
+type sideConversationTimeline struct {
+	hasDisposed bool
+}
+
+func validateSideConversationTimeline(side SideConversation) (sideConversationTimeline, error) {
+	createdAt, err := validateTimestamp("side conversation createdAt", side.CreatedAt)
+	if err != nil {
+		return sideConversationTimeline{}, err
+	}
+	updatedAt, err := validateTimestamp("side conversation updatedAt", side.UpdatedAt)
+	if err != nil {
+		return sideConversationTimeline{}, err
+	}
+	if updatedAt.Before(createdAt) {
+		return sideConversationTimeline{}, fmt.Errorf("side conversation %s updatedAt precedes createdAt", side.ID)
+	}
+	disposedAt, hasDisposed, err := optionalTimestamp("side conversation disposedAt", side.DisposedAt)
+	if err != nil {
+		return sideConversationTimeline{}, err
+	}
+	if hasDisposed && disposedAt.Before(createdAt) {
+		return sideConversationTimeline{}, fmt.Errorf("side conversation %s disposedAt precedes createdAt", side.ID)
+	}
+	return sideConversationTimeline{hasDisposed: hasDisposed}, nil
+}
+
+func validateSideConversationLifecycle(side SideConversation, hasDisposed bool) error {
+	switch side.Status {
+	case SideConversationStatusPreparing:
+		return validatePreparingSideConversation(side, hasDisposed)
+	case SideConversationStatusActive:
+		return validateActiveSideConversation(side, hasDisposed)
+	case SideConversationStatusDisposing:
+		return validateDisposingSideConversation(side)
+	case SideConversationStatusFailed:
+		return validateFailedSideConversation(side)
+	default:
+		return fmt.Errorf("side conversation %s has unsupported lifecycle status %q", side.ID, side.Status)
+	}
+}
+
+func validatePreparingSideConversation(side SideConversation, hasDisposed bool) error {
+	if side.ActiveTurnID != nil || hasDisposed || side.Failure != nil {
+		return fmt.Errorf("preparing side conversation %s contains active or terminal state", side.ID)
+	}
+	return nil
+}
+
+func validateActiveSideConversation(side SideConversation, hasDisposed bool) error {
+	if hasDisposed || side.Failure != nil {
+		return fmt.Errorf("active side conversation %s must not carry terminal state", side.ID)
+	}
+	return nil
+}
+
+func validateDisposingSideConversation(side SideConversation) error {
+	if side.Failure != nil {
+		return fmt.Errorf("disposing side conversation %s must not carry a failure", side.ID)
+	}
+	if side.DisposedAt != nil && side.ActiveTurnID != nil {
+		return fmt.Errorf("disposed side conversation %s cannot retain an active turn", side.ID)
+	}
+	return nil
+}
+
+func validateFailedSideConversation(side SideConversation) error {
+	if side.Failure == nil {
+		return fmt.Errorf("failed side conversation %s requires failure", side.ID)
+	}
+	if side.DisposedAt != nil && side.ActiveTurnID != nil {
+		return fmt.Errorf("disposed failed side conversation %s cannot retain an active turn", side.ID)
+	}
+	return nil
+}
+
+func validSideConversationStatus(status SideConversationStatus) bool {
+	switch status {
+	case SideConversationStatusPreparing, SideConversationStatusActive, SideConversationStatusDisposing, SideConversationStatusFailed:
+		return true
+	default:
+		return false
+	}
+}
