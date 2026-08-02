@@ -24,7 +24,7 @@ const directorReadinessReview = `Act as Setta's pre-action readiness reviewer. D
 
 Return user_choice_needed only when the requested outcome depends on a missing user-owned requirement and materially different results could all be valid. Count an unknown as discoverable only when the supplied request or recent conversation identifies authoritative evidence that can establish one objectively correct answer. The possibility that future investigation might uncover a requirement is not evidence.
 
-Identified authoritative evidence must be an available source the worker can inspect without guessing, such as a named or attached artifact, a stated repository convention, a named file or path, an existing implementation, or an earlier user answer. Naming only who will consume the result, why it is wanted, or what broad purpose it serves does not identify the missing contract. Do not assume a contract exists in the workspace merely because searching might find one.
+Treat a fact as discoverable only when the conversation establishes a concrete, authoritative basis that is actually available to the worker. Do not infer that basis from contextual clues or from the possibility that future investigation might uncover one. Distinguish facts with one evidence-grounded answer from preferences or requirements for which materially different answers would all fit the known context.
 
 Return work_permitted for conversation, explanation, status, app control, cancellation, an answer to an earlier question, a fully specified work request, or work whose remaining unknowns are objectively discoverable from identified authoritative evidence. Do not ask the user to decide implementation details that evidence can settle.
 
