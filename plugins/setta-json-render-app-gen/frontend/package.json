@@ -1,0 +1,48 @@
+{
+  "name": "setta-json-render-app-gen-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare-sdk": "node ./scripts/materialize-vendored-app-subsystem-sdk.mjs",
+    "prepare-build-deps": "pnpm run prepare-sdk && pnpm install --lockfile=false",
+    "build": "pnpm run prepare-build-deps && vite build",
+    "test": "pnpm run prepare-build-deps && vitest run --config vitest.config.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
+  },
+  "dependencies": {
+    "@json-render/core": "0.4.3",
+    "@json-render/react": "0.4.3",
+    "@radix-ui/react-accordion": "1.1.0",
+    "@radix-ui/react-dialog": "1.0.5",
+    "@radix-ui/react-switch": "1.0.1",
+    "@setta/app-subsystem-frontend-sdk": "file:./vendor/app-subsystem-frontend-sdk",
+    "katex": "0.16.21",
+    "lodash": "4.18.1",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "react-icons": "5.3.0",
+    "react-markdown": "9.0.1",
+    "react-router-dom": "6.30.3",
+    "rehype-katex": "7.0.1",
+    "remark-gfm": "4.0.0",
+    "remark-math": "6.0.0",
+    "use-sync-external-store": "1.6.0",
+    "zustand": "5.0.8"
+  },
+  "devDependencies": {
+    "@types/lodash": "4.17.17",
+    "@types/node": "25.0.2",
+    "@types/react": "19.1.12",
+    "@types/react-dom": "19.1.8",
+    "@vitejs/plugin-react": "4.7.0",
+    "jsdom": "28.1.0",
+    "typescript": "5.8.3",
+    "vite": "6.4.2",
+    "vitest": "2.1.9"
+  },
+  "pnpm": {
+    "overrides": {
+      "rollup": "4.59.1"
+    }
+  }
+}

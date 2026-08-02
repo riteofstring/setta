@@ -1,0 +1,223 @@
+{
+  "cases": [
+    {
+      "name": "active_stream_backend_wins_overlapping_tool_call_ids_and_preserves_local_only_overlay",
+      "preserveLocalOverlay": true,
+      "localState": {
+        "messages": [
+          {
+            "id": "assistant-shared",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Local speculative"
+              }
+            ],
+            "attachments": [],
+            "tool_calls": null
+          }
+        ],
+        "waitingForResponse": true,
+        "toolCallArguments": {
+          "tool-call-shared": "{\"task\":\"Local stale\"}",
+          "tool-call-local": "{\"task\":\"Still local only\"}"
+        }
+      },
+      "backendState": {
+        "messages": [
+          {
+            "id": "user-1",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Hi"
+              }
+            ],
+            "attachments": []
+          },
+          {
+            "id": "assistant-shared",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Backend canonical"
+              }
+            ],
+            "attachments": [],
+            "tool_calls": null
+          }
+        ],
+        "waitingForResponse": false,
+        "toolCallArguments": {
+          "tool-call-shared": "{\"task\":\"Backend canonical\"}",
+          "tool-call-remote": "{\"task\":\"Backend only\"}"
+        }
+      },
+      "expectedState": {
+        "messages": [
+          {
+            "id": "user-1",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Hi"
+              }
+            ],
+            "attachments": []
+          },
+          {
+            "id": "assistant-shared",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Backend canonical"
+              }
+            ],
+            "attachments": [],
+            "tool_calls": null
+          }
+        ],
+        "waitingForResponse": true,
+        "toolCallArguments": {
+          "tool-call-shared": "{\"task\":\"Backend canonical\"}",
+          "tool-call-remote": "{\"task\":\"Backend only\"}",
+          "tool-call-local": "{\"task\":\"Still local only\"}"
+        }
+      }
+    },
+    {
+      "name": "active_stream_backend_replaces_same_id_messages_while_preserving_waiting_overlay",
+      "preserveLocalOverlay": true,
+      "localState": {
+        "messages": [
+          {
+            "id": "assistant-thinking-1",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "thinking",
+                "thinking": "Local stale thought",
+                "summary": "",
+                "signature": ""
+              }
+            ],
+            "attachments": [],
+            "tool_calls": null
+          }
+        ],
+        "waitingForResponse": true,
+        "toolCallArguments": {}
+      },
+      "backendState": {
+        "messages": [
+          {
+            "id": "assistant-thinking-1",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "thinking",
+                "thinking": "",
+                "summary": "Backend summary",
+                "signature": "backend-signature"
+              }
+            ],
+            "attachments": [],
+            "tool_calls": null
+          }
+        ],
+        "waitingForResponse": false,
+        "toolCallArguments": {}
+      },
+      "expectedState": {
+        "messages": [
+          {
+            "id": "assistant-thinking-1",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "thinking",
+                "thinking": "",
+                "summary": "Backend summary",
+                "signature": "backend-signature"
+              }
+            ],
+            "attachments": [],
+            "tool_calls": null
+          }
+        ],
+        "waitingForResponse": true,
+        "toolCallArguments": {}
+      }
+    },
+    {
+      "name": "inactive_hydrate_replaces_local_only_messages_and_stale_tool_call_arguments",
+      "preserveLocalOverlay": false,
+      "localState": {
+        "messages": [
+          {
+            "id": "assistant-local-only",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Local only"
+              }
+            ],
+            "attachments": [],
+            "tool_calls": null
+          }
+        ],
+        "waitingForResponse": true,
+        "toolCallArguments": {
+          "tool-call-shared": "{\"task\":\"Local stale\"}",
+          "tool-call-local": "{\"task\":\"Local only\"}"
+        }
+      },
+      "backendState": {
+        "messages": [
+          {
+            "id": "assistant-remote-only",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Backend canonical"
+              }
+            ],
+            "attachments": [],
+            "tool_calls": null
+          }
+        ],
+        "waitingForResponse": false,
+        "toolCallArguments": {
+          "tool-call-shared": "{\"task\":\"Backend canonical\"}"
+        }
+      },
+      "expectedState": {
+        "messages": [
+          {
+            "id": "assistant-remote-only",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Backend canonical"
+              }
+            ],
+            "attachments": [],
+            "tool_calls": null
+          }
+        ],
+        "waitingForResponse": false,
+        "toolCallArguments": {
+          "tool-call-shared": "{\"task\":\"Backend canonical\"}"
+        }
+      }
+    }
+  ]
+}

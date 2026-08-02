@@ -12,14 +12,12 @@ fi
 worktree_sh_script_path() {
   if [ -n "${ZSH_VERSION:-}" ]; then
     # zsh: %x is the current file path (works for sourced + executed).
-    # shellcheck disable=SC2296
     printf '%s\n' "${(%):-%x}"
     return 0
   fi
 
   if [ -n "${BASH_VERSION:-}" ]; then
     # bash: BASH_SOURCE[0] is this file even when sourced.
-    # shellcheck disable=SC3028,SC3054
     printf '%s\n' "${BASH_SOURCE[0]}"
     return 0
   fi
@@ -46,7 +44,7 @@ EOF
 }
 
 worktree_sh_impl() {
-  # Runs worktree creation. Safe to run with `set -e`.
+  # Runs worktree creation + install. Safe to run with `set -e`.
   root_dir="$1"
   base_dir="$2"
   use_existing_branches="$3"
@@ -90,7 +88,11 @@ worktree_sh_impl() {
       fi
     done
 
-    echo "Created worktree at ${worktree_path}."
+    echo "Running dev install in ${worktree_path}..."
+    (
+      cd "${worktree_path}"
+      . ./dev_install.sh
+    )
   done
 }
 

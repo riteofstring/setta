@@ -1,31 +1,17 @@
 #!/usr/bin/env python3
 
 import argparse
-import os
 import subprocess
-import sys
 from pathlib import Path
 
-sys.dont_write_bytecode = True
-
-from supply_chain_policy import (
-    DEFAULT_MIN_RELEASE_AGE_DAYS,
-    POLICY_FILE,
-    PolicyError,
-    days_to_minutes,
-    read_optional_min_release_age_days,
-    write_min_release_age_policy,
+DEFAULT_MIN_RELEASE_AGE_DAYS = 7
+MINUTES_PER_DAY = 24 * 60
+LOCAL_PNPM_PROJECTS = (
+    Path("frontend"),
+    Path("backend/setta/agentic/external_adapters/sidecars"),
 )
-
-IGNORED_PROJECT_PARTS = (
-    ".git",
-    ".tools",
-    "build",
-    "dist",
-    "node_modules",
-)
-NPMRC_RELEASE_AGE_KEY = "minimum-release-age"
-STALE_NPMRC_RELEASE_AGE_KEYS = ("min-release-age", "minimumReleaseAge")
+LOCAL_POLICY_FILE = Path("supply_chain_policy.env")
+NPMRC_KEY_ALIASES = ("minimum-release-age", "min-release-age", "minimumReleaseAge")
 
 
 def parse_args() -> argparse.Namespace:
@@ -50,10 +36,7 @@ def parse_args() -> argparse.Namespace:
         "--days",
         type=int,
         default=None,
-        help=(
-            "Minimum package age in whole days "
-            f"(default: existing repo policy or {DEFAULT_MIN_RELEASE_AGE_DAYS})."
-        ),
+        help=f"Minimum package age in whole days (default: existing repo policy or {DEFAULT_MIN_RELEASE_AGE_DAYS}).",
     )
     parser.add_argument(
         "--repo-root",
@@ -69,13 +52,30 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
+def read_existing_days(repo_root: Path) -> int | None:
+    policy_file = repo_root / LOCAL_POLICY_FILE
+    if not policy_file.exists():
+        return None
+    for line in policy_file.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("SETTA_MIN_RELEASE_AGE_DAYS="):
+            continue
+        value = line.split("=", 1)[1].strip()
+        if value.isdigit():
+            return int(value)
+    return None
+
+
 def resolve_days(args: argparse.Namespace) -> int:
     if args.days is not None:
         return args.days
-    existing_days = read_optional_min_release_age_days(args.repo_root.resolve())
+    existing_days = read_existing_days(args.repo_root.resolve())
     if existing_days is not None:
         return existing_days
     return DEFAULT_MIN_RELEASE_AGE_DAYS
+
+
+def days_to_minutes(days: int) -> int:
+    return days * MINUTES_PER_DAY
 
 
 def load_npmrc_lines(path: Path) -> list[str]:
@@ -91,24 +91,12 @@ def npmrc_key(line: str) -> str | None:
     return stripped.split("=", 1)[0].strip()
 
 
-def validate_npmrc_release_age_keys(path: Path, lines: list[str]) -> None:
-    for line in lines:
-        key = npmrc_key(line)
-        if key in STALE_NPMRC_RELEASE_AGE_KEYS:
-            raise ValueError(
-                f"{path} uses stale npmrc key {key}; remove it and use {NPMRC_RELEASE_AGE_KEY}"
-            )
-
-
-def upsert_release_age_npmrc_lines(
-    path: Path, lines: list[str], *, minutes: int
-) -> list[str]:
-    validate_npmrc_release_age_keys(path, lines)
-    policy_line = f"{NPMRC_RELEASE_AGE_KEY}={minutes}"
+def normalize_release_age_npmrc_lines(lines: list[str], *, minutes: int) -> list[str]:
+    policy_line = f"minimum-release-age={minutes}"
     kept_lines: list[str] = []
     insert_at: int | None = None
     for line in lines:
-        if npmrc_key(line) != NPMRC_RELEASE_AGE_KEY:
+        if npmrc_key(line) not in NPMRC_KEY_ALIASES:
             kept_lines.append(line)
             continue
         if insert_at is None:
@@ -121,48 +109,40 @@ def upsert_release_age_npmrc_lines(
 
 
 def upsert_npmrc(path: Path, *, days: int) -> None:
-    updated_lines = upsert_release_age_npmrc_lines(
-        path, load_npmrc_lines(path), minutes=days_to_minutes(days)
+    updated_lines = normalize_release_age_npmrc_lines(
+        load_npmrc_lines(path), minutes=days_to_minutes(days)
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(updated_lines).rstrip() + "\n", encoding="utf-8")
 
 
-def discover_pnpm_projects(repo_root: Path) -> list[Path]:
-    projects: list[Path] = []
-    for root, dirnames, filenames in os.walk(repo_root):
-        dirnames[:] = [
-            dirname for dirname in dirnames if dirname not in IGNORED_PROJECT_PARTS
-        ]
-        root_path = Path(root)
-        if "package.json" not in filenames:
-            continue
-        projects.append(root_path.relative_to(repo_root))
-    return sorted(projects)
+def write_local_policy(repo_root: Path, *, days: int) -> None:
+    policy_file = repo_root / LOCAL_POLICY_FILE
+    policy_file.write_text(
+        f"# Repo-local dependency install policy.\nSETTA_MIN_RELEASE_AGE_DAYS={days}\n",
+        encoding="utf-8",
+    )
 
 
 def configure_local(repo_root: Path, *, days: int) -> None:
-    write_min_release_age_policy(repo_root, days=days)
-    pnpm_projects = discover_pnpm_projects(repo_root)
-    for project_dir in pnpm_projects:
+    write_local_policy(repo_root, days=days)
+    for project_dir in LOCAL_PNPM_PROJECTS:
         upsert_npmrc(repo_root / project_dir / ".npmrc", days=days)
 
     print(f"Configured repo-local minimum release age: {days} day(s).")
-    print(f"- Updated {(repo_root / POLICY_FILE).relative_to(repo_root)}")
-    for project_dir in pnpm_projects:
+    print(f"- Updated {(repo_root / LOCAL_POLICY_FILE).relative_to(repo_root)}")
+    for project_dir in LOCAL_PNPM_PROJECTS:
         print(
             f"- Updated {(repo_root / project_dir / '.npmrc').relative_to(repo_root)}"
         )
-    if not pnpm_projects:
-        print("- No package.json files found yet; skipped pnpm project .npmrc files.")
     print(
-        "Go has no native install-time release-age setting; "
-        "./update_dependencies.sh checks Go module release age when go.mod exists."
+        "Go has no native install-time release-age setting; use ./audit_supply_chain.sh for Go module age checks."
     )
     print(
-        "pnpm uses minimum-release-age in minutes; "
-        "./update_dependencies.sh refreshes and verifies checked-in pnpm lockfiles "
-        "when package.json files exist."
+        "pnpm uses minimum-release-age in minutes, and this repo also verifies checked-in pnpm lockfiles with audit/update scripts."
+    )
+    print(
+        "uv only supports an absolute cutoff date, so this repo enforces Python age gating through init_env.sh and audit_supply_chain.sh."
     )
 
 
@@ -190,7 +170,13 @@ def configure_global(repo_root: Path, *, days: int) -> None:
 
     print(f"Configured global npm/pnpm minimum release age: {days} day(s).")
     print(
+        "Skipped uv: current uv only supports an absolute exclude-newer date, not a rolling global minimum-age policy."
+    )
+    print(
         "Skipped Go: Go modules do not expose a native install-time release-age setting."
+    )
+    print(
+        "Use ./configure_supply_chain.sh --local-only if you want repo-local Python enforcement via init_env.sh."
     )
 
 
@@ -208,7 +194,5 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (PolicyError, ValueError) as exc:
-        raise SystemExit(str(exc)) from exc
     except subprocess.CalledProcessError as exc:
         raise SystemExit(exc.returncode) from exc

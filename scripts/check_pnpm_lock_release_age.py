@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from supply_chain_policy import read_pnpm_release_age_exclusions
+import yaml
 
 DEFAULT_REGISTRY_URL = "https://registry.npmjs.org"
 MAX_WORKERS = 8
@@ -32,11 +32,6 @@ def parse_args() -> argparse.Namespace:
         help="Path to the pnpm-lock.yaml file to inspect.",
     )
     parser.add_argument(
-        "--npmrc",
-        type=Path,
-        help="Project npmrc containing exact-version release-age exclusions.",
-    )
-    parser.add_argument(
         "--registry-url",
         default=os.environ.get("SETTA_NPM_REGISTRY_URL", DEFAULT_REGISTRY_URL),
         help=argparse.SUPPRESS,
@@ -44,41 +39,37 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def require_mapping(
+    value: object, *, lockfile: Path, description: str
+) -> dict[object, object]:
+    if isinstance(value, dict):
+        return value
+    raise SystemExit(
+        f"pnpm release-age policy failed: expected {description} in {lockfile}."
+    )
+
+
 def load_package_keys(lockfile_text: str, *, lockfile: Path) -> list[str]:
-    package_keys: list[str] = []
-    in_packages = False
-    for raw_line in lockfile_text.splitlines():
-        if not raw_line.strip() or raw_line.lstrip().startswith("#"):
-            continue
+    data = yaml.safe_load(lockfile_text)
+    if data is None:
+        data = {}
+    lockfile_data = require_mapping(
+        data, lockfile=lockfile, description="a top-level mapping"
+    )
 
-        if raw_line == "packages:":
-            in_packages = True
-            continue
+    packages = lockfile_data.get("packages")
+    if packages is None:
+        return []
+    package_map = require_mapping(
+        packages, lockfile=lockfile, description="'packages' to be a mapping"
+    )
 
-        if not in_packages:
-            continue
-
-        if not raw_line.startswith(" "):
-            break
-        if not raw_line.startswith("  ") or raw_line.startswith("    "):
-            continue
-
-        stripped = raw_line.strip()
-        if not stripped.endswith(":"):
-            continue
-        key = stripped[:-1].strip()
-        if (key.startswith("'") and key.endswith("'")) or (
-            key.startswith('"') and key.endswith('"')
-        ):
-            key = key[1:-1]
-        if key:
-            package_keys.append(key)
-
-    if "packages:" in lockfile_text and not package_keys:
+    invalid_key = next((key for key in package_map if not isinstance(key, str)), None)
+    if invalid_key is not None:
         raise SystemExit(
-            f"pnpm release-age policy failed: found packages section but no package entries in {lockfile}."
+            f"pnpm release-age policy failed: found a non-string package key in {lockfile}."
         )
-    return package_keys
+    return list(package_map)
 
 
 def parse_registry_package(raw_key: str) -> tuple[str, str] | None:
@@ -87,7 +78,6 @@ def parse_registry_package(raw_key: str) -> tuple[str, str] | None:
         return None
 
     package_name, version = base_key.rsplit("@", 1)
-    package_name = package_name.removeprefix("/")
     if not package_name or not version:
         return None
 
@@ -168,16 +158,10 @@ def collect_release_age_failures(
     resolved_packages: set[tuple[str, str]],
     *,
     cutoff: datetime,
-    exclusions: set[tuple[str, str]],
     time_maps: dict[str, dict[str, str]],
-) -> tuple[
-    list[tuple[str, str]],
-    list[tuple[str, str, datetime]],
-    list[tuple[str, str, datetime]],
-]:
+) -> tuple[list[tuple[str, str]], list[tuple[str, str, datetime]]]:
     missing_versions: list[tuple[str, str]] = []
     too_new: list[tuple[str, str, datetime]] = []
-    excluded_too_new: list[tuple[str, str, datetime]] = []
 
     for package_name, version in sorted(resolved_packages):
         package_times = time_maps[package_name]
@@ -188,13 +172,9 @@ def collect_release_age_failures(
 
         published_at = parse_published_at(published_at_raw)
         if published_at > cutoff:
-            finding = (package_name, version, published_at)
-            if (package_name, version) in exclusions:
-                excluded_too_new.append(finding)
-            else:
-                too_new.append(finding)
+            too_new.append((package_name, version, published_at))
 
-    return missing_versions, too_new, excluded_too_new
+    return missing_versions, too_new
 
 
 def report_unsupported_keys(lockfile: Path, unsupported_keys: list[str]) -> bool:
@@ -234,30 +214,12 @@ def report_too_new_packages(
     return True
 
 
-def report_excluded_too_new_packages(
-    excluded_too_new: list[tuple[str, str, datetime]],
-) -> None:
-    if not excluded_too_new:
-        return
-    print(
-        "pnpm release-age policy applied "
-        f"{len(excluded_too_new)} exact-version exclusion(s)."
-    )
-    for package_name, version, published_at in excluded_too_new:
-        print(f"- {package_name}@{version} published {published_at.isoformat()}")
-
-
 def main() -> int:
     args = parse_args()
     if args.days < 0:
         raise SystemExit("--days must be a non-negative integer")
 
     lockfile_text = args.lockfile.read_text(encoding="utf-8")
-    exclusions = (
-        read_pnpm_release_age_exclusions(args.npmrc)
-        if args.npmrc is not None
-        else set()
-    )
     resolved_packages, unsupported_keys = collect_resolved_packages(
         lockfile_text, lockfile=args.lockfile
     )
@@ -269,17 +231,13 @@ def main() -> int:
         package_names={package_name for package_name, _ in resolved_packages},
         registry_url=args.registry_url,
     )
-    missing_versions, too_new, excluded_too_new = collect_release_age_failures(
-        resolved_packages,
-        cutoff=cutoff,
-        exclusions=exclusions,
-        time_maps=time_maps,
+    missing_versions, too_new = collect_release_age_failures(
+        resolved_packages, cutoff=cutoff, time_maps=time_maps
     )
 
     if report_missing_versions(args.lockfile, missing_versions):
         return 1
 
-    report_excluded_too_new_packages(excluded_too_new)
     if report_too_new_packages(args.lockfile, args.days, too_new):
         return 1
 

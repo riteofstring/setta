@@ -3,52 +3,40 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/quality/check.sh [--staged | --git-changes | --all | --files <path>...] [options]
+Usage: ./scripts/quality/check.sh [--staged | --git-changes | --all | --files <path>...] [--python-max N] [--frontend-max N] [--frontend-test-max N] [--go-max N] [--go-test-max N]
 
-Run lightweight repository quality checks for the current Setta 3 baseline.
+Runs maintainability-oriented quality checks for supported production and test source, with an emphasis on cyclomatic complexity.
+Also enforces file-length limits configured in quality.paths.yaml.
 
 Modes:
   --git-changes      Check tracked files changed from HEAD plus untracked files (default).
   --staged           Check staged files only.
-  --all              Check all tracked and untracked files covered by this tool.
+  --all              Check all tracked files covered by this tool.
   --files <path>...  Check only the provided files.
 
-Options:
+Thresholds:
+  --python-max N     Fail Python cyclomatic complexity at >= N (default: 10).
+  --frontend-max N   Fail frontend JS/TS cyclomatic complexity at >= N (default: 10).
+  --frontend-test-max N
+                     Fail frontend JS/TS test cyclomatic complexity at >= N (default: 10).
   --go-max N         Fail Go cyclomatic complexity at >= N (default: 12).
   --go-test-max N    Fail Go test cyclomatic complexity at >= N (default: 20).
-  --ts-max N         Fail TypeScript/JavaScript cyclomatic complexity at >= N (default: 10).
-  --ts-test-max N    Fail TypeScript/JavaScript test complexity at >= N (default: 10).
-  --max-lines N      Fail normal files above N lines (default: 1000).
-  --test-max-lines N Fail test files above N lines (default: 1500).
   -h, --help         Show this help text.
 EOF
 }
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 readonly GO_CYCLO_VERSION="v0.6.0"
-readonly STATICCHECK_VERSION="v0.7.0"
 mode="git-changes"
-go_max="12"
-go_test_max="20"
-ts_max="10"
-ts_test_max="10"
-max_lines="1000"
-test_max_lines="1500"
+# shellcheck source=../lib/quality_paths.sh
+. "${repo_root}/scripts/lib/quality_paths.sh"
+
+python_max="$(quality_default_python_complexity_threshold)"
+frontend_max="$(quality_default_frontend_complexity_threshold)"
+frontend_test_max="$(quality_default_frontend_test_complexity_threshold)"
+go_max="$(quality_default_go_complexity_threshold)"
+go_test_max="$(quality_default_go_test_complexity_threshold)"
 declare -a explicit_files=()
-
-require_positive_integer() {
-  local value="$1"
-  local label="$2"
-  if ! [[ "${value}" =~ ^[0-9]+$ ]] || [[ "${value}" -lt 1 ]]; then
-    echo "${label} must be a positive integer: ${value}" >&2
-    exit 1
-  fi
-}
-
-effective_max() {
-  local value="$1"
-  echo "$((value - 1))"
-}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -73,7 +61,7 @@ while [[ $# -gt 0 ]]; do
       fi
       while [[ $# -gt 0 ]]; do
         case "$1" in
-          --staged|--git-changes|--all|--files|--go-max|--go-test-max|--ts-max|--ts-test-max|--max-lines|--test-max-lines|-h|--help)
+          --staged|--git-changes|--all|--files|--python-max|--frontend-max|--frontend-test-max|--go-max|--go-test-max|-h|--help)
             break
             ;;
           *)
@@ -87,40 +75,49 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       ;;
+    --python-max)
+      shift
+      if [[ $# -eq 0 ]]; then
+        echo "Missing value for --python-max" >&2
+        exit 1
+      fi
+      python_max="$1"
+      shift
+      ;;
+    --frontend-max)
+      shift
+      if [[ $# -eq 0 ]]; then
+        echo "Missing value for --frontend-max" >&2
+        exit 1
+      fi
+      frontend_max="$1"
+      shift
+      ;;
+    --frontend-test-max)
+      shift
+      if [[ $# -eq 0 ]]; then
+        echo "Missing value for --frontend-test-max" >&2
+        exit 1
+      fi
+      frontend_test_max="$1"
+      shift
+      ;;
     --go-max)
       shift
-      [[ $# -gt 0 ]] || { echo "Missing value for --go-max" >&2; exit 1; }
+      if [[ $# -eq 0 ]]; then
+        echo "Missing value for --go-max" >&2
+        exit 1
+      fi
       go_max="$1"
       shift
       ;;
     --go-test-max)
       shift
-      [[ $# -gt 0 ]] || { echo "Missing value for --go-test-max" >&2; exit 1; }
+      if [[ $# -eq 0 ]]; then
+        echo "Missing value for --go-test-max" >&2
+        exit 1
+      fi
       go_test_max="$1"
-      shift
-      ;;
-    --ts-max)
-      shift
-      [[ $# -gt 0 ]] || { echo "Missing value for --ts-max" >&2; exit 1; }
-      ts_max="$1"
-      shift
-      ;;
-    --ts-test-max)
-      shift
-      [[ $# -gt 0 ]] || { echo "Missing value for --ts-test-max" >&2; exit 1; }
-      ts_test_max="$1"
-      shift
-      ;;
-    --max-lines)
-      shift
-      [[ $# -gt 0 ]] || { echo "Missing value for --max-lines" >&2; exit 1; }
-      max_lines="$1"
-      shift
-      ;;
-    --test-max-lines)
-      shift
-      [[ $# -gt 0 ]] || { echo "Missing value for --test-max-lines" >&2; exit 1; }
-      test_max_lines="$1"
       shift
       ;;
     -h|--help)
@@ -135,13 +132,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-require_positive_integer "${go_max}" "--go-max"
-require_positive_integer "${go_test_max}" "--go-test-max"
-require_positive_integer "${ts_max}" "--ts-max"
-require_positive_integer "${ts_test_max}" "--ts-test-max"
-require_positive_integer "${max_lines}" "--max-lines"
-require_positive_integer "${test_max_lines}" "--test-max-lines"
-
 collect_files() {
   case "${mode}" in
     staged)
@@ -154,10 +144,7 @@ collect_files() {
       }
       ;;
     all)
-      {
-        git ls-files
-        git ls-files --others --exclude-standard
-      }
+      git ls-files
       ;;
     files)
       printf '%s\n' "${explicit_files[@]}"
@@ -165,505 +152,219 @@ collect_files() {
   esac
 }
 
-normalize_path() {
-  local path="$1"
-  path="${path#./}"
-  printf '%s\n' "${path}"
-}
-
-is_generated_or_vendor_path() {
-  case "$1" in
-    */node_modules/*|node_modules/*|*/dist/*|dist/*|*/build/*|build/*|*/out/*|out/*|*/coverage/*|coverage/*|*/test-results/*|test-results/*|*/playwright-report/*|playwright-report/*|*/generated/*|generated/*|*.generated.*|*_gen.go|*.gen.go)
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-is_test_path() {
-  case "$1" in
-    *_test.go|*.test.*|*.spec.*|tests/*|*/tests/*|__tests__/*|*/__tests__/*)
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-is_ts_path() {
-  case "$1" in
-    *.js|*.jsx|*.ts|*.tsx|*.mjs|*.cjs|*.mts|*.cts)
-      case "$1" in
-        *.d.ts) return 1 ;;
-      esac
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-is_node_tool_path() {
-  case "$1" in
-    scripts/check_electron_test_template_literals.mjs)
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-is_eval_fixture_path() {
-  case "$1" in
-    evals/fixtures/typescript-service/*)
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-is_prettier_path() {
-  case "$1" in
-    *.css|*.html|*.js|*.jsx|*.json|*.jsonc|*.md|*.mjs|*.cjs|*.mts|*.cts|*.ts|*.tsx|*.yaml|*.yml)
-      case "$1" in
-        desktop/pnpm-lock.yaml|pnpm-lock.yaml|*.d.ts) return 1 ;;
-      esac
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-is_length_excluded_path() {
-  case "$1" in
-    docs/mockups/*)
-      return 0
-      ;;
-    internal/codexapp/protocolschema/json/*|internal/codexapp/protocolschema/json_experimental/*|internal/speech/openaischema/openapi.yaml)
-      return 0
-      ;;
-    LICENSE|desktop/pnpm-lock.yaml|pnpm-lock.yaml|*.lock|go.sum)
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-has_shell_shebang() {
-  local path="$1"
-  local first_line=""
-  IFS= read -r first_line <"${repo_root}/${path}" || return 1
-  case "${first_line}" in
-    '#!'*'/sh'|'#!'*'/sh '*|'#!'*'/bash'|'#!'*'/bash '*|'#!'*' bash'|'#!'*' bash '*|'#!'*' sh'|'#!'*' sh '*)
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-is_shell_path() {
-  case "$1" in
-    *.sh|*.bash)
-      return 0
-      ;;
-  esac
-  has_shell_shebang "$1"
-}
-
-is_length_checked_path() {
-  if is_length_excluded_path "$1"; then
-    return 1
-  fi
-  if is_shell_path "$1" || is_ts_path "$1"; then
-    return 0
-  fi
-  case "$1" in
-    *.css|*.cjs|*.go|*.html|*.js|*.jsx|*.json|*.jsonc|*.mjs|*.mts|*.cts|*.py|*.toml|*.yaml|*.yml)
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-line_count() {
-  wc -l <"$1" | tr -d '[:space:]'
-}
-
-check_file_lengths() {
-  local status=0
-  local file_path=""
-  local limit=""
-  local count=""
-  for file_path in "$@"; do
-    if is_test_path "${file_path}"; then
-      limit="${test_max_lines}"
-    else
-      limit="${max_lines}"
-    fi
-    count="$(line_count "${repo_root}/${file_path}")"
-    if [[ "${count}" -gt "${limit}" ]]; then
-      echo "File too long: ${file_path} has ${count} lines, max ${limit}." >&2
-      status=1
-    fi
-  done
-  return "${status}"
-}
-
-find_ts_project() {
-  local file_path="$1"
-  local dir
-  dir="$(dirname "${file_path}")"
-  while true; do
-    if [[ -f "${repo_root}/${dir}/package.json" ]]; then
-      printf '%s\n' "${dir}"
-      return 0
-    fi
-    if [[ "${dir}" == "." ]]; then
-      break
-    fi
-    dir="$(dirname "${dir}")"
-  done
-  if [[ -f "${repo_root}/package.json" ]]; then
-    printf '.\n'
-    return 0
-  fi
-  return 1
-}
-
-project_relative_ts_path() {
-  local project="$1"
-  local file_path="$2"
-  if [[ "${project}" == "." ]]; then
-    printf '%s\n' "${file_path}"
-    return 0
-  fi
-  case "${file_path}" in
-    "${project}"/*)
-      printf '%s\n' "${file_path#"${project}/"}"
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-has_ts_project() {
-  local candidate="$1"
-  local existing
-  for existing in "${ts_projects[@]+"${ts_projects[@]}"}"; do
-    if [[ "${existing}" == "${candidate}" ]]; then
-      return 0
-    fi
-  done
-  return 1
-}
-
-has_format_project() {
-  local candidate="$1"
-  local existing
-  for existing in "${format_projects[@]+"${format_projects[@]}"}"; do
-    if [[ "${existing}" == "${candidate}" ]]; then
-      return 0
-    fi
-  done
-  return 1
-}
-
-has_eval_fixture_project() {
-  local candidate="$1"
-  local existing
-  for existing in "${eval_fixture_projects[@]+"${eval_fixture_projects[@]}"}"; do
-    if [[ "${existing}" == "${candidate}" ]]; then
-      return 0
-    fi
-  done
-  return 1
-}
+quality_validate_positive_integer "${python_max}" "--python-max"
+quality_validate_positive_integer "${frontend_max}" "--frontend-max"
+quality_validate_positive_integer "${frontend_test_max}" "--frontend-test-max"
+quality_validate_positive_integer "${go_max}" "--go-max"
+quality_validate_positive_integer "${go_test_max}" "--go-test-max"
 
 cd "${repo_root}"
+# shellcheck source=/dev/null
+. ./activate.sh
+if ! command -v python >/dev/null 2>&1; then
+  echo "python is required after activating ./activate.sh." >&2
+  exit 1
+fi
 
+tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/setta-check-quality.XXXXXX")"
+trap 'rm -rf "${tmp_dir}"' EXIT
+selected_files_path="${tmp_dir}/selected-files.txt"
+collect_files | LC_ALL=C sort -u >"${selected_files_path}"
+
+declare -a python_files=()
+declare -a python_test_files=()
+declare -a frontend_eslint_files=()
+declare -a frontend_test_complexity_files=()
+declare -a frontend_test_file_length_files=()
+declare -a frontend_boundary_files=()
+declare -a frontend_guardrail_files=()
 declare -a go_files=()
 declare -a go_test_files=()
-declare -a ts_files=()
-declare -a ts_test_files=()
-declare -a python_files=()
-declare -a shell_files=()
-declare -a node_tool_files=()
-declare -a all_supported_files=()
-declare -a electron_test_template_files=()
-declare -a length_files=()
-declare -a format_projects=()
-declare -a eval_fixture_projects=()
-collection_status=0
+declare -a go_packages=()
 
-while IFS= read -r raw_path; do
-  file_path="$(normalize_path "${raw_path}")"
-  [[ -n "${file_path}" ]] || continue
-  [[ -f "${repo_root}/${file_path}" ]] || continue
-  if is_generated_or_vendor_path "${file_path}"; then
-    continue
-  fi
+while IFS= read -r file_path; do
+  [[ -z "${file_path}" ]] && continue
+  python_files+=("${file_path}")
+done < <(quality_filter_files python <"${selected_files_path}")
 
-  if is_length_checked_path "${file_path}"; then
-    length_files+=("${file_path}")
-    all_supported_files+=("${file_path}")
-  fi
+while IFS= read -r file_path; do
+  [[ -z "${file_path}" ]] && continue
+  python_test_files+=("${file_path}")
+done < <(quality_filter_files python-test <"${selected_files_path}")
 
-  case "${file_path}" in
-    desktop/tests/electron/*.js|desktop/tests/electron/*.mjs)
-      electron_test_template_files+=("${file_path}")
-      ;;
-  esac
+while IFS= read -r file_path; do
+  [[ -z "${file_path}" ]] && continue
+  frontend_eslint_files+=("$(quality_frontend_cli_path "${file_path}")")
+done < <(quality_filter_files frontend-eslint <"${selected_files_path}")
 
-  if is_eval_fixture_path "${file_path}"; then
-    if eval_fixture_project="$(find_ts_project "${file_path}")"; then
-      if ! has_eval_fixture_project "${eval_fixture_project}"; then
-        eval_fixture_projects+=("${eval_fixture_project}")
-      fi
-    else
-      echo "Evaluation fixture has no owning package.json: ${file_path}" >&2
-      collection_status=1
-    fi
-    continue
-  fi
+while IFS= read -r file_path; do
+  [[ -z "${file_path}" ]] && continue
+  frontend_test_complexity_files+=("$(quality_frontend_cli_path "${file_path}")")
+done < <(quality_filter_files frontend-test-complexity <"${selected_files_path}")
 
-  if is_prettier_path "${file_path}" && format_project="$(find_ts_project "${file_path}")"; then
-    if ! has_format_project "${format_project}"; then
-      format_projects+=("${format_project}")
-    fi
-    all_supported_files+=("${file_path}")
-  fi
+while IFS= read -r file_path; do
+  [[ -z "${file_path}" ]] && continue
+  frontend_test_file_length_files+=("${file_path}")
+done < <(quality_filter_files frontend-test-file-length <"${selected_files_path}")
 
-  case "${file_path}" in
-    *.go)
-      if is_test_path "${file_path}"; then
-        go_test_files+=("${file_path}")
-      else
-        go_files+=("${file_path}")
-      fi
-      ;;
-    *.py)
-      python_files+=("${file_path}")
-      ;;
-    *)
-      if is_shell_path "${file_path}"; then
-        shell_files+=("${file_path}")
-        all_supported_files+=("${file_path}")
-      elif is_node_tool_path "${file_path}"; then
-        node_tool_files+=("${file_path}")
-        all_supported_files+=("${file_path}")
-      elif is_ts_path "${file_path}"; then
-        if is_test_path "${file_path}"; then
-          ts_test_files+=("${file_path}")
-        else
-          ts_files+=("${file_path}")
-        fi
-        all_supported_files+=("${file_path}")
-      fi
-      ;;
-  esac
-done < <(collect_files | LC_ALL=C sort -u)
+while IFS= read -r file_path; do
+  [[ -z "${file_path}" ]] && continue
+  frontend_boundary_files+=("${file_path}")
+done < <(quality_filter_files frontend-boundary <"${selected_files_path}")
 
-if [[ ${#all_supported_files[@]} -eq 0 && ${#eval_fixture_projects[@]} -eq 0 ]]; then
+while IFS= read -r file_path; do
+  [[ -z "${file_path}" ]] && continue
+  frontend_guardrail_files+=("${file_path}")
+done < <(quality_filter_files frontend-guardrail <"${selected_files_path}")
+
+while IFS= read -r file_path; do
+  [[ -z "${file_path}" ]] && continue
+  go_files+=("${file_path}")
+  go_packages+=("./$(dirname "${file_path}")")
+done < <(quality_filter_files go <"${selected_files_path}")
+
+while IFS= read -r file_path; do
+  [[ -z "${file_path}" ]] && continue
+  go_test_files+=("${file_path}")
+done < <(quality_filter_files go-test <"${selected_files_path}")
+
+if [[ ${#go_packages[@]} -gt 0 ]]; then
+  IFS=$'\n' go_packages=($(printf '%s\n' "${go_packages[@]}" | LC_ALL=C sort -u))
+  unset IFS
+fi
+
+if [[ ${#python_files[@]} -eq 0 && ${#python_test_files[@]} -eq 0 && ${#frontend_eslint_files[@]} -eq 0 && ${#frontend_test_complexity_files[@]} -eq 0 && ${#frontend_test_file_length_files[@]} -eq 0 && ${#frontend_boundary_files[@]} -eq 0 && ${#frontend_guardrail_files[@]} -eq 0 && ${#go_files[@]} -eq 0 && ${#go_test_files[@]} -eq 0 ]]; then
   echo "No supported files to check."
   exit 0
 fi
 
-status="${collection_status}"
+status=0
 
-echo "File length checks..."
-if [[ ${#length_files[@]} -gt 0 ]]; then
-  check_file_lengths "${length_files[@]}" || status=1
-fi
+run_frontend_test_complexity_check() {
+  local output_path="$1"
+  local max_complexity="$2"
+  shift 2
+  local eslint_status=0
 
-if [[ ${#electron_test_template_files[@]} -gt 0 ]]; then
-  echo "Electron test browser-program template checks (${#electron_test_template_files[@]} files)..."
-  node "${repo_root}/scripts/check_electron_test_template_literals.mjs" \
-    "${electron_test_template_files[@]}" || status=1
-fi
+  set +e
+  pnpm -C frontend exec eslint \
+    --format json \
+    --no-warn-ignored \
+    --rule "complexity:[\"error\",$(quality_effective_exceeds_threshold "${max_complexity}")]" \
+    -- "$@" >"${output_path}"
+  eslint_status=$?
+  set -e
 
-if [[ ${#shell_files[@]} -gt 0 ]]; then
-  echo "Shell syntax checks (${#shell_files[@]} files)..."
-  for file_path in "${shell_files[@]}"; do
-    bash -n "${file_path}" || status=1
-  done
-  echo "Shell lint checks (${#shell_files[@]} files)..."
-  "${repo_root}/scripts/shellcheck.sh" "${shell_files[@]}" || status=1
-fi
+  if [[ "${eslint_status}" -gt 1 ]]; then
+    return "${eslint_status}"
+  fi
 
-if [[ ${#python_files[@]} -gt 0 ]]; then
-  echo "Python tooling syntax checks (${#python_files[@]} files)..."
-  python3 - "${python_files[@]}" <<'PY' || status=1
-import ast
+  python - "${output_path}" "${repo_root}" <<'PY'
+import json
+import os
 import sys
-from pathlib import Path
 
-for path in sys.argv[1:]:
-    ast.parse(Path(path).read_text(encoding="utf-8"), filename=path)
+report_path = sys.argv[1]
+repo_root = sys.argv[2]
+
+with open(report_path, "r", encoding="utf-8") as handle:
+    data = json.load(handle)
+
+complexity_rows = []
+fatal_rows = []
+for file_report in data:
+    file_path = os.path.relpath(file_report["filePath"], repo_root)
+    for message in file_report.get("messages", []):
+        if message.get("fatal"):
+            fatal_rows.append(
+                (
+                    file_path,
+                    int(message.get("line") or 0),
+                    int(message.get("column") or 0),
+                    message.get("message", ""),
+                )
+            )
+            continue
+        if message.get("ruleId") != "complexity":
+            continue
+        complexity_rows.append(
+            (
+                file_path,
+                int(message.get("line") or 0),
+                int(message.get("column") or 0),
+                message.get("message", ""),
+            )
+        )
+
+if fatal_rows:
+    print("Frontend test complexity check could not parse some files:")
+    for path, line, column, message in fatal_rows:
+        print(f"  {path}:{line}:{column}: {message}")
+    raise SystemExit(1)
+
+if complexity_rows:
+    print("Frontend test complexity violations:")
+    for path, line, column, message in complexity_rows:
+        print(f"  {path}:{line}:{column}: {message}")
+    raise SystemExit(1)
 PY
+}
+
+declare -a python_quality_files=()
+if [[ ${#python_files[@]} -gt 0 ]]; then
+  python_quality_files+=("${python_files[@]}")
+fi
+if [[ ${#python_test_files[@]} -gt 0 ]]; then
+  python_quality_files+=("${python_test_files[@]}")
+fi
+if [[ ${#python_quality_files[@]} -gt 0 ]]; then
+  echo "Python quality checks (${#python_quality_files[@]} files)..."
+  (
+    set -euo pipefail
+    ruff check "${python_quality_files[@]}"
+    ruff check --select C901 --output-format=concise --config "lint.mccabe.max-complexity = $(quality_effective_exceeds_threshold "${python_max}")" "${python_quality_files[@]}"
+  ) || status=1
 fi
 
-if [[ ${#node_tool_files[@]} -gt 0 ]]; then
-  echo "Node tooling syntax checks (${#node_tool_files[@]} files)..."
-  for file_path in "${node_tool_files[@]}"; do
-    node --check "${file_path}" || status=1
-  done
+if [[ ${#python_files[@]} -gt 0 || ${#python_test_files[@]} -gt 0 || ${#frontend_eslint_files[@]} -gt 0 || ${#frontend_test_complexity_files[@]} -gt 0 || ${#frontend_test_file_length_files[@]} -gt 0 || ${#go_files[@]} -gt 0 || ${#go_test_files[@]} -gt 0 ]]; then
+  echo "File length checks..."
+  python ./scripts/quality/check_file_lengths.py --paths-file "${selected_files_path}" || status=1
 fi
 
-if [[ ${#go_files[@]} -gt 0 || ${#go_test_files[@]} -gt 0 ]]; then
-  if [[ ! -f "${repo_root}/go.mod" ]]; then
-    echo "Go files are present, but go.mod is missing." >&2
-    status=1
-  else
-    declare -a go_check_files=()
-    if [[ ${#go_files[@]} -gt 0 ]]; then
-      go_check_files+=("${go_files[@]}")
-    fi
-    if [[ ${#go_test_files[@]} -gt 0 ]]; then
-      go_check_files+=("${go_test_files[@]}")
-    fi
-
-    gofmt_bin="$("${repo_root}/scripts/go.sh" env GOROOT)/bin/gofmt"
-    gofmt_output="$("${gofmt_bin}" -l "${go_check_files[@]}")"
-    if [[ -n "${gofmt_output}" ]]; then
-      echo "Go files need gofmt:" >&2
-      printf '%s\n' "${gofmt_output}" >&2
-      status=1
-    fi
-
-    declare -a go_packages=()
-    for file_path in "${go_check_files[@]}"; do
-      go_packages+=("./$(dirname "${file_path}")")
-    done
-    declare -a sorted_go_packages=()
-    while IFS= read -r package_path; do
-      [[ -n "${package_path}" ]] && sorted_go_packages+=("${package_path}")
-    done < <(printf '%s\n' "${go_packages[@]}" | LC_ALL=C sort -u)
-    go_packages=("${sorted_go_packages[@]}")
-
-    echo "Go vet checks (${#go_packages[@]} packages)..."
-    "${repo_root}/scripts/go.sh" vet "${go_packages[@]}" || status=1
-    echo "Go test checks (${#go_packages[@]} packages)..."
-    "${repo_root}/scripts/run_go_tests.sh" "${go_packages[@]}" || status=1
-    echo "Go dead-code checks (${#go_packages[@]} packages)..."
-    "${repo_root}/scripts/go.sh" run "honnef.co/go/tools/cmd/staticcheck@${STATICCHECK_VERSION}" \
-      -checks=U1000 "${go_packages[@]}" || status=1
-    if [[ ${#go_files[@]} -gt 0 ]]; then
-      "${repo_root}/scripts/go.sh" run "github.com/fzipp/gocyclo/cmd/gocyclo@${GO_CYCLO_VERSION}" \
-        -over "$(effective_max "${go_max}")" "${go_files[@]}" || status=1
-    fi
-    if [[ ${#go_test_files[@]} -gt 0 ]]; then
-      "${repo_root}/scripts/go.sh" run "github.com/fzipp/gocyclo/cmd/gocyclo@${GO_CYCLO_VERSION}" \
-        -over "$(effective_max "${go_test_max}")" "${go_test_files[@]}" || status=1
-    fi
-  fi
+if [[ ${#frontend_eslint_files[@]} -gt 0 ]]; then
+  echo "Frontend quality checks (${#frontend_eslint_files[@]} files)..."
+  pnpm -C frontend exec eslint \
+    --no-warn-ignored \
+    --rule "complexity:[\"error\",$(quality_effective_exceeds_threshold "${frontend_max}")]" \
+    --rule 'max-depth:["error",4]' \
+    --rule 'max-params:["error",5]' \
+    -- "${frontend_eslint_files[@]}" || status=1
 fi
 
-if [[ ${#format_projects[@]} -gt 0 ]]; then
-  if ! command -v pnpm >/dev/null 2>&1; then
-    echo "pnpm is required for project formatting checks." >&2
-    status=1
-  else
-    for format_project in "${format_projects[@]}"; do
-      if pnpm -C "${repo_root}/${format_project}" run | grep -q '^  format$'; then
-        echo "Project formatting checks (${format_project})..."
-        pnpm -C "${repo_root}/${format_project}" run format || status=1
-      fi
-    done
-  fi
+if [[ ${#frontend_test_complexity_files[@]} -gt 0 ]]; then
+  echo "Frontend test complexity checks (${#frontend_test_complexity_files[@]} files)..."
+  run_frontend_test_complexity_check "${tmp_dir}/frontend-test-complexity.json" "${frontend_test_max}" "${frontend_test_complexity_files[@]}" || status=1
 fi
 
-if [[ ${#eval_fixture_projects[@]} -gt 0 ]]; then
-  if ! command -v pnpm >/dev/null 2>&1; then
-    echo "pnpm is required for evaluation fixture quality checks." >&2
-    status=1
-  else
-    for eval_fixture_project in "${eval_fixture_projects[@]}"; do
-      echo "Evaluation fixture quality checks (${eval_fixture_project})..."
-      pnpm -C "${repo_root}/${eval_fixture_project}" run quality || status=1
-    done
-  fi
+if [[ ${#frontend_boundary_files[@]} -gt 0 ]]; then
+  echo "Frontend boundary checks (${#frontend_boundary_files[@]} files)..."
+  node ./frontend/scripts/check_import_boundaries.mjs -- "${frontend_boundary_files[@]}" || status=1
 fi
 
-if [[ ${#ts_files[@]} -gt 0 || ${#ts_test_files[@]} -gt 0 ]]; then
-  if ! command -v pnpm >/dev/null 2>&1; then
-    echo "pnpm is required for TypeScript/JavaScript quality checks." >&2
-    status=1
-  else
-    declare -a ts_projects=()
-    if [[ ${#ts_files[@]} -gt 0 ]]; then
-      for file_path in "${ts_files[@]}"; do
-        if ts_project="$(find_ts_project "${file_path}")"; then
-          if ! has_ts_project "${ts_project}"; then
-            ts_projects+=("${ts_project}")
-          fi
-        else
-          echo "TypeScript/JavaScript file has no owning package.json: ${file_path}" >&2
-          status=1
-        fi
-      done
-    fi
-    if [[ ${#ts_test_files[@]} -gt 0 ]]; then
-      for file_path in "${ts_test_files[@]}"; do
-        if ts_project="$(find_ts_project "${file_path}")"; then
-          if ! has_ts_project "${ts_project}"; then
-            ts_projects+=("${ts_project}")
-          fi
-        else
-          echo "TypeScript/JavaScript file has no owning package.json: ${file_path}" >&2
-          status=1
-        fi
-      done
-    fi
+if [[ ${#frontend_guardrail_files[@]} -gt 0 ]]; then
+  echo "Frontend standalone guardrail checks..."
+  pnpm -C frontend exec vitest run src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts || status=1
+fi
 
-    if [[ ${#ts_projects[@]} -gt 0 ]]; then
-      for ts_project in "${ts_projects[@]}"; do
-        declare -a project_ts_files=()
-        declare -a project_ts_test_files=()
-        if [[ ${#ts_files[@]} -gt 0 ]]; then
-          for file_path in "${ts_files[@]}"; do
-            if project_path="$(project_relative_ts_path "${ts_project}" "${file_path}")"; then
-              project_ts_files+=("${project_path}")
-            fi
-          done
-        fi
-        if [[ ${#ts_test_files[@]} -gt 0 ]]; then
-          for file_path in "${ts_test_files[@]}"; do
-            if project_path="$(project_relative_ts_path "${ts_project}" "${file_path}")"; then
-              project_ts_test_files+=("${project_path}")
-            fi
-          done
-        fi
+if [[ ${#go_files[@]} -gt 0 ]]; then
+  echo "Go quality checks (${#go_files[@]} files)..."
+  ./scripts/go.sh vet "${go_packages[@]}" || status=1
+  ./scripts/go.sh run github.com/fzipp/gocyclo/cmd/gocyclo@"${GO_CYCLO_VERSION}" -over "$(quality_effective_exceeds_threshold "${go_max}")" "${go_files[@]}" || status=1
+fi
 
-        if [[ ${#project_ts_files[@]} -gt 0 ]]; then
-          echo "TypeScript/JavaScript quality checks (${ts_project}, ${#project_ts_files[@]} files)..."
-          pnpm -C "${repo_root}/${ts_project}" exec eslint \
-            --no-warn-ignored \
-            --rule "complexity:[\"error\",$(effective_max "${ts_max}")]" \
-            --rule 'max-depth:["error",4]' \
-            --rule 'max-params:["error",5]' \
-            -- "${project_ts_files[@]}" || status=1
-        fi
-        if [[ ${#project_ts_test_files[@]} -gt 0 ]]; then
-          echo "TypeScript/JavaScript test complexity checks (${ts_project}, ${#project_ts_test_files[@]} files)..."
-          pnpm -C "${repo_root}/${ts_project}" exec eslint \
-            --no-warn-ignored \
-            --rule "complexity:[\"error\",$(effective_max "${ts_test_max}")]" \
-            -- "${project_ts_test_files[@]}" || status=1
-        fi
-        echo "TypeScript/JavaScript typecheck (${ts_project})..."
-        pnpm -C "${repo_root}/${ts_project}" run typecheck || status=1
-        echo "TypeScript/JavaScript tests (${ts_project})..."
-        pnpm -C "${repo_root}/${ts_project}" run test || status=1
-        echo "TypeScript/JavaScript build (${ts_project})..."
-        pnpm -C "${repo_root}/${ts_project}" run build || status=1
-        if pnpm -C "${repo_root}/${ts_project}" run | grep -q '^  deadcode$'; then
-          echo "TypeScript/JavaScript dead-code checks (${ts_project})..."
-          pnpm -C "${repo_root}/${ts_project}" run deadcode || status=1
-        fi
-        if [[ "${mode}" == "all" && "${ts_project}" == "desktop" ]]; then
-          echo "Electron workflow integration checks (${ts_project})..."
-          pnpm -C "${repo_root}/${ts_project}" run test:electron:built || status=1
-        fi
-      done
-    fi
-  fi
+if [[ ${#go_test_files[@]} -gt 0 ]]; then
+  echo "Go test complexity checks (${#go_test_files[@]} files)..."
+  ./scripts/go.sh run github.com/fzipp/gocyclo/cmd/gocyclo@"${GO_CYCLO_VERSION}" -over "$(quality_effective_exceeds_threshold "${go_test_max}")" "${go_test_files[@]}" || status=1
 fi
 
 exit "${status}"
