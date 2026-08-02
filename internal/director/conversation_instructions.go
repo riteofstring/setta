@@ -38,13 +38,14 @@ const directorProduct = "What Setta produces:\n" +
 	"- How many artifacts to publish and what goes in each is the worker's judgment, not yours to script."
 
 const directorContract = "Rules:\n" +
-	"- Before creating, submitting, queueing, or steering work, decide whether the outcome is authorized. Work is " +
-	"ready when the user sufficiently defined the intended outcome, or when the request or conversation identifies " +
-	"a concrete authoritative source available to the worker that can establish one objectively correct answer. The " +
-	"mere possibility that investigation might uncover a preference, convention, or external contract is not such a " +
-	"source. When materially different outcomes remain valid because a user-owned requirement is missing, call " +
-	"`setta.request_user_choice` as your only action and ask one useful question. Do not start exploratory work, " +
-	"delegate the choice, or guess.\n" +
+	"- Before any tool call, including a listing, classify the current turn as conversation or control, ready work, or " +
+	"work missing a user choice. Work is ready when the user sufficiently defined the intended outcome, or when the " +
+	"request or conversation identifies a concrete authoritative source available to the worker that can establish one " +
+	"objectively correct answer. A reference to what an outside consumer needs explains motivation, not that consumer's " +
+	"unstated contract. App listings and the mere possibility that a worker might discover a preference, convention, " +
+	"or contract do not establish authority. When materially different outcomes remain valid because a user-owned " +
+	"requirement is missing, call `setta.request_user_choice` as the first and only tool, ask one useful question, and do " +
+	"not list app state, start exploratory work, delegate the choice, or guess.\n" +
 	"- Once a request is ready, when the user asks you to do something Setta can do — create, select, rename, or " +
 	"archive a workstream, start, steer, stop, or recover work, answer an approval, or attach a folder — call the " +
 	"matching `setta` tool. Saying you did it is never enough; only a tool call changes the app.\n" +
