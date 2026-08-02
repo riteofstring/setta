@@ -22,6 +22,9 @@ import (
 type scriptedDirectorToolCall struct {
 	tool      string
 	arguments map[string]any
+	// useAssessmentReviewToken models a provider continuation that can only be
+	// authored after the preceding assessment receipt returns its challenge.
+	useAssessmentReviewToken bool
 	// rawArguments overrides arguments when a test needs to send something the
 	// schema does not describe.
 	rawArguments json.RawMessage
@@ -29,29 +32,41 @@ type scriptedDirectorToolCall struct {
 
 func readyDirectorCalls(calls ...scriptedDirectorToolCall) []scriptedDirectorToolCall {
 	return append([]scriptedDirectorToolCall{
-		readyDirectorAssessment("The scripted request states the completion contract."),
-		readyDirectorAssessment("A fresh review confirms that no material outcome choice is unresolved."),
+		readyDirectorAssessment("The scripted request states the completion contract.", false),
+		readyDirectorAssessment("A fresh review confirms that no material outcome choice is unresolved.", true),
 	}, calls...)
 }
 
-func readyDirectorAssessment(evidence string) scriptedDirectorToolCall {
+func readyDirectorAssessment(evidence string, useReviewToken bool) scriptedDirectorToolCall {
 	return scriptedDirectorToolCall{
-		tool: directorAssessRequestTool,
+		tool:                     directorAssessRequestTool,
+		useAssessmentReviewToken: useReviewToken,
 		arguments: map[string]any{
-			"basis":    string(directorAssessmentExplicitlyCheckable),
-			"evidence": evidence,
-			"question": "",
+			"basis":       string(directorAssessmentExplicitlyCheckable),
+			"evidence":    evidence,
+			"question":    "",
+			"reviewToken": "",
 		},
 	}
 }
 
 func missingRequirementDirectorCall(question string) []scriptedDirectorToolCall {
+	return missingRequirementDirectorCalls(question, false)
+}
+
+func reviewedMissingRequirementDirectorCall(question string) []scriptedDirectorToolCall {
+	return missingRequirementDirectorCalls(question, true)
+}
+
+func missingRequirementDirectorCalls(question string, useReviewToken bool) []scriptedDirectorToolCall {
 	return []scriptedDirectorToolCall{{
-		tool: directorAssessRequestTool,
+		tool:                     directorAssessRequestTool,
+		useAssessmentReviewToken: useReviewToken,
 		arguments: map[string]any{
-			"basis":    string(directorAssessmentMissingOutcomeAuthority),
-			"evidence": "The user has not supplied the outcome-defining choice.",
-			"question": question,
+			"basis":       string(directorAssessmentMissingOutcomeAuthority),
+			"evidence":    "The user has not supplied the outcome-defining choice.",
+			"question":    question,
+			"reviewToken": "",
 		},
 	}}
 }
@@ -175,7 +190,24 @@ func (provider *scriptedDirectorProvider) dispatch(
 ) (SettaToolReceipt, error) {
 	arguments := call.rawArguments
 	if arguments == nil {
-		encoded, err := json.Marshal(call.arguments)
+		resolved := make(map[string]any, len(call.arguments))
+		for key, value := range call.arguments {
+			resolved[key] = value
+		}
+		if call.useAssessmentReviewToken {
+			reviewToken := ""
+			for index := len(provider.receipts) - 1; index >= 0; index-- {
+				if provider.receipts[index].AssessmentReviewToken != "" {
+					reviewToken = provider.receipts[index].AssessmentReviewToken
+					break
+				}
+			}
+			if reviewToken == "" {
+				return SettaToolReceipt{}, errors.New("scripted Director has no assessment review token to continue")
+			}
+			resolved["reviewToken"] = reviewToken
+		}
+		encoded, err := json.Marshal(resolved)
 		if err != nil {
 			return SettaToolReceipt{}, err
 		}

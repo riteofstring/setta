@@ -112,7 +112,8 @@ func TestDirectorCannotRunAnAppToolBeforeCompletingTheAssessment(t *testing.T) {
 			{
 				reply: "I started it.",
 				calls: []scriptedDirectorToolCall{
-					readyDirectorAssessment("The request asks for a launch announcement."),
+					readyDirectorAssessment("The request asks for a launch announcement.", false),
+					readyDirectorAssessment("I confirmed it without waiting for the provisional receipt.", false),
 					{
 						tool: "create_workstream",
 						arguments: map[string]any{
@@ -126,7 +127,7 @@ func TestDirectorCannotRunAnAppToolBeforeCompletingTheAssessment(t *testing.T) {
 			},
 			{
 				reply: question,
-				calls: missingRequirementDirectorCall(question),
+				calls: reviewedMissingRequirementDirectorCall(question),
 			},
 		},
 	}

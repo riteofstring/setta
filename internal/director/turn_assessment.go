@@ -18,6 +18,8 @@ const maxDirectorAssessmentQuestionBytes = 4 * 1024
 
 const maxDirectorAssessmentEvidenceBytes = 4 * 1024
 
+const maxDirectorAssessmentReviewTokenBytes = 128
+
 type directorAssessmentBasis string
 
 const (
@@ -28,13 +30,15 @@ const (
 )
 
 type directorAssessmentArguments struct {
-	Basis    directorAssessmentBasis `json:"basis"`
-	Evidence string                  `json:"evidence"`
-	Question string                  `json:"question"`
+	Basis       directorAssessmentBasis `json:"basis"`
+	Evidence    string                  `json:"evidence"`
+	Question    string                  `json:"question"`
+	ReviewToken string                  `json:"reviewToken"`
 }
 
 type directorTurnAssessment struct {
 	mutex       sync.Mutex
+	reviewToken string
 	provisional bool
 	assessed    bool
 	basis       directorAssessmentBasis
@@ -46,7 +50,11 @@ type directorTurnAssessment struct {
 // missing-requirement assessment durably records only the useful user-choice
 // request; the assessment itself never appears in the graph or replay history.
 func assessDirectorTurnTools(tools []SettaTool) ([]SettaTool, error) {
-	assessment := &directorTurnAssessment{}
+	reviewToken, err := randomDirectorFactID("director-assessment-review")
+	if err != nil {
+		return nil, err
+	}
+	assessment := &directorTurnAssessment{reviewToken: reviewToken}
 	var requestUserChoice *SettaTool
 	appTools := make([]SettaTool, 0, len(tools))
 	for index := range tools {
@@ -89,7 +97,9 @@ func (assessment *directorTurnAssessment) tool(requestUserChoice SettaTool) Sett
 			"use missing_outcome_authority. For that basis, also supply one concise outcome-defining question; this assessment " +
 			"records that work is waiting for the user's answer, so ask exactly that question in prose and call no other " +
 			"tool. A basis that would start new work is provisional on its first call: after the receipt, reassess from scratch " +
-			"in one more assess_request call before using any app tool. For every other basis, question must be empty. Do not " +
+			"in one more assess_request call and copy its assessmentReviewToken into reviewToken. This challenge proves the " +
+			"second decision was made after seeing the first result. On the first call, reviewToken must be empty. For every " +
+			"other basis, question must be empty. Do not " +
 			"call this for a prose-only conversational response.",
 		InputSchema: settaToolSchema(map[string]any{
 			"basis": settaToolEnum(
@@ -114,7 +124,13 @@ func (assessment *directorTurnAssessment) tool(requestUserChoice SettaTool) Sett
 				"description": "One concise outcome-defining question for missing_outcome_authority, " +
 					"or an empty string for every other basis.",
 			},
-		}, []string{"basis", "evidence", "question"}),
+			"reviewToken": map[string]any{
+				"type":      "string",
+				"maxLength": maxDirectorAssessmentReviewTokenBytes,
+				"description": "Empty on the first call. For a provisional work assessment, copy the exact " +
+					"assessmentReviewToken returned by the first receipt into the second call.",
+			},
+		}, []string{"basis", "evidence", "question", "reviewToken"}),
 		Handler: assessment.handle(requestUserChoice),
 	}
 }
@@ -137,6 +153,16 @@ func (assessment *directorTurnAssessment) handle(requestUserChoice SettaTool) Se
 				Summary: "This request was already assessed. Continue from the accepted assessment.",
 			}, nil
 		}
+		if !assessment.provisional && payload.ReviewToken != "" {
+			return directorAssessmentRetryReceipt(
+				fmt.Errorf("the first assessment call requires an empty reviewToken"),
+			), nil
+		}
+		if assessment.provisional && payload.ReviewToken != assessment.reviewToken {
+			return directorAssessmentRetryReceipt(
+				fmt.Errorf("the reassessment requires the assessmentReviewToken from the provisional receipt"),
+			), nil
+		}
 
 		if payload.Basis == directorAssessmentMissingOutcomeAuthority {
 			encoded, err := json.Marshal(settaRequestUserChoiceArguments{Question: payload.Question})
@@ -154,7 +180,8 @@ func (assessment *directorTurnAssessment) handle(requestUserChoice SettaTool) Se
 		if payload.Basis != directorAssessmentNonWorkOrControl && !assessment.provisional {
 			assessment.provisional = true
 			return SettaToolReceipt{
-				Tool: directorAssessRequestTool,
+				Tool:                  directorAssessRequestTool,
+				AssessmentReviewToken: assessment.reviewToken,
 				Summary: "This work assessment is provisional. Reassess from scratch once more before any app tool. " +
 					"If the request neither states the observable completion contract nor delegates every material choice " +
 					"to an identified authority that uniquely resolves it, revise to missing_outcome_authority and ask one question.",
@@ -208,6 +235,12 @@ func (arguments directorAssessmentArguments) validate() error {
 		maxDirectorAssessmentEvidenceBytes,
 	); err != nil {
 		return err
+	}
+	if len(arguments.ReviewToken) > maxDirectorAssessmentReviewTokenBytes {
+		return fmt.Errorf(
+			"Director assessment review token exceeds %d bytes",
+			maxDirectorAssessmentReviewTokenBytes,
+		)
 	}
 	switch arguments.Basis {
 	case directorAssessmentNonWorkOrControl,
