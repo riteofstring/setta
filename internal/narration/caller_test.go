@@ -711,7 +711,7 @@ func assertCallerProviderRequest(
 	if len(request.Input) != wantInputBytes {
 		t.Fatalf("provider input bytes = %d, want %d", len(request.Input), wantInputBytes)
 	}
-	if request.Invocation.Model != "gpt-5.4-mini" || request.Invocation.ReasoningEffort != "low" ||
+	if request.Invocation.Model != "gpt-5.4-mini" || request.Invocation.ReasoningEffort != "high" ||
 		request.Invocation.PermissionMode != agent.PermissionModeReadOnly || request.Invocation.ApprovalMode != agent.ApprovalModeNever {
 		t.Fatalf("provider narrator invocation = %+v", request.Invocation)
 	}

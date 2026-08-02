@@ -58,7 +58,7 @@ func DefaultNarratorRoleProfile() RoleProfile {
 		Role:            RoleNarrator,
 		Provider:        ProviderCodex,
 		ModelSelection:  ModelSelection{Mode: ModelSelectionExact, ModelID: &modelID},
-		ReasoningEffort: ReasoningEffortLow,
+		ReasoningEffort: ReasoningEffortHigh,
 		PermissionProfile: PermissionProfile{
 			ApprovalPolicy:            ApprovalPolicyNever,
 			ProviderPermissionProfile: ":read-only",
