@@ -11,7 +11,7 @@ import (
 	"setta/internal/conversation"
 )
 
-func TestModelResolverUsesIndependentBalancedNarratorDefault(t *testing.T) {
+func TestModelResolverUsesIndependentLightweightNarratorDefault(t *testing.T) {
 	profiles := &modelResolverProfileSource{}
 	catalog := &modelResolverCatalog{}
 	resolver := newTestModelResolver(t, profiles, catalog)
@@ -24,11 +24,11 @@ func TestModelResolverUsesIndependentBalancedNarratorDefault(t *testing.T) {
 	if !reflect.DeepEqual(profiles.builtIn, wantProfile) || !reflect.DeepEqual(resolution.RequestedProfile, wantProfile) {
 		t.Fatalf("narrator default profile = %+v/%+v, want %+v", profiles.builtIn, resolution.RequestedProfile, wantProfile)
 	}
-	if resolution.Invocation.Model != "gpt-5.6-terra" || resolution.Invocation.ReasoningEffort != "medium" {
-		t.Fatalf("narrator invocation = %+v, want gpt-5.6-terra/medium", resolution.Invocation)
+	if resolution.Invocation.Model != "gpt-5.4-mini" || resolution.Invocation.ReasoningEffort != "low" {
+		t.Fatalf("narrator invocation = %+v, want gpt-5.4-mini/low", resolution.Invocation)
 	}
-	if resolution.Settings.ModelID != "gpt-5.6-terra" || resolution.Settings.ReasoningEffort != conversation.ReasoningEffortMedium {
-		t.Fatalf("narrator settings = %+v, want gpt-5.6-terra/medium", resolution.Settings)
+	if resolution.Settings.ModelID != "gpt-5.4-mini" || resolution.Settings.ReasoningEffort != conversation.ReasoningEffortLow {
+		t.Fatalf("narrator settings = %+v, want gpt-5.4-mini/low", resolution.Settings)
 	}
 	assertRestrictedNarratorInvocation(t, resolution.Invocation)
 

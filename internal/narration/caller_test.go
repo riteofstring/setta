@@ -548,7 +548,7 @@ func TestCallerRetainsAttemptMetadataWhenOutputValidationFails(t *testing.T) {
 	}
 	if result.RequestID != "narrator-invalid-output-audit" || result.Generation != 7 ||
 		result.Kind != RequestKindProjection || result.Trigger != conversation.NarrationTriggerPlanChanged ||
-		result.ConversationID != source.conversation.ID || result.Model.Settings.ModelID != "gpt-5.6-terra" ||
+		result.ConversationID != source.conversation.ID || result.Model.Settings.ModelID != "gpt-5.4-mini" ||
 		result.ProviderThreadID == "" || result.ProviderTurnID == "" || result.InputBytes != bundle.InputBytes ||
 		result.OutputBytes != len(providerOutput) || !reflect.DeepEqual(result.StructuredOutput, providerOutput) {
 		t.Fatalf("failed-call audit metadata = %+v", result)
@@ -711,7 +711,7 @@ func assertCallerProviderRequest(
 	if len(request.Input) != wantInputBytes {
 		t.Fatalf("provider input bytes = %d, want %d", len(request.Input), wantInputBytes)
 	}
-	if request.Invocation.Model != "gpt-5.6-terra" || request.Invocation.ReasoningEffort != "medium" ||
+	if request.Invocation.Model != "gpt-5.4-mini" || request.Invocation.ReasoningEffort != "low" ||
 		request.Invocation.PermissionMode != agent.PermissionModeReadOnly || request.Invocation.ApprovalMode != agent.ApprovalModeNever {
 		t.Fatalf("provider narrator invocation = %+v", request.Invocation)
 	}

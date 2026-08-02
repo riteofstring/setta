@@ -60,7 +60,7 @@ func TestRoleConfigurationServiceReadsAndUpdatesIndependentGlobalProfiles(t *tes
 	}
 	resetNarrator := roleConfigurationProfile(t, configuration, RoleNarrator)
 	if resetNarrator.Override != nil || resetNarrator.EffectiveSource != RoleProfileSourceBuiltIn ||
-		resetNarrator.Resolved.ModelID != "gpt-5.6-terra" {
+		resetNarrator.Resolved.ModelID != "gpt-5.4-mini" {
 		t.Fatalf("reset narrator = %+v", resetNarrator)
 	}
 }

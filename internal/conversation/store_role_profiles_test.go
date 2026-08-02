@@ -17,7 +17,7 @@ func TestReadEffectiveRoleProfileAppliesEveryScopeInPrecedenceOrder(t *testing.T
 	})
 
 	builtIn := DefaultNarratorRoleProfile()
-	assertEffectiveRoleProfileModel(t, store, conversation, builtIn, "gpt-5.6-terra")
+	assertEffectiveRoleProfileModel(t, store, conversation, builtIn, "gpt-5.4-mini")
 
 	global := narratorOverride(RoleProfileScopeGlobal, "", "gpt-narrator-global", ReasoningEffortMedium)
 	persistRoleProfileTestMutation(t, store, "set-global-narrator-profile", func(transaction *WriteTransaction) error {
