@@ -94,21 +94,25 @@ The branch must still:
 
 Retain or adapt only the development-tooling baseline needed by this TypeScript/React project:
 
-- Exact-pinned pnpm workspace metadata and lockfile behavior, with a private root workspace and private package manifests while distribution remains undecided.
+- An exact Node version in `.node-version`, an exact pnpm `packageManager` declaration, exact-pinned pnpm workspace metadata and lockfile behavior, and private root and package manifests while distribution remains undecided.
+- A minimal `.gitattributes`, `.gitignore`, and `.editorconfig` for line endings, generated output, dependencies, test artifacts, local environment files, and editor consistency. Recreate these for the new tree rather than copying application-specific ignore rules.
+- A rewritten `AGENTS.md` scoped to this TypeScript library, documenting ownership boundaries, the no-compatibility stance, exact dependency pins, required quality and audit commands, package-boundary rules, accessibility, visual verification, and performance expectations.
 - Prettier formatting and import organization.
 - ESLint for TypeScript and React, including the current fail-at-10 cyclomatic-complexity guard for production and test code.
 - Strict TypeScript type-checking, including unused-symbol and unchecked-index protections.
 - Knip dead-code, unused-export, unused-file, and dependency checks through a direct project-specific configuration rather than Setta's generated-code cleanup loop.
 - File-length enforcement using the current initial limits of 1,000 lines for production TypeScript and 1,200 lines for tests, plus non-failing hotspot reports for complexity and file length.
-- Vitest, Playwright, package build, local pack, and consumer-fixture commands.
+- Vitest, a backend-free Playwright harness that starts the playground directly, automated accessibility assertions, representative visual baselines, focused performance scenarios, package build, local pack, and consumer-fixture commands. Automated accessibility scanning supplements rather than replaces keyboard completion, focus, accessible-name, role, state, announcement, zoom, and reduced-motion assertions.
+- Package-contract checks for declared exports, generated declarations, the CSS entrypoint, tree shaking, local tarball contents, an unrelated consumer build, and accidental imports of source files or internal modules. Generate a reviewable public-API report from declarations; before the initial milestone, changes are allowed but must be intentional.
 - Supply-chain checks for exact direct pins, manifest/lockfile consistency, frozen installs, declared package contents, dependency licenses, and explicitly approved dependency lifecycle scripts.
 - pnpm's `minimumReleaseAge` configured to 10,080 minutes, or seven days, for every external direct and transitive dependency, with `minimumReleaseAgeStrict: true` and `minimumReleaseAgeIgnoreMissingTime: false` so the resolver never silently falls back to a younger version or accepts missing publication metadata.
 - Registry-backed verification of the complete loaded lockfile with `trustLockfile: false`, so a lockfile produced outside the normal resolution path cannot bypass the age policy. A `minimumReleaseAgeExclude` exception must name one exact package and version with a rationale, owner, and expiry; do not use permanent package-name or package-family exclusions.
+- pnpm dependency-trust checks with `trustPolicy: no-downgrade` and `blockExoticSubdeps: true`. Any `trustPolicyExclude` entry or direct Git/tarball dependency requires one exact package and version or immutable source, a rationale, owner, and expiry.
 - A network-backed vulnerability-audit command covering runtime and development dependencies. High or critical findings fail; every lower-severity finding is reported and must be explicitly triaged rather than silently ignored. Suppressions require a narrow advisory ID, rationale, owner, and expiry.
 - A machine-readable dependency inventory generated from the lockfile for audit evidence. Artifact signing, registry provenance, and publication attestations remain deferred with distribution.
 - One fast quality entrypoint that checks changed files by default and supports explicit staged, file-list, and full-project modes.
 
-Preserve the behavior and thresholds of the useful current tooling, but rewrite its path discovery for the blank branch. Do not carry `activate.sh`, Python or Go quality dependencies, Setta generation and cleanup steps, application-specific Knip fix loops, OpenAPI tooling, plugin tooling, installer/runtime scripts, deployment scripts, release scripts, or worktree helpers merely because the current wrappers reference them. The retained tooling must run from a clean checkout of the blank branch with only Node and the exact-pinned package-manager/toolchain prerequisites documented by that branch. Keep deterministic, offline-capable checks in the normal quality path; expose registry-backed lockfile-age verification and vulnerability auditing as separate required commands so a network outage cannot masquerade as a code-quality failure.
+Preserve the behavior and thresholds of the useful current tooling, but rewrite its path discovery for the blank branch. Do not carry `activate.sh`, Python or Go quality dependencies, Setta generation and cleanup steps, application-specific Knip fix loops, OpenAPI tooling, plugin tooling, installer/runtime scripts, deployment scripts, release scripts, worktree helpers, current GitHub workflows, Git hooks, application-wide ignore files, or backend-coupled browser runners merely because the current wrappers reference them. Reimplement the useful policy from `audit_supply_chain.sh` with pnpm-native settings and small Node-owned checks instead of carrying its Python/Go orchestration. Do not copy either fork wholesale. The retained tooling must run from a clean checkout of the blank branch with only Node and the exact-pinned package-manager/toolchain prerequisites documented by that branch. Keep deterministic, offline-capable checks in the normal quality path; expose registry-backed lockfile-age and trust verification plus vulnerability auditing as separate required commands so a network outage cannot masquerade as a code-quality failure.
 
 ### Greenfield implementation stance
 
@@ -119,6 +123,7 @@ Treat this package as a clean implementation, not a refactor of the current Sett
 - Assume most current UI implementation code will be discarded. Preserve behavior only when it is intentionally selected through characterization, product review, and the new package boundary.
 - Use the current Setta UI as behavioral evidence and a source of isolated pure algorithms, not as the component tree, state model, public API, or dependency graph to carry forward.
 - Do not confuse discarding the current component and state architecture with discarding its interaction kernel. The existing section DnD code contains required zoom coordination, collision hysteresis, nested-target resolution, multi-selection geometry, preview, and move-planning behavior that upstream libraries do not provide. Preserve those outcomes and port naturally package-owned pure algorithms where that is clearer and safer than recreating them from memory.
+- Before removing the current application files from the working tree, prepare a compact evidence manifest naming the recorded source commit, relevant files and symbols, retained behavior scenarios, executable fixture or characterization-test destinations, and third-party license obligations. Include it in the blank-slate replacement commit. Git history remains the source archive; the new branch retains only the manifest, generic test vectors, intentionally ported pure algorithms, and their tests.
 - Do not add backward compatibility, legacy support, data migrations, transitional adapters, old-field aliases, dual read/write paths, compatibility fallbacks, or feature-flagged old/new implementations.
 - Do not preserve current Setta project-file compatibility, frontend imports, state shapes, generated types, CSS conventions, or XYFlow store contracts.
 - If a current behavior is valuable, specify it in the new package's tests and implement it against the new model. Similar-looking code is reusable only when it is already pure, smaller than a clean implementation, correctly licensed, and naturally fits the new ownership boundary.
@@ -1013,9 +1018,10 @@ The playground may use its own styling system, but it must consume the exported 
 - Keep the Setta-family dependency count at one package.
 - Do not depend on Setta applications, generated clients, or a Setta SDK.
 - Do not introduce a backend merely to reuse current behavior.
-- Pin an exact pnpm version that supports strict minimum-release-age and loaded-lockfile verification. Set `minimumReleaseAge: 10080`, `minimumReleaseAgeStrict: true`, `minimumReleaseAgeIgnoreMissingTime: false`, and `trustLockfile: false`; commit the lockfile, require frozen installs, and reject manifest/lockfile drift.
+- Pin an exact pnpm version that supports strict minimum-release-age and loaded-lockfile verification. Set `minimumReleaseAge: 10080`, `minimumReleaseAgeStrict: true`, `minimumReleaseAgeIgnoreMissingTime: false`, `trustPolicy: no-downgrade`, `trustLockfile: false`, and `blockExoticSubdeps: true`; commit the lockfile, require frozen installs, and reject manifest/lockfile drift.
 - Apply the seven-day age floor to external direct and transitive dependencies. Any emergency `minimumReleaseAgeExclude` bypass is limited to one exact package and version and records its rationale, owner, and expiry.
 - Re-run pnpm's registry-backed supply-chain verification against the complete loaded lockfile so a dependency resolved through another environment cannot bypass the age policy.
+- Reject dependency trust downgrades and exotic transitive sources. A `trustPolicyExclude` entry or direct dependency on Git or a tarball requires an exact package/version or immutable source plus a rationale, owner, and expiry; broad exclusions and movable references are forbidden.
 - Deny dependency lifecycle scripts unless one has a specific reviewed need and appears in a narrow allowlist.
 - Audit runtime and development dependencies for known vulnerabilities, licenses, and unexpected transitive changes; record any advisory exception by ID with a rationale, owner, and expiry.
 - Generate a machine-readable dependency inventory from the lockfile and include all required third-party attribution material in local package verification.
@@ -1123,8 +1129,12 @@ Produce:
 - A dedicated blank-slate implementation branch in this working directory, created from a recorded clean `main` commit without another worktree.
 - A minimal private pnpm workspace containing only the package, playground, consumer fixture, documentation, and selected project-appropriate development tooling.
 - A tooling carryover inventory that maps each retained policy and threshold to a blank-branch configuration or script and explicitly rejects application/runtime tooling that is not needed.
+- Minimal new-tree `.gitattributes`, `.gitignore`, `.editorconfig`, `.node-version`, package-manager declaration, and a rewritten package-specific `AGENTS.md`; none is copied wholesale from the application tree.
 - A blank consumer fixture with no Setta aliases.
 - A reference inventory classifying current code as reusable pure logic or behavioral evidence, with application-coupled UI excluded from the implementation base.
+- A committed evidence manifest tied to the recorded source commit, plus generic executable fixtures for zoom geometry, collision hysteresis, nested targeting, selection-root normalization, preview stability, and move planning. Each fixture identifies its current source behavior and any copied-code attribution without retaining the old component or store.
+- A self-contained Node/Vite playground runner and Playwright configuration with no Go, Python, authentication, generated API, or Setta runtime bootstrap; representative screenshot, performance, keyboard, focus, accessible-name/role/state, announcement, zoom, reduced-motion, and automated accessibility checks run through it.
+- A generated public-API report and automated package-contract suite covering declarations, subpath exports, CSS, tree shaking, tarball allowlisting, consumer installation, and forbidden internal imports.
 - The upstream XYFlow adapter representation decision and its evidence. Begin with root sections as XYFlow nodes plus package-rendered recursive DOM and require a challenger representation to prove a material advantage without losing ordered layout, nested scrolling, all-depth selection, accessibility, or single-owner movement. The default dependency-versus-fork decision is already upstream dependency.
 - A focused upstream-adapter proof covering recursive rendering, all-depth measured geometry, selection at depth, cross-coordinate-space movement, nested resizing, transient ancestor lift, scroll isolation, fit readiness, focus-induced browser scrolling, and high-frequency rerender behavior.
 - A geometry-index proof showing that root and descendant registration, updates, and cleanup produce one workbench-coordinate source for marquee, selection bounds, focus/fit, collision, canvas drops, and any nested minimap summary.
@@ -1141,17 +1151,21 @@ Produce:
 - Baseline interaction and performance notes.
 - An explicit list of package-owned types.
 - Import-boundary checks.
-- Exact-pinning, strict seven-day minimum-release-age, frozen-lockfile, dependency-lifecycle-script, license, local-package-contents, dependency-inventory, registry-backed loaded-lockfile verification, and vulnerability-audit commands with documented failure and exception policies.
+- Exact-pinning, strict seven-day minimum-release-age, no-trust-downgrade, exotic-transitive-source blocking, frozen-lockfile, dependency-lifecycle-script, license, local-package-contents, dependency-inventory, registry-backed loaded-lockfile verification, and vulnerability-audit commands with documented failure and exception policies.
 
 Gate:
 
 - The branch contains no current Setta application, backend, plugin, generated API, deployment, installer, release, or migration implementation.
+- The repository pins Node and pnpm exactly, contains only new-tree hygiene configuration, and has package-specific `AGENTS.md` instructions with no stale application paths or commands.
 - The empty package builds, tests, and packs.
 - The consumer fixture installs the packed artifact.
 - Formatting, linting, strict type-checking, dead-code, complexity, file-length, unit-test, build, local-pack, and package-boundary checks run through the blank branch's own Node-based quality entrypoint.
+- The playground and Playwright harness start from Node-only commands. Automated accessibility scanning passes, and explicit keyboard completion, focus restoration, accessible name/role/state, dynamic announcement, 200% zoom, and reduced-motion checks cover the representative workflow.
+- The public-API report is reviewable, and the package-contract suite proves every declared subpath, declaration, CSS entrypoint, tree-shaken consumer build, tarball allowlist, and forbidden-internal-import boundary.
 - A frozen install succeeds from the checked-in lockfile; every direct dependency is exactly pinned; dependency lifecycle scripts are denied unless explicitly reviewed and allowlisted.
 - pnpm rejects external direct and transitive dependencies published less than seven days earlier, rejects missing publication times, and re-verifies the complete loaded lockfile against the same threshold rather than trusting it.
 - Every `minimumReleaseAgeExclude` entry names one exact package and version, rationale, owner, and expiry; package-name, pattern, or permanent exclusions fail verification.
+- pnpm rejects a dependency trust downgrade and exotic transitive source. Every `trustPolicyExclude` entry and direct Git/tarball dependency is immutable, narrowly documented, owned, and expiring.
 - The local package-contents audit and machine-readable dependency inventory are reproducible from the clean checkout.
 - The vulnerability audit covers runtime and development dependencies, fails on unwaived high or critical advisories, reports lower severities for triage, and contains no unbounded or unexplained suppression.
 - No Setta application import is available to the package.
@@ -1166,6 +1180,7 @@ Gate:
 - The upstream dnd-kit proof uses public APIs, keeps package contracts free of dnd-kit types, and records every custom behavior that remains package-owned.
 - Optimistic DOM sorting remains disabled unless the proof demonstrates stable constrained scrolling, unchanged target hysteresis, and exact preview/commit parity.
 - License obligations are understood before source is copied.
+- The evidence manifest, generic test vectors, intentionally ported pure algorithms, and associated notices are sufficient to reproduce each retained interaction outcome without either legacy fork or application component being present.
 - The required interaction kernel is explicit and reproducible without depending on memory or visual guesswork; deleting the current implementation cannot delete its only executable specification.
 
 ### Phase 1: Serializable canvas shell
@@ -1385,6 +1400,7 @@ Complete:
 
 - API review and naming cleanup.
 - Package exports.
+- A generated declaration-based public-API report reviewed for intentional exposure; it is a review artifact, not a compatibility promise or generator-drift test.
 - Generated declaration files.
 - Package CSS entrypoint.
 - README quickstart.
@@ -1396,7 +1412,7 @@ Complete:
 - Theming guide.
 - Accessibility and keyboard guide.
 - Performance report.
-- Browser visual verification.
+- Browser visual, keyboard, accessibility, and performance verification through the self-contained playground harness.
 - Consumer-fixture installation from a locally packed artifact.
 - Third-party dependency and source-license audit, attribution record, machine-readable dependency inventory, minimum-release-age audit, and vulnerability-audit results.
 - A verified private manifest with no registry publishing or release-automation configuration.
@@ -1408,6 +1424,7 @@ Gate:
 - The package contains no compatibility, migration, legacy, dual-path, or transitional code for the current Setta frontend.
 - Focused unit, integration, E2E, accessibility, performance, package-boundary, and deterministic supply-chain checks pass.
 - The complete external dependency lockfile satisfies the seven-day minimum-release-age policy except for narrow, owned, unexpired exact-version exceptions.
+- Dependency trust has not downgraded, exotic transitive sources are blocked, and any direct immutable-source or exact-version trust exception is narrow, owned, and unexpired.
 - A current network-backed vulnerability audit passes the documented policy, or every non-passing advisory has a narrow, owned, expiring exception.
 - The playground demonstrates the complete primary workflow.
 
@@ -1558,11 +1575,13 @@ Run browser verification through the documented CDP workflow. Visual review must
 - Verify every direct dependency is exactly pinned, peer dependencies are intentional, and a frozen install matches the manifest and lockfile.
 - Verify pnpm's resolver rejects newly published external direct and transitive dependencies until they are at least seven days old, fails strictly when no eligible version exists, and rejects missing publication times.
 - With `trustLockfile: false`, verify the complete loaded lockfile against registry publication times and reject any younger dependency without an exact-version `minimumReleaseAgeExclude` entry containing a rationale, owner, and expiry.
+- With `trustPolicy: no-downgrade`, reject weaker publication trust than earlier releases; verify every `trustPolicyExclude` entry is exact, justified, owned, and expiring.
+- With `blockExoticSubdeps: true`, reject exotic transitive sources and require explicit review of any immutable direct Git or tarball dependency.
 - Deny dependency lifecycle scripts by default and maintain a narrow reviewed allowlist for any package that genuinely requires one.
 - Run a license-policy check and generate a machine-readable dependency inventory from the lockfile.
 - Run the network-backed vulnerability audit against runtime and development dependencies, failing on unwaived high or critical advisories and reporting all lower severities for explicit triage.
 - Verify every vulnerability suppression names one advisory, rationale, owner, and expiry; do not use broad package, severity, or permanent ignores.
-- Verify package exports, declarations, CSS, source maps, third-party attribution, and tree shaking.
+- Generate a declaration-based API report for review, then verify package exports, declarations, CSS, source maps, third-party attribution, and tree shaking against the built artifact rather than a source-tree alias.
 - Prevent imports from Setta applications through automated boundary checks.
 - Verify root and package manifests remain private and contain no `publishConfig`, registry credentials, or release tasks.
 
@@ -1631,7 +1650,7 @@ The initial workbench package milestone is done when:
 - Host validation can reject a section parent-child move without corrupting state.
 - Host validation can reject an item move without corrupting state.
 - The playground persists and restores the complete example.
-- Package boundaries, accessibility, performance, visual behavior, third-party licensing, deterministic supply-chain checks, the seven-day dependency release-age floor, vulnerability policy, and local packed-consumer installation are verified.
+- Package boundaries, accessibility, performance, visual behavior, third-party licensing, deterministic supply-chain checks, the seven-day dependency release-age floor, no-trust-downgrade and exotic-source policies, vulnerability policy, and local packed-consumer installation are verified.
 - Manifests remain private and no registry publication, remote-repository move, or release automation is part of the milestone.
 - No domain-specific application or future protocol is required to explain or use the package.
 
@@ -1671,7 +1690,7 @@ This plan does not include:
 
 The first implementation task should stop after one visible vertical slice:
 
-1. From a clean `main`, record the source commit and create a dedicated blank-slate branch in this working directory. Replace the branch contents with only the minimal private package, playground, unrelated consumer fixture, documentation, and selected Node-based quality and supply-chain tooling; do not create another worktree or copy the current frontend structure.
+1. From a clean `main`, record the source commit and create a dedicated blank-slate branch in this working directory. Before removing the application files, prepare the source-linked evidence manifest; include it while replacing the branch contents with only the minimal private package, playground, unrelated consumer fixture, documentation, exact Node/pnpm pins, new-tree hygiene configuration, rewritten `AGENTS.md`, and selected Node-based quality and supply-chain tooling. Do not create another worktree or copy the current frontend structure.
 2. Define and validate the minimal recursive `WorkspaceDocument`, including titles, presentation, fixed/content dimensions, grow/scroll child layout, canonical child lists, orientation, cycle rejection, and derived parent lookup.
 3. Through the documented-public-API upstream XYFlow adapter, render a pannable and zoomable canvas with the root-node projection boundary, one configurable gesture policy, host-content wheel isolation, an independently toggleable snap grid, scoped light/dark theme tokens, the default toolbar, and a host-injected control.
 4. Register note and container section kinds with searchable creation metadata, then smart-place and inline-rename a note from the context menu.
@@ -1681,7 +1700,7 @@ The first implementation task should stop after one visible vertical slice:
 8. Marquee-select two top-level notes through the package selection model, move them while preserving relative offsets, group and ungroup them, and verify transient active stacking plus one explicit persistent stacking command and one document change per completed gesture.
 9. Resize, return to content sizing, lock, minimize, expand, recolor, and change the chrome of a note, then serialize and restore its hierarchy, orientation, size modes, overflow, lock, minimized state, title, and presentation.
 10. Render and navigate the representative document through the root minimap and shared-geometry-backed `focusSection`/`fitSections` controller helpers, including a nested target and offscreen interactive focus without independent browser scrolling.
-11. Verify the locally packed package in the consumer fixture, inspect its contents, run deterministic dependency and license checks, generate the lockfile-derived dependency inventory, and run the separate registry-backed minimum-release-age and vulnerability audits.
-12. Record the XYFlow adapter representation, geometry-index, interaction-owner, transient-projection, public-store-access, and focus/scroll outcomes; any proven missing upstream seam; the exact dnd-kit adapter and package-owned interaction-kernel boundary; license obligations; and the selected current Setta DnD, selection, smart-placement, gesture, resize/content-size, overflow, snap, lock, minimize, title, toolbar, minimap, chrome, color, and appearance behavior matrix.
+11. Verify the locally packed package in the consumer fixture, inspect its contents and public-API report, run deterministic dependency and license checks, generate the lockfile-derived dependency inventory, and run the separate registry-backed minimum-release-age, trust-downgrade, exotic-source, and vulnerability audits.
+12. Complete the source-linked evidence manifest and generic executable behavior fixtures. Record the XYFlow adapter representation, geometry-index, interaction-owner, transient-projection, public-store-access, and focus/scroll outcomes; any proven missing upstream seam; the exact dnd-kit adapter and package-owned interaction-kernel boundary; license obligations; and the selected current Setta DnD, selection, smart-placement, gesture, resize/content-size, overflow, snap, lock, minimize, title, toolbar, minimap, chrome, color, and appearance behavior matrix.
 
 Do not begin the item-tree implementation until this slice passes its package-boundary, browser, accessibility, recursive-structure, selection-root, target-stability, smart-placement, gesture-arbitration, sizing/overflow, snapping, theme-scoping, minimap, extension-surface, and coordinate-correctness checks. Horizontal reordering, every cross-depth direction, full keyboard parity, all grid patterns, complete light/dark visual coverage, external-drop integration, and every batch-movement direction remain later phase requirements even if this first slice proves only representative paths.
