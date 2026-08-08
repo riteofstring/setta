@@ -1,25 +1,24 @@
 #!/bin/bash
-cd .. && \
-find backend/setta/types/generated/ -name "*.py" -not -name "__init__.py" -delete && \
-cd frontend && \
-python -m generation.generate_unions dependency_keys && \
-python -m generation.generate_unions dependency_values && \
-python -m generation.generate_unions chart_settings && \
-python -m generation.generate_unions chat_messages && \
-python -m generation.generate_shared_modifier && \
-python -m generation.generate_impl_field_literals && \
-python -m generation.generate_args_as_typed_dicts && \
-python -m generation.generate_user_default_impls && \
-python -m generation.generate_impl_creation_fns && \
-python -m generation.generate_settings_state && \
-python -m generation.generate_unions unions && \
-python -m generation.generate_effective_impls && \
-python -m generation.generate_unions websocket_unions && \
-python -m generation.generate_unions clipboard_data && \
-python -m generation.generate_listener_endpoints && \
-python -m generation.convert_pydantic_to_js && \
-python -m generation.convert_constants_to_js && \
-python -m generation.convert_endpoints && \
-cd .. && \
-./format_code.sh
-echo "Done!"
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+source "${ROOT_DIR}/scripts/progress.sh"
+
+cd "${ROOT_DIR}"
+progress_log "Resetting generated Python type files."
+find backend/setta/types/generated/ -name "*.py" \
+  -not -name "__init__.py" \
+  -not -name "go_shared_constants.py" \
+  -not -name "go_shared_types.py" \
+  -delete
+
+cd "${ROOT_DIR}/frontend"
+progress_run --no-heartbeat "Go-owned frontend bindings generation" bash ./generation/generate_go_frontend_bindings.sh
+progress_run --no-heartbeat "Go-owned Python types generation" bash ./generation/generate_go_python_types.sh
+
+cd "${ROOT_DIR}"
+progress_run "Python formatting" ./format_code.sh
+progress_run --no-heartbeat "App-subsystem SDK generated input sync" bash ./frontend/generation/sync_app_subsystem_sdk_generated_inputs.sh
+progress_log "Generation complete."

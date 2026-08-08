@@ -14,7 +14,7 @@ from typing import Any, Callable
 from setta.api import SettaListener
 from setta.api.listener import ListenerCallbackBuilder
 from setta.logging.config import configure_listener_logging
-from setta.types.dependency_key import (
+from setta.types.protocol import (
     SectionDependencyKey,
     SectionParamDependencyKey,
 )

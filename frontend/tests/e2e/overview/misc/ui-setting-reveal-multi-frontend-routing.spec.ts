@@ -7,7 +7,7 @@ import {
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-const WATCH_CODE_ENABLED_SETTING_ID = "core.watch_code.enabled";
+const WATCH_CODE_FILES_SETTING_ID = "plugin::setta-watch-code::files";
 const FRONTEND_IDENTITY_MESSAGE_TYPE = "FrontendIdentity";
 const FRONTEND_IDENTITY_GLOBAL_KEY = "__settaFrontendIdentity";
 const FRONTEND_IDENTITY_HISTORY_GLOBAL_KEY = "__settaFrontendIdentityHistory";
@@ -126,7 +126,8 @@ async function installFrontendIdentityCapture(page: Page): Promise<void> {
                 typeof payload.content?.frontendAffinityToken === "string" &&
                 payload.content.frontendAffinityToken.trim() !== ""
               ) {
-                const nextIdentity = payload.content.frontendAffinityToken.trim();
+                const nextIdentity =
+                  payload.content.frontendAffinityToken.trim();
                 targetWindow[globalKey] = nextIdentity;
                 const history = targetWindow[historyKey];
                 if (Array.isArray(history)) {
@@ -208,7 +209,7 @@ test("reveal_ui_setting targets the initiating frontend in multi-tab sessions", 
       projectContext.projectConfigId,
       "reveal_ui_setting",
       {
-        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        settingId: WATCH_CODE_FILES_SETTING_ID,
         durationMs: 600,
       },
       frontendIdOne,
@@ -230,7 +231,7 @@ test("reveal_ui_setting targets the initiating frontend in multi-tab sessions", 
       projectContext.projectConfigId,
       "reveal_ui_setting",
       {
-        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        settingId: WATCH_CODE_FILES_SETTING_ID,
         durationMs: 600,
       },
       frontendIdTwo,
@@ -242,7 +243,7 @@ test("reveal_ui_setting targets the initiating frontend in multi-tab sessions", 
       .toBeGreaterThan(0);
     await expect.poll(async () => revealHighlightsOne.count()).toBe(0);
   } finally {
-    await cleanupIsolatedProject(page, projectContext.projectConfigId);
+    await cleanupIsolatedProject(page, projectContext);
     await secondPage.close();
   }
 });
@@ -261,7 +262,7 @@ test("reveal_ui_setting fails fast when frontend websocket id is unavailable", a
       projectContext.projectConfigId,
       "reveal_ui_setting",
       {
-        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        settingId: WATCH_CODE_FILES_SETTING_ID,
         durationMs: 8000,
       },
       requestedFrontendId,
@@ -301,73 +302,24 @@ test("reveal_ui_setting invalidates stale affinity after websocket reconnect in 
       projectContext.projectConfigId,
       "reveal_ui_setting",
       {
-        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        settingId: WATCH_CODE_FILES_SETTING_ID,
         durationMs: 900,
       },
       initialFrontendIdentity,
     );
     expect(staleIdentityReveal.emittedRevealCount).toBe(0);
     expect(staleIdentityReveal.statuses[0]?.status).toBe("failed");
-    expect(staleIdentityReveal.statuses[0]?.error?.code).toBe("mutation_failed");
+    expect(staleIdentityReveal.statuses[0]?.error?.code).toBe(
+      "mutation_failed",
+    );
     expect(staleIdentityReveal.statuses[0]?.error?.message).toContain(
       initialFrontendIdentity,
     );
     expect(staleIdentityReveal.statuses[0]?.error?.message).not.toContain(
       "Timed out waiting for frontend reveal confirmation",
     );
-
   } finally {
     await cleanupIsolatedProject(page, projectContext);
-  }
-});
-
-test("reveal_ui_setting accepts share-scoped calls that include frontend affinity metadata", async ({
-  page,
-}) => {
-  await setOverviewTab(page, "Overview");
-  await installFrontendIdentityCapture(page);
-  const projectContext = await openIsolatedProject(page);
-  const revealHighlightsOne = page.locator(
-    ".setta-ui-setting-reveal-highlight",
-  );
-  const pageOneUrl = page.url();
-  const frontendIdOne = await waitForFrontendIdentity(page);
-
-  const secondPage = await page.context().newPage();
-  await setOverviewTab(secondPage, "Overview");
-  await installFrontendIdentityCapture(secondPage);
-  await secondPage.goto(pageOneUrl, { waitUntil: "domcontentloaded" });
-  const revealHighlightsTwo = secondPage.locator(
-    ".setta-ui-setting-reveal-highlight",
-  );
-  await waitForFrontendIdentity(secondPage);
-
-  try {
-    const revealResult = await callMcpTool<RevealUISettingResult>(
-      page,
-      projectContext.projectConfigId,
-      "reveal_ui_setting",
-      {
-        settingId: WATCH_CODE_ENABLED_SETTING_ID,
-        durationMs: 1200,
-      },
-      frontendIdOne,
-      "share-session-e2e",
-    );
-    expect(revealResult.emittedRevealCount).toBe(1);
-    expect(revealResult.statuses[0]?.status).toBe("revealed");
-
-    await expect
-      .poll(async () => revealHighlightsOne.count())
-      .toBeGreaterThan(0);
-    await expect.poll(async () => revealHighlightsTwo.count()).toBe(0);
-
-    await expect
-      .poll(async () => revealHighlightsOne.count(), { timeout: 5000 })
-      .toBe(0);
-  } finally {
-    await cleanupIsolatedProject(page, projectContext.projectConfigId);
-    await secondPage.close();
   }
 });
 
@@ -386,11 +338,10 @@ test("reveal_ui_setting ignores malformed frontend-affinity header when agentic 
       projectContext.projectConfigId,
       "reveal_ui_setting",
       {
-        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        settingId: WATCH_CODE_FILES_SETTING_ID,
         durationMs: 1000,
       },
       frontendIdentity,
-      "share-session-e2e",
       {
         "x-setta-frontend-affinity-token": "   ",
       },
@@ -399,11 +350,11 @@ test("reveal_ui_setting ignores malformed frontend-affinity header when agentic 
     expect(revealResult.statuses[0]?.status).toBe("revealed");
     await expect.poll(async () => revealHighlights.count()).toBeGreaterThan(0);
   } finally {
-    await cleanupIsolatedProject(page, projectContext.projectConfigId);
+    await cleanupIsolatedProject(page, projectContext);
   }
 });
 
-test("share-scoped reveal_ui_setting succeeds without affinity when only one frontend is connected", async ({
+test("reveal_ui_setting succeeds without affinity when only one frontend is connected", async ({
   page,
 }) => {
   await setOverviewTab(page, "Overview");
@@ -416,52 +367,14 @@ test("share-scoped reveal_ui_setting succeeds without affinity when only one fro
       projectContext.projectConfigId,
       "reveal_ui_setting",
       {
-        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        settingId: WATCH_CODE_FILES_SETTING_ID,
         durationMs: 1000,
       },
-      undefined,
-      "share-session-e2e",
     );
     expect(revealResult.emittedRevealCount).toBe(1);
     expect(revealResult.statuses[0]?.status).toBe("revealed");
     await expect.poll(async () => revealHighlights.count()).toBeGreaterThan(0);
   } finally {
-    await cleanupIsolatedProject(page, projectContext.projectConfigId);
-  }
-});
-
-test("share-scoped reveal_ui_setting rejects whitespace frontend affinity ids at ingress", async ({
-  page,
-}) => {
-  await setOverviewTab(page, "Overview");
-  const projectContext = await openIsolatedProject(page);
-
-  try {
-    const response = await page.request.post(
-      `${BACKEND_ORIGIN}/__setta__/tools/call`,
-      {
-        data: {
-          tool: "reveal_ui_setting",
-          arguments: {
-            settingId: WATCH_CODE_ENABLED_SETTING_ID,
-            durationMs: 1200,
-          },
-          agenticContext: {
-            projectConfigId: projectContext.projectConfigId,
-            frontendAffinityToken: "   ",
-            allowUnscoped: true,
-            shareSessionId: "share-session-e2e",
-          },
-        },
-        timeout: 15000,
-      },
-    );
-    expect(response.status()).toBe(422);
-    const responseText = await response.text();
-    expect(responseText).toContain(
-      "frontendAffinityToken must be a non-empty string when provided.",
-    );
-  } finally {
-    await cleanupIsolatedProject(page, projectContext.projectConfigId);
+    await cleanupIsolatedProject(page, projectContext);
   }
 });

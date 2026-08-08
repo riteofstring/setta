@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
 import {
   getCurrEffectiveSectionImplOfType,
   processProjectStateUpdateFromBackend,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
+import { markChatStreamActive } from "state/aiStreamingTracker";
 import { resetProjectStores } from "state/utils";
 import {
   ChatRoleEnum,
@@ -12,7 +15,6 @@ import {
   createMessageTextContent,
   createMessageThinkingContent,
   createProjectConfig,
-  createUserDefaultChatSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 import {
@@ -24,27 +26,47 @@ import {
   it,
   vi,
 } from "vitest";
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_create_top_level_section: vi.fn(),
-    route_set_chat_section_state: vi.fn(),
+    createTopLevelSection: vi.fn(),
+    setChatSectionState: vi.fn(),
   };
 });
-
 let receiveLLMResponseChunk: typeof import("./ai").receiveLLMResponseChunk;
 let useProjectState: typeof import("state/definitions").useProjectState;
-
 const projectConfigId = "project-1";
 const sectionId = "section-1";
 const variantId = "variant-1";
 const implId = "impl-1";
 const chatId = "chat-1";
-
+const MANAGED_CHAT_STREAM_CONTRACT_FIXTURE_PATH = new URL(
+  "../../../../tests/fixtures/llm/managed_chat_stream_contract_cases.json",
+  import.meta.url,
+);
+type ManagedChatStreamContractCase = {
+  name: string;
+  initialState: {
+    messages: Array<Record<string, unknown>>;
+    waitingForResponse: boolean;
+    toolCallArguments: Record<string, string>;
+  };
+  chunks: Array<Record<string, unknown>>;
+  expectedState: {
+    messages: Array<Record<string, unknown>>;
+    waitingForResponse: boolean;
+    toolCallArguments: Record<string, string>;
+  };
+};
+const MANAGED_CHAT_STREAM_CONTRACT_CASES = (
+  JSON.parse(
+    readFileSync(MANAGED_CHAT_STREAM_CONTRACT_FIXTURE_PATH, "utf-8"),
+  ) as {
+    cases: ManagedChatStreamContractCase[];
+  }
+).cases;
 function seedChatSection({ chatId: initialChatId }: { chatId: string | null }) {
   const sectionCore = createCore({
     id: sectionId,
@@ -58,16 +80,16 @@ function seedChatSection({ chatId: initialChatId }: { chatId: string | null }) {
     impl: implId,
     nonPresetImpls: [],
   });
-  const sectionImpl = createChatSectionImpl(
-    createUserDefaultChatSectionImpl({ chatId: initialChatId }),
-    {
+  const sectionImpl = createChatSectionImpl({
+    ...{ chatId: initialChatId },
+    ...{
       id: implId,
       chatId: initialChatId,
       managed: true,
       engineConfigId: "engine-1",
       thinking: true,
     },
-  );
+  });
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({ id: projectConfigId });
     state.sections = { [sectionId]: sectionCore };
@@ -77,32 +99,43 @@ function seedChatSection({ chatId: initialChatId }: { chatId: string | null }) {
     state.previewSectionVariantMap = {};
   });
 }
-
+function cloneContractValue<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+function stripMessageCreatedAt(
+  message: Record<string, unknown>,
+): Record<string, unknown> {
+  const { createdAt: _createdAt, ...rest } = message;
+  return rest;
+}
 describe("section chat streaming updates", () => {
   beforeAll(async () => {
     const definitions = await import("state/definitions");
     useProjectState = definitions.useProjectState;
     receiveLLMResponseChunk = (await import("./ai")).receiveLLMResponseChunk;
   });
-
   beforeEach(async () => {
     resetProjectStores();
     seedChatSection({ chatId });
-    const route_create_top_level_section = (
-      await import("utils/generatedEndpoints")
-    ).route_create_top_level_section as unknown as vi.Mock;
-    route_create_top_level_section.mockReturnValue({
+    const createTopLevelSection = (await import("openapi/http"))
+      .createTopLevelSection as unknown as vi.Mock;
+    const setChatSectionState = (await import("openapi/http"))
+      .setChatSectionState as unknown as vi.Mock;
+    createTopLevelSection.mockReturnValue({
       status: 500,
       hasResponse: true,
       data: null,
     });
+    setChatSectionState.mockReturnValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
   });
-
   afterEach(() => {
     resetProjectStores();
     vi.clearAllMocks();
   });
-
   it("updates section state when streaming includes sectionId", () => {
     const assistantMessage = {
       id: "msg-1",
@@ -111,16 +144,14 @@ describe("section chat streaming updates", () => {
       attachments: [],
       tool_calls: null,
     };
-
     receiveLLMResponseChunk({
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        type: StreamingEventTypeEnum.message_finalized,
         message: assistantMessage,
       },
     });
-
     const impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,
@@ -139,7 +170,6 @@ describe("section chat streaming updates", () => {
     ).toBe(true);
     expect(impl.waitingForResponse).toBe(false);
   });
-
   it("routes streaming to section by chatId when sectionId is missing", () => {
     const assistantMessage = {
       id: "msg-1b",
@@ -148,16 +178,14 @@ describe("section chat streaming updates", () => {
       attachments: [],
       tool_calls: null,
     };
-
     receiveLLMResponseChunk({
       chatId,
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        type: StreamingEventTypeEnum.message_finalized,
         message: assistantMessage,
       },
     });
-
     const impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,
@@ -175,7 +203,6 @@ describe("section chat streaming updates", () => {
       }),
     ).toBe(true);
   });
-
   it("rebuilds chatId lookup when chatId changes", () => {
     const initialMessage = {
       id: "msg-lookup-1",
@@ -188,11 +215,10 @@ describe("section chat streaming updates", () => {
       chatId,
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        type: StreamingEventTypeEnum.message_finalized,
         message: initialMessage,
       },
     });
-
     const updatedChatId = "chat-2";
     useProjectState.setState((state) => {
       const impl = state.sectionImpls[implId];
@@ -201,7 +227,6 @@ describe("section chat streaming updates", () => {
       }
       impl.chatId = updatedChatId;
     });
-
     const updatedMessage = {
       id: "msg-lookup-2",
       role: ChatRoleEnum.assistant,
@@ -213,11 +238,10 @@ describe("section chat streaming updates", () => {
       chatId: updatedChatId,
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        type: StreamingEventTypeEnum.message_finalized,
         message: updatedMessage,
       },
     });
-
     const impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,
@@ -227,12 +251,10 @@ describe("section chat streaming updates", () => {
       impl.messages.some((message) => message.id === updatedMessage.id),
     ).toBe(true);
   });
-
   it("persists section state on finalized messages", async () => {
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
-    route_set_chat_section_state.mockResolvedValue({
+    const setChatSectionState = (await import("openapi/http"))
+      .setChatSectionState as unknown as vi.Mock;
+    setChatSectionState.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
@@ -244,29 +266,25 @@ describe("section chat streaming updates", () => {
       attachments: [],
       tool_calls: null,
     };
-
     receiveLLMResponseChunk({
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        type: StreamingEventTypeEnum.message_finalized,
         message: assistantMessage,
       },
     });
-
-    expect(route_set_chat_section_state).toHaveBeenCalledTimes(1);
-    const payload = route_set_chat_section_state.mock.calls[0][0];
+    expect(setChatSectionState).toHaveBeenCalledTimes(1);
+    const payload = setChatSectionState.mock.calls[0][0];
     expect(payload.sectionId).toBe(sectionId);
     expect(payload.projectConfigId).toBe(projectConfigId);
     expect(payload.state.messages).toHaveLength(1);
     expect(payload.state.waitingForResponse).toBe(false);
   });
-
   it("persists section state on tool results", async () => {
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
-    route_set_chat_section_state.mockResolvedValue({
+    const setChatSectionState = (await import("openapi/http"))
+      .setChatSectionState as unknown as vi.Mock;
+    setChatSectionState.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
@@ -283,29 +301,26 @@ describe("section chat streaming updates", () => {
       started_at: "2026-02-01T00:00:00.000Z",
       completed_at: "2026-02-01T00:00:01.000Z",
     };
-
     receiveLLMResponseChunk({
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.TOOL_RESULT,
+        type: StreamingEventTypeEnum.tool_result,
         result: toolResult,
       },
     });
-
-    expect(route_set_chat_section_state).toHaveBeenCalledTimes(1);
-    const payload = route_set_chat_section_state.mock.calls[0][0];
+    expect(setChatSectionState).toHaveBeenCalledTimes(1);
+    const payload = setChatSectionState.mock.calls[0][0];
     expect(payload.sectionId).toBe(sectionId);
     expect(payload.projectConfigId).toBe(projectConfigId);
     expect(payload.state.messages).toHaveLength(1);
   });
-
   it("preserves assistant text when finalized tool-call message has empty content", () => {
     receiveLLMResponseChunk({
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: {
           id: "msg-tool-call",
           role: ChatRoleEnum.assistant,
@@ -319,7 +334,7 @@ describe("section chat streaming updates", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.DELTA,
+        type: StreamingEventTypeEnum.delta,
         message_id: "msg-tool-call",
         content: [{ type: "text_delta", index: 0, text: "Launching tasks" }],
       },
@@ -328,7 +343,7 @@ describe("section chat streaming updates", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        type: StreamingEventTypeEnum.message_finalized,
         message: {
           id: "msg-tool-call",
           role: ChatRoleEnum.assistant,
@@ -347,7 +362,6 @@ describe("section chat streaming updates", () => {
         },
       },
     });
-
     const impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,
@@ -366,13 +380,12 @@ describe("section chat streaming updates", () => {
       ),
     ).toBe(true);
   });
-
   it("keeps placeholder thinking deltas and replaces placeholder ids on finalized messages", () => {
     receiveLLMResponseChunk({
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.DELTA,
+        type: StreamingEventTypeEnum.delta,
         message_id: "resp_placeholder_1",
         content: [
           {
@@ -389,7 +402,7 @@ describe("section chat streaming updates", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        type: StreamingEventTypeEnum.message_finalized,
         message: {
           id: "msg-finalized-thinking",
           role: ChatRoleEnum.assistant,
@@ -399,7 +412,6 @@ describe("section chat streaming updates", () => {
         },
       },
     });
-
     const impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,
@@ -409,7 +421,6 @@ describe("section chat streaming updates", () => {
       (message) => message.id === "resp_placeholder_1",
     );
     expect(placeholderMessage).toBeUndefined();
-
     const finalizedMessage = impl.messages.find(
       (message) => message.id === "msg-finalized-thinking",
     );
@@ -422,8 +433,7 @@ describe("section chat streaming updates", () => {
       }),
     ]);
   });
-
-  it("keeps streaming content when backend updates arrive mid-stream", () => {
+  it("replaces section messages with backend state when backend updates arrive mid-stream", () => {
     const userMessage = {
       id: "user-1",
       role: ChatRoleEnum.user,
@@ -434,15 +444,16 @@ describe("section chat streaming updates", () => {
       const impl = state.sectionImpls[implId];
       if (impl && impl.type === SectionTypeEnum.Chat) {
         impl.messages = [userMessage];
+        impl.inputText = "Draft preserved locally";
+        impl.toolCallArguments = { local: "{}" };
         impl.waitingForResponse = true;
       }
     });
-
     receiveLLMResponseChunk({
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: {
           id: "msg-stream",
           role: ChatRoleEnum.assistant,
@@ -456,12 +467,11 @@ describe("section chat streaming updates", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.DELTA,
+        type: StreamingEventTypeEnum.delta,
         message_id: "msg-stream",
         content: [{ type: "text_delta", index: 0, text: "Streaming" }],
       },
     });
-
     let impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,
@@ -478,36 +488,149 @@ describe("section chat streaming updates", () => {
         );
       }),
     ).toBe(true);
-
     const backendState = JSON.parse(JSON.stringify(useProjectState.getState()));
-    const backendImpl = backendState.sectionImpls[implId];
-    if (backendImpl && backendImpl.type === SectionTypeEnum.Chat) {
-      backendImpl.messages = [userMessage];
-      backendImpl.waitingForResponse = true;
-      backendImpl.toolCallArguments = {};
-    }
-
+    setCurrEffectiveSectionImplValue<"ChatSection">(backendState, sectionId, {
+      messages: [userMessage],
+      inputText:
+        "Backend stale draft that should not replace the local draft input",
+      waitingForResponse: false,
+      toolCallArguments: { remote: "{}" },
+    });
     processProjectStateUpdateFromBackend({
       projectState: backendState,
       completedOpIds: [],
       pendingOpIds: [],
     });
-
     impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,
       SectionTypeEnum.Chat,
     );
-    expect(
-      impl.messages.some((message) => {
-        if (message.role !== ChatRoleEnum.assistant) {
-          return false;
-        }
-        return message.content?.some(
-          (content) =>
-            content.type === "text" && content.text.includes("Streaming"),
-        );
-      }),
-    ).toBe(true);
+    expect(impl.messages).toEqual([userMessage]);
+    expect(impl.inputText).toBe("Draft preserved locally");
+    expect(impl.toolCallArguments).toEqual({
+      local: "{}",
+      remote: "{}",
+    });
+    expect(impl.waitingForResponse).toBe(true);
   });
+  it("lets backend tool call arguments win for overlapping ids during mid-stream backend projection updates", () => {
+    useProjectState.setState((state) => {
+      const impl = state.sectionImpls[implId];
+      if (impl && impl.type === SectionTypeEnum.Chat) {
+        impl.toolCallArguments = {
+          shared: `{"task":"Local stale overlay"}`,
+          localOnly: `{"task":"Still local only"}`,
+        };
+        impl.waitingForResponse = true;
+      }
+    });
+    markChatStreamActive(chatId, sectionId);
+    const backendState = JSON.parse(JSON.stringify(useProjectState.getState()));
+    setCurrEffectiveSectionImplValue<"ChatSection">(backendState, sectionId, {
+      toolCallArguments: {
+        shared: `{"task":"Backend canonical"}`,
+        remoteOnly: `{"task":"Backend only"}`,
+      },
+      waitingForResponse: false,
+    });
+    processProjectStateUpdateFromBackend({
+      projectState: backendState,
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+    const impl = getCurrEffectiveSectionImplOfType(
+      useProjectState.getState(),
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    expect(impl.toolCallArguments).toEqual({
+      shared: `{"task":"Backend canonical"}`,
+      remoteOnly: `{"task":"Backend only"}`,
+      localOnly: `{"task":"Still local only"}`,
+    });
+    expect(impl.waitingForResponse).toBe(true);
+  });
+  it("keeps local managed draft input while letting backend state win once the stream is inactive", () => {
+    const backendMessage = {
+      id: "backend-msg",
+      role: ChatRoleEnum.assistant,
+      content: [createMessageTextContent({ text: "Authoritative backend" })],
+      attachments: [],
+      tool_calls: null,
+    };
+    useProjectState.setState((state) => {
+      const impl = state.sectionImpls[implId];
+      if (impl && impl.type === SectionTypeEnum.Chat) {
+        impl.messages = [
+          {
+            id: "local-msg",
+            role: ChatRoleEnum.user,
+            content: [createMessageTextContent({ text: "Local speculative" })],
+            attachments: [],
+          },
+        ];
+        impl.inputText = "Draft";
+        impl.toolCallArguments = { local: "{}" };
+        impl.waitingForResponse = true;
+      }
+    });
+    const backendState = JSON.parse(JSON.stringify(useProjectState.getState()));
+    setCurrEffectiveSectionImplValue<"ChatSection">(backendState, sectionId, {
+      messages: [backendMessage],
+      inputText:
+        "Backend stale draft input that is longer than the local draft",
+      waitingForResponse: false,
+      toolCallArguments: { remote: "{}" },
+    });
+    processProjectStateUpdateFromBackend({
+      projectState: backendState,
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+    const impl = getCurrEffectiveSectionImplOfType(
+      useProjectState.getState(),
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    expect(impl.messages).toEqual([backendMessage]);
+    expect(impl.inputText).toBe("Draft");
+    expect(impl.toolCallArguments).toEqual({ remote: "{}" });
+    expect(impl.waitingForResponse).toBe(false);
+  });
+  it.each(MANAGED_CHAT_STREAM_CONTRACT_CASES)(
+    "matches managed chat stream contract fixture $name",
+    (fixtureCase) => {
+      useProjectState.setState((state) => {
+        const impl = state.sectionImpls[implId];
+        if (!impl || impl.type !== SectionTypeEnum.Chat) {
+          return;
+        }
+        impl.messages = cloneContractValue(fixtureCase.initialState.messages);
+        impl.waitingForResponse = fixtureCase.initialState.waitingForResponse;
+        impl.toolCallArguments = cloneContractValue(
+          fixtureCase.initialState.toolCallArguments,
+        );
+      });
+      for (const chunk of fixtureCase.chunks) {
+        receiveLLMResponseChunk({
+          chatId,
+          sectionId,
+          chunk: cloneContractValue(chunk) as never,
+        });
+      }
+      const impl = getCurrEffectiveSectionImplOfType(
+        useProjectState.getState(),
+        sectionId,
+        SectionTypeEnum.Chat,
+      );
+      expect({
+        messages: impl.messages.map((message) =>
+          stripMessageCreatedAt(message as Record<string, unknown>),
+        ),
+        waitingForResponse: impl.waitingForResponse,
+        toolCallArguments: impl.toolCallArguments ?? {},
+      }).toEqual(fixtureCase.expectedState);
+    },
+  );
 });

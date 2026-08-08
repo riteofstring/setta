@@ -1,7 +1,7 @@
 import type {
-  GitCommitChangedFile,
-  GitStatusEntry,
-} from "utils/generatedTypes";
+  GitreadCommitChangedFile as CommitChangedFile,
+  GitreadStatusEntry as StatusEntry,
+} from "openapi/http";
 
 export type GitFileStatusCategory =
   | "added"
@@ -22,7 +22,7 @@ function firstStatusChar(statusCode: string): string {
   return trimmed[0] ?? " ";
 }
 
-export function gitFileStatusCategoryFromCode(
+function gitFileStatusCategoryFromCode(
   statusCode: string,
 ): GitFileStatusCategory {
   const code = firstStatusChar(statusCode).toUpperCase();
@@ -42,7 +42,7 @@ export function gitFileStatusCategoryFromCode(
 }
 
 export function gitFileStatusCategoryFromEntry(
-  entry: GitStatusEntry,
+  entry: StatusEntry,
 ): GitFileStatusCategory {
   if (entry.kind === "untracked") {
     return "added";
@@ -56,7 +56,7 @@ export function gitFileStatusCategoryFromEntry(
 }
 
 export function gitFileStatusCategoryFromCommitFile(
-  file: GitCommitChangedFile,
+  file: CommitChangedFile,
 ): GitFileStatusCategory {
   return gitFileStatusCategoryFromCode(file.status);
 }

@@ -1,20 +1,19 @@
 import { expect, test, type Page } from "@playwright/test";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import {
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   ensureAppReady,
   openIsolatedProject,
-  postBackend,
+  setCodeFileBindingFromFrontend,
   seedLocalStorage,
 } from "../helpers";
 
 const MIN_UI_EDITOR_WIDTH = 425;
 const OVERFLOW_TOLERANCE_PX = 2;
-const LONG_CODE_PATH =
-  "/tmp/setta-e2e/some/very/deeply/nested/path/that/should/truncate/inside/the/section/config/pane/src/components/a/really_long_file_name_that_needs_to_truncate_cleanly.tsx";
-
-type CreateTopLevelSectionResponse = {
-  sectionId?: string;
-};
+const LONG_CODE_FILE_NAME =
+  "a_really_long_file_name_that_needs_to_truncate_cleanly.py";
 
 test.use({ viewport: { width: 1600, height: 1000 } });
 
@@ -29,24 +28,32 @@ test("code section file path stays clipped at narrow and wide pane widths", asyn
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
+  if (!workspaceRoot) {
+    throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
+  }
 
   try {
-    const sectionId = await createCodeSection(page, projectContext.projectConfigId);
+    const sectionId = await createCodeSection(
+      page,
+      projectContext.projectConfigId,
+    );
+    const codeFileBindingPath = await createLongCodeFilePath(workspaceRoot);
     await setCodeFileBinding(
       page,
       projectContext.projectConfigId,
       sectionId,
-      LONG_CODE_PATH,
+      codeFileBindingPath,
     );
 
     await focusSection(page, sectionId);
 
-    const filePathInput = page.getByTestId("code-area-settings-file-path-input");
+    const filePathInput = page.getByTestId(
+      "code-area-settings-file-path-input",
+    );
     await expect(filePathInput).toBeVisible();
     const filePathValue = await filePathInput.inputValue();
-    expect(filePathValue).toContain(
-      "really_long_file_name_that_needs_to_truncate_cleanly.tsx",
-    );
+    expect(filePathValue).toContain(LONG_CODE_FILE_NAME);
     expect(filePathValue.length).toBeGreaterThan(120);
 
     const narrowPaneWidth = await getUiEditorPaneWidth(page);
@@ -55,17 +62,22 @@ test("code section file path stays clipped at narrow and wide pane widths", asyn
 
     // Request an intentionally oversized width so PaneContainer clamps to the
     // largest width supported by the current viewport.
-    const targetWideWidth = await page.evaluate(() => Math.ceil(window.innerWidth));
+    const targetWideWidth = await page.evaluate(() =>
+      Math.ceil(window.innerWidth),
+    );
     await setUiEditorWidth(page, targetWideWidth);
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
     await focusSection(page, sectionId);
 
     const widePaneWidth = await getUiEditorPaneWidth(page);
-    const maxSupportedWidth = await page.evaluate(() => window.innerWidth / 2.1);
+    const maxSupportedWidth = await page.evaluate(
+      () => window.innerWidth / 2.1,
+    );
     expect(widePaneWidth).toBeLessThanOrEqual(maxSupportedWidth + 2);
     await assertCodePathInputDoesNotBleed(page, "wide");
   } finally {
+    await cleanupLongCodeFilePath(workspaceRoot);
     await cleanupIsolatedProject(page, projectContext);
   }
 });
@@ -74,14 +86,10 @@ async function createCodeSection(
   page: Page,
   projectConfigId: string,
 ): Promise<string> {
-  const response = await postBackend<CreateTopLevelSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Code",
-    },
-  );
+  const response = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType: "Code",
+  });
   if (!response?.sectionId) {
     throw new Error("Missing sectionId when creating code section.");
   }
@@ -94,13 +102,46 @@ async function setCodeFileBinding(
   sectionId: string,
   canonicalPath: string,
 ): Promise<void> {
-  await postBackend(page, "/setCodeFileBinding", {
+  await setCodeFileBindingFromFrontend(page, {
     projectConfigId,
     sectionId,
     binding: {
       canonical_path: canonicalPath,
       access_mode: "read_write",
     },
+  });
+}
+
+async function createLongCodeFilePath(workspaceRoot: string): Promise<string> {
+  const absolutePath = path.join(
+    workspaceRoot,
+    "setta-code-path-overflow",
+    "some",
+    "very",
+    "deeply",
+    "nested",
+    "path",
+    "that",
+    "should",
+    "truncate",
+    "inside",
+    "the",
+    "section",
+    "config",
+    "pane",
+    "src",
+    "components",
+    LONG_CODE_FILE_NAME,
+  );
+  await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+  await fs.writeFile(absolutePath, "print('bound code path overflow test')\n");
+  return path.relative(workspaceRoot, absolutePath).replaceAll(path.sep, "/");
+}
+
+async function cleanupLongCodeFilePath(workspaceRoot: string): Promise<void> {
+  await fs.rm(path.join(workspaceRoot, "setta-code-path-overflow"), {
+    recursive: true,
+    force: true,
   });
 }
 
@@ -179,7 +220,10 @@ async function assertCodePathInputDoesNotBleed(
     const filePathInput = document.querySelector(
       '[data-testid="code-area-settings-file-path-input"]',
     );
-    if (!(pane instanceof HTMLElement) || !(filePathInput instanceof HTMLElement)) {
+    if (
+      !(pane instanceof HTMLElement) ||
+      !(filePathInput instanceof HTMLElement)
+    ) {
       return null;
     }
 
@@ -212,7 +256,9 @@ async function assertCodePathInputDoesNotBleed(
     };
   });
   if (!stats) {
-    throw new Error(`Unable to evaluate code path overflow stats (${contextLabel}).`);
+    throw new Error(
+      `Unable to evaluate code path overflow stats (${contextLabel}).`,
+    );
   }
 
   expect(

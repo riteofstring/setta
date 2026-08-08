@@ -1,4 +1,4 @@
-from setta.auth import bootstrap as bootstrap_mod
+import setta.auth.bootstrap as bootstrap_mod
 from setta.utils.constants import C
 
 

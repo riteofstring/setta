@@ -1,29 +1,33 @@
 import { expect, test } from "@playwright/test";
 import {
-  ensureAppReady,
+  cleanupIsolatedProject,
   createCallableSection,
-  getCurrentProjectConfigId,
+  ensureAppReady,
+  openIsolatedProject,
   postBackend,
+  setCallableFromFrontend,
 } from "../helpers";
 
 const CALLABLE_NAME = "sorted";
 
 test("callable params render after set_callable", async ({ page }) => {
   await ensureAppReady(page);
-  const projectConfigId = await getCurrentProjectConfigId(page);
-  const sectionId = await createCallableSection(page, projectConfigId);
+  const projectContext = await openIsolatedProject(page);
+  const sectionId = await createCallableSection(
+    page,
+    projectContext.projectConfigId,
+  );
 
   try {
-    await postBackend(page, "/setCallable", {
-      projectConfigId,
+    const setCallableResponse = await setCallableFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
       sectionId,
       callableName: CALLABLE_NAME,
       refetchParams: true,
     });
+    await expect(setCallableResponse).toMatchObject({ lspStatus: "matched" });
 
-    const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
+    const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
     await expect(sectionNode).toBeVisible();
 
     const paramContainer = sectionNode.locator(
@@ -39,9 +43,7 @@ test("callable params render after set_callable", async ({ page }) => {
     await expect
       .poll(async () => {
         return await page.evaluate((id) => {
-          const param = document.querySelector(
-            `[id^="ParamContainer-${id}-"]`,
-          );
+          const param = document.querySelector(`[id^="ParamContainer-${id}-"]`);
           if (!param) {
             return false;
           }
@@ -62,8 +64,9 @@ test("callable params render after set_callable", async ({ page }) => {
       .toBe(true);
   } finally {
     await postBackend(page, "/deleteSections", {
-      projectConfigId,
+      projectConfigId: projectContext.projectConfigId,
       sectionIds: [sectionId],
     });
+    await cleanupIsolatedProject(page, projectContext);
   }
 });

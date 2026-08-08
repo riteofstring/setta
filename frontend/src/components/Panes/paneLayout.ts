@@ -514,15 +514,6 @@ export function setPaneWidthWithLayout(
   });
 }
 
-export function setPaneFullWidth(paneName: PaneName): {
-  previous: PaneLayoutState;
-  next: PaneLayoutState;
-} {
-  return applyAndSetState((state, viewportWidth) => {
-    setPaneToFullWidth(state, paneName, viewportWidth);
-  });
-}
-
 export function togglePaneFullWidth(paneName: PaneName): {
   previous: PaneLayoutState;
   next: PaneLayoutState;
@@ -530,11 +521,4 @@ export function togglePaneFullWidth(paneName: PaneName): {
   return applyAndSetState((state, viewportWidth) => {
     togglePaneFullWidthWithLayout(state, paneName, viewportWidth);
   });
-}
-
-export function resetPaneLayoutTransientStateForTests() {
-  lastNonFullPaneWidthByName[PaneNameEnum.overview] = null;
-  lastNonFullPaneWidthByName[PaneNameEnum.uiEditor] = null;
-  lastNonFullPaneWidthByName[PaneNameEnum.homeWorkspace] = null;
-  lastNonFullPaneWidthByName[PaneNameEnum.homeSelectedProject] = null;
 }

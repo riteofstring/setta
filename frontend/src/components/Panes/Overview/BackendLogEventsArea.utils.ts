@@ -1,6 +1,7 @@
-import { SettaBackendLogEvent } from "utils/generatedTypes";
+import { type BackendLogEvent } from "utils/generatedTypes";
 
-export type BackendLogSeverity = SettaBackendLogEvent["severity"];
+export type BackendLogSeverity = BackendLogEvent["severity"];
+export type BackendLogCopyStatus = "copied" | "failed";
 
 export type BackendLogColumnWidths = {
   timestamp: number;
@@ -35,34 +36,42 @@ const BACKEND_LOG_COLUMN_WIDTH_BOUNDS: Record<
   project: { min: 120, max: 380 },
 };
 
+const BACKEND_LOG_COPY_BUTTON_PRESENTATION_BY_STATUS = {
+  idle: {
+    title: "Copy message",
+    className: "text-setta-700 dark:text-setta-200",
+    iconName: "copy",
+  },
+  failed: {
+    title: "Copy failed",
+    className: "text-red-600 dark:text-red-400",
+    iconName: "copy",
+  },
+  copied: {
+    title: "Copied",
+    className: "text-blue-600 dark:text-blue-400",
+    iconName: "checkmark",
+  },
+} as const;
+
 export function isBackendLogSeverity(
   value: string,
 ): value is BackendLogSeverity {
   return Object.hasOwn(SEVERITY_ORDER, value);
 }
 
-export function clampBackendLogColumnWidth(
+export function getBackendLogCopyButtonPresentation(
+  copyStatus: BackendLogCopyStatus | null,
+) {
+  return BACKEND_LOG_COPY_BUTTON_PRESENTATION_BY_STATUS[copyStatus ?? "idle"];
+}
+
+function clampBackendLogColumnWidth(
   column: BackendLogColumnWidthName,
   width: number,
 ): number {
   const bounds = BACKEND_LOG_COLUMN_WIDTH_BOUNDS[column];
   return Math.max(bounds.min, Math.min(bounds.max, Math.round(width)));
-}
-
-export function applyBackendLogColumnResize(
-  initialWidths: BackendLogColumnWidths,
-  column: BackendLogColumnWidthName,
-  deltaX: number,
-): BackendLogColumnWidths {
-  const nextWidth = getBackendLogResizedColumnWidth(
-    initialWidths,
-    column,
-    deltaX,
-  );
-  return {
-    ...initialWidths,
-    [column]: nextWidth,
-  };
 }
 
 export function getBackendLogResizedColumnWidth(
@@ -126,9 +135,9 @@ export async function copyBackendLogMessage(
 }
 
 export function getBackendLogEventsById(
-  events: Array<SettaBackendLogEvent>,
-): Map<string, SettaBackendLogEvent> {
-  const eventsById = new Map<string, SettaBackendLogEvent>();
+  events: Array<BackendLogEvent>,
+): Map<string, BackendLogEvent> {
+  const eventsById = new Map<string, BackendLogEvent>();
   for (const event of events) {
     eventsById.set(event.id, event);
   }
@@ -136,9 +145,9 @@ export function getBackendLogEventsById(
 }
 
 export function getBackendLogEventById(
-  eventsById: Map<string, SettaBackendLogEvent>,
+  eventsById: Map<string, BackendLogEvent>,
   eventId: string | null,
-): SettaBackendLogEvent | null {
+): BackendLogEvent | null {
   if (!eventId) {
     return null;
   }
@@ -146,13 +155,13 @@ export function getBackendLogEventById(
 }
 
 export function filterEvents(
-  events: Array<SettaBackendLogEvent>,
+  events: Array<BackendLogEvent>,
   filter: {
     projectConfigId: string | null;
     minSeverity: BackendLogSeverity;
     query: string;
   },
-): Array<SettaBackendLogEvent> {
+): Array<BackendLogEvent> {
   const query = filter.query.trim().toLowerCase();
   const minSeverityValue = SEVERITY_ORDER[filter.minSeverity];
   return events.filter((event) => {

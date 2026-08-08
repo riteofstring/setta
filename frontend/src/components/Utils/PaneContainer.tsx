@@ -18,6 +18,8 @@ import {
 import { clamp } from "utils/utils";
 
 const FULL_WIDTH_BORDER_EPSILON = 2;
+type PaneLayoutState = Parameters<typeof getPaneTrueWidthFromLayoutState>[0];
+type PaneResizeCallback = ((widthDiff: number) => void) | undefined;
 
 function getPaneWidthDiff({
   paneName,
@@ -25,13 +27,140 @@ function getPaneWidthDiff({
   next,
 }: {
   paneName: PaneName;
-  previous: Parameters<typeof getPaneTrueWidthFromLayoutState>[0];
-  next: Parameters<typeof getPaneTrueWidthFromLayoutState>[0];
+  previous: PaneLayoutState;
+  next: PaneLayoutState;
 }): number {
   return (
     getPaneTrueWidthFromLayoutState(next, paneName) -
     getPaneTrueWidthFromLayoutState(previous, paneName)
   );
+}
+
+function notifyPaneResize({
+  paneName,
+  previous,
+  next,
+  onResizeStop,
+}: {
+  paneName: PaneName;
+  previous: PaneLayoutState;
+  next: PaneLayoutState;
+  onResizeStop: PaneResizeCallback;
+}) {
+  if (!onResizeStop) {
+    return;
+  }
+  onResizeStop(
+    getPaneWidthDiff({
+      paneName,
+      previous,
+      next,
+    }),
+  );
+}
+
+function getPaneWidthBounds({
+  paneName,
+  minimumWidth,
+  viewportWidth,
+}: {
+  paneName: PaneName;
+  minimumWidth: number;
+  viewportWidth: number;
+}) {
+  const maxWidth =
+    viewportWidth > 0 ? getPaneMaxWidthForViewport(viewportWidth) : 100000;
+  const baselineMinimum = getPaneMinimumWidth(paneName);
+  const effectiveMinimumWidth = Math.max(baselineMinimum, minimumWidth);
+  return {
+    maxWidth,
+    minWidth: Math.min(effectiveMinimumWidth, maxWidth),
+  };
+}
+
+function getSeamBorderClass(right: boolean, isFullWidth: boolean) {
+  if (right) {
+    return isFullWidth ? "border-l-0" : "border-l";
+  }
+  return isFullWidth ? "border-r-0" : "border-r";
+}
+
+function getPanePositionClass(right: boolean, seamBorderClass: string) {
+  if (right) {
+    return `justify-self-end left-auto pr-7 ${seamBorderClass}`;
+  }
+  return `justify-self-start right-auto pl-9 ${seamBorderClass}`;
+}
+
+function getPaneChrome({
+  right,
+  vis,
+  width,
+  maxWidth,
+  paddingClassName,
+}: {
+  right: boolean;
+  vis: boolean;
+  width: number;
+  maxWidth: number;
+  paddingClassName?: string;
+}) {
+  const isFullWidth = vis && width >= maxWidth - FULL_WIDTH_BORDER_EPSILON;
+  const seamBorderClass = getSeamBorderClass(right, isFullWidth);
+  return {
+    fullscreenButtonPositionClass: right ? "left-2 top-2" : "right-2 top-2",
+    paddingClasses: paddingClassName ?? "py-2.5",
+    positionClass: getPanePositionClass(right, seamBorderClass),
+    transformOffset: `${right ? "" : "-"}${width - CLOSED_PANE_WIDTH}px`,
+  };
+}
+
+function useNormalizedPaneWidth({
+  paneName,
+  vis,
+  width,
+  viewportWidth,
+  onResizeStop,
+}: {
+  paneName: PaneName;
+  vis: boolean;
+  width: number;
+  viewportWidth: number;
+  onResizeStop: PaneResizeCallback;
+}) {
+  const previousViewportWidthRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (viewportWidth <= 0) {
+      return;
+    }
+    if (!vis) {
+      previousViewportWidthRef.current = viewportWidth;
+      return;
+    }
+    const previousViewportWidth =
+      previousViewportWidthRef.current ?? viewportWidth;
+    previousViewportWidthRef.current = viewportWidth;
+    const normalizedWidth = normalizePaneWidthForViewportChange({
+      paneName,
+      width,
+      viewportWidth,
+      previousViewportWidth,
+    });
+    if (normalizedWidth === width) {
+      return;
+    }
+    const { previous, next } = setPaneWidthWithLayout(
+      paneName,
+      normalizedWidth,
+    );
+    notifyPaneResize({
+      paneName,
+      previous,
+      next,
+      onResizeStop,
+    });
+  }, [onResizeStop, paneName, viewportWidth, vis, width]);
 }
 
 export function PaneContainer({
@@ -55,46 +184,31 @@ export function PaneContainer({
 }) {
   const size = useWindowSize();
   const viewportWidth = size.winWidth ?? 0;
-  const maxWidth =
-    viewportWidth > 0 ? getPaneMaxWidthForViewport(viewportWidth) : 100000;
-  const baselineMinimum = getPaneMinimumWidth(paneName);
-  const effectiveMinimumWidth = Math.max(baselineMinimum, minimumWidth);
-  const minWidth = Math.min(effectiveMinimumWidth, maxWidth);
-  const previousViewportWidthRef = useRef<number | null>(null);
+  const { maxWidth, minWidth } = getPaneWidthBounds({
+    paneName,
+    minimumWidth,
+    viewportWidth,
+  });
+  const {
+    fullscreenButtonPositionClass,
+    paddingClasses,
+    positionClass,
+    transformOffset,
+  } = getPaneChrome({
+    right,
+    vis,
+    width,
+    maxWidth,
+    paddingClassName,
+  });
 
-  useEffect(() => {
-    if (viewportWidth <= 0) {
-      return;
-    }
-    if (!vis) {
-      previousViewportWidthRef.current = viewportWidth;
-      return;
-    }
-    const previousViewportWidth =
-      previousViewportWidthRef.current ?? viewportWidth;
-    previousViewportWidthRef.current = viewportWidth;
-    const normalizedWidth = normalizePaneWidthForViewportChange({
-      paneName,
-      width,
-      viewportWidth,
-      previousViewportWidth,
-    });
-    if (normalizedWidth !== width) {
-      const { previous, next } = setPaneWidthWithLayout(
-        paneName,
-        normalizedWidth,
-      );
-      if (onResizeStop) {
-        onResizeStop(
-          getPaneWidthDiff({
-            paneName,
-            previous,
-            next,
-          }),
-        );
-      }
-    }
-  }, [maxWidth, minWidth, onResizeStop, paneName, viewportWidth, vis, width]);
+  useNormalizedPaneWidth({
+    paneName,
+    vis,
+    width,
+    viewportWidth,
+    onResizeStop,
+  });
 
   function localOnResizeStop(_e, _direction, _ref, d) {
     const requestedWidth = clamp(width + d.width, minWidth, maxWidth);
@@ -102,46 +216,22 @@ export function PaneContainer({
       return;
     }
     const { previous, next } = setPaneWidthWithLayout(paneName, requestedWidth);
-    if (onResizeStop) {
-      onResizeStop(
-        getPaneWidthDiff({
-          paneName,
-          previous,
-          next,
-        }),
-      );
-    }
+    notifyPaneResize({
+      paneName,
+      previous,
+      next,
+      onResizeStop,
+    });
   }
-
-  const style = `${!right ? "-" : ""}${width - CLOSED_PANE_WIDTH}px`;
-  const isFullWidth = vis && width >= maxWidth - FULL_WIDTH_BORDER_EPSILON;
-  const seamBorderClass = right
-    ? isFullWidth
-      ? "border-l-0"
-      : "border-l"
-    : isFullWidth
-      ? "border-r-0"
-      : "border-r";
-
-  const rightCondition = right
-    ? `justify-self-end left-auto pr-7 ${seamBorderClass}`
-    : `justify-self-start right-auto pl-9 ${seamBorderClass}`;
-  const paddingClasses = paddingClassName ?? "py-2.5";
-  const fullscreenButtonPositionClass = right
-    ? "left-2 top-2"
-    : "right-2 top-2";
 
   function onExpandToFullWidth() {
     const { previous, next } = togglePaneFullWidth(paneName);
-    if (onResizeStop) {
-      onResizeStop(
-        getPaneWidthDiff({
-          paneName,
-          previous,
-          next,
-        }),
-      );
-    }
+    notifyPaneResize({
+      paneName,
+      previous,
+      next,
+      onResizeStop,
+    });
   }
 
   return (
@@ -161,8 +251,8 @@ export function PaneContainer({
         bottomLeft: false,
         topLeft: false,
       }}
-      className={`single-cell-container ${APP_PANE_Z_INDEX_CLASS_NAME} col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 border-setta-200 bg-setta-50 shadow-md transition-transform dark:border-setta-800 dark:bg-setta-900 ${paddingClasses} ${rightCondition} overflow-x-hidden overflow-y-hidden`}
-      style={{ transform: `translateX(${vis ? "0" : style})` }}
+      className={`single-cell-container ${APP_PANE_Z_INDEX_CLASS_NAME} col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 border-setta-200 bg-setta-50 shadow-md transition-transform dark:border-setta-800 dark:bg-setta-900 ${paddingClasses} ${positionClass} overflow-x-hidden overflow-y-hidden`}
+      style={{ transform: `translateX(${vis ? "0" : transformOffset})` }}
     >
       {vis ? (
         <button

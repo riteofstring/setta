@@ -12,7 +12,6 @@ import {
   createProjectConfig,
   createStateMachineStartSectionImpl,
   createTerminalSectionImpl,
-  createUserDefaultChatSectionImpl,
   type BaseSectionImplUnion,
   type Core,
   type Variant,
@@ -81,17 +80,17 @@ function buildImpl(spec: SectionSpec): BaseSectionImplUnion {
   }
 
   if (spec.type === SectionTypeEnum.Code) {
-    return createCodeSectionImpl(
-      {
+    return createCodeSectionImpl({
+      ...{
         id: spec.id,
         type: SectionTypeEnum.Code,
       },
-      {
+      ...{
         id: spec.id,
         type: SectionTypeEnum.Code,
         children: spec.children ?? [],
       },
-    );
+    });
   }
 
   if (spec.type === SectionTypeEnum.Terminal) {
@@ -102,9 +101,9 @@ function buildImpl(spec: SectionSpec): BaseSectionImplUnion {
   }
 
   if (spec.type === SectionTypeEnum.Chat) {
-    return createChatSectionImpl(
-      createUserDefaultChatSectionImpl({ chatId: null }),
-      {
+    return createChatSectionImpl({
+      ...{ chatId: null },
+      ...{
         id: spec.id,
         type: SectionTypeEnum.Chat,
         managed: true,
@@ -112,7 +111,7 @@ function buildImpl(spec: SectionSpec): BaseSectionImplUnion {
         engineConfigId: "engine-1",
         thinking: true,
       },
-    );
+    });
   }
 
   if (spec.type === SectionTypeEnum.GenPythonCode) {
@@ -120,16 +119,16 @@ function buildImpl(spec: SectionSpec): BaseSectionImplUnion {
   }
 
   if (spec.type === SectionTypeEnum.StateMachineStart) {
-    return createStateMachineStartSectionImpl(
-      {
+    return createStateMachineStartSectionImpl({
+      ...{
         machineGroupId: "workflow-main",
       },
-      {
+      ...{
         id: spec.id,
         type: SectionTypeEnum.StateMachineStart,
         machineGroupId: "workflow-main",
       },
-    );
+    });
   }
 
   throw new Error(`Unsupported test section type: ${spec.type}`);

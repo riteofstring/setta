@@ -7,7 +7,7 @@ approval_policy = "on-failure"
 command = "bash"
 args = [
 "-lc",
-"source /Users/kevin/Documents/AppDevelopment/setta.ai-improvements-3/activate.sh && python -m setta.mcp.client --backend http://127.0.0.1:8000/mcp"
+"source /Users/kevin/Documents/AppDevelopment/setta.ai-improvements-3/activate.sh && setta mcp --backend http://127.0.0.1:8000/mcp"
 ]
 
 [projects."/Users/kevin/Documents/AppDevelopment/setta"]

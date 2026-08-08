@@ -75,4 +75,25 @@ describe("dedupeInFlightJson", () => {
     resolvers[0]?.(99);
     await expect(p1).resolves.toBe(99);
   });
+
+  it("falls back when keyFn throws", async () => {
+    const cache = new Map<string, Promise<number>>();
+    let calls = 0;
+
+    const fn = async () => {
+      calls += 1;
+      return calls;
+    };
+
+    await expect(
+      dedupeInFlightJson(cache, { a: 1 }, fn, () => {
+        throw new Error("boom");
+      }),
+    ).resolves.toBe(1);
+    await expect(
+      dedupeInFlightJson(cache, { a: 1 }, fn, () => {
+        throw new Error("boom");
+      }),
+    ).resolves.toBe(2);
+  });
 });

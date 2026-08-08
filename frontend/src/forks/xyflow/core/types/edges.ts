@@ -1,9 +1,4 @@
-import type {
-  CSSProperties,
-  HTMLAttributes,
-  MouseEvent as ReactMouseEvent,
-  ReactNode,
-} from "react";
+import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
 
 export type HandleType = "source" | "target";
 
@@ -88,11 +83,6 @@ export type EdgeTextProps = HTMLAttributes<SVGElement> &
     y: number;
   };
 
-type EdgeMouseHandler = (
-  event: ReactMouseEvent<SVGGElement, MouseEvent>,
-  edgeId: string,
-) => void;
-
 export type HandleProps = {
   type: HandleType;
   position: HandlePosition;
@@ -113,8 +103,3 @@ export type WrapEdgeProps = EdgeProps & {
   onReconnect?: (connection: Connection) => void;
   isReconnectable?: boolean;
 };
-
-enum ConnectionLineType {
-  Bezier = "bezier",
-  Straight = "straight",
-}

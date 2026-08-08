@@ -6,7 +6,6 @@ import {
   deserializeChatAppGenerationByMessageId,
   getDefaultChatAppGenerationDetails,
   normalizeChatAppGenerationContext,
-  PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
   resolveChatAppGenerationContextFromMessageState,
   retainChatAppGenerationDetailsForMessages,
   serializeChatAppGenerationByMessageId,
@@ -150,17 +149,18 @@ describe("chatAppGeneration", () => {
 
     expect(serialized).toEqual({
       "msg-a": "prompt_builder",
-      "msg-b": PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+      "msg-b": "plain_chat",
     });
     expect(
       deserializeChatAppGenerationByMessageId({
         "msg-a": "prompt_builder",
-        "msg-b": PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+        "msg-b": "plain_chat",
         "msg-c": "not-a-mode",
       }),
     ).toEqual({
       "msg-a": { mode: "prompt_builder" },
       "msg-b": { mode: null },
+      "msg-c": { mode: "not-a-mode" },
     });
   });
 
@@ -216,7 +216,7 @@ describe("chatAppGeneration", () => {
         inputs: {
           chatId: "chat-2",
           appGenerationByMessageId: {
-            "msg-3": PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+            "msg-3": "plain_chat",
           },
           messages: [
             { id: "msg-3", role: "user", content: [], attachments: [] },

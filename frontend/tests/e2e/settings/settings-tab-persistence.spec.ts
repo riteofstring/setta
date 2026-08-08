@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { ViewModeConfig } from "utils/generatedTypes";
+import type { ViewMode } from "utils/generatedTypes";
 import { sortViewModes } from "utils/viewModeOrdering";
 import { ensureAppReady, postBackend } from "../helpers";
 
@@ -149,7 +149,7 @@ type ProjectStatePayload = {
   projectState: {
     projectConfig: {
       sectionVariantMap: Record<string, string>;
-      viewModes: Record<string, ViewModeConfig>;
+      viewModes: Record<string, ViewMode>;
     };
     sections: Record<
       string,

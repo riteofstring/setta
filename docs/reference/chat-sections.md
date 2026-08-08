@@ -26,12 +26,13 @@ Chat sections store the following fields on the section impl:
 
 ## Managed mode
 
-Managed mode uses the central LLM chat manager:
+Managed mode uses the Go AI routes and runtime in `internal/httpapi/llm_routes.go`,
+`internal/managedchat`, and `internal/managedllm`:
 
 - The UI blocks sends until `engineConfigId` is selected and at least one engine config is available.
 - `submitMessage` calls `route_get_llm_response` with `chatId`, `engineConfigId`, `thinking`, plus optional `agentProfileId` and `sectionId` (Chat sections pass their section id; Project Chat passes `null`).
-- Managed sends also include runtime execution settings (`permissionMode`, `searchEnabled`) and the backend injects those settings into the run prompt metadata.
-- Streaming updates arrive as `LLMStreamingResponse` events with `sectionId` set, and the frontend applies them to the chat section state.
+- Managed sends also include runtime execution settings (`permissionMode`, `searchEnabled`), and the Go runtime persists those settings onto the run inputs before provider execution starts.
+- Streaming updates arrive as `LLMStreamingResponse` events with `sectionId` set, and the frontend applies them to the chat section state from the Go live runtime.
 - "New Chat" sets `chatId` to `null`; the next send creates a new chat and updates `chatId` after the response returns.
 - Stop requests call `route_stop_llm_chat` with the active `chatId`.
   - Response includes `alreadyStopped`, plus optional `stoppedRunId` and `stoppedMessageId` for stop-state reconciliation.
@@ -44,7 +45,11 @@ The chat composer supports local slash commands and execution controls:
 - Availability by surface: Project Chat includes `/model`, `/permissions`, and `/search`; Managed Chat section includes `/model` and `/permissions`; Scriptable Chat section includes `/permissions` only (plus `/new`, `/resume`, `/help`).
 - Project Chat is the primary app-generation prompt surface. Built-in slash commands `/app-json`, `/app-image`, `/app-prompt`, and `/app-mcp` each inject a fixed baseline prompt, append any typed suffix text once, and set a deterministic `appGenerationMode`. Subsequent plain-text follow-up turns inherit that active mode until a command explicitly submits as plain chat or the user starts a new thread.
 - Project Chat also supports per-project custom prompt slash commands defined in the `Slash Commands` aux view. Each custom command stores prompt text plus a submission mode (`plain_chat` or a specific app-generation mode), so custom commands are the current override/reset path when a project needs a materially different baseline prompt or needs to drop back to plain chat.
-- For external-agent Project Chat, the composer now separates recognized slash commands from executable slash commands. Native commands discovered from current project run metadata can be recognized before authority fully loads, return local feedback, refresh authority, and then retry resolution instead of falling through as plain chat text.
+- For external-agent Project Chat, the composer separates recognized slash
+  commands from executable slash commands. Native commands discovered from
+  current project run metadata can be recognized before authority fully loads,
+  return local feedback, refresh authority, and then retry resolution instead of
+  falling through as plain chat text.
 - Slash commands are handled client-side; unavailable commands return local feedback and are not sent as LLM prompts.
 - Footer controls always show permission mode when execution controls are enabled; search toggle is shown only where `searchEnabled` is mutable in that surface.
 
@@ -92,9 +97,9 @@ Scriptable mode keeps chat state inside the section:
 
 - Chat inputs support file attachments (drag/drop, Attach button, and the Project picker in IDE mode).
 - Attachments are stored as File artifacts; messages and send payloads carry `attachments` metadata (`id`, `name`, `mimeType`, `size`).
-- Limits use the shared attachment policy scope `chat`, driven by `C.CHAT_ATTACHMENTS_MAX_FILES` (0 disables, negative = unlimited), `C.CHAT_ATTACHMENTS_MAX_FILE_BYTES`, and `C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES`.
+- Limits use the shared attachment policy scope `chat`: max files, max bytes per file, and optional MIME-prefix filtering.
 - In share mode, attachments require `allowParamChanges`; the UI disables attachment actions and the backend enforces the same policy on artifact updates.
-- Clients resolve download URLs via `Route.GET_ATTACHMENT_DOWNLOAD_URL(S)`; tokens expire after `C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS`.
+- Clients resolve download URLs via `Route.GET_ATTACHMENT_DOWNLOAD_URL(S)`; tokens expire after the shared attachment-token TTL.
 - The chat UI previews attachments in-place; clicking an attachment opens a preview dialog (images, text, PDF, audio, video). Large files may be truncated or show a "preview unavailable" message.
 - Managed mode inlines attachments into the LLM prompt: text files are inserted as `[Attachment: ...]` blocks, supported images (JPEG/PNG/GIF/WebP) are embedded as data URLs, and other files are represented by metadata placeholders.
 - Unsupported image types are rejected client-side and skipped during attachment import.
@@ -123,16 +128,13 @@ behalf of a scoped Chat section are restricted to the sections reachable via
 these edges. If a Chat section has no edges, it effectively has no tool access.
 Use Project Chat (unscoped) for full access.
 
-Linked chat edges also back the `invoke_linked_chat` MCP tool:
+Linked chat edges are surfaced in scoped chat context and executable-target
+discovery through the current Go-owned MCP surface.
 
-- It can invoke only a directly linked target from a `chat_chat` edge.
-- It requires section-scoped agentic context; unscoped Project Chat cannot call
-  it implicitly.
-- The target chat section reuses or persists its managed `chatId` binding before
-  starting the run.
-- Recursion is bounded to one nested hop and cycles are rejected explicitly.
-- Runtime policy still applies: linked-chat invocation requires LLM access and
-  run-start authorization.
+- Only directly linked `chat_chat` targets with executable chat configuration
+  are advertised in linked-chat context blocks.
+- Project Chat remains unscoped and does not gain extra tool access from these
+  links.
 
 ## Workflow integration
 

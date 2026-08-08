@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   chooseWorkspaceHistorySettaFilesLocation,
-  normalizeResolvedSettaFilesLocation,
   normalizeSettaFilesLocation,
 } from "./settaFilesLocation";
 
@@ -10,12 +9,6 @@ describe("settaFilesLocation", () => {
     expect(normalizeSettaFilesLocation(undefined)).toBe("auto");
     expect(normalizeSettaFilesLocation("  GLOBAL ")).toBe("global");
     expect(normalizeSettaFilesLocation("nope")).toBe("auto");
-  });
-
-  it("normalizes resolved setta files location values", () => {
-    expect(normalizeResolvedSettaFilesLocation(undefined)).toBeNull();
-    expect(normalizeResolvedSettaFilesLocation(" local ")).toBe("local");
-    expect(normalizeResolvedSettaFilesLocation("auto")).toBeNull();
   });
 
   it("stores auto in history when requested is auto", () => {
@@ -41,6 +34,15 @@ describe("settaFilesLocation", () => {
       chooseWorkspaceHistorySettaFilesLocation({
         requested: "global",
         resolved: null,
+      }),
+    ).toBe("global");
+  });
+
+  it("falls back to requested explicit value when resolved location is invalid", () => {
+    expect(
+      chooseWorkspaceHistorySettaFilesLocation({
+        requested: "global",
+        resolved: "auto",
       }),
     ).toBe("global");
   });

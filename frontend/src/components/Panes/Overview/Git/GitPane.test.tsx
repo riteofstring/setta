@@ -1,8 +1,8 @@
+import type { GitreadStatusResponse as StatusResponse } from "openapi/http";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useGitStore } from "state/git";
-import { createGetGitStatusResponse } from "utils/generatedTypes";
 import { GitPane } from "./GitPane";
 
 let mockCanEditLayout = true;
@@ -30,6 +30,23 @@ function renderPane(
   return renderToStaticMarkup(<GitPane {...props} />);
 }
 
+function createStatusResponse(
+  overrides: Partial<StatusResponse> = {},
+): StatusResponse {
+  return {
+    repo: {
+      isGitRepo: true,
+      repoRoot: "/repo",
+      headBranch: "main",
+      headCommit: "abc1234",
+    },
+    entries: [],
+    isTruncated: false,
+    worktrees: [],
+    ...overrides,
+  };
+}
+
 describe("GitPane", () => {
   beforeEach(() => {
     mockCanEditLayout = true;
@@ -44,16 +61,7 @@ describe("GitPane", () => {
     useGitStore.setState((state) => ({
       ...state,
       status: {
-        response: createGetGitStatusResponse({
-          repo: {
-            isGitRepo: true,
-            repoRoot: "/repo",
-            headBranch: "main",
-            headCommit: "abc1234",
-          },
-          entries: [],
-          isTruncated: true,
-        }),
+        response: createStatusResponse({ isTruncated: true }),
         diffAvailabilityByPath: new Map(),
         isLoading: false,
         error: null,
@@ -71,16 +79,7 @@ describe("GitPane", () => {
     useGitStore.setState((state) => ({
       ...state,
       status: {
-        response: createGetGitStatusResponse({
-          repo: {
-            isGitRepo: true,
-            repoRoot: "/repo",
-            headBranch: "main",
-            headCommit: "abc1234",
-          },
-          entries: [],
-          isTruncated: false,
-        }),
+        response: createStatusResponse(),
         diffAvailabilityByPath: new Map(),
         isLoading: false,
         error: null,
@@ -98,16 +97,7 @@ describe("GitPane", () => {
     useGitStore.setState((state) => ({
       ...state,
       status: {
-        response: createGetGitStatusResponse({
-          repo: {
-            isGitRepo: true,
-            repoRoot: "/repo",
-            headBranch: "main",
-            headCommit: "abc1234",
-          },
-          entries: [],
-          isTruncated: false,
-        }),
+        response: createStatusResponse(),
         diffAvailabilityByPath: new Map(),
         isLoading: false,
         error: null,
@@ -124,15 +114,7 @@ describe("GitPane", () => {
     useGitStore.setState((state) => ({
       ...state,
       status: {
-        response: createGetGitStatusResponse({
-          repo: {
-            isGitRepo: true,
-            repoRoot: "/repo",
-            headBranch: "main",
-            headCommit: "abc1234",
-          },
-          entries: [],
-          isTruncated: false,
+        response: createStatusResponse({
           worktrees: [
             {
               path: "/repo",
@@ -173,15 +155,7 @@ describe("GitPane", () => {
     useGitStore.setState((state) => ({
       ...state,
       status: {
-        response: createGetGitStatusResponse({
-          repo: {
-            isGitRepo: true,
-            repoRoot: "/repo",
-            headBranch: "main",
-            headCommit: "abc1234",
-          },
-          entries: [],
-          isTruncated: false,
+        response: createStatusResponse({
           worktrees: [
             {
               path: "/repo",

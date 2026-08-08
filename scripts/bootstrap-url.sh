@@ -4,6 +4,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 OPEN_URL="0"
+SETTA_CLI_HELPER="${ROOT_DIR}/scripts/lib/setta_cli_command.sh"
+if [[ ! -f "${SETTA_CLI_HELPER}" ]]; then
+  echo "Missing Setta CLI helper: ${SETTA_CLI_HELPER}" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. "${SETTA_CLI_HELPER}"
 
 usage() {
   cat <<'EOF'
@@ -37,7 +44,12 @@ if [[ -f "${ROOT_DIR}/activate.sh" ]]; then
   source "${ROOT_DIR}/activate.sh"
 fi
 
-status_payload="$(setta status --connect-info --latest --json 2>/dev/null || true)"
+if ! setta_cli_command_init "${ROOT_DIR}"; then
+  echo "Failed to resolve Setta CLI." >&2
+  exit 1
+fi
+
+status_payload="$("${SETTA_CLI_CMD[@]}" status --connect-info --latest --json 2>/dev/null || true)"
 if [[ "$status_payload" != __SETTA_JSON_B64__* ]]; then
   echo "Failed to read bootstrap info from setta status." >&2
   exit 1

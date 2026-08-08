@@ -11,7 +11,7 @@ import {
   createProjectConfig,
   SectionTypeEnum,
   type Core,
-  type SettaLspDiagnostic,
+  type LSPDiagnostic,
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -67,7 +67,7 @@ describe("CodeArea LSP diagnostics wiring", () => {
   const variantId = "variant-1";
   const implId = "impl-1";
 
-  const baseDiagnostic: SettaLspDiagnostic = {
+  const baseDiagnostic: LSPDiagnostic = {
     message: "Bad code",
     severity: 1,
     code: "reportFoo",

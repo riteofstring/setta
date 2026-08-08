@@ -392,6 +392,36 @@ describe("MiniMapNodes", () => {
     expect(recordedProps).toHaveLength(1);
     expect(recordedProps[0]?.dataMinimapNodeId).toBe("section-a");
   });
+
+  it("skips nodes without renderable dimensions during direct minimap rendering", () => {
+    const nodes: Node[] = [
+      {
+        id: "section-a",
+        position: { x: 10, y: 20 },
+        width: 100,
+        height: 80,
+        zIndex: 0,
+        tempZIndex: 0,
+      },
+      {
+        id: "section-b",
+        position: { x: 180, y: 40 },
+        width: null,
+        height: 90,
+        zIndex: 0,
+        tempZIndex: 0,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <svg>
+        <MiniMapNodes nodes={nodes} />
+      </svg>,
+    );
+
+    expect(markup).toContain('data-minimap-node-id="section-a"');
+    expect(markup).not.toContain('data-minimap-node-id="section-b"');
+  });
 });
 
 async function renderReactiveMiniMap(element: JSX.Element): Promise<{

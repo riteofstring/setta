@@ -93,7 +93,7 @@ preview/editor surface.
 - Filtering only includes nodes that have already been loaded. Expand folders first if
   you want their children to participate in filtering.
 - Dev-facing dotfiles are shown by default (`.env`, `.gitignore`, etc.).
-- Internal roots and ignore-pattern matches are still hidden by the backend
+- Internal roots and ignore-pattern matches are hidden by the backend
   (`.git`, `.venv`, `node_modules`, `setta_files`, and similar configured
   ignores).
 - Rows show a spinner while loading and a small error marker when a folder fails to
@@ -158,6 +158,9 @@ preview/editor surface.
 - `route_get_file_browser_file_content` returns metadata plus `contentId` (bytes are
   fetched from `/api/binary/{contentId}`).
 - `route_get_file_browser_file_stat` returns `mtimeNs` + `size` for stale-check polling.
+  - This polling remains intentional for spreadsheet preview/editor reloads because
+    the backend does not keep websocket watchers for every arbitrary file a user
+    previews; the editor only needs scoped stale-write detection while open.
 - `route_write_file_browser_file_content` writes bytes by `contentId`.
   - `expectedMtimeNs = null` means create-only (fails with 409 if file exists).
 - Backend max file content size for these read/write routes is `10 MiB`.
@@ -185,4 +188,4 @@ Keyboard navigation works when the list has focus.
 - Path-navigation helpers: `frontend/src/utils/fileBrowserNavigation.ts`
 - State: `frontend/src/state/definitions.ts`
 - Open file flow: `frontend/src/state/actions/sections/createSections.ts`
-- Backend routes: `backend/setta/routers/artifact.py`
+- Backend routes/services: `internal/httpapi/filebrowser_routes.go`, `internal/filebrowser/service.go`

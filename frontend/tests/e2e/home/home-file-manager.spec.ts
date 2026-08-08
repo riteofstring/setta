@@ -17,6 +17,11 @@ type PersistedHomePaneState = {
   homeSelectedProjectPaneTrueWidth: number;
 };
 
+type ExternalAgentConfigFixture = {
+  id: string;
+  commandPath?: string | null;
+};
+
 async function createProjectConfigAndResolveId(page: Page) {
   const createdName = await postBackend<string>(page, "/createProjectConfig", {
     previewImgColor: "bg-indigo-500/60",
@@ -86,9 +91,7 @@ async function readPersistedHomePaneState(
       homeWorkspacePaneTrueWidth: Number(
         persisted.homeWorkspacePaneTrueWidth ?? 0,
       ),
-      homeSelectedProjectPaneVis: Boolean(
-        persisted.homeSelectedProjectPaneVis,
-      ),
+      homeSelectedProjectPaneVis: Boolean(persisted.homeSelectedProjectPaneVis),
       homeSelectedProjectPaneTrueWidth: Number(
         persisted.homeSelectedProjectPaneTrueWidth ?? 0,
       ),
@@ -98,6 +101,99 @@ async function readPersistedHomePaneState(
     throw new Error("Missing persisted home pane state.");
   }
   return state;
+}
+
+function requireWorkspaceRootForHomeTest(): string {
+  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
+  if (!workspaceRoot) {
+    throw new Error(
+      "Missing SETTA_WORKSPACE_ROOT for home external-agent test.",
+    );
+  }
+  return workspaceRoot;
+}
+
+function isENOENTError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "ENOENT"
+  );
+}
+
+async function readOptionalUtf8File(filePath: string): Promise<string | null> {
+  try {
+    return await fs.readFile(filePath, "utf-8");
+  } catch (error) {
+    if (isENOENTError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function withHealthyCodexExternalAgentFixture(
+  run: () => Promise<void>,
+): Promise<void> {
+  const workspaceRoot = requireWorkspaceRootForHomeTest();
+  const envPath = path.join(workspaceRoot, ".env");
+  const externalAgentsPath = path.join(
+    workspaceRoot,
+    "setta_files",
+    "external_agents.json",
+  );
+  const codexFixturePath = path.join(workspaceRoot, "codex-health-fixture.sh");
+  const previousEnv = await readOptionalUtf8File(envPath);
+  const previousExternalAgents = await fs.readFile(externalAgentsPath, "utf-8");
+  const configs = JSON.parse(
+    previousExternalAgents,
+  ) as ExternalAgentConfigFixture[];
+  let foundCodexConfig = false;
+  const nextConfigs = configs.map((config) => {
+    if (config.id !== "external-codex") {
+      return config;
+    }
+    foundCodexConfig = true;
+    return {
+      ...config,
+      commandPath: codexFixturePath,
+    };
+  });
+  if (!foundCodexConfig) {
+    throw new Error(
+      "Missing seeded external-codex config in Playwright workspace.",
+    );
+  }
+
+  await fs.writeFile(
+    codexFixturePath,
+    '#!/bin/sh\nprintf "codex 0.25.1\\n"\n',
+    "utf-8",
+  );
+  await fs.chmod(codexFixturePath, 0o755);
+  await fs.writeFile(
+    envPath,
+    "ANTHROPIC_API_KEY=test-anthropic-key\nOPENAI_API_KEY=test-openai-key\n",
+    "utf-8",
+  );
+  await fs.writeFile(
+    externalAgentsPath,
+    `${JSON.stringify(nextConfigs, null, 2)}\n`,
+    "utf-8",
+  );
+
+  try {
+    await run();
+  } finally {
+    if (previousEnv === null) {
+      await fs.rm(envPath, { force: true });
+    } else {
+      await fs.writeFile(envPath, previousEnv, "utf-8");
+    }
+    await fs.writeFile(externalAgentsPath, previousExternalAgents, "utf-8");
+    await fs.rm(codexFixturePath, { force: true });
+  }
 }
 
 test("home page renders pane rails and toggles side panes", async ({
@@ -203,9 +299,9 @@ test("home page renders pane rails and toggles side panes", async ({
   expect(typeof persistedHomePaneState?.homeSelectedProjectPaneWidth).toBe(
     "number",
   );
-  expect(
-    typeof persistedHomePaneState?.homeSelectedProjectPaneTrueWidth,
-  ).toBe("number");
+  expect(typeof persistedHomePaneState?.homeSelectedProjectPaneTrueWidth).toBe(
+    "number",
+  );
 
   const firstCard = page.getByTestId("home-project-card").first();
   await expect(firstCard).toBeVisible();
@@ -301,21 +397,27 @@ test("narrow desktop home rail clicks open focused full-width panes while rails 
   );
 
   await workspaceToggle.click();
-  await expect.poll(() => readPersistedHomePaneState(page)).toMatchObject({
-    homeWorkspacePaneVis: true,
-    homeWorkspacePaneTrueWidth: expectedFullWidth,
-    homeSelectedProjectPaneVis: false,
-    homeSelectedProjectPaneTrueWidth: 40,
-  });
-  await expect(page.getByTestId("home-file-browser-column").first()).toBeVisible();
+  await expect
+    .poll(() => readPersistedHomePaneState(page))
+    .toMatchObject({
+      homeWorkspacePaneVis: true,
+      homeWorkspacePaneTrueWidth: expectedFullWidth,
+      homeSelectedProjectPaneVis: false,
+      homeSelectedProjectPaneTrueWidth: 40,
+    });
+  await expect(
+    page.getByTestId("home-file-browser-column").first(),
+  ).toBeVisible();
 
   await selectedProjectToggle.click();
-  await expect.poll(() => readPersistedHomePaneState(page)).toMatchObject({
-    homeWorkspacePaneVis: false,
-    homeWorkspacePaneTrueWidth: 40,
-    homeSelectedProjectPaneVis: true,
-    homeSelectedProjectPaneTrueWidth: expectedFullWidth,
-  });
+  await expect
+    .poll(() => readPersistedHomePaneState(page))
+    .toMatchObject({
+      homeWorkspacePaneVis: false,
+      homeWorkspacePaneTrueWidth: 40,
+      homeSelectedProjectPaneVis: true,
+      homeSelectedProjectPaneTrueWidth: expectedFullWidth,
+    });
   await expect(
     page.getByTestId("home-selected-project-details").first(),
   ).toBeVisible();
@@ -324,29 +426,32 @@ test("narrow desktop home rail clicks open focused full-width panes while rails 
 test("home new config opens project ai chat first", async ({ page }) => {
   await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
   await ensureAppReady(page);
-  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+  await withHealthyCodexExternalAgentFixture(async () => {
+    await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
 
-  const newConfigButton = page.getByRole("button", {
-    name: /New (Project|Config)/,
+    const newConfigButton = page.getByRole("button", {
+      name: /New (Project|Config)/,
+    });
+    await expect(newConfigButton).toBeVisible();
+    await newConfigButton.click();
+
+    await expect(page).not.toHaveURL(HOME_URL);
+    await expect(page.getByText("Unhandled Thrown Error!")).toHaveCount(0);
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+
+    const overviewTab = await page.evaluate(() => {
+      const raw = window.localStorage.getItem("setta_data");
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw) as { state?: { overviewTab?: string } };
+      return parsed.state?.overviewTab ?? null;
+    });
+    expect(overviewTab).toBe("ProjectAIChat");
   });
-  await expect(newConfigButton).toBeVisible();
-  await newConfigButton.click();
-
-  await expect(page).not.toHaveURL(HOME_URL);
-  const overviewPane = page.locator("#OverviewPane");
-  await expect(
-    overviewPane.getByRole("heading", { name: "Project AI Chat" }),
-  ).toBeVisible();
-
-  const overviewTab = await page.evaluate(() => {
-    const raw = window.localStorage.getItem("setta_data");
-    if (!raw) {
-      return null;
-    }
-    const parsed = JSON.parse(raw) as { state?: { overviewTab?: string } };
-    return parsed.state?.overviewTab ?? null;
-  });
-  expect(overviewTab).toBe("ProjectAIChat");
 });
 
 test("home browser marks Setta-initialized folders", async ({ page }) => {

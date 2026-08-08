@@ -1,76 +1,52 @@
-import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from setta.utils import setta_home as setta_home_module
 from setta.utils.setta_home import resolve_setta_home, resolve_setta_user_config_path
 
 
-def test_resolve_setta_home_honors_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    override = tmp_path / "custom_home"
-    monkeypatch.setenv("SETTA_HOME", f"  {override}  ")
-
-    assert resolve_setta_home() == override.resolve(strict=False)
-
-
-def test_resolve_setta_home_can_ignore_env_override(
+def test_resolve_setta_home_delegates_to_go_path_resolution(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    override = tmp_path / "custom_home"
-    fake_home_root = tmp_path / "home"
-    monkeypatch.setenv("SETTA_HOME", f"  {override}  ")
-    monkeypatch.setattr(Path, "home", classmethod(lambda _cls: fake_home_root))
-    monkeypatch.setattr(sys, "platform", "linux")
+    resolved_home = tmp_path / "custom_home"
+    captured_kwargs: dict[str, object] = {}
 
-    assert resolve_setta_home(allow_env_override=False) == (
-        fake_home_root / ".setta"
-    ).resolve(strict=False)
+    def fake_resolve_setta_paths(**kwargs: object) -> SimpleNamespace:
+        captured_kwargs.update(kwargs)
+        return SimpleNamespace(setta_home=resolved_home.resolve(strict=False))
+
+    monkeypatch.setattr(setta_home_module, "resolve_setta_paths", fake_resolve_setta_paths)
+
+    assert resolve_setta_home() == resolved_home.resolve(strict=False)
+    assert captured_kwargs == {
+        "allow_env_files_overrides": False,
+        "allow_env_non_files_overrides": True,
+        "allow_profile_env_overrides": False,
+    }
 
 
-def test_resolve_setta_home_expands_env_vars(
+def test_resolve_setta_home_can_disable_env_override_delegation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    base = tmp_path / "base"
-    monkeypatch.setenv("SETTA_HOME_BASE", str(base))
-    monkeypatch.setenv("SETTA_HOME", "$SETTA_HOME_BASE/subdir")
+    resolved_home = tmp_path / "custom_home"
+    captured_kwargs: dict[str, object] = {}
 
-    assert resolve_setta_home() == (base / "subdir").resolve(strict=False)
+    def fake_resolve_setta_paths(**kwargs: object) -> SimpleNamespace:
+        captured_kwargs.update(kwargs)
+        return SimpleNamespace(setta_home=resolved_home.resolve(strict=False))
 
+    monkeypatch.setattr(setta_home_module, "resolve_setta_paths", fake_resolve_setta_paths)
 
-def test_resolve_setta_home_win32_uses_appdata(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("SETTA_HOME", raising=False)
-    monkeypatch.setattr(sys, "platform", "win32")
-    appdata = tmp_path / "AppData" / "Roaming"
-    monkeypatch.setenv("APPDATA", str(appdata))
-
-    assert resolve_setta_home() == (appdata / ".setta").resolve(strict=False)
-
-
-def test_resolve_setta_home_win32_falls_back_when_appdata_missing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.delenv("SETTA_HOME", raising=False)
-    monkeypatch.setattr(sys, "platform", "win32")
-    monkeypatch.setenv("APPDATA", "")
-
-    fake_home_root = tmp_path / "home"
-
-    monkeypatch.setattr(Path, "home", classmethod(lambda _cls: fake_home_root))
-
-    assert resolve_setta_home() == (
-        fake_home_root / "AppData" / "Roaming" / ".setta"
-    ).resolve(strict=False)
-
-
-def test_resolve_setta_home_unix_uses_dot_setta(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("SETTA_HOME", raising=False)
-    monkeypatch.setattr(sys, "platform", "linux")
-
-    fake_home_root = tmp_path / "home"
-
-    monkeypatch.setattr(Path, "home", classmethod(lambda _cls: fake_home_root))
-
-    assert resolve_setta_home() == (fake_home_root / ".setta").resolve(strict=False)
+    assert resolve_setta_home(allow_env_override=False) == resolved_home.resolve(
+        strict=False
+    )
+    assert captured_kwargs == {
+        "allow_env_files_overrides": False,
+        "allow_env_non_files_overrides": False,
+        "allow_profile_env_overrides": False,
+    }
 
 
 def test_resolve_setta_user_config_path_appends_config_json(tmp_path: Path) -> None:

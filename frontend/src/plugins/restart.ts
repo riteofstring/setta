@@ -1,9 +1,10 @@
 import {
+  callOpenAPI,
   getErrorDetail,
   res200,
   type ResponseDataAndStatus,
-} from "utils/endpointUtils";
-import { route_plugins_restart } from "utils/generatedEndpoints";
+} from "@setta/app-subsystem-frontend-sdk";
+import { restartPlugins } from "openapi/http";
 import type {
   PluginListEntry,
   PluginRestartCapability,
@@ -104,7 +105,7 @@ export function buildPluginRestartActionPlan(
   }
 }
 
-export function mapPluginRestartResponse(
+function mapPluginRestartResponse(
   response: ResponseDataAndStatus<PluginRestartResponse>,
 ): PluginRestartRequestResult {
   if (!res200(response) || !response.data) {
@@ -139,7 +140,10 @@ export function mapPluginRestartResponse(
 export async function requestPluginRestart(
   runRestartRequest: () => Promise<
     ResponseDataAndStatus<PluginRestartResponse>
-  > = () => route_plugins_restart(),
+  > = () =>
+    callOpenAPI(restartPlugins()) as Promise<
+      ResponseDataAndStatus<PluginRestartResponse>
+    >,
 ): Promise<PluginRestartRequestResult> {
   const response = await runRestartRequest();
   return mapPluginRestartResponse(response);

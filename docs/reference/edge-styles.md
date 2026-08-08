@@ -13,8 +13,8 @@ today and what those visuals mean.
   - `frontend/src/forks/xyflow/core/components/Edges/BaseEdge.tsx`
   - `frontend/src/forks/xyflow/core/styles/style.css`
 
-These are the older section/param wiring edges. They are distinct from both
-agentic edges and workflow edges.
+These standard section/param wiring edges are distinct from both agentic edges
+and workflow edges.
 
 ### Agentic edges
 
@@ -30,8 +30,7 @@ Agentic edges currently have three semantic kinds:
 - `section_chat`: non-chat section into a chat as a context source.
 - `chat_section`: chat into a non-chat section as a scope/output boundary.
 
-Important: those three kinds are no longer visually distinguished from each
-other. They all use the same dashed blue family styling.
+Those three kinds all use the same dashed blue family styling.
 
 ### Workflow edges
 
@@ -41,9 +40,9 @@ other. They all use the same dashed blue family styling.
   - `frontend/src/forks/xyflow/core/container/StateMachineEdgeRenderer.tsx`
   - `frontend/src/forks/xyflow/core/styles/style.css`
 
-Workflow edges are no longer styled differently for details like
-`send_prompt`, `reset_thread`, or `signal` filters. The visual only answers the
-high-level question: "is this a workflow edge?"
+Workflow edges share the same styling for details like `send_prompt`,
+`reset_thread`, or `signal` filters. The visual only answers the high-level
+question: "is this a workflow edge?"
 
 ## Overlay states
 
@@ -75,8 +74,8 @@ warning overlay produced by the agentic scope violation logic.
 
 ## What is not visually encoded
 
-The following are semantic details, but they are not intentionally encoded into
-different edge styles anymore:
+The following semantic details are not intentionally encoded into different edge
+styles:
 
 - workflow target action type (`send_prompt`, `reset_thread`, future actions)
 - workflow source filter type (`run_completed`, `signal`, future filters)

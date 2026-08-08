@@ -244,11 +244,6 @@ exit 0
 """,
     )
 
-    activate = sandbox_root / ".venv" / "bin" / "activate"
-    activate.parent.mkdir(parents=True, exist_ok=True)
-    activate.write_text("export VIRTUAL_ENV='sandbox-venv'\n", encoding="utf-8")
-    (sandbox_root / "frontend" / "node_modules").mkdir(parents=True, exist_ok=True)
-
     stub_dir = tmp_path / "bin"
     stub_dir.mkdir(parents=True, exist_ok=True)
     capture_cmd = tmp_path / "pnpm_cmd.txt"

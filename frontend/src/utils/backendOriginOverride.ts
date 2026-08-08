@@ -1,10 +1,16 @@
-import { isLocalHostname } from "utils/hostnames";
-import { normalizeOrigin } from "utils/origin";
-import { safeSessionStorage } from "utils/storage";
+import {
+  BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
+  BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
+  isLocalHostname,
+  normalizeOrigin,
+  safeSessionStorage,
+} from "@setta/app-subsystem-frontend-sdk";
+import { BootstrapProtocol } from "utils/generatedTypes";
 
-export const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY =
-  "setta.backendOriginOverride";
-const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
+export {
+  BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
+  BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
+};
 
 function allowNonLocalOriginOverride(): boolean {
   const raw = import.meta.env?.VITE_ALLOW_BACKEND_ORIGIN_OVERRIDE;
@@ -15,7 +21,7 @@ function allowNonLocalOriginOverride(): boolean {
   return normalized === "1" || normalized === "true" || normalized === "yes";
 }
 
-function isOverrideAllowed(
+function isSameHostOrLocalPeerOverrideAllowed(
   overrideOrigin: string,
   currentOrigin: string,
 ): boolean {
@@ -36,10 +42,13 @@ function isOverrideAllowed(
   ) {
     return true;
   }
-  return allowNonLocalOriginOverride();
+  return false;
 }
 
-function writeBackendOriginOverrideToStorage(origin: string | undefined): void {
+function writeBackendOriginOverrideToStorage(
+  origin: string | undefined,
+  allowNonLocal = false,
+): void {
   const storage = safeSessionStorage();
   if (!storage) {
     return;
@@ -47,9 +56,18 @@ function writeBackendOriginOverrideToStorage(origin: string | undefined): void {
   try {
     if (!origin) {
       storage.removeItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY);
+      storage.removeItem(BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY);
       return;
     }
     storage.setItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY, origin);
+    if (allowNonLocal) {
+      storage.setItem(
+        BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
+        origin,
+      );
+    } else {
+      storage.removeItem(BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY);
+    }
   } catch (error) {
     console.warn(
       "Failed to store backend origin override in sessionStorage",
@@ -58,55 +76,89 @@ function writeBackendOriginOverrideToStorage(origin: string | undefined): void {
   }
 }
 
-export function applyBackendOriginOverrideFromUrl(): void {
+function getCurrentWindowUrl(): URL | undefined {
   if (typeof window === "undefined") {
     return;
   }
-
-  let url: URL;
   try {
-    url = new URL(window.location.href);
+    return new URL(window.location.href);
   } catch {
     return;
   }
+}
 
-  const rawOverride = url.searchParams.get(BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM);
-  const shouldPersistOverride = import.meta.env?.DEV;
-
-  if (rawOverride) {
-    if (shouldPersistOverride) {
-      const override = normalizeOrigin(rawOverride, "backend origin");
-      if (override && isOverrideAllowed(override, url.origin)) {
-        writeBackendOriginOverrideToStorage(override);
-      } else if (override) {
-        console.warn(
-          "Ignoring backend origin override due to hostname mismatch. Set VITE_ALLOW_BACKEND_ORIGIN_OVERRIDE=1 to allow.",
-        );
-      }
-    }
-    url.searchParams.delete(BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM);
-  }
-
-  if (!rawOverride) {
+function persistBackendOriginOverride(
+  rawOverride: string,
+  currentOrigin: string,
+): void {
+  if (!import.meta.env?.DEV) {
     return;
   }
 
-  const nextUrl = url.toString();
+  const override = normalizeOrigin(rawOverride, "backend origin");
+  if (!override) {
+    return;
+  }
+
+  if (isSameHostOrLocalPeerOverrideAllowed(override, currentOrigin)) {
+    writeBackendOriginOverrideToStorage(override);
+    return;
+  }
+
+  if (allowNonLocalOriginOverride()) {
+    writeBackendOriginOverrideToStorage(override, true);
+    return;
+  }
+
+  console.warn(
+    "Ignoring backend origin override due to hostname mismatch. Set VITE_ALLOW_BACKEND_ORIGIN_OVERRIDE=1 to allow.",
+  );
+}
+
+function replaceHistoryUrl(nextUrl: string): boolean {
   try {
     window.history.replaceState(window.history.state, "", nextUrl);
-    return;
+    return true;
   } catch {
     // Some browsers/extensions can leave a non-cloneable state in history.state.
     // Falling back to null is better than leaving the handoff URL behind.
   }
+
   try {
     window.history.replaceState(null, "", nextUrl);
+    return true;
   } catch (error) {
     console.warn("Failed to clean backend origin override from URL", error);
-    try {
-      window.location.replace(nextUrl);
-    } catch {
-      // ignore
-    }
+    return false;
   }
+}
+
+function cleanBackendOriginOverrideFromUrl(nextUrl: string): void {
+  if (replaceHistoryUrl(nextUrl)) {
+    return;
+  }
+
+  try {
+    window.location.replace(nextUrl);
+  } catch {
+    // ignore
+  }
+}
+
+export function applyBackendOriginOverrideFromUrl(): void {
+  const url = getCurrentWindowUrl();
+  if (!url) {
+    return;
+  }
+
+  const rawOverride = url.searchParams.get(
+    BootstrapProtocol.backendOriginOverrideQueryParam,
+  );
+  if (!rawOverride) {
+    return;
+  }
+
+  persistBackendOriginOverride(rawOverride, url.origin);
+  url.searchParams.delete(BootstrapProtocol.backendOriginOverrideQueryParam);
+  cleanBackendOriginOverrideFromUrl(url.toString());
 }

@@ -18,6 +18,10 @@ _HANDLED_FAILURE_MESSAGE = "Handled failure in %s"
 _HANDLED_TRACEBACK_ENV = "SETTA_HANDLED_TRACEBACKS"
 
 
+class _RunSafelyInputError(TypeError):
+    """Raised when run_safely() receives an invalid awaitable target."""
+
+
 def log_failure(
     exc: BaseException,
     label: str,
@@ -80,26 +84,13 @@ async def run_safely(
     """
 
     try:
-        coroutine = _resolve_coroutine(coroutine_or_factory)
-    except TypeError:
+        return await _resolve_coroutine(coroutine_or_factory)
+    except _RunSafelyInputError:
         raise
-    except Exception as exc:  # noqa: PERF203 - explicit structured logging path
-        log_failure(
-            exc,
-            label=label,
-            logger=logger,
-            handled=handled,
-            context=context,
-        )
-        if re_raise:
-            raise
-        return None
-    try:
-        return await coroutine
     except asyncio.CancelledError:
         raise
     except Exception as exc:  # noqa: PERF203 - explicit structured logging path
-        log_failure(
+        _log_run_safely_failure(
             exc,
             label=label,
             logger=logger,
@@ -109,6 +100,23 @@ async def run_safely(
         if re_raise:
             raise
         return None
+
+
+def _log_run_safely_failure(
+    exc: BaseException,
+    *,
+    label: str,
+    logger: logging.Logger | None,
+    handled: bool,
+    context: Mapping[str, LoggingContextInput] | None,
+) -> None:
+    log_failure(
+        exc,
+        label=label,
+        logger=logger,
+        handled=handled,
+        context=context,
+    )
 
 
 def _resolve_coroutine(
@@ -121,6 +129,6 @@ def _resolve_coroutine(
         if inspect.isawaitable(result):
             return result
         message = "run_safely callable must return an awaitable"
-        raise TypeError(message)
+        raise _RunSafelyInputError(message)
     message = "run_safely requires an awaitable or zero-arg callable"
-    raise TypeError(message)
+    raise _RunSafelyInputError(message)

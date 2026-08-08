@@ -1,70 +1,18 @@
 import React from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { SectionTypeEnum } from "utils/generatedTypes";
-import { BrowserAreaSettings } from "./BrowserAreaSettings";
-import { ChartAreaSettings } from "./ChartAreaSettings";
-import { ChatAreaSettings } from "./ChatAreaSettings";
-import { ChildDefaultsSettings } from "./ChildDefaultsSettings";
-import { CodeAreaSettings } from "./CodeAreaSettings";
-import { DrawAreaSettings } from "./DrawAreaSettings";
-import { EdgePortsSettings } from "./EdgePortsSettings";
-import { IframeSettings } from "./IframeSettings";
-import { ImageAreaSettings } from "./ImageAreaSettings";
-import { MetaControlSettings } from "./MetaControlSettings";
-import { PromptSettings } from "./PromptSettings";
+import type { SectionType } from "utils/generatedTypes";
 import { SectionConfigAccordion } from "./SectionConfigAccordion";
 import { SectionStyleColorSettings } from "./SectionStyleColorSettings";
 import { SectionTagColorSettings } from "./SectionTagColorSettings";
-import { SocialAreaSettings } from "./SocialAreaSettings";
-import { SpreadsheetSectionSettings } from "./SpreadsheetSectionSettings";
-import { StateMachineSectionSettings } from "./StateMachineSectionSettings";
-import { TaskBoardSettings } from "./TaskBoardSettings";
-import { TextBlockSettings } from "./TextBlockSettings";
-
-const SECTION_CONFIG_MAIN_VALUE = "section-config-main";
-const SECTION_CONFIG_APPEARANCE_VALUE = "section-config-appearance";
-
-type SectionConfigPanelValue =
-  | typeof SECTION_CONFIG_MAIN_VALUE
-  | typeof SECTION_CONFIG_APPEARANCE_VALUE;
-
-export function getDefaultSectionConfigOpenValues(
-  mainSectionDisabled: boolean,
-  appearanceSectionDisabled: boolean,
-): Array<SectionConfigPanelValue> {
-  if (!mainSectionDisabled) {
-    return [SECTION_CONFIG_MAIN_VALUE];
-  }
-  if (!appearanceSectionDisabled) {
-    return [SECTION_CONFIG_APPEARANCE_VALUE];
-  }
-  return [];
-}
-
-export function normalizeSectionConfigOpenValues(
-  openValues: Array<string>,
-  mainSectionDisabled: boolean,
-  appearanceSectionDisabled: boolean,
-): Array<string> {
-  const disabledOpenValueSet = new Set<string>();
-  if (mainSectionDisabled) {
-    disabledOpenValueSet.add(SECTION_CONFIG_MAIN_VALUE);
-  }
-  if (appearanceSectionDisabled) {
-    disabledOpenValueSet.add(SECTION_CONFIG_APPEARANCE_VALUE);
-  }
-  const filteredOpenValues = openValues.filter(
-    (value) => !disabledOpenValueSet.has(value),
-  );
-  if (filteredOpenValues.length > 0) {
-    return filteredOpenValues;
-  }
-  return getDefaultSectionConfigOpenValues(
-    mainSectionDisabled,
-    appearanceSectionDisabled,
-  );
-}
+import {
+  SECTION_CONFIG_APPEARANCE_VALUE,
+  SECTION_CONFIG_MAIN_VALUE,
+  getDefaultSectionConfigOpenValues,
+  getSectionSettingsComponent,
+  normalizeSectionConfigOpenValues,
+  sectionTypeSupportsAppearanceSettings,
+} from "./sectionConfigModel";
 
 function areOpenValuesEqual(a: Array<string>, b: Array<string>): boolean {
   if (a.length !== b.length) {
@@ -173,7 +121,7 @@ function _SectionConfig({ sectionId }: { sectionId: string }) {
 export const SectionConfig = React.memo(_SectionConfig);
 
 function getAppearanceConfigurationContent(
-  sectionType: SectionTypeEnum,
+  sectionType: SectionType,
   sectionId: string,
 ): React.ReactNode | null {
   if (!sectionTypeSupportsAppearanceSettings(sectionType)) {
@@ -187,83 +135,10 @@ function getAppearanceConfigurationContent(
   );
 }
 
-export function sectionTypeSupportsAppearanceSettings(
-  sectionType: SectionTypeEnum,
-): boolean {
-  switch (sectionType) {
-    case SectionTypeEnum.Callable:
-    case SectionTypeEnum.Dict:
-    case SectionTypeEnum.GlobalVariables:
-    case SectionTypeEnum.Code:
-    case SectionTypeEnum.TextBlock:
-    case SectionTypeEnum.Prompt:
-    case SectionTypeEnum.MetaControl:
-    case SectionTypeEnum.Draw:
-    case SectionTypeEnum.Image:
-    case SectionTypeEnum.Chart:
-    case SectionTypeEnum.Social:
-    case SectionTypeEnum.IFrame:
-    case SectionTypeEnum.Chat:
-    case SectionTypeEnum.Browser:
-    case SectionTypeEnum.ListRoot:
-    case SectionTypeEnum.Group:
-    case SectionTypeEnum.GenPythonCode:
-    case SectionTypeEnum.GenPythonMetadata:
-    case SectionTypeEnum.Terminal:
-    case SectionTypeEnum.TaskBoard:
-    case SectionTypeEnum.Spreadsheet:
-    case SectionTypeEnum.StateMachineStart:
-    case SectionTypeEnum.StateMachineGate:
-    case SectionTypeEnum.StateMachineEnd:
-      return true;
-  }
-}
-
 function getSpecializedConfigurationContent(
-  sectionType: SectionTypeEnum,
+  sectionType: SectionType,
   sectionId: string,
 ): React.ReactNode | null {
-  switch (sectionType) {
-    case SectionTypeEnum.Callable:
-    case SectionTypeEnum.Dict:
-    case SectionTypeEnum.GlobalVariables:
-      return <EdgePortsSettings sectionId={sectionId} />;
-    case SectionTypeEnum.ListRoot:
-    case SectionTypeEnum.Group:
-      return <ChildDefaultsSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Code:
-      return <CodeAreaSettings sectionId={sectionId} />;
-    case SectionTypeEnum.TextBlock:
-      return <TextBlockSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Prompt:
-      return <PromptSettings sectionId={sectionId} />;
-    case SectionTypeEnum.MetaControl:
-      return <MetaControlSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Draw:
-      return <DrawAreaSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Image:
-      return <ImageAreaSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Chart:
-      return <ChartAreaSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Social:
-      return <SocialAreaSettings sectionId={sectionId} />;
-    case SectionTypeEnum.IFrame:
-      return <IframeSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Chat:
-      return <ChatAreaSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Browser:
-      return <BrowserAreaSettings sectionId={sectionId} />;
-    case SectionTypeEnum.TaskBoard:
-      return <TaskBoardSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Spreadsheet:
-      return <SpreadsheetSectionSettings sectionId={sectionId} />;
-    case SectionTypeEnum.StateMachineStart:
-    case SectionTypeEnum.StateMachineGate:
-    case SectionTypeEnum.StateMachineEnd:
-      return <StateMachineSectionSettings sectionId={sectionId} />;
-    case SectionTypeEnum.GenPythonCode:
-    case SectionTypeEnum.GenPythonMetadata:
-    case SectionTypeEnum.Terminal:
-      return null;
-  }
+  const SettingsComponent = getSectionSettingsComponent(sectionType);
+  return SettingsComponent ? <SettingsComponent sectionId={sectionId} /> : null;
 }
