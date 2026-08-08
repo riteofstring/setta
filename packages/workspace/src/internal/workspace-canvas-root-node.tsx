@@ -38,6 +38,7 @@ type WorkspaceRootNodeData = {
   onKeyboardMove(sectionId: string, direction: WorkspaceKeyboardMoveDirection): void;
   onLockedCommit: WorkspaceSectionFrameProps["onLockedCommit"];
   onMinimizedCommit: WorkspaceSectionFrameProps["onMinimizedCommit"];
+  onOrientationCommit: WorkspaceSectionFrameProps["onOrientationCommit"];
   onOverflowCommit: WorkspaceSectionFrameProps["onOverflowCommit"];
   onPresentationCommit: WorkspaceSectionFrameProps["onPresentationCommit"];
   onSelectionRequest(sectionId: string, request: WorkspaceSectionSelectionRequest): void;
@@ -77,6 +78,7 @@ function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
     onKeyboardMove: data.onKeyboardMove,
     onLockedCommit: data.onLockedCommit,
     onMinimizedCommit: data.onMinimizedCommit,
+    onOrientationCommit: data.onOrientationCommit,
     onOverflowCommit: data.onOverflowCommit,
     onPresentationCommit: data.onPresentationCommit,
     onSelectionRequest: data.onSelectionRequest,
@@ -107,6 +109,7 @@ function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
         onKeyboardMove={data.onKeyboardMove}
         onLockedCommit={data.onLockedCommit}
         onMinimizedCommit={data.onMinimizedCommit}
+        onOrientationCommit={data.onOrientationCommit}
         onOverflowCommit={data.onOverflowCommit}
         onPresentationCommit={data.onPresentationCommit}
         onSelectionRequest={data.onSelectionRequest}
@@ -208,6 +211,7 @@ function rootNode(
   onKeyboardMove: WorkspaceRootNodeData["onKeyboardMove"],
   onLockedCommit: WorkspaceRootNodeData["onLockedCommit"],
   onMinimizedCommit: WorkspaceRootNodeData["onMinimizedCommit"],
+  onOrientationCommit: WorkspaceRootNodeData["onOrientationCommit"],
   onOverflowCommit: WorkspaceRootNodeData["onOverflowCommit"],
   onPresentationCommit: WorkspaceRootNodeData["onPresentationCommit"],
   onSelectionRequest: WorkspaceRootNodeData["onSelectionRequest"],
@@ -231,6 +235,7 @@ function rootNode(
       onKeyboardMove,
       onLockedCommit,
       onMinimizedCommit,
+      onOrientationCommit,
       onOverflowCommit,
       onPresentationCommit,
       onSelectionRequest,
@@ -275,6 +280,7 @@ export function projectNodes<TSectionData>(
   onKeyboardMove: WorkspaceRootNodeData["onKeyboardMove"],
   onLockedCommit: WorkspaceRootNodeData["onLockedCommit"],
   onMinimizedCommit: WorkspaceRootNodeData["onMinimizedCommit"],
+  onOrientationCommit: WorkspaceRootNodeData["onOrientationCommit"],
   onOverflowCommit: WorkspaceRootNodeData["onOverflowCommit"],
   onPresentationCommit: WorkspaceRootNodeData["onPresentationCommit"],
   onSelectionRequest: WorkspaceRootNodeData["onSelectionRequest"],
@@ -308,6 +314,7 @@ export function projectNodes<TSectionData>(
       onKeyboardMove,
       onLockedCommit,
       onMinimizedCommit,
+      onOrientationCommit,
       onOverflowCommit,
       onPresentationCommit,
       onSelectionRequest,

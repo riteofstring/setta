@@ -2,6 +2,7 @@ import {
   getAdjacentWorkspaceSectionId,
   getWorkspaceSectionOrder,
   WorkspaceDocumentValidationError,
+  type SectionOrientation,
   type SectionOverflow,
   type WorkspaceActionResult,
   type WorkspaceCapabilities,
@@ -25,6 +26,10 @@ import { denseArrayAt, optionOverridesAt } from "./runtime-option-validation.js"
 import type { WorkspaceCanvasController } from "./workspace-canvas-navigation.js";
 import { validateWorkspaceViewport } from "./workspace-document-validation.js";
 import type { WorkspaceRootStackingAction } from "./workspace-root-stacking.js";
+import {
+  resolveWorkspaceSectionOrientation,
+  workspaceSectionOrientationRequiresMeasurement,
+} from "./workspace-section-orientation-command.js";
 import type {
   WorkspaceRootResizeSnapshot,
   WorkspaceSectionResizeAxis,
@@ -330,6 +335,52 @@ function stackRootSections<TSectionData>(
   });
 }
 
+function sectionAllowsOrientationMeasurement<TSectionData>(
+  section: WorkspaceSection<TSectionData> | undefined,
+  orientation: SectionOrientation,
+): section is WorkspaceSection<TSectionData> {
+  if (!section) {
+    return false;
+  }
+  if (section.positionAndSizeLocked) {
+    return false;
+  }
+  if (section.isMinimized) {
+    return false;
+  }
+  return workspaceSectionOrientationRequiresMeasurement(section, orientation);
+}
+
+function measuredSizeFromRect(
+  rect: ReturnType<WorkspaceCanvasController["getSectionRect"]>,
+): Readonly<{ height: number; width: number }> | null {
+  if (!rect) {
+    return null;
+  }
+  if (!Number.isFinite(rect.height) || rect.height <= 0) {
+    return null;
+  }
+  if (!Number.isFinite(rect.width) || rect.width <= 0) {
+    return null;
+  }
+  return { height: rect.height, width: rect.width };
+}
+
+function measuredSizeForSectionOrientation<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  sectionId: string,
+  orientation: SectionOrientation,
+): Readonly<{ height: number; width: number }> | null {
+  if (!bindings.getCapabilities().editLayout) {
+    return null;
+  }
+  const section = bindings.getDocument().sections[sectionId];
+  if (!sectionAllowsOrientationMeasurement(section, orientation)) {
+    return null;
+  }
+  return measuredSizeFromRect(bindings.getCanvasController?.()?.getSectionRect(sectionId));
+}
+
 export function createWorkspaceController<TSectionData>(
   bindings: WorkspaceControllerBindings<TSectionData>,
 ): WorkspaceController<TSectionData> {
@@ -376,6 +427,16 @@ export function createWorkspaceController<TSectionData>(
     },
     sendBackward: (sectionIds) => stackRootSections(bindings, sectionIds, "send-backward"),
     sendToBack: (sectionIds) => stackRootSections(bindings, sectionIds, "send-to-back"),
+    setSectionChildOrientation: (sectionId, orientation) => {
+      const resolvedSectionId = sectionIdAt(sectionId);
+      const resolvedOrientation = resolveWorkspaceSectionOrientation(orientation);
+      return setWorkspaceSectionChildOrientation(
+        bindings,
+        resolvedSectionId,
+        resolvedOrientation,
+        measuredSizeForSectionOrientation(bindings, resolvedSectionId, resolvedOrientation),
+      );
+    },
     setSectionMinimized: (sectionId, isMinimized) =>
       setSectionMinimized(bindings, sectionId, isMinimized),
     setSectionPresentation: (sectionId, presentation) =>
@@ -445,6 +506,20 @@ export function setWorkspaceSectionChildOverflow<TSectionData>(
     overflow,
     sectionId,
     type: "set-section-child-overflow",
+  });
+}
+
+function setWorkspaceSectionChildOrientation<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  sectionId: string,
+  orientation: SectionOrientation,
+  measuredSize: Readonly<{ height: number; width: number }> | null,
+): WorkspaceActionResult {
+  return dispatch(bindings, {
+    measuredSize,
+    orientation,
+    sectionId,
+    type: "set-section-child-orientation",
   });
 }
 

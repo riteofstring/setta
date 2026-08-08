@@ -4,6 +4,7 @@ import {
   deriveWorkspaceParentLookup,
   resolveWorkspaceCapabilities,
   resolveWorkspaceGestureOptions,
+  type SectionOrientation,
   type SectionOverflow,
   type WorkspaceController,
   type WorkspaceJsonValue,
@@ -525,6 +526,11 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     },
     [],
   );
+  const handleSectionOrientationCommit = useCallback(
+    (sectionId: string, orientation: SectionOrientation) =>
+      controller.setSectionChildOrientation(sectionId, orientation),
+    [controller],
+  );
   const handleSectionPresentationCommit = useCallback(
     (sectionId: string, presentation: WorkspaceSectionPresentation) =>
       controller.setSectionPresentation(sectionId, presentation),
@@ -605,6 +611,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         onSectionContentSizeCommit={handleSectionContentSizeCommit}
         onSectionLockedCommit={handleSectionLockedCommit}
         onSectionMinimizedCommit={handleSectionMinimizedCommit}
+        onSectionOrientationCommit={handleSectionOrientationCommit}
         onSectionOverflowCommit={handleSectionOverflowCommit}
         onSectionPresentationCommit={handleSectionPresentationCommit}
         onSectionTitleCommit={handleSectionTitleCommit}

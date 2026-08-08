@@ -1,4 +1,5 @@
 import type {
+  SectionOrientation,
   WorkspaceDocument,
   WorkspaceJsonValue,
   WorkspacePoint,
@@ -81,6 +82,7 @@ export type WorkspaceDocumentChangeReason =
   | "section-lock"
   | "section-minimize"
   | "section-move"
+  | "section-orientation"
   | "section-overflow"
   | "section-presentation"
   | "section-resize"
@@ -122,6 +124,10 @@ export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
   selectSections(sectionIds: readonly string[]): WorkspaceActionResult;
   sendBackward(sectionIds: readonly string[]): WorkspaceActionResult;
   sendToBack(sectionIds: readonly string[]): WorkspaceActionResult;
+  setSectionChildOrientation(
+    sectionId: string,
+    orientation: SectionOrientation,
+  ): WorkspaceActionResult;
   setSectionMinimized(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
   setSectionPresentation(
     sectionId: string,

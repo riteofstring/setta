@@ -2,6 +2,7 @@ import {
   deriveWorkspaceParentLookup,
   isValidWorkspaceColor,
   validateWorkspaceDocument,
+  type SectionOrientation,
   type SectionOverflow,
   type WorkspaceActionRejectionReason,
   type WorkspaceCapabilities,
@@ -24,6 +25,8 @@ import {
   type WorkspaceRootStackingAction,
 } from "./workspace-root-stacking.js";
 import { resolveWorkspaceSiblingSelection } from "./workspace-section-grouping.js";
+import { planWorkspaceSectionOrientationTransition } from "./workspace-section-orientation-command.js";
+import { planWorkspaceSectionOverflowTransition } from "./workspace-section-overflow-command.js";
 import type { WorkspaceSectionResizeAxis } from "./workspace-section-sizing.js";
 import { normalizeWorkspaceSelectionRoots } from "./workspace-selection.js";
 
@@ -67,6 +70,12 @@ export type WorkspaceDocumentCommand<TSectionData = unknown> =
       overflow: SectionOverflow;
       sectionId: string;
       type: "set-section-child-overflow";
+    }>
+  | Readonly<{
+      measuredSize: Readonly<{ height: number; width: number }> | null;
+      orientation: SectionOrientation;
+      sectionId: string;
+      type: "set-section-child-orientation";
     }>
   | Readonly<{ isMinimized: boolean; sectionId: string; type: "set-section-minimized" }>
   | Readonly<{
@@ -118,6 +127,7 @@ const presentationCommandTypes = new Set<WorkspaceDocumentCommand<unknown>["type
 const layoutCommandTypes = new Set<WorkspaceDocumentCommand<unknown>["type"]>([
   "move-root-sections",
   "resize-root-section",
+  "set-section-child-orientation",
   "set-section-child-overflow",
   "set-section-content-size",
   "set-sections-locked",
@@ -428,54 +438,10 @@ function applySectionContentSize<TSectionData>(
   );
 }
 
-function sectionOverflowAt(value: unknown): SectionOverflow {
-  if (value !== "grow" && value !== "scroll") {
-    throw new TypeError("Workspace section overflow must be grow or scroll.");
-  }
-  return value;
-}
-
 type SectionOverflowCommand<TSectionData> = Extract<
   WorkspaceDocumentCommand<TSectionData>,
   { type: "set-section-child-overflow" }
 >;
-
-function sectionOverflowRejection<TSectionData>(
-  section: WorkspaceSection<TSectionData>,
-  command: SectionOverflowCommand<TSectionData>,
-  overflow: SectionOverflow,
-): WorkspaceActionRejectionReason | null {
-  if (section.positionAndSizeLocked) {
-    return "section-locked";
-  }
-  if (section.isMinimized) {
-    return "section-minimized";
-  }
-  const axis = section.childLayout?.orientation === "vertical" ? "height" : "width";
-  return overflow === "scroll" && section.size[axis].mode === "content" && !command.measuredSize
-    ? "section-geometry-unavailable"
-    : null;
-}
-
-function sectionOverflowDimension<TSectionData>(
-  section: WorkspaceSection<TSectionData>,
-  command: SectionOverflowCommand<TSectionData>,
-  axis: WorkspaceSectionResizeAxis,
-  overflow: SectionOverflow,
-): WorkspaceSectionSize["height"] {
-  const currentDimension = section.size[axis];
-  if (overflow === "grow") {
-    return command.growWithContentSizing
-      ? { ...currentDimension, mode: "content" }
-      : currentDimension;
-  }
-  return {
-    mode: "fixed",
-    value: command.measuredSize
-      ? positiveSize(command.measuredSize[axis], `Workspace measured ${axis}`)
-      : currentDimension.value,
-  };
-}
 
 function applySectionChildOverflow<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
@@ -483,34 +449,49 @@ function applySectionChildOverflow<TSectionData>(
 ): WorkspaceDocumentCommandResult<TSectionData> {
   assertKnownSections(document, [command.sectionId]);
   const section = document.sections[command.sectionId] as WorkspaceSection<TSectionData>;
-  const childLayout = section.childLayout;
-  if (!childLayout) {
-    return { document, reason: "section-not-container", status: "rejected" };
+  const transition = planWorkspaceSectionOverflowTransition(
+    section,
+    command.overflow,
+    command.measuredSize,
+    command.growWithContentSizing,
+  );
+  if (transition.status !== "applied") {
+    return { document, ...transition };
   }
-  const overflow = sectionOverflowAt(command.overflow);
-  if (overflow === childLayout.overflow) {
-    return { document, status: "unchanged" };
-  }
-  const rejection = sectionOverflowRejection(section, command, overflow);
-  if (rejection) {
-    return { document, reason: rejection, status: "rejected" };
-  }
-  const axis = childLayout.orientation === "vertical" ? "height" : "width";
-  const nextDimension = sectionOverflowDimension(section, command, axis, overflow);
   return applied(
     {
       ...document,
-      sections: {
-        ...document.sections,
-        [command.sectionId]: {
-          ...section,
-          childLayout: { ...childLayout, overflow },
-          size: { ...section.size, [axis]: nextDimension },
-        },
-      },
+      sections: { ...document.sections, [command.sectionId]: transition.section },
     },
     "section-overflow",
   );
+}
+
+type SectionOrientationCommand<TSectionData> = Extract<
+  WorkspaceDocumentCommand<TSectionData>,
+  { type: "set-section-child-orientation" }
+>;
+
+function applySectionChildOrientation<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  command: SectionOrientationCommand<TSectionData>,
+): WorkspaceDocumentCommandResult<TSectionData> {
+  assertKnownSections(document, [command.sectionId]);
+  const section = document.sections[command.sectionId] as WorkspaceSection<TSectionData>;
+  const transition = planWorkspaceSectionOrientationTransition(
+    section,
+    command.orientation,
+    command.measuredSize,
+  );
+  return transition.status === "applied"
+    ? applied(
+        {
+          ...document,
+          sections: { ...document.sections, [command.sectionId]: transition.section },
+        },
+        "section-orientation",
+      )
+    : { document, ...transition };
 }
 
 function applyRootCreation<TSectionData>(
@@ -895,6 +876,11 @@ type WorkspaceSectionDocumentCommand<TSectionData> = Exclude<
   WorkspaceRootDocumentCommand<TSectionData>
 >;
 
+type WorkspaceSectionChildLayoutCommand<TSectionData> = Extract<
+  WorkspaceSectionDocumentCommand<TSectionData>,
+  { type: "set-section-child-orientation" | "set-section-child-overflow" }
+>;
+
 function isRootDocumentCommand<TSectionData>(
   command: WorkspaceDocumentCommand<TSectionData>,
 ): command is WorkspaceRootDocumentCommand<TSectionData> {
@@ -926,6 +912,24 @@ function applyRootDocumentCommand<TSectionData>(
   return applyRootResize(document, command);
 }
 
+function isSectionChildLayoutCommand<TSectionData>(
+  command: WorkspaceSectionDocumentCommand<TSectionData>,
+): command is WorkspaceSectionChildLayoutCommand<TSectionData> {
+  return (
+    command.type === "set-section-child-orientation" ||
+    command.type === "set-section-child-overflow"
+  );
+}
+
+function applySectionChildLayoutCommand<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  command: WorkspaceSectionChildLayoutCommand<TSectionData>,
+): WorkspaceDocumentCommandResult<TSectionData> {
+  return command.type === "set-section-child-orientation"
+    ? applySectionChildOrientation(document, command)
+    : applySectionChildOverflow(document, command);
+}
+
 function applySectionDocumentCommand<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   command: WorkspaceSectionDocumentCommand<TSectionData>,
@@ -939,8 +943,8 @@ function applySectionDocumentCommand<TSectionData>(
   if (command.type === "set-section-content-size") {
     return applySectionContentSize(document, command.sectionId, command.axes);
   }
-  if (command.type === "set-section-child-overflow") {
-    return applySectionChildOverflow(document, command);
+  if (isSectionChildLayoutCommand<TSectionData>(command)) {
+    return applySectionChildLayoutCommand<TSectionData>(document, command);
   }
   if (command.type === "set-sections-locked") {
     return applySectionLocks(document, command.sectionIds, command.locked);

@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import type {
+  SectionOrientation,
   SectionOverflow,
   WorkspaceActionResult,
   WorkspaceController,
@@ -104,6 +105,10 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   ): WorkspaceActionResult;
   onSectionLockedCommit(sectionId: string, locked: boolean): WorkspaceActionResult;
   onSectionMinimizedCommit(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
+  onSectionOrientationCommit(
+    sectionId: string,
+    orientation: SectionOrientation,
+  ): WorkspaceActionResult;
   onSectionOverflowCommit(
     sectionId: string,
     overflow: SectionOverflow,
@@ -156,6 +161,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   onSectionContentSizeCommit,
   onSectionLockedCommit,
   onSectionMinimizedCommit,
+  onSectionOrientationCommit,
   onSectionOverflowCommit,
   onSectionPresentationCommit,
   onSectionTitleCommit,
@@ -227,6 +233,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     onSectionContentSizeCommit,
     onSectionLockedCommit,
     onSectionMinimizedCommit,
+    onSectionOrientationCommit,
     onSectionOverflowCommit,
     onSectionPresentationCommit,
     onSectionTitleCommit,
@@ -386,6 +393,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         <WorkspaceCanvasAnnouncements
           creation={creationAnnouncement}
           containerLayout={rootProjection.containerLayoutAnnouncementText}
+          containerOrientation={rootProjection.containerOrientationAnnouncementText}
           externalDrop={externalDrop.announcementText}
           history={historyAnnouncement}
           movement={rootProjection.announcementText}

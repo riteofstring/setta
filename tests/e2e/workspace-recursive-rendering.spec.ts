@@ -67,6 +67,14 @@ async function recursiveChildTransfer(page: Page, title: string): Promise<JSHand
   );
 }
 
+async function requiredBoundingBox(locator: Locator, label: string) {
+  const box = await locator.boundingBox();
+  if (!box) {
+    throw new Error(`${label} must expose browser geometry.`);
+  }
+  return box;
+}
+
 test("recursive frames share all-depth selection, geometry, focus, and fit", async ({ page }) => {
   const resizeObserverErrors: string[] = [];
   page.on("pageerror", (error) => {
@@ -183,6 +191,11 @@ test("minimizing a recursive container preserves descendants and narrow reflow",
   await expect(root.locator(`[id="${contentId}"]`)).toBeHidden();
   await expect(nestedGamma).toBeVisible();
   await expect(root.getByRole("button", { name: "Expand Recursive workspace" })).toBeFocused();
+  await expect(
+    root.getByRole("button", {
+      name: "Arrange Recursive workspace child sections horizontally",
+    }),
+  ).toBeEnabled();
 
   await page.setViewportSize({ height: 720, width: 320 });
   await page.getByRole("button", { name: "Fit recursive descendants" }).click();
@@ -195,7 +208,7 @@ test("minimizing a recursive container preserves descendants and narrow reflow",
   expect(accessibility.violations).toEqual([]);
 });
 
-test("container overflow switches stably, isolates scrolling, and accepts an empty drop", async ({
+test("container orientation and overflow switch stably and preserve child order", async ({
   page,
 }) => {
   await page.setViewportSize({ height: 1_000, width: 1_440 });
@@ -216,10 +229,7 @@ test("container overflow switches stably, isolates scrolling, and accepts an emp
   }));
   expect(scrollMetrics.scrollWidth).toBeGreaterThan(scrollMetrics.clientWidth);
 
-  const regionBox = await childRegion.boundingBox();
-  if (!regionBox) {
-    throw new Error("The scrollable child region must expose browser geometry.");
-  }
+  const regionBox = await requiredBoundingBox(childRegion, "The scrollable child region");
   const viewportBeforeWheel = await canvasViewport(page);
   await page.mouse.move(regionBox.x + regionBox.width / 2, regionBox.y + 6);
   await page.mouse.wheel(220, 0);
@@ -229,11 +239,65 @@ test("container overflow switches stably, isolates scrolling, and accepts an emp
   await nestedRow.getByRole("button", { name: "Select Nested row" }).click();
   const header = nestedRow.locator(":scope > .setta-workspace__section-header");
   const actions = header.locator(":scope > .setta-workspace__section-actions");
-  const [headerBox, actionsBox] = await Promise.all([header.boundingBox(), actions.boundingBox()]);
-  if (!headerBox || !actionsBox) {
-    throw new Error("The selected container header must expose browser geometry.");
-  }
+  const [headerBox, actionsBox] = await Promise.all([
+    requiredBoundingBox(header, "The selected container header"),
+    requiredBoundingBox(actions, "The selected container actions"),
+  ]);
   expect(actionsBox.x + actionsBox.width).toBeLessThanOrEqual(headerBox.x + headerBox.width + 1);
+  const orientationControl = header.locator(
+    '[data-workspace-section-layout-control="orientation"]',
+  );
+  await expect(orientationControl).toHaveAccessibleName(
+    "Arrange Nested row child sections vertically",
+  );
+  await expect(orientationControl).toHaveAttribute("data-workspace-next-orientation", "vertical");
+  const browserSession = await page.context().newCDPSession(page);
+  await browserSession.send("Emulation.setPageScaleFactor", { pageScaleFactor: 2 });
+  await expect(orientationControl).toBeVisible();
+  await browserSession.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
+  const directChildIds = () =>
+    childRegion
+      .locator(":scope > [data-workspace-section-id]")
+      .evaluateAll((elements) =>
+        elements.map((element) => element.getAttribute("data-workspace-section-id")),
+      );
+  expect(await directChildIds()).toEqual(["nested-beta", "deep-container"]);
+  await orientationControl.click();
+  await expect(orientationControl).toBeFocused();
+  await expect(childRegion).toHaveAttribute("data-workspace-child-orientation", "vertical");
+  await expect(
+    nestedRow.getByRole("button", {
+      name: "Arrange Nested row child sections horizontally",
+    }),
+  ).toBeVisible();
+  await expect(workspace.locator("[data-workspace-container-orientation-announcement]")).toHaveText(
+    "Nested row child sections are arranged vertically.",
+  );
+  expect(await directChildIds()).toEqual(["nested-beta", "deep-container"]);
+  const nestedBeta = workspace.getByRole("article", { name: "Nested Beta" });
+  const deepContainer = workspace.getByRole("article", { name: "Deep container" });
+  const [verticalBetaBox, verticalDeepBox] = await Promise.all([
+    requiredBoundingBox(nestedBeta, "Nested Beta in the vertical orientation fixture"),
+    requiredBoundingBox(deepContainer, "Deep container in the vertical orientation fixture"),
+  ]);
+  expect(verticalBetaBox.y).toBeLessThan(verticalDeepBox.y);
+
+  await canvas.focus();
+  await page.keyboard.press("Control+z");
+  await expect(childRegion).toHaveAttribute("data-workspace-child-orientation", "horizontal");
+  await page.keyboard.press("Control+Shift+z");
+  await expect(childRegion).toHaveAttribute("data-workspace-child-orientation", "vertical");
+  await page.keyboard.press("Control+z");
+  await expect(childRegion).toHaveAttribute("data-workspace-child-orientation", "horizontal");
+  await workspace.evaluate((element) => element.setAttribute("dir", "rtl"));
+  const [rtlBetaBox, rtlDeepBox] = await Promise.all([
+    requiredBoundingBox(nestedBeta, "Nested Beta in the right-to-left orientation fixture"),
+    requiredBoundingBox(deepContainer, "Deep container in the right-to-left orientation fixture"),
+  ]);
+  expect(rtlBetaBox.x).toBeGreaterThan(rtlDeepBox.x);
+  expect(await directChildIds()).toEqual(["nested-beta", "deep-container"]);
+  await workspace.evaluate((element) => element.setAttribute("dir", "ltr"));
+
   const overflowControl = nestedRow.getByRole("button", {
     name: "Scroll Nested row child sections",
   });
@@ -241,20 +305,14 @@ test("container overflow switches stably, isolates scrolling, and accepts an emp
   await overflowControl.click();
   await expect(nestedRow).toHaveAttribute("data-workspace-child-overflow", "grow");
   await expect(nestedRow.getByRole("group", { name: "Nested row child sections" })).toBeVisible();
-  const grownBox = await nestedRow.boundingBox();
-  if (!grownBox) {
-    throw new Error("The growing child container must expose browser geometry.");
-  }
+  const grownBox = await requiredBoundingBox(nestedRow, "The growing child container");
 
   await expect(overflowControl).toHaveAttribute("aria-pressed", "false");
   await overflowControl.click();
   await expect(overflowControl).toBeFocused();
   await expect(overflowControl).toHaveAttribute("aria-pressed", "true");
   await expect(nestedRow).toHaveAttribute("data-workspace-child-overflow", "scroll");
-  const recapturedBox = await nestedRow.boundingBox();
-  if (!recapturedBox) {
-    throw new Error("The recaptured scroll container must expose browser geometry.");
-  }
+  const recapturedBox = await requiredBoundingBox(nestedRow, "The recaptured scroll container");
   expect(recapturedBox.width).toBeCloseTo(grownBox.width, 0);
   const moveControl = nestedRow.getByRole("button", { name: "Move Nested row" });
   await expect(moveControl).toBeVisible();
@@ -280,10 +338,7 @@ test("container overflow switches stably, isolates scrolling, and accepts an emp
 
   const emptyContainer = workspace.getByRole("article", { name: "Empty container" });
   const emptyTarget = emptyContainer.locator("[data-workspace-empty-child-container]");
-  const emptyBox = await emptyTarget.boundingBox();
-  if (!emptyBox) {
-    throw new Error("The empty child target must expose browser geometry.");
-  }
+  const emptyBox = await requiredBoundingBox(emptyTarget, "The empty child target");
   const point = { x: emptyBox.x + emptyBox.width / 2, y: emptyBox.y + emptyBox.height / 2 };
   const transfer = await recursiveChildTransfer(page, "External child");
   const eventInit = { clientX: point.x, clientY: point.y, dataTransfer: transfer };

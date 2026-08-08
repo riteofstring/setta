@@ -73,6 +73,7 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain('data-workspace-external-drop-state="idle"');
     expect(markup).toContain('data-workspace-external-drop-announcement=""');
     expect(markup).toContain('data-workspace-container-layout-announcement=""');
+    expect(markup).toContain('data-workspace-container-orientation-announcement=""');
     expect(markup).toContain('data-workspace-creation-announcement=""');
     expect(markup).toContain('data-workspace-history-announcement=""');
     expect(markup).toContain('data-workspace-section-state-announcement=""');
@@ -255,7 +256,13 @@ describe("Workspace scaffold", () => {
       /aria-label="Scroll Nested row child sections"[^>]+aria-pressed="true"/u,
     );
     expect(markup).toMatch(
+      /aria-label="Arrange Nested row child sections vertically"[^>]+data-workspace-next-orientation="vertical"/u,
+    );
+    expect(markup).toMatch(
       /aria-label="Scroll Root container child sections"[^>]+aria-pressed="false"[^>]+disabled/u,
+    );
+    expect(markup).toMatch(
+      /aria-label="Arrange Root container child sections horizontally"[^>]+data-workspace-next-orientation="horizontal"/u,
     );
     expect(markup).not.toContain("Host body for root");
     expect(markup).toContain("Host body for first");

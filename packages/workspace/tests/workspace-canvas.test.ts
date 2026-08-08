@@ -71,6 +71,7 @@ function projectedNodes(document: WorkspaceDocument, selectedSectionIds: readonl
     unchanged,
     unchanged,
     unchanged,
+    unchanged,
     doNothing,
     unchanged,
     validTitle,
