@@ -119,10 +119,16 @@ resolved workbench `readOnly` state. Its content boundary automatically prevents
 scrollable host content from starting viewport pan or wheel gestures. Headerless chrome retains an
 accessible title, and minimized sections unmount the host body while retaining serialized data and
 size state. Each root frame also exposes a native, named movement handle. Selected frames expose
-package-owned title and style controls. Title input is trimmed, rejects empty values, supports Enter
-to save and Escape to cancel, restores focus, and keeps an asynchronously rejected proposal open
-with an associated error. `validateSectionTitle` may perform host validation or persistence before
-the package commits one `section-title` change.
+package-owned lock, minimize, title, and style controls. Lock uses pressed-state semantics and the
+layout capability; minimize uses expanded-state semantics and the presentation capability. A
+section definition with `minimizable: false` omits the minimize control. Minimized roots measure as
+compact chrome without changing their serialized fixed/content size modes or finite fallbacks, and
+expansion restores focus and canonical sizing even when headerless chrome replaces the control
+subtree. Controlled hosts that decline either proposal retain and announce the canonical state.
+Title input is trimmed, rejects empty values, supports Enter to save and Escape to cancel, restores
+focus, and keeps an asynchronously rejected proposal open with an associated error.
+`validateSectionTitle` may perform host validation or persistence before the package commits one
+`section-title` change.
 
 Accent and tag choices are serialized section presentation. The default editor provides six
 gamut-safe OKLCH choices plus reset; `sectionColorPalette` can replace those labeled choices with

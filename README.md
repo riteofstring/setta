@@ -68,10 +68,13 @@ single-commit top-level block movement with relative-offset preservation and loc
 The frame now also owns trimmed, asynchronously validated inline title editing plus resettable,
 frame-scoped accent/tag and chrome controls. These presentation affordances enforce live capability
 policy before opening and commit one canonical title or presentation change through the public
-controller. Registry metadata now also drives a built-in searchable creation picker, pointer-based
-context creation, and deterministic visible smart placement; a strict host factory continues to own
-section IDs and payload data while the public controller commits one canonical `section-create`
-change and the new frame receives package selection and focus.
+controller. Selected frames now also expose semantic lock/unlock and minimize/expand controls with
+live capability gating, focus restoration, compact minimized chrome, and controlled-host
+reconciliation through the same canonical controller boundary. Registry metadata now also drives a
+built-in searchable creation picker, pointer-based context creation, and deterministic visible smart
+placement; a strict host factory continues to own section IDs and payload data while the public
+controller commits one canonical `section-create` change and the new frame receives package
+selection and focus.
 Phase 2 now also exposes generic external drops through a strict host validator and final callback.
 The shared geometry index supplies workbench coordinates, deepest eligible container candidates,
 and orientation-aware insertion indices; accessible valid/invalid feedback remains transient,

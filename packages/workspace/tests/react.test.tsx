@@ -33,6 +33,7 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain('data-workspace-grid-visible="true"');
     expect(markup).toContain('data-workspace-external-drop-state="idle"');
     expect(markup).toContain('data-workspace-external-drop-announcement=""');
+    expect(markup).toContain('data-workspace-section-state-announcement=""');
     expect(markup).toContain('data-workspace-resolved-appearance="light"');
     expect(markup).toContain("Start with a section.");
   });
@@ -115,6 +116,12 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain('data-appearance="dark"');
     expect(markup).toContain('data-read-only="true"');
     expect(markup).toMatch(/<button[^>]+aria-label="Move Alpha note"[^>]+disabled/u);
+    expect(markup).toMatch(
+      /<button[^>]+aria-label="Lock Alpha note"[^>]+aria-pressed="false"[^>]+disabled/u,
+    );
+    expect(markup).toMatch(
+      /<button[^>]+aria-expanded="true"[^>]+aria-label="Minimize Alpha note"[^>]+disabled/u,
+    );
     expect(markup).toMatch(/<button[^>]+aria-label="Rename Alpha note"[^>]+disabled/u);
     expect(markup).toMatch(/<button[^>]+aria-label="Style Alpha note"[^>]+disabled/u);
     expect(markup).toContain("setta-workspace__interaction-boundary");
@@ -158,8 +165,33 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain('aria-label="Select Quiet note"');
     expect(markup).toContain('aria-label="Rename Quiet note"');
     expect(markup).toContain('aria-label="Style Quiet note"');
+    expect(markup).toMatch(/aria-expanded="false"[^>]+aria-label="Expand Quiet note"/u);
+    const contentId = /aria-controls="([^"]+)"[^>]+aria-expanded="false"/u.exec(markup)?.[1];
+    expect(contentId).toBeTruthy();
+    expect(markup).toContain(`hidden="" id="${String(contentId)}"`);
     expect(markup).toContain('aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"');
     expect(markup).not.toContain("Host body must be absent");
+  });
+
+  it("omits minimize controls for a section kind that opts out", () => {
+    const document = createWorkspaceTestDocument([{ id: "alpha", title: "Fixed frame" }]);
+    const definitions = [
+      {
+        defaultSize: { height: 180, width: 240 },
+        displayName: "Fixed host",
+        kind: "test",
+        minimizable: false,
+        render: () => null,
+      },
+    ] satisfies readonly SectionDefinition[];
+
+    const markup = renderToStaticMarkup(
+      <Workspace defaultDocument={document} sectionDefinitions={definitions} />,
+    );
+
+    expect(markup).toContain('aria-label="Lock Fixed frame"');
+    expect(markup).not.toContain('aria-label="Minimize Fixed frame"');
+    expect(markup).not.toContain('data-workspace-section-state-control="minimize"');
   });
 
   it("fails specifically when a document uses an unregistered section kind", () => {

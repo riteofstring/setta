@@ -29,6 +29,7 @@ import type {
 } from "./workspace-section-contract.js";
 import { SectionPresentationEditor, SectionTitleEditor } from "./workspace-section-editors.js";
 import type { ResolvedSectionDefinition } from "./workspace-section-registry.js";
+import { WorkspaceSectionStateControls } from "./workspace-section-state-controls.js";
 import type { WorkspaceSectionSelectionRequest } from "./workspace-selection.js";
 
 export type WorkspaceSectionFrameProps = Readonly<{
@@ -39,6 +40,8 @@ export type WorkspaceSectionFrameProps = Readonly<{
   layoutEditable: boolean;
   moving: boolean;
   onKeyboardMove(sectionId: string, direction: WorkspaceKeyboardMoveDirection): void;
+  onLockedCommit(sectionId: string, locked: boolean): WorkspaceActionResult;
+  onMinimizedCommit(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
   onPresentationCommit(
     sectionId: string,
     presentation: WorkspaceSectionPresentation,
@@ -357,14 +360,15 @@ function focusWithoutScroll(ref: RefObject<HTMLElement | null>): void {
 
 function SectionContent({
   appearance,
+  contentId,
   definition,
   inactive,
   readOnly,
   section,
 }: Pick<WorkspaceSectionFrameProps, "appearance" | "definition" | "readOnly" | "section"> &
-  Readonly<{ inactive: boolean }>) {
+  Readonly<{ contentId: string; inactive: boolean }>) {
   if (section.isMinimized) {
-    return null;
+    return <div hidden id={contentId} />;
   }
   const Renderer = definition.render;
   return (
@@ -373,6 +377,7 @@ function SectionContent({
       className={`setta-workspace__section-content setta-workspace__interaction-boundary ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
       data-workspace-prevent-pan="true"
       data-workspace-prevent-wheel="true"
+      id={contentId}
       inert={inactive || undefined}
       tabIndex={inactive ? undefined : 0}
     >
@@ -541,16 +546,19 @@ function SectionFrameControls({
   editingTitle,
   editControls,
   dragHandle,
+  stateControls,
 }: Readonly<{
   editingTitle: boolean;
   editControls: ReactNode;
   dragHandle: ReactNode;
+  stateControls: ReactNode;
 }>) {
   if (editingTitle) {
     return null;
   }
   return (
     <>
+      {stateControls}
       {editControls}
       {dragHandle}
     </>
@@ -601,6 +609,8 @@ export function WorkspaceSectionFrame({
   layoutEditable,
   moving,
   onKeyboardMove,
+  onLockedCommit,
+  onMinimizedCommit,
   onPresentationCommit,
   onSelectionRequest,
   onTitleCommit,
@@ -613,12 +623,15 @@ export function WorkspaceSectionFrame({
   validateTitle,
 }: WorkspaceSectionFrameProps) {
   const reactId = useId().replaceAll(":", "");
+  const contentId = `setta-workspace-section-${reactId}-content`;
   const headingId = `setta-workspace-section-${reactId}-title`;
   const moveDescriptionId = `setta-workspace-section-${reactId}-move-description`;
   const presentationEditorId = `setta-workspace-section-${reactId}-presentation`;
   const statusId = `setta-workspace-section-${reactId}-status`;
   const titleEditorId = `setta-workspace-section-${reactId}-title-editor`;
   const frameElementRef = useRef<HTMLElement>(null);
+  const lockControlRef = useRef<HTMLButtonElement>(null);
+  const minimizeControlRef = useRef<HTMLButtonElement>(null);
   const renameControlRef = useRef<HTMLButtonElement>(null);
   const restoreTitleFocusRef = useRef(false);
   const styleControlRef = useRef<HTMLButtonElement>(null);
@@ -707,6 +720,27 @@ export function WorkspaceSectionFrame({
       selectionMovementBlocked={selectionMovementBlocked}
     />
   );
+  const stateControls = (
+    <WorkspaceSectionStateControls
+      contentId={contentId}
+      definition={definition}
+      layoutEditable={layoutEditable}
+      lockControlRef={lockControlRef}
+      minimizeControlRef={minimizeControlRef}
+      onLockedCommit={(sectionId, locked) => {
+        const result = onLockedCommit(sectionId, locked);
+        focusWithoutScroll(lockControlRef);
+        return result;
+      }}
+      onMinimizedCommit={(sectionId, isMinimized) => {
+        const result = onMinimizedCommit(sectionId, isMinimized);
+        focusWithoutScroll(minimizeControlRef);
+        return result;
+      }}
+      presentationEditable={presentationEditable}
+      section={section}
+    />
+  );
   const selectionControl = (
     <SectionSelectionControl
       onSelectionRequest={onSelectionRequest}
@@ -743,6 +777,7 @@ export function WorkspaceSectionFrame({
             dragHandle={dragHandle}
             editControls={editControls}
             editingTitle={editingTitle}
+            stateControls={stateControls}
           />
         }
         definition={definition}
@@ -761,6 +796,7 @@ export function WorkspaceSectionFrame({
       />
       <SectionContent
         appearance={appearance}
+        contentId={contentId}
         definition={definition}
         inactive={presentationOpen}
         readOnly={readOnly}

@@ -31,6 +31,7 @@ import type {
   WorkspaceSectionTitleValidator,
 } from "./workspace-section-contract.js";
 import type { WorkspaceSectionRegistry } from "./workspace-section-registry.js";
+import { useWorkspaceSectionStateActions } from "./workspace-section-state-actions.js";
 import {
   resolveWorkspaceRootSelection,
   translateWorkspaceRootSelection,
@@ -81,6 +82,8 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
   geometry,
   gridOptions,
   layoutEditable,
+  onSectionLockedCommit,
+  onSectionMinimizedCommit,
   onRootMoveCommit,
   onSelectionRequest,
   onSectionPresentationCommit,
@@ -99,6 +102,8 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
   geometry: WorkspaceGeometryMeasurements;
   gridOptions: ResolvedWorkspaceGridOptions;
   layoutEditable: boolean;
+  onSectionLockedCommit(sectionId: string, locked: boolean): WorkspaceActionResult;
+  onSectionMinimizedCommit(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
   onRootMoveCommit(positions: Readonly<Record<string, WorkspacePoint>>): WorkspaceActionResult;
   onSelectionRequest(sectionId: string, request: WorkspaceSectionSelectionRequest): void;
   onSectionPresentationCommit(
@@ -122,6 +127,11 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
   const [announcementText, setAnnouncementText] = useState("");
   const [synchronizationRevision, setSynchronizationRevision] = useState(0);
   const pendingRootMovementRef = useRef<PendingRootMovement | null>(null);
+  const sectionStateActions = useWorkspaceSectionStateActions({
+    document,
+    onLockedCommit: onSectionLockedCommit,
+    onMinimizedCommit: onSectionMinimizedCommit,
+  });
   const recordMovementResult = useCallback(
     (
       sectionId: string,
@@ -191,6 +201,8 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
         layoutEditable,
         presentationEditable,
         handleKeyboardMove,
+        sectionStateActions.handleLockedCommit,
+        sectionStateActions.handleMinimizedCommit,
         onSectionPresentationCommit,
         onSelectionRequest,
         onSectionTitleCommit,
@@ -210,6 +222,8 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
       presentationEditable,
       readOnly,
       rootSelectionProjection,
+      sectionStateActions.handleLockedCommit,
+      sectionStateActions.handleMinimizedCommit,
       sectionRegistry,
       validateSectionTitle,
     ],
@@ -372,5 +386,6 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
     handleNodeDragStop,
     handleNodesChange,
     nodes,
+    sectionStateAnnouncementText: sectionStateActions.announcementText,
   };
 }

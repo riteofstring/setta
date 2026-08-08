@@ -75,6 +75,8 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   onGridSnapChange(value: boolean): void;
   onMinimapVisibilityChange(value: boolean): void;
   onRootMoveCommit(positions: Readonly<Record<string, WorkspacePoint>>): WorkspaceActionResult;
+  onSectionLockedCommit(sectionId: string, locked: boolean): WorkspaceActionResult;
+  onSectionMinimizedCommit(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
   onSectionPresentationCommit(
     sectionId: string,
     presentation: WorkspaceSectionPresentation,
@@ -114,6 +116,8 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   onGridSnapChange,
   onMinimapVisibilityChange,
   onRootMoveCommit,
+  onSectionLockedCommit,
+  onSectionMinimizedCommit,
   onSectionPresentationCommit,
   onSectionTitleCommit,
   onSelectionChange,
@@ -169,6 +173,8 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     gridOptions,
     layoutEditable,
     onRootMoveCommit,
+    onSectionLockedCommit,
+    onSectionMinimizedCommit,
     onSectionPresentationCommit,
     onSectionTitleCommit,
     onSelectionRequest: selection.handleSelectionRequest,
@@ -295,6 +301,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         externalDrop={externalDrop.announcementText}
         movement={rootProjection.announcementText}
         selection={selection.announcementText}
+        sectionState={rootProjection.sectionStateAnnouncementText}
       />
       {creation.dialog}
       {externalDrop.feedback}

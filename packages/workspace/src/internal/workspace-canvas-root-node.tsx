@@ -24,6 +24,8 @@ type WorkspaceRootNodeData = {
   layoutEditable: boolean;
   moving: boolean;
   onKeyboardMove(sectionId: string, direction: WorkspaceKeyboardMoveDirection): void;
+  onLockedCommit: WorkspaceSectionFrameProps["onLockedCommit"];
+  onMinimizedCommit: WorkspaceSectionFrameProps["onMinimizedCommit"];
   onPresentationCommit: WorkspaceSectionFrameProps["onPresentationCommit"];
   onSelectionRequest(sectionId: string, request: WorkspaceSectionSelectionRequest): void;
   onTitleCommit: WorkspaceSectionFrameProps["onTitleCommit"];
@@ -61,6 +63,8 @@ function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
       layoutEditable={data.layoutEditable}
       moving={data.moving}
       onKeyboardMove={data.onKeyboardMove}
+      onLockedCommit={data.onLockedCommit}
+      onMinimizedCommit={data.onMinimizedCommit}
       onPresentationCommit={data.onPresentationCommit}
       onSelectionRequest={data.onSelectionRequest}
       onTitleCommit={data.onTitleCommit}
@@ -98,6 +102,8 @@ function rootNode(
   layoutEditable: boolean,
   presentationEditable: boolean,
   onKeyboardMove: WorkspaceRootNodeData["onKeyboardMove"],
+  onLockedCommit: WorkspaceRootNodeData["onLockedCommit"],
+  onMinimizedCommit: WorkspaceRootNodeData["onMinimizedCommit"],
   onPresentationCommit: WorkspaceRootNodeData["onPresentationCommit"],
   onSelectionRequest: WorkspaceRootNodeData["onSelectionRequest"],
   onTitleCommit: WorkspaceRootNodeData["onTitleCommit"],
@@ -106,7 +112,7 @@ function rootNode(
 ): WorkspaceRootNode {
   const selected = selection.selectedSectionIds.has(root.sectionId);
   const selectionMovementBlocked = selected && selection.movementBlocked;
-  return {
+  const node: WorkspaceRootNode = {
     ariaLabel: root.title,
     data: {
       appearance,
@@ -116,6 +122,8 @@ function rootNode(
       layoutEditable,
       moving: false,
       onKeyboardMove,
+      onLockedCommit,
+      onMinimizedCommit,
       onPresentationCommit,
       onSelectionRequest,
       onTitleCommit,
@@ -132,7 +140,6 @@ function rootNode(
     dragHandle: ".setta-workspace__section-drag-handle",
     draggable: layoutEditable && !section.positionAndSizeLocked && !selectionMovementBlocked,
     focusable: false,
-    height: root.size.height,
     id: root.sectionId,
     position: { ...root.position },
     selected,
@@ -141,6 +148,10 @@ function rootNode(
     width: root.size.width,
     zIndex: root.order,
   };
+  if (!section.isMinimized) {
+    node.height = root.size.height;
+  }
+  return node;
 }
 
 export function projectNodes<TSectionData>(
@@ -153,6 +164,8 @@ export function projectNodes<TSectionData>(
   layoutEditable: boolean,
   presentationEditable: boolean,
   onKeyboardMove: WorkspaceRootNodeData["onKeyboardMove"],
+  onLockedCommit: WorkspaceRootNodeData["onLockedCommit"],
+  onMinimizedCommit: WorkspaceRootNodeData["onMinimizedCommit"],
   onPresentationCommit: WorkspaceRootNodeData["onPresentationCommit"],
   onSelectionRequest: WorkspaceRootNodeData["onSelectionRequest"],
   onTitleCommit: WorkspaceRootNodeData["onTitleCommit"],
@@ -176,6 +189,8 @@ export function projectNodes<TSectionData>(
       layoutEditable,
       presentationEditable,
       onKeyboardMove,
+      onLockedCommit,
+      onMinimizedCommit,
       onPresentationCommit,
       onSelectionRequest,
       onTitleCommit,
@@ -192,14 +207,19 @@ export function synchronizeNodes(
   const currentById = new Map(current.map((node) => [node.id, node]));
   return projected.map((node) => {
     const existing = currentById.get(node.id);
-    return existing
-      ? {
-          ...existing,
-          ...node,
-          data: node.data,
-          position: { ...node.position },
-        }
-      : node;
+    if (!existing) {
+      return node;
+    }
+    const synchronized = {
+      ...existing,
+      ...node,
+      data: node.data,
+      position: { ...node.position },
+    };
+    if (node.data.section.isMinimized) {
+      delete synchronized.height;
+    }
+    return synchronized;
   });
 }
 

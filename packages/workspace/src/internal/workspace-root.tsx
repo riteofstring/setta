@@ -311,6 +311,15 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       controller.setSectionPresentation(sectionId, presentation),
     [controller],
   );
+  const handleSectionLockedCommit = useCallback(
+    (sectionId: string, locked: boolean) => controller.setSectionsLocked([sectionId], locked),
+    [controller],
+  );
+  const handleSectionMinimizedCommit = useCallback(
+    (sectionId: string, isMinimized: boolean) =>
+      controller.setSectionMinimized(sectionId, isMinimized),
+    [controller],
+  );
   const handleSectionTitleCommit = useCallback(
     (sectionId: string, title: string) => controller.setSectionTitle(sectionId, title),
     [controller],
@@ -366,6 +375,8 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         onGridSnapChange={setGridSnap}
         onMinimapVisibilityChange={setMinimapVisible}
         onRootMoveCommit={handleRootMoveCommit}
+        onSectionLockedCommit={handleSectionLockedCommit}
+        onSectionMinimizedCommit={handleSectionMinimizedCommit}
         onSectionPresentationCommit={handleSectionPresentationCommit}
         onSectionTitleCommit={handleSectionTitleCommit}
         onSelectionChange={commitSelection}
