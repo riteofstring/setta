@@ -1,13 +1,16 @@
 import { Background, BackgroundVariant, MiniMap, useViewport, ViewportPortal } from "@xyflow/react";
 import type { ReactNode } from "react";
 
-import type { WorkspaceMinimapPlacement, WorkspaceOverlayPlacement } from "../react.js";
 import type { WorkspaceRootNode } from "./workspace-canvas-root-node.js";
 import {
   WORKSPACE_NO_PAN_CLASS_NAME,
   WORKSPACE_NO_WHEEL_CLASS_NAME,
 } from "./workspace-interaction-boundary.js";
 import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
+import type {
+  WorkspaceMinimapPlacement,
+  WorkspaceOverlayPlacement,
+} from "./workspace-react-contract.js";
 
 function backgroundVariant(pattern: ResolvedWorkspaceGridOptions["pattern"]): BackgroundVariant {
   if (pattern === "cross") {

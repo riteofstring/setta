@@ -18,11 +18,6 @@ import type {
   WorkspaceSectionPresentation,
   WorkspaceViewport,
 } from "../core.js";
-import type {
-  WorkspaceMinimapPlacement,
-  WorkspaceOverlayPlacement,
-  WorkspaceToolbarControl,
-} from "../react.js";
 import { WorkspaceGeometryIndex } from "./geometry-index.js";
 import {
   WorkspaceCanvasAnnouncements,
@@ -44,6 +39,11 @@ import {
   WORKSPACE_NO_WHEEL_CLASS_NAME,
 } from "./workspace-interaction-boundary.js";
 import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
+import type {
+  WorkspaceMinimapPlacement,
+  WorkspaceOverlayPlacement,
+  WorkspaceToolbarControl,
+} from "./workspace-react-contract.js";
 import type {
   WorkspaceSectionColorOption,
   WorkspaceSectionTitleValidator,

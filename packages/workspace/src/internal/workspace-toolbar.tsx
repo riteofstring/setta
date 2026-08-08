@@ -16,12 +16,15 @@ import type {
   WorkspaceJsonValue,
   WorkspaceViewport,
 } from "../core.js";
-import type { WorkspaceToolbarControl, WorkspaceToolbarControlPlacement } from "../react.js";
 import type { ScreenRect } from "./geometry-index.js";
 import {
   WORKSPACE_NO_PAN_CLASS_NAME,
   WORKSPACE_NO_WHEEL_CLASS_NAME,
 } from "./workspace-interaction-boundary.js";
+import type {
+  WorkspaceToolbarControl,
+  WorkspaceToolbarControlPlacement,
+} from "./workspace-react-contract.js";
 import { workspaceViewportsMatch } from "./workspace-viewport-synchronizer.js";
 
 type ResolvedToolbarControl = Readonly<{

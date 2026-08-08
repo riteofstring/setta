@@ -1,0 +1,380 @@
+import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+
+import {
+  resolveWorkspaceCapabilities,
+  resolveWorkspaceGestureOptions,
+  type WorkspaceController,
+  type WorkspaceJsonValue,
+  type WorkspacePoint,
+  type WorkspaceSectionPresentation,
+} from "../core.js";
+import { WorkspaceCanvasAdapter } from "./workspace-canvas-adapter.js";
+import type { WorkspaceCanvasController } from "./workspace-canvas-navigation.js";
+import {
+  createWorkspaceController,
+  createWorkspaceRootSection,
+  moveWorkspaceRootSections,
+  type WorkspaceControllerBindings,
+} from "./workspace-controller.js";
+import {
+  resolveWorkspaceAppearanceOptions,
+  resolveWorkspaceGridOptions,
+} from "./workspace-preferences.js";
+import {
+  assertStableWorkspaceMode,
+  assertWorkspaceAccessibleName,
+  assertWorkspaceSectionFactory,
+  assertWorkspaceSectionTitleValidator,
+  assertWorkspaceViewportWithinGestureBounds,
+  renderWorkspaceOverlaySlots,
+  resolveWorkspaceMinimapOptions,
+  resolveWorkspaceMode,
+  resolveWorkspaceOverlayRenderers,
+  resolveWorkspaceSelectionOptions,
+  resolveWorkspaceToolbarControls,
+  workspaceCapabilitiesAreReadOnly,
+  workspaceCreationAvailability,
+  type WorkspaceProps,
+} from "./workspace-react-contract.js";
+import {
+  focusCreatedWorkspaceSection,
+  useResolvedWorkspaceAppearance,
+  useWorkspaceBooleanPreference,
+  workspaceThemeStyle,
+} from "./workspace-react-runtime.js";
+import {
+  resolveWorkspaceSectionColorPalette,
+  type WorkspaceSectionFactory,
+  type WorkspaceSectionTitleValidationRequest,
+  type WorkspaceSectionTitleValidator,
+} from "./workspace-section-contract.js";
+import { planWorkspaceRootSectionCreation } from "./workspace-section-creation.js";
+import {
+  resolveSectionDefinitions,
+  validateWorkspaceSectionDefinitions,
+  type WorkspaceSectionRegistry,
+} from "./workspace-section-registry.js";
+import {
+  reconcileWorkspaceSelection,
+  resolveWorkspaceSelection,
+  workspaceSelectionsMatch,
+} from "./workspace-selection.js";
+
+export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspaceProps<TSectionData>) {
+  const {
+    ariaLabel = "Workspace",
+    appearanceOptions: appearanceOptionOverrides,
+    capabilities: capabilityOverrides,
+    className,
+    controllerRef,
+    defaultDocument,
+    document: controlledDocument,
+    emptyState = "No sections yet. Add a section to start.",
+    gestureOptions: gestureOptionOverrides,
+    gridOptions: gridOptionOverrides,
+    minimapOptions: minimapOptionOverrides,
+    onDocumentChange,
+    onGridSnapChange,
+    onMinimapVisibilityChange,
+    overlaySlots: overlaySlotOverrides,
+    readOnly = false,
+    sectionColorPalette: sectionColorPaletteOverrides,
+    sectionDefinitions: sectionDefinitionOverrides,
+    sectionFactory,
+    selectionOptions: selectionOptionOverrides,
+    style,
+    toolbarControls: toolbarControlOverrides,
+    validateSectionTitle,
+    ...sectionProps
+  } = props;
+  assertWorkspaceAccessibleName(ariaLabel);
+  assertWorkspaceSectionFactory<TSectionData>(sectionFactory);
+  assertWorkspaceSectionTitleValidator(validateSectionTitle);
+  const gestureOptions = useMemo(
+    () => resolveWorkspaceGestureOptions(gestureOptionOverrides),
+    [gestureOptionOverrides],
+  );
+  const appearanceOptions = useMemo(
+    () => resolveWorkspaceAppearanceOptions(appearanceOptionOverrides),
+    [appearanceOptionOverrides],
+  );
+  const gridOptions = useMemo(
+    () => resolveWorkspaceGridOptions(gridOptionOverrides),
+    [gridOptionOverrides],
+  );
+  const minimapOptions = useMemo(
+    () => resolveWorkspaceMinimapOptions(minimapOptionOverrides),
+    [minimapOptionOverrides],
+  );
+  const toolbarControls = useMemo(
+    () => resolveWorkspaceToolbarControls(toolbarControlOverrides),
+    [toolbarControlOverrides],
+  );
+  const overlayRenderers = useMemo(
+    () => resolveWorkspaceOverlayRenderers(overlaySlotOverrides),
+    [overlaySlotOverrides],
+  );
+  const sectionRegistry = useMemo(
+    () => resolveSectionDefinitions(sectionDefinitionOverrides),
+    [sectionDefinitionOverrides],
+  );
+  const sectionColorPalette = useMemo(
+    () => resolveWorkspaceSectionColorPalette(sectionColorPaletteOverrides),
+    [sectionColorPaletteOverrides],
+  );
+  const selectionOptions = useMemo(
+    () => resolveWorkspaceSelectionOptions(selectionOptionOverrides),
+    [selectionOptionOverrides],
+  );
+  const [gridSnap, setGridSnap] = useWorkspaceBooleanPreference(
+    "Workspace grid snap",
+    gridOptions.snap,
+    onGridSnapChange,
+  );
+  const [minimapVisible, setMinimapVisible] = useWorkspaceBooleanPreference(
+    "Workspace minimap visibility",
+    minimapOptions.visible,
+    onMinimapVisibilityChange,
+  );
+  const effectiveGridOptions = useMemo(
+    () => Object.freeze({ ...gridOptions, snap: gridSnap }),
+    [gridOptions, gridSnap],
+  );
+  const resolvedAppearance = useResolvedWorkspaceAppearance(appearanceOptions.appearance);
+  const themeStyle = useMemo(
+    () => workspaceThemeStyle(appearanceOptions, resolvedAppearance),
+    [appearanceOptions, resolvedAppearance],
+  );
+  const mode = resolveWorkspaceMode(
+    controlledDocument,
+    defaultDocument,
+    gestureOptions.initialZoom,
+    onDocumentChange,
+  );
+  const initialModeRef = useRef(mode.type);
+  assertStableWorkspaceMode(initialModeRef.current, mode.type);
+  const [uncontrolledDocument, setUncontrolledDocument] = useState(mode.document);
+  const document = mode.type === "controlled" ? mode.document : uncontrolledDocument;
+  const validatedDocument = useMemo(() => {
+    validateWorkspaceSectionDefinitions(document, sectionRegistry);
+    assertWorkspaceViewportWithinGestureBounds(document, gestureOptions);
+    return document;
+  }, [document, gestureOptions, sectionRegistry]);
+  const capabilities = useMemo(
+    () => resolveWorkspaceCapabilities(capabilityOverrides, readOnly),
+    [capabilityOverrides, readOnly],
+  );
+  const sectionReadOnly = workspaceCapabilitiesAreReadOnly(capabilities);
+  const documentRef = useRef(validatedDocument);
+  const capabilitiesRef = useRef(capabilities);
+  const gestureOptionsRef = useRef(gestureOptions);
+  const gridOptionsRef = useRef(effectiveGridOptions);
+  const sectionRegistryRef = useRef<WorkspaceSectionRegistry<TSectionData>>(sectionRegistry);
+  const sectionFactoryRef = useRef<WorkspaceSectionFactory<TSectionData> | undefined>(
+    sectionFactory,
+  );
+  const controlledRef = useRef(mode.type === "controlled");
+  const onDocumentChangeRef = useRef(onDocumentChange);
+  const validateSectionTitleRef = useRef<WorkspaceSectionTitleValidator | undefined>(
+    validateSectionTitle,
+  );
+  const [controllerSynchronizationRevision, setControllerSynchronizationRevision] = useState(0);
+  documentRef.current = validatedDocument;
+  capabilitiesRef.current = capabilities;
+  gestureOptionsRef.current = gestureOptions;
+  gridOptionsRef.current = effectiveGridOptions;
+  sectionRegistryRef.current = sectionRegistry;
+  sectionFactoryRef.current = sectionFactory;
+  controlledRef.current = mode.type === "controlled";
+  onDocumentChangeRef.current = onDocumentChange;
+  validateSectionTitleRef.current = validateSectionTitle;
+  const [selectionState, setSelectionState] = useState<readonly string[]>([]);
+  const selectedSectionIds = useMemo(
+    () => reconcileWorkspaceSelection(validatedDocument, selectionState),
+    [selectionState, validatedDocument],
+  );
+  const selectionRef = useRef<readonly string[]>(selectedSectionIds);
+  selectionRef.current = selectedSectionIds;
+  useEffect(() => {
+    if (!workspaceSelectionsMatch(selectionState, selectedSectionIds)) {
+      setSelectionState(selectedSectionIds);
+    }
+  }, [selectedSectionIds, selectionState]);
+  const commitSelection = useCallback((sectionIds: readonly string[]) => {
+    const nextSelection = resolveWorkspaceSelection(documentRef.current, sectionIds);
+    if (workspaceSelectionsMatch(selectionRef.current, nextSelection)) {
+      return { status: "unchanged" } as const;
+    }
+    selectionRef.current = nextSelection;
+    setSelectionState(nextSelection);
+    return { status: "applied" } as const;
+  }, []);
+
+  const canvasControllerRef = useRef<WorkspaceCanvasController | null>(null);
+  const [canvasReady, setCanvasReady] = useState(false);
+  const handleCanvasControllerChange = useCallback((next: WorkspaceCanvasController | null) => {
+    canvasControllerRef.current = next;
+    setCanvasReady(next !== null);
+  }, []);
+  const controllerBindingsRef = useRef<WorkspaceControllerBindings<TSectionData> | null>(null);
+  const internalControllerRef = useRef<WorkspaceController<TSectionData> | null>(null);
+  const pendingCreatedSectionRef = useRef<Readonly<{
+    panIntoView: boolean;
+    sectionId: string;
+  }> | null>(null);
+  if (!internalControllerRef.current) {
+    const bindings: WorkspaceControllerBindings<TSectionData> = {
+      canMinimizeSection: (sectionId) => {
+        const section = documentRef.current.sections[sectionId];
+        return Boolean(section && sectionRegistryRef.current.definition(section.kind)?.minimizable);
+      },
+      commit: (nextDocument, change) => {
+        if (!controlledRef.current) {
+          documentRef.current = nextDocument;
+          setUncontrolledDocument(nextDocument);
+        }
+        onDocumentChangeRef.current?.(nextDocument, change);
+      },
+      createSection: (kind, options) => {
+        const factory = sectionFactoryRef.current;
+        if (!factory) {
+          return { reason: "section-creation-unavailable", status: "rejected" };
+        }
+        const plan = planWorkspaceRootSectionCreation({
+          canvasController: canvasControllerRef.current,
+          document: documentRef.current,
+          factory,
+          gridOptions: gridOptionsRef.current,
+          kind,
+          options,
+          registry: sectionRegistryRef.current,
+        });
+        if (plan.status === "rejected") {
+          return plan;
+        }
+        const result = createWorkspaceRootSection(bindings, plan.section, plan.position);
+        if (result.status === "applied") {
+          pendingCreatedSectionRef.current = {
+            panIntoView: plan.panTarget !== null,
+            sectionId: plan.section.id,
+          };
+        }
+        return result;
+      },
+      getCapabilities: () => capabilitiesRef.current,
+      getCanvasController: () => canvasControllerRef.current,
+      getDocument: () => documentRef.current,
+      getSelection: () => selectionRef.current,
+      getViewportBounds: () => gestureOptionsRef.current,
+      requestViewportSynchronization: () =>
+        setControllerSynchronizationRevision((revision) => revision + 1),
+      setSelection: commitSelection,
+    };
+    controllerBindingsRef.current = bindings;
+    internalControllerRef.current = createWorkspaceController(bindings);
+  }
+  const controller = internalControllerRef.current;
+  useEffect(() => {
+    const pendingCreation = pendingCreatedSectionRef.current;
+    if (!pendingCreation || !Object.hasOwn(validatedDocument.sections, pendingCreation.sectionId)) {
+      return;
+    }
+    pendingCreatedSectionRef.current = null;
+    controller.selectSections([pendingCreation.sectionId]);
+    const canvasController = canvasControllerRef.current;
+    if (!canvasController) {
+      return;
+    }
+    void focusCreatedWorkspaceSection(
+      controller,
+      canvasController,
+      pendingCreation.sectionId,
+      pendingCreation.panIntoView,
+    );
+  }, [controller, validatedDocument]);
+  const handleRootMoveCommit = useCallback(
+    (positions: Readonly<Record<string, WorkspacePoint>>) => {
+      const bindings = controllerBindingsRef.current;
+      if (!bindings) {
+        throw new Error("Workspace controller bindings are unavailable before initialization.");
+      }
+      return moveWorkspaceRootSections(bindings, positions);
+    },
+    [],
+  );
+  const handleSectionPresentationCommit = useCallback(
+    (sectionId: string, presentation: WorkspaceSectionPresentation) =>
+      controller.setSectionPresentation(sectionId, presentation),
+    [controller],
+  );
+  const handleSectionTitleCommit = useCallback(
+    (sectionId: string, title: string) => controller.setSectionTitle(sectionId, title),
+    [controller],
+  );
+  const handleSectionTitleValidation = useCallback(
+    (request: WorkspaceSectionTitleValidationRequest) => {
+      const validator = validateSectionTitleRef.current;
+      return validator ? validator(request) : null;
+    },
+    [],
+  );
+  useImperativeHandle(controllerRef, () => controller, [controller]);
+  const overlaySlots = renderWorkspaceOverlaySlots(overlayRenderers, controller);
+  const creationAvailability = workspaceCreationAvailability(
+    sectionFactory,
+    sectionRegistry,
+    capabilities,
+    canvasReady,
+  );
+
+  const resolvedClassName = ["setta-workspace", className].filter(Boolean).join(" ");
+  const hasNoSections = validatedDocument.rootSections.length === 0;
+  const resolvedEmptyState = hasNoSections ? emptyState : null;
+
+  return (
+    <section
+      {...sectionProps}
+      aria-label={ariaLabel}
+      className={resolvedClassName}
+      data-read-only={readOnly ? "true" : "false"}
+      data-setta-workspace=""
+      data-workspace-appearance={appearanceOptions.appearance}
+      data-workspace-mode={mode.type}
+      data-workspace-resolved-appearance={resolvedAppearance}
+      style={{ ...style, ...themeStyle }}
+    >
+      <WorkspaceCanvasAdapter
+        ariaLabel={ariaLabel}
+        appearance={resolvedAppearance}
+        controllerSynchronizationRevision={controllerSynchronizationRevision}
+        creationConfigured={creationAvailability.configured}
+        creationEnabled={creationAvailability.enabled}
+        document={validatedDocument}
+        emptyState={resolvedEmptyState}
+        gestureOptions={gestureOptions}
+        gridOptions={effectiveGridOptions}
+        layoutEditable={capabilities.editLayout}
+        marqueeSelectionMode={selectionOptions.marqueeMode}
+        minimapPlacement={minimapOptions.placement}
+        minimapVisible={minimapVisible}
+        onCanvasControllerChange={handleCanvasControllerChange}
+        onGridSnapChange={setGridSnap}
+        onMinimapVisibilityChange={setMinimapVisible}
+        onRootMoveCommit={handleRootMoveCommit}
+        onSectionPresentationCommit={handleSectionPresentationCommit}
+        onSectionTitleCommit={handleSectionTitleCommit}
+        onSelectionChange={commitSelection}
+        onViewportCommit={controller.setViewport}
+        overlaySlots={overlaySlots}
+        presentationEditable={capabilities.editPresentation}
+        readOnly={sectionReadOnly}
+        sectionColorPalette={sectionColorPalette}
+        sectionRegistry={sectionRegistry}
+        selectedSectionIds={selectedSectionIds}
+        toolbarControls={toolbarControls}
+        validateSectionTitle={handleSectionTitleValidation}
+        workspaceController={controller}
+      />
+    </section>
+  );
+}
