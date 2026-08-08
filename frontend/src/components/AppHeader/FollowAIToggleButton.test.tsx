@@ -5,7 +5,6 @@ import {
   createChatSectionImpl,
   createCore,
   createProjectConfig,
-  createUserDefaultChatSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 import {
@@ -129,10 +128,10 @@ describe("FollowAIToggleButton", () => {
       id: projectConfigId,
       sectionVariantMap: { [chatSectionId]: chatVariantId },
     });
-    const chatImpl = createChatSectionImpl(
-      createUserDefaultChatSectionImpl({ chatId }),
-      { id: chatImplId, chatId },
-    );
+    const chatImpl = createChatSectionImpl({
+      ...{ chatId },
+      ...{ id: chatImplId, chatId },
+    });
 
     useProjectState.setState((state) => {
       state.projectConfig = projectConfig;

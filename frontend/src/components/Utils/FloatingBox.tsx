@@ -11,7 +11,7 @@ import { useLocalStorage, useSettings } from "state/definitions";
 import { APP_FLOATING_BOX_Z_INDEX_CLASS_NAME } from "utils/constants";
 import { SectionTypeEnum, TextBlockFormatEnum } from "utils/generatedTypes";
 import { positiveMod, shortcutPrettified } from "utils/utils";
-import { create } from "zustand";
+import { create } from "zustand/react";
 
 type FloatingBoxContent = (
   | { content: string; title?: string }

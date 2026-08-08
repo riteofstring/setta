@@ -1,21 +1,22 @@
 import { describe, expect, it } from "vitest";
-import {
-  PROJECT_AI_SETTINGS_ACCORDION_ITEM_ORDER,
-  normalizeProjectAISettingsAccordionOpenValues,
-} from "./projectAISettingsAccordionState";
+import { normalizeProjectAISettingsAccordionOpenValues } from "./projectAISettingsAccordionState";
 
 const STRICT_PERF_BUDGETS_ENABLED = process.env.SETTA_STRICT_PERF === "1";
+const EXPECTED_ORDER = [
+  "project-ai-settings-llm-api-keys",
+  "project-ai-settings-guardrails",
+  "project-ai-settings-agent-profiles",
+  "project-ai-settings-transcription-profiles",
+  "project-ai-settings-prompt-templates",
+  "project-ai-settings-external-agents",
+] as const;
 
 describe("projectAISettingsAccordionState (perf)", () => {
   it("normalizes large persisted payloads fast enough for interactive pane loads", () => {
     const noisyPayload: Array<string> = [];
     for (let i = 0; i < 80_000; i += 1) {
       if (i % 5_000 === 0) {
-        noisyPayload.push(
-          PROJECT_AI_SETTINGS_ACCORDION_ITEM_ORDER[
-            (i / 5_000) % PROJECT_AI_SETTINGS_ACCORDION_ITEM_ORDER.length
-          ],
-        );
+        noisyPayload.push(EXPECTED_ORDER[(i / 5_000) % EXPECTED_ORDER.length]);
       } else {
         noisyPayload.push(`noise-${i}`);
       }
@@ -28,7 +29,7 @@ describe("projectAISettingsAccordionState (perf)", () => {
     }
     const elapsedMs = performance.now() - start;
 
-    expect(normalized).toEqual(PROJECT_AI_SETTINGS_ACCORDION_ITEM_ORDER);
+    expect(normalized).toEqual(EXPECTED_ORDER);
 
     if (STRICT_PERF_BUDGETS_ENABLED) {
       // Optional strict perf budget for dedicated perf runs.

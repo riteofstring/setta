@@ -80,12 +80,12 @@ When performance work changes production code, keep the measurements in-repo:
 - Write the baseline and follow-up results under `perf/reports/<area>/...`.
 - Keep traces, screenshots, and other heavy artifacts under `perf/artifacts/`
   instead of committing them.
-- Append new reruns or corrections instead of rewriting older measurements.
+- Append reruns or corrections instead of rewriting earlier measurements.
 
 Concrete example:
 
 - `perf/reports/frontend/2026-03-07_settings-all-settings-pan-zoom-benchmark.md`
   shows a full Settings `All Settings` pan/zoom investigation, including DOM
   stage breakdowns, activation measurements, and the follow-up validation for
-  the split `useActiveSectionUI` selection path that this repo now uses for
+  the split `useActiveSectionUI` selection path that this repo uses for
   immediate active-section UI state.

@@ -40,6 +40,71 @@ type SectionWindowSurfaceProps = {
   >;
 };
 
+type SectionWindowSurfaceAppearanceOptions = {
+  sectionTypeName: SectionTypeEnum;
+  textBlockMetaControlStyle: boolean;
+  styleColor: string | null;
+  previewStyleColor: string | null | undefined;
+  darkMode: boolean;
+};
+
+function getSectionWindowSurfaceCornerClassName(
+  isStandalonePage: boolean,
+  roundedClassName: string,
+) {
+  return isStandalonePage ? "rounded-none" : roundedClassName;
+}
+
+function getSectionWindowSurfaceAppearance({
+  sectionTypeName,
+  textBlockMetaControlStyle,
+  styleColor,
+  previewStyleColor,
+  darkMode,
+}: SectionWindowSurfaceAppearanceOptions) {
+  const defaultBgColor = getBgColor(sectionTypeName);
+  const useMetaControlStyle =
+    sectionTypeName === SectionTypeEnum.MetaControl ||
+    textBlockMetaControlStyle;
+  if (useMetaControlStyle) {
+    return {
+      bgColor: "bg-transparent",
+      useMetaControlStyle,
+      hasSectionStyleTheme: false,
+      sectionStyleVars: undefined,
+    };
+  }
+
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
+  if (!resolvedStyleColor) {
+    return {
+      bgColor: defaultBgColor,
+      useMetaControlStyle,
+      hasSectionStyleTheme: false,
+      sectionStyleVars: undefined,
+    };
+  }
+
+  const sectionStyleTheme = deriveSectionStyleTheme(
+    resolvedStyleColor,
+    darkMode,
+  );
+  return {
+    bgColor: defaultBgColor,
+    useMetaControlStyle,
+    hasSectionStyleTheme: true,
+    sectionStyleVars: {
+      "--setta-section-style-bg": sectionStyleTheme.bg,
+      "--setta-section-style-panel-bg": sectionStyleTheme.panelBg,
+      "--setta-section-style-border": sectionStyleTheme.border,
+      "--setta-section-style-outline": sectionStyleTheme.outline,
+      "--setta-section-style-text": sectionStyleTheme.text,
+      "--setta-section-style-muted-text": sectionStyleTheme.mutedText,
+    } as React.CSSProperties,
+  };
+}
+
 export function SectionWindowSurface({
   sectionId,
   headerActions,
@@ -79,30 +144,23 @@ export function SectionWindowSurface({
   const previewStyleColor = useTemporaryMiscState(
     (state) => state[styleColorPreviewKey] as string | null | undefined,
   );
-  const resolvedStyleColor =
-    previewStyleColor === undefined ? styleColor : previewStyleColor;
   const darkMode = useLocalStorage((state) => state.darkMode);
-  const useMetaControlStyle =
-    sectionTypeName === SectionTypeEnum.MetaControl ||
-    textBlockMetaControlStyle;
-  const sectionStyleTheme =
-    resolvedStyleColor && !useMetaControlStyle
-      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
-      : null;
-  const hasSectionStyleTheme = Boolean(sectionStyleTheme);
-  const sectionStyleVars = sectionStyleTheme
-    ? ({
-        "--setta-section-style-bg": sectionStyleTheme.bg,
-        "--setta-section-style-panel-bg": sectionStyleTheme.panelBg,
-        "--setta-section-style-border": sectionStyleTheme.border,
-        "--setta-section-style-outline": sectionStyleTheme.outline,
-        "--setta-section-style-text": sectionStyleTheme.text,
-        "--setta-section-style-muted-text": sectionStyleTheme.mutedText,
-      } as React.CSSProperties)
-    : undefined;
-  const bgColor = useMetaControlStyle
-    ? "bg-transparent"
-    : getBgColor(sectionTypeName);
+  const surfaceCornerClassName = getSectionWindowSurfaceCornerClassName(
+    isStandalonePage,
+    roundedClassName,
+  );
+  const {
+    bgColor,
+    useMetaControlStyle,
+    hasSectionStyleTheme,
+    sectionStyleVars,
+  } = getSectionWindowSurfaceAppearance({
+    sectionTypeName,
+    textBlockMetaControlStyle,
+    styleColor,
+    previewStyleColor,
+    darkMode,
+  });
   const isRoot = getIsRoot(sectionTypeName);
   const outerShellClassName = getSectionContainerShellClassName({
     isActiveSection,
@@ -114,13 +172,13 @@ export function SectionWindowSurface({
     forceHideOutline: true,
     hideBorder: isStandalonePage,
     sizeClassName: "h-full w-full",
-    cornerClassName: isStandalonePage ? "rounded-none" : roundedClassName,
+    cornerClassName: surfaceCornerClassName,
   });
   const innerShellClassName = getSectionSurfaceClassName({
     bgColor,
     hasSectionStyleTheme,
     positionAndSizeLocked,
-    cornerClassName: isStandalonePage ? "rounded-none" : roundedClassName,
+    cornerClassName: surfaceCornerClassName,
     hideFrameBorder: isStandalonePage,
   });
 

@@ -1,5 +1,9 @@
 import { resetProjectStores } from "state/utils";
 import {
+  ChatDictationModeEnum,
+  type ChatDictationMode,
+} from "utils/generatedTypes";
+import {
   afterAll,
   afterEach,
   beforeAll,
@@ -17,7 +21,7 @@ type PersistedAIStoreSlice = {
   projectChatThreadsExplicitlyClosedAtLargeWidth?: boolean;
   projectChatActivityAccordionOpenByDefault?: boolean;
   projectChatActivityChildrenOpenByDefault?: boolean;
-  projectChatDictationMode?: "auto" | "browser" | "provider";
+  projectChatDictationMode?: ChatDictationMode;
   projectChatSelectedEngineId?: string | null;
   [key: string]: unknown;
 };
@@ -68,7 +72,7 @@ describe("useAIStore persistence", () => {
       projectChatThreadsExplicitlyClosedAtLargeWidth: true,
       projectChatActivityAccordionOpenByDefault: true,
       projectChatActivityChildrenOpenByDefault: true,
-      projectChatDictationMode: "provider",
+      projectChatDictationMode: ChatDictationModeEnum.provider,
       projectChatSelectedEngineId: "engine-codex",
     });
 
@@ -87,7 +91,9 @@ describe("useAIStore persistence", () => {
     );
     expect(parsed.state.projectChatActivityAccordionOpenByDefault).toBe(true);
     expect(parsed.state.projectChatActivityChildrenOpenByDefault).toBe(true);
-    expect(parsed.state.projectChatDictationMode).toBe("provider");
+    expect(parsed.state.projectChatDictationMode).toBe(
+      ChatDictationModeEnum.provider,
+    );
     expect(parsed.state.projectChatSelectedEngineId).toBe("engine-codex");
     expect(parsed.state.activeChatId).toBeUndefined();
   });
@@ -99,7 +105,7 @@ describe("useAIStore persistence", () => {
       JSON.stringify({
         state: {
           viewHistory: true,
-          projectChatDictationMode: "auto",
+          projectChatDictationMode: ChatDictationModeEnum.auto,
         },
         version: 0,
       }),
@@ -117,7 +123,7 @@ describe("useAIStore persistence", () => {
       JSON.stringify({
         state: {
           viewThreads: true,
-          projectChatDictationMode: "auto",
+          projectChatDictationMode: ChatDictationModeEnum.auto,
         },
         version: 0,
       }),

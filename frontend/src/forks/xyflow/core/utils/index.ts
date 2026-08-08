@@ -1,5 +1,4 @@
 import type {
-  KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
   TouchEvent as ReactTouchEvent,
 } from "react";
@@ -7,7 +6,7 @@ import type {
 import { useLocalStorage } from "state/definitions";
 import { Position } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
-import type { Box, Dimensions, Node, Rect } from "../types";
+import type { Box, Dimensions, Rect } from "../types";
 
 export const getDimensions = (node: HTMLDivElement): Dimensions => ({
   width: node.offsetWidth,
@@ -78,12 +77,6 @@ export const boxToRect = ({ x, y, x2, y2 }: Box): Rect => ({
   height: y2 - y,
 });
 
-const nodeToRect = (node: Node): Rect => ({
-  ...(node.position || { x: 0, y: 0 }),
-  width: node.width || 0,
-  height: node.height || 0,
-});
-
 export const getBoundsOfRects = (rect1: Rect, rect2: Rect): Rect =>
   boxToRect(getBoundsOfBoxes(rectToBox(rect1), rectToBox(rect2)));
 
@@ -101,23 +94,6 @@ export const getOverlappingArea = (rectA: Rect, rectB: Rect): number => {
 
   return Math.ceil(xOverlap * yOverlap);
 };
-
-const isReactKeyboardEvent = (
-  event: KeyboardEvent | ReactKeyboardEvent,
-): event is ReactKeyboardEvent => "nativeEvent" in event;
-
-function isInputDOMNode(event: KeyboardEvent | ReactKeyboardEvent): boolean {
-  const kbEvent = isReactKeyboardEvent(event) ? event.nativeEvent : event;
-  // using composed path for handling shadow dom
-  const target = (kbEvent.composedPath?.()?.[0] || event.target) as HTMLElement;
-
-  const isInput =
-    ["INPUT", "SELECT", "TEXTAREA"].includes(target?.nodeName) ||
-    target?.hasAttribute("contenteditable");
-
-  // when an input field is focused we don't want to trigger deletion or movement of nodes
-  return isInput || !!target?.closest(".nokey");
-}
 
 export const isMouseEvent = (
   event: MouseEvent | ReactMouseEvent | TouchEvent | ReactTouchEvent,

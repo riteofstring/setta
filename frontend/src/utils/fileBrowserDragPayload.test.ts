@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  FILE_BROWSER_DRAG_MIME_TYPE,
   getFileBrowserDragPayload,
   setFileBrowserDragPayload,
 } from "./fileBrowserDragPayload";
@@ -23,21 +22,24 @@ function createMockDataTransfer(): MockDataTransfer {
 }
 
 describe("fileBrowserDragPayload", () => {
-  it("round-trips payload via custom mime type", () => {
+  it("writes both custom and text/plain drag payloads", () => {
     const transfer = createMockDataTransfer();
-    setFileBrowserDragPayload(transfer as unknown as DataTransfer, {
+    const payload = {
       name: "sheet.csv",
       fullPath: "/tmp/sheet.csv",
       type: "file",
+    } as const;
+
+    setFileBrowserDragPayload(transfer as unknown as DataTransfer, {
+      ...payload,
     });
 
     expect(
       getFileBrowserDragPayload(transfer as unknown as DataTransfer),
-    ).toEqual({
-      name: "sheet.csv",
-      fullPath: "/tmp/sheet.csv",
-      type: "file",
-    });
+    ).toEqual(payload);
+    expect(transfer.getData("text/plain")).toBe(
+      `setta:file-browser-node:${JSON.stringify(payload)}`,
+    );
   });
 
   it("falls back to prefixed text/plain payload", () => {
@@ -60,7 +62,7 @@ describe("fileBrowserDragPayload", () => {
 
   it("returns null for invalid payloads", () => {
     const transfer = createMockDataTransfer();
-    transfer.setData(FILE_BROWSER_DRAG_MIME_TYPE, '{"name":1}');
+    transfer.setData("text/plain", 'setta:file-browser-node:{"name":1}');
 
     expect(
       getFileBrowserDragPayload(transfer as unknown as DataTransfer),

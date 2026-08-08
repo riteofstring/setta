@@ -1,9 +1,14 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { ensureAppReady } from "../helpers";
+import {
+  createTopLevelSectionFromFrontend,
+  ensureAppReady,
+  setImageAreaImagePathFromFrontend,
+  setSectionNameFromFrontend,
+} from "../helpers";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-const TEST_IMAGE_PATH = "pw_image.png";
+const TEST_IMAGE_PATH = "artifacts/pw_image.png";
 const ONE_BY_ONE_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Yp0oL0AAAAASUVORK5CYII=";
 
@@ -13,7 +18,7 @@ type ProjectMetadataResponse = {
   projectMetadata: ProjectMetadataEntry[];
 };
 type CreateTopLevelSectionResponse = { sectionId: string };
-type BinaryContentRef = {
+type ContentRef = {
   contentId: string;
   byteLength: number;
   mimeType: string | null;
@@ -72,19 +77,15 @@ async function createImageSection(
     }
   }
 
-  const created = await postBackend<CreateTopLevelSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Image",
-    },
-  );
+  const created = (await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType: "Image",
+  })) as CreateTopLevelSectionResponse | null;
   const sectionId = created?.sectionId;
   if (!sectionId) {
     throw new Error("Missing sectionId when creating image section.");
   }
-  await postBackend(page, "/setSectionName", {
+  await setSectionNameFromFrontend(page, {
     projectConfigId,
     sectionId,
     name: sectionName,
@@ -98,14 +99,14 @@ async function setImagePath(
   sectionId: string,
   imagePath: string,
 ): Promise<void> {
-  await postBackend(page, "/setImageAreaImagePath", {
+  await setImageAreaImagePathFromFrontend(page, {
     projectConfigId,
     sectionId,
     imagePath,
   });
 }
 
-async function uploadTestPng(page: Page): Promise<BinaryContentRef> {
+async function uploadTestPng(page: Page): Promise<ContentRef> {
   const buffer = Buffer.from(ONE_BY_ONE_PNG_BASE64, "base64");
   const response = await page.request.post(`${BACKEND_ORIGIN}/api/binary/upload`, {
     multipart: {
@@ -119,13 +120,13 @@ async function uploadTestPng(page: Page): Promise<BinaryContentRef> {
   if (!response.ok()) {
     throw new Error(`Binary upload failed: ${response.status()}`);
   }
-  return (await response.json()) as BinaryContentRef;
+  return (await response.json()) as ContentRef;
 }
 
 async function updateImageArtifact(
   page: Page,
   imagePath: string,
-  binaryRef: BinaryContentRef,
+  binaryRef: ContentRef,
 ): Promise<void> {
   await postBackend(page, "/updateArtifacts", {
     artifacts: [

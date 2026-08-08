@@ -1,22 +1,24 @@
 import type {
-  GetGitCommitDetailsResponse,
-  GetGitCommitFileDiffResponse,
-  GetGitDiffResponse,
-  GetGitLogResponse,
-  GetGitStatusResponse,
-  GitDiffMode,
-} from "utils/generatedTypes";
+  GitreadCommitDetailsResponse as CommitDetailsResponse,
+  GitreadCommitFileDiffResponse as CommitFileDiffResponse,
+  GitreadDiffResponse as DiffResponse,
+  GitreadDiffRequest,
+  GitreadLogResponse as LogResponse,
+  GitreadStatusResponse as StatusResponse,
+} from "openapi/http";
 import type { GitGraphRow, GitGraphRowComputationState } from "utils/gitGraph";
 import { createWithEqualityFn } from "zustand/traditional";
 import { withResetFn } from "./utils";
 
+type DiffMode = GitreadDiffRequest["mode"];
+
 type GitDiffOverlayState = {
   path: string;
   oldPath: string | null;
-  mode: GitDiffMode;
+  mode: DiffMode;
   hasStaged: boolean;
   hasUnstaged: boolean;
-  response: GetGitDiffResponse | null;
+  response: DiffResponse | null;
   isLoading: boolean;
   error: string | null;
 };
@@ -24,7 +26,7 @@ type GitDiffOverlayState = {
 type GitGraphOverlayState = {
   projectConfigId: string | null;
   allRefs: boolean;
-  response: GetGitLogResponse | null;
+  response: LogResponse | null;
   seenCommitHashes: Set<string>;
   rows: GitGraphRow[];
   rowComputationState: GitGraphRowComputationState;
@@ -38,11 +40,11 @@ type GitGraphOverlayState = {
   pageSize: number;
   isCapped: boolean;
   selectedCommitHash: string | null;
-  selectedCommitDetails: GetGitCommitDetailsResponse | null;
+  selectedCommitDetails: CommitDetailsResponse | null;
   selectedCommitDetailsIsLoading: boolean;
   selectedCommitDetailsError: string | null;
   selectedCommitFilePath: string | null;
-  selectedCommitFileDiffResponse: GetGitCommitFileDiffResponse | null;
+  selectedCommitFileDiffResponse: CommitFileDiffResponse | null;
   selectedCommitFileDiffIsLoading: boolean;
   selectedCommitFileDiffError: string | null;
 };
@@ -52,7 +54,7 @@ type GitOverlayState =
   | { kind: "diff"; diff: GitDiffOverlayState };
 
 type GitStatusState = {
-  response: GetGitStatusResponse | null;
+  response: StatusResponse | null;
   diffAvailabilityByPath: Map<
     string,
     { hasStaged: boolean; hasUnstaged: boolean }

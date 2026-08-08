@@ -1,4 +1,22 @@
 import {
+  callOpenAPI,
+  res200,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
+import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
+import {
+  disablePlugin,
+  enablePlugin,
+  installPlugin,
+  rescanPlugins,
+  restartLanguageServer,
+  rollbackPlugin,
+  setLanguageServerSelection,
+  uninstallPlugin,
+  updatePlugin,
+  writePluginConfig,
+} from "openapi/http";
+import {
   buildPluginRestartActionPlan,
   getRestartRequiredPluginIds,
   requestPluginRestart,
@@ -8,39 +26,28 @@ import {
   usePluginListEntries,
   usePluginRuntimeStore,
   usePluginStatusEntries,
+  type PluginServerMode,
 } from "plugins/runtime";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
-import {
-  useProjectState,
-  useSettings,
-  useShareSession,
-} from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
 import { C } from "utils/c";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
-import {
-  route_plugins_config,
-  route_plugins_disable,
-  route_plugins_enable,
-  route_plugins_install,
-  route_plugins_rescan,
-  route_plugins_rollback,
-  route_plugins_uninstall,
-  route_plugins_update,
-  route_save_settings,
-} from "utils/generatedEndpoints";
 import type {
+  LanguageServerSelectionStatus,
   PluginBlockedCapability,
+  PluginInstallerBackend,
   PluginInstallResponse,
   PluginListEntry,
   PluginRestartCapability,
+  PluginScope,
   PluginStatusEntry,
-  SettingsState,
+} from "utils/generatedTypes";
+import {
+  LanguageServerSelectionSeverityEnum,
+  PluginInstallerBackendEnum,
+  PluginRuntimeStateEnum,
+  PluginScopeEnum,
 } from "utils/generatedTypes";
 import { onOverviewTabClick } from "../../paneFns";
 import {
@@ -51,45 +58,34 @@ import {
   buildPluginListEntryCardKey,
   buildPluginSourceIdentityToken,
   buildSourceManagerGuidanceMessage,
-  formatLanguageServerSettingsDraft,
   formatPluginConfigDraft,
-  getLanguageServerSettingsValue,
-  getRegisteredCodegenTargets,
-  getRegisteredExternalAgentAdapters,
-  getRegisteredLanguageServers,
+  getPluginActionErrorDetail,
   isLinkedLocalPluginSource,
-  parseLanguageServerSettingsDraft,
   parsePluginConfigDraft,
-  setLanguageServerSettingsValue,
-  validateInstallSourceSpec,
+  resolvePluginConfigFieldPresentation,
+  type PluginConfigFieldDefinition,
 } from "./PluginsPane.helpers";
-
-type InstallScope = "workspace" | "setta_files" | "global";
-type InstallBackend = "auto" | "pip" | "uv";
-
 type PluginActionStatus = {
   type: "error" | "success" | "warning";
   message: string;
 };
-
+type InstallScope = PluginScope;
+type InstallBackend = PluginInstallerBackend;
 type PluginInstallSummary = PluginInstallResponse;
-
 type PluginPaneSummary = {
   id: string;
   title: string;
   description?: string;
   icon?: string;
 };
-
 type PluginCommandSummary = {
   id: string;
   title: string;
   description?: string;
   run: () => void | Promise<void>;
 };
-
 type PluginListEntryCardRuntimeState = {
-  serverMode: "ide" | "share" | "app" | "launcher";
+  serverMode: PluginServerMode;
   pluginStatus: PluginStatusEntry | null;
   panes: readonly PluginPaneSummary[];
   commands: readonly PluginCommandSummary[];
@@ -98,16 +94,17 @@ type PluginListEntryCardRuntimeState = {
     message: string;
   } | null;
 };
-
 type PluginsPaneRuntimeSummary = {
   status: string;
   statusMessage: string | null;
   restartCapability: PluginRestartCapability | null;
-  serverMode: "ide" | "share" | "app" | "launcher";
+  serverMode: PluginServerMode;
 };
-
 const EMPTY_PLUGIN_PANES: readonly PluginPaneSummary[] = [];
 const EMPTY_PLUGIN_COMMANDS: readonly PluginCommandSummary[] = [];
+const DEFAULT_PLUGIN_SERVER_MODE: PluginServerMode = "ide";
+const PYTHON_LANGUAGE_ID = "python";
+const PYTHON_LANGUAGE_SERVER_NONE_OPTION_ID = "__python_lsp_none__";
 const cachedFormattedCapabilitiesText = new WeakMap<string[], string>();
 const cachedCapabilitiesTooltipText = new WeakMap<string[], string>();
 const cachedFormattedBlockedCapabilitiesText = new WeakMap<
@@ -118,6 +115,30 @@ const cachedBlockedCapabilitiesTooltipText = new WeakMap<
   PluginBlockedCapability[],
   string
 >();
+
+function buildPythonLanguageServerOptions(
+  selectionStatus: LanguageServerSelectionStatus | null,
+): Array<{ id: string; name: string }> {
+  const options = [
+    {
+      id: PYTHON_LANGUAGE_SERVER_NONE_OPTION_ID,
+      name: "No Python language server",
+    },
+  ];
+  const providers = selectionStatus?.availableProviders ?? [];
+  for (const provider of providers) {
+    if (provider.pluginId.trim() === "") {
+      continue;
+    }
+    options.push({
+      id: provider.pluginId,
+      name: provider.available
+        ? provider.name
+        : `${provider.name} (unavailable)`,
+    });
+  }
+  return options;
+}
 
 function pluginListEntryCardRuntimeStateEqual(
   a: PluginListEntryCardRuntimeState,
@@ -131,7 +152,6 @@ function pluginListEntryCardRuntimeStateEqual(
     a.frontendError === b.frontendError
   );
 }
-
 function pluginsPaneRuntimeSummaryEqual(
   a: PluginsPaneRuntimeSummary,
   b: PluginsPaneRuntimeSummary,
@@ -144,10 +164,521 @@ function pluginsPaneRuntimeSummaryEqual(
   );
 }
 
+function updateBusyActionKeySet(
+  previous: Set<string>,
+  actionKey: string,
+  busy: boolean,
+): Set<string> {
+  if (previous.has(actionKey) === busy) {
+    return previous;
+  }
+  const next = new Set(previous);
+  if (busy) {
+    next.add(actionKey);
+  } else {
+    next.delete(actionKey);
+  }
+  return next;
+}
+
+async function refreshPluginRuntimeWithWarning(
+  actionLabel: string,
+): Promise<string | null> {
+  await refreshPluginRuntime();
+  const runtimeState = usePluginRuntimeStore.getState();
+  if (runtimeState.status !== "error") {
+    return null;
+  }
+  const runtimeStatusMessage = runtimeState.statusMessage?.trim();
+  const detail =
+    runtimeStatusMessage && runtimeStatusMessage.length > 0
+      ? runtimeStatusMessage
+      : "unknown runtime error.";
+  return `${actionLabel} completed, but runtime refresh failed: ${detail}`;
+}
+
+function PluginsPaneRuntimeCard({
+  runtimeSummary,
+  writeActionsLocked,
+  rescanBusy,
+  restartBusy,
+  restartActionPlan,
+  onRescan,
+  onRestart,
+}: {
+  runtimeSummary: PluginsPaneRuntimeSummary;
+  writeActionsLocked: boolean;
+  rescanBusy: boolean;
+  restartBusy: boolean;
+  restartActionPlan: ReturnType<typeof buildPluginRestartActionPlan>;
+  onRescan: () => void | Promise<void>;
+  onRestart: () => void | Promise<void>;
+}) {
+  return (
+    <section className="rounded-md border border-setta-200 bg-white p-2 dark:border-setta-850 dark:bg-setta-900">
+      <header className="mb-2 flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
+          Plugin Runtime
+        </h3>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="rounded border border-setta-300 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
+            onClick={() => {
+              void onRescan();
+            }}
+            disabled={writeActionsLocked || rescanBusy}
+          >
+            Rescan
+          </button>
+          <button
+            type="button"
+            className="rounded border border-setta-300 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
+            onClick={() => {
+              void onRestart();
+            }}
+            disabled={
+              writeActionsLocked ||
+              restartBusy ||
+              restartActionPlan.mode === "unavailable"
+            }
+          >
+            Restart Setta
+          </button>
+        </div>
+      </header>
+      <p className="text-[11px] text-setta-600 dark:text-setta-300">
+        mode={runtimeSummary.serverMode} status={runtimeSummary.status}
+      </p>
+      {runtimeSummary.restartCapability ? (
+        <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+          restart capability: {runtimeSummary.restartCapability.mode}
+          {runtimeSummary.restartCapability.command
+            ? ` (${runtimeSummary.restartCapability.command})`
+            : ""}
+        </p>
+      ) : null}
+      {runtimeSummary.statusMessage ? (
+        <p className="mt-1 text-[11px] text-red-700 dark:text-red-300">
+          {runtimeSummary.statusMessage}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function PluginsPaneRestartRequiredNotice({
+  restartRequiredPluginIds,
+  restartActionPlan,
+}: {
+  restartRequiredPluginIds: string[];
+  restartActionPlan: ReturnType<typeof buildPluginRestartActionPlan>;
+}) {
+  if (restartRequiredPluginIds.length === 0) {
+    return null;
+  }
+  return (
+    <section className="rounded-md border border-yellow-300 bg-yellow-50 p-2 text-[11px] text-yellow-800 dark:border-yellow-900/50 dark:bg-yellow-950/40 dark:text-yellow-200">
+      <p className="font-semibold uppercase tracking-wide">Restart required</p>
+      <p className="mt-1">
+        Backend changes are pending for: {restartRequiredPluginIds.join(", ")}
+      </p>
+      {restartActionPlan.mode === "manual" ? (
+        <p className="mt-1">
+          Manual command: <code>{restartActionPlan.command}</code>
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function PluginsPaneInstallSection({
+  sourceSpec,
+  scope,
+  installer,
+  enableAfterInstall,
+  disabled,
+  onSourceSpecChange,
+  onScopeChange,
+  onInstallerChange,
+  onEnableAfterInstallChange,
+  onInstall,
+}: {
+  sourceSpec: string;
+  scope: InstallScope;
+  installer: InstallBackend;
+  enableAfterInstall: boolean;
+  disabled: boolean;
+  onSourceSpecChange: (value: string) => void;
+  onScopeChange: (value: InstallScope) => void;
+  onInstallerChange: (value: InstallBackend) => void;
+  onEnableAfterInstallChange: (value: boolean) => void;
+  onInstall: () => void | Promise<void>;
+}) {
+  return (
+    <section className="rounded-md border border-setta-200 bg-white p-2 dark:border-setta-850 dark:bg-setta-900">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
+        Install Plugin
+      </h3>
+      <div className="flex flex-col gap-2">
+        <input
+          type="text"
+          value={sourceSpec}
+          onChange={(event) => onSourceSpecChange(event.target.value)}
+          placeholder="github:owner/repo[#ref] or pypi:package[==version]"
+          className="rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
+          disabled={disabled}
+        />
+        <div className="flex items-center gap-2">
+          <select
+            value={scope}
+            onChange={(event) =>
+              onScopeChange(event.target.value as InstallScope)
+            }
+            data-testid="plugin-install-scope"
+            className="rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
+            disabled={disabled}
+          >
+            <option value={PluginScopeEnum.workspace}>
+              {PluginScopeEnum.workspace}
+            </option>
+            <option value={PluginScopeEnum.setta_files}>
+              {PluginScopeEnum.setta_files}
+            </option>
+            <option value={PluginScopeEnum.global}>
+              {PluginScopeEnum.global}
+            </option>
+          </select>
+          <select
+            value={installer}
+            onChange={(event) =>
+              onInstallerChange(event.target.value as InstallBackend)
+            }
+            data-testid="plugin-install-installer"
+            className="rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
+            disabled={disabled}
+          >
+            <option value={PluginInstallerBackendEnum.auto}>
+              {PluginInstallerBackendEnum.auto}
+            </option>
+            <option value={PluginInstallerBackendEnum.pip}>
+              {PluginInstallerBackendEnum.pip}
+            </option>
+            <option value={PluginInstallerBackendEnum.uv}>
+              {PluginInstallerBackendEnum.uv}
+            </option>
+          </select>
+          <label className="flex items-center gap-1 text-[11px] text-setta-600 dark:text-setta-300">
+            <input
+              type="checkbox"
+              checked={enableAfterInstall}
+              onChange={(event) =>
+                onEnableAfterInstallChange(event.target.checked)
+              }
+              disabled={disabled}
+            />
+            enable after install
+          </label>
+          <button
+            type="button"
+            className="ml-auto rounded border border-setta-300 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
+            onClick={() => {
+              void onInstall();
+            }}
+            disabled={disabled}
+          >
+            Install
+          </button>
+        </div>
+        <p className="text-[11px] text-setta-500 dark:text-setta-400">
+          {disabled ? (
+            "Plugin install/uninstall/update actions are IDE-mode only."
+          ) : (
+            <>
+              Supported sources: <code>github:</code> and <code>pypi:</code>.
+              Installer <code>auto</code> prefers <code>uv</code> when
+              available, otherwise <code>pip</code>.
+            </>
+          )}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function PluginsPaneActionStatusNotice({
+  actionStatus,
+}: {
+  actionStatus: PluginActionStatus | null;
+}) {
+  if (!actionStatus) {
+    return null;
+  }
+  return (
+    <section
+      className={`rounded-md border p-2 text-[11px] ${getActionStatusClassName(actionStatus.type)}`}
+    >
+      {actionStatus.message}
+    </section>
+  );
+}
+
+function getLanguageServerSelectionNoticeClassName(
+  selectionStatus: LanguageServerSelectionStatus | null,
+): string {
+  if (
+    selectionStatus?.severity === LanguageServerSelectionSeverityEnum.success
+  ) {
+    return "border-green-200 bg-green-50 text-green-800 dark:border-green-900/40 dark:bg-green-950/40 dark:text-green-200";
+  }
+  if (
+    selectionStatus?.severity === LanguageServerSelectionSeverityEnum.warning
+  ) {
+    return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200";
+  }
+  return "border-setta-200 bg-setta-50/70 text-setta-700 dark:border-setta-800 dark:bg-setta-950/40 dark:text-setta-200";
+}
+
+function normalizePythonLanguageServerSelectionValue(
+  nextValue: string | null,
+): string | null {
+  return nextValue === PYTHON_LANGUAGE_SERVER_NONE_OPTION_ID ||
+    nextValue === null
+    ? null
+    : nextValue;
+}
+
+function PythonLanguageServerSection({
+  selectionStatus,
+  disabled,
+  selectionBusy,
+  restartBusy,
+  onSelectPythonLanguageServer,
+  onRestartLanguageServer,
+}: {
+  selectionStatus: LanguageServerSelectionStatus | null;
+  disabled: boolean;
+  selectionBusy: boolean;
+  restartBusy: boolean;
+  onSelectPythonLanguageServer: (pluginId: string | null) => Promise<void>;
+  onRestartLanguageServer: () => Promise<void>;
+}) {
+  const pythonLanguageServerOptions = useMemo(
+    () => buildPythonLanguageServerOptions(selectionStatus),
+    [selectionStatus],
+  );
+  const comboboxValue =
+    selectionStatus?.selectedPluginId ?? PYTHON_LANGUAGE_SERVER_NONE_OPTION_ID;
+  const noticeClassName =
+    getLanguageServerSelectionNoticeClassName(selectionStatus);
+
+  return (
+    <section className="rounded-md border border-setta-200 bg-white p-2 dark:border-setta-850 dark:bg-setta-900">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
+            Python Language Server
+          </h3>
+          <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+            Workspace selection and health come from backend-owned plugin
+            runtime state.
+          </p>
+        </div>
+        {selectionStatus?.restartRequired ? (
+          <ActionButton
+            label="Restart Language Server"
+            onClick={onRestartLanguageServer}
+            disabled={disabled || restartBusy}
+            testId="python-language-server-restart"
+          />
+        ) : null}
+      </div>
+      <div className="mt-2">
+        <IdNameCombobox
+          allItems={[
+            {
+              groupName: "Python language server",
+              items: pythonLanguageServerOptions,
+            },
+          ]}
+          value={comboboxValue}
+          onSelectedItemChange={(nextValue) =>
+            onSelectPythonLanguageServer(
+              normalizePythonLanguageServerSelectionValue(nextValue),
+            )
+          }
+          placeholder="Select a Python language server"
+          outerDivClasses="w-full"
+          inputDivId="python-language-server-selector"
+          variant="pane"
+          bg=""
+          isDisabled={disabled || selectionBusy}
+        />
+      </div>
+      <section
+        data-testid="python-language-server-selection-summary"
+        className={`mt-2 rounded border p-2 text-[11px] ${noticeClassName}`}
+      >
+        {selectionStatus?.message ??
+          "Python language-server status is unavailable."}
+      </section>
+    </section>
+  );
+}
+
+function ActivePluginsSection({
+  pluginListEntries,
+  isSettingsProject,
+  pythonSelectionStatus,
+  writeActionsLocked,
+  isAnyPluginActionBusy,
+  runEnablePlugin,
+  runDisablePlugin,
+  selectPythonLanguageServer,
+  runAction,
+}: {
+  pluginListEntries: PluginListEntry[];
+  isSettingsProject: boolean;
+  pythonSelectionStatus: LanguageServerSelectionStatus | null;
+  writeActionsLocked: boolean;
+  isAnyPluginActionBusy: (pluginId: string) => boolean;
+  runEnablePlugin: (pluginId: string) => Promise<void>;
+  runDisablePlugin: (pluginId: string) => Promise<void>;
+  selectPythonLanguageServer: (pluginId: string) => Promise<void>;
+  runAction: <T>(
+    actionKey: string,
+    actionLabel: string,
+    operation: () => Promise<ResponseDataAndStatus<T>>,
+  ) => Promise<ResponseDataAndStatus<T> | null>;
+}) {
+  return (
+    <section className="rounded-md border border-setta-200 bg-white p-2 dark:border-setta-850 dark:bg-setta-900">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
+        Active Plugins ({pluginListEntries.length})
+      </h3>
+      {pluginListEntries.length === 0 ? (
+        <p className="text-xs text-setta-500 dark:text-setta-400">
+          No active plugins discovered.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {pluginListEntries.map((plugin) => (
+            <PluginListEntryCard
+              key={buildPluginListEntryCardKey(plugin)}
+              plugin={plugin}
+              isSettingsProject={isSettingsProject}
+              pythonSelectionStatus={pythonSelectionStatus}
+              writeActionsLocked={writeActionsLocked}
+              isAnyPluginActionBusy={isAnyPluginActionBusy}
+              runEnablePlugin={runEnablePlugin}
+              runDisablePlugin={runDisablePlugin}
+              selectPythonLanguageServer={selectPythonLanguageServer}
+              runAction={runAction}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PluginDiscoveryStatusSection({
+  pluginStatusEntries,
+  renderStatusRowAction,
+}: {
+  pluginStatusEntries: PluginStatusEntry[];
+  renderStatusRowAction: (entry: PluginStatusEntry) => ReactNode;
+}) {
+  return (
+    <section className="rounded-md border border-setta-200 bg-white p-2 dark:border-setta-850 dark:bg-setta-900">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
+        Discovery Status ({pluginStatusEntries.length})
+      </h3>
+      <div className="max-h-64 overflow-auto rounded border border-setta-200 dark:border-setta-800">
+        {pluginStatusEntries.length === 0 ? (
+          <div className="p-2 text-xs text-setta-500 dark:text-setta-400">
+            No discovered plugins.
+          </div>
+        ) : (
+          <table className="w-full border-collapse text-left text-[11px]">
+            <thead className="sticky top-0 bg-setta-100 text-setta-700 dark:bg-setta-850 dark:text-setta-200">
+              <tr>
+                <th className="px-2 py-1 font-semibold">plugin</th>
+                <th className="px-2 py-1 font-semibold">state</th>
+                <th className="px-2 py-1 font-semibold">scope</th>
+                <th className="px-2 py-1 font-semibold">requested</th>
+                <th className="px-2 py-1 font-semibold">effective</th>
+                <th className="px-2 py-1 font-semibold">blocked</th>
+                <th className="px-2 py-1 font-semibold">source</th>
+                <th className="px-2 py-1 font-semibold">actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pluginStatusEntries.map((entry) => (
+                <tr
+                  key={`${entry.pluginId}:${entry.sourceScope}:${entry.sourcePath}`}
+                  className="border-t border-setta-200 dark:border-setta-850"
+                >
+                  <td className="px-2 py-1 text-setta-800 dark:text-setta-100">
+                    {entry.pluginId}
+                  </td>
+                  <td className="px-2 py-1">{entry.state}</td>
+                  <td className="px-2 py-1">{entry.sourceScopeLabel}</td>
+                  <td className="max-w-[150px] px-2 py-1 text-setta-600 dark:text-setta-300">
+                    <span
+                      title={formatCapabilitiesTooltip(
+                        entry.requestedCapabilities,
+                      )}
+                    >
+                      {formatCapabilitiesForTableCached(
+                        entry.requestedCapabilities,
+                      )}
+                    </span>
+                  </td>
+                  <td className="max-w-[150px] px-2 py-1 text-setta-600 dark:text-setta-300">
+                    <span
+                      title={formatCapabilitiesTooltip(
+                        entry.effectiveCapabilities,
+                      )}
+                    >
+                      {formatCapabilitiesForTableCached(
+                        entry.effectiveCapabilities,
+                      )}
+                    </span>
+                  </td>
+                  <td className="max-w-[170px] px-2 py-1 text-setta-600 dark:text-setta-300">
+                    <span
+                      title={formatBlockedCapabilitiesTooltip(
+                        entry.blockedCapabilities,
+                      )}
+                    >
+                      {formatBlockedCapabilitiesForTableCached(
+                        entry.blockedCapabilities,
+                      )}
+                    </span>
+                  </td>
+                  <td
+                    className="max-w-[220px] truncate px-2 py-1 text-setta-500 dark:text-setta-400"
+                    title={entry.sourcePath}
+                  >
+                    {entry.sourcePath}
+                  </td>
+                  <td className="px-2 py-1">{renderStatusRowAction(entry)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </section>
+  );
+}
 export function PluginsPane() {
   const [sourceSpec, setSourceSpec] = useState("");
-  const [scope, setScope] = useState<InstallScope>("workspace");
-  const [installer, setInstaller] = useState<InstallBackend>("auto");
+  const [scope, setScope] = useState<InstallScope>(PluginScopeEnum.workspace);
+  const [installer, setInstaller] = useState<InstallBackend>(
+    PluginInstallerBackendEnum.auto,
+  );
   const [enableAfterInstall, setEnableAfterInstall] = useState(true);
   const [busyActionKeys, setBusyActionKeys] = useState<Set<string>>(
     () => new Set(),
@@ -158,7 +689,6 @@ export function PluginsPane() {
   const [installSummary, setInstallSummary] =
     useState<PluginInstallSummary | null>(null);
   const inFlightActionKeysRef = useRef<Set<string>>(new Set());
-
   const pluginListEntries = usePluginListEntries();
   const pluginStatusEntries = usePluginStatusEntries();
   const runtimeSummary = usePluginRuntimeStore(
@@ -166,11 +696,14 @@ export function PluginsPane() {
       status: state.status,
       statusMessage: state.statusMessage,
       restartCapability: state.restartCapability,
-      serverMode: state.serverMode,
+      serverMode: state.serverMode ?? DEFAULT_PLUGIN_SERVER_MODE,
     }),
     pluginsPaneRuntimeSummaryEqual,
   );
   const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
+  const pythonSelectionStatus = usePluginRuntimeStore(
+    (state) => state.languageServerSelectionsByLanguage[PYTHON_LANGUAGE_ID],
+  );
   const currentProjectConfigName = useProjectState(
     (state) => state.projectConfig.name,
   );
@@ -191,7 +724,7 @@ export function PluginsPane() {
     () => buildPluginRestartActionPlan(runtimeSummary.restartCapability),
     [runtimeSummary.restartCapability],
   );
-
+  const installActionsDisabled = writeActionsLocked || isActionBusy("install");
   async function runAction<T>(
     actionKey: string,
     actionLabel: string,
@@ -205,14 +738,9 @@ export function PluginsPane() {
       return null;
     }
     inFlightActionKeysRef.current.add(actionKey);
-    setBusyActionKeys((previous) => {
-      if (previous.has(actionKey)) {
-        return previous;
-      }
-      const next = new Set(previous);
-      next.add(actionKey);
-      return next;
-    });
+    setBusyActionKeys((previous) =>
+      updateBusyActionKeySet(previous, actionKey, true),
+    );
     setActionStatus(null);
     try {
       const response = await operation();
@@ -223,17 +751,12 @@ export function PluginsPane() {
         return null;
       }
       if (refreshRuntimeOnSuccess) {
-        await refreshPluginRuntime();
-        const runtimeState = usePluginRuntimeStore.getState();
-        if (runtimeState.status === "error") {
-          const runtimeStatusMessage = runtimeState.statusMessage?.trim();
-          const detail =
-            runtimeStatusMessage && runtimeStatusMessage.length > 0
-              ? runtimeStatusMessage
-              : "unknown runtime error.";
+        const runtimeRefreshWarning =
+          await refreshPluginRuntimeWithWarning(actionLabel);
+        if (runtimeRefreshWarning) {
           setActionStatus({
             type: "warning",
-            message: `${actionLabel} completed, but runtime refresh failed: ${detail}`,
+            message: runtimeRefreshWarning,
           });
           return response;
         }
@@ -250,37 +773,84 @@ export function PluginsPane() {
       return null;
     } finally {
       inFlightActionKeysRef.current.delete(actionKey);
-      setBusyActionKeys((previous) => {
-        if (!previous.has(actionKey)) {
-          return previous;
-        }
-        const next = new Set(previous);
-        next.delete(actionKey);
-        return next;
-      });
+      setBusyActionKeys((previous) =>
+        updateBusyActionKeySet(previous, actionKey, false),
+      );
     }
   }
-
   function isActionBusy(actionKey: string): boolean {
     return busyActionKeys.has(actionKey);
   }
-
   function isAnyPluginActionBusy(pluginId: string): boolean {
     return busyPluginIds.has(pluginId);
   }
-
   async function runEnablePlugin(pluginId: string) {
     await runAction(`enable:${pluginId}`, "Enable plugin", async () =>
-      route_plugins_enable({ pluginId }),
+      callOpenAPI(
+        enablePlugin({ body: { pluginId } } as Parameters<
+          typeof enablePlugin
+        >[0]),
+      ),
     );
   }
-
   async function runDisablePlugin(pluginId: string) {
     await runAction(`disable:${pluginId}`, "Disable plugin", async () =>
-      route_plugins_disable({ pluginId }),
+      callOpenAPI(
+        disablePlugin({ body: { pluginId } } as Parameters<
+          typeof disablePlugin
+        >[0]),
+      ),
     );
   }
-
+  async function onSelectPythonLanguageServer(pluginId: string | null) {
+    if (writeActionsLocked) {
+      return;
+    }
+    if ((pythonSelectionStatus?.selectedPluginId ?? null) === pluginId) {
+      return;
+    }
+    const response = await runAction(
+      "python-language-server-selection",
+      "Save Python language server selection",
+      async () =>
+        callOpenAPI(
+          setLanguageServerSelection({
+            body: {
+              language: PYTHON_LANGUAGE_ID,
+              pluginId: pluginId,
+            },
+          } as Parameters<typeof setLanguageServerSelection>[0]),
+        ),
+      {
+        refreshRuntimeOnSuccess: false,
+      },
+    );
+    if (!response) {
+      return;
+    }
+    const message =
+      pluginId === null
+        ? "Python language server selection saved."
+        : `Python language server selection saved. "${pluginId}" will be used after the next language-server restart.`;
+    setActionStatus({
+      type: "success",
+      message,
+    });
+    addTemporaryNotification(message, "info");
+  }
+  async function onRestartLanguageServer() {
+    if (writeActionsLocked) {
+      return;
+    }
+    await runAction(
+      "restart-language-server",
+      "Restart language server",
+      async () => callOpenAPI(restartLanguageServer()),
+      {
+        refreshRuntimeOnSuccess: false,
+      },
+    );
+  }
   function renderStatusRowAction(entry: PluginStatusEntry) {
     if (entry.shadowedBySourcePath !== null) {
       return <span className="text-setta-400 dark:text-setta-500">-</span>;
@@ -305,13 +875,7 @@ export function PluginsPane() {
       />
     );
   }
-
   async function onInstallPlugin() {
-    const sourceErrorMessage = validateInstallSourceSpec(sourceSpec);
-    if (sourceErrorMessage) {
-      setActionStatus({ type: "error", message: sourceErrorMessage });
-      return;
-    }
     setInstallSummary(null);
     const trimmedSourceSpec = sourceSpec.trim();
     const installRequest = {
@@ -321,8 +885,15 @@ export function PluginsPane() {
       enable: enableAfterInstall,
       force: false,
     };
-    const response = await runAction("install", "Install plugin", async () =>
-      route_plugins_install(installRequest),
+    const response = await runAction<PluginInstallResponse>(
+      "install",
+      "Install plugin",
+      async () =>
+        callOpenAPI(
+          installPlugin({ body: installRequest } as Parameters<
+            typeof installPlugin
+          >[0]),
+        ) as Promise<ResponseDataAndStatus<PluginInstallResponse>>,
     );
     if (!response || !response.data) {
       return;
@@ -330,16 +901,14 @@ export function PluginsPane() {
     setInstallSummary(response.data);
     setSourceSpec("");
   }
-
   async function onRescan() {
     if (writeActionsLocked) {
       return;
     }
     await runAction("rescan", "Rescan plugins", async () =>
-      route_plugins_rescan(),
+      callOpenAPI(rescanPlugins()),
     );
   }
-
   async function onRestart() {
     if (writeActionsLocked) {
       return;
@@ -378,6 +947,7 @@ export function PluginsPane() {
     try {
       const restartResult = await requestPluginRestart();
       if (restartResult.kind === "accepted") {
+        await refreshPluginRuntime();
         setActionStatus({
           type: "success",
           message: "Restart request accepted.",
@@ -417,279 +987,74 @@ export function PluginsPane() {
       });
     }
   }
-
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-2 overflow-y-auto pb-2">
-      <section className="rounded-md border border-setta-200 bg-white p-2 dark:border-setta-850 dark:bg-setta-900">
-        <header className="mb-2 flex items-center justify-between">
-          <h3 className="text-xs font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
-            Plugin Runtime
-          </h3>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="rounded border border-setta-300 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
-              onClick={onRescan}
-              disabled={writeActionsLocked || isActionBusy("rescan")}
-            >
-              Rescan
-            </button>
-            <button
-              type="button"
-              className="rounded border border-setta-300 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
-              onClick={onRestart}
-              disabled={
-                writeActionsLocked ||
-                isActionBusy("restart") ||
-                restartActionPlan.mode === "unavailable"
-              }
-            >
-              Restart Setta
-            </button>
-          </div>
-        </header>
-        <p className="text-[11px] text-setta-600 dark:text-setta-300">
-          mode={runtimeSummary.serverMode ?? "unknown"} status=
-          {runtimeSummary.status}
-        </p>
-        {runtimeSummary.restartCapability ? (
-          <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
-            restart capability: {runtimeSummary.restartCapability.mode}
-            {runtimeSummary.restartCapability.command
-              ? ` (${runtimeSummary.restartCapability.command})`
-              : ""}
-          </p>
-        ) : null}
-        {runtimeSummary.statusMessage ? (
-          <p className="mt-1 text-[11px] text-red-700 dark:text-red-300">
-            {runtimeSummary.statusMessage}
-          </p>
-        ) : null}
-      </section>
-
-      {restartRequiredPluginIds.length > 0 ? (
-        <section className="rounded-md border border-yellow-300 bg-yellow-50 p-2 text-[11px] text-yellow-800 dark:border-yellow-900/50 dark:bg-yellow-950/40 dark:text-yellow-200">
-          <p className="font-semibold uppercase tracking-wide">
-            Restart required
-          </p>
-          <p className="mt-1">
-            Backend changes are pending for:{" "}
-            {restartRequiredPluginIds.join(", ")}
-          </p>
-          {restartActionPlan.mode === "manual" ? (
-            <p className="mt-1">
-              Manual command: <code>{restartActionPlan.command}</code>
-            </p>
-          ) : null}
-        </section>
-      ) : null}
-
-      <section className="rounded-md border border-setta-200 bg-white p-2 dark:border-setta-850 dark:bg-setta-900">
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
-          Install Plugin
-        </h3>
-        <div className="flex flex-col gap-2">
-          <input
-            type="text"
-            value={sourceSpec}
-            onChange={(event) => setSourceSpec(event.target.value)}
-            placeholder="github:owner/repo[#ref] or pypi:package[==version]"
-            className="rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
-            disabled={writeActionsLocked || isActionBusy("install")}
-          />
-          <div className="flex items-center gap-2">
-            <select
-              value={scope}
-              onChange={(event) => setScope(event.target.value as InstallScope)}
-              data-testid="plugin-install-scope"
-              className="rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
-              disabled={writeActionsLocked || isActionBusy("install")}
-            >
-              <option value="workspace">workspace</option>
-              <option value="setta_files">setta_files</option>
-              <option value="global">global</option>
-            </select>
-            <select
-              value={installer}
-              onChange={(event) =>
-                setInstaller(event.target.value as InstallBackend)
-              }
-              data-testid="plugin-install-installer"
-              className="rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
-              disabled={writeActionsLocked || isActionBusy("install")}
-            >
-              <option value="auto">auto</option>
-              <option value="pip">pip</option>
-              <option value="uv">uv</option>
-            </select>
-            <label className="flex items-center gap-1 text-[11px] text-setta-600 dark:text-setta-300">
-              <input
-                type="checkbox"
-                checked={enableAfterInstall}
-                onChange={(event) =>
-                  setEnableAfterInstall(event.target.checked)
-                }
-                disabled={writeActionsLocked || isActionBusy("install")}
-              />
-              enable after install
-            </label>
-            <button
-              type="button"
-              className="ml-auto rounded border border-setta-300 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
-              onClick={onInstallPlugin}
-              disabled={writeActionsLocked || isActionBusy("install")}
-            >
-              Install
-            </button>
-          </div>
-          {writeActionsLocked ? (
-            <p className="text-[11px] text-setta-500 dark:text-setta-400">
-              Plugin install/uninstall/update actions are IDE-mode only.
-            </p>
-          ) : (
-            <p className="text-[11px] text-setta-500 dark:text-setta-400">
-              Supported sources: <code>github:</code> and <code>pypi:</code>.
-              Installer <code>auto</code> prefers <code>uv</code> when
-              available, otherwise <code>pip</code>.
-            </p>
-          )}
-        </div>
-      </section>
-
-      {actionStatus ? (
-        <section
-          className={`rounded-md border p-2 text-[11px] ${getActionStatusClassName(actionStatus.type)}`}
-        >
-          {actionStatus.message}
-        </section>
-      ) : null}
-
+      <PluginsPaneRuntimeCard
+        runtimeSummary={runtimeSummary}
+        writeActionsLocked={writeActionsLocked}
+        rescanBusy={isActionBusy("rescan")}
+        restartBusy={isActionBusy("restart")}
+        restartActionPlan={restartActionPlan}
+        onRescan={onRescan}
+        onRestart={onRestart}
+      />
+      <PluginsPaneRestartRequiredNotice
+        restartRequiredPluginIds={restartRequiredPluginIds}
+        restartActionPlan={restartActionPlan}
+      />
+      <PythonLanguageServerSection
+        selectionStatus={pythonSelectionStatus ?? null}
+        disabled={writeActionsLocked}
+        selectionBusy={isActionBusy("python-language-server-selection")}
+        restartBusy={isActionBusy("restart-language-server")}
+        onSelectPythonLanguageServer={onSelectPythonLanguageServer}
+        onRestartLanguageServer={onRestartLanguageServer}
+      />
+      <PluginsPaneInstallSection
+        sourceSpec={sourceSpec}
+        scope={scope}
+        installer={installer}
+        enableAfterInstall={enableAfterInstall}
+        disabled={installActionsDisabled}
+        onSourceSpecChange={setSourceSpec}
+        onScopeChange={setScope}
+        onInstallerChange={setInstaller}
+        onEnableAfterInstallChange={setEnableAfterInstall}
+        onInstall={onInstallPlugin}
+      />
+      <PluginsPaneActionStatusNotice actionStatus={actionStatus} />
       {installSummary ? (
         <InstallSummaryCard installSummary={installSummary} />
       ) : null}
-
-      <section className="rounded-md border border-setta-200 bg-white p-2 dark:border-setta-850 dark:bg-setta-900">
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
-          Active Plugins ({pluginListEntries.length})
-        </h3>
-        {pluginListEntries.length === 0 ? (
-          <p className="text-xs text-setta-500 dark:text-setta-400">
-            No active plugins discovered.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {pluginListEntries.map((plugin) => (
-              <PluginListEntryCard
-                key={buildPluginListEntryCardKey(plugin)}
-                plugin={plugin}
-                isSettingsProject={isSettingsProject}
-                writeActionsLocked={writeActionsLocked}
-                isActionBusy={isActionBusy}
-                isAnyPluginActionBusy={isAnyPluginActionBusy}
-                runEnablePlugin={runEnablePlugin}
-                runDisablePlugin={runDisablePlugin}
-                runAction={runAction}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-md border border-setta-200 bg-white p-2 dark:border-setta-850 dark:bg-setta-900">
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
-          Discovery Status ({pluginStatusEntries.length})
-        </h3>
-        <div className="max-h-64 overflow-auto rounded border border-setta-200 dark:border-setta-800">
-          {pluginStatusEntries.length === 0 ? (
-            <div className="p-2 text-xs text-setta-500 dark:text-setta-400">
-              No discovered plugins.
-            </div>
-          ) : (
-            <table className="w-full border-collapse text-left text-[11px]">
-              <thead className="sticky top-0 bg-setta-100 text-setta-700 dark:bg-setta-850 dark:text-setta-200">
-                <tr>
-                  <th className="px-2 py-1 font-semibold">plugin</th>
-                  <th className="px-2 py-1 font-semibold">state</th>
-                  <th className="px-2 py-1 font-semibold">scope</th>
-                  <th className="px-2 py-1 font-semibold">requested</th>
-                  <th className="px-2 py-1 font-semibold">effective</th>
-                  <th className="px-2 py-1 font-semibold">blocked</th>
-                  <th className="px-2 py-1 font-semibold">source</th>
-                  <th className="px-2 py-1 font-semibold">actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pluginStatusEntries.map((entry) => (
-                  <tr
-                    key={`${entry.pluginId}:${entry.sourceScope}:${entry.sourcePath}`}
-                    className="border-t border-setta-200 dark:border-setta-850"
-                  >
-                    <td className="px-2 py-1 text-setta-800 dark:text-setta-100">
-                      {entry.pluginId}
-                    </td>
-                    <td className="px-2 py-1">{entry.state}</td>
-                    <td className="px-2 py-1">{entry.sourceScopeLabel}</td>
-                    <td className="max-w-[150px] px-2 py-1 text-setta-600 dark:text-setta-300">
-                      <span
-                        title={formatCapabilitiesTooltip(
-                          entry.requestedCapabilities,
-                        )}
-                      >
-                        {formatCapabilitiesForTableCached(
-                          entry.requestedCapabilities,
-                        )}
-                      </span>
-                    </td>
-                    <td className="max-w-[150px] px-2 py-1 text-setta-600 dark:text-setta-300">
-                      <span
-                        title={formatCapabilitiesTooltip(
-                          entry.effectiveCapabilities,
-                        )}
-                      >
-                        {formatCapabilitiesForTableCached(
-                          entry.effectiveCapabilities,
-                        )}
-                      </span>
-                    </td>
-                    <td className="max-w-[170px] px-2 py-1 text-setta-600 dark:text-setta-300">
-                      <span
-                        title={formatBlockedCapabilitiesTooltip(
-                          entry.blockedCapabilities,
-                        )}
-                      >
-                        {formatBlockedCapabilitiesForTableCached(
-                          entry.blockedCapabilities,
-                        )}
-                      </span>
-                    </td>
-                    <td
-                      className="max-w-[220px] truncate px-2 py-1 text-setta-500 dark:text-setta-400"
-                      title={entry.sourcePath}
-                    >
-                      {entry.sourcePath}
-                    </td>
-                    <td className="px-2 py-1">
-                      {renderStatusRowAction(entry)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </section>
+      <ActivePluginsSection
+        pluginListEntries={pluginListEntries}
+        isSettingsProject={isSettingsProject}
+        pythonSelectionStatus={pythonSelectionStatus ?? null}
+        writeActionsLocked={writeActionsLocked}
+        isAnyPluginActionBusy={isAnyPluginActionBusy}
+        runEnablePlugin={runEnablePlugin}
+        runDisablePlugin={runDisablePlugin}
+        selectPythonLanguageServer={async (pluginId: string) => {
+          await onSelectPythonLanguageServer(pluginId);
+        }}
+        runAction={runAction}
+      />
+      <PluginDiscoveryStatusSection
+        pluginStatusEntries={pluginStatusEntries}
+        renderStatusRowAction={renderStatusRowAction}
+      />
     </div>
   );
 }
-
 type PluginListEntryCardProps = {
   plugin: PluginListEntry;
   isSettingsProject: boolean;
+  pythonSelectionStatus: LanguageServerSelectionStatus | null;
   writeActionsLocked: boolean;
-  isActionBusy: (actionKey: string) => boolean;
   isAnyPluginActionBusy: (pluginId: string) => boolean;
   runEnablePlugin: (pluginId: string) => Promise<void>;
   runDisablePlugin: (pluginId: string) => Promise<void>;
+  selectPythonLanguageServer: (pluginId: string) => Promise<void>;
   runAction: <T>(
     actionKey: string,
     actionLabel: string,
@@ -697,186 +1062,51 @@ type PluginListEntryCardProps = {
   ) => Promise<ResponseDataAndStatus<T> | null>;
 };
 
-function PluginListEntryCard({
-  plugin,
-  isSettingsProject,
-  writeActionsLocked,
-  isActionBusy,
-  isAnyPluginActionBusy,
-  runEnablePlugin,
-  runDisablePlugin,
-  runAction,
-}: PluginListEntryCardProps) {
-  const runtimeState = usePluginRuntimeStore(
-    (state) => ({
-      serverMode: state.serverMode ?? "ide",
-      pluginStatus: state.pluginStatusById[plugin.pluginId] ?? null,
-      panes: state.panesByPluginId[plugin.pluginId] ?? EMPTY_PLUGIN_PANES,
-      commands:
-        state.commandsByPluginId[plugin.pluginId] ?? EMPTY_PLUGIN_COMMANDS,
-      frontendError: state.frontendErrorsByPluginId[plugin.pluginId] ?? null,
-    }),
-    pluginListEntryCardRuntimeStateEqual,
-  );
-  const { serverMode, pluginStatus, panes, commands, frontendError } =
-    runtimeState;
+function buildPluginToggleLabel(
+  pluginStatus: PluginStatusEntry | null,
+): "Enable" | "Disable" {
+  return pluginStatus == null ||
+    pluginStatus.state === PluginRuntimeStateEnum.disabled
+    ? "Enable"
+    : "Disable";
+}
 
-  async function onUpdate() {
-    const updateRequest = {
-      pluginId: plugin.pluginId,
-      scope: plugin.sourceScope,
-      to: null,
-    };
-    await runAction(`update:${plugin.pluginId}`, "Update plugin", async () =>
-      route_plugins_update(updateRequest),
+function buildPythonPluginSelectionState(
+  pluginId: string,
+  pythonSelectionStatus: LanguageServerSelectionStatus | null,
+): {
+  isSelectedForPython: boolean;
+  canUseForPython: boolean;
+} {
+  const selectedPythonPlugin = pythonSelectionStatus?.selectedPluginId ?? null;
+  const isSelectedForPython = selectedPythonPlugin === pluginId;
+  const canUseForPython =
+    !isSelectedForPython &&
+    (pythonSelectionStatus?.availableProviders ?? []).some(
+      (provider) => provider.available && provider.pluginId === pluginId,
     );
-  }
+  return {
+    isSelectedForPython,
+    canUseForPython,
+  };
+}
 
-  async function onRollback() {
-    const rollbackRequest = {
-      pluginId: plugin.pluginId,
-      scope: plugin.sourceScope,
-    };
-    await runAction(
-      `rollback:${plugin.pluginId}`,
-      "Rollback plugin",
-      async () => route_plugins_rollback(rollbackRequest),
-    );
-  }
-
-  async function onUninstall() {
-    const uninstallRequest = {
-      pluginId: plugin.pluginId,
-      scope: plugin.sourceScope,
-    };
-    await runAction(
-      `uninstall:${plugin.pluginId}`,
-      "Uninstall plugin",
-      async () => route_plugins_uninstall(uninstallRequest),
-    );
-  }
-
-  const packageManagerManaged = plugin.sourceManager === "package_manager";
-  const linkedLocalSource = isLinkedLocalPluginSource(plugin);
-  const packageManagerGuidance = buildSourceManagerGuidanceMessage(plugin);
-  const pluginActionBusy = isAnyPluginActionBusy(plugin.pluginId);
-  const pluginActionDisabled = writeActionsLocked || pluginActionBusy;
-  const paneButtonsDisabled = writeActionsLocked;
-  const requestedCapabilities = pluginStatus?.requestedCapabilities ?? [];
-  const effectiveCapabilities =
-    pluginStatus?.effectiveCapabilities ?? plugin.effectiveCapabilities;
-  const blockedCapabilities = pluginStatus?.blockedCapabilities ?? [];
-  const registeredLanguageServers = getRegisteredLanguageServers(pluginStatus);
-  const registeredExternalAgentAdapters =
-    getRegisteredExternalAgentAdapters(pluginStatus);
-  const registeredCodegenTargets = getRegisteredCodegenTargets(pluginStatus);
-  const capabilityStatusIndex = useMemo(() => {
-    return buildCapabilityStatusIndex({
-      requestedCapabilities,
-      effectiveCapabilities,
-      blockedCapabilities,
-      capabilityList: [
-        "registerCommand",
-        "registerPane",
-        "registerLanguageServer",
-        "registerExternalAgentAdapter",
-        "registerCodegenTarget",
-      ],
-    });
-  }, [blockedCapabilities, effectiveCapabilities, requestedCapabilities]);
-  const commandCapabilityStatus =
-    capabilityStatusIndex.capabilityStatusByCapability.get("registerCommand") ??
-    "not_requested";
-  const paneCapabilityStatus =
-    capabilityStatusIndex.capabilityStatusByCapability.get("registerPane") ??
-    "not_requested";
-  const commandCapabilityReason =
-    capabilityStatusIndex.blockedReasonByCapability.get("registerCommand") ??
-    null;
-  const paneCapabilityReason =
-    capabilityStatusIndex.blockedReasonByCapability.get("registerPane") ?? null;
-  const languageServerCapabilityStatus =
-    capabilityStatusIndex.capabilityStatusByCapability.get(
-      "registerLanguageServer",
-    ) ?? "not_requested";
-  const languageServerCapabilityReason =
-    capabilityStatusIndex.blockedReasonByCapability.get(
-      "registerLanguageServer",
-    ) ?? null;
-  const externalAgentCapabilityStatus =
-    capabilityStatusIndex.capabilityStatusByCapability.get(
-      "registerExternalAgentAdapter",
-    ) ?? "not_requested";
-  const externalAgentCapabilityReason =
-    capabilityStatusIndex.blockedReasonByCapability.get(
-      "registerExternalAgentAdapter",
-    ) ?? null;
-  const codegenCapabilityStatus =
-    capabilityStatusIndex.capabilityStatusByCapability.get(
-      "registerCodegenTarget",
-    ) ?? "not_requested";
-  const codegenCapabilityReason =
-    capabilityStatusIndex.blockedReasonByCapability.get(
-      "registerCodegenTarget",
-    ) ?? null;
-
-  function onOpenPane(paneId: string) {
-    onOverviewTabClick(buildPluginPaneOverviewTabName(plugin.pluginId, paneId));
-  }
-
+function PluginSourceGuidanceNotices({
+  pluginId,
+  packageManagerManaged,
+  packageManagerGuidance,
+  linkedLocalSource,
+}: {
+  pluginId: string;
+  packageManagerManaged: boolean;
+  packageManagerGuidance: string;
+  linkedLocalSource: boolean;
+}) {
   return (
-    <article className="rounded border border-setta-200 bg-setta-50/60 p-2 dark:border-setta-800 dark:bg-setta-950/40">
-      <header className="mb-1 flex items-start justify-between gap-2">
-        <div>
-          <h4 className="font-mono text-xs font-semibold text-setta-900 dark:text-setta-100">
-            {plugin.pluginId}@{plugin.version}
-          </h4>
-          <p className="text-[11px] text-setta-500 dark:text-setta-400">
-            scope={plugin.sourceScopeLabel} source={plugin.canonicalSourceKey}
-          </p>
-        </div>
-        {plugin.restartRequired ? (
-          <span className="rounded bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300">
-            restart required
-          </span>
-        ) : null}
-      </header>
-
-      <div className="flex flex-wrap gap-1">
-        <ActionButton
-          label="Enable"
-          onClick={() => runEnablePlugin(plugin.pluginId)}
-          disabled={pluginActionDisabled}
-        />
-        <ActionButton
-          label="Disable"
-          onClick={() => runDisablePlugin(plugin.pluginId)}
-          disabled={pluginActionDisabled}
-        />
-        <ActionButton
-          label="Update"
-          onClick={onUpdate}
-          disabled={
-            pluginActionDisabled || packageManagerManaged || linkedLocalSource
-          }
-        />
-        <ActionButton
-          label="Rollback"
-          onClick={onRollback}
-          disabled={
-            pluginActionDisabled || packageManagerManaged || linkedLocalSource
-          }
-        />
-        <ActionButton
-          label="Uninstall"
-          onClick={onUninstall}
-          disabled={pluginActionDisabled || packageManagerManaged}
-        />
-      </div>
-
+    <>
       {packageManagerManaged ? (
         <section
-          data-testid={`plugin-package-manager-guidance-${plugin.pluginId}`}
+          data-testid={`plugin-package-manager-guidance-${pluginId}`}
           className="mt-2 rounded border border-blue-200 bg-blue-50 p-2 text-[11px] text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200"
         >
           <p className="font-semibold uppercase tracking-wide">
@@ -887,7 +1117,7 @@ function PluginListEntryCard({
       ) : null}
       {linkedLocalSource ? (
         <section
-          data-testid={`plugin-linked-source-guidance-${plugin.pluginId}`}
+          data-testid={`plugin-linked-source-guidance-${pluginId}`}
           className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200"
         >
           <p className="font-semibold uppercase tracking-wide">
@@ -899,331 +1129,658 @@ function PluginListEntryCard({
           </p>
         </section>
       ) : null}
+    </>
+  );
+}
 
-      {plugin.config.hasSchema ? (
-        isSettingsProject ? (
-          <PluginConfigEditor
-            plugin={plugin}
-            disabled={pluginActionDisabled}
-            runAction={runAction}
-          />
-        ) : (
-          <section className="mt-2 rounded border border-blue-200 bg-blue-50 p-2 text-[11px] text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
-            <p className="font-semibold uppercase tracking-wide">
-              Plugin config available in /settings
-            </p>
-            <p className="mt-1">
-              This plugin has schema-backed config. Open the Settings Project to
-              edit it.
-            </p>
-          </section>
-        )
+function PluginConfigSection({
+  plugin,
+  isSettingsProject,
+  disabled,
+  runAction,
+}: {
+  plugin: PluginListEntry;
+  isSettingsProject: boolean;
+  disabled: boolean;
+  runAction: PluginListEntryCardProps["runAction"];
+}) {
+  if (!plugin.config.hasSchema) {
+    return null;
+  }
+  if (isSettingsProject) {
+    return (
+      <PluginConfigEditor
+        plugin={plugin}
+        disabled={disabled}
+        runAction={runAction}
+      />
+    );
+  }
+  return (
+    <section className="mt-2 rounded border border-blue-200 bg-blue-50 p-2 text-[11px] text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
+      <p className="font-semibold uppercase tracking-wide">
+        Plugin config available in /settings
+      </p>
+      <p className="mt-1">
+        This plugin has schema-backed config. Open the Settings Project to edit
+        it.
+      </p>
+    </section>
+  );
+}
+
+function PluginCapabilitiesSection({
+  requestedCapabilities,
+  effectiveCapabilities,
+  blockedCapabilities,
+}: {
+  requestedCapabilities: string[];
+  effectiveCapabilities: string[];
+  blockedCapabilities: PluginBlockedCapability[];
+}) {
+  if (
+    requestedCapabilities.length === 0 &&
+    effectiveCapabilities.length === 0 &&
+    blockedCapabilities.length === 0
+  ) {
+    return null;
+  }
+  return (
+    <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
+      <h5 className="text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
+        Capabilities
+      </h5>
+      <CapabilityRow
+        label="Requested"
+        entries={requestedCapabilities}
+        emptyLabel="none"
+        className="mt-1"
+      />
+      <CapabilityRow
+        label="Effective"
+        entries={effectiveCapabilities}
+        emptyLabel="none"
+        className="mt-1"
+      />
+      <CapabilityRow
+        label="Blocked"
+        entries={blockedCapabilities.map(
+          (entry) => `${entry.capability} (${entry.reason})`,
+        )}
+        emptyLabel="none"
+        className="mt-1"
+        tone="blocked"
+      />
+    </section>
+  );
+}
+
+function runPluginCommand(
+  pluginId: string,
+  command: PluginCommandSummary,
+): void {
+  void Promise.resolve(command.run()).catch((error: unknown) => {
+    const message =
+      error instanceof Error ? error.message : `Command failed: ${command.id}`;
+    addTemporaryNotification(message, "error");
+  });
+}
+
+function PluginCommandsSection({
+  pluginId,
+  commands,
+  unavailableMessage,
+}: {
+  pluginId: string;
+  commands: readonly PluginCommandSummary[];
+  unavailableMessage: string | null;
+}) {
+  if (commands.length > 0) {
+    return (
+      <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
+        <h5 className="mb-1 text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
+          Commands
+        </h5>
+        <div className="flex flex-wrap gap-1">
+          {commands.map((command) => (
+            <button
+              key={`${pluginId}:${command.id}`}
+              type="button"
+              className="rounded border border-setta-300 px-2 py-1 text-[11px] text-setta-700 hover:bg-setta-50 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
+              onClick={() => runPluginCommand(pluginId, command)}
+            >
+              {command.title}
+            </button>
+          ))}
+        </div>
+      </section>
+    );
+  }
+  if (!unavailableMessage) {
+    return null;
+  }
+  return (
+    <section className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+      <p className="font-semibold uppercase tracking-wide">
+        Commands unavailable
+      </p>
+      <p className="mt-1">{unavailableMessage}</p>
+    </section>
+  );
+}
+
+function PluginFrontendErrorNotice({
+  frontendError,
+}: {
+  frontendError: PluginListEntryCardRuntimeState["frontendError"];
+}) {
+  if (!frontendError) {
+    return null;
+  }
+  return (
+    <section className="mt-2 rounded border border-red-300 bg-red-50 p-2 text-[11px] text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
+      <p className="font-semibold uppercase tracking-wide">
+        Frontend load failed
+      </p>
+      <p className="mt-1 font-mono">{frontendError.code}</p>
+      <p className="mt-1">{frontendError.message}</p>
+    </section>
+  );
+}
+
+function PluginPanesSection({
+  pluginId,
+  panes,
+  disabled,
+  unavailableMessage,
+  onOpenPane,
+}: {
+  pluginId: string;
+  panes: readonly PluginPaneSummary[];
+  disabled: boolean;
+  unavailableMessage: string | null;
+  onOpenPane: (paneId: string) => void;
+}) {
+  if (panes.length > 0) {
+    return (
+      <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
+        <h5 className="text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
+          Plugin Panes
+        </h5>
+        <div className="mt-2 flex flex-wrap gap-1">
+          {panes.map((pane) => (
+            <button
+              key={`${pluginId}:${pane.id}`}
+              type="button"
+              className="rounded border border-setta-300 px-2 py-1 text-[11px] text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
+              onClick={() => onOpenPane(pane.id)}
+              disabled={disabled}
+            >
+              Open {pane.title}
+            </button>
+          ))}
+        </div>
+      </section>
+    );
+  }
+  if (!unavailableMessage) {
+    return null;
+  }
+  return (
+    <section className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+      <p className="font-semibold uppercase tracking-wide">
+        Plugin panes unavailable
+      </p>
+      <p className="mt-1">{unavailableMessage}</p>
+    </section>
+  );
+}
+
+function resolveCapabilityUnavailableMessage({
+  capability,
+  status,
+  reason,
+  serverMode,
+}: {
+  capability: "registerCommand" | "registerPane";
+  status: ReturnType<
+    typeof buildCapabilityStatusIndex
+  >["capabilityStatusByCapability"] extends Map<string, infer TValue>
+    ? TValue
+    : never;
+  reason: string | null;
+  serverMode: PluginServerMode;
+}): string | null {
+  if (status === "not_requested") {
+    return null;
+  }
+  return buildCapabilityUnavailableMessage({
+    capability,
+    status,
+    reason,
+    serverMode,
+  });
+}
+
+function resolvePluginCapabilitySummary({
+  requestedCapabilities,
+  effectiveCapabilities,
+  blockedCapabilities,
+  serverMode,
+}: {
+  requestedCapabilities: string[];
+  effectiveCapabilities: string[];
+  blockedCapabilities: PluginBlockedCapability[];
+  serverMode: PluginServerMode;
+}) {
+  const capabilityStatusIndex = buildCapabilityStatusIndex({
+    requestedCapabilities,
+    effectiveCapabilities,
+    blockedCapabilities,
+    capabilityList: ["registerCommand", "registerPane"],
+  });
+  const commandCapabilityStatus =
+    capabilityStatusIndex.capabilityStatusByCapability.get("registerCommand") ??
+    "not_requested";
+  const paneCapabilityStatus =
+    capabilityStatusIndex.capabilityStatusByCapability.get("registerPane") ??
+    "not_requested";
+  return {
+    commandUnavailableMessage: resolveCapabilityUnavailableMessage({
+      capability: "registerCommand",
+      status: commandCapabilityStatus,
+      reason:
+        capabilityStatusIndex.blockedReasonByCapability.get(
+          "registerCommand",
+        ) ?? null,
+      serverMode,
+    }),
+    paneUnavailableMessage: resolveCapabilityUnavailableMessage({
+      capability: "registerPane",
+      status: paneCapabilityStatus,
+      reason:
+        capabilityStatusIndex.blockedReasonByCapability.get("registerPane") ??
+        null,
+      serverMode,
+    }),
+  };
+}
+
+async function runUpdatePluginAction(
+  plugin: PluginListEntry,
+  runAction: PluginListEntryCardProps["runAction"],
+) {
+  await runAction(`update:${plugin.pluginId}`, "Update plugin", async () =>
+    callOpenAPI(
+      updatePlugin({
+        body: {
+          pluginId: plugin.pluginId,
+          scope: plugin.sourceScope,
+          to: null,
+        },
+      } as Parameters<typeof updatePlugin>[0]),
+    ),
+  );
+}
+
+async function runRollbackPluginAction(
+  plugin: PluginListEntry,
+  runAction: PluginListEntryCardProps["runAction"],
+) {
+  await runAction(`rollback:${plugin.pluginId}`, "Rollback plugin", async () =>
+    callOpenAPI(
+      rollbackPlugin({
+        body: {
+          pluginId: plugin.pluginId,
+          scope: plugin.sourceScope,
+        },
+      } as Parameters<typeof rollbackPlugin>[0]),
+    ),
+  );
+}
+
+async function runUninstallPluginAction(
+  plugin: PluginListEntry,
+  runAction: PluginListEntryCardProps["runAction"],
+) {
+  await runAction(
+    `uninstall:${plugin.pluginId}`,
+    "Uninstall plugin",
+    async () =>
+      callOpenAPI(
+        uninstallPlugin({
+          body: {
+            pluginId: plugin.pluginId,
+            scope: plugin.sourceScope,
+          },
+        } as Parameters<typeof uninstallPlugin>[0]),
+      ),
+  );
+}
+
+type PluginListEntryCardViewProps = {
+  plugin: PluginListEntry;
+  pluginActionDisabled: boolean;
+  packageManagerManaged: boolean;
+  linkedLocalSource: boolean;
+  packageManagerGuidance: string;
+  isSettingsProject: boolean;
+  runAction: PluginListEntryCardProps["runAction"];
+  requestedCapabilities: string[];
+  effectiveCapabilities: string[];
+  blockedCapabilities: PluginBlockedCapability[];
+  commands: readonly PluginCommandSummary[];
+  commandUnavailableMessage: string | null;
+  frontendError: PluginListEntryCardRuntimeState["frontendError"];
+  panes: readonly PluginPaneSummary[];
+  paneButtonsDisabled: boolean;
+  paneUnavailableMessage: string | null;
+  isSelectedForPython: boolean;
+  canUseForPython: boolean;
+  pluginToggleLabel: "Enable" | "Disable";
+  onEnablePlugin: () => void;
+  onDisablePlugin: () => void;
+  onUseForPython: () => void;
+  onUpdate: () => void;
+  onRollback: () => void;
+  onUninstall: () => void;
+  onOpenPane: (paneId: string) => void;
+};
+
+function PluginListEntryCardHeader({
+  plugin,
+  isSelectedForPython,
+}: Pick<PluginListEntryCardViewProps, "plugin" | "isSelectedForPython">) {
+  return (
+    <header className="mb-1 flex items-start justify-between gap-2">
+      <div>
+        <h4 className="font-mono text-xs font-semibold text-setta-900 dark:text-setta-100">
+          {plugin.pluginId}@{plugin.version}
+        </h4>
+        <p className="text-[11px] text-setta-500 dark:text-setta-400">
+          scope={plugin.sourceScopeLabel} source={plugin.canonicalSourceKey}
+        </p>
+      </div>
+      <PluginListEntryCardBadges
+        isSelectedForPython={isSelectedForPython}
+        restartRequired={plugin.restartRequired}
+      />
+    </header>
+  );
+}
+
+function PluginListEntryCardBadges({
+  isSelectedForPython,
+  restartRequired,
+}: {
+  isSelectedForPython: boolean;
+  restartRequired: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap justify-end gap-1">
+      {isSelectedForPython ? (
+        <span className="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
+          Python selected
+        </span>
       ) : null}
-
-      {(requestedCapabilities.length > 0 ||
-        effectiveCapabilities.length > 0 ||
-        blockedCapabilities.length > 0) && (
-        <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
-          <h5 className="text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
-            Capabilities
-          </h5>
-          <CapabilityRow
-            label="Requested"
-            entries={requestedCapabilities}
-            emptyLabel="none"
-            className="mt-1"
-          />
-          <CapabilityRow
-            label="Effective"
-            entries={effectiveCapabilities}
-            emptyLabel="none"
-            className="mt-1"
-          />
-          <CapabilityRow
-            label="Blocked"
-            entries={blockedCapabilities.map(
-              (entry) => `${entry.capability} (${entry.reason})`,
-            )}
-            emptyLabel="none"
-            className="mt-1"
-            tone="blocked"
-          />
-        </section>
-      )}
-
-      {registeredLanguageServers.length > 0 ? (
-        <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
-          <h5 className="text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
-            Registered Language Servers
-          </h5>
-          <div className="mt-2 flex flex-col gap-2">
-            {registeredLanguageServers.map((registration) => (
-              <article
-                key={`${plugin.pluginId}:${registration.name}`}
-                className="rounded border border-setta-200 bg-setta-50/70 p-2 dark:border-setta-850 dark:bg-setta-900/40"
-              >
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-setta-700 dark:text-setta-200">
-                  <span className="font-semibold">{registration.language}</span>
-                  <span className="font-mono">{registration.command}</span>
-                  {registration.args.length > 0 ? (
-                    <span className="font-mono">
-                      {registration.args.join(" ")}
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-1 text-[10px] text-setta-500 dark:text-setta-400">
-                  name={registration.name}
-                  {registration.settingsKey
-                    ? ` settingsKey=${registration.settingsKey}`
-                    : ""}
-                </p>
-                {registration.settingsKey ? (
-                  <LanguageServerSettingsEditor
-                    settingsKey={registration.settingsKey}
-                    disabled={writeActionsLocked}
-                  />
-                ) : null}
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : languageServerCapabilityStatus === "effective" ? (
-        <section className="mt-2 rounded border border-blue-200 bg-blue-50 p-2 text-[11px] text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
-          <p className="font-semibold uppercase tracking-wide">
-            Language servers pending runtime load
-          </p>
-          <p className="mt-1">
-            No language server registrations are active yet. Restart Setta if
-            this plugin was just installed or updated.
-          </p>
-        </section>
-      ) : languageServerCapabilityStatus !== "not_requested" ? (
-        <section className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
-          <p className="font-semibold uppercase tracking-wide">
-            Language servers unavailable
-          </p>
-          <p className="mt-1">
-            {buildCapabilityUnavailableMessage({
-              capability: "registerLanguageServer",
-              status: languageServerCapabilityStatus,
-              reason: languageServerCapabilityReason,
-              serverMode,
-            })}
-          </p>
-        </section>
+      {restartRequired ? (
+        <span className="rounded bg-yellow-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300">
+          restart required
+        </span>
       ) : null}
+    </div>
+  );
+}
 
-      {registeredExternalAgentAdapters.length > 0 ? (
-        <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
-          <h5 className="text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
-            Registered External Agent Adapters
-          </h5>
-          <div className="mt-2 flex flex-col gap-2">
-            {registeredExternalAgentAdapters.map((registration) => (
-              <article
-                key={registration.adapterId}
-                className="rounded border border-setta-200 bg-setta-50/70 p-2 dark:border-setta-850 dark:bg-setta-900/40"
-              >
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-setta-700 dark:text-setta-200">
-                  <span className="font-semibold">{registration.name}</span>
-                  <span className="font-mono">{registration.adapterId}</span>
-                </div>
-                <p className="mt-1 text-[10px] text-setta-500 dark:text-setta-400">
-                  runModes=
-                  {registration.runModes.length > 0
-                    ? registration.runModes.join(", ")
-                    : "none"}{" "}
-                  command={registration.command}
-                  {registration.args.length > 0
-                    ? ` ${registration.args.join(" ")}`
-                    : ""}
-                </p>
-                {(registration.defaultModel ||
-                  registration.envVarWhitelist.length > 0) && (
-                  <p className="mt-1 text-[10px] text-setta-500 dark:text-setta-400">
-                    {registration.defaultModel
-                      ? `defaultModel=${registration.defaultModel}`
-                      : ""}
-                    {registration.defaultModel &&
-                    registration.envVarWhitelist.length > 0
-                      ? " "
-                      : ""}
-                    {registration.envVarWhitelist.length > 0
-                      ? `envVarWhitelist=${registration.envVarWhitelist.join(", ")}`
-                      : ""}
-                  </p>
-                )}
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : externalAgentCapabilityStatus === "effective" ? (
-        <section className="mt-2 rounded border border-blue-200 bg-blue-50 p-2 text-[11px] text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
-          <p className="font-semibold uppercase tracking-wide">
-            External agent adapters pending runtime load
-          </p>
-          <p className="mt-1">
-            No plugin external agent registrations are active yet. Restart Setta
-            if this plugin was just installed or updated.
-          </p>
-        </section>
-      ) : externalAgentCapabilityStatus !== "not_requested" ? (
-        <section className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
-          <p className="font-semibold uppercase tracking-wide">
-            External agent adapters unavailable
-          </p>
-          <p className="mt-1">
-            {buildCapabilityUnavailableMessage({
-              capability: "registerExternalAgentAdapter",
-              status: externalAgentCapabilityStatus,
-              reason: externalAgentCapabilityReason,
-              serverMode,
-            })}
-          </p>
-        </section>
-      ) : null}
+function PluginListEntryCardActions({
+  pluginId,
+  pluginToggleLabel,
+  pluginActionDisabled,
+  packageManagerManaged,
+  linkedLocalSource,
+  canUseForPython,
+  onEnablePlugin,
+  onDisablePlugin,
+  onUseForPython,
+  onUpdate,
+  onRollback,
+  onUninstall,
+}: {
+  pluginId: string;
+  pluginToggleLabel: "Enable" | "Disable";
+  pluginActionDisabled: boolean;
+  packageManagerManaged: boolean;
+  linkedLocalSource: boolean;
+  canUseForPython: boolean;
+  onEnablePlugin: () => void;
+  onDisablePlugin: () => void;
+  onUseForPython: () => void;
+  onUpdate: () => void;
+  onRollback: () => void;
+  onUninstall: () => void;
+}) {
+  const toggleAction =
+    pluginToggleLabel === "Enable" ? onEnablePlugin : onDisablePlugin;
+  const updateAndRollbackDisabled =
+    pluginActionDisabled || packageManagerManaged || linkedLocalSource;
+  const uninstallDisabled = pluginActionDisabled || packageManagerManaged;
 
-      {registeredCodegenTargets.length > 0 ? (
-        <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
-          <h5 className="text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
-            Registered Codegen Targets
-          </h5>
-          <div className="mt-2 flex flex-col gap-2">
-            {registeredCodegenTargets.map((registration) => (
-              <article
-                key={registration.targetId}
-                className="rounded border border-setta-200 bg-setta-50/70 p-2 dark:border-setta-850 dark:bg-setta-900/40"
-              >
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-setta-700 dark:text-setta-200">
-                  <span className="font-semibold">{registration.name}</span>
-                  <span className="font-mono">{registration.language}</span>
-                  <span className="font-mono">{registration.targetId}</span>
-                </div>
-                <p className="mt-1 text-[10px] text-setta-500 dark:text-setta-400">
-                  defaultFileName={registration.defaultFileName}
-                </p>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : codegenCapabilityStatus === "effective" ? (
-        <section className="mt-2 rounded border border-blue-200 bg-blue-50 p-2 text-[11px] text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
-          <p className="font-semibold uppercase tracking-wide">
-            Codegen targets pending runtime load
-          </p>
-          <p className="mt-1">
-            No plugin codegen target registrations are active yet. Restart Setta
-            if this plugin was just installed or updated.
-          </p>
-        </section>
-      ) : codegenCapabilityStatus !== "not_requested" ? (
-        <section className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
-          <p className="font-semibold uppercase tracking-wide">
-            Codegen targets unavailable
-          </p>
-          <p className="mt-1">
-            {buildCapabilityUnavailableMessage({
-              capability: "registerCodegenTarget",
-              status: codegenCapabilityStatus,
-              reason: codegenCapabilityReason,
-              serverMode,
-            })}
-          </p>
-        </section>
+  return (
+    <div className="flex flex-wrap gap-1">
+      <ActionButton
+        label={pluginToggleLabel}
+        onClick={toggleAction}
+        disabled={pluginActionDisabled}
+        testId={`plugin-card-toggle-${pluginId}`}
+      />
+      {canUseForPython ? (
+        <ActionButton
+          label="Use for Python"
+          onClick={onUseForPython}
+          disabled={pluginActionDisabled}
+          testId={`plugin-card-use-python-${pluginId}`}
+        />
       ) : null}
+      <ActionButton
+        label="Update"
+        onClick={onUpdate}
+        disabled={updateAndRollbackDisabled}
+      />
+      <ActionButton
+        label="Rollback"
+        onClick={onRollback}
+        disabled={updateAndRollbackDisabled}
+      />
+      <ActionButton
+        label="Uninstall"
+        onClick={onUninstall}
+        disabled={uninstallDisabled}
+      />
+    </div>
+  );
+}
 
-      {commands.length > 0 ? (
-        <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
-          <h5 className="mb-1 text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
-            Commands
-          </h5>
-          <div className="flex flex-wrap gap-1">
-            {commands.map((command) => (
-              <button
-                key={`${plugin.pluginId}:${command.id}`}
-                type="button"
-                className="rounded border border-setta-300 px-2 py-1 text-[11px] text-setta-700 hover:bg-setta-50 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
-                onClick={() => {
-                  void Promise.resolve(command.run()).catch(
-                    (error: unknown) => {
-                      const message =
-                        error instanceof Error
-                          ? error.message
-                          : `Command failed: ${command.id}`;
-                      addTemporaryNotification(message, "error");
-                    },
-                  );
-                }}
-              >
-                {command.title}
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : commandCapabilityStatus !== "not_requested" ? (
-        <section className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
-          <p className="font-semibold uppercase tracking-wide">
-            Commands unavailable
-          </p>
-          <p className="mt-1">
-            {buildCapabilityUnavailableMessage({
-              capability: "registerCommand",
-              status: commandCapabilityStatus,
-              reason: commandCapabilityReason,
-              serverMode,
-            })}
-          </p>
-        </section>
-      ) : null}
-
-      {frontendError ? (
-        <section className="mt-2 rounded border border-red-300 bg-red-50 p-2 text-[11px] text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
-          <p className="font-semibold uppercase tracking-wide">
-            Frontend load failed
-          </p>
-          <p className="mt-1 font-mono">{frontendError.code}</p>
-          <p className="mt-1">{frontendError.message}</p>
-        </section>
-      ) : null}
-
-      {panes.length > 0 ? (
-        <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
-          <h5 className="text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
-            Plugin Panes
-          </h5>
-          <div className="mt-2 flex flex-wrap gap-1">
-            {panes.map((pane) => (
-              <button
-                key={`${plugin.pluginId}:${pane.id}`}
-                type="button"
-                className="rounded border border-setta-300 px-2 py-1 text-[11px] text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
-                onClick={() => onOpenPane(pane.id)}
-                disabled={paneButtonsDisabled}
-              >
-                Open {pane.title}
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : paneCapabilityStatus !== "not_requested" ? (
-        <section className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
-          <p className="font-semibold uppercase tracking-wide">
-            Plugin panes unavailable
-          </p>
-          <p className="mt-1">
-            {buildCapabilityUnavailableMessage({
-              capability: "registerPane",
-              status: paneCapabilityStatus,
-              reason: paneCapabilityReason,
-              serverMode,
-            })}
-          </p>
-        </section>
-      ) : null}
+function PluginListEntryCardView({
+  plugin,
+  pluginActionDisabled,
+  packageManagerManaged,
+  linkedLocalSource,
+  packageManagerGuidance,
+  isSettingsProject,
+  runAction,
+  requestedCapabilities,
+  effectiveCapabilities,
+  blockedCapabilities,
+  commands,
+  commandUnavailableMessage,
+  frontendError,
+  panes,
+  paneButtonsDisabled,
+  paneUnavailableMessage,
+  isSelectedForPython,
+  canUseForPython,
+  pluginToggleLabel,
+  onEnablePlugin,
+  onDisablePlugin,
+  onUseForPython,
+  onUpdate,
+  onRollback,
+  onUninstall,
+  onOpenPane,
+}: PluginListEntryCardViewProps) {
+  return (
+    <article className="rounded border border-setta-200 bg-setta-50/60 p-2 dark:border-setta-800 dark:bg-setta-950/40">
+      <PluginListEntryCardHeader
+        plugin={plugin}
+        isSelectedForPython={isSelectedForPython}
+      />
+      <PluginListEntryCardActions
+        pluginId={plugin.pluginId}
+        pluginToggleLabel={pluginToggleLabel}
+        pluginActionDisabled={pluginActionDisabled}
+        packageManagerManaged={packageManagerManaged}
+        linkedLocalSource={linkedLocalSource}
+        canUseForPython={canUseForPython}
+        onEnablePlugin={onEnablePlugin}
+        onDisablePlugin={onDisablePlugin}
+        onUseForPython={onUseForPython}
+        onUpdate={onUpdate}
+        onRollback={onRollback}
+        onUninstall={onUninstall}
+      />
+      <PluginSourceGuidanceNotices
+        pluginId={plugin.pluginId}
+        packageManagerManaged={packageManagerManaged}
+        packageManagerGuidance={packageManagerGuidance}
+        linkedLocalSource={linkedLocalSource}
+      />
+      <PluginConfigSection
+        plugin={plugin}
+        isSettingsProject={isSettingsProject}
+        disabled={pluginActionDisabled}
+        runAction={runAction}
+      />
+      <PluginCapabilitiesSection
+        requestedCapabilities={requestedCapabilities}
+        effectiveCapabilities={effectiveCapabilities}
+        blockedCapabilities={blockedCapabilities}
+      />
+      <PluginCommandsSection
+        pluginId={plugin.pluginId}
+        commands={commands}
+        unavailableMessage={commandUnavailableMessage}
+      />
+      <PluginFrontendErrorNotice frontendError={frontendError} />
+      <PluginPanesSection
+        pluginId={plugin.pluginId}
+        panes={panes}
+        disabled={paneButtonsDisabled}
+        unavailableMessage={paneUnavailableMessage}
+        onOpenPane={onOpenPane}
+      />
     </article>
   );
 }
 
+function PluginListEntryCard({
+  plugin,
+  isSettingsProject,
+  pythonSelectionStatus,
+  writeActionsLocked,
+  isAnyPluginActionBusy,
+  runEnablePlugin,
+  runDisablePlugin,
+  selectPythonLanguageServer,
+  runAction,
+}: PluginListEntryCardProps) {
+  const runtimeState = usePluginRuntimeStore(
+    (state) => ({
+      serverMode: state.serverMode ?? DEFAULT_PLUGIN_SERVER_MODE,
+      pluginStatus: state.pluginStatusById[plugin.pluginId] ?? null,
+      panes: state.panesByPluginId[plugin.pluginId] ?? EMPTY_PLUGIN_PANES,
+      commands:
+        state.commandsByPluginId[plugin.pluginId] ?? EMPTY_PLUGIN_COMMANDS,
+      frontendError: state.frontendErrorsByPluginId[plugin.pluginId] ?? null,
+    }),
+    pluginListEntryCardRuntimeStateEqual,
+  );
+  const { serverMode, pluginStatus, panes, commands, frontendError } =
+    runtimeState;
+  const packageManagerManaged = plugin.sourceManager === "package_manager";
+  const linkedLocalSource = isLinkedLocalPluginSource(plugin);
+  const packageManagerGuidance = buildSourceManagerGuidanceMessage(plugin);
+  const pluginActionBusy = isAnyPluginActionBusy(plugin.pluginId);
+  const pluginActionDisabled = writeActionsLocked || pluginActionBusy;
+  const paneButtonsDisabled = writeActionsLocked;
+  const requestedCapabilities = pluginStatus?.requestedCapabilities ?? [];
+  const effectiveCapabilities =
+    pluginStatus?.effectiveCapabilities ?? plugin.effectiveCapabilities;
+  const blockedCapabilities = pluginStatus?.blockedCapabilities ?? [];
+  const pluginToggleLabel = buildPluginToggleLabel(pluginStatus);
+  const { isSelectedForPython, canUseForPython } =
+    buildPythonPluginSelectionState(plugin.pluginId, pythonSelectionStatus);
+  const { commandUnavailableMessage, paneUnavailableMessage } = useMemo(
+    () =>
+      resolvePluginCapabilitySummary({
+        requestedCapabilities,
+        effectiveCapabilities,
+        blockedCapabilities,
+        serverMode,
+      }),
+    [
+      blockedCapabilities,
+      effectiveCapabilities,
+      requestedCapabilities,
+      serverMode,
+    ],
+  );
+  return (
+    <PluginListEntryCardView
+      plugin={plugin}
+      pluginActionDisabled={pluginActionDisabled}
+      packageManagerManaged={packageManagerManaged}
+      linkedLocalSource={linkedLocalSource}
+      packageManagerGuidance={packageManagerGuidance}
+      isSettingsProject={isSettingsProject}
+      runAction={runAction}
+      requestedCapabilities={requestedCapabilities}
+      effectiveCapabilities={effectiveCapabilities}
+      blockedCapabilities={blockedCapabilities}
+      commands={commands}
+      commandUnavailableMessage={commandUnavailableMessage}
+      frontendError={frontendError}
+      panes={panes}
+      paneButtonsDisabled={paneButtonsDisabled}
+      paneUnavailableMessage={paneUnavailableMessage}
+      isSelectedForPython={isSelectedForPython}
+      canUseForPython={canUseForPython}
+      pluginToggleLabel={pluginToggleLabel}
+      onEnablePlugin={() => {
+        void runEnablePlugin(plugin.pluginId);
+      }}
+      onDisablePlugin={() => {
+        void runDisablePlugin(plugin.pluginId);
+      }}
+      onUseForPython={() => {
+        void selectPythonLanguageServer(plugin.pluginId);
+      }}
+      onUpdate={() => {
+        void runUpdatePluginAction(plugin, runAction);
+      }}
+      onRollback={() => {
+        void runRollbackPluginAction(plugin, runAction);
+      }}
+      onUninstall={() => {
+        void runUninstallPluginAction(plugin, runAction);
+      }}
+      onOpenPane={(paneId) => {
+        onOverviewTabClick(
+          buildPluginPaneOverviewTabName(plugin.pluginId, paneId),
+        );
+      }}
+    />
+  );
+}
 function CapabilityRow({
   label,
   entries,
@@ -1266,13 +1823,6 @@ function CapabilityRow({
     </div>
   );
 }
-
-type PluginConfigFieldDefinition = {
-  key: string;
-  required: boolean;
-  schema: Record<string, unknown>;
-};
-
 function PluginConfigEditor({
   plugin,
   disabled,
@@ -1315,12 +1865,10 @@ function PluginConfigEditor({
     [draftRaw],
   );
   const parsedConfig = parsedDraft.error ? {} : parsedDraft.value;
-
   useEffect(() => {
     setDraftRaw(formatPluginConfigDraft(plugin.config.currentConfig));
     setStatus(null);
   }, [plugin.config.currentConfig, plugin.pluginId, sourceIdentityToken]);
-
   function onFieldValueChange(fieldKey: string, nextValue: unknown) {
     if (parsedDraft.error) {
       return;
@@ -1333,7 +1881,6 @@ function PluginConfigEditor({
     setDraftRaw(formatPluginConfigDraft(nextConfig));
     setStatus(null);
   }
-
   async function onSavePluginConfig() {
     if (parsedDraft.error) {
       setStatus({ type: "error", message: parsedDraft.error });
@@ -1343,10 +1890,14 @@ function PluginConfigEditor({
       `config:${plugin.pluginId}`,
       "Save plugin config",
       async () =>
-        route_plugins_config({
-          pluginId: plugin.pluginId,
-          config: parsedDraft.value,
-        }),
+        callOpenAPI(
+          writePluginConfig({
+            body: {
+              pluginId: plugin.pluginId,
+              config: parsedDraft.value,
+            },
+          } as Parameters<typeof writePluginConfig>[0]),
+        ),
     );
     if (!response) {
       return;
@@ -1356,7 +1907,6 @@ function PluginConfigEditor({
       message: "Plugin config saved.",
     });
   }
-
   return (
     <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
       <h5 className="text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
@@ -1435,7 +1985,6 @@ function PluginConfigEditor({
     </section>
   );
 }
-
 function PluginConfigTopLevelField({
   field,
   config,
@@ -1447,255 +1996,257 @@ function PluginConfigTopLevelField({
   disabled: boolean;
   onValueChange: (fieldKey: string, nextValue: unknown) => void;
 }) {
-  const schemaType = resolveSchemaType(field.schema);
-  const enumValues = getSchemaEnumValues(field.schema);
-  const schemaDefault = field.schema.default;
-  let value = config[field.key];
-  if (value === undefined && schemaDefault !== undefined) {
-    value = schemaDefault;
-  }
-  const label = field.schema.title;
-  const labelText =
-    typeof label === "string" && label.trim() ? label.trim() : field.key;
-  const description = field.schema.description;
-  const descriptionText =
-    typeof description === "string" && description.trim()
-      ? description.trim()
-      : null;
-  let input = null;
-  if (enumValues) {
-    const enumOptions = enumValues.map((enumValue) => ({
-      raw: enumValue,
-      serialized: JSON.stringify(enumValue),
-    }));
-    const selectedOption = enumOptions.find((option) => option.raw === value);
-    const selectValue =
-      value === undefined
-        ? "__unset__"
-        : selectedOption?.serialized ?? JSON.stringify(value);
-    input = (
-      <select
-        className="mt-1 w-full rounded border border-setta-300 bg-white px-2 py-1 text-[11px] text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
-        value={selectValue}
-        onChange={(event) => {
-          if (event.target.value === "__unset__") {
-            onValueChange(field.key, undefined);
-            return;
-          }
-          try {
-            onValueChange(field.key, JSON.parse(event.target.value));
-          } catch {
-            onValueChange(field.key, undefined);
-          }
-        }}
-        disabled={disabled}
-      >
-        <option value="__unset__">unset</option>
-        {enumOptions.map((enumOption) => (
-          <option key={enumOption.serialized} value={enumOption.serialized}>
-            {String(enumOption.raw)}
-          </option>
-        ))}
-      </select>
-    );
-  } else if (schemaType === "boolean") {
-    input = (
-      <label className="mt-1 inline-flex items-center gap-2 text-[11px] text-setta-700 dark:text-setta-200">
-        <input
-          type="checkbox"
-          checked={Boolean(value)}
-          onChange={(event) => {
-            onValueChange(field.key, event.target.checked);
-          }}
-          disabled={disabled}
-        />
-        {Boolean(value) ? "Enabled" : "Disabled"}
-      </label>
-    );
-  } else if (schemaType === "integer" || schemaType === "number") {
-    const numberValue =
-      typeof value === "number" && Number.isFinite(value) ? String(value) : "";
-    input = (
-      <input
-        type="number"
-        className="mt-1 w-full rounded border border-setta-300 bg-white px-2 py-1 text-[11px] text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
-        value={numberValue}
-        onChange={(event) => {
-          const rawValue = event.target.value;
-          if (rawValue.trim() === "") {
-            onValueChange(field.key, undefined);
-            return;
-          }
-          const parsed = Number(rawValue);
-          if (!Number.isFinite(parsed)) {
-            return;
-          }
-          if (schemaType === "integer" && !Number.isInteger(parsed)) {
-            return;
-          }
-          onValueChange(field.key, parsed);
-        }}
-        disabled={disabled}
-      />
-    );
-  } else if (schemaType === "string") {
-    const uiHint = getSchemaUiHint(field.schema);
-    const formatValue = field.schema.format;
-    const format = typeof formatValue === "string" ? formatValue : "";
-    const stringValue = typeof value === "string" ? value : "";
-    const useTextArea =
-      uiHint === "textarea" || uiHint === "json" || uiHint === "code";
-    const inputType =
-      uiHint === "password" || format === "password" ? "password" : "text";
-    if (useTextArea) {
-      input = (
-        <textarea
-          className="mt-1 h-20 w-full rounded border border-setta-300 bg-white px-2 py-1 text-[11px] text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
-          value={stringValue}
-          onChange={(event) => {
-            onValueChange(field.key, event.target.value);
-          }}
-          spellCheck={false}
-          disabled={disabled}
-        />
-      );
-    } else {
-      input = (
-        <input
-          type={inputType}
-          className="mt-1 w-full rounded border border-setta-300 bg-white px-2 py-1 text-[11px] text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
-          value={stringValue}
-          onChange={(event) => {
-            onValueChange(field.key, event.target.value);
-          }}
-          disabled={disabled}
-        />
-      );
-    }
-  }
+  const { value, displayLabelText, descriptionText } =
+    resolvePluginConfigFieldPresentation(field, config);
+  const input = buildPluginConfigFieldInput({
+    field,
+    value,
+    disabled,
+    onValueChange,
+  });
   if (!input) {
     return null;
   }
-
   return (
     <div className="rounded border border-setta-200 bg-setta-50/70 p-2 dark:border-setta-850 dark:bg-setta-900/40">
       <p className="text-[11px] font-semibold text-setta-700 dark:text-setta-200">
-        {labelText}
-        {field.required ? " *" : ""}
+        {displayLabelText}
       </p>
-      {descriptionText ? (
-        <p className="mt-0.5 text-[10px] text-setta-500 dark:text-setta-400">
-          {descriptionText}
-        </p>
-      ) : null}
+      <PluginConfigFieldDescription descriptionText={descriptionText} />
       {input}
     </div>
   );
+}
+
+function PluginConfigFieldDescription({
+  descriptionText,
+}: {
+  descriptionText: string | null;
+}) {
+  if (!descriptionText) {
+    return null;
+  }
+  return (
+    <p className="mt-0.5 text-[10px] text-setta-500 dark:text-setta-400">
+      {descriptionText}
+    </p>
+  );
+}
+
+function buildPluginConfigEnumInput({
+  fieldKey,
+  value,
+  disabled,
+  enumValues,
+  onValueChange,
+}: {
+  fieldKey: string;
+  value: unknown;
+  disabled: boolean;
+  enumValues: Array<string | number | boolean>;
+  onValueChange: (fieldKey: string, nextValue: unknown) => void;
+}) {
+  const enumOptions = enumValues.map((enumValue) => ({
+    raw: enumValue,
+    serialized: JSON.stringify(enumValue),
+  }));
+  const selectedOption = enumOptions.find((option) => option.raw === value);
+  const selectValue =
+    value === undefined
+      ? "__unset__"
+      : selectedOption?.serialized ?? JSON.stringify(value);
+  return (
+    <select
+      className="mt-1 w-full rounded border border-setta-300 bg-white px-2 py-1 text-[11px] text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
+      value={selectValue}
+      onChange={(event) => {
+        if (event.target.value === "__unset__") {
+          onValueChange(fieldKey, undefined);
+          return;
+        }
+        try {
+          onValueChange(fieldKey, JSON.parse(event.target.value));
+        } catch {
+          onValueChange(fieldKey, undefined);
+        }
+      }}
+      disabled={disabled}
+    >
+      <option value="__unset__">unset</option>
+      {enumOptions.map((enumOption) => (
+        <option key={enumOption.serialized} value={enumOption.serialized}>
+          {String(enumOption.raw)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function buildPluginConfigBooleanInput({
+  fieldKey,
+  value,
+  disabled,
+  onValueChange,
+}: {
+  fieldKey: string;
+  value: unknown;
+  disabled: boolean;
+  onValueChange: (fieldKey: string, nextValue: unknown) => void;
+}) {
+  return (
+    <label className="mt-1 inline-flex items-center gap-2 text-[11px] text-setta-700 dark:text-setta-200">
+      <input
+        type="checkbox"
+        checked={Boolean(value)}
+        onChange={(event) => {
+          onValueChange(fieldKey, event.target.checked);
+        }}
+        disabled={disabled}
+      />
+      {value ? "Enabled" : "Disabled"}
+    </label>
+  );
+}
+
+function buildPluginConfigNumberInput({
+  fieldKey,
+  value,
+  disabled,
+  schemaType,
+  onValueChange,
+}: {
+  fieldKey: string;
+  value: unknown;
+  disabled: boolean;
+  schemaType: "integer" | "number";
+  onValueChange: (fieldKey: string, nextValue: unknown) => void;
+}) {
+  const numberValue =
+    typeof value === "number" && Number.isFinite(value) ? String(value) : "";
+  return (
+    <input
+      type="number"
+      className="mt-1 w-full rounded border border-setta-300 bg-white px-2 py-1 text-[11px] text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
+      value={numberValue}
+      onChange={(event) => {
+        const rawValue = event.target.value;
+        if (rawValue.trim() === "") {
+          onValueChange(fieldKey, undefined);
+          return;
+        }
+        const parsed = Number(rawValue);
+        if (!Number.isFinite(parsed)) {
+          return;
+        }
+        if (schemaType === "integer" && !Number.isInteger(parsed)) {
+          return;
+        }
+        onValueChange(fieldKey, parsed);
+      }}
+      disabled={disabled}
+    />
+  );
+}
+
+function buildPluginConfigStringInput({
+  field,
+  value,
+  disabled,
+  onValueChange,
+}: {
+  field: PluginConfigFieldDefinition;
+  value: unknown;
+  disabled: boolean;
+  onValueChange: (fieldKey: string, nextValue: unknown) => void;
+}) {
+  const uiHint = getSchemaUiHint(field.schema);
+  const formatValue = field.schema.format;
+  const format = typeof formatValue === "string" ? formatValue : "";
+  const stringValue = typeof value === "string" ? value : "";
+  const useTextArea =
+    uiHint === "textarea" || uiHint === "json" || uiHint === "code";
+  const inputType =
+    uiHint === "password" || format === "password" ? "password" : "text";
+  if (useTextArea) {
+    return (
+      <textarea
+        className="mt-1 h-20 w-full rounded border border-setta-300 bg-white px-2 py-1 text-[11px] text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
+        value={stringValue}
+        onChange={(event) => {
+          onValueChange(field.key, event.target.value);
+        }}
+        spellCheck={false}
+        disabled={disabled}
+      />
+    );
+  }
+  return (
+    <input
+      type={inputType}
+      className="mt-1 w-full rounded border border-setta-300 bg-white px-2 py-1 text-[11px] text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
+      value={stringValue}
+      onChange={(event) => {
+        onValueChange(field.key, event.target.value);
+      }}
+      disabled={disabled}
+    />
+  );
+}
+
+function buildPluginConfigFieldInput({
+  field,
+  value,
+  disabled,
+  onValueChange,
+}: {
+  field: PluginConfigFieldDefinition;
+  value: unknown;
+  disabled: boolean;
+  onValueChange: (fieldKey: string, nextValue: unknown) => void;
+}) {
+  const enumValues = getSchemaEnumValues(field.schema);
+  if (enumValues) {
+    return buildPluginConfigEnumInput({
+      fieldKey: field.key,
+      value,
+      disabled,
+      enumValues,
+      onValueChange,
+    });
+  }
+  const schemaType = resolveSchemaType(field.schema);
+  if (schemaType === "boolean") {
+    return buildPluginConfigBooleanInput({
+      fieldKey: field.key,
+      value,
+      disabled,
+      onValueChange,
+    });
+  }
+  if (schemaType === "integer" || schemaType === "number") {
+    return buildPluginConfigNumberInput({
+      fieldKey: field.key,
+      value,
+      disabled,
+      schemaType,
+      onValueChange,
+    });
+  }
+  if (schemaType === "string") {
+    return buildPluginConfigStringInput({
+      field,
+      value,
+      disabled,
+      onValueChange,
+    });
+  }
+  return null;
 }
 
 type SettingsEditorStatus = {
   type: "error" | "success";
   message: string;
 };
-
-function LanguageServerSettingsEditor({
-  settingsKey,
-  disabled,
-}: {
-  settingsKey: string;
-  disabled: boolean;
-}) {
-  const languageServerSettings = useSettings(
-    (state) => state.languageServer as Record<string, unknown>,
-  );
-  const [draft, setDraft] = useState("");
-  const [status, setStatus] = useState<SettingsEditorStatus | null>(null);
-
-  useEffect(() => {
-    const settingsValue = getLanguageServerSettingsValue(
-      languageServerSettings,
-      settingsKey,
-    );
-    setDraft(formatLanguageServerSettingsDraft(settingsValue));
-    setStatus(null);
-  }, [languageServerSettings, settingsKey]);
-
-  async function onSaveSettings() {
-    const parsedSettings = parseLanguageServerSettingsDraft(draft);
-    if (parsedSettings.error) {
-      setStatus({ type: "error", message: parsedSettings.error });
-      return;
-    }
-    const nextLanguageServerSettings = setLanguageServerSettingsValue(
-      languageServerSettings,
-      settingsKey,
-      parsedSettings.value,
-    );
-    const currentSettings = useSettings.getState();
-    const nextSettings: SettingsState = {
-      ...currentSettings,
-      languageServer: nextLanguageServerSettings,
-    };
-    const response = await route_save_settings({ settings: nextSettings });
-    if (!res200(response)) {
-      const errorMessage = buildPluginActionError(
-        "Save language server settings",
-        response,
-      );
-      setStatus({ type: "error", message: errorMessage });
-      addTemporaryNotification(errorMessage, "error");
-      return;
-    }
-    useSettings.setState(nextSettings);
-    setStatus({
-      type: "success",
-      message: "Language server settings saved.",
-    });
-  }
-
-  return (
-    <div className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-        settings.{settingsKey}
-      </p>
-      <textarea
-        className="mt-1 h-24 w-full rounded border border-setta-300 bg-white p-2 font-mono text-[11px] text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
-        aria-label={`settings.${settingsKey}`}
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        spellCheck={false}
-        disabled={disabled}
-      />
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="text-[10px] text-setta-500 dark:text-setta-400">
-          Enter a JSON object for this language server settings key.
-        </p>
-        <button
-          type="button"
-          className="rounded border border-setta-300 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
-          onClick={() => {
-            void onSaveSettings();
-          }}
-          disabled={disabled}
-        >
-          Save Settings
-        </button>
-      </div>
-      {status ? (
-        <p
-          className={`mt-2 text-[11px] ${
-            status.type === "error"
-              ? "text-red-700 dark:text-red-300"
-              : "text-green-700 dark:text-green-300"
-          }`}
-        >
-          {status.message}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
 function resolveSchemaType(schema: Record<string, unknown>): string | null {
   const rawType = schema.type;
   if (typeof rawType === "string") {
@@ -1711,7 +2262,6 @@ function resolveSchemaType(schema: Record<string, unknown>): string | null {
   }
   return null;
 }
-
 function getSchemaEnumValues(
   schema: Record<string, unknown>,
 ): Array<string | number | boolean> | null {
@@ -1734,7 +2284,6 @@ function getSchemaEnumValues(
   }
   return values;
 }
-
 function getSchemaUiHint(schema: Record<string, unknown>): string | null {
   const rawUiHint = schema["x-setta-ui"];
   if (typeof rawUiHint !== "string") {
@@ -1746,7 +2295,6 @@ function getSchemaUiHint(schema: Record<string, unknown>): string | null {
   }
   return trimmed;
 }
-
 function isSupportedTopLevelPluginConfigField(
   schema: Record<string, unknown>,
 ): boolean {
@@ -1761,7 +2309,6 @@ function isSupportedTopLevelPluginConfigField(
     schemaType === "boolean"
   );
 }
-
 function getTopLevelPluginConfigFields(
   schemaJson: Record<string, unknown> | null,
 ): PluginConfigFieldDefinition[] {
@@ -1781,7 +2328,6 @@ function getTopLevelPluginConfigFields(
       }
     }
   }
-
   const fields: PluginConfigFieldDefinition[] = [];
   for (const [key, value] of Object.entries(properties)) {
     if (!isPlainObject(value)) {
@@ -1796,7 +2342,6 @@ function getTopLevelPluginConfigFields(
   fields.sort((a, b) => a.key.localeCompare(b.key));
   return fields;
 }
-
 function setTopLevelPluginConfigValue(
   config: Record<string, unknown>,
   fieldKey: string,
@@ -1810,7 +2355,6 @@ function setTopLevelPluginConfigValue(
   }
   return nextConfig;
 }
-
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -1820,7 +2364,6 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   }
   return true;
 }
-
 function InstallSummaryCard({
   installSummary,
 }: {
@@ -1830,7 +2373,6 @@ function InstallSummaryCard({
     installSummary.requestedCapabilities,
   );
   const sourceDigest = installSummary.sourceDigestSha256 ?? "unavailable";
-
   return (
     <section
       data-testid="plugin-install-confirmation"
@@ -1858,7 +2400,6 @@ function InstallSummaryCard({
     </section>
   );
 }
-
 function ActionButton({
   label,
   onClick,
@@ -1866,7 +2407,7 @@ function ActionButton({
   testId,
 }: {
   label: string;
-  onClick: () => Promise<void>;
+  onClick: () => void | Promise<void>;
   disabled: boolean;
   testId?: string;
 }) {
@@ -1884,7 +2425,6 @@ function ActionButton({
     </button>
   );
 }
-
 function buildPluginActionError<T>(
   actionLabel: string,
   response: ResponseDataAndStatus<T>,
@@ -1892,25 +2432,12 @@ function buildPluginActionError<T>(
   if (!response.hasResponse) {
     return `${actionLabel} failed: network error.`;
   }
-  const detailMessage = getErrorDetail(response.data);
+  const detailMessage = getPluginActionErrorDetail(response.data);
   if (detailMessage) {
     return `${actionLabel} failed: ${detailMessage}`;
   }
-  if (response.data && typeof response.data === "object") {
-    const record = response.data as Record<string, unknown>;
-    const detailValue = record.detail;
-    if (detailValue && typeof detailValue === "object") {
-      const detailRecord = detailValue as Record<string, unknown>;
-      const code = detailRecord.code;
-      const message = detailRecord.message;
-      if (typeof code === "string" && typeof message === "string") {
-        return `${actionLabel} failed: ${code} - ${message}`;
-      }
-    }
-  }
   return `${actionLabel} failed (status ${response.status ?? "unknown"}).`;
 }
-
 function buildPluginActionThrownError(
   actionLabel: string,
   error: unknown,
@@ -1923,14 +2450,12 @@ function buildPluginActionThrownError(
   }
   return `${actionLabel} failed: unexpected error.`;
 }
-
 function formatCapabilitiesForTable(capabilities: string[]): string {
   if (capabilities.length === 0) {
     return "none";
   }
   return [...capabilities].sort((a, b) => a.localeCompare(b)).join(", ");
 }
-
 function formatCapabilitiesForTableCached(capabilities: string[]): string {
   const cached = cachedFormattedCapabilitiesText.get(capabilities);
   if (cached) {
@@ -1940,7 +2465,6 @@ function formatCapabilitiesForTableCached(capabilities: string[]): string {
   cachedFormattedCapabilitiesText.set(capabilities, formatted);
   return formatted;
 }
-
 function formatCapabilitiesTooltip(capabilities: string[]): string {
   const cached = cachedCapabilitiesTooltipText.get(capabilities);
   if (cached) {
@@ -1951,7 +2475,6 @@ function formatCapabilitiesTooltip(capabilities: string[]): string {
   cachedCapabilitiesTooltipText.set(capabilities, formatted);
   return formatted;
 }
-
 function formatBlockedCapabilitiesForTable(
   blockedCapabilities: PluginBlockedCapability[],
 ): string {
@@ -1972,7 +2495,6 @@ function formatBlockedCapabilitiesForTable(
     )
     .join(", ");
 }
-
 function formatBlockedCapabilitiesForTableCached(
   blockedCapabilities: PluginBlockedCapability[],
 ): string {
@@ -1985,7 +2507,6 @@ function formatBlockedCapabilitiesForTableCached(
   cachedFormattedBlockedCapabilitiesText.set(blockedCapabilities, formatted);
   return formatted;
 }
-
 function formatBlockedCapabilitiesTooltip(
   blockedCapabilities: PluginBlockedCapability[],
 ): string {
@@ -2005,7 +2526,6 @@ function formatBlockedCapabilitiesTooltip(
   cachedBlockedCapabilitiesTooltipText.set(blockedCapabilities, formatted);
   return formatted;
 }
-
 function getActionStatusClassName(type: PluginActionStatus["type"]): string {
   if (type === "error") {
     return (

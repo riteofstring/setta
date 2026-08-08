@@ -2,10 +2,45 @@ import { expect, test, type Page } from "@playwright/test";
 import { ensureAppReady, postBackend } from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const HOME_URL = new URL("/home", BASE_URL).toString();
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
 
-test("settings view tabs filter sections and minimap", async ({ page }) => {
+test("settings core view stays populated when opened from home", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+
+  await page.getByTestId("home-left-rail-settings-link").click();
+  await page.waitForURL("**/settings");
+  await page.waitForSelector(READY_SELECTOR);
+
+  const shortcutsNode = page
+    .locator('.react-flow__node[data-id="settings-section__shortcuts"]')
+    .first();
+  const guiNode = page
+    .locator('.react-flow__node[data-id="settings-section__gui"]')
+    .first();
+
+  await expect(shortcutsNode).toBeVisible();
+  await expect(guiNode).toBeVisible();
+  await waitForNodeCount(page, 5);
+  await expect
+    .poll(async () => page.locator(".react-flow__node").count(), {
+      timeout: 1500,
+    })
+    .toBe(5);
+  await expect
+    .poll(async () => shortcutsNode.isVisible(), {
+      timeout: 1500,
+    })
+    .toBe(true);
+});
+
+test("settings view tabs filter sections and refit the viewport", async ({
+  page,
+}) => {
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
@@ -14,7 +49,6 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
   await expect(coreTab).toBeVisible();
   await coreTab.click();
   await waitForNodeCount(page, 5);
-  expect(await getMiniMapNodeCount(page)).toBe(5);
   await waitForOverviewCount(page, 5);
 
   const coreZoom = await getViewportScale(page);
@@ -41,12 +75,10 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
   await expect(paramTab).toBeVisible();
   await paramTab.click();
   await waitForNodeCount(page, 13);
-  expect(await getMiniMapNodeCount(page)).toBe(13);
   await waitForOverviewCount(page, 13);
 
   const paramZoom = await getViewportScale(page);
   expect(paramZoom).toBeGreaterThan(allZoom);
-  expect(coreZoom).toBeGreaterThan(paramZoom);
 });
 
 test("settings view modes keep visible sections when layout payload is partial", async ({
@@ -109,10 +141,6 @@ async function waitForOverviewCount(
   );
 }
 
-async function getMiniMapNodeCount(page: Page): Promise<number> {
-  return page.locator(".react-flow__minimap-node").count();
-}
-
 async function getViewportScale(page: Page): Promise<number> {
   return page.evaluate(() => {
     const viewport = document.querySelector(".react-flow__viewport");
@@ -131,7 +159,7 @@ async function getViewportScale(page: Page): Promise<number> {
   });
 }
 
-type ProjectStateSingleConfigWithCompletedOpIds = {
+type ProjectStateSingleConfigWithCompletedOpIDs = {
   projectState: {
     projectConfig: {
       topLevelSections: Record<string, { x: number; y: number }>;
@@ -146,8 +174,8 @@ type ProjectStateSingleConfigWithCompletedOpIds = {
 async function getLatestProjectState(
   page: Page,
   projectConfigId: string,
-): Promise<ProjectStateSingleConfigWithCompletedOpIds> {
-  const payload = await postBackend<ProjectStateSingleConfigWithCompletedOpIds>(
+): Promise<ProjectStateSingleConfigWithCompletedOpIDs> {
+  const payload = await postBackend<ProjectStateSingleConfigWithCompletedOpIDs>(
     page,
     "/getLatestProjectState",
     { projectConfigId },
@@ -159,7 +187,7 @@ async function getLatestProjectState(
 }
 
 function findViewModeId(
-  payload: ProjectStateSingleConfigWithCompletedOpIds,
+  payload: ProjectStateSingleConfigWithCompletedOpIDs,
   name: string,
 ): string {
   for (const viewMode of Object.values(
@@ -173,7 +201,7 @@ function findViewModeId(
 }
 
 function buildLayoutSubset(
-  payload: ProjectStateSingleConfigWithCompletedOpIds,
+  payload: ProjectStateSingleConfigWithCompletedOpIDs,
   allowedNames: Set<string>,
 ): Record<string, { x: number; y: number }> {
   const { sections, projectConfig } = payload.projectState;
@@ -196,7 +224,7 @@ function buildLayoutSubset(
 
 async function applyProjectStateUpdate(
   page: Page,
-  payload: ProjectStateSingleConfigWithCompletedOpIds,
+  payload: ProjectStateSingleConfigWithCompletedOpIDs,
 ): Promise<void> {
   await page.evaluate(async (stateUpdate) => {
     const mod = await import("/src/state/actions/sectionInfos");

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildFloatingSnapBounds,
   buildFloatingSnapResizeBounds,
   buildFloatingSnapResizeHandles,
   denormalizeFloatingBounds,
   normalizeFloatingBounds,
   resolveFloatingSnapPresetFromBounds,
+  resolveFloatingSnapPresetFromPointer,
+  type FloatingSnapPreset,
   type FloatingWindowBoundaryInsets,
 } from "./projectChatSnapLayout";
 
@@ -16,6 +19,30 @@ const TEST_INSETS: FloatingWindowBoundaryInsets = {
 };
 
 describe("project chat snap layout helpers", () => {
+  it("round-trips built snap bounds back to the same preset", () => {
+    const presets = [
+      "left",
+      "right",
+      "top",
+      "bottom",
+      "top_left",
+      "top_right",
+      "bottom_left",
+      "bottom_right",
+    ] as const satisfies readonly FloatingSnapPreset[];
+
+    for (const preset of presets) {
+      expect(
+        resolveFloatingSnapPresetFromBounds(
+          buildFloatingSnapBounds(preset, 1440, 900, TEST_INSETS),
+          1440,
+          900,
+          TEST_INSETS,
+        ),
+      ).toBe(preset);
+    }
+  });
+
   it("keeps edge-anchored quarter layouts classified as snapped after resizing", () => {
     // Custom quarter sizes should stay in snapped mode when they still hug the same edges.
     expect(
@@ -45,6 +72,28 @@ describe("project chat snap layout helpers", () => {
         TEST_INSETS,
       ),
     ).toBe("bottom_right");
+  });
+
+  it("detects snap presets from pointer edges in the same priority order as the drag overlay", () => {
+    expect(
+      resolveFloatingSnapPresetFromPointer({
+        pointerX: 60,
+        pointerY: 60,
+        viewportWidthPx: 1440,
+        viewportHeightPx: 900,
+        insets: TEST_INSETS,
+      }),
+    ).toBe("top_left");
+
+    expect(
+      resolveFloatingSnapPresetFromPointer({
+        pointerX: 1385,
+        pointerY: 460,
+        viewportWidthPx: 1440,
+        viewportHeightPx: 900,
+        insets: TEST_INSETS,
+      }),
+    ).toBe("right");
   });
 
   it("builds shared vertical and horizontal resize handles for a quad snap layout", () => {

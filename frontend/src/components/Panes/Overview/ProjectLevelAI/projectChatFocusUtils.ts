@@ -5,7 +5,7 @@ type InputSelectionTarget = {
   setSelectionRange: (selectionStart: number, selectionEnd: number) => void;
 };
 
-export function setInputSelectionToEnd(input: InputSelectionTarget): number {
+function setInputSelectionToEnd(input: InputSelectionTarget): number {
   const caretPosition = input.value.length;
   input.setSelectionRange(caretPosition, caretPosition);
   return caretPosition;

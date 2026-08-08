@@ -7,8 +7,6 @@ import {
   createProjectConfig,
   createPromptSectionImpl,
   createTopLevelSectionLayout,
-  createUserDefaultChatSectionImpl,
-  createUserDefaultPromptSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -48,45 +46,45 @@ describe("StateMachineEdgeRenderer", () => {
     useReactFlow.setState({ ...initialState, width: 900, height: 600 });
     syncStoreInitialState(useReactFlow);
 
-    const sourceImpl = createChatSectionImpl(
-      createUserDefaultChatSectionImpl({ chatId: "chat-source" }),
-      {
+    const sourceImpl = createChatSectionImpl({
+      ...{ chatId: "chat-source" },
+      ...{
         id: sourceImplId,
         chatId: "chat-source",
         managed: true,
         engineConfigId: "engine-a",
         thinking: false,
       },
-    );
-    const targetImpl = createChatSectionImpl(
-      createUserDefaultChatSectionImpl({ chatId: "chat-target" }),
-      {
+    });
+    const targetImpl = createChatSectionImpl({
+      ...{ chatId: "chat-target" },
+      ...{
         id: targetImplId,
         chatId: "chat-target",
         managed: true,
         engineConfigId: "engine-b",
         thinking: false,
       },
-    );
-    const hiddenImpl = createChatSectionImpl(
-      createUserDefaultChatSectionImpl({ chatId: "chat-hidden" }),
-      {
+    });
+    const hiddenImpl = createChatSectionImpl({
+      ...{ chatId: "chat-hidden" },
+      ...{
         id: hiddenImplId,
         chatId: "chat-hidden",
         managed: true,
         engineConfigId: "engine-c",
         thinking: false,
       },
-    );
-    const promptImpl = createPromptSectionImpl(
-      createUserDefaultPromptSectionImpl({
+    });
+    const promptImpl = createPromptSectionImpl({
+      ...{
         template: "Hi {{ name }}",
-      }),
-      {
+      },
+      ...{
         id: promptImplId,
         template: "Hi {{ name }}",
       },
-    );
+    });
 
     const sourceVariant = createVariant({
       id: sourceVariantId,

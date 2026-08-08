@@ -1,42 +1,123 @@
-export function StandardSearch({
-  placeholder = "Search",
-  twClasses = "",
-  outerClasses = "",
-  noLeftElement = false,
-  leftElement = false,
-  leftElementStyles,
-  rightElement = false,
-  inputStyles = false,
-  onChange,
-  ref,
-  ...props
-}) {
-  const classes = ` flex-grow outline-0 cursor-auto min-w-0 placeholder-setta-300 dark:placeholder-setta-700 ${twClasses}`;
-  const styles = `flex min-w-0 mx-[2px] items-center relative nodrag dark:text-setta-200 ${outerClasses}`;
+import type { InputHTMLAttributes, ReactNode, Ref } from "react";
+
+type StandardSearchProps = InputHTMLAttributes<HTMLInputElement> & {
+  twClasses?: string;
+  outerClasses?: string;
+  noLeftElement?: boolean;
+  leftElement?: ReactNode | false;
+  leftElementStyles?: string;
+  rightElement?: ReactNode | false;
+  inputStyles?: string | false;
+  ref?: Ref<HTMLInputElement>;
+};
+
+const DEFAULT_PLACEHOLDER = "Search";
+const DEFAULT_SEARCH_ICON_CLASSES =
+  "gg-sort-az ml-[.4rem] !scale-75 text-setta-300 dark:text-setta-600";
+
+function withDefault<T>(value: T | undefined, fallback: T): T {
+  return value === undefined ? fallback : value;
+}
+
+function joinSearchClasses(
+  ...parts: Array<string | false | undefined>
+): string {
+  return parts.filter(Boolean).join(" ");
+}
+
+function buildInputClasses(twClasses: string): string {
+  return joinSearchClasses(
+    "flex-grow outline-0 cursor-auto min-w-0 placeholder-setta-300 dark:placeholder-setta-700",
+    twClasses,
+  );
+}
+
+function buildOuterClasses(outerClasses: string): string {
+  return joinSearchClasses(
+    "flex min-w-0 mx-[2px] items-center relative nodrag dark:text-setta-200",
+    outerClasses,
+  );
+}
+
+function resolveInputClassName(
+  inputStyles: string | false,
+  twClasses: string,
+): string {
+  return inputStyles || buildInputClasses(twClasses);
+}
+
+function resolveLeftElement(leftElement: ReactNode | false): ReactNode {
+  return leftElement || <i className={DEFAULT_SEARCH_ICON_CLASSES} />;
+}
+
+function renderLeftAdornment(
+  hidden: boolean,
+  leftElementStyles: string | undefined,
+  leftElement: ReactNode | false,
+): ReactNode {
+  if (hidden) {
+    return null;
+  }
 
   return (
-    <search className={styles}>
-      {!noLeftElement && (
-        <div
-          className={`absolute inset-y-0 left-0 grid select-none place-items-center ${leftElementStyles}`}
-        >
-          {leftElement || (
-            <i className="gg-sort-az ml-[.4rem] !scale-75 text-setta-300 dark:text-setta-600" />
-          )}
-        </div>
+    <div
+      className={joinSearchClasses(
+        "absolute inset-y-0 left-0 grid select-none place-items-center",
+        leftElementStyles,
+      )}
+    >
+      {resolveLeftElement(leftElement)}
+    </div>
+  );
+}
+
+export function StandardSearch(props: StandardSearchProps) {
+  const {
+    placeholder,
+    twClasses,
+    outerClasses,
+    noLeftElement,
+    leftElement,
+    leftElementStyles,
+    rightElement,
+    inputStyles,
+    onChange,
+    ref,
+    ...inputProps
+  } = props;
+  const resolvedPlaceholder = withDefault(placeholder, DEFAULT_PLACEHOLDER);
+  const resolvedTwClasses = withDefault(twClasses, "");
+  const resolvedOuterClasses = withDefault(outerClasses, "");
+  const resolvedNoLeftElement = withDefault(noLeftElement, false);
+  const resolvedLeftElement = withDefault(leftElement, false);
+  const resolvedRightElement = withDefault(rightElement, false);
+  const resolvedInputStyles = withDefault(inputStyles, false);
+
+  return (
+    <search className={buildOuterClasses(resolvedOuterClasses)}>
+      {renderLeftAdornment(
+        resolvedNoLeftElement,
+        leftElementStyles,
+        resolvedLeftElement,
       )}
       <input
-        className={inputStyles || classes}
-        placeholder={placeholder}
-        {...props}
+        className={resolveInputClassName(
+          resolvedInputStyles,
+          resolvedTwClasses,
+        )}
+        placeholder={resolvedPlaceholder}
+        {...inputProps}
         ref={ref}
         tabIndex={0}
         onChange={onChange}
       />
       <div
-        className={`absolute inset-y-0 right-0 grid select-none place-items-center ${leftElementStyles}`}
+        className={joinSearchClasses(
+          "absolute inset-y-0 right-0 grid select-none place-items-center",
+          leftElementStyles,
+        )}
       >
-        {rightElement}
+        {resolvedRightElement}
       </div>
     </search>
   );

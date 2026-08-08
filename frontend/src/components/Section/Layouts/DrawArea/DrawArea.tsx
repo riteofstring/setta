@@ -146,27 +146,27 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
 
   useEffect(() => {
     useProjectState.setState((state) => {
-      setCanvasSize(
+      setCanvasSize({
         sectionId,
         layerCanvasRefs,
         tempCanvasRefs,
         draftCanvasRef,
         sectionSize,
         state,
-      );
+      });
     });
     notifyRealtimeDirty();
   }, [sectionSize.height, sectionSize.width, layerCount, notifyRealtimeDirty]);
 
   useEffect(() => {
-    setDraftCanvasProperties(
+    setDraftCanvasProperties({
       draftCanvasRef,
       brushColor,
       brushSize,
       brushShape,
       brushOpacity,
       layerOpacity,
-    );
+    });
   }, [brushColor, brushSize, brushShape, brushOpacity, layerOpacity]);
 
   useEffect(() => {
@@ -174,11 +174,11 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       selectedIdx.current = null;
       resizeHandleCorners.current = null;
     }
-    drawAllLayers(layers, layerCanvasRefs, tempCanvasRefs);
+    drawAllLayers({ layers, layerCanvasRefs, tempCanvasRefs });
     notifyRealtimeDirty();
   }, [canvasMode, layerOpacity, notifyRealtimeDirty]);
   useEffect(() => {
-    drawAllLayers(layers, layerCanvasRefs, tempCanvasRefs);
+    drawAllLayers({ layers, layerCanvasRefs, tempCanvasRefs });
     notifyRealtimeDirty();
   }, [
     layers,
@@ -192,7 +192,7 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
   ]);
 
   const { onMouseDown, onMouseMove, onMouseUp, onMouseEnter } =
-    useDrawModeMouseHandlers(
+    useDrawModeMouseHandlers({
       layers,
       sectionId,
       strokeRef,
@@ -216,7 +216,7 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       canvasMode,
       notifyRealtimeDirty,
       flushRealtimeSnapshot,
-    );
+    });
 
   function clearStrokes() {
     const [layer] = getActiveLayerAndCanvas(
@@ -349,7 +349,11 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       sectionId,
       SectionTypeEnum.Draw,
     ).layers;
-    drawAllLayers(nextLayers, layerCanvasRefs, tempCanvasRefs);
+    drawAllLayers({
+      layers: nextLayers,
+      layerCanvasRefs,
+      tempCanvasRefs,
+    });
     flushRealtimeSnapshot();
   }
 

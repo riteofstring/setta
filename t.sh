@@ -2,17 +2,23 @@
 set -uo pipefail
 
 run_backend=1
+run_go=1
 run_frontend=1
 run_playwright=1
+run_opt_in_liveprovider=0
+
+if [[ "${SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS:-0}" == "1" ]]; then
+  run_opt_in_liveprovider=1
+fi
 
 usage() {
   cat <<'EOF'
 Usage: ./t.sh [--b | --f] [--all]
 
 Options:
-  --b              Run backend pytest only.
+  --b              Run Go tests + Python pytest only.
   --f              Run frontend Vitest + Playwright only.
-  --all            Enable opt-in external agent integration tests.
+  --all            Enable opt-in live-provider integration tests.
   -h, --help       Show this help.
 EOF
 }
@@ -21,18 +27,21 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --b)
       run_backend=1
+      run_go=1
       run_frontend=0
       run_playwright=0
       shift
       ;;
     --f)
       run_backend=0
+      run_go=0
       run_frontend=1
       run_playwright=1
       shift
       ;;
     --all)
       export SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1
+      run_opt_in_liveprovider=1
       shift
       ;;
     -h|--help)
@@ -121,6 +130,39 @@ run_playwright_ci_suites() {
   return "${suite_status}"
 }
 
+discover_liveprovider_go_packages() {
+  if ! command -v rg >/dev/null 2>&1; then
+    echo "rg is required to discover live-provider Go test packages." >&2
+    return 1
+  fi
+
+  rg -l '^//go:build liveprovider$' --glob '*.go' internal cmd tests 2>/dev/null \
+    | sed 's|/[^/]*$||' \
+    | sort -u
+}
+
+run_opt_in_liveprovider_go_tests() {
+  local packages_output
+  if ! packages_output="$(discover_liveprovider_go_packages)"; then
+    return 1
+  fi
+
+  local packages=()
+  local package_line
+  while IFS= read -r package_line; do
+    [[ -z "${package_line}" ]] && continue
+    packages+=("./${package_line#./}")
+  done <<< "${packages_output}"
+
+  if [[ ${#packages[@]} -eq 0 ]]; then
+    echo "No live-provider Go test packages discovered."
+    return 0
+  fi
+
+  echo "Running opt-in live-provider Go test packages: ${packages[*]}"
+  ./scripts/go.sh test -v -tags liveprovider -count=1 "${packages[@]}"
+}
+
 if [[ "${run_backend}" -eq 1 ]] && [[ "${run_frontend}" -eq 0 ]]; then
   LOG_FILE="tests-backend.log"
 elif [[ "${run_backend}" -eq 0 ]] && [[ "${run_frontend}" -eq 1 ]]; then
@@ -138,6 +180,12 @@ exec > >(tee -a "${LOG_FILE}") 2>&1
 
 status=0
 
+if [[ "${run_go}" -eq 1 ]]; then
+  ./scripts/run_go_tests.sh || status=1
+  if [[ "${run_opt_in_liveprovider}" -eq 1 ]]; then
+    run_opt_in_liveprovider_go_tests || status=1
+  fi
+fi
 if [[ "${run_backend}" -eq 1 ]]; then
   ./scripts/run_backend_tests.sh || status=1
 fi

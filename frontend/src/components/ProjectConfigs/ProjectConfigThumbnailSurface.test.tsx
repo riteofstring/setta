@@ -28,4 +28,11 @@ describe("ProjectConfigThumbnailSurface", () => {
 
     expect(markup).not.toContain("[&amp;&gt;*]:scale-150");
   });
+
+  it("renders safely when home metadata does not include preview fields", () => {
+    const markup = renderToStaticMarkup(<ProjectConfigThumbnailSurface />);
+
+    expect(markup).toContain("<svg");
+    expect(markup).not.toContain("undefined");
+  });
 });

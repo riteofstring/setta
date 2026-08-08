@@ -1,6 +1,9 @@
-import { getErrorDetail, res200 } from "utils/endpointUtils";
-import { route_binary_upload } from "utils/generatedEndpoints";
-
+import {
+  callOpenAPI,
+  getErrorDetail,
+  res200,
+} from "@setta/app-subsystem-frontend-sdk";
+import { uploadBinary } from "openapi/http";
 type UploadBinaryPayloadResult =
   | {
       status: "ok";
@@ -10,7 +13,6 @@ type UploadBinaryPayloadResult =
       status: "failed";
       error: string;
     };
-
 export async function uploadBinaryPayload({
   bytes,
   fileName,
@@ -22,17 +24,18 @@ export async function uploadBinaryPayload({
   mimeType: string | null;
   durable?: boolean;
 }): Promise<UploadBinaryPayloadResult> {
-  const form = new FormData();
-  form.append(
-    "file",
-    new Blob([bytes], {
-      type: mimeType ?? "application/octet-stream",
-    }),
-    fileName,
+  const file = new Blob([bytes], {
+    type: mimeType ?? "application/octet-stream",
+  });
+  const response = await callOpenAPI(
+    uploadBinary({
+      body: {
+        durable,
+        file: new File([file], fileName, { type: file.type }),
+      },
+    } as Parameters<typeof uploadBinary>[0]),
   );
-  form.append("durable", durable ? "true" : "false");
-  const response = await route_binary_upload(form);
-  if (!res200(response)) {
+  if (!res200(response) || !response.data) {
     return {
       status: "failed",
       error:

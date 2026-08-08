@@ -1,4 +1,7 @@
 import * as Popover from "@radix-ui/react-popover";
+import { useEffect, useState } from "react";
+
+import { useReactFlow } from "forks/xyflow/core/store";
 
 export function StandardPopover({
   trigger,
@@ -11,6 +14,7 @@ export function StandardPopover({
   onOpenChange,
   arrowClasses,
   portalContainerId,
+  repositionOnCanvasTransform = false,
 }: {
   trigger: React.ReactElement;
   contentClasses?: string;
@@ -20,19 +24,65 @@ export function StandardPopover({
   closeClasses?: string;
   arrowClasses?: string;
   portalContainerId?: string;
-} & (
-  | { open?: undefined; onOpenChange?: undefined }
-  | { open: boolean; onOpenChange: (newOpen: boolean) => void }
-)) {
+  open?: boolean;
+  onOpenChange?: (newOpen: boolean) => void;
+  repositionOnCanvasTransform?: boolean;
+}) {
   // TODO: show a close button if closeButton is true
 
   const portalContainer =
     portalContainerId && typeof document !== "undefined"
       ? document.getElementById(portalContainerId)
       : null;
-  const rootProps: Popover.PopoverProps = open ? { open, onOpenChange } : {};
+  const [internalOpen, setInternalOpen] = useState(false);
+  const resolvedOpen = open ?? internalOpen;
+
+  useEffect(() => {
+    if (!repositionOnCanvasTransform || !resolvedOpen) {
+      return;
+    }
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    // ReactFlow pans and zooms via CSS transforms, so Radix popovers portaled
+    // to document.body need an explicit reposition signal to stay attached.
+    let rafId: number | null = null;
+    const scheduleReposition = () => {
+      if (rafId !== null) {
+        return;
+      }
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        window.dispatchEvent(new Event("scroll"));
+        window.dispatchEvent(new Event("resize"));
+      });
+    };
+
+    scheduleReposition();
+    const unsubscribe = useReactFlow.subscribe(
+      (state) => state.transform,
+      () => scheduleReposition(),
+    );
+
+    return () => {
+      unsubscribe();
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [repositionOnCanvasTransform, resolvedOpen]);
+
   return (
-    <Popover.Root {...rootProps}>
+    <Popover.Root
+      open={resolvedOpen}
+      onOpenChange={(newOpen) => {
+        if (open === undefined) {
+          setInternalOpen(newOpen);
+        }
+        onOpenChange?.(newOpen);
+      }}
+    >
       <Popover.Trigger asChild>{trigger}</Popover.Trigger>
 
       <Popover.Portal container={portalContainer ?? undefined}>

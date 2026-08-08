@@ -1,4 +1,4 @@
-import { resolveSlashCommandRequest } from "components/Chat/ChatInput";
+import { resolveSlashCommandRequest } from "components/Chat/chatInputHelpers";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import {
   createAgentRun,
@@ -13,24 +13,20 @@ import {
 import { describe, expect, it } from "vitest";
 import {
   buildProjectChatHydrationCacheKey,
-  buildProjectChatSubmittedMessageHistory,
   clearProjectChatHydrationCacheEntriesForChat,
   getDefaultProjectChatPermissionMode,
   getProjectChatBlockedReasonMessage,
-  PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS,
   resolveProjectChatComposerExecutableNativeSlashCommandTokens,
   resolveProjectChatComposerNativeSlashCommandTokens,
   resolveProjectChatComposerSlashCommandSets,
   resolveProjectChatContextTelemetry,
   resolveProjectChatHydrationRetryDecision,
-  resolveProjectChatHydrationRetryDelayMs,
   resolveProjectChatProviderDictationTranscribeEnabled,
   resolveProjectChatRuntimeActivityDetails,
   resolveProjectChatRuntimeNativeSlashCommandTokens,
-  resolveWorkspaceRootPollDelayMs,
   shouldSkipProjectChatHydration,
   trimProjectChatHydrationCache,
-} from "./ProjectChatCore";
+} from "./projectChatCoreUtils";
 import {
   resolveProjectChatHydrationAuthority,
   resolveProjectChatRunTypeForEngine,
@@ -305,6 +301,33 @@ describe("resolveProjectChatComposerSlashCommandSets", () => {
     ).toBe("native_prompt");
   });
 
+  it("deduplicates reserved and repeated native slash commands across recognized and executable sets", () => {
+    const resolved = resolveProjectChatComposerSlashCommandSets({
+      customProjectChatSlashCommands: [],
+      discoveredAgentNativeSlashCommands: ["/search", "/deploy", "/deploy"],
+      executableAgentNativeSlashCommands: ["/search", "/deploy", "/deploy"],
+      showPermissionExecutionControl: true,
+      showSearchExecutionControl: false,
+    });
+
+    expect(
+      resolved.recognizedSlashCommands.filter(
+        (entry) => entry.command === "/search",
+      ),
+    ).toHaveLength(1);
+    expect(
+      resolved.recognizedSlashCommands.filter(
+        (entry) => entry.command === "/deploy",
+      ),
+    ).toHaveLength(1);
+    expect(
+      resolved.slashCommands.filter((entry) => entry.command === "/search"),
+    ).toHaveLength(0);
+    expect(
+      resolved.slashCommands.filter((entry) => entry.command === "/deploy"),
+    ).toHaveLength(1);
+  });
+
   it("keeps custom slash commands recognized but non-executable before native authority resolves", () => {
     const resolved = resolveProjectChatComposerSlashCommandSets({
       customProjectChatSlashCommands: [
@@ -388,24 +411,9 @@ describe("getProjectChatBlockedReasonMessage", () => {
     expect(
       getProjectChatBlockedReasonMessage("engine_type_mismatch"),
     ).toContain("saved engine type no longer matches");
-    expect(getProjectChatBlockedReasonMessage("llm_config_missing")).toContain(
-      "saved LLM config is unavailable",
-    );
     expect(
       getProjectChatBlockedReasonMessage("terminal_hydration_failure"),
     ).toContain("terminal hydration error");
-  });
-});
-
-describe("resolveWorkspaceRootPollDelayMs", () => {
-  it("keeps fast polling before stability threshold", () => {
-    expect(resolveWorkspaceRootPollDelayMs(0)).toBe(5000);
-    expect(resolveWorkspaceRootPollDelayMs(1)).toBe(5000);
-  });
-
-  it("backs off polling once the root is stable", () => {
-    expect(resolveWorkspaceRootPollDelayMs(2)).toBe(30000);
-    expect(resolveWorkspaceRootPollDelayMs(5)).toBe(30000);
   });
 });
 
@@ -782,19 +790,6 @@ describe("shouldSkipProjectChatHydration", () => {
   });
 });
 
-describe("resolveProjectChatHydrationRetryDelayMs", () => {
-  it("uses exponential backoff from the base delay", () => {
-    expect(resolveProjectChatHydrationRetryDelayMs(1)).toBe(1000);
-    expect(resolveProjectChatHydrationRetryDelayMs(2)).toBe(2000);
-    expect(resolveProjectChatHydrationRetryDelayMs(3)).toBe(4000);
-  });
-
-  it("caps delay at the configured max", () => {
-    expect(resolveProjectChatHydrationRetryDelayMs(6)).toBe(30000);
-    expect(resolveProjectChatHydrationRetryDelayMs(10)).toBe(30000);
-  });
-});
-
 describe("resolveProjectChatHydrationRetryDecision", () => {
   it("returns terminal failure for terminal outcomes", () => {
     expect(
@@ -807,7 +802,7 @@ describe("resolveProjectChatHydrationRetryDecision", () => {
     });
   });
 
-  it("schedules transient retries with incremented attempt metadata", () => {
+  it("schedules transient retries with exponential backoff", () => {
     expect(
       resolveProjectChatHydrationRetryDecision({
         outcomeType: "transient_failure",
@@ -818,17 +813,41 @@ describe("resolveProjectChatHydrationRetryDecision", () => {
       nextAttempt: 1,
       delayMs: 1000,
     });
+
+    expect(
+      resolveProjectChatHydrationRetryDecision({
+        outcomeType: "transient_failure",
+        attempt: 2,
+      }),
+    ).toEqual({
+      type: "transient_retry",
+      nextAttempt: 3,
+      delayMs: 4000,
+    });
+  });
+
+  it("caps transient retry delay at the configured maximum", () => {
+    expect(
+      resolveProjectChatHydrationRetryDecision({
+        outcomeType: "transient_failure",
+        attempt: 5,
+      }),
+    ).toEqual({
+      type: "transient_retry",
+      nextAttempt: 6,
+      delayMs: 30000,
+    });
   });
 
   it("stops retrying after the max-attempt guard", () => {
     expect(
       resolveProjectChatHydrationRetryDecision({
         outcomeType: "transient_failure",
-        attempt: PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS,
+        attempt: 6,
       }),
     ).toEqual({
       type: "transient_exhausted",
-      nextAttempt: PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS + 1,
+      nextAttempt: 7,
     });
   });
 
@@ -856,22 +875,20 @@ describe("resolveProjectChatContextTelemetry", () => {
       contextWindowTokens: 200,
       contextUsedTokens: 150,
       contextUsageIsEstimated: true,
-      contextUsageUnavailable: false,
     });
   });
 
-  it("marks context usage unavailable without frontend estimates", () => {
+  it("returns null telemetry without frontend estimates", () => {
     const telemetry = resolveProjectChatContextTelemetry(null);
 
     expect(telemetry).toEqual({
       contextWindowTokens: null,
       contextUsedTokens: null,
       contextUsageIsEstimated: false,
-      contextUsageUnavailable: true,
     });
   });
 
-  it("marks context usage unavailable when backend omits either field", () => {
+  it("returns partial telemetry when backend omits either field", () => {
     const telemetry = resolveProjectChatContextTelemetry({
       contextWindowTokens: 4000,
       contextUsedTokens: null,
@@ -882,7 +899,6 @@ describe("resolveProjectChatContextTelemetry", () => {
       contextWindowTokens: 4000,
       contextUsedTokens: null,
       contextUsageIsEstimated: false,
-      contextUsageUnavailable: true,
     });
   });
 });
@@ -1138,177 +1154,5 @@ describe("resolveProjectChatRuntimeActivityDetails", () => {
     });
 
     expect(details.activeSubagents).toEqual([]);
-  });
-});
-
-describe("buildProjectChatSubmittedMessageHistory", () => {
-  it("collects user prompts in recency order across project conversations", () => {
-    // The newest active composer conversation should be searched first, then
-    // latest runs per chat sorted by last update time.
-    const prompts = buildProjectChatSubmittedMessageHistory({
-      projectConfigId: "project-a",
-      activeMessages: [
-        createUserChatMessage({
-          id: "active-older",
-          content: [createMessageTextContent({ text: "Older current prompt" })],
-        }),
-        createUserChatMessage({
-          id: "active-newest",
-          content: [
-            createMessageTextContent({ text: "Draft in current chat" }),
-          ],
-        }),
-      ],
-      runs: [
-        createAgentRun({
-          id: "run-chat-1-old",
-          startedAt: "2025-01-01T00:00:00Z",
-          inputs: {
-            runType: "llm_chat",
-            chatId: "chat-1",
-            projectConfigId: "project-a",
-            sectionId: null,
-          },
-          outputs: {
-            messages: [
-              createUserChatMessage({
-                content: [createMessageTextContent({ text: "Stale prompt" })],
-              }),
-            ],
-          },
-        }),
-        createAgentRun({
-          id: "run-chat-1-new",
-          startedAt: "2025-01-03T00:00:00Z",
-          inputs: {
-            runType: "llm_chat",
-            chatId: "chat-1",
-            projectConfigId: "project-a",
-            sectionId: null,
-          },
-          outputs: {
-            messages: [
-              createUserChatMessage({
-                content: [createMessageTextContent({ text: "Prompt A" })],
-              }),
-              createUserChatMessage({
-                content: [createMessageTextContent({ text: "Prompt B" })],
-              }),
-            ],
-          },
-        }),
-        createAgentRun({
-          id: "run-chat-2",
-          startedAt: "2025-01-02T00:00:00Z",
-          inputs: {
-            runType: "external_agent",
-            chatId: "chat-2",
-            projectConfigId: "project-a",
-            sectionId: null,
-          },
-          outputs: {
-            messages: [
-              createUserChatMessage({
-                content: [createMessageTextContent({ text: "Prompt C" })],
-              }),
-            ],
-          },
-        }),
-        createAgentRun({
-          id: "run-chat-section",
-          startedAt: "2025-01-04T00:00:00Z",
-          inputs: {
-            runType: "llm_chat",
-            chatId: "chat-section",
-            projectConfigId: "project-a",
-            sectionId: "section-1",
-          },
-          outputs: {
-            messages: [
-              createUserChatMessage({
-                content: [createMessageTextContent({ text: "Scoped prompt" })],
-              }),
-            ],
-          },
-        }),
-      ],
-    });
-
-    expect(prompts).toEqual([
-      "Draft in current chat",
-      "Older current prompt",
-      "Prompt B",
-      "Prompt A",
-      "Prompt C",
-    ]);
-  });
-
-  it("does not include unscoped runs when scoped project runs are absent", () => {
-    // Project-level history is strictly scoped to the active project id.
-    const prompts = buildProjectChatSubmittedMessageHistory({
-      projectConfigId: "project-missing",
-      activeMessages: [],
-      runs: [
-        createAgentRun({
-          id: "run-fallback",
-          startedAt: "2025-01-01T00:00:00Z",
-          inputs: {
-            runType: "llm_chat",
-            chatId: "chat-fallback",
-            projectConfigId: null,
-            sectionId: null,
-          },
-          outputs: {
-            messages: [
-              createUserChatMessage({
-                content: [
-                  createMessageTextContent({ text: "Fallback prompt" }),
-                ],
-              }),
-            ],
-          },
-        }),
-      ],
-    });
-
-    expect(prompts).toEqual([]);
-  });
-
-  it("deduplicates prompts while preserving first-seen ordering", () => {
-    // Duplicate prompts from active and run history should only appear once.
-    const prompts = buildProjectChatSubmittedMessageHistory({
-      projectConfigId: "project-a",
-      activeMessages: [
-        createUserChatMessage({
-          content: [createMessageTextContent({ text: "Repeated prompt" })],
-        }),
-      ],
-      runs: [
-        createAgentRun({
-          id: "run-duplicate",
-          startedAt: "2025-01-01T00:00:00Z",
-          inputs: {
-            runType: "llm_chat",
-            chatId: "chat-1",
-            projectConfigId: "project-a",
-            sectionId: null,
-          },
-          outputs: {
-            messages: [
-              createUserChatMessage({
-                content: [
-                  createMessageTextContent({ text: "Repeated prompt" }),
-                ],
-              }),
-              createUserChatMessage({
-                content: [createMessageTextContent({ text: "Unique prompt" })],
-              }),
-            ],
-          },
-        }),
-      ],
-    });
-
-    expect(prompts).toEqual(["Repeated prompt", "Unique prompt"]);
   });
 });

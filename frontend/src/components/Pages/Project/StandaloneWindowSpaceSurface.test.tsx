@@ -6,20 +6,16 @@ import { renderToStaticMarkup } from "react-dom/server";
 import "testUtils/reactRefreshPreamble";
 import {
   ChatWindowModeEnum,
-  WindowSpaceSurfaceKindEnum,
   createChatSectionImpl,
   createCore,
   createProjectConfig,
-  createUserDefaultChatSectionImpl,
   createVariant,
   createWindowSpaceConfig,
+  WindowSpaceSurfaceKindEnum,
+  type WindowSpaceConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  StandaloneWindowSpaceSurface,
-  applyStandaloneWindowSpaceHydration,
-  mergeHydratedStandaloneWindows,
-} from "./StandaloneWindowSpaceSurface";
+import { StandaloneWindowSpaceSurface } from "./StandaloneWindowSpaceSurface";
 
 type MockProjectState = {
   projectConfig: {
@@ -93,20 +89,14 @@ function createManagedChatAuthorityState() {
         }),
       },
       sectionImpls: {
-        [managedImplId]: createChatSectionImpl(
-          createUserDefaultChatSectionImpl(),
-          {
-            id: managedImplId,
-            managed: true,
-          },
-        ),
-        [scriptableImplId]: createChatSectionImpl(
-          createUserDefaultChatSectionImpl(),
-          {
-            id: scriptableImplId,
-            managed: false,
-          },
-        ),
+        [managedImplId]: createChatSectionImpl({
+          id: managedImplId,
+          managed: true,
+        }),
+        [scriptableImplId]: createChatSectionImpl({
+          id: scriptableImplId,
+          managed: false,
+        }),
       },
     },
     managedSectionId,
@@ -183,10 +173,12 @@ vi.mock("components/Git/GitGraphWindowContent", () => ({
     instanceId,
     showEmbeddedGitPaneToggle = false,
     embeddedGitPaneVisible = false,
+    onEmbeddedGitPaneVisibleChange,
   }: {
     instanceId?: string | null;
     showEmbeddedGitPaneToggle?: boolean;
     embeddedGitPaneVisible?: boolean;
+    onEmbeddedGitPaneVisibleChange?: (visible: boolean) => void;
   }) => (
     <div
       data-testid="mock-git-graph-window-content"
@@ -197,6 +189,16 @@ vi.mock("components/Git/GitGraphWindowContent", () => ({
       data-embedded-git-pane-visible={embeddedGitPaneVisible ? "true" : "false"}
     >
       git graph
+      <button
+        type="button"
+        data-testid="mock-toggle-embedded-git-pane"
+        data-instance-id={instanceId ?? ""}
+        onClick={() => {
+          onEmbeddedGitPaneVisibleChange?.(!embeddedGitPaneVisible);
+        }}
+      >
+        Toggle git pane
+      </button>
     </div>
   ),
 }));
@@ -232,6 +234,66 @@ vi.mock("components/Section/Container/SectionWindowSurface", () => ({
   },
 }));
 
+function renderStandaloneWindowSpaceSurface(windowSpace: WindowSpaceConfig) {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  act(() => {
+    root.render(
+      <StandaloneWindowSpaceSurface
+        windowSpace={windowSpace}
+        canUseManagedChat={true}
+        managedChatAuthorityState={EMPTY_MANAGED_CHAT_AUTHORITY_STATE}
+      />,
+    );
+  });
+  return { host, root };
+}
+
+function dispatchPointerEvent(
+  target: Element,
+  type: string,
+  init: PointerEventInit,
+): void {
+  const event =
+    typeof PointerEvent === "undefined"
+      ? new MouseEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          button: init.button ?? 0,
+          buttons: init.buttons ?? 0,
+          clientX: init.clientX ?? 0,
+          clientY: init.clientY ?? 0,
+        })
+      : new PointerEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          ...init,
+        });
+  if (!("pointerId" in event)) {
+    Object.defineProperty(event, "pointerId", {
+      configurable: true,
+      value: init.pointerId ?? 1,
+    });
+  }
+  act(() => {
+    target.dispatchEvent(event);
+  });
+}
+
+function getStandaloneWindow(
+  host: HTMLDivElement,
+  instanceId: string,
+): HTMLElement {
+  const window = host.querySelector(
+    `[data-chat-window-instance-id="${instanceId}"]`,
+  );
+  if (!(window instanceof HTMLElement)) {
+    throw new Error(`Expected standalone window ${instanceId}.`);
+  }
+  return window;
+}
+
 describe("StandaloneWindowSpaceSurface", () => {
   beforeEach(() => {
     hoisted.blockedErrorCode = null;
@@ -243,6 +305,27 @@ describe("StandaloneWindowSpaceSurface", () => {
         "section-1": { name: "Research Notes", chatId: "workspace-thread" },
       },
     };
+    if (typeof PointerEvent === "undefined") {
+      class TestPointerEvent extends MouseEvent {
+        pointerId: number;
+
+        constructor(type: string, init: PointerEventInit = {}) {
+          super(type, init);
+          this.pointerId = init.pointerId ?? 1;
+        }
+      }
+      globalThis.PointerEvent =
+        TestPointerEvent as unknown as typeof PointerEvent;
+    }
+    if (!HTMLElement.prototype.setPointerCapture) {
+      HTMLElement.prototype.setPointerCapture = () => {};
+    }
+    if (!HTMLElement.prototype.releasePointerCapture) {
+      HTMLElement.prototype.releasePointerCapture = () => {};
+    }
+    if (!HTMLElement.prototype.hasPointerCapture) {
+      HTMLElement.prototype.hasPointerCapture = () => false;
+    }
   });
 
   it("renders saved project chat, git graph, and section windows", () => {
@@ -475,7 +558,7 @@ describe("StandaloneWindowSpaceSurface", () => {
     }
   });
 
-  it("renders only one standalone section host when saved data duplicates a section binding", () => {
+  it("does not locally arbitrate duplicate standalone section bindings", () => {
     const markup = renderToStaticMarkup(
       <StandaloneWindowSpaceSurface
         canUseManagedChat={true}
@@ -520,7 +603,8 @@ describe("StandaloneWindowSpaceSurface", () => {
 
     expect(
       markup.match(/data-testid="mock-section-window-surface"/g),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
+    expect(markup).toContain('data-chat-mode-override="section_mode"');
     expect(markup).toContain('data-chat-mode-override="project_ai_mode"');
     expect(markup).toContain('data-project-chat-id="chat-section-1"');
   });
@@ -573,6 +657,129 @@ describe("StandaloneWindowSpaceSurface", () => {
     );
     expect(markup).toContain('data-resize-axis="vertical"');
     expect(markup).toContain("z-index:24");
+  });
+
+  it("preserves local project-chat overrides while same-layout hydration adopts saved presentation", () => {
+    const initialWindowSpace = createWindowSpaceConfig({
+      id: "space-id",
+      name: "Research Board",
+      windowsById: {
+        "chat-window": {
+          surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+          sectionIdOrNull: null,
+          mode: ChatWindowModeEnum.project_ai_mode,
+          title: "Research Chat",
+          chatId: "saved-project-chat",
+          zIndex: 1,
+          normalizedBounds: {
+            x: 0,
+            y: 0,
+            width: 0.5,
+            height: 0.5,
+          },
+        },
+        "git-window": {
+          surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+          sectionIdOrNull: null,
+          mode: ChatWindowModeEnum.git_graph_mode,
+          title: "Git Graph",
+          chatId: null,
+          zIndex: 2,
+          normalizedBounds: {
+            x: 0.5,
+            y: 0,
+            width: 0.5,
+            height: 0.5,
+          },
+        },
+      },
+      order: ["chat-window", "git-window"],
+    });
+    const refreshedWindowSpace = createWindowSpaceConfig({
+      id: "space-id",
+      name: "Research Board",
+      windowsById: {
+        "chat-window": {
+          surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+          sectionIdOrNull: null,
+          mode: ChatWindowModeEnum.project_ai_mode,
+          title: "Renamed Chat",
+          chatId: "saved-project-chat-2",
+          zIndex: 5,
+          normalizedBounds: {
+            x: 0,
+            y: 0,
+            width: 0.6,
+            height: 0.5,
+          },
+        },
+        "git-window": {
+          surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+          sectionIdOrNull: null,
+          mode: ChatWindowModeEnum.git_graph_mode,
+          title: "Git Graph",
+          chatId: null,
+          zIndex: 2,
+          normalizedBounds: {
+            x: 0.6,
+            y: 0,
+            width: 0.4,
+            height: 0.5,
+          },
+        },
+      },
+      order: ["chat-window", "git-window"],
+    });
+
+    const { host, root } =
+      renderStandaloneWindowSpaceSurface(initialWindowSpace);
+
+    try {
+      const overrideButton = host.querySelector(
+        '[data-testid="mock-set-project-chat-id"]',
+      );
+      if (!(overrideButton instanceof HTMLButtonElement)) {
+        throw new Error("Expected mocked standalone project chat control.");
+      }
+
+      act(() => {
+        overrideButton.click();
+      });
+
+      const chatWindow = getStandaloneWindow(host, "chat-window");
+      dispatchPointerEvent(chatWindow, "pointerdown", {
+        pointerId: 1,
+        button: 0,
+        clientX: 16,
+        clientY: 16,
+      });
+      expect(chatWindow.style.zIndex).toBe("3");
+
+      act(() => {
+        root.render(
+          <StandaloneWindowSpaceSurface
+            windowSpace={refreshedWindowSpace}
+            canUseManagedChat={true}
+            managedChatAuthorityState={EMPTY_MANAGED_CHAT_AUTHORITY_STATE}
+          />,
+        );
+      });
+
+      const refreshedChatWindow = getStandaloneWindow(host, "chat-window");
+      expect(
+        host
+          .querySelector('[data-testid="mock-unified-chat-surface"]')
+          ?.getAttribute("data-project-chat-id"),
+      ).toBe("chat-local-override");
+      expect(refreshedChatWindow.textContent).toContain("Renamed Chat");
+      expect(refreshedChatWindow.style.zIndex).toBe("3");
+      expect(parseFloat(refreshedChatWindow.style.width)).toBeGreaterThan(600);
+    } finally {
+      act(() => {
+        root.unmount();
+      });
+      host.remove();
+    }
   });
 
   it("shows an empty-state message when the saved space has no windows", () => {
@@ -783,357 +990,6 @@ describe("StandaloneWindowSpaceSurface", () => {
     }
   });
 
-  it("resets standalone git-pane visibility when a different saved space reuses the same window id", () => {
-    const previousHydratedWindowsById = {
-      "graph-window": {
-        instanceId: "graph-window",
-        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
-        sectionIdOrNull: null,
-        mode: ChatWindowModeEnum.git_graph_mode,
-        title: "Git Graph",
-        chatId: null,
-        embeddedGitPaneVisible: false,
-        zIndex: 1,
-        bounds: {
-          x: 0,
-          y: 0,
-          width: 900,
-          height: 520,
-        },
-      },
-    };
-    const currentWindowsById = {
-      "graph-window": {
-        ...previousHydratedWindowsById["graph-window"],
-        embeddedGitPaneVisible: true,
-      },
-    };
-    const nextHydratedWindowsById = {
-      "graph-window": {
-        ...previousHydratedWindowsById["graph-window"],
-      },
-    };
-
-    expect(
-      applyStandaloneWindowSpaceHydration({
-        currentWindowsById,
-        previousHydratedWindowsById,
-        nextHydratedWindowsById,
-        previousHydrationKey: "project-a:space-a",
-        nextHydrationKey: "project-a:space-b",
-      }),
-    ).toEqual({
-      nextLocalWindowsById: nextHydratedWindowsById,
-      nextPreviousHydratedWindowsById: nextHydratedWindowsById,
-      nextHydrationKey: "project-a:space-b",
-      resetLocalState: true,
-    });
-  });
-
-  it("preserves local chat ids and resized bounds when hydration only changes presentation", () => {
-    const previousHydratedWindowsById = {
-      "chat-window": {
-        instanceId: "chat-window",
-        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
-        sectionIdOrNull: null,
-        mode: ChatWindowModeEnum.project_ai_mode,
-        title: "Research Chat",
-        chatId: "chat-window-1",
-        embeddedGitPaneVisible: false,
-        zIndex: 1,
-        bounds: {
-          x: 0,
-          y: 0,
-          width: 900,
-          height: 520,
-        },
-      },
-    };
-    const currentWindowsById = {
-      "chat-window": {
-        ...previousHydratedWindowsById["chat-window"],
-        chatId: "chat-window-2",
-        zIndex: 7,
-        bounds: {
-          x: 12,
-          y: 24,
-          width: 840,
-          height: 460,
-        },
-      },
-    };
-    const nextHydratedWindowsById = {
-      "chat-window": {
-        ...previousHydratedWindowsById["chat-window"],
-        title: "Renamed Chat",
-        bounds: {
-          x: 0,
-          y: 0,
-          width: 720,
-          height: 440,
-        },
-      },
-    };
-
-    expect(
-      mergeHydratedStandaloneWindows(
-        currentWindowsById,
-        previousHydratedWindowsById,
-        nextHydratedWindowsById,
-      ),
-    ).toEqual({
-      "chat-window": {
-        instanceId: "chat-window",
-        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
-        sectionIdOrNull: null,
-        mode: ChatWindowModeEnum.project_ai_mode,
-        title: "Renamed Chat",
-        chatId: "chat-window-2",
-        embeddedGitPaneVisible: false,
-        zIndex: 7,
-        bounds: {
-          x: 12,
-          y: 24,
-          width: 840,
-          height: 460,
-        },
-      },
-    });
-  });
-
-  it("adopts the saved chat id when the standalone window did not diverge locally", () => {
-    const previousHydratedWindowsById = {
-      "chat-window": {
-        instanceId: "chat-window",
-        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
-        sectionIdOrNull: null,
-        mode: ChatWindowModeEnum.project_ai_mode,
-        title: "Research Chat",
-        chatId: "chat-a",
-        embeddedGitPaneVisible: false,
-        zIndex: 1,
-        bounds: {
-          x: 0,
-          y: 0,
-          width: 900,
-          height: 520,
-        },
-      },
-    };
-    const currentWindowsById = {
-      "chat-window": {
-        ...previousHydratedWindowsById["chat-window"],
-      },
-    };
-    const nextHydratedWindowsById = {
-      "chat-window": {
-        ...previousHydratedWindowsById["chat-window"],
-        chatId: "chat-b",
-      },
-    };
-
-    expect(
-      mergeHydratedStandaloneWindows(
-        currentWindowsById,
-        previousHydratedWindowsById,
-        nextHydratedWindowsById,
-      ),
-    ).toEqual({
-      "chat-window": {
-        ...nextHydratedWindowsById["chat-window"],
-      },
-    });
-  });
-
-  it("adopts saved git-pane visibility when the standalone window did not diverge locally", () => {
-    const previousHydratedWindowsById = {
-      "graph-window": {
-        instanceId: "graph-window",
-        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
-        sectionIdOrNull: null,
-        mode: ChatWindowModeEnum.git_graph_mode,
-        title: "Git Graph",
-        chatId: null,
-        embeddedGitPaneVisible: false,
-        zIndex: 1,
-        bounds: {
-          x: 0,
-          y: 0,
-          width: 900,
-          height: 520,
-        },
-      },
-    };
-    const currentWindowsById = {
-      "graph-window": {
-        ...previousHydratedWindowsById["graph-window"],
-      },
-    };
-    const nextHydratedWindowsById = {
-      "graph-window": {
-        ...previousHydratedWindowsById["graph-window"],
-        embeddedGitPaneVisible: true,
-      },
-    };
-
-    expect(
-      mergeHydratedStandaloneWindows(
-        currentWindowsById,
-        previousHydratedWindowsById,
-        nextHydratedWindowsById,
-      ),
-    ).toEqual({
-      "graph-window": {
-        ...nextHydratedWindowsById["graph-window"],
-      },
-    });
-  });
-
-  it("adopts the saved z-index when the standalone window did not diverge locally", () => {
-    const previousHydratedWindowsById = {
-      "chat-window": {
-        instanceId: "chat-window",
-        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
-        sectionIdOrNull: null,
-        mode: ChatWindowModeEnum.project_ai_mode,
-        title: "Research Chat",
-        chatId: "chat-a",
-        embeddedGitPaneVisible: false,
-        zIndex: 1,
-        bounds: {
-          x: 0,
-          y: 0,
-          width: 900,
-          height: 520,
-        },
-      },
-    };
-    const currentWindowsById = {
-      "chat-window": {
-        ...previousHydratedWindowsById["chat-window"],
-      },
-    };
-    const nextHydratedWindowsById = {
-      "chat-window": {
-        ...previousHydratedWindowsById["chat-window"],
-        zIndex: 7,
-      },
-    };
-
-    expect(
-      mergeHydratedStandaloneWindows(
-        currentWindowsById,
-        previousHydratedWindowsById,
-        nextHydratedWindowsById,
-      ),
-    ).toEqual({
-      "chat-window": {
-        ...nextHydratedWindowsById["chat-window"],
-      },
-    });
-  });
-
-  it("preserves a locally diverged z-index during same-layout hydration", () => {
-    const previousHydratedWindowsById = {
-      "chat-window": {
-        instanceId: "chat-window",
-        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
-        sectionIdOrNull: null,
-        mode: ChatWindowModeEnum.project_ai_mode,
-        title: "Research Chat",
-        chatId: "chat-a",
-        embeddedGitPaneVisible: false,
-        zIndex: 1,
-        bounds: {
-          x: 0,
-          y: 0,
-          width: 900,
-          height: 520,
-        },
-      },
-    };
-    const currentWindowsById = {
-      "chat-window": {
-        ...previousHydratedWindowsById["chat-window"],
-        zIndex: 9,
-      },
-    };
-    const nextHydratedWindowsById = {
-      "chat-window": {
-        ...previousHydratedWindowsById["chat-window"],
-        zIndex: 3,
-      },
-    };
-
-    expect(
-      mergeHydratedStandaloneWindows(
-        currentWindowsById,
-        previousHydratedWindowsById,
-        nextHydratedWindowsById,
-      ),
-    ).toEqual({
-      "chat-window": {
-        ...nextHydratedWindowsById["chat-window"],
-        zIndex: 9,
-      },
-    });
-  });
-
-  it("resets owner-local chat and git state when the same window id is rebound", () => {
-    const previousHydratedWindowsById = {
-      win: {
-        instanceId: "win",
-        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
-        sectionIdOrNull: null,
-        mode: ChatWindowModeEnum.project_ai_mode,
-        title: "Workspace Chat",
-        chatId: "saved-project-chat",
-        embeddedGitPaneVisible: false,
-        zIndex: 1,
-        bounds: {
-          x: 0,
-          y: 0,
-          width: 900,
-          height: 520,
-        },
-      },
-    };
-    const currentWindowsById = {
-      win: {
-        ...previousHydratedWindowsById.win,
-        chatId: "chat-local-override",
-        embeddedGitPaneVisible: true,
-        zIndex: 7,
-      },
-    };
-    const nextHydratedWindowsById = {
-      win: {
-        instanceId: "win",
-        surfaceKind: WindowSpaceSurfaceKindEnum.section,
-        sectionIdOrNull: "section-1",
-        mode: ChatWindowModeEnum.section_mode,
-        title: "Research Notes",
-        chatId: null,
-        embeddedGitPaneVisible: false,
-        zIndex: 2,
-        bounds: {
-          x: 40,
-          y: 24,
-          width: 640,
-          height: 420,
-        },
-      },
-    };
-
-    expect(
-      mergeHydratedStandaloneWindows(
-        currentWindowsById,
-        previousHydratedWindowsById,
-        nextHydratedWindowsById,
-      ),
-    ).toEqual(nextHydratedWindowsById);
-  });
-
   it("rebinds standalone windows to the new owner state instead of preserving a stale local chat override", () => {
     const initialWindowSpace = createWindowSpaceConfig({
       id: "space-id",
@@ -1231,200 +1087,5 @@ describe("StandaloneWindowSpaceSurface", () => {
       });
       host.remove();
     }
-  });
-
-  it("preserves local chat and git state when the same saved window space rehydrates", () => {
-    const previousHydratedWindowsById = {
-      "chat-window": {
-        instanceId: "chat-window",
-        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
-        sectionIdOrNull: null,
-        mode: ChatWindowModeEnum.project_ai_mode,
-        title: "Research Chat",
-        chatId: "chat-window-1",
-        embeddedGitPaneVisible: false,
-        zIndex: 1,
-        bounds: {
-          x: 0,
-          y: 0,
-          width: 900,
-          height: 520,
-        },
-      },
-    };
-    const currentWindowsById = {
-      "chat-window": {
-        ...previousHydratedWindowsById["chat-window"],
-        chatId: "chat-local-override",
-        embeddedGitPaneVisible: true,
-        zIndex: 7,
-      },
-    };
-    const nextHydratedWindowsById = {
-      "chat-window": {
-        ...previousHydratedWindowsById["chat-window"],
-        title: "Renamed Chat",
-        embeddedGitPaneVisible: false,
-        bounds: {
-          x: 0,
-          y: 0,
-          width: 720,
-          height: 440,
-        },
-      },
-    };
-
-    expect(
-      applyStandaloneWindowSpaceHydration({
-        currentWindowsById,
-        previousHydratedWindowsById,
-        nextHydratedWindowsById,
-        previousHydrationKey: "project-a:space-id",
-        nextHydrationKey: "project-a:space-id",
-      }),
-    ).toEqual({
-      nextLocalWindowsById: {
-        "chat-window": {
-          instanceId: "chat-window",
-          surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
-          sectionIdOrNull: null,
-          mode: ChatWindowModeEnum.project_ai_mode,
-          title: "Renamed Chat",
-          chatId: "chat-local-override",
-          embeddedGitPaneVisible: true,
-          zIndex: 7,
-          bounds: {
-            x: 0,
-            y: 0,
-            width: 720,
-            height: 440,
-          },
-        },
-      },
-      nextPreviousHydratedWindowsById: nextHydratedWindowsById,
-      nextHydrationKey: "project-a:space-id",
-      resetLocalState: false,
-    });
-  });
-
-  it("resets standalone local state when the owning project config changes", () => {
-    const previousHydratedWindowsById = {
-      "chat-window": {
-        instanceId: "chat-window",
-        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
-        sectionIdOrNull: null,
-        mode: ChatWindowModeEnum.project_ai_mode,
-        title: "Research Chat",
-        chatId: null,
-        embeddedGitPaneVisible: false,
-        zIndex: 1,
-        bounds: {
-          x: 0,
-          y: 0,
-          width: 900,
-          height: 520,
-        },
-      },
-    };
-    const currentWindowsById = {
-      "chat-window": {
-        ...previousHydratedWindowsById["chat-window"],
-        chatId: "chat-local-override",
-        embeddedGitPaneVisible: true,
-        bounds: {
-          x: 24,
-          y: 40,
-          width: 780,
-          height: 420,
-        },
-      },
-    };
-    const nextHydratedWindowsById = {
-      "chat-window": {
-        ...previousHydratedWindowsById["chat-window"],
-        chatId: "copied-config-chat",
-        bounds: {
-          x: 8,
-          y: 16,
-          width: 640,
-          height: 360,
-        },
-      },
-    };
-
-    expect(
-      applyStandaloneWindowSpaceHydration({
-        currentWindowsById,
-        previousHydratedWindowsById,
-        nextHydratedWindowsById,
-        previousHydrationKey: "project-a:space-id",
-        nextHydrationKey: "project-b:space-id",
-      }),
-    ).toEqual({
-      nextLocalWindowsById: nextHydratedWindowsById,
-      nextPreviousHydratedWindowsById: nextHydratedWindowsById,
-      nextHydrationKey: "project-b:space-id",
-      resetLocalState: true,
-    });
-  });
-
-  it("resets standalone local state when switching to a different saved layout", () => {
-    const previousHydratedWindowsById = {
-      "chat-window": {
-        instanceId: "chat-window",
-        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
-        sectionIdOrNull: null,
-        mode: ChatWindowModeEnum.project_ai_mode,
-        title: "Research Chat",
-        chatId: "chat-window-1",
-        embeddedGitPaneVisible: false,
-        zIndex: 1,
-        bounds: {
-          x: 0,
-          y: 0,
-          width: 900,
-          height: 520,
-        },
-      },
-    };
-    const currentWindowsById = {
-      "chat-window": {
-        ...previousHydratedWindowsById["chat-window"],
-        chatId: "chat-local-override",
-      },
-    };
-    const nextHydratedWindowsById = {
-      "other-window": {
-        instanceId: "other-window",
-        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
-        sectionIdOrNull: null,
-        mode: ChatWindowModeEnum.project_ai_mode,
-        title: "Other Chat",
-        chatId: "chat-window-9",
-        embeddedGitPaneVisible: false,
-        zIndex: 2,
-        bounds: {
-          x: 20,
-          y: 20,
-          width: 640,
-          height: 420,
-        },
-      },
-    };
-
-    expect(
-      applyStandaloneWindowSpaceHydration({
-        currentWindowsById,
-        previousHydratedWindowsById,
-        nextHydratedWindowsById,
-        previousHydrationKey: "project-a:space-id",
-        nextHydrationKey: "project-a:space-id-2",
-      }),
-    ).toEqual({
-      nextLocalWindowsById: nextHydratedWindowsById,
-      nextPreviousHydratedWindowsById: nextHydratedWindowsById,
-      nextHydrationKey: "project-a:space-id-2",
-      resetLocalState: true,
-    });
   });
 });

@@ -3,7 +3,7 @@ export type SyntaxLineCacheEntry = {
   marks: Array<[number, number, string]>;
 };
 
-export const MAX_SYNTAX_LINE_CACHE_ENTRIES = 1500;
+const MAX_SYNTAX_LINE_CACHE_ENTRIES = 1500;
 
 export function setSyntaxLineCacheEntry(
   cache: Map<number, SyntaxLineCacheEntry>,

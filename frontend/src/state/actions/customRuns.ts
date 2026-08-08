@@ -1,3 +1,4 @@
+import { createNewId } from "@setta/app-subsystem-frontend-sdk";
 import {
   CustomRunAction,
   CustomRunItem,
@@ -5,7 +6,6 @@ import {
   useProjectState,
   useRunControl,
 } from "state/definitions";
-import { createNewId } from "utils/idNameCreation";
 import { triggerListenerForceRefresh } from "./listeners";
 import { runCodeBlock } from "./runOrImportCode";
 
@@ -72,17 +72,6 @@ export function deleteCustomRun(projectConfigId: string, runId: string) {
       continuousRunCustomRunId: null,
     });
   }
-}
-
-function addCustomRun(
-  projectConfigId: string,
-  customRun: Omit<CustomRunItem, "id">,
-) {
-  const runs = getCustomRunsForProjectConfig(projectConfigId);
-  setCustomRunsForProjectConfig(projectConfigId, [
-    ...runs,
-    { ...customRun, id: createNewId() },
-  ]);
 }
 
 export function ensureDefaultCustomRuns(projectConfigId: string) {

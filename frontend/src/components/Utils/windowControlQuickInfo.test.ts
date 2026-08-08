@@ -49,4 +49,19 @@ describe("getWindowControlQuickInfoText", () => {
       "Hide window",
     );
   });
+
+  it("trims optional titles before building quick info text", () => {
+    expect(
+      getWindowControlQuickInfoText({
+        action: "show_in_canvas",
+        title: "  Renamed Research Chat  ",
+      }),
+    ).toBe("Show Renamed Research Chat in canvas");
+    expect(
+      getWindowControlQuickInfoText({
+        action: "close_window",
+        title: "  Renamed Research Chat  ",
+      }),
+    ).toBe("Close Renamed Research Chat");
+  });
 });

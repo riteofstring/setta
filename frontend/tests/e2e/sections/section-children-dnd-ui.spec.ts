@@ -1,6 +1,8 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  applyProjectMutationsFromFrontend,
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   ensureAppReady,
   openIsolatedProject,
   postBackend,
@@ -56,19 +58,30 @@ test("group section children can move via UI drag-and-drop", async ({
       [childBId]: { x: 40, y: 260 },
     });
 
-    await postBackend(page, "/moveSections", {
+    await applyProjectMutationsFromFrontend(page, {
       projectConfigId: projectContext.projectConfigId,
-      sectionIds: [childAId],
-      newParentId: groupId,
-      newIndex: 0,
-      positionsById: null,
-    });
-    await postBackend(page, "/moveSections", {
-      projectConfigId: projectContext.projectConfigId,
-      sectionIds: [childBId],
-      newParentId: groupId,
-      newIndex: 1,
-      positionsById: null,
+      operations: [
+        {
+          operationName: "moveSections",
+          body: {
+            sectionIds: [childAId],
+            newParentId: groupId,
+            newIndex: 0,
+            positionsById: null,
+            frontendOpId: null,
+          },
+        },
+        {
+          operationName: "moveSections",
+          body: {
+            sectionIds: [childBId],
+            newParentId: groupId,
+            newIndex: 1,
+            positionsById: null,
+            frontendOpId: null,
+          },
+        },
+      ],
     });
 
     await expect
@@ -326,17 +339,21 @@ async function placeSections(
   projectConfigId: string,
   positionsById: Record<string, { x: number; y: number }>,
 ): Promise<void> {
-  for (const [sectionId, position] of Object.entries(positionsById)) {
-    await postBackend(page, "/moveSections", {
-      projectConfigId,
-      sectionIds: [sectionId],
-      newParentId: null,
-      newIndex: null,
-      positionsById: {
-        [sectionId]: position,
+  await applyProjectMutationsFromFrontend(page, {
+    projectConfigId,
+    operations: Object.entries(positionsById).map(([sectionId, position]) => ({
+      operationName: "moveSections",
+      body: {
+        sectionIds: [sectionId],
+        newParentId: null,
+        newIndex: null,
+        positionsById: {
+          [sectionId]: position,
+        },
+        frontendOpId: null,
       },
-    });
-  }
+    })),
+  });
 }
 
 async function createTopLevelSection(
@@ -344,15 +361,10 @@ async function createTopLevelSection(
   projectConfigId: string,
   implType: ImplType,
 ): Promise<string> {
-  const response = await postBackend<{ sectionId?: string }>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType,
-    },
-  );
-
+  const response = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType,
+  });
   const sectionId = response?.sectionId;
   if (!sectionId) {
     throw new Error(`Missing section id for impl type ${implType}.`);

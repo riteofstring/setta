@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools==80.9.0", "wheel==0.45.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "setta-ty"
+version = "0.1.0"
+description = "First-party ty language-server plugin for Setta"
+requires-python = ">=3.12"
+dependencies = [
+    "ty==0.0.29",
+]
+
+[tool.setuptools]
+py-modules = []
+
+[tool.setuptools.data-files]
+"setta-ty" = ["setta.plugin.json", "README.md"]
+"setta-ty/backend" = ["backend/main.py"]
+"setta-ty/content/config" = ["content/config/schema.json"]
