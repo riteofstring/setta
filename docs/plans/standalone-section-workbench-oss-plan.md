@@ -1361,7 +1361,7 @@ Tests:
 - Enforce resize axes, minimum size, maximum size, and aspect ratio.
 - Measure content-sized host bodies, promote them to fixed sizing on manual resize, and return them to content sizing without observer loops.
 - Prevent direct movement and resizing of a locked section while leaving its content and child container usable.
-- Keep nested children visible when their parent section body is minimized, then restore fixed dimensions exactly, resume content-fit dimensions, and restore focus.
+- Preserve nested child data and fixed/content sizing metadata while minimizing a top-level container, then restore dimensions and focus; visible recursive-child retention remains Phase 3 work.
 - Interactive content does not initiate section dragging.
 - Partial/full marquee geometry, ancestor/descendant root normalization, top-level block offsets, locked-selection rejection, and selection focus restoration.
 - XYFlow registered-node selection is disabled or reconciled behind the package selection model so it cannot become a second selection authority.
@@ -1430,6 +1430,7 @@ Tests:
 - Render the empty-container drop affordance, accept a drop through it, and remove the affordance when populated.
 - Group and ungroup siblings at root and nested depths, reject mixed-parent grouping, and restore exact structure through undo/redo.
 - Render and interact with a deeply nested mixed-orientation tree without a package-imposed depth cutoff.
+- Keep nested children visible and usable while their parent host body is minimized, then restore fixed dimensions exactly, resume content-fit dimensions, and restore focus.
 - Undo and redo single and batch reparenting, sorting, grouping, ungrouping, resizing, size/overflow mode changes, lock changes, minimize changes, orientation changes, and subtree deletion exactly.
 
 Gate:

@@ -33,6 +33,7 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain('data-workspace-grid-visible="true"');
     expect(markup).toContain('data-workspace-external-drop-state="idle"');
     expect(markup).toContain('data-workspace-external-drop-announcement=""');
+    expect(markup).toContain('data-workspace-creation-announcement=""');
     expect(markup).toContain('data-workspace-history-announcement=""');
     expect(markup).toContain('data-workspace-section-state-announcement=""');
     expect(markup).toContain('data-workspace-sizing-announcement=""');

@@ -272,6 +272,60 @@ export function projectNodes<TSectionData>(
   });
 }
 
+function shallowPropertiesMatch(left: object, right: object): boolean {
+  const leftRecord = left as Readonly<Record<string, unknown>>;
+  const rightRecord = right as Readonly<Record<string, unknown>>;
+  const leftKeys = Object.keys(leftRecord);
+  return (
+    leftKeys.length === Object.keys(rightRecord).length &&
+    leftKeys.every((key) => Object.is(leftRecord[key], rightRecord[key]))
+  );
+}
+
+function nodeStylesMatch(
+  left: WorkspaceRootNode["style"],
+  right: WorkspaceRootNode["style"],
+): boolean {
+  if (!left || !right) {
+    return left === right;
+  }
+  return shallowPropertiesMatch(left, right);
+}
+
+function nodePositionsMatch(left: WorkspacePoint, right: WorkspacePoint): boolean {
+  return left.x === right.x && left.y === right.y;
+}
+
+function synchronizeNode(existing: WorkspaceRootNode, node: WorkspaceRootNode): WorkspaceRootNode {
+  const data = shallowPropertiesMatch(existing.data, node.data) ? existing.data : node.data;
+  const position = nodePositionsMatch(existing.position, node.position)
+    ? existing.position
+    : { ...node.position };
+  const style = nodeStylesMatch(existing.style, node.style) ? existing.style : node.style;
+  const synchronized: WorkspaceRootNode = {
+    ...existing,
+    ...node,
+    data,
+    position,
+  };
+  if (style) {
+    synchronized.style = style;
+  } else {
+    delete synchronized.style;
+  }
+  if (node.data.section.size.width.mode === "content") {
+    delete synchronized.width;
+  } else {
+    delete synchronized.initialWidth;
+  }
+  if (node.data.section.isMinimized || node.data.section.size.height.mode === "content") {
+    delete synchronized.height;
+  } else {
+    delete synchronized.initialHeight;
+  }
+  return shallowPropertiesMatch(existing, synchronized) ? existing : synchronized;
+}
+
 export function synchronizeNodes(
   current: readonly WorkspaceRootNode[],
   projected: readonly WorkspaceRootNode[],
@@ -279,26 +333,7 @@ export function synchronizeNodes(
   const currentById = new Map(current.map((node) => [node.id, node]));
   return projected.map((node) => {
     const existing = currentById.get(node.id);
-    if (!existing) {
-      return node;
-    }
-    const synchronized = {
-      ...existing,
-      ...node,
-      data: node.data,
-      position: { ...node.position },
-    };
-    if (node.data.section.size.width.mode === "content") {
-      delete synchronized.width;
-    } else {
-      delete synchronized.initialWidth;
-    }
-    if (node.data.section.isMinimized || node.data.section.size.height.mode === "content") {
-      delete synchronized.height;
-    } else {
-      delete synchronized.initialHeight;
-    }
-    return synchronized;
+    return existing ? synchronizeNode(existing, node) : node;
   });
 }
 

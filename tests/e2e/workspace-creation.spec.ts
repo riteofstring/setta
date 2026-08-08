@@ -110,6 +110,59 @@ test("pointer and keyboard context creation use a meaningful canvas location", a
   await expect(page.getByRole("article", { name: "Sample section 2" })).toBeFocused();
 });
 
+test("controlled creation acceptance selects and focuses the canonical frame", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/?state-contract");
+
+  const controlled = page.getByRole("region", { name: "Controlled workspace", exact: true });
+  await controlled.getByRole("button", { name: "Add section" }).click();
+  await controlled
+    .getByRole("dialog", { name: "Add a section" })
+    .getByRole("button", { name: "State fixture" })
+    .click();
+
+  const created = controlled.getByRole("article", { name: "Controlled fixture 1" });
+  await expect(created).toBeFocused();
+  await expect(created).toHaveAttribute("data-workspace-selected", "true");
+  await expect(controlled.locator("[data-workspace-creation-announcement]")).toHaveText(
+    "Controlled fixture 1 created.",
+  );
+});
+
+test("controlled creation rejection restores focus and clears deferred selection", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/?state-contract");
+
+  const controlled = page.getByRole("region", { name: "Controlled workspace", exact: true });
+  await page.getByRole("checkbox", { name: "Accept controlled changes" }).uncheck();
+  const addSection = controlled.getByRole("button", { name: "Add section" });
+  await addSection.click();
+  await controlled
+    .getByRole("dialog", { name: "Add a section" })
+    .getByRole("button", { name: "State fixture" })
+    .click();
+
+  await expect(controlled.getByRole("article", { name: "Controlled fixture 1" })).toHaveCount(0);
+  await expect(controlled.locator("[data-workspace-creation-announcement]")).toHaveText(
+    "Controlled fixture 1 was not created because the controlled host did not accept the change.",
+  );
+  await expect(addSection).toBeFocused();
+
+  await controlled.getByRole("button", { name: "Select Beta" }).click();
+  const applyReplacement = page.getByRole("button", { name: "Apply last rejected document" });
+  await applyReplacement.click();
+  const created = controlled.getByRole("article", { name: "Controlled fixture 1" });
+  await expect(created).toBeVisible();
+  await expect(created).toHaveAttribute("data-workspace-selected", "false");
+  await expect(controlled.getByRole("button", { name: "Select Beta" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(applyReplacement).toBeFocused();
+});
+
 test("the section picker reflows at 320 CSS pixels", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 720 });
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });

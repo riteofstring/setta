@@ -291,8 +291,15 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   const pendingCreatedSectionRef = useRef<Readonly<{
     panIntoView: boolean;
     sectionId: string;
+    title: string;
   }> | null>(null);
   const pendingStructuralSelectionRef = useRef<PendingStructuralSelection | null>(null);
+  const [creationAnnouncement, setCreationAnnouncement] = useState("");
+  const [creationReconciliation, setCreationReconciliation] = useState({
+    accepted: true,
+    revision: 0,
+  });
+  const [creationSynchronizationRevision, setCreationSynchronizationRevision] = useState(0);
   const [structuralSelectionRevision, setStructuralSelectionRevision] = useState(0);
   if (!internalControllerRef.current) {
     const bindings: WorkspaceControllerBindings<TSectionData> = {
@@ -330,7 +337,10 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
           pendingCreatedSectionRef.current = {
             panIntoView: plan.panTarget !== null,
             sectionId: plan.section.id,
+            title: plan.section.title,
           };
+          setCreationAnnouncement("");
+          setCreationSynchronizationRevision((revision) => revision + 1);
         }
         return result;
       },
@@ -402,10 +412,27 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   const controller = internalControllerRef.current;
   useEffect(() => {
     const pendingCreation = pendingCreatedSectionRef.current;
-    if (!pendingCreation || !Object.hasOwn(validatedDocument.sections, pendingCreation.sectionId)) {
+    if (!pendingCreation) {
       return;
     }
     pendingCreatedSectionRef.current = null;
+    if (!Object.hasOwn(validatedDocument.sections, pendingCreation.sectionId)) {
+      setCreationReconciliation((reconciliation) => ({
+        accepted: false,
+        revision: reconciliation.revision + 1,
+      }));
+      setCreationAnnouncement(
+        `${pendingCreation.title} was not created because the controlled host did not accept the change.`,
+      );
+      return;
+    }
+    setCreationReconciliation((reconciliation) => ({
+      accepted: true,
+      revision: reconciliation.revision + 1,
+    }));
+    setCreationAnnouncement(
+      `${validatedDocument.sections[pendingCreation.sectionId]?.title ?? pendingCreation.title} created.`,
+    );
     controller.selectSections([pendingCreation.sectionId]);
     const canvasController = canvasControllerRef.current;
     if (!canvasController) {
@@ -417,7 +444,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       pendingCreation.sectionId,
       pendingCreation.panIntoView,
     );
-  }, [controller, validatedDocument]);
+  }, [controller, creationSynchronizationRevision, validatedDocument]);
   useEffect(() => {
     const pending = pendingStructuralSelectionRef.current;
     if (!pending) {
@@ -529,8 +556,10 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         ariaLabel={ariaLabel}
         appearance={resolvedAppearance}
         controllerSynchronizationRevision={controllerSynchronizationRevision}
+        creationAnnouncement={creationAnnouncement}
         creationConfigured={creationAvailability.configured}
         creationEnabled={creationAvailability.enabled}
+        creationReconciliation={creationReconciliation}
         document={validatedDocument}
         emptyState={resolvedEmptyState}
         gestureOptions={gestureOptions}

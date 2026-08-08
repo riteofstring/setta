@@ -1,9 +1,69 @@
 import { describe, expect, it } from "vitest";
 
 import type { WorkspaceDocument, WorkspaceSection } from "../src/core.js";
+import { WorkspaceGeometryIndex } from "../src/internal/geometry-index.js";
 import { projectWorkspaceCanvasRoots } from "../src/internal/workspace-canvas-model.js";
+import {
+  projectNodes,
+  setActiveRoots,
+  setResizingRoot,
+  synchronizeNodes,
+} from "../src/internal/workspace-canvas-root-node.js";
+import { WorkspaceGeometryMeasurements } from "../src/internal/workspace-geometry-service.js";
+import { resolveSectionDefinitions } from "../src/internal/workspace-section-registry.js";
 import { WorkspaceViewportLifecycle } from "../src/internal/workspace-viewport-lifecycle.js";
 import { createWorkspaceTestDocument } from "../src/testing.js";
+
+const unchanged = () => ({ status: "unchanged" }) as const;
+const doNothing = () => undefined;
+const validTitle = () => null;
+const colorPalette = [] as const;
+const resizeBindings = {
+  onContentSizeRequest: doNothing,
+  onKeyboardResize: doNothing,
+  onPointerResize: doNothing,
+  onPointerResizeEnd: doNothing,
+};
+const sectionRegistry = resolveSectionDefinitions([
+  {
+    defaultSize: { height: 180, width: 240 },
+    displayName: "Test section",
+    kind: "test",
+    render: () => null,
+  },
+]);
+const geometry = new WorkspaceGeometryMeasurements(new WorkspaceGeometryIndex());
+
+function largeDocument(): WorkspaceDocument {
+  return createWorkspaceTestDocument(
+    Array.from({ length: 128 }, (_, index) => ({
+      id: `section-${String(index)}`,
+      title: `Section ${String(index)}`,
+    })),
+  );
+}
+
+function projectedNodes(document: WorkspaceDocument, selectedSectionIds: readonly string[] = []) {
+  return projectNodes(
+    document,
+    geometry,
+    sectionRegistry,
+    colorPalette,
+    "light",
+    false,
+    true,
+    true,
+    doNothing,
+    unchanged,
+    unchanged,
+    unchanged,
+    doNothing,
+    unchanged,
+    validTitle,
+    resizeBindings,
+    { movementBlocked: false, selectedSectionIds: new Set(selectedSectionIds) },
+  );
+}
 
 function recursiveDocument(): WorkspaceDocument {
   const flat = createWorkspaceTestDocument([
@@ -55,6 +115,38 @@ describe("workspace canvas root projection", () => {
       },
     ]);
     expect(document.sections.nested?.title).toBe("Nested");
+  });
+
+  it("retains unaffected frame identities across large-section-set updates", () => {
+    const document = largeDocument();
+    const initial = projectedNodes(document);
+    const changedSection = document.sections["section-64"] as WorkspaceSection;
+    const renamed = projectedNodes({
+      ...document,
+      sections: {
+        ...document.sections,
+        "section-64": { ...changedSection, title: "Renamed section" },
+      },
+    });
+    const synchronizedRename = synchronizeNodes(initial, renamed);
+
+    expect(synchronizedRename.filter((node, index) => node !== initial[index])).toHaveLength(1);
+    expect(synchronizedRename[64]?.data.title).toBe("Renamed section");
+
+    const selected = synchronizeNodes(initial, projectedNodes(document, ["section-64"]));
+    expect(selected.filter((node, index) => node !== initial[index])).toHaveLength(1);
+    expect(selected[64]?.data.selected).toBe(true);
+
+    const viewportOnly = synchronizeNodes(
+      initial,
+      projectedNodes({ ...document, viewport: { x: 120, y: -48, zoom: 1.25 } }),
+    );
+    expect(viewportOnly.every((node, index) => node === initial[index])).toBe(true);
+
+    const moving = setActiveRoots(initial, new Set(["section-64"]));
+    const resizing = setResizingRoot(initial, "section-64");
+    expect(moving.filter((node, index) => node !== initial[index])).toHaveLength(1);
+    expect(resizing.filter((node, index) => node !== initial[index])).toHaveLength(1);
   });
 });
 

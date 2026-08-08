@@ -119,9 +119,14 @@ export function SectionTitleEditor({
   const inputId = `${editorId}-input`;
   const inputRef = useRef<HTMLInputElement>(null);
   const mountedRef = useRef(true);
+  const currentTitleRef = useRef(currentTitle);
+  const onCancelRef = useRef(onCancel);
+  currentTitleRef.current = currentTitle;
+  onCancelRef.current = onCancel;
   const [draft, setDraft] = useState(currentTitle);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [proposedTitle, setProposedTitle] = useState<string | null>(null);
   useEffect(() => {
     mountedRef.current = true;
     inputRef.current?.focus({ preventScroll: true });
@@ -130,6 +135,28 @@ export function SectionTitleEditor({
       mountedRef.current = false;
     };
   }, []);
+  useEffect(() => {
+    if (proposedTitle === null) {
+      return;
+    }
+    const timeout = globalThis.setTimeout(() => {
+      if (!mountedRef.current) {
+        return;
+      }
+      const canonicalTitle = currentTitleRef.current;
+      if (canonicalTitle === proposedTitle) {
+        onCancelRef.current();
+        return;
+      }
+      setProposedTitle(null);
+      showTitleError(
+        `${canonicalTitle} remains the section title because the host did not accept the change.`,
+        setError,
+        inputRef,
+      );
+    }, 0);
+    return () => globalThis.clearTimeout(timeout);
+  }, [proposedTitle]);
 
   const save = async () => {
     const title = draft.trim();
@@ -153,12 +180,17 @@ export function SectionTitleEditor({
       showTitleError(validationError, setError, inputRef);
       return;
     }
-    const actionError = titleActionError(onCommit(sectionId, title));
+    const result = onCommit(sectionId, title);
+    const actionError = titleActionError(result);
     if (actionError) {
       showTitleError(actionError, setError, inputRef);
       return;
     }
-    onCancel();
+    if (result.status === "applied") {
+      setProposedTitle(title);
+    } else {
+      onCancel();
+    }
   };
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -179,7 +211,7 @@ export function SectionTitleEditor({
         {currentTitle}
       </h2>
       <form
-        aria-busy={pending}
+        aria-busy={pending || proposedTitle !== null}
         className="setta-workspace__section-title-form"
         data-workspace-local-shortcuts=""
         onSubmit={handleSubmit}
@@ -197,12 +229,17 @@ export function SectionTitleEditor({
             setError("");
           }}
           onKeyDown={handleKeyDown}
-          readOnly={pending}
+          readOnly={pending || proposedTitle !== null}
           ref={inputRef}
           spellCheck
           value={draft}
         />
-        <button aria-label="Save title" disabled={pending} onKeyDown={handleKeyDown} type="submit">
+        <button
+          aria-label="Save title"
+          disabled={pending || proposedTitle !== null}
+          onKeyDown={handleKeyDown}
+          type="submit"
+        >
           <CheckIcon />
         </button>
         <button
@@ -215,16 +252,16 @@ export function SectionTitleEditor({
         </button>
       </form>
       <span aria-live="polite" className="setta-workspace__section-title-message" id={errorId}>
-        {pending ? "Checking title…" : error}
+        {pending ? "Checking title…" : proposedTitle === null ? error : "Saving title…"}
       </span>
     </div>
   );
 }
 
-function actionAnnouncement(label: string, result: WorkspaceActionResult): string {
-  if (result.status === "applied") {
-    return `${label} updated.`;
-  }
+function actionAnnouncement(
+  label: string,
+  result: Exclude<WorkspaceActionResult, { status: "applied" }>,
+): string {
   if (result.status === "unchanged") {
     return `${label} is unchanged.`;
   }
@@ -233,8 +270,23 @@ function actionAnnouncement(label: string, result: WorkspaceActionResult): strin
     : `Unable to update ${label.toLocaleLowerCase()}.`;
 }
 
+type PendingPresentationCommit = Readonly<{
+  label: string;
+  update: Partial<WorkspaceSectionPresentation>;
+}>;
+
+function presentationUpdateMatches(
+  presentation: WorkspaceSectionPresentation,
+  update: Partial<WorkspaceSectionPresentation>,
+): boolean {
+  return Object.entries(update).every(
+    ([property, value]) => presentation[property as keyof WorkspaceSectionPresentation] === value,
+  );
+}
+
 function ColorPaletteField({
   colorPalette,
+  disabled,
   label,
   onChange,
   onPreview,
@@ -242,6 +294,7 @@ function ColorPaletteField({
   value,
 }: Readonly<{
   colorPalette: readonly WorkspaceSectionColorOption[];
+  disabled: boolean;
   label: "Accent" | "Tag";
   onChange(value: string | null): void;
   onPreview(value: string | null): void;
@@ -257,6 +310,7 @@ function ColorPaletteField({
             aria-label={`Use ${option.label} ${label.toLocaleLowerCase()}`}
             aria-pressed={value === option.color}
             className="setta-workspace__section-color-option"
+            disabled={disabled}
             key={option.color}
             onBlur={onPreviewEnd}
             onClick={() => onChange(option.color)}
@@ -274,7 +328,7 @@ function ColorPaletteField({
       </div>
       <button
         className="setta-workspace__section-color-reset"
-        disabled={value === null}
+        disabled={disabled || value === null}
         onBlur={onPreviewEnd}
         onClick={() => onChange(null)}
         onFocus={() => onPreview(null)}
@@ -306,7 +360,10 @@ export function SectionPresentationEditor({
 }>) {
   const chromeRef = useRef<HTMLSelectElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
+  const presentationRef = useRef(section.presentation);
+  presentationRef.current = section.presentation;
   const [announcement, setAnnouncement] = useState("");
+  const [pendingCommit, setPendingCommit] = useState<PendingPresentationCommit | null>(null);
   useEffect(() => {
     chromeRef.current?.focus({ preventScroll: true });
   }, []);
@@ -326,10 +383,31 @@ export function SectionPresentationEditor({
     editor.addEventListener("keydown", handleKeyDown);
     return () => editor.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
+  useEffect(() => {
+    if (!pendingCommit) {
+      return;
+    }
+    const timeout = globalThis.setTimeout(() => {
+      setAnnouncement(
+        presentationUpdateMatches(presentationRef.current, pendingCommit.update)
+          ? `${pendingCommit.label} updated.`
+          : `${pendingCommit.label} remains unchanged because the host did not accept the change.`,
+      );
+      setPendingCommit(null);
+    }, 0);
+    return () => globalThis.clearTimeout(timeout);
+  }, [pendingCommit]);
   const apply = (label: string, update: Partial<WorkspaceSectionPresentation>) => {
     onPreview(null);
-    const result = onCommit(section.id, { ...section.presentation, ...update });
-    setAnnouncement(actionAnnouncement(label, result));
+    const presentation = { ...section.presentation, ...update };
+    const result = onCommit(section.id, presentation);
+    if (result.status === "applied") {
+      setAnnouncement("");
+      setPendingCommit({ label, update });
+    } else {
+      setPendingCommit(null);
+      setAnnouncement(actionAnnouncement(label, result));
+    }
   };
   const preview = (update: Partial<WorkspaceSectionPresentation>) => {
     onPreview({ ...section.presentation, ...update });
@@ -338,6 +416,7 @@ export function SectionPresentationEditor({
   return (
     <div
       aria-label={`Style ${section.title}`}
+      aria-busy={pendingCommit !== null}
       className={`setta-workspace__section-presentation-editor ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
       data-workspace-local-shortcuts=""
       id={editorId}
@@ -353,6 +432,7 @@ export function SectionPresentationEditor({
       <label className="setta-workspace__section-chrome-field">
         Chrome
         <select
+          disabled={pendingCommit !== null}
           onChange={(event) =>
             apply("Chrome", { chrome: event.currentTarget.value as SectionChrome })
           }
@@ -367,6 +447,7 @@ export function SectionPresentationEditor({
       </label>
       <ColorPaletteField
         colorPalette={colorPalette}
+        disabled={pendingCommit !== null}
         label="Accent"
         onChange={(accentColor) => apply("Accent", { accentColor })}
         onPreview={(accentColor) => preview({ accentColor })}
@@ -375,6 +456,7 @@ export function SectionPresentationEditor({
       />
       <ColorPaletteField
         colorPalette={colorPalette}
+        disabled={pendingCommit !== null}
         label="Tag"
         onChange={(tagColor) => apply("Tag", { tagColor })}
         onPreview={(tagColor) => preview({ tagColor })}

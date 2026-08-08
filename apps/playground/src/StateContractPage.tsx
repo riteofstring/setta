@@ -13,7 +13,9 @@ import { useRef, useState } from "react";
 
 const testSectionDefinitions = [
   {
+    creation: { group: "Fixtures", keywords: ["state"] },
     defaultSize: { height: 180, width: 240 },
+    defaultTitle: "Controlled fixture",
     displayName: "State fixture",
     kind: "test",
     render: ({ readOnly, sectionId }) => (
@@ -41,10 +43,13 @@ function resultMessage(action: string, result: WorkspaceActionResult): string {
 export function StateContractPage() {
   const uncontrolledController = useRef<WorkspaceController>(null);
   const controlledController = useRef<WorkspaceController>(null);
+  const controlledSectionSequence = useRef(0);
   const [uncontrolledDocument, setUncontrolledDocument] = useState(testDocument);
   const [controlledDocument, setControlledDocument] = useState(testDocument);
   const [uncontrolledChanges, setUncontrolledChanges] = useState(0);
   const [controlledChanges, setControlledChanges] = useState(0);
+  const [rejectedControlledDocument, setRejectedControlledDocument] =
+    useState<WorkspaceDocument | null>(null);
   const [acceptControlledChanges, setAcceptControlledChanges] = useState(true);
   const [readOnly, setReadOnly] = useState(false);
   const [status, setStatus] = useState("");
@@ -211,6 +216,19 @@ export function StateContractPage() {
             <button type="button" onClick={() => void focusControlledAlpha()}>
               Focus controlled Alpha
             </button>
+            <button
+              disabled={!rejectedControlledDocument}
+              type="button"
+              onClick={() => {
+                if (!rejectedControlledDocument) {
+                  return;
+                }
+                setControlledDocument(rejectedControlledDocument);
+                setStatus("Last rejected controlled document applied as a host replacement.");
+              }}
+            >
+              Apply last rejected document
+            </button>
             <button type="button" onClick={() => runHistory(controlledController, "undo")}>
               Undo controlled change
             </button>
@@ -223,13 +241,24 @@ export function StateContractPage() {
               document={controlledDocument}
               onDocumentChange={(document) => {
                 if (!acceptControlledChanges) {
+                  setRejectedControlledDocument(document);
                   setStatus("Controlled change rejected by host.");
                   return;
                 }
+                setRejectedControlledDocument(null);
                 setControlledDocument(document);
                 setControlledChanges((count) => count + 1);
               }}
               sectionDefinitions={testSectionDefinitions}
+              sectionFactory={() => {
+                controlledSectionSequence.current += 1;
+                const sequence = controlledSectionSequence.current;
+                return {
+                  data: null,
+                  id: `controlled-created-${String(sequence)}`,
+                  title: `Controlled fixture ${String(sequence)}`,
+                };
+              }}
             />
             <p>Committed changes: {controlledChanges}</p>
             <textarea

@@ -286,6 +286,42 @@ describe("workspace section grouping planning", () => {
     });
   });
 
+  it("retains prototype-mutator child IDs in planned top-level ungroup positions", () => {
+    const document = createWorkspaceTestDocument([
+      { id: "__proto__", title: "Prototype child" },
+      { id: "beta", title: "Beta" },
+    ]);
+    const grouped = applyGroup(document, ["__proto__", "beta"], { x: 100, y: 50 });
+    if (grouped.status !== "applied") {
+      throw new Error("Expected prototype-mutator grouping to apply.");
+    }
+    const plan = planWorkspaceSectionUngrouping({
+      canvasController: canvasController({
+        group: { height: 420, width: 480, x: 100, y: 50 },
+      }),
+      document: grouped.document,
+      sectionId: "group",
+    });
+    if (plan.status !== "ready" || !plan.rootPositions) {
+      throw new Error("Expected prototype-mutator ungrouping to be ready.");
+    }
+
+    expect(Object.hasOwn(plan.rootPositions, "__proto__")).toBe(true);
+    expect(plan.rootPositions["__proto__"]).toEqual({ x: 100, y: 50 });
+    const ungrouped = applyWorkspaceDocumentCommand(
+      grouped.document,
+      { rootPositions: plan.rootPositions, sectionId: "group", type: "ungroup-section" },
+      WORKSPACE_DEFAULT_CAPABILITIES,
+    );
+    expect(ungrouped.status).toBe("applied");
+    if (ungrouped.status === "applied") {
+      expect(ungrouped.document.rootSections.map(({ sectionId }) => sectionId)).toEqual([
+        "__proto__",
+        "beta",
+      ]);
+    }
+  });
+
   it("rejects malformed group factory results without evaluating accessors", () => {
     let evaluated = false;
     const result = Object.defineProperty({ data: null, id: "group", kind: "container" }, "title", {

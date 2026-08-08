@@ -55,9 +55,8 @@ light/dark/system semantic theme tokens. It now also includes the default access
 host controls and overlay placements, and a side-configurable minimap that projects root sections,
 centers pointer-selected points or roots, and pans through the canonical viewport lifecycle. The complete
 gesture matrix, independent host pan/wheel arbitration, exact viewport restoration, and
-mount/observer/listener/subscription cleanup close the Phase 1 implementation, which is ready for
-Phase 2. The restarted Phase 1 audit and repository-actionable corrections are complete; interactive
-in-app CDP review remains recorded as an external release gate. Phase 2 has begun with the strict
+mount/observer/listener/subscription cleanup close the audited Phase 1 implementation. Interactive
+in-app CDP review remains recorded as an external release gate. Phase 2 implementation adds the strict
 section-definition registry and the first package-owned root frame that renders unrelated host
 components with accessible naming, scoped appearance/read-only context, and automatic viewport
 gesture isolation. Root frames now also provide native pointer and keyboard movement handles backed
@@ -98,3 +97,8 @@ Phase 2 now also includes package-owned structural undo and redo. Accepted secti
 one in-memory entry while viewport and selection remain outside history; controlled rejection does
 not consume an entry, live capabilities gate navigation, and keyboard or public-controller paths
 restore recorded selection without stealing focus from surviving controls.
+The backend-free playground closes the Phase 2 implementation with note and status renderers,
+strict JSON import/export, confirmed example reset, and separately versioned local persistence for
+the canonical document and host-owned appearance/grid preferences. The library itself remains
+storage- and file-agnostic. This is still an internal top-level-section milestone; recursive child
+rendering and nested layout remain explicitly assigned to Phase 3.

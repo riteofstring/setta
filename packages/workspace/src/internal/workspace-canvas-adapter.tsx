@@ -72,8 +72,10 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   ariaLabel: string;
   appearance: "dark" | "light";
   controllerSynchronizationRevision: number;
+  creationAnnouncement: string;
   creationConfigured: boolean;
   creationEnabled: boolean;
+  creationReconciliation: Readonly<{ accepted: boolean; revision: number }>;
   document: WorkspaceDocument<TSectionData>;
   emptyState: ReactNode;
   gestureOptions: WorkspaceGestureOptions;
@@ -124,8 +126,10 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   ariaLabel,
   appearance,
   controllerSynchronizationRevision,
+  creationAnnouncement,
   creationConfigured,
   creationEnabled,
+  creationReconciliation,
   document,
   emptyState,
   gestureOptions,
@@ -187,6 +191,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   });
   const creation = useWorkspaceSectionCreationMenu({
     controller: workspaceController,
+    creationReconciliation,
     enabled: creationEnabled,
     geometry,
     registry: sectionRegistry,
@@ -369,6 +374,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
           />
         ) : null}
         <WorkspaceCanvasAnnouncements
+          creation={creationAnnouncement}
           externalDrop={externalDrop.announcementText}
           history={historyAnnouncement}
           movement={rootProjection.announcementText}

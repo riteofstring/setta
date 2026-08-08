@@ -264,11 +264,13 @@ function WorkspaceSectionCreationDialog<TSectionData>({
 
 export function useWorkspaceSectionCreationMenu<TSectionData = WorkspaceJsonValue>({
   controller,
+  creationReconciliation,
   enabled,
   geometry,
   registry,
 }: Readonly<{
   controller: WorkspaceController<TSectionData>;
+  creationReconciliation: Readonly<{ accepted: boolean; revision: number }>;
   enabled: boolean;
   geometry: WorkspaceGeometryMeasurements;
   registry: WorkspaceSectionRegistry<TSectionData>;
@@ -276,6 +278,7 @@ export function useWorkspaceSectionCreationMenu<TSectionData = WorkspaceJsonValu
   const reactId = useId();
   const dialogId = `setta-workspace-creation-${reactId.replaceAll(":", "")}`;
   const lastClientPointRef = useRef<ClientPoint | null>(null);
+  const pendingCreatedRestoreFocusRef = useRef<HTMLElement | null>(null);
   const restoreAfterCloseRef = useRef(true);
   const [state, setState] = useState<CreationMenuState | null>(null);
   const available = enabled && registry.definitions().length > 0;
@@ -285,18 +288,29 @@ export function useWorkspaceSectionCreationMenu<TSectionData = WorkspaceJsonValu
       setState(null);
     }
   }, [available]);
+  useEffect(() => {
+    if (creationReconciliation.revision === 0) {
+      return;
+    }
+    const restoreFocus = pendingCreatedRestoreFocusRef.current;
+    pendingCreatedRestoreFocusRef.current = null;
+    if (!creationReconciliation.accepted) {
+      restoreFocus?.focus({ preventScroll: true });
+    }
+  }, [creationReconciliation]);
 
   const dismiss = useCallback(() => {
     const restoreFocus = state?.restoreFocus;
     setState(null);
     if (restoreAfterCloseRef.current) {
-      restoreFocus?.focus();
+      restoreFocus?.focus({ preventScroll: true });
     }
     restoreAfterCloseRef.current = true;
   }, [state]);
   const created = useCallback(() => {
+    pendingCreatedRestoreFocusRef.current = state?.restoreFocus ?? null;
     restoreAfterCloseRef.current = false;
-  }, []);
+  }, [state]);
   const openPalette = useCallback(
     (trigger: HTMLButtonElement) => {
       if (!available) {
@@ -364,8 +378,8 @@ export function useWorkspaceSectionCreationMenu<TSectionData = WorkspaceJsonValu
       <WorkspaceSectionCreationDialog
         controller={controller}
         dialogId={dialogId}
-        onCreated={created}
         onDismiss={dismiss}
+        onCreated={created}
         registry={registry}
         state={state}
       />

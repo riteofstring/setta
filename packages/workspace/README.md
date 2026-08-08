@@ -110,6 +110,8 @@ visible, non-overlapping smart placement with optional grid alignment. Search ma
 kind, group, and keywords. Escape restores the invoking control; accepted creation selects and
 focuses the new frame without changing zoom. The same strict path is available through
 `controller.createSection(kind, { position })`, where omitting `position` requests smart placement.
+If a controlled host declines a creation proposal, the picker restores its invoking control,
+announces the retained canonical document, and clears the deferred selection/focus request.
 
 Supplying `onExternalDrop` enables the generic browser-drop boundary. During drag enter and
 dragover, the package converts client coordinates into workbench coordinates and resolves the
@@ -143,7 +145,8 @@ subtree. Controlled hosts that decline either proposal retain and announce the c
 Title input is trimmed, rejects empty values, supports Enter to save and Escape to cancel, restores
 focus, and keeps an asynchronously rejected proposal open with an associated error.
 `validateSectionTitle` may perform host validation or persistence before the package commits one
-`section-title` change.
+`section-title` change. A controlled host that declines the resulting title proposal keeps the
+editor open with a specific error instead of reporting success against unchanged canonical state.
 
 Accent and tag choices are serialized section presentation. The default editor provides six
 gamut-safe OKLCH choices plus reset; `sectionColorPalette` can replace those labeled choices with
@@ -151,6 +154,8 @@ other supported CSS colors. Accents derive only frame-local decorative chrome to
 visible “Tagged” cue, and selection, focus, invalid, lock, and movement states keep their independent
 semantic colors. Chrome, accent, and tag updates each use one `section-presentation` change. The
 host renderer stays mounted but inert while the style panel covers it, preserving local host state.
+The panel reconciles each controlled proposal before announcing whether that style actually
+changed.
 
 Selection is package-owned transient state rather than part of `WorkspaceDocument`. Click a frame
 or its named pressed button to select it, and Shift-click to toggle membership. Shift-drag from the
@@ -194,6 +199,12 @@ Use `defaultDocument` instead of `document` for uncontrolled ownership. The two 
 exclusive, and a controlled workspace requires `onDocumentChange`. `readOnly` disables package-owned
 layout, structure, and presentation edits while viewport navigation and arbitrary host-rendered
 content remain available.
+
+Persistence remains host-owned. Use `serializeWorkspaceDocument` and `parseWorkspaceDocument` for
+canonical JSON, then validate each registered kind's host payload before accepting imported data.
+The backend-free playground demonstrates versioned local document storage, separate host preference
+storage, strict import recovery, export, and confirmed reset without putting storage or native file
+semantics in the package.
 
 `gestureOptions` configures pan-on-drag, pan-on-scroll, wheel, pinch, double-click zoom, zoom bounds,
 scroll direction and speed, and temporary activation keys without exposing XYFlow types. The
@@ -261,6 +272,10 @@ built-in selection actions. Batch lock, unlock, subtree deletion, and persistent
 normalized selection roots and the same canonical command boundary. Persistent stacking accepts
 section IDs at any depth, maps them to distinct top-level ancestors, and preserves selected order;
 ordinary selection and dragging use only a transient render lift.
+
+Canonical projection reuses unchanged root-node and renderer data identities. Selection, viewport,
+transient movement/resize, and single-section document updates therefore avoid rerendering unrelated
+host section bodies even for large root sets.
 
 Supplying `groupFactory` enables Group when at least two normalized sections share one parent and a
 registered `canContainSections` kind is available. The factory receives the canonical sibling IDs

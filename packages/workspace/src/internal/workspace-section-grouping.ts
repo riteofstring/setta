@@ -292,7 +292,7 @@ function planWorkspaceTopLevelUngroupPositions(
     throw new TypeError("Workspace ungrouping requires a container section.");
   }
   const occupied = [...occupiedRootRects];
-  const positions: Record<string, WorkspacePoint> = {};
+  const positions = Object.create(null) as Record<string, WorkspacePoint>;
   let cursor = { x: groupBounds.x, y: groupBounds.y };
   for (const sectionId of childLayout.sectionIds) {
     const section = document.sections[sectionId] as WorkspaceSection<unknown>;

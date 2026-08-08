@@ -143,6 +143,44 @@ test("section title and presentation editing stay accessible and canonical", asy
   await workspace.getByRole("textbox", { name: "Section title" }).press("Escape");
 });
 
+test("controlled hosts reconcile rejected title and style proposals truthfully", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/?state-contract");
+
+  const workspace = page.getByRole("region", { name: "Controlled workspace", exact: true });
+  await page.getByRole("checkbox", { name: "Accept controlled changes" }).uncheck();
+  const article = workspace.getByRole("article", { name: "Alpha" });
+  await workspace.getByRole("button", { name: "Select Alpha" }).click();
+
+  const rename = article.getByRole("button", { name: "Rename Alpha" });
+  await rename.click();
+  const titleInput = workspace.getByRole("textbox", { name: "Section title" });
+  await titleInput.fill("Rejected Alpha");
+  await titleInput.press("Enter");
+  await expect(
+    workspace.getByText(
+      "Alpha remains the section title because the host did not accept the change.",
+    ),
+  ).toBeVisible();
+  await expect(titleInput).toBeFocused();
+  await expect(article).toHaveAccessibleName("Alpha");
+  await titleInput.press("Escape");
+  await expect(rename).toBeFocused();
+
+  const style = article.getByRole("button", { name: "Style Alpha" });
+  await style.click();
+  const stylePanel = article.getByRole("dialog", { name: "Style Alpha" });
+  const chrome = stylePanel.getByLabel("Chrome");
+  await chrome.selectOption("compact");
+  await expect(
+    stylePanel.getByText("Chrome remains unchanged because the host did not accept the change."),
+  ).toBeVisible();
+  await expect(chrome).toHaveValue("default");
+  await expect(article).toHaveAttribute("data-workspace-chrome", "default");
+});
+
 test("live presentation capability prevents frame editors before they start", async ({ page }) => {
   await page.goto("/?state-contract");
   const workspace = page.getByRole("region", { name: "Uncontrolled workspace", exact: true });
