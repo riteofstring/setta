@@ -24,6 +24,7 @@
 .setta-workspace:dir(rtl)
   :is(
     .setta-workspace__empty-panel,
+    .setta-workspace__external-drop-feedback,
     .setta-workspace__creation-dialog,
     .setta-workspace__host-overlay,
     .setta-workspace__overlay,
@@ -276,6 +277,73 @@
 
 .setta-workspace__canvas .react-flow__attribution a {
   color: inherit;
+}
+
+.setta-workspace__external-drop-target--canvas,
+.setta-workspace__external-drop-target--section {
+  --setta-workspace-external-drop-color: var(--setta-workspace-invalid);
+
+  position: absolute;
+  z-index: 6;
+  pointer-events: none;
+  border: 3px dashed var(--setta-workspace-external-drop-color);
+  border-radius: 1rem;
+  box-shadow:
+    inset 0 0 0 0.1875rem
+      color-mix(in oklch, var(--setta-workspace-external-drop-color) 12%, transparent),
+    0 0 0 0.125rem color-mix(in oklch, var(--setta-workspace-canvas-background) 82%, transparent);
+}
+
+.setta-workspace__external-drop-target--canvas[data-workspace-external-drop-valid="true"],
+.setta-workspace__external-drop-target--section[data-workspace-external-drop-valid="true"] {
+  --setta-workspace-external-drop-color: var(--setta-workspace-selection);
+}
+
+.setta-workspace__external-drop-target--canvas {
+  inset: 0.5rem;
+}
+
+.setta-workspace__external-drop-target--section {
+  inset: 0 auto auto 0;
+}
+
+.setta-workspace__external-drop-feedback {
+  --setta-workspace-external-drop-color: var(--setta-workspace-invalid);
+
+  position: absolute;
+  z-index: 8;
+  inset-block-start: 1rem;
+  inset-inline-start: 50%;
+  display: flex;
+  max-inline-size: min(32rem, calc(100% - 7rem));
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  align-items: baseline;
+  justify-content: center;
+  padding: 0.625rem 0.875rem;
+  pointer-events: none;
+  color: var(--setta-workspace-section-text);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  text-align: center;
+  background: var(--setta-workspace-toolbar-background);
+  border-radius: 0.75rem;
+  box-shadow:
+    0 0 0 2px var(--setta-workspace-external-drop-color),
+    0 0.75rem 2rem oklch(0 0 0 / 0.14);
+  transform: translateX(-50%);
+}
+
+.setta-workspace__external-drop-feedback[data-workspace-external-drop-feedback="valid"] {
+  --setta-workspace-external-drop-color: var(--setta-workspace-selection);
+}
+
+.setta-workspace__external-drop-feedback strong {
+  color: var(--setta-workspace-external-drop-color);
+}
+
+.setta-workspace:dir(rtl) .setta-workspace__external-drop-feedback {
+  transform: translateX(50%);
 }
 
 .setta-workspace__canvas .react-flow__node-workspace-root-shell {

@@ -31,6 +31,8 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain('aria-label="Planning workspace"');
     expect(markup).toContain('aria-label="Planning workspace canvas"');
     expect(markup).toContain('data-workspace-grid-visible="true"');
+    expect(markup).toContain('data-workspace-external-drop-state="idle"');
+    expect(markup).toContain('data-workspace-external-drop-announcement=""');
     expect(markup).toContain('data-workspace-resolved-appearance="light"');
     expect(markup).toContain("Start with a section.");
   });
@@ -433,6 +435,16 @@ describe("Workspace scaffold", () => {
         <Workspace sectionColorPalette={[{ color: "invalid", label: "Broken" }]} />,
       ),
     ).toThrow("color must be a valid CSS color");
+    expect(() =>
+      renderToStaticMarkup(
+        <Workspace
+          onExternalDrop={"drop" as unknown as NonNullable<WorkspaceProps["onExternalDrop"]>}
+        />,
+      ),
+    ).toThrow("onExternalDrop must be a function");
+    expect(() =>
+      renderToStaticMarkup(<Workspace validateExternalDrop={() => ({ allowed: true })} />),
+    ).toThrow("validateExternalDrop requires onExternalDrop");
   });
 
   it("keeps the minimap toggle's controlled target mounted while the minimap is hidden", () => {
@@ -537,6 +549,18 @@ describe("WorkspaceInteractionBoundary", () => {
 
     expect(markup).not.toContain("data-workspace-prevent-pan");
     expect(markup).toContain('data-workspace-prevent-wheel="true"');
+  });
+
+  it("lets host content opt out of package external-drop handling independently", () => {
+    const markup = renderToStaticMarkup(
+      <WorkspaceInteractionBoundary preventExternalDrop preventPan={false} preventWheel={false}>
+        Host drop surface
+      </WorkspaceInteractionBoundary>,
+    );
+
+    expect(markup).toContain('data-workspace-prevent-external-drop="true"');
+    expect(markup).not.toContain("data-workspace-prevent-pan");
+    expect(markup).not.toContain("data-workspace-prevent-wheel");
   });
 });
 

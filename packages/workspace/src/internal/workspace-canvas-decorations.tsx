@@ -52,14 +52,24 @@ export function WorkspaceGridBackground({
 }
 
 export function WorkspaceCanvasAnnouncements({
+  externalDrop,
   movement,
   selection,
 }: Readonly<{
+  externalDrop: string;
   movement: string;
   selection: string;
 }>) {
   return (
     <>
+      <div
+        aria-atomic="true"
+        aria-live="polite"
+        className="setta-workspace__visually-hidden"
+        data-workspace-external-drop-announcement=""
+      >
+        {externalDrop}
+      </div>
       <div
         aria-atomic="true"
         aria-live="polite"

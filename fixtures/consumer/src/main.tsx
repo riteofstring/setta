@@ -1,5 +1,10 @@
 import { createEmptyWorkspaceDocument } from "@setta/workspace/core";
-import { Workspace, type WorkspaceToolbarControl } from "@setta/workspace/react";
+import {
+  Workspace,
+  type WorkspaceExternalDropHandler,
+  type WorkspaceExternalDropValidator,
+  type WorkspaceToolbarControl,
+} from "@setta/workspace/react";
 import "@setta/workspace/styles.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -10,6 +15,11 @@ if (!root) {
 }
 
 const workspaceDocument = createEmptyWorkspaceDocument();
+const onExternalDrop: WorkspaceExternalDropHandler = () => undefined;
+const validateExternalDrop: WorkspaceExternalDropValidator = ({ event }) =>
+  event.dataTransferTypes.includes("application/x-consumer-section")
+    ? { allowed: true, label: "Import consumer section" }
+    : { allowed: false, reason: "Unsupported consumer drop." };
 const toolbarControls = [
   {
     icon: <span>+</span>,
@@ -28,7 +38,9 @@ createRoot(root).render(
       data-version={workspaceDocument.schemaVersion}
       gestureOptions={{ maxZoom: 2, minZoom: 0.5, panOnScroll: true, zoomOnScroll: false }}
       gridOptions={{ pattern: "cross", snap: false, spacing: [24, 18], visible: true }}
+      onExternalDrop={onExternalDrop}
       toolbarControls={toolbarControls}
+      validateExternalDrop={validateExternalDrop}
     />
   </StrictMode>,
 );

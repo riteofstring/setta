@@ -23,6 +23,7 @@ import {
 import {
   assertStableWorkspaceMode,
   assertWorkspaceAccessibleName,
+  assertWorkspaceExternalDropCallbacks,
   assertWorkspaceSectionFactory,
   assertWorkspaceSectionTitleValidator,
   assertWorkspaceViewportWithinGestureBounds,
@@ -74,6 +75,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     gridOptions: gridOptionOverrides,
     minimapOptions: minimapOptionOverrides,
     onDocumentChange,
+    onExternalDrop,
     onGridSnapChange,
     onMinimapVisibilityChange,
     overlaySlots: overlaySlotOverrides,
@@ -84,10 +86,12 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     selectionOptions: selectionOptionOverrides,
     style,
     toolbarControls: toolbarControlOverrides,
+    validateExternalDrop,
     validateSectionTitle,
     ...sectionProps
   } = props;
   assertWorkspaceAccessibleName(ariaLabel);
+  assertWorkspaceExternalDropCallbacks(onExternalDrop, validateExternalDrop);
   assertWorkspaceSectionFactory<TSectionData>(sectionFactory);
   assertWorkspaceSectionTitleValidator(validateSectionTitle);
   const gestureOptions = useMemo(
@@ -358,6 +362,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         minimapPlacement={minimapOptions.placement}
         minimapVisible={minimapVisible}
         onCanvasControllerChange={handleCanvasControllerChange}
+        onExternalDrop={onExternalDrop}
         onGridSnapChange={setGridSnap}
         onMinimapVisibilityChange={setMinimapVisible}
         onRootMoveCommit={handleRootMoveCommit}
@@ -371,7 +376,9 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         sectionColorPalette={sectionColorPalette}
         sectionRegistry={sectionRegistry}
         selectedSectionIds={selectedSectionIds}
+        structureEditable={capabilities.editStructure}
         toolbarControls={toolbarControls}
+        validateExternalDrop={validateExternalDrop}
         validateSectionTitle={handleSectionTitleValidation}
         workspaceController={controller}
       />

@@ -33,6 +33,7 @@ import { useWorkspaceCanvasRootProjection } from "./workspace-canvas-root-projec
 import { useWorkspaceCanvasSelectionControls } from "./workspace-canvas-selection-controls.js";
 import { WorkspaceSelectionOverlay } from "./workspace-canvas-selection.js";
 import { useWorkspaceCanvasViewport } from "./workspace-canvas-viewport.js";
+import { useWorkspaceExternalDrop } from "./workspace-external-drop.js";
 import { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 import {
   WORKSPACE_NO_PAN_CLASS_NAME,
@@ -40,6 +41,8 @@ import {
 } from "./workspace-interaction-boundary.js";
 import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
 import type {
+  WorkspaceExternalDropHandler,
+  WorkspaceExternalDropValidator,
   WorkspaceMinimapPlacement,
   WorkspaceOverlayPlacement,
   WorkspaceToolbarControl,
@@ -68,6 +71,7 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   minimapPlacement: WorkspaceMinimapPlacement;
   minimapVisible: boolean;
   onCanvasControllerChange(controller: WorkspaceCanvasController | null): void;
+  onExternalDrop: WorkspaceExternalDropHandler | undefined;
   onGridSnapChange(value: boolean): void;
   onMinimapVisibilityChange(value: boolean): void;
   onRootMoveCommit(positions: Readonly<Record<string, WorkspacePoint>>): WorkspaceActionResult;
@@ -84,7 +88,9 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   sectionColorPalette: readonly WorkspaceSectionColorOption[];
   sectionRegistry: WorkspaceSectionRegistry<TSectionData>;
   selectedSectionIds: readonly string[];
+  structureEditable: boolean;
   toolbarControls: readonly WorkspaceToolbarControl<TSectionData>[];
+  validateExternalDrop: WorkspaceExternalDropValidator | undefined;
   validateSectionTitle: WorkspaceSectionTitleValidator;
   workspaceController: WorkspaceController<TSectionData>;
 }>;
@@ -104,6 +110,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   minimapPlacement,
   minimapVisible,
   onCanvasControllerChange,
+  onExternalDrop,
   onGridSnapChange,
   onMinimapVisibilityChange,
   onRootMoveCommit,
@@ -117,7 +124,9 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   sectionColorPalette,
   sectionRegistry,
   selectedSectionIds,
+  structureEditable,
   toolbarControls,
+  validateExternalDrop,
   validateSectionTitle,
   workspaceController,
 }: WorkspaceCanvasAdapterProps<TSectionData>) {
@@ -128,6 +137,15 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   const geometryRef = useRef<WorkspaceGeometryMeasurements | null>(null);
   geometryRef.current ??= new WorkspaceGeometryMeasurements(geometryIndex, document.viewport);
   const geometry = geometryRef.current;
+  const externalDrop = useWorkspaceExternalDrop({
+    document,
+    geometry,
+    geometryIndex,
+    onExternalDrop,
+    registry: sectionRegistry,
+    structureEditable,
+    validateExternalDrop,
+  });
   const selection = useWorkspaceCanvasSelectionControls({
     document,
     geometry,
@@ -161,12 +179,14 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     selectedSectionIdsRef: selection.selectedSectionIdsRef,
     validateSectionTitle,
   });
+  const cancelExternalDrop = externalDrop.onDragEnd;
   const cancelMarqueeSelection = selection.marqueeSelection.cancel;
   const cancelRootMovement = rootProjection.cancelRootMovement;
   const cancelCanvasInteractions = useCallback(() => {
+    cancelExternalDrop();
     cancelMarqueeSelection();
     cancelRootMovement();
-  }, [cancelMarqueeSelection, cancelRootMovement]);
+  }, [cancelExternalDrop, cancelMarqueeSelection, cancelRootMovement]);
   const viewport = useWorkspaceCanvasViewport({
     canonicalViewport: document.viewport,
     geometry,
@@ -199,6 +219,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       aria-keyshortcuts="Control+A Meta+A Escape"
       autoPanOnNodeFocus={false}
       className="setta-workspace__canvas"
+      data-workspace-external-drop-state={externalDrop.state}
       data-workspace-grid-pattern={gridOptions.pattern}
       data-workspace-grid-snap={gridOptions.snap ? "true" : "false"}
       data-workspace-grid-spacing={gridOptions.spacing.join(" ")}
@@ -225,6 +246,10 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       nodesConnectable={false}
       nodesDraggable
       nodesFocusable={false}
+      onDragEnd={externalDrop.onDragEnd}
+      onDragEnter={externalDrop.onDragEnter}
+      onDragLeave={externalDrop.onDragLeave}
+      onDragOver={externalDrop.onDragOver}
       onInit={viewport.handleInitialized}
       onKeyDownCapture={handleCanvasKeyDownCapture}
       onMove={viewport.handleMove}
@@ -241,6 +266,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       onPointerMove={selection.marqueeSelection.onPointerMove}
       onPointerMoveCapture={creation.handlePointerMoveCapture}
       onPointerUp={selection.marqueeSelection.onPointerUp}
+      onDrop={externalDrop.onDrop}
       panActivationKeyCode={viewport.gesturePolicy.panActivationKeyCode}
       panOnDrag={viewport.gesturePolicy.panOnDrag}
       panOnScroll={viewport.gesturePolicy.panOnScroll}
@@ -266,10 +292,12 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         />
       ) : null}
       <WorkspaceCanvasAnnouncements
+        externalDrop={externalDrop.announcementText}
         movement={rootProjection.announcementText}
         selection={selection.announcementText}
       />
       {creation.dialog}
+      {externalDrop.feedback}
       <WorkspaceSelectionOverlay
         geometryIndex={geometryIndex}
         selectedSectionIds={selectedSectionIds}

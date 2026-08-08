@@ -53,6 +53,15 @@ const sectionDefinitions = [
   }}
   minimapOptions={{ placement: "right", visible: true }}
   selectionOptions={{ marqueeMode: "partial" }}
+  validateExternalDrop={({ event }) =>
+    event.dataTransferTypes.includes("application/x-example-note")
+      ? { allowed: true, label: "Import note" }
+      : { allowed: false, reason: "Only example notes can be dropped here." }
+  }
+  onExternalDrop={({ candidate, dataTransfer, position }) => {
+    const note = dataTransfer.getData("application/x-example-note");
+    importNote({ candidate, note, position });
+  }}
   validateSectionTitle={async ({ sectionId, title }) => {
     const available = await titleService.isAvailable(sectionId, title);
     return available ? null : "Choose a different title. This title is unavailable.";
@@ -86,6 +95,23 @@ visible, non-overlapping smart placement with optional grid alignment. Search ma
 kind, group, and keywords. Escape restores the invoking control; accepted creation selects and
 focuses the new frame without changing zoom. The same strict path is available through
 `controller.createSection(kind, { position })`, where omitting `position` requests smart placement.
+
+Supplying `onExternalDrop` enables the generic browser-drop boundary. During drag enter and
+dragover, the package converts client coordinates into workbench coordinates and resolves the
+deepest measured container that can accept children, falling back to the spatial canvas. The
+request includes that candidate parent, its orientation-aware insertion index, the original
+`DataTransfer`, a snapshot of MIME types and file count, modifier keys, and both client and
+workbench positions. `validateExternalDrop` is an optional synchronous, side-effect-free preview
+policy; without it, configured drops are allowed. Its labeled acceptance or specific rejection is
+shown visually and announced without changing the document. `editStructure: false` rejects the
+package-owned handoff before the host callback runs.
+
+The final callback owns every semantic decision, including whether to call a controller command,
+update controlled host state, reject the payload, or start asynchronous import work. Read custom
+data or capture `File` references synchronously before the browser leaves the drop event, then pass
+those values into asynchronous work. The package never detects file kinds, uploads data, accesses
+the filesystem, or maps a payload to a section. Invalid drops are consumed without invoking the
+host so the browser cannot navigate to a dropped file.
 
 The package-owned frame supplies the visible title and section-kind label, then renders the host
 component with `sectionId`, serialized `data`, resolved `light` or `dark` appearance, and the
@@ -172,7 +198,8 @@ Wrap interactive or scrollable content rendered inside the canvas with
 `WorkspaceInteractionBoundary`. It independently suppresses canvas panning and wheel handling while
 leaving the host control usable; consumers do not need to know the adapter's internal marker class
 names. The transformed canvas-slot wrapper is neutral, so setting either boundary option to `false`
-deliberately returns that gesture family to the canvas.
+deliberately returns that gesture family to the canvas. Set `preventExternalDrop` when a nested host
+surface owns native drops itself; that opt-out does not change pan or wheel arbitration.
 
 Unmounting the workspace cancels active transient viewport and root-movement gestures, releases its
 persistent geometry observers and global listeners, rejects pending measurement subscriptions, and

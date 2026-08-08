@@ -1,6 +1,7 @@
 import type { HTMLAttributes } from "react";
 
 import {
+  WORKSPACE_NO_EXTERNAL_DROP_CLASS_NAME,
   WORKSPACE_NO_PAN_CLASS_NAME,
   WORKSPACE_NO_WHEEL_CLASS_NAME,
 } from "./internal/workspace-interaction-boundary.js";
@@ -8,6 +9,12 @@ import {
 export type {
   WorkspaceBooleanPreferenceChangeHandler,
   WorkspaceDocumentChangeHandler,
+  WorkspaceExternalDropCandidate,
+  WorkspaceExternalDropDecision,
+  WorkspaceExternalDropEventMetadata,
+  WorkspaceExternalDropHandler,
+  WorkspaceExternalDropRequest,
+  WorkspaceExternalDropValidator,
   WorkspaceMarqueeSelectionMode,
   WorkspaceMinimapOptions,
   WorkspaceMinimapPlacement,
@@ -40,33 +47,62 @@ export type {
 
 export type WorkspaceInteractionBoundaryProps = HTMLAttributes<HTMLDivElement> &
   Readonly<{
+    preventExternalDrop?: boolean;
     preventPan?: boolean;
     preventWheel?: boolean;
   }>;
 
+function assertInteractionBoundaryOptions(...values: readonly unknown[]): void {
+  if (!values.every((value) => typeof value === "boolean")) {
+    throw new TypeError("Workspace interaction boundary options must be boolean.");
+  }
+}
+
+function interactionBoundaryClassName(
+  className: string | undefined,
+  preventExternalDrop: boolean,
+  preventPan: boolean,
+  preventWheel: boolean,
+): string {
+  const conditionalClasses: readonly (readonly [boolean, string])[] = [
+    [preventExternalDrop, WORKSPACE_NO_EXTERNAL_DROP_CLASS_NAME],
+    [preventPan, WORKSPACE_NO_PAN_CLASS_NAME],
+    [preventWheel, WORKSPACE_NO_WHEEL_CLASS_NAME],
+  ];
+  return [
+    "setta-workspace__interaction-boundary",
+    ...conditionalClasses.filter(([enabled]) => enabled).map(([, value]) => value),
+    className,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(" ");
+}
+
+function enabledDataAttribute(enabled: boolean): "true" | undefined {
+  return enabled ? "true" : undefined;
+}
+
 export function WorkspaceInteractionBoundary({
   className,
+  preventExternalDrop = false,
   preventPan = true,
   preventWheel = true,
   ...props
 }: WorkspaceInteractionBoundaryProps) {
-  if (typeof preventPan !== "boolean" || typeof preventWheel !== "boolean") {
-    throw new TypeError("Workspace interaction boundary options must be boolean.");
-  }
-  const resolvedClassName = [
-    "setta-workspace__interaction-boundary",
-    preventPan ? WORKSPACE_NO_PAN_CLASS_NAME : null,
-    preventWheel ? WORKSPACE_NO_WHEEL_CLASS_NAME : null,
+  assertInteractionBoundaryOptions(preventExternalDrop, preventPan, preventWheel);
+  const resolvedClassName = interactionBoundaryClassName(
     className,
-  ]
-    .filter(Boolean)
-    .join(" ");
+    preventExternalDrop,
+    preventPan,
+    preventWheel,
+  );
   return (
     <div
       {...props}
       className={resolvedClassName}
-      data-workspace-prevent-pan={preventPan ? "true" : undefined}
-      data-workspace-prevent-wheel={preventWheel ? "true" : undefined}
+      data-workspace-prevent-external-drop={enabledDataAttribute(preventExternalDrop)}
+      data-workspace-prevent-pan={enabledDataAttribute(preventPan)}
+      data-workspace-prevent-wheel={enabledDataAttribute(preventWheel)}
     />
   );
 }

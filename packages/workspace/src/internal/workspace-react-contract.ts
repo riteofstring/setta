@@ -12,6 +12,7 @@ import {
   type WorkspaceGestureOptions,
   type WorkspaceGridOptionOverrides,
   type WorkspaceJsonValue,
+  type WorkspacePoint,
 } from "../core.js";
 import { isDenseArray, isEnumerableDataProperty } from "./runtime-option-validation.js";
 import type {
@@ -62,6 +63,40 @@ export type WorkspaceSelectionOptions = Readonly<{
   marqueeMode?: WorkspaceMarqueeSelectionMode;
 }>;
 
+export type WorkspaceExternalDropCandidate = Readonly<{
+  insertionIndex: number;
+  parentSectionId: string | null;
+}>;
+
+export type WorkspaceExternalDropEventMetadata = Readonly<{
+  altKey: boolean;
+  clientPosition: WorkspacePoint;
+  ctrlKey: boolean;
+  dataTransferTypes: readonly string[];
+  fileCount: number;
+  metaKey: boolean;
+  phase: "preview" | "drop";
+  shiftKey: boolean;
+}>;
+
+export type WorkspaceExternalDropRequest = Readonly<{
+  candidate: WorkspaceExternalDropCandidate;
+  dataTransfer: DataTransfer;
+  event: WorkspaceExternalDropEventMetadata;
+  position: WorkspacePoint;
+}>;
+
+export type WorkspaceExternalDropDecision =
+  Readonly<{ allowed: false; reason: string }> | Readonly<{ allowed: true; label?: string }>;
+
+export type WorkspaceExternalDropValidator = (
+  request: WorkspaceExternalDropRequest,
+) => WorkspaceExternalDropDecision;
+
+export type WorkspaceExternalDropHandler = (
+  request: WorkspaceExternalDropRequest,
+) => Promise<void> | void;
+
 export type WorkspaceBooleanPreferenceChangeHandler = (value: boolean) => void;
 
 export type ResolvedWorkspaceMinimapOptions = Readonly<{
@@ -87,6 +122,7 @@ type SharedWorkspaceProps<TSectionData> = Omit<
   gestureOptions?: WorkspaceGestureOptionOverrides;
   gridOptions?: WorkspaceGridOptionOverrides;
   minimapOptions?: WorkspaceMinimapOptions;
+  onExternalDrop?: WorkspaceExternalDropHandler;
   onGridSnapChange?: WorkspaceBooleanPreferenceChangeHandler;
   onMinimapVisibilityChange?: WorkspaceBooleanPreferenceChangeHandler;
   overlaySlots?: WorkspaceOverlaySlots<TSectionData>;
@@ -96,6 +132,7 @@ type SharedWorkspaceProps<TSectionData> = Omit<
   sectionFactory?: WorkspaceSectionFactory<TSectionData>;
   selectionOptions?: WorkspaceSelectionOptions;
   toolbarControls?: readonly WorkspaceToolbarControl<TSectionData>[];
+  validateExternalDrop?: WorkspaceExternalDropValidator;
   validateSectionTitle?: WorkspaceSectionTitleValidator;
 };
 
@@ -359,6 +396,21 @@ export function assertWorkspaceSectionFactory<TSectionData>(
 ): asserts value is WorkspaceSectionFactory<TSectionData> | undefined {
   if (value !== undefined && typeof value !== "function") {
     throw new TypeError("Workspace sectionFactory must be a function.");
+  }
+}
+
+export function assertWorkspaceExternalDropCallbacks(
+  onExternalDrop: unknown,
+  validateExternalDrop: unknown,
+): asserts onExternalDrop is WorkspaceExternalDropHandler | undefined {
+  if (onExternalDrop !== undefined && typeof onExternalDrop !== "function") {
+    throw new TypeError("Workspace onExternalDrop must be a function.");
+  }
+  if (validateExternalDrop !== undefined && typeof validateExternalDrop !== "function") {
+    throw new TypeError("Workspace validateExternalDrop must be a function.");
+  }
+  if (validateExternalDrop !== undefined && onExternalDrop === undefined) {
+    throw new TypeError("Workspace validateExternalDrop requires onExternalDrop.");
   }
 }
 
