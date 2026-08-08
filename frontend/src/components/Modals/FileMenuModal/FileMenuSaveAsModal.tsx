@@ -10,7 +10,7 @@ import {
   saveProject,
 } from "state/actions/project/saveProject";
 import { useProjectState } from "state/definitions";
-import { SettaNotificationTypeEnum } from "utils/generatedTypes";
+import { NotificationTypeEnum } from "utils/generatedTypes";
 import { ModalTypeEnum } from "../types";
 import { useProjectMetadataForFileMenu } from "./utils";
 
@@ -44,7 +44,7 @@ export function FileMenuSaveProjectConfigAsModal({ open }: { open: boolean }) {
     if (existingTarget) {
       addTemporaryNotification(
         "Overwriting an existing project config directly is disabled. Use Save As New, then rename or delete configs as needed.",
-        SettaNotificationTypeEnum.error,
+        NotificationTypeEnum.error,
       );
       return;
     }

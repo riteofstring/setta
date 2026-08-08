@@ -1,12 +1,3 @@
-type ActiveSectionInteraction =
-  | "section-click"
-  | "pane-click"
-  | "selection-rect"
-  | "input-focus"
-  | "go-to"
-  | "param-select"
-  | "param-unselect";
-
 type BaseContext = {
   activeIds: Array<string>;
 };
@@ -67,6 +58,18 @@ export type ActiveSectionPolicyResult = {
   reason: string;
 };
 
+function createPolicyResult(
+  nextActiveIds: Array<string>,
+  updateZIndex: boolean,
+  reason: string,
+): ActiveSectionPolicyResult {
+  return {
+    nextActiveIds,
+    updateZIndex,
+    reason,
+  };
+}
+
 function addActiveId(
   activeIds: Array<string>,
   sectionId: string,
@@ -87,88 +90,93 @@ function removeActiveId(
   return activeIds.filter((id) => id !== sectionId);
 }
 
+function resolveParamToggleChange(
+  context: ParamSelectContext | ParamUnselectContext,
+): ActiveSectionPolicyResult {
+  if (!context.isSelectingParams) {
+    return createPolicyResult(context.activeIds, false, "param-toggle:ignored");
+  }
+  return createPolicyResult(
+    [context.sectionId],
+    false,
+    context.interaction === "param-select"
+      ? "param-select:set-active"
+      : "param-unselect:set-active",
+  );
+}
+
+function resolveParamSelectingSectionClick(
+  context: SectionClickContext,
+): ActiveSectionPolicyResult {
+  if (!context.hasSelectedParams) {
+    return createPolicyResult(
+      context.activeIds,
+      true,
+      "section-click:param-select-noop",
+    );
+  }
+  return createPolicyResult(
+    [context.sectionId],
+    true,
+    "section-click:param-select-set",
+  );
+}
+
+function resolveMultiSelectionSectionClick(
+  context: SectionClickContext,
+): ActiveSectionPolicyResult {
+  const isActive = context.activeIds.includes(context.sectionId);
+  return createPolicyResult(
+    isActive
+      ? removeActiveId(context.activeIds, context.sectionId)
+      : addActiveId(context.activeIds, context.sectionId),
+    true,
+    isActive ? "section-click:multi-remove" : "section-click:multi-add",
+  );
+}
+
+function resolveSectionClickChange(
+  context: SectionClickContext,
+): ActiveSectionPolicyResult {
+  if (context.isSelectingParams) {
+    return resolveParamSelectingSectionClick(context);
+  }
+  if (context.multiSelectionActive) {
+    return resolveMultiSelectionSectionClick(context);
+  }
+  return createPolicyResult([context.sectionId], true, "section-click:single");
+}
+
 export function resolveActiveSectionChange(
   context: ActiveSectionPolicyContext,
 ): ActiveSectionPolicyResult {
   switch (context.interaction) {
     case "pane-click": {
-      return {
-        nextActiveIds: [],
-        updateZIndex: false,
-        reason: "pane-click:clear",
-      };
+      return createPolicyResult([], false, "pane-click:clear");
     }
     case "selection-rect": {
-      return {
-        nextActiveIds: context.selectedIds,
-        updateZIndex: false,
-        reason: "selection-rect:update",
-      };
+      return createPolicyResult(
+        context.selectedIds,
+        false,
+        "selection-rect:update",
+      );
     }
     case "input-focus": {
-      return {
-        nextActiveIds: [context.sectionId],
-        updateZIndex: true,
-        reason: "input-focus:set-active",
-      };
+      return createPolicyResult(
+        [context.sectionId],
+        true,
+        "input-focus:set-active",
+      );
     }
     case "go-to": {
-      return {
-        nextActiveIds: [context.sectionId],
-        updateZIndex: true,
-        reason: "go-to:set-active",
-      };
+      return createPolicyResult([context.sectionId], true, "go-to:set-active");
     }
     case "param-select":
     case "param-unselect": {
-      if (!context.isSelectingParams) {
-        return {
-          nextActiveIds: context.activeIds,
-          updateZIndex: false,
-          reason: "param-toggle:ignored",
-        };
-      }
-      return {
-        nextActiveIds: [context.sectionId],
-        updateZIndex: false,
-        reason:
-          context.interaction === "param-select"
-            ? "param-select:set-active"
-            : "param-unselect:set-active",
-      };
+      return resolveParamToggleChange(context);
     }
     case "section-click": {
-      if (context.isSelectingParams) {
-        if (context.hasSelectedParams) {
-          return {
-            nextActiveIds: [context.sectionId],
-            updateZIndex: true,
-            reason: "section-click:param-select-set",
-          };
-        }
-        return {
-          nextActiveIds: context.activeIds,
-          updateZIndex: true,
-          reason: "section-click:param-select-noop",
-        };
-      }
-      if (context.multiSelectionActive) {
-        const isActive = context.activeIds.includes(context.sectionId);
-        return {
-          nextActiveIds: isActive
-            ? removeActiveId(context.activeIds, context.sectionId)
-            : addActiveId(context.activeIds, context.sectionId),
-          updateZIndex: true,
-          reason: isActive
-            ? "section-click:multi-remove"
-            : "section-click:multi-add",
-        };
-      }
-      return {
-        nextActiveIds: [context.sectionId],
-        updateZIndex: true,
-        reason: "section-click:single",
-      };
+      return resolveSectionClickChange(context);
     }
     default: {
       const _exhaustive: never = context;

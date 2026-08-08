@@ -9,7 +9,7 @@ describe("plugin runtime bootstrap", () => {
   afterEach(() => {
     vi.resetModules();
     vi.doUnmock("react");
-    vi.doUnmock("utils/generatedEndpoints");
+    vi.doUnmock("openapi/http");
   });
 
   it("triggers runtime refresh only when bootstrap is enabled", async () => {
@@ -32,17 +32,15 @@ describe("plugin runtime bootstrap", () => {
           plugins: [],
         },
       },
-      status: 200,
-      hasResponse: true,
+      response: new Response(null, { status: 200 }),
     }));
 
-    vi.doMock("utils/generatedEndpoints", async () => {
-      const actual = await vi.importActual<
-        typeof import("utils/generatedEndpoints")
-      >("utils/generatedEndpoints");
+    vi.doMock("openapi/http", async () => {
+      const actual =
+        await vi.importActual<typeof import("openapi/http")>("openapi/http");
       return {
         ...actual,
-        route_plugins_runtime: routePluginsRuntime,
+        getPluginsRuntime: routePluginsRuntime,
       };
     });
 
@@ -57,7 +55,34 @@ describe("plugin runtime bootstrap", () => {
     });
 
     const runtime = await import("plugins/runtime");
-    runtime.resetPluginRuntimeStoreForTests();
+    const runtimeInternal = await import("plugins/runtimeInternal");
+    runtimeInternal.clearPluginRuntimeSideEffects();
+    runtime.usePluginRuntimeStore.setState({
+      status: "idle",
+      statusMessage: null,
+      schemaVersion: null,
+      serverMode: null,
+      appSubsystemCapabilities: null,
+      restartCapability: null,
+      pluginListById: {},
+      sortedPluginListEntries: [],
+      pluginStatusById: {},
+      statusEntries: [],
+      languageServerSelectionsByLanguage: {},
+      languageServerSelections: [],
+      appSubsystemRegistrationsByPluginId: {},
+      sectionKindsByKey: {},
+      sortedSectionKinds: [],
+      panesByPluginId: {},
+      sortedPaneTabs: [],
+      commandsByPluginId: {},
+      sortedCommands: [],
+      topNavBarItemsByPluginId: {},
+      sortedTopNavBarItems: [],
+      canvasControlsByPluginId: {},
+      sortedCanvasControls: [],
+      frontendErrorsByPluginId: {},
+    });
 
     runtime.usePluginRuntimeBootstrap(true);
     await Promise.resolve();

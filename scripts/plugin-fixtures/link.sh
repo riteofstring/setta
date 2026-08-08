@@ -11,7 +11,7 @@ Usage: scripts/plugin-fixtures/link.sh <fixture-name> [--scope workspace|setta_f
 
 Examples:
   scripts/plugin-fixtures/link.sh frontend
-  scripts/plugin-fixtures/link.sh backend-static-router --scope global
+  scripts/plugin-fixtures/link.sh full --scope global
 USAGE
 }
 

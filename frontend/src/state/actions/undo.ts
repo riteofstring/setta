@@ -1,16 +1,29 @@
-import { route_redo, route_undo } from "utils/generatedEndpoints";
-import { getCurrProjectConfigId } from "./sectionInfos";
+import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
+import { redo, undo } from "openapi/http";
+import { useMisc } from "state/definitions";
+import {
+  getCurrProjectConfigId,
+  processProjectStateUpdateFromBackend,
+} from "./sectionInfos";
 
-export function undoProjectState() {
-  route_undo({
-    steps: 1,
-    projectConfigId: getCurrProjectConfigId(),
-  });
+async function applyProjectHistoryMutation(routeFn: typeof undo | typeof redo) {
+  const response = await callOpenAPI(
+    routeFn({
+      body: {
+        steps: 1,
+        projectConfigId: getCurrProjectConfigId(),
+      },
+    } as Parameters<typeof routeFn>[0]),
+  );
+  if (!res200(response)) {
+    return;
+  }
+  processProjectStateUpdateFromBackend(response.data);
+  useMisc.setState({ undoOrRedoWasTriggered: true });
 }
-
+export function undoProjectState() {
+  void applyProjectHistoryMutation(undo);
+}
 export function redoProjectState() {
-  route_redo({
-    steps: 1,
-    projectConfigId: getCurrProjectConfigId(),
-  });
+  void applyProjectHistoryMutation(redo);
 }

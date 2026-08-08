@@ -88,6 +88,36 @@ describe("validateWindowSpaceNameInput", () => {
   });
 });
 
+describe("validateParamNameInput", () => {
+  it("allows empty param names when empties are allowed", () => {
+    expect(
+      validateParamNameInput("", {
+        allowEmpty: true,
+        requirePythonIdentifier: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects empty param names when empties are not allowed", () => {
+    expect(
+      validateParamNameInput("", {
+        allowEmpty: false,
+        requirePythonIdentifier: true,
+      }),
+    ).toBe("Param name cannot be empty.");
+  });
+
+  it("skips path checks when requested", () => {
+    expect(
+      validateParamNameInput("path/to/param", {
+        allowEmpty: false,
+        requirePythonIdentifier: false,
+        skipPathChecks: true,
+      }),
+    ).toBeNull();
+  });
+});
+
 describe("name validation matches backend fixtures", () => {
   it("validates project names", () => {
     for (const testCase of FIXTURES.project) {

@@ -233,6 +233,13 @@ test.describe.serial("project ai settings accordion layout", () => {
         },
         default_config_id: "e2e-anthropic-config",
       });
+      await postBackend(page, "/createExternalAgentConfig", {
+        name: "E2E External Agent",
+        toolType: "codex",
+        runMode: "app_server",
+        envVarWhitelist: [],
+        workingDirStrategy: "project_root",
+      });
       await page.reload({ waitUntil: "domcontentloaded" });
       await openProjectAiSettingsPopover(page);
 
@@ -336,6 +343,11 @@ test.describe.serial("project ai settings accordion layout", () => {
         "project-ai-settings-accordion-external-agents-content",
       );
       const visibleInput = externalAgentsContent.locator("input").first();
+      if ((await visibleInput.count()) === 0) {
+        await externalAgentsContent
+          .getByRole("button", { name: "New External Agent" })
+          .click();
+      }
       await expect(visibleInput).toBeVisible();
       const insetMetrics = await reloadedSettingsPanel.evaluate((panel) => {
         const input = panel.querySelector<HTMLElement>(

@@ -23,17 +23,15 @@ type ChatSubmitRequest = {
 };
 
 function buildGetLLMResponseResponse(chatId: string) {
-  return {
-    chatId,
-    runId: `${chatId}-run`,
-    engineType: "setta_llm" as const,
-    sectionId: null,
-  };
+  return chatId;
 }
 
 async function mockProjectChatSubmitCapture(
   page: Page,
   capturedRequests: ChatSubmitRequest[],
+  options: {
+    responseDelayMs?: number | null;
+  } = {},
 ): Promise<void> {
   const chatStateById = new Map<
     string,
@@ -44,6 +42,7 @@ async function mockProjectChatSubmitCapture(
   >();
   let createdChatCount = 0;
   let assistantMessageCount = 0;
+  const responseDelayMs = options.responseDelayMs ?? null;
 
   await page.route("**/api/getLLMResponse", async (route) => {
     const payload = route.request().postDataJSON() as ChatSubmitRequest;
@@ -54,6 +53,11 @@ async function mockProjectChatSubmitCapture(
       messages: [],
       appGenerationByMessageId: {},
     };
+    if (typeof responseDelayMs === "number" && responseDelayMs > 0) {
+      await new Promise((resolve) => {
+        setTimeout(resolve, responseDelayMs);
+      });
+    }
     const nextMessages = [...previousState.messages];
     if (payload.message) {
       nextMessages.push(payload.message);
@@ -163,6 +167,40 @@ test("project ai chat /app-json submits the fixed baseline prompt with suffix te
     expect(capturedRequests[0]?.message?.content?.[0]?.text).toBe(
       `${getCommandPrompt("/app-json")}\n\ndashboard for support ops`,
     );
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai chat clears the composer and shows pending state before the llm response resolves", async ({
+  page,
+}) => {
+  const capturedRequests: ChatSubmitRequest[] = [];
+  await mockProjectChatSubmitCapture(page, capturedRequests, {
+    responseDelayMs: 3_000,
+  });
+  const { engineCleanup, projectContext, projectChatSurface } =
+    await openProjectChatWithManagedEngine(page);
+
+  try {
+    const composer = projectChatSurface.getByTestId("chat-input-textarea");
+    await composer.fill("Hello from project chat");
+    await projectChatSurface.getByLabel("Send message").click();
+
+    await expect.poll(() => capturedRequests.length).toBe(1);
+    await expect(composer).toHaveValue("", { timeout: 1_000 });
+    await expect(
+      projectChatSurface.getByText("Hello from project chat", { exact: true }),
+    ).toBeVisible({ timeout: 1_000 });
+    await expect(projectChatSurface.getByLabel("Stop response")).toBeVisible({
+      timeout: 1_000,
+    });
+
+    await expect(
+      projectChatSurface.getByText("Mock response 1", { exact: true }),
+    ).toBeVisible();
+    await expect(projectChatSurface.getByLabel("Send message")).toBeVisible();
   } finally {
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);

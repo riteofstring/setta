@@ -1,6 +1,6 @@
 import { EngineTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import { buildProjectChatHydrationCacheKey } from "./ProjectChatCore";
+import { buildProjectChatHydrationCacheKey } from "./projectChatCoreUtils";
 import { resolveProjectChatHydrationAuthority } from "./projectChatHydrationAuthority";
 
 describe("project chat hydration authority integration", () => {

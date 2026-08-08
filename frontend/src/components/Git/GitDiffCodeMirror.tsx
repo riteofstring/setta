@@ -10,12 +10,14 @@ import {
 } from "@codemirror/view";
 import { highlightTree, type Highlighter } from "@lezer/highlight";
 import CodeMirror from "@uiw/react-codemirror";
-import {
-  getCodeMirrorLanguageParserForPath,
-  type CodeMirrorParserLike,
-} from "components/Utils/CodeMirror/codeMirrorLanguages";
+import { type CodeMirrorParserLike } from "components/Utils/CodeMirror/codeMirrorLanguages";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useMemo } from "react";
+import {
+  analyzeDiffLine,
+  parserForPath,
+  shouldSyntaxHighlightLine,
+} from "./gitDiffCodeMirrorUtils";
 import {
   setSyntaxLineCacheEntry,
   type SyntaxLineCacheEntry,
@@ -48,162 +50,172 @@ const DIFF_LINE_THEME = EditorView.baseTheme({
   },
 });
 
-export function classifyDiffLine(text: string): string | null {
-  if (!text) {
+const MAX_SYNTAX_HIGHLIGHT_DOC_LINES = 12000;
+const MAX_SYNTAX_HIGHLIGHT_LINE_LENGTH = 2000;
+
+type SyntaxDecorationsContext = {
+  parser: CodeMirrorParserLike;
+  highlighter: Highlighter;
+};
+
+function createSyntaxDecorationsContext(
+  state: EditorState,
+  parser: CodeMirrorParserLike | null,
+): SyntaxDecorationsContext | null {
+  if (parser === null) {
     return null;
   }
-  if (text.startsWith("@@")) {
-    return "cm-gitdiff-hunk";
-  }
-  if (text.startsWith("diff --git")) {
-    return "cm-gitdiff-meta";
-  }
-  if (
-    text.startsWith("index ") ||
-    text.startsWith("new file mode ") ||
-    text.startsWith("deleted file mode ") ||
-    text.startsWith("similarity index ") ||
-    text.startsWith("rename from ") ||
-    text.startsWith("rename to ") ||
-    text.startsWith("\\ No newline at end of file")
-  ) {
-    return "cm-gitdiff-meta";
-  }
-  if (text.startsWith("+++ ") || text.startsWith("--- ")) {
-    return "cm-gitdiff-file";
-  }
-  if (text.startsWith("+") && !text.startsWith("+++")) {
-    return "cm-gitdiff-add";
-  }
-  if (text.startsWith("-") && !text.startsWith("---")) {
-    return "cm-gitdiff-del";
-  }
-  return null;
+  return {
+    parser,
+    highlighter: {
+      style: (tags) => highlightingFor(state, tags),
+    },
+  };
 }
 
-const MAX_SYNTAX_HIGHLIGHT_DOC_LINES = 12000;
-
-export function parserForPath(
-  path: string | null | undefined,
-): CodeMirrorParserLike | null {
-  return getCodeMirrorLanguageParserForPath(path);
+function getReusableSyntaxMarks(
+  cache: Map<number, SyntaxLineCacheEntry>,
+  lineFrom: number,
+  lineText: string,
+): Array<[number, number, string]> | null {
+  const cached = cache.get(lineFrom);
+  if (!cached || cached.text !== lineText) {
+    return null;
+  }
+  cache.delete(lineFrom);
+  cache.set(lineFrom, cached);
+  return cached.marks;
 }
 
-export function shouldSyntaxHighlightLine(text: string): boolean {
-  if (!text) {
-    return false;
+function addSyntaxMarks(
+  builder: RangeSetBuilder<Decoration>,
+  codeFrom: number,
+  marks: Array<[number, number, string]>,
+): void {
+  for (const [from, to, classes] of marks) {
+    builder.add(
+      codeFrom + from,
+      codeFrom + to,
+      Decoration.mark({
+        attributes: { class: classes },
+      }),
+    );
   }
-  if (text.startsWith("@@")) {
-    return false;
-  }
-  if (text.startsWith("diff --git")) {
-    return false;
-  }
+}
+
+function buildSyntaxMarks(
+  lineText: string,
+  lineFrom: number,
+  syntax: SyntaxDecorationsContext,
+): Array<[number, number, string]> {
+  const marks: Array<[number, number, string]> = [];
+  const codeText = lineText.slice(1);
+  const tree = syntax.parser.parse(codeText) as never;
+  highlightTree(tree, syntax.highlighter, (from, to, classes) => {
+    if (!classes) {
+      return;
+    }
+    marks.push([from, to, `cm-gitdiff-syntax ${classes}`]);
+  });
+  return marks;
+}
+
+function decorateSyntaxForLine({
+  builder,
+  lineText,
+  lineFrom,
+  syntax,
+  cache,
+}: {
+  builder: RangeSetBuilder<Decoration>;
+  lineText: string;
+  lineFrom: number;
+  syntax: SyntaxDecorationsContext | null;
+  cache: Map<number, SyntaxLineCacheEntry>;
+}): void {
   if (
-    text.startsWith("index ") ||
-    text.startsWith("new file mode ") ||
-    text.startsWith("deleted file mode ") ||
-    text.startsWith("similarity index ") ||
-    text.startsWith("rename from ") ||
-    text.startsWith("rename to ") ||
-    text.startsWith("\\ No newline at end of file")
+    syntax === null ||
+    !shouldSyntaxHighlightLine(lineText) ||
+    lineText.length <= 1
   ) {
-    return false;
+    return;
   }
-  if (text.startsWith("+++ ") || text.startsWith("--- ")) {
-    return false;
+  const codeText = lineText.slice(1);
+  // Guardrail: avoid pathological work on very long lines (minified files, etc).
+  if (codeText.length > MAX_SYNTAX_HIGHLIGHT_LINE_LENGTH) {
+    return;
   }
-  const first = text[0];
-  return (
-    first === " " ||
-    (first === "+" && !text.startsWith("+++")) ||
-    (first === "-" && !text.startsWith("---"))
-  );
+  const codeFrom = lineFrom + 1;
+  const cachedMarks = getReusableSyntaxMarks(cache, lineFrom, lineText);
+  if (cachedMarks !== null) {
+    addSyntaxMarks(builder, codeFrom, cachedMarks);
+    return;
+  }
+  const marks = buildSyntaxMarks(lineText, lineFrom, syntax);
+  addSyntaxMarks(builder, codeFrom, marks);
+  setSyntaxLineCacheEntry(cache, lineFrom, { text: lineText, marks });
+}
+
+function decorateVisibleLine({
+  builder,
+  lineFrom,
+  lineText,
+  syntax,
+  cache,
+}: {
+  builder: RangeSetBuilder<Decoration>;
+  lineFrom: number;
+  lineText: string;
+  syntax: SyntaxDecorationsContext | null;
+  cache: Map<number, SyntaxLineCacheEntry>;
+}): void {
+  const analysis = analyzeDiffLine(lineText);
+  if (analysis.lineClass !== null) {
+    builder.add(
+      lineFrom,
+      lineFrom,
+      Decoration.line({ attributes: { class: analysis.lineClass } }),
+    );
+  }
+  if (!analysis.shouldSyntaxHighlight) {
+    return;
+  }
+  decorateSyntaxForLine({
+    builder,
+    lineText,
+    lineFrom,
+    syntax,
+    cache,
+  });
 }
 
 function buildCombinedDecorations({
   view,
-  parser,
-  highlighter,
+  syntax,
   cache,
 }: {
   view: EditorView;
-  parser: CodeMirrorParserLike | null;
-  highlighter: Highlighter | null;
+  syntax: SyntaxDecorationsContext | null;
   cache: Map<number, SyntaxLineCacheEntry>;
 }): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
-  const shouldHighlightSyntax =
-    parser !== null &&
-    highlighter !== null &&
-    view.state.doc.lines <= MAX_SYNTAX_HIGHLIGHT_DOC_LINES;
+  const syntaxForView =
+    syntax !== null && view.state.doc.lines <= MAX_SYNTAX_HIGHLIGHT_DOC_LINES
+      ? syntax
+      : null;
 
   // Build line + syntax decorations in one visible-range pass.
   for (const range of view.visibleRanges) {
     let pos = range.from;
     while (pos <= range.to) {
       const line = view.state.doc.lineAt(pos);
-      const lineText = line.text;
-      const cls = classifyDiffLine(lineText);
-      if (cls) {
-        builder.add(
-          line.from,
-          line.from,
-          Decoration.line({ attributes: { class: cls } }),
-        );
-      }
-
-      if (!shouldHighlightSyntax) {
-        pos = line.to + 1;
-        continue;
-      }
-      if (!shouldSyntaxHighlightLine(lineText)) {
-        pos = line.to + 1;
-        continue;
-      }
-      if (lineText.length <= 1) {
-        pos = line.to + 1;
-        continue;
-      }
-      const codeText = lineText.slice(1);
-      // Guardrail: avoid pathological work on very long lines (minified files, etc).
-      if (codeText.length > 2000) {
-        pos = line.to + 1;
-        continue;
-      }
-      const codeFrom = line.from + 1;
-      const cached = cache.get(line.from);
-      if (cached && cached.text === lineText) {
-        cache.delete(line.from);
-        cache.set(line.from, cached);
-        for (const [from, to, classes] of cached.marks) {
-          builder.add(
-            codeFrom + from,
-            codeFrom + to,
-            Decoration.mark({
-              attributes: { class: classes },
-            }),
-          );
-        }
-      } else {
-        const marks: Array<[number, number, string]> = [];
-        const tree = parser!.parse(codeText) as never;
-        highlightTree(tree, highlighter!, (from, to, classes) => {
-          if (!classes) {
-            return;
-          }
-          const className = `cm-gitdiff-syntax ${classes}`;
-          marks.push([from, to, className]);
-          builder.add(
-            codeFrom + from,
-            codeFrom + to,
-            Decoration.mark({
-              attributes: { class: className },
-            }),
-          );
-        });
-        setSyntaxLineCacheEntry(cache, line.from, { text: lineText, marks });
-      }
+      decorateVisibleLine({
+        builder,
+        lineFrom: line.from,
+        lineText: line.text,
+        syntax: syntaxForView,
+        cache,
+      });
 
       pos = line.to + 1;
     }
@@ -220,15 +232,10 @@ function createDiffDecorationsPlugin(
       lineCache = new Map<number, SyntaxLineCacheEntry>();
 
       constructor(view: EditorView) {
-        const highlighter: Highlighter | null = parser
-          ? {
-              style: (tags) => highlightingFor(view.state, tags),
-            }
-          : null;
+        const syntax = createSyntaxDecorationsContext(view.state, parser);
         this.decorations = buildCombinedDecorations({
           view,
-          parser,
-          highlighter,
+          syntax,
           cache: this.lineCache,
         });
       }
@@ -242,15 +249,10 @@ function createDiffDecorationsPlugin(
           if (update.docChanged || update.reconfigured) {
             this.lineCache.clear();
           }
-          const highlighter: Highlighter | null = parser
-            ? {
-                style: (tags) => highlightingFor(update.state, tags),
-              }
-            : null;
+          const syntax = createSyntaxDecorationsContext(update.state, parser);
           this.decorations = buildCombinedDecorations({
             view: update.view,
-            parser,
-            highlighter,
+            syntax,
             cache: this.lineCache,
           });
         }

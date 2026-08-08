@@ -17,12 +17,3 @@ export class ProviderTranscriptionError extends Error {
     this.status = status;
   }
 }
-
-export function isProviderTranscriptionUnsupportedModelError(
-  value: unknown,
-): boolean {
-  if (!(value instanceof ProviderTranscriptionError)) {
-    return false;
-  }
-  return value.code === "unsupported_model";
-}

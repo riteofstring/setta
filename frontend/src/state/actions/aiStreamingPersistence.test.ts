@@ -11,7 +11,6 @@ import {
   createChatSectionImpl,
   createCore,
   createProjectConfig,
-  createUserDefaultChatSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 import {
@@ -23,25 +22,20 @@ import {
   it,
   vi,
 } from "vitest";
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_set_chat_section_state: vi.fn(),
+    setChatSectionState: vi.fn(),
   };
 });
-
 let receiveLLMResponseChunk: typeof import("./ai").receiveLLMResponseChunk;
-
 const projectConfigId = "project-1";
 const sectionId = "section-1";
 const variantId = "variant-1";
 const implId = "impl-1";
 const chatId = "chat-1";
-
 function seedChatSection() {
   const sectionCore = createCore({
     id: sectionId,
@@ -55,16 +49,16 @@ function seedChatSection() {
     impl: implId,
     nonPresetImpls: [],
   });
-  const sectionImpl = createChatSectionImpl(
-    createUserDefaultChatSectionImpl({ chatId }),
-    {
+  const sectionImpl = createChatSectionImpl({
+    ...{ chatId },
+    ...{
       id: implId,
       chatId,
       managed: true,
       engineConfigId: "engine-1",
       thinking: true,
     },
-  );
+  });
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({ id: projectConfigId });
     state.sections = { [sectionId]: sectionCore };
@@ -74,37 +68,31 @@ function seedChatSection() {
     state.previewSectionVariantMap = {};
   });
 }
-
 describe("chat streaming persistence", () => {
   beforeAll(async () => {
     receiveLLMResponseChunk = (await import("./ai")).receiveLLMResponseChunk;
   });
-
   beforeEach(() => {
     resetProjectStores();
     seedChatSection();
     vi.clearAllMocks();
   });
-
   afterEach(() => {
     resetProjectStores();
   });
-
   it("persists streaming content on message stop and survives reload", async () => {
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
-    route_set_chat_section_state.mockResolvedValue({
+    const setChatSectionState = (await import("openapi/http"))
+      .setChatSectionState as unknown as vi.Mock;
+    setChatSectionState.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
-
     receiveLLMResponseChunk({
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: {
           id: "msg-stream",
           role: ChatRoleEnum.assistant,
@@ -118,7 +106,7 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.DELTA,
+        type: StreamingEventTypeEnum.delta,
         message_id: "msg-stream",
         content: [{ type: "text_delta", index: 0, text: "Streaming" }],
       },
@@ -127,13 +115,12 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_STOP,
+        type: StreamingEventTypeEnum.message_stop,
         message_id: "msg-stream",
       },
     });
-
-    expect(route_set_chat_section_state).toHaveBeenCalledTimes(1);
-    const persistedState = route_set_chat_section_state.mock.calls[0][0].state;
+    expect(setChatSectionState).toHaveBeenCalledTimes(1);
+    const persistedState = setChatSectionState.mock.calls[0][0].state;
     const persistedText = persistedState.messages
       .filter((message) => message.role === ChatRoleEnum.assistant)
       .flatMap((message) => message.content ?? [])
@@ -141,7 +128,6 @@ describe("chat streaming persistence", () => {
       .map((item) => item.text)
       .join("");
     expect(persistedText).toContain("Streaming");
-
     const backendState = JSON.parse(JSON.stringify(useProjectState.getState()));
     const backendImpl = backendState.sectionImpls[implId];
     if (backendImpl && backendImpl.type === SectionTypeEnum.Chat) {
@@ -150,16 +136,13 @@ describe("chat streaming persistence", () => {
       backendImpl.waitingForResponse = persistedState.waitingForResponse;
       backendImpl.toolCallArguments = persistedState.toolCallArguments;
     }
-
     resetProjectStores();
     seedChatSection();
-
     processProjectStateUpdateFromBackend({
       projectState: backendState,
       completedOpIds: [],
       pendingOpIds: [],
     });
-
     const impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,
@@ -173,22 +156,19 @@ describe("chat streaming persistence", () => {
       .join("");
     expect(text).toContain("Streaming");
   });
-
   it("avoids double persistence when finalized then stopped", async () => {
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
-    route_set_chat_section_state.mockResolvedValue({
+    const setChatSectionState = (await import("openapi/http"))
+      .setChatSectionState as unknown as vi.Mock;
+    setChatSectionState.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
-
     receiveLLMResponseChunk({
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: {
           id: "msg-final",
           role: ChatRoleEnum.assistant,
@@ -202,7 +182,7 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.DELTA,
+        type: StreamingEventTypeEnum.delta,
         message_id: "msg-final",
         content: [{ type: "text_delta", index: 0, text: "Finalized" }],
       },
@@ -211,7 +191,7 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        type: StreamingEventTypeEnum.message_finalized,
         message: {
           id: "msg-final",
           role: ChatRoleEnum.assistant,
@@ -225,11 +205,10 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_STOP,
+        type: StreamingEventTypeEnum.message_stop,
         message_id: "msg-final",
       },
     });
-
-    expect(route_set_chat_section_state).toHaveBeenCalledTimes(1);
+    expect(setChatSectionState).toHaveBeenCalledTimes(1);
   });
 });

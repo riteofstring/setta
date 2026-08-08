@@ -521,7 +521,7 @@ function readBackendOriginFromModuleUrl() {
   }
 }
 
-function resolveBackendApiBase() {
+function resolveBackendOrigin() {
   let backendOrigin = readBackendOriginFromModuleUrl();
   if (!backendOrigin) {
     backendOrigin = readBackendOriginFromSessionStorage();
@@ -529,19 +529,32 @@ function resolveBackendApiBase() {
   if (!backendOrigin) {
     backendOrigin = window.location.origin;
   }
+  return backendOrigin;
+}
+
+function resolveBackendApiBase() {
+  const backendOrigin = resolveBackendOrigin();
   return `${backendOrigin}/api`;
 }
 
 async function runBackendRoundtripForFixtureCommand(_host) {
+  const backendOrigin = resolveBackendOrigin();
   const backendApiBase = resolveBackendApiBase();
-  const fetchBackend = (path, init) => {
+  const fetchBackendApi = (path, init) => {
     return fetch(`${backendApiBase}${path}`, {
       ...init,
       credentials: "include",
       headers: init?.headers,
     });
   };
-  const runtimeResponse = await fetchBackend("/plugins/runtime", {
+  const fetchBackendRoot = (path, init) => {
+    return fetch(`${backendOrigin}${path}`, {
+      ...init,
+      credentials: "include",
+      headers: init?.headers,
+    });
+  };
+  const runtimeResponse = await fetchBackendApi("/plugins/runtime", {
     headers: {
       "X-Fixture-Command": "runtime",
     },
@@ -550,7 +563,7 @@ async function runBackendRoundtripForFixtureCommand(_host) {
   let listedPluginCount = 0;
   let activePluginCount = 0;
   let backendFixtureState = "missing";
-  let shouldCheckBackendFixtureHealth = false;
+  let backendFixtureHealthPath = null;
   if (runtimeResponse.ok) {
     const runtimePayload = await runtimeResponse.json();
     const listPayload =
@@ -586,16 +599,33 @@ async function runBackendRoundtripForFixtureCommand(_host) {
           typeof pluginState === "string"
         ) {
           backendFixtureState = pluginState;
-          shouldCheckBackendFixtureHealth = pluginState === "active";
+          if (Array.isArray(pluginEntry.registeredBackendRoutes)) {
+            const healthRoute = pluginEntry.registeredBackendRoutes.find(
+              (routeEntry) =>
+                routeEntry &&
+                typeof routeEntry === "object" &&
+                routeEntry.path === "/health" &&
+                Array.isArray(routeEntry.methods) &&
+                routeEntry.methods.includes("GET"),
+            );
+            if (
+              healthRoute &&
+              typeof healthRoute.path === "string" &&
+              healthRoute.path !== ""
+            ) {
+              backendFixtureHealthPath = healthRoute.path;
+            }
+          }
         }
       }
     }
   }
 
-  let backendFixtureHealthStatus = "skipped";
-  if (shouldCheckBackendFixtureHealth) {
-    const backendHealthResponse = await fetchBackend(
-      "/plugins/setta-fixture-backend/health",
+  let backendFixtureHealthStatus =
+    backendFixtureState === "active" ? "not-registered" : "skipped";
+  if (backendFixtureState === "active" && backendFixtureHealthPath) {
+    const backendHealthResponse = await fetchBackendRoot(
+      backendFixtureHealthPath,
       {
         headers: {
           "X-Fixture-Command": "fixture-backend-health",

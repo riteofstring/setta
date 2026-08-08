@@ -54,10 +54,9 @@ their values and action events propagate, and how they appear in generated code 
     attachments include binary metadata (`contentId`, `byteLength`, `mimeType`)
     and the bytes arrive in separate binary frames.
   - Attachment limits use the shared policy scopes:
-    `dropzone_stateful` (`C.DROPZONE_STATEFUL_MAX_FILE_BYTES`) and
-    `dropzone_stateless` (`C.DROPZONE_STATELESS_MAX_FILE_BYTES`,
-    `C.DROPZONE_STATELESS_MAX_TOTAL_BYTES`). MIME prefixes are optional via
-    `C.DROPZONE_ALLOWED_MIME_PREFIXES`.
+    `dropzone_stateful` and `dropzone_stateless`. Stateless mode also enforces
+    a total-size limit. MIME prefixes are optional via the shared dropzone
+    policy.
 - Password controls:
   - Secrets are stored in the runtime secret store
     (`setta_files/runtime/secrets/passwords.json` or `SETTA_RUNTIME_ROOT`);
@@ -97,10 +96,16 @@ their values and action events propagate, and how they appear in generated code 
   dependency updates are not applied for MetaControl sections.
 
 ## Related code
-- `backend/setta/types/section_impls.py`
-- `backend/setta/types/helpers_lvl2.py`
-- `backend/setta/code_gen/dependency_graph.py`
-- `backend/setta/code_gen/value_codec.py`
+- `internal/projectstate/top_level_section_creation.go`
+- `internal/projectstate/change_param_impl.go`
+- `internal/projectstate/update_param_impl_config.go`
+- `internal/projectstate/python_codegen_export.go`
+- `internal/codegen/python_dependency_graph.go`
+- `internal/codegen/python_value_codec.go`
+- `internal/realtime/listener_dependency_values.go`
+- `internal/projectstate/section_filter_meta_control_title.go`
+- `internal/httpapi/project_routes.go`
+- `backend/setta/api/listener.py`
 - `frontend/src/components/Section/Layouts/MetaControlArea.tsx`
 - `frontend/src/components/Panes/UiEditor/SectionConfig/MetaControlSettings.tsx`
 - `frontend/src/state/actions/sections/createSectionsHelper.ts`

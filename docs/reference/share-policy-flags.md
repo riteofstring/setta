@@ -4,12 +4,18 @@ Deployments (both share and app) include a `policy.json` at the deployment root.
 When the server runs in deployment mode (`setta share` or `setta app`), these
 flags gate route families and UI affordances.
 
-Schema: `SharePolicy` (`backend/setta/types/share_deployment.py`).
+Source of truth: deployment runtime policy in `internal/deployments/policy.go`
+and the exported frontend shape in `internal/frontendbindings/project_state_support.go`.
 
 Notes:
 - Policy gates apply only in deployment mode. IDE mode ignores these flags.
 - CodeParam edits are always blocked in deployment mode, regardless of
   `allowParamChanges`.
+- Project-state `undo` / `redo` replay the current share-session overlay history
+  without a dedicated policy flag. They are not blocked by
+  `allowParamChanges` / `allowVariantChanges` / `allowLayoutChanges` /
+  `allowLLM`, though the underlying mutations that create history entries
+  obey their usual policy gates.
 - `runSnapshotMode=never` is rejected for deployments.
 - Git features are always disabled in deployment mode: the Overview Git tab is
   hidden, and git API routes return 403 (`Route.GET_GIT_STATUS`,
@@ -63,11 +69,11 @@ App deployments default to:
 - Viewport/layout UI: set viewport, section color chrome/tag, show param display names, section param filter, hide params toggles, text block display mode/format, column widths and browser view modes (`Route.SET_VIEWPORT`, `Route.SET_SECTION_TAG_COLOR`, `Route.SET_SECTION_STYLE_COLOR`, `Route.SET_SHOW_PARAM_DISPLAY_NAMES`, `Route.SET_SECTION_PARAM_FILTER`, `Route.SET_CALLABLE_HIDE_PARAMS`, `Route.SET_SECTION_HIDE_UNPINNED_PARAMS`, `Route.SET_TEXT_BLOCK_DISPLAY_MODE`, `Route.SET_TEXT_BLOCK_FORMAT`, `Route.SET_SECTION_COLUMN_WIDTH`, `Route.SET_BROWSER_COLUMN_WIDTHS`, `Route.SET_BROWSER_AREA_VIEW_MODE`, `Route.SET_BROWSER_HIDE_COLUMN`).
 - Project-chat window layout persistence and window-space CRUD (`Route.SET_PROJECT_CHAT_WINDOWING_STATE`, `Route.CREATE_WINDOW_SPACE`, `Route.SET_WINDOW_SPACE_NAME`, `Route.SET_WINDOW_SPACE_SORT_ORDER`, `Route.DELETE_WINDOW_SPACE`).
 - Example: viewer drags/resizes sections or changes browser panel widths -> allowed only if `allowLayoutChanges` is true.
-- Note: existing project-chat windows may still update transient local focus or reopen state client-side so already-visible windows remain usable, but those layout changes are not persisted when `allowLayoutChanges` is false.
+- Note: existing project-chat windows may update transient local focus or reopen state client-side so already-visible windows remain usable, but those layout changes are not persisted when `allowLayoutChanges` is false.
 
 **allowRun** (runs + terminals)
 - Code execution: run code (`Route.RUN_CODE`).
-- Terminal access: terminal websocket (`Route.TERMINAL`), delete terminals (`Route.DELETE_TERMINALS`), kill subprocesses (`Route.KILL_SUBPROCESSES`).
+- Terminal access: terminal websocket (`Route.TERMINAL`), delete terminals (`Route.DELETE_TERMINALS`), interrupt terminal processes (`Route.INTERRUPT_TERMINAL_PROCESSES`).
 - Example: viewer clicks Run -> allowed only if `allowRun` is true.
 - Note: deployment mode disables terminal input; runs always execute from snapshot files.
 
@@ -103,5 +109,7 @@ Project-chat/window-space behavior is documented in
 - `never` is rejected for deployments.
 
 See `docs/reference/sharing-mode-vs-ide-mode.md` for session lifecycle and
-deployment setup, and `backend/setta/share/policy.py` for the enforcement
-helpers.
+deployment setup. The policy schema/defaults live in
+`internal/deployments/policy.go`; route/runtime enforcement is spread across
+the deployment-aware handlers in `internal/httpapi/*` and the run/deployment
+services such as `internal/runs/service.go`.

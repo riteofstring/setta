@@ -1,3 +1,4 @@
+import { createContentRef } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { uploadBinaryPayload } from "./binaryUpload";
 
@@ -16,12 +17,14 @@ describe("uploadBinaryPayload", () => {
   it("uploads bytes as FormData and returns the uploaded content id", async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
-        JSON.stringify({
-          contentId: "payload-123",
-          byteLength: 3,
-          mimeType: "text/plain",
-          sha256: null,
-        }),
+        JSON.stringify(
+          createContentRef({
+            contentId: "payload-123",
+            byteLength: 3,
+            mimeType: "text/plain",
+            sha256: null,
+          }),
+        ),
         {
           status: 200,
           headers: { "content-type": "application/json" },
@@ -39,11 +42,11 @@ describe("uploadBinaryPayload", () => {
       status: "ok",
       contentId: "payload-123",
     });
-    const request = fetchMock.mock.calls[0]?.[1];
-    if (!(request instanceof Object) || !("body" in request)) {
-      throw new Error("Expected fetch request options with FormData body.");
+    const request = fetchMock.mock.calls[0]?.[0];
+    if (!(request instanceof Request)) {
+      throw new Error("Expected fetch Request instance.");
     }
-    const body = request.body;
+    const body = await request.formData();
     if (!(body instanceof FormData)) {
       throw new Error("Expected FormData body.");
     }

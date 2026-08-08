@@ -6,6 +6,7 @@ import {
   ViewPlugin,
   WidgetType,
 } from "@codemirror/view";
+import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
@@ -15,6 +16,11 @@ import { useCodeMirrorTooltipParent } from "components/Utils/CodeMirror/useCodeM
 import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
+import {
+  codeAreaCompletion,
+  genCodePrefixCompletion,
+  genCodeSuffixCompletion,
+} from "openapi/http";
 import React, {
   useCallback,
   useEffect,
@@ -53,14 +59,7 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
-import {
-  route_code_area_completion,
-  route_gen_code_prefix_completion,
-  route_gen_code_suffix_completion,
-} from "utils/generatedEndpoints";
 import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
-
 type GenPythonDocParts = {
   isValid: boolean;
   generatedStart: number;
@@ -69,14 +68,11 @@ type GenPythonDocParts = {
   suffix: string;
   suffixBoundaryLength: number;
 };
-
 type GenPythonLineStartInfo = {
   pos: number;
   lineIndex: number;
 };
-
 const GEN_CODE_SEPARATOR = "\n".repeat(C.GEN_CODE_SEPARATOR_NEWLINES);
-const GEN_CODE_SEPARATOR_LENGTH = GEN_CODE_SEPARATOR.length;
 const GEN_CODE_RADIUS = "6px";
 const GEN_CODE_RADIUS_TOP = `${GEN_CODE_RADIUS} ${GEN_CODE_RADIUS} 0 0`;
 const GEN_CODE_RADIUS_BOTTOM = `0 0 ${GEN_CODE_RADIUS} ${GEN_CODE_RADIUS}`;
@@ -179,24 +175,20 @@ const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
     color: "rgba(148, 163, 184, 0.9)",
   },
 });
-
 class GenPythonPlaceholderWidget extends WidgetType {
   constructor(private text: string) {
     super();
   }
-
   toDOM() {
     const span = document.createElement("span");
     span.className = "cm-gen-code-placeholder";
     span.textContent = this.text;
     return span;
   }
-
   ignoreEvent() {
     return true;
   }
 }
-
 const INVALID_GEN_PYTHON_DOC_PARTS: GenPythonDocParts = {
   isValid: false,
   generatedStart: 0,
@@ -205,7 +197,6 @@ const INVALID_GEN_PYTHON_DOC_PARTS: GenPythonDocParts = {
   suffix: "",
   suffixBoundaryLength: 0,
 };
-
 function splitGenPythonDoc(doc: string, generated: string): GenPythonDocParts {
   if (!generated) {
     return INVALID_GEN_PYTHON_DOC_PARTS;
@@ -215,17 +206,17 @@ function splitGenPythonDoc(doc: string, generated: string): GenPythonDocParts {
   if (wrappedStart < 0) {
     return INVALID_GEN_PYTHON_DOC_PARTS;
   }
-  const generatedStart = wrappedStart + GEN_CODE_SEPARATOR_LENGTH;
+  const generatedStart = wrappedStart + GEN_CODE_SEPARATOR.length;
   const generatedEnd = generatedStart + generated.length;
   const prefixDoc = doc.slice(0, generatedStart);
   const suffixDoc = doc.slice(generatedEnd);
   const prefix =
-    GEN_CODE_SEPARATOR_LENGTH > 0 && prefixDoc.endsWith(GEN_CODE_SEPARATOR)
-      ? prefixDoc.slice(0, -GEN_CODE_SEPARATOR_LENGTH)
+    GEN_CODE_SEPARATOR.length > 0 && prefixDoc.endsWith(GEN_CODE_SEPARATOR)
+      ? prefixDoc.slice(0, -GEN_CODE_SEPARATOR.length)
       : prefixDoc;
   const suffixBoundaryLength =
-    GEN_CODE_SEPARATOR_LENGTH > 0 && suffixDoc.startsWith(GEN_CODE_SEPARATOR)
-      ? GEN_CODE_SEPARATOR_LENGTH
+    GEN_CODE_SEPARATOR.length > 0 && suffixDoc.startsWith(GEN_CODE_SEPARATOR)
+      ? GEN_CODE_SEPARATOR.length
       : 0;
   const suffix =
     suffixBoundaryLength > 0
@@ -240,7 +231,6 @@ function splitGenPythonDoc(doc: string, generated: string): GenPythonDocParts {
     suffixBoundaryLength,
   };
 }
-
 function getLineStartsInRange(
   doc: string,
   from: number,
@@ -267,7 +257,6 @@ function getLineStartsInRange(
   }
   return lineStarts;
 }
-
 function getGenReadOnlyLineDecorations(doc: string, from: number, to: number) {
   const lineStarts = getLineStartsInRange(doc, from, to);
   if (lineStarts.length === 0) {
@@ -292,7 +281,6 @@ function getGenReadOnlyLineDecorations(doc: string, from: number, to: number) {
     return Decoration.line({ class: classes.join(" ") }).range(pos);
   });
 }
-
 function _CodeArea({ sectionId }: { sectionId: string }) {
   const language = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -307,9 +295,7 @@ function _CodeArea({ sectionId }: { sectionId: string }) {
   }
   return <BasicCodeArea sectionId={sectionId} language={language} />;
 }
-
 export const CodeArea = React.memo(_CodeArea);
-
 function PythonCodeArea({
   sectionId,
   language,
@@ -323,7 +309,6 @@ function PythonCodeArea({
     getPythonCodeAreaCompletionsFn(sectionId, canUseLsp),
     [sectionId, canUseLsp],
   );
-
   return (
     <CoreCodeArea
       sectionId={sectionId}
@@ -332,7 +317,6 @@ function PythonCodeArea({
     />
   );
 }
-
 function BasicCodeArea({
   sectionId,
   language,
@@ -342,7 +326,6 @@ function BasicCodeArea({
 }) {
   return <CoreCodeArea sectionId={sectionId} language={language} />;
 }
-
 function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
   const hasPythonCodegen = useProjectState((x) =>
     projectConfigHasPythonCodegen(x.projectConfig),
@@ -352,11 +335,9 @@ function _GenPythonCodeArea({ sectionId }: { sectionId: string }) {
   }
   return <GenPythonCodeAreaContent sectionId={sectionId} />;
 }
-
 function GenPythonCodeAreaDisabled() {
   return null;
 }
-
 function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
   const { code, prefix, suffix } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -371,24 +352,19 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
       suffix: pythonTarget?.genCodeSuffix ?? "",
     };
   });
-
   const combinedDoc = `${prefix}${GEN_CODE_SEPARATOR}${code}${GEN_CODE_SEPARATOR}${suffix}`;
   const [value, setValue] = useState<string>(combinedDoc);
   const [generatedCodeForValue, setGeneratedCodeForValue] =
     useState<string>(code);
   const skipNextChangeRef = useRef<string | null>(null);
-
   useEffect(() => {
     skipNextChangeRef.current = combinedDoc;
     setValue(combinedDoc);
     setGeneratedCodeForValue(code);
   }, [combinedDoc, code]);
-
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
-
   const theme = useCodeMirrorStyle();
-
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const canUseLsp = !isDeploymentMode;
   const isShareReadOnly = isDeploymentMode;
@@ -399,7 +375,6 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
     getGenPythonCodeAreaCompletionsFn(generatedCodeForValue, canUseLsp),
     [generatedCodeForValue, canUseLsp],
   );
-
   function onChange(nextValue: string) {
     if (skipNextChangeRef.current === nextValue) {
       skipNextChangeRef.current = null;
@@ -423,10 +398,8 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
       queueGenCodeSuffixUpdate(nextParts.suffix);
     }
   }
-
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
-
   const readOnlyGeneratedRange = EditorState.transactionFilter.of((tr) => {
     if (!tr.docChanged) {
       return tr;
@@ -441,11 +414,11 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
     }
     const currentReadOnlyStart = Math.max(
       0,
-      currentParts.generatedStart - GEN_CODE_SEPARATOR_LENGTH,
+      currentParts.generatedStart - GEN_CODE_SEPARATOR.length,
     );
     const currentReadOnlyEnd = Math.min(
       currentDoc.length,
-      currentParts.generatedEnd + GEN_CODE_SEPARATOR_LENGTH,
+      currentParts.generatedEnd + GEN_CODE_SEPARATOR.length,
     );
     let touchesReadOnly = false;
     tr.changes.iterChanges((from, to) => {
@@ -455,7 +428,6 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
     });
     return touchesReadOnly ? [] : tr;
   });
-
   const readOnlyDecorations = useMemo(() => {
     const buildDecorations = (doc: string): DecorationSet => {
       const docParts = splitGenPythonDoc(doc, generatedCodeForValue);
@@ -464,11 +436,11 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
       }
       const readOnlyStart = Math.max(
         0,
-        docParts.generatedStart - GEN_CODE_SEPARATOR_LENGTH,
+        docParts.generatedStart - GEN_CODE_SEPARATOR.length,
       );
       const readOnlyEnd = Math.min(
         doc.length,
-        docParts.generatedEnd + GEN_CODE_SEPARATOR_LENGTH,
+        docParts.generatedEnd + GEN_CODE_SEPARATOR.length,
       );
       const decorations = [
         ...getGenReadOnlyLineDecorations(doc, readOnlyStart, readOnlyEnd),
@@ -483,15 +455,12 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
       }
       return Decoration.set(decorations, true);
     };
-
     return ViewPlugin.fromClass(
       class {
         decorations: DecorationSet;
-
         constructor(view: EditorView) {
           this.decorations = buildDecorations(view.state.doc.toString());
         }
-
         update(update) {
           if (update.docChanged) {
             this.decorations = buildDecorations(update.state.doc.toString());
@@ -503,7 +472,6 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
       },
     );
   }, [generatedCodeForValue]);
-
   const tooltipParent = useCodeMirrorTooltipParent(
     CODEMIRROR_TOOLTIP_PARENT_ID,
   );
@@ -528,7 +496,6 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
     GEN_CODE_READONLY_THEME,
     lspLintExtensions,
   );
-
   return (
     <article
       ref={wrapperRef}
@@ -550,9 +517,7 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
     </article>
   );
 }
-
 export const GenPythonCodeArea = React.memo(_GenPythonCodeArea);
-
 function _GenPythonMetadataArea({ sectionId }: { sectionId: string }) {
   const metadataEnabled = useProjectState(
     (x) => getPythonCodegenTarget(x.projectConfig)?.generateMetadata ?? false,
@@ -562,11 +527,9 @@ function _GenPythonMetadataArea({ sectionId }: { sectionId: string }) {
   }
   return <GenPythonMetadataAreaContent sectionId={sectionId} />;
 }
-
 function GenPythonMetadataAreaDisabled() {
   return null;
 }
-
 function GenPythonMetadataAreaContent({ sectionId }: { sectionId: string }) {
   const code = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -576,24 +539,20 @@ function GenPythonMetadataAreaContent({ sectionId }: { sectionId: string }) {
     );
     return impl.code;
   });
-
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
   const theme = useCodeMirrorStyle();
-
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
   const tooltipParent = useCodeMirrorTooltipParent(
     CODEMIRROR_TOOLTIP_PARENT_ID,
   );
-
   const extensions = getExtensions({
     parent: tooltipParent,
     language: "python",
     onEscape: onEscapeFocusOnArticleDiv,
     isDisabled: true,
   });
-
   return (
     <article
       ref={wrapperRef}
@@ -614,9 +573,7 @@ function GenPythonMetadataAreaContent({ sectionId }: { sectionId: string }) {
     </article>
   );
 }
-
 export const GenPythonMetadataArea = React.memo(_GenPythonMetadataArea);
-
 function CoreCodeArea({ sectionId, language, completionsFn }) {
   const {
     value: baseValue,
@@ -644,12 +601,9 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     return entry ? entry.value : null;
   });
   const value = previewCode ?? baseValue;
-
   const disablePointerEvents = useShouldDisablePointerEvents();
-
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
-
   const theme = useCodeMirrorStyle();
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const isShareReadOnly = isDeploymentMode;
@@ -671,20 +625,17 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     const normalized = bindingPath.toLowerCase();
     return normalized.endsWith(".tsx") || normalized.endsWith(".jsx");
   }, [bindingPath, language]);
-
   function onChange(v) {
     if (isDisabled) {
       return;
     }
     queueCodeUpdate(sectionId, v);
   }
-
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
   const tooltipParent = useCodeMirrorTooltipParent(
     CODEMIRROR_TOOLTIP_PARENT_ID,
   );
-
   const extensions = getExtensions({
     parent: tooltipParent,
     language,
@@ -704,9 +655,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
   const finalExtensions = extensions.concat(lspLintExtensions);
   const codeAreaMaxHeight = maxHeight;
   const codeAreaClassName = `${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title cursor-auto rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_*]:!outline-0 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent ${overflow} ${nowheel} ${disablePointerEvents ? "pointer-events-none select-none" : ""}`;
-
   // TODO: replace the arbitrary inline tailwind styles with something more elegant
-
   const codeEditor = (
     <article
       ref={wrapperRef}
@@ -727,10 +676,8 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
       />
     </article>
   );
-
   return codeEditor;
 }
-
 export function useCodeAreaHeight({ sectionId }) {
   const height = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
@@ -738,14 +685,12 @@ export function useCodeAreaHeight({ sectionId }) {
   });
   const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
   const { maxHeight: sectionMaxHeight } = useSectionMinMaxDims(sectionId);
-
   const wrapperRef = useRef(null);
   const editorRef = useRef(null);
   const resizeObserverRef = useRef(null);
   const [nowheel, setNoWheel] = useState("");
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
   const [didFirstRender, setDidFirstRender] = useState(false);
-
   const handleCreateEditor = useCallback((view) => {
     editorRef.current = view;
     const resizeObserver = new ResizeObserver(([entry]) => {
@@ -774,17 +719,14 @@ export function useCodeAreaHeight({ sectionId }) {
     resizeObserver.observe(editorRef.current.scrollDOM);
     resizeObserverRef.current = resizeObserver;
   }, []);
-
   useEffect(() => {
     useMisc.setState((state) => ({
       numDisplayedCodeAreas: state.numDisplayedCodeAreas + 1,
     }));
-
     return () => {
       if (resizeObserverRef.current) {
         resizeObserverRef.current.disconnect();
       }
-
       // the math.max is to prevent it from going negative if that ever happens
       useMisc.setState((state) => {
         const output = {
@@ -800,7 +742,6 @@ export function useCodeAreaHeight({ sectionId }) {
       });
     };
   }, []);
-
   useEffect(() => {
     if (readyToBeVisible && editorRef.current) {
       // Need to basically get code mirror to refresh its display
@@ -809,7 +750,6 @@ export function useCodeAreaHeight({ sectionId }) {
       editorRef.current.requestMeasure();
     }
   }, [readyToBeVisible]);
-
   const isAutoHeight = height === "auto";
   const maxHeight =
     resizeEvent === "start"
@@ -819,10 +759,8 @@ export function useCodeAreaHeight({ sectionId }) {
         : `${height - 30}px`;
   const overflow =
     resizeEvent === "start" || isAutoHeight ? "overflow-y-auto" : "";
-
   const editorScrollTop = editorRef.current?.scrollDOM.scrollTop;
   const wrapperScrollTop = wrapperRef.current?.scrollTop;
-
   useEffect(() => {
     if (wrapperRef.current && resizeEvent === "start") {
       wrapperRef.current.scrollTop = editorScrollTop;
@@ -830,7 +768,6 @@ export function useCodeAreaHeight({ sectionId }) {
       editorRef.current.scrollDOM.scrollTop = wrapperScrollTop;
     }
   }, [resizeEvent]);
-
   return {
     wrapperRef,
     handleCreateEditor,
@@ -839,7 +776,6 @@ export function useCodeAreaHeight({ sectionId }) {
     nowheel,
   };
 }
-
 export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
   function onArticleDivEnterKeyFocusOnCodeMirror(e) {
     if (e.code === "Enter") {
@@ -849,7 +785,6 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
       }
     }
   }
-
   function onEscapeFocusOnArticleDiv(completionResult) {
     if (!completionResult) {
       // Need the requestAnimationFrame to prevent scroll
@@ -861,32 +796,31 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
       });
     }
   }
-
   return { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv };
 }
-
 function getPythonCodeAreaCompletionsFn(sectionId: string, canUseLsp: boolean) {
   const fn = async (fullText: string, position: number) => {
     if (!canUseLsp) {
       return [];
     }
     const projectConfigId = getCurrProjectConfigId();
-    const res = await route_code_area_completion({
-      projectConfigId,
-      sectionId,
-      fullText,
-      position,
-    });
-
+    const res = await callOpenAPI(
+      codeAreaCompletion({
+        body: {
+          projectConfigId,
+          sectionId,
+          fullText,
+          position,
+        },
+      } as Parameters<typeof codeAreaCompletion>[0]),
+    );
     if (res200(res)) {
       return res.data;
     }
     return [];
   };
-
   return wrappedCompletionsFn(fn);
 }
-
 function getGenPythonCodeAreaCompletionsFn(
   generatedCode: string,
   canUseLsp: boolean,
@@ -902,11 +836,15 @@ function getGenPythonCodeAreaCompletionsFn(
     const projectConfigId = getCurrProjectConfigId();
     if (position < docParts.generatedStart) {
       const prefixPosition = Math.min(position, docParts.prefix.length);
-      const res = await route_gen_code_prefix_completion({
-        projectConfigId,
-        fullText: docParts.prefix,
-        position: prefixPosition,
-      });
+      const res = await callOpenAPI(
+        genCodePrefixCompletion({
+          body: {
+            projectConfigId,
+            fullText: docParts.prefix,
+            position: prefixPosition,
+          },
+        } as Parameters<typeof genCodePrefixCompletion>[0]),
+      );
       if (res200(res)) {
         return res.data;
       }
@@ -917,11 +855,15 @@ function getGenPythonCodeAreaCompletionsFn(
         0,
         position - docParts.generatedEnd - docParts.suffixBoundaryLength,
       );
-      const res = await route_gen_code_suffix_completion({
-        projectConfigId,
-        fullText: docParts.suffix,
-        position: suffixPosition,
-      });
+      const res = await callOpenAPI(
+        genCodeSuffixCompletion({
+          body: {
+            projectConfigId,
+            fullText: docParts.suffix,
+            position: suffixPosition,
+          },
+        } as Parameters<typeof genCodeSuffixCompletion>[0]),
+      );
       if (res200(res)) {
         return res.data;
       }
@@ -929,6 +871,5 @@ function getGenPythonCodeAreaCompletionsFn(
     }
     return [];
   };
-
   return wrappedCompletionsFn(fn);
 }

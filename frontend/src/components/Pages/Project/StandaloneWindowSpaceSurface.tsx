@@ -29,35 +29,20 @@ import {
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { NotFound } from "../NotFound/NotFound";
-
-type StandaloneWindowSpaceWindow = {
-  instanceId: string;
-  surfaceKind: (typeof WindowSpaceSurfaceKindEnum)[keyof typeof WindowSpaceSurfaceKindEnum];
-  sectionIdOrNull: string | null;
-  mode: ChatWindowMode;
-  title: string;
-  chatId: string | null;
-  embeddedGitPaneVisible: boolean;
-  zIndex: number;
-  bounds: ChatWindowBounds;
-};
+import {
+  applyStandaloneWindowSpaceHydration,
+  areBoundsEqual,
+  type StandaloneWindowSpaceWindow,
+} from "./StandaloneWindowSpaceHydration";
+import {
+  createActiveStandaloneSnapResize,
+  type ActiveStandaloneSnapResize,
+} from "./StandaloneWindowSpaceSnapResize";
 
 type SnappedStandaloneWindow = {
   instanceId: string;
   bounds: ChatWindowBounds;
   snapPreset: FloatingSnapPreset;
-};
-
-type ActiveStandaloneSnapResize = {
-  pointerId: number;
-  axis: FloatingSnapResizeHandle["axis"];
-  startPointerPosition: number;
-  startCoordinate: number;
-  minCoordinate: number;
-  maxCoordinate: number;
-  leadingInstanceIds: string[];
-  trailingInstanceIds: string[];
-  startBoundsByInstanceId: Record<string, ChatWindowBounds>;
 };
 
 const EMPTY_FLOATING_WINDOW_INSETS: FloatingWindowBoundaryInsets = {
@@ -68,8 +53,6 @@ const EMPTY_FLOATING_WINDOW_INSETS: FloatingWindowBoundaryInsets = {
 };
 
 const STANDALONE_WINDOW_SPACE_WINDOW_FRAME_CLASS = "rounded-none shadow-none";
-const STANDALONE_WINDOW_SPACE_MIN_WIDTH_PX = 220;
-const STANDALONE_WINDOW_SPACE_MIN_HEIGHT_PX = 180;
 const STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_HIT_SIZE_PX = 8;
 const STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_LINE_THICKNESS_PX = 2;
 const STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_LAYER_Z_INDEX = 24;
@@ -97,7 +80,6 @@ function hydrateWindowSpaceWindows(
   sectionNamesById: Record<string, string>,
 ): Record<string, StandaloneWindowSpaceWindow> {
   const hydratedWindowsById: Record<string, StandaloneWindowSpaceWindow> = {};
-  const winningInstanceIdBySectionId = new Map<string, string>();
   const orderedInstanceIds = [
     ...windowSpace.order,
     ...Object.keys(windowSpace.windowsById),
@@ -140,27 +122,6 @@ function hydrateWindowSpaceWindows(
         EMPTY_FLOATING_WINDOW_INSETS,
       ),
     };
-    const sectionId = hydratedWindow.sectionIdOrNull;
-    if (sectionId) {
-      const currentBestInstanceId =
-        winningInstanceIdBySectionId.get(sectionId) ?? null;
-      const currentBestWindow =
-        currentBestInstanceId === null
-          ? null
-          : hydratedWindowsById[currentBestInstanceId] ?? null;
-      if (
-        currentBestWindow &&
-        (currentBestWindow.zIndex > hydratedWindow.zIndex ||
-          (currentBestWindow.zIndex === hydratedWindow.zIndex &&
-            currentBestInstanceId.localeCompare(instanceId) >= 0))
-      ) {
-        continue;
-      }
-      if (currentBestInstanceId !== null) {
-        delete hydratedWindowsById[currentBestInstanceId];
-      }
-      winningInstanceIdBySectionId.set(sectionId, instanceId);
-    }
     hydratedWindowsById[instanceId] = hydratedWindow;
   }
   return hydratedWindowsById;
@@ -191,12 +152,6 @@ function focusStandaloneWindow(
       zIndex: nextZIndex,
     },
   };
-}
-
-function areBoundsEqual(a: ChatWindowBounds, b: ChatWindowBounds): boolean {
-  return (
-    a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
-  );
 }
 
 function updateStandaloneWindowBounds(
@@ -259,132 +214,6 @@ function setStandaloneEmbeddedGitPaneVisibility(
       ...current,
       embeddedGitPaneVisible: visible,
     },
-  };
-}
-
-function areStandaloneWindowsEqual(
-  a: StandaloneWindowSpaceWindow,
-  b: StandaloneWindowSpaceWindow,
-): boolean {
-  return (
-    a.instanceId === b.instanceId &&
-    a.surfaceKind === b.surfaceKind &&
-    a.sectionIdOrNull === b.sectionIdOrNull &&
-    a.mode === b.mode &&
-    a.title === b.title &&
-    a.chatId === b.chatId &&
-    a.embeddedGitPaneVisible === b.embeddedGitPaneVisible &&
-    a.zIndex === b.zIndex &&
-    areBoundsEqual(a.bounds, b.bounds)
-  );
-}
-
-function areStandaloneWindowOwnersEqual(
-  a: StandaloneWindowSpaceWindow,
-  b: StandaloneWindowSpaceWindow,
-): boolean {
-  return (
-    a.surfaceKind === b.surfaceKind &&
-    a.sectionIdOrNull === b.sectionIdOrNull &&
-    a.mode === b.mode
-  );
-}
-
-export function mergeHydratedStandaloneWindows(
-  currentWindowsById: Record<string, StandaloneWindowSpaceWindow>,
-  previousHydratedWindowsById: Record<string, StandaloneWindowSpaceWindow>,
-  nextHydratedWindowsById: Record<string, StandaloneWindowSpaceWindow>,
-): Record<string, StandaloneWindowSpaceWindow> {
-  let changed =
-    Object.keys(currentWindowsById).length !==
-    Object.keys(nextHydratedWindowsById).length;
-  const nextWindowsById: Record<string, StandaloneWindowSpaceWindow> = {};
-
-  for (const [instanceId, nextHydratedWindow] of Object.entries(
-    nextHydratedWindowsById,
-  )) {
-    const currentWindow = currentWindowsById[instanceId];
-    if (!currentWindow) {
-      changed = true;
-      nextWindowsById[instanceId] = nextHydratedWindow;
-      continue;
-    }
-    const previousHydratedWindow = previousHydratedWindowsById[instanceId];
-    const ownerChanged = !areStandaloneWindowOwnersEqual(
-      currentWindow,
-      nextHydratedWindow,
-    );
-    const nextWindow: StandaloneWindowSpaceWindow = ownerChanged
-      ? nextHydratedWindow
-      : {
-          ...nextHydratedWindow,
-          title: nextHydratedWindow.title,
-          chatId:
-            previousHydratedWindow &&
-            currentWindow.chatId !== previousHydratedWindow.chatId
-              ? currentWindow.chatId
-              : nextHydratedWindow.chatId,
-          embeddedGitPaneVisible:
-            previousHydratedWindow &&
-            currentWindow.embeddedGitPaneVisible !==
-              previousHydratedWindow.embeddedGitPaneVisible
-              ? currentWindow.embeddedGitPaneVisible
-              : nextHydratedWindow.embeddedGitPaneVisible,
-          zIndex:
-            previousHydratedWindow &&
-            currentWindow.zIndex !== previousHydratedWindow.zIndex
-              ? currentWindow.zIndex
-              : nextHydratedWindow.zIndex,
-          bounds:
-            previousHydratedWindow &&
-            !areBoundsEqual(currentWindow.bounds, previousHydratedWindow.bounds)
-              ? currentWindow.bounds
-              : nextHydratedWindow.bounds,
-        };
-    if (!changed && !areStandaloneWindowsEqual(currentWindow, nextWindow)) {
-      changed = true;
-    }
-    nextWindowsById[instanceId] = changed ? nextWindow : currentWindow;
-  }
-
-  return changed ? nextWindowsById : currentWindowsById;
-}
-
-export function applyStandaloneWindowSpaceHydration({
-  currentWindowsById,
-  previousHydratedWindowsById,
-  nextHydratedWindowsById,
-  previousHydrationKey,
-  nextHydrationKey,
-}: {
-  currentWindowsById: Record<string, StandaloneWindowSpaceWindow>;
-  previousHydratedWindowsById: Record<string, StandaloneWindowSpaceWindow>;
-  nextHydratedWindowsById: Record<string, StandaloneWindowSpaceWindow>;
-  previousHydrationKey: string;
-  nextHydrationKey: string;
-}): {
-  nextLocalWindowsById: Record<string, StandaloneWindowSpaceWindow>;
-  nextPreviousHydratedWindowsById: Record<string, StandaloneWindowSpaceWindow>;
-  nextHydrationKey: string;
-  resetLocalState: boolean;
-} {
-  if (previousHydrationKey !== nextHydrationKey) {
-    return {
-      nextLocalWindowsById: nextHydratedWindowsById,
-      nextPreviousHydratedWindowsById: nextHydratedWindowsById,
-      nextHydrationKey,
-      resetLocalState: true,
-    };
-  }
-  return {
-    nextLocalWindowsById: mergeHydratedStandaloneWindows(
-      currentWindowsById,
-      previousHydratedWindowsById,
-      nextHydratedWindowsById,
-    ),
-    nextPreviousHydratedWindowsById: nextHydratedWindowsById,
-    nextHydrationKey,
-    resetLocalState: false,
   };
 }
 
@@ -616,88 +445,17 @@ export function StandaloneWindowSpaceSurface({
     if (event.button !== 0) {
       return;
     }
-    const startBoundsByInstanceId: Record<string, ChatWindowBounds> = {};
-    const involvedInstanceIds = [
-      ...handle.leadingInstanceIds,
-      ...handle.trailingInstanceIds,
-    ];
-    for (const instanceId of involvedInstanceIds) {
-      const bounds = localWindowsById[instanceId]?.bounds;
-      if (!bounds) {
-        return;
-      }
-      startBoundsByInstanceId[instanceId] = { ...bounds };
+    const activeResize = createActiveStandaloneSnapResize({
+      windowsById: localWindowsById,
+      handle,
+      pointerId: event.pointerId,
+      pointerX: event.clientX,
+      pointerY: event.clientY,
+    });
+    if (!activeResize) {
+      return;
     }
-
-    if (handle.axis === "vertical") {
-      let minCoordinate = -Infinity;
-      let maxCoordinate = Infinity;
-      for (const instanceId of handle.leadingInstanceIds) {
-        const bounds = startBoundsByInstanceId[instanceId];
-        if (!bounds) {
-          return;
-        }
-        minCoordinate = Math.max(
-          minCoordinate,
-          bounds.x + STANDALONE_WINDOW_SPACE_MIN_WIDTH_PX,
-        );
-      }
-      for (const instanceId of handle.trailingInstanceIds) {
-        const bounds = startBoundsByInstanceId[instanceId];
-        if (!bounds) {
-          return;
-        }
-        maxCoordinate = Math.min(
-          maxCoordinate,
-          bounds.x + bounds.width - STANDALONE_WINDOW_SPACE_MIN_WIDTH_PX,
-        );
-      }
-      activeSnapResizeRef.current = {
-        pointerId: event.pointerId,
-        axis: "vertical",
-        startPointerPosition: event.clientX,
-        startCoordinate: handle.coordinate,
-        minCoordinate,
-        maxCoordinate,
-        leadingInstanceIds: handle.leadingInstanceIds,
-        trailingInstanceIds: handle.trailingInstanceIds,
-        startBoundsByInstanceId,
-      };
-    } else {
-      let minCoordinate = -Infinity;
-      let maxCoordinate = Infinity;
-      for (const instanceId of handle.leadingInstanceIds) {
-        const bounds = startBoundsByInstanceId[instanceId];
-        if (!bounds) {
-          return;
-        }
-        minCoordinate = Math.max(
-          minCoordinate,
-          bounds.y + STANDALONE_WINDOW_SPACE_MIN_HEIGHT_PX,
-        );
-      }
-      for (const instanceId of handle.trailingInstanceIds) {
-        const bounds = startBoundsByInstanceId[instanceId];
-        if (!bounds) {
-          return;
-        }
-        maxCoordinate = Math.min(
-          maxCoordinate,
-          bounds.y + bounds.height - STANDALONE_WINDOW_SPACE_MIN_HEIGHT_PX,
-        );
-      }
-      activeSnapResizeRef.current = {
-        pointerId: event.pointerId,
-        axis: "horizontal",
-        startPointerPosition: event.clientY,
-        startCoordinate: handle.coordinate,
-        minCoordinate,
-        maxCoordinate,
-        leadingInstanceIds: handle.leadingInstanceIds,
-        trailingInstanceIds: handle.trailingInstanceIds,
-        startBoundsByInstanceId,
-      };
-    }
+    activeSnapResizeRef.current = activeResize;
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);

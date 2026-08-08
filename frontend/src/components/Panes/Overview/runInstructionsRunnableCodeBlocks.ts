@@ -1,13 +1,7 @@
-import { isRunnableCodeLanguage, type CodeLanguage } from "utils/codeLanguage";
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import type { SectionCapabilities } from "utils/generatedTypes";
 
 export function isRunnableSectionForCustomRun(
-  sectionType: SectionType,
-  pythonCodegenEnabled: boolean,
-  codeLanguage?: CodeLanguage,
+  sectionCapabilities: SectionCapabilities | null | undefined,
 ): boolean {
-  if (sectionType === SectionTypeEnum.Code) {
-    return codeLanguage ? isRunnableCodeLanguage(codeLanguage) : false;
-  }
-  return pythonCodegenEnabled && sectionType === SectionTypeEnum.GenPythonCode;
+  return Boolean(sectionCapabilities?.canRun);
 }

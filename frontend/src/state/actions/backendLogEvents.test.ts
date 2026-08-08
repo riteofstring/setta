@@ -1,18 +1,18 @@
 import { useBackendLogEvents, useLocalStorage } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import { OverviewNotificationsPaneTabEnum } from "utils/constants";
 import {
-  OverviewNotificationsPaneTabEnum,
-  OverviewTabNameEnum,
-} from "utils/constants";
-import { type SettaBackendLogEvent } from "utils/generatedTypes";
+  OverviewTabUIConfig,
+  type BackendLogEvent,
+} from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { addBackendLogEvent } from "./backendLogEvents";
 
 let backendLogEventCounter = 0;
 
 function createBackendLogEvent(
-  severity: SettaBackendLogEvent["severity"],
-): SettaBackendLogEvent {
+  severity: BackendLogEvent["severity"],
+): BackendLogEvent {
   backendLogEventCounter += 1;
   return {
     id: `backend-log-event-${backendLogEventCounter}`,
@@ -28,7 +28,7 @@ describe("backend log unread tracking", () => {
     resetProjectStores();
     useLocalStorage.setState({
       overviewVis: true,
-      overviewTab: OverviewTabNameEnum.Overview,
+      overviewTab: OverviewTabUIConfig.names.Overview,
       overviewNotificationsPaneTab:
         OverviewNotificationsPaneTabEnum.Notifications,
     });
@@ -40,7 +40,7 @@ describe("backend log unread tracking", () => {
 
   it("marks high-severity events unread when logs are not visible", () => {
     useLocalStorage.setState({
-      overviewTab: OverviewTabNameEnum.Notifications,
+      overviewTab: OverviewTabUIConfig.names.Notifications,
       overviewNotificationsPaneTab:
         OverviewNotificationsPaneTabEnum.Notifications,
     });
@@ -52,7 +52,7 @@ describe("backend log unread tracking", () => {
 
   it("does not mark high-severity events unread when logs sub-tab is visible", () => {
     useLocalStorage.setState({
-      overviewTab: OverviewTabNameEnum.Notifications,
+      overviewTab: OverviewTabUIConfig.names.Notifications,
       overviewNotificationsPaneTab:
         OverviewNotificationsPaneTabEnum.BackendLogs,
     });

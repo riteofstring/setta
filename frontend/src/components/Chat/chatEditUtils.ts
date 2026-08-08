@@ -7,6 +7,16 @@ type ChatEditAvailability = {
   isFrozen?: boolean;
 };
 
+function getNonExternalChatEditDisabledReason(args: {
+  hasLLMConfig: boolean;
+  noLLMConfigsAvailable: boolean;
+}): string | null {
+  if (args.noLLMConfigsAvailable) {
+    return "No LLM configs are available.";
+  }
+  return args.hasLLMConfig ? null : "Select an LLM config to edit messages.";
+}
+
 export function getChatEditDisabledReason({
   hasEngineConfig,
   hasLLMConfig,
@@ -21,16 +31,11 @@ export function getChatEditDisabledReason({
   if (!hasEngineConfig) {
     return "Select an engine to edit messages.";
   }
-  if (isExternalEngine && !externalEngineAvailable) {
-    return "External agent is unavailable.";
+  if (isExternalEngine) {
+    return externalEngineAvailable ? null : "External agent is unavailable.";
   }
-  if (!isExternalEngine) {
-    if (noLLMConfigsAvailable) {
-      return "No LLM configs are available.";
-    }
-    if (!hasLLMConfig) {
-      return "Select an LLM config to edit messages.";
-    }
-  }
-  return null;
+  return getNonExternalChatEditDisabledReason({
+    hasLLMConfig,
+    noLLMConfigsAvailable,
+  });
 }

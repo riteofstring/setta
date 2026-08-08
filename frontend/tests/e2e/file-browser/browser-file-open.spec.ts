@@ -1,8 +1,9 @@
+import { type Page, expect, test } from "@playwright/test";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { type Page, expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   ensureAppReady,
   getCurrentProjectConfigId,
   getViewportBoundsForPlacement,
@@ -146,28 +147,32 @@ async function setBrowserPath(
   const pathInputId = `CodeMirror-${sectionId}-browser-path`;
   const pathInput = sectionNode.locator(`[id="${pathInputId}"]`);
   await expect(pathInput).toBeVisible();
+  const commitPath = async (nextPath: string): Promise<void> => {
+    const cmContent = pathInput.locator(".cm-content");
+    await expect(cmContent).toBeVisible();
+    await cmContent.click();
+    await page.keyboard.press(SELECT_ALL_SHORTCUT);
+    await page.keyboard.press("Backspace");
+    await page.keyboard.insertText(nextPath);
+    await page.keyboard.press("Enter");
+
+    await expect
+      .poll(async () =>
+        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+      )
+      .toContain(normalizePathForComparison(nextPath));
+  };
+
   const currentValue = await readCodeMirrorValue(page, pathInputId);
   const normalizedCurrent = normalizePathForComparison(currentValue);
   const normalizedTarget = normalizePathForComparison(targetPath);
-  const nextValue =
-    normalizedCurrent === normalizedTarget &&
-    !targetPath.endsWith(path.sep)
-      ? `${targetPath}${path.sep}`
-      : targetPath;
-
-  const cmContent = pathInput.locator(".cm-content");
-  await expect(cmContent).toBeVisible();
-  await cmContent.click();
-  await page.keyboard.press(SELECT_ALL_SHORTCUT);
-  await page.keyboard.press("Backspace");
-  await page.keyboard.insertText(nextValue);
-  await page.keyboard.press("Enter");
-
-  await expect
-    .poll(async () =>
-      normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
-    )
-    .toContain(normalizedTarget);
+  if (normalizedCurrent === normalizedTarget) {
+    const parentPath = path.dirname(targetPath);
+    if (normalizePathForComparison(parentPath) !== normalizedTarget) {
+      await commitPath(parentPath);
+    }
+  }
+  await commitPath(targetPath);
 
   return pathInputId;
 }
@@ -206,22 +211,20 @@ test("browser opens markdown and text files in text sections", async ({
     );
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error("Unable to resolve viewport bounds for section placement.");
+      throw new Error(
+        "Unable to resolve viewport bounds for section placement.",
+      );
     }
 
-    const browserSection = await postBackend<{ sectionId?: string }>(
-      page,
-      "/createTopLevelSection",
-      {
-        projectConfigId,
-        implType: "Browser",
-        position: {
-          x: viewportBounds.x + viewportBounds.w * 0.55,
-          y: viewportBounds.y + viewportBounds.h * 0.25,
-        },
-        viewportBounds,
+    const browserSection = await createTopLevelSectionFromFrontend(page, {
+      projectConfigId,
+      implType: "Browser",
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.55,
+        y: viewportBounds.y + viewportBounds.h * 0.25,
       },
-    );
+      viewportBounds,
+    });
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
@@ -247,9 +250,7 @@ test("browser opens markdown and text files in text sections", async ({
         sectionNode.locator('button[aria-label="Go forward"]'),
       ).toBeVisible();
 
-      await sectionNode
-        .locator('button[aria-label="Carousel view"]')
-        .click();
+      await sectionNode.locator('button[aria-label="Carousel view"]').click();
 
       await setBrowserPath(page, sectionNode, sectionId, workspaceRoot);
 
@@ -265,7 +266,9 @@ test("browser opens markdown and text files in text sections", async ({
         textIncludes: "Browser Test",
       });
 
-      const textTile = sectionNode.locator(`button[aria-label="${textName}"]`).first();
+      const textTile = sectionNode
+        .locator(`button[aria-label="${textName}"]`)
+        .first();
       await expect(textTile).toBeVisible({ timeout: 15000 });
       await textTile.dblclick();
 
@@ -293,28 +296,27 @@ test("browser history buttons navigate folders", async ({ page }) => {
   if (!workspaceRoot) {
     throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
   }
+  const workspaceParent = path.dirname(workspaceRoot);
   const normalizedWorkspaceRoot = normalizePathForComparison(workspaceRoot);
   const projectContext = await openIsolatedProject(page);
   try {
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error("Unable to resolve viewport bounds for section placement.");
+      throw new Error(
+        "Unable to resolve viewport bounds for section placement.",
+      );
     }
 
-    const browserSection = await postBackend<{ sectionId?: string }>(
-      page,
-      "/createTopLevelSection",
-      {
-        projectConfigId,
-        implType: "Browser",
-        position: {
-          x: viewportBounds.x + viewportBounds.w * 0.55,
-          y: viewportBounds.y + viewportBounds.h * 0.25,
-        },
-        viewportBounds,
+    const browserSection = await createTopLevelSectionFromFrontend(page, {
+      projectConfigId,
+      implType: "Browser",
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.55,
+        y: viewportBounds.y + viewportBounds.h * 0.25,
       },
-    );
+      viewportBounds,
+    });
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
@@ -396,36 +398,35 @@ test("browser list view opens folders on double click", async ({ page }) => {
   if (!workspaceRoot) {
     throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
   }
+  const workspaceParent = path.dirname(workspaceRoot);
   const normalizedWorkspaceRoot = normalizePathForComparison(workspaceRoot);
   const projectContext = await openIsolatedProject(page);
   try {
     const projectConfigId = projectContext.projectConfigId;
+    const folderName = "browser_list_folder";
+    const folderPath = path.join(workspaceRoot, folderName);
+    await fs.mkdir(folderPath, { recursive: true });
+
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error("Unable to resolve viewport bounds for section placement.");
+      throw new Error(
+        "Unable to resolve viewport bounds for section placement.",
+      );
     }
 
-    const browserSection = await postBackend<{ sectionId?: string }>(
-      page,
-      "/createTopLevelSection",
-      {
-        projectConfigId,
-        implType: "Browser",
-        position: {
-          x: viewportBounds.x + viewportBounds.w * 0.55,
-          y: viewportBounds.y + viewportBounds.h * 0.25,
-        },
-        viewportBounds,
+    const browserSection = await createTopLevelSectionFromFrontend(page, {
+      projectConfigId,
+      implType: "Browser",
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.55,
+        y: viewportBounds.y + viewportBounds.h * 0.25,
       },
-    );
+      viewportBounds,
+    });
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
     }
-
-    const folderName = "browser_list_folder";
-    const folderPath = path.join(workspaceRoot, folderName);
-    await fs.mkdir(folderPath, { recursive: true });
 
     try {
       const sectionNode = page.locator(
@@ -435,13 +436,13 @@ test("browser list view opens folders on double click", async ({ page }) => {
 
       await sectionNode.locator('button[aria-label="List view"]').click();
 
-      // List view is the default; ensure we're rooted at the workspace.
       const pathInputId = await setBrowserPath(
         page,
         sectionNode,
         sectionId,
-        workspaceRoot,
+        workspaceParent,
       );
+      await setBrowserPath(page, sectionNode, sectionId, workspaceRoot);
 
       const explorer = sectionNode.locator(
         '[role="region"][aria-label="File explorer"]',
@@ -453,16 +454,27 @@ test("browser list view opens folders on double click", async ({ page }) => {
         'button[aria-label="Go forward"]',
       );
 
-      const folderButton = explorer
-        .getByRole("button", { name: folderName })
+      const folderRow = explorer
+        .locator('[data-testid="file-browser-row"]', { hasText: folderName })
         .first();
-      await expect(folderButton).toBeVisible();
-      await folderButton.scrollIntoViewIfNeeded();
-      await folderButton.dblclick();
+      if (!(await folderRow.isVisible().catch(() => false))) {
+        const tree = explorer.locator('div[tabindex="0"]').first();
+        await expect(tree).toBeVisible();
+        await tree.evaluate((element: HTMLElement) => element.focus());
+        await page.keyboard.press("ArrowRight");
+        if (!(await folderRow.isVisible().catch(() => false))) {
+          await page.keyboard.press("ArrowRight");
+        }
+      }
+      await expect(folderRow).toBeVisible();
+      await folderRow.scrollIntoViewIfNeeded();
+      await folderRow.dblclick();
 
       await expect
         .poll(async () =>
-          normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+          normalizePathForComparison(
+            await readCodeMirrorValue(page, pathInputId),
+          ),
         )
         .toContain(folderName);
       await expect(backButton).toBeEnabled();
@@ -470,7 +482,9 @@ test("browser list view opens folders on double click", async ({ page }) => {
       await backButton.click();
       await expect
         .poll(async () =>
-          normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+          normalizePathForComparison(
+            await readCodeMirrorValue(page, pathInputId),
+          ),
         )
         .toContain(normalizedWorkspaceRoot);
 
@@ -478,7 +492,9 @@ test("browser list view opens folders on double click", async ({ page }) => {
       await forwardButton.click();
       await expect
         .poll(async () =>
-          normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+          normalizePathForComparison(
+            await readCodeMirrorValue(page, pathInputId),
+          ),
         )
         .toContain(folderName);
     } finally {
@@ -507,15 +523,11 @@ test("browser path commits latest value on blur after fast typing", async ({
     throw new Error("Unable to resolve viewport bounds for section placement.");
   }
 
-  const browserSection = await postBackend<{ sectionId?: string }>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Browser",
-      viewportBounds,
-    },
-  );
+  const browserSection = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId,
+    implType: "Browser",
+    viewportBounds,
+  });
   const sectionId = browserSection?.sectionId;
   if (!sectionId) {
     throw new Error("Missing sectionId when creating browser section.");
@@ -531,9 +543,7 @@ test("browser path commits latest value on blur after fast typing", async ({
       `.react-flow__node[data-id="${sectionId}"]`,
     );
     await expect(sectionNode).toBeVisible();
-    await sectionNode
-      .locator('button[aria-label="Carousel view"]')
-      .click();
+    await sectionNode.locator('button[aria-label="Carousel view"]').click();
 
     const pathInputId = `CodeMirror-${sectionId}-browser-path`;
     const pathInput = sectionNode.locator(`[id="${pathInputId}"]`);
@@ -549,7 +559,9 @@ test("browser path commits latest value on blur after fast typing", async ({
     });
     await expect
       .poll(async () =>
-        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+        normalizePathForComparison(
+          await readCodeMirrorValue(page, pathInputId),
+        ),
       )
       .toContain(normalizePathForComparison(workspaceRoot));
 
@@ -565,7 +577,9 @@ test("browser path commits latest value on blur after fast typing", async ({
 
     await expect
       .poll(async () =>
-        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+        normalizePathForComparison(
+          await readCodeMirrorValue(page, pathInputId),
+        ),
       )
       .toContain(normalizedFolderPath);
   } finally {

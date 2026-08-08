@@ -1,7 +1,7 @@
 # Agent CLI Integration (Setta)
 
 This doc describes a CLI-first workflow for agents that can run shell commands
-(Codex, Claude Code, OpenCode). The goal is a stable, machine-readable contract
+(Codex, Claude Code). The goal is a stable, machine-readable contract
 without MCP.
 
 ## Recommended flow (single command)
@@ -47,5 +47,6 @@ setta auth --json --latest | setta api get_latest_project_state_summary --auth-s
 
 ## Useful references
 
-See `docs/reference/setta-cli-commands.md` for CLI contracts. Use `setta tools` output
-for MCP tool schemas. `/api/openapi.json` is only needed for legacy REST calls.
+See `docs/reference/setta-cli-commands.md` for CLI contracts. Use `setta tools`
+output for MCP tool schemas. `/api/openapi.json` is available for direct REST
+calls.

@@ -12,7 +12,19 @@ vi.mock("components/Chat/ChatInput", () => ({
 }));
 
 vi.mock("components/Chat/ChatMessages", () => ({
-  ChatMessageList: () => <div data-testid="mock-chat-message-list" />,
+  ChatMessageList: ({
+    messages,
+    waitingForResponse,
+  }: {
+    messages: Array<{ id: string }>;
+    waitingForResponse: boolean;
+  }) => (
+    <div
+      data-testid="mock-chat-message-list"
+      data-message-count={messages.length}
+      data-waiting={waitingForResponse ? "true" : "false"}
+    />
+  ),
 }));
 
 vi.mock("state/actions/ai", async () => {
@@ -38,6 +50,7 @@ import {
   createAssistantChatMessage,
   createMessageTextContent,
   createProjectConfig,
+  createUserChatMessage,
 } from "utils/generatedTypes";
 import { ProjectChatCore } from "./ProjectChatCore";
 
@@ -172,6 +185,67 @@ describe("ProjectChatCore hydration while waiting", () => {
 
     await act(async () => {});
     expect(getLLMChatHydrationOutcome).not.toHaveBeenCalled();
+  });
+
+  it("renders pending draft messages for a surface before a chat id exists", async () => {
+    useAIStore.setState({
+      pendingChatDetailsBySurfaceId: {
+        "surface-a": {
+          messages: [
+            createUserChatMessage({
+              id: "pending-user",
+              content: [
+                createMessageTextContent({
+                  text: "Hi before the backend assigns a chat id",
+                }),
+              ],
+              attachments: [],
+            }),
+          ],
+          toolCallArguments: {},
+          waitingForResponse: true,
+          llmConfig: null,
+          contextUsage: null,
+        },
+      },
+    });
+
+    await act(async () => {
+      root.render(
+        <ProjectChatCore
+          surfaceId="surface-a"
+          chatId={undefined}
+          draftMessage=""
+          setDraftMessage={vi.fn()}
+          placeholderText="Type a message..."
+          conversationFilterText=""
+          hydrationAuthority={{
+            status: "ready",
+            hydrationRunType: null,
+            blockedErrorCode: null,
+          }}
+          hydrationMetadataRevision="revision-pending-draft"
+          thinking={true}
+          engineConfigId="engine-a"
+          engineType={EngineTypeEnum.setta_llm}
+          hasLLMConfig={true}
+          externalEngineAvailable={false}
+          noLLMConfigsAvailable={false}
+          transcriptionProfileId={null}
+          dictationMode="auto"
+          providerDictationAvailable={false}
+          providerDictationLikelySupported={false}
+          setChatId={vi.fn()}
+        />,
+      );
+    });
+
+    const messageList = host.querySelector(
+      '[data-testid="mock-chat-message-list"]',
+    );
+    expect(messageList).not.toBeNull();
+    expect(messageList?.getAttribute("data-message-count")).toBe("1");
+    expect(messageList?.getAttribute("data-waiting")).toBe("true");
   });
 
   it("cancels transient hydration retries when the selected chat changes", async () => {

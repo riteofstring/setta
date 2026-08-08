@@ -8,7 +8,7 @@ import {
   setOverviewTab,
 } from "../helpers";
 
-test("header plugin restart banner supports restart action and plugins shortcut", async ({
+test("header plugin restart banner refreshes runtime after accepted restart", async ({
   page,
 }) => {
   const backendFixturePluginRoot = path.resolve(
@@ -18,6 +18,7 @@ test("header plugin restart banner supports restart action and plugins shortcut"
 
   let pluginRuntimeRequestCount = 0;
   let restartRequestCount = 0;
+  let restartApplied = false;
 
   await setOverviewTab(page, "Overview");
   const projectContext = await openIsolatedProject(page);
@@ -37,25 +38,43 @@ test("header plugin restart banner supports restart action and plugins shortcut"
       const plugins = Array.isArray(payload.list?.plugins)
         ? payload.list.plugins
         : [];
+      const statusPlugins = Array.isArray(payload.status?.plugins)
+        ? payload.status.plugins
+        : [];
       payload.list.restartCapability = {
         mode: "programmatic",
         command: null,
         reason: null,
       };
-      payload.list.plugins = plugins.map((plugin: { pluginId?: string }) => {
-        if (plugin.pluginId !== "setta-fixture-backend") {
-          return plugin;
-        }
-        return {
-          ...plugin,
-          restartRequired: true,
-        };
-      });
+      if (!restartApplied) {
+        payload.list.plugins = plugins.map((plugin: { pluginId?: string }) => {
+          if (plugin.pluginId !== "setta-fixture-backend") {
+            return plugin;
+          }
+          return {
+            ...plugin,
+            restartRequired: true,
+          };
+        });
+        payload.status.plugins = statusPlugins.map(
+          (plugin: { pluginId?: string }) => {
+            if (plugin.pluginId !== "setta-fixture-backend") {
+              return plugin;
+            }
+            return {
+              ...plugin,
+              state: "pending_restart",
+              restartRequired: true,
+            };
+          },
+        );
+      }
       await route.fulfill({ response, json: payload });
     });
 
     await page.route("**/api/plugins/restart", async (route) => {
       restartRequestCount += 1;
+      restartApplied = true;
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -75,24 +94,20 @@ test("header plugin restart banner supports restart action and plugins shortcut"
       /^Restart required for \d+ plugins?$/,
     );
     await expect(restartBannerText).toBeVisible();
-    const restartBanner = restartBannerText.locator("xpath=ancestor::div[1]");
 
     const runtimeCountBeforeRestart = pluginRuntimeRequestCount;
-    await restartBanner
+    await page
+      .getByText(/^Restart required for \d+ plugins?$/)
+      .locator("xpath=ancestor::div[1]")
       .getByRole("button", { name: "Restart", exact: true })
       .click();
 
     await expect.poll(() => restartRequestCount).toBe(1);
-    await page.waitForTimeout(300);
-    expect(pluginRuntimeRequestCount).toBe(runtimeCountBeforeRestart);
+    await expect
+      .poll(() => pluginRuntimeRequestCount)
+      .toBe(runtimeCountBeforeRestart + 1);
+    await expect(restartBannerText).toHaveCount(0);
     await expect(page.getByText("Restart request accepted.")).toBeVisible();
-
-    await restartBanner
-      .getByRole("button", { name: "Plugins", exact: true })
-      .click();
-    await expect(
-      page.getByText("Plugin Runtime", { exact: true }),
-    ).toBeVisible();
   } finally {
     await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-backend",
@@ -155,41 +170,64 @@ test("header plugin restart banner is hidden in non-IDE runtime modes", async ({
   const projectContext = await openIsolatedProject(page);
   try {
     await page.route("**/api/plugins/runtime", async (route) => {
-      const response = await route.fetch();
-      const payload = await response.json();
-      payload.list.serverMode = "share";
-      payload.status.serverMode = "share";
-      payload.list.plugins = [
-        {
-          pluginId: "setta-fixture-backend",
-          name: "Setta Fixture Backend",
-          version: "0.1.0",
-          sourceScope: "workspace",
-          sourceScopeLabel: "workspace",
-          sourceManager: "setta",
-          sourceManagerHint: null,
-          canonicalSourceKey: "local:/tmp/setta-fixture-backend",
-          sourceDigestSha256: "digest",
-          frontend: {
-            entrypointUrl: null,
-            styleUrl: null,
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          schemaVersion: 1,
+          list: {
+            schemaVersion: 1,
+            serverMode: "share",
+            restartCapability: {
+              mode: "manual",
+              command: "setta",
+              reason: "Plugin runtime restart is available only in IDE mode.",
+            },
+            plugins: [
+              {
+                pluginId: "setta-fixture-backend",
+                name: "Setta Fixture Backend",
+                version: "0.1.0",
+                sourceScope: "workspace",
+                sourceScopeLabel: "workspace",
+                sourceManager: "setta",
+                sourceManagerHint: null,
+                canonicalSourceKey: "local:/tmp/setta-fixture-backend",
+                sourceDigestSha256: "digest",
+                frontend: {
+                  entrypointUrl: null,
+                  styleUrl: null,
+                },
+                content: {
+                  hasBlueprints: false,
+                  hasProjectTemplates: false,
+                  hasPrompts: false,
+                },
+                config: {
+                  hasSchema: false,
+                  schemaJson: {},
+                  schemaJsonDigestSha256: null,
+                  currentConfig: {},
+                  currentConfigDigestSha256: null,
+                },
+                effectiveCapabilities: [],
+                enablementSource: "workspace_enabled",
+                restartRequired: true,
+              },
+            ],
           },
-          content: {
-            hasBlueprints: false,
-            hasProjectTemplates: false,
-            hasPrompts: false,
+          status: {
+            schemaVersion: 1,
+            serverMode: "share",
+            restartCapability: {
+              mode: "manual",
+              command: "setta",
+              reason: "Plugin runtime restart is available only in IDE mode.",
+            },
+            plugins: [],
           },
-          config: {
-            hasSchema: false,
-            schemaJson: null,
-            currentConfig: {},
-          },
-          effectiveCapabilities: [],
-          enablementSource: "workspace_enabled",
-          restartRequired: true,
-        },
-      ];
-      await route.fulfill({ response, json: payload });
+        }),
+      });
     });
 
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -360,11 +398,11 @@ test("header plugin restart banner handles rejected and failed restart requests"
       method: "POST",
       count: 1,
     });
-  await restartButton.click();
-  await expect.poll(() => restartRequestCount).toBe(2);
-  await expect(
-    page.getByText("Restart request failed: restart failed"),
-  ).toBeVisible();
+    await restartButton.click();
+    await expect.poll(() => restartRequestCount).toBe(2);
+    await expect(
+      page.getByText("Restart request failed: restart failed"),
+    ).toBeVisible();
   } finally {
     await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-backend",

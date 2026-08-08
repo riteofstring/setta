@@ -3,7 +3,7 @@ import {
   attachPreviewResizeListeners,
   getListHeightPct,
   getPreviewHeightPctFromPointer,
-} from "./FileBrowserWorkspace";
+} from "./fileBrowserWorkspaceCore";
 
 describe("FileBrowserWorkspace sizing helpers", () => {
   it("expands list pane when preview is minimized", () => {

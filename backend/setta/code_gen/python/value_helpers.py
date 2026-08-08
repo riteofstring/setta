@@ -3,7 +3,7 @@ from pathlib import Path
 from urllib.request import urlopen
 
 from setta.secrets.password_store import get_password_secret
-from setta.utils.env_vars import RUNTIME_ROOT_ENV
+from setta.types.generated.go_shared_constants import RUNTIME_ROOT_ENV
 from setta.utils.paths import get_setta_paths
 
 _BINARY_BASE_URL_ENV = "SETTA_BINARY_BASE_URL"

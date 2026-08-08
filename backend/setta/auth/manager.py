@@ -4,16 +4,17 @@ from setta.auth.tokens import (
     LaunchIntentTokenManager,
     NonceTracker,
 )
-from setta.utils.constants import C
+from setta.types.generated import go_shared_constants
 
 _nonce_tracker = NonceTracker()
 BOOTSTRAP_TOKEN_MANAGER = BootstrapTokenManager(
-    C.BOOTSTRAP_TOKEN_TTL_SECONDS, nonce_tracker=_nonce_tracker
+    go_shared_constants.BOOTSTRAP_TOKEN_TTL_SECONDS,
+    nonce_tracker=_nonce_tracker,
 )
 LAUNCH_INTENT_TOKEN_MANAGER = LaunchIntentTokenManager(
-    C.LAUNCH_INTENT_TOKEN_TTL_SECONDS
+    go_shared_constants.LAUNCH_INTENT_TOKEN_TTL_SECONDS
 )
-AUTH_COOKIE_MANAGER = AuthCookieManager(C.AUTH_COOKIE_MAX_AGE_SECONDS)
+AUTH_COOKIE_MANAGER = AuthCookieManager(go_shared_constants.AUTH_COOKIE_MAX_AGE_SECONDS)
 
 __all__ = [
     "AUTH_COOKIE_MANAGER",

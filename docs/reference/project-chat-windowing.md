@@ -1,10 +1,9 @@
 # Project Chat Windowing and Window Spaces
 
-Project chat is no longer tied to a single Overview-pane transcript. The
-Overview `Project AI Chat` tab now renders the shared `ProjectChat` surface,
-while window management lives in the bottom-dock manager menu. The same chat UI
-is reused through `UnifiedChatSurface` across workspace windows, section hosts,
-and standalone routes.
+Project chat uses the shared `ProjectChat` surface in the Overview `Project AI
+Chat` tab, with window management in the bottom-dock manager menu. The same chat
+UI is reused through `UnifiedChatSurface` across workspace windows, section
+hosts, and standalone routes.
 
 ## Hosts and Surfaces
 
@@ -21,7 +20,7 @@ and standalone routes.
   - `StandaloneProjectSurfacePage`
   - `StandaloneWindowSpaceSurface`
 - The Git Graph uses the same tracked window layer via `git_graph_mode`;
-  file diffs still use the separate centered diff overlay.
+  file diffs use the separate centered diff overlay.
 
 ## Authoritative State
 
@@ -62,7 +61,7 @@ Backend normalization keeps this state coherent:
 
 - New project-chat windows open in the docked workspace window manager and
   minimize into the bottom tray.
-- The Overview `Project AI Chat` tab is now the primary integrated
+- The Overview `Project AI Chat` tab is the primary integrated
   project-chat surface; use the dock to create, reopen, focus, hide, float,
   and move additional chat windows to canvas sections.
 - The bottom-dock manager menu remains available even when only one chat window
@@ -84,7 +83,7 @@ Backend normalization keeps this state coherent:
 - Standalone thread routes (`/:projectConfigName/chat/:chatId`) keep the shared
   project-chat frame and can switch between thread ids in-place without
   requiring a full page refresh.
-- Route-owned waiting threads still hydrate the full transcript on reload; the
+- Route-owned waiting threads hydrate the full transcript on reload; the
   UI does not intentionally fall back to showing only the latest optimistic
   fragment.
 - Conversation search highlights visible transcript text, skips hidden tool
@@ -117,6 +116,13 @@ Persistence and restore rules:
 - Saving only snapshots visible floating windows.
 - Docked, minimized, closed, maximized, and invalid section-bound windows are
   excluded from a saved window space.
+- `Save As (With Refs)` copies saved window spaces into the new project config,
+  clears any copied saved-window `chatId` bindings, and starts the copied
+  config with empty live `projectChatWindowing`.
+- Plain `Save As` copies the current live `projectChatWindowing` layout into
+  the new project config and clears copied thread bindings. Section and
+  window-space ids stay stable within each copied project because those ids are
+  scoped by `projectConfigId`.
 - Restore reuses matching live floating windows when ownership matches a
   section, a project-chat thread, or the tracked Git Graph.
 - Colliding instance ids are remapped.
@@ -160,7 +166,7 @@ Backend persistence routes:
 - If `allowLLM` is false on a standalone managed surface, that surface fails
   closed.
 - Mixed standalone window spaces remain available when at least one saved window
-  is still allowed after managed-chat filtering.
+  is allowed after managed-chat filtering.
 
 ## Related Docs
 

@@ -1,21 +1,22 @@
 import { describe, expect, it } from "vitest";
-import {
-  RUN_INSTRUCTIONS_ACCORDION_ITEM_ORDER,
-  normalizeRunInstructionsAccordionOpenValues,
-} from "./runInstructionsAccordionState";
+import { normalizeRunInstructionsAccordionOpenValues } from "./runInstructionsAccordionState";
 
 const STRICT_PERF_BUDGETS_ENABLED = process.env.SETTA_STRICT_PERF === "1";
+const EXPECTED_ORDER = [
+  "run-instructions-run-snapshot-mode",
+  "run-instructions-codegen-targets",
+  "run-instructions-codegen-policy",
+  "run-instructions-workflow-controls",
+  "run-instructions-custom-runs",
+  "run-instructions-add-from-code-blocks",
+] as const;
 
 describe("runInstructionsAccordionState (perf)", () => {
   it("normalizes large persisted payloads quickly for pane startup", () => {
     const noisyPayload: Array<string> = [];
     for (let i = 0; i < 80_000; i += 1) {
       if (i % 8_000 === 0) {
-        noisyPayload.push(
-          RUN_INSTRUCTIONS_ACCORDION_ITEM_ORDER[
-            (i / 8_000) % RUN_INSTRUCTIONS_ACCORDION_ITEM_ORDER.length
-          ],
-        );
+        noisyPayload.push(EXPECTED_ORDER[(i / 8_000) % EXPECTED_ORDER.length]);
       } else {
         noisyPayload.push(`noise-${i}`);
       }
@@ -28,7 +29,7 @@ describe("runInstructionsAccordionState (perf)", () => {
     }
     const elapsedMs = performance.now() - start;
 
-    expect(normalized).toEqual(RUN_INSTRUCTIONS_ACCORDION_ITEM_ORDER);
+    expect(normalized).toEqual(EXPECTED_ORDER);
 
     if (STRICT_PERF_BUDGETS_ENABLED) {
       // Optional strict perf budget for dedicated perf runs.

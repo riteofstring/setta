@@ -99,7 +99,7 @@ def _reset_setta_paths_env() -> None:
     for key in _SETTA_PATH_ENV_VARS:
         os.environ.pop(key, None)
 
-    from setta.utils.paths import clear_setta_paths_cache
+    from tests.helpers.setta_paths import clear_setta_paths_cache
 
     clear_setta_paths_cache()
 
@@ -116,7 +116,7 @@ def _setta_home_tmp(
     setta_home = setta_home_parent / ".setta"
     setta_home.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("SETTA_HOME", str(setta_home))
-    from setta.utils.paths import clear_setta_paths_cache
+    from tests.helpers.setta_paths import clear_setta_paths_cache
 
     clear_setta_paths_cache()
 
@@ -131,6 +131,6 @@ def _workspace_root_tmp(
     # never in the repository checkout.
     workspace_root = tmp_path_factory.mktemp("setta_workspace")
     monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
-    from setta.utils.paths import clear_setta_paths_cache
+    from tests.helpers.setta_paths import clear_setta_paths_cache
 
     clear_setta_paths_cache()

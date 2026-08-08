@@ -20,14 +20,14 @@ vi.mock("utils/hotReload", () => ({
   useHotReload: () => false,
 }));
 
-function NavigateButton({ to }: { to: string }) {
+function NavigateButton({ to, state }: { to: string; state?: unknown }) {
   const navigate = useNavigate();
   return (
     <button
       type="button"
       data-testid={`navigate-${to}`}
       onClick={() => {
-        navigate(to);
+        navigate(to, { state });
       }}
     >
       Navigate
@@ -186,6 +186,62 @@ describe("useLoadProjectConfig", () => {
       expect(probe?.getAttribute("data-is-404")).toBe("false");
       expect(probe?.getAttribute("data-project-config-name")).toBe("alpha");
       expect(probe?.getAttribute("data-project-config-id")).toBe("alpha-id");
+    });
+
+    expect(loadProjectConfigMock).toHaveBeenCalledTimes(1);
+    expect(loadProjectConfigMock).toHaveBeenCalledWith({
+      projectConfigName: "alpha",
+    });
+  });
+
+  it("treats rename navigation state as a one-shot local project name update", async () => {
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/alpha"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName"
+              element={
+                <>
+                  <LoadProbe />
+                  <NavigateButton
+                    to="/beta"
+                    state={{
+                      pageLoadType: PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME,
+                    }}
+                  />
+                </>
+              }
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    await vi.waitFor(() => {
+      const probe = host.querySelector('[data-testid="load-probe"]');
+      expect(probe?.getAttribute("data-done-loading")).toBe("true");
+      expect(probe?.getAttribute("data-project-config-name")).toBe("alpha");
+      expect(probe?.getAttribute("data-project-config-id")).toBe("alpha-id");
+    });
+
+    await act(async () => {
+      const navigateButton = host.querySelector(
+        '[data-testid="navigate-/beta"]',
+      );
+      if (!(navigateButton instanceof HTMLButtonElement)) {
+        throw new Error("Expected navigate button.");
+      }
+      navigateButton.click();
+    });
+
+    await vi.waitFor(() => {
+      const probe = host.querySelector('[data-testid="load-probe"]');
+      expect(probe?.getAttribute("data-done-loading")).toBe("true");
+      expect(probe?.getAttribute("data-is-404")).toBe("false");
+      expect(probe?.getAttribute("data-project-config-name")).toBe("beta");
+      expect(probe?.getAttribute("data-project-config-id")).toBe("alpha-id");
+      expect(useProjectLoading.getState().projectIsLoading).toBe(false);
     });
 
     expect(loadProjectConfigMock).toHaveBeenCalledTimes(1);

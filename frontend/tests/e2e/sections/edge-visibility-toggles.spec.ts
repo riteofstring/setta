@@ -1,39 +1,20 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  applyProjectMutationsFromFrontend,
   cleanupIsolatedProject,
   createCallableSection,
+  createChatSection,
   ensureAppReady,
-  getViewportBoundsForPlacement,
   loadProjectConfig,
   openIsolatedProject,
-  postBackend,
+  setCallableFromFrontend,
 } from "../helpers";
 
-type CreateSectionResponse = { sectionId?: string };
-
-async function createChatSection(
-  page: Page,
-  projectConfigId: string,
-): Promise<string> {
-  const viewportBounds = await getViewportBoundsForPlacement(page);
-  if (!viewportBounds) {
-    throw new Error("Unable to resolve viewport bounds for section placement.");
-  }
-  const response = await postBackend<CreateSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Chat",
-      viewportBounds,
-    },
-  );
-  const sectionId = response?.sectionId ?? null;
-  if (!sectionId) {
-    throw new Error("Missing sectionId when creating chat section.");
-  }
-  return sectionId;
-}
+type SetCallableResponse = {
+  callableId?: string | null;
+  lspStatus?: string | null;
+};
+const TARGET_CALLABLE = "sorted";
 
 async function setCallable(
   page: Page,
@@ -41,12 +22,23 @@ async function setCallable(
   sectionId: string,
   callableName: string,
 ): Promise<void> {
-  await postBackend(page, "/setCallable", {
-    projectConfigId,
-    sectionId,
-    callableName,
-    refetchParams: true,
-  });
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const response = (await setCallableFromFrontend(page, {
+      projectConfigId,
+      sectionId,
+      callableName,
+      refetchParams: true,
+    })) as SetCallableResponse | null;
+    if (response?.lspStatus === "matched" && response.callableId) {
+      return;
+    }
+    if (attempt < 7) {
+      await page.waitForTimeout(500);
+    }
+  }
+  throw new Error(
+    `setCallable did not resolve ${callableName} for ${sectionId} in ${projectConfigId}.`,
+  );
 }
 
 async function getParamIds(
@@ -87,25 +79,19 @@ test.describe.serial("edge visibility toggles", () => {
       const projectConfigId = projectContext.projectConfigId;
       const sectionA = await createCallableSection(page, projectConfigId);
       const sectionB = await createCallableSection(page, projectConfigId);
-      const chatSection = await createChatSection(page, projectConfigId);
+      const { sectionId: chatSection } = await createChatSection(
+        page,
+        projectConfigId,
+        "__pw_edge_visibility_chat__",
+      );
 
-      await setCallable(page, projectConfigId, sectionA, "sorted");
-      await setCallable(page, projectConfigId, sectionB, "sorted");
+      await setCallable(page, projectConfigId, sectionA, TARGET_CALLABLE);
+      await setCallable(page, projectConfigId, sectionB, TARGET_CALLABLE);
 
       const [aParam] = await getParamIds(page, sectionA, 1);
       const [bParam] = await getParamIds(page, sectionB, 1);
 
-      await postBackend(page, "/setSectionEdgeInputs", {
-        projectConfigId,
-        sectionId: sectionB,
-        edgeInputParams: [bParam],
-      });
       const aOutPortId = "pw-a-out";
-      await postBackend(page, "/setSectionEdgeOutputs", {
-        projectConfigId,
-        sectionId: sectionA,
-        edgeOutputPorts: [{ id: aOutPortId, accessor: "out" }],
-      });
 
       const config = await loadProjectConfig(page);
       const aVariantId =
@@ -116,21 +102,46 @@ test.describe.serial("edge visibility toggles", () => {
         throw new Error("Missing section variant ids for edge creation.");
       }
 
-      await postBackend(page, "/createEdge", {
+      await applyProjectMutationsFromFrontend(page, {
         projectConfigId,
-        sourceSectionId: sectionA,
-        sourceVariantId: aVariantId,
-        sourcePortId: aOutPortId,
-        targetSectionId: sectionB,
-        targetVariantId: bVariantId,
-        targetPortId: bParam,
-        type: "default",
-      });
-      await postBackend(page, "/createAgenticEdge", {
-        projectConfigId,
-        sourceSectionId: chatSection,
-        targetSectionId: sectionB,
-        kind: "chat_section",
+        operations: [
+          {
+            operationName: "setSectionEdgeInputs",
+            body: {
+              sectionId: sectionB,
+              edgeInputParams: [bParam],
+              frontendOpId: null,
+            },
+          },
+          {
+            operationName: "setSectionEdgeOutputs",
+            body: {
+              sectionId: sectionA,
+              edgeOutputPorts: [{ id: aOutPortId, accessor: "out" }],
+              frontendOpId: null,
+            },
+          },
+          {
+            operationName: "createEdge",
+            body: {
+              sourceSectionId: sectionA,
+              sourceVariantId: aVariantId,
+              sourcePortId: aOutPortId,
+              targetSectionId: sectionB,
+              targetVariantId: bVariantId,
+              targetPortId: bParam,
+              type: "default",
+            },
+          },
+          {
+            operationName: "createAgenticEdge",
+            body: {
+              sourceSectionId: chatSection,
+              targetSectionId: sectionB,
+              kind: "chat_section",
+            },
+          },
+        ],
       });
 
       await page.getByRole("button", { name: "fit view" }).click();
@@ -187,4 +198,3 @@ test.describe.serial("edge visibility toggles", () => {
     }
   });
 });
-

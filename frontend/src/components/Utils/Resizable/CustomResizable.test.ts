@@ -1,4 +1,3 @@
-import { adjustSizeToBeAtLeastMin } from "state/actions/sections/sectionSizes";
 import { describe, expect, it } from "vitest";
 import { clampChangedSize, shouldEmitResizeEndEvent } from "./CustomResizable";
 
@@ -23,15 +22,24 @@ describe("clampChangedSize", () => {
     expect(result).toEqual({ width: 100, height: 200 });
   });
 
-  it("preserves ratio when aspect ratio is on", () => {
-    const expected = adjustSizeToBeAtLeastMin(80, 200, 120, 150);
+  it("preserves aspect ratio while enforcing both minimums", () => {
     const result = clampChangedSize({
-      changedSize: { width: 200, height: 80 },
-      minWidth: 150,
-      minHeight: 120,
+      changedSize: { width: 50, height: 25 },
+      minWidth: 100,
+      minHeight: 60,
       aspectRatio: true,
     });
-    expect(result).toEqual(expected);
+    expect(result).toEqual({ width: 120, height: 60 });
+  });
+
+  it("clamps only the provided numeric dimension", () => {
+    const result = clampChangedSize({
+      changedSize: { width: 80 },
+      minWidth: 100,
+      minHeight: 120,
+      aspectRatio: false,
+    });
+    expect(result).toEqual({ width: 100 });
   });
 });
 

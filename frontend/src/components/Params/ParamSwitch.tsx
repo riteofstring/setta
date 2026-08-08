@@ -13,8 +13,8 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, { useCallback } from "react";
 import {
-  getCurrEffectiveCodeObjImplWithTypeGuard,
-  getCurrEffectiveSectionImplWithTypeGuard,
+  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
+  getCurrEffectiveSectionImplWithTypeGuardIfPresent,
   toggleParamSelected,
 } from "state/actions/sectionInfos";
 import {
@@ -44,11 +44,84 @@ type ParamSwitchProps = {
   hasSectionStyleTheme: boolean;
 };
 
+type RealParamSwitchState = {
+  hasChildren: boolean;
+  isFocusedSearchResult: boolean;
+  isKwarg: boolean;
+  isNestedParam: boolean;
+  isSearchResult: boolean;
+  maybeErrorMessage: string;
+  paramChildren: string[];
+  paramIsSelected: boolean;
+};
+
+type ParamSelectionHandlers = {
+  handleParamClick: React.MouseEventHandler;
+  handleParamMouseDown: React.MouseEventHandler;
+};
+
+const PARAM_COLUMN_WIDTH = "var(--param-column-width, 200px)";
+
 function _ParamSwitch(props: ParamSwitchProps) {
   if (isTempParam(props.paramInfoId)) {
     return <TempParamSwitch {...props} />;
   }
   return <RealParamSwitch {...props} />;
+}
+
+function omitRoleAttribute(attributes: Record<string, unknown>) {
+  if (!("role" in attributes)) {
+    return attributes;
+  }
+  const nextAttributes = { ...attributes };
+  delete nextAttributes.role;
+  return nextAttributes;
+}
+
+function normalizePlaceholderDimension(value: number | null, zoom: number) {
+  if (value === null) {
+    return undefined;
+  }
+  const safeZoom = zoom > 0 ? zoom : 1;
+  return value / safeZoom;
+}
+
+function useTempParamPlaceholderStyle() {
+  const { placeholderWidth, placeholderHeight } = useParamDndState(
+    (state) => ({
+      placeholderWidth: state.placeholderWidth,
+      placeholderHeight: state.placeholderHeight,
+    }),
+    _.isEqual,
+  );
+  const zoom = useReactFlow((state) => state.transform[2]);
+
+  return {
+    height: normalizePlaceholderDimension(placeholderHeight, zoom),
+    width: normalizePlaceholderDimension(placeholderWidth, zoom),
+  };
+}
+
+function createSortableStyle({
+  transform,
+  transition,
+  isDragging,
+  height,
+  width,
+}: {
+  transform: ReturnType<typeof useSortable>["transform"];
+  transition: ReturnType<typeof useSortable>["transition"];
+  isDragging: boolean;
+  height?: number;
+  width?: number;
+}): React.CSSProperties {
+  return {
+    transform: transformToString(applyZoomToTransform(transform)),
+    transition,
+    zIndex: isDragging ? 1000 : undefined,
+    height,
+    width,
+  };
 }
 
 function TempParamSwitch({
@@ -58,27 +131,7 @@ function TempParamSwitch({
 }: Pick<ParamSwitchProps, "sectionId" | "paramInfoId" | "listKey">) {
   const dndContext = useParamDndContext();
   const dndEnabled = Boolean(dndContext?.enabled);
-  const activeListKey = listKey ?? dndContext?.listKey ?? null;
-  const { placeholderWidth, placeholderHeight } = useParamDndState(
-    (state) => ({
-      placeholderWidth: state.placeholderWidth,
-      placeholderHeight: state.placeholderHeight,
-    }),
-    _.isEqual,
-  );
-  const zoom = useReactFlow((state) => state.transform[2]);
-  const safeZoom = zoom > 0 ? zoom : 1;
-  const normalizedWidth =
-    placeholderWidth !== null ? placeholderWidth / safeZoom : null;
-  const normalizedHeight =
-    placeholderHeight !== null ? placeholderHeight / safeZoom : null;
-
-  if (!activeListKey) {
-    return null;
-  }
-  const dndId = isTempParam(paramInfoId)
-    ? paramInfoId
-    : getParamDndItemId(paramInfoId, activeListKey);
+  const { height, width } = useTempParamPlaceholderStyle();
   const {
     attributes,
     listeners,
@@ -87,53 +140,48 @@ function TempParamSwitch({
     transition,
     isDragging,
   } = useSortable({
-    id: dndId,
+    id: paramInfoId,
     disabled: !dndEnabled,
     data: {
       type: "param",
       paramId: null,
       sectionId,
-      listKey: activeListKey,
+      listKey,
       isTopLevel: false,
       hasNested: false,
       onlyChildId: null,
     },
   });
-  const { role: _role, ...restAttributes } = attributes;
-  const scaledTransform = applyZoomToTransform(transform);
-  const dndStyle = {
-    transform: transformToString(scaledTransform),
+  const dndStyle = createSortableStyle({
+    transform,
     transition,
-    zIndex: isDragging ? 1000 : undefined,
-    height: normalizedHeight ?? undefined,
-    width: normalizedWidth ?? undefined,
-  };
-  const columnWidth = "var(--param-column-width, 200px)";
+    isDragging,
+    height,
+    width,
+  });
 
   return (
     <article
       className="section-args-nested-key-value section-key-value section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm bg-blue-500/40 px-[2px] dark:bg-blue-600/40"
       style={{
-        gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
-        ...(dndStyle ?? {}),
+        gridTemplateColumns: `minmax(min-content, ${PARAM_COLUMN_WIDTH}) [c3] 0.75rem [c4] 1fr [c5]`,
+        ...dndStyle,
       }}
       data-param-row="true"
       ref={setNodeRef}
-      {...(restAttributes ?? {})}
+      {...omitRoleAttribute(attributes)}
       {...(listeners ?? {})}
     />
   );
 }
 
-function RealParamSwitch(props: ParamSwitchProps) {
-  const { sectionId, paramInfoId, hasSectionStyleTheme } = props;
-
+function useRealParamSwitchState(
+  sectionId: string,
+  paramInfoId: string,
+): RealParamSwitchState | null {
   const typeErrors = useTypeErrors(
     (x) => x.errors[sectionId]?.params?.[paramInfoId],
   );
-  const typeErrorMessage = typeErrors?.join("\n") ?? "";
-  const maybeErrorMessage = typeErrorMessage;
-  const hasError = maybeErrorMessage.length > 0;
   const { isFocusedSearchResult, isSearchResult } = useProjectSearch((x) => {
     return {
       isFocusedSearchResult:
@@ -145,29 +193,50 @@ function RealParamSwitch(props: ParamSwitchProps) {
     };
   }, _.isEqual);
 
-  const paramsImpl = useProjectState((x) =>
-    getCurrEffectiveSectionImplWithTypeGuard(
+  const paramState = useProjectState((x) => {
+    const paramsImpl = getCurrEffectiveSectionImplWithTypeGuardIfPresent(
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
-    ),
-  );
-  const codeObjImpl = useProjectState((x) =>
-    getCurrEffectiveCodeObjImplWithTypeGuard(
+    );
+    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
       x,
       sectionId,
       paramInfoId,
       isBaseParamCodeObjImpl,
-    ),
-  );
+    );
+    if (!paramsImpl || !codeObjImpl) {
+      return null;
+    }
+    return { paramsImpl, codeObjImpl };
+  }, _.isEqual);
+
+  if (!paramState) {
+    return null;
+  }
+
+  const { paramsImpl, codeObjImpl } = paramState;
   const isNestedParam = isBaseParentCodeObjImpl(codeObjImpl);
-  const paramIsSelected = paramsImpl.selectedParams.includes(paramInfoId);
-  const isKwarg = codeObjImpl.coreNameEditable;
   const paramChildren = isNestedParam ? codeObjImpl.children : [];
 
-  const hasChildren = paramChildren.length > 0;
+  return {
+    hasChildren: paramChildren.length > 0,
+    isFocusedSearchResult,
+    isKwarg: Boolean(codeObjImpl.coreNameEditable),
+    isNestedParam,
+    isSearchResult,
+    maybeErrorMessage: typeErrors?.join("\n") ?? "",
+    paramChildren,
+    paramIsSelected: paramsImpl.selectedParams.includes(paramInfoId),
+  };
+}
+
+function useParamSelectionHandlers(
+  sectionId: string,
+  paramInfoId: string,
+): ParamSelectionHandlers {
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
-  const handleParamMouseDown = useCallback(
+  const handleParamMouseDown: React.MouseEventHandler = useCallback(
     (e: React.MouseEvent) => {
       if (!isSelectingParams) {
         return;
@@ -177,7 +246,7 @@ function RealParamSwitch(props: ParamSwitchProps) {
     },
     [isSelectingParams],
   );
-  const handleParamClick = useCallback(
+  const handleParamClick: React.MouseEventHandler = useCallback(
     (e: React.MouseEvent) => {
       if (!isSelectingParams) {
         return;
@@ -188,58 +257,137 @@ function RealParamSwitch(props: ParamSwitchProps) {
     [isSelectingParams, sectionId, paramInfoId],
   );
 
-  const onMouseDownConditional = hasChildren ? handleParamMouseDown : undefined;
-  const onMouseDownAlways = handleParamMouseDown;
+  return { handleParamClick, handleParamMouseDown };
+}
 
+function resolveParamSelectionClass(hasSectionStyleTheme: boolean) {
   const selectedBgClassName = hasSectionStyleTheme
     ? "!bg-[color:var(--setta-section-style-outline)] !text-[color:var(--setta-section-style-text)] [&_*]:!text-[color:var(--setta-section-style-text)] active:!bg-[color:var(--setta-section-style-border)]"
     : "active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white";
-  const bg = paramIsSelected
-    ? `transition-colors rounded-sm ${selectedBgClassName}`
-    : "transition-colors rounded-sm";
 
-  let border = "";
-  if (hasError) {
-    border = "bg-red-200 dark:bg-red-800/30";
-  } else if (isFocusedSearchResult) {
-    border = "outline outline-4 outline-green-500 dark:outline-green-500/80";
-  } else if (isSearchResult) {
-    border = "outline outline-4 outline-blue-500 dark:outline-cyan-300/80";
+  return `transition-colors rounded-sm ${selectedBgClassName}`;
+}
+
+function resolveParamBackgroundClass({
+  hasSectionStyleTheme,
+  paramIsSelected,
+}: {
+  hasSectionStyleTheme: boolean;
+  paramIsSelected: boolean;
+}) {
+  if (!paramIsSelected) {
+    return "transition-colors rounded-sm";
   }
 
-  const label = isKwarg ? (
-    <ParamNameInput
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
-      hasChildren={hasChildren}
-      onMouseDown={onMouseDownConditional}
-      border={hasChildren ? border : ""}
-      bg={hasChildren ? bg : ""}
-    />
-  ) : (
+  return resolveParamSelectionClass(hasSectionStyleTheme);
+}
+
+function resolveParamBorderClass({
+  hasError,
+  isFocusedSearchResult,
+  isSearchResult,
+}: {
+  hasError: boolean;
+  isFocusedSearchResult: boolean;
+  isSearchResult: boolean;
+}) {
+  if (hasError) {
+    return "bg-red-200 dark:bg-red-800/30";
+  }
+  if (isFocusedSearchResult) {
+    return "outline outline-4 outline-green-500 dark:outline-green-500/80";
+  }
+  if (isSearchResult) {
+    return "outline outline-4 outline-blue-500 dark:outline-cyan-300/80";
+  }
+  return "";
+}
+
+function renderParamLabel({
+  sectionId,
+  paramInfoId,
+  isKwarg,
+  hasChildren,
+  onMouseDown,
+  border,
+  bg,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+  isKwarg: boolean;
+  hasChildren: boolean;
+  onMouseDown?: React.MouseEventHandler;
+  border: string;
+  bg: string;
+}) {
+  if (isKwarg) {
+    return (
+      <ParamNameInput
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        hasChildren={hasChildren}
+        onMouseDown={onMouseDown}
+        border={hasChildren ? border : ""}
+        bg={hasChildren ? bg : ""}
+      />
+    );
+  }
+
+  return (
     <ParamTextLabel
       sectionId={sectionId}
       paramInfoId={paramInfoId}
-      onMouseDown={onMouseDownConditional}
+      onMouseDown={onMouseDown}
       bg={hasChildren ? bg : ""}
     />
   );
+}
 
-  const sharedProps = {
-    ...props,
-    bg,
-    border,
+function RealParamSwitch(props: ParamSwitchProps) {
+  const { sectionId, paramInfoId, hasSectionStyleTheme } = props;
+  const paramState = useRealParamSwitchState(sectionId, paramInfoId);
+  const { handleParamClick, handleParamMouseDown } = useParamSelectionHandlers(
+    sectionId,
+    paramInfoId,
+  );
+
+  if (!paramState) {
+    return null;
+  }
+
+  const bg = resolveParamBackgroundClass({
     hasSectionStyleTheme,
-    isKwarg,
-    isNestedParam,
-    label,
-    maybeErrorMessage,
-    onClick: handleParamClick,
-    onMouseDown: onMouseDownAlways,
-    paramChildren,
-  };
+    paramIsSelected: paramState.paramIsSelected,
+  });
+  const border = resolveParamBorderClass({
+    hasError: paramState.maybeErrorMessage.length > 0,
+    isFocusedSearchResult: paramState.isFocusedSearchResult,
+    isSearchResult: paramState.isSearchResult,
+  });
+  const label = renderParamLabel({
+    sectionId,
+    paramInfoId,
+    isKwarg: paramState.isKwarg,
+    hasChildren: paramState.hasChildren,
+    onMouseDown: paramState.hasChildren ? handleParamMouseDown : undefined,
+    border,
+    bg,
+  });
 
-  return <SortableRealParamSwitchRow {...sharedProps} />;
+  return (
+    <SortableRealParamSwitchRow
+      {...props}
+      bg={bg}
+      border={border}
+      isKwarg={paramState.isKwarg}
+      isNestedParam={paramState.isNestedParam}
+      label={label}
+      maybeErrorMessage={paramState.maybeErrorMessage}
+      onClick={handleParamClick}
+      onMouseDown={handleParamMouseDown}
+      paramChildren={paramState.paramChildren}
+    />
+  );
 }
 
 export const ParamSwitch = React.memo(_ParamSwitch, _.isEqual);
@@ -287,13 +435,11 @@ function SortableRealParamSwitchRow({
       onlyChildId,
     },
   });
-  const { role: _role, ...restAttributes } = attributes;
-  const scaledTransform = applyZoomToTransform(transform);
-  const dndStyle = {
-    transform: transformToString(scaledTransform),
+  const dndStyle = createSortableStyle({
+    transform,
     transition,
-    zIndex: isDragging ? 1000 : undefined,
-  };
+    isDragging,
+  });
 
   return (
     <ParamContainer
@@ -302,7 +448,7 @@ function SortableRealParamSwitchRow({
       paramInfoId={paramInfoId}
       listKey={listKey}
       paramChildren={paramChildren}
-      dndAttributes={restAttributes}
+      dndAttributes={omitRoleAttribute(attributes)}
       dndListeners={listeners}
       dndRef={setNodeRef}
       dndStyle={dndStyle}

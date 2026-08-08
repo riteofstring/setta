@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ensureAppReady } from "../helpers";
+import { ensureAppReady, loadProjectConfig } from "../helpers";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -26,19 +26,27 @@ test("new config opens with initial section in view", async ({ page }) => {
   await page.getByRole("button", { name: "New Project" }).click();
   await page.waitForSelector(READY_SELECTOR);
 
+  const projectState = await loadProjectConfig(page);
+  const generatedSectionId = projectState.singletonSections.GenPythonCode;
+  if (!generatedSectionId) {
+    throw new Error("Expected new project to include generated python section.");
+  }
+
   const canvas = page.locator(CANVAS_SELECTOR);
-  const header = canvas.getByText(/generated python code/i).first();
-  await expect(header).toBeVisible();
+  const section = canvas
+    .locator(`.react-flow__node[data-id="${generatedSectionId}"]`)
+    .first();
+  await expect(section).toBeVisible();
 
   await expect
     .poll(async () => {
       const canvasBox = await canvas.boundingBox();
-      const headerBox = await header.boundingBox();
-      if (!canvasBox || !headerBox) {
+      const sectionBox = await section.boundingBox();
+      if (!canvasBox || !sectionBox) {
         return false;
       }
-      const centerX = headerBox.x + headerBox.width / 2;
-      const centerY = headerBox.y + headerBox.height / 2;
+      const centerX = sectionBox.x + sectionBox.width / 2;
+      const centerY = sectionBox.y + sectionBox.height / 2;
       return (
         centerX >= canvasBox.x &&
         centerX <= canvasBox.x + canvasBox.width &&
