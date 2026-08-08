@@ -7,11 +7,13 @@ import {
   type WorkspaceDocument,
   type WorkspaceDocumentChange,
   type WorkspaceFitOptions,
+  type WorkspaceViewport,
 } from "../core.js";
 import {
   applyWorkspaceDocumentCommand,
   type WorkspaceDocumentCommand,
 } from "./document-commands.js";
+import { denseArrayAt } from "./runtime-option-validation.js";
 import type { WorkspaceCanvasController } from "./workspace-canvas-navigation.js";
 
 export type WorkspaceControllerBindings<TSectionData> = Readonly<{
@@ -19,6 +21,7 @@ export type WorkspaceControllerBindings<TSectionData> = Readonly<{
   getCapabilities(): WorkspaceCapabilities;
   getCanvasController?(): WorkspaceCanvasController | null;
   getDocument(): WorkspaceDocument<TSectionData>;
+  getViewportBounds?(): Readonly<{ maxZoom: number; minZoom: number }>;
 }>;
 
 function dispatch<TSectionData>(
@@ -38,6 +41,43 @@ function dispatch<TSectionData>(
     return { reason: result.reason, status: "rejected" };
   }
   return { status: "unchanged" };
+}
+
+function sectionIdAt(value: unknown, label = "Workspace section ID"): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new TypeError(`${label} must be a non-empty string.`);
+  }
+  return value;
+}
+
+function sectionIdsAt(value: unknown): readonly string[] {
+  const sectionIds = denseArrayAt(value, "Workspace section IDs");
+  return sectionIds.map((sectionId, index) =>
+    sectionIdAt(sectionId, `Workspace section ID at index ${String(index)}`),
+  );
+}
+
+function booleanAt(value: unknown, label: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new TypeError(`${label} must be a boolean.`);
+  }
+  return value;
+}
+
+function setViewport<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  viewport: WorkspaceViewport,
+): WorkspaceActionResult {
+  if (typeof viewport !== "object" || viewport === null || Array.isArray(viewport)) {
+    throw new TypeError("Workspace viewport must be an object.");
+  }
+  const bounds = bindings.getViewportBounds?.();
+  if (bounds && (viewport.zoom < bounds.minZoom || viewport.zoom > bounds.maxZoom)) {
+    throw new TypeError(
+      "Workspace viewport zoom must be within the configured gesture zoom bounds.",
+    );
+  }
+  return dispatch(bindings, { type: "set-viewport", viewport });
 }
 
 function requireCanvasController<TSectionData>(
@@ -70,11 +110,12 @@ async function focusSection<TSectionData>(
   bindings: WorkspaceControllerBindings<TSectionData>,
   sectionId: string,
 ): Promise<WorkspaceActionResult> {
+  sectionIdAt(sectionId);
   const document = bindings.getDocument();
   assertKnownSections(document, [sectionId]);
   const canvasController = requireCanvasController(bindings);
   const viewport = await canvasController.focusSection(sectionId, document.viewport);
-  const result = dispatch(bindings, { type: "set-viewport", viewport });
+  const result = setViewport(bindings, viewport);
   await canvasController.waitForViewport(viewport);
   canvasController.focusElement(sectionId);
   return result;
@@ -85,14 +126,14 @@ async function fitSections<TSectionData>(
   sectionIds: readonly string[],
   options?: WorkspaceFitOptions,
 ): Promise<WorkspaceActionResult> {
-  const uniqueSectionIds = [...new Set(sectionIds)];
+  const uniqueSectionIds = [...new Set(sectionIdsAt(sectionIds))];
   if (uniqueSectionIds.length === 0) {
     return { status: "unchanged" };
   }
   assertKnownSections(bindings.getDocument(), uniqueSectionIds);
   const canvasController = requireCanvasController(bindings);
   const viewport = await canvasController.fitSections(uniqueSectionIds, options);
-  const result = dispatch(bindings, { type: "set-viewport", viewport });
+  const result = setViewport(bindings, viewport);
   await canvasController.waitForViewport(viewport);
   return result;
 }
@@ -114,7 +155,8 @@ export function createWorkspaceController<TSectionData>(
   bindings: WorkspaceControllerBindings<TSectionData>,
 ): WorkspaceController<TSectionData> {
   return {
-    deleteSections: (sectionIds) => dispatch(bindings, { sectionIds, type: "delete-sections" }),
+    deleteSections: (sectionIds) =>
+      dispatch(bindings, { sectionIds: sectionIdsAt(sectionIds), type: "delete-sections" }),
     fitSection: (sectionId, options) => fitSections(bindings, [sectionId], options),
     fitSections: (sectionIds, options) => fitSections(bindings, sectionIds, options),
     focusNextSection: (sectionId) => focusAdjacentSection(bindings, sectionId, "next"),
@@ -123,9 +165,17 @@ export function createWorkspaceController<TSectionData>(
     getCapabilities: () => ({ ...bindings.getCapabilities() }),
     getDocument: () => bindings.getDocument(),
     setSectionMinimized: (sectionId, isMinimized) =>
-      dispatch(bindings, { isMinimized, sectionId, type: "set-section-minimized" }),
+      dispatch(bindings, {
+        isMinimized: booleanAt(isMinimized, "Workspace minimized state"),
+        sectionId: sectionIdAt(sectionId),
+        type: "set-section-minimized",
+      }),
     setSectionsLocked: (sectionIds, locked) =>
-      dispatch(bindings, { locked, sectionIds, type: "set-sections-locked" }),
-    setViewport: (viewport) => dispatch(bindings, { type: "set-viewport", viewport }),
+      dispatch(bindings, {
+        locked: booleanAt(locked, "Workspace locked state"),
+        sectionIds: sectionIdsAt(sectionIds),
+        type: "set-sections-locked",
+      }),
+    setViewport: (viewport) => setViewport(bindings, viewport),
   };
 }

@@ -7,6 +7,7 @@ import {
   type WorkspacePoint,
   type WorkspaceThemeTokens,
 } from "../core.js";
+import { isDenseArray } from "./runtime-option-validation.js";
 
 export type ResolvedWorkspaceGridOptions = Readonly<{
   markSize: number;
@@ -97,8 +98,12 @@ function assertSupportedKeys(record: UnknownRecord, supported: ReadonlySet<strin
   }
 }
 
+function valueOrDefault<T>(value: unknown, fallback: T): unknown {
+  return value === undefined ? fallback : value;
+}
+
 function resolvedBoolean(record: UnknownRecord, key: "snap" | "visible"): boolean {
-  const value = record[key] ?? WORKSPACE_DEFAULT_GRID_OPTIONS[key];
+  const value = valueOrDefault(record[key], WORKSPACE_DEFAULT_GRID_OPTIONS[key]);
   if (typeof value !== "boolean") {
     throw new TypeError(`Workspace grid option ${key} must be a boolean.`);
   }
@@ -113,7 +118,7 @@ function positiveNumber(value: unknown, label: string): number {
 }
 
 function resolvedSpacing(value: unknown): readonly [number, number] {
-  if (!Array.isArray(value) || value.length !== 2) {
+  if (!isDenseArray(value) || value.length !== 2) {
     throw new TypeError("Workspace grid spacing must contain exactly two values.");
   }
   return Object.freeze([
@@ -136,12 +141,16 @@ export function resolveWorkspaceGridOptions(
   assertSupportedKeys(record, gridOptionKeys, "workspace grid option");
   return Object.freeze({
     markSize: positiveNumber(
-      record.markSize ?? WORKSPACE_DEFAULT_GRID_OPTIONS.markSize,
+      valueOrDefault(record.markSize, WORKSPACE_DEFAULT_GRID_OPTIONS.markSize),
       "Workspace grid markSize",
     ),
-    pattern: resolvedPattern(record.pattern ?? WORKSPACE_DEFAULT_GRID_OPTIONS.pattern),
+    pattern: resolvedPattern(
+      valueOrDefault(record.pattern, WORKSPACE_DEFAULT_GRID_OPTIONS.pattern),
+    ),
     snap: resolvedBoolean(record, "snap"),
-    spacing: resolvedSpacing(record.spacing ?? WORKSPACE_DEFAULT_GRID_OPTIONS.spacing),
+    spacing: resolvedSpacing(
+      valueOrDefault(record.spacing, WORKSPACE_DEFAULT_GRID_OPTIONS.spacing),
+    ),
     visible: resolvedBoolean(record, "visible"),
   });
 }
@@ -184,7 +193,7 @@ export function resolveWorkspaceAppearanceOptions(
     options === undefined ? {} : preferenceRecord(options, "Workspace appearance options");
   assertSupportedKeys(record, appearanceOptionKeys, "workspace appearance option");
   return Object.freeze({
-    appearance: resolvedAppearance(record.appearance ?? "system"),
+    appearance: resolvedAppearance(valueOrDefault(record.appearance, "system")),
     dark: resolvedTheme(record.dark, WORKSPACE_DEFAULT_DARK_THEME, "dark"),
     light: resolvedTheme(record.light, WORKSPACE_DEFAULT_LIGHT_THEME, "light"),
   });

@@ -1,8 +1,9 @@
+import { isDenseArray, optionOverridesAt } from "./internal/runtime-option-validation.js";
+
 export const WORKSPACE_DOCUMENT_SCHEMA_VERSION = 1 as const;
 export const WORKSPACE_MIN_ZOOM = 0.1;
 export const WORKSPACE_MAX_ZOOM = 10;
 export const WORKSPACE_DEFAULT_ZOOM = 1;
-
 export type WorkspaceJsonValue =
   | boolean
   | null
@@ -236,6 +237,7 @@ const sizeKeys = ["height", "width"] as const;
 const dimensionKeys = ["mode", "value"] as const;
 const presentationKeys = ["accentColor", "chrome", "tagColor"] as const;
 const childLayoutKeys = ["orientation", "overflow", "sectionIds"] as const;
+const capabilityOptionKeys = ["editLayout", "editPresentation", "editStructure"] as const;
 const gestureOptionKeys = [
   "initialZoom",
   "maxZoom",
@@ -307,11 +309,8 @@ const cssNamedColors = new Set(
   ).split(" "),
 );
 
-function resolvedCapability(
-  overrides: WorkspaceCapabilityOverrides | undefined,
-  capability: keyof WorkspaceCapabilities,
-): boolean {
-  const value = overrides?.[capability];
+function resolvedCapability(overrides: UnknownRecord, capability: keyof WorkspaceCapabilities) {
+  const value = overrides[capability];
   if (value === undefined) {
     return WORKSPACE_DEFAULT_CAPABILITIES[capability];
   }
@@ -328,10 +327,16 @@ export function resolveWorkspaceCapabilities(
   if (typeof readOnly !== "boolean") {
     throw new TypeError("Workspace readOnly must be a boolean.");
   }
+  const resolvedOverrides = optionOverridesAt(
+    overrides,
+    capabilityOptionKeys,
+    "Workspace capability overrides",
+    "workspace capability option",
+  );
   const resolved = {
-    editLayout: resolvedCapability(overrides, "editLayout"),
-    editPresentation: resolvedCapability(overrides, "editPresentation"),
-    editStructure: resolvedCapability(overrides, "editStructure"),
+    editLayout: resolvedCapability(resolvedOverrides, "editLayout"),
+    editPresentation: resolvedCapability(resolvedOverrides, "editPresentation"),
+    editStructure: resolvedCapability(resolvedOverrides, "editStructure"),
   };
   if (readOnly) {
     return { editLayout: false, editPresentation: false, editStructure: false };
@@ -339,27 +344,12 @@ export function resolveWorkspaceCapabilities(
   return resolved;
 }
 
-function gestureOverridesAt(value: WorkspaceGestureOptionOverrides | undefined): UnknownRecord {
-  if (value === undefined) {
-    return {};
-  }
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new TypeError("Workspace gesture options must be an object.");
-  }
-  const overrides = value as UnknownRecord;
-  const supported = new Set<string>(gestureOptionKeys);
-  const unknown = Object.keys(overrides).find((key) => !supported.has(key));
-  if (unknown) {
-    throw new TypeError(`Unknown workspace gesture option ${unknown}.`);
-  }
-  return overrides;
-}
-
 function gestureBoolean(
   overrides: UnknownRecord,
   key: "panOnScroll" | "zoomOnDoubleClick" | "zoomOnPinch" | "zoomOnScroll",
 ): boolean {
-  const value = overrides[key] ?? WORKSPACE_DEFAULT_GESTURE_OPTIONS[key];
+  const configured = overrides[key];
+  const value = configured === undefined ? WORKSPACE_DEFAULT_GESTURE_OPTIONS[key] : configured;
   if (typeof value !== "boolean") {
     throw new TypeError(`Workspace gesture option ${key} must be a boolean.`);
   }
@@ -370,7 +360,8 @@ function gestureNumber(
   overrides: UnknownRecord,
   key: "initialZoom" | "maxZoom" | "minZoom" | "panOnScrollSpeed",
 ): number {
-  const value = overrides[key] ?? WORKSPACE_DEFAULT_GESTURE_OPTIONS[key];
+  const configured = overrides[key];
+  const value = configured === undefined ? WORKSPACE_DEFAULT_GESTURE_OPTIONS[key] : configured;
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
     throw new TypeError(`Workspace gesture option ${key} must be a positive finite number.`);
   }
@@ -388,7 +379,7 @@ function gestureActivationKey(
     return value;
   }
   if (
-    Array.isArray(value) &&
+    isDenseArray(value) &&
     value.length > 0 &&
     value.every((candidate) => typeof candidate === "string" && candidate.length > 0)
   ) {
@@ -400,12 +391,15 @@ function gestureActivationKey(
 }
 
 function gesturePanOnDrag(overrides: UnknownRecord): boolean | readonly number[] {
-  const value = overrides.panOnDrag ?? WORKSPACE_DEFAULT_GESTURE_OPTIONS.panOnDrag;
+  const value =
+    overrides.panOnDrag === undefined
+      ? WORKSPACE_DEFAULT_GESTURE_OPTIONS.panOnDrag
+      : overrides.panOnDrag;
   if (typeof value === "boolean") {
     return value;
   }
   if (
-    Array.isArray(value) &&
+    isDenseArray(value) &&
     value.every(
       (candidate) =>
         typeof candidate === "number" &&
@@ -422,7 +416,10 @@ function gesturePanOnDrag(overrides: UnknownRecord): boolean | readonly number[]
 }
 
 function gesturePanOnScrollMode(overrides: UnknownRecord): WorkspacePanOnScrollMode {
-  const value = overrides.panOnScrollMode ?? WORKSPACE_DEFAULT_GESTURE_OPTIONS.panOnScrollMode;
+  const value =
+    overrides.panOnScrollMode === undefined
+      ? WORKSPACE_DEFAULT_GESTURE_OPTIONS.panOnScrollMode
+      : overrides.panOnScrollMode;
   if (value === "free" || value === "horizontal" || value === "vertical") {
     return value;
   }
@@ -448,7 +445,12 @@ function assertGestureZoomRange(minZoom: number, initialZoom: number, maxZoom: n
 export function resolveWorkspaceGestureOptions(
   options?: WorkspaceGestureOptionOverrides,
 ): WorkspaceGestureOptions {
-  const overrides = gestureOverridesAt(options);
+  const overrides = optionOverridesAt(
+    options,
+    gestureOptionKeys,
+    "Workspace gesture options",
+    "workspace gesture option",
+  );
   const initialZoom = gestureNumber(overrides, "initialZoom");
   const maxZoom = gestureNumber(overrides, "maxZoom");
   const minZoom = gestureNumber(overrides, "minZoom");
@@ -484,16 +486,21 @@ function recordAt(value: unknown, path: string): UnknownRecord {
   return value as UnknownRecord;
 }
 
-function exactKeys(record: UnknownRecord, expected: readonly string[], path: string): void {
+function enumerableStringKeys(record: UnknownRecord, path: string): readonly string[] {
   const ownKeys = Reflect.ownKeys(record);
-  const nonEnumerableOrSymbol = ownKeys.find(
+  const invalidKey = ownKeys.find(
     (key) => typeof key !== "string" || !Object.prototype.propertyIsEnumerable.call(record, key),
   );
-  if (nonEnumerableOrSymbol !== undefined) {
+  if (invalidKey !== undefined) {
     fail("invalid-value", path, "fields must be enumerable strings");
   }
+  return ownKeys as string[];
+}
+
+function exactKeys(record: UnknownRecord, expected: readonly string[], path: string): void {
+  const ownKeys = enumerableStringKeys(record, path);
   const expectedKeys = new Set(expected);
-  const unexpected = (ownKeys as string[]).find((key) => !expectedKeys.has(key));
+  const unexpected = ownKeys.find((key) => !expectedKeys.has(key));
   if (unexpected) {
     fail("invalid-value", `${path}.${unexpected}`, "unexpected field");
   }
@@ -548,12 +555,7 @@ function arrayAt(value: unknown, path: string): readonly unknown[] {
   if (!Array.isArray(value)) {
     fail("invalid-value", path, "expected an array");
   }
-  const entries = Object.entries(value);
-  const isDense =
-    entries.length === value.length &&
-    entries.every(([key], index) => key === String(index)) &&
-    Reflect.ownKeys(value).length === entries.length + 1;
-  if (!isDense) {
+  if (!isDenseArray(value)) {
     fail("invalid-value", path, "expected a dense array without extra fields");
   }
   return value;
@@ -606,6 +608,7 @@ function validateSize(value: unknown, path: string): WorkspaceSectionSize {
 }
 
 export function isValidWorkspaceColor(value: string): boolean {
+  if (typeof value !== "string") return false;
   if (value !== value.trim() || value.length === 0) {
     return false;
   }
@@ -766,6 +769,7 @@ function validateSection(value: unknown, recordId: string): WorkspaceSection<unk
 
 function validateSections(value: unknown): Readonly<Record<string, WorkspaceSection<unknown>>> {
   const sections = recordAt(value, "$.sections");
+  enumerableStringKeys(sections, "$.sections");
   for (const [sectionId, candidate] of Object.entries(sections)) {
     stringAt(sectionId, "$.sections", "section record key");
     validateSection(candidate, sectionId);
@@ -959,6 +963,8 @@ export function getAdjacentWorkspaceSectionId(
   sectionId: string,
   direction: "next" | "previous",
 ): string | null {
+  if (direction !== "next" && direction !== "previous")
+    throw new TypeError("Workspace navigation direction must be next or previous.");
   const ordered = getWorkspaceNavigationOrder(document);
   const currentIndex = ordered.indexOf(sectionId);
   if (currentIndex < 0) {
@@ -977,8 +983,13 @@ export function isWorkspaceSectionDescendant(
   sectionId: string,
   possibleAncestorId: string,
 ): boolean {
+  let remainingParents = parentLookup.size;
   let parentId = parentLookup.get(sectionId) ?? null;
   while (parentId !== null) {
+    if (remainingParents === 0) {
+      throw new TypeError("Workspace parent lookup must be acyclic.");
+    }
+    remainingParents -= 1;
     if (parentId === possibleAncestorId) {
       return true;
     }

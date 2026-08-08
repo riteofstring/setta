@@ -1,9 +1,11 @@
 import { getViewportForBounds } from "@xyflow/react";
 
 import type { WorkspaceFitOptions, WorkspacePoint, WorkspaceViewport } from "../core.js";
+import { optionOverridesAt } from "./runtime-option-validation.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 
 const WORKSPACE_DEFAULT_FIT_PADDING = 0.4;
+const fitOptionKeys = ["padding"] as const;
 
 export type WorkspaceCanvasController = Readonly<{
   clientPointToWorkspace(point: WorkspacePoint): WorkspacePoint;
@@ -23,8 +25,14 @@ type WorkspaceZoomBounds = Readonly<{
 }>;
 
 function fitPadding(options: WorkspaceFitOptions | undefined): number {
-  const padding = options?.padding ?? WORKSPACE_DEFAULT_FIT_PADDING;
-  if (!Number.isFinite(padding) || padding < 0) {
+  const record = optionOverridesAt(
+    options,
+    fitOptionKeys,
+    "Workspace fit options",
+    "workspace fit option",
+  );
+  const padding = record.padding === undefined ? WORKSPACE_DEFAULT_FIT_PADDING : record.padding;
+  if (typeof padding !== "number" || !Number.isFinite(padding) || padding < 0) {
     throw new TypeError("Workspace fit padding must be a finite non-negative number.");
   }
   return padding;

@@ -56,6 +56,10 @@ describe("workspace gesture options", () => {
     [{ panOnScrollMode: "diagonal" }, "must be free, horizontal, or vertical"],
     [{ panActivationKey: [] }, "non-empty key, key list, or null"],
     [{ panOnScrollSpeed: 0 }, "positive finite number"],
+    [{ minZoom: null }, "minZoom must be a positive finite number"],
+    [{ panOnDrag: null }, "panOnDrag must be a boolean or mouse-button list"],
+    [{ panOnScroll: null }, "panOnScroll must be a boolean"],
+    [{ panOnScrollMode: null }, "panOnScrollMode must be free, horizontal, or vertical"],
     [{ unknownOption: true }, "Unknown workspace gesture option unknownOption"],
   ])("rejects invalid gesture policy %# specifically", (options, message) => {
     expect(() =>
@@ -63,6 +67,32 @@ describe("workspace gesture options", () => {
         options as Parameters<typeof resolveWorkspaceGestureOptions>[0],
       ),
     ).toThrow(message as string);
+  });
+
+  it("rejects non-enumerable and symbol gesture fields instead of silently ignoring them", () => {
+    for (const invalidKey of ["hidden", Symbol("gesture")]) {
+      const options = {};
+      Object.defineProperty(options, invalidKey, {
+        enumerable: typeof invalidKey === "symbol",
+        value: true,
+      });
+
+      expect(() => resolveWorkspaceGestureOptions(options)).toThrow(
+        `Unknown workspace gesture option ${String(invalidKey)}`,
+      );
+    }
+  });
+
+  it("rejects sparse activation-key and mouse-button arrays", () => {
+    const sparseKeys = new Array<string>(1);
+    const sparseButtons = new Array<number>(1);
+
+    expect(() => resolveWorkspaceGestureOptions({ panActivationKey: sparseKeys })).toThrow(
+      "panActivationKey must be a non-empty key, key list, or null",
+    );
+    expect(() => resolveWorkspaceGestureOptions({ panOnDrag: sparseButtons })).toThrow(
+      "panOnDrag must be a boolean or mouse-button list",
+    );
   });
 
   it.each([

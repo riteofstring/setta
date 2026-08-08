@@ -43,6 +43,7 @@ type ToolbarControlGroup = Readonly<{
 
 type WorkspaceToolbarProps<TSectionData> = Readonly<{
   ariaLabel: string;
+  canonicalViewport: WorkspaceViewport;
   controller: WorkspaceController<TSectionData>;
   gestureOptions: WorkspaceGestureOptions;
   getCanvasBounds(): ScreenRect;
@@ -304,6 +305,7 @@ function toolbarGroups(
 
 export function WorkspaceToolbar<TSectionData = WorkspaceJsonValue>({
   ariaLabel,
+  canonicalViewport,
   controller,
   gestureOptions,
   getCanvasBounds,
@@ -315,17 +317,24 @@ export function WorkspaceToolbar<TSectionData = WorkspaceJsonValue>({
   sectionIds,
   toolbarControls,
 }: WorkspaceToolbarProps<TSectionData>) {
-  const viewport = useViewport();
+  const renderedViewport = useViewport();
   const pendingViewportRef = useRef<WorkspaceViewport | null>(null);
+  const [proposalRevision, setProposalRevision] = useState(0);
   useEffect(() => {
     const pendingViewport = pendingViewportRef.current;
-    if (pendingViewport && workspaceViewportsMatch(pendingViewport, viewport)) {
+    if (!pendingViewport) {
+      return;
+    }
+    if (
+      workspaceViewportsMatch(pendingViewport, renderedViewport) ||
+      !workspaceViewportsMatch(pendingViewport, canonicalViewport)
+    ) {
       pendingViewportRef.current = null;
     }
-  }, [viewport]);
+  }, [canonicalViewport, proposalRevision, renderedViewport]);
   const changeZoom = useCallback(
     (resolveZoom: (zoom: number) => number) => {
-      const currentViewport = pendingViewportRef.current ?? viewport;
+      const currentViewport = pendingViewportRef.current ?? canonicalViewport;
       const zoom = Math.min(
         gestureOptions.maxZoom,
         Math.max(gestureOptions.minZoom, resolveZoom(currentViewport.zoom)),
@@ -335,12 +344,19 @@ export function WorkspaceToolbar<TSectionData = WorkspaceJsonValue>({
       }
       const bounds = getCanvasBounds();
       const nextViewport = centeredZoomViewport(currentViewport, zoom, bounds.width, bounds.height);
-      pendingViewportRef.current = nextViewport;
       controller.setViewport(nextViewport);
+      pendingViewportRef.current = nextViewport;
+      setProposalRevision((revision) => revision + 1);
     },
-    [controller, gestureOptions.maxZoom, gestureOptions.minZoom, getCanvasBounds, viewport],
+    [
+      canonicalViewport,
+      controller,
+      gestureOptions.maxZoom,
+      gestureOptions.minZoom,
+      getCanvasBounds,
+    ],
   );
-  const zoom = viewport.zoom;
+  const zoom = canonicalViewport.zoom;
   const resetZoom = Math.min(gestureOptions.maxZoom, Math.max(gestureOptions.minZoom, 1));
   const zoomMatchesReset = Math.abs(zoom - resetZoom) < 0.000_001;
   const builtInControls = useMemo<readonly ResolvedToolbarControl[]>(

@@ -28,6 +28,7 @@ import {
   type WorkspaceGridOptionOverrides,
   type WorkspaceJsonValue,
 } from "./core.js";
+import { isDenseArray } from "./internal/runtime-option-validation.js";
 import { WorkspaceCanvasAdapter } from "./internal/workspace-canvas-adapter.js";
 import type { WorkspaceCanvasController } from "./internal/workspace-canvas-navigation.js";
 import { createWorkspaceController } from "./internal/workspace-controller.js";
@@ -184,8 +185,8 @@ function resolveToolbarControls<TSectionData>(
   if (controls === undefined) {
     return Object.freeze([]);
   }
-  if (!Array.isArray(controls)) {
-    throw new TypeError("Workspace toolbar controls must be an array.");
+  if (!isDenseArray(controls)) {
+    throw new TypeError("Workspace toolbar controls must be a dense array without extra fields.");
   }
   const resolved = controls.map((control, index) => validateToolbarControl(control, index));
   const ids = new Set<string>();
@@ -233,7 +234,7 @@ function resolveMinimapOptions(
 ): ResolvedWorkspaceMinimapOptions {
   const record = options === undefined ? {} : plainRecord(options, "Workspace minimap options");
   assertKnownKeys(record, minimapOptionKeys, "workspace minimap option");
-  const placement = record.placement ?? "right";
+  const placement = record.placement === undefined ? "right" : record.placement;
   if (placement !== "left" && placement !== "right") {
     throw new TypeError("Workspace minimap placement must be left or right.");
   }
@@ -320,23 +321,27 @@ function resolveMode<TSectionData>(
   initialZoom: number,
   onDocumentChange: WorkspaceDocumentChangeHandler<TSectionData> | undefined,
 ): WorkspaceMode<TSectionData> {
-  if (document && defaultDocument) {
+  if (onDocumentChange !== undefined && typeof onDocumentChange !== "function") {
+    throw new TypeError("Workspace onDocumentChange must be a function.");
+  }
+  if (document !== undefined && defaultDocument !== undefined) {
     throw new TypeError("Workspace cannot receive both document and defaultDocument.");
   }
-  if (document) {
+  if (document !== undefined) {
     if (typeof onDocumentChange !== "function") {
       throw new TypeError("A controlled Workspace requires onDocumentChange.");
     }
     return { document, type: "controlled" };
   }
-  const emptyDocument = createEmptyWorkspaceDocument();
+  if (defaultDocument !== undefined) {
+    return { document: defaultDocument, type: "uncontrolled" };
+  }
+  const emptyDocument = createEmptyWorkspaceDocument() as WorkspaceDocument<TSectionData>;
   return {
-    document:
-      defaultDocument ??
-      ({
-        ...emptyDocument,
-        viewport: { ...emptyDocument.viewport, zoom: initialZoom },
-      } as WorkspaceDocument<TSectionData>),
+    document: {
+      ...emptyDocument,
+      viewport: { ...emptyDocument.viewport, zoom: initialZoom },
+    },
     type: "uncontrolled",
   };
 }
@@ -532,10 +537,12 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   );
   const documentRef = useRef(validatedDocument);
   const capabilitiesRef = useRef(capabilities);
+  const gestureOptionsRef = useRef(gestureOptions);
   const controlledRef = useRef(mode.type === "controlled");
   const onDocumentChangeRef = useRef(onDocumentChange);
   documentRef.current = validatedDocument;
   capabilitiesRef.current = capabilities;
+  gestureOptionsRef.current = gestureOptions;
   controlledRef.current = mode.type === "controlled";
   onDocumentChangeRef.current = onDocumentChange;
 
@@ -556,6 +563,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       getCapabilities: () => capabilitiesRef.current,
       getCanvasController: () => canvasControllerRef.current,
       getDocument: () => documentRef.current,
+      getViewportBounds: () => gestureOptionsRef.current,
     });
   }
   const controller = internalControllerRef.current;

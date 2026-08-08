@@ -220,6 +220,16 @@ describe("Workspace scaffold", () => {
         <Workspace minimapOptions={{ placement: "center" } as unknown as { placement: "left" }} />,
       ),
     ).toThrow("minimap placement must be left or right");
+    expect(() =>
+      renderToStaticMarkup(
+        <Workspace minimapOptions={{ placement: null } as unknown as { placement: "left" }} />,
+      ),
+    ).toThrow("minimap placement must be left or right");
+
+    const sparseControls = new Array<WorkspaceToolbarControl>(1);
+    expect(() => renderToStaticMarkup(<Workspace toolbarControls={sparseControls} />)).toThrow(
+      "toolbar controls must be a dense array without extra fields",
+    );
   });
 
   it("fails clearly when runtime props mix controlled and uncontrolled ownership", () => {
@@ -242,6 +252,25 @@ describe("Workspace scaffold", () => {
 
     expect(() => renderToStaticMarkup(<Workspace {...invalidProps} />)).toThrow(
       "requires onDocumentChange",
+    );
+  });
+
+  it("rejects null ownership documents and malformed optional change handlers", () => {
+    const nullControlled = {
+      document: null,
+      onDocumentChange: () => undefined,
+    } as unknown as WorkspaceProps;
+    const nullUncontrolled = { defaultDocument: null } as unknown as WorkspaceProps;
+    const invalidHandler = { onDocumentChange: "notify" } as unknown as WorkspaceProps;
+
+    expect(() => renderToStaticMarkup(<Workspace {...nullControlled} />)).toThrow(
+      "expected an object",
+    );
+    expect(() => renderToStaticMarkup(<Workspace {...nullUncontrolled} />)).toThrow(
+      "expected an object",
+    );
+    expect(() => renderToStaticMarkup(<Workspace {...invalidHandler} />)).toThrow(
+      "onDocumentChange must be a function",
     );
   });
 

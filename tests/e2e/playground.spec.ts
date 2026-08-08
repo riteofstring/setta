@@ -191,10 +191,28 @@ test("controlled and uncontrolled state honor live capability policy", async ({ 
   await expect(page.getByTestId("controlled-document")).toHaveValue(/"x": 120/u);
   await expect(controlledPanel.getByText("Committed changes: 1")).toBeVisible();
 
-  await page.getByRole("checkbox", { name: "Accept controlled changes" }).uncheck();
+  const acceptControlledChanges = page.getByRole("checkbox", {
+    name: "Accept controlled changes",
+  });
+  await acceptControlledChanges.uncheck();
+  const controlledZoomIn = controlledWorkspace.getByRole("button", { name: "Zoom in" });
+  await controlledZoomIn.click();
+  await controlledZoomIn.click();
+  await expect(status).toHaveText("Controlled change rejected by host.");
+  await expect(page.getByTestId("controlled-document")).toHaveValue(/"zoom": 1.25/u);
+  await expect(controlledPanel.getByText("Committed changes: 1")).toBeVisible();
+
+  await acceptControlledChanges.check();
+  await controlledZoomIn.click();
+  await expect(page.getByTestId("controlled-document")).toHaveValue(/"zoom": 1.5/u);
+  await expect(controlledPanel.getByText("Committed changes: 2")).toBeVisible();
+  await acceptControlledChanges.uncheck();
   const controlledCanvas = controlledWorkspace.getByRole("application", {
     name: "Controlled workspace canvas",
   });
+  const controlledViewport = controlledWorkspace.locator(".react-flow__viewport");
+  await expect(controlledViewport).toHaveAttribute("style", /scale\(1\.5\)/u);
+  const acceptedViewportStyle = await controlledViewport.getAttribute("style");
   await controlledCanvas.scrollIntoViewIfNeeded();
   const controlledCanvasBounds = await controlledCanvas.boundingBox();
   if (!controlledCanvasBounds) {
@@ -206,10 +224,8 @@ test("controlled and uncontrolled state honor live capability policy", async ({ 
   );
   await page.mouse.wheel(0, 180);
   await expect(status).toHaveText("Controlled change rejected by host.");
-  await expect(controlledPanel.getByText("Committed changes: 1")).toBeVisible();
-  await expect
-    .poll(() => controlledWorkspace.locator(".react-flow__viewport").getAttribute("style"))
-    .toContain("translate(120px, -48px) scale(1.25)");
+  await expect(controlledPanel.getByText("Committed changes: 2")).toBeVisible();
+  await expect.poll(() => controlledViewport.getAttribute("style")).toBe(acceptedViewportStyle);
 
   await page.setViewportSize({ width: 320, height: 720 });
   const dimensions = await page.evaluate(() => ({
@@ -743,6 +759,13 @@ test("the canvas toolbar, host extensions, and empty minimap synchronize and cle
       );
     })
     .toBe(true);
+  const emptyPanelBounds = await workspace.locator(".setta-workspace__empty-panel").boundingBox();
+  expect(emptyPanelBounds).not.toBeNull();
+  if (workspaceBounds && emptyPanelBounds) {
+    expect(emptyPanelBounds.x + emptyPanelBounds.width / 2).toBeLessThan(
+      workspaceBounds.x + workspaceBounds.width / 2,
+    );
+  }
   await page.locator("html").evaluate((element) => element.setAttribute("dir", "ltr"));
 
   const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
@@ -781,6 +804,11 @@ test("the canvas shell navigates measured geometry without browser scroll", asyn
     .poll(() => page.evaluate(() => ({ x: window.scrollX, y: window.scrollY })))
     .toEqual(browserScroll);
   await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
+  await expect.poll(() => page.evaluate(() => window.visualViewport?.scale ?? 1)).toBe(1);
+  await expect(beta).toHaveCSS("outline-style", "solid");
+  await expect(beta).toHaveCSS("outline-width", "3px");
+  await expect(beta).toHaveCSS("outline-offset", "-4px");
+  await expect(workspace).toHaveScreenshot("canvas-section-keyboard-focus.png");
   await session.detach();
 
   await page.getByRole("button", { name: "Focus previous from Alpha" }).click();

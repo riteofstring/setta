@@ -522,6 +522,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       <WorkspaceFixedOverlay placement="viewport">{overlaySlots.viewport}</WorkspaceFixedOverlay>
       <WorkspaceToolbar
         ariaLabel={ariaLabel}
+        canonicalViewport={document.viewport}
         controller={workspaceController}
         gestureOptions={gestureOptions}
         getCanvasBounds={getCanvasBounds}

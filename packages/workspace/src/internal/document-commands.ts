@@ -78,11 +78,17 @@ function applyViewport<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   viewport: WorkspaceViewport,
 ): WorkspaceDocumentCommandResult<TSectionData> {
+  const candidate = { ...document, viewport: { ...viewport } };
+  validateWorkspaceDocument(candidate);
   const current = document.viewport;
-  if (current.x === viewport.x && current.y === viewport.y && current.zoom === viewport.zoom) {
+  if (
+    current.x === candidate.viewport.x &&
+    current.y === candidate.viewport.y &&
+    current.zoom === candidate.viewport.zoom
+  ) {
     return { document, status: "unchanged" };
   }
-  return applied({ ...document, viewport: { ...viewport } }, "viewport");
+  return { document: candidate, reason: "viewport", status: "applied" };
 }
 
 function applySectionLocks<TSectionData>(
@@ -168,13 +174,11 @@ function remainingSections<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   removed: ReadonlySet<string>,
 ): Readonly<Record<string, WorkspaceSection<TSectionData>>> {
-  const sections: Record<string, WorkspaceSection<TSectionData>> = {};
-  for (const [sectionId, section] of Object.entries(document.sections)) {
-    if (!removed.has(sectionId)) {
-      sections[sectionId] = withoutRemovedChildren(section, removed);
-    }
-  }
-  return sections;
+  return Object.fromEntries(
+    Object.entries(document.sections)
+      .filter(([sectionId]) => !removed.has(sectionId))
+      .map(([sectionId, section]) => [sectionId, withoutRemovedChildren(section, removed)]),
+  );
 }
 
 function applySectionDeletion<TSectionData>(

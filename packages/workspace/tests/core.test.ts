@@ -162,11 +162,24 @@ describe("workspace document", () => {
     expect(getAdjacentWorkspaceSectionId(document, "peer", "next")).toBe("root");
     expect(getAdjacentWorkspaceSectionId(document, "root", "previous")).toBe("peer");
     expect(getAdjacentWorkspaceSectionId(document, "grandchild", "next")).toBeNull();
+    expect(() =>
+      getAdjacentWorkspaceSectionId(document, "root", "sideways" as unknown as "next" | "previous"),
+    ).toThrow("navigation direction must be next or previous");
     expect(() => getAdjacentWorkspaceSectionId(document, "missing", "next")).toThrowError(
       expect.objectContaining({ code: "unknown-section" }),
     );
     expect(isWorkspaceSectionDescendant(parents, "grandchild", "root")).toBe(true);
     expect(isWorkspaceSectionDescendant(parents, "root", "grandchild")).toBe(false);
+    expect(() =>
+      isWorkspaceSectionDescendant(
+        new Map([
+          ["alpha", "beta"],
+          ["beta", "alpha"],
+        ]),
+        "alpha",
+        "missing",
+      ),
+    ).toThrow("parent lookup must be acyclic");
     expect(JSON.stringify(document)).not.toContain("parentId");
   });
 
@@ -375,6 +388,19 @@ describe("workspace document validation", () => {
     );
   });
 
+  it("rejects section maps whose own keys would not survive deterministic serialization", () => {
+    for (const invalidKey of ["hidden", Symbol("section")]) {
+      const candidate = recursiveDocument();
+      const sections = { ...candidate.sections } as Record<PropertyKey, unknown>;
+      Object.defineProperty(sections, invalidKey, {
+        enumerable: typeof invalidKey === "symbol",
+        value: section(String(invalidKey)),
+      });
+
+      expectValidationError({ ...candidate, sections }, "invalid-value", "$.sections");
+    }
+  });
+
   it.each([
     "#abc",
     "#112233cc",
@@ -393,4 +419,7 @@ describe("workspace document validation", () => {
       expect(isValidWorkspaceColor(color)).toBe(false);
     },
   );
+  it("returns false for a non-string runtime color candidate", () => {
+    expect(isValidWorkspaceColor(null as unknown as string)).toBe(false);
+  });
 });

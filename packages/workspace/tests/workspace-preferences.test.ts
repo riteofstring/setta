@@ -137,11 +137,24 @@ describe("workspace grid preferences", () => {
     expect(snapWorkspacePointToGrid({ x: -12, y: -5 }, [24, 10])).toEqual({ x: 0, y: 0 });
   });
 
+  it("rejects grid spacing arrays with ignored extra fields", () => {
+    const spacing = [24, 24] as number[] & { metadata?: boolean };
+    spacing.metadata = true;
+
+    expect(() => resolveWorkspaceGridOptions({ spacing: spacing as [number, number] })).toThrow(
+      "spacing must contain exactly two values",
+    );
+  });
+
   it.each([
     [{ markSize: 0 }, "markSize must be a positive finite number"],
     [{ pattern: "mesh" }, "pattern must be cross, dots, or lines"],
     [{ spacing: [24] }, "spacing must contain exactly two values"],
     [{ spacing: [24, 0] }, "y spacing must be a positive finite number"],
+    [{ markSize: null }, "markSize must be a positive finite number"],
+    [{ pattern: null }, "pattern must be cross, dots, or lines"],
+    [{ spacing: null }, "spacing must contain exactly two values"],
+    [{ visible: null }, "visible must be a boolean"],
     [{ visible: "yes" }, "visible must be a boolean"],
     [{ extra: true }, "Unknown workspace grid option extra"],
   ])("rejects invalid grid policy %# specifically", (options, message) => {
@@ -170,6 +183,7 @@ describe("workspace appearance preferences", () => {
 
   it.each([
     [{ appearance: "sepia" }, "appearance must be dark, light, or system"],
+    [{ appearance: null }, "appearance must be dark, light, or system"],
     [{ extra: true }, "Unknown workspace appearance option extra"],
     [{ dark: { extra: "red" } }, "Unknown workspace dark theme token extra"],
     [{ light: { focus: "not a color" } }, "light theme token focus must be a valid CSS color"],

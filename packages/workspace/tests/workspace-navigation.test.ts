@@ -1,8 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { WorkspaceDocument, WorkspaceDocumentChange } from "../src/core.js";
-import type { WorkspaceCanvasController } from "../src/internal/workspace-canvas-navigation.js";
+import {
+  createWorkspaceCanvasController,
+  type WorkspaceCanvasController,
+} from "../src/internal/workspace-canvas-navigation.js";
 import { createWorkspaceController } from "../src/internal/workspace-controller.js";
+import type { WorkspaceGeometryMeasurements } from "../src/internal/workspace-geometry-service.js";
 import { createWorkspaceTestDocument } from "../src/testing.js";
 
 function navigationDocument(): WorkspaceDocument {
@@ -82,6 +86,50 @@ describe("workspace geometry navigation controller", () => {
       padding: 0.2,
     });
     expect(fixture.changes).toHaveLength(1);
+  });
+
+  it.each([
+    [null, "Workspace fit options must be an object"],
+    [{ padding: null }, "Workspace fit padding must be a finite non-negative number"],
+    [{ unknown: true }, "Unknown workspace fit option unknown"],
+  ])("rejects malformed fit policy %# before measuring geometry", async (options, message) => {
+    const controller = createWorkspaceCanvasController({} as WorkspaceGeometryMeasurements, () => ({
+      maxZoom: 2,
+      minZoom: 0.5,
+    }));
+
+    await expect(
+      controller.fitSections(["alpha"], options as unknown as { padding?: number }),
+    ).rejects.toThrow(message as string);
+  });
+
+  it("rejects imperative viewports outside live configured zoom bounds before commit", () => {
+    let document = navigationDocument();
+    const changes: WorkspaceDocumentChange[] = [];
+    let bounds = { maxZoom: 2, minZoom: 0.5 };
+    const controller = createWorkspaceController({
+      commit: (nextDocument, change) => {
+        document = nextDocument;
+        changes.push(change);
+      },
+      getCapabilities: () => ({
+        editLayout: true,
+        editPresentation: true,
+        editStructure: true,
+      }),
+      getDocument: () => document,
+      getViewportBounds: () => bounds,
+    });
+
+    expect(() => controller.setViewport({ x: 12, y: 8, zoom: 3 })).toThrow(
+      "viewport zoom must be within the configured gesture zoom bounds",
+    );
+    expect(document.viewport).toEqual({ x: 0, y: 0, zoom: 1 });
+    expect(changes).toEqual([]);
+
+    bounds = { maxZoom: 4, minZoom: 1 };
+    expect(controller.setViewport({ x: 12, y: 8, zoom: 3 })).toEqual({ status: "applied" });
+    expect(document.viewport).toEqual({ x: 12, y: 8, zoom: 3 });
   });
 
   it("uses spatial root order followed by canonical descendants for adjacent focus", async () => {

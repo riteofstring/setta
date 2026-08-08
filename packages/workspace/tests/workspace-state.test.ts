@@ -67,6 +67,12 @@ describe("workspace capabilities", () => {
         true,
       ),
     ).toThrow("Workspace capability editStructure must be a boolean");
+    expect(() =>
+      resolveWorkspaceCapabilities({ editLayout: null } as unknown as { editLayout: boolean }),
+    ).toThrow("Workspace capability editLayout must be a boolean");
+    expect(() =>
+      resolveWorkspaceCapabilities({ unknown: true } as unknown as { editLayout: boolean }),
+    ).toThrow("Unknown workspace capability option unknown");
   });
 });
 
@@ -121,6 +127,26 @@ describe("workspace controller", () => {
     );
   });
 
+  it("rejects malformed controller arguments before publishing a change", () => {
+    const host = new WorkspaceInMemoryHost(recursiveDocument());
+    const sparseSectionIds = ["root"];
+    delete sparseSectionIds[0];
+
+    expect(() => host.controller.deleteSections(sparseSectionIds)).toThrow(
+      "Workspace section IDs must be a dense array without extra fields",
+    );
+    expect(() => host.controller.setSectionMinimized("root", "yes" as unknown as boolean)).toThrow(
+      "Workspace minimized state must be a boolean",
+    );
+    expect(() => host.controller.setSectionsLocked(["root"], null as unknown as boolean)).toThrow(
+      "Workspace locked state must be a boolean",
+    );
+    expect(() =>
+      host.controller.setViewport(null as unknown as { x: number; y: number; zoom: number }),
+    ).toThrow("Workspace viewport must be an object");
+    expect(host.changes()).toEqual([]);
+  });
+
   it("deletes normalized section subtrees with one committed change", () => {
     const host = new WorkspaceInMemoryHost(recursiveDocument());
 
@@ -132,6 +158,20 @@ describe("workspace controller", () => {
     expect(Object.keys(host.document().sections)).toEqual(["peer"]);
     expect(host.changes()).toHaveLength(1);
     expect(host.changes()[0]?.change.reason).toBe("section-delete");
+  });
+
+  it("preserves a section whose ID is an object prototype mutator", () => {
+    const host = new WorkspaceInMemoryHost(
+      createWorkspaceTestDocument([
+        { id: "__proto__", title: "Prototype section" },
+        { id: "peer", title: "Peer" },
+      ]),
+    );
+
+    expect(host.controller.deleteSections(["peer"])).toEqual({ status: "applied" });
+    expect(Object.hasOwn(host.document().sections, "__proto__")).toBe(true);
+    expect(host.document().sections.__proto__).toMatchObject({ id: "__proto__" });
+    expect(Object.getPrototypeOf(host.document().sections)).toBe(Object.prototype);
   });
 
   it("commits presentation and layout changes in order against uncontrolled memory", () => {

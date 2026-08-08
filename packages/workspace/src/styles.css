@@ -118,11 +118,19 @@
   transform: translate(-50%, -50%);
 }
 
+.setta-workspace:dir(rtl) .setta-workspace__empty-panel {
+  transform: translate(50%, -50%);
+}
+
 @container (max-width: 24rem) {
   .setta-workspace__empty-panel {
     inset-inline-start: auto;
     inset-inline-end: 1rem;
     max-inline-size: calc(100% - 6.5rem);
+    transform: translateY(-50%);
+  }
+
+  .setta-workspace:dir(rtl) .setta-workspace__empty-panel {
     transform: translateY(-50%);
   }
 }
@@ -158,6 +166,10 @@
   inset-block-end: 1rem;
   inset-inline-start: 50%;
   transform: translateX(-50%);
+}
+
+.setta-workspace:dir(rtl) .setta-workspace__overlay--viewport {
+  transform: translateX(50%);
 }
 
 .setta-workspace__toolbar {
@@ -342,6 +354,10 @@
 .setta-workspace :focus-visible {
   outline: 3px solid var(--setta-workspace-focus);
   outline-offset: 3px;
+}
+
+.setta-workspace .setta-workspace__root-shell:focus-visible {
+  outline-offset: -4px;
 }
 
 .setta-adapter-proof {
