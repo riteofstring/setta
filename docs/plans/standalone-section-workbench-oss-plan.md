@@ -2,7 +2,7 @@
 
 ## Decision
 
-Create one independently installable TypeScript/React package, `@setta/section-workspace`, and one backend-free playground that proves the package works in an unrelated application.
+Create one independently installable TypeScript/React package, `@setta/workspace`, and one backend-free playground that proves the package works in an unrelated application.
 
 The package has one concrete purpose:
 
@@ -11,6 +11,18 @@ The package has one concrete purpose:
 This plan covers only that reusable workbench. It does not commit to Python Canvas, MCP Canvas, Agent Canvas, Data Canvas, Agent Signal Canvas, or any other domain-specific application. A future application may use the package, but no future application shapes the first release contract.
 
 The package is a developer-facing OSS product. The playground is a polished, runnable demonstration and consumer fixture, not a second product or required backend.
+
+### Naming
+
+Use the broad package name `@setta/workspace` while retaining **section** as the public name for a content-bearing workbench region.
+
+- Public contracts use names such as `WorkspaceSection`, `SectionDefinition`, `sectionId`, and `focusSection`.
+- Do not expose **node** as the primary package concept. In this product, a section owns content, frame chrome, sizing, and an optional ordered child layout; calling it a node would imply graph, edge, port, or execution semantics that are outside the first release.
+- XYFlow nodes are an internal rendering-adapter detail. They must not leak into `WorkspaceDocument`, section render props, commands, callbacks, or consumer persistence.
+- Reserve **node** for XYFlow integration code and any future explicit graph surface. Reserve **item** for the host-defined sortable tree inside a section.
+- The package name does not need to encode every object it contains. The README and package description should identify it as a nested spatial workbench for React so the shorter name remains discoverable.
+
+The component and helper names may receive normal API cleanup before release, but the document model should not alternate between parallel `section` and `node` terminology.
 
 ## Product thesis
 
@@ -54,21 +66,37 @@ A compelling first example is a blank workbench containing:
 Publish one package with subpath exports rather than multiple versioned packages:
 
 ```text
-@setta/section-workspace
-@setta/section-workspace/core
-@setta/section-workspace/react
-@setta/section-workspace/testing
+@setta/workspace
+@setta/workspace/core
+@setta/workspace/react
+@setta/workspace/testing
 ```
 
 The package may use internal modules for canvas, drag-and-drop, item trees, history, and testing. Those modules do not become separate packages unless they later become independently useful.
 
-The target release repository is independent from the Setta application repository. If development begins inside this repository for extraction convenience, the package must still:
+The target release repository is independent from the Setta application repository. Initial development may occur on a dedicated branch in a separate worktree of this repository, but the package must still:
 
 - Have its own package manifest, build, tests, and example.
 - Build without Setta frontend aliases.
 - Import nothing from `frontend/src/state`, generated Setta types, OpenAPI clients, or application components.
 - Be installable into a consumer fixture that is outside the package source tree.
 - Be moved to an independent repository before its first public release.
+
+### Greenfield implementation stance
+
+Treat this package as a clean implementation, not a refactor of the current Setta frontend.
+
+- Perform the work on a dedicated branch in a separate worktree so the current application does not constrain package structure or produce an incremental-migration mindset.
+- Assume most current UI implementation code will be discarded. Preserve behavior only when it is intentionally selected through characterization, product review, and the new package boundary.
+- Use the current Setta UI as behavioral evidence and a source of isolated pure algorithms, not as the component tree, state model, public API, or dependency graph to carry forward.
+- Do not confuse discarding the current component and state architecture with discarding its interaction kernel. The existing section DnD code contains required zoom coordination, collision hysteresis, nested-target resolution, multi-selection geometry, preview, and move-planning behavior that upstream libraries do not provide. Preserve those outcomes and port naturally package-owned pure algorithms where that is clearer and safer than recreating them from memory.
+- Do not add backward compatibility, legacy support, data migrations, transitional adapters, old-field aliases, dual read/write paths, compatibility fallbacks, or feature-flagged old/new implementations.
+- Do not preserve current Setta project-file compatibility, frontend imports, state shapes, generated types, CSS conventions, or XYFlow store contracts.
+- If a current behavior is valuable, specify it in the new package's tests and implement it against the new model. Similar-looking code is reusable only when it is already pure, smaller than a clean implementation, correctly licensed, and naturally fits the new ownership boundary.
+- The future Setta application should be rewritten to consume the package's public API directly. Any new domain mapping must be designed as a permanent owner boundary, not as a bridge for the old frontend.
+- Before the first public release, breaking pre-release package changes are acceptable when they simplify the final API or remove inherited assumptions.
+
+The goal is behavioral continuity only where the plan explicitly requires it. Source continuity is not a goal.
 
 ## First release scope
 
@@ -462,7 +490,7 @@ Target resolution must preserve the useful stability of Setta's current section 
 - Leaving all valid targets clears stale parent and insertion state.
 - Invalid, self, and descendant targets remain visibly distinct from valid targets, and attempting to drag a locked active section produces specific feedback without entering a drag.
 
-The existing Setta implementation is the behavioral reference for this extraction, including its cached over-target state, midpoint tracking, collision ranking, trigger-distance conditions, orientation-specific sorting, and zoom scaling. Phase 0 must characterize those behaviors with focused tests before algorithms are adapted. Exact constants are implementation details to validate through those tests and interaction profiling, not values to copy into the public API.
+The existing Setta implementation is the required behavioral baseline for this interaction kernel, including its cached over-target and previous-rectangle state, midpoint tracking, child-over-parent collision promotion, trigger-distance conditions, orientation-specific sorting, selection-shaped drag geometry, layout-stable preview transforms, and XYFlow zoom scaling. Phase 0 must characterize those behaviors with focused tests before porting or reimplementing them against the new model. Exact constants are implementation details to validate through those tests and interaction profiling, not values to copy into the public API.
 
 ### Sortable item trees inside sections
 
@@ -741,13 +769,14 @@ The consumer controls when changes are persisted and how failures are presented.
 
 The standalone and offline requirements are the concrete platform reason for TypeScript ownership.
 
-The extracted package is authoritative for:
+The standalone package is authoritative for its public workbench behavior and contracts even when it delegates lower-level canvas mechanics to an upstream dependency. Dependency state and types are not public state.
+
+The package owns:
 
 - Its own `WorkspaceDocument`.
-- Canvas coordinate conversion.
-- Viewport gesture arbitration, zoom bounds, and host-content pan/wheel suppression.
-- Grid rendering and movement/resize snap calculations.
-- Minimap projection and navigation.
+- Its public viewport configuration, controller behavior, coordinate-space contract, and host-content pan/wheel suppression semantics.
+- Grid visibility, appearance, and spacing semantics plus movement and resize snap policy.
+- The ready-made minimap and navigation contract as projected from workspace sections.
 - Smart section placement from document geometry and viewport bounds.
 - Section selection, marquee geometry, selection-root normalization, grouping, ungrouping, batch commands, and transient stacking behavior.
 - Recursive section containment and parent-index derivation.
@@ -760,55 +789,103 @@ The extracted package is authoritative for:
 - Package chrome, inline title editing, ready-made controls, and host extension contracts.
 - Its React contracts.
 
+Upstream XYFlow may implement internal viewport transforms and coordinate conversion, background rendering, spatial hit testing, top-level node movement, resize primitives, minimap projection, and other canvas substrate behavior behind the package adapter. Using those implementations does not make XYFlow's node array, store, change events, or component props part of the `@setta/workspace` API. Workbench-specific semantics such as resize snapping, normalized selection roots, structural commands, ordered nested layouts, and cross-depth move plans remain package-owned even when they consume XYFlow geometry.
+
 This is a deliberate new ownership boundary, not a handwritten mirror of the current Setta project model.
 
-During extraction:
+During implementation:
 
 - Do not copy generated Setta types into the package.
 - Do not define package types by manually restating a Go-owned Setta contract.
-- Do not maintain two long-lived implementations of the same newly extracted algorithm.
-- Extract or adapt a pure frontend algorithm only when the package becomes its new owner.
-- If current Setta later consumes the package, replace the corresponding Setta implementation or add a narrowly documented adapter.
-- Current Setta compatibility is not a first-release requirement.
-- Existing Setta project files do not need migration or backward compatibility.
+- Do not maintain old and new implementations of the same behavior behind flags or dual paths.
+- Reuse a pure frontend algorithm only when the package becomes its clear new owner and the code naturally fits the new model.
+- If current Setta later consumes the package, rewrite that integration against the package's public API and remove the superseded implementation.
+- Current Setta compatibility is explicitly not a requirement.
+- Existing Setta project files receive no migration or compatibility path as part of this work.
+- Do not introduce transitional code merely to reduce the size of the rewrite diff.
 
 ## Rendering and dependency strategy
 
-### XYFlow decision spike
+### Upstream XYFlow foundation
 
-Do not copy the entire current XYFlow fork into the package by default.
+Use upstream `@xyflow/react` through a narrow internal adapter. Pin the exact current version when implementation starts; do not copy the current Setta XYFlow fork into the package and do not expose upstream types as package contracts.
 
-Before implementation:
+The 2026-08-07 audit inspected upstream `xyflow/xyflow` main at commit `ee40209955e2e3b3d738397d281a147a73154fbd` and the published `@xyflow/react` `12.11.2`. That release already provides much of the undifferentiated canvas substrate:
 
-1. Inventory the behavior Setta changed relative to the relevant upstream release.
-2. Test whether the first-release workbench can use upstream XYFlow through a narrow adapter.
-3. Identify only the forked behavior required for section and item drag correctness.
-4. Audit licenses, notices, copied source, CSS, and assets.
-5. Choose upstream dependency, a small maintained patch, or a documented fork based on evidence.
+- Configurable pan and zoom gestures, zoom bounds, viewport helpers, coordinate conversion, fit behavior, auto-pan, and no-pan/no-wheel interaction boundaries.
+- Dots, lines, and cross backgrounds with configurable gaps, sizes, and colors; movement snapping; and light, dark, or system color mode.
+- Click, modifier, keyboard, and partial- or full-containment marquee selection; multi-node movement; recursive suppression of a selected descendant when its selected ancestor moves; and optional visible-element rendering.
+- Parent-relative nodes through `parentId`, containment extents, parent expansion, recursive subflows with no explicit depth cap, selection elevation, and configurable automatic or manual z-index behavior.
+- Extensible controls, panels, node toolbars, viewport portals, a clickable/pannable/zoomable minimap, and zoom-aware resize controls with axis, minimum, maximum, and aspect-ratio constraints.
+- Recent performance work that avoids drag instances for non-draggable nodes, prevents minimap updates on unrelated store changes, and applies viewport transforms without rerendering the viewport component.
 
-Prefer upstream when it satisfies the required interaction and performance behavior. If a fork is required, document its exact delta and test that delta directly.
+Those primitives do not replace the product described here. XYFlow parent-child nodes remain spatially positioned relative to a parent rather than automatically participating in an ordered vertical or horizontal child layout. Upstream does not provide Setta's sorting/free-move distinction, arbitrary cross-depth reparenting UI, target hysteresis, grow-versus-scroll containers, section document and registry, section frame behavior, grouping commands, structural history, smart creation, or generic sortable item trees.
 
-### dnd-kit extraction
+The adapter must preserve these boundaries:
 
-Candidate reusable sources include:
+- `WorkspaceDocument` is the only canonical persisted model. XYFlow nodes are a derived render projection.
+- Consumers import no XYFlow store, node, edge, change-event, or component-prop types through the public API.
+- The adapter uses public upstream APIs. It does not reach into XYFlow's Zustand store or copy internal modules merely for convenience.
+- The package decides whether all sections, only top-level sections, or a measured hybrid become XYFlow nodes. That choice is an implementation detail selected by the Phase 0 spike, not a document-model change.
+- Upstream selection or drag behavior may be used only when it produces the package's specified selection-root, locking, history, coordinate, and accessibility outcomes.
+- Generic graph edges and ports stay disabled or absent in the first release even though the dependency supports them.
 
-- `frontend/src/forks/dnd-kit/adapter/*`
-- Pure collision ranking, trigger-distance, midpoint, vertical-sorting, horizontal-sorting, and geometry helpers under `frontend/src/forks/dnd-kit`
-- `frontend/src/forks/dnd-kit/useMoveSectionPlans.ts`
-- `frontend/src/components/Params/paramDndMonitorUtils.ts`
-- Generic tree traversal and selection algorithms currently mixed into `frontend/src/state/actions/params/paramTree.ts`
+Phase 0 must prove the adapter against the difficult seams before broad UI implementation:
 
-Do not directly extract these application-coupled modules:
+1. Render top-level spatial sections and arbitrarily deep ordered descendants while supporting grow and internally scrolling containers.
+2. Select visible sections at every depth, normalize selected ancestors and descendants, marquee across the required geometry, and move supported selections without double movement.
+3. Preview and commit sorting and free-move plans across top-level and nested coordinate spaces at representative zoom levels.
+4. Resize top-level and nested sections while preserving content sizing, scroll isolation, constraints, and package-owned snap semantics.
+5. Lift the active or dragged top-level ancestor transiently without turning ordinary selection into a persistent document reorder.
+6. Keep unrelated section bodies, the minimap, and the viewport from rerendering during high-frequency interaction.
 
-- `frontend/src/forks/dnd-kit/useMoveSection.ts`
-- `frontend/src/forks/dnd-kit/useDropType.ts`
-- `frontend/src/components/Params/ParamDndMonitor.tsx`
-- `frontend/src/components/Params/ParamDndList.tsx`
-- `frontend/src/components/Params/ParamSwitch.tsx`
-- `frontend/src/components/Section/Container/SectionContainer.tsx`
-- `frontend/src/components/Section/Container/ManyNestedSections.tsx`
+If a required result cannot be expressed through public upstream APIs, prefer, in order: redesigning the adapter without changing the public behavior, contributing a general extension seam upstream, or maintaining a minimal exact-version patch with direct tests. A maintained fork is permitted only after those options fail; it must document every delta and its removal condition.
 
-They import Setta state, generated types, permissions, notifications, OpenAPI calls, code-object semantics, or application rendering. Use them as behavioral references while rebuilding the narrow package boundary. Preserve behavior through characterization tests around the pure planners and geometry; do not preserve application coupling merely to reuse the current hooks.
+The current Setta fork remains a behavioral reference, not a source baseline. Since its original import it has accumulated 136 follow-up commits, changed 59 fork files, and become directly referenced outside the fork by 74 frontend files. That history explains why replacing the existing Setta runtime is a separate project and why the standalone package must not inherit the same application coupling.
+
+### Upstream dnd-kit foundation and package-owned interaction kernel
+
+Use the current stable upstream dnd-kit packages through a narrow internal adapter and pin every direct package exactly when implementation starts. Do not copy or fork upstream drag infrastructure by default. Upstream is the substrate for sensors, modifiers, measurement, registration, overlays, accessibility, auto-scroll, and drag lifecycle; it is not the owner of workbench movement semantics.
+
+The 2026-08-07 audit inspected `clauderic/dnd-kit` main at commit `6fb57833026e06bb3925eef78316ba56d59749c8` and the stable `0.5.0` package generation. Setta currently pins the earlier `0.2.1` generation. Current upstream adds a stronger plugin, sensor, modifier, feedback, collision, and sortable foundation, but it still models one active source and one resolved target. It does not provide:
+
+- Multi-section or multi-item drag semantics and a combined selection collision rectangle.
+- Persistent-target hysteresis, previous-target rectangle retention, directional entry and exit buffers, or child-over-parent promotion.
+- Arbitrary cross-depth movement through mixed vertical and horizontal ordered containers.
+- Coordinate correction for an arbitrary CSS-scaled ancestor such as the XYFlow viewport.
+- A pure preview-and-commit planner that preserves selected-block order and top-level relative offsets.
+- Setta's transform-based sortable preview behavior. The upstream optimistic sorting behavior may reorder the DOM and must not be adopted until it proves that constrained and nested scroll containers remain stable.
+
+Upstream's recursive tree examples are useful implementation evidence, not a reusable mixed-orientation tree contract. They flatten and project one active item; they do not replace the recursive section or sortable-item APIs in this plan.
+
+Setta's history demonstrates the intended boundary. The original vendored dnd-kit import at `97a20a75a` contained 176 files and about 8,400 added lines. The January 2026 migration at `74e01b02f` removed about 7,100 lines of forked core while deliberately retaining the custom collision, zoom, preview, nested-target, and multi-selection layer. Later fixes at `52b580e3a`, `e23229915`, and `a4340b944` specifically added oscillation control, resolved-target hysteresis, and atomic multi-section movement. That retained layer is not merely legacy compatibility; it contains the package's differentiated interaction behavior.
+
+Treat the current implementation in three categories.
+
+Port or reimplement as a package-owned, framework-neutral behavior kernel:
+
+- Collision scoring and comparison from `frontend/src/forks/dnd-kit/adapter/collision.ts` and `collisionCompare.ts`, including previous-target preference, previous-rectangle retention, sortable priority, trigger-distance ordering, and child-over-parent promotion.
+- Orientation-aware insertion and transform math from `adapter/sorting.ts`, `sortingOverState.ts`, and related pure geometry helpers.
+- Selection bounds and active-operation-shape behavior from `dragRectBounds.ts` and `DragOperationShapeSync.tsx`.
+- Atomic single- and selected-block planning from `useMoveSectionPlans.ts`.
+- Generic item-tree planning, selection normalization, and drag-overlay measurement currently spread across `paramDndMonitorUtils.ts` and `paramTree.ts`.
+
+Re-evaluate against the selected exact-pinned stable upstream release (`0.5.0` at audit time) and retain only when the Phase 0 proof shows that upstream behavior is insufficient:
+
+- Provider, event-mapping, sensor, draggable, droppable, monitor, rectangle, and compatibility wrappers under `frontend/src/forks/dnd-kit/adapter`.
+- The custom sortable context and hooks. Their old-API emulation should disappear, but their layout-stable transform preview may remain package-owned if upstream optimistic sorting still causes nested-scroll jumps or target feedback loops.
+- Overlay and feedback plumbing that newer upstream packages can express without leaking upstream contracts publicly.
+
+Rewrite rather than port application coupling:
+
+- `useDropType.ts` contains important target-memory and preview-state-machine behavior, but it also imports Setta state, generated section types, notifications, and application policies. Specify and extract the generic state-machine outcomes; do not carry the hook or its Setta branches wholesale.
+- `useMoveSection.ts` mixes useful coordinate outcomes with backend mutation and XYFlow selection updates. The pure plan belongs in the package; persistence and application-store updates do not.
+- `dndState.ts`, parameter stores, generated-type checks, terminal/code-section rules, OpenAPI calls, and Setta notifications remain outside the package. Host policy handles domain-specific move rejection.
+- `ParamDndMonitor.tsx`, `ParamDndList.tsx`, `ParamSwitch.tsx`, `SectionContainer.tsx`, and `ManyNestedSections.tsx` remain behavioral references rather than source baselines.
+
+XYFlow-scale handling must become an internal coordinate service supplied to the DnD adapter rather than a direct import from the canvas store. It must provide the effective viewport scale and deterministic screen/workspace conversion needed by transforms, collision thresholds, overlays, placeholders, and canvas drops. Do not assume upstream dnd-kit handles this scaled-ancestor case: Phase 0 must prove pointer deltas, active and selection rectangles, drop targets, and overlays at minimum, default, and maximum zoom, both with and without nested scrolling.
+
+The resulting implementation is therefore an upstream dependency plus a package-owned interaction kernel, not a dnd-kit fork and not a thin configuration of upstream defaults. Preserve behavior through deterministic tests before deleting any current source that is the only executable specification of that behavior.
 
 Additional behavioral references include:
 
@@ -851,6 +928,13 @@ The playground may use its own styling system, but it must consume the published
 ### Dependency rules
 
 - Pin checked-in direct dependency versions exactly.
+- Use an exact-pinned upstream `@xyflow/react` dependency for the initial adapter spike and implementation.
+- Use exact-pinned stable upstream dnd-kit packages for the initial interaction spike. Do not adopt a beta release or copy upstream core merely to obtain an unreleased API.
+- Keep dnd-kit types and events behind the package adapter; public move plans, callbacks, and render contracts use package-owned types.
+- Begin with upstream optimistic DOM sorting disabled. Replace the package-owned transform preview with upstream behavior only after nested-scroll, zoom, hysteresis, and preview/commit tests prove equivalent or better behavior.
+- Do not import non-public dnd-kit source paths or internals.
+- Do not import non-public XYFlow source paths or store internals.
+- Do not add a local XYFlow patch unless the Phase 0 evidence identifies one specific missing public seam and records its test, upstream issue or contribution path, and removal condition.
 - Keep React and React DOM as documented peer dependencies.
 - Keep the Setta-family dependency count at one package.
 - Do not depend on Setta applications, generated clients, or a Setta SDK.
@@ -909,7 +993,7 @@ Accent and tag colors are also supplementary. Selection, grouping, locks, invali
 
 Frontend performance is a release requirement.
 
-Before extraction, record baseline behavior for equivalent current Setta interactions where a trustworthy comparison exists. Store append-only reports under `perf/` when the work occurs in this repository.
+Before implementation, record baseline behavior for equivalent current Setta interactions where a trustworthy comparison exists. Store append-only reports under `perf/` when the work occurs in this repository.
 
 The standalone package must be profiled for:
 
@@ -955,13 +1039,18 @@ The design should:
 
 Produce:
 
+- A dedicated implementation branch checked out in a separate worktree.
 - The independent package or isolated package workspace.
 - A blank consumer fixture with no Setta aliases.
-- An extraction inventory classifying current code as reusable pure logic, adaptable UI logic, or application-coupled reference code.
-- The upstream-versus-fork XYFlow decision.
-- The dnd-kit dependency and license decision.
-- A section-DnD behavior matrix covering sorting mode, free-move mode, single and sibling-block movement, parent transitions, midpoint transitions, invalid targets, vertical and horizontal parents, cancellation, and representative zoom levels.
-- Focused characterization tests for the current pure move-planning, collision-ranking, trigger-distance, and orientation-specific sorting behavior.
+- A reference inventory classifying current code as reusable pure logic or behavioral evidence, with application-coupled UI excluded from the implementation base.
+- The upstream XYFlow adapter representation decision and its evidence; the default dependency-versus-fork decision is already upstream dependency.
+- A focused upstream-adapter proof covering recursive rendering, selection at depth, cross-coordinate-space movement, nested resizing, transient ancestor lift, scroll isolation, and high-frequency rerender behavior.
+- The exact-pinned stable dnd-kit dependency, adapter boundary, optimistic-sorting decision, and license decision.
+- A current-code inventory that separates upstream-replaceable adapter machinery, the package-owned interaction kernel, and Setta application coupling. The inventory must identify the executable specification for every retained interaction before its current source is removed.
+- A section-DnD behavior matrix covering sorting mode, free-move mode, single and sibling-block movement, parent transitions, midpoint transitions, invalid targets, vertical and horizontal parents, cancellation, constrained scrolling, and minimum, default, and maximum zoom.
+- Focused characterization tests for current move planning, collision ranking, previous-target preference, previous-rectangle retention, trigger-distance and midpoint transitions, child-over-parent promotion, orientation-specific sorting, selection-shaped collision geometry, stale-target clearing, and layout-stable preview transforms.
+- A differential proof against the selected exact-pinned stable dnd-kit release showing which provider, sensor, measuring, overlay, feedback, and sortable responsibilities upstream can own without changing the characterized behavior.
+- A scaled-ancestor proof that keeps pointer deltas, single- and multi-selection rectangles, collision targets, insertion placeholders, drag overlays, and canvas-drop coordinates aligned through XYFlow zoom and nested scrolling.
 - A behavior inventory for current locking, minimizing, fixed/content resizing, group overflow, movement/resize snapping, grid rendering, configurable viewport gestures, scroll isolation, transient and persistent stacking, smart placement, inline naming, selection, grouping, minimap, toolbar controls, section chrome, accents, and appearance selection.
 - Characterization notes for current parameter multi-selection, normalized-root dragging, shared-parent restrictions, batch keyboard movement, and drag-overlay measurement.
 - Baseline interaction and performance notes.
@@ -973,8 +1062,13 @@ Gate:
 - The empty package builds, tests, and packs.
 - The consumer fixture installs the packed artifact.
 - No Setta application import is available to the package.
+- No compatibility layer, old/new feature flag, current project-model adapter, or copied application component exists in the package.
+- The XYFlow proof uses public upstream APIs and records which section representation it selected.
+- Any proposed XYFlow patch has a smaller demonstrated scope than a fork and an explicit removal condition; otherwise the implementation remains unpatched upstream.
+- The upstream dnd-kit proof uses public APIs, keeps package contracts free of dnd-kit types, and records every custom behavior that remains package-owned.
+- Optimistic DOM sorting remains disabled unless the proof demonstrates stable constrained scrolling, unchanged target hysteresis, and exact preview/commit parity.
 - License obligations are understood before source is copied.
-- The stability behavior that must survive extraction is explicit and reproducible without depending on memory or visual guesswork.
+- The required interaction kernel is explicit and reproducible without depending on memory or visual guesswork; deleting the current implementation cannot delete its only executable specification.
 
 ### Phase 1: Serializable canvas shell
 
@@ -984,7 +1078,7 @@ Implement:
 - Canonical recursive child lists and a derived parent lookup.
 - Controlled and uncontrolled state.
 - Host capabilities, `readOnly`, and the public controller boundary.
-- The canvas container.
+- The upstream XYFlow adapter and canvas container without exposing XYFlow contracts.
 - Configurable pan-on-drag, pan-on-scroll, wheel, pinch, and double-click zoom with documented bounds and temporary activation keys.
 - Host-renderer pan/wheel suppression primitives and scroll arbitration.
 - Background, viewport updates, focus-section, fit-section, fit-to-sections, and deterministic next/previous traversal helpers.
@@ -998,6 +1092,8 @@ Implement:
 
 Tests:
 
+- Public declaration output contains no XYFlow node, edge, store, or change-event types.
+- The exact-pinned upstream dependency is sufficient without private source imports.
 - Document round trip.
 - Arbitrarily deep mixed-orientation document round trip.
 - Invalid document failures for duplicate placement, unreachable sections, cycles, unknown children, invalid orientations or overflow modes, unsupported size or chrome modes, invalid colors, empty titles, and non-finite root positions or dimension fallbacks.
@@ -1087,11 +1183,13 @@ Implement in this order:
 6. Pure sorting-mode move planning for one section or a selected sibling block within the current parent.
 7. Pure free-move planning for one section or a selected sibling block across canvas-to-nested, nested-to-canvas, and nested-to-nested moves at unrelated depths.
 8. Orientation-aware insertion placeholders and commit parity.
-9. Collision ranking, midpoint tracking, zoom-scaled trigger distances, and stable target hysteresis based on the Phase 0 characterization.
-10. Cycle, self, descendant, mixed-parent batch, active-section lock, and host-policy rejection.
-11. Group and ungroup at any supported depth for selected siblings with one shared parent.
-12. Keyboard reorder and cross-container movement with focus restoration and announcements.
-13. A container example with mixed vertical and horizontal descendants at least three levels deep.
+9. Selection-shaped collision geometry that ignores every moving selection root while preserving the selected block's combined drag bounds.
+10. Stateful collision ranking, previous-target and previous-rectangle retention, child-over-parent promotion, midpoint tracking, zoom-scaled directional trigger distances, and stable target hysteresis based on the Phase 0 characterization.
+11. A layout-stable transform preview that does not optimistically reorder constrained-scroll DOM unless the Phase 0 proof established equivalence.
+12. Cycle, self, descendant, mixed-parent batch, active-section lock, and host-policy rejection.
+13. Group and ungroup at any supported depth for selected siblings with one shared parent.
+14. Keyboard reorder and cross-container movement with focus restoration and announcements.
+15. A container example with mixed vertical and horizontal descendants at least three levels deep.
 
 Tests:
 
@@ -1105,8 +1203,11 @@ Tests:
 - Reject direct sorting, reparenting, movement, and resizing of a locked active section while allowing that section's unlocked descendants and host controls to remain usable.
 - Allow a locked container to remain a destination unless host policy rejects it.
 - Preserve visible placement while crossing coordinate spaces and resolve final canvas positions correctly at minimum, default, and maximum zoom.
+- Keep pointer deltas, the combined selection rectangle, collisions, insertion placeholders, and drag overlays aligned at minimum, default, and maximum zoom with nested containers both growing and internally scrolling.
 - Keep the previewed parent and index identical to the committed plan.
-- Hold a stable target while the pointer jitters around sibling midpoints and parent-child boundaries; change it only after the applicable entry or exit threshold is crossed.
+- Hold a stable target and reference rectangle while the pointer jitters or feedback layout changes around sibling midpoints and parent-child boundaries; change it only after the applicable directional entry or exit threshold is crossed.
+- Prefer the valid child insertion target over its containing parent when both collide, without flickering between them.
+- Exclude every moving selection root from collision candidates and move the selected block atomically from its combined drag geometry.
 - Clear stale targets when leaving all droppable regions or canceling.
 - Change orientation without changing containment or logical child order.
 - Switch a populated container between grow and scroll modes without a visual size jump; verify internal wheel isolation and return to grow mode.
@@ -1122,7 +1223,7 @@ Gate:
 - A user can select sibling sections, move or group them atomically, and ungroup them without identity or order loss.
 - Vertical and horizontal parents produce matching layout, insertion, keyboard, and announcement behavior.
 - A nested container can grow with its children or retain a stable bounded size with an internally scrollable child region.
-- The characterized Setta target-stability behavior is preserved or deliberately improved with evidence.
+- The characterized Setta zoom coordination, selection-shaped collision, preview stability, and target hysteresis are preserved or deliberately improved with evidence.
 - Recursive section operations remain deterministic, serializable, accessible, and zoom-correct.
 
 ### Phase 4: Sortable items inside a section
@@ -1193,12 +1294,13 @@ Gate:
 
 - An unrelated React application can install the packed package, register its own section renderer, create and rename through ready-made UI, arrange one or more top-level sections, recursively nest and sort sections, group, ungroup, lock, minimize, content-fit, resize, scroll containers, snap, theme section chrome, use a minimap, extend the toolbar, change child orientation, and add a multi-item sortable tree without importing package internals.
 - The package contains no Setta application or backend dependency.
+- The package contains no compatibility, migration, legacy, dual-path, or transitional code for the current Setta frontend.
 - Focused unit, integration, E2E, accessibility, performance, and package-boundary checks pass.
 - The playground demonstrates the complete primary workflow.
 
 ### Phase 6: Planned post-release expansion in the same package
 
-The first OSS release does not wait for browser windowing or domain-safe clipboard integration. They remain intended capabilities of `@setta/section-workspace`, not separate domain products.
+The first OSS release does not wait for browser windowing or domain-safe clipboard integration. They remain intended capabilities of `@setta/workspace`, not separate domain products.
 
 Implement detachable sections as an optional React export:
 
@@ -1257,7 +1359,9 @@ Cover:
 - Light, dark, and system appearance resolution plus semantic token merging, sRGB gamut checks, APCA targets, and WCAG 2 compatibility measurements.
 - Accent and tag-color parsing, gamut handling, semantic-role isolation, and accessible token derivation.
 - Vertical and horizontal insertion-index planning.
-- Collision ranking, midpoint transitions, zoom-scaled trigger distances, target hysteresis, and stale-target clearing.
+- Collision ranking, previous-target preference, previous-rectangle retention, child-over-parent promotion, midpoint transitions, zoom-scaled directional trigger distances, target hysteresis, and stale-target clearing.
+- Selection-bound geometry, selected-root collision exclusion, and coordinate correction for single and multi-section drags under a scaled viewport.
+- Layout-stable sortable preview transforms and exact preview/commit parity without constrained-scroll jumps.
 - History coalescing and restoration.
 - Item-tree validation.
 - Single- and multi-item selection normalization and move planning.
@@ -1368,7 +1472,7 @@ The first release documentation includes:
 
 The focused workbench release is done when:
 
-- `@setta/section-workspace` installs into an unrelated React application.
+- `@setta/workspace` installs into an unrelated React application.
 - It renders without Go, Python, HTTP, WebSockets, MCP, or any Setta runtime.
 - It exposes a small versioned `WorkspaceDocument`.
 - Consumers can register arbitrary section renderers.
@@ -1419,7 +1523,8 @@ This plan does not include:
 - Authentication.
 - Deployment or sharing.
 - A canonical application project format.
-- Setta project compatibility.
+- Compatibility with current Setta project files, frontend contracts, state shapes, or imports.
+- Migrations, legacy aliases, compatibility shims, transitional adapters, dual read/write paths, or side-by-side old/new UI implementations.
 - The Setta plugin system.
 - Generated OpenAPI clients.
 - Domain-specific Dict or Callable semantics.
@@ -1439,9 +1544,9 @@ This plan does not include:
 
 The first implementation task should stop after one visible vertical slice:
 
-1. Create the isolated package and consumer fixture.
+1. Create a dedicated implementation branch in a separate worktree, then create the isolated package and consumer fixture without copying the current frontend structure.
 2. Define and validate the minimal recursive `WorkspaceDocument`, including titles, presentation, fixed/content dimensions, grow/scroll child layout, canonical child lists, orientation, cycle rejection, and derived parent lookup.
-3. Render a pannable and zoomable canvas with one configurable gesture policy, host-content wheel isolation, an independently toggleable snap grid, scoped light/dark theme tokens, the default toolbar, and a host-injected control.
+3. Through the public-API-only upstream XYFlow adapter, render a pannable and zoomable canvas with one configurable gesture policy, host-content wheel isolation, an independently toggleable snap grid, scoped light/dark theme tokens, the default toolbar, and a host-injected control.
 4. Register note and container section kinds with searchable creation metadata, then smart-place and inline-rename a note from the context menu.
 5. Render a content-sized vertical growing container with two note children, one deeper horizontal container, and the empty-container affordance in an unused child container.
 6. Reorder the note children in sorting mode, switch the populated parent to fixed scroll overflow, scroll without panning, then restore grow mode.
@@ -1450,6 +1555,6 @@ The first implementation task should stop after one visible vertical slice:
 9. Resize, return to content sizing, lock, minimize, expand, recolor, and change the chrome of a note, then serialize and restore its hierarchy, orientation, size modes, overflow, lock, minimized state, title, and presentation.
 10. Render and navigate the representative document through the minimap and `focusSection`/`fitSections` controller helpers.
 11. Verify the packed package in the consumer fixture.
-12. Record the XYFlow/dnd-kit decision, license obligations, and current Setta DnD, selection, smart-placement, gesture, resize/content-size, overflow, snap, lock, minimize, title, toolbar, minimap, chrome, color, and appearance behavior matrix.
+12. Record the XYFlow adapter representation outcome, any proven missing upstream seam, the exact dnd-kit adapter and package-owned interaction-kernel boundary, license obligations, and the selected current Setta DnD, selection, smart-placement, gesture, resize/content-size, overflow, snap, lock, minimize, title, toolbar, minimap, chrome, color, and appearance behavior matrix.
 
-Do not begin item-tree extraction until this slice passes its package-boundary, browser, accessibility, recursive-structure, selection-root, target-stability, smart-placement, gesture-arbitration, sizing/overflow, snapping, theme-scoping, minimap, extension-surface, and coordinate-correctness checks. Horizontal reordering, every cross-depth direction, full keyboard parity, all grid patterns, complete light/dark visual coverage, external-drop integration, and every batch-movement direction remain later phase requirements even if this first slice proves only representative paths.
+Do not begin the item-tree implementation until this slice passes its package-boundary, browser, accessibility, recursive-structure, selection-root, target-stability, smart-placement, gesture-arbitration, sizing/overflow, snapping, theme-scoping, minimap, extension-surface, and coordinate-correctness checks. Horizontal reordering, every cross-depth direction, full keyboard parity, all grid patterns, complete light/dark visual coverage, external-drop integration, and every batch-movement direction remain later phase requirements even if this first slice proves only representative paths.
