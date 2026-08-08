@@ -61,7 +61,7 @@ export type UpstreamDndItemProps = {
   id: string;
   label: string;
   onElement?(element: HTMLElement | null): void;
-  onSelect(): void;
+  onSelect(additive: boolean): void;
   rootSectionId: string;
   selected: boolean;
 };
@@ -95,13 +95,14 @@ export function UpstreamDndItem({
       data-drag-source={draggable.isDragSource ? "true" : "false"}
       data-drop-target={droppable.isDropTarget ? "true" : "false"}
       data-proof-section-id={id}
+      data-selected={selected ? "true" : "false"}
       ref={setElement}
     >
       <div className="setta-adapter-proof__nested-header">
         <button
           aria-pressed={selected}
           className="nodrag nowheel nopan setta-adapter-proof__nested-select"
-          onClick={onSelect}
+          onClick={(event) => onSelect(event.shiftKey)}
           type="button"
         >
           {label}

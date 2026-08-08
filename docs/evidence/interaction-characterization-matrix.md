@@ -41,10 +41,11 @@ browser evidence. Phase 0 still requires:
 
 - The remaining interaction-owner cells: touch, accepted keyboard reordering, free move,
   selection-block movement, and runtime mode changes.
-- Minimum/default/maximum zoom drag geometry for multi-selection, collision, placeholders, overlays,
-  canvas drops, and preview/commit parity.
-- All-depth marquee and initial-fit consumers of the geometry index, plus representative
-  high-frequency performance baselines.
+- Minimum/default/maximum zoom drag completion for selection-block collision, placeholders, canvas
+  drops, and preview/commit parity. Combined selection overlays now remain aligned at all three
+  proof zooms.
+- Representative browser render-count and high-frequency interaction baselines. The first
+  repeatable 2,000-frame geometry-index baseline is recorded under `perf/`.
 - The complete non-DnD behavior inventory, browser characterization matrix, and final Phase 0 gate
   audit.
 

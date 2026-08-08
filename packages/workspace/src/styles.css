@@ -265,6 +265,15 @@
   border-radius: 0.625rem;
 }
 
+.setta-adapter-proof__marquee {
+  position: absolute;
+  inset: 0 auto auto 0;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--setta-workspace-accent, #315f9f) 12%, transparent);
+  border: 2px dashed var(--setta-workspace-accent, #315f9f);
+  border-radius: 0.375rem;
+}
+
 .setta-adapter-proof__drag-overlay {
   padding: 0.75rem 1rem;
   color: #ffffff;

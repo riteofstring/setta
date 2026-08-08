@@ -22,6 +22,7 @@ This blank-slate branch retains development policy, not Setta application or run
 | Dead files, exports, and dependencies                                                                                                               | `knip.json`                                                        | `corepack pnpm knip`                                                                   |
 | Production TypeScript below 1,000 lines and tests below 1,200 lines                                                                                 | `scripts/check-file-lengths.mjs`                                   | `corepack pnpm quality`                                                                |
 | Non-failing complexity and file-length hotspot reports                                                                                              | `scripts/report-complexity.mjs`, `scripts/report-file-lengths.mjs` | explicit report commands                                                               |
+| Focused, non-gating performance measurements with append-only evidence                                                                              | `scripts/measure-geometry-index.mjs`, `perf/`                      | `corepack pnpm perf:geometry`                                                          |
 | Backend-free unit, browser, accessibility, keyboard, focus, and representative visual tests                                                         | Vitest and Playwright configs, `tests/e2e`                         | `corepack pnpm test:unit`, `corepack pnpm test:e2e`                                    |
 | Declarations, declared subpaths, CSS, tarball allowlist, local pack, and unrelated consumer build                                                   | package exports and package/consumer scripts                       | `corepack pnpm pack:check`, `corepack pnpm consumer:check`, `corepack pnpm api:report` |
 | Dependency license inventory, vulnerability policy, and machine-readable lockfile inventory                                                         | license policy and supply-chain scripts                            | `corepack pnpm supply-chain:check`                                                     |
@@ -41,4 +42,7 @@ The branch does not retain or recreate these application-specific surfaces:
 - Compatibility helpers, migrations, legacy aliases, dual paths, or adapters for current Setta project files.
 - The historical XYFlow or dnd-kit forks as source dependencies. Their behavior remains evidence only until the Phase 0 adapter and interaction-owner proofs select exact upstream dependencies and package-owned algorithms.
 
-The boundary checker allows only the workspace package, Node-only playground, unrelated consumer fixture, documentation, tests, and reviewed project-owned tooling. Expanding that tree requires updating this inventory and the executable allowlist in the same implementation change.
+The boundary checker allows only the workspace package, Node-only playground, unrelated consumer
+fixture, documentation, append-only performance evidence, tests, and reviewed project-owned
+tooling. Expanding that tree requires updating this inventory and the executable allowlist in the
+same implementation change.

@@ -119,7 +119,115 @@ describe("WorkspaceGeometryIndex", () => {
       height: 130,
     });
   });
+
+  it("selects measured frames with partial and full marquee semantics at every depth", () => {
+    const index = new WorkspaceGeometryIndex();
+    for (const frame of [
+      {
+        sectionId: "root",
+        parentSectionId: null,
+        depth: 0,
+        order: 0,
+        rect: { x: 0, y: 0, width: 300, height: 240 },
+      },
+      {
+        sectionId: "child",
+        parentSectionId: "root",
+        depth: 1,
+        order: 0,
+        rect: { x: 30, y: 40, width: 220, height: 150 },
+      },
+      {
+        sectionId: "grandchild",
+        parentSectionId: "child",
+        depth: 2,
+        order: 0,
+        rect: { x: 70, y: 80, width: 60, height: 50 },
+      },
+      {
+        sectionId: "unmeasured-placeholder",
+        parentSectionId: "root",
+        depth: 1,
+        order: 1,
+        rect: { x: 90, y: 90, width: 0, height: 40 },
+      },
+    ] as const) {
+      index.register(frame);
+    }
+
+    expect(
+      index.framesInRect({ x: 65, y: 75, width: 70, height: 60 }, "full").map(frameId),
+    ).toEqual(["grandchild"]);
+    expect(
+      index.framesInRect({ x: 120, y: 120, width: 30, height: 30 }, "partial").map(frameId),
+    ).toEqual(["root", "child", "grandchild"]);
+    expect(index.framesInRect({ x: 70, y: 80, width: 0, height: 50 }, "partial")).toEqual([]);
+  });
+
+  it("normalizes measured selection roots and waits for complete fit geometry", () => {
+    const index = new WorkspaceGeometryIndex();
+    index.register({
+      sectionId: "root",
+      parentSectionId: null,
+      depth: 0,
+      order: 0,
+      rect: { x: 10, y: 20, width: 300, height: 220 },
+    });
+    index.register({
+      sectionId: "child",
+      parentSectionId: "root",
+      depth: 1,
+      order: 0,
+      rect: { x: 40, y: 60, width: 100, height: 80 },
+    });
+    index.register({
+      sectionId: "other-root",
+      parentSectionId: null,
+      depth: 0,
+      order: 1,
+      rect: { x: 400, y: 100, width: 120, height: 100 },
+    });
+
+    expect(index.selectionRoots(["child", "root", "other-root", "child"])).toEqual([
+      "root",
+      "other-root",
+    ]);
+    expect(index.boundsWhenReady(["child", "other-root"])).toEqual({
+      x: 40,
+      y: 60,
+      width: 480,
+      height: 140,
+    });
+    expect(index.boundsWhenReady(["child", "missing"])).toBeNull();
+    expect(index.boundsWhenReady([])).toBeNull();
+  });
+
+  it("fails specifically when measured parent geometry contains a cycle", () => {
+    const index = new WorkspaceGeometryIndex();
+    index.register({
+      sectionId: "first",
+      parentSectionId: "second",
+      depth: 1,
+      order: 0,
+      rect: { x: 0, y: 0, width: 10, height: 10 },
+    });
+    index.register({
+      sectionId: "second",
+      parentSectionId: "first",
+      depth: 1,
+      order: 0,
+      rect: { x: 20, y: 0, width: 10, height: 10 },
+    });
+
+    expect(() => index.selectionRoots(["first"])).toThrow(
+      "Measured geometry contains a parent cycle at first.",
+    );
+  });
 });
+
+function frameId(frame: { sectionId: string }): string {
+  return frame.sectionId;
+}
 
 describe("client/workbench coordinate conversion", () => {
   it("round trips points and rectangles through an offset scaled viewport", () => {

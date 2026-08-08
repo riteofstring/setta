@@ -18,6 +18,7 @@ import {
   memo,
   useCallback,
   useContext,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -27,10 +28,13 @@ import {
 
 import {
   WorkspaceGeometryIndex,
+  clientPointToWorkspace,
   clientRectToWorkspace,
+  type MarqueeSelectionMode,
   type MeasuredWorkspaceFrame,
   type ScreenRect,
   type WorkspacePoint,
+  type WorkspaceRect,
 } from "./geometry-index.js";
 import {
   UpstreamDndBoundary,
@@ -72,9 +76,9 @@ type ProofContextValue = {
   canvasElement: HTMLElement | null;
   geometryIndex: WorkspaceGeometryIndex;
   nestedByRoot: Readonly<Record<string, readonly ProofNestedSection[]>>;
-  selectedNestedId: string | null;
+  selectedSectionIds: ReadonlySet<string>;
   wideSectionIds: ReadonlySet<string>;
-  selectNested(sectionId: string): void;
+  selectSection(sectionId: string, additive: boolean): void;
   toggleNestedWidth(sectionId: string): void;
 };
 
@@ -158,6 +162,15 @@ const initialRootNodes: readonly ProofRootNode[] = [
     ariaLabel: "Status section",
     zIndex: 0,
   },
+];
+
+function collectNestedIds(sections: readonly ProofNestedSection[]): readonly string[] {
+  return sections.flatMap((section) => [section.id, ...collectNestedIds(section.children ?? [])]);
+}
+
+const allProofSectionIds = [
+  ...initialRootNodes.map((node) => node.id),
+  ...Object.values(initialNestedByRoot).flatMap(collectNestedIds),
 ];
 
 function useProofContext(): ProofContextValue {
@@ -255,9 +268,10 @@ function NestedSection({
   rootSectionId,
   section,
 }: NestedSectionProps) {
-  const { selectedNestedId, selectNested, toggleNestedWidth, wideSectionIds } = useProofContext();
+  const { selectedSectionIds, selectSection, toggleNestedWidth, wideSectionIds } =
+    useProofContext();
   const elementRef = useMeasuredFrame(section.id, parentSectionId, depth, order);
-  const selected = selectedNestedId === section.id;
+  const selected = selectedSectionIds.has(section.id);
   const children = section.children?.map((child, childOrder) => (
     <NestedSection
       depth={depth + 1}
@@ -294,7 +308,7 @@ function NestedSection({
         id={section.id}
         label={section.title}
         onElement={elementRef}
-        onSelect={() => selectNested(section.id)}
+        onSelect={(additive) => selectSection(section.id, additive)}
         rootSectionId={rootSectionId}
         selected={selected}
       >
@@ -315,7 +329,7 @@ function NestedSection({
         <button
           aria-pressed={selected}
           className="nodrag nowheel nopan setta-adapter-proof__nested-select"
-          onClick={() => selectNested(section.id)}
+          onClick={(event) => selectSection(section.id, event.shiftKey)}
           type="button"
         >
           {section.title}
@@ -328,7 +342,7 @@ function NestedSection({
 
 const ProofRootSection = memo(
   function ProofRootSection({ data, id }: NodeProps<ProofRootNode>) {
-    const { nestedByRoot } = useProofContext();
+    const { nestedByRoot, selectedSectionIds } = useProofContext();
     const rootOrder = id === "root-alpha" ? 0 : 1;
     const elementRef = useMeasuredFrame(id, null, 0, rootOrder);
 
@@ -336,6 +350,7 @@ const ProofRootSection = memo(
       <article
         className="setta-adapter-proof__root-section"
         data-proof-section-id={id}
+        data-selected={selectedSectionIds.has(id) ? "true" : "false"}
         ref={elementRef}
       >
         <header className="setta-adapter-proof__root-header">
@@ -378,21 +393,39 @@ const proofNodeTypes = { "proof-root": ProofRootSection } satisfies NodeTypes;
 type ProofCanvasControlsProps = {
   canvasElement: HTMLElement | null;
   geometryIndex: WorkspaceGeometryIndex;
-  selectedNestedId: string | null;
+  marqueeMode: MarqueeSelectionMode;
+  selectedSectionIds: ReadonlySet<string>;
+  onMarqueeModeChange(mode: MarqueeSelectionMode): void;
+  onSelectionChange(sectionIds: readonly string[], source: "control" | "marquee"): void;
 };
+
+function measuredSelectionRoots(
+  geometryIndex: WorkspaceGeometryIndex,
+  selectedSectionIds: ReadonlySet<string>,
+): readonly string[] {
+  return geometryIndex.selectionRoots(
+    [...selectedSectionIds].filter((sectionId) => geometryIndex.has(sectionId)),
+  );
+}
 
 function ProofCanvasControls({
   canvasElement,
   geometryIndex,
-  selectedNestedId,
+  marqueeMode,
+  onMarqueeModeChange,
+  onSelectionChange,
+  selectedSectionIds,
 }: ProofCanvasControlsProps) {
   const instance = useReactFlow<ProofRootNode>();
   const viewport = useViewport();
   useGeometryRevision(geometryIndex);
-  const selectedFrame = selectedNestedId ? geometryIndex.get(selectedNestedId) : undefined;
+  const selectionRoots = measuredSelectionRoots(geometryIndex, selectedSectionIds);
+  const primarySectionId = selectionRoots.at(-1) ?? null;
+  const selectedFrame = primarySectionId ? geometryIndex.get(primarySectionId) : undefined;
+  const selectedBounds = geometryIndex.boundsWhenReady(selectionRoots);
 
   const focusSelected = () => {
-    if (!canvasElement || !selectedFrame || !selectedNestedId) {
+    if (!canvasElement || !selectedFrame || !primarySectionId) {
       return;
     }
     const bounds = canvasElement.getBoundingClientRect();
@@ -405,7 +438,7 @@ function ProofCanvasControls({
     };
     void instance.setViewport(nextViewport, { duration: 0 }).then(() => {
       const sectionElement = canvasElement.querySelector<HTMLElement>(
-        `[data-proof-section-id="${selectedNestedId}"]`,
+        `[data-proof-section-id="${primarySectionId}"]`,
       );
       sectionElement?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
     });
@@ -418,11 +451,47 @@ function ProofCanvasControls({
           Focus selected
         </button>
         <button
-          onClick={() => void instance.fitView({ duration: 0, nodes: [{ id: "root-alpha" }] })}
+          disabled={!selectedBounds}
+          onClick={() => {
+            if (selectedBounds) {
+              void instance.fitBounds(selectedBounds, { duration: 0, padding: 0.2 });
+            }
+          }}
           type="button"
         >
-          Fit planning section
+          Fit selection
         </button>
+        <button
+          onClick={() => onSelectionChange(["nested-note-b", "nested-note-c"], "control")}
+          type="button"
+        >
+          Select deep notes
+        </button>
+        <button
+          disabled={selectedSectionIds.size === 0}
+          onClick={() => onSelectionChange([], "control")}
+          type="button"
+        >
+          Clear selection
+        </button>
+        <button
+          aria-pressed={marqueeMode === "full"}
+          onClick={() => onMarqueeModeChange(marqueeMode === "full" ? "partial" : "full")}
+          type="button"
+        >
+          Marquee: {marqueeMode}
+        </button>
+        {[0.5, 1, 2].map((zoom) => (
+          <button
+            aria-label={`Set zoom to ${String(zoom * 100)}%`}
+            aria-pressed={Math.abs(viewport.zoom - zoom) < 0.001}
+            key={zoom}
+            onClick={() => void instance.zoomTo(zoom, { duration: 0 })}
+            type="button"
+          >
+            {String(zoom * 100)}%
+          </button>
+        ))}
       </div>
     </Panel>
   );
@@ -430,11 +499,12 @@ function ProofCanvasControls({
 
 function SelectedFrameOverlay({
   geometryIndex,
-  selectedNestedId,
-}: Pick<ProofCanvasControlsProps, "geometryIndex" | "selectedNestedId">) {
+  selectedSectionIds,
+}: Pick<ProofCanvasControlsProps, "geometryIndex" | "selectedSectionIds">) {
   useGeometryRevision(geometryIndex);
-  const frame = selectedNestedId ? geometryIndex.get(selectedNestedId) : undefined;
-  if (!frame) {
+  const selectionRoots = measuredSelectionRoots(geometryIndex, selectedSectionIds);
+  const bounds = geometryIndex.boundsWhenReady(selectionRoots);
+  if (!bounds) {
     return null;
   }
 
@@ -443,10 +513,149 @@ function SelectedFrameOverlay({
       <div
         aria-hidden="true"
         className="setta-adapter-proof__selection-overlay"
+        data-proof-selection-roots={selectionRoots.join(",")}
         style={{
-          height: frame.rect.height,
-          transform: `translate(${frame.rect.x}px, ${frame.rect.y}px)`,
-          width: frame.rect.width,
+          height: bounds.height,
+          transform: `translate(${bounds.x}px, ${bounds.y}px)`,
+          width: bounds.width,
+        }}
+      />
+    </ViewportPortal>
+  );
+}
+
+function InitialGeometryFit({
+  geometryIndex,
+  onReady,
+}: {
+  geometryIndex: WorkspaceGeometryIndex;
+  onReady(): void;
+}) {
+  const instance = useReactFlow<ProofRootNode>();
+  const revision = useGeometryRevision(geometryIndex);
+  const didFit = useRef(false);
+
+  useEffect(() => {
+    const bounds = geometryIndex.boundsWhenReady(allProofSectionIds);
+    if (didFit.current || !bounds) {
+      return;
+    }
+    didFit.current = true;
+    void instance.fitBounds(bounds, { duration: 0, padding: 0.08 }).then(onReady);
+  }, [geometryIndex, instance, onReady, revision]);
+
+  return null;
+}
+
+function marqueeRect(start: WorkspacePoint, end: WorkspacePoint): WorkspaceRect {
+  const x = Math.min(start.x, end.x);
+  const y = Math.min(start.y, end.y);
+  return {
+    x,
+    y,
+    width: Math.max(start.x, end.x) - x,
+    height: Math.max(start.y, end.y) - y,
+  };
+}
+
+function MarqueeSelectionController({
+  canvasElement,
+  geometryIndex,
+  marqueeMode,
+  onSelectionChange,
+}: Pick<
+  ProofCanvasControlsProps,
+  "canvasElement" | "geometryIndex" | "marqueeMode" | "onSelectionChange"
+>) {
+  const viewport = useViewport();
+  const [rect, setRect] = useState<WorkspaceRect | null>(null);
+
+  useEffect(() => {
+    if (!canvasElement) {
+      return;
+    }
+    let activePointerId: number | null = null;
+    let startPoint: WorkspacePoint | null = null;
+
+    const toWorkspacePoint = (event: PointerEvent): WorkspacePoint =>
+      clientPointToWorkspace(
+        { x: event.clientX, y: event.clientY },
+        domRect(canvasElement.getBoundingClientRect()),
+        viewport,
+      );
+    const stopOwnedEvent = (event: PointerEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const releasePointer = (pointerId: number) => {
+      if (canvasElement.hasPointerCapture(pointerId)) {
+        canvasElement.releasePointerCapture(pointerId);
+      }
+      activePointerId = null;
+      startPoint = null;
+      setRect(null);
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (!event.isPrimary || event.button !== 0 || !event.shiftKey) {
+        return;
+      }
+      stopOwnedEvent(event);
+      activePointerId = event.pointerId;
+      startPoint = toWorkspacePoint(event);
+      canvasElement.setPointerCapture(event.pointerId);
+      setRect(marqueeRect(startPoint, startPoint));
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== activePointerId || !startPoint) {
+        return;
+      }
+      stopOwnedEvent(event);
+      setRect(marqueeRect(startPoint, toWorkspacePoint(event)));
+    };
+    const onPointerUp = (event: PointerEvent) => {
+      if (event.pointerId !== activePointerId || !startPoint) {
+        return;
+      }
+      stopOwnedEvent(event);
+      const completedRect = marqueeRect(startPoint, toWorkspacePoint(event));
+      const selectedIds = geometryIndex
+        .framesInRect(completedRect, marqueeMode)
+        .map(({ sectionId }) => sectionId);
+      onSelectionChange(selectedIds, "marquee");
+      releasePointer(event.pointerId);
+    };
+    const onPointerCancel = (event: PointerEvent) => {
+      if (event.pointerId === activePointerId) {
+        stopOwnedEvent(event);
+        releasePointer(event.pointerId);
+      }
+    };
+
+    canvasElement.addEventListener("pointerdown", onPointerDown, true);
+    canvasElement.addEventListener("pointermove", onPointerMove, true);
+    canvasElement.addEventListener("pointerup", onPointerUp, true);
+    canvasElement.addEventListener("pointercancel", onPointerCancel, true);
+    return () => {
+      canvasElement.removeEventListener("pointerdown", onPointerDown, true);
+      canvasElement.removeEventListener("pointermove", onPointerMove, true);
+      canvasElement.removeEventListener("pointerup", onPointerUp, true);
+      canvasElement.removeEventListener("pointercancel", onPointerCancel, true);
+    };
+  }, [canvasElement, geometryIndex, marqueeMode, onSelectionChange, viewport]);
+
+  if (!rect) {
+    return null;
+  }
+  return (
+    <ViewportPortal>
+      <div
+        aria-hidden="true"
+        className="setta-adapter-proof__marquee"
+        data-proof-marquee=""
+        style={{
+          height: rect.height,
+          transform: `translate(${rect.x}px, ${rect.y}px)`,
+          width: rect.width,
         }}
       />
     </ViewportPortal>
@@ -496,7 +705,11 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
   const [nodes, setNodes] = useState<ProofRootNode[]>(() =>
     initialRootNodes.map((node) => ({ ...node })),
   );
-  const [selectedNestedId, setSelectedNestedId] = useState<string | null>("nested-note-b");
+  const [initialFitReady, setInitialFitReady] = useState(false);
+  const [marqueeMode, setMarqueeMode] = useState<MarqueeSelectionMode>("full");
+  const [selectedSectionIds, setSelectedSectionIds] = useState<ReadonlySet<string>>(
+    () => new Set(["nested-note-b"]),
+  );
   const [wideSectionIds, setWideSectionIds] = useState<ReadonlySet<string>>(() => new Set());
   const rootDragStart = useRef<Readonly<Record<string, WorkspacePoint>>>({});
 
@@ -512,13 +725,43 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
     setNodes((current) => applyNodeChanges(changes, current));
   }, []);
 
-  const selectNested = useCallback(
-    (sectionId: string) => {
-      setSelectedNestedId(sectionId);
-      diagnostics.setStatus(`${sectionId} selected through the package selection model.`);
+  const selectSection = useCallback(
+    (sectionId: string, additive: boolean) => {
+      setSelectedSectionIds((current) => {
+        if (!additive) {
+          return new Set([sectionId]);
+        }
+        const next = new Set(current);
+        if (next.has(sectionId)) {
+          next.delete(sectionId);
+        } else {
+          next.add(sectionId);
+        }
+        return next;
+      });
+      diagnostics.setStatus(
+        additive
+          ? `${sectionId} toggled in the package multi-selection model.`
+          : `${sectionId} selected through the package selection model.`,
+      );
     },
     [diagnostics],
   );
+
+  const replaceSelection = useCallback(
+    (sectionIds: readonly string[], source: "control" | "marquee") => {
+      setSelectedSectionIds(new Set(sectionIds));
+      diagnostics.setStatus(
+        `${String(sectionIds.length)} measured section${sectionIds.length === 1 ? "" : "s"} selected by ${source}.`,
+      );
+    },
+    [diagnostics],
+  );
+
+  const completeInitialFit = useCallback(() => {
+    setInitialFitReady(true);
+    diagnostics.setStatus("All-depth geometry became ready and initial fit completed.");
+  }, [diagnostics]);
 
   const toggleNestedWidth = useCallback(
     (sectionId: string) => {
@@ -570,17 +813,17 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
       canvasElement,
       geometryIndex,
       nestedByRoot,
-      selectedNestedId,
+      selectedSectionIds,
       wideSectionIds,
-      selectNested,
+      selectSection,
       toggleNestedWidth,
     }),
     [
       canvasElement,
       geometryIndex,
       nestedByRoot,
-      selectNested,
-      selectedNestedId,
+      selectedSectionIds,
+      selectSection,
       toggleNestedWidth,
       wideSectionIds,
     ],
@@ -596,6 +839,8 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
         </p>
         <ProofDiagnostics store={diagnostics} />
         <ProofGeometryCount geometryIndex={geometryIndex} />
+        <p data-proof-initial-fit="">Initial fit: {initialFitReady ? "ready" : "pending"}</p>
+        <p data-proof-selection-ids="">Selection: {[...selectedSectionIds].join(", ") || "none"}</p>
       </div>
       <ProofContext.Provider value={contextValue}>
         <UpstreamDndBoundary
@@ -648,11 +893,21 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
               <ProofCanvasControls
                 canvasElement={canvasElement}
                 geometryIndex={geometryIndex}
-                selectedNestedId={selectedNestedId}
+                marqueeMode={marqueeMode}
+                onMarqueeModeChange={setMarqueeMode}
+                onSelectionChange={replaceSelection}
+                selectedSectionIds={selectedSectionIds}
+              />
+              <InitialGeometryFit geometryIndex={geometryIndex} onReady={completeInitialFit} />
+              <MarqueeSelectionController
+                canvasElement={canvasElement}
+                geometryIndex={geometryIndex}
+                marqueeMode={marqueeMode}
+                onSelectionChange={replaceSelection}
               />
               <SelectedFrameOverlay
                 geometryIndex={geometryIndex}
-                selectedNestedId={selectedNestedId}
+                selectedSectionIds={selectedSectionIds}
               />
             </ReactFlow>
           </div>

@@ -9,6 +9,7 @@ export type ScreenPoint = InteractionPoint;
 export type WorkspacePoint = InteractionPoint;
 export type ScreenRect = ScreenPoint & { width: number; height: number };
 export type WorkspaceRect = WorkspacePoint & { width: number; height: number };
+export type MarqueeSelectionMode = "full" | "partial";
 
 export type MeasuredWorkspaceFrame = {
   sectionId: string;
@@ -58,6 +59,32 @@ function copyFrame(frame: MeasuredWorkspaceFrame): MeasuredWorkspaceFrame {
 
 function compareFrames(a: MeasuredWorkspaceFrame, b: MeasuredWorkspaceFrame): number {
   return b.depth - a.depth || a.order - b.order || a.sectionId.localeCompare(b.sectionId);
+}
+
+function compareDocumentFrames(a: MeasuredWorkspaceFrame, b: MeasuredWorkspaceFrame): number {
+  return a.depth - b.depth || a.order - b.order || a.sectionId.localeCompare(b.sectionId);
+}
+
+function hasPositiveArea(rect: WorkspaceRect): boolean {
+  return rect.width > 0 && rect.height > 0;
+}
+
+function intersectsRect(frame: WorkspaceRect, marquee: WorkspaceRect): boolean {
+  return (
+    frame.x < marquee.x + marquee.width &&
+    frame.x + frame.width > marquee.x &&
+    frame.y < marquee.y + marquee.height &&
+    frame.y + frame.height > marquee.y
+  );
+}
+
+function containsRect(container: WorkspaceRect, frame: WorkspaceRect): boolean {
+  return (
+    frame.x >= container.x &&
+    frame.y >= container.y &&
+    frame.x + frame.width <= container.x + container.width &&
+    frame.y + frame.height <= container.y + container.height
+  );
 }
 
 export class WorkspaceGeometryIndex {
@@ -155,12 +182,50 @@ export class WorkspaceGeometryIndex {
     return { x: left, y: top, width: right - left, height: bottom - top };
   }
 
+  boundsWhenReady(sectionIds: readonly string[]): WorkspaceRect | null {
+    if (sectionIds.length === 0 || sectionIds.some((sectionId) => !this.#entries.has(sectionId))) {
+      return null;
+    }
+    return this.bounds(sectionIds);
+  }
+
+  framesInRect(rect: WorkspaceRect, mode: MarqueeSelectionMode): readonly MeasuredWorkspaceFrame[] {
+    assertRect(rect, "marquee");
+    if (!hasPositiveArea(rect)) {
+      return [];
+    }
+    const matches = mode === "full" ? containsRect : intersectsRect;
+    return [...this.#entries.values()]
+      .map(({ frame }) => frame)
+      .filter(({ rect: frameRect }) => hasPositiveArea(frameRect) && matches(rect, frameRect))
+      .sort(compareDocumentFrames)
+      .map(copyFrame);
+  }
+
+  selectionRoots(sectionIds: readonly string[]): readonly string[] {
+    const selectedIds = new Set(sectionIds);
+    const uniqueIds = [...selectedIds];
+    return uniqueIds.filter((sectionId) => {
+      let parentSectionId = this.require(sectionId).parentSectionId;
+      const visited = new Set([sectionId]);
+      while (parentSectionId) {
+        if (visited.has(parentSectionId)) {
+          throw new Error(`Measured geometry contains a parent cycle at ${parentSectionId}.`);
+        }
+        if (selectedIds.has(parentSectionId)) {
+          return false;
+        }
+        visited.add(parentSectionId);
+        parentSectionId = this.#entries.get(parentSectionId)?.frame.parentSectionId ?? null;
+      }
+      return true;
+    });
+  }
+
   snapshot(): readonly MeasuredWorkspaceFrame[] {
     return [...this.#entries.values()]
       .map(({ frame }) => frame)
-      .sort(
-        (a, b) => a.depth - b.depth || a.order - b.order || a.sectionId.localeCompare(b.sectionId),
-      )
+      .sort(compareDocumentFrames)
       .map(copyFrame);
   }
 

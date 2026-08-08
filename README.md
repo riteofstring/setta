@@ -10,6 +10,7 @@ The package is private and locally installable while distribution, repository ho
 - `apps/playground`: backend-free development playground.
 - `fixtures/consumer`: unrelated packed-package consumer template.
 - `tests/e2e`: browser, accessibility, and visual checks.
+- `perf`: append-only focused performance evidence.
 - `docs/plans`: product and implementation plan.
 - `docs/evidence`: source-linked behavioral evidence from the previous Setta implementation.
 - `scripts`: Node-owned quality, packaging, and supply-chain tooling.
@@ -38,4 +39,6 @@ All direct dependencies are exact-pinned. pnpm enforces a strict seven-day relea
 
 Temporary release-age exceptions live in `supply-chain-exceptions.json`. Each must identify one exact version, rationale, owner, and expiry; the dependency check fails for undocumented, missing, duplicate, or expired exceptions.
 
-The first scaffold intentionally contains no XYFlow or dnd-kit dependency. Those enter only after the Phase 0 adapter and interaction-owner proofs described in the plan.
+Phase 0 exact-pins upstream XYFlow and dnd-kit behind package-owned testing adapters. The selected
+root-node/recursive-DOM representation, shared geometry index, interaction kernel, and remaining
+proof work are recorded under `docs/evidence` without exposing upstream contracts publicly.

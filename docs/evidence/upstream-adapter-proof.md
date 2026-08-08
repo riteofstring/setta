@@ -67,13 +67,20 @@ selection focus, and recursive resize remeasurement consume those registrations 
 creating a parallel package measurement map. dnd-kit continues to own its substrate-level
 draggable and droppable measurement.
 
+The same index now implements positive-area partial/full marquee queries, ancestor-normalized
+selection roots, readiness-aware bounds, and combined selection overlays. Shift-drag marquee
+selection and its keyboard-reachable fixture alternative consume those APIs at every visible depth.
+The initial fit waits until all eight representative root and descendant frames are registered, and
+combined deep-selection overlays remain screen-aligned at 0.5x, 1x, and 2x zoom.
+
 `TransientRootProjection` accepts package-owned root changes and internally maps them to XYFlow's
 public `applyNodeChanges` helper. Repeated position, dimension, selection, and viewport updates do
 not mutate the caller's document input. Completion emits at most one package-owned move, resize, or
 viewport command; cancellation restores the baseline and emits none.
 
-The geometry index is now the implemented boundary for later marquee, collision, external-drop,
-and nested-minimap consumers. Those consumers are not claimed complete by this proof.
+The geometry index remains the implemented boundary for later collision, external-drop, and
+nested-minimap consumers. Marquee selection and initial fit are now proven consumers; the remaining
+consumers are not claimed complete by this proof.
 
 ## Declaration-only XYFlow patch
 
@@ -92,11 +99,12 @@ the same strict package typecheck; the policy records 2026-11-07 as the expiry.
 
 | Evidence                                                     | Covered outcome                                                                                                                                                      |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/workspace/tests/geometry-index.test.ts`            | All-depth registration, replacement and cleanup, incremental parent updates, hit ordering, combined bounds, scaled round trips, and post-scroll coordinates          |
+| `packages/workspace/tests/geometry-index.test.ts`            | All-depth registration, replacement and cleanup, marquee semantics, selection-root normalization, readiness bounds, hit ordering, scaled round trips, and scrolling  |
 | `packages/workspace/tests/transient-root-projection.test.ts` | High-frequency move and resize coalescing, immutable input, selection projection, viewport completion, cancellation restoration, and specific invalid-state failures |
-| `tests/e2e/adapter-proof.spec.ts` geometry workflow          | Eight root/descendant frames, zoom-aligned overlay, recursive resize remeasurement, focus without page scrolling, and nested-scroll isolation                        |
+| `tests/e2e/adapter-proof.spec.ts` geometry workflows         | Measurement-gated initial fit, all-depth partial/full marquee, normalized multi-selection overlay at 0.5x/1x/2x, resize remeasurement, focus, and scroll isolation   |
 | `tests/e2e/adapter-proof.spec.ts` ownership workflow         | Keyboard cancellation with no command, pointer sensor handoff, transient root lift, one accepted nested command, and one later XYFlow root command                   |
 | `tests/e2e/adapter-proof.spec.ts` accessibility workflow     | Axe scan, reduced-motion rendering, 1280-pixel screenshot baseline, and 320-CSS-pixel reflow without horizontal overflow                                             |
+| `corepack pnpm perf:geometry` and `perf/`                    | Repeatable non-gating baseline for 2,000 registrations, 500 marquee queries, 500 combined bounds, and 1,000 incremental updates                                      |
 
 The in-app CDP browser surface was unavailable during this batch, so repository Playwright
 provided the focused browser and screenshot evidence. Interactive CDP visual inspection remains an
@@ -114,10 +122,15 @@ explicit Phase 0 audit gate.
   high/critical vulnerability audit, license allowlist, and dependency-inventory generation with no
   known vulnerabilities.
 
+The shared-geometry consumer batch additionally passed its focused geometry-index unit target,
+exact-toolchain package typecheck, all four Chromium adapter scenarios, Axe scan, reduced-motion
+screenshot comparison, and 320-CSS-pixel reflow assertion. `corepack pnpm perf:geometry` recorded
+the first focused baseline without adding a timing threshold.
+
 ## Still open in Phase 0
 
 This proof does not complete the full phase. Browser coverage remains for touch, keyboard accepted
 reordering, free-move and selection-block ownership, runtime mode changes, minimum/default/maximum
-zoom drag geometry, multi-selection overlays and placeholders, all-depth marquee, initial fit
-readiness, and representative performance baselines. The broader non-DnD behavior inventory and
-full phase gate audit also remain repository-actionable.
+zoom drag completion across collision/placeholders/canvas drops/preview parity, and representative
+browser render-count baselines. The broader non-DnD behavior inventory, browser characterization
+matrix, interactive CDP review, and final phase gate audit also remain repository-actionable.

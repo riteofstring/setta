@@ -23,6 +23,7 @@
     "knip": "knip",
     "lint": "eslint . --max-warnings 0",
     "pack:check": "node scripts/verify-package.mjs",
+    "perf:geometry": "node scripts/measure-geometry-index.mjs",
     "quality": "node scripts/quality.mjs",
     "quality:all": "node scripts/quality.mjs --all",
     "report:complexity": "node scripts/report-complexity.mjs",

@@ -3,26 +3,48 @@ import { expect, test, type Page } from "@playwright/test";
 
 const proofUrl = "/?adapter-proof";
 
-async function expectSelectionAligned(page: Page) {
-  const section = page.locator('[data-proof-section-id="nested-note-b"]');
+async function expectSelectionAligned(page: Page, sectionIds = ["nested-note-b"]) {
+  const sections = sectionIds.map((sectionId) =>
+    page.locator(`[data-proof-section-id="${sectionId}"]`),
+  );
   const overlay = page.locator(".setta-adapter-proof__selection-overlay");
-  await expect(section).toBeVisible();
+  for (const section of sections) {
+    await expect(section).toBeAttached();
+  }
   await expect(overlay).toBeVisible();
   await expect
     .poll(async () => {
-      const sectionBox = await section.boundingBox();
+      const sectionBoxes = await Promise.all(sections.map((section) => section.boundingBox()));
       const overlayBox = await overlay.boundingBox();
-      if (!sectionBox || !overlayBox) {
+      if (sectionBoxes.some((box) => !box) || !overlayBox) {
         return Number.POSITIVE_INFINITY;
       }
+      const measuredBoxes = sectionBoxes.filter((box) => box !== null);
+      const left = Math.min(...measuredBoxes.map((box) => box.x));
+      const top = Math.min(...measuredBoxes.map((box) => box.y));
+      const right = Math.max(...measuredBoxes.map((box) => box.x + box.width));
+      const bottom = Math.max(...measuredBoxes.map((box) => box.y + box.height));
       return Math.max(
-        Math.abs(sectionBox.x - overlayBox.x),
-        Math.abs(sectionBox.y - overlayBox.y),
-        Math.abs(sectionBox.width - overlayBox.width),
-        Math.abs(sectionBox.height - overlayBox.height),
+        Math.abs(left - overlayBox.x),
+        Math.abs(top - overlayBox.y),
+        Math.abs(right - (overlayBox.x + overlayBox.width)),
+        Math.abs(bottom - (overlayBox.y + overlayBox.height)),
       );
     })
     .toBeLessThanOrEqual(2);
+}
+
+async function dragMarquee(
+  page: Page,
+  box: { x: number; y: number; width: number; height: number },
+) {
+  await page.keyboard.down("Shift");
+  await page.mouse.move(box.x, box.y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width, box.y + box.height, { steps: 8 });
+  await expect(page.locator("[data-proof-marquee]")).toBeVisible();
+  await page.mouse.up();
+  await page.keyboard.up("Shift");
 }
 
 test.describe("upstream adapter proof", () => {
@@ -32,6 +54,7 @@ test.describe("upstream adapter proof", () => {
     await page.goto(proofUrl);
 
     await expect(page.locator("[data-proof-geometry-count]")).toContainText("Frames: 8");
+    await expect(page.locator("[data-proof-initial-fit]")).toHaveText("Initial fit: ready");
     await expectSelectionAligned(page);
 
     await page.getByRole("button", { name: "Zoom in" }).click();
@@ -67,6 +90,69 @@ test.describe("upstream adapter proof", () => {
       .poll(() => nestedScroller.evaluate((element) => element.scrollTop))
       .toBeGreaterThan(0);
     expect(await viewportTransform.getAttribute("style")).toBe(transformBeforeScroll);
+  });
+
+  test("uses all-depth geometry for marquee, normalized multi-selection, and every proof zoom", async ({
+    page,
+  }) => {
+    await page.goto(proofUrl);
+    await expect(page.locator("[data-proof-initial-fit]")).toHaveText("Initial fit: ready");
+
+    await page.getByRole("button", { name: "Select deep notes" }).click();
+    await expect(page.locator("[data-proof-selection-ids]")).toContainText(
+      "nested-note-b, nested-note-c",
+    );
+    await expect(page.locator(".setta-adapter-proof__selection-overlay")).toHaveAttribute(
+      "data-proof-selection-roots",
+      "nested-note-b,nested-note-c",
+    );
+
+    for (const zoomPercent of [50, 100, 200]) {
+      const zoomControl = page.getByRole("button", { name: `Set zoom to ${zoomPercent}%` });
+      await zoomControl.click();
+      await expect(zoomControl).toHaveAttribute("aria-pressed", "true");
+      await expectSelectionAligned(page, ["nested-note-b", "nested-note-c"]);
+    }
+
+    await page.getByRole("button", { name: "Set zoom to 100%" }).click();
+    const deepNote = page.locator('[data-proof-section-id="nested-note-b"]');
+    await deepNote.scrollIntoViewIfNeeded();
+    const deepNoteBox = await deepNote.boundingBox();
+    if (!deepNoteBox) {
+      throw new Error("The deep marquee target must be measurable.");
+    }
+    await dragMarquee(page, {
+      x: deepNoteBox.x - 4,
+      y: deepNoteBox.y - 4,
+      width: deepNoteBox.width + 8,
+      height: deepNoteBox.height + 8,
+    });
+    await expect(page.locator("[data-proof-selection-ids]")).toHaveText("Selection: nested-note-b");
+    await expectSelectionAligned(page);
+
+    await page.getByRole("button", { name: "Marquee: full" }).click();
+    await expect(page.getByRole("button", { name: "Marquee: partial" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    const currentDeepNoteBox = await deepNote.boundingBox();
+    if (!currentDeepNoteBox) {
+      throw new Error("The partial marquee target must remain measurable.");
+    }
+    await dragMarquee(page, {
+      x: currentDeepNoteBox.x + currentDeepNoteBox.width / 2,
+      y: currentDeepNoteBox.y + currentDeepNoteBox.height / 2,
+      width: 12,
+      height: 12,
+    });
+    await expect(page.locator("[data-proof-selection-ids]")).toContainText(
+      "root-alpha, nested-container, nested-note-b",
+    );
+    await expect(page.locator(".setta-adapter-proof__selection-overlay")).toHaveAttribute(
+      "data-proof-selection-roots",
+      "root-alpha",
+    );
+    await expectSelectionAligned(page, ["root-alpha"]);
   });
 
   test("keeps one movement owner and emits one command only on accepted completion", async ({
