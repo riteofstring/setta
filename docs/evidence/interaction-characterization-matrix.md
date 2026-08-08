@@ -39,11 +39,10 @@ records their public adapter and license boundaries, implements the root-node/re
 representation, and adds focused geometry, transient-projection, ownership, accessibility, and
 browser evidence. Phase 0 still requires:
 
-- The remaining interaction-owner cells: touch, accepted keyboard reordering, free move,
-  selection-block movement, and runtime mode changes.
-- Minimum/default/maximum zoom drag completion for selection-block collision, placeholders, canvas
-  drops, and preview/commit parity. Combined selection overlays now remain aligned at all three
-  proof zooms.
+- A final matrix audit for residual interaction-owner or DnD cells. The current upstream proof now
+  covers sort/free selection blocks, runtime mode retention, source/destination placeholders,
+  canvas drops, preview/commit parity at 0.5x/1x/2x, and trusted accepted keyboard and long-press
+  touch movement through the structural owner.
 - Representative browser render-count and high-frequency interaction baselines. The first
   repeatable 2,000-frame geometry-index baseline is recorded under `perf/`.
 - The complete non-DnD behavior inventory, browser characterization matrix, and final Phase 0 gate

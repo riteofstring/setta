@@ -1,18 +1,50 @@
-import { DragDropProvider, DragOverlay, useDraggable, useDroppable } from "@dnd-kit/react";
-import { useCallback, type ReactNode } from "react";
+import { Rectangle, type BoundingRectangle } from "@dnd-kit/geometry";
+import {
+  DragDropProvider,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  type DragDropManager,
+  type DragMoveEvent,
+} from "@dnd-kit/react";
+import { useCallback, useRef, type ReactNode } from "react";
 
-export type AdapterDndCompletion = {
+import type { InteractionPoint } from "./interaction-geometry.js";
+
+export type AdapterDndInput = "keyboard" | "pointer" | "touch";
+
+export type AdapterDndEvent = {
+  activatorPoint: InteractionPoint | null;
   sourceId: string;
   targetId: string | null;
+  input: AdapterDndInput;
+  transform: InteractionPoint;
+};
+
+export type AdapterDndCompletion = AdapterDndEvent & {
   canceled: boolean;
+};
+
+export type AdapterDndCollisionRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 };
 
 export type UpstreamDndBoundaryProps = {
   children: ReactNode;
-  onStart?(sourceId: string): void;
+  overlayLabel?(sourceId: string): string;
+  resolveCollisionRect?(sourceId: string): AdapterDndCollisionRect | null;
+  onMove?(event: AdapterDndEvent): void;
+  onStart?(event: AdapterDndEvent): void;
   onPreviewTarget?(targetId: string | null): void;
   onComplete(completion: AdapterDndCompletion): void;
 };
+
+const adapterProofSensors = [PointerSensor, KeyboardSensor.configure({ offset: 72 })];
 
 function stringId(id: string | number | undefined): string | null {
   return id === undefined ? null : String(id);
@@ -20,35 +52,113 @@ function stringId(id: string | number | undefined): string | null {
 
 export function UpstreamDndBoundary({
   children,
+  overlayLabel,
+  resolveCollisionRect,
+  onMove,
   onStart,
   onPreviewTarget,
   onComplete,
 }: UpstreamDndBoundaryProps) {
+  const baseCollisionRect = useRef<BoundingRectangle | null>(null);
+  const activeActivatorPoint = useRef<InteractionPoint | null>(null);
+  const activeInput = useRef<AdapterDndInput>("pointer");
+
+  const syncCollisionRect = useCallback((manager: DragDropManager, transform: InteractionPoint) => {
+    const base = baseCollisionRect.current;
+    if (base) {
+      manager.dragOperation.shape = Rectangle.from(base).translate(transform.x, transform.y);
+    }
+  }, []);
+
   return (
     <DragDropProvider
-      onDragStart={({ operation }) => {
+      sensors={adapterProofSensors}
+      onDragStart={({ nativeEvent, operation }, manager) => {
         const sourceId = stringId(operation.source?.id);
         if (sourceId) {
-          onStart?.(sourceId);
+          activeInput.current = adapterInput(nativeEvent ?? operation.activatorEvent);
+          activeActivatorPoint.current = adapterActivatorPoint(
+            nativeEvent ?? operation.activatorEvent,
+          );
+          const collisionRect = resolveCollisionRect?.(sourceId);
+          baseCollisionRect.current = collisionRect ? boundingRect(collisionRect) : null;
+          syncCollisionRect(manager, operation.transform);
+          onStart?.(
+            adapterEvent(
+              sourceId,
+              operation.target?.id,
+              activeInput.current,
+              operation.transform,
+              activeActivatorPoint.current,
+            ),
+          );
         }
       }}
-      onDragOver={({ operation }) => {
-        onPreviewTarget?.(stringId(operation.target?.id));
+      onDragMove={(event, manager) => {
+        if (event.defaultPrevented) {
+          return;
+        }
+        const { operation } = event;
+        const sourceId = stringId(operation.source?.id);
+        if (!sourceId) {
+          return;
+        }
+        const transform = moveEventTransform(event);
+        syncCollisionRect(manager, transform);
+        onMove?.(
+          adapterEvent(
+            sourceId,
+            operation.target?.id,
+            activeInput.current,
+            transform,
+            activeActivatorPoint.current,
+          ),
+        );
       }}
-      onDragEnd={({ canceled, operation }) => {
+      onDragOver={({ operation }, manager) => {
+        syncCollisionRect(manager, operation.transform);
+        const targetId = stringId(operation.target?.id);
+        onPreviewTarget?.(targetId);
+        const sourceId = stringId(operation.source?.id);
+        if (sourceId) {
+          onMove?.(
+            adapterEvent(
+              sourceId,
+              operation.target?.id,
+              activeInput.current,
+              operation.transform,
+              activeActivatorPoint.current,
+            ),
+          );
+        }
+      }}
+      onDragEnd={({ canceled, operation }, manager) => {
         onPreviewTarget?.(null);
         const sourceId = stringId(operation.source?.id);
         if (!sourceId) {
           throw new Error("The completed dnd-kit operation has no source ID.");
         }
-        onComplete({ sourceId, targetId: stringId(operation.target?.id), canceled });
+        syncCollisionRect(manager, operation.transform);
+        const completion = {
+          ...adapterEvent(
+            sourceId,
+            operation.target?.id,
+            activeInput.current,
+            operation.transform,
+            activeActivatorPoint.current,
+          ),
+          canceled,
+        };
+        onComplete(completion);
+        baseCollisionRect.current = null;
+        activeActivatorPoint.current = null;
       }}
     >
       {children}
       <DragOverlay dropAnimation={null}>
         {(source) => (
           <div aria-hidden="true" className="setta-adapter-proof__drag-overlay">
-            Moving {String(source.id)}
+            {overlayLabel?.(String(source.id)) ?? `Moving ${String(source.id)}`}
           </div>
         )}
       </DragOverlay>
@@ -62,8 +172,10 @@ export type UpstreamDndItemProps = {
   label: string;
   onElement?(element: HTMLElement | null): void;
   onSelect(additive: boolean): void;
+  parentSectionId: string;
   rootSectionId: string;
   selected: boolean;
+  wide?: boolean;
 };
 
 export function UpstreamDndItem({
@@ -72,12 +184,19 @@ export function UpstreamDndItem({
   label,
   onElement,
   onSelect,
+  parentSectionId,
   rootSectionId,
   selected,
+  wide = false,
 }: UpstreamDndItemProps) {
-  const data = { sectionId: id, rootSectionId };
+  const data = { sectionId: id, parentSectionId, rootSectionId };
   const draggable = useDraggable({ id, data });
-  const droppable = useDroppable({ id, data });
+  const droppable = useDroppable({
+    id,
+    data,
+    disabled: selected,
+    collisionPriority: 10,
+  });
   const draggableRef = draggable.ref;
   const droppableRef = droppable.ref;
   const setElement = useCallback(
@@ -96,6 +215,7 @@ export function UpstreamDndItem({
       data-drop-target={droppable.isDropTarget ? "true" : "false"}
       data-proof-section-id={id}
       data-selected={selected ? "true" : "false"}
+      data-wide={wide ? "true" : "false"}
       ref={setElement}
     >
       <div className="setta-adapter-proof__nested-header">
@@ -109,7 +229,7 @@ export function UpstreamDndItem({
         </button>
         <button
           aria-label={`Move ${label}`}
-          className="nodrag nowheel nopan setta-adapter-proof__nested-handle"
+          className="nodrag nokey nowheel nopan setta-adapter-proof__nested-handle"
           ref={draggable.handleRef}
           type="button"
         >
@@ -119,4 +239,103 @@ export function UpstreamDndItem({
       {children}
     </article>
   );
+}
+
+export type UpstreamDndDropZoneProps = {
+  children: ReactNode;
+  className: string;
+  id: string;
+  onElement?(element: HTMLElement | null): void;
+};
+
+export function UpstreamDndDropZone({
+  children,
+  className,
+  id,
+  onElement,
+}: UpstreamDndDropZoneProps) {
+  const droppable = useDroppable({
+    id,
+    data: { kind: "canvas" },
+    collisionPriority: -10,
+  });
+  const droppableRef = droppable.ref;
+  const setElement = useCallback(
+    (element: HTMLElement | null) => {
+      droppableRef(element);
+      onElement?.(element);
+    },
+    [droppableRef, onElement],
+  );
+
+  return (
+    <div
+      className={className}
+      data-drop-target={droppable.isDropTarget ? "true" : "false"}
+      data-proof-canvas-target=""
+      ref={setElement}
+    >
+      {children}
+    </div>
+  );
+}
+
+function adapterEvent(
+  sourceId: string,
+  targetId: string | number | undefined,
+  input: AdapterDndInput,
+  transform: InteractionPoint,
+  activatorPoint: InteractionPoint | null,
+): AdapterDndEvent {
+  return {
+    activatorPoint,
+    sourceId,
+    targetId: stringId(targetId),
+    input,
+    transform: { x: transform.x, y: transform.y },
+  };
+}
+
+function moveEventTransform({ by, operation, to }: DragMoveEvent): InteractionPoint {
+  if (to) {
+    return {
+      x: operation.transform.x + to.x - operation.position.current.x,
+      y: operation.transform.y + to.y - operation.position.current.y,
+    };
+  }
+  if (by) {
+    return {
+      x: operation.transform.x + (by.x ?? 0),
+      y: operation.transform.y + (by.y ?? 0),
+    };
+  }
+  return operation.transform;
+}
+
+function adapterActivatorPoint(event: Event | null | undefined): InteractionPoint | null {
+  if (event instanceof PointerEvent || event instanceof MouseEvent) {
+    return { x: event.clientX, y: event.clientY };
+  }
+  return null;
+}
+
+function adapterInput(event: Event | null | undefined): AdapterDndInput {
+  if (event instanceof KeyboardEvent) {
+    return "keyboard";
+  }
+  if (event instanceof PointerEvent && event.pointerType === "touch") {
+    return "touch";
+  }
+  return "pointer";
+}
+
+function boundingRect(rect: AdapterDndCollisionRect): BoundingRectangle {
+  return {
+    left: rect.x,
+    top: rect.y,
+    right: rect.x + rect.width,
+    bottom: rect.y + rect.height,
+    width: rect.width,
+    height: rect.height,
+  };
 }

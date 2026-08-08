@@ -2,11 +2,8 @@ import {
   Background,
   BackgroundVariant,
   Controls,
-  Panel,
   ReactFlow,
-  ViewportPortal,
   applyNodeChanges,
-  useReactFlow,
   useViewport,
   type Node,
   type NodeProps,
@@ -18,35 +15,69 @@ import {
   memo,
   useCallback,
   useContext,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from "react";
 
 import {
+  ADAPTER_PROOF_CANVAS_TARGET_ID,
+  adapterProofSelectionBounds,
+  resolveAdapterProofDragPreview,
+  type AdapterProofDragPreview,
+  type AdapterProofDragSession,
+} from "./adapter-proof-drag-planning.js";
+import {
+  ADAPTER_PROOF_SECTIONS,
+  INITIAL_ADAPTER_PROOF_HIERARCHY,
+  adapterProofOrientation,
+  buildAdapterProofNestedSections,
+  requireAdapterProofSection,
+  type AdapterProofNestedSection,
+} from "./adapter-proof-model.js";
+import { EMPTY_COLLISION_TRACKER_STATE } from "./collision-characterization.js";
+import {
   WorkspaceGeometryIndex,
-  clientPointToWorkspace,
   clientRectToWorkspace,
   type MarqueeSelectionMode,
   type MeasuredWorkspaceFrame,
   type ScreenRect,
   type WorkspacePoint,
-  type WorkspaceRect,
 } from "./geometry-index.js";
 import {
+  createInteractionRect,
+  type InteractionRect,
+  type ViewportTransform,
+} from "./interaction-geometry.js";
+import {
+  IDLE_INTERACTION_OWNERSHIP,
+  transitionInteractionOwnership,
+  type InteractionOwnershipState,
+} from "./interaction-owner.js";
+import { applySectionMovePlan, type SectionMoveMode } from "./section-move-planning.js";
+import { resolveSelectionBlock, type SectionHierarchySnapshot } from "./selection-planning.js";
+import {
+  AdapterProofDragDiagnostics,
+  AdapterProofDragPlaceholders,
+  AdapterProofDragStore,
+} from "./upstream-adapter-drag-proof.js";
+import {
+  AdapterProofCanvasControls,
+  AdapterProofGeometryCount,
+  AdapterProofInitialGeometryFit,
+  AdapterProofMarqueeSelection,
+  AdapterProofSelectedFrameOverlay,
+  AdapterProofViewportObserver,
+} from "./upstream-adapter-geometry-proof.js";
+import { ProofDiagnostics, ProofDiagnosticsStore } from "./upstream-adapter-proof-diagnostics.js";
+import {
   UpstreamDndBoundary,
+  UpstreamDndDropZone,
   UpstreamDndItem,
   type AdapterDndCompletion,
+  type AdapterDndEvent,
 } from "./upstream-dnd-adapter.js";
-
-type ProofNestedSection = {
-  id: string;
-  title: string;
-  children?: readonly ProofNestedSection[];
-};
 
 type ProofRootData = {
   sectionId: string;
@@ -66,6 +97,14 @@ export type AdapterProofCommand =
       rootSectionId: string;
       sectionId: string;
       targetSectionId: string;
+    }
+  | {
+      type: "move-section-block";
+      destinationIndex: number;
+      destinationParentId: string | null;
+      mode: SectionMoveMode;
+      previewKey: string;
+      sectionIds: readonly string[];
     };
 
 export type UpstreamAdapterProofProps = {
@@ -74,80 +113,28 @@ export type UpstreamAdapterProofProps = {
 
 type ProofContextValue = {
   canvasElement: HTMLElement | null;
+  dragMode: SectionMoveMode;
   geometryIndex: WorkspaceGeometryIndex;
-  nestedByRoot: Readonly<Record<string, readonly ProofNestedSection[]>>;
+  hierarchy: SectionHierarchySnapshot;
+  nestedByRoot: Readonly<Record<string, readonly AdapterProofNestedSection[]>>;
   selectedSectionIds: ReadonlySet<string>;
   wideSectionIds: ReadonlySet<string>;
   selectSection(sectionId: string, additive: boolean): void;
   toggleNestedWidth(sectionId: string): void;
 };
 
-type ProofDiagnosticsSnapshot = {
-  commandCount: number;
-  previewTargetId: string | null;
-  status: string;
-};
-
-class ProofDiagnosticsStore {
-  readonly #listeners = new Set<() => void>();
-  #snapshot: ProofDiagnosticsSnapshot = {
-    commandCount: 0,
-    previewTargetId: null,
-    status: "Adapter proof ready.",
-  };
-
-  getSnapshot = (): ProofDiagnosticsSnapshot => this.#snapshot;
-
-  subscribe = (listener: () => void): (() => void) => {
-    this.#listeners.add(listener);
-    return () => this.#listeners.delete(listener);
-  };
-
-  recordCommand(): void {
-    this.#set({ commandCount: this.#snapshot.commandCount + 1 });
-  }
-
-  setPreviewTarget(previewTargetId: string | null): void {
-    this.#set({ previewTargetId });
-  }
-
-  setStatus(status: string): void {
-    this.#set({ status });
-  }
-
-  #set(update: Partial<ProofDiagnosticsSnapshot>): void {
-    this.#snapshot = { ...this.#snapshot, ...update };
-    for (const listener of this.#listeners) {
-      listener();
-    }
-  }
-}
-
 const ProofContext = createContext<ProofContextValue | null>(null);
-
-const initialNestedByRoot: Readonly<Record<string, readonly ProofNestedSection[]>> = {
-  "root-alpha": [
-    { id: "nested-note-a", title: "Research note" },
-    {
-      id: "nested-container",
-      title: "Horizontal container",
-      children: [
-        { id: "nested-note-b", title: "Decision note" },
-        { id: "nested-note-c", title: "Follow-up note" },
-      ],
-    },
-    { id: "nested-note-d", title: "Scrollable note" },
-  ],
-  "root-beta": [{ id: "nested-status", title: "Status summary" }],
-};
 
 const initialRootNodes: readonly ProofRootNode[] = [
   {
     id: "root-alpha",
     type: "proof-root",
-    position: { x: 40, y: 45 },
-    width: 330,
-    data: { sectionId: "root-alpha", title: "Planning section" },
+    position: INITIAL_ADAPTER_PROOF_HIERARCHY.rootPositions["root-alpha"] ?? { x: 40, y: 45 },
+    width: ADAPTER_PROOF_SECTIONS["root-alpha"]?.width ?? 330,
+    data: {
+      sectionId: "root-alpha",
+      title: ADAPTER_PROOF_SECTIONS["root-alpha"]?.title ?? "Planning section",
+    },
     dragHandle: ".setta-adapter-proof__root-handle",
     ariaLabel: "Planning section",
     zIndex: 0,
@@ -155,23 +142,24 @@ const initialRootNodes: readonly ProofRootNode[] = [
   {
     id: "root-beta",
     type: "proof-root",
-    position: { x: 470, y: 210 },
-    width: 280,
-    data: { sectionId: "root-beta", title: "Status section" },
+    position: INITIAL_ADAPTER_PROOF_HIERARCHY.rootPositions["root-beta"] ?? { x: 470, y: 210 },
+    width: ADAPTER_PROOF_SECTIONS["root-beta"]?.width ?? 280,
+    data: {
+      sectionId: "root-beta",
+      title: ADAPTER_PROOF_SECTIONS["root-beta"]?.title ?? "Status section",
+    },
     dragHandle: ".setta-adapter-proof__root-handle",
     ariaLabel: "Status section",
     zIndex: 0,
   },
 ];
 
-function collectNestedIds(sections: readonly ProofNestedSection[]): readonly string[] {
-  return sections.flatMap((section) => [section.id, ...collectNestedIds(section.children ?? [])]);
-}
+const allProofSectionIds = [...Object.keys(ADAPTER_PROOF_SECTIONS)];
 
-const allProofSectionIds = [
-  ...initialRootNodes.map((node) => node.id),
-  ...Object.values(initialNestedByRoot).flatMap(collectNestedIds),
-];
+type ActiveAdapterProofDrag = AdapterProofDragSession & {
+  input: AdapterDndEvent["input"];
+  preview: AdapterProofDragPreview | null;
+};
 
 function useProofContext(): ProofContextValue {
   const value = useContext(ProofContext);
@@ -183,30 +171,6 @@ function useProofContext(): ProofContextValue {
 
 function domRect(rect: DOMRect): ScreenRect {
   return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
-}
-
-function useGeometryRevision(index: WorkspaceGeometryIndex): number {
-  const subscribe = useCallback((listener: () => void) => index.subscribe(listener), [index]);
-  const getSnapshot = useCallback(() => index.revision, [index]);
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-}
-
-function ProofDiagnostics({ store }: { store: ProofDiagnosticsStore }) {
-  const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
-  return (
-    <>
-      <p data-proof-command-count="">Commands: {snapshot.commandCount}</p>
-      <p data-proof-preview-target="">Preview target: {snapshot.previewTargetId ?? "none"}</p>
-      <p aria-live="polite" role="status">
-        {snapshot.status}
-      </p>
-    </>
-  );
-}
-
-function ProofGeometryCount({ geometryIndex }: { geometryIndex: WorkspaceGeometryIndex }) {
-  useGeometryRevision(geometryIndex);
-  return <p data-proof-geometry-count="">Frames: {geometryIndex.size}</p>;
 }
 
 function useMeasuredFrame(
@@ -258,7 +222,7 @@ type NestedSectionProps = {
   order: number;
   parentSectionId: string;
   rootSectionId: string;
-  section: ProofNestedSection;
+  section: AdapterProofNestedSection;
 };
 
 function NestedSection({
@@ -302,53 +266,34 @@ function NestedSection({
     </>
   );
 
-  if (depth === 1) {
-    return (
-      <UpstreamDndItem
-        id={section.id}
-        label={section.title}
-        onElement={elementRef}
-        onSelect={(additive) => selectSection(section.id, additive)}
-        rootSectionId={rootSectionId}
-        selected={selected}
-      >
-        {body}
-      </UpstreamDndItem>
-    );
-  }
-
   return (
-    <article
-      className="setta-adapter-proof__nested-section"
-      data-proof-section-id={section.id}
-      data-selected={selected ? "true" : "false"}
-      data-wide={wideSectionIds.has(section.id) ? "true" : "false"}
-      ref={elementRef}
+    <UpstreamDndItem
+      id={section.id}
+      label={section.title}
+      onElement={elementRef}
+      onSelect={(additive) => selectSection(section.id, additive)}
+      parentSectionId={parentSectionId}
+      rootSectionId={rootSectionId}
+      selected={selected}
+      wide={wideSectionIds.has(section.id)}
     >
-      <div className="setta-adapter-proof__nested-header">
-        <button
-          aria-pressed={selected}
-          className="nodrag nowheel nopan setta-adapter-proof__nested-select"
-          onClick={(event) => selectSection(section.id, event.shiftKey)}
-          type="button"
-        >
-          {section.title}
-        </button>
-      </div>
       {body}
-    </article>
+    </UpstreamDndItem>
   );
 }
 
 const ProofRootSection = memo(
   function ProofRootSection({ data, id }: NodeProps<ProofRootNode>) {
-    const { nestedByRoot, selectedSectionIds } = useProofContext();
-    const rootOrder = id === "root-alpha" ? 0 : 1;
+    const { dragMode, hierarchy, nestedByRoot, selectedSectionIds } = useProofContext();
+    const renderCount = useRef(0);
+    renderCount.current += 1;
+    const rootOrder = hierarchy.rootSectionIds.indexOf(id);
     const elementRef = useMeasuredFrame(id, null, 0, rootOrder);
 
     return (
       <article
         className="setta-adapter-proof__root-section"
+        data-proof-render-count={renderCount.current}
         data-proof-section-id={id}
         data-selected={selectedSectionIds.has(id) ? "true" : "false"}
         ref={elementRef}
@@ -358,6 +303,7 @@ const ProofRootSection = memo(
           <button
             aria-label={`Move ${data.title}`}
             className="setta-adapter-proof__root-handle"
+            disabled={dragMode === "free"}
             type="button"
           >
             Drag
@@ -390,328 +336,273 @@ const ProofRootSection = memo(
 
 const proofNodeTypes = { "proof-root": ProofRootSection } satisfies NodeTypes;
 
-type ProofCanvasControlsProps = {
-  canvasElement: HTMLElement | null;
-  geometryIndex: WorkspaceGeometryIndex;
-  marqueeMode: MarqueeSelectionMode;
-  selectedSectionIds: ReadonlySet<string>;
-  onMarqueeModeChange(mode: MarqueeSelectionMode): void;
-  onSelectionChange(sectionIds: readonly string[], source: "control" | "marquee"): void;
-};
-
-function measuredSelectionRoots(
-  geometryIndex: WorkspaceGeometryIndex,
-  selectedSectionIds: ReadonlySet<string>,
-): readonly string[] {
-  return geometryIndex.selectionRoots(
-    [...selectedSectionIds].filter((sectionId) => geometryIndex.has(sectionId)),
-  );
-}
-
-function ProofCanvasControls({
-  canvasElement,
-  geometryIndex,
-  marqueeMode,
-  onMarqueeModeChange,
-  onSelectionChange,
-  selectedSectionIds,
-}: ProofCanvasControlsProps) {
-  const instance = useReactFlow<ProofRootNode>();
-  const viewport = useViewport();
-  useGeometryRevision(geometryIndex);
-  const selectionRoots = measuredSelectionRoots(geometryIndex, selectedSectionIds);
-  const primarySectionId = selectionRoots.at(-1) ?? null;
-  const selectedFrame = primarySectionId ? geometryIndex.get(primarySectionId) : undefined;
-  const selectedBounds = geometryIndex.boundsWhenReady(selectionRoots);
-
-  const focusSelected = () => {
-    if (!canvasElement || !selectedFrame || !primarySectionId) {
-      return;
-    }
-    const bounds = canvasElement.getBoundingClientRect();
-    const centerX = selectedFrame.rect.x + selectedFrame.rect.width / 2;
-    const centerY = selectedFrame.rect.y + selectedFrame.rect.height / 2;
-    const nextViewport = {
-      x: bounds.width / 2 - centerX * viewport.zoom,
-      y: bounds.height / 2 - centerY * viewport.zoom,
-      zoom: viewport.zoom,
-    };
-    void instance.setViewport(nextViewport, { duration: 0 }).then(() => {
-      const sectionElement = canvasElement.querySelector<HTMLElement>(
-        `[data-proof-section-id="${primarySectionId}"]`,
-      );
-      sectionElement?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
-    });
-  };
-
-  return (
-    <Panel position="top-right">
-      <div aria-label="Adapter proof controls" className="setta-adapter-proof__controls">
-        <button disabled={!selectedFrame} onClick={focusSelected} type="button">
-          Focus selected
-        </button>
-        <button
-          disabled={!selectedBounds}
-          onClick={() => {
-            if (selectedBounds) {
-              void instance.fitBounds(selectedBounds, { duration: 0, padding: 0.2 });
-            }
-          }}
-          type="button"
-        >
-          Fit selection
-        </button>
-        <button
-          onClick={() => onSelectionChange(["nested-note-b", "nested-note-c"], "control")}
-          type="button"
-        >
-          Select deep notes
-        </button>
-        <button
-          disabled={selectedSectionIds.size === 0}
-          onClick={() => onSelectionChange([], "control")}
-          type="button"
-        >
-          Clear selection
-        </button>
-        <button
-          aria-pressed={marqueeMode === "full"}
-          onClick={() => onMarqueeModeChange(marqueeMode === "full" ? "partial" : "full")}
-          type="button"
-        >
-          Marquee: {marqueeMode}
-        </button>
-        {[0.5, 1, 2].map((zoom) => (
-          <button
-            aria-label={`Set zoom to ${String(zoom * 100)}%`}
-            aria-pressed={Math.abs(viewport.zoom - zoom) < 0.001}
-            key={zoom}
-            onClick={() => void instance.zoomTo(zoom, { duration: 0 })}
-            type="button"
-          >
-            {String(zoom * 100)}%
-          </button>
-        ))}
-      </div>
-    </Panel>
-  );
-}
-
-function SelectedFrameOverlay({
-  geometryIndex,
-  selectedSectionIds,
-}: Pick<ProofCanvasControlsProps, "geometryIndex" | "selectedSectionIds">) {
-  useGeometryRevision(geometryIndex);
-  const selectionRoots = measuredSelectionRoots(geometryIndex, selectedSectionIds);
-  const bounds = geometryIndex.boundsWhenReady(selectionRoots);
-  if (!bounds) {
-    return null;
-  }
-
-  return (
-    <ViewportPortal>
-      <div
-        aria-hidden="true"
-        className="setta-adapter-proof__selection-overlay"
-        data-proof-selection-roots={selectionRoots.join(",")}
-        style={{
-          height: bounds.height,
-          transform: `translate(${bounds.x}px, ${bounds.y}px)`,
-          width: bounds.width,
-        }}
-      />
-    </ViewportPortal>
-  );
-}
-
-function InitialGeometryFit({
-  geometryIndex,
-  onReady,
-}: {
-  geometryIndex: WorkspaceGeometryIndex;
-  onReady(): void;
-}) {
-  const instance = useReactFlow<ProofRootNode>();
-  const revision = useGeometryRevision(geometryIndex);
-  const didFit = useRef(false);
-
-  useEffect(() => {
-    const bounds = geometryIndex.boundsWhenReady(allProofSectionIds);
-    if (didFit.current || !bounds) {
-      return;
-    }
-    didFit.current = true;
-    void instance.fitBounds(bounds, { duration: 0, padding: 0.08 }).then(onReady);
-  }, [geometryIndex, instance, onReady, revision]);
-
-  return null;
-}
-
-function marqueeRect(start: WorkspacePoint, end: WorkspacePoint): WorkspaceRect {
-  const x = Math.min(start.x, end.x);
-  const y = Math.min(start.y, end.y);
-  return {
-    x,
-    y,
-    width: Math.max(start.x, end.x) - x,
-    height: Math.max(start.y, end.y) - y,
-  };
-}
-
-function MarqueeSelectionController({
-  canvasElement,
-  geometryIndex,
-  marqueeMode,
-  onSelectionChange,
-}: Pick<
-  ProofCanvasControlsProps,
-  "canvasElement" | "geometryIndex" | "marqueeMode" | "onSelectionChange"
->) {
-  const viewport = useViewport();
-  const [rect, setRect] = useState<WorkspaceRect | null>(null);
-
-  useEffect(() => {
-    if (!canvasElement) {
-      return;
-    }
-    let activePointerId: number | null = null;
-    let startPoint: WorkspacePoint | null = null;
-
-    const toWorkspacePoint = (event: PointerEvent): WorkspacePoint =>
-      clientPointToWorkspace(
-        { x: event.clientX, y: event.clientY },
-        domRect(canvasElement.getBoundingClientRect()),
-        viewport,
-      );
-    const stopOwnedEvent = (event: PointerEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-    };
-    const releasePointer = (pointerId: number) => {
-      if (canvasElement.hasPointerCapture(pointerId)) {
-        canvasElement.releasePointerCapture(pointerId);
-      }
-      activePointerId = null;
-      startPoint = null;
-      setRect(null);
-    };
-    const onPointerDown = (event: PointerEvent) => {
-      if (!event.isPrimary || event.button !== 0 || !event.shiftKey) {
-        return;
-      }
-      stopOwnedEvent(event);
-      activePointerId = event.pointerId;
-      startPoint = toWorkspacePoint(event);
-      canvasElement.setPointerCapture(event.pointerId);
-      setRect(marqueeRect(startPoint, startPoint));
-    };
-    const onPointerMove = (event: PointerEvent) => {
-      if (event.pointerId !== activePointerId || !startPoint) {
-        return;
-      }
-      stopOwnedEvent(event);
-      setRect(marqueeRect(startPoint, toWorkspacePoint(event)));
-    };
-    const onPointerUp = (event: PointerEvent) => {
-      if (event.pointerId !== activePointerId || !startPoint) {
-        return;
-      }
-      stopOwnedEvent(event);
-      const completedRect = marqueeRect(startPoint, toWorkspacePoint(event));
-      const selectedIds = geometryIndex
-        .framesInRect(completedRect, marqueeMode)
-        .map(({ sectionId }) => sectionId);
-      onSelectionChange(selectedIds, "marquee");
-      releasePointer(event.pointerId);
-    };
-    const onPointerCancel = (event: PointerEvent) => {
-      if (event.pointerId === activePointerId) {
-        stopOwnedEvent(event);
-        releasePointer(event.pointerId);
-      }
-    };
-
-    canvasElement.addEventListener("pointerdown", onPointerDown, true);
-    canvasElement.addEventListener("pointermove", onPointerMove, true);
-    canvasElement.addEventListener("pointerup", onPointerUp, true);
-    canvasElement.addEventListener("pointercancel", onPointerCancel, true);
-    return () => {
-      canvasElement.removeEventListener("pointerdown", onPointerDown, true);
-      canvasElement.removeEventListener("pointermove", onPointerMove, true);
-      canvasElement.removeEventListener("pointerup", onPointerUp, true);
-      canvasElement.removeEventListener("pointercancel", onPointerCancel, true);
-    };
-  }, [canvasElement, geometryIndex, marqueeMode, onSelectionChange, viewport]);
-
-  if (!rect) {
-    return null;
-  }
-  return (
-    <ViewportPortal>
-      <div
-        aria-hidden="true"
-        className="setta-adapter-proof__marquee"
-        data-proof-marquee=""
-        style={{
-          height: rect.height,
-          transform: `translate(${rect.x}px, ${rect.y}px)`,
-          width: rect.width,
-        }}
-      />
-    </ViewportPortal>
-  );
-}
-
-function rootForNested(
-  nestedByRoot: Readonly<Record<string, readonly ProofNestedSection[]>>,
-  sectionId: string,
-): string | null {
-  for (const [rootSectionId, sections] of Object.entries(nestedByRoot)) {
-    if (sections.some((section) => section.id === sectionId)) {
-      return rootSectionId;
-    }
-  }
-  return null;
-}
-
-function reorderSections(
-  sections: readonly ProofNestedSection[],
-  sourceId: string,
-  targetId: string,
-): readonly ProofNestedSection[] {
-  const sourceIndex = sections.findIndex((section) => section.id === sourceId);
-  const targetIndex = sections.findIndex((section) => section.id === targetId);
-  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
-    return sections;
-  }
-  const next = [...sections];
-  const [source] = next.splice(sourceIndex, 1);
-  if (!source) {
-    throw new Error(`Missing nested section ${sourceId} during reorder.`);
-  }
-  next.splice(targetIndex, 0, source);
-  return next;
-}
-
 function liftRoot(nodes: readonly ProofRootNode[], activeRootId: string | null): ProofRootNode[] {
   return nodes.map((node) => ({ ...node, zIndex: node.id === activeRootId ? 1000 : 0 }));
 }
 
+function nestedSectionsByRoot(
+  hierarchy: SectionHierarchySnapshot,
+): Readonly<Record<string, readonly AdapterProofNestedSection[]>> {
+  return Object.fromEntries(
+    hierarchy.rootSectionIds.map((rootSectionId) => [
+      rootSectionId,
+      buildAdapterProofNestedSections(hierarchy, rootSectionId),
+    ]),
+  );
+}
+
+function syncRootNodes(
+  current: readonly ProofRootNode[],
+  hierarchy: SectionHierarchySnapshot,
+  geometryIndex: WorkspaceGeometryIndex,
+): ProofRootNode[] {
+  const currentById = new Map(current.map((node) => [node.id, node]));
+  return hierarchy.rootSectionIds.map((sectionId) => {
+    const section = requireAdapterProofSection(sectionId);
+    const position = hierarchy.rootPositions[sectionId];
+    if (!position) {
+      throw new Error(`Root section ${sectionId} has no adapter-proof position.`);
+    }
+    const existing = currentById.get(sectionId);
+    if (existing) {
+      return { ...existing, position: { ...position }, zIndex: 0 };
+    }
+    return {
+      id: sectionId,
+      type: "proof-root",
+      position: { ...position },
+      width: geometryIndex.get(sectionId)?.rect.width ?? section.width,
+      data: { sectionId, title: section.title },
+      dragHandle: ".setta-adapter-proof__root-handle",
+      ariaLabel: section.title,
+      zIndex: 0,
+    };
+  });
+}
+
+type DragSessionResult =
+  { allowed: true; session: ActiveAdapterProofDrag } | { allowed: false; reason: string };
+
+function createDragSession({
+  activatorPoint,
+  canvasElement,
+  geometryIndex,
+  hierarchy,
+  input,
+  mode,
+  selectedSectionIds,
+  sourceId,
+}: {
+  activatorPoint: AdapterDndEvent["activatorPoint"];
+  canvasElement: HTMLElement | null;
+  geometryIndex: WorkspaceGeometryIndex;
+  hierarchy: SectionHierarchySnapshot;
+  input: AdapterDndEvent["input"];
+  mode: SectionMoveMode;
+  selectedSectionIds: ReadonlySet<string>;
+  sourceId: string;
+}): DragSessionResult {
+  if (!canvasElement) {
+    return { allowed: false, reason: "The adapter-proof canvas is not mounted." };
+  }
+  const requestedIds = selectedSectionIds.has(sourceId) ? [...selectedSectionIds] : [sourceId];
+  const selection = resolveSelectionBlock(requestedIds, hierarchy);
+  if (!selection.allowed) {
+    return selection;
+  }
+  const clientRectsById = captureClientRects(canvasElement);
+  const workspaceRectsById = captureWorkspaceRects(geometryIndex);
+  const sourceClientBounds = adapterProofSelectionBounds(
+    selection.block.sectionIds,
+    clientRectsById,
+  );
+  const sourceWorkspaceBounds = adapterProofSelectionBounds(
+    selection.block.sectionIds,
+    workspaceRectsById,
+  );
+  if (!sourceClientBounds || !sourceWorkspaceBounds) {
+    return { allowed: false, reason: "The selected drag block is not completely measured." };
+  }
+  return {
+    allowed: true,
+    session: {
+      activatorPoint,
+      clientRectsById,
+      collisionState: EMPTY_COLLISION_TRACKER_STATE,
+      hierarchy,
+      input,
+      mode,
+      preview: null,
+      sectionIds: selection.block.sectionIds,
+      sourceClientBounds,
+      sourceWorkspaceBounds,
+      workspaceRectsById,
+    },
+  };
+}
+
+function captureClientRects(canvasElement: HTMLElement): Readonly<Record<string, InteractionRect>> {
+  const entries = [...canvasElement.querySelectorAll<HTMLElement>("[data-proof-section-id]")].map(
+    (element) => {
+      const sectionId = element.dataset.proofSectionId;
+      if (!sectionId) {
+        throw new Error("An adapter-proof measured element is missing its section ID.");
+      }
+      return [sectionId, interactionRect(element.getBoundingClientRect())] as const;
+    },
+  );
+  return Object.fromEntries(entries);
+}
+
+function captureWorkspaceRects(
+  geometryIndex: WorkspaceGeometryIndex,
+): Readonly<Record<string, InteractionRect>> {
+  return Object.fromEntries(
+    geometryIndex.snapshot().map(({ rect, sectionId }) => [sectionId, interactionRect(rect)]),
+  );
+}
+
+function interactionRect(rect: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}): InteractionRect {
+  return createInteractionRect(rect.x, rect.y, rect.width, rect.height);
+}
+
+function interactionPointForDrag(
+  event: AdapterDndEvent,
+  session: ActiveAdapterProofDrag,
+): { x: number; y: number } {
+  if (session.activatorPoint) {
+    return {
+      x: session.activatorPoint.x + event.transform.x,
+      y: session.activatorPoint.y + event.transform.y,
+    };
+  }
+  return {
+    x: session.sourceClientBounds.x + session.sourceClientBounds.width / 2 + event.transform.x,
+    y: session.sourceClientBounds.y + session.sourceClientBounds.height / 2 + event.transform.y,
+  };
+}
+
+function resolvePointerElementTarget(
+  pointerElement: Element | null,
+  session: ActiveAdapterProofDrag,
+  canvasElement: HTMLElement,
+): string | null {
+  const sectionElement = pointerElement?.closest<HTMLElement>("[data-proof-section-id]");
+  const sectionId = sectionElement?.dataset.proofSectionId;
+  if (sectionId && !session.sectionIds.includes(sectionId)) {
+    return sectionId;
+  }
+  if (pointerElement && canvasElement.contains(pointerElement) && !sectionElement) {
+    return ADAPTER_PROOF_CANVAS_TARGET_ID;
+  }
+  return null;
+}
+
+function resolvePointerTarget(
+  event: AdapterDndEvent,
+  session: ActiveAdapterProofDrag,
+  canvasElement: HTMLElement | null,
+): string | null {
+  if (!canvasElement) {
+    return event.targetId;
+  }
+  if (event.input === "keyboard") {
+    return resolveKeyboardTarget(event, session) ?? event.targetId;
+  }
+  const interactionPoint = interactionPointForDrag(event, session);
+  const pointerElement = document.elementFromPoint(interactionPoint.x, interactionPoint.y);
+  return resolvePointerElementTarget(pointerElement, session, canvasElement) ?? event.targetId;
+}
+
+function keyboardSiblingContext(
+  session: ActiveAdapterProofDrag,
+  sourceId: string,
+): { parentId: string | null; siblings: readonly string[] } {
+  const parentId = session.hierarchy.parentByChild[sourceId] ?? null;
+  const siblings = parentId
+    ? (session.hierarchy.childrenByParent[parentId] ?? [])
+    : session.hierarchy.rootSectionIds;
+  return { parentId, siblings };
+}
+
+function resolveKeyboardTarget(
+  event: AdapterDndEvent,
+  session: ActiveAdapterProofDrag,
+): string | null {
+  const sourceId = session.sectionIds[0];
+  if (!sourceId) {
+    return null;
+  }
+  const { parentId, siblings } = keyboardSiblingContext(session, sourceId);
+  const selected = new Set(session.sectionIds);
+  const selectedIndexes = session.sectionIds.map((sectionId) => siblings.indexOf(sectionId));
+  const delta =
+    adapterProofOrientation(parentId) === "horizontal" ? event.transform.x : event.transform.y;
+  if (delta > 0) {
+    const lastIndex = Math.max(...selectedIndexes);
+    return siblings.slice(lastIndex + 1).find((sectionId) => !selected.has(sectionId)) ?? null;
+  }
+  if (delta < 0) {
+    const firstIndex = Math.min(...selectedIndexes);
+    return (
+      siblings
+        .slice(0, firstIndex)
+        .reverse()
+        .find((sectionId) => !selected.has(sectionId)) ?? null
+    );
+  }
+  return null;
+}
+
+function refreshTargetClientRect(
+  session: ActiveAdapterProofDrag,
+  targetId: string | null,
+  canvasElement: HTMLElement | null,
+): ActiveAdapterProofDrag {
+  if (!canvasElement || !targetId || targetId === ADAPTER_PROOF_CANVAS_TARGET_ID) {
+    return session;
+  }
+  const targetElement = canvasElement.querySelector<HTMLElement>(
+    `[data-proof-section-id="${CSS.escape(targetId)}"]`,
+  );
+  if (!targetElement) {
+    return session;
+  }
+  return {
+    ...session,
+    clientRectsById: {
+      ...session.clientRectsById,
+      [targetId]: interactionRect(targetElement.getBoundingClientRect()),
+    },
+  };
+}
+
 export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
   const diagnostics = useMemo(() => new ProofDiagnosticsStore(), []);
+  const dragStore = useMemo(() => new AdapterProofDragStore(), []);
   const geometryIndex = useMemo(() => new WorkspaceGeometryIndex(), []);
   const [canvasElement, setCanvasElement] = useState<HTMLElement | null>(null);
-  const [nestedByRoot, setNestedByRoot] = useState(initialNestedByRoot);
+  const [hierarchy, setHierarchy] = useState(INITIAL_ADAPTER_PROOF_HIERARCHY);
   const [nodes, setNodes] = useState<ProofRootNode[]>(() =>
     initialRootNodes.map((node) => ({ ...node })),
   );
   const [initialFitReady, setInitialFitReady] = useState(false);
+  const [dragMode, setDragMode] = useState<"free" | "sort">("sort");
   const [marqueeMode, setMarqueeMode] = useState<MarqueeSelectionMode>("full");
   const [selectedSectionIds, setSelectedSectionIds] = useState<ReadonlySet<string>>(
     () => new Set(["nested-note-b"]),
   );
   const [wideSectionIds, setWideSectionIds] = useState<ReadonlySet<string>>(() => new Set());
+  const activeDrag = useRef<ActiveAdapterProofDrag | null>(null);
+  const interactionOwnership = useRef<InteractionOwnershipState>(IDLE_INTERACTION_OWNERSHIP);
   const rootDragStart = useRef<Readonly<Record<string, WorkspacePoint>>>({});
+  const viewport = useRef<ViewportTransform>({ x: 0, y: 0, zoom: 1 });
+  const nestedByRoot = useMemo(() => nestedSectionsByRoot(hierarchy), [hierarchy]);
 
   const recordCommand = useCallback(
     (command: AdapterProofCommand) => {
@@ -779,39 +670,168 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
     [diagnostics],
   );
 
-  const completeNestedMove = useCallback(
-    ({ canceled, sourceId, targetId }: AdapterDndCompletion) => {
-      if (canceled || !targetId || sourceId === targetId) {
-        diagnostics.setStatus(
-          canceled ? "Nested move canceled without a command." : "Nested order unchanged.",
-        );
-        return;
-      }
-      const sourceRoot = rootForNested(nestedByRoot, sourceId);
-      const targetRoot = rootForNested(nestedByRoot, targetId);
-      if (!sourceRoot || sourceRoot !== targetRoot) {
-        diagnostics.setStatus("The proof rejects a cross-root nested move specifically.");
-        return;
-      }
-      setNestedByRoot((current) => ({
-        ...current,
-        [sourceRoot]: reorderSections(current[sourceRoot] ?? [], sourceId, targetId),
-      }));
-      recordCommand({
-        type: "reorder-nested-section",
-        rootSectionId: sourceRoot,
-        sectionId: sourceId,
-        targetSectionId: targetId,
+  const createCurrentDragSession = useCallback(
+    (event: Pick<AdapterDndEvent, "activatorPoint" | "input" | "sourceId">) =>
+      createDragSession({
+        activatorPoint: event.activatorPoint,
+        canvasElement,
+        geometryIndex,
+        hierarchy,
+        input: event.input,
+        mode: dragMode,
+        selectedSectionIds,
+        sourceId: event.sourceId,
+      }),
+    [canvasElement, dragMode, geometryIndex, hierarchy, selectedSectionIds],
+  );
+
+  const resolveCollisionRect = useCallback(
+    (sourceId: string) => {
+      const result = createCurrentDragSession({
+        activatorPoint: null,
+        input: "pointer",
+        sourceId,
       });
-      diagnostics.setStatus(`${sourceId} moved before ${targetId}; one package command emitted.`);
+      return result.allowed ? result.session.sourceClientBounds : null;
     },
-    [diagnostics, nestedByRoot, recordCommand],
+    [createCurrentDragSession],
+  );
+
+  const startStructuralMove = useCallback(
+    (event: AdapterDndEvent) => {
+      const result = createCurrentDragSession(event);
+      if (!result.allowed) {
+        diagnostics.setStatus(result.reason);
+        return;
+      }
+      interactionOwnership.current = transitionInteractionOwnership(interactionOwnership.current, {
+        type: "start",
+        request: {
+          input: event.input,
+          itemMovementEnabled: false,
+          layoutEnabled: true,
+          sectionMode: result.session.mode,
+          structureEnabled: true,
+          surface: "nested-section-handle",
+          viewportOverride: false,
+        },
+      });
+      activeDrag.current = result.session;
+      dragStore.start({
+        input: event.input,
+        mode: result.session.mode,
+        owner: "section-structure",
+        sectionIds: result.session.sectionIds,
+        sourceBounds: result.session.sourceWorkspaceBounds,
+      });
+      diagnostics.setStatus(
+        `${String(result.session.sectionIds.length)}-section ${result.session.mode} movement is owned by dnd-kit for ${event.input} input.`,
+      );
+    },
+    [createCurrentDragSession, diagnostics, dragStore],
+  );
+
+  const updateStructuralPreview = useCallback(
+    (event: AdapterDndEvent) => {
+      const session = activeDrag.current;
+      if (!session) {
+        return;
+      }
+      const targetId = resolvePointerTarget(event, session, canvasElement);
+      const planningSession = refreshTargetClientRect(session, targetId, canvasElement);
+      const resolution = resolveAdapterProofDragPreview({
+        orientation: adapterProofOrientation,
+        screenDelta: event.transform,
+        session: planningSession,
+        targetId,
+        zoom: viewport.current.zoom,
+      });
+      activeDrag.current = {
+        ...planningSession,
+        collisionState: resolution.collisionState,
+        preview: resolution.preview,
+      };
+      dragStore.preview(resolution.preview, {
+        reason: resolution.reason,
+        targetId,
+        transform: event.transform,
+      });
+      diagnostics.setPreviewTarget(resolution.preview?.targetId ?? event.targetId);
+    },
+    [canvasElement, diagnostics, dragStore],
+  );
+
+  const completeStructuralMove = useCallback(
+    (completion: AdapterDndCompletion) => {
+      const session = activeDrag.current;
+      interactionOwnership.current = transitionInteractionOwnership(interactionOwnership.current, {
+        type: completion.canceled ? "cancel" : "complete",
+      });
+      if (!session || completion.canceled) {
+        dragStore.complete(null);
+        activeDrag.current = null;
+        diagnostics.setStatus("Nested move canceled without a command.");
+        return;
+      }
+      const resolution = resolveAdapterProofDragPreview({
+        orientation: adapterProofOrientation,
+        screenDelta: completion.transform,
+        session,
+        targetId: completion.targetId,
+        zoom: viewport.current.zoom,
+      });
+      const preview = session.preview ?? resolution.preview;
+      if (!preview) {
+        dragStore.complete(null);
+        activeDrag.current = null;
+        diagnostics.setStatus(resolution.reason ?? "Nested order unchanged.");
+        return;
+      }
+      const nextHierarchy = applySectionMovePlan(session.hierarchy, preview.plan);
+      setHierarchy(nextHierarchy);
+      setNodes((current) => syncRootNodes(current, nextHierarchy, geometryIndex));
+      recordCommand({
+        type: "move-section-block",
+        destinationIndex: preview.plan.destinationIndex,
+        destinationParentId: preview.plan.destinationParentId,
+        mode: preview.plan.mode,
+        previewKey: preview.destinationKey,
+        sectionIds: preview.plan.sectionIds,
+      });
+      dragStore.preview(preview);
+      dragStore.complete(preview.destinationKey);
+      activeDrag.current = null;
+      diagnostics.setStatus(
+        `${String(preview.plan.sectionIds.length)}-section ${preview.plan.mode} move committed from the displayed preview; one package command emitted.`,
+      );
+    },
+    [diagnostics, dragStore, geometryIndex, recordCommand],
+  );
+
+  const changeDragMode = useCallback(
+    (nextMode: SectionMoveMode) => {
+      if (interactionOwnership.current.phase === "active") {
+        interactionOwnership.current = transitionInteractionOwnership(
+          interactionOwnership.current,
+          { type: "mode-change", sectionMode: nextMode },
+        );
+      }
+      setDragMode(nextMode);
+      diagnostics.setStatus(
+        activeDrag.current
+          ? `Move mode changed to ${nextMode}; the active ${activeDrag.current.mode} owner was retained.`
+          : `Move mode changed to ${nextMode}.`,
+      );
+    },
+    [diagnostics],
   );
 
   const contextValue = useMemo<ProofContextValue>(
     () => ({
       canvasElement,
+      dragMode,
       geometryIndex,
+      hierarchy,
       nestedByRoot,
       selectedSectionIds,
       wideSectionIds,
@@ -820,7 +840,9 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
     }),
     [
       canvasElement,
+      dragMode,
       geometryIndex,
+      hierarchy,
       nestedByRoot,
       selectedSectionIds,
       selectSection,
@@ -838,19 +860,28 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
           one geometry index.
         </p>
         <ProofDiagnostics store={diagnostics} />
-        <ProofGeometryCount geometryIndex={geometryIndex} />
+        <AdapterProofDragDiagnostics store={dragStore} />
+        <AdapterProofGeometryCount geometryIndex={geometryIndex} />
         <p data-proof-initial-fit="">Initial fit: {initialFitReady ? "ready" : "pending"}</p>
         <p data-proof-selection-ids="">Selection: {[...selectedSectionIds].join(", ") || "none"}</p>
       </div>
       <ProofContext.Provider value={contextValue}>
         <UpstreamDndBoundary
-          onComplete={completeNestedMove}
+          onComplete={completeStructuralMove}
+          onMove={updateStructuralPreview}
           onPreviewTarget={(targetId) => diagnostics.setPreviewTarget(targetId)}
-          onStart={(sourceId) => {
-            diagnostics.setStatus(`${sourceId} structural movement is owned by dnd-kit.`);
+          onStart={startStructuralMove}
+          overlayLabel={() => {
+            const count = dragStore.getSnapshot().activeSectionIds.length;
+            return `Moving ${String(count || 1)} section${count === 1 ? "" : "s"}`;
           }}
+          resolveCollisionRect={resolveCollisionRect}
         >
-          <div className="setta-adapter-proof__canvas" ref={setCanvasElement}>
+          <UpstreamDndDropZone
+            className="setta-adapter-proof__canvas"
+            id={ADAPTER_PROOF_CANVAS_TARGET_ID}
+            onElement={setCanvasElement}
+          >
             <ReactFlow<ProofRootNode>
               aria-label="Adapter proof workbench"
               edges={[]}
@@ -862,14 +893,40 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
               nodes={nodes}
               nodesConnectable={false}
               onNodeDragStart={(_, node) => {
+                interactionOwnership.current = transitionInteractionOwnership(
+                  interactionOwnership.current,
+                  {
+                    type: "start",
+                    request: {
+                      input: "pointer",
+                      itemMovementEnabled: false,
+                      layoutEnabled: true,
+                      sectionMode: "sort",
+                      structureEnabled: true,
+                      surface: "root-section-handle",
+                      viewportOverride: false,
+                    },
+                  },
+                );
                 rootDragStart.current = { [node.id]: { ...node.position } };
                 setNodes((current) => liftRoot(current, node.id));
                 diagnostics.setStatus(`${node.id} layout movement is owned by XYFlow.`);
               }}
               onNodeDragStop={(_, node) => {
+                interactionOwnership.current = transitionInteractionOwnership(
+                  interactionOwnership.current,
+                  { type: "complete" },
+                );
                 setNodes((current) => liftRoot(current, null));
                 const start = rootDragStart.current[node.id];
                 if (start && (start.x !== node.position.x || start.y !== node.position.y)) {
+                  setHierarchy((current) => ({
+                    ...current,
+                    rootPositions: {
+                      ...current.rootPositions,
+                      [node.id]: { ...node.position },
+                    },
+                  }));
                   recordCommand({
                     type: "move-root-section",
                     sectionId: node.id,
@@ -890,27 +947,39 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
                 variant={BackgroundVariant.Dots}
               />
               <Controls position="bottom-right" showInteractive={false} />
-              <ProofCanvasControls
+              <AdapterProofCanvasControls
                 canvasElement={canvasElement}
+                dragMode={dragMode}
                 geometryIndex={geometryIndex}
                 marqueeMode={marqueeMode}
+                onDragModeChange={changeDragMode}
                 onMarqueeModeChange={setMarqueeMode}
                 onSelectionChange={replaceSelection}
                 selectedSectionIds={selectedSectionIds}
               />
-              <InitialGeometryFit geometryIndex={geometryIndex} onReady={completeInitialFit} />
-              <MarqueeSelectionController
+              <AdapterProofInitialGeometryFit
+                geometryIndex={geometryIndex}
+                onReady={completeInitialFit}
+                sectionIds={allProofSectionIds}
+              />
+              <AdapterProofMarqueeSelection
                 canvasElement={canvasElement}
                 geometryIndex={geometryIndex}
                 marqueeMode={marqueeMode}
                 onSelectionChange={replaceSelection}
               />
-              <SelectedFrameOverlay
+              <AdapterProofSelectedFrameOverlay
                 geometryIndex={geometryIndex}
                 selectedSectionIds={selectedSectionIds}
               />
+              <AdapterProofDragPlaceholders store={dragStore} />
+              <AdapterProofViewportObserver
+                onViewport={(nextViewport) => {
+                  viewport.current = nextViewport;
+                }}
+              />
             </ReactFlow>
-          </div>
+          </UpstreamDndDropZone>
         </UpstreamDndBoundary>
       </ProofContext.Provider>
     </section>

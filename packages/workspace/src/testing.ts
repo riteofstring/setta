@@ -4,6 +4,8 @@ import {
   type WorkspaceSection,
 } from "./core.js";
 
+export * from "./internal/adapter-proof-drag-planning.js";
+export * from "./internal/adapter-proof-model.js";
 export * from "./internal/collision-characterization.js";
 export * from "./internal/geometry-index.js";
 export * from "./internal/interaction-geometry.js";

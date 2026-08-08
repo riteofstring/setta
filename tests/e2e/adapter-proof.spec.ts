@@ -1,5 +1,5 @@
 import { AxeBuilder } from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const proofUrl = "/?adapter-proof";
 
@@ -47,6 +47,176 @@ async function dragMarquee(
   await page.keyboard.up("Shift");
 }
 
+async function findBlankCanvasPoint(page: Page): Promise<{ x: number; y: number }> {
+  return page.locator(".setta-adapter-proof__canvas").evaluate((canvas) => {
+    const bounds = canvas.getBoundingClientRect();
+    for (let y = bounds.bottom - 80; y > bounds.top + 80; y -= 48) {
+      for (let x = bounds.right - 100; x > bounds.left + 100; x -= 48) {
+        const element = document.elementFromPoint(x, y);
+        if (
+          element &&
+          canvas.contains(element) &&
+          !element.closest(
+            "[data-proof-section-id], .setta-adapter-proof__controls, .react-flow__controls",
+          )
+        ) {
+          return { x, y };
+        }
+      }
+    }
+    throw new Error("The adapter proof needs one measurable blank canvas point.");
+  });
+}
+
+async function findVisibleActionPoint(locator: Locator): Promise<{ x: number; y: number }> {
+  return locator.evaluate((element) => {
+    const clipToVisibleCanvas = (bounds: DOMRect, canvasBounds?: DOMRect) => {
+      const clipBounds = canvasBounds ?? {
+        bottom: innerHeight,
+        left: 0,
+        right: innerWidth,
+        top: 0,
+      };
+      return {
+        bottom: Math.min(bounds.bottom, clipBounds.bottom, innerHeight),
+        left: Math.max(bounds.left, clipBounds.left, 0),
+        right: Math.min(bounds.right, clipBounds.right, innerWidth),
+        top: Math.max(bounds.top, clipBounds.top, 0),
+      };
+    };
+    const findActionPoint = (bounds: {
+      bottom: number;
+      left: number;
+      right: number;
+      top: number;
+    }) => {
+      for (let row = 1; row <= 4; row += 1) {
+        for (let column = 1; column <= 4; column += 1) {
+          const x = bounds.left + ((bounds.right - bounds.left) * column) / 5;
+          const y = bounds.top + ((bounds.bottom - bounds.top) * row) / 5;
+          const hit = document.elementFromPoint(x, y);
+          if (hit === element || (hit && element.contains(hit))) {
+            return { x, y };
+          }
+        }
+      }
+      return undefined;
+    };
+
+    const bounds = element.getBoundingClientRect();
+    const canvasBounds = element.closest(".setta-adapter-proof__canvas")?.getBoundingClientRect();
+    const actionPoint = findActionPoint(clipToVisibleCanvas(bounds, canvasBounds));
+    if (actionPoint) {
+      return actionPoint;
+    }
+    throw new Error(
+      `The drag handle has no actionable point in the canvas: ${JSON.stringify({
+        bounds: bounds.toJSON(),
+        canvasBounds: canvasBounds?.toJSON(),
+      })}`,
+    );
+  });
+}
+
+async function expectBlockPlaceholderAligned(page: Page, sectionIds: readonly string[]) {
+  const placeholder = page.locator('[data-proof-drag-placeholder="source"]');
+  const sections = sectionIds.map((sectionId) =>
+    page.locator(`[data-proof-section-id="${sectionId}"]`),
+  );
+  await expect(placeholder).toBeVisible();
+  await expect
+    .poll(async () => {
+      const boxes = await Promise.all(sections.map((section) => section.boundingBox()));
+      const placeholderBox = await placeholder.boundingBox();
+      if (!placeholderBox || boxes.some((box) => !box)) {
+        return Number.POSITIVE_INFINITY;
+      }
+      const measured = boxes.filter((box) => box !== null);
+      const left = Math.min(...measured.map((box) => box.x));
+      const top = Math.min(...measured.map((box) => box.y));
+      const right = Math.max(...measured.map((box) => box.x + box.width));
+      const bottom = Math.max(...measured.map((box) => box.y + box.height));
+      return Math.max(
+        Math.abs(left - placeholderBox.x),
+        Math.abs(top - placeholderBox.y),
+        Math.abs(right - (placeholderBox.x + placeholderBox.width)),
+        Math.abs(bottom - (placeholderBox.y + placeholderBox.height)),
+      );
+    })
+    .toBeLessThanOrEqual(2);
+}
+
+async function dispatchTouchDrag({
+  onActivated,
+  onBeforeEnd,
+  page,
+  source,
+  target,
+}: {
+  page: Page;
+  onActivated(): Promise<void>;
+  onBeforeEnd(): Promise<void>;
+  source: { x: number; y: number };
+  target: { x: number; y: number };
+}) {
+  const cdp = await page.context().newCDPSession(page);
+  const touchPoint = (x: number, y: number) => ({
+    force: 1,
+    id: 71,
+    radiusX: 1,
+    radiusY: 1,
+    x,
+    y,
+  });
+  await cdp.send("Input.dispatchTouchEvent", {
+    touchPoints: [touchPoint(source.x, source.y)],
+    type: "touchStart",
+  });
+  await page.waitForTimeout(300);
+  await onActivated();
+  for (let index = 1; index <= 12; index += 1) {
+    const progress = index / 12;
+    await cdp.send("Input.dispatchTouchEvent", {
+      touchPoints: [
+        touchPoint(
+          source.x + (target.x - source.x) * progress,
+          source.y + (target.y - source.y) * progress,
+        ),
+      ],
+      type: "touchMove",
+    });
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    );
+  }
+  await onBeforeEnd();
+  await cdp.send("Input.dispatchTouchEvent", { touchPoints: [], type: "touchEnd" });
+  await cdp.detach();
+}
+
+async function moveKeyboardDragDown(page: Page, expectedY: number) {
+  const diagnostics = page.locator("[data-proof-drag-transform]");
+  const previousTransform = `0,${String(expectedY - 72)}`;
+  const expectedTransform = `0,${String(expectedY)}`;
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    await page.keyboard.press("ArrowDown");
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    const transform = await diagnostics.getAttribute("data-proof-drag-transform");
+    if (transform === expectedTransform) {
+      return;
+    }
+    expect(transform).toBe(previousTransform);
+  }
+  throw new Error(
+    `The trusted keyboard drag did not reach ${expectedTransform} after scrolling reachable containers.`,
+  );
+}
+
 test.describe("upstream adapter proof", () => {
   test("shares transformed geometry across nested selection, focus, resize, and scrolling", async ({
     page,
@@ -72,7 +242,9 @@ test.describe("upstream adapter proof", () => {
 
     const pageScrollBeforeFocus = await page.evaluate(() => window.scrollY);
     await page.getByRole("button", { name: "Focus selected" }).click();
-    await expect(selectedSection.getByRole("button", { name: "Decision note" })).toBeFocused();
+    await expect(
+      selectedSection.getByRole("button", { name: "Decision note", exact: true }),
+    ).toBeFocused();
     expect(await page.evaluate(() => window.scrollY)).toBe(pageScrollBeforeFocus);
     await expectSelectionAligned(page);
 
@@ -201,7 +373,7 @@ test.describe("upstream adapter proof", () => {
     await expect
       .poll(() => planningRoot.evaluate((element) => getComputedStyle(element).zIndex))
       .toBe("1000");
-    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + 24, {
+    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height - 12, {
       steps: 12,
     });
     await page.mouse.up();
@@ -240,6 +412,230 @@ test.describe("upstream adapter proof", () => {
     );
     await page.mouse.up();
     await expect(commandCount).toHaveText("Commands: 2");
+  });
+
+  test("completes selection-block canvas drops with preview parity at every proof zoom", async ({
+    page,
+  }) => {
+    for (const zoomPercent of [50, 100, 200]) {
+      await page.goto(proofUrl);
+      await expect(page.locator("[data-proof-initial-fit]")).toHaveText("Initial fit: ready");
+      await page.getByRole("button", { name: "Select sibling block" }).click();
+      await page.getByRole("button", { name: "Move mode: sort" }).click();
+      await page.getByRole("button", { name: `Set zoom to ${zoomPercent}%` }).click();
+      await page.getByRole("button", { name: "Focus selected" }).click();
+
+      const sourceSection = page.locator('[data-proof-section-id="nested-note-a"]');
+      const secondSection = page.locator('[data-proof-section-id="nested-container"]');
+      const sourceHandle = page.getByRole("button", { name: "Move Research note" });
+      const sourceBox = await sourceSection.boundingBox();
+      const secondBox = await secondSection.boundingBox();
+      const handlePoint = await findVisibleActionPoint(sourceHandle);
+      if (!sourceBox || !secondBox) {
+        throw new Error("The selection-block canvas proof requires measured source sections.");
+      }
+      const originalOffset = {
+        x: secondBox.x - sourceBox.x,
+        y: secondBox.y - sourceBox.y,
+      };
+      const blankPoint = await findBlankCanvasPoint(page);
+      const planningRoot = page.locator(
+        '.react-flow__node[data-id="root-alpha"] [data-proof-render-count]',
+      );
+      const renderCountBefore = Number(await planningRoot.getAttribute("data-proof-render-count"));
+
+      await page.mouse.move(handlePoint.x, handlePoint.y);
+      await page.mouse.down();
+      await page.mouse.move(handlePoint.x + 8, handlePoint.y, { steps: 4 });
+      await page.mouse.move(blankPoint.x, blankPoint.y, { steps: 24 });
+
+      await expect(page.locator("[data-proof-drag-owner]")).toHaveAttribute(
+        "data-proof-drag-owner",
+        "section-structure",
+      );
+      await expect(page.locator("[data-proof-drag-input]")).toHaveAttribute(
+        "data-proof-drag-input",
+        "pointer",
+      );
+      await expectBlockPlaceholderAligned(page, ["nested-note-a", "nested-container"]);
+      const destinationPlaceholder = page.locator('[data-proof-drag-placeholder="destination"]');
+      await expect(destinationPlaceholder).toHaveAttribute(
+        "data-proof-destination-target",
+        "adapter-proof-canvas",
+      );
+      const previewKey = await destinationPlaceholder.getAttribute("data-proof-destination-key");
+      expect(previewKey).toContain("free:canvas:");
+      expect(
+        Number(await planningRoot.getAttribute("data-proof-render-count")),
+      ).toBeLessThanOrEqual(renderCountBefore + 1);
+
+      await page.mouse.up();
+      await expect(page.locator("[data-proof-command-count]")).toHaveText("Commands: 1");
+      await expect(page.locator("[data-proof-preview-key]")).toHaveAttribute(
+        "data-proof-preview-key",
+        previewKey ?? "missing",
+      );
+      await expect(page.locator("[data-proof-commit-key]")).toHaveAttribute(
+        "data-proof-commit-key",
+        previewKey ?? "missing",
+      );
+
+      const movedFirst = page.locator('.react-flow__node[data-id="nested-note-a"]');
+      const movedSecond = page.locator('.react-flow__node[data-id="nested-container"]');
+      await expect(movedFirst).toBeVisible();
+      await expect(movedSecond).toBeAttached();
+      const movedFirstBox = await movedFirst.boundingBox();
+      const movedSecondBox = await movedSecond.boundingBox();
+      if (!movedFirstBox || !movedSecondBox) {
+        throw new Error("The committed selection block must remain measurable.");
+      }
+      expect(movedSecondBox.x - movedFirstBox.x).toBeCloseTo(originalOffset.x, 0);
+      expect(movedSecondBox.y - movedFirstBox.y).toBeCloseTo(originalOffset.y, 0);
+    }
+  });
+
+  test("retains the active sort owner when mode changes during a block drag", async ({ page }) => {
+    await page.goto(proofUrl);
+    await page.getByRole("button", { name: "Select sibling block" }).click();
+    const sourceHandle = page.getByRole("button", { name: "Move Research note" });
+    const target = page.locator('[data-proof-section-id="nested-note-d"]');
+    const sourceBox = await sourceHandle.boundingBox();
+    if (!sourceBox) {
+      throw new Error("The runtime mode-change proof requires measured drag controls.");
+    }
+
+    await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(
+      sourceBox.x + sourceBox.width / 2 + 8,
+      sourceBox.y + sourceBox.height / 2,
+      {
+        steps: 4,
+      },
+    );
+    await page.locator("[data-proof-mode-control]").evaluate((control) => {
+      (control as HTMLButtonElement).click();
+    });
+    await expect(page.getByRole("button", { name: "Move mode: free" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(page.locator("[data-proof-drag-mode]")).toHaveAttribute(
+      "data-proof-drag-mode",
+      "sort",
+    );
+    await expect(page.locator("[data-proof-drag-owner]")).toHaveAttribute(
+      "data-proof-drag-owner",
+      "section-structure",
+    );
+
+    await target.evaluate((element) => element.scrollIntoView({ block: "center" }));
+    const targetBox = await target.boundingBox();
+    if (!targetBox) {
+      throw new Error("The scrolled runtime mode-change target must remain measurable.");
+    }
+    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + 8, { steps: 12 });
+    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height - 8, {
+      steps: 20,
+    });
+    const destination = page.locator('[data-proof-drag-placeholder="destination"]');
+    await expect(destination).toHaveAttribute("data-proof-destination-target", "nested-note-d");
+    const previewKey = await destination.getAttribute("data-proof-destination-key");
+    expect(previewKey).toContain("sort:root-alpha:");
+    await page.mouse.up();
+
+    await expect(page.locator("[data-proof-command-count]")).toHaveText("Commands: 1");
+    await expect(page.locator("[data-proof-commit-key]")).toHaveAttribute(
+      "data-proof-commit-key",
+      previewKey ?? "missing",
+    );
+    await expect
+      .poll(() =>
+        page
+          .locator(
+            '[data-proof-section-id="root-alpha"] .setta-adapter-proof__nested-scroll > [data-proof-section-id]',
+          )
+          .evaluateAll((elements) =>
+            elements.map((element) => element.getAttribute("data-proof-section-id")),
+          ),
+      )
+      .toEqual(["nested-note-d", "nested-note-a", "nested-container"]);
+  });
+
+  test("accepts keyboard sorting through the structural owner", async ({ page }) => {
+    await page.goto(proofUrl);
+    await expect(page.locator("[data-proof-initial-fit]")).toHaveText("Initial fit: ready");
+    const keyboardHandle = page.getByRole("button", { name: "Move Research note" });
+    await keyboardHandle.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("[data-proof-drag-input]")).toHaveAttribute(
+      "data-proof-drag-input",
+      "keyboard",
+    );
+    await expect(page.locator("[data-proof-drag-owner]")).toHaveAttribute(
+      "data-proof-drag-owner",
+      "section-structure",
+    );
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    );
+    await expect(page.locator("[data-proof-drag-transform]")).toHaveAttribute(
+      "data-proof-drag-transform",
+      "0,0",
+    );
+    for (const expectedY of [72, 144, 216, 288]) {
+      await moveKeyboardDragDown(page, expectedY);
+    }
+    await expect(page.locator('[data-proof-drag-placeholder="destination"]')).toBeVisible();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("[data-proof-command-count]")).toHaveText("Commands: 1");
+  });
+
+  test.describe("touch input", () => {
+    test.use({ hasTouch: true });
+
+    test("accepts touch sorting through the structural owner", async ({ page }) => {
+      await page.goto(proofUrl);
+      await expect(page.locator("[data-proof-initial-fit]")).toHaveText("Initial fit: ready");
+      const touchHandle = page.getByRole("button", { name: "Move Research note" });
+      await touchHandle.evaluate((element) =>
+        element.scrollIntoView({ block: "center", inline: "center" }),
+      );
+      const touchTarget = page.locator('[data-proof-section-id="nested-container"]');
+      const touchHandleBox = await touchHandle.boundingBox();
+      const touchTargetBox = await touchTarget.boundingBox();
+      if (!touchHandleBox || !touchTargetBox) {
+        throw new Error("The touch ownership proof requires measured drag controls.");
+      }
+      await dispatchTouchDrag({
+        onActivated: async () => {
+          await expect(page.locator("[data-proof-drag-input]")).toHaveAttribute(
+            "data-proof-drag-input",
+            "touch",
+          );
+          await expect(page.locator("[data-proof-drag-owner]")).toHaveAttribute(
+            "data-proof-drag-owner",
+            "section-structure",
+          );
+        },
+        onBeforeEnd: async () => {
+          await expect(page.locator('[data-proof-drag-placeholder="destination"]')).toHaveAttribute(
+            "data-proof-destination-target",
+            "nested-container",
+          );
+        },
+        page,
+        source: {
+          x: touchHandleBox.x + touchHandleBox.width / 2,
+          y: touchHandleBox.y + touchHandleBox.height / 2,
+        },
+        target: {
+          x: touchTargetBox.x + touchTargetBox.width / 2,
+          y: touchTargetBox.y + touchTargetBox.height - 8,
+        },
+      });
+      await expect(page.locator("[data-proof-command-count]")).toHaveText("Commands: 1");
+    });
   });
 
   test("has accessible semantics, reflows, and matches its visual baseline", async ({ page }) => {
