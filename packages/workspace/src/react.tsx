@@ -22,6 +22,7 @@ export type {
   WorkspaceOverlayRenderer,
   WorkspaceOverlaySlots,
   WorkspaceProps,
+  WorkspaceSectionMoveMode,
   WorkspaceSelectionOptions,
   WorkspaceToolbarControl,
   WorkspaceToolbarControlPlacement,

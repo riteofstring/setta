@@ -389,10 +389,14 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
     },
     [geometry, rootProjection],
   );
-  const handleNodeDragStart = useCallback<OnNodeDrag<WorkspaceRootNode>>(
-    (_event, node, draggedNodes) => {
+  const handleNodeDragStart = useCallback(
+    (
+      _event: MouseEvent | TouchEvent,
+      node: WorkspaceRootNode,
+      draggedNodes: WorkspaceRootNode[],
+    ) => {
       if (!node.draggable) {
-        return;
+        return false;
       }
       const selection = resolveWorkspaceRootSelection(
         documentRef.current,
@@ -402,13 +406,13 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
       if (!selection.allowed) {
         activeRootMoveRef.current = null;
         setAnnouncementText(selection.reason);
-        return;
+        return false;
       }
       const draggedIds = new Set(draggedNodes.map(({ id }) => id));
       if (selection.block.sectionIds.some((sectionId) => !draggedIds.has(sectionId))) {
         activeRootMoveRef.current = null;
         setAnnouncementText("Unable to move the complete selected section block.");
-        return;
+        return false;
       }
       if (!selectedSectionIdsRef.current.includes(node.id)) {
         commitSelection([node.id]);
@@ -428,6 +432,7 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
           ? ""
           : ` and ${String(selection.block.sectionIds.length - 1)} more`;
       setAnnouncementText(`Moving ${node.data.title}${suffix}.`);
+      return true;
     },
     [commitSelection, rootProjection, selectedSectionIdsRef],
   );

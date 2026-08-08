@@ -900,6 +900,22 @@
   opacity: 0.45;
 }
 
+.setta-workspace__section-drag-overlay {
+  max-inline-size: min(20rem, calc(100vw - 2rem));
+  padding: 0.75rem 1rem;
+  overflow: hidden;
+  color: var(--setta-workspace-section-text);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--setta-workspace-section-background);
+  border: 2px solid var(--setta-workspace-selection);
+  border-radius: 0.625rem;
+  box-shadow: 0 0.75rem 2rem oklch(0 0 0 / 0.18);
+  pointer-events: none;
+}
+
 .setta-workspace__section-action-icon {
   inline-size: 1.25rem;
   block-size: 1.25rem;

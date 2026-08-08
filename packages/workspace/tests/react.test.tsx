@@ -78,6 +78,9 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain('data-workspace-history-announcement=""');
     expect(markup).toContain('data-workspace-section-state-announcement=""');
     expect(markup).toContain('data-workspace-sizing-announcement=""');
+    expect(markup).toContain('data-workspace-structure-movement-announcement=""');
+    expect(markup).toContain('data-workspace-section-move-mode="sort"');
+    expect(markup).toContain('data-workspace-interaction-owner="none"');
     expect(markup).toContain('data-workspace-resolved-appearance="light"');
     expect(markup).toContain('tabindex="0"');
     expect(markup).toContain("Start with a section.");
@@ -267,7 +270,10 @@ describe("Workspace scaffold", () => {
     expect(markup).not.toContain("Host body for root");
     expect(markup).toContain("Host body for first");
     expect(markup).toContain("Host body for deep");
-    expect(markup).toMatch(/aria-label="Move First child"[^>]+disabled/u);
+    expect(markup).toMatch(
+      /aria-label="Move First child"[^>]+data-workspace-section-drag-mode="sort"/u,
+    );
+    expect(markup).not.toMatch(/aria-label="Move First child"[^>]+disabled/u);
   });
 
   it("omits minimize controls for a section kind that opts out", () => {
@@ -341,6 +347,9 @@ describe("Workspace scaffold", () => {
         />,
       ),
     ).toThrow("marquee selection mode must be full or partial");
+    expect(() =>
+      renderToStaticMarkup(<Workspace sectionMoveMode={"reparent" as unknown as "free"} />),
+    ).toThrow("section move mode must be sort or free");
   });
 
   it("marks controlled and read-only state without applying unsupported ARIA to host content", () => {

@@ -69,6 +69,7 @@ export function WorkspaceCanvasAnnouncements({
   selectionAction,
   sectionState,
   sizing,
+  structureMovement,
 }: Readonly<{
   creation: string;
   containerLayout: string;
@@ -80,6 +81,7 @@ export function WorkspaceCanvasAnnouncements({
   selectionAction: string;
   sectionState: string;
   sizing: string;
+  structureMovement: string;
 }>) {
   return (
     <>
@@ -162,6 +164,14 @@ export function WorkspaceCanvasAnnouncements({
         data-workspace-selection-action-announcement=""
       >
         {selectionAction}
+      </div>
+      <div
+        aria-atomic="true"
+        aria-live="polite"
+        className="setta-workspace__visually-hidden"
+        data-workspace-structure-movement-announcement=""
+      >
+        {structureMovement}
       </div>
     </>
   );

@@ -52,7 +52,7 @@ import {
   transitionInteractionOwnership,
   type InteractionOwnershipState,
 } from "./interaction-owner.js";
-import { applySectionMovePlan, type SectionMoveMode } from "./section-move-planning.js";
+import { applySectionMovePlan, type WorkspaceSectionMoveMode } from "./section-move-planning.js";
 import { resolveSelectionBlock, type SectionHierarchySnapshot } from "./selection-planning.js";
 import {
   AdapterProofDragDiagnostics,
@@ -103,7 +103,7 @@ export type AdapterProofCommand =
       type: "move-section-block";
       destinationIndex: number;
       destinationParentId: string | null;
-      mode: SectionMoveMode;
+      mode: WorkspaceSectionMoveMode;
       previewKey: string;
       sectionIds: readonly string[];
     };
@@ -113,7 +113,7 @@ export type UpstreamAdapterProofProps = {
 };
 
 type ProofContextValue = {
-  dragMode: SectionMoveMode;
+  dragMode: WorkspaceSectionMoveMode;
   geometryMeasurements: AdapterProofGeometryMeasurements;
   hierarchy: SectionHierarchySnapshot;
   nestedByRoot: Readonly<Record<string, readonly AdapterProofNestedSection[]>>;
@@ -372,7 +372,7 @@ function createDragSession({
   geometryIndex: WorkspaceGeometryIndex;
   hierarchy: SectionHierarchySnapshot;
   input: AdapterDndEvent["input"];
-  mode: SectionMoveMode;
+  mode: WorkspaceSectionMoveMode;
   selectedSectionIds: ReadonlySet<string>;
   sourceId: string;
   viewport: ViewportTransform;
@@ -731,7 +731,7 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
   );
 
   const changeDragMode = useCallback(
-    (nextMode: SectionMoveMode) => {
+    (nextMode: WorkspaceSectionMoveMode) => {
       if (interactionOwnership.current.phase === "active") {
         interactionOwnership.current = transitionInteractionOwnership(
           interactionOwnership.current,

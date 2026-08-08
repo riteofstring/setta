@@ -9,7 +9,7 @@ import {
   type DragDropManager,
   type DragMoveEvent,
 } from "@dnd-kit/react";
-import { useCallback, useRef, type ReactNode } from "react";
+import { useCallback, useRef, type ComponentProps, type ReactNode } from "react";
 
 import type { InteractionPoint } from "./interaction-geometry.js";
 
@@ -36,6 +36,8 @@ export type AdapterDndCollisionRect = {
 
 export type UpstreamDndBoundaryProps = {
   children: ReactNode;
+  manageAccessibility?: boolean;
+  overlayClassName?: string;
   overlayLabel?(sourceId: string): string;
   resolveCollisionRect?(sourceId: string): AdapterDndCollisionRect | null;
   onMove?(event: AdapterDndEvent): void;
@@ -45,6 +47,18 @@ export type UpstreamDndBoundaryProps = {
 };
 
 const adapterProofSensors = [PointerSensor, KeyboardSensor.configure({ offset: 72 })];
+const accessibilityPluginDisabled = {
+  plugins: (defaults) =>
+    defaults.filter(
+      (plugin) => ("plugin" in plugin ? plugin.plugin : plugin).name !== "Accessibility",
+    ),
+} satisfies Pick<ComponentProps<typeof DragDropProvider>, "plugins">;
+
+function accessibilityPluginProps(
+  manageAccessibility: boolean,
+): Pick<ComponentProps<typeof DragDropProvider>, "plugins"> {
+  return manageAccessibility ? {} : accessibilityPluginDisabled;
+}
 
 function stringId(id: string | number | undefined): string | null {
   return id === undefined ? null : String(id);
@@ -52,6 +66,8 @@ function stringId(id: string | number | undefined): string | null {
 
 export function UpstreamDndBoundary({
   children,
+  manageAccessibility = true,
+  overlayClassName = "setta-adapter-proof__drag-overlay",
   overlayLabel,
   resolveCollisionRect,
   onMove,
@@ -72,6 +88,7 @@ export function UpstreamDndBoundary({
 
   return (
     <DragDropProvider
+      {...accessibilityPluginProps(manageAccessibility)}
       sensors={adapterProofSensors}
       onDragStart={({ nativeEvent, operation }, manager) => {
         const sourceId = stringId(operation.source?.id);
@@ -157,13 +174,28 @@ export function UpstreamDndBoundary({
       {children}
       <DragOverlay dropAnimation={null}>
         {(source) => (
-          <div aria-hidden="true" className="setta-adapter-proof__drag-overlay">
+          <div aria-hidden="true" className={overlayClassName}>
             {overlayLabel?.(String(source.id)) ?? `Moving ${String(source.id)}`}
           </div>
         )}
       </DragOverlay>
     </DragDropProvider>
   );
+}
+
+export type UpstreamDndDraggableOptions = Readonly<{
+  data?: Readonly<Record<string, unknown>>;
+  disabled: boolean;
+  id: string;
+}>;
+
+export function useUpstreamDndDraggable({ data, disabled, id }: UpstreamDndDraggableOptions) {
+  const draggable = useDraggable({ ...(data ? { data } : {}), disabled, id });
+  return {
+    active: draggable.isDragSource,
+    elementRef: draggable.ref,
+    handleRef: draggable.handleRef,
+  };
 }
 
 export type UpstreamDndItemProps = {

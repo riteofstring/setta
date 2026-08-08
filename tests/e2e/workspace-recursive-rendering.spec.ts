@@ -75,6 +75,55 @@ async function requiredBoundingBox(locator: Locator, label: string) {
   return box;
 }
 
+async function recursiveChangeCount(page: Page): Promise<number> {
+  return Number(await page.getByTestId("canvas-shell-change-count").textContent());
+}
+
+async function dispatchTouchDrag({
+  onActivated,
+  onBeforeEnd,
+  page,
+  source,
+  target,
+}: {
+  page: Page;
+  onActivated(): Promise<void>;
+  onBeforeEnd(): Promise<void>;
+  source: { x: number; y: number };
+  target: { x: number; y: number };
+}) {
+  const cdp = await page.context().newCDPSession(page);
+  const touchPoint = (x: number, y: number) => ({
+    force: 1,
+    id: 81,
+    radiusX: 1,
+    radiusY: 1,
+    x,
+    y,
+  });
+  await cdp.send("Input.dispatchTouchEvent", {
+    touchPoints: [touchPoint(source.x, source.y)],
+    type: "touchStart",
+  });
+  await page.waitForTimeout(300);
+  await onActivated();
+  for (let index = 1; index <= 8; index += 1) {
+    const progress = index / 8;
+    await cdp.send("Input.dispatchTouchEvent", {
+      touchPoints: [
+        touchPoint(
+          source.x + (target.x - source.x) * progress,
+          source.y + (target.y - source.y) * progress,
+        ),
+      ],
+      type: "touchMove",
+    });
+  }
+  await onBeforeEnd();
+  await cdp.send("Input.dispatchTouchEvent", { touchPoints: [], type: "touchEnd" });
+  await cdp.detach();
+}
+
 test("recursive frames share all-depth selection, geometry, focus, and fit", async ({ page }) => {
   const resizeObserverErrors: string[] = [];
   page.on("pageerror", (error) => {
@@ -87,6 +136,9 @@ test("recursive frames share all-depth selection, geometry, focus, and fit", asy
   const root = workspace.getByRole("article", { name: "Recursive workspace" });
   const nestedAlpha = workspace.getByRole("article", { name: "Nested Alpha" });
   const nestedRow = workspace.getByRole("article", { name: "Nested row" });
+  const nestedRowChildren = nestedRow.getByRole("region", {
+    name: "Nested row child sections",
+  });
   const deepContainer = workspace.getByRole("article", { name: "Deep container" });
   const nestedGamma = workspace.getByRole("article", { name: "Nested Gamma" });
   const emptyContainer = workspace.getByRole("article", { name: "Empty container" });
@@ -102,11 +154,9 @@ test("recursive frames share all-depth selection, geometry, focus, and fit", asy
   await expect(
     root.getByRole("group", { name: "Recursive workspace child sections" }),
   ).toHaveAttribute("data-workspace-child-orientation", "vertical");
-  await expect(
-    nestedRow.getByRole("region", { name: "Nested row child sections" }),
-  ).toHaveAttribute("data-workspace-child-orientation", "horizontal");
+  await expect(nestedRowChildren).toHaveAttribute("data-workspace-child-orientation", "horizontal");
   await expect(root.getByRole("button", { name: "Move Recursive workspace" })).toBeEnabled();
-  await expect(nestedAlpha.getByRole("button", { name: "Move Nested Alpha" })).toBeDisabled();
+  await expect(nestedAlpha.getByRole("button", { name: "Move Nested Alpha" })).toBeEnabled();
 
   const selectAlpha = nestedAlpha.getByRole("button", { name: "Select Nested Alpha" });
   const selectGamma = nestedGamma.getByRole("button", { name: "Select Nested Gamma" });
@@ -151,8 +201,13 @@ test("recursive frames share all-depth selection, geometry, focus, and fit", asy
   await expect(overlay).toHaveAttribute("data-workspace-selection-roots", "nested-alpha");
   await selectGamma.click({ modifiers: ["Shift"] });
 
+  await nestedRowChildren.evaluate((element) => {
+    element.scrollLeft = 0;
+    element.scrollTop = 0;
+  });
   await page.getByRole("button", { name: "Fit recursive descendants" }).click();
   await expect(page.getByRole("status")).toContainText("Fit recursive descendants: applied.");
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
   await expect(workspace).toHaveScreenshot("recursive-section-tree.png");
 
   await page.getByRole("button", { name: "Focus Nested Gamma" }).click();
@@ -171,6 +226,154 @@ test("recursive frames share all-depth selection, geometry, focus, and fit", asy
   const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
   expect(accessibility.violations).toEqual([]);
   expect(resizeObserverErrors).toEqual([]);
+});
+
+test("structural interaction ownership excludes XYFlow and viewport competitors", async ({
+  page,
+}) => {
+  await page.setViewportSize({ height: 1_000, width: 1_440 });
+  const workspace = await loadRecursiveFixture(page);
+  await page.getByRole("button", { name: "Fit recursive descendants" }).click();
+  const canvas = workspace.getByRole("application", { name: "Canvas shell workspace canvas" });
+  const mode = page.getByRole("combobox", { name: "Section movement" });
+  const root = workspace.getByRole("article", { name: "Recursive workspace" });
+  const nested = workspace.getByRole("article", { name: "Nested Alpha" });
+  const nestedHandle = nested.getByRole("button", { name: "Move Nested Alpha" });
+  const rootHandle = root.getByRole("button", { name: "Move Recursive workspace" });
+  const announcement = workspace.locator("[data-workspace-structure-movement-announcement]");
+  const baselineChanges = await recursiveChangeCount(page);
+  const viewportBeforeStructure = await canvasViewport(page);
+  const nestedHandleBox = await requiredBoundingBox(nestedHandle, "Nested structural handle");
+
+  await page.mouse.move(
+    nestedHandleBox.x + nestedHandleBox.width / 2,
+    nestedHandleBox.y + nestedHandleBox.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    nestedHandleBox.x + nestedHandleBox.width / 2 + 12,
+    nestedHandleBox.y + nestedHandleBox.height / 2 + 12,
+    { steps: 4 },
+  );
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "section-structure");
+  await expect(canvas).toHaveAttribute("data-workspace-section-move-input", "pointer");
+  await expect(canvas).toHaveAttribute("data-workspace-structural-move-mode", "sort");
+  await expect(nested).toHaveAttribute("data-workspace-moving", "true");
+  await expect(rootHandle).toBeDisabled();
+  await expect(announcement).toHaveText("Nested Alpha sorting movement started.");
+
+  await page.mouse.wheel(0, 180);
+  expect(await canvasViewport(page)).toEqual(viewportBeforeStructure);
+  await mode.selectOption("free");
+  await expect(canvas).toHaveAttribute("data-workspace-section-move-mode", "free");
+  await expect(canvas).toHaveAttribute("data-workspace-structural-move-mode", "sort");
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "section-structure");
+  await page.mouse.up();
+
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
+  await expect(canvas).toHaveAttribute("data-workspace-structural-move-mode", "none");
+  await expect(nested).toHaveAttribute("data-workspace-moving", "false");
+  await expect(announcement).toHaveText(
+    "Nested Alpha movement finished without changing the document.",
+  );
+  expect(await recursiveChangeCount(page)).toBe(baselineChanges);
+
+  await mode.selectOption("sort");
+  const rootHandleBox = await requiredBoundingBox(rootHandle, "Root spatial handle");
+  await page.mouse.move(
+    rootHandleBox.x + rootHandleBox.width / 2,
+    rootHandleBox.y + rootHandleBox.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    rootHandleBox.x + rootHandleBox.width / 2 + 48,
+    rootHandleBox.y + rootHandleBox.height / 2 + 24,
+    { steps: 6 },
+  );
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "root-layout");
+  await expect(nestedHandle).toBeDisabled();
+  await mode.selectOption("free");
+  await expect(canvas).toHaveAttribute("data-workspace-section-move-mode", "free");
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "root-layout");
+  await expect(rootHandle).toHaveAttribute("data-workspace-section-drag-mode", "spatial");
+  await expect(rootHandle).toBeEnabled();
+  await page.mouse.up();
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
+  await expect.poll(() => recursiveChangeCount(page)).toBe(baselineChanges + 1);
+  await expect(page.locator(".announcement")).toContainText("Document change: section-move.");
+
+  await mode.selectOption("sort");
+  await nestedHandle.focus();
+  await page.keyboard.press("Enter");
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "section-structure");
+  await expect(canvas).toHaveAttribute("data-workspace-section-move-input", "keyboard");
+  await expect(announcement).toHaveText(
+    "Nested Alpha sorting started. Use the arrow keys to move, Enter to finish, or Escape to cancel.",
+  );
+  await expect(page.locator(".announcement")).toContainText("Document change: section-move.");
+  await mode.selectOption("free");
+  await expect(canvas).toHaveAttribute("data-workspace-structural-move-mode", "sort");
+  await expect(page.locator(".announcement")).toContainText("Document change: section-move.");
+  await page.keyboard.press("Escape");
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
+  await expect(nestedHandle).toBeFocused();
+  await expect(announcement).toHaveText("Nested Alpha movement canceled.");
+  expect(await canvasViewport(page)).toEqual(viewportBeforeStructure);
+  expect(await recursiveChangeCount(page)).toBe(baselineChanges + 1);
+
+  await rootHandle.focus();
+  await page.keyboard.press("Enter");
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "section-structure");
+  await expect(canvas).toHaveAttribute("data-workspace-structural-move-mode", "free");
+  await page.keyboard.press("Escape");
+  await expect(rootHandle).toBeFocused();
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
+
+  const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
+  expect(accessibility.violations).toEqual([]);
+});
+
+test.describe("coarse-pointer structural ownership", () => {
+  test.use({ hasTouch: true });
+
+  test("touch structural movement has the same exclusive owner and completion cleanup", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ height: 1_000, width: 1_440 });
+    const workspace = await loadRecursiveFixture(page);
+    await page.getByRole("button", { name: "Fit recursive descendants" }).click();
+    const canvas = workspace.getByRole("application", { name: "Canvas shell workspace canvas" });
+    const nested = workspace.getByRole("article", { name: "Nested Alpha" });
+    const handle = nested.getByRole("button", { name: "Move Nested Alpha" });
+    await handle.evaluate((element) =>
+      element.scrollIntoView({ block: "center", inline: "center" }),
+    );
+    const box = await requiredBoundingBox(handle, "Touch structural handle");
+    const source = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    const baselineChanges = await recursiveChangeCount(page);
+    const baselineViewport = await canvasViewport(page);
+
+    await dispatchTouchDrag({
+      onActivated: async () => {
+        await expect(canvas).toHaveAttribute(
+          "data-workspace-interaction-owner",
+          "section-structure",
+        );
+        await expect(canvas).toHaveAttribute("data-workspace-section-move-input", "touch");
+      },
+      onBeforeEnd: async () => {
+        await expect(nested).toHaveAttribute("data-workspace-moving", "true");
+        expect(await canvasViewport(page)).toEqual(baselineViewport);
+      },
+      page,
+      source,
+      target: { x: source.x + 36, y: source.y + 72 },
+    });
+
+    await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
+    await expect(nested).toHaveAttribute("data-workspace-moving", "false");
+    expect(await recursiveChangeCount(page)).toBe(baselineChanges);
+  });
 });
 
 test("minimizing a recursive container preserves descendants and narrow reflow", async ({

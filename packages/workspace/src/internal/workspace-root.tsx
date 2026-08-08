@@ -40,6 +40,7 @@ import {
   resolveWorkspaceMinimapOptions,
   resolveWorkspaceMode,
   resolveWorkspaceOverlayRenderers,
+  resolveWorkspaceSectionMoveMode,
   resolveWorkspaceSelectionOptions,
   resolveWorkspaceToolbarControls,
   workspaceCapabilitiesAreReadOnly,
@@ -139,6 +140,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     sectionColorPalette: sectionColorPaletteOverrides,
     sectionDefinitions: sectionDefinitionOverrides,
     sectionFactory,
+    sectionMoveMode: sectionMoveModeValue,
     selectionOptions: selectionOptionOverrides,
     style,
     toolbarControls: toolbarControlOverrides,
@@ -187,6 +189,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     () => resolveWorkspaceSelectionOptions(selectionOptionOverrides),
     [selectionOptionOverrides],
   );
+  const sectionMoveMode = resolveWorkspaceSectionMoveMode(sectionMoveModeValue);
   const [gridSnap, setGridSnap] = useWorkspaceBooleanPreference(
     "Workspace grid snap",
     gridOptions.snap,
@@ -621,6 +624,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         presentationEditable={capabilities.editPresentation}
         readOnly={sectionReadOnly}
         sectionColorPalette={sectionColorPalette}
+        sectionMoveMode={sectionMoveMode}
         sectionRegistry={sectionRegistry}
         selectedSectionIds={selectedSectionIds}
         structureEditable={capabilities.editStructure}

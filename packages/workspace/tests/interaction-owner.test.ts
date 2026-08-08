@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   IDLE_INTERACTION_OWNERSHIP,
+  resolveInteractionActivationPolicy,
   resolveStartOwner,
   transitionInteractionOwnership,
   type InteractionInput,
@@ -127,5 +128,69 @@ describe("Phase 0 interaction-owner characterization", () => {
     expect(transitionInteractionOwnership(active, { type: "complete" })).toBe(
       IDLE_INTERACTION_OWNERSHIP,
     );
+  });
+
+  it("hands root layout and structural activation between modes without enabling competitors", () => {
+    expect(resolveInteractionActivationPolicy(IDLE_INTERACTION_OWNERSHIP, "sort")).toEqual({
+      rootLayoutEnabled: true,
+      sectionStructureEnabled: true,
+      viewportEnabled: true,
+    });
+    expect(resolveInteractionActivationPolicy(IDLE_INTERACTION_OWNERSHIP, "free")).toEqual({
+      rootLayoutEnabled: false,
+      sectionStructureEnabled: true,
+      viewportEnabled: true,
+    });
+
+    const structural = transitionInteractionOwnership(IDLE_INTERACTION_OWNERSHIP, {
+      request: request({ sectionMode: "free", surface: "root-section-handle" }),
+      type: "start",
+    });
+    expect(resolveInteractionActivationPolicy(structural, "free")).toEqual({
+      rootLayoutEnabled: false,
+      sectionStructureEnabled: false,
+      viewportEnabled: false,
+    });
+    expect(resolveInteractionActivationPolicy(structural, "sort")).toEqual({
+      rootLayoutEnabled: false,
+      sectionStructureEnabled: false,
+      viewportEnabled: false,
+    });
+    expect(
+      resolveInteractionActivationPolicy(
+        transitionInteractionOwnership(structural, { type: "cancel" }),
+        "sort",
+      ),
+    ).toEqual({
+      rootLayoutEnabled: true,
+      sectionStructureEnabled: true,
+      viewportEnabled: true,
+    });
+  });
+
+  it("retains an active root owner across mode changes and excludes viewport activation", () => {
+    const rootLayout = transitionInteractionOwnership(IDLE_INTERACTION_OWNERSHIP, {
+      request: request({ surface: "root-section-handle" }),
+      type: "start",
+    });
+
+    expect(resolveInteractionActivationPolicy(rootLayout, "free")).toEqual({
+      rootLayoutEnabled: true,
+      sectionStructureEnabled: false,
+      viewportEnabled: false,
+    });
+  });
+
+  it("excludes root and structural activation while viewport movement owns the gesture", () => {
+    const viewport = transitionInteractionOwnership(IDLE_INTERACTION_OWNERSHIP, {
+      request: request({ surface: "canvas" }),
+      type: "start",
+    });
+
+    expect(resolveInteractionActivationPolicy(viewport, "sort")).toEqual({
+      rootLayoutEnabled: false,
+      sectionStructureEnabled: false,
+      viewportEnabled: true,
+    });
   });
 });

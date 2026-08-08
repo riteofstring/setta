@@ -41,6 +41,7 @@ async function dragSurface(
   page: Page,
   surface: Locator,
   button: "left" | "middle" = "left",
+  onActive?: () => Promise<void>,
 ): Promise<void> {
   await surface.scrollIntoViewIfNeeded();
   const bounds = await surface.boundingBox();
@@ -51,6 +52,7 @@ async function dragSurface(
   await page.mouse.move(start.x, start.y);
   await page.mouse.down({ button });
   await page.mouse.move(start.x - 72, start.y - 48, { steps: 6 });
+  await onActive?.();
   await page.mouse.up({ button });
 }
 
@@ -480,7 +482,10 @@ test("the canvas shell honors the complete runtime gesture matrix", async ({ pag
   await dragToPan.selectOption("all");
   await waitForWorkspaceEffects(page);
   await resetCanvasViewport(page);
-  await dragSurface(page, pane);
+  await dragSurface(page, pane, "left", async () => {
+    await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "viewport");
+  });
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
   await expect
     .poll(async () => {
       const viewport = await canvasViewport(page);

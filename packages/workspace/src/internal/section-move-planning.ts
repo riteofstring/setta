@@ -6,11 +6,11 @@ import {
   type SelectionBlock,
 } from "./selection-planning.js";
 
-export type SectionMoveMode = "free" | "sort";
+export type WorkspaceSectionMoveMode = "free" | "sort";
 
 export type SectionMovePlan = {
   sectionIds: readonly string[];
-  mode: SectionMoveMode;
+  mode: WorkspaceSectionMoveMode;
   sourceParentId: string | null;
   destinationParentId: string | null;
   destinationIndex: number;
@@ -42,7 +42,7 @@ export function planSectionMove({
   cancelled?: boolean;
   destination: SectionMoveDestination | null;
   hierarchy: SectionHierarchySnapshot;
-  mode: SectionMoveMode;
+  mode: WorkspaceSectionMoveMode;
   selectedIds: readonly string[];
   validate?: (plan: SectionMovePlan) => { allowed: true } | { allowed: false; reason: string };
 }): SectionMoveDecision {
@@ -114,7 +114,7 @@ export function applySectionMovePlan(
 }
 
 function validateMoveRequest(
-  mode: SectionMoveMode,
+  mode: WorkspaceSectionMoveMode,
   block: SelectionBlock,
   destination: SectionMoveDestination,
   hierarchy: SectionHierarchySnapshot,
@@ -150,7 +150,7 @@ function validateMoveRequest(
 }
 
 function validateMode(
-  mode: SectionMoveMode,
+  mode: WorkspaceSectionMoveMode,
   sourceParentId: string | null,
   destinationParentId: string | null,
 ): string | null {
@@ -187,7 +187,7 @@ function validateTopLevelPositions(
 }
 
 function createPlan(
-  mode: SectionMoveMode,
+  mode: WorkspaceSectionMoveMode,
   block: SelectionBlock,
   destination: SectionMoveDestination,
 ): SectionMovePlan {

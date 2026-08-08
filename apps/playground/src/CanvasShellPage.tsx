@@ -13,6 +13,7 @@ import {
   WorkspaceInteractionBoundary,
   type SectionDefinition,
   type WorkspaceMinimapPlacement,
+  type WorkspaceSectionMoveMode,
   type WorkspaceToolbarControl,
 } from "@setta/workspace/react";
 import { useRef, useState, type ReactNode } from "react";
@@ -263,6 +264,7 @@ export function CanvasShellPage() {
   const [panOnScrollSpeed, setPanOnScrollSpeed] = useState(0.5);
   const [preventHostPan, setPreventHostPan] = useState(true);
   const [preventHostWheel, setPreventHostWheel] = useState(true);
+  const [sectionMoveMode, setSectionMoveMode] = useState<WorkspaceSectionMoveMode>("sort");
   const [showHostExtensions, setShowHostExtensions] = useState(
     () => window.matchMedia(HOST_EXTENSIONS_DEFAULT_QUERY).matches,
   );
@@ -465,6 +467,18 @@ export function CanvasShellPage() {
                 <option value="system">System</option>
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>
+              </select>
+            </label>
+            <label>
+              Section movement
+              <select
+                onChange={(event) =>
+                  setSectionMoveMode(event.currentTarget.value as WorkspaceSectionMoveMode)
+                }
+                value={sectionMoveMode}
+              >
+                <option value="sort">Sort within parent</option>
+                <option value="free">Move between containers</option>
               </select>
             </label>
             <label>
@@ -720,6 +734,7 @@ export function CanvasShellPage() {
               setStatus(`${title} added to ${parent.title}.`);
             }}
             sectionDefinitions={navigationSectionDefinitions}
+            sectionMoveMode={sectionMoveMode}
             selectionOptions={{ marqueeMode: "full" }}
             overlaySlots={{
               canvas: () => (

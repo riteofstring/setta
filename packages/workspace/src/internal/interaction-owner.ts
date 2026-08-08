@@ -1,4 +1,4 @@
-import type { SectionMoveMode } from "./section-move-planning.js";
+import type { WorkspaceSectionMoveMode } from "./section-move-planning.js";
 
 export type InteractionInput = "keyboard" | "pointer" | "touch";
 export type InteractionSurface =
@@ -10,11 +10,17 @@ export type InteractionOwnershipState = {
   phase: "active" | "idle";
 };
 
+export type InteractionActivationPolicy = {
+  rootLayoutEnabled: boolean;
+  sectionStructureEnabled: boolean;
+  viewportEnabled: boolean;
+};
+
 export type InteractionStart = {
   input: InteractionInput;
   itemMovementEnabled: boolean;
   layoutEnabled: boolean;
-  sectionMode: SectionMoveMode;
+  sectionMode: WorkspaceSectionMoveMode;
   structureEnabled: boolean;
   surface: InteractionSurface;
   viewportOverride: boolean;
@@ -23,7 +29,7 @@ export type InteractionStart = {
 export type InteractionOwnershipEvent =
   | { type: "cancel" }
   | { type: "complete" }
-  | { type: "mode-change"; sectionMode: SectionMoveMode }
+  | { type: "mode-change"; sectionMode: WorkspaceSectionMoveMode }
   | { type: "start"; request: InteractionStart };
 
 export const IDLE_INTERACTION_OWNERSHIP: InteractionOwnershipState = {
@@ -66,6 +72,18 @@ export function resolveStartOwner(request: InteractionStart): InteractionOwner |
     return request.structureEnabled ? "section-structure" : null;
   }
   return resolveRootOwner(request);
+}
+
+export function resolveInteractionActivationPolicy(
+  state: InteractionOwnershipState,
+  sectionMode: WorkspaceSectionMoveMode,
+): InteractionActivationPolicy {
+  const idle = state.phase === "idle";
+  return {
+    rootLayoutEnabled: state.owner === "root-layout" || (idle && sectionMode === "sort"),
+    sectionStructureEnabled: idle,
+    viewportEnabled: state.owner === "viewport" || idle,
+  };
 }
 
 function resolveRootOwner(request: InteractionStart): InteractionOwner | null {

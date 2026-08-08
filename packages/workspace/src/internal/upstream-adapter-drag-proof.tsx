@@ -4,12 +4,12 @@ import { useSyncExternalStore } from "react";
 import type { AdapterProofDragPreview } from "./adapter-proof-drag-planning.js";
 import type { InteractionPoint, InteractionRect } from "./interaction-geometry.js";
 import type { InteractionOwner } from "./interaction-owner.js";
-import type { SectionMoveMode } from "./section-move-planning.js";
+import type { WorkspaceSectionMoveMode } from "./section-move-planning.js";
 import type { AdapterDndInput } from "./upstream-dnd-adapter.js";
 
 export type AdapterProofDragSnapshot = {
   activeInput: AdapterDndInput | null;
-  activeMode: SectionMoveMode | null;
+  activeMode: WorkspaceSectionMoveMode | null;
   activeSectionIds: readonly string[];
   commitKey: string | null;
   owner: InteractionOwner | null;
@@ -56,7 +56,7 @@ export class AdapterProofDragStore {
     sourceBounds,
   }: {
     input: AdapterDndInput;
-    mode: SectionMoveMode;
+    mode: WorkspaceSectionMoveMode;
     owner: InteractionOwner;
     sectionIds: readonly string[];
     sourceBounds: InteractionRect;

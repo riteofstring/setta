@@ -22,6 +22,7 @@ import type {
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 import {
   WORKSPACE_NO_PAN_CLASS_NAME,
+  WORKSPACE_NO_ROOT_DRAG_CLASS_NAME,
   WORKSPACE_NO_WHEEL_CLASS_NAME,
 } from "./workspace-interaction-boundary.js";
 import type { WorkspaceKeyboardMoveDirection } from "./workspace-root-movement.js";
@@ -29,6 +30,7 @@ import type {
   WorkspaceSectionColorOption,
   WorkspaceSectionTitleValidator,
 } from "./workspace-section-contract.js";
+import { useWorkspaceSectionDnd } from "./workspace-section-dnd.js";
 import { SectionPresentationEditor, SectionTitleEditor } from "./workspace-section-editors.js";
 import { WorkspaceSectionOrientationControl } from "./workspace-section-orientation.js";
 import { WorkspaceSectionOverflowControl } from "./workspace-section-overflow.js";
@@ -303,6 +305,26 @@ function SectionSelectionControl({
   );
 }
 
+function structuralDragAttribute<Value>(structural: boolean, value: Value): Value | undefined {
+  return structural ? value : undefined;
+}
+
+function spatialDragDisabled(
+  depth: number,
+  layoutEditable: boolean,
+  section: WorkspaceSection<unknown>,
+  selectionMovementBlocked: boolean,
+  spatialEnabled: boolean,
+): boolean {
+  return (
+    !spatialEnabled ||
+    depth > 0 ||
+    !layoutEditable ||
+    section.positionAndSizeLocked ||
+    selectionMovementBlocked
+  );
+}
+
 function SectionDragHandle({
   depth,
   descriptionId,
@@ -312,6 +334,7 @@ function SectionDragHandle({
   section,
   selected,
   selectionMovementBlocked,
+  structuralDrag,
 }: Readonly<{
   depth: number;
   descriptionId: string;
@@ -321,10 +344,34 @@ function SectionDragHandle({
   section: WorkspaceSection<unknown>;
   selected: boolean;
   selectionMovementBlocked: boolean;
+  structuralDrag: Readonly<{
+    active: boolean;
+    enabled: boolean;
+    handleRef(element: Element | null): void;
+    mode: "free" | "sort";
+    spatialEnabled: boolean;
+    structural: boolean;
+  }>;
 }>) {
-  const disabled =
-    depth > 0 || !layoutEditable || section.positionAndSizeLocked || selectionMovementBlocked;
+  const disabled = structuralDrag.structural
+    ? !structuralDrag.enabled
+    : spatialDragDisabled(
+        depth,
+        layoutEditable,
+        section,
+        selectionMovementBlocked,
+        structuralDrag.spatialEnabled,
+      );
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (structuralDrag.structural) {
+      if ((event.key === "Enter" || event.key === " ") && !disabled) {
+        onSelectionRequest(section.id, {
+          additive: event.shiftKey,
+          preserveSelected: selected,
+        });
+      }
+      return;
+    }
     const direction = moveDirection(event.key);
     if (!direction || event.altKey || event.ctrlKey || event.metaKey) {
       return;
@@ -337,6 +384,9 @@ function SectionDragHandle({
     if (event.button !== 0 || !event.isPrimary || disabled) {
       return;
     }
+    if (structuralDrag.structural && event.pointerType === "touch") {
+      return;
+    }
     onSelectionRequest(section.id, {
       additive: event.shiftKey,
       preserveSelected: selected,
@@ -345,12 +395,20 @@ function SectionDragHandle({
   return (
     <button
       aria-describedby={descriptionId}
-      aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"
+      aria-grabbed={structuralDragAttribute(structuralDrag.structural, structuralDrag.active)}
+      aria-keyshortcuts={
+        structuralDrag.structural
+          ? "Enter Space ArrowUp ArrowDown ArrowLeft ArrowRight Escape"
+          : "ArrowUp ArrowDown ArrowLeft ArrowRight"
+      }
       aria-label={`Move ${section.title}`}
-      className={`setta-workspace__section-drag-handle${depth === 0 ? " setta-workspace__section-drag-handle--root" : ""}`}
+      aria-roledescription={structuralDragAttribute(structuralDrag.structural, "draggable")}
+      className={`setta-workspace__section-drag-handle${depth === 0 ? " setta-workspace__section-drag-handle--root" : ""}${structuralDrag.structural ? ` ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_ROOT_DRAG_CLASS_NAME}` : ""}`}
+      data-workspace-section-drag-mode={structuralDrag.structural ? structuralDrag.mode : "spatial"}
       disabled={disabled}
       onKeyDown={handleKeyDown}
       onPointerDown={handlePointerDown}
+      ref={structuralDragAttribute(structuralDrag.structural, structuralDrag.handleRef)}
       type="button"
     >
       <MoveIcon />
@@ -476,6 +534,30 @@ function sectionWithPresentation(
   presentation: WorkspaceSectionPresentation | null,
 ): WorkspaceSection<unknown> {
   return presentation ? { ...section, presentation } : section;
+}
+
+function sectionDragBlocked(
+  section: WorkspaceSection<unknown>,
+  selectionMovementBlocked: boolean,
+): boolean {
+  return section.positionAndSizeLocked || selectionMovementBlocked;
+}
+
+function sectionFrameMoving(spatialMoving: boolean, structuralMoving: boolean): boolean {
+  return spatialMoving || structuralMoving;
+}
+
+function sectionMoveDescription(
+  dnd: Readonly<{ mode: "free" | "sort"; structural: boolean }>,
+): string {
+  if (!dnd.structural) {
+    return "Drag to move. Use the arrow keys for keyboard movement.";
+  }
+  const effect =
+    dnd.mode === "sort"
+      ? "Sorting keeps this section in its current parent."
+      : "Free move can change this section's parent.";
+  return `${effect} Press Enter or Space to start keyboard movement.`;
 }
 
 function SectionTitleContent({
@@ -714,12 +796,20 @@ export function WorkspaceSectionFrame({
   const hasStatus = hasSectionStatus(section);
   const showHeader = shouldShowSectionHeader(section, editingTitle, presentationOpen);
   const presentedSection = sectionWithPresentation(section, presentationPreview);
+  const sectionDnd = useWorkspaceSectionDnd({
+    blocked: sectionDragBlocked(section, selectionMovementBlocked),
+    depth,
+    sectionId: section.id,
+    spatialMoving: moving,
+  });
+  const sectionDndElementRef = sectionDnd.elementRef;
   const registerElement = useCallback(
     (element: HTMLElement | null) => {
       frameElementRef.current = element;
+      sectionDndElementRef(element);
       return registerSectionFrame(depth, element, geometry, order, parentSectionId, section.id);
     },
-    [depth, geometry, order, parentSectionId, section.id],
+    [depth, geometry, order, parentSectionId, section.id, sectionDndElementRef],
   );
   const closeTitleEditor = () => {
     restoreTitleFocusRef.current = true;
@@ -769,6 +859,7 @@ export function WorkspaceSectionFrame({
       section={section}
       selected={selected}
       selectionMovementBlocked={selectionMovementBlocked}
+      structuralDrag={sectionDnd}
     />
   );
   const stateControls = (
@@ -834,7 +925,7 @@ export function WorkspaceSectionFrame({
       data-workspace-minimized={String(section.isMinimized)}
       data-workspace-child-orientation={section.childLayout?.orientation}
       data-workspace-child-overflow={section.childLayout?.overflow}
-      data-workspace-moving={String(moving)}
+      data-workspace-moving={String(sectionFrameMoving(moving, sectionDnd.active))}
       data-workspace-parent-section-id={parentSectionId ?? undefined}
       data-workspace-presentation-open={String(presentationOpen)}
       data-workspace-read-only={String(readOnly)}
@@ -850,7 +941,7 @@ export function WorkspaceSectionFrame({
       tabIndex={-1}
     >
       <span className="setta-workspace__visually-hidden" id={moveDescriptionId}>
-        Drag to move. Use the arrow keys for keyboard movement.
+        {sectionMoveDescription(sectionDnd)}
       </span>
       <SectionHeading
         controls={

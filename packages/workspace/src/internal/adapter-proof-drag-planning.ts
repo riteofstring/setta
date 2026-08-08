@@ -14,8 +14,8 @@ import {
 } from "./interaction-geometry.js";
 import {
   planSectionMove,
-  type SectionMoveMode,
   type SectionMovePlan,
+  type WorkspaceSectionMoveMode,
 } from "./section-move-planning.js";
 import type { SectionHierarchySnapshot } from "./selection-planning.js";
 
@@ -39,7 +39,7 @@ export type AdapterProofDragSession = {
   clientRectsById: Readonly<Record<string, InteractionRect>>;
   collisionState: CollisionTrackerState;
   hierarchy: SectionHierarchySnapshot;
-  mode: SectionMoveMode;
+  mode: WorkspaceSectionMoveMode;
   sectionIds: readonly string[];
   sourceClientBounds: InteractionRect;
   sourceWorkspaceBounds: InteractionRect;

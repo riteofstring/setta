@@ -21,7 +21,7 @@ import {
   type InteractionRect,
   type ViewportTransform,
 } from "./interaction-geometry.js";
-import type { SectionMoveMode } from "./section-move-planning.js";
+import type { WorkspaceSectionMoveMode } from "./section-move-planning.js";
 import type { AdapterDndEvent } from "./upstream-dnd-adapter.js";
 export { WorkspaceGeometryMeasurements as AdapterProofGeometryMeasurements } from "./workspace-geometry-service.js";
 
@@ -148,11 +148,11 @@ function interactionRect({ x, y, width, height }: WorkspaceRect): InteractionRec
 
 export type AdapterProofCanvasControlsProps = {
   canvasElement: HTMLElement | null;
-  dragMode: SectionMoveMode;
+  dragMode: WorkspaceSectionMoveMode;
   geometryIndex: WorkspaceGeometryIndex;
   marqueeMode: MarqueeSelectionMode;
   selectedSectionIds: ReadonlySet<string>;
-  onDragModeChange(mode: SectionMoveMode): void;
+  onDragModeChange(mode: WorkspaceSectionMoveMode): void;
   onMarqueeModeChange(mode: MarqueeSelectionMode): void;
   onSelectionChange(sectionIds: readonly string[], source: SelectionChangeSource): void;
 };

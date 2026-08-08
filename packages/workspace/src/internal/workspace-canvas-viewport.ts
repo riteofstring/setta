@@ -75,6 +75,7 @@ export function useWorkspaceCanvasViewport({
   canonicalViewport,
   geometry,
   gestureOptions,
+  interactionEnabled,
   onCanvasControllerChange,
   onDetach,
   onViewportCommit,
@@ -82,6 +83,7 @@ export function useWorkspaceCanvasViewport({
   canonicalViewport: WorkspaceViewport;
   geometry: WorkspaceGeometryMeasurements;
   gestureOptions: WorkspaceGestureOptions;
+  interactionEnabled: boolean;
   onCanvasControllerChange(controller: WorkspaceCanvasController | null): void;
   onDetach(): void;
   onViewportCommit(viewport: WorkspaceViewport): void;
@@ -143,7 +145,7 @@ export function useWorkspaceCanvasViewport({
   );
   const handleMoveStart = useCallback(
     (event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
-      if (!mountedRef.current) {
+      if (!mountedRef.current || (event && !interactionEnabled)) {
         return;
       }
       if (event) {
@@ -159,11 +161,11 @@ export function useWorkspaceCanvasViewport({
         "begin",
       );
     },
-    [geometry, lifecycle, supersedeProgrammaticViewport],
+    [geometry, interactionEnabled, lifecycle, supersedeProgrammaticViewport],
   );
   const handleMove = useCallback(
     (event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
-      if (!mountedRef.current) {
+      if (!mountedRef.current || (event && !interactionEnabled)) {
         return;
       }
       const nextViewport = viewportFromUpstream(viewport);
@@ -176,11 +178,11 @@ export function useWorkspaceCanvasViewport({
         "update",
       );
     },
-    [geometry, lifecycle],
+    [geometry, interactionEnabled, lifecycle],
   );
   const handleMoveEnd = useCallback(
     (event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
-      if (!mountedRef.current) {
+      if (!mountedRef.current || (event && !interactionEnabled)) {
         return;
       }
       const nextViewport = viewportFromUpstream(viewport);
@@ -201,7 +203,7 @@ export function useWorkspaceCanvasViewport({
       }
       completeViewportGesture(geometry, lifecycle, nextViewport, onViewportCommit);
     },
-    [geometry, lifecycle, onViewportCommit],
+    [geometry, interactionEnabled, lifecycle, onViewportCommit],
   );
 
   return {

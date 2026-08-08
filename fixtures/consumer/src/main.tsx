@@ -4,6 +4,7 @@ import {
   type WorkspaceExternalDropHandler,
   type WorkspaceExternalDropValidator,
   type WorkspaceGroupFactory,
+  type WorkspaceSectionMoveMode,
   type WorkspaceToolbarControl,
 } from "@setta/workspace/react";
 import "@setta/workspace/styles.css";
@@ -16,6 +17,7 @@ if (!root) {
 }
 
 const workspaceDocument = createEmptyWorkspaceDocument();
+const sectionMoveMode: WorkspaceSectionMoveMode = "sort";
 const onExternalDrop: WorkspaceExternalDropHandler = () => undefined;
 const validateExternalDrop: WorkspaceExternalDropValidator = ({ event }) =>
   event.dataTransferTypes.includes("application/x-consumer-section")
@@ -58,6 +60,7 @@ createRoot(root).render(
       gridOptions={{ pattern: "cross", snap: false, spacing: [24, 18], visible: true }}
       groupFactory={groupFactory}
       onExternalDrop={onExternalDrop}
+      sectionMoveMode={sectionMoveMode}
       toolbarControls={toolbarControls}
       validateExternalDrop={validateExternalDrop}
     />

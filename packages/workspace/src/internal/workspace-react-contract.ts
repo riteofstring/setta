@@ -15,6 +15,7 @@ import {
   type WorkspacePoint,
 } from "../core.js";
 import { isDenseArray, isEnumerableDataProperty } from "./runtime-option-validation.js";
+import type { WorkspaceSectionMoveMode } from "./section-move-planning.js";
 import type {
   SectionDefinition,
   WorkspaceGroupFactory,
@@ -59,6 +60,7 @@ export type WorkspaceMinimapOptions = Readonly<{
 }>;
 
 export type WorkspaceMarqueeSelectionMode = "full" | "partial";
+export type { WorkspaceSectionMoveMode } from "./section-move-planning.js";
 
 export type WorkspaceSelectionOptions = Readonly<{
   marqueeMode?: WorkspaceMarqueeSelectionMode;
@@ -132,6 +134,7 @@ type SharedWorkspaceProps<TSectionData> = Omit<
   sectionColorPalette?: readonly WorkspaceSectionColorOption[];
   sectionDefinitions?: readonly SectionDefinition<TSectionData>[];
   sectionFactory?: WorkspaceSectionFactory<TSectionData>;
+  sectionMoveMode?: WorkspaceSectionMoveMode;
   selectionOptions?: WorkspaceSelectionOptions;
   toolbarControls?: readonly WorkspaceToolbarControl<TSectionData>[];
   validateExternalDrop?: WorkspaceExternalDropValidator;
@@ -325,6 +328,16 @@ export function resolveWorkspaceSelectionOptions(
     throw new TypeError("Workspace marquee selection mode must be full or partial.");
   }
   return Object.freeze({ marqueeMode });
+}
+
+export function resolveWorkspaceSectionMoveMode(value: unknown): WorkspaceSectionMoveMode {
+  if (value === undefined || value === "sort") {
+    return "sort";
+  }
+  if (value === "free") {
+    return value;
+  }
+  throw new TypeError("Workspace section move mode must be sort or free.");
 }
 
 export function resolveWorkspaceMode<TSectionData>(

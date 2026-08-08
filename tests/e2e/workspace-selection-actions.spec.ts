@@ -188,7 +188,7 @@ test("selection actions group and ungroup top-level siblings with focus restorat
   );
   await expect(nestedBetaFrame).toBeVisible();
   await expect(nestedBetaFrame).toHaveAttribute("data-workspace-depth", "1");
-  await expect(nestedAlphaFrame.getByRole("button", { name: "Move Alpha frame" })).toBeDisabled();
+  await expect(nestedAlphaFrame.getByRole("button", { name: "Move Alpha frame" })).toBeEnabled();
   const selectGroup = page.getByRole("button", { name: "Select Group 1 (2 sections)" });
   await expect(selectGroup).toHaveAttribute("aria-pressed", "true");
   await expect(selectGroup).toBeFocused();

@@ -67,6 +67,7 @@ const sectionDefinitions = [
     markSize: 1,
   }}
   minimapOptions={{ placement: "right", visible: true }}
+  sectionMoveMode="sort"
   selectionOptions={{ marqueeMode: "partial" }}
   validateExternalDrop={({ event }) =>
     event.dataTransferTypes.includes("application/x-example-note")
@@ -178,6 +179,13 @@ Dragging or using the arrow keys on a selected top-level root moves the complete
 preserves its relative workbench offsets. One completed block gesture still publishes one
 `section-move` change. If any selected root is locked, block movement is disabled with specific
 feedback; selection itself remains available and does not publish a document change.
+
+`sectionMoveMode` is a host-owned interaction preference and defaults to `sort`. In sort mode,
+top-level handles retain ordinary XYFlow spatial dragging while nested handles activate the
+package's structural DnD owner. In `free` mode, root and nested handles both activate that structural
+owner. The mode captured when a gesture starts remains in force until completion or cancellation;
+changing the prop affects the next gesture. Root layout, structural DnD, and viewport gestures
+exclude their competing activators and restore them when the active owner releases.
 
 Selected top-level roots expose logical inline-end, block-end, and corner resize controls according
 to their registered `resize.axes` policy. The controls mirror in right-to-left layouts, retain
