@@ -6,7 +6,10 @@ import {
   type WorkspaceDocument,
   type WorkspaceSection,
 } from "../src/core.js";
-import { createWorkspaceController } from "../src/internal/workspace-controller.js";
+import {
+  createWorkspaceController,
+  moveWorkspaceRootSections,
+} from "../src/internal/workspace-controller.js";
 import { createWorkspaceTestDocument, WorkspaceInMemoryHost } from "../src/testing.js";
 
 function recursiveDocument(): WorkspaceDocument {
@@ -193,6 +196,96 @@ describe("workspace controller", () => {
       "section-minimize",
       "section-lock",
     ]);
+  });
+
+  it("moves root sections atomically without changing stacking or section records", () => {
+    let document = recursiveDocument();
+    const initialSections = document.sections;
+    const changes: string[] = [];
+    const bindings = {
+      commit: (nextDocument: WorkspaceDocument, change: { reason: string }) => {
+        document = nextDocument;
+        changes.push(change.reason);
+      },
+      getCapabilities: () => WORKSPACE_DEFAULT_CAPABILITIES,
+      getDocument: () => document,
+    };
+
+    expect(
+      moveWorkspaceRootSections(bindings, {
+        peer: { x: -48, y: 72 },
+        root: { x: 96, y: 24 },
+      }),
+    ).toEqual({ status: "applied" });
+    expect(document.rootSections).toEqual([
+      { position: { x: 96, y: 24 }, sectionId: "root" },
+      { position: { x: -48, y: 72 }, sectionId: "peer" },
+    ]);
+    expect(document.sections).toBe(initialSections);
+    expect(changes).toEqual(["section-move"]);
+    expect(
+      moveWorkspaceRootSections(bindings, {
+        peer: { x: -48, y: 72 },
+        root: { x: 96, y: 24 },
+      }),
+    ).toEqual({ status: "unchanged" });
+    expect(changes).toEqual(["section-move"]);
+  });
+
+  it("rejects root movement when layout policy, containment, or locking disallows it", () => {
+    const document = recursiveDocument();
+    const lockedRoot = document.sections.root as WorkspaceSection;
+    const lockedDocument: WorkspaceDocument = {
+      ...document,
+      sections: {
+        ...document.sections,
+        root: { ...lockedRoot, positionAndSizeLocked: true },
+      },
+    };
+    const bindings = (currentDocument: WorkspaceDocument, editLayout: boolean) => ({
+      commit: () => {
+        throw new Error("A rejected root move must not commit.");
+      },
+      getCapabilities: () => ({ ...WORKSPACE_DEFAULT_CAPABILITIES, editLayout }),
+      getDocument: () => currentDocument,
+    });
+
+    expect(
+      moveWorkspaceRootSections(bindings(document, false), { root: { x: 24, y: 24 } }),
+    ).toEqual({ reason: "layout-edit-disabled", status: "rejected" });
+    expect(
+      moveWorkspaceRootSections(bindings(lockedDocument, true), { root: { x: 24, y: 24 } }),
+    ).toEqual({ reason: "section-locked", status: "rejected" });
+    expect(
+      moveWorkspaceRootSections(bindings(document, true), { child: { x: 24, y: 24 } }),
+    ).toEqual({ reason: "section-not-root", status: "rejected" });
+  });
+
+  it("rejects malformed root positions without evaluating accessors", () => {
+    const document = recursiveDocument();
+    const bindings = {
+      commit: () => {
+        throw new Error("Malformed root movement must not commit.");
+      },
+      getCapabilities: () => WORKSPACE_DEFAULT_CAPABILITIES,
+      getDocument: () => document,
+    };
+    let evaluated = false;
+    const positions = Object.defineProperty({}, "root", {
+      enumerable: true,
+      get: () => {
+        evaluated = true;
+        return { x: 24, y: 24 };
+      },
+    });
+
+    expect(() =>
+      moveWorkspaceRootSections(
+        bindings,
+        positions as Readonly<Record<string, { x: number; y: number }>>,
+      ),
+    ).toThrow("Invalid workspace root position field root");
+    expect(evaluated).toBe(false);
   });
 
   it("rejects minimizing a section whose registered kind opts out", () => {

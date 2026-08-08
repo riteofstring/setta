@@ -5,12 +5,18 @@ import {
   type WorkspaceCapabilities,
   type WorkspaceDocument,
   type WorkspaceDocumentChangeReason,
+  type WorkspacePoint,
   type WorkspaceSection,
   type WorkspaceViewport,
 } from "../core.js";
+import { isEnumerableDataProperty, optionOverridesAt } from "./runtime-option-validation.js";
 
 export type WorkspaceDocumentCommand =
   | Readonly<{ sectionIds: readonly string[]; type: "delete-sections" }>
+  | Readonly<{
+      positions: Readonly<Record<string, WorkspacePoint>>;
+      type: "move-root-sections";
+    }>
   | Readonly<{ isMinimized: boolean; sectionId: string; type: "set-section-minimized" }>
   | Readonly<{ locked: boolean; sectionIds: readonly string[]; type: "set-sections-locked" }>
   | Readonly<{ type: "set-viewport"; viewport: WorkspaceViewport }>;
@@ -50,6 +56,9 @@ function rejectionFor(
   if (command.type === "set-sections-locked" && !capabilities.editLayout) {
     return "layout-edit-disabled";
   }
+  if (command.type === "move-root-sections" && !capabilities.editLayout) {
+    return "layout-edit-disabled";
+  }
   if (command.type === "set-section-minimized" && !capabilities.editPresentation) {
     return "presentation-edit-disabled";
   }
@@ -72,6 +81,79 @@ function applied<TSectionData>(
 ): WorkspaceDocumentCommandResult<TSectionData> {
   validateWorkspaceDocument(document);
   return { document, reason, status: "applied" };
+}
+
+function finiteCoordinate(value: unknown, label: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new TypeError(`${label} must be a finite number.`);
+  }
+  return value;
+}
+
+function rootPositionAt(value: unknown, sectionId: string): WorkspacePoint {
+  const label = `Workspace root position for ${JSON.stringify(sectionId)}`;
+  const position = optionOverridesAt(value, ["x", "y"], label, "workspace root position field");
+  if (!Object.hasOwn(position, "x") || !Object.hasOwn(position, "y")) {
+    throw new TypeError(`${label} must provide x and y.`);
+  }
+  return {
+    x: finiteCoordinate(position.x, `${label} x`),
+    y: finiteCoordinate(position.y, `${label} y`),
+  };
+}
+
+function rootMovementEntriesAt(
+  value: unknown,
+): readonly (readonly [sectionId: string, position: WorkspacePoint])[] {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TypeError("Workspace root positions must be a plain object.");
+  }
+  const prototype = Object.getPrototypeOf(value) as unknown;
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError("Workspace root positions must be a plain object.");
+  }
+  const positions = value as Record<string, unknown>;
+  return Reflect.ownKeys(positions).map((key) => {
+    if (typeof key !== "string" || !isEnumerableDataProperty(positions, key)) {
+      throw new TypeError(`Invalid workspace root position field ${String(key)}.`);
+    }
+    if (key.trim().length === 0) {
+      throw new TypeError("Workspace root position section IDs must be non-empty strings.");
+    }
+    return [key, rootPositionAt(positions[key], key)] as const;
+  });
+}
+
+function applyRootMovement<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  positionsValue: Readonly<Record<string, WorkspacePoint>>,
+): WorkspaceDocumentCommandResult<TSectionData> {
+  const entries = rootMovementEntriesAt(positionsValue);
+  const sectionIds = entries.map(([sectionId]) => sectionId);
+  assertKnownSections(document, sectionIds);
+  if (entries.length === 0) {
+    return { document, status: "unchanged" };
+  }
+  const roots = new Set(document.rootSections.map(({ sectionId }) => sectionId));
+  if (sectionIds.some((sectionId) => !roots.has(sectionId))) {
+    return { document, reason: "section-not-root", status: "rejected" };
+  }
+  if (sectionIds.some((sectionId) => document.sections[sectionId]?.positionAndSizeLocked)) {
+    return { document, reason: "section-locked", status: "rejected" };
+  }
+  const positions = new Map(entries);
+  let changed = false;
+  const rootSections = document.rootSections.map((root) => {
+    const position = positions.get(root.sectionId);
+    if (!position || (position.x === root.position.x && position.y === root.position.y)) {
+      return root;
+    }
+    changed = true;
+    return { ...root, position };
+  });
+  return changed
+    ? applied({ ...document, rootSections }, "section-move")
+    : { document, status: "unchanged" };
 }
 
 function applyViewport<TSectionData>(
@@ -224,6 +306,9 @@ export function applyWorkspaceDocumentCommand<TSectionData>(
   }
   if (command.type === "set-viewport") {
     return applyViewport(document, command.viewport);
+  }
+  if (command.type === "move-root-sections") {
+    return applyRootMovement(document, command.positions);
   }
   if (command.type === "set-sections-locked") {
     return applySectionLocks(document, command.sectionIds, command.locked);

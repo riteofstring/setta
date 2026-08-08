@@ -151,4 +151,22 @@ describe("TransientRootProjection", () => {
     projection.beginRootMove(["alpha"]);
     expect(() => projection.beginRootResize("beta")).toThrow("already active");
   });
+
+  it("reconciles a pending gesture to the latest canonical roots", () => {
+    const projection = new TransientRootProjection(roots, { x: 0, y: 0, zoom: 1 });
+    const alpha = roots[0];
+    const beta = roots[1];
+    if (!alpha || !beta) {
+      throw new Error("The root projection fixture is incomplete.");
+    }
+    projection.beginRootMove(["alpha"]);
+    projection.applyRootChanges([
+      { type: "position", sectionId: "alpha", position: { x: 90, y: 90 }, dragging: true },
+    ]);
+
+    projection.synchronizeRoots([{ ...alpha, position: { x: 44, y: 52 } }, beta]);
+
+    expect(projection.roots()[0]).toMatchObject({ position: { x: 44, y: 52 } });
+    expect(projection.completeRootGesture()).toBeNull();
+  });
 });

@@ -59,4 +59,6 @@ Phase 2. The restarted Phase 1 audit and repository-actionable corrections are c
 in-app CDP review remains recorded as an external release gate. Phase 2 has begun with the strict
 section-definition registry and the first package-owned root frame that renders unrelated host
 components with accessible naming, scoped appearance/read-only context, and automatic viewport
-gesture isolation.
+gesture isolation. Root frames now also provide native pointer and keyboard movement handles backed
+by a transient XYFlow projection, one canonical `section-move` callback, shared grid snapping,
+position-and-size lock enforcement, and transient active-root lift.

@@ -113,6 +113,7 @@
 }
 
 .setta-workspace__section-heading {
+  flex: 1 1 auto;
   min-inline-size: 0;
 }
 
@@ -140,11 +141,69 @@
   gap: 0.375rem;
 }
 
-.setta-workspace__section-states--floating {
+.setta-workspace__section-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.setta-workspace__section-actions--floating {
   position: absolute;
   z-index: 1;
   inset-block-start: 0.5rem;
   inset-inline-end: 0.5rem;
+}
+
+.setta-workspace__section-drag-handle {
+  display: grid;
+  flex: none;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  padding: 0;
+  place-items: center;
+  color: var(--setta-workspace-section-muted-text);
+  background: color-mix(in oklch, var(--setta-workspace-section-background) 82%, transparent);
+  border: 0;
+  border-radius: 0.625rem;
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--setta-workspace-section-text) 10%, transparent);
+  cursor: grab;
+  touch-action: none;
+}
+
+.setta-workspace__section-drag-handle:hover:not(:disabled) {
+  color: var(--setta-workspace-section-text);
+  background: var(--setta-workspace-section-background);
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--setta-workspace-section-text) 14%, transparent),
+    0 0.25rem 0.625rem oklch(0 0 0 / 0.1);
+}
+
+.setta-workspace__section-drag-handle:active:not(:disabled),
+.setta-workspace__section-frame[data-workspace-moving="true"]
+  .setta-workspace__section-drag-handle {
+  color: var(--setta-workspace-selection);
+  cursor: grabbing;
+  box-shadow: inset 0 0 0 2px var(--setta-workspace-selection);
+}
+
+.setta-workspace__section-drag-handle:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.setta-workspace__section-action-icon {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  overflow: visible;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.setta-workspace__section-frame[data-workspace-moving="true"] {
+  box-shadow: inset 0 0 0 3px var(--setta-workspace-selection);
 }
 
 .setta-workspace__section-state {
@@ -423,6 +482,13 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .setta-workspace__section-drag-handle {
+    transition:
+      color 120ms ease-out,
+      background-color 120ms ease-out,
+      box-shadow 120ms ease-out;
+  }
+
   .setta-workspace__toolbar-control {
     transition:
       color 120ms ease-out,
@@ -443,6 +509,11 @@
 }
 
 @media (pointer: coarse) {
+  .setta-workspace__section-drag-handle {
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+  }
+
   .setta-workspace__toolbar-item {
     inline-size: 3rem;
     block-size: 3rem;

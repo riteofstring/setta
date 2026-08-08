@@ -27,11 +27,16 @@ import {
   type WorkspaceGestureOptions,
   type WorkspaceGridOptionOverrides,
   type WorkspaceJsonValue,
+  type WorkspacePoint,
 } from "./core.js";
 import { isDenseArray, isEnumerableDataProperty } from "./internal/runtime-option-validation.js";
 import { WorkspaceCanvasAdapter } from "./internal/workspace-canvas-adapter.js";
 import type { WorkspaceCanvasController } from "./internal/workspace-canvas-navigation.js";
-import { createWorkspaceController } from "./internal/workspace-controller.js";
+import {
+  createWorkspaceController,
+  moveWorkspaceRootSections,
+  type WorkspaceControllerBindings,
+} from "./internal/workspace-controller.js";
 import {
   WORKSPACE_NO_PAN_CLASS_NAME,
   WORKSPACE_NO_WHEEL_CLASS_NAME,
@@ -577,9 +582,10 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   const handleCanvasControllerChange = useCallback((next: WorkspaceCanvasController | null) => {
     canvasControllerRef.current = next;
   }, []);
+  const controllerBindingsRef = useRef<WorkspaceControllerBindings<TSectionData> | null>(null);
   const internalControllerRef = useRef<WorkspaceController<TSectionData> | null>(null);
   if (!internalControllerRef.current) {
-    internalControllerRef.current = createWorkspaceController({
+    const bindings: WorkspaceControllerBindings<TSectionData> = {
       canMinimizeSection: (sectionId) => {
         const section = documentRef.current.sections[sectionId];
         return Boolean(section && sectionRegistryRef.current.definition(section.kind)?.minimizable);
@@ -597,9 +603,21 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       getViewportBounds: () => gestureOptionsRef.current,
       requestViewportSynchronization: () =>
         setControllerSynchronizationRevision((revision) => revision + 1),
-    });
+    };
+    controllerBindingsRef.current = bindings;
+    internalControllerRef.current = createWorkspaceController(bindings);
   }
   const controller = internalControllerRef.current;
+  const handleRootMoveCommit = useCallback(
+    (positions: Readonly<Record<string, WorkspacePoint>>) => {
+      const bindings = controllerBindingsRef.current;
+      if (!bindings) {
+        throw new Error("Workspace controller bindings are unavailable before initialization.");
+      }
+      return moveWorkspaceRootSections(bindings, positions);
+    },
+    [],
+  );
   useImperativeHandle(controllerRef, () => controller, [controller]);
   const overlaySlots = renderOverlaySlots(overlayRenderers, controller);
 
@@ -627,11 +645,13 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         emptyState={resolvedEmptyState}
         gestureOptions={gestureOptions}
         gridOptions={effectiveGridOptions}
+        layoutEditable={capabilities.editLayout}
         minimapPlacement={minimapOptions.placement}
         minimapVisible={minimapVisible}
         onCanvasControllerChange={handleCanvasControllerChange}
         onGridSnapChange={setGridSnap}
         onMinimapVisibilityChange={setMinimapVisible}
+        onRootMoveCommit={handleRootMoveCommit}
         onViewportCommit={controller.setViewport}
         overlaySlots={overlaySlots}
         readOnly={sectionReadOnly}

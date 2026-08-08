@@ -42,7 +42,9 @@ export type WorkspaceAppearanceOptionOverrides = Partial<WorkspaceAppearanceOpti
 export type WorkspaceActionRejectionReason =
   | "layout-edit-disabled"
   | "presentation-edit-disabled"
+  | "section-locked"
   | "section-not-minimizable"
+  | "section-not-root"
   | "structure-edit-disabled";
 
 export type WorkspaceActionResult =
@@ -54,7 +56,7 @@ export type WorkspaceFitOptions = Readonly<{
 }>;
 
 export type WorkspaceDocumentChangeReason =
-  "section-delete" | "section-lock" | "section-minimize" | "viewport";
+  "section-delete" | "section-lock" | "section-minimize" | "section-move" | "viewport";
 
 export type WorkspaceDocumentChange = Readonly<{
   reason: WorkspaceDocumentChangeReason;

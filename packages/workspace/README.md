@@ -4,9 +4,9 @@ Private blank-slate implementation of the standalone Setta workspace package.
 
 The package exposes the versioned recursive `WorkspaceDocument`, strict parsing and validation,
 controlled and uncontrolled React ownership, granular edit capabilities, `readOnly`, and a stable
-controller ref. The Phase 1 canvas shell uses exact-pinned upstream XYFlow behind an internal
-adapter: root sections are derived projections, live viewport transforms remain transient, and one
-completed viewport gesture publishes one document change.
+controller ref. The canvas uses exact-pinned upstream XYFlow behind an internal adapter: root
+sections are derived projections, live viewport and root-drag transforms remain transient, and one
+completed viewport or root-movement gesture publishes one document change.
 
 ```tsx
 const controller = useRef<WorkspaceController>(null);
@@ -74,8 +74,17 @@ component with `sectionId`, serialized `data`, resolved `light` or `dark` appear
 resolved workbench `readOnly` state. Its content boundary automatically prevents inputs and
 scrollable host content from starting viewport pan or wheel gestures. Headerless chrome retains an
 accessible title, and minimized sections unmount the host body while retaining serialized data and
-size state. Host data-update callbacks, creation UI, title editing, and section interactions remain
-separate Phase 2 surfaces.
+size state. Each root frame also exposes a native, named movement handle. Host data-update
+callbacks, creation UI, title editing, selection, and resizing remain separate Phase 2 surfaces.
+
+Drag a root section from its movement handle to arrange it spatially. Pointer updates stay inside
+the adapter projection until release, then publish one `section-move` change without rewriting root
+stacking order. The active root receives only a transient render lift. Focus the same handle and use
+the arrow keys for equivalent keyboard movement: with snapping on, each press advances to the next
+grid line; with snapping off, each press moves 10 workbench units. The handle is unavailable when
+`editLayout` is false or the section is position-and-size locked. A controlled host that declines
+the proposed document keeps the canonical position and the frame reconciles without retaining the
+transient move.
 
 Use `defaultDocument` instead of `document` for uncontrolled ownership. The two modes are mutually
 exclusive, and a controlled workspace requires `onDocumentChange`. `readOnly` disables package-owned
@@ -123,9 +132,9 @@ leaving the host control usable; consumers do not need to know the adapter's int
 names. The transformed canvas-slot wrapper is neutral, so setting either boundary option to `false`
 deliberately returns that gesture family to the canvas.
 
-Unmounting the workspace cancels an active transient viewport gesture, releases its persistent
-geometry observers and global listeners, rejects pending measurement subscriptions, and leaves the
-accepted document viewport unchanged for an exact later remount.
+Unmounting the workspace cancels active transient viewport and root-movement gestures, releases its
+persistent geometry observers and global listeners, rejects pending measurement subscriptions, and
+leaves the accepted document unchanged for an exact later remount.
 
 The controller's measured navigation helpers wait for visible frame geometry, propose one canonical
 viewport change, and resolve after the upstream viewport reconciles to the host's current canonical

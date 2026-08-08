@@ -5,8 +5,7 @@ import {
   installWorkspaceLifecycleDiagnostics,
   workspaceLifecycleSnapshot,
 } from "./workspace-lifecycle-diagnostics.js";
-
-type BrowserViewport = Readonly<{ x: number; y: number; zoom: number }>;
+import { canvasViewport } from "./workspace-test-helpers.js";
 
 async function waitForWorkspaceEffects(page: Page): Promise<void> {
   await page.evaluate(
@@ -15,11 +14,6 @@ async function waitForWorkspaceEffects(page: Page): Promise<void> {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
       ),
   );
-}
-
-async function canvasViewport(page: Page): Promise<BrowserViewport> {
-  const value = await page.getByTestId("canvas-shell-document").inputValue();
-  return (JSON.parse(value) as { viewport: BrowserViewport }).viewport;
 }
 
 async function resetCanvasViewport(page: Page): Promise<void> {
@@ -161,14 +155,17 @@ test("controlled and uncontrolled state honor live capability policy", async ({ 
   });
   const hostNote = page.getByRole("textbox", { name: "Host note" });
   const status = page.getByRole("status");
+  const moveUncontrolledAlpha = uncontrolledWorkspace.getByRole("button", { name: "Move Alpha" });
   await expect(uncontrolledWorkspace).toHaveAttribute("data-workspace-mode", "uncontrolled");
   await expect(controlledWorkspace).toHaveAttribute("data-workspace-mode", "controlled");
   await expect(uncontrolledWorkspace).toContainText("alpha host renderer is editable.");
+  await expect(moveUncontrolledAlpha).toBeEnabled();
 
   await hostNote.fill("Keep this host value");
   await page.getByRole("button", { name: "Turn read-only on" }).click();
   await expect(uncontrolledWorkspace).toHaveAttribute("data-read-only", "true");
   await expect(uncontrolledWorkspace).toContainText("alpha host renderer is read-only.");
+  await expect(moveUncontrolledAlpha).toBeDisabled();
 
   await page.getByRole("button", { name: "Lock Alpha" }).click();
   await expect(status).toHaveText("Layout edit rejected: layout-edit-disabled.");
@@ -186,6 +183,7 @@ test("controlled and uncontrolled state honor live capability policy", async ({ 
 
   await page.getByRole("button", { name: "Turn editing on" }).click();
   await expect(uncontrolledWorkspace).toContainText("alpha host renderer is editable.");
+  await expect(moveUncontrolledAlpha).toBeEnabled();
   await page.getByRole("button", { name: "Minimize Alpha" }).click();
   await page.getByRole("button", { name: "Delete Beta" }).click();
   await expect(page.getByTestId("uncontrolled-document")).toHaveValue(/"isMinimized": true/u);
@@ -201,6 +199,21 @@ test("controlled and uncontrolled state honor live capability policy", async ({ 
     name: "Accept controlled changes",
   });
   await acceptControlledChanges.uncheck();
+  const controlledMoveAlpha = controlledWorkspace.getByRole("button", { name: "Move Alpha" });
+  const controlledAlphaNode = controlledWorkspace
+    .getByRole("article", { name: "Alpha" })
+    .locator("xpath=..");
+  const controlledPositionStyle = await controlledAlphaNode.getAttribute("style");
+  const controlledDocumentBeforeMove = await page.getByTestId("controlled-document").inputValue();
+  await controlledMoveAlpha.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(status).toHaveText("Controlled change rejected by host.");
+  await expect(page.getByTestId("controlled-document")).toHaveValue(controlledDocumentBeforeMove);
+  await expect.poll(() => controlledAlphaNode.getAttribute("style")).toBe(controlledPositionStyle);
+  await expect(controlledWorkspace.locator("[data-workspace-movement-announcement]")).toHaveText(
+    "Alpha stayed in place.",
+  );
+  await expect(controlledMoveAlpha).toBeFocused();
   const controlledZoomIn = controlledWorkspace.getByRole("button", { name: "Zoom in" });
   await controlledZoomIn.click();
   await controlledZoomIn.click();
@@ -273,7 +286,7 @@ test("the canvas shell coalesces viewport gestures and isolates host input", asy
     .toBeGreaterThan(0);
   await expect(documentJson).toHaveValue(/"x": 0[,.]/u);
   await expect(documentJson).toHaveValue(/"y": 0[,.]/u);
-  await expect(page.getByRole("status")).toContainText("Committed viewport changes: 0.");
+  await expect(page.getByRole("status")).toContainText("Committed document changes: 0.");
 
   await canvas.scrollIntoViewIfNeeded();
   const canvasBounds = await canvas.boundingBox();
@@ -291,13 +304,13 @@ test("the canvas shell coalesces viewport gestures and isolates host input", asy
       return (JSON.parse(value) as { viewport: { y: number } }).viewport.y;
     })
     .not.toBe(0);
-  await expect(page.getByRole("status")).toContainText("Committed viewport changes: 1.");
+  await expect(page.getByRole("status")).toContainText("Committed document changes: 1.");
 
   await page.getByRole("button", { name: "Reset viewport" }).click();
   await expect(documentJson).toHaveValue(/"x": 0[,.]/u);
   await expect(documentJson).toHaveValue(/"y": 0[,.]/u);
   await expect(documentJson).toHaveValue(/"zoom": 1/u);
-  await expect(page.getByRole("status")).toContainText("Committed viewport changes: 2.");
+  await expect(page.getByRole("status")).toContainText("Committed document changes: 2.");
 
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
@@ -923,7 +936,7 @@ test("the canvas grid and scoped appearance remain independent and aligned", asy
     )
     .toBe("oklch(0.68 0.11 305)");
   await expect(documentJson).toHaveValue(initialDocument);
-  await expect(page.getByRole("status")).toContainText("Committed viewport changes: 0.");
+  await expect(page.getByRole("status")).toContainText("Committed document changes: 0.");
 
   await page.getByRole("combobox", { name: "Grid pattern" }).selectOption("lines");
   await expect(canvas).toHaveAttribute("data-workspace-grid-pattern", "lines");

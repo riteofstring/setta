@@ -84,6 +84,7 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain("Host field for alpha");
     expect(markup).toContain('data-appearance="dark"');
     expect(markup).toContain('data-read-only="true"');
+    expect(markup).toMatch(/<button[^>]+aria-label="Move Alpha note"[^>]+disabled/u);
     expect(markup).toContain("setta-workspace__interaction-boundary");
     expect(markup).toContain('data-workspace-prevent-pan="true"');
     expect(markup).toContain('data-workspace-prevent-wheel="true"');
@@ -120,6 +121,8 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain('data-workspace-minimized="true"');
     expect(markup).toContain("Quiet note");
     expect(markup).toContain("Minimized");
+    expect(markup).toContain('aria-label="Move Quiet note"');
+    expect(markup).toContain('aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"');
     expect(markup).not.toContain("Host body must be absent");
   });
 

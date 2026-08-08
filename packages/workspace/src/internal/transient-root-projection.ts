@@ -93,6 +93,14 @@ function createNode(root: RootProjectionInput): InternalRootNode {
   };
 }
 
+function createNodes(roots: readonly RootProjectionInput[]): readonly InternalRootNode[] {
+  const ids = roots.map((root) => root.sectionId);
+  if (new Set(ids).size !== ids.length) {
+    throw new Error("Root projection section IDs must be unique.");
+  }
+  return roots.map(createNode);
+}
+
 function cloneNodes(nodes: readonly InternalRootNode[]): readonly InternalRootNode[] {
   return nodes.map((node) => {
     const clone: InternalRootNode = {
@@ -161,12 +169,8 @@ export class TransientRootProjection {
     viewport: ViewportTransform,
     onAcceptedRootCommand?: AcceptedRootCommandHandler,
   ) {
-    const ids = roots.map((root) => root.sectionId);
-    if (new Set(ids).size !== ids.length) {
-      throw new Error("Root projection section IDs must be unique.");
-    }
     assertViewport(viewport);
-    this.#nodes = roots.map(createNode);
+    this.#nodes = createNodes(roots);
     this.#acceptedNodes = cloneNodes(this.#nodes);
     this.#onAcceptedRootCommand = onAcceptedRootCommand;
     this.#viewport = { ...viewport };
@@ -178,6 +182,12 @@ export class TransientRootProjection {
 
   viewport(): ViewportTransform {
     return { ...this.#viewport };
+  }
+
+  synchronizeRoots(roots: readonly RootProjectionInput[]): void {
+    this.#nodes = createNodes(roots);
+    this.#acceptedNodes = cloneNodes(this.#nodes);
+    this.#activeRootGesture = null;
   }
 
   beginRootMove(sectionIds: readonly string[]): void {

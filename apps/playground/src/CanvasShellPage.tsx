@@ -128,7 +128,7 @@ function createNavigationDocument(): WorkspaceDocument {
 export function CanvasShellPage() {
   const controller = useRef<WorkspaceController>(null);
   const [document, setDocument] = useState<WorkspaceDocument>(createEmptyWorkspaceDocument);
-  const [changeCount, setChangeCount] = useState(0);
+  const [documentChangeCount, setDocumentChangeCount] = useState(0);
   const [appearance, setAppearance] = useState<WorkspaceAppearance>("system");
   const [customGridColor, setCustomGridColor] = useState(false);
   const [gridPattern, setGridPattern] = useState<WorkspaceGridPattern>("dots");
@@ -214,12 +214,12 @@ export function CanvasShellPage() {
       </a>
       <header className="site-header site-header--compact">
         <p className="eyebrow" translate="no">
-          Phase 1 canvas boundary
+          Phase 2 canvas boundary
         </p>
         <h1>Workspace canvas shell</h1>
         <p className="lede">
-          A backend-free viewport with runtime gesture policy, independent grid and snapping, scoped
-          appearance, a default toolbar, host overlays, and an empty minimap shell.
+          A backend-free viewport with movable host-defined sections, runtime gesture policy,
+          independent grid and snapping, scoped appearance, and package-owned controls.
         </p>
       </header>
       <main id="canvas-shell-content" tabIndex={-1}>
@@ -460,7 +460,8 @@ export function CanvasShellPage() {
           </fieldset>
         </div>
         <p className="announcement" role="status" aria-live="polite">
-          {status} Committed viewport changes: {changeCount}.
+          {status} Committed document changes:{" "}
+          <span data-testid="canvas-shell-change-count">{documentChangeCount}</span>.
         </p>
         {workspaceMounted ? (
           <Workspace
@@ -501,7 +502,7 @@ export function CanvasShellPage() {
             minimapOptions={{ placement: minimapPlacement, visible: minimapVisible }}
             onDocumentChange={(nextDocument, change) => {
               setDocument(nextDocument);
-              setChangeCount((count) => count + 1);
+              setDocumentChangeCount((count) => count + 1);
               setStatus(`Document change: ${change.reason}.`);
             }}
             onGridSnapChange={setGridSnap}

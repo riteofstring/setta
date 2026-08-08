@@ -7,6 +7,7 @@ import {
   type WorkspaceDocument,
   type WorkspaceDocumentChange,
   type WorkspaceFitOptions,
+  type WorkspacePoint,
   type WorkspaceViewport,
 } from "../core.js";
 import {
@@ -215,4 +216,11 @@ export function createWorkspaceController<TSectionData>(
       }),
     setViewport: (viewport) => setViewport(bindings, viewport),
   };
+}
+
+export function moveWorkspaceRootSections<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  positions: Readonly<Record<string, WorkspacePoint>>,
+): WorkspaceActionResult {
+  return dispatch(bindings, { positions, type: "move-root-sections" });
 }
