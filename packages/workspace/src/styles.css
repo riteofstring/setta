@@ -36,6 +36,8 @@
   max-inline-size: 32rem;
   margin: 0;
   padding: 1rem;
+  pointer-events: auto;
+  user-select: text;
   color: var(--setta-workspace-section-muted-text);
   background: var(--setta-workspace-section-background);
   border-radius: 0.75rem;

@@ -4,7 +4,6 @@ import {
   BackgroundVariant,
   MiniMap,
   ReactFlow,
-  useStore,
   useViewport,
   ViewportPortal,
   type Node,
@@ -200,7 +199,7 @@ function WorkspaceGridBackground({
   gridOptions: ResolvedWorkspaceGridOptions;
   snapGrid: [number, number];
 }>) {
-  const zoom = useStore((state) => state.transform[2]);
+  const { zoom } = useViewport();
   return (
     <div aria-hidden="true" className="setta-workspace__grid">
       <Background
@@ -779,6 +778,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   );
   const projectedNodes = useMemo(() => projectNodes(document, geometry), [document, geometry]);
   const [nodes, setNodes] = useState<WorkspaceRootNode[]>(projectedNodes);
+  const [viewportSynchronizationRevision, setViewportSynchronizationRevision] = useState(0);
   const lifecycleRef = useRef<WorkspaceViewportLifecycle | null>(null);
   lifecycleRef.current ??= new WorkspaceViewportLifecycle(document.viewport);
   const lifecycle = lifecycleRef.current;
@@ -792,7 +792,10 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     () => [gridOptions.spacing[0], gridOptions.spacing[1]],
     [gridOptions.spacing],
   );
-  const sectionIds = useMemo(() => Object.keys(document.sections), [document.sections]);
+  const sectionIds = useMemo(
+    () => document.rootSections.map((root) => root.sectionId),
+    [document.rootSections],
+  );
 
   useEffect(() => {
     setNodes((current) => synchronizeNodes(current, projectedNodes));
@@ -885,6 +888,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       }
       geometry.setViewport(nextViewport);
       const completed = lifecycle.complete(nextViewport);
+      setViewportSynchronizationRevision((current) => current + 1);
       if (completed) {
         onViewportCommit(completed);
       }
@@ -955,8 +959,11 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
           </div>
         </ViewportPortal>
       ) : null}
-      <div className="setta-workspace__empty-panel" hidden={!emptyState}>
-        <p className="setta-workspace__empty">{emptyState}</p>
+      <div
+        className={`setta-workspace__empty-panel ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
+        hidden={!hasOverlayContent(emptyState)}
+      >
+        <div className="setta-workspace__empty">{emptyState}</div>
       </div>
       <WorkspaceFixedOverlay placement="project">{overlaySlots.project}</WorkspaceFixedOverlay>
       <WorkspaceFixedOverlay placement="utility">{overlaySlots.utility}</WorkspaceFixedOverlay>
@@ -981,6 +988,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         geometry={geometry}
         lifecycle={lifecycle}
         programmaticViewportRef={programmaticViewportRef}
+        synchronizationRevision={viewportSynchronizationRevision}
         viewport={document.viewport}
       />
     </ReactFlow>

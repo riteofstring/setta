@@ -28,6 +28,27 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain("Start with a section.");
   });
 
+  it("preserves arbitrary host markup in the empty-state surface", () => {
+    const markup = renderToStaticMarkup(
+      <Workspace
+        emptyState={
+          <div data-empty-state="">
+            <button type="button">Create first section</button>
+          </div>
+        }
+      />,
+    );
+
+    expect(markup).toContain('<div class="setta-workspace__empty"><div data-empty-state="">');
+    expect(markup).not.toContain('<p class="setta-workspace__empty">');
+  });
+
+  it("fails specifically when the workspace accessible name is blank", () => {
+    expect(() => renderToStaticMarkup(<Workspace ariaLabel="   " />)).toThrow(
+      "ariaLabel must be a non-empty string",
+    );
+  });
+
   it("keeps grid visibility, snapping, and scoped appearance independently configurable", () => {
     const markup = renderToStaticMarkup(
       <Workspace

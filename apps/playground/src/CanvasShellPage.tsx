@@ -152,6 +152,7 @@ export function CanvasShellPage() {
   };
 
   const hasNavigationFixture = document.rootSections.length > 0;
+  const navigationAvailable = workspaceMounted && hasNavigationFixture;
   const toolbarControls = (
     showHostExtensions
       ? [
@@ -391,7 +392,7 @@ export function CanvasShellPage() {
               Load navigation fixture
             </button>
             <button
-              disabled={!hasNavigationFixture}
+              disabled={!navigationAvailable}
               type="button"
               onClick={() =>
                 void runNavigation("Focus Alpha", (workspaceController) =>
@@ -402,7 +403,7 @@ export function CanvasShellPage() {
               Focus Alpha
             </button>
             <button
-              disabled={!hasNavigationFixture}
+              disabled={!navigationAvailable}
               type="button"
               onClick={() =>
                 void runNavigation("Focus next from Alpha", (workspaceController) =>
@@ -413,7 +414,7 @@ export function CanvasShellPage() {
               Focus next from Alpha
             </button>
             <button
-              disabled={!hasNavigationFixture}
+              disabled={!navigationAvailable}
               type="button"
               onClick={() =>
                 void runNavigation("Focus previous from Alpha", (workspaceController) =>
@@ -424,7 +425,7 @@ export function CanvasShellPage() {
               Focus previous from Alpha
             </button>
             <button
-              disabled={!hasNavigationFixture}
+              disabled={!navigationAvailable}
               type="button"
               onClick={() =>
                 void runNavigation("Fit navigation fixture", (workspaceController) =>

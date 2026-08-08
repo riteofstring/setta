@@ -423,6 +423,7 @@ test.describe("upstream adapter proof", () => {
     page,
   }) => {
     await page.goto(proofUrl);
+    await expect(page.locator("[data-proof-initial-fit]")).toHaveText("Initial fit: ready");
     const commandCount = page.locator("[data-proof-command-count]");
     const packageStatus = page.locator('.setta-adapter-proof__summary [role="status"]');
     const planningRoot = page.locator('.react-flow__node[data-id="root-alpha"]');
@@ -450,8 +451,7 @@ test.describe("upstream adapter proof", () => {
     await sourceHandle.scrollIntoViewIfNeeded();
     const target = page.locator('[data-proof-section-id="nested-container"]');
     const sourceBox = await sourceHandle.boundingBox();
-    const targetBox = await target.boundingBox();
-    if (!sourceBox || !targetBox) {
+    if (!sourceBox) {
       throw new Error("The nested reorder proof controls must be measurable.");
     }
     await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
@@ -466,9 +466,33 @@ test.describe("upstream adapter proof", () => {
     await expect
       .poll(() => planningRoot.evaluate((element) => getComputedStyle(element).zIndex))
       .toBe("1000");
-    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height - 12, {
-      steps: 12,
-    });
+    await target.evaluate((element) => element.scrollIntoView({ block: "center" }));
+    await settleVisualFrames(page);
+    const targetBox = await target.boundingBox();
+    if (!targetBox) {
+      throw new Error("The nested reorder target must be measurable after scrolling.");
+    }
+    await page.mouse.move(
+      targetBox.x + targetBox.width / 2,
+      targetBox.y + targetBox.height * 0.65,
+      { steps: 12 },
+    );
+    await expect(page.locator('[data-proof-drag-placeholder="destination"]')).toHaveAttribute(
+      "data-proof-destination-target",
+      "nested-container",
+    );
+    await settleVisualFrames(page);
+    const settledTargetBox = await target.boundingBox();
+    if (!settledTargetBox) {
+      throw new Error(
+        "The nested reorder target must remain measurable after auto-scroll settles.",
+      );
+    }
+    await page.mouse.move(
+      settledTargetBox.x + settledTargetBox.width / 2,
+      settledTargetBox.y + settledTargetBox.height * 0.65,
+      { steps: 2 },
+    );
     await page.mouse.up();
 
     await expect(commandCount).toHaveText("Commands: 1");

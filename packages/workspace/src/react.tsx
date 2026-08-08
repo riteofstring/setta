@@ -359,6 +359,12 @@ function assertViewportWithinGestureBounds(
   }
 }
 
+function assertAccessibleName(ariaLabel: unknown): asserts ariaLabel is string {
+  if (typeof ariaLabel !== "string" || ariaLabel.trim().length === 0) {
+    throw new TypeError("Workspace ariaLabel must be a non-empty string.");
+  }
+}
+
 const DARK_APPEARANCE_QUERY = "(prefers-color-scheme: dark)";
 type ResolvedWorkspaceAppearance = Exclude<WorkspaceAppearance, "system">;
 const lightAppearanceSnapshot = (): ResolvedWorkspaceAppearance => "light";
@@ -461,6 +467,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     toolbarControls: toolbarControlOverrides,
     ...sectionProps
   } = props;
+  assertAccessibleName(ariaLabel);
   const gestureOptions = useMemo(
     () => resolveWorkspaceGestureOptions(gestureOptionOverrides),
     [gestureOptionOverrides],

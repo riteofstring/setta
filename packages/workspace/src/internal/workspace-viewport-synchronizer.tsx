@@ -16,11 +16,13 @@ export function WorkspaceViewportSynchronizer({
   geometry,
   lifecycle,
   programmaticViewportRef,
+  synchronizationRevision,
   viewport,
 }: Readonly<{
   geometry: WorkspaceGeometryMeasurements;
   lifecycle: WorkspaceViewportLifecycle;
   programmaticViewportRef: MutableRefObject<WorkspaceViewport | null>;
+  synchronizationRevision: number;
   viewport: WorkspaceViewport;
 }>) {
   const instance = useReactFlow();
@@ -54,7 +56,7 @@ export function WorkspaceViewportSynchronizer({
         programmaticViewportRef.current = null;
       }
     };
-  }, [geometry, instance, lifecycle, programmaticViewportRef, viewport]);
+  }, [geometry, instance, lifecycle, programmaticViewportRef, synchronizationRevision, viewport]);
 
   return null;
 }

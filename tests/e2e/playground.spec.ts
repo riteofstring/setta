@@ -191,6 +191,26 @@ test("controlled and uncontrolled state honor live capability policy", async ({ 
   await expect(page.getByTestId("controlled-document")).toHaveValue(/"x": 120/u);
   await expect(controlledPanel.getByText("Committed changes: 1")).toBeVisible();
 
+  await page.getByRole("checkbox", { name: "Accept controlled changes" }).uncheck();
+  const controlledCanvas = controlledWorkspace.getByRole("application", {
+    name: "Controlled workspace canvas",
+  });
+  await controlledCanvas.scrollIntoViewIfNeeded();
+  const controlledCanvasBounds = await controlledCanvas.boundingBox();
+  if (!controlledCanvasBounds) {
+    throw new Error("The controlled workspace has no browser bounds.");
+  }
+  await page.mouse.move(
+    controlledCanvasBounds.x + controlledCanvasBounds.width - 48,
+    controlledCanvasBounds.y + controlledCanvasBounds.height / 2,
+  );
+  await page.mouse.wheel(0, 180);
+  await expect(status).toHaveText("Controlled change rejected by host.");
+  await expect(controlledPanel.getByText("Committed changes: 1")).toBeVisible();
+  await expect
+    .poll(() => controlledWorkspace.locator(".react-flow__viewport").getAttribute("style"))
+    .toContain("translate(120px, -48px) scale(1.25)");
+
   await page.setViewportSize({ width: 320, height: 720 });
   const dimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
@@ -499,6 +519,8 @@ test("the canvas shell releases lifecycle resources and restores its persisted v
 
   await mountCanvas.uncheck();
   await expect(canvas).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Focus Alpha" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Fit navigation fixture" })).toBeDisabled();
   const detachedBaseline = await workspaceLifecycleSnapshot(page);
   expect(detachedBaseline.geometryTargets).toBe(0);
 

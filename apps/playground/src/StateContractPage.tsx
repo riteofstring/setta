@@ -28,6 +28,7 @@ export function StateContractPage() {
   const [controlledDocument, setControlledDocument] = useState(testDocument);
   const [uncontrolledChanges, setUncontrolledChanges] = useState(0);
   const [controlledChanges, setControlledChanges] = useState(0);
+  const [acceptControlledChanges, setAcceptControlledChanges] = useState(true);
   const [readOnly, setReadOnly] = useState(false);
   const [status, setStatus] = useState("");
 
@@ -153,6 +154,14 @@ export function StateContractPage() {
 
           <section aria-labelledby="controlled-heading">
             <h2 id="controlled-heading">Controlled document</h2>
+            <label>
+              <input
+                checked={acceptControlledChanges}
+                onChange={(event) => setAcceptControlledChanges(event.currentTarget.checked)}
+                type="checkbox"
+              />
+              Accept controlled changes
+            </label>
             <button type="button" onClick={panControlledViewport}>
               Pan controlled viewport
             </button>
@@ -161,6 +170,10 @@ export function StateContractPage() {
               controllerRef={controlledController}
               document={controlledDocument}
               onDocumentChange={(document) => {
+                if (!acceptControlledChanges) {
+                  setStatus("Controlled change rejected by host.");
+                  return;
+                }
                 setControlledDocument(document);
                 setControlledChanges((count) => count + 1);
               }}
