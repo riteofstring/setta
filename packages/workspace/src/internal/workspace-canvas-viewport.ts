@@ -101,6 +101,7 @@ export function useWorkspaceCanvasViewport({
   lifecycleRef.current ??= new WorkspaceViewportLifecycle(canonicalViewport);
   const lifecycle = lifecycleRef.current;
   const programmaticViewportRef = useRef<WorkspaceViewport | null>(null);
+  const supersededProgrammaticViewportRef = useRef<WorkspaceViewport | null>(null);
   const mountedRef = useRef(false);
   const gesturePolicy = useMemo(
     () => createWorkspaceCanvasGesturePolicy(gestureOptions),
@@ -117,9 +118,13 @@ export function useWorkspaceCanvasViewport({
 
   const handleInitialized = useCallback(() => setInitialized(true), []);
   const getCanvasBounds = useCallback(() => geometry.canvasBounds(), [geometry]);
-  const handleUnattributedInteractionStart = useCallback(() => {
+  const supersedeProgrammaticViewport = useCallback(() => {
+    if (programmaticViewportRef.current) {
+      supersededProgrammaticViewportRef.current = programmaticViewportRef.current;
+    }
     programmaticViewportRef.current = null;
   }, []);
+  const handleUnattributedInteractionStart = supersedeProgrammaticViewport;
   const handleCanvasElement = useCallback(
     (element: HTMLDivElement | null) => {
       mountedRef.current = element !== null;
@@ -130,6 +135,7 @@ export function useWorkspaceCanvasViewport({
           geometry.setViewport(baseline);
         }
         programmaticViewportRef.current = null;
+        supersededProgrammaticViewportRef.current = null;
       }
       geometry.setCanvasElement(element);
     },
@@ -141,7 +147,7 @@ export function useWorkspaceCanvasViewport({
         return;
       }
       if (event) {
-        programmaticViewportRef.current = null;
+        supersedeProgrammaticViewport();
       }
       const nextViewport = viewportFromUpstream(viewport);
       geometry.setViewport(nextViewport);
@@ -153,7 +159,7 @@ export function useWorkspaceCanvasViewport({
         "begin",
       );
     },
-    [geometry, lifecycle],
+    [geometry, lifecycle, supersedeProgrammaticViewport],
   );
   const handleMove = useCallback(
     (event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
@@ -179,6 +185,11 @@ export function useWorkspaceCanvasViewport({
       }
       const nextViewport = viewportFromUpstream(viewport);
       if (!event) {
+        const supersededViewport = supersededProgrammaticViewportRef.current;
+        if (supersededViewport && workspaceViewportsMatch(supersededViewport, nextViewport)) {
+          supersededProgrammaticViewportRef.current = null;
+          return;
+        }
         const programmaticViewport = programmaticViewportRef.current;
         if (!programmaticViewport) {
           synchronizeUnattributedViewportEnd(geometry, lifecycle, nextViewport, onViewportCommit);
