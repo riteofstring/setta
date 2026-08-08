@@ -59,6 +59,13 @@ Before the corresponding old source is treated as replaceable, the new package m
 - Multi-item selection normalization, stable order, and overlay bounds.
 - Single-owner arbitration among canvas pan, root movement, section structural movement, and item movement.
 
+The initial framework-neutral destination is now executable. See
+`docs/evidence/interaction-characterization-matrix.md` for the source-to-fixture
+mapping, coordinate and state contracts, covered scenarios, and the remaining
+upstream/browser proof boundary. Fixture metadata is also checked in
+`packages/workspace/tests/fixtures/interaction-evidence.ts`; focused tests live in
+the adjacent `interaction-*.test.ts` files.
+
 ## License and attribution boundary
 
 The captured XYFlow and dnd-kit fork directories each contain an MIT `LICENSE`. Preserve copyright and license notices for any source-derived implementation. Behavioral reimplementation from independently written specifications should still retain this manifest, while copied or closely ported code must identify its source path and commit beside the new implementation and in the third-party attribution record.

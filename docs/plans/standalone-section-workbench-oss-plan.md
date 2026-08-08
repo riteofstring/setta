@@ -1128,7 +1128,8 @@ Status: **in progress** (updated 2026-08-07).
 
 - Completed: dedicated blank-slate branch from recorded source commit `043d3b2e9c69caf99d1246f1408b3ad7194b7864`; minimal private workspace, package, Node-only playground, unrelated consumer fixture, exact toolchain pins, new-tree hygiene files, package-specific repository instructions, baseline deterministic quality/packaging/supply-chain tooling, and initial source-linked interaction evidence.
 - Completed: reviewable tooling carryover inventory plus negative-tested repository-tree, application-import, source-escape, and undeclared-package-export boundary enforcement wired into changed-file quality checks.
-- Remaining: complete behavior fixtures and characterization matrices; select and exact-pin upstream XYFlow and dnd-kit; complete the representation, geometry-index, interaction-owner, transient-projection, scaled-ancestor, focus/scroll, adapter, public-store-access, licensing, accessibility, browser, performance, and loaded-lockfile/audit evidence required by this phase and its gate.
+- Completed: framework-neutral, source-linked interaction fixtures for scaled geometry, combined selection bounds, selection-root normalization, canonical sibling-block order, collision ranking and hysteresis, nested target promotion, stale-target clearing, vertical and horizontal transform-stable previews, deterministic sort/free move planning and immutable application, and single-owner arbitration across pointer, touch, and keyboard activation.
+- Remaining: select and exact-pin upstream XYFlow and dnd-kit; complete the upstream differential, full behavior/browser characterization matrices, representation, geometry-index, transient-projection, scaled-ancestor, focus/scroll, adapter, public-store-access, licensing, accessibility, performance, and loaded-lockfile/audit evidence required by this phase and its gate.
 
 Produce:
 
