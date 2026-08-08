@@ -127,6 +127,10 @@ fi
 call_count="$((call_count + 1))"
 printf '%s\n' "${call_count}" >"${FAKE_AGENT_STATE}"
 
+if [[ "${call_count}" -eq 1 ]]; then
+  printf '\377invalid-byte\n' >&2
+fi
+
 case "${FAKE_AGENT_MODE:-complete}" in
   blocked)
     if [[ "${call_count}" -ne 1 ]] || [[ "${prompt}" != *"PLAN_IMPLEMENTATION_BLOCKED"* ]]; then
@@ -398,6 +402,11 @@ if [[ ! -s "${TEST_OUTPUT}/iteration-0002/agent-2.status.txt" ]]; then
 fi
 if [[ ! -s "${TEST_OUTPUT}/iteration-0003/agent-2.status.txt" ]]; then
   echo "final audit reviewer did not run" >&2
+  exit 1
+fi
+if ! LC_ALL=C grep -a -q '^\[stderr\] .*invalid-byte$' \
+  "${TEST_OUTPUT}/iteration-0001/agent-1.transcript.log"; then
+  echo "Agent stderr was not preserved with byte-safe transcript prefixing" >&2
   exit 1
 fi
 

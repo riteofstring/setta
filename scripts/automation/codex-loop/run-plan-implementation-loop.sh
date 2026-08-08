@@ -296,7 +296,7 @@ run_agent() {
             --dangerously-skip-permissions \
             --no-session-persistence \
             "${attempt_prompt}" \
-            2> >(sed 's/^/[stderr] /' >>"${transcript_file}") |
+            2> >(LC_ALL=C sed 's/^/[stderr] /' >>"${transcript_file}") |
             tee "${last_message_file}" >>"${transcript_file}"
           ;;
         codex)
@@ -310,7 +310,7 @@ run_agent() {
             --output-last-message "${last_message_file}" \
             "${attempt_prompt}" \
             >>"${transcript_file}" \
-            2> >(sed 's/^/[stderr] /' >>"${transcript_file}")
+            2> >(LC_ALL=C sed 's/^/[stderr] /' >>"${transcript_file}")
           ;;
         *)
           echo "Unsupported agent runner: ${runner}" >&2
