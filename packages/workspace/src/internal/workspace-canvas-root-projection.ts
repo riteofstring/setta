@@ -20,6 +20,7 @@ import {
   type RootSelectionProjection,
   type WorkspaceRootNode,
 } from "./workspace-canvas-root-node.js";
+import { useWorkspaceCanvasRootResizing } from "./workspace-canvas-root-resizing.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
 import {
@@ -31,6 +32,11 @@ import type {
   WorkspaceSectionTitleValidator,
 } from "./workspace-section-contract.js";
 import type { WorkspaceSectionRegistry } from "./workspace-section-registry.js";
+import type { WorkspaceSectionResizeBindings } from "./workspace-section-resize-controls.js";
+import {
+  type WorkspaceRootResizeSnapshot,
+  type WorkspaceSectionResizeAxis,
+} from "./workspace-section-sizing.js";
 import { useWorkspaceSectionStateActions } from "./workspace-section-state-actions.js";
 import {
   resolveWorkspaceRootSelection,
@@ -44,6 +50,15 @@ type PendingRootMovement = Readonly<{
   sectionCount: number;
   title: string;
 }>;
+
+function resizeHandlersAt(
+  handlersRef: RefObject<WorkspaceSectionResizeBindings | null>,
+): WorkspaceSectionResizeBindings {
+  if (!handlersRef.current) {
+    throw new Error("Workspace root resize handlers are unavailable before initialization.");
+  }
+  return handlersRef.current;
+}
 
 function rejectedMovementAnnouncement(title: string, reason: string): string {
   if (reason === "layout-edit-disabled") {
@@ -85,7 +100,9 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
   onSectionLockedCommit,
   onSectionMinimizedCommit,
   onRootMoveCommit,
+  onRootResizeCommit,
   onSelectionRequest,
+  onSectionContentSizeCommit,
   onSectionPresentationCommit,
   onSectionTitleCommit,
   presentationEditable,
@@ -105,7 +122,16 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
   onSectionLockedCommit(sectionId: string, locked: boolean): WorkspaceActionResult;
   onSectionMinimizedCommit(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
   onRootMoveCommit(positions: Readonly<Record<string, WorkspacePoint>>): WorkspaceActionResult;
+  onRootResizeCommit(
+    sectionId: string,
+    axes: readonly WorkspaceSectionResizeAxis[],
+    resize: WorkspaceRootResizeSnapshot,
+  ): WorkspaceActionResult;
   onSelectionRequest(sectionId: string, request: WorkspaceSectionSelectionRequest): void;
+  onSectionContentSizeCommit(
+    sectionId: string,
+    axes: readonly WorkspaceSectionResizeAxis[],
+  ): WorkspaceActionResult;
   onSectionPresentationCommit(
     sectionId: string,
     presentation: WorkspaceSectionPresentation,
@@ -127,6 +153,20 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
   const [announcementText, setAnnouncementText] = useState("");
   const [synchronizationRevision, setSynchronizationRevision] = useState(0);
   const pendingRootMovementRef = useRef<PendingRootMovement | null>(null);
+  const resizeHandlersRef = useRef<WorkspaceSectionResizeBindings | null>(null);
+  const resizeBindings = useMemo<WorkspaceSectionResizeBindings>(
+    () => ({
+      onContentSizeRequest: (sectionId, handle) =>
+        resizeHandlersAt(resizeHandlersRef).onContentSizeRequest(sectionId, handle),
+      onKeyboardResize: (sectionId, handle, inlineEnd, key) =>
+        resizeHandlersAt(resizeHandlersRef).onKeyboardResize(sectionId, handle, inlineEnd, key),
+      onPointerResize: (sectionId, handle, resize) =>
+        resizeHandlersAt(resizeHandlersRef).onPointerResize(sectionId, handle, resize),
+      onPointerResizeEnd: (sectionId, handle, resize) =>
+        resizeHandlersAt(resizeHandlersRef).onPointerResizeEnd(sectionId, handle, resize),
+    }),
+    [],
+  );
   const sectionStateActions = useWorkspaceSectionStateActions({
     document,
     onLockedCommit: onSectionLockedCommit,
@@ -207,6 +247,7 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
         onSelectionRequest,
         onSectionTitleCommit,
         validateSectionTitle,
+        resizeBindings,
         rootSelectionProjection,
       ),
     [
@@ -221,6 +262,7 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
       onSectionTitleCommit,
       presentationEditable,
       readOnly,
+      resizeBindings,
       rootSelectionProjection,
       sectionStateActions.handleLockedCommit,
       sectionStateActions.handleMinimizedCommit,
@@ -228,6 +270,8 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
       validateSectionTitle,
     ],
   );
+  const projectedNodesRef = useRef(projectedNodes);
+  projectedNodesRef.current = projectedNodes;
   const [nodes, setNodes] = useState<WorkspaceRootNode[]>(projectedNodes);
   const rootProjectionRef = useRef<TransientRootProjection | null>(null);
   rootProjectionRef.current ??= new TransientRootProjection(
@@ -236,11 +280,29 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
   );
   const rootProjection = rootProjectionRef.current;
   const activeRootMoveRef = useRef<ActiveRootMovement | null>(null);
+  const {
+    announcementText: sizingAnnouncementText,
+    bindings: rootResizeBindings,
+    cancel: cancelRootResize,
+    revision: rootResizeRevision,
+    synchronize: synchronizeRootResize,
+  } = useWorkspaceCanvasRootResizing({
+    document,
+    geometry,
+    gridOptions,
+    onRootResizeCommit,
+    onSectionContentSizeCommit,
+    rootProjection,
+    sectionRegistry,
+    setNodes,
+  });
+  resizeHandlersRef.current = rootResizeBindings;
 
   useEffect(() => {
     activeRootMoveRef.current = null;
+    synchronizeRootResize(document);
     rootProjection.synchronizeRoots(rootProjectionInputs(projectedNodes));
-    setNodes((current) => synchronizeNodes(current, projectedNodes));
+    setNodes((current) => synchronizeNodes(current, projectedNodesRef.current));
     const pendingMovement = pendingRootMovementRef.current;
     if (pendingMovement) {
       const canonicalPositions = new Map(
@@ -272,7 +334,15 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
       pendingRootMovementRef.current = null;
     }
     geometry.requestMeasurement();
-  }, [document.rootSections, geometry, projectedNodes, rootProjection, synchronizationRevision]);
+  }, [
+    document,
+    geometry,
+    projectedNodes,
+    rootProjection,
+    rootResizeRevision,
+    synchronizationRevision,
+    synchronizeRootResize,
+  ]);
 
   const handleNodesChange = useCallback<OnNodesChange<WorkspaceRootNode>>(
     (changes) => {
@@ -377,7 +447,9 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
   const cancelRootMovement = useCallback(() => {
     rootProjection.cancelRootGesture();
     activeRootMoveRef.current = null;
-  }, [rootProjection]);
+    cancelRootResize();
+    setNodes((current) => synchronizeNodes(current, projectedNodesRef.current));
+  }, [cancelRootResize, rootProjection]);
 
   return {
     announcementText,
@@ -387,5 +459,6 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
     handleNodesChange,
     nodes,
     sectionStateAnnouncementText: sectionStateActions.announcementText,
+    sizingAnnouncementText,
   };
 }

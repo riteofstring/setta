@@ -9,6 +9,8 @@ import {
 import {
   createWorkspaceController,
   moveWorkspaceRootSections,
+  resizeWorkspaceRootSection,
+  setWorkspaceSectionContentSize,
 } from "../src/internal/workspace-controller.js";
 import { createWorkspaceTestDocument, WorkspaceInMemoryHost } from "../src/testing.js";
 
@@ -363,6 +365,133 @@ describe("workspace controller", () => {
       ),
     ).toThrow("Invalid workspace root position field root");
     expect(evaluated).toBe(false);
+  });
+
+  it("commits root resize and per-axis content mode transitions atomically", () => {
+    const initialDocument = recursiveDocument();
+    const root = initialDocument.sections.root as WorkspaceSection;
+    let document: WorkspaceDocument = {
+      ...initialDocument,
+      sections: {
+        ...initialDocument.sections,
+        root: {
+          ...root,
+          size: { ...root.size, width: { mode: "content", value: 240 } },
+        },
+      },
+    };
+    const changes: string[] = [];
+    const bindings = {
+      commit: (nextDocument: WorkspaceDocument, change: { reason: string }) => {
+        document = nextDocument;
+        changes.push(change.reason);
+      },
+      getCapabilities: () => WORKSPACE_DEFAULT_CAPABILITIES,
+      getDocument: () => document,
+    };
+
+    expect(
+      resizeWorkspaceRootSection(bindings, "root", ["width"], {
+        position: { x: -20, y: 0 },
+        size: { height: 196.5, width: 276.25 },
+      }),
+    ).toEqual({ status: "applied" });
+    expect(document.rootSections[0]).toEqual({
+      position: { x: -20, y: 0 },
+      sectionId: "root",
+    });
+    expect(document.sections.root?.size).toEqual({
+      height: { mode: "fixed", value: 180 },
+      width: { mode: "fixed", value: 276.25 },
+    });
+    expect(changes).toEqual(["section-resize"]);
+
+    expect(setWorkspaceSectionContentSize(bindings, "root", ["width"])).toEqual({
+      status: "applied",
+    });
+    expect(document.sections.root?.size.width).toEqual({ mode: "content", value: 276.25 });
+    expect(document.sections.root?.size.height).toEqual({ mode: "fixed", value: 180 });
+    expect(changes).toEqual(["section-resize", "section-size-mode"]);
+    expect(setWorkspaceSectionContentSize(bindings, "root", ["width"])).toEqual({
+      status: "unchanged",
+    });
+    expect(changes).toHaveLength(2);
+  });
+
+  it("rejects root sizing when policy, containment, locking, or minimization disallows it", () => {
+    const document = recursiveDocument();
+    const root = document.sections.root as WorkspaceSection;
+    const bindings = (currentDocument: WorkspaceDocument, editLayout: boolean) => ({
+      commit: () => {
+        throw new Error("A rejected root size command must not commit.");
+      },
+      getCapabilities: () => ({ ...WORKSPACE_DEFAULT_CAPABILITIES, editLayout }),
+      getDocument: () => currentDocument,
+    });
+    const resize = {
+      position: { x: 0, y: 0 },
+      size: { height: 192, width: 264 },
+    } as const;
+    const locked: WorkspaceDocument = {
+      ...document,
+      sections: {
+        ...document.sections,
+        root: { ...root, positionAndSizeLocked: true },
+      },
+    };
+    const minimized: WorkspaceDocument = {
+      ...document,
+      sections: { ...document.sections, root: { ...root, isMinimized: true } },
+    };
+
+    expect(
+      resizeWorkspaceRootSection(bindings(document, false), "root", ["width"], resize),
+    ).toEqual({ reason: "layout-edit-disabled", status: "rejected" });
+    expect(
+      resizeWorkspaceRootSection(bindings(document, true), "child", ["width"], resize),
+    ).toEqual({ reason: "section-not-root", status: "rejected" });
+    expect(resizeWorkspaceRootSection(bindings(locked, true), "root", ["width"], resize)).toEqual({
+      reason: "section-locked",
+      status: "rejected",
+    });
+    expect(
+      resizeWorkspaceRootSection(bindings(minimized, true), "root", ["width"], resize),
+    ).toEqual({ reason: "section-minimized", status: "rejected" });
+    expect(setWorkspaceSectionContentSize(bindings(locked, true), "root", ["width"])).toEqual({
+      reason: "section-locked",
+      status: "rejected",
+    });
+    expect(setWorkspaceSectionContentSize(bindings(minimized, true), "root", ["width"])).toEqual({
+      reason: "section-minimized",
+      status: "rejected",
+    });
+  });
+
+  it("rejects malformed sizing axes and dimensions before publishing a change", () => {
+    const document = recursiveDocument();
+    const bindings = {
+      commit: () => {
+        throw new Error("Malformed sizing must not commit.");
+      },
+      getCapabilities: () => WORKSPACE_DEFAULT_CAPABILITIES,
+      getDocument: () => document,
+    };
+
+    expect(() =>
+      resizeWorkspaceRootSection(bindings, "root", ["width", "width"], {
+        position: { x: 0, y: 0 },
+        size: { height: 180, width: 260 },
+      }),
+    ).toThrow("must not contain duplicates");
+    expect(() =>
+      resizeWorkspaceRootSection(bindings, "root", ["height"], {
+        position: { x: 0, y: 0 },
+        size: { height: Number.NaN, width: 240 },
+      }),
+    ).toThrow("height must be a positive finite number");
+    expect(() => setWorkspaceSectionContentSize(bindings, "root", [])).toThrow(
+      "must contain width, height, or both",
+    );
   });
 
   it("rejects minimizing a section whose registered kind opts out", () => {

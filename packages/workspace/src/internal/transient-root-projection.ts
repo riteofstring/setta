@@ -34,6 +34,7 @@ export type RootLayoutCommand =
     }
   | {
       type: "resize-root-section";
+      position: WorkspacePoint;
       sectionId: string;
       size: { width: number; height: number };
     };
@@ -324,9 +325,16 @@ export class TransientRootProjection {
     if (!current || !baseline) {
       throw new Error(`Missing root projection section ${sectionId} at gesture completion.`);
     }
-    return current.size.width === baseline.size.width &&
+    return current.position.x === baseline.position.x &&
+      current.position.y === baseline.position.y &&
+      current.size.width === baseline.size.width &&
       current.size.height === baseline.size.height
       ? null
-      : { type: "resize-root-section", sectionId, size: { ...current.size } };
+      : {
+          position: { ...current.position },
+          sectionId,
+          size: { ...current.size },
+          type: "resize-root-section",
+        };
   }
 }

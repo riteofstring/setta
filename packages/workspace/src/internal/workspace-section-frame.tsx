@@ -51,6 +51,7 @@ export type WorkspaceSectionFrameProps = Readonly<{
   order: number;
   presentationEditable: boolean;
   readOnly: boolean;
+  resizing: boolean;
   selected: boolean;
   selectionMovementBlocked: boolean;
   section: WorkspaceSection<unknown>;
@@ -426,10 +427,23 @@ function shouldShowSectionHeader(
   );
 }
 
-function sectionFrameStyle(section: WorkspaceSection<unknown>): SectionFrameStyle | undefined {
-  return section.presentation.accentColor
-    ? { "--setta-workspace-section-accent": section.presentation.accentColor }
-    : undefined;
+function sectionFrameStyle(
+  section: WorkspaceSection<unknown>,
+  definition: ResolvedSectionDefinition<unknown>,
+): SectionFrameStyle {
+  return {
+    ...(section.presentation.accentColor
+      ? { "--setta-workspace-section-accent": section.presentation.accentColor }
+      : {}),
+    ...(section.isMinimized
+      ? {}
+      : {
+          maxHeight: definition.resize.maxSize.height,
+          minHeight: definition.resize.minSize.height,
+        }),
+    maxWidth: definition.resize.maxSize.width,
+    minWidth: definition.resize.minSize.width,
+  };
 }
 
 function sectionWithPresentation(
@@ -617,6 +631,7 @@ export function WorkspaceSectionFrame({
   order,
   presentationEditable,
   readOnly,
+  resizing,
   selected,
   selectionMovementBlocked,
   section,
@@ -680,7 +695,7 @@ export function WorkspaceSectionFrame({
     setPresentationOpen(false);
     focusWithoutScroll(styleControlRef);
   };
-  const frameStyle = sectionFrameStyle(presentedSection);
+  const frameStyle = sectionFrameStyle(presentedSection, definition);
   const titleContent = (
     <SectionTitleContent
       editing={editingTitle}
@@ -760,9 +775,12 @@ export function WorkspaceSectionFrame({
       data-workspace-moving={String(moving)}
       data-workspace-presentation-open={String(presentationOpen)}
       data-workspace-read-only={String(readOnly)}
+      data-workspace-resizing={String(resizing)}
       data-workspace-selected={String(selected)}
       data-workspace-section-id={section.id}
+      data-workspace-height-mode={section.size.height.mode}
       data-workspace-tag-color={presentedSection.presentation.tagColor ?? undefined}
+      data-workspace-width-mode={section.size.width.mode}
       data-workspace-title-editing={String(editingTitle)}
       ref={registerElement}
       style={frameStyle}

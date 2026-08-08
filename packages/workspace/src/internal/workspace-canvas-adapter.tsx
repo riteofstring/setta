@@ -53,6 +53,10 @@ import type {
 } from "./workspace-section-contract.js";
 import { useWorkspaceSectionCreationMenu } from "./workspace-section-creation-menu.js";
 import type { WorkspaceSectionRegistry } from "./workspace-section-registry.js";
+import type {
+  WorkspaceRootResizeSnapshot,
+  WorkspaceSectionResizeAxis,
+} from "./workspace-section-sizing.js";
 import { WorkspaceToolbar } from "./workspace-toolbar.js";
 import { WorkspaceViewportSynchronizer } from "./workspace-viewport-synchronizer.js";
 
@@ -75,6 +79,15 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   onGridSnapChange(value: boolean): void;
   onMinimapVisibilityChange(value: boolean): void;
   onRootMoveCommit(positions: Readonly<Record<string, WorkspacePoint>>): WorkspaceActionResult;
+  onRootResizeCommit(
+    sectionId: string,
+    axes: readonly WorkspaceSectionResizeAxis[],
+    resize: WorkspaceRootResizeSnapshot,
+  ): WorkspaceActionResult;
+  onSectionContentSizeCommit(
+    sectionId: string,
+    axes: readonly WorkspaceSectionResizeAxis[],
+  ): WorkspaceActionResult;
   onSectionLockedCommit(sectionId: string, locked: boolean): WorkspaceActionResult;
   onSectionMinimizedCommit(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
   onSectionPresentationCommit(
@@ -116,6 +129,8 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   onGridSnapChange,
   onMinimapVisibilityChange,
   onRootMoveCommit,
+  onRootResizeCommit,
+  onSectionContentSizeCommit,
   onSectionLockedCommit,
   onSectionMinimizedCommit,
   onSectionPresentationCommit,
@@ -173,6 +188,8 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     gridOptions,
     layoutEditable,
     onRootMoveCommit,
+    onRootResizeCommit,
+    onSectionContentSizeCommit,
     onSectionLockedCommit,
     onSectionMinimizedCommit,
     onSectionPresentationCommit,
@@ -302,6 +319,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         movement={rootProjection.announcementText}
         selection={selection.announcementText}
         sectionState={rootProjection.sectionStateAnnouncementText}
+        sizing={rootProjection.sizingAnnouncementText}
       />
       {creation.dialog}
       {externalDrop.feedback}

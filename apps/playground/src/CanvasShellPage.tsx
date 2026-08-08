@@ -67,12 +67,19 @@ const HOST_EXTENSIONS_DEFAULT_QUERY = "(min-width: 40rem)";
 
 const navigationSectionDefinitions = [
   {
+    contentSizing: { height: true, width: true },
     defaultSize: { height: 180, width: 240 },
     displayName: "Navigation fixture",
     kind: "navigation fixture",
     render: ({ sectionId }) => (
       <p className="canvas-shell-section-content">Measured host renderer for {sectionId}.</p>
     ),
+    resize: {
+      axes: "both",
+      maxSize: { height: 360, width: 480 },
+      minSize: { height: 144, width: 192 },
+      preserveAspectRatio: false,
+    },
   },
 ] satisfies readonly SectionDefinition[];
 

@@ -9,9 +9,15 @@ import {
   type WorkspacePoint,
   type WorkspaceSection,
   type WorkspaceSectionPresentation,
+  type WorkspaceSectionSize,
   type WorkspaceViewport,
 } from "../core.js";
-import { isEnumerableDataProperty, optionOverridesAt } from "./runtime-option-validation.js";
+import {
+  denseArrayAt,
+  isEnumerableDataProperty,
+  optionOverridesAt,
+} from "./runtime-option-validation.js";
+import type { WorkspaceSectionResizeAxis } from "./workspace-section-sizing.js";
 
 export type WorkspaceDocumentCommand<TSectionData = unknown> =
   | Readonly<{
@@ -23,6 +29,18 @@ export type WorkspaceDocumentCommand<TSectionData = unknown> =
   | Readonly<{
       positions: Readonly<Record<string, WorkspacePoint>>;
       type: "move-root-sections";
+    }>
+  | Readonly<{
+      axes: readonly WorkspaceSectionResizeAxis[];
+      position: WorkspacePoint;
+      sectionId: string;
+      size: Readonly<{ height: number; width: number }>;
+      type: "resize-root-section";
+    }>
+  | Readonly<{
+      axes: readonly WorkspaceSectionResizeAxis[];
+      sectionId: string;
+      type: "set-section-content-size";
     }>
   | Readonly<{ isMinimized: boolean; sectionId: string; type: "set-section-minimized" }>
   | Readonly<{
@@ -73,7 +91,12 @@ function commandCapability(
   if (command.type === "create-root-section" || command.type === "delete-sections") {
     return "editStructure";
   }
-  if (command.type === "move-root-sections" || command.type === "set-sections-locked") {
+  if (
+    command.type === "move-root-sections" ||
+    command.type === "resize-root-section" ||
+    command.type === "set-section-content-size" ||
+    command.type === "set-sections-locked"
+  ) {
     return "editLayout";
   }
   return presentationCommandTypes.has(command.type) ? "editPresentation" : null;
@@ -230,6 +253,124 @@ function applyRootMovement<TSectionData>(
   return changed
     ? applied({ ...document, rootSections }, "section-move")
     : { document, status: "unchanged" };
+}
+
+function resizeAxesAt(
+  value: readonly WorkspaceSectionResizeAxis[],
+): readonly WorkspaceSectionResizeAxis[] {
+  const candidate = denseArrayAt(value, "Workspace resize axes");
+  if (candidate.length === 0 || candidate.length > 2) {
+    throw new TypeError("Workspace resize axes must contain width, height, or both.");
+  }
+  const axes = candidate.map((axis) => {
+    if (axis !== "height" && axis !== "width") {
+      throw new TypeError("Workspace resize axes must contain only width or height.");
+    }
+    return axis;
+  });
+  if (new Set(axes).size !== axes.length) {
+    throw new TypeError("Workspace resize axes must not contain duplicates.");
+  }
+  return axes;
+}
+
+function positiveSize(value: unknown, label: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    throw new TypeError(`${label} must be a positive finite number.`);
+  }
+  return value;
+}
+
+function resizedSectionSize<TSectionData>(
+  section: WorkspaceSection<TSectionData>,
+  axesValue: readonly WorkspaceSectionResizeAxis[],
+  sizeValue: Readonly<{ height: number; width: number }>,
+): WorkspaceSectionSize {
+  const axes = new Set(resizeAxesAt(axesValue));
+  const height = positiveSize(sizeValue.height, "Workspace resized height");
+  const width = positiveSize(sizeValue.width, "Workspace resized width");
+  return {
+    height: axes.has("height") ? { mode: "fixed", value: height } : section.size.height,
+    width: axes.has("width") ? { mode: "fixed", value: width } : section.size.width,
+  };
+}
+
+function sectionSizesMatch(left: WorkspaceSectionSize, right: WorkspaceSectionSize): boolean {
+  return (
+    left.height.mode === right.height.mode &&
+    left.height.value === right.height.value &&
+    left.width.mode === right.width.mode &&
+    left.width.value === right.width.value
+  );
+}
+
+function applyRootResize<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  command: Extract<WorkspaceDocumentCommand<TSectionData>, { type: "resize-root-section" }>,
+): WorkspaceDocumentCommandResult<TSectionData> {
+  assertKnownSections(document, [command.sectionId]);
+  const rootIndex = document.rootSections.findIndex(
+    ({ sectionId }) => sectionId === command.sectionId,
+  );
+  if (rootIndex < 0) {
+    return { document, reason: "section-not-root", status: "rejected" };
+  }
+  const section = document.sections[command.sectionId] as WorkspaceSection<TSectionData>;
+  if (section.positionAndSizeLocked) {
+    return { document, reason: "section-locked", status: "rejected" };
+  }
+  if (section.isMinimized) {
+    return { document, reason: "section-minimized", status: "rejected" };
+  }
+  const position = rootPositionAt(command.position, command.sectionId);
+  const size = resizedSectionSize(section, command.axes, command.size);
+  const currentRoot = document.rootSections[rootIndex] as (typeof document.rootSections)[number];
+  const positionChanged =
+    currentRoot.position.x !== position.x || currentRoot.position.y !== position.y;
+  if (!positionChanged && sectionSizesMatch(section.size, size)) {
+    return { document, status: "unchanged" };
+  }
+  const rootSections = document.rootSections.map((root, index) =>
+    index === rootIndex ? { ...root, position } : root,
+  );
+  return applied(
+    {
+      ...document,
+      rootSections,
+      sections: { ...document.sections, [command.sectionId]: { ...section, size } },
+    },
+    "section-resize",
+  );
+}
+
+function applySectionContentSize<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  sectionId: string,
+  axesValue: readonly WorkspaceSectionResizeAxis[],
+): WorkspaceDocumentCommandResult<TSectionData> {
+  assertKnownSections(document, [sectionId]);
+  const section = document.sections[sectionId] as WorkspaceSection<TSectionData>;
+  if (section.positionAndSizeLocked) {
+    return { document, reason: "section-locked", status: "rejected" };
+  }
+  if (section.isMinimized) {
+    return { document, reason: "section-minimized", status: "rejected" };
+  }
+  const axes = new Set(resizeAxesAt(axesValue));
+  const size: WorkspaceSectionSize = {
+    height: axes.has("height") ? { ...section.size.height, mode: "content" } : section.size.height,
+    width: axes.has("width") ? { ...section.size.width, mode: "content" } : section.size.width,
+  };
+  if (sectionSizesMatch(section.size, size)) {
+    return { document, status: "unchanged" };
+  }
+  return applied(
+    {
+      ...document,
+      sections: { ...document.sections, [sectionId]: { ...section, size } },
+    },
+    "section-size-mode",
+  );
 }
 
 function applyRootCreation<TSectionData>(
@@ -438,16 +579,33 @@ function applySectionDeletion<TSectionData>(
   );
 }
 
-export function applyWorkspaceDocumentCommand<TSectionData>(
-  document: WorkspaceDocument<TSectionData>,
-  command: WorkspaceDocumentCommand<TSectionData>,
-  capabilities: WorkspaceCapabilities,
-): WorkspaceDocumentCommandResult<TSectionData> {
-  validateWorkspaceDocument(document);
-  const rejection = rejectionFor(command, capabilities);
-  if (rejection) {
-    return { document, reason: rejection, status: "rejected" };
+type WorkspaceRootDocumentCommand<TSectionData> = Extract<
+  WorkspaceDocumentCommand<TSectionData>,
+  {
+    type: "create-root-section" | "move-root-sections" | "resize-root-section" | "set-viewport";
   }
+>;
+
+type WorkspaceSectionDocumentCommand<TSectionData> = Exclude<
+  WorkspaceDocumentCommand<TSectionData>,
+  WorkspaceRootDocumentCommand<TSectionData>
+>;
+
+function isRootDocumentCommand<TSectionData>(
+  command: WorkspaceDocumentCommand<TSectionData>,
+): command is WorkspaceRootDocumentCommand<TSectionData> {
+  return (
+    command.type === "create-root-section" ||
+    command.type === "move-root-sections" ||
+    command.type === "resize-root-section" ||
+    command.type === "set-viewport"
+  );
+}
+
+function applyRootDocumentCommand<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  command: WorkspaceRootDocumentCommand<TSectionData>,
+): WorkspaceDocumentCommandResult<TSectionData> {
   if (command.type === "set-viewport") {
     return applyViewport(document, command.viewport);
   }
@@ -456,6 +614,16 @@ export function applyWorkspaceDocumentCommand<TSectionData>(
   }
   if (command.type === "move-root-sections") {
     return applyRootMovement(document, command.positions);
+  }
+  return applyRootResize(document, command);
+}
+
+function applySectionDocumentCommand<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  command: WorkspaceSectionDocumentCommand<TSectionData>,
+): WorkspaceDocumentCommandResult<TSectionData> {
+  if (command.type === "set-section-content-size") {
+    return applySectionContentSize(document, command.sectionId, command.axes);
   }
   if (command.type === "set-sections-locked") {
     return applySectionLocks(document, command.sectionIds, command.locked);
@@ -470,4 +638,19 @@ export function applyWorkspaceDocumentCommand<TSectionData>(
     return applySectionPresentation(document, command.sectionId, command.presentation);
   }
   return applySectionDeletion(document, command.sectionIds);
+}
+
+export function applyWorkspaceDocumentCommand<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  command: WorkspaceDocumentCommand<TSectionData>,
+  capabilities: WorkspaceCapabilities,
+): WorkspaceDocumentCommandResult<TSectionData> {
+  validateWorkspaceDocument(document);
+  const rejection = rejectionFor(command, capabilities);
+  if (rejection) {
+    return { document, reason: rejection, status: "rejected" };
+  }
+  return isRootDocumentCommand(command)
+    ? applyRootDocumentCommand(document, command)
+    : applySectionDocumentCommand(document, command);
 }

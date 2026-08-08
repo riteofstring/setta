@@ -34,6 +34,7 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain('data-workspace-external-drop-state="idle"');
     expect(markup).toContain('data-workspace-external-drop-announcement=""');
     expect(markup).toContain('data-workspace-section-state-announcement=""');
+    expect(markup).toContain('data-workspace-sizing-announcement=""');
     expect(markup).toContain('data-workspace-resolved-appearance="light"');
     expect(markup).toContain("Start with a section.");
   });

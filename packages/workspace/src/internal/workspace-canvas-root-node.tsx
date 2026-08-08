@@ -14,6 +14,10 @@ import type {
   ResolvedSectionDefinition,
   WorkspaceSectionRegistry,
 } from "./workspace-section-registry.js";
+import {
+  WorkspaceSectionResizeControls,
+  type WorkspaceSectionResizeBindings,
+} from "./workspace-section-resize-controls.js";
 import type { WorkspaceSectionSelectionRequest } from "./workspace-selection.js";
 
 type WorkspaceRootNodeData = {
@@ -32,6 +36,8 @@ type WorkspaceRootNodeData = {
   order: number;
   presentationEditable: boolean;
   readOnly: boolean;
+  resizeBindings: WorkspaceSectionResizeBindings;
+  resizing: boolean;
   selected: boolean;
   selectionMovementBlocked: boolean;
   section: WorkspaceSection<unknown>;
@@ -55,27 +61,37 @@ export type RootSelectionProjection = Readonly<{
 
 function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
   return (
-    <WorkspaceSectionFrame
-      appearance={data.appearance}
-      colorPalette={data.colorPalette}
-      definition={data.definition}
-      geometry={data.geometry}
-      layoutEditable={data.layoutEditable}
-      moving={data.moving}
-      onKeyboardMove={data.onKeyboardMove}
-      onLockedCommit={data.onLockedCommit}
-      onMinimizedCommit={data.onMinimizedCommit}
-      onPresentationCommit={data.onPresentationCommit}
-      onSelectionRequest={data.onSelectionRequest}
-      onTitleCommit={data.onTitleCommit}
-      order={data.order}
-      presentationEditable={data.presentationEditable}
-      readOnly={data.readOnly}
-      selected={data.selected}
-      selectionMovementBlocked={data.selectionMovementBlocked}
-      section={data.section}
-      validateTitle={data.validateTitle}
-    />
+    <>
+      <WorkspaceSectionFrame
+        appearance={data.appearance}
+        colorPalette={data.colorPalette}
+        definition={data.definition}
+        geometry={data.geometry}
+        layoutEditable={data.layoutEditable}
+        moving={data.moving}
+        onKeyboardMove={data.onKeyboardMove}
+        onLockedCommit={data.onLockedCommit}
+        onMinimizedCommit={data.onMinimizedCommit}
+        onPresentationCommit={data.onPresentationCommit}
+        onSelectionRequest={data.onSelectionRequest}
+        onTitleCommit={data.onTitleCommit}
+        order={data.order}
+        presentationEditable={data.presentationEditable}
+        readOnly={data.readOnly}
+        resizing={data.resizing}
+        selected={data.selected}
+        selectionMovementBlocked={data.selectionMovementBlocked}
+        section={data.section}
+        validateTitle={data.validateTitle}
+      />
+      <WorkspaceSectionResizeControls
+        bindings={data.resizeBindings}
+        definition={data.definition}
+        layoutEditable={data.layoutEditable}
+        section={data.section}
+        selected={data.selected}
+      />
+    </>
   );
 }
 
@@ -90,6 +106,58 @@ const MemoizedWorkspaceRootShell = memo(WorkspaceRootShell, rootShellPropsMatch)
 export const workspaceNodeTypes = {
   "workspace-root-shell": MemoizedWorkspaceRootShell,
 } satisfies NodeTypes;
+
+function rootNodeClassName(section: WorkspaceSection<unknown>): string {
+  return [
+    "setta-workspace__root-node",
+    section.size.width.mode === "content" ? "setta-workspace__root-node--content-width" : "",
+    section.size.height.mode === "content" ? "setta-workspace__root-node--content-height" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function rootNodeStyle(
+  section: WorkspaceSection<unknown>,
+  definition: ResolvedSectionDefinition<unknown>,
+): NonNullable<WorkspaceRootNode["style"]> {
+  return {
+    maxHeight: section.isMinimized ? undefined : definition.resize.maxSize.height,
+    maxWidth: definition.resize.maxSize.width,
+    minHeight: section.isMinimized ? undefined : definition.resize.minSize.height,
+    minWidth: definition.resize.minSize.width,
+  };
+}
+
+function rootNodeIsDraggable(
+  layoutEditable: boolean,
+  section: WorkspaceSection<unknown>,
+  selectionMovementBlocked: boolean,
+): boolean {
+  return layoutEditable && !section.positionAndSizeLocked && !selectionMovementBlocked;
+}
+
+function applyRootNodeDimensions(
+  node: WorkspaceRootNode,
+  root: WorkspaceCanvasRoot,
+  section: WorkspaceSection<unknown>,
+): void {
+  if (!node.style) {
+    throw new Error(`Workspace root node ${root.sectionId} is missing its sizing style.`);
+  }
+  if (section.size.width.mode === "fixed") {
+    node.width = root.size.width;
+  } else {
+    node.initialWidth = root.size.width;
+    node.style.width = "max-content";
+  }
+  if (!section.isMinimized && section.size.height.mode === "fixed") {
+    node.height = root.size.height;
+  } else if (!section.isMinimized) {
+    node.initialHeight = root.size.height;
+    node.style.height = "max-content";
+  }
+}
 
 function rootNode(
   root: WorkspaceCanvasRoot,
@@ -108,6 +176,7 @@ function rootNode(
   onSelectionRequest: WorkspaceRootNodeData["onSelectionRequest"],
   onTitleCommit: WorkspaceRootNodeData["onTitleCommit"],
   validateTitle: WorkspaceRootNodeData["validateTitle"],
+  resizeBindings: WorkspaceSectionResizeBindings,
   selection: RootSelectionProjection,
 ): WorkspaceRootNode {
   const selected = selection.selectedSectionIds.has(root.sectionId);
@@ -130,6 +199,8 @@ function rootNode(
       order: root.order,
       presentationEditable,
       readOnly,
+      resizeBindings,
+      resizing: false,
       selected,
       selectionMovementBlocked,
       section,
@@ -138,19 +209,18 @@ function rootNode(
       validateTitle,
     },
     dragHandle: ".setta-workspace__section-drag-handle",
-    draggable: layoutEditable && !section.positionAndSizeLocked && !selectionMovementBlocked,
+    draggable: rootNodeIsDraggable(layoutEditable, section, selectionMovementBlocked),
     focusable: false,
     id: root.sectionId,
     position: { ...root.position },
     selected,
     selectable: false,
     type: "workspace-root-shell",
-    width: root.size.width,
     zIndex: root.order,
   };
-  if (!section.isMinimized) {
-    node.height = root.size.height;
-  }
+  node.className = rootNodeClassName(section);
+  node.style = rootNodeStyle(section, definition);
+  applyRootNodeDimensions(node, root, section);
   return node;
 }
 
@@ -170,6 +240,7 @@ export function projectNodes<TSectionData>(
   onSelectionRequest: WorkspaceRootNodeData["onSelectionRequest"],
   onTitleCommit: WorkspaceRootNodeData["onTitleCommit"],
   validateTitle: WorkspaceRootNodeData["validateTitle"],
+  resizeBindings: WorkspaceSectionResizeBindings,
   selection: RootSelectionProjection,
 ): WorkspaceRootNode[] {
   return projectWorkspaceCanvasRoots(document).map((root) => {
@@ -195,6 +266,7 @@ export function projectNodes<TSectionData>(
       onSelectionRequest,
       onTitleCommit,
       validateTitle,
+      resizeBindings,
       selection,
     );
   });
@@ -216,8 +288,15 @@ export function synchronizeNodes(
       data: node.data,
       position: { ...node.position },
     };
-    if (node.data.section.isMinimized) {
+    if (node.data.section.size.width.mode === "content") {
+      delete synchronized.width;
+    } else {
+      delete synchronized.initialWidth;
+    }
+    if (node.data.section.isMinimized || node.data.section.size.height.mode === "content") {
       delete synchronized.height;
+    } else {
+      delete synchronized.initialHeight;
     }
     return synchronized;
   });
@@ -273,6 +352,20 @@ export function setActiveRoots(
       return node;
     }
     return { ...node, data: { ...node.data, moving }, zIndex };
+  });
+}
+
+export function setResizingRoot(
+  nodes: readonly WorkspaceRootNode[],
+  sectionId: string | null,
+): WorkspaceRootNode[] {
+  return nodes.map((node) => {
+    const resizing = node.id === sectionId;
+    const zIndex = resizing ? nodes.length + node.data.order : node.data.order;
+    if (node.data.resizing === resizing && node.zIndex === zIndex) {
+      return node;
+    }
+    return { ...node, data: { ...node.data, resizing }, zIndex };
   });
 }
 

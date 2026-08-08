@@ -74,7 +74,12 @@ reconciliation through the same canonical controller boundary. Registry metadata
 built-in searchable creation picker, pointer-based context creation, and deterministic visible smart
 placement; a strict host factory continues to own section IDs and payload data while the public
 controller commits one canonical `section-create` change and the new frame receives package
-selection and focus.
+selection and focus. Selected roots now expose logical inline-end, block-end, and corner resize
+controls that mirror in RTL, honor registered axes and size constraints at every canvas zoom, share
+grid snapping with movement, and publish one canonical `section-resize` change on completion.
+Keyboard arrows provide the same constrained resizing path. Double-click, Enter, or Space returns
+supported axes to content sizing, while the next manual resize promotes measured content dimensions
+back to fixed sizing without publishing live observer measurements.
 Phase 2 now also exposes generic external drops through a strict host validator and final callback.
 The shared geometry index supplies workbench coordinates, deepest eligible container candidates,
 and orientation-aware insertion indices; accessible valid/invalid feedback remains transient,

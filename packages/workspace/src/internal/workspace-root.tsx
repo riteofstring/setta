@@ -14,6 +14,8 @@ import {
   createWorkspaceController,
   createWorkspaceRootSection,
   moveWorkspaceRootSections,
+  resizeWorkspaceRootSection,
+  setWorkspaceSectionContentSize,
   type WorkspaceControllerBindings,
 } from "./workspace-controller.js";
 import {
@@ -55,6 +57,10 @@ import {
   validateWorkspaceSectionDefinitions,
   type WorkspaceSectionRegistry,
 } from "./workspace-section-registry.js";
+import type {
+  WorkspaceRootResizeSnapshot,
+  WorkspaceSectionResizeAxis,
+} from "./workspace-section-sizing.js";
 import {
   reconcileWorkspaceSelection,
   resolveWorkspaceSelection,
@@ -306,6 +312,30 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     },
     [],
   );
+  const handleRootResizeCommit = useCallback(
+    (
+      sectionId: string,
+      axes: readonly WorkspaceSectionResizeAxis[],
+      resize: WorkspaceRootResizeSnapshot,
+    ) => {
+      const bindings = controllerBindingsRef.current;
+      if (!bindings) {
+        throw new Error("Workspace controller bindings are unavailable before initialization.");
+      }
+      return resizeWorkspaceRootSection(bindings, sectionId, axes, resize);
+    },
+    [],
+  );
+  const handleSectionContentSizeCommit = useCallback(
+    (sectionId: string, axes: readonly WorkspaceSectionResizeAxis[]) => {
+      const bindings = controllerBindingsRef.current;
+      if (!bindings) {
+        throw new Error("Workspace controller bindings are unavailable before initialization.");
+      }
+      return setWorkspaceSectionContentSize(bindings, sectionId, axes);
+    },
+    [],
+  );
   const handleSectionPresentationCommit = useCallback(
     (sectionId: string, presentation: WorkspaceSectionPresentation) =>
       controller.setSectionPresentation(sectionId, presentation),
@@ -375,6 +405,8 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         onGridSnapChange={setGridSnap}
         onMinimapVisibilityChange={setMinimapVisible}
         onRootMoveCommit={handleRootMoveCommit}
+        onRootResizeCommit={handleRootResizeCommit}
+        onSectionContentSizeCommit={handleSectionContentSizeCommit}
         onSectionLockedCommit={handleSectionLockedCommit}
         onSectionMinimizedCommit={handleSectionMinimizedCommit}
         onSectionPresentationCommit={handleSectionPresentationCommit}

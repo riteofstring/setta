@@ -80,6 +80,12 @@ describe("TransientRootProjection", () => {
 
     projection.applyRootChanges([
       {
+        type: "position",
+        sectionId: "alpha",
+        position: { x: -58, y: 30 },
+        dragging: false,
+      },
+      {
         type: "dimensions",
         sectionId: "alpha",
         size: { width: 242, height: 182 },
@@ -105,6 +111,7 @@ describe("TransientRootProjection", () => {
     ]);
 
     const expectedCommand = {
+      position: { x: -58, y: 30 },
       type: "resize-root-section",
       sectionId: "alpha",
       size: { width: 320, height: 220 },

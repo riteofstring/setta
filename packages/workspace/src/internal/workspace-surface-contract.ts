@@ -48,6 +48,7 @@ export type WorkspaceActionRejectionReason =
   | "section-creation-unavailable"
   | "section-id-exists"
   | "section-locked"
+  | "section-minimized"
   | "section-not-minimizable"
   | "section-not-root"
   | "structure-edit-disabled"
@@ -72,6 +73,8 @@ export type WorkspaceDocumentChangeReason =
   | "section-minimize"
   | "section-move"
   | "section-presentation"
+  | "section-resize"
+  | "section-size-mode"
   | "section-title"
   | "viewport";
 

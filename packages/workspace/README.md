@@ -159,6 +159,22 @@ preserves its relative workbench offsets. One completed block gesture still publ
 `section-move` change. If any selected root is locked, block movement is disabled with specific
 feedback; selection itself remains available and does not publish a document change.
 
+Selected top-level roots expose logical inline-end, block-end, and corner resize controls according
+to their registered `resize.axes` policy. The controls mirror in right-to-left layouts, retain
+40-pixel desktop and 44-pixel coarse-pointer targets, and enforce registered minimums, maximums,
+aspect-ratio preservation, the current canvas zoom, and optional grid snapping. Pointer updates stay
+transient and one completed gesture publishes one `section-resize` change; detaching the canvas
+cancels an active gesture without a document write. Arrow keys on a focused control use the same
+constraints and snapping, or 10 workbench units when snapping is disabled. Locked and minimized
+sections expose no active resize controls.
+
+Width and height remain independent serialized `fixed` or `content` modes. Double-click a resize
+control, or press Enter or Space while it is focused, to return every affected axis supported by
+`contentSizing` to content mode. The finite serialized value remains a stable fallback. Starting a
+later pointer or keyboard resize measures the rendered frame, promotes only the affected axes to
+fixed mode, and applies the resize from that measurement. Live `ResizeObserver` measurements update
+the shared geometry index but do not publish canonical document changes.
+
 Use `defaultDocument` instead of `document` for uncontrolled ownership. The two modes are mutually
 exclusive, and a controlled workspace requires `onDocumentChange`. `readOnly` disables package-owned
 layout, structure, and presentation edits while viewport navigation and arbitrary host-rendered

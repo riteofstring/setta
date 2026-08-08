@@ -347,12 +347,20 @@
 }
 
 .setta-workspace__canvas .react-flow__node-workspace-root-shell {
-  overflow: hidden;
+  overflow: visible;
   background: transparent;
   border-radius: 0.875rem;
   box-shadow:
     0 0 0 1px color-mix(in oklch, var(--setta-workspace-section-text) 8%, transparent),
     0 1rem 2.5rem rgb(23 32 51 / 12%);
+}
+
+.setta-workspace__root-node--content-width {
+  inline-size: max-content;
+}
+
+.setta-workspace__root-node--content-height {
+  block-size: max-content;
 }
 
 .setta-workspace__root-shell {
@@ -382,6 +390,88 @@
 .setta-workspace__section-frame[data-workspace-minimized="true"] {
   block-size: auto;
   min-block-size: 0;
+}
+
+.setta-workspace__section-frame[data-workspace-width-mode="content"] {
+  container-type: normal;
+  inline-size: max-content;
+  max-inline-size: 100%;
+}
+
+.setta-workspace__section-frame[data-workspace-height-mode="content"] {
+  block-size: max-content;
+  min-block-size: 0;
+}
+
+.react-flow__resize-control.handle.setta-workspace__section-resize-control {
+  z-index: 6;
+  display: grid;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  padding: 0;
+  place-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  touch-action: none;
+}
+
+.setta-workspace__section-resize-control--left,
+.setta-workspace__section-resize-control--bottom-left {
+  display: none !important;
+}
+
+.setta-workspace:dir(rtl) .setta-workspace__section-resize-control--right,
+.setta-workspace:dir(rtl) .setta-workspace__section-resize-control--bottom-right {
+  display: none !important;
+}
+
+.setta-workspace:dir(rtl) .setta-workspace__section-resize-control--left,
+.setta-workspace:dir(rtl) .setta-workspace__section-resize-control--bottom-left {
+  display: grid !important;
+}
+
+.setta-workspace__section-resize-button {
+  display: grid;
+  inline-size: 100%;
+  block-size: 100%;
+  padding: 0;
+  place-items: center;
+  color: var(--setta-workspace-selection);
+  background: color-mix(in oklch, var(--setta-workspace-section-background) 86%, transparent);
+  border: 0;
+  border-radius: inherit;
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--setta-workspace-selection) 52%, transparent),
+    0 0.25rem 0.75rem oklch(0 0 0 / 0.16);
+  cursor: inherit;
+  opacity: 0.82;
+}
+
+.setta-workspace__section-resize-button:hover,
+.setta-workspace__section-resize-button:focus-visible {
+  opacity: 1;
+}
+
+.setta-workspace__section-resize-grip {
+  inline-size: 0.1875rem;
+  block-size: 1.125rem;
+  background: currentColor;
+  border-radius: 999px;
+}
+
+.setta-workspace__section-resize-control--block-end .setta-workspace__section-resize-grip {
+  inline-size: 1.125rem;
+  block-size: 0.1875rem;
+}
+
+.setta-workspace__section-resize-control--corner .setta-workspace__section-resize-grip {
+  inline-size: 0.875rem;
+  block-size: 0.875rem;
+  background: transparent;
+  border-block-end: 0.1875rem solid currentColor;
+  border-inline-end: 0.1875rem solid currentColor;
+  border-radius: 0 0 0.1875rem;
 }
 
 .setta-workspace__section-frame[data-workspace-accent-color] {
@@ -840,7 +930,10 @@
   display: none;
 }
 
-.setta-workspace__section-frame[data-workspace-moving="true"] {
+.setta-workspace__section-frame:is(
+  [data-workspace-moving="true"],
+  [data-workspace-resizing="true"]
+) {
   box-shadow: inset 0 0 0 3px var(--setta-workspace-selection);
 }
 
@@ -848,7 +941,10 @@
   box-shadow: inset 0 0 0 2px var(--setta-workspace-selection);
 }
 
-.setta-workspace__section-frame[data-workspace-moving="true"][data-workspace-selected="true"] {
+.setta-workspace__section-frame:is(
+    [data-workspace-moving="true"],
+    [data-workspace-resizing="true"]
+  )[data-workspace-selected="true"] {
   box-shadow: inset 0 0 0 3px var(--setta-workspace-selection);
 }
 
@@ -1193,7 +1289,8 @@
 @media (prefers-reduced-motion: no-preference) {
   .setta-workspace__section-edit-control,
   .setta-workspace__section-selection-control,
-  .setta-workspace__section-drag-handle {
+  .setta-workspace__section-drag-handle,
+  .setta-workspace__section-resize-button {
     transition:
       color 120ms ease-out,
       background-color 120ms ease-out,
@@ -1232,6 +1329,11 @@
 }
 
 @media (pointer: coarse) {
+  .react-flow__resize-control.handle.setta-workspace__section-resize-control {
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+  }
+
   .setta-workspace__section-edit-control,
   .setta-workspace__section-selection-control,
   .setta-workspace__section-title-form input,

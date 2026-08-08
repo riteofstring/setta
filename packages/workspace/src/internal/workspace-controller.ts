@@ -22,6 +22,10 @@ import {
 import { denseArrayAt, optionOverridesAt } from "./runtime-option-validation.js";
 import type { WorkspaceCanvasController } from "./workspace-canvas-navigation.js";
 import { validateWorkspaceViewport } from "./workspace-document-validation.js";
+import type {
+  WorkspaceRootResizeSnapshot,
+  WorkspaceSectionResizeAxis,
+} from "./workspace-section-sizing.js";
 
 export type WorkspaceControllerBindings<TSectionData> = Readonly<{
   canMinimizeSection?(sectionId: string): boolean;
@@ -328,6 +332,29 @@ export function moveWorkspaceRootSections<TSectionData>(
   positions: Readonly<Record<string, WorkspacePoint>>,
 ): WorkspaceActionResult {
   return dispatch(bindings, { positions, type: "move-root-sections" });
+}
+
+export function resizeWorkspaceRootSection<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  sectionId: string,
+  axes: readonly WorkspaceSectionResizeAxis[],
+  resize: WorkspaceRootResizeSnapshot,
+): WorkspaceActionResult {
+  return dispatch(bindings, {
+    axes,
+    position: resize.position,
+    sectionId,
+    size: resize.size,
+    type: "resize-root-section",
+  });
+}
+
+export function setWorkspaceSectionContentSize<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  sectionId: string,
+  axes: readonly WorkspaceSectionResizeAxis[],
+): WorkspaceActionResult {
+  return dispatch(bindings, { axes, sectionId, type: "set-section-content-size" });
 }
 
 export function createWorkspaceRootSection<TSectionData>(
