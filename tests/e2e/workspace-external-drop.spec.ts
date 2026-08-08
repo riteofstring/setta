@@ -34,6 +34,23 @@ async function previewExternalDrop(
   await target.dispatchEvent("dragover", eventInit);
 }
 
+async function trackGeometryReads(target: Locator): Promise<void> {
+  await target.evaluate((element) => {
+    const original = element.getBoundingClientRect.bind(element);
+    let reads = 0;
+    element.setAttribute("data-test-geometry-reads", "0");
+    element.getBoundingClientRect = () => {
+      reads += 1;
+      element.setAttribute("data-test-geometry-reads", String(reads));
+      return original();
+    };
+  });
+}
+
+async function geometryReads(target: Locator): Promise<number> {
+  return target.evaluate((element) => Number(element.getAttribute("data-test-geometry-reads")));
+}
+
 test("generic external drops expose feedback and hand accepted data to the host", async ({
   page,
 }) => {
@@ -90,6 +107,7 @@ test("generic external drops expose feedback and hand accepted data to the host"
   expect(Math.abs(importedBox.x - point.x)).toBeLessThan(2);
   expect(Math.abs(importedBox.y - point.y)).toBeLessThan(2);
 
+  await trackGeometryReads(imported);
   const rejectedTransfer = await externalTransfer(page, "text/plain", "Unsupported");
   await previewExternalDrop(canvas, rejectedTransfer, {
     x: point.x - 120,
@@ -105,6 +123,7 @@ test("generic external drops expose feedback and hand accepted data to the host"
     dataTransfer: rejectedTransfer,
   });
   await expect(page.getByRole("article")).toHaveCount(1);
+  expect(await geometryReads(imported)).toBe(1);
 
   const optedOutContent = imported.locator(".sample-section-copy");
   const optedOutBox = await optedOutContent.boundingBox();

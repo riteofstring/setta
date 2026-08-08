@@ -2,6 +2,7 @@ import { ViewportPortal } from "@xyflow/react";
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
   type DragEvent as ReactDragEvent,
@@ -137,7 +138,6 @@ function externalDropRequest<TSectionData>(
   phase: WorkspaceExternalDropEventMetadata["phase"],
   registry: WorkspaceSectionRegistry<TSectionData>,
 ): WorkspaceExternalDropRequest {
-  geometry.flushMeasurement();
   const position = Object.freeze(
     geometry.clientPointToWorkspace({ x: event.clientX, y: event.clientY }),
   );
@@ -223,9 +223,25 @@ export function useWorkspaceExternalDrop<TSectionData = WorkspaceJsonValue>({
   structureEditable: boolean;
   validateExternalDrop: WorkspaceExternalDropValidator | undefined;
 }>): WorkspaceExternalDropBindings {
+  const activeSessionRef = useRef(false);
   const [feedbackState, setFeedbackState] = useState<ExternalDropFeedbackState | null>(null);
-  const cancel = useCallback(() => setFeedbackState(null), []);
-  useEffect(() => cancel, [cancel]);
+  const cancel = useCallback(() => {
+    activeSessionRef.current = false;
+    setFeedbackState(null);
+  }, []);
+  const measureSession = useCallback(() => {
+    if (activeSessionRef.current) {
+      return;
+    }
+    geometry.flushMeasurement();
+    activeSessionRef.current = true;
+  }, [geometry]);
+  useEffect(
+    () => () => {
+      activeSessionRef.current = false;
+    },
+    [],
+  );
   useEffect(() => {
     if (!onExternalDrop || !structureEditable) {
       cancel();
@@ -257,6 +273,7 @@ export function useWorkspaceExternalDrop<TSectionData = WorkspaceJsonValue>({
         return;
       }
       claimExternalDrop(event);
+      measureSession();
       const request = externalDropRequest(
         document,
         event,
@@ -272,7 +289,16 @@ export function useWorkspaceExternalDrop<TSectionData = WorkspaceJsonValue>({
       );
       applyDropEffect(event, decision.allowed);
     },
-    [cancel, decisionForRequest, document, geometry, geometryIndex, onExternalDrop, registry],
+    [
+      cancel,
+      decisionForRequest,
+      document,
+      geometry,
+      geometryIndex,
+      measureSession,
+      onExternalDrop,
+      registry,
+    ],
   );
 
   const onDrop = useCallback(
@@ -282,6 +308,7 @@ export function useWorkspaceExternalDrop<TSectionData = WorkspaceJsonValue>({
         return;
       }
       claimExternalDrop(event);
+      measureSession();
       const request = externalDropRequest(
         document,
         event,
@@ -297,7 +324,16 @@ export function useWorkspaceExternalDrop<TSectionData = WorkspaceJsonValue>({
         void onExternalDrop(request);
       }
     },
-    [cancel, decisionForRequest, document, geometry, geometryIndex, onExternalDrop, registry],
+    [
+      cancel,
+      decisionForRequest,
+      document,
+      geometry,
+      geometryIndex,
+      measureSession,
+      onExternalDrop,
+      registry,
+    ],
   );
 
   const onDragLeave = useCallback(
