@@ -1,9 +1,12 @@
 import {
   applyNodeChanges,
+  Background,
+  BackgroundVariant,
   Panel,
   PanOnScrollMode,
   ReactFlow,
   useReactFlow,
+  useStore,
   ViewportPortal,
   type Node,
   type NodeProps,
@@ -37,6 +40,7 @@ import {
   type WorkspaceCanvasController,
 } from "./workspace-canvas-navigation.js";
 import { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
+import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
 import { WorkspaceViewportLifecycle } from "./workspace-viewport-lifecycle.js";
 
 export const WORKSPACE_NO_PAN_CLASS_NAME = "setta-workspace-internal-no-pan";
@@ -57,6 +61,7 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   document: WorkspaceDocument<TSectionData>;
   emptyState: ReactNode;
   gestureOptions: WorkspaceGestureOptions;
+  gridOptions: ResolvedWorkspaceGridOptions;
   onCanvasControllerChange(controller: WorkspaceCanvasController | null): void;
   onViewportCommit(viewport: WorkspaceViewport): void;
   overlay: ReactNode;
@@ -170,6 +175,41 @@ function panOnScrollMode(mode: WorkspacePanOnScrollMode): PanOnScrollMode {
   return PanOnScrollMode.Free;
 }
 
+function backgroundVariant(pattern: ResolvedWorkspaceGridOptions["pattern"]): BackgroundVariant {
+  if (pattern === "cross") {
+    return BackgroundVariant.Cross;
+  }
+  if (pattern === "lines") {
+    return BackgroundVariant.Lines;
+  }
+  return BackgroundVariant.Dots;
+}
+
+function WorkspaceGridBackground({
+  canvasId,
+  gridOptions,
+  snapGrid,
+}: Readonly<{
+  canvasId: string;
+  gridOptions: ResolvedWorkspaceGridOptions;
+  snapGrid: [number, number];
+}>) {
+  const zoom = useStore((state) => state.transform[2]);
+  return (
+    <div aria-hidden="true" className="setta-workspace__grid">
+      <Background
+        bgColor="var(--setta-workspace-canvas-background)"
+        color="var(--setta-workspace-grid-color)"
+        gap={snapGrid}
+        id={`${canvasId}-grid`}
+        lineWidth={gridOptions.markSize * zoom}
+        size={gridOptions.markSize}
+        variant={backgroundVariant(gridOptions.pattern)}
+      />
+    </div>
+  );
+}
+
 function mutableKeyCode(
   value: WorkspaceGestureOptions["panActivationKey"],
 ): string | string[] | null {
@@ -228,6 +268,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   document,
   emptyState,
   gestureOptions,
+  gridOptions,
   onCanvasControllerChange,
   onViewportCommit,
   overlay,
@@ -254,6 +295,10 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   lifecycleRef.current ??= new WorkspaceViewportLifecycle(document.viewport);
   const lifecycle = lifecycleRef.current;
   const programmaticViewportRef = useRef<WorkspaceViewport | null>(null);
+  const snapGrid = useMemo<[number, number]>(
+    () => [gridOptions.spacing[0], gridOptions.spacing[1]],
+    [gridOptions.spacing],
+  );
 
   useEffect(() => {
     setNodes((current) => synchronizeNodes(current, projectedNodes));
@@ -321,6 +366,10 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       aria-label={`${ariaLabel} canvas`}
       autoPanOnNodeFocus={false}
       className="setta-workspace__canvas"
+      data-workspace-grid-pattern={gridOptions.pattern}
+      data-workspace-grid-snap={gridOptions.snap ? "true" : "false"}
+      data-workspace-grid-spacing={gridOptions.spacing.join(" ")}
+      data-workspace-grid-visible={gridOptions.visible ? "true" : "false"}
       defaultViewport={document.viewport}
       deleteKeyCode={null}
       disableKeyboardA11y
@@ -352,11 +401,20 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       ref={handleCanvasElement}
       selectionKeyCode={null}
       selectionOnDrag={false}
+      snapGrid={snapGrid}
+      snapToGrid={gridOptions.snap}
       zoomActivationKeyCode={mutableKeyCode(gestureOptions.zoomActivationKey)}
       zoomOnDoubleClick={gestureOptions.zoomOnDoubleClick}
       zoomOnPinch={gestureOptions.zoomOnPinch}
       zoomOnScroll={gestureOptions.zoomOnScroll}
     >
+      {gridOptions.visible ? (
+        <WorkspaceGridBackground
+          canvasId={canvasId}
+          gridOptions={gridOptions}
+          snapGrid={snapGrid}
+        />
+      ) : null}
       {overlay ? (
         <ViewportPortal>
           <div

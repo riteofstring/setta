@@ -4,6 +4,8 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
+  type CSSProperties,
   type HTMLAttributes,
   type ReactNode,
   type Ref,
@@ -14,12 +16,15 @@ import {
   resolveWorkspaceCapabilities,
   resolveWorkspaceGestureOptions,
   validateWorkspaceDocument,
+  type WorkspaceAppearance,
+  type WorkspaceAppearanceOptionOverrides,
   type WorkspaceCapabilityOverrides,
   type WorkspaceController,
   type WorkspaceDocument,
   type WorkspaceDocumentChange,
   type WorkspaceGestureOptionOverrides,
   type WorkspaceGestureOptions,
+  type WorkspaceGridOptionOverrides,
   type WorkspaceJsonValue,
 } from "./core.js";
 import {
@@ -29,6 +34,11 @@ import {
 } from "./internal/workspace-canvas-adapter.js";
 import type { WorkspaceCanvasController } from "./internal/workspace-canvas-navigation.js";
 import { createWorkspaceController } from "./internal/workspace-controller.js";
+import {
+  resolveWorkspaceAppearanceOptions,
+  resolveWorkspaceGridOptions,
+  type ResolvedWorkspaceAppearanceOptions,
+} from "./internal/workspace-preferences.js";
 
 export type WorkspaceDocumentChangeHandler<TSectionData = WorkspaceJsonValue> = (
   document: WorkspaceDocument<TSectionData>,
@@ -40,11 +50,13 @@ type SharedWorkspaceProps<TSectionData> = Omit<
   "aria-label" | "children"
 > & {
   ariaLabel?: string;
+  appearanceOptions?: WorkspaceAppearanceOptionOverrides;
   capabilities?: WorkspaceCapabilityOverrides;
   children?: ReactNode;
   controllerRef?: Ref<WorkspaceController<TSectionData>>;
   emptyState?: ReactNode;
   gestureOptions?: WorkspaceGestureOptionOverrides;
+  gridOptions?: WorkspaceGridOptionOverrides;
   readOnly?: boolean;
 };
 
@@ -112,6 +124,53 @@ function assertViewportWithinGestureBounds(
   }
 }
 
+const DARK_APPEARANCE_QUERY = "(prefers-color-scheme: dark)";
+type ResolvedWorkspaceAppearance = Exclude<WorkspaceAppearance, "system">;
+const lightAppearanceSnapshot = (): ResolvedWorkspaceAppearance => "light";
+const emptyAppearanceSubscription = () => () => undefined;
+
+function currentSystemAppearance(): ResolvedWorkspaceAppearance {
+  return window.matchMedia(DARK_APPEARANCE_QUERY).matches ? "dark" : "light";
+}
+
+function subscribeToSystemAppearance(onChange: () => void): () => void {
+  const media = window.matchMedia(DARK_APPEARANCE_QUERY);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+
+function useResolvedWorkspaceAppearance(
+  appearance: WorkspaceAppearance,
+): ResolvedWorkspaceAppearance {
+  const followsSystem = appearance === "system";
+  const systemAppearance = useSyncExternalStore(
+    followsSystem ? subscribeToSystemAppearance : emptyAppearanceSubscription,
+    followsSystem ? currentSystemAppearance : lightAppearanceSnapshot,
+    lightAppearanceSnapshot,
+  );
+  return appearance === "system" ? systemAppearance : appearance;
+}
+
+function workspaceThemeStyle(
+  options: ResolvedWorkspaceAppearanceOptions,
+  appearance: ResolvedWorkspaceAppearance,
+): CSSProperties {
+  const tokens = options[appearance];
+  return {
+    "--setta-workspace-canvas-background": tokens.canvasBackground,
+    "--setta-workspace-focus": tokens.focus,
+    "--setta-workspace-grid-color": tokens.gridColor,
+    "--setta-workspace-invalid": tokens.invalid,
+    "--setta-workspace-minimap-background": tokens.minimapBackground,
+    "--setta-workspace-section-background": tokens.sectionBackground,
+    "--setta-workspace-section-muted-text": tokens.sectionMutedText,
+    "--setta-workspace-section-text": tokens.sectionText,
+    "--setta-workspace-selection": tokens.selection,
+    "--setta-workspace-toolbar-background": tokens.toolbarBackground,
+    colorScheme: appearance,
+  } as CSSProperties;
+}
+
 export type WorkspaceInteractionBoundaryProps = HTMLAttributes<HTMLDivElement> &
   Readonly<{
     preventPan?: boolean;
@@ -148,6 +207,7 @@ export function WorkspaceInteractionBoundary({
 export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspaceProps<TSectionData>) {
   const {
     ariaLabel = "Workspace",
+    appearanceOptions: appearanceOptionOverrides,
     capabilities: capabilityOverrides,
     children,
     className,
@@ -156,13 +216,28 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     document: controlledDocument,
     emptyState = "No sections yet.",
     gestureOptions: gestureOptionOverrides,
+    gridOptions: gridOptionOverrides,
     onDocumentChange,
     readOnly = false,
+    style,
     ...sectionProps
   } = props;
   const gestureOptions = useMemo(
     () => resolveWorkspaceGestureOptions(gestureOptionOverrides),
     [gestureOptionOverrides],
+  );
+  const appearanceOptions = useMemo(
+    () => resolveWorkspaceAppearanceOptions(appearanceOptionOverrides),
+    [appearanceOptionOverrides],
+  );
+  const gridOptions = useMemo(
+    () => resolveWorkspaceGridOptions(gridOptionOverrides),
+    [gridOptionOverrides],
+  );
+  const resolvedAppearance = useResolvedWorkspaceAppearance(appearanceOptions.appearance);
+  const themeStyle = useMemo(
+    () => workspaceThemeStyle(appearanceOptions, resolvedAppearance),
+    [appearanceOptions, resolvedAppearance],
   );
   const mode = resolveMode(
     controlledDocument,
@@ -225,13 +300,17 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       className={resolvedClassName}
       data-read-only={readOnly ? "true" : "false"}
       data-setta-workspace=""
+      data-workspace-appearance={appearanceOptions.appearance}
       data-workspace-mode={mode.type}
+      data-workspace-resolved-appearance={resolvedAppearance}
+      style={{ ...style, ...themeStyle }}
     >
       <WorkspaceCanvasAdapter
         ariaLabel={ariaLabel}
         document={validatedDocument}
         emptyState={resolvedEmptyState}
         gestureOptions={gestureOptions}
+        gridOptions={gridOptions}
         onCanvasControllerChange={handleCanvasControllerChange}
         onViewportCommit={controller.setViewport}
         overlay={children}

@@ -49,5 +49,7 @@ characterization, and completed Phase 0 gate audit are recorded under `docs/evid
 exposing upstream contracts publicly. Phase 1 now includes the serializable document, React
 state/controller boundary, upstream canvas shell, runtime gesture policy, coalesced viewport
 publication, host-content interaction boundaries, production frame measurement, and
-geometry-backed focus, fit, and spatial next/previous navigation. Grid, appearance, and the
-remaining canvas controls continue in adjacent verified slices.
+geometry-backed focus, fit, and spatial next/previous navigation. It also includes independent
+grid visibility and snapping, all three grid patterns, shared two-axis spacing, and scoped
+light/dark/system semantic theme tokens. The toolbar, overlay, minimap, and remaining canvas gates
+continue in adjacent verified slices.

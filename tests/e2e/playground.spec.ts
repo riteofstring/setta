@@ -226,6 +226,104 @@ test("the canvas shell navigates measured geometry without browser scroll", asyn
   await expect(workspace).toContainText("No sections yet.");
 });
 
+test("the canvas grid and scoped appearance remain independent and aligned", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await page.goto("/?canvas-shell");
+
+  const workspace = page.getByRole("region", { name: "Canvas shell workspace", exact: true });
+  const canvas = page.getByRole("application", { name: "Canvas shell workspace canvas" });
+  const hostNote = page.getByRole("textbox", { name: "Host note" });
+  const documentJson = page.getByTestId("canvas-shell-document");
+  const background = workspace.locator(".setta-workspace__grid .react-flow__background");
+  const initialDocument = await documentJson.inputValue();
+  const initialHostRoot = await page.evaluate(() => ({
+    className: document.documentElement.className,
+    style: document.documentElement.getAttribute("style"),
+  }));
+
+  await expect(workspace).toHaveAttribute("data-workspace-appearance", "system");
+  await expect(workspace).toHaveAttribute("data-workspace-resolved-appearance", "light");
+  await expect(canvas).toHaveAttribute("data-workspace-grid-visible", "true");
+  await expect(canvas).toHaveAttribute("data-workspace-grid-snap", "true");
+  await expect(background).toHaveCount(1);
+  await expect(background.locator("xpath=..")).toHaveAttribute("aria-hidden", "true");
+  await expect(background.locator("pattern")).toHaveAttribute("width", "24");
+  await expect(background.locator("pattern")).toHaveAttribute("x", "0");
+  await expect(background.locator("pattern circle")).toHaveCount(1);
+
+  await page.getByRole("checkbox", { name: "Snap to grid" }).uncheck();
+  await expect(canvas).toHaveAttribute("data-workspace-grid-snap", "false");
+  await expect(background).toHaveCount(1);
+  await page.getByRole("checkbox", { name: "Snap to grid" }).check();
+  await page.getByRole("checkbox", { name: "Show grid" }).uncheck();
+  await expect(canvas).toHaveAttribute("data-workspace-grid-visible", "false");
+  await expect(canvas).toHaveAttribute("data-workspace-grid-snap", "true");
+  await expect(background).toHaveCount(0);
+  await page.getByRole("checkbox", { name: "Show grid" }).check();
+  await page.getByRole("combobox", { name: "Grid pattern" }).selectOption("cross");
+  await expect(canvas).toHaveAttribute("data-workspace-grid-pattern", "cross");
+  await expect(background.locator("pattern path")).toHaveCount(1);
+
+  await hostNote.fill("Host state preserved");
+  await page.getByRole("combobox", { name: "Appearance" }).selectOption("dark");
+  await expect(workspace).toHaveAttribute("data-workspace-resolved-appearance", "dark");
+  await expect(hostNote).toHaveValue("Host state preserved");
+  await expect
+    .poll(() => workspace.evaluate((element) => getComputedStyle(element).colorScheme))
+    .toBe("dark");
+
+  await page.getByRole("combobox", { name: "Appearance" }).selectOption("system");
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await expect(workspace).toHaveAttribute("data-workspace-resolved-appearance", "light");
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await expect(workspace).toHaveAttribute("data-workspace-resolved-appearance", "dark");
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await expect(workspace).toHaveAttribute("data-workspace-resolved-appearance", "light");
+
+  await page.getByRole("checkbox", { name: "Use violet grid color" }).check();
+  await expect
+    .poll(() =>
+      workspace.evaluate((element) =>
+        getComputedStyle(element).getPropertyValue("--setta-workspace-grid-color").trim(),
+      ),
+    )
+    .toBe("oklch(0.58 0.12 305)");
+  await page.getByRole("combobox", { name: "Appearance" }).selectOption("dark");
+  await expect
+    .poll(() =>
+      workspace.evaluate((element) =>
+        getComputedStyle(element).getPropertyValue("--setta-workspace-grid-color").trim(),
+      ),
+    )
+    .toBe("oklch(0.68 0.11 305)");
+  await expect(documentJson).toHaveValue(initialDocument);
+  await expect(page.getByRole("status")).toContainText("Committed viewport changes: 0.");
+
+  await page.getByRole("combobox", { name: "Grid pattern" }).selectOption("lines");
+  await expect(canvas).toHaveAttribute("data-workspace-grid-pattern", "lines");
+  await page.getByRole("button", { name: "Set grid probe viewport" }).click();
+  await expect(page.getByRole("status")).toContainText("Grid probe viewport: applied.");
+  const pattern = background.locator("pattern");
+  await expect(pattern).toHaveAttribute("width", "36");
+  await expect(pattern).toHaveAttribute("height", "36");
+  await expect(pattern).toHaveAttribute("x", "-1");
+  await expect(pattern).toHaveAttribute("y", "17");
+  await expect(pattern.locator("[stroke-width]")).toHaveAttribute("stroke-width", "1.5");
+  await expect(workspace).toHaveScreenshot("canvas-grid-dark.png");
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        className: document.documentElement.className,
+        style: document.documentElement.getAttribute("style"),
+      })),
+    )
+    .toEqual(initialHostRoot);
+
+  const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
+  expect(accessibility.violations).toEqual([]);
+});
+
 test("the canvas shell reflows at 320 pixels with reduced motion", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 720 });
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });

@@ -19,11 +19,19 @@ const controller = useRef<WorkspaceController>(null);
     console.log(change.reason);
   }}
   capabilities={{ editStructure: canEditStructure }}
+  appearanceOptions={{ appearance: "system" }}
   gestureOptions={{
     minZoom: 0.5,
     maxZoom: 2,
     panOnScroll: true,
     zoomOnScroll: false,
+  }}
+  gridOptions={{
+    visible: true,
+    snap: true,
+    spacing: [24, 24],
+    pattern: "dots",
+    markSize: 1,
   }}
 />;
 ```
@@ -37,6 +45,18 @@ content remain available.
 scroll direction and speed, and temporary activation keys without exposing XYFlow types. The
 document viewport must be inside the configured bounds so a valid persisted viewport restores
 exactly instead of being silently clamped.
+
+`gridOptions` keeps grid visibility and spatial snapping independent while sharing one two-axis
+spacing in workbench units. Dot, line, and cross backgrounds stay phased with the viewport across
+pan, zoom, and negative coordinates. Snapping can remain enabled while the decorative grid is
+hidden, and showing the grid does not require snapping.
+
+`appearanceOptions` selects scoped `light`, `dark`, or live `system` appearance and accepts partial
+light/dark overrides for the documented semantic tokens. The workbench sets its own `color-scheme`
+and CSS custom properties without changing the host document element, global classes, viewport,
+document, or host-rendered state. Default palette values are gamut-safe OKLCH colors with distinct
+roles for canvas, grid, section surfaces and text, toolbar, minimap, selection, focus, and invalid
+states.
 
 Wrap interactive or scrollable content rendered inside the canvas with
 `WorkspaceInteractionBoundary`. It independently suppresses canvas panning and wheel handling while

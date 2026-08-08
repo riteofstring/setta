@@ -12,7 +12,40 @@ describe("Workspace scaffold", () => {
 
     expect(markup).toContain('aria-label="Planning workspace"');
     expect(markup).toContain('aria-label="Planning workspace canvas"');
+    expect(markup).toContain('data-workspace-grid-visible="true"');
+    expect(markup).toContain('data-workspace-resolved-appearance="light"');
     expect(markup).toContain("Start with a section.");
+  });
+
+  it("keeps grid visibility, snapping, and scoped appearance independently configurable", () => {
+    const markup = renderToStaticMarkup(
+      <Workspace
+        appearanceOptions={{
+          appearance: "dark",
+          dark: { gridColor: "oklch(0.68 0.11 305)" },
+        }}
+        gridOptions={{ pattern: "cross", snap: true, spacing: [30, 18], visible: false }}
+      />,
+    );
+
+    expect(markup).toContain('data-workspace-appearance="dark"');
+    expect(markup).toContain('data-workspace-resolved-appearance="dark"');
+    expect(markup).toContain('data-workspace-grid-pattern="cross"');
+    expect(markup).toContain('data-workspace-grid-snap="true"');
+    expect(markup).toContain('data-workspace-grid-spacing="30 18"');
+    expect(markup).toContain('data-workspace-grid-visible="false"');
+    expect(markup).toContain("--setta-workspace-grid-color:oklch(0.68 0.11 305)");
+    expect(markup).toContain("color-scheme:dark");
+    expect(markup).not.toContain('data-testid="rf__background"');
+  });
+
+  it("fails specifically for invalid grid and appearance policy", () => {
+    expect(() => renderToStaticMarkup(<Workspace gridOptions={{ spacing: [24, 0] }} />)).toThrow(
+      "y spacing must be a positive finite number",
+    );
+    expect(() =>
+      renderToStaticMarkup(<Workspace appearanceOptions={{ dark: { focus: "not-a-color" } }} />),
+    ).toThrow("dark theme token focus must be a valid CSS color");
   });
 
   it("marks controlled and read-only state without applying unsupported ARIA to host content", () => {

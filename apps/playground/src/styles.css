@@ -289,9 +289,21 @@ main {
   inline-size: min(18rem, calc(100vw - 4rem));
   gap: 1rem;
   padding: 1rem;
-  background: #f8faff;
+  color: var(--setta-workspace-section-text);
+  background: var(--setta-workspace-section-background);
   border-radius: 0.75rem;
   box-shadow: 0 0.75rem 2rem rgb(23 32 51 / 10%);
+}
+
+.canvas-shell-host-fixture input,
+.canvas-shell-host-fixture textarea {
+  color: inherit;
+  background: var(--setta-workspace-toolbar-background);
+  border-color: color-mix(
+    in oklch,
+    var(--setta-workspace-section-text) 65%,
+    var(--setta-workspace-toolbar-background)
+  );
 }
 
 .canvas-shell-host-fixture label,
@@ -356,14 +368,6 @@ main {
     color: #b7c4da;
   }
 
-  .setta-workspace {
-    --setta-workspace-canvas: #171e2c;
-    --setta-workspace-foreground: #edf3ff;
-    --setta-workspace-grid: #364158;
-    --setta-workspace-muted: #b7c4da;
-    --setta-workspace-surface: #222b3c;
-  }
-
   .sample-section {
     background: #222b3c;
     box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 24%);
@@ -375,11 +379,8 @@ main {
 
   .state-contract-grid > section,
   .canvas-shell-settings,
-  .canvas-shell-host-fixture,
   .canvas-shell-settings button,
   .canvas-shell-settings select,
-  .canvas-shell-host-fixture input,
-  .canvas-shell-host-fixture textarea,
   .canvas-shell-document textarea,
   .state-contract-grid button,
   .state-contract-grid input,

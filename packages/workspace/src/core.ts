@@ -56,6 +56,40 @@ export const WORKSPACE_DEFAULT_GESTURE_OPTIONS: WorkspaceGestureOptions = Object
   zoomOnScroll: true,
 });
 
+export type WorkspaceGridPattern = "cross" | "dots" | "lines";
+
+export type WorkspaceGridOptions = Readonly<{
+  markSize?: number;
+  pattern?: WorkspaceGridPattern;
+  snap: boolean;
+  spacing: readonly [x: number, y: number];
+  visible: boolean;
+}>;
+
+export type WorkspaceGridOptionOverrides = Partial<WorkspaceGridOptions>;
+export type WorkspaceAppearance = "dark" | "light" | "system";
+
+export type WorkspaceThemeTokens = Readonly<{
+  canvasBackground: string;
+  focus: string;
+  gridColor: string;
+  invalid: string;
+  minimapBackground: string;
+  sectionBackground: string;
+  sectionMutedText: string;
+  sectionText: string;
+  selection: string;
+  toolbarBackground: string;
+}>;
+
+export type WorkspaceAppearanceOptions = Readonly<{
+  appearance: WorkspaceAppearance;
+  dark?: Partial<WorkspaceThemeTokens>;
+  light?: Partial<WorkspaceThemeTokens>;
+}>;
+
+export type WorkspaceAppearanceOptionOverrides = Partial<WorkspaceAppearanceOptions>;
+
 export type SectionOrientation = "horizontal" | "vertical";
 export type SectionOverflow = "grow" | "scroll";
 export type SectionChrome = "compact" | "default" | "none" | "transparent";

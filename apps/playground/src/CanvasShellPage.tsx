@@ -1,7 +1,9 @@
 import {
   createEmptyWorkspaceDocument,
+  type WorkspaceAppearance,
   type WorkspaceController,
   type WorkspaceDocument,
+  type WorkspaceGridPattern,
   type WorkspacePanOnScrollMode,
   type WorkspaceSection,
 } from "@setta/workspace/core";
@@ -51,6 +53,11 @@ export function CanvasShellPage() {
   const controller = useRef<WorkspaceController>(null);
   const [document, setDocument] = useState<WorkspaceDocument>(createEmptyWorkspaceDocument);
   const [changeCount, setChangeCount] = useState(0);
+  const [appearance, setAppearance] = useState<WorkspaceAppearance>("system");
+  const [customGridColor, setCustomGridColor] = useState(false);
+  const [gridPattern, setGridPattern] = useState<WorkspaceGridPattern>("dots");
+  const [gridSnap, setGridSnap] = useState(true);
+  const [gridVisible, setGridVisible] = useState(true);
   const [panOnScroll, setPanOnScroll] = useState(true);
   const [panOnScrollMode, setPanOnScrollMode] = useState<WorkspacePanOnScrollMode>("free");
   const [zoomOnScroll, setZoomOnScroll] = useState(false);
@@ -59,6 +66,11 @@ export function CanvasShellPage() {
   const resetViewport = () => {
     const result = controller.current?.setViewport({ x: 0, y: 0, zoom: 1 });
     setStatus(`Reset viewport: ${result?.status ?? "unavailable"}.`);
+  };
+
+  const probeGridAlignment = () => {
+    const result = controller.current?.setViewport({ x: -37, y: 53, zoom: 1.5 });
+    setStatus(`Grid probe viewport: ${result?.status ?? "unavailable"}.`);
   };
 
   const runNavigation = async (
@@ -86,7 +98,8 @@ export function CanvasShellPage() {
         </p>
         <h1>Workspace canvas shell</h1>
         <p className="lede">
-          A backend-free viewport with runtime gesture policy and isolated host controls.
+          A backend-free viewport with runtime gesture policy, independent grid and snapping, and
+          scoped appearance.
         </p>
       </header>
       <main id="canvas-shell-content" tabIndex={-1}>
@@ -124,6 +137,62 @@ export function CanvasShellPage() {
             </label>
             <button type="button" onClick={resetViewport}>
               Reset viewport
+            </button>
+          </fieldset>
+          <fieldset className="canvas-shell-settings">
+            <legend>Canvas preferences</legend>
+            <label>
+              <input
+                checked={gridVisible}
+                onChange={(event) => setGridVisible(event.currentTarget.checked)}
+                type="checkbox"
+              />
+              Show grid
+            </label>
+            <label>
+              <input
+                checked={gridSnap}
+                onChange={(event) => setGridSnap(event.currentTarget.checked)}
+                type="checkbox"
+              />
+              Snap to grid
+            </label>
+            <label>
+              Grid pattern
+              <select
+                onChange={(event) =>
+                  setGridPattern(event.currentTarget.value as WorkspaceGridPattern)
+                }
+                value={gridPattern}
+              >
+                <option value="dots">Dots</option>
+                <option value="lines">Lines</option>
+                <option value="cross">Crosses</option>
+              </select>
+            </label>
+            <label>
+              Appearance
+              <select
+                onChange={(event) =>
+                  setAppearance(event.currentTarget.value as WorkspaceAppearance)
+                }
+                value={appearance}
+              >
+                <option value="system">System</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
+            <label>
+              <input
+                checked={customGridColor}
+                onChange={(event) => setCustomGridColor(event.currentTarget.checked)}
+                type="checkbox"
+              />
+              Use violet grid color
+            </label>
+            <button type="button" onClick={probeGridAlignment}>
+              Set grid probe viewport
             </button>
           </fieldset>
           <fieldset className="canvas-shell-settings">
@@ -198,6 +267,15 @@ export function CanvasShellPage() {
         </p>
         <Workspace
           ariaLabel="Canvas shell workspace"
+          appearanceOptions={
+            customGridColor
+              ? {
+                  appearance,
+                  dark: { gridColor: "oklch(0.68 0.11 305)" },
+                  light: { gridColor: "oklch(0.58 0.12 305)" },
+                }
+              : { appearance }
+          }
           controllerRef={controller}
           document={document}
           emptyState="No sections yet. Use the gesture controls to explore the canvas."
@@ -210,6 +288,13 @@ export function CanvasShellPage() {
             panOnScrollMode,
             zoomOnDoubleClick: true,
             zoomOnScroll,
+          }}
+          gridOptions={{
+            markSize: 1,
+            pattern: gridPattern,
+            snap: gridSnap,
+            spacing: [24, 24],
+            visible: gridVisible,
           }}
           onDocumentChange={(nextDocument, change) => {
             setDocument(nextDocument);
