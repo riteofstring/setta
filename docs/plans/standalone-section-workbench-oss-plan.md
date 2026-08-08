@@ -1,0 +1,1455 @@
+# Standalone Section Workbench OSS Plan
+
+## Decision
+
+Create one independently installable TypeScript/React package, `@setta/section-workspace`, and one backend-free playground that proves the package works in an unrelated application.
+
+The package has one concrete purpose:
+
+> Add a pannable, zoomable workbench to a React application where users can freely arrange or recursively nest arbitrary sections, sort nested sections vertically or horizontally, and reorder or nest host-defined items inside those sections.
+
+This plan covers only that reusable workbench. It does not commit to Python Canvas, MCP Canvas, Agent Canvas, Data Canvas, Agent Signal Canvas, or any other domain-specific application. A future application may use the package, but no future application shapes the first release contract.
+
+The package is a developer-facing OSS product. The playground is a polished, runnable demonstration and consumer fixture, not a second product or required backend.
+
+## Product thesis
+
+The useful unit is not merely an infinite canvas. Pan, zoom, and draggable cards are widely available.
+
+The differentiated interaction is two levels of direct manipulation:
+
+1. **Macro structure:** arrange and resize top-level sections spatially; recursively nest sections to arbitrary depth; move sections through both sibling-sorting and cross-container free-move interactions; and lock or minimize sections when the layout needs to stabilize.
+2. **Micro structure:** reorder and optionally nest host-defined fields, controls, parameters, or other items inside a section while the workbench is transformed.
+
+The package should make both levels feel like one coherent interaction system:
+
+- Inner controls remain interactive.
+- Section dragging does not steal item dragging.
+- A ready-made but extensible toolbar, searchable creation menu, minimap, marquee selection, and predictable stacking make the blank workbench usable without every consumer rebuilding basic canvas UX.
+- Sorting mode reorders a nested section among its current siblings along the parent section's layout axis.
+- Free-move mode can take a section from any source depth to the top-level canvas or any valid destination section at any depth.
+- Multi-selection and batch movement preserve selection roots, relative order, and top-level spatial offsets without moving a selected descendant twice.
+- Nested sections preserve a stable drop target near parent, child, and insertion boundaries instead of flickering as the pointer crosses them.
+- Every nested section container can lay out its direct children vertically or horizontally without changing their hierarchy or order.
+- Containers can either grow with their children or retain a fixed size and scroll internally.
+- Item dragging remains correct at every supported zoom level.
+- Drop indicators and overlays match the transformed geometry.
+- Pointer, touch, and keyboard interactions produce the same resulting structure.
+- The consuming application decides what sections and items mean.
+
+A compelling first example is a blank workbench containing:
+
+- A simple note section.
+- A simple counter or status section.
+- A container section demonstrating several levels of vertical and horizontal section nesting.
+- A field-list section whose rows can be reordered and nested.
+- A small palette for adding those sections.
+- A built-in viewport toolbar plus a host-injected example action.
+- Controls demonstrating locking, minimizing, content-fit and fixed sizing, container overflow, snap-to-grid, grid customization, per-section accents, compact chrome, and light/dark appearance.
+- Searchable right-click creation, marquee selection, grouping, ungrouping, batch actions, and a minimap.
+- JSON import/export and local persistence implemented by the example.
+
+## Release shape
+
+Publish one package with subpath exports rather than multiple versioned packages:
+
+```text
+@setta/section-workspace
+@setta/section-workspace/core
+@setta/section-workspace/react
+@setta/section-workspace/testing
+```
+
+The package may use internal modules for canvas, drag-and-drop, item trees, history, and testing. Those modules do not become separate packages unless they later become independently useful.
+
+The target release repository is independent from the Setta application repository. If development begins inside this repository for extraction convenience, the package must still:
+
+- Have its own package manifest, build, tests, and example.
+- Build without Setta frontend aliases.
+- Import nothing from `frontend/src/state`, generated Setta types, OpenAPI clients, or application components.
+- Be installable into a consumer fixture that is outside the package source tree.
+- Be moved to an independent repository before its first public release.
+
+## First release scope
+
+### Workbench canvas
+
+The package owns:
+
+- A container-filling spatial canvas for top-level sections.
+- Pan and zoom with configurable minimum, maximum, and initial zoom.
+- Configurable pan-on-drag, pan-on-scroll, pan-on-scroll speed and axis mode, wheel zoom, pinch zoom, double-click zoom, and temporary pan/zoom activation keys.
+- Explicit no-pan and no-wheel boundaries so scrollable or interactive host content does not fight the viewport.
+- An optional background grid with configurable spacing, pattern, mark size, and appearance-aware color.
+- Snap-to-grid for top-level movement and section resizing, independently toggleable from grid visibility.
+- Scoped light, dark, and system appearance support through package-owned semantic theme tokens.
+- Viewport read and update helpers.
+- `focusSection`, `fitSection`, and `fitSections` helpers, plus deterministic next/previous section navigation.
+- Pointer and keyboard selection, modifier-key multi-selection, and marquee selection with configurable partial- or full-containment semantics.
+- A pannable, clickable, toggleable minimap with configurable left or right placement.
+- A ready-made viewport toolbar containing zoom in, zoom out, reset zoom, fit, snap, and minimap controls.
+- Typed toolbar-control and canvas-overlay extension points for host-defined actions without replacing package controls.
+- Section movement at arbitrary supported zoom levels.
+- Recursive section containment with no package-imposed maximum depth.
+- Vertical and horizontal ordered layouts for the direct children of a nested section container.
+- Sorting mode for reordering a nested section among its current siblings.
+- Free-move mode for moving a section from any source depth to the top-level canvas or any valid nested destination depth.
+- Orientation-aware insertion previews, collision resolution, and keyboard movement.
+- Stable, zoom-aware drop targeting across adjacent siblings and parent-child boundaries.
+- Section resizing at any depth with kind-defined axes and minimum and maximum dimensions.
+- Per-section position-and-size locking.
+- Per-section minimizing with exact restoration for fixed dimensions and restoration of content-fit mode for content dimensions.
+- Single and batch section deletion and lock changes.
+- Section creation through a public action used by the example palette and context menu.
+- Deterministic smart placement that prefers visible non-overlapping workbench space when creation does not specify a position.
+- Searchable right-click creation at the pointer's workbench position.
+- A generic external-drop callback that receives browser transfer data, workbench coordinates, and the candidate destination without assigning domain meaning to the drop.
+- Empty-container drop affordances.
+- Predictable top-level stacking: the active or dragged section's top-level ancestor renders above its peers without rewriting persistent order merely because selection changed.
+- Stable section IDs.
+- Controlled and uncontrolled React usage.
+- Host-controlled edit capabilities for layout, structure, and package-owned presentation, with a `readOnly` convenience mode.
+- Structural undo and redo for committed section changes.
+- A minimal, versioned, serializable workbench document.
+
+Top-level sections use free spatial positions. Nested children use their immediate parent's ordered vertical or horizontal layout. The first release does not add absolute positioning inside nested containers.
+
+The two section drag modes are interaction modes, not two serialized layout models:
+
+- **Sorting mode** keeps the current parent and changes only sibling order. It is available for nested sections; top-level sections remain spatial rather than sortable.
+- **Free-move mode** may change parent and depth. A drop on the canvas produces a top-level position; a drop inside a section produces an orientation-aware child insertion index. It must support canvas-to-nested, nested-to-canvas, and nested-to-nested moves regardless of source or destination depth.
+
+The initial public release supports dragging one section or a selected sibling block. Batch movement operates on normalized selection roots: when a selected section contains another selected section, only the ancestor participates. A dragged block must share one source parent in the first release. Top-level blocks preserve spatial offsets; nested blocks preserve logical sibling order. Mixed-parent batch dragging is rejected specifically rather than producing an ambiguous partial move.
+
+### Workbench modes, controls, and extension surfaces
+
+Backend or host authorization remains authoritative, but the workbench must also prevent locally disallowed interactions. A backend rejection is not a substitute for disabling an unavailable gesture before it starts.
+
+The React API should remain close to:
+
+```ts
+type WorkspaceCapabilities = {
+  editLayout: boolean;
+  editStructure: boolean;
+  editPresentation: boolean;
+};
+
+type WorkspaceGestureOptions = {
+  minZoom: number;
+  maxZoom: number;
+  initialZoom: number;
+  panOnDrag: boolean | number[];
+  panOnScroll: boolean;
+  panOnScrollSpeed: number;
+  panOnScrollMode: "free" | "horizontal" | "vertical";
+  zoomOnScroll: boolean;
+  zoomOnPinch: boolean;
+  zoomOnDoubleClick: boolean;
+};
+
+type WorkspaceToolbarControl = {
+  id: string;
+  placement: "project" | "viewport" | "utility";
+  label: string;
+  icon: React.ReactNode;
+  onPress(): void;
+  pressed?: boolean;
+  disabled?: boolean;
+};
+```
+
+Required behavior:
+
+- `readOnly` is a convenience for disabling layout, structure, and package-owned presentation edits; it is not a security boundary.
+- `editLayout: false` prevents movement, reordering, reparenting, resizing, orientation changes, stacking commands, and direct lock changes while preserving navigation and host-content interaction.
+- `editStructure: false` prevents creation, deletion, grouping, ungrouping, and other membership changes.
+- `editPresentation: false` prevents title, minimize, chrome, accent, and tag changes while leaving transient selection, pan, zoom, focus, and fit behavior available.
+- The package cannot make arbitrary host-rendered content read-only. It passes the resolved workbench read-only state to the renderer so the host can enforce its own content policy.
+- Capability state is host/session policy and is not serialized into `WorkspaceDocument`.
+- Package controls and host controls share consistent focus, tooltip, pressed, disabled, and coarse-pointer behavior.
+- Host controls use typed descriptors for the common button case; documented overlay slots remain available for richer panels.
+- Toolbar and overlay extensions receive the public controller rather than importing package state.
+- All gesture options are scoped to one workbench instance and may change without remounting it.
+- Scroll and pan suppression markers work inside arbitrary host renderers without requiring Setta CSS classes.
+- The public controller exposes creation, selection, grouping, lock, focus, fit, viewport, and persistent stacking commands. It does not expose internal stores.
+
+### Section registry and frame
+
+A consuming application registers its own section kinds.
+
+The package owns:
+
+- The section frame.
+- A drag handle.
+- Recursive rendering of child section containers.
+- The ordered child-section region and its vertical or horizontal layout.
+- Selection, focus, disabled, and resizing presentation.
+- A package-owned title, optional icon slot, and inline title editor with validation, cancel, commit, and error presentation.
+- Default, compact, transparent, and headerless chrome variants with an accessible drag/selection affordance even when the normal header is absent.
+- Optional per-section accent and tag-color presentation using scoped semantic tokens rather than arbitrary package-global CSS.
+- A content boundary that does not impose a domain layout.
+- Error containment for a failing section renderer.
+- Default-size metadata.
+- Default size-mode, chrome, accent, and title metadata.
+- Default child-orientation metadata for section kinds that accept children.
+- Searchable creation metadata such as label, group, keywords, and icon.
+- A public action for changing a section's child orientation without changing its child order.
+- Hooks or callbacks for host-provided section actions.
+
+The host owns:
+
+- Section meaning.
+- Section payloads.
+- Section-specific rendering.
+- Domain validation.
+- Whether a section kind may contain child sections.
+- Whether a proposed section parent-child relationship is valid.
+- Section-specific menus and commands.
+- Optional asynchronous title validation or persistence rejection beyond package-owned format checks.
+- Any network, file, execution, or persistence behavior.
+
+The initial API should remain close to:
+
+```ts
+type SectionDefinition<TData> = {
+  kind: string;
+  displayName: string;
+  defaultTitle?: string;
+  defaultSize: {
+    width: number;
+    height: number;
+  };
+  defaultSizeMode?: {
+    width: "fixed" | "content";
+    height: "fixed" | "content";
+  };
+  contentSizing?: {
+    width: boolean;
+    height: boolean;
+  };
+  resize?: {
+    axes: "both" | "horizontal" | "vertical" | "none";
+    minSize?: Partial<{ width: number; height: number }>;
+    maxSize?: Partial<{ width: number; height: number }>;
+    preserveAspectRatio?: boolean;
+  };
+  minimizable?: boolean;
+  canContainSections?: boolean;
+  defaultChildOrientation?: "vertical" | "horizontal";
+  defaultChildOverflow?: "grow" | "scroll";
+  chrome?: "default" | "compact" | "transparent" | "none";
+  creation?: {
+    group?: string;
+    keywords?: string[];
+    icon?: React.ReactNode;
+  };
+  render: React.ComponentType<SectionRenderProps<TData>>;
+};
+
+type SectionRenderProps<TData> = {
+  sectionId: string;
+  data: TData;
+  appearance: "light" | "dark";
+  readOnly: boolean;
+  updateData(nextData: TData): void;
+};
+```
+
+The exact names may change during implementation, but the boundary must remain host-rendered and backend-neutral. Theme variables inherit into the host renderer, and the resolved light or dark appearance is also passed explicitly so consumers can theme custom content without reading package-internal state. Proposed defaults are resize on both axes, content sizing permitted on both axes but fixed initially, minimizable, default chrome, not a section container, and vertical child orientation with growing overflow when containment is enabled.
+
+Title behavior is package-owned because the frame renders it. A controlled consumer may validate or persist a proposed title asynchronously, but the editor owns keyboard behavior, Escape cancellation, focus restoration, pending state, and specific rejection presentation. A title change is one committed document change. The searchable creation UI is generated from registry metadata; consumers may hide kinds or provide additional creation items without replacing its keyboard and filtering behavior.
+
+Chrome variants change presentation, not structural semantics. A headerless or transparent section remains selectable, keyboard reachable, draggable when unlocked, and capable of exposing its actions through selected-state chrome or an accessible floating handle. Accent and tag colors never become the only indication of selection, lock, error, or drop validity.
+
+The package-owned frame renders the recursive child-section region adjacent to host-rendered content. A host may style documented slots, but it cannot replace the ordered container or its drag geometry with unrelated markup. This keeps collision detection, accessibility, and orientation behavior consistent at every depth.
+
+Changing orientation preserves the same logical child order. Vertical layout follows the block axis. Horizontal layout follows the logical inline axis, so leading and trailing behavior remains correct in right-to-left documents as well as left-to-right documents.
+
+### Section locking, minimizing, and resizing
+
+Locking and minimizing are generic section-frame capabilities, not host-domain behavior.
+
+Position-and-size locking has a deliberately narrow meaning:
+
+- A locked section cannot be moved on the canvas, reordered, reparented, or resized by pointer, touch, or keyboard.
+- Locking does not disable the section's host-rendered controls or freeze its data.
+- Locking is not inherited by descendants.
+- A locked container may still accept or rearrange unlocked child sections unless host policy separately rejects that structural change.
+- Ancestor layout changes may still move a locked nested section visually; the lock prevents direct edits to that section's own placement and size.
+- Lock state has an icon, accessible label, and persistent non-color indicator. Color alone must not communicate the state.
+
+Minimizing has similarly explicit behavior:
+
+- A minimized section renders compact frame chrome and omits its host-rendered body.
+- Its serialized expanded size modes and fallback values are retained. Fixed dimensions restore exactly; content dimensions resume fitting and remeasure when expanded.
+- Its nested child-section region remains visible and structurally usable; minimizing the complete subtree is a different capability.
+- A minimized section remains selectable, movable when unlocked, and available as a valid container.
+- The host renderer is unmounted while minimized, so durable host state belongs in the section payload rather than component-local state.
+- The minimize control exposes expanded/collapsed state semantically and restores focus predictably.
+- A section kind with `minimizable: false` exposes no minimize control and rejects a minimize command specifically.
+
+Resizing requirements:
+
+- Resize handles operate on logical inline-end, block-end, and the adjoining corner so they mirror correctly in right-to-left layouts.
+- Section definitions may constrain resize axes, minimum size, maximum size, and aspect-ratio preservation.
+- Resizing works for top-level and nested sections at every supported zoom level.
+- A nested resize reflows only the affected container branch and preserves sibling hierarchy and order.
+- With snapping enabled, committed sizes resolve to the configured workbench-unit grid while still respecting minimum, maximum, and aspect-ratio constraints.
+- Pointer movement uses transient size state; one completed resize creates one document change and one history entry.
+- Locked or minimized sections expose no active resize handles.
+- Keyboard resizing uses documented increments and the same constraints and snapping behavior as pointer resizing.
+
+Content sizing and container overflow are separate, explicit capabilities:
+
+- Width and height each have a `fixed` or `content` size mode.
+- A fixed dimension uses its serialized numeric value. A content dimension follows measured package chrome, host content, and participating child layout while respecting the section definition's minimum and maximum constraints.
+- Starting a manual resize on a content-sized dimension captures the measured dimension and switches that axis to fixed sizing before applying pointer movement.
+- Double-clicking or invoking the keyboard command on a resize handle returns the affected axis to content sizing when the section definition permits it.
+- A container in `grow` overflow mode allows its child region to participate in content measurement.
+- A container in `scroll` overflow mode retains a bounded section size and scrolls its child region internally. Wheel interaction inside that region does not pan or zoom the outer canvas while scrolling remains possible.
+- Switching from grow to scroll captures stable measured dimensions for any axis that must become fixed, preventing a visual jump.
+- Switching from scroll to grow restores content participation without changing containment, orientation, or child order.
+- Content measurement uses `ResizeObserver` or an equivalent bounded observer strategy, avoids measure-update loops, and never writes canonical document state on every subpixel fluctuation.
+- Fixed dimensions restore exactly after minimization. Content-sized dimensions resume content fitting and remeasure after expansion using their stored finite fallback values until measurement completes.
+- Size mode and container overflow changes are explicit, undoable commands and create one history entry each.
+
+### Grid, snapping, and appearance
+
+Grid visibility, spatial snapping, and visual appearance are independent host-level preferences. They are not serialized into `WorkspaceDocument` by default.
+
+The public options should remain close to:
+
+```ts
+type WorkspaceAppearance = "light" | "dark" | "system";
+
+type WorkspaceGridOptions = {
+  visible: boolean;
+  snap: boolean;
+  spacing: [x: number, y: number];
+  pattern?: "dots" | "lines" | "cross";
+  markSize?: number;
+};
+
+type WorkspaceThemeTokens = {
+  canvasBackground: string;
+  gridColor: string;
+  sectionBackground: string;
+  sectionText: string;
+  sectionMutedText: string;
+  toolbarBackground: string;
+  minimapBackground: string;
+  selection: string;
+  focus: string;
+  invalid: string;
+};
+
+type WorkspaceAppearanceOptions = {
+  appearance: WorkspaceAppearance;
+  light?: Partial<WorkspaceThemeTokens>;
+  dark?: Partial<WorkspaceThemeTokens>;
+};
+```
+
+Required behavior:
+
+- Grid visibility does not implicitly enable snapping, and snapping works when the visual grid is hidden.
+- Grid spacing is expressed in workbench units. Its screen rendering and snap calculations remain aligned at every zoom and pan offset, including negative canvas coordinates.
+- Top-level section movement and manual section resizing snap to the grid. Nested sibling placement remains ordered by its parent rather than spatially snapped.
+- The grid pattern and grid color can be customized independently of the canvas background.
+- Grid color is a decorative semantic token and is not reused for focus, selection, valid-drop, or invalid-drop meaning.
+- Light and dark themes have separate semantic token values; dark appearance is not a mechanical inversion of light appearance.
+- New default palette values use consistently formatted OKLCH, stay in the supported browser gamut, and are checked in both appearances. Consumer overrides may use any documented valid CSS color.
+- Default foreground/background pairs target APCA `|Lc| >= 75` for body text and `|Lc| >= 60` for non-body text, with WCAG 2 AA checks reported as a compatibility reference. Focus and component boundaries maintain at least `3:1` contrast against adjacent colors.
+- The package scopes theme variables to the workbench root and never mutates the consuming application's `<html>` element or global color-mode classes.
+- The workbench root declares the resolved CSS `color-scheme` so package-owned native controls match the selected appearance.
+- `system` follows `prefers-color-scheme`; an explicit `light` or `dark` choice wins over system preference.
+- Changing appearance updates package chrome, grid, drag previews, focus, selection, and invalid states without changing the document, viewport, selection, or host-rendered data.
+- A section accent derives a documented local set of chrome, text, muted-text, focus, and selected-state tokens with contrast checked in both light and dark appearances. A tag color is a smaller categorical marker and does not recolor the complete frame.
+- Accent and tag colors are optional serializable section presentation, while the global palette and color-picker choices are host preferences.
+- Accent colors have one decorative/category role and are never reused as link, success, warning, invalid, selection, or focus colors merely because the value matches.
+- The default color editor offers reset and a small accessible palette; consumers may replace the palette without replacing package contrast and non-color state indicators.
+- Hosts can persist grid, snapping, and appearance preferences separately. The playground demonstrates that persistence without making a storage mechanism part of the package.
+
+### Selection, stacking, grouping, and navigation
+
+Selection is a package-owned interaction model rather than a host reconstruction from click callbacks.
+
+Required behavior:
+
+- Clicking selects one section; the documented modifier toggles membership without discarding the existing selection.
+- Marquee selection may use partial intersection or full containment according to a workbench option and works at every supported zoom and pan offset.
+- Marquee selection considers visible section frames at every depth. When both an ancestor and descendant are selected, structural and movement commands operate on normalized selection roots.
+- The selection outline and hit area encompass the selected roots, support pointer movement as a unit, and support keyboard movement using the same grid and lock rules.
+- A ready-made selection context menu exposes the valid group, ungroup, lock/unlock, delete, and persistent stacking actions for the current normalized roots; unavailable mixed-parent actions explain why they are disabled.
+- A selected sibling block preserves source order. A selected top-level block preserves relative workbench offsets.
+- Locked selections reject batch movement specifically. Batch lock and unlock update only sections whose state must change.
+- Delete removes every selected root subtree once. Undo restores the complete set and selection predictably.
+- Group creates one new container at the selected siblings' shared parent, moves the selected roots into it in their existing order, and selects the new group.
+- The host registers a group factory that supplies the new container kind, ID, title, and initial payload. The package owns placement and containment but never invents domain payload data; Group is unavailable with a specific explanation when no valid factory is registered.
+- Top-level grouping places the group at the selected bounds and translates child placement into the group's ordered layout without losing canonical section identity.
+- The first release requires one shared parent for grouping. Mixed-parent grouping is disabled with a specific explanation rather than guessing a least-common-ancestor transformation.
+- Ungroup promotes a group's direct children into the group's parent at the group's index, preserving order. At the top level it resolves non-overlapping workbench positions from the group's measured bounds before deleting the empty group frame.
+- The active or dragged section's top-level ancestor receives a transient render lift above the persistent root stacking order. Selection alone does not create a document change or history entry.
+- Public `bringToFront`, `sendToBack`, `bringForward`, and `sendBackward` commands map the selection to distinct top-level ancestors, change persistent root order explicitly, and are undoable.
+- `focusSection` selects and pans a section into view without unnecessarily changing zoom. `fitSection` and `fitSections` adjust zoom to show the requested measured bounds within documented padding.
+- Next and previous navigation traverse roots by workbench `y`, then `x`, persistent stack order, and stable ID, with descendants following their canonical sibling order; navigation does not depend on mount timing.
+- A hierarchical outline navigator is a planned optional React component after the first release. The controller and traversal helpers required to build it are first-release API.
+
+### Smart creation and external drops
+
+Creation without an explicit position uses a pure TypeScript placement helper owned by the standalone package:
+
+- It receives the current root rectangles, viewport bounds, new section default or measured size, padding, and optional grid.
+- It first searches visible non-overlapping workbench space, then deterministic space adjacent to existing roots.
+- It returns workbench coordinates and an optional pan target without mutating the document.
+- Explicit pointer or host-provided positions always win over smart placement.
+- Creation selects and transiently raises the new section, then restores focus according to the creation source.
+- The searchable context menu uses the pointer's workbench coordinates and registry metadata. Keyboard invocation uses the last meaningful canvas location or viewport center.
+- The placement result is submitted through the same controlled document path as any other creation. A backend may validate or persist it, but the package does not require a backend to recompute it.
+
+External drop is an extension boundary, not a built-in file importer:
+
+- The package recognizes a browser drag entering the canvas, resolves workbench coordinates and a candidate parent, and exposes valid/invalid feedback.
+- On drop it calls the host with `DataTransfer`, workbench position, candidate parent and insertion index, and the originating browser event metadata required to distinguish files or application-defined MIME data.
+- The host decides whether to create a section, reject the drop, or perform asynchronous import work.
+- Native file type detection, upload, filesystem access, and file-to-section mapping remain host responsibilities.
+- External drop never silently becomes section DnD or item-tree DnD, and scrollable content can opt out of receiving it.
+
+### Recursive section movement
+
+Section movement needs a pure planning boundary comparable to the item-tree boundary. The planner receives canonical containment, measured geometry, zoom, active drag mode, and host policy; it returns one deterministic proposed move without mutating the document.
+
+The public or testable shape should remain close to:
+
+```ts
+type SectionMovePlan = {
+  sectionIds: string[];
+  mode: "sort" | "free";
+  sourceParentId: string | null;
+  destinationParentId: string | null;
+  destinationIndex: number;
+  topLevelPositions: Record<string, { x: number; y: number }> | null;
+};
+
+type SectionMoveDecision =
+  | { allowed: true }
+  | { allowed: false; reason: string };
+```
+
+The workbench accepts an optional host callback that evaluates a `SectionMovePlan` against the current document and returns a `SectionMoveDecision`. Structural checks such as cycle prevention remain package-owned; the callback is for host-specific relationships. Its rejection reason is available to visual and assistive feedback.
+
+Required behavior:
+
+- `sectionIds` contains one section or normalized selection roots with one shared source parent. Nested blocks follow canonical sibling order; top-level blocks use deterministic `y`, `x`, persistent stack order, and stable-ID order.
+- Sorting mode changes only `destinationIndex` under the existing parent and moves a selected block atomically.
+- Free-move mode accepts any valid source and destination depth, including an empty destination container.
+- A free move to the canvas resolves one or more positions in workbench coordinates, not screen coordinates, and preserves a top-level block's relative offsets.
+- A free move into an ordered container inserts the selected block in source order at one destination index.
+- Moving between coordinate spaces preserves the section's visible position until the destination layout takes over.
+- Moving any selected root into itself or one of its descendants is rejected before preview and commit.
+- Mixed-parent batch moves are rejected before a drag starts in the first release.
+- Host policy can reject a destination without changing canonical state.
+- The previewed parent and index exactly match the committed move.
+- Reparenting changes one canonical child list relationship; a parent lookup index is derived rather than serialized as a second source of truth.
+
+Target resolution must preserve the useful stability of Setta's current section DnD rather than replacing it with naive pointer intersection:
+
+- Collision candidates are ranked consistently while overlap is ambiguous.
+- The previous valid target remains favored within a documented tolerance.
+- Crossing a sibling midpoint changes the proposed insertion only after the orientation-aware threshold is crossed.
+- Entering or leaving a nested parent uses separate trigger-distance behavior so the preview does not oscillate between a parent, its child, and a neighboring insertion slot.
+- Thresholds are evaluated in the correct coordinate space and scale with workbench zoom.
+- Leaving all valid targets clears stale parent and insertion state.
+- Invalid, self, and descendant targets remain visibly distinct from valid targets, and attempting to drag a locked active section produces specific feedback without entering a drag.
+
+The existing Setta implementation is the behavioral reference for this extraction, including its cached over-target state, midpoint tracking, collision ranking, trigger-distance conditions, orientation-specific sorting, and zoom scaling. Phase 0 must characterize those behaviors with focused tests before algorithms are adapted. Exact constants are implementation details to validate through those tests and interaction profiling, not values to copy into the public API.
+
+### Sortable item trees inside sections
+
+The reusable public concept is a sortable item tree, not a Python parameter model.
+
+Potential host meanings include:
+
+- Form fields.
+- Function arguments.
+- Tool inputs.
+- Configuration rows.
+- Inspector properties.
+- Dashboard controls.
+- Workflow-node inputs.
+- Arbitrary nested list items.
+
+The package owns:
+
+- Flat item reordering.
+- Nested item reordering.
+- Moving one item or a selected sibling block into or out of a parent item.
+- Modifier-key item selection, normalized selection roots, and multi-item drag overlays and placeholders.
+- Cycle prevention.
+- Insertion-index planning.
+- Drag placeholders and overlays.
+- Zoom-aware geometry.
+- Scoped collision detection.
+- Explicit drag handles.
+- Keyboard reorder, indent, and outdent interactions.
+- Focus restoration after a move.
+- Host rejection of an invalid move.
+- A pure helper for applying an accepted move to a generic item tree.
+
+The host owns:
+
+- Item values and schemas.
+- Item renderers.
+- Whether an item may contain children.
+- Whether a proposed parent-child relationship is valid.
+- Applying and persisting accepted moves.
+- Domain names such as `parameter`, `pinned`, `required`, or `callable`.
+- Domain behavior caused by a move.
+
+The public shape should remain close to:
+
+```ts
+type SortableItemTree = {
+  rootId: string;
+  itemIds: string[];
+  childrenByParent: Record<string, string[]>;
+};
+
+type ItemMovePlan = {
+  itemIds: string[];
+  sourceParentId: string;
+  destinationParentId: string;
+  destinationIndex: number;
+};
+
+type SortableItemTreeProps = {
+  tree: SortableItemTree;
+  selectedItemIds: string[];
+  onSelectedItemIdsChange(ids: string[]): void;
+  renderItem: (itemId: string) => React.ReactNode;
+  canContainChildren?: (itemId: string) => boolean;
+  canMove?: (plan: ItemMovePlan) => boolean;
+  onMove: (plan: ItemMovePlan) => void;
+};
+```
+
+Required item-tree invariants:
+
+- `rootId` is a non-rendered root and is not included in `itemIds`.
+- Item IDs are unique and non-empty.
+- Every item appears exactly once as a child of the root or another item.
+- Every parent key is the root or a known item.
+- Every child is a known item.
+- The tree is acyclic and every item is reachable from the root.
+- A destination index is resolved against the destination's children after removing every moving item in the selected sibling block.
+- Move plans contain normalized selected roots in stable source order.
+- Multi-item dragging initially requires one shared source parent. A mixed-parent selection remains selectable for host actions, but starting a batch drag falls back to the active item with specific feedback.
+- Dragging an unselected item selects only that item. Dragging a selected item moves the normalized selected sibling block.
+- Keyboard move, indent, and outdent operate on the same selection roots and commit atomically.
+
+The first implementation supports one item tree per section and one dragged item or selected sibling block. Multiple named lists, filtered-list reconciliation, mixed-parent batch dragging, and cross-section item moves are deferred.
+
+### Interaction arbitration
+
+Outer section dragging and inner item dragging must be designed together.
+
+Requirements:
+
+- A section or selected sibling block moves only from a selected section drag handle or the documented selection handle.
+- An item or selected sibling block moves only from an item drag handle.
+- Sorting mode and free-move mode are mutually exclusive and have visibly different active-state and drop-preview treatment.
+- The package exposes an accessible way to select the active section drag mode; the host may also bind documented shortcuts.
+- Sorting mode cannot silently turn into a cross-parent move.
+- Free-move mode may traverse nested droppable regions without nested event providers stealing or canceling the active drag.
+- Inputs, buttons, text selection, and nested interactive content do not initiate either drag.
+- Drag scopes distinguish `section` and `item` collisions.
+- Starting an item drag cannot select or move the containing section unexpectedly.
+- Starting a marquee, batch section drag, or multi-item drag cannot leak selection changes into another scope.
+- Panning cannot begin from an active section or item drag handle.
+- Canceling either drag restores the prior structure and focus.
+- A drag commits one structural change at drag end rather than writing every pointer movement to canonical state.
+- Transient overlays and placeholders are not serialized.
+
+A single workbench-level interaction coordinator is preferred. Nested providers are acceptable only if tests prove that pointer, touch, keyboard, cancellation, and transformed geometry remain correct.
+
+## Public workbench document
+
+Keep the first document focused and backend-neutral despite the richer workbench UI:
+
+```ts
+type SectionOrientation = "vertical" | "horizontal";
+type SectionChrome = "default" | "compact" | "transparent" | "none";
+type SectionDimension = {
+  mode: "fixed" | "content";
+  value: number;
+};
+
+type WorkspaceDocument<TSectionData = unknown> = {
+  schemaVersion: 1;
+  viewport: {
+    x: number;
+    y: number;
+    zoom: number;
+  };
+  rootSections: Array<{
+    sectionId: string;
+    position: {
+      x: number;
+      y: number;
+    };
+  }>;
+  sections: Record<
+    string,
+    {
+      id: string;
+      kind: string;
+      title: string;
+      positionAndSizeLocked: boolean;
+      isMinimized: boolean;
+      size: {
+        width: SectionDimension;
+        height: SectionDimension;
+      };
+      presentation: {
+        chrome: SectionChrome;
+        accentColor: string | null;
+        tagColor: string | null;
+      };
+      data: TSectionData;
+      childLayout: {
+        orientation: SectionOrientation;
+        overflow: "grow" | "scroll";
+        sectionIds: string[];
+      } | null;
+    }
+  >;
+};
+```
+
+Required invariants:
+
+- `schemaVersion` is explicit.
+- Section IDs are unique, stable, and non-empty.
+- Every root and child entry references a known section exactly once.
+- Every section appears exactly once, either in `rootSections` or in one section's `childLayout.sectionIds`.
+- Containment is acyclic, and every section is reachable from `rootSections`.
+- A section may have descendants to arbitrary depth; validation does not impose a numeric depth limit.
+- The order of `rootSections` defines top-level stacking order, and each nested `sectionIds` array defines sibling layout order.
+- Only root entries have free spatial positions. Nested placement comes from the immediate parent's ordered layout.
+- Root positions and all dimension fallback values are finite numbers.
+- Dimension fallback values are positive, and every size mode is supported by the registered section definition.
+- A content dimension's numeric value is a stable fallback and last fixed measurement, not a promise to serialize every live `ResizeObserver` result.
+- Lock and minimized states are explicit booleans rather than inferred from presentation.
+- A minimized section retains the same serialized expanded size modes and values.
+- Titles are non-empty after package normalization and remain independent of host payload shape.
+- Chrome, accent, and tag presentation are explicit package-owned fields; valid CSS colors are parsed specifically rather than silently ignored.
+- A non-null `childLayout` has a supported orientation and overflow mode even when it has no children.
+- Scroll overflow has a bounded measured region and cannot resolve to an unbounded content-sized main axis at runtime.
+- Registered section containment policy accepts every persisted parent-child relationship.
+- The viewport zoom is finite and within documented bounds.
+- Unknown section kinds produce a clear render error or a host-provided unknown-kind renderer.
+- Parsing and validation fail specifically; malformed documents do not silently fall back to an empty workbench.
+
+Containment has one serialized source of truth: `rootSections` plus each section's ordered child list. The runtime may derive and incrementally maintain a parent lookup map, but it must not serialize a parallel `parentId` map that can drift from those lists.
+
+Do not reserve speculative fields for edges, variants, references, revisions, approvals, or future applications. Add fields only when an implemented generic capability owns them.
+
+The package does not define a complete application project format. A consuming application may embed `WorkspaceDocument` in its own document.
+
+## State and change model
+
+### Controlled and uncontrolled usage
+
+The React surface supports:
+
+- Controlled use through `document` and `onDocumentChange`.
+- Uncontrolled use through `defaultDocument`.
+- An in-memory host used by the playground and tests.
+
+Controlled and uncontrolled props must be mutually exclusive and validated clearly.
+
+### Internal commands
+
+Use a small internal command reducer so UI gestures, keyboard actions, and tests exercise the same production behavior.
+
+Initial internal commands are limited to:
+
+- Create a section at the root or in a valid parent, using explicit or smart placement.
+- Rename a section.
+- Set section chrome, accent, or tag presentation.
+- Delete one or more normalized section subtrees.
+- Group selected siblings and ungroup a container.
+- Apply an accepted section sort or free-move plan.
+- Resize a section or switch an axis between fixed and content sizing.
+- Set a container's grow or scroll overflow mode.
+- Set one or more sections' position-and-size lock.
+- Set a section's minimized state.
+- Set a section's child orientation.
+- Change persistent root stacking order explicitly.
+- Select sections.
+- Set viewport.
+
+Deleting a section removes its complete descendant subtree as one explicit, undoable structural command. Batch deletion normalizes selected roots first. The package must not silently promote descendants or leave unreachable records. Group and ungroup use the same containment invariants and never serialize a temporary duplicate parent relationship.
+
+These commands are implementation details in the first release. Do not publish the broad revision-checked operation, transaction, dry-run, inverse-operation, approval-summary, or MCP-ready schema from the earlier plan.
+
+The public change callback may include a compact reason such as `section-move` or `section-resize` for diagnostics, but it must not be presented as a stable serialized automation protocol.
+
+### History
+
+Built-in history covers committed changes to `WorkspaceDocument`:
+
+- One pointer drag creates one history entry.
+- One section or sibling-block reparent, sibling reorder, resize, size-mode change, overflow-mode change, lock change, minimize change, orientation change, title change, presentation change, grouping, ungrouping, persistent stacking command, or batch subtree deletion restores exactly on undo and redo.
+- Transient pointer movement does not create history entries.
+- Viewport movement is not undoable by default.
+- Selection changes are not undoable by default.
+- Transient active-section stacking is not undoable or serialized; explicit stacking commands are.
+- Live content measurements are transient. Switching size modes captures at most one committed measurement and history entry.
+- Grid visibility, snapping, and appearance changes are host preferences and are not part of document history.
+- Undo and redo restore document structure deterministically.
+
+Item-tree data remains host-owned. The package provides multi-item-aware `applyItemMove` and move-planning helpers, but the host decides whether item moves participate in the host's history. The playground should demonstrate one coherent history that includes its item moves without making that integration a universal package contract.
+
+## Persistence boundary
+
+The package owns no persistence location.
+
+It does not directly use:
+
+- Local storage.
+- IndexedDB.
+- Files.
+- A database.
+- HTTP.
+- WebSockets.
+- A Setta backend.
+
+The playground owns:
+
+- Local persistence.
+- Separate persistence for its grid visibility, snapping, and appearance preferences.
+- Reset-to-example behavior.
+- JSON import.
+- JSON export.
+- A visible schema-version error.
+- Recovery from invalid user-provided JSON without losing the last valid in-memory document.
+
+The consumer controls when changes are persisted and how failures are presented.
+
+## TypeScript ownership decision
+
+The standalone and offline requirements are the concrete platform reason for TypeScript ownership.
+
+The extracted package is authoritative for:
+
+- Its own `WorkspaceDocument`.
+- Canvas coordinate conversion.
+- Viewport gesture arbitration, zoom bounds, and host-content pan/wheel suppression.
+- Grid rendering and movement/resize snap calculations.
+- Minimap projection and navigation.
+- Smart section placement from document geometry and viewport bounds.
+- Section selection, marquee geometry, selection-root normalization, grouping, ungrouping, batch commands, and transient stacking behavior.
+- Recursive section containment and parent-index derivation.
+- Section sort and free-move planning.
+- Orientation-aware collision, insertion, and target-stability behavior.
+- Fixed/content section sizing and grow/scroll container behavior.
+- Generic single- and multi-item selection and move planning.
+- Its internal history behavior.
+- Its scoped appearance and semantic theme-token contract.
+- Package chrome, inline title editing, ready-made controls, and host extension contracts.
+- Its React contracts.
+
+This is a deliberate new ownership boundary, not a handwritten mirror of the current Setta project model.
+
+During extraction:
+
+- Do not copy generated Setta types into the package.
+- Do not define package types by manually restating a Go-owned Setta contract.
+- Do not maintain two long-lived implementations of the same newly extracted algorithm.
+- Extract or adapt a pure frontend algorithm only when the package becomes its new owner.
+- If current Setta later consumes the package, replace the corresponding Setta implementation or add a narrowly documented adapter.
+- Current Setta compatibility is not a first-release requirement.
+- Existing Setta project files do not need migration or backward compatibility.
+
+## Rendering and dependency strategy
+
+### XYFlow decision spike
+
+Do not copy the entire current XYFlow fork into the package by default.
+
+Before implementation:
+
+1. Inventory the behavior Setta changed relative to the relevant upstream release.
+2. Test whether the first-release workbench can use upstream XYFlow through a narrow adapter.
+3. Identify only the forked behavior required for section and item drag correctness.
+4. Audit licenses, notices, copied source, CSS, and assets.
+5. Choose upstream dependency, a small maintained patch, or a documented fork based on evidence.
+
+Prefer upstream when it satisfies the required interaction and performance behavior. If a fork is required, document its exact delta and test that delta directly.
+
+### dnd-kit extraction
+
+Candidate reusable sources include:
+
+- `frontend/src/forks/dnd-kit/adapter/*`
+- Pure collision ranking, trigger-distance, midpoint, vertical-sorting, horizontal-sorting, and geometry helpers under `frontend/src/forks/dnd-kit`
+- `frontend/src/forks/dnd-kit/useMoveSectionPlans.ts`
+- `frontend/src/components/Params/paramDndMonitorUtils.ts`
+- Generic tree traversal and selection algorithms currently mixed into `frontend/src/state/actions/params/paramTree.ts`
+
+Do not directly extract these application-coupled modules:
+
+- `frontend/src/forks/dnd-kit/useMoveSection.ts`
+- `frontend/src/forks/dnd-kit/useDropType.ts`
+- `frontend/src/components/Params/ParamDndMonitor.tsx`
+- `frontend/src/components/Params/ParamDndList.tsx`
+- `frontend/src/components/Params/ParamSwitch.tsx`
+- `frontend/src/components/Section/Container/SectionContainer.tsx`
+- `frontend/src/components/Section/Container/ManyNestedSections.tsx`
+
+They import Setta state, generated types, permissions, notifications, OpenAPI calls, code-object semantics, or application rendering. Use them as behavioral references while rebuilding the narrow package boundary. Preserve behavior through characterization tests around the pure planners and geometry; do not preserve application coupling merely to reuse the current hooks.
+
+Additional behavioral references include:
+
+- `frontend/src/components/Section/Header/LockPositionButton.tsx`
+- `frontend/src/components/Section/Header/MinimizeButton.tsx`
+- `frontend/src/components/Section/Header/SectionTitle.tsx`
+- `frontend/src/components/Section/Container/ContainerCore.tsx`
+- `frontend/src/components/Utils/Resizable/CustomResizable.tsx`
+- `frontend/src/forks/xyflow/background/Background.tsx`
+- `frontend/src/forks/xyflow/controls/Controls.tsx`
+- `frontend/src/forks/xyflow/core/container/Pane.tsx`
+- `frontend/src/forks/xyflow/core/container/ZoomPane.tsx`
+- `frontend/src/forks/xyflow/core/container/ReactFlow.tsx`
+- `frontend/src/state/actions/sections/sectionPositions.ts`
+- `internal/projectstate/top_level_section_creation.go`
+- `frontend/src/components/Pages/GlobalWrapper.tsx`
+
+These establish the existing interaction baseline for locks, minimized bodies, fixed/content and constrained resizing, container overflow, title editing, smart placement, selection and external drop, viewport gestures, toolbar extension, minimap navigation, stacking, grid alignment and appearance-specific colors, and system color-mode resolution. They remain application-coupled references rather than files to copy directly. The Go smart-placement implementation is evidence for behavior, not a contract to mirror mechanically; the standalone TypeScript package owns its backend-free placement helper under the explicit offline platform boundary described above.
+
+### Styling
+
+The package must not require the consuming application to use Tailwind or Setta's global CSS.
+
+Use:
+
+- Package-owned CSS.
+- Workbench-root CSS custom properties for documented semantic theme tokens, including canvas background and grid color.
+- Gamut-safe OKLCH defaults with separately tuned light and dark values.
+- Minimal inherited typography assumptions.
+- Host-provided class names only as optional extension points.
+- Explicit light, dark, system, and host-overridden grid-color examples.
+- Stable focus-visible presentation.
+- Motion that respects `prefers-reduced-motion`.
+- Interruptible, property-specific transitions only; never `transition: all`.
+- Immediate or restrained feedback for high-frequency drag, pan, zoom, marquee, resize, and minimap interactions rather than repeated entrance animations.
+- `currentColor` package icons with one coherent stroke weight per toolbar surface; outline icons are default and filled state is reserved for an active toggle.
+
+The playground may use its own styling system, but it must consume the published package CSS in the same way as an unrelated application. Appearance selection is scoped to the workbench root; package styling must not require a global `.dark` class.
+
+### Dependency rules
+
+- Pin checked-in direct dependency versions exactly.
+- Keep React and React DOM as documented peer dependencies.
+- Keep the Setta-family dependency count at one package.
+- Do not depend on Setta applications, generated clients, or a Setta SDK.
+- Do not introduce a backend merely to reuse current behavior.
+- Include all required license and attribution material.
+
+## Accessibility requirements
+
+Drag-and-drop is not pointer-only.
+
+The first release requires:
+
+- Semantic buttons for section and item drag handles.
+- Clear accessible names.
+- A labeled toolbar whose built-in and host-injected controls expose pressed and disabled state consistently without relying on tooltips.
+- A searchable creation menu with combobox/menu keyboard behavior, a visible query label, empty results, and deterministic focus restoration.
+- Inline title editing with `aria-invalid`, an associated error message, polite announcement, Enter commit, Escape cancel, and no focus loss on asynchronous rejection.
+- Semantic lock and minimize buttons with state conveyed through `aria-pressed` or `aria-expanded` as appropriate, visible icons, and text alternatives.
+- Keyboard selection.
+- Modifier-key multi-selection, select-all, and non-marquee alternatives for producing the same batch selection.
+- Keyboard group, ungroup, batch lock, batch delete, and persistent stacking commands with specific unavailable-state explanations.
+- Keyboard section movement using documented increments.
+- Keyboard section resizing using documented increments and constraints.
+- Keyboard sibling reordering along the current parent's vertical or horizontal axis.
+- Keyboard commands for moving a section into, out of, or between valid containers without requiring pointer free-move.
+- An accessible control and announcement for switching between section sorting and free-move modes.
+- An accessible orientation control whose label describes the resulting vertical or horizontal layout.
+- Keyboard single- and multi-item selection, reorder, indent, and outdent.
+- Keyboard commands for switching fixed/content sizing and grow/scroll overflow without requiring a resize-handle double-click.
+- Scrollable child containers with an accessible name when they become distinct scroll regions.
+- Headerless and transparent chrome with a focusable selected-state action and drag surface; hiding visual chrome must never hide the only keyboard affordance.
+- Minimap content treated as supplementary navigation with an accessible name and equivalent focus/fit commands outside the minimap.
+- Announcements for drag start, depth and parent changes, valid destination and insertion position, completed move, cancellation, and rejected move.
+- Focus restoration after move, delete, undo, and redo.
+- Focus restoration after minimizing, expanding, locking, and unlocking.
+- No positive `tabIndex` values.
+- Visible `focus-visible` states.
+- Touch targets suitable for coarse pointers.
+- Package controls use at least a 40-by-40 CSS-pixel hit area on desktop and 44-by-44 on coarse-pointer layouts without overlapping neighboring hit targets.
+- No required hover-only action.
+- Reduced-motion handling for overlays and transitions.
+- Pre-mounted polite live regions for routine selection, move, resize, grouping, and validation announcements; assertive announcements are reserved for errors that block the current task.
+- Toolbar, menus, title editing, minimap alternatives, and the primary workbench workflow remain usable at 200% browser zoom and reflow without hiding required controls.
+
+When a disabled menu action must remain discoverable so its explanation can be reached, it uses `aria-disabled="true"`, remains in the composite widget's keyboard navigation, blocks pointer and keyboard activation, and exposes the reason. Native `disabled` is used when discoverability is not required.
+
+The exact keyboard mapping must be documented in the playground and package reference.
+
+Horizontal order is logical, not hard-coded left-to-right. Pointer insertion, arrow-key behavior, focus order, and announcements must agree in both left-to-right and right-to-left documents.
+
+Grid marks are decorative and hidden from the accessibility tree. Grid, snapping, and appearance controls in the playground expose their current state without relying on color alone.
+
+Accent and tag colors are also supplementary. Selection, grouping, locks, invalid drops, and read-only state retain icon, outline, text, or semantic state cues independent of color.
+
+## Performance requirements
+
+Frontend performance is a release requirement.
+
+Before extraction, record baseline behavior for equivalent current Setta interactions where a trustworthy comparison exists. Store append-only reports under `perf/` when the work occurs in this repository.
+
+The standalone package must be profiled for:
+
+- Panning and zooming a large set of lightweight sections.
+- Dragging one section at multiple zoom levels.
+- Marquee-selecting and moving a large top-level sibling set.
+- Updating selection without rerendering unrelated host bodies.
+- Rendering and panning the minimap for a large root set.
+- Moving and resizing with snapping enabled at multiple zoom levels.
+- Reordering a section in large vertical and horizontal sibling lists.
+- Free-moving a section between the canvas and deeply nested containers.
+- Rendering and updating a deeply nested mixed-orientation section tree.
+- Resizing a section containing interactive content.
+- Switching between fixed/content sizing and grow/scroll container overflow without observer loops or repeated canonical writes.
+- Reordering a large flat item list.
+- Reparenting items in a deeply nested item tree.
+- Selecting and moving a large sibling block in an item tree.
+- Typing into an input while section and item DnD are enabled.
+- Switching light and dark appearance without remounting host section renderers.
+- Minimizing and expanding sections with large host bodies and nested descendants.
+- Mounting and unmounting the workbench without leaked subscriptions or observers.
+
+Prefer structural guardrails such as render counts, subscribed-state breadth, DOM node counts, and changed-item counts. Establish timing thresholds only after measuring a stable baseline; do not invent arbitrary budgets.
+
+The design should:
+
+- Subscribe each section and item to the smallest practical state slice.
+- Avoid rerendering every section during one section drag.
+- Avoid rerendering every section during marquee updates, active-section render lift, minimap viewport movement, or one content-size observation.
+- Keep transient drag state separate from the canonical document.
+- Keep live content measurements and active z-index lift separate from the canonical document.
+- Derive the parent lookup once per committed structure and update it incrementally; do not rebuild it on every pointer event.
+- Limit collision and geometry work to viable ancestors, descendants, siblings, and visible targets instead of rescanning the complete section tree on every pointer event.
+- Batch geometry reads and writes.
+- Incrementally update minimap and selection bounds from already-owned geometry rather than measuring the complete DOM again.
+- Guard content-size observers against feedback loops, subpixel churn, and work after unmount.
+- Use animation frames only for actual visual synchronization.
+- Leave room for viewport culling without making it a first-release dependency.
+
+## Implementation phases
+
+### Phase 0: Boundary, evidence, and repository setup
+
+Produce:
+
+- The independent package or isolated package workspace.
+- A blank consumer fixture with no Setta aliases.
+- An extraction inventory classifying current code as reusable pure logic, adaptable UI logic, or application-coupled reference code.
+- The upstream-versus-fork XYFlow decision.
+- The dnd-kit dependency and license decision.
+- A section-DnD behavior matrix covering sorting mode, free-move mode, single and sibling-block movement, parent transitions, midpoint transitions, invalid targets, vertical and horizontal parents, cancellation, and representative zoom levels.
+- Focused characterization tests for the current pure move-planning, collision-ranking, trigger-distance, and orientation-specific sorting behavior.
+- A behavior inventory for current locking, minimizing, fixed/content resizing, group overflow, movement/resize snapping, grid rendering, configurable viewport gestures, scroll isolation, transient and persistent stacking, smart placement, inline naming, selection, grouping, minimap, toolbar controls, section chrome, accents, and appearance selection.
+- Characterization notes for current parameter multi-selection, normalized-root dragging, shared-parent restrictions, batch keyboard movement, and drag-overlay measurement.
+- Baseline interaction and performance notes.
+- An explicit list of package-owned types.
+- Import-boundary checks.
+
+Gate:
+
+- The empty package builds, tests, and packs.
+- The consumer fixture installs the packed artifact.
+- No Setta application import is available to the package.
+- License obligations are understood before source is copied.
+- The stability behavior that must survive extraction is explicit and reproducible without depending on memory or visual guesswork.
+
+### Phase 1: Serializable canvas shell
+
+Implement:
+
+- `WorkspaceDocument` and validation.
+- Canonical recursive child lists and a derived parent lookup.
+- Controlled and uncontrolled state.
+- Host capabilities, `readOnly`, and the public controller boundary.
+- The canvas container.
+- Configurable pan-on-drag, pan-on-scroll, wheel, pinch, and double-click zoom with documented bounds and temporary activation keys.
+- Host-renderer pan/wheel suppression primitives and scroll arbitration.
+- Background, viewport updates, focus-section, fit-section, fit-to-sections, and deterministic next/previous traversal helpers.
+- Independently controlled grid visibility and snapping with shared workbench-unit spacing.
+- Dots, lines, and cross grid patterns with configurable mark size.
+- Scoped light, dark, and system appearance resolution.
+- Package CSS and semantic theme tokens, including separate canvas and grid colors.
+- The built-in viewport toolbar, typed host-control placements, richer overlay slots, and an empty-state minimap shell.
+- A minimal playground page.
+- Document JSON display for debugging.
+
+Tests:
+
+- Document round trip.
+- Arbitrarily deep mixed-orientation document round trip.
+- Invalid document failures for duplicate placement, unreachable sections, cycles, unknown children, invalid orientations or overflow modes, unsupported size or chrome modes, invalid colors, empty titles, and non-finite root positions or dimension fallbacks.
+- Controlled/uncontrolled contract.
+- Capability changes without remounting and specific layout, structure, and presentation command rejection in read-only mode.
+- Viewport conversion at multiple zoom values.
+- Every supported gesture combination, zoom bound, activation key, and host-content scroll/pan suppression path.
+- Grid rendering and snap alignment at multiple pan offsets, zoom values, and negative coordinates.
+- Snapping with the grid hidden and a visible grid with snapping disabled.
+- Light, dark, system-preference, and host-token override behavior without global class mutation.
+- Toolbar-control registration, ordering, state, cleanup, and controller-only access.
+- Empty minimap mount, viewport synchronization, and cleanup.
+- Mount, observer, event-listener, and subscription cleanup.
+- Consumer-fixture build.
+
+Gate:
+
+- The playground renders and manipulates an empty workbench with no backend, exposes a working default toolbar, and accepts one injected host control.
+- Its grid remains aligned while panning and zooming, and its canvas and grid colors respond to the resolved appearance.
+- Scrollable host fixture content can consume wheel input without moving the canvas, while canvas wheel input follows the selected gesture policy.
+- Reloading a valid document restores the viewport exactly.
+- A valid recursive document restores the same containment, sibling order, and orientation at every depth.
+
+### Phase 2: Free canvas and top-level section foundation
+
+Implement:
+
+- Section registry including creation metadata, sizing defaults, and chrome variants.
+- Generic section frame, header, inline title editing, and selected-state chrome for headerless sections.
+- Per-section accent and tag colors with accessible defaults and reset.
+- Palette-based and searchable right-click creation.
+- Pure smart-placement planning and creation focus behavior.
+- Generic external-drop coordinates, candidate feedback, and host callback without native file semantics.
+- Single selection, modifier multi-selection, partial/full marquee selection, normalized selection roots, and select-all.
+- Ready-made selection context actions with specific disabled reasons.
+- Transient active-section stacking and explicit persistent stacking commands.
+- Pannable and clickable minimap nodes for populated roots.
+- Section drag handle.
+- Zoom-correct single and top-level sibling-block movement with relative-offset preservation.
+- Constraint-aware, zoom-correct resizing with optional snapping.
+- Per-axis fixed/content sizing, manual promotion to fixed sizing, and double-click/keyboard return to content sizing.
+- Position-and-size locking.
+- Minimizing and expanding without losing fixed dimensions or content-fit modes and fallbacks.
+- Single and batch lock/delete operations.
+- Top-level grouping and ungrouping through the same canonical containment model used by Phase 3.
+- Host capability enforcement across every package-owned affordance.
+- Structural history.
+- JSON import/export and playground local persistence.
+- Note and counter/status example sections.
+
+Tests:
+
+- Register and render unrelated host components.
+- Create from the palette and keyboard/context menu, smart-place without overlap, rename, move, resize, switch size modes, lock, unlock, minimize, expand, select, marquee, batch move, group, ungroup, delete, restyle, restack, undo, and redo.
+- Drag at minimum, default, and maximum documented zoom.
+- Move and resize with snapping enabled and disabled.
+- Enforce resize axes, minimum size, maximum size, and aspect ratio.
+- Measure content-sized host bodies, promote them to fixed sizing on manual resize, and return them to content sizing without observer loops.
+- Prevent direct movement and resizing of a locked section while leaving its content and child container usable.
+- Keep nested children visible when their parent section body is minimized, then restore fixed dimensions exactly, resume content-fit dimensions, and restore focus.
+- Interactive content does not initiate section dragging.
+- Partial/full marquee geometry, ancestor/descendant root normalization, top-level block offsets, locked-selection rejection, and selection focus restoration.
+- Transient render lift without document/history changes and explicit persistent stack commands with undo/redo.
+- Read-only and independent layout, structure, and presentation capability combinations.
+- Search filtering, keyboard creation coordinates, empty results, selection-context availability, async title rejection, and external-drop host acceptance/rejection.
+- Toolbar, minimap, keyboard movement, and focus restoration.
+- Large-section-set render/update behavior.
+
+Gate:
+
+- A consumer can register two section kinds, create and rename them through ready-made UI, arrange them singly or as a selection, customize their chrome, reload them, and recover the same document.
+- One move or resize gesture produces one persisted document change and one history entry.
+- Title, size mode, lock, minimized, presentation, group, and persistent stacking state round-trip through JSON and restore exactly through undo and redo.
+- Smart creation, marquee selection, minimap navigation, toolbar extension, and host capabilities work without a backend.
+
+This is an internal milestone, not a releasable top-level-only product. The root model and section frame must already accommodate recursive children so Phase 3 does not require a second document model or a compatibility layer.
+
+### Phase 3: Recursive section layout and dual-mode DnD
+
+Implement in this order:
+
+1. Pure containment validation, descendant checks, and derived parent lookup.
+2. Recursive child-section rendering with no hard-coded depth limit.
+3. Vertical child layout, then horizontal child layout using logical inline order.
+4. Grow-with-children sizing, fixed scroll overflow, stable mode switching, scroll isolation, and the empty-container drop affordance.
+5. Orientation changes that preserve hierarchy and child order.
+6. Pure sorting-mode move planning for one section or a selected sibling block within the current parent.
+7. Pure free-move planning for one section or a selected sibling block across canvas-to-nested, nested-to-canvas, and nested-to-nested moves at unrelated depths.
+8. Orientation-aware insertion placeholders and commit parity.
+9. Collision ranking, midpoint tracking, zoom-scaled trigger distances, and stable target hysteresis based on the Phase 0 characterization.
+10. Cycle, self, descendant, mixed-parent batch, active-section lock, and host-policy rejection.
+11. Group and ungroup at any supported depth for selected siblings with one shared parent.
+12. Keyboard reorder and cross-container movement with focus restoration and announcements.
+13. A container example with mixed vertical and horizontal descendants at least three levels deep.
+
+Tests:
+
+- Same-parent sorting in vertical and horizontal containers.
+- Horizontal pointer and keyboard order in left-to-right and right-to-left documents.
+- Free move from canvas to nested, nested to canvas, a shallow source to an unrelated deeper container, a deep source to a shallower valid container, and between cousin containers.
+- Move into an empty container and to the first and last sibling position.
+- Move selected sibling blocks in vertical and horizontal parents, into and out of containers, and back to the canvas while preserving order or top-level offsets.
+- Reject mixed-parent batch movement specifically and normalize parent-plus-descendant selections before every structural command.
+- Reject self, descendant, and host-invalid destinations without changing canonical state.
+- Reject direct sorting, reparenting, movement, and resizing of a locked active section while allowing that section's unlocked descendants and host controls to remain usable.
+- Allow a locked container to remain a destination unless host policy rejects it.
+- Preserve visible placement while crossing coordinate spaces and resolve final canvas positions correctly at minimum, default, and maximum zoom.
+- Keep the previewed parent and index identical to the committed plan.
+- Hold a stable target while the pointer jitters around sibling midpoints and parent-child boundaries; change it only after the applicable entry or exit threshold is crossed.
+- Clear stale targets when leaving all droppable regions or canceling.
+- Change orientation without changing containment or logical child order.
+- Switch a populated container between grow and scroll modes without a visual size jump; verify internal wheel isolation and return to grow mode.
+- Render the empty-container drop affordance, accept a drop through it, and remove the affordance when populated.
+- Group and ungroup siblings at root and nested depths, reject mixed-parent grouping, and restore exact structure through undo/redo.
+- Render and interact with a deeply nested mixed-orientation tree without a package-imposed depth cutoff.
+- Undo and redo single and batch reparenting, sorting, grouping, ungrouping, resizing, size/overflow mode changes, lock changes, minimize changes, orientation changes, and subtree deletion exactly.
+
+Gate:
+
+- A user can start with a section at any depth and, in free-move mode, place it on the canvas or inside any valid container at any other depth.
+- A user can switch to sorting mode and reorder nested siblings without accidentally reparenting them.
+- A user can select sibling sections, move or group them atomically, and ungroup them without identity or order loss.
+- Vertical and horizontal parents produce matching layout, insertion, keyboard, and announcement behavior.
+- A nested container can grow with its children or retain a stable bounded size with an internally scrollable child region.
+- The characterized Setta target-stability behavior is preserved or deliberately improved with evidence.
+- Recursive section operations remain deterministic, serializable, accessible, and zoom-correct.
+
+### Phase 4: Sortable items inside a section
+
+Implement in this order:
+
+1. Pure generic tree validation and move planning.
+2. Single and modifier-key multi-item selection with normalized roots.
+3. Flat single-item and selected-sibling-block reorder.
+4. Nested parent-child reorder.
+5. Move one item or a selected sibling block into and out of a parent.
+6. Shared-parent validation, mixed-parent batch feedback, and host `canMove` rejection.
+7. Keyboard reorder, indent, and outdent for the selected roots.
+8. Zoom-aware multi-item placeholder and overlay measurement.
+9. Outer-section and inner-item interaction arbitration.
+10. Multi-item-aware `applyItemMove` helper.
+11. Field-list example section with real inputs and one nested group.
+
+Tests:
+
+- Same-parent reorder.
+- Cross-parent move.
+- Stable-order multi-item reorder and cross-parent move for a selected sibling block.
+- Parent-plus-descendant selection normalization and mixed-parent drag fallback or rejection.
+- Move to an empty parent.
+- First and last insertion.
+- Cycle rejection.
+- Invalid index rejection.
+- Host rejection.
+- Drag cancellation.
+- Input interaction during enabled DnD.
+- Item drag at multiple workbench zoom levels.
+- Section drag followed by item drag and the reverse.
+- Pointer, touch, and keyboard outcomes.
+- Focus and accessibility announcements.
+
+Gate:
+
+- A field-list section remains fully editable while its items can be reordered and nested.
+- The host receives one deterministic atomic move plan containing one item or an ordered selected sibling block.
+- The item structure round-trips through the playground's persistence.
+- No item interaction mutates `WorkspaceDocument` unless the host explicitly stores that item data in a section payload.
+
+### Phase 5: Hardening and first OSS release
+
+Complete:
+
+- API review and naming cleanup.
+- Package exports.
+- Generated declaration files.
+- Package CSS entrypoint.
+- README quickstart.
+- Controlled and uncontrolled examples.
+- Host capability, toolbar extension, public controller, smart placement, external drop, minimap, selection, grouping, and stacking guides.
+- Recursive-section, drag-mode, and orientation guide.
+- Locking, minimizing, fixed/content sizing, grow/scroll overflow, grid, snapping, section presentation, and appearance guide.
+- Single- and multi-item sortable-tree guide.
+- Theming guide.
+- Accessibility and keyboard guide.
+- Performance report.
+- Browser visual verification.
+- Consumer-fixture install from the packed artifact.
+- License, notice, and attribution files.
+- Release automation.
+- Versioning and support policy.
+
+Gate:
+
+- An unrelated React application can install the packed package, register its own section renderer, create and rename through ready-made UI, arrange one or more top-level sections, recursively nest and sort sections, group, ungroup, lock, minimize, content-fit, resize, scroll containers, snap, theme section chrome, use a minimap, extend the toolbar, change child orientation, and add a multi-item sortable tree without importing package internals.
+- The package contains no Setta application or backend dependency.
+- Focused unit, integration, E2E, accessibility, performance, and package-boundary checks pass.
+- The playground demonstrates the complete primary workflow.
+
+### Phase 6: Planned post-release expansion in the same package
+
+The first OSS release does not wait for browser windowing or domain-safe clipboard integration. They remain intended capabilities of `@setta/section-workspace`, not separate domain products.
+
+Implement detachable sections as an optional React export:
+
+- A section definition opts in with `detachable: true`.
+- A user-initiated action may portal the existing renderer into a same-origin browser window while preserving React context, document identity, and controlled state.
+- The canvas retains a measured placeholder with focus-window and redock actions so containment and sibling geometry do not collapse.
+- Package CSS, resolved theme variables, title, and accessibility metadata are installed into the pop-out document without mutating unrelated host styles.
+- The host supplies explicit renderer-specific window-head contributions when its content needs additional styles or fonts; the package does not scrape or clone arbitrary inaccessible host stylesheets heuristically.
+- Closing the window redocks the section predictably. Popup blocking produces specific feedback and leaves the section on the canvas.
+- Pop-out creation requires a direct user gesture, same-origin access, and a still-live opener. Reload or opener loss falls back to a clear unavailable/redock state rather than silently creating a second document owner.
+- Cross-window drag-and-drop is not implied; users redock before moving or nesting the section.
+- Window bounds and open/closed state are host UI preferences, not required `WorkspaceDocument` fields. Hosts may persist them separately.
+- A renderer may reject detachment when it depends on unsupported document globals or external resources.
+
+Implement adapter-driven copy and paste:
+
+- The package owns selection shortcuts, subtree extraction, structural validation, relative placement, and clipboard MIME framing.
+- The host supplies ID allocation and cloning for section payloads and domain references. Controlled hosts may perform the complete clone on a backend and return the accepted subtree.
+- A documented JSON-only adapter supports the backend-free playground using explicit structured-clone eligibility rather than assuming arbitrary payloads are safe.
+- Paste smart-places the copied root block near the last meaningful canvas location or current selection and commits one history entry.
+- Clipboard payloads are treated as untrusted input and pass schema, kind, containment, size, color, and host-clone validation before any renderer mounts.
+- Invalid, unauthorized, unsupported-version, or partially cloneable payloads fail specifically without inserting a partial subtree.
+
+Then evaluate or implement independently:
+
+- An optional hierarchical outline navigator built on the first-release controller and traversal helpers.
+- Pure top-level auto-layout and packing commands.
+- Multiple named item lists within one section.
+- Cross-list item movement.
+- Filtered-list reordering against a larger canonical tree.
+- Mixed-parent batch section and item dragging if a deterministic interaction proves understandable.
+- Saved viewport presets.
+- Generic edges and ports.
+- Pane registration beyond toolbar and overlay slots.
+- Viewport culling.
+- Absolute/freeform positioning inside nested containers.
+- Collapsing an entire descendant subtree as part of section minimization.
+
+Each follow-on addition must preserve the standalone one-sentence purpose, remain in the same package unless independently useful, and prove that its data ownership is generic rather than inherited from Setta application behavior.
+
+## Testing strategy
+
+### Core unit tests
+
+Cover:
+
+- Document validation and serialization.
+- Recursive containment validation and derived parent lookup.
+- Coordinate conversion across canvas and nested placement contexts.
+- Smart placement inside and outside viewport bounds with deterministic non-overlap and grid behavior.
+- Minimap projection and focus/fit bounds.
+- Marquee intersection and containment geometry, selection-root normalization, deterministic navigation order, and top-level selection bounds.
+- Section single/block sorting, free-move, grouping, ungrouping, orientation, batch subtree deletion, persistent stacking, resize, size mode, overflow, presentation, title, lock, and minimize reducers.
+- Movement and resize snapping at positive and negative coordinates.
+- Resize-axis, fixed/content promotion, minimum, maximum, and aspect-ratio constraint resolution.
+- Light, dark, and system appearance resolution plus semantic token merging, sRGB gamut checks, APCA targets, and WCAG 2 compatibility measurements.
+- Accent and tag-color parsing, gamut handling, semantic-role isolation, and accessible token derivation.
+- Vertical and horizontal insertion-index planning.
+- Collision ranking, midpoint transitions, zoom-scaled trigger distances, target hysteresis, and stale-target clearing.
+- History coalescing and restoration.
+- Item-tree validation.
+- Single- and multi-item selection normalization and move planning.
+- Section and item cycle and invalid-target rejection.
+- Applying a move plan without mutating the input.
+- Deterministic outputs.
+
+### React integration tests
+
+Cover:
+
+- Controlled and uncontrolled rendering.
+- Read-only and independent layout, structure, and presentation capabilities changing at runtime.
+- Section registry behavior.
+- Registry-driven searchable creation, inline title editing and rejection, smart placement, and external-drop callbacks.
+- Unknown-kind handling.
+- Default, compact, transparent, and headerless chrome plus accent and tag presentation.
+- Recursive rendering across mixed vertical and horizontal layouts.
+- Sorting-mode and free-move-mode activation, preview, cancellation, and commit.
+- Single and sibling-block cross-depth movement, root normalization, grouping, ungrouping, and orientation changes.
+- Lock behavior for top-level and nested sections without disabling host content or descendants.
+- Minimize and expand behavior with exact fixed-size restoration, content-fit resumption, and focus restoration.
+- Resize gestures, fixed/content sizing, grow/scroll overflow, wheel isolation, and keyboard resizing with constraints and optional snapping.
+- Marquee selection, partial/full containment, batch movement, batch actions, and transient render lift.
+- Independent grid visibility and snap settings.
+- Scoped light, dark, system, and custom-token appearance behavior.
+- Configurable viewport gestures, built-in toolbar, host toolbar controls and overlays, minimap interaction, and controller helpers.
+- Section and item drag scopes.
+- Input, button, and text-selection interaction.
+- Pointer cancellation.
+- Keyboard interactions.
+- Focus restoration.
+- Subscription and observer cleanup.
+- Host rejection behavior.
+
+### Browser E2E tests
+
+Cover the real playground:
+
+- Create through palette, context menu, and keyboard; smart-place, rename, restyle, move, resize, content-fit, lock, minimize, persist, and reload.
+- Configure every viewport gesture family, use scrollable host content without moving the canvas, and operate the built-in and host-injected toolbar controls.
+- Navigate through the minimap and focus/fit helpers without losing selection or host state.
+- Marquee-select with partial and full containment, move the selected block, batch lock/delete, group, ungroup, and use explicit stacking commands.
+- Build a section tree to multiple depths, then move sections into, out of, and between nested containers.
+- Move selected sibling blocks through representative root and nested transitions and reject mixed-parent batch movement.
+- Reorder vertical and horizontal siblings in sorting mode.
+- Switch a populated container between vertical and horizontal orientation without changing logical order.
+- Switch a populated container between grow and scroll overflow, scroll it without panning the canvas, and return it to grow mode.
+- Exercise stable drop targeting near sibling and parent-child boundaries at multiple zoom levels.
+- Verify move and resize snapping while the grid is visible and hidden.
+- Verify dots, lines, and cross patterns with custom grid colors in light and dark appearance.
+- Verify per-section accents and tag colors across every chrome variant without obscuring semantic state.
+- Verify locked sections cannot be directly moved or resized but remain interactive and can contain unlocked children.
+- Verify minimizing hides only the host body, retains nested children, restores fixed dimensions exactly, and resumes content-fit dimensions.
+- Import and export.
+- Undo and redo.
+- Pan and zoom.
+- Single- and multi-item selection, reorder, nesting, indent, and outdent.
+- Accept and reject external drops at root and nested coordinates without invoking native file semantics inside the package.
+- Enforce read-only and granular layout/structure/presentation capabilities without a gesture starting and then snapping back.
+- Invalid self, descendant, locked-active-section, and host-rejected move feedback.
+- Keyboard-only completion of the primary workflows.
+- Multiple viewport sizes.
+- Browser zoom at 200% with the toolbar, creation menu, title editor, selection actions, and equivalent minimap navigation still reachable.
+- Coarse-pointer interaction where automation supports it.
+
+Run browser verification through the documented CDP workflow. Visual review must include default, single-selected, marquee, multi-selected, selection-dragging, grouped, locked, read-only, minimized, fixed-size, content-size, grow-overflow, scroll-overflow, sorting, free-moving, snapped movement, resize handles, nested-parent preview, empty-container affordance, sibling insertion preview, invalid-drop, vertical, horizontal, default/compact/transparent/headerless chrome, accent and tag colors, toolbar default and host controls, minimap on both sides, context-menu filtering and empty results, grid-hidden, each grid pattern, custom grid color, light appearance, dark appearance, focus-visible, right-to-left, coarse-pointer, and reduced-motion states.
+
+### Consumer and packaging tests
+
+- Pack the npm artifact.
+- Install it into an unrelated fixture.
+- Build and run that fixture.
+- Verify no source aliases or unpublished files are required.
+- Verify direct dependency versions and peer dependencies.
+- Verify package exports, declarations, CSS, source maps, notices, and tree shaking.
+- Prevent imports from Setta applications through automated boundary checks.
+
+## Documentation deliverables
+
+The first release documentation includes:
+
+- One-sentence product description.
+- Five-minute quickstart.
+- Minimal uncontrolled example.
+- Controlled-state example.
+- Section registry reference.
+- Workbench document reference.
+- Host capability and read-only integration reference.
+- Public controller, focus/fit/navigation, toolbar-control, overlay, smart-placement, and external-drop references.
+- Searchable creation, inline naming, minimap, marquee selection, grouping, batch commands, and stacking guide.
+- Recursive section containment and validation reference.
+- Sorting-mode, free-move-mode, target-stability, and orientation guide.
+- Locking, minimizing, fixed/content sizing, grow/scroll overflow, and resizing reference.
+- Grid, snapping, appearance, per-section presentation, chrome variants, and semantic theme-token reference.
+- Single- and multi-item sortable-tree reference.
+- Planned detachable-window and clipboard-adapter boundary notes that do not imply first-release availability.
+- Persistence integration example.
+- Keyboard interaction table.
+- Accessibility expectations for host renderers.
+- Styling and light/dark theme tokens.
+- Performance guidance for large section and item counts.
+- Browser support policy.
+- License and attribution notes.
+- Explicit non-goals.
+
+## Definition of done
+
+The focused workbench release is done when:
+
+- `@setta/section-workspace` installs into an unrelated React application.
+- It renders without Go, Python, HTTP, WebSockets, MCP, or any Setta runtime.
+- It exposes a small versioned `WorkspaceDocument`.
+- Consumers can register arbitrary section renderers.
+- Users can configure pan and zoom gestures while scrollable host content remains usable.
+- The ready-made toolbar supports zoom, reset, fit, snap, and minimap controls and accepts host-defined controls without private imports.
+- Users can create through a palette or searchable context menu, receive deterministic smart placement, rename inline, and handle generic external drops through a host callback.
+- Users can select by click, modifier, keyboard, or partial/full marquee; move a sibling block; and perform group, ungroup, batch lock, and batch delete operations.
+- The active section renders on top transiently, while explicit stacking commands update persistent order.
+- The minimap renders and navigates a populated canvas and can be hidden or placed on either side.
+- Sections can contain sections recursively with no package-imposed depth limit.
+- Nested children can use vertical or horizontal orientation while preserving one logical order.
+- Sorting mode reorders nested siblings without reparenting.
+- Free-move mode moves a section from any source depth to the canvas or any valid destination depth.
+- Section target resolution remains stable near ambiguous parent-child and sibling boundaries at every supported zoom level.
+- Pointer and keyboard previews resolve to the same deterministic section move plan that is committed.
+- Sections can be locked against direct movement and resizing without disabling their content or implicitly locking descendants.
+- Sections can be minimized and expanded without losing fixed dimensions, content-fit modes, or nested child sections.
+- Each section axis can be fixed or content-sized, and manual resize or content-fit reset follows one deterministic, undoable transition.
+- Containers can grow with children or retain a bounded internally scrollable child region without leaking wheel input to the canvas.
+- Top-level movement and section resizing can snap to a workbench-unit grid independently of whether that grid is visible.
+- Resize axes, minimums, maximums, aspect ratio, locks, and zoom are enforced consistently for pointer and keyboard resizing.
+- Consumers can customize canvas, grid, section accents, tag colors, and default/compact/transparent/headerless chrome and use light, dark, or system appearance without global CSS requirements.
+- Host-controlled read-only, layout-edit, structure-edit, and presentation-edit capabilities prevent unavailable package interactions while leaving host content policy explicit.
+- Section state round-trips through JSON.
+- Structural undo and redo work.
+- A section can host a generic sortable item tree.
+- Users can select one or more sibling items and reorder or nest the block by pointer and keyboard.
+- Item dragging remains correct while the workbench is zoomed.
+- Interactive section content remains usable while both drag systems are enabled.
+- Host validation can reject a section parent-child move without corrupting state.
+- Host validation can reject an item move without corrupting state.
+- The playground persists and restores the complete example.
+- Package boundaries, accessibility, performance, visual behavior, licensing, and packed-consumer installation are verified.
+- No domain-specific application or future protocol is required to explain or use the release.
+
+## Explicit non-goals
+
+This plan does not include:
+
+- Python Canvas or Python execution.
+- MCP Canvas, MCP clients, or MCP servers.
+- Agent Canvas, coding-agent sessions, chats, approvals, or AI Follow.
+- Data Canvas, file browsers, spreadsheets, charts, images, or drawings.
+- Built-in native-file importing, uploading, type detection, or file-to-section mapping; the first release exposes only the generic external-drop boundary.
+- Agent Signal Canvas or graph execution.
+- A Go or Python backend.
+- CLI tools.
+- Authentication.
+- Deployment or sharing.
+- A canonical application project format.
+- Setta project compatibility.
+- The Setta plugin system.
+- Generated OpenAPI clients.
+- Domain-specific Dict or Callable semantics.
+- Schema-driven form generation.
+- Cross-application protocols.
+- Public revision-checked transactions.
+- Dry-run approvals or human-readable machine-operation summaries.
+- References, variants, or saved views.
+- Browser pop-out windowing and copy/paste in the first OSS release; both are planned same-package follow-on modules in Phase 6.
+- Generic edges, ports, or execution semantics in the first release.
+- Side-pane systems in the first release.
+- Absolute/freeform child positioning inside nested containers in the first release. Free-move mode means cross-container section movement; nested destinations still use their parent's vertical or horizontal ordered layout.
+- Hiding or collapsing a section's complete descendant subtree when minimizing it in the first release; minimizing hides only that section's host-rendered body.
+- A family of public micro-packages.
+
+## Immediate next slice
+
+The first implementation task should stop after one visible vertical slice:
+
+1. Create the isolated package and consumer fixture.
+2. Define and validate the minimal recursive `WorkspaceDocument`, including titles, presentation, fixed/content dimensions, grow/scroll child layout, canonical child lists, orientation, cycle rejection, and derived parent lookup.
+3. Render a pannable and zoomable canvas with one configurable gesture policy, host-content wheel isolation, an independently toggleable snap grid, scoped light/dark theme tokens, the default toolbar, and a host-injected control.
+4. Register note and container section kinds with searchable creation metadata, then smart-place and inline-rename a note from the context menu.
+5. Render a content-sized vertical growing container with two note children, one deeper horizontal container, and the empty-container affordance in an unused child container.
+6. Reorder the note children in sorting mode, switch the populated parent to fixed scroll overflow, scroll without panning, then restore grow mode.
+7. Free-move one note from the canvas into the nested container at multiple zoom levels, with snapping, cycle rejection, and a stable insertion preview.
+8. Marquee-select two top-level notes, move them while preserving relative offsets, group and ungroup them, and verify transient active stacking plus one explicit persistent stacking command.
+9. Resize, return to content sizing, lock, minimize, expand, recolor, and change the chrome of a note, then serialize and restore its hierarchy, orientation, size modes, overflow, lock, minimized state, title, and presentation.
+10. Render and navigate the representative document through the minimap and `focusSection`/`fitSections` controller helpers.
+11. Verify the packed package in the consumer fixture.
+12. Record the XYFlow/dnd-kit decision, license obligations, and current Setta DnD, selection, smart-placement, gesture, resize/content-size, overflow, snap, lock, minimize, title, toolbar, minimap, chrome, color, and appearance behavior matrix.
+
+Do not begin item-tree extraction until this slice passes its package-boundary, browser, accessibility, recursive-structure, selection-root, target-stability, smart-placement, gesture-arbitration, sizing/overflow, snapping, theme-scoping, minimap, extension-surface, and coordinate-correctness checks. Horizontal reordering, every cross-depth direction, full keyboard parity, all grid patterns, complete light/dark visual coverage, external-drop integration, and every batch-movement direction remain later phase requirements even if this first slice proves only representative paths.
