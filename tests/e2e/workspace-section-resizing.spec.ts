@@ -280,14 +280,14 @@ test("keeps pointer resizing transient and commits once at every supported zoom"
     const start = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
     await page.mouse.move(start.x, start.y);
     await page.mouse.down();
-    await page.mouse.move(start.x + 48 * zoom, start.y, { steps: 6 });
+    await page.mouse.move(start.x + 25 * zoom, start.y, { steps: 6 });
     await expect(article).toHaveAttribute("data-workspace-resizing", "true");
     expect(await alphaState(page)).toEqual(before);
     await page.mouse.up();
 
     await expect
       .poll(async () => (await alphaState(page)).section.size.width.value)
-      .toBe(before.section.size.width.value + 48);
+      .toBe(before.section.size.width.value + 24);
     await expect.poll(() => changeCount(page)).toBe(beforeCount + 1);
     await expect(article).toHaveAttribute("data-workspace-resizing", "false");
     await expect.poll(() => canvasViewport(page)).toEqual(beforeViewport);
@@ -298,6 +298,39 @@ test("keeps pointer resizing transient and commits once at every supported zoom"
   }
 
   await setCanvasZoom(page, 1);
+  await page.getByRole("button", { name: "Load navigation fixture" }).click();
+  await selectAlpha(page);
+  const snap = page.getByRole("button", { name: "Snap to grid" });
+  await snap.click();
+  await expect(snap).toHaveAttribute("aria-pressed", "false");
+  const unsnappedHandle = page.getByRole("button", {
+    name: "Resize Alpha frame width",
+    exact: true,
+  });
+  await unsnappedHandle.scrollIntoViewIfNeeded();
+  const unsnappedBounds = await unsnappedHandle.boundingBox();
+  if (!unsnappedBounds) {
+    throw new Error("The unsnapped Alpha width handle has no browser bounds.");
+  }
+  const beforeUnsnapped = await alphaState(page);
+  const beforeUnsnappedCount = await changeCount(page);
+  const unsnappedStart = {
+    x: unsnappedBounds.x + unsnappedBounds.width / 2,
+    y: unsnappedBounds.y + unsnappedBounds.height / 2,
+  };
+  await page.mouse.move(unsnappedStart.x, unsnappedStart.y);
+  await page.mouse.down();
+  await page.mouse.move(unsnappedStart.x + 13, unsnappedStart.y, { steps: 4 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => (await alphaState(page)).section.size.width.value)
+    .toBe(beforeUnsnapped.section.size.width.value + 13);
+  await expect.poll(() => changeCount(page)).toBe(beforeUnsnappedCount + 1);
+  await snap.click();
+  await expect(snap).toHaveAttribute("aria-pressed", "true");
+
+  await page.getByRole("button", { name: "Load navigation fixture" }).click();
+  await selectAlpha(page);
   const widthHandle = page.getByRole("button", {
     name: "Resize Alpha frame width",
     exact: true,
@@ -346,4 +379,32 @@ test("keeps pointer resizing transient and commits once at every supported zoom"
   await page.getByRole("checkbox", { name: "Mount workspace canvas" }).click();
   await expect(page.getByRole("article", { name: "Alpha frame" })).toBeVisible();
   expect(await alphaState(page)).toEqual(beforeCancellation);
+});
+
+test("reconciles a controlled host resize rejection to canonical geometry", async ({ page }) => {
+  await page.goto("/?state-contract");
+  const controlled = page.getByRole("region", { name: "Controlled workspace", exact: true });
+  await controlled.getByRole("button", { name: "Select Alpha" }).click();
+  await page.getByRole("checkbox", { name: "Accept controlled changes" }).uncheck();
+
+  const document = page.getByTestId("controlled-document");
+  const canonicalDocument = await document.inputValue();
+  const article = controlled.getByRole("article", { name: "Alpha" });
+  const canonicalWidth = await article.evaluate((element) => element.getBoundingClientRect().width);
+  const handle = controlled.getByRole("button", {
+    name: "Resize Alpha width",
+    exact: true,
+  });
+  await handle.focus();
+  await handle.press("ArrowRight");
+
+  await expect(document).toHaveValue(canonicalDocument);
+  await expect
+    .poll(() => article.evaluate((element) => element.getBoundingClientRect().width))
+    .toBe(canonicalWidth);
+  await expect(handle).toBeFocused();
+  await expect(controlled.locator("[data-workspace-sizing-announcement]")).toHaveText(
+    "Alpha stayed at its previous size.",
+  );
+  await expect(controlled.locator("..")).toContainText("Committed changes: 0");
 });

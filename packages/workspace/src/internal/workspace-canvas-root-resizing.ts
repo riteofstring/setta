@@ -161,6 +161,7 @@ export function useWorkspaceCanvasRootResizing<TSectionData>({
       if (result.status === "applied") {
         pendingRootSizingRef.current = action;
       } else {
+        pendingRootSizingRef.current = null;
         setAnnouncementText(sizingAnnouncement(action, result));
       }
       setRevision((current) => current + 1);
