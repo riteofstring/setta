@@ -22,6 +22,45 @@ function workspaceControlIds(markup: string): readonly string[] {
   );
 }
 
+function recursiveRenderDocument(): WorkspaceDocument {
+  const base = createWorkspaceTestDocument([
+    { id: "root", title: "Root container" },
+    { id: "first", title: "First child" },
+    { id: "nested", title: "Nested row" },
+    { id: "deep", title: "Deep child" },
+    { id: "empty", title: "Empty container" },
+  ]);
+  const section = (sectionId: string) => base.sections[sectionId] as WorkspaceSection;
+  return {
+    ...base,
+    rootSections: [{ position: { x: 40, y: 60 }, sectionId: "root" }],
+    sections: {
+      ...base.sections,
+      empty: {
+        ...section("empty"),
+        childLayout: { orientation: "vertical", overflow: "grow", sectionIds: [] },
+      },
+      nested: {
+        ...section("nested"),
+        childLayout: {
+          orientation: "horizontal",
+          overflow: "scroll",
+          sectionIds: ["deep"],
+        },
+      },
+      root: {
+        ...section("root"),
+        childLayout: {
+          orientation: "vertical",
+          overflow: "grow",
+          sectionIds: ["first", "nested", "empty"],
+        },
+        isMinimized: true,
+      },
+    },
+  };
+}
+
 describe("Workspace scaffold", () => {
   it("renders a named section with an empty state", () => {
     const markup = renderToStaticMarkup(
@@ -178,6 +217,43 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain(`hidden="" id="${String(contentId)}"`);
     expect(markup).toContain('aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"');
     expect(markup).not.toContain("Host body must be absent");
+  });
+
+  it("renders ordered descendants recursively beside a minimized host body", () => {
+    const markup = renderToStaticMarkup(
+      <Workspace
+        defaultDocument={recursiveRenderDocument()}
+        sectionDefinitions={[
+          {
+            canContainSections: true,
+            defaultSize: { height: 180, width: 240 },
+            displayName: "Recursive fixture",
+            kind: "test",
+            render: ({ sectionId }) => <span>Host body for {sectionId}</span>,
+          },
+        ]}
+      />,
+    );
+
+    expect(markup.match(/<article/gu)).toHaveLength(5);
+    expect(markup).toContain('data-workspace-section-id="root"');
+    expect(markup).toContain('data-workspace-depth="0"');
+    expect(markup).toMatch(
+      /data-workspace-section-id="first"[^>]+data-workspace-depth="1"|data-workspace-depth="1"[^>]+data-workspace-section-id="first"/u,
+    );
+    expect(markup).toContain('data-workspace-parent-section-id="root"');
+    expect(markup).toContain('data-workspace-parent-section-id="nested"');
+    expect(markup).toContain('aria-label="Root container child sections"');
+    expect(markup).toContain('data-workspace-child-orientation="vertical"');
+    expect(markup).toContain('aria-label="Nested row child sections"');
+    expect(markup).toContain('data-workspace-child-orientation="horizontal"');
+    expect(markup).toContain('data-workspace-child-overflow="scroll"');
+    expect(markup).toContain('data-workspace-empty-child-container=""');
+    expect(markup).toContain("No child sections");
+    expect(markup).not.toContain("Host body for root");
+    expect(markup).toContain("Host body for first");
+    expect(markup).toContain("Host body for deep");
+    expect(markup).toMatch(/aria-label="Move First child"[^>]+disabled/u);
   });
 
   it("omits minimize controls for a section kind that opts out", () => {

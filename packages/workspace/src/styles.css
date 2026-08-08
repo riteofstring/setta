@@ -535,6 +535,32 @@
   border-radius: inherit;
 }
 
+.setta-workspace__nested-shell {
+  --setta-workspace-section-local-background: var(--setta-workspace-section-background);
+  --setta-workspace-section-local-header: color-mix(
+    in oklch,
+    var(--setta-workspace-section-background) 88%,
+    var(--setta-workspace-canvas-background)
+  );
+  --setta-workspace-section-local-muted-text: var(--setta-workspace-section-muted-text);
+  --setta-workspace-section-local-text: var(--setta-workspace-section-text);
+
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  container-type: inline-size;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: hidden;
+  color: var(--setta-workspace-section-local-text);
+  background: var(--setta-workspace-section-local-background);
+  border-radius: 0.75rem;
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--setta-workspace-section-local-text) 12%, transparent),
+    0 0.5rem 1.25rem oklch(0 0 0 / 0.1);
+}
+
 .setta-workspace__section-frame[data-workspace-minimized="true"] {
   block-size: auto;
   min-block-size: 0;
@@ -1145,6 +1171,59 @@
   user-select: text;
 }
 
+.setta-workspace__section-children {
+  display: flex;
+  flex: none;
+  min-block-size: 0;
+  min-inline-size: 0;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: color-mix(
+    in oklch,
+    var(--setta-workspace-section-local-background) 82%,
+    var(--setta-workspace-canvas-background)
+  );
+  box-shadow: inset 0 1px
+    color-mix(in oklch, var(--setta-workspace-section-local-text) 10%, transparent);
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.setta-workspace__section-children[data-workspace-child-orientation="vertical"] {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.setta-workspace__section-children[data-workspace-child-orientation="horizontal"] {
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.setta-workspace__section-children[data-workspace-child-overflow="grow"] {
+  overflow: visible;
+}
+
+.setta-workspace__section-children[data-workspace-child-overflow="scroll"] {
+  flex: 1 1 auto;
+  min-block-size: 6rem;
+  overflow: auto;
+}
+
+.setta-workspace__empty-child-container {
+  display: grid;
+  min-block-size: 6rem;
+  min-inline-size: min(100%, 12rem);
+  padding: 1rem;
+  place-items: center;
+  color: var(--setta-workspace-section-local-muted-text);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  line-height: 1.4;
+  text-align: center;
+  border: 2px dashed color-mix(in oklch, var(--setta-workspace-section-local-text) 24%, transparent);
+  border-radius: 0.625rem;
+}
+
 .setta-workspace__section-frame[data-workspace-chrome="compact"] .setta-workspace__section-header {
   min-block-size: 2.5rem;
   padding-block: 0.375rem;
@@ -1540,7 +1619,7 @@
   outline-offset: -3px;
 }
 
-.setta-workspace .setta-workspace__root-shell:focus-visible {
+.setta-workspace :is(.setta-workspace__root-shell, .setta-workspace__nested-shell):focus-visible {
   outline-offset: -4px;
 }
 

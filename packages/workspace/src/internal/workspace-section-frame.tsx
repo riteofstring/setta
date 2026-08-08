@@ -34,8 +34,10 @@ import type { WorkspaceSectionSelectionRequest } from "./workspace-selection.js"
 
 export type WorkspaceSectionFrameProps = Readonly<{
   appearance: "dark" | "light";
+  childSectionRegion: ReactNode;
   colorPalette: readonly WorkspaceSectionColorOption[];
   definition: ResolvedSectionDefinition<unknown>;
+  depth: number;
   geometry: WorkspaceGeometryMeasurements;
   layoutEditable: boolean;
   moving: boolean;
@@ -49,6 +51,7 @@ export type WorkspaceSectionFrameProps = Readonly<{
   onSelectionRequest(sectionId: string, request: WorkspaceSectionSelectionRequest): void;
   onTitleCommit(sectionId: string, title: string): WorkspaceActionResult;
   order: number;
+  parentSectionId: string | null;
   presentationEditable: boolean;
   readOnly: boolean;
   resizing: boolean;
@@ -295,6 +298,7 @@ function SectionSelectionControl({
 }
 
 function SectionDragHandle({
+  depth,
   descriptionId,
   layoutEditable,
   onKeyboardMove,
@@ -303,6 +307,7 @@ function SectionDragHandle({
   selected,
   selectionMovementBlocked,
 }: Readonly<{
+  depth: number;
   descriptionId: string;
   layoutEditable: boolean;
   onKeyboardMove(sectionId: string, direction: WorkspaceKeyboardMoveDirection): void;
@@ -311,7 +316,8 @@ function SectionDragHandle({
   selected: boolean;
   selectionMovementBlocked: boolean;
 }>) {
-  const disabled = !layoutEditable || section.positionAndSizeLocked || selectionMovementBlocked;
+  const disabled =
+    depth > 0 || !layoutEditable || section.positionAndSizeLocked || selectionMovementBlocked;
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     const direction = moveDirection(event.key);
     if (!direction || event.altKey || event.ctrlKey || event.metaKey) {
@@ -335,7 +341,7 @@ function SectionDragHandle({
       aria-describedby={descriptionId}
       aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"
       aria-label={`Move ${section.title}`}
-      className="setta-workspace__section-drag-handle"
+      className={`setta-workspace__section-drag-handle${depth === 0 ? " setta-workspace__section-drag-handle--root" : ""}`}
       disabled={disabled}
       onKeyDown={handleKeyDown}
       onPointerDown={handlePointerDown}
@@ -393,19 +399,21 @@ function SectionContent({
 }
 
 function registerSectionFrame(
+  depth: number,
   element: HTMLElement | null,
   geometry: WorkspaceGeometryMeasurements,
   order: number,
+  parentSectionId: string | null,
   sectionId: string,
 ) {
   if (!element) {
     return;
   }
   return geometry.register({
-    depth: 0,
+    depth,
     element,
     order,
-    parentSectionId: null,
+    parentSectionId,
     sectionId,
   });
 }
@@ -428,6 +436,7 @@ function shouldShowSectionHeader(
 }
 
 function sectionFrameStyle(
+  depth: number,
   section: WorkspaceSection<unknown>,
   definition: ResolvedSectionDefinition<unknown>,
 ): SectionFrameStyle {
@@ -443,6 +452,16 @@ function sectionFrameStyle(
         }),
     maxWidth: definition.resize.maxSize.width,
     minWidth: definition.resize.minSize.width,
+    ...(depth === 0
+      ? {}
+      : {
+          blockSize:
+            section.isMinimized || section.size.height.mode === "content"
+              ? "max-content"
+              : section.size.height.value,
+          inlineSize:
+            section.size.width.mode === "content" ? "max-content" : section.size.width.value,
+        }),
   };
 }
 
@@ -617,8 +636,10 @@ function OpenSectionPresentationEditor({
 
 export function WorkspaceSectionFrame({
   appearance,
+  childSectionRegion,
   colorPalette,
   definition,
+  depth,
   geometry,
   layoutEditable,
   moving,
@@ -629,6 +650,7 @@ export function WorkspaceSectionFrame({
   onSelectionRequest,
   onTitleCommit,
   order,
+  parentSectionId,
   presentationEditable,
   readOnly,
   resizing,
@@ -682,9 +704,9 @@ export function WorkspaceSectionFrame({
   const registerElement = useCallback(
     (element: HTMLElement | null) => {
       frameElementRef.current = element;
-      return registerSectionFrame(element, geometry, order, section.id);
+      return registerSectionFrame(depth, element, geometry, order, parentSectionId, section.id);
     },
-    [geometry, order, section.id],
+    [depth, geometry, order, parentSectionId, section.id],
   );
   const closeTitleEditor = () => {
     restoreTitleFocusRef.current = true;
@@ -695,7 +717,7 @@ export function WorkspaceSectionFrame({
     setPresentationOpen(false);
     focusWithoutScroll(styleControlRef);
   };
-  const frameStyle = sectionFrameStyle(presentedSection, definition);
+  const frameStyle = sectionFrameStyle(depth, presentedSection, definition);
   const titleContent = (
     <SectionTitleContent
       editing={editingTitle}
@@ -726,6 +748,7 @@ export function WorkspaceSectionFrame({
   );
   const dragHandle = (
     <SectionDragHandle
+      depth={depth}
       descriptionId={moveDescriptionId}
       layoutEditable={layoutEditable}
       onKeyboardMove={onKeyboardMove}
@@ -763,16 +786,17 @@ export function WorkspaceSectionFrame({
       selected={selected}
     />
   );
-
   return (
     <article
       aria-describedby={hasStatus ? statusId : undefined}
       aria-labelledby={headingId}
-      className="setta-workspace__root-shell setta-workspace__section-frame"
+      className={`setta-workspace__section-frame ${depth === 0 ? "setta-workspace__root-shell" : "setta-workspace__nested-shell"}`}
+      data-workspace-depth={depth}
       data-workspace-accent-color={presentedSection.presentation.accentColor ?? undefined}
       data-workspace-chrome={presentedSection.presentation.chrome}
       data-workspace-minimized={String(section.isMinimized)}
       data-workspace-moving={String(moving)}
+      data-workspace-parent-section-id={parentSectionId ?? undefined}
       data-workspace-presentation-open={String(presentationOpen)}
       data-workspace-read-only={String(readOnly)}
       data-workspace-resizing={String(resizing)}
@@ -820,6 +844,7 @@ export function WorkspaceSectionFrame({
         readOnly={readOnly}
         section={section}
       />
+      {childSectionRegion}
       <OpenSectionPresentationEditor
         colorPalette={colorPalette}
         editorId={presentationEditorId}

@@ -1,7 +1,11 @@
 import type { NodeMouseHandler } from "@xyflow/react";
-import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 
-import type { WorkspaceActionResult, WorkspaceDocument } from "../core.js";
+import {
+  getWorkspaceSectionOrder,
+  type WorkspaceActionResult,
+  type WorkspaceDocument,
+} from "../core.js";
 import type { WorkspaceGeometryIndex } from "./geometry-index.js";
 import {
   type RootSelectionProjection,
@@ -46,6 +50,27 @@ export function targetAcceptsWorkspaceCanvasShortcut(
   return !target.closest(
     "input, select, textarea, [contenteditable='true'], [data-workspace-local-shortcuts]",
   );
+}
+
+function clickedWorkspaceSectionId<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  event: MouseEvent<Element>,
+  rootSectionId: string,
+): string | null {
+  const ElementConstructor = event.currentTarget.ownerDocument.defaultView?.Element;
+  const target = event.target;
+  if (!ElementConstructor || !(target instanceof ElementConstructor)) {
+    return rootSectionId;
+  }
+  if (target.closest(".setta-workspace__section-drag-handle, [data-workspace-selection-control]")) {
+    return null;
+  }
+  const frameSectionId = target.closest<HTMLElement>(
+    ".setta-workspace__section-frame[data-workspace-section-id]",
+  )?.dataset.workspaceSectionId;
+  return frameSectionId && Object.hasOwn(document.sections, frameSectionId)
+    ? frameSectionId
+    : rootSectionId;
 }
 
 export function useWorkspaceCanvasSelectionControls<TSectionData>({
@@ -115,16 +140,11 @@ export function useWorkspaceCanvasSelectionControls<TSectionData>({
   }, [commitSelection]);
   const handleNodeClick = useCallback<NodeMouseHandler<WorkspaceRootNode>>(
     (event, node) => {
-      const ElementConstructor = event.currentTarget.ownerDocument.defaultView?.Element;
-      const target = event.target;
-      if (
-        ElementConstructor &&
-        target instanceof ElementConstructor &&
-        target.closest(".setta-workspace__section-drag-handle, [data-workspace-selection-control]")
-      ) {
+      const sectionId = clickedWorkspaceSectionId(documentRef.current, event, node.id);
+      if (!sectionId) {
         return;
       }
-      handleSelectionRequest(node.id, {
+      handleSelectionRequest(sectionId, {
         additive: event.shiftKey,
         preserveSelected: false,
       });
@@ -142,9 +162,7 @@ export function useWorkspaceCanvasSelectionControls<TSectionData>({
       if (!selectsAll && !clearsSelection) {
         return;
       }
-      commitSelection(
-        selectsAll ? documentRef.current.rootSections.map(({ sectionId }) => sectionId) : [],
-      );
+      commitSelection(selectsAll ? getWorkspaceSectionOrder(documentRef.current) : []);
       event.preventDefault();
       event.stopPropagation();
     },

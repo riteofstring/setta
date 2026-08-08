@@ -44,6 +44,7 @@ import { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 import { resolveWorkspaceHistoryShortcut } from "./workspace-history.js";
 import {
   WORKSPACE_NO_PAN_CLASS_NAME,
+  WORKSPACE_NO_ROOT_DRAG_CLASS_NAME,
   WORKSPACE_NO_WHEEL_CLASS_NAME,
 } from "./workspace-interaction-boundary.js";
 import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
@@ -320,6 +321,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         maxZoom={viewport.gesturePolicy.maxZoom}
         minZoom={viewport.gesturePolicy.minZoom}
         multiSelectionKeyCode={null}
+        noDragClassName={WORKSPACE_NO_ROOT_DRAG_CLASS_NAME}
         noPanClassName={WORKSPACE_NO_PAN_CLASS_NAME}
         noWheelClassName={WORKSPACE_NO_WHEEL_CLASS_NAME}
         nodeTypes={workspaceNodeTypes}

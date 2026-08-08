@@ -177,10 +177,18 @@ test("selection actions group and ungroup top-level siblings with focus restorat
   await expect.poll(() => rootOrder(page)).toEqual(["navigation-group-1", "gamma"]);
   await expect.poll(() => changeCount(page)).toBe(baselineChanges + 1);
   await expect(actionAnnouncement).toHaveText("The 2 selected sections were grouped.");
-  await expect(page.getByRole("article", { name: "Alpha frame" })).toHaveCount(0);
-  await expect(page.getByRole("article", { name: "Beta frame" })).toHaveCount(0);
   const groupFrame = page.getByRole("article", { name: "Group 1 (2 sections)" });
   await expect(groupFrame).toBeVisible();
+  const nestedAlphaFrame = page.getByRole("article", { name: "Alpha frame" });
+  const nestedBetaFrame = page.getByRole("article", { name: "Beta frame" });
+  await expect(nestedAlphaFrame).toBeVisible();
+  await expect(nestedAlphaFrame).toHaveAttribute(
+    "data-workspace-parent-section-id",
+    "navigation-group-1",
+  );
+  await expect(nestedBetaFrame).toBeVisible();
+  await expect(nestedBetaFrame).toHaveAttribute("data-workspace-depth", "1");
+  await expect(nestedAlphaFrame.getByRole("button", { name: "Move Alpha frame" })).toBeDisabled();
   const selectGroup = page.getByRole("button", { name: "Select Group 1 (2 sections)" });
   await expect(selectGroup).toHaveAttribute("aria-pressed", "true");
   await expect(selectGroup).toBeFocused();

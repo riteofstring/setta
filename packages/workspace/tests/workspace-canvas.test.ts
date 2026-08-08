@@ -11,6 +11,10 @@ import {
 } from "../src/internal/workspace-canvas-root-node.js";
 import { WorkspaceGeometryMeasurements } from "../src/internal/workspace-geometry-service.js";
 import { resolveSectionDefinitions } from "../src/internal/workspace-section-registry.js";
+import {
+  projectWorkspaceSectionChildren,
+  synchronizeWorkspaceSectionTrees,
+} from "../src/internal/workspace-section-tree.js";
 import { WorkspaceViewportLifecycle } from "../src/internal/workspace-viewport-lifecycle.js";
 import { createWorkspaceTestDocument } from "../src/testing.js";
 
@@ -26,6 +30,15 @@ const resizeBindings = {
 };
 const sectionRegistry = resolveSectionDefinitions([
   {
+    defaultSize: { height: 180, width: 240 },
+    displayName: "Test section",
+    kind: "test",
+    render: () => null,
+  },
+]);
+const recursiveSectionRegistry = resolveSectionDefinitions([
+  {
+    canContainSections: true,
     defaultSize: { height: 180, width: 240 },
     displayName: "Test section",
     kind: "test",
@@ -117,6 +130,42 @@ describe("workspace canvas root projection", () => {
     expect(document.sections.nested?.title).toBe("Nested");
   });
 
+  it("leaves intrinsic root axes to one upstream measurement pass", () => {
+    const document = createWorkspaceTestDocument([{ id: "content", title: "Content" }]);
+    const section = document.sections.content as WorkspaceSection;
+    const contentDocument = {
+      ...document,
+      sections: {
+        ...document.sections,
+        content: {
+          ...section,
+          size: {
+            height: { mode: "content", value: 240 },
+            width: { mode: "content", value: 320 },
+          },
+        },
+      },
+    } satisfies WorkspaceDocument;
+    const projected = projectedNodes(contentDocument);
+    const node = projected[0];
+    if (!node) {
+      throw new Error("Content projection did not create its root node.");
+    }
+
+    expect(node?.height).toBeUndefined();
+    expect(node?.initialHeight).toBeUndefined();
+    expect(node?.width).toBeUndefined();
+    expect(node?.initialWidth).toBeUndefined();
+    expect(node?.style).toMatchObject({ height: "max-content", width: "max-content" });
+
+    const synchronized = synchronizeNodes(
+      [{ ...node, initialHeight: 240, initialWidth: 320 }],
+      projected,
+    );
+    expect(synchronized[0]?.initialHeight).toBeUndefined();
+    expect(synchronized[0]?.initialWidth).toBeUndefined();
+  });
+
   it("retains unaffected frame identities across large-section-set updates", () => {
     const document = largeDocument();
     const initial = projectedNodes(document);
@@ -147,6 +196,38 @@ describe("workspace canvas root projection", () => {
     const resizing = setResizingRoot(initial, "section-64");
     expect(moving.filter((node, index) => node !== initial[index])).toHaveLength(1);
     expect(resizing.filter((node, index) => node !== initial[index])).toHaveLength(1);
+  });
+
+  it("projects recursive DOM descendants and retains unchanged subtree identities", () => {
+    const document = recursiveDocument();
+    const initial = projectWorkspaceSectionChildren(
+      document,
+      recursiveSectionRegistry,
+      "root",
+      new Set(["nested"]),
+    );
+
+    expect(initial.map(({ section, selected }) => [section.id, selected])).toEqual([
+      ["nested", true],
+    ]);
+    const nested = document.sections.nested as WorkspaceSection;
+    const projected = projectWorkspaceSectionChildren(
+      {
+        ...document,
+        sections: {
+          ...document.sections,
+          nested: { ...nested, title: "Renamed nested section" },
+        },
+      },
+      recursiveSectionRegistry,
+      "root",
+      new Set(["nested"]),
+    );
+    const synchronized = synchronizeWorkspaceSectionTrees(initial, projected);
+
+    expect(synchronized).not.toBe(initial);
+    expect(synchronized[0]?.section.title).toBe("Renamed nested section");
+    expect(synchronizeWorkspaceSectionTrees(synchronized, projected)).toBe(synchronized);
   });
 });
 

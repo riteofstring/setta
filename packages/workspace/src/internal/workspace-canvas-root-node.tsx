@@ -18,10 +18,18 @@ import {
   WorkspaceSectionResizeControls,
   type WorkspaceSectionResizeBindings,
 } from "./workspace-section-resize-controls.js";
+import {
+  projectWorkspaceSectionChildren,
+  synchronizeWorkspaceSectionTrees,
+  WorkspaceSectionChildren,
+  type WorkspaceSectionTreeBindings,
+  type WorkspaceSectionTreeNode,
+} from "./workspace-section-tree.js";
 import type { WorkspaceSectionSelectionRequest } from "./workspace-selection.js";
 
 type WorkspaceRootNodeData = {
   appearance: "dark" | "light";
+  childSections: readonly WorkspaceSectionTreeNode[];
   colorPalette: WorkspaceSectionFrameProps["colorPalette"];
   definition: ResolvedSectionDefinition<unknown>;
   geometry: WorkspaceGeometryMeasurements;
@@ -60,12 +68,37 @@ export type RootSelectionProjection = Readonly<{
 }>;
 
 function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
+  const treeBindings: WorkspaceSectionTreeBindings = {
+    appearance: data.appearance,
+    colorPalette: data.colorPalette,
+    geometry: data.geometry,
+    layoutEditable: data.layoutEditable,
+    onKeyboardMove: data.onKeyboardMove,
+    onLockedCommit: data.onLockedCommit,
+    onMinimizedCommit: data.onMinimizedCommit,
+    onPresentationCommit: data.onPresentationCommit,
+    onSelectionRequest: data.onSelectionRequest,
+    onTitleCommit: data.onTitleCommit,
+    presentationEditable: data.presentationEditable,
+    readOnly: data.readOnly,
+    validateTitle: data.validateTitle,
+  };
+  const rootTreeNode: WorkspaceSectionTreeNode = {
+    children: data.childSections,
+    definition: data.definition,
+    section: data.section,
+    selected: data.selected,
+  };
   return (
     <>
       <WorkspaceSectionFrame
         appearance={data.appearance}
+        childSectionRegion={
+          <WorkspaceSectionChildren bindings={treeBindings} depth={0} node={rootTreeNode} />
+        }
         colorPalette={data.colorPalette}
         definition={data.definition}
+        depth={0}
         geometry={data.geometry}
         layoutEditable={data.layoutEditable}
         moving={data.moving}
@@ -76,6 +109,7 @@ function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
         onSelectionRequest={data.onSelectionRequest}
         onTitleCommit={data.onTitleCommit}
         order={data.order}
+        parentSectionId={null}
         presentationEditable={data.presentationEditable}
         readOnly={data.readOnly}
         resizing={data.resizing}
@@ -148,19 +182,18 @@ function applyRootNodeDimensions(
   if (section.size.width.mode === "fixed") {
     node.width = root.size.width;
   } else {
-    node.initialWidth = root.size.width;
     node.style.width = "max-content";
   }
   if (!section.isMinimized && section.size.height.mode === "fixed") {
     node.height = root.size.height;
   } else if (!section.isMinimized) {
-    node.initialHeight = root.size.height;
     node.style.height = "max-content";
   }
 }
 
 function rootNode(
   root: WorkspaceCanvasRoot,
+  childSections: readonly WorkspaceSectionTreeNode[],
   geometry: WorkspaceGeometryMeasurements,
   section: WorkspaceSection<unknown>,
   definition: ResolvedSectionDefinition<unknown>,
@@ -185,6 +218,7 @@ function rootNode(
     ariaLabel: root.title,
     data: {
       appearance,
+      childSections,
       colorPalette,
       definition,
       geometry,
@@ -208,7 +242,7 @@ function rootNode(
       title: root.title,
       validateTitle,
     },
-    dragHandle: ".setta-workspace__section-drag-handle",
+    dragHandle: ".setta-workspace__section-drag-handle--root",
     draggable: rootNodeIsDraggable(layoutEditable, section, selectionMovementBlocked),
     focusable: false,
     id: root.sectionId,
@@ -251,6 +285,12 @@ export function projectNodes<TSectionData>(
     }
     return rootNode(
       root,
+      projectWorkspaceSectionChildren(
+        document,
+        sectionRegistry,
+        root.sectionId,
+        selection.selectedSectionIds,
+      ),
       geometry,
       section as WorkspaceSection<unknown>,
       definition as ResolvedSectionDefinition<unknown>,
@@ -296,8 +336,22 @@ function nodePositionsMatch(left: WorkspacePoint, right: WorkspacePoint): boolea
   return left.x === right.x && left.y === right.y;
 }
 
+function synchronizeNodeData(
+  existing: WorkspaceRootNode,
+  node: WorkspaceRootNode,
+): WorkspaceRootNode["data"] {
+  const childSections = synchronizeWorkspaceSectionTrees(
+    existing.data.childSections,
+    node.data.childSections,
+  );
+  const projectedData =
+    childSections === node.data.childSections ? node.data : { ...node.data, childSections };
+  const data = shallowPropertiesMatch(existing.data, projectedData) ? existing.data : projectedData;
+  return data;
+}
+
 function synchronizeNode(existing: WorkspaceRootNode, node: WorkspaceRootNode): WorkspaceRootNode {
-  const data = shallowPropertiesMatch(existing.data, node.data) ? existing.data : node.data;
+  const data = synchronizeNodeData(existing, node);
   const position = nodePositionsMatch(existing.position, node.position)
     ? existing.position
     : { ...node.position };
@@ -315,14 +369,12 @@ function synchronizeNode(existing: WorkspaceRootNode, node: WorkspaceRootNode): 
   }
   if (node.data.section.size.width.mode === "content") {
     delete synchronized.width;
-  } else {
-    delete synchronized.initialWidth;
   }
+  delete synchronized.initialWidth;
   if (node.data.section.isMinimized || node.data.section.size.height.mode === "content") {
     delete synchronized.height;
-  } else {
-    delete synchronized.initialHeight;
   }
+  delete synchronized.initialHeight;
   return shallowPropertiesMatch(existing, synchronized) ? existing : synchronized;
 }
 

@@ -97,8 +97,8 @@ const navigationSectionDefinitions = [
     ),
     resize: {
       axes: "both",
-      maxSize: { height: 720, width: 720 },
-      minSize: { height: 240, width: 320 },
+      maxSize: { height: 1_600, width: 720 },
+      minSize: { height: 180, width: 220 },
       preserveAspectRatio: false,
     },
   },
@@ -136,6 +136,25 @@ function navigationSection(id: string, title: string): WorkspaceSection {
   };
 }
 
+function recursiveContainer(
+  id: string,
+  title: string,
+  orientation: "horizontal" | "vertical",
+  sectionIds: readonly string[],
+  width: number,
+  height: number,
+): WorkspaceSection {
+  return {
+    ...navigationSection(id, title),
+    childLayout: { orientation, overflow: "grow", sectionIds },
+    kind: "navigation group",
+    size: {
+      height: { mode: "content", value: height },
+      width: { mode: "fixed", value: width },
+    },
+  };
+}
+
 function createNavigationDocument(): WorkspaceDocument {
   const empty = createEmptyWorkspaceDocument();
   return {
@@ -151,6 +170,77 @@ function createNavigationDocument(): WorkspaceDocument {
       gamma: navigationSection("gamma", "Gamma frame"),
     },
   };
+}
+
+function createRecursiveDocument(): WorkspaceDocument {
+  const empty = createEmptyWorkspaceDocument();
+  return {
+    ...empty,
+    rootSections: [{ position: { x: 120, y: 80 }, sectionId: "recursive-root" }],
+    sections: {
+      "deep-container": recursiveContainer(
+        "deep-container",
+        "Deep container",
+        "vertical",
+        ["nested-gamma"],
+        280,
+        320,
+      ),
+      "empty-container": recursiveContainer(
+        "empty-container",
+        "Empty container",
+        "vertical",
+        [],
+        240,
+        180,
+      ),
+      "nested-alpha": {
+        ...navigationSection("nested-alpha", "Nested Alpha"),
+        size: {
+          height: { mode: "fixed", value: 160 },
+          width: { mode: "fixed", value: 240 },
+        },
+      },
+      "nested-beta": {
+        ...navigationSection("nested-beta", "Nested Beta"),
+        size: {
+          height: { mode: "fixed", value: 160 },
+          width: { mode: "fixed", value: 240 },
+        },
+      },
+      "nested-gamma": {
+        ...navigationSection("nested-gamma", "Nested Gamma"),
+        size: {
+          height: { mode: "fixed", value: 160 },
+          width: { mode: "fixed", value: 240 },
+        },
+      },
+      "nested-row": recursiveContainer(
+        "nested-row",
+        "Nested row",
+        "horizontal",
+        ["nested-beta", "deep-container"],
+        640,
+        420,
+      ),
+      "recursive-root": recursiveContainer(
+        "recursive-root",
+        "Recursive workspace",
+        "vertical",
+        ["nested-alpha", "nested-row", "empty-container"],
+        700,
+        920,
+      ),
+    },
+  };
+}
+
+function workspaceSectionsAvailable(
+  document: WorkspaceDocument,
+  mounted: boolean,
+  sectionIds: readonly string[],
+): boolean {
+  return mounted && sectionIds.every((sectionId) => Object.hasOwn(document.sections, sectionId));
 }
 
 export function CanvasShellPage() {
@@ -191,8 +281,16 @@ export function CanvasShellPage() {
     setStatus(`${label}: ${result.status}.`);
   };
 
-  const hasNavigationFixture = document.rootSections.length > 0;
-  const navigationAvailable = workspaceMounted && hasNavigationFixture;
+  const hasSections = document.rootSections.length > 0;
+  const navigationAvailable = workspaceSectionsAvailable(document, workspaceMounted, [
+    "alpha",
+    "beta",
+    "gamma",
+  ]);
+  const recursiveFixtureAvailable = workspaceSectionsAvailable(document, workspaceMounted, [
+    "nested-alpha",
+    "nested-gamma",
+  ]);
   const toolbarControls = (
     showHostExtensions
       ? [
@@ -432,6 +530,15 @@ export function CanvasShellPage() {
               Load navigation fixture
             </button>
             <button
+              type="button"
+              onClick={() => {
+                setDocument(createRecursiveDocument());
+                setStatus("Recursive fixture loaded.");
+              }}
+            >
+              Load recursive fixture
+            </button>
+            <button
               disabled={!navigationAvailable}
               type="button"
               onClick={() =>
@@ -476,7 +583,29 @@ export function CanvasShellPage() {
               Fit navigation fixture
             </button>
             <button
-              disabled={!hasNavigationFixture}
+              disabled={!recursiveFixtureAvailable}
+              type="button"
+              onClick={() =>
+                void runNavigation("Focus Nested Gamma", (workspaceController) =>
+                  workspaceController.focusSection("nested-gamma"),
+                )
+              }
+            >
+              Focus Nested Gamma
+            </button>
+            <button
+              disabled={!recursiveFixtureAvailable}
+              type="button"
+              onClick={() =>
+                void runNavigation("Fit recursive descendants", (workspaceController) =>
+                  workspaceController.fitSections(["nested-alpha", "nested-gamma"]),
+                )
+              }
+            >
+              Fit recursive descendants
+            </button>
+            <button
+              disabled={!hasSections}
               type="button"
               onClick={() => {
                 setDocument(createEmptyWorkspaceDocument());
