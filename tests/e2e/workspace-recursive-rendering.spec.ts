@@ -227,11 +227,18 @@ test("container overflow switches stably, isolates scrolling, and accepts an emp
   expect(await canvasViewport(page)).toEqual(viewportBeforeWheel);
 
   await nestedRow.getByRole("button", { name: "Select Nested row" }).click();
-  const growControl = nestedRow.getByRole("button", {
-    name: "Grow Nested row child sections",
+  const header = nestedRow.locator(":scope > .setta-workspace__section-header");
+  const actions = header.locator(":scope > .setta-workspace__section-actions");
+  const [headerBox, actionsBox] = await Promise.all([header.boundingBox(), actions.boundingBox()]);
+  if (!headerBox || !actionsBox) {
+    throw new Error("The selected container header must expose browser geometry.");
+  }
+  expect(actionsBox.x + actionsBox.width).toBeLessThanOrEqual(headerBox.x + headerBox.width + 1);
+  const overflowControl = nestedRow.getByRole("button", {
+    name: "Scroll Nested row child sections",
   });
-  await expect(growControl).toHaveAttribute("aria-pressed", "true");
-  await growControl.click();
+  await expect(overflowControl).toHaveAttribute("aria-pressed", "true");
+  await overflowControl.click();
   await expect(nestedRow).toHaveAttribute("data-workspace-child-overflow", "grow");
   await expect(nestedRow.getByRole("group", { name: "Nested row child sections" })).toBeVisible();
   const grownBox = await nestedRow.boundingBox();
@@ -239,19 +246,28 @@ test("container overflow switches stably, isolates scrolling, and accepts an emp
     throw new Error("The growing child container must expose browser geometry.");
   }
 
-  const scrollControl = nestedRow.getByRole("button", {
-    name: "Scroll Nested row child sections",
-  });
-  await scrollControl.click();
-  await expect(
-    nestedRow.getByRole("button", { name: "Grow Nested row child sections" }),
-  ).toBeFocused();
+  await expect(overflowControl).toHaveAttribute("aria-pressed", "false");
+  await overflowControl.click();
+  await expect(overflowControl).toBeFocused();
+  await expect(overflowControl).toHaveAttribute("aria-pressed", "true");
   await expect(nestedRow).toHaveAttribute("data-workspace-child-overflow", "scroll");
   const recapturedBox = await nestedRow.boundingBox();
   if (!recapturedBox) {
     throw new Error("The recaptured scroll container must expose browser geometry.");
   }
   expect(recapturedBox.width).toBeCloseTo(grownBox.width, 0);
+  const moveControl = nestedRow.getByRole("button", { name: "Move Nested row" });
+  await expect(moveControl).toBeVisible();
+  expect(
+    await moveControl.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const inlineEndElement = document.elementFromPoint(
+        rect.right - 2,
+        rect.top + rect.height / 2,
+      );
+      return inlineEndElement === element || element.contains(inlineEndElement);
+    }),
+  ).toBe(true);
   await expect(workspace.locator("[data-workspace-container-layout-announcement]")).toHaveText(
     "Nested row is scrolling its child sections.",
   );

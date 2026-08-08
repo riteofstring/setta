@@ -251,7 +251,9 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain('data-workspace-child-overflow="scroll"');
     expect(markup).toContain('data-workspace-empty-child-container=""');
     expect(markup).toContain("Drop a section here");
-    expect(markup).toMatch(/aria-label="Grow Nested row child sections"[^>]+aria-pressed="true"/u);
+    expect(markup).toMatch(
+      /aria-label="Scroll Nested row child sections"[^>]+aria-pressed="true"/u,
+    );
     expect(markup).toMatch(
       /aria-label="Scroll Root container child sections"[^>]+aria-pressed="false"[^>]+disabled/u,
     );

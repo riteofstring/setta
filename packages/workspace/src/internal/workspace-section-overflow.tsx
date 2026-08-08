@@ -167,7 +167,7 @@ export function WorkspaceSectionOverflowControl({
   };
   return (
     <button
-      aria-label={`${scrolling ? "Grow" : "Scroll"} ${section.title} child sections`}
+      aria-label={`Scroll ${section.title} child sections`}
       aria-pressed={scrolling}
       className="setta-workspace__section-edit-control setta-workspace__section-overflow-control"
       data-workspace-section-layout-control="overflow"
