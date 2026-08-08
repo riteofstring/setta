@@ -1,5 +1,5 @@
 import {
-  EMPTY_COLLISION_TRACKER_STATE,
+  clearCollisionTarget,
   resolveCollisionFrame,
   type CollisionTrackerState,
   type ListOrientation,
@@ -86,7 +86,10 @@ export function resolveAdapterProofDragPreview({
   zoom: number;
 }): AdapterProofPreviewResolution {
   if (!targetId) {
-    return emptyResolution(EMPTY_COLLISION_TRACKER_STATE, "No measured drop target is active.");
+    return emptyResolution(
+      clearCollisionTarget(session.collisionState),
+      "No measured drop target is active.",
+    );
   }
   if (targetId === ADAPTER_PROOF_CANVAS_TARGET_ID) {
     return resolveCanvasPreview(session, screenDelta, zoom);
@@ -263,7 +266,10 @@ function invalidNestedTarget(
   collisionState: CollisionTrackerState,
   reason: string,
 ): NestedTargetResolution {
-  return { resolution: emptyResolution(collisionState, reason), status: "invalid" };
+  return {
+    resolution: emptyResolution(clearCollisionTarget(collisionState), reason),
+    status: "invalid",
+  };
 }
 
 function translateOptionalPoint(

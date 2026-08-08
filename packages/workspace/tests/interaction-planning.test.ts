@@ -301,6 +301,14 @@ describe("Phase 0 section-move planning characterization", () => {
         },
       },
     });
+    if (decision.status === "planned") {
+      expect(applySectionMovePlan(hierarchy(), decision.plan).rootSectionIds).toEqual([
+        "root-b",
+        "root-a",
+        "container",
+        "empty",
+      ]);
+    }
   });
 
   it("rejects descendant cycles and sort-mode parent changes before preview", () => {

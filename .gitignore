@@ -6,7 +6,6 @@
 .artifacts/
 .reports/
 .tools/
-.venv/
 coverage/
 dist/
 node_modules/
@@ -15,10 +14,5 @@ test-results/
 
 *.log
 *.tsbuildinfo
-*.egg-info/
 
 .claude/
-.pytest_cache/
-.ralph-runtime/
-.ruff_cache/
-__pycache__/

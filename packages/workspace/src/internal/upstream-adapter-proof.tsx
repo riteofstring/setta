@@ -25,8 +25,6 @@ import {
   adapterProofSelectionBounds,
   adapterProofWorkspaceRects,
   resolveAdapterProofDragPreview,
-  type AdapterProofDragPreview,
-  type AdapterProofDragSession,
 } from "./adapter-proof-drag-planning.js";
 import {
   ADAPTER_PROOF_SECTIONS,
@@ -39,7 +37,6 @@ import {
 import { EMPTY_COLLISION_TRACKER_STATE } from "./collision-characterization.js";
 import {
   WorkspaceGeometryIndex,
-  resolveGeometryDropTarget,
   workspaceRectToClient,
   type MarqueeSelectionMode,
   type WorkspacePoint,
@@ -70,6 +67,9 @@ import {
   AdapterProofMarqueeSelection,
   AdapterProofSelectedFrameOverlay,
   AdapterProofViewportObserver,
+  refreshAdapterProofTargetClientRect,
+  resolveAdapterProofPointerTarget,
+  type ActiveAdapterProofDrag,
 } from "./upstream-adapter-geometry-proof.js";
 import { ProofDiagnostics, ProofDiagnosticsStore } from "./upstream-adapter-proof-diagnostics.js";
 import {
@@ -155,11 +155,6 @@ const initialRootNodes: readonly ProofRootNode[] = [
 ];
 
 const allProofSectionIds = [...Object.keys(ADAPTER_PROOF_SECTIONS)];
-
-type ActiveAdapterProofDrag = AdapterProofDragSession & {
-  input: AdapterDndEvent["input"];
-  preview: AdapterProofDragPreview | null;
-};
 
 function useProofContext(): ProofContextValue {
   const value = useContext(ProofContext);
@@ -274,6 +269,7 @@ const ProofRootSection = memo(
         data-proof-section-id={id}
         data-selected={selectedSectionIds.has(id) ? "true" : "false"}
         ref={elementRef}
+        tabIndex={-1}
       >
         <header className="setta-adapter-proof__root-header">
           <h3>{data.title}</h3>
@@ -440,119 +436,26 @@ function interactionRect({ x, y, width, height }: WorkspaceRect): InteractionRec
   return createInteractionRect(x, y, width, height);
 }
 
-function interactionPointForDrag(
-  event: AdapterDndEvent,
-  session: ActiveAdapterProofDrag,
-): { x: number; y: number } {
-  if (session.activatorPoint) {
-    return {
-      x: session.activatorPoint.x + event.transform.x,
-      y: session.activatorPoint.y + event.transform.y,
-    };
-  }
-  return {
-    x: session.sourceClientBounds.x + session.sourceClientBounds.width / 2 + event.transform.x,
-    y: session.sourceClientBounds.y + session.sourceClientBounds.height / 2 + event.transform.y,
-  };
-}
-
-function resolvePointerTarget(
-  event: AdapterDndEvent,
-  session: ActiveAdapterProofDrag,
-  canvasElement: HTMLElement | null,
-  geometryIndex: WorkspaceGeometryIndex,
-  viewport: ViewportTransform,
-): string | null {
-  if (!canvasElement) {
-    return event.targetId;
-  }
-  if (event.input === "keyboard") {
-    return resolveKeyboardTarget(event, session) ?? event.targetId;
-  }
-  const interactionPoint = interactionPointForDrag(event, session);
-  const viewportBounds = interactionRect(canvasElement.getBoundingClientRect());
-  const target = resolveGeometryDropTarget(
-    geometryIndex,
-    interactionPoint,
-    viewportBounds,
-    viewport,
-    new Set(session.sectionIds),
-  );
-  if (target.targetSectionId) {
-    return target.targetSectionId;
-  }
-  const insideCanvas =
-    interactionPoint.x >= viewportBounds.x &&
-    interactionPoint.x <= viewportBounds.right &&
-    interactionPoint.y >= viewportBounds.y &&
-    interactionPoint.y <= viewportBounds.bottom;
-  return insideCanvas ? ADAPTER_PROOF_CANVAS_TARGET_ID : event.targetId;
-}
-
-function keyboardSiblingContext(
-  session: ActiveAdapterProofDrag,
-  sourceId: string,
-): { parentId: string | null; siblings: readonly string[] } {
-  const parentId = session.hierarchy.parentByChild[sourceId] ?? null;
-  const siblings = parentId
-    ? (session.hierarchy.childrenByParent[parentId] ?? [])
-    : session.hierarchy.rootSectionIds;
-  return { parentId, siblings };
-}
-
-function resolveKeyboardTarget(
-  event: AdapterDndEvent,
-  session: ActiveAdapterProofDrag,
-): string | null {
-  const sourceId = session.sectionIds[0];
-  if (!sourceId) {
+function matchingDisplayedPreview(
+  displayedPreview: ActiveAdapterProofDrag["preview"],
+  resolution: ReturnType<typeof resolveAdapterProofDragPreview>,
+): ActiveAdapterProofDrag["preview"] {
+  if (
+    !resolution.preview ||
+    displayedPreview?.destinationKey !== resolution.preview.destinationKey
+  ) {
     return null;
   }
-  const { parentId, siblings } = keyboardSiblingContext(session, sourceId);
-  const selected = new Set(session.sectionIds);
-  const selectedIndexes = session.sectionIds.map((sectionId) => siblings.indexOf(sectionId));
-  const delta =
-    adapterProofOrientation(parentId) === "horizontal" ? event.transform.x : event.transform.y;
-  if (delta > 0) {
-    const lastIndex = Math.max(...selectedIndexes);
-    return siblings.slice(lastIndex + 1).find((sectionId) => !selected.has(sectionId)) ?? null;
-  }
-  if (delta < 0) {
-    const firstIndex = Math.min(...selectedIndexes);
-    return (
-      siblings
-        .slice(0, firstIndex)
-        .reverse()
-        .find((sectionId) => !selected.has(sectionId)) ?? null
-    );
-  }
-  return null;
+  return resolution.preview;
 }
 
-function refreshTargetClientRect(
-  session: ActiveAdapterProofDrag,
-  targetId: string | null,
-  canvasElement: HTMLElement | null,
-  geometryIndex: WorkspaceGeometryIndex,
-  viewport: ViewportTransform,
-): ActiveAdapterProofDrag {
-  if (!canvasElement || !targetId || targetId === ADAPTER_PROOF_CANVAS_TARGET_ID) {
-    return session;
+function completionRejectionMessage(
+  resolution: ReturnType<typeof resolveAdapterProofDragPreview>,
+): string {
+  if (resolution.preview) {
+    return "Completion did not match the displayed preview; no command was emitted.";
   }
-  const targetFrame = geometryIndex.get(targetId);
-  if (!targetFrame) {
-    return session;
-  }
-  const viewportBounds = interactionRect(canvasElement.getBoundingClientRect());
-  return {
-    ...session,
-    clientRectsById: {
-      ...session.clientRectsById,
-      [targetId]: interactionRect(
-        workspaceRectToClient(targetFrame.rect, viewportBounds, viewport),
-      ),
-    },
-  };
+  return resolution.reason ?? "Nested order unchanged.";
 }
 
 export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
@@ -729,14 +632,14 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
       if (!session) {
         return;
       }
-      const targetId = resolvePointerTarget(
+      const targetId = resolveAdapterProofPointerTarget(
         event,
         session,
         canvasElement,
         geometryIndex,
         viewport.current,
       );
-      const planningSession = refreshTargetClientRect(
+      const planningSession = refreshAdapterProofTargetClientRect(
         session,
         targetId,
         canvasElement,
@@ -777,21 +680,35 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
         diagnostics.setStatus("Nested move canceled without a command.");
         return;
       }
+      const targetId = resolveAdapterProofPointerTarget(
+        completion,
+        session,
+        canvasElement,
+        geometryIndex,
+        viewport.current,
+      );
+      const planningSession = refreshAdapterProofTargetClientRect(
+        session,
+        targetId,
+        canvasElement,
+        geometryIndex,
+        viewport.current,
+      );
       const resolution = resolveAdapterProofDragPreview({
         orientation: adapterProofOrientation,
         screenDelta: completion.transform,
-        session,
-        targetId: completion.targetId,
+        session: planningSession,
+        targetId,
         zoom: viewport.current.zoom,
       });
-      const preview = session.preview ?? resolution.preview;
+      const preview = matchingDisplayedPreview(session.preview, resolution);
       if (!preview) {
         dragStore.complete(null);
         activeDrag.current = null;
-        diagnostics.setStatus(resolution.reason ?? "Nested order unchanged.");
+        diagnostics.setStatus(completionRejectionMessage(resolution));
         return;
       }
-      const nextHierarchy = applySectionMovePlan(session.hierarchy, preview.plan);
+      const nextHierarchy = applySectionMovePlan(planningSession.hierarchy, preview.plan);
       setHierarchy(nextHierarchy);
       setNodes((current) => syncRootNodes(current, nextHierarchy, geometryIndex));
       geometryMeasurements.requestMeasurement();
@@ -810,7 +727,7 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
         `${String(preview.plan.sectionIds.length)}-section ${preview.plan.mode} move committed from the displayed preview; one package command emitted.`,
       );
     },
-    [diagnostics, dragStore, geometryIndex, geometryMeasurements, recordCommand],
+    [canvasElement, diagnostics, dragStore, geometryIndex, geometryMeasurements, recordCommand],
   );
 
   const changeDragMode = useCallback(

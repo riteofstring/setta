@@ -14,7 +14,16 @@ const ignoredDirectoryNames = new Set([
   "test-results",
 ]);
 
-const projectDirectories = ["apps", "docs", "fixtures", "packages", "patches", "scripts", "tests"];
+const projectDirectories = [
+  "apps",
+  "docs",
+  "fixtures",
+  "packages",
+  "patches",
+  "perf",
+  "scripts",
+  "tests",
+];
 const rootFiles = [
   ".editorconfig",
   ".gitattributes",

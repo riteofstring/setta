@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   FIXTURE_ATTRIBUTION,
+  INTERACTION_FIXTURE_EVIDENCE,
   NON_DND_BROWSER_EVIDENCE,
   NON_DND_FIXTURE_EVIDENCE,
   SOURCE_SNAPSHOT,
@@ -37,8 +38,16 @@ describe("non-DnD source characterization", () => {
       expect(evidence.behavior.length).toBeGreaterThan(24);
       expect(evidence.sources.length).toBeGreaterThan(0);
       expect(evidence.sources.every((source) => source.startsWith("frontend/"))).toBe(true);
+      expect(evidence.symbols.length).toBeGreaterThan(0);
+      expect(evidence.destination).toBe("packages/workspace/tests/non-dnd-evidence.test.ts");
     }
-    expect(FIXTURE_ATTRIBUTION).toContain("no historical source text copied");
+    for (const evidence of Object.values(INTERACTION_FIXTURE_EVIDENCE)) {
+      expect(evidence.sources.length).toBeGreaterThan(0);
+      expect(evidence.symbols.length).toBeGreaterThan(0);
+      expect(evidence.destination.startsWith("packages/workspace/")).toBe(true);
+    }
+    expect(FIXTURE_ATTRIBUTION).toContain("closely port historical MIT-licensed algorithms");
+    expect(FIXTURE_ATTRIBUTION).toContain("THIRD_PARTY_NOTICES.md");
   });
 
   it("records the contracts that intentionally differ from the historical application", () => {

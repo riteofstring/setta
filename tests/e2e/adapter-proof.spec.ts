@@ -118,6 +118,30 @@ async function findBlankCanvasPoint(page: Page): Promise<{ x: number; y: number 
   });
 }
 
+async function findOutsideCanvasPoint(page: Page): Promise<{ x: number; y: number }> {
+  return page.locator(".setta-adapter-proof__canvas").evaluate((canvas) => {
+    const bounds = canvas.getBoundingClientRect();
+    const candidates = [
+      { x: bounds.left + bounds.width / 2, y: bounds.top - 16 },
+      { x: bounds.left - 16, y: bounds.top + bounds.height / 2 },
+      { x: bounds.right + 16, y: bounds.top + bounds.height / 2 },
+      { x: bounds.left + bounds.width / 2, y: bounds.bottom + 16 },
+    ];
+    const point = candidates.find(
+      ({ x, y }) =>
+        x >= 1 &&
+        x < innerWidth - 1 &&
+        y >= 1 &&
+        y < innerHeight - 1 &&
+        (x < bounds.left || x > bounds.right || y < bounds.top || y > bounds.bottom),
+    );
+    if (!point) {
+      throw new Error("The adapter proof needs one visible point outside its canvas.");
+    }
+    return point;
+  });
+}
+
 async function findVisibleActionPoint(locator: Locator): Promise<{ x: number; y: number }> {
   return locator.evaluate((element) => {
     const clipToVisibleCanvas = (bounds: DOMRect, canvasBounds?: DOMRect) => {
@@ -275,6 +299,7 @@ test.describe("upstream adapter proof", () => {
 
     await expect(page.locator("[data-proof-geometry-count]")).toContainText("Frames: 8");
     await expect(page.locator("[data-proof-initial-fit]")).toHaveText("Initial fit: ready");
+    await expect(page.getByRole("group", { name: "Adapter proof controls" })).toBeVisible();
     await expectSelectionAligned(page);
 
     await page.getByRole("button", { name: "Zoom in" }).click();
@@ -319,6 +344,19 @@ test.describe("upstream adapter proof", () => {
   }) => {
     await page.goto(proofUrl);
     await expect(page.locator("[data-proof-initial-fit]")).toHaveText("Initial fit: ready");
+
+    await page.getByRole("button", { name: "Research note", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Horizontal container", exact: true })
+      .click({ modifiers: ["Shift"] });
+    await expect(page.locator("[data-proof-selection-ids]")).toHaveText(
+      "Selection: nested-note-a, nested-container",
+    );
+    await expect(page.locator(".setta-adapter-proof__selection-overlay")).toHaveAttribute(
+      "data-proof-selection-roots",
+      "nested-note-a,nested-container",
+    );
+    await expect(page.locator("[data-proof-marquee]")).toHaveCount(0);
 
     await page.getByRole("button", { name: "Select deep notes" }).click();
     await expect(page.locator("[data-proof-selection-ids]")).toContainText(
@@ -377,6 +415,8 @@ test.describe("upstream adapter proof", () => {
       "root-alpha",
     );
     await expectSelectionAligned(page, ["root-alpha"]);
+    await page.getByRole("button", { name: "Focus selected" }).click();
+    await expect(page.locator('[data-proof-section-id="root-alpha"]')).toBeFocused();
   });
 
   test("keeps one movement owner and emits one command only on accepted completion", async ({
@@ -465,6 +505,54 @@ test.describe("upstream adapter proof", () => {
     );
     await page.mouse.up();
     await expect(commandCount).toHaveText("Commands: 2");
+  });
+
+  test("clears a stale nested preview before an invalid pointer completion", async ({ page }) => {
+    await page.goto(proofUrl);
+    await expect(page.locator("[data-proof-initial-fit]")).toHaveText("Initial fit: ready");
+    const sourceHandle = page.getByRole("button", { name: "Move Research note" });
+    await sourceHandle.scrollIntoViewIfNeeded();
+    const target = page.locator('[data-proof-section-id="nested-note-d"]');
+    const sourceBox = await sourceHandle.boundingBox();
+    if (!sourceBox) {
+      throw new Error("The stale-target proof requires a measured nested target.");
+    }
+    const sourcePoint = {
+      x: sourceBox.x + sourceBox.width / 2,
+      y: sourceBox.y + sourceBox.height / 2,
+    };
+
+    await page.mouse.move(sourcePoint.x, sourcePoint.y);
+    await page.mouse.down();
+    await page.mouse.move(sourcePoint.x + 8, sourcePoint.y, { steps: 4 });
+    const planningRoot = page.locator('.react-flow__node[data-id="root-alpha"]');
+    await expect
+      .poll(() => planningRoot.evaluate((element) => getComputedStyle(element).zIndex))
+      .toBe("1000");
+    await target.evaluate((element) => element.scrollIntoView({ block: "center" }));
+    const targetBox = await target.boundingBox();
+    if (!targetBox) {
+      throw new Error("The stale-target proof target must remain measured after nested scrolling.");
+    }
+    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height - 12, {
+      steps: 12,
+    });
+    await expect(page.locator('[data-proof-drag-placeholder="destination"]')).toBeVisible();
+
+    const outsidePoint = await findOutsideCanvasPoint(page);
+    await page.mouse.move(outsidePoint.x, outsidePoint.y, { steps: 12 });
+    await expect(page.locator('[data-proof-drag-placeholder="destination"]')).toHaveCount(0);
+    await expect(page.locator("[data-proof-resolved-target]")).not.toHaveAttribute(
+      "data-proof-resolved-target",
+      "nested-note-d",
+    );
+    await page.mouse.up();
+
+    await expect(page.locator("[data-proof-command-count]")).toHaveText("Commands: 0");
+    await expect(page.locator("[data-proof-commit-key]")).toHaveAttribute(
+      "data-proof-commit-key",
+      "none",
+    );
   });
 
   test("completes selection-block canvas drops with preview parity at every proof zoom", async ({

@@ -70,13 +70,24 @@ function validateSupplyChainSettings() {
     "trustLockfile: false",
     "blockExoticSubdeps: true",
     '"nanoid@<3.3.17": "3.3.17"',
-    "esbuild: true",
   ];
   return workspacePolicyPaths.flatMap((relativePath) => {
     const contents = readFileSync(path.join(repositoryRoot, relativePath), "utf8");
-    return requiredSettings.flatMap((setting) =>
-      contents.includes(setting) ? [] : [`${relativePath}: missing ${setting}`],
-    );
+    return [
+      ...requiredSettings.flatMap((setting) =>
+        contents.includes(setting) ? [] : [`${relativePath}: missing ${setting}`],
+      ),
+      ...(/^allowBuilds:\s*\{\s*\}\s*$/mu.test(contents)
+        ? []
+        : [
+            `${relativePath}: allowBuilds must remain empty until an exact package and version has owned, expiring exception metadata`,
+          ]),
+      ...(/^trustPolicyExclude:/mu.test(contents)
+        ? [
+            `${relativePath}: trustPolicyExclude is unsupported without exact, owned, expiring exception metadata`,
+          ]
+        : []),
+    ];
   });
 }
 

@@ -22,7 +22,7 @@ Registry metadata was checked on 2026-08-07.
 | `@dnd-kit/geometry` |       `0.5.0` | 2026-06-11 | MIT     | Public rectangle geometry used to replace the active collision shape with package-owned single- or multi-selection bounds                                      |
 
 All three direct releases exceed the repository's strict seven-day release-age floor. React and React DOM are
-exact peer dependencies. No upstream implementation source was copied. The package imports
+exact peer dependencies. No current upstream provider implementation source was copied. The package imports
 XYFlow's published base stylesheet and retains its visible attribution.
 
 ## Adapter boundaries
@@ -84,7 +84,8 @@ geometry index and keeps descendant overlays aligned.
 
 The same index now implements positive-area partial/full marquee queries, ancestor-normalized
 selection roots, readiness-aware bounds, and combined selection overlays. Shift-drag marquee
-selection and its keyboard-reachable fixture alternative consume those APIs at every visible depth.
+selection begins only from noninteractive content, so Shift-click remains the additive native-button
+selection path; its keyboard-reachable fixture alternative consumes the same selection model.
 The initial fit waits until all eight representative root and descendant frames are registered, and
 combined deep-selection overlays remain screen-aligned at 0.5x, 1x, and 2x zoom.
 
@@ -95,14 +96,17 @@ synchronously flushes the one measurement registry before capturing those projec
 events do not remeasure the complete DOM. It proves immutable sort and free-move plans for one item
 and canonical sibling blocks across nested insertion and canvas boundaries; the earlier generic
 move-planning fixtures remain authoritative for cross-root nested transitions. The mode captured at
-activation remains authoritative if the toolbar mode changes mid-gesture, and the same preview key
-is committed once at 0.5x, 1x, and 2x zoom.
+activation remains authoritative if the toolbar mode changes mid-gesture. Invalid or outside
+targets clear retained collision state, and completion emits a command only when final geometry
+resolves to the preview key that was displayed. That same key is committed once at 0.5x, 1x, and 2x
+zoom.
 
 `TransientRootProjection` accepts package-owned root changes and internally maps them to XYFlow's
 public `applyNodeChanges` helper. Repeated position, dimension, selection, and viewport updates do
-not mutate the caller's document input. Completion emits at most one package-owned move, resize, or
-viewport command and therefore one accepted history entry; cancellation restores the baseline and
-emits none.
+not mutate the caller's document input. Accepted move and resize completion invokes a host-supplied
+command callback once; the Phase 0 test host records that callback as exactly one history entry.
+Cancellation and no-op completion invoke it zero times. Viewport completion remains a separate
+non-undoable command and does not enter that history boundary.
 
 `resolveGeometryDropTarget` converts a client point once, returns the workbench drop position, and
 selects the deepest eligible indexed frame. Unit vectors cover nested roots, children, and

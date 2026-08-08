@@ -6,6 +6,7 @@ import { readTarGzip } from "./tar.mjs";
 
 const expectedFiles = new Set([
   "package/README.md",
+  "package/THIRD_PARTY_NOTICES.md",
   "package/dist/core.d.ts",
   "package/dist/core.d.ts.map",
   "package/dist/core.js",

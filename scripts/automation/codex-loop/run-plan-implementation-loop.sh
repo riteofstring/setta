@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd -P)"
 
 PLAN_PATH=""
 COMPLETION_SENTINEL="PLAN_IMPLEMENTATION_COMPLETE"
@@ -115,6 +115,28 @@ require_value() {
   fi
 }
 
+normalize_absolute_path() {
+  local candidate="$1"
+  local normalized=""
+  local segment=""
+  local -a segments=()
+
+  IFS=/ read -r -a segments <<<"${candidate}"
+  for segment in "${segments[@]}"; do
+    case "${segment}" in
+      ""|.)
+        ;;
+      ..)
+        normalized="${normalized%/*}"
+        ;;
+      *)
+        normalized="${normalized}/${segment}"
+        ;;
+    esac
+  done
+  printf '%s\n' "${normalized:-/}"
+}
+
 resolve_path_without_creating() {
   local candidate="$1"
   local suffix=""
@@ -129,7 +151,12 @@ resolve_path_without_creating() {
   done
 
   candidate="$(cd "${candidate}" && pwd -P)"
-  printf '%s%s\n' "${candidate}" "${suffix}"
+  normalize_absolute_path "${candidate}${suffix}"
+}
+
+path_is_within_repository() {
+  local candidate="$1"
+  [[ "${candidate}" == "${ROOT_DIR}" ]] || [[ "${candidate}" == "${ROOT_DIR}/"* ]]
 }
 
 timestamp_now() {
@@ -482,6 +509,16 @@ if [[ ! -f "${ROOT_DIR}/${PLAN_PATH}" ]]; then
   echo "Plan file not found: ${ROOT_DIR}/${PLAN_PATH}" >&2
   exit 1
 fi
+if [[ -L "${ROOT_DIR}/${PLAN_PATH}" ]]; then
+  echo "PLAN_PATH must not be a symbolic link" >&2
+  exit 1
+fi
+PLAN_ABSOLUTE_PATH="$(cd "$(dirname "${ROOT_DIR}/${PLAN_PATH}")" && pwd -P)/$(basename "${PLAN_PATH}")"
+if ! path_is_within_repository "${PLAN_ABSOLUTE_PATH}"; then
+  echo "PLAN_PATH must resolve inside the repository root" >&2
+  exit 1
+fi
+PLAN_PATH="${PLAN_ABSOLUTE_PATH#"${ROOT_DIR}/"}"
 
 if [[ ! "${PROGRESS_LOG_INTERVAL_SECONDS}" =~ ^[0-9]+$ ]]; then
   echo "--progress-log-interval-seconds must be a non-negative integer" >&2
@@ -561,7 +598,7 @@ require_clean_repo "before starting the loop"
 
 if [[ -z "${OUTPUT_DIR}" ]]; then
   output_base_dir="$(resolve_path_without_creating "${TMPDIR:-/tmp}")"
-  if [[ "${output_base_dir}" == "${ROOT_DIR}" ]] || [[ "${output_base_dir}" == "${ROOT_DIR}/"* ]]; then
+  if path_is_within_repository "${output_base_dir}"; then
     echo "TMPDIR must be outside the repository" >&2
     exit 1
   fi
@@ -570,12 +607,16 @@ if [[ -z "${OUTPUT_DIR}" ]]; then
 else
   OUTPUT_DIR="$(resolve_path_without_creating "${OUTPUT_DIR}")"
 fi
-if [[ "${OUTPUT_DIR}" == "${ROOT_DIR}" ]] || [[ "${OUTPUT_DIR}" == "${ROOT_DIR}/"* ]]; then
+if path_is_within_repository "${OUTPUT_DIR}"; then
   echo "--output-dir must be outside the repository" >&2
   exit 1
 fi
 mkdir -p "${OUTPUT_DIR}"
 OUTPUT_DIR="$(cd "${OUTPUT_DIR}" && pwd -P)"
+if path_is_within_repository "${OUTPUT_DIR}"; then
+  echo "--output-dir must be outside the repository" >&2
+  exit 1
+fi
 
 AGENT_ONE_PROMPT="Before acting, inspect ${PLAN_PATH} and its recent commit history. Work in the earliest phase or milestone with incomplete repository-actionable work; unavailable external evidence does not make a phase actionable. Implement a coherent batch of adjacent, tightly coupled items from that phase, and prefer finishing the coupled batch in one implementation and one commit instead of stopping after one checkbox. Keep plan status current, but never create a status-only commit. Obey the repository's verification policy: run checks only when repository instructions and current user authorization permit them. When checks are authorized, use the narrowest checks that exercise the changing behavior and a directly affected workflow selector instead of a whole workflow matrix while debugging. If a contract or removed behavior changes an end-to-end scenario, search for and update every assumption tied to that behavior before the first authorized rerun; do not discover stale assertions one at a time through repeated long runs. After an authorized check fails, fix the cause and rerun only that focused check until stable. Do not run broad deterministic matrices, complete live-provider suites, or duplicate already-green broad gates during routine implementation. Before committing source, obey the repository's required formatting, changed-file quality, and supply-chain rules. Commit the coherent batch and leave a clean worktree. Never seek missing credentials, privileges, GUI applications, background services, or remote access; record unavailable or unauthorized external verification once as a release gate. Avoid repeatedly printing complete diffs or large failure artifacts into the transcript; narrow inspection to relevant files and failure excerpts. ${CODEX_REFERENCE_PROMPT} Only when safe source inspection and any plan-authorized benign probes establish a genuine plan-level blocker, write and commit the evidence required by the plan, leave a clean worktree, and return exactly ${BLOCKED_SENTINEL}; never use that sentinel for a transient command, network, service, credential, or verification failure. If this commit finishes the current phase but later repository-actionable phases remain, return exactly ${PHASE_AUDIT_SENTINEL}. If all repository-actionable plan work is implemented, return exactly ${FINAL_AUDIT_SENTINEL}. Otherwise summarize the committed batch normally."
 

@@ -81,3 +81,7 @@ records complete the repository-actionable Phase 0 evidence boundary.
 ## License and attribution boundary
 
 The captured XYFlow and dnd-kit fork directories each contain an MIT `LICENSE`. Preserve copyright and license notices for any source-derived implementation. Behavioral reimplementation from independently written specifications should still retain this manifest, while copied or closely ported code must identify its source path and commit beside the new implementation and in the third-party attribution record.
+
+That rule applies to the Phase 0 collision and sorting kernels: their source comments identify this
+snapshot and `packages/workspace/THIRD_PARTY_NOTICES.md` records the exact historical paths and MIT
+notice included in the packed artifact.

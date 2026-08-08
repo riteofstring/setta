@@ -1,5 +1,8 @@
 import type { InteractionPoint, InteractionRect } from "./interaction-geometry.js";
 
+// Closely ported from the historical dnd-kit fork collision kernel at source snapshot
+// 043d3b2e9c69caf99d1246f1408b3ad7194b7864. See packages/workspace/THIRD_PARTY_NOTICES.md.
+
 export type ListOrientation = "horizontal" | "vertical";
 
 export type CollisionCandidate = {
@@ -32,6 +35,15 @@ export const EMPTY_COLLISION_TRACKER_STATE: CollisionTrackerState = {
   targetRect: null,
 };
 
+export function clearCollisionTarget(state: CollisionTrackerState): CollisionTrackerState {
+  return {
+    ...state,
+    pastMidpoint: null,
+    targetId: null,
+    targetRect: null,
+  };
+}
+
 export function resolveCollisionFrame({
   activeRect,
   candidates,
@@ -49,12 +61,7 @@ export function resolveCollisionFrame({
   if (!candidate) {
     return {
       candidate: null,
-      state: {
-        ...previousState,
-        pastMidpoint: null,
-        targetId: null,
-        targetRect: null,
-      },
+      state: clearCollisionTarget(previousState),
     };
   }
 

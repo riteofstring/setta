@@ -9,6 +9,8 @@ export const INTERACTION_FIXTURE_EVIDENCE = {
       "frontend/src/forks/dnd-kit/adapter/collisionCompare.ts",
       "frontend/src/forks/dnd-kit/useDropType.ts",
     ],
+    symbols: ["createCollisionTracker", "resolveOverCollision", "onDragOver"],
+    destination: "packages/workspace/src/internal/collision-characterization.ts",
   },
   geometry: {
     behavior:
@@ -18,6 +20,8 @@ export const INTERACTION_FIXTURE_EVIDENCE = {
       "frontend/src/forks/dnd-kit/dragRectBounds.ts",
       "frontend/src/forks/dnd-kit/DragOperationShapeSync.tsx",
     ],
+    symbols: ["applyZoomToTransform", "resolveRectBoundsById", "resolveSelectionBoundingRect"],
+    destination: "packages/workspace/src/internal/interaction-geometry.ts",
   },
   movement: {
     behavior:
@@ -27,6 +31,8 @@ export const INTERACTION_FIXTURE_EVIDENCE = {
       "frontend/src/forks/dnd-kit/useMoveSection.ts",
       "frontend/src/state/actions/sections/sectionSelection.ts",
     ],
+    symbols: ["planSortingMove", "planFreeMove", "getRootSelectedSectionIds"],
+    destination: "packages/workspace/src/internal/section-move-planning.ts",
   },
   ownership: {
     behavior:
@@ -36,6 +42,8 @@ export const INTERACTION_FIXTURE_EVIDENCE = {
       "frontend/src/forks/dnd-kit/selectionDragHandle.ts",
       "frontend/src/forks/xyflow/core/container/ZoomPane.tsx",
     ],
+    symbols: ["onDragStart", "setSelectionDragHandle", "getViewportInteractionActiveValue"],
+    destination: "packages/workspace/src/internal/interaction-owner.ts",
   },
   preview: {
     behavior:
@@ -44,6 +52,12 @@ export const INTERACTION_FIXTURE_EVIDENCE = {
       "frontend/src/forks/dnd-kit/adapter/sorting.ts",
       "frontend/src/forks/dnd-kit/sortingOverState.ts",
     ],
+    symbols: [
+      "verticalListSortingStrategy",
+      "horizontalListSortingStrategy",
+      "getSortingOverState",
+    ],
+    destination: "packages/workspace/src/internal/sorting-preview.ts",
   },
 } as const;
 
@@ -55,6 +69,8 @@ export const NON_DND_FIXTURE_EVIDENCE = {
       "frontend/src/components/Section/Header/LockPositionButton.tsx",
       "frontend/src/components/Utils/ContextMenus/SelectionContextMenu.tsx",
     ],
+    symbols: ["LockPositionButton", "SelectionContextMenu"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
   minimizing: {
     behavior: "named minimize/expand controls, unmounted host bodies, and retained canonical size",
@@ -63,6 +79,8 @@ export const NON_DND_FIXTURE_EVIDENCE = {
       "frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx",
       "frontend/src/state/hooks/sectionSizes.ts",
     ],
+    symbols: ["MinimizeButton", "SectionContainerCoreResizable", "useSectionMinMaxDims"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
   sizing: {
     behavior:
@@ -72,6 +90,8 @@ export const NON_DND_FIXTURE_EVIDENCE = {
       "frontend/src/state/actions/sections/sectionSizes.ts",
       "frontend/src/state/hooks/sectionSizes.ts",
     ],
+    symbols: ["CustomResizable", "getResizeStartAutoSizeUpdate", "useSectionMinMaxDims"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
   groupOverflow: {
     behavior: "stable size capture before grow-to-scroll transitions and nested wheel isolation",
@@ -79,6 +99,8 @@ export const NON_DND_FIXTURE_EVIDENCE = {
       "frontend/src/components/Section/Header/MenuButton/ToggleGroupOverflowMode.tsx",
       "frontend/src/components/Section/Container/ContainerCore.tsx",
     ],
+    symbols: ["ToggleGroupOverflowMode", "Container"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
   snapping: {
     behavior:
@@ -88,6 +110,8 @@ export const NON_DND_FIXTURE_EVIDENCE = {
       "frontend/src/forks/xyflow/core/hooks/useUpdateNodePositions.ts",
       "frontend/src/components/Utils/Resizable/CustomResizable.tsx",
     ],
+    symbols: ["useDrag", "updatePositions", "CustomResizable"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
   grid: {
     behavior:
@@ -96,6 +120,8 @@ export const NON_DND_FIXTURE_EVIDENCE = {
       "frontend/src/forks/xyflow/background/Background.tsx",
       "frontend/src/forks/xyflow/core/container/ReactFlow.tsx",
     ],
+    symbols: ["Background", "ReactFlow"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
   viewportGestures: {
     behavior:
@@ -104,6 +130,8 @@ export const NON_DND_FIXTURE_EVIDENCE = {
       "frontend/src/forks/xyflow/core/container/ZoomPane.tsx",
       "frontend/src/forks/xyflow/core/container/ZoomPane.test.ts",
     ],
+    symbols: ["getViewportInteractionActiveValue", "resolvePanOnScrollDelta"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
   scrollIsolation: {
     behavior:
@@ -112,6 +140,8 @@ export const NON_DND_FIXTURE_EVIDENCE = {
       "frontend/src/forks/xyflow/core/container/ZoomPane.tsx",
       "frontend/src/components/Section/Container/ContainerCore.tsx",
     ],
+    symbols: ["getViewportInteractionActiveValue", "Container"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
   stacking: {
     behavior:
@@ -121,6 +151,8 @@ export const NON_DND_FIXTURE_EVIDENCE = {
       "frontend/src/state/actions/activeSectionController.ts",
       "frontend/src/forks/xyflow/core/hooks/useDrag.ts",
     ],
+    symbols: ["setZIndices", "applyActiveSectionChange", "useDrag"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
   placement: {
     behavior:
@@ -129,6 +161,8 @@ export const NON_DND_FIXTURE_EVIDENCE = {
       "frontend/src/state/actions/sections/createSections.ts",
       "frontend/src/state/actions/sections/createSectionsHelper.ts",
     ],
+    symbols: ["createTopLevelSectionWithResult", "createTopLevelSectionFromImplSpecs"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
   naming: {
     behavior:
@@ -138,6 +172,8 @@ export const NON_DND_FIXTURE_EVIDENCE = {
       "frontend/src/components/Utils/Editable.tsx",
       "frontend/src/utils/nameValidation.ts",
     ],
+    symbols: ["SectionTitle", "Editable", "validateSectionNameInput"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
   selection: {
     behavior:
@@ -146,6 +182,8 @@ export const NON_DND_FIXTURE_EVIDENCE = {
       "frontend/src/state/actions/activeSectionPolicy.ts",
       "frontend/src/state/actions/activeSections.ts",
     ],
+    symbols: ["resolveActiveSectionChange", "setActiveSectionIds"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
   grouping: {
     behavior:
@@ -154,6 +192,8 @@ export const NON_DND_FIXTURE_EVIDENCE = {
       "frontend/src/components/Utils/ContextMenus/SelectionContextMenu.tsx",
       "frontend/src/components/Section/Header/MenuButton/UngroupButton.tsx",
     ],
+    symbols: ["SelectionContextMenu", "UngroupButton"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
   minimap: {
     behavior:
@@ -162,11 +202,15 @@ export const NON_DND_FIXTURE_EVIDENCE = {
       "frontend/src/components/Pages/Project/ResponsiveMiniMap.tsx",
       "frontend/src/forks/xyflow/minimap/MiniMap.tsx",
     ],
+    symbols: ["ResponsiveMiniMap", "syncSelectedMiniMapNodes"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
   toolbar: {
     behavior:
       "named native controls, state/limit semantics, stable placements, and bounded host registration",
     sources: ["frontend/src/forks/xyflow/controls/Controls.tsx"],
+    symbols: ["Controls"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
   chrome: {
     behavior:
@@ -175,11 +219,15 @@ export const NON_DND_FIXTURE_EVIDENCE = {
       "frontend/src/components/Section/Container/sectionChrome.ts",
       "frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx",
     ],
+    symbols: ["getSectionContainerShellClassName", "SectionContainerCoreResizable"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
   accents: {
     behavior:
       "serializable accent/tag preview, one accepted commit, reset, local tokens, and minimap updates",
     sources: ["frontend/src/utils/sectionStyleColors.ts"],
+    symbols: ["deriveSectionStyleTheme"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
   appearance: {
     behavior: "package-scoped light, dark, and system resolution with live media-query updates",
@@ -187,6 +235,8 @@ export const NON_DND_FIXTURE_EVIDENCE = {
       "frontend/src/components/Pages/GlobalWrapper.tsx",
       "frontend/src/state/actions/localStorage.ts",
     ],
+    symbols: ["GlobalWrapper", "useColorModePreference", "setColorModePreference"],
+    destination: "packages/workspace/tests/non-dnd-evidence.test.ts",
   },
 } as const;
 
@@ -205,4 +255,4 @@ export const NON_DND_BROWSER_EVIDENCE = [
 ] as const;
 
 export const FIXTURE_ATTRIBUTION =
-  "Independently written behavioral characterizations; no historical source text copied.";
+  "Behavioral fixtures are independently written. collision-characterization.ts and sorting-preview.ts closely port historical MIT-licensed algorithms; their exact source snapshot and retained notice are recorded in packages/workspace/THIRD_PARTY_NOTICES.md.";

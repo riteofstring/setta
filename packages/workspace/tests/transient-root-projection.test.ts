@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   TransientRootProjection,
+  type RootLayoutCommand,
   type RootProjectionInput,
 } from "../src/internal/transient-root-projection.js";
 
@@ -21,7 +22,12 @@ const roots: readonly RootProjectionInput[] = [
 describe("TransientRootProjection", () => {
   it("keeps high-frequency XYFlow position changes transient and emits one move command", () => {
     const documentRoots = structuredClone(roots);
-    const projection = new TransientRootProjection(documentRoots, { x: 0, y: 0, zoom: 1 });
+    const historyEntries: RootLayoutCommand[] = [];
+    const projection = new TransientRootProjection(
+      documentRoots,
+      { x: 0, y: 0, zoom: 1 },
+      (command) => historyEntries.push(command),
+    );
 
     projection.beginRootMove(["alpha"]);
     projection.applyRootChanges([
@@ -35,19 +41,21 @@ describe("TransientRootProjection", () => {
     ]);
 
     expect(documentRoots).toEqual(roots);
-    const historyEntries = [projection.completeRootGesture()].filter((entry) => entry !== null);
-    expect(historyEntries).toEqual([
-      {
-        type: "move-root-sections",
-        positions: { alpha: { x: 50, y: 70 } },
-      },
-    ]);
+    const expectedCommand = {
+      type: "move-root-sections" as const,
+      positions: { alpha: { x: 50, y: 70 } },
+    };
+    expect(projection.completeRootGesture()).toEqual(expectedCommand);
+    expect(historyEntries).toEqual([expectedCommand]);
     expect(projection.completeRootGesture()).toBeNull();
     expect(historyEntries).toHaveLength(1);
   });
 
   it("cancels a root movement without emitting a command or retaining its transient position", () => {
-    const projection = new TransientRootProjection(roots, { x: 0, y: 0, zoom: 1 });
+    const historyEntries: RootLayoutCommand[] = [];
+    const projection = new TransientRootProjection(roots, { x: 0, y: 0, zoom: 1 }, (command) =>
+      historyEntries.push(command),
+    );
 
     projection.beginRootMove(["alpha", "beta"]);
     projection.applyRootChanges([
@@ -61,10 +69,14 @@ describe("TransientRootProjection", () => {
       { ...roots[1], selected: false },
     ]);
     expect(projection.completeRootGesture()).toBeNull();
+    expect(historyEntries).toEqual([]);
   });
 
   it("separates measurement changes from a completed resize command", () => {
-    const projection = new TransientRootProjection(roots, { x: 0, y: 0, zoom: 1 });
+    const historyEntries: RootLayoutCommand[] = [];
+    const projection = new TransientRootProjection(roots, { x: 0, y: 0, zoom: 1 }, (command) =>
+      historyEntries.push(command),
+    );
 
     projection.applyRootChanges([
       {
@@ -92,11 +104,13 @@ describe("TransientRootProjection", () => {
       },
     ]);
 
-    expect(projection.completeRootGesture()).toEqual({
+    const expectedCommand = {
       type: "resize-root-section",
       sectionId: "alpha",
       size: { width: 320, height: 220 },
-    });
+    } as const;
+    expect(projection.completeRootGesture()).toEqual(expectedCommand);
+    expect(historyEntries).toEqual([expectedCommand]);
   });
 
   it("keeps upstream selection changes inside the transient projection", () => {

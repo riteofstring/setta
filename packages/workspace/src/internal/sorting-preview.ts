@@ -1,6 +1,9 @@
 import type { ListOrientation } from "./collision-characterization.js";
 import type { DragTransform, InteractionRect } from "./interaction-geometry.js";
 
+// Closely ported from the historical dnd-kit fork sorting strategy at source snapshot
+// 043d3b2e9c69caf99d1246f1408b3ad7194b7864. See packages/workspace/THIRD_PARTY_NOTICES.md.
+
 export type SortingPreview = {
   destinationIndex: number;
   order: readonly string[];

@@ -227,6 +227,9 @@ function resolveNextRoots(
   destinationOrder: readonly string[],
   plan: SectionMovePlan,
 ): readonly string[] {
+  if (plan.sourceParentId === null && plan.destinationParentId === null) {
+    return currentRoots.slice();
+  }
   if (plan.destinationParentId === null) {
     return destinationOrder;
   }

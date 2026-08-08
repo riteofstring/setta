@@ -21,7 +21,8 @@ describe("Phase 0 scaled-geometry characterization", () => {
     expect(INTERACTION_FIXTURE_EVIDENCE.geometry.sources).toContain(
       "frontend/src/forks/dnd-kit/adapter/zoom.ts",
     );
-    expect(FIXTURE_ATTRIBUTION).toContain("no historical source text copied");
+    expect(FIXTURE_ATTRIBUTION).toContain("closely port historical MIT-licensed algorithms");
+    expect(FIXTURE_ATTRIBUTION).toContain("THIRD_PARTY_NOTICES.md");
   });
 
   it.each([

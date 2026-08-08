@@ -129,4 +129,36 @@ describe("Phase 0 adapter selection-block drag planning", () => {
     expect(resolution.preview).toBeNull();
     expect(resolution.reason).toBe("The package move plan rejected this target.");
   });
+
+  it.each([null, "nested-note-a"])(
+    "clears a retained collision target when the next target is %s",
+    (targetId) => {
+      const current = session(1, "sort");
+      const resolution = resolveAdapterProofDragPreview({
+        orientation: adapterProofOrientation,
+        screenDelta: { x: 0, y: 12 },
+        session: {
+          ...current,
+          collisionState: {
+            pastMidpoint: true,
+            pointer: { x: 130, y: 240 },
+            pointerDirection: { x: 0, y: 1 },
+            targetId: "nested-note-d",
+            targetRect: current.clientRectsById["nested-note-d"] ?? null,
+          },
+        },
+        targetId,
+        zoom: 1,
+      });
+
+      expect(resolution.preview).toBeNull();
+      expect(resolution.collisionState).toEqual({
+        pastMidpoint: null,
+        pointer: { x: 130, y: 240 },
+        pointerDirection: { x: 0, y: 1 },
+        targetId: null,
+        targetRect: null,
+      });
+    },
+  );
 });

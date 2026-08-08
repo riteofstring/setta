@@ -322,6 +322,53 @@ git -C "${TEST_REPO}" config user.email "setta-loop-test@example.invalid"
 git -C "${TEST_REPO}" add .
 git -C "${TEST_REPO}" commit --quiet -m "test: initialize repository"
 
+printf '# External plan\n' >"${TEST_TMP_DIR}/external-plan.md"
+set +e
+PATH="${TEST_BIN}:${PATH}" \
+  "${TEST_REPO}/scripts/automation/codex-loop/run-plan-implementation-loop.sh" \
+  ../external-plan.md \
+  >"${TEST_TMP_DIR}/external-plan.log" 2>&1
+external_plan_status="$?"
+set -e
+if [[ "${external_plan_status}" -ne 1 ]]; then
+  echo "External plan path exit = ${external_plan_status}, want 1" >&2
+  exit 1
+fi
+if ! grep -q "PLAN_PATH must resolve inside the repository root" "${TEST_TMP_DIR}/external-plan.log"; then
+  echo "External plan path did not fail its repository-containment check" >&2
+  exit 1
+fi
+
+traversal_output="${TEST_TMP_DIR}/missing-parent/../repo/inside-output"
+set +e
+PATH="${TEST_BIN}:${PATH}" \
+  "${TEST_REPO}/scripts/automation/codex-loop/run-plan-implementation-loop.sh" \
+  docs/plan.md \
+  --output-dir "${traversal_output}" \
+  --agent-1-runner claude \
+  --agent-1-model agent-1-test-model \
+  --agent-1-reasoning-effort high \
+  --agent-2-runner codex \
+  --agent-2-model agent-2-test-model \
+  --agent-2-reasoning-effort low \
+  --progress-log-interval-seconds 0 \
+  >"${TEST_TMP_DIR}/traversal-output.log" 2>&1
+traversal_output_status="$?"
+set -e
+if [[ "${traversal_output_status}" -ne 1 ]]; then
+  echo "Traversal output path exit = ${traversal_output_status}, want 1" >&2
+  exit 1
+fi
+if ! grep -q -- "--output-dir must be outside the repository" "${TEST_TMP_DIR}/traversal-output.log"; then
+  sed -n '1,80p' "${TEST_TMP_DIR}/traversal-output.log" >&2
+  echo "Traversal output path did not fail its repository-containment check" >&2
+  exit 1
+fi
+if [[ -e "${TEST_REPO}/inside-output" ]]; then
+  echo "Traversal output path created a directory inside the repository" >&2
+  exit 1
+fi
+
 PATH="${TEST_BIN}:${PATH}" \
   FAKE_AGENT_STATE="${TEST_AGENT_STATE}" \
   "${TEST_REPO}/scripts/automation/codex-loop/run-plan-implementation-loop.sh" \

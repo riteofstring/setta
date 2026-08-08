@@ -2,8 +2,16 @@ import { Panel, ViewportPortal, useReactFlow, useViewport, type Viewport } from 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import {
+  ADAPTER_PROOF_CANVAS_TARGET_ID,
+  type AdapterProofDragPreview,
+  type AdapterProofDragSession,
+} from "./adapter-proof-drag-planning.js";
+import { adapterProofOrientation } from "./adapter-proof-model.js";
+import {
   clientPointToWorkspace,
   clientRectToWorkspace,
+  resolveGeometryDropTarget,
+  workspaceRectToClient,
   type GeometryRegistration,
   type MarqueeSelectionMode,
   type MeasuredWorkspaceFrame,
@@ -11,8 +19,13 @@ import {
   type WorkspacePoint,
   type WorkspaceRect,
 } from "./geometry-index.js";
-import type { ViewportTransform } from "./interaction-geometry.js";
+import {
+  createInteractionRect,
+  type InteractionRect,
+  type ViewportTransform,
+} from "./interaction-geometry.js";
 import type { SectionMoveMode } from "./section-move-planning.js";
+import type { AdapterDndEvent } from "./upstream-dnd-adapter.js";
 
 type SelectionChangeSource = "control" | "marquee";
 
@@ -27,6 +40,11 @@ type RegisteredMeasuredElement = MeasuredElement & {
 };
 
 const SAME_FRAME_TOLERANCE = 0.01;
+
+export type ActiveAdapterProofDrag = AdapterProofDragSession & {
+  input: AdapterDndEvent["input"];
+  preview: AdapterProofDragPreview | null;
+};
 
 export class AdapterProofGeometryMeasurements {
   readonly #entries = new Map<string, RegisteredMeasuredElement>();
@@ -147,6 +165,120 @@ export class AdapterProofGeometryMeasurements {
   readonly #onScroll = () => this.requestMeasurement();
 }
 
+export function resolveAdapterProofPointerTarget(
+  event: AdapterDndEvent,
+  session: ActiveAdapterProofDrag,
+  canvasElement: HTMLElement | null,
+  geometryIndex: WorkspaceGeometryIndex,
+  viewport: ViewportTransform,
+): string | null {
+  if (!canvasElement) {
+    return event.targetId;
+  }
+  if (event.input === "keyboard") {
+    return resolveKeyboardTarget(event, session) ?? event.targetId;
+  }
+  const interactionPoint = interactionPointForDrag(event, session);
+  const viewportBounds = interactionRect(canvasElement.getBoundingClientRect());
+  const target = resolveGeometryDropTarget(
+    geometryIndex,
+    interactionPoint,
+    viewportBounds,
+    viewport,
+    new Set(session.sectionIds),
+  );
+  if (target.targetSectionId) {
+    return target.targetSectionId;
+  }
+  const insideCanvas =
+    interactionPoint.x >= viewportBounds.x &&
+    interactionPoint.x <= viewportBounds.right &&
+    interactionPoint.y >= viewportBounds.y &&
+    interactionPoint.y <= viewportBounds.bottom;
+  return insideCanvas ? ADAPTER_PROOF_CANVAS_TARGET_ID : null;
+}
+
+export function refreshAdapterProofTargetClientRect(
+  session: ActiveAdapterProofDrag,
+  targetId: string | null,
+  canvasElement: HTMLElement | null,
+  geometryIndex: WorkspaceGeometryIndex,
+  viewport: ViewportTransform,
+): ActiveAdapterProofDrag {
+  if (!canvasElement || !targetId || targetId === ADAPTER_PROOF_CANVAS_TARGET_ID) {
+    return session;
+  }
+  const targetFrame = geometryIndex.get(targetId);
+  if (!targetFrame) {
+    return session;
+  }
+  const viewportBounds = interactionRect(canvasElement.getBoundingClientRect());
+  return {
+    ...session,
+    clientRectsById: {
+      ...session.clientRectsById,
+      [targetId]: interactionRect(
+        workspaceRectToClient(targetFrame.rect, viewportBounds, viewport),
+      ),
+    },
+  };
+}
+
+function interactionPointForDrag(
+  event: AdapterDndEvent,
+  session: ActiveAdapterProofDrag,
+): { x: number; y: number } {
+  const base = session.activatorPoint ?? {
+    x: session.sourceClientBounds.x + session.sourceClientBounds.width / 2,
+    y: session.sourceClientBounds.y + session.sourceClientBounds.height / 2,
+  };
+  return { x: base.x + event.transform.x, y: base.y + event.transform.y };
+}
+
+function resolveKeyboardTarget(
+  event: AdapterDndEvent,
+  session: ActiveAdapterProofDrag,
+): string | null {
+  const sourceId = session.sectionIds[0];
+  if (!sourceId) {
+    return null;
+  }
+  const { parentId, siblings } = keyboardSiblingContext(session, sourceId);
+  const selected = new Set(session.sectionIds);
+  const selectedIndexes = session.sectionIds.map((sectionId) => siblings.indexOf(sectionId));
+  const delta =
+    adapterProofOrientation(parentId) === "horizontal" ? event.transform.x : event.transform.y;
+  if (delta > 0) {
+    const lastIndex = Math.max(...selectedIndexes);
+    return siblings.slice(lastIndex + 1).find((sectionId) => !selected.has(sectionId)) ?? null;
+  }
+  if (delta < 0) {
+    const firstIndex = Math.min(...selectedIndexes);
+    return (
+      siblings
+        .slice(0, firstIndex)
+        .reverse()
+        .find((sectionId) => !selected.has(sectionId)) ?? null
+    );
+  }
+  return null;
+}
+
+function keyboardSiblingContext(
+  session: ActiveAdapterProofDrag,
+  sourceId: string,
+): { parentId: string | null; siblings: readonly string[] } {
+  const parentId = session.hierarchy.parentByChild[sourceId] ?? null;
+  const siblings = parentId
+    ? (session.hierarchy.childrenByParent[parentId] ?? [])
+    : session.hierarchy.rootSectionIds;
+  return { parentId, siblings };
+}
+
+function interactionRect({ x, y, width, height }: WorkspaceRect): InteractionRect {
+  return createInteractionRect(x, y, width, height);
+}
+
 export type AdapterProofCanvasControlsProps = {
   canvasElement: HTMLElement | null;
   dragMode: SectionMoveMode;
@@ -211,13 +343,20 @@ export function AdapterProofCanvasControls({
       const sectionElement = canvasElement.querySelector<HTMLElement>(
         `[data-proof-section-id="${primarySectionId}"]`,
       );
-      sectionElement?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+      const selectionControl = sectionElement?.querySelector<HTMLElement>(
+        ":scope > .setta-adapter-proof__nested-header > button:not(:disabled)",
+      );
+      (selectionControl ?? sectionElement)?.focus({ preventScroll: true });
     });
   };
 
   return (
     <Panel position="top-right">
-      <div aria-label="Adapter proof controls" className="setta-adapter-proof__controls">
+      <div
+        aria-label="Adapter proof controls"
+        className="setta-adapter-proof__controls"
+        role="group"
+      >
         <button disabled={!selectedFrame} onClick={focusSelected} type="button">
           Focus selected
         </button>
@@ -372,7 +511,12 @@ export function AdapterProofMarqueeSelection({
       setRect(null);
     };
     const onPointerDown = (event: PointerEvent) => {
-      if (!event.isPrimary || event.button !== 0 || !event.shiftKey) {
+      if (
+        !event.isPrimary ||
+        event.button !== 0 ||
+        !event.shiftKey ||
+        isInteractiveMarqueeTarget(event.target)
+      ) {
         return;
       }
       stopOwnedEvent(event);
@@ -435,6 +579,15 @@ export function AdapterProofMarqueeSelection({
         }}
       />
     </ViewportPortal>
+  );
+}
+
+function isInteractiveMarqueeTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    target.closest(
+      "a, button, input, select, textarea, [contenteditable='true'], [role='button'], .react-flow__controls, .setta-adapter-proof__controls",
+    ) !== null
   );
 }
 

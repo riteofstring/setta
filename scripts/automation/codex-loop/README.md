@@ -3,8 +3,9 @@
 This directory contains a long-running Claude Code/Codex automation harness for
 plan execution. It is not part of the standard local development workflow.
 
-Pass a repository-relative plan document to
-`run-plan-implementation-loop.sh`. Implementer agents commit coherent batches
+Pass a repository-relative, repository-contained regular plan document to
+`run-plan-implementation-loop.sh`; symlink and traversal escapes fail before an agent starts.
+Transcript output must resolve outside the repository. Implementer agents commit coherent batches
 from the current plan phase. They use focused checks while behavior is still
 changing and update all assumptions affected by a contract change before
 rerunning a long end-to-end scenario.

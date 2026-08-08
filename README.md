@@ -35,7 +35,11 @@ Run `corepack pnpm exec playwright install chromium` once before the browser sui
 
 ## Supply-chain policy
 
-All direct dependencies are exact-pinned. pnpm enforces a strict seven-day release quarantine across the loaded lockfile, rejects trust downgrades and exotic transitive sources, and allows only reviewed lifecycle scripts. `corepack pnpm supply-chain:check` performs a frozen install, high/critical vulnerability audit, dependency-license allowlist check, and dependency inventory.
+All direct dependencies are exact-pinned. pnpm enforces a strict seven-day release quarantine
+across the loaded lockfile, rejects trust downgrades and exotic transitive sources, and currently
+allows no dependency lifecycle scripts. `corepack pnpm supply-chain:check` performs a frozen
+install, high/critical vulnerability audit, dependency-license allowlist check, and dependency
+inventory.
 
 Temporary release-age exceptions live in `supply-chain-exceptions.json`. Each must identify one exact version, rationale, owner, and expiry; the dependency check fails for undocumented, missing, duplicate, or expired exceptions.
 
