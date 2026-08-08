@@ -72,6 +72,12 @@ selection-block, transition, invalid-target, orientation, cancellation, scrollin
 to deterministic or trusted-browser evidence. No residual Phase 0 interaction-kernel cell remains;
 item-tree integration itself stays deferred to Phase 4.
 
+The remaining application behavior is characterized without restoring its source tree in
+`docs/evidence/non-dnd-behavior-characterization.md`. Historical browser coverage, known absences,
+current independent proof, and each later-phase destination are mapped in
+`docs/evidence/browser-characterization-matrix.md`. Together with the explicit gate audit, these
+records complete the repository-actionable Phase 0 evidence boundary.
+
 ## License and attribution boundary
 
 The captured XYFlow and dnd-kit fork directories each contain an MIT `LICENSE`. Preserve copyright and license notices for any source-derived implementation. Behavioral reimplementation from independently written specifications should still retain this manifest, while copied or closely ported code must identify its source path and commit beside the new implementation and in the third-party attribution record.

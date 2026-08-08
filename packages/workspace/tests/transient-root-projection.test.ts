@@ -35,11 +35,15 @@ describe("TransientRootProjection", () => {
     ]);
 
     expect(documentRoots).toEqual(roots);
-    expect(projection.completeRootGesture()).toEqual({
-      type: "move-root-sections",
-      positions: { alpha: { x: 50, y: 70 } },
-    });
+    const historyEntries = [projection.completeRootGesture()].filter((entry) => entry !== null);
+    expect(historyEntries).toEqual([
+      {
+        type: "move-root-sections",
+        positions: { alpha: { x: 50, y: 70 } },
+      },
+    ]);
     expect(projection.completeRootGesture()).toBeNull();
+    expect(historyEntries).toHaveLength(1);
   });
 
   it("cancels a root movement without emitting a command or retaining its transient position", () => {

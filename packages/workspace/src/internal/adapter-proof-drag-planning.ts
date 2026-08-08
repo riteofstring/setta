@@ -4,6 +4,7 @@ import {
   type CollisionTrackerState,
   type ListOrientation,
 } from "./collision-characterization.js";
+import type { WorkspaceGeometryIndex } from "./geometry-index.js";
 import {
   createInteractionRect,
   normalizeScreenDelta,
@@ -19,6 +20,19 @@ import {
 import type { SectionHierarchySnapshot } from "./selection-planning.js";
 
 export const ADAPTER_PROOF_CANVAS_TARGET_ID = "adapter-proof-canvas";
+
+export function adapterProofWorkspaceRects(
+  geometryIndex: WorkspaceGeometryIndex,
+): Readonly<Record<string, InteractionRect>> {
+  return Object.fromEntries(
+    geometryIndex
+      .snapshot()
+      .map(({ rect, sectionId }) => [
+        sectionId,
+        createInteractionRect(rect.x, rect.y, rect.width, rect.height),
+      ]),
+  );
+}
 
 export type AdapterProofDragSession = {
   activatorPoint: InteractionPoint | null;

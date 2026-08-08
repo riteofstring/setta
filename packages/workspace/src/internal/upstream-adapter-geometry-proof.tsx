@@ -94,6 +94,11 @@ export class AdapterProofGeometryMeasurements {
     });
   }
 
+  flushMeasurement(): void {
+    this.#cancelScheduledMeasurement();
+    this.#measureAll();
+  }
+
   #cancelScheduledMeasurement(): void {
     if (this.#frameRequest !== null) {
       cancelAnimationFrame(this.#frameRequest);

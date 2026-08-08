@@ -92,12 +92,20 @@ async function dragMarquee(
 async function findBlankCanvasPoint(page: Page): Promise<{ x: number; y: number }> {
   return page.locator(".setta-adapter-proof__canvas").evaluate((canvas) => {
     const bounds = canvas.getBoundingClientRect();
+    const sectionBounds = [...canvas.querySelectorAll<HTMLElement>("[data-proof-section-id]")].map(
+      (section) => section.getBoundingClientRect(),
+    );
     for (let y = bounds.bottom - 80; y > bounds.top + 80; y -= 48) {
       for (let x = bounds.right - 100; x > bounds.left + 100; x -= 48) {
         const element = document.elementFromPoint(x, y);
+        const intersectsSection = sectionBounds.some(
+          (section) =>
+            x >= section.left && x <= section.right && y >= section.top && y <= section.bottom,
+        );
         if (
           element &&
           canvas.contains(element) &&
+          !intersectsSection &&
           !element.closest(
             "[data-proof-section-id], .setta-adapter-proof__controls, .react-flow__controls",
           )
@@ -328,7 +336,9 @@ test.describe("upstream adapter proof", () => {
       await expectSelectionAligned(page, ["nested-note-b", "nested-note-c"]);
     }
 
-    await page.getByRole("button", { name: "Set zoom to 100%" }).click();
+    const defaultZoomControl = page.getByRole("button", { name: "Set zoom to 100%" });
+    await defaultZoomControl.click();
+    await expect(defaultZoomControl).toHaveAttribute("aria-pressed", "true");
     const deepNote = page.locator('[data-proof-section-id="nested-note-b"]');
     await deepNote.scrollIntoViewIfNeeded();
     const deepNoteBox = await deepNote.boundingBox();
@@ -390,6 +400,7 @@ test.describe("upstream adapter proof", () => {
     await page.keyboard.press("Escape");
     await expect(packageStatus).toContainText("canceled without a command");
     await expect(cancelHandle).toHaveAttribute("aria-grabbed", "false");
+    await expect(cancelHandle).toBeFocused();
     await expect(commandCount).toHaveText("Commands: 0");
     await expect
       .poll(() => planningRoot.evaluate((element) => getComputedStyle(element).zIndex))
@@ -464,8 +475,12 @@ test.describe("upstream adapter proof", () => {
       await expect(page.locator("[data-proof-initial-fit]")).toHaveText("Initial fit: ready");
       await page.getByRole("button", { name: "Select sibling block" }).click();
       await page.getByRole("button", { name: "Move mode: sort" }).click();
-      await page.getByRole("button", { name: `Set zoom to ${zoomPercent}%` }).click();
+      const zoomControl = page.getByRole("button", { name: `Set zoom to ${zoomPercent}%` });
+      await zoomControl.click();
+      await expect(zoomControl).toHaveAttribute("aria-pressed", "true");
       await page.getByRole("button", { name: "Focus selected" }).click();
+      await expect(page.getByRole("button", { name: "Research note", exact: true })).toBeFocused();
+      await settleVisualFrames(page);
 
       const sourceSection = page.locator('[data-proof-section-id="nested-note-a"]');
       const secondSection = page.locator('[data-proof-section-id="nested-container"]');
@@ -631,6 +646,7 @@ test.describe("upstream adapter proof", () => {
     await expect(page.locator('[data-proof-drag-placeholder="destination"]')).toBeVisible();
     await page.keyboard.press("Enter");
     await expect(page.locator("[data-proof-command-count]")).toHaveText("Commands: 1");
+    await expect(keyboardHandle).toBeFocused();
   });
 
   test.describe("touch input", () => {

@@ -51,15 +51,18 @@ paths:
 Item-tree behavior beyond the generic selection and ownership fixtures is Phase 4 work, not a
 missing Phase 0 section-DnD cell.
 
-## Phase 0 limits still open
+## Phase 0 completion
 
 The [upstream adapter proof](upstream-adapter-proof.md) exact-pins the selected dependencies,
 records their public adapter and license boundaries, implements the root-node/recursive-DOM
 representation, and adds focused geometry, transient-projection, ownership, accessibility, and
-browser evidence. The owner/DnD matrix audit is complete, and `perf/` now records both the
+browser evidence. The owner/DnD audit has no residual Phase 0 cell, and `perf/` records both the
 repeatable 2,000-frame framework-neutral geometry workload and the trusted-browser recursive-root
-render baseline. Phase 0 still requires the complete non-DnD behavior inventory, browser
-characterization matrix, and final gate audit. The plan records interactive CDP review separately
-as an unavailable external release gate.
+render baseline.
 
-Unavailable external evidence does not change the completion state of these remaining repository and adapter tasks.
+The [non-DnD inventory](non-dnd-behavior-characterization.md) and
+[browser matrix](browser-characterization-matrix.md) now cover every remaining behavior family,
+including explicitly absent historical browser scenarios and their later standalone destination.
+The [gate audit](phase-0-gate-audit.md) records the repository-actionable Phase 0 disposition.
+Interactive CDP review remains a separate unavailable external release gate and does not make a
+repository task incomplete.

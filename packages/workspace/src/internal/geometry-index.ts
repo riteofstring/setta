@@ -19,6 +19,11 @@ export type MeasuredWorkspaceFrame = {
   rect: WorkspaceRect;
 };
 
+export type GeometryDropTarget = {
+  targetSectionId: string | null;
+  workspacePosition: WorkspacePoint;
+};
+
 export type GeometryRegistration = {
   update(frame: MeasuredWorkspaceFrame): void;
   dispose(): void;
@@ -312,4 +317,18 @@ export function workspaceRectToClient(
     width: rect.width * transform.zoom,
     height: rect.height * transform.zoom,
   };
+}
+
+export function resolveGeometryDropTarget(
+  index: WorkspaceGeometryIndex,
+  clientPoint: ScreenPoint,
+  viewportBounds: ScreenRect,
+  transform: ViewportTransform,
+  excludedSectionIds: ReadonlySet<string> = new Set(),
+): GeometryDropTarget {
+  const workspacePosition = clientPointToWorkspace(clientPoint, viewportBounds, transform);
+  const targetSectionId =
+    index.framesAt(workspacePosition).find(({ sectionId }) => !excludedSectionIds.has(sectionId))
+      ?.sectionId ?? null;
+  return { targetSectionId, workspacePosition };
 }

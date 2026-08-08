@@ -4,6 +4,7 @@ import {
   WorkspaceGeometryIndex,
   clientPointToWorkspace,
   clientRectToWorkspace,
+  resolveGeometryDropTarget,
   workspacePointToClient,
   workspaceRectToClient,
 } from "../src/internal/geometry-index.js";
@@ -269,4 +270,54 @@ describe("client/workbench coordinate conversion", () => {
     expect(beforeScroll).toEqual({ x: 40, y: 80, width: 100, height: 40 });
     expect(afterScroll).toEqual({ x: 40, y: 60, width: 100, height: 40 });
   });
+
+  it.each([0.5, 1, 2])(
+    "resolves nested external-drop coordinates and the deepest target at zoom %s",
+    (zoom) => {
+      const index = new WorkspaceGeometryIndex();
+      for (const frame of [
+        {
+          sectionId: "root",
+          parentSectionId: null,
+          depth: 0,
+          order: 0,
+          rect: { x: 20, y: 30, width: 300, height: 240 },
+        },
+        {
+          sectionId: "child",
+          parentSectionId: "root",
+          depth: 1,
+          order: 0,
+          rect: { x: 60, y: 75, width: 180, height: 130 },
+        },
+        {
+          sectionId: "grandchild",
+          parentSectionId: "child",
+          depth: 2,
+          order: 0,
+          rect: { x: 90, y: 110, width: 70, height: 55 },
+        },
+      ] as const) {
+        index.register(frame);
+      }
+      const viewportBounds = { x: 80, y: 120, width: 900, height: 600 };
+      const transform = { x: -40, y: 25, zoom };
+      const workspacePosition = { x: 115, y: 135 };
+      const clientPoint = workspacePointToClient(workspacePosition, viewportBounds, transform);
+
+      expect(resolveGeometryDropTarget(index, clientPoint, viewportBounds, transform)).toEqual({
+        targetSectionId: "grandchild",
+        workspacePosition,
+      });
+      expect(
+        resolveGeometryDropTarget(
+          index,
+          clientPoint,
+          viewportBounds,
+          transform,
+          new Set(["grandchild"]),
+        ),
+      ).toEqual({ targetSectionId: "child", workspacePosition });
+    },
+  );
 });

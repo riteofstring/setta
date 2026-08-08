@@ -1124,7 +1124,7 @@ The design should:
 
 ### Phase 0: Boundary, evidence, and repository setup
 
-Status: **in progress** (updated 2026-08-08).
+Status: **complete; ready for phase audit** (updated 2026-08-08).
 
 - Completed: dedicated blank-slate branch from recorded source commit `043d3b2e9c69caf99d1246f1408b3ad7194b7864`; minimal private workspace, package, Node-only playground, unrelated consumer fixture, exact toolchain pins, new-tree hygiene files, package-specific repository instructions, baseline deterministic quality/packaging/supply-chain tooling, and initial source-linked interaction evidence.
 - Completed: reviewable tooling carryover inventory plus negative-tested repository-tree, application-import, source-escape, and undeclared-package-export boundary enforcement wired into changed-file quality checks.
@@ -1134,7 +1134,10 @@ Status: **in progress** (updated 2026-08-08).
 - Completed: upstream-adapter selection-block drag proof for sorting and free-move modes, single and sibling-block movement, nested insertion boundaries, source/destination placeholders, blank-canvas drops, and preview/commit parity at 0.5x/1x/2x zoom. Pointer, trusted keyboard, and trusted long-press touch paths retain one structural movement owner, preserve the mode captured at activation, respect upstream scroll-consumed keyboard events, and emit at most one accepted package command.
 - Completed: final interaction-owner and section-DnD matrix audit with exhaustive pointer/touch/keyboard surface ownership and no residual Phase 0 behavior cells; one adapter-local viewport/DOM measurement registry replacing per-frame recursive viewport subscriptions; and a trusted-browser render baseline covering 96-step structural movement, 96-step live XYFlow root movement, and a 96-event viewport burst with no recursive-root rerenders during transient work.
 - Completed: the updated frozen lockfile passed strict loaded-lockfile policy, exact patch metadata, high/critical vulnerability audit, dependency-license allowlist, machine-readable inventory generation, and an unrelated packed-consumer installation.
-- Remaining: complete the full non-DnD behavior and browser characterization matrices and the final Phase 0 gate audit.
+- Completed: source-linked, executable non-DnD characterization for locking, minimizing, fixed/content sizing, group overflow, snapping, grid, viewport gestures, scroll isolation, stacking, placement, naming, selection, grouping, minimap, toolbar, chrome, accents/tags, and scoped appearance; a full historical/current/future browser matrix; and an explicit list of package-owned types.
+- Completed: geometry-index-only section collision rectangles and target planning, a shared nested external-drop coordinate/target helper proven at 0.5x/1x/2x, synchronous gesture-start measurement readiness, explicit focus restoration and 200% page-scale browser checks, and the final repository-actionable Phase 0 gate audit.
+- Verification: exact-toolchain changed-file quality passed 87 unit tests plus boundary/automation tests, strict types, formatting, lint, dead-code, complexity/file-length, build, pack, and API gates. Focused Chromium passed pointer cancel/complete, keyboard and touch sorting, canvas-drop parity at 0.5x/1x/2x, focus restoration, and the 200% page-scale workflow. No dependency input changed, so prior green registry and unrelated-consumer gates were not duplicated.
+- Phase disposition: no repository-actionable Phase 0 item remains. A separate phase audit is required before Phase 1 implementation; the external release gate below remains independent of that implementation status.
 - External release gate (recorded 2026-08-08): interactive CDP visual review could not run because the browser runtime reported no connected browser surface. Do not retry it during routine implementation; repository Playwright remains the available browser evidence until a final audit environment provides CDP.
 
 Produce:

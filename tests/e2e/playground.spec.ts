@@ -32,3 +32,21 @@ test("the scaffold reflows and honors reduced motion", async ({ page }) => {
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
   await expect(page).toHaveScreenshot("blank-workspace-320.png", { fullPage: true });
 });
+
+test("the primary workflow remains operable at 200% page scale", async ({ page }) => {
+  await page.goto("/");
+  const session = await page.context().newCDPSession(page);
+  await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 2 });
+
+  await expect.poll(() => page.evaluate(() => window.visualViewport?.scale ?? 1)).toBe(2);
+  const addSection = page.getByRole("button", { name: "Add sample section" });
+  await expect(addSection).toBeVisible();
+  await addSection.focus();
+  await expect(addSection).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Sample section 1" })).toBeVisible();
+  await expect(page.getByRole("status")).toHaveText("Sample section 1 added.");
+
+  await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
+  await session.detach();
+});

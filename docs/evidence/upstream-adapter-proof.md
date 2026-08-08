@@ -88,21 +88,27 @@ selection and its keyboard-reachable fixture alternative consume those APIs at e
 The initial fit waits until all eight representative root and descendant frames are registered, and
 combined deep-selection overlays remain screen-aligned at 0.5x, 1x, and 2x zoom.
 
-The drag proof now uses the index for the selected block's collision shape, parent hit testing,
-source and destination placeholders, and blank-canvas coordinates. It proves immutable sort and
-free-move plans for one item and canonical sibling blocks across nested insertion and canvas
-boundaries; the earlier generic move-planning fixtures remain authoritative for cross-root nested
-transitions. The mode captured at activation remains authoritative if the toolbar mode changes
-mid-gesture, and the same preview key is committed once at 0.5x, 1x, and 2x zoom.
+The drag proof now uses the index for the selected block's collision shape, target planning, source
+and destination placeholders, and blank-canvas coordinates. Client collision rectangles are
+projections of indexed workbench frames, not a second recursive DOM query. Gesture activation
+synchronously flushes the one measurement registry before capturing those projections; live move
+events do not remeasure the complete DOM. It proves immutable sort and free-move plans for one item
+and canonical sibling blocks across nested insertion and canvas boundaries; the earlier generic
+move-planning fixtures remain authoritative for cross-root nested transitions. The mode captured at
+activation remains authoritative if the toolbar mode changes mid-gesture, and the same preview key
+is committed once at 0.5x, 1x, and 2x zoom.
 
 `TransientRootProjection` accepts package-owned root changes and internally maps them to XYFlow's
 public `applyNodeChanges` helper. Repeated position, dimension, selection, and viewport updates do
 not mutate the caller's document input. Completion emits at most one package-owned move, resize, or
-viewport command; cancellation restores the baseline and emits none.
+viewport command and therefore one accepted history entry; cancellation restores the baseline and
+emits none.
 
-The geometry index remains the implemented boundary for later collision, external-drop, and
-nested-minimap consumers. Marquee selection and initial fit are now proven consumers; the remaining
-consumers are not claimed complete by this proof.
+`resolveGeometryDropTarget` converts a client point once, returns the workbench drop position, and
+selects the deepest eligible indexed frame. Unit vectors cover nested roots, children, and
+grandchildren at 0.5x, 1x, and 2x. A future nested minimap summary must consume `snapshot()` or
+other index queries rather than introduce parallel DOM measurement; the initial root minimap itself
+remains Phase 1/3 product work.
 
 ## Declaration-only XYFlow patch
 
@@ -119,16 +125,16 @@ the same strict package typecheck; the policy records 2026-11-07 as the expiry.
 
 ## Executable evidence
 
-| Evidence                                                               | Covered outcome                                                                                                                                                                             |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/workspace/tests/geometry-index.test.ts`                      | All-depth registration, replacement and cleanup, marquee semantics, selection-root normalization, readiness bounds, hit ordering, scaled round trips, and scrolling                         |
-| `packages/workspace/tests/adapter-proof-drag-planning.test.ts`         | Sort/free selection-block planning, nested destinations, invalid-target rejection, zoom-normalized canvas placement, and preview keys                                                       |
-| `packages/workspace/tests/transient-root-projection.test.ts`           | High-frequency move and resize coalescing, immutable input, selection projection, viewport completion, cancellation restoration, and specific invalid-state failures                        |
-| `tests/e2e/adapter-proof.spec.ts` geometry workflows                   | Measurement-gated initial fit, all-depth partial/full marquee, normalized multi-selection overlay at 0.5x/1x/2x, resize remeasurement, focus, and scroll isolation                          |
-| `tests/e2e/adapter-proof.spec.ts` ownership workflows                  | Pointer handoff, transient root lift, sort/free selection blocks, placeholders, canvas drops, runtime mode retention, accepted/canceled keyboard, trusted touch, and one-command completion |
-| `tests/e2e/adapter-proof.spec.ts` accessibility workflow               | Axe scan, reduced-motion rendering, 1280-pixel screenshot baseline, and 320-CSS-pixel reflow without horizontal overflow                                                                    |
-| `corepack pnpm perf:geometry` and `perf/`                              | Repeatable non-gating baseline for 2,000 registrations, 500 marquee queries, 500 combined bounds, and 1,000 incremental updates                                                             |
-| `perf/phase-0-browser-render-baseline.md` and focused browser workflow | Ninety-six-step structural and root movement plus a 96-event viewport burst, with unchanged recursive-root render counts during transient work and bounded commit/geometry publications     |
+| Evidence                                                               | Covered outcome                                                                                                                                                                                 |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/workspace/tests/geometry-index.test.ts`                      | All-depth registration, replacement and cleanup, marquee semantics, selection-root normalization, readiness bounds, hit ordering, scrolling, and nested external-drop coordinates at 0.5x/1x/2x |
+| `packages/workspace/tests/adapter-proof-drag-planning.test.ts`         | Sort/free selection-block planning, nested destinations, invalid-target rejection, zoom-normalized canvas placement, and preview keys                                                           |
+| `packages/workspace/tests/transient-root-projection.test.ts`           | High-frequency move and resize coalescing, immutable input, selection projection, viewport completion, cancellation restoration, and specific invalid-state failures                            |
+| `tests/e2e/adapter-proof.spec.ts` geometry workflows                   | Measurement-gated initial fit, all-depth partial/full marquee, normalized multi-selection overlay at 0.5x/1x/2x, resize remeasurement, focus, and scroll isolation                              |
+| `tests/e2e/adapter-proof.spec.ts` ownership workflows                  | Pointer handoff, transient root lift, sort/free selection blocks, placeholders, canvas drops, runtime mode retention, accepted/canceled keyboard, trusted touch, and one-command completion     |
+| `tests/e2e/adapter-proof.spec.ts` accessibility workflow               | Axe scan, reduced-motion rendering, 1280-pixel screenshot baseline, and 320-CSS-pixel reflow without horizontal overflow                                                                        |
+| `corepack pnpm perf:geometry` and `perf/`                              | Repeatable non-gating baseline for 2,000 registrations, 500 marquee queries, 500 combined bounds, and 1,000 incremental updates                                                                 |
+| `perf/phase-0-browser-render-baseline.md` and focused browser workflow | Ninety-six-step structural and root movement plus a 96-event viewport burst, with unchanged recursive-root render counts during transient work and bounded commit/geometry publications         |
 
 Repository Playwright provides the focused browser and screenshot evidence. Interactive CDP status
 is tracked separately in the plan's external release gate.
@@ -170,7 +176,19 @@ builds, tarball allowlisting, and public-API report generation. Three directly a
 geometry, accessibility, reflow, and screenshot selectors also passed. No manifest or lockfile
 changed, so the already-green registry-backed supply-chain gate was not duplicated.
 
-## Still open in Phase 0
+The Phase 0 completion batch passed the exact-toolchain changed-file quality gate with 87 unit
+tests, strict types, lint, dead-code analysis, complexity/file-length limits, automation tests,
+package and playground builds, tarball allowlisting, and API-report generation. Its focused unit
+set passed 25 geometry, drag-planning, transient-projection, and non-DnD evidence tests. Focused
+Chromium selectors passed index-based canvas-drop preview/commit parity at 0.5x/1x/2x, pointer
+completion and cancellation with focus restoration, accepted keyboard sorting, trusted long-press
+touch sorting, and the 200% page-scale primary workflow. No manifest or lockfile changed, so the
+already-green registry-backed supply-chain and unrelated-consumer gates were not duplicated.
 
-This proof does not complete the full phase. The broader non-DnD behavior inventory, browser
-characterization matrix, and final phase gate audit remain repository-actionable.
+## Phase 0 completion boundary
+
+The [non-DnD inventory](non-dnd-behavior-characterization.md),
+[browser matrix](browser-characterization-matrix.md), and
+[gate audit](phase-0-gate-audit.md) complete the remaining repository-actionable Phase 0 evidence.
+Product implementation of those characterized contracts begins in the later phases identified by
+the plan.

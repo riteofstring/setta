@@ -23,6 +23,7 @@ import {
 import {
   ADAPTER_PROOF_CANVAS_TARGET_ID,
   adapterProofSelectionBounds,
+  adapterProofWorkspaceRects,
   resolveAdapterProofDragPreview,
   type AdapterProofDragPreview,
   type AdapterProofDragSession,
@@ -38,8 +39,11 @@ import {
 import { EMPTY_COLLISION_TRACKER_STATE } from "./collision-characterization.js";
 import {
   WorkspaceGeometryIndex,
+  resolveGeometryDropTarget,
+  workspaceRectToClient,
   type MarqueeSelectionMode,
   type WorkspacePoint,
+  type WorkspaceRect,
 } from "./geometry-index.js";
 import {
   createInteractionRect,
@@ -365,6 +369,7 @@ function createDragSession({
   mode,
   selectedSectionIds,
   sourceId,
+  viewport,
 }: {
   activatorPoint: AdapterDndEvent["activatorPoint"];
   canvasElement: HTMLElement | null;
@@ -374,6 +379,7 @@ function createDragSession({
   mode: SectionMoveMode;
   selectedSectionIds: ReadonlySet<string>;
   sourceId: string;
+  viewport: ViewportTransform;
 }): DragSessionResult {
   if (!canvasElement) {
     return { allowed: false, reason: "The adapter-proof canvas is not mounted." };
@@ -383,8 +389,8 @@ function createDragSession({
   if (!selection.allowed) {
     return selection;
   }
-  const clientRectsById = captureClientRects(canvasElement);
-  const workspaceRectsById = captureWorkspaceRects(geometryIndex);
+  const clientRectsById = captureClientRects(geometryIndex, canvasElement, viewport);
+  const workspaceRectsById = adapterProofWorkspaceRects(geometryIndex);
   const sourceClientBounds = adapterProofSelectionBounds(
     selection.block.sectionIds,
     clientRectsById,
@@ -414,34 +420,24 @@ function createDragSession({
   };
 }
 
-function captureClientRects(canvasElement: HTMLElement): Readonly<Record<string, InteractionRect>> {
-  const entries = [...canvasElement.querySelectorAll<HTMLElement>("[data-proof-section-id]")].map(
-    (element) => {
-      const sectionId = element.dataset.proofSectionId;
-      if (!sectionId) {
-        throw new Error("An adapter-proof measured element is missing its section ID.");
-      }
-      return [sectionId, interactionRect(element.getBoundingClientRect())] as const;
-    },
-  );
-  return Object.fromEntries(entries);
-}
-
-function captureWorkspaceRects(
+function captureClientRects(
   geometryIndex: WorkspaceGeometryIndex,
+  canvasElement: HTMLElement,
+  viewport: ViewportTransform,
 ): Readonly<Record<string, InteractionRect>> {
+  const viewportBounds = interactionRect(canvasElement.getBoundingClientRect());
   return Object.fromEntries(
-    geometryIndex.snapshot().map(({ rect, sectionId }) => [sectionId, interactionRect(rect)]),
+    geometryIndex
+      .snapshot()
+      .map(({ rect, sectionId }) => [
+        sectionId,
+        interactionRect(workspaceRectToClient(rect, viewportBounds, viewport)),
+      ]),
   );
 }
 
-function interactionRect(rect: {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}): InteractionRect {
-  return createInteractionRect(rect.x, rect.y, rect.width, rect.height);
+function interactionRect({ x, y, width, height }: WorkspaceRect): InteractionRect {
+  return createInteractionRect(x, y, width, height);
 }
 
 function interactionPointForDrag(
@@ -460,26 +456,12 @@ function interactionPointForDrag(
   };
 }
 
-function resolvePointerElementTarget(
-  pointerElement: Element | null,
-  session: ActiveAdapterProofDrag,
-  canvasElement: HTMLElement,
-): string | null {
-  const sectionElement = pointerElement?.closest<HTMLElement>("[data-proof-section-id]");
-  const sectionId = sectionElement?.dataset.proofSectionId;
-  if (sectionId && !session.sectionIds.includes(sectionId)) {
-    return sectionId;
-  }
-  if (pointerElement && canvasElement.contains(pointerElement) && !sectionElement) {
-    return ADAPTER_PROOF_CANVAS_TARGET_ID;
-  }
-  return null;
-}
-
 function resolvePointerTarget(
   event: AdapterDndEvent,
   session: ActiveAdapterProofDrag,
   canvasElement: HTMLElement | null,
+  geometryIndex: WorkspaceGeometryIndex,
+  viewport: ViewportTransform,
 ): string | null {
   if (!canvasElement) {
     return event.targetId;
@@ -488,8 +470,23 @@ function resolvePointerTarget(
     return resolveKeyboardTarget(event, session) ?? event.targetId;
   }
   const interactionPoint = interactionPointForDrag(event, session);
-  const pointerElement = document.elementFromPoint(interactionPoint.x, interactionPoint.y);
-  return resolvePointerElementTarget(pointerElement, session, canvasElement) ?? event.targetId;
+  const viewportBounds = interactionRect(canvasElement.getBoundingClientRect());
+  const target = resolveGeometryDropTarget(
+    geometryIndex,
+    interactionPoint,
+    viewportBounds,
+    viewport,
+    new Set(session.sectionIds),
+  );
+  if (target.targetSectionId) {
+    return target.targetSectionId;
+  }
+  const insideCanvas =
+    interactionPoint.x >= viewportBounds.x &&
+    interactionPoint.x <= viewportBounds.right &&
+    interactionPoint.y >= viewportBounds.y &&
+    interactionPoint.y <= viewportBounds.bottom;
+  return insideCanvas ? ADAPTER_PROOF_CANVAS_TARGET_ID : event.targetId;
 }
 
 function keyboardSiblingContext(
@@ -536,21 +533,24 @@ function refreshTargetClientRect(
   session: ActiveAdapterProofDrag,
   targetId: string | null,
   canvasElement: HTMLElement | null,
+  geometryIndex: WorkspaceGeometryIndex,
+  viewport: ViewportTransform,
 ): ActiveAdapterProofDrag {
   if (!canvasElement || !targetId || targetId === ADAPTER_PROOF_CANVAS_TARGET_ID) {
     return session;
   }
-  const targetElement = canvasElement.querySelector<HTMLElement>(
-    `[data-proof-section-id="${CSS.escape(targetId)}"]`,
-  );
-  if (!targetElement) {
+  const targetFrame = geometryIndex.get(targetId);
+  if (!targetFrame) {
     return session;
   }
+  const viewportBounds = interactionRect(canvasElement.getBoundingClientRect());
   return {
     ...session,
     clientRectsById: {
       ...session.clientRectsById,
-      [targetId]: interactionRect(targetElement.getBoundingClientRect()),
+      [targetId]: interactionRect(
+        workspaceRectToClient(targetFrame.rect, viewportBounds, viewport),
+      ),
     },
   };
 }
@@ -660,8 +660,9 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
   );
 
   const createCurrentDragSession = useCallback(
-    (event: Pick<AdapterDndEvent, "activatorPoint" | "input" | "sourceId">) =>
-      createDragSession({
+    (event: Pick<AdapterDndEvent, "activatorPoint" | "input" | "sourceId">) => {
+      geometryMeasurements.flushMeasurement();
+      return createDragSession({
         activatorPoint: event.activatorPoint,
         canvasElement,
         geometryIndex,
@@ -670,8 +671,10 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
         mode: dragMode,
         selectedSectionIds,
         sourceId: event.sourceId,
-      }),
-    [canvasElement, dragMode, geometryIndex, hierarchy, selectedSectionIds],
+        viewport: viewport.current,
+      });
+    },
+    [canvasElement, dragMode, geometryIndex, geometryMeasurements, hierarchy, selectedSectionIds],
   );
 
   const resolveCollisionRect = useCallback(
@@ -726,8 +729,20 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
       if (!session) {
         return;
       }
-      const targetId = resolvePointerTarget(event, session, canvasElement);
-      const planningSession = refreshTargetClientRect(session, targetId, canvasElement);
+      const targetId = resolvePointerTarget(
+        event,
+        session,
+        canvasElement,
+        geometryIndex,
+        viewport.current,
+      );
+      const planningSession = refreshTargetClientRect(
+        session,
+        targetId,
+        canvasElement,
+        geometryIndex,
+        viewport.current,
+      );
       const resolution = resolveAdapterProofDragPreview({
         orientation: adapterProofOrientation,
         screenDelta: event.transform,
@@ -747,7 +762,7 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
       });
       diagnostics.setPreviewTarget(resolution.preview?.targetId ?? event.targetId);
     },
-    [canvasElement, diagnostics, dragStore],
+    [canvasElement, diagnostics, dragStore, geometryIndex],
   );
 
   const completeStructuralMove = useCallback(

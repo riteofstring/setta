@@ -40,5 +40,6 @@ All direct dependencies are exact-pinned. pnpm enforces a strict seven-day relea
 Temporary release-age exceptions live in `supply-chain-exceptions.json`. Each must identify one exact version, rationale, owner, and expiry; the dependency check fails for undocumented, missing, duplicate, or expired exceptions.
 
 Phase 0 exact-pins upstream XYFlow and dnd-kit behind package-owned testing adapters. The selected
-root-node/recursive-DOM representation, shared geometry index, interaction kernel, and remaining
-proof work are recorded under `docs/evidence` without exposing upstream contracts publicly.
+root-node/recursive-DOM representation, shared geometry index, interaction kernel, non-DnD/browser
+characterization, and completed Phase 0 gate audit are recorded under `docs/evidence` without
+exposing upstream contracts publicly.
