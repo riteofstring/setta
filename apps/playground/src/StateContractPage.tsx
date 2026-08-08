@@ -128,15 +128,18 @@ export function StateContractPage() {
                 setUncontrolledDocument(document);
                 setUncontrolledChanges((count) => count + 1);
               }}
+              overlaySlots={{
+                canvas: () => (
+                  <WorkspaceInteractionBoundary>
+                    <label className="state-contract-host-field">
+                      Host note
+                      <input name="host-note" />
+                    </label>
+                  </WorkspaceInteractionBoundary>
+                ),
+              }}
               readOnly={readOnly}
-            >
-              <WorkspaceInteractionBoundary>
-                <label className="state-contract-host-field">
-                  Host note
-                  <input name="host-note" />
-                </label>
-              </WorkspaceInteractionBoundary>
-            </Workspace>
+            />
             <p>Committed changes: {uncontrolledChanges}</p>
             <textarea
               aria-label="Uncontrolled document JSON"

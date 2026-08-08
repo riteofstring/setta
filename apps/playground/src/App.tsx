@@ -61,17 +61,19 @@ function DefaultPlaygroundPage() {
         </div>
         <Workspace
           ariaLabel="Section workspace"
-          emptyState={sections.length === 0 ? "No sections yet." : null}
-        >
-          {sections.length === 0
-            ? undefined
-            : sections.map((section) => (
+          emptyState={
+            sections.length === 0 ? "No sections yet. Add a sample section to start." : null
+          }
+          overlaySlots={{
+            canvas: () =>
+              sections.map((section) => (
                 <article className="sample-section" key={section.id}>
                   <h2>{section.title}</h2>
                   <p>Host-rendered content remains outside the package document model.</p>
                 </article>
-              ))}
-        </Workspace>
+              )),
+          }}
+        />
       </main>
     </>
   );

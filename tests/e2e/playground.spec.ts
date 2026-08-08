@@ -168,6 +168,158 @@ test("the canvas shell coalesces viewport gestures and isolates host input", asy
   expect(accessibility.violations).toEqual([]);
 });
 
+test("the canvas toolbar, host extensions, and empty minimap synchronize and clean up", async ({
+  page,
+}) => {
+  await page.goto("/?canvas-shell");
+
+  const workspace = page.getByRole("region", { name: "Canvas shell workspace", exact: true });
+  const canvas = page.getByRole("application", { name: "Canvas shell workspace canvas" });
+  const toolbar = page.getByRole("toolbar", { name: "Canvas shell workspace controls" });
+  const documentJson = page.getByTestId("canvas-shell-document");
+  const hostNote = page.getByRole("textbox", { name: "Host note" });
+  const gridProbe = page.getByRole("button", { name: "Set grid probe viewport" });
+  const zoomIn = page.getByRole("button", { name: "Zoom in" });
+  const zoomOut = page.getByRole("button", { name: "Zoom out" });
+  const resetZoom = page.getByRole("button", { name: "Reset zoom" });
+  const fitSections = page.getByRole("button", { name: "Fit sections" });
+  const snapToGrid = page.getByRole("button", { name: "Snap to grid" });
+  const showMinimap = page.getByRole("button", { name: "Show minimap" });
+  const minimap = page.getByRole("img", { name: "Canvas shell workspace minimap" });
+
+  await expect(toolbar).toBeVisible();
+  await expect
+    .poll(() =>
+      toolbar
+        .locator("button")
+        .evaluateAll((buttons) =>
+          buttons.map((button) => button.getAttribute("data-workspace-control-id")),
+        ),
+    )
+    .toEqual([
+      "grid-probe",
+      "zoom-in",
+      "zoom-out",
+      "reset-zoom",
+      "fit-sections",
+      "snap-to-grid",
+      "move-minimap",
+      "remove-host-extensions",
+      "show-minimap",
+    ]);
+  await expect(resetZoom).toBeDisabled();
+  await expect(fitSections).toBeDisabled();
+  await expect(snapToGrid).toHaveAttribute("aria-pressed", "true");
+  await expect(showMinimap).toHaveAttribute("aria-pressed", "true");
+  await expect(minimap).toBeVisible();
+  await expect(workspace).toHaveScreenshot("canvas-toolbar-minimap.png");
+
+  await hostNote.fill("Host state survives extension updates");
+  await zoomIn.focus();
+  const zoomInTooltip = zoomIn.locator("xpath=..").locator(".setta-workspace__toolbar-tooltip");
+  await expect(zoomInTooltip).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(zoomInTooltip).toBeHidden();
+  await page.keyboard.press("Home");
+  await expect(gridProbe).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(showMinimap).toBeFocused();
+  await zoomIn.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(zoomOut).toBeFocused();
+  await page.keyboard.press("ArrowUp");
+  await expect(zoomIn).toBeFocused();
+  const initialMask = await workspace.locator(".react-flow__minimap-mask").getAttribute("d");
+  await page.keyboard.press("Enter");
+  await expect
+    .poll(async () => {
+      const value = await documentJson.inputValue();
+      return (JSON.parse(value) as { viewport: { zoom: number } }).viewport.zoom;
+    })
+    .toBeGreaterThan(1);
+  await expect(resetZoom).toBeEnabled();
+  await expect
+    .poll(() => workspace.locator(".react-flow__minimap-mask").getAttribute("d"))
+    .not.toBe(initialMask);
+
+  for (let attempt = 0; attempt < 8 && (await zoomIn.isEnabled()); attempt += 1) {
+    await zoomIn.click();
+  }
+  await expect(zoomIn).toBeDisabled();
+  await expect
+    .poll(async () => {
+      const value = await documentJson.inputValue();
+      return (JSON.parse(value) as { viewport: { zoom: number } }).viewport.zoom;
+    })
+    .toBe(2);
+  await resetZoom.click();
+  await expect(resetZoom).toBeDisabled();
+  for (let attempt = 0; attempt < 8 && (await zoomOut.isEnabled()); attempt += 1) {
+    await zoomOut.click();
+  }
+  await expect(zoomOut).toBeDisabled();
+  await expect
+    .poll(async () => {
+      const value = await documentJson.inputValue();
+      return (JSON.parse(value) as { viewport: { zoom: number } }).viewport.zoom;
+    })
+    .toBe(0.5);
+  await resetZoom.click();
+  await expect(resetZoom).toBeDisabled();
+
+  const beforeSnapToggle = await documentJson.inputValue();
+  await snapToGrid.click();
+  await expect(snapToGrid).toHaveAttribute("aria-pressed", "false");
+  await expect(canvas).toHaveAttribute("data-workspace-grid-snap", "false");
+  await expect(documentJson).toHaveValue(beforeSnapToggle);
+
+  await showMinimap.click();
+  await expect(showMinimap).toHaveAttribute("aria-pressed", "false");
+  await expect(minimap).toHaveCount(0);
+  await showMinimap.click();
+  await expect(page.getByRole("img", { name: "Canvas shell workspace minimap" })).toHaveCount(1);
+
+  await page.getByRole("button", { name: "Move minimap to left" }).click();
+  await expect(workspace.locator('[data-workspace-minimap-placement="left"]')).toBeAttached();
+  await expect(page.getByRole("button", { name: "Move minimap to right" })).toBeVisible();
+  await expect(hostNote).toHaveValue("Host state survives extension updates");
+
+  const removeExtensions = page.getByRole("button", { name: "Remove host extensions" });
+  await removeExtensions.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Set grid probe viewport" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reset viewport" })).toHaveCount(0);
+  await expect(zoomIn).toBeFocused();
+
+  await page.getByRole("checkbox", { name: "Show host extensions" }).check();
+  await expect(page.getByRole("button", { name: "Set grid probe viewport" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reset viewport" })).toBeVisible();
+  await page.getByRole("button", { name: "Set grid probe viewport" }).click();
+  await expect(page.getByRole("status")).toContainText("Grid probe viewport: applied.");
+  await expect(page.getByRole("button", { name: "Set grid probe viewport" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(hostNote).toHaveValue("Host state survives extension updates");
+
+  const workspaceBounds = await workspace.boundingBox();
+  await page.locator("html").evaluate((element) => element.setAttribute("dir", "rtl"));
+  await expect
+    .poll(async () => {
+      const toolbarBounds = await toolbar.boundingBox();
+      return Boolean(
+        workspaceBounds &&
+        toolbarBounds &&
+        toolbarBounds.x > workspaceBounds.x + workspaceBounds.width / 2,
+      );
+    })
+    .toBe(true);
+  await page.locator("html").evaluate((element) => element.setAttribute("dir", "ltr"));
+
+  const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
+  expect(accessibility.violations).toEqual([]);
+});
+
 test("the canvas shell navigates measured geometry without browser scroll", async ({ page }) => {
   await page.goto("/?canvas-shell");
 
@@ -251,10 +403,14 @@ test("the canvas grid and scoped appearance remain independent and aligned", asy
   await expect(background.locator("pattern")).toHaveAttribute("x", "0");
   await expect(background.locator("pattern circle")).toHaveCount(1);
 
-  await page.getByRole("checkbox", { name: "Snap to grid" }).uncheck();
+  await page.getByRole("button", { name: "Snap to grid" }).click();
   await expect(canvas).toHaveAttribute("data-workspace-grid-snap", "false");
   await expect(background).toHaveCount(1);
-  await page.getByRole("checkbox", { name: "Snap to grid" }).check();
+  await page.getByRole("button", { name: "Snap to grid" }).click();
+  await expect(page.getByRole("button", { name: "Snap to grid" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await page.getByRole("checkbox", { name: "Show grid" }).uncheck();
   await expect(canvas).toHaveAttribute("data-workspace-grid-visible", "false");
   await expect(canvas).toHaveAttribute("data-workspace-grid-snap", "true");
@@ -309,6 +465,7 @@ test("the canvas grid and scoped appearance remain independent and aligned", asy
   await expect(pattern).toHaveAttribute("x", "-1");
   await expect(pattern).toHaveAttribute("y", "17");
   await expect(pattern.locator("[stroke-width]")).toHaveAttribute("stroke-width", "1.5");
+  await page.keyboard.press("Escape");
   await expect(workspace).toHaveScreenshot("canvas-grid-dark.png");
 
   await expect
@@ -334,5 +491,23 @@ test("the canvas shell reflows at 320 pixels with reduced motion", async ({ page
     scrollWidth: document.documentElement.scrollWidth,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+  const workspace = page.getByRole("region", { name: "Canvas shell workspace", exact: true });
+  const toolbar = page.getByRole("toolbar", { name: "Canvas shell workspace controls" });
+  const zoomIn = page.getByRole("button", { name: "Zoom in" });
+  const workspaceBounds = await workspace.boundingBox();
+  const toolbarBounds = await toolbar.boundingBox();
+  expect(workspaceBounds).not.toBeNull();
+  expect(toolbarBounds).not.toBeNull();
+  if (workspaceBounds && toolbarBounds) {
+    expect(toolbarBounds.y).toBeGreaterThanOrEqual(workspaceBounds.y);
+    expect(toolbarBounds.y + toolbarBounds.height).toBeLessThanOrEqual(
+      workspaceBounds.y + workspaceBounds.height,
+    );
+  }
+  await expect(toolbar.getByRole("button")).toHaveCount(6);
+  await expect(page.getByRole("checkbox", { name: "Show host extensions" })).not.toBeChecked();
+  await expect
+    .poll(() => zoomIn.evaluate((element) => getComputedStyle(element).transitionDuration))
+    .toBe("0s");
   await expect(page).toHaveScreenshot("canvas-shell-320.png", { fullPage: true });
 });

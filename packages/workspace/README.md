@@ -33,6 +33,19 @@ const controller = useRef<WorkspaceController>(null);
     pattern: "dots",
     markSize: 1,
   }}
+  minimapOptions={{ placement: "right", visible: true }}
+  toolbarControls={[
+    {
+      id: "open-inspector",
+      placement: "utility",
+      label: "Open inspector",
+      icon: <InspectorIcon />,
+      onPress: (workspaceController) => openInspector(workspaceController),
+    },
+  ]}
+  overlaySlots={{
+    project: (workspaceController) => <ProjectPicker controller={workspaceController} />,
+  }}
 />;
 ```
 
@@ -58,6 +71,23 @@ document, or host-rendered state. Default palette values are gamut-safe OKLCH co
 roles for canvas, grid, section surfaces and text, toolbar, minimap, selection, focus, and invalid
 states.
 
+The default vertical toolbar provides zoom in/out, reset zoom, fit sections, snap-to-grid, and
+minimap visibility controls. `toolbarControls` adds native-button host actions at the typed
+`project`, `viewport`, or `utility` placement; every action receives only the public controller.
+Control IDs must be unique and cannot replace a built-in ID. Icons are decorative, noninteractive
+React nodes, while `label`, `pressed`, and `disabled` provide the control's accessible contract.
+
+`overlaySlots` supplies richer `project`, `viewport`, `utility`, or transformed `canvas` content.
+Every slot is a render function that receives the same public controller. Fixed slots and the
+toolbar isolate their pointer and wheel input from the viewport; transformed canvas content can use
+`WorkspaceInteractionBoundary` for the same isolation. Direct `Workspace` children are not an
+overlay API.
+
+The minimap is visible on the right by default and can be placed on either physical side.
+`gridOptions.snap` and `minimapOptions.visible` are locally toggleable when their change callback is
+omitted. Supplying `onGridSnapChange` or `onMinimapVisibilityChange` makes that preference
+controlled; keep the corresponding option and callback ownership mode stable for the mount.
+
 Wrap interactive or scrollable content rendered inside the canvas with
 `WorkspaceInteractionBoundary`. It independently suppresses canvas panning and wheel handling while
 leaving the host control usable; consumers do not need to know the adapter's internal marker class
@@ -66,9 +96,9 @@ names.
 The controller's measured navigation helpers wait for visible frame geometry, commit one canonical
 viewport change, and resolve after the upstream viewport has synchronized. `focusSection` preserves
 the current zoom and moves programmatic focus with scroll prevention; `fitSection` and `fitSections`
-honor the configured zoom bounds and accept an optional non-negative padding value. Spatial
-next/previous navigation orders roots by workbench `y`, then `x`, persistent order, and stable ID,
-with descendants following canonical child order.
+honor the configured zoom bounds, reserve a default chrome-safe padding, and accept an optional
+non-negative padding value. Spatial next/previous navigation orders roots by workbench `y`, then
+`x`, persistent order, and stable ID, with descendants following canonical child order.
 
 ```tsx
 await controller.current?.focusSection("details");

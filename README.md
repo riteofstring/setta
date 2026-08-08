@@ -51,5 +51,7 @@ state/controller boundary, upstream canvas shell, runtime gesture policy, coales
 publication, host-content interaction boundaries, production frame measurement, and
 geometry-backed focus, fit, and spatial next/previous navigation. It also includes independent
 grid visibility and snapping, all three grid patterns, shared two-axis spacing, and scoped
-light/dark/system semantic theme tokens. The toolbar, overlay, minimap, and remaining canvas gates
-continue in adjacent verified slices.
+light/dark/system semantic theme tokens. It now also includes the default accessible toolbar, typed
+host controls and overlay placements, and a side-configurable empty minimap shell. The remaining
+gesture-matrix, listener/subscription cleanup, and Phase 1 gates continue in adjacent verified
+slices.

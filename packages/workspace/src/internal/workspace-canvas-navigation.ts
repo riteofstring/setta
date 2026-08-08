@@ -3,7 +3,7 @@ import { getViewportForBounds } from "@xyflow/react";
 import type { WorkspaceFitOptions, WorkspacePoint, WorkspaceViewport } from "../core.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 
-const WORKSPACE_DEFAULT_FIT_PADDING = 0.12;
+const WORKSPACE_DEFAULT_FIT_PADDING = 0.4;
 
 export type WorkspaceCanvasController = Readonly<{
   clientPointToWorkspace(point: WorkspacePoint): WorkspacePoint;

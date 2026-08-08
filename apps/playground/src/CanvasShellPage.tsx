@@ -7,13 +7,61 @@ import {
   type WorkspacePanOnScrollMode,
   type WorkspaceSection,
 } from "@setta/workspace/core";
-import { Workspace, WorkspaceInteractionBoundary } from "@setta/workspace/react";
-import { useRef, useState } from "react";
+import {
+  Workspace,
+  WorkspaceInteractionBoundary,
+  type WorkspaceMinimapPlacement,
+  type WorkspaceToolbarControl,
+} from "@setta/workspace/react";
+import { useRef, useState, type ReactNode } from "react";
+
+function HostToolbarIcon({ children }: Readonly<{ children: ReactNode }>) {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      focusable="false"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.5"
+      viewBox="0 0 20 20"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function GridProbeIcon() {
+  return (
+    <HostToolbarIcon>
+      <circle cx="10" cy="10" r="4.5" />
+      <path d="M10 3v3M10 14v3M3 10h3M14 10h3" />
+    </HostToolbarIcon>
+  );
+}
+
+function MoveMinimapIcon() {
+  return (
+    <HostToolbarIcon>
+      <path d="m6.5 6-3 4 3 4M13.5 6l3 4-3 4M4 10h12" />
+    </HostToolbarIcon>
+  );
+}
+
+function RemoveExtensionsIcon() {
+  return (
+    <HostToolbarIcon>
+      <path d="m5.5 5.5 9 9M14.5 5.5l-9 9" />
+    </HostToolbarIcon>
+  );
+}
 
 const scrollFixture = Array.from(
   { length: 16 },
   (_, index) => `Scrollable host line ${String(index + 1)}`,
 ).join("\n");
+const HOST_EXTENSIONS_DEFAULT_QUERY = "(min-width: 40rem)";
 
 function navigationSection(id: string, title: string): WorkspaceSection {
   return {
@@ -37,9 +85,9 @@ function createNavigationDocument(): WorkspaceDocument {
   return {
     ...empty,
     rootSections: [
-      { position: { x: 360, y: 160 }, sectionId: "alpha" },
-      { position: { x: 1_500, y: 260 }, sectionId: "beta" },
-      { position: { x: -520, y: -360 }, sectionId: "gamma" },
+      { position: { x: 480, y: 80 }, sectionId: "alpha" },
+      { position: { x: 1_140, y: 120 }, sectionId: "beta" },
+      { position: { x: -300, y: -120 }, sectionId: "gamma" },
     ],
     sections: {
       alpha: navigationSection("alpha", "Alpha frame"),
@@ -58,20 +106,15 @@ export function CanvasShellPage() {
   const [gridPattern, setGridPattern] = useState<WorkspaceGridPattern>("dots");
   const [gridSnap, setGridSnap] = useState(true);
   const [gridVisible, setGridVisible] = useState(true);
+  const [minimapPlacement, setMinimapPlacement] = useState<WorkspaceMinimapPlacement>("right");
+  const [minimapVisible, setMinimapVisible] = useState(true);
   const [panOnScroll, setPanOnScroll] = useState(true);
   const [panOnScrollMode, setPanOnScrollMode] = useState<WorkspacePanOnScrollMode>("free");
+  const [showHostExtensions, setShowHostExtensions] = useState(
+    () => window.matchMedia(HOST_EXTENSIONS_DEFAULT_QUERY).matches,
+  );
   const [zoomOnScroll, setZoomOnScroll] = useState(false);
   const [status, setStatus] = useState("Canvas ready.");
-
-  const resetViewport = () => {
-    const result = controller.current?.setViewport({ x: 0, y: 0, zoom: 1 });
-    setStatus(`Reset viewport: ${result?.status ?? "unavailable"}.`);
-  };
-
-  const probeGridAlignment = () => {
-    const result = controller.current?.setViewport({ x: -37, y: 53, zoom: 1.5 });
-    setStatus(`Grid probe viewport: ${result?.status ?? "unavailable"}.`);
-  };
 
   const runNavigation = async (
     label: string,
@@ -86,6 +129,47 @@ export function CanvasShellPage() {
   };
 
   const hasNavigationFixture = document.rootSections.length > 0;
+  const toolbarControls = (
+    showHostExtensions
+      ? [
+          {
+            icon: <GridProbeIcon />,
+            id: "grid-probe",
+            label: "Set grid probe viewport",
+            onPress: (workspaceController) => {
+              const result = workspaceController.setViewport({ x: -37, y: 53, zoom: 1.5 });
+              setStatus(`Grid probe viewport: ${result.status}.`);
+            },
+            placement: "project",
+            pressed:
+              document.viewport.x === -37 &&
+              document.viewport.y === 53 &&
+              document.viewport.zoom === 1.5,
+          },
+          {
+            icon: <MoveMinimapIcon />,
+            id: "move-minimap",
+            label: `Move minimap to ${minimapPlacement === "left" ? "right" : "left"}`,
+            onPress: () => {
+              const nextPlacement = minimapPlacement === "left" ? "right" : "left";
+              setMinimapPlacement(nextPlacement);
+              setStatus(`Minimap moved to ${nextPlacement}.`);
+            },
+            placement: "utility",
+          },
+          {
+            icon: <RemoveExtensionsIcon />,
+            id: "remove-host-extensions",
+            label: "Remove host extensions",
+            onPress: () => {
+              setShowHostExtensions(false);
+              setStatus("Host extensions removed.");
+            },
+            placement: "utility",
+          },
+        ]
+      : []
+  ) satisfies readonly WorkspaceToolbarControl[];
 
   return (
     <>
@@ -98,8 +182,8 @@ export function CanvasShellPage() {
         </p>
         <h1>Workspace canvas shell</h1>
         <p className="lede">
-          A backend-free viewport with runtime gesture policy, independent grid and snapping, and
-          scoped appearance.
+          A backend-free viewport with runtime gesture policy, independent grid and snapping, scoped
+          appearance, a default toolbar, host overlays, and an empty minimap shell.
         </p>
       </header>
       <main id="canvas-shell-content" tabIndex={-1}>
@@ -135,9 +219,6 @@ export function CanvasShellPage() {
                 <option value="vertical">Vertical</option>
               </select>
             </label>
-            <button type="button" onClick={resetViewport}>
-              Reset viewport
-            </button>
           </fieldset>
           <fieldset className="canvas-shell-settings">
             <legend>Canvas preferences</legend>
@@ -148,14 +229,6 @@ export function CanvasShellPage() {
                 type="checkbox"
               />
               Show grid
-            </label>
-            <label>
-              <input
-                checked={gridSnap}
-                onChange={(event) => setGridSnap(event.currentTarget.checked)}
-                type="checkbox"
-              />
-              Snap to grid
             </label>
             <label>
               Grid pattern
@@ -191,9 +264,21 @@ export function CanvasShellPage() {
               />
               Use violet grid color
             </label>
-            <button type="button" onClick={probeGridAlignment}>
-              Set grid probe viewport
-            </button>
+            <label>
+              <input
+                checked={showHostExtensions}
+                onChange={(event) => {
+                  setShowHostExtensions(event.currentTarget.checked);
+                  setStatus(
+                    event.currentTarget.checked
+                      ? "Host extensions registered."
+                      : "Host extensions removed.",
+                  );
+                }}
+                type="checkbox"
+              />
+              Show host extensions
+            </label>
           </fieldset>
           <fieldset className="canvas-shell-settings">
             <legend>Measured navigation</legend>
@@ -296,29 +381,52 @@ export function CanvasShellPage() {
             spacing: [24, 24],
             visible: gridVisible,
           }}
+          minimapOptions={{ placement: minimapPlacement, visible: minimapVisible }}
           onDocumentChange={(nextDocument, change) => {
             setDocument(nextDocument);
             setChangeCount((count) => count + 1);
             setStatus(`Document change: ${change.reason}.`);
           }}
-        >
-          <WorkspaceInteractionBoundary className="canvas-shell-host-fixture">
-            <label>
-              Host note
-              <input name="canvas-shell-note" />
-            </label>
-            <label>
-              Scrollable host content
-              <textarea
-                data-testid="canvas-shell-scroll-fixture"
-                readOnly
-                rows={5}
-                spellCheck={false}
-                value={scrollFixture}
-              />
-            </label>
-          </WorkspaceInteractionBoundary>
-        </Workspace>
+          onGridSnapChange={setGridSnap}
+          onMinimapVisibilityChange={setMinimapVisible}
+          overlaySlots={{
+            canvas: () => (
+              <WorkspaceInteractionBoundary
+                className="canvas-shell-host-fixture"
+                hidden={!showHostExtensions}
+              >
+                <label>
+                  Host note
+                  <input name="canvas-shell-note" />
+                </label>
+                <label>
+                  Scrollable host content
+                  <textarea
+                    data-testid="canvas-shell-scroll-fixture"
+                    readOnly
+                    rows={5}
+                    spellCheck={false}
+                    value={scrollFixture}
+                  />
+                </label>
+              </WorkspaceInteractionBoundary>
+            ),
+            utility: (workspaceController) =>
+              showHostExtensions ? (
+                <button
+                  className="canvas-shell-overlay-action"
+                  type="button"
+                  onClick={() => {
+                    const result = workspaceController.setViewport({ x: 0, y: 0, zoom: 1 });
+                    setStatus(`Reset viewport: ${result.status}.`);
+                  }}
+                >
+                  Reset viewport
+                </button>
+              ) : null,
+          }}
+          toolbarControls={toolbarControls}
+        />
         <label className="canvas-shell-document">
           Workspace document JSON
           <textarea

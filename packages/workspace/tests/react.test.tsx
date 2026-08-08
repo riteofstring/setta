@@ -2,7 +2,18 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { createEmptyWorkspaceDocument } from "../src/core.js";
-import { Workspace, WorkspaceInteractionBoundary, type WorkspaceProps } from "../src/react.js";
+import {
+  Workspace,
+  WorkspaceInteractionBoundary,
+  type WorkspaceProps,
+  type WorkspaceToolbarControl,
+} from "../src/react.js";
+
+function workspaceControlIds(markup: string): readonly string[] {
+  return [...markup.matchAll(/data-workspace-control-id="([^"]+)"/gu)].map(
+    (match) => match[1] ?? "",
+  );
+}
 
 describe("Workspace scaffold", () => {
   it("renders a named section with an empty state", () => {
@@ -55,16 +66,139 @@ describe("Workspace scaffold", () => {
         ariaLabel="Controlled workspace"
         document={document}
         onDocumentChange={() => undefined}
+        overlaySlots={{ canvas: () => <input aria-label="Host content" /> }}
         readOnly
-      >
-        <input aria-label="Host content" />
-      </Workspace>,
+      />,
     );
 
     expect(markup).toContain('data-workspace-mode="controlled"');
     expect(markup).toContain('data-read-only="true"');
     expect(markup).not.toContain("aria-readonly");
-    expect(markup).not.toContain("disabled");
+  });
+
+  it("orders built-in and host controls and renders controller-only overlay slots", () => {
+    const controllers = new Set<unknown>();
+    const renderedPlacements: string[] = [];
+    const toolbarControls = [
+      {
+        icon: <span>P</span>,
+        id: "host-project",
+        label: "Open project action",
+        onPress: () => undefined,
+        placement: "project",
+        pressed: true,
+      },
+      {
+        disabled: true,
+        icon: <span>V</span>,
+        id: "host-viewport",
+        label: "Run viewport action",
+        onPress: () => undefined,
+        placement: "viewport",
+      },
+      {
+        icon: <span>U</span>,
+        id: "host-utility",
+        label: "Open utility action",
+        onPress: () => undefined,
+        placement: "utility",
+      },
+    ] satisfies readonly WorkspaceToolbarControl[];
+    const overlay = (placement: string) => (controller: unknown) => {
+      controllers.add(controller);
+      renderedPlacements.push(placement);
+      return <span>{placement}</span>;
+    };
+    const markup = renderToStaticMarkup(
+      <Workspace
+        ariaLabel="Extension workspace"
+        overlaySlots={{
+          canvas: overlay("canvas"),
+          project: overlay("project"),
+          utility: overlay("utility"),
+          viewport: overlay("viewport"),
+        }}
+        toolbarControls={toolbarControls}
+      />,
+    );
+
+    expect(workspaceControlIds(markup)).toEqual([
+      "host-project",
+      "zoom-in",
+      "zoom-out",
+      "reset-zoom",
+      "fit-sections",
+      "snap-to-grid",
+      "host-viewport",
+      "host-utility",
+      "show-minimap",
+    ]);
+    expect(markup).toContain('role="toolbar"');
+    expect(markup).toContain('aria-label="Extension workspace controls"');
+    expect(markup).not.toContain("aria-describedby");
+    expect(markup).toMatch(/aria-pressed="true"[^>]+data-workspace-control-id="host-project"/u);
+    expect(markup).toMatch(/data-workspace-control-id="host-viewport"[^>]+disabled=""/u);
+    expect(markup).toContain('role="img"');
+    expect(markup).toContain("Extension workspace minimap");
+    for (const placement of ["project", "utility", "viewport"]) {
+      expect(markup).toContain(`data-workspace-overlay-placement="${placement}"`);
+    }
+    expect(renderedPlacements).toEqual(["canvas", "project", "utility", "viewport"]);
+    expect(controllers.size).toBe(1);
+  });
+
+  it("fails specifically for malformed extension descriptors", () => {
+    const duplicateControls = [
+      {
+        icon: null,
+        id: "duplicate",
+        label: "Run first action",
+        onPress: () => undefined,
+        placement: "project",
+      },
+      {
+        icon: null,
+        id: "duplicate",
+        label: "Run second action",
+        onPress: () => undefined,
+        placement: "utility",
+      },
+    ] satisfies readonly WorkspaceToolbarControl[];
+
+    expect(() => renderToStaticMarkup(<Workspace toolbarControls={duplicateControls} />)).toThrow(
+      'Duplicate workspace toolbar control id "duplicate"',
+    );
+    expect(() =>
+      renderToStaticMarkup(
+        <Workspace
+          toolbarControls={
+            [
+              {
+                icon: null,
+                id: "zoom-in",
+                label: "Replace zoom",
+                onPress: () => undefined,
+                placement: "viewport",
+              },
+            ] as readonly WorkspaceToolbarControl[]
+          }
+        />,
+      ),
+    ).toThrow('toolbar control id "zoom-in" is reserved');
+    expect(() =>
+      renderToStaticMarkup(
+        <Workspace
+          overlaySlots={
+            { project: "not a renderer" } as unknown as NonNullable<WorkspaceProps["overlaySlots"]>
+          }
+        />,
+      ),
+    ).toThrow("overlay slot project must be a render function");
+    expect(() =>
+      renderToStaticMarkup(
+        <Workspace minimapOptions={{ placement: "center" } as unknown as { placement: "left" }} />,
+      ),
+    ).toThrow("minimap placement must be left or right");
   });
 
   it("fails clearly when runtime props mix controlled and uncontrolled ownership", () => {
