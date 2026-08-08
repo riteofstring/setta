@@ -119,6 +119,11 @@ if [[ "${no_session_persistence}" != "1" ]]; then
   echo "expected --no-session-persistence" >&2
   exit 1
 fi
+if [[ "${prompt}" != *"Never run an unbounded git diff"* ]] ||
+  [[ "${prompt}" != *"perform at most one bounded final review"* ]]; then
+  echo "Agent 1 prompt is missing the bounded-review contract" >&2
+  exit 1
+fi
 
 call_count=0
 if [[ -f "${FAKE_AGENT_STATE}" ]]; then
