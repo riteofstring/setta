@@ -50,6 +50,32 @@ describe("Workspace scaffold", () => {
     expect(markup).not.toContain('<p class="setta-workspace__empty">');
   });
 
+  it("renders a registry-driven creation control and searchable native dialog", () => {
+    const definitions = [
+      {
+        creation: { group: "Basics", keywords: ["memo"] },
+        defaultSize: { height: 180, width: 240 },
+        displayName: "Host note",
+        kind: "note",
+        render: () => null,
+      },
+    ] satisfies readonly SectionDefinition[];
+    const markup = renderToStaticMarkup(
+      <Workspace
+        sectionDefinitions={definitions}
+        sectionFactory={() => ({ data: null, id: "note-1" })}
+      />,
+    );
+
+    expect(markup).toMatch(
+      /aria-controls="setta-workspace-creation-[^"]+"[^>]+aria-label="Add section"/u,
+    );
+    expect(markup).toContain('data-workspace-control-id="add-section"');
+    expect(markup).toMatch(/<dialog[^>]+aria-labelledby="[^"]+"/u);
+    expect(markup).toContain("Search sections");
+    expect(markup).toContain("Host note");
+  });
+
   it("renders registered host content inside an accessible package-owned section frame", () => {
     const document = createWorkspaceTestDocument([{ id: "alpha", title: "Alpha note" }]);
     const Renderer = ({ appearance, data, readOnly, sectionId }: SectionRenderProps) => (

@@ -1,10 +1,12 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+import { addSampleSection } from "./workspace-test-helpers.js";
+
 test("section title and presentation editing stay accessible and canonical", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");
-  await page.getByRole("button", { name: "Add sample section" }).click();
+  await addSampleSection(page);
 
   const workspace = page.getByRole("region", { name: "Section workspace", exact: true });
   let article = workspace.getByRole("article", { name: "Sample section 1" });

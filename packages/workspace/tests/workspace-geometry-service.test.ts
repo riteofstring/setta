@@ -63,15 +63,17 @@ function fakeElement(
   rect: Readonly<{ height: number; width: number; x: number; y: number }>,
 ) {
   const addEventListener = vi.fn();
+  const focus = vi.fn();
   const getBoundingClientRect = vi.fn(() => rect as DOMRect);
   const removeEventListener = vi.fn();
   const element = {
     addEventListener,
+    focus,
     getBoundingClientRect,
     ownerDocument: { defaultView: window },
     removeEventListener,
   } as unknown as HTMLElement;
-  return { addEventListener, element, getBoundingClientRect, removeEventListener };
+  return { addEventListener, element, focus, getBoundingClientRect, removeEventListener };
 }
 
 describe("WorkspaceGeometryMeasurements lifecycle", () => {
@@ -224,5 +226,27 @@ describe("WorkspaceGeometryMeasurements lifecycle", () => {
 
     await expect(first).resolves.toBe(false);
     await expect(second).resolves.toBe(true);
+  });
+
+  it("focuses a newly registered frame and settles unavailable deferred focus", async () => {
+    const fixture = fakeWindow();
+    const root = fakeElement(fixture.window, { height: 120, width: 200, x: 90, y: 140 });
+    const geometry = new WorkspaceGeometryMeasurements(new WorkspaceGeometryIndex());
+    const focused = geometry.focusSectionWhenReady("created");
+
+    geometry.register({
+      depth: 0,
+      element: root.element,
+      order: 0,
+      parentSectionId: null,
+      sectionId: "created",
+    });
+
+    await expect(focused).resolves.toBe(true);
+    expect(root.focus).toHaveBeenCalledWith({ preventScroll: true });
+
+    const unavailable = geometry.focusSectionWhenReady("missing");
+    geometry.setCanvasElement(null);
+    await expect(unavailable).resolves.toBe(false);
   });
 });

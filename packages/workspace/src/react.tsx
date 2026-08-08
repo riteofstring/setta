@@ -35,6 +35,7 @@ import { WorkspaceCanvasAdapter } from "./internal/workspace-canvas-adapter.js";
 import type { WorkspaceCanvasController } from "./internal/workspace-canvas-navigation.js";
 import {
   createWorkspaceController,
+  createWorkspaceRootSection,
   moveWorkspaceRootSections,
   type WorkspaceControllerBindings,
 } from "./internal/workspace-controller.js";
@@ -51,12 +52,15 @@ import {
   resolveWorkspaceSectionColorPalette,
   type SectionDefinition,
   type WorkspaceSectionColorOption,
+  type WorkspaceSectionFactory,
   type WorkspaceSectionTitleValidationRequest,
   type WorkspaceSectionTitleValidator,
 } from "./internal/workspace-section-contract.js";
+import { planWorkspaceRootSectionCreation } from "./internal/workspace-section-creation.js";
 import {
   resolveSectionDefinitions,
   validateWorkspaceSectionDefinitions,
+  type WorkspaceSectionRegistry,
 } from "./internal/workspace-section-registry.js";
 import {
   reconcileWorkspaceSelection,
@@ -75,6 +79,9 @@ export type {
   SectionResizeAxes,
   SectionResizeOptions,
   WorkspaceSectionColorOption,
+  WorkspaceSectionFactory,
+  WorkspaceSectionFactoryRequest,
+  WorkspaceSectionFactoryResult,
   WorkspaceSectionTitleValidationRequest,
   WorkspaceSectionTitleValidator,
 } from "./internal/workspace-section-contract.js";
@@ -144,6 +151,7 @@ const overlayPlacements = new Set<WorkspaceOverlayPlacement>([
   "viewport",
 ]);
 const reservedToolbarControlIds = new Set([
+  "add-section",
   "fit-sections",
   "reset-zoom",
   "show-minimap",
@@ -352,6 +360,7 @@ type SharedWorkspaceProps<TSectionData> = Omit<
   readOnly?: boolean;
   sectionColorPalette?: readonly WorkspaceSectionColorOption[];
   sectionDefinitions?: readonly SectionDefinition<TSectionData>[];
+  sectionFactory?: WorkspaceSectionFactory<TSectionData>;
   selectionOptions?: WorkspaceSelectionOptions;
   toolbarControls?: readonly WorkspaceToolbarControl<TSectionData>[];
   validateSectionTitle?: WorkspaceSectionTitleValidator;
@@ -439,8 +448,41 @@ function assertSectionTitleValidator(
   }
 }
 
+function assertSectionFactory<TSectionData>(
+  value: unknown,
+): asserts value is WorkspaceSectionFactory<TSectionData> | undefined {
+  if (value !== undefined && typeof value !== "function") {
+    throw new TypeError("Workspace sectionFactory must be a function.");
+  }
+}
+
 function capabilitiesAreReadOnly(capabilities: WorkspaceCapabilities): boolean {
   return Object.values(capabilities).every((value) => !value);
+}
+
+function workspaceCreationAvailability<TSectionData>(
+  factory: WorkspaceSectionFactory<TSectionData> | undefined,
+  registry: WorkspaceSectionRegistry<TSectionData>,
+  capabilities: WorkspaceCapabilities,
+  canvasReady: boolean,
+): Readonly<{ configured: boolean; enabled: boolean }> {
+  const configured = Boolean(factory) && registry.definitions().length > 0;
+  return {
+    configured,
+    enabled: configured && capabilities.editStructure && canvasReady,
+  };
+}
+
+async function focusCreatedWorkspaceSection<TSectionData>(
+  controller: WorkspaceController<TSectionData>,
+  canvasController: WorkspaceCanvasController,
+  sectionId: string,
+  panIntoView: boolean,
+): Promise<void> {
+  const focused = await canvasController.focusElementWhenReady(sectionId);
+  if (focused && panIntoView) {
+    await controller.focusSection(sectionId);
+  }
 }
 
 const DARK_APPEARANCE_QUERY = "(prefers-color-scheme: dark)";
@@ -543,6 +585,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     readOnly = false,
     sectionColorPalette: sectionColorPaletteOverrides,
     sectionDefinitions: sectionDefinitionOverrides,
+    sectionFactory,
     selectionOptions: selectionOptionOverrides,
     style,
     toolbarControls: toolbarControlOverrides,
@@ -550,6 +593,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     ...sectionProps
   } = props;
   assertAccessibleName(ariaLabel);
+  assertSectionFactory<TSectionData>(sectionFactory);
   assertSectionTitleValidator(validateSectionTitle);
   const gestureOptions = useMemo(
     () => resolveWorkspaceGestureOptions(gestureOptionOverrides),
@@ -629,7 +673,9 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   const documentRef = useRef(validatedDocument);
   const capabilitiesRef = useRef(capabilities);
   const gestureOptionsRef = useRef(gestureOptions);
+  const gridOptionsRef = useRef(effectiveGridOptions);
   const sectionRegistryRef = useRef(sectionRegistry);
+  const sectionFactoryRef = useRef(sectionFactory);
   const controlledRef = useRef(mode.type === "controlled");
   const onDocumentChangeRef = useRef(onDocumentChange);
   const validateSectionTitleRef = useRef(validateSectionTitle);
@@ -637,7 +683,9 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   documentRef.current = validatedDocument;
   capabilitiesRef.current = capabilities;
   gestureOptionsRef.current = gestureOptions;
+  gridOptionsRef.current = effectiveGridOptions;
   sectionRegistryRef.current = sectionRegistry;
+  sectionFactoryRef.current = sectionFactory;
   controlledRef.current = mode.type === "controlled";
   onDocumentChangeRef.current = onDocumentChange;
   validateSectionTitleRef.current = validateSectionTitle;
@@ -664,11 +712,17 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   }, []);
 
   const canvasControllerRef = useRef<WorkspaceCanvasController | null>(null);
+  const [canvasReady, setCanvasReady] = useState(false);
   const handleCanvasControllerChange = useCallback((next: WorkspaceCanvasController | null) => {
     canvasControllerRef.current = next;
+    setCanvasReady(next !== null);
   }, []);
   const controllerBindingsRef = useRef<WorkspaceControllerBindings<TSectionData> | null>(null);
   const internalControllerRef = useRef<WorkspaceController<TSectionData> | null>(null);
+  const pendingCreatedSectionRef = useRef<Readonly<{
+    panIntoView: boolean;
+    sectionId: string;
+  }> | null>(null);
   if (!internalControllerRef.current) {
     const bindings: WorkspaceControllerBindings<TSectionData> = {
       canMinimizeSection: (sectionId) => {
@@ -681,6 +735,32 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
           setUncontrolledDocument(nextDocument);
         }
         onDocumentChangeRef.current?.(nextDocument, change);
+      },
+      createSection: (kind, options) => {
+        const factory = sectionFactoryRef.current;
+        if (!factory) {
+          return { reason: "section-creation-unavailable", status: "rejected" };
+        }
+        const plan = planWorkspaceRootSectionCreation({
+          canvasController: canvasControllerRef.current,
+          document: documentRef.current,
+          factory,
+          gridOptions: gridOptionsRef.current,
+          kind,
+          options,
+          registry: sectionRegistryRef.current,
+        });
+        if (plan.status === "rejected") {
+          return plan;
+        }
+        const result = createWorkspaceRootSection(bindings, plan.section, plan.position);
+        if (result.status === "applied") {
+          pendingCreatedSectionRef.current = {
+            panIntoView: plan.panTarget !== null,
+            sectionId: plan.section.id,
+          };
+        }
+        return result;
       },
       getCapabilities: () => capabilitiesRef.current,
       getCanvasController: () => canvasControllerRef.current,
@@ -695,6 +775,24 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     internalControllerRef.current = createWorkspaceController(bindings);
   }
   const controller = internalControllerRef.current;
+  useEffect(() => {
+    const pendingCreation = pendingCreatedSectionRef.current;
+    if (!pendingCreation || !Object.hasOwn(validatedDocument.sections, pendingCreation.sectionId)) {
+      return;
+    }
+    pendingCreatedSectionRef.current = null;
+    controller.selectSections([pendingCreation.sectionId]);
+    const canvasController = canvasControllerRef.current;
+    if (!canvasController) {
+      return;
+    }
+    void focusCreatedWorkspaceSection(
+      controller,
+      canvasController,
+      pendingCreation.sectionId,
+      pendingCreation.panIntoView,
+    );
+  }, [controller, validatedDocument]);
   const handleRootMoveCommit = useCallback(
     (positions: Readonly<Record<string, WorkspacePoint>>) => {
       const bindings = controllerBindingsRef.current;
@@ -723,6 +821,12 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   );
   useImperativeHandle(controllerRef, () => controller, [controller]);
   const overlaySlots = renderOverlaySlots(overlayRenderers, controller);
+  const creationAvailability = workspaceCreationAvailability(
+    sectionFactory,
+    sectionRegistry,
+    capabilities,
+    canvasReady,
+  );
 
   const resolvedClassName = ["setta-workspace", className].filter(Boolean).join(" ");
   const hasNoSections = validatedDocument.rootSections.length === 0;
@@ -744,6 +848,8 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         ariaLabel={ariaLabel}
         appearance={resolvedAppearance}
         controllerSynchronizationRevision={controllerSynchronizationRevision}
+        creationConfigured={creationAvailability.configured}
+        creationEnabled={creationAvailability.enabled}
         document={validatedDocument}
         emptyState={resolvedEmptyState}
         gestureOptions={gestureOptions}

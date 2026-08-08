@@ -34,6 +34,10 @@ type PendingViewportRequest = {
   viewport: ViewportTransform;
 };
 
+type PendingFocusRequest = Readonly<{
+  resolve(focused: boolean): void;
+}>;
+
 const SAME_FRAME_TOLERANCE = 0.01;
 
 function screenRect(rect: DOMRect): ScreenRect {
@@ -75,6 +79,7 @@ function viewportsMatch(left: ViewportTransform, right: ViewportTransform): bool
 export class WorkspaceGeometryMeasurements {
   readonly #entries = new Map<string, RegisteredMeasuredElement>();
   readonly #geometryIndex: WorkspaceGeometryIndex;
+  readonly #pendingFocus = new Map<string, Set<PendingFocusRequest>>();
   readonly #pendingBounds = new Set<PendingBoundsRequest>();
   readonly #pendingViewports = new Set<PendingViewportRequest>();
   #canvasElement: HTMLElement | null = null;
@@ -101,6 +106,7 @@ export class WorkspaceGeometryMeasurements {
     };
     this.#entries.set(entry.sectionId, entry);
     this.#requireResizeObserver(entry.element).observe(entry.element);
+    this.#settlePendingFocus(entry);
     this.requestMeasurement();
 
     return () => this.#unregister(entry);
@@ -168,6 +174,20 @@ export class WorkspaceGeometryMeasurements {
     return workspacePointToClient(point, this.canvasBounds(), this.#viewport);
   }
 
+  workspaceRect(sectionId: string): WorkspaceRect | undefined {
+    return this.#geometryIndex.get(sectionId)?.rect;
+  }
+
+  visibleWorkspaceRect(): WorkspaceRect {
+    const canvas = this.canvasBounds();
+    return {
+      height: canvas.height / this.#viewport.zoom,
+      width: canvas.width / this.#viewport.zoom,
+      x: -this.#viewport.x / this.#viewport.zoom,
+      y: -this.#viewport.y / this.#viewport.zoom,
+    };
+  }
+
   canvasBounds(): ScreenRect {
     if (!this.#canvasElement) {
       throw new Error("Workspace canvas geometry is unavailable before mount or after unmount.");
@@ -217,6 +237,19 @@ export class WorkspaceGeometryMeasurements {
       throw new Error(`Section ${sectionId} does not have a registered visible frame.`);
     }
     entry.element.focus({ preventScroll: true });
+  }
+
+  async focusSectionWhenReady(sectionId: string): Promise<boolean> {
+    const entry = this.#entries.get(sectionId);
+    if (entry) {
+      entry.element.focus({ preventScroll: true });
+      return true;
+    }
+    return new Promise<boolean>((resolve) => {
+      const requests = this.#pendingFocus.get(sectionId) ?? new Set<PendingFocusRequest>();
+      requests.add({ resolve });
+      this.#pendingFocus.set(sectionId, requests);
+    });
   }
 
   #unregister(entry: RegisteredMeasuredElement): void {
@@ -283,6 +316,7 @@ export class WorkspaceGeometryMeasurements {
       entry.registration?.dispose();
     }
     this.#entries.clear();
+    this.#settleDetachedFocus();
     this.#rejectPending("Workspace canvas geometry became unavailable before measurement.");
     this.#rejectPendingViewports(
       "Workspace canvas geometry became unavailable before the viewport synchronized.",
@@ -327,6 +361,27 @@ export class WorkspaceGeometryMeasurements {
       this.#pendingViewports.delete(request);
       request.resolve(viewportsMatch(this.#viewport, request.viewport));
     }
+  }
+
+  #settlePendingFocus(entry: RegisteredMeasuredElement): void {
+    const requests = this.#pendingFocus.get(entry.sectionId);
+    if (!requests) {
+      return;
+    }
+    this.#pendingFocus.delete(entry.sectionId);
+    entry.element.focus({ preventScroll: true });
+    for (const request of requests) {
+      request.resolve(true);
+    }
+  }
+
+  #settleDetachedFocus(): void {
+    for (const requests of this.#pendingFocus.values()) {
+      for (const request of requests) {
+        request.resolve(false);
+      }
+    }
+    this.#pendingFocus.clear();
   }
 
   #rejectPendingViewports(message: string): void {

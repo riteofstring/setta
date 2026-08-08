@@ -1,6 +1,7 @@
 import { getViewportForBounds } from "@xyflow/react";
 
 import type { WorkspaceFitOptions, WorkspacePoint, WorkspaceViewport } from "../core.js";
+import type { WorkspaceRect } from "./geometry-index.js";
 import { optionOverridesAt } from "./runtime-option-validation.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 
@@ -14,7 +15,10 @@ export type WorkspaceCanvasController = Readonly<{
     options?: WorkspaceFitOptions,
   ): Promise<WorkspaceViewport>;
   focusElement(sectionId: string): void;
+  focusElementWhenReady(sectionId: string): Promise<boolean>;
   focusSection(sectionId: string, viewport: WorkspaceViewport): Promise<WorkspaceViewport>;
+  getSectionRect(sectionId: string): WorkspaceRect | undefined;
+  getVisibleWorkspaceRect(): WorkspaceRect;
   waitForViewport(viewport: WorkspaceViewport): Promise<boolean>;
   workspacePointToClient(point: WorkspacePoint): WorkspacePoint;
 }>;
@@ -62,6 +66,7 @@ export function createWorkspaceCanvasController(
       );
     },
     focusElement: (sectionId) => geometry.focusSection(sectionId),
+    focusElementWhenReady: (sectionId) => geometry.focusSectionWhenReady(sectionId),
     focusSection: async (sectionId, viewport) => {
       const bounds = await geometry.boundsWhenReady([sectionId]);
       const canvas = geometry.canvasBounds();
@@ -71,6 +76,8 @@ export function createWorkspaceCanvasController(
         zoom: viewport.zoom,
       };
     },
+    getSectionRect: (sectionId) => geometry.workspaceRect(sectionId),
+    getVisibleWorkspaceRect: () => geometry.visibleWorkspaceRect(),
     waitForViewport: (viewport) => geometry.waitForViewport(viewport),
     workspacePointToClient: (point) => geometry.workspacePointToClient(point),
   };

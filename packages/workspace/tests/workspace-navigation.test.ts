@@ -30,11 +30,17 @@ function canvasController(focused: string[]): WorkspaceCanvasController {
     clientPointToWorkspace: (point) => point,
     fitSections: vi.fn(async () => ({ x: 12, y: 24, zoom: 0.75 })),
     focusElement: (sectionId) => focused.push(sectionId),
+    focusElementWhenReady: async (sectionId) => {
+      focused.push(sectionId);
+      return true;
+    },
     focusSection: vi.fn(async (sectionId, viewport) => ({
       x: sectionId.length * -10,
       y: sectionId.length * 5,
       zoom: viewport.zoom,
     })),
+    getSectionRect: () => undefined,
+    getVisibleWorkspaceRect: () => ({ height: 600, width: 800, x: 0, y: 0 }),
     waitForViewport: vi.fn(async () => true),
     workspacePointToClient: (point) => point,
   };

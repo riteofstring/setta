@@ -28,6 +28,10 @@ const sectionDefinitions = [
   controllerRef={controller}
   document={document}
   sectionDefinitions={sectionDefinitions}
+  sectionFactory={({ kind }) => ({
+    id: allocateSectionId(kind),
+    data: createSectionData(kind),
+  })}
   onDocumentChange={(nextDocument, change) => {
     setDocument(nextDocument);
     console.log(change.reason);
@@ -73,6 +77,15 @@ validated before rendering: kinds must be unique, default dimensions and resize 
 finite and compatible, content-sized axes must be enabled, child-layout defaults require a
 container kind, and persisted lock/minimize/size/containment state must be supported by the matching
 definition. Unknown kinds fail specifically rather than rendering guessed content.
+
+Supplying `sectionFactory` enables the built-in Add section control and searchable section picker.
+The factory owns stable ID allocation and host payload data; the package combines that result with
+the registered title, size, chrome, and containment defaults. Right-clicking blank canvas space
+opens the same picker at the pointer's workbench position, while toolbar creation uses deterministic
+visible, non-overlapping smart placement with optional grid alignment. Search matches display name,
+kind, group, and keywords. Escape restores the invoking control; accepted creation selects and
+focuses the new frame without changing zoom. The same strict path is available through
+`controller.createSection(kind, { position })`, where omitting `position` requests smart placement.
 
 The package-owned frame supplies the visible title and section-kind label, then renders the host
 component with `sectionId`, serialized `data`, resolved `light` or `dark` appearance, and the
@@ -137,8 +150,9 @@ document, or host-rendered state. Default palette values are gamut-safe OKLCH co
 roles for canvas, grid, section surfaces and text, toolbar, minimap, selection, focus, and invalid
 states.
 
-The default vertical toolbar provides zoom in/out, reset zoom, fit sections, snap-to-grid, and
-minimap visibility controls. `toolbarControls` adds native-button host actions at the typed
+The default vertical toolbar provides Add section when a factory is registered, zoom in/out, reset
+zoom, fit sections, snap-to-grid, and minimap visibility controls. `toolbarControls` adds
+native-button host actions at the typed
 `project`, `viewport`, or `utility` placement; every action receives only the public controller.
 Control IDs must be unique and cannot replace a built-in ID. Icons are decorative, noninteractive
 React nodes, while `label`, `pressed`, and `disabled` provide the control's accessible contract.
@@ -181,6 +195,8 @@ await controller.current?.focusNextSection("summary");
 controller.current?.selectSections(["summary", "details"]);
 controller.current?.getSelectedSectionIds();
 controller.current?.clearSelection();
+controller.current?.createSection("note");
+controller.current?.createSection("note", { position: { x: 120, y: 80 } });
 controller.current?.setSectionTitle("details", "Details");
 controller.current?.setSectionPresentation("details", {
   accentColor: "oklch(0.62 0.14 255)",

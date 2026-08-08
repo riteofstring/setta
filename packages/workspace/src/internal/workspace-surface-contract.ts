@@ -1,6 +1,7 @@
 import type {
   WorkspaceDocument,
   WorkspaceJsonValue,
+  WorkspacePoint,
   WorkspaceSectionPresentation,
   WorkspaceViewport,
 } from "./workspace-document-contract.js";
@@ -41,12 +42,16 @@ export type WorkspaceAppearanceOptions = Readonly<{
 export type WorkspaceAppearanceOptionOverrides = Partial<WorkspaceAppearanceOptions>;
 
 export type WorkspaceActionRejectionReason =
+  | "canvas-unavailable"
   | "layout-edit-disabled"
   | "presentation-edit-disabled"
+  | "section-creation-unavailable"
+  | "section-id-exists"
   | "section-locked"
   | "section-not-minimizable"
   | "section-not-root"
-  | "structure-edit-disabled";
+  | "structure-edit-disabled"
+  | "unknown-section-kind";
 
 export type WorkspaceActionResult =
   | Readonly<{ status: "applied" | "unchanged" }>
@@ -56,7 +61,12 @@ export type WorkspaceFitOptions = Readonly<{
   padding?: number;
 }>;
 
+export type WorkspaceCreateSectionOptions = Readonly<{
+  position?: WorkspacePoint;
+}>;
+
 export type WorkspaceDocumentChangeReason =
+  | "section-create"
   | "section-delete"
   | "section-lock"
   | "section-minimize"
@@ -71,6 +81,7 @@ export type WorkspaceDocumentChange = Readonly<{
 
 export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
   clearSelection(): WorkspaceActionResult;
+  createSection(kind: string, options?: WorkspaceCreateSectionOptions): WorkspaceActionResult;
   deleteSections(sectionIds: readonly string[]): WorkspaceActionResult;
   fitSection(sectionId: string, options?: WorkspaceFitOptions): Promise<WorkspaceActionResult>;
   fitSections(

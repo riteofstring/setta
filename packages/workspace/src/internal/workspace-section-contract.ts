@@ -55,6 +55,20 @@ export type WorkspaceSectionTitleValidator = (
   request: WorkspaceSectionTitleValidationRequest,
 ) => Promise<string | null> | string | null;
 
+export type WorkspaceSectionFactoryRequest = Readonly<{
+  kind: string;
+}>;
+
+export type WorkspaceSectionFactoryResult<TSectionData = WorkspaceJsonValue> = Readonly<{
+  data: TSectionData;
+  id: string;
+  title?: string;
+}>;
+
+export type WorkspaceSectionFactory<TSectionData = WorkspaceJsonValue> = (
+  request: WorkspaceSectionFactoryRequest,
+) => WorkspaceSectionFactoryResult<TSectionData>;
+
 export const WORKSPACE_DEFAULT_SECTION_COLOR_PALETTE: readonly WorkspaceSectionColorOption[] =
   Object.freeze([
     Object.freeze({ color: "oklch(0.62 0.14 255)", label: "Blue" }),

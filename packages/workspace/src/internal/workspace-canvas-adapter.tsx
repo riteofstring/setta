@@ -1,5 +1,12 @@
 import { ReactFlow } from "@xyflow/react";
-import { useCallback, useId, useMemo, useRef, type ReactNode } from "react";
+import {
+  useCallback,
+  useId,
+  useMemo,
+  useRef,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
 
 import type {
   WorkspaceActionResult,
@@ -41,6 +48,7 @@ import type {
   WorkspaceSectionColorOption,
   WorkspaceSectionTitleValidator,
 } from "./workspace-section-contract.js";
+import { useWorkspaceSectionCreationMenu } from "./workspace-section-creation-menu.js";
 import type { WorkspaceSectionRegistry } from "./workspace-section-registry.js";
 import { WorkspaceToolbar } from "./workspace-toolbar.js";
 import { WorkspaceViewportSynchronizer } from "./workspace-viewport-synchronizer.js";
@@ -49,6 +57,8 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   ariaLabel: string;
   appearance: "dark" | "light";
   controllerSynchronizationRevision: number;
+  creationConfigured: boolean;
+  creationEnabled: boolean;
   document: WorkspaceDocument<TSectionData>;
   emptyState: ReactNode;
   gestureOptions: WorkspaceGestureOptions;
@@ -83,6 +93,8 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   ariaLabel,
   appearance,
   controllerSynchronizationRevision,
+  creationConfigured,
+  creationEnabled,
   document,
   emptyState,
   gestureOptions,
@@ -123,6 +135,12 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     marqueeSelectionMode,
     onSelectionChange,
     selectedSectionIds,
+  });
+  const creation = useWorkspaceSectionCreationMenu({
+    controller: workspaceController,
+    enabled: creationEnabled,
+    geometry,
+    registry: sectionRegistry,
   });
   const rootProjection = useWorkspaceCanvasRootProjection({
     appearance,
@@ -165,6 +183,15 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     () => document.rootSections.map((root) => root.sectionId),
     [document.rootSections],
   );
+  const handleCanvasKeyDownCapture = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      selection.handleCanvasKeyDownCapture(event);
+      if (!event.defaultPrevented) {
+        creation.handleCanvasKeyDownCapture(event);
+      }
+    },
+    [creation, selection],
+  );
 
   return (
     <ReactFlow<WorkspaceRootNode>
@@ -199,7 +226,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       nodesDraggable
       nodesFocusable={false}
       onInit={viewport.handleInitialized}
-      onKeyDownCapture={selection.handleCanvasKeyDownCapture}
+      onKeyDownCapture={handleCanvasKeyDownCapture}
       onMove={viewport.handleMove}
       onMoveEnd={viewport.handleMoveEnd}
       onMoveStart={viewport.handleMoveStart}
@@ -208,9 +235,11 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       onNodeDragStop={rootProjection.handleNodeDragStop}
       onNodesChange={rootProjection.handleNodesChange}
       onPaneClick={selection.handlePaneClick}
+      onPaneContextMenu={creation.handlePaneContextMenu}
       onPointerCancel={selection.marqueeSelection.onPointerCancel}
       onPointerDownCapture={selection.marqueeSelection.onPointerDownCapture}
       onPointerMove={selection.marqueeSelection.onPointerMove}
+      onPointerMoveCapture={creation.handlePointerMoveCapture}
       onPointerUp={selection.marqueeSelection.onPointerUp}
       panActivationKeyCode={viewport.gesturePolicy.panActivationKeyCode}
       panOnDrag={viewport.gesturePolicy.panOnDrag}
@@ -240,6 +269,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         movement={rootProjection.announcementText}
         selection={selection.announcementText}
       />
+      {creation.dialog}
       <WorkspaceSelectionOverlay
         geometryIndex={geometryIndex}
         selectedSectionIds={selectedSectionIds}
@@ -254,6 +284,15 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         ariaLabel={ariaLabel}
         canonicalViewport={document.viewport}
         controller={workspaceController}
+        creationControl={
+          creationConfigured
+            ? {
+                ariaControls: creation.dialogId,
+                disabled: !creation.available,
+                onPress: creation.openPalette,
+              }
+            : null
+        }
         gestureOptions={gestureOptions}
         getCanvasBounds={viewport.getCanvasBounds}
         gridSnap={gridOptions.snap}

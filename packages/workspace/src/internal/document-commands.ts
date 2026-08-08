@@ -13,7 +13,12 @@ import {
 } from "../core.js";
 import { isEnumerableDataProperty, optionOverridesAt } from "./runtime-option-validation.js";
 
-export type WorkspaceDocumentCommand =
+export type WorkspaceDocumentCommand<TSectionData = unknown> =
+  | Readonly<{
+      position: WorkspacePoint;
+      section: WorkspaceSection<TSectionData>;
+      type: "create-root-section";
+    }>
   | Readonly<{ sectionIds: readonly string[]; type: "delete-sections" }>
   | Readonly<{
       positions: Readonly<Record<string, WorkspacePoint>>;
@@ -56,14 +61,16 @@ class WorkspaceCommandError extends Error {
 
 type WorkspaceEditCapability = keyof WorkspaceCapabilities;
 
-const presentationCommandTypes = new Set<WorkspaceDocumentCommand["type"]>([
+const presentationCommandTypes = new Set<WorkspaceDocumentCommand<unknown>["type"]>([
   "set-section-minimized",
   "set-section-presentation",
   "set-section-title",
 ]);
 
-function commandCapability(command: WorkspaceDocumentCommand): WorkspaceEditCapability | null {
-  if (command.type === "delete-sections") {
+function commandCapability(
+  command: WorkspaceDocumentCommand<unknown>,
+): WorkspaceEditCapability | null {
+  if (command.type === "create-root-section" || command.type === "delete-sections") {
     return "editStructure";
   }
   if (command.type === "move-root-sections" || command.type === "set-sections-locked") {
@@ -80,7 +87,7 @@ function capabilityRejection(capability: WorkspaceEditCapability): WorkspaceActi
 }
 
 function rejectionFor(
-  command: WorkspaceDocumentCommand,
+  command: WorkspaceDocumentCommand<unknown>,
   capabilities: WorkspaceCapabilities,
 ): WorkspaceActionRejectionReason | null {
   const capability = commandCapability(command);
@@ -223,6 +230,25 @@ function applyRootMovement<TSectionData>(
   return changed
     ? applied({ ...document, rootSections }, "section-move")
     : { document, status: "unchanged" };
+}
+
+function applyRootCreation<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  section: WorkspaceSection<TSectionData>,
+  positionValue: WorkspacePoint,
+): WorkspaceDocumentCommandResult<TSectionData> {
+  if (Object.hasOwn(document.sections, section.id)) {
+    return { document, reason: "section-id-exists", status: "rejected" };
+  }
+  const position = rootPositionAt(positionValue, section.id);
+  return applied(
+    {
+      ...document,
+      rootSections: [...document.rootSections, { position, sectionId: section.id }],
+      sections: { ...document.sections, [section.id]: section },
+    },
+    "section-create",
+  );
 }
 
 function applyViewport<TSectionData>(
@@ -414,7 +440,7 @@ function applySectionDeletion<TSectionData>(
 
 export function applyWorkspaceDocumentCommand<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
-  command: WorkspaceDocumentCommand,
+  command: WorkspaceDocumentCommand<TSectionData>,
   capabilities: WorkspaceCapabilities,
 ): WorkspaceDocumentCommandResult<TSectionData> {
   validateWorkspaceDocument(document);
@@ -424,6 +450,9 @@ export function applyWorkspaceDocumentCommand<TSectionData>(
   }
   if (command.type === "set-viewport") {
     return applyViewport(document, command.viewport);
+  }
+  if (command.type === "create-root-section") {
+    return applyRootCreation(document, command.section, command.position);
   }
   if (command.type === "move-root-sections") {
     return applyRootMovement(document, command.positions);

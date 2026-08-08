@@ -5,10 +5,12 @@ import {
   type WorkspaceActionResult,
   type WorkspaceCapabilities,
   type WorkspaceController,
+  type WorkspaceCreateSectionOptions,
   type WorkspaceDocument,
   type WorkspaceDocumentChange,
   type WorkspaceFitOptions,
   type WorkspacePoint,
+  type WorkspaceSection,
   type WorkspaceViewport,
 } from "../core.js";
 import {
@@ -17,13 +19,14 @@ import {
   resolveWorkspaceSectionPresentation,
   type WorkspaceDocumentCommand,
 } from "./document-commands.js";
-import { denseArrayAt } from "./runtime-option-validation.js";
+import { denseArrayAt, optionOverridesAt } from "./runtime-option-validation.js";
 import type { WorkspaceCanvasController } from "./workspace-canvas-navigation.js";
 import { validateWorkspaceViewport } from "./workspace-document-validation.js";
 
 export type WorkspaceControllerBindings<TSectionData> = Readonly<{
   canMinimizeSection?(sectionId: string): boolean;
   commit(document: WorkspaceDocument<TSectionData>, change: WorkspaceDocumentChange): void;
+  createSection?(kind: string, options: WorkspaceCreateSectionOptions): WorkspaceActionResult;
   getCapabilities(): WorkspaceCapabilities;
   getCanvasController?(): WorkspaceCanvasController | null;
   getDocument(): WorkspaceDocument<TSectionData>;
@@ -41,7 +44,7 @@ function selectionsMatch(left: readonly string[], right: readonly string[]): boo
 
 function dispatch<TSectionData>(
   bindings: WorkspaceControllerBindings<TSectionData>,
-  command: WorkspaceDocumentCommand,
+  command: WorkspaceDocumentCommand<TSectionData>,
 ): WorkspaceActionResult {
   const result = applyWorkspaceDocumentCommand(
     bindings.getDocument(),
@@ -77,6 +80,54 @@ function booleanAt(value: unknown, label: string): boolean {
     throw new TypeError(`${label} must be a boolean.`);
   }
   return value;
+}
+
+function pointAt(value: unknown, label: string): WorkspacePoint {
+  const point = optionOverridesAt(value, ["x", "y"], label, "workspace point field");
+  if (!Object.hasOwn(point, "x") || !Object.hasOwn(point, "y")) {
+    throw new TypeError(`${label} must provide x and y.`);
+  }
+  const x = point.x;
+  const y = point.y;
+  if (
+    typeof x !== "number" ||
+    !Number.isFinite(x) ||
+    typeof y !== "number" ||
+    !Number.isFinite(y)
+  ) {
+    throw new TypeError(`${label} coordinates must be finite numbers.`);
+  }
+  return { x, y };
+}
+
+function createSectionOptionsAt(value: unknown): WorkspaceCreateSectionOptions {
+  const options = optionOverridesAt(
+    value,
+    ["position"],
+    "Workspace create-section options",
+    "workspace create-section option",
+  );
+  return options.position === undefined
+    ? Object.freeze({})
+    : Object.freeze({ position: pointAt(options.position, "Workspace creation position") });
+}
+
+function createSection<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  kindValue: string,
+  optionsValue: WorkspaceCreateSectionOptions | undefined,
+): WorkspaceActionResult {
+  const kind = sectionIdAt(kindValue, "Workspace section kind");
+  const options = createSectionOptionsAt(optionsValue);
+  if (!bindings.getCapabilities().editStructure) {
+    return { reason: "structure-edit-disabled", status: "rejected" };
+  }
+  return (
+    bindings.createSection?.(kind, options) ?? {
+      reason: "section-creation-unavailable",
+      status: "rejected",
+    }
+  );
 }
 
 function validateViewportArgument(value: unknown): asserts value is WorkspaceViewport {
@@ -226,6 +277,7 @@ export function createWorkspaceController<TSectionData>(
   };
   return {
     clearSelection: () => setSelection([]),
+    createSection: (kind, options) => createSection(bindings, kind, options),
     deleteSections: (sectionIds) =>
       dispatch(bindings, { sectionIds: sectionIdsAt(sectionIds), type: "delete-sections" }),
     fitSection: (sectionId, options) => fitSections(bindings, [sectionId], options),
@@ -276,4 +328,12 @@ export function moveWorkspaceRootSections<TSectionData>(
   positions: Readonly<Record<string, WorkspacePoint>>,
 ): WorkspaceActionResult {
   return dispatch(bindings, { positions, type: "move-root-sections" });
+}
+
+export function createWorkspaceRootSection<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  section: WorkspaceSection<TSectionData>,
+  position: WorkspacePoint,
+): WorkspaceActionResult {
+  return dispatch(bindings, { position, section, type: "create-root-section" });
 }

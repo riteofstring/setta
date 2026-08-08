@@ -1,8 +1,4 @@
-import {
-  WORKSPACE_DOCUMENT_SCHEMA_VERSION,
-  type WorkspaceDocument,
-  type WorkspaceSection,
-} from "@setta/workspace/core";
+import { WORKSPACE_DOCUMENT_SCHEMA_VERSION, type WorkspaceDocument } from "@setta/workspace/core";
 import {
   Workspace,
   type SectionDefinition,
@@ -32,23 +28,6 @@ const sampleSectionDefinitions = [
     render: SampleSection,
   },
 ] satisfies readonly SectionDefinition<PlaygroundSectionData>[];
-
-function sampleSection(id: string, title: string): WorkspaceSection<PlaygroundSectionData> {
-  return {
-    childLayout: null,
-    data: { body: "Host-rendered content inside the package-owned section frame." },
-    id,
-    isMinimized: false,
-    kind: "sample-note",
-    positionAndSizeLocked: false,
-    presentation: { accentColor: null, chrome: "default", tagColor: null },
-    size: {
-      height: { mode: "fixed", value: 320 },
-      width: { mode: "fixed", value: 320 },
-    },
-    title,
-  };
-}
 
 async function validateSampleSectionTitle({
   title,
@@ -86,20 +65,12 @@ export function App() {
 function DefaultPlaygroundPage() {
   const [document, setDocument] = useState(emptyPlaygroundDocument);
   const [announcement, setAnnouncement] = useState("");
-
-  const addSection = () => {
-    const nextNumber = document.rootSections.length + 1;
-    const id = `sample-${String(nextNumber)}`;
-    const title = `Sample section ${String(nextNumber)}`;
-    setDocument((current) => ({
-      ...current,
-      rootSections: [
-        ...current.rootSections,
-        { position: { x: 80 + (nextNumber - 1) * 280, y: 80 }, sectionId: id },
-      ],
-      sections: { ...current.sections, [id]: sampleSection(id, title) },
-    }));
-    setAnnouncement(`${title} added.`);
+  const nextSampleNumber = () => {
+    let number = 1;
+    while (Object.hasOwn(document.sections, `sample-${String(number)}`)) {
+      number += 1;
+    }
+    return number;
   };
 
   return (
@@ -117,10 +88,7 @@ function DefaultPlaygroundPage() {
         </p>
       </header>
       <main id="main-content" tabIndex={-1}>
-        <div className="playground-toolbar" aria-label="Playground actions">
-          <button type="button" onClick={addSection}>
-            Add sample section
-          </button>
+        <div className="playground-toolbar">
           <p className="announcement" role="status" aria-live="polite">
             {announcement}
           </p>
@@ -128,12 +96,23 @@ function DefaultPlaygroundPage() {
         <Workspace
           ariaLabel="Section workspace"
           document={document}
-          emptyState="No sections yet. Add a sample section to start."
+          emptyState="No sections yet. Use Add section to start."
           onDocumentChange={(nextDocument, change) => {
             setDocument(nextDocument);
             setAnnouncement(`Document change: ${change.reason}.`);
           }}
           sectionDefinitions={sampleSectionDefinitions}
+          sectionFactory={({ kind }) => {
+            if (kind !== "sample-note") {
+              throw new TypeError(`Unsupported playground section kind ${JSON.stringify(kind)}.`);
+            }
+            const nextNumber = nextSampleNumber();
+            return {
+              data: { body: "Host-rendered content inside the package-owned section frame." },
+              id: `sample-${String(nextNumber)}`,
+              title: `Sample section ${String(nextNumber)}`,
+            };
+          }}
           validateSectionTitle={validateSampleSectionTitle}
         />
       </main>

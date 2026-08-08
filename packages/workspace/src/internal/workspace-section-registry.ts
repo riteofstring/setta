@@ -352,14 +352,20 @@ function resolveDefinition<TSectionData>(
 }
 
 export class WorkspaceSectionRegistry<TSectionData = WorkspaceJsonValue> {
+  readonly #definitionList: readonly ResolvedSectionDefinition<TSectionData>[];
   readonly #definitions: ReadonlyMap<string, ResolvedSectionDefinition<TSectionData>>;
 
   constructor(definitions: readonly ResolvedSectionDefinition<TSectionData>[]) {
+    this.#definitionList = Object.freeze([...definitions]);
     this.#definitions = new Map(definitions.map((definition) => [definition.kind, definition]));
   }
 
   definition(kind: string): ResolvedSectionDefinition<TSectionData> | undefined {
     return this.#definitions.get(kind);
+  }
+
+  definitions(): readonly ResolvedSectionDefinition<TSectionData>[] {
+    return this.#definitionList;
   }
 }
 

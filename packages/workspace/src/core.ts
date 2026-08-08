@@ -49,6 +49,13 @@ export type {
   WorkspaceGestureOptions,
   WorkspacePanOnScrollMode,
 } from "./internal/workspace-policy.js";
+export { planWorkspaceSectionPlacement } from "./internal/workspace-smart-placement.js";
+export type {
+  WorkspacePlacementRect,
+  WorkspacePlacementSize,
+  WorkspaceSmartPlacementInput,
+  WorkspaceSmartPlacementResult,
+} from "./internal/workspace-smart-placement.js";
 export type {
   WorkspaceActionRejectionReason,
   WorkspaceActionResult,
@@ -56,6 +63,7 @@ export type {
   WorkspaceAppearanceOptionOverrides,
   WorkspaceAppearanceOptions,
   WorkspaceController,
+  WorkspaceCreateSectionOptions,
   WorkspaceDocumentChange,
   WorkspaceDocumentChangeReason,
   WorkspaceFitOptions,

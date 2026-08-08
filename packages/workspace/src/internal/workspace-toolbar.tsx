@@ -30,7 +30,7 @@ type ResolvedToolbarControl = Readonly<{
   icon: ReactNode;
   id: string;
   label: string;
-  onPress(): void;
+  onPress(trigger: HTMLButtonElement): void;
   placement: WorkspaceToolbarControlPlacement;
   pressed?: boolean;
   source: "built-in" | "host";
@@ -46,6 +46,11 @@ type WorkspaceToolbarProps<TSectionData> = Readonly<{
   ariaLabel: string;
   canonicalViewport: WorkspaceViewport;
   controller: WorkspaceController<TSectionData>;
+  creationControl: Readonly<{
+    ariaControls: string;
+    disabled: boolean;
+    onPress(trigger: HTMLButtonElement): void;
+  }> | null;
   gestureOptions: WorkspaceGestureOptions;
   getCanvasBounds(): ScreenRect;
   gridSnap: boolean;
@@ -81,6 +86,15 @@ function ZoomInIcon() {
   return (
     <ToolbarIcon>
       <path d="M10 4.5v11M4.5 10h11" />
+    </ToolbarIcon>
+  );
+}
+
+function AddSectionIcon() {
+  return (
+    <ToolbarIcon>
+      <rect height="13" rx="2" width="13" x="3.5" y="3.5" />
+      <path d="M10 6.75v6.5M6.75 10h6.5" />
     </ToolbarIcon>
   );
 }
@@ -274,7 +288,7 @@ function ToolbarControlButton({
         data-workspace-control-source={control.source}
         disabled={control.disabled}
         onBlur={handleBlur}
-        onClick={control.onPress}
+        onClick={(event) => control.onPress(event.currentTarget)}
         onFocus={handleFocus}
         onKeyDown={handleKeyDown}
         ref={(element) => keyboard.registerControl(control.id, element)}
@@ -333,6 +347,7 @@ export function WorkspaceToolbar<TSectionData = WorkspaceJsonValue>({
   ariaLabel,
   canonicalViewport,
   controller,
+  creationControl,
   gestureOptions,
   getCanvasBounds,
   gridSnap,
@@ -374,6 +389,20 @@ export function WorkspaceToolbar<TSectionData = WorkspaceJsonValue>({
   const zoomMatchesReset = Math.abs(zoom - resetZoom) < 0.000_001;
   const builtInControls = useMemo<readonly ResolvedToolbarControl[]>(
     () => [
+      ...(creationControl
+        ? [
+            {
+              ariaControls: creationControl.ariaControls,
+              disabled: creationControl.disabled,
+              icon: <AddSectionIcon />,
+              id: "add-section",
+              label: "Add section",
+              onPress: creationControl.onPress,
+              placement: "project" as const,
+              source: "built-in" as const,
+            },
+          ]
+        : []),
       {
         disabled: zoom >= gestureOptions.maxZoom,
         icon: <ZoomInIcon />,
@@ -435,6 +464,7 @@ export function WorkspaceToolbar<TSectionData = WorkspaceJsonValue>({
     [
       controller,
       changeZoom,
+      creationControl,
       gestureOptions.maxZoom,
       gestureOptions.minZoom,
       gridSnap,
@@ -464,6 +494,7 @@ export function WorkspaceToolbar<TSectionData = WorkspaceJsonValue>({
   );
   const orderedControls = useMemo(
     () => [
+      ...builtInControls.filter((control) => control.placement === "project"),
       ...hostControls.filter((control) => control.placement === "project"),
       ...builtInControls.filter((control) => control.placement === "viewport"),
       ...hostControls.filter((control) => control.placement === "viewport"),

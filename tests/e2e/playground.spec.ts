@@ -5,7 +5,7 @@ import {
   installWorkspaceLifecycleDiagnostics,
   workspaceLifecycleSnapshot,
 } from "./workspace-lifecycle-diagnostics.js";
-import { canvasViewport } from "./workspace-test-helpers.js";
+import { addSampleSection, canvasViewport } from "./workspace-test-helpers.js";
 
 async function waitForWorkspaceEffects(page: Page): Promise<void> {
   await page.evaluate(
@@ -92,12 +92,12 @@ test("the blank workspace supports keyboard and assistive technology", async ({ 
   const workspace = page.getByRole("region", { name: "Section workspace" });
   await expect(workspace).toContainText("No sections yet.");
 
-  await page.getByRole("button", { name: "Add sample section" }).click();
+  await addSampleSection(page);
   await expect(page.getByRole("heading", { name: "Sample section 1" })).toBeVisible();
   await expect(page.getByRole("article", { name: "Sample section 1" })).toContainText(
     "Host-rendered content inside the package-owned section frame.",
   );
-  await expect(page.getByRole("status")).toHaveText("Sample section 1 added.");
+  await expect(page.getByRole("status")).toHaveText("Document change: section-create.");
 
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
@@ -122,13 +122,16 @@ test("the primary workflow remains operable at 200% page scale", async ({ page }
   await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 2 });
 
   await expect.poll(() => page.evaluate(() => window.visualViewport?.scale ?? 1)).toBe(2);
-  const addSection = page.getByRole("button", { name: "Add sample section" });
+  const addSection = page.getByRole("button", { name: "Add section" });
   await expect(addSection).toBeVisible();
   await addSection.focus();
   await expect(addSection).toBeFocused();
   await page.keyboard.press("Enter");
+  await expect(page.getByRole("searchbox", { name: "Search sections" })).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Sample section 1" })).toBeVisible();
-  await expect(page.getByRole("status")).toHaveText("Sample section 1 added.");
+  await expect(page.getByRole("status")).toHaveText("Document change: section-create.");
 
   await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
   await session.detach();
