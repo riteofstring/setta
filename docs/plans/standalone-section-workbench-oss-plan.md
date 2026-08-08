@@ -1204,7 +1204,9 @@ Gate:
 
 ### Phase 1: Serializable canvas shell
 
-Status: **complete; phase audit complete** (updated 2026-08-08).
+Status: **in progress; architecture correction reopened after phase audit** (updated 2026-08-08).
+
+- Remaining architecture correction before Phase 1 can close: `packages/workspace/src/core.ts` is 999 lines after the final validation fixes. Decompose it into cohesive framework-neutral document, validation, capability/gesture-policy, and other appropriate internal modules, leaving `core.ts` as a substantially smaller deliberate public entry surface with comfortable headroom rather than moving the same near-limit file wholesale. Preserve the current public API and declaration closure, add every emitted module to the exact package-artifact allowlist, and keep validation and canonical serialization behavior single-owned. This is a source-shape correction only: do not add compatibility layers, broaden Phase 1 into detached-window or alternate-document canvas work, or start Phase 2 interactions. Re-run the focused core/package contract tests and the plan-authorized final gates affected by the split before restoring complete status.
 
 - Completed: the minimal versioned recursive `WorkspaceDocument`, strict JSON parsing and validation, canonical root and child placement, derived parent lookup, deterministic traversal, arbitrary-depth mixed-orientation round trips, and specific failures for malformed structure, values, sizing, presentation, viewport, and containment.
 - Completed: mutually exclusive controlled and uncontrolled React ownership; a stable public controller backed by one internal command reducer; live granular capability and `readOnly` resolution; viewport navigation that remains available in read-only mode; capability-gated lock, subtree deletion, and minimize commands representing layout, structure, and presentation edits; compact change reasons; no-op suppression; and an in-memory testing host.
