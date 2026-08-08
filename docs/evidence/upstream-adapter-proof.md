@@ -75,12 +75,20 @@ selection focus, and recursive resize remeasurement consume those registrations 
 creating a parallel package measurement map. dnd-kit continues to own its substrate-level
 draggable and droppable measurement.
 
-One adapter-local measurement registry owns the DOM registrations. A single viewport observer
-updates its transform, and root movement, nested scrolling, element resizing, and window resizing
+One measurement registry owns the DOM registrations and is now shared by the proof and production
+canvas adapter. A single viewport observer updates its transform, and root movement, nested
+scrolling, element resizing, and window resizing
 request a coalesced animation-frame measurement pass. Measured section components no longer
 subscribe individually to XYFlow viewport state. Equal frames are not republished, so viewport
 movement does not rerender either recursive root while live root movement still advances the shared
 geometry index and keeps descendant overlays aligned.
+
+The Phase 1 production adapter registers each visible spatial root through that registry and
+disposes the registration with its DOM frame. Public focus and fit controller helpers await indexed
+bounds, preserve the focus zoom or calculate a bounded fit viewport, publish through the canonical
+viewport command, wait for programmatic XYFlow synchronization, and focus with `preventScroll`.
+Programmatic synchronization is separate from the user-gesture lifecycle, so it does not create a
+second viewport publication.
 
 The same index now implements positive-area partial/full marquee queries, ancestor-normalized
 selection roots, readiness-aware bounds, and combined selection overlays. Shift-drag marquee

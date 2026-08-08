@@ -43,5 +43,18 @@ Wrap interactive or scrollable content rendered inside the canvas with
 leaving the host control usable; consumers do not need to know the adapter's internal marker class
 names.
 
+The controller's measured navigation helpers wait for visible frame geometry, commit one canonical
+viewport change, and resolve after the upstream viewport has synchronized. `focusSection` preserves
+the current zoom and moves programmatic focus with scroll prevention; `fitSection` and `fitSections`
+honor the configured zoom bounds and accept an optional non-negative padding value. Spatial
+next/previous navigation orders roots by workbench `y`, then `x`, persistent order, and stable ID,
+with descendants following canonical child order.
+
+```tsx
+await controller.current?.focusSection("details");
+await controller.current?.fitSections(["summary", "details"], { padding: 0.16 });
+await controller.current?.focusNextSection("summary");
+```
+
 Testing-only exports continue to exercise exact-pinned upstream XYFlow and dnd-kit behind
 package-owned geometry, command, and interaction boundaries without making their types public.

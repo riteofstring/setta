@@ -168,6 +168,64 @@ test("the canvas shell coalesces viewport gestures and isolates host input", asy
   expect(accessibility.violations).toEqual([]);
 });
 
+test("the canvas shell navigates measured geometry without browser scroll", async ({ page }) => {
+  await page.goto("/?canvas-shell");
+
+  const workspace = page.getByRole("region", { name: "Canvas shell workspace", exact: true });
+  const documentJson = page.getByTestId("canvas-shell-document");
+  await page.getByRole("button", { name: "Load navigation fixture" }).click();
+
+  const alpha = page.getByRole("article", { name: "Alpha frame" });
+  const beta = page.getByRole("article", { name: "Beta frame" });
+  const gamma = page.getByRole("article", { name: "Gamma frame" });
+  await expect(alpha).toBeAttached();
+  await expect(beta).toBeAttached();
+  await expect(gamma).toBeAttached();
+
+  await page.getByRole("button", { name: "Focus Alpha" }).click();
+  await expect(alpha).toBeFocused();
+  await expect(page.getByRole("status")).toContainText("Focus Alpha: applied.");
+
+  const focusNext = page.getByRole("button", { name: "Focus next from Alpha" });
+  const session = await page.context().newCDPSession(page);
+  await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 2 });
+  await focusNext.focus();
+  await expect(focusNext).toBeFocused();
+  const browserScroll = await page.evaluate(() => ({ x: window.scrollX, y: window.scrollY }));
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("status")).toContainText("Focus next from Alpha: applied.");
+  await expect(beta).toBeFocused();
+  await expect.poll(() => page.evaluate(() => window.visualViewport?.scale ?? 1)).toBe(2);
+  await expect
+    .poll(() => page.evaluate(() => ({ x: window.scrollX, y: window.scrollY })))
+    .toEqual(browserScroll);
+  await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
+  await session.detach();
+
+  await page.getByRole("button", { name: "Focus previous from Alpha" }).click();
+  await expect(gamma).toBeFocused();
+  await expect(page.getByRole("status")).toContainText("Focus previous from Alpha: applied.");
+
+  await page.getByRole("button", { name: "Fit navigation fixture" }).click();
+  await expect(page.getByRole("status")).toContainText("Fit navigation fixture: applied.");
+  await expect
+    .poll(async () => {
+      const value = await documentJson.inputValue();
+      return (JSON.parse(value) as { viewport: { zoom: number } }).viewport.zoom;
+    })
+    .toBeLessThan(1);
+  await expect(workspace).toHaveScreenshot("canvas-geometry-navigation.png");
+
+  const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
+  expect(accessibility.violations).toEqual([]);
+
+  await page.getByRole("button", { name: "Clear navigation fixture" }).click();
+  await expect(alpha).toHaveCount(0);
+  await expect(beta).toHaveCount(0);
+  await expect(gamma).toHaveCount(0);
+  await expect(workspace).toContainText("No sections yet.");
+});
+
 test("the canvas shell reflows at 320 pixels with reduced motion", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 720 });
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });

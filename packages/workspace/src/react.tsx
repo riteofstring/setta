@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -26,6 +27,7 @@ import {
   WORKSPACE_NO_WHEEL_CLASS_NAME,
   WorkspaceCanvasAdapter,
 } from "./internal/workspace-canvas-adapter.js";
+import type { WorkspaceCanvasController } from "./internal/workspace-canvas-navigation.js";
 import { createWorkspaceController } from "./internal/workspace-controller.js";
 
 export type WorkspaceDocumentChangeHandler<TSectionData = WorkspaceJsonValue> = (
@@ -190,6 +192,10 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   controlledRef.current = mode.type === "controlled";
   onDocumentChangeRef.current = onDocumentChange;
 
+  const canvasControllerRef = useRef<WorkspaceCanvasController | null>(null);
+  const handleCanvasControllerChange = useCallback((next: WorkspaceCanvasController | null) => {
+    canvasControllerRef.current = next;
+  }, []);
   const internalControllerRef = useRef<WorkspaceController<TSectionData> | null>(null);
   if (!internalControllerRef.current) {
     internalControllerRef.current = createWorkspaceController({
@@ -201,6 +207,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         onDocumentChangeRef.current?.(nextDocument, change);
       },
       getCapabilities: () => capabilitiesRef.current,
+      getCanvasController: () => canvasControllerRef.current,
       getDocument: () => documentRef.current,
     });
   }
@@ -225,6 +232,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         document={validatedDocument}
         emptyState={resolvedEmptyState}
         gestureOptions={gestureOptions}
+        onCanvasControllerChange={handleCanvasControllerChange}
         onViewportCommit={controller.setViewport}
         overlay={children}
       />

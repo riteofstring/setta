@@ -19,6 +19,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MutableRefObject,
   type ReactNode,
 } from "react";
 
@@ -29,14 +30,22 @@ import type {
   WorkspacePanOnScrollMode,
   WorkspaceViewport,
 } from "../core.js";
+import { WorkspaceGeometryIndex } from "./geometry-index.js";
 import { projectWorkspaceCanvasRoots, type WorkspaceCanvasRoot } from "./workspace-canvas-model.js";
+import {
+  createWorkspaceCanvasController,
+  type WorkspaceCanvasController,
+} from "./workspace-canvas-navigation.js";
+import { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 import { WorkspaceViewportLifecycle } from "./workspace-viewport-lifecycle.js";
 
 export const WORKSPACE_NO_PAN_CLASS_NAME = "setta-workspace-internal-no-pan";
 export const WORKSPACE_NO_WHEEL_CLASS_NAME = "setta-workspace-internal-no-wheel";
 
 type WorkspaceRootNodeData = {
+  geometry: WorkspaceGeometryMeasurements;
   kind: string;
+  order: number;
   sectionId: string;
   title: string;
 };
@@ -48,16 +57,35 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   document: WorkspaceDocument<TSectionData>;
   emptyState: ReactNode;
   gestureOptions: WorkspaceGestureOptions;
+  onCanvasControllerChange(controller: WorkspaceCanvasController | null): void;
   onViewportCommit(viewport: WorkspaceViewport): void;
   overlay: ReactNode;
 }>;
 
 function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
+  const registerElement = useCallback(
+    (element: HTMLElement | null) => {
+      if (!element) {
+        return;
+      }
+      return data.geometry.register({
+        depth: 0,
+        element,
+        order: data.order,
+        parentSectionId: null,
+        sectionId: data.sectionId,
+      });
+    },
+    [data.geometry, data.order, data.sectionId],
+  );
+
   return (
     <article
       aria-label={data.title}
       className="setta-workspace__root-shell"
       data-workspace-section-id={data.sectionId}
+      ref={registerElement}
+      tabIndex={-1}
     >
       <h2>{data.title}</h2>
       <p>{data.kind}</p>
@@ -65,16 +93,34 @@ function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
   );
 }
 
-const MemoizedWorkspaceRootShell = memo(WorkspaceRootShell);
+function rootShellPropsMatch(
+  left: Readonly<NodeProps<WorkspaceRootNode>>,
+  right: Readonly<NodeProps<WorkspaceRootNode>>,
+): boolean {
+  return (
+    left.data.geometry === right.data.geometry &&
+    left.data.kind === right.data.kind &&
+    left.data.order === right.data.order &&
+    left.data.sectionId === right.data.sectionId &&
+    left.data.title === right.data.title
+  );
+}
+
+const MemoizedWorkspaceRootShell = memo(WorkspaceRootShell, rootShellPropsMatch);
 const workspaceNodeTypes = {
   "workspace-root-shell": MemoizedWorkspaceRootShell,
 } satisfies NodeTypes;
 
-function rootNode(root: WorkspaceCanvasRoot): WorkspaceRootNode {
+function rootNode(
+  root: WorkspaceCanvasRoot,
+  geometry: WorkspaceGeometryMeasurements,
+): WorkspaceRootNode {
   return {
     ariaLabel: root.title,
     data: {
+      geometry,
       kind: root.kind,
+      order: root.order,
       sectionId: root.sectionId,
       title: root.title,
     },
@@ -91,8 +137,9 @@ function rootNode(root: WorkspaceCanvasRoot): WorkspaceRootNode {
 
 function projectNodes<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
+  geometry: WorkspaceGeometryMeasurements,
 ): WorkspaceRootNode[] {
-  return projectWorkspaceCanvasRoots(document).map(rootNode);
+  return projectWorkspaceCanvasRoots(document).map((root) => rootNode(root, geometry));
 }
 
 function synchronizeNodes(
@@ -138,10 +185,14 @@ function viewportsMatch(first: WorkspaceViewport, second: WorkspaceViewport): bo
 }
 
 function WorkspaceViewportSynchronizer({
+  geometry,
   lifecycle,
+  programmaticViewportRef,
   viewport,
 }: Readonly<{
+  geometry: WorkspaceGeometryMeasurements;
   lifecycle: WorkspaceViewportLifecycle;
+  programmaticViewportRef: MutableRefObject<WorkspaceViewport | null>;
   viewport: WorkspaceViewport;
 }>) {
   const instance = useReactFlow<WorkspaceRootNode>();
@@ -152,10 +203,18 @@ function WorkspaceViewportSynchronizer({
       return;
     }
     const current = instance.getViewport();
-    if (!viewportsMatch(current, viewport)) {
-      void instance.setViewport(viewport);
+    if (viewportsMatch(current, viewport)) {
+      geometry.completeViewport(viewport);
+      return;
     }
-  }, [instance, lifecycle, viewport]);
+    programmaticViewportRef.current = viewport;
+    void instance.setViewport(viewport).then(() => {
+      lifecycle.complete(viewport);
+      geometry.completeViewport(viewport);
+      geometry.flushMeasurement();
+      programmaticViewportRef.current = null;
+    });
+  }, [geometry, instance, lifecycle, programmaticViewportRef, viewport]);
 
   return null;
 }
@@ -169,44 +228,92 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   document,
   emptyState,
   gestureOptions,
+  onCanvasControllerChange,
   onViewportCommit,
   overlay,
 }: WorkspaceCanvasAdapterProps<TSectionData>) {
   const reactId = useId();
   const canvasId = `setta-workspace-canvas-${reactId.replaceAll(":", "")}`;
-  const projectedNodes = useMemo(() => projectNodes(document), [document]);
+  const geometryIndex = useMemo(() => new WorkspaceGeometryIndex(), []);
+  const geometryRef = useRef<WorkspaceGeometryMeasurements | null>(null);
+  geometryRef.current ??= new WorkspaceGeometryMeasurements(geometryIndex, document.viewport);
+  const geometry = geometryRef.current;
+  const gestureOptionsRef = useRef(gestureOptions);
+  gestureOptionsRef.current = gestureOptions;
+  const canvasController = useMemo(
+    () =>
+      createWorkspaceCanvasController(geometry, () => ({
+        maxZoom: gestureOptionsRef.current.maxZoom,
+        minZoom: gestureOptionsRef.current.minZoom,
+      })),
+    [geometry],
+  );
+  const projectedNodes = useMemo(() => projectNodes(document, geometry), [document, geometry]);
   const [nodes, setNodes] = useState<WorkspaceRootNode[]>(projectedNodes);
   const lifecycleRef = useRef<WorkspaceViewportLifecycle | null>(null);
   lifecycleRef.current ??= new WorkspaceViewportLifecycle(document.viewport);
   const lifecycle = lifecycleRef.current;
+  const programmaticViewportRef = useRef<WorkspaceViewport | null>(null);
 
   useEffect(() => {
     setNodes((current) => synchronizeNodes(current, projectedNodes));
-  }, [projectedNodes]);
+    geometry.requestMeasurement();
+  }, [geometry, projectedNodes]);
 
-  const handleNodesChange = useCallback<OnNodesChange<WorkspaceRootNode>>((changes) => {
-    setNodes((current) => applyNodeChanges(changes, current));
-  }, []);
+  useEffect(() => {
+    onCanvasControllerChange(canvasController);
+    return () => onCanvasControllerChange(null);
+  }, [canvasController, onCanvasControllerChange]);
+
+  const handleNodesChange = useCallback<OnNodesChange<WorkspaceRootNode>>(
+    (changes) => {
+      setNodes((current) => applyNodeChanges(changes, current));
+      geometry.requestMeasurement();
+    },
+    [geometry],
+  );
+  const handleCanvasElement = useCallback(
+    (element: HTMLDivElement | null) => geometry.setCanvasElement(element),
+    [geometry],
+  );
   const handleMoveStart = useCallback(
     (_event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
-      lifecycle.begin(viewportFromUpstream(viewport));
+      const nextViewport = viewportFromUpstream(viewport);
+      geometry.setViewport(nextViewport);
+      if (programmaticViewportRef.current) {
+        lifecycle.synchronize(nextViewport);
+      } else {
+        lifecycle.begin(nextViewport);
+      }
     },
-    [lifecycle],
+    [geometry, lifecycle],
   );
   const handleMove = useCallback(
     (_event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
-      lifecycle.update(viewportFromUpstream(viewport));
+      const nextViewport = viewportFromUpstream(viewport);
+      geometry.setViewport(nextViewport);
+      if (programmaticViewportRef.current) {
+        lifecycle.synchronize(nextViewport);
+      } else {
+        lifecycle.update(nextViewport);
+      }
     },
-    [lifecycle],
+    [geometry, lifecycle],
   );
   const handleMoveEnd = useCallback(
     (_event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
-      const completed = lifecycle.complete(viewportFromUpstream(viewport));
+      const nextViewport = viewportFromUpstream(viewport);
+      geometry.setViewport(nextViewport);
+      if (programmaticViewportRef.current) {
+        lifecycle.synchronize(nextViewport);
+        return;
+      }
+      const completed = lifecycle.complete(nextViewport);
       if (completed) {
         onViewportCommit(completed);
       }
     },
-    [lifecycle, onViewportCommit],
+    [geometry, lifecycle, onViewportCommit],
   );
 
   return (
@@ -242,6 +349,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       panOnScrollSpeed={gestureOptions.panOnScrollSpeed}
       preventScrolling={gestureOptions.panOnScroll || gestureOptions.zoomOnScroll}
       proOptions={{ hideAttribution: false }}
+      ref={handleCanvasElement}
       selectionKeyCode={null}
       selectionOnDrag={false}
       zoomActivationKeyCode={mutableKeyCode(gestureOptions.zoomActivationKey)}
@@ -263,7 +371,12 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
           <p className="setta-workspace__empty">{emptyState}</p>
         </Panel>
       ) : null}
-      <WorkspaceViewportSynchronizer lifecycle={lifecycle} viewport={document.viewport} />
+      <WorkspaceViewportSynchronizer
+        geometry={geometry}
+        lifecycle={lifecycle}
+        programmaticViewportRef={programmaticViewportRef}
+        viewport={document.viewport}
+      />
     </ReactFlow>
   );
 }

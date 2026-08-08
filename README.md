@@ -48,5 +48,6 @@ root-node/recursive-DOM representation, shared geometry index, interaction kerne
 characterization, and completed Phase 0 gate audit are recorded under `docs/evidence` without
 exposing upstream contracts publicly. Phase 1 now includes the serializable document, React
 state/controller boundary, upstream canvas shell, runtime gesture policy, coalesced viewport
-publication, and host-content interaction boundaries; geometry-backed navigation and the remaining
-canvas controls continue in adjacent verified slices.
+publication, host-content interaction boundaries, production frame measurement, and
+geometry-backed focus, fit, and spatial next/previous navigation. Grid, appearance, and the
+remaining canvas controls continue in adjacent verified slices.

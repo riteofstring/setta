@@ -1,0 +1,69 @@
+import { getViewportForBounds } from "@xyflow/react";
+
+import type { WorkspaceFitOptions, WorkspacePoint, WorkspaceViewport } from "../core.js";
+import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
+
+const WORKSPACE_DEFAULT_FIT_PADDING = 0.12;
+
+export type WorkspaceCanvasController = Readonly<{
+  clientPointToWorkspace(point: WorkspacePoint): WorkspacePoint;
+  fitSections(
+    sectionIds: readonly string[],
+    options?: WorkspaceFitOptions,
+  ): Promise<WorkspaceViewport>;
+  focusElement(sectionId: string): void;
+  focusSection(sectionId: string, viewport: WorkspaceViewport): Promise<WorkspaceViewport>;
+  waitForViewport(viewport: WorkspaceViewport): Promise<void>;
+  workspacePointToClient(point: WorkspacePoint): WorkspacePoint;
+}>;
+
+type WorkspaceZoomBounds = Readonly<{
+  maxZoom: number;
+  minZoom: number;
+}>;
+
+function fitPadding(options: WorkspaceFitOptions | undefined): number {
+  const padding = options?.padding ?? WORKSPACE_DEFAULT_FIT_PADDING;
+  if (!Number.isFinite(padding) || padding < 0) {
+    throw new TypeError("Workspace fit padding must be a finite non-negative number.");
+  }
+  return padding;
+}
+
+export function createWorkspaceCanvasController(
+  geometry: WorkspaceGeometryMeasurements,
+  getZoomBounds: () => WorkspaceZoomBounds,
+): WorkspaceCanvasController {
+  return {
+    clientPointToWorkspace: (point) => geometry.clientPointToWorkspace(point),
+    fitSections: async (sectionIds, options) => {
+      const padding = fitPadding(options);
+      const bounds = await geometry.boundsWhenReady(sectionIds);
+      const canvas = geometry.canvasBounds();
+      if (canvas.width <= 0 || canvas.height <= 0) {
+        throw new Error("Workspace fit requires a canvas with positive dimensions.");
+      }
+      const zoomBounds = getZoomBounds();
+      return getViewportForBounds(
+        bounds,
+        canvas.width,
+        canvas.height,
+        zoomBounds.minZoom,
+        zoomBounds.maxZoom,
+        padding,
+      );
+    },
+    focusElement: (sectionId) => geometry.focusSection(sectionId),
+    focusSection: async (sectionId, viewport) => {
+      const bounds = await geometry.boundsWhenReady([sectionId]);
+      const canvas = geometry.canvasBounds();
+      return {
+        x: canvas.width / 2 - (bounds.x + bounds.width / 2) * viewport.zoom,
+        y: canvas.height / 2 - (bounds.y + bounds.height / 2) * viewport.zoom,
+        zoom: viewport.zoom,
+      };
+    },
+    waitForViewport: (viewport) => geometry.waitForViewport(viewport),
+    workspacePointToClient: (point) => geometry.workspacePointToClient(point),
+  };
+}

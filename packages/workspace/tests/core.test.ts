@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   createEmptyWorkspaceDocument,
   deriveWorkspaceParentLookup,
+  getAdjacentWorkspaceSectionId,
+  getWorkspaceNavigationOrder,
   getWorkspaceSectionOrder,
   isValidWorkspaceColor,
   isWorkspaceSectionDescendant,
@@ -156,6 +158,13 @@ describe("workspace document", () => {
       ["child", "root"],
     ]);
     expect(getWorkspaceSectionOrder(document)).toEqual(["root", "child", "grandchild", "peer"]);
+    expect(getWorkspaceNavigationOrder(document)).toEqual(["peer", "root", "child", "grandchild"]);
+    expect(getAdjacentWorkspaceSectionId(document, "peer", "next")).toBe("root");
+    expect(getAdjacentWorkspaceSectionId(document, "root", "previous")).toBe("peer");
+    expect(getAdjacentWorkspaceSectionId(document, "grandchild", "next")).toBeNull();
+    expect(() => getAdjacentWorkspaceSectionId(document, "missing", "next")).toThrowError(
+      expect.objectContaining({ code: "unknown-section" }),
+    );
     expect(isWorkspaceSectionDescendant(parents, "grandchild", "root")).toBe(true);
     expect(isWorkspaceSectionDescendant(parents, "root", "grandchild")).toBe(false);
     expect(JSON.stringify(document)).not.toContain("parentId");

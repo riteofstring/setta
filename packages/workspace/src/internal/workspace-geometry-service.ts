@@ -1,0 +1,322 @@
+import {
+  clientPointToWorkspace,
+  clientRectToWorkspace,
+  workspacePointToClient,
+  type GeometryRegistration,
+  type MeasuredWorkspaceFrame,
+  type ScreenPoint,
+  type ScreenRect,
+  type WorkspaceGeometryIndex,
+  type WorkspacePoint,
+  type WorkspaceRect,
+} from "./geometry-index.js";
+import type { ViewportTransform } from "./interaction-geometry.js";
+
+export type MeasuredWorkspaceElement = Omit<MeasuredWorkspaceFrame, "rect"> & {
+  element: HTMLElement;
+};
+
+type RegisteredMeasuredElement = MeasuredWorkspaceElement & {
+  frame: MeasuredWorkspaceFrame | null;
+  registration: GeometryRegistration | null;
+  token: symbol;
+};
+
+type PendingBoundsRequest = {
+  dispose(): void;
+  reject(error: Error): void;
+  sectionIds: ReadonlySet<string>;
+};
+
+type PendingViewportRequest = {
+  reject(error: Error): void;
+  resolve(): void;
+  viewport: ViewportTransform;
+};
+
+const SAME_FRAME_TOLERANCE = 0.01;
+
+function screenRect(rect: DOMRect): ScreenRect {
+  return { height: rect.height, width: rect.width, x: rect.x, y: rect.y };
+}
+
+function measuredFramesMatch(left: MeasuredWorkspaceFrame, right: MeasuredWorkspaceFrame): boolean {
+  return (
+    left.sectionId === right.sectionId &&
+    left.parentSectionId === right.parentSectionId &&
+    left.depth === right.depth &&
+    left.order === right.order &&
+    Math.abs(left.rect.x - right.rect.x) <= SAME_FRAME_TOLERANCE &&
+    Math.abs(left.rect.y - right.rect.y) <= SAME_FRAME_TOLERANCE &&
+    Math.abs(left.rect.width - right.rect.width) <= SAME_FRAME_TOLERANCE &&
+    Math.abs(left.rect.height - right.rect.height) <= SAME_FRAME_TOLERANCE
+  );
+}
+
+function assertViewport(viewport: ViewportTransform): void {
+  if (
+    !Number.isFinite(viewport.x) ||
+    !Number.isFinite(viewport.y) ||
+    !Number.isFinite(viewport.zoom) ||
+    viewport.zoom <= 0
+  ) {
+    throw new TypeError("Workspace geometry viewport values must be finite with positive zoom.");
+  }
+}
+
+function viewportsMatch(left: ViewportTransform, right: ViewportTransform): boolean {
+  return (
+    Math.abs(left.x - right.x) <= SAME_FRAME_TOLERANCE &&
+    Math.abs(left.y - right.y) <= SAME_FRAME_TOLERANCE &&
+    Math.abs(left.zoom - right.zoom) <= SAME_FRAME_TOLERANCE
+  );
+}
+
+export class WorkspaceGeometryMeasurements {
+  readonly #entries = new Map<string, RegisteredMeasuredElement>();
+  readonly #geometryIndex: WorkspaceGeometryIndex;
+  readonly #pendingBounds = new Set<PendingBoundsRequest>();
+  readonly #pendingViewports = new Set<PendingViewportRequest>();
+  #canvasElement: HTMLElement | null = null;
+  #frameRequest: number | null = null;
+  #resizeObserver: ResizeObserver | null = null;
+  #viewport: ViewportTransform;
+  #window: Window | null = null;
+
+  constructor(geometryIndex: WorkspaceGeometryIndex, viewport = { x: 0, y: 0, zoom: 1 }) {
+    assertViewport(viewport);
+    this.#geometryIndex = geometryIndex;
+    this.#viewport = { ...viewport };
+  }
+
+  register(measuredElement: MeasuredWorkspaceElement): () => void {
+    if (this.#entries.has(measuredElement.sectionId)) {
+      throw new Error(`Section ${measuredElement.sectionId} already has measured DOM geometry.`);
+    }
+    const entry: RegisteredMeasuredElement = {
+      ...measuredElement,
+      frame: null,
+      registration: null,
+      token: Symbol(measuredElement.sectionId),
+    };
+    this.#entries.set(entry.sectionId, entry);
+    this.#requireResizeObserver(entry.element).observe(entry.element);
+    this.#measure(entry);
+
+    return () => this.#unregister(entry);
+  }
+
+  setCanvasElement(element: HTMLElement | null): void {
+    if (this.#canvasElement === element) {
+      return;
+    }
+    this.#canvasElement?.removeEventListener("scroll", this.#onScroll, true);
+    this.#window?.removeEventListener("resize", this.#onResize);
+    this.#cancelScheduledMeasurement();
+    this.#canvasElement = element;
+    this.#window = element?.ownerDocument.defaultView ?? null;
+    element?.addEventListener("scroll", this.#onScroll, true);
+    this.#window?.addEventListener("resize", this.#onResize);
+    if (element) {
+      this.#measureAll();
+    } else {
+      this.#rejectPending("Workspace canvas geometry became unavailable before measurement.");
+      this.#rejectPendingViewports(
+        "Workspace canvas geometry became unavailable before the viewport synchronized.",
+      );
+    }
+  }
+
+  setViewport(viewport: ViewportTransform): void {
+    assertViewport(viewport);
+    this.#viewport = { ...viewport };
+    this.requestMeasurement();
+  }
+
+  completeViewport(viewport: ViewportTransform): void {
+    this.setViewport(viewport);
+    this.#resolvePendingViewports();
+  }
+
+  async waitForViewport(viewport: ViewportTransform): Promise<void> {
+    assertViewport(viewport);
+    if (viewportsMatch(this.#viewport, viewport)) {
+      return;
+    }
+    return new Promise<void>((resolve, reject) => {
+      this.#pendingViewports.add({ reject, resolve, viewport: { ...viewport } });
+    });
+  }
+
+  requestMeasurement(): void {
+    if (this.#frameRequest !== null || !this.#canvasElement || !this.#window) {
+      return;
+    }
+    this.#frameRequest = this.#window.requestAnimationFrame(() => {
+      this.#frameRequest = null;
+      this.#measureAll();
+    });
+  }
+
+  flushMeasurement(): void {
+    this.#cancelScheduledMeasurement();
+    this.#measureAll();
+  }
+
+  clientPointToWorkspace(point: ScreenPoint): WorkspacePoint {
+    return clientPointToWorkspace(point, this.canvasBounds(), this.#viewport);
+  }
+
+  workspacePointToClient(point: WorkspacePoint): ScreenPoint {
+    return workspacePointToClient(point, this.canvasBounds(), this.#viewport);
+  }
+
+  canvasBounds(): ScreenRect {
+    if (!this.#canvasElement) {
+      throw new Error("Workspace canvas geometry is unavailable before mount or after unmount.");
+    }
+    return screenRect(this.#canvasElement.getBoundingClientRect());
+  }
+
+  async boundsWhenReady(sectionIds: readonly string[]): Promise<WorkspaceRect> {
+    const uniqueSectionIds = [...new Set(sectionIds)];
+    if (uniqueSectionIds.length === 0) {
+      throw new TypeError("Workspace geometry bounds need at least one section.");
+    }
+    const unregisteredId = uniqueSectionIds.find((sectionId) => !this.#entries.has(sectionId));
+    if (unregisteredId) {
+      throw new Error(`Section ${unregisteredId} does not have a registered visible frame.`);
+    }
+    this.flushMeasurement();
+    const available = this.#geometryIndex.boundsWhenReady(uniqueSectionIds);
+    if (available) {
+      return available;
+    }
+
+    return new Promise<WorkspaceRect>((resolve, reject) => {
+      let unsubscribe: () => void = () => undefined;
+      const request: PendingBoundsRequest = {
+        dispose: () => unsubscribe(),
+        reject,
+        sectionIds: new Set(uniqueSectionIds),
+      };
+      unsubscribe = this.#geometryIndex.subscribe(() => {
+        const bounds = this.#geometryIndex.boundsWhenReady(uniqueSectionIds);
+        if (!bounds) {
+          return;
+        }
+        unsubscribe();
+        this.#pendingBounds.delete(request);
+        resolve(bounds);
+      });
+      this.#pendingBounds.add(request);
+      this.requestMeasurement();
+    });
+  }
+
+  focusSection(sectionId: string): void {
+    const entry = this.#entries.get(sectionId);
+    if (!entry) {
+      throw new Error(`Section ${sectionId} does not have a registered visible frame.`);
+    }
+    entry.element.focus({ preventScroll: true });
+  }
+
+  #unregister(entry: RegisteredMeasuredElement): void {
+    if (this.#entries.get(entry.sectionId)?.token !== entry.token) {
+      return;
+    }
+    this.#resizeObserver?.unobserve(entry.element);
+    entry.registration?.dispose();
+    this.#entries.delete(entry.sectionId);
+    this.#rejectPending(
+      `Section ${entry.sectionId} was removed before its geometry became ready.`,
+      entry.sectionId,
+    );
+    if (this.#entries.size === 0) {
+      this.#resizeObserver?.disconnect();
+      this.#resizeObserver = null;
+    }
+  }
+
+  #cancelScheduledMeasurement(): void {
+    if (this.#frameRequest !== null && this.#window) {
+      this.#window.cancelAnimationFrame(this.#frameRequest);
+      this.#frameRequest = null;
+    }
+  }
+
+  #measureAll(): void {
+    for (const entry of this.#entries.values()) {
+      this.#measure(entry);
+    }
+  }
+
+  #measure(entry: RegisteredMeasuredElement): void {
+    if (!this.#canvasElement) {
+      return;
+    }
+    const frame: MeasuredWorkspaceFrame = {
+      depth: entry.depth,
+      order: entry.order,
+      parentSectionId: entry.parentSectionId,
+      rect: clientRectToWorkspace(
+        screenRect(entry.element.getBoundingClientRect()),
+        screenRect(this.#canvasElement.getBoundingClientRect()),
+        this.#viewport,
+      ),
+      sectionId: entry.sectionId,
+    };
+    if (entry.frame && measuredFramesMatch(entry.frame, frame)) {
+      return;
+    }
+    if (entry.registration) {
+      entry.registration.update(frame);
+    } else {
+      entry.registration = this.#geometryIndex.register(frame);
+    }
+    entry.frame = frame;
+  }
+
+  #requireResizeObserver(element: HTMLElement): ResizeObserver {
+    if (!this.#resizeObserver) {
+      const ResizeObserverConstructor = element.ownerDocument.defaultView?.ResizeObserver;
+      if (!ResizeObserverConstructor) {
+        throw new Error("Workspace geometry requires ResizeObserver support.");
+      }
+      this.#resizeObserver = new ResizeObserverConstructor(() => this.requestMeasurement());
+    }
+    return this.#resizeObserver;
+  }
+
+  #rejectPending(message: string, sectionId?: string): void {
+    for (const request of [...this.#pendingBounds]) {
+      if (sectionId && !request.sectionIds.has(sectionId)) {
+        continue;
+      }
+      this.#pendingBounds.delete(request);
+      request.dispose();
+      request.reject(new Error(message));
+    }
+  }
+
+  #resolvePendingViewports(): void {
+    for (const request of [...this.#pendingViewports]) {
+      if (!viewportsMatch(this.#viewport, request.viewport)) {
+        continue;
+      }
+      this.#pendingViewports.delete(request);
+      request.resolve();
+    }
+  }
+
+  #rejectPendingViewports(message: string): void {
+    for (const request of this.#pendingViewports) {
+      request.reject(new Error(message));
+    }
+    this.#pendingViewports.clear();
+  }
+
+  readonly #onResize = () => this.requestMeasurement();
+  readonly #onScroll = () => this.requestMeasurement();
+}

@@ -130,6 +130,10 @@ export type WorkspaceActionResult =
   | Readonly<{ status: "applied" | "unchanged" }>
   | Readonly<{ reason: WorkspaceActionRejectionReason; status: "rejected" }>;
 
+export type WorkspaceFitOptions = Readonly<{
+  padding?: number;
+}>;
+
 export type WorkspaceDocumentChangeReason =
   "section-delete" | "section-lock" | "section-minimize" | "viewport";
 
@@ -139,6 +143,14 @@ export type WorkspaceDocumentChange = Readonly<{
 
 export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
   deleteSections(sectionIds: readonly string[]): WorkspaceActionResult;
+  fitSection(sectionId: string, options?: WorkspaceFitOptions): Promise<WorkspaceActionResult>;
+  fitSections(
+    sectionIds: readonly string[],
+    options?: WorkspaceFitOptions,
+  ): Promise<WorkspaceActionResult>;
+  focusNextSection(sectionId: string): Promise<WorkspaceActionResult>;
+  focusPreviousSection(sectionId: string): Promise<WorkspaceActionResult>;
+  focusSection(sectionId: string): Promise<WorkspaceActionResult>;
   getCapabilities(): WorkspaceCapabilities;
   getDocument(): WorkspaceDocument<TSectionData>;
   setSectionMinimized(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
@@ -858,10 +870,12 @@ export function deriveWorkspaceParentLookup(
   return buildParentLookup(document.rootSections, document.sections);
 }
 
-export function getWorkspaceSectionOrder(document: WorkspaceDocument<unknown>): readonly string[] {
-  validateWorkspaceDocument(document);
+function traverseWorkspaceSections(
+  document: WorkspaceDocument<unknown>,
+  rootSectionIds: readonly string[],
+): readonly string[] {
   const ordered: string[] = [];
-  const pending = [...document.rootSections].reverse().map((root) => root.sectionId);
+  const pending = [...rootSectionIds].reverse();
   while (pending.length > 0) {
     const sectionId = pending.pop();
     if (!sectionId) {
@@ -877,6 +891,51 @@ export function getWorkspaceSectionOrder(document: WorkspaceDocument<unknown>): 
     }
   }
   return ordered;
+}
+
+export function getWorkspaceSectionOrder(document: WorkspaceDocument<unknown>): readonly string[] {
+  validateWorkspaceDocument(document);
+  return traverseWorkspaceSections(
+    document,
+    document.rootSections.map(({ sectionId }) => sectionId),
+  );
+}
+
+export function getWorkspaceNavigationOrder(
+  document: WorkspaceDocument<unknown>,
+): readonly string[] {
+  validateWorkspaceDocument(document);
+  const persistentOrder = new Map(
+    document.rootSections.map(({ sectionId }, index) => [sectionId, index]),
+  );
+  const rootSectionIds = [...document.rootSections]
+    .sort(
+      (left, right) =>
+        left.position.y - right.position.y ||
+        left.position.x - right.position.x ||
+        (persistentOrder.get(left.sectionId) ?? 0) - (persistentOrder.get(right.sectionId) ?? 0) ||
+        left.sectionId.localeCompare(right.sectionId),
+    )
+    .map((root) => root.sectionId);
+  return traverseWorkspaceSections(document, rootSectionIds);
+}
+
+export function getAdjacentWorkspaceSectionId(
+  document: WorkspaceDocument<unknown>,
+  sectionId: string,
+  direction: "next" | "previous",
+): string | null {
+  const ordered = getWorkspaceNavigationOrder(document);
+  const currentIndex = ordered.indexOf(sectionId);
+  if (currentIndex < 0) {
+    throw new WorkspaceDocumentValidationError(
+      "unknown-section",
+      `$.sections[${JSON.stringify(sectionId)}]`,
+      `unknown section ${JSON.stringify(sectionId)}`,
+    );
+  }
+  const offset = direction === "next" ? 1 : -1;
+  return ordered[currentIndex + offset] ?? null;
 }
 
 export function isWorkspaceSectionDescendant(

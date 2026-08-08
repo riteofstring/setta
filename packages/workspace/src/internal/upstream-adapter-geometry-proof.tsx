@@ -9,12 +9,9 @@ import {
 import { adapterProofOrientation } from "./adapter-proof-model.js";
 import {
   clientPointToWorkspace,
-  clientRectToWorkspace,
   resolveGeometryDropTarget,
   workspaceRectToClient,
-  type GeometryRegistration,
   type MarqueeSelectionMode,
-  type MeasuredWorkspaceFrame,
   type WorkspaceGeometryIndex,
   type WorkspacePoint,
   type WorkspaceRect,
@@ -26,144 +23,14 @@ import {
 } from "./interaction-geometry.js";
 import type { SectionMoveMode } from "./section-move-planning.js";
 import type { AdapterDndEvent } from "./upstream-dnd-adapter.js";
+export { WorkspaceGeometryMeasurements as AdapterProofGeometryMeasurements } from "./workspace-geometry-service.js";
 
 type SelectionChangeSource = "control" | "marquee";
-
-type MeasuredElement = Omit<MeasuredWorkspaceFrame, "rect"> & {
-  element: HTMLElement;
-};
-
-type RegisteredMeasuredElement = MeasuredElement & {
-  frame: MeasuredWorkspaceFrame | null;
-  registration: GeometryRegistration | null;
-  token: symbol;
-};
-
-const SAME_FRAME_TOLERANCE = 0.01;
 
 export type ActiveAdapterProofDrag = AdapterProofDragSession & {
   input: AdapterDndEvent["input"];
   preview: AdapterProofDragPreview | null;
 };
-
-export class AdapterProofGeometryMeasurements {
-  readonly #entries = new Map<string, RegisteredMeasuredElement>();
-  readonly #geometryIndex: WorkspaceGeometryIndex;
-  #canvasElement: HTMLElement | null = null;
-  #frameRequest: number | null = null;
-  #resizeObserver: ResizeObserver | null = null;
-  #viewport: ViewportTransform = { x: 0, y: 0, zoom: 1 };
-
-  constructor(geometryIndex: WorkspaceGeometryIndex) {
-    this.#geometryIndex = geometryIndex;
-  }
-
-  register(measuredElement: MeasuredElement): () => void {
-    if (this.#entries.has(measuredElement.sectionId)) {
-      throw new Error(`Section ${measuredElement.sectionId} already has measured DOM geometry.`);
-    }
-    const entry: RegisteredMeasuredElement = {
-      ...measuredElement,
-      frame: null,
-      registration: null,
-      token: Symbol(measuredElement.sectionId),
-    };
-    this.#entries.set(entry.sectionId, entry);
-    this.#requireResizeObserver().observe(entry.element);
-    this.#measure(entry);
-
-    return () => {
-      if (this.#entries.get(entry.sectionId)?.token !== entry.token) {
-        return;
-      }
-      this.#resizeObserver?.unobserve(entry.element);
-      entry.registration?.dispose();
-      this.#entries.delete(entry.sectionId);
-    };
-  }
-
-  setCanvasElement(element: HTMLElement | null): void {
-    if (this.#canvasElement === element) {
-      return;
-    }
-    this.#canvasElement?.removeEventListener("scroll", this.#onScroll, true);
-    window.removeEventListener("resize", this.#onResize);
-    this.#cancelScheduledMeasurement();
-    this.#canvasElement = element;
-    element?.addEventListener("scroll", this.#onScroll, true);
-    if (element) {
-      window.addEventListener("resize", this.#onResize);
-      this.#measureAll();
-    }
-  }
-
-  setViewport(viewport: ViewportTransform): void {
-    this.#viewport = { ...viewport };
-    this.requestMeasurement();
-  }
-
-  requestMeasurement(): void {
-    if (this.#frameRequest !== null || !this.#canvasElement) {
-      return;
-    }
-    this.#frameRequest = requestAnimationFrame(() => {
-      this.#frameRequest = null;
-      this.#measureAll();
-    });
-  }
-
-  flushMeasurement(): void {
-    this.#cancelScheduledMeasurement();
-    this.#measureAll();
-  }
-
-  #cancelScheduledMeasurement(): void {
-    if (this.#frameRequest !== null) {
-      cancelAnimationFrame(this.#frameRequest);
-      this.#frameRequest = null;
-    }
-  }
-
-  #measureAll(): void {
-    for (const entry of this.#entries.values()) {
-      this.#measure(entry);
-    }
-  }
-
-  #measure(entry: RegisteredMeasuredElement): void {
-    if (!this.#canvasElement) {
-      return;
-    }
-    const frame: MeasuredWorkspaceFrame = {
-      depth: entry.depth,
-      order: entry.order,
-      parentSectionId: entry.parentSectionId,
-      rect: clientRectToWorkspace(
-        domRect(entry.element.getBoundingClientRect()),
-        domRect(this.#canvasElement.getBoundingClientRect()),
-        this.#viewport,
-      ),
-      sectionId: entry.sectionId,
-    };
-    if (entry.frame && measuredFramesMatch(entry.frame, frame)) {
-      return;
-    }
-    if (entry.registration) {
-      entry.registration.update(frame);
-    } else {
-      entry.registration = this.#geometryIndex.register(frame);
-    }
-    entry.frame = frame;
-  }
-
-  #requireResizeObserver(): ResizeObserver {
-    this.#resizeObserver ??= new ResizeObserver(() => this.requestMeasurement());
-    return this.#resizeObserver;
-  }
-
-  readonly #onResize = () => this.requestMeasurement();
-  readonly #onScroll = () => this.requestMeasurement();
-}
 
 export function resolveAdapterProofPointerTarget(
   event: AdapterDndEvent,
@@ -623,17 +490,4 @@ function marqueeRect(start: WorkspacePoint, end: WorkspacePoint): WorkspaceRect 
 
 function domRect(rect: DOMRect): { x: number; y: number; width: number; height: number } {
   return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
-}
-
-function measuredFramesMatch(left: MeasuredWorkspaceFrame, right: MeasuredWorkspaceFrame): boolean {
-  return (
-    left.sectionId === right.sectionId &&
-    left.parentSectionId === right.parentSectionId &&
-    left.depth === right.depth &&
-    left.order === right.order &&
-    Math.abs(left.rect.x - right.rect.x) <= SAME_FRAME_TOLERANCE &&
-    Math.abs(left.rect.y - right.rect.y) <= SAME_FRAME_TOLERANCE &&
-    Math.abs(left.rect.width - right.rect.width) <= SAME_FRAME_TOLERANCE &&
-    Math.abs(left.rect.height - right.rect.height) <= SAME_FRAME_TOLERANCE
-  );
 }

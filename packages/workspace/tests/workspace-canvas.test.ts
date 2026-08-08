@@ -39,6 +39,7 @@ describe("workspace canvas root projection", () => {
     expect(projectWorkspaceCanvasRoots(document)).toEqual([
       {
         kind: "test",
+        order: 0,
         position: { x: 0, y: 0 },
         sectionId: "root",
         size: { height: 180, width: 240 },
@@ -46,6 +47,7 @@ describe("workspace canvas root projection", () => {
       },
       {
         kind: "test",
+        order: 1,
         position: { x: 560, y: 0 },
         sectionId: "peer",
         size: { height: 180, width: 240 },
