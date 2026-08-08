@@ -12,6 +12,7 @@
     "build": "corepack pnpm build:package && corepack pnpm build:playground",
     "build:package": "corepack pnpm --filter @setta/workspace build",
     "build:playground": "corepack pnpm --filter @setta/workspace-playground build",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
     "check:dependencies": "node scripts/check-dependencies.mjs",
     "check:file-lengths": "node scripts/check-file-lengths.mjs --all",
     "consumer:check": "node scripts/verify-consumer.mjs",
@@ -30,7 +31,7 @@
     "test": "corepack pnpm test:unit && corepack pnpm test:automation",
     "test:automation": "bash -n scripts/automation/codex-loop/run-plan-implementation-loop.sh scripts/automation/codex-loop/test_run_plan_implementation_loop.sh && bash scripts/automation/codex-loop/test_run_plan_implementation_loop.sh",
     "test:e2e": "playwright test",
-    "test:unit": "vitest run",
+    "test:unit": "vitest run && node --test scripts/check-boundaries.test.mjs",
     "typecheck": "tsc -p packages/workspace/tsconfig.json --pretty false && corepack pnpm run build:package && tsc -p apps/playground/tsconfig.json --pretty false && tsc -p tsconfig.json --pretty false"
   },
   "devDependencies": {

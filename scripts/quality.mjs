@@ -15,6 +15,7 @@ if (selectedFiles.length === 0) {
 }
 
 console.log(`Checking ${selectedFiles.length} project files.`);
+runPnpm(["run", "check:boundaries"]);
 runPnpm(["run", "check:dependencies"]);
 
 if (formattingFiles.length > 0) {

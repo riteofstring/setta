@@ -14,6 +14,8 @@ The package is private and locally installable while distribution, repository ho
 - `docs/evidence`: source-linked behavioral evidence from the previous Setta implementation.
 - `scripts`: Node-owned quality, packaging, and supply-chain tooling.
 
+The [tooling carryover inventory](docs/evidence/tooling-carryover-inventory.md) maps every retained policy to its new-tree owner and records the application/runtime tooling that is intentionally excluded. `corepack pnpm check:boundaries` enforces that tree and import boundary.
+
 The optional long-running plan executor lives under `scripts/automation/codex-loop`. It runs fresh Codex or Claude Code implementer agents, requests a second-agent review at phase boundaries, requires clean committed batches, and finishes only after a separate whole-plan audit. It deliberately bypasses CLI permission prompts, so use it only for unattended repository-local execution after reviewing its README.
 
 ## Setup

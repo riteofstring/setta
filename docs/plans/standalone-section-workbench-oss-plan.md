@@ -1124,6 +1124,12 @@ The design should:
 
 ### Phase 0: Boundary, evidence, and repository setup
 
+Status: **in progress** (updated 2026-08-07).
+
+- Completed: dedicated blank-slate branch from recorded source commit `043d3b2e9c69caf99d1246f1408b3ad7194b7864`; minimal private workspace, package, Node-only playground, unrelated consumer fixture, exact toolchain pins, new-tree hygiene files, package-specific repository instructions, baseline deterministic quality/packaging/supply-chain tooling, and initial source-linked interaction evidence.
+- Completed: reviewable tooling carryover inventory plus negative-tested repository-tree, application-import, source-escape, and undeclared-package-export boundary enforcement wired into changed-file quality checks.
+- Remaining: complete behavior fixtures and characterization matrices; select and exact-pin upstream XYFlow and dnd-kit; complete the representation, geometry-index, interaction-owner, transient-projection, scaled-ancestor, focus/scroll, adapter, public-store-access, licensing, accessibility, browser, performance, and loaded-lockfile/audit evidence required by this phase and its gate.
+
 Produce:
 
 - A dedicated blank-slate implementation branch in this working directory, created from a recorded clean `main` commit without another worktree.
