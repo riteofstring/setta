@@ -140,7 +140,7 @@
   inset-block-start: 1rem;
   inset-inline-start: 1rem;
   inline-size: max-content;
-  max-inline-size: calc(100vw - 4rem);
+  max-inline-size: max(0px, calc(100cqi - 2rem));
   pointer-events: auto;
   user-select: text;
 }

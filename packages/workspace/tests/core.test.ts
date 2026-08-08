@@ -401,6 +401,38 @@ describe("workspace document validation", () => {
     }
   });
 
+  it("rejects accessor-backed fields without evaluating them", () => {
+    const candidate = recursiveDocument();
+    const viewport = { y: 0, zoom: 1 } as Record<string, unknown>;
+    Object.defineProperty(viewport, "x", {
+      enumerable: true,
+      get: () => {
+        throw new Error("The viewport getter must not run.");
+      },
+    });
+    expectValidationError({ ...candidate, viewport }, "invalid-value", "$.viewport");
+
+    const accessorData = ["value"] as WorkspaceJsonValue[];
+    Object.defineProperty(accessorData, "0", {
+      enumerable: true,
+      get: () => {
+        throw new Error("The payload getter must not run.");
+      },
+    });
+    const root = candidate.sections.root;
+    expectValidationError(
+      {
+        ...candidate,
+        sections: {
+          ...candidate.sections,
+          root: root ? { ...root, data: accessorData } : root,
+        },
+      },
+      "invalid-value",
+      '$.sections["root"].data',
+    );
+  });
+
   it.each([
     "#abc",
     "#112233cc",

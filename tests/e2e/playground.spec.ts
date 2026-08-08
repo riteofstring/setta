@@ -207,12 +207,19 @@ test("controlled and uncontrolled state honor live capability policy", async ({ 
   await expect(page.getByTestId("controlled-document")).toHaveValue(/"zoom": 1.5/u);
   await expect(controlledPanel.getByText("Committed changes: 2")).toBeVisible();
   await acceptControlledChanges.uncheck();
-  const controlledCanvas = controlledWorkspace.getByRole("application", {
-    name: "Controlled workspace canvas",
-  });
+  const controlledFocus = page.getByRole("button", { name: "Focus controlled Alpha" });
   const controlledViewport = controlledWorkspace.locator(".react-flow__viewport");
   await expect(controlledViewport).toHaveAttribute("style", /scale\(1\.5\)/u);
   const acceptedViewportStyle = await controlledViewport.getAttribute("style");
+  await controlledFocus.click();
+  await expect(status).toHaveText("Controlled focus: applied.");
+  await expect(controlledFocus).toBeFocused();
+  await expect(controlledPanel.getByText("Committed changes: 2")).toBeVisible();
+  await expect.poll(() => controlledViewport.getAttribute("style")).toBe(acceptedViewportStyle);
+
+  const controlledCanvas = controlledWorkspace.getByRole("application", {
+    name: "Controlled workspace canvas",
+  });
   await controlledCanvas.scrollIntoViewIfNeeded();
   const controlledCanvasBounds = await controlledCanvas.boundingBox();
   if (!controlledCanvasBounds) {

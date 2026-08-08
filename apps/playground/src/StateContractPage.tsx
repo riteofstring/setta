@@ -53,6 +53,14 @@ export function StateContractPage() {
     );
   };
 
+  const focusControlledAlpha = async () => {
+    const controller = controlledController.current;
+    if (!controller) {
+      throw new Error("The controlled workspace controller is not mounted.");
+    }
+    setStatus(resultMessage("Controlled focus", await controller.focusSection("alpha")));
+  };
+
   return (
     <>
       <a className="skip-link" href="#state-contract-content">
@@ -164,6 +172,9 @@ export function StateContractPage() {
             </label>
             <button type="button" onClick={panControlledViewport}>
               Pan controlled viewport
+            </button>
+            <button type="button" onClick={() => void focusControlledAlpha()}>
+              Focus controlled Alpha
             </button>
             <Workspace
               ariaLabel="Controlled workspace"

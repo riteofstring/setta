@@ -28,7 +28,7 @@ import {
   type WorkspaceGridOptionOverrides,
   type WorkspaceJsonValue,
 } from "./core.js";
-import { isDenseArray } from "./internal/runtime-option-validation.js";
+import { isDenseArray, isEnumerableDataProperty } from "./internal/runtime-option-validation.js";
 import { WorkspaceCanvasAdapter } from "./internal/workspace-canvas-adapter.js";
 import type { WorkspaceCanvasController } from "./internal/workspace-canvas-navigation.js";
 import { createWorkspaceController } from "./internal/workspace-controller.js";
@@ -132,10 +132,7 @@ function assertKnownKeys(
   label: string,
 ): void {
   const invalidKey = Reflect.ownKeys(record).find(
-    (key) =>
-      typeof key !== "string" ||
-      !Object.prototype.propertyIsEnumerable.call(record, key) ||
-      !keys.has(key),
+    (key) => typeof key !== "string" || !isEnumerableDataProperty(record, key) || !keys.has(key),
   );
   if (invalidKey !== undefined) {
     throw new TypeError(`Unknown ${label} ${String(invalidKey)}.`);
@@ -540,6 +537,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   const gestureOptionsRef = useRef(gestureOptions);
   const controlledRef = useRef(mode.type === "controlled");
   const onDocumentChangeRef = useRef(onDocumentChange);
+  const [controllerSynchronizationRevision, setControllerSynchronizationRevision] = useState(0);
   documentRef.current = validatedDocument;
   capabilitiesRef.current = capabilities;
   gestureOptionsRef.current = gestureOptions;
@@ -564,6 +562,8 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       getCanvasController: () => canvasControllerRef.current,
       getDocument: () => documentRef.current,
       getViewportBounds: () => gestureOptionsRef.current,
+      requestViewportSynchronization: () =>
+        setControllerSynchronizationRevision((revision) => revision + 1),
     });
   }
   const controller = internalControllerRef.current;
@@ -588,6 +588,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     >
       <WorkspaceCanvasAdapter
         ariaLabel={ariaLabel}
+        controllerSynchronizationRevision={controllerSynchronizationRevision}
         document={validatedDocument}
         emptyState={resolvedEmptyState}
         gestureOptions={gestureOptions}

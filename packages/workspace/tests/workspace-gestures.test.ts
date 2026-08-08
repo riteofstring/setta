@@ -95,6 +95,32 @@ describe("workspace gesture options", () => {
     );
   });
 
+  it("rejects accessor-backed option fields and list entries without evaluating them", () => {
+    const options = {} as Record<string, unknown>;
+    Object.defineProperty(options, "panOnScroll", {
+      enumerable: true,
+      get: () => {
+        throw new Error("The option getter must not run.");
+      },
+    });
+    expect(() =>
+      resolveWorkspaceGestureOptions(
+        options as Parameters<typeof resolveWorkspaceGestureOptions>[0],
+      ),
+    ).toThrow("Unknown workspace gesture option panOnScroll");
+
+    const activationKeys = ["Space"];
+    Object.defineProperty(activationKeys, "0", {
+      enumerable: true,
+      get: () => {
+        throw new Error("The activation-key getter must not run.");
+      },
+    });
+    expect(() => resolveWorkspaceGestureOptions({ panActivationKey: activationKeys })).toThrow(
+      "panActivationKey must be a non-empty key, key list, or null",
+    );
+  });
+
   it.each([
     ["free", "free"],
     ["horizontal", "horizontal"],

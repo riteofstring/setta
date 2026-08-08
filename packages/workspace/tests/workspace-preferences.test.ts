@@ -146,6 +146,20 @@ describe("workspace grid preferences", () => {
     );
   });
 
+  it("rejects accessor-backed preferences without evaluating them", () => {
+    const options = {} as Record<string, unknown>;
+    Object.defineProperty(options, "visible", {
+      enumerable: true,
+      get: () => {
+        throw new Error("The preference getter must not run.");
+      },
+    });
+
+    expect(() =>
+      resolveWorkspaceGridOptions(options as Parameters<typeof resolveWorkspaceGridOptions>[0]),
+    ).toThrow("Unknown workspace grid option visible");
+  });
+
   it.each([
     [{ markSize: 0 }, "markSize must be a positive finite number"],
     [{ pattern: "mesh" }, "pattern must be cross, dots, or lines"],

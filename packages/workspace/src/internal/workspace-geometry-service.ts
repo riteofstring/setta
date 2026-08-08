@@ -30,7 +30,7 @@ type PendingBoundsRequest = {
 
 type PendingViewportRequest = {
   reject(error: Error): void;
-  resolve(): void;
+  resolve(synchronized: boolean): void;
   viewport: ViewportTransform;
 };
 
@@ -101,7 +101,7 @@ export class WorkspaceGeometryMeasurements {
     };
     this.#entries.set(entry.sectionId, entry);
     this.#requireResizeObserver(entry.element).observe(entry.element);
-    this.#measure(entry);
+    this.requestMeasurement();
 
     return () => this.#unregister(entry);
   }
@@ -132,15 +132,15 @@ export class WorkspaceGeometryMeasurements {
 
   completeViewport(viewport: ViewportTransform): void {
     this.setViewport(viewport);
-    this.#resolvePendingViewports();
+    this.#settlePendingViewports();
   }
 
-  async waitForViewport(viewport: ViewportTransform): Promise<void> {
+  async waitForViewport(viewport: ViewportTransform): Promise<boolean> {
     assertViewport(viewport);
     if (viewportsMatch(this.#viewport, viewport)) {
-      return;
+      return true;
     }
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<boolean>((resolve, reject) => {
       this.#pendingViewports.add({ reject, resolve, viewport: { ...viewport } });
     });
   }
@@ -244,22 +244,23 @@ export class WorkspaceGeometryMeasurements {
   }
 
   #measureAll(): void {
+    if (!this.#canvasElement || this.#entries.size === 0) {
+      return;
+    }
+    const canvasBounds = screenRect(this.#canvasElement.getBoundingClientRect());
     for (const entry of this.#entries.values()) {
-      this.#measure(entry);
+      this.#measure(entry, canvasBounds);
     }
   }
 
-  #measure(entry: RegisteredMeasuredElement): void {
-    if (!this.#canvasElement) {
-      return;
-    }
+  #measure(entry: RegisteredMeasuredElement, canvasBounds: ScreenRect): void {
     const frame: MeasuredWorkspaceFrame = {
       depth: entry.depth,
       order: entry.order,
       parentSectionId: entry.parentSectionId,
       rect: clientRectToWorkspace(
         screenRect(entry.element.getBoundingClientRect()),
-        screenRect(this.#canvasElement.getBoundingClientRect()),
+        canvasBounds,
         this.#viewport,
       ),
       sectionId: entry.sectionId,
@@ -321,13 +322,10 @@ export class WorkspaceGeometryMeasurements {
     }
   }
 
-  #resolvePendingViewports(): void {
+  #settlePendingViewports(): void {
     for (const request of [...this.#pendingViewports]) {
-      if (!viewportsMatch(this.#viewport, request.viewport)) {
-        continue;
-      }
       this.#pendingViewports.delete(request);
-      request.resolve();
+      request.resolve(viewportsMatch(this.#viewport, request.viewport));
     }
   }
 

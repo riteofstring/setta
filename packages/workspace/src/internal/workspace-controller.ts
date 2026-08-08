@@ -15,6 +15,7 @@ import {
 } from "./document-commands.js";
 import { denseArrayAt } from "./runtime-option-validation.js";
 import type { WorkspaceCanvasController } from "./workspace-canvas-navigation.js";
+import { validateWorkspaceViewport } from "./workspace-document-validation.js";
 
 export type WorkspaceControllerBindings<TSectionData> = Readonly<{
   commit(document: WorkspaceDocument<TSectionData>, change: WorkspaceDocumentChange): void;
@@ -22,6 +23,7 @@ export type WorkspaceControllerBindings<TSectionData> = Readonly<{
   getCanvasController?(): WorkspaceCanvasController | null;
   getDocument(): WorkspaceDocument<TSectionData>;
   getViewportBounds?(): Readonly<{ maxZoom: number; minZoom: number }>;
+  requestViewportSynchronization?(): void;
 }>;
 
 function dispatch<TSectionData>(
@@ -71,13 +73,18 @@ function setViewport<TSectionData>(
   if (typeof viewport !== "object" || viewport === null || Array.isArray(viewport)) {
     throw new TypeError("Workspace viewport must be an object.");
   }
+  validateWorkspaceViewport(viewport);
   const bounds = bindings.getViewportBounds?.();
   if (bounds && (viewport.zoom < bounds.minZoom || viewport.zoom > bounds.maxZoom)) {
     throw new TypeError(
       "Workspace viewport zoom must be within the configured gesture zoom bounds.",
     );
   }
-  return dispatch(bindings, { type: "set-viewport", viewport });
+  const result = dispatch(bindings, { type: "set-viewport", viewport });
+  if (result.status === "applied") {
+    bindings.requestViewportSynchronization?.();
+  }
+  return result;
 }
 
 function requireCanvasController<TSectionData>(
@@ -116,8 +123,10 @@ async function focusSection<TSectionData>(
   const canvasController = requireCanvasController(bindings);
   const viewport = await canvasController.focusSection(sectionId, document.viewport);
   const result = setViewport(bindings, viewport);
-  await canvasController.waitForViewport(viewport);
-  canvasController.focusElement(sectionId);
+  const synchronized = await canvasController.waitForViewport(viewport);
+  if (synchronized) {
+    canvasController.focusElement(sectionId);
+  }
   return result;
 }
 

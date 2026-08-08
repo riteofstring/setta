@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MutableRefObject,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
@@ -303,6 +304,31 @@ function toolbarGroups(
     .filter((group) => group.controls.length > 0);
 }
 
+function ToolbarViewportObserver({
+  canonicalViewport,
+  pendingViewportRef,
+  proposalRevision,
+}: Readonly<{
+  canonicalViewport: WorkspaceViewport;
+  pendingViewportRef: MutableRefObject<WorkspaceViewport | null>;
+  proposalRevision: number;
+}>) {
+  const renderedViewport = useViewport();
+  useEffect(() => {
+    const pendingViewport = pendingViewportRef.current;
+    if (!pendingViewport) {
+      return;
+    }
+    if (
+      workspaceViewportsMatch(pendingViewport, renderedViewport) ||
+      !workspaceViewportsMatch(pendingViewport, canonicalViewport)
+    ) {
+      pendingViewportRef.current = null;
+    }
+  }, [canonicalViewport, pendingViewportRef, proposalRevision, renderedViewport]);
+  return null;
+}
+
 export function WorkspaceToolbar<TSectionData = WorkspaceJsonValue>({
   ariaLabel,
   canonicalViewport,
@@ -317,21 +343,8 @@ export function WorkspaceToolbar<TSectionData = WorkspaceJsonValue>({
   sectionIds,
   toolbarControls,
 }: WorkspaceToolbarProps<TSectionData>) {
-  const renderedViewport = useViewport();
   const pendingViewportRef = useRef<WorkspaceViewport | null>(null);
   const [proposalRevision, setProposalRevision] = useState(0);
-  useEffect(() => {
-    const pendingViewport = pendingViewportRef.current;
-    if (!pendingViewport) {
-      return;
-    }
-    if (
-      workspaceViewportsMatch(pendingViewport, renderedViewport) ||
-      !workspaceViewportsMatch(pendingViewport, canonicalViewport)
-    ) {
-      pendingViewportRef.current = null;
-    }
-  }, [canonicalViewport, proposalRevision, renderedViewport]);
   const changeZoom = useCallback(
     (resolveZoom: (zoom: number) => number) => {
       const currentViewport = pendingViewportRef.current ?? canonicalViewport;
@@ -469,6 +482,11 @@ export function WorkspaceToolbar<TSectionData = WorkspaceJsonValue>({
       className={`setta-workspace__toolbar ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
       role="toolbar"
     >
+      <ToolbarViewportObserver
+        canonicalViewport={canonicalViewport}
+        pendingViewportRef={pendingViewportRef}
+        proposalRevision={proposalRevision}
+      />
       {groups.map((group) => (
         <div
           aria-label={group.label}

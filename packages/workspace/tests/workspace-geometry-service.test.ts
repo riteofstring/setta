@@ -63,14 +63,15 @@ function fakeElement(
   rect: Readonly<{ height: number; width: number; x: number; y: number }>,
 ) {
   const addEventListener = vi.fn();
+  const getBoundingClientRect = vi.fn(() => rect as DOMRect);
   const removeEventListener = vi.fn();
   const element = {
     addEventListener,
-    getBoundingClientRect: () => rect as DOMRect,
+    getBoundingClientRect,
     ownerDocument: { defaultView: window },
     removeEventListener,
   } as unknown as HTMLElement;
-  return { addEventListener, element, removeEventListener };
+  return { addEventListener, element, getBoundingClientRect, removeEventListener };
 }
 
 describe("WorkspaceGeometryMeasurements lifecycle", () => {
@@ -89,13 +90,14 @@ describe("WorkspaceGeometryMeasurements lifecycle", () => {
       parentSectionId: null,
       sectionId: "root",
     });
+    geometry.flushMeasurement();
     geometry.requestMeasurement();
 
     expect(index.size).toBe(1);
     expect(geometry.canvasBounds()).toEqual({ height: 500, width: 800, x: 50, y: 80 });
     expect(fixture.addEventListener).toHaveBeenCalledWith("resize", expect.any(Function));
     expect(canvas.addEventListener).toHaveBeenCalledWith("scroll", expect.any(Function), true);
-    expect(fixture.requestAnimationFrame).toHaveBeenCalledOnce();
+    expect(fixture.requestAnimationFrame).toHaveBeenCalledTimes(2);
     expect(fixture.instances).toHaveLength(1);
     expect(fixture.instances[0]?.observe).toHaveBeenCalledWith(root.element);
 
@@ -108,7 +110,7 @@ describe("WorkspaceGeometryMeasurements lifecycle", () => {
     expect(canvas.removeEventListener).toHaveBeenCalledWith("scroll", expect.any(Function), true);
     expect(() => unregister()).not.toThrow();
     expect(() => fixture.instances[0]?.trigger()).not.toThrow();
-    expect(fixture.requestAnimationFrame).toHaveBeenCalledOnce();
+    expect(fixture.requestAnimationFrame).toHaveBeenCalledTimes(2);
   });
 
   it("rejects pending readiness work and unsubscribes when an unmounted canvas never measures", async () => {
@@ -159,6 +161,7 @@ describe("WorkspaceGeometryMeasurements lifecycle", () => {
       parentSectionId: null,
       sectionId: "root",
     });
+    geometry.flushMeasurement();
     geometry.setCanvasElement(null);
     unregisterFirst();
     geometry.setCanvasElement(canvas.element);
@@ -169,11 +172,57 @@ describe("WorkspaceGeometryMeasurements lifecycle", () => {
       parentSectionId: null,
       sectionId: "root",
     });
+    geometry.flushMeasurement();
 
     expect(index.size).toBe(1);
     expect(fixture.instances).toHaveLength(2);
     unregisterSecond();
     geometry.setCanvasElement(null);
     expect(index.size).toBe(0);
+  });
+
+  it("reads shared canvas geometry once per batched measurement", () => {
+    const fixture = fakeWindow();
+    const canvas = fakeElement(fixture.window, { height: 500, width: 800, x: 50, y: 80 });
+    const first = fakeElement(fixture.window, { height: 120, width: 200, x: 90, y: 140 });
+    const second = fakeElement(fixture.window, { height: 140, width: 220, x: 320, y: 180 });
+    const geometry = new WorkspaceGeometryMeasurements(new WorkspaceGeometryIndex());
+
+    geometry.setCanvasElement(canvas.element);
+    geometry.register({
+      depth: 0,
+      element: first.element,
+      order: 0,
+      parentSectionId: null,
+      sectionId: "first",
+    });
+    geometry.register({
+      depth: 0,
+      element: second.element,
+      order: 1,
+      parentSectionId: null,
+      sectionId: "second",
+    });
+    expect(fixture.requestAnimationFrame).toHaveBeenCalledOnce();
+    canvas.getBoundingClientRect.mockClear();
+    first.getBoundingClientRect.mockClear();
+    second.getBoundingClientRect.mockClear();
+
+    geometry.flushMeasurement();
+
+    expect(canvas.getBoundingClientRect).toHaveBeenCalledOnce();
+    expect(first.getBoundingClientRect).toHaveBeenCalledOnce();
+    expect(second.getBoundingClientRect).toHaveBeenCalledOnce();
+  });
+
+  it("settles superseded viewport synchronization requests", async () => {
+    const geometry = new WorkspaceGeometryMeasurements(new WorkspaceGeometryIndex());
+    const first = geometry.waitForViewport({ x: 10, y: 20, zoom: 1.5 });
+    const second = geometry.waitForViewport({ x: 30, y: 40, zoom: 2 });
+
+    geometry.completeViewport({ x: 30, y: 40, zoom: 2 });
+
+    await expect(first).resolves.toBe(false);
+    await expect(second).resolves.toBe(true);
   });
 });

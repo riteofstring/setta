@@ -230,6 +230,35 @@ describe("Workspace scaffold", () => {
     expect(() => renderToStaticMarkup(<Workspace toolbarControls={sparseControls} />)).toThrow(
       "toolbar controls must be a dense array without extra fields",
     );
+
+    const accessorControl = {
+      icon: null,
+      id: "accessor",
+      onPress: () => undefined,
+      placement: "project",
+    } as Record<string, unknown>;
+    Object.defineProperty(accessorControl, "label", {
+      enumerable: true,
+      get: () => {
+        throw new Error("The toolbar getter must not run.");
+      },
+    });
+    expect(() =>
+      renderToStaticMarkup(
+        <Workspace toolbarControls={[accessorControl as unknown as WorkspaceToolbarControl]} />,
+      ),
+    ).toThrow("workspace toolbar control field label");
+  });
+
+  it("keeps the minimap toggle's controlled target mounted while the minimap is hidden", () => {
+    const markup = renderToStaticMarkup(<Workspace minimapOptions={{ visible: false }} />);
+    const controlsId = /aria-controls="([^"]+)"[^>]+data-workspace-control-id="show-minimap"/u.exec(
+      markup,
+    )?.[1];
+
+    expect(controlsId).toBeTruthy();
+    expect(markup).toContain(`hidden="" id="${String(controlsId)}"`);
+    expect(markup).not.toContain('role="img"');
   });
 
   it("fails clearly when runtime props mix controlled and uncontrolled ownership", () => {

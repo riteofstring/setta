@@ -15,7 +15,7 @@ export type WorkspaceCanvasController = Readonly<{
   ): Promise<WorkspaceViewport>;
   focusElement(sectionId: string): void;
   focusSection(sectionId: string, viewport: WorkspaceViewport): Promise<WorkspaceViewport>;
-  waitForViewport(viewport: WorkspaceViewport): Promise<void>;
+  waitForViewport(viewport: WorkspaceViewport): Promise<boolean>;
   workspacePointToClient(point: WorkspacePoint): WorkspacePoint;
 }>;
 

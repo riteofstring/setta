@@ -35,7 +35,7 @@ function canvasController(focused: string[]): WorkspaceCanvasController {
       y: sectionId.length * 5,
       zoom: viewport.zoom,
     })),
-    waitForViewport: vi.fn(async () => undefined),
+    waitForViewport: vi.fn(async () => true),
     workspacePointToClient: (point) => point,
   };
 }
@@ -88,6 +88,18 @@ describe("workspace geometry navigation controller", () => {
     expect(fixture.changes).toHaveLength(1);
   });
 
+  it("settles a host-rejected focus proposal without moving DOM focus", async () => {
+    const fixture = controllerFixture();
+    vi.mocked(fixture.canvas.waitForViewport).mockResolvedValueOnce(false);
+
+    await expect(fixture.controller.focusSection("alpha")).resolves.toEqual({
+      status: "applied",
+    });
+
+    expect(fixture.changes).toEqual([{ reason: "viewport" }]);
+    expect(fixture.focused).toEqual([]);
+  });
+
   it.each([
     [null, "Workspace fit options must be an object"],
     [{ padding: null }, "Workspace fit padding must be a finite non-negative number"],
@@ -130,6 +142,29 @@ describe("workspace geometry navigation controller", () => {
     bounds = { maxZoom: 4, minZoom: 1 };
     expect(controller.setViewport({ x: 12, y: 8, zoom: 3 })).toEqual({ status: "applied" });
     expect(document.viewport).toEqual({ x: 12, y: 8, zoom: 3 });
+  });
+
+  it("rejects hidden and accessor-backed viewport fields before publication", () => {
+    const fixture = controllerFixture();
+    const hiddenViewport = { x: 12, y: 8, zoom: 1 };
+    Object.defineProperty(hiddenViewport, "metadata", { value: true });
+    expect(() => fixture.controller.setViewport(hiddenViewport)).toThrow(
+      "fields must be enumerable string data properties",
+    );
+
+    const accessorViewport = { y: 8, zoom: 1 } as Record<string, unknown>;
+    Object.defineProperty(accessorViewport, "x", {
+      enumerable: true,
+      get: () => {
+        throw new Error("The viewport getter must not run.");
+      },
+    });
+    expect(() =>
+      fixture.controller.setViewport(
+        accessorViewport as unknown as { x: number; y: number; zoom: number },
+      ),
+    ).toThrow("fields must be enumerable string data properties");
+    expect(fixture.changes).toEqual([]);
   });
 
   it("uses spatial root order followed by canonical descendants for adjacent focus", async () => {

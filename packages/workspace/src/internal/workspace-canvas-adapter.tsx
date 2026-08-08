@@ -67,6 +67,7 @@ type WorkspaceRootNode = Node<WorkspaceRootNodeData, "workspace-root-shell">;
 
 export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Readonly<{
   ariaLabel: string;
+  controllerSynchronizationRevision: number;
   document: WorkspaceDocument<TSectionData>;
   emptyState: ReactNode;
   gestureOptions: WorkspaceGestureOptions;
@@ -243,27 +244,31 @@ function WorkspaceMinimap({
   ariaLabel,
   id,
   placement,
+  visible,
 }: Readonly<{
   ariaLabel: string;
   id: string;
   placement: WorkspaceMinimapPlacement;
+  visible: boolean;
 }>) {
   return (
-    <div data-workspace-minimap-placement={placement} id={id}>
-      <MiniMap<WorkspaceRootNode>
-        ariaLabel={`${ariaLabel} minimap`}
-        bgColor="var(--setta-workspace-minimap-background)"
-        className={`setta-workspace__minimap ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
-        maskColor="color-mix(in oklch, var(--setta-workspace-canvas-background) 72%, transparent)"
-        maskStrokeColor="var(--setta-workspace-selection)"
-        maskStrokeWidth={2}
-        nodeBorderRadius={6}
-        nodeColor="var(--setta-workspace-section-background)"
-        nodeStrokeColor="var(--setta-workspace-section-muted-text)"
-        pannable={false}
-        position={placement === "left" ? "bottom-left" : "bottom-right"}
-        zoomable={false}
-      />
+    <div data-workspace-minimap-placement={placement} hidden={!visible} id={id}>
+      {visible ? (
+        <MiniMap<WorkspaceRootNode>
+          ariaLabel={`${ariaLabel} minimap`}
+          bgColor="var(--setta-workspace-minimap-background)"
+          className={`setta-workspace__minimap ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
+          maskColor="color-mix(in oklch, var(--setta-workspace-canvas-background) 72%, transparent)"
+          maskStrokeColor="var(--setta-workspace-selection)"
+          maskStrokeWidth={2}
+          nodeBorderRadius={6}
+          nodeColor="var(--setta-workspace-section-background)"
+          nodeStrokeColor="var(--setta-workspace-section-muted-text)"
+          pannable={false}
+          position={placement === "left" ? "bottom-left" : "bottom-right"}
+          zoomable={false}
+        />
+      ) : null}
     </div>
   );
 }
@@ -296,6 +301,7 @@ function advanceViewportLifecycle(
 
 export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   ariaLabel,
+  controllerSynchronizationRevision,
   document,
   emptyState,
   gestureOptions,
@@ -329,7 +335,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   );
   const projectedNodes = useMemo(() => projectNodes(document, geometry), [document, geometry]);
   const [nodes, setNodes] = useState<WorkspaceRootNode[]>(projectedNodes);
-  const [viewportSynchronizationRevision, setViewportSynchronizationRevision] = useState(0);
+  const [canvasInitialized, setCanvasInitialized] = useState(false);
   const lifecycleRef = useRef<WorkspaceViewportLifecycle | null>(null);
   lifecycleRef.current ??= new WorkspaceViewportLifecycle(document.viewport);
   const lifecycle = lifecycleRef.current;
@@ -347,6 +353,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     () => document.rootSections.map((root) => root.sectionId),
     [document.rootSections],
   );
+  const handleCanvasInitialized = useCallback(() => setCanvasInitialized(true), []);
   const getCanvasBounds = useCallback(() => geometry.canvasBounds(), [geometry]);
 
   useEffect(() => {
@@ -355,9 +362,12 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   }, [geometry, projectedNodes]);
 
   useEffect(() => {
+    if (!canvasInitialized) {
+      return;
+    }
     onCanvasControllerChange(canvasController);
     return () => onCanvasControllerChange(null);
-  }, [canvasController, onCanvasControllerChange]);
+  }, [canvasController, canvasInitialized, onCanvasControllerChange]);
 
   const handleNodesChange = useCallback<OnNodesChange<WorkspaceRootNode>>(
     (changes) => {
@@ -440,7 +450,6 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       }
       geometry.setViewport(nextViewport);
       const completed = lifecycle.complete(nextViewport);
-      setViewportSynchronizationRevision((current) => current + 1);
       if (completed) {
         onViewportCommit(completed);
       }
@@ -476,6 +485,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       nodesConnectable={false}
       nodesDraggable={false}
       nodesFocusable={false}
+      onInit={handleCanvasInitialized}
       onMove={handleMove}
       onMoveEnd={handleMoveEnd}
       onMoveStart={handleMoveStart}
@@ -534,14 +544,17 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         sectionIds={sectionIds}
         toolbarControls={toolbarControls}
       />
-      {minimapVisible ? (
-        <WorkspaceMinimap ariaLabel={ariaLabel} id={minimapId} placement={minimapPlacement} />
-      ) : null}
+      <WorkspaceMinimap
+        ariaLabel={ariaLabel}
+        id={minimapId}
+        placement={minimapPlacement}
+        visible={minimapVisible}
+      />
       <WorkspaceViewportSynchronizer
         geometry={geometry}
         lifecycle={lifecycle}
         programmaticViewportRef={programmaticViewportRef}
-        synchronizationRevision={viewportSynchronizationRevision}
+        synchronizationRevision={controllerSynchronizationRevision}
         viewport={document.viewport}
       />
     </ReactFlow>

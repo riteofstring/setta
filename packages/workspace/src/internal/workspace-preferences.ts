@@ -7,7 +7,7 @@ import {
   type WorkspacePoint,
   type WorkspaceThemeTokens,
 } from "../core.js";
-import { isDenseArray } from "./runtime-option-validation.js";
+import { isDenseArray, isEnumerableDataProperty } from "./runtime-option-validation.js";
 
 export type ResolvedWorkspaceGridOptions = Readonly<{
   markSize: number;
@@ -89,9 +89,7 @@ function preferenceRecord(value: unknown, label: string): UnknownRecord {
 function assertSupportedKeys(record: UnknownRecord, supported: ReadonlySet<string>, label: string) {
   const invalidKey = Reflect.ownKeys(record).find(
     (key) =>
-      typeof key !== "string" ||
-      !Object.prototype.propertyIsEnumerable.call(record, key) ||
-      !supported.has(key),
+      typeof key !== "string" || !isEnumerableDataProperty(record, key) || !supported.has(key),
   );
   if (invalidKey !== undefined) {
     throw new TypeError(`Unknown ${label} ${String(invalidKey)}.`);

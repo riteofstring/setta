@@ -1,15 +1,24 @@
 type UnknownRecord = Record<string, unknown>;
 
+export function isEnumerableDataProperty(value: object, key: PropertyKey): boolean {
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  return descriptor?.enumerable === true && "value" in descriptor;
+}
+
 export function isDenseArray(value: unknown): value is readonly unknown[] {
-  if (!Array.isArray(value)) {
+  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) {
     return false;
   }
-  const entries = Object.entries(value);
-  return (
-    entries.length === value.length &&
-    entries.every(([key], index) => key === String(index)) &&
-    Reflect.ownKeys(value).length === entries.length + 1
-  );
+  const ownKeys = Reflect.ownKeys(value);
+  if (ownKeys.length !== value.length + 1) {
+    return false;
+  }
+  for (let index = 0; index < value.length; index += 1) {
+    if (!isEnumerableDataProperty(value, String(index))) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function denseArrayAt(value: unknown, label: string): readonly unknown[] {
@@ -39,9 +48,7 @@ export function optionOverridesAt(
   const supported = new Set(supportedKeys);
   const invalidKey = Reflect.ownKeys(overrides).find(
     (key) =>
-      typeof key !== "string" ||
-      !Object.prototype.propertyIsEnumerable.call(overrides, key) ||
-      !supported.has(key),
+      typeof key !== "string" || !isEnumerableDataProperty(overrides, key) || !supported.has(key),
   );
   if (invalidKey !== undefined) {
     throw new TypeError(`Unknown ${optionLabel} ${String(invalidKey)}.`);

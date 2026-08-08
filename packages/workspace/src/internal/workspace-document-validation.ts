@@ -1,4 +1,4 @@
-import { isDenseArray } from "./runtime-option-validation.js";
+import { isDenseArray, isEnumerableDataProperty } from "./runtime-option-validation.js";
 import {
   WORKSPACE_DOCUMENT_SCHEMA_VERSION,
   type SectionDimension,
@@ -129,10 +129,10 @@ function recordAt(value: unknown, path: string): UnknownRecord {
 function enumerableStringKeys(record: UnknownRecord, path: string): readonly string[] {
   const ownKeys = Reflect.ownKeys(record);
   const invalidKey = ownKeys.find(
-    (key) => typeof key !== "string" || !Object.prototype.propertyIsEnumerable.call(record, key),
+    (key) => typeof key !== "string" || !isEnumerableDataProperty(record, key),
   );
   if (invalidKey !== undefined) {
-    fail("invalid-value", path, "fields must be enumerable strings");
+    fail("invalid-value", path, "fields must be enumerable string data properties");
   }
   return ownKeys as string[];
 }
@@ -201,7 +201,9 @@ function arrayAt(value: unknown, path: string): readonly unknown[] {
   return value;
 }
 
-function validateViewport(value: unknown): void {
+export function validateWorkspaceViewport(
+  value: unknown,
+): asserts value is WorkspaceDocument<unknown>["viewport"] {
   const viewport = recordAt(value, "$.viewport");
   exactKeys(viewport, viewportKeys, "$.viewport");
   finiteNumberAt(viewport.x, "$.viewport.x");
@@ -315,16 +317,8 @@ function jsonEntries(value: object, path: string): readonly [string, unknown][] 
     arrayAt(value, path);
     return Object.entries(value);
   }
-  recordAt(value, path);
-  const keys = Reflect.ownKeys(value);
-  if (keys.some((key) => typeof key !== "string")) {
-    fail("invalid-value", path, "JSON data cannot contain symbol keys");
-  }
-  const entries = Object.entries(value);
-  if (entries.length !== keys.length) {
-    fail("invalid-value", path, "JSON data cannot contain non-enumerable fields");
-  }
-  return entries;
+  const record = recordAt(value, path);
+  return enumerableStringKeys(record, path).map((key) => [key, record[key]]);
 }
 
 function jsonObjectAt(value: unknown, path: string): object {
@@ -508,7 +502,7 @@ export function validateWorkspaceDocument(
       `expected schema version ${WORKSPACE_DOCUMENT_SCHEMA_VERSION}`,
     );
   }
-  validateViewport(document.viewport);
+  validateWorkspaceViewport(document.viewport);
   const roots = validateRootSections(document.rootSections);
   const sections = validateSections(document.sections);
   validateContainment(roots, sections);
