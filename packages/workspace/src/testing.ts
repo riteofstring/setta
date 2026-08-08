@@ -1,5 +1,6 @@
 import {
   WORKSPACE_DOCUMENT_SCHEMA_VERSION,
+  getWorkspaceSectionOrder,
   resolveWorkspaceCapabilities,
   validateWorkspaceDocument,
   type WorkspaceCapabilities,
@@ -10,6 +11,7 @@ import {
   type WorkspaceSection,
 } from "./core.js";
 import { createWorkspaceController } from "./internal/workspace-controller.js";
+import { WorkspaceDocumentHistory } from "./internal/workspace-history.js";
 
 export * from "./internal/adapter-proof-drag-planning.js";
 export * from "./internal/adapter-proof-model.js";
@@ -40,21 +42,44 @@ export class WorkspaceInMemoryHost<TSectionData> {
   #capabilities: WorkspaceCapabilities;
   readonly #changes: WorkspaceInMemoryChange<TSectionData>[] = [];
   #document: WorkspaceDocument<TSectionData>;
+  readonly #history: WorkspaceDocumentHistory<TSectionData>;
   #selection: readonly string[] = [];
   readonly controller: WorkspaceController<TSectionData>;
 
   constructor(document: WorkspaceDocument<TSectionData>, policy: WorkspaceInMemoryPolicy = {}) {
     validateWorkspaceDocument(document);
     this.#document = document;
+    this.#history = new WorkspaceDocumentHistory(document);
     this.#capabilities = resolveWorkspaceCapabilities(policy.capabilities, policy.readOnly);
+    const commit = (
+      nextDocument: WorkspaceDocument<TSectionData>,
+      change: WorkspaceDocumentChange,
+    ) => {
+      this.#history.stageCommit(this.#document, nextDocument, change, this.#selection);
+      this.#document = nextDocument;
+      const existingIds = new Set(getWorkspaceSectionOrder(nextDocument));
+      this.#selection = this.#selection.filter((sectionId) => existingIds.has(sectionId));
+      const synchronization = this.#history.synchronize(nextDocument, this.#selection, false);
+      if (synchronization.selection) {
+        this.#selection = synchronization.selection;
+      }
+      this.#changes.push({ change, document: nextDocument });
+    };
+    const navigateHistory = (direction: "redo" | "undo") => {
+      const plan = this.#history.navigate(direction, this.#document, this.#capabilities);
+      if (plan.status === "applied") {
+        commit(plan.document, plan.change);
+        return { status: "applied" } as const;
+      }
+      return plan;
+    };
     this.controller = createWorkspaceController({
-      commit: (nextDocument, change) => {
-        this.#document = nextDocument;
-        this.#changes.push({ change, document: nextDocument });
-      },
+      commit,
       getCapabilities: () => this.#capabilities,
       getDocument: () => this.#document,
+      getHistoryState: () => this.#history.state(this.#capabilities),
       getSelection: () => this.#selection,
+      redo: () => navigateHistory("redo"),
       setSelection: (sectionIds) => {
         const next = [...new Set(sectionIds)];
         const unchanged =
@@ -66,6 +91,7 @@ export class WorkspaceInMemoryHost<TSectionData> {
         this.#selection = next;
         return { status: "applied" };
       },
+      undo: () => navigateHistory("undo"),
     });
   }
 

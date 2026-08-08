@@ -43,6 +43,7 @@ import {
   workspaceCreationAvailability,
   type WorkspaceProps,
 } from "./workspace-react-contract.js";
+import { useWorkspaceHistoryCoordinator } from "./workspace-react-history.js";
 import {
   focusCreatedWorkspaceSection,
   useResolvedWorkspaceAppearance,
@@ -277,6 +278,14 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   }, []);
   const controllerBindingsRef = useRef<WorkspaceControllerBindings<TSectionData> | null>(null);
   const internalControllerRef = useRef<WorkspaceController<TSectionData> | null>(null);
+  const history = useWorkspaceHistoryCoordinator({
+    canvasControllerRef,
+    capabilitiesRef,
+    commitSelection,
+    controlledRef,
+    document: validatedDocument,
+    selectionRef,
+  });
   const pendingCreatedSectionRef = useRef<Readonly<{
     panIntoView: boolean;
     sectionId: string;
@@ -290,6 +299,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         return Boolean(section && sectionRegistryRef.current.definition(section.kind)?.minimizable);
       },
       commit: (nextDocument, change) => {
+        history.stageCommit(documentRef.current, nextDocument, change);
         if (!controlledRef.current) {
           documentRef.current = nextDocument;
           setUncontrolledDocument(nextDocument);
@@ -352,11 +362,14 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       getCapabilities: () => capabilitiesRef.current,
       getCanvasController: () => canvasControllerRef.current,
       getDocument: () => documentRef.current,
+      getHistoryState: history.getState,
       getSelection: () => selectionRef.current,
       getViewportBounds: () => gestureOptionsRef.current,
       requestViewportSynchronization: () =>
         setControllerSynchronizationRevision((revision) => revision + 1),
+      redo: () => history.navigate("redo", bindings),
       setSelection: commitSelection,
+      undo: () => history.navigate("undo", bindings),
       ungroupSection: (sectionId) => {
         const plan = planWorkspaceSectionUngrouping({
           canvasController: canvasControllerRef.current,
@@ -518,6 +531,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         gestureOptions={gestureOptions}
         gridOptions={effectiveGridOptions}
         groupingConfigured={groupingConfigured}
+        historyAnnouncement={history.announcement}
         layoutEditable={capabilities.editLayout}
         marqueeSelectionMode={selectionOptions.marqueeMode}
         minimapPlacement={minimapOptions.placement}

@@ -73,6 +73,8 @@ export type WorkspaceCreateSectionOptions = Readonly<{
 }>;
 
 export type WorkspaceDocumentChangeReason =
+  | "history-redo"
+  | "history-undo"
   | "section-create"
   | "section-delete"
   | "section-group"
@@ -89,6 +91,11 @@ export type WorkspaceDocumentChangeReason =
 
 export type WorkspaceDocumentChange = Readonly<{
   reason: WorkspaceDocumentChangeReason;
+}>;
+
+export type WorkspaceHistoryState = Readonly<{
+  canRedo: boolean;
+  canUndo: boolean;
 }>;
 
 export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
@@ -108,7 +115,9 @@ export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
   focusSection(sectionId: string): Promise<WorkspaceActionResult>;
   getCapabilities(): WorkspaceCapabilities;
   getDocument(): WorkspaceDocument<TSectionData>;
+  getHistoryState(): WorkspaceHistoryState;
   getSelectedSectionIds(): readonly string[];
+  redo(): WorkspaceActionResult;
   selectSections(sectionIds: readonly string[]): WorkspaceActionResult;
   sendBackward(sectionIds: readonly string[]): WorkspaceActionResult;
   sendToBack(sectionIds: readonly string[]): WorkspaceActionResult;
@@ -120,5 +129,6 @@ export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
   setSectionTitle(sectionId: string, title: string): WorkspaceActionResult;
   setSectionsLocked(sectionIds: readonly string[], locked: boolean): WorkspaceActionResult;
   setViewport(viewport: WorkspaceViewport): WorkspaceActionResult;
+  undo(): WorkspaceActionResult;
   ungroupSection(sectionId: string): WorkspaceActionResult;
 }>;

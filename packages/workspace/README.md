@@ -272,6 +272,20 @@ root positions from the measured group frame and focuses the first promoted chil
 require structure and layout editing, publish one `section-group` or `section-ungroup` change, and
 reconcile against the controlled host before changing selection or focus.
 
+Committed section changes participate in built-in in-memory history. One accepted create, delete,
+group, ungroup, move, resize, size-mode, lock, minimize, title, presentation, or persistent stacking
+command creates one entry; viewport and selection changes do not. Undo and redo preserve the live
+viewport, restore the recorded package selection, recover focus only when the prior focused element
+was removed, and wait for controlled-host acceptance before moving either history stack. A rejected
+controlled proposal leaves the entry available. A new accepted branch clears redo, and an unrelated
+controlled document replacement clears both stacks rather than applying snapshots to unknown host
+state. Live capabilities gate the next history action without deleting it.
+
+Use Control/Command+Z to undo and Control/Command+Shift+Z or Control/Command+Y to redo while focus is
+in the workbench. Inputs, textareas, selects, editable content, and elements marked with
+`data-workspace-local-shortcuts` retain their local shortcut ownership. Hosts may expose pointer
+controls through `controller.undo()`, `controller.redo()`, and `controller.getHistoryState()`.
+
 ```tsx
 await controller.current?.focusSection("details");
 await controller.current?.fitSections(["summary", "details"], { padding: 0.16 });
@@ -287,6 +301,9 @@ controller.current?.bringToFront(["summary", "details"]);
 controller.current?.bringForward(["details"]);
 controller.current?.sendBackward(["details"]);
 controller.current?.sendToBack(["summary"]);
+controller.current?.getHistoryState();
+controller.current?.undo();
+controller.current?.redo();
 controller.current?.setSectionTitle("details", "Details");
 controller.current?.setSectionPresentation("details", {
   accentColor: "oklch(0.62 0.14 255)",

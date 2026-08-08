@@ -19,6 +19,7 @@ export type WorkspaceCanvasController = Readonly<{
   focusSection(sectionId: string, viewport: WorkspaceViewport): Promise<WorkspaceViewport>;
   getSectionRect(sectionId: string): WorkspaceRect | undefined;
   getVisibleWorkspaceRect(): WorkspaceRect;
+  recoverFocus(sectionId: string | null): Promise<boolean>;
   waitForViewport(viewport: WorkspaceViewport): Promise<boolean>;
   workspacePointToClient(point: WorkspacePoint): WorkspacePoint;
 }>;
@@ -98,6 +99,7 @@ export function createWorkspaceCanvasController(
     },
     getSectionRect: (sectionId) => geometry.workspaceRect(sectionId),
     getVisibleWorkspaceRect: () => geometry.visibleWorkspaceRect(),
+    recoverFocus: (sectionId) => geometry.recoverFocus(sectionId),
     waitForViewport: (viewport) => geometry.waitForViewport(viewport),
     workspacePointToClient: (point) => geometry.workspacePointToClient(point),
   };

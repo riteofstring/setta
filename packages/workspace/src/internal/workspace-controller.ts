@@ -9,6 +9,7 @@ import {
   type WorkspaceDocument,
   type WorkspaceDocumentChange,
   type WorkspaceFitOptions,
+  type WorkspaceHistoryState,
   type WorkspacePoint,
   type WorkspaceSection,
   type WorkspaceViewport,
@@ -35,11 +36,14 @@ export type WorkspaceControllerBindings<TSectionData> = Readonly<{
   getCapabilities(): WorkspaceCapabilities;
   getCanvasController?(): WorkspaceCanvasController | null;
   getDocument(): WorkspaceDocument<TSectionData>;
+  getHistoryState?(): WorkspaceHistoryState;
   getSelection?(): readonly string[];
   getViewportBounds?(): Readonly<{ maxZoom: number; minZoom: number }>;
   groupSections?(sectionIds: readonly string[]): WorkspaceActionResult;
   requestViewportSynchronization?(): void;
+  redo?(): WorkspaceActionResult;
   setSelection?(sectionIds: readonly string[]): WorkspaceActionResult;
+  undo?(): WorkspaceActionResult;
   ungroupSection?(sectionId: string): WorkspaceActionResult;
 }>;
 
@@ -356,8 +360,10 @@ export function createWorkspaceController<TSectionData>(
     focusSection: (sectionId) => focusSection(bindings, setSelection, sectionId),
     getCapabilities: () => ({ ...bindings.getCapabilities() }),
     getDocument: () => bindings.getDocument(),
+    getHistoryState: () => bindings.getHistoryState?.() ?? { canRedo: false, canUndo: false },
     getSelectedSectionIds: () => [...getSelection()],
     groupSections: (sectionIds) => groupSections(bindings, sectionIds),
+    redo: () => bindings.redo?.() ?? { status: "unchanged" },
     selectSections: (sectionIds) => {
       const selectedIds = sectionIdsAt(sectionIds);
       const document = bindings.getDocument();
@@ -390,6 +396,7 @@ export function createWorkspaceController<TSectionData>(
         type: "set-sections-locked",
       }),
     setViewport: (viewport) => setViewport(bindings, viewport),
+    undo: () => bindings.undo?.() ?? { status: "unchanged" },
     ungroupSection: (sectionId) => ungroupSection(bindings, sectionId),
   };
 }

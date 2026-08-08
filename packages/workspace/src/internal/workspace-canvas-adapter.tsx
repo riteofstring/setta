@@ -33,11 +33,15 @@ import {
 } from "./workspace-canvas-navigation.js";
 import { workspaceNodeTypes, type WorkspaceRootNode } from "./workspace-canvas-root-node.js";
 import { useWorkspaceCanvasRootProjection } from "./workspace-canvas-root-projection.js";
-import { useWorkspaceCanvasSelectionControls } from "./workspace-canvas-selection-controls.js";
+import {
+  targetAcceptsWorkspaceCanvasShortcut,
+  useWorkspaceCanvasSelectionControls,
+} from "./workspace-canvas-selection-controls.js";
 import { WorkspaceSelectionOverlay } from "./workspace-canvas-selection.js";
 import { useWorkspaceCanvasViewport } from "./workspace-canvas-viewport.js";
 import { useWorkspaceExternalDrop } from "./workspace-external-drop.js";
 import { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
+import { resolveWorkspaceHistoryShortcut } from "./workspace-history.js";
 import {
   WORKSPACE_NO_PAN_CLASS_NAME,
   WORKSPACE_NO_WHEEL_CLASS_NAME,
@@ -75,6 +79,7 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   gestureOptions: WorkspaceGestureOptions;
   gridOptions: ResolvedWorkspaceGridOptions;
   groupingConfigured: boolean;
+  historyAnnouncement: string;
   layoutEditable: boolean;
   marqueeSelectionMode: "full" | "partial";
   minimapPlacement: WorkspaceMinimapPlacement;
@@ -126,6 +131,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   gestureOptions,
   gridOptions,
   groupingConfigured,
+  historyAnnouncement,
   layoutEditable,
   marqueeSelectionMode,
   minimapPlacement,
@@ -258,6 +264,16 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   );
   const handleCanvasKeyDownCapture = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      const historyDirection = resolveWorkspaceHistoryShortcut(event);
+      if (
+        historyDirection &&
+        targetAcceptsWorkspaceCanvasShortcut(event.target, event.currentTarget.ownerDocument)
+      ) {
+        workspaceController[historyDirection]();
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       selection.handleCanvasKeyDownCapture(event);
       if (!event.defaultPrevented) {
         selectionActions.handleCanvasKeyDownCapture(event);
@@ -266,7 +282,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         creation.handleCanvasKeyDownCapture(event);
       }
     },
-    [creation, selection, selectionActions],
+    [creation, selection, selectionActions, workspaceController],
   );
 
   return (
@@ -276,7 +292,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     >
       <ReactFlow<WorkspaceRootNode>
         aria-label={`${ariaLabel} canvas`}
-        aria-keyshortcuts="Control+A Meta+A Escape"
+        aria-keyshortcuts="Control+A Meta+A Control+Y Meta+Y Control+Z Meta+Z Control+Shift+Z Meta+Shift+Z Escape"
         autoPanOnNodeFocus={false}
         className="setta-workspace__canvas"
         data-workspace-external-drop-state={externalDrop.state}
@@ -353,6 +369,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         ) : null}
         <WorkspaceCanvasAnnouncements
           externalDrop={externalDrop.announcementText}
+          history={historyAnnouncement}
           movement={rootProjection.announcementText}
           selection={selection.announcementText}
           selectionAction={selectionActions.announcementText}

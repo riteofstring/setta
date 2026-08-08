@@ -252,6 +252,27 @@ export class WorkspaceGeometryMeasurements {
     });
   }
 
+  async recoverFocus(sectionId: string | null): Promise<boolean> {
+    const canvas = this.#canvasElement;
+    if (!canvas) {
+      return false;
+    }
+    const ownerDocument = canvas.ownerDocument;
+    const activeElement = ownerDocument.activeElement;
+    if (
+      activeElement &&
+      activeElement !== ownerDocument.body &&
+      activeElement !== ownerDocument.documentElement
+    ) {
+      return false;
+    }
+    if (sectionId) {
+      return this.focusSectionWhenReady(sectionId);
+    }
+    canvas.focus({ preventScroll: true });
+    return ownerDocument.activeElement === canvas;
+  }
+
   #unregister(entry: RegisteredMeasuredElement): void {
     if (this.#entries.get(entry.sectionId)?.token !== entry.token) {
       return;

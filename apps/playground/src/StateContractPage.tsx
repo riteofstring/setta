@@ -78,6 +78,17 @@ export function StateContractPage() {
     setStatus(resultMessage("Controlled focus", await controller.focusSection("alpha")));
   };
 
+  const runHistory = (
+    controllerReference: typeof controlledController,
+    direction: "redo" | "undo",
+  ) => {
+    const controller = controllerReference.current;
+    if (!controller) {
+      throw new Error("The workspace history controller is not mounted.");
+    }
+    controller[direction]();
+  };
+
   return (
     <>
       <a className="skip-link" href="#state-contract-content">
@@ -145,6 +156,12 @@ export function StateContractPage() {
               >
                 Pan uncontrolled viewport
               </button>
+              <button type="button" onClick={() => runHistory(uncontrolledController, "undo")}>
+                Undo uncontrolled change
+              </button>
+              <button type="button" onClick={() => runHistory(uncontrolledController, "redo")}>
+                Redo uncontrolled change
+              </button>
             </fieldset>
             <Workspace
               ariaLabel="Uncontrolled workspace"
@@ -193,6 +210,12 @@ export function StateContractPage() {
             </button>
             <button type="button" onClick={() => void focusControlledAlpha()}>
               Focus controlled Alpha
+            </button>
+            <button type="button" onClick={() => runHistory(controlledController, "undo")}>
+              Undo controlled change
+            </button>
+            <button type="button" onClick={() => runHistory(controlledController, "redo")}>
+              Redo controlled change
             </button>
             <Workspace
               ariaLabel="Controlled workspace"

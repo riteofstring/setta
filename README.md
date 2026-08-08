@@ -94,3 +94,7 @@ The same menu now completes top-level grouping through a strict host group facto
 container kind, then ungroups direct children into deterministic non-overlapping root positions.
 Both paths preserve canonical sibling order, publish one structural change, update selection only
 after controlled-host acceptance, and restore keyboard focus to the resulting visible structure.
+Phase 2 now also includes package-owned structural undo and redo. Accepted section commands create
+one in-memory entry while viewport and selection remain outside history; controlled rejection does
+not consume an entry, live capabilities gate navigation, and keyboard or public-controller paths
+restore recorded selection without stealing focus from surviving controls.

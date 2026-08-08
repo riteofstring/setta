@@ -33,10 +33,12 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain('data-workspace-grid-visible="true"');
     expect(markup).toContain('data-workspace-external-drop-state="idle"');
     expect(markup).toContain('data-workspace-external-drop-announcement=""');
+    expect(markup).toContain('data-workspace-history-announcement=""');
     expect(markup).toContain('data-workspace-section-state-announcement=""');
     expect(markup).toContain('data-workspace-sizing-announcement=""');
     expect(markup).toContain('data-workspace-resolved-appearance="light"');
     expect(markup).toContain("Start with a section.");
+    expect(markup).toContain("Control+Shift+Z");
   });
 
   it("preserves arbitrary host markup in the empty-state surface", () => {

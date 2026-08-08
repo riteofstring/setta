@@ -35,6 +35,17 @@ const toolbarControls = [
     onPress: (controller) => void controller.setViewport({ x: 0, y: 0, zoom: 1 }),
     placement: "project",
   },
+  {
+    icon: <span>U</span>,
+    id: "consumer-undo",
+    label: "Undo consumer change",
+    onPress: (controller) => {
+      if (controller.getHistoryState().canUndo) {
+        controller.undo();
+      }
+    },
+    placement: "project",
+  },
 ] satisfies readonly WorkspaceToolbarControl[];
 
 createRoot(root).render(

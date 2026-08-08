@@ -42,6 +42,7 @@ function canvasController(focused: string[]): WorkspaceCanvasController {
     })),
     getSectionRect: () => undefined,
     getVisibleWorkspaceRect: () => ({ height: 600, width: 800, x: 0, y: 0 }),
+    recoverFocus: vi.fn(async () => false),
     waitForViewport: vi.fn(async () => true),
     workspacePointToClient: (point) => point,
   };

@@ -35,7 +35,10 @@ function selectionAnnouncement<TSectionData>(
     : subject;
 }
 
-function targetAcceptsCanvasShortcut(target: EventTarget | null, ownerDocument: Document): boolean {
+export function targetAcceptsWorkspaceCanvasShortcut(
+  target: EventTarget | null,
+  ownerDocument: Document,
+): boolean {
   const ElementConstructor = ownerDocument.defaultView?.Element;
   if (!ElementConstructor || !(target instanceof ElementConstructor)) {
     return true;
@@ -130,7 +133,7 @@ export function useWorkspaceCanvasSelectionControls<TSectionData>({
   );
   const handleCanvasKeyDownCapture = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
-      if (!targetAcceptsCanvasShortcut(event.target, event.currentTarget.ownerDocument)) {
+      if (!targetAcceptsWorkspaceCanvasShortcut(event.target, event.currentTarget.ownerDocument)) {
         return;
       }
       const selectsAll =

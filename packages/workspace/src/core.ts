@@ -70,5 +70,6 @@ export type {
   WorkspaceGridOptionOverrides,
   WorkspaceGridOptions,
   WorkspaceGridPattern,
+  WorkspaceHistoryState,
   WorkspaceThemeTokens,
 } from "./internal/workspace-surface-contract.js";
