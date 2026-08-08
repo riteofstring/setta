@@ -1,14 +1,13 @@
-import type { ResponseDataAndStatus } from "@setta/app-subsystem-frontend-sdk";
 import {
   buildPluginRestartActionPlan,
   getRestartRequiredPluginIds,
+  mapPluginRestartResponse,
   requestPluginRestart,
 } from "plugins/restart";
 import {
   createPluginListEntry,
   createPluginStatusEntry,
   type PluginListEntry,
-  type PluginRestartResponse,
 } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 
@@ -21,8 +20,6 @@ function buildPluginListEntry(
     version: "1.0.0",
     sourceScope: "workspace",
     sourceScopeLabel: "workspace",
-    sourceManager: "setta",
-    sourceManagerHint: null,
     canonicalSourceKey: "github:acme/plugin",
     sourceDigestSha256: null,
     frontend: {
@@ -36,22 +33,12 @@ function buildPluginListEntry(
     },
     config: {
       hasSchema: false,
-      schemaJson: {},
-      schemaJsonDigestSha256: null,
-      currentConfig: {},
-      currentConfigDigestSha256: null,
+      schemaJson: null,
     },
     effectiveCapabilities: [],
-    enablementSource: null,
     restartRequired: false,
     ...overrides,
   });
-}
-
-async function runRestartResponse(
-  response: ResponseDataAndStatus<PluginRestartResponse>,
-) {
-  return requestPluginRestart(async () => response);
 }
 
 describe("plugin restart helpers", () => {
@@ -85,8 +72,6 @@ describe("plugin restart helpers", () => {
           state: "pending_restart",
           sourceScope: "workspace",
           sourceScopeLabel: "workspace",
-          sourceManager: "setta",
-          sourceManagerHint: null,
           sourcePath: "[redacted]:workspace:setta-fixture-backend",
           canonicalSourceKey: "redacted:workspace:setta-fixture-backend",
           sourceDigestSha256: null,
@@ -94,13 +79,6 @@ describe("plugin restart helpers", () => {
           requestedCapabilities: [],
           effectiveCapabilities: [],
           blockedCapabilities: [],
-          components: [],
-          registeredCodegenTargets: [],
-          registeredLanguageServers: [],
-          registeredBackendRoutes: [],
-          registeredStaticDirs: [],
-          registeredListenerEndpoints: [],
-          enablementSource: null,
           runtimePayloadDigestSha256: "digest-setta-fixture-backend",
           restartRequired: true,
           errors: [],
@@ -130,58 +108,57 @@ describe("plugin restart helpers", () => {
   });
 
   it("maps restart endpoint responses to accepted and manual-required outcomes", () => {
-    return Promise.all([
-      expect(
-        runRestartResponse({
-          status: 200,
-          hasResponse: true,
-          data: {
-            accepted: true,
-            mode: "programmatic",
-            command: null,
-            reason: null,
-          },
-        }),
-      ).resolves.toEqual({
-        kind: "accepted",
+    expect(
+      mapPluginRestartResponse({
+        status: 200,
+        hasResponse: true,
+        data: {
+          accepted: true,
+          mode: "programmatic",
+          command: null,
+          reason: null,
+        },
       }),
-      expect(
-        runRestartResponse({
-          status: 200,
-          hasResponse: true,
-          data: {
-            accepted: false,
-            mode: "programmatic",
-            command: "setta restart",
-            reason: "Programmatic restart request was rejected.",
-          },
-        }),
-      ).resolves.toEqual({
-        kind: "manual_required",
-        command: "setta restart",
-        reason: "Programmatic restart request was rejected.",
-        message:
-          "Manual restart required: setta restart. Programmatic restart request was rejected.",
+    ).toEqual({
+      kind: "accepted",
+    });
+
+    expect(
+      mapPluginRestartResponse({
+        status: 200,
+        hasResponse: true,
+        data: {
+          accepted: false,
+          mode: "programmatic",
+          command: "setta restart",
+          reason: "Programmatic restart request was rejected.",
+        },
       }),
-    ]);
+    ).toEqual({
+      kind: "manual_required",
+      command: "setta restart",
+      reason: "Programmatic restart request was rejected.",
+      message:
+        "Manual restart required: setta restart. Programmatic restart request was rejected.",
+    });
   });
 
-  it("maps non-success restart endpoint responses to request_failed", async () => {
-    await expect(
-      runRestartResponse({
+  it("maps non-success restart endpoint responses to request_failed", () => {
+    expect(
+      mapPluginRestartResponse({
         status: 500,
         hasResponse: true,
         data: undefined,
       }),
-    ).resolves.toEqual({
+    ).toEqual({
       kind: "request_failed",
       message: "Restart request failed.",
     });
   });
 
-  it("maps error detail from restart endpoint payloads", async () => {
-    await expect(
-      runRestartResponse({
+  it("maps error detail from restart endpoint payloads", () => {
+    expect(
+      mapPluginRestartResponse({
         status: 500,
         hasResponse: true,
         data: {
@@ -193,7 +170,7 @@ describe("plugin restart helpers", () => {
           reason: string | null;
         },
       }),
-    ).resolves.toEqual({
+    ).toEqual({
       kind: "request_failed",
       message: "Restart request failed: restart endpoint failed",
     });

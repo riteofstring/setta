@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { normalizeRunInstructionsAccordionOpenValues } from "./runInstructionsAccordionState";
+import {
+  RUN_INSTRUCTIONS_ACCORDION_ITEM_ORDER,
+  normalizeRunInstructionsAccordionOpenValues,
+} from "./runInstructionsAccordionState";
 
 describe("runInstructionsAccordionState", () => {
   it("keeps stable accordion order and drops stale persisted values", () => {
@@ -31,5 +34,10 @@ describe("runInstructionsAccordionState", () => {
       "run-instructions-codegen-targets",
       "run-instructions-add-from-code-blocks",
     ]);
+    expect(
+      normalized.every((value) =>
+        RUN_INSTRUCTIONS_ACCORDION_ITEM_ORDER.includes(value),
+      ),
+    ).toBe(true);
   });
 });

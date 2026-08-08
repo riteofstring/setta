@@ -46,7 +46,6 @@ async function seedReadOnlyVisibleProjectChatWindows(
     const {
       ChatWindowModeEnum,
       ChatWindowPlacementEnum,
-      createProjectChatWindowInstance,
       createProjectChatWindowingState,
     } = await import("/src/utils/generatedTypes.ts");
 
@@ -58,7 +57,7 @@ async function seedReadOnlyVisibleProjectChatWindows(
       state.projectChatWindowing = createProjectChatWindowingState({
         order: ["project-chat-window-1", "project-chat-window-2"],
         instancesById: {
-          "project-chat-window-1": createProjectChatWindowInstance({
+          "project-chat-window-1": {
             instanceId: "project-chat-window-1",
             placement: ChatWindowPlacementEnum.floating,
             mode: ChatWindowModeEnum.project_ai_mode,
@@ -73,8 +72,8 @@ async function seedReadOnlyVisibleProjectChatWindows(
               width: 420,
               height: 320,
             },
-          }),
-          "project-chat-window-2": createProjectChatWindowInstance({
+          },
+          "project-chat-window-2": {
             instanceId: "project-chat-window-2",
             placement: ChatWindowPlacementEnum.floating,
             mode: ChatWindowModeEnum.project_ai_mode,
@@ -89,7 +88,7 @@ async function seedReadOnlyVisibleProjectChatWindows(
               width: 420,
               height: 320,
             },
-          }),
+          },
         },
       });
     });
@@ -120,7 +119,6 @@ async function seedReadOnlyHiddenProjectChatWindow(page: Page): Promise<void> {
     const {
       ChatWindowModeEnum,
       ChatWindowPlacementEnum,
-      createProjectChatWindowInstance,
       createProjectChatWindowingState,
     } = await import("/src/utils/generatedTypes.ts");
 
@@ -132,7 +130,7 @@ async function seedReadOnlyHiddenProjectChatWindow(page: Page): Promise<void> {
       state.projectChatWindowing = createProjectChatWindowingState({
         order: ["project-chat-window-1"],
         instancesById: {
-          "project-chat-window-1": createProjectChatWindowInstance({
+          "project-chat-window-1": {
             instanceId: "project-chat-window-1",
             placement: ChatWindowPlacementEnum.floating,
             mode: ChatWindowModeEnum.project_ai_mode,
@@ -147,7 +145,7 @@ async function seedReadOnlyHiddenProjectChatWindow(page: Page): Promise<void> {
               width: 420,
               height: 320,
             },
-          }),
+          },
         },
       });
     });

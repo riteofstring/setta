@@ -1,6 +1,4 @@
-import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
-import { deleteNotification, getNotifications } from "openapi/http";
 import { useCallback, useEffect, useState } from "react";
 import {
   IoAlertCircleSharp,
@@ -22,16 +20,18 @@ import {
   useProjectState,
 } from "state/definitions";
 import {
-  coerceAppNotifications,
-  type AppNotification,
-} from "state/types/notifications";
-import {
-  OverviewNotificationsPaneTabEnum,
   type OverviewNotificationsPaneTab,
+  OverviewNotificationsPaneTabEnum,
 } from "utils/constants";
+import { res200 } from "utils/endpointUtils";
 import {
-  NotificationTypeEnum,
-  type NotificationType,
+  route_delete_notification,
+  route_get_notifications,
+} from "utils/generatedEndpoints";
+import {
+  SettaNotification,
+  SettaNotificationType,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
 
@@ -45,7 +45,9 @@ export function NotificationsArea() {
     (state) => state.overviewNotificationsPaneTab,
   );
   const activePaneTab = persistedPaneTab;
+
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
+
   const setActivePaneTab = useCallback(
     (nextTab: OverviewNotificationsPaneTab) => {
       if (persistedPaneTab === nextTab) {
@@ -57,23 +59,18 @@ export function NotificationsArea() {
     },
     [persistedPaneTab],
   );
+
   // Fetch notifications when component mounts
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const response = await callOpenAPI(
-          getNotifications({
-            body: {
-              projectConfigId,
-            },
-          }),
-        );
+        const response = await route_get_notifications({ projectConfigId });
         if (res200(response)) {
           // Set the notifications in the store
           useNotifications.setState((state) => ({
             notifications: [
               ...state.notifications.filter((n) => n.temporary),
-              ...coerceAppNotifications(response.data ?? []),
+              ...response.data,
             ],
           }));
         }
@@ -81,10 +78,12 @@ export function NotificationsArea() {
         console.error("Failed to fetch notifications:", error);
       }
     };
+
     if (projectConfigId) {
       fetchNotifications();
     }
   }, [projectConfigId]);
+
   let paneBody = <NotificationsList notifications={notifications} />;
   if (activePaneTab === OverviewNotificationsPaneTabEnum.BackendLogs) {
     paneBody = (
@@ -96,6 +95,7 @@ export function NotificationsArea() {
       </div>
     );
   }
+
   return (
     <div
       data-testid="notifications-pane-shell"
@@ -149,10 +149,11 @@ export function NotificationsArea() {
     </div>
   );
 }
+
 function NotificationsList({
   notifications,
 }: {
-  notifications: Array<AppNotification>;
+  notifications: Array<SettaNotification>;
 }) {
   return (
     <div
@@ -172,21 +173,22 @@ function NotificationsList({
     </div>
   );
 }
-function NotificationItem({ notification }: { notification: AppNotification }) {
+
+function NotificationItem({
+  notification,
+}: {
+  notification: SettaNotification;
+}) {
   const { id, type, message, timestamp, read_status, temporary } = notification;
   const [isExiting, setIsExiting] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(temporary ? 100 : 0);
-  const details =
-    notification.metadata &&
-    typeof notification.metadata === "object" &&
-    typeof notification.metadata.details === "string"
-      ? notification.metadata.details
-      : "";
+
   // Format timestamp for display - convert UTC to local time
   const formattedTime = new Date(timestamp).toLocaleString(undefined, {
     dateStyle: "short",
     timeStyle: "short",
   });
+
   // Handle removing a notification
   const handleRemove = async () => {
     if (temporary) {
@@ -196,40 +198,42 @@ function NotificationItem({ notification }: { notification: AppNotification }) {
       }, 300); // Match transition duration
     } else {
       removeNotification(id);
-      await callOpenAPI(
-        deleteNotification({
-          body: {
-            notificationId: id,
-          },
-        }),
-      );
+      await route_delete_notification({ notificationId: id });
     }
   };
+
   // Handle marking a notification as read when interacted with
   const handleMarkAsRead = () => {
     if (!read_status) {
       markAsRead(id);
     }
   };
+
   // Timer effect for temporary notifications
   useEffect(() => {
     if (!temporary) return;
+
     const timeout = DEFAULT_TEMP_TIMEOUT * 0.95;
     // Update time remaining every 100ms
     const interval = setInterval(() => {
       const elapsed = Date.now() - new Date(timestamp).getTime();
       const remaining = Math.max(0, 100 - (elapsed / timeout) * 100);
       setTimeRemaining(remaining);
+
       if (remaining <= 0) {
         clearInterval(interval);
         setIsExiting(true);
       }
     }, 100);
+
     return () => clearInterval(interval);
   }, [id, temporary]);
+
   return (
     <section
-      className={`group/notifications overflow-clip rounded-md px-3 py-2 transition-all duration-300 hover:bg-white hover:shadow-md hover:dark:bg-setta-800 hover:dark:shadow-lg ${!read_status ? "bg-white shadow-md dark:bg-setta-700/30" : ""}  ${isExiting ? "opacity-0" : "opacity-100"}`}
+      className={`group/notifications overflow-clip rounded-md px-3 py-2 transition-all duration-300 hover:bg-white hover:shadow-md hover:dark:bg-setta-800 hover:dark:shadow-lg ${
+        !read_status ? "bg-white shadow-md dark:bg-setta-700/30" : ""
+      }  ${isExiting ? "opacity-0" : "opacity-100"}`}
       onClick={handleMarkAsRead}
     >
       <header className="mb-2 flex items-center gap-2">
@@ -250,7 +254,9 @@ function NotificationItem({ notification }: { notification: AppNotification }) {
 
       <div className="flex items-center justify-between">
         <p className="text-xs text-setta-600 group-hover/notifications:text-setta-900 dark:text-setta-100 group-hover/notifications:dark:text-white">
-          {details}
+          {notification.metadata && notification.metadata.details
+            ? notification.metadata.details
+            : ""}
         </p>
         <span className="text-xs text-setta-400 dark:text-setta-500">
           {formattedTime}
@@ -268,27 +274,31 @@ function NotificationItem({ notification }: { notification: AppNotification }) {
     </section>
   );
 }
-export function getNotificationIcon(type: NotificationType, className = "") {
+
+export function getNotificationIcon(
+  type: SettaNotificationType,
+  className = "",
+) {
   switch (type) {
-    case NotificationTypeEnum.error:
+    case SettaNotificationTypeEnum.error:
       return (
         <IoAlertCircleSharp
           className={`${className} text-red-500 dark:text-red-400`}
         />
       );
-    case NotificationTypeEnum.warning:
+    case SettaNotificationTypeEnum.warning:
       return (
         <IoWarning
           className={`${className} text-yellow-500 dark:text-yellow-400`}
         />
       );
-    case NotificationTypeEnum.save:
+    case SettaNotificationTypeEnum.save:
       return (
         <VscSave
           className={`${className} text-setta-300 dark:text-setta-400`}
         />
       );
-    case NotificationTypeEnum.info:
+    case SettaNotificationTypeEnum.info:
     default:
       return (
         <IoInformationCircle

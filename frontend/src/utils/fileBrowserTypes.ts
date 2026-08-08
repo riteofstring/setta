@@ -1,26 +1,25 @@
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
 import { normalizeBrowserPath } from "utils/browserPaths";
-import type { ObjectValues } from "utils/generatedTypes";
-import {
-  BrowserSearchScopeEnum,
-  type BrowserSavedSearchTypeFilters,
-} from "utils/generatedTypes";
 
-export type FileBrowserSearchScope = ObjectValues<
-  typeof BrowserSearchScopeEnum
->;
+export type FileBrowserSearchScope = "recursive" | "local";
 
-type FileBrowserTypeFilter = keyof BrowserSavedSearchTypeFilters;
-type AttachmentPreviewKind = ReturnType<typeof getAttachmentPreviewKind>;
+export type FileBrowserTypeFilter =
+  | "image"
+  | "video"
+  | "audio"
+  | "text"
+  | "data";
 
-export const DEFAULT_FILE_BROWSER_TYPE_FILTERS: BrowserSavedSearchTypeFilters =
-  {
-    image: true,
-    video: true,
-    audio: true,
-    text: true,
-    data: true,
-  };
+export const DEFAULT_FILE_BROWSER_TYPE_FILTERS: Record<
+  FileBrowserTypeFilter,
+  boolean
+> = {
+  image: true,
+  video: true,
+  audio: true,
+  text: true,
+  data: true,
+};
 
 const DATA_EXTENSIONS = new Set([
   ".avro",
@@ -41,17 +40,6 @@ const DATA_EXTENSIONS = new Set([
   ".xls",
   ".xlsx",
 ]);
-
-const FILE_BROWSER_TYPE_FILTER_BY_PREVIEW_KIND = {
-  archive: "data",
-  audio: "audio",
-  image: "image",
-  other: "data",
-  video: "video",
-} as const satisfies Record<
-  Exclude<AttachmentPreviewKind, "pdf" | "text">,
-  FileBrowserTypeFilter
->;
 
 type FileBrowserItemLike = {
   name: string;
@@ -76,20 +64,13 @@ function extractExtension(value: string | undefined): string | null {
   return baseName.slice(dotIndex).toLowerCase();
 }
 
-function isFileBrowserFolderItem(item: FileBrowserItemLike): boolean {
-  return item.type.toLowerCase() === "folder";
-}
-
-function getTextLikeFileBrowserTypeFilter(
+function getFileBrowserTypeFilterForItem(
   item: FileBrowserItemLike,
-): FileBrowserTypeFilter {
-  const ext = extractExtension(item.name) ?? extractExtension(item.fullPath);
-  return ext && DATA_EXTENSIONS.has(ext) ? "data" : "text";
-}
+): FileBrowserTypeFilter | "folder" {
+  if (item.type.toLowerCase() === "folder") {
+    return "folder";
+  }
 
-function getNonFolderFileBrowserTypeFilter(
-  item: FileBrowserItemLike,
-): FileBrowserTypeFilter {
   const previewKind = getAttachmentPreviewKind({
     id: item.fullPath,
     name: item.name,
@@ -97,27 +78,47 @@ function getNonFolderFileBrowserTypeFilter(
     size: item.size ?? null,
   });
 
-  if (previewKind === "text" || previewKind === "pdf") {
-    return getTextLikeFileBrowserTypeFilter(item);
+  switch (previewKind) {
+    case "image":
+      return "image";
+
+    case "video":
+      return "video";
+
+    case "audio":
+      return "audio";
+
+    case "text":
+    case "pdf": {
+      const ext =
+        extractExtension(item.name) ?? extractExtension(item.fullPath);
+      if (ext && DATA_EXTENSIONS.has(ext)) {
+        return "data";
+      }
+      return "text";
+    }
+
+    case "archive":
+    case "other":
+      return "data";
+
+    default:
+      return previewKind satisfies never;
   }
-
-  return FILE_BROWSER_TYPE_FILTER_BY_PREVIEW_KIND[previewKind];
-}
-
-function getFileBrowserTypeFilterForItem(
-  item: FileBrowserItemLike,
-): FileBrowserTypeFilter | "folder" {
-  return isFileBrowserFolderItem(item)
-    ? "folder"
-    : getNonFolderFileBrowserTypeFilter(item);
 }
 
 export function filterFileBrowserItemsByTypeFilters<
   T extends FileBrowserItemLike,
->(items: T[], typeFilters: BrowserSavedSearchTypeFilters): T[] {
+>(items: T[], typeFilters: Record<FileBrowserTypeFilter, boolean>): T[] {
   return items.filter((item) => {
+    if (item.type.toLowerCase() === "folder") {
+      return true;
+    }
     const category = getFileBrowserTypeFilterForItem(item);
-    return category === "folder" || typeFilters[category] === true;
+    if (category === "folder") {
+      return true;
+    }
+    return typeFilters[category] === true;
   });
 }
 

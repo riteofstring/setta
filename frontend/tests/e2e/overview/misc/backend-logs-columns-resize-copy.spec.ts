@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   ensureAppReady,
+  postBackend,
   seedLocalStorage,
   setOverviewTab,
 } from "../../helpers";
@@ -77,27 +78,32 @@ test("backend logs pane supports column resize handles and copy feedback", async
   await expect(
     page.getByTestId("notifications-pane-backend-logs-view"),
   ).toBeVisible();
-  await page.evaluate(async () => {
-    const { addBackendLogEvent } = await import(
-      "/src/state/actions/backendLogEvents.ts"
-    );
-    const { useProjectState } = await import("/src/state/definitions.ts");
 
-    const projectConfigId = useProjectState.getState().projectConfig.id;
-    addBackendLogEvent({
-      id: "backend-log-event-1",
-      projectConfigId,
-      severity: "info",
-      message: "Saved managed API keys revision 1.",
-      timestamp: new Date().toISOString(),
-    });
-    addBackendLogEvent({
-      id: "backend-log-event-2",
-      projectConfigId,
-      severity: "warning",
-      message: "Saved managed API keys revision 2.",
-      timestamp: new Date(Date.now() + 1).toISOString(),
-    });
+  const backendOrigin =
+    process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+  const readApiKeysRevision = async (): Promise<number> => {
+    const response = await page.request.get(`${backendOrigin}/api/llm/apiKeys`);
+    if (!response.ok()) {
+      throw new Error(
+        `Failed to load api key revision (${response.status()}).`,
+      );
+    }
+    const payload = (await response.json()) as { revision?: unknown };
+    if (typeof payload.revision !== "number") {
+      throw new Error("Missing api key revision in /api/llm/apiKeys response.");
+    }
+    return payload.revision;
+  };
+
+  const firstRevision = await readApiKeysRevision();
+  await postBackend(page, "/llm/apiKeys", {
+    apiKeys: { SETTA_E2E_LOG_KEY: "one" },
+    expectedRevision: firstRevision,
+  });
+  const secondRevision = await readApiKeysRevision();
+  await postBackend(page, "/llm/apiKeys", {
+    apiKeys: { SETTA_E2E_LOG_KEY: "two" },
+    expectedRevision: secondRevision,
   });
 
   const rows = page.getByTestId("backend-log-row");

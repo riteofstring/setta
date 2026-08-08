@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
-import { isEditableEscapeTarget } from "./gitOverlayLayerUtils";
+import { isEditableEscapeTarget } from "./GitOverlayLayer";
 
 type HTMLElementLikeCtor = new (...args: unknown[]) => object;
 

@@ -3,7 +3,7 @@ import { OnSelectedItemChangeFnType } from "components/Utils/Combobox/ComboboxSt
 import _ from "lodash";
 import React from "react";
 import {
-  getCurrCodeObjVariantIfPresent,
+  getCurrCodeObjVariant,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -87,24 +87,16 @@ function _UIElement({
   const paramInfoId = paramInfo.id;
   const { canEditStructure } = useShareCapabilities();
   const baseImplId = useProjectState((x) => {
-    return (
-      getCurrCodeObjVariantIfPresent(x, sectionId, paramInfoId)?.impl ?? null
-    );
+    return getCurrCodeObjVariant(x, sectionId, paramInfoId).impl;
   }, _.isEqual);
   const paramName = paramInfo.name;
-
-  if (!baseImplId) {
-    return null;
-  }
 
   const onSelect: OnSelectedItemChangeFnType<string> = (selectedId) => {
     if (!canEditStructure) {
       return;
     }
     if (!selectedId) {
-      // The combobox reports null when the previously selected impl disappears
-      // during state sync; that is not a user mutation and should not crash.
-      return;
+      throw new Error();
     }
     void applyUiTypeComboboxSelection({
       projectConfigId: getCurrProjectConfigId(),

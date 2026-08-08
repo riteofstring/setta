@@ -1,10 +1,9 @@
-import { resetAppSubsystemFrontendRuntimeState } from "plugins/appSubsystem";
 import {
+  resetPluginRuntimeStoreForTests,
   usePluginRuntimeStore,
   type PluginPaneTabEntry,
+  type RegisteredPluginPane,
 } from "plugins/runtime";
-import { clearPluginRuntimeSideEffects } from "plugins/runtimeInternal";
-import { type RegisteredPluginPane } from "plugins/runtimeShared";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import {
@@ -18,59 +17,22 @@ import { resetProjectStores } from "state/utils";
 import {
   APP_MENU_Z_INDEX_CLASS_NAME,
   buildPluginPaneOverviewTabName,
+  OverviewTabNameEnum,
 } from "utils/constants";
-import {
-  createProjectConfig,
-  createSettingsState,
-  OverviewTabUIConfig,
-} from "utils/generatedTypes";
+import { createProjectConfig, createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { syncStoreInitialState } from "../paneTestUtils";
-import { Overview } from "./Overview";
-
-let latestNavbarMenuDropdownContentClassName: string | undefined;
+import { Overview, OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME } from "./Overview";
 
 vi.mock("components/Pages/Project/ViewModeDnd", () => ({
-  SortableListProvider: ({ children }: { children: unknown }) => children,
-  useSortableListItem: () => ({
+  ViewModeSortableProvider: ({ children }: { children: unknown }) => children,
+  useViewModeSortableItem: () => ({
     attributes: {},
     listeners: {},
     setNodeRef: () => {},
     style: {},
     isDragging: false,
   }),
-}));
-
-vi.mock("components/Utils/atoms/menubar/menudropdown", () => ({
-  NavbarMenuDropdown: ({
-    children,
-    contentClassName,
-    trigger,
-    triggerClassName,
-  }: {
-    children: unknown;
-    contentClassName?: string;
-    trigger: unknown;
-    triggerClassName?: string;
-  }) => {
-    latestNavbarMenuDropdownContentClassName = contentClassName;
-    return (
-      <div data-testid="navbar-menu-dropdown-mock">
-        <div className={triggerClassName}>{trigger}</div>
-        <div className={contentClassName}>{children}</div>
-      </div>
-    );
-  },
-}));
-
-vi.mock("components/Utils/atoms/menubar/menudropdownitem", () => ({
-  MenuItem: ({
-    children,
-    className,
-  }: {
-    children: unknown;
-    className?: string;
-  }) => <div className={className}>{children}</div>,
 }));
 
 function extractRailStyle(markup: string): string {
@@ -81,32 +43,6 @@ function extractRailStyle(markup: string): string {
     throw new Error("Unable to locate Overview rail in markup.");
   }
   return match[1] ?? "";
-}
-
-function resetPluginRuntimeStateForTests(): void {
-  clearPluginRuntimeSideEffects();
-  usePluginRuntimeStore.setState({
-    status: "idle",
-    statusMessage: null,
-    schemaVersion: null,
-    serverMode: null,
-    appSubsystemCapabilities: null,
-    restartCapability: null,
-    pluginListById: {},
-    sortedPluginListEntries: [],
-    pluginStatusById: {},
-    statusEntries: [],
-    appSubsystemRegistrationsByPluginId: {},
-    sectionKindsByKey: {},
-    sortedSectionKinds: [],
-    panesByPluginId: {},
-    sortedPaneTabs: [],
-    commandsByPluginId: {},
-    sortedCommands: [],
-    topNavBarItemsByPluginId: {},
-    sortedTopNavBarItems: [],
-    frontendErrorsByPluginId: {},
-  });
 }
 
 describe("Overview rail offsets", () => {
@@ -128,9 +64,7 @@ describe("Overview rail offsets", () => {
 
   beforeEach(() => {
     resetProjectStores();
-    resetPluginRuntimeStateForTests();
-    resetAppSubsystemFrontendRuntimeState();
-    latestNavbarMenuDropdownContentClassName = undefined;
+    resetPluginRuntimeStoreForTests();
     memoryStorage.reset();
     const viewId = "default-view";
     useProjectState.setState((state) => {
@@ -163,7 +97,7 @@ describe("Overview rail offsets", () => {
     useShareSession.setState({ isDeploymentMode: false, sharePolicy: null });
     useLocalStorage.setState({
       overviewVis: true,
-      overviewTab: OverviewTabUIConfig.names.Overview,
+      overviewTab: OverviewTabNameEnum.Overview,
       overviewWidth: 320,
       overviewTrueWidth: 320,
     });
@@ -177,8 +111,7 @@ describe("Overview rail offsets", () => {
 
   afterEach(() => {
     resetProjectStores();
-    resetPluginRuntimeStateForTests();
-    resetAppSubsystemFrontendRuntimeState();
+    resetPluginRuntimeStoreForTests();
   });
 
   it("extends to the bottom when no view mode tabs exist", () => {
@@ -288,9 +221,7 @@ describe("Overview rail offsets", () => {
     useProjectState.setState((state) => {
       state.projectConfig = projectConfig;
     });
-    useLocalStorage.setState({
-      overviewTab: OverviewTabUIConfig.names.ViewModes,
-    });
+    useLocalStorage.setState({ overviewTab: OverviewTabNameEnum.ViewModes });
     syncStoreInitialState(useProjectState);
     syncStoreInitialState(useLocalStorage);
     const markup = renderToStaticMarkup(
@@ -390,22 +321,16 @@ describe("Overview rail offsets", () => {
   });
 
   it("keeps the more menu on the shared elevated app menu layer", () => {
-    renderToStaticMarkup(
-      <MemoryRouter>
-        <Overview />
-      </MemoryRouter>,
-    );
-
-    expect(latestNavbarMenuDropdownContentClassName).toContain(
+    expect(OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME).toContain(
       APP_MENU_Z_INDEX_CLASS_NAME,
     );
-    expect(latestNavbarMenuDropdownContentClassName).not.toContain("z-20");
+    expect(OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME).not.toContain("z-20");
   });
 
   it("falls back to Overview when deployment mode hides the selected tab", () => {
     useShareSession.setState({ isDeploymentMode: true, sharePolicy: null });
     useLocalStorage.setState({
-      overviewTab: OverviewTabUIConfig.names.FileBrowser,
+      overviewTab: OverviewTabNameEnum.FileBrowser,
     });
     syncStoreInitialState(useShareSession);
     syncStoreInitialState(useLocalStorage);
@@ -444,7 +369,7 @@ describe("Overview rail offsets", () => {
     });
     useAIStore.setState({ viewThreads: true });
     useLocalStorage.setState({
-      overviewTab: OverviewTabUIConfig.names.ProjectAIChat,
+      overviewTab: OverviewTabNameEnum.ProjectAIChat,
       overviewWidth: 1040,
       overviewTrueWidth: 1040,
     });
@@ -480,9 +405,9 @@ describe("Overview rail offsets", () => {
     expect(markup).not.toContain('data-testid="project-chat-content"');
   });
 
-  it("falls back to Overview when the app subsystem authoring UI is unavailable", () => {
+  it("renders JSON Render quick info without crashing the App tab", () => {
     useLocalStorage.setState({
-      overviewTab: OverviewTabUIConfig.names.App,
+      overviewTab: OverviewTabNameEnum.App,
     });
     syncStoreInitialState(useLocalStorage);
 
@@ -492,10 +417,12 @@ describe("Overview rail offsets", () => {
       </MemoryRouter>,
     );
 
-    expect(markup).toContain(">Overview<");
-    expect(markup).not.toContain("Mock App Workbench");
-    expect(markup).not.toContain(
+    expect(markup).toContain(">JSON Render<");
+    expect(markup).toContain(
       "Advanced app-definition workbench for previewing, validating, saving, and editing the current app spec.",
+    );
+    expect(markup).toContain(
+      "Use Project Chat slash commands like /app-json, /app-image, /app-prompt, and /app-mcp to initiate generation.",
     );
   });
 

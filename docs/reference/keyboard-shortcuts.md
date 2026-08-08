@@ -67,9 +67,6 @@ is configurable.
 - Mod + V: paste sections (uses the last canvas click or to the right of the
   current selection).
 - Mod + Shift + V: paste sections as references.
-- Copying a selected section subtree preserves the currently visible variant
-  selection for descendant sections, so pasted groups match the canvas state
-  you copied.
 - Mod + S: save the current project configuration.
 - Mod + Shift + S: save as.
 - Mod + L: load a project configuration.

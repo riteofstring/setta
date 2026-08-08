@@ -4,32 +4,6 @@ Short guide for starting/stopping local dev and telling the assistant how to con
 
 ## Start
 
-Default setup:
-
-```bash
-./dev_install.sh
-```
-
-Activate the repo Python environment when you need direct Python/package commands:
-
-```bash
-source activate.sh
-```
-
-If you changed dependency manifests and need to refresh lockfiles on purpose:
-
-```bash
-./update_dependencies.sh
-```
-
-Run the default dev instance without browser MCP:
-
-```bash
-./scripts/run-dev-instance.sh
-```
-
-Run the same flow with browser MCP helpers:
-
 ```bash
 ./ai.sh
 ```
@@ -59,9 +33,6 @@ Reset/start with explicit profile:
 ## Tell the assistant what to use
 
 - “Use chrome-devtools-mcp” (Codex auto-connects to the per-worktree CDP port).
-- Codex may start `./ai.sh` directly for CDP verification, or `./aireset.sh` if a clean reset is required.
-- If Codex starts `./ai.sh` or `./aireset.sh` for temporary verification, it should stop that session before finishing; `./kill.sh` is the repo-scoped fallback.
-- If Codex starts browser MCP directly instead, it should stop it with `./scripts/stop-browser-mcp.sh --devtools`.
 
 ## CDP helpers (optional)
 
@@ -87,5 +58,5 @@ Stop only the CDP/Chrome helpers (repo root):
 
 ## End chat vs. keep running
 
-- Want Setta running? Leave the `./ai.sh` terminal open and just end the chat.
+- Want Setta still running? Leave the `./ai.sh` terminal open and just end the chat.
 - Want a clean stop? Run `./kill.sh`, then close tabs.

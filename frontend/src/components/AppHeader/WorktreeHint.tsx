@@ -1,11 +1,32 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { IoMdGitBranch } from "react-icons/io";
-import { useBackendInitStatus } from "state/backendInitStatus";
+import { res200 } from "utils/endpointUtils";
+import { route_get_backend_init_status } from "utils/generatedEndpoints";
 
 export function WorktreeHint() {
-  const status = useBackendInitStatus();
+  const [worktreeName, setWorktreeName] = useState<string | null>(null);
   const [isDismissed, setIsDismissed] = useState(false);
-  const worktreeName = status?.worktreeName ?? null;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fn() {
+      const res = await route_get_backend_init_status();
+      if (!isMounted) {
+        return;
+      }
+      if (!res200(res)) {
+        setWorktreeName(null);
+        return;
+      }
+      setWorktreeName(res.data.worktreeName ?? null);
+    }
+
+    fn();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   if (isDismissed || !worktreeName) {
     return null;

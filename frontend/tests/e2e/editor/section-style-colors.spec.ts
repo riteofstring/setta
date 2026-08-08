@@ -1,16 +1,13 @@
 import { expect, test, type Locator, type Request } from "@playwright/test";
 import {
-  cleanupIsolatedProject,
   clearProjectChatWindows,
+  cleanupIsolatedProject,
   createCallableSection,
   createTextBlockSection,
   ensureAppReady,
   openIsolatedProject,
   postBackend,
   seedLocalStorage,
-  setCallableFromFrontend,
-  setSectionEdgeInputsFromFrontend,
-  setSectionPinnedParamsFromFrontend,
 } from "../helpers";
 
 type LatestProjectStateResponse = {
@@ -36,8 +33,8 @@ async function ensureAppearanceAccordionExpanded(
   if (
     (await appearanceAccordionTrigger.getAttribute("aria-expanded")) !== "true"
   ) {
-    await appearanceAccordionTrigger.evaluate((element: HTMLButtonElement) =>
-      element.click(),
+    await appearanceAccordionTrigger.evaluate(
+      (element: HTMLButtonElement) => element.click(),
     );
   }
   await expect(appearanceAccordionTrigger).toHaveAttribute(
@@ -320,7 +317,7 @@ test.describe.serial("section style colors", () => {
         page,
         projectContext.projectConfigId,
       );
-      await setCallableFromFrontend(page, {
+      await postBackend(page, "/setCallable", {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
         callableName: "sorted",
@@ -432,9 +429,9 @@ test.describe.serial("section style colors", () => {
       expect(baselineSectionChromeAndArgsStyles.argsBackgroundColor).not.toBe(
         "rgba(0, 0, 0, 0)",
       );
-      expect(baselineSectionChromeAndArgsStyles.argsBackgroundColor).not.toBe(
-        baselineSectionChromeAndArgsStyles.sectionBackgroundColor,
-      );
+      expect(
+        baselineSectionChromeAndArgsStyles.argsBackgroundColor,
+      ).not.toBe(baselineSectionChromeAndArgsStyles.sectionBackgroundColor);
       expect(await getCallableInputBorderColor()).not.toBeNull();
 
       const colorInput = styleBlock.locator('input[type="color"]').first();
@@ -510,7 +507,7 @@ test.describe.serial("section style colors", () => {
         throw new Error("Unable to parse first selected param id.");
       }
 
-      await setSectionPinnedParamsFromFrontend(page, {
+      await postBackend(page, "/setSectionPinnedParams", {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
         pinnedParams: [pinnedParamId],
@@ -537,7 +534,7 @@ test.describe.serial("section style colors", () => {
         );
       }
 
-      await setSectionEdgeInputsFromFrontend(page, {
+      await postBackend(page, "/setSectionEdgeInputs", {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
         edgeInputParams: [edgeParamId],

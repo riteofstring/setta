@@ -59,7 +59,7 @@ reparent both sections and params in the project UI.
   selection, and pane deselects. Durable `projectConfig.activeIds` sync is
   deferred until the gesture completes or the next sync point, so drag targeting
   follows the live UI state instead of waiting for the full project-store write.
-- Dragging uses root selections (selected sections that do not have a
+- Dragging still uses root selections (selected sections that do not have a
   selected ancestor).
 - Selection across multiple parents is rejected with a notification and falls
   back to dragging the active section only.
@@ -69,8 +69,8 @@ reparent both sections and params in the project UI.
   during moving-free mode so users can drag the entire selection from the
   selection box.
 - Marquee hit testing uses node internals when they are measured and falls back
-  to live DOM bounds for unmeasured or nested sections, so box selection can
-  capture nested children.
+  to live DOM bounds for unmeasured or nested sections, so nested children can
+  still be captured by box selection.
 
 ## Drag lifecycle
 
@@ -106,15 +106,15 @@ reparent both sections and params in the project UI.
 - `adapter/collision.ts` defines two detectors:
   - `customCollisionDetection` for moving free.
   - `customCollisionDetectionSorting` for sorting within a container.
-- Collisions carry extra metadata (`pastHalfway`, `triggerDistCondition`) for
-  placeholder placement.
+- Collisions carry extra metadata (`pastHalfway`, `triggerDistCondition`) used to
+  place the placeholder.
 - `adapter/collisionCompare.ts` promotes the best collision, preferring child
   collisions, and adds hysteresis to reduce flicker.
 - `SortableContext` caches rects and uses `sortingOverState` to stabilize over
   resolution during sort drags.
 - `useSortable` applies the configured sorting strategy and optional axis
   restrictions.
-- Collision orientation can come from sortable item metadata
+- Collision orientation can now come from sortable item metadata
   (`sortableOrientation: "horizontal" | "vertical"`), not only section
   orientation. This is used by list-style sortables outside the canvas section
   tree.
@@ -204,7 +204,7 @@ param lists.
   - overview view mode rows (`ViewingEditingMode`)
   - overview project-config rows (`ProjectConfigs`)
   - section variant rows (`VariantList`)
-- `useSortable` exposes `setActivatorNodeRef`, so drag handles can be
+- `useSortable` now exposes `setActivatorNodeRef`, so drag handles can be
   separated from click-to-open row interactions.
 - The list wrapper ignores tiny drags (4px threshold) so clicking a handle does
   not accidentally trigger a reorder.

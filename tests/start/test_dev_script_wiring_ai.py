@@ -91,30 +91,6 @@ def test_ai_sh_rejects_invalid_setta_files_location_value(tmp_path: Path) -> Non
     )
 
 
-def test_ai_sh_requires_explicit_dev_install_when_repo_python_env_missing(
-    tmp_path: Path,
-) -> None:
-    sandbox_root = build_ai_sandbox(tmp_path)
-    stub_dir = tmp_path / "bin"
-    stub_dir.mkdir(parents=True, exist_ok=True)
-    home_dir = tmp_path / "home"
-    home_dir.mkdir(parents=True, exist_ok=True)
-
-    (sandbox_root / ".venv" / "bin" / "python").unlink()
-
-    result = run_script(
-        ["bash", str(sandbox_root / "ai.sh")],
-        cwd=sandbox_root,
-        env=script_env(stub_dir, home_dir),
-    )
-
-    assert result.returncode != 0
-    assert (
-        "Missing dev dependencies (.venv/bin/python). Run ./dev_install.sh first."
-        in f"{result.stdout}{result.stderr}"
-    )
-
-
 def test_ai_sh_normalizes_setta_files_location_case(tmp_path: Path) -> None:
     sandbox_root = build_ai_sandbox(tmp_path)
     stub_dir = tmp_path / "bin"
@@ -225,6 +201,91 @@ exit 0
     assert captured_env.get("SETTA_HOME") != str(home_dir / ".setta")
     assert captured_env.get("SETTA_FILES_ROOT") != str(sandbox_root / "setta_files")
     assert "SETTA_FILES_LOCATION" not in captured_env
+
+
+@pytest.mark.parametrize(
+    ("browser_mode", "expected_headless"),
+    [("headless", "1"), ("headed", "0")],
+)
+def test_ai_sh_passes_browser_mode_to_browser_mcp(
+    tmp_path: Path, browser_mode: str, expected_headless: str
+) -> None:
+    sandbox_root = build_ai_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    capture_cmd = tmp_path / "pnpm_cmd.txt"
+    capture_browser_args = tmp_path / "browser_args.txt"
+    capture_browser_env = tmp_path / "browser_env.txt"
+
+    write_stub_executable(
+        stub_dir / "pnpm",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{capture_cmd}"
+""",
+    )
+    write_stub_executable(
+        stub_dir / "lsof",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 1
+""",
+    )
+    write_stub_executable(
+        sandbox_root / "scripts" / "start-browser-mcp.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{capture_browser_args}"
+env | sort > "{capture_browser_env}"
+exit 0
+""",
+    )
+    write_stub_executable(
+        sandbox_root / "scripts" / "stop-browser-mcp.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
+
+    result = run_script(
+        ["bash", str(sandbox_root / "ai.sh"), "--browser-mode", browser_mode],
+        cwd=sandbox_root,
+        env=script_env(stub_dir, home_dir),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert capture_cmd.read_text(encoding="utf-8").strip() == "start"
+    assert (
+        capture_browser_args.read_text(encoding="utf-8").strip()
+        == f"--devtools --browser-mode {browser_mode}"
+    )
+    captured_browser_env = parse_env_snapshot(
+        capture_browser_env.read_text(encoding="utf-8")
+    )
+    assert captured_browser_env.get("DEVTOOLS_HEADLESS") == expected_headless
+
+
+def test_ai_sh_rejects_invalid_browser_mode(tmp_path: Path) -> None:
+    sandbox_root = build_ai_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+
+    result = run_script(
+        ["bash", str(sandbox_root / "ai.sh"), "--browser-mode", "sideways"],
+        cwd=sandbox_root,
+        env=script_env(stub_dir, home_dir),
+    )
+
+    assert result.returncode != 0
+    assert (
+        "Invalid value for --browser-mode: sideways. Expected headed or headless."
+        in f"{result.stdout}{result.stderr}"
+    )
 
 
 def test_ai_sh_uses_existing_path_env_before_defaults(tmp_path: Path) -> None:

@@ -19,28 +19,19 @@ type Bounds = {
   maxY: number;
 };
 
-type ImageHandleBehaviorArgs = [
+type ImageHandleBehavior = (
   transform: DrawAreaTransform,
   scaledWidth: number,
   scaledHeight: number,
   dx: number,
   dy: number,
   artifact: { value: HTMLImageElement },
-];
-
-type ImageHandleBehavior = (...args: ImageHandleBehaviorArgs) => void;
+) => void;
 
 type StrokeLike = BrushStroke | BrushStrokeWithTransform;
 type StrokeCollection = StrokeLike | Array<StrokeLike>;
 type StrokeContainer = { value?: StrokeCollection | null | undefined };
 type StrokeSource = StrokeCollection | StrokeContainer | null | undefined;
-
-const IMAGE_HANDLE_BEHAVIORS = [
-  imageTopLeftHandleBehavior,
-  imageTopRightHandleBehavior,
-  imageBottomLeftHandleBehavior,
-  imageBottomRightHandleBehavior,
-] as const satisfies readonly ImageHandleBehavior[];
 
 function isStrokeWithTransform(
   stroke: StrokeLike,
@@ -249,12 +240,53 @@ export function getImageHandleBehaviorFn(
   xScaleWasPositive: boolean,
   yScaleWasPositive: boolean,
 ): ImageHandleBehavior {
-  const mirroredBits =
-    (xScaleWasPositive ? 0 : 1) | (yScaleWasPositive ? 0 : 2);
-  return (
-    IMAGE_HANDLE_BEHAVIORS[resizeHandleIdx ^ mirroredBits] ??
-    imageTopLeftHandleBehavior
-  );
+  switch (resizeHandleIdx) {
+    case 0:
+      if (xScaleWasPositive && yScaleWasPositive) {
+        return imageTopLeftHandleBehavior;
+      } else if (xScaleWasPositive && !yScaleWasPositive) {
+        return imageBottomLeftHandleBehavior;
+      } else if (!xScaleWasPositive && yScaleWasPositive) {
+        return imageTopRightHandleBehavior;
+      } else if (!xScaleWasPositive && !yScaleWasPositive) {
+        return imageBottomRightHandleBehavior;
+      }
+      break;
+    case 1:
+      if (xScaleWasPositive && yScaleWasPositive) {
+        return imageTopRightHandleBehavior;
+      } else if (xScaleWasPositive && !yScaleWasPositive) {
+        return imageBottomRightHandleBehavior;
+      } else if (!xScaleWasPositive && yScaleWasPositive) {
+        return imageTopLeftHandleBehavior;
+      } else if (!xScaleWasPositive && !yScaleWasPositive) {
+        return imageBottomLeftHandleBehavior;
+      }
+      break;
+    case 2:
+      if (xScaleWasPositive && yScaleWasPositive) {
+        return imageBottomLeftHandleBehavior;
+      } else if (xScaleWasPositive && !yScaleWasPositive) {
+        return imageTopLeftHandleBehavior;
+      } else if (!xScaleWasPositive && yScaleWasPositive) {
+        return imageBottomRightHandleBehavior;
+      } else if (!xScaleWasPositive && !yScaleWasPositive) {
+        return imageTopRightHandleBehavior;
+      }
+      break;
+    case 3:
+      if (xScaleWasPositive && yScaleWasPositive) {
+        return imageBottomRightHandleBehavior;
+      } else if (xScaleWasPositive && !yScaleWasPositive) {
+        return imageTopRightHandleBehavior;
+      } else if (!xScaleWasPositive && yScaleWasPositive) {
+        return imageBottomLeftHandleBehavior;
+      } else if (!xScaleWasPositive && !yScaleWasPositive) {
+        return imageTopLeftHandleBehavior;
+      }
+  }
+
+  return imageTopLeftHandleBehavior;
 }
 
 export function preventExactZero(scale: number): number {
@@ -265,14 +297,12 @@ export function preventExactZero(scale: number): number {
 }
 
 function imageTopLeftHandleBehavior(
-  ...[
-    transform,
-    scaledWidth,
-    scaledHeight,
-    dx,
-    dy,
-    artifact,
-  ]: ImageHandleBehaviorArgs
+  transform: DrawAreaTransform,
+  scaledWidth: number,
+  scaledHeight: number,
+  dx: number,
+  dy: number,
+  artifact: { value: HTMLImageElement },
 ): void {
   transform[0] = preventExactZero((scaledWidth - dx) / artifact.value.width);
   transform[3] = preventExactZero((scaledHeight - dy) / artifact.value.height);
@@ -281,14 +311,12 @@ function imageTopLeftHandleBehavior(
 }
 
 function imageTopRightHandleBehavior(
-  ...[
-    transform,
-    scaledWidth,
-    scaledHeight,
-    dx,
-    dy,
-    artifact,
-  ]: ImageHandleBehaviorArgs
+  transform: DrawAreaTransform,
+  scaledWidth: number,
+  scaledHeight: number,
+  dx: number,
+  dy: number,
+  artifact: { value: HTMLImageElement },
 ): void {
   transform[0] = preventExactZero((scaledWidth + dx) / artifact.value.width);
   transform[3] = preventExactZero((scaledHeight - dy) / artifact.value.height);
@@ -296,14 +324,12 @@ function imageTopRightHandleBehavior(
 }
 
 function imageBottomLeftHandleBehavior(
-  ...[
-    transform,
-    scaledWidth,
-    scaledHeight,
-    dx,
-    dy,
-    artifact,
-  ]: ImageHandleBehaviorArgs
+  transform: DrawAreaTransform,
+  scaledWidth: number,
+  scaledHeight: number,
+  dx: number,
+  dy: number,
+  artifact: { value: HTMLImageElement },
 ): void {
   transform[0] = preventExactZero((scaledWidth - dx) / artifact.value.width);
   transform[3] = preventExactZero((scaledHeight + dy) / artifact.value.height);
@@ -311,14 +337,12 @@ function imageBottomLeftHandleBehavior(
 }
 
 function imageBottomRightHandleBehavior(
-  ...[
-    transform,
-    scaledWidth,
-    scaledHeight,
-    dx,
-    dy,
-    artifact,
-  ]: ImageHandleBehaviorArgs
+  transform: DrawAreaTransform,
+  scaledWidth: number,
+  scaledHeight: number,
+  dx: number,
+  dy: number,
+  artifact: { value: HTMLImageElement },
 ): void {
   transform[0] = preventExactZero((scaledWidth + dx) / artifact.value.width);
   transform[3] = preventExactZero((scaledHeight + dy) / artifact.value.height);

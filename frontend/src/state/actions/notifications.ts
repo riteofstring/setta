@@ -1,21 +1,17 @@
-import type { NotificationsNotification } from "openapi/http";
 import { useNotifications } from "state/definitions";
-import {
-  coerceAppNotification,
-  createAppNotification,
-  type AppNotification,
-} from "state/types/notifications";
 import { C } from "utils/c";
 import {
-  NotificationTypeEnum,
-  type NotificationType,
+  createSettaNotification,
+  SettaNotification,
+  SettaNotificationType,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { getCurrProjectConfigId } from "./sectionInfos";
 
 export const DEFAULT_TEMP_TIMEOUT = 2000;
 
 // Standalone notification actions as separate functions
-const addNotification = (notification: AppNotification) => {
+const addNotification = (notification: SettaNotification) => {
   useNotifications.setState((state) => ({
     notifications: [notification, ...state.notifications],
   }));
@@ -46,17 +42,19 @@ export const removeNotification = (notificationId: string) => {
 };
 
 export function addNotificationFromWebsocketMsg(
-  notification: NotificationsNotification,
+  notification: SettaNotification,
 ) {
-  const normalizedNotification = coerceAppNotification(notification);
   if (
-    normalizedNotification.projectConfigId !== getCurrProjectConfigId() &&
-    normalizedNotification.projectConfigId !==
-      C.NOTIFICATION_IS_FOR_ALL_PROJECTS
+    !notification ||
+    (notification.projectConfigId !== getCurrProjectConfigId() &&
+      notification.projectConfigId !== C.NOTIFICATION_IS_FOR_ALL_PROJECTS)
   ) {
     return;
   }
-  addNotification(createAppNotification(normalizedNotification));
+  if (!notification.timestamp) {
+    notification.timestamp = new Date().toISOString();
+  }
+  addNotification(notification);
 }
 
 function createClientNotification({
@@ -67,20 +65,23 @@ function createClientNotification({
 }: {
   projectConfigId: string;
   message: string;
-  type: NotificationType;
+  type: SettaNotificationType;
   temporary: boolean;
-}): AppNotification {
-  return createAppNotification({
+}): SettaNotification {
+  return createSettaNotification({
     projectConfigId,
+    timestamp: new Date().toISOString(),
     type,
     message,
+    read_status: false,
     temporary,
+    metadata: {},
   });
 }
 
 export const addTemporaryNotification = (
   message: string,
-  type: NotificationType = NotificationTypeEnum.info,
+  type: SettaNotificationType = SettaNotificationTypeEnum.info,
 ) => {
   const projectConfigId = getCurrProjectConfigId();
   const notification = createClientNotification({
@@ -96,7 +97,7 @@ export const addTemporaryNotification = (
 
 export const addPersistentNotification = (
   message: string,
-  type: NotificationType = NotificationTypeEnum.info,
+  type: SettaNotificationType = SettaNotificationTypeEnum.info,
 ) => {
   const projectConfigId = getCurrProjectConfigId();
   const existing = useNotifications

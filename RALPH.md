@@ -1,80 +1,91 @@
 ---
-plan_path: ralph/section-rebuild/IMPLEMENTATION_PLAN.md
-handoff_path: ralph/section-rebuild/progress.txt
-history_path: ralph/section-rebuild/progress.txt
-prompt_file: ralph/section-rebuild/PROMPT.md
+plan_path: docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-rendering-rewrite-plan.md
+log_path: docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-rendering-rewrite-log.md
+prompt_file: scripts/ralph-default-prompt.md
 workdir: .
-iterations: 100
+iterations: until_done
 new_session_every: 1
 codex_inactivity_timeout_seconds: 1800
-reasoning_effort: xhigh
-service_tier: fast
 yolo: true
-terminal_mode: foreground
-verify_command: Focused frontend tests for the selected prototype plus CDP visual verification when renderable UI changes.
+worktree_lifecycle: restart-aireset
+main_lifecycle: restart-ai
+terminal_mode: auto
+verify_command: Choose the narrowest relevant verification for the current subtask. For frontend or visual work, run the relevant tests and include the required Chrome DevTools MCP check before claiming completion.
 ---
 
 # Ralph Loop Config
 
-This is the reusable Ralph entrypoint for the section rebuild loop in this
-worktree. The runnable prompt, plan, and progress log live under
-`ralph/section-rebuild/`.
+This file is the reusable loop entrypoint for this worktree.
 
-Default entrypoint:
+## Primary files
 
-```bash
-./ralph.sh
-```
+- Plan: `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-rendering-rewrite-plan.md`
+- Log: `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-rendering-rewrite-log.md`
 
-The wrapper reads the frontmatter above for the default prompt, workdir,
-iteration count, inactivity timeout, fresh-session cadence, and yolo setting.
-Other fields are durable handoff metadata for humans and future loop tooling.
+## Working style
 
-## Working Style
+- Start a fresh Codex session each iteration unless there is a specific reason to batch multiple turns.
+- Use the plan plus the append-only log as the durable handoff between conversations.
+- Prefer one bounded subtask per iteration.
+- Iterations default to `until_done`, so the loop keeps going until it reaches `TASK_DONE` or a non-recoverable `BLOCKED` state unless you override `--iterations`.
+- Make frequent descriptive commits.
+- Default entrypoint: `./ralph.sh`
+- Yolo mode defaults on for this worktree config.
+- Ralph should kill and retry any Codex iteration that shows no transcript activity for 30 minutes.
+- Never run the Ralph loop in the `main` worktree. `main` must remain pristine and untouched.
+- `main` may run a read-only reference app session for visual comparison, but Ralph must never edit code there.
 
-- Start each Codex pass from the section rebuild plan and progress file.
-- Select exactly one bounded section task per iteration.
-- Keep production React section code as reference-only material.
-- Ralph's product output is new section prototypes for real section types other
-  than Callable and Param Dict/Dict. It must not spend an iteration redesigning
-  Callable or Param Dict/Dict.
-- Treat the current redesigned Callable and Param Dict/Dict prototypes as
-  frozen accepted baselines. Ralph may refactor or optimize their prototype code
-  only when their rendered layout, hierarchy, controls, ports, fixtures, and
-  visual rhythm stay the same.
-- For normal new-section iterations, Ralph should leave Callable and Param
-  Dict/Dict implementation, fixtures, and styling untouched. Shared cleanup is
-  allowed only when it is mechanical, prototype-only, and verified to have no
-  visible rendered effect on those baselines.
-- Add new prototypes for the other real section types only, grounded in current
-  section functionality and broad layout relationships, expressed in the
-  accepted flat prototype design language.
-- New section prototypes may essentially use the same flat section shell and
-  titlebar pattern. Prefer a shared prototype-only shell/titlebar for the outer
-  frame, and make the body regions, controls, ports, state indicators, and
-  fixtures section-specific.
-- Every visible region, control, port, status, and fixture concept in a new
-  prototype must map back to real section behavior or data. Remove anything that
-  cannot be mapped instead of inventing a workflow.
-- Keep preview-page chrome visually separate from section prototypes. Labels,
-  notes, or controls that are not part of the redesign must not look like they
-  belong to a section.
-- Every rendered section prototype must have a small section-type label above
-  it, rendered as external preview-page/gallery chrome. The label must be
-  visually separated from the section and must not appear embedded in the
-  section card, titlebar, toolbar, body, port rows, controls, or reusable
-  section layout components.
-- Add or preserve section-type labels in the preview-page/gallery wrapper, not
-  inside section bodies. Adding this external label above Callable and Param
-  Dict/Dict is allowed only when their internal layout, dimensions, spacing,
-  controls, and hierarchy remain unchanged.
-- Do not add visible Light/Dark labels for theme columns; the theme contrast is
-  self-evident. Accessibility labels and data attributes are fine.
-- Do not invent fictional sections, fake workflows, decorative controls, or
-  wholesale copies of the old production design.
-- If completing a task would alter the accepted Callable or Param Dict/Dict
-  visible layout, or would require a fictional/old-design section, stop and
-  record the blocker instead.
-- Update the plan and progress log after each completed slice.
-- Run focused verification for the changed prototype, and record whether visual
-  verification was done.
+## Sub-agents
+
+- Use sub-agents for any Chrome DevTools MCP or CDP testing to keep the main chat context clean.
+- Ensure those CDP sub-agents start with fresh context.
+- Use sub-agents for other parallelizable, non-overlapping work when helpful.
+
+## CDP handoff
+
+- If Chrome CDP or the current worktree app session becomes inaccessible during an iteration, do not block immediately.
+- First attempt one bounded self-recovery of the current non-main worktree lifecycle:
+  - prefer `./aireset.sh`
+  - if that fails, retry once with `./ai.sh`
+- After any self-recovery restart, refresh the current runtime values before continuing:
+  - `setta status --connect-info --latest --json --workspace <worktree>`
+  - `pnpm -C frontend cdp-port`
+- Retry the blocked verification after the restart using the refreshed runtime values instead of stale ports or URLs.
+- If the recovery attempt still does not restore CDP/app access, return `BLOCKED`.
+- Do not claim CDP visual verification when CDP access is unavailable.
+- If a rewrite phase temporarily leaves no trustworthy live CDP canary for the gate you need, mark the slice as `SUBTASK_DONE` with `LOOP_VERIFY_RESULT: deferred_visual_gate` so the loop can keep moving while the pending visual gate stays explicit in the log.
+
+## Lifecycle bootstrap
+
+- `./ralph.sh` can run lifecycle actions before each iteration so every Codex pass starts from a fresh app session.
+- Default bootstrap for this worktree is `restart-aireset`.
+- Default reference bootstrap for `main` is `restart-ai`.
+- Supported lifecycle modes for the current worktree only:
+  - `none`
+  - `kill`
+  - `ai`
+  - `aireset`
+  - `restart-ai`
+  - `restart-aireset`
+- Supported lifecycle modes for `main` reference startup:
+  - `none`
+  - `kill`
+  - `ai`
+  - `aireset`
+  - `restart-ai`
+  - `restart-aireset`
+- Terminal mode:
+  - `auto` relaunches Ralph visibly when possible: `cmux` in a cmux shell, `tmux` in a tmux shell, `Terminal.app` in Apple Terminal, otherwise background launch
+  - `background` always launches lifecycle processes in the background with logs under the loop output dir
+  - `tmux` requires a live tmux shell and opens lifecycle processes in new tmux windows
+  - `cmux` requires a live cmux shell and opens lifecycle processes in new terminal tabs inside the current cmux workspace
+  - `terminal` opens lifecycle processes in new macOS Terminal windows
+- `aireset` and `restart-aireset` fall back to `ai.sh` if `aireset.sh` fails.
+- `main` lifecycle is for a read-only visual reference session only; no code changes or commits may happen there.
+- `main` reference startup is asynchronous; Ralph does not block Codex on `main` becoming ready.
+- Restart lifecycles wait on the repo's Setta session status before Codex starts the iteration.
+- If an iteration returns `BLOCKED` with `LOOP_RECOVERY: restart_worktree_lifecycle`, Ralph should continue to the next iteration instead of stopping so the configured worktree bootstrap can retry automatically.
+- If an iteration returns `BLOCKED` with `LOOP_RECOVERY: retry_next_iteration`, Ralph should continue to the next iteration instead of stopping. With `worktree_lifecycle: restart-aireset`, that also reboots the worktree stack before the retry.
+- If an iteration returns `SUBTASK_DONE` with `LOOP_VERIFY_RESULT: deferred_visual_gate`, Ralph should treat the code slice as complete for sequencing purposes and continue to the next planned subtask.
+- Example:
+  - `./ralph.sh --terminal-mode cmux --worktree-lifecycle restart-aireset`

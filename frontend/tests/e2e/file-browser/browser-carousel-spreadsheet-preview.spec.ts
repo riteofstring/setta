@@ -4,7 +4,6 @@ import path from "node:path";
 import * as XLSX from "xlsx";
 import {
   cleanupIsolatedProject,
-  createTopLevelSectionFromFrontend,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
@@ -80,9 +79,7 @@ async function setBrowserPath({
 }
 
 async function ensureCarouselView(sectionNode: Locator): Promise<void> {
-  const carouselButton = sectionNode.locator(
-    'button[aria-label="Carousel view"]',
-  );
+  const carouselButton = sectionNode.locator('button[aria-label="Carousel view"]');
   await expect(carouselButton).toBeVisible();
   await carouselButton.click();
   await expect(
@@ -107,15 +104,19 @@ test("browser carousel previews and edits csv/xlsx spreadsheets", async ({
       );
     }
 
-    const browserSection = await createTopLevelSectionFromFrontend(page, {
-      projectConfigId,
-      implType: "Browser",
-      position: {
-        x: viewportBounds.x + viewportBounds.w * 0.45,
-        y: viewportBounds.y + viewportBounds.h * 0.42,
+    const browserSection = await postBackend<{ sectionId?: string }>(
+      page,
+      "/createTopLevelSection",
+      {
+        projectConfigId,
+        implType: "Browser",
+        position: {
+          x: viewportBounds.x + viewportBounds.w * 0.45,
+          y: viewportBounds.y + viewportBounds.h * 0.42,
+        },
+        viewportBounds,
       },
-      viewportBounds,
-    });
+    );
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
@@ -239,9 +240,7 @@ test("browser carousel previews and edits csv/xlsx spreadsheets", async ({
       const xlsxCell = sectionNode.locator('[data-spreadsheet-cell="1:0"]');
       await expect(xlsxCell).toBeVisible();
       await expect(xlsxCell).toHaveValue("Beta");
-      const xlsxOwnerCell = sectionNode.locator(
-        '[data-spreadsheet-cell="1:1"]',
-      );
+      const xlsxOwnerCell = sectionNode.locator('[data-spreadsheet-cell="1:1"]');
       await expect(xlsxOwnerCell).toBeVisible();
       await xlsxOwnerCell.fill("QA");
       await expect(saveButton).toBeEnabled();
@@ -254,14 +253,11 @@ test("browser carousel previews and edits csv/xlsx spreadsheets", async ({
         raw: false,
       });
       expect(savedWorkbook.SheetNames).toEqual(["Sheet1", "Archive"]);
-      const archiveRows = XLSX.utils.sheet_to_json(
-        savedWorkbook.Sheets.Archive,
-        {
-          header: 1,
-          raw: false,
-          defval: "",
-        },
-      ) as string[][];
+      const archiveRows = XLSX.utils.sheet_to_json(savedWorkbook.Sheets.Archive, {
+        header: 1,
+        raw: false,
+        defval: "",
+      }) as string[][];
       expect(archiveRows[1]).toEqual(["Gamma", "Ops"]);
     } finally {
       await fs.rm(parentDir, { recursive: true, force: true });

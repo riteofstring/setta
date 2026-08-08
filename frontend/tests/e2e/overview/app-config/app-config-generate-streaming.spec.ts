@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 import {
-  emitChatStreamDelta,
   ensureAppReady,
   getCurrentProjectConfigId,
+  postBackend,
   seedLocalStorage,
 } from "../../helpers";
 
@@ -50,7 +50,7 @@ test("app spec patch streaming updates the app preview incrementally", async ({
   };
   const patch2 = { op: "set", path: "/root", value: "stream-root" };
 
-  await emitChatStreamDelta(page, {
+  await postBackend<null>(page, "/emitChatStreamDelta", {
     projectConfigId,
     sectionId,
     chatId,
@@ -79,7 +79,7 @@ test("app spec patch streaming updates the app preview incrementally", async ({
     },
   };
 
-  await emitChatStreamDelta(page, {
+  await postBackend<null>(page, "/emitChatStreamDelta", {
     projectConfigId,
     sectionId,
     chatId,
@@ -114,7 +114,7 @@ test("app spec patch streaming updates the app preview incrementally", async ({
     },
   };
 
-  await emitChatStreamDelta(page, {
+  await postBackend<null>(page, "/emitChatStreamDelta", {
     projectConfigId,
     sectionId,
     chatId,

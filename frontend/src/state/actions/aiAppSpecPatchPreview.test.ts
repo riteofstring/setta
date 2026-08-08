@@ -1,11 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import {
-  type AppSubsystemFrontendRegistrationsByPluginId,
-  resetAppSubsystemFrontendRuntimeState,
-  syncAppSubsystemFrontendRegistration,
-} from "plugins/appSubsystem";
-import { useAIStore, useProjectState } from "state/definitions";
+import { __resetAppSpecPatchStreamsForTests } from "state/appSpecPatchStreaming";
+import { useAIStore, useAppPreview, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   StreamingEventTypeEnum,
@@ -14,82 +10,23 @@ import {
 } from "utils/generatedTypes";
 import { getDefaultChatDetails, receiveLLMResponseChunk } from "./ai";
 
-const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
-  pluginId: "setta-json-render-app-gen",
-  pluginEnabled: true,
-  appAuthoringUi: true,
-  appPreviewUi: true,
-  appGenerationChatModes: true,
-  appDeploymentRuntime: true,
-} as const;
-const NOOP_APP_SUBSYSTEM_RENDERER = { mount: () => undefined };
-const applyAppSpecPatchPreviewDeltaToStoreMock = vi.fn();
-const clearAllAppSpecPatchPreviewStreamsMock = vi.fn();
-const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByPluginId =
-  {
-    [ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
-      pluginId: ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId,
-      overviewTab: {
-        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
-        titleQuickInfo: "Authoring quick info",
-        moreMenuQuickInfo: "More menu quick info",
-        moreMenuLabel: "JSON Render",
-      },
-      previewSurface: {
-        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
-      },
-      appModeRoute: {
-        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
-      },
-      appDeploymentModal: {
-        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
-      },
-      chat: {
-        slashCommands: [
-          {
-            command: "/app-json",
-            action: "app_json_render",
-            summary: "Generate an app spec.",
-            promptTemplate: "Generate an app spec.",
-            appGenerationMode: "json_render",
-          },
-        ],
-        imageRequiredModes: [],
-        customSlashCommandModes: {
-          options: [{ id: "plain_chat", name: "Plain chat" }],
-          defaultMode: "plain_chat",
-        },
-      },
-      controller: {
-        applyAppSpecPatchPreviewDeltaToStore:
-          applyAppSpecPatchPreviewDeltaToStoreMock,
-        clearAllAppSpecPatchPreviewStreams:
-          clearAllAppSpecPatchPreviewStreamsMock,
-        initializeAppSessionFromCurrentDeployment: async () => true,
-      },
-    },
-  };
-
 describe("ai app spec patch preview streaming", () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     resetProjectStores();
-    applyAppSpecPatchPreviewDeltaToStoreMock.mockClear();
-    clearAllAppSpecPatchPreviewStreamsMock.mockClear();
-    await syncAppSubsystemFrontendRegistration(
-      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
-      APP_SUBSYSTEM_FRONTEND_REGISTRATIONS,
-    );
+    __resetAppSpecPatchStreamsForTests();
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
     });
   });
 
   afterEach(() => {
-    resetAppSubsystemFrontendRuntimeState();
+    __resetAppSpecPatchStreamsForTests();
     resetProjectStores();
   });
 
-  it("routes streamed patch lines through the app-subsystem controller", () => {
+  it("applies streamed patch lines to the AI preview override", () => {
+    expect(useAppPreview.getState().aiPreviewSpecOverride).toBeUndefined();
+
     const delta1 =
       '{"op":"set","path":"/root","value":"app-root"}\n' +
       '{"op":"set","path":"/elements/app-root","value":{"key":"app-root","type":"Card","props":{"title":"Hello"},"children":[]}}\n';
@@ -98,7 +35,7 @@ describe("ai app spec patch preview streaming", () => {
       chatId: "chat-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.tool_argument_preview_delta,
+        type: StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA,
         message_id: "msg-1",
         tool_call_id: "tool-call-1",
         tool_name: "setta__stream_app_definition",
@@ -109,9 +46,14 @@ describe("ai app spec patch preview streaming", () => {
       },
     });
 
-    expect(applyAppSpecPatchPreviewDeltaToStoreMock).toHaveBeenCalledWith({
-      toolCallId: "tool-call-1",
-      previewValueDelta: delta1,
+    expect(useAppPreview.getState().aiPreviewSpecOverride).toMatchObject({
+      root: "app-root",
+      elements: {
+        "app-root": {
+          type: "Card",
+          props: { title: "Hello" },
+        },
+      },
     });
 
     const delta2 =
@@ -121,7 +63,7 @@ describe("ai app spec patch preview streaming", () => {
       chatId: "chat-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.tool_argument_preview_delta,
+        type: StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA,
         message_id: "msg-1",
         tool_call_id: "tool-call-1",
         tool_name: "setta__stream_app_definition",
@@ -132,9 +74,12 @@ describe("ai app spec patch preview streaming", () => {
       },
     });
 
-    expect(applyAppSpecPatchPreviewDeltaToStoreMock).toHaveBeenLastCalledWith({
-      toolCallId: "tool-call-1",
-      previewValueDelta: delta2,
+    expect(useAppPreview.getState().aiPreviewSpecOverride).toMatchObject({
+      elements: {
+        "app-root": {
+          props: { title: "Hello 2" },
+        },
+      },
     });
   });
 
@@ -158,7 +103,7 @@ describe("ai app spec patch preview streaming", () => {
       chatId: "chat-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.tool_argument_preview_delta,
+        type: StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA,
         message_id: "msg-1",
         tool_call_id: "tool-call-1",
         tool_name: "setta__stream_app_definition",
@@ -173,7 +118,7 @@ describe("ai app spec patch preview streaming", () => {
       chatId: "chat-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.tool_argument_preview_delta,
+        type: StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA,
         message_id: "msg-1",
         tool_call_id: "tool-call-1",
         tool_name: "setta__stream_app_definition",

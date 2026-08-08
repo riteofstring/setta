@@ -3,10 +3,9 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   createChatSection,
-  emitChatStreamDelta,
   ensureAppReady,
   openIsolatedProject,
-  setChatSectionChatId,
+  postBackend,
   setChatSectionState,
 } from "../helpers";
 
@@ -39,7 +38,7 @@ test.describe.serial("chat thought title timing", () => {
         temporary: false,
       };
 
-      await setChatSectionChatId(page, {
+      await postBackend(page, "/setChatSectionChatId", {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
         chatId,
@@ -56,7 +55,7 @@ test.describe.serial("chat thought title timing", () => {
         },
       });
 
-      await emitChatStreamDelta(page, {
+      await postBackend(page, "/emitChatStreamDelta", {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
         chatId,
@@ -71,7 +70,7 @@ test.describe.serial("chat thought title timing", () => {
           },
         },
       });
-      await emitChatStreamDelta(page, {
+      await postBackend(page, "/emitChatStreamDelta", {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
         chatId,

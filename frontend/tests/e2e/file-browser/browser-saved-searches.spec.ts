@@ -3,7 +3,6 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   cleanupIsolatedProject,
-  createTopLevelSectionFromFrontend,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
@@ -139,15 +138,19 @@ test("browser can save a search and re-apply it from the Filters column", async 
       );
     }
 
-    const browserSection = await createTopLevelSectionFromFrontend(page, {
-      projectConfigId,
-      implType: "Browser",
-      position: {
-        x: viewportBounds.x + viewportBounds.w * 0.25,
-        y: viewportBounds.y + viewportBounds.h * 0.55,
+    const browserSection = await postBackend<{ sectionId?: string }>(
+      page,
+      "/createTopLevelSection",
+      {
+        projectConfigId,
+        implType: "Browser",
+        position: {
+          x: viewportBounds.x + viewportBounds.w * 0.25,
+          y: viewportBounds.y + viewportBounds.h * 0.55,
+        },
+        viewportBounds,
       },
-      viewportBounds,
-    });
+    );
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");

@@ -6,7 +6,7 @@ import type {
   DragOverEvent,
   DragStartEvent,
 } from "forks/dnd-kit/adapter";
-import { useDndMonitor } from "forks/dnd-kit/adapter";
+import { computeNewIndex, useDndMonitor } from "forks/dnd-kit/adapter";
 import { resolveOverCollisionId } from "forks/dnd-kit/adapter/collisionCompare";
 import { rectFromBoundingRect } from "forks/dnd-kit/adapter/rect";
 import {
@@ -60,15 +60,8 @@ import {
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
-import {
-  isParamOverlayVisible,
-  resolveParamPlaceholderMovePlan,
-} from "./paramDndMonitorUtils";
 
-function debugParamDnd(message: string, details?: Record<string, unknown>) {
-  void message;
-  void details;
-}
+function debugParamDnd(_message: string, _details?: Record<string, unknown>) {}
 
 type ParamDragData = {
   type?: string;
@@ -98,32 +91,6 @@ type CollisionDroppableData = {
     onlyChildId?: string | null;
     sortable?: CollisionSortableData;
   };
-};
-
-type ParamDndStoreState = ReturnType<typeof useParamDndState.getState>;
-type ParamStartDragData = NonNullable<ReturnType<typeof getParamDragData>>;
-type ParamDragAbort = {
-  reason: string;
-  details?: Record<string, unknown>;
-};
-type ParamDragDropTarget = {
-  tempId: string;
-  newParentId: string;
-  tempIndex: number;
-};
-type ParamDragOrdering = {
-  oldParentId: string;
-  orderedDraggingIds: string[];
-};
-type ParamDragInsertion = {
-  newIndex: number;
-  newParentImpl: ReturnType<typeof getCurrEffectiveCodeObjImpl>;
-};
-type ParamDragOverResolution = {
-  overParamId: string;
-  pastHalfway: boolean;
-  triggerDistCondition: boolean;
-  filteredCollisions: NonNullable<DragOverEvent["collisions"]>;
 };
 
 let lastResolvedOverId: string | null = null;
@@ -192,68 +159,32 @@ export function ParamDragOverlay() {
   const manager = useDragDropManager();
   const [suppressOverlay, setSuppressOverlay] = useState(false);
 
-  useParamDragOverlayMonitor(setSuppressOverlay);
-  const { overlayMetrics, overlayRect, canRenderOverlay } =
-    useParamDragOverlayState(manager, suppressOverlay);
-
-  if (!canRenderOverlay || !overlayMetrics) {
-    return null;
-  }
-
-  return createPortal(
-    overlayRect ? (
-      <div
-        className="rounded-sm bg-blue-600/80 shadow-md dark:bg-blue-700/70"
-        style={{
-          position: "fixed",
-          top: overlayRect.top,
-          left: overlayRect.left,
-          width: overlayMetrics.width,
-          height: overlayMetrics.height,
-          pointerEvents: "none",
-          zIndex: 1000,
-        }}
-      />
-    ) : null,
-    document.body,
-  );
-}
-
-function useParamDragOverlayMonitor(
-  setSuppressOverlay: (nextValue: boolean) => void,
-) {
   useDndMonitor({
     onDragStart: (event) => {
-      updateParamOverlaySuppression({
-        event,
-        nextValue: false,
-        phase: "start",
-        setSuppressOverlay,
-      });
+      if (isParamDrag(event.active)) {
+        setSuppressOverlay(false);
+        debugParamDnd("overlay:start", {
+          activeId: String(event.active.id),
+        });
+      }
     },
     onDragEnd: (event) => {
-      updateParamOverlaySuppression({
-        event,
-        nextValue: true,
-        phase: "end",
-        setSuppressOverlay,
-      });
+      if (isParamDrag(event.active)) {
+        setSuppressOverlay(true);
+        debugParamDnd("overlay:end", {
+          activeId: String(event.active.id),
+        });
+      }
     },
     onDragCancel: (event) => {
-      updateParamOverlaySuppression({
-        event,
-        nextValue: true,
-        phase: "cancel",
-        setSuppressOverlay,
-      });
+      if (isParamDrag(event.active)) {
+        setSuppressOverlay(true);
+        debugParamDnd("overlay:cancel", {
+          activeId: String(event.active.id),
+        });
+      }
     },
   });
-}
-
-function useParamDragOverlayState(
-  manager: DragDropManager | null,
-  suppressOverlay: boolean,
-) {
   const activeDragType = useComputed(() => {
     const sourceData = manager?.dragOperation.source?.data as
       | { current?: { type?: string } }
@@ -285,11 +216,11 @@ function useParamDragOverlayState(
     () => manager?.dragOperation.status.dropped ?? false,
     [manager],
   ).value;
-  const isDragging = useComputed(
+  const isDraggingStatus = useComputed(
     () => manager?.dragOperation.status.dragging ?? false,
     [manager],
   ).value;
-  const isInitializing = useComputed(
+  const isInitializingStatus = useComputed(
     () => manager?.dragOperation.status.initializing ?? false,
     [manager],
   ).value;
@@ -303,31 +234,14 @@ function useParamDragOverlayState(
         height: placeholderHeight ?? 32,
       }
     : null;
-  const overlayRect = activeRect
-    ? {
-        top: activeRect.top + (dragTransform?.y ?? 0),
-        left: activeRect.left + (dragTransform?.x ?? 0),
-        width: activeRect.width,
-        height: activeRect.height,
-      }
-    : null;
-  const canRenderOverlay = isParamOverlayVisible({
-    shouldRenderOverlay,
-    isParamDragActive,
-    hasOverlayMetrics: overlayMetrics !== null,
-    suppressOverlay,
-    isDropped,
-    isDragging,
-    isInitializing,
-  });
 
   useEffect(() => {
     debugParamDnd("overlay:state", {
       activeId,
       isParamDragActive,
       shouldRenderOverlay,
-      isDragging,
-      isInitializing,
+      isDragging: isDraggingStatus,
+      isInitializing: isInitializingStatus,
       isDropped,
       suppressOverlay,
       placeholderWidth,
@@ -337,39 +251,52 @@ function useParamDragOverlayState(
     activeId,
     isParamDragActive,
     shouldRenderOverlay,
-    isDragging,
-    isInitializing,
+    isDraggingStatus,
+    isInitializingStatus,
     isDropped,
     suppressOverlay,
     placeholderWidth,
     placeholderHeight,
   ]);
 
-  return {
-    overlayMetrics,
-    overlayRect,
-    canRenderOverlay,
-  };
-}
-
-function updateParamOverlaySuppression({
-  event,
-  nextValue,
-  phase,
-  setSuppressOverlay,
-}: {
-  event: { active: DragStartEvent["active"] };
-  nextValue: boolean;
-  phase: "start" | "end" | "cancel";
-  setSuppressOverlay: (nextValue: boolean) => void;
-}) {
-  if (!isParamDrag(event.active)) {
-    return;
+  if (!shouldRenderOverlay || !isParamDragActive || !overlayMetrics) {
+    return null;
   }
-  setSuppressOverlay(nextValue);
-  debugParamDnd(`overlay:${phase}`, {
-    activeId: String(event.active.id),
-  });
+
+  if (suppressOverlay || isDropped) {
+    return null;
+  }
+
+  if (!isDraggingStatus && !isInitializingStatus) {
+    return null;
+  }
+
+  const overlayRect = activeRect
+    ? {
+        top: activeRect.top + (dragTransform?.y ?? 0),
+        left: activeRect.left + (dragTransform?.x ?? 0),
+        width: activeRect.width,
+        height: activeRect.height,
+      }
+    : null;
+
+  return createPortal(
+    overlayRect ? (
+      <div
+        className="rounded-sm bg-blue-600/80 shadow-md dark:bg-blue-700/70"
+        style={{
+          position: "fixed",
+          top: overlayRect.top,
+          left: overlayRect.left,
+          width: overlayMetrics.width,
+          height: overlayMetrics.height,
+          pointerEvents: "none",
+          zIndex: 1000,
+        }}
+      />
+    ) : null,
+    document.body,
+  );
 }
 
 function handleParamDragStart(
@@ -391,19 +318,29 @@ function handleParamDragStart(
     sectionId,
     isBaseSectionWithParamsImpl,
   );
-  const activeId = resolveParamActiveId(dragData, event);
+  const activeId =
+    dragData.paramId ?? getParamIdFromDndItemId(String(event.active.id));
   const rootId = getParamRootId(state, sectionId);
   const parentById = buildParamParentMap(state, sectionId, rootId);
   if (!Object.prototype.hasOwnProperty.call(parentById, activeId)) {
     return;
   }
 
-  const draggingIds = resolveDraggingParamIds({
-    sectionId,
-    activeId,
-    parentById,
-    selectedParams: sectionImpl.selectedParams ?? [],
-  });
+  const selectedParams = sectionImpl.selectedParams ?? [];
+  const rootSelected = getRootSelectedParamIds(parentById, selectedParams);
+  const isActiveSelected = selectedParams.includes(activeId);
+  let draggingIds = isActiveSelected ? rootSelected : [activeId];
+
+  if (!isActiveSelected) {
+    selectOnlyParam(sectionId, activeId);
+  }
+
+  const sharedParent = getSharedParentId(parentById, draggingIds);
+  if (!sharedParent && draggingIds.length > 1) {
+    addTemporaryNotification("Param selection spans multiple parents.");
+    draggingIds = [activeId];
+    selectOnlyParam(sectionId, activeId);
+  }
 
   const view = resolveParamListView(
     state,
@@ -469,249 +406,40 @@ function handleParamDragOver(event: DragOverEvent) {
 
 function handleParamDragEnd() {
   const paramState = useParamDndState.getState();
-  if (!hasActiveParamDragState(paramState)) {
-    abortParamDragEnd({ reason: "missing-state" });
+  if (!paramState.activeId || !paramState.sectionId || !paramState.listKey) {
+    debugParamDnd("end:missing-state");
+    deferParamDragReset("missing-state");
     return;
   }
 
-  const dropTarget = resolveParamDragDropTarget(paramState);
-  if (isParamDragAbort(dropTarget)) {
-    abortParamDragEnd(dropTarget);
-    return;
-  }
-  const state = useProjectState.getState();
-  const ordering = resolveParamDragOrdering(
-    state,
-    paramState,
-    dropTarget.tempId,
-  );
-  if (isParamDragAbort(ordering)) {
-    abortParamDragEnd(ordering);
-    return;
-  }
-  if (
-    isDescendantOfSelection(
-      paramState.parentById,
-      dropTarget.newParentId,
-      new Set(ordering.orderedDraggingIds),
-    )
-  ) {
-    abortParamDragEnd({
-      reason: "descendant",
-      details: {
-        newParentId: dropTarget.newParentId,
-        orderedDraggingIds: ordering.orderedDraggingIds,
-      },
-    });
-    return;
-  }
-
-  const insertion = resolveParamDragInsertion({
-    state,
-    paramState,
-    newParentId: dropTarget.newParentId,
-    tempIndex: dropTarget.tempIndex,
-    orderedDraggingIds: ordering.orderedDraggingIds,
-  });
-  if (isParamDragAbort(insertion)) {
-    abortParamDragEnd(insertion);
-    return;
-  }
-
-  if (
-    isNoopParamDragMove({
-      newParentId: dropTarget.newParentId,
-      oldParentId: ordering.oldParentId,
-      orderedDraggingIds: ordering.orderedDraggingIds,
-      newIndex: insertion.newIndex,
-      newParentImpl: insertion.newParentImpl,
-    })
-  ) {
-    abortParamDragEnd({
-      reason: "noop",
-      details: {
-        newParentId: dropTarget.newParentId,
-        newIndex: insertion.newIndex,
-      },
-    });
-    return;
-  }
-
-  debugParamDnd("end:move", {
-    oldParentId: ordering.oldParentId,
-    newParentId: dropTarget.newParentId,
-    newIndex: insertion.newIndex,
-    orderedDraggingIds: ordering.orderedDraggingIds,
-  });
-  moveParamsWithBackend({
-    sectionId: paramState.sectionId,
-    paramIds: ordering.orderedDraggingIds,
-    newParentId: dropTarget.newParentId,
-    newIndex: insertion.newIndex,
-  });
-  deferParamDragReset("move");
-}
-
-function handleParamDragCancel() {
-  deferParamDragReset("cancel");
-}
-
-function updateParamDragOver({ active, collisions, over }: ParamDragOverInput) {
-  if (!isParamDrag(active)) {
-    return;
-  }
-  const paramState = useParamDndState.getState();
-  if (!hasActiveParamDragState(paramState) || !collisions) {
-    return;
-  }
-  const filteredCollisions = getLoggedFilteredParamCollisions(
-    collisions,
-    paramState.listKey,
-  );
-  if (!filteredCollisions) {
-    return;
-  }
-  const resolution = resolveParamDragOverResolution({
-    filteredCollisions,
-    over,
-    listKey: paramState.listKey,
-    sectionId: paramState.sectionId,
-    rootId: paramState.rootId,
-  });
-  if (!resolution || !updateResolvedParamDragOverState(resolution)) {
-    return;
-  }
-
-  debugParamDnd("over:resolved", {
-    activeId: paramState.activeId,
-    overId: resolution.overParamId,
-    pastHalfway: resolution.pastHalfway,
-    triggerDistCondition: resolution.triggerDistCondition,
-    listKey: paramState.listKey,
-    collisions: resolution.filteredCollisions.map((collision) =>
-      String(collision.id),
-    ),
-  });
-  const placeholderMove = resolveParamDragPlaceholderMove({
-    activeId: paramState.activeId,
-    listKey: paramState.listKey,
-    parentById: paramState.parentById,
-    draggingIds: paramState.draggingIds,
-    overId: resolution.overParamId,
-    pastHalfway: resolution.pastHalfway,
-    triggerDistCondition: resolution.triggerDistCondition,
-  });
-  if (!placeholderMove) {
-    return;
-  }
-  maybeMovePlaceholder(placeholderMove);
-}
-
-function hasActiveParamDragState(
-  paramState: ParamDndStoreState,
-): paramState is ParamDndStoreState & {
-  activeId: string;
-  sectionId: string;
-  listKey: ParamListKey;
-} {
-  return Boolean(
-    paramState.activeId && paramState.sectionId && paramState.listKey,
-  );
-}
-
-function resolveParamActiveId(
-  dragData: ParamStartDragData,
-  event: DragStartEvent,
-) {
-  return dragData.paramId ?? getParamIdFromDndItemId(String(event.active.id));
-}
-
-function resolveDraggingParamIds({
-  sectionId,
-  activeId,
-  parentById,
-  selectedParams,
-}: {
-  sectionId: string;
-  activeId: string;
-  parentById: Record<string, string | null>;
-  selectedParams: string[];
-}) {
-  if (!selectedParams.includes(activeId)) {
-    selectOnlyParam(sectionId, activeId);
-    return [activeId];
-  }
-
-  const rootSelected = getRootSelectedParamIds(parentById, selectedParams);
-  const draggingIds = rootSelected.length > 0 ? rootSelected : [activeId];
-  if (draggingIds.length === 1) {
-    return draggingIds;
-  }
-  if (getSharedParentId(parentById, draggingIds)) {
-    return draggingIds;
-  }
-
-  addTemporaryNotification("Param selection spans multiple parents.");
-  selectOnlyParam(sectionId, activeId);
-  return [activeId];
-}
-
-function abortParamDragEnd({ reason, details }: ParamDragAbort) {
-  debugParamDnd(`end:${reason}`, details);
-  deferParamDragReset(reason);
-}
-
-function isParamDragAbort<T>(
-  result: T | ParamDragAbort,
-): result is ParamDragAbort {
-  return typeof result === "object" && result !== null && "reason" in result;
-}
-
-function resolveParamDragDropTarget(
-  paramState: ParamDndStoreState & {
-    activeId: string;
-    sectionId: string;
-    listKey: ParamListKey;
-  },
-): ParamDragDropTarget | ParamDragAbort {
   const tempId = getTempParamDndId(
     getParamDndItemId(paramState.activeId, paramState.listKey),
   );
   const dndChildrenState = useParamDndChildren.getState();
   const newParentId = dndChildrenState.y[tempId] ?? null;
   if (!newParentId) {
-    return { reason: "no-parent", details: { tempId } };
+    debugParamDnd("end:no-parent", { tempId });
+    deferParamDragReset("no-parent");
+    return;
   }
+
   const tempSiblings = dndChildrenState.x[newParentId] ?? [];
   const tempIndex = tempSiblings.indexOf(tempId);
   if (tempIndex < 0) {
-    return {
-      reason: "temp-not-found",
-      details: { tempId, newParentId },
-    };
+    debugParamDnd("end:temp-not-found", { tempId, newParentId });
+    deferParamDragReset("temp-not-found");
+    return;
   }
-  return {
-    tempId,
-    newParentId,
-    tempIndex,
-  };
-}
 
-function resolveParamDragOrdering(
-  state: ZustandProjectState,
-  paramState: ParamDndStoreState & {
-    activeId: string;
-    sectionId: string;
-    listKey: ParamListKey;
-  },
-  tempId: string,
-): ParamDragOrdering | ParamDragAbort {
+  const state = useProjectState.getState();
   const oldParentId =
     getSharedParentId(paramState.parentById, paramState.draggingIds) ??
     paramState.parentById[paramState.draggingIds[0]] ??
     null;
   if (!oldParentId) {
-    return { reason: "no-old-parent", details: { tempId } };
+    debugParamDnd("end:no-old-parent", { tempId });
+    deferParamDragReset("no-old-parent");
+    return;
   }
   const orderedDraggingIds = orderParamIdsByParent(
     state,
@@ -720,34 +448,22 @@ function resolveParamDragOrdering(
     paramState.draggingIds,
   );
   if (orderedDraggingIds.length === 0) {
-    return {
-      reason: "empty-ordered",
-      details: { tempId, oldParentId },
-    };
+    debugParamDnd("end:empty-ordered", { tempId, oldParentId });
+    deferParamDragReset("empty-ordered");
+    return;
   }
-  return {
-    oldParentId,
-    orderedDraggingIds,
-  };
-}
+  if (
+    isDescendantOfSelection(
+      paramState.parentById,
+      newParentId,
+      new Set(orderedDraggingIds),
+    )
+  ) {
+    debugParamDnd("end:descendant", { newParentId, orderedDraggingIds });
+    deferParamDragReset("descendant");
+    return;
+  }
 
-function resolveParamDragInsertion({
-  state,
-  paramState,
-  newParentId,
-  tempIndex,
-  orderedDraggingIds,
-}: {
-  state: ZustandProjectState;
-  paramState: ParamDndStoreState & {
-    activeId: string;
-    sectionId: string;
-    listKey: ParamListKey;
-  };
-  newParentId: string;
-  tempIndex: number;
-  orderedDraggingIds: string[];
-}): ParamDragInsertion | ParamDragAbort {
   const newParentImpl = getCurrEffectiveCodeObjImpl(
     state,
     paramState.sectionId,
@@ -764,183 +480,146 @@ function resolveParamDragInsertion({
     fullChildren,
   });
   if (newIndex === null) {
-    return {
-      reason: "new-index-null",
-      details: {
-        newParentId,
-        tempIndex,
-        orderedDraggingIds,
-      },
-    };
+    debugParamDnd("end:new-index-null", {
+      newParentId,
+      tempIndex,
+      orderedDraggingIds,
+    });
+    deferParamDragReset("new-index-null");
+    return;
   }
-  return {
+
+  if (newParentId === oldParentId && isBaseParentCodeObjImpl(newParentImpl)) {
+    const currentIndex = newParentImpl.children.indexOf(orderedDraggingIds[0]);
+    if (currentIndex === newIndex) {
+      debugParamDnd("end:noop", { newParentId, newIndex });
+      deferParamDragReset("noop");
+      return;
+    }
+  }
+
+  debugParamDnd("end:move", {
+    oldParentId,
+    newParentId,
     newIndex,
-    newParentImpl,
-  };
+    orderedDraggingIds,
+  });
+  moveParamsWithBackend({
+    sectionId: paramState.sectionId,
+    paramIds: orderedDraggingIds,
+    newParentId,
+    newIndex,
+  });
+  deferParamDragReset("move");
 }
 
-function isNoopParamDragMove({
-  newParentId,
-  oldParentId,
-  orderedDraggingIds,
-  newIndex,
-  newParentImpl,
-}: {
-  newParentId: string;
-  oldParentId: string;
-  orderedDraggingIds: string[];
-  newIndex: number;
-  newParentImpl: ReturnType<typeof getCurrEffectiveCodeObjImpl>;
-}) {
-  if (newParentId !== oldParentId || !isBaseParentCodeObjImpl(newParentImpl)) {
-    return false;
+function handleParamDragCancel() {
+  deferParamDragReset("cancel");
+}
+
+function updateParamDragOver({ active, collisions, over }: ParamDragOverInput) {
+  if (!isParamDrag(active)) {
+    return;
   }
-  const currentIndex = newParentImpl.children.indexOf(orderedDraggingIds[0]);
-  return currentIndex === newIndex;
-}
-
-function getLoggedFilteredParamCollisions(
-  collisions: NonNullable<DragOverEvent["collisions"]>,
-  listKey: ParamListKey,
-) {
-  const filteredCollisions = filterCollisionsForListKey(collisions, listKey);
+  const paramState = useParamDndState.getState();
+  if (!paramState.activeId || !paramState.sectionId || !collisions) {
+    return;
+  }
+  const filteredCollisions = filterCollisionsForListKey(
+    collisions,
+    paramState.listKey,
+  );
   if (!filteredCollisions || filteredCollisions.length === 0) {
-    noteFilteredCollisionEmpty(collisions, listKey);
-    return null;
-  }
-  noteFilteredCollisionResume(filteredCollisions, listKey);
-  return filteredCollisions;
-}
-
-function noteFilteredCollisionEmpty(
-  collisions: NonNullable<DragOverEvent["collisions"]>,
-  listKey: ParamListKey,
-) {
-  if (collisions.length === 0 || lastFilteredCollisionEmpty === true) {
+    if (
+      collisions &&
+      collisions.length > 0 &&
+      lastFilteredCollisionEmpty !== true
+    ) {
+      lastFilteredCollisionEmpty = true;
+      debugParamDnd("over:filtered-empty", {
+        collisions: collisions.map((collision) => String(collision.id)),
+        listKey: paramState.listKey,
+      });
+    }
     return;
   }
-  lastFilteredCollisionEmpty = true;
-  debugParamDnd("over:filtered-empty", {
-    collisions: collisions.map((collision) => String(collision.id)),
-    listKey,
-  });
-}
-
-function noteFilteredCollisionResume(
-  filteredCollisions: NonNullable<DragOverEvent["collisions"]>,
-  listKey: ParamListKey,
-) {
-  if (!lastFilteredCollisionEmpty) {
-    return;
+  if (lastFilteredCollisionEmpty) {
+    lastFilteredCollisionEmpty = false;
+    debugParamDnd("over:filtered-resume", {
+      collisions: filteredCollisions.map((collision) => String(collision.id)),
+      listKey: paramState.listKey,
+    });
   }
-  lastFilteredCollisionEmpty = false;
-  debugParamDnd("over:filtered-resume", {
-    collisions: filteredCollisions.map((collision) => String(collision.id)),
-    listKey,
-  });
-}
-
-function resolveParamDragOverResolution({
-  filteredCollisions,
-  over,
-  listKey,
-  sectionId,
-  rootId,
-}: {
-  filteredCollisions: NonNullable<DragOverEvent["collisions"]>;
-  over: DragOverEvent["over"];
-  listKey: ParamListKey;
-  sectionId: string;
-  rootId: string | null;
-}): ParamDragOverResolution | null {
   const resolvedOverId = resolveOverCollisionId(
     filteredCollisions,
-    getOverIdForListKey(over, listKey),
-    getParamDndParentByChild(listKey),
+    getOverIdForListKey(over, paramState.listKey),
+    getParamDndParentByChild(paramState.listKey),
   );
-  const normalizedOverId = normalizeParamOverId(
-    resolvedOverId ? String(resolvedOverId) : null,
-    sectionId,
-    rootId,
-  );
-  if (!normalizedOverId) {
-    return null;
-  }
-  return {
-    overParamId: getParamIdFromDndItemId(normalizedOverId),
-    pastHalfway:
-      getPastHalfwayFromCollisions(filteredCollisions, resolvedOverId) ?? false,
-    triggerDistCondition:
-      getCollisionTriggerDistCondition(resolvedOverId, filteredCollisions) ??
-      false,
-    filteredCollisions,
-  };
-}
-
-function normalizeParamOverId(
-  overId: string | null,
-  sectionId: string,
-  rootId: string | null,
-) {
+  const overId = resolvedOverId ? String(resolvedOverId) : null;
   if (!overId) {
-    return null;
+    return;
   }
-  return overId === sectionId && rootId ? rootId : overId;
-}
+  const pastHalfway = getPastHalfwayFromCollisions(
+    filteredCollisions,
+    resolvedOverId,
+  );
+  const triggerDistCondition =
+    getCollisionTriggerDistCondition(resolvedOverId, filteredCollisions) ??
+    false;
+  const normalizedOverId =
+    overId === paramState.sectionId && paramState.rootId
+      ? paramState.rootId
+      : overId;
+  if (!normalizedOverId) {
+    return;
+  }
+  const overParamId = getParamIdFromDndItemId(normalizedOverId);
 
-function updateResolvedParamDragOverState({
-  overParamId,
-  pastHalfway,
-  triggerDistCondition,
-}: ParamDragOverResolution) {
   if (
     overParamId === lastResolvedOverId &&
     pastHalfway === lastResolvedPastHalfway &&
     triggerDistCondition === lastResolvedTriggerDistCondition
   ) {
-    return false;
+    return;
   }
 
   lastResolvedOverId = overParamId;
   lastResolvedPastHalfway = pastHalfway;
   lastResolvedTriggerDistCondition = triggerDistCondition;
-  return true;
-}
 
-function resolveParamDragPlaceholderMove({
-  activeId,
-  listKey,
-  parentById,
-  draggingIds,
-  overId,
-  pastHalfway,
-  triggerDistCondition,
-}: {
-  activeId: string;
-  listKey: ParamListKey;
-  parentById: Record<string, string | null>;
-  draggingIds: string[];
-  overId: string;
-  pastHalfway: boolean;
-  triggerDistCondition: boolean;
-}) {
-  const tempId = getTempParamDndId(getParamDndItemId(activeId, listKey));
+  debugParamDnd("over:resolved", {
+    activeId: paramState.activeId,
+    overId: overParamId,
+    pastHalfway,
+    triggerDistCondition,
+    listKey: paramState.listKey,
+    collisions: filteredCollisions.map((collision) => String(collision.id)),
+  });
+
+  if (!paramState.listKey) {
+    return;
+  }
+  const tempId = getTempParamDndId(
+    getParamDndItemId(paramState.activeId, paramState.listKey),
+  );
+  const oldParentId = getParamDndParentId(tempId) ?? null;
+
   const newParentId = resolveParamDragParent({
-    overId,
-    parentById,
-    draggingIds,
+    overId: overParamId,
+    parentById: paramState.parentById,
+    draggingIds: paramState.draggingIds,
     triggerDistCondition,
   });
   if (!newParentId) {
-    return null;
+    return;
   }
-  return {
+  maybeMovePlaceholder({
     tempId,
-    overId,
-    oldParentId: getParamDndParentId(tempId) ?? null,
+    overId: overParamId,
+    oldParentId,
     newParentId,
-    pastHalfway,
-  };
+    pastHalfway: pastHalfway ?? false,
+  });
 }
 
 function resolveParamDragParent({
@@ -980,42 +659,57 @@ function maybeMovePlaceholder({
   pastHalfway: boolean;
 }) {
   const dndChildrenState = useParamDndChildren.getState();
-  const movePlan = resolveParamPlaceholderMovePlan({
-    tempId,
-    overId,
-    oldParentId,
-    newParentId,
-    pastHalfway,
-    newParentChildren: dndChildrenState.x[newParentId] ?? [],
-  });
-  if (!movePlan) {
-    return;
-  }
+  const newParentChildren = dndChildrenState.x[newParentId] ?? [];
+  const overIndex = newParentChildren.indexOf(overId);
+  const tempInNewParent = newParentChildren.includes(tempId);
 
-  if (movePlan.type === "move-parent") {
+  if (newParentId !== oldParentId) {
+    let index = 0;
+    if (overIndex >= 0) {
+      index = pastHalfway ? overIndex + 1 : overIndex;
+    } else if (
+      overId === newParentId &&
+      newParentChildren.length > 0 &&
+      !tempInNewParent
+    ) {
+      index = pastHalfway ? newParentChildren.length : 0;
+    } else {
+      index = newParentChildren.length;
+    }
     debugParamDnd("placeholder:move-parent", {
       tempId,
       oldParentId,
       newParentId,
       overId,
-      overIndex: movePlan.overIndex,
-      index: movePlan.index,
+      overIndex,
+      index,
       pastHalfway,
     });
-    addParamChild(oldParentId, newParentId, tempId, movePlan.index);
+    addParamChild(oldParentId, newParentId, tempId, index);
     return;
   }
 
-  debugParamDnd("placeholder:reorder", {
-    tempId,
-    parentId: newParentId,
-    overId,
-    activeIndex: movePlan.activeIndex,
-    overIndex: movePlan.overIndex,
-    nextIndex: movePlan.index,
-    pastHalfway,
-  });
-  addParamChild(oldParentId, newParentId, tempId, movePlan.index);
+  const activeIndex = newParentChildren.indexOf(tempId);
+  if (activeIndex >= 0 && overIndex >= 0 && overId !== tempId) {
+    const nextIndex = computeNewIndex(
+      activeIndex,
+      overIndex,
+      pastHalfway,
+      newParentChildren.length,
+    );
+    if (nextIndex !== activeIndex) {
+      debugParamDnd("placeholder:reorder", {
+        tempId,
+        parentId: newParentId,
+        overId,
+        activeIndex,
+        overIndex,
+        nextIndex,
+        pastHalfway,
+      });
+      addParamChild(oldParentId, newParentId, tempId, nextIndex);
+    }
+  }
 }
 
 function getParamDragData(event: DragStartEvent): {

@@ -1,7 +1,7 @@
 import {
   SectionTypeEnum,
   StateMachineGateTypeEnum,
-  type SingleConfig,
+  type ProjectStateSingleConfig,
 } from "utils/generatedTypes";
 import {
   getCurrEffectiveSectionImpl,
@@ -16,21 +16,10 @@ type StateMachineDraftWarning = {
 };
 
 type StateMachineEdge =
-  SingleConfig["projectConfig"]["stateMachineEdges"][number];
-type StateSection = SingleConfig["sections"][string];
-type ResolvedSectionImpl = Exclude<
-  ReturnType<typeof getCurrEffectiveSectionImplIfPresent>,
-  null
->;
-type ReachabilityState = {
-  activatableEdgeIds: Set<string>;
-  dispatchableChatSectionIds: Set<string>;
-  possibleGateSectionIds: Set<string>;
-  reachableChatSectionIds: Set<string>;
-};
+  ProjectStateSingleConfig["projectConfig"]["stateMachineEdges"][number];
 
 export function getStateMachineDraftWarning(
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
   machineGroupId: string,
 ): StateMachineDraftWarning | null {
   const normalizedMachineGroupId = machineGroupId.trim();
@@ -98,7 +87,7 @@ function buildDraftWarningDetail({
 }
 
 function collectMachineSections(
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
   machineGroupId: string,
 ): {
   endSectionIds: string[];
@@ -140,7 +129,7 @@ function getUnreachableEndWarning({
   startSectionId,
   endSectionIds,
 }: {
-  state: SingleConfig;
+  state: ProjectStateSingleConfig;
   machineGroupId: string;
   startSectionId: string;
   endSectionIds: Set<string>;
@@ -148,19 +137,83 @@ function getUnreachableEndWarning({
   const machineEdges = state.projectConfig.stateMachineEdges.filter(
     (edge) => edge.machineGroupId === machineGroupId,
   );
-  const reachability = getWorkflowReachabilityState({
-    state,
-    machineEdges,
-    startSectionId,
-  });
-  if (
-    hasReachableEndEdge(
-      machineEdges,
-      endSectionIds,
-      reachability.activatableEdgeIds,
-    )
-  ) {
-    return null;
+  const edgesByTargetSectionId = groupEdgesByTargetSection(machineEdges);
+  const activatableEdgeIds = new Set<string>();
+  const dispatchableChatSectionIds = new Set<string>();
+  const possibleGateSectionIds = new Set<string>();
+  const reachableChatSectionIds = new Set<string>();
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+
+    for (const edge of machineEdges) {
+      if (
+        !canSourceActivateEdge({
+          state,
+          edge,
+          startSectionId,
+          dispatchableChatSectionIds,
+          possibleGateSectionIds,
+        })
+      ) {
+        continue;
+      }
+      if (!activatableEdgeIds.has(edge.id)) {
+        activatableEdgeIds.add(edge.id);
+        changed = true;
+      }
+
+      const targetImpl = getCurrEffectiveSectionImplIfPresent(
+        state,
+        edge.targetSectionId,
+      );
+      if (targetImpl?.type === SectionTypeEnum.Chat) {
+        if (!reachableChatSectionIds.has(edge.targetSectionId)) {
+          reachableChatSectionIds.add(edge.targetSectionId);
+          changed = true;
+        }
+        if (
+          edge.targetAction?.type === "send_prompt" &&
+          !dispatchableChatSectionIds.has(edge.targetSectionId)
+        ) {
+          dispatchableChatSectionIds.add(edge.targetSectionId);
+          changed = true;
+        }
+      }
+    }
+
+    for (const [gateSectionId, incomingEdges] of edgesByTargetSectionId) {
+      const gateImpl = getCurrEffectiveSectionImplIfPresent(
+        state,
+        gateSectionId,
+      );
+      if (gateImpl?.type !== SectionTypeEnum.StateMachineGate) {
+        continue;
+      }
+      if (possibleGateSectionIds.has(gateSectionId)) {
+        continue;
+      }
+      if (
+        isGatePotentiallySatisfied(
+          gateImpl.gateType ?? StateMachineGateTypeEnum.AND,
+          incomingEdges,
+          activatableEdgeIds,
+        )
+      ) {
+        possibleGateSectionIds.add(gateSectionId);
+        changed = true;
+      }
+    }
+  }
+
+  for (const edge of machineEdges) {
+    if (!endSectionIds.has(edge.targetSectionId)) {
+      continue;
+    }
+    if (activatableEdgeIds.has(edge.id)) {
+      return null;
+    }
   }
 
   return buildUnreachableEndDetail({
@@ -168,158 +221,9 @@ function getUnreachableEndWarning({
     machineGroupId,
     machineEdges,
     startSectionId,
-    reachableChatSectionIds: reachability.reachableChatSectionIds,
-    dispatchableChatSectionIds: reachability.dispatchableChatSectionIds,
+    reachableChatSectionIds,
+    dispatchableChatSectionIds,
   });
-}
-
-function getWorkflowReachabilityState({
-  state,
-  machineEdges,
-  startSectionId,
-}: {
-  state: SingleConfig;
-  machineEdges: StateMachineEdge[];
-  startSectionId: string;
-}): ReachabilityState {
-  const reachability = createReachabilityState();
-  const edgesByTargetSectionId = groupEdgesByTargetSection(machineEdges);
-  let changed = true;
-
-  while (changed) {
-    changed = false;
-    changed =
-      activateReachableEdges({
-        state,
-        machineEdges,
-        startSectionId,
-        reachability,
-      }) || changed;
-    changed =
-      activateReachableGates({
-        state,
-        edgesByTargetSectionId,
-        activatableEdgeIds: reachability.activatableEdgeIds,
-        possibleGateSectionIds: reachability.possibleGateSectionIds,
-      }) || changed;
-  }
-
-  return reachability;
-}
-
-function createReachabilityState(): ReachabilityState {
-  return {
-    activatableEdgeIds: new Set<string>(),
-    dispatchableChatSectionIds: new Set<string>(),
-    possibleGateSectionIds: new Set<string>(),
-    reachableChatSectionIds: new Set<string>(),
-  };
-}
-
-function activateReachableEdges({
-  state,
-  machineEdges,
-  startSectionId,
-  reachability,
-}: {
-  state: SingleConfig;
-  machineEdges: StateMachineEdge[];
-  startSectionId: string;
-  reachability: ReachabilityState;
-}): boolean {
-  let changed = false;
-
-  for (const edge of machineEdges) {
-    if (
-      !canSourceActivateEdge({
-        state,
-        edge,
-        startSectionId,
-        dispatchableChatSectionIds: reachability.dispatchableChatSectionIds,
-        possibleGateSectionIds: reachability.possibleGateSectionIds,
-      })
-    ) {
-      continue;
-    }
-    changed = addToSet(reachability.activatableEdgeIds, edge.id) || changed;
-    changed = markReachableChatTarget(state, edge, reachability) || changed;
-  }
-
-  return changed;
-}
-
-function markReachableChatTarget(
-  state: SingleConfig,
-  edge: StateMachineEdge,
-  reachability: ReachabilityState,
-): boolean {
-  const targetImpl = getCurrEffectiveSectionImplIfPresent(
-    state,
-    edge.targetSectionId,
-  );
-  if (targetImpl?.type !== SectionTypeEnum.Chat) {
-    return false;
-  }
-
-  let changed = addToSet(
-    reachability.reachableChatSectionIds,
-    edge.targetSectionId,
-  );
-  if (edge.targetAction?.type === "send_prompt") {
-    changed =
-      addToSet(reachability.dispatchableChatSectionIds, edge.targetSectionId) ||
-      changed;
-  }
-  return changed;
-}
-
-function activateReachableGates({
-  state,
-  edgesByTargetSectionId,
-  activatableEdgeIds,
-  possibleGateSectionIds,
-}: {
-  state: SingleConfig;
-  edgesByTargetSectionId: Map<string, StateMachineEdge[]>;
-  activatableEdgeIds: Set<string>;
-  possibleGateSectionIds: Set<string>;
-}): boolean {
-  let changed = false;
-
-  for (const [gateSectionId, incomingEdges] of edgesByTargetSectionId) {
-    const gateImpl = getCurrEffectiveSectionImplIfPresent(state, gateSectionId);
-    if (gateImpl?.type !== SectionTypeEnum.StateMachineGate) {
-      continue;
-    }
-    if (possibleGateSectionIds.has(gateSectionId)) {
-      continue;
-    }
-    if (
-      !isGatePotentiallySatisfied(
-        gateImpl.gateType ?? StateMachineGateTypeEnum.AND,
-        incomingEdges,
-        activatableEdgeIds,
-      )
-    ) {
-      continue;
-    }
-    possibleGateSectionIds.add(gateSectionId);
-    changed = true;
-  }
-
-  return changed;
-}
-
-function hasReachableEndEdge(
-  machineEdges: StateMachineEdge[],
-  endSectionIds: Set<string>,
-  activatableEdgeIds: Set<string>,
-): boolean {
-  return machineEdges.some(
-    (edge) =>
-      endSectionIds.has(edge.targetSectionId) &&
-      activatableEdgeIds.has(edge.id),
-  );
 }
 
 function groupEdgesByTargetSection(
@@ -344,7 +248,7 @@ function canSourceActivateEdge({
   dispatchableChatSectionIds,
   possibleGateSectionIds,
 }: {
-  state: SingleConfig;
+  state: ProjectStateSingleConfig;
   edge: StateMachineEdge;
   startSectionId: string;
   dispatchableChatSectionIds: Set<string>;
@@ -391,7 +295,7 @@ function buildUnreachableEndDetail({
   reachableChatSectionIds,
   dispatchableChatSectionIds,
 }: {
-  state: SingleConfig;
+  state: ProjectStateSingleConfig;
   machineGroupId: string;
   machineEdges: StateMachineEdge[];
   startSectionId: string;
@@ -437,52 +341,38 @@ function buildUnreachableEndDetail({
   );
 }
 
-function getSectionDisplayName(state: SingleConfig, sectionId: string): string {
+function getSectionDisplayName(
+  state: ProjectStateSingleConfig,
+  sectionId: string,
+): string {
   const section = state.sections[sectionId];
   const impl = getCurrEffectiveSectionImplIfPresent(state, sectionId);
   const shortSectionId = sectionId.slice(0, 8);
   if (impl === null) {
     return `section ${shortSectionId}`;
   }
-  return formatSectionDisplayName(
-    getSectionTypeLabel(impl.type),
-    getPreferredSectionName(section, impl),
-    shortSectionId,
-  );
-}
-
-function getPreferredSectionName(
-  section: StateSection | undefined,
-  impl: ResolvedSectionImpl,
-): string | null {
-  const preferredName = [
-    section?.displayName,
-    section?.name,
-    "label" in impl ? impl.label : null,
-    impl.name,
-  ]
-    .map((value) => getTrimmedText(value))
-    .find((value) => value !== null);
-  return preferredName ?? null;
-}
-
-function getTrimmedText(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null;
+  const sectionTypeLabel = getSectionTypeLabel(impl.type);
+  const displayName = section?.displayName?.trim();
+  if (displayName) {
+    return `${sectionTypeLabel} "${displayName}" (${shortSectionId})`;
   }
-  const trimmedValue = value.trim();
-  return trimmedValue === "" ? null : trimmedValue;
-}
-
-function formatSectionDisplayName(
-  sectionTypeLabel: string,
-  preferredName: string | null,
-  shortSectionId: string,
-): string {
-  if (preferredName === null) {
-    return `${sectionTypeLabel} ${shortSectionId}`;
+  const sectionName = section?.name?.trim();
+  if (sectionName) {
+    return `${sectionTypeLabel} "${sectionName}" (${shortSectionId})`;
   }
-  return `${sectionTypeLabel} "${preferredName}" (${shortSectionId})`;
+  if ("label" in impl && typeof impl.label === "string") {
+    const label = impl.label.trim();
+    if (label !== "") {
+      return `${sectionTypeLabel} "${label}" (${shortSectionId})`;
+    }
+  }
+  if (typeof impl.name === "string") {
+    const name = impl.name.trim();
+    if (name !== "") {
+      return `${sectionTypeLabel} "${name}" (${shortSectionId})`;
+    }
+  }
+  return `${sectionTypeLabel} ${shortSectionId}`;
 }
 
 function getSectionTypeLabel(type: string): string {
@@ -499,12 +389,4 @@ function getSectionTypeLabel(type: string): string {
     return "End section";
   }
   return "Section";
-}
-
-function addToSet(values: Set<string>, value: string): boolean {
-  if (values.has(value)) {
-    return false;
-  }
-  values.add(value);
-  return true;
 }

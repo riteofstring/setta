@@ -13,7 +13,7 @@ import {
 import { useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useShareSession } from "state/definitions";
-import { OverviewTabUIConfig } from "utils/generatedTypes";
+import { OverviewTabNameEnum } from "utils/constants";
 
 export function PluginRestartBanner() {
   const [isRestarting, setIsRestarting] = useState(false);
@@ -55,6 +55,7 @@ export function PluginRestartBanner() {
         return;
       }
       if (restartResult.kind === "accepted") {
+        shouldRefreshRuntime = false;
         addTemporaryNotification("Restart request accepted.", "info");
         return;
       }
@@ -68,7 +69,7 @@ export function PluginRestartBanner() {
   }
 
   function onOpenPlugins() {
-    onOverviewTabClick(OverviewTabUIConfig.names.Plugins);
+    onOverviewTabClick(OverviewTabNameEnum.Plugins);
   }
 
   const pluginCountLabel =

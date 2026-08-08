@@ -1,102 +1,154 @@
-import { expect, test } from "@playwright/test";
-import path from "path";
-import { ensureAppReady } from "../helpers";
 import {
-  ATTACHMENT_FIXTURES_DIR,
-  cleanupIsolatedProject,
-  dropFiles,
-  ensureChatSection,
-  getBackend,
-  getVisibleProjectChatSurface,
-  openIsolatedProject,
-  postBackend,
-  postManagedAPIKeys,
-  providerRequestsForPath,
-  selectProjectAiEngine,
-  setOverviewTab,
-  startManagedAnthropicAttachmentProviderServer,
-  startManagedAzureAttachmentProviderServer,
-  startManagedChatProviderServer,
-  startManagedGeminiAttachmentProviderServer,
-  syncManagedAIFrontendState,
-  type EngineConfig,
-  type LLMConfigPayload,
-  type ManagedAPIKeysSnapshot,
-} from "./chat-attachments-helpers";
+  expect,
+  test,
+  type APIRequestContext,
+  type Locator,
+  type Page,
+} from "@playwright/test";
+import path from "path";
+import { fileURLToPath } from "url";
+import { ensureAppReady } from "../helpers";
+
+const BACKEND_ORIGIN =
+  process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+
+type EngineConfig = {
+  id: string;
+  name: string;
+  engineType: string;
+  settaLlmConfigId?: string | null;
+};
+
+type AllLLMConfigs = {
+  configs?: Record<string, { model: string }>;
+  mcpServers?: Record<string, unknown>;
+  defaultMcpServerIds?: string[];
+  default_config_id?: string | null;
+};
+
+type CreateSectionResponse = {
+  sectionId?: string;
+};
+
+
+type ProjectMetadataEntry = { id: string; name: string };
+type ProjectMetadataResponse = {
+  defaultProjectConfigId: string | null;
+  projectMetadata: ProjectMetadataEntry[];
+};
+type IsolatedProjectContext = {
+  projectConfigId: string;
+  defaultProjectConfigId: string | null;
+};
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ATTACHMENT_FIXTURES_DIR = path.join(
+  __dirname,
+  "..",
+  "fixtures",
+  "attachments",
+);
 
 test.describe.serial("chat attachments", () => {
   test("project chat attachments via picker", async ({ page }) => {
     await setOverviewTab(page, "ProjectAIChat");
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page, page.request);
-    const initialLLMConfig = await getBackend<LLMConfigPayload>(
+
+    const initialConfig = await getBackend<AllLLMConfigs>(
       page.request,
       "/llm/config",
     );
-    if (!initialLLMConfig) {
+    if (!initialConfig) {
       throw new Error("Missing LLM config payload.");
     }
-    const initialAPIKeysSnapshot = await getBackend<ManagedAPIKeysSnapshot>(
-      page.request,
-      "/llm/apiKeys",
-    );
-    if (!initialAPIKeysSnapshot) {
-      throw new Error("Missing managed API keys snapshot.");
-    }
-    const providerServer = await startManagedChatProviderServer();
-    let latestAPIKeysSnapshot = initialAPIKeysSnapshot;
-    let createdEngineConfigId: string | null = null;
-    const llmConfigId = `e2e-project-chat-attachments-${Date.now()}`;
-    const engineName = `Project Attachment Engine ${Date.now()}`;
+    let createdLlmConfigId: string | null = null;
+    let didUpdateLlmConfig = false;
+    const existingConfigs = initialConfig.configs ?? {};
 
-    try {
-      await postBackend(page.request, "/llm/config", {
-        ...initialLLMConfig,
+    const engineConfigs = await getBackend<EngineConfig[]>(
+      page.request,
+      "/getEngineConfigs",
+    );
+    const existingEngine =
+      engineConfigs?.find((config) => config.engineType === "setta_llm") ??
+      null;
+
+    let llmConfigId = existingEngine?.settaLlmConfigId ?? null;
+    if (llmConfigId && !existingConfigs[llmConfigId]) {
+      const updated: AllLLMConfigs = {
+        ...initialConfig,
         configs: {
-          ...initialLLMConfig.configs,
-          [llmConfigId]: {
-            model: "gpt-4o-mini",
-            provider: "openai",
-            api_key_env: "OPENAI_API_KEY",
-            base_url: `${providerServer.origin}/v1`,
-            other_params: null,
-            temporary: false,
-          },
+          ...existingConfigs,
+          [llmConfigId]: { model: "gpt-test" },
         },
-      } as Record<string, unknown>);
-      latestAPIKeysSnapshot = await postManagedAPIKeys(page.request, {
-        apiKeys: {
-          ...initialAPIKeysSnapshot.apiKeys,
-          OPENAI_API_KEY: "e2e-secret",
+        default_config_id: initialConfig.default_config_id ?? llmConfigId,
+      };
+      await postBackend(
+        page.request,
+        "/llm/config",
+        updated as Record<string, unknown>,
+      );
+      createdLlmConfigId = llmConfigId;
+      didUpdateLlmConfig = true;
+    }
+
+    if (!llmConfigId) {
+      llmConfigId =
+        Object.entries(existingConfigs).find(
+          ([, config]) => !config.api_key_env,
+        )?.[0] ?? null;
+    }
+
+    if (!llmConfigId) {
+      llmConfigId = "e2e-llm";
+      const updated: AllLLMConfigs = {
+        ...initialConfig,
+        configs: {
+          ...existingConfigs,
+          [llmConfigId]: { model: "gpt-test" },
         },
-        expectedRevision: initialAPIKeysSnapshot.revision,
-      });
-      const createdEngine = await postBackend<EngineConfig>(
+        default_config_id: llmConfigId,
+      };
+      await postBackend(
+        page.request,
+        "/llm/config",
+        updated as Record<string, unknown>,
+      );
+      createdLlmConfigId = llmConfigId;
+      didUpdateLlmConfig = true;
+    }
+
+    let createdEngineConfigId: string | null = null;
+    if (!existingEngine) {
+      const created = await postBackend<EngineConfig>(
         page.request,
         "/createEngineConfig",
         {
-          name: engineName,
+          name: "E2E Engine",
           engineType: "setta_llm",
           settaLlmConfigId: llmConfigId,
           defaults: {},
         },
       );
-      createdEngineConfigId = createdEngine?.id ?? null;
-      if (!createdEngineConfigId) {
-        throw new Error("Missing managed engine config id.");
+      if (!created?.id) {
+        throw new Error("Missing engine config id.");
       }
+      createdEngineConfigId = created.id;
+    }
 
-      await syncManagedAIFrontendState(page);
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
 
+    try {
       const projectChatSurface = await getVisibleProjectChatSurface(page);
-      await selectProjectAiEngine(page, engineName);
       const input = projectChatSurface.getByPlaceholder("Type a message...");
       await expect(input).toBeVisible();
       await expect(input).toBeEnabled();
 
-      const fileInput = projectChatSurface
-        .locator('input[type="file"]')
-        .first();
+      const fileInput = projectChatSurface.locator('input[type="file"]').first();
       await fileInput.setInputFiles({
         name: "notes.txt",
         mimeType: "text/plain",
@@ -108,33 +160,6 @@ test.describe.serial("chat attachments", () => {
       await input.fill("Here is a file.");
       await input.press("Enter");
 
-      const chatCompletionRequests = () =>
-        providerRequestsForPath(
-          providerServer.requests,
-          "/v1/chat/completions",
-        );
-      await expect.poll(() => chatCompletionRequests().length).toBe(1);
-      const providerRequest = chatCompletionRequests()[0];
-      expect(providerRequest?.path).toBe("/v1/chat/completions");
-      expect(providerRequest?.authorization).toBe("Bearer e2e-secret");
-      const providerMessages = providerRequest?.body.messages;
-      expect(Array.isArray(providerMessages)).toBe(true);
-      const userMessage =
-        Array.isArray(providerMessages) && providerMessages.length > 1
-          ? (providerMessages[1] as Record<string, unknown>)
-          : null;
-      expect(userMessage).not.toBeNull();
-      expect("attachments" in (userMessage ?? {})).toBe(false);
-      const providerContent =
-        typeof userMessage?.content === "string" ? userMessage.content : "";
-      expect(providerContent).toContain("Here is a file.");
-      expect(providerContent).toContain("[Attachment: notes.txt]");
-      expect(providerContent).toContain("Hello from project chat.");
-
-      await expect(
-        projectChatSurface.getByText("Go owned attachment reply"),
-      ).toBeVisible();
-
       const attachmentButton = projectChatSurface
         .getByRole("button", { name: "notes.txt" })
         .first();
@@ -156,629 +181,13 @@ test.describe.serial("chat attachments", () => {
           configId: createdEngineConfigId,
         });
       }
-      await postBackend(
-        page.request,
-        "/llm/config",
-        initialLLMConfig as Record<string, unknown>,
-      );
-      await postManagedAPIKeys(page.request, {
-        apiKeys: initialAPIKeysSnapshot.apiKeys,
-        expectedRevision: latestAPIKeysSnapshot.revision,
-      });
-      await providerServer.close();
-      await cleanupIsolatedProject(page.request, projectContext);
-    }
-  });
-
-  test("project chat non-text attachments fall back to explicit provider text", async ({
-    page,
-  }) => {
-    await setOverviewTab(page, "ProjectAIChat");
-    await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page, page.request);
-    const initialLLMConfig = await getBackend<LLMConfigPayload>(
-      page.request,
-      "/llm/config",
-    );
-    if (!initialLLMConfig) {
-      throw new Error("Missing LLM config payload.");
-    }
-    const initialAPIKeysSnapshot = await getBackend<ManagedAPIKeysSnapshot>(
-      page.request,
-      "/llm/apiKeys",
-    );
-    if (!initialAPIKeysSnapshot) {
-      throw new Error("Missing managed API keys snapshot.");
-    }
-    const providerServer = await startManagedChatProviderServer();
-    let latestAPIKeysSnapshot = initialAPIKeysSnapshot;
-    let createdEngineConfigId: string | null = null;
-    const llmConfigId = `e2e-project-chat-image-attachments-${Date.now()}`;
-    const engineName = `Project Image Attachment Engine ${Date.now()}`;
-
-    try {
-      await postBackend(page.request, "/llm/config", {
-        ...initialLLMConfig,
-        configs: {
-          ...initialLLMConfig.configs,
-          [llmConfigId]: {
-            model: "gpt-4o-mini",
-            provider: "openai",
-            api_key_env: "OPENAI_API_KEY",
-            base_url: `${providerServer.origin}/v1`,
-            other_params: null,
-            temporary: false,
-          },
-        },
-      } as Record<string, unknown>);
-      latestAPIKeysSnapshot = await postManagedAPIKeys(page.request, {
-        apiKeys: {
-          ...initialAPIKeysSnapshot.apiKeys,
-          OPENAI_API_KEY: "e2e-secret",
-        },
-        expectedRevision: initialAPIKeysSnapshot.revision,
-      });
-      const createdEngine = await postBackend<EngineConfig>(
-        page.request,
-        "/createEngineConfig",
-        {
-          name: engineName,
-          engineType: "setta_llm",
-          settaLlmConfigId: llmConfigId,
-          defaults: {},
-        },
-      );
-      createdEngineConfigId = createdEngine?.id ?? null;
-      if (!createdEngineConfigId) {
-        throw new Error("Missing managed engine config id.");
-      }
-
-      await syncManagedAIFrontendState(page);
-
-      const projectChatSurface = await getVisibleProjectChatSurface(page);
-      await selectProjectAiEngine(page, engineName);
-      const input = projectChatSurface.getByPlaceholder("Type a message...");
-      await expect(input).toBeVisible();
-      await expect(input).toBeEnabled();
-
-      const fileInput = projectChatSurface
-        .locator('input[type="file"]')
-        .first();
-      await fileInput.setInputFiles({
-        name: "image.png",
-        mimeType: "image/png",
-        buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
-      });
-
-      await expect(projectChatSurface.getByText("image.png")).toBeVisible();
-
-      await input.fill("Use this image attachment.");
-      await input.press("Enter");
-
-      const chatCompletionRequests = () =>
-        providerRequestsForPath(
-          providerServer.requests,
-          "/v1/chat/completions",
+      if (createdLlmConfigId || didUpdateLlmConfig) {
+        await postBackend(
+          page.request,
+          "/llm/config",
+          initialConfig as Record<string, unknown>,
         );
-      await expect.poll(() => chatCompletionRequests().length).toBe(1);
-      const providerRequest = chatCompletionRequests()[0];
-      expect(providerRequest?.path).toBe("/v1/chat/completions");
-      expect(providerRequest?.authorization).toBe("Bearer e2e-secret");
-      const providerMessages = providerRequest?.body.messages;
-      expect(Array.isArray(providerMessages)).toBe(true);
-      const userMessage =
-        Array.isArray(providerMessages) && providerMessages.length > 1
-          ? (providerMessages[1] as Record<string, unknown>)
-          : null;
-      expect(userMessage).not.toBeNull();
-      expect("attachments" in (userMessage ?? {})).toBe(false);
-      const providerContent =
-        typeof userMessage?.content === "string" ? userMessage.content : "";
-      expect(providerContent).toContain("Use this image attachment.");
-      expect(providerContent).toContain("[Attachment: image.png]");
-      expect(providerContent).toContain("Type: image/png");
-      expect(providerContent).toContain("Content not inlined.");
-
-      await expect(
-        projectChatSurface.getByText("Go owned attachment reply"),
-      ).toBeVisible();
-    } finally {
-      if (createdEngineConfigId) {
-        await postBackend(page.request, "/deleteEngineConfig", {
-          configId: createdEngineConfigId,
-        });
       }
-      await postBackend(
-        page.request,
-        "/llm/config",
-        initialLLMConfig as Record<string, unknown>,
-      );
-      await postManagedAPIKeys(page.request, {
-        apiKeys: initialAPIKeysSnapshot.apiKeys,
-        expectedRevision: latestAPIKeysSnapshot.revision,
-      });
-      await providerServer.close();
-      await cleanupIsolatedProject(page.request, projectContext);
-    }
-  });
-
-  test("project chat attachments reach Anthropic with explicit attachment text", async ({
-    page,
-  }) => {
-    await setOverviewTab(page, "ProjectAIChat");
-    await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page, page.request);
-    const initialLLMConfig = await getBackend<LLMConfigPayload>(
-      page.request,
-      "/llm/config",
-    );
-    if (!initialLLMConfig) {
-      throw new Error("Missing LLM config payload.");
-    }
-    const initialAPIKeysSnapshot = await getBackend<ManagedAPIKeysSnapshot>(
-      page.request,
-      "/llm/apiKeys",
-    );
-    if (!initialAPIKeysSnapshot) {
-      throw new Error("Missing managed API keys snapshot.");
-    }
-    const providerServer = await startManagedAnthropicAttachmentProviderServer();
-    let latestAPIKeysSnapshot = initialAPIKeysSnapshot;
-    let createdEngineConfigId: string | null = null;
-    const llmConfigId = `e2e-project-chat-anthropic-attachments-${Date.now()}`;
-    const engineName = `Project Anthropic Attachment Engine ${Date.now()}`;
-
-    try {
-      await postBackend(page.request, "/llm/config", {
-        ...initialLLMConfig,
-        configs: {
-          ...initialLLMConfig.configs,
-          [llmConfigId]: {
-            model: "claude-sonnet-4-5-20250929",
-            provider: "anthropic",
-            api_key_env: "ANTHROPIC_API_KEY",
-            base_url: providerServer.origin,
-            other_params: null,
-            temporary: false,
-          },
-        },
-      } as Record<string, unknown>);
-      latestAPIKeysSnapshot = await postManagedAPIKeys(page.request, {
-        apiKeys: {
-          ...initialAPIKeysSnapshot.apiKeys,
-          ANTHROPIC_API_KEY: "e2e-anthropic-secret",
-        },
-        expectedRevision: initialAPIKeysSnapshot.revision,
-      });
-      const createdEngine = await postBackend<EngineConfig>(
-        page.request,
-        "/createEngineConfig",
-        {
-          name: engineName,
-          engineType: "setta_llm",
-          settaLlmConfigId: llmConfigId,
-          defaults: {},
-        },
-      );
-      createdEngineConfigId = createdEngine?.id ?? null;
-      if (!createdEngineConfigId) {
-        throw new Error("Missing managed engine config id.");
-      }
-
-      await syncManagedAIFrontendState(page);
-
-      const projectChatSurface = await getVisibleProjectChatSurface(page);
-      await selectProjectAiEngine(page, engineName);
-      const input = projectChatSurface.getByPlaceholder("Type a message...");
-      await expect(input).toBeVisible();
-      await expect(input).toBeEnabled();
-
-      const fileInput = projectChatSurface
-        .locator('input[type="file"]')
-        .first();
-      await fileInput.setInputFiles([
-        {
-          name: "notes.txt",
-          mimeType: "text/plain",
-          buffer: Buffer.from("Hello from project chat."),
-        },
-        {
-          name: "image.png",
-          mimeType: "image/png",
-          buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
-        },
-      ]);
-
-      await expect(projectChatSurface.getByText("notes.txt")).toBeVisible();
-      await expect(projectChatSurface.getByText("image.png")).toBeVisible();
-
-      await input.fill("Here are Anthropic attachments.");
-      await input.press("Enter");
-
-      const messageRequests = () =>
-        providerRequestsForPath(providerServer.requests, "/v1/messages");
-      await expect.poll(() => messageRequests().length).toBe(1);
-      const providerRequest = messageRequests()[0];
-      expect(providerRequest?.path).toBe("/v1/messages");
-      expect(providerRequest?.apiKey).toBe("e2e-anthropic-secret");
-      const providerMessagesJSON = JSON.stringify(
-        providerRequest?.body.messages ?? null,
-      );
-      expect(providerMessagesJSON).not.toContain('"attachments"');
-      expect(providerMessagesJSON).toContain("Here are Anthropic attachments.");
-      expect(providerMessagesJSON).toContain("[Attachment: notes.txt]");
-      expect(providerMessagesJSON).toContain("Hello from project chat.");
-      expect(providerMessagesJSON).toContain("[Attachment: image.png]");
-      expect(providerMessagesJSON).toContain("Type: image/png");
-      expect(providerMessagesJSON).toContain("Content not inlined.");
-
-      await expect(
-        projectChatSurface.getByText("Anthropic attachment reply"),
-      ).toBeVisible();
-
-      const attachmentButton = projectChatSurface
-        .getByRole("button", { name: "notes.txt" })
-        .first();
-      await expect(attachmentButton).toBeVisible();
-      await attachmentButton.click();
-
-      const modal = page.getByRole("dialog", {
-        name: "Attachment preview",
-      });
-      await expect(modal).toBeVisible();
-      await expect(modal.locator("pre")).toContainText(
-        "Hello from project chat.",
-      );
-      await page.keyboard.press("Escape");
-      await expect(modal).toHaveCount(0);
-    } finally {
-      if (createdEngineConfigId) {
-        await postBackend(page.request, "/deleteEngineConfig", {
-          configId: createdEngineConfigId,
-        });
-      }
-      await postBackend(
-        page.request,
-        "/llm/config",
-        initialLLMConfig as Record<string, unknown>,
-      );
-      await postManagedAPIKeys(page.request, {
-        apiKeys: initialAPIKeysSnapshot.apiKeys,
-        expectedRevision: latestAPIKeysSnapshot.revision,
-      });
-      await providerServer.close();
-      await cleanupIsolatedProject(page.request, projectContext);
-    }
-  });
-
-  test("project chat attachments reach Gemini with explicit attachment text", async ({
-    page,
-  }) => {
-    await setOverviewTab(page, "ProjectAIChat");
-    await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page, page.request);
-    const initialLLMConfig = await getBackend<LLMConfigPayload>(
-      page.request,
-      "/llm/config",
-    );
-    if (!initialLLMConfig) {
-      throw new Error("Missing LLM config payload.");
-    }
-    const initialAPIKeysSnapshot = await getBackend<ManagedAPIKeysSnapshot>(
-      page.request,
-      "/llm/apiKeys",
-    );
-    if (!initialAPIKeysSnapshot) {
-      throw new Error("Missing managed API keys snapshot.");
-    }
-    const providerServer = await startManagedGeminiAttachmentProviderServer();
-    let latestAPIKeysSnapshot = initialAPIKeysSnapshot;
-    let createdEngineConfigId: string | null = null;
-    const llmConfigId = `e2e-project-chat-gemini-attachments-${Date.now()}`;
-    const engineName = `Project Gemini Attachment Engine ${Date.now()}`;
-
-    try {
-      await postBackend(page.request, "/llm/config", {
-        ...initialLLMConfig,
-        configs: {
-          ...initialLLMConfig.configs,
-          [llmConfigId]: {
-            model: "gemini-2.5-pro",
-            provider: "gemini",
-            api_key_env: "GEMINI_API_KEY",
-            base_url: providerServer.origin,
-            other_params: null,
-            temporary: false,
-          },
-        },
-      } as Record<string, unknown>);
-      latestAPIKeysSnapshot = await postManagedAPIKeys(page.request, {
-        apiKeys: {
-          ...initialAPIKeysSnapshot.apiKeys,
-          GEMINI_API_KEY: "e2e-gemini-secret",
-        },
-        expectedRevision: initialAPIKeysSnapshot.revision,
-      });
-      const createdEngine = await postBackend<EngineConfig>(
-        page.request,
-        "/createEngineConfig",
-        {
-          name: engineName,
-          engineType: "setta_llm",
-          settaLlmConfigId: llmConfigId,
-          defaults: {},
-        },
-      );
-      createdEngineConfigId = createdEngine?.id ?? null;
-      if (!createdEngineConfigId) {
-        throw new Error("Missing managed engine config id.");
-      }
-
-      await syncManagedAIFrontendState(page);
-
-      const projectChatSurface = await getVisibleProjectChatSurface(page);
-      await selectProjectAiEngine(page, engineName);
-      const input = projectChatSurface.getByPlaceholder("Type a message...");
-      await expect(input).toBeVisible();
-      await expect(input).toBeEnabled();
-
-      const fileInput = projectChatSurface
-        .locator('input[type="file"]')
-        .first();
-      await fileInput.setInputFiles([
-        {
-          name: "notes.txt",
-          mimeType: "text/plain",
-          buffer: Buffer.from("Hello from project chat."),
-        },
-        {
-          name: "image.png",
-          mimeType: "image/png",
-          buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
-        },
-      ]);
-
-      await expect(projectChatSurface.getByText("notes.txt")).toBeVisible();
-      await expect(projectChatSurface.getByText("image.png")).toBeVisible();
-
-      await input.fill("Here are Gemini attachments.");
-      await input.press("Enter");
-
-      const streamGenerateContentRequests = () =>
-        providerRequestsForPath(
-          providerServer.requests,
-          "/v1beta/models/gemini-2.5-pro:streamGenerateContent",
-        );
-      await expect.poll(() => streamGenerateContentRequests().length).toBe(1);
-      const providerRequest = streamGenerateContentRequests()[0];
-      expect(providerRequest?.path).toBe(
-        "/v1beta/models/gemini-2.5-pro:streamGenerateContent",
-      );
-      expect(providerRequest?.query).toBe("alt=sse");
-      expect(providerRequest?.apiKey).toBe("e2e-gemini-secret");
-
-      const contents = providerRequest?.body.contents;
-      expect(Array.isArray(contents)).toBe(true);
-      const userContent =
-        Array.isArray(contents) && contents.length > 0
-          ? (contents[0] as Record<string, unknown>)
-          : null;
-      expect(userContent).not.toBeNull();
-      const parts =
-        Array.isArray(userContent?.parts) && userContent.parts.length > 0
-          ? (userContent.parts as Array<Record<string, unknown>>)
-          : [];
-      expect(parts.length).toBeGreaterThan(0);
-      const providerText = parts
-        .map((part) => String(part.text ?? "").trim())
-        .join("\n");
-      expect(providerText).toContain("Here are Gemini attachments.");
-      expect(providerText).toContain("[Attachment: notes.txt]");
-      expect(providerText).toContain("Hello from project chat.");
-      expect(providerText).toContain("[Attachment: image.png]");
-      expect(providerText).toContain("Type: image/png");
-      expect(providerText).toContain("Content not inlined.");
-
-      await expect(
-        projectChatSurface.getByText("Gemini attachment reply"),
-      ).toBeVisible();
-
-      const attachmentButton = projectChatSurface
-        .getByRole("button", { name: "notes.txt" })
-        .first();
-      await expect(attachmentButton).toBeVisible();
-      await attachmentButton.click();
-
-      const modal = page.getByRole("dialog", {
-        name: "Attachment preview",
-      });
-      await expect(modal).toBeVisible();
-      await expect(modal.locator("pre")).toContainText(
-        "Hello from project chat.",
-      );
-      await page.keyboard.press("Escape");
-      await expect(modal).toHaveCount(0);
-    } finally {
-      if (createdEngineConfigId) {
-        await postBackend(page.request, "/deleteEngineConfig", {
-          configId: createdEngineConfigId,
-        });
-      }
-      await postBackend(
-        page.request,
-        "/llm/config",
-        initialLLMConfig as Record<string, unknown>,
-      );
-      await postManagedAPIKeys(page.request, {
-        apiKeys: initialAPIKeysSnapshot.apiKeys,
-        expectedRevision: latestAPIKeysSnapshot.revision,
-      });
-      await providerServer.close();
-      await cleanupIsolatedProject(page.request, projectContext);
-    }
-  });
-
-  test("project chat attachments reach Azure OpenAI with explicit attachment text", async ({
-    page,
-  }) => {
-    await setOverviewTab(page, "ProjectAIChat");
-    await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page, page.request);
-    const initialLLMConfig = await getBackend<LLMConfigPayload>(
-      page.request,
-      "/llm/config",
-    );
-    if (!initialLLMConfig) {
-      throw new Error("Missing LLM config payload.");
-    }
-    const initialAPIKeysSnapshot = await getBackend<ManagedAPIKeysSnapshot>(
-      page.request,
-      "/llm/apiKeys",
-    );
-    if (!initialAPIKeysSnapshot) {
-      throw new Error("Missing managed API keys snapshot.");
-    }
-    const providerServer = await startManagedAzureAttachmentProviderServer();
-    let latestAPIKeysSnapshot = initialAPIKeysSnapshot;
-    let createdEngineConfigId: string | null = null;
-    const llmConfigId = `e2e-project-chat-azure-attachments-${Date.now()}`;
-    const engineName = `Project Azure Attachment Engine ${Date.now()}`;
-
-    try {
-      await postBackend(page.request, "/llm/config", {
-        ...initialLLMConfig,
-        configs: {
-          ...initialLLMConfig.configs,
-          [llmConfigId]: {
-            model: "gpt-4o-mini",
-            provider: "azure",
-            api_key_env: "AZURE_OPENAI_API_KEY",
-            base_url: providerServer.origin,
-            other_params: {
-              api_version: "2024-06-01",
-            },
-            temporary: false,
-          },
-        },
-      } as Record<string, unknown>);
-      latestAPIKeysSnapshot = await postManagedAPIKeys(page.request, {
-        apiKeys: {
-          ...initialAPIKeysSnapshot.apiKeys,
-          AZURE_OPENAI_API_KEY: "e2e-azure-secret",
-        },
-        expectedRevision: initialAPIKeysSnapshot.revision,
-      });
-      const createdEngine = await postBackend<EngineConfig>(
-        page.request,
-        "/createEngineConfig",
-        {
-          name: engineName,
-          engineType: "setta_llm",
-          settaLlmConfigId: llmConfigId,
-          defaults: {},
-        },
-      );
-      createdEngineConfigId = createdEngine?.id ?? null;
-      if (!createdEngineConfigId) {
-        throw new Error("Missing managed engine config id.");
-      }
-
-      await syncManagedAIFrontendState(page);
-
-      const projectChatSurface = await getVisibleProjectChatSurface(page);
-      await selectProjectAiEngine(page, engineName);
-      const input = projectChatSurface.getByPlaceholder("Type a message...");
-      await expect(input).toBeVisible();
-      await expect(input).toBeEnabled();
-
-      const fileInput = projectChatSurface
-        .locator('input[type="file"]')
-        .first();
-      await fileInput.setInputFiles([
-        {
-          name: "notes.txt",
-          mimeType: "text/plain",
-          buffer: Buffer.from("Hello from project chat."),
-        },
-        {
-          name: "image.png",
-          mimeType: "image/png",
-          buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
-        },
-      ]);
-
-      await expect(projectChatSurface.getByText("notes.txt")).toBeVisible();
-      await expect(projectChatSurface.getByText("image.png")).toBeVisible();
-
-      await input.fill("Here are Azure attachments.");
-      await input.press("Enter");
-
-      const azureChatCompletionRequests = () =>
-        providerRequestsForPath(
-          providerServer.requests,
-          "/openai/deployments/gpt-4o-mini/chat/completions",
-        );
-      await expect.poll(() => azureChatCompletionRequests().length).toBe(1);
-      const providerRequest = azureChatCompletionRequests()[0];
-      expect(providerRequest?.path).toBe(
-        "/openai/deployments/gpt-4o-mini/chat/completions",
-      );
-      expect(providerRequest?.query).toBe("api-version=2024-06-01");
-      expect(providerRequest?.apiKey).toBe("e2e-azure-secret");
-      expect(providerRequest?.authorization).toBe("");
-
-      const providerMessages = providerRequest?.body.messages;
-      expect(Array.isArray(providerMessages)).toBe(true);
-      const userMessage =
-        Array.isArray(providerMessages) && providerMessages.length > 1
-          ? (providerMessages[1] as Record<string, unknown>)
-          : null;
-      expect(userMessage).not.toBeNull();
-      expect("attachments" in (userMessage ?? {})).toBe(false);
-      const providerContent =
-        typeof userMessage?.content === "string" ? userMessage.content : "";
-      expect(providerContent).toContain("Here are Azure attachments.");
-      expect(providerContent).toContain("[Attachment: notes.txt]");
-      expect(providerContent).toContain("Hello from project chat.");
-      expect(providerContent).toContain("[Attachment: image.png]");
-      expect(providerContent).toContain("Type: image/png");
-      expect(providerContent).toContain("Content not inlined.");
-
-      await expect(
-        projectChatSurface.getByText("Azure attachment reply"),
-      ).toBeVisible();
-
-      const attachmentButton = projectChatSurface
-        .getByRole("button", { name: "notes.txt" })
-        .first();
-      await expect(attachmentButton).toBeVisible();
-      await attachmentButton.click();
-
-      const modal = page.getByRole("dialog", {
-        name: "Attachment preview",
-      });
-      await expect(modal).toBeVisible();
-      await expect(modal.locator("pre")).toContainText(
-        "Hello from project chat.",
-      );
-      await page.keyboard.press("Escape");
-      await expect(modal).toHaveCount(0);
-    } finally {
-      if (createdEngineConfigId) {
-        await postBackend(page.request, "/deleteEngineConfig", {
-          configId: createdEngineConfigId,
-        });
-      }
-      await postBackend(
-        page.request,
-        "/llm/config",
-        initialLLMConfig as Record<string, unknown>,
-      );
-      await postManagedAPIKeys(page.request, {
-        apiKeys: initialAPIKeysSnapshot.apiKeys,
-        expectedRevision: latestAPIKeysSnapshot.revision,
-      });
-      await providerServer.close();
       await cleanupIsolatedProject(page.request, projectContext);
     }
   });
@@ -906,9 +315,7 @@ test.describe.serial("chat attachments", () => {
     }
   });
 
-  test("chat attachment preview supports common file types", async ({
-    page,
-  }) => {
+  test("chat attachment preview supports common file types", async ({ page }) => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page, page.request);
 
@@ -966,3 +373,254 @@ test.describe.serial("chat attachments", () => {
     }
   });
 });
+
+async function setOverviewTab(page: Page, tabName: string): Promise<void> {
+  await page.addInitScript((tab) => {
+    const key = "setta_data";
+    let payload: { state: Record<string, unknown>; version: number } = {
+      state: {},
+      version: 0,
+    };
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          payload = {
+            state:
+              typeof parsed.state === "object" && parsed.state
+                ? parsed.state
+                : {},
+            version: typeof parsed.version === "number" ? parsed.version : 0,
+          };
+        }
+      } catch {
+        payload = { state: {}, version: 0 };
+      }
+    }
+    payload.state = { ...payload.state, overviewTab: tab, overviewVis: true };
+    localStorage.setItem(key, JSON.stringify(payload));
+  }, tabName);
+}
+
+async function getVisibleProjectChatSurface(page: Page): Promise<Locator> {
+  const surfaceCandidates = [
+    page.getByTestId("project-chat-maximized-window").first(),
+    page.getByTestId("project-chat-floating-window").first(),
+    page.getByTestId("project-chat-bottom-dock-window-panel").first(),
+    page
+      .locator('#OverviewPane [data-chat-surface-mode="project_ai_mode"]')
+      .first(),
+  ];
+  await expect
+    .poll(async () => {
+      for (const candidate of surfaceCandidates) {
+        if ((await candidate.count()) > 0 && (await candidate.isVisible())) {
+          return true;
+        }
+      }
+      return false;
+    })
+    .toBe(true);
+  for (const candidate of surfaceCandidates) {
+    if ((await candidate.count()) > 0 && (await candidate.isVisible())) {
+      return candidate;
+    }
+  }
+  throw new Error("No visible project chat surface found.");
+}
+
+async function postBackend<T>(
+  request: APIRequestContext,
+  path: string,
+  payload: Record<string, unknown> | null,
+): Promise<T | null> {
+  const response = await request.post(`${BACKEND_ORIGIN}/api${path}`, {
+    data: payload,
+  });
+  const text = await response.text();
+  if (!response.ok()) {
+    const detail = text ? ` ${text}` : "";
+    throw new Error(
+      `Backend request failed (${response.status()}): ${path}${detail}`,
+    );
+  }
+  if (!text) {
+    return null;
+  }
+  return JSON.parse(text) as T;
+}
+
+async function getBackend<T>(
+  request: APIRequestContext,
+  path: string,
+): Promise<T | null> {
+  const response = await request.get(`${BACKEND_ORIGIN}/api${path}`);
+  const text = await response.text();
+  if (!response.ok()) {
+    const detail = text ? ` ${text}` : "";
+    throw new Error(
+      `Backend request failed (${response.status()}): ${path}${detail}`,
+    );
+  }
+  if (!text) {
+    return null;
+  }
+  return JSON.parse(text) as T;
+}
+
+async function getCurrentProjectConfigId(
+  page: Page,
+  request: APIRequestContext,
+): Promise<string> {
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    request,
+    "/loadAllProjectMetadata",
+    {},
+  );
+  if (!metadata) {
+    throw new Error("Missing project metadata response.");
+  }
+
+  const currentPath = new URL(page.url()).pathname;
+  const projectName = currentPath.split("/").filter(Boolean)[0];
+  if (projectName) {
+    const match = metadata.projectMetadata.find((p) => p.name === projectName);
+    if (match?.id) {
+      return match.id;
+    }
+  }
+
+  if (metadata.defaultProjectConfigId) {
+    return metadata.defaultProjectConfigId;
+  }
+
+  throw new Error("Unable to resolve projectConfigId for test.");
+}
+
+async function openIsolatedProject(
+  page: Page,
+  request: APIRequestContext,
+): Promise<IsolatedProjectContext> {
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    request,
+    "/loadAllProjectMetadata",
+    {},
+  );
+  if (!metadata) {
+    throw new Error("Missing project metadata response.");
+  }
+  const name = await postBackend<string>(request, "/createProjectConfig", {
+    previewImgColor: "bg-blue-500/60",
+  });
+  if (!name) {
+    throw new Error("Missing project config name.");
+  }
+  const url = new URL(name, BASE_URL).toString();
+  await page.goto(url);
+  await page.waitForSelector(".react-flow__pane");
+  const projectConfigId = await getCurrentProjectConfigId(page, request);
+  return {
+    projectConfigId,
+    defaultProjectConfigId: metadata.defaultProjectConfigId ?? null,
+  };
+}
+
+async function cleanupIsolatedProject(
+  request: APIRequestContext,
+  context: IsolatedProjectContext | null,
+): Promise<void> {
+  if (!context) {
+    return;
+  }
+  if (
+    context.defaultProjectConfigId &&
+    context.defaultProjectConfigId !== context.projectConfigId
+  ) {
+    await postBackend(request, "/setAsDefaultProject", {
+      projectConfigId: context.defaultProjectConfigId,
+    });
+  }
+  await postBackend(request, "/deleteProjectConfigs", {
+    ids: [context.projectConfigId],
+  });
+}
+
+async function resolveUniqueSectionName(
+  page: Page,
+  baseName: string,
+): Promise<string> {
+  const titles = await page
+    .locator('section[class*="card-section"] header.section-title p')
+    .allTextContents();
+  const existingTitles = new Set(
+    titles.map((title) => title.trim()).filter(Boolean),
+  );
+  if (!existingTitles.has(baseName)) {
+    return baseName;
+  }
+  for (let i = 1; i <= 5; i += 1) {
+    const candidate = `${baseName}-${i}`;
+    if (!existingTitles.has(candidate)) {
+      return candidate;
+    }
+  }
+  return `${baseName}-${Date.now()}`;
+}
+
+function findSectionCandidates(page: Page, name: string): Locator {
+  return page
+    .locator('section[class*="card-section"]')
+    .filter({ has: page.locator("header.section-title p", { hasText: name }) });
+}
+
+async function ensureChatSection(
+  page: Page,
+  request: APIRequestContext,
+  baseName: string,
+): Promise<Locator> {
+  const projectConfigId = await getCurrentProjectConfigId(page, request);
+  const sectionName = await resolveUniqueSectionName(page, baseName);
+  const created = await postBackend<CreateSectionResponse>(
+    request,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType: "Chat",
+    },
+  );
+  if (!created?.sectionId) {
+    throw new Error("Missing sectionId when creating chat section.");
+  }
+  await postBackend(request, "/setSectionName", {
+    projectConfigId,
+    sectionId: created.sectionId,
+    name: sectionName,
+  });
+  const section = findSectionCandidates(page, sectionName).first();
+  await expect(section).toBeVisible();
+  return section;
+}
+
+async function dropFiles(
+  target: Locator,
+  files: Array<{ name: string; mimeType: string; data: string }>,
+): Promise<void> {
+  const page = target.page();
+  const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+  for (const file of files) {
+    await dataTransfer.evaluate((dt, payload) => {
+      const binary = atob(payload.data);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: payload.mimeType });
+      const fileObj = new File([blob], payload.name, { type: payload.mimeType });
+      dt.items.add(fileObj);
+    }, file);
+  }
+  await target.dispatchEvent("dragenter", { dataTransfer });
+  await target.dispatchEvent("dragover", { dataTransfer });
+  await target.dispatchEvent("drop", { dataTransfer });
+}

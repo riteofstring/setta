@@ -1,12 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
-  createChildSectionsFromFrontend,
-  createTopLevelSectionFromFrontend,
   ensureAppReady,
   getViewportBoundsForPlacement,
   openIsolatedProject,
+  postBackend,
 } from "../helpers";
+
+type CreateSectionResponse = { sectionId?: string };
 
 async function createTopLevelSection(
   page: Page,
@@ -17,11 +18,15 @@ async function createTopLevelSection(
   if (!viewportBounds) {
     throw new Error("Unable to resolve viewport bounds for section placement.");
   }
-  const response = await createTopLevelSectionFromFrontend(page, {
-    projectConfigId,
-    implType,
-    viewportBounds,
-  });
+  const response = await postBackend<CreateSectionResponse>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType,
+      viewportBounds,
+    },
+  );
   const sectionId = response?.sectionId ?? null;
   if (!sectionId) {
     throw new Error(`Missing sectionId when creating section type ${implType}.`);
@@ -36,7 +41,7 @@ async function createChildSections(
   implType: string,
   numChildren: number,
 ): Promise<void> {
-  await createChildSectionsFromFrontend(page, {
+  await postBackend(page, "/createChildSections", {
     projectConfigId,
     parentId,
     implType,

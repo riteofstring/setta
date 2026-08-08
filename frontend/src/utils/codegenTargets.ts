@@ -1,5 +1,6 @@
 import {
   ProjectCodegenLanguageEnum,
+  ProjectCodegenPluginTarget,
   ProjectCodegenPythonTarget,
   ProjectCodegenTarget,
   ProjectConfig,
@@ -9,6 +10,12 @@ function isPythonCodegenTarget(
   target: ProjectCodegenTarget,
 ): target is ProjectCodegenPythonTarget {
   return target.language === ProjectCodegenLanguageEnum.python;
+}
+
+export function isPluginCodegenTarget(
+  target: ProjectCodegenTarget,
+): target is ProjectCodegenPluginTarget {
+  return !isPythonCodegenTarget(target);
 }
 
 export function getPythonCodegenTarget(
@@ -21,5 +28,5 @@ export function getPythonCodegenTarget(
 }
 
 export function projectConfigHasPythonCodegen(config: ProjectConfig): boolean {
-  return config.hasPythonCodegenTarget;
+  return getPythonCodegenTarget(config) !== null;
 }

@@ -39,46 +39,6 @@ type Result = {
   } | null;
 };
 
-type HandleRef = Pick<ConnectionHandle, "sectionId" | "portId" | "type">;
-
-type ConnectionStart = {
-  sectionId: string;
-  handleId: string | null;
-  type: HandleType;
-};
-
-type HandleValidationArgs = {
-  handle: HandleRef;
-  connectionMode: ConnectionMode;
-  from: ConnectionStart;
-  isValidConnection: ValidConnectionFunc;
-  doc: Document | ShadowRoot;
-};
-
-type AllowHandleFunc =
-  | ((handle: Pick<ConnectionHandle, "portId" | "type">) => boolean)
-  | null;
-
-type ClosestHandleResult = {
-  handle: ConnectionHandle | null;
-  validHandleResult: Result;
-};
-
-type ClosestHandleMatch = {
-  handle: ConnectionHandle;
-  validHandleResult: Result;
-};
-
-type ClosestHandleArgs = {
-  event: MouseEvent | TouchEvent;
-  doc: Document | ShadowRoot;
-  pos: { x: number; y: number };
-  connectionRadius: number;
-  handles: ConnectionHandle[];
-  allowHandle: AllowHandleFunc;
-  validator: (handle: HandleRef) => Result;
-};
-
 export function getHandleLookup(
   handles: ConnectionHandle[],
   currentHandleKey: string,
@@ -130,68 +90,24 @@ export function getConnectionStatus(
   return connectionStatus;
 }
 
-function getDefaultResult(handleDomNode: Element | null = null): Result {
-  return {
+export function isValidHandle(
+  handle: Pick<ConnectionHandle, "sectionId" | "portId" | "type">,
+  connectionMode: ConnectionMode,
+  fromSectionId: string,
+  fromHandleId: string | null,
+  fromType: HandleType,
+  isValidConnection: ValidConnectionFunc,
+  doc: Document | ShadowRoot,
+) {
+  const isTarget = fromType === "target";
+  const handleToCheck = doc.querySelector(
+    `.react-flow__handle[data-id="${handle?.sectionId}-${handle?.portId}-${handle?.type}"]`,
+  );
+
+  const result: Result = {
     ...defaultResult(),
-    handleDomNode,
+    handleDomNode: handleToCheck,
   };
-}
-
-function getHandleSelector(handle: HandleRef): string {
-  return `.react-flow__handle[data-id="${handle.sectionId}-${handle.portId}-${handle.type}"]`;
-}
-
-function buildConnection(
-  from: ConnectionStart,
-  handleSectionId: string | null,
-  handleId: string | null,
-): Connection {
-  const isTarget = from.type === "target";
-  return {
-    source: isTarget ? handleSectionId : from.sectionId,
-    sourceHandle: isTarget ? handleId : from.handleId,
-    target: isTarget ? from.sectionId : handleSectionId,
-    targetHandle: isTarget ? from.handleId : handleId,
-  };
-}
-
-function canConnectHandle({
-  connectionMode,
-  from,
-  handleSectionId,
-  handleId,
-  handleType,
-  isConnectable,
-}: {
-  connectionMode: ConnectionMode;
-  from: ConnectionStart;
-  handleSectionId: string | null;
-  handleId: string | null;
-  handleType: HandleType | null;
-  isConnectable: boolean;
-}): boolean {
-  if (!isConnectable) {
-    return false;
-  }
-
-  if (connectionMode === "strict") {
-    return from.type === "target"
-      ? handleType === "source"
-      : handleType === "target";
-  }
-
-  return handleSectionId !== from.sectionId || handleId !== from.handleId;
-}
-
-export function isValidHandle({
-  handle,
-  connectionMode,
-  from,
-  isValidConnection,
-  doc,
-}: HandleValidationArgs) {
-  const handleToCheck = doc.querySelector(getHandleSelector(handle));
-  const result = getDefaultResult(handleToCheck);
 
   if (!handleToCheck) {
     return result;
@@ -200,186 +116,149 @@ export function isValidHandle({
   const handleType = getHandleType(undefined, handleToCheck);
   const handleSectionId = handleToCheck.getAttribute("data-nodeid");
   const handleId = handleToCheck.getAttribute("data-handleid");
-  const isConnectable =
-    handleToCheck.classList.contains("connectable") &&
-    handleToCheck.classList.contains("connectableend");
-  const connection = buildConnection(from, handleSectionId, handleId);
+  const connectable = handleToCheck.classList.contains("connectable");
+  const connectableEnd = handleToCheck.classList.contains("connectableend");
+
+  const connection: Connection = {
+    source: isTarget ? handleSectionId : fromSectionId,
+    sourceHandle: isTarget ? handleId : fromHandleId,
+    target: isTarget ? fromSectionId : handleSectionId,
+    targetHandle: isTarget ? fromHandleId : handleId,
+  };
+
   result.connection = connection;
 
-  if (
-    !canConnectHandle({
-      connectionMode,
-      from,
-      handleSectionId,
-      handleId,
-      handleType,
-      isConnectable,
-    })
-  ) {
-    return result;
-  }
+  const isConnectable = connectable && connectableEnd;
+  const isValid =
+    isConnectable &&
+    (connectionMode === "strict"
+      ? (isTarget && handleType === "source") ||
+        (!isTarget && handleType === "target")
+      : handleSectionId !== fromSectionId || handleId !== fromHandleId);
 
-  result.endHandle = {
-    sectionId: handleSectionId as string,
-    handleId,
-    type: handleType as HandleType,
-  };
-  result.isValid = isValidConnection(connection);
+  if (isValid) {
+    result.endHandle = {
+      sectionId: handleSectionId as string,
+      handleId,
+      type: handleType as HandleType,
+    };
+    result.isValid = isValidConnection(connection);
+  }
 
   return result;
 }
 
-function isHandleAllowed(
-  allowHandle: AllowHandleFunc,
-  handle: Pick<ConnectionHandle, "portId" | "type">,
-): boolean {
-  return allowHandle?.(handle) ?? true;
-}
-
-function buildHandleWithPositionFallback(
-  handle: HandleRef,
-  handles: ConnectionHandle[],
+export function getClosestHandle(
+  event: MouseEvent | TouchEvent,
+  doc: Document | ShadowRoot,
   pos: { x: number; y: number },
-): ConnectionHandle {
-  const matchedHandle = handles.find(
-    (entry) =>
-      entry.sectionId === handle.sectionId &&
-      entry.type === handle.type &&
-      entry.portId === handle.portId,
-  );
-
-  return {
-    sectionId: handle.sectionId,
-    portId: handle.portId,
-    type: handle.type,
-    x: matchedHandle?.x ?? pos.x,
-    y: matchedHandle?.y ?? pos.y,
-  };
-}
-
-function getHandleBelowPointer({
-  event,
-  doc,
-}: Pick<ClosestHandleArgs, "event" | "doc">): Element | undefined {
+  connectionRadius: number,
+  handles: ConnectionHandle[],
+  allowHandle:
+    | ((handle: Pick<ConnectionHandle, "portId" | "type">) => boolean)
+    | null,
+  validator: (
+    handle: Pick<ConnectionHandle, "sectionId" | "portId" | "type">,
+  ) => Result,
+) {
+  const isHandleAllowed = allowHandle ?? (() => true);
   const eventPos = getPointerPosition(event);
-  return doc
+  const handleBelow = doc
     .elementsFromPoint(eventPos.x, eventPos.y)
     .find((el) => el.classList.contains("react-flow__handle"));
-}
 
-function resolveHandleBelowPointer(
-  args: ClosestHandleArgs,
-): ClosestHandleResult | null {
-  const handleBelow = getHandleBelowPointer(args);
-  const handleSectionId = handleBelow?.getAttribute("data-nodeid");
-
-  if (!handleBelow || !handleSectionId) {
-    return null;
+  if (handleBelow) {
+    const handleSectionId = handleBelow.getAttribute("data-nodeid");
+    if (handleSectionId) {
+      const handleType = getHandleType(undefined, handleBelow);
+      const handleId = handleBelow.getAttribute("data-handleid");
+      if (
+        isHandleAllowed({
+          portId: handleId,
+          type: handleType,
+        })
+      ) {
+        const validHandleResult = validator({
+          sectionId: handleSectionId,
+          portId: handleId,
+          type: handleType,
+        });
+        if (validHandleResult) {
+          const handle = handles.find(
+            (entry) =>
+              entry.sectionId === handleSectionId &&
+              entry.type === handleType &&
+              entry.portId === handleId,
+          );
+          return {
+            handle: {
+              sectionId: handleSectionId,
+              portId: handleId,
+              type: handleType,
+              x: handle?.x ?? pos.x,
+              y: handle?.y ?? pos.y,
+            },
+            validHandleResult,
+          };
+        }
+      }
+    }
   }
 
-  const handleType = getHandleType(undefined, handleBelow);
-  const handleId = handleBelow.getAttribute("data-handleid");
-  const handle = {
-    sectionId: handleSectionId,
-    portId: handleId,
-    type: handleType,
-  };
-
-  if (!isHandleAllowed(args.allowHandle, handle)) {
-    return null;
-  }
-
-  return {
-    handle: buildHandleWithPositionFallback(handle, args.handles, args.pos),
-    validHandleResult: args.validator(handle),
-  };
-}
-
-function getHandleDistance(
-  handle: ConnectionHandle,
-  pos: { x: number; y: number },
-): number {
-  return Math.hypot(handle.x - pos.x, handle.y - pos.y);
-}
-
-function collectClosestHandleMatches(
-  args: Pick<
-    ClosestHandleArgs,
-    "allowHandle" | "connectionRadius" | "handles" | "pos" | "validator"
-  >,
-): ClosestHandleMatch[] {
-  let closestHandles: ClosestHandleMatch[] = [];
+  let closestHandles: {
+    handle: ConnectionHandle;
+    validHandleResult: Result;
+  }[] = [];
   let minDistance = Infinity;
 
-  for (const handle of args.handles) {
-    if (!isHandleAllowed(args.allowHandle, handle)) {
-      continue;
+  handles.forEach((handle) => {
+    if (
+      !isHandleAllowed({
+        portId: handle.portId,
+        type: handle.type,
+      })
+    ) {
+      return;
     }
+    const distance = Math.sqrt(
+      (handle.x - pos.x) ** 2 + (handle.y - pos.y) ** 2,
+    );
 
-    const distance = getHandleDistance(handle, args.pos);
-    if (distance > args.connectionRadius || distance > minDistance) {
-      continue;
+    if (distance <= connectionRadius) {
+      const validHandleResult = validator(handle);
+
+      if (distance <= minDistance) {
+        if (distance < minDistance) {
+          closestHandles = [{ handle, validHandleResult }];
+        } else if (distance === minDistance) {
+          closestHandles.push({ handle, validHandleResult });
+        }
+        minDistance = distance;
+      }
     }
+  });
 
-    const validHandleResult = args.validator(handle);
-
-    if (distance < minDistance) {
-      closestHandles = [{ handle, validHandleResult }];
-      minDistance = distance;
-      continue;
-    }
-
-    closestHandles.push({ handle, validHandleResult });
-  }
-
-  return closestHandles;
-}
-
-function isPreferredClosestHandle(
-  match: ClosestHandleMatch,
-  preferTargetHandle: boolean,
-  requireValidHandle: boolean,
-): boolean {
-  if (preferTargetHandle && match.handle.type !== "target") {
-    return false;
-  }
-
-  if (requireValidHandle && !match.validHandleResult.isValid) {
-    return false;
-  }
-
-  return true;
-}
-
-function pickClosestHandle(
-  closestHandles: ClosestHandleMatch[],
-): ClosestHandleResult {
   if (!closestHandles.length) {
-    return { handle: null, validHandleResult: getDefaultResult() };
+    return { handle: null, validHandleResult: defaultResult() };
   }
 
   if (closestHandles.length === 1) {
     return closestHandles[0];
   }
 
-  const preferTargetHandle = closestHandles.some(
-    ({ handle }) => handle.type === "target",
-  );
-  const requireValidHandle = closestHandles.some(
+  const hasValidHandle = closestHandles.some(
     ({ validHandleResult }) => validHandleResult.isValid,
   );
-
-  return (
-    closestHandles.find((match) =>
-      isPreferredClosestHandle(match, preferTargetHandle, requireValidHandle),
-    ) ?? closestHandles[0]
+  const hasTargetHandle = closestHandles.some(
+    ({ handle }) => handle.type === "target",
   );
-}
 
-export function getClosestHandle(args: ClosestHandleArgs) {
   return (
-    resolveHandleBelowPointer(args) ??
-    pickClosestHandle(collectClosestHandleMatches(args))
+    closestHandles.find(({ handle, validHandleResult }) =>
+      hasTargetHandle
+        ? handle.type === "target"
+        : true && (hasValidHandle ? validHandleResult.isValid : true),
+    ) || closestHandles[0]
   );
 }
 

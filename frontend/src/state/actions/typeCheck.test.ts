@@ -1,61 +1,26 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import type { ProjectConfigDiagnostics } from "utils/generatedTypes";
-
-const { useProjectState, useTypeErrors } = vi.hoisted(() => {
-  function createStore<T extends Record<string, unknown>>(initial: T) {
-    const listeners = new Set<(state: T) => void>();
-    let state = { ...initial };
-    return {
-      getState: () => state,
-      setState: (next: Partial<T> | ((prev: T) => Partial<T>)) => {
-        const patch = typeof next === "function" ? next(state) : next;
-        state = { ...state, ...patch };
-        for (const listener of listeners) {
-          listener(state);
-        }
-      },
-      subscribe: (listener: (state: T) => void) => {
-        listeners.add(listener);
-        return () => listeners.delete(listener);
-      },
-      reset: () => {
-        state = { ...initial };
-        listeners.clear();
-      },
-    };
-  }
-
-  return {
-    useProjectState: createStore({
-      projectConfig: { id: "project-1" },
-    }),
-    useTypeErrors: createStore({
-      userRequested: false,
-      errors: {} as Record<string, unknown>,
-    }),
-  };
-});
-
-vi.mock("state/definitions", () => ({
-  useProjectState,
-  useTypeErrors,
-}));
-
+import { useProjectState, useTypeErrors } from "state/definitions";
+import { resetProjectStores } from "state/utils";
+import {
+  createProjectConfig,
+  type SettaProjectConfigDiagnostics,
+} from "utils/generatedTypes";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { processTypeErrors } from "./typeCheck";
 
-describe("typeCheck", () => {
+describe("processTypeErrors", () => {
   beforeEach(() => {
-    useProjectState.reset();
-    useTypeErrors.reset();
+    resetProjectStores();
+    useProjectState.setState({
+      projectConfig: createProjectConfig({ id: "project-1" }),
+    });
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    resetProjectStores();
   });
 
   it("does not clear existing errors before applying identical payloads", () => {
-    const existingErrors: ProjectConfigDiagnostics["errors"] = {
+    const existingErrors: SettaProjectConfigDiagnostics["errors"] = {
       "section-1": {
         callable: ["Callable error"],
         params: { "param-1": ["Param error"] },
@@ -63,12 +28,12 @@ describe("typeCheck", () => {
     };
     useTypeErrors.setState({ errors: existingErrors });
 
-    const updates: Array<ProjectConfigDiagnostics["errors"]> = [];
+    const updates: Array<SettaProjectConfigDiagnostics["errors"]> = [];
     const unsubscribe = useTypeErrors.subscribe((state) => {
-      updates.push(state.errors as ProjectConfigDiagnostics["errors"]);
+      updates.push(state.errors);
     });
 
-    const incoming: ProjectConfigDiagnostics = {
+    const incoming: SettaProjectConfigDiagnostics = {
       projectConfigId: "project-1",
       isGenCode: true,
       errors: {
@@ -99,7 +64,7 @@ describe("typeCheck", () => {
         },
       });
 
-      const emptyPayload: ProjectConfigDiagnostics = {
+      const emptyPayload: SettaProjectConfigDiagnostics = {
         projectConfigId: "project-1",
         isGenCode: true,
         errors: {},
@@ -135,10 +100,8 @@ describe("typeCheck", () => {
         },
       });
 
-      const stateErrors = useTypeErrors.getState()
-        .errors as ProjectConfigDiagnostics["errors"];
-      expect(stateErrors["section-1"]).toBeUndefined();
-      expect(stateErrors["section-2"]).toEqual({
+      expect(useTypeErrors.getState().errors["section-1"]).toBeUndefined();
+      expect(useTypeErrors.getState().errors["section-2"]).toEqual({
         callable: ["Other error"],
         params: {},
       });
@@ -173,42 +136,10 @@ describe("typeCheck", () => {
         },
       });
 
-      const stateErrors = useTypeErrors.getState()
-        .errors as ProjectConfigDiagnostics["errors"];
-      expect(stateErrors["section-1"]).toBeUndefined();
-      expect(stateErrors["section-2"]).toEqual({
+      expect(useTypeErrors.getState().errors["section-1"]).toBeUndefined();
+      expect(useTypeErrors.getState().errors["section-2"]).toEqual({
         callable: ["Other error"],
         params: {},
-      });
-    });
-
-    it("normalizes null callable and params fields instead of crashing", () => {
-      const malformedPayload = JSON.parse(`{
-        "projectConfigId": "project-1",
-        "isGenCode": true,
-        "errors": {
-          "section-1": {
-            "callable": null,
-            "params": null
-          },
-          "section-2": {
-            "callable": [],
-            "params": {
-              "param-1": ["Param error"]
-            }
-          }
-        }
-      }`) as ProjectConfigDiagnostics;
-
-      processTypeErrors(malformedPayload);
-
-      expect(useTypeErrors.getState().errors).toEqual({
-        "section-2": {
-          callable: [],
-          params: {
-            "param-1": ["Param error"],
-          },
-        },
       });
     });
   });

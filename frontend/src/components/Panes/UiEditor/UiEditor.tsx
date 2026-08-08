@@ -13,12 +13,14 @@ import { useSolelyActiveSectionUIId } from "state/activeSectionUI";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
-import { APP_CHROME_Z_INDEX_CLASS_NAME, PaneNameEnum } from "utils/constants";
-import { useTabScope } from "utils/focusManager";
 import {
-  UIEditorTabUIConfig,
-  type UIEditorTabName,
-} from "utils/generatedTypes";
+  APP_CHROME_Z_INDEX_CLASS_NAME,
+  PaneNameEnum,
+  UIEditorTabName,
+  UIEditorTabNameEnum,
+  UIEditorTabNamePrettified,
+} from "utils/constants";
+import { useTabScope } from "utils/focusManager";
 import { shallow } from "zustand/shallow";
 import {
   getOnUIEditorTabClick,
@@ -33,56 +35,9 @@ import { VariantList } from "./SectionVariants/VariantList";
 import { StateMachineEdgeInspector } from "./StateMachineEdgeInspector";
 import { UIConfig } from "./UIConfig/UIConfig";
 
-const UI_EDITOR_PANE_TITLE_CLASS_NAME = withRightPaneTitleClearance(
+export const UI_EDITOR_PANE_TITLE_CLASS_NAME = withRightPaneTitleClearance(
   "mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500",
 );
-
-function getSelectedStateMachineEdgeIds(
-  state: ReturnType<typeof useProjectState.getState>,
-): string[] {
-  return state.projectConfig.stateMachineEdges
-    .filter((edge) => edge.selected)
-    .map((edge) => edge.id);
-}
-
-function resolveUIEditorTabClickHandler(
-  sectionType: ReturnType<typeof useUIEditorTab>["sectionType"],
-) {
-  return sectionType
-    ? getOnUIEditorTabClick(sectionType)
-    : getOnUIEditorTabClickNoSectionSelected;
-}
-
-function renderUIEditorPaneContent({
-  activeSectionId,
-  selectedStateMachineEdgeIds,
-  selectedTabName,
-  vis,
-}: {
-  activeSectionId: string | null;
-  selectedStateMachineEdgeIds: string[];
-  selectedTabName: UIEditorTabName | null;
-  vis: boolean;
-}) {
-  if (!vis) {
-    return <Placeholder />;
-  }
-  if (activeSectionId && selectedTabName) {
-    return (
-      <TabsVisible
-        sectionId={activeSectionId}
-        selectedTabName={selectedTabName}
-      />
-    );
-  }
-  if (selectedStateMachineEdgeIds.length === 1) {
-    return <WorkflowEdgeVisible edgeId={selectedStateMachineEdgeIds[0]} />;
-  }
-  if (selectedStateMachineEdgeIds.length > 1) {
-    return <Placeholder title="Select One Workflow Edge" />;
-  }
-  return <Placeholder />;
-}
 
 export function UiEditor() {
   const uiEditorRef = useRef<HTMLDivElement>(null);
@@ -95,7 +50,9 @@ export function UiEditor() {
   const activeSectionId = useSolelyActiveSectionUIId();
   const selectedStateMachineEdgeIds = useProjectState(
     (state) => ({
-      selectedStateMachineEdgeIds: getSelectedStateMachineEdgeIds(state),
+      selectedStateMachineEdgeIds: state.projectConfig.stateMachineEdges
+        .filter((edge) => edge.selected)
+        .map((edge) => edge.id),
     }),
     _.isEqual,
   ).selectedStateMachineEdgeIds;
@@ -109,7 +66,9 @@ export function UiEditor() {
   const commonProps = {
     vis,
     selectedTabName,
-    onTabClick: resolveUIEditorTabClickHandler(sectionType),
+    onTabClick: sectionType
+      ? getOnUIEditorTabClick(sectionType)
+      : getOnUIEditorTabClickNoSectionSelected,
     className:
       "flex h-8 w-8 cursor-pointer items-center justify-center text-2xl focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
     requiredTabs,
@@ -131,35 +90,35 @@ export function UiEditor() {
         }}
       >
         <TabButton<UIEditorTabName>
-          tabName={UIEditorTabUIConfig.names.SectionConfig}
+          tabName={UIEditorTabNameEnum.SectionConfig}
           {...commonProps}
           data-testid="ui-editor-tab-section-config"
           {...getFloatingBoxHandlers({ content: "Section Config" })}
           icon={<MdOutlineSettingsApplications />}
         />
         <TabButton<UIEditorTabName>
-          tabName={UIEditorTabUIConfig.names.UIConfig}
+          tabName={UIEditorTabNameEnum.UIConfig}
           {...commonProps}
           data-testid="ui-editor-tab-ui-config"
           {...getFloatingBoxHandlers({ content: "Parameter UI Config" })}
           icon={<BsCardChecklist />}
         />
         <TabButton<UIEditorTabName>
-          tabName={UIEditorTabUIConfig.names.QuickInfoConfig}
+          tabName={UIEditorTabNameEnum.QuickInfoConfig}
           {...commonProps}
           data-testid="ui-editor-tab-quick-info-config"
           {...getFloatingBoxHandlers({ content: "Parameter Info Editing" })}
           icon={<TbEdit />}
         />
         <TabButton<UIEditorTabName>
-          tabName={UIEditorTabUIConfig.names.InfoConfig}
+          tabName={UIEditorTabNameEnum.InfoConfig}
           {...commonProps}
           data-testid="ui-editor-tab-info-config"
           {...getFloatingBoxHandlers({ content: "Info Editing" })}
           icon={<PiCursorTextFill />}
         />
         <TabButton<UIEditorTabName>
-          tabName={UIEditorTabUIConfig.names.SectionVariantsConfig}
+          tabName={UIEditorTabNameEnum.SectionVariantsConfig}
           {...commonProps}
           data-testid="ui-editor-tab-section-variants-config"
           {...getFloatingBoxHandlers({ content: "Section Variants" })}
@@ -181,12 +140,19 @@ export function UiEditor() {
         vis={vis}
         width={width}
       >
-        {renderUIEditorPaneContent({
-          activeSectionId,
-          selectedStateMachineEdgeIds,
-          selectedTabName,
-          vis,
-        })}
+        {activeSectionId && vis && selectedTabName ? (
+          <TabsVisible
+            sectionId={activeSectionId}
+            selectedTabName={selectedTabName}
+            // inputTitle={inputTitle}
+          />
+        ) : selectedStateMachineEdgeIds.length === 1 && vis ? (
+          <WorkflowEdgeVisible edgeId={selectedStateMachineEdgeIds[0]} />
+        ) : selectedStateMachineEdgeIds.length > 1 && vis ? (
+          <Placeholder title="Select One Workflow Edge" />
+        ) : (
+          <Placeholder />
+        )}
       </PaneContainer>
     </div>
   );
@@ -215,7 +181,7 @@ function TabsVisible({
   selectedTabName: UIEditorTabName;
   inputTitle?: string;
 }) {
-  const title = inputTitle ?? UIEditorTabUIConfig.titles[selectedTabName];
+  const title = inputTitle ?? UIEditorTabNamePrettified[selectedTabName];
   return (
     <div
       data-testid="ui-editor-tab-content-shell"
@@ -235,15 +201,15 @@ function TabContent({
   selectedTabName: UIEditorTabName;
 }) {
   switch (selectedTabName) {
-    case UIEditorTabUIConfig.names.SectionConfig:
+    case UIEditorTabNameEnum.SectionConfig:
       return <SectionConfig sectionId={sectionId} />;
-    case UIEditorTabUIConfig.names.UIConfig:
+    case UIEditorTabNameEnum.UIConfig:
       return <UIConfig sectionId={sectionId} />;
-    case UIEditorTabUIConfig.names.QuickInfoConfig:
+    case UIEditorTabNameEnum.QuickInfoConfig:
       return <QuickInfoConfig sectionId={sectionId} />;
-    case UIEditorTabUIConfig.names.InfoConfig:
+    case UIEditorTabNameEnum.InfoConfig:
       return <MarkdownEditorInPane sectionId={sectionId} />;
-    case UIEditorTabUIConfig.names.SectionVariantsConfig:
+    case UIEditorTabNameEnum.SectionVariantsConfig:
       return <VariantList sectionId={sectionId} />;
     default:
       return selectedTabName satisfies never;

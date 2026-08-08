@@ -1,8 +1,8 @@
 import { getRunInputString } from "state/actions/agentRunUtils";
 import {
   AgentRun,
+  AgentRunStatusEnum,
   BaseSectionImplUnion,
-  RunStatusEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 
@@ -12,7 +12,7 @@ export function getActiveSectionIdsFromRuns(
 ): Set<string> {
   const activeSectionIds = new Set<string>();
   for (const run of runs) {
-    if (run.status !== RunStatusEnum.running) {
+    if (run.status !== AgentRunStatusEnum.running) {
       continue;
     }
     if (projectConfigId !== null) {

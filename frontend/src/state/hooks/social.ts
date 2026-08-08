@@ -9,6 +9,14 @@ export function getIsTwitterSection(sectionId, state) {
   );
 }
 
+function getIsYouTubeSection(sectionId, state) {
+  const impl = getCurrEffectiveSectionImpl(state, sectionId);
+  return (
+    impl.type === SectionTypeEnum.Social &&
+    linkIsYouTube(state.sections[sectionId].social)
+  );
+}
+
 export function linkIsYouTube(x) {
   return x && (x.includes("youtube") || x.includes("youtu.be"));
 }

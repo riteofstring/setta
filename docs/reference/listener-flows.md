@@ -13,8 +13,8 @@ UI change
        send RealtimeUIChange for SectionDependencyKey
          (only if listener coverage matches; PasswordParam controls skip realtime
          emits to avoid broadcasting secrets)
-  -> /ws/frontend -> internal/wsapi/routes.go
-      -> internal/realtime listener broadcaster + sequencer fan-out
+  -> WMHFrontendReceiver -> RealtimeEventHub (per-project sequence)
+      -> WMHPythonScriptSender fan-out
            - realtime deltas -> sockets with matching dependencies or realtime wildcard
            - action events -> sockets with matching dependencies or realtime wildcard (deps=[])
   -> SettaListener applies deltas/action events, schedules callbacks (debounce/throttle)
@@ -24,14 +24,12 @@ Key paths:
 - Meta control UI + realtime emit: `frontend/src/components/Section/Layouts/MetaControlArea.tsx`,
   `frontend/src/state/actions/websocketReceive.ts`
 - Listener coverage gating: `frontend/src/state/actions/listenerCoverage.ts`,
-  `internal/httpapi/listener_routes.go`, `internal/realtime/listener_coverage.go`
-- Listener registration changes also push `ListenerCoverageSnapshot` over
-  `/ws/frontend`, so coverage-dependent realtime sends can update without an
-  explicit refetch after listener register/disconnect.
-- Frontend websocket receiver: `internal/wsapi/routes.go`
-- Realtime sequencing + fan-out: `internal/realtime/sequencer.go`,
-  `internal/realtime/listener_broadcaster.go`,
-  `internal/realtime/listener_registry.go`
+  `backend/setta/websockets/listener_coverage.py`,
+  `backend/setta/websockets/msg_handlers/python_script_receiver.py`
+- Frontend websocket receiver: `backend/setta/websockets/msg_handlers/frontend_receiver.py`
+- Realtime sequencing + fan-out: `backend/setta/websockets/realtime_event_hub.py`,
+  `backend/setta/websockets/msg_handlers/python_script_sender.py`,
+  `backend/setta/websockets/listener_registry.py`
 - Listener realtime/action handling: `backend/setta/api/listener.py`
 
 Payload note:
@@ -45,8 +43,8 @@ Chat input send/stop
   -> if scriptable mode:
        update local chat state + route_set_chat_section_state
   -> send RealtimeDependencyEvent (SectionDependencyKey + chat action payload)
-  -> /ws/frontend -> internal/wsapi/routes.go
-      -> internal/realtime listener broadcaster + sequencer fan-out
+  -> WMHFrontendReceiver -> RealtimeEventHub (per-project sequence)
+      -> WMHPythonScriptSender fan-out
            - action events -> sockets with matching dependencies or realtime wildcard (deps=[])
   -> SettaListener batches events into ctx.events, schedules callbacks (debounce/throttle)
 ```
@@ -54,8 +52,6 @@ Chat input send/stop
 Key paths:
 - Chat UI + realtime emit: `frontend/src/components/Section/Layouts/ChatArea.tsx`,
   `frontend/src/state/actions/websocketReceive.ts`
-- Frontend websocket receiver + listener fan-out: `internal/wsapi/routes.go`,
-  `internal/realtime/listener_broadcaster.go`
 - Listener action handling: `backend/setta/api/listener.py`
 - Listener helpers: `backend/setta/api/chat_toolkit.py`
 
@@ -80,9 +76,9 @@ Key paths:
 - Frontend optimistic update + route: `frontend/src/components/Section/Layouts/MetaControlArea.tsx`,
   `frontend/src/state/actions/sectionInfos.ts`,
   `frontend/src/utils/generatedEndpoints.ts`
-- Backend route + handler: `internal/httpapi/project_routes.go`,
-  `internal/projectstate/code_object_writes.go`,
-  `internal/projectstate/runtime.go`
+- Backend route + handler: `backend/setta/routers/project_manager.py`,
+  `backend/setta/project_state/base_project_manager.py`,
+  `backend/setta/types/helpers_lvl2.py`
 
 Note:
 - PasswordParam persistence stores the secret in the runtime secret store and
@@ -92,29 +88,27 @@ Note:
 ```
 Listener callback
   -> emit_to_frontend()
-      -> internal/wsapi/listener_frontend_emit.go resolves deps/artifacts
-          -> applies Go project-state or artifact-service mutations
+      -> python_script_receiver resolves deps/artifacts
+          -> apply_listener_dependency_updates / apply_listener_artifact_updates
       -> if dependency updates:
-           broadcast authoritative Go project state
+           update_and_broadcast_project_state()
       -> if artifact updates:
-           broadcast UpdateArtifacts over /ws/frontend
+           broadcast_artifacts_update()
 ```
 
 Key paths:
 - Listener emit helper: `backend/setta/api/listener.py`
-- WebSocket handler + resolver: `internal/wsapi/routes.go`,
-  `internal/wsapi/listener_frontend_emit.go`
-- Apply updates: `internal/projectstate/runtime.go`,
-  `internal/artifacts/service.go`,
-  `internal/shareartifacts/service.go`
-- Broadcasts: `internal/wsapi/listener_frontend_emit.go`,
-  `internal/realtime/websocket_hub.go`
+- WebSocket handler + resolver: `backend/setta/websockets/msg_handlers/python_script_receiver.py`,
+  `backend/setta/listeners/listener_frontend_emit_resolver.py`
+- Apply updates: `backend/setta/project_state/listener_dependency_updates.py`,
+  `backend/setta/project_state/listener_artifact_updates.py`
+- Broadcasts: `backend/setta/project_state/base_project_manager.py`,
+  `backend/setta/websockets/msg_handlers/frontend_sender.py`
 
 Notes:
 - Realtime dependency deltas are gated by listener coverage snapshots; action events are not.
 - Action events share the same sequence counter as dependency deltas.
-- Dependency updates from emit_to_frontend are currently limited to section
-  params plus `TextBlock`, `Chat`, and `Plugin` sections.
+- Dependency updates from emit_to_frontend are currently limited to section params and TextBlock sections.
 
 ## Disk Writes
 - `update()` only writes canonical code files if they are missing; it always syncs LSP.
@@ -126,5 +120,5 @@ Notes:
   - `frontend/src/components/Section/Layouts/MetaControlArea.tsx`
 - Listener callbacks: optional, configured via `@listener.listen(debounce_ms=..., throttle_ms=...)`
   - `backend/setta/api/listener.py`, `backend/setta/api/scheduling.py`
-- Save/autosave persistence path:
-  - `internal/app/app.go`, `internal/projectstate/runtime.go`, `internal/projectstate/json_source_save.go`
+- Autosave: 2000ms debounce
+  - `backend/setta/project_state/base_project_manager.py`

@@ -1,9 +1,16 @@
+import { useLocalStorage } from "state/definitions";
+import { resetProjectStores } from "state/utils";
 import { CLOSED_PANE_WIDTH, PaneNameEnum } from "utils/constants";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-let useLocalStorage: (typeof import("state/definitions"))["useLocalStorage"];
-let resetProjectStores: (typeof import("state/utils"))["resetProjectStores"];
-let paneLayout: typeof import("./paneLayout");
+import { beforeEach, describe, expect, it } from "vitest";
+import {
+  getPaneMaxWidthForViewport,
+  normalizePaneWidthForViewportChange,
+  resetPaneLayoutTransientStateForTests,
+  setPaneFullWidth,
+  setPaneWidthWithLayout,
+  togglePaneFullWidth,
+  togglePaneVisibility,
+} from "./paneLayout";
 
 function setViewportWidth(width: number) {
   const nextWindow =
@@ -21,13 +28,9 @@ function setViewportWidth(width: number) {
 }
 
 describe("pane layout helpers", () => {
-  beforeEach(async () => {
-    vi.resetModules();
-    ({ useLocalStorage } = await import("state/definitions"));
-    ({ resetProjectStores } = await import("state/utils"));
-    paneLayout = await import("./paneLayout");
-
+  beforeEach(() => {
     resetProjectStores();
+    resetPaneLayoutTransientStateForTests();
     setViewportWidth(1400);
     useLocalStorage.setState({
       overviewVis: true,
@@ -51,7 +54,7 @@ describe("pane layout helpers", () => {
       uiEditorTrueWidth: CLOSED_PANE_WIDTH,
     });
 
-    paneLayout.togglePaneVisibility(PaneNameEnum.uiEditor);
+    togglePaneVisibility(PaneNameEnum.uiEditor);
 
     const state = useLocalStorage.getState();
     expect(state.uiEditorVis).toBe(true);
@@ -64,7 +67,7 @@ describe("pane layout helpers", () => {
     // If one pane already occupies full width, opening the opposite side should
     // close the full-width pane instead of forcing both into unusable sizes.
     setViewportWidth(1200);
-    const fullWidth = paneLayout.getPaneMaxWidthForViewport(1200);
+    const fullWidth = getPaneMaxWidthForViewport(1200);
     useLocalStorage.setState({
       overviewVis: true,
       overviewWidth: fullWidth,
@@ -74,7 +77,7 @@ describe("pane layout helpers", () => {
       uiEditorTrueWidth: CLOSED_PANE_WIDTH,
     });
 
-    paneLayout.togglePaneVisibility(PaneNameEnum.uiEditor);
+    togglePaneVisibility(PaneNameEnum.uiEditor);
 
     const state = useLocalStorage.getState();
     expect(state.overviewVis).toBe(false);
@@ -87,13 +90,11 @@ describe("pane layout helpers", () => {
     // Full-screen is modeled as full-width pane sizing with the opposing pane
     // collapsed to its icon rail width.
     setViewportWidth(1300);
-    paneLayout.togglePaneFullWidth(PaneNameEnum.overview);
+    setPaneFullWidth(PaneNameEnum.overview);
 
     const state = useLocalStorage.getState();
     expect(state.overviewVis).toBe(true);
-    expect(state.overviewTrueWidth).toBe(
-      paneLayout.getPaneMaxWidthForViewport(1300),
-    );
+    expect(state.overviewTrueWidth).toBe(getPaneMaxWidthForViewport(1300));
     expect(state.uiEditorVis).toBe(false);
     expect(state.uiEditorTrueWidth).toBe(CLOSED_PANE_WIDTH);
   });
@@ -109,12 +110,12 @@ describe("pane layout helpers", () => {
       uiEditorTrueWidth: CLOSED_PANE_WIDTH,
     });
 
-    paneLayout.togglePaneFullWidth(PaneNameEnum.overview);
+    togglePaneFullWidth(PaneNameEnum.overview);
     expect(useLocalStorage.getState().overviewTrueWidth).toBe(
-      paneLayout.getPaneMaxWidthForViewport(1300),
+      getPaneMaxWidthForViewport(1300),
     );
 
-    paneLayout.togglePaneFullWidth(PaneNameEnum.overview);
+    togglePaneFullWidth(PaneNameEnum.overview);
     const restoredState = useLocalStorage.getState();
     expect(restoredState.overviewVis).toBe(true);
     expect(restoredState.overviewTrueWidth).toBe(460);
@@ -129,10 +130,10 @@ describe("pane layout helpers", () => {
       uiEditorTrueWidth: CLOSED_PANE_WIDTH,
     });
 
-    paneLayout.setPaneWidthWithLayout(PaneNameEnum.overview, 9999);
+    setPaneWidthWithLayout(PaneNameEnum.overview, 9999);
 
     expect(useLocalStorage.getState().overviewTrueWidth).toBe(
-      paneLayout.getPaneMaxWidthForViewport(1280),
+      getPaneMaxWidthForViewport(1280),
     );
   });
 
@@ -140,20 +141,16 @@ describe("pane layout helpers", () => {
     // Full-screen should stay full-screen as viewport size changes.
     const previousViewportWidth = 1200;
     const nextViewportWidth = 1440;
-    const previousMax = paneLayout.getPaneMaxWidthForViewport(
-      previousViewportWidth,
-    );
+    const previousMax = getPaneMaxWidthForViewport(previousViewportWidth);
 
-    const normalizedWidth = paneLayout.normalizePaneWidthForViewportChange({
+    const normalizedWidth = normalizePaneWidthForViewportChange({
       paneName: PaneNameEnum.overview,
       width: previousMax,
       viewportWidth: nextViewportWidth,
       previousViewportWidth,
     });
 
-    expect(normalizedWidth).toBe(
-      paneLayout.getPaneMaxWidthForViewport(nextViewportWidth),
-    );
+    expect(normalizedWidth).toBe(getPaneMaxWidthForViewport(nextViewportWidth));
   });
 
   it("supports home pane ids with paired layout behavior", () => {
@@ -167,7 +164,7 @@ describe("pane layout helpers", () => {
       homeSelectedProjectPaneTrueWidth: CLOSED_PANE_WIDTH,
     });
 
-    paneLayout.togglePaneVisibility(PaneNameEnum.homeSelectedProject);
+    togglePaneVisibility(PaneNameEnum.homeSelectedProject);
 
     const state = useLocalStorage.getState();
     expect(state.homeSelectedProjectPaneVis).toBe(true);
@@ -189,12 +186,12 @@ describe("pane layout helpers", () => {
       homeSelectedProjectPaneTrueWidth: CLOSED_PANE_WIDTH,
     });
 
-    paneLayout.togglePaneVisibility(PaneNameEnum.homeWorkspace);
+    togglePaneVisibility(PaneNameEnum.homeWorkspace);
 
     const state = useLocalStorage.getState();
     expect(state.homeWorkspacePaneVis).toBe(true);
     expect(state.homeWorkspacePaneTrueWidth).toBe(
-      paneLayout.getPaneMaxWidthForViewport(1120),
+      getPaneMaxWidthForViewport(1120),
     );
     expect(state.homeSelectedProjectPaneVis).toBe(false);
     expect(state.homeSelectedProjectPaneTrueWidth).toBe(CLOSED_PANE_WIDTH);
@@ -211,7 +208,7 @@ describe("pane layout helpers", () => {
       homeSelectedProjectPaneTrueWidth: CLOSED_PANE_WIDTH,
     });
 
-    paneLayout.togglePaneVisibility(PaneNameEnum.homeWorkspace);
+    togglePaneVisibility(PaneNameEnum.homeWorkspace);
 
     const state = useLocalStorage.getState();
     expect(state.homeWorkspacePaneVis).toBe(true);
@@ -220,7 +217,7 @@ describe("pane layout helpers", () => {
 
   it("closes a full-width home pane when opening the opposite home pane", () => {
     setViewportWidth(1400);
-    const fullWidth = paneLayout.getPaneMaxWidthForViewport(1400);
+    const fullWidth = getPaneMaxWidthForViewport(1400);
     useLocalStorage.setState({
       homeWorkspacePaneVis: true,
       homeWorkspacePaneWidth: fullWidth,
@@ -230,7 +227,7 @@ describe("pane layout helpers", () => {
       homeSelectedProjectPaneTrueWidth: CLOSED_PANE_WIDTH,
     });
 
-    paneLayout.togglePaneVisibility(PaneNameEnum.homeSelectedProject);
+    togglePaneVisibility(PaneNameEnum.homeSelectedProject);
 
     const state = useLocalStorage.getState();
     expect(state.homeWorkspacePaneVis).toBe(false);

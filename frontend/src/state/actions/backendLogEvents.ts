@@ -4,15 +4,15 @@ import {
   useBackendLogEvents,
   useLocalStorage,
 } from "state/definitions";
-import { OverviewNotificationsPaneTabEnum } from "utils/constants";
 import {
-  OverviewTabUIConfig,
-  type BackendLogEvent,
-} from "utils/generatedTypes";
+  OverviewNotificationsPaneTabEnum,
+  OverviewTabNameEnum,
+} from "utils/constants";
+import { SettaBackendLogEvent } from "utils/generatedTypes";
 
 const MAX_BACKEND_LOG_EVENTS = 500;
 
-function isHighSeverity(event: BackendLogEvent) {
+function isHighSeverity(event: SettaBackendLogEvent) {
   return event.severity === "error" || event.severity === "critical";
 }
 
@@ -23,13 +23,13 @@ function backendLogsTabIsVisible() {
     return false;
   }
   return (
-    overviewTab === OverviewTabUIConfig.names.Notifications &&
+    overviewTab === OverviewTabNameEnum.Notifications &&
     overviewNotificationsPaneTab ===
       OverviewNotificationsPaneTabEnum.BackendLogs
   );
 }
 
-export function addBackendLogEvent(event: BackendLogEvent) {
+export function addBackendLogEvent(event: SettaBackendLogEvent) {
   const markUnread = isHighSeverity(event) && !backendLogsTabIsVisible();
   useBackendLogEvents.setState((state) => ({
     events: [event, ...state.events].slice(0, MAX_BACKEND_LOG_EVENTS),

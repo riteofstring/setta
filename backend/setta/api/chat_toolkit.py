@@ -3,7 +3,7 @@ import json
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Awaitable, Callable
 
-from setta.api.listener_endpoint_client import RouterEndpointAPI
+from setta.api.generated_listener_endpoints import RouterEndpointAPI
 from setta.llm.chat_toolkit import (
     ChatStreamAssembler,
     ToolCallBuilder,
@@ -18,42 +18,41 @@ from setta.llm.chat_toolkit import (
     user_message,
 )
 from setta.llm.chat_toolkit.stream_assembler import AssistantMessageBuilder
-from setta.types.generated.go_shared_types import (
+from setta.mcp.tool_metadata import ToolArgumentPreviewIdType, ToolArgumentPreviewKind
+from setta.types.chat import Chat, ChatMetadata
+from setta.types.chat_messages import (
     AssistantChatMessage,
-    BaseChatMessageUnion,
-    Chat,
-    ChatMetadata,
     ChatRole,
-    ChatSectionState,
-    ChatSendEvent,
-    ChatStopEvent,
-    LiteralDependencyValue,
+    MessageTextContent,
+    SystemChatMessage,
+    ToolCall,
+    ToolChatMessage,
+    UserChatMessage,
+)
+from setta.types.chat_stream_events import (
     LLMStreamingResponseChunk,
     MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
     MessageStopEvent,
-    MessageTextContent,
     MessageTextDelta,
     MessageThinkingDelta,
-    PreviewKind,
-    StreamingEventType,
-    SystemChatMessage,
     ToolArgumentPreviewDeltaEvent,
-    ToolArgumentPreviewTargetIDs,
-    ToolCall,
     ToolCallDeltaEvent,
-    ToolChatMessage,
     ToolResultEvent,
-    UserChatMessage,
 )
+from setta.types.chat_toolkit import (
+    ChatActionEvent,
+    ChatSendEvent,
+    ChatStopEvent,
+)
+from setta.types.dependency_key import SectionDependencyKey
+from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
-from setta.types.protocol import SectionDependencyKey
+from setta.types.section_impls import ChatSectionState
 
 if TYPE_CHECKING:
-    from setta.api.listener import DependencyEvent, ListenerCallbackContext
-
-ChatActionEvent = ChatSendEvent | ChatStopEvent
+    from setta.api.listener import ListenerCallbackContext
 
 
 class ChatHistoryClient:
@@ -157,10 +156,7 @@ class ChatStreamEmitterClient:
         await self._emit(
             section_id=section_id,
             chat_id=chat_id,
-            chunk=MessageStartEvent(
-                type=StreamingEventType.message_start,
-                message=message.model_dump(mode="python"),
-            ),
+            chunk=MessageStartEvent(message=message),
         )
 
     async def emit_text_delta(
@@ -176,9 +172,8 @@ class ChatStreamEmitterClient:
             section_id=section_id,
             chat_id=chat_id,
             chunk=MessageDeltaEvent(
-                type=StreamingEventType.delta,
                 message_id=message_id,
-                content=[MessageTextDelta(type="text_delta", index=index, text=text)],
+                content=[MessageTextDelta(index=index, text=text)],
             ),
         )
 
@@ -197,11 +192,9 @@ class ChatStreamEmitterClient:
             section_id=section_id,
             chat_id=chat_id,
             chunk=MessageDeltaEvent(
-                type=StreamingEventType.delta,
                 message_id=message_id,
                 content=[
                     MessageThinkingDelta(
-                        type="thinking_delta",
                         index=index,
                         thinking=thinking,
                         summary=summary,
@@ -225,7 +218,6 @@ class ChatStreamEmitterClient:
             section_id=section_id,
             chat_id=chat_id,
             chunk=ToolCallDeltaEvent(
-                type=StreamingEventType.tool_call_delta,
                 message_id=message_id,
                 tool_call_id=tool_call_id,
                 arguments_delta=arguments_delta,
@@ -241,8 +233,8 @@ class ChatStreamEmitterClient:
         tool_call_id: str,
         tool_name: str,
         arguments_delta: str,
-        preview_kind: PreviewKind,
-        target_ids_by_type: ToolArgumentPreviewTargetIDs,
+        preview_kind: ToolArgumentPreviewKind,
+        target_ids_by_type: dict[ToolArgumentPreviewIdType, list[ID]],
         preview_value_delta: str,
         section_id: ID | None = None,
     ) -> None:
@@ -250,7 +242,6 @@ class ChatStreamEmitterClient:
             section_id=section_id,
             chat_id=chat_id,
             chunk=ToolArgumentPreviewDeltaEvent(
-                type=StreamingEventType.tool_argument_preview_delta,
                 message_id=message_id,
                 tool_call_id=tool_call_id,
                 tool_name=tool_name,
@@ -271,10 +262,7 @@ class ChatStreamEmitterClient:
         await self._emit(
             section_id=section_id,
             chat_id=chat_id,
-            chunk=ToolResultEvent(
-                type=StreamingEventType.tool_result,
-                result=message.model_dump(mode="python"),
-            ),
+            chunk=ToolResultEvent(result=message),
         )
 
     async def emit_message_stop(
@@ -287,10 +275,7 @@ class ChatStreamEmitterClient:
         await self._emit(
             section_id=section_id,
             chat_id=chat_id,
-            chunk=MessageStopEvent(
-                type=StreamingEventType.message_stop,
-                message_id=message_id,
-            ),
+            chunk=MessageStopEvent(message_id=message_id),
         )
 
     async def emit_message_finalized(
@@ -303,10 +288,7 @@ class ChatStreamEmitterClient:
         await self._emit(
             section_id=section_id,
             chat_id=chat_id,
-            chunk=MessageFinalizedEvent(
-                type=StreamingEventType.message_finalized,
-                message=message.model_dump(mode="python"),
-            ),
+            chunk=MessageFinalizedEvent(message=message),
         )
 
     async def _emit(
@@ -438,7 +420,33 @@ class ChatSession:
             frontend_affinity_token=ctx.frontend_affinity_token,
         )
         sync = ChatSectionSyncClient(ctx.project_manager, history)
-        first_message = _build_first_chat_message(resolved_event)
+
+        content = [MessageTextContent(text=resolved_event.text)]
+        attachments = resolved_event.attachments
+        if resolved_event.role == ChatRole.user:
+            first_message = UserChatMessage(
+                id=resolved_event.messageId,
+                content=content,
+                attachments=attachments,
+            )
+        elif resolved_event.role == ChatRole.system:
+            first_message = SystemChatMessage(
+                id=resolved_event.messageId,
+                content=content,
+                attachments=attachments,
+            )
+        elif resolved_event.role == ChatRole.assistant:
+            first_message = AssistantChatMessage(
+                id=resolved_event.messageId,
+                content=content,
+                attachments=attachments,
+            )
+        elif resolved_event.role == ChatRole.tool:
+            raise ValueError(
+                "ChatSendEvent role 'tool' requires tool metadata, which is not supported"
+            )
+        else:
+            raise ValueError(f"Unsupported chat role: {resolved_event.role!r}")
         chat_id, created = await history.ensure_section_chat_id(
             section_id=section_id,
             engine_config_id=engine_config_id,
@@ -468,17 +476,58 @@ class ChatSession:
             chat_id=self.chat_id,
             message=self._assistant_builder.preview(),
         )
+
+        completed = False
         try:
-            await self._consume_provider_stream(
-                provider_stream=provider_stream,
-                normalize_chunk=normalize_chunk,
-            )
-            return await self._finalize_streamed_message(run_tools=run_tools)
-        except BaseException:
-            await self.cancel()
-            raise
+            async for chunk in provider_stream:
+                normalized = normalize_chunk(chunk)
+                if inspect.isawaitable(normalized):
+                    await normalized
+            completed = True
         finally:
-            self._assistant_builder = None
+            if not completed:
+                await self.cancel()
+                self._assistant_builder = None
+
+        builder = self._require_builder()
+        await self._stream.emit_message_stop(
+            chat_id=self.chat_id,
+            message_id=builder.id,
+        )
+        assistant_message = builder.finalize()
+        await self._history.append(
+            chat_id=self.chat_id,
+            messages=[assistant_message],
+        )
+
+        tool_results: list[ToolChatMessage] = []
+        if run_tools and assistant_message.tool_calls:
+            tool_results = await self._tools.run(
+                chat_id=self.chat_id,
+                section_id=self.section_id,
+                tool_calls=assistant_message.tool_calls,
+            )
+            for tool_result in tool_results:
+                await self._stream.emit_tool_result(
+                    chat_id=self.chat_id,
+                    message=tool_result,
+                )
+            await self._history.append(
+                chat_id=self.chat_id,
+                messages=tool_results,
+            )
+
+        await self._sync.update_from_chat(
+            section_id=self.section_id,
+            chat_id=self.chat_id,
+            waiting_for_response=False,
+        )
+        await self._stream.emit_message_finalized(
+            chat_id=self.chat_id,
+            message=assistant_message,
+        )
+        self._assistant_builder = None
+        return assistant_message
 
     async def stream_text(
         self, provider_stream: AsyncIterator[object]
@@ -494,13 +543,17 @@ class ChatSession:
 
     async def complete(self, *, text: str) -> AssistantChatMessage:
         assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(type="text", text=text)],
+            content=[MessageTextContent(text=text)],
         )
         await self._history.append(
             chat_id=self.chat_id,
             messages=[assistant_message],
         )
-        await self._update_waiting_for_response(waiting_for_response=False)
+        await self._sync.update_from_chat(
+            section_id=self.section_id,
+            chat_id=self.chat_id,
+            waiting_for_response=False,
+        )
         self._assistant_builder = None
         return assistant_message
 
@@ -540,92 +593,39 @@ class ChatSession:
     async def cancel(self) -> None:
         builder = self._assistant_builder
         if builder is None:
-            await self._update_waiting_for_response(waiting_for_response=False)
+            await self._sync.update_from_chat(
+                section_id=self.section_id,
+                chat_id=self.chat_id,
+                waiting_for_response=False,
+            )
             return
 
-        try:
-            assistant_message = await self._close_assistant_message(builder)
-            if _should_persist_partial_message(assistant_message):
-                await self._history.append(
-                    chat_id=self.chat_id,
-                    messages=[assistant_message],
-                )
-                await self._update_waiting_for_response(waiting_for_response=False)
-                await self._stream.emit_message_finalized(
-                    chat_id=self.chat_id,
-                    message=assistant_message,
-                )
-                return
-            await self._update_waiting_for_response(waiting_for_response=False)
-        finally:
-            self._assistant_builder = None
+        await self._stream.emit_message_stop(
+            chat_id=self.chat_id,
+            message_id=builder.id,
+        )
+        assistant_message = builder.finalize()
+        should_persist = _should_persist_partial_message(assistant_message)
+        if should_persist:
+            await self._history.append(
+                chat_id=self.chat_id,
+                messages=[assistant_message],
+            )
+        await self._sync.update_from_chat(
+            section_id=self.section_id,
+            chat_id=self.chat_id,
+            waiting_for_response=False,
+        )
+        if should_persist:
+            await self._stream.emit_message_finalized(
+                chat_id=self.chat_id,
+                message=assistant_message,
+            )
 
     def _require_builder(self) -> AssistantMessageBuilder:
         if self._assistant_builder is None:
             raise ValueError("Chat session has no active assistant message")
         return self._assistant_builder
-
-    async def _consume_provider_stream(
-        self,
-        *,
-        provider_stream: AsyncIterator[object],
-        normalize_chunk: Callable[[object], Awaitable[None] | None],
-    ) -> None:
-        async for chunk in provider_stream:
-            normalized = normalize_chunk(chunk)
-            if inspect.isawaitable(normalized):
-                await normalized
-
-    async def _finalize_streamed_message(
-        self, *, run_tools: bool
-    ) -> AssistantChatMessage:
-        assistant_message = await self._close_assistant_message(self._require_builder())
-        await self._history.append(
-            chat_id=self.chat_id,
-            messages=[assistant_message],
-        )
-        if run_tools and assistant_message.tool_calls:
-            await self._run_tool_calls(assistant_message.tool_calls)
-        await self._update_waiting_for_response(waiting_for_response=False)
-        await self._stream.emit_message_finalized(
-            chat_id=self.chat_id,
-            message=assistant_message,
-        )
-        return assistant_message
-
-    async def _close_assistant_message(
-        self, builder: AssistantMessageBuilder
-    ) -> AssistantChatMessage:
-        await self._stream.emit_message_stop(
-            chat_id=self.chat_id,
-            message_id=builder.id,
-        )
-        return builder.finalize()
-
-    async def _run_tool_calls(self, tool_calls: list[ToolCall]) -> None:
-        tool_results = await self._tools.run(
-            chat_id=self.chat_id,
-            section_id=self.section_id,
-            tool_calls=tool_calls,
-        )
-        if not tool_results:
-            return
-        for tool_result in tool_results:
-            await self._stream.emit_tool_result(
-                chat_id=self.chat_id,
-                message=tool_result,
-            )
-        await self._history.append(
-            chat_id=self.chat_id,
-            messages=tool_results,
-        )
-
-    async def _update_waiting_for_response(self, *, waiting_for_response: bool) -> None:
-        await self._sync.update_from_chat(
-            section_id=self.section_id,
-            chat_id=self.chat_id,
-            waiting_for_response=waiting_for_response,
-        )
 
 
 def on_chat_send_event(
@@ -656,79 +656,34 @@ def on_chat_action_event(
     section_id: ID,
 ) -> ChatActionEvent | None:
     for event in ctx.events:
-        action_event = _parse_chat_action_event(event, section_id=section_id)
-        if action_event is not None:
-            return action_event
-    return None
-
-
-def _build_first_chat_message(event: ChatSendEvent) -> BaseChatMessageUnion:
-    message_type = _message_type_for_chat_role(event.role)
-    return message_type(
-        id=event.messageId,
-        content=[MessageTextContent(type="text", text=event.text)],
-        attachments=event.attachments,
-    )
-
-
-def _message_type_for_chat_role(
-    role: ChatRole,
-) -> type[UserChatMessage] | type[SystemChatMessage] | type[AssistantChatMessage]:
-    if role == ChatRole.user:
-        return UserChatMessage
-    if role == ChatRole.system:
-        return SystemChatMessage
-    if role == ChatRole.assistant:
-        return AssistantChatMessage
-    if role == ChatRole.tool:
-        raise ValueError(
-            "ChatSendEvent role 'tool' requires tool metadata, which is not supported"
-        )
-    raise ValueError(f"Unsupported chat role: {role!r}")
-
-
-def _parse_chat_action_event(
-    event: "DependencyEvent",
-    *,
-    section_id: ID,
-) -> ChatActionEvent | None:
-    dep_key = event.dependencyKey
-    if not isinstance(dep_key, SectionDependencyKey):
-        return None
-    if dep_key.sectionId != section_id:
-        return None
-    payload = event.payload
-    if not isinstance(payload, LiteralDependencyValue):
-        return None
-    if payload.payload == "":
-        return None
-    return _parse_chat_action_payload(payload.payload)
-
-
-def _parse_chat_action_payload(payload: str) -> ChatActionEvent | None:
-    parsed = json.loads(payload)
-    if not isinstance(parsed, dict):
-        raise TypeError("Chat action payload must decode to an object")
-    action = parsed.get("action")
-    if action == "send":
-        return ChatSendEvent.model_validate(parsed)
-    if action == "stop":
-        return ChatStopEvent.model_validate(parsed)
+        dep_key = event.dependencyKey
+        if not isinstance(dep_key, SectionDependencyKey):
+            continue
+        if dep_key.sectionId != section_id:
+            continue
+        if not event.payload:
+            continue
+        payload = json.loads(event.payload)
+        action = payload.get("action")
+        if action == "send":
+            return ChatSendEvent.model_validate(payload)
+        if action == "stop":
+            return ChatStopEvent.model_validate(payload)
     return None
 
 
 def _should_persist_partial_message(message: AssistantChatMessage) -> bool:
-    return bool(
-        message.attachments
-        or message.tool_calls
-        or any(_message_block_has_persisted_value(block) for block in message.content)
-    )
-
-
-def _message_block_has_persisted_value(block: object) -> bool:
-    if isinstance(block, MessageTextContent):
-        return bool(block.text.strip())
-    return True
+    if message.attachments:
+        return True
+    if message.tool_calls:
+        return True
+    for block in message.content:
+        if isinstance(block, MessageTextContent):
+            if block.text.strip():
+                return True
+            continue
+        return True
+    return False
 
 
 def _coerce_chat(payload: Chat | dict[str, object]) -> Chat:

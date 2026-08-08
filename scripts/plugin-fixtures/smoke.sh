@@ -24,6 +24,11 @@ link_fixture "frontend-topnav" "workspace"
 link_fixture "content" "workspace"
 link_fixture "full" "workspace"
 link_fixture "backend" "workspace"
+link_fixture "backend-static-router" "workspace"
+link_fixture "backend-mcp-tools" "workspace"
+link_fixture "backend-language-server" "workspace"
+link_fixture "backend-external-agent" "workspace"
+link_fixture "backend-codegen" "workspace"
 
 # Scope/precedence fixtures.
 link_fixture "scope-shadowing" "global"
@@ -48,7 +53,13 @@ Suggested manual checks:
 4. Run restart checks:
    - `setta plugins restart-required`
    - if needed restart Setta, then re-check plugin status.
-5. Validate scope precedence:
+5. Validate backend static/router fixture after restart:
+   - GET `/api/plugins/setta-fixture-backend-static-router/info`
+   - GET `/plugin-static/setta-fixture-backend-static-router/fixture/hello.txt`
+6. Validate MCP fixture after restart:
+   - plugin card shows MCP capability; registered tools should include
+     `setta_fixture_mcp_read` and `setta_fixture_mcp_write`.
+7. Validate scope precedence:
    - `setta plugins list`
    - `setta-fixture-scope-shadowing` should resolve from workspace and shadow
      setta_files/global copies.

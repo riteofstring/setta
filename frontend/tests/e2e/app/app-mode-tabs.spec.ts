@@ -21,16 +21,14 @@ async function syncAppDefinitionStateWithExpectedRootKey(
   await expect
     .poll(async () => {
       return await page.evaluate(async ({ expectedKey }) => {
-        const { getAppDefinition } = await import("/src/openapi/http");
-        const { callOpenAPI, res200 } = await import(
-          "/tests/e2e/browserAppSubsystemSdk.ts"
+        const { route_get_app_definition } = await import(
+          "/src/utils/generatedEndpoints.ts"
         );
+        const { res200 } = await import("/src/utils/endpointUtils.ts");
         const { useAppDefinition, useAppPreview } = await import(
           "/src/state/definitions.ts"
         );
-        const res = await callOpenAPI(
-          getAppDefinition({} as Parameters<typeof getAppDefinition>[0]),
-        );
+        const res = await route_get_app_definition({});
         if (!res200(res)) {
           return false;
         }
@@ -300,10 +298,10 @@ test("app tabs scope outputs per config", async ({ page }) => {
   await syncAppDefinitionStateWithExpectedRootKey(page, "app-root");
   await page.evaluate(
     async ({ defaultConfigName, newConfigName, sectionAId, sectionBId }) => {
-      const { loadProjectConfig } = await import("/src/openapi/http");
-      const { callOpenAPI, res200 } = await import(
-        "/tests/e2e/browserAppSubsystemSdk.ts"
+      const { route_load_project_config } = await import(
+        "/src/utils/generatedEndpoints.ts"
       );
+      const { res200 } = await import("/src/utils/endpointUtils.ts");
       const { useAppConfigs, useProjectState } = await import(
         "/src/state/definitions.ts"
       );
@@ -336,11 +334,7 @@ test("app tabs scope outputs per config", async ({ page }) => {
       }
 
       async function loadConfig(projectConfigName) {
-        const res = await callOpenAPI(
-          loadProjectConfig({
-            body: { projectConfigName },
-          }),
-        );
+        const res = await route_load_project_config({ projectConfigName });
         if (!res200(res)) {
           return null;
         }

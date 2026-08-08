@@ -1,6 +1,8 @@
 import { createContext, useContext } from "react";
 
-export const NodeIdContext = createContext<string | null>(null);
+const NodeIdContext = createContext<string | null>(null);
+
+export const NodeIdProvider = NodeIdContext.Provider;
 
 export function useNodeId() {
   return useContext(NodeIdContext);

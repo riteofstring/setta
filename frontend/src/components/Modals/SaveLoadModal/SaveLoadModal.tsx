@@ -15,7 +15,7 @@ type SaveLoadConfigEntry = Pick<
 >;
 const SAVE_LOAD_CONFIG_GRID_TEMPLATE_COLUMNS =
   "repeat(auto-fill, minmax(10.5rem, 14rem))";
-const SAVE_LOAD_DEFAULT_VIEW_MODE: HomeProjectGalleryViewMode = "list";
+export const SAVE_LOAD_DEFAULT_VIEW_MODE: HomeProjectGalleryViewMode = "list";
 
 export function SaveLoadModal({
   open,

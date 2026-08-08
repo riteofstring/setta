@@ -1,5 +1,5 @@
-import { AppSubsystemChatUIConfig } from "@setta/app-subsystem-frontend-sdk";
 import { describe, expect, it, vi } from "vitest";
+import { APP_GENERATION_SLASH_COMMANDS } from "./appGenerationSlashCommands";
 import {
   buildChatSlashCommands,
   buildCustomPromptSlashCommandDefinitions,
@@ -10,26 +10,12 @@ import {
   getSlashCommandSuggestions,
   normalizeSlashCommandToken,
   parseSlashCommand,
+  resolvePermissionModeArg,
+  resolveToggleArg,
+  shouldTreatInputAsSlashCommand,
   type ChatSlashCommandDefinition,
   type ManagedChatExecutionSettings,
 } from "./chatComposerControls";
-
-const APP_SUBSYSTEM_IMAGE_REQUIRED_MODES = new Set(
-  AppSubsystemChatUIConfig.customSlashCommandModeOptions
-    .filter((option) => option.requiresImageAttachment)
-    .map((option) => option.value),
-);
-const APP_GENERATION_SLASH_COMMANDS =
-  AppSubsystemChatUIConfig.slashCommands.map((entry) => ({
-    command: entry.command,
-    action: entry.action,
-    summary: entry.summary,
-    promptTemplate: entry.promptTemplate,
-    appGenerationMode: entry.appGenerationMode,
-    requiresImageAttachment: APP_SUBSYSTEM_IMAGE_REQUIRED_MODES.has(
-      entry.appGenerationMode,
-    ),
-  }));
 
 describe("chatComposerControls", () => {
   it("parses slash commands with args", () => {
@@ -55,11 +41,11 @@ describe("chatComposerControls", () => {
     expect(parsed).toBeNull();
   });
 
-  it("parses command-shaped slash input as slash commands", () => {
-    expect(parseSlashCommand("/resume")).not.toBeNull();
-    expect(parseSlashCommand("/Resume")).not.toBeNull();
-    expect(parseSlashCommand("/res")).not.toBeNull();
-    expect(parseSlashCommand("  /permissions yolo")).not.toBeNull();
+  it("treats command-shaped slash input as command candidates", () => {
+    expect(shouldTreatInputAsSlashCommand("/resume")).toBe(true);
+    expect(shouldTreatInputAsSlashCommand("/Resume")).toBe(true);
+    expect(shouldTreatInputAsSlashCommand("/res")).toBe(true);
+    expect(shouldTreatInputAsSlashCommand("  /permissions yolo")).toBe(true);
   });
 
   it("parses unambiguous slash prefixes", () => {
@@ -73,10 +59,16 @@ describe("chatComposerControls", () => {
 
   it("ignores absolute-path style slash input", () => {
     expect(
-      parseSlashCommand("/Users/kevin/project/main.py has failing tests"),
-    ).toBeNull();
-    expect(parseSlashCommand("/tmp/workspace/notes.txt")).toBeNull();
-    expect(parseSlashCommand("/tmp build logs look stale")).toBeNull();
+      shouldTreatInputAsSlashCommand(
+        "/Users/kevin/project/main.py has failing tests",
+      ),
+    ).toBe(false);
+    expect(shouldTreatInputAsSlashCommand("/tmp/workspace/notes.txt")).toBe(
+      false,
+    );
+    expect(shouldTreatInputAsSlashCommand("/tmp build logs look stale")).toBe(
+      false,
+    );
   });
 
   it("ignores ambiguous slash prefixes that do not map to one command", () => {
@@ -93,8 +85,8 @@ describe("chatComposerControls", () => {
       },
     ];
 
-    expect(parseSlashCommand("/r", commands)).toBeNull();
-    expect(parseSlashCommand("/run", commands)).not.toBeNull();
+    expect(shouldTreatInputAsSlashCommand("/r", commands)).toBe(false);
+    expect(shouldTreatInputAsSlashCommand("/run", commands)).toBe(true);
   });
 
   it("does not parse deprecated advisory slash commands", () => {
@@ -144,7 +136,7 @@ describe("chatComposerControls", () => {
       model: false,
       permissions: false,
       search: false,
-      appGenerationCommands: APP_GENERATION_SLASH_COMMANDS,
+      appGenerationModes: true,
     });
 
     expect(commands.map((entry) => entry.command)).toEqual([
@@ -155,20 +147,11 @@ describe("chatComposerControls", () => {
     ]);
     expect(commands.slice(2, 6)).toEqual(
       APP_GENERATION_SLASH_COMMANDS.map(
-        ({
+        ({ command, action, summary, promptTemplate }) => ({
           command,
           action,
           summary,
           promptTemplate,
-          appGenerationMode,
-          requiresImageAttachment,
-        }) => ({
-          command,
-          action,
-          summary,
-          promptTemplate,
-          appGenerationMode,
-          requiresImageAttachment,
         }),
       ),
     );
@@ -196,7 +179,6 @@ describe("chatComposerControls", () => {
         summary: "Run a saved custom prompt.",
         promptTemplate: "Summarize regressions.",
         appGenerationMode: null,
-        requiresImageAttachment: false,
       },
     ]);
 
@@ -238,7 +220,6 @@ describe("chatComposerControls", () => {
         summary: "Run a saved custom prompt.",
         promptTemplate: "Build from the project design system.",
         appGenerationMode: "json_render",
-        requiresImageAttachment: false,
       },
     ]);
 
@@ -268,7 +249,7 @@ describe("chatComposerControls", () => {
         model: false,
         permissions: false,
         search: false,
-        appGenerationCommands: APP_GENERATION_SLASH_COMMANDS,
+        appGenerationModes: true,
       }),
     );
 
@@ -299,7 +280,6 @@ describe("chatComposerControls", () => {
         summary: "Run a saved custom prompt.",
         promptTemplate: "Keep this prompt.",
         appGenerationMode: null,
-        requiresImageAttachment: false,
       },
     ]);
   });
@@ -359,125 +339,23 @@ describe("chatComposerControls", () => {
   });
 
   it("parses permission mode aliases from slash args", () => {
-    const onSetPermissionMode = vi.fn();
-    const slashCommands = buildChatSlashCommands({
-      model: false,
-      permissions: true,
-      search: false,
-    });
-
-    return expect(
-      executeManagedChatSlashCommand({
-        command: { action: "permissions", args: ["config.toml.custom"] },
-        slashCommands,
-        onSetPermissionMode,
-        onStartNewChat: vi.fn(),
-        onResumeLatestChat: vi.fn(async () => false),
-        resumeFeedback: {
-          success: "Resumed.",
-          notFound: "No chat.",
-        },
-      }),
-    )
-      .resolves.toEqual({
-        feedback: "Permissions set to config_toml_custom.",
-      })
-      .then(() => {
-        expect(onSetPermissionMode).toHaveBeenCalledWith("config_toml_custom");
-      });
+    expect(resolvePermissionModeArg("minimal")).toBe("minimal");
+    expect(resolvePermissionModeArg("YOLO")).toBe("yolo");
+    expect(resolvePermissionModeArg("config.toml.custom")).toBe(
+      "config_toml_custom",
+    );
   });
 
   it("rejects unknown permission mode args", () => {
-    const onSetPermissionMode = vi.fn();
-    const slashCommands = buildChatSlashCommands({
-      model: false,
-      permissions: true,
-      search: false,
-    });
-
-    return expect(
-      executeManagedChatSlashCommand({
-        command: { action: "permissions", args: ["safe"] },
-        slashCommands,
-        onSetPermissionMode,
-        onStartNewChat: vi.fn(),
-        onResumeLatestChat: vi.fn(async () => false),
-        resumeFeedback: {
-          success: "Resumed.",
-          notFound: "No chat.",
-        },
-      }),
-    )
-      .resolves.toEqual({
-        feedback: "Usage: /permissions minimal|yolo|config_toml_custom",
-        keepInput: true,
-      })
-      .then(() => {
-        expect(onSetPermissionMode).not.toHaveBeenCalled();
-      });
+    expect(resolvePermissionModeArg(undefined)).toBeNull();
+    expect(resolvePermissionModeArg("safe")).toBeNull();
   });
 
   it("parses search toggle args", () => {
-    const slashCommands = buildChatSlashCommands({
-      model: false,
-      permissions: false,
-      search: true,
-    });
-    const onSetSearchEnabled = vi.fn();
-
-    return Promise.all([
-      expect(
-        executeManagedChatSlashCommand({
-          command: { action: "search", args: [] },
-          slashCommands,
-          onSetPermissionMode: vi.fn(),
-          onStartNewChat: vi.fn(),
-          onResumeLatestChat: vi.fn(async () => false),
-          resumeFeedback: {
-            success: "Resumed.",
-            notFound: "No chat.",
-          },
-          searchEnabled: true,
-          onSetSearchEnabled,
-        }),
-      ).resolves.toEqual({ feedback: "Search disabled." }),
-      expect(
-        executeManagedChatSlashCommand({
-          command: { action: "search", args: ["OFF"] },
-          slashCommands,
-          onSetPermissionMode: vi.fn(),
-          onStartNewChat: vi.fn(),
-          onResumeLatestChat: vi.fn(async () => false),
-          resumeFeedback: {
-            success: "Resumed.",
-            notFound: "No chat.",
-          },
-          searchEnabled: true,
-          onSetSearchEnabled,
-        }),
-      ).resolves.toEqual({ feedback: "Search disabled." }),
-      expect(
-        executeManagedChatSlashCommand({
-          command: { action: "search", args: ["maybe"] },
-          slashCommands,
-          onSetPermissionMode: vi.fn(),
-          onStartNewChat: vi.fn(),
-          onResumeLatestChat: vi.fn(async () => false),
-          resumeFeedback: {
-            success: "Resumed.",
-            notFound: "No chat.",
-          },
-          searchEnabled: true,
-          onSetSearchEnabled,
-        }),
-      ).resolves.toEqual({
-        feedback: "Usage: /search on|off",
-        keepInput: true,
-      }),
-    ]).then(() => {
-      expect(onSetSearchEnabled).toHaveBeenNthCalledWith(1, false);
-      expect(onSetSearchEnabled).toHaveBeenNthCalledWith(2, false);
-    });
+    expect(resolveToggleArg(undefined, true)).toBe(false);
+    expect(resolveToggleArg("on", false)).toBe(true);
+    expect(resolveToggleArg("OFF", true)).toBe(false);
+    expect(resolveToggleArg("maybe", true)).toBeNull();
   });
 
   it("executes shared managed-chat slash command handlers", async () => {
@@ -585,14 +463,13 @@ describe("chatComposerControls", () => {
       model: false,
       permissions: true,
       search: true,
-      appGenerationCommands: APP_GENERATION_SLASH_COMMANDS,
+      appGenerationModes: true,
     });
 
     const appModeResult = await executeManagedChatSlashCommand({
       command: {
         action: "app_mcp_server",
         args: [],
-        appGenerationMode: "mcp_server",
         promptTemplate: APP_GENERATION_SLASH_COMMANDS[3]?.promptTemplate,
       },
       slashCommands,
