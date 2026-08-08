@@ -35,6 +35,7 @@
 - Fast changed-file quality checks: `corepack pnpm quality`
 - Full deterministic verification: `corepack pnpm quality:all`
 - Unit tests: `corepack pnpm test:unit`
+- Plan-loop automation tests: `corepack pnpm test:automation`
 - Browser tests: `corepack pnpm test:e2e`
 - Packed consumer boundary: `corepack pnpm consumer:check`
 - Network-backed supply-chain audit: `corepack pnpm supply-chain:check`

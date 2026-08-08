@@ -27,7 +27,8 @@
     "report:complexity": "node scripts/report-complexity.mjs",
     "report:file-lengths": "node scripts/report-file-lengths.mjs",
     "supply-chain:check": "node scripts/audit-supply-chain.mjs",
-    "test": "corepack pnpm test:unit",
+    "test": "corepack pnpm test:unit && corepack pnpm test:automation",
+    "test:automation": "bash -n scripts/automation/codex-loop/run-plan-implementation-loop.sh scripts/automation/codex-loop/test_run_plan_implementation_loop.sh && bash scripts/automation/codex-loop/test_run_plan_implementation_loop.sh",
     "test:e2e": "playwright test",
     "test:unit": "vitest run",
     "typecheck": "tsc -p packages/workspace/tsconfig.json --pretty false && corepack pnpm run build:package && tsc -p apps/playground/tsconfig.json --pretty false && tsc -p tsconfig.json --pretty false"

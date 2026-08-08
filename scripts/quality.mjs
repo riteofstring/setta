@@ -32,6 +32,7 @@ run(process.execPath, [
 runPnpm(["run", "typecheck"]);
 runPnpm(["run", "knip"]);
 runPnpm(["run", "test:unit"]);
+runPnpm(["run", "test:automation"]);
 runPnpm(["run", "build"]);
 runPnpm(["run", "pack:check"]);
 runPnpm(["run", "api:report"]);

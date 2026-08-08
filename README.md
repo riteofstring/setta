@@ -14,6 +14,8 @@ The package is private and locally installable while distribution, repository ho
 - `docs/evidence`: source-linked behavioral evidence from the previous Setta implementation.
 - `scripts`: Node-owned quality, packaging, and supply-chain tooling.
 
+The optional long-running plan executor lives under `scripts/automation/codex-loop`. It runs fresh Codex or Claude Code implementer agents, requests a second-agent review at phase boundaries, requires clean committed batches, and finishes only after a separate whole-plan audit. It deliberately bypasses CLI permission prompts, so use it only for unattended repository-local execution after reviewing its README.
+
 ## Setup
 
 Use Node `24.18.1`, Corepack `0.35.0`, and the exact pnpm version declared in `package.json`. Install the exact Corepack prerequisite once if it is not already available; Corepack is also pinned as a development dependency so repository commands do not drift after the initial install.
