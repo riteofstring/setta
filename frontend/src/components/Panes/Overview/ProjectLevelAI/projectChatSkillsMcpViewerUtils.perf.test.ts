@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   type BaseChatMessageUnion,
   EngineTypeEnum,
-  ToolTypeEnum,
+  ExternalAgentToolTypeEnum,
 } from "utils/generatedTypes";
 import {
   buildSkillStatusBySkillId,
@@ -112,13 +112,13 @@ describe("projectChatSkillsMcpViewerUtils (perf)", () => {
     buildSkillStatusBySkillId({
       skills: smallRows,
       engineType: EngineTypeEnum.external_agent,
-      externalAgentToolType: ToolTypeEnum.codex,
+      externalAgentToolType: ExternalAgentToolTypeEnum.codex,
       messages: smallMessages,
     });
     buildSkillStatusBySkillId({
       skills: largeRows,
       engineType: EngineTypeEnum.external_agent,
-      externalAgentToolType: ToolTypeEnum.codex,
+      externalAgentToolType: ExternalAgentToolTypeEnum.codex,
       messages: largeMessages,
     });
 
@@ -126,7 +126,7 @@ describe("projectChatSkillsMcpViewerUtils (perf)", () => {
       buildSkillStatusBySkillId({
         skills: smallRows,
         engineType: EngineTypeEnum.external_agent,
-        externalAgentToolType: ToolTypeEnum.codex,
+        externalAgentToolType: ExternalAgentToolTypeEnum.codex,
         messages: smallMessages,
       });
     });
@@ -134,7 +134,7 @@ describe("projectChatSkillsMcpViewerUtils (perf)", () => {
       buildSkillStatusBySkillId({
         skills: largeRows,
         engineType: EngineTypeEnum.external_agent,
-        externalAgentToolType: ToolTypeEnum.codex,
+        externalAgentToolType: ExternalAgentToolTypeEnum.codex,
         messages: largeMessages,
       });
     });

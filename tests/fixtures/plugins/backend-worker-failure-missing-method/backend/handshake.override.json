@@ -1,0 +1,7 @@
+{
+  "supportedRpcMethods": [
+    "plugin.initialize",
+    "plugin.register",
+    "plugin.shutdown"
+  ]
+}

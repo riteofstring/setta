@@ -24,29 +24,13 @@ type ActiveSectionUIStatePatch = Partial<
   ReturnType<typeof useActiveSectionUI.getState>
 >;
 
-type ActiveSectionUIState = ReturnType<typeof useActiveSectionUI.getState>;
-
 type ActiveSectionSyncOwnershipState = Pick<
-  ActiveSectionUIState,
+  ReturnType<typeof useActiveSectionUI.getState>,
   | "selectionGeneration"
   | "pendingBackendSyncOpIds"
   | "pendingBackendSyncGenerationByOpId"
   | "scheduledBackendSync"
 >;
-
-type PendingBackendSyncReconciliation = {
-  nextPendingBackendSyncOpIds: Array<string>;
-  nextPendingBackendSyncGenerationByOpId: Record<string, number>;
-  pendingChanged: boolean;
-  completedCurrentGenerationSync: boolean;
-};
-
-type BackendAuthorityReconciliation = {
-  currentGenerationStillOwnedLocally: boolean;
-  backendHydrationEnabled: boolean;
-  nextBackendGeneration: number;
-  canHydrateFromBackend: boolean;
-};
 
 function getNextSelectionGeneration() {
   return useActiveSectionUI.getState().selectionGeneration + 1;
@@ -253,15 +237,18 @@ export function clearScheduledActiveSectionBackendSync(
   useActiveSectionUI.setState({ scheduledBackendSync: null });
 }
 
-function reconcilePendingBackendSyncOps(
-  state: ActiveSectionUIState,
+export function getReconciledActiveSectionUIStateFromBackend(
+  backendActiveIds: Array<string>,
   completedOpIds: Array<string>,
-): PendingBackendSyncReconciliation {
+  projectConfigId: string,
+  validSectionIds: Array<string>,
+) {
+  const state = useActiveSectionUI.getState();
+  const validSectionIdSet = new Set(validSectionIds);
   const completedOpIdSet = new Set(completedOpIds);
   const nextPendingBackendSyncOpIds: Array<string> = [];
   const nextPendingBackendSyncGenerationByOpId: Record<string, number> = {};
   let completedCurrentGenerationSync = false;
-
   for (const pendingOpId of state.pendingBackendSyncOpIds) {
     const generation = state.pendingBackendSyncGenerationByOpId[pendingOpId];
     if (completedOpIdSet.has(pendingOpId)) {
@@ -275,137 +262,70 @@ function reconcilePendingBackendSyncOps(
       nextPendingBackendSyncGenerationByOpId[pendingOpId] = generation;
     }
   }
-
-  return {
-    nextPendingBackendSyncOpIds,
-    nextPendingBackendSyncGenerationByOpId,
-    pendingChanged:
-      nextPendingBackendSyncOpIds.length !==
-      state.pendingBackendSyncOpIds.length,
-    completedCurrentGenerationSync,
-  };
-}
-
-function reconcileBackendAuthority(
-  state: ActiveSectionUIState,
-  projectConfigId: string,
-  pendingSync: PendingBackendSyncReconciliation,
-): BackendAuthorityReconciliation {
+  const pendingChanged =
+    nextPendingBackendSyncOpIds.length !== state.pendingBackendSyncOpIds.length;
   const currentGenerationStillOwnedLocally =
     hasLocalActiveSectionOwnershipForCurrentGeneration(
       {
         selectionGeneration: state.selectionGeneration,
-        pendingBackendSyncOpIds: pendingSync.nextPendingBackendSyncOpIds,
+        pendingBackendSyncOpIds: nextPendingBackendSyncOpIds,
         pendingBackendSyncGenerationByOpId:
-          pendingSync.nextPendingBackendSyncGenerationByOpId,
+          nextPendingBackendSyncGenerationByOpId,
         scheduledBackendSync: state.scheduledBackendSync,
       },
       projectConfigId,
     );
   const releasedCurrentGenerationOwnership =
-    pendingSync.completedCurrentGenerationSync &&
-    !currentGenerationStillOwnedLocally;
+    completedCurrentGenerationSync && !currentGenerationStillOwnedLocally;
   const backendHydrationEnabled =
     state.backendHydrationEnabled || releasedCurrentGenerationOwnership;
-  return {
-    currentGenerationStillOwnedLocally,
-    backendHydrationEnabled,
-    nextBackendGeneration: releasedCurrentGenerationOwnership
-      ? state.selectionGeneration
-      : state.backendGeneration,
-    canHydrateFromBackend:
-      !currentGenerationStillOwnedLocally && backendHydrationEnabled,
-  };
-}
-
-function applyPendingAndAuthorityReconciliation(
-  nextState: ActiveSectionUIStatePatch,
-  state: ActiveSectionUIState,
-  pendingSync: PendingBackendSyncReconciliation,
-  authority: BackendAuthorityReconciliation,
-) {
-  if (pendingSync.pendingChanged) {
-    nextState.pendingBackendSyncOpIds = pendingSync.nextPendingBackendSyncOpIds;
-    nextState.pendingBackendSyncGenerationByOpId =
-      pendingSync.nextPendingBackendSyncGenerationByOpId;
-  }
-  if (authority.nextBackendGeneration !== state.backendGeneration) {
-    nextState.backendGeneration = authority.nextBackendGeneration;
-  }
-  if (authority.backendHydrationEnabled !== state.backendHydrationEnabled) {
-    nextState.backendHydrationEnabled = authority.backendHydrationEnabled;
-  }
-}
-
-function getValidActiveSectionIds(
-  activeIds: Array<string>,
-  validSectionIds: Array<string>,
-) {
-  const validSectionIdSet = new Set(validSectionIds);
-  return activeIds.filter((sectionId) => validSectionIdSet.has(sectionId));
-}
-
-function applyActiveIdReconciliation(
-  nextState: ActiveSectionUIStatePatch,
-  state: ActiveSectionUIState,
-  backendActiveIds: Array<string>,
-  validSectionIds: Array<string>,
-  authority: BackendAuthorityReconciliation,
-) {
-  const validActiveIds = getValidActiveSectionIds(
-    state.activeIds,
-    validSectionIds,
+  const nextBackendGeneration = releasedCurrentGenerationOwnership
+    ? state.selectionGeneration
+    : state.backendGeneration;
+  const canHydrateFromBackend =
+    !currentGenerationStillOwnedLocally && backendHydrationEnabled;
+  let reconciledActiveIds = state.activeIds.filter((sectionId) =>
+    validSectionIdSet.has(sectionId),
   );
+  let nextSelectionGeneration = state.selectionGeneration;
 
-  if (!areStringArraysEqual(state.activeIds, validActiveIds)) {
+  const nextState: ActiveSectionUIStatePatch = {};
+
+  if (pendingChanged) {
+    nextState.pendingBackendSyncOpIds = nextPendingBackendSyncOpIds;
+    nextState.pendingBackendSyncGenerationByOpId =
+      nextPendingBackendSyncGenerationByOpId;
+  }
+  if (nextBackendGeneration !== state.backendGeneration) {
+    nextState.backendGeneration = nextBackendGeneration;
+  }
+  if (backendHydrationEnabled !== state.backendHydrationEnabled) {
+    nextState.backendHydrationEnabled = backendHydrationEnabled;
+  }
+
+  if (!areStringArraysEqual(state.activeIds, reconciledActiveIds)) {
     // Invalid-id pruning is backend reconciliation within the same local
     // selection ownership, not a newer user selection.
-    nextState.activeIds = [...validActiveIds];
+    nextState.activeIds = [...reconciledActiveIds];
   }
-  if (!authority.canHydrateFromBackend) {
-    return;
-  }
-  if (!areStringArraysEqual(validActiveIds, backendActiveIds)) {
-    const nextSelectionGeneration = state.selectionGeneration + 1;
+
+  if (
+    canHydrateFromBackend &&
+    !areStringArraysEqual(reconciledActiveIds, backendActiveIds)
+  ) {
+    nextSelectionGeneration += 1;
+    reconciledActiveIds = [...backendActiveIds];
     nextState.activeIds = [...backendActiveIds];
     nextState.selectionGeneration = nextSelectionGeneration;
     nextState.backendGeneration = nextSelectionGeneration;
     nextState.backendHydrationEnabled = true;
-    return;
+  } else if (
+    canHydrateFromBackend &&
+    nextBackendGeneration !== nextSelectionGeneration
+  ) {
+    nextState.backendGeneration = nextSelectionGeneration;
   }
-  if (authority.nextBackendGeneration !== state.selectionGeneration) {
-    nextState.backendGeneration = state.selectionGeneration;
-  }
-}
 
-export function getReconciledActiveSectionUIStateFromBackend(
-  backendActiveIds: Array<string>,
-  completedOpIds: Array<string>,
-  projectConfigId: string,
-  validSectionIds: Array<string>,
-) {
-  const state = useActiveSectionUI.getState();
-  const pendingSync = reconcilePendingBackendSyncOps(state, completedOpIds);
-  const authority = reconcileBackendAuthority(
-    state,
-    projectConfigId,
-    pendingSync,
-  );
-  const nextState: ActiveSectionUIStatePatch = {};
-
-  applyPendingAndAuthorityReconciliation(
-    nextState,
-    state,
-    pendingSync,
-    authority,
-  );
-  applyActiveIdReconciliation(
-    nextState,
-    state,
-    backendActiveIds,
-    validSectionIds,
-    authority,
-  );
   if (Object.keys(nextState).length === 0) {
     return null;
   }

@@ -10,20 +10,13 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def _ensure_go_toolchain_or_skip() -> None:
+def _ensure_local_venv_or_skip() -> None:
     repo_root = _repo_root()
-    result = subprocess.run(
-        [str(repo_root / "scripts" / "go.sh"), "version"],
-        cwd=repo_root,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        pytest.skip("reset-setta-state.sh requires the repo Go toolchain.")
+    if not (repo_root / ".venv" / "bin" / "activate").exists():
+        pytest.skip("reset-setta-state.sh requires repo .venv activation script.")
 
 
-def _build_reset_script_sandbox(tmp_path: Path, *, go_sh_body: str) -> Path:
+def _build_reset_script_sandbox(tmp_path: Path, *, activate_body: str) -> Path:
     repo_root = _repo_root()
     sandbox_root = tmp_path / "reset_script_sandbox"
     scripts_dir = sandbox_root / "scripts"
@@ -41,26 +34,25 @@ def _build_reset_script_sandbox(tmp_path: Path, *, go_sh_body: str) -> Path:
     reset_dst.chmod(0o755)
     flags_dst.chmod(0o755)
 
-    go_sh_dst = scripts_dir / "go.sh"
-    go_sh_dst.write_text(go_sh_body, encoding="utf-8")
-    go_sh_dst.chmod(0o755)
+    activate_dst = sandbox_root / "activate.sh"
+    activate_dst.write_text(activate_body, encoding="utf-8")
+    activate_dst.chmod(0o755)
     return sandbox_root
 
 
-def test_reset_setta_state_script_surfaces_go_resolution_stderr(tmp_path: Path) -> None:
+def test_reset_setta_state_script_surfaces_activation_stderr(tmp_path: Path) -> None:
     sandbox_root = _build_reset_script_sandbox(
         tmp_path,
-        go_sh_body=(
+        activate_body=(
             "#!/usr/bin/env bash\n"
-            "echo 'sandbox go resolution failed: missing toolchain' >&2\n"
-            "exit 1\n"
+            "echo 'sandbox activation failed: missing venv' >&2\n"
+            "return 1\n"
         ),
     )
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
 
-    # Go path-resolution errors should be visible instead of being swallowed by
-    # command substitution.
+    # Activation errors should be visible instead of being swallowed by redirection.
     result = subprocess.run(
         [
             "bash",
@@ -75,11 +67,11 @@ def test_reset_setta_state_script_surfaces_go_resolution_stderr(tmp_path: Path) 
     )
 
     assert result.returncode != 0
-    assert "sandbox go resolution failed: missing toolchain" in f"{result.stdout}{result.stderr}"
+    assert "sandbox activation failed: missing venv" in f"{result.stdout}{result.stderr}"
 
 
 def test_reset_setta_state_script_deletes_explicit_root(tmp_path: Path) -> None:
-    _ensure_go_toolchain_or_skip()
+    _ensure_local_venv_or_skip()
     repo_root = _repo_root()
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
@@ -109,7 +101,7 @@ def test_reset_setta_state_script_deletes_explicit_root(tmp_path: Path) -> None:
 
 def test_reset_setta_state_script_allows_custom_canonical_root(tmp_path: Path) -> None:
     # Reset should accept the same canonical roots that resolve_setta_paths accepts.
-    _ensure_go_toolchain_or_skip()
+    _ensure_local_venv_or_skip()
     repo_root = _repo_root()
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
@@ -138,7 +130,7 @@ def test_reset_setta_state_script_allows_custom_canonical_root(tmp_path: Path) -
 
 
 def test_reset_setta_state_script_resolves_profile_root(tmp_path: Path) -> None:
-    _ensure_go_toolchain_or_skip()
+    _ensure_local_venv_or_skip()
     repo_root = _repo_root()
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
@@ -185,7 +177,7 @@ def test_reset_setta_state_script_resolves_profile_root(tmp_path: Path) -> None:
 def test_reset_setta_state_script_cli_root_overrides_inherited_location(
     tmp_path: Path,
 ) -> None:
-    _ensure_go_toolchain_or_skip()
+    _ensure_local_venv_or_skip()
     repo_root = _repo_root()
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
@@ -219,7 +211,7 @@ def test_reset_setta_state_script_cli_root_overrides_inherited_location(
 def test_reset_setta_state_script_cli_location_overrides_inherited_root(
     tmp_path: Path,
 ) -> None:
-    _ensure_go_toolchain_or_skip()
+    _ensure_local_venv_or_skip()
     repo_root = _repo_root()
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
@@ -255,7 +247,7 @@ def test_reset_setta_state_script_cli_location_overrides_inherited_root(
 
 
 def test_reset_setta_state_script_rejects_detached_runtime_root(tmp_path: Path) -> None:
-    _ensure_go_toolchain_or_skip()
+    _ensure_local_venv_or_skip()
     repo_root = _repo_root()
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
@@ -291,7 +283,7 @@ def test_reset_setta_state_script_rejects_detached_runtime_root(tmp_path: Path) 
 def test_reset_setta_state_script_rejects_custom_target_name(
     tmp_path: Path,
 ) -> None:
-    _ensure_go_toolchain_or_skip()
+    _ensure_local_venv_or_skip()
     repo_root = _repo_root()
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
@@ -316,7 +308,7 @@ def test_reset_setta_state_script_rejects_custom_target_name(
 
     assert result.returncode != 0
     assert (
-        "setta files root must include one of these folder names"
+        "Setta files root must include one of these folder names"
         in f"{result.stdout}{result.stderr}"
     )
     assert nonstandard_root.exists()
@@ -325,7 +317,7 @@ def test_reset_setta_state_script_rejects_custom_target_name(
 def test_reset_setta_state_script_rejects_conflicting_root_and_location_flags(
     tmp_path: Path,
 ) -> None:
-    _ensure_go_toolchain_or_skip()
+    _ensure_local_venv_or_skip()
     repo_root = _repo_root()
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
@@ -357,7 +349,7 @@ def test_reset_setta_state_script_rejects_conflicting_root_and_location_flags(
 def test_reset_setta_state_script_rejects_conflicting_env_root_and_location(
     tmp_path: Path,
 ) -> None:
-    _ensure_go_toolchain_or_skip()
+    _ensure_local_venv_or_skip()
     repo_root = _repo_root()
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
@@ -390,7 +382,7 @@ def test_reset_setta_state_script_rejects_conflicting_env_root_and_location(
 def test_reset_setta_state_script_rejects_nonstandard_target_with_force_flag(
     tmp_path: Path,
 ) -> None:
-    _ensure_go_toolchain_or_skip()
+    _ensure_local_venv_or_skip()
     repo_root = _repo_root()
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
@@ -420,7 +412,7 @@ def test_reset_setta_state_script_rejects_nonstandard_target_with_force_flag(
 
 
 def test_reset_setta_state_script_refuses_home(tmp_path: Path) -> None:
-    _ensure_go_toolchain_or_skip()
+    _ensure_local_venv_or_skip()
     repo_root = _repo_root()
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
@@ -449,14 +441,14 @@ def test_reset_setta_state_script_refuses_home(tmp_path: Path) -> None:
 
     assert result.returncode != 0
     assert (
-        "setta files root must include one of these folder names"
+        "Setta files root must include one of these folder names"
         in f"{result.stdout}{result.stderr}"
     )
     assert home_root.exists()
 
 
 def test_reset_setta_state_script_reports_missing_flag_value() -> None:
-    _ensure_go_toolchain_or_skip()
+    _ensure_local_venv_or_skip()
     repo_root = _repo_root()
 
     result = subprocess.run(
@@ -476,7 +468,7 @@ def test_reset_setta_state_script_reports_missing_flag_value() -> None:
 
 
 def test_reset_setta_state_script_rejects_flag_like_option_value() -> None:
-    _ensure_go_toolchain_or_skip()
+    _ensure_local_venv_or_skip()
     repo_root = _repo_root()
 
     result = subprocess.run(
@@ -498,7 +490,7 @@ def test_reset_setta_state_script_rejects_flag_like_option_value() -> None:
 
 
 def test_reset_setta_state_script_accepts_equals_style_flags(tmp_path: Path) -> None:
-    _ensure_go_toolchain_or_skip()
+    _ensure_local_venv_or_skip()
     repo_root = _repo_root()
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)

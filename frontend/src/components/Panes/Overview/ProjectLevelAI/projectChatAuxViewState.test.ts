@@ -1,80 +1,52 @@
-import { useLocalStorage, useProjectState } from "state/definitions";
-import { resetProjectStores } from "state/utils";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
+  resolveProjectChatAuxViewByProjectConfigIdUpdate,
   resolveProjectChatDraftMessageByProjectConfigIdUpdate,
-  setProjectChatAuxViewForActiveProject,
-} from "./projectChatAuxViewState";
+} from "./ProjectChat";
 
-describe("setProjectChatAuxViewForActiveProject", () => {
-  beforeEach(() => {
-    resetProjectStores();
-    useProjectState.setState((state) => {
-      state.projectConfig.id = "project-a";
-    });
-    useLocalStorage.setState({
-      projectChatAuxViewByProjectConfigId: {},
-    });
-  });
-
-  afterEach(() => {
-    resetProjectStores();
-  });
-
-  it("keeps the active project entry unchanged when the requested view matches", () => {
-    useLocalStorage.setState({
+describe("resolveProjectChatAuxViewByProjectConfigIdUpdate", () => {
+  it("returns null when the active project aux view does not change", () => {
+    // No mutation should occur when the active project is already on the requested view.
+    const next = resolveProjectChatAuxViewByProjectConfigIdUpdate({
       projectChatAuxViewByProjectConfigId: {
         "project-a": "skills",
       },
+      projectConfigId: "project-a",
+      nextAuxView: "skills",
     });
 
-    const previous =
-      useLocalStorage.getState().projectChatAuxViewByProjectConfigId;
-
-    setProjectChatAuxViewForActiveProject("skills");
-
-    expect(useLocalStorage.getState().projectChatAuxViewByProjectConfigId).toBe(
-      previous,
-    );
+    expect(next).toBeNull();
   });
 
-  it("updates only the active project entry when opening an aux view", () => {
-    useLocalStorage.setState({
+  it("updates only the targeted project entry when opening an aux view", () => {
+    // Switching the active project entry must preserve every other project's state.
+    const next = resolveProjectChatAuxViewByProjectConfigIdUpdate({
       projectChatAuxViewByProjectConfigId: {
         "project-a": "skills",
       },
-    });
-    useProjectState.setState((state) => {
-      state.projectConfig.id = "project-b";
+      projectConfigId: "project-b",
+      nextAuxView: "mcp",
     });
 
-    setProjectChatAuxViewForActiveProject("mcp");
-
-    expect(
-      useLocalStorage.getState().projectChatAuxViewByProjectConfigId,
-    ).toEqual({
+    expect(next).toEqual({
       "project-a": "skills",
       "project-b": "mcp",
     });
   });
 
-  it("removes only the active project entry when clearing aux view", () => {
-    useLocalStorage.setState({
+  it("removes only the targeted project entry when clearing aux view", () => {
+    // Clearing a project view should not clear other project keys.
+    const next = resolveProjectChatAuxViewByProjectConfigIdUpdate({
       projectChatAuxViewByProjectConfigId: {
         "project-a": "skills",
         "project-b": "slash_commands",
       },
-    });
-    useProjectState.setState((state) => {
-      state.projectConfig.id = "project-b";
+      projectConfigId: "project-b",
+      nextAuxView: "none",
     });
 
-    setProjectChatAuxViewForActiveProject("none");
-
-    expect(
-      useLocalStorage.getState().projectChatAuxViewByProjectConfigId,
-    ).toEqual({
+    expect(next).toEqual({
       "project-a": "skills",
     });
   });

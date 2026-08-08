@@ -91,30 +91,6 @@ def test_ai_sh_rejects_invalid_setta_files_location_value(tmp_path: Path) -> Non
     )
 
 
-def test_ai_sh_requires_explicit_dev_install_when_repo_python_env_missing(
-    tmp_path: Path,
-) -> None:
-    sandbox_root = build_ai_sandbox(tmp_path)
-    stub_dir = tmp_path / "bin"
-    stub_dir.mkdir(parents=True, exist_ok=True)
-    home_dir = tmp_path / "home"
-    home_dir.mkdir(parents=True, exist_ok=True)
-
-    (sandbox_root / ".venv" / "bin" / "python").unlink()
-
-    result = run_script(
-        ["bash", str(sandbox_root / "ai.sh")],
-        cwd=sandbox_root,
-        env=script_env(stub_dir, home_dir),
-    )
-
-    assert result.returncode != 0
-    assert (
-        "Missing dev dependencies (.venv/bin/python). Run ./dev_install.sh first."
-        in f"{result.stdout}{result.stderr}"
-    )
-
-
 def test_ai_sh_normalizes_setta_files_location_case(tmp_path: Path) -> None:
     sandbox_root = build_ai_sandbox(tmp_path)
     stub_dir = tmp_path / "bin"

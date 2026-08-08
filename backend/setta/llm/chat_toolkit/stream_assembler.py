@@ -1,10 +1,10 @@
-from setta.types.generated.go_shared_types import (
+from setta.database.utils import create_new_id
+from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
     MessageThinkingContent,
     ToolCall,
 )
-from setta.types.id import create_new_id
 
 from .tool_calls import ToolCallAccumulator
 
@@ -22,11 +22,11 @@ def _ensure_text_block(
     index: int,
 ) -> MessageTextContent:
     while len(content) <= index:
-        content.append(MessageTextContent(type="text", text=""))
+        content.append(MessageTextContent(text=""))
     block = content[index]
     if isinstance(block, MessageTextContent):
         return block
-    block = MessageTextContent(type="text", text="")
+    block = MessageTextContent(text="")
     content[index] = block
     return block
 
@@ -36,23 +36,11 @@ def _ensure_thinking_block(
     index: int,
 ) -> MessageThinkingContent:
     while len(content) <= index:
-        content.append(
-            MessageThinkingContent(
-                type="thinking",
-                thinking="",
-                summary="",
-                signature="",
-            )
-        )
+        content.append(MessageThinkingContent())
     block = content[index]
     if isinstance(block, MessageThinkingContent):
         return block
-    block = MessageThinkingContent(
-        type="thinking",
-        thinking="",
-        summary="",
-        signature="",
-    )
+    block = MessageThinkingContent()
     content[index] = block
     return block
 

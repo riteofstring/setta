@@ -3,11 +3,14 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
-import spinners from "unicode-animations";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BrailleSpinner } from "./BrailleSpinner";
-
-const BRAILLE_SPINNER_FRAMES = [...spinners.braille.frames];
+import {
+  BRAILLE_SPINNER_COMPACT_SIZE_CLASS_NAME,
+  BRAILLE_SPINNER_FRAMES,
+  BRAILLE_SPINNER_INTERVAL_MS,
+  BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME,
+  BrailleSpinner,
+} from "./BrailleSpinner";
 
 describe("BrailleSpinner", () => {
   let host: HTMLDivElement;
@@ -45,12 +48,12 @@ describe("BrailleSpinner", () => {
     });
 
     await act(async () => {
-      vi.advanceTimersByTime(spinners.braille.interval);
+      vi.advanceTimersByTime(BRAILLE_SPINNER_INTERVAL_MS);
     });
     expect(host.textContent).toBe(BRAILLE_SPINNER_FRAMES[1]);
 
     await act(async () => {
-      vi.advanceTimersByTime(spinners.braille.interval);
+      vi.advanceTimersByTime(BRAILLE_SPINNER_INTERVAL_MS);
     });
     expect(host.textContent).toBe(BRAILLE_SPINNER_FRAMES[2]);
   });
@@ -71,17 +74,22 @@ describe("BrailleSpinner", () => {
     expect(setIntervalSpy).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      vi.advanceTimersByTime(spinners.braille.interval);
+      vi.advanceTimersByTime(BRAILLE_SPINNER_INTERVAL_MS);
     });
 
-    const spinnerElements = Array.from(
+    const spinners = Array.from(
       host.querySelectorAll('[data-unicode-spinner="braille"]'),
     );
-    expect(spinnerElements).toHaveLength(10);
+    expect(spinners).toHaveLength(10);
     expect(
-      spinnerElements.every(
+      spinners.every(
         (spinner) => spinner.textContent === BRAILLE_SPINNER_FRAMES[1],
       ),
     ).toBe(true);
+  });
+
+  it("exports the shared runtime and compact size contracts for braille loader call sites", () => {
+    expect(BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME).toBe("text-[13px]");
+    expect(BRAILLE_SPINNER_COMPACT_SIZE_CLASS_NAME).toBe("text-[11px]");
   });
 });

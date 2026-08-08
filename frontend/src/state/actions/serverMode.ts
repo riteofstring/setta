@@ -1,18 +1,16 @@
-import {
-  callOpenAPI,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
-import { getServerMode, type HttpapiServerModeResponse } from "openapi/http";
 import { useServerMode } from "state/definitions";
-import type { ServerModeValue } from "utils/serverModeTypes";
-type ServerModeRouteResponse = ResponseDataAndStatus<HttpapiServerModeResponse>;
-export async function initializeServerMode(): Promise<ServerModeValue> {
+import { res200 } from "utils/endpointUtils";
+import { route_get_server_mode } from "utils/generatedEndpoints";
+
+export async function initializeServerMode(): Promise<
+  "ide" | "share" | "app" | "launcher" | null
+> {
   const serverMode = useServerMode.getState();
   if (serverMode.modeResolved) {
     return serverMode.mode;
   }
-  const res = (await callOpenAPI(getServerMode())) as ServerModeRouteResponse;
+
+  const res = await route_get_server_mode();
   if (!res200(res)) {
     const message = res.hasResponse
       ? `Failed to check server mode (status ${res.status}).`

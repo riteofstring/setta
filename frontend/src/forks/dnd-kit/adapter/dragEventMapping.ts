@@ -1,5 +1,5 @@
 import type { DragDropManager, Draggable, Droppable } from "@dnd-kit/dom";
-import type { Coordinates, Rectangle } from "@dnd-kit/geometry";
+import type { Coordinates } from "@dnd-kit/geometry";
 import { getParamDndParentByChild } from "../paramDndChildren";
 import { useParamDndState } from "../paramDndState";
 import { promoteBestCollision } from "./collisionCompare";
@@ -21,20 +21,6 @@ type DragOperation = {
   target: Droppable | null;
   activatorEvent: Event | null;
   transform: Coordinates;
-};
-
-type ActiveDragData = {
-  type?: string;
-  listKey?: ReturnType<typeof useParamDndState.getState>["listKey"] | null;
-};
-
-type CurrentValueWrapper = {
-  current?: unknown;
-};
-
-type LayoutRectSource = {
-  translated?: unknown;
-  initial?: unknown;
 };
 
 export function mapDragStartEvent(
@@ -84,69 +70,51 @@ function getCollisions(
     return [];
   }
 
-  return promoteBestCollision(
-    collisions as SettaCollision[],
-    getParamCollisionParentByChild(active),
-  );
-}
-
-function getParamCollisionParentByChild(active: Draggable) {
-  const activeData = getActiveDragData(active);
-  if (activeData?.type !== "param") {
-    return undefined;
-  }
-
-  const listKey = activeData.listKey ?? useParamDndState.getState().listKey;
-  return getParamDndParentByChild(listKey ?? null);
-}
-
-function getActiveDragData(active: Draggable): ActiveDragData | null {
-  return (
-    (active.data as { current?: ActiveDragData } | undefined)?.current ?? null
-  );
-}
-
-function getManagerBoundingRect(
-  activeId: Draggable["id"],
-  manager?: DragDropManager,
-): Rectangle["boundingRectangle"] | null {
-  return (
-    manager?.dragOperation.shape?.current?.boundingRectangle ??
-    manager?.registry.droppables.get(activeId)?.shape?.boundingRectangle ??
-    null
-  );
-}
-
-function getCurrentValue(value: unknown): unknown {
-  if (!value || typeof value !== "object" || !("current" in value)) {
-    return value;
-  }
-
-  return (value as CurrentValueWrapper).current;
-}
-
-function getTranslatedOrInitialValue(value: unknown): unknown {
-  if (!value || typeof value !== "object") {
-    return value;
-  }
-
-  const layoutSource = value as LayoutRectSource;
-  return layoutSource.translated ?? layoutSource.initial ?? value;
-}
-
-function getActiveLayoutRect(active: Draggable): unknown {
-  const activeRectValue = (active as { rect?: unknown }).rect;
-  return getTranslatedOrInitialValue(getCurrentValue(activeRectValue));
+  const activeData = active.data as
+    | { current?: { type?: string; listKey?: string | null } }
+    | undefined;
+  const isParamDrag = activeData?.current?.type === "param";
+  const listKey = isParamDrag
+    ? (activeData?.current?.listKey as
+        | ReturnType<typeof useParamDndState.getState>["listKey"]
+        | null) ?? useParamDndState.getState().listKey
+    : null;
+  const parentByChild = isParamDrag
+    ? getParamDndParentByChild(listKey ?? null)
+    : undefined;
+  return promoteBestCollision(collisions as SettaCollision[], parentByChild);
 }
 
 function resolveActiveRect(
   active: Draggable,
   manager?: DragDropManager,
 ): DragStartEvent["activeRect"] {
-  const managerRect = getManagerBoundingRect(active.id, manager);
-  if (managerRect) {
-    return rectFromBoundingRect(managerRect);
+  const operationRect =
+    manager?.dragOperation.shape?.current?.boundingRectangle;
+  if (operationRect) {
+    return rectFromBoundingRect(operationRect);
   }
 
-  return coerceClientRect(getActiveLayoutRect(active));
+  const droppableRect = manager?.registry.droppables.get(active.id)?.shape
+    ?.boundingRectangle;
+  if (droppableRect) {
+    return rectFromBoundingRect(droppableRect);
+  }
+
+  const activeRectValue = (active as { rect?: unknown }).rect;
+  const resolvedRectValue =
+    activeRectValue &&
+    typeof activeRectValue === "object" &&
+    "current" in activeRectValue
+      ? (activeRectValue as { current?: unknown }).current
+      : activeRectValue;
+  const layoutSource =
+    resolvedRectValue &&
+    typeof resolvedRectValue === "object" &&
+    ("translated" in resolvedRectValue || "initial" in resolvedRectValue)
+      ? (resolvedRectValue as { translated?: unknown; initial?: unknown })
+      : null;
+  const layoutRect =
+    layoutSource?.translated ?? layoutSource?.initial ?? resolvedRectValue;
+  return coerceClientRect(layoutRect);
 }

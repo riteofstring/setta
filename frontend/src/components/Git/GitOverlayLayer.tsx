@@ -3,7 +3,23 @@ import { useEffect } from "react";
 import { closeGitOverlay } from "state/actions/git";
 import { useLocalStorage } from "state/definitions";
 import { useGitStore } from "state/git";
-import { isEditableEscapeTarget } from "./gitOverlayLayerUtils";
+
+export function isEditableEscapeTarget(target: EventTarget | null): boolean {
+  if (typeof HTMLElement === "undefined") {
+    return false;
+  }
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  if (target.isContentEditable) {
+    return true;
+  }
+  return (
+    target.closest(
+      "input, textarea, [contenteditable=''], [contenteditable='true']",
+    ) !== null
+  );
+}
 
 export function GitOverlayLayer() {
   const overlayKind = useGitStore((x) => x.overlay.kind);

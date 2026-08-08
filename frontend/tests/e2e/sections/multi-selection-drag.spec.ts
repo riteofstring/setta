@@ -1,10 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
-  applyProjectMutationsFromFrontend,
   cleanupIsolatedProject,
-  createTopLevelSectionFromFrontend,
   ensureAppReady,
   openIsolatedProject,
+  postBackend,
 } from "../helpers";
 
 type ImplType = "Code" | "Group";
@@ -74,9 +73,7 @@ test("ui-only selection drag grouping includes the full selected set in browser 
       y: 70,
     });
 
-    expect([...draggedIds].sort()).toEqual(
-      [firstSectionId, secondSectionId].sort(),
-    );
+    expect(draggedIds).toEqual([firstSectionId, secondSectionId]);
 
     const afterPositions = await readNodePositions(page, [
       firstSectionId,
@@ -117,10 +114,15 @@ async function createTopLevelSection(
   projectConfigId: string,
   implType: ImplType,
 ): Promise<string> {
-  const response = await createTopLevelSectionFromFrontend(page, {
-    projectConfigId,
-    implType,
-  });
+  const response = await postBackend<{ sectionId?: string }>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType,
+    },
+  );
+
   const sectionId = response?.sectionId;
   if (!sectionId) {
     throw new Error(`Missing section id for impl type ${implType}.`);
@@ -133,21 +135,17 @@ async function placeSections(
   projectConfigId: string,
   positionsById: Record<string, { x: number; y: number }>,
 ): Promise<void> {
-  await applyProjectMutationsFromFrontend(page, {
-    projectConfigId,
-    operations: Object.entries(positionsById).map(([sectionId, position]) => ({
-      operationName: "moveSections",
-      body: {
-        sectionIds: [sectionId],
-        newParentId: null,
-        newIndex: null,
-        positionsById: {
-          [sectionId]: position,
-        },
-        frontendOpId: null,
+  for (const [sectionId, position] of Object.entries(positionsById)) {
+    await postBackend(page, "/moveSections", {
+      projectConfigId,
+      sectionIds: [sectionId],
+      newParentId: null,
+      newIndex: null,
+      positionsById: {
+        [sectionId]: position,
       },
-    })),
-  });
+    });
+  }
 }
 
 async function setFrontendActiveIds(

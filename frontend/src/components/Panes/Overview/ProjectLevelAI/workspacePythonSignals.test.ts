@@ -1,124 +1,121 @@
-import { getWorkspacePythonSignal } from "openapi/http";
+import { route_get_folder_contents } from "utils/generatedEndpoints";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  getCachedWorkspacePythonSignal,
+  hasPythonSignalsInRoot,
   loadWorkspacePythonSignal,
+  setCachedWorkspacePythonSignal,
   type WorkspacePythonSignalCache,
 } from "./workspacePythonSignals";
 
-vi.mock("openapi/http", () => ({
-  getWorkspacePythonSignal: vi.fn(),
+vi.mock("utils/generatedEndpoints", () => ({
+  route_get_folder_contents: vi.fn(),
 }));
 
-vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
-  return {
-    ...actual,
-    callOpenAPI: function <T>(promise: Promise<T>) {
-      return promise;
-    },
-  };
-});
-
-const mockedGetWorkspacePythonSignal = vi.mocked(getWorkspacePythonSignal);
-
-function buildWorkspacePythonSignalResponse(
-  folderPath: string,
-  hasPython: boolean,
-) {
-  return {
-    data: {
-      folderPath,
-      hasPython,
-    },
-    status: 200,
-    hasResponse: true,
-  };
-}
+const mockedGetFolderContents = vi.mocked(route_get_folder_contents);
 
 describe("workspacePythonSignals", () => {
   beforeEach(() => {
-    mockedGetWorkspacePythonSignal.mockReset();
+    mockedGetFolderContents.mockReset();
   });
 
-  it("reuses cached results until the TTL expires", async () => {
-    vi.useFakeTimers();
-    try {
-      vi.setSystemTime(1000);
-      const cache: WorkspacePythonSignalCache = new Map();
-      mockedGetWorkspacePythonSignal
-        .mockResolvedValueOnce(
-          buildWorkspacePythonSignalResponse("/workspace/python-app", false),
-        )
-        .mockResolvedValueOnce(
-          buildWorkspacePythonSignalResponse("/workspace/python-app", true),
-        );
-
-      await expect(
-        loadWorkspacePythonSignal({
-          cache,
-          rootPath: "/workspace/python-app",
-        }),
-      ).resolves.toBe(false);
-      expect(mockedGetWorkspacePythonSignal).toHaveBeenCalledTimes(1);
-      expect(cache.get("/workspace/python-app")).toEqual({
-        hasPython: false,
-        cachedAtMs: 1000,
-      });
-
-      vi.setSystemTime(9000);
-      await expect(
-        loadWorkspacePythonSignal({
-          cache,
-          rootPath: "/workspace/python-app",
-        }),
-      ).resolves.toBe(false);
-      expect(mockedGetWorkspacePythonSignal).toHaveBeenCalledTimes(1);
-
-      vi.setSystemTime(17001);
-      await expect(
-        loadWorkspacePythonSignal({
-          cache,
-          rootPath: "/workspace/python-app",
-        }),
-      ).resolves.toBe(true);
-      expect(mockedGetWorkspacePythonSignal).toHaveBeenCalledTimes(2);
-      expect(cache.get("/workspace/python-app")).toEqual({
-        hasPython: true,
-        cachedAtMs: 17001,
-      });
-    } finally {
-      vi.useRealTimers();
-    }
+  it("detects python marker files and python sources at workspace root", () => {
+    expect(
+      hasPythonSignalsInRoot([
+        { type: "file", name: "README.md" },
+        { type: "file", name: "requirements.txt" },
+      ]),
+    ).toBe(true);
+    expect(
+      hasPythonSignalsInRoot([
+        { type: "file", name: "scripts/build.py" },
+        { type: "directory", name: "src" },
+      ]),
+    ).toBe(true);
+    expect(
+      hasPythonSignalsInRoot([
+        { type: "file", name: "Pipfile" },
+        { type: "file", name: "README.md" },
+      ]),
+    ).toBe(true);
+    expect(
+      hasPythonSignalsInRoot([
+        { type: "directory", name: "backend" },
+        { type: "file", name: "package.json" },
+      ]),
+    ).toBe(false);
   });
 
-  it("returns null without hitting the Go-owned endpoint for blank roots", async () => {
+  it("reads and writes cache entries per workspace root path", () => {
     const cache: WorkspacePythonSignalCache = new Map();
+    setCachedWorkspacePythonSignal(cache, "/workspace/python-app", true, 1000);
+    setCachedWorkspacePythonSignal(
+      cache,
+      "/workspace/frontend-app",
+      false,
+      1001,
+    );
 
-    await expect(
-      loadWorkspacePythonSignal({
+    expect(
+      getCachedWorkspacePythonSignal(
         cache,
-        rootPath: "   ",
-      }),
-    ).resolves.toBeNull();
-    expect(mockedGetWorkspacePythonSignal).not.toHaveBeenCalled();
-    expect(cache.size).toBe(0);
+        "/workspace/python-app",
+        2000,
+        5000,
+      ),
+    ).toBe(true);
+    expect(
+      getCachedWorkspacePythonSignal(
+        cache,
+        "/workspace/frontend-app",
+        2000,
+        5000,
+      ),
+    ).toBe(false);
+    expect(
+      getCachedWorkspacePythonSignal(cache, "/workspace/unknown"),
+    ).toBeNull();
+    expect(
+      getCachedWorkspacePythonSignal(
+        cache,
+        "/workspace/python-app",
+        7001,
+        5000,
+      ),
+    ).toBeNull();
+    expect(cache.has("/workspace/python-app")).toBe(false);
+  });
+
+  it("evicts oldest entries when cache grows beyond the cap", () => {
+    const cache: WorkspacePythonSignalCache = new Map();
+    setCachedWorkspacePythonSignal(cache, "/workspace/a", true, 1000, 2);
+    setCachedWorkspacePythonSignal(cache, "/workspace/b", false, 1001, 2);
+    setCachedWorkspacePythonSignal(cache, "/workspace/c", true, 1002, 2);
+
+    expect(Array.from(cache.keys())).toEqual(["/workspace/b", "/workspace/c"]);
+  });
+
+  it("keeps default cache hits across short revalidation windows", () => {
+    const cache: WorkspacePythonSignalCache = new Map();
+    setCachedWorkspacePythonSignal(cache, "/workspace/a", true, 1000);
+
+    expect(getCachedWorkspacePythonSignal(cache, "/workspace/a", 9000)).toBe(
+      true,
+    );
+    expect(getCachedWorkspacePythonSignal(cache, "/workspace/a", 17001)).toBe(
+      null,
+    );
   });
 
   it("dedupes in-flight root scans for the same workspace path", async () => {
     const cache: WorkspacePythonSignalCache = new Map();
-    let resolveRequest:
-      | ((value: {
-          data: {
-            folderPath: string;
-            hasPython: boolean;
-          };
-          status: number;
-          hasResponse: boolean;
-        }) => void)
-      | null = null;
+    let resolveRequest: ((value: {
+      data: Array<{ name: string; type: string; fullPath: string }>;
+      status: number;
+      hasResponse: boolean;
+    }) => void) | null = null;
 
-    mockedGetWorkspacePythonSignal.mockImplementation(
+    mockedGetFolderContents.mockImplementation(
       () =>
         new Promise((resolve) => {
           resolveRequest = resolve;
@@ -136,61 +133,33 @@ describe("workspacePythonSignals", () => {
       revalidate: true,
     });
 
-    expect(mockedGetWorkspacePythonSignal).toHaveBeenCalledTimes(1);
-    expect(mockedGetWorkspacePythonSignal).toHaveBeenCalledWith({
-      body: {
-        folderPath: "/workspace/python-app",
-      },
+    expect(mockedGetFolderContents).toHaveBeenCalledTimes(1);
+    expect(mockedGetFolderContents).toHaveBeenCalledWith({
+      folderPath: "/workspace/python-app",
+      includeMtime: false,
+      includeSize: false,
+      maxEntries: 5000,
     });
 
     if (!resolveRequest) {
       throw new Error("Expected root scan request to remain in flight.");
     }
     resolveRequest({
-      ...buildWorkspacePythonSignalResponse("/workspace/python-app", true),
+      data: [
+        {
+          name: "pyproject.toml",
+          type: "file",
+          fullPath: "/workspace/python-app/pyproject.toml",
+        },
+      ],
+      status: 200,
+      hasResponse: true,
     });
 
     await expect(firstLoad).resolves.toBe(true);
     await expect(secondLoad).resolves.toBe(true);
-    expect(cache.get("/workspace/python-app")).toEqual({
-      hasPython: true,
-      cachedAtMs: expect.any(Number),
-    });
-  });
-
-  it("returns null when the Go-owned workspace python signal endpoint fails", async () => {
-    const cache: WorkspacePythonSignalCache = new Map();
-    mockedGetWorkspacePythonSignal.mockResolvedValue({
-      data: undefined,
-      status: 500,
-      hasResponse: true,
-    });
-
-    await expect(
-      loadWorkspacePythonSignal({
-        cache,
-        rootPath: "/workspace/python-app",
-        revalidate: true,
-      }),
-    ).resolves.toBeNull();
-    expect(cache.size).toBe(0);
-  });
-
-  it("uses the Go-owned endpoint response to populate the cache", async () => {
-    const cache: WorkspacePythonSignalCache = new Map();
-    mockedGetWorkspacePythonSignal.mockResolvedValue(
-      buildWorkspacePythonSignalResponse("/workspace/python-app", false),
+    expect(getCachedWorkspacePythonSignal(cache, "/workspace/python-app")).toBe(
+      true,
     );
-
-    await expect(
-      loadWorkspacePythonSignal({
-        cache,
-        rootPath: "/workspace/python-app",
-      }),
-    ).resolves.toBe(false);
-    expect(cache.get("/workspace/python-app")).toEqual({
-      hasPython: false,
-      cachedAtMs: expect.any(Number),
-    });
   });
 });

@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
 import {
-  cleanupIsolatedProject,
   clearProjectChatWindows,
-  createTopLevelSectionFromFrontend,
+  cleanupIsolatedProject,
   createTextBlockSection,
   ensureAppReady,
   openIsolatedProject,
+  postBackend,
   seedLocalStorage,
 } from "../helpers";
 
@@ -95,10 +95,14 @@ test.describe.serial("section config accordion hierarchy", () => {
 
     try {
       await clearProjectChatWindows(page);
-      const created = await createTopLevelSectionFromFrontend(page, {
-        projectConfigId: projectContext.projectConfigId,
-        implType: "Terminal",
-      });
+      const created = await postBackend<{ sectionId?: string }>(
+        page,
+        "/createTopLevelSection",
+        {
+          projectConfigId: projectContext.projectConfigId,
+          implType: "Terminal",
+        },
+      );
       if (!created?.sectionId) {
         throw new Error("Missing sectionId when creating terminal section.");
       }
@@ -152,10 +156,14 @@ test.describe.serial("section config accordion hierarchy", () => {
         projectContext.projectConfigId,
         "__pw_section_config_switch_text_block__",
       );
-      const terminal = await createTopLevelSectionFromFrontend(page, {
-        projectConfigId: projectContext.projectConfigId,
-        implType: "Terminal",
-      });
+      const terminal = await postBackend<{ sectionId?: string }>(
+        page,
+        "/createTopLevelSection",
+        {
+          projectConfigId: projectContext.projectConfigId,
+          implType: "Terminal",
+        },
+      );
       if (!terminal?.sectionId) {
         throw new Error("Missing sectionId when creating terminal section.");
       }

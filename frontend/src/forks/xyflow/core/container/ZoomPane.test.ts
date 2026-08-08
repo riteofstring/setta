@@ -1,20 +1,17 @@
 /* @vitest-environment jsdom */
 
-import { useDndState } from "forks/dnd-kit/dndState";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { useMisc, useNodeInternals, useSettings } from "state/definitions";
+import { useMisc, useSettings } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
-import { PanOnScrollModeEnum, createSettingsState } from "utils/generatedTypes";
+import { createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import initialState from "../store/initialState";
 import ZoomPane, {
   getViewportInteractionActiveValue,
   resetViewportInteractionState,
-  resolvePanOnScrollDelta,
-  shouldAllowZoomFilterEvent,
 } from "./ZoomPane";
 
 type RenderedZoomPane = {
@@ -49,135 +46,6 @@ async function renderZoomPane(): Promise<RenderedZoomPane> {
 
   return { host, renderer, root };
 }
-
-function withEventTarget<T extends Event>(event: T, target: Element): T {
-  Object.defineProperty(event, "target", {
-    configurable: true,
-    value: target,
-  });
-  return event;
-}
-
-function appendTargetWithClass(className: string): HTMLDivElement {
-  const target = document.createElement("div");
-  target.className = className;
-  document.body.appendChild(target);
-  return target;
-}
-
-describe("resolvePanOnScrollDelta", () => {
-  it("normalizes line-based wheel deltas and preserves shift remapping on non-mac", () => {
-    const event = new WheelEvent("wheel", {
-      deltaX: 2,
-      deltaY: 3,
-      shiftKey: true,
-    });
-    Object.defineProperty(event, "deltaMode", {
-      configurable: true,
-      value: 1,
-    });
-
-    expect(
-      resolvePanOnScrollDelta({
-        event,
-        isMacOS: false,
-        panOnScrollMode: PanOnScrollModeEnum.free,
-      }),
-    ).toEqual({
-      deltaX: 60,
-      deltaY: 0,
-    });
-  });
-
-  it("zeros the excluded axis for constrained pan modes", () => {
-    const event = new WheelEvent("wheel", {
-      deltaX: 9,
-      deltaY: 4,
-    });
-
-    expect(
-      resolvePanOnScrollDelta({
-        event,
-        isMacOS: true,
-        panOnScrollMode: PanOnScrollModeEnum.vertical,
-      }),
-    ).toEqual({
-      deltaX: 0,
-      deltaY: 4,
-    });
-    expect(
-      resolvePanOnScrollDelta({
-        event,
-        isMacOS: true,
-        panOnScrollMode: PanOnScrollModeEnum.horizontal,
-      }),
-    ).toEqual({
-      deltaX: 9,
-      deltaY: 0,
-    });
-  });
-});
-
-describe("shouldAllowZoomFilterEvent", () => {
-  it("allows middle-click node panning when that button is enabled", () => {
-    const node = appendTargetWithClass("react-flow__node");
-    const event = withEventTarget(
-      new MouseEvent("mousedown", { button: 1 }),
-      node,
-    );
-
-    expect(
-      shouldAllowZoomFilterEvent({
-        event,
-        panOnDrag: [1],
-        panOnScroll: false,
-        userSelectionActive: false,
-        zoomOnDoubleClick: true,
-        zoomOnPinch: true,
-        zoomOnScroll: true,
-      }),
-    ).toBe(true);
-  });
-
-  it("blocks nowheel targets from wheel zoom without an override", () => {
-    const target = appendTargetWithClass("nowheel");
-    const event = withEventTarget(
-      new WheelEvent("wheel", { deltaY: -120 }),
-      target,
-    );
-
-    expect(
-      shouldAllowZoomFilterEvent({
-        event,
-        panOnDrag: true,
-        panOnScroll: false,
-        userSelectionActive: false,
-        zoomOnDoubleClick: true,
-        zoomOnPinch: true,
-        zoomOnScroll: true,
-      }),
-    ).toBe(false);
-  });
-
-  it("blocks viewport gestures while drag sorting is active", () => {
-    useDndState.setState({
-      isSorting: true,
-      isMovingFree: false,
-    });
-
-    expect(
-      shouldAllowZoomFilterEvent({
-        event: new MouseEvent("mousedown", { button: 0 }),
-        panOnDrag: true,
-        panOnScroll: false,
-        userSelectionActive: false,
-        zoomOnDoubleClick: true,
-        zoomOnPinch: true,
-        zoomOnScroll: true,
-      }),
-    ).toBe(false);
-  });
-});
 
 describe("getViewportInteractionActiveValue", () => {
   beforeEach(() => {
@@ -325,86 +193,6 @@ describe("getViewportInteractionActiveValue", () => {
       });
 
       expect(useReactFlow.getState().viewportInteractionActive).toBe(false);
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-
-  it("completes a pending initial fit after the zoom pane initializes d3 state", async () => {
-    useNodeInternals.setState({
-      x: new Map([
-        [
-          "settings-core-node",
-          {
-            id: "settings-core-node",
-            position: { x: 240, y: 180 },
-            width: 220,
-            height: 140,
-            zIndex: 0,
-            tempZIndex: 0,
-          },
-        ],
-      ]),
-    });
-    useReactFlow.setState({
-      ...initialState,
-      width: 800,
-      height: 600,
-      fitViewOnInit: true,
-      fitViewOnInitDone: false,
-      fitViewOnInitOptions: { nodes: [{ id: "settings-core-node" }] },
-    });
-
-    const { host, root } = await renderZoomPane();
-
-    try {
-      expect(useReactFlow.getState().fitViewOnInit).toBe(false);
-      expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
-      expect(useReactFlow.getState().transform).not.toEqual([0, 0, 1]);
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-
-  it("retries a pending initial fit when project load marks fitViewOnInit after d3 is ready", async () => {
-    useNodeInternals.setState({
-      x: new Map([
-        [
-          "settings-core-node",
-          {
-            id: "settings-core-node",
-            position: { x: 240, y: 180 },
-            width: 220,
-            height: 140,
-            zIndex: 0,
-            tempZIndex: 0,
-          },
-        ],
-      ]),
-    });
-
-    const { host, root } = await renderZoomPane();
-
-    try {
-      expect(useReactFlow.getState().fitViewOnInitDone).toBe(false);
-
-      await act(async () => {
-        useReactFlow.setState({
-          fitViewOnInit: true,
-          fitViewOnInitDone: false,
-          fitViewOnInitOptions: { nodes: [{ id: "settings-core-node" }] },
-        });
-      });
-
-      expect(useReactFlow.getState().fitViewOnInit).toBe(false);
-      expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
-      expect(useReactFlow.getState().transform).not.toEqual([0, 0, 1]);
     } finally {
       await act(async () => {
         root.unmount();

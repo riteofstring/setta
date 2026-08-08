@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   getAttachmentPreviewKind,
+  isArchiveAttachment,
+  isAudioAttachment,
+  isPdfAttachment,
   isTextAttachment,
+  isVideoAttachment,
 } from "./attachmentPreview";
 import { ChatFileAttachment } from "./generatedTypes";
 
@@ -38,21 +42,25 @@ describe("attachmentPreview", () => {
 
   it("detects pdf by mime", () => {
     const attachment = buildAttachment({ mimeType: "application/pdf" });
+    expect(isPdfAttachment(attachment)).toBe(true);
     expect(getAttachmentPreviewKind(attachment)).toBe("pdf");
   });
 
   it("detects audio by extension", () => {
     const attachment = buildAttachment({ name: "audio.mp3" });
+    expect(isAudioAttachment(attachment)).toBe(true);
     expect(getAttachmentPreviewKind(attachment)).toBe("audio");
   });
 
   it("detects video by mime", () => {
     const attachment = buildAttachment({ mimeType: "video/mp4" });
+    expect(isVideoAttachment(attachment)).toBe(true);
     expect(getAttachmentPreviewKind(attachment)).toBe("video");
   });
 
   it("detects archives by compound extension", () => {
     const attachment = buildAttachment({ name: "bundle.tar.gz" });
+    expect(isArchiveAttachment(attachment)).toBe(true);
     expect(getAttachmentPreviewKind(attachment)).toBe("archive");
   });
 });

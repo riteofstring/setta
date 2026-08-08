@@ -1,4 +1,4 @@
-const PROJECT_AI_SETTINGS_ACCORDION_ITEM_ORDER = [
+export const PROJECT_AI_SETTINGS_ACCORDION_ITEM_ORDER = [
   "project-ai-settings-llm-api-keys",
   "project-ai-settings-guardrails",
   "project-ai-settings-agent-profiles",

@@ -35,25 +35,23 @@ The same paths are used in IDE and share modes; the router wraps them with
 The project and view mode names are URL-encoded with `encodeURIComponent` when
 building paths. Matching is exact (case-sensitive) against the stored names.
 
-For standalone section routes, `sectionSlug` is backend-owned route identity
-data exposed on loaded project state:
+For standalone section routes, `sectionSlug` is derived from the existing
+canonical full-path slug logic:
 
-- `projectConfig.sectionPathSlugsById`
-- `projectConfig.sectionIdsByPathSlug`
+- backend: `sanitize_slug(get_section_path_full_name(...))`
+- frontend: `sanitizeNameForSlug(resolveSectionFullPathName(...))`
 
 Standalone project thread routes use the existing thread `chatId` identifier:
 
 - `/:projectConfigName/chat/:chatId`
 
 Standalone window-space routes are namespaced under `/windowspace` and resolve
-against backend-owned slug maps on loaded project state:
+against `projectConfig.windowSpaces` by sanitized name slug:
 
 - `/:projectConfigName/windowspace/:windowSpaceSlug`
-- `projectConfig.windowSpaceSlugsById`
-- `projectConfig.windowSpaceIdsBySlug`
 
-Section routes are namespaced under `/section`, so section slugs can use names
-such as `chat` or `windowspace`.
+Section routes are namespaced under `/section`, so section slugs no longer need
+to reserve `chat` or `windowspace`.
 
 Window-space names also use explicit namespacing under `/windowspace`, so names
 such as `home`, `settings`, `chat`, or `windowspace` are not reserved at the
@@ -75,14 +73,14 @@ sync:
   with the active view mode name.
 
 Navigation uses `replace: true` to avoid stacking history entries. Query string
-and hash are not preserved during the replace.
+and hash are not preserved during the replace (current behavior).
 
 ## Backend API Routes
 
 Frontend routes above are **not** the same as backend API routes. Backend routes
-are defined in `internal/httpapi/*.go` and exposed to the frontend through the
-generated endpoint helpers in `frontend/src/utils/generatedEndpoints.ts`
-(generated from `internal/frontendbindings/specs.go`).
+use the `Route` enum (`backend/setta/types/routes.py`) and are called via
+`/api/<route>` using the generated endpoint helpers in
+`frontend/src/utils/generatedEndpoints.ts`.
 
 ### Chat dictation session routes
 
@@ -133,7 +131,7 @@ Transcription profile CRUD is separate from chat engine config:
 ### LLM config + API key routes
 
 - `/api/llm/config`
-  - `GET` returns the full LLM config payload.
+  - `GET` returns the full LLM config (`AllLLMConfigs`).
   - `POST` replaces the full LLM config payload.
 - `/api/llm/apiKeys`
   - `GET` returns `{ apiKeys, revision }`.
@@ -143,7 +141,7 @@ Transcription profile CRUD is separate from chat engine config:
     - `managed_api_keys_revision_conflict` (`409`)
     - `managed_api_keys_store_corrupt` (`409`)
     - `managed_api_keys_store_unavailable` (`503`)
-- `LLMApiKeysUpdated` websocket messages carry snapshots:
+- `LLMApiKeysUpdated` websocket messages now carry snapshots:
   - `{ apiKeys, revision, corrupt, errorCode, message }`
 
 ### Managed chat stop route
@@ -188,7 +186,7 @@ Transcription profile CRUD is separate from chat engine config:
 
 Most generated endpoint calls use the backend origin (`C_ADDRESSES.BACKEND`),
 but a small set is intentionally routed through the launcher origin
-(`C_ADDRESSES.LAUNCHER`) by the app-subsystem frontend SDK OpenAPI helpers:
+(`C_ADDRESSES.LAUNCHER`) in `frontend/src/utils/endpointUtils.ts`:
 
 - `/api/launch`
 - `/api/settaHomeInfo`
@@ -196,19 +194,7 @@ but a small set is intentionally routed through the launcher origin
 
 ## App-Generation Extension Endpoints
 
-The app-generation/skills viewer flow adds these backend routes when the active
-app-subsystem provider contributes the corresponding feature capability:
-
-- `/api/getAppCatalog`
-  - Returns the provider-backed app component/action catalog for App Config.
-- `/api/getAppDefinition`
-  - Loads the current provider-scoped app-definition metadata and resolved
-    app-spec JSON.
-- `/api/validateAppDefinition`
-  - Validates a proposed app definition/app spec against the current catalog
-    without persisting it.
-- `/api/setAppDefinition`
-  - Persists a standalone app definition and app-spec JSON.
+The app-generation/skills viewer flow adds these backend routes:
 
 - `/api/getAppGenSkills`
   - Lists skills discovered from workspace/user/env skill roots.
@@ -218,7 +204,7 @@ app-subsystem provider contributes the corresponding feature capability:
       can be determined.
     - `customSkillCreateRootActionable`: whether that root already exists and can
       be revealed directly in the OS file explorer.
-  - Each skill entry includes `isEditable` and `editabilityReason` so the
+  - Each skill entry now includes `isEditable` and `editabilityReason` so the
     frontend can distinguish editable custom skills from read-only roots.
 - `/api/getAppGenSkillContent`
   - Reads `SKILL.md` preview content for a selected skill id.
@@ -234,6 +220,8 @@ app-subsystem provider contributes the corresponding feature capability:
     - `skillId`, `created`, `rootPath`, `skillDocPath`
     - refreshed `skill` metadata
     - refreshed `skillContent`
+- `/api/streamAppSpec`
+  - Streams JSONL patch ops for tool-driven or API-driven app-spec generation.
 - `/api/getLLMResponse` (extended payload)
   - Accepts `appGenerationMode` and `appGenerationByMessageId` for Project Chat
     app-generation turns.
@@ -255,7 +243,7 @@ For project-chat/window-space behavior, see
 
 ## View Mode + File Browser Route Notes
 
-The frontend relies on these backend API routes:
+Recent frontend features in this branch rely on these backend API routes:
 
 - `/api/setViewModeSortOrder`
   - Persists drag-reordered view mode order from tabs and the Overview View
@@ -271,5 +259,5 @@ The frontend relies on these backend API routes:
 - `/api/checkWorkspaceInitialized`
   - Returns whether a folder has Setta workspace state.
   - Request fields: `folderPath`, optional `allowOutsideWorkspaceRoot`.
-  - Resolves root-folder badge state (since `getFolderContents` returns
+  - Used to resolve root-folder badge state (since `getFolderContents` returns
     metadata for children, not the root node itself).

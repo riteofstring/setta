@@ -105,7 +105,7 @@ Profile rules:
 
 - Relative profile paths are resolved relative to `<setta_home>`.
 - `settaFilesRoot` and `settaFilesLocation` are mutually exclusive.
-- Canonical naming rules apply after profile resolution.
+- Canonical naming rules still apply after profile resolution.
 
 Advanced profile lookup override:
 

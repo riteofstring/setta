@@ -22,7 +22,6 @@ type NodeDimensionsUpdate = Array<{
   nodeElement: HTMLDivElement;
   forceUpdate: boolean;
 }>;
-type NodesById = Map<string, Node>;
 
 export function getNodes(s: null | ZustandNodeInternalsState = null) {
   const source = s ? s.x : useNodeInternals.getState().x;
@@ -46,81 +45,61 @@ export function deleteNodes(nodeIds: Array<string>) {
 }
 
 export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
-  if (!hasViewportNode()) {
+  const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions, domNode } =
+    useReactFlow.getState();
+
+  const viewportNode = domNode?.querySelector(".react-flow__viewport");
+
+  if (!viewportNode) {
     return;
   }
 
   const newNodes = getNewNodes();
-  applyNodeDimensionUpdates(newNodes, updates);
+  let prevWidthHeightWasNull = false;
+
+  for (const u of updates) {
+    const node = newNodes.get(u.id);
+    if (node) {
+      const dimensions = getDimensions(u.nodeElement);
+      const doUpdate = !!(
+        dimensions.width &&
+        dimensions.height &&
+        (node.width !== dimensions.width ||
+          node.height !== dimensions.height ||
+          u.forceUpdate)
+      );
+
+      if (doUpdate) {
+        if (node.width === null || node.height === null) {
+          prevWidthHeightWasNull = true;
+        }
+        newNodes.set(node.id, {
+          ...node,
+          ...dimensions,
+        });
+      }
+    }
+  }
+
   useNodeInternals.setState({ x: newNodes });
   debounced_route_set_top_level_section_layout();
-  maybeCompleteInitialFitView();
-}
 
-function hasViewportNode() {
-  return !!useReactFlow
-    .getState()
-    .domNode?.querySelector(".react-flow__viewport");
-}
-
-function applyNodeDimensionUpdates(
-  newNodes: NodesById,
-  updates: NodeDimensionsUpdate,
-) {
-  for (const update of updates) {
-    applyNodeDimensionUpdate(newNodes, update);
-  }
-}
-
-function applyNodeDimensionUpdate(
-  newNodes: NodesById,
-  update: NodeDimensionsUpdate[number],
-) {
-  const node = newNodes.get(update.id);
-  if (!node) {
-    return;
-  }
-  const dimensions = getDimensions(update.nodeElement);
-  if (!shouldUpdateNodeDimensions(node, dimensions, update.forceUpdate)) {
-    return;
-  }
-  newNodes.set(node.id, {
-    ...node,
-    ...dimensions,
-  });
-}
-
-function shouldUpdateNodeDimensions(
-  node: Node,
-  dimensions: ReturnType<typeof getDimensions>,
-  forceUpdate: boolean,
-) {
-  return !!(
-    dimensions.width &&
-    dimensions.height &&
-    (node.width !== dimensions.width ||
-      node.height !== dimensions.height ||
-      forceUpdate)
-  );
-}
-
-function maybeCompleteInitialFitView() {
-  const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions } =
-    useReactFlow.getState();
   const miscState = useMisc.getState();
   // don't do fitView until all code areas are done rendering
   if (miscState.numInitializedCodeAreas !== miscState.numDisplayedCodeAreas) {
     return;
   }
-  if (!fitViewOnInit || fitViewOnInitDone) {
-    return;
-  }
-  useReactFlow.setState({
-    fitViewOnInitDone: fitView({
-      initial: true,
-      ...fitViewOnInitOptions,
-    }),
-  });
+
+  const nextFitViewOnInitDone =
+    fitViewOnInitDone ||
+    (fitViewOnInit &&
+      !fitViewOnInitDone &&
+      fitView({
+        initial: true,
+        ...fitViewOnInitOptions,
+      }));
+
+  useReactFlow.setState({ fitViewOnInitDone: nextFitViewOnInitDone });
 }
 
 export function updateNodePositions(nodeDragItems: Array<NodeDragItem>) {
@@ -149,6 +128,15 @@ export function raiseTempZIndex(nodes: Array<Node>) {
     newNodes.get(n.id).tempZIndex = newNodes.get(n.id).zIndex + 1000;
   }
   useNodeInternals.setState({ x: newNodes });
+}
+
+function justMoveANode(id: string, position: Position) {
+  const newNodes = getNewNodes();
+  newNodes.get(id).position = position;
+  useNodeInternals.setState({ x: newNodes });
+  const projectState = useProjectState.getState();
+  const sectionIds = getSectionDescendants(id, projectState);
+  scheduleEdgeHandlePositionUpdate(sectionIds);
 }
 
 export function moveNodes(

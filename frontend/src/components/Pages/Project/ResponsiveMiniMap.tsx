@@ -9,7 +9,7 @@ type ResponsiveMiniMapPlacement = {
   transform: string;
 };
 
-function getResponsiveMiniMapPlacement({
+export function getResponsiveMiniMapPlacement({
   minimapSide,
   overviewWidth,
   uiEditorWidth,

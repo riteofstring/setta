@@ -19,7 +19,10 @@ import { openFileAsSectionForDrop } from "state/actions/sections/createSections"
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useMisc, useSettings } from "state/definitions";
 import { getFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
-import { NotificationTypeEnum, SelectionModeEnum } from "utils/generatedTypes";
+import {
+  SelectionModeEnum,
+  SettaNotificationTypeEnum,
+} from "utils/generatedTypes";
 import { importNativeFileToWorkspace } from "utils/nativeFileImport";
 import { shallow } from "zustand/shallow";
 import UserSelection from "../components/UserSelection";
@@ -248,14 +251,14 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       if (result.status === "unsupported_binary") {
         addTemporaryNotification(
           "Binary files cannot be auto-opened as sections from drag-and-drop.",
-          NotificationTypeEnum.warning,
+          SettaNotificationTypeEnum.warning,
         );
         return;
       }
       if (result.status === "failed") {
         addTemporaryNotification(
           "Failed to create a section from the dropped file.",
-          NotificationTypeEnum.error,
+          SettaNotificationTypeEnum.error,
         );
       }
     };
@@ -274,7 +277,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       if (importResult.status !== "ok") {
         addTemporaryNotification(
           importResult.error,
-          NotificationTypeEnum.error,
+          SettaNotificationTypeEnum.error,
         );
         return;
       }

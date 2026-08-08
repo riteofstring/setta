@@ -1,46 +1,34 @@
-import type {
-  GitreadCommitChangedFile,
-  GitreadStatusEntry,
-} from "openapi/http";
+import {
+  createGitCommitChangedFile,
+  createGitStatusEntry,
+} from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
+  gitFileStatusCategoryFromCode,
   gitFileStatusCategoryFromCommitFile,
   gitFileStatusCategoryFromEntry,
   gitFileStatusVisuals,
 } from "./gitFileStatusVisuals";
 
-function buildGitStatusEntry(
-  overrides: Partial<GitreadStatusEntry>,
-): GitreadStatusEntry {
-  return {
-    indexStatus: " ",
-    kind: "unstaged",
-    oldPath: null,
-    path: "tracked.py",
-    worktreeStatus: " ",
-    ...overrides,
-  };
-}
-
-function buildGitCommitChangedFile(
-  overrides: Partial<GitreadCommitChangedFile>,
-): GitreadCommitChangedFile {
-  return {
-    additions: 0,
-    deletions: 0,
-    oldPath: null,
-    path: "tracked.py",
-    status: "M",
-    ...overrides,
-  };
-}
-
 describe("gitFileStatusVisuals", () => {
+  it("maps git status codes into add/change/delete/conflict categories", () => {
+    // New/untracked file statuses should map to the "added" color path.
+    expect(gitFileStatusCategoryFromCode("A")).toBe("added");
+    expect(gitFileStatusCategoryFromCode("??")).toBe("added");
+    // Regular edits and renames/copies are shown as "changed".
+    expect(gitFileStatusCategoryFromCode("M")).toBe("changed");
+    expect(gitFileStatusCategoryFromCode("R100")).toBe("changed");
+    expect(gitFileStatusCategoryFromCode("C100")).toBe("changed");
+    // Deletions and merge conflicts have dedicated categories.
+    expect(gitFileStatusCategoryFromCode("D")).toBe("deleted");
+    expect(gitFileStatusCategoryFromCode("U")).toBe("conflict");
+  });
+
   it("derives list-entry categories from staged/unstaged/untracked/conflict rows", () => {
     // Staged/unstaged entries use the active porcelain status column.
     expect(
       gitFileStatusCategoryFromEntry(
-        buildGitStatusEntry({
+        createGitStatusEntry({
           kind: "staged",
           path: "tracked.py",
           indexStatus: "D",
@@ -50,7 +38,7 @@ describe("gitFileStatusVisuals", () => {
     ).toBe("deleted");
     expect(
       gitFileStatusCategoryFromEntry(
-        buildGitStatusEntry({
+        createGitStatusEntry({
           kind: "unstaged",
           path: "tracked.py",
           indexStatus: " ",
@@ -61,7 +49,7 @@ describe("gitFileStatusVisuals", () => {
     // Untracked/conflict kinds should be explicit regardless of status columns.
     expect(
       gitFileStatusCategoryFromEntry(
-        buildGitStatusEntry({
+        createGitStatusEntry({
           kind: "untracked",
           path: "new.py",
           indexStatus: "?",
@@ -71,7 +59,7 @@ describe("gitFileStatusVisuals", () => {
     ).toBe("added");
     expect(
       gitFileStatusCategoryFromEntry(
-        buildGitStatusEntry({
+        createGitStatusEntry({
           kind: "conflict",
           path: "merge.py",
           indexStatus: "U",
@@ -85,7 +73,7 @@ describe("gitFileStatusVisuals", () => {
     // Commit details provide single status strings (e.g. A/M/D/R100).
     expect(
       gitFileStatusCategoryFromCommitFile(
-        buildGitCommitChangedFile({
+        createGitCommitChangedFile({
           path: "new.py",
           status: "A",
         }),
@@ -93,15 +81,7 @@ describe("gitFileStatusVisuals", () => {
     ).toBe("added");
     expect(
       gitFileStatusCategoryFromCommitFile(
-        buildGitCommitChangedFile({
-          path: "draft.py",
-          status: "??",
-        }),
-      ),
-    ).toBe("added");
-    expect(
-      gitFileStatusCategoryFromCommitFile(
-        buildGitCommitChangedFile({
+        createGitCommitChangedFile({
           path: "tracked.py",
           status: "M",
         }),
@@ -109,36 +89,12 @@ describe("gitFileStatusVisuals", () => {
     ).toBe("changed");
     expect(
       gitFileStatusCategoryFromCommitFile(
-        buildGitCommitChangedFile({
-          path: "renamed.py",
-          status: "R100",
-        }),
-      ),
-    ).toBe("changed");
-    expect(
-      gitFileStatusCategoryFromCommitFile(
-        buildGitCommitChangedFile({
-          path: "copied.py",
-          status: "C100",
-        }),
-      ),
-    ).toBe("changed");
-    expect(
-      gitFileStatusCategoryFromCommitFile(
-        buildGitCommitChangedFile({
+        createGitCommitChangedFile({
           path: "gone.py",
           status: "D",
         }),
       ),
     ).toBe("deleted");
-    expect(
-      gitFileStatusCategoryFromCommitFile(
-        buildGitCommitChangedFile({
-          path: "conflict.py",
-          status: "U",
-        }),
-      ),
-    ).toBe("conflict");
   });
 
   it("returns distinct badge class palettes for key categories", () => {

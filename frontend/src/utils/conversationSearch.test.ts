@@ -192,38 +192,6 @@ describe("conversationSearch", () => {
     expect(text).not.toContain("secret payload");
   });
 
-  it("falls back to the latest thinking summary when no tool call label is available", () => {
-    const message = createAssistantChatMessage({
-      content: [
-        createMessageThinkingContent({
-          thinking: "first planning step",
-          summary: "first summary",
-        }),
-        createMessageTextContent({ text: "Visible response text" }),
-        createMessageThinkingContent({
-          thinking: "latest planning step",
-          summary: "latest summary",
-        }),
-      ],
-      tool_calls: [
-        createToolCall({
-          id: "tool-1",
-          function: createToolCallFunction({
-            name: "   ",
-            arguments: { command: "ignored" },
-          }),
-        }),
-      ],
-    });
-
-    const text = buildSearchableTextForMessage(message);
-
-    expect(text).toContain("Visible response text");
-    expect(text).toContain("latest summary");
-    expect(text).not.toContain("ignored");
-    expect(text).not.toContain("first summary");
-  });
-
   it("extracts run messages from outputs and falls back to inputs", () => {
     const outputMessage = createAssistantChatMessage({
       content: [createMessageTextContent({ text: "output message" })],

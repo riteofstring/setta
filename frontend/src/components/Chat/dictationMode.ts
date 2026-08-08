@@ -1,64 +1,20 @@
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
-import type { HttpapiLlmapiKeysSnapshot } from "openapi/http";
-import {
-  ProjectChatUIConfig,
-  type AllConfigs,
-  type ChatDictationMode,
-  type TranscriptionProfile,
+import type {
+  APIKeys,
+  AllLLMConfigs,
+  TranscriptionProfile,
 } from "utils/generatedTypes";
 
-type APIKeys = HttpapiLlmapiKeysSnapshot["apiKeys"];
-const INVALID_TRANSCRIPTION_CONFIG_REASON =
-  "Selected transcription profile has an invalid transcription config.";
-
-export const DICTATION_MODE_ITEMS: AllItemsType<ChatDictationMode> = [
+export const DICTATION_MODE_ITEMS: AllItemsType<string> = [
   {
     group: "Dictation Modes",
-    items: ProjectChatUIConfig.sectionDictationModeOptions.map((option) => ({
-      id: option.value,
-      name: option.label,
-    })),
+    items: [
+      { id: "auto", name: "Auto" },
+      { id: "browser", name: "Browser" },
+      { id: "provider", name: "Provider" },
+    ],
   },
 ];
-
-function unavailableProviderDictation(reason: string): {
-  providerDictationAvailable: boolean;
-  providerDictationUnavailableReason: string;
-} {
-  return {
-    providerDictationAvailable: false,
-    providerDictationUnavailableReason: reason,
-  };
-}
-
-function resolveTranscriptionConfigId(
-  selectedTranscriptionProfile: TranscriptionProfile,
-): string {
-  return selectedTranscriptionProfile.transcriptionLlmConfigId?.trim() ?? "";
-}
-
-function resolveTranscriptionConfig(args: {
-  allLLMConfigs: AllConfigs | null;
-  selectedTranscriptionProfile: TranscriptionProfile;
-}) {
-  const transcriptionConfigId = resolveTranscriptionConfigId(
-    args.selectedTranscriptionProfile,
-  );
-  if (!transcriptionConfigId) {
-    return null;
-  }
-  return args.allLLMConfigs?.configs?.[transcriptionConfigId] ?? null;
-}
-
-function hasMissingRequiredApiKey(
-  apiKeys: APIKeys,
-  requiredApiKeyEnv: string,
-): boolean {
-  if (!requiredApiKeyEnv) {
-    return false;
-  }
-  return (apiKeys[requiredApiKeyEnv] ?? "").trim() === "";
-}
 
 export function resolveProviderDictationAvailability({
   selectedTranscriptionProfile,
@@ -67,48 +23,63 @@ export function resolveProviderDictationAvailability({
   apiKeysAuthoritative,
 }: {
   selectedTranscriptionProfile: TranscriptionProfile | null;
-  allLLMConfigs: AllConfigs | null;
+  allLLMConfigs: AllLLMConfigs | null;
   apiKeys: APIKeys;
   apiKeysAuthoritative: boolean;
 }): {
   providerDictationAvailable: boolean;
   providerDictationUnavailableReason: string;
 } {
-  // This intentionally mirrors a narrow subset of backend transcription
-  // validation so the chat UI can gate provider dictation immediately from the
-  // already-hydrated profile/config/api-key snapshot. Go remains authoritative
-  // and revalidates the same constraints when profiles are saved or sessions
-  // start.
   if (!apiKeysAuthoritative) {
-    return unavailableProviderDictation(
-      "Provider dictation requires an authoritative API key snapshot.",
-    );
+    return {
+      providerDictationAvailable: false,
+      providerDictationUnavailableReason:
+        "Provider dictation requires an authoritative API key snapshot.",
+    };
   }
   if (!selectedTranscriptionProfile) {
-    return unavailableProviderDictation(
-      "Provider dictation requires a transcription profile.",
-    );
+    return {
+      providerDictationAvailable: false,
+      providerDictationUnavailableReason:
+        "Provider dictation requires a transcription profile.",
+    };
   }
-  const llmConfig = resolveTranscriptionConfig({
-    allLLMConfigs,
-    selectedTranscriptionProfile,
-  });
+  const transcriptionConfigId =
+    selectedTranscriptionProfile.transcriptionLlmConfigId?.trim() ?? "";
+  if (!transcriptionConfigId) {
+    return {
+      providerDictationAvailable: false,
+      providerDictationUnavailableReason:
+        "Selected transcription profile has an invalid transcription config.",
+    };
+  }
+  const llmConfig = allLLMConfigs?.configs?.[transcriptionConfigId];
   if (!llmConfig) {
-    return unavailableProviderDictation(INVALID_TRANSCRIPTION_CONFIG_REASON);
+    return {
+      providerDictationAvailable: false,
+      providerDictationUnavailableReason:
+        "Selected transcription profile has an invalid transcription config.",
+    };
   }
   const requiredApiKeyEnv = llmConfig.api_key_env?.trim() ?? "";
-  if (hasMissingRequiredApiKey(apiKeys, requiredApiKeyEnv)) {
-    return unavailableProviderDictation(
-      `Selected transcription profile is missing required API key '${requiredApiKeyEnv}'.`,
-    );
+  const apiKeyValue = requiredApiKeyEnv
+    ? (apiKeys[requiredApiKeyEnv] ?? "").trim()
+    : "";
+  if (requiredApiKeyEnv && !apiKeyValue) {
+    return {
+      providerDictationAvailable: false,
+      providerDictationUnavailableReason: `Selected transcription profile is missing required API key '${requiredApiKeyEnv}'.`,
+    };
   }
   if (
     selectedTranscriptionProfile.transportMode === "realtime" &&
     !selectedTranscriptionProfile.supportsRealtimeTranscription
   ) {
-    return unavailableProviderDictation(
-      "Realtime transcription is unavailable for this provider/model.",
-    );
+    return {
+      providerDictationAvailable: false,
+      providerDictationUnavailableReason:
+        "Realtime transcription is unavailable for this provider/model.",
+    };
   }
   return {
     providerDictationAvailable: true,

@@ -8,7 +8,6 @@ if [ "$#" -gt 0 ]; then
     -h|--help)
       echo "Usage: $0 [instance-name] [--host host] [--backend-port port] [--frontend-port port] [--mode start|startr|reset] [--profile name] [--setta-home path] [--setta-files-root path] [--setta-files-location mode] [--runtime-root path]" >&2
       echo "If instance-name is omitted, the worktree folder name is used." >&2
-      echo "Starts the local dev server plus Vite via frontend/package.json." >&2
       echo "Default dev paths: SETTA_HOME=~/.setta-development and SETTA_FILES_ROOT=<worktree>/setta_files_dev." >&2
       exit 0
       ;;
@@ -142,28 +141,16 @@ export SETTA_AUTH_COOKIE_NAME="setta_auth_${INSTANCE_NAME}"
 export VITE_BACKEND_ORIGIN="http://${SETTA_HOST}:${SETTA_PORT}"
 setta_path_flags_apply_env
 
-missing_dev_requirements=""
-append_missing_requirement() {
-  requirement="$1"
-  if [ -n "${missing_dev_requirements}" ]; then
-    missing_dev_requirements="${missing_dev_requirements}, ${requirement}"
-  else
-    missing_dev_requirements="${requirement}"
-  fi
-}
-
+NEEDS_DEV_INSTALL=0
+if [ ! -d "${ROOT_DIR}/.venv" ] || [ ! -f "${ROOT_DIR}/.venv/bin/activate" ]; then
+  NEEDS_DEV_INSTALL=1
+fi
 if [ ! -d "${ROOT_DIR}/frontend/node_modules" ]; then
-  append_missing_requirement "frontend/node_modules"
+  NEEDS_DEV_INSTALL=1
 fi
-if [ ! -x "${ROOT_DIR}/.venv/bin/python" ]; then
-  append_missing_requirement ".venv/bin/python"
-fi
-if ! "${ROOT_DIR}/scripts/go.sh" version >/dev/null 2>&1; then
-  append_missing_requirement "Go toolchain"
-fi
-if [ -n "${missing_dev_requirements}" ]; then
-  echo "Missing dev dependencies (${missing_dev_requirements}). Run ./dev_install.sh first." >&2
-  exit 1
+if [ "${NEEDS_DEV_INSTALL}" -eq 1 ]; then
+  echo "Missing dev dependencies; running . ./dev_install.sh" >&2
+  (cd "${ROOT_DIR}" && . ./dev_install.sh)
 fi
 
 cd "${ROOT_DIR}/frontend"

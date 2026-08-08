@@ -34,5 +34,5 @@ MCP tool-call endpoint (CLI uses this):
     - `x-setta-section-id` (required unless `x-setta-allow-unscoped: true`)
     - `x-setta-allow-unscoped` (`true`/`false`)
 
-Use the OpenAPI schema to confirm direct REST payloads and response shapes. For
+Use the OpenAPI schema to confirm legacy REST payloads and response shapes. For
 MCP tool schemas, use `setta tools`.

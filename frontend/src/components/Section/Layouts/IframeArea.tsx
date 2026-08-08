@@ -1,23 +1,20 @@
 import React, { useEffect, useRef } from "react";
-import { getCurrIFrameSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 
-function _IframeArea({ sectionId }: { sectionId: string }) {
+function _IframeArea({ sectionId }) {
   const code = useProjectState(
-    (state) => getCurrIFrameSectionImpl(state, sectionId).code,
+    (x) => getDisplayedSectionVariant(sectionId, x).code,
   );
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef(null);
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    if (!containerRef.current) return;
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
         // If there's an iframe in the sanitized content, update its dimensions
-        const iframeElement =
-          container.querySelector<HTMLIFrameElement>("iframe");
+        const iframeElement = containerRef.current.querySelector("iframe");
         if (iframeElement) {
           iframeElement.style.width = `${width}px`;
           iframeElement.style.height = `${height}px`;
@@ -25,7 +22,7 @@ function _IframeArea({ sectionId }: { sectionId: string }) {
       }
     });
 
-    resizeObserver.observe(container);
+    resizeObserver.observe(containerRef.current);
 
     return () => {
       resizeObserver.disconnect();

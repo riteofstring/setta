@@ -24,20 +24,20 @@ type ToolError = {
 
 type GetUISettingValueResult = {
   value: unknown;
-  error?: ToolError | null;
+  error: ToolError | null;
 };
 
 type SetUISettingValueResult = {
   newValue: unknown;
   changed: boolean;
-  error?: ToolError | null;
+  error: ToolError | null;
 };
 
 type RevealUISettingResult = {
   emittedRevealCount: number;
   statuses: Array<{
     status: "revealed" | "failed";
-    error?: ToolError | null;
+    error: ToolError | null;
   }>;
 };
 
@@ -45,10 +45,6 @@ type CallToolResponse<TStructured> = {
   isError: boolean;
   structuredContent?: TStructured;
 };
-
-function expectNoToolError(error: ToolError | null | undefined): void {
-  expect(error ?? null).toBeNull();
-}
 
 function prepareFrontendOnlyFullFixture(): {
   pluginRoot: string;
@@ -154,7 +150,7 @@ test("plugin UI settings tools mutate and reveal plugin settings", async ({
         settingId: LABEL_SETTING_ID,
       },
     );
-    expectNoToolError(initialGet.error);
+    expect(initialGet.error).toBeNull();
 
     const nextLabelValue = `playwright-${Date.now()}`;
     const setResult = await callMcpTool<SetUISettingValueResult>(
@@ -166,7 +162,7 @@ test("plugin UI settings tools mutate and reveal plugin settings", async ({
         value: nextLabelValue,
       },
     );
-    expectNoToolError(setResult.error);
+    expect(setResult.error).toBeNull();
     expect(setResult.changed).toBe(true);
     expect(setResult.newValue).toBe(nextLabelValue);
 
@@ -181,7 +177,7 @@ test("plugin UI settings tools mutate and reveal plugin settings", async ({
     );
     expect(revealResult.emittedRevealCount).toBe(1);
     expect(revealResult.statuses[0]?.status).toBe("revealed");
-    expectNoToolError(revealResult.statuses[0]?.error);
+    expect(revealResult.statuses[0]?.error).toBeNull();
 
     await expect(labelSettingNode).toHaveClass(/setta-fixture-full-reveal/);
 
@@ -193,7 +189,7 @@ test("plugin UI settings tools mutate and reveal plugin settings", async ({
         settingId: LABEL_SETTING_ID,
       },
     );
-    expectNoToolError(updatedGet.error);
+    expect(updatedGet.error).toBeNull();
     expect(updatedGet.value).toBe(nextLabelValue);
   } finally {
     await postBackend(page, "/plugins/uninstall", {
@@ -251,7 +247,7 @@ test("plugin reveal_ui_setting succeeds when plugin tab starts closed", async ({
     );
     expect(revealResult.emittedRevealCount).toBe(1);
     expect(revealResult.statuses[0]?.status).toBe("revealed");
-    expectNoToolError(revealResult.statuses[0]?.error);
+    expect(revealResult.statuses[0]?.error).toBeNull();
 
     await expect(labelSettingNode).toBeVisible();
     await expect(labelSettingNode).toHaveClass(/setta-fixture-full-reveal/);
@@ -325,7 +321,7 @@ test("plugin reveal_ui_setting respects durationMs when plugin runtime loads aft
     );
     expect(revealResult.emittedRevealCount).toBe(1);
     expect(revealResult.statuses[0]?.status).toBe("revealed");
-    expectNoToolError(revealResult.statuses[0]?.error);
+    expect(revealResult.statuses[0]?.error).toBeNull();
 
     const labelSettingNode = page.locator(
       `[data-fixture-full-setting="${LABEL_SETTING_ID}"]`,

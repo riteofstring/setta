@@ -13,7 +13,7 @@ export function ContainerSwitch({
 }: {
   isGroup: boolean;
   sectionId: string;
-  dragListeners?: React.HTMLAttributes<HTMLDivElement>;
+  dragListeners: any;
   children: React.ReactNode;
   isTopLevel: boolean;
   visibility: boolean;

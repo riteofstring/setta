@@ -18,20 +18,24 @@ import {
   createProjectConfig,
   createSectionSize,
   createStateMachineStartSectionImpl,
+  createUserDefaultChatSectionImpl,
   createVariant,
   SectionTypeEnum,
   StateMachineGateTypeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-vi.mock("openapi/http", async () => {
-  const actual =
-    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+
+vi.mock("utils/generatedEndpoints", async () => {
+  const actual = await vi.importActual<
+    typeof import("utils/generatedEndpoints")
+  >("utils/generatedEndpoints");
   return {
     ...actual,
-    createAgenticEdge: vi.fn(),
-    createStateMachineEdge: vi.fn(),
+    route_create_agentic_edge: vi.fn(),
+    route_create_state_machine_edge: vi.fn(),
   };
 });
+
 const projectConfigId = "project-1";
 const machineGroupId = "workflow-main";
 const startSectionId = "section-start";
@@ -46,6 +50,7 @@ const startImplId = "impl-start";
 const chatImplA = "impl-chat-a";
 const chatImplB = "impl-chat-b";
 const gateImplId = "impl-gate";
+
 function createSharedChatConnection(): Connection {
   return {
     source: chatSectionA,
@@ -54,32 +59,36 @@ function createSharedChatConnection(): Connection {
     targetHandle: SHARED_CHAT_EDGE_HANDLE_IDS.target,
   };
 }
+
 function seedWorkflowAwareChats() {
-  const startImpl = createStateMachineStartSectionImpl({
-    id: startImplId,
-    machineGroupId,
-    label: "Start",
-  });
-  const chatAImpl = createChatSectionImpl({
-    ...{ chatId: "chat-a" },
-    ...{
+  const startImpl = createStateMachineStartSectionImpl(
+    {},
+    {
+      id: startImplId,
+      machineGroupId,
+      label: "Start",
+    },
+  );
+  const chatAImpl = createChatSectionImpl(
+    createUserDefaultChatSectionImpl({ chatId: "chat-a" }),
+    {
       id: chatImplA,
       chatId: "chat-a",
       managed: true,
       engineConfigId: "engine-a",
       thinking: false,
     },
-  });
-  const chatBImpl = createChatSectionImpl({
-    ...{ chatId: "chat-b" },
-    ...{
+  );
+  const chatBImpl = createChatSectionImpl(
+    createUserDefaultChatSectionImpl({ chatId: "chat-b" }),
+    {
       id: chatImplB,
       chatId: "chat-b",
       managed: true,
       engineConfigId: "engine-b",
       thinking: false,
     },
-  });
+  );
   const gateImpl = {
     id: gateImplId,
     type: SectionTypeEnum.StateMachineGate,
@@ -100,6 +109,7 @@ function seedWorkflowAwareChats() {
     label: "Gate",
     ui: { showDetails: false },
   };
+
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({
       id: projectConfigId,
@@ -197,6 +207,7 @@ function seedWorkflowAwareChats() {
     state.previewSectionVariantMap = {};
   });
 }
+
 describe("shared chat edge connections", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -204,21 +215,27 @@ describe("shared chat edge connections", () => {
     useShareSession.setState({ isDeploymentMode: false });
     vi.clearAllMocks();
   });
+
   afterEach(() => {
     resetProjectStores();
   });
+
   it("uses the agentic family for ambiguous chat-to-chat connections in agentic mode", async () => {
     useLocalStorage.setState({ chatSharedEdgeMode: "agentic" });
-    const createAgenticEdge = (await import("openapi/http"))
-      .createAgenticEdge as unknown as vi.Mock;
-    createAgenticEdge.mockResolvedValue({
+    const route_create_agentic_edge = (await import("utils/generatedEndpoints"))
+      .route_create_agentic_edge as unknown as vi.Mock;
+    route_create_agentic_edge.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
+
     const connection = createSharedChatConnection();
+
     expect(isValidSharedChatEdgeConnection(connection)).toBe(true);
+
     createSharedChatEdgeFromConnection(connection);
+
     expect(useProjectState.getState().projectConfig.agenticEdges).toHaveLength(
       1,
     );
@@ -233,18 +250,24 @@ describe("shared chat edge connections", () => {
       useProjectState.getState().projectConfig.stateMachineEdges,
     ).toHaveLength(1);
   });
+
   it("uses the workflow family for ambiguous chat-to-chat connections in workflow mode", async () => {
     useLocalStorage.setState({ chatSharedEdgeMode: "workflow" });
-    const createStateMachineEdge = (await import("openapi/http"))
-      .createStateMachineEdge as unknown as vi.Mock;
-    createStateMachineEdge.mockResolvedValue({
+    const route_create_state_machine_edge = (
+      await import("utils/generatedEndpoints")
+    ).route_create_state_machine_edge as unknown as vi.Mock;
+    route_create_state_machine_edge.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
+
     const connection = createSharedChatConnection();
+
     expect(isValidSharedChatEdgeConnection(connection)).toBe(true);
+
     createSharedChatEdgeFromConnection(connection);
+
     expect(useProjectState.getState().projectConfig.agenticEdges).toHaveLength(
       0,
     );
@@ -263,6 +286,7 @@ describe("shared chat edge connections", () => {
       }),
     );
   });
+
   it("rejects shared handles on non-chat sections", () => {
     const invalidConnection: Connection = {
       source: startSectionId,
@@ -270,58 +294,70 @@ describe("shared chat edge connections", () => {
       sourceHandle: SHARED_CHAT_EDGE_HANDLE_IDS.source,
       targetHandle: SHARED_CHAT_EDGE_HANDLE_IDS.target,
     };
+
     expect(isValidSharedChatEdgeConnection(invalidConnection)).toBe(false);
   });
+
   it("routes chat-to-gate shared connections to the workflow family regardless of mode", async () => {
     useLocalStorage.setState({ chatSharedEdgeMode: "agentic" });
-    const createStateMachineEdge = (await import("openapi/http"))
-      .createStateMachineEdge as unknown as vi.Mock;
-    createStateMachineEdge.mockResolvedValue({
+    const route_create_state_machine_edge = (
+      await import("utils/generatedEndpoints")
+    ).route_create_state_machine_edge as unknown as vi.Mock;
+    route_create_state_machine_edge.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
-    const createAgenticEdge = (await import("openapi/http"))
-      .createAgenticEdge as unknown as vi.Mock;
-    createAgenticEdge.mockResolvedValue({
+    const route_create_agentic_edge = (await import("utils/generatedEndpoints"))
+      .route_create_agentic_edge as unknown as vi.Mock;
+    route_create_agentic_edge.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
+
     const connection: Connection = {
       source: chatSectionA,
       target: gateSectionId,
       sourceHandle: SHARED_CHAT_EDGE_HANDLE_IDS.source,
       targetHandle: STATE_MACHINE_EDGE_HANDLE_IDS.target,
     };
+
     expect(isValidSharedChatEdgeConnection(connection)).toBe(true);
+
     createSharedChatEdgeFromConnection(connection);
+
     expect(useProjectState.getState().projectConfig.agenticEdges).toHaveLength(
       0,
     );
     expect(
       useProjectState.getState().projectConfig.stateMachineEdges,
     ).toHaveLength(2);
-    expect(createStateMachineEdge).toHaveBeenCalledTimes(1);
-    expect(createAgenticEdge).not.toHaveBeenCalled();
+    expect(route_create_state_machine_edge).toHaveBeenCalledTimes(1);
+    expect(route_create_agentic_edge).not.toHaveBeenCalled();
   });
+
   it("normalizes reverse drags from shared chat inputs in agentic mode", async () => {
     useLocalStorage.setState({ chatSharedEdgeMode: "agentic" });
-    const createAgenticEdge = (await import("openapi/http"))
-      .createAgenticEdge as unknown as vi.Mock;
-    createAgenticEdge.mockResolvedValue({
+    const route_create_agentic_edge = (await import("utils/generatedEndpoints"))
+      .route_create_agentic_edge as unknown as vi.Mock;
+    route_create_agentic_edge.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
+
     const reverseConnection: Connection = {
       source: chatSectionB,
       sourceHandle: SHARED_CHAT_EDGE_HANDLE_IDS.reverseStart,
       target: chatSectionA,
       targetHandle: SHARED_CHAT_EDGE_HANDLE_IDS.source,
     };
+
     expect(isValidSharedChatEdgeConnection(reverseConnection)).toBe(true);
+
     createSharedChatEdgeFromConnection(reverseConnection);
+
     expect(useProjectState.getState().projectConfig.agenticEdges).toHaveLength(
       1,
     );

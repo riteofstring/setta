@@ -34,54 +34,10 @@ import type { MiniMapNodesType, MiniMapProps } from "./types";
 
 const defaultWidth = 200;
 const defaultHeight = 150;
-const defaultMiniMapProps = {
-  nodeStrokeColor: "transparent",
-  nodeColor: "#e2e2e2",
-  nodeClassName: "",
-  nodeBorderRadius: 5,
-  nodeStrokeWidth: 2,
-  maskColor: "rgb(240, 240, 240, 0.6)",
-  maskStrokeColor: "none",
-  maskStrokeWidth: 1,
-  position: "bottom-right",
-  pannable: false,
-  zoomable: false,
-  inversePan: false,
-  zoomStep: 10,
-  offsetScale: 5,
-} satisfies Pick<
-  MiniMapProps,
-  | "nodeStrokeColor"
-  | "nodeColor"
-  | "nodeClassName"
-  | "nodeBorderRadius"
-  | "nodeStrokeWidth"
-  | "maskColor"
-  | "maskStrokeColor"
-  | "maskStrokeWidth"
-  | "position"
-  | "pannable"
-  | "zoomable"
-  | "inversePan"
-  | "zoomStep"
-  | "offsetScale"
->;
 
 type MiniMapSelector = {
   viewBB: Rect;
   boundingRect: Rect;
-};
-
-type MiniMapZoomState = {
-  transform: ReactFlowState["transform"];
-  d3Selection: NonNullable<ReactFlowState["d3Selection"]>;
-  d3Zoom: NonNullable<ReactFlowState["d3Zoom"]>;
-};
-
-type MiniMapPanState = MiniMapZoomState & {
-  translateExtent: ReactFlowState["translateExtent"];
-  width: ReactFlowState["width"];
-  height: ReactFlowState["height"];
 };
 
 type XYWidthHeightParams = {
@@ -107,7 +63,7 @@ type MinimapSvgProps = Omit<MiniMapNodesType, "onClick"> & {
   y: number;
   width: number;
   height: number;
-  svgRef?: RefObject<SVGSVGElement | null>;
+  svgRef?: RefObject<SVGSVGElement>;
   onSvgClick?: (event: ReactMouseEvent<SVGSVGElement>) => void;
   onSvgNodeClick?: MiniMapNodesType["onClick"];
   offset: number;
@@ -168,258 +124,6 @@ function getSelector(
   };
 }
 
-function getMiniMapDimension(
-  value: number | string | undefined,
-  fallback: number,
-) {
-  return typeof value === "number" ? value : fallback;
-}
-
-function isWheelZoomEvent(
-  sourceEvent: Event | null | undefined,
-): sourceEvent is WheelEvent {
-  return sourceEvent?.type === "wheel";
-}
-
-function isMouseMoveEvent(
-  sourceEvent: Event | null | undefined,
-): sourceEvent is MouseEvent {
-  return sourceEvent?.type === "mousemove";
-}
-
-function getMiniMapZoomState(): MiniMapZoomState | null {
-  const { transform, d3Selection, d3Zoom } = useReactFlow.getState();
-  if (!d3Selection || !d3Zoom) {
-    return null;
-  }
-  return { transform, d3Selection, d3Zoom };
-}
-
-function getMiniMapPanState(): MiniMapPanState | null {
-  const zoomState = getMiniMapZoomState();
-  if (!zoomState) {
-    return null;
-  }
-  const { translateExtent, width, height } = useReactFlow.getState();
-  return { ...zoomState, translateExtent, width, height };
-}
-
-function createMiniMapZoomHandler(zoomStep: number) {
-  return (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
-    if (!isWheelZoomEvent(event.sourceEvent)) {
-      return;
-    }
-
-    const zoomState = getMiniMapZoomState();
-    if (!zoomState) {
-      return;
-    }
-
-    const pinchDelta = getWheelDelta(event.sourceEvent, zoomStep);
-    const zoomLevel = zoomState.transform[2] * Math.pow(2, pinchDelta);
-
-    zoomState.d3Zoom.scaleTo(zoomState.d3Selection, zoomLevel);
-  };
-}
-
-function createMiniMapPanHandler(
-  viewScaleRef: { current: number },
-  inversePan: boolean,
-) {
-  return (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
-    if (!isMouseMoveEvent(event.sourceEvent)) {
-      return;
-    }
-
-    const panState = getMiniMapPanState();
-    if (!panState) {
-      return;
-    }
-
-    const moveScale =
-      viewScaleRef.current *
-      Math.max(panState.transform[2], Math.log(panState.transform[2])) *
-      (inversePan ? -1 : 1);
-    const position = {
-      x: panState.transform[0] - event.sourceEvent.movementX * moveScale,
-      y: panState.transform[1] - event.sourceEvent.movementY * moveScale,
-    };
-    const extent: CoordinateExtent = [
-      [0, 0],
-      [panState.width, panState.height],
-    ];
-
-    const nextTransform = zoomIdentity
-      .translate(position.x, position.y)
-      .scale(panState.transform[2]);
-    const constrainedTransform = panState.d3Zoom.constrain()(
-      nextTransform,
-      extent,
-      panState.translateExtent,
-    );
-
-    panState.d3Zoom.transform(panState.d3Selection, constrainedTransform);
-  };
-}
-
-function bindMiniMapInteractions({
-  svg,
-  pannable,
-  zoomable,
-  inversePan,
-  zoomStep,
-  viewScaleRef,
-}: {
-  svg: SVGSVGElement | null;
-  pannable: boolean;
-  zoomable: boolean;
-  inversePan: boolean;
-  zoomStep: number;
-  viewScaleRef: { current: number };
-}) {
-  if (!svg) {
-    return undefined;
-  }
-
-  const selection = select(svg);
-  const zoomBehavior = zoom<SVGSVGElement, unknown>();
-
-  if (pannable) {
-    zoomBehavior.on("zoom", createMiniMapPanHandler(viewScaleRef, inversePan));
-  }
-
-  if (zoomable) {
-    zoomBehavior.on("zoom.wheel", createMiniMapZoomHandler(zoomStep));
-  }
-
-  selection.call(zoomBehavior);
-
-  return () => {
-    selection.on("zoom", null);
-  };
-}
-
-function createMiniMapClickHandler(
-  onClick: MiniMapProps["onClick"],
-): MinimapSvgProps["onSvgClick"] {
-  if (!onClick) {
-    return undefined;
-  }
-
-  return (event: ReactMouseEvent<SVGSVGElement>) => {
-    const rfCoord = pointer(event);
-    onClick(event, {
-      x: rfCoord[0] - useLocalStorage.getState().overviewTrueWidth,
-      y: rfCoord[1],
-    });
-  };
-}
-
-function getMiniMapNodeOrThrow(nodeId: string): Node {
-  const node = useNodeInternals.getState().x.get(nodeId);
-  if (!node) {
-    throw new Error(
-      `MiniMap click target "${nodeId}" was not found in node internals.`,
-    );
-  }
-  return node;
-}
-
-function createMiniMapNodeClickHandler(
-  onNodeClick: MiniMapProps["onNodeClick"],
-): MinimapSvgProps["onSvgNodeClick"] {
-  if (!onNodeClick) {
-    return undefined;
-  }
-
-  return (event: ReactMouseEvent, nodeId: string) => {
-    onNodeClick(event, getMiniMapNodeOrThrow(nodeId));
-  };
-}
-
-function resolveMiniMapProps(props: MiniMapProps) {
-  return { ...defaultMiniMapProps, ...props };
-}
-
-function assignDefinedProp<T extends object, K extends keyof T>(
-  target: T,
-  key: K,
-  value: T[K] | undefined,
-): void {
-  if (value !== undefined) {
-    target[key] = value;
-  }
-}
-
-function buildMinimapSvgProps(args: {
-  elementWidth: number;
-  elementHeight: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  svgRef: RefObject<SVGSVGElement | null>;
-  offset: number;
-  viewBB: Rect;
-  maskColor: string;
-  maskStrokeColor: string;
-  maskStrokeWidth: number;
-  onSvgClick: MinimapSvgProps["onSvgClick"];
-  onSvgNodeClick: MinimapSvgProps["onSvgNodeClick"];
-  nodeColor: MinimapSvgProps["nodeColor"];
-  nodeStrokeColor: MinimapSvgProps["nodeStrokeColor"];
-  nodeBorderRadius: MinimapSvgProps["nodeBorderRadius"];
-  nodeClassName: MinimapSvgProps["nodeClassName"];
-  nodeStrokeWidth: MinimapSvgProps["nodeStrokeWidth"];
-  nodeComponent: MinimapSvgProps["nodeComponent"];
-}): MinimapSvgProps {
-  const props: MinimapSvgProps = {
-    elementWidth: args.elementWidth,
-    elementHeight: args.elementHeight,
-    x: args.x,
-    y: args.y,
-    width: args.width,
-    height: args.height,
-    svgRef: args.svgRef,
-    offset: args.offset,
-    viewBB: args.viewBB,
-    maskColor: args.maskColor,
-    maskStrokeColor: args.maskStrokeColor,
-    maskStrokeWidth: args.maskStrokeWidth,
-    nodes: null,
-    enableSelectionSync: true,
-  };
-  assignDefinedProp(props, "onSvgClick", args.onSvgClick);
-  assignDefinedProp(props, "onSvgNodeClick", args.onSvgNodeClick);
-  assignDefinedProp(props, "nodeColor", args.nodeColor);
-  assignDefinedProp(props, "nodeStrokeColor", args.nodeStrokeColor);
-  assignDefinedProp(props, "nodeBorderRadius", args.nodeBorderRadius);
-  assignDefinedProp(props, "nodeClassName", args.nodeClassName);
-  assignDefinedProp(props, "nodeStrokeWidth", args.nodeStrokeWidth);
-  assignDefinedProp(props, "nodeComponent", args.nodeComponent);
-  return props;
-}
-
-function buildMiniMapNodesProps(args: {
-  onSvgNodeClick: MiniMapNodesType["onClick"];
-  nodeColor: MiniMapNodesType["nodeColor"];
-  nodeStrokeColor: MiniMapNodesType["nodeStrokeColor"];
-  nodeBorderRadius: MiniMapNodesType["nodeBorderRadius"];
-  nodeClassName: MiniMapNodesType["nodeClassName"];
-  nodeStrokeWidth: MiniMapNodesType["nodeStrokeWidth"];
-  nodeComponent: MiniMapNodesType["nodeComponent"];
-}): MiniMapNodesType {
-  const props: MiniMapNodesType = {};
-  assignDefinedProp(props, "onClick", args.onSvgNodeClick);
-  assignDefinedProp(props, "nodeColor", args.nodeColor);
-  assignDefinedProp(props, "nodeStrokeColor", args.nodeStrokeColor);
-  assignDefinedProp(props, "nodeBorderRadius", args.nodeBorderRadius);
-  assignDefinedProp(props, "nodeClassName", args.nodeClassName);
-  assignDefinedProp(props, "nodeStrokeWidth", args.nodeStrokeWidth);
-  assignDefinedProp(props, "nodeComponent", args.nodeComponent);
-  return props;
-}
-
 export function getXYWidthHeight({
   boundingRect,
   elementHeight,
@@ -439,30 +143,29 @@ export function getXYWidthHeight({
   return { x, y, width, height, viewScale, offset };
 }
 
-function MiniMap(props: MiniMapProps) {
-  const {
-    style,
-    className,
-    nodeStrokeColor,
-    nodeColor,
-    nodeClassName,
-    nodeBorderRadius,
-    nodeStrokeWidth,
-    // We need to rename the prop to be `CapitalCase` so that JSX will render it as
-    // a component properly.
-    nodeComponent,
-    maskColor,
-    maskStrokeColor,
-    maskStrokeWidth,
-    position,
-    onClick,
-    onNodeClick,
-    pannable,
-    zoomable,
-    inversePan,
-    zoomStep,
-    offsetScale,
-  } = resolveMiniMapProps(props);
+function MiniMap({
+  style,
+  className,
+  nodeStrokeColor = "transparent",
+  nodeColor = "#e2e2e2",
+  nodeClassName = "",
+  nodeBorderRadius = 5,
+  nodeStrokeWidth = 2,
+  // We need to rename the prop to be `CapitalCase` so that JSX will render it as
+  // a component properly.
+  nodeComponent,
+  maskColor = "rgb(240, 240, 240, 0.6)",
+  maskStrokeColor = "none",
+  maskStrokeWidth = 1,
+  position = "bottom-right",
+  onClick,
+  onNodeClick,
+  pannable = false,
+  zoomable = false,
+  inversePan = false,
+  zoomStep = 10,
+  offsetScale = 5,
+}: MiniMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const nodes = useNodeInternals(
     getNodes,
@@ -474,8 +177,10 @@ function MiniMap(props: MiniMapProps) {
     getSelector(nodes, overviewWidth, uiEditorWidth),
     shallow,
   );
-  const elementWidth = getMiniMapDimension(style?.width, defaultWidth);
-  const elementHeight = getMiniMapDimension(style?.height, defaultHeight);
+  const elementWidth =
+    typeof style?.width === "number" ? style.width : defaultWidth;
+  const elementHeight =
+    typeof style?.height === "number" ? style.height : defaultHeight;
 
   const { x, y, width, height, viewScale, offset } = getXYWidthHeight({
     boundingRect,
@@ -488,40 +193,97 @@ function MiniMap(props: MiniMapProps) {
   viewScaleRef.current = viewScale;
 
   useEffect(() => {
-    return bindMiniMapInteractions({
-      svg: svgRef.current,
-      pannable,
-      zoomable,
-      inversePan,
-      zoomStep,
-      viewScaleRef,
-    });
+    if (!svgRef.current) {
+      return;
+    }
+
+    const selection = select(svgRef.current);
+
+    const zoomHandler = (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
+      const { transform, d3Selection, d3Zoom } = useReactFlow.getState();
+      const sourceEvent = event.sourceEvent as WheelEvent | null;
+
+      if (
+        !sourceEvent ||
+        sourceEvent.type !== "wheel" ||
+        !d3Selection ||
+        !d3Zoom
+      ) {
+        return;
+      }
+
+      const pinchDelta = getWheelDelta(sourceEvent, zoomStep);
+      const zoomLevel = transform[2] * Math.pow(2, pinchDelta);
+
+      d3Zoom.scaleTo(d3Selection, zoomLevel);
+    };
+
+    const panHandler = (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
+      const { transform, d3Selection, d3Zoom, translateExtent, width, height } =
+        useReactFlow.getState();
+      const sourceEvent = event.sourceEvent as MouseEvent | null;
+
+      if (
+        !sourceEvent ||
+        sourceEvent.type !== "mousemove" ||
+        !d3Selection ||
+        !d3Zoom
+      ) {
+        return;
+      }
+
+      const moveScale =
+        viewScaleRef.current *
+        Math.max(transform[2], Math.log(transform[2])) *
+        (inversePan ? -1 : 1);
+      const position = {
+        x: transform[0] - sourceEvent.movementX * moveScale,
+        y: transform[1] - sourceEvent.movementY * moveScale,
+      };
+      const extent: CoordinateExtent = [
+        [0, 0],
+        [width, height],
+      ];
+
+      const nextTransform = zoomIdentity
+        .translate(position.x, position.y)
+        .scale(transform[2]);
+      const constrainedTransform = d3Zoom.constrain()(
+        nextTransform,
+        extent,
+        translateExtent,
+      );
+
+      d3Zoom.transform(d3Selection, constrainedTransform);
+    };
+
+    const zoomAndPanHandler = zoom<SVGSVGElement, unknown>()
+      .on("zoom", pannable ? panHandler : null)
+      .on("zoom.wheel", zoomable ? zoomHandler : null);
+
+    selection.call(zoomAndPanHandler);
+
+    return () => {
+      selection.on("zoom", null);
+    };
   }, [pannable, zoomable, inversePan, zoomStep]);
 
-  const onSvgClick = createMiniMapClickHandler(onClick);
-  const onSvgNodeClick = createMiniMapNodeClickHandler(onNodeClick);
-  const minimapSvgProps = buildMinimapSvgProps({
-    elementWidth,
-    elementHeight,
-    x,
-    y,
-    width,
-    height,
-    svgRef,
-    offset,
-    viewBB,
-    maskColor,
-    maskStrokeColor,
-    maskStrokeWidth,
-    onSvgClick,
-    onSvgNodeClick,
-    nodeColor,
-    nodeStrokeColor,
-    nodeBorderRadius,
-    nodeClassName,
-    nodeStrokeWidth,
-    nodeComponent,
-  });
+  const onSvgClick = onClick
+    ? (event: ReactMouseEvent<SVGSVGElement>) => {
+        const rfCoord = pointer(event);
+        onClick(event, {
+          x: rfCoord[0] - useLocalStorage.getState().overviewTrueWidth,
+          y: rfCoord[1],
+        });
+      }
+    : undefined;
+
+  const onSvgNodeClick = onNodeClick
+    ? (event: ReactMouseEvent, nodeId: string) => {
+        const node = useNodeInternals.getState().x.get(nodeId)!;
+        onNodeClick(event, node);
+      }
+    : undefined;
 
   return (
     <Panel
@@ -530,7 +292,30 @@ function MiniMap(props: MiniMapProps) {
       className={cc(["react-flow__minimap", className])}
       data-testid="rf__minimap"
     >
-      <MinimapSvg {...minimapSvgProps} />
+      <MinimapSvg
+        elementWidth={elementWidth}
+        elementHeight={elementHeight}
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        svgRef={svgRef}
+        onSvgClick={onSvgClick}
+        onSvgNodeClick={onSvgNodeClick}
+        nodeColor={nodeColor}
+        nodeStrokeColor={nodeStrokeColor}
+        nodeBorderRadius={nodeBorderRadius}
+        nodeClassName={nodeClassName}
+        nodeStrokeWidth={nodeStrokeWidth}
+        nodeComponent={nodeComponent}
+        offset={offset}
+        viewBB={viewBB}
+        maskColor={maskColor}
+        maskStrokeColor={maskStrokeColor}
+        maskStrokeWidth={maskStrokeWidth}
+        nodes={null}
+        enableSelectionSync
+      />
     </Panel>
   );
 }
@@ -542,7 +327,7 @@ export default memo(MiniMap);
 function MiniMapSelectionSync({
   svgRef,
 }: {
-  svgRef?: RefObject<SVGSVGElement | null>;
+  svgRef?: RefObject<SVGSVGElement>;
 }) {
   useEffect(() => {
     const applySelection = (activeIds: string[]) => {
@@ -607,16 +392,15 @@ export function MinimapSvg({
   nodes,
   enableSelectionSync = false,
 }: MinimapSvgProps) {
-  const minimapNodesProps = buildMiniMapNodesProps({
-    onSvgNodeClick,
+  const minimapNodesProps: MiniMapNodesType = {
+    onClick: onSvgNodeClick,
     nodeColor,
     nodeStrokeColor,
     nodeBorderRadius,
     nodeClassName,
     nodeStrokeWidth,
     nodeComponent,
-  });
-  const selectionSyncProps = svgRef === undefined ? null : { svgRef };
+  };
 
   return (
     <svg
@@ -632,9 +416,7 @@ export function MinimapSvg({
       ) : (
         <MiniMapNodesReactive {...minimapNodesProps} />
       )}
-      {enableSelectionSync && selectionSyncProps ? (
-        <MiniMapSelectionSync {...selectionSyncProps} />
-      ) : null}
+      {enableSelectionSync ? <MiniMapSelectionSync svgRef={svgRef} /> : null}
       {viewBB && (
         <path
           className="react-flow__minimap-mask"
