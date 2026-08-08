@@ -2,7 +2,7 @@ import {
   applyNodeChanges,
   Background,
   BackgroundVariant,
-  MiniMap,
+  Panel,
   PanOnScrollMode,
   ReactFlow,
   useReactFlow,
@@ -22,25 +22,17 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent as ReactKeyboardEvent,
   type MutableRefObject,
   type ReactNode,
 } from "react";
 
 import type {
-  WorkspaceController,
   WorkspaceDocument,
   WorkspaceGestureOptions,
   WorkspaceJsonValue,
   WorkspacePanOnScrollMode,
   WorkspaceViewport,
 } from "../core.js";
-import type {
-  WorkspaceMinimapPlacement,
-  WorkspaceOverlayPlacement,
-  WorkspaceToolbarControl,
-  WorkspaceToolbarControlPlacement,
-} from "../react.js";
 import { WorkspaceGeometryIndex } from "./geometry-index.js";
 import { projectWorkspaceCanvasRoots, type WorkspaceCanvasRoot } from "./workspace-canvas-model.js";
 import {
@@ -218,441 +210,6 @@ function WorkspaceGridBackground({
   );
 }
 
-type ResolvedToolbarControl = Readonly<{
-  ariaControls?: string;
-  disabled: boolean;
-  icon: ReactNode;
-  id: string;
-  label: string;
-  onPress(): void;
-  placement: WorkspaceToolbarControlPlacement;
-  pressed?: boolean;
-  source: "built-in" | "host";
-}>;
-
-type ToolbarControlGroup = Readonly<{
-  controls: readonly ResolvedToolbarControl[];
-  label: string;
-  placement: WorkspaceToolbarControlPlacement;
-}>;
-
-const toolbarPlacements = ["project", "viewport", "utility"] as const satisfies readonly WorkspaceToolbarControlPlacement[];
-
-function ToolbarIcon({ children }: Readonly<{ children: ReactNode }>) {
-  return (
-    <svg
-      aria-hidden="true"
-      className="setta-workspace__toolbar-icon"
-      fill="none"
-      focusable="false"
-      viewBox="0 0 20 20"
-    >
-      {children}
-    </svg>
-  );
-}
-
-function ZoomInIcon() {
-  return (
-    <ToolbarIcon>
-      <path d="M10 4.5v11M4.5 10h11" />
-    </ToolbarIcon>
-  );
-}
-
-function ZoomOutIcon() {
-  return (
-    <ToolbarIcon>
-      <path d="M4.5 10h11" />
-    </ToolbarIcon>
-  );
-}
-
-function ResetZoomIcon() {
-  return (
-    <ToolbarIcon>
-      <circle cx="10" cy="10" r="5.25" />
-      <path d="M10 7.25v5.5M7.25 10h5.5" />
-    </ToolbarIcon>
-  );
-}
-
-function FitSectionsIcon() {
-  return (
-    <ToolbarIcon>
-      <path d="M7.25 4.5H4.5v2.75M12.75 4.5h2.75v2.75M7.25 15.5H4.5v-2.75M12.75 15.5h2.75v-2.75" />
-    </ToolbarIcon>
-  );
-}
-
-function SnapGridIcon() {
-  return (
-    <ToolbarIcon>
-      <circle cx="5" cy="5" r="1" />
-      <circle cx="15" cy="5" r="1" />
-      <circle cx="5" cy="15" r="1" />
-      <circle cx="15" cy="15" r="1" />
-      <path d="M8 10h4M10 8v4" />
-    </ToolbarIcon>
-  );
-}
-
-function MinimapIcon() {
-  return (
-    <ToolbarIcon>
-      <rect height="11" rx="1.5" width="14" x="3" y="4.5" />
-      <rect height="2.5" rx="0.5" width="3.5" x="5" y="7" />
-      <rect height="3" rx="0.5" width="4" x="11" y="10.5" />
-    </ToolbarIcon>
-  );
-}
-
-function toolbarFocusTarget(
-  enabledIds: readonly string[],
-  currentId: string | null,
-  key: string,
-): string | null {
-  if (enabledIds.length === 0) {
-    return null;
-  }
-  if (key === "Home") {
-    return enabledIds[0] ?? null;
-  }
-  if (key === "End") {
-    return enabledIds.at(-1) ?? null;
-  }
-  const step = key === "ArrowDown" ? 1 : key === "ArrowUp" ? -1 : 0;
-  if (step === 0) {
-    return null;
-  }
-  const currentIndex = Math.max(0, currentId ? enabledIds.indexOf(currentId) : 0);
-  return enabledIds[(currentIndex + step + enabledIds.length) % enabledIds.length] ?? null;
-}
-
-function useToolbarFocus(controls: readonly ResolvedToolbarControl[]) {
-  const enabledIds = useMemo(
-    () => controls.filter((control) => !control.disabled).map((control) => control.id),
-    [controls],
-  );
-  const enabledSignature = enabledIds.join("\u0000");
-  const controlElementsRef = useRef(new Map<string, HTMLButtonElement>());
-  const focusedControlRef = useRef<string | null>(null);
-  const [tabStopId, setTabStopId] = useState<string | null>(() => enabledIds[0] ?? null);
-
-  useEffect(() => {
-    if (tabStopId && enabledIds.includes(tabStopId)) {
-      return;
-    }
-    const nextId = enabledIds[0] ?? null;
-    const restoreFocus = focusedControlRef.current === tabStopId;
-    setTabStopId(nextId);
-    if (restoreFocus && nextId) {
-      focusedControlRef.current = nextId;
-      controlElementsRef.current.get(nextId)?.focus();
-    }
-  }, [enabledIds, enabledSignature, tabStopId]);
-
-  const registerControl = useCallback((id: string, element: HTMLButtonElement | null) => {
-    if (element) {
-      controlElementsRef.current.set(id, element);
-    } else {
-      controlElementsRef.current.delete(id);
-    }
-  }, []);
-  const handleFocus = useCallback((id: string) => {
-    focusedControlRef.current = id;
-    setTabStopId(id);
-  }, []);
-  const handleBlur = useCallback(() => {
-    focusedControlRef.current = null;
-  }, []);
-  const handleKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-      const targetId = toolbarFocusTarget(enabledIds, event.currentTarget.dataset.controlId ?? null, event.key);
-      if (!targetId) {
-        return;
-      }
-      event.preventDefault();
-      focusedControlRef.current = targetId;
-      setTabStopId(targetId);
-      controlElementsRef.current.get(targetId)?.focus();
-    },
-    [enabledIds],
-  );
-
-  return { handleBlur, handleFocus, handleKeyDown, registerControl, tabStopId };
-}
-
-function ToolbarControlButton({
-  control,
-  index,
-  keyboard,
-  tooltipPrefix,
-}: Readonly<{
-  control: ResolvedToolbarControl;
-  index: number;
-  keyboard: ReturnType<typeof useToolbarFocus>;
-  tooltipPrefix: string;
-}>) {
-  const tooltipId = `${tooltipPrefix}-${String(index)}`;
-  return (
-    <span className="setta-workspace__toolbar-item">
-      <button
-        aria-controls={control.ariaControls}
-        aria-describedby={tooltipId}
-        aria-label={control.label}
-        aria-pressed={control.pressed}
-        className="setta-workspace__toolbar-control"
-        data-control-id={control.id}
-        data-workspace-control-id={control.id}
-        data-workspace-control-placement={control.placement}
-        data-workspace-control-source={control.source}
-        disabled={control.disabled}
-        onBlur={keyboard.handleBlur}
-        onClick={control.onPress}
-        onFocus={() => keyboard.handleFocus(control.id)}
-        onKeyDown={keyboard.handleKeyDown}
-        ref={(element) => keyboard.registerControl(control.id, element)}
-        tabIndex={!control.disabled && keyboard.tabStopId === control.id ? 0 : -1}
-        type="button"
-      >
-        <span aria-hidden="true" className="setta-workspace__toolbar-control-icon">
-          {control.icon}
-        </span>
-      </button>
-      <span className="setta-workspace__toolbar-tooltip" id={tooltipId} role="tooltip">
-        {control.label}
-      </span>
-    </span>
-  );
-}
-
-function toolbarGroups(
-  controls: readonly ResolvedToolbarControl[],
-): readonly ToolbarControlGroup[] {
-  return toolbarPlacements
-    .map((placement) => ({
-      controls: controls.filter((control) => control.placement === placement),
-      label: `${placement[0]?.toUpperCase() ?? ""}${placement.slice(1)} controls`,
-      placement,
-    }))
-    .filter((group) => group.controls.length > 0);
-}
-
-function WorkspaceToolbar<TSectionData>({
-  ariaLabel,
-  controller,
-  gestureOptions,
-  gridSnap,
-  minimapId,
-  minimapVisible,
-  onGridSnapChange,
-  onMinimapVisibilityChange,
-  sectionIds,
-  toolbarControls,
-}: Readonly<{
-  ariaLabel: string;
-  controller: WorkspaceController<TSectionData>;
-  gestureOptions: WorkspaceGestureOptions;
-  gridSnap: boolean;
-  minimapId: string;
-  minimapVisible: boolean;
-  onGridSnapChange(value: boolean): void;
-  onMinimapVisibilityChange(value: boolean): void;
-  sectionIds: readonly string[];
-  toolbarControls: readonly WorkspaceToolbarControl<TSectionData>[];
-}>) {
-  const instance = useReactFlow<WorkspaceRootNode>();
-  const zoom = useStore((state) => state.transform[2]);
-  const tooltipPrefix = `${minimapId}-tooltip`;
-  const resetZoom = Math.min(gestureOptions.maxZoom, Math.max(gestureOptions.minZoom, 1));
-  const zoomMatchesReset = Math.abs(zoom - resetZoom) < 0.000_001;
-  const builtInControls = useMemo<readonly ResolvedToolbarControl[]>(
-    () => [
-      {
-        disabled: zoom >= gestureOptions.maxZoom,
-        icon: <ZoomInIcon />,
-        id: "zoom-in",
-        label: "Zoom in",
-        onPress: () => void instance.zoomIn({ duration: 0 }),
-        placement: "viewport",
-        source: "built-in",
-      },
-      {
-        disabled: zoom <= gestureOptions.minZoom,
-        icon: <ZoomOutIcon />,
-        id: "zoom-out",
-        label: "Zoom out",
-        onPress: () => void instance.zoomOut({ duration: 0 }),
-        placement: "viewport",
-        source: "built-in",
-      },
-      {
-        disabled: zoomMatchesReset,
-        icon: <ResetZoomIcon />,
-        id: "reset-zoom",
-        label: "Reset zoom",
-        onPress: () => void instance.zoomTo(resetZoom, { duration: 0 }),
-        placement: "viewport",
-        source: "built-in",
-      },
-      {
-        disabled: sectionIds.length === 0,
-        icon: <FitSectionsIcon />,
-        id: "fit-sections",
-        label: "Fit sections",
-        onPress: () => void controller.fitSections(sectionIds),
-        placement: "viewport",
-        source: "built-in",
-      },
-      {
-        disabled: false,
-        icon: <SnapGridIcon />,
-        id: "snap-to-grid",
-        label: "Snap to grid",
-        onPress: () => onGridSnapChange(!gridSnap),
-        placement: "viewport",
-        pressed: gridSnap,
-        source: "built-in",
-      },
-      {
-        ariaControls: minimapId,
-        disabled: false,
-        icon: <MinimapIcon />,
-        id: "show-minimap",
-        label: "Show minimap",
-        onPress: () => onMinimapVisibilityChange(!minimapVisible),
-        placement: "utility",
-        pressed: minimapVisible,
-        source: "built-in",
-      },
-    ],
-    [
-      controller,
-      gestureOptions.maxZoom,
-      gestureOptions.minZoom,
-      gridSnap,
-      instance,
-      minimapId,
-      minimapVisible,
-      onGridSnapChange,
-      onMinimapVisibilityChange,
-      resetZoom,
-      sectionIds,
-      zoom,
-      zoomMatchesReset,
-    ],
-  );
-  const hostControls = useMemo<readonly ResolvedToolbarControl[]>(
-    () =>
-      toolbarControls.map((control) => ({
-        disabled: control.disabled ?? false,
-        icon: control.icon,
-        id: control.id,
-        label: control.label,
-        onPress: () => control.onPress(controller),
-        placement: control.placement,
-        pressed: control.pressed,
-        source: "host" as const,
-      })),
-    [controller, toolbarControls],
-  );
-  const orderedControls = useMemo(
-    () => [
-      ...hostControls.filter((control) => control.placement === "project"),
-      ...builtInControls.filter((control) => control.placement === "viewport"),
-      ...hostControls.filter((control) => control.placement === "viewport"),
-      ...hostControls.filter((control) => control.placement === "utility"),
-      ...builtInControls.filter((control) => control.placement === "utility"),
-    ],
-    [builtInControls, hostControls],
-  );
-  const keyboard = useToolbarFocus(orderedControls);
-  const groups = toolbarGroups(orderedControls);
-
-  return (
-    <div
-      aria-label={`${ariaLabel} controls`}
-      aria-orientation="vertical"
-      className={`setta-workspace__toolbar ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
-      role="toolbar"
-    >
-      {groups.map((group) => (
-        <div
-          aria-label={group.label}
-          className="setta-workspace__toolbar-group"
-          data-workspace-control-group={group.placement}
-          key={group.placement}
-          role="group"
-        >
-          {group.controls.map((control) => (
-            <ToolbarControlButton
-              control={control}
-              index={orderedControls.indexOf(control)}
-              keyboard={keyboard}
-              key={control.id}
-              tooltipPrefix={tooltipPrefix}
-            />
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function hasOverlayContent(value: ReactNode): boolean {
-  return value !== null && value !== undefined && value !== false;
-}
-
-function WorkspaceFixedOverlay({
-  children,
-  placement,
-}: Readonly<{
-  children: ReactNode;
-  placement: Exclude<WorkspaceOverlayPlacement, "canvas">;
-}>) {
-  if (!hasOverlayContent(children)) {
-    return null;
-  }
-  return (
-    <div
-      className={`setta-workspace__overlay setta-workspace__overlay--${placement} ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
-      data-workspace-overlay-placement={placement}
-    >
-      {children}
-    </div>
-  );
-}
-
-function WorkspaceMinimap({
-  ariaLabel,
-  id,
-  placement,
-}: Readonly<{
-  ariaLabel: string;
-  id: string;
-  placement: WorkspaceMinimapPlacement;
-}>) {
-  return (
-    <div data-workspace-minimap-placement={placement} id={id}>
-      <MiniMap<WorkspaceRootNode>
-        ariaLabel={`${ariaLabel} minimap`}
-        bgColor="var(--setta-workspace-minimap-background)"
-        className={`setta-workspace__minimap ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
-        maskColor="color-mix(in oklch, var(--setta-workspace-canvas-background) 72%, transparent)"
-        maskStrokeColor="var(--setta-workspace-selection)"
-        maskStrokeWidth={2}
-        nodeBorderRadius={6}
-        nodeColor="var(--setta-workspace-section-background)"
-        nodeStrokeColor="var(--setta-workspace-section-muted-text)"
-        pannable={false}
-        position={placement === "left" ? "bottom-left" : "bottom-right"}
-        zoomable={false}
-      />
-    </div>
-  );
-}
-
 function mutableKeyCode(
   value: WorkspaceGestureOptions["panActivationKey"],
 ): string | string[] | null {
@@ -712,19 +269,12 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   emptyState,
   gestureOptions,
   gridOptions,
-  minimapPlacement,
-  minimapVisible,
   onCanvasControllerChange,
-  onGridSnapChange,
-  onMinimapVisibilityChange,
   onViewportCommit,
-  overlaySlots,
-  toolbarControls,
-  workspaceController,
+  overlay,
 }: WorkspaceCanvasAdapterProps<TSectionData>) {
   const reactId = useId();
   const canvasId = `setta-workspace-canvas-${reactId.replaceAll(":", "")}`;
-  const minimapId = `${canvasId}-minimap`;
   const geometryIndex = useMemo(() => new WorkspaceGeometryIndex(), []);
   const geometryRef = useRef<WorkspaceGeometryMeasurements | null>(null);
   geometryRef.current ??= new WorkspaceGeometryMeasurements(geometryIndex, document.viewport);
@@ -865,38 +415,19 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
           snapGrid={snapGrid}
         />
       ) : null}
-      {hasOverlayContent(overlaySlots.canvas) ? (
+      {overlay ? (
         <ViewportPortal>
           <div
             className={`setta-workspace__host-overlay ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
-            data-workspace-overlay-placement="canvas"
           >
-            {overlaySlots.canvas}
+            {overlay}
           </div>
         </ViewportPortal>
       ) : null}
       {emptyState ? (
-        <div className="setta-workspace__empty-panel">
+        <Panel className="setta-workspace__empty-panel" position="bottom-left">
           <p className="setta-workspace__empty">{emptyState}</p>
-        </div>
-      ) : null}
-      <WorkspaceFixedOverlay placement="project">{overlaySlots.project}</WorkspaceFixedOverlay>
-      <WorkspaceFixedOverlay placement="utility">{overlaySlots.utility}</WorkspaceFixedOverlay>
-      <WorkspaceFixedOverlay placement="viewport">{overlaySlots.viewport}</WorkspaceFixedOverlay>
-      <WorkspaceToolbar
-        ariaLabel={ariaLabel}
-        controller={workspaceController}
-        gestureOptions={gestureOptions}
-        gridSnap={gridOptions.snap}
-        minimapId={minimapId}
-        minimapVisible={minimapVisible}
-        onGridSnapChange={onGridSnapChange}
-        onMinimapVisibilityChange={onMinimapVisibilityChange}
-        sectionIds={sectionIds}
-        toolbarControls={toolbarControls}
-      />
-      {minimapVisible ? (
-        <WorkspaceMinimap ariaLabel={ariaLabel} id={minimapId} placement={minimapPlacement} />
+        </Panel>
       ) : null}
       <WorkspaceViewportSynchronizer
         geometry={geometry}
