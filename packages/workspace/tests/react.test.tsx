@@ -92,6 +92,7 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain("setta-workspace__interaction-boundary");
     expect(markup).toContain('data-workspace-prevent-pan="true"');
     expect(markup).toContain('data-workspace-prevent-wheel="true"');
+    expect(markup).toMatch(/setta-workspace__section-content[^>]+tabindex="0"/u);
   });
 
   it("keeps headerless titles accessible and unmounts minimized host renderers", () => {

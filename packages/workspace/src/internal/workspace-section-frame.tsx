@@ -374,6 +374,7 @@ function SectionContent({
       data-workspace-prevent-pan="true"
       data-workspace-prevent-wheel="true"
       inert={inactive || undefined}
+      tabIndex={inactive ? undefined : 0}
     >
       <Renderer
         appearance={appearance}
