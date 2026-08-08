@@ -13,6 +13,7 @@ import {
 } from "react";
 
 import type {
+  SectionOverflow,
   WorkspaceActionResult,
   WorkspaceSection,
   WorkspaceSectionPresentation,
@@ -28,6 +29,7 @@ import type {
   WorkspaceSectionTitleValidator,
 } from "./workspace-section-contract.js";
 import { SectionPresentationEditor, SectionTitleEditor } from "./workspace-section-editors.js";
+import { WorkspaceSectionOverflowControl } from "./workspace-section-overflow.js";
 import type { ResolvedSectionDefinition } from "./workspace-section-registry.js";
 import { WorkspaceSectionStateControls } from "./workspace-section-state-controls.js";
 import type { WorkspaceSectionSelectionRequest } from "./workspace-selection.js";
@@ -44,6 +46,7 @@ export type WorkspaceSectionFrameProps = Readonly<{
   onKeyboardMove(sectionId: string, direction: WorkspaceKeyboardMoveDirection): void;
   onLockedCommit(sectionId: string, locked: boolean): WorkspaceActionResult;
   onMinimizedCommit(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
+  onOverflowCommit(sectionId: string, overflow: SectionOverflow): WorkspaceActionResult;
   onPresentationCommit(
     sectionId: string,
     presentation: WorkspaceSectionPresentation,
@@ -579,11 +582,13 @@ function SectionFrameControls({
   editingTitle,
   editControls,
   dragHandle,
+  layoutControls,
   stateControls,
 }: Readonly<{
   editingTitle: boolean;
   editControls: ReactNode;
   dragHandle: ReactNode;
+  layoutControls: ReactNode;
   stateControls: ReactNode;
 }>) {
   if (editingTitle) {
@@ -592,6 +597,7 @@ function SectionFrameControls({
   return (
     <>
       {stateControls}
+      {layoutControls}
       {editControls}
       {dragHandle}
     </>
@@ -646,6 +652,7 @@ export function WorkspaceSectionFrame({
   onKeyboardMove,
   onLockedCommit,
   onMinimizedCommit,
+  onOverflowCommit,
   onPresentationCommit,
   onSelectionRequest,
   onTitleCommit,
@@ -669,6 +676,7 @@ export function WorkspaceSectionFrame({
   const frameElementRef = useRef<HTMLElement>(null);
   const lockControlRef = useRef<HTMLButtonElement>(null);
   const minimizeControlRef = useRef<HTMLButtonElement>(null);
+  const overflowControlRef = useRef<HTMLButtonElement>(null);
   const renameControlRef = useRef<HTMLButtonElement>(null);
   const restoreTitleFocusRef = useRef(false);
   const styleControlRef = useRef<HTMLButtonElement>(null);
@@ -779,6 +787,18 @@ export function WorkspaceSectionFrame({
       section={section}
     />
   );
+  const layoutControls = (
+    <WorkspaceSectionOverflowControl
+      controlRef={overflowControlRef}
+      layoutEditable={layoutEditable}
+      onCommit={(sectionId, overflow) => {
+        const result = onOverflowCommit(sectionId, overflow);
+        focusWithoutScroll(overflowControlRef);
+        return result;
+      }}
+      section={section}
+    />
+  );
   const selectionControl = (
     <SectionSelectionControl
       onSelectionRequest={onSelectionRequest}
@@ -795,6 +815,7 @@ export function WorkspaceSectionFrame({
       data-workspace-accent-color={presentedSection.presentation.accentColor ?? undefined}
       data-workspace-chrome={presentedSection.presentation.chrome}
       data-workspace-minimized={String(section.isMinimized)}
+      data-workspace-child-overflow={section.childLayout?.overflow}
       data-workspace-moving={String(moving)}
       data-workspace-parent-section-id={parentSectionId ?? undefined}
       data-workspace-presentation-open={String(presentationOpen)}
@@ -819,6 +840,7 @@ export function WorkspaceSectionFrame({
             dragHandle={dragHandle}
             editControls={editControls}
             editingTitle={editingTitle}
+            layoutControls={layoutControls}
             stateControls={stateControls}
           />
         }

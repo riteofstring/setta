@@ -4,6 +4,7 @@ import {
   deriveWorkspaceParentLookup,
   resolveWorkspaceCapabilities,
   resolveWorkspaceGestureOptions,
+  type SectionOverflow,
   type WorkspaceController,
   type WorkspaceJsonValue,
   type WorkspacePoint,
@@ -17,6 +18,7 @@ import {
   groupWorkspaceSections,
   moveWorkspaceRootSections,
   resizeWorkspaceRootSection,
+  setWorkspaceSectionChildOverflow,
   setWorkspaceSectionContentSize,
   ungroupWorkspaceSection,
   type WorkspaceControllerBindings,
@@ -499,6 +501,30 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     },
     [],
   );
+  const handleSectionOverflowCommit = useCallback(
+    (
+      sectionId: string,
+      overflow: SectionOverflow,
+      measuredSize: Readonly<{ height: number; width: number }> | null,
+    ) => {
+      const bindings = controllerBindingsRef.current;
+      if (!bindings) {
+        throw new Error("Workspace controller bindings are unavailable before initialization.");
+      }
+      const section = documentRef.current.sections[sectionId];
+      const definition = section ? sectionRegistryRef.current.definition(section.kind) : undefined;
+      const orientation = section?.childLayout?.orientation;
+      const contentSizingAxis = orientation === "horizontal" ? "width" : "height";
+      return setWorkspaceSectionChildOverflow(
+        bindings,
+        sectionId,
+        overflow,
+        measuredSize,
+        Boolean(definition?.contentSizing[contentSizingAxis]),
+      );
+    },
+    [],
+  );
   const handleSectionPresentationCommit = useCallback(
     (sectionId: string, presentation: WorkspaceSectionPresentation) =>
       controller.setSectionPresentation(sectionId, presentation),
@@ -579,6 +605,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         onSectionContentSizeCommit={handleSectionContentSizeCommit}
         onSectionLockedCommit={handleSectionLockedCommit}
         onSectionMinimizedCommit={handleSectionMinimizedCommit}
+        onSectionOverflowCommit={handleSectionOverflowCommit}
         onSectionPresentationCommit={handleSectionPresentationCommit}
         onSectionTitleCommit={handleSectionTitleCommit}
         onSelectionChange={commitSelection}

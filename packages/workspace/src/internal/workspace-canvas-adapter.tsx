@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import type {
+  SectionOverflow,
   WorkspaceActionResult,
   WorkspaceController,
   WorkspaceDocument,
@@ -103,6 +104,11 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   ): WorkspaceActionResult;
   onSectionLockedCommit(sectionId: string, locked: boolean): WorkspaceActionResult;
   onSectionMinimizedCommit(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
+  onSectionOverflowCommit(
+    sectionId: string,
+    overflow: SectionOverflow,
+    measuredSize: Readonly<{ height: number; width: number }> | null,
+  ): WorkspaceActionResult;
   onSectionPresentationCommit(
     sectionId: string,
     presentation: WorkspaceSectionPresentation,
@@ -150,6 +156,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   onSectionContentSizeCommit,
   onSectionLockedCommit,
   onSectionMinimizedCommit,
+  onSectionOverflowCommit,
   onSectionPresentationCommit,
   onSectionTitleCommit,
   onSelectionChange,
@@ -220,6 +227,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     onSectionContentSizeCommit,
     onSectionLockedCommit,
     onSectionMinimizedCommit,
+    onSectionOverflowCommit,
     onSectionPresentationCommit,
     onSectionTitleCommit,
     onSelectionRequest: selection.handleSelectionRequest,
@@ -377,6 +385,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         ) : null}
         <WorkspaceCanvasAnnouncements
           creation={creationAnnouncement}
+          containerLayout={rootProjection.containerLayoutAnnouncementText}
           externalDrop={externalDrop.announcementText}
           history={historyAnnouncement}
           movement={rootProjection.announcementText}

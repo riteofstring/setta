@@ -8,6 +8,7 @@ import {
   WorkspaceSectionFrame,
   type WorkspaceSectionFrameProps,
 } from "./workspace-section-frame.js";
+import { useWorkspaceChildRegionScrollability } from "./workspace-section-overflow.js";
 import type {
   ResolvedSectionDefinition,
   WorkspaceSectionRegistry,
@@ -29,6 +30,7 @@ export type WorkspaceSectionTreeBindings = Pick<
   | "onKeyboardMove"
   | "onLockedCommit"
   | "onMinimizedCommit"
+  | "onOverflowCommit"
   | "onPresentationCommit"
   | "onSelectionRequest"
   | "onTitleCommit"
@@ -144,7 +146,7 @@ function WorkspaceNestedSection({
 function EmptyChildSectionRegion() {
   return (
     <div className="setta-workspace__empty-child-container" data-workspace-empty-child-container="">
-      No child sections
+      Drop a section here
     </div>
   );
 }
@@ -159,20 +161,23 @@ export function WorkspaceSectionChildren({
   node: WorkspaceSectionTreeNode;
 }>) {
   const layout = node.section.childLayout;
+  const scrollMode = layout?.overflow === "scroll";
+  const scrollability = useWorkspaceChildRegionScrollability(node.children, scrollMode);
   if (!layout) {
     return null;
   }
-  const scrollable = layout.overflow === "scroll";
   return (
     <div
       aria-label={`${node.section.title} child sections`}
-      className={`setta-workspace__section-children setta-workspace__interaction-boundary ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_ROOT_DRAG_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
+      className={`setta-workspace__section-children setta-workspace__interaction-boundary ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_ROOT_DRAG_CLASS_NAME}${scrollability.scrollable ? ` ${WORKSPACE_NO_WHEEL_CLASS_NAME}` : ""}`}
       data-workspace-child-orientation={layout.orientation}
       data-workspace-child-overflow={layout.overflow}
       data-workspace-prevent-pan="true"
-      data-workspace-prevent-wheel="true"
-      role={scrollable ? "region" : "group"}
-      tabIndex={scrollable ? 0 : undefined}
+      data-workspace-prevent-wheel={scrollability.scrollable ? "true" : undefined}
+      data-workspace-scrollable={String(scrollability.scrollable)}
+      ref={scrollability.ref}
+      role={scrollMode ? "region" : "group"}
+      tabIndex={scrollability.scrollable ? 0 : undefined}
     >
       {node.children.length === 0 ? (
         <EmptyChildSectionRegion />

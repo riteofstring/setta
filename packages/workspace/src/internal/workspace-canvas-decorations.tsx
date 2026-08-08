@@ -60,6 +60,7 @@ export function WorkspaceGridBackground({
 
 export function WorkspaceCanvasAnnouncements({
   creation,
+  containerLayout,
   externalDrop,
   history,
   movement,
@@ -69,6 +70,7 @@ export function WorkspaceCanvasAnnouncements({
   sizing,
 }: Readonly<{
   creation: string;
+  containerLayout: string;
   externalDrop: string;
   history: string;
   movement: string;
@@ -79,6 +81,14 @@ export function WorkspaceCanvasAnnouncements({
 }>) {
   return (
     <>
+      <div
+        aria-atomic="true"
+        aria-live="polite"
+        className="setta-workspace__visually-hidden"
+        data-workspace-container-layout-announcement=""
+      >
+        {containerLayout}
+      </div>
       <div
         aria-atomic="true"
         aria-live="polite"

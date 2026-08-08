@@ -81,6 +81,7 @@ export type WorkspaceDocumentChangeReason =
   | "section-lock"
   | "section-minimize"
   | "section-move"
+  | "section-overflow"
   | "section-presentation"
   | "section-resize"
   | "section-size-mode"

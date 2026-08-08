@@ -2,6 +2,7 @@ import {
   getAdjacentWorkspaceSectionId,
   getWorkspaceSectionOrder,
   WorkspaceDocumentValidationError,
+  type SectionOverflow,
   type WorkspaceActionResult,
   type WorkspaceCapabilities,
   type WorkspaceController,
@@ -429,6 +430,22 @@ export function setWorkspaceSectionContentSize<TSectionData>(
   axes: readonly WorkspaceSectionResizeAxis[],
 ): WorkspaceActionResult {
   return dispatch(bindings, { axes, sectionId, type: "set-section-content-size" });
+}
+
+export function setWorkspaceSectionChildOverflow<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  sectionId: string,
+  overflow: SectionOverflow,
+  measuredSize: Readonly<{ height: number; width: number }> | null,
+  growWithContentSizing: boolean,
+): WorkspaceActionResult {
+  return dispatch(bindings, {
+    growWithContentSizing,
+    measuredSize,
+    overflow,
+    sectionId,
+    type: "set-section-child-overflow",
+  });
 }
 
 export function createWorkspaceRootSection<TSectionData>(

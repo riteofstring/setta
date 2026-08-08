@@ -1,7 +1,9 @@
 import { AxeBuilder } from "@axe-core/playwright";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type JSHandle, type Locator, type Page } from "@playwright/test";
 
 import { canvasViewport } from "./workspace-test-helpers.js";
+
+const RECURSIVE_CHILD_MIME = "application/x-setta-workspace-recursive-child";
 
 async function loadRecursiveFixture(page: Page): Promise<Locator> {
   await page.goto("/?canvas-shell");
@@ -54,6 +56,17 @@ async function expectSelectionBounds(
   expect(overlayBox.height).toBeCloseTo(bottom - top, 0);
 }
 
+async function recursiveChildTransfer(page: Page, title: string): Promise<JSHandle<DataTransfer>> {
+  return page.evaluateHandle(
+    ({ mime, value }) => {
+      const transfer = new DataTransfer();
+      transfer.setData(mime, value);
+      return transfer;
+    },
+    { mime: RECURSIVE_CHILD_MIME, value: title },
+  );
+}
+
 test("recursive frames share all-depth selection, geometry, focus, and fit", async ({ page }) => {
   const resizeObserverErrors: string[] = [];
   page.on("pageerror", (error) => {
@@ -77,14 +90,13 @@ test("recursive frames share all-depth selection, geometry, focus, and fit", asy
   await expect(deepContainer).toHaveAttribute("data-workspace-depth", "2");
   await expect(nestedGamma).toHaveAttribute("data-workspace-depth", "3");
   await expect(nestedGamma).toHaveAttribute("data-workspace-parent-section-id", "deep-container");
-  await expect(emptyContainer.getByText("No child sections", { exact: true })).toBeVisible();
+  await expect(emptyContainer.getByText("Drop a section here", { exact: true })).toBeVisible();
   await expect(
     root.getByRole("group", { name: "Recursive workspace child sections" }),
   ).toHaveAttribute("data-workspace-child-orientation", "vertical");
-  await expect(nestedRow.getByRole("group", { name: "Nested row child sections" })).toHaveAttribute(
-    "data-workspace-child-orientation",
-    "horizontal",
-  );
+  await expect(
+    nestedRow.getByRole("region", { name: "Nested row child sections" }),
+  ).toHaveAttribute("data-workspace-child-orientation", "horizontal");
   await expect(root.getByRole("button", { name: "Move Recursive workspace" })).toBeEnabled();
   await expect(nestedAlpha.getByRole("button", { name: "Move Nested Alpha" })).toBeDisabled();
 
@@ -181,4 +193,96 @@ test("minimizing a recursive container preserves descendants and narrow reflow",
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
   const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
   expect(accessibility.violations).toEqual([]);
+});
+
+test("container overflow switches stably, isolates scrolling, and accepts an empty drop", async ({
+  page,
+}) => {
+  await page.setViewportSize({ height: 1_000, width: 1_440 });
+  const workspace = await loadRecursiveFixture(page);
+  await page.getByRole("button", { name: "Fit recursive descendants" }).click();
+  const canvas = workspace.getByRole("application", { name: "Canvas shell workspace canvas" });
+  const nestedRow = workspace.getByRole("article", { name: "Nested row" });
+  const childRegion = nestedRow.getByRole("region", { name: "Nested row child sections" });
+  await expect(childRegion).toHaveAttribute("data-workspace-child-overflow", "scroll");
+  await expect(childRegion).toHaveAttribute("data-workspace-scrollable", "true");
+  await expect(childRegion).toHaveAttribute("data-workspace-prevent-wheel", "true");
+  await expect(childRegion).toHaveAttribute("tabindex", "0");
+  const scrollMetrics = await childRegion.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    clientWidth: element.clientWidth,
+    scrollHeight: element.scrollHeight,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(scrollMetrics.scrollWidth).toBeGreaterThan(scrollMetrics.clientWidth);
+
+  const regionBox = await childRegion.boundingBox();
+  if (!regionBox) {
+    throw new Error("The scrollable child region must expose browser geometry.");
+  }
+  const viewportBeforeWheel = await canvasViewport(page);
+  await page.mouse.move(regionBox.x + regionBox.width / 2, regionBox.y + 6);
+  await page.mouse.wheel(220, 0);
+  await expect.poll(() => childRegion.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+  expect(await canvasViewport(page)).toEqual(viewportBeforeWheel);
+
+  await nestedRow.getByRole("button", { name: "Select Nested row" }).click();
+  const growControl = nestedRow.getByRole("button", {
+    name: "Grow Nested row child sections",
+  });
+  await expect(growControl).toHaveAttribute("aria-pressed", "true");
+  await growControl.click();
+  await expect(nestedRow).toHaveAttribute("data-workspace-child-overflow", "grow");
+  await expect(nestedRow.getByRole("group", { name: "Nested row child sections" })).toBeVisible();
+  const grownBox = await nestedRow.boundingBox();
+  if (!grownBox) {
+    throw new Error("The growing child container must expose browser geometry.");
+  }
+
+  const scrollControl = nestedRow.getByRole("button", {
+    name: "Scroll Nested row child sections",
+  });
+  await scrollControl.click();
+  await expect(
+    nestedRow.getByRole("button", { name: "Grow Nested row child sections" }),
+  ).toBeFocused();
+  await expect(nestedRow).toHaveAttribute("data-workspace-child-overflow", "scroll");
+  const recapturedBox = await nestedRow.boundingBox();
+  if (!recapturedBox) {
+    throw new Error("The recaptured scroll container must expose browser geometry.");
+  }
+  expect(recapturedBox.width).toBeCloseTo(grownBox.width, 0);
+  await expect(workspace.locator("[data-workspace-container-layout-announcement]")).toHaveText(
+    "Nested row is scrolling its child sections.",
+  );
+
+  await canvas.focus();
+  await page.keyboard.press("Control+z");
+  await expect(nestedRow).toHaveAttribute("data-workspace-child-overflow", "grow");
+  await page.keyboard.press("Control+Shift+z");
+  await expect(nestedRow).toHaveAttribute("data-workspace-child-overflow", "scroll");
+
+  const emptyContainer = workspace.getByRole("article", { name: "Empty container" });
+  const emptyTarget = emptyContainer.locator("[data-workspace-empty-child-container]");
+  const emptyBox = await emptyTarget.boundingBox();
+  if (!emptyBox) {
+    throw new Error("The empty child target must expose browser geometry.");
+  }
+  const point = { x: emptyBox.x + emptyBox.width / 2, y: emptyBox.y + emptyBox.height / 2 };
+  const transfer = await recursiveChildTransfer(page, "External child");
+  const eventInit = { clientX: point.x, clientY: point.y, dataTransfer: transfer };
+  await emptyTarget.dispatchEvent("dragenter", eventInit);
+  await emptyTarget.dispatchEvent("dragover", eventInit);
+  await expect(canvas).toHaveAttribute("data-workspace-external-drop-state", "valid");
+  await expect(
+    workspace.locator('[data-workspace-external-drop-target="empty-container"]'),
+  ).toHaveAttribute("data-workspace-external-drop-valid", "true");
+  await emptyTarget.dispatchEvent("drop", eventInit);
+
+  await expect(emptyContainer.locator("[data-workspace-empty-child-container]")).toHaveCount(0);
+  await expect(emptyContainer.getByRole("article", { name: "External child" })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("External child added to Empty container.");
+  const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
+  expect(accessibility.violations).toEqual([]);
+  await expect(workspace).toHaveScreenshot("recursive-container-overflow.png");
 });

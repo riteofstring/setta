@@ -84,6 +84,7 @@ const historyRequirements: Partial<
   "section-lock": ["editLayout"],
   "section-minimize": ["editPresentation"],
   "section-move": ["editLayout"],
+  "section-overflow": ["editLayout"],
   "section-presentation": ["editPresentation"],
   "section-resize": ["editLayout"],
   "section-size-mode": ["editLayout"],

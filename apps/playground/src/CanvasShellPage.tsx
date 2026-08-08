@@ -64,6 +64,7 @@ const scrollFixture = Array.from(
   (_, index) => `Scrollable host line ${String(index + 1)}`,
 ).join("\n");
 const HOST_EXTENSIONS_DEFAULT_QUERY = "(min-width: 40rem)";
+const RECURSIVE_CHILD_MIME = "application/x-setta-workspace-recursive-child";
 
 const navigationSectionDefinitions = [
   {
@@ -143,10 +144,11 @@ function recursiveContainer(
   sectionIds: readonly string[],
   width: number,
   height: number,
+  overflow: "grow" | "scroll" = "grow",
 ): WorkspaceSection {
   return {
     ...navigationSection(id, title),
-    childLayout: { orientation, overflow: "grow", sectionIds },
+    childLayout: { orientation, overflow, sectionIds },
     kind: "navigation group",
     size: {
       height: { mode: "content", value: height },
@@ -220,8 +222,9 @@ function createRecursiveDocument(): WorkspaceDocument {
         "Nested row",
         "horizontal",
         ["nested-beta", "deep-container"],
-        640,
+        480,
         420,
+        "scroll",
       ),
       "recursive-root": recursiveContainer(
         "recursive-root",
@@ -676,6 +679,46 @@ export function CanvasShellPage() {
             }}
             onGridSnapChange={setGridSnap}
             onMinimapVisibilityChange={setMinimapVisible}
+            onExternalDrop={({ candidate, dataTransfer }) => {
+              const parentSectionId = candidate.parentSectionId;
+              const parent = parentSectionId ? document.sections[parentSectionId] : undefined;
+              if (!parentSectionId || !parent?.childLayout) {
+                setStatus("Recursive child drop canceled because its container is unavailable.");
+                return;
+              }
+              const nextNumber =
+                Object.keys(document.sections).filter((sectionId) =>
+                  sectionId.startsWith("external-child-"),
+                ).length + 1;
+              const sectionId = `external-child-${String(nextNumber)}`;
+              const title =
+                dataTransfer.getData(RECURSIVE_CHILD_MIME).trim() ||
+                `Dropped child ${String(nextNumber)}`;
+              const insertionIndex = candidate.insertionIndex;
+              if (
+                !Number.isInteger(insertionIndex) ||
+                insertionIndex < 0 ||
+                insertionIndex > parent.childLayout.sectionIds.length
+              ) {
+                setStatus("Recursive child drop canceled because its insertion point changed.");
+                return;
+              }
+              const sectionIds = [...parent.childLayout.sectionIds];
+              sectionIds.splice(insertionIndex, 0, sectionId);
+              setDocument({
+                ...document,
+                sections: {
+                  ...document.sections,
+                  [parentSectionId]: {
+                    ...parent,
+                    childLayout: { ...parent.childLayout, sectionIds },
+                  },
+                  [sectionId]: navigationSection(sectionId, title),
+                },
+              });
+              setDocumentChangeCount((count) => count + 1);
+              setStatus(`${title} added to ${parent.title}.`);
+            }}
             sectionDefinitions={navigationSectionDefinitions}
             selectionOptions={{ marqueeMode: "full" }}
             overlaySlots={{
@@ -717,6 +760,20 @@ export function CanvasShellPage() {
                 ) : null,
             }}
             toolbarControls={toolbarControls}
+            validateExternalDrop={({ candidate, event }) => {
+              if (!event.dataTransferTypes.includes(RECURSIVE_CHILD_MIME)) {
+                return {
+                  allowed: false,
+                  reason: "Only recursive child fixture drops are accepted here.",
+                };
+              }
+              return candidate.parentSectionId
+                ? { allowed: true, label: "Add child section to this container" }
+                : {
+                    allowed: false,
+                    reason: "Recursive child fixture drops require a section container.",
+                  };
+            }}
           />
         ) : null}
         <label className="canvas-shell-document">
