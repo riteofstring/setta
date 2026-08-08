@@ -2,6 +2,48 @@ import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const proofUrl = "/?adapter-proof";
+const proofRootIds = ["root-alpha", "root-beta"] as const;
+
+async function readNumericAttribute(locator: Locator, attribute: string): Promise<number> {
+  const value = await locator.getAttribute(attribute);
+  if (value === null || !Number.isFinite(Number(value))) {
+    throw new Error(`${attribute} must contain a finite numeric proof value.`);
+  }
+  return Number(value);
+}
+
+async function rootRenderCounts(
+  page: Page,
+): Promise<Record<(typeof proofRootIds)[number], number>> {
+  const entries = await Promise.all(
+    proofRootIds.map(async (rootId) => {
+      const root = page.locator(`.react-flow__node[data-id="${rootId}"] [data-proof-render-count]`);
+      return [rootId, await readNumericAttribute(root, "data-proof-render-count")] as const;
+    }),
+  );
+  return Object.fromEntries(entries) as Record<(typeof proofRootIds)[number], number>;
+}
+
+async function settleVisualFrames(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+}
+
+async function dispatchWheelBurst(
+  page: Page,
+  point: { x: number; y: number },
+  eventCount: number,
+): Promise<void> {
+  await page.mouse.move(point.x, point.y);
+  for (let index = 0; index < eventCount; index += 1) {
+    await page.mouse.wheel(3, 4);
+  }
+  await settleVisualFrames(page);
+}
 
 async function expectSelectionAligned(page: Page, sectionIds = ["nested-note-b"]) {
   const sections = sectionIds.map((sectionId) =>
@@ -635,6 +677,115 @@ test.describe("upstream adapter proof", () => {
         },
       });
       await expect(page.locator("[data-proof-command-count]")).toHaveText("Commands: 1");
+    });
+  });
+
+  test("bounds recursive renders across high-frequency structural, root, and viewport movement", async ({
+    page,
+  }) => {
+    await page.goto(proofUrl);
+    await expect(page.locator("[data-proof-initial-fit]")).toHaveText("Initial fit: ready");
+    const commandCount = page.locator("[data-proof-command-count]");
+    const dragDiagnostics = page.locator(".setta-adapter-proof__drag-diagnostics");
+    const geometryDiagnostics = page.locator("[data-proof-geometry-count]");
+    const structuralRenderStart = await rootRenderCounts(page);
+    const dragUpdateStart = await readNumericAttribute(
+      dragDiagnostics,
+      "data-proof-drag-update-count",
+    );
+
+    const nestedHandle = page.getByRole("button", { name: "Move Research note" });
+    const nestedTarget = page.locator('[data-proof-section-id="nested-container"]');
+    await nestedTarget.evaluate((element) => element.scrollIntoView({ block: "center" }));
+    const nestedStart = await findVisibleActionPoint(nestedHandle);
+    const nestedTargetBox = await nestedTarget.boundingBox();
+    if (!nestedTargetBox) {
+      throw new Error("The high-frequency structural target must be measurable.");
+    }
+    await page.mouse.move(nestedStart.x, nestedStart.y);
+    await page.mouse.down();
+    await page.mouse.move(nestedStart.x + 8, nestedStart.y, { steps: 4 });
+    await page.mouse.move(
+      nestedTargetBox.x + nestedTargetBox.width / 2,
+      nestedTargetBox.y + nestedTargetBox.height - 8,
+      { steps: 96 },
+    );
+    await expect(page.locator("[data-proof-drag-owner]")).toHaveAttribute(
+      "data-proof-drag-owner",
+      "section-structure",
+    );
+    const structuralRenderActive = await rootRenderCounts(page);
+    const dragUpdateActive = await readNumericAttribute(
+      dragDiagnostics,
+      "data-proof-drag-update-count",
+    );
+    expect(structuralRenderActive).toEqual(structuralRenderStart);
+    expect(dragUpdateActive - dragUpdateStart).toBeGreaterThanOrEqual(48);
+    expect(dragUpdateActive - dragUpdateStart).toBeLessThanOrEqual(240);
+    await page.mouse.up();
+    await expect(commandCount).toHaveText("Commands: 1");
+    const structuralRenderComplete = await rootRenderCounts(page);
+    for (const rootId of proofRootIds) {
+      expect(structuralRenderComplete[rootId] - structuralRenderStart[rootId]).toBeLessThanOrEqual(
+        2,
+      );
+    }
+
+    const rootHandle = page.getByRole("button", { name: "Move Planning section" });
+    const rootStart = await findVisibleActionPoint(rootHandle);
+    const rootRenderStart = await rootRenderCounts(page);
+    const rootGeometryStart = await readNumericAttribute(
+      geometryDiagnostics,
+      "data-proof-geometry-revision",
+    );
+    await page.mouse.move(rootStart.x, rootStart.y);
+    await page.mouse.down();
+    await page.mouse.move(rootStart.x + 120, rootStart.y + 64, { steps: 96 });
+    await settleVisualFrames(page);
+    await expectSelectionAligned(page);
+    expect(await rootRenderCounts(page)).toEqual(rootRenderStart);
+    const rootGeometryActive = await readNumericAttribute(
+      geometryDiagnostics,
+      "data-proof-geometry-revision",
+    );
+    expect(rootGeometryActive).toBeGreaterThan(rootGeometryStart);
+    await page.mouse.up();
+    await expect(commandCount).toHaveText("Commands: 2");
+    const rootRenderComplete = await rootRenderCounts(page);
+    for (const rootId of proofRootIds) {
+      expect(rootRenderComplete[rootId] - rootRenderStart[rootId]).toBeLessThanOrEqual(2);
+    }
+
+    const viewportRenderStart = await rootRenderCounts(page);
+    const viewportGeometryStart = await readNumericAttribute(
+      geometryDiagnostics,
+      "data-proof-geometry-revision",
+    );
+    const viewportTransform = page.locator(".react-flow__viewport");
+    const transformBefore = await viewportTransform.getAttribute("style");
+    await dispatchWheelBurst(page, await findBlankCanvasPoint(page), 96);
+    await expect.poll(() => viewportTransform.getAttribute("style")).not.toBe(transformBefore);
+    const viewportRenderComplete = await rootRenderCounts(page);
+    expect(viewportRenderComplete).toEqual(viewportRenderStart);
+    const viewportGeometryComplete = await readNumericAttribute(
+      geometryDiagnostics,
+      "data-proof-geometry-revision",
+    );
+    expect(viewportGeometryComplete - viewportGeometryStart).toBeLessThanOrEqual(16);
+
+    test.info().annotations.push({
+      type: "phase-0-browser-baseline",
+      description: JSON.stringify({
+        dragStorePublications: dragUpdateActive - dragUpdateStart,
+        rootGeometryRevisions: rootGeometryActive - rootGeometryStart,
+        structuralActiveRootRenderDelta: proofRootIds.map(
+          (rootId) => structuralRenderActive[rootId] - structuralRenderStart[rootId],
+        ),
+        viewportGeometryRevisions: viewportGeometryComplete - viewportGeometryStart,
+        viewportRootRenderDelta: proofRootIds.map(
+          (rootId) => viewportRenderComplete[rootId] - viewportRenderStart[rootId],
+        ),
+      }),
     });
   });
 

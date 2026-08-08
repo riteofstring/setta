@@ -22,6 +22,41 @@ function request(overrides: Partial<InteractionStart> = {}): InteractionStart {
   };
 }
 
+const interactionInputs = ["pointer", "touch", "keyboard"] satisfies InteractionInput[];
+const ownerCases: readonly {
+  expected: ReturnType<typeof resolveStartOwner>;
+  label: string;
+  overrides: Partial<InteractionStart>;
+}[] = [
+  { expected: "viewport", label: "canvas", overrides: { surface: "canvas" } },
+  {
+    expected: "root-layout",
+    label: "sorting root handle",
+    overrides: { surface: "root-section-handle" },
+  },
+  {
+    expected: "section-structure",
+    label: "free-move root handle",
+    overrides: { sectionMode: "free", surface: "root-section-handle" },
+  },
+  {
+    expected: "section-structure",
+    label: "nested handle",
+    overrides: { surface: "nested-section-handle" },
+  },
+  { expected: "item-tree", label: "item handle", overrides: { surface: "item-handle" } },
+  { expected: null, label: "host content", overrides: { surface: "host-content" } },
+  {
+    expected: "viewport",
+    label: "viewport override",
+    overrides: { surface: "root-section-handle", viewportOverride: true },
+  },
+];
+
+const ownerInputCases = ownerCases.flatMap((ownerCase) =>
+  interactionInputs.map((input) => ({ ...ownerCase, input })),
+);
+
 describe("Phase 0 interaction-owner characterization", () => {
   it("records the source surfaces behind the ownership matrix", () => {
     expect(INTERACTION_FIXTURE_EVIDENCE.ownership.sources).toEqual(
@@ -32,70 +67,50 @@ describe("Phase 0 interaction-owner characterization", () => {
     );
   });
 
-  it.each<{
-    expected: ReturnType<typeof resolveStartOwner>;
-    overrides: Partial<InteractionStart>;
-  }>([
-    { expected: "viewport", overrides: { surface: "canvas" } },
-    { expected: "root-layout", overrides: { surface: "root-section-handle" } },
-    {
-      expected: "section-structure",
-      overrides: { sectionMode: "free", surface: "root-section-handle" },
-    },
-    {
-      expected: "section-structure",
-      overrides: { surface: "nested-section-handle" },
-    },
-    { expected: "item-tree", overrides: { surface: "item-handle" } },
-    { expected: null, overrides: { surface: "host-content" } },
-    {
-      expected: "viewport",
-      overrides: { surface: "root-section-handle", viewportOverride: true },
-    },
-  ])("assigns exactly $expected for $overrides.surface", ({ expected, overrides }) => {
-    expect(resolveStartOwner(request(overrides))).toBe(expected);
-  });
-
-  it.each<InteractionInput>(["pointer", "touch", "keyboard"])(
-    "uses the same section-structure owner for %s activation",
-    (input) => {
-      expect(
-        resolveStartOwner(
-          request({ input, sectionMode: "free", surface: "nested-section-handle" }),
-        ),
-      ).toBe("section-structure");
+  it.each(ownerInputCases)(
+    "assigns exactly $expected for $input activation on $label",
+    ({ expected, input, overrides }) => {
+      expect(resolveStartOwner(request({ ...overrides, input }))).toBe(expected);
     },
   );
 
-  it("disables competing activators when the owning capability is unavailable", () => {
-    expect(
-      resolveStartOwner(request({ layoutEnabled: false, surface: "root-section-handle" })),
-    ).toBeNull();
-    expect(
-      resolveStartOwner(request({ structureEnabled: false, surface: "nested-section-handle" })),
-    ).toBeNull();
-    expect(
-      resolveStartOwner(request({ itemMovementEnabled: false, surface: "item-handle" })),
-    ).toBeNull();
-  });
+  it.each(interactionInputs)(
+    "disables competing %s activators when the owning capability is unavailable",
+    (input) => {
+      expect(
+        resolveStartOwner(request({ input, layoutEnabled: false, surface: "root-section-handle" })),
+      ).toBeNull();
+      expect(
+        resolveStartOwner(
+          request({ input, structureEnabled: false, surface: "nested-section-handle" }),
+        ),
+      ).toBeNull();
+      expect(
+        resolveStartOwner(request({ input, itemMovementEnabled: false, surface: "item-handle" })),
+      ).toBeNull();
+    },
+  );
 
-  it("retains one owner through runtime mode changes and clears it on cancellation", () => {
-    const active = transitionInteractionOwnership(IDLE_INTERACTION_OWNERSHIP, {
-      type: "start",
-      request: request({ surface: "root-section-handle" }),
-    });
-    const afterModeChange = transitionInteractionOwnership(active, {
-      type: "mode-change",
-      sectionMode: "free",
-    });
-    const cancelled = transitionInteractionOwnership(afterModeChange, {
-      type: "cancel",
-    });
+  it.each(interactionInputs)(
+    "retains one %s owner through runtime mode changes and clears it on cancellation",
+    (input) => {
+      const active = transitionInteractionOwnership(IDLE_INTERACTION_OWNERSHIP, {
+        type: "start",
+        request: request({ input, surface: "root-section-handle" }),
+      });
+      const afterModeChange = transitionInteractionOwnership(active, {
+        type: "mode-change",
+        sectionMode: "free",
+      });
+      const cancelled = transitionInteractionOwnership(afterModeChange, {
+        type: "cancel",
+      });
 
-    expect(active).toEqual({ owner: "root-layout", phase: "active" });
-    expect(afterModeChange).toBe(active);
-    expect(cancelled).toBe(IDLE_INTERACTION_OWNERSHIP);
-  });
+      expect(active).toEqual({ owner: "root-layout", phase: "active" });
+      expect(afterModeChange).toBe(active);
+      expect(cancelled).toBe(IDLE_INTERACTION_OWNERSHIP);
+    },
+  );
 
   it("rejects a second owner while a gesture is active and releases on completion", () => {
     const active = transitionInteractionOwnership(IDLE_INTERACTION_OWNERSHIP, {

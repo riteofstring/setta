@@ -32,20 +32,34 @@ The test fixture metadata in `packages/workspace/tests/fixtures/interaction-evid
 - Applying a move plan returns a new hierarchy and does not mutate its input.
 - An active interaction retains its one owner through runtime mode changes; cancellation and completion release ownership without selecting a competing owner mid-gesture.
 
+## Final Phase 0 owner and DnD matrix audit
+
+The final adapter audit found no residual Phase 0 owner or section-DnD behavior cell. Coverage is
+split intentionally between deterministic package-kernel tests and representative trusted browser
+paths:
+
+| Matrix area                                                                                                                              | Executable evidence                                                                                  | Audit result                                                                                                                                                                        |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Canvas, sorting-root, free-move-root, nested-section, item, host-content, and viewport-override activation                               | `interaction-owner.test.ts` runs every surface for pointer, touch, and keyboard input                | Every start resolves to exactly one owner or an explicit no-owner result; disabled layout, structure, and item capabilities disable their competing activators for all three inputs |
+| Runtime mode changes, cancellation, completion, and second-owner rejection                                                               | `interaction-owner.test.ts` plus the adapter ownership browser workflows                             | The captured owner is stable until cancel or complete, a second owner fails specifically, and no canceled gesture emits a command                                                   |
+| Sorting and free movement; single and canonical sibling blocks                                                                           | `interaction-planning.test.ts`, `adapter-proof-drag-planning.test.ts`, and adapter browser workflows | Plans and trusted adapter completion use the same package-owned destination and produce at most one accepted command                                                                |
+| Canvas-to-nested, nested-to-canvas, nested-to-nested, empty-container, and invalid descendant or parent targets                          | `interaction-planning.test.ts` and `adapter-proof-drag-planning.test.ts`                             | Every parent transition is deterministic; invalid, canceled, unchanged, and host-rejected outcomes cannot partially mutate the hierarchy                                            |
+| Vertical and horizontal midpoint transitions, child promotion, hysteresis, stale-target clearing, and preview transforms                 | `interaction-collision.test.ts` and `interaction-planning.test.ts`                                   | Collision state and insertion boundaries remain package-owned and canonical/DOM order stays unchanged during preview                                                                |
+| Minimum/default/maximum zoom, selection collision shape, placeholders, canvas coordinates, constrained scroll, and preview/commit parity | `interaction-geometry.test.ts`, `adapter-proof-drag-planning.test.ts`, and adapter browser workflows | Geometry uses one coordinate space at 0.5x/1x/2x, nested scrolling does not leak to the viewport, and the committed key matches the displayed preview                               |
+| Public upstream provider and sensor ownership                                                                                            | Trusted pointer, keyboard, and long-press touch adapter browser workflows                            | dnd-kit owns activation, measurement, feedback, overlay, and completion while package planning owns destination semantics; XYFlow and viewport activators do not compete            |
+
+Item-tree behavior beyond the generic selection and ownership fixtures is Phase 4 work, not a
+missing Phase 0 section-DnD cell.
+
 ## Phase 0 limits still open
 
 The [upstream adapter proof](upstream-adapter-proof.md) exact-pins the selected dependencies,
 records their public adapter and license boundaries, implements the root-node/recursive-DOM
 representation, and adds focused geometry, transient-projection, ownership, accessibility, and
-browser evidence. Phase 0 still requires:
-
-- A final matrix audit for residual interaction-owner or DnD cells. The current upstream proof now
-  covers sort/free selection blocks, runtime mode retention, source/destination placeholders,
-  canvas drops, preview/commit parity at 0.5x/1x/2x, and trusted accepted keyboard and long-press
-  touch movement through the structural owner.
-- Representative browser render-count and high-frequency interaction baselines. The first
-  repeatable 2,000-frame geometry-index baseline is recorded under `perf/`.
-- The complete non-DnD behavior inventory, browser characterization matrix, and final Phase 0 gate
-  audit.
+browser evidence. The owner/DnD matrix audit is complete, and `perf/` now records both the
+repeatable 2,000-frame framework-neutral geometry workload and the trusted-browser recursive-root
+render baseline. Phase 0 still requires the complete non-DnD behavior inventory, browser
+characterization matrix, and final gate audit. The plan records interactive CDP review separately
+as an unavailable external release gate.
 
 Unavailable external evidence does not change the completion state of these remaining repository and adapter tasks.

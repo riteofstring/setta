@@ -66,6 +66,12 @@ upstream/browser proof boundary. Fixture metadata is also checked in
 `packages/workspace/tests/fixtures/interaction-evidence.ts`; focused tests live in
 the adjacent `interaction-*.test.ts` files.
 
+The final Phase 0 owner and section-DnD audit is recorded in that matrix. It exercises every owner
+surface for pointer, touch, and keyboard input and maps the required sorting, free-move,
+selection-block, transition, invalid-target, orientation, cancellation, scrolling, and zoom cells
+to deterministic or trusted-browser evidence. No residual Phase 0 interaction-kernel cell remains;
+item-tree integration itself stays deferred to Phase 4.
+
 ## License and attribution boundary
 
 The captured XYFlow and dnd-kit fork directories each contain an MIT `LICENSE`. Preserve copyright and license notices for any source-derived implementation. Behavioral reimplementation from independently written specifications should still retain this manifest, while copied or closely ported code must identify its source path and commit beside the new implementation and in the third-party attribution record.

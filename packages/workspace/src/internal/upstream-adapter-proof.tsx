@@ -4,7 +4,6 @@ import {
   Controls,
   ReactFlow,
   applyNodeChanges,
-  useViewport,
   type Node,
   type NodeProps,
   type NodeTypes,
@@ -39,10 +38,7 @@ import {
 import { EMPTY_COLLISION_TRACKER_STATE } from "./collision-characterization.js";
 import {
   WorkspaceGeometryIndex,
-  clientRectToWorkspace,
   type MarqueeSelectionMode,
-  type MeasuredWorkspaceFrame,
-  type ScreenRect,
   type WorkspacePoint,
 } from "./geometry-index.js";
 import {
@@ -65,6 +61,7 @@ import {
 import {
   AdapterProofCanvasControls,
   AdapterProofGeometryCount,
+  AdapterProofGeometryMeasurements,
   AdapterProofInitialGeometryFit,
   AdapterProofMarqueeSelection,
   AdapterProofSelectedFrameOverlay,
@@ -112,9 +109,8 @@ export type UpstreamAdapterProofProps = {
 };
 
 type ProofContextValue = {
-  canvasElement: HTMLElement | null;
   dragMode: SectionMoveMode;
-  geometryIndex: WorkspaceGeometryIndex;
+  geometryMeasurements: AdapterProofGeometryMeasurements;
   hierarchy: SectionHierarchySnapshot;
   nestedByRoot: Readonly<Record<string, readonly AdapterProofNestedSection[]>>;
   selectedSectionIds: ReadonlySet<string>;
@@ -169,50 +165,27 @@ function useProofContext(): ProofContextValue {
   return value;
 }
 
-function domRect(rect: DOMRect): ScreenRect {
-  return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
-}
-
 function useMeasuredFrame(
   sectionId: string,
   parentSectionId: string | null,
   depth: number,
   order: number,
 ): (element: HTMLElement | null) => void {
-  const { canvasElement, geometryIndex } = useProofContext();
+  const { geometryMeasurements } = useProofContext();
   const [element, setElement] = useState<HTMLElement | null>(null);
-  const viewport = useViewport();
 
   useLayoutEffect(() => {
-    if (!canvasElement || !element) {
+    if (!element) {
       return;
     }
-
-    const measure = (): MeasuredWorkspaceFrame => ({
+    return geometryMeasurements.register({
+      element,
       sectionId,
       parentSectionId,
       depth,
       order,
-      rect: clientRectToWorkspace(
-        domRect(element.getBoundingClientRect()),
-        domRect(canvasElement.getBoundingClientRect()),
-        viewport,
-      ),
     });
-    const registration = geometryIndex.register(measure());
-    const update = () => registration.update(measure());
-    const observer = new ResizeObserver(update);
-    observer.observe(element);
-    canvasElement.addEventListener("scroll", update, true);
-    window.addEventListener("resize", update);
-
-    return () => {
-      observer.disconnect();
-      canvasElement.removeEventListener("scroll", update, true);
-      window.removeEventListener("resize", update);
-      registration.dispose();
-    };
-  }, [canvasElement, depth, element, geometryIndex, order, parentSectionId, sectionId, viewport]);
+  }, [depth, element, geometryMeasurements, order, parentSectionId, sectionId]);
 
   return setElement;
 }
@@ -586,6 +559,10 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
   const diagnostics = useMemo(() => new ProofDiagnosticsStore(), []);
   const dragStore = useMemo(() => new AdapterProofDragStore(), []);
   const geometryIndex = useMemo(() => new WorkspaceGeometryIndex(), []);
+  const geometryMeasurements = useMemo(
+    () => new AdapterProofGeometryMeasurements(geometryIndex),
+    [geometryIndex],
+  );
   const [canvasElement, setCanvasElement] = useState<HTMLElement | null>(null);
   const [hierarchy, setHierarchy] = useState(INITIAL_ADAPTER_PROOF_HIERARCHY);
   const [nodes, setNodes] = useState<ProofRootNode[]>(() =>
@@ -612,9 +589,21 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
     [diagnostics, onCommand],
   );
 
-  const onNodesChange = useCallback<OnNodesChange<ProofRootNode>>((changes) => {
-    setNodes((current) => applyNodeChanges(changes, current));
-  }, []);
+  const onNodesChange = useCallback<OnNodesChange<ProofRootNode>>(
+    (changes) => {
+      setNodes((current) => applyNodeChanges(changes, current));
+      geometryMeasurements.requestMeasurement();
+    },
+    [geometryMeasurements],
+  );
+
+  const registerCanvasElement = useCallback(
+    (element: HTMLElement | null) => {
+      geometryMeasurements.setCanvasElement(element);
+      setCanvasElement(element);
+    },
+    [geometryMeasurements],
+  );
 
   const selectSection = useCallback(
     (sectionId: string, additive: boolean) => {
@@ -790,6 +779,7 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
       const nextHierarchy = applySectionMovePlan(session.hierarchy, preview.plan);
       setHierarchy(nextHierarchy);
       setNodes((current) => syncRootNodes(current, nextHierarchy, geometryIndex));
+      geometryMeasurements.requestMeasurement();
       recordCommand({
         type: "move-section-block",
         destinationIndex: preview.plan.destinationIndex,
@@ -805,7 +795,7 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
         `${String(preview.plan.sectionIds.length)}-section ${preview.plan.mode} move committed from the displayed preview; one package command emitted.`,
       );
     },
-    [diagnostics, dragStore, geometryIndex, recordCommand],
+    [diagnostics, dragStore, geometryIndex, geometryMeasurements, recordCommand],
   );
 
   const changeDragMode = useCallback(
@@ -828,9 +818,8 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
 
   const contextValue = useMemo<ProofContextValue>(
     () => ({
-      canvasElement,
       dragMode,
-      geometryIndex,
+      geometryMeasurements,
       hierarchy,
       nestedByRoot,
       selectedSectionIds,
@@ -839,9 +828,8 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
       toggleNestedWidth,
     }),
     [
-      canvasElement,
       dragMode,
-      geometryIndex,
+      geometryMeasurements,
       hierarchy,
       nestedByRoot,
       selectedSectionIds,
@@ -880,7 +868,7 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
           <UpstreamDndDropZone
             className="setta-adapter-proof__canvas"
             id={ADAPTER_PROOF_CANVAS_TARGET_ID}
-            onElement={setCanvasElement}
+            onElement={registerCanvasElement}
           >
             <ReactFlow<ProofRootNode>
               aria-label="Adapter proof workbench"
@@ -976,6 +964,7 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
               <AdapterProofViewportObserver
                 onViewport={(nextViewport) => {
                   viewport.current = nextViewport;
+                  geometryMeasurements.setViewport(nextViewport);
                 }}
               />
             </ReactFlow>

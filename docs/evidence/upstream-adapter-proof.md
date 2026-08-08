@@ -75,6 +75,13 @@ selection focus, and recursive resize remeasurement consume those registrations 
 creating a parallel package measurement map. dnd-kit continues to own its substrate-level
 draggable and droppable measurement.
 
+One adapter-local measurement registry owns the DOM registrations. A single viewport observer
+updates its transform, and root movement, nested scrolling, element resizing, and window resizing
+request a coalesced animation-frame measurement pass. Measured section components no longer
+subscribe individually to XYFlow viewport state. Equal frames are not republished, so viewport
+movement does not rerender either recursive root while live root movement still advances the shared
+geometry index and keeps descendant overlays aligned.
+
 The same index now implements positive-area partial/full marquee queries, ancestor-normalized
 selection roots, readiness-aware bounds, and combined selection overlays. Shift-drag marquee
 selection and its keyboard-reachable fixture alternative consume those APIs at every visible depth.
@@ -112,19 +119,19 @@ the same strict package typecheck; the policy records 2026-11-07 as the expiry.
 
 ## Executable evidence
 
-| Evidence                                                       | Covered outcome                                                                                                                                                                             |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/workspace/tests/geometry-index.test.ts`              | All-depth registration, replacement and cleanup, marquee semantics, selection-root normalization, readiness bounds, hit ordering, scaled round trips, and scrolling                         |
-| `packages/workspace/tests/adapter-proof-drag-planning.test.ts` | Sort/free selection-block planning, nested destinations, invalid-target rejection, zoom-normalized canvas placement, and preview keys                                                       |
-| `packages/workspace/tests/transient-root-projection.test.ts`   | High-frequency move and resize coalescing, immutable input, selection projection, viewport completion, cancellation restoration, and specific invalid-state failures                        |
-| `tests/e2e/adapter-proof.spec.ts` geometry workflows           | Measurement-gated initial fit, all-depth partial/full marquee, normalized multi-selection overlay at 0.5x/1x/2x, resize remeasurement, focus, and scroll isolation                          |
-| `tests/e2e/adapter-proof.spec.ts` ownership workflows          | Pointer handoff, transient root lift, sort/free selection blocks, placeholders, canvas drops, runtime mode retention, accepted/canceled keyboard, trusted touch, and one-command completion |
-| `tests/e2e/adapter-proof.spec.ts` accessibility workflow       | Axe scan, reduced-motion rendering, 1280-pixel screenshot baseline, and 320-CSS-pixel reflow without horizontal overflow                                                                    |
-| `corepack pnpm perf:geometry` and `perf/`                      | Repeatable non-gating baseline for 2,000 registrations, 500 marquee queries, 500 combined bounds, and 1,000 incremental updates                                                             |
+| Evidence                                                               | Covered outcome                                                                                                                                                                             |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/workspace/tests/geometry-index.test.ts`                      | All-depth registration, replacement and cleanup, marquee semantics, selection-root normalization, readiness bounds, hit ordering, scaled round trips, and scrolling                         |
+| `packages/workspace/tests/adapter-proof-drag-planning.test.ts`         | Sort/free selection-block planning, nested destinations, invalid-target rejection, zoom-normalized canvas placement, and preview keys                                                       |
+| `packages/workspace/tests/transient-root-projection.test.ts`           | High-frequency move and resize coalescing, immutable input, selection projection, viewport completion, cancellation restoration, and specific invalid-state failures                        |
+| `tests/e2e/adapter-proof.spec.ts` geometry workflows                   | Measurement-gated initial fit, all-depth partial/full marquee, normalized multi-selection overlay at 0.5x/1x/2x, resize remeasurement, focus, and scroll isolation                          |
+| `tests/e2e/adapter-proof.spec.ts` ownership workflows                  | Pointer handoff, transient root lift, sort/free selection blocks, placeholders, canvas drops, runtime mode retention, accepted/canceled keyboard, trusted touch, and one-command completion |
+| `tests/e2e/adapter-proof.spec.ts` accessibility workflow               | Axe scan, reduced-motion rendering, 1280-pixel screenshot baseline, and 320-CSS-pixel reflow without horizontal overflow                                                                    |
+| `corepack pnpm perf:geometry` and `perf/`                              | Repeatable non-gating baseline for 2,000 registrations, 500 marquee queries, 500 combined bounds, and 1,000 incremental updates                                                             |
+| `perf/phase-0-browser-render-baseline.md` and focused browser workflow | Ninety-six-step structural and root movement plus a 96-event viewport burst, with unchanged recursive-root render counts during transient work and bounded commit/geometry publications     |
 
-The in-app CDP browser surface was unavailable during this batch, so repository Playwright
-provided the focused browser and screenshot evidence. Interactive CDP visual inspection remains an
-explicit Phase 0 audit gate.
+Repository Playwright provides the focused browser and screenshot evidence. Interactive CDP status
+is tracked separately in the plan's external release gate.
 
 ## Verification recorded on 2026-08-08
 
@@ -152,9 +159,18 @@ build, explicit tarball allowlisting, and API-report generation. The updated fro
 the registry-backed supply-chain audit with no known vulnerabilities, and the packed artifact built
 successfully in the unrelated consumer fixture.
 
+The final owner/DnD audit expanded the deterministic owner table to every pointer, touch, and
+keyboard surface cell and found no residual Phase 0 behavior gap. Its performance pass replaced
+per-frame recursive viewport subscriptions with one adapter-local measurement registry. The
+focused Chromium baseline passed 96-step structural movement, 96-step live XYFlow root movement,
+and 96 trusted viewport events while keeping both recursive-root render counters unchanged during
+transient work. The same batch passed changed-file boundary and dependency policy, formatting,
+lint, strict types, dead-code analysis, 81 unit tests, automation tests, package and playground
+builds, tarball allowlisting, and public-API report generation. Three directly affected Chromium
+geometry, accessibility, reflow, and screenshot selectors also passed. No manifest or lockfile
+changed, so the already-green registry-backed supply-chain gate was not duplicated.
+
 ## Still open in Phase 0
 
-This proof does not complete the full phase. Representative browser render-count baselines and any
-residual owner/DnD cells identified by the final matrix audit remain open. The broader non-DnD
-behavior inventory, browser characterization matrix, interactive CDP review, and final phase gate
-audit also remain repository-actionable.
+This proof does not complete the full phase. The broader non-DnD behavior inventory, browser
+characterization matrix, and final phase gate audit remain repository-actionable.

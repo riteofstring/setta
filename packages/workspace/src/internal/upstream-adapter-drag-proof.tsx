@@ -19,6 +19,7 @@ export type AdapterProofDragSnapshot = {
   resolvedTargetId: string | null;
   sourceBounds: InteractionRect | null;
   transform: InteractionPoint | null;
+  updateCount: number;
 };
 
 const EMPTY_DRAG_SNAPSHOT: AdapterProofDragSnapshot = {
@@ -33,6 +34,7 @@ const EMPTY_DRAG_SNAPSHOT: AdapterProofDragSnapshot = {
   resolvedTargetId: null,
   sourceBounds: null,
   transform: null,
+  updateCount: 0,
 };
 
 export class AdapterProofDragStore {
@@ -105,7 +107,11 @@ export class AdapterProofDragStore {
   }
 
   #set(update: Partial<AdapterProofDragSnapshot>): void {
-    this.#snapshot = { ...this.#snapshot, ...update };
+    this.#snapshot = {
+      ...this.#snapshot,
+      ...update,
+      updateCount: this.#snapshot.updateCount + 1,
+    };
     for (const listener of this.#listeners) {
       listener();
     }
@@ -123,7 +129,10 @@ export function AdapterProofDragDiagnostics({ store }: { store: AdapterProofDrag
   const resolvedTargetId = diagnosticValue(snapshot.resolvedTargetId);
   const commitKey = diagnosticValue(snapshot.commitKey);
   return (
-    <div className="setta-adapter-proof__drag-diagnostics">
+    <div
+      className="setta-adapter-proof__drag-diagnostics"
+      data-proof-drag-update-count={snapshot.updateCount}
+    >
       <p data-proof-drag-owner={owner}>Owner: {owner}</p>
       <p data-proof-drag-input={activeInput}>Input: {activeInput}</p>
       <p data-proof-drag-mode={activeMode}>Active mode: {activeMode}</p>
