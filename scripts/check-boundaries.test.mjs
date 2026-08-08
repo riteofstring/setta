@@ -14,6 +14,7 @@ test("accepts the intentional blank-slate tree and reviewed automation scripts",
     validateRepositoryPaths([
       "package.json",
       "apps/playground/src/App.tsx",
+      "patches/@xyflow__system@0.0.79.patch",
       "packages/workspace/src/core.ts",
       "fixtures/consumer/src/main.tsx",
       "scripts/automation/codex-loop/run-plan-implementation-loop.sh",

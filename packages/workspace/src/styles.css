@@ -1,3 +1,5 @@
+@import "@xyflow/react/dist/base.css";
+
 .setta-workspace {
   box-sizing: border-box;
   min-block-size: 24rem;
@@ -28,4 +30,273 @@
   background: var(--setta-workspace-surface, #ffffff);
   border-radius: 0.75rem;
   box-shadow: 0 0.5rem 1.5rem rgb(23 32 51 / 8%);
+}
+
+.setta-adapter-proof {
+  color: var(--setta-workspace-foreground, #172033);
+}
+
+.setta-adapter-proof *,
+.setta-adapter-proof *::before,
+.setta-adapter-proof *::after {
+  box-sizing: border-box;
+}
+
+.setta-adapter-proof button {
+  min-block-size: 2.75rem;
+  padding-inline: 0.875rem;
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+  background: var(--setta-workspace-surface, #ffffff);
+  border: 1px solid var(--setta-workspace-grid, #c8d2e1);
+  border-radius: 0.625rem;
+  cursor: pointer;
+}
+
+.setta-adapter-proof button:hover:not(:disabled) {
+  background: var(--setta-workspace-control-hover, #eef3fa);
+}
+
+.setta-adapter-proof button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.setta-adapter-proof :focus-visible {
+  outline-style: auto;
+  outline-offset: 3px;
+}
+
+.setta-adapter-proof__visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.setta-adapter-proof__summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem 2rem;
+  align-items: start;
+  margin-block-end: 1rem;
+  color: var(--setta-workspace-muted, #526079);
+}
+
+.setta-adapter-proof__summary p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.setta-adapter-proof__summary [role="status"] {
+  grid-column: 1 / -1;
+  min-block-size: 1.5rem;
+}
+
+.setta-adapter-proof__canvas {
+  block-size: clamp(28rem, 70vh, 42rem);
+  min-block-size: 28rem;
+  overflow: hidden;
+  background: var(--setta-workspace-canvas, #f4f7fb);
+  border-radius: 1rem;
+  box-shadow: inset 0 0 0 1px rgb(23 32 51 / 10%);
+}
+
+.setta-adapter-proof__canvas .react-flow__node {
+  border-radius: 0.875rem;
+}
+
+.setta-adapter-proof__canvas .react-flow__node:focus-visible {
+  outline-style: auto;
+  outline-offset: 4px;
+}
+
+.setta-adapter-proof__canvas .react-flow__node:has([aria-grabbed="true"]) {
+  z-index: 1000 !important;
+}
+
+.setta-adapter-proof__canvas .react-flow__attribution {
+  color: var(--setta-workspace-attribution, oklch(0.42 0.03 260));
+  background: var(--setta-workspace-surface, #ffffff);
+}
+
+.setta-adapter-proof__canvas .react-flow__attribution a {
+  color: inherit;
+}
+
+.setta-adapter-proof__root-section {
+  inline-size: 100%;
+  overflow: clip;
+  background: var(--setta-workspace-surface, #ffffff);
+  border-radius: 0.875rem;
+  box-shadow:
+    0 1rem 2.5rem rgb(23 32 51 / 12%),
+    0 0 0 1px rgb(23 32 51 / 8%);
+}
+
+.setta-adapter-proof__root-header,
+.setta-adapter-proof__nested-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.setta-adapter-proof__root-header {
+  min-block-size: 3.5rem;
+  padding: 0.375rem 0.5rem 0.375rem 1rem;
+  background: var(--setta-workspace-header, #e7eef9);
+}
+
+.setta-adapter-proof__root-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.setta-adapter-proof__root-handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.setta-adapter-proof__root-handle:active {
+  cursor: grabbing;
+}
+
+.setta-adapter-proof__nested-scroll {
+  display: grid;
+  max-block-size: 24rem;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.setta-adapter-proof__nested-section {
+  min-inline-size: 0;
+  padding: 0.625rem;
+  color: var(--setta-workspace-foreground, #172033);
+  background: var(--setta-workspace-nested-surface, #f7f9fd);
+  border-radius: 0.625rem;
+  box-shadow: 0 0 0 1px var(--setta-workspace-grid, #c8d2e1);
+}
+
+.setta-adapter-proof__nested-section[data-drop-target="true"],
+.setta-adapter-proof__nested-section[data-selected="true"] {
+  box-shadow: 0 0 0 2px var(--setta-workspace-accent, #315f9f);
+}
+
+.setta-adapter-proof__nested-section[data-drag-source="true"] {
+  opacity: 0.58;
+}
+
+.setta-adapter-proof__nested-section[data-wide="true"] {
+  inline-size: 18rem;
+}
+
+.setta-adapter-proof__nested-select {
+  flex: 1;
+  justify-content: flex-start;
+  min-inline-size: 0;
+  text-align: start;
+}
+
+.setta-adapter-proof__nested-select[aria-pressed="true"] {
+  color: var(--setta-workspace-accent-strong, #173f78);
+  background: var(--setta-workspace-selected, #dce9fb);
+}
+
+.setta-adapter-proof__nested-handle {
+  flex: none;
+  cursor: grab;
+  touch-action: none;
+}
+
+.setta-adapter-proof__nested-section p {
+  margin: 0.625rem 0 0;
+  color: var(--setta-workspace-muted, #526079);
+  line-height: 1.45;
+}
+
+.setta-adapter-proof__nested-children {
+  display: flex;
+  gap: 0.75rem;
+  margin-block-start: 0.75rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.setta-adapter-proof__nested-children > * {
+  flex: 0 0 12rem;
+}
+
+.setta-adapter-proof__nested-children > [data-wide="true"] {
+  flex-basis: 18rem;
+}
+
+.setta-adapter-proof__resize-control {
+  margin-block-start: 0.75rem;
+}
+
+.setta-adapter-proof__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  max-inline-size: min(26rem, calc(100vw - 5rem));
+  padding: 0.5rem;
+  background: color-mix(in srgb, var(--setta-workspace-surface, #ffffff) 92%, transparent);
+  border-radius: 0.875rem;
+  box-shadow: 0 0.5rem 1.5rem rgb(23 32 51 / 12%);
+}
+
+.setta-adapter-proof__selection-overlay {
+  position: absolute;
+  inset: 0 auto auto 0;
+  pointer-events: none;
+  border: 2px solid var(--setta-workspace-accent, #315f9f);
+  border-radius: 0.625rem;
+}
+
+.setta-adapter-proof__drag-overlay {
+  padding: 0.75rem 1rem;
+  color: #ffffff;
+  font-weight: 700;
+  background: #173f78;
+  border-radius: 0.625rem;
+  box-shadow: 0 0.75rem 2rem rgb(23 32 51 / 18%);
+}
+
+@media (max-width: 32rem) {
+  .setta-adapter-proof__summary {
+    grid-template-columns: 1fr;
+  }
+
+  .setta-adapter-proof__summary [role="status"] {
+    grid-column: auto;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .setta-adapter-proof {
+    --setta-workspace-accent: #9ebbf0;
+    --setta-workspace-accent-strong: #d9e6ff;
+    --setta-workspace-attribution: oklch(0.85 0.025 260);
+    --setta-workspace-canvas: #171e2c;
+    --setta-workspace-control-hover: #2c374a;
+    --setta-workspace-foreground: #edf3ff;
+    --setta-workspace-grid: #4a5871;
+    --setta-workspace-header: #29364b;
+    --setta-workspace-muted: #bdc8da;
+    --setta-workspace-nested-surface: #1d2635;
+    --setta-workspace-selected: #30496d;
+    --setta-workspace-surface: #222b3c;
+  }
 }

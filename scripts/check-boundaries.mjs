@@ -9,6 +9,7 @@ const allowedRootDirectories = new Set([
   "docs",
   "fixtures",
   "packages",
+  "patches",
   "scripts",
   "tests",
 ]);

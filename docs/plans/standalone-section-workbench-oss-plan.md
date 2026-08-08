@@ -1124,12 +1124,14 @@ The design should:
 
 ### Phase 0: Boundary, evidence, and repository setup
 
-Status: **in progress** (updated 2026-08-07).
+Status: **in progress** (updated 2026-08-08).
 
 - Completed: dedicated blank-slate branch from recorded source commit `043d3b2e9c69caf99d1246f1408b3ad7194b7864`; minimal private workspace, package, Node-only playground, unrelated consumer fixture, exact toolchain pins, new-tree hygiene files, package-specific repository instructions, baseline deterministic quality/packaging/supply-chain tooling, and initial source-linked interaction evidence.
 - Completed: reviewable tooling carryover inventory plus negative-tested repository-tree, application-import, source-escape, and undeclared-package-export boundary enforcement wired into changed-file quality checks.
 - Completed: framework-neutral, source-linked interaction fixtures for scaled geometry, combined selection bounds, selection-root normalization, canonical sibling-block order, collision ranking and hysteresis, nested target promotion, stale-target clearing, vertical and horizontal transform-stable previews, deterministic sort/free move planning and immutable application, and single-owner arbitration across pointer, touch, and keyboard activation.
-- Remaining: select and exact-pin upstream XYFlow and dnd-kit; complete the upstream differential, full behavior/browser characterization matrices, representation, geometry-index, transient-projection, scaled-ancestor, focus/scroll, adapter, public-store-access, licensing, accessibility, performance, and loaded-lockfile/audit evidence required by this phase and its gate.
+- Completed: exact-pinned `@xyflow/react@12.11.2` and `@dnd-kit/react@0.5.0`; documented-public-API adapters with no XYFlow store access or upstream declaration leakage; root-node/recursive-DOM representation; one incremental all-depth geometry index; adapter-local transient root projection; explicit optimistic-sorting decision; and focused Node-only browser evidence for zoom-aligned nested selection, resizing, focus/scroll isolation, keyboard cancellation, pointer handoff, transient lift, one-command completion, accessibility, reduced motion, and 320-pixel reflow. The declaration-only `@xyflow/system@0.0.79` patch has an exact scope, owner, expiry, upstream contribution path, and removal condition in the evidence.
+- Completed: the updated frozen lockfile passed strict loaded-lockfile policy, exact patch metadata, high/critical vulnerability audit, dependency-license allowlist, machine-readable inventory generation, and an unrelated packed-consumer installation.
+- Remaining: complete the unproved interaction-owner cells, minimum/default/maximum scaled drag scenarios, multi-selection geometry, all-depth marquee and initial-fit consumers, the full behavior/browser characterization matrices, representative performance baselines, and the final Phase 0 gate review.
 
 Produce:
 

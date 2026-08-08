@@ -19,3 +19,6 @@ overrides:
 
 allowBuilds:
   esbuild: true
+
+patchedDependencies:
+  "@xyflow/system@0.0.79": patches/@xyflow__system@0.0.79.patch

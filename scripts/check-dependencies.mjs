@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { repositoryRoot } from "./lib/process.mjs";
@@ -6,6 +6,7 @@ import { repositoryRoot } from "./lib/process.mjs";
 const expectedPackageManager = "pnpm@11.19.0";
 const expectedNode = "24.18.1";
 const supplyChainExceptionsPath = "supply-chain-exceptions.json";
+const patchedDependencyPolicyPath = "pnpm-workspace.yaml";
 const workspacePolicyPaths = ["pnpm-workspace.yaml", "fixtures/consumer/pnpm-workspace.yaml"];
 const manifestPaths = [
   "package.json",
@@ -155,11 +156,85 @@ function validateSupplyChainExceptions() {
   ];
 }
 
+function configuredPatchedDependencies(contents) {
+  const block = contents.match(/patchedDependencies:\n((?:\s{2}.+\n?)*)/u)?.[1] ?? "";
+  return block
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      const separatorIndex = line.indexOf(": ");
+      if (separatorIndex < 0) {
+        return { identifier: line.trim(), patch: "" };
+      }
+      const stripQuotes = (value) => value.trim().replace(/^['"]|['"]$/gu, "");
+      return {
+        identifier: stripQuotes(line.slice(0, separatorIndex)),
+        patch: stripQuotes(line.slice(separatorIndex + 2)),
+      };
+    });
+}
+
+function validatePatchedDependencies() {
+  const exceptionConfig = readJson(supplyChainExceptionsPath);
+  const exceptions = exceptionConfig.patchedDependencies ?? [];
+  const today = new Date();
+  const configured = configuredPatchedDependencies(
+    readFileSync(path.join(repositoryRoot, patchedDependencyPolicyPath), "utf8"),
+  );
+  const expectedByIdentifier = new Map(
+    exceptions.map((exception) => [`${exception.package}@${exception.version}`, exception]),
+  );
+
+  return [
+    ...exceptions.flatMap((exception) => {
+      const identifier = `${exception.package}@${exception.version}`;
+      return [
+        ...validateExceptionMetadata(exception, today),
+        ...requiredTextFailure(
+          exception.patch,
+          `${supplyChainExceptionsPath}: ${identifier} needs a patch path`,
+        ),
+        ...requiredTextFailure(
+          exception.removalCondition,
+          `${supplyChainExceptionsPath}: ${identifier} needs a removal condition`,
+        ),
+        ...(typeof exception.patch === "string" &&
+        exception.patch.startsWith("patches/") &&
+        existsSync(path.join(repositoryRoot, exception.patch))
+          ? []
+          : [`${supplyChainExceptionsPath}: ${identifier} patch must exist under patches/`]),
+      ];
+    }),
+    ...(expectedByIdentifier.size === exceptions.length
+      ? []
+      : [`${supplyChainExceptionsPath}: patched dependency identifiers must be unique`]),
+    ...configured.flatMap(({ identifier, patch }) => {
+      const expected = expectedByIdentifier.get(identifier);
+      if (!expected) {
+        return [
+          `${patchedDependencyPolicyPath}: ${identifier} has no owned, expiring patch metadata`,
+        ];
+      }
+      return expected.patch === patch
+        ? []
+        : [`${patchedDependencyPolicyPath}: ${identifier} must use ${expected.patch}`];
+    }),
+    ...exceptions.flatMap((exception) => {
+      const identifier = `${exception.package}@${exception.version}`;
+      return configured.some((entry) => entry.identifier === identifier)
+        ? []
+        : [`${patchedDependencyPolicyPath}: missing patched dependency ${identifier}`];
+    }),
+  ];
+}
+
 const rootManifest = readJson("package.json");
 const failures = [
   ...manifestPaths.flatMap(validateManifest),
   ...validateSupplyChainSettings(),
   ...validateSupplyChainExceptions(),
+  ...validatePatchedDependencies(),
 ];
 
 if (rootManifest.packageManager !== expectedPackageManager) {

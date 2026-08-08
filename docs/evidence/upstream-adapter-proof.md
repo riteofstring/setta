@@ -1,0 +1,123 @@
+# Upstream Adapter Proof
+
+## Decision
+
+Phase 0 retains the plan's initial representation: each spatial root section is one XYFlow node,
+while ordered descendants render as recursive package-owned DOM inside that root. Every visible
+frame registers in one package-owned workbench-coordinate geometry index. No challenger
+representation demonstrated a material advantage that justified making ordered descendants
+independently positioned nodes or maintaining shadow geometry.
+
+The proof is testing-only and is reachable in the backend-free playground at `?adapter-proof`.
+Runtime package contracts remain package-owned.
+
+## Exact upstream selection
+
+Registry metadata was checked on 2026-08-07.
+
+| Direct package   | Exact version | Published  | License | Selected responsibility                                                                                                                                     |
+| ---------------- | ------------: | ---------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@xyflow/react`  |     `12.11.2` | 2026-07-06 | MIT     | Root projection, viewport transforms, root movement, public viewport helpers, controls, background, and viewport portal                                     |
+| `@dnd-kit/react` |       `0.5.0` | 2026-06-11 | MIT     | Provider lifecycle, pointer and keyboard sensors, draggable/droppable registration, measurement, collision target, accessibility feedback, and drag overlay |
+
+Both releases exceed the repository's strict seven-day release-age floor. React and React DOM are
+exact peer dependencies. No upstream implementation source was copied. The package imports
+XYFlow's published base stylesheet and retains its visible attribution.
+
+## Adapter boundaries
+
+The XYFlow proof uses only documented public exports: `ReactFlow`, `Background`, `Controls`,
+`Panel`, `ViewportPortal`, `applyNodeChanges`, `useReactFlow`, and `useViewport`. It does not use
+`useStoreApi`, undocumented store fields, or non-public source paths. XYFlow node and change types
+remain inside internal implementation files.
+
+The dnd-kit proof uses the public `DragDropProvider`, `DragOverlay`, `useDraggable`, and
+`useDroppable` exports. The adapter maps lifecycle events into the package-owned
+`AdapterDndCompletion` contract. No dnd-kit type appears in that contract or in the generated
+testing declarations.
+
+The proof deliberately does not use `useSortable`. In `@dnd-kit/react@0.5.0`, that hook installs
+upstream optimistic sorting behavior; the public React hook does not expose a selective switch that
+preserves the rest of the sortable plugin while disabling that projection. The package therefore
+keeps canonical and DOM order unchanged during the gesture, owns its preview semantics, and
+applies one reorder only after accepted completion. This preserves the characterized constrained
+scroll and preview/commit boundary while still delegating provider, sensor, measurement, target,
+feedback, and overlay infrastructure upstream.
+
+## Representation and ownership outcomes
+
+| Concern                    | Owner in the proof | Evidence                                                                                                                                                                     |
+| -------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Root spatial movement      | XYFlow             | Root drag uses the public node lifecycle and emits one package command at completion.                                                                                        |
+| Nested structural movement | dnd-kit            | Native drag handles carry `nodrag`, `nowheel`, and `nopan`; accepted completion emits one package reorder command.                                                           |
+| Package selection          | Package            | XYFlow element selection and selection elevation are disabled; a `ViewportPortal` overlay consumes the package geometry index and does not become a second movement surface. |
+| Active ancestor lift       | Package CSS        | A root is raised only while it contains the active dnd-kit handle; cancellation and completion restore its base layer.                                                       |
+| Viewport movement          | XYFlow             | Nested scroll regions exclude wheel and pan ownership and browser evidence verifies their scroll does not change the viewport transform.                                     |
+| Canonical state            | Package            | XYFlow changes update an adapter-local transient projection; dnd-kit previews update diagnostic state only.                                                                  |
+
+The proof's diagnostic state is a narrow external store. Drag lifecycle feedback does not update the
+workbench component's canonical node or section state on every event.
+
+## Geometry and transient projection
+
+`WorkspaceGeometryIndex` owns incremental registration, replacement-safe cleanup, parent
+membership, deterministic deepest-hit ordering, combined bounds, and client/workbench conversion.
+The playground registers both root nodes and every recursive descendant. Selection overlay,
+selection focus, and recursive resize remeasurement consume those registrations rather than
+creating a parallel package measurement map. dnd-kit continues to own its substrate-level
+draggable and droppable measurement.
+
+`TransientRootProjection` accepts package-owned root changes and internally maps them to XYFlow's
+public `applyNodeChanges` helper. Repeated position, dimension, selection, and viewport updates do
+not mutate the caller's document input. Completion emits at most one package-owned move, resize, or
+viewport command; cancellation restores the baseline and emits none.
+
+The geometry index is now the implemented boundary for later marquee, collision, external-drop,
+and nested-minimap consumers. Those consumers are not claimed complete by this proof.
+
+## Declaration-only XYFlow patch
+
+Strict TypeScript 6.0.3 checking with `exactOptionalPropertyTypes: true` and
+`skipLibCheck: false` exposed that `@xyflow/system@0.0.79`'s `NodeBase` declarations use optional
+properties without explicit `| undefined`, while `@xyflow/react` assigns values that can be
+undefined. The checked-in patch changes only the ESM and UMD `nodes.d.ts` outputs. Runtime
+JavaScript, behavior, and public Setta contracts are unchanged.
+
+The patch is exact-version keyed and has owned, expiring metadata in
+`supply-chain-exceptions.json`. Its upstream contribution path is the `NodeBase` source declaration
+that generates both published files. Remove the patch when an exact-pinned system release passes
+the same strict package typecheck; the policy records 2026-11-07 as the expiry.
+
+## Executable evidence
+
+| Evidence                                                     | Covered outcome                                                                                                                                                      |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/workspace/tests/geometry-index.test.ts`            | All-depth registration, replacement and cleanup, incremental parent updates, hit ordering, combined bounds, scaled round trips, and post-scroll coordinates          |
+| `packages/workspace/tests/transient-root-projection.test.ts` | High-frequency move and resize coalescing, immutable input, selection projection, viewport completion, cancellation restoration, and specific invalid-state failures |
+| `tests/e2e/adapter-proof.spec.ts` geometry workflow          | Eight root/descendant frames, zoom-aligned overlay, recursive resize remeasurement, focus without page scrolling, and nested-scroll isolation                        |
+| `tests/e2e/adapter-proof.spec.ts` ownership workflow         | Keyboard cancellation with no command, pointer sensor handoff, transient root lift, one accepted nested command, and one later XYFlow root command                   |
+| `tests/e2e/adapter-proof.spec.ts` accessibility workflow     | Axe scan, reduced-motion rendering, 1280-pixel screenshot baseline, and 320-CSS-pixel reflow without horizontal overflow                                             |
+
+The in-app CDP browser surface was unavailable during this batch, so repository Playwright
+provided the focused browser and screenshot evidence. Interactive CDP visual inspection remains an
+explicit Phase 0 audit gate.
+
+## Verification recorded on 2026-08-08
+
+- `corepack pnpm quality` passed boundaries, dependency policy, formatting, lint, strict types,
+  dead-code analysis, 58 unit tests, automation tests, builds, tarball allowlisting, and API-report
+  generation.
+- The focused Chromium adapter proof passed all three geometry, ownership, and
+  accessibility/visual scenarios against the checked-in baseline.
+- `corepack pnpm consumer:check` built an unrelated temporary consumer from the packed artifact.
+- `corepack pnpm supply-chain:check` passed the frozen install, strict loaded-lockfile policy,
+  high/critical vulnerability audit, license allowlist, and dependency-inventory generation with no
+  known vulnerabilities.
+
+## Still open in Phase 0
+
+This proof does not complete the full phase. Browser coverage remains for touch, keyboard accepted
+reordering, free-move and selection-block ownership, runtime mode changes, minimum/default/maximum
+zoom drag geometry, multi-selection overlays and placeholders, all-depth marquee, initial fit
+readiness, and representative performance baselines. The broader non-DnD behavior inventory and
+full phase gate audit also remain repository-actionable.

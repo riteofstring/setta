@@ -1,5 +1,7 @@
 # `@setta/workspace`
 
-Private blank-slate scaffold for the standalone Setta workspace package.
+Private blank-slate implementation of the standalone Setta workspace package.
 
-The initial export proves the package, subpath, CSS, declaration, playground, and packed-consumer boundaries. Spatial canvas and drag-and-drop behavior intentionally remain unimplemented until the Phase 0 dependency and interaction-owner proofs are complete.
+The runtime exports remain intentionally small while Phase 0 proves the difficult canvas and
+drag-and-drop seams. Testing-only exports exercise exact-pinned upstream XYFlow and dnd-kit behind
+package-owned geometry, command, and interaction boundaries without making their types public.

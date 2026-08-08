@@ -30,9 +30,14 @@
     "./styles.css": "./dist/styles.css"
   },
   "peerDependencies": {
-    "react": "19.2.8"
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "scripts": {
     "build": "node ../../scripts/build-package.mjs"
+  },
+  "dependencies": {
+    "@dnd-kit/react": "0.5.0",
+    "@xyflow/react": "12.11.2"
   }
 }

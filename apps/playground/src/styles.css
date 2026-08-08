@@ -57,6 +57,10 @@ main {
   padding-block: clamp(2rem, 7vw, 5rem) 2rem;
 }
 
+.site-header--compact {
+  padding-block-start: clamp(2rem, 5vw, 3.5rem);
+}
+
 .eyebrow {
   margin: 0 0 0.5rem;
   color: #3f5f96;

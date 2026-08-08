@@ -1,12 +1,22 @@
 import { Workspace } from "@setta/workspace/react";
 import { useState } from "react";
 
+import { AdapterProofPage } from "./AdapterProofPage.js";
+
 type PlaygroundSection = {
   id: number;
   title: string;
 };
 
 export function App() {
+  if (new URLSearchParams(window.location.search).has("adapter-proof")) {
+    return <AdapterProofPage />;
+  }
+
+  return <DefaultPlaygroundPage />;
+}
+
+function DefaultPlaygroundPage() {
   const [sections, setSections] = useState<readonly PlaygroundSection[]>([]);
   const [announcement, setAnnouncement] = useState("");
 

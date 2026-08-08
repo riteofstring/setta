@@ -34,11 +34,18 @@ The test fixture metadata in `packages/workspace/tests/fixtures/interaction-evid
 
 ## Phase 0 limits still open
 
-This batch does not select or prove an upstream dependency. Phase 0 still requires:
+The [upstream adapter proof](upstream-adapter-proof.md) exact-pins the selected dependencies,
+records their public adapter and license boundaries, implements the root-node/recursive-DOM
+representation, and adds focused geometry, transient-projection, ownership, accessibility, and
+browser evidence. Phase 0 still requires:
 
-- Exact-pinned stable XYFlow and dnd-kit dependencies, adapter boundaries, public-API/store-access decisions, licensing confirmation, and differential evidence against upstream behavior.
-- Browser proof for scaled ancestors, nested scrolling, focus/scroll coordination, geometry registration, preview/commit parity, touch and keyboard workflows, accessibility, and visual behavior.
-- Transient-projection and one-command/one-history-entry integration proof.
-- The complete non-DnD behavior inventory, browser characterization matrix, performance baselines, and registry-backed loaded-lockfile, trust, and vulnerability evidence.
+- The remaining interaction-owner cells: touch, accepted keyboard reordering, free move,
+  selection-block movement, and runtime mode changes.
+- Minimum/default/maximum zoom drag geometry for multi-selection, collision, placeholders, overlays,
+  canvas drops, and preview/commit parity.
+- All-depth marquee and initial-fit consumers of the geometry index, plus representative
+  high-frequency performance baselines.
+- The complete non-DnD behavior inventory, browser characterization matrix, and final Phase 0 gate
+  audit.
 
 Unavailable external evidence does not change the completion state of these remaining repository and adapter tasks.
