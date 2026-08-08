@@ -28,6 +28,7 @@ function navigationDocument(): WorkspaceDocument {
 
 function canvasController(focused: string[]): WorkspaceCanvasController {
   return {
+    captureFocus: () => null,
     clientPointToWorkspace: (point) => point,
     fitSections: vi.fn(async () => ({ x: 12, y: 24, zoom: 0.75 })),
     focusElement: (sectionId) => focused.push(sectionId),

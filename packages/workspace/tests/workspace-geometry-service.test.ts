@@ -14,6 +14,7 @@ type FakeWindowFixture = Readonly<{
   addEventListener: ReturnType<typeof vi.fn>;
   cancelAnimationFrame: ReturnType<typeof vi.fn>;
   instances: FakeResizeObserverInstance[];
+  flushAnimationFrames(): void;
   removeEventListener: ReturnType<typeof vi.fn>;
   requestAnimationFrame: ReturnType<typeof vi.fn>;
   window: Window;
@@ -21,6 +22,7 @@ type FakeWindowFixture = Readonly<{
 
 function fakeWindow(): FakeWindowFixture {
   const instances: FakeResizeObserverInstance[] = [];
+  const animationFrames: FrameRequestCallback[] = [];
   class FakeResizeObserver {
     readonly #callback: ResizeObserverCallback;
     readonly disconnect = vi.fn();
@@ -40,7 +42,10 @@ function fakeWindow(): FakeWindowFixture {
   const addEventListener = vi.fn();
   const cancelAnimationFrame = vi.fn();
   const removeEventListener = vi.fn();
-  const requestAnimationFrame = vi.fn(() => 17);
+  const requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
+    animationFrames.push(callback);
+    return 17;
+  });
   const window = {
     ResizeObserver: FakeResizeObserver,
     addEventListener,
@@ -51,6 +56,11 @@ function fakeWindow(): FakeWindowFixture {
   return {
     addEventListener,
     cancelAnimationFrame,
+    flushAnimationFrames: () => {
+      for (const callback of animationFrames.splice(0)) {
+        callback(0);
+      }
+    },
     instances,
     removeEventListener,
     requestAnimationFrame,
@@ -61,16 +71,20 @@ function fakeWindow(): FakeWindowFixture {
 function fakeElement(
   window: Window,
   rect: Readonly<{ height: number; width: number; x: number; y: number }>,
+  ownerDocument = { defaultView: window } as Document,
 ) {
   const addEventListener = vi.fn();
-  const focus = vi.fn();
+  let element: HTMLElement;
+  const focus = vi.fn(() => {
+    (ownerDocument as unknown as { activeElement: Element | null }).activeElement = element;
+  });
   const getBoundingClientRect = vi.fn(() => rect as DOMRect);
   const removeEventListener = vi.fn();
-  const element = {
+  element = {
     addEventListener,
     focus,
     getBoundingClientRect,
-    ownerDocument: { defaultView: window },
+    ownerDocument,
     removeEventListener,
   } as unknown as HTMLElement;
   return { addEventListener, element, focus, getBoundingClientRect, removeEventListener };
@@ -248,5 +262,60 @@ describe("WorkspaceGeometryMeasurements lifecycle", () => {
     const unavailable = geometry.focusSectionWhenReady("missing");
     geometry.setCanvasElement(null);
     await expect(unavailable).resolves.toBe(false);
+  });
+
+  it("recovers focus only after the element active before navigation disappears", async () => {
+    const fixture = fakeWindow();
+    const body = { isConnected: true } as HTMLElement;
+    const documentElement = { isConnected: true } as HTMLElement;
+    const documentState = {
+      activeElement: body as Element | null,
+      body,
+      defaultView: fixture.window,
+      documentElement,
+    };
+    const ownerDocument = documentState as unknown as Document;
+    const canvas = fakeElement(
+      fixture.window,
+      { height: 500, width: 800, x: 0, y: 0 },
+      ownerDocument,
+    );
+    const alpha = fakeElement(
+      fixture.window,
+      { height: 120, width: 200, x: 40, y: 60 },
+      ownerDocument,
+    );
+    const geometry = new WorkspaceGeometryMeasurements(new WorkspaceGeometryIndex());
+    geometry.setCanvasElement(canvas.element);
+    geometry.register({
+      depth: 0,
+      element: alpha.element,
+      order: 0,
+      parentSectionId: null,
+      sectionId: "alpha",
+    });
+
+    const survivingAnchor = { isConnected: true } as Element;
+    documentState.activeElement = survivingAnchor;
+    expect(geometry.captureFocus()).toBe(survivingAnchor);
+    const preservedFocus = geometry.recoverFocus("alpha", survivingAnchor);
+    fixture.flushAnimationFrames();
+    await expect(preservedFocus).resolves.toBe(false);
+    expect(alpha.focus).not.toHaveBeenCalled();
+
+    const removedAnchor = { isConnected: false } as Element;
+    documentState.activeElement = canvas.element;
+    await expect(geometry.recoverFocus("alpha", removedAnchor)).resolves.toBe(true);
+    expect(alpha.focus).toHaveBeenCalledWith({ preventScroll: true });
+    expect(documentState.activeElement).toBe(alpha.element);
+
+    const unrelatedActiveElement = { isConnected: true } as Element;
+    documentState.activeElement = unrelatedActiveElement;
+    await expect(geometry.recoverFocus(null, removedAnchor)).resolves.toBe(false);
+    expect(canvas.focus).not.toHaveBeenCalled();
+
+    documentState.activeElement = body;
+    await expect(geometry.recoverFocus(null, null)).resolves.toBe(true);
+    expect(canvas.focus).toHaveBeenCalledWith({ preventScroll: true });
   });
 });

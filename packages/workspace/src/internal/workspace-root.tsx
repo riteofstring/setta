@@ -286,6 +286,8 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     document: validatedDocument,
     selectionRef,
   });
+  const synchronizeHistory = history.synchronize;
+  const historySynchronizationRevision = history.synchronizationRevision;
   const pendingCreatedSectionRef = useRef<Readonly<{
     panIntoView: boolean;
     sectionId: string;
@@ -433,6 +435,9 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       void canvasController.focusElementWhenReady(pending.focusSectionId);
     }
   }, [controller, structuralSelectionRevision, validatedDocument]);
+  useEffect(() => {
+    synchronizeHistory();
+  }, [historySynchronizationRevision, synchronizeHistory]);
   const handleRootMoveCommit = useCallback(
     (positions: Readonly<Record<string, WorkspacePoint>>) => {
       const bindings = controllerBindingsRef.current;

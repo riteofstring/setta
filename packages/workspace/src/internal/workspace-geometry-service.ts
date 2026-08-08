@@ -76,6 +76,31 @@ function viewportsMatch(left: ViewportTransform, right: ViewportTransform): bool
   );
 }
 
+function hasMeaningfulActiveElement(ownerDocument: Document, excluded: Element): boolean {
+  const activeElement = ownerDocument.activeElement;
+  return Boolean(
+    activeElement &&
+    activeElement !== excluded &&
+    activeElement !== ownerDocument.body &&
+    activeElement !== ownerDocument.documentElement,
+  );
+}
+
+async function waitForFocusReconciliation(
+  ownerDocument: Document,
+  focusAnchor: Element | null,
+): Promise<void> {
+  if (!focusAnchor?.isConnected || ownerDocument.activeElement !== focusAnchor) {
+    return;
+  }
+  const view = ownerDocument.defaultView;
+  if (!view) {
+    await Promise.resolve();
+    return;
+  }
+  await new Promise<void>((resolve) => view.requestAnimationFrame(() => resolve()));
+}
+
 export class WorkspaceGeometryMeasurements {
   readonly #entries = new Map<string, RegisteredMeasuredElement>();
   readonly #geometryIndex: WorkspaceGeometryIndex;
@@ -239,6 +264,20 @@ export class WorkspaceGeometryMeasurements {
     entry.element.focus({ preventScroll: true });
   }
 
+  captureFocus(): Element | null {
+    const canvas = this.#canvasElement;
+    if (!canvas) {
+      return null;
+    }
+    const ownerDocument = canvas.ownerDocument;
+    const activeElement = ownerDocument.activeElement;
+    return activeElement &&
+      activeElement !== ownerDocument.body &&
+      activeElement !== ownerDocument.documentElement
+      ? activeElement
+      : null;
+  }
+
   async focusSectionWhenReady(sectionId: string): Promise<boolean> {
     const entry = this.#entries.get(sectionId);
     if (entry) {
@@ -252,18 +291,21 @@ export class WorkspaceGeometryMeasurements {
     });
   }
 
-  async recoverFocus(sectionId: string | null): Promise<boolean> {
+  async recoverFocus(sectionId: string | null, focusAnchor: Element | null): Promise<boolean> {
     const canvas = this.#canvasElement;
     if (!canvas) {
       return false;
     }
     const ownerDocument = canvas.ownerDocument;
+    await waitForFocusReconciliation(ownerDocument, focusAnchor);
+    if (this.#canvasElement !== canvas) {
+      return false;
+    }
     const activeElement = ownerDocument.activeElement;
-    if (
-      activeElement &&
-      activeElement !== ownerDocument.body &&
-      activeElement !== ownerDocument.documentElement
-    ) {
+    if (focusAnchor?.isConnected && activeElement === focusAnchor) {
+      return false;
+    }
+    if (hasMeaningfulActiveElement(ownerDocument, canvas)) {
       return false;
     }
     if (sectionId) {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type RefObject } from "react";
+import { useCallback, useRef, useState, type RefObject } from "react";
 
 import type {
   WorkspaceActionRejectionReason,
@@ -73,6 +73,7 @@ function synchronizeWorkspaceHistory<TSectionData>({
   commitSelection,
   controlled,
   document,
+  focusAnchor,
   history,
   onAnnouncement,
   onHistoryChange,
@@ -82,14 +83,15 @@ function synchronizeWorkspaceHistory<TSectionData>({
   commitSelection(sectionIds: readonly string[]): WorkspaceActionResult;
   controlled: boolean;
   document: WorkspaceDocument<TSectionData>;
+  focusAnchor: Element | null;
   history: WorkspaceDocumentHistory<TSectionData>;
   onAnnouncement(announcement: string): void;
   onHistoryChange(): void;
   selection: readonly string[];
-}>): void {
+}>): WorkspaceHistorySynchronization {
   const synchronization = history.synchronize(document, selection, controlled);
   if (!synchronization.stateChanged) {
-    return;
+    return synchronization;
   }
   if (synchronization.selection !== null) {
     commitSelection(synchronization.selection);
@@ -99,9 +101,10 @@ function synchronizeWorkspaceHistory<TSectionData>({
     onAnnouncement(announcement);
   }
   if (synchronization.navigationAccepted) {
-    void canvasController?.recoverFocus(synchronization.selection?.[0] ?? null);
+    void canvasController?.recoverFocus(synchronization.selection?.[0] ?? null, focusAnchor);
   }
   onHistoryChange();
+  return synchronization;
 }
 
 export type WorkspaceHistoryCoordinator<TSectionData> = Readonly<{
@@ -116,6 +119,8 @@ export type WorkspaceHistoryCoordinator<TSectionData> = Readonly<{
     after: WorkspaceDocument<TSectionData>,
     change: WorkspaceDocumentChange,
   ): void;
+  synchronize(): void;
+  synchronizationRevision: number;
 }>;
 
 export function useWorkspaceHistoryCoordinator<TSectionData>({
@@ -134,6 +139,7 @@ export function useWorkspaceHistoryCoordinator<TSectionData>({
   selectionRef: RefObject<readonly string[]>;
 }>): WorkspaceHistoryCoordinator<TSectionData> {
   const [history] = useState(() => new WorkspaceDocumentHistory(document));
+  const pendingFocusAnchorRef = useRef<Element | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const [revision, setRevision] = useState(0);
   const onHistoryChange = useCallback(() => setRevision((current) => current + 1), []);
@@ -142,9 +148,21 @@ export function useWorkspaceHistoryCoordinator<TSectionData>({
     [capabilitiesRef, history],
   );
   const navigate = useCallback(
-    (direction: WorkspaceHistoryDirection, bindings: WorkspaceControllerBindings<TSectionData>) =>
-      navigateWorkspaceHistory(direction, history, bindings, onHistoryChange, setAnnouncement),
-    [history, onHistoryChange],
+    (direction: WorkspaceHistoryDirection, bindings: WorkspaceControllerBindings<TSectionData>) => {
+      const focusAnchor = canvasControllerRef.current?.captureFocus() ?? null;
+      const result = navigateWorkspaceHistory(
+        direction,
+        history,
+        bindings,
+        onHistoryChange,
+        setAnnouncement,
+      );
+      if (result.status === "applied") {
+        pendingFocusAnchorRef.current = focusAnchor;
+      }
+      return result;
+    },
+    [canvasControllerRef, history, onHistoryChange],
   );
   const stageCommit = useCallback(
     (
@@ -158,17 +176,21 @@ export function useWorkspaceHistoryCoordinator<TSectionData>({
     },
     [history, onHistoryChange, selectionRef],
   );
-  useEffect(() => {
-    synchronizeWorkspaceHistory({
+  const synchronize = useCallback(() => {
+    const synchronization = synchronizeWorkspaceHistory({
       canvasController: canvasControllerRef.current,
       commitSelection,
       controlled: controlledRef.current,
       document,
+      focusAnchor: pendingFocusAnchorRef.current,
       history,
       onAnnouncement: setAnnouncement,
       onHistoryChange,
       selection: selectionRef.current,
     });
+    if (synchronization.navigationAccepted || synchronization.navigationRejected) {
+      pendingFocusAnchorRef.current = null;
+    }
   }, [
     canvasControllerRef,
     commitSelection,
@@ -176,9 +198,15 @@ export function useWorkspaceHistoryCoordinator<TSectionData>({
     document,
     history,
     onHistoryChange,
-    revision,
     selectionRef,
   ]);
 
-  return { announcement, getState, navigate, stageCommit };
+  return {
+    announcement,
+    getState,
+    navigate,
+    stageCommit,
+    synchronize,
+    synchronizationRevision: revision,
+  };
 }

@@ -1,5 +1,26 @@
 import { AxeBuilder } from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+
+async function loadGroupingFixture(page: Page): Promise<void> {
+  await page.goto("/?canvas-shell");
+  await page.getByRole("button", { name: "Load navigation fixture" }).click();
+  await page.getByRole("checkbox", { name: "Show host extensions" }).uncheck();
+  await page.getByRole("button", { name: "Fit navigation fixture" }).click();
+  await expect(page.getByRole("article", { name: "Alpha frame" })).toBeVisible();
+}
+
+async function selectAlphaAndBeta(page: Page): Promise<Locator> {
+  const selectAlpha = page.getByRole("button", { name: "Select Alpha frame" });
+  await selectAlpha.click();
+  await page.getByRole("button", { name: "Select Beta frame" }).click({ modifiers: ["Shift"] });
+  return selectAlpha;
+}
+
+async function openSelectionActions(page: Page, trigger: Locator): Promise<Locator> {
+  await trigger.focus();
+  await page.keyboard.press("Shift+F10");
+  return page.getByRole("dialog", { name: "Selection actions" });
+}
 
 test("structural history preserves viewport, selection, focus, and keyboard parity", async ({
   page,
@@ -99,4 +120,50 @@ test("controlled history records acceptance and retains entries after host rejec
   await redo.click();
   await expect(announcement).toHaveText("Redo complete.");
   await expect(documentJson).toHaveValue(/"positionAndSizeLocked": true/u);
+});
+
+test("group and ungroup history restore their accepted selection and focus", async ({ page }) => {
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await loadGroupingFixture(page);
+  const selectAlpha = await selectAlphaAndBeta(page);
+
+  let actions = await openSelectionActions(page, selectAlpha);
+  await actions.getByRole("menuitem", { name: "Group sections", exact: true }).click();
+  let selectGroup = page.getByRole("button", { name: "Select Group 1 (2 sections)" });
+  await expect(selectGroup).toHaveAttribute("aria-pressed", "true");
+  await expect(selectGroup).toBeFocused();
+
+  await page.keyboard.press("Control+z");
+  let restoredAlpha = page.getByRole("button", { name: "Select Alpha frame" });
+  await expect(restoredAlpha).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Select Beta frame" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(page.getByRole("article", { name: "Alpha frame" })).toBeFocused();
+
+  await page.keyboard.press("Control+Shift+z");
+  selectGroup = page.getByRole("button", { name: "Select Group 1 (2 sections)" });
+  await expect(selectGroup).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("article", { name: "Group 1 (2 sections)" })).toBeFocused();
+
+  actions = await openSelectionActions(page, selectGroup);
+  await actions.getByRole("menuitem", { name: "Ungroup section", exact: true }).click();
+  restoredAlpha = page.getByRole("button", { name: "Select Alpha frame" });
+  await expect(restoredAlpha).toHaveAttribute("aria-pressed", "true");
+  await expect(restoredAlpha).toBeFocused();
+
+  await page.keyboard.press("Control+z");
+  selectGroup = page.getByRole("button", { name: "Select Group 1 (2 sections)" });
+  await expect(selectGroup).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("article", { name: "Group 1 (2 sections)" })).toBeFocused();
+
+  await page.keyboard.press("Control+Shift+z");
+  restoredAlpha = page.getByRole("button", { name: "Select Alpha frame" });
+  await expect(restoredAlpha).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Select Beta frame" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(page.getByRole("article", { name: "Alpha frame" })).toBeFocused();
 });

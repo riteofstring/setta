@@ -9,6 +9,7 @@ const WORKSPACE_DEFAULT_FIT_PADDING = 0.4;
 const fitOptionKeys = ["padding"] as const;
 
 export type WorkspaceCanvasController = Readonly<{
+  captureFocus(): Element | null;
   clientPointToWorkspace(point: WorkspacePoint): WorkspacePoint;
   fitSections(
     sectionIds: readonly string[],
@@ -19,7 +20,7 @@ export type WorkspaceCanvasController = Readonly<{
   focusSection(sectionId: string, viewport: WorkspaceViewport): Promise<WorkspaceViewport>;
   getSectionRect(sectionId: string): WorkspaceRect | undefined;
   getVisibleWorkspaceRect(): WorkspaceRect;
-  recoverFocus(sectionId: string | null): Promise<boolean>;
+  recoverFocus(sectionId: string | null, focusAnchor: Element | null): Promise<boolean>;
   waitForViewport(viewport: WorkspaceViewport): Promise<boolean>;
   workspacePointToClient(point: WorkspacePoint): WorkspacePoint;
 }>;
@@ -68,6 +69,7 @@ export function createWorkspaceCanvasController(
   getZoomBounds: () => WorkspaceZoomBounds,
 ): WorkspaceCanvasController {
   return {
+    captureFocus: () => geometry.captureFocus(),
     clientPointToWorkspace: (point) => geometry.clientPointToWorkspace(point),
     fitSections: async (sectionIds, options) => {
       const padding = fitPadding(options);
@@ -99,7 +101,7 @@ export function createWorkspaceCanvasController(
     },
     getSectionRect: (sectionId) => geometry.workspaceRect(sectionId),
     getVisibleWorkspaceRect: () => geometry.visibleWorkspaceRect(),
-    recoverFocus: (sectionId) => geometry.recoverFocus(sectionId),
+    recoverFocus: (sectionId, focusAnchor) => geometry.recoverFocus(sectionId, focusAnchor),
     waitForViewport: (viewport) => geometry.waitForViewport(viewport),
     workspacePointToClient: (point) => geometry.workspacePointToClient(point),
   };
