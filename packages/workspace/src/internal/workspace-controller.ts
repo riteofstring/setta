@@ -66,20 +66,33 @@ function booleanAt(value: unknown, label: string): boolean {
   return value;
 }
 
-function setViewport<TSectionData>(
-  bindings: WorkspaceControllerBindings<TSectionData>,
-  viewport: WorkspaceViewport,
-): WorkspaceActionResult {
-  if (typeof viewport !== "object" || viewport === null || Array.isArray(viewport)) {
+function validateViewportArgument(value: unknown): asserts value is WorkspaceViewport {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new TypeError("Workspace viewport must be an object.");
   }
-  validateWorkspaceViewport(viewport);
-  const bounds = bindings.getViewportBounds?.();
-  if (bounds && (viewport.zoom < bounds.minZoom || viewport.zoom > bounds.maxZoom)) {
+  validateWorkspaceViewport(value);
+}
+
+function validateViewportBounds(
+  viewport: WorkspaceViewport,
+  bounds: Readonly<{ maxZoom: number; minZoom: number }> | undefined,
+): void {
+  if (!bounds) {
+    return;
+  }
+  if (viewport.zoom < bounds.minZoom || viewport.zoom > bounds.maxZoom) {
     throw new TypeError(
       "Workspace viewport zoom must be within the configured gesture zoom bounds.",
     );
   }
+}
+
+function setViewport<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  viewport: WorkspaceViewport,
+): WorkspaceActionResult {
+  validateViewportArgument(viewport);
+  validateViewportBounds(viewport, bindings.getViewportBounds?.());
   const result = dispatch(bindings, { type: "set-viewport", viewport });
   if (result.status === "applied") {
     bindings.requestViewportSynchronization?.();
