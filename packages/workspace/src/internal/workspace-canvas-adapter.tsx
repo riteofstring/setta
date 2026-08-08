@@ -28,6 +28,7 @@ import type {
   WorkspaceDocument,
   WorkspaceGestureOptions,
   WorkspaceJsonValue,
+  WorkspaceSection,
   WorkspaceViewport,
 } from "../core.js";
 import type {
@@ -48,6 +49,11 @@ import {
   WORKSPACE_NO_WHEEL_CLASS_NAME,
 } from "./workspace-interaction-boundary.js";
 import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
+import { WorkspaceSectionFrame } from "./workspace-section-frame.js";
+import type {
+  ResolvedSectionDefinition,
+  WorkspaceSectionRegistry,
+} from "./workspace-section-registry.js";
 import { WorkspaceToolbar } from "./workspace-toolbar.js";
 import { WorkspaceViewportLifecycle } from "./workspace-viewport-lifecycle.js";
 import {
@@ -56,9 +62,12 @@ import {
 } from "./workspace-viewport-synchronizer.js";
 
 type WorkspaceRootNodeData = {
+  appearance: "dark" | "light";
+  definition: ResolvedSectionDefinition<unknown>;
   geometry: WorkspaceGeometryMeasurements;
-  kind: string;
   order: number;
+  readOnly: boolean;
+  section: WorkspaceSection<unknown>;
   sectionId: string;
   title: string;
 };
@@ -67,6 +76,7 @@ type WorkspaceRootNode = Node<WorkspaceRootNodeData, "workspace-root-shell">;
 
 export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Readonly<{
   ariaLabel: string;
+  appearance: "dark" | "light";
   controllerSynchronizationRevision: number;
   document: WorkspaceDocument<TSectionData>;
   emptyState: ReactNode;
@@ -79,38 +89,22 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   onMinimapVisibilityChange(value: boolean): void;
   onViewportCommit(viewport: WorkspaceViewport): void;
   overlaySlots: Partial<Record<WorkspaceOverlayPlacement, ReactNode>>;
+  readOnly: boolean;
+  sectionRegistry: WorkspaceSectionRegistry<TSectionData>;
   toolbarControls: readonly WorkspaceToolbarControl<TSectionData>[];
   workspaceController: WorkspaceController<TSectionData>;
 }>;
 
 function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
-  const registerElement = useCallback(
-    (element: HTMLElement | null) => {
-      if (!element) {
-        return;
-      }
-      return data.geometry.register({
-        depth: 0,
-        element,
-        order: data.order,
-        parentSectionId: null,
-        sectionId: data.sectionId,
-      });
-    },
-    [data.geometry, data.order, data.sectionId],
-  );
-
   return (
-    <article
-      aria-label={data.title}
-      className="setta-workspace__root-shell"
-      data-workspace-section-id={data.sectionId}
-      ref={registerElement}
-      tabIndex={-1}
-    >
-      <h2>{data.title}</h2>
-      <p>{data.kind}</p>
-    </article>
+    <WorkspaceSectionFrame
+      appearance={data.appearance}
+      definition={data.definition}
+      geometry={data.geometry}
+      order={data.order}
+      readOnly={data.readOnly}
+      section={data.section}
+    />
   );
 }
 
@@ -119,9 +113,12 @@ function rootShellPropsMatch(
   right: Readonly<NodeProps<WorkspaceRootNode>>,
 ): boolean {
   return (
+    left.data.appearance === right.data.appearance &&
+    left.data.definition === right.data.definition &&
     left.data.geometry === right.data.geometry &&
-    left.data.kind === right.data.kind &&
     left.data.order === right.data.order &&
+    left.data.readOnly === right.data.readOnly &&
+    left.data.section === right.data.section &&
     left.data.sectionId === right.data.sectionId &&
     left.data.title === right.data.title
   );
@@ -135,13 +132,20 @@ const workspaceNodeTypes = {
 function rootNode(
   root: WorkspaceCanvasRoot,
   geometry: WorkspaceGeometryMeasurements,
+  section: WorkspaceSection<unknown>,
+  definition: ResolvedSectionDefinition<unknown>,
+  appearance: "dark" | "light",
+  readOnly: boolean,
 ): WorkspaceRootNode {
   return {
     ariaLabel: root.title,
     data: {
+      appearance,
+      definition,
       geometry,
-      kind: root.kind,
       order: root.order,
+      readOnly,
+      section,
       sectionId: root.sectionId,
       title: root.title,
     },
@@ -159,8 +163,25 @@ function rootNode(
 function projectNodes<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   geometry: WorkspaceGeometryMeasurements,
+  sectionRegistry: WorkspaceSectionRegistry<TSectionData>,
+  appearance: "dark" | "light",
+  readOnly: boolean,
 ): WorkspaceRootNode[] {
-  return projectWorkspaceCanvasRoots(document).map((root) => rootNode(root, geometry));
+  return projectWorkspaceCanvasRoots(document).map((root) => {
+    const section = document.sections[root.sectionId];
+    const definition = section ? sectionRegistry.definition(section.kind) : undefined;
+    if (!section || !definition) {
+      throw new Error(`Workspace root frame is missing registration for ${root.sectionId}.`);
+    }
+    return rootNode(
+      root,
+      geometry,
+      section as WorkspaceSection<unknown>,
+      definition as ResolvedSectionDefinition<unknown>,
+      appearance,
+      readOnly,
+    );
+  });
 }
 
 function synchronizeNodes(
@@ -301,6 +322,7 @@ function advanceViewportLifecycle(
 
 export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   ariaLabel,
+  appearance,
   controllerSynchronizationRevision,
   document,
   emptyState,
@@ -313,6 +335,8 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   onMinimapVisibilityChange,
   onViewportCommit,
   overlaySlots,
+  readOnly,
+  sectionRegistry,
   toolbarControls,
   workspaceController,
 }: WorkspaceCanvasAdapterProps<TSectionData>) {
@@ -333,7 +357,10 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       })),
     [geometry],
   );
-  const projectedNodes = useMemo(() => projectNodes(document, geometry), [document, geometry]);
+  const projectedNodes = useMemo(
+    () => projectNodes(document, geometry, sectionRegistry, appearance, readOnly),
+    [appearance, document, geometry, readOnly, sectionRegistry],
+  );
   const [nodes, setNodes] = useState<WorkspaceRootNode[]>(projectedNodes);
   const [canvasInitialized, setCanvasInitialized] = useState(false);
   const lifecycleRef = useRef<WorkspaceViewportLifecycle | null>(null);

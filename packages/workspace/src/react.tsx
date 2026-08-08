@@ -16,9 +16,9 @@ import {
   createEmptyWorkspaceDocument,
   resolveWorkspaceCapabilities,
   resolveWorkspaceGestureOptions,
-  validateWorkspaceDocument,
   type WorkspaceAppearance,
   type WorkspaceAppearanceOptionOverrides,
+  type WorkspaceCapabilities,
   type WorkspaceCapabilityOverrides,
   type WorkspaceController,
   type WorkspaceDocument,
@@ -41,6 +41,22 @@ import {
   resolveWorkspaceGridOptions,
   type ResolvedWorkspaceAppearanceOptions,
 } from "./internal/workspace-preferences.js";
+import { type SectionDefinition } from "./internal/workspace-section-contract.js";
+import {
+  resolveSectionDefinitions,
+  validateWorkspaceSectionDefinitions,
+} from "./internal/workspace-section-registry.js";
+
+export type {
+  SectionContentSizing,
+  SectionCreationMetadata,
+  SectionDefaultSize,
+  SectionDefaultSizeMode,
+  SectionDefinition,
+  SectionRenderProps,
+  SectionResizeAxes,
+  SectionResizeOptions,
+} from "./internal/workspace-section-contract.js";
 
 export type WorkspaceDocumentChangeHandler<TSectionData = WorkspaceJsonValue> = (
   document: WorkspaceDocument<TSectionData>,
@@ -290,6 +306,7 @@ type SharedWorkspaceProps<TSectionData> = Omit<
   onMinimapVisibilityChange?: WorkspaceBooleanPreferenceChangeHandler;
   overlaySlots?: WorkspaceOverlaySlots<TSectionData>;
   readOnly?: boolean;
+  sectionDefinitions?: readonly SectionDefinition<TSectionData>[];
   toolbarControls?: readonly WorkspaceToolbarControl<TSectionData>[];
 };
 
@@ -365,6 +382,10 @@ function assertAccessibleName(ariaLabel: unknown): asserts ariaLabel is string {
   if (typeof ariaLabel !== "string" || ariaLabel.trim().length === 0) {
     throw new TypeError("Workspace ariaLabel must be a non-empty string.");
   }
+}
+
+function capabilitiesAreReadOnly(capabilities: WorkspaceCapabilities): boolean {
+  return Object.values(capabilities).every((value) => !value);
 }
 
 const DARK_APPEARANCE_QUERY = "(prefers-color-scheme: dark)";
@@ -465,6 +486,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     onMinimapVisibilityChange,
     overlaySlots: overlaySlotOverrides,
     readOnly = false,
+    sectionDefinitions: sectionDefinitionOverrides,
     style,
     toolbarControls: toolbarControlOverrides,
     ...sectionProps
@@ -493,6 +515,10 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   const overlayRenderers = useMemo(
     () => resolveOverlayRenderers(overlaySlotOverrides),
     [overlaySlotOverrides],
+  );
+  const sectionRegistry = useMemo(
+    () => resolveSectionDefinitions(sectionDefinitionOverrides),
+    [sectionDefinitionOverrides],
   );
   const [gridSnap, setGridSnap] = useBooleanPreference(
     "Workspace grid snap",
@@ -524,23 +550,26 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   const [uncontrolledDocument, setUncontrolledDocument] = useState(mode.document);
   const document = mode.type === "controlled" ? mode.document : uncontrolledDocument;
   const validatedDocument = useMemo(() => {
-    validateWorkspaceDocument(document);
+    validateWorkspaceSectionDefinitions(document, sectionRegistry);
     assertViewportWithinGestureBounds(document, gestureOptions);
     return document;
-  }, [document, gestureOptions]);
+  }, [document, gestureOptions, sectionRegistry]);
   const capabilities = useMemo(
     () => resolveWorkspaceCapabilities(capabilityOverrides, readOnly),
     [capabilityOverrides, readOnly],
   );
+  const sectionReadOnly = capabilitiesAreReadOnly(capabilities);
   const documentRef = useRef(validatedDocument);
   const capabilitiesRef = useRef(capabilities);
   const gestureOptionsRef = useRef(gestureOptions);
+  const sectionRegistryRef = useRef(sectionRegistry);
   const controlledRef = useRef(mode.type === "controlled");
   const onDocumentChangeRef = useRef(onDocumentChange);
   const [controllerSynchronizationRevision, setControllerSynchronizationRevision] = useState(0);
   documentRef.current = validatedDocument;
   capabilitiesRef.current = capabilities;
   gestureOptionsRef.current = gestureOptions;
+  sectionRegistryRef.current = sectionRegistry;
   controlledRef.current = mode.type === "controlled";
   onDocumentChangeRef.current = onDocumentChange;
 
@@ -551,6 +580,10 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   const internalControllerRef = useRef<WorkspaceController<TSectionData> | null>(null);
   if (!internalControllerRef.current) {
     internalControllerRef.current = createWorkspaceController({
+      canMinimizeSection: (sectionId) => {
+        const section = documentRef.current.sections[sectionId];
+        return Boolean(section && sectionRegistryRef.current.definition(section.kind)?.minimizable);
+      },
       commit: (nextDocument, change) => {
         if (!controlledRef.current) {
           documentRef.current = nextDocument;
@@ -588,6 +621,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     >
       <WorkspaceCanvasAdapter
         ariaLabel={ariaLabel}
+        appearance={resolvedAppearance}
         controllerSynchronizationRevision={controllerSynchronizationRevision}
         document={validatedDocument}
         emptyState={resolvedEmptyState}
@@ -600,6 +634,8 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         onMinimapVisibilityChange={setMinimapVisible}
         onViewportCommit={controller.setViewport}
         overlaySlots={overlaySlots}
+        readOnly={sectionReadOnly}
+        sectionRegistry={sectionRegistry}
         toolbarControls={toolbarControls}
         workspaceController={controller}
       />

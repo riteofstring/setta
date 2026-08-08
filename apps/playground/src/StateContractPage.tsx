@@ -3,9 +3,26 @@ import {
   type WorkspaceController,
   type WorkspaceDocument,
 } from "@setta/workspace/core";
-import { Workspace, WorkspaceInteractionBoundary } from "@setta/workspace/react";
+import {
+  Workspace,
+  WorkspaceInteractionBoundary,
+  type SectionDefinition,
+} from "@setta/workspace/react";
 import { createWorkspaceTestDocument } from "@setta/workspace/testing";
 import { useRef, useState } from "react";
+
+const testSectionDefinitions = [
+  {
+    defaultSize: { height: 180, width: 240 },
+    displayName: "State fixture",
+    kind: "test",
+    render: ({ readOnly, sectionId }) => (
+      <p className="state-contract-section-content">
+        {sectionId} host renderer is {readOnly ? "read-only" : "editable"}.
+      </p>
+    ),
+  },
+] satisfies readonly SectionDefinition[];
 
 function testDocument(): WorkspaceDocument {
   return createWorkspaceTestDocument([
@@ -148,6 +165,7 @@ export function StateContractPage() {
                 ),
               }}
               readOnly={readOnly}
+              sectionDefinitions={testSectionDefinitions}
             />
             <p>Committed changes: {uncontrolledChanges}</p>
             <textarea
@@ -188,6 +206,7 @@ export function StateContractPage() {
                 setControlledDocument(document);
                 setControlledChanges((count) => count + 1);
               }}
+              sectionDefinitions={testSectionDefinitions}
             />
             <p>Committed changes: {controlledChanges}</p>
             <textarea

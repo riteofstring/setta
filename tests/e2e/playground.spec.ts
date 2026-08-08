@@ -100,6 +100,9 @@ test("the blank workspace supports keyboard and assistive technology", async ({ 
 
   await page.getByRole("button", { name: "Add sample section" }).click();
   await expect(page.getByRole("heading", { name: "Sample section 1" })).toBeVisible();
+  await expect(page.getByRole("article", { name: "Sample section 1" })).toContainText(
+    "Host-rendered content inside the package-owned section frame.",
+  );
   await expect(page.getByRole("status")).toHaveText("Sample section 1 added.");
 
   const accessibility = await new AxeBuilder({ page }).analyze();
@@ -160,10 +163,12 @@ test("controlled and uncontrolled state honor live capability policy", async ({ 
   const status = page.getByRole("status");
   await expect(uncontrolledWorkspace).toHaveAttribute("data-workspace-mode", "uncontrolled");
   await expect(controlledWorkspace).toHaveAttribute("data-workspace-mode", "controlled");
+  await expect(uncontrolledWorkspace).toContainText("alpha host renderer is editable.");
 
   await hostNote.fill("Keep this host value");
   await page.getByRole("button", { name: "Turn read-only on" }).click();
   await expect(uncontrolledWorkspace).toHaveAttribute("data-read-only", "true");
+  await expect(uncontrolledWorkspace).toContainText("alpha host renderer is read-only.");
 
   await page.getByRole("button", { name: "Lock Alpha" }).click();
   await expect(status).toHaveText("Layout edit rejected: layout-edit-disabled.");
@@ -180,6 +185,7 @@ test("controlled and uncontrolled state honor live capability policy", async ({ 
   await expect(page.getByTestId("uncontrolled-document")).toHaveValue(/"zoom": 1.5/u);
 
   await page.getByRole("button", { name: "Turn editing on" }).click();
+  await expect(uncontrolledWorkspace).toContainText("alpha host renderer is editable.");
   await page.getByRole("button", { name: "Minimize Alpha" }).click();
   await page.getByRole("button", { name: "Delete Beta" }).click();
   await expect(page.getByTestId("uncontrolled-document")).toHaveValue(/"isMinimized": true/u);

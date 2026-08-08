@@ -18,6 +18,7 @@ import type { WorkspaceCanvasController } from "./workspace-canvas-navigation.js
 import { validateWorkspaceViewport } from "./workspace-document-validation.js";
 
 export type WorkspaceControllerBindings<TSectionData> = Readonly<{
+  canMinimizeSection?(sectionId: string): boolean;
   commit(document: WorkspaceDocument<TSectionData>, change: WorkspaceDocumentChange): void;
   getCapabilities(): WorkspaceCapabilities;
   getCanvasController?(): WorkspaceCanvasController | null;
@@ -173,6 +174,24 @@ async function focusAdjacentSection<TSectionData>(
   return adjacentSectionId ? focusSection(bindings, adjacentSectionId) : { status: "unchanged" };
 }
 
+function setSectionMinimized<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  sectionIdValue: string,
+  isMinimizedValue: boolean,
+): WorkspaceActionResult {
+  const sectionId = sectionIdAt(sectionIdValue);
+  const isMinimized = booleanAt(isMinimizedValue, "Workspace minimized state");
+  const command = { isMinimized, sectionId, type: "set-section-minimized" } as const;
+  if (!bindings.getCapabilities().editPresentation) {
+    return dispatch(bindings, command);
+  }
+  assertKnownSections(bindings.getDocument(), [sectionId]);
+  if (isMinimized && bindings.canMinimizeSection?.(sectionId) === false) {
+    return { reason: "section-not-minimizable", status: "rejected" };
+  }
+  return dispatch(bindings, command);
+}
+
 export function createWorkspaceController<TSectionData>(
   bindings: WorkspaceControllerBindings<TSectionData>,
 ): WorkspaceController<TSectionData> {
@@ -187,11 +206,7 @@ export function createWorkspaceController<TSectionData>(
     getCapabilities: () => ({ ...bindings.getCapabilities() }),
     getDocument: () => bindings.getDocument(),
     setSectionMinimized: (sectionId, isMinimized) =>
-      dispatch(bindings, {
-        isMinimized: booleanAt(isMinimized, "Workspace minimized state"),
-        sectionId: sectionIdAt(sectionId),
-        type: "set-section-minimized",
-      }),
+      setSectionMinimized(bindings, sectionId, isMinimized),
     setSectionsLocked: (sectionIds, locked) =>
       dispatch(bindings, {
         locked: booleanAt(locked, "Workspace locked state"),

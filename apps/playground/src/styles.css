@@ -120,27 +120,21 @@ main {
   color: #45536c;
 }
 
-.sample-section {
-  inline-size: min(22rem, 100%);
-  padding: 1.25rem;
-  background: #ffffff;
-  border-radius: 0.875rem;
-  box-shadow: 0 0.75rem 2rem rgb(23 32 51 / 10%);
-}
-
-.sample-section + .sample-section {
-  margin-block-start: 1rem;
-}
-
-.sample-section h2,
-.sample-section p {
+.sample-section-copy,
+.canvas-shell-section-content,
+.state-contract-section-content {
   margin-block: 0;
+  line-height: 1.5;
 }
 
-.sample-section p {
-  margin-block-start: 0.5rem;
-  color: #526079;
-  line-height: 1.5;
+.sample-section-copy,
+.canvas-shell-section-content,
+.state-contract-section-content {
+  color: var(--setta-workspace-section-muted-text);
+}
+
+.state-contract-section-content {
+  font-size: 0.875rem;
 }
 
 .state-contract-grid {
@@ -399,15 +393,6 @@ main {
   .announcement,
   .canvas-shell-settings-hint {
     color: #b7c4da;
-  }
-
-  .sample-section {
-    background: #222b3c;
-    box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 24%);
-  }
-
-  .sample-section p {
-    color: #bdc8da;
   }
 
   .state-contract-grid > section,

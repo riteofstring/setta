@@ -56,4 +56,7 @@ host controls and overlay placements, and a side-configurable empty minimap shel
 gesture matrix, independent host pan/wheel arbitration, exact viewport restoration, and
 mount/observer/listener/subscription cleanup close the Phase 1 implementation, which is ready for
 Phase 2. The restarted Phase 1 audit and repository-actionable corrections are complete; interactive
-in-app CDP review remains recorded as an external release gate.
+in-app CDP review remains recorded as an external release gate. Phase 2 has begun with the strict
+section-definition registry and the first package-owned root frame that renders unrelated host
+components with accessible naming, scoped appearance/read-only context, and automatic viewport
+gesture isolation.

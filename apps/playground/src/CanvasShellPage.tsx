@@ -11,6 +11,7 @@ import {
 import {
   Workspace,
   WorkspaceInteractionBoundary,
+  type SectionDefinition,
   type WorkspaceMinimapPlacement,
   type WorkspaceToolbarControl,
 } from "@setta/workspace/react";
@@ -63,6 +64,17 @@ const scrollFixture = Array.from(
   (_, index) => `Scrollable host line ${String(index + 1)}`,
 ).join("\n");
 const HOST_EXTENSIONS_DEFAULT_QUERY = "(min-width: 40rem)";
+
+const navigationSectionDefinitions = [
+  {
+    defaultSize: { height: 180, width: 240 },
+    displayName: "Navigation fixture",
+    kind: "navigation fixture",
+    render: ({ sectionId }) => (
+      <p className="canvas-shell-section-content">Measured host renderer for {sectionId}.</p>
+    ),
+  },
+] satisfies readonly SectionDefinition[];
 
 type PanOnDragMode = "all" | "disabled" | "middle" | "primary";
 
@@ -494,6 +506,7 @@ export function CanvasShellPage() {
             }}
             onGridSnapChange={setGridSnap}
             onMinimapVisibilityChange={setMinimapVisible}
+            sectionDefinitions={navigationSectionDefinitions}
             overlaySlots={{
               canvas: () => (
                 <WorkspaceInteractionBoundary

@@ -1280,6 +1280,12 @@ Gate:
 
 ### Phase 2: Free canvas and top-level section foundation
 
+Status: **in progress** (updated 2026-08-08).
+
+- Completed: a strict typed `SectionDefinition` registry with unique stable kinds, host display and creation metadata, fixed/content sizing defaults, resize constraints, containment defaults, minimization policy, and all four chrome defaults. Runtime validation rejects sparse, accessor-backed, extra, duplicate, contradictory, and document-incompatible registrations before a host renderer mounts.
+- Completed: populated canonical roots now resolve through the registry into a package-owned accessible section frame instead of a placeholder shell. The frame uses visible-title naming, renders unrelated host components with section data plus resolved appearance and read-only context, automatically isolates host pointer and wheel interaction from the viewport, preserves a focus target for headerless chrome, exposes persistent lock/minimized state textually, and omits the host body while minimized. Root projection remains adapter-local and does not expose XYFlow contracts or make ordered descendants spatial nodes.
+- Verification: exact Node 24.18.1, Corepack 0.35.0, and pnpm 11.19.0 changed-file quality passed for 22 project files with 221 unit tests, six boundary tests, plan-loop automation, strict types, formatting, lint, dead-code, complexity/file-length, package/playground builds, exact tarball contents, and the declaration-closure API report. The unrelated packed consumer built successfully. Three directly affected Chromium workflows passed real host rendering, resolved read-only updates, input continuity, measured focus/fit navigation, 200% page scale, automated accessibility scans, and both inspected updated visual baselines. No dependency input changed, so the already-green registry-backed supply-chain gate was not duplicated, and the recorded unavailable external CDP release gate was not retried.
+
 Implement:
 
 - Section registry including creation metadata, sizing defaults, and chrome variants.

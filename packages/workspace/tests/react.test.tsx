@@ -1,13 +1,20 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { createEmptyWorkspaceDocument } from "../src/core.js";
+import {
+  createEmptyWorkspaceDocument,
+  type WorkspaceDocument,
+  type WorkspaceSection,
+} from "../src/core.js";
 import {
   Workspace,
   WorkspaceInteractionBoundary,
+  type SectionDefinition,
+  type SectionRenderProps,
   type WorkspaceProps,
   type WorkspaceToolbarControl,
 } from "../src/react.js";
+import { createWorkspaceTestDocument } from "../src/testing.js";
 
 function workspaceControlIds(markup: string): readonly string[] {
   return [...markup.matchAll(/data-workspace-control-id="([^"]+)"/gu)].map(
@@ -41,6 +48,87 @@ describe("Workspace scaffold", () => {
 
     expect(markup).toContain('<div class="setta-workspace__empty"><div data-empty-state="">');
     expect(markup).not.toContain('<p class="setta-workspace__empty">');
+  });
+
+  it("renders registered host content inside an accessible package-owned section frame", () => {
+    const document = createWorkspaceTestDocument([{ id: "alpha", title: "Alpha note" }]);
+    const Renderer = ({ appearance, data, readOnly, sectionId }: SectionRenderProps) => (
+      <label data-appearance={appearance} data-read-only={String(readOnly)}>
+        Host field for {sectionId}
+        <input defaultValue={String(data)} />
+      </label>
+    );
+    const definitions = [
+      {
+        creation: { group: "Basics", keywords: ["note"] },
+        defaultSize: { height: 180, width: 240 },
+        displayName: "Host note",
+        kind: "test",
+        render: Renderer,
+      },
+    ] satisfies readonly SectionDefinition[];
+
+    const markup = renderToStaticMarkup(
+      <Workspace
+        appearanceOptions={{ appearance: "dark" }}
+        defaultDocument={document}
+        readOnly
+        sectionDefinitions={definitions}
+      />,
+    );
+
+    expect(markup).toContain('data-workspace-section-id="alpha"');
+    expect(markup).toMatch(/<article[^>]+aria-labelledby="[^"]+"/u);
+    expect(markup).toContain("Alpha note");
+    expect(markup).toContain("Host note");
+    expect(markup).toContain("Host field for alpha");
+    expect(markup).toContain('data-appearance="dark"');
+    expect(markup).toContain('data-read-only="true"');
+    expect(markup).toContain("setta-workspace__interaction-boundary");
+    expect(markup).toContain('data-workspace-prevent-pan="true"');
+    expect(markup).toContain('data-workspace-prevent-wheel="true"');
+  });
+
+  it("keeps headerless titles accessible and unmounts minimized host renderers", () => {
+    const base = createWorkspaceTestDocument([{ id: "alpha", title: "Quiet note" }]);
+    const section = base.sections.alpha as WorkspaceSection;
+    const document: WorkspaceDocument = {
+      ...base,
+      sections: {
+        ...base.sections,
+        alpha: {
+          ...section,
+          isMinimized: true,
+          presentation: { ...section.presentation, chrome: "none" },
+        },
+      },
+    };
+    const definitions = [
+      {
+        defaultSize: { height: 180, width: 240 },
+        displayName: "Quiet host",
+        kind: "test",
+        render: () => <span>Host body must be absent</span>,
+      },
+    ] satisfies readonly SectionDefinition[];
+
+    const markup = renderToStaticMarkup(
+      <Workspace defaultDocument={document} sectionDefinitions={definitions} />,
+    );
+
+    expect(markup).toContain('data-workspace-chrome="none"');
+    expect(markup).toContain('data-workspace-minimized="true"');
+    expect(markup).toContain("Quiet note");
+    expect(markup).toContain("Minimized");
+    expect(markup).not.toContain("Host body must be absent");
+  });
+
+  it("fails specifically when a document uses an unregistered section kind", () => {
+    const document = createWorkspaceTestDocument([{ id: "alpha", title: "Alpha" }]);
+
+    expect(() => renderToStaticMarkup(<Workspace defaultDocument={document} />)).toThrow(
+      'section "alpha" uses unregistered kind "test"',
+    );
   });
 
   it("fails specifically when the workspace accessible name is blank", () => {

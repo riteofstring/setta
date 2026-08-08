@@ -40,7 +40,10 @@ export type WorkspaceAppearanceOptions = Readonly<{
 export type WorkspaceAppearanceOptionOverrides = Partial<WorkspaceAppearanceOptions>;
 
 export type WorkspaceActionRejectionReason =
-  "layout-edit-disabled" | "presentation-edit-disabled" | "structure-edit-disabled";
+  | "layout-edit-disabled"
+  | "presentation-edit-disabled"
+  | "section-not-minimizable"
+  | "structure-edit-disabled";
 
 export type WorkspaceActionResult =
   | Readonly<{ status: "applied" | "unchanged" }>

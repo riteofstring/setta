@@ -11,9 +11,23 @@ completed viewport gesture publishes one document change.
 ```tsx
 const controller = useRef<WorkspaceController>(null);
 
+const sectionDefinitions = [
+  {
+    kind: "note",
+    displayName: "Note",
+    defaultTitle: "Untitled note",
+    defaultSize: { width: 280, height: 180 },
+    creation: { group: "Basics", keywords: ["text", "memo"] },
+    render: ({ data, appearance, readOnly }) => (
+      <NoteEditor value={data} appearance={appearance} readOnly={readOnly} />
+    ),
+  },
+] satisfies readonly SectionDefinition<NoteData>[];
+
 <Workspace
   controllerRef={controller}
   document={document}
+  sectionDefinitions={sectionDefinitions}
   onDocumentChange={(nextDocument, change) => {
     setDocument(nextDocument);
     console.log(change.reason);
@@ -48,6 +62,20 @@ const controller = useRef<WorkspaceController>(null);
   }}
 />;
 ```
+
+Every populated document kind must have one matching `sectionDefinitions` entry. Registrations are
+validated before rendering: kinds must be unique, default dimensions and resize constraints must be
+finite and compatible, content-sized axes must be enabled, child-layout defaults require a
+container kind, and persisted lock/minimize/size/containment state must be supported by the matching
+definition. Unknown kinds fail specifically rather than rendering guessed content.
+
+The package-owned frame supplies the visible title and section-kind label, then renders the host
+component with `sectionId`, serialized `data`, resolved `light` or `dark` appearance, and the
+resolved workbench `readOnly` state. Its content boundary automatically prevents inputs and
+scrollable host content from starting viewport pan or wheel gestures. Headerless chrome retains an
+accessible title, and minimized sections unmount the host body while retaining serialized data and
+size state. Host data-update callbacks, creation UI, title editing, and section interactions remain
+separate Phase 2 surfaces.
 
 Use `defaultDocument` instead of `document` for uncontrolled ownership. The two modes are mutually
 exclusive, and a controlled workspace requires `onDocumentChange`. `readOnly` disables package-owned

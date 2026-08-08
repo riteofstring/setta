@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   resolveWorkspaceCapabilities,
+  WORKSPACE_DEFAULT_CAPABILITIES,
   type WorkspaceDocument,
   type WorkspaceSection,
 } from "../src/core.js";
+import { createWorkspaceController } from "../src/internal/workspace-controller.js";
 import { createWorkspaceTestDocument, WorkspaceInMemoryHost } from "../src/testing.js";
 
 function recursiveDocument(): WorkspaceDocument {
@@ -191,5 +193,23 @@ describe("workspace controller", () => {
       "section-minimize",
       "section-lock",
     ]);
+  });
+
+  it("rejects minimizing a section whose registered kind opts out", () => {
+    const document = createWorkspaceTestDocument([{ id: "fixed", title: "Fixed" }]);
+    const controller = createWorkspaceController({
+      canMinimizeSection: () => false,
+      commit: () => {
+        throw new Error("A rejected minimize command must not commit.");
+      },
+      getCapabilities: () => WORKSPACE_DEFAULT_CAPABILITIES,
+      getDocument: () => document,
+    });
+
+    expect(controller.setSectionMinimized("fixed", true)).toEqual({
+      reason: "section-not-minimizable",
+      status: "rejected",
+    });
+    expect(controller.setSectionMinimized("fixed", false)).toEqual({ status: "unchanged" });
   });
 });
