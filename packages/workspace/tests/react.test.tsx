@@ -112,6 +112,7 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain("Alpha note");
     expect(markup).toMatch(/aria-label="Select Alpha note"[^>]+aria-pressed="false"/u);
     expect(markup).toContain('data-workspace-selected="false"');
+    expect(markup).toContain('data-workspace-minimap-interactive="true"');
     expect(markup).toContain("Host note");
     expect(markup).toContain("Host field for alpha");
     expect(markup).toContain('data-appearance="dark"');
@@ -493,6 +494,7 @@ describe("Workspace scaffold", () => {
 
     expect(controlsId).toBeTruthy();
     expect(markup).toContain(`hidden="" id="${String(controlsId)}"`);
+    expect(markup).toContain('data-workspace-minimap-interactive="false"');
     expect(markup).not.toContain('role="img"');
   });
 

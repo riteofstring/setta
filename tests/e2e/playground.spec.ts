@@ -25,14 +25,16 @@ async function resetCanvasViewport(page: Page): Promise<void> {
   await waitForWorkspaceEffects(page);
 }
 
-async function moveToOpenCanvas(page: Page): Promise<void> {
+async function moveToOpenCanvas(page: Page): Promise<Readonly<{ x: number; y: number }>> {
   const canvas = page.getByRole("application", { name: "Canvas shell workspace canvas" });
   await canvas.scrollIntoViewIfNeeded();
   const bounds = await canvas.boundingBox();
   if (!bounds) {
     throw new Error("The canvas shell has no browser bounds.");
   }
-  await page.mouse.move(bounds.x + bounds.width - 48, bounds.y + bounds.height / 2);
+  const point = { x: bounds.x + bounds.width - 48, y: bounds.y + bounds.height / 2 };
+  await page.mouse.move(point.x, point.y);
+  return point;
 }
 
 async function dragSurface(
@@ -603,17 +605,7 @@ test("the canvas shell releases lifecycle resources and restores its persisted v
   expect(await canvasViewport(page)).toEqual(persistedViewport);
 
   await page.getByLabel("Drag to pan").selectOption("primary");
-  const pane = page.locator(".react-flow__pane");
-  await pane.scrollIntoViewIfNeeded();
-  const paneBounds = await pane.boundingBox();
-  if (!paneBounds) {
-    throw new Error("The remounted canvas pane has no browser bounds.");
-  }
-  const dragStart = {
-    x: paneBounds.x + paneBounds.width * 0.72,
-    y: paneBounds.y + paneBounds.height * 0.68,
-  };
-  await page.mouse.move(dragStart.x, dragStart.y);
+  const dragStart = await moveToOpenCanvas(page);
   await page.mouse.down();
   await page.mouse.move(dragStart.x - 48, dragStart.y - 32, { steps: 4 });
   const activeDragResources = await workspaceLifecycleSnapshot(page);

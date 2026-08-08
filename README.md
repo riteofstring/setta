@@ -52,7 +52,8 @@ publication, host-content interaction boundaries, production frame measurement, 
 geometry-backed focus, fit, and spatial next/previous navigation. It also includes independent
 grid visibility and snapping, all three grid patterns, shared two-axis spacing, and scoped
 light/dark/system semantic theme tokens. It now also includes the default accessible toolbar, typed
-host controls and overlay placements, and a side-configurable empty minimap shell. The complete
+host controls and overlay placements, and a side-configurable minimap that projects root sections,
+centers pointer-selected points or roots, and pans through the canonical viewport lifecycle. The complete
 gesture matrix, independent host pan/wheel arbitration, exact viewport restoration, and
 mount/observer/listener/subscription cleanup close the Phase 1 implementation, which is ready for
 Phase 2. The restarted Phase 1 audit and repository-actionable corrections are complete; interactive

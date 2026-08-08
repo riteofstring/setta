@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { WorkspaceDocument, WorkspaceDocumentChange } from "../src/core.js";
 import {
+  centerWorkspacePointInViewport,
   createWorkspaceCanvasController,
   type WorkspaceCanvasController,
 } from "../src/internal/workspace-canvas-navigation.js";
@@ -68,6 +69,23 @@ function controllerFixture() {
 }
 
 describe("workspace geometry navigation controller", () => {
+  it("centers a minimap point without changing the current zoom", () => {
+    expect(
+      centerWorkspacePointInViewport(
+        { x: 450, y: -120 },
+        { x: -10, y: 20, zoom: 1.5 },
+        { height: 600, width: 800 },
+      ),
+    ).toEqual({ x: -275, y: 480, zoom: 1.5 });
+    expect(() =>
+      centerWorkspacePointInViewport(
+        { x: 0, y: 0 },
+        { x: 0, y: 0, zoom: 1 },
+        { height: 600, width: 0 },
+      ),
+    ).toThrow("point navigation requires a canvas with positive dimensions");
+  });
+
   it("focuses a measured section through one canonical viewport command", async () => {
     const fixture = controllerFixture();
 

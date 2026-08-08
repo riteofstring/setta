@@ -23,6 +23,26 @@ export type WorkspaceCanvasController = Readonly<{
   workspacePointToClient(point: WorkspacePoint): WorkspacePoint;
 }>;
 
+export function centerWorkspacePointInViewport(
+  point: WorkspacePoint,
+  viewport: WorkspaceViewport,
+  canvasSize: Readonly<{ height: number; width: number }>,
+): WorkspaceViewport {
+  if (
+    !Number.isFinite(canvasSize.width) ||
+    canvasSize.width <= 0 ||
+    !Number.isFinite(canvasSize.height) ||
+    canvasSize.height <= 0
+  ) {
+    throw new Error("Workspace point navigation requires a canvas with positive dimensions.");
+  }
+  return {
+    x: canvasSize.width / 2 - point.x * viewport.zoom,
+    y: canvasSize.height / 2 - point.y * viewport.zoom,
+    zoom: viewport.zoom,
+  };
+}
+
 type WorkspaceZoomBounds = Readonly<{
   maxZoom: number;
   minZoom: number;

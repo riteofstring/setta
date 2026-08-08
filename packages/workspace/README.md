@@ -226,7 +226,11 @@ toolbar isolate their pointer and wheel input from the viewport; transformed can
 `WorkspaceInteractionBoundary` for the same isolation. Direct `Workspace` children are not an
 overlay API.
 
-The minimap is visible on the right by default and can be placed on either physical side.
+The minimap is visible on the right by default and can be placed on either physical side. Once the
+workbench has root sections, click empty minimap space to center that workbench point, drag the
+minimap to pan, or click a root summary to select, center, and focus that section. Direct section
+controls and the controller's focus, fit, and next/previous helpers provide the corresponding
+keyboard navigation paths.
 `gridOptions.snap` and `minimapOptions.visible` are locally toggleable when their change callback is
 omitted. Supplying `onGridSnapChange` or `onMinimapVisibilityChange` makes that preference
 controlled; keep the corresponding option and callback ownership mode stable for the mount.

@@ -1434,6 +1434,19 @@
   block-size: 100%;
 }
 
+[data-workspace-minimap-interactive="true"] .react-flow__minimap-svg {
+  cursor: grab;
+  touch-action: none;
+}
+
+[data-workspace-minimap-interactive="true"] .react-flow__minimap-svg:active {
+  cursor: grabbing;
+}
+
+[data-workspace-minimap-interactive="true"] .react-flow__minimap-node {
+  cursor: pointer;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .setta-workspace__section-edit-control,
   .setta-workspace__section-selection-control,

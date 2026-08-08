@@ -1,5 +1,12 @@
-import { Background, BackgroundVariant, MiniMap, useViewport, ViewportPortal } from "@xyflow/react";
-import type { ReactNode } from "react";
+import {
+  Background,
+  BackgroundVariant,
+  MiniMap,
+  useViewport,
+  ViewportPortal,
+  type MiniMapProps,
+} from "@xyflow/react";
+import { useCallback, useRef, type ReactNode } from "react";
 
 import type { WorkspaceRootNode } from "./workspace-canvas-root-node.js";
 import {
@@ -166,17 +173,49 @@ export function WorkspaceFixedOverlay({
 
 export function WorkspaceMinimap({
   ariaLabel,
+  interactive,
   id,
+  onPointerInteractionStart,
+  onPointNavigate,
+  onSectionNavigate,
   placement,
   visible,
 }: Readonly<{
   ariaLabel: string;
+  interactive: boolean;
   id: string;
+  onPointerInteractionStart(): void;
+  onPointNavigate(point: Readonly<{ x: number; y: number }>): void;
+  onSectionNavigate(sectionId: string): void;
   placement: WorkspaceMinimapPlacement;
   visible: boolean;
 }>) {
+  const navigationRef = useRef({ interactive, onPointNavigate, onSectionNavigate });
+  navigationRef.current = { interactive, onPointNavigate, onSectionNavigate };
+  const handlePointNavigate = useCallback<NonNullable<MiniMapProps<WorkspaceRootNode>["onClick"]>>(
+    (_event, point) => {
+      if (navigationRef.current.interactive) {
+        navigationRef.current.onPointNavigate(point);
+      }
+    },
+    [],
+  );
+  const handleSectionNavigate = useCallback<
+    NonNullable<MiniMapProps<WorkspaceRootNode>["onNodeClick"]>
+  >((event, node) => {
+    if (navigationRef.current.interactive) {
+      event.stopPropagation();
+      navigationRef.current.onSectionNavigate(node.id);
+    }
+  }, []);
   return (
-    <div data-workspace-minimap-placement={placement} hidden={!visible} id={id}>
+    <div
+      data-workspace-minimap-interactive={interactive ? "true" : "false"}
+      data-workspace-minimap-placement={placement}
+      hidden={!visible}
+      id={id}
+      onPointerDownCapture={interactive ? onPointerInteractionStart : undefined}
+    >
       {visible ? (
         <MiniMap<WorkspaceRootNode>
           ariaLabel={`${ariaLabel} minimap`}
@@ -191,7 +230,9 @@ export function WorkspaceMinimap({
             "var(--setta-workspace-section-background)"
           }
           nodeStrokeColor="var(--setta-workspace-section-muted-text)"
-          pannable={false}
+          onClick={handlePointNavigate}
+          onNodeClick={handleSectionNavigate}
+          pannable={interactive}
           position={placement === "left" ? "bottom-left" : "bottom-right"}
           zoomable={false}
         />

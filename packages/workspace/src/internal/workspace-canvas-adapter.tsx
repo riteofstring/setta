@@ -27,7 +27,10 @@ import {
   WorkspaceGridBackground,
   WorkspaceMinimap,
 } from "./workspace-canvas-decorations.js";
-import { type WorkspaceCanvasController } from "./workspace-canvas-navigation.js";
+import {
+  centerWorkspacePointInViewport,
+  type WorkspaceCanvasController,
+} from "./workspace-canvas-navigation.js";
 import { workspaceNodeTypes, type WorkspaceRootNode } from "./workspace-canvas-root-node.js";
 import { useWorkspaceCanvasRootProjection } from "./workspace-canvas-root-projection.js";
 import { useWorkspaceCanvasSelectionControls } from "./workspace-canvas-selection-controls.js";
@@ -239,6 +242,20 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     () => document.rootSections.map((root) => root.sectionId),
     [document.rootSections],
   );
+  const handleMinimapPointNavigate = useCallback(
+    (point: WorkspacePoint) => {
+      workspaceController.setViewport(
+        centerWorkspacePointInViewport(point, document.viewport, geometry.canvasBounds()),
+      );
+    },
+    [document.viewport, geometry, workspaceController],
+  );
+  const handleMinimapSectionNavigate = useCallback(
+    (sectionId: string) => {
+      void workspaceController.focusSection(sectionId);
+    },
+    [workspaceController],
+  );
   const handleCanvasKeyDownCapture = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
       selection.handleCanvasKeyDownCapture(event);
@@ -380,7 +397,11 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         />
         <WorkspaceMinimap
           ariaLabel={ariaLabel}
+          interactive={sectionIds.length > 0}
           id={minimapId}
+          onPointerInteractionStart={viewport.handleUnattributedInteractionStart}
+          onPointNavigate={handleMinimapPointNavigate}
+          onSectionNavigate={handleMinimapSectionNavigate}
           placement={minimapPlacement}
           visible={minimapVisible}
         />

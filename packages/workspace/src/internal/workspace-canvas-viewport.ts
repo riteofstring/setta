@@ -37,6 +37,40 @@ function advanceViewportLifecycle(
   lifecycle.update(viewport);
 }
 
+function completeViewportGesture(
+  geometry: WorkspaceGeometryMeasurements,
+  lifecycle: WorkspaceViewportLifecycle,
+  viewport: WorkspaceViewport,
+  onViewportCommit: (viewport: WorkspaceViewport) => void,
+): void {
+  if (!workspaceViewportsMatch(lifecycle.current(), viewport)) {
+    return;
+  }
+  geometry.setViewport(viewport);
+  const completed = lifecycle.complete(viewport);
+  if (completed) {
+    onViewportCommit(completed);
+  }
+}
+
+function synchronizeUnattributedViewportEnd(
+  geometry: WorkspaceGeometryMeasurements,
+  lifecycle: WorkspaceViewportLifecycle,
+  viewport: WorkspaceViewport,
+  onViewportCommit: (viewport: WorkspaceViewport) => void,
+): void {
+  if (lifecycle.isActive()) {
+    geometry.setViewport(viewport);
+    const completed = lifecycle.complete(viewport);
+    if (completed) {
+      onViewportCommit(completed);
+    }
+    return;
+  }
+  geometry.completeViewport(viewport);
+  lifecycle.synchronize(viewport);
+}
+
 export function useWorkspaceCanvasViewport({
   canonicalViewport,
   geometry,
@@ -83,6 +117,9 @@ export function useWorkspaceCanvasViewport({
 
   const handleInitialized = useCallback(() => setInitialized(true), []);
   const getCanvasBounds = useCallback(() => geometry.canvasBounds(), [geometry]);
+  const handleUnattributedInteractionStart = useCallback(() => {
+    programmaticViewportRef.current = null;
+  }, []);
   const handleCanvasElement = useCallback(
     (element: HTMLDivElement | null) => {
       mountedRef.current = element !== null;
@@ -142,25 +179,16 @@ export function useWorkspaceCanvasViewport({
       }
       const nextViewport = viewportFromUpstream(viewport);
       if (!event) {
-        if (
-          workspaceViewportsMatch(programmaticViewportRef.current ?? nextViewport, nextViewport)
-        ) {
-          if (!lifecycle.isActive()) {
-            geometry.completeViewport(nextViewport);
-            lifecycle.synchronize(nextViewport);
-          }
+        const programmaticViewport = programmaticViewportRef.current;
+        if (!programmaticViewport) {
+          synchronizeUnattributedViewportEnd(geometry, lifecycle, nextViewport, onViewportCommit);
+        } else if (workspaceViewportsMatch(programmaticViewport, nextViewport)) {
+          synchronizeUnattributedViewportEnd(geometry, lifecycle, nextViewport, onViewportCommit);
           programmaticViewportRef.current = null;
         }
         return;
       }
-      if (!workspaceViewportsMatch(lifecycle.current(), nextViewport)) {
-        return;
-      }
-      geometry.setViewport(nextViewport);
-      const completed = lifecycle.complete(nextViewport);
-      if (completed) {
-        onViewportCommit(completed);
-      }
+      completeViewportGesture(geometry, lifecycle, nextViewport, onViewportCommit);
     },
     [geometry, lifecycle, onViewportCommit],
   );
@@ -174,6 +202,7 @@ export function useWorkspaceCanvasViewport({
     handleMove,
     handleMoveEnd,
     handleMoveStart,
+    handleUnattributedInteractionStart,
     lifecycle,
     programmaticViewportRef,
   };
