@@ -92,6 +92,7 @@ describe("WorkspaceGeometryMeasurements lifecycle", () => {
     geometry.requestMeasurement();
 
     expect(index.size).toBe(1);
+    expect(geometry.canvasBounds()).toEqual({ height: 500, width: 800, x: 50, y: 80 });
     expect(fixture.addEventListener).toHaveBeenCalledWith("resize", expect.any(Function));
     expect(canvas.addEventListener).toHaveBeenCalledWith("scroll", expect.any(Function), true);
     expect(fixture.requestAnimationFrame).toHaveBeenCalledOnce();

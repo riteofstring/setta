@@ -591,6 +591,15 @@ test("the canvas shell releases lifecycle resources and restores its persisted v
 test("the canvas toolbar, host extensions, and empty minimap synchronize and clean up", async ({
   page,
 }) => {
+  await page.addInitScript(() => {
+    const getElementById = Document.prototype.getElementById;
+    Document.prototype.getElementById = function (id: string) {
+      if (id.startsWith("setta-workspace-canvas-")) {
+        throw new Error("Toolbar zoom must use adapter-owned canvas geometry.");
+      }
+      return getElementById.call(this, id);
+    };
+  });
   await page.goto("/?canvas-shell");
 
   const workspace = page.getByRole("region", { name: "Canvas shell workspace", exact: true });

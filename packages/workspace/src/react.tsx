@@ -28,13 +28,13 @@ import {
   type WorkspaceGridOptionOverrides,
   type WorkspaceJsonValue,
 } from "./core.js";
+import { WorkspaceCanvasAdapter } from "./internal/workspace-canvas-adapter.js";
+import type { WorkspaceCanvasController } from "./internal/workspace-canvas-navigation.js";
+import { createWorkspaceController } from "./internal/workspace-controller.js";
 import {
   WORKSPACE_NO_PAN_CLASS_NAME,
   WORKSPACE_NO_WHEEL_CLASS_NAME,
-  WorkspaceCanvasAdapter,
-} from "./internal/workspace-canvas-adapter.js";
-import type { WorkspaceCanvasController } from "./internal/workspace-canvas-navigation.js";
-import { createWorkspaceController } from "./internal/workspace-controller.js";
+} from "./internal/workspace-interaction-boundary.js";
 import {
   resolveWorkspaceAppearanceOptions,
   resolveWorkspaceGridOptions,
