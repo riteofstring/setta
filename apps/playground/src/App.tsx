@@ -2,6 +2,7 @@ import { Workspace } from "@setta/workspace/react";
 import { useState } from "react";
 
 import { AdapterProofPage } from "./AdapterProofPage.js";
+import { CanvasShellPage } from "./CanvasShellPage.js";
 import { StateContractPage } from "./StateContractPage.js";
 
 type PlaygroundSection = {
@@ -16,6 +17,9 @@ export function App() {
   }
   if (search.has("state-contract")) {
     return <StateContractPage />;
+  }
+  if (search.has("canvas-shell")) {
+    return <CanvasShellPage />;
   }
 
   return <DefaultPlaygroundPage />;
@@ -43,7 +47,7 @@ function DefaultPlaygroundPage() {
         </p>
         <h1>Blank-slate workspace</h1>
         <p className="lede">
-          A backend-free consumer proving the package boundary before canvas behavior is added.
+          A backend-free consumer proving the package state, rendering, and canvas boundaries.
         </p>
       </header>
       <main id="main-content" tabIndex={-1}>
@@ -55,7 +59,10 @@ function DefaultPlaygroundPage() {
             {announcement}
           </p>
         </div>
-        <Workspace ariaLabel="Section workspace">
+        <Workspace
+          ariaLabel="Section workspace"
+          emptyState={sections.length === 0 ? "No sections yet." : null}
+        >
           {sections.length === 0
             ? undefined
             : sections.map((section) => (

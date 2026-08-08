@@ -13,6 +13,10 @@ const workspaceDocument = createEmptyWorkspaceDocument();
 
 createRoot(root).render(
   <StrictMode>
-    <Workspace ariaLabel="Consumer workspace" data-version={workspaceDocument.schemaVersion} />
+    <Workspace
+      ariaLabel="Consumer workspace"
+      data-version={workspaceDocument.schemaVersion}
+      gestureOptions={{ maxZoom: 2, minZoom: 0.5, panOnScroll: true, zoomOnScroll: false }}
+    />
   </StrictMode>,
 );

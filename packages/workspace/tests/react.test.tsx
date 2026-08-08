@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { createEmptyWorkspaceDocument } from "../src/core.js";
-import { Workspace, type WorkspaceProps } from "../src/react.js";
+import { Workspace, WorkspaceInteractionBoundary, type WorkspaceProps } from "../src/react.js";
 
 describe("Workspace scaffold", () => {
   it("renders a named section with an empty state", () => {
@@ -11,6 +11,7 @@ describe("Workspace scaffold", () => {
     );
 
     expect(markup).toContain('aria-label="Planning workspace"');
+    expect(markup).toContain('aria-label="Planning workspace canvas"');
     expect(markup).toContain("Start with a section.");
   });
 
@@ -54,6 +55,57 @@ describe("Workspace scaffold", () => {
     expect(() => renderToStaticMarkup(<Workspace {...invalidProps} />)).toThrow(
       "requires onDocumentChange",
     );
+  });
+
+  it("uses the configured initial zoom for an empty uncontrolled canvas", () => {
+    const markup = renderToStaticMarkup(
+      <Workspace gestureOptions={{ initialZoom: 1.5, maxZoom: 2, minZoom: 0.5 }} />,
+    );
+
+    expect(markup).toContain("react-flow");
+    expect(markup).toContain('data-workspace-mode="uncontrolled"');
+  });
+
+  it("fails when a restored viewport is outside the configured gesture bounds", () => {
+    const document = {
+      ...createEmptyWorkspaceDocument(),
+      viewport: { x: 0, y: 0, zoom: 2 },
+    };
+
+    expect(() =>
+      renderToStaticMarkup(
+        <Workspace
+          document={document}
+          gestureOptions={{ initialZoom: 1, maxZoom: 1.5 }}
+          onDocumentChange={() => undefined}
+        />,
+      ),
+    ).toThrow("viewport zoom must be within");
+  });
+});
+
+describe("WorkspaceInteractionBoundary", () => {
+  it("hides internal suppression classes behind observable package markers", () => {
+    const markup = renderToStaticMarkup(
+      <WorkspaceInteractionBoundary>
+        <input aria-label="Host field" />
+      </WorkspaceInteractionBoundary>,
+    );
+
+    expect(markup).toContain('data-workspace-prevent-pan="true"');
+    expect(markup).toContain('data-workspace-prevent-wheel="true"');
+    expect(markup).toContain('aria-label="Host field"');
+  });
+
+  it("allows either suppression family to remain available independently", () => {
+    const markup = renderToStaticMarkup(
+      <WorkspaceInteractionBoundary preventPan={false} preventWheel>
+        Content
+      </WorkspaceInteractionBoundary>,
+    );
+
+    expect(markup).not.toContain("data-workspace-prevent-pan");
+    expect(markup).toContain('data-workspace-prevent-wheel="true"');
   });
 });
 

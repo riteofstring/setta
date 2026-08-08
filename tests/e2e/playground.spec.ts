@@ -115,3 +115,68 @@ test("controlled and uncontrolled state honor live capability policy", async ({ 
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
 });
+
+test("the canvas shell coalesces viewport gestures and isolates host input", async ({ page }) => {
+  await page.goto("/?canvas-shell");
+
+  const workspace = page.getByRole("region", { name: "Canvas shell workspace", exact: true });
+  const canvas = page.getByRole("application", { name: "Canvas shell workspace canvas" });
+  const hostNote = page.getByRole("textbox", { name: "Host note" });
+  const scrollFixture = page.getByRole("textbox", { name: "Scrollable host content" });
+  const documentJson = page.getByTestId("canvas-shell-document");
+
+  await expect(workspace).toContainText("No sections yet.");
+  await hostNote.fill("Keep this host value");
+  await page.getByRole("checkbox", { name: "Zoom with wheel" }).check();
+  await page.getByRole("checkbox", { name: "Zoom with wheel" }).uncheck();
+  await expect(hostNote).toHaveValue("Keep this host value");
+
+  await scrollFixture.hover();
+  await page.mouse.wheel(0, 240);
+  await expect
+    .poll(() => scrollFixture.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  await expect(documentJson).toHaveValue(/"x": 0[,.]/u);
+  await expect(documentJson).toHaveValue(/"y": 0[,.]/u);
+  await expect(page.getByRole("status")).toContainText("Committed viewport changes: 0.");
+
+  await canvas.scrollIntoViewIfNeeded();
+  const canvasBounds = await canvas.boundingBox();
+  if (!canvasBounds) {
+    throw new Error("The canvas shell has no browser bounds.");
+  }
+  await page.mouse.move(
+    canvasBounds.x + canvasBounds.width - 48,
+    canvasBounds.y + canvasBounds.height / 2,
+  );
+  await page.mouse.wheel(0, 180);
+  await expect
+    .poll(async () => {
+      const value = await documentJson.inputValue();
+      return (JSON.parse(value) as { viewport: { y: number } }).viewport.y;
+    })
+    .not.toBe(0);
+  await expect(page.getByRole("status")).toContainText("Committed viewport changes: 1.");
+
+  await page.getByRole("button", { name: "Reset viewport" }).click();
+  await expect(documentJson).toHaveValue(/"x": 0[,.]/u);
+  await expect(documentJson).toHaveValue(/"y": 0[,.]/u);
+  await expect(documentJson).toHaveValue(/"zoom": 1/u);
+  await expect(page.getByRole("status")).toContainText("Committed viewport changes: 2.");
+
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(accessibility.violations).toEqual([]);
+});
+
+test("the canvas shell reflows at 320 pixels with reduced motion", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await page.goto("/?canvas-shell");
+
+  const dimensions = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+  await expect(page).toHaveScreenshot("canvas-shell-320.png", { fullPage: true });
+});

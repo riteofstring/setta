@@ -3,7 +3,7 @@ import {
   type WorkspaceController,
   type WorkspaceDocument,
 } from "@setta/workspace/core";
-import { Workspace } from "@setta/workspace/react";
+import { Workspace, WorkspaceInteractionBoundary } from "@setta/workspace/react";
 import { createWorkspaceTestDocument } from "@setta/workspace/testing";
 import { useRef, useState } from "react";
 
@@ -130,10 +130,12 @@ export function StateContractPage() {
               }}
               readOnly={readOnly}
             >
-              <label className="state-contract-host-field">
-                Host note
-                <input name="host-note" />
-              </label>
+              <WorkspaceInteractionBoundary>
+                <label className="state-contract-host-field">
+                  Host note
+                  <input name="host-note" />
+                </label>
+              </WorkspaceInteractionBoundary>
             </Workspace>
             <p>Committed changes: {uncontrolledChanges}</p>
             <textarea

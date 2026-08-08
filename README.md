@@ -46,5 +46,7 @@ Temporary release-age exceptions live in `supply-chain-exceptions.json`. Each mu
 Phase 0 exact-pinned upstream XYFlow and dnd-kit behind package-owned testing adapters. The selected
 root-node/recursive-DOM representation, shared geometry index, interaction kernel, non-DnD/browser
 characterization, and completed Phase 0 gate audit are recorded under `docs/evidence` without
-exposing upstream contracts publicly. Phase 1 is now implementing the serializable document, React
-state/controller boundary, and canvas shell in adjacent verified slices.
+exposing upstream contracts publicly. Phase 1 now includes the serializable document, React
+state/controller boundary, upstream canvas shell, runtime gesture policy, coalesced viewport
+publication, and host-content interaction boundaries; geometry-backed navigation and the remaining
+canvas controls continue in adjacent verified slices.

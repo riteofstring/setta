@@ -1,19 +1,17 @@
 @import "@xyflow/react/dist/base.css";
 
 .setta-workspace {
+  position: relative;
+  isolation: isolate;
   box-sizing: border-box;
+  block-size: clamp(24rem, 70vh, 44rem);
+  min-inline-size: 0;
   min-block-size: 24rem;
-  padding: 1.5rem;
-  overflow: auto;
+  overflow: hidden;
   color: var(--setta-workspace-foreground, #172033);
   background-color: var(--setta-workspace-canvas, #f4f7fb);
-  background-image: radial-gradient(
-    circle,
-    var(--setta-workspace-grid, #c8d2e1) 1px,
-    transparent 1px
-  );
-  background-size: 1.5rem 1.5rem;
   border-radius: 1rem;
+  box-shadow: inset 0 0 0 1px rgb(23 32 51 / 10%);
 }
 
 .setta-workspace *,
@@ -30,6 +28,89 @@
   background: var(--setta-workspace-surface, #ffffff);
   border-radius: 0.75rem;
   box-shadow: 0 0.5rem 1.5rem rgb(23 32 51 / 8%);
+}
+
+.setta-workspace__canvas {
+  inline-size: 100%;
+  block-size: 100%;
+  color: inherit;
+  background: var(--setta-workspace-canvas, #f4f7fb);
+}
+
+.setta-workspace__canvas .react-flow__pane {
+  cursor: grab;
+}
+
+.setta-workspace__canvas .react-flow__pane:active {
+  cursor: grabbing;
+}
+
+.setta-workspace__canvas .react-flow__attribution {
+  color: var(--setta-workspace-muted, #526079);
+  background: var(--setta-workspace-surface, #ffffff);
+}
+
+.setta-workspace__canvas .react-flow__attribution a {
+  color: inherit;
+}
+
+.setta-workspace__canvas .react-flow__node-workspace-root-shell {
+  overflow: hidden;
+  background: transparent;
+  border-radius: 0.875rem;
+  box-shadow: 0 1rem 2.5rem rgb(23 32 51 / 12%);
+}
+
+.setta-workspace__root-shell {
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 100%;
+  padding: 1rem;
+  overflow: auto;
+  color: var(--setta-workspace-foreground, #172033);
+  background: var(--setta-workspace-surface, #ffffff);
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgb(23 32 51 / 8%);
+}
+
+.setta-workspace__root-shell h2,
+.setta-workspace__root-shell p {
+  margin: 0;
+}
+
+.setta-workspace__root-shell h2 {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.setta-workspace__root-shell p {
+  margin-block-start: 0.375rem;
+  color: var(--setta-workspace-muted, #526079);
+  font-size: 0.875rem;
+}
+
+.setta-workspace__empty-panel {
+  max-inline-size: min(32rem, calc(100% - 2rem));
+  pointer-events: none;
+}
+
+.setta-workspace__host-overlay {
+  position: absolute;
+  inset-block-start: 1rem;
+  inset-inline-start: 1rem;
+  inline-size: max-content;
+  max-inline-size: calc(100vw - 4rem);
+  pointer-events: auto;
+  user-select: text;
+}
+
+.setta-workspace__interaction-boundary {
+  min-inline-size: 0;
+}
+
+.setta-workspace :focus-visible {
+  outline-style: auto;
+  outline-offset: 3px;
 }
 
 .setta-adapter-proof {
