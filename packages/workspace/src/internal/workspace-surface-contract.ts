@@ -43,13 +43,19 @@ export type WorkspaceAppearanceOptionOverrides = Partial<WorkspaceAppearanceOpti
 
 export type WorkspaceActionRejectionReason =
   | "canvas-unavailable"
+  | "group-kind-cannot-contain-sections"
+  | "group-selection-too-small"
+  | "grouping-unavailable"
   | "layout-edit-disabled"
+  | "mixed-parent-selection"
   | "presentation-edit-disabled"
   | "section-creation-unavailable"
+  | "section-geometry-unavailable"
   | "section-id-exists"
   | "section-locked"
   | "section-minimized"
   | "section-not-minimizable"
+  | "section-not-container"
   | "section-not-root"
   | "structure-edit-disabled"
   | "unknown-section-kind";
@@ -69,6 +75,7 @@ export type WorkspaceCreateSectionOptions = Readonly<{
 export type WorkspaceDocumentChangeReason =
   | "section-create"
   | "section-delete"
+  | "section-group"
   | "section-lock"
   | "section-minimize"
   | "section-move"
@@ -77,6 +84,7 @@ export type WorkspaceDocumentChangeReason =
   | "section-size-mode"
   | "section-stack"
   | "section-title"
+  | "section-ungroup"
   | "viewport";
 
 export type WorkspaceDocumentChange = Readonly<{
@@ -94,6 +102,7 @@ export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
     sectionIds: readonly string[],
     options?: WorkspaceFitOptions,
   ): Promise<WorkspaceActionResult>;
+  groupSections(sectionIds: readonly string[]): WorkspaceActionResult;
   focusNextSection(sectionId: string): Promise<WorkspaceActionResult>;
   focusPreviousSection(sectionId: string): Promise<WorkspaceActionResult>;
   focusSection(sectionId: string): Promise<WorkspaceActionResult>;
@@ -111,4 +120,5 @@ export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
   setSectionTitle(sectionId: string, title: string): WorkspaceActionResult;
   setSectionsLocked(sectionIds: readonly string[], locked: boolean): WorkspaceActionResult;
   setViewport(viewport: WorkspaceViewport): WorkspaceActionResult;
+  ungroupSection(sectionId: string): WorkspaceActionResult;
 }>;

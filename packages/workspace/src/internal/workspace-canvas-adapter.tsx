@@ -71,6 +71,7 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   emptyState: ReactNode;
   gestureOptions: WorkspaceGestureOptions;
   gridOptions: ResolvedWorkspaceGridOptions;
+  groupingConfigured: boolean;
   layoutEditable: boolean;
   marqueeSelectionMode: "full" | "partial";
   minimapPlacement: WorkspaceMinimapPlacement;
@@ -121,6 +122,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   emptyState,
   gestureOptions,
   gridOptions,
+  groupingConfigured,
   layoutEditable,
   marqueeSelectionMode,
   minimapPlacement,
@@ -183,6 +185,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   const selectionActions = useWorkspaceSelectionActionMenu({
     controller: workspaceController,
     document,
+    groupingConfigured,
     layoutEditable,
     onSelectionRequest: selection.handleSelectionRequest,
     presentationEditable,

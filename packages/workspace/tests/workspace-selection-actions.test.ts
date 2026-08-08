@@ -32,11 +32,13 @@ function actionReason(
   document: WorkspaceDocument,
   selectedSectionIds: readonly string[],
   actionId: string,
+  groupingConfigured = false,
 ): string | null | undefined {
   return planWorkspaceSelectionActions(
     document,
     selectedSectionIds,
     WORKSPACE_DEFAULT_CAPABILITIES,
+    { groupingConfigured },
   ).actions.find(({ id }) => id === actionId)?.disabledReason;
 }
 
@@ -85,6 +87,11 @@ describe("workspace selection actions", () => {
     expect(actionReason(document, ["beta"], "bring-to-front")).toBe(
       "Selected sections are already at the front.",
     );
+    expect(actionReason(document, ["alpha", "beta"], "group", true)).toBeNull();
+    expect(actionReason(document, ["beta"], "ungroup")).toBeNull();
+    expect(actionReason(document, ["alpha"], "ungroup")).toBe(
+      "Select one container with child sections to ungroup.",
+    );
   });
 
   it("keeps disabled actions discoverable with specific capability explanations", () => {
@@ -112,5 +119,21 @@ describe("workspace selection actions", () => {
         "Turn on structure editing to use this action.",
       );
     }
+  });
+
+  it("requires both structure and layout editing for containment changes", () => {
+    const plan = planWorkspaceSelectionActions(
+      actionDocument(),
+      ["alpha", "beta"],
+      { editLayout: false, editPresentation: true, editStructure: true },
+      { groupingConfigured: true },
+    );
+
+    expect(plan.actions.find(({ id }) => id === "group")?.disabledReason).toBe(
+      "Turn on layout editing to use this action.",
+    );
+    expect(plan.actions.find(({ id }) => id === "ungroup")?.disabledReason).toBe(
+      "Turn on layout editing to use this action.",
+    );
   });
 });

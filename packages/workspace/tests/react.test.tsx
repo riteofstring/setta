@@ -470,6 +470,11 @@ describe("Workspace scaffold", () => {
     ).toThrow("color must be a valid CSS color");
     expect(() =>
       renderToStaticMarkup(
+        <Workspace groupFactory={null as unknown as NonNullable<WorkspaceProps["groupFactory"]>} />,
+      ),
+    ).toThrow("groupFactory must be a function");
+    expect(() =>
+      renderToStaticMarkup(
         <Workspace
           onExternalDrop={"drop" as unknown as NonNullable<WorkspaceProps["onExternalDrop"]>}
         />,

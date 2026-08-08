@@ -1,4 +1,5 @@
 import {
+  deriveWorkspaceParentLookup,
   isValidWorkspaceColor,
   validateWorkspaceDocument,
   type WorkspaceActionRejectionReason,
@@ -21,6 +22,7 @@ import {
   workspaceRootStackingMatches,
   type WorkspaceRootStackingAction,
 } from "./workspace-root-stacking.js";
+import { resolveWorkspaceSiblingSelection } from "./workspace-section-grouping.js";
 import type { WorkspaceSectionResizeAxis } from "./workspace-section-sizing.js";
 import { normalizeWorkspaceSelectionRoots } from "./workspace-selection.js";
 
@@ -31,6 +33,12 @@ export type WorkspaceDocumentCommand<TSectionData = unknown> =
       type: "create-root-section";
     }>
   | Readonly<{ sectionIds: readonly string[]; type: "delete-sections" }>
+  | Readonly<{
+      group: WorkspaceSection<TSectionData>;
+      position: WorkspacePoint | null;
+      sectionIds: readonly string[];
+      type: "group-sections";
+    }>
   | Readonly<{
       positions: Readonly<Record<string, WorkspacePoint>>;
       type: "move-root-sections";
@@ -60,6 +68,11 @@ export type WorkspaceDocumentCommand<TSectionData = unknown> =
     }>
   | Readonly<{ sectionId: string; title: string; type: "set-section-title" }>
   | Readonly<{ locked: boolean; sectionIds: readonly string[]; type: "set-sections-locked" }>
+  | Readonly<{
+      rootPositions: Readonly<Record<string, WorkspacePoint>> | null;
+      sectionId: string;
+      type: "ungroup-section";
+    }>
   | Readonly<{ type: "set-viewport"; viewport: WorkspaceViewport }>;
 
 export type WorkspaceDocumentCommandResult<TSectionData> =
@@ -124,6 +137,15 @@ function rejectionFor(
   command: WorkspaceDocumentCommand<unknown>,
   capabilities: WorkspaceCapabilities,
 ): WorkspaceActionRejectionReason | null {
+  if (command.type === "group-sections" || command.type === "ungroup-section") {
+    if (!capabilities.editStructure) {
+      return "structure-edit-disabled";
+    }
+    if (!capabilities.editLayout) {
+      return "layout-edit-disabled";
+    }
+    return null;
+  }
   const capability = commandCapability(command);
   return capability && !capabilities[capability] ? capabilityRejection(capability) : null;
 }
@@ -415,6 +437,176 @@ function applyRootCreation<TSectionData>(
   );
 }
 
+function replaceSelectedIds(
+  siblingIds: readonly string[],
+  selectedIds: ReadonlySet<string>,
+  replacementId: string,
+): readonly string[] {
+  const firstSelectedIndex = siblingIds.findIndex((sectionId) => selectedIds.has(sectionId));
+  return siblingIds.flatMap((sectionId, index) => {
+    if (!selectedIds.has(sectionId)) {
+      return [sectionId];
+    }
+    return index === firstSelectedIndex ? [replacementId] : [];
+  });
+}
+
+function groupedSections<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  group: WorkspaceSection<TSectionData>,
+  childSectionIds: readonly string[],
+): Readonly<Record<string, WorkspaceSection<TSectionData>>> {
+  if (!group.childLayout) {
+    throw new TypeError("Workspace group section must provide a child layout.");
+  }
+  if (group.childLayout.sectionIds.length > 0) {
+    throw new TypeError("Workspace group section child layout must start empty.");
+  }
+  return {
+    ...document.sections,
+    [group.id]: {
+      ...group,
+      childLayout: { ...group.childLayout, sectionIds: childSectionIds },
+    },
+  };
+}
+
+function applySectionGrouping<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  command: Extract<WorkspaceDocumentCommand<TSectionData>, { type: "group-sections" }>,
+): WorkspaceDocumentCommandResult<TSectionData> {
+  assertKnownSections(document, command.sectionIds);
+  const resolved = resolveWorkspaceSiblingSelection(document, command.sectionIds);
+  if (resolved.status === "rejected") {
+    return { document, reason: resolved.reason, status: "rejected" };
+  }
+  const { parentSectionId, sectionIds } = resolved.selection;
+  if (Object.hasOwn(document.sections, command.group.id)) {
+    return { document, reason: "section-id-exists", status: "rejected" };
+  }
+  const selected = new Set(sectionIds);
+  const sections = groupedSections(document, command.group, sectionIds);
+  if (parentSectionId === null) {
+    if (command.position === null) {
+      throw new TypeError("Top-level workspace grouping requires a position.");
+    }
+    const position = rootPositionAt(command.position, command.group.id);
+    const firstSelectedIndex = document.rootSections.findIndex(({ sectionId }) =>
+      selected.has(sectionId),
+    );
+    const rootSections = document.rootSections.flatMap((root, index) => {
+      if (!selected.has(root.sectionId)) {
+        return [root];
+      }
+      return index === firstSelectedIndex ? [{ position, sectionId: command.group.id }] : [];
+    });
+    return applied({ ...document, rootSections, sections }, "section-group");
+  }
+  if (command.position !== null) {
+    throw new TypeError("Nested workspace grouping must not provide a root position.");
+  }
+  const parent = document.sections[parentSectionId] as WorkspaceSection<TSectionData>;
+  const childLayout = parent.childLayout;
+  if (!childLayout) {
+    throw new Error(`Workspace parent section ${parentSectionId} is missing its child layout.`);
+  }
+  return applied(
+    {
+      ...document,
+      sections: {
+        ...sections,
+        [parentSectionId]: {
+          ...parent,
+          childLayout: {
+            ...childLayout,
+            sectionIds: replaceSelectedIds(childLayout.sectionIds, selected, command.group.id),
+          },
+        },
+      },
+    },
+    "section-group",
+  );
+}
+
+function promotedSections<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  removedSectionId: string,
+): Readonly<Record<string, WorkspaceSection<TSectionData>>> {
+  return Object.fromEntries(
+    Object.entries(document.sections).filter(([sectionId]) => sectionId !== removedSectionId),
+  );
+}
+
+function ungroupRootPositions(
+  childSectionIds: readonly string[],
+  positionsValue: Readonly<Record<string, WorkspacePoint>> | null,
+): ReadonlyMap<string, WorkspacePoint> {
+  if (positionsValue === null) {
+    throw new TypeError("Top-level workspace ungrouping requires child positions.");
+  }
+  const entries = rootMovementEntriesAt(positionsValue);
+  const childIds = new Set(childSectionIds);
+  if (
+    entries.length !== childSectionIds.length ||
+    entries.some(([sectionId]) => !childIds.has(sectionId))
+  ) {
+    throw new TypeError("Workspace ungroup positions must match the direct child sections.");
+  }
+  return new Map(entries);
+}
+
+function applySectionUngrouping<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  command: Extract<WorkspaceDocumentCommand<TSectionData>, { type: "ungroup-section" }>,
+): WorkspaceDocumentCommandResult<TSectionData> {
+  assertKnownSections(document, [command.sectionId]);
+  const group = document.sections[command.sectionId] as WorkspaceSection<TSectionData>;
+  const childSectionIds = group.childLayout?.sectionIds;
+  if (!childSectionIds || childSectionIds.length === 0) {
+    return { document, reason: "section-not-container", status: "rejected" };
+  }
+  const parentSectionId = deriveWorkspaceParentLookup(document).get(command.sectionId) ?? null;
+  const sections = promotedSections(document, command.sectionId);
+  if (parentSectionId === null) {
+    const positions = ungroupRootPositions(childSectionIds, command.rootPositions);
+    const rootSections = document.rootSections.flatMap((root) =>
+      root.sectionId === command.sectionId
+        ? childSectionIds.map((sectionId) => ({
+            position: positions.get(sectionId) as WorkspacePoint,
+            sectionId,
+          }))
+        : [root],
+    );
+    return applied({ ...document, rootSections, sections }, "section-ungroup");
+  }
+  if (command.rootPositions !== null) {
+    throw new TypeError("Nested workspace ungrouping must not provide root positions.");
+  }
+  const parent = sections[parentSectionId] as WorkspaceSection<TSectionData>;
+  const childLayout = parent.childLayout;
+  if (!childLayout) {
+    throw new Error(`Workspace parent section ${parentSectionId} is missing its child layout.`);
+  }
+  return applied(
+    {
+      ...document,
+      sections: {
+        ...sections,
+        [parentSectionId]: {
+          ...parent,
+          childLayout: {
+            ...childLayout,
+            sectionIds: childLayout.sectionIds.flatMap((sectionId) =>
+              sectionId === command.sectionId ? childSectionIds : [sectionId],
+            ),
+          },
+        },
+      },
+    },
+    "section-ungroup",
+  );
+}
+
 function applyViewport<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   viewport: WorkspaceViewport,
@@ -643,6 +835,12 @@ function applySectionDocumentCommand<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   command: WorkspaceSectionDocumentCommand<TSectionData>,
 ): WorkspaceDocumentCommandResult<TSectionData> {
+  if (command.type === "group-sections") {
+    return applySectionGrouping(document, command);
+  }
+  if (command.type === "ungroup-section") {
+    return applySectionUngrouping(document, command);
+  }
   if (command.type === "set-section-content-size") {
     return applySectionContentSize(document, command.sectionId, command.axes);
   }

@@ -33,6 +33,14 @@ export type WorkspaceSelectionActionPlan = Readonly<{
   summary: string;
 }>;
 
+export type WorkspaceSelectionActionOptions = Readonly<{
+  groupingConfigured: boolean;
+}>;
+
+const defaultSelectionActionOptions: WorkspaceSelectionActionOptions = Object.freeze({
+  groupingConfigured: false,
+});
+
 const stackingActions = [
   ["bring-to-front", "Bring to front", "Selected sections are already at the front."],
   ["bring-forward", "Bring forward", "Selected sections cannot move farther forward."],
@@ -88,10 +96,15 @@ function groupDisabledReason(
   document: WorkspaceDocument<unknown>,
   sectionIds: readonly string[],
   capabilities: WorkspaceCapabilities,
-): string {
+  groupingConfigured: boolean,
+): string | null {
   const policyReason = structureDisabledReason(capabilities);
   if (policyReason) {
     return policyReason;
+  }
+  const layoutReason = layoutDisabledReason(capabilities);
+  if (layoutReason) {
+    return layoutReason;
   }
   if (sectionIds.length < 2) {
     return "Select at least two sibling sections to group.";
@@ -101,20 +114,31 @@ function groupDisabledReason(
   if (parentIds.size > 1) {
     return "Selected sections must share one parent to be grouped.";
   }
-  return "Configure a group factory to group sections.";
+  return groupingConfigured
+    ? null
+    : "Configure a group factory for a registered container kind to group sections.";
 }
 
 function ungroupDisabledReason(
+  document: WorkspaceDocument<unknown>,
   sectionIds: readonly string[],
   capabilities: WorkspaceCapabilities,
-): string {
+): string | null {
   const policyReason = structureDisabledReason(capabilities);
   if (policyReason) {
     return policyReason;
   }
-  return sectionIds.length === 1
-    ? "Grouping actions are not configured for this workspace."
-    : "Select one workspace group to ungroup.";
+  const layoutReason = layoutDisabledReason(capabilities);
+  if (layoutReason) {
+    return layoutReason;
+  }
+  if (sectionIds.length !== 1) {
+    return "Select one container section to ungroup.";
+  }
+  const section = document.sections[sectionIds[0] as string];
+  return section?.childLayout && section.childLayout.sectionIds.length > 0
+    ? null
+    : "Select one container with child sections to ungroup.";
 }
 
 function stateActionItems(
@@ -155,6 +179,7 @@ export function planWorkspaceSelectionActions(
   document: WorkspaceDocument<unknown>,
   selectedSectionIds: readonly string[],
   capabilities: WorkspaceCapabilities,
+  options: WorkspaceSelectionActionOptions = defaultSelectionActionOptions,
 ): WorkspaceSelectionActionPlan {
   const sectionIds = normalizeWorkspaceSelectionRoots(document, selectedSectionIds);
   const noun = selectedNoun(sectionIds.length);
@@ -162,12 +187,17 @@ export function planWorkspaceSelectionActions(
     ...stateActionItems(document, sectionIds, capabilities),
     ...stackingActionItems(document, sectionIds, capabilities),
     {
-      disabledReason: groupDisabledReason(document, sectionIds, capabilities),
+      disabledReason: groupDisabledReason(
+        document,
+        sectionIds,
+        capabilities,
+        options.groupingConfigured,
+      ),
       id: "group",
       label: "Group sections",
     },
     {
-      disabledReason: ungroupDisabledReason(sectionIds, capabilities),
+      disabledReason: ungroupDisabledReason(document, sectionIds, capabilities),
       id: "ungroup",
       label: "Ungroup section",
     },

@@ -3,6 +3,7 @@ import {
   Workspace,
   type WorkspaceExternalDropHandler,
   type WorkspaceExternalDropValidator,
+  type WorkspaceGroupFactory,
   type WorkspaceToolbarControl,
 } from "@setta/workspace/react";
 import "@setta/workspace/styles.css";
@@ -20,6 +21,12 @@ const validateExternalDrop: WorkspaceExternalDropValidator = ({ event }) =>
   event.dataTransferTypes.includes("application/x-consumer-section")
     ? { allowed: true, label: "Import consumer section" }
     : { allowed: false, reason: "Unsupported consumer drop." };
+const groupFactory: WorkspaceGroupFactory = ({ sectionIds }) => ({
+  data: null,
+  id: `consumer-group-${String(sectionIds.length)}`,
+  kind: "consumer-group",
+  title: "Consumer group",
+});
 const toolbarControls = [
   {
     icon: <span>+</span>,
@@ -38,6 +45,7 @@ createRoot(root).render(
       data-version={workspaceDocument.schemaVersion}
       gestureOptions={{ maxZoom: 2, minZoom: 0.5, panOnScroll: true, zoomOnScroll: false }}
       gridOptions={{ pattern: "cross", snap: false, spacing: [24, 18], visible: true }}
+      groupFactory={groupFactory}
       onExternalDrop={onExternalDrop}
       toolbarControls={toolbarControls}
       validateExternalDrop={validateExternalDrop}

@@ -139,8 +139,19 @@ describe("workspace controller", () => {
 
     expect(host.controller.setViewport(host.document().viewport)).toEqual({ status: "unchanged" });
     expect(host.controller.setSectionsLocked([], true)).toEqual({ status: "unchanged" });
+    expect(host.controller.groupSections(["root", "peer"])).toEqual({
+      reason: "grouping-unavailable",
+      status: "rejected",
+    });
+    expect(host.controller.ungroupSection("root")).toEqual({
+      reason: "grouping-unavailable",
+      status: "rejected",
+    });
     expect(host.changes()).toEqual([]);
     expect(() => host.controller.setSectionMinimized("missing", true)).toThrowError(
+      expect.objectContaining({ code: "unknown-section" }),
+    );
+    expect(() => host.controller.ungroupSection("missing")).toThrowError(
       expect.objectContaining({ code: "unknown-section" }),
     );
   });

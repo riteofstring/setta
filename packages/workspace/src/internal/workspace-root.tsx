@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 
 import {
+  deriveWorkspaceParentLookup,
   resolveWorkspaceCapabilities,
   resolveWorkspaceGestureOptions,
   type WorkspaceController,
@@ -13,9 +14,11 @@ import type { WorkspaceCanvasController } from "./workspace-canvas-navigation.js
 import {
   createWorkspaceController,
   createWorkspaceRootSection,
+  groupWorkspaceSections,
   moveWorkspaceRootSections,
   resizeWorkspaceRootSection,
   setWorkspaceSectionContentSize,
+  ungroupWorkspaceSection,
   type WorkspaceControllerBindings,
 } from "./workspace-controller.js";
 import {
@@ -26,6 +29,7 @@ import {
   assertStableWorkspaceMode,
   assertWorkspaceAccessibleName,
   assertWorkspaceExternalDropCallbacks,
+  assertWorkspaceGroupFactory,
   assertWorkspaceSectionFactory,
   assertWorkspaceSectionTitleValidator,
   assertWorkspaceViewportWithinGestureBounds,
@@ -47,11 +51,16 @@ import {
 } from "./workspace-react-runtime.js";
 import {
   resolveWorkspaceSectionColorPalette,
+  type WorkspaceGroupFactory,
   type WorkspaceSectionFactory,
   type WorkspaceSectionTitleValidationRequest,
   type WorkspaceSectionTitleValidator,
 } from "./workspace-section-contract.js";
 import { planWorkspaceRootSectionCreation } from "./workspace-section-creation.js";
+import {
+  planWorkspaceSectionGrouping,
+  planWorkspaceSectionUngrouping,
+} from "./workspace-section-grouping.js";
 import {
   resolveSectionDefinitions,
   validateWorkspaceSectionDefinitions,
@@ -67,6 +76,42 @@ import {
   workspaceSelectionsMatch,
 } from "./workspace-selection.js";
 
+type PendingStructuralSelection =
+  | Readonly<{
+      focusSectionId: string;
+      groupSectionId: string;
+      sectionIds: readonly string[];
+      type: "group";
+    }>
+  | Readonly<{
+      focusSectionId: string;
+      groupSectionId: string;
+      parentSectionId: string | null;
+      sectionIds: readonly string[];
+      type: "ungroup";
+    }>;
+
+function structuralSelectionAccepted(
+  document: ReturnType<WorkspaceController<unknown>["getDocument"]>,
+  pending: PendingStructuralSelection,
+): boolean {
+  if (pending.type === "group") {
+    const childIds = document.sections[pending.groupSectionId]?.childLayout?.sectionIds;
+    return Boolean(
+      childIds &&
+      childIds.length === pending.sectionIds.length &&
+      childIds.every((sectionId, index) => sectionId === pending.sectionIds[index]),
+    );
+  }
+  if (Object.hasOwn(document.sections, pending.groupSectionId)) {
+    return false;
+  }
+  const parentLookup = deriveWorkspaceParentLookup(document);
+  return pending.sectionIds.every(
+    (sectionId) => (parentLookup.get(sectionId) ?? null) === pending.parentSectionId,
+  );
+}
+
 export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspaceProps<TSectionData>) {
   const {
     ariaLabel = "Workspace",
@@ -79,6 +124,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     emptyState = "No sections yet. Add a section to start.",
     gestureOptions: gestureOptionOverrides,
     gridOptions: gridOptionOverrides,
+    groupFactory,
     minimapOptions: minimapOptionOverrides,
     onDocumentChange,
     onExternalDrop,
@@ -98,6 +144,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   } = props;
   assertWorkspaceAccessibleName(ariaLabel);
   assertWorkspaceExternalDropCallbacks(onExternalDrop, validateExternalDrop);
+  assertWorkspaceGroupFactory<TSectionData>(groupFactory);
   assertWorkspaceSectionFactory<TSectionData>(sectionFactory);
   assertWorkspaceSectionTitleValidator(validateSectionTitle);
   const gestureOptions = useMemo(
@@ -183,6 +230,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   const sectionFactoryRef = useRef<WorkspaceSectionFactory<TSectionData> | undefined>(
     sectionFactory,
   );
+  const groupFactoryRef = useRef<WorkspaceGroupFactory<TSectionData> | undefined>(groupFactory);
   const controlledRef = useRef(mode.type === "controlled");
   const onDocumentChangeRef = useRef(onDocumentChange);
   const validateSectionTitleRef = useRef<WorkspaceSectionTitleValidator | undefined>(
@@ -195,6 +243,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   gridOptionsRef.current = effectiveGridOptions;
   sectionRegistryRef.current = sectionRegistry;
   sectionFactoryRef.current = sectionFactory;
+  groupFactoryRef.current = groupFactory;
   controlledRef.current = mode.type === "controlled";
   onDocumentChangeRef.current = onDocumentChange;
   validateSectionTitleRef.current = validateSectionTitle;
@@ -232,6 +281,8 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     panIntoView: boolean;
     sectionId: string;
   }> | null>(null);
+  const pendingStructuralSelectionRef = useRef<PendingStructuralSelection | null>(null);
+  const [structuralSelectionRevision, setStructuralSelectionRevision] = useState(0);
   if (!internalControllerRef.current) {
     const bindings: WorkspaceControllerBindings<TSectionData> = {
       canMinimizeSection: (sectionId) => {
@@ -271,6 +322,33 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         }
         return result;
       },
+      groupSections: (sectionIds) => {
+        const factory = groupFactoryRef.current;
+        if (!factory) {
+          return { reason: "grouping-unavailable", status: "rejected" };
+        }
+        const plan = planWorkspaceSectionGrouping({
+          canvasController: canvasControllerRef.current,
+          document: documentRef.current,
+          factory,
+          registry: sectionRegistryRef.current,
+          sectionIds,
+        });
+        if (plan.status === "rejected") {
+          return plan;
+        }
+        const result = groupWorkspaceSections(bindings, plan.group, plan.sectionIds, plan.position);
+        if (result.status === "applied") {
+          pendingStructuralSelectionRef.current = {
+            focusSectionId: plan.group.id,
+            groupSectionId: plan.group.id,
+            sectionIds: plan.sectionIds,
+            type: "group",
+          };
+          setStructuralSelectionRevision((revision) => revision + 1);
+        }
+        return result;
+      },
       getCapabilities: () => capabilitiesRef.current,
       getCanvasController: () => canvasControllerRef.current,
       getDocument: () => documentRef.current,
@@ -279,6 +357,29 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       requestViewportSynchronization: () =>
         setControllerSynchronizationRevision((revision) => revision + 1),
       setSelection: commitSelection,
+      ungroupSection: (sectionId) => {
+        const plan = planWorkspaceSectionUngrouping({
+          canvasController: canvasControllerRef.current,
+          document: documentRef.current,
+          sectionId,
+        });
+        if (plan.status === "rejected") {
+          return plan;
+        }
+        const result = ungroupWorkspaceSection(bindings, sectionId, plan.rootPositions);
+        const focusSectionId = plan.childSectionIds[0];
+        if (result.status === "applied" && focusSectionId) {
+          pendingStructuralSelectionRef.current = {
+            focusSectionId,
+            groupSectionId: sectionId,
+            parentSectionId: plan.parentSectionId,
+            sectionIds: plan.childSectionIds,
+            type: "ungroup",
+          };
+          setStructuralSelectionRevision((revision) => revision + 1);
+        }
+        return result;
+      },
     };
     controllerBindingsRef.current = bindings;
     internalControllerRef.current = createWorkspaceController(bindings);
@@ -302,6 +403,23 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       pendingCreation.panIntoView,
     );
   }, [controller, validatedDocument]);
+  useEffect(() => {
+    const pending = pendingStructuralSelectionRef.current;
+    if (!pending) {
+      return;
+    }
+    pendingStructuralSelectionRef.current = null;
+    if (!structuralSelectionAccepted(validatedDocument, pending)) {
+      return;
+    }
+    controller.selectSections(
+      pending.type === "group" ? [pending.groupSectionId] : pending.sectionIds,
+    );
+    const canvasController = canvasControllerRef.current;
+    if (canvasController) {
+      void canvasController.focusElementWhenReady(pending.focusSectionId);
+    }
+  }, [controller, structuralSelectionRevision, validatedDocument]);
   const handleRootMoveCommit = useCallback(
     (positions: Readonly<Record<string, WorkspacePoint>>) => {
       const bindings = controllerBindingsRef.current;
@@ -369,6 +487,9 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     capabilities,
     canvasReady,
   );
+  const groupingConfigured =
+    Boolean(groupFactory) &&
+    sectionRegistry.definitions().some((definition) => definition.canContainSections);
 
   const resolvedClassName = ["setta-workspace", className].filter(Boolean).join(" ");
   const hasNoSections = validatedDocument.rootSections.length === 0;
@@ -396,6 +517,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         emptyState={resolvedEmptyState}
         gestureOptions={gestureOptions}
         gridOptions={effectiveGridOptions}
+        groupingConfigured={groupingConfigured}
         layoutEditable={capabilities.editLayout}
         marqueeSelectionMode={selectionOptions.marqueeMode}
         minimapPlacement={minimapOptions.placement}

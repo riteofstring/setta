@@ -37,8 +37,10 @@ export type WorkspaceControllerBindings<TSectionData> = Readonly<{
   getDocument(): WorkspaceDocument<TSectionData>;
   getSelection?(): readonly string[];
   getViewportBounds?(): Readonly<{ maxZoom: number; minZoom: number }>;
+  groupSections?(sectionIds: readonly string[]): WorkspaceActionResult;
   requestViewportSynchronization?(): void;
   setSelection?(sectionIds: readonly string[]): WorkspaceActionResult;
+  ungroupSection?(sectionId: string): WorkspaceActionResult;
 }>;
 
 function selectionsMatch(left: readonly string[], right: readonly string[]): boolean {
@@ -130,6 +132,52 @@ function createSection<TSectionData>(
   return (
     bindings.createSection?.(kind, options) ?? {
       reason: "section-creation-unavailable",
+      status: "rejected",
+    }
+  );
+}
+
+function requireStructuralMovementCapabilities<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+): WorkspaceActionResult | null {
+  const capabilities = bindings.getCapabilities();
+  if (!capabilities.editStructure) {
+    return { reason: "structure-edit-disabled", status: "rejected" };
+  }
+  return capabilities.editLayout ? null : { reason: "layout-edit-disabled", status: "rejected" };
+}
+
+function groupSections<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  sectionIdsValue: readonly string[],
+): WorkspaceActionResult {
+  const sectionIds = sectionIdsAt(sectionIdsValue);
+  const rejection = requireStructuralMovementCapabilities(bindings);
+  if (rejection) {
+    return rejection;
+  }
+  assertKnownSections(bindings.getDocument(), sectionIds);
+  return (
+    bindings.groupSections?.(sectionIds) ?? {
+      reason: "grouping-unavailable",
+      status: "rejected",
+    }
+  );
+}
+
+function ungroupSection<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  sectionIdValue: string,
+): WorkspaceActionResult {
+  const sectionId = sectionIdAt(sectionIdValue);
+  const rejection = requireStructuralMovementCapabilities(bindings);
+  if (rejection) {
+    return rejection;
+  }
+  assertKnownSections(bindings.getDocument(), [sectionId]);
+  return (
+    bindings.ungroupSection?.(sectionId) ?? {
+      reason: "grouping-unavailable",
       status: "rejected",
     }
   );
@@ -309,6 +357,7 @@ export function createWorkspaceController<TSectionData>(
     getCapabilities: () => ({ ...bindings.getCapabilities() }),
     getDocument: () => bindings.getDocument(),
     getSelectedSectionIds: () => [...getSelection()],
+    groupSections: (sectionIds) => groupSections(bindings, sectionIds),
     selectSections: (sectionIds) => {
       const selectedIds = sectionIdsAt(sectionIds);
       const document = bindings.getDocument();
@@ -341,6 +390,7 @@ export function createWorkspaceController<TSectionData>(
         type: "set-sections-locked",
       }),
     setViewport: (viewport) => setViewport(bindings, viewport),
+    ungroupSection: (sectionId) => ungroupSection(bindings, sectionId),
   };
 }
 
@@ -380,4 +430,21 @@ export function createWorkspaceRootSection<TSectionData>(
   position: WorkspacePoint,
 ): WorkspaceActionResult {
   return dispatch(bindings, { position, section, type: "create-root-section" });
+}
+
+export function groupWorkspaceSections<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  group: WorkspaceSection<TSectionData>,
+  sectionIds: readonly string[],
+  position: WorkspacePoint | null,
+): WorkspaceActionResult {
+  return dispatch(bindings, { group, position, sectionIds, type: "group-sections" });
+}
+
+export function ungroupWorkspaceSection<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  sectionId: string,
+  rootPositions: Readonly<Record<string, WorkspacePoint>> | null,
+): WorkspaceActionResult {
+  return dispatch(bindings, { rootPositions, sectionId, type: "ungroup-section" });
 }

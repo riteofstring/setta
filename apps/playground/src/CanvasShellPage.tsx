@@ -81,6 +81,27 @@ const navigationSectionDefinitions = [
       preserveAspectRatio: false,
     },
   },
+  {
+    canContainSections: true,
+    defaultChildOrientation: "vertical",
+    defaultChildOverflow: "grow",
+    defaultSize: { height: 360, width: 480 },
+    defaultTitle: "Section group",
+    displayName: "Section group",
+    kind: "navigation group",
+    render: () => (
+      <p className="canvas-shell-section-content">
+        Grouped sections retain their identities and canonical order. Use Selection actions to
+        ungroup them.
+      </p>
+    ),
+    resize: {
+      axes: "both",
+      maxSize: { height: 720, width: 720 },
+      minSize: { height: 240, width: 320 },
+      preserveAspectRatio: false,
+    },
+  },
 ] satisfies readonly SectionDefinition[];
 
 type PanOnDragMode = "all" | "disabled" | "middle" | "primary";
@@ -505,6 +526,18 @@ export function CanvasShellPage() {
               snap: gridSnap,
               spacing: [24, 24],
               visible: gridVisible,
+            }}
+            groupFactory={({ sectionIds }) => {
+              let number = 1;
+              while (Object.hasOwn(document.sections, `navigation-group-${String(number)}`)) {
+                number += 1;
+              }
+              return {
+                data: null,
+                id: `navigation-group-${String(number)}`,
+                kind: "navigation group",
+                title: `Group ${String(number)} (${String(sectionIds.length)} sections)`,
+              };
             }}
             minimapOptions={{ placement: minimapPlacement, visible: minimapVisible }}
             onDocumentChange={(nextDocument, change) => {

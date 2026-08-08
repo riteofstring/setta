@@ -69,6 +69,22 @@ export type WorkspaceSectionFactory<TSectionData = WorkspaceJsonValue> = (
   request: WorkspaceSectionFactoryRequest,
 ) => WorkspaceSectionFactoryResult<TSectionData>;
 
+export type WorkspaceGroupFactoryRequest = Readonly<{
+  parentSectionId: string | null;
+  sectionIds: readonly string[];
+}>;
+
+export type WorkspaceGroupFactoryResult<TSectionData = WorkspaceJsonValue> = Readonly<{
+  data: TSectionData;
+  id: string;
+  kind: string;
+  title: string;
+}>;
+
+export type WorkspaceGroupFactory<TSectionData = WorkspaceJsonValue> = (
+  request: WorkspaceGroupFactoryRequest,
+) => WorkspaceGroupFactoryResult<TSectionData>;
+
 export const WORKSPACE_DEFAULT_SECTION_COLOR_PALETTE: readonly WorkspaceSectionColorOption[] =
   Object.freeze([
     Object.freeze({ color: "oklch(0.62 0.14 255)", label: "Blue" }),

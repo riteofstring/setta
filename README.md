@@ -89,3 +89,7 @@ Normalized multi-selection now also drives a ready-made pointer and keyboard act
 lock, unlock, subtree deletion, and explicit persistent root stacking. The four public stacking
 commands preserve selected order, map nested selections to top-level ancestors, publish one
 canonical change, and remain separate from transient selection lift.
+The same menu now completes top-level grouping through a strict host group factory and registered
+container kind, then ungroups direct children into deterministic non-overlapping root positions.
+Both paths preserve canonical sibling order, publish one structural change, update selection only
+after controlled-host acceptance, and restore keyboard focus to the resulting visible structure.

@@ -16,6 +16,7 @@ import type {
   WorkspaceDocument,
   WorkspaceJsonValue,
 } from "../core.js";
+import { deriveWorkspaceParentLookup } from "../core.js";
 import {
   WORKSPACE_NO_PAN_CLASS_NAME,
   WORKSPACE_NO_WHEEL_CLASS_NAME,
@@ -23,6 +24,7 @@ import {
 import {
   planWorkspaceRootStacking,
   workspaceRootStackingMatches,
+  type WorkspaceRootStackingAction,
 } from "./workspace-root-stacking.js";
 import {
   planWorkspaceSelectionActions,
@@ -44,6 +46,14 @@ type PendingSelectionAction = Readonly<{
   canvasElement: HTMLElement;
   expectedLocked: boolean | undefined;
   expectedRootIds: readonly string[] | undefined;
+  grouping:
+    | Readonly<{ parentSectionId: string | null }>
+    | Readonly<{
+        childSectionIds: readonly string[];
+        groupSectionId: string;
+        parentSectionId: string | null;
+      }>
+    | undefined;
   restoreFocus: HTMLElement;
   sectionIds: readonly string[];
 }>;
@@ -54,6 +64,13 @@ const actionGroups = [
   ["group", "ungroup"],
   ["delete"],
 ] as const satisfies readonly (readonly WorkspaceSelectionActionId[])[];
+
+const stackingActionIds = new Set<WorkspaceSelectionActionId>([
+  "bring-forward",
+  "bring-to-front",
+  "send-backward",
+  "send-to-back",
+]);
 
 function eventTargetElement(target: EventTarget | null, ownerDocument: Document): Element | null {
   const ElementConstructor = ownerDocument.defaultView?.Element;
@@ -215,29 +232,104 @@ function completedActionText(actionId: WorkspaceSelectionActionId, count: number
     "bring-forward": "moved forward",
     "bring-to-front": "brought to front",
     delete: "deleted",
+    group: "grouped",
     lock: "locked",
     "send-backward": "moved backward",
     "send-to-back": "sent to back",
     unlock: "unlocked",
+    ungroup: "ungrouped",
   };
-  return `${subject} ${completion[actionId] ?? "updated"}.`;
+  return `${subject} ${count === 1 ? "was" : "were"} ${completion[actionId] ?? "updated"}.`;
 }
 
 function declinedActionText(count: number): string {
   return `${selectedSubject(count)} ${count === 1 ? "remains" : "remain"} unchanged because the host did not accept the action.`;
 }
 
-function rejectedActionText(result: WorkspaceActionResult): string {
+type WorkspaceRejectedActionReason = Extract<
+  WorkspaceActionResult,
+  { status: "rejected" }
+>["reason"];
+
+const rejectionText: Partial<Record<WorkspaceRejectedActionReason, string>> = {
+  "group-kind-cannot-contain-sections":
+    "Unable to group the selected sections. The group factory must return a registered container kind.",
+  "grouping-unavailable":
+    "Unable to group the selected sections. Configure a group factory and try again.",
+  "layout-edit-disabled":
+    "Unable to update the selected sections. Turn on layout editing and try again.",
+  "section-id-exists":
+    "Unable to group the selected sections. The group factory returned an ID already in use.",
+  "section-not-container": "Unable to ungroup the section. Select a container with child sections.",
+  "structure-edit-disabled":
+    "Unable to update the selected sections. Turn on structure editing and try again.",
+};
+
+function rejectedActionText(
+  result: WorkspaceActionResult,
+  actionId: WorkspaceSelectionActionId,
+): string {
   if (result.status !== "rejected") {
     return "The selected sections are already in that state.";
   }
-  if (result.reason === "layout-edit-disabled") {
-    return "Unable to update the selected sections. Turn on layout editing and try again.";
+  if (result.reason === "canvas-unavailable" || result.reason === "section-geometry-unavailable") {
+    return `Unable to ${actionId === "ungroup" ? "ungroup the section" : "group the selected sections"}. Wait for the canvas to finish rendering and try again.`;
   }
-  if (result.reason === "structure-edit-disabled") {
-    return "Unable to update the selected sections. Turn on structure editing and try again.";
+  return rejectionText[result.reason] ?? "Unable to update the selected sections.";
+}
+
+function sectionIdsMatch(left: readonly string[], right: readonly string[]): boolean {
+  return (
+    left.length === right.length && left.every((sectionId, index) => sectionId === right[index])
+  );
+}
+
+function parentSectionId(
+  parentLookup: ReadonlyMap<string, string | null>,
+  sectionId: string,
+): string | null {
+  return parentLookup.get(sectionId) ?? null;
+}
+
+function groupingAccepted(
+  document: WorkspaceDocument<unknown>,
+  pending: PendingSelectionAction,
+): boolean {
+  const grouping = pending.grouping;
+  if (!grouping || "groupSectionId" in grouping) {
+    return false;
   }
-  return "Unable to update the selected sections.";
+  const parentLookup = deriveWorkspaceParentLookup(document);
+  const groupSectionId = parentSectionId(parentLookup, firstSectionId(pending.sectionIds));
+  if (groupSectionId === null || groupSectionId === grouping.parentSectionId) {
+    return false;
+  }
+  if (parentSectionId(parentLookup, groupSectionId) !== grouping.parentSectionId) {
+    return false;
+  }
+  const group = document.sections[groupSectionId];
+  if (!group?.childLayout) {
+    return false;
+  }
+  return sectionIdsMatch(group.childLayout.sectionIds, pending.sectionIds);
+}
+
+function ungroupingAccepted(
+  document: WorkspaceDocument<unknown>,
+  pending: PendingSelectionAction,
+): boolean {
+  const grouping = pending.grouping;
+  if (
+    !grouping ||
+    !("groupSectionId" in grouping) ||
+    Object.hasOwn(document.sections, grouping.groupSectionId)
+  ) {
+    return false;
+  }
+  const parentLookup = deriveWorkspaceParentLookup(document);
+  return grouping.childSectionIds.every(
+    (sectionId) => (parentLookup.get(sectionId) ?? null) === grouping.parentSectionId,
+  );
 }
 
 function pendingActionAccepted(
@@ -252,6 +344,12 @@ function pendingActionAccepted(
       (sectionId) => document.sections[sectionId]?.positionAndSizeLocked === pending.expectedLocked,
     );
   }
+  if (pending.actionId === "group") {
+    return groupingAccepted(document, pending);
+  }
+  if (pending.actionId === "ungroup") {
+    return ungroupingAccepted(document, pending);
+  }
   return pending.expectedRootIds
     ? workspaceRootStackingMatches(
         document.rootSections,
@@ -260,30 +358,75 @@ function pendingActionAccepted(
     : false;
 }
 
+type SelectionActionRunner = (
+  controller: WorkspaceController<unknown>,
+  sectionIds: readonly string[],
+) => WorkspaceActionResult;
+
+function firstSectionId(sectionIds: readonly string[]): string {
+  const sectionId = sectionIds[0];
+  if (!sectionId) {
+    throw new Error("Workspace selection action requires one selected section.");
+  }
+  return sectionId;
+}
+
+const actionRunners: Record<WorkspaceSelectionActionId, SelectionActionRunner> = {
+  "bring-forward": (controller, sectionIds) => controller.bringForward(sectionIds),
+  "bring-to-front": (controller, sectionIds) => controller.bringToFront(sectionIds),
+  delete: (controller, sectionIds) => controller.deleteSections(sectionIds),
+  group: (controller, sectionIds) => controller.groupSections(sectionIds),
+  lock: (controller, sectionIds) => controller.setSectionsLocked(sectionIds, true),
+  "send-backward": (controller, sectionIds) => controller.sendBackward(sectionIds),
+  "send-to-back": (controller, sectionIds) => controller.sendToBack(sectionIds),
+  ungroup: (controller, sectionIds) => controller.ungroupSection(firstSectionId(sectionIds)),
+  unlock: (controller, sectionIds) => controller.setSectionsLocked(sectionIds, false),
+};
+
 function actionResult(
   controller: WorkspaceController<unknown>,
   actionId: WorkspaceSelectionActionId,
   sectionIds: readonly string[],
 ): WorkspaceActionResult {
-  if (actionId === "lock" || actionId === "unlock") {
-    return controller.setSectionsLocked(sectionIds, actionId === "lock");
+  return actionRunners[actionId](controller, sectionIds);
+}
+
+function expectedRootIds(
+  document: WorkspaceDocument<unknown>,
+  actionId: WorkspaceSelectionActionId,
+  sectionIds: readonly string[],
+): readonly string[] | undefined {
+  if (!stackingActionIds.has(actionId)) {
+    return undefined;
   }
-  if (actionId === "delete") {
-    return controller.deleteSections(sectionIds);
+  return planWorkspaceRootStacking(
+    document,
+    sectionIds,
+    actionId as WorkspaceRootStackingAction,
+  ).map(({ sectionId }) => sectionId);
+}
+
+function pendingGrouping(
+  document: WorkspaceDocument<unknown>,
+  actionId: WorkspaceSelectionActionId,
+  sectionIds: readonly string[],
+): PendingSelectionAction["grouping"] {
+  const parentLookup = deriveWorkspaceParentLookup(document);
+  if (actionId === "group") {
+    return { parentSectionId: parentLookup.get(firstSectionId(sectionIds)) ?? null };
   }
-  if (actionId === "bring-to-front") {
-    return controller.bringToFront(sectionIds);
+  if (actionId !== "ungroup") {
+    return undefined;
   }
-  if (actionId === "bring-forward") {
-    return controller.bringForward(sectionIds);
-  }
-  if (actionId === "send-backward") {
-    return controller.sendBackward(sectionIds);
-  }
-  if (actionId === "send-to-back") {
-    return controller.sendToBack(sectionIds);
-  }
-  throw new Error(`Workspace selection action ${actionId} is unavailable.`);
+  const groupSectionId = firstSectionId(sectionIds);
+  const childSectionIds = document.sections[groupSectionId]?.childLayout?.sectionIds;
+  return childSectionIds
+    ? {
+        childSectionIds,
+        groupSectionId,
+        parentSectionId: parentLookup.get(groupSectionId) ?? null,
+      }
+    : undefined;
 }
 
 function pendingAction(
@@ -291,22 +434,12 @@ function pendingAction(
   actionId: WorkspaceSelectionActionId,
   state: SelectionActionMenuState,
 ): PendingSelectionAction {
-  const stackingAction =
-    actionId === "bring-forward" ||
-    actionId === "bring-to-front" ||
-    actionId === "send-backward" ||
-    actionId === "send-to-back"
-      ? actionId
-      : null;
   return {
     actionId,
     canvasElement: state.canvasElement,
     expectedLocked: actionId === "lock" ? true : actionId === "unlock" ? false : undefined,
-    expectedRootIds: stackingAction
-      ? planWorkspaceRootStacking(document, state.sectionIds, stackingAction).map(
-          ({ sectionId }) => sectionId,
-        )
-      : undefined,
+    expectedRootIds: expectedRootIds(document, actionId, state.sectionIds),
+    grouping: pendingGrouping(document, actionId, state.sectionIds),
     restoreFocus: state.restoreFocus,
     sectionIds: state.sectionIds,
   };
@@ -490,6 +623,7 @@ function WorkspaceSelectionActionDialog({
 export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValue>({
   controller,
   document,
+  groupingConfigured,
   layoutEditable,
   onSelectionRequest,
   presentationEditable,
@@ -498,6 +632,7 @@ export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValu
 }: Readonly<{
   controller: WorkspaceController<TSectionData>;
   document: WorkspaceDocument<TSectionData>;
+  groupingConfigured: boolean;
   layoutEditable: boolean;
   onSelectionRequest(sectionId: string, request: WorkspaceSectionSelectionRequest): void;
   presentationEditable: boolean;
@@ -529,8 +664,10 @@ export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValu
     ) {
       return null;
     }
-    return planWorkspaceSelectionActions(document, state.sectionIds, capabilities);
-  }, [capabilities, document, state]);
+    return planWorkspaceSelectionActions(document, state.sectionIds, capabilities, {
+      groupingConfigured,
+    });
+  }, [capabilities, document, groupingConfigured, state]);
 
   const open = useCallback(
     (
@@ -545,13 +682,14 @@ export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValu
         documentRef.current,
         selectedSectionIds,
         capabilities,
+        { groupingConfigured },
       );
       if (nextPlan.sectionIds.length === 0) {
         return;
       }
       setState({ anchor, canvasElement, restoreFocus, sectionIds: nextPlan.sectionIds });
     },
-    [capabilities, onSelectionRequest, selectedSectionIdsRef],
+    [capabilities, groupingConfigured, onSelectionRequest, selectedSectionIdsRef],
   );
 
   const handleCanvasContextMenuCapture = useCallback(
@@ -616,7 +754,7 @@ export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValu
         restoreAfterCloseRef.current = false;
       } else {
         pendingRef.current = null;
-        setAnnouncementText(rejectedActionText(result));
+        setAnnouncementText(rejectedActionText(result, actionId));
       }
       setRevision((current) => current + 1);
     },

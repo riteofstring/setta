@@ -17,6 +17,7 @@ import {
 import { isDenseArray, isEnumerableDataProperty } from "./runtime-option-validation.js";
 import type {
   SectionDefinition,
+  WorkspaceGroupFactory,
   WorkspaceSectionColorOption,
   WorkspaceSectionFactory,
   WorkspaceSectionTitleValidator,
@@ -120,6 +121,7 @@ type SharedWorkspaceProps<TSectionData> = Omit<
   controllerRef?: Ref<WorkspaceController<TSectionData>>;
   emptyState?: ReactNode;
   gestureOptions?: WorkspaceGestureOptionOverrides;
+  groupFactory?: WorkspaceGroupFactory<TSectionData>;
   gridOptions?: WorkspaceGridOptionOverrides;
   minimapOptions?: WorkspaceMinimapOptions;
   onExternalDrop?: WorkspaceExternalDropHandler;
@@ -396,6 +398,14 @@ export function assertWorkspaceSectionFactory<TSectionData>(
 ): asserts value is WorkspaceSectionFactory<TSectionData> | undefined {
   if (value !== undefined && typeof value !== "function") {
     throw new TypeError("Workspace sectionFactory must be a function.");
+  }
+}
+
+export function assertWorkspaceGroupFactory<TSectionData>(
+  value: unknown,
+): asserts value is WorkspaceGroupFactory<TSectionData> | undefined {
+  if (value !== undefined && typeof value !== "function") {
+    throw new TypeError("Workspace groupFactory must be a function.");
   }
 }
 

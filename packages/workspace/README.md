@@ -22,6 +22,15 @@ const sectionDefinitions = [
       <NoteEditor value={data} appearance={appearance} readOnly={readOnly} />
     ),
   },
+  {
+    kind: "group",
+    displayName: "Section group",
+    defaultTitle: "Group",
+    defaultSize: { width: 480, height: 360 },
+    canContainSections: true,
+    defaultChildOrientation: "vertical",
+    render: ({ data }) => <GroupSummary value={data} />,
+  },
 ] satisfies readonly SectionDefinition<NoteData>[];
 
 <Workspace
@@ -31,6 +40,12 @@ const sectionDefinitions = [
   sectionFactory={({ kind }) => ({
     id: allocateSectionId(kind),
     data: createSectionData(kind),
+  })}
+  groupFactory={({ sectionIds }) => ({
+    id: allocateSectionId("group"),
+    kind: "group",
+    title: `Group (${sectionIds.length} sections)`,
+    data: createGroupData(sectionIds),
   })}
   onDocumentChange={(nextDocument, change) => {
     setDocument(nextDocument);
@@ -243,6 +258,16 @@ normalized selection roots and the same canonical command boundary. Persistent s
 section IDs at any depth, maps them to distinct top-level ancestors, and preserves selected order;
 ordinary selection and dragging use only a transient render lift.
 
+Supplying `groupFactory` enables Group when at least two normalized sections share one parent and a
+registered `canContainSections` kind is available. The factory receives the canonical sibling IDs
+and shared parent, then supplies the new container kind, stable ID, title, and host payload. The
+package inserts that container at the first selected sibling, retains the selected IDs in canonical
+order, and selects and focuses the accepted group. Ungroup promotes a selected container's direct
+children at the same index without requiring the factory. At the top level, it derives separated
+root positions from the measured group frame and focuses the first promoted child. Both operations
+require structure and layout editing, publish one `section-group` or `section-ungroup` change, and
+reconcile against the controlled host before changing selection or focus.
+
 ```tsx
 await controller.current?.focusSection("details");
 await controller.current?.fitSections(["summary", "details"], { padding: 0.16 });
@@ -252,6 +277,8 @@ controller.current?.getSelectedSectionIds();
 controller.current?.clearSelection();
 controller.current?.createSection("note");
 controller.current?.createSection("note", { position: { x: 120, y: 80 } });
+controller.current?.groupSections(["summary", "details"]);
+controller.current?.ungroupSection("summary-group");
 controller.current?.bringToFront(["summary", "details"]);
 controller.current?.bringForward(["details"]);
 controller.current?.sendBackward(["details"]);

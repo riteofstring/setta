@@ -68,7 +68,14 @@ export function createWorkspaceSectionFromDefinition<TSectionData>(
   definition: ResolvedSectionDefinition<TSectionData>,
   factory: WorkspaceSectionFactory<TSectionData>,
 ): WorkspaceSection<TSectionData> {
-  const result = factoryResultAt(factory({ kind: definition.kind }));
+  return createWorkspaceSectionFromFactoryResult(definition, factory({ kind: definition.kind }));
+}
+
+function createWorkspaceSectionFromFactoryResult<TSectionData>(
+  definition: ResolvedSectionDefinition<TSectionData>,
+  resultValue: WorkspaceSectionFactoryResult<TSectionData>,
+): WorkspaceSection<TSectionData> {
+  const result = factoryResultAt(resultValue);
   return {
     childLayout: definition.canContainSections
       ? {
