@@ -3,7 +3,12 @@ import {
   type WorkspaceDocument,
   type WorkspaceSection,
 } from "@setta/workspace/core";
-import { Workspace, type SectionDefinition, type SectionRenderProps } from "@setta/workspace/react";
+import {
+  Workspace,
+  type SectionDefinition,
+  type SectionRenderProps,
+  type WorkspaceSectionTitleValidationRequest,
+} from "@setta/workspace/react";
 import { useState } from "react";
 
 import { AdapterProofPage } from "./AdapterProofPage.js";
@@ -19,8 +24,8 @@ function SampleSection({ data }: SectionRenderProps<PlaygroundSectionData>) {
 const sampleSectionDefinitions = [
   {
     chrome: "default",
-    creation: { group: "Basics", keywords: ["example", "note"] },
-    defaultSize: { height: 180, width: 240 },
+    creation: { group: "Basics", icon: "N", keywords: ["example", "note"] },
+    defaultSize: { height: 320, width: 320 },
     defaultTitle: "Sample section",
     displayName: "Sample note",
     kind: "sample-note",
@@ -38,11 +43,20 @@ function sampleSection(id: string, title: string): WorkspaceSection<PlaygroundSe
     positionAndSizeLocked: false,
     presentation: { accentColor: null, chrome: "default", tagColor: null },
     size: {
-      height: { mode: "fixed", value: 180 },
-      width: { mode: "fixed", value: 240 },
+      height: { mode: "fixed", value: 320 },
+      width: { mode: "fixed", value: 320 },
     },
     title,
   };
+}
+
+async function validateSampleSectionTitle({
+  title,
+}: WorkspaceSectionTitleValidationRequest): Promise<string | null> {
+  await new Promise<void>((resolve) => window.setTimeout(resolve, 150));
+  return title.toLocaleLowerCase() === "reserved"
+    ? "Choose a different title. Reserved is unavailable."
+    : null;
 }
 
 function emptyPlaygroundDocument(): WorkspaceDocument<PlaygroundSectionData> {
@@ -115,10 +129,12 @@ function DefaultPlaygroundPage() {
           ariaLabel="Section workspace"
           document={document}
           emptyState="No sections yet. Add a sample section to start."
-          onDocumentChange={(nextDocument) => {
+          onDocumentChange={(nextDocument, change) => {
             setDocument(nextDocument);
+            setAnnouncement(`Document change: ${change.reason}.`);
           }}
           sectionDefinitions={sampleSectionDefinitions}
+          validateSectionTitle={validateSampleSectionTitle}
         />
       </main>
     </>

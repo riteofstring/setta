@@ -98,6 +98,17 @@ describe("workspace controller", () => {
       reason: "presentation-edit-disabled",
       status: "rejected",
     });
+    expect(host.controller.setSectionTitle("root", "Renamed")).toEqual({
+      reason: "presentation-edit-disabled",
+      status: "rejected",
+    });
+    expect(
+      host.controller.setSectionPresentation("root", {
+        accentColor: "oklch(0.62 0.14 255)",
+        chrome: "compact",
+        tagColor: null,
+      }),
+    ).toEqual({ reason: "presentation-edit-disabled", status: "rejected" });
     expect(host.controller.setViewport({ x: 40, y: -20, zoom: 1.5 })).toEqual({
       status: "applied",
     });
@@ -146,6 +157,16 @@ describe("workspace controller", () => {
     expect(() => host.controller.setSectionsLocked(["root"], null as unknown as boolean)).toThrow(
       "Workspace locked state must be a boolean",
     );
+    expect(() => host.controller.setSectionTitle("root", "   ")).toThrow(
+      "Workspace section title must not be empty",
+    );
+    expect(() =>
+      host.controller.setSectionPresentation("root", {
+        accentColor: "not a color",
+        chrome: "default",
+        tagColor: null,
+      }),
+    ).toThrow("accent color must be null or a valid color");
     expect(() =>
       host.controller.setViewport(null as unknown as { x: number; y: number; zoom: number }),
     ).toThrow("Workspace viewport must be an object");
@@ -196,6 +217,62 @@ describe("workspace controller", () => {
       "section-minimize",
       "section-lock",
     ]);
+  });
+
+  it("normalizes titles and commits scoped presentation with one change each", () => {
+    const host = new WorkspaceInMemoryHost(recursiveDocument());
+    const presentation = {
+      accentColor: "oklch(0.62 0.14 255)",
+      chrome: "compact",
+      tagColor: "oklch(0.72 0.11 80)",
+    } as const;
+
+    expect(host.controller.setSectionTitle("root", "  Planning note  ")).toEqual({
+      status: "applied",
+    });
+    expect(host.controller.setSectionPresentation("root", presentation)).toEqual({
+      status: "applied",
+    });
+    expect(host.document().sections.root).toMatchObject({
+      presentation,
+      title: "Planning note",
+    });
+    expect(host.changes().map(({ change }) => change.reason)).toEqual([
+      "section-title",
+      "section-presentation",
+    ]);
+    expect(host.controller.setSectionTitle("root", "Planning note")).toEqual({
+      status: "unchanged",
+    });
+    expect(host.controller.setSectionPresentation("root", presentation)).toEqual({
+      status: "unchanged",
+    });
+    expect(host.changes()).toHaveLength(2);
+  });
+
+  it("rejects accessor-backed presentation without evaluating it", () => {
+    const host = new WorkspaceInMemoryHost(recursiveDocument());
+    let evaluated = false;
+    const presentation = Object.defineProperty(
+      { chrome: "default", tagColor: null },
+      "accentColor",
+      {
+        enumerable: true,
+        get: () => {
+          evaluated = true;
+          return null;
+        },
+      },
+    );
+
+    expect(() =>
+      host.controller.setSectionPresentation(
+        "root",
+        presentation as unknown as WorkspaceSection["presentation"],
+      ),
+    ).toThrow("workspace section presentation field accentColor");
+    expect(evaluated).toBe(false);
+    expect(host.changes()).toEqual([]);
   });
 
   it("moves root sections atomically without changing stacking or section records", () => {

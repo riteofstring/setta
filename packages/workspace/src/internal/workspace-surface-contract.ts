@@ -1,6 +1,7 @@
 import type {
   WorkspaceDocument,
   WorkspaceJsonValue,
+  WorkspaceSectionPresentation,
   WorkspaceViewport,
 } from "./workspace-document-contract.js";
 import type { WorkspaceCapabilities } from "./workspace-policy.js";
@@ -56,7 +57,13 @@ export type WorkspaceFitOptions = Readonly<{
 }>;
 
 export type WorkspaceDocumentChangeReason =
-  "section-delete" | "section-lock" | "section-minimize" | "section-move" | "viewport";
+  | "section-delete"
+  | "section-lock"
+  | "section-minimize"
+  | "section-move"
+  | "section-presentation"
+  | "section-title"
+  | "viewport";
 
 export type WorkspaceDocumentChange = Readonly<{
   reason: WorkspaceDocumentChangeReason;
@@ -78,6 +85,11 @@ export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
   getSelectedSectionIds(): readonly string[];
   selectSections(sectionIds: readonly string[]): WorkspaceActionResult;
   setSectionMinimized(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
+  setSectionPresentation(
+    sectionId: string,
+    presentation: WorkspaceSectionPresentation,
+  ): WorkspaceActionResult;
+  setSectionTitle(sectionId: string, title: string): WorkspaceActionResult;
   setSectionsLocked(sectionIds: readonly string[], locked: boolean): WorkspaceActionResult;
   setViewport(viewport: WorkspaceViewport): WorkspaceActionResult;
 }>;

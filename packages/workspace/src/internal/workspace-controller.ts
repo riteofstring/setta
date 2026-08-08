@@ -13,6 +13,8 @@ import {
 } from "../core.js";
 import {
   applyWorkspaceDocumentCommand,
+  normalizeWorkspaceSectionTitle,
+  resolveWorkspaceSectionPresentation,
   type WorkspaceDocumentCommand,
 } from "./document-commands.js";
 import { denseArrayAt } from "./runtime-option-validation.js";
@@ -247,6 +249,18 @@ export function createWorkspaceController<TSectionData>(
     },
     setSectionMinimized: (sectionId, isMinimized) =>
       setSectionMinimized(bindings, sectionId, isMinimized),
+    setSectionPresentation: (sectionId, presentation) =>
+      dispatch(bindings, {
+        presentation: resolveWorkspaceSectionPresentation(presentation),
+        sectionId: sectionIdAt(sectionId),
+        type: "set-section-presentation",
+      }),
+    setSectionTitle: (sectionId, title) =>
+      dispatch(bindings, {
+        sectionId: sectionIdAt(sectionId),
+        title: normalizeWorkspaceSectionTitle(title),
+        type: "set-section-title",
+      }),
     setSectionsLocked: (sectionIds, locked) =>
       dispatch(bindings, {
         locked: booleanAt(locked, "Workspace locked state"),

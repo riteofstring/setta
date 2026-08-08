@@ -65,3 +65,7 @@ position-and-size lock enforcement, and transient active-root lift. Package-owne
 adds native pressed controls, Shift modifier selection, configurable partial/full Shift-marquee,
 select-all and clear shortcuts, measured selection-root outlines, controller selection methods, and
 single-commit top-level block movement with relative-offset preservation and locked-block rejection.
+The frame now also owns trimmed, asynchronously validated inline title editing plus resettable,
+frame-scoped accent/tag and chrome controls. These presentation affordances enforce live capability
+policy before opening and commit one canonical title or presentation change through the public
+controller.

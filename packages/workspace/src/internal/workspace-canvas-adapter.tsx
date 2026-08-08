@@ -29,6 +29,7 @@ import type {
   WorkspaceGestureOptions,
   WorkspaceJsonValue,
   WorkspacePoint,
+  WorkspaceSectionPresentation,
   WorkspaceViewport,
 } from "../core.js";
 import type {
@@ -69,6 +70,10 @@ import {
   moveWorkspaceRootWithKeyboard,
   type WorkspaceKeyboardMoveDirection,
 } from "./workspace-root-movement.js";
+import type {
+  WorkspaceSectionColorOption,
+  WorkspaceSectionTitleValidator,
+} from "./workspace-section-contract.js";
 import type { WorkspaceSectionRegistry } from "./workspace-section-registry.js";
 import {
   applyWorkspaceSectionSelectionRequest,
@@ -106,13 +111,21 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   onGridSnapChange(value: boolean): void;
   onMinimapVisibilityChange(value: boolean): void;
   onRootMoveCommit(positions: Readonly<Record<string, WorkspacePoint>>): WorkspaceActionResult;
+  onSectionPresentationCommit(
+    sectionId: string,
+    presentation: WorkspaceSectionPresentation,
+  ): WorkspaceActionResult;
+  onSectionTitleCommit(sectionId: string, title: string): WorkspaceActionResult;
   onSelectionChange(sectionIds: readonly string[]): WorkspaceActionResult;
   onViewportCommit(viewport: WorkspaceViewport): void;
   overlaySlots: Partial<Record<WorkspaceOverlayPlacement, ReactNode>>;
+  presentationEditable: boolean;
   readOnly: boolean;
+  sectionColorPalette: readonly WorkspaceSectionColorOption[];
   sectionRegistry: WorkspaceSectionRegistry<TSectionData>;
   selectedSectionIds: readonly string[];
   toolbarControls: readonly WorkspaceToolbarControl<TSectionData>[];
+  validateSectionTitle: WorkspaceSectionTitleValidator;
   workspaceController: WorkspaceController<TSectionData>;
 }>;
 
@@ -170,7 +183,9 @@ function targetAcceptsCanvasShortcut(target: EventTarget | null, ownerDocument: 
   if (!ElementConstructor || !(target instanceof ElementConstructor)) {
     return true;
   }
-  return !target.closest("input, select, textarea, [contenteditable='true']");
+  return !target.closest(
+    "input, select, textarea, [contenteditable='true'], [data-workspace-local-shortcuts]",
+  );
 }
 
 function backgroundVariant(pattern: ResolvedWorkspaceGridOptions["pattern"]): BackgroundVariant {
@@ -254,7 +269,10 @@ function WorkspaceMinimap({
           maskStrokeColor="var(--setta-workspace-selection)"
           maskStrokeWidth={2}
           nodeBorderRadius={6}
-          nodeColor="var(--setta-workspace-section-background)"
+          nodeColor={(node) =>
+            node.data.section.presentation.accentColor ??
+            "var(--setta-workspace-section-background)"
+          }
           nodeStrokeColor="var(--setta-workspace-section-muted-text)"
           pannable={false}
           position={placement === "left" ? "bottom-left" : "bottom-right"}
@@ -307,13 +325,18 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   onGridSnapChange,
   onMinimapVisibilityChange,
   onRootMoveCommit,
+  onSectionPresentationCommit,
+  onSectionTitleCommit,
   onSelectionChange,
   onViewportCommit,
   overlaySlots,
+  presentationEditable,
   readOnly,
+  sectionColorPalette,
   sectionRegistry,
   selectedSectionIds,
   toolbarControls,
+  validateSectionTitle,
   workspaceController,
 }: WorkspaceCanvasAdapterProps<TSectionData>) {
   const reactId = useId();
@@ -443,11 +466,16 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         document,
         geometry,
         sectionRegistry,
+        sectionColorPalette,
         appearance,
         readOnly,
         layoutEditable,
+        presentationEditable,
         handleKeyboardMove,
+        onSectionPresentationCommit,
         handleSelectionRequest,
+        onSectionTitleCommit,
+        validateSectionTitle,
         rootSelectionProjection,
       ),
     [
@@ -457,9 +485,14 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       handleKeyboardMove,
       handleSelectionRequest,
       layoutEditable,
+      onSectionPresentationCommit,
+      onSectionTitleCommit,
+      presentationEditable,
       readOnly,
       rootSelectionProjection,
+      sectionColorPalette,
       sectionRegistry,
+      validateSectionTitle,
     ],
   );
   const [nodes, setNodes] = useState<WorkspaceRootNode[]>(projectedNodes);

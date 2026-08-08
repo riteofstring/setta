@@ -87,6 +87,8 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain('data-appearance="dark"');
     expect(markup).toContain('data-read-only="true"');
     expect(markup).toMatch(/<button[^>]+aria-label="Move Alpha note"[^>]+disabled/u);
+    expect(markup).toMatch(/<button[^>]+aria-label="Rename Alpha note"[^>]+disabled/u);
+    expect(markup).toMatch(/<button[^>]+aria-label="Style Alpha note"[^>]+disabled/u);
     expect(markup).toContain("setta-workspace__interaction-boundary");
     expect(markup).toContain('data-workspace-prevent-pan="true"');
     expect(markup).toContain('data-workspace-prevent-wheel="true"');
@@ -125,6 +127,8 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain("Minimized");
     expect(markup).toContain('aria-label="Move Quiet note"');
     expect(markup).toContain('aria-label="Select Quiet note"');
+    expect(markup).toContain('aria-label="Rename Quiet note"');
+    expect(markup).toContain('aria-label="Style Quiet note"');
     expect(markup).toContain('aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"');
     expect(markup).not.toContain("Host body must be absent");
   });
@@ -349,6 +353,59 @@ describe("Workspace scaffold", () => {
         <Workspace toolbarControls={[accessorControl as unknown as WorkspaceToolbarControl]} />,
       ),
     ).toThrow("workspace toolbar control field label");
+  });
+
+  it("renders scoped accent, tag, and definition icon presentation without replacing state cues", () => {
+    const base = createWorkspaceTestDocument([{ id: "alpha", title: "Styled note" }]);
+    const section = base.sections.alpha as WorkspaceSection;
+    const document: WorkspaceDocument = {
+      ...base,
+      sections: {
+        ...base.sections,
+        alpha: {
+          ...section,
+          presentation: {
+            accentColor: "oklch(0.62 0.14 255)",
+            chrome: "transparent",
+            tagColor: "oklch(0.72 0.11 80)",
+          },
+        },
+      },
+    };
+    const definitions = [
+      {
+        creation: { icon: <span data-section-icon="">N</span> },
+        defaultSize: { height: 180, width: 240 },
+        displayName: "Styled host",
+        kind: "test",
+        render: () => <span>Host body</span>,
+      },
+    ] satisfies readonly SectionDefinition[];
+
+    const markup = renderToStaticMarkup(
+      <Workspace defaultDocument={document} sectionDefinitions={definitions} />,
+    );
+
+    expect(markup).toContain('data-workspace-accent-color="oklch(0.62 0.14 255)"');
+    expect(markup).toContain('data-workspace-tag-color="oklch(0.72 0.11 80)"');
+    expect(markup).toContain("--setta-workspace-section-accent:oklch(0.62 0.14 255)");
+    expect(markup).toContain('data-workspace-chrome="transparent"');
+    expect(markup).toContain('data-section-icon=""');
+    expect(markup).toContain("Tagged");
+    expect(markup).toContain('aria-label="Rename Styled note"');
+    expect(markup).toContain('aria-label="Style Styled note"');
+    expect(markup).not.toMatch(/aria-label="Rename Styled note"[^>]+disabled/u);
+  });
+
+  it("rejects malformed title validation and section color palette props", () => {
+    expect(() =>
+      renderToStaticMarkup(<Workspace validateSectionTitle={null as unknown as () => null} />),
+    ).toThrow("validateSectionTitle must be a function");
+    expect(() =>
+      renderToStaticMarkup(
+        <Workspace sectionColorPalette={[{ color: "invalid", label: "Broken" }]} />,
+      ),
+    ).toThrow("color must be a valid CSS color");
   });
 
   it("keeps the minimap toggle's controlled target mounted while the minimap is hidden", () => {

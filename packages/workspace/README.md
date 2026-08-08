@@ -49,6 +49,10 @@ const sectionDefinitions = [
   }}
   minimapOptions={{ placement: "right", visible: true }}
   selectionOptions={{ marqueeMode: "partial" }}
+  validateSectionTitle={async ({ sectionId, title }) => {
+    const available = await titleService.isAvailable(sectionId, title);
+    return available ? null : "Choose a different title. This title is unavailable.";
+  }}
   toolbarControls={[
     {
       id: "open-inspector",
@@ -75,8 +79,18 @@ component with `sectionId`, serialized `data`, resolved `light` or `dark` appear
 resolved workbench `readOnly` state. Its content boundary automatically prevents inputs and
 scrollable host content from starting viewport pan or wheel gestures. Headerless chrome retains an
 accessible title, and minimized sections unmount the host body while retaining serialized data and
-size state. Each root frame also exposes a native, named movement handle. Host data-update
-callbacks, creation UI, title editing, and resizing remain separate Phase 2 surfaces.
+size state. Each root frame also exposes a native, named movement handle. Selected frames expose
+package-owned title and style controls. Title input is trimmed, rejects empty values, supports Enter
+to save and Escape to cancel, restores focus, and keeps an asynchronously rejected proposal open
+with an associated error. `validateSectionTitle` may perform host validation or persistence before
+the package commits one `section-title` change.
+
+Accent and tag choices are serialized section presentation. The default editor provides six
+gamut-safe OKLCH choices plus reset; `sectionColorPalette` can replace those labeled choices with
+other supported CSS colors. Accents derive only frame-local decorative chrome tokens, tags retain a
+visible “Tagged” cue, and selection, focus, invalid, lock, and movement states keep their independent
+semantic colors. Chrome, accent, and tag updates each use one `section-presentation` change. The
+host renderer stays mounted but inert while the style panel covers it, preserving local host state.
 
 Selection is package-owned transient state rather than part of `WorkspaceDocument`. Click a frame
 or its named pressed button to select it, and Shift-click to toggle membership. Shift-drag from the
@@ -167,6 +181,12 @@ await controller.current?.focusNextSection("summary");
 controller.current?.selectSections(["summary", "details"]);
 controller.current?.getSelectedSectionIds();
 controller.current?.clearSelection();
+controller.current?.setSectionTitle("details", "Details");
+controller.current?.setSectionPresentation("details", {
+  accentColor: "oklch(0.62 0.14 255)",
+  chrome: "compact",
+  tagColor: null,
+});
 ```
 
 Testing-only exports continue to exercise exact-pinned upstream XYFlow and dnd-kit behind

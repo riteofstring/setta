@@ -1,5 +1,6 @@
 import {
   deriveWorkspaceParentLookup,
+  isValidWorkspaceColor,
   validateWorkspaceDocument,
   type WorkspaceActionRejectionReason,
   type WorkspaceCapabilities,
@@ -7,6 +8,7 @@ import {
   type WorkspaceDocumentChangeReason,
   type WorkspacePoint,
   type WorkspaceSection,
+  type WorkspaceSectionPresentation,
   type WorkspaceViewport,
 } from "../core.js";
 import { isEnumerableDataProperty, optionOverridesAt } from "./runtime-option-validation.js";
@@ -18,6 +20,12 @@ export type WorkspaceDocumentCommand =
       type: "move-root-sections";
     }>
   | Readonly<{ isMinimized: boolean; sectionId: string; type: "set-section-minimized" }>
+  | Readonly<{
+      presentation: WorkspaceSectionPresentation;
+      sectionId: string;
+      type: "set-section-presentation";
+    }>
+  | Readonly<{ sectionId: string; title: string; type: "set-section-title" }>
   | Readonly<{ locked: boolean; sectionIds: readonly string[]; type: "set-sections-locked" }>
   | Readonly<{ type: "set-viewport"; viewport: WorkspaceViewport }>;
 
@@ -46,23 +54,37 @@ class WorkspaceCommandError extends Error {
   }
 }
 
+type WorkspaceEditCapability = keyof WorkspaceCapabilities;
+
+const presentationCommandTypes = new Set<WorkspaceDocumentCommand["type"]>([
+  "set-section-minimized",
+  "set-section-presentation",
+  "set-section-title",
+]);
+
+function commandCapability(command: WorkspaceDocumentCommand): WorkspaceEditCapability | null {
+  if (command.type === "delete-sections") {
+    return "editStructure";
+  }
+  if (command.type === "move-root-sections" || command.type === "set-sections-locked") {
+    return "editLayout";
+  }
+  return presentationCommandTypes.has(command.type) ? "editPresentation" : null;
+}
+
+function capabilityRejection(capability: WorkspaceEditCapability): WorkspaceActionRejectionReason {
+  if (capability === "editStructure") {
+    return "structure-edit-disabled";
+  }
+  return capability === "editLayout" ? "layout-edit-disabled" : "presentation-edit-disabled";
+}
+
 function rejectionFor(
   command: WorkspaceDocumentCommand,
   capabilities: WorkspaceCapabilities,
 ): WorkspaceActionRejectionReason | null {
-  if (command.type === "delete-sections" && !capabilities.editStructure) {
-    return "structure-edit-disabled";
-  }
-  if (command.type === "set-sections-locked" && !capabilities.editLayout) {
-    return "layout-edit-disabled";
-  }
-  if (command.type === "move-root-sections" && !capabilities.editLayout) {
-    return "layout-edit-disabled";
-  }
-  if (command.type === "set-section-minimized" && !capabilities.editPresentation) {
-    return "presentation-edit-disabled";
-  }
-  return null;
+  const capability = commandCapability(command);
+  return capability && !capabilities[capability] ? capabilityRejection(capability) : null;
 }
 
 function assertKnownSections<TSectionData>(
@@ -81,6 +103,53 @@ function applied<TSectionData>(
 ): WorkspaceDocumentCommandResult<TSectionData> {
   validateWorkspaceDocument(document);
   return { document, reason, status: "applied" };
+}
+
+export function normalizeWorkspaceSectionTitle(value: unknown): string {
+  if (typeof value !== "string") {
+    throw new TypeError("Workspace section title must be a string.");
+  }
+  const title = value.trim();
+  if (title.length === 0) {
+    throw new TypeError("Workspace section title must not be empty.");
+  }
+  return title;
+}
+
+export function resolveWorkspaceSectionPresentation(value: unknown): WorkspaceSectionPresentation {
+  const record = optionOverridesAt(
+    value,
+    ["accentColor", "chrome", "tagColor"],
+    "Workspace section presentation",
+    "workspace section presentation field",
+  );
+  const missingKey = (["accentColor", "chrome", "tagColor"] as const).find(
+    (key) => !Object.hasOwn(record, key),
+  );
+  if (missingKey) {
+    throw new TypeError(`Workspace section presentation must provide ${missingKey}.`);
+  }
+  return {
+    accentColor: sectionPresentationColor(record.accentColor, "accent color"),
+    chrome: sectionChrome(record.chrome),
+    tagColor: sectionPresentationColor(record.tagColor, "tag color"),
+  };
+}
+
+function sectionChrome(value: unknown): WorkspaceSectionPresentation["chrome"] {
+  if (value !== "compact" && value !== "default" && value !== "none" && value !== "transparent") {
+    throw new TypeError(
+      "Workspace section presentation chrome must be compact, default, none, or transparent.",
+    );
+  }
+  return value;
+}
+
+function sectionPresentationColor(value: unknown, label: string): string | null {
+  if (value !== null && (typeof value !== "string" || !isValidWorkspaceColor(value))) {
+    throw new TypeError(`Workspace section presentation ${label} must be null or a valid color.`);
+  }
+  return value;
 }
 
 function finiteCoordinate(value: unknown, label: string): number {
@@ -218,6 +287,55 @@ function applySectionMinimized<TSectionData>(
   );
 }
 
+function applySectionTitle<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  sectionId: string,
+  title: string,
+): WorkspaceDocumentCommandResult<TSectionData> {
+  assertKnownSections(document, [sectionId]);
+  const section = document.sections[sectionId] as WorkspaceSection<TSectionData>;
+  if (section.title === title) {
+    return { document, status: "unchanged" };
+  }
+  return applied(
+    {
+      ...document,
+      sections: { ...document.sections, [sectionId]: { ...section, title } },
+    },
+    "section-title",
+  );
+}
+
+function presentationsMatch(
+  left: WorkspaceSectionPresentation,
+  right: WorkspaceSectionPresentation,
+): boolean {
+  return (
+    left.accentColor === right.accentColor &&
+    left.chrome === right.chrome &&
+    left.tagColor === right.tagColor
+  );
+}
+
+function applySectionPresentation<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  sectionId: string,
+  presentation: WorkspaceSectionPresentation,
+): WorkspaceDocumentCommandResult<TSectionData> {
+  assertKnownSections(document, [sectionId]);
+  const section = document.sections[sectionId] as WorkspaceSection<TSectionData>;
+  if (presentationsMatch(section.presentation, presentation)) {
+    return { document, status: "unchanged" };
+  }
+  return applied(
+    {
+      ...document,
+      sections: { ...document.sections, [sectionId]: { ...section, presentation } },
+    },
+    "section-presentation",
+  );
+}
+
 function collectSubtreeIds<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   selectedIds: readonly string[],
@@ -315,6 +433,12 @@ export function applyWorkspaceDocumentCommand<TSectionData>(
   }
   if (command.type === "set-section-minimized") {
     return applySectionMinimized(document, command.sectionId, command.isMinimized);
+  }
+  if (command.type === "set-section-title") {
+    return applySectionTitle(document, command.sectionId, command.title);
+  }
+  if (command.type === "set-section-presentation") {
+    return applySectionPresentation(document, command.sectionId, command.presentation);
   }
   return applySectionDeletion(document, command.sectionIds);
 }

@@ -6,7 +6,10 @@ import type { RootProjectionChange, RootProjectionInput } from "./transient-root
 import { projectWorkspaceCanvasRoots, type WorkspaceCanvasRoot } from "./workspace-canvas-model.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 import type { WorkspaceKeyboardMoveDirection } from "./workspace-root-movement.js";
-import { WorkspaceSectionFrame } from "./workspace-section-frame.js";
+import {
+  WorkspaceSectionFrame,
+  type WorkspaceSectionFrameProps,
+} from "./workspace-section-frame.js";
 import type {
   ResolvedSectionDefinition,
   WorkspaceSectionRegistry,
@@ -15,19 +18,24 @@ import type { WorkspaceSectionSelectionRequest } from "./workspace-selection.js"
 
 type WorkspaceRootNodeData = {
   appearance: "dark" | "light";
+  colorPalette: WorkspaceSectionFrameProps["colorPalette"];
   definition: ResolvedSectionDefinition<unknown>;
   geometry: WorkspaceGeometryMeasurements;
   layoutEditable: boolean;
   moving: boolean;
   onKeyboardMove(sectionId: string, direction: WorkspaceKeyboardMoveDirection): void;
+  onPresentationCommit: WorkspaceSectionFrameProps["onPresentationCommit"];
   onSelectionRequest(sectionId: string, request: WorkspaceSectionSelectionRequest): void;
+  onTitleCommit: WorkspaceSectionFrameProps["onTitleCommit"];
   order: number;
+  presentationEditable: boolean;
   readOnly: boolean;
   selected: boolean;
   selectionMovementBlocked: boolean;
   section: WorkspaceSection<unknown>;
   sectionId: string;
   title: string;
+  validateTitle: WorkspaceSectionFrameProps["validateTitle"];
 };
 
 export type WorkspaceRootNode = Node<WorkspaceRootNodeData, "workspace-root-shell">;
@@ -47,17 +55,22 @@ function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
   return (
     <WorkspaceSectionFrame
       appearance={data.appearance}
+      colorPalette={data.colorPalette}
       definition={data.definition}
       geometry={data.geometry}
       layoutEditable={data.layoutEditable}
       moving={data.moving}
       onKeyboardMove={data.onKeyboardMove}
+      onPresentationCommit={data.onPresentationCommit}
       onSelectionRequest={data.onSelectionRequest}
+      onTitleCommit={data.onTitleCommit}
       order={data.order}
+      presentationEditable={data.presentationEditable}
       readOnly={data.readOnly}
       selected={data.selected}
       selectionMovementBlocked={data.selectionMovementBlocked}
       section={data.section}
+      validateTitle={data.validateTitle}
     />
   );
 }
@@ -79,11 +92,16 @@ function rootNode(
   geometry: WorkspaceGeometryMeasurements,
   section: WorkspaceSection<unknown>,
   definition: ResolvedSectionDefinition<unknown>,
+  colorPalette: WorkspaceRootNodeData["colorPalette"],
   appearance: "dark" | "light",
   readOnly: boolean,
   layoutEditable: boolean,
+  presentationEditable: boolean,
   onKeyboardMove: WorkspaceRootNodeData["onKeyboardMove"],
+  onPresentationCommit: WorkspaceRootNodeData["onPresentationCommit"],
   onSelectionRequest: WorkspaceRootNodeData["onSelectionRequest"],
+  onTitleCommit: WorkspaceRootNodeData["onTitleCommit"],
+  validateTitle: WorkspaceRootNodeData["validateTitle"],
   selection: RootSelectionProjection,
 ): WorkspaceRootNode {
   const selected = selection.selectedSectionIds.has(root.sectionId);
@@ -92,19 +110,24 @@ function rootNode(
     ariaLabel: root.title,
     data: {
       appearance,
+      colorPalette,
       definition,
       geometry,
       layoutEditable,
       moving: false,
       onKeyboardMove,
+      onPresentationCommit,
       onSelectionRequest,
+      onTitleCommit,
       order: root.order,
+      presentationEditable,
       readOnly,
       selected,
       selectionMovementBlocked,
       section,
       sectionId: root.sectionId,
       title: root.title,
+      validateTitle,
     },
     dragHandle: ".setta-workspace__section-drag-handle",
     draggable: layoutEditable && !section.positionAndSizeLocked && !selectionMovementBlocked,
@@ -124,11 +147,16 @@ export function projectNodes<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   geometry: WorkspaceGeometryMeasurements,
   sectionRegistry: WorkspaceSectionRegistry<TSectionData>,
+  colorPalette: WorkspaceRootNodeData["colorPalette"],
   appearance: "dark" | "light",
   readOnly: boolean,
   layoutEditable: boolean,
+  presentationEditable: boolean,
   onKeyboardMove: WorkspaceRootNodeData["onKeyboardMove"],
+  onPresentationCommit: WorkspaceRootNodeData["onPresentationCommit"],
   onSelectionRequest: WorkspaceRootNodeData["onSelectionRequest"],
+  onTitleCommit: WorkspaceRootNodeData["onTitleCommit"],
+  validateTitle: WorkspaceRootNodeData["validateTitle"],
   selection: RootSelectionProjection,
 ): WorkspaceRootNode[] {
   return projectWorkspaceCanvasRoots(document).map((root) => {
@@ -142,11 +170,16 @@ export function projectNodes<TSectionData>(
       geometry,
       section as WorkspaceSection<unknown>,
       definition as ResolvedSectionDefinition<unknown>,
+      colorPalette,
       appearance,
       readOnly,
       layoutEditable,
+      presentationEditable,
       onKeyboardMove,
+      onPresentationCommit,
       onSelectionRequest,
+      onTitleCommit,
+      validateTitle,
       selection,
     );
   });

@@ -28,6 +28,7 @@ import {
   type WorkspaceGridOptionOverrides,
   type WorkspaceJsonValue,
   type WorkspacePoint,
+  type WorkspaceSectionPresentation,
 } from "./core.js";
 import { isDenseArray, isEnumerableDataProperty } from "./internal/runtime-option-validation.js";
 import { WorkspaceCanvasAdapter } from "./internal/workspace-canvas-adapter.js";
@@ -46,7 +47,13 @@ import {
   resolveWorkspaceGridOptions,
   type ResolvedWorkspaceAppearanceOptions,
 } from "./internal/workspace-preferences.js";
-import { type SectionDefinition } from "./internal/workspace-section-contract.js";
+import {
+  resolveWorkspaceSectionColorPalette,
+  type SectionDefinition,
+  type WorkspaceSectionColorOption,
+  type WorkspaceSectionTitleValidationRequest,
+  type WorkspaceSectionTitleValidator,
+} from "./internal/workspace-section-contract.js";
 import {
   resolveSectionDefinitions,
   validateWorkspaceSectionDefinitions,
@@ -57,6 +64,7 @@ import {
   workspaceSelectionsMatch,
 } from "./internal/workspace-selection.js";
 
+export { WORKSPACE_DEFAULT_SECTION_COLOR_PALETTE } from "./internal/workspace-section-contract.js";
 export type {
   SectionContentSizing,
   SectionCreationMetadata,
@@ -66,6 +74,9 @@ export type {
   SectionRenderProps,
   SectionResizeAxes,
   SectionResizeOptions,
+  WorkspaceSectionColorOption,
+  WorkspaceSectionTitleValidationRequest,
+  WorkspaceSectionTitleValidator,
 } from "./internal/workspace-section-contract.js";
 
 export type WorkspaceDocumentChangeHandler<TSectionData = WorkspaceJsonValue> = (
@@ -339,9 +350,11 @@ type SharedWorkspaceProps<TSectionData> = Omit<
   onMinimapVisibilityChange?: WorkspaceBooleanPreferenceChangeHandler;
   overlaySlots?: WorkspaceOverlaySlots<TSectionData>;
   readOnly?: boolean;
+  sectionColorPalette?: readonly WorkspaceSectionColorOption[];
   sectionDefinitions?: readonly SectionDefinition<TSectionData>[];
   selectionOptions?: WorkspaceSelectionOptions;
   toolbarControls?: readonly WorkspaceToolbarControl<TSectionData>[];
+  validateSectionTitle?: WorkspaceSectionTitleValidator;
 };
 
 type ControlledWorkspaceProps<TSectionData> = {
@@ -415,6 +428,14 @@ function assertViewportWithinGestureBounds(
 function assertAccessibleName(ariaLabel: unknown): asserts ariaLabel is string {
   if (typeof ariaLabel !== "string" || ariaLabel.trim().length === 0) {
     throw new TypeError("Workspace ariaLabel must be a non-empty string.");
+  }
+}
+
+function assertSectionTitleValidator(
+  value: unknown,
+): asserts value is WorkspaceSectionTitleValidator | undefined {
+  if (value !== undefined && typeof value !== "function") {
+    throw new TypeError("Workspace validateSectionTitle must be a function.");
   }
 }
 
@@ -520,13 +541,16 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     onMinimapVisibilityChange,
     overlaySlots: overlaySlotOverrides,
     readOnly = false,
+    sectionColorPalette: sectionColorPaletteOverrides,
     sectionDefinitions: sectionDefinitionOverrides,
     selectionOptions: selectionOptionOverrides,
     style,
     toolbarControls: toolbarControlOverrides,
+    validateSectionTitle,
     ...sectionProps
   } = props;
   assertAccessibleName(ariaLabel);
+  assertSectionTitleValidator(validateSectionTitle);
   const gestureOptions = useMemo(
     () => resolveWorkspaceGestureOptions(gestureOptionOverrides),
     [gestureOptionOverrides],
@@ -554,6 +578,10 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   const sectionRegistry = useMemo(
     () => resolveSectionDefinitions(sectionDefinitionOverrides),
     [sectionDefinitionOverrides],
+  );
+  const sectionColorPalette = useMemo(
+    () => resolveWorkspaceSectionColorPalette(sectionColorPaletteOverrides),
+    [sectionColorPaletteOverrides],
   );
   const selectionOptions = useMemo(
     () => resolveSelectionOptions(selectionOptionOverrides),
@@ -604,6 +632,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   const sectionRegistryRef = useRef(sectionRegistry);
   const controlledRef = useRef(mode.type === "controlled");
   const onDocumentChangeRef = useRef(onDocumentChange);
+  const validateSectionTitleRef = useRef(validateSectionTitle);
   const [controllerSynchronizationRevision, setControllerSynchronizationRevision] = useState(0);
   documentRef.current = validatedDocument;
   capabilitiesRef.current = capabilities;
@@ -611,6 +640,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   sectionRegistryRef.current = sectionRegistry;
   controlledRef.current = mode.type === "controlled";
   onDocumentChangeRef.current = onDocumentChange;
+  validateSectionTitleRef.current = validateSectionTitle;
   const [selectionState, setSelectionState] = useState<readonly string[]>([]);
   const selectedSectionIds = useMemo(
     () => reconcileWorkspaceSelection(validatedDocument, selectionState),
@@ -675,6 +705,22 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     },
     [],
   );
+  const handleSectionPresentationCommit = useCallback(
+    (sectionId: string, presentation: WorkspaceSectionPresentation) =>
+      controller.setSectionPresentation(sectionId, presentation),
+    [controller],
+  );
+  const handleSectionTitleCommit = useCallback(
+    (sectionId: string, title: string) => controller.setSectionTitle(sectionId, title),
+    [controller],
+  );
+  const handleSectionTitleValidation = useCallback(
+    (request: WorkspaceSectionTitleValidationRequest) => {
+      const validator = validateSectionTitleRef.current;
+      return validator ? validator(request) : null;
+    },
+    [],
+  );
   useImperativeHandle(controllerRef, () => controller, [controller]);
   const overlaySlots = renderOverlaySlots(overlayRenderers, controller);
 
@@ -710,13 +756,18 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         onGridSnapChange={setGridSnap}
         onMinimapVisibilityChange={setMinimapVisible}
         onRootMoveCommit={handleRootMoveCommit}
+        onSectionPresentationCommit={handleSectionPresentationCommit}
+        onSectionTitleCommit={handleSectionTitleCommit}
         onSelectionChange={commitSelection}
         onViewportCommit={controller.setViewport}
         overlaySlots={overlaySlots}
         readOnly={sectionReadOnly}
+        presentationEditable={capabilities.editPresentation}
+        sectionColorPalette={sectionColorPalette}
         sectionRegistry={sectionRegistry}
         selectedSectionIds={selectedSectionIds}
         toolbarControls={toolbarControls}
+        validateSectionTitle={handleSectionTitleValidation}
         workspaceController={controller}
       />
     </section>
