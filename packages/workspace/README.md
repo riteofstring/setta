@@ -99,12 +99,14 @@ Unmounting the workspace cancels an active transient viewport gesture, releases 
 geometry observers and global listeners, rejects pending measurement subscriptions, and leaves the
 accepted document viewport unchanged for an exact later remount.
 
-The controller's measured navigation helpers wait for visible frame geometry, commit one canonical
-viewport change, and resolve after the upstream viewport has synchronized. `focusSection` preserves
-the current zoom and moves programmatic focus with scroll prevention; `fitSection` and `fitSections`
-honor the configured zoom bounds, reserve a default chrome-safe padding, and accept an optional
-non-negative padding value. Spatial next/previous navigation orders roots by workbench `y`, then
-`x`, persistent order, and stable ID, with descendants following canonical child order.
+The controller's measured navigation helpers wait for visible frame geometry, propose one canonical
+viewport change, and resolve after the upstream viewport reconciles to the host's current canonical
+value. Accepted `focusSection` calls preserve the current zoom and move programmatic focus with
+scroll prevention; rejected or superseded controlled proposals settle without moving stale focus.
+`fitSection` and `fitSections` honor the configured zoom bounds, reserve a default chrome-safe
+padding, and accept an optional non-negative padding value. Spatial next/previous navigation orders
+roots by workbench `y`, then `x`, persistent order, and stable ID, with descendants following
+canonical child order.
 
 ```tsx
 await controller.current?.focusSection("details");

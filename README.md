@@ -55,4 +55,5 @@ light/dark/system semantic theme tokens. It now also includes the default access
 host controls and overlay placements, and a side-configurable empty minimap shell. The complete
 gesture matrix, independent host pan/wheel arbitration, exact viewport restoration, and
 mount/observer/listener/subscription cleanup close the Phase 1 implementation, which is ready for
-its separate phase audit.
+Phase 2. The restarted Phase 1 audit and repository-actionable corrections are complete; interactive
+in-app CDP review remains recorded as an external release gate.
