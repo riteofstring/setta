@@ -50,3 +50,68 @@ test("the primary workflow remains operable at 200% page scale", async ({ page }
   await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
   await session.detach();
 });
+
+test("controlled and uncontrolled state honor live capability policy", async ({ page }) => {
+  await page.goto("/?state-contract");
+
+  const uncontrolledWorkspace = page.getByRole("region", {
+    name: "Uncontrolled workspace",
+    exact: true,
+  });
+  const controlledWorkspace = page.getByRole("region", {
+    name: "Controlled workspace",
+    exact: true,
+  });
+  const uncontrolledPanel = page.getByRole("region", {
+    name: "Uncontrolled document",
+    exact: true,
+  });
+  const controlledPanel = page.getByRole("region", {
+    name: "Controlled document",
+    exact: true,
+  });
+  const hostNote = page.getByRole("textbox", { name: "Host note" });
+  const status = page.getByRole("status");
+  await expect(uncontrolledWorkspace).toHaveAttribute("data-workspace-mode", "uncontrolled");
+  await expect(controlledWorkspace).toHaveAttribute("data-workspace-mode", "controlled");
+
+  await hostNote.fill("Keep this host value");
+  await page.getByRole("button", { name: "Turn read-only on" }).click();
+  await expect(uncontrolledWorkspace).toHaveAttribute("data-read-only", "true");
+
+  await page.getByRole("button", { name: "Lock Alpha" }).click();
+  await expect(status).toHaveText("Layout edit rejected: layout-edit-disabled.");
+  await page.getByRole("button", { name: "Minimize Alpha" }).click();
+  await expect(status).toHaveText("Presentation edit rejected: presentation-edit-disabled.");
+  await page.getByRole("button", { name: "Delete Beta" }).click();
+  await expect(status).toHaveText("Structure edit rejected: structure-edit-disabled.");
+  await expect(uncontrolledPanel.getByText("Committed changes: 0")).toBeVisible();
+  await expect(hostNote).toHaveValue("Keep this host value");
+
+  await page.getByRole("button", { name: "Pan uncontrolled viewport" }).click();
+  await expect(status).toHaveText("Viewport navigation: applied.");
+  await expect(uncontrolledPanel.getByText("Committed changes: 1")).toBeVisible();
+  await expect(page.getByTestId("uncontrolled-document")).toHaveValue(/"zoom": 1.5/u);
+
+  await page.getByRole("button", { name: "Turn editing on" }).click();
+  await page.getByRole("button", { name: "Minimize Alpha" }).click();
+  await page.getByRole("button", { name: "Delete Beta" }).click();
+  await expect(page.getByTestId("uncontrolled-document")).toHaveValue(/"isMinimized": true/u);
+  await expect(page.getByTestId("uncontrolled-document")).not.toHaveValue(/"beta"/u);
+  await expect(hostNote).toHaveValue("Keep this host value");
+
+  await page.getByRole("button", { name: "Pan controlled viewport" }).click();
+  await expect(status).toHaveText("Controlled viewport: applied.");
+  await expect(page.getByTestId("controlled-document")).toHaveValue(/"x": 120/u);
+  await expect(controlledPanel.getByText("Committed changes: 1")).toBeVisible();
+
+  await page.setViewportSize({ width: 320, height: 720 });
+  const dimensions = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(accessibility.violations).toEqual([]);
+});

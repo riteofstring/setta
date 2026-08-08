@@ -74,6 +74,43 @@ export type WorkspaceDocument<TSectionData = WorkspaceJsonValue> = Readonly<{
 
 export type WorkspaceParentLookup = ReadonlyMap<string, string | null>;
 
+export type WorkspaceCapabilities = Readonly<{
+  editLayout: boolean;
+  editPresentation: boolean;
+  editStructure: boolean;
+}>;
+
+export type WorkspaceCapabilityOverrides = Partial<WorkspaceCapabilities>;
+
+export const WORKSPACE_DEFAULT_CAPABILITIES: WorkspaceCapabilities = Object.freeze({
+  editLayout: true,
+  editPresentation: true,
+  editStructure: true,
+});
+
+export type WorkspaceActionRejectionReason =
+  "layout-edit-disabled" | "presentation-edit-disabled" | "structure-edit-disabled";
+
+export type WorkspaceActionResult =
+  | Readonly<{ status: "applied" | "unchanged" }>
+  | Readonly<{ reason: WorkspaceActionRejectionReason; status: "rejected" }>;
+
+export type WorkspaceDocumentChangeReason =
+  "section-delete" | "section-lock" | "section-minimize" | "viewport";
+
+export type WorkspaceDocumentChange = Readonly<{
+  reason: WorkspaceDocumentChangeReason;
+}>;
+
+export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
+  deleteSections(sectionIds: readonly string[]): WorkspaceActionResult;
+  getCapabilities(): WorkspaceCapabilities;
+  getDocument(): WorkspaceDocument<TSectionData>;
+  setSectionMinimized(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
+  setSectionsLocked(sectionIds: readonly string[], locked: boolean): WorkspaceActionResult;
+  setViewport(viewport: WorkspaceViewport): WorkspaceActionResult;
+}>;
+
 export type WorkspaceDocumentValidationCode =
   | "cycle"
   | "duplicate-placement"
@@ -174,6 +211,38 @@ const cssNamedColors = new Set(
     "yellowgreen"
   ).split(" "),
 );
+
+function resolvedCapability(
+  overrides: WorkspaceCapabilityOverrides | undefined,
+  capability: keyof WorkspaceCapabilities,
+): boolean {
+  const value = overrides?.[capability];
+  if (value === undefined) {
+    return WORKSPACE_DEFAULT_CAPABILITIES[capability];
+  }
+  if (typeof value !== "boolean") {
+    throw new TypeError(`Workspace capability ${capability} must be a boolean.`);
+  }
+  return value;
+}
+
+export function resolveWorkspaceCapabilities(
+  overrides?: WorkspaceCapabilityOverrides,
+  readOnly = false,
+): WorkspaceCapabilities {
+  if (typeof readOnly !== "boolean") {
+    throw new TypeError("Workspace readOnly must be a boolean.");
+  }
+  const resolved = {
+    editLayout: resolvedCapability(overrides, "editLayout"),
+    editPresentation: resolvedCapability(overrides, "editPresentation"),
+    editStructure: resolvedCapability(overrides, "editStructure"),
+  };
+  if (readOnly) {
+    return { editLayout: false, editPresentation: false, editStructure: false };
+  }
+  return resolved;
+}
 
 function fail(code: WorkspaceDocumentValidationCode, path: string, detail: string): never {
   throw new WorkspaceDocumentValidationError(code, path, detail);

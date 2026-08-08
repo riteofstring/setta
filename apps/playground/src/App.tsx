@@ -2,6 +2,7 @@ import { Workspace } from "@setta/workspace/react";
 import { useState } from "react";
 
 import { AdapterProofPage } from "./AdapterProofPage.js";
+import { StateContractPage } from "./StateContractPage.js";
 
 type PlaygroundSection = {
   id: number;
@@ -9,8 +10,12 @@ type PlaygroundSection = {
 };
 
 export function App() {
-  if (new URLSearchParams(window.location.search).has("adapter-proof")) {
+  const search = new URLSearchParams(window.location.search);
+  if (search.has("adapter-proof")) {
     return <AdapterProofPage />;
+  }
+  if (search.has("state-contract")) {
+    return <StateContractPage />;
   }
 
   return <DefaultPlaygroundPage />;

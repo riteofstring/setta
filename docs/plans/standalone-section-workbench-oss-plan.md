@@ -1140,7 +1140,7 @@ Status: **complete; phase audit complete** (updated 2026-08-08).
 - Supervision correction: the transient projection now invokes a host-supplied accepted-command callback exactly once for a completed move or resize and zero times for cancellation/no-op. Phase 0 history evidence records that real callback instead of relabeling a returned command in test-local state; viewport completion remains non-undoable.
 - Audit verification: exact Node 24.18.1 and pnpm 11.19.0 `quality:all` passed for 106 project files with 89 unit tests, six boundary tests, plan-loop automation, strict types, formatting, lint, dead-code, complexity/file-length, builds, notice-aware tarball allowlisting, and the full declaration-closure API report. Full Chromium Playwright passed 13/13 workflows and both visual baselines; the unrelated packed consumer built; and the registry-backed supply-chain gate passed with no known vulnerabilities.
 - Verification: exact-toolchain changed-file quality passed 87 unit tests plus boundary/automation tests, strict types, formatting, lint, dead-code, complexity/file-length, build, pack, and API gates. Focused Chromium passed pointer cancel/complete, keyboard and touch sorting, canvas-drop parity at 0.5x/1x/2x, focus restoration, and the 200% page-scale workflow. No dependency input changed, so prior green registry and unrelated-consumer gates were not duplicated.
-- Phase disposition: the separate Phase 0 audit is complete and no repository-actionable Phase 0 item remains. Phase 1 was not started; the external release gate below remains independent of that implementation status.
+- Phase disposition: the separate Phase 0 audit is complete and no repository-actionable Phase 0 item remains. Phase 1 is now in progress; the external release gate below remains independent of that implementation status.
 - External release gate (recorded 2026-08-08): interactive CDP visual review could not run because the browser runtime reported no connected browser surface. Do not retry it during routine implementation; repository Playwright remains the available browser evidence until a final audit environment provides CDP.
 
 Produce:
@@ -1203,6 +1203,13 @@ Gate:
 - The required interaction kernel is explicit and reproducible without depending on memory or visual guesswork; deleting the current implementation cannot delete its only executable specification.
 
 ### Phase 1: Serializable canvas shell
+
+Status: **in progress** (updated 2026-08-08).
+
+- Completed: the minimal versioned recursive `WorkspaceDocument`, strict JSON parsing and validation, canonical root and child placement, derived parent lookup, deterministic traversal, arbitrary-depth mixed-orientation round trips, and specific failures for malformed structure, values, sizing, presentation, viewport, and containment.
+- Completed: mutually exclusive controlled and uncontrolled React ownership; a stable public controller backed by one internal command reducer; live granular capability and `readOnly` resolution; viewport navigation that remains available in read-only mode; capability-gated lock, subtree deletion, and minimize commands representing layout, structure, and presentation edits; compact change reasons; no-op suppression; and an in-memory testing host.
+- Verification: exact Node 24.18.1, Corepack 0.35.0, and pnpm 11.19.0 changed-file quality passed for 15 project files with 124 unit tests, six boundary tests, plan-loop automation, strict types, formatting, lint, dead-code, file-length, builds, exact tarball contents, and the declaration-based API report. The unrelated packed consumer built successfully. The focused Chromium state-contract workflow passes controlled/uncontrolled publication, runtime capability changes without remounting host content, three-category read-only rejection, retained viewport navigation, one callback per accepted command, 320-pixel reflow, keyboard-scrollable debug output, and automated accessibility scanning. No dependency input changed, so the already-green registry-backed supply-chain gate was not duplicated.
+- Remaining: the upstream canvas shell, gesture and viewport lifecycle adapter, geometry service integration, focus/fit/navigation helpers, grid and snapping, scoped appearance, toolbar and overlay extensions, empty minimap shell, and the remaining Phase 1 gates.
 
 Implement:
 
