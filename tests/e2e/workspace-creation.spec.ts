@@ -69,7 +69,21 @@ test("pointer and keyboard context creation use a meaningful canvas location", a
     x: canvasBox.x + canvasBox.width * 0.72,
     y: canvasBox.y + canvasBox.height * 0.38,
   };
-  await page.mouse.click(contextPoint.x, contextPoint.y, { button: "right" });
+  await page.mouse.move(
+    canvasBox.x + canvasBox.width * 0.58,
+    canvasBox.y + canvasBox.height * 0.82,
+  );
+  await page.locator(".react-flow__pane").evaluate((pane, point) => {
+    pane.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        button: 2,
+        cancelable: true,
+        clientX: point.x,
+        clientY: point.y,
+      }),
+    );
+  }, contextPoint);
 
   let picker = page.getByRole("dialog", { name: "Add a section" });
   await expect(picker).toHaveAttribute("data-workspace-creation-source", "context");

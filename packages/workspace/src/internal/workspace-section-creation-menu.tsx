@@ -331,12 +331,7 @@ export function useWorkspaceSectionCreationMenu<TSectionData = WorkspaceJsonValu
         return;
       }
       event.preventDefault();
-      const keyboardPoint = lastClientPointRef.current;
-      const point =
-        event.detail === 0 && keyboardPoint
-          ? keyboardPoint
-          : { x: event.clientX, y: event.clientY };
-      openContext(point, eventTargetElement(event));
+      openContext({ x: event.clientX, y: event.clientY }, eventTargetElement(event));
     },
     [available, openContext],
   );

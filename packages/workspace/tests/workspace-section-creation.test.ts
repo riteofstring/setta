@@ -97,6 +97,31 @@ describe("workspace section creation", () => {
     expect(plan).toMatchObject({ position: { x: 37, y: -19 }, status: "ready" });
   });
 
+  it("does not invoke the host factory when automatic placement has no canvas", () => {
+    let factoryCalls = 0;
+    const plan = planWorkspaceRootSectionCreation({
+      canvasController: null,
+      document: createEmptyWorkspaceDocument(),
+      factory: () => {
+        factoryCalls += 1;
+        return { data: null, id: "note-1" };
+      },
+      gridOptions: {
+        markSize: 1,
+        pattern: "dots",
+        snap: true,
+        spacing: [24, 24],
+        visible: true,
+      },
+      kind: "note",
+      options: {},
+      registry,
+    });
+
+    expect(plan).toEqual({ reason: "canvas-unavailable", status: "rejected" });
+    expect(factoryCalls).toBe(0);
+  });
+
   it("commits one validated root creation and rejects duplicate IDs", () => {
     const definition = registry.definition("note");
     if (!definition) {
