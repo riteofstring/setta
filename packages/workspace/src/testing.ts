@@ -40,6 +40,7 @@ export class WorkspaceInMemoryHost<TSectionData> {
   #capabilities: WorkspaceCapabilities;
   readonly #changes: WorkspaceInMemoryChange<TSectionData>[] = [];
   #document: WorkspaceDocument<TSectionData>;
+  #selection: readonly string[] = [];
   readonly controller: WorkspaceController<TSectionData>;
 
   constructor(document: WorkspaceDocument<TSectionData>, policy: WorkspaceInMemoryPolicy = {}) {
@@ -53,6 +54,18 @@ export class WorkspaceInMemoryHost<TSectionData> {
       },
       getCapabilities: () => this.#capabilities,
       getDocument: () => this.#document,
+      getSelection: () => this.#selection,
+      setSelection: (sectionIds) => {
+        const next = [...new Set(sectionIds)];
+        const unchanged =
+          next.length === this.#selection.length &&
+          next.every((sectionId, index) => sectionId === this.#selection[index]);
+        if (unchanged) {
+          return { status: "unchanged" };
+        }
+        this.#selection = next;
+        return { status: "applied" };
+      },
     });
   }
 

@@ -72,6 +72,7 @@ describe("workspace geometry navigation controller", () => {
     expect(fixture.document().viewport).toEqual({ x: -50, y: 25, zoom: 1 });
     expect(fixture.focused).toEqual(["alpha"]);
     expect(fixture.changes).toEqual([{ reason: "viewport" }]);
+    expect(fixture.controller.getSelectedSectionIds()).toEqual(["alpha"]);
   });
 
   it("fits unique section IDs and keeps empty fits as no-ops", async () => {
@@ -98,6 +99,7 @@ describe("workspace geometry navigation controller", () => {
 
     expect(fixture.changes).toEqual([{ reason: "viewport" }]);
     expect(fixture.focused).toEqual([]);
+    expect(fixture.controller.getSelectedSectionIds()).toEqual(["alpha"]);
   });
 
   it.each([
@@ -174,6 +176,7 @@ describe("workspace geometry navigation controller", () => {
     await fixture.controller.focusPreviousSection("alpha");
 
     expect(fixture.focused).toEqual(["beta", "beta"]);
+    expect(fixture.controller.getSelectedSectionIds()).toEqual(["beta"]);
   });
 
   it("fails specifically for unknown sections and an unavailable canvas", async () => {

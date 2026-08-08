@@ -61,4 +61,7 @@ section-definition registry and the first package-owned root frame that renders 
 components with accessible naming, scoped appearance/read-only context, and automatic viewport
 gesture isolation. Root frames now also provide native pointer and keyboard movement handles backed
 by a transient XYFlow projection, one canonical `section-move` callback, shared grid snapping,
-position-and-size lock enforcement, and transient active-root lift.
+position-and-size lock enforcement, and transient active-root lift. Package-owned selection now
+adds native pressed controls, Shift modifier selection, configurable partial/full Shift-marquee,
+select-all and clear shortcuts, measured selection-root outlines, controller selection methods, and
+single-commit top-level block movement with relative-offset preservation and locked-block rejection.

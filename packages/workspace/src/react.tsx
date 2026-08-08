@@ -51,6 +51,11 @@ import {
   resolveSectionDefinitions,
   validateWorkspaceSectionDefinitions,
 } from "./internal/workspace-section-registry.js";
+import {
+  reconcileWorkspaceSelection,
+  resolveWorkspaceSelection,
+  workspaceSelectionsMatch,
+} from "./internal/workspace-selection.js";
 
 export type {
   SectionContentSizing,
@@ -97,11 +102,21 @@ export type WorkspaceMinimapOptions = Readonly<{
   visible?: boolean;
 }>;
 
+export type WorkspaceMarqueeSelectionMode = "full" | "partial";
+
+export type WorkspaceSelectionOptions = Readonly<{
+  marqueeMode?: WorkspaceMarqueeSelectionMode;
+}>;
+
 export type WorkspaceBooleanPreferenceChangeHandler = (value: boolean) => void;
 
 type ResolvedWorkspaceMinimapOptions = Readonly<{
   placement: WorkspaceMinimapPlacement;
   visible: boolean;
+}>;
+
+type ResolvedWorkspaceSelectionOptions = Readonly<{
+  marqueeMode: WorkspaceMarqueeSelectionMode;
 }>;
 
 type ResolvedWorkspaceOverlaySlots = Partial<Record<WorkspaceOverlayPlacement, ReactNode>>;
@@ -135,6 +150,7 @@ const toolbarControlKeys = new Set([
   "pressed",
 ]);
 const minimapOptionKeys = new Set(["placement", "visible"]);
+const selectionOptionKeys = new Set(["marqueeMode"]);
 
 function plainRecord(value: unknown, label: string): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -262,6 +278,18 @@ function resolveMinimapOptions(
   });
 }
 
+function resolveSelectionOptions(
+  options: WorkspaceSelectionOptions | undefined,
+): ResolvedWorkspaceSelectionOptions {
+  const record = options === undefined ? {} : plainRecord(options, "Workspace selection options");
+  assertKnownKeys(record, selectionOptionKeys, "workspace selection option");
+  const marqueeMode = record.marqueeMode ?? "partial";
+  if (marqueeMode !== "full" && marqueeMode !== "partial") {
+    throw new TypeError("Workspace marquee selection mode must be full or partial.");
+  }
+  return Object.freeze({ marqueeMode });
+}
+
 function useBooleanPreference(
   label: string,
   value: boolean,
@@ -312,6 +340,7 @@ type SharedWorkspaceProps<TSectionData> = Omit<
   overlaySlots?: WorkspaceOverlaySlots<TSectionData>;
   readOnly?: boolean;
   sectionDefinitions?: readonly SectionDefinition<TSectionData>[];
+  selectionOptions?: WorkspaceSelectionOptions;
   toolbarControls?: readonly WorkspaceToolbarControl<TSectionData>[];
 };
 
@@ -492,6 +521,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     overlaySlots: overlaySlotOverrides,
     readOnly = false,
     sectionDefinitions: sectionDefinitionOverrides,
+    selectionOptions: selectionOptionOverrides,
     style,
     toolbarControls: toolbarControlOverrides,
     ...sectionProps
@@ -524,6 +554,10 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   const sectionRegistry = useMemo(
     () => resolveSectionDefinitions(sectionDefinitionOverrides),
     [sectionDefinitionOverrides],
+  );
+  const selectionOptions = useMemo(
+    () => resolveSelectionOptions(selectionOptionOverrides),
+    [selectionOptionOverrides],
   );
   const [gridSnap, setGridSnap] = useBooleanPreference(
     "Workspace grid snap",
@@ -577,6 +611,27 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   sectionRegistryRef.current = sectionRegistry;
   controlledRef.current = mode.type === "controlled";
   onDocumentChangeRef.current = onDocumentChange;
+  const [selectionState, setSelectionState] = useState<readonly string[]>([]);
+  const selectedSectionIds = useMemo(
+    () => reconcileWorkspaceSelection(validatedDocument, selectionState),
+    [selectionState, validatedDocument],
+  );
+  const selectionRef = useRef<readonly string[]>(selectedSectionIds);
+  selectionRef.current = selectedSectionIds;
+  useEffect(() => {
+    if (!workspaceSelectionsMatch(selectionState, selectedSectionIds)) {
+      setSelectionState(selectedSectionIds);
+    }
+  }, [selectedSectionIds, selectionState]);
+  const commitSelection = useCallback((sectionIds: readonly string[]) => {
+    const nextSelection = resolveWorkspaceSelection(documentRef.current, sectionIds);
+    if (workspaceSelectionsMatch(selectionRef.current, nextSelection)) {
+      return { status: "unchanged" } as const;
+    }
+    selectionRef.current = nextSelection;
+    setSelectionState(nextSelection);
+    return { status: "applied" } as const;
+  }, []);
 
   const canvasControllerRef = useRef<WorkspaceCanvasController | null>(null);
   const handleCanvasControllerChange = useCallback((next: WorkspaceCanvasController | null) => {
@@ -600,9 +655,11 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       getCapabilities: () => capabilitiesRef.current,
       getCanvasController: () => canvasControllerRef.current,
       getDocument: () => documentRef.current,
+      getSelection: () => selectionRef.current,
       getViewportBounds: () => gestureOptionsRef.current,
       requestViewportSynchronization: () =>
         setControllerSynchronizationRevision((revision) => revision + 1),
+      setSelection: commitSelection,
     };
     controllerBindingsRef.current = bindings;
     internalControllerRef.current = createWorkspaceController(bindings);
@@ -646,16 +703,19 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         gestureOptions={gestureOptions}
         gridOptions={effectiveGridOptions}
         layoutEditable={capabilities.editLayout}
+        marqueeSelectionMode={selectionOptions.marqueeMode}
         minimapPlacement={minimapOptions.placement}
         minimapVisible={minimapVisible}
         onCanvasControllerChange={handleCanvasControllerChange}
         onGridSnapChange={setGridSnap}
         onMinimapVisibilityChange={setMinimapVisible}
         onRootMoveCommit={handleRootMoveCommit}
+        onSelectionChange={commitSelection}
         onViewportCommit={controller.setViewport}
         overlaySlots={overlaySlots}
         readOnly={sectionReadOnly}
         sectionRegistry={sectionRegistry}
+        selectedSectionIds={selectedSectionIds}
         toolbarControls={toolbarControls}
         workspaceController={controller}
       />

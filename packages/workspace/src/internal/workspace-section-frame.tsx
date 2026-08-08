@@ -1,4 +1,11 @@
-import { useCallback, useId, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useId,
+  type KeyboardEvent,
+  type MouseEvent,
+  type PointerEvent,
+  type ReactNode,
+} from "react";
 
 import type { WorkspaceSection } from "../core.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
@@ -8,6 +15,7 @@ import {
 } from "./workspace-interaction-boundary.js";
 import type { WorkspaceKeyboardMoveDirection } from "./workspace-root-movement.js";
 import type { ResolvedSectionDefinition } from "./workspace-section-registry.js";
+import type { WorkspaceSectionSelectionRequest } from "./workspace-selection.js";
 
 export type WorkspaceSectionFrameProps = Readonly<{
   appearance: "dark" | "light";
@@ -16,8 +24,11 @@ export type WorkspaceSectionFrameProps = Readonly<{
   layoutEditable: boolean;
   moving: boolean;
   onKeyboardMove(sectionId: string, direction: WorkspaceKeyboardMoveDirection): void;
+  onSelectionRequest(sectionId: string, request: WorkspaceSectionSelectionRequest): void;
   order: number;
   readOnly: boolean;
+  selected: boolean;
+  selectionMovementBlocked: boolean;
   section: WorkspaceSection<unknown>;
 }>;
 
@@ -39,6 +50,7 @@ type SectionHeadingProps = Readonly<{
   hasStatus: boolean;
   headingId: string;
   section: WorkspaceSection<unknown>;
+  selectionControl: ReactNode;
   showHeader: boolean;
   statusId: string;
 }>;
@@ -49,6 +61,7 @@ function VisibleSectionHeading({
   hasStatus,
   headingId,
   section,
+  selectionControl,
   statusId,
 }: Omit<SectionHeadingProps, "showHeader">) {
   return (
@@ -58,6 +71,7 @@ function VisibleSectionHeading({
         <span className="setta-workspace__section-kind">{definition.displayName}</span>
       </div>
       <div className="setta-workspace__section-actions">
+        {selectionControl}
         {hasStatus ? (
           <div className="setta-workspace__section-states" id={statusId}>
             <SectionStateLabels
@@ -77,6 +91,7 @@ function HeaderlessSectionHeading({
   hasStatus,
   headingId,
   section,
+  selectionControl,
   statusId,
 }: Omit<SectionHeadingProps, "definition" | "showHeader">) {
   return (
@@ -85,6 +100,7 @@ function HeaderlessSectionHeading({
         {section.title}
       </h2>
       <div className="setta-workspace__section-actions setta-workspace__section-actions--floating">
+        {selectionControl}
         {hasStatus ? (
           <div className="setta-workspace__section-states" id={statusId}>
             <SectionStateLabels
@@ -133,18 +149,74 @@ function MoveIcon() {
   );
 }
 
+function SelectionIcon({ selected }: Readonly<{ selected: boolean }>) {
+  return (
+    <svg
+      aria-hidden="true"
+      className="setta-workspace__section-action-icon"
+      fill="none"
+      focusable="false"
+      viewBox="0 0 20 20"
+    >
+      <path d="M7 3.5H4.5a1 1 0 0 0-1 1V7M13 3.5h2.5a1 1 0 0 1 1 1V7M7 16.5H4.5a1 1 0 0 1-1-1V13M13 16.5h2.5a1 1 0 0 0 1-1V13" />
+      <path
+        className="setta-workspace__section-selection-check"
+        d="m6.75 10 2.1 2.1 4.4-4.45"
+        data-selected={String(selected)}
+      />
+    </svg>
+  );
+}
+
+function SectionSelectionControl({
+  onSelectionRequest,
+  section,
+  selected,
+}: Readonly<{
+  onSelectionRequest(sectionId: string, request: WorkspaceSectionSelectionRequest): void;
+  section: WorkspaceSection<unknown>;
+  selected: boolean;
+}>) {
+  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    onSelectionRequest(section.id, {
+      additive: event.shiftKey,
+      preserveSelected: false,
+    });
+  };
+  return (
+    <button
+      aria-keyshortcuts="Shift+Enter Shift+Space"
+      aria-label={`Select ${section.title}`}
+      aria-pressed={selected}
+      className="setta-workspace__section-selection-control"
+      data-workspace-selection-control=""
+      onClick={handleClick}
+      type="button"
+    >
+      <SelectionIcon selected={selected} />
+    </button>
+  );
+}
+
 function SectionDragHandle({
   descriptionId,
   layoutEditable,
   onKeyboardMove,
+  onSelectionRequest,
   section,
+  selected,
+  selectionMovementBlocked,
 }: Readonly<{
   descriptionId: string;
   layoutEditable: boolean;
   onKeyboardMove(sectionId: string, direction: WorkspaceKeyboardMoveDirection): void;
+  onSelectionRequest(sectionId: string, request: WorkspaceSectionSelectionRequest): void;
   section: WorkspaceSection<unknown>;
+  selected: boolean;
+  selectionMovementBlocked: boolean;
 }>) {
-  const disabled = !layoutEditable || section.positionAndSizeLocked;
+  const disabled = !layoutEditable || section.positionAndSizeLocked || selectionMovementBlocked;
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     const direction = moveDirection(event.key);
     if (!direction || event.altKey || event.ctrlKey || event.metaKey) {
@@ -154,6 +226,15 @@ function SectionDragHandle({
     event.stopPropagation();
     onKeyboardMove(section.id, direction);
   };
+  const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0 || !event.isPrimary || disabled) {
+      return;
+    }
+    onSelectionRequest(section.id, {
+      additive: event.shiftKey,
+      preserveSelected: selected,
+    });
+  };
   return (
     <button
       aria-describedby={descriptionId}
@@ -162,6 +243,7 @@ function SectionDragHandle({
       className="setta-workspace__section-drag-handle"
       disabled={disabled}
       onKeyDown={handleKeyDown}
+      onPointerDown={handlePointerDown}
       type="button"
     >
       <MoveIcon />
@@ -220,8 +302,11 @@ export function WorkspaceSectionFrame({
   layoutEditable,
   moving,
   onKeyboardMove,
+  onSelectionRequest,
   order,
   readOnly,
+  selected,
+  selectionMovementBlocked,
   section,
 }: WorkspaceSectionFrameProps) {
   const reactId = useId().replaceAll(":", "");
@@ -239,7 +324,17 @@ export function WorkspaceSectionFrame({
       descriptionId={moveDescriptionId}
       layoutEditable={layoutEditable}
       onKeyboardMove={onKeyboardMove}
+      onSelectionRequest={onSelectionRequest}
       section={section}
+      selected={selected}
+      selectionMovementBlocked={selectionMovementBlocked}
+    />
+  );
+  const selectionControl = (
+    <SectionSelectionControl
+      onSelectionRequest={onSelectionRequest}
+      section={section}
+      selected={selected}
     />
   );
 
@@ -252,6 +347,7 @@ export function WorkspaceSectionFrame({
       data-workspace-minimized={String(section.isMinimized)}
       data-workspace-moving={String(moving)}
       data-workspace-read-only={String(readOnly)}
+      data-workspace-selected={String(selected)}
       data-workspace-section-id={section.id}
       ref={registerElement}
       tabIndex={-1}
@@ -265,6 +361,7 @@ export function WorkspaceSectionFrame({
         hasStatus={hasStatus}
         headingId={headingId}
         section={section}
+        selectionControl={selectionControl}
         showHeader={showHeader}
         statusId={statusId}
       />

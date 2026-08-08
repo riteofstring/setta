@@ -6,22 +6,19 @@ import {
   ReactFlow,
   useViewport,
   ViewportPortal,
-  type Node,
-  type NodeChange,
-  type NodeProps,
-  type NodeTypes,
+  type NodeMouseHandler,
   type OnNodeDrag,
   type OnNodesChange,
   type Viewport,
 } from "@xyflow/react";
 import {
-  memo,
   useCallback,
   useEffect,
   useId,
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent,
   type ReactNode,
 } from "react";
 
@@ -32,7 +29,6 @@ import type {
   WorkspaceGestureOptions,
   WorkspaceJsonValue,
   WorkspacePoint,
-  WorkspaceSection,
   WorkspaceViewport,
 } from "../core.js";
 import type {
@@ -41,17 +37,28 @@ import type {
   WorkspaceToolbarControl,
 } from "../react.js";
 import { WorkspaceGeometryIndex } from "./geometry-index.js";
-import {
-  TransientRootProjection,
-  type RootProjectionChange,
-  type RootProjectionInput,
-} from "./transient-root-projection.js";
+import { TransientRootProjection, type RootProjectionChange } from "./transient-root-projection.js";
 import { createWorkspaceCanvasGesturePolicy } from "./workspace-canvas-gesture-policy.js";
-import { projectWorkspaceCanvasRoots, type WorkspaceCanvasRoot } from "./workspace-canvas-model.js";
 import {
   createWorkspaceCanvasController,
   type WorkspaceCanvasController,
 } from "./workspace-canvas-navigation.js";
+import {
+  normalizeSelectedRootChanges,
+  projectNodes,
+  rootProjectionChange,
+  rootProjectionInputs,
+  setActiveRoots,
+  synchronizeNodes,
+  workspaceNodeTypes,
+  type ActiveRootMovement,
+  type RootSelectionProjection,
+  type WorkspaceRootNode,
+} from "./workspace-canvas-root-node.js";
+import {
+  useWorkspaceMarqueeSelection,
+  WorkspaceSelectionOverlay,
+} from "./workspace-canvas-selection.js";
 import { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 import {
   WORKSPACE_NO_PAN_CLASS_NAME,
@@ -62,11 +69,13 @@ import {
   moveWorkspaceRootWithKeyboard,
   type WorkspaceKeyboardMoveDirection,
 } from "./workspace-root-movement.js";
-import { WorkspaceSectionFrame } from "./workspace-section-frame.js";
-import type {
-  ResolvedSectionDefinition,
-  WorkspaceSectionRegistry,
-} from "./workspace-section-registry.js";
+import type { WorkspaceSectionRegistry } from "./workspace-section-registry.js";
+import {
+  applyWorkspaceSectionSelectionRequest,
+  resolveWorkspaceRootSelection,
+  translateWorkspaceRootSelection,
+  type WorkspaceSectionSelectionRequest,
+} from "./workspace-selection.js";
 import { WorkspaceToolbar } from "./workspace-toolbar.js";
 import { WorkspaceViewportLifecycle } from "./workspace-viewport-lifecycle.js";
 import {
@@ -74,25 +83,10 @@ import {
   WorkspaceViewportSynchronizer,
 } from "./workspace-viewport-synchronizer.js";
 
-type WorkspaceRootNodeData = {
-  appearance: "dark" | "light";
-  definition: ResolvedSectionDefinition<unknown>;
-  geometry: WorkspaceGeometryMeasurements;
-  layoutEditable: boolean;
-  moving: boolean;
-  onKeyboardMove(sectionId: string, direction: WorkspaceKeyboardMoveDirection): void;
-  order: number;
-  readOnly: boolean;
-  section: WorkspaceSection<unknown>;
-  sectionId: string;
-  title: string;
-};
-
-type WorkspaceRootNode = Node<WorkspaceRootNodeData, "workspace-root-shell">;
-
 type PendingRootMovement = Readonly<{
-  position: WorkspacePoint;
+  positions: Readonly<Record<string, WorkspacePoint>>;
   sectionId: string;
+  sectionCount: number;
   title: string;
 }>;
 
@@ -105,179 +99,22 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   gestureOptions: WorkspaceGestureOptions;
   gridOptions: ResolvedWorkspaceGridOptions;
   layoutEditable: boolean;
+  marqueeSelectionMode: "full" | "partial";
   minimapPlacement: WorkspaceMinimapPlacement;
   minimapVisible: boolean;
   onCanvasControllerChange(controller: WorkspaceCanvasController | null): void;
   onGridSnapChange(value: boolean): void;
   onMinimapVisibilityChange(value: boolean): void;
   onRootMoveCommit(positions: Readonly<Record<string, WorkspacePoint>>): WorkspaceActionResult;
+  onSelectionChange(sectionIds: readonly string[]): WorkspaceActionResult;
   onViewportCommit(viewport: WorkspaceViewport): void;
   overlaySlots: Partial<Record<WorkspaceOverlayPlacement, ReactNode>>;
   readOnly: boolean;
   sectionRegistry: WorkspaceSectionRegistry<TSectionData>;
+  selectedSectionIds: readonly string[];
   toolbarControls: readonly WorkspaceToolbarControl<TSectionData>[];
   workspaceController: WorkspaceController<TSectionData>;
 }>;
-
-function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
-  return (
-    <WorkspaceSectionFrame
-      appearance={data.appearance}
-      definition={data.definition}
-      geometry={data.geometry}
-      layoutEditable={data.layoutEditable}
-      moving={data.moving}
-      onKeyboardMove={data.onKeyboardMove}
-      order={data.order}
-      readOnly={data.readOnly}
-      section={data.section}
-    />
-  );
-}
-
-function rootShellPropsMatch(
-  left: Readonly<NodeProps<WorkspaceRootNode>>,
-  right: Readonly<NodeProps<WorkspaceRootNode>>,
-): boolean {
-  return left.data === right.data;
-}
-
-const MemoizedWorkspaceRootShell = memo(WorkspaceRootShell, rootShellPropsMatch);
-const workspaceNodeTypes = {
-  "workspace-root-shell": MemoizedWorkspaceRootShell,
-} satisfies NodeTypes;
-
-function rootNode(
-  root: WorkspaceCanvasRoot,
-  geometry: WorkspaceGeometryMeasurements,
-  section: WorkspaceSection<unknown>,
-  definition: ResolvedSectionDefinition<unknown>,
-  appearance: "dark" | "light",
-  readOnly: boolean,
-  layoutEditable: boolean,
-  onKeyboardMove: WorkspaceRootNodeData["onKeyboardMove"],
-): WorkspaceRootNode {
-  return {
-    ariaLabel: root.title,
-    data: {
-      appearance,
-      definition,
-      geometry,
-      layoutEditable,
-      moving: false,
-      onKeyboardMove,
-      order: root.order,
-      readOnly,
-      section,
-      sectionId: root.sectionId,
-      title: root.title,
-    },
-    dragHandle: ".setta-workspace__section-drag-handle",
-    draggable: layoutEditable && !section.positionAndSizeLocked,
-    focusable: false,
-    height: root.size.height,
-    id: root.sectionId,
-    position: { ...root.position },
-    selectable: false,
-    type: "workspace-root-shell",
-    width: root.size.width,
-    zIndex: root.order,
-  };
-}
-
-function projectNodes<TSectionData>(
-  document: WorkspaceDocument<TSectionData>,
-  geometry: WorkspaceGeometryMeasurements,
-  sectionRegistry: WorkspaceSectionRegistry<TSectionData>,
-  appearance: "dark" | "light",
-  readOnly: boolean,
-  layoutEditable: boolean,
-  onKeyboardMove: WorkspaceRootNodeData["onKeyboardMove"],
-): WorkspaceRootNode[] {
-  return projectWorkspaceCanvasRoots(document).map((root) => {
-    const section = document.sections[root.sectionId];
-    const definition = section ? sectionRegistry.definition(section.kind) : undefined;
-    if (!section || !definition) {
-      throw new Error(`Workspace root frame is missing registration for ${root.sectionId}.`);
-    }
-    return rootNode(
-      root,
-      geometry,
-      section as WorkspaceSection<unknown>,
-      definition as ResolvedSectionDefinition<unknown>,
-      appearance,
-      readOnly,
-      layoutEditable,
-      onKeyboardMove,
-    );
-  });
-}
-
-function synchronizeNodes(
-  current: readonly WorkspaceRootNode[],
-  projected: readonly WorkspaceRootNode[],
-): WorkspaceRootNode[] {
-  const currentById = new Map(current.map((node) => [node.id, node]));
-  return projected.map((node) => {
-    const existing = currentById.get(node.id);
-    return existing
-      ? {
-          ...existing,
-          ...node,
-          data: node.data,
-          position: { ...node.position },
-        }
-      : node;
-  });
-}
-
-function rootProjectionInputs(nodes: readonly WorkspaceRootNode[]): readonly RootProjectionInput[] {
-  return nodes.map((node) => ({
-    position: { ...node.position },
-    sectionId: node.id,
-    size: {
-      height: node.data.section.size.height.value,
-      width: node.data.section.size.width.value,
-    },
-  }));
-}
-
-function rootProjectionChange(change: NodeChange<WorkspaceRootNode>): RootProjectionChange | null {
-  if (change.type === "position" && change.position) {
-    return {
-      dragging: change.dragging ?? false,
-      position: { ...change.position },
-      sectionId: change.id,
-      type: "position",
-    };
-  }
-  if (change.type === "dimensions" && change.dimensions) {
-    return {
-      resizing: change.resizing ?? false,
-      sectionId: change.id,
-      size: { ...change.dimensions },
-      type: "dimensions",
-    };
-  }
-  if (change.type === "select") {
-    return { sectionId: change.id, selected: change.selected, type: "selection" };
-  }
-  return null;
-}
-
-function setActiveRoot(
-  nodes: readonly WorkspaceRootNode[],
-  activeSectionId: string | null,
-): WorkspaceRootNode[] {
-  return nodes.map((node) => {
-    const moving = node.id === activeSectionId;
-    const zIndex = moving ? nodes.length : node.data.order;
-    if (node.data.moving === moving && node.zIndex === zIndex) {
-      return node;
-    }
-    return { ...node, data: { ...node.data, moving }, zIndex };
-  });
-}
 
 function rejectedMovementAnnouncement(title: string, reason: string): string {
   if (reason === "layout-edit-disabled") {
@@ -296,14 +133,44 @@ function movementAnnouncement(
   title: string,
   position: WorkspacePoint,
   result: WorkspaceActionResult,
+  sectionCount = 1,
 ): string {
+  const subject = sectionCount === 1 ? title : `${title} and ${String(sectionCount - 1)} more`;
   if (result.status === "applied") {
-    return `${title} moved to ${String(position.x)}, ${String(position.y)}.`;
+    return `${subject} moved to ${String(position.x)}, ${String(position.y)}.`;
   }
   if ("reason" in result) {
-    return rejectedMovementAnnouncement(title, result.reason);
+    return rejectedMovementAnnouncement(subject, result.reason);
   }
-  return `${title} stayed in place.`;
+  return `${subject} stayed in place.`;
+}
+
+function selectionAnnouncement(
+  document: WorkspaceDocument<unknown>,
+  selectedSectionIds: readonly string[],
+): string {
+  if (selectedSectionIds.length === 0) {
+    return "Selection cleared.";
+  }
+  const selectedSections = selectedSectionIds.flatMap((sectionId) => {
+    const section = document.sections[sectionId];
+    return section ? [section] : [];
+  });
+  const subject =
+    selectedSections.length === 1
+      ? `${selectedSections[0]?.title ?? "Section"} selected.`
+      : `${String(selectedSections.length)} sections selected.`;
+  return selectedSections.some(({ positionAndSizeLocked }) => positionAndSizeLocked)
+    ? `${subject} The selection contains a locked section and cannot move as a block.`
+    : subject;
+}
+
+function targetAcceptsCanvasShortcut(target: EventTarget | null, ownerDocument: Document): boolean {
+  const ElementConstructor = ownerDocument.defaultView?.Element;
+  if (!ElementConstructor || !(target instanceof ElementConstructor)) {
+    return true;
+  }
+  return !target.closest("input, select, textarea, [contenteditable='true']");
 }
 
 function backgroundVariant(pattern: ResolvedWorkspaceGridOptions["pattern"]): BackgroundVariant {
@@ -433,16 +300,19 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   gestureOptions,
   gridOptions,
   layoutEditable,
+  marqueeSelectionMode,
   minimapPlacement,
   minimapVisible,
   onCanvasControllerChange,
   onGridSnapChange,
   onMinimapVisibilityChange,
   onRootMoveCommit,
+  onSelectionChange,
   onViewportCommit,
   overlaySlots,
   readOnly,
   sectionRegistry,
+  selectedSectionIds,
   toolbarControls,
   workspaceController,
 }: WorkspaceCanvasAdapterProps<TSectionData>) {
@@ -458,22 +328,57 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   const documentRef = useRef(document);
   const gridOptionsRef = useRef(gridOptions);
   const onRootMoveCommitRef = useRef(onRootMoveCommit);
+  const onSelectionChangeRef = useRef(onSelectionChange);
+  const selectedSectionIdsRef = useRef<readonly string[]>(selectedSectionIds);
   documentRef.current = document;
   gridOptionsRef.current = gridOptions;
   onRootMoveCommitRef.current = onRootMoveCommit;
+  onSelectionChangeRef.current = onSelectionChange;
+  selectedSectionIdsRef.current = selectedSectionIds;
   const [movementAnnouncementText, setMovementAnnouncementText] = useState("");
+  const [selectionAnnouncementText, setSelectionAnnouncementText] = useState("");
   const [projectionSynchronizationRevision, setProjectionSynchronizationRevision] = useState(0);
   const pendingRootMovementRef = useRef<PendingRootMovement | null>(null);
   const recordMovementResult = useCallback(
-    (sectionId: string, title: string, position: WorkspacePoint, result: WorkspaceActionResult) => {
+    (
+      sectionId: string,
+      title: string,
+      positions: Readonly<Record<string, WorkspacePoint>>,
+      result: WorkspaceActionResult,
+    ) => {
+      const position = positions[sectionId];
+      if (!position) {
+        throw new Error(`Workspace root movement omitted its active section ${sectionId}.`);
+      }
+      const sectionCount = Object.keys(positions).length;
       if (result.status === "applied") {
-        pendingRootMovementRef.current = { position, sectionId, title };
+        pendingRootMovementRef.current = { positions, sectionCount, sectionId, title };
       } else {
-        setMovementAnnouncementText(movementAnnouncement(title, position, result));
+        setMovementAnnouncementText(movementAnnouncement(title, position, result, sectionCount));
       }
       setProjectionSynchronizationRevision((revision) => revision + 1);
     },
     [],
+  );
+  const commitSelection = useCallback((sectionIds: readonly string[]) => {
+    const result = onSelectionChangeRef.current(sectionIds);
+    if (result.status !== "rejected") {
+      selectedSectionIdsRef.current = sectionIds;
+      setSelectionAnnouncementText(selectionAnnouncement(documentRef.current, sectionIds));
+    }
+    return result;
+  }, []);
+  const handleSelectionRequest = useCallback(
+    (sectionId: string, request: WorkspaceSectionSelectionRequest) => {
+      const nextSelection = applyWorkspaceSectionSelectionRequest(
+        documentRef.current,
+        selectedSectionIdsRef.current,
+        sectionId,
+        request,
+      );
+      commitSelection(nextSelection);
+    },
+    [commitSelection],
   );
   const handleKeyboardMove = useCallback(
     (sectionId: string, direction: WorkspaceKeyboardMoveDirection) => {
@@ -483,16 +388,33 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       if (!root || !section) {
         throw new Error(`Workspace root movement is missing section ${sectionId}.`);
       }
-      const position = moveWorkspaceRootWithKeyboard(
+      const selection = resolveWorkspaceRootSelection(
+        currentDocument,
+        selectedSectionIdsRef.current,
+        sectionId,
+      );
+      if (!selection.allowed) {
+        setMovementAnnouncementText(selection.reason);
+        return;
+      }
+      if (!selectedSectionIdsRef.current.includes(sectionId)) {
+        commitSelection([sectionId]);
+      }
+      const activePosition = moveWorkspaceRootWithKeyboard(
         root.position,
         direction,
         gridOptionsRef.current,
       );
-      const positions = Object.fromEntries([[sectionId, position]]);
+      const positions = translateWorkspaceRootSelection(
+        currentDocument,
+        selection.block,
+        sectionId,
+        activePosition,
+      );
       const result = onRootMoveCommitRef.current(positions);
-      recordMovementResult(sectionId, section.title, position, result);
+      recordMovementResult(sectionId, section.title, positions, result);
     },
-    [recordMovementResult],
+    [commitSelection, recordMovementResult],
   );
   const canvasController = useMemo(
     () =>
@@ -502,6 +424,19 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       })),
     [geometry],
   );
+  const rootSelectionProjection = useMemo<RootSelectionProjection>(() => {
+    const selectedIds = new Set(selectedSectionIds);
+    const activeSelectedRoot = document.rootSections.find(({ sectionId }) =>
+      selectedIds.has(sectionId),
+    );
+    const movement = activeSelectedRoot
+      ? resolveWorkspaceRootSelection(document, selectedSectionIds, activeSelectedRoot.sectionId)
+      : null;
+    return {
+      movementBlocked: movement !== null && !movement.allowed,
+      selectedSectionIds: selectedIds,
+    };
+  }, [document, selectedSectionIds]);
   const projectedNodes = useMemo(
     () =>
       projectNodes(
@@ -512,8 +447,20 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         readOnly,
         layoutEditable,
         handleKeyboardMove,
+        handleSelectionRequest,
+        rootSelectionProjection,
       ),
-    [appearance, document, geometry, handleKeyboardMove, layoutEditable, readOnly, sectionRegistry],
+    [
+      appearance,
+      document,
+      geometry,
+      handleKeyboardMove,
+      handleSelectionRequest,
+      layoutEditable,
+      readOnly,
+      rootSelectionProjection,
+      sectionRegistry,
+    ],
   );
   const [nodes, setNodes] = useState<WorkspaceRootNode[]>(projectedNodes);
   const rootProjectionRef = useRef<TransientRootProjection | null>(null);
@@ -522,7 +469,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     document.viewport,
   );
   const rootProjection = rootProjectionRef.current;
-  const activeRootMoveRef = useRef<string | null>(null);
+  const activeRootMoveRef = useRef<ActiveRootMovement | null>(null);
   const [canvasInitialized, setCanvasInitialized] = useState(false);
   const lifecycleRef = useRef<WorkspaceViewportLifecycle | null>(null);
   lifecycleRef.current ??= new WorkspaceViewportLifecycle(document.viewport);
@@ -541,8 +488,56 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     () => document.rootSections.map((root) => root.sectionId),
     [document.rootSections],
   );
+  const marqueeSelection = useWorkspaceMarqueeSelection({
+    geometry,
+    geometryIndex,
+    mode: marqueeSelectionMode,
+    onSelectionChange: commitSelection,
+    selectedSectionIds: selectedSectionIdsRef,
+  });
+  const cancelMarqueeSelection = marqueeSelection.cancel;
   const handleCanvasInitialized = useCallback(() => setCanvasInitialized(true), []);
   const getCanvasBounds = useCallback(() => geometry.canvasBounds(), [geometry]);
+  const handlePaneClick = useCallback(() => {
+    commitSelection([]);
+  }, [commitSelection]);
+  const handleNodeClick = useCallback<NodeMouseHandler<WorkspaceRootNode>>(
+    (event, node) => {
+      const ElementConstructor = event.currentTarget.ownerDocument.defaultView?.Element;
+      const target = event.target;
+      if (
+        ElementConstructor &&
+        target instanceof ElementConstructor &&
+        target.closest(".setta-workspace__section-drag-handle, [data-workspace-selection-control]")
+      ) {
+        return;
+      }
+      handleSelectionRequest(node.id, {
+        additive: event.shiftKey,
+        preserveSelected: false,
+      });
+    },
+    [handleSelectionRequest],
+  );
+  const handleCanvasKeyDownCapture = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      if (!targetAcceptsCanvasShortcut(event.target, event.currentTarget.ownerDocument)) {
+        return;
+      }
+      const selectsAll =
+        event.key.toLowerCase() === "a" && (event.ctrlKey || event.metaKey) && !event.altKey;
+      const clearsSelection = event.key === "Escape" && selectedSectionIdsRef.current.length > 0;
+      if (!selectsAll && !clearsSelection) {
+        return;
+      }
+      commitSelection(
+        selectsAll ? documentRef.current.rootSections.map(({ sectionId }) => sectionId) : [],
+      );
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [commitSelection],
+  );
 
   useEffect(() => {
     activeRootMoveRef.current = null;
@@ -550,18 +545,31 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     setNodes((current) => synchronizeNodes(current, projectedNodes));
     const pendingMovement = pendingRootMovementRef.current;
     if (pendingMovement) {
-      const canonicalRoot = document.rootSections.find(
-        ({ sectionId }) => sectionId === pendingMovement.sectionId,
+      const canonicalPositions = new Map(
+        document.rootSections.map(({ position, sectionId }) => [sectionId, position]),
       );
-      const accepted =
-        canonicalRoot?.position.x === pendingMovement.position.x &&
-        canonicalRoot.position.y === pendingMovement.position.y;
+      const accepted = Object.entries(pendingMovement.positions).every(([sectionId, position]) => {
+        const canonical = canonicalPositions.get(sectionId);
+        return canonical?.x === position.x && canonical.y === position.y;
+      });
+      const primaryPosition = pendingMovement.positions[pendingMovement.sectionId];
+      if (!primaryPosition) {
+        throw new Error("Pending root movement lost its active section position.");
+      }
       setMovementAnnouncementText(
         accepted
-          ? movementAnnouncement(pendingMovement.title, pendingMovement.position, {
-              status: "applied",
-            })
-          : `${pendingMovement.title} stayed in place.`,
+          ? movementAnnouncement(
+              pendingMovement.title,
+              primaryPosition,
+              { status: "applied" },
+              pendingMovement.sectionCount,
+            )
+          : movementAnnouncement(
+              pendingMovement.title,
+              primaryPosition,
+              { status: "unchanged" },
+              pendingMovement.sectionCount,
+            ),
       );
       pendingRootMovementRef.current = null;
     }
@@ -584,59 +592,109 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
 
   const handleNodesChange = useCallback<OnNodesChange<WorkspaceRootNode>>(
     (changes) => {
-      const projectionChanges = changes
+      const packageChanges = normalizeSelectedRootChanges(changes, activeRootMoveRef.current);
+      const layoutChanges = packageChanges.filter((change) => change.type !== "select");
+      const projectionChanges = layoutChanges
         .map(rootProjectionChange)
         .filter((change): change is RootProjectionChange => change !== null);
       if (projectionChanges.length > 0) {
         rootProjection.applyRootChanges(projectionChanges);
       }
-      setNodes((current) => applyNodeChanges(changes, current));
+      if (layoutChanges.length > 0) {
+        setNodes((current) => applyNodeChanges(layoutChanges, current));
+      }
       geometry.requestMeasurement();
     },
     [geometry, rootProjection],
   );
   const handleNodeDragStart = useCallback<OnNodeDrag<WorkspaceRootNode>>(
-    (_event, node) => {
+    (_event, node, draggedNodes) => {
       if (!node.draggable) {
         return;
       }
-      rootProjection.beginRootMove([node.id]);
-      activeRootMoveRef.current = node.id;
-      setNodes((current) => setActiveRoot(current, node.id));
-      setMovementAnnouncementText(`Moving ${node.data.title}.`);
+      const selection = resolveWorkspaceRootSelection(
+        documentRef.current,
+        selectedSectionIdsRef.current,
+        node.id,
+      );
+      if (!selection.allowed) {
+        activeRootMoveRef.current = null;
+        setMovementAnnouncementText(selection.reason);
+        return;
+      }
+      const draggedIds = new Set(draggedNodes.map(({ id }) => id));
+      if (selection.block.sectionIds.some((sectionId) => !draggedIds.has(sectionId))) {
+        activeRootMoveRef.current = null;
+        setMovementAnnouncementText("Unable to move the complete selected section block.");
+        return;
+      }
+      if (!selectedSectionIdsRef.current.includes(node.id)) {
+        commitSelection([node.id]);
+      }
+      rootProjection.beginRootMove(selection.block.sectionIds);
+      activeRootMoveRef.current = {
+        baselinePositions: Object.fromEntries(
+          documentRef.current.rootSections.map(({ position, sectionId }) => [sectionId, position]),
+        ),
+        primarySectionId: node.id,
+        sectionIds: selection.block.sectionIds,
+      };
+      const activeIds = new Set(selection.block.sectionIds);
+      setNodes((current) => setActiveRoots(current, activeIds));
+      const suffix =
+        selection.block.sectionIds.length === 1
+          ? ""
+          : ` and ${String(selection.block.sectionIds.length - 1)} more`;
+      setMovementAnnouncementText(`Moving ${node.data.title}${suffix}.`);
     },
-    [rootProjection],
+    [commitSelection, rootProjection],
   );
   const handleNodeDragStop = useCallback<OnNodeDrag<WorkspaceRootNode>>(
     (_event, node) => {
-      if (activeRootMoveRef.current !== node.id) {
+      const movement = activeRootMoveRef.current;
+      if (!movement || movement.primarySectionId !== node.id) {
+        activeRootMoveRef.current = null;
+        setNodes((current) => synchronizeNodes(current, projectedNodes));
         return;
       }
-      rootProjection.applyRootChanges([
-        {
-          dragging: false,
-          position: { ...node.position },
-          sectionId: node.id,
-          type: "position",
-        },
-      ]);
+      const projectedPositions = new Map(
+        rootProjection.roots().map(({ position, sectionId }) => [sectionId, position]),
+      );
+      rootProjection.applyRootChanges(
+        movement.sectionIds.map((sectionId) => {
+          const position = projectedPositions.get(sectionId);
+          if (!position) {
+            throw new Error(`Selected root movement lost projected position ${sectionId}.`);
+          }
+          return {
+            dragging: false,
+            position,
+            sectionId,
+            type: "position" as const,
+          };
+        }),
+      );
       const command = rootProjection.completeRootGesture();
       activeRootMoveRef.current = null;
-      setNodes((current) => setActiveRoot(current, null));
+      setNodes((current) => setActiveRoots(current, new Set()));
       if (!command || command.type !== "move-root-sections") {
-        setMovementAnnouncementText(`${node.data.title} stayed in place.`);
+        const suffix =
+          movement.sectionIds.length === 1
+            ? ""
+            : ` and ${String(movement.sectionIds.length - 1)} more`;
+        setMovementAnnouncementText(`${node.data.title}${suffix} stayed in place.`);
         return;
       }
-      const position = command.positions[node.id] ?? node.position;
       const result = onRootMoveCommitRef.current(command.positions);
-      recordMovementResult(node.id, node.data.title, position, result);
+      recordMovementResult(node.id, node.data.title, command.positions, result);
     },
-    [recordMovementResult, rootProjection],
+    [projectedNodes, recordMovementResult, rootProjection],
   );
   const handleCanvasElement = useCallback(
     (element: HTMLDivElement | null) => {
       canvasMountedRef.current = element !== null;
       if (!element) {
+        cancelMarqueeSelection();
         rootProjection.cancelRootGesture();
         activeRootMoveRef.current = null;
         const baseline = lifecycle.cancel();
@@ -647,7 +705,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       }
       geometry.setCanvasElement(element);
     },
-    [geometry, lifecycle, rootProjection],
+    [cancelMarqueeSelection, geometry, lifecycle, rootProjection],
   );
   const handleMoveStart = useCallback(
     (event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
@@ -719,12 +777,15 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   return (
     <ReactFlow<WorkspaceRootNode>
       aria-label={`${ariaLabel} canvas`}
+      aria-keyshortcuts="Control+A Meta+A Escape"
       autoPanOnNodeFocus={false}
       className="setta-workspace__canvas"
       data-workspace-grid-pattern={gridOptions.pattern}
       data-workspace-grid-snap={gridOptions.snap ? "true" : "false"}
       data-workspace-grid-spacing={gridOptions.spacing.join(" ")}
       data-workspace-grid-visible={gridOptions.visible ? "true" : "false"}
+      data-workspace-marquee-active={marqueeSelection.active ? "true" : "false"}
+      data-workspace-marquee-mode={marqueeSelectionMode}
       data-workspace-pan-on-scroll-mode={gestureOptions.panOnScrollMode}
       data-workspace-pan-on-scroll-speed={gestureOptions.panOnScrollSpeed}
       defaultViewport={document.viewport}
@@ -749,9 +810,16 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       onMove={handleMove}
       onMoveEnd={handleMoveEnd}
       onMoveStart={handleMoveStart}
+      onNodeClick={handleNodeClick}
       onNodeDragStart={handleNodeDragStart}
       onNodeDragStop={handleNodeDragStop}
       onNodesChange={handleNodesChange}
+      onPaneClick={handlePaneClick}
+      onPointerCancel={marqueeSelection.onPointerCancel}
+      onPointerDownCapture={marqueeSelection.onPointerDownCapture}
+      onPointerMove={marqueeSelection.onPointerMove}
+      onPointerUp={marqueeSelection.onPointerUp}
+      onKeyDownCapture={handleCanvasKeyDownCapture}
       panActivationKeyCode={canvasGesturePolicy.panActivationKeyCode}
       panOnDrag={canvasGesturePolicy.panOnDrag}
       panOnScroll={canvasGesturePolicy.panOnScroll}
@@ -784,6 +852,19 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       >
         {movementAnnouncementText}
       </div>
+      <div
+        aria-atomic="true"
+        aria-live="polite"
+        className="setta-workspace__visually-hidden"
+        data-workspace-selection-announcement=""
+      >
+        {selectionAnnouncementText}
+      </div>
+      <WorkspaceSelectionOverlay
+        geometryIndex={geometryIndex}
+        selectedSectionIds={selectedSectionIds}
+      />
+      {marqueeSelection.overlay}
       {hasOverlayContent(overlaySlots.canvas) ? (
         <ViewportPortal>
           <div className="setta-workspace__host-overlay" data-workspace-overlay-placement="canvas">

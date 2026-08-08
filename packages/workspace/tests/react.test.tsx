@@ -80,6 +80,8 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain('data-workspace-section-id="alpha"');
     expect(markup).toMatch(/<article[^>]+aria-labelledby="[^"]+"/u);
     expect(markup).toContain("Alpha note");
+    expect(markup).toMatch(/aria-label="Select Alpha note"[^>]+aria-pressed="false"/u);
+    expect(markup).toContain('data-workspace-selected="false"');
     expect(markup).toContain("Host note");
     expect(markup).toContain("Host field for alpha");
     expect(markup).toContain('data-appearance="dark"');
@@ -122,6 +124,7 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain("Quiet note");
     expect(markup).toContain("Minimized");
     expect(markup).toContain('aria-label="Move Quiet note"');
+    expect(markup).toContain('aria-label="Select Quiet note"');
     expect(markup).toContain('aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"');
     expect(markup).not.toContain("Host body must be absent");
   });
@@ -169,6 +172,13 @@ describe("Workspace scaffold", () => {
     expect(() =>
       renderToStaticMarkup(<Workspace appearanceOptions={{ dark: { focus: "not-a-color" } }} />),
     ).toThrow("dark theme token focus must be a valid CSS color");
+    expect(() =>
+      renderToStaticMarkup(
+        <Workspace
+          selectionOptions={{ marqueeMode: "touching" } as unknown as { marqueeMode: "full" }}
+        />,
+      ),
+    ).toThrow("marquee selection mode must be full or partial");
   });
 
   it("marks controlled and read-only state without applying unsupported ARIA to host content", () => {

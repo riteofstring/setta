@@ -508,6 +508,7 @@ export function CanvasShellPage() {
             onGridSnapChange={setGridSnap}
             onMinimapVisibilityChange={setMinimapVisible}
             sectionDefinitions={navigationSectionDefinitions}
+            selectionOptions={{ marqueeMode: "full" }}
             overlaySlots={{
               canvas: () => (
                 <WorkspaceInteractionBoundary

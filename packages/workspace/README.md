@@ -48,6 +48,7 @@ const sectionDefinitions = [
     markSize: 1,
   }}
   minimapOptions={{ placement: "right", visible: true }}
+  selectionOptions={{ marqueeMode: "partial" }}
   toolbarControls={[
     {
       id: "open-inspector",
@@ -75,7 +76,15 @@ resolved workbench `readOnly` state. Its content boundary automatically prevents
 scrollable host content from starting viewport pan or wheel gestures. Headerless chrome retains an
 accessible title, and minimized sections unmount the host body while retaining serialized data and
 size state. Each root frame also exposes a native, named movement handle. Host data-update
-callbacks, creation UI, title editing, selection, and resizing remain separate Phase 2 surfaces.
+callbacks, creation UI, title editing, and resizing remain separate Phase 2 surfaces.
+
+Selection is package-owned transient state rather than part of `WorkspaceDocument`. Click a frame
+or its named pressed button to select it, and Shift-click to toggle membership. Shift-drag from the
+blank canvas to marquee-select measured frames; `selectionOptions.marqueeMode` chooses partial
+intersection (the default) or full containment. Control/Command+A selects every section, Escape or
+a blank-canvas click clears selection, and assistive announcements report the resulting state. A
+measured viewport overlay outlines the normalized selection roots without making XYFlow selection
+state public or canonical.
 
 Drag a root section from its movement handle to arrange it spatially. Pointer updates stay inside
 the adapter projection until release, then publish one `section-move` change without rewriting root
@@ -85,6 +94,11 @@ grid line; with snapping off, each press moves 10 workbench units. The handle is
 `editLayout` is false or the section is position-and-size locked. A controlled host that declines
 the proposed document keeps the canonical position and the frame reconciles without retaining the
 transient move.
+
+Dragging or using the arrow keys on a selected top-level root moves the complete selected block and
+preserves its relative workbench offsets. One completed block gesture still publishes one
+`section-move` change. If any selected root is locked, block movement is disabled with specific
+feedback; selection itself remains available and does not publish a document change.
 
 Use `defaultDocument` instead of `document` for uncontrolled ownership. The two modes are mutually
 exclusive, and a controlled workspace requires `onDocumentChange`. `readOnly` disables package-owned
@@ -139,7 +153,8 @@ leaves the accepted document unchanged for an exact later remount.
 The controller's measured navigation helpers wait for visible frame geometry, propose one canonical
 viewport change, and resolve after the upstream viewport reconciles to the host's current canonical
 value. Accepted `focusSection` calls preserve the current zoom and move programmatic focus with
-scroll prevention; rejected or superseded controlled proposals settle without moving stale focus.
+scroll prevention; focusing also replaces the current selection with the target section. Rejected or
+superseded controlled proposals settle without moving stale focus.
 `fitSection` and `fitSections` honor the configured zoom bounds, reserve a default chrome-safe
 padding, and accept an optional non-negative padding value. Spatial next/previous navigation orders
 roots by workbench `y`, then `x`, persistent order, and stable ID, with descendants following
@@ -149,6 +164,9 @@ canonical child order.
 await controller.current?.focusSection("details");
 await controller.current?.fitSections(["summary", "details"], { padding: 0.16 });
 await controller.current?.focusNextSection("summary");
+controller.current?.selectSections(["summary", "details"]);
+controller.current?.getSelectedSectionIds();
+controller.current?.clearSelection();
 ```
 
 Testing-only exports continue to exercise exact-pinned upstream XYFlow and dnd-kit behind

@@ -1,5 +1,6 @@
 import {
   getAdjacentWorkspaceSectionId,
+  getWorkspaceSectionOrder,
   WorkspaceDocumentValidationError,
   type WorkspaceActionResult,
   type WorkspaceCapabilities,
@@ -24,9 +25,17 @@ export type WorkspaceControllerBindings<TSectionData> = Readonly<{
   getCapabilities(): WorkspaceCapabilities;
   getCanvasController?(): WorkspaceCanvasController | null;
   getDocument(): WorkspaceDocument<TSectionData>;
+  getSelection?(): readonly string[];
   getViewportBounds?(): Readonly<{ maxZoom: number; minZoom: number }>;
   requestViewportSynchronization?(): void;
+  setSelection?(sectionIds: readonly string[]): WorkspaceActionResult;
 }>;
+
+function selectionsMatch(left: readonly string[], right: readonly string[]): boolean {
+  return (
+    left.length === right.length && left.every((sectionId, index) => sectionId === right[index])
+  );
+}
 
 function dispatch<TSectionData>(
   bindings: WorkspaceControllerBindings<TSectionData>,
@@ -130,11 +139,13 @@ function assertKnownSections<TSectionData>(
 
 async function focusSection<TSectionData>(
   bindings: WorkspaceControllerBindings<TSectionData>,
+  setSelection: (sectionIds: readonly string[]) => WorkspaceActionResult,
   sectionId: string,
 ): Promise<WorkspaceActionResult> {
   sectionIdAt(sectionId);
   const document = bindings.getDocument();
   assertKnownSections(document, [sectionId]);
+  setSelection([sectionId]);
   const canvasController = requireCanvasController(bindings);
   const viewport = await canvasController.focusSection(sectionId, document.viewport);
   const result = setViewport(bindings, viewport);
@@ -164,6 +175,7 @@ async function fitSections<TSectionData>(
 
 async function focusAdjacentSection<TSectionData>(
   bindings: WorkspaceControllerBindings<TSectionData>,
+  setSelection: (sectionIds: readonly string[]) => WorkspaceActionResult,
   sectionId: string,
   direction: "next" | "previous",
 ): Promise<WorkspaceActionResult> {
@@ -172,7 +184,9 @@ async function focusAdjacentSection<TSectionData>(
     sectionId,
     direction,
   );
-  return adjacentSectionId ? focusSection(bindings, adjacentSectionId) : { status: "unchanged" };
+  return adjacentSectionId
+    ? focusSection(bindings, setSelection, adjacentSectionId)
+    : { status: "unchanged" };
 }
 
 function setSectionMinimized<TSectionData>(
@@ -196,16 +210,41 @@ function setSectionMinimized<TSectionData>(
 export function createWorkspaceController<TSectionData>(
   bindings: WorkspaceControllerBindings<TSectionData>,
 ): WorkspaceController<TSectionData> {
+  let fallbackSelection: readonly string[] = [];
+  const getSelection = () => bindings.getSelection?.() ?? fallbackSelection;
+  const setSelection = (sectionIds: readonly string[]): WorkspaceActionResult => {
+    if (bindings.setSelection) {
+      return bindings.setSelection(sectionIds);
+    }
+    if (selectionsMatch(fallbackSelection, sectionIds)) {
+      return { status: "unchanged" };
+    }
+    fallbackSelection = [...sectionIds];
+    return { status: "applied" };
+  };
   return {
+    clearSelection: () => setSelection([]),
     deleteSections: (sectionIds) =>
       dispatch(bindings, { sectionIds: sectionIdsAt(sectionIds), type: "delete-sections" }),
     fitSection: (sectionId, options) => fitSections(bindings, [sectionId], options),
     fitSections: (sectionIds, options) => fitSections(bindings, sectionIds, options),
-    focusNextSection: (sectionId) => focusAdjacentSection(bindings, sectionId, "next"),
-    focusPreviousSection: (sectionId) => focusAdjacentSection(bindings, sectionId, "previous"),
-    focusSection: (sectionId) => focusSection(bindings, sectionId),
+    focusNextSection: (sectionId) =>
+      focusAdjacentSection(bindings, setSelection, sectionId, "next"),
+    focusPreviousSection: (sectionId) =>
+      focusAdjacentSection(bindings, setSelection, sectionId, "previous"),
+    focusSection: (sectionId) => focusSection(bindings, setSelection, sectionId),
     getCapabilities: () => ({ ...bindings.getCapabilities() }),
     getDocument: () => bindings.getDocument(),
+    getSelectedSectionIds: () => [...getSelection()],
+    selectSections: (sectionIds) => {
+      const selectedIds = sectionIdsAt(sectionIds);
+      const document = bindings.getDocument();
+      assertKnownSections(document, selectedIds);
+      const selected = new Set(selectedIds);
+      return setSelection(
+        getWorkspaceSectionOrder(document).filter((sectionId) => selected.has(sectionId)),
+      );
+    },
     setSectionMinimized: (sectionId, isMinimized) =>
       setSectionMinimized(bindings, sectionId, isMinimized),
     setSectionsLocked: (sectionIds, locked) =>

@@ -63,6 +63,7 @@ export type WorkspaceDocumentChange = Readonly<{
 }>;
 
 export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
+  clearSelection(): WorkspaceActionResult;
   deleteSections(sectionIds: readonly string[]): WorkspaceActionResult;
   fitSection(sectionId: string, options?: WorkspaceFitOptions): Promise<WorkspaceActionResult>;
   fitSections(
@@ -74,6 +75,8 @@ export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
   focusSection(sectionId: string): Promise<WorkspaceActionResult>;
   getCapabilities(): WorkspaceCapabilities;
   getDocument(): WorkspaceDocument<TSectionData>;
+  getSelectedSectionIds(): readonly string[];
+  selectSections(sectionIds: readonly string[]): WorkspaceActionResult;
   setSectionMinimized(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
   setSectionsLocked(sectionIds: readonly string[], locked: boolean): WorkspaceActionResult;
   setViewport(viewport: WorkspaceViewport): WorkspaceActionResult;
