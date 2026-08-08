@@ -776,9 +776,10 @@ The package owns:
 - Its own `WorkspaceDocument`.
 - Its public viewport configuration, controller behavior, coordinate-space contract, and host-content pan/wheel suppression semantics.
 - Grid visibility, appearance, and spacing semantics plus movement and resize snap policy.
-- The ready-made minimap and navigation contract as projected from workspace sections.
+- The ready-made minimap and navigation contract, projected from root sections by default because roots are the spatial workspace objects.
 - Smart section placement from document geometry and viewport bounds.
 - Section selection, marquee geometry, selection-root normalization, grouping, ungrouping, batch commands, and transient stacking behavior.
+- One transient measured-geometry index covering every visible section frame at every depth. Marquee selection, selection bounds, focus and fit, collision planning, external-drop coordinates, and optional nested minimap summaries consume this index rather than maintaining parallel DOM-measurement paths.
 - Recursive section containment and parent-index derivation.
 - Section sort and free-move planning.
 - Orientation-aware collision, insertion, and target-stability behavior.
@@ -789,7 +790,7 @@ The package owns:
 - Package chrome, inline title editing, ready-made controls, and host extension contracts.
 - Its React contracts.
 
-Upstream XYFlow may implement internal viewport transforms and coordinate conversion, background rendering, spatial hit testing, top-level node movement, resize primitives, minimap projection, and other canvas substrate behavior behind the package adapter. Using those implementations does not make XYFlow's node array, store, change events, or component props part of the `@setta/workspace` API. Workbench-specific semantics such as resize snapping, normalized selection roots, structural commands, ordered nested layouts, and cross-depth move plans remain package-owned even when they consume XYFlow geometry.
+Upstream XYFlow may implement internal viewport transforms and coordinate conversion, background rendering, root-node hit testing and movement, root resize primitives, root minimap projection, and other canvas substrate behavior behind the package adapter. Using those implementations does not make XYFlow's node array, store, change events, or component props part of the `@setta/workspace` API. Workbench-specific semantics such as all-depth geometry, resize snapping, normalized selection roots, structural commands, ordered nested layouts, nested resizing, and cross-depth move plans remain package-owned even when they consume XYFlow geometry.
 
 This is a deliberate new ownership boundary, not a handwritten mirror of the current Setta project model.
 
@@ -812,36 +813,71 @@ Use upstream `@xyflow/react` through a narrow internal adapter. Pin the exact cu
 
 The 2026-08-07 audit inspected upstream `xyflow/xyflow` main at commit `ee40209955e2e3b3d738397d281a147a73154fbd` and the published `@xyflow/react` `12.11.2`. That release already provides much of the undifferentiated canvas substrate:
 
-- Configurable pan and zoom gestures, zoom bounds, viewport helpers, coordinate conversion, fit behavior, auto-pan, and no-pan/no-wheel interaction boundaries.
+- Configurable pan and zoom gestures, zoom bounds, viewport helpers, coordinate conversion, middle-button panning over nodes, auto-pan, and no-pan/no-wheel interaction boundaries.
 - Dots, lines, and cross backgrounds with configurable gaps, sizes, and colors; movement snapping; and light, dark, or system color mode.
 - Click, modifier, keyboard, and partial- or full-containment marquee selection; multi-node movement; recursive suppression of a selected descendant when its selected ancestor moves; and optional visible-element rendering.
 - Parent-relative nodes through `parentId`, containment extents, parent expansion, recursive subflows with no explicit depth cap, selection elevation, and configurable automatic or manual z-index behavior.
 - Extensible controls, panels, node toolbars, viewport portals, a clickable/pannable/zoomable minimap, and zoom-aware resize controls with axis, minimum, maximum, and aspect-ratio constraints.
-- Recent performance work that avoids drag instances for non-draggable nodes, prevents minimap updates on unrelated store changes, and applies viewport transforms without rerendering the viewport component.
+- Viewport gesture start/change/end callbacks and queued fit behavior that waits for registered nodes to be measured.
+- Recent performance work that avoids drag instances for non-draggable nodes, gives minimap nodes narrow subscriptions, and applies viewport transforms directly without rerendering the viewport component.
 
 Those primitives do not replace the product described here. XYFlow parent-child nodes remain spatially positioned relative to a parent rather than automatically participating in an ordered vertical or horizontal child layout. Upstream does not provide Setta's sorting/free-move distinction, arbitrary cross-depth reparenting UI, target hysteresis, grow-versus-scroll containers, section document and registry, section frame behavior, grouping commands, structural history, smart creation, or generic sortable item trees.
+
+The current Setta runtime establishes the most credible initial representation. Its XYFlow node renderer mounts only top-level spatial sections, while nested sections render recursively as ordinary ordered DOM and use dnd-kit for structure. Its marquee logic first uses measured XYFlow root nodes and then falls back to measured DOM frames for every remaining visible nested section. This is a meaningful workbench behavior, not functionality that the latest upstream XYFlow supplies automatically.
+
+Begin Phase 0 with this architecture:
+
+- Project each root section into one XYFlow node.
+- Render descendants as package-owned recursive DOM inside their parent frame so CSS layout, grow/scroll behavior, and dnd-kit ordering remain natural.
+- Register every visible root and descendant frame in one package-owned measured-geometry index expressed in workbench coordinates.
+- Treat an all-sections-as-XYFlow-nodes projection or shadow-node hybrid as challenger designs only. Adopt one only if the proof shows a material advantage while preserving ordered layout, nested scrolling, all-depth selection, resize semantics, accessibility, and single-owner dragging without duplicated geometry or movement.
+
+Only root sections have independent spatial positions, so the first-release minimap projects roots by default. A future nested summary may consume the package geometry index, but must not present ordered descendants as independently positioned canvas roots.
 
 The adapter must preserve these boundaries:
 
 - `WorkspaceDocument` is the only canonical persisted model. XYFlow nodes are a derived render projection.
 - Consumers import no XYFlow store, node, edge, change-event, or component-prop types through the public API.
-- The adapter uses public upstream APIs. It does not reach into XYFlow's Zustand store or copy internal modules merely for convenience.
-- The package decides whether all sections, only top-level sections, or a measured hybrid become XYFlow nodes. That choice is an implementation detail selected by the Phase 0 spike, not a document-model change.
-- Upstream selection or drag behavior may be used only when it produces the package's specified selection-root, locking, history, coordinate, and accessibility outcomes.
+- Prefer documented components, props, controller helpers, viewport hooks, measurement hooks, portals, and lifecycle callbacks. A documented public `useStoreApi` access is permitted only when a focused Phase 0 proof demonstrates that higher-level public APIs cannot meet a required high-frequency or imperative seam. Keep that access inside the adapter, cover the exact fields with exact-version contract tests, and never expose the store or its state shape.
+- Do not import non-public source paths, copy internal modules, or make undocumented XYFlow store fields part of the implementation contract.
+- Upstream marquee selection operates only on registered XYFlow nodes. The package owns all-depth marquee geometry, transient selection state, normalized selection roots, and the combined selection outline and hit area. Upstream selection behavior may be reused for projected roots only when it produces the same package outcomes.
+- XYFlow position and resize change events update only an internal transient render projection during a gesture. They must not call `onDocumentChange`, create history, or become canonical section commands per frame. Pointer, touch, keyboard, and cancellation paths commit at most one accepted package command at the documented boundary.
+- Exactly one subsystem owns movement at a time. XYFlow owns ordinary root spatial dragging; dnd-kit owns section sorting and free-move structure. Entering either structural mode disables XYFlow root dragging and conflicting viewport gestures, while leaving structural mode disables dnd-kit section activation. The selected-block overlay exposes the correct movement surface for the active mode.
+- Root sections may use upstream resize primitives when they satisfy package constraints. Nested resize handles, content/fixed size promotion, grow/scroll participation, package snapping, and one-command commit behavior remain package-owned unless the chosen representation proves otherwise.
 - Generic graph edges and ports stay disabled or absent in the first release even though the dependency supports them.
 
 Phase 0 must prove the adapter against the difficult seams before broad UI implementation:
 
 1. Render top-level spatial sections and arbitrarily deep ordered descendants while supporting grow and internally scrolling containers.
-2. Select visible sections at every depth, normalize selected ancestors and descendants, marquee across the required geometry, and move supported selections without double movement.
-3. Preview and commit sorting and free-move plans across top-level and nested coordinate spaces at representative zoom levels.
-4. Resize top-level and nested sections while preserving content sizing, scroll isolation, constraints, and package-owned snap semantics.
-5. Lift the active or dragged top-level ancestor transiently without turning ordinary selection into a persistent document reorder.
-6. Keep unrelated section bodies, the minimap, and the viewport from rerendering during high-frequency interaction.
+2. Maintain one correct incremental geometry index for visible roots and descendants through pan, zoom, recursive reflow, content measurement, grow/scroll changes, minimization, and drag previews.
+3. Select visible sections at every depth, normalize selected ancestors and descendants, marquee across the package geometry index, and render a package-owned combined selection overlay without double movement.
+4. Hand a root drag between XYFlow spatial movement and dnd-kit structural movement without duplicate deltas, accidental viewport motion, stale activation, or different pointer, touch, keyboard, and cancellation outcomes.
+5. Preview and commit sorting and free-move plans across top-level and nested coordinate spaces at representative zoom levels.
+6. Resize top-level and nested sections while preserving content sizing, scroll isolation, constraints, package-owned snap semantics, and one-command completion.
+7. Lift the active or dragged top-level ancestor transiently without turning ordinary selection into a persistent document reorder.
+8. Keep XYFlow node changes, marquee updates, live measurements, and resize changes transient; emit at most one accepted document change and, for an undoable command, one history entry at the package command boundary.
+9. Wait for the relevant root-node and package-geometry measurements before initial fit, `focusSection`, `fitSection`, or `fitSections`, and prevent focusing interactive content from creating browser scroll offsets that diverge from the canvas viewport.
+10. Keep unrelated section bodies, the root minimap, and the viewport from rerendering during high-frequency interaction.
 
 If a required result cannot be expressed through public upstream APIs, prefer, in order: redesigning the adapter without changing the public behavior, contributing a general extension seam upstream, or maintaining a minimal exact-version patch with direct tests. A maintained fork is permitted only after those options fail; it must document every delta and its removal condition.
 
-The current Setta fork remains a behavioral reference, not a source baseline. Since its original import it has accumulated 136 follow-up commits, changed 59 fork files, and become directly referenced outside the fork by 74 frontend files. That history explains why replacing the existing Setta runtime is a separate project and why the standalone package must not inherit the same application coupling.
+The current Setta fork remains a behavioral reference, not a source baseline. It contains 67 files and about 11,900 TypeScript, TSX, and CSS lines. Since its original import it has accumulated 136 follow-up commits, changed 59 fork files with about 9,400 insertions and 1,000 deletions, and become directly referenced outside the fork by 54 runtime files and 20 test files. That scale includes three different categories and must not be interpreted as evidence that the package needs a broad XYFlow fork.
+
+Replace with current upstream substrate where the Phase 0 proof confirms the public surface:
+
+- The vendored pan/zoom core, viewport conversion, root movement, background, controls, panel, portal, root minimap, registered-node selection, and root resize machinery.
+- Local fixes whose outcomes latest upstream now provides, including middle-button node panning, gesture lifecycle callbacks, queued fit after registered-node measurement, direct viewport-transform DOM updates, and narrow minimap subscriptions.
+
+Reimplement as package-owned workbench behavior:
+
+- The root-node plus recursive-DOM representation, one all-depth geometry index, nested marquee coverage, package selection overlay, and focus/fit bounds for non-node descendants.
+- The interaction-owner handoff among XYFlow root movement, dnd-kit sorting/free-move, the selected-block structural handle, and viewport gestures.
+- Transient projection and commit coalescing, top-level ancestor lift, nested resize semantics, and the user-visible focus/scroll outcome currently protected by the scroll-sentinel behavior.
+
+Rewrite or discard application coupling:
+
+- Direct Setta Zustand stores, settings, generated types, backend selection publication, side-pane offsets, project loading, AI-follow suppression, file-opening drop behavior, notifications, and application-specific focus management.
+- Agentic, argument, chat, and state-machine edge and handle systems. They are domain application features and remain outside the first workbench release even though a later Setta product may layer them over the package.
 
 ### Upstream dnd-kit foundation and package-owned interaction kernel
 
@@ -893,17 +929,25 @@ Additional behavioral references include:
 - `frontend/src/components/Section/Header/MinimizeButton.tsx`
 - `frontend/src/components/Section/Header/SectionTitle.tsx`
 - `frontend/src/components/Section/Container/ContainerCore.tsx`
+- `frontend/src/components/Section/Container/ContainerWrappers.tsx`
+- `frontend/src/components/Section/Container/TopLevelContainer.tsx`
+- `frontend/src/components/Section/Container/ManyNestedSections.tsx`
 - `frontend/src/components/Utils/Resizable/CustomResizable.tsx`
 - `frontend/src/forks/xyflow/background/Background.tsx`
 - `frontend/src/forks/xyflow/controls/Controls.tsx`
+- `frontend/src/forks/xyflow/core/components/NodesSelection.tsx`
+- `frontend/src/forks/xyflow/core/components/wrapNode.tsx`
+- `frontend/src/forks/xyflow/core/container/NodeRenderer.tsx`
 - `frontend/src/forks/xyflow/core/container/Pane.tsx`
 - `frontend/src/forks/xyflow/core/container/ZoomPane.tsx`
 - `frontend/src/forks/xyflow/core/container/ReactFlow.tsx`
+- `frontend/src/forks/xyflow/core/utils/graph.ts`
+- `frontend/src/forks/xyflow/minimap/MiniMap.tsx`
 - `frontend/src/state/actions/sections/sectionPositions.ts`
 - `internal/projectstate/top_level_section_creation.go`
 - `frontend/src/components/Pages/GlobalWrapper.tsx`
 
-These establish the existing interaction baseline for locks, minimized bodies, fixed/content and constrained resizing, container overflow, title editing, smart placement, selection and external drop, viewport gestures, toolbar extension, minimap navigation, stacking, grid alignment and appearance-specific colors, and system color-mode resolution. They remain application-coupled references rather than files to copy directly. The Go smart-placement implementation is evidence for behavior, not a contract to mirror mechanically; the standalone TypeScript package owns its backend-free placement helper under the explicit offline platform boundary described above.
+These establish the existing interaction baseline for the root-node/recursive-DOM split, all-depth measured selection, movement-owner handoff, focus/scroll coordination, locks, minimized bodies, fixed/content and constrained resizing, container overflow, title editing, smart placement, selection and external drop, viewport gestures, toolbar extension, minimap navigation, stacking, grid alignment and appearance-specific colors, and system color-mode resolution. They remain application-coupled references rather than files to copy directly. The Go smart-placement implementation is evidence for behavior, not a contract to mirror mechanically; the standalone TypeScript package owns its backend-free placement helper under the explicit offline platform boundary described above.
 
 ### Styling
 
@@ -933,7 +977,8 @@ The playground may use its own styling system, but it must consume the published
 - Keep dnd-kit types and events behind the package adapter; public move plans, callbacks, and render contracts use package-owned types.
 - Begin with upstream optimistic DOM sorting disabled. Replace the package-owned transform preview with upstream behavior only after nested-scroll, zoom, hysteresis, and preview/commit tests prove equivalent or better behavior.
 - Do not import non-public dnd-kit source paths or internals.
-- Do not import non-public XYFlow source paths or store internals.
+- Prefer documented XYFlow components, props, hooks, helpers, portals, and lifecycle callbacks over direct store access.
+- Do not import non-public XYFlow source paths or rely on undocumented store fields. A documented public `useStoreApi` exception requires a focused need, adapter-only containment, exact-version contract coverage, and a recorded reason that a higher-level API is insufficient.
 - Do not add a local XYFlow patch unless the Phase 0 evidence identifies one specific missing public seam and records its test, upstream issue or contribution path, and removal condition.
 - Keep React and React DOM as documented peer dependencies.
 - Keep the Setta-family dependency count at one package.
@@ -1024,8 +1069,10 @@ The design should:
 - Avoid rerendering every section during one section drag.
 - Avoid rerendering every section during marquee updates, active-section render lift, minimap viewport movement, or one content-size observation.
 - Keep transient drag state separate from the canonical document.
+- Keep XYFlow `onNodesChange`, resize, selection, and viewport events inside the transient adapter projection unless a completed package command explicitly crosses the document boundary.
 - Keep live content measurements and active z-index lift separate from the canonical document.
 - Derive the parent lookup once per committed structure and update it incrementally; do not rebuild it on every pointer event.
+- Maintain one incremental measured-geometry index for root and nested frames instead of separately remeasuring for marquee, selection bounds, focus/fit, collision, and external drop.
 - Limit collision and geometry work to viable ancestors, descendants, siblings, and visible targets instead of rescanning the complete section tree on every pointer event.
 - Batch geometry reads and writes.
 - Incrementally update minimap and selection bounds from already-owned geometry rather than measuring the complete DOM again.
@@ -1043,10 +1090,13 @@ Produce:
 - The independent package or isolated package workspace.
 - A blank consumer fixture with no Setta aliases.
 - A reference inventory classifying current code as reusable pure logic or behavioral evidence, with application-coupled UI excluded from the implementation base.
-- The upstream XYFlow adapter representation decision and its evidence; the default dependency-versus-fork decision is already upstream dependency.
-- A focused upstream-adapter proof covering recursive rendering, selection at depth, cross-coordinate-space movement, nested resizing, transient ancestor lift, scroll isolation, and high-frequency rerender behavior.
+- The upstream XYFlow adapter representation decision and its evidence. Begin with root sections as XYFlow nodes plus package-rendered recursive DOM and require a challenger representation to prove a material advantage without losing ordered layout, nested scrolling, all-depth selection, accessibility, or single-owner movement. The default dependency-versus-fork decision is already upstream dependency.
+- A focused upstream-adapter proof covering recursive rendering, all-depth measured geometry, selection at depth, cross-coordinate-space movement, nested resizing, transient ancestor lift, scroll isolation, fit readiness, focus-induced browser scrolling, and high-frequency rerender behavior.
+- A geometry-index proof showing that root and descendant registration, updates, and cleanup produce one workbench-coordinate source for marquee, selection bounds, focus/fit, collision, canvas drops, and any nested minimap summary.
+- An interaction-owner matrix and proof covering ordinary XYFlow root drag, dnd-kit sorting, dnd-kit free-move, selection-block movement, viewport gestures, pointer, touch, keyboard, cancellation, and mode changes. Each cell identifies exactly one movement owner and the disabled competing activators.
+- A transient-projection proof showing that XYFlow node, selection, resize, viewport, and measurement events do not become canonical document changes per frame and that one completed accepted gesture emits at most one package command and, when the command is undoable, one history entry.
 - The exact-pinned stable dnd-kit dependency, adapter boundary, optimistic-sorting decision, and license decision.
-- A current-code inventory that separates upstream-replaceable adapter machinery, the package-owned interaction kernel, and Setta application coupling. The inventory must identify the executable specification for every retained interaction before its current source is removed.
+- A current-code inventory for both XYFlow and dnd-kit that separates upstream-replaceable adapter machinery, the package-owned interaction kernel, and Setta application coupling. The inventory must identify the executable specification for every retained interaction before its current source is removed.
 - A section-DnD behavior matrix covering sorting mode, free-move mode, single and sibling-block movement, parent transitions, midpoint transitions, invalid targets, vertical and horizontal parents, cancellation, constrained scrolling, and minimum, default, and maximum zoom.
 - Focused characterization tests for current move planning, collision ranking, previous-target preference, previous-rectangle retention, trigger-distance and midpoint transitions, child-over-parent promotion, orientation-specific sorting, selection-shaped collision geometry, stale-target clearing, and layout-stable preview transforms.
 - A differential proof against the selected exact-pinned stable dnd-kit release showing which provider, sensor, measuring, overlay, feedback, and sortable responsibilities upstream can own without changing the characterized behavior.
@@ -1063,7 +1113,12 @@ Gate:
 - The consumer fixture installs the packed artifact.
 - No Setta application import is available to the package.
 - No compatibility layer, old/new feature flag, current project-model adapter, or copied application component exists in the package.
-- The XYFlow proof uses public upstream APIs and records which section representation it selected.
+- The XYFlow proof uses documented upstream APIs and records which section representation it selected. Root-node plus recursive-DOM projection remains the choice unless a challenger passes every representation criterion with better evidence.
+- Any use of the documented public XYFlow store API is adapter-local, exact-version tested, justified by a specific missing higher-level seam, and absent from public declarations. Otherwise the adapter uses higher-level public components, props, hooks, and helpers only.
+- The package geometry index covers every visible section depth and is the only measurement source used by all-depth marquee, combined selection bounds, focus/fit, collision planning, and nested external-drop coordinates.
+- XYFlow root drag, dnd-kit sorting/free-move, selection-block movement, and viewport gestures never own the same pointer, touch, or keyboard movement simultaneously, including cancellation and runtime mode changes.
+- High-frequency XYFlow and measurement events remain transient. A completed root move or resize produces one accepted document change and one history entry, and cancellation produces neither.
+- Initial fit and section focus wait for relevant measurements, and focusing interactive content cannot leave an independent browser scroll offset that diverges from the canvas viewport.
 - Any proposed XYFlow patch has a smaller demonstrated scope than a fork and an explicit removal condition; otherwise the implementation remains unpatched upstream.
 - The upstream dnd-kit proof uses public APIs, keeps package contracts free of dnd-kit types, and records every custom behavior that remains package-owned.
 - Optimistic DOM sorting remains disabled unless the proof demonstrates stable constrained scrolling, unchanged target hysteresis, and exact preview/commit parity.
@@ -1078,8 +1133,9 @@ Implement:
 - Canonical recursive child lists and a derived parent lookup.
 - Controlled and uncontrolled state.
 - Host capabilities, `readOnly`, and the public controller boundary.
-- The upstream XYFlow adapter and canvas container without exposing XYFlow contracts.
+- The upstream XYFlow adapter and canvas container without exposing XYFlow contracts, including an adapter-owned transient root-node projection and the package geometry-service boundary.
 - Configurable pan-on-drag, pan-on-scroll, wheel, pinch, and double-click zoom with documented bounds and temporary activation keys.
+- Viewport gesture lifecycle coordination that keeps live transforms responsive and coalesces persisted viewport publication at the documented completion boundary.
 - Host-renderer pan/wheel suppression primitives and scroll arbitration.
 - Background, viewport updates, focus-section, fit-section, fit-to-sections, and deterministic next/previous traversal helpers.
 - Independently controlled grid visibility and snapping with shared workbench-unit spacing.
@@ -1094,6 +1150,7 @@ Tests:
 
 - Public declaration output contains no XYFlow node, edge, store, or change-event types.
 - The exact-pinned upstream dependency is sufficient without private source imports.
+- The adapter's transient root-node and viewport events cannot mutate a document except through the package command boundary.
 - Document round trip.
 - Arbitrarily deep mixed-orientation document round trip.
 - Invalid document failures for duplicate placement, unreachable sections, cycles, unknown children, invalid orientations or overflow modes, unsupported size or chrome modes, invalid colors, empty titles, and non-finite root positions or dimension fallbacks.
@@ -1122,6 +1179,8 @@ Gate:
 Implement:
 
 - Section registry including creation metadata, sizing defaults, and chrome variants.
+- Root-section projection derived from the canonical document and backed by adapter-local transient position and size state during gestures rather than mutating the document object per frame.
+- Package-owned measured-frame registration and a selection overlay mounted through a documented viewport portal or equivalent public seam.
 - Generic section frame, header, inline title editing, and selected-state chrome for headerless sections.
 - Per-section accent and tag colors with accessible defaults and reset.
 - Palette-based and searchable right-click creation.
@@ -1156,6 +1215,9 @@ Tests:
 - Keep nested children visible when their parent section body is minimized, then restore fixed dimensions exactly, resume content-fit dimensions, and restore focus.
 - Interactive content does not initiate section dragging.
 - Partial/full marquee geometry, ancestor/descendant root normalization, top-level block offsets, locked-selection rejection, and selection focus restoration.
+- XYFlow registered-node selection is disabled or reconciled behind the package selection model so it cannot become a second selection authority.
+- XYFlow position and resize events update the transient projection during a gesture, emit exactly one accepted document change at completion, and emit none on cancellation.
+- Focusing an offscreen section or interactive descendant changes or preserves the canvas viewport deliberately and never leaves an independent browser scroll offset on the workbench wrapper.
 - Transient render lift without document/history changes and explicit persistent stack commands with undo/redo.
 - Read-only and independent layout, structure, and presentation capability combinations.
 - Search filtering, keyboard creation coordinates, empty results, selection-context availability, async title rejection, and external-drop host acceptance/rejection.
@@ -1177,19 +1239,22 @@ Implement in this order:
 
 1. Pure containment validation, descendant checks, and derived parent lookup.
 2. Recursive child-section rendering with no hard-coded depth limit.
-3. Vertical child layout, then horizontal child layout using logical inline order.
-4. Grow-with-children sizing, fixed scroll overflow, stable mode switching, scroll isolation, and the empty-container drop affordance.
-5. Orientation changes that preserve hierarchy and child order.
-6. Pure sorting-mode move planning for one section or a selected sibling block within the current parent.
-7. Pure free-move planning for one section or a selected sibling block across canvas-to-nested, nested-to-canvas, and nested-to-nested moves at unrelated depths.
-8. Orientation-aware insertion placeholders and commit parity.
-9. Selection-shaped collision geometry that ignores every moving selection root while preserving the selected block's combined drag bounds.
-10. Stateful collision ranking, previous-target and previous-rectangle retention, child-over-parent promotion, midpoint tracking, zoom-scaled directional trigger distances, and stable target hysteresis based on the Phase 0 characterization.
-11. A layout-stable transform preview that does not optimistically reorder constrained-scroll DOM unless the Phase 0 proof established equivalence.
-12. Cycle, self, descendant, mixed-parent batch, active-section lock, and host-policy rejection.
-13. Group and ungroup at any supported depth for selected siblings with one shared parent.
-14. Keyboard reorder and cross-container movement with focus restoration and announcements.
-15. A container example with mixed vertical and horizontal descendants at least three levels deep.
+3. Registration of every visible descendant frame in the same workbench-coordinate geometry index used by roots, including cleanup and bounded remeasurement through recursive reflow.
+4. All-depth marquee, focus/fit, and combined selection bounds from that geometry index without registering ordered descendants as independent spatial roots.
+5. Vertical child layout, then horizontal child layout using logical inline order.
+6. Grow-with-children sizing, fixed scroll overflow, stable mode switching, scroll isolation, and the empty-container drop affordance.
+7. Orientation changes that preserve hierarchy and child order.
+8. Interaction-owner arbitration that disables XYFlow root movement and conflicting viewport gestures while dnd-kit sorting or free-move owns the operation, then restores ordinary root dragging without stale activation.
+9. Pure sorting-mode move planning for one section or a selected sibling block within the current parent.
+10. Pure free-move planning for one section or a selected sibling block across canvas-to-nested, nested-to-canvas, and nested-to-nested moves at unrelated depths.
+11. Orientation-aware insertion placeholders and commit parity.
+12. Selection-shaped collision geometry that ignores every moving selection root while preserving the selected block's combined drag bounds.
+13. Stateful collision ranking, previous-target and previous-rectangle retention, child-over-parent promotion, midpoint tracking, zoom-scaled directional trigger distances, and stable target hysteresis based on the Phase 0 characterization.
+14. A layout-stable transform preview that does not optimistically reorder constrained-scroll DOM unless the Phase 0 proof established equivalence.
+15. Cycle, self, descendant, mixed-parent batch, active-section lock, and host-policy rejection.
+16. Group and ungroup at any supported depth for selected siblings with one shared parent.
+17. Keyboard reorder and cross-container movement with focus restoration and announcements.
+18. A container example with mixed vertical and horizontal descendants at least three levels deep.
 
 Tests:
 
@@ -1198,6 +1263,8 @@ Tests:
 - Free move from canvas to nested, nested to canvas, a shallow source to an unrelated deeper container, a deep source to a shallower valid container, and between cousin containers.
 - Move into an empty container and to the first and last sibling position.
 - Move selected sibling blocks in vertical and horizontal parents, into and out of containers, and back to the canvas while preserving order or top-level offsets.
+- Marquee-select, focus, fit, and compute combined selection bounds for visible descendants at unrelated depths using the shared geometry index at minimum, default, and maximum zoom.
+- Switch repeatedly between ordinary XYFlow root dragging, sorting, and free-move; verify exactly one movement owner, no viewport leakage, no duplicate delta, no stale activation, and matching pointer, touch, keyboard, completion, and cancellation outcomes.
 - Reject mixed-parent batch movement specifically and normalize parent-plus-descendant selections before every structural command.
 - Reject self, descendant, and host-invalid destinations without changing canonical state.
 - Reject direct sorting, reparenting, movement, and resizing of a locked active section while allowing that section's unlocked descendants and host controls to remain usable.
@@ -1223,6 +1290,8 @@ Gate:
 - A user can select sibling sections, move or group them atomically, and ungroup them without identity or order loss.
 - Vertical and horizontal parents produce matching layout, insertion, keyboard, and announcement behavior.
 - A nested container can grow with its children or retain a stable bounded size with an internally scrollable child region.
+- Marquee, combined selection bounds, focus/fit, collision, and nested drop coordinates agree on one measured frame for every visible section at every depth.
+- XYFlow spatial dragging, dnd-kit structural dragging, and viewport gestures remain mutually exclusive movement owners through mode changes and cancellation.
 - The characterized Setta zoom coordination, selection-shaped collision, preview stability, and target hysteresis are preserved or deliberately improved with evidence.
 - Recursive section operations remain deterministic, serializable, accessible, and zoom-correct.
 
@@ -1351,8 +1420,8 @@ Cover:
 - Recursive containment validation and derived parent lookup.
 - Coordinate conversion across canvas and nested placement contexts.
 - Smart placement inside and outside viewport bounds with deterministic non-overlap and grid behavior.
-- Minimap projection and focus/fit bounds.
-- Marquee intersection and containment geometry, selection-root normalization, deterministic navigation order, and top-level selection bounds.
+- Root minimap projection and all-depth focus/fit bounds from the shared geometry index.
+- Marquee intersection and containment geometry, selection-root normalization, deterministic navigation order, and combined selection bounds at every visible depth.
 - Section single/block sorting, free-move, grouping, ungrouping, orientation, batch subtree deletion, persistent stacking, resize, size mode, overflow, presentation, title, lock, and minimize reducers.
 - Movement and resize snapping at positive and negative coordinates.
 - Resize-axis, fixed/content promotion, minimum, maximum, and aspect-ratio constraint resolution.
@@ -1380,7 +1449,9 @@ Cover:
 - Unknown-kind handling.
 - Default, compact, transparent, and headerless chrome plus accent and tag presentation.
 - Recursive rendering across mixed vertical and horizontal layouts.
+- Root-node projection, recursive-DOM descendant measurement, geometry-index cleanup, and agreement among marquee, selection bounds, focus/fit, collision, and nested drop coordinates.
 - Sorting-mode and free-move-mode activation, preview, cancellation, and commit.
+- Mutual exclusion among XYFlow root drag, dnd-kit sorting/free-move, selected-block movement, and viewport gestures through pointer, touch, keyboard, cancellation, and runtime mode changes.
 - Single and sibling-block cross-depth movement, root normalization, grouping, ungrouping, and orientation changes.
 - Lock behavior for top-level and nested sections without disabling host content or descendants.
 - Minimize and expand behavior with exact fixed-size restoration, content-fit resumption, and focus restoration.
@@ -1392,6 +1463,7 @@ Cover:
 - Section and item drag scopes.
 - Input, button, and text-selection interaction.
 - Pointer cancellation.
+- Transient XYFlow position, resize, selection, viewport, and measurement events staying outside canonical document history until the package completion boundary.
 - Keyboard interactions.
 - Focus restoration.
 - Subscription and observer cleanup.
@@ -1405,6 +1477,8 @@ Cover the real playground:
 - Configure every viewport gesture family, use scrollable host content without moving the canvas, and operate the built-in and host-injected toolbar controls.
 - Navigate through the minimap and focus/fit helpers without losing selection or host state.
 - Marquee-select with partial and full containment, move the selected block, batch lock/delete, group, ungroup, and use explicit stacking commands.
+- Marquee-select and focus/fit nested descendants at unrelated depths, then verify their bounds agree with collision and drop geometry through pan, zoom, recursive reflow, grow/scroll changes, and minimization.
+- Focus interactive content in offscreen root and nested sections without producing an independent workbench-wrapper scroll offset or unexpected canvas movement.
 - Build a section tree to multiple depths, then move sections into, out of, and between nested containers.
 - Move selected sibling blocks through representative root and nested transitions and reject mixed-parent batch movement.
 - Reorder vertical and horizontal siblings in sorting mode.
@@ -1546,15 +1620,15 @@ The first implementation task should stop after one visible vertical slice:
 
 1. Create a dedicated implementation branch in a separate worktree, then create the isolated package and consumer fixture without copying the current frontend structure.
 2. Define and validate the minimal recursive `WorkspaceDocument`, including titles, presentation, fixed/content dimensions, grow/scroll child layout, canonical child lists, orientation, cycle rejection, and derived parent lookup.
-3. Through the public-API-only upstream XYFlow adapter, render a pannable and zoomable canvas with one configurable gesture policy, host-content wheel isolation, an independently toggleable snap grid, scoped light/dark theme tokens, the default toolbar, and a host-injected control.
+3. Through the documented-public-API upstream XYFlow adapter, render a pannable and zoomable canvas with the root-node projection boundary, one configurable gesture policy, host-content wheel isolation, an independently toggleable snap grid, scoped light/dark theme tokens, the default toolbar, and a host-injected control.
 4. Register note and container section kinds with searchable creation metadata, then smart-place and inline-rename a note from the context menu.
-5. Render a content-sized vertical growing container with two note children, one deeper horizontal container, and the empty-container affordance in an unused child container.
+5. Render a content-sized vertical growing container with two note children, one deeper horizontal container, and the empty-container affordance in an unused child container; register every visible frame in the shared geometry index without projecting the ordered descendants as independent spatial roots.
 6. Reorder the note children in sorting mode, switch the populated parent to fixed scroll overflow, scroll without panning, then restore grow mode.
-7. Free-move one note from the canvas into the nested container at multiple zoom levels, with snapping, cycle rejection, and a stable insertion preview.
-8. Marquee-select two top-level notes, move them while preserving relative offsets, group and ungroup them, and verify transient active stacking plus one explicit persistent stacking command.
+7. Free-move one note from the canvas into the nested container at multiple zoom levels, with snapping, cycle rejection, a stable insertion preview, and an explicit handoff from ordinary XYFlow root dragging to dnd-kit structural ownership without viewport leakage or duplicate movement.
+8. Marquee-select two top-level notes through the package selection model, move them while preserving relative offsets, group and ungroup them, and verify transient active stacking plus one explicit persistent stacking command and one document change per completed gesture.
 9. Resize, return to content sizing, lock, minimize, expand, recolor, and change the chrome of a note, then serialize and restore its hierarchy, orientation, size modes, overflow, lock, minimized state, title, and presentation.
-10. Render and navigate the representative document through the minimap and `focusSection`/`fitSections` controller helpers.
+10. Render and navigate the representative document through the root minimap and shared-geometry-backed `focusSection`/`fitSections` controller helpers, including a nested target and offscreen interactive focus without independent browser scrolling.
 11. Verify the packed package in the consumer fixture.
-12. Record the XYFlow adapter representation outcome, any proven missing upstream seam, the exact dnd-kit adapter and package-owned interaction-kernel boundary, license obligations, and the selected current Setta DnD, selection, smart-placement, gesture, resize/content-size, overflow, snap, lock, minimize, title, toolbar, minimap, chrome, color, and appearance behavior matrix.
+12. Record the XYFlow adapter representation, geometry-index, interaction-owner, transient-projection, public-store-access, and focus/scroll outcomes; any proven missing upstream seam; the exact dnd-kit adapter and package-owned interaction-kernel boundary; license obligations; and the selected current Setta DnD, selection, smart-placement, gesture, resize/content-size, overflow, snap, lock, minimize, title, toolbar, minimap, chrome, color, and appearance behavior matrix.
 
 Do not begin the item-tree implementation until this slice passes its package-boundary, browser, accessibility, recursive-structure, selection-root, target-stability, smart-placement, gesture-arbitration, sizing/overflow, snapping, theme-scoping, minimap, extension-surface, and coordinate-correctness checks. Horizontal reordering, every cross-depth direction, full keyboard parity, all grid patterns, complete light/dark visual coverage, external-drop integration, and every batch-movement direction remain later phase requirements even if this first slice proves only representative paths.
