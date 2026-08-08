@@ -108,23 +108,20 @@ export class WorkspaceGeometryMeasurements {
 
   setCanvasElement(element: HTMLElement | null): void {
     if (this.#canvasElement === element) {
+      this.#releaseRepeatedDetach(element);
       return;
     }
-    this.#canvasElement?.removeEventListener("scroll", this.#onScroll, true);
-    this.#window?.removeEventListener("resize", this.#onResize);
+    this.#removeCanvasListeners();
     this.#cancelScheduledMeasurement();
     this.#canvasElement = element;
     this.#window = element?.ownerDocument.defaultView ?? null;
-    element?.addEventListener("scroll", this.#onScroll, true);
-    this.#window?.addEventListener("resize", this.#onResize);
-    if (element) {
-      this.#measureAll();
-    } else {
-      this.#rejectPending("Workspace canvas geometry became unavailable before measurement.");
-      this.#rejectPendingViewports(
-        "Workspace canvas geometry became unavailable before the viewport synchronized.",
-      );
+    if (!element) {
+      this.#releaseDetachedGeometry();
+      return;
     }
+    element.addEventListener("scroll", this.#onScroll, true);
+    this.#window?.addEventListener("resize", this.#onResize);
+    this.#measureAll();
   }
 
   setViewport(viewport: ViewportTransform): void {
@@ -276,6 +273,30 @@ export class WorkspaceGeometryMeasurements {
       entry.registration = this.#geometryIndex.register(frame);
     }
     entry.frame = frame;
+  }
+
+  #releaseDetachedGeometry(): void {
+    this.#resizeObserver?.disconnect();
+    this.#resizeObserver = null;
+    for (const entry of this.#entries.values()) {
+      entry.registration?.dispose();
+    }
+    this.#entries.clear();
+    this.#rejectPending("Workspace canvas geometry became unavailable before measurement.");
+    this.#rejectPendingViewports(
+      "Workspace canvas geometry became unavailable before the viewport synchronized.",
+    );
+  }
+
+  #releaseRepeatedDetach(element: HTMLElement | null): void {
+    if (!element) {
+      this.#releaseDetachedGeometry();
+    }
+  }
+
+  #removeCanvasListeners(): void {
+    this.#canvasElement?.removeEventListener("scroll", this.#onScroll, true);
+    this.#window?.removeEventListener("resize", this.#onResize);
   }
 
   #requireResizeObserver(element: HTMLElement): ResizeObserver {

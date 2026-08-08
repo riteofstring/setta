@@ -1,5 +1,91 @@
 import { AxeBuilder } from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+
+import {
+  installWorkspaceLifecycleDiagnostics,
+  workspaceLifecycleSnapshot,
+} from "./workspace-lifecycle-diagnostics.js";
+
+type BrowserViewport = Readonly<{ x: number; y: number; zoom: number }>;
+
+async function waitForWorkspaceEffects(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+}
+
+async function canvasViewport(page: Page): Promise<BrowserViewport> {
+  const value = await page.getByTestId("canvas-shell-document").inputValue();
+  return (JSON.parse(value) as { viewport: BrowserViewport }).viewport;
+}
+
+async function resetCanvasViewport(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Reset viewport" }).click();
+  await expect.poll(() => canvasViewport(page)).toEqual({ x: 0, y: 0, zoom: 1 });
+  await expect
+    .poll(() => page.locator(".react-flow__viewport").getAttribute("style"))
+    .toContain("translate(0px, 0px) scale(1)");
+  await waitForWorkspaceEffects(page);
+}
+
+async function moveToOpenCanvas(page: Page): Promise<void> {
+  const canvas = page.getByRole("application", { name: "Canvas shell workspace canvas" });
+  await canvas.scrollIntoViewIfNeeded();
+  const bounds = await canvas.boundingBox();
+  if (!bounds) {
+    throw new Error("The canvas shell has no browser bounds.");
+  }
+  await page.mouse.move(bounds.x + bounds.width - 48, bounds.y + bounds.height / 2);
+}
+
+async function dragSurface(
+  page: Page,
+  surface: Locator,
+  button: "left" | "middle" = "left",
+): Promise<void> {
+  await surface.scrollIntoViewIfNeeded();
+  const bounds = await surface.boundingBox();
+  if (!bounds) {
+    throw new Error("The drag surface has no browser bounds.");
+  }
+  const start = { x: bounds.x + bounds.width * 0.72, y: bounds.y + bounds.height * 0.68 };
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down({ button });
+  await page.mouse.move(start.x - 72, start.y - 48, { steps: 6 });
+  await page.mouse.up({ button });
+}
+
+async function dragHostFixture(page: Page): Promise<void> {
+  const surface = page.locator(".canvas-shell-host-fixture");
+  await surface.scrollIntoViewIfNeeded();
+  const bounds = await surface.boundingBox();
+  if (!bounds) {
+    throw new Error("The host interaction fixture has no browser bounds.");
+  }
+  const start = { x: bounds.x + 6, y: bounds.y + 6 };
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + 64, start.y + 44, { steps: 6 });
+  await page.mouse.up();
+}
+
+async function dispatchPinchWheel(page: Page, deltaY: number): Promise<void> {
+  await page.locator(".react-flow__pane").evaluate((element, wheelDelta) => {
+    element.dispatchEvent(
+      new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        clientX: element.getBoundingClientRect().x + 120,
+        clientY: element.getBoundingClientRect().y + 120,
+        ctrlKey: true,
+        deltaY: wheelDelta,
+      }),
+    );
+  }, deltaY);
+}
 
 test("the blank workspace supports keyboard and assistive technology", async ({ page }) => {
   await page.goto("/");
@@ -166,6 +252,318 @@ test("the canvas shell coalesces viewport gestures and isolates host input", asy
 
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
+});
+
+test("the canvas shell honors the complete runtime gesture matrix", async ({ page }) => {
+  await page.goto("/?canvas-shell");
+
+  const canvas = page.getByRole("application", { name: "Canvas shell workspace canvas" });
+  const pane = page.locator(".react-flow__pane");
+  const panWithWheel = page.getByRole("checkbox", { name: "Pan with wheel" });
+  const zoomWithWheel = page.getByRole("checkbox", { name: "Zoom with wheel" });
+  const pinchToZoom = page.getByRole("checkbox", { name: "Pinch to zoom" });
+  const doubleClickToZoom = page.getByRole("checkbox", { name: "Double-click to zoom" });
+  const blockHostPan = page.getByRole("checkbox", {
+    name: "Block canvas pan from host content",
+  });
+  const blockHostWheel = page.getByRole("checkbox", {
+    name: "Block canvas wheel from host content",
+  });
+  const dragToPan = page.getByLabel("Drag to pan");
+  const wheelDirection = page.getByLabel("Wheel pan direction");
+  const wheelSpeed = page.getByLabel("Wheel pan speed");
+
+  await wheelDirection.selectOption("horizontal");
+  await expect(canvas).toHaveAttribute("data-workspace-pan-on-scroll-mode", "horizontal");
+  await waitForWorkspaceEffects(page);
+  await resetCanvasViewport(page);
+  await moveToOpenCanvas(page);
+  await page.mouse.wheel(120, 180);
+  await expect
+    .poll(async () => {
+      const viewport = await canvasViewport(page);
+      return { movedX: viewport.x !== 0, y: viewport.y, zoom: viewport.zoom };
+    })
+    .toEqual({ movedX: true, y: 0, zoom: 1 });
+
+  await wheelDirection.selectOption("vertical");
+  await expect(canvas).toHaveAttribute("data-workspace-pan-on-scroll-mode", "vertical");
+  await waitForWorkspaceEffects(page);
+  await resetCanvasViewport(page);
+  await moveToOpenCanvas(page);
+  await page.mouse.wheel(120, 180);
+  await expect
+    .poll(async () => {
+      const viewport = await canvasViewport(page);
+      return { movedY: viewport.y !== 0, x: viewport.x, zoom: viewport.zoom };
+    })
+    .toEqual({ movedY: true, x: 0, zoom: 1 });
+
+  await wheelDirection.selectOption("free");
+  await expect(canvas).toHaveAttribute("data-workspace-pan-on-scroll-mode", "free");
+  await waitForWorkspaceEffects(page);
+  await resetCanvasViewport(page);
+  await moveToOpenCanvas(page);
+  await page.mouse.wheel(120, 180);
+  await expect
+    .poll(async () => {
+      const viewport = await canvasViewport(page);
+      return { movedX: viewport.x !== 0, movedY: viewport.y !== 0, zoom: viewport.zoom };
+    })
+    .toEqual({ movedX: true, movedY: true, zoom: 1 });
+
+  await wheelDirection.selectOption("horizontal");
+  await wheelSpeed.selectOption("0.25");
+  await expect(canvas).toHaveAttribute("data-workspace-pan-on-scroll-speed", "0.25");
+  await waitForWorkspaceEffects(page);
+  await resetCanvasViewport(page);
+  await moveToOpenCanvas(page);
+  await page.mouse.wheel(160, 0);
+  await expect.poll(async () => (await canvasViewport(page)).x).not.toBe(0);
+  const slowPan = Math.abs((await canvasViewport(page)).x);
+  await wheelSpeed.selectOption("1");
+  await expect(canvas).toHaveAttribute("data-workspace-pan-on-scroll-speed", "1");
+  await waitForWorkspaceEffects(page);
+  await resetCanvasViewport(page);
+  await moveToOpenCanvas(page);
+  await page.mouse.wheel(160, 0);
+  await expect
+    .poll(async () => Math.abs((await canvasViewport(page)).x))
+    .toBeGreaterThan(slowPan * 2);
+
+  await zoomWithWheel.check();
+  await wheelDirection.selectOption("vertical");
+  await expect(canvas).toHaveAttribute("data-workspace-pan-on-scroll-mode", "vertical");
+  await waitForWorkspaceEffects(page);
+  await resetCanvasViewport(page);
+  await moveToOpenCanvas(page);
+  await page.mouse.wheel(0, -180);
+  await expect
+    .poll(async () => {
+      const viewport = await canvasViewport(page);
+      return { movedY: viewport.y !== 0, zoom: viewport.zoom };
+    })
+    .toEqual({ movedY: true, zoom: 1 });
+  await page.keyboard.down("Alt");
+  await page.waitForTimeout(50);
+  await moveToOpenCanvas(page);
+  await page.mouse.wheel(0, -180);
+  await page.keyboard.up("Alt");
+  await expect.poll(async () => (await canvasViewport(page)).zoom).toBeGreaterThan(1);
+
+  await panWithWheel.uncheck();
+  await resetCanvasViewport(page);
+  await moveToOpenCanvas(page);
+  await page.mouse.wheel(0, -2_000);
+  await expect.poll(async () => (await canvasViewport(page)).zoom).toBe(2);
+  await moveToOpenCanvas(page);
+  await page.mouse.wheel(0, 4_000);
+  await expect.poll(async () => (await canvasViewport(page)).zoom).toBe(0.5);
+
+  await zoomWithWheel.uncheck();
+  await waitForWorkspaceEffects(page);
+  await resetCanvasViewport(page);
+  await moveToOpenCanvas(page);
+  await page.mouse.wheel(0, -180);
+  await page.waitForTimeout(220);
+  expect(await canvasViewport(page)).toEqual({ x: 0, y: 0, zoom: 1 });
+  await page.keyboard.down("Alt");
+  await page.waitForTimeout(50);
+  await moveToOpenCanvas(page);
+  await page.mouse.wheel(0, -180);
+  await page.keyboard.up("Alt");
+  await expect.poll(async () => (await canvasViewport(page)).zoom).toBeGreaterThan(1);
+
+  await resetCanvasViewport(page);
+  await dispatchPinchWheel(page, -180);
+  await expect.poll(async () => (await canvasViewport(page)).zoom).toBeGreaterThan(1);
+  await pinchToZoom.uncheck();
+  await waitForWorkspaceEffects(page);
+  await resetCanvasViewport(page);
+  await dispatchPinchWheel(page, -180);
+  await page.waitForTimeout(220);
+  expect(await canvasViewport(page)).toEqual({ x: 0, y: 0, zoom: 1 });
+
+  await pane.dblclick({ position: { x: 420, y: 260 } });
+  await expect.poll(async () => (await canvasViewport(page)).zoom).toBe(2);
+  await doubleClickToZoom.uncheck();
+  await waitForWorkspaceEffects(page);
+  await resetCanvasViewport(page);
+  await pane.dblclick({ position: { x: 420, y: 260 } });
+  await page.waitForTimeout(220);
+  expect(await canvasViewport(page)).toEqual({ x: 0, y: 0, zoom: 1 });
+
+  await dragToPan.selectOption("disabled");
+  await waitForWorkspaceEffects(page);
+  await dragSurface(page, pane);
+  await page.waitForTimeout(50);
+  expect(await canvasViewport(page)).toEqual({ x: 0, y: 0, zoom: 1 });
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.down("Space");
+  await page.waitForTimeout(50);
+  await dragSurface(page, pane);
+  await page.keyboard.up("Space");
+  await expect
+    .poll(async () => {
+      const viewport = await canvasViewport(page);
+      return viewport.x !== 0 && viewport.y !== 0;
+    })
+    .toBe(true);
+
+  await dragToPan.selectOption("all");
+  await waitForWorkspaceEffects(page);
+  await resetCanvasViewport(page);
+  await dragSurface(page, pane);
+  await expect
+    .poll(async () => {
+      const viewport = await canvasViewport(page);
+      return viewport.x !== 0 && viewport.y !== 0;
+    })
+    .toBe(true);
+  await resetCanvasViewport(page);
+  await dragSurface(page, pane, "middle");
+  await expect
+    .poll(async () => {
+      const viewport = await canvasViewport(page);
+      return viewport.x !== 0 && viewport.y !== 0;
+    })
+    .toBe(true);
+
+  await dragToPan.selectOption("middle");
+  await waitForWorkspaceEffects(page);
+  await resetCanvasViewport(page);
+  await dragSurface(page, pane);
+  await page.waitForTimeout(50);
+  expect(await canvasViewport(page)).toEqual({ x: 0, y: 0, zoom: 1 });
+  await dragSurface(page, pane, "middle");
+  await expect
+    .poll(async () => {
+      const viewport = await canvasViewport(page);
+      return viewport.x !== 0 && viewport.y !== 0;
+    })
+    .toBe(true);
+
+  await dragToPan.selectOption("primary");
+  await waitForWorkspaceEffects(page);
+  await resetCanvasViewport(page);
+  await dragHostFixture(page);
+  await page.waitForTimeout(50);
+  expect(await canvasViewport(page)).toEqual({ x: 0, y: 0, zoom: 1 });
+  await blockHostPan.uncheck();
+  await waitForWorkspaceEffects(page);
+  await dragHostFixture(page);
+  await expect
+    .poll(async () => {
+      const viewport = await canvasViewport(page);
+      return viewport.x !== 0 && viewport.y !== 0;
+    })
+    .toBe(true);
+
+  await blockHostPan.check();
+  await panWithWheel.uncheck();
+  await zoomWithWheel.check();
+  await waitForWorkspaceEffects(page);
+  await resetCanvasViewport(page);
+  const scrollFixture = page.getByRole("textbox", { name: "Scrollable host content" });
+  await scrollFixture.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await scrollFixture.hover();
+  await page.mouse.wheel(0, 180);
+  await expect
+    .poll(() => scrollFixture.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  expect(await canvasViewport(page)).toEqual({ x: 0, y: 0, zoom: 1 });
+  await blockHostWheel.uncheck();
+  await waitForWorkspaceEffects(page);
+  await scrollFixture.hover();
+  await page.mouse.wheel(0, -180);
+  await expect.poll(async () => (await canvasViewport(page)).zoom).toBeGreaterThan(1);
+
+  const accessibility = await new AxeBuilder({ page }).include("main").analyze();
+  expect(accessibility.violations).toEqual([]);
+});
+
+test("the canvas shell releases lifecycle resources and restores its persisted viewport", async ({
+  page,
+}) => {
+  await installWorkspaceLifecycleDiagnostics(page);
+  await page.goto("/?canvas-shell");
+
+  const mountCanvas = page.getByRole("checkbox", { name: "Mount workspace canvas" });
+  const canvas = page.getByRole("application", { name: "Canvas shell workspace canvas" });
+  await page.getByRole("button", { name: "Load navigation fixture" }).click();
+  await page.getByRole("button", { name: "Set grid probe viewport" }).click();
+  const persistedViewport = await canvasViewport(page);
+  expect(persistedViewport).toEqual({ x: -37, y: 53, zoom: 1.5 });
+
+  await mountCanvas.uncheck();
+  await expect(canvas).toHaveCount(0);
+  const detachedBaseline = await workspaceLifecycleSnapshot(page);
+  expect(detachedBaseline.geometryTargets).toBe(0);
+
+  await mountCanvas.check();
+  await expect(canvas).toBeVisible();
+  await expect(page.getByRole("article", { name: "Alpha frame" })).toBeAttached();
+  await expect
+    .poll(() => page.locator(".react-flow__viewport").getAttribute("style"))
+    .toContain("translate(-37px, 53px) scale(1.5)");
+  const mountedResources = await workspaceLifecycleSnapshot(page);
+  expect(mountedResources.geometryTargets).toBe(3);
+  expect(mountedResources.globalListeners).toBeGreaterThan(detachedBaseline.globalListeners);
+
+  await moveToOpenCanvas(page);
+  await page.mouse.wheel(0, 240);
+  await mountCanvas.evaluate((element: HTMLInputElement) => element.click());
+  await expect(canvas).toHaveCount(0);
+  await page.waitForTimeout(250);
+  expect(await canvasViewport(page)).toEqual(persistedViewport);
+  await expect.poll(() => workspaceLifecycleSnapshot(page)).toEqual(detachedBaseline);
+
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("resize"));
+    document.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", key: " " }));
+    document.dispatchEvent(new KeyboardEvent("keyup", { code: "Space", key: " " }));
+  });
+  await page.waitForTimeout(50);
+  expect(await canvasViewport(page)).toEqual(persistedViewport);
+
+  await mountCanvas.check();
+  await expect(canvas).toBeVisible();
+  await expect
+    .poll(() => page.locator(".react-flow__viewport").getAttribute("style"))
+    .toContain("translate(-37px, 53px) scale(1.5)");
+  expect(await canvasViewport(page)).toEqual(persistedViewport);
+
+  await page.getByLabel("Drag to pan").selectOption("primary");
+  const pane = page.locator(".react-flow__pane");
+  await pane.scrollIntoViewIfNeeded();
+  const paneBounds = await pane.boundingBox();
+  if (!paneBounds) {
+    throw new Error("The remounted canvas pane has no browser bounds.");
+  }
+  const dragStart = {
+    x: paneBounds.x + paneBounds.width * 0.72,
+    y: paneBounds.y + paneBounds.height * 0.68,
+  };
+  await page.mouse.move(dragStart.x, dragStart.y);
+  await page.mouse.down();
+  await page.mouse.move(dragStart.x - 48, dragStart.y - 32, { steps: 4 });
+  const activeDragResources = await workspaceLifecycleSnapshot(page);
+  expect(activeDragResources.globalListeners).toBeGreaterThan(mountedResources.globalListeners);
+
+  await mountCanvas.evaluate((element: HTMLInputElement) => element.click());
+  await expect(canvas).toHaveCount(0);
+  await page.mouse.up();
+  expect(await canvasViewport(page)).toEqual(persistedViewport);
+  await expect.poll(() => workspaceLifecycleSnapshot(page)).toEqual(detachedBaseline);
+
+  await mountCanvas.check();
+  await expect(canvas).toBeVisible();
+  await expect
+    .poll(() => page.locator(".react-flow__viewport").getAttribute("style"))
+    .toContain("translate(-37px, 53px) scale(1.5)");
+  expect(await canvasViewport(page)).toEqual(persistedViewport);
 });
 
 test("the canvas toolbar, host extensions, and empty minimap synchronize and clean up", async ({

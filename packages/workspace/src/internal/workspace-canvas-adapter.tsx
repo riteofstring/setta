@@ -3,9 +3,7 @@ import {
   Background,
   BackgroundVariant,
   MiniMap,
-  PanOnScrollMode,
   ReactFlow,
-  useReactFlow,
   useStore,
   useViewport,
   ViewportPortal,
@@ -23,7 +21,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type MutableRefObject,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
@@ -33,7 +30,6 @@ import type {
   WorkspaceDocument,
   WorkspaceGestureOptions,
   WorkspaceJsonValue,
-  WorkspacePanOnScrollMode,
   WorkspaceViewport,
 } from "../core.js";
 import type {
@@ -43,6 +39,7 @@ import type {
   WorkspaceToolbarControlPlacement,
 } from "../react.js";
 import { WorkspaceGeometryIndex } from "./geometry-index.js";
+import { createWorkspaceCanvasGesturePolicy } from "./workspace-canvas-gesture-policy.js";
 import { projectWorkspaceCanvasRoots, type WorkspaceCanvasRoot } from "./workspace-canvas-model.js";
 import {
   createWorkspaceCanvasController,
@@ -51,6 +48,10 @@ import {
 import { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
 import { WorkspaceViewportLifecycle } from "./workspace-viewport-lifecycle.js";
+import {
+  workspaceViewportsMatch,
+  WorkspaceViewportSynchronizer,
+} from "./workspace-viewport-synchronizer.js";
 
 export const WORKSPACE_NO_PAN_CLASS_NAME = "setta-workspace-internal-no-pan";
 export const WORKSPACE_NO_WHEEL_CLASS_NAME = "setta-workspace-internal-no-wheel";
@@ -178,16 +179,6 @@ function synchronizeNodes(
         }
       : node;
   });
-}
-
-function panOnScrollMode(mode: WorkspacePanOnScrollMode): PanOnScrollMode {
-  if (mode === "horizontal") {
-    return PanOnScrollMode.Horizontal;
-  }
-  if (mode === "vertical") {
-    return PanOnScrollMode.Vertical;
-  }
-  return PanOnScrollMode.Free;
 }
 
 function backgroundVariant(pattern: ResolvedWorkspaceGridOptions["pattern"]): BackgroundVariant {
@@ -519,7 +510,7 @@ function WorkspaceToolbar<TSectionData>({
   const pendingViewportRef = useRef<WorkspaceViewport | null>(null);
   useEffect(() => {
     const pendingViewport = pendingViewportRef.current;
-    if (pendingViewport && viewportsMatch(pendingViewport, viewport)) {
+    if (pendingViewport && workspaceViewportsMatch(pendingViewport, viewport)) {
       pendingViewportRef.current = null;
     }
   }, [viewport]);
@@ -727,55 +718,6 @@ function WorkspaceMinimap({
   );
 }
 
-function mutableKeyCode(
-  value: WorkspaceGestureOptions["panActivationKey"],
-): string | string[] | null {
-  return value === null || typeof value === "string" ? value : [...value];
-}
-
-function mutablePanOnDrag(value: WorkspaceGestureOptions["panOnDrag"]): boolean | number[] {
-  return typeof value === "boolean" ? value : [...value];
-}
-
-function viewportsMatch(first: WorkspaceViewport, second: WorkspaceViewport): boolean {
-  return first.x === second.x && first.y === second.y && first.zoom === second.zoom;
-}
-
-function WorkspaceViewportSynchronizer({
-  geometry,
-  lifecycle,
-  programmaticViewportRef,
-  viewport,
-}: Readonly<{
-  geometry: WorkspaceGeometryMeasurements;
-  lifecycle: WorkspaceViewportLifecycle;
-  programmaticViewportRef: MutableRefObject<WorkspaceViewport | null>;
-  viewport: WorkspaceViewport;
-}>) {
-  const instance = useReactFlow<WorkspaceRootNode>();
-
-  useEffect(() => {
-    const maySynchronize = lifecycle.synchronize(viewport);
-    if (!maySynchronize || !instance.viewportInitialized) {
-      return;
-    }
-    const current = instance.getViewport();
-    if (viewportsMatch(current, viewport)) {
-      geometry.completeViewport(viewport);
-      return;
-    }
-    programmaticViewportRef.current = viewport;
-    void instance.setViewport(viewport).then(() => {
-      lifecycle.complete(viewport);
-      geometry.completeViewport(viewport);
-      geometry.flushMeasurement();
-      programmaticViewportRef.current = null;
-    });
-  }, [geometry, instance, lifecycle, programmaticViewportRef, viewport]);
-
-  return null;
-}
-
 function viewportFromUpstream(viewport: Viewport): WorkspaceViewport {
   return { x: viewport.x, y: viewport.y, zoom: viewport.zoom };
 }
@@ -784,14 +726,19 @@ function advanceViewportLifecycle(
   lifecycle: WorkspaceViewportLifecycle,
   viewport: WorkspaceViewport,
   programmaticViewport: WorkspaceViewport | null,
+  event: MouseEvent | TouchEvent | null,
   phase: "begin" | "update",
 ) {
-  if (programmaticViewport) {
+  if (!event && programmaticViewport) {
     lifecycle.synchronize(viewport);
     return;
   }
   if (phase === "begin") {
-    lifecycle.begin(viewport);
+    if (lifecycle.isActive()) {
+      lifecycle.update(viewport);
+    } else {
+      lifecycle.begin(viewport);
+    }
     return;
   }
   lifecycle.update(viewport);
@@ -836,6 +783,11 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   lifecycleRef.current ??= new WorkspaceViewportLifecycle(document.viewport);
   const lifecycle = lifecycleRef.current;
   const programmaticViewportRef = useRef<WorkspaceViewport | null>(null);
+  const canvasMountedRef = useRef(false);
+  const canvasGesturePolicy = useMemo(
+    () => createWorkspaceCanvasGesturePolicy(gestureOptions),
+    [gestureOptions],
+  );
   const snapGrid = useMemo<[number, number]>(
     () => [gridOptions.spacing[0], gridOptions.spacing[1]],
     [gridOptions.spacing],
@@ -860,33 +812,78 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     [geometry],
   );
   const handleCanvasElement = useCallback(
-    (element: HTMLDivElement | null) => geometry.setCanvasElement(element),
-    [geometry],
+    (element: HTMLDivElement | null) => {
+      canvasMountedRef.current = element !== null;
+      if (!element) {
+        const baseline = lifecycle.cancel();
+        if (baseline) {
+          geometry.setViewport(baseline);
+        }
+        programmaticViewportRef.current = null;
+      }
+      geometry.setCanvasElement(element);
+    },
+    [geometry, lifecycle],
   );
   const handleMoveStart = useCallback(
-    (_event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
+    (event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
+      if (!canvasMountedRef.current) {
+        return;
+      }
+      if (event) {
+        programmaticViewportRef.current = null;
+      }
       const nextViewport = viewportFromUpstream(viewport);
       geometry.setViewport(nextViewport);
-      advanceViewportLifecycle(lifecycle, nextViewport, programmaticViewportRef.current, "begin");
+      advanceViewportLifecycle(
+        lifecycle,
+        nextViewport,
+        programmaticViewportRef.current,
+        event,
+        "begin",
+      );
     },
     [geometry, lifecycle],
   );
   const handleMove = useCallback(
-    (_event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
+    (event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
+      if (!canvasMountedRef.current) {
+        return;
+      }
       const nextViewport = viewportFromUpstream(viewport);
       geometry.setViewport(nextViewport);
-      advanceViewportLifecycle(lifecycle, nextViewport, programmaticViewportRef.current, "update");
+      advanceViewportLifecycle(
+        lifecycle,
+        nextViewport,
+        programmaticViewportRef.current,
+        event,
+        "update",
+      );
     },
     [geometry, lifecycle],
   );
   const handleMoveEnd = useCallback(
-    (_event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
-      const nextViewport = viewportFromUpstream(viewport);
-      geometry.setViewport(nextViewport);
-      if (programmaticViewportRef.current) {
-        lifecycle.synchronize(nextViewport);
+    (event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
+      if (!canvasMountedRef.current) {
         return;
       }
+      const nextViewport = viewportFromUpstream(viewport);
+      if (!event) {
+        if (
+          workspaceViewportsMatch(programmaticViewportRef.current ?? nextViewport, nextViewport)
+        ) {
+          if (!lifecycle.isActive()) {
+            geometry.completeViewport(nextViewport);
+            lifecycle.synchronize(nextViewport);
+          }
+          programmaticViewportRef.current = null;
+        }
+        return;
+      }
+      if (!workspaceViewportsMatch(lifecycle.current(), nextViewport)) {
+        return;
+      }
+      geometry.setViewport(nextViewport);
       const completed = lifecycle.complete(nextViewport);
       if (completed) {
         onViewportCommit(completed);
@@ -904,6 +901,8 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       data-workspace-grid-snap={gridOptions.snap ? "true" : "false"}
       data-workspace-grid-spacing={gridOptions.spacing.join(" ")}
       data-workspace-grid-visible={gridOptions.visible ? "true" : "false"}
+      data-workspace-pan-on-scroll-mode={gestureOptions.panOnScrollMode}
+      data-workspace-pan-on-scroll-speed={gestureOptions.panOnScrollSpeed}
       defaultViewport={document.viewport}
       deleteKeyCode={null}
       disableKeyboardA11y
@@ -911,8 +910,8 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       edgesFocusable={false}
       elementsSelectable={false}
       id={canvasId}
-      maxZoom={gestureOptions.maxZoom}
-      minZoom={gestureOptions.minZoom}
+      maxZoom={canvasGesturePolicy.maxZoom}
+      minZoom={canvasGesturePolicy.minZoom}
       multiSelectionKeyCode={null}
       noPanClassName={WORKSPACE_NO_PAN_CLASS_NAME}
       noWheelClassName={WORKSPACE_NO_WHEEL_CLASS_NAME}
@@ -925,22 +924,22 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       onMoveEnd={handleMoveEnd}
       onMoveStart={handleMoveStart}
       onNodesChange={handleNodesChange}
-      panActivationKeyCode={mutableKeyCode(gestureOptions.panActivationKey)}
-      panOnDrag={mutablePanOnDrag(gestureOptions.panOnDrag)}
-      panOnScroll={gestureOptions.panOnScroll}
-      panOnScrollMode={panOnScrollMode(gestureOptions.panOnScrollMode)}
-      panOnScrollSpeed={gestureOptions.panOnScrollSpeed}
-      preventScrolling={gestureOptions.panOnScroll || gestureOptions.zoomOnScroll}
+      panActivationKeyCode={canvasGesturePolicy.panActivationKeyCode}
+      panOnDrag={canvasGesturePolicy.panOnDrag}
+      panOnScroll={canvasGesturePolicy.panOnScroll}
+      panOnScrollMode={canvasGesturePolicy.panOnScrollMode}
+      panOnScrollSpeed={canvasGesturePolicy.panOnScrollSpeed}
+      preventScrolling={canvasGesturePolicy.preventScrolling}
       proOptions={{ hideAttribution: false }}
       ref={handleCanvasElement}
       selectionKeyCode={null}
       selectionOnDrag={false}
       snapGrid={snapGrid}
       snapToGrid={gridOptions.snap}
-      zoomActivationKeyCode={mutableKeyCode(gestureOptions.zoomActivationKey)}
-      zoomOnDoubleClick={gestureOptions.zoomOnDoubleClick}
-      zoomOnPinch={gestureOptions.zoomOnPinch}
-      zoomOnScroll={gestureOptions.zoomOnScroll}
+      zoomActivationKeyCode={canvasGesturePolicy.zoomActivationKeyCode}
+      zoomOnDoubleClick={canvasGesturePolicy.zoomOnDoubleClick}
+      zoomOnPinch={canvasGesturePolicy.zoomOnPinch}
+      zoomOnScroll={canvasGesturePolicy.zoomOnScroll}
     >
       {gridOptions.visible ? (
         <WorkspaceGridBackground
@@ -951,10 +950,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       ) : null}
       {hasOverlayContent(overlaySlots.canvas) ? (
         <ViewportPortal>
-          <div
-            className={`setta-workspace__host-overlay ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
-            data-workspace-overlay-placement="canvas"
-          >
+          <div className="setta-workspace__host-overlay" data-workspace-overlay-placement="canvas">
             {overlaySlots.canvas}
           </div>
         </ViewportPortal>

@@ -57,7 +57,8 @@ content remain available.
 `gestureOptions` configures pan-on-drag, pan-on-scroll, wheel, pinch, double-click zoom, zoom bounds,
 scroll direction and speed, and temporary activation keys without exposing XYFlow types. The
 document viewport must be inside the configured bounds so a valid persisted viewport restores
-exactly instead of being silently clamped.
+exactly instead of being silently clamped. Temporary wheel zoom remains available when ordinary
+wheel zoom is disabled, and the adapter coordinates native scrolling with the active wheel policy.
 
 `gridOptions` keeps grid visibility and spatial snapping independent while sharing one two-axis
 spacing in workbench units. Dot, line, and cross backgrounds stay phased with the viewport across
@@ -91,7 +92,12 @@ controlled; keep the corresponding option and callback ownership mode stable for
 Wrap interactive or scrollable content rendered inside the canvas with
 `WorkspaceInteractionBoundary`. It independently suppresses canvas panning and wheel handling while
 leaving the host control usable; consumers do not need to know the adapter's internal marker class
-names.
+names. The transformed canvas-slot wrapper is neutral, so setting either boundary option to `false`
+deliberately returns that gesture family to the canvas.
+
+Unmounting the workspace cancels an active transient viewport gesture, releases its persistent
+geometry observers and global listeners, rejects pending measurement subscriptions, and leaves the
+accepted document viewport unchanged for an exact later remount.
 
 The controller's measured navigation helpers wait for visible frame geometry, commit one canonical
 viewport change, and resolve after the upstream viewport has synchronized. `focusSection` preserves

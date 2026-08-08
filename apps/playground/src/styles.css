@@ -252,6 +252,13 @@ main {
   gap: 0.375rem;
 }
 
+.canvas-shell-settings-hint {
+  flex-basis: 100%;
+  margin: 0;
+  color: #45536c;
+  line-height: 1.5;
+}
+
 .canvas-shell-settings button,
 .canvas-shell-settings select,
 .canvas-shell-host-fixture input,
@@ -389,7 +396,8 @@ main {
   }
 
   .lede,
-  .announcement {
+  .announcement,
+  .canvas-shell-settings-hint {
     color: #b7c4da;
   }
 

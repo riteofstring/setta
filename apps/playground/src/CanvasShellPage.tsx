@@ -3,6 +3,7 @@ import {
   type WorkspaceAppearance,
   type WorkspaceController,
   type WorkspaceDocument,
+  type WorkspaceGestureOptions,
   type WorkspaceGridPattern,
   type WorkspacePanOnScrollMode,
   type WorkspaceSection,
@@ -63,6 +64,21 @@ const scrollFixture = Array.from(
 ).join("\n");
 const HOST_EXTENSIONS_DEFAULT_QUERY = "(min-width: 40rem)";
 
+type PanOnDragMode = "all" | "disabled" | "middle" | "primary";
+
+function panOnDrag(mode: PanOnDragMode): WorkspaceGestureOptions["panOnDrag"] {
+  if (mode === "disabled") {
+    return false;
+  }
+  if (mode === "middle") {
+    return [1];
+  }
+  if (mode === "primary") {
+    return [0];
+  }
+  return true;
+}
+
 function navigationSection(id: string, title: string): WorkspaceSection {
   return {
     childLayout: null,
@@ -108,11 +124,18 @@ export function CanvasShellPage() {
   const [gridVisible, setGridVisible] = useState(true);
   const [minimapPlacement, setMinimapPlacement] = useState<WorkspaceMinimapPlacement>("right");
   const [minimapVisible, setMinimapVisible] = useState(true);
+  const [panOnDragMode, setPanOnDragMode] = useState<PanOnDragMode>("all");
   const [panOnScroll, setPanOnScroll] = useState(true);
   const [panOnScrollMode, setPanOnScrollMode] = useState<WorkspacePanOnScrollMode>("free");
+  const [panOnScrollSpeed, setPanOnScrollSpeed] = useState(0.5);
+  const [preventHostPan, setPreventHostPan] = useState(true);
+  const [preventHostWheel, setPreventHostWheel] = useState(true);
   const [showHostExtensions, setShowHostExtensions] = useState(
     () => window.matchMedia(HOST_EXTENSIONS_DEFAULT_QUERY).matches,
   );
+  const [workspaceMounted, setWorkspaceMounted] = useState(true);
+  const [zoomOnDoubleClick, setZoomOnDoubleClick] = useState(true);
+  const [zoomOnPinch, setZoomOnPinch] = useState(true);
   const [zoomOnScroll, setZoomOnScroll] = useState(false);
   const [status, setStatus] = useState("Canvas ready.");
 
@@ -191,20 +214,24 @@ export function CanvasShellPage() {
           <fieldset className="canvas-shell-settings">
             <legend>Viewport gestures</legend>
             <label>
+              Drag to pan
+              <select
+                onChange={(event) => setPanOnDragMode(event.currentTarget.value as PanOnDragMode)}
+                value={panOnDragMode}
+              >
+                <option value="disabled">Disabled</option>
+                <option value="primary">Primary button</option>
+                <option value="middle">Middle button</option>
+                <option value="all">Primary or middle</option>
+              </select>
+            </label>
+            <label>
               <input
                 checked={panOnScroll}
                 onChange={(event) => setPanOnScroll(event.currentTarget.checked)}
                 type="checkbox"
               />
               Pan with wheel
-            </label>
-            <label>
-              <input
-                checked={zoomOnScroll}
-                onChange={(event) => setZoomOnScroll(event.currentTarget.checked)}
-                type="checkbox"
-              />
-              Zoom with wheel
             </label>
             <label>
               Wheel pan direction
@@ -219,6 +246,48 @@ export function CanvasShellPage() {
                 <option value="vertical">Vertical</option>
               </select>
             </label>
+            <label>
+              Wheel pan speed
+              <select
+                onChange={(event) => setPanOnScrollSpeed(Number(event.currentTarget.value))}
+                value={panOnScrollSpeed}
+              >
+                <option value="0.25">Slow</option>
+                <option value="0.5">Default</option>
+                <option value="1">Fast</option>
+              </select>
+            </label>
+            <p className="canvas-shell-settings-hint">Hold Space to pan temporarily.</p>
+          </fieldset>
+          <fieldset className="canvas-shell-settings">
+            <legend>Zoom gestures</legend>
+            <label>
+              <input
+                checked={zoomOnScroll}
+                onChange={(event) => setZoomOnScroll(event.currentTarget.checked)}
+                type="checkbox"
+              />
+              Zoom with wheel
+            </label>
+            <label>
+              <input
+                checked={zoomOnPinch}
+                onChange={(event) => setZoomOnPinch(event.currentTarget.checked)}
+                type="checkbox"
+              />
+              Pinch to zoom
+            </label>
+            <label>
+              <input
+                checked={zoomOnDoubleClick}
+                onChange={(event) => setZoomOnDoubleClick(event.currentTarget.checked)}
+                type="checkbox"
+              />
+              Double-click to zoom
+            </label>
+            <p className="canvas-shell-settings-hint">
+              Hold Alt to zoom with the wheel temporarily.
+            </p>
           </fieldset>
           <fieldset className="canvas-shell-settings">
             <legend>Canvas preferences</legend>
@@ -278,6 +347,36 @@ export function CanvasShellPage() {
                 type="checkbox"
               />
               Show host extensions
+            </label>
+          </fieldset>
+          <fieldset className="canvas-shell-settings">
+            <legend>Canvas lifecycle</legend>
+            <label>
+              <input
+                checked={preventHostPan}
+                onChange={(event) => setPreventHostPan(event.currentTarget.checked)}
+                type="checkbox"
+              />
+              Block canvas pan from host content
+            </label>
+            <label>
+              <input
+                checked={preventHostWheel}
+                onChange={(event) => setPreventHostWheel(event.currentTarget.checked)}
+                type="checkbox"
+              />
+              Block canvas wheel from host content
+            </label>
+            <label>
+              <input
+                checked={workspaceMounted}
+                onChange={(event) => {
+                  setWorkspaceMounted(event.currentTarget.checked);
+                  setStatus(event.currentTarget.checked ? "Canvas mounted." : "Canvas unmounted.");
+                }}
+                type="checkbox"
+              />
+              Mount workspace canvas
             </label>
           </fieldset>
           <fieldset className="canvas-shell-settings">
@@ -350,83 +449,91 @@ export function CanvasShellPage() {
         <p className="announcement" role="status" aria-live="polite">
           {status} Committed viewport changes: {changeCount}.
         </p>
-        <Workspace
-          ariaLabel="Canvas shell workspace"
-          appearanceOptions={
-            customGridColor
-              ? {
-                  appearance,
-                  dark: { gridColor: "oklch(0.68 0.11 305)" },
-                  light: { gridColor: "oklch(0.58 0.12 305)" },
-                }
-              : { appearance }
-          }
-          controllerRef={controller}
-          document={document}
-          emptyState="No sections yet. Use the gesture controls to explore the canvas."
-          gestureOptions={{
-            initialZoom: 1,
-            maxZoom: 2,
-            minZoom: 0.5,
-            panOnDrag: true,
-            panOnScroll,
-            panOnScrollMode,
-            zoomOnDoubleClick: true,
-            zoomOnScroll,
-          }}
-          gridOptions={{
-            markSize: 1,
-            pattern: gridPattern,
-            snap: gridSnap,
-            spacing: [24, 24],
-            visible: gridVisible,
-          }}
-          minimapOptions={{ placement: minimapPlacement, visible: minimapVisible }}
-          onDocumentChange={(nextDocument, change) => {
-            setDocument(nextDocument);
-            setChangeCount((count) => count + 1);
-            setStatus(`Document change: ${change.reason}.`);
-          }}
-          onGridSnapChange={setGridSnap}
-          onMinimapVisibilityChange={setMinimapVisible}
-          overlaySlots={{
-            canvas: () => (
-              <WorkspaceInteractionBoundary
-                className="canvas-shell-host-fixture"
-                hidden={!showHostExtensions}
-              >
-                <label>
-                  Host note
-                  <input name="canvas-shell-note" />
-                </label>
-                <label>
-                  Scrollable host content
-                  <textarea
-                    data-testid="canvas-shell-scroll-fixture"
-                    readOnly
-                    rows={5}
-                    spellCheck={false}
-                    value={scrollFixture}
-                  />
-                </label>
-              </WorkspaceInteractionBoundary>
-            ),
-            utility: (workspaceController) =>
-              showHostExtensions ? (
-                <button
-                  className="canvas-shell-overlay-action"
-                  type="button"
-                  onClick={() => {
-                    const result = workspaceController.setViewport({ x: 0, y: 0, zoom: 1 });
-                    setStatus(`Reset viewport: ${result.status}.`);
-                  }}
+        {workspaceMounted ? (
+          <Workspace
+            ariaLabel="Canvas shell workspace"
+            appearanceOptions={
+              customGridColor
+                ? {
+                    appearance,
+                    dark: { gridColor: "oklch(0.68 0.11 305)" },
+                    light: { gridColor: "oklch(0.58 0.12 305)" },
+                  }
+                : { appearance }
+            }
+            controllerRef={controller}
+            document={document}
+            emptyState="No sections yet. Use the gesture controls to explore the canvas."
+            gestureOptions={{
+              initialZoom: 1,
+              maxZoom: 2,
+              minZoom: 0.5,
+              panActivationKey: "Space",
+              panOnDrag: panOnDrag(panOnDragMode),
+              panOnScroll,
+              panOnScrollMode,
+              panOnScrollSpeed,
+              zoomActivationKey: "Alt",
+              zoomOnDoubleClick,
+              zoomOnPinch,
+              zoomOnScroll,
+            }}
+            gridOptions={{
+              markSize: 1,
+              pattern: gridPattern,
+              snap: gridSnap,
+              spacing: [24, 24],
+              visible: gridVisible,
+            }}
+            minimapOptions={{ placement: minimapPlacement, visible: minimapVisible }}
+            onDocumentChange={(nextDocument, change) => {
+              setDocument(nextDocument);
+              setChangeCount((count) => count + 1);
+              setStatus(`Document change: ${change.reason}.`);
+            }}
+            onGridSnapChange={setGridSnap}
+            onMinimapVisibilityChange={setMinimapVisible}
+            overlaySlots={{
+              canvas: () => (
+                <WorkspaceInteractionBoundary
+                  className="canvas-shell-host-fixture"
+                  hidden={!showHostExtensions}
+                  preventPan={preventHostPan}
+                  preventWheel={preventHostWheel}
                 >
-                  Reset viewport
-                </button>
-              ) : null,
-          }}
-          toolbarControls={toolbarControls}
-        />
+                  <label>
+                    Host note
+                    <input name="canvas-shell-note" />
+                  </label>
+                  <label>
+                    Scrollable host content
+                    <textarea
+                      data-testid="canvas-shell-scroll-fixture"
+                      readOnly
+                      rows={5}
+                      spellCheck={false}
+                      value={scrollFixture}
+                    />
+                  </label>
+                </WorkspaceInteractionBoundary>
+              ),
+              utility: (workspaceController) =>
+                showHostExtensions ? (
+                  <button
+                    className="canvas-shell-overlay-action"
+                    type="button"
+                    onClick={() => {
+                      const result = workspaceController.setViewport({ x: 0, y: 0, zoom: 1 });
+                      setStatus(`Reset viewport: ${result.status}.`);
+                    }}
+                  >
+                    Reset viewport
+                  </button>
+                ) : null,
+            }}
+            toolbarControls={toolbarControls}
+          />
+        ) : null}
         <label className="canvas-shell-document">
           Workspace document JSON
           <textarea

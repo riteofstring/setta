@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { WORKSPACE_DEFAULT_GESTURE_OPTIONS, resolveWorkspaceGestureOptions } from "../src/core.js";
+import { createWorkspaceCanvasGesturePolicy } from "../src/internal/workspace-canvas-gesture-policy.js";
 
 describe("workspace gesture options", () => {
   it("resolves documented defaults without sharing mutable key lists", () => {
@@ -62,5 +63,50 @@ describe("workspace gesture options", () => {
         options as Parameters<typeof resolveWorkspaceGestureOptions>[0],
       ),
     ).toThrow(message as string);
+  });
+
+  it.each([
+    ["free", "free"],
+    ["horizontal", "horizontal"],
+    ["vertical", "vertical"],
+  ] as const)("maps %s wheel panning without exposing upstream policy", (mode, expectedMode) => {
+    const options = resolveWorkspaceGestureOptions({ panOnScrollMode: mode });
+
+    expect(createWorkspaceCanvasGesturePolicy(options).panOnScrollMode).toBe(expectedMode);
+  });
+
+  it.each([
+    [false, false, null, false],
+    [false, false, "Alt", true],
+    [false, true, null, true],
+    [true, false, null, true],
+    [true, true, null, true],
+  ] as const)(
+    "coordinates native scrolling for pan=%s, zoom=%s, and activation=%s",
+    (panOnScroll, zoomOnScroll, zoomActivationKey, preventScrolling) => {
+      const policy = createWorkspaceCanvasGesturePolicy(
+        resolveWorkspaceGestureOptions({ panOnScroll, zoomActivationKey, zoomOnScroll }),
+      );
+
+      expect(policy.preventScrolling).toBe(preventScrolling);
+    },
+  );
+
+  it("copies mutable upstream key and mouse-button inputs at the adapter boundary", () => {
+    const options = resolveWorkspaceGestureOptions({
+      panActivationKey: ["Space", "Alt"],
+      panOnDrag: [0, 1],
+      zoomActivationKey: ["Control", "Meta"],
+    });
+    const policy = createWorkspaceCanvasGesturePolicy(options);
+
+    expect(policy).toMatchObject({
+      panActivationKeyCode: ["Space", "Alt"],
+      panOnDrag: [0, 1],
+      zoomActivationKeyCode: ["Control", "Meta"],
+    });
+    expect(policy.panActivationKeyCode).not.toBe(options.panActivationKey);
+    expect(policy.panOnDrag).not.toBe(options.panOnDrag);
+    expect(policy.zoomActivationKeyCode).not.toBe(options.zoomActivationKey);
   });
 });
