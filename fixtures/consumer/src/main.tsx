@@ -13,6 +13,6 @@ const workspaceDocument = createEmptyWorkspaceDocument();
 
 createRoot(root).render(
   <StrictMode>
-    <Workspace ariaLabel="Consumer workspace" data-version={workspaceDocument.version} />
+    <Workspace ariaLabel="Consumer workspace" data-version={workspaceDocument.schemaVersion} />
   </StrictMode>,
 );

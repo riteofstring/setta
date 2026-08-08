@@ -1,5 +1,5 @@
 import {
-  WORKSPACE_DOCUMENT_VERSION,
+  WORKSPACE_DOCUMENT_SCHEMA_VERSION,
   type WorkspaceDocument,
   type WorkspaceSection,
 } from "./core.js";
@@ -17,12 +17,41 @@ export * from "./internal/transient-root-projection.js";
 export * from "./internal/upstream-adapter-proof.js";
 export * from "./internal/upstream-dnd-adapter.js";
 
+export type WorkspaceTestSection = Readonly<Pick<WorkspaceSection, "id" | "title">>;
+
+function testSection({ id, title }: WorkspaceTestSection): WorkspaceSection {
+  return {
+    childLayout: null,
+    data: null,
+    id,
+    isMinimized: false,
+    kind: "test",
+    positionAndSizeLocked: false,
+    presentation: {
+      accentColor: null,
+      chrome: "default",
+      tagColor: null,
+    },
+    size: {
+      height: { mode: "fixed", value: 180 },
+      width: { mode: "fixed", value: 240 },
+    },
+    title,
+  };
+}
+
 export function createWorkspaceTestDocument(
-  sections: readonly WorkspaceSection[],
+  sections: readonly WorkspaceTestSection[],
 ): WorkspaceDocument {
   return {
-    version: WORKSPACE_DOCUMENT_VERSION,
-    rootSectionIds: sections.map((section) => section.id),
-    sections: Object.fromEntries(sections.map((section) => [section.id, section])),
+    rootSections: sections.map((candidate, index) => ({
+      position: { x: index * 280, y: 0 },
+      sectionId: candidate.id,
+    })),
+    schemaVersion: WORKSPACE_DOCUMENT_SCHEMA_VERSION,
+    sections: Object.fromEntries(
+      sections.map((candidate) => [candidate.id, testSection(candidate)]),
+    ),
+    viewport: { x: 0, y: 0, zoom: 1 },
   };
 }
