@@ -85,3 +85,7 @@ The shared geometry index supplies workbench coordinates, deepest eligible conta
 and orientation-aware insertion indices; accessible valid/invalid feedback remains transient,
 structure capabilities gate the handoff, and host content can opt out without importing adapter
 markers or file semantics.
+Normalized multi-selection now also drives a ready-made pointer and keyboard action menu for batch
+lock, unlock, subtree deletion, and explicit persistent root stacking. The four public stacking
+commands preserve selected order, map nested selections to top-level ancestors, publish one
+canonical change, and remain separate from transient selection lift.

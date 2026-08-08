@@ -22,6 +22,7 @@ import {
 import { denseArrayAt, optionOverridesAt } from "./runtime-option-validation.js";
 import type { WorkspaceCanvasController } from "./workspace-canvas-navigation.js";
 import { validateWorkspaceViewport } from "./workspace-document-validation.js";
+import type { WorkspaceRootStackingAction } from "./workspace-root-stacking.js";
 import type {
   WorkspaceRootResizeSnapshot,
   WorkspaceSectionResizeAxis,
@@ -264,6 +265,18 @@ function setSectionMinimized<TSectionData>(
   return dispatch(bindings, command);
 }
 
+function stackRootSections<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  sectionIds: readonly string[],
+  action: WorkspaceRootStackingAction,
+): WorkspaceActionResult {
+  return dispatch(bindings, {
+    action,
+    sectionIds: sectionIdsAt(sectionIds),
+    type: "stack-root-sections",
+  });
+}
+
 export function createWorkspaceController<TSectionData>(
   bindings: WorkspaceControllerBindings<TSectionData>,
 ): WorkspaceController<TSectionData> {
@@ -280,6 +293,8 @@ export function createWorkspaceController<TSectionData>(
     return { status: "applied" };
   };
   return {
+    bringForward: (sectionIds) => stackRootSections(bindings, sectionIds, "bring-forward"),
+    bringToFront: (sectionIds) => stackRootSections(bindings, sectionIds, "bring-to-front"),
     clearSelection: () => setSelection([]),
     createSection: (kind, options) => createSection(bindings, kind, options),
     deleteSections: (sectionIds) =>
@@ -303,6 +318,8 @@ export function createWorkspaceController<TSectionData>(
         getWorkspaceSectionOrder(document).filter((sectionId) => selected.has(sectionId)),
       );
     },
+    sendBackward: (sectionIds) => stackRootSections(bindings, sectionIds, "send-backward"),
+    sendToBack: (sectionIds) => stackRootSections(bindings, sectionIds, "send-to-back"),
     setSectionMinimized: (sectionId, isMinimized) =>
       setSectionMinimized(bindings, sectionId, isMinimized),
     setSectionPresentation: (sectionId, presentation) =>

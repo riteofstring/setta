@@ -75,6 +75,7 @@ export type WorkspaceDocumentChangeReason =
   | "section-presentation"
   | "section-resize"
   | "section-size-mode"
+  | "section-stack"
   | "section-title"
   | "viewport";
 
@@ -83,6 +84,8 @@ export type WorkspaceDocumentChange = Readonly<{
 }>;
 
 export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
+  bringForward(sectionIds: readonly string[]): WorkspaceActionResult;
+  bringToFront(sectionIds: readonly string[]): WorkspaceActionResult;
   clearSelection(): WorkspaceActionResult;
   createSection(kind: string, options?: WorkspaceCreateSectionOptions): WorkspaceActionResult;
   deleteSections(sectionIds: readonly string[]): WorkspaceActionResult;
@@ -98,6 +101,8 @@ export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
   getDocument(): WorkspaceDocument<TSectionData>;
   getSelectedSectionIds(): readonly string[];
   selectSections(sectionIds: readonly string[]): WorkspaceActionResult;
+  sendBackward(sectionIds: readonly string[]): WorkspaceActionResult;
+  sendToBack(sectionIds: readonly string[]): WorkspaceActionResult;
   setSectionMinimized(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
   setSectionPresentation(
     sectionId: string,

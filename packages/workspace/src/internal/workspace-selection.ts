@@ -54,6 +54,25 @@ export function resolveWorkspaceSelection(
   return [...knownIds].filter((sectionId) => selected.has(sectionId));
 }
 
+export function normalizeWorkspaceSelectionRoots(
+  document: WorkspaceDocument<unknown>,
+  sectionIds: readonly string[],
+): readonly string[] {
+  const selectedSectionIds = resolveWorkspaceSelection(document, sectionIds);
+  const selected = new Set(selectedSectionIds);
+  const parentLookup = deriveWorkspaceParentLookup(document);
+  return selectedSectionIds.filter((sectionId) => {
+    let parentId = parentLookup.get(sectionId) ?? null;
+    while (parentId !== null) {
+      if (selected.has(parentId)) {
+        return false;
+      }
+      parentId = parentLookup.get(parentId) ?? null;
+    }
+    return true;
+  });
+}
+
 export function applyWorkspaceSectionSelectionRequest(
   document: WorkspaceDocument<unknown>,
   currentSectionIds: readonly string[],

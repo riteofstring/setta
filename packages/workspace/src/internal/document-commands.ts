@@ -1,5 +1,4 @@
 import {
-  deriveWorkspaceParentLookup,
   isValidWorkspaceColor,
   validateWorkspaceDocument,
   type WorkspaceActionRejectionReason,
@@ -17,7 +16,13 @@ import {
   isEnumerableDataProperty,
   optionOverridesAt,
 } from "./runtime-option-validation.js";
+import {
+  planWorkspaceRootStacking,
+  workspaceRootStackingMatches,
+  type WorkspaceRootStackingAction,
+} from "./workspace-root-stacking.js";
 import type { WorkspaceSectionResizeAxis } from "./workspace-section-sizing.js";
+import { normalizeWorkspaceSelectionRoots } from "./workspace-selection.js";
 
 export type WorkspaceDocumentCommand<TSectionData = unknown> =
   | Readonly<{
@@ -36,6 +41,11 @@ export type WorkspaceDocumentCommand<TSectionData = unknown> =
       sectionId: string;
       size: Readonly<{ height: number; width: number }>;
       type: "resize-root-section";
+    }>
+  | Readonly<{
+      action: WorkspaceRootStackingAction;
+      sectionIds: readonly string[];
+      type: "stack-root-sections";
     }>
   | Readonly<{
       axes: readonly WorkspaceSectionResizeAxis[];
@@ -95,7 +105,8 @@ function commandCapability(
     command.type === "move-root-sections" ||
     command.type === "resize-root-section" ||
     command.type === "set-section-content-size" ||
-    command.type === "set-sections-locked"
+    command.type === "set-sections-locked" ||
+    command.type === "stack-root-sections"
   ) {
     return "editLayout";
   }
@@ -343,6 +354,18 @@ function applyRootResize<TSectionData>(
   );
 }
 
+function applyRootStacking<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  sectionIds: readonly string[],
+  action: WorkspaceRootStackingAction,
+): WorkspaceDocumentCommandResult<TSectionData> {
+  assertKnownSections(document, sectionIds);
+  const rootSections = planWorkspaceRootStacking(document, sectionIds, action);
+  return workspaceRootStackingMatches(document.rootSections, rootSections)
+    ? { document, status: "unchanged" }
+    : applied({ ...document, rootSections }, "section-stack");
+}
+
 function applySectionContentSize<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   sectionId: string,
@@ -556,18 +579,7 @@ function applySectionDeletion<TSectionData>(
   if (sectionIds.length === 0) {
     return { document, status: "unchanged" };
   }
-  const parentLookup = deriveWorkspaceParentLookup(document);
-  const selected = new Set(sectionIds);
-  const normalizedIds = sectionIds.filter((sectionId) => {
-    let parentId = parentLookup.get(sectionId) ?? null;
-    while (parentId !== null) {
-      if (selected.has(parentId)) {
-        return false;
-      }
-      parentId = parentLookup.get(parentId) ?? null;
-    }
-    return true;
-  });
+  const normalizedIds = normalizeWorkspaceSelectionRoots(document, sectionIds);
   const removed = collectSubtreeIds(document, normalizedIds);
   return applied(
     {
@@ -582,7 +594,12 @@ function applySectionDeletion<TSectionData>(
 type WorkspaceRootDocumentCommand<TSectionData> = Extract<
   WorkspaceDocumentCommand<TSectionData>,
   {
-    type: "create-root-section" | "move-root-sections" | "resize-root-section" | "set-viewport";
+    type:
+      | "create-root-section"
+      | "move-root-sections"
+      | "resize-root-section"
+      | "set-viewport"
+      | "stack-root-sections";
   }
 >;
 
@@ -598,6 +615,7 @@ function isRootDocumentCommand<TSectionData>(
     command.type === "create-root-section" ||
     command.type === "move-root-sections" ||
     command.type === "resize-root-section" ||
+    command.type === "stack-root-sections" ||
     command.type === "set-viewport"
   );
 }
@@ -614,6 +632,9 @@ function applyRootDocumentCommand<TSectionData>(
   }
   if (command.type === "move-root-sections") {
     return applyRootMovement(document, command.positions);
+  }
+  if (command.type === "stack-root-sections") {
+    return applyRootStacking(document, command.sectionIds, command.action);
   }
   return applyRootResize(document, command);
 }

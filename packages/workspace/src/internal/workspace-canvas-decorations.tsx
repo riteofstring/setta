@@ -55,12 +55,14 @@ export function WorkspaceCanvasAnnouncements({
   externalDrop,
   movement,
   selection,
+  selectionAction,
   sectionState,
   sizing,
 }: Readonly<{
   externalDrop: string;
   movement: string;
   selection: string;
+  selectionAction: string;
   sectionState: string;
   sizing: string;
 }>) {
@@ -105,6 +107,14 @@ export function WorkspaceCanvasAnnouncements({
         data-workspace-selection-announcement=""
       >
         {selection}
+      </div>
+      <div
+        aria-atomic="true"
+        aria-live="polite"
+        className="setta-workspace__visually-hidden"
+        data-workspace-selection-action-announcement=""
+      >
+        {selectionAction}
       </div>
     </>
   );

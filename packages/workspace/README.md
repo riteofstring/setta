@@ -237,6 +237,12 @@ padding, and accept an optional non-negative padding value. Spatial next/previou
 roots by workbench `y`, then `x`, persistent order, and stable ID, with descendants following
 canonical child order.
 
+Right-click section chrome or press Shift+F10/Context Menu from a section control to open the
+built-in selection actions. Batch lock, unlock, subtree deletion, and persistent stacking use
+normalized selection roots and the same canonical command boundary. Persistent stacking accepts
+section IDs at any depth, maps them to distinct top-level ancestors, and preserves selected order;
+ordinary selection and dragging use only a transient render lift.
+
 ```tsx
 await controller.current?.focusSection("details");
 await controller.current?.fitSections(["summary", "details"], { padding: 0.16 });
@@ -246,6 +252,10 @@ controller.current?.getSelectedSectionIds();
 controller.current?.clearSelection();
 controller.current?.createSection("note");
 controller.current?.createSection("note", { position: { x: 120, y: 80 } });
+controller.current?.bringToFront(["summary", "details"]);
+controller.current?.bringForward(["details"]);
+controller.current?.sendBackward(["details"]);
+controller.current?.sendToBack(["summary"]);
 controller.current?.setSectionTitle("details", "Details");
 controller.current?.setSectionPresentation("details", {
   accentColor: "oklch(0.62 0.14 255)",

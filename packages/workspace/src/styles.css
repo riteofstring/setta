@@ -21,11 +21,17 @@
   box-sizing: inherit;
 }
 
+.setta-workspace__canvas-boundary {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
 .setta-workspace:dir(rtl)
   :is(
     .setta-workspace__empty-panel,
     .setta-workspace__external-drop-feedback,
     .setta-workspace__creation-dialog,
+    .setta-workspace__selection-action-dialog,
     .setta-workspace__host-overlay,
     .setta-workspace__overlay,
     .setta-workspace__root-shell,
@@ -57,6 +63,148 @@
 
 .setta-workspace__creation-dialog::backdrop {
   background: color-mix(in oklch, var(--setta-workspace-canvas-background) 64%, transparent);
+}
+
+.setta-workspace__selection-action-dialog {
+  position: fixed;
+  inline-size: min(21rem, calc(100vw - 1.5rem));
+  max-inline-size: none;
+  max-block-size: min(
+    38rem,
+    var(--setta-workspace-selection-menu-max-block-size, calc(100vh - 1.5rem))
+  );
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  color: var(--setta-workspace-section-text);
+  background: transparent;
+  border: 0;
+  border-radius: 1rem;
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--setta-workspace-section-text) 10%, transparent),
+    0 1rem 3rem oklch(0 0 0 / 0.2);
+  overscroll-behavior: contain;
+}
+
+.setta-workspace__selection-action-dialog::backdrop {
+  background: color-mix(in oklch, var(--setta-workspace-canvas-background) 20%, transparent);
+}
+
+.setta-workspace__selection-action-surface {
+  display: flex;
+  max-block-size: min(
+    38rem,
+    var(--setta-workspace-selection-menu-max-block-size, calc(100vh - 1.5rem))
+  );
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  overflow: auto;
+  background: var(--setta-workspace-toolbar-background);
+  border-radius: inherit;
+  overscroll-behavior: contain;
+}
+
+.setta-workspace__selection-action-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.setta-workspace__selection-action-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.setta-workspace__selection-action-close {
+  display: grid;
+  flex: none;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  padding: 0;
+  place-items: center;
+  color: var(--setta-workspace-section-muted-text);
+  font: inherit;
+  font-size: 1.375rem;
+  line-height: 1;
+  background: var(--setta-workspace-section-background);
+  border: 0;
+  border-radius: 0.625rem;
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--setta-workspace-section-text) 10%, transparent);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.setta-workspace__selection-action-heading :is(h2, p) {
+  margin: 0;
+}
+
+.setta-workspace__selection-action-heading h2 {
+  font-size: 1.125rem;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.setta-workspace__selection-action-heading p {
+  color: var(--setta-workspace-section-muted-text);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.setta-workspace__selection-action-surface [role="menu"] {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.setta-workspace__selection-action-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.setta-workspace__selection-action-group button {
+  display: flex;
+  min-block-size: 2.5rem;
+  inline-size: 100%;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.1875rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--setta-workspace-section-text);
+  font: inherit;
+  font-weight: 650;
+  text-align: start;
+  background: var(--setta-workspace-section-background);
+  border: 0;
+  border-radius: 0.625rem;
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--setta-workspace-section-text) 10%, transparent);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.setta-workspace__selection-action-group button:not([aria-disabled="true"]):hover {
+  background: color-mix(
+    in oklch,
+    var(--setta-workspace-section-background) 88%,
+    var(--setta-workspace-selection)
+  );
+}
+
+.setta-workspace__selection-action-group button[aria-disabled="true"] {
+  color: var(--setta-workspace-section-muted-text);
+  cursor: not-allowed;
+}
+
+.setta-workspace__selection-action-reason {
+  color: var(--setta-workspace-section-muted-text);
+  font-size: 0.75rem;
+  font-weight: 450;
+  line-height: 1.35;
 }
 
 .setta-workspace__creation-surface {
@@ -1337,8 +1485,14 @@
   .setta-workspace__section-edit-control,
   .setta-workspace__section-selection-control,
   .setta-workspace__section-title-form input,
-  .setta-workspace__section-color-reset {
+  .setta-workspace__section-color-reset,
+  .setta-workspace__selection-action-group button,
+  .setta-workspace__selection-action-close {
     min-block-size: 2.75rem;
+  }
+
+  .setta-workspace__selection-action-close {
+    inline-size: 2.75rem;
   }
 
   .setta-workspace__section-selection-control,

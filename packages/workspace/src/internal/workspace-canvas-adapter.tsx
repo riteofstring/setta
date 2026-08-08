@@ -57,6 +57,7 @@ import type {
   WorkspaceRootResizeSnapshot,
   WorkspaceSectionResizeAxis,
 } from "./workspace-section-sizing.js";
+import { useWorkspaceSelectionActionMenu } from "./workspace-selection-action-menu.js";
 import { WorkspaceToolbar } from "./workspace-toolbar.js";
 import { WorkspaceViewportSynchronizer } from "./workspace-viewport-synchronizer.js";
 
@@ -179,6 +180,15 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     geometry,
     registry: sectionRegistry,
   });
+  const selectionActions = useWorkspaceSelectionActionMenu({
+    controller: workspaceController,
+    document,
+    layoutEditable,
+    onSelectionRequest: selection.handleSelectionRequest,
+    presentationEditable,
+    selectedSectionIdsRef: selection.selectedSectionIdsRef,
+    structureEditable,
+  });
   const rootProjection = useWorkspaceCanvasRootProjection({
     appearance,
     colorPalette: sectionColorPalette,
@@ -230,145 +240,155 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
       selection.handleCanvasKeyDownCapture(event);
       if (!event.defaultPrevented) {
+        selectionActions.handleCanvasKeyDownCapture(event);
+      }
+      if (!event.defaultPrevented) {
         creation.handleCanvasKeyDownCapture(event);
       }
     },
-    [creation, selection],
+    [creation, selection, selectionActions],
   );
 
   return (
-    <ReactFlow<WorkspaceRootNode>
-      aria-label={`${ariaLabel} canvas`}
-      aria-keyshortcuts="Control+A Meta+A Escape"
-      autoPanOnNodeFocus={false}
-      className="setta-workspace__canvas"
-      data-workspace-external-drop-state={externalDrop.state}
-      data-workspace-grid-pattern={gridOptions.pattern}
-      data-workspace-grid-snap={gridOptions.snap ? "true" : "false"}
-      data-workspace-grid-spacing={gridOptions.spacing.join(" ")}
-      data-workspace-grid-visible={gridOptions.visible ? "true" : "false"}
-      data-workspace-marquee-active={selection.marqueeSelection.active ? "true" : "false"}
-      data-workspace-marquee-mode={marqueeSelectionMode}
-      data-workspace-pan-on-scroll-mode={gestureOptions.panOnScrollMode}
-      data-workspace-pan-on-scroll-speed={gestureOptions.panOnScrollSpeed}
-      defaultViewport={document.viewport}
-      deleteKeyCode={null}
-      disableKeyboardA11y
-      edges={[]}
-      edgesFocusable={false}
-      elementsSelectable={false}
-      elevateNodesOnSelect={false}
-      id={canvasId}
-      maxZoom={viewport.gesturePolicy.maxZoom}
-      minZoom={viewport.gesturePolicy.minZoom}
-      multiSelectionKeyCode={null}
-      noPanClassName={WORKSPACE_NO_PAN_CLASS_NAME}
-      noWheelClassName={WORKSPACE_NO_WHEEL_CLASS_NAME}
-      nodeTypes={workspaceNodeTypes}
-      nodes={rootProjection.nodes}
-      nodesConnectable={false}
-      nodesDraggable
-      nodesFocusable={false}
-      onDragEnd={externalDrop.onDragEnd}
-      onDragEnter={externalDrop.onDragEnter}
-      onDragLeave={externalDrop.onDragLeave}
-      onDragOver={externalDrop.onDragOver}
-      onInit={viewport.handleInitialized}
-      onKeyDownCapture={handleCanvasKeyDownCapture}
-      onMove={viewport.handleMove}
-      onMoveEnd={viewport.handleMoveEnd}
-      onMoveStart={viewport.handleMoveStart}
-      onNodeClick={selection.handleNodeClick}
-      onNodeDragStart={rootProjection.handleNodeDragStart}
-      onNodeDragStop={rootProjection.handleNodeDragStop}
-      onNodesChange={rootProjection.handleNodesChange}
-      onPaneClick={selection.handlePaneClick}
-      onPaneContextMenu={creation.handlePaneContextMenu}
-      onPointerCancel={selection.marqueeSelection.onPointerCancel}
-      onPointerDownCapture={selection.marqueeSelection.onPointerDownCapture}
-      onPointerMove={selection.marqueeSelection.onPointerMove}
-      onPointerMoveCapture={creation.handlePointerMoveCapture}
-      onPointerUp={selection.marqueeSelection.onPointerUp}
-      onDrop={externalDrop.onDrop}
-      panActivationKeyCode={viewport.gesturePolicy.panActivationKeyCode}
-      panOnDrag={viewport.gesturePolicy.panOnDrag}
-      panOnScroll={viewport.gesturePolicy.panOnScroll}
-      panOnScrollMode={viewport.gesturePolicy.panOnScrollMode}
-      panOnScrollSpeed={viewport.gesturePolicy.panOnScrollSpeed}
-      preventScrolling={viewport.gesturePolicy.preventScrolling}
-      proOptions={{ hideAttribution: false }}
-      ref={viewport.handleCanvasElement}
-      selectionKeyCode={null}
-      selectionOnDrag={false}
-      snapGrid={snapGrid}
-      snapToGrid={gridOptions.snap}
-      zoomActivationKeyCode={viewport.gesturePolicy.zoomActivationKeyCode}
-      zoomOnDoubleClick={viewport.gesturePolicy.zoomOnDoubleClick}
-      zoomOnPinch={viewport.gesturePolicy.zoomOnPinch}
-      zoomOnScroll={viewport.gesturePolicy.zoomOnScroll}
+    <div
+      className="setta-workspace__canvas-boundary"
+      onContextMenuCapture={selectionActions.handleCanvasContextMenuCapture}
     >
-      {gridOptions.visible ? (
-        <WorkspaceGridBackground
-          canvasId={canvasId}
-          gridOptions={gridOptions}
-          snapGrid={snapGrid}
+      <ReactFlow<WorkspaceRootNode>
+        aria-label={`${ariaLabel} canvas`}
+        aria-keyshortcuts="Control+A Meta+A Escape"
+        autoPanOnNodeFocus={false}
+        className="setta-workspace__canvas"
+        data-workspace-external-drop-state={externalDrop.state}
+        data-workspace-grid-pattern={gridOptions.pattern}
+        data-workspace-grid-snap={gridOptions.snap ? "true" : "false"}
+        data-workspace-grid-spacing={gridOptions.spacing.join(" ")}
+        data-workspace-grid-visible={gridOptions.visible ? "true" : "false"}
+        data-workspace-marquee-active={selection.marqueeSelection.active ? "true" : "false"}
+        data-workspace-marquee-mode={marqueeSelectionMode}
+        data-workspace-pan-on-scroll-mode={gestureOptions.panOnScrollMode}
+        data-workspace-pan-on-scroll-speed={gestureOptions.panOnScrollSpeed}
+        defaultViewport={document.viewport}
+        deleteKeyCode={null}
+        disableKeyboardA11y
+        edges={[]}
+        edgesFocusable={false}
+        elementsSelectable={false}
+        elevateNodesOnSelect={false}
+        id={canvasId}
+        maxZoom={viewport.gesturePolicy.maxZoom}
+        minZoom={viewport.gesturePolicy.minZoom}
+        multiSelectionKeyCode={null}
+        noPanClassName={WORKSPACE_NO_PAN_CLASS_NAME}
+        noWheelClassName={WORKSPACE_NO_WHEEL_CLASS_NAME}
+        nodeTypes={workspaceNodeTypes}
+        nodes={rootProjection.nodes}
+        nodesConnectable={false}
+        nodesDraggable
+        nodesFocusable={false}
+        onDragEnd={externalDrop.onDragEnd}
+        onDragEnter={externalDrop.onDragEnter}
+        onDragLeave={externalDrop.onDragLeave}
+        onDragOver={externalDrop.onDragOver}
+        onInit={viewport.handleInitialized}
+        onKeyDownCapture={handleCanvasKeyDownCapture}
+        onMove={viewport.handleMove}
+        onMoveEnd={viewport.handleMoveEnd}
+        onMoveStart={viewport.handleMoveStart}
+        onNodeClick={selection.handleNodeClick}
+        onNodeDragStart={rootProjection.handleNodeDragStart}
+        onNodeDragStop={rootProjection.handleNodeDragStop}
+        onNodesChange={rootProjection.handleNodesChange}
+        onPaneClick={selection.handlePaneClick}
+        onPaneContextMenu={creation.handlePaneContextMenu}
+        onPointerCancel={selection.marqueeSelection.onPointerCancel}
+        onPointerDownCapture={selection.marqueeSelection.onPointerDownCapture}
+        onPointerMove={selection.marqueeSelection.onPointerMove}
+        onPointerMoveCapture={creation.handlePointerMoveCapture}
+        onPointerUp={selection.marqueeSelection.onPointerUp}
+        onDrop={externalDrop.onDrop}
+        panActivationKeyCode={viewport.gesturePolicy.panActivationKeyCode}
+        panOnDrag={viewport.gesturePolicy.panOnDrag}
+        panOnScroll={viewport.gesturePolicy.panOnScroll}
+        panOnScrollMode={viewport.gesturePolicy.panOnScrollMode}
+        panOnScrollSpeed={viewport.gesturePolicy.panOnScrollSpeed}
+        preventScrolling={viewport.gesturePolicy.preventScrolling}
+        proOptions={{ hideAttribution: false }}
+        ref={viewport.handleCanvasElement}
+        selectionKeyCode={null}
+        selectionOnDrag={false}
+        snapGrid={snapGrid}
+        snapToGrid={gridOptions.snap}
+        zoomActivationKeyCode={viewport.gesturePolicy.zoomActivationKeyCode}
+        zoomOnDoubleClick={viewport.gesturePolicy.zoomOnDoubleClick}
+        zoomOnPinch={viewport.gesturePolicy.zoomOnPinch}
+        zoomOnScroll={viewport.gesturePolicy.zoomOnScroll}
+      >
+        {gridOptions.visible ? (
+          <WorkspaceGridBackground
+            canvasId={canvasId}
+            gridOptions={gridOptions}
+            snapGrid={snapGrid}
+          />
+        ) : null}
+        <WorkspaceCanvasAnnouncements
+          externalDrop={externalDrop.announcementText}
+          movement={rootProjection.announcementText}
+          selection={selection.announcementText}
+          selectionAction={selectionActions.announcementText}
+          sectionState={rootProjection.sectionStateAnnouncementText}
+          sizing={rootProjection.sizingAnnouncementText}
         />
-      ) : null}
-      <WorkspaceCanvasAnnouncements
-        externalDrop={externalDrop.announcementText}
-        movement={rootProjection.announcementText}
-        selection={selection.announcementText}
-        sectionState={rootProjection.sectionStateAnnouncementText}
-        sizing={rootProjection.sizingAnnouncementText}
-      />
-      {creation.dialog}
-      {externalDrop.feedback}
-      <WorkspaceSelectionOverlay
-        geometryIndex={geometryIndex}
-        selectedSectionIds={selectedSectionIds}
-      />
-      {selection.marqueeSelection.overlay}
-      <WorkspaceCanvasHostOverlay>{overlaySlots.canvas}</WorkspaceCanvasHostOverlay>
-      <WorkspaceCanvasEmptyPanel>{emptyState}</WorkspaceCanvasEmptyPanel>
-      <WorkspaceFixedOverlay placement="project">{overlaySlots.project}</WorkspaceFixedOverlay>
-      <WorkspaceFixedOverlay placement="utility">{overlaySlots.utility}</WorkspaceFixedOverlay>
-      <WorkspaceFixedOverlay placement="viewport">{overlaySlots.viewport}</WorkspaceFixedOverlay>
-      <WorkspaceToolbar
-        ariaLabel={ariaLabel}
-        canonicalViewport={document.viewport}
-        controller={workspaceController}
-        creationControl={
-          creationConfigured
-            ? {
-                ariaControls: creation.dialogId,
-                disabled: !creation.available,
-                onPress: creation.openPalette,
-              }
-            : null
-        }
-        gestureOptions={gestureOptions}
-        getCanvasBounds={viewport.getCanvasBounds}
-        gridSnap={gridOptions.snap}
-        minimapId={minimapId}
-        minimapVisible={minimapVisible}
-        onGridSnapChange={onGridSnapChange}
-        onMinimapVisibilityChange={onMinimapVisibilityChange}
-        sectionIds={sectionIds}
-        toolbarControls={toolbarControls}
-      />
-      <WorkspaceMinimap
-        ariaLabel={ariaLabel}
-        id={minimapId}
-        placement={minimapPlacement}
-        visible={minimapVisible}
-      />
-      <WorkspaceViewportSynchronizer
-        geometry={geometry}
-        lifecycle={viewport.lifecycle}
-        programmaticViewportRef={viewport.programmaticViewportRef}
-        synchronizationRevision={controllerSynchronizationRevision}
-        viewport={document.viewport}
-      />
-    </ReactFlow>
+        {creation.dialog}
+        {selectionActions.dialog}
+        {externalDrop.feedback}
+        <WorkspaceSelectionOverlay
+          geometryIndex={geometryIndex}
+          selectedSectionIds={selectedSectionIds}
+        />
+        {selection.marqueeSelection.overlay}
+        <WorkspaceCanvasHostOverlay>{overlaySlots.canvas}</WorkspaceCanvasHostOverlay>
+        <WorkspaceCanvasEmptyPanel>{emptyState}</WorkspaceCanvasEmptyPanel>
+        <WorkspaceFixedOverlay placement="project">{overlaySlots.project}</WorkspaceFixedOverlay>
+        <WorkspaceFixedOverlay placement="utility">{overlaySlots.utility}</WorkspaceFixedOverlay>
+        <WorkspaceFixedOverlay placement="viewport">{overlaySlots.viewport}</WorkspaceFixedOverlay>
+        <WorkspaceToolbar
+          ariaLabel={ariaLabel}
+          canonicalViewport={document.viewport}
+          controller={workspaceController}
+          creationControl={
+            creationConfigured
+              ? {
+                  ariaControls: creation.dialogId,
+                  disabled: !creation.available,
+                  onPress: creation.openPalette,
+                }
+              : null
+          }
+          gestureOptions={gestureOptions}
+          getCanvasBounds={viewport.getCanvasBounds}
+          gridSnap={gridOptions.snap}
+          minimapId={minimapId}
+          minimapVisible={minimapVisible}
+          onGridSnapChange={onGridSnapChange}
+          onMinimapVisibilityChange={onMinimapVisibilityChange}
+          sectionIds={sectionIds}
+          toolbarControls={toolbarControls}
+        />
+        <WorkspaceMinimap
+          ariaLabel={ariaLabel}
+          id={minimapId}
+          placement={minimapPlacement}
+          visible={minimapVisible}
+        />
+        <WorkspaceViewportSynchronizer
+          geometry={geometry}
+          lifecycle={viewport.lifecycle}
+          programmaticViewportRef={viewport.programmaticViewportRef}
+          synchronizationRevision={controllerSynchronizationRevision}
+          viewport={document.viewport}
+        />
+      </ReactFlow>
+    </div>
   );
 }
