@@ -292,7 +292,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     >
       <ReactFlow<WorkspaceRootNode>
         aria-label={`${ariaLabel} canvas`}
-        aria-keyshortcuts="Control+A Meta+A Control+Y Meta+Y Control+Z Meta+Z Control+Shift+Z Meta+Shift+Z Escape"
+        aria-keyshortcuts="Control+A Meta+A Control+Y Meta+Y Control+Z Meta+Z Control+Shift+Z Meta+Shift+Z Shift+F10 ContextMenu Escape"
         autoPanOnNodeFocus={false}
         className="setta-workspace__canvas"
         data-workspace-external-drop-state={externalDrop.state}
@@ -353,6 +353,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         ref={viewport.handleCanvasElement}
         selectionKeyCode={null}
         selectionOnDrag={false}
+        tabIndex={0}
         snapGrid={snapGrid}
         snapToGrid={gridOptions.snap}
         zoomActivationKeyCode={viewport.gesturePolicy.zoomActivationKeyCode}

@@ -37,8 +37,10 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain('data-workspace-section-state-announcement=""');
     expect(markup).toContain('data-workspace-sizing-announcement=""');
     expect(markup).toContain('data-workspace-resolved-appearance="light"');
+    expect(markup).toContain('tabindex="0"');
     expect(markup).toContain("Start with a section.");
     expect(markup).toContain("Control+Shift+Z");
+    expect(markup).toContain("Shift+F10 ContextMenu");
   });
 
   it("preserves arbitrary host markup in the empty-state surface", () => {

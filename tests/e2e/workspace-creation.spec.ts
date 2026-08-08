@@ -61,6 +61,7 @@ test("pointer and keyboard context creation use a meaningful canvas location", a
   await page.goto("/");
 
   const canvas = page.getByRole("application", { name: "Section workspace canvas" });
+  await canvas.scrollIntoViewIfNeeded();
   const canvasBox = await canvas.boundingBox();
   if (!canvasBox) {
     throw new Error("Workspace canvas must have browser geometry.");
@@ -98,7 +99,9 @@ test("pointer and keyboard context creation use a meaningful canvas location", a
   expect(Math.abs(firstBox.x - contextPoint.x)).toBeLessThan(2);
   expect(Math.abs(firstBox.y - contextPoint.y)).toBeLessThan(2);
 
+  await expect(first).toBeFocused();
   await canvas.focus();
+  await expect(canvas).toBeFocused();
   await page.keyboard.press("Shift+F10");
   picker = page.getByRole("dialog", { name: "Add a section" });
   await expect(picker).toBeVisible();

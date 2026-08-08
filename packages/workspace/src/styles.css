@@ -1536,6 +1536,10 @@
   outline-offset: 3px;
 }
 
+.setta-workspace .setta-workspace__canvas:focus-visible {
+  outline-offset: -3px;
+}
+
 .setta-workspace .setta-workspace__root-shell:focus-visible {
   outline-offset: -4px;
 }
