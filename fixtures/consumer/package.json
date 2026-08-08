@@ -1,0 +1,26 @@
+{
+  "name": "setta-workspace-consumer-fixture",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": "24.18.1"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --pretty false && vite build"
+  },
+  "dependencies": {
+    "@setta/workspace": "file:__SETTA_WORKSPACE_TARBALL__",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@vitejs/plugin-react": "6.0.5",
+    "typescript": "6.0.3",
+    "vite": "8.2.0"
+  }
+}

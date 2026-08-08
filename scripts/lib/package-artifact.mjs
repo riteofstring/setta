@@ -1,0 +1,78 @@
+import { mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import path from "node:path";
+
+import { repositoryRoot, runPnpm } from "./process.mjs";
+import { readTarGzip } from "./tar.mjs";
+
+const expectedFiles = new Set([
+  "package/README.md",
+  "package/dist/core.d.ts",
+  "package/dist/core.d.ts.map",
+  "package/dist/core.js",
+  "package/dist/core.js.map",
+  "package/dist/index.d.ts",
+  "package/dist/index.d.ts.map",
+  "package/dist/index.js",
+  "package/dist/index.js.map",
+  "package/dist/react.d.ts",
+  "package/dist/react.d.ts.map",
+  "package/dist/react.js",
+  "package/dist/react.js.map",
+  "package/dist/styles.css",
+  "package/dist/testing.d.ts",
+  "package/dist/testing.d.ts.map",
+  "package/dist/testing.js",
+  "package/dist/testing.js.map",
+  "package/package.json",
+]);
+
+function validateEntries(entries) {
+  const actualFiles = new Set(entries.map((entry) => entry.name));
+  const missing = [...expectedFiles].filter((name) => !actualFiles.has(name));
+  const unexpected = [...actualFiles].filter((name) => !expectedFiles.has(name));
+  if (missing.length > 0 || unexpected.length > 0) {
+    throw new Error(
+      [
+        missing.length > 0 ? `Missing package files: ${missing.join(", ")}` : "",
+        unexpected.length > 0 ? `Unexpected package files: ${unexpected.join(", ")}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
+  }
+}
+
+function validateManifest(entries) {
+  const manifestEntry = entries.find((entry) => entry.name === "package/package.json");
+  if (!manifestEntry) {
+    throw new Error("Packed artifact is missing package/package.json.");
+  }
+  const manifest = JSON.parse(manifestEntry.content.toString("utf8"));
+  if (manifest.name !== "@setta/workspace" || manifest.private !== true) {
+    throw new Error("Packed manifest must remain the private @setta/workspace package.");
+  }
+  if ("publishConfig" in manifest) {
+    throw new Error("Packed manifest must not contain publishConfig.");
+  }
+}
+
+export function buildPackageArtifact() {
+  const artifactsDirectory = path.join(repositoryRoot, ".artifacts");
+  const packageRoot = path.join(repositoryRoot, "packages/workspace");
+  rmSync(artifactsDirectory, { force: true, recursive: true });
+  mkdirSync(artifactsDirectory, { recursive: true });
+
+  runPnpm(["run", "build:package"]);
+  runPnpm(["pack", "--pack-destination", artifactsDirectory], { cwd: packageRoot });
+
+  const tarballs = readdirSync(artifactsDirectory).filter((name) => name.endsWith(".tgz"));
+  if (tarballs.length !== 1) {
+    throw new Error(`Expected one package tarball, found ${tarballs.length}.`);
+  }
+
+  const tarballPath = path.join(artifactsDirectory, tarballs[0]);
+  const entries = readTarGzip(readFileSync(tarballPath));
+  validateEntries(entries);
+  validateManifest(entries);
+  return tarballPath;
+}

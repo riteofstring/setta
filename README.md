@@ -1,87 +1,37 @@
-# Setta
+# Setta Workspace
 
-Setta is a visual app/workflow environment with a React frontend, a Go backend,
-and a Python package surface for CLI dispatch, source SDKs, and packaging.
+This branch is the blank-slate implementation home for `@setta/workspace`: a backend-neutral React library for a pannable, zoomable workbench with recursively nested sections and sortable host-defined items.
 
-## Repo shape
+The package is private and locally installable while distribution, repository hosting, licensing, and release policy remain undecided.
 
-- `cmd/setta` and `cmd/setta-server` are the CLI and server entrypoints.
-- `internal/` owns the backend runtime, HTTP/ws transports, state, services,
-  codegen, packaging helpers, and frontend binding generation.
-- `backend/setta/` is the Python package and SDK surface:
-  - `python -m setta` / installed `setta` dispatch through
-    `backend/setta/entrypoint.py`
-  - `backend/setta/api/*` contains the source Python SDK/runtime helpers
-    (`SettaListener`, `ListenerHotReloader`, `chat_toolkit`, `SettaRunner`)
-  - package-level helpers such as `local_core_client.py`, `runtime_compat.py`,
-    and `plugin_runtime/*` are thin Go-backed/package-facing surfaces shipped
-    in the wheel
-  - packaged assets, sidecars, and bundled binaries ship from here
-- `plugins/` contains first-party Setta plugin packages, including
-  package-managed language-server plugins, the Watch Code provider, the JSON
-  Render app-subsystem provider, and their manifests/config schemas.
-- `frontend/` contains the Vite/React UI and generated TS bindings.
-- `tests/` contains Python/package pytest coverage; Go tests are
-  co-located under `cmd/*` and `internal/*`.
+## Repository layout
 
-## Dev loop
+- `packages/workspace`: reusable package source and unit tests.
+- `apps/playground`: backend-free development playground.
+- `fixtures/consumer`: unrelated packed-package consumer template.
+- `tests/e2e`: browser, accessibility, and visual checks.
+- `docs/plans`: product and implementation plan.
+- `docs/evidence`: source-linked behavioral evidence from the previous Setta implementation.
+- `scripts`: Node-owned quality, packaging, and supply-chain tooling.
 
-Default setup:
+## Setup
 
-```sh
-./dev_install.sh
-./scripts/run-dev-instance.sh
+Use Node `24.18.1`, Corepack `0.35.0`, and the exact pnpm version declared in `package.json`. Install the exact Corepack prerequisite once if it is not already available; Corepack is also pinned as a development dependency so repository commands do not drift after the initial install.
+
+```text
+npm install --global corepack@0.35.0
+corepack enable
+corepack pnpm install --frozen-lockfile
+corepack pnpm quality:all
+corepack pnpm dev
 ```
 
-Refresh dependency lockfiles explicitly when dependency manifests change:
+Run `corepack pnpm exec playwright install chromium` once before the browser suite on a new machine.
 
-```sh
-./update_dependencies.sh
-```
+## Supply-chain policy
 
-Common commands:
+All direct dependencies are exact-pinned. pnpm enforces a strict seven-day release quarantine across the loaded lockfile, rejects trust downgrades and exotic transitive sources, and allows only reviewed lifecycle scripts. `corepack pnpm supply-chain:check` performs a frozen install, high/critical vulnerability audit, dependency-license allowlist check, and dependency inventory.
 
-- `./scripts/go.sh test ./... -count=1` or `./scripts/run_go_tests.sh`
-- `./scripts/run_backend_tests.sh`
-- `pnpm -C frontend exec vitest run`
-- `./scripts/run-playwright-e2e.sh`
-- `./build.sh`
-- `./verify_install.sh`
+Temporary release-age exceptions live in `supply-chain-exceptions.json`. Each must identify one exact version, rationale, owner, and expiry; the dependency check fails for undocumented, missing, duplicate, or expired exceptions.
 
-`./dev_install.sh` also creates the repo Python environment used for package
-tooling, tests, and the first-party defaults plugin. Activate it when you need
-direct Python/package commands:
-
-```sh
-source activate.sh
-```
-
-`dev_install.sh` uses frozen installs and should not rewrite lockfiles.
-
-On a fresh workspace, the repo-local defaults install profile bootstraps
-`setta-basedpyright` as the selected Python language server when that
-first-party plugin is available. Watch Code is available through the optional
-first-party `setta-watch-code` plugin. See
-[`docs/reference/plugin-language-servers.md`](docs/reference/plugin-language-servers.md)
-and [`docs/reference/watch-code.md`](docs/reference/watch-code.md).
-
-## Packaging boundary
-
-The shipped package is a Python wheel that dispatches into packaged Go
-binaries:
-
-- installed `setta` and `python -m setta` resolve through the package
-  entrypoint wrapper
-- the wrapper dispatches into packaged Go binaries under `backend/setta/go_bin`
-- the slim wheel includes dispatch plus package-facing runtime helpers; broader
-  source-only Python SDK modules stay outside the packaged-user install path
-- source-checkout dev flows run the Go entrypoints directly through
-  `./scripts/go.sh`
-
-## Docs
-
-- [Docs overview](docs/README.md)
-- [Dev quickstart](docs/guides/dev-quickstart.md)
-- [Dev scripts](docs/guides/dev-scripts.md)
-- [Dev vs built runtime](docs/reference/dev-vs-built.md)
-- [Worktree dev quickstart](docs/guides/worktree-dev-quickstart.md)
+The first scaffold intentionally contains no XYFlow or dnd-kit dependency. Those enter only after the Phase 0 adapter and interaction-owner proofs described in the plan.
