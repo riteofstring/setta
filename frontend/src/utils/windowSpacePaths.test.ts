@@ -11,12 +11,6 @@ describe("windowSpacePaths", () => {
       projectConfig: createProjectConfig({
         id: "project-id",
         name: "demo",
-        windowSpaceSlugsById: {
-          "space-id": "research_board",
-        },
-        windowSpaceIdsBySlug: {
-          research_board: ["space-id"],
-        },
         windowSpaces: {
           "space-id": {
             id: "space-id",
@@ -36,18 +30,10 @@ describe("windowSpacePaths", () => {
     });
   });
 
-  it("uses the backend-owned window-space slug when building paths", () => {
-    expect(
-      buildStandaloneWindowSpacePath(
-        "demo",
-        {
-          windowSpaceSlugsById: {
-            "space-id": "research_board",
-          },
-        },
-        "space-id",
-      ),
-    ).toBe("/demo/windowspace/research_board");
+  it("uses the explicit windowspace namespace when building paths", () => {
+    expect(buildStandaloneWindowSpacePath("demo", "Research Board")).toBe(
+      "/demo/windowspace/research_board",
+    );
   });
 
   it("treats empty window-space state as not found", () => {
@@ -69,13 +55,6 @@ describe("windowSpacePaths", () => {
       projectConfig: createProjectConfig({
         id: "project-id",
         name: "demo",
-        windowSpaceSlugsById: {
-          "space-a": "research_board",
-          "space-b": "research_board",
-        },
-        windowSpaceIdsBySlug: {
-          research_board: ["space-a", "space-b"],
-        },
         windowSpaces: {
           "space-a": {
             id: "space-a",
@@ -102,17 +81,11 @@ describe("windowSpacePaths", () => {
     });
   });
 
-  it("uses backend-owned slug maps instead of recomputing after a local rename", () => {
+  it("rebuilds the slug index after an in-place rename", () => {
     const state = {
       projectConfig: createProjectConfig({
         id: "project-id",
         name: "demo",
-        windowSpaceSlugsById: {
-          "space-id": "research_board",
-        },
-        windowSpaceIdsBySlug: {
-          research_board: ["space-id"],
-        },
         windowSpaces: {
           "space-id": {
             id: "space-id",
@@ -138,25 +111,6 @@ describe("windowSpacePaths", () => {
     state.projectConfig.windowSpaces["space-id"].name = "Planning Board";
 
     expect(resolveStandaloneWindowSpaceSlug(state, "planning_board")).toEqual({
-      kind: "not_found",
-      windowSpaceSlug: "planning_board",
-    });
-    expect(resolveStandaloneWindowSpaceSlug(state, "research_board")).toEqual({
-      kind: "found",
-      windowSpaceId: "space-id",
-      windowSpace:
-        state.projectConfig.windowSpaces["space-id"] ??
-        (() => {
-          throw new Error("Expected a renamed window space.");
-        })(),
-    });
-
-    state.projectConfig.windowSpaceSlugsById["space-id"] = "planning_board";
-    state.projectConfig.windowSpaceIdsBySlug = {
-      planning_board: ["space-id"],
-    };
-
-    expect(resolveStandaloneWindowSpaceSlug(state, "planning_board")).toEqual({
       kind: "found",
       windowSpaceId: "space-id",
       windowSpace:
@@ -176,12 +130,6 @@ describe("windowSpacePaths", () => {
       projectConfig: createProjectConfig({
         id: "project-id",
         name: "demo",
-        windowSpaceSlugsById: {
-          "space-id": "research_board",
-        },
-        windowSpaceIdsBySlug: {
-          research_board: ["space-id"],
-        },
         windowSpaces: {
           "space-id": {
             id: "space-id",
@@ -201,8 +149,6 @@ describe("windowSpacePaths", () => {
     });
 
     delete state.projectConfig.windowSpaces["space-id"];
-    delete state.projectConfig.windowSpaceSlugsById["space-id"];
-    state.projectConfig.windowSpaceIdsBySlug = {};
 
     expect(resolveStandaloneWindowSpaceSlug(state, "research_board")).toEqual({
       kind: "not_found",

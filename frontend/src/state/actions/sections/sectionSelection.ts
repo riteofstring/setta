@@ -5,8 +5,6 @@ type RootSectionSelection = {
   rootIds: string[];
 };
 
-type TopLevelSectionSortKey = readonly [number, number, number, number, string];
-
 export function getRootSelectedSectionIds(
   state: ZustandProjectState,
   sectionIds: string[],
@@ -100,45 +98,29 @@ function orderTopLevelSectionIds(
   const layouts = state.projectConfig.topLevelSections;
   const ordered = sectionIds.slice();
   ordered.sort((a, b) => {
-    return compareTopLevelSectionSortKeys(
-      getTopLevelSectionSortKey(layouts[a], a),
-      getTopLevelSectionSortKey(layouts[b], b),
-    );
+    const layoutA = layouts[a];
+    const layoutB = layouts[b];
+    if (!layoutA && !layoutB) {
+      return a.localeCompare(b);
+    }
+    if (!layoutA) {
+      return 1;
+    }
+    if (!layoutB) {
+      return -1;
+    }
+    if (layoutA.y !== layoutB.y) {
+      return layoutA.y - layoutB.y;
+    }
+    if (layoutA.x !== layoutB.x) {
+      return layoutA.x - layoutB.x;
+    }
+    const zIndexA = layoutA.zIndex ?? 0;
+    const zIndexB = layoutB.zIndex ?? 0;
+    if (zIndexA !== zIndexB) {
+      return zIndexA - zIndexB;
+    }
+    return a.localeCompare(b);
   });
   return ordered;
-}
-
-function getTopLevelSectionSortKey(
-  layout:
-    | ZustandProjectState["projectConfig"]["topLevelSections"][string]
-    | undefined,
-  sectionId: string,
-): TopLevelSectionSortKey {
-  if (!layout) {
-    return [1, 0, 0, 0, sectionId];
-  }
-  return [0, layout.y, layout.x, layout.zIndex ?? 0, sectionId];
-}
-
-function compareTopLevelSectionSortKeys(
-  keyA: TopLevelSectionSortKey,
-  keyB: TopLevelSectionSortKey,
-): number {
-  const layoutPresenceDiff = keyA[0] - keyB[0];
-  if (layoutPresenceDiff !== 0) {
-    return layoutPresenceDiff;
-  }
-  const yDiff = keyA[1] - keyB[1];
-  if (yDiff !== 0) {
-    return yDiff;
-  }
-  const xDiff = keyA[2] - keyB[2];
-  if (xDiff !== 0) {
-    return xDiff;
-  }
-  const zIndexDiff = keyA[3] - keyB[3];
-  if (zIndexDiff !== 0) {
-    return zIndexDiff;
-  }
-  return keyA[4].localeCompare(keyB[4]);
 }

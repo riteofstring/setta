@@ -1,10 +1,9 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page, type Locator } from "@playwright/test";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
-  cleanupIsolatedProject,
   clearProjectChatWindows,
-  createTopLevelSectionFromFrontend,
+  cleanupIsolatedProject,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
@@ -24,62 +23,65 @@ async function dispatchVerticalPointerDrag(
   locator: Locator,
   deltaY: number,
 ): Promise<void> {
-  await locator.evaluate(async (element, dragDeltaY) => {
-    const rect = element.getBoundingClientRect();
-    const clientX = rect.left + rect.width / 2;
-    const startY = rect.top + rect.height / 2;
-    const pointerId = 91;
+  await locator.evaluate(
+    async (element, dragDeltaY) => {
+      const rect = element.getBoundingClientRect();
+      const clientX = rect.left + rect.width / 2;
+      const startY = rect.top + rect.height / 2;
+      const pointerId = 91;
 
-    element.dispatchEvent(
-      new PointerEvent("pointerdown", {
-        bubbles: true,
-        cancelable: true,
-        composed: true,
-        detail: 1,
-        pointerId,
-        pointerType: "mouse",
-        isPrimary: true,
-        button: 0,
-        buttons: 1,
-        clientX,
-        clientY: startY,
-      }),
-    );
-    window.dispatchEvent(
-      new PointerEvent("pointermove", {
-        bubbles: true,
-        cancelable: true,
-        composed: true,
-        pointerId,
-        pointerType: "mouse",
-        isPrimary: true,
-        button: 0,
-        buttons: 1,
-        clientX,
-        clientY: startY + dragDeltaY,
-      }),
-    );
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => resolve());
-    });
-    window.dispatchEvent(
-      new PointerEvent("pointerup", {
-        bubbles: true,
-        cancelable: true,
-        composed: true,
-        pointerId,
-        pointerType: "mouse",
-        isPrimary: true,
-        button: 0,
-        buttons: 0,
-        clientX,
-        clientY: startY + dragDeltaY,
-      }),
-    );
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => resolve());
-    });
-  }, deltaY);
+      element.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          detail: 1,
+          pointerId,
+          pointerType: "mouse",
+          isPrimary: true,
+          button: 0,
+          buttons: 1,
+          clientX,
+          clientY: startY,
+        }),
+      );
+      window.dispatchEvent(
+        new PointerEvent("pointermove", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          pointerId,
+          pointerType: "mouse",
+          isPrimary: true,
+          button: 0,
+          buttons: 1,
+          clientX,
+          clientY: startY + dragDeltaY,
+        }),
+      );
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+      window.dispatchEvent(
+        new PointerEvent("pointerup", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          pointerId,
+          pointerType: "mouse",
+          isPrimary: true,
+          button: 0,
+          buttons: 0,
+          clientX,
+          clientY: startY + dragDeltaY,
+        }),
+      );
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+    },
+    deltaY,
+  );
 }
 
 async function readCodeMirrorValue(page: Page, id: string): Promise<string> {
@@ -151,20 +153,22 @@ test("carousel thumbnail strip is vertically resizable", async ({ page }) => {
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error(
-        "Unable to resolve viewport bounds for section placement.",
-      );
+      throw new Error("Unable to resolve viewport bounds for section placement.");
     }
 
-    const browserSection = await createTopLevelSectionFromFrontend(page, {
-      projectConfigId,
-      implType: "Browser",
-      position: {
-        x: viewportBounds.x + viewportBounds.w * 0.55,
-        y: viewportBounds.y + viewportBounds.h * 0.5,
+    const browserSection = await postBackend<{ sectionId?: string }>(
+      page,
+      "/createTopLevelSection",
+      {
+        projectConfigId,
+        implType: "Browser",
+        position: {
+          x: viewportBounds.x + viewportBounds.w * 0.55,
+          y: viewportBounds.y + viewportBounds.h * 0.5,
+        },
+        viewportBounds,
       },
-      viewportBounds,
-    });
+    );
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
@@ -214,9 +218,7 @@ test("carousel thumbnail strip is vertically resizable", async ({ page }) => {
 
       const initialBox = await firstTile.boundingBox();
       if (!initialBox) {
-        throw new Error(
-          "Missing bounding box for the first carousel thumbnail.",
-        );
+        throw new Error("Missing bounding box for the first carousel thumbnail.");
       }
       const initialRowHeight = await thumbnailRow.evaluate(
         (element) => element.getBoundingClientRect().height,
@@ -226,9 +228,7 @@ test("carousel thumbnail strip is vertically resizable", async ({ page }) => {
 
       await expect
         .poll(() =>
-          thumbnailRow.evaluate(
-            (element) => element.getBoundingClientRect().height,
-          ),
+          thumbnailRow.evaluate((element) => element.getBoundingClientRect().height),
         )
         .toBeLessThan(initialRowHeight - 30);
       await expect

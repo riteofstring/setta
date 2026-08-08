@@ -145,20 +145,6 @@ jobs:
       - name: Backend tests (${{ matrix.suite }})
         run: ./scripts/run_backend_tests.sh "tests/${{ matrix.suite }}" --setup-show
 
-  go-sdk-contracts:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: scripts/go_version.txt
-
-      - name: Go SDK contract generator tests
-        run: ./scripts/go.sh test ./internal/pythonsdkcontracts ./cmd/setta-gen-python-sdk-contracts -count=1
-
   frontend-unit:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest

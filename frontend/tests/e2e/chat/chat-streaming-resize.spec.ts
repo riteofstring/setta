@@ -1,10 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import {
-  emitChatStreamDelta,
-  ensureAppReady,
-  setChatSectionChatId,
-  setChatSectionState as setChatSectionStateFromFrontend,
-} from "../helpers";
+import { ensureAppReady } from "../helpers";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -52,7 +47,7 @@ test("chat streaming stays visible during resize", async ({ page }) => {
       "__pw_chat_stream_resize__",
     );
     const chatId = `chat-stream-${Date.now()}`;
-    await setChatSectionChatId(page, {
+    await postBackend(page, "/setChatSectionChatId", {
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       chatId,
@@ -161,7 +156,7 @@ test("streaming assistant markdown renders as formatted markdown before the stre
       "__pw_chat_stream_markdown__",
     );
     const chatId = `chat-stream-markdown-${Date.now()}`;
-    await setChatSectionChatId(page, {
+    await postBackend(page, "/setChatSectionChatId", {
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       chatId,
@@ -178,7 +173,7 @@ test("streaming assistant markdown renders as formatted markdown before the stre
       },
     });
 
-    await emitChatStreamDelta(page, {
+    await postBackend(page, "/emitChatStreamDelta", {
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       chatId,
@@ -193,7 +188,7 @@ test("streaming assistant markdown renders as formatted markdown before the stre
         },
       },
     });
-    await emitChatStreamDelta(page, {
+    await postBackend(page, "/emitChatStreamDelta", {
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       chatId,
@@ -261,7 +256,7 @@ test("assistant reasoning card matches bubble width with compact padding", async
       "__pw_reasoning_width__",
     );
     const chatId = `chat-reasoning-${Date.now()}`;
-    await setChatSectionChatId(page, {
+    await postBackend(page, "/setChatSectionChatId", {
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       chatId,
@@ -438,7 +433,7 @@ test("summary-only reasoning expands only when the summary is truncated", async 
       "__pw_reasoning_summary_expand__",
     );
     const chatId = `chat-reasoning-summary-${Date.now()}`;
-    await setChatSectionChatId(page, {
+    await postBackend(page, "/setChatSectionChatId", {
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       chatId,
@@ -736,5 +731,5 @@ async function setChatSectionState(
     state: Record<string, unknown>;
   },
 ): Promise<void> {
-  await setChatSectionStateFromFrontend(page, payload);
+  await postBackend(page, "/setChatSectionState", payload);
 }

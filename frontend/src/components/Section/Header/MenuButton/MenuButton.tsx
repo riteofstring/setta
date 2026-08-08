@@ -1,6 +1,5 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
-import type { ComponentType } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useIsListElement } from "state/hooks/uiTypes";
@@ -19,49 +18,6 @@ import { ToggleGroupOverflowMode } from "./ToggleGroupOverflowMode";
 import { ToggleHeadingAsSectionName } from "./ToggleHeadingAsSectionName";
 import { ToggleMetaControlLook } from "./ToggleMetaControlLook";
 import { UngroupButton } from "./UngroupButton";
-
-type MenuItemComponent = ComponentType<{ sectionId: string }>;
-
-const EMPTY_MENU_ITEMS: readonly MenuItemComponent[] = [];
-
-const MENU_ITEMS_BY_SECTION_TYPE: Partial<
-  Record<SectionType, readonly MenuItemComponent[]>
-> = {
-  [SectionTypeEnum.TextBlock]: [
-    RenderTextBlock,
-    ConvertFormat,
-    ToggleHeadingAsSectionName,
-    ToggleMetaControlLook,
-    CreateNewVariantButton,
-    ResetToDefaultVersion,
-  ],
-  [SectionTypeEnum.Callable]: [
-    CreateNewVariantButton,
-    HideShowParamsButton,
-    HideShowUnpinnedParamsButton,
-    ClearValues,
-    ResetToDefaultVersion,
-  ],
-  [SectionTypeEnum.GlobalVariables]: [
-    CreateNewVariantButton,
-    HideShowUnpinnedParamsButton,
-    ClearValues,
-    ResetToDefaultVersion,
-  ],
-  [SectionTypeEnum.Dict]: [
-    CreateNewVariantButton,
-    HideShowUnpinnedParamsButton,
-    ClearValues,
-    ResetToDefaultVersion,
-  ],
-  [SectionTypeEnum.ListRoot]: [CreateNewVariantButton, ResetToDefaultVersion],
-  [SectionTypeEnum.Code]: [CreateNewVariantButton, ResetToDefaultVersion],
-  [SectionTypeEnum.Group]: [ToggleGroupOverflowMode, UngroupButton],
-  [SectionTypeEnum.Draw]: [AddArtifactByFilepath],
-  [SectionTypeEnum.Image]: [AddArtifactByFilepath],
-  [SectionTypeEnum.Chart]: [AddArtifactByFilepath],
-  [SectionTypeEnum.Browser]: [HideColumn],
-};
 
 function MenuButton({
   sectionId,
@@ -152,6 +108,45 @@ function CardHeaderMenuButton({ children, trigger, triggerClassName }) {
   );
 }
 
-function getMenuItems(uiTypeName: SectionType): readonly MenuItemComponent[] {
-  return MENU_ITEMS_BY_SECTION_TYPE[uiTypeName] ?? EMPTY_MENU_ITEMS;
+function getMenuItems(uiTypeName) {
+  switch (uiTypeName) {
+    case SectionTypeEnum.TextBlock:
+      return [
+        RenderTextBlock,
+        ConvertFormat,
+        ToggleHeadingAsSectionName,
+        ToggleMetaControlLook,
+        CreateNewVariantButton,
+        ResetToDefaultVersion,
+      ];
+    case SectionTypeEnum.Callable:
+      return [
+        CreateNewVariantButton,
+        HideShowParamsButton,
+        HideShowUnpinnedParamsButton,
+        ClearValues,
+        ResetToDefaultVersion,
+      ];
+    case SectionTypeEnum.GlobalVariables:
+    case SectionTypeEnum.Dict:
+      return [
+        CreateNewVariantButton,
+        HideShowUnpinnedParamsButton,
+        ClearValues,
+        ResetToDefaultVersion,
+      ];
+    case SectionTypeEnum.ListRoot:
+    case SectionTypeEnum.Code:
+      return [CreateNewVariantButton, ResetToDefaultVersion];
+    case SectionTypeEnum.Group:
+      return [ToggleGroupOverflowMode, UngroupButton];
+    case SectionTypeEnum.Draw:
+    case SectionTypeEnum.Image:
+    case SectionTypeEnum.Chart:
+      return [AddArtifactByFilepath];
+    case SectionTypeEnum.Browser:
+      return [HideColumn];
+    default:
+      return [];
+  }
 }

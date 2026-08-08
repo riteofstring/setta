@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   filterFileBrowserFolderItems,
+  fuzzySubsequenceMatch,
   matchesFileBrowserNameFilter,
   matchesFileBrowserPathFilter,
   normalizeFileBrowserPathForFilter,
@@ -33,6 +34,12 @@ describe("fileBrowserFilter", () => {
       kind: "extension",
       suffix: ".tar.gz",
     });
+  });
+
+  it("performs a simple fuzzy subsequence match", () => {
+    expect(fuzzySubsequenceMatch("fbp", "filebrowserpane.tsx")).toBe(true);
+    expect(fuzzySubsequenceMatch("rdme", "readme.md")).toBe(true);
+    expect(fuzzySubsequenceMatch("pbf", "filebrowserpane.tsx")).toBe(false);
   });
 
   it("matches names via substring or fuzzy", () => {
@@ -86,9 +93,5 @@ describe("fileBrowserFilter", () => {
     expect(
       filterFileBrowserFolderItems(items, "rdme").map((x) => x.name),
     ).toEqual(["README.md"]);
-
-    expect(
-      filterFileBrowserFolderItems(items, "pbf").map((x) => x.name),
-    ).toEqual([]);
   });
 });

@@ -1,9 +1,8 @@
 import { expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
-  ensureAppReady,
-  ensureManagedChatEngine,
   ensureProjectChatThreadsPanelVisible,
+  ensureAppReady,
   getVisibleProjectChatSurface,
   openIsolatedProject,
   seedLocalStorage,
@@ -21,7 +20,6 @@ test("project ai threads restore deleted thread and group via explicit restore a
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
-  const engineCleanup = await ensureManagedChatEngine(page);
 
   const backendOrigin =
     process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -193,7 +191,6 @@ test("project ai threads restore deleted thread and group via explicit restore a
     ).toHaveCount(1);
     await expect(restoreButton).toBeDisabled();
   } finally {
-    await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });

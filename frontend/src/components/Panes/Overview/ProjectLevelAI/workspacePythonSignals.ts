@@ -1,21 +1,57 @@
-import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
-import { getWorkspacePythonSignal } from "openapi/http";
+import { route_get_folder_contents } from "utils/generatedEndpoints";
 import { dedupeInFlightJson } from "utils/dedupeInFlight";
+
+type WorkspaceRootEntry = {
+  name: string;
+  type: string;
+};
+
 type WorkspacePythonSignalCacheEntry = {
   hasPython: boolean;
   cachedAtMs: number;
 };
+
 export type WorkspacePythonSignalCache = Map<
   string,
   WorkspacePythonSignalCacheEntry
 >;
+
 const WORKSPACE_PYTHON_SIGNAL_CACHE_TTL_MS = 15000;
 const WORKSPACE_PYTHON_SIGNAL_CACHE_MAX_ENTRIES = 128;
 const inFlightWorkspacePythonSignalLoads = new Map<
   string,
   Promise<boolean | null>
 >();
-function getCachedWorkspacePythonSignal(
+
+const PYTHON_ROOT_MARKER_FILES = new Set<string>([
+  "pyproject.toml",
+  "requirements.txt",
+  "requirements-dev.txt",
+  "setup.py",
+  "setup.cfg",
+  "pipfile",
+  "tox.ini",
+  "poetry.lock",
+  "uv.lock",
+]);
+
+export function hasPythonSignalsInRoot(entries: WorkspaceRootEntry[]): boolean {
+  for (const entry of entries) {
+    if (entry.type !== "file") {
+      continue;
+    }
+    const lowerName = entry.name.toLowerCase();
+    if (lowerName.endsWith(".py")) {
+      return true;
+    }
+    if (PYTHON_ROOT_MARKER_FILES.has(lowerName)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function getCachedWorkspacePythonSignal(
   cache: WorkspacePythonSignalCache,
   rootPath: string,
   nowMs: number = Date.now(),
@@ -38,7 +74,8 @@ function getCachedWorkspacePythonSignal(
   }
   return cached.hasPython;
 }
-function setCachedWorkspacePythonSignal(
+
+export function setCachedWorkspacePythonSignal(
   cache: WorkspacePythonSignalCache,
   rootPath: string,
   hasPython: boolean,
@@ -60,6 +97,7 @@ function setCachedWorkspacePythonSignal(
     cache.delete(oldestKey);
   }
 }
+
 export function loadWorkspacePythonSignal({
   cache,
   rootPath,
@@ -83,26 +121,29 @@ export function loadWorkspacePythonSignal({
     inFlightWorkspacePythonSignalLoads,
     { rootPath: normalizedRootPath },
     async ({ rootPath: nextRootPath }) => {
-      const response = await callOpenAPI(
-        getWorkspacePythonSignal({
-          body: {
-            folderPath: nextRootPath,
-          },
-        } as Parameters<typeof getWorkspacePythonSignal>[0]),
-      );
-      if (!res200(response) || !response.data) {
+      try {
+        const contentsResponse = await route_get_folder_contents({
+          folderPath: nextRootPath,
+          includeMtime: false,
+          includeSize: false,
+          maxEntries: 5000,
+        });
+        if (
+          !contentsResponse ||
+          contentsResponse.status !== 200 ||
+          !Array.isArray(contentsResponse.data)
+        ) {
+          return null;
+        }
+        return hasPythonSignalsInRoot(contentsResponse.data);
+      } catch {
         return null;
       }
-      return response.data.hasPython;
     },
     ({ rootPath: nextRootPath }) => nextRootPath,
   ).then((hasPythonSignals) => {
     if (hasPythonSignals !== null) {
-      setCachedWorkspacePythonSignal(
-        cache,
-        normalizedRootPath,
-        hasPythonSignals,
-      );
+      setCachedWorkspacePythonSignal(cache, normalizedRootPath, hasPythonSignals);
     }
     return hasPythonSignals;
   });

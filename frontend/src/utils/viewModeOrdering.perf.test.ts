@@ -1,11 +1,11 @@
-import { createViewMode } from "utils/generatedTypes";
+import { createViewModeConfig } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import { sortViewModes } from "./viewModeOrdering";
 
 describe("viewModeOrdering (perf)", () => {
   it("sorts large view mode arrays within an interactive budget", () => {
     const viewModes = Array.from({ length: 20_000 }, (_, index) =>
-      createViewMode({
+      createViewModeConfig({
         id: `mode-${index}`,
         name: `Mode ${20_000 - index}`,
         sortIndex: 20_000 - index,

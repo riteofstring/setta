@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "setta-fixture-backend-worker-failure-transport",
+  "name": "Setta Fixture Backend Worker Failure Transport",
+  "version": "0.1.0",
+  "settaVersionRange": ">=0.0.0",
+  "enabledByDefault": true,
+  "backend": {
+    "entrypoint": "backend/entrypoint.py"
+  },
+  "capabilities": ["registerRouter"]
+}

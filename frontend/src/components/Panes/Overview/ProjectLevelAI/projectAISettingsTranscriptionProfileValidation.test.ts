@@ -1,54 +1,54 @@
-import { TranscriptionProfileUIConfig } from "utils/generatedTypes";
+import { TranscriptionTransportModeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import { resolveTranscriptionChunkMsForSave } from "./projectAISettingsTranscriptionProfiles";
+import { resolveTranscriptionChunkMsForSave } from "./ProjectAISettings";
 
 describe("resolveTranscriptionChunkMsForSave", () => {
   it("uses canonical chunk size for file mode even when draft chunk is invalid", () => {
     expect(
       resolveTranscriptionChunkMsForSave({
-        transportMode: TranscriptionProfileUIConfig.transportModes.file,
+        transportMode: TranscriptionTransportModeEnum.file,
         chunkMsInput: "bad-value",
       }),
-    ).toBe(TranscriptionProfileUIConfig.defaultChunkMs);
+    ).toBe(1200);
     expect(
       resolveTranscriptionChunkMsForSave({
-        transportMode: TranscriptionProfileUIConfig.transportModes.file,
+        transportMode: TranscriptionTransportModeEnum.file,
         chunkMsInput: "50",
       }),
-    ).toBe(TranscriptionProfileUIConfig.defaultChunkMs);
+    ).toBe(1200);
   });
 
   it("accepts valid chunk values for non-file transport modes", () => {
     expect(
       resolveTranscriptionChunkMsForSave({
-        transportMode: TranscriptionProfileUIConfig.transportModes.realtime,
-        chunkMsInput: String(TranscriptionProfileUIConfig.minChunkMs),
+        transportMode: TranscriptionTransportModeEnum.realtime,
+        chunkMsInput: "300",
       }),
-    ).toBe(TranscriptionProfileUIConfig.minChunkMs);
+    ).toBe(300);
     expect(
       resolveTranscriptionChunkMsForSave({
-        transportMode: TranscriptionProfileUIConfig.transportModes.auto,
-        chunkMsInput: String(TranscriptionProfileUIConfig.maxChunkMs),
+        transportMode: TranscriptionTransportModeEnum.auto,
+        chunkMsInput: "10000",
       }),
-    ).toBe(TranscriptionProfileUIConfig.maxChunkMs);
+    ).toBe(10000);
   });
 
   it("rejects invalid chunk values for non-file transport modes", () => {
     expect(
       resolveTranscriptionChunkMsForSave({
-        transportMode: TranscriptionProfileUIConfig.transportModes.realtime,
-        chunkMsInput: String(TranscriptionProfileUIConfig.minChunkMs - 1),
+        transportMode: TranscriptionTransportModeEnum.realtime,
+        chunkMsInput: "199",
       }),
     ).toBeNull();
     expect(
       resolveTranscriptionChunkMsForSave({
-        transportMode: TranscriptionProfileUIConfig.transportModes.auto,
-        chunkMsInput: String(TranscriptionProfileUIConfig.maxChunkMs + 1),
+        transportMode: TranscriptionTransportModeEnum.auto,
+        chunkMsInput: "10001",
       }),
     ).toBeNull();
     expect(
       resolveTranscriptionChunkMsForSave({
-        transportMode: TranscriptionProfileUIConfig.transportModes.auto,
+        transportMode: TranscriptionTransportModeEnum.auto,
         chunkMsInput: "abc",
       }),
     ).toBeNull();

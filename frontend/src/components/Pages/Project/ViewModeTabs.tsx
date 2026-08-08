@@ -1,13 +1,17 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
-import { setActiveViewMode } from "openapi/http";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { persistViewModeSortOrder } from "state/actions/viewModes";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { route_set_active_view_mode } from "utils/generatedEndpoints";
 import { sortViewModes } from "utils/viewModeOrdering";
-import { SortableListProvider, useSortableListItem } from "./ViewModeDnd";
+import {
+  useViewModeSortableItem,
+  ViewModeSortableProvider,
+} from "./ViewModeDnd";
+
 const TAB_LABEL_FALLBACK = "Untitled View";
+
 export function ViewModeTabs() {
   const {
     projectConfigId,
@@ -23,10 +27,7 @@ export function ViewModeTabs() {
         const sortedModes = sortViewModes(
           Object.values(x.projectConfig.viewModes),
         );
-        const tabModes: Array<{
-          id: string;
-          name: string;
-        }> = [];
+        const tabModes: Array<{ id: string; name: string }> = [];
         const tabSlotIndices: Array<number> = [];
         for (let index = 0; index < sortedModes.length; index += 1) {
           const mode = sortedModes[index];
@@ -49,22 +50,21 @@ export function ViewModeTabs() {
   );
   const { canEditVariants, canEditStructure } = useShareCapabilities();
   const sortableEnabled = canEditStructure && tabModes.length > 1;
+
   if (tabModes.length === 0) {
     return null;
   }
+
   const handleSelect = (modeId: string) => {
     if (!canEditVariants || modeId === activeViewModeId) {
       return;
     }
-    void callOpenAPI(
-      setActiveViewMode({
-        body: {
-          projectConfigId,
-          activeViewModeId: modeId,
-        },
-      } as Parameters<typeof setActiveViewMode>[0]),
-    );
+    void route_set_active_view_mode({
+      projectConfigId,
+      activeViewModeId: modeId,
+    });
   };
+
   const handleReorder = (reorderedTabIds: Array<string>) => {
     if (!sortableEnabled) {
       return;
@@ -86,12 +86,13 @@ export function ViewModeTabs() {
     });
     persistViewModeSortOrder(projectConfigId, nextOrderedIds);
   };
+
   return (
     <div
       data-testid="view-mode-tabs-bar"
       className="relative z-[18] col-start-1 col-end-2 row-start-3 row-end-4 flex h-9 min-h-9 items-end border-t border-setta-200/75 bg-white dark:border-setta-850 dark:bg-setta-925"
     >
-      <SortableListProvider
+      <ViewModeSortableProvider
         id="view-mode-tabs-sortable"
         items={tabModes.map((mode) => mode.id)}
         direction="horizontal"
@@ -116,10 +117,11 @@ export function ViewModeTabs() {
             );
           })}
         </div>
-      </SortableListProvider>
+      </ViewModeSortableProvider>
     </div>
   );
 }
+
 function ViewModeTabButton({
   modeId,
   modeName,
@@ -135,7 +137,11 @@ function ViewModeTabButton({
   sortableEnabled: boolean;
   onSelect: (modeId: string) => void;
 }) {
-  const sortable = useSortableListItem(modeId, !sortableEnabled, "horizontal");
+  const sortable = useViewModeSortableItem(
+    modeId,
+    !sortableEnabled,
+    "horizontal",
+  );
   const label = modeName ? modeName : TAB_LABEL_FALLBACK;
   let tabClasses =
     "box-border flex h-[30px] min-w-[96px] max-w-[240px] flex-[0_1_200px] select-none items-center gap-2 rounded-t-md border border-solid border-b-0 px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500";
@@ -147,6 +153,7 @@ function ViewModeTabButton({
   if (!canEditVariants) {
     tabClasses = `${tabClasses} cursor-not-allowed opacity-60`;
   }
+
   return (
     <button
       ref={sortable.setNodeRef}

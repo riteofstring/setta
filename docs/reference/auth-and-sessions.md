@@ -25,12 +25,12 @@ Setta uses two auth paths depending on runtime mode:
 ## Dev auto-auth (IDE mode)
 - In dev mode, requests from localhost with a matching frontend Origin/Referer
   automatically mint an auth cookie.
-- This is meant for the local Vite frontend; non-local clients need a
+- This is meant for the local Vite frontend; non-local clients still need a
   bootstrap token.
 
 ## Refresh behavior
 - If an API response is served with a valid cookie that expires within
-  the configured refresh window, the backend sets a new cookie.
+  `C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS`, the backend sets a new cookie.
 - The window is exposed via `GET /api/authRefreshStatus`.
 - The frontend pings that endpoint periodically while connected to keep
   sessions fresh.

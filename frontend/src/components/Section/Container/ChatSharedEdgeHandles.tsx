@@ -21,41 +21,35 @@ type SharedChatConnectionVisibility = {
   hasOutgoing: boolean;
 };
 
-type SectionConnectionEdge = {
-  sourceSectionId: string;
-  targetSectionId: string;
-};
-
-function mergeSharedChatConnectionVisibility(
-  visibility: SharedChatConnectionVisibility,
-  edge: SectionConnectionEdge,
-  sectionId: string,
-): void {
-  visibility.hasIncoming ||= edge.targetSectionId === sectionId;
-  visibility.hasOutgoing ||= edge.sourceSectionId === sectionId;
-}
-
 function getSharedChatConnectionVisibility(
   sectionId: string,
   state: ReturnType<typeof useProjectState.getState>,
 ): SharedChatConnectionVisibility {
-  const visibility = {
-    hasIncoming: false,
-    hasOutgoing: false,
-  };
+  let hasIncoming = false;
+  let hasOutgoing = false;
   for (const edge of state.projectConfig.agenticEdges) {
-    mergeSharedChatConnectionVisibility(visibility, edge, sectionId);
-    if (visibility.hasIncoming && visibility.hasOutgoing) {
-      return visibility;
+    if (edge.targetSectionId === sectionId) {
+      hasIncoming = true;
+    }
+    if (edge.sourceSectionId === sectionId) {
+      hasOutgoing = true;
+    }
+    if (hasIncoming && hasOutgoing) {
+      return { hasIncoming, hasOutgoing };
     }
   }
   for (const edge of state.projectConfig.stateMachineEdges) {
-    mergeSharedChatConnectionVisibility(visibility, edge, sectionId);
-    if (visibility.hasIncoming && visibility.hasOutgoing) {
-      return visibility;
+    if (edge.targetSectionId === sectionId) {
+      hasIncoming = true;
+    }
+    if (edge.sourceSectionId === sectionId) {
+      hasOutgoing = true;
+    }
+    if (hasIncoming && hasOutgoing) {
+      return { hasIncoming, hasOutgoing };
     }
   }
-  return visibility;
+  return { hasIncoming, hasOutgoing };
 }
 
 export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {

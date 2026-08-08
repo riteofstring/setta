@@ -5,35 +5,27 @@ import {
 import _ from "lodash";
 import {
   getCodeObjImpl,
-  getCurrCodeObjVariantIfPresent,
+  getCurrCodeObjVariant,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import type { CodeObjType } from "utils/generatedTypes";
-import { ChangeParamImplUIConfig, CodeObjTypeEnum } from "utils/generatedTypes";
+import {
+  BaseParamCodeObjImplTypeSet,
+  CodeObjTypeEnum,
+  ControlCodeObjTypeSet,
+  SectionParamCodeObjTypeSet,
+} from "utils/generatedTypes";
 import { IdNameCombobox } from "../../../Utils/Combobox/IdNameCombobox";
 
-const ALL_PARAM_CODE_OBJ_TYPES = [
-  ...ChangeParamImplUIConfig.allParamCodeObjTypes,
-] as Array<CodeObjType>;
-
-const CODE_OBJ_TYPE_FILTER_LISTS = {
-  control: [
-    ...ChangeParamImplUIConfig.controlCodeObjTypes,
-  ] as Array<CodeObjType>,
-  sectionParam: [
-    ...ChangeParamImplUIConfig.sectionParamCodeObjTypes,
-  ] as Array<CodeObjType>,
-} as const;
-
 const CODE_OBJ_TYPE_FILTERS = {
-  control: new Set<string>(CODE_OBJ_TYPE_FILTER_LISTS.control),
-  sectionParam: new Set<string>(CODE_OBJ_TYPE_FILTER_LISTS.sectionParam),
+  control: ControlCodeObjTypeSet,
+  sectionParam: SectionParamCodeObjTypeSet,
 } as const;
 
 export const CALENDAR_PRESET_ID = "__setta_text_param_calendar__";
 
-function getVirtualDateTimePresetItemsForFilter(
+export function getVirtualDateTimePresetItemsForFilter(
   filterKey: CodeObjTypeFilterKey,
 ): ComboboxItemArrayType<string> {
   const typeSet = CODE_OBJ_TYPE_FILTERS[filterKey];
@@ -46,6 +38,22 @@ function getVirtualDateTimePresetItemsForFilter(
 }
 
 export type CodeObjTypeFilterKey = keyof typeof CODE_OBJ_TYPE_FILTERS;
+
+const CODE_OBJ_TYPE_ENUM_VALUES = Object.values(
+  CodeObjTypeEnum,
+) as Array<CodeObjType>;
+
+const CODE_OBJ_TYPE_FILTER_LISTS: Record<
+  CodeObjTypeFilterKey,
+  Array<CodeObjType>
+> = {
+  control: CODE_OBJ_TYPE_ENUM_VALUES.filter((type) =>
+    CODE_OBJ_TYPE_FILTERS.control.has(type),
+  ),
+  sectionParam: CODE_OBJ_TYPE_ENUM_VALUES.filter((type) =>
+    CODE_OBJ_TYPE_FILTERS.sectionParam.has(type),
+  ),
+};
 
 function UITypeCombobox({
   nonPresetImpls,
@@ -140,18 +148,16 @@ function useNonPresetImplsForParam(
   allowedImplTypes?: Array<CodeObjType>,
 ) {
   return useProjectState((x) => {
-    const variant = getCurrCodeObjVariantIfPresent(x, sectionId, paramInfoId);
-    if (!variant) {
-      return [];
-    }
+    const variant = getCurrCodeObjVariant(x, sectionId, paramInfoId);
     const prevImpls: Record<string, string> = {};
-    for (const i of variant.nonPresetImpls ?? []) {
+    for (const i of variant.nonPresetImpls) {
       const impl = getCodeObjImpl(x, i);
       prevImpls[impl.type] = impl.id;
     }
 
     const output: ComboboxItemArrayType<string> = [];
-    const typeList = allowedImplTypes ?? ALL_PARAM_CODE_OBJ_TYPES;
+    const typeList =
+      allowedImplTypes ?? Array.from(BaseParamCodeObjImplTypeSet);
     for (const c of typeList) {
       if (prevImpls[c]) {
         output.push({

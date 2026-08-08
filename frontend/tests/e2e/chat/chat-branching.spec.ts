@@ -47,7 +47,7 @@ test.describe.serial("chat branching", () => {
       }, managedEngineId);
 
       const projectChatSurface = await getVisibleProjectChatSurface(page);
-      await enableThinkingIfAvailable(projectChatSurface);
+      await projectChatSurface.getByRole("button", { name: "Thinking" }).click();
 
       const input = projectChatSurface.getByPlaceholder("Type a message...");
       await expect(input).toBeVisible();
@@ -70,7 +70,9 @@ test.describe.serial("chat branching", () => {
       const reloadedProjectChatSurface = await getVisibleProjectChatSurface(
         page,
       );
-      await enableThinkingIfAvailable(reloadedProjectChatSurface);
+      await reloadedProjectChatSurface
+        .getByRole("button", { name: "Thinking" })
+        .click();
 
       await reloadedProjectChatSurface
         .getByRole("button", { name: "View Threads" })
@@ -274,14 +276,24 @@ test.describe.serial("chat branching", () => {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify(branchChatId),
+          body: JSON.stringify({
+            chatId: branchChatId,
+            runId: `${branchChatId}-run`,
+            engineType: "setta_llm",
+            sectionId: null,
+          }),
         });
         return;
       }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify(rootChatId),
+        body: JSON.stringify({
+          chatId: rootChatId,
+          runId: `${rootChatId}-run`,
+          engineType: "setta_llm",
+          sectionId: null,
+        }),
       });
     });
 
@@ -361,7 +373,7 @@ test.describe.serial("chat branching", () => {
       await page.waitForSelector(".react-flow__pane");
 
       const projectChatSurface = await getVisibleProjectChatSurface(page);
-      await enableThinkingIfAvailable(projectChatSurface);
+      await projectChatSurface.getByRole("button", { name: "Thinking" }).click();
       const windowInstanceId = await getVisibleProjectChatWindowInstanceId(
         projectChatSurface,
       );
@@ -461,14 +473,6 @@ function getMessageGroupById(container: Locator, messageId: string): Locator {
   return container
     .locator(`div.group[data-message-id="${messageId}"]`)
     .first();
-}
-
-async function enableThinkingIfAvailable(container: Locator): Promise<void> {
-  const thinkingToggle = container.getByRole("button", { name: "Thinking" });
-  if ((await thinkingToggle.count()) === 0) {
-    return;
-  }
-  await thinkingToggle.click();
 }
 
 async function getMessageGroupId(

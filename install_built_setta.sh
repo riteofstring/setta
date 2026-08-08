@@ -17,20 +17,13 @@ EOF
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 install_root_helper="${repo_root}/scripts/lib/install_root_path.sh"
-artifact_helper="${repo_root}/scripts/lib/distribution_artifact_path.sh"
 
 if [[ ! -f "${install_root_helper}" ]]; then
   echo "Missing install root helper: ${install_root_helper}" >&2
   exit 1
 fi
-if [[ ! -f "${artifact_helper}" ]]; then
-  echo "Missing distribution artifact helper: ${artifact_helper}" >&2
-  exit 1
-fi
 # shellcheck source=/dev/null
 . "${install_root_helper}"
-# shellcheck source=/dev/null
-. "${artifact_helper}"
 
 cleanup_on_exit() {
   (cd "$repo_root" && ./cleanup.sh) || true
@@ -73,7 +66,14 @@ mkdir -p "$(dirname "${install_root_abs}")"
 cd "$repo_root"
 ./build.sh
 
-wheel_path="$(setta_resolve_single_dist_artifact "${repo_root}/dist" "*.whl" "wheel")"
+shopt -s nullglob
+wheels=(dist/*.whl)
+shopt -u nullglob
+if (( ${#wheels[@]} == 0 )); then
+  echo "No wheel found in dist/ after build." >&2
+  exit 1
+fi
+wheel_path="$(ls -t "${wheels[@]}" | head -n 1)"
 
 uv venv --clear --python 3.12 "$install_root_abs"
 uv pip install --python "$install_root_abs/bin/python" --force-reinstall "$wheel_path"

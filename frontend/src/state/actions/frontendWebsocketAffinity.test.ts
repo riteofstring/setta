@@ -1,6 +1,7 @@
 import {
   buildFrontendAffinityCurrentAddress,
   clearFrontendWebsocketAffinity,
+  getFrontendAffinityToken,
   setActiveFrontendWebsocketAffinityGeneration,
   setFrontendAffinityToken,
   waitForFrontendAffinityToken,
@@ -34,35 +35,24 @@ describe("frontendWebsocketAffinity", () => {
     expect(root).toBe("/");
   });
 
-  it("keeps affinity empty until FrontendIdentity arrives for the active generation", async () => {
+  it("keeps affinity empty until FrontendIdentity arrives for the active generation", () => {
     setActiveFrontendWebsocketAffinityGeneration(2);
-    await expect(
-      waitForFrontendAffinityToken({
-        timeoutMs: 0,
-      }),
-    ).rejects.toThrow("Frontend identity not ready");
+    expect(getFrontendAffinityToken()).toBeNull();
     setFrontendAffinityToken("affinity-token", 2);
-    await expect(
-      waitForFrontendAffinityToken({
-        timeoutMs: 0,
-      }),
-    ).resolves.toBe("affinity-token");
+    expect(getFrontendAffinityToken()).toBe("affinity-token");
   });
 
-  it("ignores stale generation updates", async () => {
+  it("ignores stale generation updates", () => {
     setActiveFrontendWebsocketAffinityGeneration(2);
     setFrontendAffinityToken("frontend-stale", 1);
-    await expect(
-      waitForFrontendAffinityToken({
-        timeoutMs: 0,
-      }),
-    ).rejects.toThrow("Frontend identity not ready");
+    expect(getFrontendAffinityToken()).toBeNull();
   });
 
   it("waits for FrontendIdentity on the active generation", async () => {
     setActiveFrontendWebsocketAffinityGeneration(2);
     const waitPromise = waitForFrontendAffinityToken({
       timeoutMs: 120,
+      pollIntervalMs: 10,
     });
 
     setTimeout(() => {
@@ -77,6 +67,7 @@ describe("frontendWebsocketAffinity", () => {
     await expect(
       waitForFrontendAffinityToken({
         timeoutMs: 15,
+        pollIntervalMs: 5,
       }),
     ).rejects.toThrow("Frontend identity not ready");
   });
@@ -85,6 +76,7 @@ describe("frontendWebsocketAffinity", () => {
     setActiveFrontendWebsocketAffinityGeneration(4);
     const waitPromise = waitForFrontendAffinityToken({
       timeoutMs: 120,
+      pollIntervalMs: 10,
     });
     setActiveFrontendWebsocketAffinityGeneration(5);
     setFrontendAffinityToken("affinity-token", 2);

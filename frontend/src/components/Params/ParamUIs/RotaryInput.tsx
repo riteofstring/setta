@@ -10,12 +10,6 @@ const ROTARY_START_DEG = -135;
 const ROTARY_END_DEG = 135;
 const ROTARY_RANGE_DEG = ROTARY_END_DEG - ROTARY_START_DEG;
 const MAX_DISPLAY_DECIMALS = 3;
-const KEYBOARD_STEP_DIRECTIONS = {
-  ArrowDown: -1,
-  ArrowLeft: -1,
-  ArrowRight: 1,
-  ArrowUp: 1,
-} as const;
 
 type RotaryInputProps = {
   value: string | number;
@@ -97,7 +91,7 @@ export function RotaryInput({
     if (isDisabled) {
       return;
     }
-    if (!isAdjustableStep(step)) {
+    if (!Number.isFinite(step) || step <= 0) {
       return;
     }
     event.preventDefault();
@@ -123,16 +117,25 @@ export function RotaryInput({
       }
       return;
     }
-    if (isDisabled || !isAdjustableStep(step)) {
+    if (isDisabled) {
       return;
     }
-    const nextValue = resolveKeyboardValue(
-      event.key,
-      clampedValue,
-      min,
-      max,
-      step,
-    );
+    if (!Number.isFinite(step) || step <= 0) {
+      return;
+    }
+    let nextValue: number | null = null;
+    if (event.key === "ArrowUp" || event.key === "ArrowRight") {
+      nextValue = clampedValue + step;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowLeft") {
+      nextValue = clampedValue - step;
+    }
+    if (event.key === "Home") {
+      nextValue = min;
+    }
+    if (event.key === "End") {
+      nextValue = max;
+    }
     if (nextValue === null) {
       return;
     }
@@ -225,7 +228,7 @@ function snapToStep(
   step: number,
 ): number {
   const clampedValue = clamp(value, min, max);
-  if (!isAdjustableStep(step)) {
+  if (!Number.isFinite(step) || step <= 0) {
     return clampedValue;
   }
   const steps = Math.round((clampedValue - min) / step);
@@ -236,7 +239,7 @@ function snapToStep(
 }
 
 function getStepPrecision(step: number): number {
-  if (!isAdjustableStep(step)) {
+  if (!Number.isFinite(step) || step <= 0) {
     return 2;
   }
   const stepText = step.toString();
@@ -266,31 +269,6 @@ function formatValue(value: number, step: number): string {
   const precision = getStepPrecision(step);
   const rounded = roundTo(value, precision);
   return String(rounded);
-}
-
-function isAdjustableStep(step: number): boolean {
-  return Number.isFinite(step) && step > 0;
-}
-
-function resolveKeyboardValue(
-  key: string,
-  clampedValue: number,
-  min: number,
-  max: number,
-  step: number,
-): number | null {
-  if (key === "Home") {
-    return min;
-  }
-  if (key === "End") {
-    return max;
-  }
-  const direction =
-    KEYBOARD_STEP_DIRECTIONS[key as keyof typeof KEYBOARD_STEP_DIRECTIONS];
-  if (direction === undefined) {
-    return null;
-  }
-  return clampedValue + direction * step;
 }
 
 function getPointerAngle(

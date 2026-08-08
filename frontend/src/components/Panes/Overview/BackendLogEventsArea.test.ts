@@ -1,12 +1,13 @@
-import { type BackendLogEvent } from "utils/generatedTypes";
+import { SettaBackendLogEvent } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 import {
   addBackendLogResizeListeners,
+  applyBackendLogColumnResize,
   BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
   buildBackendLogGridTemplateColumns,
+  clampBackendLogColumnWidth,
   copyBackendLogMessage,
   filterEvents,
-  getBackendLogCopyButtonPresentation,
   getBackendLogEventById,
   getBackendLogEventsById,
   getBackendLogGridMinWidth,
@@ -16,6 +17,20 @@ import {
 } from "./BackendLogEventsArea.utils";
 
 describe("BackendLogEventsArea column sizing helpers", () => {
+  it("applies resize deltas for a single column while keeping other widths unchanged", () => {
+    const resized = applyBackendLogColumnResize(
+      BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
+      "project",
+      42,
+    );
+
+    expect(resized.project).toBe(
+      BACKEND_LOG_DEFAULT_COLUMN_WIDTHS.project + 42,
+    );
+    expect(resized.timestamp).toBe(BACKEND_LOG_DEFAULT_COLUMN_WIDTHS.timestamp);
+    expect(resized.severity).toBe(BACKEND_LOG_DEFAULT_COLUMN_WIDTHS.severity);
+  });
+
   it("computes a resized column width without allocating all column widths", () => {
     expect(
       getBackendLogResizedColumnWidth(
@@ -26,28 +41,10 @@ describe("BackendLogEventsArea column sizing helpers", () => {
     ).toBe(BACKEND_LOG_DEFAULT_COLUMN_WIDTHS.project + 42);
   });
 
-  it("clamps resized column widths within configured bounds", () => {
-    expect(
-      getBackendLogResizedColumnWidth(
-        BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
-        "timestamp",
-        -10_000,
-      ),
-    ).toBe(64);
-    expect(
-      getBackendLogResizedColumnWidth(
-        BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
-        "severity",
-        10_000,
-      ),
-    ).toBe(170);
-    expect(
-      getBackendLogResizedColumnWidth(
-        BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
-        "project",
-        -10_000,
-      ),
-    ).toBe(120);
+  it("clamps column widths within configured bounds", () => {
+    expect(clampBackendLogColumnWidth("timestamp", -1000)).toBe(64);
+    expect(clampBackendLogColumnWidth("severity", 9999)).toBe(170);
+    expect(clampBackendLogColumnWidth("project", 10)).toBe(120);
   });
 
   it("builds a stable CSS grid template string from column widths", () => {
@@ -72,21 +69,6 @@ describe("BackendLogEventsArea column sizing helpers", () => {
 });
 
 describe("BackendLogEventsArea clipboard helper", () => {
-  it.each([
-    [null, "Copy message", "text-setta-700 dark:text-setta-200", "copy"],
-    ["failed", "Copy failed", "text-red-600 dark:text-red-400", "copy"],
-    ["copied", "Copied", "text-blue-600 dark:text-blue-400", "checkmark"],
-  ])(
-    "returns button presentation for %s copy status",
-    (status, title, className, iconName) => {
-      expect(getBackendLogCopyButtonPresentation(status)).toEqual({
-        title,
-        className,
-        iconName,
-      });
-    },
-  );
-
   it("returns true when clipboard writes succeed", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     const copied = await copyBackendLogMessage(writeText, "hello world");
@@ -160,7 +142,7 @@ describe("BackendLogEventsArea resize teardown", () => {
 
 describe("filterEvents", () => {
   it("filters by project, severity, and message query", () => {
-    const events: Array<BackendLogEvent> = [
+    const events: Array<SettaBackendLogEvent> = [
       {
         id: "event-1",
         projectConfigId: "a",
@@ -200,7 +182,7 @@ describe("filterEvents", () => {
 
 describe("getBackendLogEventById", () => {
   it("returns the matching event when selected id exists", () => {
-    const events: Array<BackendLogEvent> = [
+    const events: Array<SettaBackendLogEvent> = [
       {
         id: "event-1",
         projectConfigId: null,
@@ -223,7 +205,7 @@ describe("getBackendLogEventById", () => {
   });
 
   it("returns null for missing ids and null selections", () => {
-    const events: Array<BackendLogEvent> = [
+    const events: Array<SettaBackendLogEvent> = [
       {
         id: "event-1",
         projectConfigId: null,

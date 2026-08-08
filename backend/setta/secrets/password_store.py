@@ -1,14 +1,14 @@
 import json
 import os
+import tempfile
 from pathlib import Path
-from typing import cast
 
 from filelock import FileLock
-from setta.types.generated.go_shared_constants import (
-    PASSWORD_STORE_FILENAME,
-    RUNTIME_ROOT_ENV,
-)
+
+from setta.utils.env_vars import RUNTIME_ROOT_ENV
 from setta.utils.paths import get_setta_paths
+
+PASSWORD_STORE_FILENAME = "passwords.json"
 
 
 def _runtime_secrets_root() -> Path:
@@ -31,29 +31,23 @@ def _lock_for_path(path: Path) -> FileLock:
     return FileLock(f"{path}.lock")
 
 
-def _load_password_store_payload(path: Path) -> dict[str, object] | None:
+def _read_password_store_unlocked(path: Path) -> dict[str, str]:
     if not path.exists():
-        return None
+        return {}
     raw = path.read_text(encoding="utf-8")
     if not raw.strip():
-        return None
+        return {}
     payload = json.loads(raw)
     if not isinstance(payload, dict):
         raise ValueError("Password store must be a JSON object.")
-    return cast("dict[str, object]", payload)
-
-
-def _read_password_store_unlocked(path: Path) -> dict[str, str]:
-    payload = _load_password_store_payload(path)
-    if payload is None:
-        return {}
-    invalid_key = next(
-        (key for key, value in payload.items() if not isinstance(value, str)),
-        None,
-    )
-    if invalid_key is not None:
-        raise ValueError(f"Password store value for {invalid_key} must be a string.")
-    return cast("dict[str, str]", payload)
+    output: dict[str, str] = {}
+    for key, value in payload.items():
+        if not isinstance(key, str):
+            raise ValueError("Password store keys must be strings.")
+        if not isinstance(value, str):
+            raise ValueError(f"Password store value for {key} must be a string.")
+        output[key] = value
+    return output
 
 
 def read_password_store() -> dict[str, str]:
@@ -61,6 +55,42 @@ def read_password_store() -> dict[str, str]:
     lock = _lock_for_path(path)
     with lock:
         return _read_password_store_unlocked(path)
+
+
+def _write_password_store_unlocked(path: Path, payload: dict[str, str]) -> None:
+    _ensure_parent_dir(path)
+    content = json.dumps(payload, indent=2, sort_keys=True)
+    if content:
+        content += "\n"
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        dir=path.parent,
+        delete=False,
+        encoding="utf-8",
+        suffix=".tmp",
+    ) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+    Path(tmp_path).replace(path)
+
+
+def write_password_store(payload: dict[str, str]) -> None:
+    path = _password_store_path()
+    lock = _lock_for_path(path)
+    with lock:
+        _write_password_store_unlocked(path, payload)
+
+
+def set_password_secret(code_obj_impl_id: str, value: str) -> None:
+    path = _password_store_path()
+    lock = _lock_for_path(path)
+    with lock:
+        payload = _read_password_store_unlocked(path)
+        if value == "":
+            payload.pop(code_obj_impl_id, None)
+        else:
+            payload[code_obj_impl_id] = value
+        _write_password_store_unlocked(path, payload)
 
 
 def get_password_secret(code_obj_impl_id: str) -> str:

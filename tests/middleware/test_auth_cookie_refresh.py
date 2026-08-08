@@ -1,0 +1,160 @@
+import os
+from datetime import datetime, timedelta, timezone
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from setta import trusted_frontend_origins as trusted_frontend_origins_module
+from setta.auth.cookies import auth_cookie_name
+from setta.auth import session as auth_session
+from setta.auth.manager import AUTH_COOKIE_MANAGER
+from setta.middleware import AuthMiddleware
+from setta.sessions import SessionRegistry
+from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
+from setta.trusted_frontend_origins import (
+    TrustedFrontendOriginStore,
+    trust_frontend_origin,
+)
+from setta.utils.constants import C
+
+
+@pytest.fixture(autouse=True)
+def isolated_trusted_frontend_origins_store(tmp_path, monkeypatch) -> None:
+    store = TrustedFrontendOriginStore(
+        storage_path=tmp_path / "trusted_frontend_origins.json"
+    )
+    monkeypatch.setattr(
+        trusted_frontend_origins_module,
+        "_TRUSTED_FRONTEND_ORIGIN_STORE",
+        store,
+    )
+
+
+@pytest.fixture
+def auth_env(tmp_path, monkeypatch):
+    original_metadata = auth_session._cached_metadata
+    original_secret = auth_session._cached_secret
+    original_sessions_root = auth_session._cached_sessions_root
+    auth_session._clear_cached_session()
+
+    monkeypatch.delenv(SESSION_ID_ENV_VAR, raising=False)
+    monkeypatch.delenv(SESSIONS_ROOT_ENV_VAR, raising=False)
+
+    sessions_root = tmp_path / "sessions"
+    registry = SessionRegistry(sessions_root=sessions_root)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    session = registry.create_session(
+        workspace_path=workspace,
+        host="127.0.0.1",
+        port=61234,
+        pid=os.getpid(),
+    )
+    secret = registry.load_secret(session)
+    monkeypatch.setenv(SESSION_ID_ENV_VAR, session.id)
+    monkeypatch.setenv(SESSIONS_ROOT_ENV_VAR, str(sessions_root))
+
+    app = FastAPI()
+    app.add_middleware(AuthMiddleware)
+
+    @app.get("/api/secure")
+    async def secure_endpoint() -> dict[str, bool]:
+        return {"ok": True}
+
+    @app.get("/secure")
+    async def secure_non_api_endpoint() -> dict[str, bool]:
+        return {"ok": True}
+
+    client = TestClient(app)
+    try:
+        yield session, secret, client
+    finally:
+        client.close()
+        auth_session._cached_metadata = original_metadata
+        auth_session._cached_secret = original_secret
+        auth_session._cached_sessions_root = original_sessions_root
+
+
+def test_auth_cookie_refreshes_near_expiry(auth_env) -> None:
+    session, secret, client = auth_env
+    cookie_name = auth_cookie_name(session.id)
+    seconds_until_exp = max(1, C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS - 30)
+    issued_at = datetime.now(timezone.utc) - timedelta(
+        seconds=C.AUTH_COOKIE_MAX_AGE_SECONDS - seconds_until_exp
+    )
+    old_token = AUTH_COOKIE_MANAGER.mint(session.id, secret, now=issued_at)
+
+    client.cookies.set(cookie_name, old_token)
+    response = client.get("/api/secure")
+
+    assert response.status_code == 200
+    cookie_header = response.headers.get("set-cookie", "")
+    assert f"{cookie_name}=" in cookie_header
+    new_token = response.cookies.get(cookie_name)
+    assert new_token is not None
+
+    old_payload = AUTH_COOKIE_MANAGER.validate(old_token, secret)
+    new_payload = AUTH_COOKIE_MANAGER.validate(new_token, secret)
+    assert new_payload.exp > old_payload.exp
+
+
+def test_auth_cookie_not_refreshed_when_fresh(auth_env) -> None:
+    session, secret, client = auth_env
+    cookie_name = auth_cookie_name(session.id)
+    token = AUTH_COOKIE_MANAGER.mint(session.id, secret)
+
+    client.cookies.set(cookie_name, token)
+    response = client.get("/api/secure")
+
+    assert response.status_code == 200
+    cookie_header = response.headers.get("set-cookie")
+    if cookie_header is not None:
+        assert f"{cookie_name}=" not in cookie_header
+
+
+def test_auth_cookie_not_refreshed_on_non_api_route(auth_env) -> None:
+    session, secret, client = auth_env
+    cookie_name = auth_cookie_name(session.id)
+    seconds_until_exp = max(1, C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS - 30)
+    issued_at = datetime.now(timezone.utc) - timedelta(
+        seconds=C.AUTH_COOKIE_MAX_AGE_SECONDS - seconds_until_exp
+    )
+    token = AUTH_COOKIE_MANAGER.mint(session.id, secret, now=issued_at)
+
+    client.cookies.set(cookie_name, token)
+    response = client.get("/secure")
+
+    assert response.status_code == 200
+    cookie_header = response.headers.get("set-cookie")
+    if cookie_header is not None:
+        assert f"{cookie_name}=" not in cookie_header
+
+
+def test_auth_cookie_refresh_extends_trusted_origin_expiry(auth_env) -> None:
+    session, secret, client = auth_env
+    cookie_name = auth_cookie_name(session.id)
+    seconds_until_exp = max(1, C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS - 30)
+    issued_at = datetime.now(timezone.utc) - timedelta(
+        seconds=C.AUTH_COOKIE_MAX_AGE_SECONDS - seconds_until_exp
+    )
+    old_token = AUTH_COOKIE_MANAGER.mint(session.id, secret, now=issued_at)
+    old_payload = AUTH_COOKIE_MANAGER.validate(old_token, secret)
+    origin = "http://127.0.0.1:61234"
+    trust_frontend_origin(
+        origin,
+        session_id=session.id,
+        exp=old_payload.exp,
+        now=old_payload.exp - 1,
+    )
+
+    client.cookies.set(cookie_name, old_token)
+    response = client.get("/api/secure", headers={"origin": origin})
+
+    assert response.status_code == 200
+    store = trusted_frontend_origins_module._TRUSTED_FRONTEND_ORIGIN_STORE
+    assert isinstance(store, TrustedFrontendOriginStore)
+    assert (
+        store.is_trusted(session_id=session.id, origin=origin, now=old_payload.exp + 1)
+        is True
+    )

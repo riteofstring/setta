@@ -13,42 +13,8 @@ import { handlePointerDown } from "./handler";
 
 type HandleComponentProps = HandleProps &
   Omit<HTMLAttributes<HTMLDivElement>, "id">;
-type HandlePointerEvent =
-  | React.MouseEvent<HTMLDivElement>
-  | React.TouchEvent<HTMLDivElement>;
 
 const alwaysValid = () => true;
-
-function shouldStartHandleConnection({
-  event,
-  isConnectableStart,
-}: {
-  event: HandlePointerEvent;
-  isConnectableStart: boolean;
-}): boolean {
-  if (!isConnectableStart) {
-    return false;
-  }
-
-  return !isMouseEvent(event) || event.button === 0;
-}
-
-function dispatchPointerStartEvent({
-  event,
-  onMouseDown,
-  onTouchStart,
-}: {
-  event: HandlePointerEvent;
-  onMouseDown: HandleComponentProps["onMouseDown"];
-  onTouchStart: HandleComponentProps["onTouchStart"];
-}): void {
-  if (isMouseEvent(event)) {
-    onMouseDown?.(event);
-    return;
-  }
-
-  onTouchStart?.(event);
-}
 
 function HandleComponent({
   type,
@@ -99,12 +65,15 @@ function HandleComponent({
     onConnect?.(params);
   };
 
-  const onPointerDown = (event: HandlePointerEvent) => {
+  const onPointerDown = (
+    event: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>,
+  ) => {
     if (!nodeId || !handleId) {
       return;
     }
 
-    if (shouldStartHandleConnection({ event, isConnectableStart })) {
+    const isMouseTriggered = isMouseEvent(event);
+    if (isConnectableStart && (!isMouseTriggered || event.button === 0)) {
       handlePointerDown({
         event,
         handleId,
@@ -117,7 +86,11 @@ function HandleComponent({
       });
     }
 
-    dispatchPointerStartEvent({ event, onMouseDown, onTouchStart });
+    if (isMouseTriggered) {
+      onMouseDown?.(event);
+    } else {
+      onTouchStart?.(event);
+    }
   };
 
   const classes = [

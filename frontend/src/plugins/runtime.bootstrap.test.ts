@@ -9,7 +9,7 @@ describe("plugin runtime bootstrap", () => {
   afterEach(() => {
     vi.resetModules();
     vi.doUnmock("react");
-    vi.doUnmock("openapi/http");
+    vi.doUnmock("utils/generatedEndpoints");
   });
 
   it("triggers runtime refresh only when bootstrap is enabled", async () => {
@@ -32,15 +32,17 @@ describe("plugin runtime bootstrap", () => {
           plugins: [],
         },
       },
-      response: new Response(null, { status: 200 }),
+      status: 200,
+      hasResponse: true,
     }));
 
-    vi.doMock("openapi/http", async () => {
-      const actual =
-        await vi.importActual<typeof import("openapi/http")>("openapi/http");
+    vi.doMock("utils/generatedEndpoints", async () => {
+      const actual = await vi.importActual<
+        typeof import("utils/generatedEndpoints")
+      >("utils/generatedEndpoints");
       return {
         ...actual,
-        getPluginsRuntime: routePluginsRuntime,
+        route_plugins_runtime: routePluginsRuntime,
       };
     });
 
@@ -55,34 +57,7 @@ describe("plugin runtime bootstrap", () => {
     });
 
     const runtime = await import("plugins/runtime");
-    const runtimeInternal = await import("plugins/runtimeInternal");
-    runtimeInternal.clearPluginRuntimeSideEffects();
-    runtime.usePluginRuntimeStore.setState({
-      status: "idle",
-      statusMessage: null,
-      schemaVersion: null,
-      serverMode: null,
-      appSubsystemCapabilities: null,
-      restartCapability: null,
-      pluginListById: {},
-      sortedPluginListEntries: [],
-      pluginStatusById: {},
-      statusEntries: [],
-      languageServerSelectionsByLanguage: {},
-      languageServerSelections: [],
-      appSubsystemRegistrationsByPluginId: {},
-      sectionKindsByKey: {},
-      sortedSectionKinds: [],
-      panesByPluginId: {},
-      sortedPaneTabs: [],
-      commandsByPluginId: {},
-      sortedCommands: [],
-      topNavBarItemsByPluginId: {},
-      sortedTopNavBarItems: [],
-      canvasControlsByPluginId: {},
-      sortedCanvasControls: [],
-      frontendErrorsByPluginId: {},
-    });
+    runtime.resetPluginRuntimeStoreForTests();
 
     runtime.usePluginRuntimeBootstrap(true);
     await Promise.resolve();

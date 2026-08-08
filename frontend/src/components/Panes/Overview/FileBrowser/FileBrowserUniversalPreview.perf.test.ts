@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveFileBrowserPreviewKind } from "./fileBrowserUniversalPreviewState";
+import { resolveFileBrowserPreviewKind } from "./FileBrowserUniversalPreview";
 
 describe("FileBrowserUniversalPreview kind resolution (perf)", () => {
   it("classifies large batches within interactive budget", () => {

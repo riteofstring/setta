@@ -7,13 +7,7 @@ import react from "eslint-plugin-react";
 export default [
   js.configs.recommended,
   {
-    basePath: "..",
-    files: [
-      "frontend/src/**/*.{js,jsx,ts,tsx}",
-      "frontend/plugin-sdk/app-subsystem/src/**/*.{js,jsx,ts,tsx}",
-      "plugin-sdk/app-subsystem/src/**/*.{js,jsx,ts,tsx}",
-      "plugins/*/frontend/src/**/*.{js,jsx,ts,tsx}",
-    ],
+    files: ["**/*.{js,jsx,ts,tsx}"],
     languageOptions: {
       ecmaVersion: 2021,
       sourceType: "module",

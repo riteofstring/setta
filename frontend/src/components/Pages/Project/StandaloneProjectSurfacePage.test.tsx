@@ -1,47 +1,435 @@
 /* @vitest-environment jsdom */
 
-import { act, type ComponentType } from "react";
+import { act, useEffect, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import "testUtils/reactRefreshPreamble";
 import {
   ChatWindowModeEnum,
+  SectionTypeEnum,
   WindowSpaceSurfaceKindEnum,
   createWindowSpaceConfig,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  LocationProbe,
-  NavigateButton,
-  click,
-  createChatSectionFixture,
-  createGroupSectionFixture,
-  createTextSectionFixture,
-  getStandaloneProjectSurfaceMocks,
-  resetStandaloneProjectSurfaceMocks,
-} from "./StandaloneProjectSurfacePage.testHelpers";
+import { StandaloneProjectSurfacePage } from "./StandaloneProjectSurfacePage";
 
-const hoisted = getStandaloneProjectSurfaceMocks();
+type MockSectionCore = {
+  name: string;
+  sharedModifier?: Record<string, unknown>;
+};
+
+type MockSectionVariant = {
+  impl: string;
+  modifier?: Record<string, unknown>;
+};
+
+type MockSectionImpl = {
+  type: string;
+  managed?: boolean;
+  children?: string[];
+};
+
+type MockProjectState = {
+  projectConfig: {
+    id: string;
+    windowSpaces: Record<string, unknown>;
+    sectionVariantMap: Record<string, string>;
+  };
+  sections: Record<string, MockSectionCore>;
+  sectionVariants: Record<string, MockSectionVariant>;
+  sectionImpls: Record<string, MockSectionImpl>;
+  parentSectionMap: Record<string, string | null>;
+};
+
+type MockAIState = {
+  activeChatId: string | null | undefined;
+  agentRuns: Array<unknown>;
+  agentRunsAuthorityState: string;
+  chatDetails: Record<string, unknown>;
+};
+
+type MockShareSessionState = {
+  isDeploymentMode: boolean;
+  sharePolicy: {
+    allowLLM: boolean;
+  } | null;
+};
+
+const hoisted = vi.hoisted(() => {
+  const state = {
+    projectState: {
+      projectConfig: {
+        id: "project-config-1",
+        windowSpaces: {},
+        sectionVariantMap: {},
+      },
+      sections: {},
+      sectionVariants: {},
+      sectionImpls: {},
+      parentSectionMap: {},
+    } as MockProjectState,
+    aiState: {
+      activeChatId: "workspace-chat",
+      agentRuns: [],
+      agentRunsAuthorityState: "ready",
+      chatDetails: {},
+    } as MockAIState,
+    shareSessionState: {
+      isDeploymentMode: false,
+      sharePolicy: null,
+    } as MockShareSessionState,
+    projectChatBlockedErrorCode: null as string | null,
+    chatHistoryEntries: [] as Array<{ chatId: string; label: string }>,
+    loadProjectConfigResult: [true, false] as [boolean, boolean],
+  };
+
+  const useProjectStateMock = Object.assign(
+    (selector: (nextState: MockProjectState) => unknown) =>
+      selector(state.projectState),
+    {
+      getState: () => state.projectState,
+    },
+  );
+
+  const useAIStoreMock = Object.assign(
+    (selector: (nextState: MockAIState) => unknown) => selector(state.aiState),
+    {
+      getState: () => state.aiState,
+      setState: (
+        updater:
+          | Partial<MockAIState>
+          | ((nextState: MockAIState) => Partial<MockAIState>),
+      ) => {
+        const nextState =
+          typeof updater === "function" ? updater(state.aiState) : updater;
+        state.aiState = {
+          ...state.aiState,
+          ...nextState,
+        };
+      },
+    },
+  );
+
+  const useShareSessionMock = Object.assign(
+    (selector: (nextState: MockShareSessionState) => unknown) =>
+      selector(state.shareSessionState),
+    {
+      getState: () => state.shareSessionState,
+    },
+  );
+
+  return {
+    state,
+    useProjectStateMock,
+    useAIStoreMock,
+    useShareSessionMock,
+  };
+});
+
+vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
+  UnifiedChatSurface: ({
+    dataTestId,
+    projectChatId,
+    setProjectChatId,
+    onProjectChatBlockedErrorCodeChange,
+  }: {
+    dataTestId?: string | undefined;
+    projectChatId?: string | null | undefined;
+    setProjectChatId?: ((next: string | null) => void) | undefined;
+    onProjectChatBlockedErrorCodeChange?:
+      | ((errorCode: string | null) => void)
+      | undefined;
+  }) => (
+    <MockUnifiedChatSurface
+      dataTestId={dataTestId}
+      projectChatId={projectChatId}
+      setProjectChatId={setProjectChatId}
+      onProjectChatBlockedErrorCodeChange={onProjectChatBlockedErrorCodeChange}
+    />
+  ),
+}));
+
+vi.mock("components/ChatWindowing/ProjectChatWindowSurface", () => ({
+  ProjectChatWindowSurface: ({ children }: { children: ReactNode }) => (
+    <section
+      data-testid="mock-project-chat-window-frame"
+      data-chat-window-frame="project-chat"
+    >
+      {children}
+    </section>
+  ),
+}));
+
+function MockUnifiedChatSurface({
+  dataTestId,
+  projectChatId,
+  setProjectChatId,
+  onProjectChatBlockedErrorCodeChange,
+}: {
+  dataTestId?: string | undefined;
+  projectChatId?: string | null | undefined;
+  setProjectChatId?: ((next: string | null) => void) | undefined;
+  onProjectChatBlockedErrorCodeChange?:
+    | ((errorCode: string | null) => void)
+    | undefined;
+}) {
+  useEffect(() => {
+    onProjectChatBlockedErrorCodeChange?.(
+      hoisted.state.projectChatBlockedErrorCode,
+    );
+  }, [
+    onProjectChatBlockedErrorCodeChange,
+    hoisted.state.projectChatBlockedErrorCode,
+  ]);
+
+  return (
+    <div
+      data-testid={dataTestId ?? "mock-unified-chat-surface"}
+      data-project-chat-id={projectChatId ?? ""}
+    >
+      <button
+        type="button"
+        data-testid="mock-standalone-new-chat"
+        onClick={() => {
+          setProjectChatId?.(null);
+        }}
+      >
+        New Chat
+      </button>
+      <button
+        type="button"
+        data-testid="mock-standalone-select-chat-beta"
+        onClick={() => {
+          setProjectChatId?.("chat-beta");
+        }}
+      >
+        Select chat beta
+      </button>
+    </div>
+  );
+}
+
+vi.mock("components/Section/Container/ManyNestedSections", () => ({
+  MaybeManyNestedSections: () => (
+    <div data-testid="mock-many-nested-sections" />
+  ),
+}));
+
+vi.mock("components/Section/Container/SectionWindowSurface", () => ({
+  SectionWindowSurface: ({
+    onProjectChatBlockedErrorCodeChange,
+  }: {
+    onProjectChatBlockedErrorCodeChange?:
+      | ((errorCode: string | null) => void)
+      | undefined;
+  }) => {
+    useEffect(() => {
+      onProjectChatBlockedErrorCodeChange?.(
+        hoisted.state.projectChatBlockedErrorCode,
+      );
+    }, [
+      onProjectChatBlockedErrorCodeChange,
+      hoisted.state.projectChatBlockedErrorCode,
+    ]);
+    return <div data-testid="mock-section-window-surface" />;
+  },
+}));
+
+vi.mock("components/Utils/FloatingBox", () => ({
+  FloatingBox: () => <div data-testid="mock-floating-box" />,
+}));
+
+vi.mock("forks/dnd-kit/SectionDndContext", () => ({
+  SectionDndContext: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
+vi.mock("forks/xyflow/core/utils/mouseLocation", () => ({
+  useAddMouseLocationListener: () => undefined,
+}));
+
+vi.mock("plugins/runtime", () => ({
+  usePluginRuntimeBootstrap: () => undefined,
+}));
+
+vi.mock("components/Utils/CodeMirror/useCodeMirrorStyleLoader", () => ({
+  useCodeMirrorStyleLoader: () => undefined,
+}));
+
+vi.mock("state/actions/chatHistory", () => ({
+  buildChatHistoryEntries: () => hoisted.state.chatHistoryEntries,
+}));
+
+vi.mock("state/definitions", () => ({
+  useAIStore: hoisted.useAIStoreMock,
+  useProjectState: hoisted.useProjectStateMock,
+  useShareSession: hoisted.useShareSessionMock,
+}));
+
+vi.mock("state/hooks/project", () => ({
+  useLoadProjectConfig: () => hoisted.state.loadProjectConfigResult,
+}));
+
+vi.mock("../LoadingSpinner", () => ({
+  LoadingSpinner: () => <div data-testid="mock-loading-spinner" />,
+}));
+
+vi.mock("../NotFound/NotFound", () => ({
+  NotFound: ({
+    title = "Not Found",
+    description,
+  }: {
+    title?: string;
+    description?: string;
+  }) => (
+    <div data-testid="mock-not-found">
+      <h1>{title}</h1>
+      {description ? <p>{description}</p> : null}
+    </div>
+  ),
+}));
+
+vi.mock("./StandaloneWindowSpaceSurface", () => ({
+  StandaloneWindowSpaceSurface: ({
+    onProjectChatBlockedErrorCodeChange,
+  }: {
+    onProjectChatBlockedErrorCodeChange?:
+      | ((errorCode: string | null) => void)
+      | undefined;
+  }) => {
+    useEffect(() => {
+      onProjectChatBlockedErrorCodeChange?.(
+        hoisted.state.projectChatBlockedErrorCode,
+      );
+    }, [
+      onProjectChatBlockedErrorCodeChange,
+      hoisted.state.projectChatBlockedErrorCode,
+    ]);
+    return <div data-testid="mock-standalone-window-space-surface" />;
+  },
+}));
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="mock-location-path">{location.pathname}</div>;
+}
+
+function NavigateButton({ to }: { to: string }) {
+  const navigate = useNavigate();
+  return (
+    <button
+      type="button"
+      data-testid={`mock-navigate-${to}`}
+      onClick={() => {
+        navigate(to);
+      }}
+    >
+      Navigate
+    </button>
+  );
+}
+
+function click(node: Element | null): void {
+  if (!(node instanceof HTMLElement)) {
+    throw new Error("Expected clickable element.");
+  }
+  node.click();
+}
+
+function createChatSectionFixture({
+  sectionId,
+  sectionName,
+  managed,
+}: {
+  sectionId: string;
+  sectionName: string;
+  managed: boolean;
+}) {
+  const variantId = `${sectionId}-variant`;
+  const implId = `${sectionId}-impl`;
+  return {
+    sectionId,
+    core: {
+      name: sectionName,
+      sharedModifier: {},
+    } satisfies MockSectionCore,
+    variantId,
+    variant: {
+      impl: implId,
+      modifier: {},
+    } satisfies MockSectionVariant,
+    implId,
+    impl: {
+      type: SectionTypeEnum.Chat,
+      managed,
+    } satisfies MockSectionImpl,
+  };
+}
+
+function createTextSectionFixture({
+  sectionId,
+  sectionName,
+}: {
+  sectionId: string;
+  sectionName: string;
+}) {
+  const variantId = `${sectionId}-variant`;
+  const implId = `${sectionId}-impl`;
+  return {
+    sectionId,
+    core: {
+      name: sectionName,
+      sharedModifier: {},
+    } satisfies MockSectionCore,
+    variantId,
+    variant: {
+      impl: implId,
+      modifier: {},
+    } satisfies MockSectionVariant,
+    implId,
+    impl: {
+      type: SectionTypeEnum.TextBlock,
+    } satisfies MockSectionImpl,
+  };
+}
 
 describe("StandaloneProjectSurfacePage", () => {
   let host: HTMLDivElement;
   let root: Root;
-  let StandaloneProjectSurfacePage: ComponentType;
 
-  beforeEach(async () => {
-    resetStandaloneProjectSurfaceMocks();
-    (
-      globalThis as typeof globalThis & {
-        ResizeObserver?: typeof ResizeObserver;
-      }
-    ).ResizeObserver = class ResizeObserver {
-      disconnect() {}
-      observe() {}
-      unobserve() {}
+  beforeEach(() => {
+    hoisted.state.projectState = {
+      projectConfig: {
+        id: "project-config-1",
+        windowSpaces: {},
+        sectionVariantMap: {},
+      },
+      sections: {},
+      sectionVariants: {},
+      sectionImpls: {},
+      parentSectionMap: {},
     };
-    ({ StandaloneProjectSurfacePage } = await import(
-      "./StandaloneProjectSurfacePage"
-    ));
+    hoisted.state.aiState = {
+      activeChatId: "workspace-chat",
+      agentRuns: [],
+      agentRunsAuthorityState: "ready",
+      chatDetails: {},
+    };
+    hoisted.state.shareSessionState = {
+      isDeploymentMode: false,
+      sharePolicy: null,
+    };
+    hoisted.state.projectChatBlockedErrorCode = null;
+    hoisted.state.chatHistoryEntries = [
+      { chatId: "chat-alpha", label: "Alpha Chat" },
+      { chatId: "chat-beta", label: "Beta Chat" },
+    ];
+    hoisted.state.loadProjectConfigResult = [true, false];
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -388,11 +776,7 @@ describe("StandaloneProjectSurfacePage", () => {
             order: ["chat-window"],
           }),
         },
-        windowSpaceIdsBySlug: {
-          research_board: ["space-1"],
-        },
         sectionVariantMap: {},
-        sectionIdsByPathSlug: {},
       },
       sections: {},
       sectionVariants: {},
@@ -439,12 +823,8 @@ describe("StandaloneProjectSurfacePage", () => {
       projectConfig: {
         id: "project-config-1",
         windowSpaces: {},
-        windowSpaceIdsBySlug: {},
         sectionVariantMap: {
           [scriptableChat.sectionId]: scriptableChat.variantId,
-        },
-        sectionIdsByPathSlug: {
-          scriptable_chat: [scriptableChat.sectionId],
         },
       },
       sections: {
@@ -519,13 +899,9 @@ describe("StandaloneProjectSurfacePage", () => {
             order: ["managed-window"],
           }),
         },
-        windowSpaceIdsBySlug: {
-          managed_space: ["space-1"],
-        },
         sectionVariantMap: {
           [managedChat.sectionId]: managedChat.variantId,
         },
-        sectionIdsByPathSlug: {},
       },
       sections: {
         [managedChat.sectionId]: managedChat.core,
@@ -640,14 +1016,10 @@ describe("StandaloneProjectSurfacePage", () => {
             ],
           }),
         },
-        windowSpaceIdsBySlug: {
-          mixed_space: ["space-1"],
-        },
         sectionVariantMap: {
           [managedChat.sectionId]: managedChat.variantId,
           [scriptableChat.sectionId]: scriptableChat.variantId,
         },
-        sectionIdsByPathSlug: {},
       },
       sections: {
         [managedChat.sectionId]: managedChat.core,
@@ -745,14 +1117,10 @@ describe("StandaloneProjectSurfacePage", () => {
             order: ["graph-window", "scriptable-window"],
           }),
         },
-        windowSpaceIdsBySlug: {
-          scriptable_space: ["space-1"],
-        },
         sectionVariantMap: {
           [scriptableChat.sectionId]: scriptableChat.variantId,
           [textSection.sectionId]: textSection.variantId,
         },
-        sectionIdsByPathSlug: {},
       },
       sections: {
         [scriptableChat.sectionId]: scriptableChat.core,
@@ -976,11 +1344,7 @@ describe("StandaloneProjectSurfacePage", () => {
             order: ["chat-window"],
           }),
         },
-        windowSpaceIdsBySlug: {
-          research_board: ["space-1"],
-        },
         sectionVariantMap: {},
-        sectionIdsByPathSlug: {},
       },
       sections: {},
       sectionVariants: {},

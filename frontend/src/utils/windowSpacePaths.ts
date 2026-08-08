@@ -1,13 +1,14 @@
 import type { WindowSpaceConfig } from "utils/generatedTypes";
 import { PROJECT_WINDOW_SPACE_STANDALONE_ROUTE_SEGMENT } from "./constants";
+import { sanitizeNameForSlug } from "./nameValidation";
 
 type WindowSpacePathProjectState = {
   projectConfig: {
-    windowSpaceSlugsById: Record<string, string>;
-    windowSpaceIdsBySlug: Record<string, Array<string>>;
     windowSpaces: Record<string, WindowSpaceConfig>;
   };
 };
+
+type WindowSpaceSlugIndex = Record<string, Array<string>>;
 
 type StandaloneWindowSpaceSlugResolution =
   | {
@@ -25,12 +26,26 @@ type StandaloneWindowSpaceSlugResolution =
       windowSpaceIds: Array<string>;
     };
 
+function getWindowSpaceSlugIndex(
+  state: WindowSpacePathProjectState,
+): WindowSpaceSlugIndex {
+  const { windowSpaces } = state.projectConfig;
+  const slugToIds: WindowSpaceSlugIndex = {};
+  for (const [windowSpaceId, windowSpace] of Object.entries(windowSpaces)) {
+    const slug = sanitizeNameForSlug(windowSpace.name);
+    if (!slugToIds[slug]) {
+      slugToIds[slug] = [];
+    }
+    slugToIds[slug].push(windowSpaceId);
+  }
+  return slugToIds;
+}
+
 export function resolveStandaloneWindowSpaceSlug(
   state: WindowSpacePathProjectState,
   windowSpaceSlug: string,
 ): StandaloneWindowSpaceSlugResolution {
-  const matchingIds =
-    state.projectConfig.windowSpaceIdsBySlug?.[windowSpaceSlug] ?? [];
+  const matchingIds = getWindowSpaceSlugIndex(state)[windowSpaceSlug] ?? [];
   if (matchingIds.length === 0) {
     return {
       kind: "not_found",
@@ -67,19 +82,9 @@ export function resolveStandaloneWindowSpaceSlug(
 
 export function buildStandaloneWindowSpacePath(
   projectConfigName: string,
-  projectConfig: Pick<
-    WindowSpacePathProjectState["projectConfig"],
-    "windowSpaceSlugsById"
-  >,
-  windowSpaceId: string,
+  windowSpaceName: string,
 ): string {
-  const windowSpaceSlug = projectConfig.windowSpaceSlugsById[windowSpaceId];
-  if (!windowSpaceSlug) {
-    throw new Error(
-      `Missing backend-owned slug for window space ${windowSpaceId}.`,
-    );
-  }
   return `/${encodeURIComponent(projectConfigName)}/${PROJECT_WINDOW_SPACE_STANDALONE_ROUTE_SEGMENT}/${encodeURIComponent(
-    windowSpaceSlug,
+    sanitizeNameForSlug(windowSpaceName),
   )}`;
 }

@@ -4,64 +4,29 @@ Setta currently has two low-level patch/update paths for app definitions, plus a
 Project Chat app-generation mode contract that decides how chat turns should
 persist app-definition work back into Setta.
 
-The app-definition runtime is contributed by the active app-subsystem provider.
-For the first-party JSON Render provider (`setta-json-render-app-gen`), Setta
-stores document-level app-definition metadata in `project.json` at
-`pluginData["setta-json-render-app-gen"]`, and stores app-spec JSON files under
-`plugins/setta-json-render-app-gen/app_specs/`. The default app-spec path is
-`plugins/setta-json-render-app-gen/app_specs/app.json`.
-
 Project Chat is the primary prompt surface for app generation. Built-in slash
 commands `/app-json`, `/app-image`, `/app-prompt`, and `/app-mcp` carry fixed
 baseline prompts, optionally append user suffix text, and submit chat requests
-with an explicit `appGenerationMode` when the active app-subsystem provider
-contributes app-generation chat modes. App Config remains the advanced
-workbench for previewing, validating, saving, and manually editing the
-resulting app definition.
-
-Manual App Config edits use the persisted Setta app-spec shape. A minimal root
-element includes `key` and `type`, child elements are stored in top-level
-`children`, and props must match the catalog component names and fields:
-
-```json
-{
-  "key": "app-root",
-  "type": "Card",
-  "props": {
-    "title": "Plugin render smoke test",
-    "description": "If you can see this card, JSON Render is working."
-  },
-  "children": [
-    {
-      "key": "smoke-text",
-      "type": "Text",
-      "props": {
-        "text": "This is a simple app-subsystem render check."
-      }
-    }
-  ]
-}
-```
+with an explicit `appGenerationMode`. App Config remains the advanced workbench
+for previewing, validating, saving, and manually editing the resulting app
+definition.
 
 ## 1) Persistent Updates: JSON Merge Patch
 
 Used by:
 
-- Go-owned app-definition writes in `internal/appsubsystem/appdefinition/service.go`
-- HTTP reads/writes registered by `internal/appsubsystem/appdefinitionhttp/routes.go`
+- `BaseProjectManager.update_app_definition()` (`backend/setta/project_state/base_project_manager.py`)
 
 This applies a **JSON Merge Patch** to the stored app definition/spec. Use this
 for non-streaming, persisted edits (for example: "set this one field" or "apply
 this config change").
 
-## 2) Streaming Persistence: JSONL JSON-Pointer Patch Ops
+## 2) Streaming Preview / Generation: JSONL JSON-Pointer Patch Ops
 
 Used by:
 
-- `setta__stream_app_definition`, registered by
-  `internal/appsubsystem/mcptools/registrations.go` and persisted through
-  `internal/appsubsystem/appdefinition/service.go`
-- Patch parsing/application in `internal/appsubsystem/appspec/patch_stream.go`
+- `/api/streamAppSpec` (`backend/setta/routers/app_spec_streaming.py`)
+- `setta__stream_app_definition` (`backend/setta/mcp/tools/app_tools.py`)
 
 This consumes **newline-delimited JSON (JSONL)** where each line is an operation
 using JSON Pointer paths (for example: `{"op":"set","path":"/elements/foo", ...}`).
@@ -70,27 +35,22 @@ This format is designed for progressive UI updates while a model is generating a
 spec, and matches streaming UI contracts (for example `@json-render/react`'s
 `useUIStream`).
 
-App Config and Project Chat generation use `/api/getLLMResponse` plus
-`/ws/frontend` tool-preview updates and the Go-owned app-subsystem
-`stream_app_definition` MCP tool.
+### `/api/streamAppSpec` generation mode inputs
 
-### Current app-generation mode inputs
-
-The app-generation input contract centers on:
+`StreamAppSpecRequest` now accepts:
 
 - `mode`: `"json_render" | "json_render_with_image" | "prompt_builder" | "mcp_server" | null`
 - `referenceImageUrl`
 - `referenceImageNotes`
 
-Image mode behavior:
+Current behavior:
 
 - `referenceImageUrl` / `referenceImageNotes` are only applied when
   `mode="json_render_with_image"`.
 - Image mode validates that the selected model supports vision before issuing the
   LLM request.
-- `referenceImageUrl` and `referenceImageNotes` are hard-limited by the
-  Go send/prompt normalization path in `internal/managedchat` and
-  `internal/externalagents`.
+- `referenceImageUrl` and `referenceImageNotes` are hard-limited by backend
+  guards (see `backend/setta/routers/app_generation_limits.py`).
 
 ### Patch Op semantics
 

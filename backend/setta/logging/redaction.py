@@ -2,7 +2,7 @@
 
 import json
 from collections.abc import Mapping, Sequence
-from functools import lru_cache, singledispatch
+from functools import lru_cache
 from typing import Annotated, Any, get_args, get_origin, get_type_hints
 
 from pydantic import BaseModel, SecretBytes, SecretStr
@@ -60,133 +60,52 @@ def _sanitize(
         return None
     if isinstance(value, (bool, int, float)):
         return value
-    return _sanitize_by_type(
-        value,
-        max_depth=max_depth,
-        max_string_len=max_string_len,
-        max_collection_items=max_collection_items,
-    )
+    if isinstance(value, str):
+        normalized = value.replace("\n", "\\n").replace("\r", "\\r")
+        if len(normalized) <= max_string_len:
+            return normalized
+        over = len(normalized) - max_string_len
+        return f"{normalized[:max_string_len]}...(+{over})"
 
+    if isinstance(value, (SecretStr, SecretBytes)):
+        return REDACTED_VALUE
 
-@singledispatch
-def _sanitize_by_type(
-    value: object,
-    *,
-    max_depth: int,
-    max_string_len: int,
-    max_collection_items: int,
-) -> object:
+    if isinstance(value, BaseModel):
+        return _sanitize_pydantic_model(
+            value,
+            max_depth=max_depth - 1,
+            max_string_len=max_string_len,
+            max_collection_items=max_collection_items,
+        )
+
+    if isinstance(value, Mapping):
+        return _sanitize_mapping(
+            value,
+            max_depth=max_depth - 1,
+            max_string_len=max_string_len,
+            max_collection_items=max_collection_items,
+        )
+
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return _sanitize_sequence(
+            list(value),
+            max_depth=max_depth - 1,
+            max_string_len=max_string_len,
+            max_collection_items=max_collection_items,
+        )
+
+    if isinstance(value, (bytes, bytearray)):
+        return f"bytes(len={len(value)})"
+
+    if isinstance(value, Exception):
+        return repr(value)
+
     return _sanitize(
         str(value),
         max_depth=max_depth - 1,
         max_string_len=max_string_len,
         max_collection_items=max_collection_items,
     )
-
-
-@_sanitize_by_type.register(str)
-def _sanitize_string(
-    value: str,
-    *,
-    max_depth: int,
-    max_string_len: int,
-    max_collection_items: int,
-) -> object:
-    del max_depth, max_collection_items
-    normalized = value.replace("\n", "\\n").replace("\r", "\\r")
-    if len(normalized) <= max_string_len:
-        return normalized
-    over = len(normalized) - max_string_len
-    return f"{normalized[:max_string_len]}...(+{over})"
-
-
-@_sanitize_by_type.register(SecretStr)
-@_sanitize_by_type.register(SecretBytes)
-def _sanitize_secret(
-    value: SecretStr | SecretBytes,
-    *,
-    max_depth: int,
-    max_string_len: int,
-    max_collection_items: int,
-) -> object:
-    del value, max_depth, max_string_len, max_collection_items
-    return REDACTED_VALUE
-
-
-@_sanitize_by_type.register(BaseModel)
-def _sanitize_model(
-    value: BaseModel,
-    *,
-    max_depth: int,
-    max_string_len: int,
-    max_collection_items: int,
-) -> object:
-    return _sanitize_pydantic_model(
-        value,
-        max_depth=max_depth - 1,
-        max_string_len=max_string_len,
-        max_collection_items=max_collection_items,
-    )
-
-
-@_sanitize_by_type.register(Mapping)
-def _sanitize_mapping_value(
-    value: Mapping[object, object],
-    *,
-    max_depth: int,
-    max_string_len: int,
-    max_collection_items: int,
-) -> object:
-    return _sanitize_mapping(
-        value,
-        max_depth=max_depth - 1,
-        max_string_len=max_string_len,
-        max_collection_items=max_collection_items,
-    )
-
-
-@_sanitize_by_type.register(list)
-@_sanitize_by_type.register(tuple)
-@_sanitize_by_type.register(set)
-@_sanitize_by_type.register(frozenset)
-def _sanitize_collection(
-    value: list[object] | tuple[object, ...] | set[object] | frozenset[object],
-    *,
-    max_depth: int,
-    max_string_len: int,
-    max_collection_items: int,
-) -> object:
-    return _sanitize_sequence(
-        list(value),
-        max_depth=max_depth - 1,
-        max_string_len=max_string_len,
-        max_collection_items=max_collection_items,
-    )
-
-
-@_sanitize_by_type.register(bytes)
-@_sanitize_by_type.register(bytearray)
-def _sanitize_bytes(
-    value: bytes | bytearray,
-    *,
-    max_depth: int,
-    max_string_len: int,
-    max_collection_items: int,
-) -> object:
-    del max_depth, max_string_len, max_collection_items
-    return f"bytes(len={len(value)})"
-
-
-@_sanitize_by_type.register(Exception)
-def _sanitize_exception(
-    value: Exception,
-    *,
-    max_depth: int,
-    max_string_len: int,
-    max_collection_items: int,
-) -> object:
-    del max_depth, max_string_len, max_collection_items
-    return repr(value)
 
 
 def _sanitize_sequence(

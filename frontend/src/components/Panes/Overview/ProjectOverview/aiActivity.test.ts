@@ -1,9 +1,10 @@
 import {
-  RunStatusEnum,
+  AgentRunStatusEnum,
   SectionTypeEnum,
   createAgentRun,
   createChatSectionImpl,
   createTextBlockSectionImpl,
+  createUserDefaultChatSectionImpl,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
@@ -16,19 +17,19 @@ describe("aiActivity", () => {
     // Only running runs with a section id should activate an overview indicator.
     const runs = [
       createAgentRun({
-        status: RunStatusEnum.running,
+        status: AgentRunStatusEnum.running,
         inputs: { sectionId: "section-a" },
       }),
       createAgentRun({
-        status: RunStatusEnum.completed,
+        status: AgentRunStatusEnum.completed,
         inputs: { sectionId: "section-b" },
       }),
       createAgentRun({
-        status: RunStatusEnum.running,
+        status: AgentRunStatusEnum.running,
         inputs: { sectionId: "section-c" },
       }),
       createAgentRun({
-        status: RunStatusEnum.running,
+        status: AgentRunStatusEnum.running,
         inputs: null,
       }),
     ];
@@ -42,15 +43,15 @@ describe("aiActivity", () => {
     // Running runs from other project configs should not activate this overview.
     const runs = [
       createAgentRun({
-        status: RunStatusEnum.running,
+        status: AgentRunStatusEnum.running,
         inputs: { sectionId: "section-a", projectConfigId: "project-a" },
       }),
       createAgentRun({
-        status: RunStatusEnum.running,
+        status: AgentRunStatusEnum.running,
         inputs: { sectionId: "section-b", projectConfigId: "project-b" },
       }),
       createAgentRun({
-        status: RunStatusEnum.completed,
+        status: AgentRunStatusEnum.completed,
         inputs: { sectionId: "section-c", projectConfigId: "project-a" },
       }),
     ];
@@ -62,8 +63,12 @@ describe("aiActivity", () => {
 
   it("maps chat waiting state to overview activity", () => {
     // Chat sections with a pending response should show active work immediately.
-    const waitingChat = createChatSectionImpl({ waitingForResponse: true });
-    const idleChat = createChatSectionImpl({ waitingForResponse: false });
+    const waitingChat = createChatSectionImpl(
+      createUserDefaultChatSectionImpl({ waitingForResponse: true }),
+    );
+    const idleChat = createChatSectionImpl(
+      createUserDefaultChatSectionImpl({ waitingForResponse: false }),
+    );
     const textSection = createTextBlockSectionImpl({
       type: SectionTypeEnum.TextBlock,
     });

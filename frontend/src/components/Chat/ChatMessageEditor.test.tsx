@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { ChatMessageEditor } from "./ChatMessageEditor";
+import { ChatMessageEditor, syncTextAreaHeight } from "./ChatMessageEditor";
 
 function getTextareaClassName(markup: string): string | null {
   const marker = "<textarea";
@@ -49,5 +49,21 @@ describe("ChatMessageEditor", () => {
 
     expect(markup).toContain('data-chat-editor-side-rail="true"');
     expect(markup).toContain("absolute left-2 top-1.5");
+  });
+});
+
+describe("syncTextAreaHeight", () => {
+  it("sets textarea height to its current content height", () => {
+    // Height reset + reapply is required so edited text can both grow and shrink without internal scrollbars.
+    const target = {
+      scrollHeight: 146,
+      style: {
+        height: "22px",
+      },
+    };
+
+    syncTextAreaHeight(target);
+
+    expect(target.style.height).toBe("146px");
   });
 });

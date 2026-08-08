@@ -1,4 +1,4 @@
-const RUN_INSTRUCTIONS_ACCORDION_ITEM_ORDER = [
+export const RUN_INSTRUCTIONS_ACCORDION_ITEM_ORDER = [
   "run-instructions-run-snapshot-mode",
   "run-instructions-codegen-targets",
   "run-instructions-codegen-policy",

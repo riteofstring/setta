@@ -14,7 +14,7 @@ code sections, how they are broadcast to the UI, and how suppression works.
     generated code).
   - `codeSections`: map of `sectionId -> [SettaLspDiagnostic]` for Code sections.
   - `unmappedGenCode`: diagnostics from generated code that do not map to a
-    section/param (reported with line/column ranges).
+    section/param (still reported with line/column ranges).
 
 ## Diagnostic shape
 `SettaLspDiagnostic` is a thin wrapper around LSP diagnostics:
@@ -26,7 +26,7 @@ code sections, how they are broadcast to the UI, and how suppression works.
 - `uri`: document URI when available.
 
 ## Generated code diagnostics
-- Generated code diagnostics are mapped into `SettaProjectConfigDiagnostics`
+- Generated code diagnostics are still mapped into `SettaProjectConfigDiagnostics`
   so the UI can associate errors with sections/params.
 - Diagnostics that cannot be mapped are preserved in `unmappedGenCode` so the
   GenPythonCode section can surface them with line/column context.
@@ -36,8 +36,8 @@ code sections, how they are broadcast to the UI, and how suppression works.
 
 ## Code section diagnostics
 - Each Code section maintains a diagnostics list keyed by section id.
-- The Go LSP synchronizer forwards publish-diagnostics callbacks into
-  `LSPDiagnosticsRegistry`, which filters, merges, and broadcasts updates.
+- `ProjectPythonCode` forwards publish-diagnostics notifications into
+  `ProjectLspDiagnosticsState`, which filters and broadcasts updates.
 - CodeMirror linting uses the LSP ranges to highlight inline issues in the
   section editor.
 
@@ -67,10 +67,10 @@ Share mode disables LSP and rejects diagnostics settings routes. Muting and
 suppression are IDE-only controls.
 
 ## Code references
-- `internal/projectstate/lsp_diagnostics.go`
-- `internal/lsp/project_synchronizer.go`
-- `internal/httpapi/lsp_routes.go`
-- `internal/realtime/messages.go`
+- `backend/setta/project_state/lsp_diagnostics_state.py`
+- `backend/setta/project_state/project_code.py`
+- `backend/setta/project_state/lsp_response_handlers/diagnostics.py`
+- `backend/setta/project_state/base_project_manager.py`
 - `frontend/src/state/actions/lspDiagnostics.ts`
 - `frontend/src/components/Section/Header/SectionHeader.tsx`
 - `frontend/src/components/Utils/CodeMirror/lspDiagnostics.ts`

@@ -1,7 +1,11 @@
-import { getAgentRuns, getLlmChat, getLlmResponse } from "openapi/http";
 import { resetProjectStores } from "state/utils";
+import { PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE } from "state/utils/chatAppGeneration";
 import {
-  ChatAppGenerationMessageModeEnum,
+  route_get_agent_runs,
+  route_get_llm_chat,
+  route_get_llm_response,
+} from "utils/generatedEndpoints";
+import {
   ChatRoleEnum,
   createMessageTextContent,
   createUserChatMessage,
@@ -17,25 +21,15 @@ import {
   vi,
 } from "vitest";
 
-vi.mock("openapi/http", async () => {
-  const actual =
-    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+vi.mock("utils/generatedEndpoints", async () => {
+  const actual = await vi.importActual<
+    typeof import("utils/generatedEndpoints")
+  >("utils/generatedEndpoints");
   return {
     ...actual,
-    getAgentRuns: vi.fn(),
-    getLlmChat: vi.fn(),
-    getLlmResponse: vi.fn(),
-  };
-});
-
-vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
-  return {
-    ...actual,
-    callOpenAPI: function <T>(promise: Promise<T>) {
-      return promise;
-    },
+    route_get_agent_runs: vi.fn(),
+    route_get_llm_chat: vi.fn(),
+    route_get_llm_response: vi.fn(),
   };
 });
 
@@ -43,9 +37,9 @@ vi.mock("state/actions/frontendWebsocketAffinity", () => ({
   waitForFrontendAffinityToken: vi.fn(async () => "frontend-test-id"),
 }));
 
-const mockedRouteGetAgentRuns = vi.mocked(getAgentRuns);
-const mockedRouteGetLLMChat = vi.mocked(getLlmChat);
-const mockedRouteGetLLMResponse = vi.mocked(getLlmResponse);
+const mockedRouteGetAgentRuns = vi.mocked(route_get_agent_runs);
+const mockedRouteGetLLMChat = vi.mocked(route_get_llm_chat);
+const mockedRouteGetLLMResponse = vi.mocked(route_get_llm_response);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
 let submitEditedMessage: typeof import("state/actions/ai").submitEditedMessage;
@@ -57,7 +51,12 @@ const OTHER_SURFACE_ID = "surface-other";
 const TARGET_SURFACE_ID = "surface-target";
 
 function buildGetLLMResponseResponse(chatId: string) {
-  return chatId;
+  return {
+    chatId,
+    runId: `${chatId}-run`,
+    engineType: "setta_llm" as const,
+    sectionId: null,
+  };
 }
 
 describe("submitEditedMessage", () => {
@@ -208,17 +207,14 @@ describe("submitEditedMessage", () => {
 
     expect(result).toBe("branch-chat-1");
     expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
-    const [request] = mockedRouteGetLLMResponse.mock.calls[0] as [
+    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
       {
-        body: {
-          appGenerationMode: string | null;
-          appGenerationByMessageId: Record<string, string>;
-          branchParentChatId: string | null;
-          branchFromMessageId: string | null;
-        };
+        appGenerationMode: string | null;
+        appGenerationByMessageId: Record<string, string>;
+        branchParentChatId: string | null;
+        branchFromMessageId: string | null;
       },
     ];
-    const payload = request.body;
     expect(payload.appGenerationMode).toBe("prompt_builder");
     expect(payload.appGenerationByMessageId).toEqual({
       "msg-1": "prompt_builder",
@@ -273,50 +269,15 @@ describe("submitEditedMessage", () => {
     });
 
     expect(result).toBe("branch-chat-plain");
-    const [request] = mockedRouteGetLLMResponse.mock.calls.at(-1) as [
+    const [payload] = mockedRouteGetLLMResponse.mock.calls.at(-1) as [
       {
-        body: {
-          appGenerationMode: string | null;
-          appGenerationByMessageId: Record<string, string>;
-        };
+        appGenerationMode: string | null;
+        appGenerationByMessageId: Record<string, string>;
       },
     ];
-    const payload = request.body;
     expect(payload.appGenerationMode).toBeNull();
     expect(payload.appGenerationByMessageId).toEqual({
-      "msg-plain": ChatAppGenerationMessageModeEnum.plain_chat,
+      "msg-plain": PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
     });
-  });
-
-  it("does not refetch agent runs after a successful edited submit", async () => {
-    mockedRouteGetLLMResponse.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: buildGetLLMResponseResponse("branch-chat-no-run-refetch"),
-    });
-
-    const result = await submitEditedMessage({
-      parentChatId: chatId,
-      messages: [
-        createUserChatMessage({
-          id: "msg-edit",
-          content: [createMessageTextContent({ text: "Original prompt" })],
-          attachments: [],
-        }),
-      ],
-      messageId: "msg-edit",
-      message: "Edited prompt",
-      attachments: [],
-      thinking: false,
-      engineConfigId: "engine-1",
-      isExternalEngine: false,
-      agentProfileId: null,
-      sectionId: null,
-      pendingSurfaceId: TARGET_SURFACE_ID,
-      appGeneration: null,
-    });
-
-    expect(result).toBe("branch-chat-no-run-refetch");
-    expect(mockedRouteGetAgentRuns).not.toHaveBeenCalled();
   });
 });

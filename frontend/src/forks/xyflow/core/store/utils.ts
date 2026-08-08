@@ -14,19 +14,7 @@ type InternalFitViewOptions = {
   initial?: boolean;
 } & FitViewOptions;
 
-type FitViewRuntime = {
-  width: number;
-  height: number;
-  d3Zoom: NonNullable<ReactFlowState["d3Zoom"]>;
-  d3Selection: NonNullable<ReactFlowState["d3Selection"]>;
-};
-
-const DEFAULT_FIT_VIEW_PADDING = 0.1;
-
-function getFitViewRuntime(
-  state: ReactFlowState,
-  initial: boolean,
-): FitViewRuntime | null {
+export function fitView(options: InternalFitViewOptions = {}) {
   const {
     width,
     height,
@@ -34,88 +22,61 @@ function getFitViewRuntime(
     d3Selection,
     fitViewOnInitDone,
     fitViewOnInit,
-  } = state;
+  } = useReactFlow.getState();
 
-  if (!d3Zoom || !d3Selection) {
-    return null;
-  }
-  if (initial && (!fitViewOnInit || fitViewOnInitDone)) {
-    return null;
-  }
-
-  return { width, height, d3Zoom, d3Selection };
-}
-
-function resolveFitViewZoomLimits(options: InternalFitViewOptions) {
   const { minZoom, maxZoom, defaultZoomLevel } = useSettings.getState().gui;
   const resolvedMinZoom = options.minZoom ?? minZoom;
-  const cappedMaxZoom = options.initial
-    ? Math.min(options.maxZoom ?? maxZoom, defaultZoomLevel)
-    : options.maxZoom ?? maxZoom;
-
-  return {
-    minZoom: resolvedMinZoom,
-    maxZoom: Math.max(cappedMaxZoom, resolvedMinZoom),
-  };
-}
-
-function getTargetNodes(targetNodes?: FitViewOptions["nodes"]) {
-  const nodes = getNodes();
-  if (!targetNodes?.length) {
-    return nodes;
+  let resolvedMaxZoom = options.maxZoom ?? maxZoom;
+  if (options.initial) {
+    resolvedMaxZoom = Math.min(resolvedMaxZoom, defaultZoomLevel);
+  }
+  if (resolvedMaxZoom < resolvedMinZoom) {
+    resolvedMaxZoom = resolvedMinZoom;
   }
 
-  const targetNodeIds = new Set(targetNodes.map((node) => node.id));
-  return nodes.filter((node) => targetNodeIds.has(node.id));
-}
+  const isInitialFitView =
+    options.initial && !fitViewOnInitDone && fitViewOnInit;
+  const d3initialized = d3Zoom && d3Selection;
 
-function areNodesReadyForFitView(nodes: ReturnType<typeof getNodes>) {
-  return nodes.length > 0 && nodes.every((node) => node.width && node.height);
-}
+  if (d3initialized && (isInitialFitView || !options.initial)) {
+    const nodes = getNodes().filter((n) => {
+      if (options.nodes?.length) {
+        return options.nodes.some((optionNode) => optionNode.id === n.id);
+      }
 
-function applyFitViewTransform(
-  runtime: FitViewRuntime,
-  viewport: ReturnType<typeof getViewportForBounds>,
-  duration?: number,
-) {
-  const nextTransform = zoomIdentity
-    .translate(viewport.x, viewport.y)
-    .scale(viewport.zoom);
+      return true;
+    });
 
-  if (typeof duration === "number" && duration > 0) {
-    runtime.d3Zoom.transform(
-      getD3Transition(runtime.d3Selection, duration),
-      nextTransform,
-    );
-    return;
+    const nodesInitialized = nodes.every((n) => n.width && n.height);
+
+    if (nodes.length > 0 && nodesInitialized) {
+      const bounds = getNodesBounds(nodes);
+
+      const { x, y, zoom } = getViewportForBounds(
+        bounds,
+        width,
+        height,
+        resolvedMinZoom,
+        resolvedMaxZoom,
+        options.padding ?? 0.1,
+      );
+
+      const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
+
+      if (typeof options.duration === "number" && options.duration > 0) {
+        d3Zoom.transform(
+          getD3Transition(d3Selection, options.duration),
+          nextTransform,
+        );
+      } else {
+        d3Zoom.transform(d3Selection, nextTransform);
+      }
+
+      return true;
+    }
   }
 
-  runtime.d3Zoom.transform(runtime.d3Selection, nextTransform);
-}
-
-export function fitView(options: InternalFitViewOptions = {}) {
-  const runtime = getFitViewRuntime(useReactFlow.getState(), !!options.initial);
-  if (!runtime) {
-    return false;
-  }
-
-  const nodes = getTargetNodes(options.nodes);
-  if (!areNodesReadyForFitView(nodes)) {
-    return false;
-  }
-
-  const zoomLimits = resolveFitViewZoomLimits(options);
-  const viewport = getViewportForBounds(
-    getNodesBounds(nodes),
-    runtime.width,
-    runtime.height,
-    zoomLimits.minZoom,
-    zoomLimits.maxZoom,
-    options.padding ?? DEFAULT_FIT_VIEW_PADDING,
-  );
-
-  applyFitViewTransform(runtime, viewport, options.duration);
-  return true;
+  return false;
 }
 
 export function onFitViewHandler() {

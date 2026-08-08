@@ -3,7 +3,8 @@ import spinners from "unicode-animations";
 
 const BRAILLE_SPINNER_NAME = "braille" as const;
 const BRAILLE_SPINNER = spinners[BRAILLE_SPINNER_NAME];
-const BRAILLE_SPINNER_FRAMES = [...BRAILLE_SPINNER.frames];
+export const BRAILLE_SPINNER_FRAMES = [...BRAILLE_SPINNER.frames];
+export const BRAILLE_SPINNER_INTERVAL_MS = BRAILLE_SPINNER.interval;
 export const BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME = "text-[13px]";
 export const BRAILLE_SPINNER_COMPACT_SIZE_CLASS_NAME = "text-[11px]";
 
@@ -25,7 +26,7 @@ function ensureBrailleSpinnerInterval(): void {
   }
   brailleSpinnerIntervalId = window.setInterval(
     emitBrailleSpinnerFrame,
-    BRAILLE_SPINNER.interval,
+    BRAILLE_SPINNER_INTERVAL_MS,
   );
 }
 
