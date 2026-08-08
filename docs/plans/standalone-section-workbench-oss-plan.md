@@ -1,28 +1,28 @@
-# Standalone Section Workbench OSS Plan
+# Standalone Section Workbench Plan
 
 ## Decision
 
-Create one independently installable TypeScript/React package, `@setta/workspace`, and one backend-free playground that proves the package works in an unrelated application.
+Create one independently buildable and locally installable TypeScript/React package, `@setta/workspace`, and one backend-free playground that proves the package works in an unrelated application.
 
 The package has one concrete purpose:
 
 > Add a pannable, zoomable workbench to a React application where users can freely arrange or recursively nest arbitrary sections, sort nested sections vertically or horizontally, and reorder or nest host-defined items inside those sections.
 
-This plan covers only that reusable workbench. It does not commit to Python Canvas, MCP Canvas, Agent Canvas, Data Canvas, Agent Signal Canvas, or any other domain-specific application. A future application may use the package, but no future application shapes the first release contract.
+This plan covers only that reusable workbench. It does not commit to Python Canvas, MCP Canvas, Agent Canvas, Data Canvas, Agent Signal Canvas, or any other domain-specific application. A future application may use the package, but no future application shapes the initial package contract.
 
-The package is a developer-facing OSS product. The playground is a polished, runnable demonstration and consumer fixture, not a second product or required backend.
+The package is a developer-facing reusable library. Whether it is later published, made open source, or moved to another repository is a separate decision outside this plan. The playground is a polished, runnable demonstration and consumer fixture, not a second product or required backend.
 
 ### Naming
 
 Use the broad package name `@setta/workspace` while retaining **section** as the public name for a content-bearing workbench region.
 
 - Public contracts use names such as `WorkspaceSection`, `SectionDefinition`, `sectionId`, and `focusSection`.
-- Do not expose **node** as the primary package concept. In this product, a section owns content, frame chrome, sizing, and an optional ordered child layout; calling it a node would imply graph, edge, port, or execution semantics that are outside the first release.
+- Do not expose **node** as the primary package concept. In this product, a section owns content, frame chrome, sizing, and an optional ordered child layout; calling it a node would imply graph, edge, port, or execution semantics that are outside the initial scope.
 - XYFlow nodes are an internal rendering-adapter detail. They must not leak into `WorkspaceDocument`, section render props, commands, callbacks, or consumer persistence.
 - Reserve **node** for XYFlow integration code and any future explicit graph surface. Reserve **item** for the host-defined sortable tree inside a section.
 - The package name does not need to encode every object it contains. The README and package description should identify it as a nested spatial workbench for React so the shorter name remains discoverable.
 
-The component and helper names may receive normal API cleanup before release, but the document model should not alternate between parallel `section` and `node` terminology.
+The component and helper names may receive normal API cleanup before the initial package milestone, but the document model should not alternate between parallel `section` and `node` terminology.
 
 ## Product thesis
 
@@ -61,9 +61,9 @@ A compelling first example is a blank workbench containing:
 - Searchable right-click creation, marquee selection, grouping, ungrouping, batch actions, and a minimap.
 - JSON import/export and local persistence implemented by the example.
 
-## Release shape
+## Package shape and deferred distribution
 
-Publish one package with subpath exports rather than multiple versioned packages:
+Build one package with subpath exports rather than multiple packages:
 
 ```text
 @setta/workspace
@@ -74,19 +74,48 @@ Publish one package with subpath exports rather than multiple versioned packages
 
 The package may use internal modules for canvas, drag-and-drop, item trees, history, and testing. Those modules do not become separate packages unless they later become independently useful.
 
-The target release repository is independent from the Setta application repository. Initial development may occur on a dedicated branch in a separate worktree of this repository, but the package must still:
+Publishing and hosting are explicitly deferred. This plan does not require or authorize:
+
+- Publishing to npm or another package registry.
+- Creating, moving to, or making public a GitHub repository.
+- Registry credentials, `publishConfig`, release automation, changelog automation, registry-oriented versioning, or a public support policy.
+- A decision about the final license or public contribution model beyond satisfying third-party obligations during development.
+
+Keep package manifests private during this work. Local workspace installation and a locally packed tarball are allowed only to verify that an unrelated consumer can use declared exports and dependencies; they are not publication steps. Any registry, repository, license, or public-release work requires a later explicit decision and a separate plan update.
+
+Implementation occurs in this repository and this working directory on a dedicated blank-slate branch. The branch starts from an explicitly recorded `main` commit, but its first implementation change intentionally replaces the application working tree with only the new package, playground, consumer fixture, documentation, and selected development tooling. Blank slate describes branch contents, not a requirement for orphaned Git history. Do not create another worktree.
+
+The branch must still:
 
 - Have its own package manifest, build, tests, and example.
 - Build without Setta frontend aliases.
 - Import nothing from `frontend/src/state`, generated Setta types, OpenAPI clients, or application components.
 - Be installable into a consumer fixture that is outside the package source tree.
-- Be moved to an independent repository before its first public release.
+
+Retain or adapt only the development-tooling baseline needed by this TypeScript/React project:
+
+- Exact-pinned pnpm workspace metadata and lockfile behavior, with a private root workspace and private package manifests while distribution remains undecided.
+- Prettier formatting and import organization.
+- ESLint for TypeScript and React, including the current fail-at-10 cyclomatic-complexity guard for production and test code.
+- Strict TypeScript type-checking, including unused-symbol and unchecked-index protections.
+- Knip dead-code, unused-export, unused-file, and dependency checks through a direct project-specific configuration rather than Setta's generated-code cleanup loop.
+- File-length enforcement using the current initial limits of 1,000 lines for production TypeScript and 1,200 lines for tests, plus non-failing hotspot reports for complexity and file length.
+- Vitest, Playwright, package build, local pack, and consumer-fixture commands.
+- Supply-chain checks for exact direct pins, manifest/lockfile consistency, frozen installs, declared package contents, dependency licenses, and explicitly approved dependency lifecycle scripts.
+- pnpm's `minimumReleaseAge` configured to 10,080 minutes, or seven days, for every external direct and transitive dependency, with `minimumReleaseAgeStrict: true` and `minimumReleaseAgeIgnoreMissingTime: false` so the resolver never silently falls back to a younger version or accepts missing publication metadata.
+- Registry-backed verification of the complete loaded lockfile with `trustLockfile: false`, so a lockfile produced outside the normal resolution path cannot bypass the age policy. A `minimumReleaseAgeExclude` exception must name one exact package and version with a rationale, owner, and expiry; do not use permanent package-name or package-family exclusions.
+- A network-backed vulnerability-audit command covering runtime and development dependencies. High or critical findings fail; every lower-severity finding is reported and must be explicitly triaged rather than silently ignored. Suppressions require a narrow advisory ID, rationale, owner, and expiry.
+- A machine-readable dependency inventory generated from the lockfile for audit evidence. Artifact signing, registry provenance, and publication attestations remain deferred with distribution.
+- One fast quality entrypoint that checks changed files by default and supports explicit staged, file-list, and full-project modes.
+
+Preserve the behavior and thresholds of the useful current tooling, but rewrite its path discovery for the blank branch. Do not carry `activate.sh`, Python or Go quality dependencies, Setta generation and cleanup steps, application-specific Knip fix loops, OpenAPI tooling, plugin tooling, installer/runtime scripts, deployment scripts, release scripts, or worktree helpers merely because the current wrappers reference them. The retained tooling must run from a clean checkout of the blank branch with only Node and the exact-pinned package-manager/toolchain prerequisites documented by that branch. Keep deterministic, offline-capable checks in the normal quality path; expose registry-backed lockfile-age verification and vulnerability auditing as separate required commands so a network outage cannot masquerade as a code-quality failure.
 
 ### Greenfield implementation stance
 
 Treat this package as a clean implementation, not a refactor of the current Setta frontend.
 
-- Perform the work on a dedicated branch in a separate worktree so the current application does not constrain package structure or produce an incremental-migration mindset.
+- Perform the work on the dedicated blank-slate branch in this working directory. Before the branch-content replacement, require a clean worktree, record the source commit, and verify the new branch name; switching back to `main` restores the current application tree.
+- Do not copy the existing repository tree and prune it gradually. Start from the minimal package/playground/fixture structure and intentionally bring over only the selected tooling policies and isolated behavior references.
 - Assume most current UI implementation code will be discarded. Preserve behavior only when it is intentionally selected through characterization, product review, and the new package boundary.
 - Use the current Setta UI as behavioral evidence and a source of isolated pure algorithms, not as the component tree, state model, public API, or dependency graph to carry forward.
 - Do not confuse discarding the current component and state architecture with discarding its interaction kernel. The existing section DnD code contains required zoom coordination, collision hysteresis, nested-target resolution, multi-selection geometry, preview, and move-planning behavior that upstream libraries do not provide. Preserve those outcomes and port naturally package-owned pure algorithms where that is clearer and safer than recreating them from memory.
@@ -94,11 +123,11 @@ Treat this package as a clean implementation, not a refactor of the current Sett
 - Do not preserve current Setta project-file compatibility, frontend imports, state shapes, generated types, CSS conventions, or XYFlow store contracts.
 - If a current behavior is valuable, specify it in the new package's tests and implement it against the new model. Similar-looking code is reusable only when it is already pure, smaller than a clean implementation, correctly licensed, and naturally fits the new ownership boundary.
 - The future Setta application should be rewritten to consume the package's public API directly. Any new domain mapping must be designed as a permanent owner boundary, not as a bridge for the old frontend.
-- Before the first public release, breaking pre-release package changes are acceptable when they simplify the final API or remove inherited assumptions.
+- Before the initial package milestone, breaking package changes are acceptable when they simplify the API or remove inherited assumptions.
 
 The goal is behavioral continuity only where the plan explicitly requires it. Source continuity is not a goal.
 
-## First release scope
+## Initial package scope
 
 ### Workbench canvas
 
@@ -140,14 +169,14 @@ The package owns:
 - Structural undo and redo for committed section changes.
 - A minimal, versioned, serializable workbench document.
 
-Top-level sections use free spatial positions. Nested children use their immediate parent's ordered vertical or horizontal layout. The first release does not add absolute positioning inside nested containers.
+Top-level sections use free spatial positions. Nested children use their immediate parent's ordered vertical or horizontal layout. The initial scope does not add absolute positioning inside nested containers.
 
 The two section drag modes are interaction modes, not two serialized layout models:
 
 - **Sorting mode** keeps the current parent and changes only sibling order. It is available for nested sections; top-level sections remain spatial rather than sortable.
 - **Free-move mode** may change parent and depth. A drop on the canvas produces a top-level position; a drop inside a section produces an orientation-aware child insertion index. It must support canvas-to-nested, nested-to-canvas, and nested-to-nested moves regardless of source or destination depth.
 
-The initial public release supports dragging one section or a selected sibling block. Batch movement operates on normalized selection roots: when a selected section contains another selected section, only the ancestor participates. A dragged block must share one source parent in the first release. Top-level blocks preserve spatial offsets; nested blocks preserve logical sibling order. Mixed-parent batch dragging is rejected specifically rather than producing an ambiguous partial move.
+The initial package milestone supports dragging one section or a selected sibling block. Batch movement operates on normalized selection roots: when a selected section contains another selected section, only the ancestor participates. A dragged block must share one source parent in the initial scope. Top-level blocks preserve spatial offsets; nested blocks preserve logical sibling order. Mixed-parent batch dragging is rejected specifically rather than producing an ambiguous partial move.
 
 ### Workbench modes, controls, and extension surfaces
 
@@ -415,13 +444,13 @@ Required behavior:
 - Group creates one new container at the selected siblings' shared parent, moves the selected roots into it in their existing order, and selects the new group.
 - The host registers a group factory that supplies the new container kind, ID, title, and initial payload. The package owns placement and containment but never invents domain payload data; Group is unavailable with a specific explanation when no valid factory is registered.
 - Top-level grouping places the group at the selected bounds and translates child placement into the group's ordered layout without losing canonical section identity.
-- The first release requires one shared parent for grouping. Mixed-parent grouping is disabled with a specific explanation rather than guessing a least-common-ancestor transformation.
+- The initial scope requires one shared parent for grouping. Mixed-parent grouping is disabled with a specific explanation rather than guessing a least-common-ancestor transformation.
 - Ungroup promotes a group's direct children into the group's parent at the group's index, preserving order. At the top level it resolves non-overlapping workbench positions from the group's measured bounds before deleting the empty group frame.
 - The active or dragged section's top-level ancestor receives a transient render lift above the persistent root stacking order. Selection alone does not create a document change or history entry.
 - Public `bringToFront`, `sendToBack`, `bringForward`, and `sendBackward` commands map the selection to distinct top-level ancestors, change persistent root order explicitly, and are undoable.
 - `focusSection` selects and pans a section into view without unnecessarily changing zoom. `fitSection` and `fitSections` adjust zoom to show the requested measured bounds within documented padding.
 - Next and previous navigation traverse roots by workbench `y`, then `x`, persistent stack order, and stable ID, with descendants following their canonical sibling order; navigation does not depend on mount timing.
-- A hierarchical outline navigator is a planned optional React component after the first release. The controller and traversal helpers required to build it are first-release API.
+- A hierarchical outline navigator is a planned optional React component after the initial milestone. The controller and traversal helpers required to build it are part of the initial package API.
 
 ### Smart creation and external drops
 
@@ -475,7 +504,7 @@ Required behavior:
 - A free move into an ordered container inserts the selected block in source order at one destination index.
 - Moving between coordinate spaces preserves the section's visible position until the destination layout takes over.
 - Moving any selected root into itself or one of its descendants is rejected before preview and commit.
-- Mixed-parent batch moves are rejected before a drag starts in the first release.
+- Mixed-parent batch moves are rejected before a drag starts in the initial scope.
 - Host policy can reject a destination without changing canonical state.
 - The previewed parent and index exactly match the committed move.
 - Reparenting changes one canonical child list relationship; a parent lookup index is derived rather than serialized as a second source of truth.
@@ -719,7 +748,7 @@ Initial internal commands are limited to:
 
 Deleting a section removes its complete descendant subtree as one explicit, undoable structural command. Batch deletion normalizes selected roots first. The package must not silently promote descendants or leave unreachable records. Group and ungroup use the same containment invariants and never serialize a temporary duplicate parent relationship.
 
-These commands are implementation details in the first release. Do not publish the broad revision-checked operation, transaction, dry-run, inverse-operation, approval-summary, or MCP-ready schema from the earlier plan.
+These commands are implementation details in the initial scope. Do not expose the broad revision-checked operation, transaction, dry-run, inverse-operation, approval-summary, or MCP-ready schema from the earlier plan.
 
 The public change callback may include a compact reason such as `section-move` or `section-resize` for diagnostics, but it must not be presented as a stable serialized automation protocol.
 
@@ -832,7 +861,7 @@ Begin Phase 0 with this architecture:
 - Register every visible root and descendant frame in one package-owned measured-geometry index expressed in workbench coordinates.
 - Treat an all-sections-as-XYFlow-nodes projection or shadow-node hybrid as challenger designs only. Adopt one only if the proof shows a material advantage while preserving ordered layout, nested scrolling, all-depth selection, resize semantics, accessibility, and single-owner dragging without duplicated geometry or movement.
 
-Only root sections have independent spatial positions, so the first-release minimap projects roots by default. A future nested summary may consume the package geometry index, but must not present ordered descendants as independently positioned canvas roots.
+Only root sections have independent spatial positions, so the initial minimap projects roots by default. A future nested summary may consume the package geometry index, but must not present ordered descendants as independently positioned canvas roots.
 
 The adapter must preserve these boundaries:
 
@@ -844,7 +873,7 @@ The adapter must preserve these boundaries:
 - XYFlow position and resize change events update only an internal transient render projection during a gesture. They must not call `onDocumentChange`, create history, or become canonical section commands per frame. Pointer, touch, keyboard, and cancellation paths commit at most one accepted package command at the documented boundary.
 - Exactly one subsystem owns movement at a time. XYFlow owns ordinary root spatial dragging; dnd-kit owns section sorting and free-move structure. Entering either structural mode disables XYFlow root dragging and conflicting viewport gestures, while leaving structural mode disables dnd-kit section activation. The selected-block overlay exposes the correct movement surface for the active mode.
 - Root sections may use upstream resize primitives when they satisfy package constraints. Nested resize handles, content/fixed size promotion, grow/scroll participation, package snapping, and one-command commit behavior remain package-owned unless the chosen representation proves otherwise.
-- Generic graph edges and ports stay disabled or absent in the first release even though the dependency supports them.
+- Generic graph edges and ports stay disabled or absent in the initial scope even though the dependency supports them.
 
 Phase 0 must prove the adapter against the difficult seams before broad UI implementation:
 
@@ -877,7 +906,7 @@ Reimplement as package-owned workbench behavior:
 Rewrite or discard application coupling:
 
 - Direct Setta Zustand stores, settings, generated types, backend selection publication, side-pane offsets, project loading, AI-follow suppression, file-opening drop behavior, notifications, and application-specific focus management.
-- Agentic, argument, chat, and state-machine edge and handle systems. They are domain application features and remain outside the first workbench release even though a later Setta product may layer them over the package.
+- Agentic, argument, chat, and state-machine edge and handle systems. They are domain application features and remain outside the initial workbench scope even though a later Setta product may layer them over the package.
 
 ### Upstream dnd-kit foundation and package-owned interaction kernel
 
@@ -967,7 +996,7 @@ Use:
 - Immediate or restrained feedback for high-frequency drag, pan, zoom, marquee, resize, and minimap interactions rather than repeated entrance animations.
 - `currentColor` package icons with one coherent stroke weight per toolbar surface; outline icons are default and filled state is reserved for an active toggle.
 
-The playground may use its own styling system, but it must consume the published package CSS in the same way as an unrelated application. Appearance selection is scoped to the workbench root; package styling must not require a global `.dark` class.
+The playground may use its own styling system, but it must consume the exported package CSS entrypoint in the same way as an unrelated application. Appearance selection is scoped to the workbench root; package styling must not require a global `.dark` class.
 
 ### Dependency rules
 
@@ -984,13 +1013,18 @@ The playground may use its own styling system, but it must consume the published
 - Keep the Setta-family dependency count at one package.
 - Do not depend on Setta applications, generated clients, or a Setta SDK.
 - Do not introduce a backend merely to reuse current behavior.
-- Include all required license and attribution material.
+- Pin an exact pnpm version that supports strict minimum-release-age and loaded-lockfile verification. Set `minimumReleaseAge: 10080`, `minimumReleaseAgeStrict: true`, `minimumReleaseAgeIgnoreMissingTime: false`, and `trustLockfile: false`; commit the lockfile, require frozen installs, and reject manifest/lockfile drift.
+- Apply the seven-day age floor to external direct and transitive dependencies. Any emergency `minimumReleaseAgeExclude` bypass is limited to one exact package and version and records its rationale, owner, and expiry.
+- Re-run pnpm's registry-backed supply-chain verification against the complete loaded lockfile so a dependency resolved through another environment cannot bypass the age policy.
+- Deny dependency lifecycle scripts unless one has a specific reviewed need and appears in a narrow allowlist.
+- Audit runtime and development dependencies for known vulnerabilities, licenses, and unexpected transitive changes; record any advisory exception by ID with a rationale, owner, and expiry.
+- Generate a machine-readable dependency inventory from the lockfile and include all required third-party attribution material in local package verification.
 
 ## Accessibility requirements
 
 Drag-and-drop is not pointer-only.
 
-The first release requires:
+The initial package milestone requires:
 
 - Semantic buttons for section and item drag handles.
 - Clear accessible names.
@@ -1036,7 +1070,7 @@ Accent and tag colors are also supplementary. Selection, grouping, locks, invali
 
 ## Performance requirements
 
-Frontend performance is a release requirement.
+Frontend performance is an initial package requirement.
 
 Before implementation, record baseline behavior for equivalent current Setta interactions where a trustworthy comparison exists. Store append-only reports under `perf/` when the work occurs in this repository.
 
@@ -1078,7 +1112,7 @@ The design should:
 - Incrementally update minimap and selection bounds from already-owned geometry rather than measuring the complete DOM again.
 - Guard content-size observers against feedback loops, subpixel churn, and work after unmount.
 - Use animation frames only for actual visual synchronization.
-- Leave room for viewport culling without making it a first-release dependency.
+- Leave room for viewport culling without making it an initial-milestone dependency.
 
 ## Implementation phases
 
@@ -1086,8 +1120,9 @@ The design should:
 
 Produce:
 
-- A dedicated implementation branch checked out in a separate worktree.
-- The independent package or isolated package workspace.
+- A dedicated blank-slate implementation branch in this working directory, created from a recorded clean `main` commit without another worktree.
+- A minimal private pnpm workspace containing only the package, playground, consumer fixture, documentation, and selected project-appropriate development tooling.
+- A tooling carryover inventory that maps each retained policy and threshold to a blank-branch configuration or script and explicitly rejects application/runtime tooling that is not needed.
 - A blank consumer fixture with no Setta aliases.
 - A reference inventory classifying current code as reusable pure logic or behavioral evidence, with application-coupled UI excluded from the implementation base.
 - The upstream XYFlow adapter representation decision and its evidence. Begin with root sections as XYFlow nodes plus package-rendered recursive DOM and require a challenger representation to prove a material advantage without losing ordered layout, nested scrolling, all-depth selection, accessibility, or single-owner movement. The default dependency-versus-fork decision is already upstream dependency.
@@ -1095,7 +1130,7 @@ Produce:
 - A geometry-index proof showing that root and descendant registration, updates, and cleanup produce one workbench-coordinate source for marquee, selection bounds, focus/fit, collision, canvas drops, and any nested minimap summary.
 - An interaction-owner matrix and proof covering ordinary XYFlow root drag, dnd-kit sorting, dnd-kit free-move, selection-block movement, viewport gestures, pointer, touch, keyboard, cancellation, and mode changes. Each cell identifies exactly one movement owner and the disabled competing activators.
 - A transient-projection proof showing that XYFlow node, selection, resize, viewport, and measurement events do not become canonical document changes per frame and that one completed accepted gesture emits at most one package command and, when the command is undoable, one history entry.
-- The exact-pinned stable dnd-kit dependency, adapter boundary, optimistic-sorting decision, and license decision.
+- The exact-pinned stable dnd-kit dependency, adapter boundary, optimistic-sorting decision, and third-party license-compatibility decision.
 - A current-code inventory for both XYFlow and dnd-kit that separates upstream-replaceable adapter machinery, the package-owned interaction kernel, and Setta application coupling. The inventory must identify the executable specification for every retained interaction before its current source is removed.
 - A section-DnD behavior matrix covering sorting mode, free-move mode, single and sibling-block movement, parent transitions, midpoint transitions, invalid targets, vertical and horizontal parents, cancellation, constrained scrolling, and minimum, default, and maximum zoom.
 - Focused characterization tests for current move planning, collision ranking, previous-target preference, previous-rectangle retention, trigger-distance and midpoint transitions, child-over-parent promotion, orientation-specific sorting, selection-shaped collision geometry, stale-target clearing, and layout-stable preview transforms.
@@ -1106,11 +1141,19 @@ Produce:
 - Baseline interaction and performance notes.
 - An explicit list of package-owned types.
 - Import-boundary checks.
+- Exact-pinning, strict seven-day minimum-release-age, frozen-lockfile, dependency-lifecycle-script, license, local-package-contents, dependency-inventory, registry-backed loaded-lockfile verification, and vulnerability-audit commands with documented failure and exception policies.
 
 Gate:
 
+- The branch contains no current Setta application, backend, plugin, generated API, deployment, installer, release, or migration implementation.
 - The empty package builds, tests, and packs.
 - The consumer fixture installs the packed artifact.
+- Formatting, linting, strict type-checking, dead-code, complexity, file-length, unit-test, build, local-pack, and package-boundary checks run through the blank branch's own Node-based quality entrypoint.
+- A frozen install succeeds from the checked-in lockfile; every direct dependency is exactly pinned; dependency lifecycle scripts are denied unless explicitly reviewed and allowlisted.
+- pnpm rejects external direct and transitive dependencies published less than seven days earlier, rejects missing publication times, and re-verifies the complete loaded lockfile against the same threshold rather than trusting it.
+- Every `minimumReleaseAgeExclude` entry names one exact package and version, rationale, owner, and expiry; package-name, pattern, or permanent exclusions fail verification.
+- The local package-contents audit and machine-readable dependency inventory are reproducible from the clean checkout.
+- The vulnerability audit covers runtime and development dependencies, fails on unwaived high or critical advisories, reports lower severities for triage, and contains no unbounded or unexplained suppression.
 - No Setta application import is available to the package.
 - No compatibility layer, old/new feature flag, current project-model adapter, or copied application component exists in the package.
 - The XYFlow proof uses documented upstream APIs and records which section representation it selected. Root-node plus recursive-DOM projection remains the choice unless a challenger passes every representation criterion with better evidence.
@@ -1336,7 +1379,7 @@ Gate:
 - The item structure round-trips through the playground's persistence.
 - No item interaction mutates `WorkspaceDocument` unless the host explicitly stores that item data in a section payload.
 
-### Phase 5: Hardening and first OSS release
+### Phase 5: Hardening and reusable package milestone
 
 Complete:
 
@@ -1354,22 +1397,23 @@ Complete:
 - Accessibility and keyboard guide.
 - Performance report.
 - Browser visual verification.
-- Consumer-fixture install from the packed artifact.
-- License, notice, and attribution files.
-- Release automation.
-- Versioning and support policy.
+- Consumer-fixture installation from a locally packed artifact.
+- Third-party dependency and source-license audit, attribution record, machine-readable dependency inventory, minimum-release-age audit, and vulnerability-audit results.
+- A verified private manifest with no registry publishing or release-automation configuration.
 
 Gate:
 
 - An unrelated React application can install the packed package, register its own section renderer, create and rename through ready-made UI, arrange one or more top-level sections, recursively nest and sort sections, group, ungroup, lock, minimize, content-fit, resize, scroll containers, snap, theme section chrome, use a minimap, extend the toolbar, change child orientation, and add a multi-item sortable tree without importing package internals.
 - The package contains no Setta application or backend dependency.
 - The package contains no compatibility, migration, legacy, dual-path, or transitional code for the current Setta frontend.
-- Focused unit, integration, E2E, accessibility, performance, and package-boundary checks pass.
+- Focused unit, integration, E2E, accessibility, performance, package-boundary, and deterministic supply-chain checks pass.
+- The complete external dependency lockfile satisfies the seven-day minimum-release-age policy except for narrow, owned, unexpired exact-version exceptions.
+- A current network-backed vulnerability audit passes the documented policy, or every non-passing advisory has a narrow, owned, expiring exception.
 - The playground demonstrates the complete primary workflow.
 
-### Phase 6: Planned post-release expansion in the same package
+### Phase 6: Deferred capability expansion in the same package
 
-The first OSS release does not wait for browser windowing or domain-safe clipboard integration. They remain intended capabilities of `@setta/workspace`, not separate domain products.
+The initial package milestone does not wait for browser windowing or domain-safe clipboard integration. They remain intended capabilities of `@setta/workspace`, not separate domain products. Whether any version is distributed publicly remains a separate decision.
 
 Implement detachable sections as an optional React export:
 
@@ -1395,7 +1439,7 @@ Implement adapter-driven copy and paste:
 
 Then evaluate or implement independently:
 
-- An optional hierarchical outline navigator built on the first-release controller and traversal helpers.
+- An optional hierarchical outline navigator built on the initial controller and traversal helpers.
 - Pure top-level auto-layout and packing commands.
 - Multiple named item lists within one section.
 - Cross-list item movement.
@@ -1504,19 +1548,27 @@ Cover the real playground:
 
 Run browser verification through the documented CDP workflow. Visual review must include default, single-selected, marquee, multi-selected, selection-dragging, grouped, locked, read-only, minimized, fixed-size, content-size, grow-overflow, scroll-overflow, sorting, free-moving, snapped movement, resize handles, nested-parent preview, empty-container affordance, sibling insertion preview, invalid-drop, vertical, horizontal, default/compact/transparent/headerless chrome, accent and tag colors, toolbar default and host controls, minimap on both sides, context-menu filtering and empty results, grid-hidden, each grid pattern, custom grid color, light appearance, dark appearance, focus-visible, right-to-left, coarse-pointer, and reduced-motion states.
 
-### Consumer and packaging tests
+### Consumer, packaging, and supply-chain tests
 
-- Pack the npm artifact.
-- Install it into an unrelated fixture.
+- Create a local package tarball without publishing it.
+- Inspect the tarball allowlist so application source, tests, secrets, local configuration, and undeclared files cannot leak into the package.
+- Install it into an unrelated fixture using only declared exports and dependencies.
 - Build and run that fixture.
-- Verify no source aliases or unpublished files are required.
-- Verify direct dependency versions and peer dependencies.
-- Verify package exports, declarations, CSS, source maps, notices, and tree shaking.
+- Verify no source aliases or undeclared source files are required.
+- Verify every direct dependency is exactly pinned, peer dependencies are intentional, and a frozen install matches the manifest and lockfile.
+- Verify pnpm's resolver rejects newly published external direct and transitive dependencies until they are at least seven days old, fails strictly when no eligible version exists, and rejects missing publication times.
+- With `trustLockfile: false`, verify the complete loaded lockfile against registry publication times and reject any younger dependency without an exact-version `minimumReleaseAgeExclude` entry containing a rationale, owner, and expiry.
+- Deny dependency lifecycle scripts by default and maintain a narrow reviewed allowlist for any package that genuinely requires one.
+- Run a license-policy check and generate a machine-readable dependency inventory from the lockfile.
+- Run the network-backed vulnerability audit against runtime and development dependencies, failing on unwaived high or critical advisories and reporting all lower severities for explicit triage.
+- Verify every vulnerability suppression names one advisory, rationale, owner, and expiry; do not use broad package, severity, or permanent ignores.
+- Verify package exports, declarations, CSS, source maps, third-party attribution, and tree shaking.
 - Prevent imports from Setta applications through automated boundary checks.
+- Verify root and package manifests remain private and contain no `publishConfig`, registry credentials, or release tasks.
 
 ## Documentation deliverables
 
-The first release documentation includes:
+The initial package documentation includes:
 
 - One-sentence product description.
 - Five-minute quickstart.
@@ -1532,21 +1584,21 @@ The first release documentation includes:
 - Locking, minimizing, fixed/content sizing, grow/scroll overflow, and resizing reference.
 - Grid, snapping, appearance, per-section presentation, chrome variants, and semantic theme-token reference.
 - Single- and multi-item sortable-tree reference.
-- Planned detachable-window and clipboard-adapter boundary notes that do not imply first-release availability.
+- Planned detachable-window and clipboard-adapter boundary notes that do not imply initial availability.
 - Persistence integration example.
 - Keyboard interaction table.
 - Accessibility expectations for host renderers.
 - Styling and light/dark theme tokens.
 - Performance guidance for large section and item counts.
 - Browser support policy.
-- License and attribution notes.
+- Third-party dependency, license, seven-day release-age policy and exception process, supply-chain audit, and vulnerability-triage instructions.
 - Explicit non-goals.
 
 ## Definition of done
 
-The focused workbench release is done when:
+The initial workbench package milestone is done when:
 
-- `@setta/workspace` installs into an unrelated React application.
+- `@setta/workspace` installs into an unrelated React application from a local workspace reference or locally packed tarball.
 - It renders without Go, Python, HTTP, WebSockets, MCP, or any Setta runtime.
 - It exposes a small versioned `WorkspaceDocument`.
 - Consumers can register arbitrary section renderers.
@@ -1579,8 +1631,9 @@ The focused workbench release is done when:
 - Host validation can reject a section parent-child move without corrupting state.
 - Host validation can reject an item move without corrupting state.
 - The playground persists and restores the complete example.
-- Package boundaries, accessibility, performance, visual behavior, licensing, and packed-consumer installation are verified.
-- No domain-specific application or future protocol is required to explain or use the release.
+- Package boundaries, accessibility, performance, visual behavior, third-party licensing, deterministic supply-chain checks, the seven-day dependency release-age floor, vulnerability policy, and local packed-consumer installation are verified.
+- Manifests remain private and no registry publication, remote-repository move, or release automation is part of the milestone.
+- No domain-specific application or future protocol is required to explain or use the package.
 
 ## Explicit non-goals
 
@@ -1590,7 +1643,7 @@ This plan does not include:
 - MCP Canvas, MCP clients, or MCP servers.
 - Agent Canvas, coding-agent sessions, chats, approvals, or AI Follow.
 - Data Canvas, file browsers, spreadsheets, charts, images, or drawings.
-- Built-in native-file importing, uploading, type detection, or file-to-section mapping; the first release exposes only the generic external-drop boundary.
+- Built-in native-file importing, uploading, type detection, or file-to-section mapping; the initial scope exposes only the generic external-drop boundary.
 - Agent Signal Canvas or graph execution.
 - A Go or Python backend.
 - CLI tools.
@@ -1607,18 +1660,18 @@ This plan does not include:
 - Public revision-checked transactions.
 - Dry-run approvals or human-readable machine-operation summaries.
 - References, variants, or saved views.
-- Browser pop-out windowing and copy/paste in the first OSS release; both are planned same-package follow-on modules in Phase 6.
-- Generic edges, ports, or execution semantics in the first release.
-- Side-pane systems in the first release.
-- Absolute/freeform child positioning inside nested containers in the first release. Free-move mode means cross-container section movement; nested destinations still use their parent's vertical or horizontal ordered layout.
-- Hiding or collapsing a section's complete descendant subtree when minimizing it in the first release; minimizing hides only that section's host-rendered body.
-- A family of public micro-packages.
+- Browser pop-out windowing and copy/paste in the initial milestone; both are planned same-package follow-on modules in Phase 6.
+- Generic edges, ports, or execution semantics in the initial scope.
+- Side-pane systems in the initial scope.
+- Absolute/freeform child positioning inside nested containers in the initial scope. Free-move mode means cross-container section movement; nested destinations still use their parent's vertical or horizontal ordered layout.
+- Hiding or collapsing a section's complete descendant subtree when minimizing it in the initial scope; minimizing hides only that section's host-rendered body.
+- A family of micro-packages or any registry/repository publication topology.
 
 ## Immediate next slice
 
 The first implementation task should stop after one visible vertical slice:
 
-1. Create a dedicated implementation branch in a separate worktree, then create the isolated package and consumer fixture without copying the current frontend structure.
+1. From a clean `main`, record the source commit and create a dedicated blank-slate branch in this working directory. Replace the branch contents with only the minimal private package, playground, unrelated consumer fixture, documentation, and selected Node-based quality and supply-chain tooling; do not create another worktree or copy the current frontend structure.
 2. Define and validate the minimal recursive `WorkspaceDocument`, including titles, presentation, fixed/content dimensions, grow/scroll child layout, canonical child lists, orientation, cycle rejection, and derived parent lookup.
 3. Through the documented-public-API upstream XYFlow adapter, render a pannable and zoomable canvas with the root-node projection boundary, one configurable gesture policy, host-content wheel isolation, an independently toggleable snap grid, scoped light/dark theme tokens, the default toolbar, and a host-injected control.
 4. Register note and container section kinds with searchable creation metadata, then smart-place and inline-rename a note from the context menu.
@@ -1628,7 +1681,7 @@ The first implementation task should stop after one visible vertical slice:
 8. Marquee-select two top-level notes through the package selection model, move them while preserving relative offsets, group and ungroup them, and verify transient active stacking plus one explicit persistent stacking command and one document change per completed gesture.
 9. Resize, return to content sizing, lock, minimize, expand, recolor, and change the chrome of a note, then serialize and restore its hierarchy, orientation, size modes, overflow, lock, minimized state, title, and presentation.
 10. Render and navigate the representative document through the root minimap and shared-geometry-backed `focusSection`/`fitSections` controller helpers, including a nested target and offscreen interactive focus without independent browser scrolling.
-11. Verify the packed package in the consumer fixture.
+11. Verify the locally packed package in the consumer fixture, inspect its contents, run deterministic dependency and license checks, generate the lockfile-derived dependency inventory, and run the separate registry-backed minimum-release-age and vulnerability audits.
 12. Record the XYFlow adapter representation, geometry-index, interaction-owner, transient-projection, public-store-access, and focus/scroll outcomes; any proven missing upstream seam; the exact dnd-kit adapter and package-owned interaction-kernel boundary; license obligations; and the selected current Setta DnD, selection, smart-placement, gesture, resize/content-size, overflow, snap, lock, minimize, title, toolbar, minimap, chrome, color, and appearance behavior matrix.
 
 Do not begin the item-tree implementation until this slice passes its package-boundary, browser, accessibility, recursive-structure, selection-root, target-stability, smart-placement, gesture-arbitration, sizing/overflow, snapping, theme-scoping, minimap, extension-surface, and coordinate-correctness checks. Horizontal reordering, every cross-depth direction, full keyboard parity, all grid patterns, complete light/dark visual coverage, external-drop integration, and every batch-movement direction remain later phase requirements even if this first slice proves only representative paths.
