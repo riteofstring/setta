@@ -5,7 +5,9 @@ import type { Node, TopLevelSectionLayout, Viewport, WorkspaceSection } from "./
 export type WorkspaceDocumentState = {
   sections: Record<string, WorkspaceSection>;
   topLevelSections: Record<string, TopLevelSectionLayout>;
-  viewport: Viewport;
+  // null means the document carries no saved camera; the canvas then fits the content on init,
+  // mirroring the reference's no-saved-viewport load path.
+  viewport: Viewport | null;
   parentSectionMap: Record<string, string>;
 };
 
@@ -19,7 +21,7 @@ export const useWorkspaceDocument = createWithEqualityFn(
   withResetFn<WorkspaceDocumentState>(() => ({
     sections: {},
     topLevelSections: {},
-    viewport: { x: 0, y: 0, zoom: 1 },
+    viewport: null,
     parentSectionMap: {},
   })),
 );

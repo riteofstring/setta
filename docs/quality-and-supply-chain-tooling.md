@@ -75,6 +75,11 @@ lockfile against registry publication timestamps (fails closed on unsupported lo
 missing metadata) → `pnpm audit --audit-level moderate` → SPDX license allowlist
 (`dependency-license-policy.json`) → dependency inventory (`.reports/`).
 
+Allowlist note (2026-08-11): `MIT-0` (MIT No Attribution, OSI-approved and strictly more
+permissive than the already-allowed MIT) was added when jsdom's dev-only `cssstyle` transitives
+(`@csstools/color-helpers`, `@csstools/css-syntax-patches-for-csstree`) arrived with the canvas
+batch's test environment.
+
 ### Exceptions
 
 There are none, and `supply-chain-exceptions.json` starts empty. Any future exception must name the

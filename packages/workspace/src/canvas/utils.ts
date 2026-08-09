@@ -1,0 +1,110 @@
+import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
+import type { Box, Dimensions, Rect } from "./types";
+
+export const isMacOs = () =>
+  typeof navigator !== "undefined" && navigator?.userAgent?.indexOf("Mac") >= 0;
+
+export function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(value, max));
+}
+
+export const getDimensions = (node: HTMLDivElement): Dimensions => ({
+  width: node.offsetWidth,
+  height: node.offsetHeight,
+});
+
+const getWheelDeltaModeFactor = (deltaMode: number): number => {
+  if (deltaMode === 1) {
+    return 0.05;
+  }
+  if (deltaMode === 0) {
+    return 0.002;
+  }
+  return 1;
+};
+
+export const getWheelDelta = (event: WheelEvent, factor = 1): number =>
+  -event.deltaY * getWheelDeltaModeFactor(event.deltaMode) * factor;
+
+// returns a number between 0 and 1 that represents the velocity of the movement
+// when the mouse is close to the edge of the canvas
+const calcAutoPanVelocity = (value: number, min: number, max: number): number => {
+  if (value < min) {
+    return clamp(Math.abs(value - min), 1, 50) / 50;
+  } else if (value > max) {
+    return -clamp(Math.abs(value - max), 1, 50) / 50;
+  }
+
+  return 0;
+};
+
+// The reference subtracts its app pane widths here; the package canvas owns its whole wrapper.
+export const calcAutoPan = (
+  pos: { x: number; y: number },
+  bounds: Dimensions,
+): [number, number] => {
+  const xMovement = calcAutoPanVelocity(pos.x, 35, bounds.width - 35) * 20;
+  const yMovement = calcAutoPanVelocity(pos.y, 35, bounds.height - 35) * 20;
+
+  return [xMovement, yMovement];
+};
+
+export const getBoundsOfBoxes = (box1: Box, box2: Box): Box => ({
+  x: Math.min(box1.x, box2.x),
+  y: Math.min(box1.y, box2.y),
+  x2: Math.max(box1.x2, box2.x2),
+  y2: Math.max(box1.y2, box2.y2),
+});
+
+export const rectToBox = ({ x, y, width, height }: Rect): Box => ({
+  x,
+  y,
+  x2: x + width,
+  y2: y + height,
+});
+
+export const boxToRect = ({ x, y, x2, y2 }: Box): Rect => ({
+  x,
+  y,
+  width: x2 - x,
+  height: y2 - y,
+});
+
+export const getOverlappingArea = (rectA: Rect, rectB: Rect): number => {
+  const xOverlap = Math.max(
+    0,
+    Math.min(rectA.x + rectA.width, rectB.x + rectB.width) - Math.max(rectA.x, rectB.x),
+  );
+  const yOverlap = Math.max(
+    0,
+    Math.min(rectA.y + rectA.height, rectB.y + rectB.height) - Math.max(rectA.y, rectB.y),
+  );
+
+  return Math.ceil(xOverlap * yOverlap);
+};
+
+const isMouseEvent = (
+  event: MouseEvent | ReactMouseEvent | TouchEvent | ReactTouchEvent,
+): event is MouseEvent | ReactMouseEvent => "clientX" in event;
+
+const getEventClientCoordinates = (
+  event: MouseEvent | ReactMouseEvent | TouchEvent | ReactTouchEvent,
+) => {
+  if (isMouseEvent(event)) {
+    return { x: event.clientX, y: event.clientY };
+  }
+  const touch = event.touches?.[0];
+  return { x: touch?.clientX ?? 0, y: touch?.clientY ?? 0 };
+};
+
+export const getEventPosition = (
+  event: MouseEvent | ReactMouseEvent | TouchEvent | ReactTouchEvent,
+  bounds?: DOMRect,
+) => {
+  const { x, y } = getEventClientCoordinates(event);
+
+  return {
+    x: x - (bounds?.left ?? 0),
+    y: y - (bounds?.top ?? 0),
+  };
+};

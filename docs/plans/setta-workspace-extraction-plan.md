@@ -93,9 +93,41 @@ Phase 1 progress (2026-08-10):
   drives selection/z-order through the package stores instead of hardcoded chrome previews.
   Runtime pins from the reference: `zustand 5.0.8`, `use-sync-external-store 1.6.0`,
   `lodash 4.18.1` (supply-chain gate rerun clean on the dependency change).
-- Remaining Phase 1 work: the xyflow-fork canvas/viewport slice, dnd-kit fork drag slice, section
-  header and resize treatment, toolbar zoom/fit surface, and the live side-by-side comparison
-  feeding the developer exit gate.
+- Canvas/viewport slice extracted (2026-08-11): the xyflow fork's canvas core moved into
+  `packages/workspace/src/canvas/` with its MIT license file — viewport store (d3-zoom transform,
+  pan/zoom flags, marquee/selection-box state, fit-view-on-init), ZoomPane (wheel/pinch/pan
+  filters, interaction-burst tracking, NO_WHEEL/NO_PAN boundaries), Pane (click-to-deselect,
+  shift-drag marquee via the extracted selection controller), NodeRenderer/NodeWrapper (top-level
+  nodes with ResizeObserver measurement and full-surface d3-drag with NO_DRAG exclusions,
+  multi-node drag, temp z-raise, auto-pan at canvas edges, snap-to-grid on drop),
+  NodesSelection (multi-select box with drag and arrow-key movement), the 5,000 px scroll shim,
+  and the structural canvas CSS written as the effective post-override values. The package now
+  owns the seam-5 interaction-boundary constants, the activation-key state (Shift marquee,
+  Mod multi-select/zoom, Space pan — the reference's shipped shortcut defaults), the seam-7
+  interaction options store (reference defaults incl. snap-to-grid 15px), `getOnSectionClick`
+  (drag-suppressed activation via the package gesture store), and the document/canvas viewport
+  seam: a null document viewport arms fit-on-init (nodes hidden until fitted), transform changes
+  mirror into the canonical document viewport, and drag ends commit node layout into the document
+  (the reference's layout-funnel semantics minus the app's debounced backend send, which is the
+  Phase 2 change-callback). Deliberate cuts at extraction, returning with their owning batches:
+  dnd-kit gating of the zoom filter and the selection drag handle (dnd batch), nested-section DOM
+  fallbacks in marquee hit-testing/bounds and the `ignoreGrid` thread (section-refs come with the
+  container batch), zoom/fit helpers (toolbar batch), context menus, file drop, AI-follow, and
+  edge renderers (out of slice). Deviations from the reference DOM, for the repo's a11y gate:
+  the pane and multi-select rect carry role/tabIndex/aria labels, and the pane keeps an Escape
+  deselect handler (the reference's app-level Escape shortcut). Reference characterization tests
+  ported for the zoom filter/pan-on-scroll/interaction-burst lifecycle and initial-fit (jsdom
+  component mounts), fit-view, marquee hit-testing, and drag grouping; new focused tests freeze
+  the controller, key activations, and viewport seam. Playground renders the document on the real
+  canvas via the provisional render-prop content seam. New exact pins from the reference:
+  `classcat 5.0.3`, `d3-drag 3.0.0`, `d3-interpolate 3.0.1`, `d3-selection 3.0.0`,
+  `d3-transition 3.0.1`, `d3-zoom 3.0.0` (+ per-module `@types/d3-*`, `react-dom 19.1.1`,
+  `jsdom 28.1.0` dev-only). The supply-chain gate reran clean after adding OSI-approved `MIT-0`
+  to the license allowlist for jsdom's dev-only cssstyle transitives (documented in
+  `docs/quality-and-supply-chain-tooling.md`).
+- Remaining Phase 1 work: the dnd-kit fork drag slice (sorting/reparenting with hysteresis),
+  section header and resize treatment, toolbar zoom/fit surface, and the live side-by-side
+  comparison feeding the developer exit gate.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

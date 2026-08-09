@@ -1,44 +1,17 @@
 import {
+  applyActiveSectionChange,
   DEFAULT_SECTION_BG_COLOR,
   deriveSectionStyleTheme,
-  getActiveSectionIds,
-  getHighestAncestor,
+  getOnSectionClick,
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
-  resolveActiveSectionChange,
   resolveSectionStyleVars,
-  setActiveSectionIds,
-  setZIndices,
   useActiveSections,
-  useNodeInternals,
+  useViewportInteractionActive,
   useWorkspaceAppearance,
-  useWorkspaceDocument,
-  type Node,
+  WorkspaceCanvas,
   type WorkspaceSection,
 } from "@setta/workspace";
-
-// Mirrors the reference's active-section controller wiring inline; the extracted controller
-// arrives with the canvas batch, which owns the multi-selection key state.
-function applySectionClick(sectionId: string, multiSelectionActive: boolean) {
-  const decision = resolveActiveSectionChange({
-    interaction: "section-click",
-    activeIds: getActiveSectionIds(),
-    sectionId,
-    multiSelectionActive,
-  });
-  setActiveSectionIds(decision.nextActiveIds);
-  if (decision.updateZIndex) {
-    setZIndices([getHighestAncestor(sectionId)]);
-  }
-}
-
-function applyPaneClick() {
-  const decision = resolveActiveSectionChange({
-    interaction: "pane-click",
-    activeIds: getActiveSectionIds(),
-  });
-  setActiveSectionIds(decision.nextActiveIds);
-}
 
 function toggleDarkMode() {
   const next = !useWorkspaceAppearance.getState().darkMode;
@@ -46,14 +19,10 @@ function toggleDarkMode() {
   useWorkspaceAppearance.setState({ darkMode: next });
 }
 
-type CanvasSectionProps = {
-  section: WorkspaceSection;
-  node: Node;
-  isActiveSection: boolean;
-};
-
-function CanvasSection({ section, node, isActiveSection }: CanvasSectionProps) {
+function CanvasSectionContent({ section }: { section: WorkspaceSection }) {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
+  const isActiveSection = useActiveSections((state) => state.activeIds.includes(section.id));
+  const viewportInteractionActive = useViewportInteractionActive();
   const sectionStyleTheme = section.styleColor
     ? deriveSectionStyleTheme(section.styleColor, darkMode)
     : null;
@@ -69,60 +38,50 @@ function CanvasSection({ section, node, isActiveSection }: CanvasSectionProps) {
   });
 
   return (
-    <div
+    <section
       role="button"
       tabIndex={0}
       aria-pressed={isActiveSection}
-      className="absolute left-0 top-0"
+      className={`${shellClassName} ${isActiveSection ? "z-[150]" : "z-10"}`}
+      data-section-id={section.id}
+      data-section-active={isActiveSection ? "true" : "false"}
       style={{
-        transform: `translate(${node.position.x}px, ${node.position.y}px)`,
-        zIndex: node.tempZIndex,
+        ...resolveSectionStyleVars(sectionStyleTheme),
+        // Mirrors the reference's pan/zoom compositing hint on the section shell.
+        willChange: viewportInteractionActive ? "transform" : undefined,
       }}
-      onClick={(event) => {
-        event.stopPropagation();
-        applySectionClick(section.id, event.shiftKey);
-      }}
+      onClick={getOnSectionClick(section.id)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           event.stopPropagation();
-          applySectionClick(section.id, event.shiftKey);
+          applyActiveSectionChange({ interaction: "section-click", sectionId: section.id });
         }
       }}
     >
-      <section
-        className={`${shellClassName} ${isActiveSection ? "z-[150]" : "z-10"}`}
-        data-section-id={section.id}
-        data-section-active={isActiveSection ? "true" : "false"}
-        style={resolveSectionStyleVars(sectionStyleTheme)}
-      >
-        <div className={surfaceClassName}>
-          <div
-            className="section-full"
-            style={{
-              width: node.width ?? undefined,
-              height: node.height ?? undefined,
-            }}
-          >
-            <p className="text-xs text-setta-500 dark:text-setta-400">{section.name}</p>
-          </div>
+      <div className={surfaceClassName}>
+        <div
+          className="section-full"
+          style={{
+            width: section.size.width === "auto" ? undefined : section.size.width,
+            height: section.size.height === "auto" ? undefined : section.size.height,
+          }}
+        >
+          <p className="text-xs text-setta-500 dark:text-setta-400">{section.name}</p>
         </div>
-      </section>
-    </div>
+      </div>
+    </section>
   );
 }
 
 export function App() {
-  const sections = useWorkspaceDocument((state) => state.sections);
-  const nodes = useNodeInternals((state) => state.x);
-  const activeIds = useActiveSections((state) => state.activeIds);
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
 
   return (
-    <main className="min-h-screen p-8">
+    <main className="flex h-screen flex-col p-8">
       <header className="mb-8 flex items-center gap-4">
         <h1 className="text-sm font-semibold text-setta-600 dark:text-setta-300">
-          @setta/workspace document preview
+          @setta/workspace canvas preview
         </h1>
         <button
           type="button"
@@ -132,35 +91,14 @@ export function App() {
           Switch to {darkMode ? "light" : "dark"} mode
         </button>
         <p className="text-xs text-setta-500 dark:text-setta-400">
-          Click selects a section, shift-click multi-selects, background click deselects.
+          Drag sections or the background, scroll or pinch to pan and zoom, click to select,
+          Cmd/Ctrl-click to multi-select, Shift-drag to draw a selection.
         </p>
       </header>
-      <div
-        role="button"
-        tabIndex={0}
-        aria-label="Deselect all sections"
-        className="relative h-[520px] overflow-hidden rounded-lg border border-setta-200 dark:border-setta-800"
-        onClick={applyPaneClick}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            applyPaneClick();
-          }
-        }}
-      >
-        {[...nodes.values()].map((node) => {
-          const section = sections[node.id];
-          if (!section) {
-            throw new Error(`Node ${node.id} has no section record.`);
-          }
-          return (
-            <CanvasSection
-              key={node.id}
-              section={section}
-              node={node}
-              isActiveSection={activeIds.includes(node.id)}
-            />
-          );
-        })}
+      <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-setta-200 dark:border-setta-800">
+        <WorkspaceCanvas
+          renderSectionContent={(section) => <CanvasSectionContent section={section} />}
+        />
       </div>
     </main>
   );

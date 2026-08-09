@@ -11,7 +11,8 @@ import type { TopLevelSectionLayout, Viewport, WorkspaceSection } from "./types"
 export type WorkspaceDocument = {
   sections: Record<string, WorkspaceSection>;
   topLevelSections: Record<string, TopLevelSectionLayout>;
-  viewport: Viewport;
+  // null loads without a saved camera; the canvas fits the content on init.
+  viewport: Viewport | null;
   activeIds: Array<string>;
 };
 

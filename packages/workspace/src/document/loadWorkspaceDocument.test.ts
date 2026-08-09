@@ -94,6 +94,14 @@ describe("loadWorkspaceDocument", () => {
     expect(observed).toEqual([{ sectionCount: 3, activeIds: ["root"] }]);
   });
 
+  it("stores a null viewport for documents without a saved camera", () => {
+    loadWorkspaceDocument(makeDocument({ viewport: null }));
+    expect(useWorkspaceDocument.getState().viewport).toBeNull();
+
+    loadWorkspaceDocument(makeDocument({ viewport: { x: 8, y: 16, zoom: 2 } }));
+    expect(useWorkspaceDocument.getState().viewport).toEqual({ x: 8, y: 16, zoom: 2 });
+  });
+
   it("keeps measured node sizes over stored layout sizes on reload", () => {
     const document = makeDocument();
     loadWorkspaceDocument(document);

@@ -1,0 +1,41 @@
+import { createWithEqualityFn } from "zustand/traditional";
+import { withResetFn } from "../state/storeUtils";
+import type { PanOnScrollMode, SelectionMode } from "./types";
+
+// The preferences/appearance seam: the reference reads these from `useSettings.gui` and
+// `useLocalStorage`; the package owns them as host-configurable interaction options. Defaults
+// match the frozen reference's shipped defaults (`internal/settingsstate/defaults.json` and the
+// `useLocalStorage` initial state at 043d3b2e9).
+export type WorkspaceInteractionOptions = {
+  panOnDrag: boolean | Array<number>;
+  panOnScroll: boolean;
+  panOnScrollSpeed: number;
+  panOnScrollMode: PanOnScrollMode;
+  zoomOnScroll: boolean;
+  zoomOnPinch: boolean;
+  zoomOnDoubleClick: boolean;
+  minZoom: number;
+  maxZoom: number;
+  defaultZoomLevel: number;
+  snapToGrid: boolean;
+  snapGrid: [number, number];
+  selectionMode: SelectionMode;
+};
+
+export const useWorkspaceOptions = createWithEqualityFn(
+  withResetFn<WorkspaceInteractionOptions>(() => ({
+    panOnDrag: true,
+    panOnScroll: true,
+    panOnScrollSpeed: 1.0,
+    panOnScrollMode: "free",
+    zoomOnScroll: true,
+    zoomOnPinch: true,
+    zoomOnDoubleClick: false,
+    minZoom: 0.1,
+    maxZoom: 10,
+    defaultZoomLevel: 1.0,
+    snapToGrid: true,
+    snapGrid: [15, 15],
+    selectionMode: "partial",
+  })),
+);

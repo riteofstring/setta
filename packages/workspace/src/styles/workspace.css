@@ -105,3 +105,79 @@
   transition-duration: 170ms;
   animation-timing-function: ease-in-out;
 }
+
+/* Canvas structural CSS extracted from the fork's init.css/style.css, written as the effective
+ * values after the reference app's `react-flow-css.css` overrides (which reset the renderer and
+ * pane z-indexes to auto). Edge, handle, background, panel, and drag-handle rules left with
+ * their excluded features. */
+
+.react-flow__container {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+}
+
+.react-flow__pane {
+  z-index: auto;
+  cursor: grab;
+}
+
+.react-flow__viewport {
+  transform-origin: 0 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.react-flow__renderer {
+  z-index: auto;
+}
+
+.react-flow__selection {
+  z-index: 6;
+}
+
+.react-flow__nodesselection-rect:focus,
+.react-flow__nodesselection-rect:focus-visible {
+  outline: none;
+}
+
+.react-flow__nodes {
+  pointer-events: none;
+  transform-origin: 0 0;
+}
+
+.react-flow__node {
+  position: absolute;
+  user-select: none;
+  pointer-events: all;
+  transform-origin: 0 0;
+  box-sizing: border-box;
+  cursor: move;
+}
+
+.react-flow__nodesselection {
+  z-index: 3;
+  transform-origin: left top;
+  pointer-events: none;
+}
+
+.react-flow__nodesselection-rect {
+  position: absolute;
+  pointer-events: all;
+  cursor: grab;
+}
+
+.react-flow__nodesselection-rect,
+.react-flow__selection {
+  background: rgba(0, 89, 220, 0.08);
+  border: 1px dotted rgba(0, 89, 220, 0.8);
+}
+
+.react-flow__nodesselection-rect:focus,
+.react-flow__nodesselection-rect:focus-visible,
+.react-flow__selection:focus,
+.react-flow__selection:focus-visible {
+  outline: none;
+}

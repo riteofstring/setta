@@ -1,5 +1,10 @@
 // Provisional Phase 1 surface. The ratified public API is a post-parity decision; these exports
-// exist so the playground can render the extracted chrome, and they may change freely.
+// exist so the playground can render the extracted chrome and canvas, and they may change freely.
+export { applyActiveSectionChange } from "./canvas/activeSectionController";
+export { useWorkspaceOptions } from "./canvas/options";
+export type { WorkspaceInteractionOptions } from "./canvas/options";
+export { useViewportInteractionActive } from "./canvas/useViewportInteractionActive";
+export { WorkspaceCanvas } from "./canvas/WorkspaceCanvas";
 export { resolveActiveSectionChange } from "./document/activeSectionPolicy";
 export type {
   ActiveSectionPolicyContext,
@@ -32,9 +37,17 @@ export type {
   WorkspaceSection,
 } from "./document/types";
 export {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
+  SETTA_PREVENT_SECTION_ACTIVE_CSS,
+  SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
+} from "./interaction";
+export {
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
 } from "./section/sectionChrome";
+export { getOnSectionClick } from "./section/sectionClick";
 export { DEFAULT_SECTION_BG_COLOR } from "./section/sectionColors";
 export { deriveSectionStyleTheme } from "./section/sectionStyleColors";
 export { resolveSectionStyleVars } from "./section/sectionStyleVars";
