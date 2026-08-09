@@ -169,6 +169,10 @@ describe("PasswordValueControl", () => {
     mount({ disabled: true, savedValueAction: { pending: false, onReveal } });
     expect(getInput().disabled).toBe(true);
     expect(getInput().classList.contains("cursor-text")).toBe(false);
+    expect(getVisibilityToggle().disabled).toBe(true);
+    expect(getVisibilityToggle().classList.contains("cursor-not-allowed")).toBe(true);
+    act(() => getVisibilityToggle().click());
+    expect(getInput().type).toBe("password");
     expect(
       host.querySelector<HTMLButtonElement>('button[title="Reveal saved password"]')?.disabled,
     ).toBe(true);
@@ -176,6 +180,7 @@ describe("PasswordValueControl", () => {
     useItemSelectionMode.setState({ isSelectingItems: true });
     mount({ savedValueAction: { pending: false, onReveal } });
     expect(getInput().disabled).toBe(true);
+    expect(getVisibilityToggle().disabled).toBe(true);
     expect(host.querySelector("span.section-value")?.className).not.toContain(
       "peer-focus-within/textinput:border-blue-400",
     );

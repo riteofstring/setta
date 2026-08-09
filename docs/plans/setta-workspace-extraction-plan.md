@@ -1149,6 +1149,21 @@ Phase 4 progress (2026-08-11):
   milestone is complete; meta controls are next under the existing consolidated authorization.
   The matched dark/light comparison and explicit developer acceptance remain open at the
   consolidated controls-and-meta exit gate, and no package-output baseline has been recorded.
+- Remaining-controls coherence audit complete (2026-08-12): the audit expanded the requested
+  `3f0cb5db87672f294bd6b4858af5e2daa1657738..af42822726486a95f0b7a822e1714c1967d97923`
+  range through the authorization/evidence commit and reviewed the completed slider, rotary,
+  password, multiline text, date/time, calendar, and dropzone work as one change against frozen
+  `main`. The package, playground, public boundary, tests, and recorded reference evidence agree
+  with the authorized backend-free ownership cuts and frozen behavior. The audit found and fixed
+  one package-wide disabledness defect: the password reveal action now disables for host and item
+  selection disabled states, with interaction coverage. On the stable implementation, the package
+  production build and built-boundary check, complete package suite (74 files, 551 tests),
+  playground production build, complete playground suite (2 files, 18 tests), full static gate
+  (409 project files), and packed unrelated-consumer proof pass. The supply-chain gate already
+  passed after this milestone's only dependency change and was not duplicated after later
+  dependency-free work. This intermediate milestone has no standalone developer gate; meta
+  controls remain next, and the consolidated controls-and-meta comparison, acceptance, and first
+  package-output baselines remain open exactly where scheduled.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

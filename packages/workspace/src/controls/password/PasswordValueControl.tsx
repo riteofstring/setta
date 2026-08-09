@@ -29,7 +29,7 @@ export type PasswordValueControlProps = {
 const WRAPPER_CLASS_NAME = "section-value flex min-w-0 items-center gap-2";
 const INPUT_WRAPPER_CLASS_NAME = `section-value relative min-w-0 ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
 const INPUT_BASE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex min-w-0 flex-1 self-center pr-8 font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
-const TOGGLE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} absolute inset-y-0 right-0 grid w-8 cursor-pointer place-items-center text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`;
+const TOGGLE_BASE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} absolute inset-y-0 right-0 grid w-8 place-items-center text-setta-400 dark:text-setta-500`;
 const DIVIDER_BASE_CLASS_NAME =
   "section-value self-end border-b border-setta-200/50 dark:border-setta-600/30";
 
@@ -39,6 +39,13 @@ function getInputClassName(isDisabled: boolean) {
 
 function getDividerClassName(isSelectingItems: boolean) {
   return `${DIVIDER_BASE_CLASS_NAME} ${!isSelectingItems ? "peer-focus-within/textinput:border-blue-400" : ""}`;
+}
+
+function getToggleClassName(disabled: boolean) {
+  const interactionClassName = disabled
+    ? "cursor-not-allowed"
+    : "cursor-pointer hover:text-setta-600 dark:hover:text-setta-300";
+  return `${TOGGLE_BASE_CLASS_NAME} ${interactionClassName}`;
 }
 
 function handleEscape(event: KeyboardEvent<HTMLInputElement>, sectionId: string) {
@@ -116,7 +123,8 @@ function PasswordInput({
         type="button"
         onClick={() => setShowPassword((visible) => !visible)}
         aria-label={showPassword ? "Hide password" : "Show password"}
-        className={TOGGLE_CLASS_NAME}
+        className={getToggleClassName(disabled)}
+        disabled={disabled}
       >
         {showPassword ? <BiShow aria-hidden="true" /> : <BiHide aria-hidden="true" />}
       </button>
