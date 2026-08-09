@@ -107,6 +107,81 @@ async function serializedFreeformPosition(page: Page, sectionId: string) {
   return serialized.sections["recursive-root"]?.childLayout?.positions?.[sectionId];
 }
 
+type NestedFreeformSerializedDocument = Readonly<{
+  sections: Readonly<
+    Record<
+      string,
+      Readonly<{
+        childLayout: Readonly<{
+          positioning: string;
+          positions?: Readonly<Record<string, Readonly<{ x: number; y: number }>>>;
+          sectionIds: readonly string[];
+        }> | null;
+      }>
+    >
+  >;
+}>;
+
+async function nestedFreeformSerializedDocument(
+  page: Page,
+): Promise<NestedFreeformSerializedDocument> {
+  return JSON.parse(
+    await page.getByTestId("canvas-shell-document").inputValue(),
+  ) as NestedFreeformSerializedDocument;
+}
+
+function requiredSerializedChildLayout(
+  document: NestedFreeformSerializedDocument,
+  sectionId: string,
+) {
+  const layout = document.sections[sectionId]?.childLayout;
+  if (!layout) {
+    throw new Error(`Serialized section ${sectionId} must provide a child layout.`);
+  }
+  return layout;
+}
+
+function expectGroupedFreeformDocument(document: NestedFreeformSerializedDocument): void {
+  expect(requiredSerializedChildLayout(document, "recursive-root")).toEqual({
+    overflow: "scroll",
+    positioning: "freeform",
+    positions: {
+      "empty-container": { x: 80, y: 500 },
+      "navigation-group-1": { x: 16, y: 16 },
+    },
+    sectionIds: ["navigation-group-1", "empty-container"],
+  });
+  expect(requiredSerializedChildLayout(document, "navigation-group-1")).toMatchObject({
+    positioning: "ordered",
+    sectionIds: ["nested-alpha", "nested-row"],
+  });
+}
+
+function expectUngroupedFreeformDocument(
+  document: NestedFreeformSerializedDocument,
+  expectedPositions: Readonly<
+    Record<"nested-alpha" | "nested-row", Readonly<{ x: number; y: number }>>
+  >,
+): void {
+  const layout = requiredSerializedChildLayout(document, "recursive-root");
+  expect(layout.sectionIds).toEqual(["nested-alpha", "nested-row", "empty-container"]);
+  expect(layout.positions).not.toHaveProperty("navigation-group-1");
+  expect(layout.positions?.["empty-container"]).toEqual({ x: 80, y: 500 });
+  for (const sectionId of ["nested-alpha", "nested-row"] as const) {
+    expect(layout.positions?.[sectionId]?.x).toBeCloseTo(expectedPositions[sectionId].x, 4);
+    expect(layout.positions?.[sectionId]?.y).toBeCloseTo(expectedPositions[sectionId].y, 4);
+  }
+  expect(document.sections["navigation-group-1"]).toBeUndefined();
+}
+
+async function openSelectionActions(page: Page, trigger: Locator): Promise<Locator> {
+  await trigger.focus();
+  await page.keyboard.press("Shift+F10");
+  const dialog = page.getByRole("dialog", { name: "Selection actions" });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
 async function dispatchTouchDrag(
   page: Page,
   source: Readonly<{ x: number; y: number }>,
@@ -380,6 +455,81 @@ test.describe("Phase 6 nested freeform document contract", () => {
     });
     const results = await new AxeBuilder({ page }).include(".setta-workspace").analyze();
     expect(results.violations).toEqual([]);
+  });
+
+  test("groups and ungroups nested freeform siblings through exact local positions", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ height: 1_000, width: 1_280 });
+    await page.goto(contractUrl);
+    await page.getByRole("checkbox", { name: "Show host extensions" }).uncheck();
+    await setCanvasZoom(page, 1);
+    const workspace = page.getByRole("region", { exact: true, name: "Canvas shell workspace" });
+    const canvas = workspace.getByRole("application", { name: "Canvas shell workspace canvas" });
+    const alpha = workspace.getByRole("article", { name: "Nested Alpha" });
+    const row = workspace.getByRole("article", { name: "Nested row" });
+    const selectAlpha = alpha.getByRole("button", { name: "Select Nested Alpha" });
+    const selectRow = row.getByRole("button", { name: "Select Nested row" });
+    const announcement = workspace.locator("[data-workspace-selection-action-announcement]");
+    const baselineChanges = await recursiveChangeCount(page);
+
+    await selectAlpha.click();
+    await selectRow.click({ modifiers: ["Shift"] });
+    let dialog = await openSelectionActions(page, selectAlpha);
+    const groupAction = dialog.getByRole("menuitem", { name: "Group sections", exact: true });
+    await groupAction.focus();
+    await page.keyboard.press("Enter");
+
+    const group = workspace.getByRole("article", { name: "Group 1 (2 sections)" });
+    const selectGroup = group.getByRole("button", { name: "Select Group 1 (2 sections)" });
+    await expect(group).toHaveAttribute("data-workspace-parent-section-id", "recursive-root");
+    await expect(selectGroup).toHaveAttribute("aria-pressed", "true");
+    await expect(selectGroup).toBeFocused();
+    await expect(announcement).toHaveText("The 2 selected sections were grouped.");
+    expect(await recursiveChangeCount(page)).toBe(baselineChanges + 1);
+
+    expectGroupedFreeformDocument(await nestedFreeformSerializedDocument(page));
+    const [groupBox, alphaBox, rowBox] = await Promise.all([
+      requiredBoundingBox(group, "Nested freeform group"),
+      requiredBoundingBox(alpha, "Grouped Nested Alpha"),
+      requiredBoundingBox(row, "Grouped Nested row"),
+    ]);
+    const expectedPositions = {
+      "nested-alpha": {
+        x: 16 + alphaBox.x - groupBox.x,
+        y: 16 + alphaBox.y - groupBox.y,
+      },
+      "nested-row": {
+        x: 16 + rowBox.x - groupBox.x,
+        y: 16 + rowBox.y - groupBox.y,
+      },
+    };
+    const groupedAccessibility = await new AxeBuilder({ page })
+      .include(".setta-workspace")
+      .analyze();
+    expect(groupedAccessibility.violations).toEqual([]);
+    await expect(canvas).toHaveScreenshot("nested-freeform-grouped-sections.png", {
+      animations: "disabled",
+    });
+
+    dialog = await openSelectionActions(page, selectGroup);
+    const ungroupAction = dialog.getByRole("menuitem", { name: "Ungroup section", exact: true });
+    await ungroupAction.focus();
+    await page.keyboard.press("Enter");
+
+    await expect(group).toHaveCount(0);
+    await expect(alpha).toHaveAttribute("data-workspace-parent-section-id", "recursive-root");
+    await expect(row).toHaveAttribute("data-workspace-parent-section-id", "recursive-root");
+    await expect(selectAlpha).toHaveAttribute("aria-pressed", "true");
+    await expect(selectRow).toHaveAttribute("aria-pressed", "true");
+    await expect(selectAlpha).toBeFocused();
+    await expect(announcement).toHaveText("The selected section was ungrouped.");
+    expect(await recursiveChangeCount(page)).toBe(baselineChanges + 2);
+
+    expectUngroupedFreeformDocument(
+      await nestedFreeformSerializedDocument(page),
+      expectedPositions,
+    );
   });
 
   test("keeps movement local through nested scrolling and outer zoom", async ({ page }) => {

@@ -697,7 +697,7 @@ export function groupWorkspaceSections<TSectionData>(
 export function ungroupWorkspaceSection<TSectionData>(
   bindings: WorkspaceControllerBindings<TSectionData>,
   sectionId: string,
-  rootPositions: Readonly<Record<string, WorkspacePoint>> | null,
+  positions: Readonly<Record<string, WorkspacePoint>> | null,
 ): WorkspaceActionResult {
-  return dispatch(bindings, { rootPositions, sectionId, type: "ungroup-section" });
+  return dispatch(bindings, { positions, sectionId, type: "ungroup-section" });
 }

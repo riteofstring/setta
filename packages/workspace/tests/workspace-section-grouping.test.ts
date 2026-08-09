@@ -76,6 +76,30 @@ function nestedDocument(): WorkspaceDocument {
   };
 }
 
+function nestedFreeformDocument(): WorkspaceDocument {
+  const document = nestedDocument();
+  const parent = document.sections.parent as WorkspaceSection;
+  return {
+    ...document,
+    sections: {
+      ...document.sections,
+      parent: {
+        ...parent,
+        childLayout: {
+          overflow: "grow",
+          positioning: "freeform",
+          positions: {
+            alpha: { x: 40, y: 60 },
+            beta: { x: 360, y: 80 },
+            gamma: { x: 120, y: 300 },
+          },
+          sectionIds: ["alpha", "beta", "gamma"],
+        },
+      },
+    },
+  };
+}
+
 function applyGroup(
   document: WorkspaceDocument,
   sectionIds: readonly string[],
@@ -144,7 +168,7 @@ describe("workspace section grouping commands", () => {
 
     const ungrouped = applyWorkspaceDocumentCommand(
       grouped.document,
-      { rootPositions: null, sectionId: "group", type: "ungroup-section" },
+      { positions: null, sectionId: "group", type: "ungroup-section" },
       WORKSPACE_DEFAULT_CAPABILITIES,
     );
     expect(ungrouped.status).toBe("applied");
@@ -166,6 +190,46 @@ describe("workspace section grouping commands", () => {
     ).toBe(false);
   });
 
+  it("replaces every selected nested freeform position without leaving stale keys", () => {
+    const grouped = applyGroup(nestedFreeformDocument(), ["gamma", "alpha"], { x: 40, y: 60 });
+    expect(grouped.status).toBe("applied");
+    if (grouped.status !== "applied") {
+      throw new Error("Expected nested freeform grouping to apply.");
+    }
+    expect(grouped.document.sections.parent?.childLayout).toEqual({
+      overflow: "grow",
+      positioning: "freeform",
+      positions: { beta: { x: 360, y: 80 }, group: { x: 40, y: 60 } },
+      sectionIds: ["group", "beta"],
+    });
+    expect(grouped.document.sections.group?.childLayout?.sectionIds).toEqual(["alpha", "gamma"]);
+
+    const ungrouped = applyWorkspaceDocumentCommand(
+      grouped.document,
+      {
+        positions: { alpha: { x: 60, y: 110 }, gamma: { x: 80, y: 330 } },
+        sectionId: "group",
+        type: "ungroup-section",
+      },
+      WORKSPACE_DEFAULT_CAPABILITIES,
+    );
+    expect(ungrouped.status).toBe("applied");
+    if (ungrouped.status !== "applied") {
+      throw new Error("Expected nested freeform ungrouping to apply.");
+    }
+    expect(ungrouped.document.sections.parent?.childLayout).toEqual({
+      overflow: "grow",
+      positioning: "freeform",
+      positions: {
+        alpha: { x: 60, y: 110 },
+        beta: { x: 360, y: 80 },
+        gamma: { x: 80, y: 330 },
+      },
+      sectionIds: ["alpha", "gamma", "beta"],
+    });
+    expect(ungrouped.document.sections.group).toBeUndefined();
+  });
+
   it("promotes top-level children with the exact planned positions", () => {
     const grouped = applyGroup(flatDocument(), ["alpha", "beta"], { x: 40, y: 60 });
     if (grouped.status !== "applied") {
@@ -174,7 +238,7 @@ describe("workspace section grouping commands", () => {
     const ungrouped = applyWorkspaceDocumentCommand(
       grouped.document,
       {
-        rootPositions: { alpha: { x: 40, y: 60 }, beta: { x: 40, y: 264 } },
+        positions: { alpha: { x: 40, y: 60 }, beta: { x: 40, y: 264 } },
         sectionId: "group",
         type: "ungroup-section",
       },
@@ -217,10 +281,13 @@ describe("workspace section grouping commands", () => {
     expect(
       applyWorkspaceDocumentCommand(
         flatDocument(),
-        { rootPositions: {}, sectionId: "alpha", type: "ungroup-section" },
+        { positions: {}, sectionId: "alpha", type: "ungroup-section" },
         WORKSPACE_DEFAULT_CAPABILITIES,
       ),
     ).toMatchObject({ reason: "section-not-container", status: "rejected" });
+    expect(() => applyGroup(nestedFreeformDocument(), ["alpha", "gamma"], { x: -1, y: 0 })).toThrow(
+      'Workspace freeform position for "group" coordinates must be non-negative.',
+    );
   });
 });
 
@@ -289,6 +356,78 @@ describe("workspace section grouping planning", () => {
     });
   });
 
+  it("places a nested freeform group from canonical local positions and measured sizes", () => {
+    const plan = planWorkspaceSectionGrouping({
+      canvasController: canvasController({
+        alpha: { height: 180, width: 240, x: 880, y: 420 },
+        gamma: { height: 200, width: 240, x: 960, y: 660 },
+      }),
+      document: nestedFreeformDocument(),
+      factory: () => ({
+        data: null,
+        id: "group",
+        kind: "container",
+        title: "Planning group",
+      }),
+      registry,
+      sectionIds: ["gamma", "alpha"],
+    });
+
+    expect(plan.status).toBe("ready");
+    if (plan.status !== "ready") {
+      throw new Error("Expected nested freeform grouping to be ready.");
+    }
+    expect(plan.position).toEqual({ x: 40, y: 60 });
+    expect(plan.group.size).toEqual({
+      height: { mode: "fixed", value: 440 },
+      width: { mode: "fixed", value: 320 },
+    });
+  });
+
+  it("derives nested freeform ungroup positions from measured child geometry", () => {
+    const grouped = applyGroup(nestedFreeformDocument(), ["alpha", "gamma"], { x: 40, y: 60 });
+    if (grouped.status !== "applied") {
+      throw new Error("Expected nested freeform grouping to apply.");
+    }
+    const plan = planWorkspaceSectionUngrouping({
+      canvasController: canvasController({
+        alpha: { height: 180, width: 240, x: 520, y: 350 },
+        gamma: { height: 200, width: 240, x: 540, y: 570 },
+        group: { height: 440, width: 320, x: 500, y: 300 },
+      }),
+      document: grouped.document,
+      sectionId: "group",
+    });
+
+    expect(plan).toEqual({
+      childSectionIds: ["alpha", "gamma"],
+      parentSectionId: "parent",
+      positions: { alpha: { x: 60, y: 110 }, gamma: { x: 80, y: 330 } },
+      status: "ready",
+    });
+  });
+
+  it("translates a promoted freeform block together at nested start edges", () => {
+    const grouped = applyGroup(nestedFreeformDocument(), ["alpha", "gamma"], { x: 0, y: 0 });
+    if (grouped.status !== "applied") {
+      throw new Error("Expected nested freeform grouping to apply.");
+    }
+    const plan = planWorkspaceSectionUngrouping({
+      canvasController: canvasController({
+        alpha: { height: 180, width: 240, x: 480, y: 280 },
+        gamma: { height: 200, width: 240, x: 540, y: 340 },
+        group: { height: 440, width: 320, x: 500, y: 300 },
+      }),
+      document: grouped.document,
+      sectionId: "group",
+    });
+
+    expect(plan).toMatchObject({
+      positions: { alpha: { x: 0, y: 0 }, gamma: { x: 60, y: 60 } },
+      status: "ready",
+    });
+  });
+
   it("plans non-overlapping root positions from the measured group frame", () => {
     const grouped = applyGroup(flatDocument(), ["alpha", "beta"], { x: 100, y: 50 });
     if (grouped.status !== "applied") {
@@ -306,7 +445,7 @@ describe("workspace section grouping planning", () => {
     expect(plan).toMatchObject({
       childSectionIds: ["alpha", "beta"],
       parentSectionId: null,
-      rootPositions: { alpha: { x: 100, y: 254 }, beta: { x: 100, y: 458 } },
+      positions: { alpha: { x: 100, y: 254 }, beta: { x: 100, y: 458 } },
       status: "ready",
     });
   });
@@ -327,15 +466,15 @@ describe("workspace section grouping planning", () => {
       document: grouped.document,
       sectionId: "group",
     });
-    if (plan.status !== "ready" || !plan.rootPositions) {
+    if (plan.status !== "ready" || !plan.positions) {
       throw new Error("Expected prototype-mutator ungrouping to be ready.");
     }
 
-    expect(Object.hasOwn(plan.rootPositions, "__proto__")).toBe(true);
-    expect(plan.rootPositions["__proto__"]).toEqual({ x: 100, y: 50 });
+    expect(Object.hasOwn(plan.positions, "__proto__")).toBe(true);
+    expect(plan.positions["__proto__"]).toEqual({ x: 100, y: 50 });
     const ungrouped = applyWorkspaceDocumentCommand(
       grouped.document,
-      { rootPositions: plan.rootPositions, sectionId: "group", type: "ungroup-section" },
+      { positions: plan.positions, sectionId: "group", type: "ungroup-section" },
       WORKSPACE_DEFAULT_CAPABILITIES,
     );
     expect(ungrouped.status).toBe("applied");

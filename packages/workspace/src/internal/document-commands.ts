@@ -151,16 +151,25 @@ function finiteCoordinate(value: unknown, label: string): number {
   return value;
 }
 
-function rootPositionAt(value: unknown, sectionId: string): WorkspacePoint {
-  const label = `Workspace root position for ${JSON.stringify(sectionId)}`;
+function positionAt(value: unknown, label: string, nonNegative: boolean): WorkspacePoint {
   const position = optionOverridesAt(value, ["x", "y"], label, "workspace root position field");
   if (!Object.hasOwn(position, "x") || !Object.hasOwn(position, "y")) {
     throw new TypeError(`${label} must provide x and y.`);
   }
-  return {
-    x: finiteCoordinate(position.x, `${label} x`),
-    y: finiteCoordinate(position.y, `${label} y`),
-  };
+  const x = finiteCoordinate(position.x, `${label} x`);
+  const y = finiteCoordinate(position.y, `${label} y`);
+  if (nonNegative && (x < 0 || y < 0)) {
+    throw new TypeError(`${label} coordinates must be non-negative.`);
+  }
+  return { x, y };
+}
+
+function rootPositionAt(value: unknown, sectionId: string): WorkspacePoint {
+  return positionAt(value, `Workspace root position for ${JSON.stringify(sectionId)}`, false);
+}
+
+function freeformPositionAt(value: unknown, sectionId: string): WorkspacePoint {
+  return positionAt(value, `Workspace freeform position for ${JSON.stringify(sectionId)}`, true);
 }
 
 function rootMovementEntriesAt(
@@ -464,6 +473,8 @@ function applySectionGrouping<TSectionData>(
       throw new TypeError("Top-level workspace grouping requires a position.");
     }
     position = rootPositionAt(position, command.group.id);
+  } else if (position !== null) {
+    position = freeformPositionAt(position, command.group.id);
   }
   return applyWorkspaceSectionGrouping(document, command.group, resolved.selection, position);
 }
@@ -477,12 +488,13 @@ function promotedSections<TSectionData>(
   );
 }
 
-function ungroupRootPositions(
+function ungroupPositions(
   childSectionIds: readonly string[],
   positionsValue: Readonly<Record<string, WorkspacePoint>> | null,
+  nested: boolean,
 ): ReadonlyMap<string, WorkspacePoint> {
   if (positionsValue === null) {
-    throw new TypeError("Top-level workspace ungrouping requires child positions.");
+    throw new TypeError("Spatial workspace ungrouping requires child positions.");
   }
   const entries = rootMovementEntriesAt(positionsValue);
   const childIds = new Set(childSectionIds);
@@ -492,12 +504,92 @@ function ungroupRootPositions(
   ) {
     throw new TypeError("Workspace ungroup positions must match the direct child sections.");
   }
+  if (nested && entries.some(([, position]) => position.x < 0 || position.y < 0)) {
+    throw new TypeError("Nested workspace ungroup positions must be non-negative.");
+  }
   return new Map(entries);
+}
+
+function ungroupedParentLayout(
+  childLayout: WorkspaceSection["childLayout"],
+  groupSectionId: string,
+  childSectionIds: readonly string[],
+  positions: ReadonlyMap<string, WorkspacePoint> | null,
+) {
+  if (!childLayout) {
+    throw new TypeError("Workspace ungrouping requires a parent child layout.");
+  }
+  const sectionIds = childLayout.sectionIds.flatMap((sectionId) =>
+    sectionId === groupSectionId ? childSectionIds : [sectionId],
+  );
+  if (childLayout.positioning === "ordered") {
+    if (positions !== null) {
+      throw new TypeError("Ordered workspace ungrouping must not provide child positions.");
+    }
+    return { ...childLayout, sectionIds };
+  }
+  if (positions === null) {
+    throw new TypeError("Freeform workspace ungrouping requires child positions.");
+  }
+  return {
+    ...childLayout,
+    positions: Object.fromEntries(
+      sectionIds.map((sectionId) => [
+        sectionId,
+        positions.get(sectionId) ?? requiredFreeformPosition(childLayout, sectionId),
+      ]),
+    ),
+    sectionIds,
+  };
+}
+
+type SectionUngroupingCommand<TSectionData> = Extract<
+  WorkspaceDocumentCommand<TSectionData>,
+  { type: "ungroup-section" }
+>;
+
+function applyNestedSectionUngrouping<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  sections: Readonly<Record<string, WorkspaceSection<TSectionData>>>,
+  command: SectionUngroupingCommand<TSectionData>,
+  childSectionIds: readonly string[],
+  parentSectionId: string,
+): WorkspaceDocumentCommandResult<TSectionData> {
+  const parent = sections[parentSectionId] as WorkspaceSection<TSectionData>;
+  const childLayout = parent.childLayout;
+  if (!childLayout) {
+    throw new Error(`Workspace parent section ${parentSectionId} is missing its child layout.`);
+  }
+  const positions =
+    childLayout.positioning === "freeform"
+      ? ungroupPositions(childSectionIds, command.positions, true)
+      : null;
+  if (childLayout.positioning === "ordered" && command.positions !== null) {
+    throw new TypeError("Ordered workspace ungrouping must not provide child positions.");
+  }
+  return applied(
+    {
+      ...document,
+      sections: {
+        ...sections,
+        [parentSectionId]: {
+          ...parent,
+          childLayout: ungroupedParentLayout(
+            childLayout,
+            command.sectionId,
+            childSectionIds,
+            positions,
+          ),
+        },
+      },
+    },
+    "section-ungroup",
+  );
 }
 
 function applySectionUngrouping<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
-  command: Extract<WorkspaceDocumentCommand<TSectionData>, { type: "ungroup-section" }>,
+  command: SectionUngroupingCommand<TSectionData>,
 ): WorkspaceDocumentCommandResult<TSectionData> {
   assertKnownSections(document, [command.sectionId]);
   const group = document.sections[command.sectionId] as WorkspaceSection<TSectionData>;
@@ -508,7 +600,7 @@ function applySectionUngrouping<TSectionData>(
   const parentSectionId = deriveWorkspaceParentLookup(document).get(command.sectionId) ?? null;
   const sections = promotedSections(document, command.sectionId);
   if (parentSectionId === null) {
-    const positions = ungroupRootPositions(childSectionIds, command.rootPositions);
+    const positions = ungroupPositions(childSectionIds, command.positions, false);
     const rootSections = document.rootSections.flatMap((root) =>
       root.sectionId === command.sectionId
         ? childSectionIds.map((sectionId) => ({
@@ -519,34 +611,12 @@ function applySectionUngrouping<TSectionData>(
     );
     return applied({ ...document, rootSections, sections }, "section-ungroup");
   }
-  if (command.rootPositions !== null) {
-    throw new TypeError("Nested workspace ungrouping must not provide root positions.");
-  }
-  const parent = sections[parentSectionId] as WorkspaceSection<TSectionData>;
-  const childLayout = parent.childLayout;
-  if (!childLayout) {
-    throw new Error(`Workspace parent section ${parentSectionId} is missing its child layout.`);
-  }
-  if (childLayout.positioning === "freeform") {
-    return { document, reason: "section-layout-unsupported", status: "rejected" };
-  }
-  return applied(
-    {
-      ...document,
-      sections: {
-        ...sections,
-        [parentSectionId]: {
-          ...parent,
-          childLayout: {
-            ...childLayout,
-            sectionIds: childLayout.sectionIds.flatMap((sectionId) =>
-              sectionId === command.sectionId ? childSectionIds : [sectionId],
-            ),
-          },
-        },
-      },
-    },
-    "section-ungroup",
+  return applyNestedSectionUngrouping(
+    document,
+    sections,
+    command,
+    childSectionIds,
+    parentSectionId,
   );
 }
 

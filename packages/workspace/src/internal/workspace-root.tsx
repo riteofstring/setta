@@ -468,7 +468,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         if (plan.status === "rejected") {
           return plan;
         }
-        const result = ungroupWorkspaceSection(bindings, sectionId, plan.rootPositions);
+        const result = ungroupWorkspaceSection(bindings, sectionId, plan.positions);
         const focusSectionId = plan.childSectionIds[0];
         if (result.status === "applied" && focusSectionId) {
           pendingStructuralSelectionRef.current = {

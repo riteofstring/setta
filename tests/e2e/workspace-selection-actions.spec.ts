@@ -199,7 +199,9 @@ test("selection actions group and ungroup top-level siblings with focus restorat
   ]);
   const groupedAccessibility = await new AxeBuilder({ page }).analyze();
   expect(groupedAccessibility.violations).toEqual([]);
-  await expect(page).toHaveScreenshot("selection-grouped-sections.png");
+  await expect(workspace).toHaveScreenshot("selection-grouped-sections.png", {
+    animations: "disabled",
+  });
 
   dialog = await openSelectionActionsWithKeyboard(page, selectGroup);
   await expect(dialog.locator('[data-workspace-selection-action="group"]')).toContainText(

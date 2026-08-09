@@ -102,8 +102,7 @@ Playwright Chromium baseline was inspected at original resolution).
 
 ## Remaining repository-actionable work
 
-Freeform-aware grouping and ungrouping are next: derive exact local positions when a group is
-created inside a freeform parent and when children are promoted out of a freeform group, preserving
-canonical order and leaving no stale keys. Paste and external-drop placement, the named positioning
-control, performance evidence, the representative cross-layout browser matrix, and the final Phase
-6 audit follow that command-level ownership work.
+Freeform-aware grouping and ungrouping now follow this slice in
+`docs/evidence/phase-6-nested-freeform-grouping.md`. Paste and external-drop placement are the next
+repository-actionable work, followed by the named positioning control, performance evidence, the
+representative cross-layout browser matrix, and the final Phase 6 audit.

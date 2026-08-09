@@ -576,7 +576,9 @@ descendant when its ancestor is also selected.
 Supplying `groupFactory` enables grouping for at least two selected siblings with one parent. The
 host supplies the container kind, ID, title, and payload; the package owns insertion, canonical
 order, and resulting selection. Mixed-parent grouping is rejected. Ungroup promotes direct
-children at the same parent index; root ungrouping resolves non-overlapping root positions from
+children at the same parent index. In a freeform parent, grouping replaces the selected local
+position keys with the measured group position, while ungrouping replaces the group key with exact
+measured child-local positions. Root ungrouping resolves non-overlapping root positions from
 measured geometry.
 
 Ordinary selection and dragging only lift the active top-level ancestor transiently. Persistent

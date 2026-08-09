@@ -1,6 +1,8 @@
 import {
   validateWorkspaceDocument,
+  type WorkspaceChildLayout,
   type WorkspaceDocument,
+  type WorkspaceFreeformChildLayout,
   type WorkspacePoint,
   type WorkspaceSection,
 } from "../core.js";
@@ -78,30 +80,58 @@ function applyNestedGrouping<TSectionData>(
   selected: ReadonlySet<string>,
   sections: Readonly<Record<string, WorkspaceSection<TSectionData>>>,
 ): WorkspaceDocumentCommandResult<TSectionData> {
-  if (position !== null) {
-    throw new TypeError("Nested workspace grouping must not provide a root position.");
-  }
   const parent = document.sections[parentSectionId] as WorkspaceSection<TSectionData>;
   const childLayout = parent.childLayout;
   if (!childLayout) {
     throw new Error(`Workspace parent section ${parentSectionId} is missing its child layout.`);
   }
-  if (childLayout.positioning === "freeform") {
-    return { document, reason: "section-layout-unsupported", status: "rejected" };
-  }
+  const nextLayout = groupedParentLayout(childLayout, groupId, position, selected);
   return appliedGrouping({
     ...document,
     sections: {
       ...sections,
       [parentSectionId]: {
         ...parent,
-        childLayout: {
-          ...childLayout,
-          sectionIds: replaceSelectedIds(childLayout.sectionIds, selected, groupId),
-        },
+        childLayout: nextLayout,
       },
     },
   });
+}
+
+function requiredPosition(layout: WorkspaceFreeformChildLayout, sectionId: string): WorkspacePoint {
+  const position = layout.positions[sectionId];
+  if (!position) {
+    throw new Error(`Workspace freeform child ${sectionId} is missing its canonical position.`);
+  }
+  return position;
+}
+
+function groupedParentLayout(
+  childLayout: WorkspaceChildLayout,
+  groupId: string,
+  position: WorkspacePoint | null,
+  selected: ReadonlySet<string>,
+): WorkspaceChildLayout {
+  const sectionIds = replaceSelectedIds(childLayout.sectionIds, selected, groupId);
+  if (childLayout.positioning === "ordered") {
+    if (position !== null) {
+      throw new TypeError("Grouping in an ordered workspace parent must not provide a position.");
+    }
+    return { ...childLayout, sectionIds };
+  }
+  if (position === null) {
+    throw new TypeError("Grouping in a freeform workspace parent requires a local position.");
+  }
+  return {
+    ...childLayout,
+    positions: Object.fromEntries(
+      sectionIds.map((sectionId) => [
+        sectionId,
+        sectionId === groupId ? { ...position } : requiredPosition(childLayout, sectionId),
+      ]),
+    ),
+    sectionIds,
+  };
 }
 
 export function applyWorkspaceSectionGrouping<TSectionData>(

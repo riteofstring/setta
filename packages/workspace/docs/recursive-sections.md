@@ -61,10 +61,10 @@ controller.setSectionChildPositioning("group", {
 
 The recursive DOM renders those local positions without another XYFlow store or viewport. The
 same-parent freeform movement path updates only the moved position entries and preserves canonical
-stacking order. Freeform collision targets and grouping directly inside a freeform parent remain
-unavailable; those actions reject rather than leaving a partial position map. Moving or deleting a
-child out of a freeform parent prunes its position key, and clipboard cloning remaps position keys
-with the cloned child IDs.
+stacking order. Structural movement and grouping use measured destination-local positions inside a
+freeform parent. Moving, grouping, ungrouping, or deleting children replaces the exact position map
+atomically, so removed children leave no stale keys; clipboard cloning remaps position keys with the
+cloned child IDs.
 
 ## Orientation and logical order
 
@@ -148,12 +148,17 @@ zoom do not change the persisted local coordinates.
 Grouping is a structural shortcut over the same canonical hierarchy. At least two normalized
 siblings must share one parent, and `groupFactory` must produce a registered container kind. The new
 group is inserted at the first selected sibling and receives the selected roots in canonical order.
-At the canvas, the group uses selected measured bounds; at nested depth, it occupies the same
-ordered position.
+At the canvas, the group uses selected measured bounds. In an ordered parent it occupies the same
+ordered position. In a freeform parent it uses the selected block's canonical local start position,
+measured size, and first-selected stacking index while replacing every selected position key with
+the one group key.
 
 Ungrouping promotes only the container's direct children at its index, then removes the empty
 container. Root children receive deterministic non-overlapping positions derived from measured
-group bounds. Group, ungroup, undo, and redo preserve section identity and child order.
+group bounds. Children promoted into a freeform parent receive positions derived from their current
+measured geometry in that parent's local coordinates. If scrolling would cross a nested start edge,
+the complete promoted block translates together to remain non-negative. Group, ungroup, undo, and
+redo preserve section identity, child order, and unaffected freeform positions.
 
 ## Locking and minimizing
 

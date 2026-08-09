@@ -85,7 +85,7 @@ export type WorkspaceDocumentCommand<TSectionData = unknown> =
   | Readonly<{ sectionId: string; title: string; type: "set-section-title" }>
   | Readonly<{ locked: boolean; sectionIds: readonly string[]; type: "set-sections-locked" }>
   | Readonly<{
-      rootPositions: Readonly<Record<string, WorkspacePoint>> | null;
+      positions: Readonly<Record<string, WorkspacePoint>> | null;
       sectionId: string;
       type: "ungroup-section";
     }>

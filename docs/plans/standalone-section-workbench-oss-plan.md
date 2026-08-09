@@ -1712,7 +1712,9 @@ Same-parent freeform movement and the local-coordinate target/application contra
 [Phase 6 nested-freeform local-movement evidence](../evidence/phase-6-nested-freeform-local-movement.md).
 Interactive cross-parent target resolution and coordinate conversion are recorded in
 [Phase 6 nested-freeform cross-parent movement evidence](../evidence/phase-6-nested-freeform-cross-parent-movement.md).
-Freeform-aware grouping and ungrouping position derivation are now the earliest incomplete
+Freeform-aware grouping and ungrouping are recorded in
+[Phase 6 nested-freeform grouping evidence](../evidence/phase-6-nested-freeform-grouping.md). Paste
+and external-drop placement into nested freeform parents are now the earliest incomplete
 repository-actionable Phase 6 work.
 
 - Completed (nested-freeform representation prerequisite): compared the plan-mandated all-section
@@ -1807,6 +1809,27 @@ repository-actionable Phase 6 work.
   declaration report. The unrelated tarball-installed consumer passed lockfile policy, strict build,
   and runtime verification. No dependency input changed, so the network-backed supply-chain gate was
   not duplicated; the recorded unavailable in-app-browser release gate was not retried.
+
+- Completed (nested-freeform grouping and ungrouping slice): grouping in a freeform parent now
+  derives the selected block's exact local start position from canonical coordinates and its size
+  from measured frames, replaces every selected position key with one group key, and preserves the
+  first selected stacking index. Ungrouping converts measured direct-child rectangles into the
+  destination parent's local coordinates, translates the complete block at nested start edges,
+  replaces the group key atomically, and leaves ordered and root behavior intact. Keyboard menu
+  activation, one controlled command, announcements, focus restoration, history, and Axe continue
+  through the existing owners. The complete record is
+  `docs/evidence/phase-6-nested-freeform-grouping.md`.
+- Nested-freeform grouping verification: exact Node 24.18.1, repository-local Corepack 0.35.0, and
+  pnpm 11.19.0 focused coverage passed 13 grouping tests. The new nested-freeform Chromium selector
+  and the directly affected ordered-history and top-level grouping selectors passed canonical
+  placement, one-change publication, keyboard completion, focus restoration, announcements, Axe,
+  and two inspected original-resolution baselines. Changed-file quality passed repository
+  boundaries, deterministic dependency policy, formatting, lint and complexity, file lengths,
+  strict types, dead-code analysis, unit and boundary tests, plan-loop automation, builds, exact
+  tarball contents, documentation links, and the declaration report. The unrelated
+  tarball-installed consumer passed lockfile policy, strict build, and runtime verification. No
+  dependency input changed, so the network-backed supply-chain gate was not duplicated; the
+  recorded unavailable in-app-browser release gate was not retried.
 
 - Completed (viewport-culling batch): added strict opt-in all-depth browser windowing through one
   canvas-rooted observer, exact-size named placeholders, canonical-ID-scoped retained geometry,
