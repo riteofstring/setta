@@ -214,6 +214,32 @@ describe("workspace section collision planning", () => {
     });
   });
 
+  it("promotes an empty ordered child region above its containing frame", () => {
+    const currentHierarchy = hierarchy(
+      { container: [], root: ["moving", "container"] },
+      { container: "root", moving: "root", root: null },
+    );
+    const result = collision({
+      activeRect: createInteractionRect(40, 40, 80, 80),
+      clientRectsById: {
+        container: createInteractionRect(0, 0, 240, 240),
+        moving: createInteractionRect(300, 0, 80, 80),
+      },
+      currentHierarchy,
+      currentRegions: [
+        region({ height: 260, parentSectionId: "root", width: 260 }),
+        region({ height: 200, parentSectionId: "container", width: 200, x: 20, y: 20 }),
+      ],
+    });
+
+    expect(result.target).toMatchObject({
+      destinationIndex: 0,
+      destinationParentId: "container",
+      placement: "ordered",
+      targetSectionId: null,
+    });
+  });
+
   it("resolves a nested freeform region through the shared collision state", () => {
     const currentHierarchy = hierarchy(
       { destination: [], source: ["moving"] },

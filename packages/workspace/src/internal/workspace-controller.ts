@@ -345,6 +345,31 @@ function sectionDescendantsAreCollapsed<TSectionData>(
   return typeof bindings.getCollapsedAncestorSectionId?.(sectionId) === "string";
 }
 
+type VisibleViewportResolution =
+  | Readonly<{ status: "ready"; viewport: WorkspaceViewport }>
+  | Readonly<{
+      reason: "section-descendants-collapsed";
+      status: "rejected";
+    }>;
+
+async function resolveViewportWhileSectionsVisible<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  sectionIds: readonly string[],
+  resolveViewport: () => Promise<WorkspaceViewport>,
+): Promise<VisibleViewportResolution> {
+  try {
+    const viewport = await resolveViewport();
+    return sectionIds.some((sectionId) => sectionDescendantsAreCollapsed(bindings, sectionId))
+      ? { reason: "section-descendants-collapsed", status: "rejected" }
+      : { status: "ready", viewport };
+  } catch (error) {
+    if (sectionIds.some((sectionId) => sectionDescendantsAreCollapsed(bindings, sectionId))) {
+      return { reason: "section-descendants-collapsed", status: "rejected" };
+    }
+    throw error;
+  }
+}
+
 async function focusSection<TSectionData>(
   bindings: WorkspaceControllerBindings<TSectionData>,
   setSelection: (sectionIds: readonly string[]) => WorkspaceActionResult,
@@ -360,10 +385,15 @@ async function focusSection<TSectionData>(
   const canvasController = requireCanvasController(bindings);
   const release = canvasController.revealSection(sectionId);
   try {
-    const viewport = await canvasController.focusSection(sectionId, document.viewport);
-    const result = setViewport(bindings, viewport);
-    const synchronized = await canvasController.waitForViewport(viewport);
-    if (synchronized) {
+    const resolution = await resolveViewportWhileSectionsVisible(bindings, [sectionId], () =>
+      canvasController.focusSection(sectionId, document.viewport),
+    );
+    if (resolution.status === "rejected") {
+      return resolution;
+    }
+    const result = setViewport(bindings, resolution.viewport);
+    const synchronized = await canvasController.waitForViewport(resolution.viewport);
+    if (synchronized && !sectionDescendantsAreCollapsed(bindings, sectionId)) {
       await canvasController.focusElementWhenReady(sectionId);
     }
     return result;
@@ -386,9 +416,14 @@ async function fitSections<TSectionData>(
     return { reason: "section-descendants-collapsed", status: "rejected" };
   }
   const canvasController = requireCanvasController(bindings);
-  const viewport = await canvasController.fitSections(uniqueSectionIds, options);
-  const result = setViewport(bindings, viewport);
-  await canvasController.waitForViewport(viewport);
+  const resolution = await resolveViewportWhileSectionsVisible(bindings, uniqueSectionIds, () =>
+    canvasController.fitSections(uniqueSectionIds, options),
+  );
+  if (resolution.status === "rejected") {
+    return resolution;
+  }
+  const result = setViewport(bindings, resolution.viewport);
+  await canvasController.waitForViewport(resolution.viewport);
   return result;
 }
 

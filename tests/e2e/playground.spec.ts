@@ -674,6 +674,7 @@ test("the canvas toolbar, host extensions, and empty minimap synchronize and cle
       "reset-zoom",
       "fit-sections",
       "snap-to-grid",
+      "show-outline",
       "move-minimap",
       "remove-host-extensions",
       "show-minimap",
@@ -987,7 +988,7 @@ test("the canvas shell reflows at 320 pixels with reduced motion", async ({ page
       workspaceBounds.y + workspaceBounds.height,
     );
   }
-  await expect(toolbar.getByRole("button")).toHaveCount(6);
+  await expect(toolbar.getByRole("button")).toHaveCount(7);
   await expect(page.getByRole("checkbox", { name: "Show host extensions" })).not.toBeChecked();
   await expect
     .poll(() => zoomIn.evaluate((element) => getComputedStyle(element).transitionDuration))

@@ -511,6 +511,46 @@ test.describe("Phase 6 nested freeform document contract", () => {
     expect(await recursiveChangeCount(page)).toBe(baselineChanges);
   });
 
+  test("cancels a descendant positioning confirmation when its subtree collapses", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ height: 1_000, width: 1_280 });
+    await page.goto(contractUrl);
+    await page.getByRole("checkbox", { name: "Show host extensions" }).uncheck();
+    const workspace = page.getByRole("region", { exact: true, name: "Canvas shell workspace" });
+    const root = workspace.getByRole("article", { name: "Recursive workspace" });
+    const deepContainer = workspace.getByRole("article", { name: "Deep container" });
+    await deepContainer.getByRole("button", { name: "Select Deep container" }).click();
+    await deepContainer
+      .getByRole("button", { name: "Change Deep container child positioning" })
+      .click();
+    await page
+      .getByRole("dialog", { name: "Arrange child sections" })
+      .getByRole("button", { name: "Arrange vertically" })
+      .click();
+    const confirmation = page.getByRole("dialog", { name: "Arrange child sections?" });
+    await expect(confirmation).toBeVisible();
+    const baselineChanges = await recursiveChangeCount(page);
+
+    await root
+      .locator(
+        ':scope > .setta-workspace__section-header [data-workspace-section-state-control="minimize"]',
+      )
+      .evaluate((button: HTMLButtonElement) => button.click());
+    await expect(deepContainer).toHaveCount(0);
+    await confirmation.getByRole("button", { name: "Arrange vertically" }).click();
+
+    await expect(confirmation).toHaveCount(0);
+    await expect(
+      workspace.locator("[data-workspace-container-positioning-announcement]"),
+    ).toHaveText("The container changed before child positioning could be selected.");
+    expect(
+      requiredSerializedChildLayout(await nestedFreeformSerializedDocument(page), "deep-container")
+        .positioning,
+    ).toBe("freeform");
+    expect(await recursiveChangeCount(page)).toBe(baselineChanges + 1);
+  });
+
   test("moves a freeform child by pointer and keyboard through one local plan", async ({
     page,
   }) => {

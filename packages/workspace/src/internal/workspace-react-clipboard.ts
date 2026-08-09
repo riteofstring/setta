@@ -268,6 +268,10 @@ async function prepareWorkspacePaste<TSectionData>({
   if (!capabilitiesRef.current.editStructure) {
     return { reason: "structure-edit-disabled", status: "rejected" };
   }
+  const currentRegistryRejection = frameRegistryRejection(read.frame, registryRef.current);
+  if (currentRegistryRejection) {
+    return { ...currentRegistryRejection, status: "rejected" };
+  }
   const currentDocument = documentRef.current;
   const materialized = materializeWorkspaceClipboardClone<TSectionData>(
     read.frame,
@@ -458,6 +462,7 @@ export function useWorkspaceClipboardCoordinator<TSectionData>({
     const canvas = canvasControllerRef.current;
     if (!canvas) return rejectWithAnnouncement("canvas-unavailable");
     busyRef.current = true;
+    let reconciliationPending = false;
     try {
       const prepared = await prepareWorkspacePaste({
         adapter: currentAdapter,
@@ -479,11 +484,14 @@ export function useWorkspaceClipboardCoordinator<TSectionData>({
           : rejectWithAnnouncement("clipboard-clone-invalid");
       }
       pendingRef.current = prepared.pending;
+      reconciliationPending = true;
       setAnnouncement("");
       setRevision((current) => current + 1);
       return result;
     } finally {
-      busyRef.current = false;
+      if (!reconciliationPending) {
+        busyRef.current = false;
+      }
     }
   }, [
     canvasControllerRef,
@@ -500,6 +508,7 @@ export function useWorkspaceClipboardCoordinator<TSectionData>({
     const pending = pendingRef.current;
     if (!pending) return;
     pendingRef.current = null;
+    busyRef.current = false;
     if (!pastedSectionsAccepted(document, pending)) {
       setAnnouncement("Paste was not accepted by the controlled host. The workspace is unchanged.");
       return;

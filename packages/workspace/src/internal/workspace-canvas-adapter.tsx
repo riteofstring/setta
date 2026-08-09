@@ -320,6 +320,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     presentationEditable,
     selectedSectionIdsRef: selection.selectedSectionIdsRef,
     structureEditable,
+    visibleSectionIds,
   });
   const rootProjection = useWorkspaceCanvasRootProjection({
     appearance,

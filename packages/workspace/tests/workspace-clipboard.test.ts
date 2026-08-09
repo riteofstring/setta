@@ -141,6 +141,22 @@ describe("workspace clipboard framing", () => {
     });
   });
 
+  it("rejects finite root geometry whose normalized clipboard bounds overflow", () => {
+    const document = createWorkspaceTestDocument([
+      { id: "alpha", title: "Alpha" },
+      { id: "beta", title: "Beta" },
+    ]);
+
+    expect(
+      prepareWorkspaceClipboardCopy(document, ["alpha", "beta"], (sectionId) => ({
+        height: 180,
+        width: 240,
+        x: sectionId === "alpha" ? -Number.MAX_VALUE : Number.MAX_VALUE,
+        y: 0,
+      })),
+    ).toEqual({ reason: "section-geometry-unavailable", status: "rejected" });
+  });
+
   it("rejects unsupported MIME, versions, malformed containment, and accessor-backed items", () => {
     const { prepared } = preparedClipboard();
     const parsed = JSON.parse(prepared.item.serialized) as Record<string, unknown>;
@@ -185,6 +201,27 @@ describe("workspace clipboard framing", () => {
       status: "rejected",
     });
     expect(evaluated).toBe(false);
+  });
+
+  it("rejects clipboard frames whose finite root fields produce unbounded extents", () => {
+    const { prepared } = preparedClipboard();
+    const frame = JSON.parse(prepared.item.serialized) as {
+      rootSections: Array<{
+        position: { x: number; y: number };
+        size: { height: number; width: number };
+      }>;
+    };
+    const root = frame.rootSections[0];
+    if (!root) throw new Error("Expected one clipboard root.");
+    root.position.x = Number.MAX_VALUE;
+    root.size.width = Number.MAX_VALUE;
+
+    expect(
+      readWorkspaceClipboardItem({
+        ...prepared.item,
+        serialized: JSON.stringify(frame),
+      }),
+    ).toMatchObject({ reason: "clipboard-invalid", status: "rejected" });
   });
 });
 

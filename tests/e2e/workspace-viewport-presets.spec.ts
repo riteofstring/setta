@@ -204,3 +204,40 @@ test("saved views remain available in read-only mode and reflow at 320 CSS pixel
     .analyze();
   expect(accessibility.violations).toEqual([]);
 });
+
+test("saved views report a controlled host that retains its viewport", async ({ page }) => {
+  await page.goto("/?reject-viewport");
+  await resetExample(page);
+  let current = await workspaceDocument(page);
+  let savedViews = await showSavedViews(page);
+  await saveView(savedViews.panel, "Host-retained view");
+  const rejectedViewport = {
+    x: current.viewport.x + 640,
+    y: current.viewport.y + 320,
+    zoom: current.viewport.zoom,
+  };
+  await page.evaluate(
+    ({ key, viewport }) => {
+      const value = localStorage.getItem(key);
+      if (!value) throw new Error("Saved-view preferences are unavailable.");
+      const preferences = JSON.parse(value) as {
+        viewportPresets: Array<{ viewport: BrowserWorkspaceDocument["viewport"] }>;
+      };
+      const preset = preferences.viewportPresets[0];
+      if (!preset) throw new Error("The saved-view fixture is unavailable.");
+      preset.viewport = viewport;
+      localStorage.setItem(key, JSON.stringify(preferences));
+    },
+    { key: PREFERENCES_STORAGE_KEY, viewport: rejectedViewport },
+  );
+
+  await page.reload();
+  savedViews = await showSavedViews(page);
+  current = await workspaceDocument(page);
+  await savedViews.panel.getByRole("button", { name: "Restore Host-retained view" }).click();
+
+  await expect(
+    savedViews.panel.locator("[data-workspace-viewport-presets-announcement]"),
+  ).toHaveText("Host-retained view was not restored because the host did not accept the change.");
+  expect((await workspaceDocument(page)).viewport).toEqual(current.viewport);
+});

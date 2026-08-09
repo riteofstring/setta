@@ -1685,7 +1685,7 @@ Gate:
 
 ### Phase 6: Deferred capability expansion in the same package
 
-Status: **implementation complete; ready for phase audit** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
+Status: **implementation complete; phase audit complete** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
 optional outline-navigator, top-level auto-layout, named item-list, filtered item-list,
 mixed-parent batch-movement, saved viewport-preset, generic edge-and-port, pane-registration, and
 viewport-culling batches are implemented. They are recorded in
@@ -1720,8 +1720,28 @@ named production positioning control and integrated performance/browser matrix a
 [Phase 6 nested-freeform positioning evidence](../evidence/phase-6-nested-freeform-positioning.md).
 The final implementation batch is recorded in
 [Phase 6 descendant-subtree minimization evidence](../evidence/phase-6-descendant-subtree-minimization.md).
-All listed repository-actionable Phase 6 capability batches are implemented; the Phase 6 audit is
-the next repository-actionable milestone.
+All listed repository-actionable Phase 6 capability batches are implemented and audited. The
+expanded range, static corrections, deterministic matrix, browser proof, performance result, and
+retained release gates are recorded in
+[Phase 6 gate-audit evidence](../evidence/phase-6-gate-audit.md).
+
+- Phase-audit corrections: clipboard framing rejects overflow-derived non-finite geometry and
+  clipboard paste retains one busy owner through current-registry and controlled-host
+  reconciliation. Saved-view mutations are serialized with native pending state and restore reports
+  host retention. Controller navigation, positioning confirmation, and selection actions revalidate
+  subtree visibility. Empty ordered child regions again outrank their containing frames during
+  structural collision. Toolbar expectations and affected baselines include the outline control,
+  while the retained ownership test activates away from window auto-scroll edges.
+- Phase-audit verification: exact Node 24.18.1, repository-local Corepack 0.35.0, and pnpm 11.19.0
+  `quality:all` passed for 368 project files with 519 unit tests, six boundary tests, automation,
+  strict types, formatting, lint, dead-code, complexity/file-length, builds, exact tarball contents,
+  documentation links, and the declaration report. The milestone benchmark retained checksum
+  `149675570`, and the final settled-tree Chromium invocation passed all 110 workflows and every
+  retained baseline. No dependency input changed, so the network-backed supply-chain gate was not
+  duplicated. The packed-consumer invocation's terminal result was lost after artifact construction
+  and remains a non-retried release gate under the audit's at-most-once rule; the standing unavailable
+  in-app-browser gate was likewise not retried. The complete record is
+  `docs/evidence/phase-6-gate-audit.md`.
 
 - Completed (nested-freeform representation prerequisite): compared the plan-mandated all-section
   XYFlow graph, separately provided inner-XYFlow instances, and package-owned absolutely positioned

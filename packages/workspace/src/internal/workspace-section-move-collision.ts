@@ -294,7 +294,7 @@ function collisionParentLookup(
   return Object.fromEntries(
     entries.map(({ metadata }) => {
       const sectionCandidate = sectionCandidateId(metadata.ownerSectionId);
-      if (metadata.placement === "freeform" && candidateIds.has(sectionCandidate)) {
+      if (metadata.candidateId !== sectionCandidate && candidateIds.has(sectionCandidate)) {
         return [metadata.candidateId, sectionCandidate];
       }
       let parentId = hierarchy.parentByChild[metadata.ownerSectionId] ?? null;

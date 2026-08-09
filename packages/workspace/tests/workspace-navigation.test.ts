@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { WorkspaceDocument, WorkspaceDocumentChange } from "../src/core.js";
+import type { WorkspaceDocument, WorkspaceDocumentChange, WorkspaceViewport } from "../src/core.js";
 import {
   centerWorkspacePointInViewport,
   createWorkspaceCanvasController,
@@ -245,6 +245,48 @@ describe("workspace geometry navigation controller", () => {
     expect(fixture.controller.getSelectedSectionIds()).toEqual(["alpha"]);
     expect(fixture.canvas.focusSection).toHaveBeenCalledTimes(1);
     expect(fixture.canvas.fitSections).not.toHaveBeenCalled();
+  });
+
+  it("settles navigation as collapsed when a descendant disappears during measurement", async () => {
+    const collapsedAncestorBySectionId = new Map<string, string>();
+    const fixture = controllerFixture(collapsedAncestorBySectionId);
+    let resolveFocus: ((viewport: WorkspaceViewport) => void) | undefined;
+    vi.mocked(fixture.canvas.focusSection).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveFocus = resolve;
+        }),
+    );
+
+    const focus = fixture.controller.focusSection("alpha");
+    collapsedAncestorBySectionId.set("alpha", "gamma");
+    resolveFocus?.({ x: -50, y: 25, zoom: 1 });
+
+    await expect(focus).resolves.toEqual({
+      reason: "section-descendants-collapsed",
+      status: "rejected",
+    });
+    expect(fixture.changes).toEqual([]);
+    expect(fixture.focused).toEqual([]);
+    expect(fixture.revealEvents).toEqual(["reveal alpha", "release alpha"]);
+
+    collapsedAncestorBySectionId.clear();
+    let rejectFit: ((error: Error) => void) | undefined;
+    vi.mocked(fixture.canvas.fitSections).mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectFit = reject;
+        }),
+    );
+    const fit = fixture.controller.fitSections(["beta"]);
+    collapsedAncestorBySectionId.set("beta", "gamma");
+    rejectFit?.(new Error("Section beta was removed before its geometry became ready."));
+
+    await expect(fit).resolves.toEqual({
+      reason: "section-descendants-collapsed",
+      status: "rejected",
+    });
+    expect(fixture.changes).toEqual([]);
   });
 
   it("fails specifically for unknown sections and an unavailable canvas", async () => {

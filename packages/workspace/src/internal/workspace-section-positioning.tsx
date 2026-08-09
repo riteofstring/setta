@@ -44,6 +44,26 @@ type PositioningDialogState = Readonly<{
   title: string;
 }>;
 
+type PositioningConfirmation = Readonly<{
+  orientation: SectionOrientation;
+  section: WorkspaceSection<unknown>;
+}>;
+
+function positioningConfirmation(
+  document: WorkspaceDocument<unknown>,
+  state: PositioningDialogState | null,
+  trigger: HTMLButtonElement | null,
+): PositioningConfirmation | null {
+  if (!state?.orientation) {
+    return null;
+  }
+  const section = document.sections[state.sectionId];
+  if (!section || section.childLayout?.positioning !== "freeform" || !trigger?.isConnected) {
+    return null;
+  }
+  return { orientation: state.orientation, section };
+}
+
 function recordFromEntries<T>(entries: Iterable<readonly [string, T]>): Record<string, T> {
   const record = Object.create(null) as Record<string, T>;
   for (const [key, value] of entries) {
@@ -605,19 +625,33 @@ export function useWorkspaceSectionPositioningActions<TSectionData>({
   );
 
   const confirmOrientation = useCallback(() => {
-    const current = dialogState;
-    const section = current ? documentRef.current.sections[current.sectionId] : undefined;
-    if (!current?.orientation || !section) {
+    const confirmation = positioningConfirmation(
+      documentRef.current as WorkspaceDocument<unknown>,
+      dialogState,
+      triggerRef.current,
+    );
+    if (!confirmation) {
+      setAnnouncementText("The container changed before child positioning could be selected.");
+      dismissDialog();
+      return;
+    }
+    const rearranges = workspaceSectionPositioningMateriallyRearranges(
+      confirmation.section,
+      confirmation.orientation,
+      geometry,
+    );
+    if (rearranges === null) {
+      setAnnouncementText(geometryUnavailableAnnouncement(confirmation.section.title));
       dismissDialog();
       return;
     }
     commit({
-      change: { orientation: current.orientation, positioning: "ordered" },
-      sectionId: section.id,
-      title: section.title,
+      change: { orientation: confirmation.orientation, positioning: "ordered" },
+      sectionId: confirmation.section.id,
+      title: confirmation.section.title,
     });
     dismissDialog();
-  }, [commit, dialogState, dismissDialog]);
+  }, [commit, dialogState, dismissDialog, geometry]);
 
   useEffect(() => {
     const pending = pendingRef.current;

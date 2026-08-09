@@ -63,6 +63,11 @@ type FocusRequest = Readonly<
   { id: string; revision: number; type: "preset" } | { revision: number; type: "create" }
 >;
 
+type AcceptedPresetMutation =
+  | Readonly<{ preset: WorkspaceViewportPreset; type: "create" }>
+  | Readonly<{ preset: WorkspaceViewportPreset; type: "rename" }>
+  | Readonly<{ fallbackPresetId: string | null; presetName: string; type: "delete" }>;
+
 const viewportBoundsError =
   "Workspace viewport zoom must be within the configured gesture zoom bounds.";
 
@@ -94,6 +99,53 @@ function formattedViewportNumber(value: number): string {
 
 function viewportPresetSummary(viewport: WorkspaceViewport): string {
   return `${formattedViewportNumber(viewport.zoom * 100)}% · x ${formattedViewportNumber(viewport.x)} · y ${formattedViewportNumber(viewport.y)}`;
+}
+
+function acceptedCreatedPreset(
+  pending: Extract<PendingPresetMutation, { type: "create" }>,
+  presets: readonly WorkspaceViewportPreset[],
+): Extract<AcceptedPresetMutation, { type: "create" }> | null {
+  const preset = presets.find(
+    (candidate) =>
+      !pending.existingIds.has(candidate.id) &&
+      candidate.name === pending.request.name &&
+      workspaceViewportsMatch(candidate.viewport, pending.request.viewport),
+  );
+  return preset ? { preset, type: "create" } : null;
+}
+
+function acceptedRenamedPreset(
+  pending: Extract<PendingPresetMutation, { type: "rename" }>,
+  presets: readonly WorkspaceViewportPreset[],
+): Extract<AcceptedPresetMutation, { type: "rename" }> | null {
+  const preset = presets.find(({ id }) => id === pending.request.presetId);
+  return preset?.name === pending.request.name ? { preset, type: "rename" } : null;
+}
+
+function acceptedDeletedPreset(
+  pending: Extract<PendingPresetMutation, { type: "delete" }>,
+  presets: readonly WorkspaceViewportPreset[],
+): Extract<AcceptedPresetMutation, { type: "delete" }> | null {
+  if (presets.some(({ id }) => id === pending.presetId)) {
+    return null;
+  }
+  const fallbackPresetId = presets.some(({ id }) => id === pending.fallbackPresetId)
+    ? pending.fallbackPresetId
+    : (presets[0]?.id ?? null);
+  return { fallbackPresetId, presetName: pending.presetName, type: "delete" };
+}
+
+function acceptedPresetMutation(
+  pending: PendingPresetMutation,
+  presets: readonly WorkspaceViewportPreset[],
+): AcceptedPresetMutation | null {
+  if (pending.type === "create") return acceptedCreatedPreset(pending, presets);
+  if (pending.type === "rename") return acceptedRenamedPreset(pending, presets);
+  return acceptedDeletedPreset(pending, presets);
+}
+
+function busyAttribute(pending: boolean): true | undefined {
+  return pending ? true : undefined;
 }
 
 function WorkspaceViewportPresetEditIcon() {
@@ -173,6 +225,7 @@ export function WorkspaceViewportPresets<TSectionData = WorkspaceJsonValue>({
   const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
   const [renameName, setRenameName] = useState("");
   const [renameNameError, setRenameNameError] = useState("");
+  const [mutationPending, setMutationPending] = useState(false);
   const [pendingViewport, setPendingViewport] = useState<WorkspaceViewportPreset | null>(null);
   const pendingMutationRef = useRef<PendingPresetMutation | null>(null);
   const focus = usePresetFocus();
@@ -187,36 +240,25 @@ export function WorkspaceViewportPresets<TSectionData = WorkspaceJsonValue>({
   useEffect(() => {
     const pending = pendingMutationRef.current;
     if (!pending) return;
-    if (pending.type === "create") {
-      const accepted = presets.find(
-        (preset) =>
-          !pending.existingIds.has(preset.id) &&
-          preset.name === pending.request.name &&
-          workspaceViewportsMatch(preset.viewport, pending.request.viewport),
-      );
-      if (!accepted) return;
-      pendingMutationRef.current = null;
-      setAnnouncementText(`${accepted.name} saved.`);
+    const accepted = acceptedPresetMutation(pending, presets);
+    if (!accepted) return;
+    pendingMutationRef.current = null;
+    setMutationPending(false);
+    if (accepted.type === "create") {
+      setAnnouncementText(`${accepted.preset.name} saved.`);
       setCreateName("");
       setCreateNameError("");
-      focus.requestPresetFocus(accepted.id);
-      return;
-    }
-    if (pending.type === "rename") {
-      const accepted = presets.find(({ id }) => id === pending.request.presetId);
-      if (accepted?.name !== pending.request.name) return;
-      pendingMutationRef.current = null;
-      setAnnouncementText(`View renamed to ${accepted.name}.`);
+      focus.requestPresetFocus(accepted.preset.id);
+    } else if (accepted.type === "rename") {
+      setAnnouncementText(`View renamed to ${accepted.preset.name}.`);
       setEditingPresetId(null);
       setRenameNameError("");
-      focus.requestPresetFocus(accepted.id);
-      return;
+      focus.requestPresetFocus(accepted.preset.id);
+    } else {
+      setAnnouncementText(`${accepted.presetName} deleted.`);
+      if (accepted.fallbackPresetId) focus.requestPresetFocus(accepted.fallbackPresetId);
+      else focus.requestCreateFocus();
     }
-    if (presets.some(({ id }) => id === pending.presetId)) return;
-    pendingMutationRef.current = null;
-    setAnnouncementText(`${pending.presetName} deleted.`);
-    if (pending.fallbackPresetId) focus.requestPresetFocus(pending.fallbackPresetId);
-    else focus.requestCreateFocus();
   }, [focus, presets]);
 
   useEffect(() => {
@@ -226,10 +268,14 @@ export function WorkspaceViewportPresets<TSectionData = WorkspaceJsonValue>({
   }, [editingPresetId]);
 
   useEffect(() => {
-    if (!pendingViewport || !workspaceViewportsMatch(currentViewport, pendingViewport.viewport)) {
+    if (!pendingViewport) {
       return;
     }
-    setAnnouncementText(`${pendingViewport.name} restored.`);
+    setAnnouncementText(
+      workspaceViewportsMatch(currentViewport, pendingViewport.viewport)
+        ? `${pendingViewport.name} restored.`
+        : `${pendingViewport.name} was not restored because the host did not accept the change.`,
+    );
     setPendingViewport(null);
   }, [currentViewport, pendingViewport]);
 
@@ -242,12 +288,18 @@ export function WorkspaceViewportPresets<TSectionData = WorkspaceJsonValue>({
       return;
     }
     if (!onCreatePreset) return;
+    if (pendingMutationRef.current) {
+      setAnnouncementText("Wait for the host to finish the current saved-view change.");
+      return;
+    }
     const request = Object.freeze({ name, viewport: Object.freeze({ ...currentViewport }) });
     pendingMutationRef.current = {
       existingIds: new Set(presets.map(({ id }) => id)),
       request,
       type: "create",
     };
+    setMutationPending(true);
+    setAnnouncementText(`Saving ${name}.`);
     onCreatePreset(request);
   };
 
@@ -267,8 +319,14 @@ export function WorkspaceViewportPresets<TSectionData = WorkspaceJsonValue>({
       return;
     }
     if (!onRenamePreset) return;
+    if (pendingMutationRef.current) {
+      setAnnouncementText("Wait for the host to finish the current saved-view change.");
+      return;
+    }
     const request = Object.freeze({ name, presetId: preset.id });
     pendingMutationRef.current = { request, type: "rename" };
+    setMutationPending(true);
+    setAnnouncementText(`Renaming ${preset.name}.`);
     onRenamePreset(request);
   };
 
@@ -286,6 +344,10 @@ export function WorkspaceViewportPresets<TSectionData = WorkspaceJsonValue>({
 
   const deletePreset = (preset: WorkspaceViewportPreset, index: number) => {
     if (!onDeletePreset) return;
+    if (pendingMutationRef.current) {
+      setAnnouncementText("Wait for the host to finish the current saved-view change.");
+      return;
+    }
     const fallbackPresetId = presets[index + 1]?.id ?? presets[index - 1]?.id ?? null;
     pendingMutationRef.current = {
       fallbackPresetId,
@@ -293,6 +355,8 @@ export function WorkspaceViewportPresets<TSectionData = WorkspaceJsonValue>({
       presetName: preset.name,
       type: "delete",
     };
+    setMutationPending(true);
+    setAnnouncementText(`Deleting ${preset.name}.`);
     onDeletePreset(preset.id);
   };
 
@@ -325,6 +389,7 @@ export function WorkspaceViewportPresets<TSectionData = WorkspaceJsonValue>({
   return (
     <section
       {...props}
+      aria-busy={busyAttribute(mutationPending)}
       aria-label={ariaLabel}
       className={resolvedClassName}
       data-workspace-viewport-presets=""
@@ -352,6 +417,7 @@ export function WorkspaceViewportPresets<TSectionData = WorkspaceJsonValue>({
             aria-describedby={createNameError ? createErrorId : undefined}
             aria-invalid={createNameError ? "true" : undefined}
             autoComplete="off"
+            disabled={mutationPending}
             id={createInputId}
             name="workspace-viewport-preset-name"
             onChange={(event) => {
@@ -367,7 +433,9 @@ export function WorkspaceViewportPresets<TSectionData = WorkspaceJsonValue>({
               {createNameError}
             </p>
           ) : null}
-          <button type="submit">Save view</button>
+          <button disabled={mutationPending} type="submit">
+            Save view
+          </button>
         </form>
       ) : null}
       {presets.length > 0 ? (
@@ -387,6 +455,7 @@ export function WorkspaceViewportPresets<TSectionData = WorkspaceJsonValue>({
                     aria-describedby={renameNameError ? renameErrorId : undefined}
                     aria-invalid={renameNameError ? "true" : undefined}
                     autoComplete="off"
+                    disabled={mutationPending}
                     id={renameInputId}
                     name="workspace-viewport-preset-rename"
                     onChange={(event) => {
@@ -404,8 +473,14 @@ export function WorkspaceViewportPresets<TSectionData = WorkspaceJsonValue>({
                     </p>
                   ) : null}
                   <div className="setta-workspace__viewport-presets-rename-actions">
-                    <button type="submit">Save name</button>
-                    <button type="button" onClick={() => cancelRename(preset.id)}>
+                    <button disabled={mutationPending} type="submit">
+                      Save name
+                    </button>
+                    <button
+                      disabled={mutationPending}
+                      type="button"
+                      onClick={() => cancelRename(preset.id)}
+                    >
                       Cancel
                     </button>
                   </div>
@@ -427,6 +502,7 @@ export function WorkspaceViewportPresets<TSectionData = WorkspaceJsonValue>({
                     <button
                       aria-label={`Rename ${preset.name}`}
                       className="setta-workspace__viewport-presets-icon-action"
+                      disabled={mutationPending}
                       onClick={() => {
                         setEditingPresetId(preset.id);
                         setRenameName(preset.name);
@@ -441,6 +517,7 @@ export function WorkspaceViewportPresets<TSectionData = WorkspaceJsonValue>({
                     <button
                       aria-label={`Delete ${preset.name}`}
                       className="setta-workspace__viewport-presets-icon-action"
+                      disabled={mutationPending}
                       onClick={() => deletePreset(preset, index)}
                       type="button"
                     >

@@ -313,17 +313,28 @@ function measuredRoots(
 function clipboardFrameRoots(
   sectionIds: readonly string[],
   rects: readonly WorkspaceClipboardRect[],
-): readonly WorkspaceClipboardFrameRoot[] {
+): readonly WorkspaceClipboardFrameRoot[] | null {
   const minimumX = Math.min(...rects.map(({ x }) => x));
   const minimumY = Math.min(...rects.map(({ y }) => y));
-  return sectionIds.map((sectionId, index) => {
+  const roots: WorkspaceClipboardFrameRoot[] = [];
+  for (const [index, sectionId] of sectionIds.entries()) {
     const rect = rectAt(rects[index], `Workspace clipboard root ${JSON.stringify(sectionId)}`);
-    return {
-      position: { x: rect.x - minimumX, y: rect.y - minimumY },
+    const position = { x: rect.x - minimumX, y: rect.y - minimumY };
+    if (
+      !Number.isFinite(position.x) ||
+      !Number.isFinite(position.y) ||
+      !Number.isFinite(position.x + rect.width) ||
+      !Number.isFinite(position.y + rect.height)
+    ) {
+      return null;
+    }
+    roots.push({
+      position,
       sectionId,
       size: { height: rect.height, width: rect.width },
-    };
-  });
+    });
+  }
+  return roots;
 }
 
 export function prepareWorkspaceClipboardCopy(
@@ -340,10 +351,14 @@ export function prepareWorkspaceClipboardCopy(
   if (!rects) {
     return { reason: "section-geometry-unavailable", status: "rejected" };
   }
+  const rootSections = clipboardFrameRoots(rootSectionIds, rects);
+  if (!rootSections) {
+    return { reason: "section-geometry-unavailable", status: "rejected" };
+  }
   const sections = copiedSections(document, rootSectionIds);
   const frame: WorkspaceClipboardFrame = {
     mimeType: WORKSPACE_CLIPBOARD_MIME_TYPE,
-    rootSections: clipboardFrameRoots(rootSectionIds, rects),
+    rootSections,
     schemaVersion: WORKSPACE_CLIPBOARD_SCHEMA_VERSION,
     sections,
   };
@@ -384,6 +399,14 @@ function parsedFrame(value: unknown): WorkspaceClipboardFrame | null {
   );
   if (!isDenseArray(frame.rootSections) || frame.rootSections.length === 0) return null;
   const rootSections = frame.rootSections.map(frameRootAt);
+  if (
+    rootSections.some(
+      ({ position, size }) =>
+        !Number.isFinite(position.x + size.width) || !Number.isFinite(position.y + size.height),
+    )
+  ) {
+    return null;
+  }
   const temporaryDocument = {
     rootSections: rootSections.map(({ position, sectionId }) => ({ position, sectionId })),
     schemaVersion: WORKSPACE_DOCUMENT_SCHEMA_VERSION,

@@ -279,6 +279,9 @@ test("structural interaction ownership excludes XYFlow and viewport competitors"
   const announcement = workspace.locator("[data-workspace-structure-movement-announcement]");
   const baselineChanges = await recursiveChangeCount(page);
   const viewportBeforeStructure = await canvasViewport(page);
+  await workspace.evaluate((element) =>
+    element.scrollIntoView({ block: "center", inline: "nearest" }),
+  );
   const nestedHandleBox = await requiredBoundingBox(nestedHandle, "Nested structural handle");
 
   await page.mouse.move(
@@ -754,6 +757,24 @@ test("body and subtree minimize scopes preserve their distinct recursive contrac
   const expandBody = nestedRow.getByRole("button", { name: "Expand Nested row" });
   await expect(expandBody).toBeFocused();
   await expandBody.press("Space");
+  await expect(nestedGamma).toBeVisible();
+
+  const selectGamma = nestedGamma.getByRole("button", { name: "Select Nested Gamma" });
+  await selectGamma.click();
+  const staleActions = await openSelectionActions(page, selectGamma);
+  await root
+    .locator(
+      ':scope > .setta-workspace__section-header [data-workspace-section-state-control="minimize"]',
+    )
+    .evaluate((button: HTMLButtonElement) => button.click());
+  await expect(staleActions).toHaveCount(0);
+  await expect(workspace.getByRole("article")).toHaveCount(1);
+  await expect(root).toHaveAttribute("data-workspace-selected", "true");
+  await root
+    .locator(
+      ':scope > .setta-workspace__section-header [data-workspace-section-state-control="minimize"]',
+    )
+    .evaluate((button: HTMLButtonElement) => button.click());
   await expect(nestedGamma).toBeVisible();
 
   await root.getByRole("button", { name: "Select Recursive workspace" }).click();

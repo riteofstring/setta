@@ -628,6 +628,7 @@ export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValu
   presentationEditable,
   selectedSectionIdsRef,
   structureEditable,
+  visibleSectionIds,
 }: Readonly<{
   controller: WorkspaceController<TSectionData>;
   detachedSectionIds: readonly string[];
@@ -638,6 +639,7 @@ export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValu
   presentationEditable: boolean;
   selectedSectionIdsRef: RefObject<readonly string[]>;
   structureEditable: boolean;
+  visibleSectionIds: readonly string[];
 }>) {
   const reactId = useId().replaceAll(":", "");
   const dialogId = `setta-workspace-selection-actions-${reactId}`;
@@ -658,9 +660,12 @@ export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValu
   documentRef.current = document;
 
   const plan = useMemo(() => {
+    const visible = new Set(visibleSectionIds);
     if (
       !state ||
-      state.sectionIds.some((sectionId) => !Object.hasOwn(document.sections, sectionId))
+      state.sectionIds.some(
+        (sectionId) => !Object.hasOwn(document.sections, sectionId) || !visible.has(sectionId),
+      )
     ) {
       return null;
     }
@@ -668,7 +673,7 @@ export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValu
       detachedSectionIds,
       groupingConfigured,
     });
-  }, [capabilities, detachedSectionIds, document, groupingConfigured, state]);
+  }, [capabilities, detachedSectionIds, document, groupingConfigured, state, visibleSectionIds]);
 
   const open = useCallback(
     (

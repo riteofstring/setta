@@ -19,5 +19,10 @@ export function App() {
     return <CanvasShellPage />;
   }
 
-  return <DefaultPlaygroundPage readOnly={search.has("read-only")} />;
+  return (
+    <DefaultPlaygroundPage
+      readOnly={search.has("read-only")}
+      rejectViewportChanges={search.has("reject-viewport")}
+    />
+  );
 }

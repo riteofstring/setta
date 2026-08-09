@@ -158,7 +158,10 @@ function autoLayoutAnnouncement(result: WorkspaceActionResult): string {
   );
 }
 
-export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean }>) {
+export function DefaultPlaygroundPage({
+  readOnly,
+  rejectViewportChanges,
+}: Readonly<{ readOnly: boolean; rejectViewportChanges: boolean }>) {
   const [initialState] = useState(loadPlaygroundState);
   const [document, setDocument] = useState(initialState.document);
   const [preferences, setPreferences] = useState(initialState.preferences);
@@ -449,6 +452,10 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
             emptyState="No sections yet. Use Add section or restore the example to start."
             gridOptions={{ snap: preferences.gridSnap, visible: preferences.gridVisible }}
             onDocumentChange={(nextDocument, change) => {
+              if (rejectViewportChanges && change.reason === "viewport") {
+                setAnnouncement("The controlled playground retained its current viewport.");
+                return;
+              }
               setDocument(nextDocument);
               setAnnouncement(`Document change: ${change.reason}.`);
             }}

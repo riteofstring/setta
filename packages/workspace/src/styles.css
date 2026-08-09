@@ -2388,7 +2388,7 @@
   cursor: pointer;
 }
 
-.setta-workspace__viewport-presets button:hover {
+.setta-workspace__viewport-presets button:hover:not(:disabled) {
   background: color-mix(
     in oklch,
     var(--setta-workspace-section-background) 78%,
@@ -2397,6 +2397,11 @@
   box-shadow:
     0 0 0 1px color-mix(in oklch, var(--setta-workspace-section-text) 13%, transparent),
     0 0.25rem 0.625rem oklch(0 0 0 / 0.08);
+}
+
+.setta-workspace__viewport-presets :is(input, button):disabled {
+  cursor: wait;
+  opacity: 0.58;
 }
 
 .setta-workspace__viewport-presets-list {
