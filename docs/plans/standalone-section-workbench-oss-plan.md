@@ -2,6 +2,10 @@
 
 ## Decision
 
+Status: **implementation complete; independent whole-plan audit complete** (updated 2026-08-09).
+The final result, executable gates, and remaining external boundary are recorded in the
+[whole-plan final audit](../evidence/whole-plan-final-audit.md).
+
 Create one independently buildable and locally installable TypeScript/React package, `@setta/workspace`, and one backend-free playground that proves the package works in an unrelated application.
 
 The package has one concrete purpose:
@@ -1730,9 +1734,11 @@ release gates remain recorded in
 - Independent phase re-audit: reviewed the stable detached-renderer portal target, provider/frame
   lifecycle, renderer-state and DOM-identity proof, removal of the metadata-restatement test, and
   the directly affected mixed-parent preview/completion stabilization. Focused final-tree static
-  and browser evidence passes, no remaining repository correction was found, and the historical
-  packed-consumer terminal loss plus unavailable connected-browser surface remain non-actionable
-  release gates rather than incomplete implementation.
+  and browser evidence passes and no remaining Phase 6 source correction was found. The later
+  whole-plan audit corrected one creation-announcement gap, passed all 113 Chromium workflows, and
+  a supervisor completion check passed the current-tree packed-consumer gate that previously lost
+  its terminal result. Only the unavailable connected-browser surface remains an external release
+  gate rather than incomplete implementation.
 
 - Completed supervisor correction (detached renderer identity): one stable renderer portal target
   now moves between the docked content surface and the same-origin detached window. Every redock or

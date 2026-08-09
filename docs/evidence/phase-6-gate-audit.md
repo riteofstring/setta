@@ -94,10 +94,11 @@ The review corrected the following coupled assumptions:
 `quality:all` had validated the exact artifact contents, then its orchestration terminal was
 compacted and closed after the temporary consumer process exited and cleaned up. The terminal result
 after artifact construction could not be recovered.
-The user-authorized audit permits each broad gate at most once, so the command was not duplicated and
-the final packed-consumer install/build/runtime result remains an explicit release gate. Earlier
-Phase 6 batches retain green tarball-installed consumer evidence for the public clipboard,
-positioning, pane, saved-view, culling, and subtree-minimization contracts.
+The user-authorized phase audit permitted each broad gate at most once, so that audit did not
+duplicate the command. A later supervisor completion check resolved this historical evidence gap on
+the settled whole-plan source: the fresh packed consumer installed, passed its frozen reinstall and
+lockfile policy, built, and completed its headless runtime smoke. See the
+[whole-plan final audit](whole-plan-final-audit.md).
 
 The standing connected in-app-browser surface remains unavailable. Repository and user policy say
 not to seek or start a missing GUI, background service, credential, or remote session, so it was not

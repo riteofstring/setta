@@ -58,17 +58,19 @@ repository status. No remaining source correction or repository-actionable Phase
 - No dependency input changed, so the already-green network-backed release-age, trust, license,
   inventory, and vulnerability evidence was not duplicated.
 
-## Retained release gates
+## Final release gates
 
-The historical `consumer:check` terminal-result loss remains recorded once in the earlier gate
-audit. The correction changed no package declaration or dependency input, and its deterministic
-build and exact-tarball checks are green, so repository policy does not authorize duplicating that
-broad packed-consumer invocation merely to recover a lost orchestration tail.
+The historical `consumer:check` terminal-result loss remains recorded in the earlier gate audit.
+After the independent whole-plan audit accepted the settled implementation, a supervisor completion
+check ran `consumer:check` once on that same source tree. It built a fresh tarball, installed it into
+the unrelated temporary React fixture, confirmed a frozen reinstall and lockfile policy, built the
+fixture, and passed the headless runtime smoke. The
+[whole-plan final audit](whole-plan-final-audit.md) records the resolved result.
 
 The standing connected in-app-browser surface remains unavailable. Repository and loop policy
 prohibit seeking a GUI, extension, background service, credential, or remote session. The exact
 self-contained Playwright Chromium selectors and matching retained baselines are the available
 final-tree visual evidence.
 
-CDP visual check: not run (standing unavailable in-app-browser release gate; the directly affected
-Playwright Chromium workflows and retained screenshot baselines pass).
+CDP visual check: not run (standing unavailable in-app-browser release gate; the final full suite
+passes all 113 Playwright Chromium workflows and retained screenshot baselines).
