@@ -29,8 +29,8 @@ function makeLeafSection(
 
 // The item panel's rows: the label/value/group shape is this host's opaque item data — the
 // package sees only ids, ordered children, and selection. One nested group keeps cross-parent
-// item movement reachable, and the leaf count fills the recorded 552 x 352 geometry so the
-// repeated 20 px row rhythm stays inspectable against the frozen `/settings` Dict.
+// item movement reachable, and the leaf count fills the recorded 552 x 352 outer geometry so
+// the repeated 20 px row rhythm stays inspectable against the frozen `/settings` Dict.
 function makeItem(
   id: string,
   data: Record<string, string | boolean>,
@@ -143,8 +143,9 @@ export const playgroundDocument: WorkspaceDocumentInput = {
     "locked-leaf": { x: 312, y: 24, w: 200, h: 122, zIndex: 1 },
     "styled-leaf": { x: 600, y: 24, w: 200, h: 122, zIndex: 2 },
     "root-group": { x: 24, y: 216, w: null, h: null, zIndex: 3 },
-    // The recorded `/settings` Dict geometry from the Phase 4 gate: 552 x 352 authored size.
-    "item-panel": { x: 600, y: 216, w: 552, h: 352, zIndex: 4 },
+    // The recorded `/settings` Dict measurement (552 x 352) is the complete outer section;
+    // document dimensions describe the inner surface the shell borders by 1 px per side.
+    "item-panel": { x: 600, y: 216, w: 550, h: 350, zIndex: 4 },
   },
   viewport: { x: 0, y: 0, zoom: 1 },
   activeIds: [],

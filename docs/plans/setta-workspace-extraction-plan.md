@@ -753,8 +753,18 @@ Phase 4 progress (2026-08-11):
   default to `550 x 350`, update the focused regression so it asserts the actual outer `552 x 352`
   result and 550 → 257 px derivation rather than equating inner and outer dimensions, run the
   narrow checks, and repeat the live comparison before requesting approval.
-- Remaining Phase 4 work: correct and audit the two-pixel fixture-size error, repeat the live
-  main-Dict versus unrelated-item comparison, and obtain a renewed developer exit-gate decision.
+- Fixture-size correction (2026-08-11): the playground now authors the item panel's inner
+  surface — the document layout and the registered default both moved from `552 x 352` to
+  `550 x 350`, so the shell's 1 px per-side border renders live main's complete `552 x 352`
+  outer Dict measurement and the list area meets main's measured 550 px width and 257 px
+  default label column. The focused regression asserts the corrected relationship instead of
+  equating inner and outer dimensions: the fixture-geometry case pins the `550 x 350` document
+  layout and derives the recorded `552 x 352` outer result across the shell border, and the
+  column-split case keeps the 550 → 257 px derivation, now aligned with the authored inner
+  width. No package source changed. Playground suite 4/4 green; changed-file static gate green
+  (no dependency or packaging changes, so the supply-chain and consumer gates were not rerun).
+- Remaining Phase 4 work: audit the fixture-size correction, repeat the live main-Dict versus
+  unrelated-item comparison, and obtain a renewed developer exit-gate decision.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

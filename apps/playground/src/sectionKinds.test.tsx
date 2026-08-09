@@ -23,6 +23,12 @@ const REFERENCE_VALUE_CLASS_NAME =
 const REFERENCE_VALUE_DIVIDER_CLASS_NAME =
   "section-value self-end border-b border-setta-200/50 dark:border-setta-600/30";
 
+// Live main's complete outer `/settings` Dict measurement and the package shell border that
+// separates it from the inner surface the document and registered default describe.
+const RECORDED_OUTER_DICT_WIDTH_PX = 552;
+const RECORDED_OUTER_DICT_HEIGHT_PX = 352;
+const SHELL_BORDER_WIDTH_PX = 1;
+
 // Replaces the setup stub so the test can drive the host's resize-driven default split. The
 // import-time observer inside the built package already constructed against the stub.
 const observedResizeTargets = new Map<Element, ResizeObserverCallback>();
@@ -48,7 +54,7 @@ function getItemPanelSection(): WorkspaceSection {
   if (!input) {
     throw new Error("The playground document lost its item panel section.");
   }
-  return { ...input, size: { width: 552, height: 352 } };
+  return { ...input, size: { width: 550, height: 350 } };
 }
 
 function findRowByLabel(container: HTMLElement, label: string): HTMLElement {
@@ -126,7 +132,7 @@ describe("the playground item renderer presentation contract", () => {
     if (!applySplit) {
       throw new Error("The list area is not observed for resizes.");
     }
-    // The recorded 552 x 352 authored geometry leaves 550 px inside the shell's 1 px borders;
+    // The 550 x 350 inner fixture gives the list area live main's measured 550 px width;
     // the reference default is half that minus the 18 px center offset: 257 px.
     Object.defineProperty(listArea, "clientWidth", { configurable: true, value: 550 });
     act(() => {
@@ -136,13 +142,15 @@ describe("the playground item renderer presentation contract", () => {
   });
 
   it("keeps the recorded fixture geometry and an inspectable row rhythm", () => {
-    expect(playgroundDocument.topLevelSections["item-panel"]).toEqual({
-      x: 600,
-      y: 216,
-      w: 552,
-      h: 352,
-      zIndex: 4,
-    });
+    const layout = playgroundDocument.topLevelSections["item-panel"];
+    expect(layout).toEqual({ x: 600, y: 216, w: 550, h: 350, zIndex: 4 });
+    // Document dimensions describe the inner section surface; the shell adds a 1 px border on
+    // every side, so the fixture must render main's complete 552 x 352 outer Dict measurement
+    // from the inner 550 x 350 — not by authoring the outer numbers directly.
+    const outerWidth = (layout?.w ?? 0) + 2 * SHELL_BORDER_WIDTH_PX;
+    const outerHeight = (layout?.h ?? 0) + 2 * SHELL_BORDER_WIDTH_PX;
+    expect(outerWidth).toBe(RECORDED_OUTER_DICT_WIDTH_PX);
+    expect(outerHeight).toBe(RECORDED_OUTER_DICT_HEIGHT_PX);
     const itemTree = getItemPanelSection().itemTree;
     if (!itemTree) {
       throw new Error("The item panel section is missing its item tree.");
