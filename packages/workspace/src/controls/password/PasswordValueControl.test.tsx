@@ -74,6 +74,7 @@ describe("PasswordValueControl", () => {
       "peer/textinput",
       "font-mono",
       "text-xs",
+      "bg-transparent",
       "pr-8",
     ]) {
       const target = expectedClass === "section-value" ? input.parentElement : input;
