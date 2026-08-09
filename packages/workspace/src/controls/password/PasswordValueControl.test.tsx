@@ -69,6 +69,7 @@ describe("PasswordValueControl", () => {
     expect(input.getAttribute("aria-label")).toBe("Password value");
     for (const expectedClass of [
       "section-value",
+      "flex-1",
       "nodrag",
       "nopan",
       "peer/textinput",
@@ -77,7 +78,9 @@ describe("PasswordValueControl", () => {
       "bg-transparent",
       "pr-8",
     ]) {
-      const target = expectedClass === "section-value" ? input.parentElement : input;
+      const target = ["section-value", "flex-1"].includes(expectedClass)
+        ? input.parentElement
+        : input;
       expect(target?.classList.contains(expectedClass)).toBe(true);
     }
     const toggle = getVisibilityToggle();

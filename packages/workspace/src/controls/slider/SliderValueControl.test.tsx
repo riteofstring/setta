@@ -127,7 +127,7 @@ describe("SliderValueControl", () => {
       "rounded-lg",
       "font-mono",
       "text-xs",
-      "@[132px]/slider:block",
+      "@[132px]/slider:!block",
     ]) {
       expect(input.classList.contains(expectedClass)).toBe(true);
     }

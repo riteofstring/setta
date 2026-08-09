@@ -27,7 +27,7 @@ export type PasswordValueControlProps = {
 };
 
 const WRAPPER_CLASS_NAME = "section-value flex min-w-0 items-center gap-2";
-const INPUT_WRAPPER_CLASS_NAME = `section-value relative min-w-0 ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
+const INPUT_WRAPPER_CLASS_NAME = `section-value relative min-w-0 flex-1 ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
 // Frozen main receives a transparent input background from its global `input { all: unset }`
 // rule. The package cannot ship that host-wide reset, so both scoped password presentations carry
 // the equivalent background explicitly.

@@ -140,6 +140,11 @@ function validateBuiltStylesheet() {
     [".section-args-nested {", "nested item grid rule"],
     [".section-args-nested-key-value {", "nested-root item grid rule"],
     [String.raw`.\[\&\>p\]\:section-key-value > p`, "group-label placement rule"],
+    // Frozen main's ordinary slider keeps its numeric field hidden until the value-column
+    // container reaches 132 px. The class tokens can survive source tests while the compiled
+    // container rules are absent, so lock the actual package artifact that consumers receive.
+    ["container-name: slider;", "slider container-query root"],
+    ["@container slider (min-width: 132px)", "slider numeric-field threshold"],
   ];
   return [
     ...(contents.includes("@tailwind")

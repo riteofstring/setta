@@ -1277,6 +1277,22 @@ Phase 4 progress (2026-08-11):
   playground production build, and packed unrelated-consumer proof pass. No dependency changed,
   so the supply-chain gate was not duplicated. The consolidated developer acceptance and first
   package-output baselines remain open; Phase 5 is still not actionable.
+- Consolidated controls gate correction — password alignment and responsive slider value
+  (2026-08-12): the developer's live inspection exposed the ordinary password visibility glyph
+  near the center of the value column and asked to see the ordinary slider's numeric value. The
+  password input wrapper now grows across its value cell, returning the trailing glyph to frozen
+  main's edge geometry. Frozen-main source confirmed that the slider value is not a separate
+  option: its field is always rendered and becomes visible when the named slider container reaches
+  132 px. The extraction had copied those class tokens without the frozen Tailwind container-query
+  plugin, so the package now exact-pins the same build-only plugin, compiles the named threshold,
+  and makes the threshold display beat a consumer's later generic `.hidden` utility. The built
+  boundary check locks the emitted container contract. The existing direct-on-canvas Date fixture
+  already provides the requested live inline calendar without replacing the ordinary formatted
+  date input. The focused password/slider suites (13 tests), complete package suite (80 files, 585
+  tests), complete playground suite (3 files, 23 tests), package production build and built-boundary
+  check, playground production build, full changed-file static gate, packed unrelated-consumer
+  proof, and dependency/supply-chain gate pass. The consolidated developer acceptance and first
+  package-output baselines remain open; Phase 5 is still not actionable.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
