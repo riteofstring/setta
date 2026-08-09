@@ -3,7 +3,7 @@
   "capturedAt": "2026-08-11T18:07:57Z",
   "source": {
     "mainCommit": "043d3b2e9c69caf99d1246f1408b3ad7194b7864",
-    "extractionCommit": "2cbb1d9dcb991fc3eb90f8ec74a49ad014d1caaf",
+    "extractionCommit": "2f824f03166b9c8d8f96e09e89ef0334477a5f39",
     "mainUrl": "http://127.0.0.1:3063/being_cliff",
     "playgroundUrl": "http://127.0.0.1:5174/"
   },
@@ -39,9 +39,16 @@
     },
     {
       "commit": "66d225825",
-      "problem": "Invalid-drop feedback stayed inside the target section's stacking context and appeared behind the opaque free-move preview.",
-      "result": "Drop feedback is portaled to the body at z-index 1001, one layer above the free-move preview at z-index 1000.",
-      "parityClassification": "Developer-directed correction that intentionally supersedes the frozen stacking behavior."
+      "problem": "Invalid-drop feedback stayed inside the target section's stacking context and could be covered during free movement.",
+      "result": "Drop feedback is portaled to the body so the target section cannot cover it; the first portal layer placed it above the preview.",
+      "parityClassification": "Developer-directed correction that escapes the target stacking context.",
+      "supersededBy": "2f824f031"
+    },
+    {
+      "commit": "2f824f031",
+      "problem": "At the Phase 2 gate, the developer compared the package with main and found that placing the full red banner above the blue drag preview made the warning visually dominant and unlike the reference.",
+      "result": "The portal remains, but the DnD layers are explicit: target 500, feedback 750, preview 1000. Feedback stays above the target and below the preview, matching main's visual order.",
+      "parityClassification": "Developer-directed refinement that preserves the stacking-context fix while restoring reference layer hierarchy."
     },
     {
       "commit": "66d225825",

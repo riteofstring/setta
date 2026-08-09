@@ -11,7 +11,7 @@ using only the tarball's public exports and compiled stylesheet.
   `../setta-main` was verified clean at `043d3b2e9` before and after the proof (0 modified
   files) and was never used for integration edits.
 - Packed artifact: `setta-workspace-0.0.0.tgz`, sha256
-  `886f96eba7c90a30ad32a7f6d9ffd30188a1e960dcb6c73a8145bb2e11c0f115`, produced by
+  `3f85fa0128d9bd75910fcb29ed4d01a66bb3046b68b39927d0a6fc021a1a65b9`, produced by
   `pnpm --filter @setta/workspace build` + `pnpm pack` from this repository and copied into
   the worktree's `frontend/`.
 
@@ -79,6 +79,20 @@ placement vocabulary moved out of the Tailwind layer into plain CSS in
 `src/styles/workspace.css` (the reference ships all of these rules at runtime), frozen by a
 new `check-package-boundary --built` stylesheet marker. `pnpm run consumer:check` reran green
 on the fixed artifact.
+
+## Exit-gate feedback correction
+
+The developer's first Phase 2 gate inspection compared an invalid-drop gesture in the packed
+preview with main and rejected the portal's initial above-preview layer as visually dominant. The
+portal itself remains necessary to escape the target section's stacking context. Commit
+`2f824f031` makes the intended hierarchy explicit: target 500, feedback 750, preview 1000. This
+keeps the warning above the target while the blue preview remains the top surface, matching main.
+
+The package was rebuilt and repacked at the sha256 recorded above. The focused layer regression,
+all 278 package tests, typecheck, package build/boundary check, static quality gate, unrelated
+packed-consumer build, reference production build, and headless dark/light render proof pass. The
+sustained Alt gesture still requires the developer's manual recheck because Chrome automation
+cannot preserve the held modifier across a later pointer command.
 
 ## Retention and removal (item 8)
 

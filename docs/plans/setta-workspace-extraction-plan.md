@@ -246,7 +246,9 @@ Phase 1 progress (2026-08-10):
   `docs/evidence/phase1/side-by-side/README.md`. The developer rejected the first gate presentation
   for a missing reference canvas surface/grid, invalid-drop feedback hidden below the opaque drag
   preview, and unstable cross-parent placeholder placement. Commit `66d225825` restores the exact
-  light/dark canvas and zoom-aware grid and portals drop feedback one layer above the preview. Its
+  light/dark canvas and zoom-aware grid and portals drop feedback outside the target's stacking
+  context. Its first layer order put the feedback above the preview; the Phase 2 gate later refined
+  that order in `2f824f031` while keeping the portal. Its
   initial leading-edge correction fixed cross-parent entry but made the reverse threshold depend on
   the dragged section's height; the developer's follow-up reproduction exposed that bias. Commit
   `6a295560f` uses pointer position against the frozen target midpoint with the existing 10-pixel
@@ -388,7 +390,13 @@ Phase 2 progress (2026-08-11):
   are in `docs/evidence/phase2/setta-integration.md`. The worktree is retained, dirty by
   design (uncommitted proof adapter), for the developer's exit-gate inspection; its removal
   command is recorded in the evidence and runs after the developer confirms the gate.
-- Remaining Phase 2 work: none before the exit gate. After the developer confirms the gate,
+- Phase 2 exit-gate correction (2026-08-11): the developer compared an invalid-drop gesture in the
+  packed Setta preview with main and rejected the portal's initial above-preview layer as visually
+  dominant. Commit `2f824f031` centralizes the DnD hierarchy at target 500, feedback 750, preview 1000. The body portal still escapes the target stacking context, while the preview remains the
+  top surface as in main. The focused layer regression, all 278 package tests, typecheck, package
+  build/boundary check, static quality gate, unrelated packed-consumer build, reference production
+  build, and headless render proof pass on the refreshed tarball (`3f85fa0128d9bd75910fcb29ed4d01a66bb3046b68b39927d0a6fc021a1a65b9`).
+- Remaining Phase 2 work: developer manual recheck and exit-gate acceptance. After acceptance,
   remove the temporary integration worktree (the recorded item 8 command).
 
 - Extraction branch: `workspace-extraction`

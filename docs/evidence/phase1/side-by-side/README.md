@@ -55,8 +55,10 @@ following correction series closes them for recheck:
 1. The canvas used the playground host's near-black surface and omitted the fork's SVG grid. The
    package now owns main's exact light/dark canvas colors, zoom-aware grid pattern, and grid option
    seam.
-2. Invalid-drop feedback rendered inside the target section's stacking context, so the opaque blue
-   drag preview covered the red label. Feedback now uses a body portal one layer above the preview.
+2. Invalid-drop feedback rendered inside the target section's stacking context. Feedback now uses a
+   body portal so the target cannot cover it. The first portal layer sat above the dragged preview;
+   after a Phase 2 gate comparison showed that treatment was too dominant, commit `2f824f031` kept
+   the portal but placed it between the target and preview layers, matching main's visual order.
 3. Cross-parent insertion used the motion-sensitive trailing edge of the dragged section. A one-pixel
    downward movement could therefore place the placeholder after the first child on entry. The first
    correction used the leading edge, which fixed entry but made top-to-bottom switching depend on the
