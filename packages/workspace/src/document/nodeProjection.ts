@@ -23,6 +23,39 @@ function getSectionNodeStyle(
   return { background: theme.bg };
 }
 
+function nodeStylesMatch(
+  currentStyle: CSSProperties | undefined,
+  nextStyle: CSSProperties | undefined,
+): boolean {
+  if (currentStyle === undefined || nextStyle === undefined) {
+    return currentStyle === nextStyle;
+  }
+  return Object.keys(currentStyle).length === 1 && currentStyle.background === nextStyle.background;
+}
+
+// Appearance changes are independent of canonical document projection. In particular, they must
+// not overwrite a live drag position or temporary z-index with the last committed layout values.
+export function reprojectNodeStylesForAppearance(
+  state: WorkspaceDocumentState,
+  nodes: NodeInternalsState["x"],
+): Map<string, Node> {
+  const darkMode = useWorkspaceAppearance.getState().darkMode;
+  let nextNodes = nodes;
+
+  for (const [sectionId, node] of nodes) {
+    const nextStyle = getSectionNodeStyle(getSectionOrThrow(state, sectionId), darkMode);
+    if (nodeStylesMatch(node.style, nextStyle)) {
+      continue;
+    }
+    if (nextNodes === nodes) {
+      nextNodes = new Map(nodes);
+    }
+    nextNodes.set(sectionId, { ...node, style: nextStyle });
+  }
+
+  return nextNodes;
+}
+
 // Measured DOM size wins over the stored layout size once a node has rendered.
 function buildTopLevelSectionNode(
   sectionId: string,

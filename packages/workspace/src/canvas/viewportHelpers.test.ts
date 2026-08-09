@@ -96,6 +96,19 @@ describe("viewport zoom helpers", () => {
     expect(transform).toHaveBeenCalledWith(d3Selection, expect.objectContaining({ k: 2 }));
   });
 
+  it("does not schedule a zero-duration transition for reduced-motion centering", () => {
+    vi.stubGlobal("window", {
+      matchMedia: vi.fn(() => ({ matches: true })),
+    });
+    const { d3Selection, durations, transform } = setupZoomRuntime();
+    useReactFlow.setState({ width: 800, height: 600 });
+
+    setCenter(100, 50, { zoom: 2 });
+
+    expect(durations).toEqual([]);
+    expect(transform).toHaveBeenCalledWith(d3Selection, expect.objectContaining({ k: 2 }));
+  });
+
   it("fails loud when zooming before the zoom pane initialized", () => {
     expect(() => resetZoom()).toThrowError("Cannot zoom before the zoom pane initialized.");
   });

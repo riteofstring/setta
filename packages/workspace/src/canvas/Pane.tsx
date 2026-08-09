@@ -162,11 +162,15 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
 
   const hasActiveSelection = isSelecting || userSelectionActive;
 
+  // The canvas pane owns background selection gestures and Escape without presenting itself as a
+  // false button.
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       className="react-flow__pane"
-      role="button"
+      role="group"
       aria-label="Workspace canvas background"
+      aria-keyshortcuts="Escape"
       tabIndex={-1}
       onClick={hasActiveSelection ? undefined : wrapHandler(onClick, container)}
       onKeyDown={onKeyDown}

@@ -23,7 +23,7 @@ export function focusSectionAfterEscape(sectionId: string) {
 
 function getSectionFocusElement(sectionId: string): HTMLElement | null | undefined {
   const refs = useSectionRefs.getState();
-  // Leaves expose their named, pressed shell through selfOnly; groups have only the named outer
+  // Leaves expose their named section group through selfOnly; groups have only the named outer
   // container. Both are stable programmatic focus targets without adding a Tab stop.
   return refs.selfOnly[sectionId] ?? refs.withNested[sectionId];
 }

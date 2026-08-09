@@ -98,4 +98,26 @@ describe("sectionKindRegistry", () => {
       }),
     ).toThrowError(/cannot register a contentClassName/);
   });
+
+  it("rejects unknown presentation discriminants instead of treating them as ordinary", () => {
+    expect(() =>
+      registerSectionKinds({
+        mystery: {
+          renderContent: () => null,
+          presentation: { type: "floating" },
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(/Section kind mystery has unknown presentation type floating/);
+  });
+
+  it("rejects missing meta-control callbacks during registration", () => {
+    expect(() =>
+      registerSectionKinds({
+        meta: {
+          renderContent: () => null,
+          presentation: { type: "meta-control", onEdit: () => {} },
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(/must provide resolveControlKind/);
+  });
 });

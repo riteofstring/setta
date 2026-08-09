@@ -364,6 +364,7 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       onKeyDown={handleItemKeyDown}
       isSelectingItems={isSelectingItems}
       isSelected={rowState.isSelected}
+      itemId={itemId}
     >
       {renderItem({ sectionId, listKey, item: rowState.item, isSelected: rowState.isSelected })}
       <ItemColumnResizeHandle itemId={itemId} />
@@ -383,6 +384,7 @@ function ItemRowShell({
   onKeyDown,
   isSelectingItems,
   isSelected,
+  itemId,
   children,
 }: {
   rowClassName: string;
@@ -395,13 +397,12 @@ function ItemRowShell({
   onKeyDown: React.KeyboardEventHandler<HTMLDivElement>;
   isSelectingItems: boolean;
   isSelected: boolean;
+  itemId: string;
   children: ReactNode;
 }) {
-  // The reference renders rows as role-less articles; the package row is a div with a button
-  // role and a keyboard selection toggle for the repository's accessibility gate — visually
-  // identical. Item-select mode disables the embedded controls, exposes the rows to Tab, and
-  // reports their canonical pressed state; outside that explicit mode the rows stay out of the
-  // tab order just like the reference's role-less rows.
+  // The reference renders rows as role-less articles. Item-select mode exposes the package row
+  // group to Tab and names its canonical selection state without flattening the host-rendered
+  // controls or nested item descendants into an ARIA button.
   return (
     <div
       className={`${rowClassName} focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2`}
@@ -413,9 +414,13 @@ function ItemRowShell({
       ref={dndRef}
       {...(dndAttributes as React.HTMLAttributes<HTMLDivElement>)}
       {...(dndListeners as React.HTMLAttributes<HTMLDivElement>)}
-      role="button"
-      aria-pressed={isSelectingItems ? isSelected : undefined}
-      aria-disabled={!isSelectingItems}
+      role={isSelectingItems ? "group" : undefined}
+      aria-label={
+        isSelectingItems
+          ? `Selectable item ${itemId}, ${isSelected ? "selected" : "not selected"}`
+          : undefined
+      }
+      aria-keyshortcuts={isSelectingItems ? "Enter Space" : undefined}
       tabIndex={isSelectingItems ? 0 : -1}
     >
       {children}

@@ -183,6 +183,23 @@ describe("DateValueControl and TimeValueControl", () => {
     expect(host.textContent).toContain("March 2026");
   });
 
+  it("keeps focus on an adjacent-month date after selecting it", () => {
+    const onValueChange = vi.fn();
+    mountDate({ value: "2026-02-28", controlMode: "calendar", onValueChange });
+    const trailingDate = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="March 1, 2026"]',
+    );
+    trailingDate?.focus();
+
+    act(() => trailingDate?.click());
+
+    const focusedDate = host.querySelector<HTMLButtonElement>('button[aria-label="March 1, 2026"]');
+    expect(onValueChange).toHaveBeenCalledWith("2026-03-01");
+    expect(host.textContent).toContain("March 2026");
+    expect(document.activeElement).toBe(focusedDate);
+    expect(focusedDate?.tabIndex).toBe(0);
+  });
+
   it("maps horizontal calendar keys to visual direction inside a locally rtl host", () => {
     host.dir = "rtl";
     mountDate({ value: "2026-02-28", controlMode: "calendar" });

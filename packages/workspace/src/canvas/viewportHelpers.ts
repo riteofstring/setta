@@ -1,6 +1,6 @@
 import { zoomIdentity } from "d3-zoom";
 import _ from "lodash";
-import { resolveWorkspaceMotionDuration } from "../styles/motion";
+import { prefersReducedWorkspaceMotion } from "../styles/motion";
 import { getD3Transition } from "./graph";
 import { useWorkspaceOptions } from "./options";
 import { useReactFlow } from "./store";
@@ -26,11 +26,10 @@ function getZoomRuntime() {
 }
 
 function getZoomTarget(selection: NonNullable<ReactFlowState["d3Selection"]>, duration?: number) {
-  const requestedDuration = duration ?? 0;
-  const resolvedDuration = resolveWorkspaceMotionDuration(requestedDuration);
-  return requestedDuration > 0 && resolvedDuration === 0
-    ? selection
-    : getD3Transition(selection, resolvedDuration);
+  if (prefersReducedWorkspaceMotion()) {
+    return selection;
+  }
+  return getD3Transition(selection, duration ?? 0);
 }
 
 export const zoomIn = _.throttle((options?: TransitionOptions) => {

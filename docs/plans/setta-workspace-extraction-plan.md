@@ -1463,8 +1463,9 @@ Phase 4 progress (2026-08-11):
   keyboard commit or cancel. Focus after destructive actions is deterministic: section deletion
   chooses next sibling, previous sibling, parent, or canvas pane in that order, while attachment
   deletion chooses the next or previous attachment action and finally the local-file action. Item
-  rows enter the tab order with canonical pressed state only during explicit item-select mode; idle
-  disabled CodeMirror layers leave the tab order. Section/group selection state, color tags,
+  row groups enter the tab order with a named canonical selection state only during explicit
+  item-select mode; idle disabled CodeMirror layers leave the tab order. Section/group selection
+  state, color tags,
   toolbar zoom status, decorative icons, formatted time output, search landmarks, and canvas/minimap
   names now expose their semantics without changing accepted geometry. The minimap supports arrow
   panning and keyboard activation, and the multi-section selection surface retains a visible focus
@@ -1529,6 +1530,33 @@ Phase 4 progress (2026-08-11):
   final coherence audit, required matched developer comparison and explicit acceptance, any
   accepted baseline refresh, and the scheduled post-acceptance broad gates remain. No automated
   performance result claims visual approval.
+- Phase 5 coherence-audit repository work complete (2026-08-12): the audit expanded the requested
+  `05eb8033b..1ee86e4d0` minimum range only to the four earlier Phase 5 implementation commits,
+  reviewing `b3f9e1ff5..1ee86e4d0` as one six-batch change against the accepted `c66a7632b`
+  controls baseline and frozen main. It corrected seven directly affected contracts: appearance
+  reprojection now changes only style-color backgrounds while preserving live drag geometry and
+  temporary layering; reduced-motion viewport commands bypass d3 transitions, including the
+  no-duration center path; an adjacent-month calendar selection moves the visible month and roving
+  focus together; item-column release flushes the last pointer sample before its single canonical
+  commit while cancellation restores the authored split without publishing; public kind
+  registration rejects malformed renderers, presentation discriminants, and
+  meta callbacks specifically; section, pane, multi-selection, and item surfaces expose grouped
+  semantics without turning containers of real controls into ARIA buttons; and configured-color
+  Escape focus restoration no longer races Radix's deferred close-autofocus callback. The package
+  filters dnd-kit's conflicting accessibility plugin at its provider boundary because that plugin
+  imperatively rewrote every full-surface activator as a pressed/grabbed button; package-owned
+  selection names, keyboard operations, and focus behavior remain explicit and covered. The
+  package-wide suite passed all 91 files and 660 tests after the primary corrections; the final
+  pointer-cancel correction's expanded item-list suite passes 18 tests. The production package
+  build, source/compiled boundary, and changed-file quality gate pass after all source changes. The
+  performance target-input SHA-256 is
+  still `b02c59e91cbdb86b906eec500b93e6144efb4123b7e7bb4a1041242e87b3c981`, exactly matching the
+  optimized evidence, so no irrelevant reprofile was run. No dependency or packaging contract
+  changed, and the plan schedules the broad phase matrix, packed consumer, supply-chain, and live
+  browser gates only after the developer gate, so they were not duplicated here. The frozen
+  reference remains clean at `043d3b2e9`. The required matched Phase 5 comparison, explicit
+  developer acceptance, accepted baseline refresh, and post-acceptance gates remain incomplete;
+  this audit makes no visual-approval claim and does not start the next phase.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

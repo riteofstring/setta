@@ -310,6 +310,92 @@ describe("WorkspaceItemList", () => {
     );
   });
 
+  it("commits the final pointer sample when release beats the animation frame", async () => {
+    const onDocumentChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    await mount();
+
+    const listOuter = getListOuter();
+    const columnContainer = host.querySelector<HTMLElement>('[data-section-id="panel"]');
+    const handle = host.querySelector<HTMLElement>('[data-item-column-resize-handle="true"]');
+    if (!columnContainer || !handle) {
+      throw new Error("expected the item-column surface");
+    }
+    act(() => resizeListOuter(listOuter, 550));
+    useReactFlow.setState({ transform: [0, 0, 2] });
+
+    await act(async () => {
+      handle.dispatchEvent(
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 100,
+          detail: 1,
+          pointerId: 11,
+          pointerType: "touch",
+        }),
+      );
+      window.dispatchEvent(
+        createPointerEvent("pointermove", {
+          clientX: 140,
+          pointerId: 11,
+          pointerType: "touch",
+        }),
+      );
+      window.dispatchEvent(createPointerEvent("pointerup", { pointerId: 11 }));
+    });
+
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("277px");
+    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(277);
+    expect(onDocumentChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("restores the authored split without committing when a pointer drag is canceled", async () => {
+    const onDocumentChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    await mount();
+
+    const listOuter = getListOuter();
+    const columnContainer = host.querySelector<HTMLElement>('[data-section-id="panel"]');
+    const handle = host.querySelector<HTMLElement>('[data-item-column-resize-handle="true"]');
+    if (!columnContainer || !handle) {
+      throw new Error("expected the item-column surface");
+    }
+    act(() => resizeListOuter(listOuter, 550));
+
+    await act(async () => {
+      handle.dispatchEvent(
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 100,
+          detail: 1,
+          pointerId: 12,
+          pointerType: "touch",
+        }),
+      );
+      window.dispatchEvent(
+        createPointerEvent("pointermove", {
+          clientX: 140,
+          pointerId: 12,
+          pointerType: "touch",
+        }),
+      );
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("297px");
+
+    await act(async () => {
+      window.dispatchEvent(createPointerEvent("pointercancel", { pointerId: 12 }));
+    });
+
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("257px");
+    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(
+      undefined,
+    );
+    expect(onDocumentChange).not.toHaveBeenCalled();
+  });
+
   it("resizes the live split proportionally and double-click resets it", async () => {
     const onDocumentChange = vi.fn();
     setWorkspaceDocumentChangeCallback(onDocumentChange);
@@ -615,11 +701,12 @@ describe("WorkspaceItemList", () => {
     );
   });
 
-  it("exposes rows to Tab with pressed state and keyboard toggles only in item-select mode", async () => {
+  it("exposes row groups to Tab with named state and keyboard toggles only in item-select mode", async () => {
     await mount();
     let row = getRowByContent(host, "item-a");
     expect(row.tabIndex).toBe(-1);
-    expect(row.getAttribute("aria-disabled")).toBe("true");
+    expect(row.getAttribute("role")).toBeNull();
+    expect(row.getAttribute("aria-disabled")).toBeNull();
     expect(row.getAttribute("aria-pressed")).toBeNull();
 
     await act(async () => {
@@ -627,8 +714,10 @@ describe("WorkspaceItemList", () => {
     });
     row = getRowByContent(host, "item-a");
     expect(row.tabIndex).toBe(0);
-    expect(row.getAttribute("aria-disabled")).toBe("false");
-    expect(row.getAttribute("aria-pressed")).toBe("false");
+    expect(row.getAttribute("role")).toBe("group");
+    expect(row.getAttribute("aria-label")).toBe("Selectable item item-a, not selected");
+    expect(row.getAttribute("aria-keyshortcuts")).toBe("Enter Space");
+    expect(row.getAttribute("aria-pressed")).toBeNull();
     expect(row.className).toContain("focus-visible:-outline-offset-2");
     row.focus();
     await act(async () => {
@@ -636,13 +725,17 @@ describe("WorkspaceItemList", () => {
         new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
       );
     });
-    expect(getRowByContent(host, "item-a").getAttribute("aria-pressed")).toBe("true");
+    expect(getRowByContent(host, "item-a").getAttribute("aria-label")).toBe(
+      "Selectable item item-a, selected",
+    );
     await act(async () => {
       getRowByContent(host, "item-a").dispatchEvent(
         new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true }),
       );
     });
-    expect(getRowByContent(host, "item-a").getAttribute("aria-pressed")).toBe("false");
+    expect(getRowByContent(host, "item-a").getAttribute("aria-label")).toBe(
+      "Selectable item item-a, not selected",
+    );
   });
 
   it("renders the live projection with the temp placeholder during a drag", async () => {

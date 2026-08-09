@@ -1,6 +1,5 @@
 /* Package-scoped subset of Tailwind Preflight (tailwindcss 3.4.1), covering only the intrinsic
- * elements the package renders (including search and the dropdown's dl/dt/dd list) plus the
- * div[role="button"] controls the a11y gate forced in place of interactive sections.
+ * elements the package renders (including search and the dropdown's dl/dt/dd list).
  * The reference application runs under full Preflight; the compiled package stylesheet must not
  * reset host styles, so these declarations are scoped under the workspace surface marker class
  * (applied by the package to every root it renders, portals included) and written at Preflight's

@@ -1,4 +1,4 @@
-import { createNodesMapFromDocumentChildren } from "./nodeProjection";
+import { reprojectNodeStylesForAppearance } from "./nodeProjection";
 import {
   useNodeInternals,
   useWorkspaceAppearance,
@@ -14,9 +14,10 @@ let systemColorSchemeListener: ((event: MediaQueryListEvent) => void) | null = n
 function reprojectWorkspaceNodes() {
   const documentState = useWorkspaceDocument.getState();
   const currentNodes = useNodeInternals.getState().x;
-  useNodeInternals.setState({
-    x: createNodesMapFromDocumentChildren(documentState, currentNodes),
-  });
+  const nextNodes = reprojectNodeStylesForAppearance(documentState, currentNodes);
+  if (nextNodes !== currentNodes) {
+    useNodeInternals.setState({ x: nextNodes });
+  }
 }
 
 function publishAppearance(colorMode: WorkspaceColorMode, darkMode: boolean) {

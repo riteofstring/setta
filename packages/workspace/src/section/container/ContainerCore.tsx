@@ -106,7 +106,8 @@ function ContainerGroup({
   const outlineClassName = getGroupOutlineClassName(positionAndSizeLocked, outlineColor);
 
   // The reference activates sections through its app-level shortcut engine; the package keeps
-  // keyboard activation on the group itself for the repository's accessibility gate.
+  // keyboard activation on the group itself for the repository's accessibility gate. The group
+  // role leaves its title and header buttons exposed to assistive technology.
   function onKeyDown(event: KeyboardEvent) {
     if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
       event.preventDefault();
@@ -115,15 +116,17 @@ function ContainerGroup({
     }
   }
 
+  // This surface owns pointer and programmatic-focus activation without hiding its real controls.
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       className={getGroupRootClassName(className)}
       {...commonProps}
       onClick={getOnSectionClick(sectionId)}
       onKeyDown={onKeyDown}
-      role="button"
-      aria-label={`${section.name} group section`}
-      aria-pressed={isActiveSection}
+      role="group"
+      aria-label={`${section.name} group section${isActiveSection ? ", selected" : ""}`}
+      aria-keyshortcuts="Enter Space"
       tabIndex={-1} // keeps section focusable for programmatic focus
       style={style}
     >

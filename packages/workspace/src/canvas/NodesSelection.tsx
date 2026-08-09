@@ -78,10 +78,13 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
         transform: transformString,
       }}
     >
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- The
+          selection group is a programmatic focus target whose arrow keys move the selected
+          sections; a button role would misrepresent the operation. */}
       <div
         tabIndex={-1} //needed for onKeyDown to work
         ref={nodeRef}
-        role="button"
+        role="group"
         aria-label={`${activeIds.length} selected sections: ${activeNames.join(", ")}`}
         aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"
         aria-disabled={!canEditLayout}

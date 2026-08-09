@@ -935,6 +935,9 @@ function CalendarDateControl({
                       onEscape={onEscape}
                       onSelect={() => {
                         if (!isDisabled) {
+                          if (!cell.inCurrentMonth) {
+                            navigateCalendarFocus(cell.isoDate);
+                          }
                           onChange(
                             resolveCalendarDateSelectionValue({
                               cellIsoDate: cell.isoDate,

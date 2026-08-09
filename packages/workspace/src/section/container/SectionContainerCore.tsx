@@ -48,7 +48,8 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
   );
 
   // The reference activates sections through its app-level shortcut engine; the package keeps
-  // keyboard activation on the shell itself for the repository's accessibility gate.
+  // keyboard activation on the shell itself for the repository's accessibility gate. A group
+  // role preserves the semantics of the interactive header and body descendants.
   function onKeyDown(event: KeyboardEvent) {
     if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
       event.preventDefault();
@@ -57,14 +58,16 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
     }
   }
 
+  // This surface owns pointer and programmatic-focus activation without hiding its real controls.
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       className={`${sectionShellClassName} ${isActiveSection ? "z-[150]" : "z-10"}`}
       onClick={getOnSectionClick(sectionId)}
       onKeyDown={onKeyDown}
-      role="button"
-      aria-label={`${section.name} ${isMetaControl ? "meta control" : "section"}`}
-      aria-pressed={isActiveSection}
+      role="group"
+      aria-label={`${section.name} ${isMetaControl ? "meta control" : "section"}${isActiveSection ? ", selected" : ""}`}
+      aria-keyshortcuts="Enter Space"
       tabIndex={-1} // keeps section focusable for programmatic focus
       ref={refForPosition}
       data-section-id={sectionId}

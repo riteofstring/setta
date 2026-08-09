@@ -5,6 +5,7 @@ import {
   useMemo,
   type KeyboardEventHandler,
   type MouseEventHandler,
+  type PointerEventHandler,
   type ReactNode,
 } from "react";
 import { SortableContext, verticalListSortingStrategy } from "../dnd/adapter";
@@ -32,7 +33,7 @@ type ItemListContextValue = {
   visibleItemIds: ReadonlySet<string>;
   renderItem: (context: ItemRowRenderContext) => ReactNode;
   isGroupItem: (item: WorkspaceItem) => boolean;
-  onColumnResizeStart: MouseEventHandler<HTMLButtonElement>;
+  onColumnResizeStart: PointerEventHandler<HTMLButtonElement>;
   onColumnResizeKeyDown: KeyboardEventHandler<HTMLButtonElement>;
   onColumnResizeClick: MouseEventHandler<HTMLButtonElement>;
   keyboardColumnResizeItemId: string | null;

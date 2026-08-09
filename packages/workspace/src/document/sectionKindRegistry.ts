@@ -55,6 +55,27 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
 
 let registeredSectionKinds: Record<string, SectionKindDefinition> = {};
 
+function assertMetaControlPresentation(
+  kind: string,
+  presentation: unknown,
+): asserts presentation is MetaControlSectionPresentation {
+  if (presentation === null || typeof presentation !== "object") {
+    throw new Error(`Section kind ${kind} has a malformed presentation.`);
+  }
+  const candidate = presentation as Partial<MetaControlSectionPresentation> & { type?: unknown };
+  if (candidate.type !== "meta-control") {
+    throw new Error(
+      `Section kind ${kind} has unknown presentation type ${String(candidate.type)}.`,
+    );
+  }
+  if (typeof candidate.resolveControlKind !== "function") {
+    throw new Error(`Meta-control section kind ${kind} must provide resolveControlKind.`);
+  }
+  if (typeof candidate.onEdit !== "function") {
+    throw new Error(`Meta-control section kind ${kind} must provide onEdit.`);
+  }
+}
+
 // Replaces the registered kind set. Hosts register every kind once, before loading or
 // rendering documents that use them.
 export function registerSectionKinds(kinds: Record<string, SectionKindDefinition>): void {
@@ -64,13 +85,20 @@ export function registerSectionKinds(kinds: Record<string, SectionKindDefinition
     );
   }
   for (const [kind, definition] of Object.entries(kinds)) {
-    if (definition.presentation && definition.defaultSize !== undefined) {
+    if (typeof definition.renderContent !== "function") {
+      throw new Error(`Section kind ${kind} must provide renderContent.`);
+    }
+    if (definition.presentation === undefined) {
+      continue;
+    }
+    assertMetaControlPresentation(kind, definition.presentation);
+    if (definition.defaultSize !== undefined) {
       throw new Error(
         `Meta-control section kind ${kind} cannot register a defaultSize; ` +
           "the package owns control-specific default geometry.",
       );
     }
-    if (definition.presentation && definition.contentClassName !== undefined) {
+    if (definition.contentClassName !== undefined) {
       throw new Error(
         `Meta-control section kind ${kind} cannot register a contentClassName; ` +
           "the package owns its full-area control placement.",
@@ -95,5 +123,9 @@ export function getMetaControlPresentation(
   section: WorkspaceSection,
 ): MetaControlSectionPresentation | null {
   const presentation = getRegisteredSectionKindOrThrow(section.kind).presentation;
-  return presentation?.type === "meta-control" ? presentation : null;
+  if (presentation === undefined) {
+    return null;
+  }
+  assertMetaControlPresentation(section.kind, presentation);
+  return presentation;
 }

@@ -94,7 +94,21 @@ afterEach(() => {
 describe("setWorkspaceColorMode", () => {
   it("resolves explicit modes and reprojects styled node backgrounds", () => {
     seedStyledNode();
-    expect(useNodeInternals.getState().x.get("leaf")?.style).toEqual({
+    const projectedNode = useNodeInternals.getState().x.get("leaf");
+    if (!projectedNode) {
+      throw new Error("The styled test node was not projected.");
+    }
+    const livePosition = { x: 47, y: 83 };
+    const liveNode = {
+      ...projectedNode,
+      position: livePosition,
+      width: 315,
+      height: 127,
+      tempZIndex: 1000,
+    };
+    useNodeInternals.setState({ x: new Map([["leaf", liveNode]]) });
+
+    expect(liveNode.style).toEqual({
       background: "#e7f0fe",
     });
 
@@ -103,9 +117,17 @@ describe("setWorkspaceColorMode", () => {
       colorMode: "dark",
       darkMode: true,
     });
-    expect(useNodeInternals.getState().x.get("leaf")?.style).toEqual({
+    const darkNode = useNodeInternals.getState().x.get("leaf");
+    expect(darkNode?.style).toEqual({
       background: "#0b172c",
     });
+    expect(darkNode).toMatchObject({
+      position: { x: 47, y: 83 },
+      width: 315,
+      height: 127,
+      tempZIndex: 1000,
+    });
+    expect(darkNode?.position).toBe(livePosition);
 
     setWorkspaceColorMode("light");
     expect(useWorkspaceAppearance.getState()).toMatchObject({

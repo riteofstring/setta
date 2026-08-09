@@ -219,21 +219,30 @@ export function useItemColumnWidth(
       const startWidth = widthRef.current.currentWidth;
       const pointerId = event.pointerId;
       const inlineDirectionSign = getInlineDirectionSign(event.currentTarget);
+      let pendingClientX: number | null = null;
       widthRef.current.isDragging = true;
+
+      const applyPointerClientX = (clientX: number) => {
+        const scale = useReactFlow.getState().transform[2];
+        const delta = ((clientX - startX) / scale) * inlineDirectionSign;
+        const nextWidth = getBoundedWidth(startWidth + delta, containerWidth);
+        widthRef.current.currentWidth = nextWidth;
+        applyWidth(nextWidth);
+      };
 
       const handlePointerMove = (moveEvent: PointerEvent) => {
         if (moveEvent.pointerId !== pointerId) {
           return;
         }
+        pendingClientX = moveEvent.clientX;
         if (animationFrameRef.current !== null) {
           cancelAnimationFrame(animationFrameRef.current);
         }
         animationFrameRef.current = requestAnimationFrame(() => {
-          const scale = useReactFlow.getState().transform[2];
-          const delta = ((moveEvent.clientX - startX) / scale) * inlineDirectionSign;
-          const nextWidth = getBoundedWidth(startWidth + delta, containerWidth);
-          widthRef.current.currentWidth = nextWidth;
-          applyWidth(nextWidth);
+          if (pendingClientX !== null) {
+            applyPointerClientX(pendingClientX);
+            pendingClientX = null;
+          }
           animationFrameRef.current = null;
         });
       };
@@ -249,6 +258,17 @@ export function useItemColumnWidth(
         if (animationFrameRef.current !== null) {
           cancelAnimationFrame(animationFrameRef.current);
           animationFrameRef.current = null;
+        }
+        if (finishEvent.type === "pointercancel") {
+          pendingClientX = null;
+          widthRef.current.currentWidth = startWidth;
+          widthRef.current.isDragging = false;
+          applyWidth(startWidth);
+          return;
+        }
+        if (pendingClientX !== null) {
+          applyPointerClientX(pendingClientX);
+          pendingClientX = null;
         }
         const finalWidth = widthRef.current.currentWidth;
         if (widthRef.current.containerWidth) {

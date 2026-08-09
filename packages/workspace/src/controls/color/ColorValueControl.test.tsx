@@ -188,10 +188,11 @@ describe("ColorValueControl", () => {
       selectedOption?.dispatchEvent(
         new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
       );
-      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+    await act(async () => {
+      await vi.waitFor(() => expect(document.activeElement).toBe(sectionRoot));
     });
     expect(document.querySelector('[role="listbox"]')).toBeNull();
-    expect(document.activeElement).toBe(sectionRoot);
     expect(documentEscape).not.toHaveBeenCalled();
     document.removeEventListener("keydown", documentEscape);
     sectionRoot.remove();

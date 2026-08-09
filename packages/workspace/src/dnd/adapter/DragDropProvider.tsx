@@ -1,6 +1,6 @@
 import type { Modifiers, Sensors } from "@dnd-kit/abstract";
 import type { DragDropManager } from "@dnd-kit/dom";
-import { AutoScroller, defaultPreset } from "@dnd-kit/dom";
+import { Accessibility, AutoScroller, defaultPreset } from "@dnd-kit/dom";
 import { DragDropProvider as DndKitProvider } from "@dnd-kit/react";
 import { useMemo, type PropsWithChildren } from "react";
 import type { CollisionTracker } from "./collision";
@@ -33,7 +33,13 @@ type Props = PropsWithChildren<{
   onDragCancel?: (event: DragCancelEvent) => void;
 }>;
 
-const plugins = defaultPreset.plugins.filter((plugin) => plugin !== AutoScroller);
+// The dependency accessibility plugin imperatively turns every full-surface drag activator into
+// an ARIA button with pressed/grabbed state. Section and item activators contain real controls, so
+// that role flattens their interactive descendants in screen-reader trees. The package supplies
+// explicit selection, keyboard movement, and focus semantics at those surfaces instead.
+const plugins = defaultPreset.plugins.filter(
+  (plugin) => plugin !== Accessibility && plugin !== AutoScroller,
+);
 
 export function DragDropProvider({
   children,

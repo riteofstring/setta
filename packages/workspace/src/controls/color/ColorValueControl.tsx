@@ -276,7 +276,7 @@ function ColorChoicesPicker({
           }
           event.preventDefault();
           restoreSectionFocusAfterClose.current = false;
-          requestAnimationFrame(() => focusSectionAfterEscape(sectionId));
+          focusSectionAfterEscape(sectionId);
         },
       }}
       trigger={

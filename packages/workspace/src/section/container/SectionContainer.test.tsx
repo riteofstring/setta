@@ -151,6 +151,21 @@ function renderSectionBody(section: WorkspaceSection): ReactNode {
   return createElement("p", { "data-testid": "section-body" }, `${section.name} body`);
 }
 
+function getRequiredElement(root: ParentNode, selector: string): HTMLElement {
+  const element = root.querySelector<HTMLElement>(selector);
+  if (!element) {
+    throw new Error(`Expected an element matching ${selector}.`);
+  }
+  return element;
+}
+
+function expectSectionGroupSemantics(element: HTMLElement, label: string) {
+  expect(element.getAttribute("role")).toBe("group");
+  expect(element.getAttribute("aria-label")).toBe(label);
+  expect(element.getAttribute("aria-keyshortcuts")).toBe("Enter Space");
+  expect(element.getAttribute("aria-pressed")).toBeNull();
+}
+
 describe("SectionContainer", () => {
   let host: HTMLDivElement;
   let root: Root;
@@ -194,13 +209,11 @@ describe("SectionContainer", () => {
   it("renders the leaf shell, header controls, host body, and resize handles", async () => {
     await mount("leaf");
 
-    const shell = host.querySelector('[data-section-id="leaf"]');
-    expect(shell).not.toBeNull();
-    expect(shell?.getAttribute("data-section-type")).toBe("leaf");
-    expect(shell?.getAttribute("data-section-active")).toBe("false");
-    expect(shell?.getAttribute("aria-label")).toBe("Leaf section section");
-    expect(shell?.getAttribute("aria-pressed")).toBe("false");
-    expect(shell?.className).toContain("rounded-lg");
+    const shell = getRequiredElement(host, '[data-section-id="leaf"]');
+    expect(shell.getAttribute("data-section-type")).toBe("leaf");
+    expect(shell.getAttribute("data-section-active")).toBe("false");
+    expectSectionGroupSemantics(shell, "Leaf section section");
+    expect(shell.className).toContain("rounded-lg");
 
     expect(host.querySelector("i.gg-menu")).not.toBeNull();
     expect(host.querySelector('[aria-label="Lock position and size"]')).not.toBeNull();
@@ -428,20 +441,20 @@ describe("SectionContainer", () => {
   it("renders group chrome with its controls and the nested leaf", async () => {
     await mount("group");
 
-    const groupRoot = host.querySelector(".group\\/group-section");
-    expect(groupRoot).not.toBeNull();
-    expect(groupRoot?.getAttribute("aria-label")).toBe("Group section group section");
-    expect(groupRoot?.getAttribute("aria-pressed")).toBe("false");
+    const groupRoot = getRequiredElement(host, ".group\\/group-section");
+    expectSectionGroupSemantics(groupRoot, "Group section group section");
     // The frame and selection outline paint on an absolutely positioned sibling layer.
     expect(host.querySelector(".outline-4.absolute")).not.toBeNull();
     expect(host.querySelector('[aria-label="Flow children horizontally"]')).not.toBeNull();
     expect(host.querySelector('[aria-label="Lock position and size"]')).not.toBeNull();
 
-    const nestedSlot = host.querySelector('[data-sortable-section-id="nested"]');
-    expect(nestedSlot).not.toBeNull();
-    expect(nestedSlot?.querySelector('[data-section-id="nested"]')).not.toBeNull();
+    const nestedSlot = getRequiredElement(host, '[data-sortable-section-id="nested"]');
+    expect(nestedSlot.getAttribute("role")).toBeNull();
+    expect(nestedSlot.getAttribute("aria-pressed")).toBeNull();
+    expect(nestedSlot.getAttribute("aria-grabbed")).toBeNull();
+    expect(nestedSlot.querySelector('[data-section-id="nested"]')).not.toBeNull();
     // Groups never render a minimize control.
-    const groupHeader = groupRoot?.querySelector(".min-h-10");
+    const groupHeader = groupRoot.querySelector(".min-h-10");
     expect(groupHeader?.querySelector('[aria-label="Minimize section"]')).toBeNull();
   });
 
@@ -679,7 +692,8 @@ describe("SectionContainer", () => {
 
     const shell = host.querySelector('[data-section-id="leaf"]');
     expect(shell?.getAttribute("data-section-active")).toBe("true");
-    expect(shell?.getAttribute("aria-pressed")).toBe("true");
+    expect(shell?.getAttribute("aria-label")).toBe("Leaf section section, selected");
+    expect(shell?.getAttribute("aria-pressed")).toBeNull();
     expect(shell?.className).toContain("z-[150]");
   });
 });
