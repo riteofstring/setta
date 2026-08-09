@@ -763,8 +763,26 @@ Phase 4 progress (2026-08-11):
   column-split case keeps the 550 → 257 px derivation, now aligned with the authored inner
   width. No package source changed. Playground suite 4/4 green; changed-file static gate green
   (no dependency or packaging changes, so the supply-chain and consumer gates were not rerun).
-- Remaining Phase 4 work: audit the fixture-size correction, repeat the live main-Dict versus
-  unrelated-item comparison, and obtain a renewed developer exit-gate decision.
+- Fixture-size correction audit (2026-08-12): a static audit confirmed the correction correct,
+  complete, and faithful to the reference's box model. In the package, document sizes land on
+  the resizable inner surface while the shell class (`w-min border`) wraps it on a separate
+  element, so authored dimensions describe the inner surface and the outer measurement adds
+  1 px per side; the frozen reference composes its shell and its resizable surface identically,
+  so main's stored dimensions carry the same inner meaning and the package model matches main.
+  The Phase 0 `settings-style-metrics.json` records `guiSectionAuthoredCssPx` from a DOM
+  inspection at workspace scale, never from the document store — its "authored" label was a
+  provenance misnomer for the outer measurement, which the supervised live comparison exposed;
+  the frozen capture stays as recorded and this entry carries the corrected interpretation. No
+  authored `552 x 352` size remains anywhere in code (surviving mentions correctly name the
+  outer measurement), and the regression pins the inner `550 x 350` layout, derives the outer
+  `552 x 352` across the shell border, and keeps the 550 → 257 px column derivation. No code
+  changes were required. The phase-gate deterministic matrix was rerun green after the
+  correction: full-scope static gate (`quality:all`, 326 files), package suite (431), playground
+  suite (4/4), and the package build with the source and built-artifact boundary checks. The
+  packed-consumer and supply-chain gates were not duplicated: their recorded green runs postdate
+  the last packaging and dependency change, and this correction touched neither.
+- Remaining Phase 4 work: repeat the live main-Dict versus unrelated-item comparison and obtain
+  a renewed developer exit-gate decision.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
