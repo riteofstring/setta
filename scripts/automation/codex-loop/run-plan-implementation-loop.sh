@@ -29,6 +29,7 @@ MAX_RETRY_DELAY_SECONDS="300"
 PROGRESS_LOG_INTERVAL_SECONDS="120"
 VERIFICATION_AUTHORIZATION="none"
 VERIFICATION_AUTHORIZATION_PROMPT=""
+RESUME_DIRTY="0"
 CODEX_REFERENCE_REPO="${CODEX_REFERENCE_REPO:-/Users/kevin/Documents/AppDevelopment/reference_repos/codex}"
 ACTIVE_AGENT_PID=""
 
@@ -111,6 +112,10 @@ Options:
                         only non-destructive live probes explicitly authorized
                         by the plan; tests records explicit test authorization,
                         still subject to repository policy.
+  --resume-dirty        Resume an existing incomplete implementation batch in
+                        the current worktree. Only the first iteration may
+                        start dirty, and Agent 1 is told to finish and commit
+                        that batch before continuing.
   --help                Show this help text.
 EOF
 }
@@ -460,6 +465,10 @@ while [[ $# -gt 0 ]]; do
       VERIFICATION_AUTHORIZATION="$2"
       shift 2
       ;;
+    --resume-dirty)
+      RESUME_DIRTY="1"
+      shift
+      ;;
     --help|-h)
       usage
       exit 0
@@ -565,7 +574,12 @@ if [[ ! -d "${CODEX_REFERENCE_REPO}" ]]; then
 fi
 CODEX_REFERENCE_REPO="$(cd "${CODEX_REFERENCE_REPO}" && pwd -P)"
 
-require_clean_repo "before starting the loop"
+if [[ "${RESUME_DIRTY}" -eq 0 ]]; then
+  require_clean_repo "before starting the loop"
+elif repo_is_clean; then
+  echo "--resume-dirty requires an existing dirty worktree" >&2
+  exit 1
+fi
 
 if [[ -z "${OUTPUT_DIR}" ]]; then
   output_base_dir="$(resolve_path_without_creating "${TMPDIR:-/tmp}")"
@@ -601,6 +615,7 @@ log_info "Agent attempts: unlimited"
 log_info "Retry delays: ${INITIAL_RETRY_DELAY_SECONDS}s initial, ${MAX_RETRY_DELAY_SECONDS}s maximum"
 log_info "Progress log interval: ${PROGRESS_LOG_INTERVAL_SECONDS}s"
 log_info "Verification authorization: ${VERIFICATION_AUTHORIZATION}"
+log_info "Resume existing dirty batch: ${RESUME_DIRTY}"
 log_info "Iteration cap: none"
 log_info "Review cadence: phase and final audits only"
 log_info "Completion sentinel: ${COMPLETION_SENTINEL}"
@@ -624,9 +639,17 @@ while true; do
   final_audit="0"
   reviewer_prompt=""
   log_info "Starting iteration ${iteration}."
-  require_clean_repo "before iteration ${iteration}"
+  if [[ "${iteration}" -eq 1 ]] && [[ "${RESUME_DIRTY}" -eq 1 ]]; then
+    log_info "Resuming the existing incomplete implementation batch."
+  else
+    require_clean_repo "before iteration ${iteration}"
+  fi
   iteration_start_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
-  run_agent "agent-1" "${AGENT_ONE_PROMPT}" "${run_dir}" "${AGENT_ONE_RUNNER}" "${AGENT_ONE_MODEL}" "${AGENT_ONE_EFFORT}" 1
+  agent_one_prompt="${AGENT_ONE_PROMPT}"
+  if [[ "${iteration}" -eq 1 ]] && [[ "${RESUME_DIRTY}" -eq 1 ]]; then
+    agent_one_prompt="Finish and commit the existing incomplete implementation batch. Inspect the plan and current diff for context. Do not discard the existing work and do not start another plan batch."
+  fi
+  run_agent "agent-1" "${agent_one_prompt}" "${run_dir}" "${AGENT_ONE_RUNNER}" "${AGENT_ONE_MODEL}" "${AGENT_ONE_EFFORT}" 1
   implementer_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
   implementer_message="$(last_trimmed_nonempty_line "${implementer_last_message}")"
   if [[ "${implementer_message}" == "${BLOCKED_SENTINEL}" ]] && repo_is_clean; then
