@@ -882,8 +882,19 @@ Phase 4 progress (2026-08-11):
   with the source and built-artifact boundary checks. The supply-chain and packed-consumer
   gates were not duplicated: the correction carries no dependency or packaging change, and
   their recorded green runs postdate the last relevant change.
-- Remaining Phase 4 work: repeat the live main-Dict versus unrelated-item comparison and
-  obtain a renewed developer exit-gate decision.
+- Phase 4 exit gate complete (2026-08-11): the supervised live comparison was repeated in dark
+  and light appearance with main and playground in the same Chrome viewport and DPR. The reusable
+  item surface matched main on the 552 x 352 outer panel, 550/544 px scroll-shell outer/client
+  widths, 526 x 20 rows, 257 px label column, 12/16 px semibold sans-serif label role, 12/16 px
+  regular monospace value role with the exact light/dark foregrounds, and the 1 px divider colors;
+  the application-owned ARGS toolbar and value controls remain deliberately outside the unrelated
+  renderer. The developer had already confirmed that item manipulation worked well and, after
+  inspecting this final polished result, explicitly approved Phase 4. The backend-free example
+  continues to supply only opaque item data and imports no Setta parameter types or state.
+- Remaining Phase 4 work: no implementation or approval work remains. Record the accepted dark/light
+  visual baseline and computed comparison under `docs/evidence/phase4/` as a regression lock before
+  advancing; this post-acceptance evidence is not a new approval gate. Do not infer a deferred
+  capability choice from the Phase 4 approval: the developer-choice rule below still applies.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
