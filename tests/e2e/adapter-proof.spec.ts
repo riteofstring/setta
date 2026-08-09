@@ -787,9 +787,13 @@ test.describe("upstream adapter proof", () => {
         element.scrollIntoView({ block: "center", inline: "center" }),
       );
       const touchTarget = page.locator('[data-proof-section-id="nested-container"]');
-      const touchHandleBox = await touchHandle.boundingBox();
+      await touchTarget.evaluate((element) =>
+        element.scrollIntoView({ block: "center", inline: "center" }),
+      );
+      await settleVisualFrames(page);
+      const touchSource = await findVisibleActionPoint(touchHandle);
       const touchTargetBox = await touchTarget.boundingBox();
-      if (!touchHandleBox || !touchTargetBox) {
+      if (!touchTargetBox) {
         throw new Error("The touch ownership proof requires measured drag controls.");
       }
       await dispatchTouchDrag({
@@ -810,13 +814,10 @@ test.describe("upstream adapter proof", () => {
           );
         },
         page,
-        source: {
-          x: touchHandleBox.x + touchHandleBox.width / 2,
-          y: touchHandleBox.y + touchHandleBox.height / 2,
-        },
+        source: touchSource,
         target: {
           x: touchTargetBox.x + touchTargetBox.width / 2,
-          y: touchTargetBox.y + touchTargetBox.height - 8,
+          y: touchTargetBox.y + touchTargetBox.height * 0.6,
         },
       });
       await expect(page.locator("[data-proof-command-count]")).toHaveText("Commands: 1");

@@ -25,7 +25,9 @@ for a planned full deterministic audit, not routine debugging.
 The browser command starts the backend-free playground directly through Node/Vite. Narrow work to
 the directly affected spec and selector until stable. The packed-consumer command creates a
 temporary tarball, installs it into the unrelated fixture using declared dependencies and exports,
-and builds without source aliases. No command publishes the package or mutates another worktree.
+builds without source aliases, and opens the built fixture in headless Chromium to exercise a host
+renderer plus ready-made creation and renaming. No command publishes the package or mutates another
+worktree.
 
 `@setta/workspace/testing` exposes package-owned deterministic helpers for consumer tests and
 adapter evidence. It is not an internal-source escape and application runtime code should not

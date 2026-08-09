@@ -27,5 +27,6 @@ smallest guide that matches the integration being built.
 - No current Setta application model, backend, source alias, compatibility layer, or undeclared
   package path is part of the consumer contract.
 
-The package is still pre-milestone and private. Public APIs may change intentionally before the
-reusable-package audit; no compatibility aliases or migrations are implied by these guides.
+The package has reached its private reusable-package milestone. Distribution and a public
+compatibility policy remain undecided; no compatibility aliases or migrations are implied by these
+guides.
