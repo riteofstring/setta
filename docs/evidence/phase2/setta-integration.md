@@ -91,19 +91,25 @@ keeps the warning above the target while the blue preview remains the top surfac
 The package was rebuilt and repacked at the sha256 recorded above. The focused layer regression,
 all 278 package tests, typecheck, package build/boundary check, static quality gate, unrelated
 packed-consumer build, reference production build, and headless dark/light render proof pass. The
-sustained Alt gesture still requires the developer's manual recheck because Chrome automation
-cannot preserve the held modifier across a later pointer command.
+sustained Alt gesture required a developer manual recheck because Chrome automation cannot
+preserve the held modifier across a later pointer command. The developer completed that recheck
+and explicitly approved the corrected Phase 2 result on 2026-08-11.
 
 ## Retention and removal (item 8)
 
-The worktree stays in place for the developer's Phase 2 exit-gate inspection. After the
-developer confirms the gate, remove it with:
+After the developer approved the Phase 2 gate, the temporary worktree was removed with:
 
 ```sh
 git worktree remove --force ../setta-workspace-integration
 ```
 
-(`--force` because the adapter is deliberately uncommitted proof code.) The adapter is fully
-reproducible afterward: recreate the worktree detached at `043d3b2e9`, apply
+(`--force` because the adapter was deliberately uncommitted proof code.) The frozen
+`../setta-main` worktree remained clean. The adapter is fully reproducible: recreate the worktree
+detached at `043d3b2e9`, apply
 `setta-integration/adapter.patch`, copy a freshly packed tarball to
 `frontend/setta-workspace-0.0.0.tgz`, and run `pnpm install --no-frozen-lockfile`.
+
+## Decision
+
+**Approved.** The developer explicitly accepted the corrected packed-package integration on
+2026-08-11 at `2026-08-11T21:35:53Z`. Phase 3 may begin.

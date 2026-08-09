@@ -396,15 +396,18 @@ Phase 2 progress (2026-08-11):
   top surface as in main. The focused layer regression, all 278 package tests, typecheck, package
   build/boundary check, static quality gate, unrelated packed-consumer build, reference production
   build, and headless render proof pass on the refreshed tarball (`3f85fa0128d9bd75910fcb29ed4d01a66bb3046b68b39927d0a6fc021a1a65b9`).
-- Remaining Phase 2 work: developer manual recheck and exit-gate acceptance. After acceptance,
-  remove the temporary integration worktree (the recorded item 8 command).
+- Phase 2 exit gate complete (2026-08-11): the developer manually rechecked the corrected invalid
+  drop, explicitly approved the complete packed-package result, and authorized continuation. The
+  temporary integration worktree was removed with the recorded item 8 command; `../setta-main`
+  remains clean at `043d3b2e9`. Phase 3 may proceed.
+- Remaining Phase 2 work: none.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
 - Frozen reference worktree: `../setta-main` on `main` at `043d3b2e9`
 - Extraction worktree: this folder on `workspace-extraction`
-- Temporary integration worktree: `../setta-workspace-integration`, created only when Phase 2 needs
-  to prove that Setta can consume the packed package
+- Temporary integration worktree: removed after the approved Phase 2 gate; reproducible from
+  `docs/evidence/phase2/setta-integration/adapter.patch`
 - Experimental donor branch: `workspace-blank-slate`
 - Working package name: `@setta/workspace` (local and unpublished during extraction)
 - Publishing, repository creation, final public naming, licensing, and release automation remain
