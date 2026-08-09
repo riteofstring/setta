@@ -22,6 +22,7 @@ export type WorkspaceCanvasController = Readonly<{
   getSectionRect(sectionId: string): WorkspaceRect | undefined;
   getVisibleWorkspaceRect(): WorkspaceRect;
   recoverFocus(sectionId: string | null, focusAnchor: Element | null): Promise<boolean>;
+  revealSection(sectionId: string): () => void;
   waitForViewport(viewport: WorkspaceViewport): Promise<boolean>;
   workspacePointToClient(point: WorkspacePoint): WorkspacePoint;
 }>;
@@ -68,7 +69,13 @@ function fitPadding(options: WorkspaceFitOptions | undefined): number {
 export function createWorkspaceCanvasController(
   geometry: WorkspaceGeometryMeasurements,
   getZoomBounds: () => WorkspaceZoomBounds,
+  forceRevealSection?: (sectionId: string) => () => void,
 ): WorkspaceCanvasController {
+  const focusWhenReady = (sectionId: string, focus: () => Promise<boolean>): Promise<boolean> => {
+    const release = forceRevealSection?.(sectionId);
+    const result = focus();
+    return release ? result.finally(release) : result;
+  };
   return {
     captureFocus: () => geometry.captureFocus(),
     clientPointToWorkspace: (point) => geometry.clientPointToWorkspace(point),
@@ -90,9 +97,10 @@ export function createWorkspaceCanvasController(
       );
     },
     focusElement: (sectionId) => geometry.focusSection(sectionId),
-    focusElementWhenReady: (sectionId) => geometry.focusSectionWhenReady(sectionId),
+    focusElementWhenReady: (sectionId) =>
+      focusWhenReady(sectionId, () => geometry.focusSectionWhenReady(sectionId)),
     focusSelectionControlWhenReady: (sectionId) =>
-      geometry.focusSelectionControlWhenReady(sectionId),
+      focusWhenReady(sectionId, () => geometry.focusSelectionControlWhenReady(sectionId)),
     focusSection: async (sectionId, viewport) => {
       const bounds = await geometry.boundsWhenReady([sectionId]);
       const canvas = geometry.canvasBounds();
@@ -105,6 +113,7 @@ export function createWorkspaceCanvasController(
     getSectionRect: (sectionId) => geometry.workspaceRect(sectionId),
     getVisibleWorkspaceRect: () => geometry.visibleWorkspaceRect(),
     recoverFocus: (sectionId, focusAnchor) => geometry.recoverFocus(sectionId, focusAnchor),
+    revealSection: forceRevealSection ?? (() => () => undefined),
     waitForViewport: (viewport) => geometry.waitForViewport(viewport),
     workspacePointToClient: (point) => geometry.workspacePointToClient(point),
   };

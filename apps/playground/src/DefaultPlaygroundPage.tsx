@@ -44,6 +44,7 @@ const DETACHED_NOTE_HEAD_STYLE = `
   font-weight: 600;
 }
 `;
+const VIEWPORT_CULLING_OPTIONS = Object.freeze({ enabled: true, overscan: 160 });
 
 async function validateSampleSectionTitle({
   title,
@@ -489,6 +490,7 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
                   }
             }
             validateSectionTitle={validateSampleSectionTitle}
+            viewportCullingOptions={VIEWPORT_CULLING_OPTIONS}
           />
         </WorkspaceDetachmentProvider>
       </main>

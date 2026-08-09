@@ -91,6 +91,10 @@ async function verifyConsumerRuntime(distributionRoot) {
       }
 
       const workspace = page.getByRole("region", { exact: true, name: "Consumer workspace" });
+      const canvas = workspace.locator(".setta-workspace__canvas");
+      if ((await canvas.getAttribute("data-workspace-viewport-culling")) !== "true") {
+        throw new Error("Packed consumer did not enable the declared viewport-culling contract.");
+      }
       await workspace.getByRole("article", { name: "Consumer note 1" }).waitFor();
       await workspace.getByRole("textbox", { name: "Consumer note body" }).waitFor();
       await workspace.locator('[data-workspace-port-id="consumer-output"]').waitFor();

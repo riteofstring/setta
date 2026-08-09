@@ -15,6 +15,7 @@ import {
   projectWorkspaceSectionChildren,
   synchronizeWorkspaceSectionTrees,
 } from "../src/internal/workspace-section-tree.js";
+import { WorkspaceViewportCulling } from "../src/internal/workspace-viewport-culling.js";
 import { WorkspaceViewportLifecycle } from "../src/internal/workspace-viewport-lifecycle.js";
 import { createWorkspaceTestDocument } from "../src/testing.js";
 
@@ -46,6 +47,7 @@ const recursiveSectionRegistry = resolveSectionDefinitions([
   },
 ]);
 const geometry = new WorkspaceGeometryMeasurements(new WorkspaceGeometryIndex());
+const viewportCulling = new WorkspaceViewportCulling();
 
 function largeDocument(): WorkspaceDocument {
   return createWorkspaceTestDocument(
@@ -75,6 +77,7 @@ function projectedNodes(document: WorkspaceDocument, selectedSectionIds: readonl
     doNothing,
     unchanged,
     validTitle,
+    viewportCulling,
     resizeBindings,
     {
       movementBlocked: false,

@@ -26,7 +26,7 @@ function navigationDocument(): WorkspaceDocument {
   };
 }
 
-function canvasController(focused: string[]): WorkspaceCanvasController {
+function canvasController(focused: string[], revealEvents: string[]): WorkspaceCanvasController {
   return {
     captureFocus: () => null,
     clientPointToWorkspace: (point) => point,
@@ -48,6 +48,10 @@ function canvasController(focused: string[]): WorkspaceCanvasController {
     getSectionRect: () => undefined,
     getVisibleWorkspaceRect: () => ({ height: 600, width: 800, x: 0, y: 0 }),
     recoverFocus: vi.fn(async () => false),
+    revealSection: (sectionId) => {
+      revealEvents.push(`reveal ${sectionId}`);
+      return () => revealEvents.push(`release ${sectionId}`);
+    },
     waitForViewport: vi.fn(async () => true),
     workspacePointToClient: (point) => point,
   };
@@ -57,7 +61,8 @@ function controllerFixture() {
   let document = navigationDocument();
   const changes: WorkspaceDocumentChange[] = [];
   const focused: string[] = [];
-  const canvas = canvasController(focused);
+  const revealEvents: string[] = [];
+  const canvas = canvasController(focused, revealEvents);
   const controller = createWorkspaceController({
     commit: (nextDocument, change) => {
       document = nextDocument;
@@ -71,7 +76,7 @@ function controllerFixture() {
     getCanvasController: () => canvas,
     getDocument: () => document,
   });
-  return { canvas, changes, controller, document: () => document, focused };
+  return { canvas, changes, controller, document: () => document, focused, revealEvents };
 }
 
 describe("workspace geometry navigation controller", () => {
@@ -103,6 +108,7 @@ describe("workspace geometry navigation controller", () => {
     expect(fixture.focused).toEqual(["alpha"]);
     expect(fixture.changes).toEqual([{ reason: "viewport" }]);
     expect(fixture.controller.getSelectedSectionIds()).toEqual(["alpha"]);
+    expect(fixture.revealEvents).toEqual(["reveal alpha", "release alpha"]);
   });
 
   it("fits unique section IDs and keeps empty fits as no-ops", async () => {

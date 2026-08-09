@@ -47,6 +47,7 @@ import {
   translateWorkspaceRootSelection,
   type WorkspaceSectionSelectionRequest,
 } from "./workspace-selection.js";
+import type { WorkspaceViewportCulling } from "./workspace-viewport-culling.js";
 
 type PendingRootMovement = Readonly<{
   positions: Readonly<Record<string, WorkspacePoint>>;
@@ -117,6 +118,7 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
   sectionRegistry,
   selectedSectionIdsRef,
   validateSectionTitle,
+  viewportCulling,
 }: Readonly<{
   appearance: "dark" | "light";
   colorPalette: readonly WorkspaceSectionColorOption[];
@@ -158,6 +160,7 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
   sectionRegistry: WorkspaceSectionRegistry<TSectionData>;
   selectedSectionIdsRef: RefObject<readonly string[]>;
   validateSectionTitle: WorkspaceSectionTitleValidator;
+  viewportCulling: WorkspaceViewportCulling;
 }>) {
   const documentRef = useRef(document);
   const gridOptionsRef = useRef(gridOptions);
@@ -273,6 +276,7 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
         onSelectionRequest,
         onSectionTitleCommit,
         validateSectionTitle,
+        viewportCulling,
         resizeBindings,
         rootSelectionProjection,
       ),
@@ -296,6 +300,7 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
       sectionStateActions.handleMinimizedCommit,
       sectionRegistry,
       validateSectionTitle,
+      viewportCulling,
     ],
   );
   const projectedNodesRef = useRef(projectedNodes);

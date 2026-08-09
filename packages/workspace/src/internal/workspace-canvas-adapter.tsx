@@ -2,6 +2,7 @@ import { ReactFlow, type Viewport } from "@xyflow/react";
 import {
   useCallback,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -22,6 +23,7 @@ import type {
   WorkspaceSectionPresentation,
   WorkspaceViewport,
 } from "../core.js";
+import { deriveWorkspaceParentLookup } from "../core.js";
 import { WorkspaceGeometryIndex } from "./geometry-index.js";
 import type { InteractionInput } from "./interaction-owner.js";
 import type { SectionMovePlan, WorkspaceSectionMoveValidator } from "./section-move-planning.js";
@@ -85,6 +87,10 @@ import type {
 } from "./workspace-section-sizing.js";
 import { useWorkspaceSelectionActionMenu } from "./workspace-selection-action-menu.js";
 import { WorkspaceToolbar } from "./workspace-toolbar.js";
+import {
+  WorkspaceViewportCulling,
+  type ResolvedWorkspaceViewportCullingOptions,
+} from "./workspace-viewport-culling.js";
 import { WorkspaceViewportSynchronizer } from "./workspace-viewport-synchronizer.js";
 
 export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Readonly<{
@@ -156,6 +162,7 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   validateExternalDrop: WorkspaceExternalDropValidator | undefined;
   validateSectionMove: WorkspaceSectionMoveValidator<TSectionData> | undefined;
   validateSectionTitle: WorkspaceSectionTitleValidator;
+  viewportCullingOptions: ResolvedWorkspaceViewportCullingOptions;
   workspaceController: WorkspaceController<TSectionData>;
 }>;
 
@@ -246,6 +253,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   validateExternalDrop,
   validateSectionMove,
   validateSectionTitle,
+  viewportCullingOptions,
   workspaceController,
 }: WorkspaceCanvasAdapterProps<TSectionData>) {
   const reactId = useId();
@@ -255,6 +263,14 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   const geometryRef = useRef<WorkspaceGeometryMeasurements | null>(null);
   geometryRef.current ??= new WorkspaceGeometryMeasurements(geometryIndex, document.viewport);
   const geometry = geometryRef.current;
+  const viewportCulling = useMemo(() => new WorkspaceViewportCulling(), []);
+  const parentLookup = useMemo(() => deriveWorkspaceParentLookup(document), [document]);
+  const retainedSectionIds = useMemo(() => Object.keys(document.sections), [document.sections]);
+  useLayoutEffect(() => {
+    viewportCulling.setOptions(viewportCullingOptions);
+    viewportCulling.setParentLookup(parentLookup);
+    geometry.setRetainedSectionIds(retainedSectionIds);
+  }, [geometry, parentLookup, retainedSectionIds, viewportCulling, viewportCullingOptions]);
   const sectionMoveFeedbackStore = useMemo(() => new WorkspaceSectionMoveFeedbackStore(), []);
   const interaction = useWorkspaceInteractionOwner({
     layoutEnabled: layoutEditable,
@@ -321,6 +337,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     sectionRegistry,
     selectedSectionIdsRef: selection.selectedSectionIdsRef,
     validateSectionTitle,
+    viewportCulling,
   });
   const completeRootLayout = interaction.completeRootLayout;
   const startRootLayout = interaction.startRootLayout;
@@ -380,6 +397,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     onCanvasControllerChange,
     onDetach: cancelCanvasInteractions,
     onViewportCommit,
+    revealSection: viewportCulling.revealSection,
   });
   const completeViewport = interaction.completeViewport;
   const startViewport = interaction.startViewport;
@@ -474,6 +492,19 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   ]
     .filter(Boolean)
     .join(" ");
+  const viewportCanvasElement = viewport.handleCanvasElement;
+  const handleCanvasElement = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (!element) {
+        viewportCulling.setCanvasElement(null);
+      }
+      viewportCanvasElement(element);
+      if (element) {
+        viewportCulling.setCanvasElement(element);
+      }
+    },
+    [viewportCanvasElement, viewportCulling],
+  );
 
   return (
     <div
@@ -531,6 +562,8 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
             data-workspace-interaction-owner={interactionDataValue(interaction.ownership.owner)}
             data-workspace-section-move-input={interactionDataValue(interaction.activeInput)}
             data-workspace-section-move-mode={sectionMoveMode}
+            data-workspace-viewport-culling={String(viewportCullingOptions.enabled)}
+            data-workspace-viewport-culling-overscan={viewportCullingOptions.overscan}
             data-workspace-structural-move-mode={interactionDataValue(
               interaction.activeSectionMode,
             )}
@@ -581,7 +614,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
             panOnScrollSpeed={viewport.gesturePolicy.panOnScrollSpeed}
             preventScrolling={viewport.gesturePolicy.preventScrolling}
             proOptions={{ hideAttribution: false }}
-            ref={viewport.handleCanvasElement}
+            ref={handleCanvasElement}
             selectionKeyCode={null}
             selectionOnDrag={false}
             tabIndex={0}

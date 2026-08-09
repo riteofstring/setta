@@ -81,6 +81,7 @@ const scrollFixture = Array.from(
 ).join("\n");
 const HOST_EXTENSIONS_DEFAULT_QUERY = "(min-width: 40rem)";
 const RECURSIVE_CHILD_MIME = "application/x-setta-workspace-recursive-child";
+const ENABLED_VIEWPORT_CULLING_OPTIONS = Object.freeze({ enabled: true, overscan: 80 });
 
 const navigationSectionDefinitions = [
   {
@@ -324,10 +325,14 @@ function workspaceSectionsAvailable(
 }
 
 export function CanvasShellPage() {
-  const connectionsEnabled = new URLSearchParams(window.location.search).has("connections");
+  const search = new URLSearchParams(window.location.search);
+  const connectionsEnabled = search.has("connections");
+  const viewportCullingEnabled = search.has("viewport-culling");
   const controller = useRef<WorkspaceController>(null);
   const [document, setDocument] = useState<WorkspaceDocument>(() =>
-    connectionsEnabled ? createRecursiveDocument() : createEmptyWorkspaceDocument(),
+    connectionsEnabled || viewportCullingEnabled
+      ? createRecursiveDocument()
+      : createEmptyWorkspaceDocument(),
   );
   const [documentChangeCount, setDocumentChangeCount] = useState(0);
   const [appearance, setAppearance] = useState<WorkspaceAppearance>("system");
@@ -915,6 +920,9 @@ export function CanvasShellPage() {
                   }
                 : { allowed: true }
             }
+            {...(viewportCullingEnabled
+              ? { viewportCullingOptions: ENABLED_VIEWPORT_CULLING_OPTIONS }
+              : {})}
           />
         ) : null}
         <label className="canvas-shell-document">

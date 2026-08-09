@@ -26,6 +26,7 @@ import {
   type WorkspaceSectionTreeNode,
 } from "./workspace-section-tree.js";
 import type { WorkspaceSectionSelectionRequest } from "./workspace-selection.js";
+import type { WorkspaceViewportCulling } from "./workspace-viewport-culling.js";
 
 type WorkspaceRootNodeData = {
   appearance: "dark" | "light";
@@ -54,6 +55,7 @@ type WorkspaceRootNodeData = {
   sectionId: string;
   title: string;
   validateTitle: WorkspaceSectionFrameProps["validateTitle"];
+  viewportCulling: WorkspaceViewportCulling;
 };
 
 export type WorkspaceRootNode = Node<WorkspaceRootNodeData, "workspace-root-shell">;
@@ -87,6 +89,7 @@ function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
     presentationEditable: data.presentationEditable,
     readOnly: data.readOnly,
     validateTitle: data.validateTitle,
+    viewportCulling: data.viewportCulling,
   };
   const rootTreeNode: WorkspaceSectionTreeNode = {
     children: data.childSections,
@@ -125,6 +128,7 @@ function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
         selectionMovementBlocked={data.selectionMovementBlocked}
         section={data.section}
         validateTitle={data.validateTitle}
+        viewportCulling={data.viewportCulling}
       />
       <WorkspaceSectionResizeControls
         bindings={data.resizeBindings}
@@ -219,6 +223,7 @@ function rootNode(
   onSelectionRequest: WorkspaceRootNodeData["onSelectionRequest"],
   onTitleCommit: WorkspaceRootNodeData["onTitleCommit"],
   validateTitle: WorkspaceRootNodeData["validateTitle"],
+  viewportCulling: WorkspaceViewportCulling,
   resizeBindings: WorkspaceSectionResizeBindings,
   selection: RootSelectionProjection,
 ): WorkspaceRootNode {
@@ -253,6 +258,7 @@ function rootNode(
       sectionId: root.sectionId,
       title: root.title,
       validateTitle,
+      viewportCulling,
     },
     dragHandle: ".setta-workspace__section-drag-handle--root",
     draggable: rootNodeIsDraggable(layoutEditable, section, selectionMovementBlocked),
@@ -288,6 +294,7 @@ export function projectNodes<TSectionData>(
   onSelectionRequest: WorkspaceRootNodeData["onSelectionRequest"],
   onTitleCommit: WorkspaceRootNodeData["onTitleCommit"],
   validateTitle: WorkspaceRootNodeData["validateTitle"],
+  viewportCulling: WorkspaceViewportCulling,
   resizeBindings: WorkspaceSectionResizeBindings,
   selection: RootSelectionProjection,
 ): WorkspaceRootNode[] {
@@ -323,6 +330,7 @@ export function projectNodes<TSectionData>(
       onSelectionRequest,
       onTitleCommit,
       validateTitle,
+      viewportCulling,
       resizeBindings,
       selection,
     );

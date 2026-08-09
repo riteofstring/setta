@@ -1584,8 +1584,8 @@ Gate:
 
 Status: **in progress** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
 optional outline-navigator, top-level auto-layout, named item-list, filtered item-list,
-mixed-parent batch-movement, saved viewport-preset, generic edge-and-port, and pane-registration
-batches are implemented. They are recorded in
+mixed-parent batch-movement, saved viewport-preset, generic edge-and-port, pane-registration, and
+viewport-culling batches are implemented. They are recorded in
 [Phase 6 detachable-section evidence](../evidence/phase-6-detachable-sections.md) and
 [Phase 6 clipboard evidence](../evidence/phase-6-clipboard.md), with the navigator record in
 [Phase 6 outline-navigator evidence](../evidence/phase-6-outline-navigator.md) and the layout record
@@ -1598,8 +1598,32 @@ The saved-view record is
 [Phase 6 viewport-preset evidence](../evidence/phase-6-viewport-presets.md), and the connection
 record is [Phase 6 generic edge and port evidence](../evidence/phase-6-generic-connections.md). Pane
 registration is recorded in
-[Phase 6 pane-registration evidence](../evidence/phase-6-pane-registration.md). Viewport culling is
-the earliest incomplete repository-actionable Phase 6 work.
+[Phase 6 pane-registration evidence](../evidence/phase-6-pane-registration.md), and browser
+windowing is recorded in
+[Phase 6 viewport-culling evidence](../evidence/phase-6-viewport-culling.md). Absolute/freeform
+positioning inside nested containers is the earliest incomplete repository-actionable Phase 6
+work.
+
+- Completed (viewport-culling batch): added strict opt-in all-depth browser windowing through one
+  canvas-rooted observer, exact-size named placeholders, canonical-ID-scoped retained geometry,
+  focused and active-frame pinning, and controller ancestry reveal around measured focus. Culling
+  removes offscreen host renderers and complete descendant subtrees without changing
+  `WorkspaceDocument`, selection, viewport, pane state, or structural history. The backend-free
+  playground and unrelated packed consumer opt in through the declared React contract, while the
+  complete ownership, accessibility, performance, and visual record is
+  `docs/evidence/phase-6-viewport-culling.md`.
+- Viewport-culling verification: exact Node 24.18.1, repository-local Corepack 0.35.0, and pnpm
+  11.19.0 focused coverage passed 69 tests across five framework-neutral, geometry, controller,
+  canvas, and static React files. Three exact Chromium workflows passed for all-depth renderer
+  reduction, focused offscreen pinning, controller remount after a completed viewport gesture,
+  Axe, 200% page scale, reduced motion, 320-CSS-pixel reflow, and the inspected baseline.
+  Changed-file quality passed for 34 project files with boundaries across 330 files, dependency
+  policy, formatting, lint and complexity, file lengths, strict types, dead-code analysis, 466 unit
+  tests across 45 files, six boundary tests, plan-loop automation, builds, exact tarball contents,
+  documentation links, and the declaration report. The unrelated tarball-installed consumer
+  passed lockfile policy, strict build, and runtime verification through the declared option type
+  and React prop. No dependency input changed, so the network-backed supply-chain gate was not
+  duplicated; the recorded unavailable in-app-browser release gate was not retried.
 
 - Completed (pane-registration batch): added strict controller-only logical start/end pane
   registrations, controlled and uncontrolled one-active-pane state, linked utility-toolbar
@@ -1785,7 +1809,7 @@ Then evaluate or implement independently:
 - Completed: saved viewport presets.
 - Completed: generic edges and ports.
 - Completed: pane registration beyond toolbar and overlay slots.
-- Viewport culling.
+- Completed: viewport culling.
 - Absolute/freeform positioning inside nested containers.
 - Collapsing an entire descendant subtree as part of section minimization.
 

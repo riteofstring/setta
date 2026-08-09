@@ -42,11 +42,20 @@ import {
   workspaceSectionMoveDescription,
 } from "./workspace-section-dnd.js";
 import { SectionPresentationEditor, SectionTitleEditor } from "./workspace-section-editors.js";
+import { MoveIcon, RenameIcon, SelectionIcon, StyleIcon } from "./workspace-section-frame-icons.js";
 import { WorkspaceSectionOrientationControl } from "./workspace-section-orientation.js";
 import { WorkspaceSectionOverflowControl } from "./workspace-section-overflow.js";
 import type { ResolvedSectionDefinition } from "./workspace-section-registry.js";
 import { WorkspaceSectionStateControls } from "./workspace-section-state-controls.js";
 import type { WorkspaceSectionSelectionRequest } from "./workspace-selection.js";
+import {
+  optionalWorkspaceCullingSize,
+  registerWorkspaceSectionCullingFrame,
+  useWorkspaceSectionCulling,
+  workspaceSectionCullingPinned,
+  WorkspaceSectionCullingSurface,
+  type WorkspaceViewportCulling,
+} from "./workspace-viewport-culling.js";
 
 export type WorkspaceSectionFrameProps = Readonly<{
   appearance: "dark" | "light";
@@ -77,6 +86,7 @@ export type WorkspaceSectionFrameProps = Readonly<{
   selectionMovementBlocked: boolean;
   section: WorkspaceSection<unknown>;
   validateTitle: WorkspaceSectionTitleValidator;
+  viewportCulling: WorkspaceViewportCulling;
 }>;
 
 type SectionFrameStyle = CSSProperties &
@@ -212,70 +222,6 @@ function SectionHeading(props: SectionHeadingProps) {
     return <VisibleSectionHeading {...props} />;
   }
   return <HeaderlessSectionHeading {...props} />;
-}
-
-function MoveIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="setta-workspace__section-action-icon"
-      fill="none"
-      focusable="false"
-      viewBox="0 0 20 20"
-    >
-      <path d="M10 2.75v14.5M2.75 10h14.5M7.5 5.25 10 2.75l2.5 2.5M7.5 14.75l2.5 2.5 2.5-2.5M5.25 7.5 2.75 10l2.5 2.5M14.75 7.5l2.5 2.5-2.5 2.5" />
-    </svg>
-  );
-}
-
-function RenameIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="setta-workspace__section-action-icon"
-      fill="none"
-      focusable="false"
-      viewBox="0 0 20 20"
-    >
-      <path d="m4 13.75-.75 3 3-.75L15 7.25 12.75 5 4 13.75ZM11.5 6.25l2.25 2.25" />
-    </svg>
-  );
-}
-
-function StyleIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="setta-workspace__section-action-icon"
-      fill="none"
-      focusable="false"
-      viewBox="0 0 20 20"
-    >
-      <path d="M4 5h12M4 10h12M4 15h12" />
-      <circle cx="7" cy="5" r="1.5" />
-      <circle cx="13" cy="10" r="1.5" />
-      <circle cx="8.5" cy="15" r="1.5" />
-    </svg>
-  );
-}
-
-function SelectionIcon({ selected }: Readonly<{ selected: boolean }>) {
-  return (
-    <svg
-      aria-hidden="true"
-      className="setta-workspace__section-action-icon"
-      fill="none"
-      focusable="false"
-      viewBox="0 0 20 20"
-    >
-      <path d="M7 3.5H4.5a1 1 0 0 0-1 1V7M13 3.5h2.5a1 1 0 0 1 1 1V7M7 16.5H4.5a1 1 0 0 1-1-1V13M13 16.5h2.5a1 1 0 0 0 1-1V13" />
-      <path
-        className="setta-workspace__section-selection-check"
-        d="m6.75 10 2.1 2.1 4.4-4.45"
-        data-selected={String(selected)}
-      />
-    </svg>
-  );
 }
 
 function SectionSelectionControl({
@@ -460,26 +406,6 @@ function focusWithoutScroll(ref: RefObject<HTMLElement | null>): void {
   }
 }
 
-function registerSectionFrame(
-  depth: number,
-  element: HTMLElement | null,
-  geometry: WorkspaceGeometryMeasurements,
-  order: number,
-  parentSectionId: string | null,
-  sectionId: string,
-) {
-  if (!element) {
-    return;
-  }
-  return geometry.register({
-    depth,
-    element,
-    order,
-    parentSectionId,
-    sectionId,
-  });
-}
-
 function hasSectionStatus(section: WorkspaceSection<unknown>, detached: boolean): boolean {
   return section.positionAndSizeLocked || section.isMinimized || detached;
 }
@@ -503,6 +429,7 @@ function sectionFrameStyle(
   depth: number,
   section: WorkspaceSection<unknown>,
   definition: ResolvedSectionDefinition<unknown>,
+  culledSize?: Readonly<{ height: number; width: number }>,
 ): SectionFrameStyle {
   return {
     ...(section.presentation.accentColor
@@ -526,6 +453,16 @@ function sectionFrameStyle(
           inlineSize:
             section.size.width.mode === "content" ? "max-content" : section.size.width.value,
         }),
+    ...(culledSize
+      ? {
+          blockSize: culledSize.height,
+          inlineSize: culledSize.width,
+          maxHeight: culledSize.height,
+          maxWidth: culledSize.width,
+          minHeight: culledSize.height,
+          minWidth: culledSize.width,
+        }
+      : {}),
   };
 }
 
@@ -735,6 +672,7 @@ export function WorkspaceSectionFrame({
   selectionMovementBlocked,
   section,
   validateTitle,
+  viewportCulling,
 }: WorkspaceSectionFrameProps) {
   const reactId = useId().replaceAll(":", "");
   const contentId = `setta-workspace-section-${reactId}-content`;
@@ -791,13 +729,48 @@ export function WorkspaceSectionFrame({
   });
   const sectionDndElementRef = sectionDnd.elementRef;
   const registerElement = useCallback(
-    (element: HTMLElement | null) => {
-      frameElementRef.current = element;
-      sectionDndElementRef(element);
-      return registerSectionFrame(depth, element, geometry, order, parentSectionId, section.id);
-    },
-    [depth, geometry, order, parentSectionId, section.id, sectionDndElementRef],
+    (element: HTMLElement | null) =>
+      registerWorkspaceSectionCullingFrame({
+        depth,
+        element,
+        frameElementRef,
+        geometry,
+        order,
+        parentSectionId,
+        sectionDndElementRef,
+        sectionId: section.id,
+        viewportCulling,
+      }),
+    [depth, geometry, order, parentSectionId, section.id, sectionDndElementRef, viewportCulling],
   );
+  const culling = useWorkspaceSectionCulling(
+    viewportCulling,
+    section.id,
+    workspaceSectionCullingPinned(
+      detached,
+      moving,
+      resizing,
+      sectionDnd.active,
+      editingTitle,
+      presentationOpen,
+    ),
+  );
+  const culledFrameProps = {
+    depth,
+    headingId,
+    onBlurCapture: culling.handleBlurCapture,
+    onFocusCapture: culling.handleFocusCapture,
+    parentSectionId,
+    registerElement,
+    sectionId: section.id,
+    style: sectionFrameStyle(
+      depth,
+      section,
+      definition,
+      optionalWorkspaceCullingSize(culling.size),
+    ),
+    title: section.title,
+  };
   const closeTitleEditor = () => {
     restoreTitleFocusRef.current = true;
     setEditingTitle(false);
@@ -913,82 +886,91 @@ export function WorkspaceSectionFrame({
     />
   );
   return (
-    <article
-      aria-describedby={hasStatus ? statusId : undefined}
-      aria-labelledby={headingId}
-      className={`setta-workspace__section-frame ${depth === 0 ? "setta-workspace__root-shell" : "setta-workspace__nested-shell"}`}
-      data-workspace-depth={depth}
-      data-workspace-detached={String(detached)}
-      data-workspace-accent-color={presentedSection.presentation.accentColor ?? undefined}
-      data-workspace-chrome={presentedSection.presentation.chrome}
-      data-workspace-minimized={String(section.isMinimized)}
-      data-workspace-child-orientation={section.childLayout?.orientation}
-      data-workspace-child-overflow={section.childLayout?.overflow}
-      data-workspace-moving={String(sectionFrameMoving(moving, sectionDnd.active))}
-      data-workspace-parent-section-id={parentSectionId ?? undefined}
-      data-workspace-presentation-open={String(presentationOpen)}
-      data-workspace-read-only={String(readOnly)}
-      data-workspace-resizing={String(resizing)}
-      data-workspace-selected={String(selected)}
-      data-workspace-section-id={section.id}
-      data-workspace-height-mode={section.size.height.mode}
-      data-workspace-tag-color={presentedSection.presentation.tagColor ?? undefined}
-      data-workspace-width-mode={section.size.width.mode}
-      data-workspace-title-editing={String(editingTitle)}
-      ref={registerElement}
-      style={frameStyle}
-      tabIndex={-1}
+    <WorkspaceSectionCullingSurface
+      culled={culling.culled}
+      culledFrameProps={culledFrameProps}
+      size={culling.size}
     >
-      <span className="setta-workspace__visually-hidden" id={moveDescriptionId}>
-        {workspaceSectionMoveDescription({
-          detached,
-          locked: section.positionAndSizeLocked,
-          mode: sectionDnd.mode,
-          selectionMovementBlocked,
-          structural: sectionDnd.structural,
-        })}
-      </span>
-      <SectionHeading
-        controls={
-          <SectionFrameControls
-            detachmentControl={detachmentControl}
-            dragHandle={dragHandle}
-            editControls={editControls}
-            editingTitle={editingTitle}
-            layoutControls={layoutControls}
-            stateControls={stateControls}
-          />
-        }
-        definition={definition}
-        detached={detached}
-        hasStatus={hasStatus}
-        headingId={headingId}
-        section={presentedSection}
-        selectionControl={editingTitle ? null : selectionControl}
-        showHeader={showHeader}
-        statusId={statusId}
-        titleContent={titleContent}
-      />
-      <WorkspaceSectionContent
-        appearance={appearance}
-        contentId={contentId}
-        contentRef={contentElementRef}
-        definition={definition}
-        frameRef={frameElementRef}
-        inactive={presentationOpen}
-        readOnly={readOnly}
-        section={section}
-      />
-      {childSectionRegion}
-      <OpenSectionPresentationEditor
-        colorPalette={colorPalette}
-        editorId={presentationEditorId}
-        onClose={closePresentationEditor}
-        onCommit={onPresentationCommit}
-        onPreview={setPresentationPreview}
-        open={presentationOpen}
-        section={section}
-      />
-    </article>
+      <article
+        aria-describedby={hasStatus ? statusId : undefined}
+        aria-labelledby={headingId}
+        className={`setta-workspace__section-frame ${depth === 0 ? "setta-workspace__root-shell" : "setta-workspace__nested-shell"}`}
+        data-workspace-depth={depth}
+        data-workspace-detached={String(detached)}
+        data-workspace-accent-color={presentedSection.presentation.accentColor ?? undefined}
+        data-workspace-chrome={presentedSection.presentation.chrome}
+        data-workspace-culled="false"
+        data-workspace-minimized={String(section.isMinimized)}
+        data-workspace-child-orientation={section.childLayout?.orientation}
+        data-workspace-child-overflow={section.childLayout?.overflow}
+        data-workspace-moving={String(sectionFrameMoving(moving, sectionDnd.active))}
+        data-workspace-parent-section-id={parentSectionId ?? undefined}
+        data-workspace-presentation-open={String(presentationOpen)}
+        data-workspace-read-only={String(readOnly)}
+        data-workspace-resizing={String(resizing)}
+        data-workspace-selected={String(selected)}
+        data-workspace-section-id={section.id}
+        data-workspace-height-mode={section.size.height.mode}
+        data-workspace-tag-color={presentedSection.presentation.tagColor ?? undefined}
+        data-workspace-width-mode={section.size.width.mode}
+        data-workspace-title-editing={String(editingTitle)}
+        onBlurCapture={culling.handleBlurCapture}
+        onFocusCapture={culling.handleFocusCapture}
+        ref={registerElement}
+        style={frameStyle}
+        tabIndex={-1}
+      >
+        <span className="setta-workspace__visually-hidden" id={moveDescriptionId}>
+          {workspaceSectionMoveDescription({
+            detached,
+            locked: section.positionAndSizeLocked,
+            mode: sectionDnd.mode,
+            selectionMovementBlocked,
+            structural: sectionDnd.structural,
+          })}
+        </span>
+        <SectionHeading
+          controls={
+            <SectionFrameControls
+              detachmentControl={detachmentControl}
+              dragHandle={dragHandle}
+              editControls={editControls}
+              editingTitle={editingTitle}
+              layoutControls={layoutControls}
+              stateControls={stateControls}
+            />
+          }
+          definition={definition}
+          detached={detached}
+          hasStatus={hasStatus}
+          headingId={headingId}
+          section={presentedSection}
+          selectionControl={editingTitle ? null : selectionControl}
+          showHeader={showHeader}
+          statusId={statusId}
+          titleContent={titleContent}
+        />
+        <WorkspaceSectionContent
+          appearance={appearance}
+          contentId={contentId}
+          contentRef={contentElementRef}
+          definition={definition}
+          frameRef={frameElementRef}
+          inactive={presentationOpen}
+          readOnly={readOnly}
+          section={section}
+        />
+        {childSectionRegion}
+        <OpenSectionPresentationEditor
+          colorPalette={colorPalette}
+          editorId={presentationEditorId}
+          onClose={closePresentationEditor}
+          onCommit={onPresentationCommit}
+          onPreview={setPresentationPreview}
+          open={presentationOpen}
+          section={section}
+        />
+      </article>
+    </WorkspaceSectionCullingSurface>
   );
 }

@@ -79,6 +79,7 @@ export function useWorkspaceCanvasViewport({
   onCanvasControllerChange,
   onDetach,
   onViewportCommit,
+  revealSection,
 }: Readonly<{
   canonicalViewport: WorkspaceViewport;
   geometry: WorkspaceGeometryMeasurements;
@@ -87,16 +88,21 @@ export function useWorkspaceCanvasViewport({
   onCanvasControllerChange(controller: WorkspaceCanvasController | null): void;
   onDetach(): void;
   onViewportCommit(viewport: WorkspaceViewport): void;
+  revealSection(sectionId: string): () => void;
 }>) {
   const gestureOptionsRef = useRef(gestureOptions);
   gestureOptionsRef.current = gestureOptions;
   const canvasController = useMemo(
     () =>
-      createWorkspaceCanvasController(geometry, () => ({
-        maxZoom: gestureOptionsRef.current.maxZoom,
-        minZoom: gestureOptionsRef.current.minZoom,
-      })),
-    [geometry],
+      createWorkspaceCanvasController(
+        geometry,
+        () => ({
+          maxZoom: gestureOptionsRef.current.maxZoom,
+          minZoom: gestureOptionsRef.current.minZoom,
+        }),
+        revealSection,
+      ),
+    [geometry, revealSection],
   );
   const [initialized, setInitialized] = useState(false);
   const lifecycleRef = useRef<WorkspaceViewportLifecycle | null>(null);

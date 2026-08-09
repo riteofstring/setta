@@ -33,6 +33,8 @@ smallest guide that matches the integration being built.
   preset IDs, the controlled collection, persistence, and authorization.
 - `WorkspaceConnections` owns strict relationship validation and measured visual projection; the
   host owns the separate collection, persistence, editing, authorization, and domain meaning.
+- Viewport culling owns only transient all-depth renderer windowing and retained geometry; the host
+  owns the opt-in preference, overscan choice, and durable renderer state.
 - Root auto layout owns only measured rectangle packing and one atomic position command; payloads,
   root sizes, stacking, and persistence retain their existing owners.
 - `SortableItemTree` or `SortableItemLists` owns item interaction, filtered projection, and

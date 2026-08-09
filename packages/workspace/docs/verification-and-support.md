@@ -75,6 +75,9 @@ by following the same ownership shape:
   observe.
 - Keep inactive `WorkspaceOutline` branches collapsed for large documents; the optional navigator
   renders visible rows and does not introduce a second canonical hierarchy.
+- For materially large host DOMs, opt into `viewportCullingOptions` and profile a representative
+  overscan. Culling uses one canvas-rooted observer and exact-size all-depth placeholders; focused
+  and active frames remain rendered. Keep durable renderer state outside component-local state.
 - Profile representative payloads, inputs, nested depth, item counts, appearance switching, and
   minimize/unmount behavior in the consuming application. Lightweight fixture timing is not a
   substitute for host render counts.
@@ -91,9 +94,10 @@ These baselines guard subscription, traversal, planning, identity, and render ar
 not set a cross-machine frame-time budget. Add an elapsed-time gate only after repeated measurements
 on a declared runner and a stable representative host payload justify one.
 
-Viewport culling is not part of the initial milestone. Very large host DOMs still require measured
-product limits and possibly the deferred culling capability; do not hide whole-tree rerenders behind
-an arbitrary timing threshold.
+Optional viewport culling is now available, but it does not replace measured product limits or host
+render profiling. The repository guards observer sharing, geometry retention, all-depth unmount and
+remount behavior, focus pinning, and exact-size placeholders structurally; it still does not hide
+whole-tree rerenders behind an arbitrary elapsed-time threshold.
 
 ## Package and supply-chain policy
 
@@ -163,8 +167,9 @@ history model.
 
 Multiple named item lists, same-section cross-list movement, mixed-parent batch movement, and
 ancestry-closed filtered views with canonical move reconciliation are implemented through one
-shared interaction owner. Still deferred are cross-section item movement, viewport culling,
-absolute nested positioning, and complete descendant-subtree collapse.
+shared interaction owner. Optional all-depth viewport culling is implemented outside the document
+and history contracts. Still deferred are cross-section item movement, absolute nested positioning,
+and complete descendant-subtree collapse.
 
 ## Explicit non-goals
 

@@ -321,6 +321,45 @@ registration order, and placement are host UI preferences outside `WorkspaceDocu
 changes do not create structural history. Generated pane-control IDs use a reserved
 `workspace-pane:` prefix, so host `toolbarControls` cannot claim that namespace.
 
+## Viewport culling
+
+`viewportCullingOptions` is an optional React rendering preference for workbenches whose host
+renderer DOM is materially larger than the visible canvas. Culling is disabled by default and is
+not serialized in `WorkspaceDocument` or recorded in structural history.
+
+```tsx
+import { type WorkspaceViewportCullingOptions } from "@setta/workspace/react";
+
+const viewportCullingOptions = {
+  enabled: true,
+  overscan: 160,
+} satisfies WorkspaceViewportCullingOptions;
+
+<Workspace
+  document={document}
+  onDocumentChange={setDocument}
+  sectionDefinitions={sectionDefinitions}
+  viewportCullingOptions={viewportCullingOptions}
+/>;
+```
+
+`overscan` is a finite non-negative CSS-pixel margin around the measured canvas. One shared
+`IntersectionObserver` watches root and recursive section frames. An offscreen frame remains as an
+exact-size lightweight named article while its host renderer and descendant subtree unmount, so
+ordered flex layout and root geometry remain stable. The all-depth geometry index retains the last
+canonical measurements for focus and fit, then reconnects them when frames remount.
+
+Focus within a frame pins its ancestry. Controller focus reveals the exact target path before
+geometry and DOM focus work begins. Detachment, movement, resizing, title editing, and presentation
+editing also pin the affected frame. Server rendering emits complete section content; the browser
+starts culling after mount. When enabled, a browser without `IntersectionObserver` fails
+specifically rather than silently changing the requested rendering policy.
+
+Treat culling like minimization for host-local component state: renderer instances can unmount and
+mount again. Put durable content in the section payload or separate host state. Choose overscan
+from representative host content and DOM profiles; the package does not impose an arbitrary
+cross-machine timing threshold or mutate the document to remember this preference.
+
 ## Optional outline navigator
 
 `WorkspaceOutline` is a ready-made hierarchical navigator for a registered pane or fixed overlay.

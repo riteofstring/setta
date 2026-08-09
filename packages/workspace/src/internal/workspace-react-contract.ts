@@ -33,6 +33,7 @@ import type {
   WorkspaceSectionTitleValidator,
 } from "./workspace-section-contract.js";
 import type { WorkspaceSectionRegistry } from "./workspace-section-registry.js";
+import type { WorkspaceViewportCullingOptions } from "./workspace-viewport-culling.js";
 
 export type WorkspaceDocumentChangeHandler<TSectionData = WorkspaceJsonValue> = (
   document: WorkspaceDocument<TSectionData>,
@@ -161,6 +162,7 @@ type SharedWorkspaceProps<TSectionData> = Omit<
   validateExternalDrop?: WorkspaceExternalDropValidator;
   validateSectionMove?: WorkspaceSectionMoveValidator<TSectionData>;
   validateSectionTitle?: WorkspaceSectionTitleValidator;
+  viewportCullingOptions?: WorkspaceViewportCullingOptions;
 };
 
 type ControlledWorkspaceProps<TSectionData> = {

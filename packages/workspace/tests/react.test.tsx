@@ -91,6 +91,35 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain("Shift+F10 ContextMenu");
   });
 
+  it("exposes strict opt-in viewport culling without changing server-rendered content", () => {
+    const document = createWorkspaceTestDocument([{ id: "alpha", title: "Alpha note" }]);
+    const definitions = [
+      {
+        defaultSize: { height: 180, width: 240 },
+        displayName: "Host note",
+        kind: "test",
+        render: () => <span>Server-rendered host body</span>,
+      },
+    ] satisfies readonly SectionDefinition[];
+    const markup = renderToStaticMarkup(
+      <Workspace
+        defaultDocument={document}
+        sectionDefinitions={definitions}
+        viewportCullingOptions={{ enabled: true, overscan: 96 }}
+      />,
+    );
+
+    expect(markup).toContain('data-workspace-viewport-culling="true"');
+    expect(markup).toContain('data-workspace-viewport-culling-overscan="96"');
+    expect(markup).toContain('data-workspace-culled="false"');
+    expect(markup).toContain("Server-rendered host body");
+    expect(() =>
+      renderToStaticMarkup(
+        <Workspace viewportCullingOptions={{ overscan: Number.POSITIVE_INFINITY }} />,
+      ),
+    ).toThrow("overscan must be a finite non-negative number");
+  });
+
   it("advertises clipboard shortcuts and keeps a pre-rendered announcement when configured", () => {
     const clipboardAdapter = {
       cloneSections: () => ({ allowed: true as const, sections: [] }),

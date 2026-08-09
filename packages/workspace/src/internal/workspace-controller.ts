@@ -342,13 +342,18 @@ async function focusSection<TSectionData>(
   assertKnownSections(document, [sectionId]);
   setSelection([sectionId]);
   const canvasController = requireCanvasController(bindings);
-  const viewport = await canvasController.focusSection(sectionId, document.viewport);
-  const result = setViewport(bindings, viewport);
-  const synchronized = await canvasController.waitForViewport(viewport);
-  if (synchronized) {
-    canvasController.focusElement(sectionId);
+  const release = canvasController.revealSection(sectionId);
+  try {
+    const viewport = await canvasController.focusSection(sectionId, document.viewport);
+    const result = setViewport(bindings, viewport);
+    const synchronized = await canvasController.waitForViewport(viewport);
+    if (synchronized) {
+      await canvasController.focusElementWhenReady(sectionId);
+    }
+    return result;
+  } finally {
+    release();
   }
-  return result;
 }
 
 async function fitSections<TSectionData>(

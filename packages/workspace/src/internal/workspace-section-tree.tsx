@@ -39,6 +39,7 @@ export type WorkspaceSectionTreeBindings = Pick<
   | "presentationEditable"
   | "readOnly"
   | "validateTitle"
+  | "viewportCulling"
 >;
 
 function requireTreeSection<TSectionData>(

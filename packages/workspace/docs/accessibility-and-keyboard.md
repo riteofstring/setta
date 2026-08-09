@@ -151,6 +151,12 @@ not diverge from canvas pan. A controlled rejection or a later user focus change
 focus work. Hosts should not call `focus()` from render or use document-level scroll restoration
 that competes with these operations.
 
+When viewport culling is enabled, each offscreen frame remains a named, non-tabbable article with a
+hidden status description while its controls and renderer are absent. Controller, outline, and
+minimap focus paths reveal the required ancestry before focus moves. A frame containing focus is
+never culled, including while the user pans it outside the visible canvas. Screen-reader users do
+not encounter hidden renderer controls, duplicate trees, or a new keyboard mode.
+
 ## Host-renderer responsibilities
 
 The package owns frame semantics, but it cannot repair arbitrary host content. A section renderer
@@ -160,7 +166,8 @@ must:
   regions, errors, and status messages.
 - Enforce content editing policy from `SectionRenderProps.readOnly`; package capabilities are not a
   security boundary.
-- Keep durable data in the section payload because minimize unmounts the renderer.
+- Keep durable data in the section payload because minimize and optional viewport culling unmount
+  the renderer.
 - Keep controls keyboard-operable without positive `tabIndex`, required hover, or pointer-only
   gestures.
 - Preserve text selection and native input behavior. Use `WorkspaceInteractionBoundary` for custom

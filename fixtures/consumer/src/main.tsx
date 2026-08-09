@@ -35,6 +35,7 @@ import {
   type WorkspaceSectionMoveMode,
   type WorkspaceSectionMoveValidator,
   type WorkspaceToolbarControl,
+  type WorkspaceViewportCullingOptions,
 } from "@setta/workspace/react";
 import "@setta/workspace/styles.css";
 import { StrictMode, useState } from "react";
@@ -240,6 +241,10 @@ const groupFactory: WorkspaceGroupFactory<ConsumerSectionData> = ({ sectionIds }
   };
 };
 const consumerAutoLayoutOptions = { gap: 48 } satisfies WorkspaceRootAutoLayoutOptions;
+const consumerViewportCullingOptions = {
+  enabled: true,
+  overscan: 120,
+} satisfies WorkspaceViewportCullingOptions;
 const toolbarControls = [
   {
     icon: <span>+</span>,
@@ -334,6 +339,7 @@ createRoot(root).render(
           toolbarControls={toolbarControls}
           validateExternalDrop={validateExternalDrop}
           validateSectionMove={validateSectionMove}
+          viewportCullingOptions={consumerViewportCullingOptions}
         />
       </WorkspaceDetachmentProvider>
     </div>

@@ -101,6 +101,66 @@ function fakeElement(
 }
 
 describe("WorkspaceGeometryMeasurements lifecycle", () => {
+  it("retains last measured geometry across a culled unmount and focuses the remounted frame", async () => {
+    const fixture = fakeWindow();
+    const ownerDocument = {
+      activeElement: null,
+      defaultView: fixture.window,
+    } as unknown as Document;
+    const canvas = fakeElement(
+      fixture.window,
+      { height: 500, width: 800, x: 50, y: 80 },
+      ownerDocument,
+    );
+    const first = fakeElement(
+      fixture.window,
+      { height: 120, width: 200, x: 90, y: 140 },
+      ownerDocument,
+    );
+    const second = fakeElement(
+      fixture.window,
+      { height: 120, width: 200, x: 90, y: 140 },
+      ownerDocument,
+    );
+    const index = new WorkspaceGeometryIndex();
+    const geometry = new WorkspaceGeometryMeasurements(index);
+    geometry.setRetainedSectionIds(["root"]);
+    geometry.setCanvasElement(canvas.element);
+    const unregisterFirst = geometry.register({
+      depth: 0,
+      element: first.element,
+      order: 0,
+      parentSectionId: null,
+      sectionId: "root",
+    });
+    geometry.flushMeasurement();
+    unregisterFirst();
+
+    expect(index.size).toBe(1);
+    await expect(geometry.boundsWhenReady(["root"])).resolves.toEqual({
+      height: 120,
+      width: 200,
+      x: 40,
+      y: 60,
+    });
+    const focused = geometry.focusSectionWhenReady("root");
+    const unregisterSecond = geometry.register({
+      depth: 0,
+      element: second.element,
+      order: 0,
+      parentSectionId: null,
+      sectionId: "root",
+    });
+
+    await expect(focused).resolves.toBe(true);
+    expect(second.focus).toHaveBeenCalledOnce();
+    expect(index.size).toBe(1);
+    unregisterSecond();
+    geometry.setRetainedSectionIds([]);
+    expect(index.size).toBe(0);
+    geometry.setCanvasElement(null);
+  });
+
   it("releases observers, listeners, frames, and scheduled work when the canvas detaches", () => {
     const fixture = fakeWindow();
     const canvas = fakeElement(fixture.window, { height: 500, width: 800, x: 50, y: 80 });

@@ -44,7 +44,8 @@ The locally packed artifact includes focused guides for the package's permanent 
 
 - [Host integration](docs/integration.md): documents, persistence, capabilities, controller
   commands, extensions, outline navigation, generic edges and ports, creation, clipboard adapters,
-  detachable windows, selection, grouping, stacking, minimap, history, and external drops.
+  detachable windows, viewport culling, selection, grouping, stacking, minimap, history, and
+  external drops.
 - [Recursive sections](docs/recursive-sections.md): containment, movement modes, orientation,
   locking, minimizing, sizing, overflow, snapping, chrome, accents, and tags.
 - [Sortable item trees](docs/sortable-item-trees.md): controlled item data, named and filtered
@@ -602,6 +603,16 @@ host-owned ID allocation and collection changes. Core `parseWorkspaceViewportPre
 `serializeWorkspaceViewportPresets` helpers provide a strict versioned storage frame. Restoring a
 view changes only the ordinary document viewport, stays available in read-only mode, and does not
 create a structural history entry.
+
+`viewportCullingOptions` enables optional all-depth browser windowing for large host DOMs. It is
+disabled by default. With `{ enabled: true, overscan: 160 }`, one canvas-rooted
+`IntersectionObserver` keeps sections within the configured CSS-pixel margin rendered and replaces
+farther frames with exact-size lightweight articles. A culled container also unmounts its renderer
+and descendant subtree without changing `WorkspaceDocument`, selection, history, or canonical
+geometry. Focused, detached, moving, resizing, and actively edited frames stay rendered, and
+controller focus reveals the target's complete ancestry before moving DOM focus. Keep durable host
+renderer state in the section payload or host state because culling deliberately unmounts offscreen
+renderer instances. Enabling the option requires browser `IntersectionObserver` support.
 
 `gridOptions.snap` and `minimapOptions.visible` are locally toggleable when their change callback is
 omitted. Supplying `onGridSnapChange` or `onMinimapVisibilityChange` makes that preference

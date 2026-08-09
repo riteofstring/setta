@@ -22,6 +22,11 @@ type RegisteredMeasuredElement = MeasuredWorkspaceElement & {
   token: symbol;
 };
 
+type RetainedMeasuredElement = Readonly<{
+  frame: MeasuredWorkspaceFrame;
+  registration: GeometryRegistration;
+}>;
+
 type PendingBoundsRequest = {
   dispose(): void;
   reject(error: Error): void;
@@ -146,6 +151,8 @@ export class WorkspaceGeometryMeasurements {
   readonly #pendingFocus = new Map<string, Set<PendingFocusRequest>>();
   readonly #pendingBounds = new Set<PendingBoundsRequest>();
   readonly #pendingViewports = new Set<PendingViewportRequest>();
+  readonly #retainedEntries = new Map<string, RetainedMeasuredElement>();
+  #retainedSectionIds = new Set<string>();
   #canvasElement: HTMLElement | null = null;
   #frameRequest: number | null = null;
   #resizeObserver: ResizeObserver | null = null;
@@ -162,10 +169,12 @@ export class WorkspaceGeometryMeasurements {
     if (this.#entries.has(measuredElement.sectionId)) {
       throw new Error(`Section ${measuredElement.sectionId} already has measured DOM geometry.`);
     }
+    const retained = this.#retainedEntries.get(measuredElement.sectionId);
+    this.#retainedEntries.delete(measuredElement.sectionId);
     const entry: RegisteredMeasuredElement = {
       ...measuredElement,
-      frame: null,
-      registration: null,
+      frame: retained?.frame ?? null,
+      registration: retained?.registration ?? null,
       token: Symbol(measuredElement.sectionId),
     };
     this.#entries.set(entry.sectionId, entry);
@@ -174,6 +183,22 @@ export class WorkspaceGeometryMeasurements {
     this.requestMeasurement();
 
     return () => this.#unregister(entry);
+  }
+
+  setRetainedSectionIds(sectionIds: readonly string[]): void {
+    this.#retainedSectionIds = new Set(sectionIds);
+    for (const [sectionId, retained] of this.#retainedEntries) {
+      if (this.#retainedSectionIds.has(sectionId)) {
+        continue;
+      }
+      retained.registration.dispose();
+      this.#retainedEntries.delete(sectionId);
+      this.#rejectPending(
+        `Section ${sectionId} was removed before its geometry became ready.`,
+        sectionId,
+      );
+      this.#settleUnavailableFocus(sectionId);
+    }
   }
 
   setCanvasElement(element: HTMLElement | null): void {
@@ -272,7 +297,9 @@ export class WorkspaceGeometryMeasurements {
     if (uniqueSectionIds.length === 0) {
       throw new TypeError("Workspace geometry bounds need at least one section.");
     }
-    const unregisteredId = uniqueSectionIds.find((sectionId) => !this.#entries.has(sectionId));
+    const unregisteredId = uniqueSectionIds.find(
+      (sectionId) => !this.#entries.has(sectionId) && !this.#retainedEntries.has(sectionId),
+    );
     if (unregisteredId) {
       throw new Error(`Section ${unregisteredId} does not have a registered visible frame.`);
     }
@@ -414,16 +441,30 @@ export class WorkspaceGeometryMeasurements {
       return;
     }
     this.#resizeObserver?.unobserve(entry.element);
-    entry.registration?.dispose();
     this.#entries.delete(entry.sectionId);
-    this.#rejectPending(
-      `Section ${entry.sectionId} was removed before its geometry became ready.`,
-      entry.sectionId,
-    );
+    if (!this.#retainEntry(entry)) {
+      entry.registration?.dispose();
+      this.#rejectPending(
+        `Section ${entry.sectionId} was removed before its geometry became ready.`,
+        entry.sectionId,
+      );
+      this.#settleUnavailableFocus(entry.sectionId);
+    }
     if (this.#entries.size === 0) {
       this.#resizeObserver?.disconnect();
       this.#resizeObserver = null;
     }
+  }
+
+  #retainEntry(entry: RegisteredMeasuredElement): boolean {
+    if (!this.#retainedSectionIds.has(entry.sectionId) || !entry.frame || !entry.registration) {
+      return false;
+    }
+    this.#retainedEntries.set(entry.sectionId, {
+      frame: entry.frame,
+      registration: entry.registration,
+    });
+    return true;
   }
 
   #cancelScheduledMeasurement(): void {
@@ -472,7 +513,11 @@ export class WorkspaceGeometryMeasurements {
     for (const entry of this.#entries.values()) {
       entry.registration?.dispose();
     }
+    for (const entry of this.#retainedEntries.values()) {
+      entry.registration.dispose();
+    }
     this.#entries.clear();
+    this.#retainedEntries.clear();
     this.#settleDetachedFocus();
     this.#rejectPending("Workspace canvas geometry became unavailable before measurement.");
     this.#rejectPendingViewports(
@@ -529,6 +574,17 @@ export class WorkspaceGeometryMeasurements {
     entry.element.focus({ preventScroll: true });
     for (const request of requests) {
       request.resolve(true);
+    }
+  }
+
+  #settleUnavailableFocus(sectionId: string): void {
+    const requests = this.#pendingFocus.get(sectionId);
+    if (!requests) {
+      return;
+    }
+    this.#pendingFocus.delete(sectionId);
+    for (const request of requests) {
+      request.resolve(false);
     }
   }
 

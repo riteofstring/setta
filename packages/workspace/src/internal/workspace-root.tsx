@@ -95,6 +95,7 @@ import {
   resolveWorkspaceSelection,
   workspaceSelectionsMatch,
 } from "./workspace-selection.js";
+import { resolveWorkspaceViewportCullingOptions } from "./workspace-viewport-culling.js";
 
 type PendingStructuralSelection =
   | Readonly<{
@@ -168,6 +169,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     validateExternalDrop,
     validateSectionMove,
     validateSectionTitle,
+    viewportCullingOptions: viewportCullingOptionOverrides,
     ...sectionProps
   } = props;
   assertWorkspaceAccessibleName(ariaLabel);
@@ -222,6 +224,10 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   const selectionOptions = useMemo(
     () => resolveWorkspaceSelectionOptions(selectionOptionOverrides),
     [selectionOptionOverrides],
+  );
+  const viewportCullingOptions = useMemo(
+    () => resolveWorkspaceViewportCullingOptions(viewportCullingOptionOverrides),
+    [viewportCullingOptionOverrides],
   );
   const sectionMoveMode = resolveWorkspaceSectionMoveMode(sectionMoveModeValue);
   const [gridSnap, setGridSnap] = useWorkspaceBooleanPreference(
@@ -719,6 +725,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
           validateExternalDrop={validateExternalDrop}
           validateSectionMove={validateSectionMove}
           validateSectionTitle={handleSectionTitleValidation}
+          viewportCullingOptions={viewportCullingOptions}
           workspaceController={controller}
         />
       </WorkspacePaneLayout>
