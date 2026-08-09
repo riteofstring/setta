@@ -1,44 +1,17 @@
 import type { NodeMouseHandler } from "@xyflow/react";
-import { useCallback, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { useCallback, useRef, type KeyboardEvent, type MouseEvent } from "react";
 
-import {
-  deriveWorkspaceParentLookup,
-  type WorkspaceActionResult,
-  type WorkspaceDocument,
-} from "../core.js";
+import type { WorkspaceActionResult, WorkspaceDocument } from "../core.js";
 import type { WorkspaceGeometryIndex } from "./geometry-index.js";
-import {
-  type RootSelectionProjection,
-  type WorkspaceRootNode,
-} from "./workspace-canvas-root-node.js";
+import { type WorkspaceRootNode } from "./workspace-canvas-root-node.js";
 import { useWorkspaceMarqueeSelection } from "./workspace-canvas-selection.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
+import type { WorkspaceSelectionStore } from "./workspace-selection-store.js";
 import {
   applyWorkspaceSectionSelectionRequest,
-  normalizeWorkspaceSelectionRoots,
-  resolveWorkspaceRootSelection,
   resolveWorkspaceStructuralSelection,
   type WorkspaceSectionSelectionRequest,
 } from "./workspace-selection.js";
-
-function selectionContainsDetachedSection(
-  document: WorkspaceDocument<unknown>,
-  selectedSectionIds: readonly string[],
-  detachedSectionIds: readonly string[],
-): boolean {
-  const selectedRoots = new Set(normalizeWorkspaceSelectionRoots(document, selectedSectionIds));
-  const parentLookup = deriveWorkspaceParentLookup(document);
-  return detachedSectionIds.some((detachedSectionId) => {
-    let sectionId: string | null = detachedSectionId;
-    while (sectionId !== null) {
-      if (selectedRoots.has(sectionId)) {
-        return true;
-      }
-      sectionId = parentLookup.get(sectionId) ?? null;
-    }
-    return false;
-  });
-}
 
 function selectionAnnouncement<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
@@ -94,83 +67,62 @@ function clickedWorkspaceSectionId<TSectionData>(
 }
 
 export function useWorkspaceCanvasSelectionControls<TSectionData>({
-  detachedSectionIds,
   document,
   geometry,
   geometryIndex,
   marqueeSelectionMode,
   onSelectionChange,
-  selectedSectionIds,
+  selectionStore,
   visibleSectionIds,
 }: Readonly<{
-  detachedSectionIds: readonly string[];
   document: WorkspaceDocument<TSectionData>;
   geometry: WorkspaceGeometryMeasurements;
   geometryIndex: WorkspaceGeometryIndex;
   marqueeSelectionMode: "full" | "partial";
   onSelectionChange(sectionIds: readonly string[]): WorkspaceActionResult;
-  selectedSectionIds: readonly string[];
+  selectionStore: WorkspaceSelectionStore;
   visibleSectionIds: readonly string[];
 }>) {
   const documentRef = useRef(document);
   const onSelectionChangeRef = useRef(onSelectionChange);
-  const selectedSectionIdsRef = useRef<readonly string[]>(selectedSectionIds);
   const visibleSectionIdsRef = useRef<readonly string[]>(visibleSectionIds);
   documentRef.current = document;
   onSelectionChangeRef.current = onSelectionChange;
-  selectedSectionIdsRef.current = selectedSectionIds;
   visibleSectionIdsRef.current = visibleSectionIds;
-  const [announcementText, setAnnouncementText] = useState("");
-  const commitSelection = useCallback((sectionIds: readonly string[]) => {
-    const result = onSelectionChangeRef.current(sectionIds);
-    if (result.status !== "rejected") {
-      selectedSectionIdsRef.current = sectionIds;
-      setAnnouncementText(selectionAnnouncement(documentRef.current, sectionIds));
-    }
-    return result;
-  }, []);
+  const commitSelection = useCallback(
+    (sectionIds: readonly string[]) => {
+      const result = onSelectionChangeRef.current(sectionIds);
+      if (result.status !== "rejected") {
+        selectionStore.announce(
+          selectionAnnouncement(documentRef.current, selectionStore.getSnapshot().sectionIds),
+        );
+      }
+      return result;
+    },
+    [selectionStore],
+  );
   const handleSelectionRequest = useCallback(
     (sectionId: string, request: WorkspaceSectionSelectionRequest) => {
       const nextSelection = applyWorkspaceSectionSelectionRequest(
         documentRef.current,
-        selectedSectionIdsRef.current,
+        selectionStore.getSnapshot().sectionIds,
         sectionId,
         request,
       );
       commitSelection(nextSelection);
     },
-    [commitSelection],
+    [commitSelection, selectionStore],
   );
-  const rootSelectionProjection = useMemo<RootSelectionProjection>(() => {
-    const selectedIds = new Set(selectedSectionIds);
-    const activeSelectedRoot = document.rootSections.find(({ sectionId }) =>
-      selectedIds.has(sectionId),
-    );
-    const movement = activeSelectedRoot
-      ? resolveWorkspaceRootSelection(document, selectedSectionIds, activeSelectedRoot.sectionId)
-      : null;
-    const structuralMovement =
-      selectedSectionIds.length > 0
-        ? resolveWorkspaceStructuralSelection(document, selectedSectionIds)
-        : null;
-    const detachmentBlocked = selectionContainsDetachedSection(
-      document,
-      selectedSectionIds,
-      detachedSectionIds,
-    );
-    return {
-      movementBlocked: detachmentBlocked || (movement !== null && !movement.allowed),
-      selectedSectionIds: selectedIds,
-      structuralMovementBlocked:
-        detachmentBlocked || (structuralMovement !== null && !structuralMovement.allowed),
-    };
-  }, [detachedSectionIds, document, selectedSectionIds]);
+  const getSelectedSectionIds = useCallback(
+    () => selectionStore.getSnapshot().sectionIds,
+    [selectionStore],
+  );
   const marqueeSelection = useWorkspaceMarqueeSelection({
     geometry,
     geometryIndex,
+    getSelectedSectionIds,
     mode: marqueeSelectionMode,
     onSelectionChange: commitSelection,
-    selectedSectionIds: selectedSectionIdsRef,
   });
   const handlePaneClick = useCallback(() => {
     commitSelection([]);
@@ -195,7 +147,8 @@ export function useWorkspaceCanvasSelectionControls<TSectionData>({
       }
       const selectsAll =
         event.key.toLowerCase() === "a" && (event.ctrlKey || event.metaKey) && !event.altKey;
-      const clearsSelection = event.key === "Escape" && selectedSectionIdsRef.current.length > 0;
+      const clearsSelection =
+        event.key === "Escape" && selectionStore.getSnapshot().sectionIds.length > 0;
       if (!selectsAll && !clearsSelection) {
         return;
       }
@@ -203,18 +156,15 @@ export function useWorkspaceCanvasSelectionControls<TSectionData>({
       event.preventDefault();
       event.stopPropagation();
     },
-    [commitSelection],
+    [commitSelection, selectionStore],
   );
 
   return {
-    announcementText,
     commitSelection,
     handleCanvasKeyDownCapture,
     handleNodeClick,
     handlePaneClick,
     handleSelectionRequest,
     marqueeSelection,
-    rootSelectionProjection,
-    selectedSectionIdsRef,
   };
 }

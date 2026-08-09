@@ -5,9 +5,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type KeyboardEvent,
   type MouseEvent,
-  type PointerEvent,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -20,14 +18,7 @@ import type {
   WorkspaceSectionPresentation,
 } from "../core.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
-import {
-  WORKSPACE_NO_PAN_CLASS_NAME,
-  WORKSPACE_NO_ROOT_DRAG_CLASS_NAME,
-} from "./workspace-interaction-boundary.js";
-import {
-  workspaceKeyboardMoveDirectionForKey,
-  type WorkspaceKeyboardMoveDirection,
-} from "./workspace-root-movement.js";
+import type { WorkspaceKeyboardMoveDirection } from "./workspace-root-movement.js";
 import type {
   WorkspaceSectionColorOption,
   WorkspaceSectionTitleValidator,
@@ -39,11 +30,11 @@ import {
 } from "./workspace-section-detachment.js";
 import {
   useWorkspaceSectionDnd,
-  useWorkspaceSectionDragHandleActivation,
   workspaceSectionMoveDescription,
 } from "./workspace-section-dnd.js";
+import { SectionDragHandle, SectionSelectionControl } from "./workspace-section-drag-controls.js";
 import { SectionPresentationEditor, SectionTitleEditor } from "./workspace-section-editors.js";
-import { MoveIcon, RenameIcon, SelectionIcon, StyleIcon } from "./workspace-section-frame-icons.js";
+import { RenameIcon, StyleIcon } from "./workspace-section-frame-icons.js";
 import { WorkspaceSectionLayoutControls } from "./workspace-section-layout-controls.js";
 import {
   SectionDescendantRegion,
@@ -52,6 +43,7 @@ import {
 } from "./workspace-section-minimization.js";
 import type { ResolvedSectionDefinition } from "./workspace-section-registry.js";
 import { WorkspaceSectionStateControls } from "./workspace-section-state-controls.js";
+import { useWorkspaceSectionSelectionState } from "./workspace-selection-context.js";
 import type { WorkspaceSectionSelectionRequest } from "./workspace-selection.js";
 import {
   optionalWorkspaceCullingSize,
@@ -89,8 +81,6 @@ export type WorkspaceSectionFrameProps = Readonly<{
   presentationEditable: boolean;
   readOnly: boolean;
   resizing: boolean;
-  selected: boolean;
-  selectionMovementBlocked: boolean;
   section: WorkspaceSection<unknown>;
   validateTitle: WorkspaceSectionTitleValidator;
   viewportCulling: WorkspaceViewportCulling;
@@ -218,181 +208,6 @@ function SectionHeading(props: SectionHeadingProps) {
     return <VisibleSectionHeading {...props} />;
   }
   return <HeaderlessSectionHeading {...props} />;
-}
-
-function SectionSelectionControl({
-  onSelectionRequest,
-  section,
-  selected,
-}: Readonly<{
-  onSelectionRequest(sectionId: string, request: WorkspaceSectionSelectionRequest): void;
-  section: WorkspaceSection<unknown>;
-  selected: boolean;
-}>) {
-  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    onSelectionRequest(section.id, {
-      additive: event.shiftKey,
-      preserveSelected: false,
-    });
-  };
-  return (
-    <button
-      aria-keyshortcuts="Shift+Enter Shift+Space"
-      aria-label={`Select ${section.title}`}
-      aria-pressed={selected}
-      className="setta-workspace__section-selection-control"
-      data-workspace-selection-control=""
-      onClick={handleClick}
-      type="button"
-    >
-      <SelectionIcon selected={selected} />
-    </button>
-  );
-}
-
-function structuralDragAttribute<Value>(structural: boolean, value: Value): Value | undefined {
-  return structural ? value : undefined;
-}
-
-function spatialDragDisabled(
-  depth: number,
-  detached: boolean,
-  layoutEditable: boolean,
-  section: WorkspaceSection<unknown>,
-  selectionMovementBlocked: boolean,
-  spatialEnabled: boolean,
-): boolean {
-  return (
-    !spatialEnabled ||
-    detached ||
-    depth > 0 ||
-    !layoutEditable ||
-    section.positionAndSizeLocked ||
-    selectionMovementBlocked
-  );
-}
-
-function handleStructuralDragKey(
-  event: KeyboardEvent<HTMLButtonElement>,
-  active: boolean,
-  disabled: boolean,
-  section: WorkspaceSection<unknown>,
-  selected: boolean,
-  onSelectionRequest: (sectionId: string, request: WorkspaceSectionSelectionRequest) => void,
-): void {
-  if (active && workspaceKeyboardMoveDirectionForKey(event.key)) {
-    event.preventDefault();
-    event.stopPropagation();
-  }
-  if ((event.key === "Enter" || event.key === " ") && !disabled) {
-    onSelectionRequest(section.id, {
-      additive: event.shiftKey,
-      preserveSelected: selected,
-    });
-  }
-}
-
-function SectionDragHandle({
-  depth,
-  descriptionId,
-  detached,
-  layoutEditable,
-  onKeyboardMove,
-  onSelectionRequest,
-  section,
-  selected,
-  selectionMovementBlocked,
-  spatialMoving,
-  structuralDrag,
-}: Readonly<{
-  depth: number;
-  descriptionId: string;
-  detached: boolean;
-  layoutEditable: boolean;
-  onKeyboardMove(sectionId: string, direction: WorkspaceKeyboardMoveDirection): void;
-  onSelectionRequest(sectionId: string, request: WorkspaceSectionSelectionRequest): void;
-  section: WorkspaceSection<unknown>;
-  selected: boolean;
-  selectionMovementBlocked: boolean;
-  spatialMoving: boolean;
-  structuralDrag: Readonly<{
-    active: boolean;
-    configEnabled: boolean;
-    handleRef(element: Element | null): void;
-    mode: "free" | "sort";
-    structural: boolean;
-  }>;
-}>) {
-  const activation = useWorkspaceSectionDragHandleActivation({
-    configEnabled: structuralDrag.configEnabled,
-    sectionId: section.id,
-    spatialMoving,
-  });
-  const disabled = structuralDrag.structural
-    ? !activation.structuralEnabled
-    : spatialDragDisabled(
-        depth,
-        detached,
-        layoutEditable,
-        section,
-        selectionMovementBlocked,
-        activation.spatialEnabled,
-      );
-  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (structuralDrag.structural) {
-      handleStructuralDragKey(
-        event,
-        structuralDrag.active,
-        disabled,
-        section,
-        selected,
-        onSelectionRequest,
-      );
-      return;
-    }
-    const direction = workspaceKeyboardMoveDirectionForKey(event.key);
-    if (!direction || event.altKey || event.ctrlKey || event.metaKey) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    onKeyboardMove(section.id, direction);
-  };
-  const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
-    if (event.button !== 0 || !event.isPrimary || disabled) {
-      return;
-    }
-    if (structuralDrag.structural && event.pointerType === "touch") {
-      return;
-    }
-    onSelectionRequest(section.id, {
-      additive: event.shiftKey,
-      preserveSelected: selected,
-    });
-  };
-  return (
-    <button
-      aria-describedby={descriptionId}
-      aria-grabbed={structuralDragAttribute(structuralDrag.structural, structuralDrag.active)}
-      aria-keyshortcuts={
-        structuralDrag.structural
-          ? "Enter Space ArrowUp ArrowDown ArrowLeft ArrowRight Escape"
-          : "ArrowUp ArrowDown ArrowLeft ArrowRight"
-      }
-      aria-label={`Move ${section.title}`}
-      aria-roledescription={structuralDragAttribute(structuralDrag.structural, "draggable")}
-      className={`setta-workspace__section-drag-handle${depth === 0 && !detached ? " setta-workspace__section-drag-handle--root" : ""}${structuralDrag.structural ? ` ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_ROOT_DRAG_CLASS_NAME}` : ""}`}
-      data-workspace-section-drag-mode={structuralDrag.structural ? structuralDrag.mode : "spatial"}
-      disabled={disabled}
-      onKeyDown={handleKeyDown}
-      onPointerDown={handlePointerDown}
-      ref={structuralDragAttribute(structuralDrag.structural, structuralDrag.handleRef)}
-      type="button"
-    >
-      <MoveIcon />
-    </button>
-  );
 }
 
 function focusWithoutScroll(ref: RefObject<HTMLElement | null>): void {
@@ -684,12 +499,16 @@ export function WorkspaceSectionFrame({
   presentationEditable,
   readOnly,
   resizing,
-  selected,
-  selectionMovementBlocked,
   section,
   validateTitle,
   viewportCulling,
 }: WorkspaceSectionFrameProps) {
+  // Selection arrives through per-section store subscriptions instead of
+  // props so a pointer-down selection commit rerenders only affected frames.
+  const { selected, selectionMovementBlocked } = useWorkspaceSectionSelectionState(
+    section.id,
+    depth === 0,
+  );
   const reactId = useId().replaceAll(":", "");
   const contentId = `setta-workspace-section-${reactId}-content`;
   const descendantRegionId = `setta-workspace-section-${reactId}-descendants`;

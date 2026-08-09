@@ -154,3 +154,52 @@ also altered host selection timing and drag-overlay lifecycle, the runtime bundl
 full. Retain the traces as negative evidence; do not retry this combined selection deferral,
 frame-flush, validation-cache, memoization, or overlay-offload approach. The next change must
 preserve callback timing and upstream lifecycle while proving a different measured owner.
+
+## Selection distribution store — landed 2026-08-10
+
+CPU attribution (CDP `Profiler`, 100 µs) against the corrected fixture isolated the dominant
+in-dispatch owner: dragging an **unselected** section commits a selection on pointer-down, and that
+commit lived in workspace-root React state, so the whole workbench (root, adapter, ReactFlow shell,
+toolbar, minimap, overlays, and the affected branch) rerendered synchronously inside the dispatch.
+Measured control: development structural pointer-down span 34.1 ms unselected versus 11.0 ms with
+the section pre-selected, with ~16 ms of raw JSX element creation in the unselected span.
+
+The fix follows the plan's sanctioned "narrow React subscriptions" direction and the ratified
+activation-store architecture: selection state now distributes through
+`WorkspaceSelectionStore` (`workspace-selection-store.ts`). Selection decisions (resolution,
+visibility reconciliation, rejection) stay in workspace-root's `commitSelection`, which publishes
+synchronously in the same dispatch — callback timing, announcements, and gesture lifecycle are
+unchanged. Consumers subscribe narrowly: frames and resize controls read per-section primitives
+through `useWorkspaceSectionSelectionState`, the selection overlay and the live announcement region
+subscribe individually, and imperative readers (session creation, keyboard/root drag start, marquee
+baseline, action menu, controller) read `getSnapshot()`. Root/adapter/tree renders no longer depend
+on selection at all; node-level `selected` (upstream block-drag membership) and selection-blocked
+`draggable` reapply through one identity-preserving `setNodes` that skips the write when nothing
+changed. Dropping `node.selected` entirely broke selected-block root dragging — upstream reads it
+to assemble `draggedNodes` — so it is store-driven, not removed.
+
+`phase-1-selection-store` (13:07 development, 13:09 production) records the result:
+
+| Build       | Metric                             | fixture-activation     | selection-store            |
+| ----------- | ---------------------------------- | ---------------------- | -------------------------- |
+| development | structural-sort pointer-down       | 43.5–55 ms             | 22–33.6 ms                 |
+| development | structural-sort activation max gap | 49.6–66.6 ms           | 25–41.8 ms                 |
+| development | nested-freeform activation max gap | 49.9–58.4 ms           | 33.4–43.1 ms               |
+| development | root-drag activation max gap       | 25–40.8 ms (4 > 32)    | 10.1–33.3 ms (1 cold > 32) |
+| development | long tasks ≥50 ms                  | most structural passes | none anywhere              |
+| production  | structural-sort activation max gap | 15.6–33.3 ms (1 > 32)  | 16.7–33.3 ms (1 cold > 32) |
+| production  | nested-freeform activation max gap | 9–33.1 ms (1 > 32)     | 9.8–25.6 ms (0 > 32)       |
+
+All structural gates stayed green: the package vitest suite (534), and the selection,
+selection-actions, section-state, root-movement, recursive-keyboard, recursive-grouping,
+visual-matrix, and nested-freeform-contract browser workflows.
+
+Remaining gap: development structural/freeform activation still shows one repeatable 33–43 ms gap
+per pass (two skipped frames), with in-dispatch handler spans of 21–34 ms. Timeline placement:
+(a) the residual dispatch cost is dnd-kit's start work (scroller `elementFromPoint`, Feedback
+measurement/`getBoundingClientRect`, overlay flush) plus session build — the selection render is
+gone; and (b) the deferred ownership broadcast still commits an adapter-wide React render
+(canvas data attributes, gesture policy, announcements) in the first frame after pointer-down,
+which in development costs enough to skip that frame. The next owner-preserving change is to narrow
+the ownership broadcast the same way (store-driven canvas attributes and gesture flags) without
+changing the committed state sequence.

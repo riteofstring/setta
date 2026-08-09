@@ -7,7 +7,6 @@ export type RootProjectionInput = {
   sectionId: string;
   position: WorkspacePoint;
   size: { width: number; height: number };
-  selected?: boolean;
 };
 
 export type RootProjectionSnapshot = Required<RootProjectionInput>;
@@ -24,8 +23,7 @@ export type RootProjectionChange =
       sectionId: string;
       size: { width: number; height: number };
       resizing: boolean;
-    }
-  | { type: "selection"; sectionId: string; selected: boolean };
+    };
 
 export type RootLayoutCommand =
   | {
@@ -89,7 +87,6 @@ function createNode(root: RootProjectionInput): InternalRootNode {
     position: { ...root.position },
     width: root.size.width,
     height: root.size.height,
-    selected: root.selected ?? false,
     data: { sectionId: root.sectionId },
   };
 }
@@ -130,7 +127,6 @@ function toSnapshot(node: InternalRootNode): RootProjectionSnapshot {
     sectionId: node.id,
     position: { ...node.position },
     size: nodeSize(node),
-    selected: node.selected ?? false,
   };
 }
 
@@ -144,17 +140,14 @@ function toUpstreamChange(change: RootProjectionChange): NodeChange<InternalRoot
       dragging: change.dragging,
     };
   }
-  if (change.type === "dimensions") {
-    assertSize(change.size, change.sectionId);
-    return {
-      id: change.sectionId,
-      type: "dimensions",
-      dimensions: { ...change.size },
-      resizing: change.resizing,
-      setAttributes: true,
-    };
-  }
-  return { id: change.sectionId, type: "select", selected: change.selected };
+  assertSize(change.size, change.sectionId);
+  return {
+    id: change.sectionId,
+    type: "dimensions",
+    dimensions: { ...change.size },
+    resizing: change.resizing,
+    setAttributes: true,
+  };
 }
 
 export class TransientRootProjection {

@@ -15,6 +15,7 @@ import {
   type WorkspaceSectionInlineEnd,
   type WorkspaceSectionResizeHandle,
 } from "./workspace-section-sizing.js";
+import { useWorkspaceSectionSelectionState } from "./workspace-selection-context.js";
 
 export type WorkspaceSectionResizeBindings = Readonly<{
   onContentSizeRequest(sectionId: string, handle: WorkspaceSectionResizeHandle): void;
@@ -159,16 +160,15 @@ export function WorkspaceSectionResizeControls({
   definition,
   layoutEditable,
   section,
-  selected,
 }: Readonly<{
   bindings: WorkspaceSectionResizeBindings;
   definition: ResolvedSectionDefinition<unknown>;
   layoutEditable: boolean;
   section: WorkspaceSection<unknown>;
-  selected: boolean;
 }>) {
   const descriptionId = `setta-workspace-resize-${useId().replaceAll(":", "")}`;
   const detached = useWorkspaceSectionDetached(section.id);
+  const { selected } = useWorkspaceSectionSelectionState(section.id, true);
   const handles = workspaceSectionResizeHandles(definition);
   const visible =
     selected &&

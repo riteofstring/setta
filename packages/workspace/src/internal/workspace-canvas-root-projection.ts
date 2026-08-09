@@ -1,5 +1,13 @@
 import { applyNodeChanges, type OnNodeDrag, type OnNodesChange } from "@xyflow/react";
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 
 import type {
   SectionOrientation,
@@ -13,6 +21,7 @@ import type {
 } from "../core.js";
 import { TransientRootProjection, type RootProjectionChange } from "./transient-root-projection.js";
 import {
+  applyRootSelectionState,
   normalizeSelectedRootChanges,
   projectNodes,
   rootProjectionChange,
@@ -20,7 +29,6 @@ import {
   setActiveRoots,
   synchronizeNodes,
   type ActiveRootMovement,
-  type RootSelectionProjection,
   type WorkspaceRootNode,
 } from "./workspace-canvas-root-node.js";
 import { useWorkspaceCanvasRootResizing } from "./workspace-canvas-root-resizing.js";
@@ -44,6 +52,7 @@ import {
   type WorkspaceSectionResizeAxis,
 } from "./workspace-section-sizing.js";
 import { useWorkspaceSectionStateActions } from "./workspace-section-state-actions.js";
+import type { WorkspaceSelectionStore } from "./workspace-selection-store.js";
 import {
   resolveWorkspaceRootSelection,
   translateWorkspaceRootSelection,
@@ -117,9 +126,8 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
   onSectionTitleCommit,
   presentationEditable,
   readOnly,
-  rootSelectionProjection,
   sectionRegistry,
-  selectedSectionIdsRef,
+  selectionStore,
   validateSectionTitle,
   viewportCulling,
 }: Readonly<{
@@ -163,9 +171,8 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
   onSectionTitleCommit(sectionId: string, title: string): WorkspaceActionResult;
   presentationEditable: boolean;
   readOnly: boolean;
-  rootSelectionProjection: RootSelectionProjection;
   sectionRegistry: WorkspaceSectionRegistry<TSectionData>;
-  selectedSectionIdsRef: RefObject<readonly string[]>;
+  selectionStore: WorkspaceSelectionStore;
   validateSectionTitle: WorkspaceSectionTitleValidator;
   viewportCulling: WorkspaceViewportCulling;
 }>) {
@@ -243,14 +250,14 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
       }
       const selection = resolveWorkspaceRootSelection(
         currentDocument,
-        selectedSectionIdsRef.current,
+        selectionStore.getSnapshot().sectionIds,
         sectionId,
       );
       if (!selection.allowed) {
         setAnnouncementText(selection.reason);
         return;
       }
-      if (!selectedSectionIdsRef.current.includes(sectionId)) {
+      if (!selectionStore.getSnapshot().selected.has(sectionId)) {
         commitSelection([sectionId]);
       }
       const activePosition = moveWorkspaceRootWithKeyboard(
@@ -267,7 +274,7 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
       const result = onRootMoveCommitRef.current(positions);
       recordMovementResult(sectionId, section.title, positions, result);
     },
-    [commitSelection, recordMovementResult, selectedSectionIdsRef],
+    [commitSelection, recordMovementResult, selectionStore],
   );
   const projectedNodes = useMemo(
     () =>
@@ -292,7 +299,9 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
         validateSectionTitle,
         viewportCulling,
         resizeBindings,
-        rootSelectionProjection,
+        // Seed draggability from the snapshot at projection time; the
+        // subscription effect below keeps it current between projections.
+        selectionStore.getSnapshot(),
       ),
     [
       appearance,
@@ -310,10 +319,10 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
       presentationEditable,
       readOnly,
       resizeBindings,
-      rootSelectionProjection,
       sectionStateActions.handleLockedCommit,
       sectionStateActions.handleMinimizedCommit,
       sectionRegistry,
+      selectionStore,
       validateSectionTitle,
       viewportCulling,
     ],
@@ -345,6 +354,19 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
     setNodes,
   });
   resizeHandlersRef.current = rootResizeBindings;
+
+  // A selection commit publishes inside the input dispatch; only root
+  // draggability depends on it here, so update nodes identity-preservingly
+  // and skip the state write entirely when no root's flag changes.
+  useLayoutEffect(
+    () =>
+      selectionStore.subscribe(() => {
+        setNodes((current) =>
+          applyRootSelectionState(current, layoutEditable, selectionStore.getSnapshot()),
+        );
+      }),
+    [layoutEditable, selectionStore],
+  );
 
   useEffect(() => {
     activeRootMoveRef.current = null;
@@ -420,7 +442,7 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
       }
       const selection = resolveWorkspaceRootSelection(
         documentRef.current,
-        selectedSectionIdsRef.current,
+        selectionStore.getSnapshot().sectionIds,
         node.id,
       );
       if (!selection.allowed) {
@@ -434,7 +456,7 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
         setAnnouncementText("Unable to move the complete selected section block.");
         return false;
       }
-      if (!selectedSectionIdsRef.current.includes(node.id)) {
+      if (!selectionStore.getSnapshot().selected.has(node.id)) {
         commitSelection([node.id]);
       }
       rootProjection.beginRootMove(selection.block.sectionIds);
@@ -454,7 +476,7 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
       setAnnouncementText(`Moving ${node.data.title}${suffix}.`);
       return true;
     },
-    [commitSelection, rootProjection, selectedSectionIdsRef],
+    [commitSelection, rootProjection, selectionStore],
   );
   const handleNodeDragStop = useCallback<OnNodeDrag<WorkspaceRootNode>>(
     (_event, node) => {

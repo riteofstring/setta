@@ -21,8 +21,6 @@ export type WorkspaceSectionTreeNode = Readonly<{
   definition: ResolvedSectionDefinition<unknown>;
   position: WorkspacePoint | null;
   section: WorkspaceSection<unknown>;
-  selected: boolean;
-  selectionMovementBlocked: boolean;
 }>;
 
 export type WorkspaceSectionTreeBindings = Pick<
@@ -50,8 +48,6 @@ function requireTreeSection<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   registry: WorkspaceSectionRegistry<TSectionData>,
   sectionId: string,
-  selectedSectionIds: ReadonlySet<string>,
-  selectionMovementBlocked: boolean,
   position: WorkspacePoint | null,
 ): WorkspaceSectionTreeNode {
   const section = document.sections[sectionId];
@@ -64,20 +60,11 @@ function requireTreeSection<TSectionData>(
     section.childLayout?.positioning === "freeform" ? section.childLayout.positions : null;
   return {
     children: childIds.map((childId) =>
-      requireTreeSection(
-        document,
-        registry,
-        childId,
-        selectedSectionIds,
-        selectionMovementBlocked,
-        childPositions?.[childId] ?? null,
-      ),
+      requireTreeSection(document, registry, childId, childPositions?.[childId] ?? null),
     ),
     definition: definition as ResolvedSectionDefinition<unknown>,
     position,
     section: section as WorkspaceSection<unknown>,
-    selected: selectedSectionIds.has(sectionId),
-    selectionMovementBlocked: selectedSectionIds.has(sectionId) && selectionMovementBlocked,
   };
 }
 
@@ -85,8 +72,6 @@ export function projectWorkspaceSectionChildren<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   registry: WorkspaceSectionRegistry<TSectionData>,
   parentSectionId: string,
-  selectedSectionIds: ReadonlySet<string>,
-  selectionMovementBlocked = false,
 ): readonly WorkspaceSectionTreeNode[] {
   const parent = document.sections[parentSectionId];
   if (!parent) {
@@ -95,14 +80,7 @@ export function projectWorkspaceSectionChildren<TSectionData>(
   const childPositions =
     parent.childLayout?.positioning === "freeform" ? parent.childLayout.positions : null;
   return (parent.childLayout?.sectionIds ?? []).map((sectionId) =>
-    requireTreeSection(
-      document,
-      registry,
-      sectionId,
-      selectedSectionIds,
-      selectionMovementBlocked,
-      childPositions?.[sectionId] ?? null,
-    ),
+    requireTreeSection(document, registry, sectionId, childPositions?.[sectionId] ?? null),
   );
 }
 
@@ -122,9 +100,7 @@ function synchronizeTreeNode(
     children === current.children &&
     current.definition === projected.definition &&
     positionsMatch(current.position, projected.position) &&
-    current.section === projected.section &&
-    current.selected === projected.selected &&
-    current.selectionMovementBlocked === projected.selectionMovementBlocked
+    current.section === projected.section
   ) {
     return current;
   }
@@ -174,8 +150,6 @@ function WorkspaceNestedSection({
       parentSectionId={parentSectionId}
       resizing={false}
       section={node.section}
-      selected={node.selected}
-      selectionMovementBlocked={node.selectionMovementBlocked}
     />
   );
   const positioning = node.position ? "freeform" : "ordered";

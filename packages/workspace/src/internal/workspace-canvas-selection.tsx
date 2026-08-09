@@ -16,6 +16,7 @@ import type {
   WorkspaceRect,
 } from "./geometry-index.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
+import type { WorkspaceSelectionStore } from "./workspace-selection-store.js";
 
 type MarqueeSession = Readonly<{
   baselineSelection: readonly string[];
@@ -50,13 +51,22 @@ function measuredSelectionRoots(
 export function WorkspaceSelectionOverlay({
   geometryIndex,
   hidden,
-  selectedSectionIds,
+  selectionStore,
 }: Readonly<{
   geometryIndex: WorkspaceGeometryIndex;
   hidden: boolean;
-  selectedSectionIds: readonly string[];
+  selectionStore: WorkspaceSelectionStore;
 }>) {
   useGeometryRevision(geometryIndex);
+  const selectionSnapshot = useCallback(
+    () => selectionStore.getSnapshot().sectionIds,
+    [selectionStore],
+  );
+  const selectedSectionIds = useSyncExternalStore(
+    selectionStore.subscribe,
+    selectionSnapshot,
+    selectionSnapshot,
+  );
   if (hidden) {
     return null;
   }
@@ -130,15 +140,15 @@ function releasePointer(element: HTMLDivElement, pointerId: number): void {
 export function useWorkspaceMarqueeSelection({
   geometry,
   geometryIndex,
+  getSelectedSectionIds,
   mode,
   onSelectionChange,
-  selectedSectionIds,
 }: Readonly<{
   geometry: WorkspaceGeometryMeasurements;
   geometryIndex: WorkspaceGeometryIndex;
+  getSelectedSectionIds(): readonly string[];
   mode: MarqueeSelectionMode;
   onSelectionChange(sectionIds: readonly string[]): void;
-  selectedSectionIds: React.RefObject<readonly string[]>;
 }>): WorkspaceMarqueeSelectionBindings {
   const sessionRef = useRef<MarqueeSession | null>(null);
   const [rect, setRect] = useState<WorkspaceRect | null>(null);
@@ -156,7 +166,7 @@ export function useWorkspaceMarqueeSelection({
       geometry.flushMeasurement();
       const start = geometry.clientPointToWorkspace({ x: event.clientX, y: event.clientY });
       sessionRef.current = {
-        baselineSelection: [...selectedSectionIds.current],
+        baselineSelection: [...getSelectedSectionIds()],
         pointerId: event.pointerId,
         start,
       };
@@ -165,7 +175,7 @@ export function useWorkspaceMarqueeSelection({
       event.preventDefault();
       event.stopPropagation();
     },
-    [geometry, selectedSectionIds],
+    [geometry, getSelectedSectionIds],
   );
 
   const onPointerMove = useCallback(

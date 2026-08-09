@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 import type { WorkspaceDocument, WorkspaceSection } from "../src/core.js";
 import { workspaceMarqueeRect } from "../src/internal/workspace-canvas-selection.js";
 import {
+  deriveWorkspaceSelectionSnapshot,
+  WorkspaceSelectionStore,
+} from "../src/internal/workspace-selection-store.js";
+import {
   applyWorkspaceSectionSelectionRequest,
   reconcileWorkspaceSelection,
   reconcileWorkspaceVisibleSelection,
@@ -244,5 +248,56 @@ describe("workspace selection", () => {
       x: -10,
       y: -20,
     });
+  });
+
+  it("derives movement-blocked flags into the published selection snapshot", () => {
+    const document = rootSelectionDocument();
+    const movable = deriveWorkspaceSelectionSnapshot(document, [], ["alpha", "beta"], "");
+    expect(movable.movementBlocked).toBe(false);
+    expect(movable.structuralMovementBlocked).toBe(false);
+    expect(movable.selected.has("alpha")).toBe(true);
+    expect(movable.sectionIds).toEqual(["alpha", "beta"]);
+
+    const locked = {
+      ...document,
+      sections: Object.fromEntries(
+        Object.entries(document.sections).map(([sectionId, section]) => [
+          sectionId,
+          sectionId === "beta" ? { ...section, positionAndSizeLocked: true } : section,
+        ]),
+      ),
+    };
+    const blocked = deriveWorkspaceSelectionSnapshot(locked, [], ["alpha", "beta"], "");
+    expect(blocked.movementBlocked).toBe(true);
+    expect(blocked.structuralMovementBlocked).toBe(true);
+
+    const detached = deriveWorkspaceSelectionSnapshot(document, ["beta"], ["alpha", "beta"], "");
+    expect(detached.movementBlocked).toBe(true);
+    expect(detached.structuralMovementBlocked).toBe(true);
+  });
+
+  it("notifies selection store subscribers and preserves announcements", () => {
+    const document = rootSelectionDocument();
+    const store = new WorkspaceSelectionStore();
+    const seen: (readonly string[])[] = [];
+    const unsubscribe = store.subscribe(() => {
+      seen.push(store.getSnapshot().sectionIds);
+    });
+
+    store.publish(deriveWorkspaceSelectionSnapshot(document, [], ["alpha"], ""));
+    store.announce("Alpha selected.");
+    expect(seen).toEqual([["alpha"], ["alpha"]]);
+    expect(store.getSnapshot().announcement).toBe("Alpha selected.");
+    expect(store.getSnapshot().selected.has("alpha")).toBe(true);
+
+    store.publish(
+      deriveWorkspaceSelectionSnapshot(document, [], [], store.getSnapshot().announcement),
+    );
+    expect(store.getSnapshot().sectionIds).toEqual([]);
+    expect(store.getSnapshot().announcement).toBe("Alpha selected.");
+
+    unsubscribe();
+    store.announce("Ignored.");
+    expect(seen).toHaveLength(3);
   });
 });

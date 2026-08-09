@@ -25,6 +25,7 @@ import {
   type WorkspaceSectionTreeBindings,
   type WorkspaceSectionTreeNode,
 } from "./workspace-section-tree.js";
+import type { WorkspaceSelectionSnapshot } from "./workspace-selection-store.js";
 import type { WorkspaceSectionSelectionRequest } from "./workspace-selection.js";
 import type { WorkspaceViewportCulling } from "./workspace-viewport-culling.js";
 
@@ -50,8 +51,6 @@ type WorkspaceRootNodeData = {
   readOnly: boolean;
   resizeBindings: WorkspaceSectionResizeBindings;
   resizing: boolean;
-  selected: boolean;
-  selectionMovementBlocked: boolean;
   section: WorkspaceSection<unknown>;
   sectionId: string;
   title: string;
@@ -65,12 +64,6 @@ export type ActiveRootMovement = Readonly<{
   baselinePositions: Readonly<Record<string, WorkspacePoint>>;
   primarySectionId: string;
   sectionIds: readonly string[];
-}>;
-
-export type RootSelectionProjection = Readonly<{
-  movementBlocked: boolean;
-  selectedSectionIds: ReadonlySet<string>;
-  structuralMovementBlocked: boolean;
 }>;
 
 function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
@@ -98,8 +91,6 @@ function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
     definition: data.definition,
     position: null,
     section: data.section,
-    selected: data.selected,
-    selectionMovementBlocked: data.selectionMovementBlocked,
   };
   return (
     <>
@@ -129,8 +120,6 @@ function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
         presentationEditable={data.presentationEditable}
         readOnly={data.readOnly}
         resizing={data.resizing}
-        selected={data.selected}
-        selectionMovementBlocked={data.selectionMovementBlocked}
         section={data.section}
         validateTitle={data.validateTitle}
         viewportCulling={data.viewportCulling}
@@ -140,7 +129,6 @@ function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
         definition={data.definition}
         layoutEditable={data.layoutEditable}
         section={data.section}
-        selected={data.selected}
       />
     </>
   );
@@ -231,10 +219,10 @@ function rootNode(
   validateTitle: WorkspaceRootNodeData["validateTitle"],
   viewportCulling: WorkspaceViewportCulling,
   resizeBindings: WorkspaceSectionResizeBindings,
-  selection: RootSelectionProjection,
+  selection: WorkspaceSelectionSnapshot,
 ): WorkspaceRootNode {
-  const selected = selection.selectedSectionIds.has(root.sectionId);
-  const selectionMovementBlocked = selected && selection.movementBlocked;
+  const selectionMovementBlocked =
+    selection.selected.has(root.sectionId) && selection.movementBlocked;
   const node: WorkspaceRootNode = {
     ariaLabel: root.title,
     data: {
@@ -259,8 +247,6 @@ function rootNode(
       readOnly,
       resizeBindings,
       resizing: false,
-      selected,
-      selectionMovementBlocked,
       section,
       sectionId: root.sectionId,
       title: root.title,
@@ -272,7 +258,8 @@ function rootNode(
     focusable: false,
     id: root.sectionId,
     position: { ...root.position },
-    selected,
+    // Upstream reads node.selected to include selected peers in a block drag.
+    selected: selection.selected.has(root.sectionId),
     selectable: false,
     type: "workspace-root-shell",
     zIndex: root.order,
@@ -304,7 +291,7 @@ export function projectNodes<TSectionData>(
   validateTitle: WorkspaceRootNodeData["validateTitle"],
   viewportCulling: WorkspaceViewportCulling,
   resizeBindings: WorkspaceSectionResizeBindings,
-  selection: RootSelectionProjection,
+  selection: WorkspaceSelectionSnapshot,
 ): WorkspaceRootNode[] {
   return projectWorkspaceCanvasRoots(document).map((root) => {
     const section = document.sections[root.sectionId];
@@ -314,13 +301,7 @@ export function projectNodes<TSectionData>(
     }
     return rootNode(
       root,
-      projectWorkspaceSectionChildren(
-        document,
-        sectionRegistry,
-        root.sectionId,
-        selection.selectedSectionIds,
-        selection.structuralMovementBlocked,
-      ),
+      projectWorkspaceSectionChildren(document, sectionRegistry, root.sectionId),
       geometry,
       section as WorkspaceSection<unknown>,
       definition as ResolvedSectionDefinition<unknown>,
@@ -433,7 +414,6 @@ export function rootProjectionInputs(
       height: node.data.section.size.height.value,
       width: node.data.section.size.width.value,
     },
-    selected: node.data.selected,
   }));
 }
 
@@ -456,10 +436,32 @@ export function rootProjectionChange(
       type: "dimensions",
     };
   }
-  if (change.type === "select") {
-    return { sectionId: change.id, selected: change.selected, type: "selection" };
-  }
   return null;
+}
+
+/**
+ * Reapply selection-derived node state (upstream block-drag membership and
+ * root draggability) after a selection commit, preserving node identity so
+ * unchanged roots skip rerendering entirely and an unchanged set skips the
+ * state write.
+ */
+export function applyRootSelectionState(
+  nodes: readonly WorkspaceRootNode[],
+  layoutEditable: boolean,
+  selection: WorkspaceSelectionSnapshot,
+): WorkspaceRootNode[] {
+  let changed = false;
+  const next = nodes.map((node) => {
+    const selected = selection.selected.has(node.id);
+    const blocked = selected && selection.movementBlocked;
+    const draggable = rootNodeIsDraggable(layoutEditable, node.data.section, blocked);
+    if (node.draggable === draggable && node.selected === selected) {
+      return node;
+    }
+    changed = true;
+    return { ...node, draggable, selected };
+  });
+  return changed ? next : (nodes as WorkspaceRootNode[]);
 }
 
 export function setActiveRoots(

@@ -4,6 +4,7 @@ import type { WorkspaceDocument, WorkspaceSection } from "../src/core.js";
 import { WorkspaceGeometryIndex } from "../src/internal/geometry-index.js";
 import { projectWorkspaceCanvasRoots } from "../src/internal/workspace-canvas-model.js";
 import {
+  applyRootSelectionState,
   projectNodes,
   setActiveRoots,
   setResizingRoot,
@@ -15,6 +16,10 @@ import {
   projectWorkspaceSectionChildren,
   synchronizeWorkspaceSectionTrees,
 } from "../src/internal/workspace-section-tree.js";
+import {
+  deriveWorkspaceSelectionSnapshot,
+  EMPTY_WORKSPACE_SELECTION,
+} from "../src/internal/workspace-selection-store.js";
 import { WorkspaceViewportCulling } from "../src/internal/workspace-viewport-culling.js";
 import { WorkspaceViewportLifecycle } from "../src/internal/workspace-viewport-lifecycle.js";
 import { createWorkspaceTestDocument } from "../src/testing.js";
@@ -80,11 +85,7 @@ function projectedNodes(document: WorkspaceDocument, selectedSectionIds: readonl
     validTitle,
     viewportCulling,
     resizeBindings,
-    {
-      movementBlocked: false,
-      selectedSectionIds: new Set(selectedSectionIds),
-      structuralMovementBlocked: false,
-    },
+    deriveWorkspaceSelectionSnapshot(document, [], selectedSectionIds, ""),
   );
 }
 
@@ -193,9 +194,13 @@ describe("workspace canvas root projection", () => {
     expect(synchronizedRename.filter((node, index) => node !== initial[index])).toHaveLength(1);
     expect(synchronizedRename[64]?.data.title).toBe("Renamed section");
 
+    // Selection is distributed through the selection store, not node data:
+    // selecting flips only the node-level upstream fields and leaves every
+    // data identity untouched, so no frame chrome rerenders.
     const selected = synchronizeNodes(initial, projectedNodes(document, ["section-64"]));
     expect(selected.filter((node, index) => node !== initial[index])).toHaveLength(1);
-    expect(selected[64]?.data.selected).toBe(true);
+    expect(selected[64]?.selected).toBe(true);
+    expect(selected.every((node, index) => node.data === initial[index]?.data)).toBe(true);
 
     const viewportOnly = synchronizeNodes(
       initial,
@@ -211,21 +216,9 @@ describe("workspace canvas root projection", () => {
 
   it("projects recursive DOM descendants and retains unchanged subtree identities", () => {
     const document = recursiveDocument();
-    const initial = projectWorkspaceSectionChildren(
-      document,
-      recursiveSectionRegistry,
-      "root",
-      new Set(["nested"]),
-      true,
-    );
+    const initial = projectWorkspaceSectionChildren(document, recursiveSectionRegistry, "root");
 
-    expect(
-      initial.map(({ section, selected, selectionMovementBlocked }) => [
-        section.id,
-        selected,
-        selectionMovementBlocked,
-      ]),
-    ).toEqual([["nested", true, true]]);
+    expect(initial.map(({ section }) => section.id)).toEqual(["nested"]);
     const nested = document.sections.nested as WorkspaceSection;
     const projected = projectWorkspaceSectionChildren(
       {
@@ -237,14 +230,59 @@ describe("workspace canvas root projection", () => {
       },
       recursiveSectionRegistry,
       "root",
-      new Set(["nested"]),
-      true,
     );
     const synchronized = synchronizeWorkspaceSectionTrees(initial, projected);
 
     expect(synchronized).not.toBe(initial);
     expect(synchronized[0]?.section.title).toBe("Renamed nested section");
     expect(synchronizeWorkspaceSectionTrees(synchronized, projected)).toBe(synchronized);
+  });
+
+  it("reapplies a movable selection to node state identity-preservingly", () => {
+    const nodes = projectedNodes(largeDocument());
+
+    // Republishing the empty selection changes nothing: same array back.
+    expect(applyRootSelectionState(nodes, true, EMPTY_WORKSPACE_SELECTION)).toBe(nodes);
+
+    // A movable selection flips only the selected node's upstream fields.
+    const movable = deriveWorkspaceSelectionSnapshot(largeDocument(), [], ["section-0"], "");
+    const selectedNodes = applyRootSelectionState(nodes, true, movable);
+    expect(selectedNodes.filter((node, index) => node !== nodes[index])).toHaveLength(1);
+    expect(selectedNodes[0]?.selected).toBe(true);
+    expect(selectedNodes[0]?.draggable).toBe(true);
+    expect(selectedNodes[0]?.data).toBe(nodes[0]?.data);
+  });
+
+  it("blocks and restores draggability for selections holding a locked root", () => {
+    const document = largeDocument();
+    const lockedSection = document.sections["section-1"] as WorkspaceSection;
+    const lockedDocument = {
+      ...document,
+      sections: {
+        ...document.sections,
+        "section-1": { ...lockedSection, positionAndSizeLocked: true },
+      },
+    } satisfies WorkspaceDocument;
+    const nodes = projectedNodes(lockedDocument);
+
+    // A selection containing a locked root blocks its unlocked peers too.
+    const blocked = deriveWorkspaceSelectionSnapshot(
+      lockedDocument,
+      [],
+      ["section-0", "section-1"],
+      "",
+    );
+    expect(blocked.movementBlocked).toBe(true);
+    const applied = applyRootSelectionState(nodes, true, blocked);
+    expect(applied.filter((node, index) => node !== nodes[index])).toHaveLength(2);
+    expect(applied[0]?.draggable).toBe(false);
+    expect(applied[1]?.draggable).toBe(false);
+
+    // Clearing the selection restores draggability the same way.
+    const restored = applyRootSelectionState(applied, true, EMPTY_WORKSPACE_SELECTION);
+    expect(restored[0]?.selected).toBe(false);
+    expect(restored[0]?.draggable).toBe(true);
+    expect(restored[1]?.draggable).toBe(false);
   });
 });
 

@@ -52,6 +52,7 @@ import {
   type WorkspaceSectionMoveSession,
   type WorkspaceSectionMoveSessionResult,
 } from "./workspace-section-move-session.js";
+import type { WorkspaceSelectionStore } from "./workspace-selection-store.js";
 import type { WorkspaceSectionSelectionRequest } from "./workspace-selection.js";
 
 const ROOT_SECTION_DND_PREFIX = "setta-workspace-root-section:";
@@ -209,7 +210,7 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
   onSelectionRequest,
   onStart,
   sectionTitle,
-  selectedSectionIds,
+  selectionStore,
   structureEditable,
   validateSectionMove,
 }: Readonly<{
@@ -228,7 +229,7 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
   onSelectionRequest(sectionId: string, request: WorkspaceSectionSelectionRequest): void;
   onStart(start: WorkspaceStructuralInteractionStart): void;
   sectionTitle(sectionId: string): string;
-  selectedSectionIds: readonly string[];
+  selectionStore: WorkspaceSelectionStore;
   structureEditable: boolean;
   validateSectionMove: WorkspaceSectionMoveValidator<TSectionData> | undefined;
 }>) {
@@ -338,10 +339,10 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
         geometry,
         geometryIndex,
         mode,
-        selectedSectionIds,
+        selectedSectionIds: selectionStore.getSnapshot().sectionIds,
       });
     },
-    [document, geometry, geometryIndex, mode, selectedSectionIds],
+    [document, geometry, geometryIndex, mode, selectionStore],
   );
   // Start-time feedback (placeholder mount, live announcement, touch
   // selection) is presentation-only, so it leaves the pointer-down dispatch
@@ -399,7 +400,7 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
       if (event.input === "touch") {
         onSelectionRequest(source.sectionId, {
           additive: false,
-          preserveSelected: selectedSectionIds.includes(source.sectionId),
+          preserveSelected: selectionStore.getSnapshot().selected.has(source.sectionId),
         });
       }
       if (result.allowed) {

@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   createEmptyWorkspaceConnections,
@@ -92,6 +100,10 @@ import type {
   WorkspaceRootResizeSnapshot,
   WorkspaceSectionResizeAxis,
 } from "./workspace-section-sizing.js";
+import {
+  deriveWorkspaceSelectionSnapshot,
+  WorkspaceSelectionStore,
+} from "./workspace-selection-store.js";
 import {
   reconcileWorkspaceVisibleSelection,
   resolveWorkspaceSelection,
@@ -308,34 +320,58 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   controlledRef.current = mode.type === "controlled";
   onDocumentChangeRef.current = onDocumentChange;
   validateSectionTitleRef.current = validateSectionTitle;
-  const [selectionState, setSelectionState] = useState<readonly string[]>([]);
-  const selectedSectionIds = useMemo(
-    () => reconcileWorkspaceVisibleSelection(validatedDocument, selectionState, sectionVisibility),
-    [sectionVisibility, selectionState, validatedDocument],
+  // Selection distribution is gesture-hot: a commit runs synchronously inside
+  // the pointer-down dispatch, so it publishes through an external store with
+  // per-section subscribers instead of root React state that would rerender
+  // the whole workbench inside the input dispatch. Decisions stay here.
+  const [selectionStore] = useState(() => new WorkspaceSelectionStore());
+  const selectionRef = useRef<readonly string[]>([]);
+  const detachedSectionIdsRef = useRef(detachedSectionIds);
+  detachedSectionIdsRef.current = detachedSectionIds;
+  const publishSelection = useCallback(
+    (sectionIds: readonly string[]) => {
+      selectionRef.current = sectionIds;
+      selectionStore.publish(
+        deriveWorkspaceSelectionSnapshot(
+          documentRef.current,
+          detachedSectionIdsRef.current,
+          sectionIds,
+          selectionStore.getSnapshot().announcement,
+        ),
+      );
+    },
+    [selectionStore],
   );
-  const selectionRef = useRef<readonly string[]>(selectedSectionIds);
-  selectionRef.current = selectedSectionIds;
-  useEffect(() => {
-    if (!workspaceSelectionsMatch(selectionState, selectedSectionIds)) {
-      setSelectionState(selectedSectionIds);
-    }
-  }, [selectedSectionIds, selectionState]);
-  const commitSelection = useCallback((sectionIds: readonly string[]) => {
-    const nextSelection = resolveWorkspaceSelection(documentRef.current, sectionIds);
-    if (
-      nextSelection.some((sectionId) =>
-        sectionVisibilityRef.current.collapsedAncestorBySectionId.has(sectionId),
-      )
-    ) {
-      return { reason: "section-descendants-collapsed", status: "rejected" } as const;
-    }
-    if (workspaceSelectionsMatch(selectionRef.current, nextSelection)) {
-      return { status: "unchanged" } as const;
-    }
-    selectionRef.current = nextSelection;
-    setSelectionState(nextSelection);
-    return { status: "applied" } as const;
-  }, []);
+  // Document, visibility, or detachment changes can drop selected sections or
+  // change movement-blocked flags; republish before paint so subscribed
+  // frames never present a stale selection.
+  useLayoutEffect(() => {
+    publishSelection(
+      reconcileWorkspaceVisibleSelection(
+        validatedDocument,
+        selectionRef.current,
+        sectionVisibility,
+      ),
+    );
+  }, [detachedSectionIds, publishSelection, sectionVisibility, validatedDocument]);
+  const commitSelection = useCallback(
+    (sectionIds: readonly string[]) => {
+      const nextSelection = resolveWorkspaceSelection(documentRef.current, sectionIds);
+      if (
+        nextSelection.some((sectionId) =>
+          sectionVisibilityRef.current.collapsedAncestorBySectionId.has(sectionId),
+        )
+      ) {
+        return { reason: "section-descendants-collapsed", status: "rejected" } as const;
+      }
+      if (workspaceSelectionsMatch(selectionRef.current, nextSelection)) {
+        return { status: "unchanged" } as const;
+      }
+      publishSelection(nextSelection);
+      return { status: "applied" } as const;
+    },
+    [publishSelection],
+  );
 
   const canvasControllerRef = useRef<WorkspaceCanvasController | null>(null);
   const [canvasReady, setCanvasReady] = useState(false);
@@ -740,7 +776,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
           sectionColorPalette={sectionColorPalette}
           sectionMoveMode={sectionMoveMode}
           sectionRegistry={sectionRegistry}
-          selectedSectionIds={selectedSectionIds}
+          selectionStore={selectionStore}
           structureEditable={capabilities.editStructure}
           toolbarControls={toolbarControls}
           validateExternalDrop={validateExternalDrop}

@@ -37,6 +37,22 @@ experiment cleared the exit gate, and both introduced unacceptable semantic risk
 1 requires a different owner-preserving change that clears the corrected profile without changing
 callback timing or gesture lifecycle.
 
+The selection distribution store landed next (2026-08-10): CPU attribution proved the dominant
+in-dispatch owner was the pointer-down selection commit rerendering the whole workbench from root
+React state (34.1 ms versus 11.0 ms pre-selected in development). Selection decisions stay in the
+workspace root, but distribution now flows through `WorkspaceSelectionStore` with per-section
+subscriptions; commits still publish synchronously in the dispatch, and node-level
+selected/draggable state reapplies through one identity-preserving node update (upstream reads
+`node.selected` for block drags — do not remove it again). Development structural spans fell to
+22–33.6 ms with no ≥50 ms long tasks anywhere; production is clean except one cold structural
+0.5× cell (33.3 ms). Phase 1 remains open: development structural/freeform passes still show one
+repeatable 33–43 ms activation gap, now owned by the residual dnd-kit start work plus the deferred
+ownership broadcast, whose adapter-wide React commit (canvas data attributes, gesture policy)
+skips the first frame in development. The next change should narrow that broadcast the same
+store-driven way without changing the committed state sequence. Evidence:
+[perf/phase-1-structural-drag-activation.md](../../perf/phase-1-structural-drag-activation.md)
+(`phase-1-selection-store`, 13:07/13:09 runs).
+
 Make the Setta visual language the opinionated default for `@setta/workspace`, redesign the
 backend-free playground around the canvas, and remove the measurable structural-drag startup hitch.
 The result should feel like a focused Setta product immediately after `pnpm dev`, while remaining a

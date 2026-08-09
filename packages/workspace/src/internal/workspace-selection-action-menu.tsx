@@ -7,7 +7,6 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
-  type RefObject,
 } from "react";
 
 import type {
@@ -35,6 +34,7 @@ import {
   type WorkspaceSelectionActionId,
   type WorkspaceSelectionActionPlan,
 } from "./workspace-selection-actions.js";
+import type { WorkspaceSelectionStore } from "./workspace-selection-store.js";
 import type { WorkspaceSectionSelectionRequest } from "./workspace-selection.js";
 
 type ClientPoint = Readonly<{ x: number; y: number }>;
@@ -626,7 +626,7 @@ export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValu
   layoutEditable,
   onSelectionRequest,
   presentationEditable,
-  selectedSectionIdsRef,
+  selectionStore,
   structureEditable,
   visibleSectionIds,
 }: Readonly<{
@@ -637,7 +637,7 @@ export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValu
   layoutEditable: boolean;
   onSelectionRequest(sectionId: string, request: WorkspaceSectionSelectionRequest): void;
   presentationEditable: boolean;
-  selectedSectionIdsRef: RefObject<readonly string[]>;
+  selectionStore: WorkspaceSelectionStore;
   structureEditable: boolean;
   visibleSectionIds: readonly string[];
 }>) {
@@ -683,7 +683,7 @@ export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValu
       canvasElement: HTMLElement,
     ) => {
       onSelectionRequest(sectionId, { additive: false, preserveSelected: true });
-      const selectedSectionIds = selectedSectionIdsRef.current;
+      const selectedSectionIds = selectionStore.getSnapshot().sectionIds;
       const nextPlan = planWorkspaceSelectionActions(
         documentRef.current,
         selectedSectionIds,
@@ -695,13 +695,7 @@ export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValu
       }
       setState({ anchor, canvasElement, restoreFocus, sectionIds: nextPlan.sectionIds });
     },
-    [
-      capabilities,
-      detachedSectionIds,
-      groupingConfigured,
-      onSelectionRequest,
-      selectedSectionIdsRef,
-    ],
+    [capabilities, detachedSectionIds, groupingConfigured, onSelectionRequest, selectionStore],
   );
 
   const handleCanvasContextMenuCapture = useCallback(

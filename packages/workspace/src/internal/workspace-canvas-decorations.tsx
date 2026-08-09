@@ -6,7 +6,7 @@ import {
   ViewportPortal,
   type MiniMapProps,
 } from "@xyflow/react";
-import { useCallback, useRef, type ReactNode } from "react";
+import { useCallback, useRef, useSyncExternalStore, type ReactNode } from "react";
 
 import type { WorkspaceRootNode } from "./workspace-canvas-root-node.js";
 import {
@@ -18,6 +18,7 @@ import type {
   WorkspaceMinimapPlacement,
   WorkspaceOverlayPlacement,
 } from "./workspace-react-contract.js";
+import type { WorkspaceSelectionStore } from "./workspace-selection-store.js";
 
 function backgroundVariant(pattern: ResolvedWorkspaceGridOptions["pattern"]): BackgroundVariant {
   if (pattern === "cross") {
@@ -58,6 +59,35 @@ export function WorkspaceGridBackground({
   );
 }
 
+/**
+ * Selection announcements publish through the selection store inside the
+ * pointer-down dispatch, so this live region subscribes on its own and a
+ * selection commit rerenders only this div.
+ */
+function WorkspaceSelectionAnnouncement({
+  selectionStore,
+}: Readonly<{ selectionStore: WorkspaceSelectionStore }>) {
+  const announcementSnapshot = useCallback(
+    () => selectionStore.getSnapshot().announcement,
+    [selectionStore],
+  );
+  const announcement = useSyncExternalStore(
+    selectionStore.subscribe,
+    announcementSnapshot,
+    announcementSnapshot,
+  );
+  return (
+    <div
+      aria-atomic="true"
+      aria-live="polite"
+      className="setta-workspace__visually-hidden"
+      data-workspace-selection-announcement=""
+    >
+      {announcement}
+    </div>
+  );
+}
+
 export function WorkspaceCanvasAnnouncements({
   clipboard,
   creation,
@@ -67,7 +97,7 @@ export function WorkspaceCanvasAnnouncements({
   externalDrop,
   history,
   movement,
-  selection,
+  selectionStore,
   selectionAction,
   sectionState,
   sizing,
@@ -81,7 +111,7 @@ export function WorkspaceCanvasAnnouncements({
   externalDrop: string;
   history: string;
   movement: string;
-  selection: string;
+  selectionStore: WorkspaceSelectionStore;
   selectionAction: string;
   sectionState: string;
   sizing: string;
@@ -169,14 +199,7 @@ export function WorkspaceCanvasAnnouncements({
       >
         {sizing}
       </div>
-      <div
-        aria-atomic="true"
-        aria-live="polite"
-        className="setta-workspace__visually-hidden"
-        data-workspace-selection-announcement=""
-      >
-        {selection}
-      </div>
+      <WorkspaceSelectionAnnouncement selectionStore={selectionStore} />
       <div
         aria-atomic="true"
         aria-live="polite"

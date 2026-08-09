@@ -64,10 +64,7 @@ describe("TransientRootProjection", () => {
     ]);
     projection.cancelRootGesture();
 
-    expect(projection.roots()).toEqual([
-      { ...roots[0], selected: false },
-      { ...roots[1], selected: false },
-    ]);
+    expect(projection.roots()).toEqual([{ ...roots[0] }, { ...roots[1] }]);
     expect(projection.completeRootGesture()).toBeNull();
     expect(historyEntries).toEqual([]);
   });
@@ -118,17 +115,6 @@ describe("TransientRootProjection", () => {
     } as const;
     expect(projection.completeRootGesture()).toEqual(expectedCommand);
     expect(historyEntries).toEqual([expectedCommand]);
-  });
-
-  it("keeps upstream selection changes inside the transient projection", () => {
-    const projection = new TransientRootProjection(roots, { x: 0, y: 0, zoom: 1 });
-
-    projection.applyRootChanges([{ type: "selection", sectionId: "alpha", selected: true }]);
-
-    expect(projection.roots()[0]?.selected).toBe(true);
-    expect(projection.completeRootGesture()).toBeNull();
-    projection.resetAcceptedProjection();
-    expect(projection.roots()[0]?.selected).toBe(false);
   });
 
   it("coalesces viewport updates at completion and restores cancellation", () => {
