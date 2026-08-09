@@ -796,8 +796,22 @@ Phase 4 progress (2026-08-11):
   checks, and repeat the live dark/light comparison. Acceptance requires the scroll shell to remain
   550 px outer while reserving 6 px for the scrollbar, yielding main's 544 px client width and
   526 x 20 row geometry alongside the already-matching label/value/divider metrics.
-- Remaining Phase 4 work: implement and audit the host-scrollbar correction, repeat the live
-  main-Dict versus unrelated-item comparison, and obtain a renewed developer exit-gate decision.
+- Host-scrollbar correction (2026-08-11): the playground host stylesheet now carries the frozen
+  host's scrollbar treatment — the reference `index.css` Firefox and WebKit `@supports` blocks
+  at 043d3b2e9, copied verbatim including the Firefox-only body overflow line: thin translucent
+  `#94a3b83a` scrollbars on body and every descendant for Firefox, and the 0.375 rem WebKit
+  scrollbar with transparent descendant tracks and the translucent rounded thumb, which opts
+  Chromium out of overlay scrollbars so the package's 550 px scroll shell reserves the 6 px
+  gutter and renders main's 544 px client width and 526 x 20 rows. The treatment ships as host
+  presentation context only: no package source or stylesheet changed (the package carries no
+  scrollbar rules), and `WorkspaceItemList` is untouched. The new host-scrollbar regression
+  freezes both blocks as literal expectations against the authored stylesheet source, read
+  through `node:fs` because vitest replaces `.css` imports (even `?raw`) with empty modules.
+  Playground suite green (6, including the two new contract cases); changed-file static gate
+  green (no dependency or packaging changes, so the supply-chain and consumer gates were not
+  rerun).
+- Remaining Phase 4 work: audit the host-scrollbar correction, repeat the live main-Dict versus
+  unrelated-item comparison, and obtain a renewed developer exit-gate decision.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

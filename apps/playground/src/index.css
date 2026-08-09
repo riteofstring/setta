@@ -18,3 +18,55 @@ body {
 html.dark body {
   background-color: hsl(220, 27%, 6%);
 }
+
+/* The frozen host's scrollbar treatment (index.css at 043d3b2e9), copied verbatim including the
+ * Firefox-only body overflow line. Styling ::-webkit-scrollbar opts Chromium out of overlay
+ * scrollbars, so every scrollable descendant reserves the 6 px gutter inside its border box —
+ * the package's 550 px scroll shell yields main's 544 px client width. Host presentation
+ * context only; the package stylesheet ships no scrollbar policy. */
+@supports (-moz-appearance: none) {
+  body {
+    scrollbar-width: thin;
+    scrollbar-color: #94a3b83a transparent;
+    overflow: hidden;
+  }
+
+  body * {
+    scrollbar-width: thin;
+    scrollbar-color: #94a3b83a transparent;
+  }
+}
+
+@supports (not (-moz-appearance: none)) {
+  body::-webkit-scrollbar {
+    width: 0.375rem;
+    height: 0.375rem;
+    background-color: transparent;
+  }
+
+  body *::-webkit-scrollbar {
+    width: 0.375rem;
+    height: 0.375rem;
+    background-color: transparent;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  body::-webkit-scrollbar-track,
+  body *::-webkit-scrollbar-track {
+    background: #94a3b83a;
+  }
+
+  body *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  body::-webkit-scrollbar-thumb,
+  body *::-webkit-scrollbar-thumb {
+    background-color: #94a3b83a;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+  }
+}
