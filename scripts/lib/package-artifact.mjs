@@ -7,6 +7,13 @@ import { readTarGzip } from "./tar.mjs";
 const expectedFiles = new Set([
   "package/README.md",
   "package/THIRD_PARTY_NOTICES.md",
+  "package/docs/README.md",
+  "package/docs/accessibility-and-keyboard.md",
+  "package/docs/integration.md",
+  "package/docs/recursive-sections.md",
+  "package/docs/sortable-item-trees.md",
+  "package/docs/theming.md",
+  "package/docs/verification-and-support.md",
   "package/dist/core.d.ts",
   "package/dist/core.d.ts.map",
   "package/dist/core.js",
@@ -425,6 +432,32 @@ function validateManifest(entries) {
   }
 }
 
+function localDocumentationTarget(entryName, href) {
+  const [relativePath] = href.split("#", 1);
+  if (!relativePath || relativePath.startsWith("/") || /^[a-z][a-z\d+.-]*:/iu.test(relativePath)) {
+    return null;
+  }
+  return path.posix.normalize(path.posix.join(path.posix.dirname(entryName), relativePath));
+}
+
+function validateDocumentationLinks(entries) {
+  const entryNames = new Set(entries.map((entry) => entry.name));
+  const markdownEntries = entries.filter((entry) => entry.name.endsWith(".md"));
+  const failures = [];
+  for (const entry of markdownEntries) {
+    const contents = entry.content.toString("utf8");
+    for (const match of contents.matchAll(/\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/gu)) {
+      const target = localDocumentationTarget(entry.name, match[1]);
+      if (target && (!target.startsWith("package/") || !entryNames.has(target))) {
+        failures.push(`${entry.name}: unresolved local documentation link ${match[1]}`);
+      }
+    }
+  }
+  if (failures.length > 0) {
+    throw new Error(failures.join("\n"));
+  }
+}
+
 export function buildPackageArtifact() {
   const artifactsDirectory = path.join(repositoryRoot, ".artifacts");
   const packageRoot = path.join(repositoryRoot, "packages/workspace");
@@ -443,5 +476,6 @@ export function buildPackageArtifact() {
   const entries = readTarGzip(readFileSync(tarballPath));
   validateEntries(entries);
   validateManifest(entries);
+  validateDocumentationLinks(entries);
   return tarballPath;
 }

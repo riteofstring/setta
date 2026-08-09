@@ -38,6 +38,27 @@ import "@setta/workspace/styles.css";
 
 Source aliases and undeclared package internals are not consumer APIs.
 
+## Developer guides
+
+The locally packed artifact includes focused guides for the package's permanent host boundaries:
+
+- [Host integration](docs/integration.md): documents, persistence, capabilities, controller
+  commands, extensions, creation, selection, grouping, stacking, minimap, history, and external
+  drops.
+- [Recursive sections](docs/recursive-sections.md): containment, movement modes, orientation,
+  locking, minimizing, sizing, overflow, snapping, chrome, accents, and tags.
+- [Sortable item trees](docs/sortable-item-trees.md): controlled item data, selection, planning,
+  pointer/touch/keyboard movement, zoom, application, and persistence.
+- [Theming](docs/theming.md): required CSS, scoped appearance, semantic tokens, grid styling, and
+  host-renderer colors.
+- [Accessibility and keyboard](docs/accessibility-and-keyboard.md): complete keyboard tables,
+  focus, announcements, host responsibilities, zoom/reflow, touch, RTL, and reduced motion.
+- [Verification and support](docs/verification-and-support.md): browser policy, performance
+  guidance, local gates, supply-chain policy, attribution, deferred capabilities, and non-goals.
+
+The [guide index](docs/README.md) provides a shorter route by task. Generated declarations remain
+the exact API source of truth.
+
 ## Five-minute uncontrolled example
 
 Give the workbench a sized parent, register at least one host renderer, and provide a factory when
