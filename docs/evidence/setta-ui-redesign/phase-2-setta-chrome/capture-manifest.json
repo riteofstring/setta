@@ -1,0 +1,141 @@
+{
+  "baseUrl": "http://127.0.0.1:4173",
+  "command": "node scripts/capture-visual-evidence.mjs --label phase-2-setta-chrome",
+  "environment": {
+    "architecture": "arm64",
+    "node": "v24.18.1",
+    "platform": "darwin"
+  },
+  "scenarios": [
+    {
+      "colorScheme": "light",
+      "description": "Fresh first launch of the default playground, above the fold.",
+      "fullPage": false,
+      "name": "default-first-launch",
+      "viewport": {
+        "height": 900,
+        "width": 1440
+      }
+    },
+    {
+      "colorScheme": "light",
+      "description": "Fresh first launch of the default playground, complete page.",
+      "fullPage": true,
+      "name": "default-first-launch-full",
+      "viewport": {
+        "height": 900,
+        "width": 1440
+      }
+    },
+    {
+      "colorScheme": "light",
+      "description": "Default playground after restoring the example document.",
+      "fullPage": false,
+      "name": "default-populated-example",
+      "viewport": {
+        "height": 900,
+        "width": 1440
+      }
+    },
+    {
+      "colorScheme": "light",
+      "description": "Populated workspace canvas, toolbar, and minimap in isolation.",
+      "fullPage": false,
+      "name": "default-populated-canvas",
+      "viewport": {
+        "height": 900,
+        "width": 1440
+      }
+    },
+    {
+      "colorScheme": "light",
+      "description": "Section style menu opened on the populated example.",
+      "fullPage": false,
+      "name": "default-section-style-menu",
+      "viewport": {
+        "height": 900,
+        "width": 1440
+      }
+    },
+    {
+      "colorScheme": "light",
+      "description": "Section creation menu on the populated example.",
+      "fullPage": false,
+      "name": "default-creation-menu",
+      "viewport": {
+        "height": 900,
+        "width": 1440
+      }
+    },
+    {
+      "colorScheme": "light",
+      "description": "Default playground reflow at 320 CSS pixels.",
+      "fullPage": true,
+      "name": "default-narrow-320",
+      "viewport": {
+        "height": 568,
+        "width": 320
+      }
+    },
+    {
+      "colorScheme": "light",
+      "description": "Layout-equivalent of 200% page zoom on a 1440x900 window.",
+      "fullPage": false,
+      "name": "default-zoom-200",
+      "viewport": {
+        "height": 450,
+        "width": 720
+      }
+    },
+    {
+      "colorScheme": "light",
+      "description": "Visual matrix canvas in the light appearance.",
+      "fullPage": false,
+      "name": "visual-matrix-light",
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "colorScheme": "dark",
+      "description": "Visual matrix canvas in the dark appearance.",
+      "fullPage": false,
+      "name": "visual-matrix-dark",
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "colorScheme": "light",
+      "description": "Visual matrix canvas with a multi-selection and one hovered section.",
+      "fullPage": false,
+      "name": "visual-matrix-selection",
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "colorScheme": "light",
+      "description": "Built-in viewport toolbar in isolation.",
+      "fullPage": false,
+      "name": "visual-matrix-toolbar",
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "colorScheme": "light",
+      "description": "Built-in minimap in isolation.",
+      "fullPage": false,
+      "name": "visual-matrix-minimap",
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    }
+  ]
+}
