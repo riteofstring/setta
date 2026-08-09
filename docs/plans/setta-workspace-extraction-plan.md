@@ -910,6 +910,17 @@ Phase 4 progress (2026-08-11):
   backend-free milestone derived from the frozen main parameter UI — including the exact initial
   control slice, controlled value/name update seams, visual and interaction evidence, exclusions,
   and an exit gate — and return to the developer for explicit approval of that amendment.
+- Item-controls milestone amendment drafted (2026-08-11): the required amendment is the
+  "Item-controls milestone — built-in parameter editing controls" section below, derived from the
+  frozen reference's `ParamUI` dispatch, control implementations, and the recorded `/settings`
+  metrics. It fixes the initial slice to the four controls the frozen `/settings` evidence
+  demonstrates (two-layer CodeMirror text value editor, Radix switch, downshift dropdown, native
+  color picker), keeps values crossing the seam as strings with host-owned persistence/validation,
+  adds a controlled name-edit seam at the reference kwarg-name presentation, attaches controls
+  through the existing registered row renderer without reopening the opaque item-data contract,
+  requires supervised control-state evidence before implementation, and names the exact reference
+  dependency pins. Implementation has not begun; the milestone awaits the developer's explicit
+  approval of the amendment.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
@@ -1399,7 +1410,8 @@ allowed to enlarge the parity slice or recursive/item extraction phases. After P
 developer chooses which capability becomes the next narrow extraction milestone and approves a plan
 amendment before implementation. Candidates include:
 
-- built-in, opinionated parameter editing controls (chosen 2026-08-11; amendment approval pending);
+- built-in, opinionated parameter editing controls (chosen 2026-08-11; specified as the
+  item-controls milestone below; developer approval of that amendment pending);
 
 - inline title renaming, accent/tag editing, and alternate compact/transparent/headerless chrome;
 - grow-with-content versus fixed container sizing, content-fit sizing, and overflow behavior;
@@ -1415,6 +1427,107 @@ amendment before implementation. Candidates include:
 
 This list preserves product options without pretending that every earlier idea has already earned a
 place in the first standalone package.
+
+### Item-controls milestone — built-in parameter editing controls
+
+This section is the plan amendment required by the 2026-08-11 capability choice. Implementation may
+not begin until the developer explicitly approves this amendment. The milestone is bounded and
+backend-free, derived from the frozen reference's parameter UI at `043d3b2e9`: `ParamUI`'s control
+dispatch (`frontend/src/components/Params/ParamUIs/`), the live `/settings` capture (Phase 0
+screenshot 29 and `computed/settings-style-metrics.json`), and the accepted Phase 4 item surface.
+Main remains the product authority; the package terms stay "item"/"list", never "param".
+
+#### Initial control slice (exact)
+
+Four controls — the set the frozen `/settings` evidence demonstrates, each at the reference
+presentation:
+
+1. **Text value editor** — the reference's two-layer text input (`TextInputCodeMirror`): the idle
+   Lezer-highlighted dummy presentation already accepted in Phase 4 (including its placeholder
+   form), swapping on the reference's mouse-down-capture/focus activation to the live CodeMirror
+   editor (`@uiw/react-codemirror` with the GitHub light/dark idle themes over the reference's
+   common settings, and the accepted active-line/padding override class strings), single-line
+   versus wrapped modes, Escape-returns-to-section and change-commit semantics, the value-column
+   divider's focus treatment (`peer-focus-within` blue border), and syntax highlight for a
+   host-declared language drawn from the reference's language-parser set.
+2. **Boolean switch** — the reference `SwitchInput` on `@radix-ui/react-switch` at the recorded
+   geometry and colors (10 px track and thumb, 3.2 px padding, full radius, `blue-500`/dark
+   `blue-700` checked), with the reference's string parsing at the seam
+   (`value === true || value === "true"`).
+3. **Dropdown** — the reference combobox (`IdNameCombobox` on `downshift`) trimmed to
+   host-supplied options: the recorded pill input presentation (rounded-full 12 px mono, chevron
+   affordances), the portaled list with search filtering, and grouped headers where the host
+   supplies groups.
+4. **Color picker** — the reference `ColorPickerInput` presentation: the recorded 16 px rounded
+   swatch row and its popover editing surface built on the native color input.
+
+Controls disable from a host-supplied disabled flag and, package-wide, while item-select mode is
+active (the reference disables inputs while param-select is held); the reference's share,
+deployment, and frozen-state composition stays host-owned behind that flag.
+
+#### Controlled value and name update seams
+
+- Every control is a controlled component. Values cross the seam as strings — the invariant of the
+  reference's `ParamValueChange` seam, where even the switch's boolean commit is stringified — and
+  each user edit reports once through a change callback at the reference's cadence (per document
+  change or gesture). Persistence, debouncing (the reference's debounced entered-value transport),
+  realtime emission, validation, and default-value semantics stay host-owned.
+- **Name seam**: an editable item-label control at the reference's kwarg-name presentation (the
+  single-line name editor at label typography) reporting proposed names through a controlled
+  name-change callback. Trim/normalization, uniqueness validation, and display-name semantics stay
+  host-owned; the host may flag an invalid state, rendered at the reference's error treatment as
+  captured in this milestone's evidence.
+- The controls attach through the existing registered row renderer: the host composes them inside
+  its renderer from its opaque item data. This milestone adds no typed value model to the
+  workspace document and does not reopen the opaque item-data contract; promoting value kinds into
+  the document is a separate future amendment.
+- Controls carry the package's existing no-drag/no-pan/no-wheel interaction boundaries so editing
+  never starts a section or item drag; the Phase 4 item selection and dnd contracts are unchanged.
+
+#### Evidence before implementation
+
+A supervised capture session records, from the frozen reference in dark and light appearance: each
+slice control in idle, hover, focused-editing, open, and disabled states on the `/settings` surface
+(or an equivalent supervised fixture where `/settings` lacks a state — kwarg name editing and an
+invalid name in particular); the idle→live text-editor swap; computed geometry, typography,
+colors, borders, and radii per state; and short interaction traces for text editing, switch
+toggle, dropdown open/search/select, color pick, and name edit. Evidence lands under
+`docs/evidence/item-controls/` with provenance (commit, viewport, DPR). The existing
+`settings-style-metrics.json` stays authoritative for the recorded idle metrics. Implementation of
+a control may not precede its captured evidence.
+
+#### Exclusions
+
+- LSP completion, diagnostics, folder-path completions, the waiting-for-result spinner, and
+  autocomplete tooltip plumbing (backend editor services);
+- realtime literal emission and every backend transport, optimistic-operation, or persistence path;
+- slider, rotary, button, password, dropzone, and date/time controls — they remain deferred
+  capability candidates, each requiring its own evidence and amendment;
+- the parameter config-editing surfaces (min/max/step/options editing) — control configuration is
+  host-supplied through props;
+- the ARGS toolbar, column-resize persistence, search-result outlines, backend error-message
+  plumbing, Setta API presets, and the share/deployment capability engine.
+
+#### Dependencies
+
+Adopt the exact reference pins where the supply-chain controls admit them (controls kept, versions
+moved only when forced, as in prior phases): `@radix-ui/react-switch 1.0.1`,
+`@radix-ui/react-popover 1.1.15`, `downshift 8.2.3`, `@uiw/react-codemirror 4.21.21`,
+`@uiw/codemirror-theme-github 4.21.21`, and only the `@codemirror/*` and `@lezer/*` modules the
+trimmed editor path actually imports. The supply-chain gate reruns on every dependency change.
+
+#### Implementation order and exit gate
+
+Evidence capture first; then narrow batches (text value editor; switch and color picker; dropdown;
+name editor), each with focused tests, ported characterization where the reference has algorithmic
+behavior, and the changed-file static gate; the live comparison last.
+
+**Exit gate:** the unrelated playground example replaces its display-only value role with the
+built-in controls, driven only by its opaque item data through the new seams; frozen main and the
+playground compare live in dark and light appearance at matched viewport, DPR, and zoom against
+the `/settings` surface; the package imports no Setta parameter types, stores, or generated
+backend clients; the developer explicitly accepts the visual and interaction result. Visual
+baselines refresh only after acceptance. No agent or test suite can waive this gate.
 
 ### Phase 5 — extension surface and hardening
 
