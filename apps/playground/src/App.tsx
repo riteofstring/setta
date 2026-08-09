@@ -16,7 +16,7 @@ function toggleDarkMode() {
 // treatment; the host renders only the section body.
 function SectionBody({ section }: { section: WorkspaceSection }) {
   return (
-    <div className="section-full px-1">
+    <div className="section-full-no-title px-1">
       <p className="text-xs text-setta-500 dark:text-setta-400">{section.name}</p>
     </div>
   );
