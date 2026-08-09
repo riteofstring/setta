@@ -11,6 +11,7 @@
 export const PROBE_INIT_SCRIPT = `(() => {
   const state = {
     active: false,
+    activations: [],
     events: [],
     frames: [],
     longTaskObserver: null,
@@ -37,6 +38,7 @@ export const PROBE_INIT_SCRIPT = `(() => {
   }
   window.__settaInteractionProbe = {
     begin() {
+      state.activations = [];
       state.events = [];
       state.frames = [];
       state.longTasks = [];
@@ -47,8 +49,21 @@ export const PROBE_INIT_SCRIPT = `(() => {
         }
       });
       state.longTaskObserver.observe({ type: "longtask" });
-      state.mutationObserver = new MutationObserver(() => {
-        state.mutations.push(performance.now());
+      state.mutationObserver = new MutationObserver((records) => {
+        const timestamp = performance.now();
+        state.mutations.push(timestamp);
+        for (const record of records) {
+          if (
+            record.type !== "attributes" ||
+            record.attributeName !== "data-workspace-interaction-owner"
+          ) {
+            continue;
+          }
+          const owner = record.target.getAttribute("data-workspace-interaction-owner");
+          if (owner && owner !== "none") {
+            state.activations.push([timestamp, owner]);
+          }
+        }
       });
       state.mutationObserver.observe(document.body, {
         attributes: true,
@@ -56,19 +71,30 @@ export const PROBE_INIT_SCRIPT = `(() => {
         childList: true,
         subtree: true,
       });
+      state.scrollAtBegin = { x: window.scrollX, y: window.scrollY };
       state.active = true;
       state.rafId = requestAnimationFrame(onFrame);
     },
     end() {
+      if (!state.active) {
+        throw new Error(
+          "The interaction probe has no active recording; the page reloaded after begin().",
+        );
+      }
       state.active = false;
       cancelAnimationFrame(state.rafId);
       state.longTaskObserver.disconnect();
       state.mutationObserver.disconnect();
       return {
+        activations: state.activations,
         events: state.events,
         frames: state.frames,
         longTasks: state.longTasks,
         mutations: state.mutations,
+        scroll: {
+          begin: state.scrollAtBegin,
+          end: { x: window.scrollX, y: window.scrollY },
+        },
       };
     },
   };
@@ -174,6 +200,7 @@ export function analyzeGestureSample(sample) {
   const gestureFrames = sample.frames.slice(Math.max(anchorIndex, 0));
   const frameGaps = intervals(gestureFrames);
   const activationLimit = down.capture + ACTIVATION_WINDOW_MS;
+  const activationTimes = sample.activations.map(([time]) => time);
   const activationGaps = [];
   const sustainedGaps = [];
   for (let index = 1; index < gestureFrames.length; index += 1) {
@@ -183,6 +210,8 @@ export function analyzeGestureSample(sample) {
   }
   return {
     activation: gapStats(activationGaps),
+    activationOwners: [...new Set(sample.activations.map(([, owner]) => owner))],
+    firstActivationAfterDownMs: firstAfter(activationTimes, down.capture),
     firstFrameAfterDownMs: firstAfter(sample.frames, down.capture),
     firstMutationAfterDownMs: firstAfter(sample.mutations, down.capture),
     frameCount: gestureFrames.length,
@@ -197,6 +226,10 @@ export function analyzeGestureSample(sample) {
     moveCount: moveCaptureTimes.length,
     maxMoveIntervalMs: round1(maxOf(moveIntervals)),
     overall: gapStats(frameGaps),
+    pageScrollDelta: {
+      x: round1(sample.scroll.end.x - sample.scroll.begin.x),
+      y: round1(sample.scroll.end.y - sample.scroll.begin.y),
+    },
     pointerDownHandlerMs: handlerSpanMs(down),
     pointerUpHandlerMs: handlerSpanMs(up),
     sustained: gapStats(sustainedGaps),

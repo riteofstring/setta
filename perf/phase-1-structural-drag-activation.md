@@ -116,3 +116,22 @@ provider isolation that preserves its lifecycle plugins, and re-examine the cold
 
 Both caveats belong to the profiler fixture, not the package, and should be addressed when the
 profiler next changes.
+
+## Fixture correction — 2026-08-10
+
+The `phase-1-fixture` and stricter `phase-1-fixture-activation` runs resolve both caveats above.
+The profiler now measures each movement handle, centers the full gesture away from dnd-kit's
+window auto-scroll region, restores the canonical matrix document between passes, and fails the
+run unless every pass records all 96 pointer moves, publishes the scenario's expected workspace
+interaction owner, and leaves page scroll unchanged. The final development and production traces
+each contain all 27 declared scenario/zoom/pass cells with the expected activation owner, no
+missing mutations, and no page-scroll contamination.
+
+The corrected measurements confirm that Phase 1 remains open. In the final run, development
+structural-sort pointer-down spans 43.5–55 ms with 49.6–66.6 ms activation gaps, and
+nested-freeform spans 41.9–48.6 ms with 49.9–58.4 ms activation gaps. Production is substantially
+better: root drags stay at 7.3–11.4 ms, nested freeform at 19.2–29.7 ms, and structural sort at
+21.3–34.3 ms; one structural-sort cell and one nested-freeform cell exceed 32 ms. These corrected
+results supersede the invalid cells described above and make the remaining target explicit:
+remove the development-only structural/freeform activation stall without replacing dnd-kit's
+lifecycle plugins.

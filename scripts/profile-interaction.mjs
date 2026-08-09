@@ -5,8 +5,14 @@
  * gestures (top-level XYFlow drag, nested structural sort drag, same-parent
  * nested freeform drag) at 0.5x, 1x, and 2x workspace zoom, and records
  * activation timings, animation-frame gaps, long tasks, and Chrome
- * style/layout counters. Results append to perf/interaction-profile.md and
- * full traces land in perf/interaction-traces/.
+ * style/layout counters. Every gesture is centered in the browser window
+ * (measured handle, corrected viewport query), the canvas is scrolled toward
+ * the window center before every pass, a pass fails if the page scrolls
+ * mid-gesture (window auto-scroll would drag the document under the pointer),
+ * and passes after the first restore the canonical fixture arrangement
+ * through the page's matrix reset control so commits cannot rearrange later
+ * passes. Results append to perf/interaction-profile.md and full traces land
+ * in perf/interaction-traces/.
  *
  * Usage: node scripts/profile-interaction.mjs [--label baseline]
  *        [--mode development|production|both] [--passes 3] [--zoom 0.5,1,2]
@@ -37,17 +43,22 @@ const HOVER_SETTLE_MS = 150;
 const COMMIT_SETTLE_MS = 250;
 const SERVER_READY_TIMEOUT_MS = 180_000;
 const DEFAULT_ZOOMS = [0.5, 1, 2];
+// Minimum distance from every window edge for the whole gesture, keeping the
+// pointer outside dnd-kit's window auto-scroll region.
+const WINDOW_EDGE_MARGIN_PX = 250;
 
 /**
- * One stable fixture: the public-API-only visual-matrix route. Focus is the
- * document-space point the viewport centers on before the gesture; vector is
- * the screen-space out-and-back drag extent.
+ * One stable fixture: the public-API-only visual-matrix route. Focus is a
+ * document-space seed near the dragged section; the runner measures the real
+ * movement handle and renavigates so the gesture midpoint sits at the canvas
+ * center. Vector is the screen-space out-and-back drag extent.
  */
 const SCENARIOS = [
   {
     article: "Default chrome",
     focus: { x: 144, y: 108 },
     name: "root-drag",
+    owner: "root-layout",
     vector: { x: 150, y: 90 },
     workload: "Top-level XYFlow spatial drag of the root leaf section.",
   },
@@ -55,6 +66,7 @@ const SCENARIOS = [
     article: "Nested leaf",
     focus: { x: 200, y: 560 },
     name: "structural-sort",
+    owner: "section-structure",
     vector: { x: 0, y: 120 },
     workload: "dnd-kit nested structural drag inside the vertical ordered group.",
   },
@@ -62,6 +74,7 @@ const SCENARIOS = [
     article: "Freeform note A",
     focus: { x: 1_188, y: 328 },
     name: "nested-freeform",
+    owner: "section-structure",
     vector: { x: 26, y: 20 },
     workload: "Same-parent nested freeform drag inside the freeform container.",
   },
@@ -173,24 +186,67 @@ function stopServer(server) {
   }
 }
 
-function scenarioUrl(baseUrl, scenario, zoom, canvasBox) {
-  const viewportX = canvasBox.width / 2 - scenario.focus.x * zoom;
-  const viewportY = canvasBox.height / 2 - scenario.focus.y * zoom;
+function scenarioUrl(baseUrl, scenario, zoom, canvasBox, offset = { x: 0, y: 0 }) {
+  const viewportX = canvasBox.width / 2 - scenario.focus.x * zoom + offset.x;
+  const viewportY = canvasBox.height / 2 - scenario.focus.y * zoom + offset.y;
   const query = `zoom=${String(zoom)}&viewport-x=${String(viewportX)}&viewport-y=${String(viewportY)}`;
   return `${baseUrl}/?visual-matrix&${query}`;
 }
 
-async function measureCanvas(page, baseUrl) {
-  await page.goto(`${baseUrl}/?visual-matrix`);
+/**
+ * Scroll the canvas as close to the window center as the page allows and
+ * return its box. The page header sits above the canvas, so without this
+ * scroll the lower canvas rows fall below the window: synthetic pointer input
+ * there reaches no element at all, and gestures near the window edge trigger
+ * dnd-kit's window auto-scroll, which drags the document under the pointer
+ * mid-gesture.
+ */
+async function centeredCanvasBox(page) {
   const canvas = page.getByRole("application", { name: "Visual matrix workspace canvas" });
+  await canvas.evaluate((element) => {
+    element.scrollIntoView({ behavior: "instant", block: "center", inline: "center" });
+  });
   const box = await canvas.boundingBox();
   if (!box) {
     throw new Error("The visual matrix canvas must expose browser geometry.");
   }
+  const fitsWindow =
+    box.x >= 0 &&
+    box.y >= 0 &&
+    box.x + box.width <= VIEWPORT.width &&
+    box.y + box.height <= VIEWPORT.height;
+  if (!fitsWindow) {
+    throw new Error(
+      "The visual matrix canvas must fit inside the profiler window after scrolling; " +
+        "pointer input outside the window would silently measure nothing.",
+    );
+  }
   return box;
 }
 
-async function gestureStartPoint(page, scenario, canvasBox) {
+async function measureCanvas(page, baseUrl) {
+  await page.goto(`${baseUrl}/?visual-matrix`);
+  return centeredCanvasBox(page);
+}
+
+/**
+ * Restore the canonical fixture state between passes. A gesture may commit a
+ * document change (structural sorts committed reorders whenever window
+ * auto-scroll displaced the release point; a freeform origin release commits
+ * a snapped move), and a completed drag leaves the section selected, which
+ * relocates its movement handle to the floating selected-state actions bar —
+ * in this fixture an overlapping sibling occludes that bar. The reset control
+ * clears selection and restores the document so every pass starts identical.
+ * Clicking the control scrolls the page; callers must re-measure the canvas
+ * box afterwards.
+ */
+async function resetMatrixDocument(page) {
+  await page.getByRole("button", { name: "Reset matrix document" }).click();
+  await page.getByText("Reset the matrix document.", { exact: true }).first().waitFor();
+  await delay(COMMIT_SETTLE_MS);
+}
+
+async function movementHandleBox(page, scenario) {
   const workspace = page.getByRole("region", { exact: true, name: "Visual matrix workspace" });
   const handle = workspace
     .getByRole("article", { name: scenario.article })
@@ -200,6 +256,51 @@ async function gestureStartPoint(page, scenario, canvasBox) {
   if (!box) {
     throw new Error(`The ${scenario.name} movement handle must expose browser geometry.`);
   }
+  return box;
+}
+
+async function waitForScenarioArticle(page, scenario) {
+  await page
+    .getByRole("region", { exact: true, name: "Visual matrix workspace" })
+    .getByRole("article", { name: scenario.article })
+    .first()
+    .waitFor();
+}
+
+/**
+ * Navigate so the measured gesture midpoint sits at the canvas center. The
+ * authored scenario focus is only a seed: it drifts whenever fixture chrome
+ * or layout changes, and a gesture that ends up near a window edge triggers
+ * dnd-kit's window auto-scroll, which both contaminates the measurement and
+ * moves the release point to a different document location. Measuring the
+ * real handle and renavigating with a corrected viewport keeps every cell
+ * measuring the gesture it claims to measure.
+ */
+async function navigateToCenteredGesture(page, baseUrl, scenario, zoom, canvasBox) {
+  await page.goto(scenarioUrl(baseUrl, scenario, zoom, canvasBox));
+  await waitForScenarioArticle(page, scenario);
+  const seedCanvas = await centeredCanvasBox(page);
+  const seedHandle = await movementHandleBox(page, scenario);
+  const offset = {
+    x:
+      seedCanvas.x +
+      seedCanvas.width / 2 -
+      seedHandle.x -
+      seedHandle.width / 2 -
+      scenario.vector.x / 2,
+    y:
+      seedCanvas.y +
+      seedCanvas.height / 2 -
+      seedHandle.y -
+      seedHandle.height / 2 -
+      scenario.vector.y / 2,
+  };
+  await page.goto(scenarioUrl(baseUrl, scenario, zoom, canvasBox, offset));
+  await waitForScenarioArticle(page, scenario);
+}
+
+async function gestureStartPoint(page, scenario, canvasBox) {
+  const box = await movementHandleBox(page, scenario);
   const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
   const inside =
     point.x > canvasBox.x &&
@@ -208,6 +309,19 @@ async function gestureStartPoint(page, scenario, canvasBox) {
     point.y < canvasBox.y + canvasBox.height;
   if (!inside) {
     throw new Error(`The ${scenario.name} movement handle is outside the visible canvas.`);
+  }
+  const xExtents = [box.x, box.x + box.width, point.x + scenario.vector.x];
+  const yExtents = [box.y, box.y + box.height, point.y + scenario.vector.y];
+  const clearOfWindowEdges =
+    Math.min(...xExtents) >= WINDOW_EDGE_MARGIN_PX &&
+    Math.max(...xExtents) <= VIEWPORT.width - WINDOW_EDGE_MARGIN_PX &&
+    Math.min(...yExtents) >= WINDOW_EDGE_MARGIN_PX &&
+    Math.max(...yExtents) <= VIEWPORT.height - WINDOW_EDGE_MARGIN_PX;
+  if (!clearOfWindowEdges) {
+    throw new Error(
+      `The ${scenario.name} gesture runs within ${String(WINDOW_EDGE_MARGIN_PX)} px of a window ` +
+        "edge, inside dnd-kit's window auto-scroll region. Fix the scenario seed focus.",
+    );
   }
   return point;
 }
@@ -240,21 +354,40 @@ async function runPass(page, cdp, scenario, canvasBox) {
   await delay(COMMIT_SETTLE_MS);
   const sample = await page.evaluate("window.__settaInteractionProbe.end()");
   const { metrics: cdpAfter } = await cdp.send("Performance.getMetrics");
-  return { ...analyzeGestureSample(sample), cdp: cdpMetricsDelta(cdpBefore, cdpAfter) };
+  const metrics = analyzeGestureSample(sample);
+  if (metrics.moveCount !== MOVE_COUNT) {
+    throw new Error(
+      `The ${scenario.name} gesture recorded ${String(metrics.moveCount)} pointer moves; ` +
+        `expected ${String(MOVE_COUNT)}. The pass did not drive its declared gesture path.`,
+    );
+  }
+  if (!metrics.activationOwners.includes(scenario.owner)) {
+    throw new Error(
+      `The ${scenario.name} gesture never published its expected ${scenario.owner} interaction ` +
+        `owner. The pass did not activate the declared drag.`,
+    );
+  }
+  if (metrics.pageScrollDelta.x !== 0 || metrics.pageScrollDelta.y !== 0) {
+    throw new Error(
+      `The page scrolled ${JSON.stringify(metrics.pageScrollDelta)} px during the ` +
+        `${scenario.name} gesture. Window auto-scroll drags the document under the pointer, so ` +
+        "the pass measures auto-scroll instead of the drag; fix the gesture placement.",
+    );
+  }
+  return { ...metrics, cdp: cdpMetricsDelta(cdpBefore, cdpAfter) };
 }
 
 async function runScenarioMatrix(page, cdp, configuration, baseUrl, canvasBox) {
   const results = [];
   for (const scenario of configuration.scenarios) {
     for (const zoom of configuration.zooms) {
-      await page.goto(scenarioUrl(baseUrl, scenario, zoom, canvasBox));
-      await page
-        .getByRole("region", { exact: true, name: "Visual matrix workspace" })
-        .getByRole("article", { name: scenario.article })
-        .first()
-        .waitFor();
+      await navigateToCenteredGesture(page, baseUrl, scenario, zoom, canvasBox);
       for (let pass = 1; pass <= configuration.passes; pass += 1) {
-        const metrics = await runPass(page, cdp, scenario, canvasBox);
+        if (pass > 1) {
+          await resetMatrixDocument(page);
+        }
+        const passCanvasBox = await centeredCanvasBox(page);
+        const metrics = await runPass(page, cdp, scenario, passCanvasBox);
         results.push({ cold: pass === 1, metrics, pass, scenario: scenario.name, zoom });
         console.log(
           `${scenario.name} zoom=${String(zoom)} pass=${String(pass)}: ` +
@@ -324,10 +457,11 @@ function writeTrace(configuration, run, startedAt) {
     environment: environmentSummary(),
     mode: run.mode,
     results: run.results,
-    scenarios: SCENARIOS.map(({ article, focus, name, vector, workload }) => ({
+    scenarios: SCENARIOS.map(({ article, focus, name, owner, vector, workload }) => ({
       article,
       focus,
       name,
+      owner,
       vector,
       workload,
     })),
@@ -341,11 +475,17 @@ const REPORT_HEADER = `# Interaction profile report
 
 Append-only frame-pacing traces for the Setta-styled workspace UI plan, recorded by
 \`corepack pnpm perf:interaction\` against the public \`/?visual-matrix\` playground route. Each
-run drives out-and-back pointer drags (96 moves, ~7 ms pause between moves, release at the origin
-so passes stay document-stable) for the registered gestures at 0.5x, 1x, and 2x workspace zoom,
-with pass 1 cold after navigation and later passes warm. Full per-pass traces, configuration, and
-environment records live next to this file in \`perf/interaction-traces/\`. Numbers are
-machine-local evidence, not portable CI thresholds.
+run centers each gesture in the browser window (measured handle, corrected viewport query, pass
+failure if the page auto-scrolls mid-gesture), then drives out-and-back pointer drags (96 moves,
+~7 ms pause between moves) for the registered gestures at 0.5x, 1x, and 2x workspace zoom. Pass 1
+is cold after navigation; later passes are warm and start from the canonical fixture arrangement
+restored through the matrix reset control. Runs labeled before \`phase-1-fixture\` predate these
+fixture corrections (see \`phase-1-structural-drag-activation.md\`): their gestures ran at or below
+the window's bottom edge, so structural-sort 2x and nested-freeform 1x/2x cells measured pointer
+input below the window, window auto-scroll rearranged the document mid-pass, and later
+structural-sort passes dragged a reordered document. Full per-pass traces,
+configuration, and environment records live next to this file in \`perf/interaction-traces/\`.
+Numbers are machine-local evidence, not portable CI thresholds.
 `;
 
 function longTaskSummary(metrics) {

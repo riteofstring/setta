@@ -334,6 +334,20 @@ export function VisualMatrixPage() {
           >
             Clear selection
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              const controller = controllerRef.current;
+              if (!controller) {
+                throw new Error("The visual matrix controller is not mounted.");
+              }
+              controller.clearSelection();
+              setDocument(createVisualMatrixDocument(matrixViewport(search)));
+              setStatus("Reset the matrix document.");
+            }}
+          >
+            Reset matrix document
+          </button>
         </fieldset>
         <p className="announcement" role="status" aria-live="polite">
           {status}

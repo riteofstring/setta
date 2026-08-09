@@ -71,6 +71,43 @@ test("the visual matrix honors the appearance and read-only query modes", async 
   );
 });
 
+test("the matrix reset control restores the canonical document arrangement", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/?visual-matrix");
+  const workspace = page.getByRole("region", { exact: true, name: "Visual matrix workspace" });
+  const article = workspace.getByRole("article", { name: "Default chrome" });
+  const before = await article.boundingBox();
+  const handle = article.getByRole("button", { name: "Move Default chrome" });
+  const handleBox = await handle.boundingBox();
+  if (!before || !handleBox) {
+    throw new Error("The default chrome section must expose browser geometry.");
+  }
+
+  const start = {
+    x: handleBox.x + handleBox.width / 2,
+    y: handleBox.y + handleBox.height / 2,
+  };
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + 96, start.y + 60, { steps: 8 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => {
+      const moved = await article.boundingBox();
+      return moved ? Math.round(moved.x - before.x) : null;
+    })
+    .toBeGreaterThan(48);
+
+  await page.getByRole("button", { name: "Reset matrix document" }).click();
+  await expect(page.getByText("Reset the matrix document.", { exact: true })).toBeVisible();
+  await expect
+    .poll(async () => {
+      const restored = await article.boundingBox();
+      return restored ? Math.round(restored.x - before.x) : null;
+    })
+    .toBe(0);
+});
+
 test("the visual matrix honors the viewport query used by the interaction profiler", async ({
   page,
 }) => {
