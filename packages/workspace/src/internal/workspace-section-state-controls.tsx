@@ -15,7 +15,10 @@ export type WorkspaceSectionStateControlsProps = Readonly<{
   section: WorkspaceSection<unknown>;
 }>;
 
-function LockIcon({ locked }: Readonly<{ locked: boolean }>) {
+// State-control icons rerender with their frame on every selection commit,
+// so each variant is a module constant whose stable element identity lets
+// React bail out of the SVG subtree.
+function lockIcon(locked: boolean) {
   return (
     <svg
       aria-hidden="true"
@@ -31,7 +34,14 @@ function LockIcon({ locked }: Readonly<{ locked: boolean }>) {
   );
 }
 
-function MinimizeIcon({ minimized }: Readonly<{ minimized: boolean }>) {
+const lockedLockIcon = lockIcon(true);
+const unlockedLockIcon = lockIcon(false);
+
+function LockIcon({ locked }: Readonly<{ locked: boolean }>) {
+  return locked ? lockedLockIcon : unlockedLockIcon;
+}
+
+function minimizeIcon(minimized: boolean) {
   return (
     <svg
       aria-hidden="true"
@@ -43,6 +53,13 @@ function MinimizeIcon({ minimized }: Readonly<{ minimized: boolean }>) {
       <path d={minimized ? "m6.5 11.5 3.5-3 3.5 3" : "m6.5 8.5 3.5 3 3.5-3"} />
     </svg>
   );
+}
+
+const minimizedMinimizeIcon = minimizeIcon(true);
+const expandedMinimizeIcon = minimizeIcon(false);
+
+function MinimizeIcon({ minimized }: Readonly<{ minimized: boolean }>) {
+  return minimized ? minimizedMinimizeIcon : expandedMinimizeIcon;
 }
 
 function stopNodeSelection(event: MouseEvent<HTMLButtonElement>): void {

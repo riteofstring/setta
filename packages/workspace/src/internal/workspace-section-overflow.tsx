@@ -126,7 +126,9 @@ export function useWorkspaceSectionOverflowActions<TSectionData>({
   return { announcementText, handleCommit };
 }
 
-function OverflowIcon({ scrolling }: Readonly<{ scrolling: boolean }>) {
+// Both overflow-icon variants are module constants so the frame rerenders
+// that accompany every selection commit bail out of the SVG subtree.
+function overflowIcon(scrolling: boolean) {
   return (
     <svg
       aria-hidden="true"
@@ -146,6 +148,13 @@ function OverflowIcon({ scrolling }: Readonly<{ scrolling: boolean }>) {
       )}
     </svg>
   );
+}
+
+const scrollingOverflowIcon = overflowIcon(true);
+const clippedOverflowIcon = overflowIcon(false);
+
+function OverflowIcon({ scrolling }: Readonly<{ scrolling: boolean }>) {
+  return scrolling ? scrollingOverflowIcon : clippedOverflowIcon;
 }
 
 export function WorkspaceSectionOverflowControl({

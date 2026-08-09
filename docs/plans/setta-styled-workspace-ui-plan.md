@@ -79,6 +79,27 @@ start/session work and frame alignment. Evidence:
 [perf/phase-1-structural-drag-activation.md](../../perf/phase-1-structural-drag-activation.md)
 (`phase-1-measured-bounds`, 15:14 runs).
 
+The idle-overlay rule and constant chrome icons landed next (2026-08-10): invalidation-tracked
+traces attributed the in-dispatch forced layout to dnd-kit's per-gesture stylesheet injection —
+the universal cursor/user-select recalculation (2–6 ms, upstream-owned, both builds) plus a
+whole-document `Fonts changed` layout, with one package-owned contributor: the always-mounted
+upstream drag-overlay wrapper flipped its computed display at every injection because only the
+injected sheet hid it while idle. The package stylesheet now hides the idle wrapper permanently
+(identical drag-time states), and every two-variant section-chrome icon is a module-constant
+element, so the selection-commit frame reveal and the per-handle disabled flips in the broadcast
+frame bail out of their SVG subtrees instead of recreating them under development
+StrictMode-doubled renders. Every previously repeatable development miss cleared: structural 2×
+is 24.9–25.2 ms in all passes, the worst warm development gap is 26.3 ms, and no cell exceeds
+32 ms in more than one of three passes. Production is clean in all 27 cells including cold.
+Phase 1 remains open only on the development cold path: the 0.5× first-ever drag in two scenarios
+skips two vsyncs once (33.3 ms — first-execution JIT/lazy-module tail, cold spans 22–28 ms in both
+builds), and one warm 0.5× nested-freeform pass measured 33.1 ms against 24.9/26.3 ms siblings.
+Gates: `corepack pnpm quality`, 539 unit tests, 18/18 across the recursive-rendering,
+root-movement, section-detachment, and presentation workflows, plus a driven visual check of the
+reveal, icons, and drag overlay. Evidence:
+[perf/phase-1-structural-drag-activation.md](../../perf/phase-1-structural-drag-activation.md)
+(`phase-1-idle-overlay-chrome`, 17:29/17:31 runs).
+
 Make the Setta visual language the opinionated default for `@setta/workspace`, redesign the
 backend-free playground around the canvas, and remove the measurable structural-drag startup hitch.
 The result should feel like a focused Setta product immediately after `pnpm dev`, while remaining a

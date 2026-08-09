@@ -1215,6 +1215,21 @@
   pointer-events: none;
 }
 
+/*
+ * The upstream drag-overlay wrapper stays mounted while idle, and the drag
+ * library injects `[data-dnd-overlay]:not([data-dnd-dragging]) { display:
+ * none }` only for the duration of a gesture. Without this permanent copy of
+ * that rule, every gesture start flips the wrapper's computed display, which
+ * marks layout dirty and turns the library's first in-dispatch
+ * `elementFromPoint` into a full-document layout. Hiding the empty wrapper
+ * permanently keeps its computed style identical across the injection, so
+ * activation pays only a style recalculation. During a drag the wrapper
+ * carries `data-dnd-dragging`, so this rule never matches it.
+ */
+.setta-workspace [data-dnd-overlay]:not([data-dnd-dragging]) {
+  display: none;
+}
+
 .setta-workspace__section-action-icon {
   inline-size: 1.25rem;
   block-size: 1.25rem;

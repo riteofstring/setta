@@ -94,8 +94,9 @@ export function useWorkspaceSectionOrientationActions<TSectionData>({
   return { announcementText, handleCommit };
 }
 
-function OrientationIcon({ orientation }: Readonly<{ orientation: SectionOrientation }>) {
-  const horizontal = orientation === "horizontal";
+// Both orientation-icon variants are module constants so the frame rerenders
+// that accompany every selection commit bail out of the SVG subtree.
+function orientationIcon(horizontal: boolean) {
   return (
     <svg
       aria-hidden="true"
@@ -119,6 +120,13 @@ function OrientationIcon({ orientation }: Readonly<{ orientation: SectionOrienta
       )}
     </svg>
   );
+}
+
+const horizontalOrientationIcon = orientationIcon(true);
+const verticalOrientationIcon = orientationIcon(false);
+
+function OrientationIcon({ orientation }: Readonly<{ orientation: SectionOrientation }>) {
+  return orientation === "horizontal" ? horizontalOrientationIcon : verticalOrientationIcon;
 }
 
 export function WorkspaceSectionOrientationControl({

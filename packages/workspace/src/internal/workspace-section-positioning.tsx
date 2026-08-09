@@ -682,7 +682,9 @@ export function useWorkspaceSectionPositioningActions<TSectionData>({
   };
 }
 
-function PositioningIcon({ positioning }: Readonly<{ positioning: "freeform" | "ordered" }>) {
+// Both positioning-icon variants are module constants so the frame rerenders
+// that accompany every selection commit bail out of the SVG subtree.
+function positioningIcon(freeform: boolean) {
   return (
     <svg
       aria-hidden="true"
@@ -691,7 +693,7 @@ function PositioningIcon({ positioning }: Readonly<{ positioning: "freeform" | "
       focusable="false"
       viewBox="0 0 20 20"
     >
-      {positioning === "freeform" ? (
+      {freeform ? (
         <>
           <rect height="5" rx="1.25" width="5" x="2.5" y="3" />
           <rect height="5" rx="1.25" width="5" x="12.5" y="5.5" />
@@ -706,6 +708,13 @@ function PositioningIcon({ positioning }: Readonly<{ positioning: "freeform" | "
       )}
     </svg>
   );
+}
+
+const freeformPositioningIcon = positioningIcon(true);
+const orderedPositioningIcon = positioningIcon(false);
+
+function PositioningIcon({ positioning }: Readonly<{ positioning: "freeform" | "ordered" }>) {
+  return positioning === "freeform" ? freeformPositioningIcon : orderedPositioningIcon;
 }
 
 export function WorkspaceSectionPositioningControl({

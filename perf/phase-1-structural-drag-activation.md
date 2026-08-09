@@ -303,3 +303,63 @@ at 2× repeats a 33.4 ms skipped frame in two of three passes, and the overall d
 is 35 ms. Phase 1 therefore remains open. Do not retry canvas-bounds caching, capture-anchor, or
 geometry-index variants; the remaining target is the narrower upstream dnd-kit start/session work
 and its frame alignment, without replacing lifecycle plugins or changing gating semantics.
+
+## Idle overlay rule and constant chrome icons — landed 2026-08-10
+
+Timeline traces with invalidation tracking finally named the in-dispatch forced layout. On every
+gesture start dnd-kit's StyleInjector prepends three stylesheets (Cursor's `* { cursor: grabbing
+!important }`, PreventSelection's `* { user-select: none !important }`, and the Feedback rules)
+into `<head>`, and the AutoScroller's first synchronous `scroll()` evaluates the Scroller's
+`elementFromPoint`, forcing the browser to reconcile them mid-dispatch. The forced pass has two
+parts: a whole-document style recalculation from the universal selectors (measured 2–6 ms on the
+matrix document, dev and production alike — upstream-owned, per-gesture, unavoidable while those
+plugins inject universal rules), and a whole-document **layout** flagged `Fonts changed` during
+that recalc (`Layout` 3.9–7.5 ms at 2×). One package-owned contributor was identified and
+removed: the always-mounted upstream drag-overlay wrapper sat unhidden while idle, so the injected
+`[data-dnd-overlay]:not([data-dnd-dragging]) { display: none }` rule flipped its computed display
+at every drag start and back at every drag end. `styles.css` now hides the idle wrapper
+permanently (`.setta-workspace [data-dnd-overlay]:not([data-dnd-dragging])`), keeping its
+computed style identical across the injection; drag-time overlay states are byte-identical
+because the same rule was previously active during every gesture.
+
+CPU attribution of the development-only remainder showed the React work was section chrome:
+the pointer-down selection commit mounts the selected frame's revealed controls inside the
+discrete flush, and the deferred broadcast frame rerenders every visible drag handle
+(disabled-state flip, 18 handles in the matrix), each recreating its SVG icon subtree per render
+(doubled by StrictMode in development). All two-variant chrome icons (move, rename, style,
+selection, lock, minimize, detach, orientation, positioning, overflow) are now module-constant
+elements, so those rerenders bail out of the SVG subtrees instead of recreating and re-validating
+them. Markup is unchanged.
+
+`phase-1-idle-overlay-chrome` (17:29 development, 17:31 production) records the result against
+`phase-1-measured-bounds`:
+
+| Build       | Metric                       | measured-bounds        | idle-overlay-chrome        |
+| ----------- | ---------------------------- | ---------------------- | -------------------------- |
+| development | activation gaps above 32 ms  | 5/27 cells (repeatable | 3/27 cells, each 1-of-3    |
+|             |                              | at structural 2×)      | passes (2 cold, 1 warm)    |
+| development | worst warm activation gap    | 33.4 ms (2/3 passes)   | 26.3 ms                    |
+| development | worst activation gap         | 35 ms                  | 33.3 ms (cold first drag)  |
+| development | long tasks at or above 50 ms | none                   | none                       |
+| production  | activation gaps above 32 ms  | 0/27 cells             | 0/27 cells                 |
+| production  | worst activation gap         | clean                  | 25 ms (cold), 17.6 ms warm |
+| production  | long tasks at or above 50 ms | none                   | none                       |
+
+Every previously repeatable development miss is gone: structural sort at 2× is now 24.9–25.2 ms
+in all passes, and no cell exceeds 32 ms in more than one of its three passes. The three
+remaining single-pass 33.1–33.3 ms cells (exactly two skipped vsyncs) are the 0.5× cold first
+drag in root-drag and structural-sort — the first-execution JIT/lazy-module tail — plus one warm
+0.5× nested-freeform outlier whose sibling passes measured 24.9/26.3 ms. Production is clean in
+all 27 cells including cold.
+
+Gates: `corepack pnpm quality` (formatting, boundaries, dependencies, file lengths, typecheck,
+build, API report), the package vitest suite (539), and the directly affected browser workflows
+(recursive-rendering, root-movement, section-detachment, presentation — 18/18). Browser visual
+verification drove the matrix route: selected-frame control reveal, all hoisted icons, the
+"Sorting" drag overlay mid-gesture, and the hidden idle wrapper all render correctly.
+
+Phase 1 remains open only on the development cold-path tail. The warm profile is inside the
+budget everywhere; the residual owners are first-drag JIT/lazy-module cost (both builds' cold
+spans are 22–28 ms) and the upstream per-gesture universal-rule recalculation, which cannot
+shrink further without replacing the Cursor/PreventSelection injection behavior that Phase 1
+explicitly preserves.

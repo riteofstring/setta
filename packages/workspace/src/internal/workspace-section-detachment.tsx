@@ -30,6 +30,7 @@ import {
   type WorkspaceDetachmentProviderProps,
   type WorkspaceDetachmentRequest,
 } from "./workspace-section-detachment-contract.js";
+import { DetachIcon } from "./workspace-section-frame-icons.js";
 import type { ResolvedSectionDefinition } from "./workspace-section-registry.js";
 
 const detachedThemeProperties = [
@@ -549,22 +550,6 @@ function measuredPlaceholderSize(element: HTMLElement): DetachedPlaceholderSize 
     height: Math.max(1, element.offsetHeight || bounds.height),
     width: Math.max(1, element.offsetWidth || bounds.width),
   });
-}
-
-function DetachIcon({ detached }: Readonly<{ detached: boolean }>) {
-  return (
-    <svg
-      aria-hidden="true"
-      className="setta-workspace__section-action-icon"
-      fill="none"
-      focusable="false"
-      viewBox="0 0 20 20"
-    >
-      <path d="M7.25 5.25H4.5a1 1 0 0 0-1 1v9.25a1 1 0 0 0 1 1h9.25a1 1 0 0 0 1-1v-2.75" />
-      <path d={detached ? "M8 9.5h6.5v-6" : "M9 3.5h7.5V11"} />
-      <path d={detached ? "m11.5 6.5 3 3 3-3" : "m8.5 11.5 8-8"} />
-    </svg>
-  );
 }
 
 export function WorkspaceSectionDetachmentControl({
