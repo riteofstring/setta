@@ -922,8 +922,18 @@ Phase 4 progress (2026-08-11):
   adds a controlled name-edit seam at the reference kwarg-name presentation, attaches controls
   through the existing registered row renderer without reopening the opaque item-data contract,
   requires supervised control-state evidence before implementation, and names the exact reference
-  dependency pins. Implementation has not begun; the milestone awaits the developer's explicit
-  approval of the amendment.
+  dependency pins. At drafting time implementation had not begun and the milestone awaited the
+  developer approval recorded immediately above.
+- Item-controls frozen-reference evidence complete (2026-08-11): after amendment approval, a
+  supervised Chrome session captured the four controls and editable name seam from frozen main in
+  dark and light appearance before package implementation. Idle, hover, focused/live, open,
+  filtered, selected, toggled, duplicate-name error, and interaction-boundary states; computed
+  metrics; and short interaction traces are indexed under `docs/evidence/item-controls/`. The
+  earlier `/settings` metrics remain authoritative for idle authored geometry. Frozen-source
+  inspection records the disabled branch exactly: it is interaction-first with no blanket opacity
+  delta, so the idle pixels are also the disabled visual reference. The temporary reference
+  project was removed after capture. The implementation batches may now begin; the later package
+  live-comparison and explicit developer-acceptance gate remain open.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
