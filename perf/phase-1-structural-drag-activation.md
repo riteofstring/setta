@@ -363,3 +363,16 @@ budget everywhere; the residual owners are first-drag JIT/lazy-module cost (both
 spans are 22–28 ms) and the upstream per-gesture universal-rule recalculation, which cannot
 shrink further without replacing the Cursor/PreventSelection injection behavior that Phase 1
 explicitly preserves.
+
+## Phase 1 closed — 2026-08-10
+
+The exit gate reads on the `phase-1-idle-overlay-chrome` runs: the repeatable startup gap above
+32 ms is eliminated (no cell misses in more than one of its three passes; 24 of 27 development
+cells are clean in all passes; production is clean in all 27 including cold), there is no
+interaction long task at or above 50 ms in either build, and the structural gates are green. The
+three surviving single-pass 33.1–33.3 ms development cells have no repository-actionable owner:
+a source sweep confirms the package ships no dynamic imports, so the cold tail is first-execution
+JIT of the activation path, and the remaining in-dispatch style recalculation is dnd-kit's
+per-gesture Cursor/PreventSelection universal-rule injection, which this plan preserves. A future
+regression claim against this phase requires a repeatable (multi-pass) miss on the declared
+reference profile, not a one-of-three cold outlier.

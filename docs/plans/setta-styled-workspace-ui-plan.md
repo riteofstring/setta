@@ -2,8 +2,8 @@
 
 ## Decision
 
-Status: **in progress** (Phase 0 complete 2026-08-10, pending audit; Phase 1 partially landed
-2026-08-10). Phase 0 artifacts: the before-screenshot evidence set and public-API-only
+Status: **in progress** (Phase 0 complete 2026-08-10, pending audit; Phase 1 complete
+2026-08-10, pending audit; Phase 2 started 2026-08-10). Phase 0 artifacts: the before-screenshot evidence set and public-API-only
 visual-matrix route
 ([docs/evidence/setta-ui-before-screenshots.md](../evidence/setta-ui-before-screenshots.md)), the
 repeatable development/production interaction profiler (`corepack pnpm perf:interaction`) with
@@ -91,7 +91,7 @@ frame bail out of their SVG subtrees instead of recreating them under developmen
 StrictMode-doubled renders. Every previously repeatable development miss cleared: structural 2×
 is 24.9–25.2 ms in all passes, the worst warm development gap is 26.3 ms, and no cell exceeds
 32 ms in more than one of three passes. Production is clean in all 27 cells including cold.
-Phase 1 remains open only on the development cold path: the 0.5× first-ever drag in two scenarios
+After that batch the development residue was: the 0.5× first-ever drag in two scenarios
 skips two vsyncs once (33.3 ms — first-execution JIT/lazy-module tail, cold spans 22–28 ms in both
 builds), and one warm 0.5× nested-freeform pass measured 33.1 ms against 24.9/26.3 ms siblings.
 Gates: `corepack pnpm quality`, 539 unit tests, 18/18 across the recursive-rendering,
@@ -99,6 +99,28 @@ root-movement, section-detachment, and presentation workflows, plus a driven vis
 reveal, icons, and drag overlay. Evidence:
 [perf/phase-1-structural-drag-activation.md](../../perf/phase-1-structural-drag-activation.md)
 (`phase-1-idle-overlay-chrome`, 17:29/17:31 runs).
+
+Phase 1 was closed 2026-08-10 on that evidence: the exit gate targets the _repeatable_ startup
+gap above 32 ms, and no cell misses in more than one of its three passes (24 of 27 development
+cells are clean in all passes; production is clean in all 27 including cold). There are no long
+tasks at or above 50 ms anywhere and the structural gates are green. The three single-pass
+33.1–33.3 ms development cells have no remaining repository-actionable owner: the package has no
+dynamic imports to prewarm, so the cold tail is first-execution JIT of the activation path, and
+the per-gesture universal-rule injection is upstream lifecycle behavior this plan explicitly
+preserves. Do not reopen Phase 1 for those cells; a regression claim needs a repeatable miss on
+the declared reference profile.
+
+Phase 2 started 2026-08-10 with the semantic-token foundation: `WorkspaceThemeTokens` gained the
+four ratified roles (`sectionHeaderBackground`, `sectionBorder`, `groupBackground`,
+`controlBackground`) end to end — type, ratified light/dark defaults from the design contract,
+override validation, inline scoped custom properties, detached-window propagation, theming-guide
+rows, and gamut/contrast unit coverage (alpha-aware for the translucent group wash; all four
+opaque surfaces clear the same APCA ≥ 75 / WCAG ≥ 4.5 text and ≥ 3:1 state-boundary thresholds).
+Deliberate sequencing: the roles are exported and host-consumable now, but package CSS still
+derives its chrome locally — re-pointing the stylesheet at the new roles, retuning the base
+palettes, and hiding the React Flow badge all land with the visual restyle batch so the ~47
+screenshot baselines are refreshed once against the reviewed Setta look instead of once per
+color batch.
 
 Make the Setta visual language the opinionated default for `@setta/workspace`, redesign the
 backend-free playground around the canvas, and remove the measurable structural-drag startup hitch.

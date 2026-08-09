@@ -35,12 +35,16 @@ import type { ResolvedSectionDefinition } from "./workspace-section-registry.js"
 
 const detachedThemeProperties = [
   "--setta-workspace-canvas-background",
+  "--setta-workspace-control-background",
   "--setta-workspace-focus",
   "--setta-workspace-grid-color",
+  "--setta-workspace-group-background",
   "--setta-workspace-invalid",
   "--setta-workspace-minimap-background",
   "--setta-workspace-section-accent",
   "--setta-workspace-section-background",
+  "--setta-workspace-section-border",
+  "--setta-workspace-section-header-background",
   "--setta-workspace-section-local-background",
   "--setta-workspace-section-local-header",
   "--setta-workspace-section-local-muted-text",
@@ -518,12 +522,18 @@ function detachedPresentation(source: HTMLElement): DetachedPresentation {
     computed.getPropertyValue(name);
   const style: DetachedThemeStyle = {
     "--setta-workspace-canvas-background": property("--setta-workspace-canvas-background"),
+    "--setta-workspace-control-background": property("--setta-workspace-control-background"),
     "--setta-workspace-focus": property("--setta-workspace-focus"),
     "--setta-workspace-grid-color": property("--setta-workspace-grid-color"),
+    "--setta-workspace-group-background": property("--setta-workspace-group-background"),
     "--setta-workspace-invalid": property("--setta-workspace-invalid"),
     "--setta-workspace-minimap-background": property("--setta-workspace-minimap-background"),
     "--setta-workspace-section-accent": property("--setta-workspace-section-accent"),
     "--setta-workspace-section-background": property("--setta-workspace-section-background"),
+    "--setta-workspace-section-border": property("--setta-workspace-section-border"),
+    "--setta-workspace-section-header-background": property(
+      "--setta-workspace-section-header-background",
+    ),
     "--setta-workspace-section-local-background": property(
       "--setta-workspace-section-local-background",
     ),

@@ -25,11 +25,15 @@ export type WorkspaceAppearance = "dark" | "light" | "system";
 export type WorkspaceThemeTokens = Readonly<{
   canvasBackground: string;
   connection: string;
+  controlBackground: string;
   focus: string;
   gridColor: string;
+  groupBackground: string;
   invalid: string;
   minimapBackground: string;
   sectionBackground: string;
+  sectionBorder: string;
+  sectionHeaderBackground: string;
   sectionMutedText: string;
   sectionText: string;
   selection: string;

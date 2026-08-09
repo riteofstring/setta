@@ -39,19 +39,23 @@ The public `WorkspaceThemeTokens` names map to scoped CSS custom properties. Pre
 appearance prop for package chrome. Host renderers may consume the documented custom properties so
 their content inherits the same resolved appearance without importing package state.
 
-| Token               | CSS custom property                    | Meaning                                    |
-| ------------------- | -------------------------------------- | ------------------------------------------ |
-| `canvasBackground`  | `--setta-workspace-canvas-background`  | Spatial canvas and grid backdrop.          |
-| `connection`        | `--setta-workspace-connection`         | Generic edge strokes, arrows, and ports.   |
-| `gridColor`         | `--setta-workspace-grid-color`         | Decorative grid marks only.                |
-| `sectionBackground` | `--setta-workspace-section-background` | Default section and item surfaces.         |
-| `sectionText`       | `--setta-workspace-section-text`       | Primary package and host-renderer text.    |
-| `sectionMutedText`  | `--setta-workspace-section-muted-text` | Secondary labels and supporting text.      |
-| `toolbarBackground` | `--setta-workspace-toolbar-background` | Toolbar, menus, and floating controls.     |
-| `minimapBackground` | `--setta-workspace-minimap-background` | Minimap surface.                           |
-| `selection`         | `--setta-workspace-selection`          | Selection and valid movement feedback.     |
-| `focus`             | `--setta-workspace-focus`              | Visible keyboard focus.                    |
-| `invalid`           | `--setta-workspace-invalid`            | Validation and rejected movement feedback. |
+| Token                     | CSS custom property                           | Meaning                                                    |
+| ------------------------- | --------------------------------------------- | ---------------------------------------------------------- |
+| `canvasBackground`        | `--setta-workspace-canvas-background`         | Spatial canvas and grid backdrop.                          |
+| `connection`              | `--setta-workspace-connection`                | Generic edge strokes, arrows, and ports.                   |
+| `gridColor`               | `--setta-workspace-grid-color`                | Decorative grid marks only.                                |
+| `sectionBackground`       | `--setta-workspace-section-background`        | Default section and item surfaces.                         |
+| `sectionHeaderBackground` | `--setta-workspace-section-header-background` | Section header band on `default` and `compact` chrome.     |
+| `sectionBorder`           | `--setta-workspace-section-border`            | Section and group hairlines and toolbar dividers.          |
+| `groupBackground`         | `--setta-workspace-group-background`          | Translucent container wash behind group children.          |
+| `sectionText`             | `--setta-workspace-section-text`              | Primary package and host-renderer text.                    |
+| `sectionMutedText`        | `--setta-workspace-section-muted-text`        | Secondary labels and supporting text.                      |
+| `toolbarBackground`       | `--setta-workspace-toolbar-background`        | Toolbar, menus, and floating controls.                     |
+| `controlBackground`       | `--setta-workspace-control-background`        | Resting surface for controls, popovers, panes, and inputs. |
+| `minimapBackground`       | `--setta-workspace-minimap-background`        | Minimap surface.                                           |
+| `selection`               | `--setta-workspace-selection`                 | Selection and valid movement feedback.                     |
+| `focus`                   | `--setta-workspace-focus`                     | Visible keyboard focus.                                    |
+| `invalid`                 | `--setta-workspace-invalid`                   | Validation and rejected movement feedback.                 |
 
 ```css
 .note-editor {
@@ -68,9 +72,10 @@ their content inherits the same resolved appearance without importing package st
 renderer selects assets or non-CSS behavior; use inherited semantic variables for ordinary color.
 
 The defaults are normalized OKLCH, stay inside sRGB gamut, and are covered by APCA and WCAG
-compatibility checks. Consumer overrides remain the consumer's contrast responsibility. Preserve a
-visible focus distinction and at least a 3:1 component-boundary contrast when replacing focus,
-selection, or invalid colors.
+compatibility checks. `groupBackground` is a translucent wash composited over the canvas and
+enclosing surfaces; `sectionBorder` is a deliberately quiet hairline, not a state cue. Consumer
+overrides remain the consumer's contrast responsibility. Preserve a visible focus distinction and
+at least a 3:1 component-boundary contrast when replacing focus, selection, or invalid colors.
 
 ## Grid appearance and snapping
 

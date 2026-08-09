@@ -21,7 +21,7 @@ function requiredNumber(value: string | undefined): number {
 }
 
 function parseOklch(value: string): Oklch {
-  const match = /^oklch\(([\d.]+) ([\d.]+) ([\d.]+)\)$/u.exec(value);
+  const match = /^oklch\(([\d.]+) ([\d.]+) ([\d.]+)(?: \/ [\d.]+)?\)$/u.exec(value);
   if (!match) {
     throw new TypeError(`Expected a normalized OKLCH color, received ${value}.`);
   }
@@ -94,19 +94,29 @@ function apcaContrast(foreground: string, background: string): number {
 }
 
 function expectThemeContrast(tokens: WorkspaceThemeTokens): void {
-  for (const background of [tokens.sectionBackground, tokens.toolbarBackground]) {
+  const opaqueTextSurfaces = [
+    tokens.controlBackground,
+    tokens.sectionBackground,
+    tokens.sectionHeaderBackground,
+    tokens.toolbarBackground,
+  ];
+  for (const background of opaqueTextSurfaces) {
     expect(Math.abs(apcaContrast(tokens.sectionText, background))).toBeGreaterThanOrEqual(75);
     expect(wcagContrast(tokens.sectionText, background)).toBeGreaterThanOrEqual(4.5);
   }
-  expect(
-    Math.abs(apcaContrast(tokens.sectionMutedText, tokens.sectionBackground)),
-  ).toBeGreaterThanOrEqual(75);
-  expect(wcagContrast(tokens.sectionMutedText, tokens.sectionBackground)).toBeGreaterThanOrEqual(
-    4.5,
-  );
+  for (const background of [
+    tokens.controlBackground,
+    tokens.sectionBackground,
+    tokens.sectionHeaderBackground,
+  ]) {
+    expect(Math.abs(apcaContrast(tokens.sectionMutedText, background))).toBeGreaterThanOrEqual(75);
+    expect(wcagContrast(tokens.sectionMutedText, background)).toBeGreaterThanOrEqual(4.5);
+  }
   for (const state of [tokens.connection, tokens.focus, tokens.invalid, tokens.selection]) {
     expect(wcagContrast(state, tokens.canvasBackground)).toBeGreaterThanOrEqual(3);
+    expect(wcagContrast(state, tokens.controlBackground)).toBeGreaterThanOrEqual(3);
     expect(wcagContrast(state, tokens.sectionBackground)).toBeGreaterThanOrEqual(3);
+    expect(wcagContrast(state, tokens.sectionHeaderBackground)).toBeGreaterThanOrEqual(3);
   }
 }
 
@@ -182,14 +192,17 @@ describe("workspace appearance preferences", () => {
   it("resolves scoped light and dark token overrides without mutating the defaults", () => {
     const resolved = resolveWorkspaceAppearanceOptions({
       appearance: "dark",
-      dark: { gridColor: "oklch(0.68 0.11 305)" },
-      light: { canvasBackground: "white" },
+      dark: { gridColor: "oklch(0.68 0.11 305)", sectionBorder: "oklch(0.5 0.05 255)" },
+      light: { canvasBackground: "white", groupBackground: "oklch(0.9 0.02 255 / 0.4)" },
     });
 
     expect(resolved.appearance).toBe("dark");
     expect(resolved.dark.gridColor).toBe("oklch(0.68 0.11 305)");
+    expect(resolved.dark.sectionBorder).toBe("oklch(0.5 0.05 255)");
     expect(resolved.dark.canvasBackground).toBe(WORKSPACE_DEFAULT_DARK_THEME.canvasBackground);
+    expect(resolved.dark.controlBackground).toBe(WORKSPACE_DEFAULT_DARK_THEME.controlBackground);
     expect(resolved.light.canvasBackground).toBe("white");
+    expect(resolved.light.groupBackground).toBe("oklch(0.9 0.02 255 / 0.4)");
     expect(WORKSPACE_DEFAULT_LIGHT_THEME.canvasBackground).toBe("oklch(0.965 0.008 255)");
     expect(Object.isFrozen(resolved.dark)).toBe(true);
     expect(Object.isFrozen(resolved)).toBe(true);
@@ -213,7 +226,7 @@ describe("workspace appearance preferences", () => {
     for (const tokens of [WORKSPACE_DEFAULT_LIGHT_THEME, WORKSPACE_DEFAULT_DARK_THEME]) {
       for (const color of Object.values(tokens)) {
         expect(color).toMatch(
-          /^oklch\((?:0|1|0?\.\d{1,3}) (?:0|0?\.\d{1,3}) \d{1,3}(?:\.\d{1,3})?\)$/u,
+          /^oklch\((?:0|1|0?\.\d{1,3}) (?:0|0?\.\d{1,3}) \d{1,3}(?:\.\d{1,3})?(?: \/ 0?\.\d{1,3})?\)$/u,
         );
         for (const channel of Object.values(linearRgb(color))) {
           expect(channel).toBeGreaterThanOrEqual(-0.000_001);
