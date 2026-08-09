@@ -10,6 +10,8 @@ import type { WorkspaceCanvasController } from "../src/internal/workspace-canvas
 import {
   planWorkspaceSectionGrouping,
   planWorkspaceSectionUngrouping,
+  workspaceSectionGroupingMatches,
+  workspaceSectionUngroupingMatches,
 } from "../src/internal/workspace-section-grouping.js";
 import { resolveSectionDefinitions } from "../src/internal/workspace-section-registry.js";
 import { createWorkspaceTestDocument } from "../src/testing.js";
@@ -127,6 +129,12 @@ describe("workspace section grouping commands", () => {
     }
     expect(grouped.document.sections.parent?.childLayout?.sectionIds).toEqual(["alpha", "group"]);
     expect(grouped.document.sections.group?.childLayout?.sectionIds).toEqual(["beta", "gamma"]);
+    expect(
+      workspaceSectionGroupingMatches(grouped.document, "group", "parent", ["beta", "gamma"]),
+    ).toBe(true);
+    expect(
+      workspaceSectionGroupingMatches(grouped.document, "group", null, ["beta", "gamma"]),
+    ).toBe(false);
 
     const ungrouped = applyWorkspaceDocumentCommand(
       grouped.document,
@@ -144,6 +152,12 @@ describe("workspace section grouping commands", () => {
       "gamma",
     ]);
     expect(ungrouped.document.sections.group).toBeUndefined();
+    expect(
+      workspaceSectionUngroupingMatches(ungrouped.document, "group", "parent", ["beta", "gamma"]),
+    ).toBe(true);
+    expect(
+      workspaceSectionUngroupingMatches(ungrouped.document, "group", null, ["beta", "gamma"]),
+    ).toBe(false);
   });
 
   it("promotes top-level children with the exact planned positions", () => {

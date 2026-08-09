@@ -17,6 +17,7 @@ export type WorkspaceCanvasController = Readonly<{
   ): Promise<WorkspaceViewport>;
   focusElement(sectionId: string): void;
   focusElementWhenReady(sectionId: string): Promise<boolean>;
+  focusSelectionControlWhenReady(sectionId: string): Promise<boolean>;
   focusSection(sectionId: string, viewport: WorkspaceViewport): Promise<WorkspaceViewport>;
   getSectionRect(sectionId: string): WorkspaceRect | undefined;
   getVisibleWorkspaceRect(): WorkspaceRect;
@@ -90,6 +91,8 @@ export function createWorkspaceCanvasController(
     },
     focusElement: (sectionId) => geometry.focusSection(sectionId),
     focusElementWhenReady: (sectionId) => geometry.focusSectionWhenReady(sectionId),
+    focusSelectionControlWhenReady: (sectionId) =>
+      geometry.focusSelectionControlWhenReady(sectionId),
     focusSection: async (sectionId, viewport) => {
       const bounds = await geometry.boundsWhenReady([sectionId]);
       const canvas = geometry.canvasBounds();

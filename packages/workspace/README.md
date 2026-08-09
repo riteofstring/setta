@@ -27,6 +27,7 @@ const sectionDefinitions = [
     displayName: "Section group",
     defaultTitle: "Group",
     defaultSize: { width: 480, height: 360 },
+    defaultSizeMode: { width: "fixed", height: "content" },
     canContainSections: true,
     defaultChildOrientation: "vertical",
     render: ({ data }) => <GroupSummary value={data} />,
@@ -302,11 +303,13 @@ Supplying `groupFactory` enables Group when at least two normalized sections sha
 registered `canContainSections` kind is available. The factory receives the canonical sibling IDs
 and shared parent, then supplies the new container kind, stable ID, title, and host payload. The
 package inserts that container at the first selected sibling, retains the selected IDs in canonical
-order, and selects and focuses the accepted group. Ungroup promotes a selected container's direct
-children at the same index without requiring the factory. At the top level, it derives separated
-root positions from the measured group frame and focuses the first promoted child. Both operations
-require structure and layout editing, publish one `section-group` or `section-ungroup` change, and
-reconcile against the controlled host before changing selection or focus.
+order, and selects and focuses the accepted group. This behavior is identical at every rendered
+depth. Ungroup promotes a selected container's direct children at the same parent index without
+requiring the factory. Nested children retain their ordered layout; at the top level, the package
+derives separated root positions from the measured group frame. The first promoted child receives
+focus. Both operations require structure and layout editing, publish one `section-group` or
+`section-ungroup` change, and reconcile the requested parent relationship against the controlled
+host before changing selection or focus.
 
 Committed section changes participate in built-in in-memory history. One accepted create, delete,
 group, ungroup, move, resize, size-mode, lock, minimize, title, presentation, or persistent stacking

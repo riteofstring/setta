@@ -299,6 +299,27 @@ export class WorkspaceGeometryMeasurements {
     });
   }
 
+  async focusSelectionControlWhenReady(sectionId: string): Promise<boolean> {
+    if (!(await this.focusSectionWhenReady(sectionId))) {
+      return false;
+    }
+    const registeredElement = this.#entries.get(sectionId)?.element;
+    const view = registeredElement?.ownerDocument.defaultView;
+    if (view) {
+      for (let frame = 0; frame < 2; frame += 1) {
+        await new Promise<void>((resolve) => view.requestAnimationFrame(() => resolve()));
+      }
+    }
+    const control = this.#entries
+      .get(sectionId)
+      ?.element.querySelector<HTMLElement>("[data-workspace-selection-control]");
+    if (!control) {
+      return false;
+    }
+    control.focus({ preventScroll: true });
+    return true;
+  }
+
   async recoverFocus(sectionId: string | null, focusAnchor: Element | null): Promise<boolean> {
     const canvas = this.#canvasElement;
     if (!canvas) {

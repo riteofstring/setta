@@ -88,6 +88,7 @@ const navigationSectionDefinitions = [
     defaultChildOrientation: "vertical",
     defaultChildOverflow: "grow",
     defaultSize: { height: 360, width: 480 },
+    defaultSizeMode: { height: "content", width: "fixed" },
     defaultTitle: "Section group",
     displayName: "Section group",
     kind: "navigation group",

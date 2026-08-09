@@ -60,6 +60,38 @@ export type WorkspaceUngroupingPlan =
       status: "rejected";
     }>;
 
+export function workspaceSectionGroupingMatches(
+  document: WorkspaceDocument<unknown>,
+  groupSectionId: string,
+  parentSectionId: string | null,
+  childSectionIds: readonly string[],
+): boolean {
+  const childIds = document.sections[groupSectionId]?.childLayout?.sectionIds;
+  if (
+    !childIds ||
+    childIds.length !== childSectionIds.length ||
+    childIds.some((sectionId, index) => sectionId !== childSectionIds[index])
+  ) {
+    return false;
+  }
+  return (deriveWorkspaceParentLookup(document).get(groupSectionId) ?? null) === parentSectionId;
+}
+
+export function workspaceSectionUngroupingMatches(
+  document: WorkspaceDocument<unknown>,
+  groupSectionId: string,
+  parentSectionId: string | null,
+  childSectionIds: readonly string[],
+): boolean {
+  if (Object.hasOwn(document.sections, groupSectionId)) {
+    return false;
+  }
+  const parentLookup = deriveWorkspaceParentLookup(document);
+  return childSectionIds.every(
+    (sectionId) => (parentLookup.get(sectionId) ?? null) === parentSectionId,
+  );
+}
+
 const groupFactoryResultKeys = ["data", "id", "kind", "title"] as const;
 const UNGROUP_GAP = 24;
 

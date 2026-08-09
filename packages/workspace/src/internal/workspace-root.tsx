@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 
 import {
-  deriveWorkspaceParentLookup,
   resolveWorkspaceCapabilities,
   resolveWorkspaceGestureOptions,
   type SectionOrientation,
@@ -67,6 +66,8 @@ import { planWorkspaceRootSectionCreation } from "./workspace-section-creation.j
 import {
   planWorkspaceSectionGrouping,
   planWorkspaceSectionUngrouping,
+  workspaceSectionGroupingMatches,
+  workspaceSectionUngroupingMatches,
 } from "./workspace-section-grouping.js";
 import {
   resolveSectionDefinitions,
@@ -87,6 +88,7 @@ type PendingStructuralSelection =
   | Readonly<{
       focusSectionId: string;
       groupSectionId: string;
+      parentSectionId: string | null;
       sectionIds: readonly string[];
       type: "group";
     }>
@@ -103,19 +105,18 @@ function structuralSelectionAccepted(
   pending: PendingStructuralSelection,
 ): boolean {
   if (pending.type === "group") {
-    const childIds = document.sections[pending.groupSectionId]?.childLayout?.sectionIds;
-    return Boolean(
-      childIds &&
-      childIds.length === pending.sectionIds.length &&
-      childIds.every((sectionId, index) => sectionId === pending.sectionIds[index]),
+    return workspaceSectionGroupingMatches(
+      document,
+      pending.groupSectionId,
+      pending.parentSectionId,
+      pending.sectionIds,
     );
   }
-  if (Object.hasOwn(document.sections, pending.groupSectionId)) {
-    return false;
-  }
-  const parentLookup = deriveWorkspaceParentLookup(document);
-  return pending.sectionIds.every(
-    (sectionId) => (parentLookup.get(sectionId) ?? null) === pending.parentSectionId,
+  return workspaceSectionUngroupingMatches(
+    document,
+    pending.groupSectionId,
+    pending.parentSectionId,
+    pending.sectionIds,
   );
 }
 
@@ -374,6 +375,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
           pendingStructuralSelectionRef.current = {
             focusSectionId: plan.group.id,
             groupSectionId: plan.group.id,
+            parentSectionId: plan.parentSectionId,
             sectionIds: plan.sectionIds,
             type: "group",
           };
@@ -469,7 +471,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     );
     const canvasController = canvasControllerRef.current;
     if (canvasController) {
-      void canvasController.focusElementWhenReady(pending.focusSectionId);
+      void canvasController.focusSelectionControlWhenReady(pending.focusSectionId);
     }
   }, [controller, structuralSelectionRevision, validatedDocument]);
   useEffect(() => {

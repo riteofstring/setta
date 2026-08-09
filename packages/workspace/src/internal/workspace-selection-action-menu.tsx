@@ -27,6 +27,10 @@ import {
   type WorkspaceRootStackingAction,
 } from "./workspace-root-stacking.js";
 import {
+  workspaceSectionGroupingMatches,
+  workspaceSectionUngroupingMatches,
+} from "./workspace-section-grouping.js";
+import {
   planWorkspaceSelectionActions,
   type WorkspaceSelectionActionId,
   type WorkspaceSelectionActionPlan,
@@ -246,6 +250,10 @@ function declinedActionText(count: number): string {
   return `${selectedSubject(count)} ${count === 1 ? "remains" : "remain"} unchanged because the host did not accept the action.`;
 }
 
+function actionOwnsResultingFocus(actionId: WorkspaceSelectionActionId): boolean {
+  return actionId === "group" || actionId === "ungroup";
+}
+
 type WorkspaceRejectedActionReason = Extract<
   WorkspaceActionResult,
   { status: "rejected" }
@@ -278,12 +286,6 @@ function rejectedActionText(
   return rejectionText[result.reason] ?? "Unable to update the selected sections.";
 }
 
-function sectionIdsMatch(left: readonly string[], right: readonly string[]): boolean {
-  return (
-    left.length === right.length && left.every((sectionId, index) => sectionId === right[index])
-  );
-}
-
 function parentSectionId(
   parentLookup: ReadonlyMap<string, string | null>,
   sectionId: string,
@@ -304,14 +306,12 @@ function groupingAccepted(
   if (groupSectionId === null || groupSectionId === grouping.parentSectionId) {
     return false;
   }
-  if (parentSectionId(parentLookup, groupSectionId) !== grouping.parentSectionId) {
-    return false;
-  }
-  const group = document.sections[groupSectionId];
-  if (!group?.childLayout) {
-    return false;
-  }
-  return sectionIdsMatch(group.childLayout.sectionIds, pending.sectionIds);
+  return workspaceSectionGroupingMatches(
+    document,
+    groupSectionId,
+    grouping.parentSectionId,
+    pending.sectionIds,
+  );
 }
 
 function ungroupingAccepted(
@@ -319,16 +319,14 @@ function ungroupingAccepted(
   pending: PendingSelectionAction,
 ): boolean {
   const grouping = pending.grouping;
-  if (
-    !grouping ||
-    !("groupSectionId" in grouping) ||
-    Object.hasOwn(document.sections, grouping.groupSectionId)
-  ) {
+  if (!grouping || !("groupSectionId" in grouping)) {
     return false;
   }
-  const parentLookup = deriveWorkspaceParentLookup(document);
-  return grouping.childSectionIds.every(
-    (sectionId) => (parentLookup.get(sectionId) ?? null) === grouping.parentSectionId,
+  return workspaceSectionUngroupingMatches(
+    document,
+    grouping.groupSectionId,
+    grouping.parentSectionId,
+    grouping.childSectionIds,
   );
 }
 
@@ -773,7 +771,9 @@ export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValu
         : declinedActionText(pending.sectionIds.length),
     );
     pendingRef.current = null;
-    focusElement(pending.restoreFocus, pending.canvasElement);
+    if (!accepted || !actionOwnsResultingFocus(pending.actionId)) {
+      focusElement(pending.restoreFocus, pending.canvasElement);
+    }
   }, [document, revision]);
 
   return {

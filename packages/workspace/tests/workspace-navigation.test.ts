@@ -36,6 +36,10 @@ function canvasController(focused: string[]): WorkspaceCanvasController {
       focused.push(sectionId);
       return true;
     },
+    focusSelectionControlWhenReady: async (sectionId) => {
+      focused.push(sectionId);
+      return true;
+    },
     focusSection: vi.fn(async (sectionId, viewport) => ({
       x: sectionId.length * -10,
       y: sectionId.length * 5,

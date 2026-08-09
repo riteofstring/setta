@@ -264,6 +264,39 @@ describe("WorkspaceGeometryMeasurements lifecycle", () => {
     await expect(unavailable).resolves.toBe(false);
   });
 
+  it("hands structural focus from a registered frame to its native selection control", async () => {
+    const fixture = fakeWindow();
+    const root = fakeElement(fixture.window, { height: 120, width: 200, x: 90, y: 140 });
+    const selection = fakeElement(fixture.window, { height: 40, width: 40, x: 98, y: 148 });
+    root.element.querySelector = vi.fn(() => selection.element) as never;
+    const geometry = new WorkspaceGeometryMeasurements(new WorkspaceGeometryIndex());
+    const focused = geometry.focusSelectionControlWhenReady("group");
+
+    geometry.register({
+      depth: 2,
+      element: root.element,
+      order: 0,
+      parentSectionId: "parent",
+      sectionId: "group",
+    });
+    for (let frame = 1; frame <= 2; frame += 1) {
+      for (
+        let turn = 0;
+        turn < 3 && fixture.requestAnimationFrame.mock.calls.length < frame;
+        turn += 1
+      ) {
+        await Promise.resolve();
+      }
+      expect(fixture.requestAnimationFrame).toHaveBeenCalledTimes(frame);
+      fixture.flushAnimationFrames();
+    }
+
+    await expect(focused).resolves.toBe(true);
+    expect(root.focus).toHaveBeenCalledWith({ preventScroll: true });
+    expect(root.element.querySelector).toHaveBeenCalledWith("[data-workspace-selection-control]");
+    expect(selection.focus).toHaveBeenCalledWith({ preventScroll: true });
+  });
+
   it("recovers focus only after the element active before navigation disappears", async () => {
     const fixture = fakeWindow();
     const body = { isConnected: true } as HTMLElement;

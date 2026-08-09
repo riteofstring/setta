@@ -106,6 +106,24 @@ async function recursiveChangeCount(page: Page): Promise<number> {
   return Number(await page.getByTestId("canvas-shell-change-count").textContent());
 }
 
+async function recursiveDocument(page: Page): Promise<{
+  rootSections: readonly { sectionId: string }[];
+  sections: Readonly<
+    Record<string, { childLayout: { sectionIds: readonly string[] } | null; id: string }>
+  >;
+}> {
+  const value = await page.getByTestId("canvas-shell-document").inputValue();
+  return JSON.parse(value) as Awaited<ReturnType<typeof recursiveDocument>>;
+}
+
+async function openSelectionActions(page: Page, trigger: Locator): Promise<Locator> {
+  await trigger.focus();
+  await page.keyboard.press("Shift+F10");
+  const dialog = page.getByRole("dialog", { name: "Selection actions" });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
 async function blankPanePoint(page: Page): Promise<{ x: number; y: number }> {
   return page.locator(".react-flow__pane").evaluate((pane) => {
     const bounds = pane.getBoundingClientRect();
@@ -630,6 +648,79 @@ test("structural move rejection is preflighted, visible, and host-controlled", a
   await expect(workspace.locator(`#${String(betaMoveDescriptionId)}`)).toHaveText(
     "Movement unavailable because this section is locked.",
   );
+
+  const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
+  expect(accessibility.violations).toEqual([]);
+});
+
+async function groupNestedRowChildren(page: Page, workspace: Locator) {
+  const nestedBeta = workspace.getByRole("article", { name: "Nested Beta" });
+  const deepContainer = workspace.getByRole("article", { name: "Deep container" });
+  const selectBeta = nestedBeta.getByRole("button", { name: "Select Nested Beta" });
+  const selectDeep = deepContainer.getByRole("button", { name: "Select Deep container" });
+  await selectBeta.click();
+  await selectDeep.click({ modifiers: ["Shift"] });
+  const dialog = await openSelectionActions(page, selectBeta);
+  await dialog.getByRole("menuitem", { name: "Group sections", exact: true }).click();
+  const group = workspace.getByRole("article", { name: "Group 1 (2 sections)" });
+  const selectGroup = group.getByRole("button", { name: "Select Group 1 (2 sections)" });
+  await expect(group).toBeVisible();
+  return { deepContainer, group, nestedBeta, selectBeta, selectDeep, selectGroup };
+}
+
+test("nested grouping rejects mixed parents and restores focus to the accepted group", async ({
+  page,
+}) => {
+  await page.setViewportSize({ height: 1_000, width: 1_440 });
+  const workspace = await loadRecursiveFixture(page);
+  await page.getByRole("button", { name: "Fit recursive descendants" }).click();
+  const canvas = workspace.getByRole("application", { name: "Canvas shell workspace canvas" });
+  const nestedAlpha = workspace.getByRole("article", { name: "Nested Alpha" });
+  const nestedBeta = workspace.getByRole("article", { name: "Nested Beta" });
+  const selectAlpha = nestedAlpha.getByRole("button", { name: "Select Nested Alpha" });
+  const selectBeta = nestedBeta.getByRole("button", { name: "Select Nested Beta" });
+  const actionAnnouncement = workspace.locator("[data-workspace-selection-action-announcement]");
+  const baselineChanges = await recursiveChangeCount(page);
+
+  await selectAlpha.click();
+  await selectBeta.click({ modifiers: ["Shift"] });
+  const dialog = await openSelectionActions(page, selectAlpha);
+  const mixedParentGroup = dialog.locator('[data-workspace-selection-action="group"]');
+  await expect(mixedParentGroup).toHaveAttribute("aria-disabled", "true");
+  await expect(mixedParentGroup).toContainText(
+    "Selected sections must share one parent to be grouped.",
+  );
+  await mixedParentGroup.focus();
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeVisible();
+  expect(await recursiveChangeCount(page)).toBe(baselineChanges);
+  await dialog.getByRole("button", { name: "Close selection actions" }).click();
+
+  const {
+    deepContainer,
+    group,
+    nestedBeta: groupedBeta,
+    selectGroup,
+  } = await groupNestedRowChildren(page, workspace);
+  await expect(group).toHaveAttribute("data-workspace-depth", "2");
+  await expect(group).toHaveAttribute("data-workspace-parent-section-id", "nested-row");
+  await expect(groupedBeta).toHaveAttribute("data-workspace-depth", "3");
+  await expect(groupedBeta).toHaveAttribute(
+    "data-workspace-parent-section-id",
+    "navigation-group-1",
+  );
+  await expect(deepContainer).toHaveAttribute("data-workspace-depth", "3");
+  await expect(selectGroup).toHaveAttribute("aria-pressed", "true");
+  await expect(selectGroup).toBeFocused();
+  await expect(actionAnnouncement).toHaveText("The 2 selected sections were grouped.");
+  await expect.poll(() => recursiveChangeCount(page)).toBe(baselineChanges + 1);
+  const document = await recursiveDocument(page);
+  expect(document.sections["nested-row"]?.childLayout?.sectionIds).toEqual(["navigation-group-1"]);
+  expect(document.sections["navigation-group-1"]?.childLayout?.sectionIds).toEqual([
+    "nested-beta",
+    "deep-container",
+  ]);
+  await expect(canvas).toHaveScreenshot("recursive-section-nested-group.png");
 
   const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
   expect(accessibility.violations).toEqual([]);
