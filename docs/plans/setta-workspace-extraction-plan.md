@@ -246,11 +246,14 @@ Phase 1 progress (2026-08-10):
   `docs/evidence/phase1/side-by-side/README.md`. The developer rejected the first gate presentation
   for a missing reference canvas surface/grid, invalid-drop feedback hidden below the opaque drag
   preview, and unstable cross-parent placeholder placement. Commit `66d225825` restores the exact
-  light/dark canvas and zoom-aware grid, portals drop feedback one layer above the preview, and uses
-  the dragged section's leading edge for cross-parent insertion while retaining direction-aware
-  hysteresis within one parent. Refreshed live evidence is ready; the corrected held-key behaviors
-  require developer recheck because Chrome automation cannot sustain Alt across pointer commands.
-  The feedback-layer and cross-parent-edge changes are explicit developer-directed corrections that
+  light/dark canvas and zoom-aware grid and portals drop feedback one layer above the preview. Its
+  initial leading-edge correction fixed cross-parent entry but made the reverse threshold depend on
+  the dragged section's height; the developer's follow-up reproduction exposed that bias. Commit
+  `6a295560f` uses pointer position against the frozen target midpoint with the existing 10-pixel
+  dead band for cross-parent insertion while retaining direction-aware edges within one parent.
+  Refreshed live evidence is ready; the corrected held-key behaviors require developer recheck
+  because Chrome automation cannot sustain Alt across pointer commands. The feedback-layer and
+  cross-parent collision-reference changes are explicit developer-directed corrections that
   supersede literal preservation of the frozen behavior.
   The supplementary `/settings` parameter-style source suggested by the developer is captured in
   the Phase 0 reference bundle without widening the Phase 1 slice. Developer acceptance remains

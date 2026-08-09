@@ -3,7 +3,7 @@
   "capturedAt": "2026-08-11T17:26:51Z",
   "source": {
     "mainCommit": "043d3b2e9c69caf99d1246f1408b3ad7194b7864",
-    "extractionCommit": "66d22582582b971b42ce184da5c387e1a83d9d3f",
+    "extractionCommit": "6a295560f01337fbd73dce638e908087b19badc2",
     "mainUrl": "http://127.0.0.1:3063/being_cliff",
     "playgroundUrl": "http://127.0.0.1:5174/"
   },
@@ -47,7 +47,14 @@
       "commit": "66d225825",
       "problem": "Cross-parent insertion inherited direction-sensitive trailing-edge logic, so tiny downward pointer motion could show the placeholder after the first child on entry.",
       "result": "Cross-parent insertion uses the dragged section's leading edge; same-parent sorting retains direction-aware edge selection and its 10 px hysteresis.",
-      "parityClassification": "Developer-directed correction that intentionally supersedes the frozen cross-parent edge choice."
+      "parityClassification": "Developer-directed correction that intentionally supersedes the frozen cross-parent edge choice.",
+      "supersededBy": "6a295560f"
+    },
+    {
+      "commit": "6a295560f",
+      "problem": "The leading-edge correction fixed entry placement but made top-to-bottom switching require the dragged section's top edge to cross the frozen target midpoint, biasing the threshold by the preview height.",
+      "result": "Cross-parent insertion compares the pointer with the frozen target midpoint and preserves a symmetric 10 px dead band; vertical and horizontal transitions are covered. Same-parent sorting continues to use directional edges.",
+      "parityClassification": "Developer-directed collision correction recovered from the pre-directional-edge implementation history and scoped to cross-parent moves."
     }
   ],
   "canvasBackground": {
@@ -249,7 +256,7 @@
     },
     "heldDndModes": {
       "liveAutomation": "The Chrome extension API cannot preserve a keydown across a later pointer command, so no sustained Alt or Mod+Alt package screenshot was synthesized.",
-      "coverage": "Ported held-mode, collision, sorting, reparenting, shape-sync, and deferred-release characterization/integration tests are part of the 242-test package suite; focused tests cover feedback layering and stable cross-parent insertion; frozen main sustained gestures are in Phase 0.",
+      "coverage": "Ported held-mode, collision, sorting, reparenting, shape-sync, and deferred-release characterization/integration tests are part of the 243-test package suite; focused tests cover feedback layering plus symmetric vertical and horizontal pointer thresholds for cross-parent insertion; frozen main sustained gestures are in Phase 0.",
       "developerRecheck": "Required for the corrected invalid-drop overlay and cross-parent placeholder because sustained held-key gestures cannot be driven by the Chrome extension API."
     }
   },

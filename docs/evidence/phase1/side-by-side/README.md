@@ -10,7 +10,7 @@ the gate.
 - Frozen product authority: `../setta-main`, branch `main`, commit
   `043d3b2e9c69caf99d1246f1408b3ad7194b7864`.
 - Extraction implementation under review: branch `workspace-extraction`, commit
-  `66d22582582b971b42ce184da5c387e1a83d9d3f` plus this evidence commit.
+  `6a295560f01337fbd73dce638e908087b19badc2` plus this evidence commit.
 - Capture date: 2026-08-11 in `America/Los_Angeles`.
 - Live URLs: main at `http://127.0.0.1:3063/being_cliff`; playground at
   `http://127.0.0.1:5174/`.
@@ -58,9 +58,11 @@ The developer then rejected the first gate presentation for three additional dis
 2. Invalid-drop feedback rendered inside the target section's stacking context, so the opaque blue
    drag preview covered the red label. Feedback now uses a body portal one layer above the preview.
 3. Cross-parent insertion used the motion-sensitive trailing edge of the dragged section. A one-pixel
-   downward movement could therefore place the placeholder after the first child on entry. Cross-parent
-   insertion now compares the dragged section's leading edge; same-parent sorting retains its
-   direction-aware hysteresis.
+   downward movement could therefore place the placeholder after the first child on entry. The first
+   correction used the leading edge, which fixed entry but made top-to-bottom switching depend on the
+   dragged section's full height. Commit `6a295560f` instead compares the pointer with the frozen target
+   midpoint using the existing 10-pixel dead band; same-parent sorting retains its direction-aware
+   edges.
 
 The latter two changes are explicit developer-directed interaction corrections, not literal
 preservation of the frozen behavior; the developer's gate feedback supersedes that behavior.
@@ -85,7 +87,7 @@ After those fixes, the live package output matches the accepted Phase 0 measurem
 The Chrome extension API cannot keep a keyboard key depressed across a later pointer command, so
 it cannot produce a sustained Alt or Mod+Alt package drag screenshot. Those held-mode, collision,
 sorting, reparenting, and deferred-release paths are covered by the ported package
-characterization/integration suites (242 tests), including focused regression tests for the two
+characterization/integration suites (243 tests), including focused regression tests for the two
 reported drop-feedback defects. The live main and playground tabs are left open for the required
 manual held-key recheck at the developer gate.
 
