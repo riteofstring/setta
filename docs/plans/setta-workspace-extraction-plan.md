@@ -694,8 +694,32 @@ Phase 4 progress (2026-08-11):
   at the same 1492 x 696 viewport, DPR, canvas zoom, authored section size, and representative
   leaf/group/nested-child states. Record computed row, label, value, divider, and column metrics;
   refresh or add visual evidence only after developer acceptance.
-- Remaining Phase 4 work: implement and audit the presentation-parity correction, repeat the live
-  main-Dict versus unrelated-item comparison, and obtain a renewed developer exit-gate decision.
+- Presentation parity correction implemented (2026-08-11), entirely at the host-renderer seam —
+  no package source changed. The playground row renderer now demonstrates the reference roles
+  with the reference's own class strings: labels (leaf and group) carry `ParamTextLabel`'s
+  12/16 px semibold sans-serif treatment in setta-800/200 with the 0.125 rem vertical padding;
+  values are 12/16 px medium monospace with tabular figures in setta-800/300, bottom-aligned
+  like the reference's idle value text; an empty self-end span draws the reference's subtle
+  value-column divider (`border-setta-200/50`, dark `border-setta-600/30`); group labels stay
+  direct `<p>` children so the package's compiled `[&>p]:section-key-value` rule places them.
+  The host now supplies the reference default column split through the existing
+  `--param-column-width` variable: a ResizeObserver-backed hook on the list-area wrapper sets
+  half its clientWidth minus the reference's 18 px center offset (`useParamColumnWidth`'s
+  `getDefaultColumnWidth` minus `CENTER_OFFSET`), re-derived on resize; the column-resize drag
+  that persists an authored width stays application-side. The fixture adopts the recorded
+  552 x 352 `/settings` Dict geometry (authored layout and registered default size) and grows
+  to eleven top-level rows plus the retained `options` group so the repeated 20 px row rhythm
+  is inspectable; density did not substitute for the style corrections. Regression lock: the
+  playground gained a minimal vitest setup mirroring the package's (vitest 4.1.10 + jsdom
+  28.1.0 dev-only, per-file jsdom pragma, ResizeObserver stub, test entries registered with
+  Knip; the vite dev/build path stays zero-config) and a focused host-presentation suite that
+  freezes the label/value/divider class contracts as literal expectations, the direct-child
+  group-label placement, the 550 → 257 px half-width derivation at the recorded geometry, and
+  the fixture geometry/density. Playground suite 4/4 green, changed-file static gate green,
+  supply-chain gate rerun clean on the dev-dependency change, playground production build
+  compiles every new utility.
+- Remaining Phase 4 work: audit the presentation-parity correction, repeat the live main-Dict
+  versus unrelated-item comparison, and obtain a renewed developer exit-gate decision.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

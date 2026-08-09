@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --port 5174 --strictPort",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
     "@setta/workspace": "workspace:*",
@@ -16,8 +17,10 @@
   "devDependencies": {
     "@types/react": "19.1.12",
     "@types/react-dom": "19.1.8",
+    "jsdom": "28.1.0",
     "postcss": "8.5.25",
     "tailwindcss": "3.4.1",
-    "vite": "6.4.3"
+    "vite": "6.4.3",
+    "vitest": "4.1.10"
   }
 }

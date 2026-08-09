@@ -29,7 +29,8 @@ function makeLeafSection(
 
 // The item panel's rows: the label/value/group shape is this host's opaque item data — the
 // package sees only ids, ordered children, and selection. One nested group keeps cross-parent
-// item movement reachable.
+// item movement reachable, and the leaf count fills the recorded 552 x 352 geometry so the
+// repeated 20 px row rhythm stays inspectable against the frozen `/settings` Dict.
 function makeItem(
   id: string,
   data: Record<string, string | boolean>,
@@ -41,15 +42,35 @@ function makeItem(
 const itemPanelTree: WorkspaceSectionItemTree = {
   rootId: "item-root",
   items: {
-    "item-root": makeItem("item-root", {}, ["item-alpha", "item-options", "item-beta"]),
+    "item-root": makeItem("item-root", {}, [
+      "item-alpha",
+      "item-beta",
+      "item-gamma",
+      "item-delta",
+      "item-epsilon",
+      "item-options",
+      "item-eta",
+      "item-theta",
+      "item-iota",
+      "item-kappa",
+      "item-lambda",
+    ]),
     "item-alpha": makeItem("item-alpha", { label: "alpha", value: "0.001" }),
+    "item-beta": makeItem("item-beta", { label: "beta", value: "0.999" }),
+    "item-gamma": makeItem("item-gamma", { label: "gamma", value: "0.57721" }),
+    "item-delta": makeItem("item-delta", { label: "delta", value: "4096" }),
+    "item-epsilon": makeItem("item-epsilon", { label: "epsilon", value: "1e-8" }),
     "item-options": makeItem("item-options", { label: "options", group: true }, [
       "item-momentum",
       "item-decay",
     ]),
     "item-momentum": makeItem("item-momentum", { label: "momentum", value: "0.9" }),
     "item-decay": makeItem("item-decay", { label: "decay", value: "1e-4" }),
-    "item-beta": makeItem("item-beta", { label: "beta", value: "0.999" }),
+    "item-eta": makeItem("item-eta", { label: "eta", value: "0.25" }),
+    "item-theta": makeItem("item-theta", { label: "theta", value: "1.618" }),
+    "item-iota": makeItem("item-iota", { label: "iota", value: "0.05" }),
+    "item-kappa": makeItem("item-kappa", { label: "kappa", value: "100" }),
+    "item-lambda": makeItem("item-lambda", { label: "lambda", value: "0.0005" }),
   },
   selectedItemIds: [],
 };
@@ -122,7 +143,8 @@ export const playgroundDocument: WorkspaceDocumentInput = {
     "locked-leaf": { x: 312, y: 24, w: 200, h: 122, zIndex: 1 },
     "styled-leaf": { x: 600, y: 24, w: 200, h: 122, zIndex: 2 },
     "root-group": { x: 24, y: 216, w: null, h: null, zIndex: 3 },
-    "item-panel": { x: 600, y: 216, w: 280, h: 240, zIndex: 4 },
+    // The recorded `/settings` Dict geometry from the Phase 4 gate: 552 x 352 authored size.
+    "item-panel": { x: 600, y: 216, w: 552, h: 352, zIndex: 4 },
   },
   viewport: { x: 0, y: 0, zoom: 1 },
   activeIds: [],

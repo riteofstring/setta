@@ -6,6 +6,7 @@ import {
   type WorkspaceItem,
   type WorkspaceSection,
 } from "@setta/workspace";
+import { useEffect, useRef } from "react";
 
 // The host side of the registration seam: the package owns the shell, chrome, header, and
 // resize treatment; the playground registers its one leaf kind and renders the section body
@@ -54,30 +55,77 @@ function isGroupItem(item: WorkspaceItem): boolean {
   return getItemField(item, "group") === true;
 }
 
+// The host-owned presentation contract, the domain-neutral equivalent of the frozen
+// `/settings` Dict's label and value roles. Labels carry the reference `ParamTextLabel`
+// treatment verbatim (12/16 px semibold sans-serif in setta-800/200 with the reference's
+// 0.125 rem vertical padding); its click-to-focus affordance stays application-side with the
+// input it focuses. Values are 12/16 px medium monospace with tabular figures, bottom-aligned
+// in the value column like the reference's idle value text, and the empty self-end span draws
+// the reference's subtle value-column divider. The reference's CodeMirror editing surface and
+// syntax coloring stay application-side; the playground renders opaque value strings.
+const ITEM_LABEL_CLASS_NAME =
+  "truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200";
+const ITEM_VALUE_CLASS_NAME =
+  "section-value self-end break-words py-[.125rem] font-mono text-xs font-medium tabular-nums text-setta-800 dark:text-setta-300";
+const ITEM_VALUE_DIVIDER_CLASS_NAME =
+  "section-value self-end border-b border-setta-200/50 dark:border-setta-600/30";
+
 function ItemRowContent({ context }: { context: ItemRowRenderContext }) {
   const label = getItemField(context.item, "label");
   if (isGroupItem(context.item)) {
-    return <p className="text-xs font-semibold text-setta-600 dark:text-setta-300">{label}</p>;
+    // Group labels stay direct <p> children: the package row places them across the
+    // key..value tracks through its compiled `[&>p]:section-key-value` rule.
+    return <p className={ITEM_LABEL_CLASS_NAME}>{label}</p>;
   }
   return (
     <>
       <div className="section-key overflow-hidden">
-        <p className="truncate text-xs text-setta-600 dark:text-setta-300">{label}</p>
+        <p className={ITEM_LABEL_CLASS_NAME}>{label}</p>
       </div>
-      <p className="section-value truncate text-xs text-setta-500 dark:text-setta-400">
-        {getItemField(context.item, "value")}
-      </p>
+      <p className={ITEM_VALUE_CLASS_NAME}>{getItemField(context.item, "value")}</p>
+      <span className={ITEM_VALUE_DIVIDER_CLASS_NAME} />
     </>
   );
 }
 
-function ItemListSectionBody({ section }: { section: WorkspaceSection }) {
+// The reference derives its default label/value split from half the available list width:
+// `useParamColumnWidth` halves the args area's clientWidth and applies it minus the 18 px
+// center offset as `--param-column-width`. The playground supplies the same default through
+// the package's existing host variable and re-derives it when the area resizes; the
+// column-resize drag that persists an authored width stays application-side.
+const COLUMN_CENTER_OFFSET_PX = 18;
+
+function useDefaultColumnSplit() {
+  const listAreaRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const listArea = listAreaRef.current;
+    if (!listArea) {
+      throw new Error("The item list area did not mount.");
+    }
+    const applyDefaultSplit = () => {
+      listArea.style.setProperty(
+        "--param-column-width",
+        `${listArea.clientWidth / 2 - COLUMN_CENTER_OFFSET_PX}px`,
+      );
+    };
+    applyDefaultSplit();
+    const observer = new ResizeObserver(applyDefaultSplit);
+    observer.observe(listArea);
+    return () => observer.disconnect();
+  }, []);
+  return listAreaRef;
+}
+
+// Exported for the focused host-presentation regression; the application mounts it only
+// through the registered section kind.
+export function ItemListSectionBody({ section }: { section: WorkspaceSection }) {
+  const listAreaRef = useDefaultColumnSplit();
   const itemTree = section.itemTree;
   if (!itemTree) {
     throw new Error(`Item panel section ${section.id} is missing its item tree.`);
   }
   return (
-    <div className="section-full-no-title flex min-h-0 flex-col">
+    <div ref={listAreaRef} className="section-full-no-title flex min-h-0 flex-col">
       <ItemDndContext>
         <WorkspaceItemList
           sectionId={section.id}
@@ -92,8 +140,9 @@ function ItemListSectionBody({ section }: { section: WorkspaceSection }) {
 }
 
 // Loading validates every non-group kind against the registry, so registration precedes the
-// initial document load. The default size is the accepted slice's 200 x 122 outer leaf
-// geometry (200 x 122 content plus the shell's 1 px border on each side).
+// initial document load. The leaf default is the accepted slice's 200 x 122 outer leaf
+// geometry (200 x 122 content plus the shell's 1 px border on each side); the item panel
+// default is the recorded 552 x 352 `/settings` Dict geometry from the Phase 4 gate.
 export function registerPlaygroundSectionKinds(): void {
   registerSectionKinds({
     leaf: {
@@ -102,7 +151,7 @@ export function registerPlaygroundSectionKinds(): void {
     },
     "item-list": {
       renderContent: (section) => <ItemListSectionBody section={section} />,
-      defaultSize: { width: 280, height: 240 },
+      defaultSize: { width: 552, height: 352 },
     },
   });
 }

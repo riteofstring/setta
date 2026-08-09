@@ -10,6 +10,7 @@
       "project": ["src/**/*.{ts,tsx}", "*.{mjs,ts}"]
     },
     "apps/playground": {
+      "entry": ["src/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.{ts,tsx}", "*.{js,ts}"]
     }
   }
