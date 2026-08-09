@@ -2,8 +2,8 @@
 
 ## Decision
 
-Status: **in progress** (Phase 0 complete 2026-08-10, pending audit; Phase 1 complete
-2026-08-10, pending audit; Phase 2 started 2026-08-10). Phase 0 artifacts: the before-screenshot evidence set and public-API-only
+Status: **in progress** (Phase 0 complete 2026-08-10, final audit pending; Phase 1 complete and
+independently audited 2026-08-10; Phase 2 started 2026-08-10). Phase 0 artifacts: the before-screenshot evidence set and public-API-only
 visual-matrix route
 ([docs/evidence/setta-ui-before-screenshots.md](../evidence/setta-ui-before-screenshots.md)), the
 repeatable development/production interaction profiler (`corepack pnpm perf:interaction`) with
@@ -109,6 +109,12 @@ dynamic imports to prewarm, so the cold tail is first-execution JIT of the activ
 the per-gesture universal-rule injection is upstream lifecycle behavior this plan explicitly
 preserves. Do not reopen Phase 1 for those cells; a regression claim needs a repeatable miss on
 the declared reference profile.
+
+An independent Fable 5/xhigh phase audit accepted that closure on 2026-08-10 without fixes or
+repeated gates. It confirmed that the three residual values are single-pass vsync-boundary
+outliers rather than repeatable work regressions, that no declared cell contains a 50 ms long
+task, and that the idle-overlay rule and shared immutable decorative icons preserve upstream drag
+lifecycle, accessible button semantics, and the driven overlay/reveal workflows.
 
 Phase 2 started 2026-08-10 with the semantic-token foundation: `WorkspaceThemeTokens` gained the
 four ratified roles (`sectionHeaderBackground`, `sectionBorder`, `groupBackground`,
