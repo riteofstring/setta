@@ -7,7 +7,7 @@ import {
   WorkspaceTooltip,
 } from "@setta/workspace";
 import { useEffect, useState } from "react";
-import { sliceDocument } from "./sliceDocument";
+import { playgroundDocument } from "./playgroundDocument";
 
 function toggleDarkMode() {
   const next = !useWorkspaceAppearance.getState().darkMode;
@@ -48,7 +48,7 @@ export function App() {
         </button>
         <button
           type="button"
-          onClick={() => loadWorkspaceDocument(sliceDocument)}
+          onClick={() => loadWorkspaceDocument(playgroundDocument)}
           className="rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300"
         >
           Reload document
@@ -57,11 +57,11 @@ export function App() {
           <DocumentChangeReadout /> document changes reported. Drag sections or the background,
           scroll or pinch to pan and zoom, click to select, Cmd/Ctrl-click to multi-select,
           Shift-drag to draw a selection. Sections resize from their bottom and right edges, and
-          their headers rename, lock, minimize, and delete. The toolbar zooms, fits, and toggles
-          grid snapping; hold Q while hovering a control for its tooltip. Hold Alt and drag to move
-          sections into, out of, and between groups; hold Cmd/Ctrl+Alt and drag to sort within a
-          group. Reload restores the loaded document and camera in place without counting as a
-          change.
+          their headers rename, lock, minimize, and delete; group headers also flip their child flow
+          between vertical and horizontal. The toolbar zooms, fits, and toggles grid snapping; hold
+          Q while hovering a control for its tooltip. Hold Alt and drag to move sections into, out
+          of, and between groups; hold Cmd/Ctrl+Alt and drag to sort within a group. Reload restores
+          the loaded document and camera in place without counting as a change.
         </p>
       </header>
       <div className="flex min-h-0 flex-1 gap-2">

@@ -8,10 +8,11 @@ import { useDndChildren } from "../../dnd/dndChildren";
 import { useDndState } from "../../dnd/dndState";
 import { SectionDndContext } from "../../dnd/SectionDndContext";
 import { useWorkspaceCapabilities } from "../../document/capabilities";
+import { setWorkspaceDocumentChangeCallback } from "../../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../../document/sectionKindRegistry";
 import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../../document/stores";
-import type { WorkspaceSection } from "../../document/types";
+import type { WorkspaceDocument, WorkspaceSection } from "../../document/types";
 import { useWorkspaceTooltip } from "../../tooltip/WorkspaceTooltip";
 import { useSectionRefs } from "../sectionRefs";
 import { SectionContainer } from "./SectionContainer";
@@ -56,6 +57,43 @@ function loadTestDocument(overridesById: Record<string, Partial<WorkspaceSection
   });
 }
 
+// The representative recursive structure from the Phase 0 captures: a root group holding a
+// nested group holding a horizontal group with three leaves — three group levels, leaves at
+// the fourth.
+function loadDeepDocument() {
+  loadWorkspaceDocument({
+    sections: {
+      outer: makeSection("outer", {
+        kind: "group",
+        name: "Outer group",
+        size: { width: "auto", height: "auto" },
+        children: ["middle"],
+      }),
+      middle: makeSection("middle", {
+        kind: "group",
+        name: "Middle group",
+        size: { width: "auto", height: "auto" },
+        children: ["inner"],
+      }),
+      inner: makeSection("inner", {
+        kind: "group",
+        name: "Inner group",
+        size: { width: "auto", height: "auto" },
+        isHorizontalOrientation: true,
+        children: ["row-a", "row-b", "row-c"],
+      }),
+      "row-a": makeSection("row-a", { name: "Row A" }),
+      "row-b": makeSection("row-b", { name: "Row B" }),
+      "row-c": makeSection("row-c", { name: "Row C" }),
+    },
+    topLevelSections: {
+      outer: { x: 0, y: 0, w: null, h: null, zIndex: 0 },
+    },
+    viewport: { x: 0, y: 0, zoom: 1 },
+    activeIds: [],
+  });
+}
+
 // Mirrors production, where NodeRenderer stops rendering a section's container in the same
 // pass that removes it from the document.
 function SectionHost({ sectionId }: { sectionId: string }) {
@@ -87,6 +125,7 @@ describe("SectionContainer", () => {
       root.unmount();
     });
     host.remove();
+    setWorkspaceDocumentChangeCallback(null);
     registerSectionKinds({});
     useWorkspaceDocument.getState().reset();
     useNodeInternals.getState().reset();
@@ -200,6 +239,56 @@ describe("SectionContainer", () => {
     await mount("group");
 
     expect(host.textContent).toContain("Drop A Section Here.");
+  });
+
+  it("renders three nested group levels with the innermost horizontal child flow", async () => {
+    loadDeepDocument();
+    await mount("outer");
+
+    // Every level renders full group chrome, recursively composed.
+    expect(host.querySelectorAll(".group\\/group-section").length).toBe(3);
+
+    const middleSlot = host.querySelector('[data-sortable-section-id="middle"]') as HTMLElement;
+    const innerSlot = middleSlot.querySelector('[data-sortable-section-id="inner"]') as HTMLElement;
+    expect(innerSlot).not.toBeNull();
+    for (const rowId of ["row-a", "row-b", "row-c"]) {
+      expect(innerSlot.querySelector(`[data-section-id="${rowId}"]`)).not.toBeNull();
+    }
+    expect(host.textContent).toContain("Row A body");
+
+    // The middle group flows its children vertically; the inner group flows horizontally.
+    expect(middleSlot.querySelector(".mt-2.flex.flex-col")).not.toBeNull();
+    expect(innerSlot.querySelector(".mt-2.flex.flex-row")).not.toBeNull();
+
+    // Only the horizontal group offers the stack-vertically direction.
+    expect(innerSlot.querySelector('[aria-label="Stack children vertically"]')).not.toBeNull();
+    expect(middleSlot.querySelector('[aria-label="Flow children horizontally"]')).not.toBeNull();
+  });
+
+  it("flips a nested group's child flow from its orientation control and reports one change", async () => {
+    loadDeepDocument();
+    await mount("outer");
+
+    const reported: Array<WorkspaceDocument> = [];
+    setWorkspaceDocumentChangeCallback((next) => reported.push(next));
+
+    const innerSlot = host.querySelector('[data-sortable-section-id="inner"]') as HTMLElement;
+    const toggle = innerSlot.querySelector(
+      '[aria-label="Stack children vertically"]',
+    ) as HTMLButtonElement;
+    await act(async () => {
+      toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(useWorkspaceDocument.getState().sections["inner"]?.isHorizontalOrientation).toBe(false);
+    expect(innerSlot.querySelector(".mt-2.flex.flex-col")).not.toBeNull();
+    expect(innerSlot.querySelector(".mt-2.flex.flex-row")).toBeNull();
+
+    // One canonical commit, one notification, carrying only the flipped group.
+    expect(reported.length).toBe(1);
+    expect(reported[0]?.sections["inner"]?.isHorizontalOrientation).toBe(false);
+    expect(reported[0]?.sections["middle"]?.isHorizontalOrientation).toBe(false);
+    expect(reported[0]?.sections["outer"]?.isHorizontalOrientation).toBe(false);
   });
 
   it("renames the section through the double-click editable title", async () => {

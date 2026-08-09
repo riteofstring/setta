@@ -3,8 +3,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./index.css";
+import { playgroundDocument } from "./playgroundDocument";
 import { registerPlaygroundSectionKinds } from "./sectionKinds";
-import { sliceDocument } from "./sliceDocument";
 
 // The appearance store must reflect the boot dark-mode class before the document loads,
 // because node projection derives style-color backgrounds from it. Kind registration also
@@ -13,7 +13,7 @@ useWorkspaceAppearance.setState({
   darkMode: document.documentElement.classList.contains("dark"),
 });
 registerPlaygroundSectionKinds();
-loadWorkspaceDocument(sliceDocument);
+loadWorkspaceDocument(playgroundDocument);
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {

@@ -402,6 +402,30 @@ Phase 2 progress (2026-08-11):
   remains clean at `043d3b2e9`. Phase 3 may proceed.
 - Remaining Phase 2 work: none.
 
+Phase 3 progress (2026-08-11):
+
+- Recursive structure batch (arbitrary-depth nesting, vertical and horizontal ordered children,
+  orientation switching at depth): the machinery extracted in Phase 1 already composes
+  recursively — group chrome renders nested children through the live dnd projection, the
+  orientation funnel and header control are per-group, the document layer freezes three-level
+  parent-chain resolution, and the cross-depth planners/marquee fallbacks were audited — so this
+  batch makes depth demonstrable and frozen instead of re-extracting it. New depth-composition
+  tests mount the representative three-group structure from the Phase 0 captures (root group →
+  nested group → horizontal group with three leaves) and freeze the recursive chrome (three
+  group frames, leaves at the innermost level, vertical middle flow, horizontal inner flow, the
+  per-direction orientation labels) and the nested orientation toggle (the flow flips in place
+  and the change callback reports exactly one canonical commit carrying the flipped group). The
+  playground document expanded from the Phase 1 slice to that scene beside the accepted root
+  leaf states (`sliceDocument` renamed `playgroundDocument`), so sorting within the horizontal
+  parent, cross-depth free movement, empty-container hints, and the recursive chrome are all
+  reachable for the developer's side-by-side checkpoints. Phase 3's "nested freeform children"
+  item is recorded against the approved Phase 0 evidence: main has no freeform positioning
+  inside groups — the freeform surface is the top-level workspace layout (captures 11 and 18),
+  which the package already owns — so no group-level freeform mode exists to extract.
+- Remaining Phase 3 repository work: the minimap batch (the responsive minimap and the toolbar
+  minimap group whose toggles it makes reachable), then the developer checkpoints and the
+  phase exit gate.
+
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
 - Frozen reference worktree: `../setta-main` on `main` at `043d3b2e9`
