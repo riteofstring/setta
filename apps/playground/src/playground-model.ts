@@ -10,6 +10,7 @@ import {
   type WorkspaceAppearance,
   type WorkspaceDocument,
   type WorkspaceJsonClipboardDataValidationRequest,
+  type WorkspaceSection,
   type WorkspaceViewportPreset,
 } from "@setta/workspace/core";
 
@@ -34,8 +35,12 @@ export type PlaygroundFieldListData = Readonly<{
   type: "field-list";
 }>;
 
+type PlaygroundGroupData = Readonly<{
+  type: "group";
+}>;
+
 export type PlaygroundSectionData =
-  PlaygroundFieldListData | PlaygroundNoteData | PlaygroundStatusData;
+  PlaygroundFieldListData | PlaygroundGroupData | PlaygroundNoteData | PlaygroundStatusData;
 
 export type PlaygroundPreferences = Readonly<{
   appearance: WorkspaceAppearance;
@@ -46,11 +51,12 @@ export type PlaygroundPreferences = Readonly<{
 
 export type PlaygroundInitialState = Readonly<{
   document: WorkspaceDocument<PlaygroundSectionData>;
+  firstRun: boolean;
   message: string;
   preferences: PlaygroundPreferences;
 }>;
 
-const PLAYGROUND_DOCUMENT_STORAGE_KEY = "setta-workspace-playground-document-v1";
+const PLAYGROUND_DOCUMENT_STORAGE_KEY = "setta-workspace-playground-document-v2";
 const PLAYGROUND_PREFERENCES_STORAGE_KEY = "setta-workspace-playground-preferences-v1";
 
 const PLAYGROUND_PREFERENCES_SCHEMA_VERSION = 2;
@@ -76,15 +82,6 @@ class PlaygroundPreferencesError extends TypeError {
   }
 }
 
-function emptyPlaygroundDocument(): WorkspaceDocument<PlaygroundSectionData> {
-  return {
-    rootSections: [],
-    schemaVersion: WORKSPACE_DOCUMENT_SCHEMA_VERSION,
-    sections: {},
-    viewport: { x: 0, y: 0, zoom: 1 },
-  };
-}
-
 function sectionSize(width: number, height: number) {
   return {
     height: { mode: "fixed" as const, value: height },
@@ -92,63 +89,181 @@ function sectionSize(width: number, height: number) {
   };
 }
 
+type ExampleSectionOverrides = Partial<
+  Pick<WorkspaceSection<PlaygroundSectionData>, "childLayout" | "presentation" | "size">
+>;
+
+function exampleSection(
+  id: string,
+  kind: string,
+  title: string,
+  data: PlaygroundSectionData,
+  overrides: ExampleSectionOverrides = {},
+): WorkspaceSection<PlaygroundSectionData> {
+  return {
+    childLayout: null,
+    data,
+    id,
+    isMinimized: false,
+    kind,
+    positionAndSizeLocked: false,
+    presentation: { accentColor: null, chrome: "default", tagColor: null },
+    size: sectionSize(320, 220),
+    title,
+    ...overrides,
+  };
+}
+
 export function createPlaygroundExampleDocument(): WorkspaceDocument<PlaygroundSectionData> {
   return {
     rootSections: [
       { position: { x: 72, y: 72 }, sectionId: "example-note" },
-      { position: { x: 456, y: 132 }, sectionId: "example-status" },
+      { position: { x: 72, y: 320 }, sectionId: "example-status" },
+      { position: { x: 420, y: 48 }, sectionId: "example-onboarding" },
       { position: { x: 816, y: 72 }, sectionId: "example-fields" },
+      { position: { x: 72, y: 560 }, sectionId: "example-ideas" },
     ],
     schemaVersion: WORKSPACE_DOCUMENT_SCHEMA_VERSION,
     sections: {
-      "example-fields": {
-        childLayout: null,
-        data: createPlaygroundFieldListData(),
-        id: "example-fields",
-        isMinimized: false,
-        kind: "sample-field-list",
-        positionAndSizeLocked: false,
-        presentation: {
-          accentColor: "oklch(0.62 0.13 305)",
-          chrome: "default",
-          tagColor: null,
+      "example-fields": exampleSection(
+        "example-fields",
+        "sample-field-list",
+        "Profile fields",
+        createPlaygroundFieldListData(),
+        {
+          presentation: {
+            accentColor: "oklch(0.62 0.13 305)",
+            chrome: "default",
+            tagColor: null,
+          },
+          size: sectionSize(440, 520),
         },
-        size: sectionSize(440, 520),
-        title: "Profile fields",
-      },
-      "example-note": {
-        childLayout: null,
-        data: {
-          body: "Arrange sections freely, then export this workspace or reload it from local storage.",
+      ),
+      "example-ideas": exampleSection(
+        "example-ideas",
+        "sample-group",
+        "Follow-ups",
+        { type: "group" },
+        {
+          childLayout: {
+            overflow: "grow",
+            positioning: "freeform",
+            positions: { "ideas-followup": { x: 24, y: 20 } },
+            sectionIds: ["ideas-followup"],
+          },
+          size: sectionSize(320, 290),
+        },
+      ),
+      "example-note": exampleSection(
+        "example-note",
+        "sample-note",
+        "Welcome note",
+        {
+          body: "Drag sections by their headers, nest them into the onboarding group, and reload to restore your changes.",
           type: "note",
         },
-        id: "example-note",
-        isMinimized: false,
-        kind: "sample-note",
-        positionAndSizeLocked: false,
-        presentation: {
-          accentColor: "oklch(0.62 0.14 255)",
-          chrome: "default",
-          tagColor: null,
+        {
+          presentation: {
+            accentColor: "oklch(0.62 0.14 255)",
+            chrome: "default",
+            tagColor: null,
+          },
+          size: sectionSize(300, 190),
         },
-        size: sectionSize(320, 240),
-        title: "Welcome note",
-      },
-      "example-status": {
-        childLayout: null,
-        data: { count: 3, label: "workspace checks ready", type: "status" },
-        id: "example-status",
-        isMinimized: false,
-        kind: "sample-status",
-        positionAndSizeLocked: false,
-        presentation: {
-          accentColor: "oklch(0.64 0.1 195)",
-          chrome: "compact",
-          tagColor: "oklch(0.64 0.11 145)",
+      ),
+      "example-onboarding": exampleSection(
+        "example-onboarding",
+        "sample-group",
+        "Customer onboarding",
+        { type: "group" },
+        {
+          childLayout: {
+            orientation: "vertical",
+            overflow: "grow",
+            positioning: "ordered",
+            sectionIds: ["onboarding-invite", "onboarding-details", "onboarding-handoff"],
+          },
+          presentation: {
+            accentColor: null,
+            chrome: "default",
+            tagColor: "oklch(0.72 0.11 80)",
+          },
+          size: {
+            height: { mode: "content", value: 520 },
+            width: { mode: "fixed", value: 380 },
+          },
         },
-        size: sectionSize(280, 200),
-        title: "Workspace status",
-      },
+      ),
+      "example-status": exampleSection(
+        "example-status",
+        "sample-status",
+        "Workspace status",
+        { count: 3, label: "onboarding steps ready", type: "status" },
+        {
+          presentation: {
+            accentColor: "oklch(0.64 0.1 195)",
+            chrome: "compact",
+            tagColor: "oklch(0.64 0.11 145)",
+          },
+          size: sectionSize(260, 150),
+        },
+      ),
+      "handoff-checks": exampleSection(
+        "handoff-checks",
+        "sample-status",
+        "Checks",
+        { count: 2, label: "handoff checks", type: "status" },
+        {
+          presentation: { accentColor: null, chrome: "compact", tagColor: null },
+          size: sectionSize(150, 140),
+        },
+      ),
+      "handoff-recap": exampleSection(
+        "handoff-recap",
+        "sample-note",
+        "Recap",
+        { body: "Write the kickoff recap.", type: "note" },
+        { size: sectionSize(150, 140) },
+      ),
+      "ideas-followup": exampleSection(
+        "ideas-followup",
+        "sample-note",
+        "Schedule check-in",
+        { body: "Drag this note anywhere in this group.", type: "note" },
+        { size: sectionSize(210, 175) },
+      ),
+      "onboarding-details": exampleSection(
+        "onboarding-details",
+        "sample-note",
+        "Collect account details",
+        { body: "Record the contact, plan, and billing owner.", type: "note" },
+        { size: sectionSize(340, 110) },
+      ),
+      "onboarding-handoff": exampleSection(
+        "onboarding-handoff",
+        "sample-group",
+        "Handoff",
+        { type: "group" },
+        {
+          childLayout: {
+            orientation: "horizontal",
+            overflow: "grow",
+            positioning: "ordered",
+            sectionIds: ["handoff-recap", "handoff-checks"],
+          },
+          size: {
+            height: { mode: "content", value: 210 },
+            width: { mode: "fixed", value: 340 },
+          },
+        },
+      ),
+      "onboarding-invite": exampleSection(
+        "onboarding-invite",
+        "sample-note",
+        "Invite the customer",
+        { body: "Send the workspace invite and confirm access.", type: "note" },
+        { size: sectionSize(340, 110) },
+      ),
     },
     viewport: { x: 0, y: 0, zoom: 1 },
   };
@@ -224,6 +339,18 @@ function validateNoteData(value: unknown, sectionId: string): asserts value is P
   assertExactKeys(record, ["body", "type"], label);
   if (record.type !== "note" || typeof record.body !== "string") {
     throw new PlaygroundDocumentPayloadError(`${label} must contain a note type and text body.`);
+  }
+}
+
+function validateGroupData(
+  value: unknown,
+  sectionId: string,
+): asserts value is PlaygroundGroupData {
+  const label = `Group data for ${JSON.stringify(sectionId)}`;
+  const record = plainRecord(value, label);
+  assertExactKeys(record, ["type"], label);
+  if (record.type !== "group") {
+    throw new PlaygroundDocumentPayloadError(`${label} must use the group type.`);
   }
 }
 
@@ -329,6 +456,10 @@ function validatePlaygroundPayloads(document: WorkspaceDocument<unknown>): void 
       validateFieldListData(section.data, sectionId);
       continue;
     }
+    if (section.kind === "sample-group") {
+      validateGroupData(section.data, sectionId);
+      continue;
+    }
     throw new PlaygroundDocumentPayloadError(
       `Section ${JSON.stringify(sectionId)} uses unsupported kind ${JSON.stringify(section.kind)}.`,
     );
@@ -350,6 +481,10 @@ export function validatePlaygroundClipboardSectionData({
   }
   if (kind === "sample-field-list") {
     validateFieldListData(data, sourceSectionId);
+    return true;
+  }
+  if (kind === "sample-group") {
+    validateGroupData(data, sourceSectionId);
     return true;
   }
   return false;
@@ -463,17 +598,19 @@ function plainPreferencesRecord(value: unknown): Record<string, unknown> {
 
 function loadStoredDocument(storage: Storage): Readonly<{
   document: WorkspaceDocument<PlaygroundSectionData>;
+  firstRun: boolean;
   message: string;
 }> {
   const serialized = storage.getItem(PLAYGROUND_DOCUMENT_STORAGE_KEY);
   if (serialized === null) {
-    return { document: emptyPlaygroundDocument(), message: "" };
+    return { document: createPlaygroundExampleDocument(), firstRun: true, message: "" };
   }
   try {
-    return { document: parsePlaygroundDocument(serialized), message: "" };
+    return { document: parsePlaygroundDocument(serialized), firstRun: false, message: "" };
   } catch (error) {
     return {
-      document: emptyPlaygroundDocument(),
+      document: createPlaygroundExampleDocument(),
+      firstRun: true,
       message: `Saved workspace could not be restored. ${playgroundImportErrorMessage(error)}`,
     };
   }
@@ -511,6 +648,7 @@ export function loadPlaygroundState(): PlaygroundInitialState {
     const storedPreferences = loadStoredPreferences(storage);
     return {
       document: storedDocument.document,
+      firstRun: storedDocument.firstRun,
       message: [storedDocument.message, storedPreferences.message].filter(Boolean).join(" "),
       preferences: storedPreferences.preferences,
     };
@@ -519,7 +657,8 @@ export function loadPlaygroundState(): PlaygroundInitialState {
       throw error;
     }
     return {
-      document: emptyPlaygroundDocument(),
+      document: createPlaygroundExampleDocument(),
+      firstRun: true,
       message: "Local persistence is unavailable. Changes remain in this tab.",
       preferences: DEFAULT_PLAYGROUND_PREFERENCES,
     };

@@ -1,10 +1,11 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-import { addSampleSection } from "./workspace-test-helpers.js";
+import { addSampleSection, seedEmptyPlaygroundDocument } from "./workspace-test-helpers.js";
 
 test("locks, minimizes, restores focus, and preserves host content state", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 1280 });
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
   await addSampleSection(page);
 
@@ -164,6 +165,7 @@ test("live policy gates state controls and controlled rejection keeps canonical 
 });
 
 test("restores minimize focus when headerless chrome is replaced", async ({ page }) => {
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
   await addSampleSection(page);
 

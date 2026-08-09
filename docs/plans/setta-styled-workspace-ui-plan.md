@@ -4,7 +4,8 @@
 
 Status: **in progress** (Phase 0 complete 2026-08-10, final audit pending; Phase 1 complete and
 independently audited 2026-08-10; Phase 2 implementation complete 2026-08-10 and ready for its
-independent phase audit). Phase 0 artifacts: the before-screenshot evidence set and public-API-only
+independent phase audit; Phase 3 implementation complete 2026-08-10 and ready for its independent
+phase audit). Phase 0 artifacts: the before-screenshot evidence set and public-API-only
 visual-matrix route
 ([docs/evidence/setta-ui-before-screenshots.md](../evidence/setta-ui-before-screenshots.md)), the
 repeatable development/production interaction profiler (`corepack pnpm perf:interaction`) with
@@ -172,6 +173,35 @@ production profile is appended under `phase-2-setta-chrome` in
 `perf/interaction-traces/`: production has zero gaps above 32 ms, development has only two isolated
 cold 0.5× samples (33.1 and 33.5 ms), no cell repeats a miss, and neither build has a long task at
 or above 50 ms. Phase 2 is ready for its independent audit.
+
+The Phase 3 canvas-first playground landed 2026-08-10. The default page dropped the hero/harness
+layout for a compact top bar (brand, single-line polite status region, "Move sections" Sort/Free
+move select wired to `sectionMoveMode`, "Theme" select, and Help/Settings/Data disclosure buttons)
+above a viewport-filling canvas; Help ("Try these interactions"), "Workspace settings" (grid
+toggles), and "Data and diagnostics" (export/import JSON, "Reset example…" trigger with a "Reset
+example" confirm) are non-modal overlay dialogs with Escape/close focus restoration, so panels
+never shrink the canvas. The representative first document lives under the new
+`setta-workspace-playground-document-v2` key (no migration): note, status, a "Customer onboarding"
+group holding a vertical pair plus a nested horizontal "Handoff" group, the field list at its
+sortable-test-stable position (816, 72), and a freeform "Follow-ups" container, with restrained
+accents/tags. First run (absent key, corrupt payload, or unavailable storage) loads the example and
+fits once; because the canvas controller binds asynchronously, the fit retries frame by frame
+behind a 5 s fail-loud deadline, is StrictMode-rerun-safe, suppresses only its own viewport
+announcement, and reports "Example workspace loaded." unless a storage failure message is showing.
+A deliberately emptied workspace persists as the empty state with forward-looking copy. The
+playground also gained a `sample-group` kind plus `groupFactory` (grouping and creation-dialog
+"Structure" entries now work on the default page) and tuned note/status default sizes. Test-side,
+every default-page spec seeds the v2 key with a set-if-absent empty document (first-run fit stays
+exclusive to the shell spec), resets through the Data panel via shared helpers, and the four shell
+tests moved to `playground-shell.spec.ts` to respect the file-length gate. Two interactions
+surfaced and were encoded in specs rather than papered over: paste smart-placement can push a
+block outside the culling overscan (the clipboard blank anchor moved to a free region and the
+selection assertions follow a fit), and arranged roots can leave the overscan, so auto-layout
+asserts rendered selection after "Fit sections". Gates: `corepack pnpm quality` EXIT 0 (539 unit
+tests, build/pack/API report) and two consecutive green passes of the 50 affected browser tests
+with intentionally refreshed baselines; driven Chrome screenshots verified the fitted first
+viewport at 1440 × 900, 1024 × 768, and 360 px, plus dark appearance with the Help panel open.
+Phase 3 is ready for its independent audit.
 
 Make the Setta visual language the opinionated default for `@setta/workspace`, redesign the
 backend-free playground around the canvas, and remove the measurable structural-drag startup hitch.

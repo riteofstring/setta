@@ -1,52 +1,48 @@
 import { readFile } from "node:fs/promises";
 
 import { AxeBuilder } from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-const DOCUMENT_STORAGE_KEY = "setta-workspace-playground-document-v1";
+import {
+  closeDataPanel,
+  openDataPanel,
+  PLAYGROUND_DOCUMENT_STORAGE_KEY,
+  seedEmptyPlaygroundDocument,
+} from "./workspace-test-helpers.js";
+
 const PREFERENCES_STORAGE_KEY = "setta-workspace-playground-preferences-v1";
-
-async function showWorkspaceData(page: Page): Promise<void> {
-  const disclosure = page.getByRole("button", { name: "Show workspace data" });
-  await disclosure.click();
-  await expect(page.getByRole("button", { name: "Hide workspace data" })).toHaveAttribute(
-    "aria-expanded",
-    "true",
-  );
-}
 
 test("the playground imports, exports, resets, and locally restores workspace state", async ({
   page,
 }) => {
   await page.setViewportSize({ height: 900, width: 1280 });
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
 
-  const documentJson = page.getByTestId("workspace-json");
-  const resetExample = page.getByRole("button", { name: "Reset example" });
   await expect(page.getByRole("region", { name: "Section workspace" })).toContainText(
-    "No sections yet.",
+    "This workspace is empty.",
   );
 
-  await showWorkspaceData(page);
+  const dataPanel = await openDataPanel(page);
+  const documentJson = page.getByTestId("workspace-json");
+  const resetExample = page.getByRole("button", { name: "Reset example…" });
   await resetExample.click();
   const confirmation = page.getByRole("group", { name: "Confirm reset" });
-  const resetWorkspace = confirmation.getByRole("button", { name: "Reset workspace" });
-  await expect(resetWorkspace).toBeFocused();
+  const confirmReset = confirmation.getByRole("button", { name: "Reset example" });
+  await expect(confirmReset).toBeFocused();
   await page.keyboard.press("Enter");
 
   const welcomeNote = page.getByRole("article", { name: "Welcome note" });
   const workspaceStatus = page.getByRole("article", { name: "Workspace status" });
+  const onboardingGroup = page.getByRole("article", { name: "Customer onboarding" });
   const profileFields = page.getByRole("article", { name: "Profile fields" });
-  await expect(welcomeNote).toContainText("Arrange sections freely");
-  await expect(workspaceStatus).toContainText("3 workspace checks ready");
+  await expect(welcomeNote).toContainText("Drag sections by their headers");
+  await expect(workspaceStatus).toContainText("3 onboarding steps ready");
+  await expect(onboardingGroup.getByRole("article", { name: "Invite the customer" })).toBeVisible();
   await expect(profileFields.getByRole("textbox", { name: "Name" })).toHaveValue("Ada Lovelace");
-  await expect(page.locator(".announcement")).toHaveText(
-    "Example workspace restored with a note, status, and field-list section.",
-  );
-  await expect(page.locator(".playground-host-controls")).toHaveScreenshot(
-    "playground-persistence-controls.png",
-  );
+  await expect(page.locator(".announcement")).toHaveText("Example workspace restored.");
+  await expect(dataPanel).toHaveScreenshot("playground-data-panel.png");
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("link", { name: "Export JSON" }).click();
@@ -60,11 +56,8 @@ test("the playground imports, exports, resets, and locally restores workspace st
     sections: Record<string, { title: string }>;
   };
   expect(exportedDocument.sections["example-note"]?.title).toBe("Welcome note");
+  expect(exportedDocument.sections["example-onboarding"]?.title).toBe("Customer onboarding");
   expect(exportedDocument.sections["example-fields"]?.title).toBe("Profile fields");
-
-  await page.getByRole("combobox", { name: "Appearance" }).selectOption("dark");
-  await page.getByRole("checkbox", { name: "Show grid" }).uncheck();
-  await page.getByRole("checkbox", { name: "Snap to grid" }).uncheck();
 
   const importedDocument = JSON.parse(await documentJson.inputValue()) as {
     schemaVersion: number;
@@ -80,7 +73,7 @@ test("the playground imports, exports, resets, and locally restores workspace st
   await page.getByRole("button", { name: "Import JSON" }).click();
   await expect(page.getByRole("article", { name: "Persisted planning note" })).toBeVisible();
   await expect(page.locator(".announcement")).toHaveText(
-    "Workspace imported. 3 sections restored.",
+    "Workspace imported. 11 sections restored.",
   );
 
   await documentJson.fill("{");
@@ -132,28 +125,42 @@ test("the playground imports, exports, resets, and locally restores workspace st
     'Status data for "example-status"',
   );
   await expect(page.getByRole("article", { name: "Workspace status" })).toContainText(
-    "3 workspace checks ready",
+    "3 onboarding steps ready",
   );
 
   await page.getByRole("button", { name: "Restore current JSON" }).click();
   await expect(documentJson).not.toHaveAttribute("aria-invalid");
+  await closeDataPanel(page);
+
+  await page.getByRole("combobox", { name: "Theme" }).selectOption("dark");
+  await page.getByRole("button", { name: "Settings" }).click();
+  const settingsPanel = page.getByRole("dialog", { name: "Workspace settings" });
+  await settingsPanel.getByRole("checkbox", { name: "Show grid" }).uncheck();
+  await settingsPanel.getByRole("checkbox", { name: "Snap to grid" }).uncheck();
+  await page.keyboard.press("Escape");
+  await expect(settingsPanel).toHaveCount(0);
+
   await page.reload();
   await expect(page.getByRole("article", { name: "Persisted planning note" })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Appearance" })).toHaveValue("dark");
-  await expect(page.getByRole("checkbox", { name: "Show grid" })).not.toBeChecked();
-  await expect(page.getByRole("checkbox", { name: "Snap to grid" })).not.toBeChecked();
+  await expect(page.getByRole("combobox", { name: "Theme" })).toHaveValue("dark");
+  await page.getByRole("button", { name: "Settings" }).click();
+  const reloadedSettings = page.getByRole("dialog", { name: "Workspace settings" });
+  await expect(reloadedSettings.getByRole("checkbox", { name: "Show grid" })).not.toBeChecked();
+  await expect(reloadedSettings.getByRole("checkbox", { name: "Snap to grid" })).not.toBeChecked();
+  await page.keyboard.press("Escape");
+  await expect(reloadedSettings).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Snap to grid" })).toHaveAttribute(
     "aria-pressed",
     "false",
   );
 
-  await showWorkspaceData(page);
+  await openDataPanel(page);
   await resetExample.click();
   await confirmation.getByRole("button", { name: "Cancel" }).click();
   await expect(resetExample).toBeFocused();
   await expect(page.getByRole("article", { name: "Persisted planning note" })).toBeVisible();
   await resetExample.click();
-  await resetWorkspace.click();
+  await confirmReset.click();
   await expect(page.getByRole("article", { name: "Welcome note" })).toBeVisible();
 
   const accessibility = await new AxeBuilder({ page }).analyze();
@@ -168,7 +175,7 @@ test("invalid saved state recovers accessibly without losing reflow or input rea
       window.localStorage.setItem(documentKey, "{");
       window.localStorage.setItem(preferencesKey, "[]");
     },
-    { documentKey: DOCUMENT_STORAGE_KEY, preferencesKey: PREFERENCES_STORAGE_KEY },
+    { documentKey: PLAYGROUND_DOCUMENT_STORAGE_KEY, preferencesKey: PREFERENCES_STORAGE_KEY },
   );
   await page.setViewportSize({ height: 720, width: 320 });
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
@@ -178,10 +185,8 @@ test("invalid saved state recovers accessibly without losing reflow or input rea
     "Saved workspace could not be restored.",
   );
   await expect(page.locator(".announcement")).toContainText("Default preferences are active.");
-  await expect(page.getByRole("region", { name: "Section workspace" })).toContainText(
-    "No sections yet.",
-  );
-  await showWorkspaceData(page);
+  await expect(page.getByRole("article", { name: "Welcome note" })).toBeVisible();
+  await openDataPanel(page);
 
   const dimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
@@ -195,7 +200,7 @@ test("invalid saved state recovers accessibly without losing reflow or input rea
   for (const control of [
     page.getByRole("link", { name: "Export JSON" }),
     page.getByRole("button", { name: "Import JSON" }),
-    page.getByRole("button", { name: "Reset example" }),
+    page.getByRole("button", { name: "Reset example…" }),
   ]) {
     const bounds = await control.boundingBox();
     expect(bounds?.height).toBeGreaterThanOrEqual(44);

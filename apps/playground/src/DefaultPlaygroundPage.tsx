@@ -1,7 +1,6 @@
 import {
   createWorkspaceJsonClipboardAdapter,
   type WorkspaceActionResult,
-  type WorkspaceAppearance,
   type WorkspaceController,
   type WorkspaceDocument,
   type WorkspaceViewportPreset,
@@ -12,6 +11,7 @@ import {
   WorkspaceOutline,
   WorkspaceViewportPresets,
   type WorkspacePaneRegistration,
+  type WorkspaceSectionMoveMode,
   type WorkspaceSectionTitleValidationRequest,
   type WorkspaceToolbarControl,
   type WorkspaceViewportPresetCreateRequest,
@@ -20,7 +20,13 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { PlaygroundDataPanel, type PlaygroundImportResult } from "./PlaygroundDataPanel.js";
+import { PlaygroundPanel } from "./PlaygroundPanel.js";
 import { createPlaygroundSectionDefinitions } from "./PlaygroundSections.js";
+import {
+  PlaygroundTopBar,
+  type PlaygroundPanelId,
+  type PlaygroundPanelTriggerRefs,
+} from "./PlaygroundTopBar.js";
 import {
   createPlaygroundExampleDocument,
   createPlaygroundFieldListData,
@@ -76,6 +82,42 @@ function reportPersistenceFailure(
 ) {
   if (message) {
     setAnnouncement(message);
+  }
+}
+
+const INITIAL_FIT_DEADLINE_MS = 5_000;
+
+/**
+ * Fits the first-run example once. The canvas controller binds asynchronously
+ * after the workspace mounts, so attempts are retried frame by frame until the
+ * canvas accepts the fit; a persistent failure surfaces after the deadline.
+ */
+async function fitInitialViewport(
+  controller: WorkspaceController<PlaygroundSectionData>,
+  sectionIds: readonly string[],
+  isCancelled: () => boolean,
+): Promise<boolean> {
+  const deadline = performance.now() + INITIAL_FIT_DEADLINE_MS;
+  for (;;) {
+    if (isCancelled()) {
+      return false;
+    }
+    try {
+      await controller.fitSections(sectionIds);
+      return true;
+    } catch (error) {
+      if (isCancelled()) {
+        return false;
+      }
+      if (performance.now() > deadline) {
+        throw error;
+      }
+    }
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        resolve();
+      });
+    });
   }
 }
 
@@ -173,9 +215,20 @@ export function DefaultPlaygroundPage({
   const [announcement, setAnnouncement] = useState(initialState.message);
   const [fieldListSelectionEpoch, setFieldListSelectionEpoch] = useState(0);
   const [activePaneId, setActivePaneId] = useState<string | null>(null);
+  const [activePanel, setActivePanel] = useState<PlaygroundPanelId | null>(null);
+  const [sectionMoveMode, setSectionMoveMode] = useState<WorkspaceSectionMoveMode>("sort");
   const controllerRef = useRef<WorkspaceController<PlaygroundSectionData>>(null);
   const clipboardSectionNumberRef = useRef(1);
   const externalSampleBodyRef = useRef<string | null>(null);
+  const initialFitDoneRef = useRef(false);
+  const suppressFitAnnouncementRef = useRef(false);
+  const dataTriggerRef = useRef<HTMLButtonElement>(null);
+  const helpTriggerRef = useRef<HTMLButtonElement>(null);
+  const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+  const panelTriggerRefs = useMemo<PlaygroundPanelTriggerRefs>(
+    () => ({ data: dataTriggerRef, help: helpTriggerRef, settings: settingsTriggerRef }),
+    [],
+  );
   const documentJson = useMemo(() => formatPlaygroundDocument(document), [document]);
   const handleFieldListDataChange = useCallback(
     (sectionId: string, data: PlaygroundFieldListData, message: string) => {
@@ -241,8 +294,46 @@ export function DefaultPlaygroundPage({
     reportPersistenceFailure(persistPlaygroundPreferences(preferences), setAnnouncement);
   }, [preferences]);
 
+  useEffect(() => {
+    if (!initialState.firstRun || initialFitDoneRef.current) {
+      return;
+    }
+    const controller = controllerRef.current;
+    if (!controller) {
+      throw new Error("The playground workspace controller is unavailable.");
+    }
+    // Development StrictMode tears the canvas down between its two effect
+    // passes, which can abort the in-flight fit; the rerun completes it.
+    let cancelledByRerun = false;
+    suppressFitAnnouncementRef.current = true;
+    void fitInitialViewport(
+      controller,
+      initialState.document.rootSections.map(({ sectionId }) => sectionId),
+      () => cancelledByRerun,
+    ).then((fitted) => {
+      if (!fitted) {
+        return;
+      }
+      initialFitDoneRef.current = true;
+      suppressFitAnnouncementRef.current = false;
+      setAnnouncement((current) => current || "Example workspace loaded.");
+    });
+    return () => {
+      cancelledByRerun = true;
+    };
+  }, [initialState]);
+
   const updatePreferences = (updates: Partial<PlaygroundPreferences>) => {
     setPreferences((current) => ({ ...current, ...updates }));
+  };
+
+  const togglePanel = (panel: PlaygroundPanelId) => {
+    setActivePanel((current) => (current === panel ? null : panel));
+  };
+
+  const closePanel = (panel: PlaygroundPanelId) => {
+    setActivePanel(null);
+    panelTriggerRefs[panel].current?.focus();
   };
 
   const createViewportPreset = useCallback(
@@ -351,81 +442,43 @@ export function DefaultPlaygroundPage({
         title: `Profile fields ${String(nextNumber)}`,
       };
     }
+    if (kind === "sample-group") {
+      const nextNumber = nextSectionNumber(document, "group");
+      return {
+        data: { type: "group" as const },
+        id: `group-${String(nextNumber)}`,
+        title: `Section group ${String(nextNumber)}`,
+      };
+    }
     throw new TypeError(`Unsupported playground section kind ${JSON.stringify(kind)}.`);
   };
 
+  const nextGroupResult = () => {
+    const nextNumber = nextSectionNumber(document, "group");
+    return {
+      data: { type: "group" as const },
+      id: `group-${String(nextNumber)}`,
+      kind: "sample-group",
+      title: `Section group ${String(nextNumber)}`,
+    };
+  };
+
   return (
-    <>
+    <div className="playground-shell">
       <a className="skip-link" href="#main-content">
         Skip to workspace
       </a>
-      <header className="site-header">
-        <p className="eyebrow" translate="no">
-          @setta/workspace
-        </p>
-        <h1>Blank-slate workspace</h1>
-        <p className="lede">
-          A backend-free consumer proving package state, host rendering, local persistence, and
-          canvas boundaries.
-        </p>
-      </header>
-      <main id="main-content" tabIndex={-1}>
-        <div className="playground-host-controls">
-          <fieldset className="playground-preferences">
-            <legend>Workspace preferences</legend>
-            <label>
-              Appearance
-              <select
-                onChange={(event) =>
-                  updatePreferences({
-                    appearance: event.currentTarget.value as WorkspaceAppearance,
-                  })
-                }
-                value={preferences.appearance}
-              >
-                <option value="system">System</option>
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-              </select>
-            </label>
-            <label>
-              <input
-                checked={preferences.gridVisible}
-                onChange={(event) =>
-                  updatePreferences({ gridVisible: event.currentTarget.checked })
-                }
-                type="checkbox"
-              />
-              Show grid
-            </label>
-            <label>
-              <input
-                checked={preferences.gridSnap}
-                onChange={(event) => updatePreferences({ gridSnap: event.currentTarget.checked })}
-                type="checkbox"
-              />
-              Snap to grid
-            </label>
-          </fieldset>
-          <PlaygroundDataPanel
-            currentDocumentJson={documentJson}
-            onImport={importDocument}
-            onReset={() => {
-              setFieldListSelectionEpoch((current) => current + 1);
-              setDocument(createPlaygroundExampleDocument());
-              setAnnouncement(
-                "Example workspace restored with a note, status, and field-list section.",
-              );
-            }}
-            onStatus={setAnnouncement}
-            readOnly={readOnly}
-          />
-        </div>
-        <div className="playground-toolbar">
-          <p className="announcement" role="status" aria-live="polite">
-            {announcement}
-          </p>
-        </div>
+      <PlaygroundTopBar
+        activePanel={activePanel}
+        announcement={announcement}
+        appearance={preferences.appearance}
+        moveMode={sectionMoveMode}
+        onAppearanceChange={(appearance) => updatePreferences({ appearance })}
+        onMoveModeChange={setSectionMoveMode}
+        onTogglePanel={togglePanel}
+        triggerRefs={panelTriggerRefs}
+      />
+      <main className="playground-main" id="main-content" tabIndex={-1}>
         <WorkspaceDetachmentProvider
           getInitialWindowBounds={() => ({ height: 560, width: 720 })}
           onWindowChange={({ bounds, open, title }) => {
@@ -452,7 +505,7 @@ export function DefaultPlaygroundPage({
                 }
           }
         >
-          <div className="workspace-host">
+          <div className="workspace-host workspace-host--fill">
             <Workspace
               {...(clipboardAdapter ? { clipboardAdapter } : {})}
               activePaneId={activePaneId}
@@ -460,9 +513,16 @@ export function DefaultPlaygroundPage({
               ariaLabel="Section workspace"
               controllerRef={controllerRef}
               document={document}
-              emptyState="No sections yet. Use Add section or restore the example to start."
+              emptyState="This workspace is empty. Use Add section in the toolbar, or restore the example from Data and diagnostics."
               gridOptions={{ snap: preferences.gridSnap, visible: preferences.gridVisible }}
+              groupFactory={nextGroupResult}
               onDocumentChange={(nextDocument, change) => {
+                if (change.reason === "viewport" && suppressFitAnnouncementRef.current) {
+                  if (!rejectViewportChanges) {
+                    setDocument(nextDocument);
+                  }
+                  return;
+                }
                 if (rejectViewportChanges && change.reason === "viewport") {
                   setAnnouncement("The controlled playground retained its current viewport.");
                   return;
@@ -502,6 +562,7 @@ export function DefaultPlaygroundPage({
               readOnly={readOnly}
               sectionDefinitions={sectionDefinitions}
               sectionFactory={({ kind }) => nextFactoryResult(kind)}
+              sectionMoveMode={sectionMoveMode}
               toolbarControls={toolbarControls}
               validateExternalDrop={({ event }) =>
                 event.dataTransferTypes.includes(EXTERNAL_SAMPLE_MIME)
@@ -516,7 +577,76 @@ export function DefaultPlaygroundPage({
             />
           </div>
         </WorkspaceDetachmentProvider>
+        {activePanel === "help" ? (
+          <PlaygroundPanel
+            id="playground-panel-help"
+            onClose={() => closePanel("help")}
+            title="Try these interactions"
+          >
+            <ol className="playground-help-list">
+              <li>
+                Move a section: drag the Welcome note by its header, or focus its Move button and
+                press Enter.
+              </li>
+              <li>
+                Nest it: switch Move sections to Free move, then drag the Welcome note into Customer
+                onboarding.
+              </li>
+              <li>
+                Reorder fields: in Profile fields, drag Email below Name, or use its Move button
+                with the arrow keys.
+              </li>
+            </ol>
+          </PlaygroundPanel>
+        ) : null}
+        {activePanel === "settings" ? (
+          <PlaygroundPanel
+            id="playground-panel-settings"
+            onClose={() => closePanel("settings")}
+            title="Workspace settings"
+          >
+            <div className="playground-settings">
+              <label>
+                <input
+                  checked={preferences.gridVisible}
+                  onChange={(event) =>
+                    updatePreferences({ gridVisible: event.currentTarget.checked })
+                  }
+                  type="checkbox"
+                />
+                Show grid
+              </label>
+              <label>
+                <input
+                  checked={preferences.gridSnap}
+                  onChange={(event) => updatePreferences({ gridSnap: event.currentTarget.checked })}
+                  type="checkbox"
+                />
+                Snap to grid
+              </label>
+            </div>
+          </PlaygroundPanel>
+        ) : null}
+        {activePanel === "data" ? (
+          <PlaygroundPanel
+            id="playground-panel-data"
+            onClose={() => closePanel("data")}
+            title="Data and diagnostics"
+          >
+            <PlaygroundDataPanel
+              currentDocumentJson={documentJson}
+              onImport={importDocument}
+              onReset={() => {
+                setFieldListSelectionEpoch((current) => current + 1);
+                setDocument(createPlaygroundExampleDocument());
+                setAnnouncement("Example workspace restored.");
+              }}
+              onStatus={setAnnouncement}
+              readOnly={readOnly}
+            />
+          </PlaygroundPanel>
+        ) : null}
       </main>
-    </>
+    </div>
   );
 }

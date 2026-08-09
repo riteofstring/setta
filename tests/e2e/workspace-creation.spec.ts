@@ -1,12 +1,13 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-import { addSampleSection } from "./workspace-test-helpers.js";
+import { addSampleSection, seedEmptyPlaygroundDocument } from "./workspace-test-helpers.js";
 
 test("the searchable section palette creates, selects, and focuses smart-placed sections", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
 
   const addSection = page.getByRole("button", { name: "Add section" });
@@ -19,6 +20,8 @@ test("the searchable section palette creates, selects, and focuses smart-placed 
   await expect(search).toBeFocused();
   await expect(picker.getByRole("heading", { name: "Basics" })).toBeVisible();
   await expect(picker.getByRole("button", { name: "Sample note" })).toBeVisible();
+  await expect(picker.getByRole("heading", { name: "Structure" })).toBeVisible();
+  await expect(picker.getByRole("button", { name: "Section group" })).toBeVisible();
   await expect(page).toHaveScreenshot("section-creation-palette.png");
 
   await search.fill("missing");
@@ -58,6 +61,7 @@ test("the searchable section palette creates, selects, and focuses smart-placed 
 
 test("pointer and keyboard context creation use a meaningful canvas location", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
 
   const canvas = page.getByRole("application", { name: "Section workspace canvas" });
@@ -190,6 +194,7 @@ test("immediate creation rejection remains visible and announced", async ({ page
 test("the section picker reflows at 320 CSS pixels", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 720 });
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
   await page.getByRole("button", { name: "Add section" }).click();
 

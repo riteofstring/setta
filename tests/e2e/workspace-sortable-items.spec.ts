@@ -1,19 +1,25 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-const DOCUMENT_STORAGE_KEY = "setta-workspace-playground-document-v1";
+import {
+  closeDataPanel,
+  PLAYGROUND_DOCUMENT_STORAGE_KEY as DOCUMENT_STORAGE_KEY,
+  openDataPanel,
+  seedEmptyPlaygroundDocument,
+} from "./workspace-test-helpers.js";
 
 async function resetFieldListExample(page: Page): Promise<Locator> {
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
-  await page.getByRole("button", { name: "Show workspace data" }).click();
-  await page.getByRole("button", { name: "Reset example" }).click();
+  await openDataPanel(page);
+  await page.getByRole("button", { name: "Reset example…" }).click();
   const confirmation = page.getByRole("group", { name: "Confirm reset" });
-  await confirmation.getByRole("button", { name: "Reset workspace" }).click();
+  await confirmation.getByRole("button", { name: "Reset example" }).click();
   return page.getByRole("article", { name: "Profile fields" });
 }
 
 async function hideDataAndFit(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Hide workspace data" }).click();
+  await closeDataPanel(page);
   await page.getByRole("button", { name: "Fit sections" }).click();
   // Keyboard item movement only offers targets the browser can currently
   // see, so the whole field-list section must be inside the viewport before
@@ -33,7 +39,7 @@ async function setWorkspaceZoom(page: Page, zoom: number): Promise<void> {
   };
   await editor.fill(JSON.stringify(document, null, 2));
   await page.getByRole("button", { name: "Import JSON" }).click();
-  await page.getByRole("button", { name: "Hide workspace data" }).click();
+  await closeDataPanel(page);
 }
 
 async function itemTreeOrder(tree: Locator, parentId: string): Promise<readonly string[]> {
@@ -246,7 +252,7 @@ test("keyboard item movement stays atomic, editable, persistent, and accessible"
   await page.keyboard.press("Enter");
   await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "item-tree");
   await page
-    .getByRole("button", { name: "Show workspace data" })
+    .getByRole("button", { exact: true, name: "Data" })
     .evaluate((element: HTMLButtonElement) => element.click());
   const editor = page.getByTestId("workspace-json");
   const emptyDocument = JSON.parse(await editor.inputValue()) as {
@@ -262,7 +268,7 @@ test("keyboard item movement stays atomic, editable, persistent, and accessible"
     .evaluate((element: HTMLButtonElement) => element.click());
   await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
   await expect(page.getByRole("region", { name: "Section workspace" })).toContainText(
-    "No sections yet.",
+    "This workspace is empty.",
   );
   expect(insertionEffectErrors).toEqual([]);
 });
@@ -336,13 +342,13 @@ test("an accepted cross-list move survives JSON import and local reload", async 
       },
     ]);
 
-  await page.getByRole("button", { name: "Show workspace data" }).click();
+  await openDataPanel(page);
   const editor = page.getByTestId("workspace-json");
   const movedDocumentJson = await editor.inputValue();
-  await page.getByRole("button", { name: "Reset example" }).click();
+  await page.getByRole("button", { name: "Reset example…" }).click();
   await page
     .getByRole("group", { name: "Confirm reset" })
-    .getByRole("button", { name: "Reset workspace" })
+    .getByRole("button", { name: "Reset example" })
     .click();
   fieldSection = page.getByRole("article", { name: "Profile fields" });
   tree = fieldSection.getByRole("group", { name: "Profile field lists" });
@@ -546,11 +552,11 @@ test("pointer block feedback stays zoom-correct and excludes outer movement owne
     "none",
   );
 
-  await page.getByRole("button", { name: "Show workspace data" }).click();
-  await page.getByRole("button", { name: "Reset example" }).click();
+  await openDataPanel(page);
+  await page.getByRole("button", { name: "Reset example…" }).click();
   await page
     .getByRole("group", { name: "Confirm reset" })
-    .getByRole("button", { name: "Reset workspace" })
+    .getByRole("button", { name: "Reset example" })
     .click();
   await setWorkspaceZoom(page, 2);
   fieldSection = page.getByRole("article", { name: "Profile fields" });
@@ -611,11 +617,11 @@ test("touch movement and host rejection preserve inputs and canonical item state
   });
   await expect.poll(() => itemTreeOrder(tree, "preferences")).toEqual(["theme", "name"]);
 
-  await page.getByRole("button", { name: "Show workspace data" }).click();
-  await page.getByRole("button", { name: "Reset example" }).click();
+  await openDataPanel(page);
+  await page.getByRole("button", { name: "Reset example…" }).click();
   await page
     .getByRole("group", { name: "Confirm reset" })
-    .getByRole("button", { name: "Reset workspace" })
+    .getByRole("button", { name: "Reset example" })
     .click();
   await hideDataAndFit(page);
   fieldSection = page.getByRole("article", { name: "Profile fields" });

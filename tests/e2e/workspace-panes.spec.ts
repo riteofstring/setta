@@ -1,16 +1,7 @@
 import { AxeBuilder } from "@axe-core/playwright";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
-async function resetExample(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Show workspace data" }).click();
-  await page.getByRole("button", { name: "Reset example" }).click();
-  await page
-    .getByRole("group", { name: "Confirm reset" })
-    .getByRole("button", { name: "Reset workspace" })
-    .click();
-  await expect(page.getByRole("article", { name: "Welcome note" })).toBeVisible();
-  await page.getByRole("button", { name: "Hide workspace data" }).click();
-}
+import { resetPlaygroundExample, seedEmptyPlaygroundDocument } from "./workspace-test-helpers.js";
 
 function paneTrigger(workspace: Locator, name: string): Locator {
   return workspace.getByRole("button", { exact: true, name });
@@ -21,8 +12,9 @@ test("registered panes share one toolbar owner and preserve measured canvas spac
 }) => {
   await page.setViewportSize({ height: 900, width: 1_280 });
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
-  await resetExample(page);
+  await resetPlaygroundExample(page);
   const workspace = page.getByRole("region", { exact: true, name: "Section workspace" });
   const sectionsTrigger = paneTrigger(workspace, "Sections");
   const savedViewsTrigger = paneTrigger(workspace, "Saved views");
@@ -89,8 +81,9 @@ test("registered panes stack at 320 CSS pixels and mirror logical placement in R
 }) => {
   await page.setViewportSize({ height: 720, width: 320 });
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
-  await resetExample(page);
+  await resetPlaygroundExample(page);
   const workspace = page.getByRole("region", { exact: true, name: "Section workspace" });
   await workspace.evaluate((element) => element.setAttribute("dir", "rtl"));
   await paneTrigger(workspace, "Sections").click();

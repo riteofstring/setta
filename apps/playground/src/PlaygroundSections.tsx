@@ -83,6 +83,10 @@ function SampleStatusSection({ data }: SectionRenderProps<PlaygroundSectionData>
   );
 }
 
+function SampleGroupSection() {
+  return null;
+}
+
 function FieldListItem({
   item,
   itemId,
@@ -281,7 +285,7 @@ export function createPlaygroundSectionDefinitions(
     {
       chrome: "default",
       creation: { group: "Basics", icon: "N", keywords: ["example", "note"] },
-      defaultSize: { height: 320, width: 320 },
+      defaultSize: { height: 220, width: 320 },
       defaultTitle: "Sample section",
       detachable: true,
       displayName: "Sample note",
@@ -291,11 +295,28 @@ export function createPlaygroundSectionDefinitions(
     {
       chrome: "compact",
       creation: { group: "Basics", icon: "S", keywords: ["counter", "progress", "status"] },
-      defaultSize: { height: 200, width: 280 },
+      defaultSize: { height: 170, width: 280 },
       defaultTitle: "Workspace status",
       displayName: "Status counter",
       kind: "sample-status",
       render: SampleStatusSection,
+    },
+    {
+      canContainSections: true,
+      creation: { group: "Structure", icon: "G", keywords: ["container", "group", "nest"] },
+      defaultChildOrientation: "vertical",
+      defaultChildOverflow: "grow",
+      defaultSize: { height: 280, width: 380 },
+      defaultSizeMode: { height: "content", width: "fixed" },
+      defaultTitle: "Section group",
+      displayName: "Section group",
+      kind: "sample-group",
+      render: SampleGroupSection,
+      resize: {
+        axes: "both",
+        maxSize: { height: 1_200, width: 720 },
+        minSize: { height: 160, width: 240 },
+      },
     },
     {
       chrome: "default",

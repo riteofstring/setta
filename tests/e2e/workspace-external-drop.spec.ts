@@ -1,6 +1,8 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test, type JSHandle, type Locator, type Page } from "@playwright/test";
 
+import { seedEmptyPlaygroundDocument } from "./workspace-test-helpers.js";
+
 const EXTERNAL_SAMPLE_MIME = "application/x-setta-workspace-sample";
 
 type ClientPoint = Readonly<{ x: number; y: number }>;
@@ -55,6 +57,7 @@ test("generic external drops expose feedback and hand accepted data to the host"
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
 
   const canvas = page.getByRole("application", { name: "Section workspace canvas" });
@@ -151,6 +154,7 @@ test("generic external drops expose feedback and hand accepted data to the host"
 test("read-only external-drop feedback reflows without invoking the host", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 720 });
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/?read-only");
 
   const canvas = page.getByRole("application", { name: "Section workspace canvas" });

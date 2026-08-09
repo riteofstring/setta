@@ -1,7 +1,7 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-import { addSampleSection } from "./workspace-test-helpers.js";
+import { addSampleSection, seedEmptyPlaygroundDocument } from "./workspace-test-helpers.js";
 
 async function openDetachedWindow(control: Locator, ownerPage: Page): Promise<Page> {
   const popupPromise = ownerPage.waitForEvent("popup");
@@ -18,6 +18,7 @@ test("detached sections preserve live state, theme, accessibility, and redock fo
   page,
 }) => {
   await page.setViewportSize({ height: 900, width: 1280 });
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
   await addSampleSection(page);
 
@@ -70,7 +71,7 @@ test("detached sections preserve live state, theme, accessibility, and redock fo
     popup.getByRole("heading", { name: "Detached planning note", level: 1 }),
   ).toBeVisible();
 
-  await page.getByLabel("Appearance").selectOption("dark");
+  await page.getByRole("combobox", { name: "Theme" }).selectOption("dark");
   await expect(popup.locator("[data-setta-workspace-detached-section]")).toHaveAttribute(
     "data-workspace-resolved-appearance",
     "dark",
@@ -109,6 +110,7 @@ test("detached sections preserve live state, theme, accessibility, and redock fo
 });
 
 test("detach and redock preserve renderer-local state and DOM identity", async ({ page }) => {
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/?detachment-renderer-proof");
   await addSampleSection(page);
 
@@ -149,6 +151,7 @@ test("detach and redock preserve renderer-local state and DOM identity", async (
 });
 
 test("minimizing and deleting a detached section close its window safely", async ({ page }) => {
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
   await addSampleSection(page);
 
@@ -185,6 +188,7 @@ test("popup blocking leaves the renderer docked with actionable feedback", async
       value: () => null,
     });
   });
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
   await addSampleSection(page);
 
@@ -207,6 +211,7 @@ test("popup blocking leaves the renderer docked with actionable feedback", async
 });
 
 test("host policy can reject detachment before a popup opens", async ({ page }) => {
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
   await addSampleSection(page);
 
@@ -233,6 +238,7 @@ test("host policy can reject detachment before a popup opens", async ({ page }) 
 test("window closure, reload, and opener loss redock instead of stranding the renderer", async ({
   page,
 }) => {
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
   await addSampleSection(page);
 

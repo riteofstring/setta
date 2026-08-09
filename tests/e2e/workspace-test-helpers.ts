@@ -2,6 +2,15 @@ import { expect, type Locator, type Page } from "@playwright/test";
 
 type BrowserViewport = Readonly<{ x: number; y: number; zoom: number }>;
 
+export const PLAYGROUND_DOCUMENT_STORAGE_KEY = "setta-workspace-playground-document-v2";
+
+const EMPTY_PLAYGROUND_DOCUMENT_JSON = JSON.stringify({
+  rootSections: [],
+  schemaVersion: 2,
+  sections: {},
+  viewport: { x: 0, y: 0, zoom: 1 },
+});
+
 export async function canvasViewport(page: Page): Promise<BrowserViewport> {
   const value = await page.getByTestId("canvas-shell-document").inputValue();
   return (JSON.parse(value) as { viewport: BrowserViewport }).viewport;
@@ -11,6 +20,48 @@ export async function addSampleSection(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Add section" }).click();
   const picker = page.getByRole("dialog", { name: "Add a section" });
   await picker.getByRole("button", { name: "Sample note" }).click();
+}
+
+/**
+ * Persists an empty document under the playground storage key before the page
+ * first loads, so the default page starts from a deterministic user-emptied
+ * state instead of the first-run example and its one-time viewport fit. Later
+ * navigations keep whatever the page persisted.
+ */
+export async function seedEmptyPlaygroundDocument(page: Page): Promise<void> {
+  await page.addInitScript(
+    ({ key, value }) => {
+      if (window.localStorage.getItem(key) === null) {
+        window.localStorage.setItem(key, value);
+      }
+    },
+    { key: PLAYGROUND_DOCUMENT_STORAGE_KEY, value: EMPTY_PLAYGROUND_DOCUMENT_JSON },
+  );
+}
+
+export async function openDataPanel(page: Page): Promise<Locator> {
+  await page.getByRole("button", { exact: true, name: "Data" }).click();
+  const panel = page.getByRole("dialog", { name: "Data and diagnostics" });
+  await expect(panel).toBeVisible();
+  return panel;
+}
+
+export async function closeDataPanel(page: Page): Promise<void> {
+  await page
+    .getByRole("dialog", { name: "Data and diagnostics" })
+    .getByRole("button", { name: "Close" })
+    .click();
+}
+
+export async function resetPlaygroundExample(page: Page): Promise<void> {
+  await openDataPanel(page);
+  await page.getByRole("button", { name: "Reset example…" }).click();
+  await page
+    .getByRole("group", { name: "Confirm reset" })
+    .getByRole("button", { name: "Reset example" })
+    .click();
+  await expect(page.getByRole("article", { name: "Welcome note" })).toBeVisible();
+  await closeDataPanel(page);
 }
 
 export async function loadRecursiveFixture(page: Page): Promise<Locator> {

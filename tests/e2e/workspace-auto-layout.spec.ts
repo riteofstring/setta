@@ -1,6 +1,12 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+import {
+  PLAYGROUND_DOCUMENT_STORAGE_KEY,
+  resetPlaygroundExample,
+  seedEmptyPlaygroundDocument,
+} from "./workspace-test-helpers.js";
+
 type SerializedWorkspace = Readonly<{
   rootSections: readonly Readonly<{
     position: Readonly<{ x: number; y: number }>;
@@ -10,18 +16,20 @@ type SerializedWorkspace = Readonly<{
   viewport: Readonly<{ x: number; y: number; zoom: number }>;
 }>;
 
-async function resetExample(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Show workspace data" }).click();
-  await page.getByRole("button", { name: "Reset example" }).click();
-  await page
-    .getByRole("group", { name: "Confirm reset" })
-    .getByRole("button", { name: "Reset workspace" })
-    .click();
-  await expect(page.getByRole("article", { name: "Welcome note" })).toBeVisible();
-}
+const EXAMPLE_ROOT_SECTION_IDS = [
+  "example-note",
+  "example-status",
+  "example-onboarding",
+  "example-fields",
+  "example-ideas",
+] as const;
 
 async function workspaceDocument(page: Page): Promise<SerializedWorkspace> {
-  return JSON.parse(await page.getByTestId("workspace-json").inputValue()) as SerializedWorkspace;
+  return page.evaluate((key) => {
+    const serialized = localStorage.getItem(key);
+    if (serialized === null) throw new Error("The persisted workspace document is unavailable.");
+    return JSON.parse(serialized) as SerializedWorkspace;
+  }, PLAYGROUND_DOCUMENT_STORAGE_KEY);
 }
 
 function minimumRootPosition(document: SerializedWorkspace): Readonly<{ x: number; y: number }> {
@@ -32,7 +40,10 @@ function minimumRootPosition(document: SerializedWorkspace): Readonly<{ x: numbe
 }
 
 async function renderedRootRectangles(workspace: Locator) {
-  return workspace.locator("[data-workspace-section-id]").evaluateAll((elements) =>
+  const rootSelector = EXAMPLE_ROOT_SECTION_IDS.map(
+    (sectionId) => `[data-workspace-section-id="${sectionId}"]`,
+  ).join(", ");
+  return workspace.locator(rootSelector).evaluateAll((elements) =>
     elements.map((element) => {
       const rect = element.getBoundingClientRect();
       return {
@@ -61,8 +72,9 @@ function rectanglesOverlap(
 test("the host command packs measured roots atomically and remains undoable", async ({ page }) => {
   await page.setViewportSize({ height: 900, width: 1280 });
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
-  await resetExample(page);
+  await resetPlaygroundExample(page);
 
   const workspace = page.getByRole("region", { exact: true, name: "Section workspace" });
   const arrange = workspace.getByRole("button", { name: "Arrange sections" });
@@ -89,17 +101,20 @@ test("the host command packs measured roots atomically and remains undoable", as
   expect(minimumRootPosition(arranged)).toEqual(minimumRootPosition(before));
   expect(arranged.sections).toEqual(before.sections);
   expect(arranged.viewport).toEqual(before.viewport);
+
+  // The packed grid can push sections outside the culling overscan, so bring
+  // every frame back into view before asserting rendered selection state.
+  await workspace.getByRole("button", { name: "Fit sections" }).click();
   await expect(selected).toHaveAttribute("data-workspace-selected", "true");
 
   const rectangles = await renderedRootRectangles(workspace);
-  expect(rectangles).toHaveLength(3);
+  expect(rectangles).toHaveLength(5);
   expect(
     rectangles.some((rectangle, index) =>
       rectangles.slice(index + 1).some((candidate) => rectanglesOverlap(rectangle, candidate)),
     ),
   ).toBe(false);
 
-  await workspace.getByRole("button", { name: "Fit sections" }).click();
   const pane = page.locator(".react-flow__pane");
   const paneBounds = await pane.boundingBox();
   if (!paneBounds) throw new Error("The workspace pane is not measurable.");
@@ -133,8 +148,9 @@ test("the host command packs measured roots atomically and remains undoable", as
 test("the host control is disabled in read-only mode and reflows at 320 CSS pixels", async ({
   page,
 }) => {
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
-  await resetExample(page);
+  await resetPlaygroundExample(page);
   await page.setViewportSize({ height: 720, width: 320 });
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
   await page.goto("/?read-only");

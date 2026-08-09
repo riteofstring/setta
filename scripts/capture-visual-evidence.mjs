@@ -69,10 +69,17 @@ async function settle(page) {
 
 async function restorePlaygroundExample(page) {
   await page.goto("/");
-  await page.getByRole("button", { name: "Show workspace data" }).click();
-  await page.getByRole("button", { name: "Reset example" }).click();
-  await page.getByRole("button", { name: "Reset workspace" }).click();
-  await page.getByRole("button", { name: "Hide workspace data" }).click();
+  await page.getByText("Example workspace loaded.").waitFor();
+  await page.getByRole("button", { exact: true, name: "Data" }).click();
+  await page.getByRole("button", { name: "Reset example…" }).click();
+  await page
+    .getByRole("group", { name: "Confirm reset" })
+    .getByRole("button", { name: "Reset example" })
+    .click();
+  await page
+    .getByRole("dialog", { name: "Data and diagnostics" })
+    .getByRole("button", { name: "Close" })
+    .click();
   await page
     .getByRole("region", { exact: true, name: "Section workspace" })
     .getByRole("article", { name: "Welcome note" })
@@ -91,6 +98,7 @@ const scenarios = [
     async capture(page) {
       await page.goto("/");
       await page.getByRole("region", { exact: true, name: "Section workspace" }).waitFor();
+      await page.getByText("Example workspace loaded.").waitFor();
     },
     description: "Fresh first launch of the default playground, above the fold.",
     name: "default-first-launch",
@@ -100,6 +108,7 @@ const scenarios = [
     async capture(page) {
       await page.goto("/");
       await page.getByRole("region", { exact: true, name: "Section workspace" }).waitFor();
+      await page.getByText("Example workspace loaded.").waitFor();
     },
     description: "Fresh first launch of the default playground, complete page.",
     fullPage: true,

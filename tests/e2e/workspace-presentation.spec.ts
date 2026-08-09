@@ -1,10 +1,11 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-import { addSampleSection } from "./workspace-test-helpers.js";
+import { addSampleSection, seedEmptyPlaygroundDocument } from "./workspace-test-helpers.js";
 
 test("section title and presentation editing stay accessible and canonical", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
   await addSampleSection(page);
 

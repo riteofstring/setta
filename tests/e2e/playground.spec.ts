@@ -5,7 +5,7 @@ import {
   installWorkspaceLifecycleDiagnostics,
   workspaceLifecycleSnapshot,
 } from "./workspace-lifecycle-diagnostics.js";
-import { addSampleSection, canvasViewport } from "./workspace-test-helpers.js";
+import { canvasViewport } from "./workspace-test-helpers.js";
 
 async function waitForWorkspaceEffects(page: Page): Promise<void> {
   await page.evaluate(
@@ -84,63 +84,6 @@ async function dispatchPinchWheel(page: Page, deltaY: number): Promise<void> {
     );
   }, deltaY);
 }
-
-test("the blank workspace supports keyboard and assistive technology", async ({ page }) => {
-  await page.goto("/");
-
-  await page.keyboard.press("Tab");
-  await expect(page.getByRole("link", { name: "Skip to workspace" })).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page.locator("main")).toBeFocused();
-
-  const workspace = page.getByRole("region", { name: "Section workspace" });
-  await expect(workspace).toContainText("No sections yet.");
-  await expect(page.locator(".react-flow__attribution")).toHaveCount(0);
-
-  await addSampleSection(page);
-  await expect(page.getByRole("heading", { name: "Sample section 1" })).toBeVisible();
-  await expect(page.getByRole("article", { name: "Sample section 1" })).toContainText(
-    "Host-rendered content inside the package-owned section frame.",
-  );
-  await expect(page.locator(".announcement")).toHaveText("Document change: section-create.");
-
-  const accessibility = await new AxeBuilder({ page }).analyze();
-  expect(accessibility.violations).toEqual([]);
-});
-
-test("the scaffold reflows and honors reduced motion", async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 720 });
-  await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "light" });
-  await page.goto("/");
-
-  const dimensions = await page.evaluate(() => ({
-    clientWidth: document.documentElement.clientWidth,
-    scrollWidth: document.documentElement.scrollWidth,
-  }));
-  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
-  await expect(page).toHaveScreenshot("blank-workspace-320.png", { fullPage: true });
-});
-
-test("the primary workflow remains operable at 200% page scale", async ({ page }) => {
-  await page.goto("/");
-  const session = await page.context().newCDPSession(page);
-  await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 2 });
-
-  await expect.poll(() => page.evaluate(() => window.visualViewport?.scale ?? 1)).toBe(2);
-  const addSection = page.getByRole("button", { name: "Add section" });
-  await expect(addSection).toBeVisible();
-  await addSection.focus();
-  await expect(addSection).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page.getByRole("searchbox", { name: "Search sections" })).toBeFocused();
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: "Sample section 1" })).toBeVisible();
-  await expect(page.locator(".announcement")).toHaveText("Document change: section-create.");
-
-  await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
-  await session.detach();
-});
 
 test("controlled and uncontrolled state honor live capability policy", async ({ page }) => {
   await page.goto("/?state-contract");

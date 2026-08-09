@@ -1,6 +1,12 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
+import {
+  PLAYGROUND_DOCUMENT_STORAGE_KEY,
+  resetPlaygroundExample,
+  seedEmptyPlaygroundDocument,
+} from "./workspace-test-helpers.js";
+
 const PLAYGROUND_ORIGIN = "http://127.0.0.1:4173";
 const NATIVE_COPY_SHORTCUT = process.platform === "darwin" ? "Meta+c" : "Control+c";
 
@@ -10,31 +16,27 @@ async function grantClipboard(context: BrowserContext): Promise<void> {
   });
 }
 
-async function resetExample(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Show workspace data" }).click();
-  await page.getByRole("button", { name: "Reset example" }).click();
-  await page
-    .getByRole("group", { name: "Confirm reset" })
-    .getByRole("button", { name: "Reset workspace" })
-    .click();
-  await expect(page.getByRole("article", { name: "Welcome note" })).toBeVisible();
-}
-
 async function focusBlankCanvasPoint(page: Page): Promise<void> {
   const pane = page.locator(".react-flow__pane");
   const bounds = await pane.boundingBox();
   if (!bounds) throw new Error("The workspace canvas pane is not measurable.");
-  await page.mouse.move(bounds.x + bounds.width * 0.04, bounds.y + bounds.height * 0.53);
+  // A pasted block anchored here stays inside the viewport culling overscan
+  // even after smart placement moves it off the example sections.
+  await page.mouse.move(bounds.x + bounds.width * 0.36, bounds.y + bounds.height * 0.75);
   const canvas = page.getByRole("application", { name: "Section workspace canvas" });
   await canvas.focus();
   await expect(canvas).toBeFocused();
 }
 
 async function workspaceDocument(page: Page) {
-  return JSON.parse(await page.getByTestId("workspace-json").inputValue()) as {
-    rootSections: Array<{ position: { x: number; y: number }; sectionId: string }>;
-    sections: Record<string, { data: unknown; kind: string; title: string }>;
-  };
+  return page.evaluate((key) => {
+    const serialized = localStorage.getItem(key);
+    if (serialized === null) throw new Error("The persisted workspace document is unavailable.");
+    return JSON.parse(serialized) as {
+      rootSections: Array<{ position: { x: number; y: number }; sectionId: string }>;
+      sections: Record<string, { data: unknown; kind: string; title: string }>;
+    };
+  }, PLAYGROUND_DOCUMENT_STORAGE_KEY);
 }
 
 test("copy and paste clone a selected root block as one persistent history change", async ({
@@ -44,8 +46,9 @@ test("copy and paste clone a selected root block as one persistent history chang
   await grantClipboard(context);
   await page.setViewportSize({ height: 900, width: 1280 });
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
-  await resetExample(page);
+  await resetPlaygroundExample(page);
 
   const workspace = page.getByRole("region", { name: "Section workspace", exact: true });
   const selectNote = workspace.getByRole("button", { name: "Select Welcome note" });
@@ -75,8 +78,8 @@ test("copy and paste clone a selected root block as one persistent history chang
   const document = await workspaceDocument(page);
   const pastedRoots = document.rootSections.filter((root) => root.sectionId.includes("-copy-"));
   expect(pastedRoots).toHaveLength(2);
-  expect((pastedRoots[1]?.position.x ?? 0) - (pastedRoots[0]?.position.x ?? 0)).toBe(384);
-  expect((pastedRoots[1]?.position.y ?? 0) - (pastedRoots[0]?.position.y ?? 0)).toBe(60);
+  expect((pastedRoots[1]?.position.x ?? 0) - (pastedRoots[0]?.position.x ?? 0)).toBe(0);
+  expect((pastedRoots[1]?.position.y ?? 0) - (pastedRoots[0]?.position.y ?? 0)).toBe(248);
   await page.mouse.move(1_279, 1);
   await expect(workspace).toHaveScreenshot("workspace-pasted-root-block.png");
 
@@ -105,8 +108,9 @@ test("untrusted clipboard versions and host-invalid payloads never mount a rende
   page,
 }) => {
   await grantClipboard(context);
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
-  await resetExample(page);
+  await resetPlaygroundExample(page);
   const workspace = page.getByRole("region", { name: "Section workspace", exact: true });
   await workspace.getByRole("button", { name: "Select Welcome note" }).click();
   await page.keyboard.press(NATIVE_COPY_SHORTCUT);
@@ -158,8 +162,9 @@ test("workspace shortcuts do not replace native copy inside host inputs", async 
   page,
 }) => {
   await grantClipboard(context);
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
-  await resetExample(page);
+  await resetPlaygroundExample(page);
   const workspace = page.getByRole("region", { name: "Section workspace", exact: true });
   const input = workspace.getByRole("textbox", { name: "Name" });
   await input.focus();

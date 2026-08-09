@@ -1,32 +1,26 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+import {
+  PLAYGROUND_DOCUMENT_STORAGE_KEY,
+  resetPlaygroundExample,
+  seedEmptyPlaygroundDocument,
+} from "./workspace-test-helpers.js";
+
 type BrowserWorkspaceDocument = Readonly<{
   rootSections: readonly unknown[];
   sections: Readonly<Record<string, unknown>>;
   viewport: Readonly<{ x: number; y: number; zoom: number }>;
 }>;
 
-const DOCUMENT_STORAGE_KEY = "setta-workspace-playground-document-v1";
 const PREFERENCES_STORAGE_KEY = "setta-workspace-playground-preferences-v1";
-
-async function resetExample(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Show workspace data" }).click();
-  await page.getByRole("button", { name: "Reset example" }).click();
-  await page
-    .getByRole("group", { name: "Confirm reset" })
-    .getByRole("button", { name: "Reset workspace" })
-    .click();
-  await expect(page.getByRole("article", { name: "Welcome note" })).toBeVisible();
-  await page.getByRole("button", { name: "Hide workspace data" }).click();
-}
 
 async function workspaceDocument(page: Page): Promise<BrowserWorkspaceDocument> {
   return page.evaluate((key) => {
     const serialized = localStorage.getItem(key);
     if (serialized === null) throw new Error("The persisted workspace document is unavailable.");
     return JSON.parse(serialized) as BrowserWorkspaceDocument;
-  }, DOCUMENT_STORAGE_KEY);
+  }, PLAYGROUND_DOCUMENT_STORAGE_KEY);
 }
 
 async function showSavedViews(
@@ -60,9 +54,10 @@ test("saved views capture, restore, rename, delete, and persist exact viewports"
 }) => {
   await page.setViewportSize({ height: 900, width: 1_280 });
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/");
-  await resetExample(page);
-  await expect.poll(async () => (await workspaceDocument(page)).rootSections.length).toBe(3);
+  await resetPlaygroundExample(page);
+  await expect.poll(async () => (await workspaceDocument(page)).rootSections.length).toBe(5);
 
   const { panel, workspace } = await showSavedViews(page);
   const createForm = panel.getByRole("form", { name: "Save current view" });
@@ -169,6 +164,7 @@ test("saved views remain available in read-only mode and reflow at 320 CSS pixel
 }) => {
   await page.setViewportSize({ height: 720, width: 320 });
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/?read-only");
 
   const { panel, workspace } = await showSavedViews(page);
@@ -206,8 +202,9 @@ test("saved views remain available in read-only mode and reflow at 320 CSS pixel
 });
 
 test("saved views report a controlled host that retains its viewport", async ({ page }) => {
+  await seedEmptyPlaygroundDocument(page);
   await page.goto("/?reject-viewport");
-  await resetExample(page);
+  await resetPlaygroundExample(page);
   let current = await workspaceDocument(page);
   let savedViews = await showSavedViews(page);
   await saveView(savedViews.panel, "Host-retained view");
