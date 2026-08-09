@@ -1,5 +1,5 @@
 import { EditorState, Prec, type Extension } from "@codemirror/state";
-import { EditorView, keymap } from "@codemirror/view";
+import { EditorView } from "@codemirror/view";
 import { getTextValueLanguageExtensions, type TextValueLanguage } from "./textValueLanguages";
 
 // The reference's `getExtensions` trimmed to the paths its text value editor reaches: line
@@ -44,15 +44,16 @@ export function getTextValueExtensions({
   }
   extensions.push(
     Prec.highest(
-      keymap.of([
-        {
-          key: "Escape",
-          run: () => {
+      EditorView.domEventHandlers({
+        keydown: (event) => {
+          if (event.key === "Escape" || event.code === "Escape") {
+            event.stopPropagation();
             onEscape();
-            return false;
-          },
+            return true;
+          }
+          return false;
         },
-      ]),
+      }),
     ),
   );
   return extensions;

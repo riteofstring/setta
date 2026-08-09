@@ -1,3 +1,8 @@
+import type { MouseEvent } from "react";
+import {
+  captureSectionRemovalFocusTarget,
+  restoreFocusAfterSectionRemoval,
+} from "../../controls/sectionFocus";
 import { useWorkspaceCapabilities } from "../../document/capabilities";
 import { deleteSection } from "../../document/sectionMutations";
 import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip";
@@ -47,11 +52,16 @@ export function DeleteOrHideButton({
   const canEditStructure = useWorkspaceCapabilities((x) => x.canEditStructure);
   const label = "Delete section";
 
-  function onClick() {
+  function onClick(event: MouseEvent<HTMLButtonElement>) {
     if (!canEditStructure) {
       return;
     }
+    const shouldRestoreFocus = document.activeElement === event.currentTarget;
+    const focusTarget = shouldRestoreFocus ? captureSectionRemovalFocusTarget(sectionId) : null;
     deleteSection(sectionId);
+    if (shouldRestoreFocus) {
+      restoreFocusAfterSectionRemoval(focusTarget);
+    }
   }
 
   return (
@@ -68,7 +78,7 @@ export function DeleteOrHideButton({
       type="button"
       {...getWorkspaceTooltipHandlers({ content: label })}
     >
-      <i className="gg-close" />
+      <i aria-hidden="true" className="gg-close" />
     </button>
   );
 }

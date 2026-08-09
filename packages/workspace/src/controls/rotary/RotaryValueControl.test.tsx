@@ -219,6 +219,8 @@ describe("RotaryValueControl", () => {
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
     useSectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    const documentEscape = vi.fn();
+    document.addEventListener("keydown", documentEscape);
     await mount();
     await act(async () => {
       getKnob().dispatchEvent(
@@ -226,6 +228,8 @@ describe("RotaryValueControl", () => {
       );
     });
     expect(document.activeElement).toBe(sectionRoot);
+    expect(documentEscape).not.toHaveBeenCalled();
+    document.removeEventListener("keydown", documentEscape);
     sectionRoot.remove();
   });
 

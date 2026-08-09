@@ -58,12 +58,31 @@ describe("WorkspaceControls", () => {
       "move minimap to right",
     ]);
     expect(host.querySelector('[data-testid="rf__controls"]')).not.toBe(null);
+    expect(host.querySelector('[data-testid="rf__controls"]')?.getAttribute("role")).toBe("group");
+    expect(host.querySelector('[data-testid="rf__controls"]')?.getAttribute("aria-label")).toBe(
+      "Workspace view controls",
+    );
+    expect(
+      Array.from(host.querySelectorAll("button svg")).every(
+        (icon) =>
+          icon.getAttribute("aria-hidden") === "true" && icon.getAttribute("focusable") === "false",
+      ),
+    ).toBe(true);
     expect(getButton("reset zoom").className).toContain("react-flow__controls-button");
     // The reference renders dividers only after the edge/plugin groups, which left with their
     // features — never between the viewport and minimap groups.
     expect(
       host.querySelector('[data-testid="rf__controls"]')?.querySelectorAll("div"),
     ).toHaveLength(0);
+  });
+
+  it("announces the current zoom as toolbar status", async () => {
+    const status = host.querySelector('[role="status"]');
+    expect(status?.textContent).toContain("Zoom 100%");
+    await act(async () => {
+      useReactFlow.setState({ transform: [0, 0, 1.25] });
+    });
+    expect(status?.textContent).toContain("Zoom 125%");
   });
 
   it("disables the zoom buttons at the zoom limits", async () => {

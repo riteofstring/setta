@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
 import { focusSectionAfterEscape } from "../sectionFocus";
@@ -9,6 +9,7 @@ import {
   shiftCalendarMonth,
   type CalendarMonthCell,
 } from "./calendarGrid";
+import { resolveCalendarKeyboardDate, shiftCalendarDateByMonths } from "./calendarKeyboard";
 import type {
   DateCalendarWeekStart,
   DateControlMode,
@@ -64,6 +65,10 @@ const TIME_DISPLAY_SCALE_MAX = 3;
 const WEEKDAY_LABELS: Record<DateCalendarWeekStart, ReadonlyArray<string>> = {
   monday: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
   sunday: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+};
+const WEEKDAY_ACCESSIBLE_LABELS: Record<DateCalendarWeekStart, ReadonlyArray<string>> = {
+  monday: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+  sunday: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
 };
 const CALENDAR_DATE_LABEL_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "long",
@@ -218,7 +223,8 @@ function wrapDateTimePresentation(
 }
 
 function handleEscape(event: KeyboardEvent<HTMLElement>, onEscape: () => void): void {
-  if (event.code === "Escape") {
+  if (event.key === "Escape" || event.code === "Escape") {
+    event.stopPropagation();
     onEscape();
   }
 }
@@ -544,13 +550,13 @@ function DisplayTimeValue({
   return (
     <>
       <div className={classes.wrapper}>
-        <span
+        <output
           aria-label={`${ariaLabel}: ${formatted}`}
           className={`${classes.input} ${getTimeDisplayFontClassName(font)} flex min-w-0 flex-1 items-center`}
           style={{ fontSize: `${scale}em`, lineHeight: "1.1" }}
         >
           {formatted}
-        </span>
+        </output>
       </div>
       {transparent ? null : <span className={classes.border} />}
     </>
@@ -691,6 +697,11 @@ function CalendarDateButton({
   isSelected,
   isToday,
   isDisabled,
+  isFocused,
+  buttonRef,
+  onFocus,
+  onNavigate,
+  weekStart,
   onEscape,
   onSelect,
 }: {
@@ -698,6 +709,11 @@ function CalendarDateButton({
   isSelected: boolean;
   isToday: boolean;
   isDisabled: boolean;
+  isFocused: boolean;
+  buttonRef: (element: HTMLButtonElement | null) => void;
+  onFocus: () => void;
+  onNavigate: (nextDate: string) => void;
+  weekStart: DateCalendarWeekStart;
   onEscape: () => void;
   onSelect: () => void;
 }) {
@@ -711,12 +727,33 @@ function CalendarDateButton({
   return (
     <button
       type="button"
+      role="gridcell"
       aria-label={accessibleDate}
-      aria-pressed={isSelected}
+      aria-selected={isSelected}
       aria-current={isToday ? "date" : undefined}
+      tabIndex={isFocused ? 0 : -1}
+      ref={buttonRef}
       className={resolveCalendarCellClassName(cell, isSelected, isToday)}
       onClick={onSelect}
-      onKeyDown={(event) => handleEscape(event, onEscape)}
+      onFocus={onFocus}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" || event.code === "Escape") {
+          handleEscape(event, onEscape);
+          return;
+        }
+        const nextDate = resolveCalendarKeyboardDate({
+          isoDate: cell.isoDate,
+          key: event.key,
+          shiftKey: event.shiftKey,
+          weekStartsOn: weekStart,
+        });
+        if (nextDate === null) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        onNavigate(nextDate);
+      }}
       disabled={isDisabled}
     >
       {cell.dayOfMonth}
@@ -756,10 +793,17 @@ function CalendarDateControl({
     [includeTime, selectionMode, value],
   );
   const primarySelectedDate = selectedDates[0] ?? "";
+  const todayIso = useMemo(() => getLocalTodayIsoDate(), []);
   const [anchor, setAnchor] = useState(() => resolveCalendarAnchorDate(primarySelectedDate));
+  const [focusedIsoDate, setFocusedIsoDate] = useState(
+    () => primarySelectedDate || getLocalTodayIsoDate(),
+  );
+  const dateButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const shouldRestoreCalendarFocus = useRef(false);
   useEffect(() => {
     setAnchor(resolveCalendarAnchorDate(primarySelectedDate));
-  }, [primarySelectedDate]);
+    setFocusedIsoDate(primarySelectedDate || todayIso);
+  }, [primarySelectedDate, todayIso]);
   const monthCells = useMemo(
     () =>
       buildCalendarMonthGrid({
@@ -769,8 +813,18 @@ function CalendarDateControl({
       }),
     [anchor.monthIndex, anchor.year, weekStart],
   );
+  useEffect(() => {
+    if (!shouldRestoreCalendarFocus.current) {
+      return;
+    }
+    const nextButton = dateButtonRefs.current[focusedIsoDate];
+    if (!nextButton) {
+      return;
+    }
+    shouldRestoreCalendarFocus.current = false;
+    nextButton.focus({ preventScroll: true });
+  }, [anchor.monthIndex, anchor.year, focusedIsoDate]);
   const selectedDateSet = useMemo(() => new Set(selectedDates), [selectedDates]);
-  const todayIso = useMemo(() => getLocalTodayIsoDate(), []);
   const monthTitle = formatMonthTitle(anchor.year, anchor.monthIndex);
   const summaryText = resolveCalendarSummaryText({
     selectedDates,
@@ -780,6 +834,29 @@ function CalendarDateControl({
     dateDisplayFormat,
     timeDisplayFormat,
   });
+  const navigateCalendarFocus = (nextDate: string) => {
+    const parsed = parseIsoDate(nextDate);
+    if (!parsed) {
+      throw new Error(`DateValueControl cannot focus invalid calendar date: ${nextDate}.`);
+    }
+    shouldRestoreCalendarFocus.current = true;
+    setFocusedIsoDate(nextDate);
+    setAnchor({ year: parsed.year, monthIndex: parsed.monthIndex });
+  };
+  const moveDisplayedMonth = (deltaMonths: number) => {
+    const nextAnchor = shiftCalendarMonth(anchor, deltaMonths);
+    const parsedFocusedDate = parseIsoDate(focusedIsoDate);
+    if (!parsedFocusedDate) {
+      throw new Error(`DateValueControl cannot move invalid calendar date: ${focusedIsoDate}.`);
+    }
+    const focusedMonthDelta =
+      nextAnchor.year * 12 +
+      nextAnchor.monthIndex -
+      (parsedFocusedDate.year * 12 + parsedFocusedDate.monthIndex);
+    const focusedDateInNextMonth = shiftCalendarDateByMonths(focusedIsoDate, focusedMonthDelta);
+    setFocusedIsoDate(focusedDateInNextMonth);
+    setAnchor(nextAnchor);
+  };
 
   return (
     <>
@@ -794,7 +871,7 @@ function CalendarDateControl({
             type="button"
             aria-label={`${ariaLabel}: Previous month`}
             className="rounded px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-200/40 dark:text-setta-300 dark:hover:bg-setta-700/60"
-            onClick={() => setAnchor(shiftCalendarMonth(anchor, -1))}
+            onClick={() => moveDisplayedMonth(-1)}
             onKeyDown={(event) => handleEscape(event, onEscape)}
             disabled={isDisabled}
           >
@@ -810,46 +887,68 @@ function CalendarDateControl({
             type="button"
             aria-label={`${ariaLabel}: Next month`}
             className="rounded px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-200/40 dark:text-setta-300 dark:hover:bg-setta-700/60"
-            onClick={() => setAnchor(shiftCalendarMonth(anchor, 1))}
+            onClick={() => moveDisplayedMonth(1)}
             onKeyDown={(event) => handleEscape(event, onEscape)}
             disabled={isDisabled}
           >
             Next
           </button>
         </div>
-        <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-          {WEEKDAY_LABELS[weekStart].map((weekdayLabel) => (
-            <span key={weekdayLabel}>{weekdayLabel}</span>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 gap-1">
-          {monthCells.map((cell) => {
-            const isSelected = selectedDateSet.has(cell.isoDate);
-            return (
-              <CalendarDateButton
-                key={cell.isoDate}
-                cell={cell}
-                isSelected={isSelected}
-                isToday={cell.isoDate === todayIso}
-                isDisabled={isDisabled}
-                onEscape={onEscape}
-                onSelect={() => {
-                  if (!isDisabled) {
-                    onChange(
-                      resolveCalendarDateSelectionValue({
-                        cellIsoDate: cell.isoDate,
-                        isSelected,
-                        selectedDates,
-                        selectionMode,
-                        includeTime,
-                        selectedTimeValue,
-                      }),
-                    );
-                  }
-                }}
-              />
-            );
-          })}
+        <div role="grid" aria-label={`${ariaLabel}, ${monthTitle}`} className="flex flex-col gap-2">
+          <div
+            role="row"
+            className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400"
+          >
+            {WEEKDAY_LABELS[weekStart].map((weekdayLabel, index) => (
+              <span
+                key={weekdayLabel}
+                role="columnheader"
+                aria-label={WEEKDAY_ACCESSIBLE_LABELS[weekStart][index]}
+              >
+                {weekdayLabel}
+              </span>
+            ))}
+          </div>
+          <div role="rowgroup" className="grid grid-cols-7 gap-1">
+            {Array.from({ length: 6 }, (_, rowIndex) => (
+              <div key={rowIndex} role="row" className="contents">
+                {monthCells.slice(rowIndex * 7, rowIndex * 7 + 7).map((cell) => {
+                  const isSelected = selectedDateSet.has(cell.isoDate);
+                  return (
+                    <CalendarDateButton
+                      key={cell.isoDate}
+                      cell={cell}
+                      isSelected={isSelected}
+                      isToday={cell.isoDate === todayIso}
+                      isDisabled={isDisabled}
+                      isFocused={cell.isoDate === focusedIsoDate}
+                      buttonRef={(element) => {
+                        dateButtonRefs.current[cell.isoDate] = element;
+                      }}
+                      onFocus={() => setFocusedIsoDate(cell.isoDate)}
+                      onNavigate={navigateCalendarFocus}
+                      weekStart={weekStart}
+                      onEscape={onEscape}
+                      onSelect={() => {
+                        if (!isDisabled) {
+                          onChange(
+                            resolveCalendarDateSelectionValue({
+                              cellIsoDate: cell.isoDate,
+                              isSelected,
+                              selectedDates,
+                              selectionMode,
+                              includeTime,
+                              selectedTimeValue,
+                            }),
+                          );
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
         {includeTime && selectionMode === "single" ? (
           <div className="flex items-center gap-2">

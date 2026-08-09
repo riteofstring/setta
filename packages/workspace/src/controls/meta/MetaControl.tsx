@@ -1,5 +1,6 @@
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
+import { handleSectionControlEscape } from "../sectionFocus";
 import { MetaTextValueEditor } from "../text/TextValueEditor";
 import type {
   ButtonMetaControl,
@@ -63,6 +64,7 @@ function renderMetaControl({
   if (control.kind === "button") {
     return (
       <ButtonControl
+        sectionId={sectionId}
         sectionName={sectionName}
         showSectionTitle={showSectionTitle}
         control={control}
@@ -90,10 +92,12 @@ function renderMetaControl({
 }
 
 function ButtonControl({
+  sectionId,
   sectionName,
   showSectionTitle,
   control,
 }: {
+  sectionId: string;
   sectionName: string;
   showSectionTitle: boolean;
   control: ButtonMetaControl;
@@ -113,6 +117,7 @@ function ButtonControl({
           onClick={control.onAction}
           disabled={isDisabled}
           aria-busy={control.pending || undefined}
+          onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
           data-meta-control-kind="button"
         >
           {control.label}

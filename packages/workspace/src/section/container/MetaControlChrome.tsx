@@ -1,4 +1,5 @@
 import { TbAdjustmentsHorizontal } from "react-icons/tb";
+import { handleSectionControlEscape } from "../../controls/sectionFocus";
 import { useWorkspaceCapabilities } from "../../document/capabilities";
 import type { WorkspaceSection } from "../../document/types";
 import {
@@ -41,6 +42,7 @@ export function MetaControlChrome({
             type="button"
             className={EDIT_TRIGGER_CLASS_NAME}
             onClick={() => onEdit(section)}
+            onKeyDown={(event) => handleSectionControlEscape(event, section.id)}
             disabled={!canEditStructure}
             aria-label={`Edit ${section.name.trim() || "meta control"}`}
             title="Edit meta control"

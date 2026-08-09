@@ -128,7 +128,7 @@ export function LockPositionButton({
       type="button"
       {...getWorkspaceTooltipHandlers({ content: label })}
     >
-      <i className={iconClassName} />
+      <i aria-hidden="true" className={iconClassName} />
     </button>
   );
 }

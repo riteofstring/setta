@@ -136,6 +136,58 @@ describe("ColorValueControl", () => {
     expect(document.querySelector('[role="listbox"]')).toBeNull();
   });
 
+  it("keeps one listbox option tabbable and supports wrapped arrow, Home, and End navigation", async () => {
+    await mount({ choices: CHOICES });
+    await openPopover();
+    const options = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="option"]'));
+    expect(options.map((option) => option.tabIndex)).toEqual([-1, 0, -1]);
+    options[1]?.focus();
+    await act(async () => {
+      options[1]?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }),
+      );
+    });
+    expect(document.activeElement).toBe(options[2]);
+    await act(async () => {
+      options[2]?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }),
+      );
+    });
+    expect(document.activeElement).toBe(options[0]);
+    await act(async () => {
+      options[0]?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "End", bubbles: true, cancelable: true }),
+      );
+    });
+    expect(document.activeElement).toBe(options[2]);
+  });
+
+  it("closes an open listbox on Escape and restores section focus", async () => {
+    const sectionRoot = document.createElement("div");
+    sectionRoot.tabIndex = -1;
+    document.body.appendChild(sectionRoot);
+    useSectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    const documentEscape = vi.fn();
+    document.addEventListener("keydown", documentEscape);
+    await mount({ choices: CHOICES });
+    await openPopover();
+    const selectedOption = document.querySelector<HTMLButtonElement>(
+      '[role="option"][aria-selected="true"]',
+    );
+    selectedOption?.focus();
+    await act(async () => {
+      selectedOption?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
+      );
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+    expect(document.querySelector('[role="listbox"]')).toBeNull();
+    expect(document.activeElement).toBe(sectionRoot);
+    expect(documentEscape).not.toHaveBeenCalled();
+    document.removeEventListener("keydown", documentEscape);
+    sectionRoot.remove();
+  });
+
   it("repositions the open popover when the canvas transform changes", async () => {
     await mount({ choices: CHOICES });
     await openPopover();

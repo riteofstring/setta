@@ -192,11 +192,6 @@ input.setta-workspace-native-color::-moz-focus-inner {
   z-index: 6;
 }
 
-.react-flow__nodesselection-rect:focus,
-.react-flow__nodesselection-rect:focus-visible {
-  outline: none;
-}
-
 .react-flow__nodes {
   pointer-events: none;
   transform-origin: 0 0;
@@ -268,16 +263,20 @@ input.setta-workspace-native-color::-moz-focus-inner {
   background-color: #94a3b8b6;
 }
 
+.react-flow__minimap svg:focus-visible {
+  outline: auto;
+  outline-offset: -2px;
+}
+
 .setta-workspace.setta-workspace-dark .react-flow__minimap {
   background-color: hsla(220, 27%, 6%, 0.72);
   border-color: hsla(220, 26%, 14%, 0.55);
 }
 
-.react-flow__nodesselection-rect:focus,
 .react-flow__nodesselection-rect:focus-visible,
-.react-flow__selection:focus,
 .react-flow__selection:focus-visible {
-  outline: none;
+  outline: auto;
+  outline-offset: 2px;
 }
 
 /* The css.gg glyphs used by the extracted header controls, copied from the reference's root

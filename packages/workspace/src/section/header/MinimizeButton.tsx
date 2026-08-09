@@ -27,7 +27,11 @@ export function MinimizeButton({ sectionId, hasSectionStyleTheme = false }: Mini
       type="button"
       {...getWorkspaceTooltipHandlers({ content: label })}
     >
-      {!isMinimized ? <i className="gg-math-minus" /> : <i className="gg-maximize !scale-[.4]" />}
+      {!isMinimized ? (
+        <i aria-hidden="true" className="gg-math-minus" />
+      ) : (
+        <i aria-hidden="true" className="gg-maximize !scale-[.4]" />
+      )}
     </button>
   );
 }

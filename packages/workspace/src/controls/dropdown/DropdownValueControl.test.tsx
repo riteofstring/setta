@@ -114,6 +114,7 @@ describe("DropdownValueControl", () => {
     expect(search?.className).toBe(
       "flex min-w-0 mx-[2px] items-center relative nodrag dark:text-setta-200",
     );
+    expect(search?.getAttribute("aria-label")).toBe("Choice value choices");
     const input = getInput();
     // The recorded pill geometry and paint: rounded-full 12 px mono, 12 px left and 24 px
     // right padding at the 16 px content height plus one-pixel borders, the default
@@ -148,6 +149,7 @@ describe("DropdownValueControl", () => {
     }
     expect(toggle.type).toBe("button");
     expect(toggle.getAttribute("aria-label")).toBe("Open Choice value choices");
+    expect(toggle.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
     expect(toggle.parentElement?.className).toBe(
       "absolute inset-y-0 right-0 grid select-none place-items-center",
     );

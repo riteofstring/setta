@@ -14,6 +14,9 @@ import MiniMap from "./MiniMap";
 export function ResponsiveMiniMap() {
   const darkMode = useWorkspaceAppearance((x) => x.darkMode);
   const minimapSide = useWorkspaceOptions((x) => x.minimapSide);
+  const navigate = ({ x, y }: { x: number; y: number }) => {
+    setCenter(x, y, { zoom: useReactFlow.getState().transform[2] });
+  };
 
   return (
     <MiniMap
@@ -37,9 +40,9 @@ export function ResponsiveMiniMap() {
       maskStrokeColor={darkMode ? "rgba(226, 232, 240, 0.9)" : "rgba(30, 41, 59, 0.6)"}
       maskStrokeWidth={2}
       pannable
-      onClick={(e, { x, y }) => {
-        setCenter(x, y, { zoom: useReactFlow.getState().transform[2] });
-      }}
+      aria-label="Workspace minimap"
+      onClick={(_event, position) => navigate(position)}
+      onNavigate={navigate}
     />
   );
 }

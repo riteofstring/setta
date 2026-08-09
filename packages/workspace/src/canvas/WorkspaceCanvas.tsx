@@ -62,7 +62,12 @@ export function WorkspaceCanvas() {
   const showMinimap = useWorkspaceOptions((x) => x.showMinimap);
 
   return (
-    <div style={outerWrapperStyle} className={workspaceScopeClassName}>
+    <div
+      style={outerWrapperStyle}
+      className={workspaceScopeClassName}
+      role="region"
+      aria-label="Workspace canvas"
+    >
       <div
         style={wrapperStyle}
         className={`${workspaceScopeClassName} react-flow`}

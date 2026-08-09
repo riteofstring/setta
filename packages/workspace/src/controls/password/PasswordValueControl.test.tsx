@@ -128,14 +128,23 @@ describe("PasswordValueControl", () => {
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
     useSectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
-    mount();
-    getInput().focus();
-    act(() => {
-      getInput().dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
-      );
-    });
-    expect(document.activeElement).toBe(sectionRoot);
+    const documentEscape = vi.fn();
+    document.addEventListener("keydown", documentEscape);
+    mount({ savedValueAction: { pending: false, onReveal: () => {} } });
+    const reveal = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Reveal saved password"]',
+    );
+    for (const control of [getInput(), getVisibilityToggle(), reveal]) {
+      control?.focus();
+      act(() => {
+        control?.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
+        );
+      });
+      expect(document.activeElement).toBe(sectionRoot);
+    }
+    expect(documentEscape).not.toHaveBeenCalled();
+    document.removeEventListener("keydown", documentEscape);
     sectionRoot.remove();
   });
 

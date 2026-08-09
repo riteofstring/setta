@@ -69,6 +69,9 @@ describe("ResponsiveMiniMap", () => {
     const svg = panel.querySelector("svg");
     expect(svg?.getAttribute("width")).toBe("200");
     expect(svg?.getAttribute("height")).toBe("150");
+    expect(svg?.getAttribute("role")).toBe("button");
+    expect(svg?.tabIndex).toBe(0);
+    expect(svg?.getAttribute("aria-label")).toContain("Use arrow keys to pan");
     const mask = panel.querySelector(".react-flow__minimap-mask");
     expect(mask?.getAttribute("fill")).toBe("rgb(51, 65, 85, 0.3)");
     expect(mask?.getAttribute("stroke")).toBe("rgba(30, 41, 59, 0.6)");
@@ -105,6 +108,7 @@ describe("ResponsiveMiniMap", () => {
       root.render(<WorkspaceCanvas />);
     });
 
+    expect(host.querySelector('[role="region"][aria-label="Workspace canvas"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="rf__minimap"]')).not.toBe(null);
 
     await act(async () => {

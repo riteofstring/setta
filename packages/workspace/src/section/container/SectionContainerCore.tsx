@@ -63,7 +63,8 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
       onClick={getOnSectionClick(sectionId)}
       onKeyDown={onKeyDown}
       role="button"
-      aria-label={isMetaControl ? "Meta control" : "Section"}
+      aria-label={`${section.name} ${isMetaControl ? "meta control" : "section"}`}
+      aria-pressed={isActiveSection}
       tabIndex={-1} // keeps section focusable for programmatic focus
       ref={refForPosition}
       data-section-id={sectionId}

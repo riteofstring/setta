@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { useWorkspaceAppearance } from "../../document/stores";
+import { useSectionRefs } from "../../section/sectionRefs";
 import { MetaControl, type MetaControlProps } from "./MetaControl";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -12,7 +13,7 @@ import { MetaControl, type MetaControlProps } from "./MetaControl";
 const REFERENCE_BUTTON_CLASS_NAME =
   "nodrag nopan flex h-full min-h-8 w-full items-center justify-center rounded-lg border border-setta-600 bg-setta-600 px-3 text-xs font-semibold text-white shadow-sm transition-all hover:border-setta-700 hover:bg-setta-700 active:translate-y-[2px] active:scale-[0.96] active:bg-setta-700 active:shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 dark:border-setta-500 dark:bg-setta-700 dark:text-setta-50 dark:hover:border-setta-400 dark:hover:bg-setta-600 dark:active:bg-setta-600 cursor-pointer select-none disabled:cursor-not-allowed disabled:opacity-60";
 const REFERENCE_TEXT_WRAPPER_CLASS_NAME =
-  "nodrag nopan single-cell-container h-full min-h-0 w-full min-w-0 rounded-lg border border-setta-300/70 bg-setta-50 text-[11px] font-mono text-setta-700 dark:border-setta-700 dark:bg-setta-850 dark:text-setta-200";
+  "nodrag nopan single-cell-container h-full min-h-0 w-full min-w-0 rounded-lg border border-setta-300/70 bg-setta-50 text-[11px] font-mono text-setta-700 focus-within:border-blue-400 dark:border-setta-700 dark:bg-setta-850 dark:text-setta-200";
 
 describe("MetaControl", () => {
   let host: HTMLDivElement;
@@ -29,6 +30,32 @@ describe("MetaControl", () => {
     host.remove();
     useItemSelectionMode.getState().reset();
     useWorkspaceAppearance.getState().reset();
+    useSectionRefs.getState().reset();
+  });
+
+  it("returns focus from the Button control to its section on Escape", async () => {
+    const sectionRoot = document.createElement("div");
+    sectionRoot.tabIndex = -1;
+    document.body.appendChild(sectionRoot);
+    useSectionRefs.setState({ withNested: { "meta-button": sectionRoot } });
+    const documentEscape = vi.fn();
+    document.addEventListener("keydown", documentEscape);
+    await mount({
+      sectionId: "meta-button",
+      sectionName: "Button",
+      control: { kind: "button", label: "Trigger", onAction: () => {} },
+    });
+    const button = host.querySelector("button");
+    button?.focus();
+    await act(async () => {
+      button?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
+      );
+    });
+    expect(document.activeElement).toBe(sectionRoot);
+    expect(documentEscape).not.toHaveBeenCalled();
+    document.removeEventListener("keydown", documentEscape);
+    sectionRoot.remove();
   });
 
   async function mount(props: MetaControlProps) {

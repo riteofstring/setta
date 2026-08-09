@@ -549,6 +549,36 @@ describe("WorkspaceItemList", () => {
     );
   });
 
+  it("exposes rows to Tab with pressed state and keyboard toggles only in item-select mode", async () => {
+    await mount();
+    let row = getRowByContent(host, "item-a");
+    expect(row.tabIndex).toBe(-1);
+    expect(row.getAttribute("aria-disabled")).toBe("true");
+    expect(row.getAttribute("aria-pressed")).toBeNull();
+
+    await act(async () => {
+      activateItemSelect();
+    });
+    row = getRowByContent(host, "item-a");
+    expect(row.tabIndex).toBe(0);
+    expect(row.getAttribute("aria-disabled")).toBe("false");
+    expect(row.getAttribute("aria-pressed")).toBe("false");
+    expect(row.className).toContain("focus-visible:-outline-offset-2");
+    row.focus();
+    await act(async () => {
+      row.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+      );
+    });
+    expect(getRowByContent(host, "item-a").getAttribute("aria-pressed")).toBe("true");
+    await act(async () => {
+      getRowByContent(host, "item-a").dispatchEvent(
+        new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true }),
+      );
+    });
+    expect(getRowByContent(host, "item-a").getAttribute("aria-pressed")).toBe("false");
+  });
+
   it("renders the live projection with the temp placeholder during a drag", async () => {
     await mount();
 

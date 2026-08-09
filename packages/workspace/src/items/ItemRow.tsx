@@ -279,7 +279,7 @@ function useItemSelectionHandlers(sectionId: string, itemId: string) {
     [isSelectingItems, sectionId, itemId],
   );
 
-  return { handleItemClick, handleItemMouseDown, handleItemKeyDown };
+  return { handleItemClick, handleItemMouseDown, handleItemKeyDown, isSelectingItems };
 }
 
 function ItemNestedChildren({ renderChildren }: { renderChildren: Array<string> }) {
@@ -313,10 +313,8 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
   const hasSectionStyleTheme = Boolean(
     rowState.styleColor && deriveSectionStyleTheme(rowState.styleColor, darkMode),
   );
-  const { handleItemClick, handleItemMouseDown, handleItemKeyDown } = useItemSelectionHandlers(
-    sectionId,
-    itemId,
-  );
+  const { handleItemClick, handleItemMouseDown, handleItemKeyDown, isSelectingItems } =
+    useItemSelectionHandlers(sectionId, itemId);
   const visibleChildren = rowState.item.children.filter((childId) => visibleItemIds.has(childId));
   const renderChildren = useItemDndChildrenForParent(itemId, visibleChildren);
   const dndId = getItemDndId(itemId, listKey);
@@ -364,6 +362,8 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       onClick={handleItemClick}
       onMouseDown={handleItemMouseDown}
       onKeyDown={handleItemKeyDown}
+      isSelectingItems={isSelectingItems}
+      isSelected={rowState.isSelected}
     >
       {renderItem({ sectionId, listKey, item: rowState.item, isSelected: rowState.isSelected })}
       <ItemColumnResizeHandle itemId={itemId} />
@@ -381,6 +381,8 @@ function ItemRowShell({
   onClick,
   onMouseDown,
   onKeyDown,
+  isSelectingItems,
+  isSelected,
   children,
 }: {
   rowClassName: string;
@@ -391,16 +393,18 @@ function ItemRowShell({
   onClick: React.MouseEventHandler;
   onMouseDown: React.MouseEventHandler;
   onKeyDown: React.KeyboardEventHandler<HTMLDivElement>;
+  isSelectingItems: boolean;
+  isSelected: boolean;
   children: ReactNode;
 }) {
   // The reference renders rows as role-less articles; the package row is a div with a button
   // role and a keyboard selection toggle for the repository's accessibility gate — visually
-  // identical. Rows stay out of the tab order (tabIndex -1): Tab is the item indent chord
-  // while a selection exists, so the toggle is reachable from click or programmatic focus,
-  // not from tab navigation, matching the reference's role-less rows.
+  // identical. Item-select mode disables the embedded controls, exposes the rows to Tab, and
+  // reports their canonical pressed state; outside that explicit mode the rows stay out of the
+  // tab order just like the reference's role-less rows.
   return (
     <div
-      className={rowClassName}
+      className={`${rowClassName} focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2`}
       style={rowStyle}
       data-item-row="true"
       onMouseDownCapture={onMouseDown}
@@ -410,7 +414,9 @@ function ItemRowShell({
       {...(dndAttributes as React.HTMLAttributes<HTMLDivElement>)}
       {...(dndListeners as React.HTMLAttributes<HTMLDivElement>)}
       role="button"
-      tabIndex={-1}
+      aria-pressed={isSelectingItems ? isSelected : undefined}
+      aria-disabled={!isSelectingItems}
+      tabIndex={isSelectingItems ? 0 : -1}
     >
       {children}
     </div>

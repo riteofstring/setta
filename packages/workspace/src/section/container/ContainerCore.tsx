@@ -96,9 +96,8 @@ function ContainerGroup({
   children: ReactNode;
 }) {
   const hasNested = useHasTempNested(sectionId);
-  const positionAndSizeLocked = useWorkspaceDocument(
-    (x) => getSectionOrThrow(x, sectionId).positionAndSizeLocked,
-  );
+  const section = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId));
+  const positionAndSizeLocked = section.positionAndSizeLocked;
   const isActiveSection = useActiveSections((x) => x.activeIds.includes(sectionId));
   const disablePointerEvents = useShouldDisablePointerEvents();
 
@@ -123,7 +122,8 @@ function ContainerGroup({
       onClick={getOnSectionClick(sectionId)}
       onKeyDown={onKeyDown}
       role="button"
-      aria-label="Group section"
+      aria-label={`${section.name} group section`}
+      aria-pressed={isActiveSection}
       tabIndex={-1} // keeps section focusable for programmatic focus
       style={style}
     >

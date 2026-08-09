@@ -18,7 +18,7 @@ function pad2(value: number): string {
   return value.toString().padStart(2, "0");
 }
 
-function formatIsoDate(year: number, monthIndex: number, day: number): string {
+export function formatIsoDate(year: number, monthIndex: number, day: number): string {
   return `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`;
 }
 

@@ -65,7 +65,7 @@ function EditableTitle({
         onBlur={editable.onBlur}
         onKeyDown={editable.onKeyDown}
         titleProps={titleProps}
-        blurTriggeredByEscapeKey={editable.blurTriggeredByEscapeKey}
+        restoreFocusAfterKeyboardSubmit={editable.restoreFocusAfterKeyboardSubmit}
         {...getWorkspaceTooltipHandlers({ content: sectionName })}
       />
     </div>

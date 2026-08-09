@@ -62,6 +62,8 @@ function SectionTagColorIndicator({ tagColor }: { tagColor: string | null }) {
 
   return (
     <span
+      role="img"
+      aria-label={`Color tag ${tagColor}`}
       className="nodrag ml-2.5 mr-0.5 h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/10"
       style={{ backgroundColor: tagColor }}
       title={`Color tag: ${tagColor}`}

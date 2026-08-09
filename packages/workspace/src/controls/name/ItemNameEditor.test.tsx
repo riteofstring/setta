@@ -100,6 +100,7 @@ describe("ItemNameEditor", () => {
     expect(dummy.textContent).toBe("rename_me");
     expect(dummy.getAttribute("role")).toBe("textbox");
     expect(dummy.getAttribute("aria-label")).toBe("Item name");
+    expect(dummy.getAttribute("aria-multiline")).toBe("false");
     for (const expectedClass of [
       "nopan",
       "nodrag",
@@ -216,6 +217,8 @@ describe("ItemNameEditor", () => {
     focusTarget.tabIndex = -1;
     document.body.appendChild(focusTarget);
     useSectionRefs.setState({ withNested: { [SECTION_ID]: focusTarget } });
+    const documentEscape = vi.fn();
+    document.addEventListener("keydown", documentEscape);
     const onBlur = vi.fn();
     await mount({ onBlur });
     await activate();
@@ -225,18 +228,21 @@ describe("ItemNameEditor", () => {
       );
     });
     expect(document.activeElement).toBe(focusTarget);
+    expect(documentEscape).not.toHaveBeenCalled();
     expect(onBlur).toHaveBeenCalledTimes(1);
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 1));
     });
     expect(document.getElementById(DUMMY_ID)).not.toBeNull();
     expect(host.querySelector(".cm-editor")).toBeNull();
+    document.removeEventListener("keydown", documentEscape);
     focusTarget.remove();
   });
 
   it("keeps disabled names inert for both the host flag and item-select mode", async () => {
     await mount({ disabled: true });
     expect(getDummy().getAttribute("aria-disabled")).toBe("true");
+    expect(getDummy().tabIndex).toBe(-1);
     expect(getDummy().classList.contains("cursor-text")).toBe(false);
     await activate();
     expect(host.querySelector(".cm-editor")).toBeNull();

@@ -1,7 +1,14 @@
 import cc from "classcat";
 import { pointer, select } from "d3-selection";
 import { zoom, zoomIdentity, type D3ZoomEvent } from "d3-zoom";
-import { memo, useEffect, useRef, type MouseEvent as ReactMouseEvent, type RefObject } from "react";
+import {
+  memo,
+  useEffect,
+  useRef,
+  type KeyboardEventHandler,
+  type MouseEvent as ReactMouseEvent,
+  type RefObject,
+} from "react";
 import { shallow } from "zustand/shallow";
 import Panel from "../canvas/Panel";
 import { getNodesBounds, getPaneRect } from "../canvas/graph";
@@ -9,7 +16,7 @@ import { useReactFlow } from "../canvas/store";
 import type { CoordinateExtent, ReactFlowState, Rect } from "../canvas/types";
 import { getBoundsOfRects } from "../canvas/utils";
 import { useActiveSections, useNodeInternals, type NodeInternalsState } from "../document/stores";
-import type { Node } from "../document/types";
+import type { Node, Position } from "../document/types";
 import {
   areMiniMapNodesRenderableInputsEqual,
   MiniMapNodes,
@@ -90,9 +97,12 @@ type MinimapSvgProps = Omit<MiniMapNodesType, "onClick"> & {
   height: number;
   svgRef?: RefObject<SVGSVGElement | null>;
   onSvgClick?: (event: ReactMouseEvent<SVGSVGElement>) => void;
+  onNavigate?: (position: Position) => void;
   onSvgNodeClick?: MiniMapNodesType["onClick"];
   offset: number;
   viewBB: Rect;
+  boundingRect: Rect;
+  ariaLabel?: string;
   maskColor: string;
   maskStrokeColor: string;
   maskStrokeWidth: number;
@@ -260,10 +270,13 @@ function buildMinimapSvgProps(args: {
   svgRef: RefObject<SVGSVGElement | null>;
   offset: number;
   viewBB: Rect;
+  boundingRect: Rect;
+  ariaLabel: string | undefined;
   maskColor: string;
   maskStrokeColor: string;
   maskStrokeWidth: number;
   onSvgClick: MinimapSvgProps["onSvgClick"];
+  onNavigate: MinimapSvgProps["onNavigate"];
   nodeColor: MinimapSvgProps["nodeColor"];
   nodeStrokeColor: MinimapSvgProps["nodeStrokeColor"];
   nodeBorderRadius: MinimapSvgProps["nodeBorderRadius"];
@@ -281,6 +294,7 @@ function buildMinimapSvgProps(args: {
     svgRef: args.svgRef,
     offset: args.offset,
     viewBB: args.viewBB,
+    boundingRect: args.boundingRect,
     maskColor: args.maskColor,
     maskStrokeColor: args.maskStrokeColor,
     maskStrokeWidth: args.maskStrokeWidth,
@@ -288,6 +302,8 @@ function buildMinimapSvgProps(args: {
     enableSelectionSync: true,
   };
   assignDefinedProp(props, "onSvgClick", args.onSvgClick);
+  assignDefinedProp(props, "onNavigate", args.onNavigate);
+  assignDefinedProp(props, "ariaLabel", args.ariaLabel);
   assignDefinedProp(props, "nodeColor", args.nodeColor);
   assignDefinedProp(props, "nodeStrokeColor", args.nodeStrokeColor);
   assignDefinedProp(props, "nodeBorderRadius", args.nodeBorderRadius);
@@ -336,6 +352,38 @@ export function getXYWidthHeight({
   return { x, y, width, height, viewScale, offset };
 }
 
+export function resolveMiniMapKeyboardPosition({
+  key,
+  viewBB,
+  boundingRect,
+}: {
+  key: string;
+  viewBB: Rect;
+  boundingRect: Rect;
+}): Position | null {
+  const centerX = viewBB.x + viewBB.width / 2;
+  const centerY = viewBB.y + viewBB.height / 2;
+  if (key === "ArrowLeft") {
+    return { x: centerX - viewBB.width / 10, y: centerY };
+  }
+  if (key === "ArrowRight") {
+    return { x: centerX + viewBB.width / 10, y: centerY };
+  }
+  if (key === "ArrowUp") {
+    return { x: centerX, y: centerY - viewBB.height / 10 };
+  }
+  if (key === "ArrowDown") {
+    return { x: centerX, y: centerY + viewBB.height / 10 };
+  }
+  if (key === "Enter" || key === " ") {
+    return {
+      x: boundingRect.x + boundingRect.width / 2,
+      y: boundingRect.y + boundingRect.height / 2,
+    };
+  }
+  return null;
+}
+
 function MiniMap(props: MiniMapProps) {
   const {
     style,
@@ -353,8 +401,10 @@ function MiniMap(props: MiniMapProps) {
     maskStrokeWidth,
     position,
     onClick,
+    onNavigate,
     pannable,
     offsetScale,
+    "aria-label": ariaLabel,
   } = resolveMiniMapProps(props);
   const svgRef = useRef<SVGSVGElement>(null);
   const nodes = useNodeInternals(selectNodes, areMiniMapNodesRenderableInputsEqual);
@@ -391,10 +441,13 @@ function MiniMap(props: MiniMapProps) {
     svgRef,
     offset,
     viewBB,
+    boundingRect,
+    ariaLabel,
     maskColor,
     maskStrokeColor,
     maskStrokeWidth,
     onSvgClick,
+    onNavigate,
     nodeColor,
     nodeStrokeColor,
     nodeBorderRadius,
@@ -418,6 +471,71 @@ function MiniMap(props: MiniMapProps) {
 MiniMap.displayName = "MiniMap";
 
 export default memo(MiniMap);
+
+function createMiniMapKeyDownHandler({
+  onNavigate,
+  viewBB,
+  boundingRect,
+}: {
+  onNavigate: MinimapSvgProps["onNavigate"];
+  viewBB: Rect;
+  boundingRect: Rect;
+}): KeyboardEventHandler<SVGSVGElement> | undefined {
+  if (!onNavigate) {
+    return undefined;
+  }
+  return (event) => {
+    const nextPosition = resolveMiniMapKeyboardPosition({
+      key: event.key,
+      viewBB,
+      boundingRect,
+    });
+    if (!nextPosition) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    onNavigate(nextPosition);
+  };
+}
+
+function getMiniMapAccessibilityProps({
+  onNavigate,
+  ariaLabel,
+  onKeyDown,
+}: {
+  onNavigate: MinimapSvgProps["onNavigate"];
+  ariaLabel: string;
+  onKeyDown: KeyboardEventHandler<SVGSVGElement> | undefined;
+}) {
+  if (!onNavigate) {
+    return { role: "img" as const, "aria-label": ariaLabel };
+  }
+  return {
+    role: "button" as const,
+    "aria-label": `${ariaLabel}. Use arrow keys to pan; press Enter to center the workspace`,
+    tabIndex: 0,
+    onKeyDown,
+  };
+}
+
+function renderMiniMapNodes(nodes: Array<Node> | null, minimapNodesProps: MiniMapNodesType) {
+  return nodes ? (
+    <MiniMapNodes nodes={nodes} {...minimapNodesProps} />
+  ) : (
+    <MiniMapNodesReactive {...minimapNodesProps} />
+  );
+}
+
+function renderMiniMapSelectionSync(
+  enabled: boolean,
+  selectionSyncProps: { svgRef: RefObject<SVGSVGElement | null> } | null,
+) {
+  if (!enabled || !selectionSyncProps) {
+    return null;
+  }
+  return <MiniMapSelectionSync {...selectionSyncProps} />;
+}
 
 function MiniMapSelectionSync({ svgRef }: { svgRef?: RefObject<SVGSVGElement | null> }) {
   useEffect(() => {
@@ -466,6 +584,7 @@ export function MinimapSvg({
   height,
   svgRef,
   onSvgClick,
+  onNavigate,
   onSvgNodeClick,
   nodeColor,
   nodeStrokeColor,
@@ -475,6 +594,8 @@ export function MinimapSvg({
   nodeComponent,
   offset,
   viewBB,
+  boundingRect,
+  ariaLabel = "Workspace minimap",
   maskColor,
   maskStrokeColor,
   maskStrokeWidth,
@@ -491,36 +612,34 @@ export function MinimapSvg({
     nodeComponent,
   });
   const selectionSyncProps = svgRef === undefined ? null : { svgRef };
+  const onKeyDown = createMiniMapKeyDownHandler({ onNavigate, viewBB, boundingRect });
+  const accessibilityProps = getMiniMapAccessibilityProps({
+    onNavigate,
+    ariaLabel,
+    onKeyDown,
+  });
 
   return (
     <svg
       width={elementWidth}
       height={elementHeight}
       viewBox={`${x} ${y} ${width} ${height}`}
-      role="img"
       ref={svgRef}
       onClick={onSvgClick}
+      {...accessibilityProps}
     >
-      {nodes ? (
-        <MiniMapNodes nodes={nodes} {...minimapNodesProps} />
-      ) : (
-        <MiniMapNodesReactive {...minimapNodesProps} />
-      )}
-      {enableSelectionSync && selectionSyncProps ? (
-        <MiniMapSelectionSync {...selectionSyncProps} />
-      ) : null}
-      {viewBB && (
-        <path
-          className="react-flow__minimap-mask"
-          d={`M${x - offset},${y - offset}h${width + offset * 2}v${height + offset * 2}h${-width - offset * 2}z
+      {renderMiniMapNodes(nodes, minimapNodesProps)}
+      {renderMiniMapSelectionSync(enableSelectionSync, selectionSyncProps)}
+      <path
+        className="react-flow__minimap-mask"
+        d={`M${x - offset},${y - offset}h${width + offset * 2}v${height + offset * 2}h${-width - offset * 2}z
 M${viewBB.x},${viewBB.y}h${viewBB.width}v${viewBB.height}h${-viewBB.width}z`}
-          fill={maskColor}
-          fillRule="evenodd"
-          stroke={maskStrokeColor}
-          strokeWidth={maskStrokeWidth}
-          pointerEvents="none"
-        />
-      )}
+        fill={maskColor}
+        fillRule="evenodd"
+        stroke={maskStrokeColor}
+        strokeWidth={maskStrokeWidth}
+        pointerEvents="none"
+      />
     </svg>
   );
 }

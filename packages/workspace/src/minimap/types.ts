@@ -19,6 +19,7 @@ export type MiniMapProps = Omit<HTMLAttributes<SVGSVGElement>, "onClick"> & {
   maskStrokeWidth?: number;
   position?: PanelPosition;
   onClick?: (event: MouseEvent, position: Position) => void;
+  onNavigate?: (position: Position) => void;
   pannable?: boolean;
   offsetScale?: number;
 };

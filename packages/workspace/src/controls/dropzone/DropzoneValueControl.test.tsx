@@ -241,6 +241,28 @@ describe("DropzoneValueControl", () => {
     expect(host.querySelector('button[aria-label^="Delete "]')).toBeNull();
   });
 
+  it("restores focus to the next attachment action and then the local-file action", () => {
+    const first = { id: "file-1", kind: "file" as const, name: "first.png", size: 1 };
+    const second = { id: "file-2", kind: "file" as const, name: "second.png", size: 1 };
+    const onAttachmentRemove = vi.fn();
+    mount({ attachments: [first, second], onAttachmentRemove });
+    const firstDelete = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Delete first.png"]',
+    );
+    firstDelete?.focus();
+    act(() => firstDelete?.click());
+    mount({ attachments: [second], onAttachmentRemove });
+    const secondDelete = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Delete second.png"]',
+    );
+    expect(document.activeElement).toBe(secondDelete);
+
+    act(() => secondDelete?.click());
+    mount({ attachments: [], onAttachmentRemove });
+    expect(document.activeElement).toBe(getButton("Local file..."));
+    expect(onAttachmentRemove.mock.calls).toEqual([["file-1"], ["file-2"]]);
+  });
+
   it("renders the server action only for its explicit host callback", () => {
     mount();
     expect(host.textContent).not.toContain("Server file...");

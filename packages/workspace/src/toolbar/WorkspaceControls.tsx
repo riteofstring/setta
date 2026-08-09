@@ -30,6 +30,7 @@ const ACTIVE_CONTROL_CLASS_NAME = "text-white bg-blue-500 dark:text-blue-600 dar
 const INACTIVE_CONTROL_CLASS_NAME = "text-setta-400 dark:text-setta-600";
 const TOGGLE_CONTROL_CLASS_NAME =
   "cursor-pointer items-center justify-center overflow-clip rounded-md p-1 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:text-setta-500";
+const DECORATIVE_ICON_PROPS = { "aria-hidden": true, focusable: "false" } as const;
 
 function getToggleControlClassName(active: boolean): string {
   return `${TOGGLE_CONTROL_CLASS_NAME} ${active ? ACTIVE_CONTROL_CLASS_NAME : INACTIVE_CONTROL_CLASS_NAME}`;
@@ -51,7 +52,7 @@ function ViewportControls(props: {
         type="button"
         {...getWorkspaceTooltipHandlers({ content: "Zoom in" })}
       >
-        <FaPlus size={15} />
+        <FaPlus {...DECORATIVE_ICON_PROPS} size={15} />
       </button>
       <button
         onClick={() => zoomOut()}
@@ -61,7 +62,7 @@ function ViewportControls(props: {
         type="button"
         {...getWorkspaceTooltipHandlers({ content: "Zoom out" })}
       >
-        <FaMinus size={15} />
+        <FaMinus {...DECORATIVE_ICON_PROPS} size={15} />
       </button>
       <button
         className={`react-flow__controls-fitview ${TOGGLE_CONTROL_CLASS_NAME} ${props.fitViewOnInit ? ACTIVE_CONTROL_CLASS_NAME : INACTIVE_CONTROL_CLASS_NAME}`}
@@ -70,7 +71,7 @@ function ViewportControls(props: {
         type="button"
         {...getWorkspaceTooltipHandlers({ content: "Fit view" })}
       >
-        <TbArrowAutofitWidth size={15} />
+        <TbArrowAutofitWidth {...DECORATIVE_ICON_PROPS} size={15} />
       </button>
       <button
         onClick={toggleSnapToGrid}
@@ -82,7 +83,7 @@ function ViewportControls(props: {
           content: props.snapToGrid ? "Disable snap to grid" : "Enable snap to grid",
         })}
       >
-        <TbGridDots size={15} />
+        <TbGridDots {...DECORATIVE_ICON_PROPS} size={15} />
       </button>
       <button
         className={`react-flow__controls-button ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
@@ -91,7 +92,7 @@ function ViewportControls(props: {
         type="button"
         {...getWorkspaceTooltipHandlers({ content: "Reset zoom" })}
       >
-        <TbZoomReset size={15} />
+        <TbZoomReset {...DECORATIVE_ICON_PROPS} size={15} />
       </button>
     </>
   );
@@ -115,7 +116,7 @@ function MiniMapControls(props: { minimapSide: MiniMapSide; showMinimap: boolean
           content: props.showMinimap ? "Hide minimap" : "Show minimap",
         })}
       >
-        <IoMapOutline size={15} />
+        <IoMapOutline {...DECORATIVE_ICON_PROPS} size={15} />
       </button>
       <button
         onClick={toggleMiniMapSide}
@@ -128,9 +129,9 @@ function MiniMapControls(props: { minimapSide: MiniMapSide; showMinimap: boolean
         })}
       >
         {props.minimapSide === "left" ? (
-          <TbLayoutSidebarRightCollapse size={15} />
+          <TbLayoutSidebarRightCollapse {...DECORATIVE_ICON_PROPS} size={15} />
         ) : (
-          <TbLayoutSidebarLeftCollapse size={15} />
+          <TbLayoutSidebarLeftCollapse {...DECORATIVE_ICON_PROPS} size={15} />
         )}
       </button>
     </>
@@ -159,6 +160,7 @@ export const WorkspaceControls = memo(function WorkspaceControls() {
   const workspaceScopeClassName = useWorkspaceScopeClassName();
   const { minZoomReached, maxZoomReached } = useZoomReached();
   const fitViewOnInit = useReactFlow((x) => x.fitViewOnInit);
+  const zoom = useReactFlow((x) => x.transform[2]);
   const snapToGrid = useWorkspaceOptions((x) => x.snapToGrid);
   const showMinimap = useWorkspaceOptions((x) => x.showMinimap);
   const minimapSide = useWorkspaceOptions((x) => x.minimapSide);
@@ -175,7 +177,12 @@ export const WorkspaceControls = memo(function WorkspaceControls() {
     <div
       className={`${workspaceScopeClassName} mt-auto flex w-8 flex-col items-center gap-1 overflow-hidden rounded-md border px-0.5 pb-2 pt-1.5 dark:border-setta-800`}
       data-testid="rf__controls"
+      role="group"
+      aria-label="Workspace view controls"
     >
+      <span role="status" className="sr-only">
+        Zoom {Math.round(zoom * 100)}%
+      </span>
       <ViewportControls
         fitViewOnInit={fitViewOnInit}
         maxZoomReached={maxZoomReached}

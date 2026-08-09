@@ -11,6 +11,7 @@ export function useEditableOnSubmit(
 ) {
   const [inputValue, setInputValue] = useState(initialValue);
   const blurTriggeredByEscapeKey = useRef(false);
+  const restoreFocusAfterKeyboardSubmit = useRef(false);
   const latestValueRef = useRef(initialValue);
 
   function onChange(e: ChangeEvent<HTMLInputElement>) {
@@ -40,12 +41,15 @@ export function useEditableOnSubmit(
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.code === "Escape") {
+    if (event.key === "Escape" || event.code === "Escape") {
+      event.stopPropagation();
       blurTriggeredByEscapeKey.current = true;
+      restoreFocusAfterKeyboardSubmit.current = true;
       event.currentTarget.blur();
       latestValueRef.current = initialValue;
       setInputValue(initialValue);
-    } else if (event.code === "Enter") {
+    } else if (event.key === "Enter" || event.code === "Enter") {
+      restoreFocusAfterKeyboardSubmit.current = true;
       event.currentTarget.blur();
     }
   }
@@ -55,5 +59,12 @@ export function useEditableOnSubmit(
     setInputValue(initialValue);
   }, [initialValue]);
 
-  return { inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey };
+  return {
+    inputValue,
+    onChange,
+    onBlur,
+    onKeyDown,
+    blurTriggeredByEscapeKey,
+    restoreFocusAfterKeyboardSubmit,
+  };
 }

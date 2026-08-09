@@ -151,6 +151,7 @@ function DropdownCombobox({
       }
     >
       <search
+        aria-label={`${ariaLabel} choices`}
         className={
           presentation === "meta-control"
             ? META_SEARCH_WRAPPER_CLASS_NAME
@@ -181,9 +182,9 @@ function DropdownCombobox({
             })}
           >
             {combobox.isOpen ? (
-              <HiChevronUp size={TOGGLE_ICON_SIZE_PX} />
+              <HiChevronUp aria-hidden="true" focusable="false" size={TOGGLE_ICON_SIZE_PX} />
             ) : (
-              <HiChevronDown size={TOGGLE_ICON_SIZE_PX} />
+              <HiChevronDown aria-hidden="true" focusable="false" size={TOGGLE_ICON_SIZE_PX} />
             )}
           </button>
         </div>

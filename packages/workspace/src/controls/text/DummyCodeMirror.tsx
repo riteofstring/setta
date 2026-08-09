@@ -42,9 +42,10 @@ type DummyInteractionProps = {
   ariaDescribedBy?: string;
   ariaInvalid?: boolean;
   ariaDisabled?: boolean;
+  ariaMultiline: boolean;
 };
 
-type DummyCodeMirrorProps = DummyInteractionProps & {
+type DummyCodeMirrorProps = Omit<DummyInteractionProps, "ariaMultiline"> & {
   code: string;
   theme: TextValueTheme;
   placeholder: string | undefined;
@@ -85,6 +86,7 @@ export function DummyCodeMirror({
       ariaDescribedBy={ariaDescribedBy}
       ariaInvalid={ariaInvalid}
       ariaDisabled={ariaDisabled}
+      ariaMultiline={!singleLine}
     />
   ) : (
     <PlaceholderCode
@@ -98,6 +100,7 @@ export function DummyCodeMirror({
       ariaDescribedBy={ariaDescribedBy}
       ariaInvalid={ariaInvalid}
       ariaDisabled={ariaDisabled}
+      ariaMultiline={!singleLine}
     />
   );
 }
@@ -113,6 +116,7 @@ function PlaceholderCode({
   ariaDescribedBy,
   ariaInvalid,
   ariaDisabled,
+  ariaMultiline,
 }: DummyInteractionProps & { placeholder: string | undefined; style: CSSProperties }) {
   // returns <br/> if no placeholder, so that the div takes up space
   return (
@@ -123,11 +127,12 @@ function PlaceholderCode({
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
       role="textbox"
-      tabIndex={0}
+      tabIndex={ariaDisabled ? -1 : 0}
       aria-label={ariaLabel}
       aria-describedby={ariaDescribedBy}
       aria-invalid={ariaInvalid || undefined}
       aria-disabled={ariaDisabled || undefined}
+      aria-multiline={ariaMultiline}
     >
       {placeholder ? placeholder : <br />}
     </span>
@@ -196,6 +201,7 @@ function HighlightedCode({
   ariaDescribedBy,
   ariaInvalid,
   ariaDisabled,
+  ariaMultiline,
 }: DummyInteractionProps & {
   code: string;
   theme: TextValueTheme;
@@ -212,11 +218,12 @@ function HighlightedCode({
         onMouseDownCapture={onMouseDownCapture}
         onFocus={onFocus}
         role="textbox"
-        tabIndex={0}
+        tabIndex={ariaDisabled ? -1 : 0}
         aria-label={ariaLabel}
         aria-describedby={ariaDescribedBy}
         aria-invalid={ariaInvalid || undefined}
         aria-disabled={ariaDisabled || undefined}
+        aria-multiline={ariaMultiline}
       >
         {code.split("\n").map((line, index) => (
           <div key={`line-${index + 1}`} className="cm-line">
@@ -248,11 +255,12 @@ function HighlightedCode({
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
       role="textbox"
-      tabIndex={0}
+      tabIndex={ariaDisabled ? -1 : 0}
       aria-label={ariaLabel}
       aria-describedby={ariaDescribedBy}
       aria-invalid={ariaInvalid || undefined}
       aria-disabled={ariaDisabled || undefined}
+      aria-multiline={ariaMultiline}
     >
       {outputDivs}
     </div>

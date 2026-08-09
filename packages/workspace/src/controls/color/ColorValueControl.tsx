@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME } from "../../interaction";
 import { ControlPopover } from "../popover/ControlPopover";
-import { focusSectionAfterEscape } from "../sectionFocus";
+import { focusSectionAfterEscape, handleSectionControlEscape } from "../sectionFocus";
 
 // The item-controls milestone's color picker: the reference `ColorPickerInput` at the `ParamUI`
 // color presentation. With host-supplied choices it renders the recorded trigger — the rounded
@@ -53,7 +53,7 @@ const MENU_ITEM_TEXT_CLASS_NAME = "max-w-48 truncate text-xs text-setta-500 dark
 // color-swatch normalization to this package-owned input; the remaining classes are the native
 // path verbatim.
 const NATIVE_INPUT_CLASS_NAME =
-  "setta-workspace-native-reset setta-workspace-native-color single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid !border-setta-500/20 dark:!border-setta-500/40";
+  "setta-workspace-native-reset setta-workspace-native-color single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid !border-setta-500/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 dark:!border-setta-500/40";
 
 // The reference's auto-contrast paint: the swatch color as background, flipped to black or
 // white text by perceptual lightness (from https://codepen.io/devongovett/pen/QwLbRrW).
@@ -128,6 +128,7 @@ function NativeColorPicker({
   return (
     <>
       <i
+        aria-hidden="true"
         className="gg-color-picker single-cell-child pointer-events-none mr-0.5 mt-0.5 place-self-center"
         style={getAutoContrastStyle(value)}
       />
@@ -146,11 +147,7 @@ function NativeColorPicker({
         onChange={(e) => onValueChange(e.target.value)}
         className={NATIVE_INPUT_CLASS_NAME}
         disabled={isDisabled}
-        onKeyDown={(e) => {
-          if (e.code === "Escape") {
-            focusSectionAfterEscape(sectionId);
-          }
-        }}
+        onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
       />
     </>
   );
@@ -159,10 +156,18 @@ function NativeColorPicker({
 function ColorChoiceOption({
   item,
   isSelected,
+  isActive,
+  buttonRef,
+  onActive,
+  onKeyDown,
   onSelect,
 }: {
   item: ColorValueChoice;
   isSelected: boolean;
+  isActive: boolean;
+  buttonRef: (element: HTMLButtonElement | null) => void;
+  onActive: () => void;
+  onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void;
   onSelect: (color: string) => void;
 }) {
   return (
@@ -170,10 +175,18 @@ function ColorChoiceOption({
       type="button"
       role="option"
       aria-selected={isSelected}
+      tabIndex={isActive ? 0 : -1}
+      ref={buttonRef}
       className={MENU_ITEM_CLASS_NAME}
+      onFocus={onActive}
+      onKeyDown={onKeyDown}
       onClick={() => onSelect(item.color)}
     >
-      <div className="mr-2 h-4 w-4 rounded-full" style={{ backgroundColor: item.color }} />
+      <div
+        aria-hidden="true"
+        className="mr-2 h-4 w-4 rounded-full"
+        style={{ backgroundColor: item.color }}
+      />
       <p className={MENU_ITEM_TEXT_CLASS_NAME}>{item.description}</p>
     </button>
   );
@@ -195,16 +208,51 @@ function ColorChoicesPicker({
   isDisabled: boolean;
 }) {
   const selectedItem = resolveSelectedChoice(choices, value);
+  const selectedIndex = Math.max(
+    choices.findIndex((choice) => choice.color === selectedItem.color),
+    0,
+  );
   const [isOpen, setIsOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(selectedIndex);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const restoreSectionFocusAfterClose = useRef(false);
+  const changeOpen = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setActiveIndex(selectedIndex);
+    }
+    setIsOpen(nextOpen);
+  };
   const selectColor = (nextColor: string) => {
     onValueChange(nextColor);
     setIsOpen(false);
+  };
+  const focusOption = (nextIndex: number) => {
+    setActiveIndex(nextIndex);
+    optionRefs.current[nextIndex]?.focus({ preventScroll: true });
+  };
+  const handleOptionKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowDown") {
+      nextIndex = (index + 1) % choices.length;
+    } else if (event.key === "ArrowUp") {
+      nextIndex = (index - 1 + choices.length) % choices.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = choices.length - 1;
+    }
+    if (nextIndex === null) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    focusOption(nextIndex);
   };
   const labelStyle = getAutoContrastStyle(selectedItem.color);
   return (
     <ControlPopover
       open={isOpen}
-      onOpenChange={setIsOpen}
+      onOpenChange={changeOpen}
       contentClasses={MENU_CONTENT_CLASS_NAME}
       contentProps={{
         "aria-label": `${ariaLabel} choices`,
@@ -213,7 +261,15 @@ function ColorChoicesPicker({
         style: { minWidth: "var(--radix-popover-trigger-width)" },
         onEscapeKeyDown: (event) => {
           event.stopPropagation();
-          focusSectionAfterEscape(sectionId);
+          restoreSectionFocusAfterClose.current = true;
+        },
+        onCloseAutoFocus: (event) => {
+          if (!restoreSectionFocusAfterClose.current) {
+            return;
+          }
+          event.preventDefault();
+          restoreSectionFocusAfterClose.current = false;
+          requestAnimationFrame(() => focusSectionAfterEscape(sectionId));
         },
       }}
       trigger={
@@ -224,15 +280,10 @@ function ColorChoicesPicker({
           aria-label={`${ariaLabel}: ${selectedItem.description}`}
           aria-expanded={isOpen}
           aria-haspopup="listbox"
-          onKeyDown={(e) => {
-            if (e.code === "Escape") {
-              // have to stop propagation to prevent section from becoming unselected
-              e.stopPropagation();
-              focusSectionAfterEscape(sectionId);
-            }
-          }}
+          onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
         >
           <div
+            aria-hidden="true"
             className={TRIGGER_SWATCH_CLASS_NAME}
             style={{ backgroundColor: selectedItem.color }}
           />
@@ -240,7 +291,7 @@ function ColorChoicesPicker({
             <p className="ml-[2px] truncate pl-2.5 text-xs font-semibold" style={labelStyle}>
               {selectedItem.description}
             </p>
-            <i className="gg-chevron-down px-2" style={labelStyle} />
+            <i aria-hidden="true" className="gg-chevron-down px-2" style={labelStyle} />
           </div>
         </button>
       }
@@ -250,7 +301,13 @@ function ColorChoicesPicker({
           <ColorChoiceOption
             key={index}
             item={item}
-            isSelected={item.color === value}
+            isSelected={item.color === selectedItem.color}
+            isActive={index === activeIndex}
+            buttonRef={(element) => {
+              optionRefs.current[index] = element;
+            }}
+            onActive={() => setActiveIndex(index)}
+            onKeyDown={(event) => handleOptionKeyDown(event, index)}
             onSelect={selectColor}
           />
         ))}

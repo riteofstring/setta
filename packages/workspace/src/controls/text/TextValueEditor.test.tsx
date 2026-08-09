@@ -97,6 +97,7 @@ describe("TextValueEditor", () => {
     expect(dummy.textContent).toBe("0.001");
     expect(dummy.getAttribute("role")).toBe("textbox");
     expect(dummy.getAttribute("aria-label")).toBe("Threshold value");
+    expect(dummy.getAttribute("aria-multiline")).toBe("true");
     for (const expectedClass of [
       "nopan",
       "nodrag",
@@ -176,6 +177,8 @@ describe("TextValueEditor", () => {
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
     useSectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    const documentEscape = vi.fn();
+    document.addEventListener("keydown", documentEscape);
     await mount();
     await activate();
     const view = getLiveView();
@@ -183,12 +186,14 @@ describe("TextValueEditor", () => {
       view.contentDOM.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     });
     expect(document.activeElement).toBe(sectionRoot);
+    expect(documentEscape).not.toHaveBeenCalled();
     // The blur handler resets both layers on the next tick.
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 1));
     });
     expect(document.getElementById(DUMMY_ID)).not.toBeNull();
     expect(host.querySelector(".cm-editor")).toBeNull();
+    document.removeEventListener("keydown", documentEscape);
     sectionRoot.remove();
   });
 
@@ -197,6 +202,7 @@ describe("TextValueEditor", () => {
     const dummy = getDummy();
     expect(dummy.classList.contains("cursor-text")).toBe(false);
     expect(dummy.getAttribute("aria-disabled")).toBe("true");
+    expect(dummy.tabIndex).toBe(-1);
     await activate();
     expect(host.querySelector(".cm-editor")).toBeNull();
     expect(useActiveSections.getState().activeIds).toEqual([]);

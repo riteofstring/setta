@@ -142,8 +142,11 @@ describe("DateValueControl and TimeValueControl", () => {
     const nextDate = host.querySelector<HTMLButtonElement>(
       'button[aria-label="February 18, 2026"]',
     );
-    expect(selected?.getAttribute("aria-pressed")).toBe("true");
-    expect(nextDate?.getAttribute("aria-pressed")).toBe("false");
+    expect(selected?.getAttribute("aria-selected")).toBe("true");
+    expect(nextDate?.getAttribute("aria-selected")).toBe("false");
+    expect(group?.querySelector('[role="grid"]')?.getAttribute("aria-label")).toBe(
+      "Date value, February 2026",
+    );
     act(() => nextDate?.click());
     expect(onValueChange).toHaveBeenCalledWith('["2026-02-17","2026-02-18"]');
   });
@@ -151,13 +154,32 @@ describe("DateValueControl and TimeValueControl", () => {
   it("navigates calendar months and keeps the frozen 42-cell grid", () => {
     mountDate({ value: "2026-02-17", controlMode: "calendar" });
     const group = host.querySelector<HTMLElement>('[role="group"]');
-    expect(
-      group?.querySelectorAll('button[aria-pressed="false"], button[aria-pressed="true"]'),
-    ).toHaveLength(42);
+    expect(group?.querySelectorAll('button[role="gridcell"]')).toHaveLength(42);
     const next = host.querySelector<HTMLButtonElement>(
       'button[aria-label="Date value: Next month"]',
     );
     act(() => next?.click());
+    expect(host.textContent).toContain("March 2026");
+  });
+
+  it("uses one calendar tab stop and moves focus across month boundaries with arrow keys", () => {
+    mountDate({ value: "2026-02-28", controlMode: "calendar" });
+    const gridCells = Array.from(
+      host.querySelectorAll<HTMLButtonElement>('button[role="gridcell"]'),
+    );
+    expect(gridCells.filter((cell) => cell.tabIndex === 0)).toHaveLength(1);
+    const selectedDate = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="February 28, 2026"]',
+    );
+    selectedDate?.focus();
+    act(() => {
+      selectedDate?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }),
+      );
+    });
+    const nextDate = host.querySelector<HTMLButtonElement>('button[aria-label="March 1, 2026"]');
+    expect(document.activeElement).toBe(nextDate);
+    expect(nextDate?.tabIndex).toBe(0);
     expect(host.textContent).toContain("March 2026");
   });
 
@@ -206,7 +228,7 @@ describe("DateValueControl and TimeValueControl", () => {
       scale: 1.8,
       font: "clock",
     });
-    const display = host.querySelector<HTMLElement>('span[aria-label="Time value: 1:05 PM"]');
+    const display = host.querySelector<HTMLElement>('output[aria-label="Time value: 1:05 PM"]');
     expect(display?.textContent).toBe("1:05 PM");
     expect(display?.classList.contains("tracking-[0.08em]")).toBe(true);
     expect(display?.style.fontSize).toBe("1.8em");
@@ -218,6 +240,8 @@ describe("DateValueControl and TimeValueControl", () => {
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
     useSectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    const documentEscape = vi.fn();
+    document.addEventListener("keydown", documentEscape);
     mountTime();
     const input = host.querySelector<HTMLInputElement>('input[type="time"]');
     input?.focus();
@@ -239,6 +263,8 @@ describe("DateValueControl and TimeValueControl", () => {
       );
     });
     expect(document.activeElement).toBe(sectionRoot);
+    expect(documentEscape).not.toHaveBeenCalled();
+    document.removeEventListener("keydown", documentEscape);
     sectionRoot.remove();
   });
 

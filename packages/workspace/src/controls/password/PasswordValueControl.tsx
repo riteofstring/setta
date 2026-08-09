@@ -1,8 +1,8 @@
-import { useState, type KeyboardEvent } from "react";
+import { useState } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
-import { focusSectionAfterEscape } from "../sectionFocus";
+import { handleSectionControlEscape } from "../sectionFocus";
 
 // The remaining-controls milestone's password control: the frozen `PasswordInput` and its
 // ordinary-row `ParamUI` wrapper behind the package's controlled string seam. The package owns
@@ -56,12 +56,6 @@ function getToggleClassName(disabled: boolean) {
   return `${TOGGLE_BASE_CLASS_NAME} ${interactionClassName}`;
 }
 
-function handleEscape(event: KeyboardEvent<HTMLInputElement>, sectionId: string) {
-  if (event.code === "Escape") {
-    focusSectionAfterEscape(sectionId);
-  }
-}
-
 export function PasswordValueControl({
   ariaLabel,
   sectionId,
@@ -90,7 +84,11 @@ export function PasswordValueControl({
           wrapperClassName={INPUT_WRAPPER_CLASS_NAME}
         />
         {savedValueAction ? (
-          <SavedValueRevealButton action={savedValueAction} disabled={isDisabled} />
+          <SavedValueRevealButton
+            action={savedValueAction}
+            disabled={isDisabled}
+            sectionId={sectionId}
+          />
         ) : null}
       </div>
       <span className={getDividerClassName(isSelectingItems)} />
@@ -162,7 +160,7 @@ function PasswordInput({
         disabled={disabled}
         type={showPassword ? "text" : "password"}
         placeholder={placeholder}
-        onKeyDown={(event) => handleEscape(event, sectionId)}
+        onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
       />
       <button
         type="button"
@@ -170,6 +168,7 @@ function PasswordInput({
         aria-label={showPassword ? "Hide password" : "Show password"}
         className={getToggleClassName(disabled)}
         disabled={disabled}
+        onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
       >
         {showPassword ? <BiShow aria-hidden="true" /> : <BiHide aria-hidden="true" />}
       </button>
@@ -180,9 +179,11 @@ function PasswordInput({
 function SavedValueRevealButton({
   action,
   disabled,
+  sectionId,
 }: {
   action: PasswordSavedValueAction;
   disabled: boolean;
+  sectionId: string;
 }) {
   const isDisabled = disabled || action.pending;
   return (
@@ -192,7 +193,9 @@ function SavedValueRevealButton({
       onClick={action.onReveal}
       disabled={isDisabled}
       aria-busy={action.pending}
+      aria-label="Reveal saved password"
       title="Reveal saved password"
+      onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
     >
       {action.pending ? "Revealing..." : "Reveal"}
     </button>

@@ -5,7 +5,12 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { useActiveSections } from "../document/stores";
-import { getXYWidthHeight, MinimapSvg, syncSelectedMiniMapNodes } from "./MiniMap";
+import {
+  getXYWidthHeight,
+  MinimapSvg,
+  resolveMiniMapKeyboardPosition,
+  syncSelectedMiniMapNodes,
+} from "./MiniMap";
 import type { MiniMapNodeProps } from "./types";
 
 // Ported from the reference fork's `minimap/MiniMap.test.ts`; the selection-sync source is the
@@ -28,6 +33,20 @@ describe("getXYWidthHeight", () => {
     expect(result.y).toBeCloseTo(-2.5);
     expect(result.width).toBeCloseTo(105);
     expect(result.height).toBeCloseTo(55);
+  });
+
+  it("maps arrow keys from the viewport center and activation from the workspace center", () => {
+    const viewBB = { x: 10, y: 20, width: 100, height: 80 };
+    const boundingRect = { x: -50, y: -20, width: 300, height: 200 };
+    expect(resolveMiniMapKeyboardPosition({ key: "ArrowRight", viewBB, boundingRect })).toEqual({
+      x: 70,
+      y: 60,
+    });
+    expect(resolveMiniMapKeyboardPosition({ key: "Enter", viewBB, boundingRect })).toEqual({
+      x: 100,
+      y: 80,
+    });
+    expect(resolveMiniMapKeyboardPosition({ key: "Escape", viewBB, boundingRect })).toBeNull();
   });
 
   it("expands view when bounds are wider than the minimap element", () => {
@@ -103,6 +122,7 @@ describe("syncSelectedMiniMapNodes", () => {
             height={150}
             offset={0}
             viewBB={{ x: 0, y: 0, width: 200, height: 150 }}
+            boundingRect={{ x: 0, y: 0, width: 200, height: 150 }}
             maskColor="rgba(0, 0, 0, 0.1)"
             maskStrokeColor="transparent"
             maskStrokeWidth={0}
@@ -151,6 +171,7 @@ describe("syncSelectedMiniMapNodes", () => {
         height={150}
         offset={0}
         viewBB={{ x: 0, y: 0, width: 200, height: 150 }}
+        boundingRect={{ x: 0, y: 0, width: 200, height: 150 }}
         maskColor="rgba(0, 0, 0, 0.1)"
         maskStrokeColor="transparent"
         maskStrokeWidth={0}
@@ -169,6 +190,8 @@ describe("syncSelectedMiniMapNodes", () => {
     );
 
     expect(markup).toContain('data-minimap-node-id="section-a"');
+    expect(markup).toContain('role="img"');
+    expect(markup).toContain('aria-label="Workspace minimap"');
   });
 });
 

@@ -1453,6 +1453,29 @@ Phase 4 progress (2026-08-11):
   keyboard/screen-reader/focus restoration, reduced motion, RTL, coarse pointer, 200% zoom, and
   narrow reflow, followed by performance measurement and the final gates. No accepted baseline was
   refreshed by this non-geometric batch.
+- Phase 5 keyboard, screen-reader, and focus-restoration hardening batch complete (2026-08-12):
+  every control with the package's section-restoring Escape contract now consumes the key before
+  the canvas shortcut and restores its owning section, including both CodeMirror layers, native and configured color controls,
+  password actions, numeric controls, and direct-on-canvas actions. The configured color listbox
+  and 42-cell calendar use one roving tab stop with standard arrow/Home/End navigation; the calendar
+  additionally supports Page Up/Down month and year movement across its ARIA grid. Editable section
+  titles activate with Enter or Space, expose a labeled input, and restore the title trigger after
+  keyboard commit or cancel. Focus after destructive actions is deterministic: section deletion
+  chooses next sibling, previous sibling, parent, or canvas pane in that order, while attachment
+  deletion chooses the next or previous attachment action and finally the local-file action. Item
+  rows enter the tab order with canonical pressed state only during explicit item-select mode; idle
+  disabled CodeMirror layers leave the tab order. Section/group selection state, color tags,
+  toolbar zoom status, decorative icons, formatted time output, search landmarks, and canvas/minimap
+  names now expose their semantics without changing accepted geometry. The minimap supports arrow
+  panning and keyboard activation, and the multi-section selection surface retains a visible focus
+  indicator and identifies its selected sections. Package verification is green across 87 files
+  and 634 tests after the sole color-popover close-timing failure was repaired and rerun in
+  isolation; the two directly affected playground renderer files pass 21 tests, and the package
+  production build/built-boundary check and changed-file static gate pass. The frozen reference
+  remains clean at `043d3b2e9`; no dependency changed, so the supply-chain gate was not duplicated.
+  Remaining Phase 5 hardening is reduced motion, RTL, coarse pointer, 200% zoom, and narrow reflow,
+  followed by performance measurement and the final matched developer comparison and gates. No
+  accepted visual baseline was refreshed by this non-geometric batch.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

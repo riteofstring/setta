@@ -2,7 +2,7 @@ import type { ChangeEvent, FocusEvent, KeyboardEvent, MouseEvent, RefObject } fr
 import { useEffect, useRef, useState } from "react";
 
 // The reference's `components/Utils/Editable.tsx`: a text label that flips to a text input on
-// double-click (or Space), restoring focus to the label after an Escape-triggered blur. The
+// double-click (or keyboard activation), restoring focus to the label after keyboard submit. The
 // reference renders the label as a `<p>`; the repository's accessibility gate forbids
 // interactive roles on paragraphs, so the package renders a visually identical `<div>`.
 type EditableTitleClassNames = {
@@ -16,7 +16,7 @@ type EditableProps = {
   onBlur: (e: FocusEvent<HTMLInputElement>) => void;
   onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
   titleProps: EditableTitleClassNames;
-  blurTriggeredByEscapeKey: RefObject<boolean>;
+  restoreFocusAfterKeyboardSubmit: RefObject<boolean>;
   // The reference forwards these to both modes so the section title can drive the tooltip.
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
@@ -28,7 +28,7 @@ export function Editable({
   onBlur,
   onKeyDown,
   titleProps,
-  blurTriggeredByEscapeKey,
+  restoreFocusAfterKeyboardSubmit,
   onMouseEnter,
   onMouseLeave,
 }: EditableProps) {
@@ -36,11 +36,11 @@ export function Editable({
   const paragraphRef = useRef<HTMLDivElement | null>(null);
 
   function localOnBlur(e: FocusEvent<HTMLInputElement>) {
-    // store value in separate variable,
-    // because blurTriggeredByEscapeKey gets reset in onBlur
-    const focusOnNonEdit = blurTriggeredByEscapeKey.current;
+    // Read before the submission hook resets its escape-specific blur state.
+    const focusOnNonEdit = restoreFocusAfterKeyboardSubmit.current;
     setIsEditing(false);
     onBlur(e);
+    restoreFocusAfterKeyboardSubmit.current = false;
     if (focusOnNonEdit) {
       requestAnimationFrame(() => {
         paragraphRef.current?.focus({ preventScroll: true });
@@ -49,7 +49,7 @@ export function Editable({
   }
 
   function onClick(e: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>) {
-    if (("code" in e && e.code === "Space") || ("detail" in e && e.detail === 2)) {
+    if (("key" in e && (e.key === " " || e.key === "Enter")) || ("detail" in e && e.detail === 2)) {
       setIsEditing(true);
     }
   }
@@ -60,6 +60,7 @@ export function Editable({
       onChange={onChange}
       onBlur={localOnBlur}
       onKeyDown={onKeyDown}
+      ariaLabel="Section title"
       titleProps={titleProps.editing}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
@@ -70,6 +71,7 @@ export function Editable({
       onClick={onClick}
       titleProps={titleProps.notEditing}
       paragraphRef={paragraphRef}
+      ariaLabel={`${value}, edit section title`}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     />
@@ -84,6 +86,7 @@ function InEditMode({
   titleProps,
   onMouseEnter,
   onMouseLeave,
+  ariaLabel,
 }: {
   value: string;
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
@@ -92,6 +95,7 @@ function InEditMode({
   titleProps?: string;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  ariaLabel: string;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -106,6 +110,7 @@ function InEditMode({
   return (
     <input
       value={value}
+      aria-label={ariaLabel}
       onChange={onChange}
       onBlur={onBlur}
       onKeyDown={onKeyDown}
@@ -125,6 +130,7 @@ function InNonEditMode({
   paragraphRef,
   onMouseEnter,
   onMouseLeave,
+  ariaLabel,
 }: {
   value: string;
   onClick: (e: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>) => void;
@@ -132,9 +138,10 @@ function InNonEditMode({
   paragraphRef: RefObject<HTMLDivElement | null>;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  ariaLabel: string;
 }) {
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
-    if (e.code === "Space") {
+    if (e.key === " " || e.key === "Enter") {
       e.preventDefault(); // need this to prevent title from getting erased
       onClick(e);
     }
@@ -145,6 +152,7 @@ function InNonEditMode({
       onClick={onClick}
       className={titleProps}
       role="button"
+      aria-label={ariaLabel}
       tabIndex={0}
       onKeyDown={onKeyDown}
       ref={paragraphRef}

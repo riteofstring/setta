@@ -11,7 +11,7 @@ import {
   clampNumericValue,
   type NumericControlConfig,
 } from "../numeric/numericControlConfig";
-import { focusSectionAfterEscape } from "../sectionFocus";
+import { handleSectionControlEscape } from "../sectionFocus";
 
 const ROTARY_START_DEG = -135;
 const ROTARY_END_DEG = 135;
@@ -99,8 +99,7 @@ export function RotaryValueControl({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
-    if (event.key === "Escape") {
-      focusSectionAfterEscape(sectionId);
+    if (handleSectionControlEscape(event, sectionId)) {
       return;
     }
     if (isDisabled) {

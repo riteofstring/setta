@@ -198,6 +198,8 @@ describe("SectionContainer", () => {
     expect(shell).not.toBeNull();
     expect(shell?.getAttribute("data-section-type")).toBe("leaf");
     expect(shell?.getAttribute("data-section-active")).toBe("false");
+    expect(shell?.getAttribute("aria-label")).toBe("Leaf section section");
+    expect(shell?.getAttribute("aria-pressed")).toBe("false");
     expect(shell?.className).toContain("rounded-lg");
 
     expect(host.querySelector("i.gg-menu")).not.toBeNull();
@@ -230,7 +232,7 @@ describe("SectionContainer", () => {
       throw new Error("The meta-control shell did not render.");
     }
     expect(shell.getAttribute("data-section-presentation")).toBe("meta-control");
-    expect(shell.getAttribute("aria-label")).toBe("Meta control");
+    expect(shell.getAttribute("aria-label")).toBe("Meta text meta control");
     for (const expectedClass of [
       "bg-transparent",
       "!border-transparent",
@@ -296,6 +298,18 @@ describe("SectionContainer", () => {
     await act(async () => editButton.click());
     expect(onEdit).toHaveBeenCalledTimes(1);
     expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: "meta" }));
+
+    const documentEscape = vi.fn();
+    document.addEventListener("keydown", documentEscape);
+    editButton.focus();
+    await act(async () => {
+      editButton.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
+      );
+    });
+    expect(document.activeElement).toBe(useSectionRefs.getState().selfOnly["meta"]);
+    expect(documentEscape).not.toHaveBeenCalled();
+    document.removeEventListener("keydown", documentEscape);
   });
 
   it("removes meta drag and resize affordances when its layout is locked", async () => {
@@ -408,6 +422,8 @@ describe("SectionContainer", () => {
 
     const groupRoot = host.querySelector(".group\\/group-section");
     expect(groupRoot).not.toBeNull();
+    expect(groupRoot?.getAttribute("aria-label")).toBe("Group section group section");
+    expect(groupRoot?.getAttribute("aria-pressed")).toBe("false");
     // The frame and selection outline paint on an absolutely positioned sibling layer.
     expect(host.querySelector(".outline-4.absolute")).not.toBeNull();
     expect(host.querySelector('[aria-label="Flow children horizontally"]')).not.toBeNull();
@@ -506,6 +522,38 @@ describe("SectionContainer", () => {
     expect(useWorkspaceDocument.getState().sections["leaf"]?.name).toBe("Renamed leaf");
   });
 
+  it("enters title editing with Enter and restores label focus after keyboard commit", async () => {
+    await mount("leaf");
+    const title = host.querySelector<HTMLElement>(
+      '[role="button"][aria-label="Leaf section, edit section title"]',
+    );
+    title?.focus();
+    await act(async () => {
+      title?.dispatchEvent(
+        new KeyboardEvent("keydown", { code: "Enter", key: "Enter", bubbles: true }),
+      );
+    });
+    const input = host.querySelector<HTMLInputElement>('input[aria-label="Section title"]');
+    expect(document.activeElement).toBe(input);
+    const nativeValueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    await act(async () => {
+      nativeValueSetter?.call(input, "Keyboard title");
+      input?.dispatchEvent(new Event("input", { bubbles: true }));
+      input?.dispatchEvent(
+        new KeyboardEvent("keydown", { code: "Enter", key: "Enter", bubbles: true }),
+      );
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+    const committedTitle = host.querySelector<HTMLElement>(
+      '[role="button"][aria-label="Keyboard title, edit section title"]',
+    );
+    expect(useWorkspaceDocument.getState().sections["leaf"]?.name).toBe("Keyboard title");
+    expect(document.activeElement).toBe(committedTitle);
+  });
+
   it("drives the tooltip content from the hovered section title", async () => {
     await mount("leaf");
 
@@ -535,6 +583,8 @@ describe("SectionContainer", () => {
     });
 
     const input = host.querySelector("input") as HTMLInputElement;
+    const documentEscape = vi.fn();
+    document.addEventListener("keydown", documentEscape);
     const nativeValueSetter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
       "value",
@@ -546,9 +596,15 @@ describe("SectionContainer", () => {
     await act(async () => {
       // Escape blurs the input itself; the escape flag swallows that blur without committing.
       input.dispatchEvent(new KeyboardEvent("keydown", { code: "Escape", bubbles: true }));
+      await new Promise((resolve) => requestAnimationFrame(resolve));
     });
 
     expect(useWorkspaceDocument.getState().sections["leaf"]?.name).toBe("Leaf section");
+    expect(document.activeElement?.getAttribute("aria-label")).toBe(
+      "Leaf section, edit section title",
+    );
+    expect(documentEscape).not.toHaveBeenCalled();
+    document.removeEventListener("keydown", documentEscape);
   });
 
   it("deletes the section from the header control", async () => {
@@ -561,6 +617,27 @@ describe("SectionContainer", () => {
 
     expect(useWorkspaceDocument.getState().sections["leaf"]).toBeUndefined();
     expect(host.querySelector('[data-section-id="leaf"]')).toBeNull();
+  });
+
+  it("moves focus to the next rendered section after a focused delete action", async () => {
+    await act(async () => {
+      root.render(
+        createElement(
+          SectionDndContext,
+          null,
+          createElement(SectionHost, { sectionId: "leaf" }),
+          createElement(SectionHost, { sectionId: "group" }),
+        ),
+      );
+    });
+    const leaf = host.querySelector<HTMLElement>('[data-section-id="leaf"]');
+    const deleteButton = leaf?.querySelector<HTMLButtonElement>('[aria-label="Delete section"]');
+    deleteButton?.focus();
+    await act(async () => {
+      deleteButton?.click();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+    expect(document.activeElement).toBe(useSectionRefs.getState().withNested["group"]);
   });
 
   it("gates structure edits behind canEditStructure", async () => {
@@ -594,6 +671,7 @@ describe("SectionContainer", () => {
 
     const shell = host.querySelector('[data-section-id="leaf"]');
     expect(shell?.getAttribute("data-section-active")).toBe("true");
+    expect(shell?.getAttribute("aria-pressed")).toBe("true");
     expect(shell?.className).toContain("z-[150]");
   });
 });

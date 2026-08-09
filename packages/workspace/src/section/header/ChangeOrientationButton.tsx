@@ -24,7 +24,11 @@ export function ChangeOrientationButton({ sectionId }: ChangeOrientationButtonPr
       }
       type="button"
     >
-      {!isHorizontalOrientation ? <TbArrowBigDownLinesFilled /> : <TbArrowBigRightLinesFilled />}
+      {!isHorizontalOrientation ? (
+        <TbArrowBigDownLinesFilled aria-hidden="true" focusable="false" />
+      ) : (
+        <TbArrowBigRightLinesFilled aria-hidden="true" focusable="false" />
+      )}
     </button>
   );
 }

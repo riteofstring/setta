@@ -8,7 +8,7 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "../../interaction";
 import { assertNumericControlConfig, clampNumericValue } from "../numeric/numericControlConfig";
-import { focusSectionAfterEscape } from "../sectionFocus";
+import { handleSectionControlEscape } from "../sectionFocus";
 
 // The remaining-controls milestone's slider: the reference `SliderInput` at the ordinary
 // `ParamUI` row presentation. Radix owns pointer and keyboard stepping; the adjacent numeric
@@ -160,11 +160,7 @@ function SliderValueControlCore({
         <Slider.Thumb
           aria-label={ariaLabel}
           className={classes.thumbClassName}
-          onKeyDown={(event) => {
-            if (event.code === "Escape") {
-              focusSectionAfterEscape(sectionId);
-            }
-          }}
+          onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
         />
       </Slider.Root>
       <SliderNumericField
@@ -232,11 +228,7 @@ function SliderNumericField({
         onValueChange(clamped);
         onValueCommit(clamped);
       }}
-      onKeyDown={(event) => {
-        if (event.code === "Escape") {
-          focusSectionAfterEscape(sectionId);
-        }
-      }}
+      onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
     />
   );
 }

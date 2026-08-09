@@ -15,7 +15,7 @@ export function MenuButton({ sectionKind, hasSectionStyleTheme }: MenuButtonProp
     : "nodrag flex select-none items-center justify-center rounded-full p-0.5 mr-1 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 dark:text-setta-200";
 
   return (
-    <div className={unClickableIconWrapperClassName}>
+    <div aria-hidden="true" className={unClickableIconWrapperClassName}>
       <HeaderIcon sectionKind={sectionKind} hasSectionStyleTheme={hasSectionStyleTheme} />
     </div>
   );

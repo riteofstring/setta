@@ -226,6 +226,8 @@ describe("SliderValueControl", () => {
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
     useSectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    const documentEscape = vi.fn();
+    document.addEventListener("keydown", documentEscape);
     await mount();
     for (const target of [getThumb(), getNumericInput()]) {
       await act(async () => {
@@ -235,6 +237,8 @@ describe("SliderValueControl", () => {
       });
       expect(document.activeElement).toBe(sectionRoot);
     }
+    expect(documentEscape).not.toHaveBeenCalled();
+    document.removeEventListener("keydown", documentEscape);
     sectionRoot.remove();
   });
 

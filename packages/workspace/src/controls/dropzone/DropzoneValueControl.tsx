@@ -4,7 +4,6 @@ import {
   useState,
   type ChangeEvent,
   type DragEvent,
-  type KeyboardEvent,
   type RefObject,
 } from "react";
 import { FiUploadCloud } from "react-icons/fi";
@@ -15,7 +14,7 @@ import {
   NO_WHEEL_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "../../interaction";
-import { focusSectionAfterEscape } from "../sectionFocus";
+import { handleSectionControlEscape } from "../sectionFocus";
 import {
   assertDropzoneAttachments,
   assertDropzonePolicy,
@@ -197,13 +196,6 @@ function resolveDropzoneLabel(
   return `${attachments.length} attachment${attachments.length === 1 ? "" : "s"}`;
 }
 
-function handleEscape(event: KeyboardEvent<HTMLElement>, sectionId: string): void {
-  if (event.code === "Escape") {
-    event.stopPropagation();
-    focusSectionAfterEscape(sectionId);
-  }
-}
-
 function resolveDropzoneProps(props: DropzoneValueControlProps): ResolvedDropzoneValueControlProps {
   return {
     ...props,
@@ -248,6 +240,7 @@ function DropzoneValueControlView(
   props: ResolvedDropzoneValueControlProps & { viewState: DropzoneViewState },
 ) {
   const { viewState } = props;
+  const localFileButtonRef = useRef<HTMLButtonElement>(null);
   const interactions = useDropzoneInteractions({
     blocked: viewState.actionsBlocked,
     policy: props.policy,
@@ -276,6 +269,7 @@ function DropzoneValueControlView(
       />
       <DropzoneActionRow
         fileInputRef={interactions.fileInputRef}
+        localFileButtonRef={localFileButtonRef}
         pending={props.pending}
         sectionId={props.sectionId}
         onServerFilePickerRequest={props.onServerFilePickerRequest}
@@ -290,6 +284,7 @@ function DropzoneValueControlView(
         attachments={props.attachments}
         disabled={viewState.attachmentActionsDisabled}
         sectionId={props.sectionId}
+        fallbackFocusRef={localFileButtonRef}
         onAttachmentRemove={props.onAttachmentRemove}
       />
     </div>
@@ -335,12 +330,14 @@ function DropTarget({
 
 function DropzoneActionRow({
   fileInputRef,
+  localFileButtonRef,
   pending,
   sectionId,
   onServerFilePickerRequest,
   viewState,
 }: {
   fileInputRef: RefObject<HTMLInputElement | null>;
+  localFileButtonRef: RefObject<HTMLButtonElement | null>;
   pending: boolean;
   sectionId: string;
   onServerFilePickerRequest: DropzoneValueControlProps["onServerFilePickerRequest"];
@@ -350,10 +347,11 @@ function DropzoneActionRow({
   return (
     <div className={CONTROLS_ROW_CLASS_NAME}>
       <button
+        ref={localFileButtonRef}
         type="button"
         className={CONTROL_BUTTON_CLASS_NAME}
         onClick={() => fileInputRef.current?.click()}
-        onKeyDown={(event) => handleEscape(event, sectionId)}
+        onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
         disabled={viewState.actionsBlocked}
         aria-describedby={errorDescriptionId}
       >
@@ -364,7 +362,7 @@ function DropzoneActionRow({
           type="button"
           className={CONTROL_BUTTON_CLASS_NAME}
           onClick={() => onServerFilePickerRequest({ remainingSlots: viewState.remainingSlots })}
-          onKeyDown={(event) => handleEscape(event, sectionId)}
+          onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
           disabled={viewState.actionsBlocked}
           aria-describedby={errorDescriptionId}
         >
@@ -409,19 +407,45 @@ function DropzoneAttachmentList({
   attachments,
   disabled,
   sectionId,
+  fallbackFocusRef,
   onAttachmentRemove,
 }: {
   attachments: ReadonlyArray<DropzoneAttachment>;
   disabled: boolean;
   sectionId: string;
+  fallbackFocusRef: RefObject<HTMLButtonElement | null>;
   onAttachmentRemove: DropzoneValueControlProps["onAttachmentRemove"];
 }) {
+  const removalRequest = useRef<{ attachmentId: string; index: number } | null>(null);
+  const removeButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  useEffect(() => {
+    const request = removalRequest.current;
+    if (!request || attachments.some((attachment) => attachment.id === request.attachmentId)) {
+      return;
+    }
+    removalRequest.current = null;
+    const nextAttachment = attachments[request.index] ?? attachments[request.index - 1];
+    if (nextAttachment) {
+      const nextButton = removeButtonRefs.current[nextAttachment.id];
+      if (!nextButton) {
+        throw new Error(`Dropzone cannot restore focus to attachment action ${nextAttachment.id}.`);
+      }
+      nextButton.focus({ preventScroll: true });
+      return;
+    }
+    const fallbackButton = fallbackFocusRef.current;
+    if (!fallbackButton) {
+      throw new Error("Dropzone cannot restore focus without its local-file action.");
+    }
+    fallbackButton.focus({ preventScroll: true });
+  }, [attachments, fallbackFocusRef]);
+
   if (attachments.length === 0) {
     return null;
   }
   return (
     <div role="list" className={ATTACHMENTS_CONTAINER_CLASS_NAME}>
-      {attachments.map((attachment) => (
+      {attachments.map((attachment, index) => (
         <div
           role="listitem"
           key={attachment.id}
@@ -438,10 +462,16 @@ function DropzoneAttachmentList({
           {onAttachmentRemove ? (
             <button
               type="button"
+              ref={(element) => {
+                removeButtonRefs.current[attachment.id] = element;
+              }}
               className={DELETE_BUTTON_CLASS_NAME}
               aria-label={`Delete ${attachment.name}`}
-              onClick={() => onAttachmentRemove(attachment.id)}
-              onKeyDown={(event) => handleEscape(event, sectionId)}
+              onClick={() => {
+                removalRequest.current = { attachmentId: attachment.id, index };
+                onAttachmentRemove(attachment.id);
+              }}
+              onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
               disabled={disabled}
             >
               Delete
