@@ -38,6 +38,22 @@ Preflight progress (2026-08-10):
   are recorded in `docs/quality-and-supply-chain-tooling.md`. The preflight is complete; Phase 0
   evidence capture remains supervised developer work.
 
+Phase 0 progress (2026-08-10):
+
+- Item 1: complete — `../setta-main` re-verified clean on `main` at `043d3b2e9`; the "able to run"
+  check remains part of the supervised item 2 capture.
+- Items 3–5: complete — the import/dependency cone of the leaf, group, toolbar, minimap, drag, and
+  resize surfaces, the classification of every application-owned state read, and the exact
+  Tailwind/font/icon/style/fork inventory are recorded in `docs/evidence/phase0/dependency-map.md`.
+- Item 6: complete — experimental-branch donors compared against their main owners without
+  adoption in `docs/evidence/phase0/donor-comparison.md`.
+- Item 7: complete — the smallest package seam and every temporary main-only dependency are
+  proposed in `docs/evidence/phase0/extraction-seam-proposal.md`.
+- Items 2 and 8 remain open supervised developer work: running `main`, capturing the visual and
+  interaction reference set (with computed geometry/styles), and reviewing the reference set plus
+  the seam proposal at the Phase 0 exit gate. The automation loop must not attempt them; this is
+  the release gate blocking the Phase 0 exit.
+
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
 - Frozen reference worktree: `../setta-main` on `main` at `043d3b2e9`
