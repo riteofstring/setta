@@ -37,6 +37,7 @@ const RUNTIME_EXPORTS = [
   "setItemData",
   "setSectionData",
   "setWorkspaceDocumentChangeCallback",
+  "setWorkspaceColorMode",
   "useItemSelectionMode",
   "useWorkspaceAppearance",
   "useWorkspaceCapabilities",

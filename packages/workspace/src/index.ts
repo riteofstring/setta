@@ -81,6 +81,7 @@ export { TextValueEditor } from "./controls/text/TextValueEditor";
 export type { TextValueEditorProps } from "./controls/text/TextValueEditor";
 export type { TextValueLanguage } from "./controls/text/textValueLanguages";
 export { ItemDndContext } from "./dnd/ItemDndContext";
+export { setWorkspaceColorMode } from "./document/appearance";
 export { useWorkspaceCapabilities } from "./document/capabilities";
 export type { WorkspaceCapabilitiesState } from "./document/capabilities";
 export {
@@ -104,7 +105,7 @@ export type {
   SectionKindDefinition,
 } from "./document/sectionKindRegistry";
 export { useWorkspaceAppearance } from "./document/stores";
-export type { WorkspaceAppearanceState } from "./document/stores";
+export type { WorkspaceAppearanceState, WorkspaceColorMode } from "./document/stores";
 export type {
   Position,
   SectionSize,

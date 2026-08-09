@@ -268,7 +268,7 @@ input.setta-workspace-native-color::-moz-focus-inner {
   background-color: #94a3b8b6;
 }
 
-html.dark .react-flow__minimap {
+.setta-workspace.setta-workspace-dark .react-flow__minimap {
   background-color: hsla(220, 27%, 6%, 0.72);
   border-color: hsla(220, 26%, 14%, 0.55);
 }
@@ -289,7 +289,7 @@ html.dark .react-flow__minimap {
   background-color: #94a3b8;
 }
 
-html.dark .react-flow {
+.react-flow.setta-workspace.setta-workspace-dark {
   /* Exact `dark:bg-setta-dark` canvas surface inherited from main's app-base. */
   background-color: hsl(220, 27%, 15%);
 }

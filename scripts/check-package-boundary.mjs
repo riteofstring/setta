@@ -157,6 +157,11 @@ function validateBuiltStylesheet() {
     // compilation; both are cascade-critical (scopedBase.css, commit ae1e8c3b6).
     [":where(.setta-workspace, .setta-workspace *)", "scoped base subset"],
     [":where(.setta-workspace) :where(dl, dd)", "scoped dropdown-list reset"],
+    [
+      ":where(.setta-workspace.setta-workspace-dark, .setta-workspace.setta-workspace-dark *)",
+      "scoped dark variants",
+    ],
+    [".react-flow.setta-workspace.setta-workspace-dark", "scoped dark canvas surface"],
     [".react-flow__controls-button.react-flow__controls-button", "reset-zoom control rule"],
     // Registered bodies are placed by the package-owned content slot. The rule must still ship
     // unconditionally: the Phase 2 Setta-integration render proof caught its earlier layered form
@@ -178,7 +183,7 @@ function validateBuiltStylesheet() {
     ...(contents.includes("@tailwind")
       ? ["dist/styles.css: contains uncompiled @tailwind directives"]
       : []),
-    ...(/^(?:\*|html\b(?!\.dark)|body\b|:root\b)/mu.test(contents)
+    ...(/^(?:\*|html\b|body\b|:root\b)/mu.test(contents)
       ? ["dist/styles.css: contains a host-wide selector; rules must stay package-scoped"]
       : []),
     ...requiredMarkers.flatMap(([marker, label]) =>

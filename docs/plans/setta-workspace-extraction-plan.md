@@ -1427,6 +1427,32 @@ Phase 4 progress (2026-08-11):
   Phase 5 repository work is the appearance/input/accessibility hardening audit, large-document
   performance measurement, and the final broad and developer-acceptance gates; no visual baseline
   was refreshed by this API batch.
+- Phase 5 scoped-appearance and semantic-color hardening batch complete (2026-08-12): the public
+  `setWorkspaceColorMode` controller now resolves explicit light/dark modes and a live
+  `(prefers-color-scheme: dark)` system preference, rejects unsupported system/unknown inputs
+  specifically, and reprojects style-colored node backgrounds whenever the resolved appearance
+  changes without publishing a document mutation. The compiled stylesheet no longer reads
+  `html.dark`: every canvas, toolbar, tooltip, popover, dropdown, error bubble, drag preview, and
+  drop-feedback root carries a package-owned resolved-dark scope, including portals under
+  `document.body`; the built-artifact boundary now locks the scoped dark selector and rejects every
+  host-wide `html` selector. The playground and packed unrelated consumer use the controller and
+  mirror resolved appearance only into their own host chrome. The package README documents the
+  server/system contract, host-chrome composition, six inherited semantic section-color variables,
+  and the rule that `tagColor` is never a sole state cue. Document load now rejects an unparseable
+  style color even on a nested section, and an exhaustive four-bit RGB-cube test verifies the
+  derived primary text/background pairing remains at WCAG AA contrast in both appearances.
+  Focused verification passes across 14 files and 92 tests (appearance/media events, scope,
+  projection/load, color derivation, affected portals/surfaces, minimap/background, and the exact
+  public API), as do package and playground production builds, the strengthened built-artifact
+  boundary, the exact packed unrelated-consumer install/typecheck/build, formatting, and the
+  changed-file static gate. A live playground check at 1512 x 805 measured the accepted 552 x 352
+  item panel unchanged; all five mounted package roots and body-portaled lists followed dark and
+  light mode, canvas/minimap/style-color computed colors matched the reference derivation, and the
+  browser emitted no warning or error. The frozen reference remains clean at `043d3b2e9`; no
+  dependency changed, so the supply-chain gate was not duplicated. The remaining hardening work is
+  keyboard/screen-reader/focus restoration, reduced motion, RTL, coarse pointer, 200% zoom, and
+  narrow reflow, followed by performance measurement and the final gates. No accepted baseline was
+  refreshed by this non-geometric batch.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 import { useDndMonitor } from "../dnd/adapter";
 import type { DragStartEvent } from "../dnd/adapter/types";
 import { useItemDndState } from "../dnd/itemDndState";
-import { WORKSPACE_SCOPE_CLASS_NAME } from "../styles/workspaceScope";
+import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { isItemOverlayVisible } from "./itemDndMonitorUtils";
 
 // The reference's `ParamDragOverlay`: the fixed blue drag rectangle that follows the pointer
@@ -19,6 +19,7 @@ type ItemDragEventData = { current?: { type?: string } };
 export function ItemDragOverlay() {
   const manager = useDragDropManager();
   const [suppressOverlay, setSuppressOverlay] = useState(false);
+  const workspaceScopeClassName = useWorkspaceScopeClassName();
 
   useItemDragOverlayMonitor(setSuppressOverlay);
   const { overlayMetrics, overlayRect, canRenderOverlay } = useItemDragOverlayState(
@@ -33,7 +34,7 @@ export function ItemDragOverlay() {
   return createPortal(
     overlayRect ? (
       <div
-        className={`${WORKSPACE_SCOPE_CLASS_NAME} rounded-sm bg-blue-600/80 shadow-md dark:bg-blue-700/70`}
+        className={`${workspaceScopeClassName} rounded-sm bg-blue-600/80 shadow-md dark:bg-blue-700/70`}
         style={{
           position: "fixed",
           top: overlayRect.top,

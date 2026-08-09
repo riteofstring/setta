@@ -15,7 +15,14 @@ export type NodeInternalsState = { x: Map<string, Node> };
 
 export type ActiveSectionsState = { activeIds: Array<string> };
 
-export type WorkspaceAppearanceState = { darkMode: boolean };
+export type WorkspaceColorMode = "light" | "dark" | "system";
+
+export type WorkspaceAppearanceState = {
+  colorMode: WorkspaceColorMode;
+  // Resolved appearance. Consumers read this value for host chrome; color-mode changes go
+  // through setWorkspaceColorMode so system preference changes and node projection stay synced.
+  darkMode: boolean;
+};
 
 export const useWorkspaceDocument = createWithEqualityFn(
   withResetFn<WorkspaceDocumentState>(() => ({
@@ -40,6 +47,7 @@ export const useActiveSections = createWithEqualityFn(
 
 export const useWorkspaceAppearance = createWithEqualityFn(
   withResetFn<WorkspaceAppearanceState>(() => ({
+    colorMode: "light",
     darkMode: false,
   })),
 );

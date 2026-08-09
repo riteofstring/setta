@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi2";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "../../interaction";
-import { WORKSPACE_SCOPE_CLASS_NAME } from "../../styles/workspaceScope";
+import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
 import type { ComboboxItem, ComboboxItemGroup, OnSelectedItemChange } from "./comboboxStateReducer";
 import { useDropdownCombobox } from "./useDropdownCombobox";
 
@@ -207,6 +207,7 @@ function DropdownComboboxList({
   children: ReactNode;
 }) {
   const [listDims, setListDims] = useState({ x: 0, y: 0, width: 0 });
+  const workspaceScopeClassName = useWorkspaceScopeClassName();
   const display = combobox.isOpen ? "flex" : "hidden";
 
   useLayoutEffect(() => {
@@ -225,7 +226,7 @@ function DropdownComboboxList({
 
   return createPortal(
     <div
-      className={`${WORKSPACE_SCOPE_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} ${NO_DRAG_CLASS_NAME} absolute w-fit pb-2 ${display} z-[80] mt-8 max-h-96 rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50`}
+      className={`${workspaceScopeClassName} ${NO_WHEEL_CLASS_NAME} ${NO_DRAG_CLASS_NAME} absolute w-fit pb-2 ${display} z-[80] mt-8 max-h-96 rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50`}
       {...combobox.getMenuProps({ "aria-label": `${ariaLabel} choices` })}
       style={{
         left: `${listDims.x}px`,

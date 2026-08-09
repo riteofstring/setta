@@ -2,6 +2,7 @@ import {
   activateItemSelect,
   deactivateItemSelect,
   loadWorkspaceDocument,
+  setWorkspaceColorMode,
   setWorkspaceDocumentChangeCallback,
   useItemSelectionMode,
   useWorkspaceAppearance,
@@ -14,8 +15,7 @@ import { playgroundDocument } from "./playgroundDocument";
 
 function toggleDarkMode() {
   const next = !useWorkspaceAppearance.getState().darkMode;
-  document.documentElement.classList.toggle("dark", next);
-  useWorkspaceAppearance.setState({ darkMode: next });
+  setWorkspaceColorMode(next ? "dark" : "light");
 }
 
 // The host side of the document-change callback: every package-initiated canonical commit
@@ -50,6 +50,12 @@ function DocumentChangeReadout() {
 
 export function App() {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
+
+  // Package appearance is scoped to package roots. The playground mirrors the resolved mode only
+  // for its own host chrome; real hosts can style their surrounding application independently.
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", darkMode);
+  }, [darkMode]);
 
   return (
     <main className="flex h-screen flex-col p-8">

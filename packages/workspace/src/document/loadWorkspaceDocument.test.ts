@@ -176,6 +176,31 @@ describe("loadWorkspaceDocument", () => {
     expect(getHighestAncestor("root")).toBe("root");
   });
 
+  it("rejects an unparseable style color even when the section is nested", () => {
+    const document = makeDocument({
+      sections: {
+        root: makeSection("root", { kind: "group", children: ["nested"] }),
+        nested: makeSection("nested", { styleColor: "not-a-color" }),
+      },
+      topLevelSections: { root: { x: 0, y: 0, w: 400, h: 300, zIndex: 0 } },
+    });
+
+    expect(() => loadWorkspaceDocument(document)).toThrowError(
+      /Section nested has an unparseable style color not-a-color/,
+    );
+  });
+
+  it("rejects a partially parsed six-character style color", () => {
+    const document = makeDocument({
+      sections: { leaf: makeSection("leaf", { styleColor: "1g0000" }) },
+      topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
+    });
+
+    expect(() => loadWorkspaceDocument(document)).toThrowError(
+      /Section leaf has an unparseable style color 1g0000/,
+    );
+  });
+
   it("rejects a child id that has no section record", () => {
     const document = makeDocument({
       sections: {

@@ -1,7 +1,7 @@
 import * as Popover from "@radix-ui/react-popover";
 import { useEffect } from "react";
 import { useReactFlow } from "../../canvas/store";
-import { WORKSPACE_SCOPE_CLASS_NAME } from "../../styles/workspaceScope";
+import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
 
 // The reference's `StandardPopover` atom trimmed to the built-in controls' usage: a controlled
 // Radix popover portaled to the document body with the reference's default arrow paint. The
@@ -61,12 +61,13 @@ export function ControlPopover({
   onOpenChange: (newOpen: boolean) => void;
 }) {
   useRepositionOnCanvasTransform(open);
+  const workspaceScopeClassName = useWorkspaceScopeClassName();
   return (
     <Popover.Root open={open} onOpenChange={onOpenChange}>
       <Popover.Trigger asChild>{trigger}</Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
-          className={`${WORKSPACE_SCOPE_CLASS_NAME} ${contentClasses}`}
+          className={`${workspaceScopeClassName} ${contentClasses}`}
           {...contentProps}
         >
           <Popover.Arrow className={ARROW_CLASS_NAME} />

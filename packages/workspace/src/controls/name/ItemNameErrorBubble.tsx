@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { WORKSPACE_SCOPE_CLASS_NAME } from "../../styles/workspaceScope";
+import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
 
 // The reference `ParamNameInput` error bubble, positioned in the owning section's authored
 // coordinate space so canvas zoom does not distort its offset. The package adds an id for the
@@ -121,6 +121,7 @@ export function ItemNameErrorBubble({
   liveEditorId: string;
   sectionId: string;
 }) {
+  const workspaceScopeClassName = useWorkspaceScopeClassName();
   const { bubblePosition, bubbleRef } = useItemNameErrorBubblePosition(
     errorMessage,
     sectionId,
@@ -135,7 +136,7 @@ export function ItemNameErrorBubble({
     <div
       id={errorId}
       ref={bubbleRef}
-      className={`${WORKSPACE_SCOPE_CLASS_NAME} pointer-events-none absolute z-50 max-w-[220px] whitespace-pre-line rounded-md border border-red-300 bg-red-50 px-2 py-1 text-[10px] font-medium leading-snug text-red-700 shadow-sm dark:border-red-900 dark:bg-[#120000] dark:text-red-200`}
+      className={`${workspaceScopeClassName} pointer-events-none absolute z-50 max-w-[220px] whitespace-pre-line rounded-md border border-red-300 bg-red-50 px-2 py-1 text-[10px] font-medium leading-snug text-red-700 shadow-sm dark:border-red-900 dark:bg-[#120000] dark:text-red-200`}
       style={{
         top: bubblePosition.top,
         left: bubblePosition.left,

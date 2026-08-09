@@ -4,7 +4,7 @@ import _ from "lodash";
 import type { Ref } from "react";
 import { createPortal } from "react-dom";
 import { TbDragDrop } from "react-icons/tb";
-import { WORKSPACE_SCOPE_CLASS_NAME } from "../styles/workspaceScope";
+import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { useDndState } from "./dndState";
 import { resolveRectBoundsFromMap, type DragRectLike } from "./dragRectBounds";
 import { DRAG_PREVIEW_Z_INDEX } from "./layers";
@@ -114,6 +114,7 @@ function resolveOverlayRenderState({
 
 export function DummyDragOverlay({ ref }: { ref?: Ref<HTMLDivElement> }) {
   const manager = useDragDropManager();
+  const workspaceScopeClassName = useWorkspaceScopeClassName();
   const { draggingRectsById, activeRect, draggingIds } = useDndState(
     (state) => ({
       draggingRectsById: state.draggingRectsById,
@@ -137,7 +138,7 @@ export function DummyDragOverlay({ ref }: { ref?: Ref<HTMLDivElement> }) {
 
   return createPortal(
     <div
-      className={`${WORKSPACE_SCOPE_CLASS_NAME} ${overlay.className}`}
+      className={`${workspaceScopeClassName} ${overlay.className}`}
       style={{
         position: "fixed",
         top: overlay.overlayRect.top,

@@ -6,10 +6,10 @@ package surface exported from `src/index.ts`; package-relative modules are imple
 not a final publication-name decision.
 
 The runtime owns one workspace document and its interaction state. A host registers section kinds,
-loads the controlled serializable document, configures the package-owned appearance, capabilities,
-and interaction stores, and mounts the independently composable canvas surfaces. Package changes
-may still change this unpublished API directly; no compatibility aliases or transition paths are
-provided.
+loads the controlled serializable document, configures the package-owned appearance controller,
+capability store, and interaction store, and mounts the independently composable canvas surfaces.
+Package changes may still change this unpublished API directly; no compatibility aliases or
+transition paths are provided.
 
 ## Public composition surface
 
@@ -44,6 +44,46 @@ React and React DOM are host-provided peers with the documented compatible range
 the frozen product reference runs `react 19.1.1`, and the package uses React 19 ref-as-prop
 components, so React 18 and below are not supported. All other runtime dependencies are
 exact-pinned under the repository dependency policy.
+
+## Appearance and semantic color
+
+Call `setWorkspaceColorMode("light" | "dark" | "system")` before the first document load. Light
+and dark resolve immediately. System mode reads `(prefers-color-scheme: dark)` and stays subscribed
+until an explicit mode replaces it; it requires `window.matchMedia`, so server-rendered hosts choose
+an explicit mode and select system after hydration. Invalid modes fail specifically. Appearance
+changes rebuild projected style-color backgrounds as well as re-rendering mounted chrome; they do
+not report a document change because appearance is view state, not serialized workspace state.
+
+```tsx
+setWorkspaceColorMode("system");
+
+function HostChrome() {
+  const darkMode = useWorkspaceAppearance((state) => state.darkMode);
+  return <div data-appearance={darkMode ? "dark" : "light"}>{/* host UI */}</div>;
+}
+```
+
+The compiled stylesheet applies dark variants through a package-owned scope on every package root,
+including dropdowns, popovers, tooltips, and drag feedback portaled to `document.body`. The package
+does not toggle `html.dark` or otherwise style the host page. Hosts read the resolved `darkMode` as
+above when their surrounding chrome should follow; `colorMode` retains the requested explicit or
+system preference.
+
+`WorkspaceSection.styleColor` is the semantic section accent. `null` or an empty string uses the
+normal accepted chrome; otherwise the value must be a six-digit RGB hex color (with an optional
+leading `#`) and an unparseable value rejects the load. The frozen reference derivation produces
+appearance-aware background, panel, border, outline, primary-text, and muted-text colors. Registered
+host content inside that section may consume the corresponding inherited custom properties:
+
+- `--setta-section-style-bg`
+- `--setta-section-style-panel-bg`
+- `--setta-section-style-border`
+- `--setta-section-style-outline`
+- `--setta-section-style-text`
+- `--setta-section-style-muted-text`
+
+The derived primary text/background pairing is kept at WCAG AA contrast. `tagColor` is a compact
+categorical marker only; hosts must not use it as the sole way to communicate state or meaning.
 
 ## Controlled document and change callback
 

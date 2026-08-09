@@ -4,6 +4,7 @@ import {
   loadWorkspaceDocument,
   MetaControl,
   registerSectionKinds,
+  setWorkspaceColorMode,
   setWorkspaceDocumentChangeCallback,
   useWorkspaceAppearance,
   WorkspaceCanvas,
@@ -146,8 +147,7 @@ const consumerDocument: WorkspaceDocumentInput = {
 
 function toggleDarkMode() {
   const next = !useWorkspaceAppearance.getState().darkMode;
-  document.documentElement.classList.toggle("dark", next);
-  useWorkspaceAppearance.setState({ darkMode: next });
+  setWorkspaceColorMode(next ? "dark" : "light");
 }
 
 // The host side of the document-change callback: every package-initiated canonical commit
@@ -165,6 +165,10 @@ function DocumentChangeReadout() {
 
 function ConsumerApp() {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", darkMode);
+  }, [darkMode]);
 
   return (
     <main className="consumer-shell">
@@ -193,9 +197,7 @@ function ConsumerApp() {
 // Kind registration precedes the load because loading validates section kinds against the
 // registry, and the appearance store must reflect the boot appearance before node
 // projection derives backgrounds from it.
-useWorkspaceAppearance.setState({
-  darkMode: document.documentElement.classList.contains("dark"),
-});
+setWorkspaceColorMode(document.documentElement.classList.contains("dark") ? "dark" : "light");
 registerSectionKinds({
   note: {
     renderContent: (section) => <NoteBody section={section} />,

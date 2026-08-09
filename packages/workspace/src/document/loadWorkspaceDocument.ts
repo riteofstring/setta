@@ -7,6 +7,7 @@ import { getMetaControlDefaultSize } from "../controls/meta/metaControlTypes";
 import { resetDndSessionForLoadedDocument } from "../dnd/dndState";
 import { assertNoReservedItemDndTokens } from "../dnd/itemDndState";
 import { resetItemDragState } from "../items/itemDragHandlers";
+import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
 import { runWithWorkspaceDocumentChangeNotificationsSuppressed } from "./documentChangeCallback";
 import { isGroupSection } from "./documentSelectors";
 import { deactivateItemSelect } from "./itemSelectionMode";
@@ -30,6 +31,7 @@ import type {
 // The reference's `createSectionSize()` default: sections materialized without an explicit
 // size are auto-sized in both dimensions.
 const DEFAULT_LOADED_SECTION_SIZE: SectionSize = { width: "auto", height: "auto" };
+const SECTION_STYLE_COLOR_PATTERN = /^#?[0-9a-f]{6}$/iu;
 
 // Every non-group kind must be registered before its documents load. An omitted ordinary size
 // resolves through its registered default; an omitted meta size resolves through the projected
@@ -55,6 +57,20 @@ function resolveLoadedSections(
     };
   }
   return resolved;
+}
+
+function assertValidSectionStyleColors(sections: Record<string, WorkspaceSection>) {
+  for (const [sectionId, section] of Object.entries(sections)) {
+    const styleColor = section.styleColor;
+    if (
+      styleColor !== null &&
+      styleColor.trim() !== "" &&
+      (!SECTION_STYLE_COLOR_PATTERN.test(styleColor.trim()) ||
+        deriveSectionStyleTheme(styleColor, false) === null)
+    ) {
+      throw new Error(`Section ${sectionId} has an unparseable style color ${styleColor}.`);
+    }
+  }
 }
 
 function buildParentSectionMap(sections: Record<string, WorkspaceSection>): Record<string, string> {
@@ -210,6 +226,7 @@ function assertKnownSectionIds(
 // The funnel modules themselves stay canvas-free.
 export function loadWorkspaceDocument(document: WorkspaceDocumentInput): void {
   const sections = resolveLoadedSections(document.sections);
+  assertValidSectionStyleColors(sections);
   const parentSectionMap = buildParentSectionMap(sections);
   assertAcyclicParentChains(parentSectionMap);
   assertValidSectionItemTrees(sections);

@@ -8,6 +8,9 @@ import workspacePreset from "./tailwind-preset.mjs";
 // scoped to a class the package renders.
 export default {
   presets: [workspacePreset],
+  // Dark variants follow package-owned roots, including portals mounted outside the canvas.
+  // The compound selector keeps appearance scoped instead of depending on a host html.dark class.
+  darkMode: ["selector", ".setta-workspace.setta-workspace-dark"],
   content: ["./src/**/*.{ts,tsx}"],
   corePlugins: { preflight: false },
   experimental: { optimizeUniversalDefaults: true },

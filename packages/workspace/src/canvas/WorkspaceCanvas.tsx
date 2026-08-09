@@ -8,7 +8,7 @@ import {
 } from "react";
 import { SectionDndContext } from "../dnd/SectionDndContext";
 import { ResponsiveMiniMap } from "../minimap/ResponsiveMiniMap";
-import { WORKSPACE_SCOPE_CLASS_NAME } from "../styles/workspaceScope";
+import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { useCanvasViewportDocumentSync } from "./documentViewportSync";
 import FlowRenderer from "./FlowRenderer";
 import { useCanvasKeyActivations } from "./keyActivations";
@@ -46,6 +46,7 @@ export function WorkspaceCanvas() {
   const ref = useRef<HTMLDivElement>(null);
   const [initialized, setInitialized] = useState(false);
   const wrapperDimensions = useWrapperDivDimensions(ref);
+  const workspaceScopeClassName = useWorkspaceScopeClassName();
   useCanvasKeyActivations();
   useCanvasViewportDocumentSync();
 
@@ -61,10 +62,10 @@ export function WorkspaceCanvas() {
   const showMinimap = useWorkspaceOptions((x) => x.showMinimap);
 
   return (
-    <div style={outerWrapperStyle} className={WORKSPACE_SCOPE_CLASS_NAME}>
+    <div style={outerWrapperStyle} className={workspaceScopeClassName}>
       <div
         style={wrapperStyle}
-        className={`${WORKSPACE_SCOPE_CLASS_NAME} react-flow`}
+        className={`${workspaceScopeClassName} react-flow`}
         ref={ref}
         onScroll={(e) => cancelOutScrolling(e, initialized)}
       >
