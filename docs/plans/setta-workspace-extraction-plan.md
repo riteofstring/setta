@@ -1058,6 +1058,19 @@ Phase 4 progress (2026-08-11):
   the item-controls milestone is complete. Its supervised matched dark/light live comparison and
   explicit developer acceptance remain incomplete as the required developer gate — not a release
   gate — and no package-output baseline has been recorded.
+- Consolidated controls gate authorized (2026-08-12): the developer approved implementation of
+  every remaining frozen-main parameter UI type and the canvas-level meta controls, and explicitly
+  asked not to stop for visual/interaction acceptance until both additions are complete. The
+  initial item-controls result therefore remains unaccepted, but its gate is postponed into the
+  single consolidated exit gate below; this is gate deferral, not agent approval or a waiver. The
+  next repository-actionable work is the remaining-controls milestone, followed by meta controls.
+- Remaining-controls and meta-controls frozen-reference evidence complete (2026-08-12): a
+  supervised Chrome session created a disposable project in frozen main, captured the seven
+  remaining row controls and all twelve main meta-control presets in dark/light appearance,
+  exercised slider, rotary, date, time, password, and multiline-text interactions, captured the
+  calendar preset and computed meta-control geometry, then indexed the result under
+  `docs/evidence/remaining-controls-and-meta/`. The disposable project was removed after capture;
+  no source in `../setta-main` was edited. Implementation may proceed in narrow audited batches.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
@@ -1551,6 +1564,7 @@ amendment before implementation. Candidates include:
   item-controls milestone below; amendment approved 2026-08-11);
 
 - inline title renaming, accent/tag editing, and alternate compact/transparent/headerless chrome;
+- canvas-level meta controls (chosen and authorized 2026-08-12; specified below);
 - grow-with-content versus fixed container sizing, content-fit sizing, and overflow behavior;
 - searchable pointer-context creation, smart placement, and empty-workspace creation;
 - external/file drop callbacks with screen and workspace coordinates;
@@ -1638,8 +1652,9 @@ a control may not precede its captured evidence.
 - LSP completion, diagnostics, folder-path completions, the waiting-for-result spinner, and
   autocomplete tooltip plumbing (backend editor services);
 - realtime literal emission and every backend transport, optimistic-operation, or persistence path;
-- slider, rotary, button, password, dropzone, and date/time controls — they remain deferred
-  capability candidates, each requiring its own evidence and amendment;
+- slider, rotary, password, dropzone, date/time, and multiline-text configurations — deferred from
+  this initial slice into the authorized remaining-controls continuation below; Button is absent
+  from ordinary parameter rows in frozen main and belongs only to the meta-controls continuation;
 - the parameter config-editing surfaces (min/max/step/options editing) — control configuration is
   host-supplied through props;
 - the ARGS toolbar, column-resize persistence, search-result outlines, backend error-message
@@ -1659,12 +1674,116 @@ Evidence capture first; then narrow batches (text value editor; switch and color
 name editor), each with focused tests, ported characterization where the reference has algorithmic
 behavior, and the changed-file static gate; the live comparison last.
 
-**Exit gate:** the unrelated playground example replaces its display-only value role with the
-built-in controls, driven only by its opaque item data through the new seams; frozen main and the
-playground compare live in dark and light appearance at matched viewport, DPR, and zoom against
-the `/settings` surface; the package imports no Setta parameter types, stores, or generated
-backend clients; the developer explicitly accepts the visual and interaction result. Visual
-baselines refresh only after acceptance. No agent or test suite can waive this gate.
+**Deferred portion of the consolidated exit gate:** the unrelated playground example replaces its
+display-only value role with the built-in controls, driven only by its opaque item data through the
+new seams. Per the developer's 2026-08-12 authorization, do not request acceptance for this initial
+slice by itself. Compare and request explicit developer acceptance only after the remaining-control
+types and meta controls below are also implemented. No baseline may ratify this still-unaccepted
+output.
+
+### Remaining-controls milestone — complete parameter UI set
+
+This continuation was explicitly authorized on 2026-08-12. It completes the backend-free,
+batteries-included control set demonstrated by frozen main without importing its parameter models,
+stores, generated clients, artifact types, or persistence. Reuse the controlled string seam and
+interaction boundaries of the initial item-controls milestone wherever a scalar value is involved;
+configuration enters through explicit package props and remains host-owned.
+
+#### Remaining control slice (exact)
+
+1. **Slider** — the reference `SliderInput`: a Radix slider plus editable numeric field for ordinary
+   rows, with finite-number parsing, min/max clamping, step snapping, gesture changes, end-of-gesture
+   commit cadence, keyboard operation, disabledness, and Escape focus restoration. Configuration is
+   the host-supplied `min`, `max`, and `step`; the package does not extract the config editor.
+2. **Rotary** — the reference `RotaryInput`: the -135° through 135° knob, numeric display, clamped
+   parsing, step-aware rounding, pointer capture, wheel adjustment, arrow-key adjustment, disabled
+   treatment, and Escape focus restoration. Invalid `min`/`max`/`step` combinations fail explicitly
+   at the public boundary rather than selecting defaults heuristically.
+3. **Password** — the reference password input and show/hide button, including host-supplied
+   placeholder/disabledness and the no-drag/no-pan editing boundary. The package owns no secret
+   store, reveal API, saved-secret sentinel, or credential persistence; a host that needs a pending
+   or saved-secret display provides that controlled state explicitly.
+4. **Multiline text / text area** — the existing `TextValueEditor` configured with the reference's
+   wrapped multiline behavior and minimum-height presentation. `CodeParam` and `TextParam` continue
+   to use the existing language-enabled editor; no second editor implementation is added.
+5. **Date** — the reference text/date control in both native-input and calendar modes, including ISO
+   and configured display formats, single/multiple selection, Sunday/Monday week starts, optional
+   time inclusion, keyboard/focus behavior, and the live calendar grid demonstrated by main.
+6. **Time** — the reference time control in input and formatted-display modes, including 12/24-hour
+   format, transparent display, bounded scale, monospace/sans display font, and controlled string
+   updates.
+7. **Dropzone** — the reference presentation and local drag/drop/file-picker interactions with
+   explicit host seams for accepted local files, dropped text, server-file picker requests,
+   attachment display/removal, pending/error state, MIME/size/count policy, and stateless results.
+   The package must not upload, persist, delete, or interpret Setta artifacts. A server picker is
+   rendered only when its explicit callback is supplied; attachment identities and byte payloads
+   remain host-owned.
+
+`NestedParam` is structural and already owned by Phase 4 rather than a value control. `ButtonParam`
+is intentionally absent from ordinary rows because frozen main dispatches it only as a meta
+control. The completed switch, color, dropdown, text, code, and name controls are reused, not
+reimplemented.
+
+#### Verification and batches
+
+The pre-implementation reference is indexed under
+`docs/evidence/remaining-controls-and-meta/`. Land coherent vertical batches in this order unless a
+smaller dependency-safe split is required: slider plus rotary; password plus multiline text;
+date plus time; dropzone. Each batch ports the reference's algorithmic tests where available, adds
+keyboard/pointer/disabled/accessibility coverage, integrates the playground through opaque item
+data, runs the changed-file gate, and commits before the next batch. Dependency additions use exact
+pins and rerun the supply-chain gate. Do not stop for developer acceptance between batches; agent 2
+still performs its normal static/coherence audit.
+
+### Meta-controls milestone — controls directly on the canvas
+
+This milestone was explicitly authorized on 2026-08-12 after the developer identified frozen
+main's meta controls as the next milestone. Extract the reusable `MetaControlNode` presentation: a
+top-level, draggable/resizable canvas node whose content is one enlarged built-in control rather
+than section chrome or an item list.
+
+#### Surface and supported controls
+
+- Reproduce the reference's transparent/headerless outer surface, optional small uppercase title,
+  full-available-area control layout, hover edit/menu affordance, selected/drag/resize treatment,
+  and control-specific minimum size. Default control content is 202 x 46 CSS px; text area is at
+  least 202 x 100 and dropzone at least 242 x 122, subject to the reference container math captured
+  in evidence.
+- Compose the already extracted controls rather than forking their logic. Supported meta controls
+  are Button, Code/Text, TextArea, Date, Time, Slider, Rotary, Switch, Color, Dropdown, Password,
+  and Dropzone — exactly frozen main's meta-control dispatch; `NestedParam` is excluded.
+- Button is a controlled visual action only: label, disabled/pending state, and `onAction` are host
+  inputs. Do not extract HTTP requests, Setta API presets, backend execution, or action persistence.
+- Meta-control configuration and value/action persistence remain host-owned. Use explicit renderer
+  data or package control props without adding Setta type names to the workspace document. Unknown
+  control kinds fail specifically; there is no generic visual fallback.
+- Control interaction owns pointer, keyboard, wheel, and file gestures inside the content; the
+  remaining surface owns section drag. Resizing respects each control's minimum and package canvas
+  zoom. The meta node participates in normal selection, z-order, lock, document change callbacks,
+  fit view, minimap, and light/dark appearance without inventing a second canvas path.
+
+#### Verification and batches
+
+Implement the package-owned meta surface first with representative text/button content and exact
+geometry; then wire the complete control dispatch and playground fixture; then audit drag versus
+control ownership, resize/min-size behavior, keyboard/focus restoration, dark/light styles, and
+packed-consumer exports. Use the frozen source under
+`frontend/src/components/Section/Layouts/MetaControl/`, the creation presets in
+`state/actions/sections/createSectionsHelper.ts`, and the supervised evidence bundle. No
+developer-acceptance stop is required between these batches.
+
+### Consolidated controls and meta-controls exit gate
+
+Only after the initial controls, every remaining control type, and meta controls are implemented and
+agent-audited, present one matched live comparison to the developer. The evidence must show ordinary
+rows and direct-on-canvas meta controls in dark and light appearance at the same viewport, DPR,
+workspace zoom, configuration, and interaction states as frozen main; exercise keyboard, pointer,
+editing, resize/drag ownership, calendar/time, and backend-free dropzone/button host seams. The
+unrelated playground must import only public package exports and supply opaque host data/callbacks.
+
+The developer must explicitly accept the combined visual and interaction result. Only then record
+package-output baselines and allow Phase 5 to begin. The 2026-08-12 deferral authorizes uninterrupted
+implementation; it does not authorize an agent or test suite to approve the final result.
 
 ### Phase 5 — extension surface and hardening
 
