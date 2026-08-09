@@ -1,5 +1,6 @@
 import {
   ColorValueControl,
+  DropdownValueControl,
   ItemDndContext,
   registerSectionKinds,
   setItemData,
@@ -80,7 +81,8 @@ function isGroupItem(item: WorkspaceItem): boolean {
 // input it focuses. Values mount the package's built-in controls from the item-controls
 // milestone, chosen by this host's opaque `control` field: the two-layer text value editor
 // (the default, at python — the reference settings surface's generated `configLanguage`), the
-// boolean switch, and the color picker in both its configured-choices and native-input forms.
+// boolean switch, the dropdown over this host's flat choice strings, and the color picker in
+// both its configured-choices and native-input forms.
 // The playground owns persistence: each reported change commits back into this host's opaque
 // item data through the `setItemData` funnel, with no validation — the reference's debounced
 // transport and backend paths have no playground equivalent.
@@ -116,6 +118,16 @@ function getItemColorChoices(item: WorkspaceItem): Array<ColorValueChoice> | und
   return choices;
 }
 
+// This host supplies flat choice strings, mirroring the captured Alpha/Beta/Gamma fixture;
+// the package wraps them in the reference's single "Choices" group header.
+function getItemDropdownChoices(item: WorkspaceItem): Array<string> {
+  const choices = getItemDataRecord(item)["choices"];
+  if (!Array.isArray(choices) || !choices.every((choice) => typeof choice === "string")) {
+    throw new Error(`Item ${item.id} has malformed dropdown choices.`);
+  }
+  return choices;
+}
+
 function ItemValueControl({ context }: { context: ItemRowRenderContext }) {
   const control = getItemField(context.item, "control");
   const value = getItemValue(context.item);
@@ -125,6 +137,15 @@ function ItemValueControl({ context }: { context: ItemRowRenderContext }) {
       <SwitchValueControl
         sectionId={context.sectionId}
         value={value}
+        onValueChange={onValueChange}
+      />
+    );
+  }
+  if (control === "dropdown") {
+    return (
+      <DropdownValueControl
+        value={value}
+        choices={getItemDropdownChoices(context.item)}
         onValueChange={onValueChange}
       />
     );

@@ -12,6 +12,11 @@ export type { PanOnScrollMode, SelectionMode } from "./canvas/types";
 export { WorkspaceCanvas } from "./canvas/WorkspaceCanvas";
 export { ColorValueControl } from "./controls/color/ColorValueControl";
 export type { ColorValueChoice, ColorValueControlProps } from "./controls/color/ColorValueControl";
+export { DropdownValueControl } from "./controls/dropdown/DropdownValueControl";
+export type {
+  DropdownValueChoiceGroup,
+  DropdownValueControlProps,
+} from "./controls/dropdown/DropdownValueControl";
 export { SwitchValueControl } from "./controls/switch/SwitchValueControl";
 export type { SwitchValueControlProps } from "./controls/switch/SwitchValueControl";
 export { TextValueEditor } from "./controls/text/TextValueEditor";

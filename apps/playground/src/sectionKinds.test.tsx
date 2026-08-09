@@ -19,9 +19,10 @@ import { ItemListSectionBody, registerPlaygroundSectionKinds } from "./sectionKi
 // the package's built-in controls chosen by this host's opaque `control` field — the two-layer
 // text value editor (the default; the Lezer-highlighted idle dummy at the reference's
 // monospace treatment plus the value-column divider with its focus paint, at the reference
-// settings surface's python language), the boolean switch, and the color picker in both its
-// configured-choices and native-input forms. Every control edit commits back through the
-// host's `setItemData` funnel into the canonical document.
+// settings surface's python language), the boolean switch, the dropdown pill over this
+// host's flat choices, and the color picker in both its configured-choices and native-input
+// forms. Every control edit commits back through the host's `setItemData` funnel into the
+// canonical document.
 
 const REFERENCE_LABEL_CLASS_NAME =
   "truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200";
@@ -164,6 +165,41 @@ describe("the playground item renderer presentation contract", () => {
     expect(getDocumentItemValue("item-enabled")).toBe("false");
     expect(switchRow.querySelector<HTMLButtonElement>('button[role="switch"]')?.dataset.state).toBe(
       "unchecked",
+    );
+  });
+
+  it("renders the dropdown row as the reference pill and commits a selection to the document", () => {
+    const dropdownRow = findRowByLabel(container, "choice");
+    const input = dropdownRow.querySelector<HTMLInputElement>('input[role="combobox"]');
+    if (!input) {
+      throw new Error("The choice row does not mount the dropdown control.");
+    }
+    // The captured fixture's empty dropdown: the recorded pill presentation behind the
+    // reference "Search" placeholder, wrapped in the no-drag search shell.
+    expect(input.value).toBe("");
+    expect(input.placeholder).toBe("Search");
+    for (const pillClass of ["rounded-full", "font-mono", "text-xs", "pl-3", "pr-6", "h-4"]) {
+      expect(input.classList.contains(pillClass)).toBe(true);
+    }
+    expect(input.closest("search")?.classList.contains("nodrag")).toBe(true);
+    const toggle = dropdownRow.querySelector<HTMLButtonElement>("search button");
+    if (!toggle) {
+      throw new Error("The choice row does not mount the dropdown toggle.");
+    }
+    act(() => {
+      toggle.click();
+    });
+    const options = Array.from(document.body.querySelectorAll('[role="listbox"] dd'));
+    expect(options.map((option) => option.textContent)).toEqual(["Alpha", "Beta", "Gamma"]);
+    const gamma = options.find((option) => option.textContent === "Gamma");
+    act(() => {
+      gamma?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    // The host funnel committed the picked choice string into the canonical opaque data, and
+    // the re-rendered pill reflects it.
+    expect(getDocumentItemValue("item-choice")).toBe("Gamma");
+    expect(dropdownRow.querySelector<HTMLInputElement>('input[role="combobox"]')?.value).toBe(
+      "Gamma",
     );
   });
 

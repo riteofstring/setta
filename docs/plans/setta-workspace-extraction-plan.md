@@ -984,6 +984,32 @@ Phase 4 progress (2026-08-11):
   in Phase 1). The supply-chain gate reran green on the dependency change; package (464) and
   playground (9) suites plus the changed-file static gate pass. Remaining batches: dropdown;
   name editor; then the live comparison and the explicit developer-acceptance exit gate.
+- Item-controls dropdown batch complete (2026-08-12): the third implementation batch landed the
+  package `DropdownValueControl` — the reference `IdNameCombobox` at the `ParamUI` dropdown
+  presentation, trimmed to host-supplied options: the recorded small pill input (rounded-full
+  12 px mono, "Search" placeholder, chevron toggle) inside the reference's no-drag `<search>`
+  shell, over the reference's body-portaled list (positioned once per open, `nowheel nodrag`,
+  the recorded group headers). Flat host choices take the reference's single "Choices" group;
+  explicit host groups render one header each. The ported combobox state algorithm keeps the
+  frozen behavior: match-sorter filtering while typing, reopening restores the full list,
+  Escape/blur reset the draft to the committed selection, Enter with no highlight commits the
+  first filtered match, and the reference's external-value honesty reset fires when the value
+  matches no option. Seam projection: the empty string maps to no selection inward and the
+  reference's null commits map back to the empty string. Escape follows the reference combobox
+  contract — the input blurs and the keypress keeps bubbling to the canvas Escape shortcut
+  (unlike the switch/color stop-propagation contract); the pane variant, theme-override props,
+  and the reference's choice-configuration editor stay behind. Two structural notes: the
+  `IdNameCombobox` layer must stay a component below the seam mapping because downshift resyncs
+  its controlled selection by identity (a flattened component rebuilds the choice groups every
+  dispatch and loops forever), and the reference's deep-compare layout effect runs through a
+  render-updated ref behind an inline closure because this package lints
+  `react-hooks/exhaustive-deps` at error (React invokes the latest effect closure either way;
+  behavior identical). Dependency pins: `downshift 8.2.3` and `match-sorter 8.1.0` exactly as
+  the reference; the supply-chain gate reran green. The playground's item panel gained the
+  captured empty `choice` row over Alpha/Beta/Gamma, and its presentation regression freezes
+  the pill and a commit through the `setItemData` funnel. Package (475) and playground (10)
+  suites plus the changed-file static gate pass. Remaining batches: name editor; then the live
+  comparison and the explicit developer-acceptance exit gate.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

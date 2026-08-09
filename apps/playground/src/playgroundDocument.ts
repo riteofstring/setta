@@ -33,8 +33,9 @@ function makeLeafSection(
 // cross-parent item movement reachable, and the leaf count fills the recorded 552 x 352 outer
 // geometry so the repeated 20 px row rhythm stays inspectable against the frozen `/settings`
 // Dict. The item-controls rows exercise every built-in control the milestone has landed: the
-// switch at the captured `enabled` fixture, the configured color trigger over the captured
-// Red/Green/Blue choices, and the native color input at the `/settings` recorded value.
+// switch at the captured `enabled` fixture, the empty dropdown over the captured
+// Alpha/Beta/Gamma choices, the configured color trigger over the captured Red/Green/Blue
+// choices, and the native color input at the `/settings` recorded value.
 function makeItem(
   id: string,
   data: Record<string, WorkspaceSectionData>,
@@ -59,6 +60,7 @@ const itemPanelTree: WorkspaceSectionItemTree = {
       "item-kappa",
       "item-lambda",
       "item-enabled",
+      "item-choice",
       "item-accent",
       "item-tint",
     ]),
@@ -82,6 +84,12 @@ const itemPanelTree: WorkspaceSectionItemTree = {
       label: "enabled",
       value: "true",
       control: "switch",
+    }),
+    "item-choice": makeItem("item-choice", {
+      label: "choice",
+      value: "",
+      control: "dropdown",
+      choices: ["Alpha", "Beta", "Gamma"],
     }),
     "item-accent": makeItem("item-accent", {
       label: "accent",
