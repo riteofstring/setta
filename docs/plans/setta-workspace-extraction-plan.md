@@ -857,8 +857,33 @@ Phase 4 progress (2026-08-11):
   playground production build compiles both new color utilities with the dark rule correctly
   class-scoped; changed-file static gate green (no dependency or packaging changes, so the
   supply-chain and consumer gates were not rerun).
-- Remaining Phase 4 work: audit the host value-font correction, repeat the live main-Dict
-  versus unrelated-item comparison, and obtain a renewed developer exit-gate decision.
+- Value-font correction audit (2026-08-11): a static audit confirmed the correction faithful,
+  complete, and correctly scoped, with no code changes required. The reference's idle
+  text-value path was verified end-to-end: `ParamUI`'s idle dummy-code class string carries no
+  weight, numeral, or text-color utility, and its presentation classes are exactly the
+  playground literal's retained parts —
+  `section-value self-end break-words font-mono text-xs py-[.125rem]`; its color arrives
+  through `useCodeMirrorStyle`, which builds the idle themes
+  with `githubLightInit`/`githubDarkInit` over `commonSettings` — overriding only backgrounds
+  and the gutter border, never `foreground` — so the theme defaults apply, and
+  `defaultSettingsGithubLight`/`Dark` `foreground` in the frozen reference's installed
+  `@uiw/codemirror-theme-github` are exactly `#24292e`/`#c9d1d9`, the measured
+  `rgb(36,41,46)`/`rgb(201,209,217)`. The correction's scope holds: only the host value-role
+  literal changed, the frozen test literal matches the renderer byte-for-byte, the label and
+  divider literals are untouched, no package source changed, the new color utilities appear
+  nowhere else, the surviving medium/tabular mentions are plan history, and the playground's
+  own chrome `setta-300` uses are unrelated to the value role. The dark rule is class-scoped
+  end-to-end: the package preset sets `darkMode: "class"`, the playground boots with
+  `<html class="dark">`, and the production stylesheet compiles `.text-\[\#24292e\]` to
+  `rgb(36 41 46)` and `.dark .dark\:text-\[\#c9d1d9\]` to `rgb(201 209 217)`. No Phase 4
+  visual baseline exists to go stale (baselines follow developer acceptance). The phase-gate
+  deterministic matrix was rerun green after the correction: full-scope static gate
+  (`quality:all`, 327 files), package suite (431), playground suite (6), and the package build
+  with the source and built-artifact boundary checks. The supply-chain and packed-consumer
+  gates were not duplicated: the correction carries no dependency or packaging change, and
+  their recorded green runs postdate the last relevant change.
+- Remaining Phase 4 work: repeat the live main-Dict versus unrelated-item comparison and
+  obtain a renewed developer exit-gate decision.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
