@@ -1608,6 +1608,16 @@ Phase 4 progress (2026-08-11):
   exact packed unrelated-consumer install/typecheck/build passes. No dependency changed, so the
   supply-chain gate was not duplicated. The broader Phase 5 developer comparison and final
   post-acceptance gates remain at their existing gate.
+- Phase 5 developer gate complete and next milestone authorized (2026-08-12): the developer
+  explicitly approved Phase 5 after the matched live package/reference presentation and the
+  accepted rotary-history correction. This authorizes the Phase 5 package-output baseline refresh
+  and the scheduled broad quality, supply-chain, packed-consumer, and browser gates. In the same
+  supervised discussion, the developer identified context menus and left/right side panes as
+  missing batteries-included library features, selected a built-in outline for the left pane, and
+  approved a selection-aware right inspector that owns item names, values, UI types, and
+  type-specific configuration through an opinionated package schema. The authorized amendment is
+  specified after Phase 5. Phase 5's post-acceptance evidence and broad gates complete before that
+  milestone begins; the extraction plan is no longer complete at the end of Phase 5.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
@@ -2352,6 +2362,187 @@ Only after the visible product is accepted:
 
 This phase does not publish the package.
 
+### Workspace-shell milestone — context menus, side panes, outline, and inspector
+
+This plan amendment was explicitly authorized by the developer on 2026-08-12 after Phase 5 visual
+acceptance. It is the next narrow extraction milestone, not a reopening of Phase 5. Complete the
+accepted Phase 5 baseline refresh and post-acceptance broad gates before implementation. Frozen main
+at `043d3b2e9` remains the product authority for pane geometry, context-menu behavior, outline
+navigation, and the right-side UI-editor presentation.
+
+The milestone makes the standalone package meaningfully batteries included while preserving a
+backend-free boundary. It extracts reusable workspace chrome and state only. Main's file browser,
+Git surfaces, plugins, chat, notifications, project/backend settings, view modes, variants, workflow
+edges, generated code, type-error remediation, and persistence transports remain application-owned
+and must not enter the package.
+
+#### Evidence and ownership preflight
+
+Before implementation, capture and index the following matched dark/light reference states:
+
+- the canvas pointer menu opened near every viewport edge, its search/filter and keyboard paths,
+  and creation at the pointer's workspace coordinate;
+- the section and multi-selection menu in mixed locked/unlocked states, including disabled actions;
+- the left and right rails and panes closed, open, resized, full-width, restored, simultaneously
+  open, and constrained at the narrow breakpoint;
+- the Overview section tree with nested groups, active and multi-selected sections, collapsed
+  groups, pointer selection, and keyboard navigation; and
+- the UI Editor's reusable section and parameter-UI configuration presentation, including no
+  selection, one section, one item, and multiple-selection states.
+
+Record computed geometry, type, color, focus, overflow, stacking, and transition facts plus short
+interaction traces. Classify every main state read before porting it. Evidence goes under
+`docs/evidence/workspace-shell/reference/`; no package-output baseline precedes developer acceptance.
+
+#### Package-owned shell and panes
+
+Add one package-owned workspace shell that composes the canvas, the accepted controls/tooltip, two
+edge icon rails, and optional left/right pane contents without exposing XYFlow panels or private DOM
+selectors. The shell owns:
+
+- the frozen pane paint, 40 px closed rails, seam borders, z-order, resize handles, open/close
+  transitions, full-width/restore action, and focus-visible treatment;
+- semantic leading/trailing `aside` landmarks in DOM reading order, named tablists with roving
+  tab stops and Arrow/Home/End operation, and compact reference paint inside non-overlapping
+  package-owned hit geometry; opening moves focus to the selected tab or requested pane control,
+  while closing returns it to the invoking rail tab;
+- controlled serializable view state for each pane's selected tab, visibility, current width, and
+  remembered non-full width, with one explicit change callback so a host may persist it; pane state
+  is view state and never enters `WorkspaceDocument`;
+- the reference width clamps, paired-pane negotiation, opposite-pane close/shrink rules, viewport
+  resize normalization, narrow layout, and reduced-motion behavior;
+- logical inline placement and rail order under RTL, no page-level horizontal scrolling at 200%
+  zoom or a 320 px host, and only transform/opacity transitions under the no-preference motion
+  query rather than an unbounded `transition: all`;
+- canvas/minimap/fit/auto-pan geometry derived from the actual shell center and visible rails, with
+  any reference camera-shift option exposed explicitly rather than reading application settings;
+- package-owned default tabs for Outline on the left and Inspector on the right; and
+- typed registration of additional host tabs with host-rendered content and icons. Registered host
+  tabs use public props only and cannot receive package stores or private class names.
+
+Do not export a generic low-level pane primitive as a substitute for the integrated behavior. The
+public surface is the composed shell plus typed tab registration/state. Hosts may still mount
+`WorkspaceCanvas` independently when they intentionally do not want the shell.
+
+#### Built-in outline
+
+The left Outline tab is a package-owned projection of the canonical workspace document. It shows
+top-level sections and recursive group children in document order, using registered kind icons and
+the accepted compact main typography. It owns:
+
+- disclosure state for groups, active/single/multi-selection presentation, locked/minimized state,
+  and style/tag color cues that are never the sole state signal;
+- pointer selection through the existing selection policy, keyboard tree navigation with one
+  roving tab stop, Home/End and Left/Right expand/collapse semantics, typeahead by section name, and
+  deterministic focus restoration after rename/delete;
+- an activate/focus command that centers the section through public viewport helpers without
+  changing canonical selection unexpectedly; and
+- shared structural context-menu actions and capability-disabled states.
+
+Outline expansion and keyboard focus are shell view state, not document state. This milestone does
+not add outline drag-and-drop, tags/filtering, next/previous saved views, a file tree, or plugin
+navigation; those require separate evidence and approval.
+
+The outline uses the ARIA tree/treeitem/group pattern without duplicating interactive descendants
+inside a treeitem. Disclosure and selection are announced separately, icons are decorative, and
+focus remains visible in light, dark, style-colored, high-zoom, and keyboard-only states.
+
+#### Opinionated item-control schema and built-in rows
+
+Replace the playground-only convention that decodes `WorkspaceItem.data.control` and adjacent
+untyped fields. Add a package-owned, serializable discriminated item-presentation schema covering:
+
+- explicit group presentation with an editable label; and
+- the complete accepted ordinary control set: text/code, multiline text, switch, dropdown, color,
+  slider, rotary, password, date, time, and dropzone, with a controlled string value and the
+  validated type-specific options already accepted for those controls.
+
+Custom registered item renderers and opaque `data` remain a deliberate extension point, but a typed
+built-in item never requires a host renderer. There is one canonical mutation funnel each for item
+label, value, presentation kind, and control configuration; every accepted edit publishes exactly
+once through the existing document-change callback. Invalid discriminants or option combinations
+fail specifically at load/mutation boundaries. Migrating existing playground and packed-consumer
+fixtures is a direct schema replacement: add no alias, dual decoder, migration, or fallback.
+
+Non-serializable behavior stays behind explicit host handler registration keyed by stable item id:
+dropzone acceptance/rejection, server-file selection, attachment removal, and saved-password actions.
+The schema stores only serializable presentation/value/configuration state. It does not introduce
+Python parameter types, validation services, uploads, secrets, backend identifiers, or persistence.
+
+#### Built-in selection inspector
+
+The right Inspector tab changes with canonical selection:
+
+- with no selection, render the reference empty state and preserve the last meaningful tab/focus;
+- for one section, edit the package-owned name, style accent, lock/minimize state, resolved size and
+  auto-size values, and group orientation; show kind as identity rather than pretending it can be
+  changed safely;
+- for one selected typed item, edit its label and value, choose among the ordinary UI types, and
+  edit only that type's valid configuration (for example slider min/max/step, dropdown choices,
+  CodeMirror language/autocomplete policy, date/time mode and format, or color choices);
+- for a custom registered kind or item, render a typed host inspector contribution if registered,
+  otherwise show the package's explicit unsupported-custom-content state; and
+- for multiple selected sections, expose only capability-valid common actions: lock/unlock, delete,
+  and group. Mixed values use an explicit mixed state and never a guessed fallback.
+
+The inspector reuses the accepted built-in controls and package item/section mutation funnels. It
+must not duplicate control implementations, write opaque host data heuristically, or import main's
+SectionConfig/UIConfig stores. Every field has a programmatic label, keyboard operation, Escape
+focus restoration, and an error surface that remains inside the pane without clipping a portal;
+invalid fields use `aria-invalid`/`aria-describedby`, and a persistent polite status region
+announces accepted selection/configuration changes without stealing focus.
+
+#### Context menus
+
+Mount package-owned menus with the shell/canvas rather than requiring each host to reconstruct
+pointer ownership. Extract main's reusable menu core and two workspace surfaces:
+
+- the pane menu is a searchable grouped list of registered creation commands, opens from pointer or
+  keyboard, converts the invocation point through the package viewport, and passes that workspace
+  position to a typed host section factory before one package-owned insertion commit; and
+- the section/multi-selection menu supplies Group, Delete, and Lock/Unlock from existing package
+  capabilities and mutation funnels. Visibility/view-mode and type-error actions remain excluded.
+
+Hosts may register additional typed menu actions for pane, section, item, and outline scopes. Each
+action receives a public immutable context and invokes a host callback; it cannot receive internal
+stores or selectors. The package owns viewport-edge placement, portal appearance scoping, outside
+dismissal, Escape/focus restoration, arrow/Home/End/typeahead behavior, disabled semantics, and the
+Menu-key/Shift+F10 path. Right-clicking interactive controls retains their native/editor behavior;
+section drag, item drag, pan, wheel, and menu ownership must remain mutually stable.
+
+Menus use the semantic menu/menuitem pattern (or the equivalent behavior supplied by the retained
+Radix primitive), expose visible focus, keep the compact main paint while meeting the package's
+non-overlapping pointer-target floor, and restore focus to the pointer/keyboard invocation owner.
+
+#### Implementation batches and verification
+
+Land this milestone as coherent reviewable batches after the reference evidence:
+
+1. typed item schema, built-in row renderer, mutation funnels, and direct fixture migration;
+2. shell state/layout algorithms and the two pane/rail surfaces with host-tab registration;
+3. built-in Outline projection and navigation;
+4. selection Inspector and type-specific configuration editors; and
+5. context-menu core, creation/action registries, canvas/outline integration, and a whole-milestone
+   coherence audit.
+
+Each batch ports reference algorithms/tests where available, adds focused pointer/keyboard/screen-
+reader/RTL/reduced-motion/narrow coverage, runs the changed-file static gate, and commits cleanly.
+Dependency changes use exact pins and rerun the supply-chain gate. Do not stop for visual acceptance
+between batches; present one combined gate only after the complete milestone and agent audit.
+
+#### Combined exit gate
+
+The unrelated playground and packed consumer must use only public exports to demonstrate the shell,
+both built-in tabs, custom pane/inspector/menu extensions, typed item controls, and backend-free
+creation handlers. Present matched main/package dark and light evidence at the accepted desktop
+viewport plus 200% zoom and a compact 320 px shell. Exercise pointer and keyboard pane
+open/close/resize/full-width, outline navigation/selection/focus, inspector edits and UI-type
+changes, pane creation, selection actions, drag/pan/wheel ownership, and focus restoration.
+
+The developer must explicitly accept the combined visual and interaction result. Only then record
+the package-output baseline, run the final broad package/supply-chain/consumer/browser gates once,
+and request the final whole-plan audit. No agent or test suite may waive this gate.
+
 ## Verification order
 
 For every visual or interaction batch:
@@ -2424,6 +2615,12 @@ This extraction succeeds when:
   handle;
 - selection, resize affordances, nested groups, toolbar, minimap, typography, icons, and appearance
   preserve the accepted Setta product language;
+- the package-owned shell supplies the accepted left/right pane behavior, a recursive accessible
+  outline, and a selection-aware inspector without importing application chrome or backend state;
+- canvas and selection context menus provide searchable creation and package structural actions at
+  the correct workspace coordinate without breaking drag, pan, wheel, or native editor ownership;
+- typed built-in item controls render and configure without a host renderer while custom items and
+  inspector/menu/pane tabs remain explicit public extension points;
 - an unrelated React example installs the local package, imports its compiled CSS, registers custom
   section and item renderers, and uses the workspace without a Setta backend;
 - a temporary Setta integration worktree installs the same packed artifact without modifying the
