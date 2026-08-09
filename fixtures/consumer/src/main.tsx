@@ -1,11 +1,18 @@
-import { SortableItemLists, Workspace, WorkspaceOutline } from "@setta/workspace";
+import {
+  SortableItemLists,
+  Workspace,
+  WorkspaceOutline,
+  WorkspaceViewportPresets,
+} from "@setta/workspace";
 import {
   applySortableItemListMove,
   createEmptyWorkspaceDocument,
   createFilteredSortableItemTree,
   createWorkspaceJsonClipboardAdapter,
   packWorkspaceRectangles,
+  parseWorkspaceViewportPresets,
   planWorkspaceRootAutoLayout,
+  serializeWorkspaceViewportPresets,
   validateSortableItemLists,
   validateWorkspaceDocument,
   type SortableItemList,
@@ -66,6 +73,11 @@ const consumerLayoutPreview = planWorkspaceRootAutoLayout({
   gap: 16,
   rootRects: [{ height: 180, sectionId: "consumer-note-1", width: 300, x: 32, y: 32 }],
 });
+const consumerViewportPresets = parseWorkspaceViewportPresets(
+  serializeWorkspaceViewportPresets([
+    { id: "consumer-overview", name: "Consumer overview", viewport: { x: 0, y: 0, zoom: 1 } },
+  ]),
+);
 if (
   consumerPackingPreview[0]?.x !== 32 ||
   consumerLayoutPreview.positions["consumer-note-1"]?.y !== 32
@@ -254,7 +266,14 @@ createRoot(root).render(
           onExternalDrop={onExternalDrop}
           overlaySlots={{
             utility: (controller) => (
-              <WorkspaceOutline ariaLabel="Consumer section outline" controller={controller} />
+              <div style={{ display: "grid", gap: "12px" }}>
+                <WorkspaceOutline ariaLabel="Consumer section outline" controller={controller} />
+                <WorkspaceViewportPresets
+                  ariaLabel="Consumer saved views"
+                  controller={controller}
+                  presets={consumerViewportPresets}
+                />
+              </div>
             ),
           }}
           sectionDefinitions={consumerSectionDefinitions}

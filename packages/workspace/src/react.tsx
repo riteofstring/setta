@@ -73,6 +73,12 @@ export type {
   WorkspaceDetachmentValidator,
 } from "./internal/workspace-section-detachment-contract.js";
 export { WorkspaceDetachmentProvider } from "./internal/workspace-section-detachment.js";
+export { WorkspaceViewportPresets } from "./internal/workspace-viewport-presets-react.js";
+export type {
+  WorkspaceViewportPresetCreateRequest,
+  WorkspaceViewportPresetRenameRequest,
+  WorkspaceViewportPresetsProps,
+} from "./internal/workspace-viewport-presets-react.js";
 
 export type WorkspaceInteractionBoundaryProps = HTMLAttributes<HTMLDivElement> &
   Readonly<{

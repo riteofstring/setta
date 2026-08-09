@@ -317,6 +317,70 @@ rerender it when its controlled document or package selection changes and provid
 sized, themed container. For very large documents, keep inactive branches collapsed so the outline
 adds DOM only for rows users are currently navigating.
 
+## Saved viewport presets
+
+`WorkspaceViewportPresets` is an optional utility overlay for host-persisted viewport shortcuts.
+The package validates and renders ordered `{ id, name, viewport }` records, captures the current
+canonical viewport, restores a selected preset through `controller.setViewport`, and owns native
+save, restore, rename, and delete controls with local validation, focus recovery, and polite
+announcements. The host remains the only owner of preset IDs, storage, authorization, and accepted
+collection changes.
+
+```tsx
+import {
+  parseWorkspaceViewportPresets,
+  serializeWorkspaceViewportPresets,
+  type WorkspaceViewportPreset,
+} from "@setta/workspace/core";
+import { Workspace, WorkspaceViewportPresets } from "@setta/workspace/react";
+
+const [presets, setPresets] = useState<readonly WorkspaceViewportPreset[]>(() => {
+  const saved = localStorage.getItem("workspace-views");
+  return saved ? parseWorkspaceViewportPresets(saved) : [];
+});
+
+function updatePresets(next: readonly WorkspaceViewportPreset[]) {
+  setPresets(next);
+  localStorage.setItem("workspace-views", serializeWorkspaceViewportPresets(next));
+}
+
+<Workspace
+  document={document}
+  onDocumentChange={setDocument}
+  overlaySlots={{
+    utility: (controller) => (
+      <WorkspaceViewportPresets
+        controller={controller}
+        onCreatePreset={({ name, viewport }) =>
+          updatePresets([...presets, { id: allocateViewId(), name, viewport }])
+        }
+        onDeletePreset={(presetId) => updatePresets(presets.filter(({ id }) => id !== presetId))}
+        onRenamePreset={({ name, presetId }) =>
+          updatePresets(
+            presets.map((preset) => (preset.id === presetId ? { ...preset, name } : preset)),
+          )
+        }
+        presets={presets}
+      />
+    ),
+  }}
+  sectionDefinitions={sectionDefinitions}
+/>;
+```
+
+Each callback is a host request. The panel waits for the corresponding controlled `presets` update
+before clearing an editor, announcing success, or moving focus to a created or renamed entry. Omit
+all three callbacks for a restore-only list. Names are trimmed by the editor; persisted IDs and
+names must be non-empty without surrounding whitespace, IDs must be unique, arrays must be dense,
+and every viewport must stay within the package's global finite zoom contract. The versioned parse
+and serialize helpers reject extra fields, accessors, unsupported versions, and malformed JSON.
+
+Preset collection order and panel visibility are host preferences, not `WorkspaceDocument` fields.
+Restoring a preset publishes the ordinary `viewport` change, synchronizes through the existing
+canvas lifecycle, preserves selection and section state, and creates no structural history entry.
+It remains available in `readOnly` mode. A preset outside the live workbench's narrower gesture
+zoom bounds is reported specifically instead of being clamped or partially applied.
+
 ## Controller commands
 
 The controller is unavailable until the upstream viewport initializes. Read it through

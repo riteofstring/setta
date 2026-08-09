@@ -576,6 +576,16 @@ workbench has root sections, click empty minimap space to center that workbench 
 minimap to pan, or click a root summary to select, center, and focus that section. Direct section
 controls and the controller's focus, fit, and next/previous helpers provide the corresponding
 keyboard navigation paths.
+
+`WorkspaceViewportPresets` is an optional utility overlay for host-persisted saved views. It
+captures the current canonical viewport, restores through the public controller, and supplies
+native save, restore, rename, and delete controls with validation, focus recovery, and polite
+feedback. The controlled `presets` array remains a separate host preference; callbacks request
+host-owned ID allocation and collection changes. Core `parseWorkspaceViewportPresets` and
+`serializeWorkspaceViewportPresets` helpers provide a strict versioned storage frame. Restoring a
+view changes only the ordinary document viewport, stays available in read-only mode, and does not
+create a structural history entry.
+
 `gridOptions.snap` and `minimapOptions.visible` are locally toggleable when their change callback is
 omitted. Supplying `onGridSnapChange` or `onMinimapVisibilityChange` makes that preference
 controlled; keep the corresponding option and callback ownership mode stable for the mount.

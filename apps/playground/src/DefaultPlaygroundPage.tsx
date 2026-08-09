@@ -4,12 +4,16 @@ import {
   type WorkspaceAppearance,
   type WorkspaceController,
   type WorkspaceDocument,
+  type WorkspaceViewportPreset,
 } from "@setta/workspace/core";
 import {
   Workspace,
   WorkspaceDetachmentProvider,
+  WorkspaceViewportPresets,
   type WorkspaceSectionTitleValidationRequest,
   type WorkspaceToolbarControl,
+  type WorkspaceViewportPresetCreateRequest,
+  type WorkspaceViewportPresetRenameRequest,
 } from "@setta/workspace/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -90,6 +94,12 @@ function ArrangeSectionsIcon() {
   );
 }
 
+function nextViewportPresetId(presets: readonly WorkspaceViewportPreset[]): string {
+  let number = 1;
+  while (presets.some(({ id }) => id === `saved-view-${String(number)}`)) number += 1;
+  return `saved-view-${String(number)}`;
+}
+
 function autoLayoutAnnouncement(result: WorkspaceActionResult): string {
   if (result.status === "applied") {
     return "Top-level sections arranged.";
@@ -117,6 +127,7 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
   const [preferences, setPreferences] = useState(initialState.preferences);
   const [announcement, setAnnouncement] = useState(initialState.message);
   const [fieldListSelectionEpoch, setFieldListSelectionEpoch] = useState(0);
+  const [showSavedViews, setShowSavedViews] = useState(false);
   const controllerRef = useRef<WorkspaceController<PlaygroundSectionData>>(null);
   const clipboardSectionNumberRef = useRef(1);
   const externalSampleBodyRef = useRef<string | null>(null);
@@ -182,6 +193,32 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
 
   const updatePreferences = (updates: Partial<PlaygroundPreferences>) => {
     setPreferences((current) => ({ ...current, ...updates }));
+  };
+
+  const createViewportPreset = ({ name, viewport }: WorkspaceViewportPresetCreateRequest) => {
+    setPreferences((current) => ({
+      ...current,
+      viewportPresets: [
+        ...current.viewportPresets,
+        { id: nextViewportPresetId(current.viewportPresets), name, viewport },
+      ],
+    }));
+  };
+
+  const renameViewportPreset = ({ name, presetId }: WorkspaceViewportPresetRenameRequest) => {
+    setPreferences((current) => ({
+      ...current,
+      viewportPresets: current.viewportPresets.map((preset) =>
+        preset.id === presetId ? { ...preset, name } : preset,
+      ),
+    }));
+  };
+
+  const deleteViewportPreset = (presetId: string) => {
+    setPreferences((current) => ({
+      ...current,
+      viewportPresets: current.viewportPresets.filter(({ id }) => id !== presetId),
+    }));
   };
 
   const importDocument = (serialized: string): PlaygroundImportResult => {
@@ -299,6 +336,13 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
           />
         </div>
         <div className="playground-toolbar">
+          <button
+            aria-pressed={showSavedViews}
+            onClick={() => setShowSavedViews((current) => !current)}
+            type="button"
+          >
+            Saved views
+          </button>
           <p className="announcement" role="status" aria-live="polite">
             {announcement}
           </p>
@@ -364,6 +408,18 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
               );
             }}
             onGridSnapChange={(gridSnap) => updatePreferences({ gridSnap })}
+            overlaySlots={{
+              utility: (workspaceController) =>
+                showSavedViews ? (
+                  <WorkspaceViewportPresets
+                    controller={workspaceController}
+                    onCreatePreset={createViewportPreset}
+                    onDeletePreset={deleteViewportPreset}
+                    onRenamePreset={renameViewportPreset}
+                    presets={preferences.viewportPresets}
+                  />
+                ) : null,
+            }}
             readOnly={readOnly}
             sectionDefinitions={sectionDefinitions}
             sectionFactory={({ kind }) => nextFactoryResult(kind)}

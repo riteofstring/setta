@@ -4,11 +4,13 @@ import {
   parseWorkspaceDocument,
   serializeWorkspaceDocument,
   validateSortableItemLists,
+  validateWorkspaceViewportPresets,
   type SortableItemList,
   type SortableItemTree,
   type WorkspaceAppearance,
   type WorkspaceDocument,
   type WorkspaceJsonClipboardDataValidationRequest,
+  type WorkspaceViewportPreset,
 } from "@setta/workspace/core";
 
 export type PlaygroundNoteData = Readonly<{
@@ -39,6 +41,7 @@ export type PlaygroundPreferences = Readonly<{
   appearance: WorkspaceAppearance;
   gridSnap: boolean;
   gridVisible: boolean;
+  viewportPresets: readonly WorkspaceViewportPreset[];
 }>;
 
 export type PlaygroundInitialState = Readonly<{
@@ -50,12 +53,13 @@ export type PlaygroundInitialState = Readonly<{
 const PLAYGROUND_DOCUMENT_STORAGE_KEY = "setta-workspace-playground-document-v1";
 const PLAYGROUND_PREFERENCES_STORAGE_KEY = "setta-workspace-playground-preferences-v1";
 
-const PLAYGROUND_PREFERENCES_SCHEMA_VERSION = 1;
+const PLAYGROUND_PREFERENCES_SCHEMA_VERSION = 2;
 
 const DEFAULT_PLAYGROUND_PREFERENCES: PlaygroundPreferences = Object.freeze({
   appearance: "system",
   gridSnap: true,
   gridVisible: true,
+  viewportPresets: Object.freeze([]),
 });
 
 class PlaygroundDocumentPayloadError extends TypeError {
@@ -398,12 +402,19 @@ function parsePreferences(serialized: string): PlaygroundPreferences {
     appearance: preferenceAppearance(record.appearance),
     gridSnap: preferenceBoolean(record.gridSnap, "grid snap"),
     gridVisible: preferenceBoolean(record.gridVisible, "grid visibility"),
+    viewportPresets: preferenceViewportPresets(record.viewportPresets),
   };
 }
 
 function assertPreferenceFields(record: Record<string, unknown>): void {
   const keys = Object.keys(record).sort();
-  const expectedKeys = ["appearance", "gridSnap", "gridVisible", "schemaVersion"];
+  const expectedKeys = [
+    "appearance",
+    "gridSnap",
+    "gridVisible",
+    "schemaVersion",
+    "viewportPresets",
+  ];
   if (
     keys.length !== expectedKeys.length ||
     keys.some((key, index) => key !== expectedKeys[index])
@@ -427,6 +438,20 @@ function preferenceBoolean(value: unknown, label: string): boolean {
     throw new PlaygroundPreferencesError(`Saved workspace ${label} preference is invalid.`);
   }
   return value;
+}
+
+function preferenceViewportPresets(value: unknown): readonly WorkspaceViewportPreset[] {
+  try {
+    validateWorkspaceViewportPresets(value);
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new PlaygroundPreferencesError(
+        `Saved workspace viewport presets are invalid. ${error.message}`,
+      );
+    }
+    throw error;
+  }
+  return value.map((preset) => ({ ...preset, viewport: { ...preset.viewport } }));
 }
 
 function plainPreferencesRecord(value: unknown): Record<string, unknown> {
@@ -519,6 +544,7 @@ export function persistPlaygroundDocument(
 }
 
 export function persistPlaygroundPreferences(preferences: PlaygroundPreferences): string | null {
+  validateWorkspaceViewportPresets(preferences.viewportPresets);
   try {
     window.localStorage.setItem(
       PLAYGROUND_PREFERENCES_STORAGE_KEY,

@@ -1969,6 +1969,214 @@
   line-height: 1.5;
 }
 
+.setta-workspace__viewport-presets {
+  display: flex;
+  inline-size: min(20rem, max(10rem, calc(100cqi - 10rem)));
+  max-inline-size: 100%;
+  max-block-size: min(30rem, calc(70vh - 2rem));
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--setta-workspace-section-text);
+  background: color-mix(in oklch, var(--setta-workspace-toolbar-background) 96%, transparent);
+  border-radius: 0.875rem;
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--setta-workspace-section-text) 8%, transparent),
+    0 0.25rem 0.75rem oklch(0 0 0 / 0.08),
+    0 0.75rem 2rem oklch(0 0 0 / 0.1);
+  backdrop-filter: blur(0.75rem);
+}
+
+.setta-workspace__viewport-presets-heading {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+}
+
+.setta-workspace__viewport-presets-heading :is(h2, p) {
+  margin: 0;
+}
+
+.setta-workspace__viewport-presets-heading h2 {
+  min-inline-size: 0;
+  font-size: 1rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.setta-workspace__viewport-presets-heading p {
+  flex: none;
+  color: var(--setta-workspace-section-muted-text);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.setta-workspace__viewport-presets-create,
+.setta-workspace__viewport-presets-rename {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.setta-workspace__viewport-presets-create {
+  flex: none;
+  padding: 0 1rem 1rem;
+}
+
+.setta-workspace__viewport-presets-create label {
+  font-size: 0.8125rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.setta-workspace__viewport-presets :is(input, button) {
+  min-block-size: 2.5rem;
+  color: inherit;
+  font: inherit;
+  border: 0;
+  border-radius: 0.5rem;
+  touch-action: manipulation;
+}
+
+.setta-workspace__viewport-presets input {
+  min-inline-size: 0;
+  inline-size: 100%;
+  padding-inline: 0.75rem;
+  font-size: 1rem;
+  line-height: 1.35;
+  background: var(--setta-workspace-section-background);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklch, var(--setta-workspace-section-text) 18%, transparent);
+}
+
+.setta-workspace__viewport-presets button {
+  padding-inline: 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  line-height: 1.25;
+  background: color-mix(
+    in oklch,
+    var(--setta-workspace-section-background) 88%,
+    var(--setta-workspace-selection)
+  );
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--setta-workspace-section-text) 10%, transparent);
+  cursor: pointer;
+}
+
+.setta-workspace__viewport-presets button:hover {
+  background: color-mix(
+    in oklch,
+    var(--setta-workspace-section-background) 78%,
+    var(--setta-workspace-selection)
+  );
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--setta-workspace-section-text) 13%, transparent),
+    0 0.25rem 0.625rem oklch(0 0 0 / 0.08);
+}
+
+.setta-workspace__viewport-presets-list {
+  display: flex;
+  min-block-size: 0;
+  margin: 0;
+  padding: 0 0.75rem 0.75rem;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow: auto;
+  list-style: none;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.setta-workspace__viewport-presets-item {
+  display: flex;
+  min-inline-size: 0;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+.setta-workspace__viewport-presets-restore {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.125rem;
+  padding-block: 0.5rem;
+  text-align: start;
+}
+
+.setta-workspace__viewport-presets-restore span {
+  max-inline-size: 100%;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.setta-workspace__viewport-presets-restore small {
+  max-inline-size: 100%;
+  color: var(--setta-workspace-section-muted-text);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 550;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.setta-workspace__viewport-presets-icon-action {
+  display: grid;
+  flex: 0 0 2.5rem;
+  inline-size: 2.5rem;
+  padding: 0;
+  place-items: center;
+}
+
+.setta-workspace__viewport-presets-icon-action svg {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.setta-workspace__viewport-presets-rename {
+  min-inline-size: 0;
+  inline-size: 100%;
+  padding: 0.75rem;
+  background: color-mix(in oklch, var(--setta-workspace-section-background) 72%, transparent);
+  border-radius: 0.75rem;
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--setta-workspace-section-text) 8%, transparent);
+}
+
+.setta-workspace__viewport-presets-rename-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.setta-workspace__viewport-presets-rename-actions button {
+  flex: 1 1 6rem;
+}
+
+.setta-workspace__viewport-presets-error {
+  margin: 0;
+  color: var(--setta-workspace-invalid);
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.setta-workspace__viewport-presets-empty {
+  margin: 0;
+  padding: 0 1rem 1rem;
+  color: var(--setta-workspace-section-muted-text);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 .setta-workspace:dir(rtl) .setta-workspace__overlay--viewport {
   transform: translateX(50%);
 }
@@ -2149,6 +2357,14 @@
       box-shadow 120ms ease-out;
   }
 
+  .setta-workspace__viewport-presets button {
+    transition:
+      color 120ms ease-out,
+      background-color 120ms ease-out,
+      box-shadow 120ms ease-out,
+      transform 120ms ease-out;
+  }
+
   .setta-workspace__section-edit-control:active:not(:disabled),
   .setta-workspace__section-detachment-control:active,
   .setta-workspace__section-selection-control:active,
@@ -2160,7 +2376,8 @@
   .setta-workspace__section-color-reset:active:not(:disabled),
   .setta-workspace__creation-close:active,
   .setta-workspace__creation-group button:active,
-  .setta-workspace__creation-empty button:active {
+  .setta-workspace__creation-empty button:active,
+  .setta-workspace__viewport-presets button:active {
     transform: scale(0.96);
   }
 
@@ -2205,6 +2422,15 @@
 
   .setta-workspace__outline-item {
     min-block-size: 2.75rem;
+  }
+
+  .setta-workspace__viewport-presets :is(input, button) {
+    min-block-size: 2.75rem;
+  }
+
+  .setta-workspace__viewport-presets-icon-action {
+    flex-basis: 2.75rem;
+    inline-size: 2.75rem;
   }
 
   .setta-workspace__section-selection-control,

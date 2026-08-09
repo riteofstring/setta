@@ -145,3 +145,10 @@ export type {
   WorkspaceRootAutoLayoutOptions,
   WorkspaceThemeTokens,
 } from "./internal/workspace-surface-contract.js";
+export {
+  WORKSPACE_VIEWPORT_PRESETS_SCHEMA_VERSION,
+  parseWorkspaceViewportPresets,
+  serializeWorkspaceViewportPresets,
+  validateWorkspaceViewportPresets,
+} from "./internal/workspace-viewport-presets.js";
+export type { WorkspaceViewportPreset } from "./internal/workspace-viewport-presets.js";

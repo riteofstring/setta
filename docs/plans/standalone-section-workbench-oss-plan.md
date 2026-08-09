@@ -1583,8 +1583,8 @@ Gate:
 ### Phase 6: Deferred capability expansion in the same package
 
 Status: **in progress** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
-optional outline-navigator, top-level auto-layout, named item-list, filtered item-list, and
-mixed-parent batch-movement batches are implemented and recorded in
+optional outline-navigator, top-level auto-layout, named item-list, filtered item-list,
+mixed-parent batch-movement, and saved viewport-preset batches are implemented and recorded in
 [Phase 6 detachable-section evidence](../evidence/phase-6-detachable-sections.md) and
 [Phase 6 clipboard evidence](../evidence/phase-6-clipboard.md), with the navigator record in
 [Phase 6 outline-navigator evidence](../evidence/phase-6-outline-navigator.md) and the layout record
@@ -1593,7 +1593,31 @@ is [Phase 6 named item-list evidence](../evidence/phase-6-named-item-lists.md), 
 projection record in [Phase 6 filtered item-list evidence](../evidence/phase-6-filtered-item-lists.md)
 and the mixed-parent record in
 [Phase 6 mixed-parent batch-movement evidence](../evidence/phase-6-mixed-parent-batch-movement.md).
-Saved viewport presets are the earliest incomplete repository-actionable Phase 6 work.
+The saved-view record is
+[Phase 6 viewport-preset evidence](../evidence/phase-6-viewport-presets.md). Generic edges and ports
+are the earliest incomplete repository-actionable Phase 6 work.
+
+- Completed (saved viewport-preset batch): added a strict versioned core preference format and an
+  optional controlled React panel for capturing, restoring, renaming, and deleting named
+  viewports. Hosts retain collection order, IDs, persistence, authorization, and panel visibility;
+  the package owns validation, exact capture/restore through the existing controller, native form
+  semantics, focus handoff, and live feedback. Presets remain outside `WorkspaceDocument`, do not
+  introduce structural history, and can be exposed as restore-only or used while document editing
+  is read-only. The backend-free playground persists the host preference and the unrelated packed
+  consumer imports only declared core and React exports. The complete record is
+  `docs/evidence/phase-6-viewport-presets.md`.
+- Saved viewport-preset verification: exact Node 24.18.1, repository-local Corepack 0.35.0, and
+  pnpm 11.19.0 focused coverage passed six core/static React tests. Exact Chromium selectors passed
+  the two saved-view workflows plus both directly affected persistence workflows, covering exact
+  viewport restoration, controlled CRUD reconciliation, reload persistence, read-only operation,
+  focus, live announcements, Axe, 200% page scale, coarse pointers, reduced motion, and 320
+  CSS-pixel reflow. The new baseline was inspected at original resolution. Changed-file quality
+  passed for 18 project files with boundaries across 310 files, strict types, formatting, lint,
+  complexity and file lengths, dead-code analysis, 450 unit tests across 42 files, six boundary
+  tests, plan-loop automation, builds, exact tarball contents, and the declaration report. The
+  unrelated tarball-installed consumer passed lockfile policy, strict build, and runtime smoke. No
+  dependency input changed, so the network-backed supply-chain gate was not duplicated; the
+  recorded unavailable in-app-browser release gate was not retried.
 
 - Completed (mixed-parent batch-movement batch): section free moves and sortable-item movement now
   normalize selected ancestors, retain every remaining root in deterministic order, carry one
@@ -1710,7 +1734,7 @@ Then evaluate or implement independently:
 - Completed: filtered-list reordering against a larger canonical tree.
 - Completed: mixed-parent batch section and item dragging with active-root anchoring and atomic
   convergence into one destination.
-- Saved viewport presets.
+- Completed: saved viewport presets.
 - Generic edges and ports.
 - Pane registration beyond toolbar and overlay slots.
 - Viewport culling.
@@ -1867,6 +1891,7 @@ The initial package documentation includes:
 - Detachable-window, adapter-driven clipboard, and optional outline-navigator integration guidance.
 - Pure rectangle-packing and measured top-level auto-layout guidance.
 - Persistence integration example.
+- Saved viewport-preset ownership, persistence, and restore-only integration guidance.
 - Keyboard interaction table.
 - Accessibility expectations for host renderers.
 - Styling and light/dark theme tokens.
@@ -1940,7 +1965,8 @@ This plan does not include:
 - Cross-application protocols.
 - Public revision-checked transactions.
 - Dry-run approvals or human-readable machine-operation summaries.
-- References, variants, or saved views.
+- References or variants. Saved viewport presets were implemented later as an optional same-package
+  Phase 6 capability.
 - Browser pop-out windowing and copy/paste in the initial milestone; both were implemented later as
   optional same-package Phase 6 capabilities.
 - Generic edges, ports, or execution semantics in the initial scope.

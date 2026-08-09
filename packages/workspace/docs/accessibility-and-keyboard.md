@@ -6,9 +6,9 @@ restoration, and pre-mounted polite announcements. Automated scans supplement th
 contracts; they do not replace host testing with a keyboard and screen reader.
 
 Set a concise `ariaLabel` on each `Workspace` when a page contains more than one workbench. Give
-each `WorkspaceOutline`, `SortableItemTree`, and `SortableItemLists` surface its own `ariaLabel`,
-and give sortable items stable labels. Each named item list exposes a visible label and a native
-named region inside the shared movement group.
+each `WorkspaceOutline`, `WorkspaceViewportPresets`, `SortableItemTree`, and `SortableItemLists`
+surface its own `ariaLabel`, and give sortable items stable labels. Each named item list exposes a
+visible label and a native named region inside the shared movement group.
 
 ## Global and selection commands
 
@@ -91,6 +91,10 @@ DOM but remain unchanged in the workbench document.
 
 ## Menus, editors, toolbar, and minimap alternatives
 
+- Saved-view creation and rename use native forms. Enter submits, Escape cancels rename, invalid
+  blank names remain focused with an associated instruction, and accepted create, rename, or delete
+  requests restore focus to the resulting view or the creation field. Restore buttons keep focus
+  while the viewport synchronizes; a pre-mounted polite region reports every outcome.
 - The creation search receives focus on open. Type to filter, press ArrowDown to enter results,
   activate a result with Enter or Space, and press Escape to close and restore the invoking control.
   Empty results and creation rejection remain visible and announced.
