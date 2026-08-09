@@ -810,8 +810,26 @@ Phase 4 progress (2026-08-11):
   Playground suite green (6, including the two new contract cases); changed-file static gate
   green (no dependency or packaging changes, so the supply-chain and consumer gates were not
   rerun).
-- Remaining Phase 4 work: audit the host-scrollbar correction, repeat the live main-Dict versus
-  unrelated-item comparison, and obtain a renewed developer exit-gate decision.
+- Host-scrollbar correction audit (2026-08-11): a static audit confirmed the correction faithful,
+  complete, and correctly scoped, with no code changes required. The playground's two `@supports`
+  blocks are byte-identical to the reference host stylesheet — `frontend/index.css` at 043d3b2e9,
+  the file the reference `index.html` links as `/index.css` — verified by extracting the blocks
+  from both sources and diffing. The host-context scoping holds on both sides: the reference's
+  only other scrollbar rules (the `.top-bottom-fade` hide and the CodeMirror path-input scoping
+  in `frontend/src/index.css`, plus the xterm viewport block) are class-scoped and never reach
+  the item scroller — consistent with live main's measured 544 px client width — while in this
+  repository the copied host blocks are the sole scrollbar rules anywhere, so the package ships
+  no scrollbar policy and `WorkspaceItemList`'s `overflow-y-scroll` shell is what reserves the
+  6 px gutter under the restored classic scrollbars. The regression test's frozen literals match
+  the authored blocks, the `node:fs` read is admitted by the recorded test-only boundary
+  relaxation, and the new test file is already covered by the playground's vitest include and
+  Knip entry patterns. The phase-gate deterministic matrix was rerun green after the correction:
+  full-scope static gate (`quality:all`, 327 files), package suite (431), playground suite (6),
+  and the package build with the source and built-artifact boundary checks. The supply-chain and
+  packed-consumer gates were not duplicated: the correction carries no dependency or packaging
+  change, and their recorded green runs postdate the last relevant change.
+- Remaining Phase 4 work: repeat the live main-Dict versus unrelated-item comparison, and obtain
+  a renewed developer exit-gate decision.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
