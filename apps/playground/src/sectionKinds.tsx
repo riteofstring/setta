@@ -36,6 +36,8 @@ function LeafSectionBody({ section }: { section: WorkspaceSection }) {
 // per-section item drag context and one item list, names the list, supplies list membership
 // from the canonical tree, and renders row content from this host's opaque item data. The
 // group flag in that data drives the parent-row layout, so an emptied group keeps its chrome.
+// The package owns the list-area shell (the named nested grid, scrolling, and row rhythm);
+// the host only places the area in the section grid and gives it a column to fill.
 function getItemField(item: WorkspaceItem, field: string): string | boolean | undefined {
   const data = item.data;
   if (data === null || typeof data !== "object" || Array.isArray(data)) {
@@ -75,7 +77,7 @@ function ItemListSectionBody({ section }: { section: WorkspaceSection }) {
     throw new Error(`Item panel section ${section.id} is missing its item tree.`);
   }
   return (
-    <div className="section-full-no-title flex min-h-0 flex-col gap-y-1 overflow-y-auto px-1">
+    <div className="section-full-no-title flex min-h-0 flex-col">
       <ItemDndContext>
         <WorkspaceItemList
           sectionId={section.id}

@@ -63,12 +63,19 @@ function validateSpecifier(absolutePath, specifier, allowedDependencyNames) {
 
 function validateSourceImports() {
   return walkSourceFiles(sourceRoot).flatMap((absolutePath) => {
-    const allowedDependencyNames = isTestFile(absolutePath)
+    const isTest = isTestFile(absolutePath);
+    const allowedDependencyNames = isTest
       ? new Set([...runtimeDependencyNames, ...developmentDependencyNames, "vitest"])
       : runtimeDependencyNames;
-    return importSpecifiers(readFileSync(absolutePath, "utf8")).flatMap((specifier) =>
-      validateSpecifier(absolutePath, specifier, allowedDependencyNames),
-    );
+    return importSpecifiers(readFileSync(absolutePath, "utf8")).flatMap((specifier) => {
+      // Tests run under vitest on Node and may use the platform's `node:`-prefixed builtins
+      // (the stylesheet-geometry suite compiles the real build input); builtins add nothing
+      // to the dependency graph, and production sources stay browser-only.
+      if (isTest && specifier.startsWith("node:")) {
+        return [];
+      }
+      return validateSpecifier(absolutePath, specifier, allowedDependencyNames);
+    });
   });
 }
 
@@ -126,6 +133,12 @@ function validateBuiltStylesheet() {
     // the usage and the rules must ship unconditionally (Phase 2 Setta-integration render
     // proof caught the layered variant being tree-shaken out).
     [".section-full-no-title", "host content-placement rule"],
+    // The nested item grid contract: the Phase 4 gate rejection caught the compiled sheet
+    // shipping the nested placement vocabulary without these named grids, which collapsed a
+    // group's children into an implicit side column beside the group label.
+    [".section-args-nested {", "nested item grid rule"],
+    [".section-args-nested-key-value {", "nested-root item grid rule"],
+    [String.raw`.\[\&\>p\]\:section-key-value > p`, "group-label placement rule"],
   ];
   return [
     ...(contents.includes("@tailwind")

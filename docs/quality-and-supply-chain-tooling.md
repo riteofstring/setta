@@ -32,7 +32,8 @@ explicit list.
 The changed-file gate runs, in order: dependency/boundary policy (`scripts/check-dependencies.mjs`),
 the package forbidden-import boundary (`scripts/check-package-boundary.mjs`: every
 `packages/workspace` source import must be package-relative or a declared dependency — test files
-may also use dev dependencies — and the package tsconfigs must not alias resolution), Prettier
+may also use dev dependencies and `node:` builtins — and the package tsconfigs must not alias
+resolution), Prettier
 check, `bash -n` shell syntax, ESLint (type-aware TypeScript baseline with React Hooks and JSX
 accessibility), file-length ceilings, `tsc --noEmit` for each workspace `tsconfig.json`, and Knip
 dead-code analysis. Tests, builds, packing, browser checks, and networked audits are separate

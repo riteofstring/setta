@@ -6,6 +6,7 @@ import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { buildItemTreeView, getItemOrThrow } from "../document/itemTree";
 import { useWorkspaceDocument } from "../document/stores";
 import type { WorkspaceItem, WorkspaceSectionItemTree } from "../document/types";
+import { NO_WHEEL_CLASS_NAME } from "../interaction";
 import {
   ItemListProvider,
   useItemDndChildrenForParent,
@@ -18,6 +19,7 @@ import {
   unregisterItemListView,
   updateItemListView,
 } from "./itemListRegistry";
+import { useIsScrollable } from "./useIsScrollable";
 
 // The reference's `ParamDndList` as the registered item surface: the host mounts one list per
 // item area (the reference hard-codes its pinned/unpinned areas), names it with a list key,
@@ -122,11 +124,36 @@ export function WorkspaceItemList({
       rootId={treeView.rootId}
       flatItemIds={treeView.flat.map((row) => row.id)}
     >
-      <ItemListBody
-        rootId={treeView.rootId}
-        topLevelRowIds={treeView.visibleChildrenByParent[treeView.rootId] ?? []}
-      />
+      <ItemListShell>
+        <ItemListBody
+          rootId={treeView.rootId}
+          topLevelRowIds={treeView.visibleChildrenByParent[treeView.rootId] ?? []}
+        />
+      </ItemListShell>
     </ItemListProvider>
+  );
+}
+
+// The reference's list-area shell (`GetUnpinnedParams`): the outer column clips, and the inner
+// named nested grid owns the row placement lines the row classes reference, the scrolling, and
+// the row rhythm; a scrollable list keeps its own wheel behavior instead of canvas zoom. The
+// reference's persisted min-height measurement stays application-side. The reference string
+// carries a `grid-cols-subgrid` its own stylesheet outranks with `.section-args-nested`; the
+// port drops that computed-dead utility so a host sheet loaded after the package sheet cannot
+// flip the winner across the package boundary.
+function ItemListShell({ children }: { children: ReactNode }) {
+  const { ref, isScrollable } = useIsScrollable();
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div
+        className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
+          isScrollable ? NO_WHEEL_CLASS_NAME : ""
+        }`}
+        ref={ref}
+      >
+        {children}
+      </div>
+    </div>
   );
 }
 

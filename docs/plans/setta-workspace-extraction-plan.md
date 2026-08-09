@@ -643,8 +643,32 @@ Phase 4 progress (2026-08-11):
   that fails when nested children share the parent-label row or collapse into an implicit side
   column, then repeat the live main-Dict versus unrelated-item comparison before requesting
   approval again.
-- Remaining Phase 4 work: correct the rejected nested item layout/parity defect, run the Phase 4
-  verification gates, and obtain a renewed developer exit-gate decision.
+- Nested grid parity correction (2026-08-11): the rejected defect had two coupled halves in the
+  compiled stylesheet, both restored at the reference's own cascade positions. The reference
+  authors `.section-args-nested` / `.section-args-nested-key-value` un-layered AFTER
+  `@tailwind utilities` (root index.css), so the named grids outrank the `grid-cols-subgrid`
+  utility riding the ported row strings; the package build input now appends them in that exact
+  position. The reference's layered vocabulary also lets Tailwind expand the group row's
+  `[&>p]:section-key-value` label placement; the package vocabulary is deliberately un-layered,
+  so that rule is authored directly as its compiled output. The list-area shell became
+  package-owned: `WorkspaceItemList` renders `GetUnpinnedParams`' outer clip column and named
+  nested-grid scroll shell with the ported `useIsScrollable` wheel gate (`nowheel` while
+  scrollable; the persisted min-height measurement stays application-side), and the playground
+  host wrapper dropped its own scroll/gap/px substitutes for it. One documented markup
+  deviation: the shell omits the reference string's computed-dead `grid-cols-subgrid` so a host
+  stylesheet loaded after the package sheet can never flip the winner across the package
+  boundary. Regression locks: a rendered-geometry suite compiles the shipped stylesheet from
+  its real build input and config (imports inlined as the CLI does) and resolves every nested
+  placement against the named lines the effective grid defines — verified to fail against the
+  pre-fix stylesheet with the rejected implicit-side-column collapse — and the built-stylesheet
+  gate now requires the three nested rules as markers. Tooling for the suite: test files may
+  import `node:` builtins (boundary check and tooling doc updated), `postcss` and `@types/node`
+  joined the package dev dependencies, the dev tsconfig takes `types: ["node"]`, and the build
+  tsconfig pins `types` back to empty so production source stays browser-pure. Focused item
+  suites, the package build with boundary markers, the full 431-test package run, the changed
+  static gate, and the supply-chain gate are green.
+- Remaining Phase 4 work: none in the repository; repeat the live main-Dict versus
+  unrelated-item comparison and obtain a renewed developer exit-gate decision.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

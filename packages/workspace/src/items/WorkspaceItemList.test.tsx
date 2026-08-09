@@ -212,8 +212,35 @@ describe("WorkspaceItemList", () => {
     expect(nestedRootRow.className).toContain("section-args-nested-key-value");
     expect(nestedRootRow.style.gridTemplateColumns).toContain("[c3]");
 
-    const rail = host.querySelector<HTMLElement>("div.section-args-nested");
+    // Scoped to the row: the package list-area shell is also a `section-args-nested` grid.
+    const rail = nestedRootRow.querySelector<HTMLElement>("div.section-args-nested");
     expect(rail?.contains(getRowByContent(host, "item-n1"))).toBe(true);
+  });
+
+  it("wraps the rows in the reference list-area shell and gates nowheel on scrollability", async () => {
+    await mount();
+
+    const shell = host.querySelector<HTMLElement>("div.overflow-y-scroll");
+    if (!shell) {
+      throw new Error("expected the package-owned list-area shell");
+    }
+    expect(shell.className.trim()).toBe(
+      "section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min content-start " +
+        "gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5",
+    );
+    expect(shell.parentElement?.className).toBe(
+      "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+    );
+    expect(shell.contains(getRowByContent(host, "item-a"))).toBe(true);
+
+    // Overflowing content flips the wheel gate: the scrollable shell keeps its own wheel
+    // behavior instead of canvas zoom, re-measured through the reference's content observer.
+    Object.defineProperty(shell, "scrollHeight", { value: 100 });
+    await act(async () => {
+      shell.setAttribute("data-remeasure", "overflow");
+      await Promise.resolve();
+    });
+    expect(shell.classList.contains("nowheel")).toBe(true);
   });
 
   it("takes the section-style-theme treatments only when the style color derives a theme", async () => {
