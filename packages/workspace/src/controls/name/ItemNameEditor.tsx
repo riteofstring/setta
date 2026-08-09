@@ -7,7 +7,7 @@ import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
 import { focusSectionAfterEscape } from "../sectionFocus";
 import { DummyCodeMirror } from "../text/DummyCodeMirror";
 import { getOnCreateEditor, type TextValueActivationEvent } from "../text/onCreateEditor";
-import { getTextValueExtensions } from "../text/textValueExtensions";
+import { getTextValueExtensions, TEXT_VALUE_BASIC_SETUP } from "../text/textValueExtensions";
 import type { TextValueLanguage } from "../text/textValueLanguages";
 import {
   mountTextValueThemeStyles,
@@ -270,12 +270,7 @@ function LiveItemNameEditor({
       className={`${className} ${!liveIsInitialized ? "opacity-0" : ""}`}
       value={name}
       placeholder={placeholder}
-      basicSetup={{
-        lineNumbers: false,
-        foldGutter: false,
-        highlightActiveLine: false,
-        tabSize: 4,
-      }}
+      basicSetup={TEXT_VALUE_BASIC_SETUP}
       onCreateEditor={onCreateEditor}
       theme={theme}
       extensions={extensions}

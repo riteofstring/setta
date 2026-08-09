@@ -8,6 +8,18 @@ import { getTextValueLanguageExtensions, type TextValueLanguage } from "./textVa
 // focus navigation are application services and stay application-side; without a completion
 // source Escape always reports (the reference consults `completionStatus` first).
 
+// `@uiw/react-codemirror` otherwise enables its bundled autocompletion extension by default.
+// Keep that implicit source off: the approved package surface owns syntax highlighting only,
+// while frozen main disables completion for names and supplies value completions through its
+// application/backend service.
+export const TEXT_VALUE_BASIC_SETUP = {
+  lineNumbers: false,
+  foldGutter: false,
+  highlightActiveLine: false,
+  tabSize: 4,
+  autocompletion: false,
+} as const;
+
 export type TextValueExtensionsOptions = {
   language: TextValueLanguage | null | undefined;
   singleLine: boolean;

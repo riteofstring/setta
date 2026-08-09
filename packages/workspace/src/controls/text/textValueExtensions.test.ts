@@ -1,6 +1,6 @@
 import { EditorState } from "@codemirror/state";
 import { describe, expect, it } from "vitest";
-import { getTextValueExtensions } from "./textValueExtensions";
+import { getTextValueExtensions, TEXT_VALUE_BASIC_SETUP } from "./textValueExtensions";
 
 // Characterizes the reference's `getExtensions` behavior on the trimmed text-value path: the
 // wrap default, the single-line transaction filter, and the extension counts the reference's
@@ -20,6 +20,10 @@ function createState(options: Partial<Parameters<typeof getTextValueExtensions>[
 }
 
 describe("getTextValueExtensions", () => {
+  it("disables the wrapper's implicit autocomplete extension", () => {
+    expect(TEXT_VALUE_BASIC_SETUP.autocompletion).toBe(false);
+  });
+
   it("wraps by default and drops wrapping for single-line editors", () => {
     // wrap + keymap; the reference asserts the same two-slot shape with wrapping off.
     expect(

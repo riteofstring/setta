@@ -1249,6 +1249,21 @@ Phase 4 progress (2026-08-11):
   the consolidated matched dark/light live comparison, explicit developer acceptance, and first
   package-output baselines remain incomplete at the required developer gate, and Phase 5 is not
   actionable.
+- Consolidated controls gate correction — implicit CodeMirror completion (2026-08-12): the
+  developer's manual inspection exposed a Python completion menu below the editable item name,
+  clipped by the item panel. This was not supported completion behavior awaiting a portal fix:
+  `@uiw/react-codemirror` silently enables its bundled autocomplete extension unless
+  `basicSetup.autocompletion` is false, while frozen main explicitly passes `autocomplete={false}`
+  for renamable parameter names and the approved item-controls amendment excludes completion
+  sources and tooltip plumbing. The package now centralizes its basic editor setup with
+  autocompletion explicitly disabled and uses it for item names, row values, multiline text, and
+  meta text controls; the language prop remains syntax/parser selection only. A focused regression
+  freezes the explicit opt-out. The three directly affected editor suites (20 tests), complete
+  package suite (80 files, 585 tests), production build and built-boundary check, changed-file
+  static gate, packed unrelated-consumer proof, and live Chrome checks for the name and Python value
+  paths pass; typing no longer opens a completion menu and Escape still restores section focus.
+  No dependency changed, so the supply-chain gate was not duplicated. The consolidated developer
+  acceptance and first package-output baselines remain open; Phase 5 is still not actionable.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
