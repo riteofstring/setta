@@ -1293,6 +1293,17 @@ Phase 4 progress (2026-08-11):
   check, playground production build, full changed-file static gate, packed unrelated-consumer
   proof, and dependency/supply-chain gate pass. The consolidated developer acceptance and first
   package-output baselines remain open; Phase 5 is still not actionable.
+- Consolidated controls gate correction — full-width password interaction (2026-08-12): follow-up
+  inspection showed that expanding the ordinary password wrapper correctly anchored the visibility
+  glyph but left the native input at its browser-intrinsic width. The input now explicitly fills
+  that wrapper while retaining its trailing padding for the overlay button, so the visible value
+  column and the editable pointer/focus area agree. A focused regression locks the width contract;
+  the focused password suite (6 tests), complete package suite (80 files, 585 tests), complete
+  playground suite (3 files, 23 tests), package production build and built-boundary check,
+  playground production build, full changed-file static gate, packed unrelated-consumer proof, and
+  live Chrome geometry check pass. No dependency changed, so the supply-chain gate was not
+  duplicated. The consolidated developer acceptance and first package-output baselines remain
+  open; Phase 5 is still not actionable.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

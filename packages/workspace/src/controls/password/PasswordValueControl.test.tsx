@@ -73,6 +73,7 @@ describe("PasswordValueControl", () => {
       "nodrag",
       "nopan",
       "peer/textinput",
+      "w-full",
       "font-mono",
       "text-xs",
       "bg-transparent",

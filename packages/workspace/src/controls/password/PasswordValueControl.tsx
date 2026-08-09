@@ -31,7 +31,7 @@ const INPUT_WRAPPER_CLASS_NAME = `section-value relative min-w-0 flex-1 ${NO_DRA
 // Frozen main receives a transparent input background from its global `input { all: unset }`
 // rule. The package cannot ship that host-wide reset, so both scoped password presentations carry
 // the equivalent background explicitly.
-const INPUT_BASE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex min-w-0 flex-1 self-center bg-transparent pr-8 font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
+const INPUT_BASE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex w-full min-w-0 flex-1 self-center bg-transparent pr-8 font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
 const TOGGLE_BASE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} absolute inset-y-0 right-0 grid w-8 place-items-center text-setta-400 dark:text-setta-500`;
 const DIVIDER_BASE_CLASS_NAME =
   "section-value self-end border-b border-setta-200/50 dark:border-setta-600/30";
