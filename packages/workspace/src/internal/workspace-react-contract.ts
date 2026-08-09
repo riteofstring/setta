@@ -15,7 +15,10 @@ import {
   type WorkspacePoint,
 } from "../core.js";
 import { isDenseArray, isEnumerableDataProperty } from "./runtime-option-validation.js";
-import type { WorkspaceSectionMoveMode } from "./section-move-planning.js";
+import type {
+  WorkspaceSectionMoveMode,
+  WorkspaceSectionMoveValidator,
+} from "./section-move-planning.js";
 import type {
   SectionDefinition,
   WorkspaceGroupFactory,
@@ -60,7 +63,13 @@ export type WorkspaceMinimapOptions = Readonly<{
 }>;
 
 export type WorkspaceMarqueeSelectionMode = "full" | "partial";
-export type { WorkspaceSectionMoveMode } from "./section-move-planning.js";
+export type {
+  SectionMovePlan,
+  WorkspaceSectionMoveDecision,
+  WorkspaceSectionMoveMode,
+  WorkspaceSectionMoveValidationRequest,
+  WorkspaceSectionMoveValidator,
+} from "./section-move-planning.js";
 
 export type WorkspaceSelectionOptions = Readonly<{
   marqueeMode?: WorkspaceMarqueeSelectionMode;
@@ -138,6 +147,7 @@ type SharedWorkspaceProps<TSectionData> = Omit<
   selectionOptions?: WorkspaceSelectionOptions;
   toolbarControls?: readonly WorkspaceToolbarControl<TSectionData>[];
   validateExternalDrop?: WorkspaceExternalDropValidator;
+  validateSectionMove?: WorkspaceSectionMoveValidator<TSectionData>;
   validateSectionTitle?: WorkspaceSectionTitleValidator;
 };
 
@@ -403,6 +413,14 @@ export function assertWorkspaceSectionTitleValidator(
 ): asserts value is WorkspaceSectionTitleValidator | undefined {
   if (value !== undefined && typeof value !== "function") {
     throw new TypeError("Workspace validateSectionTitle must be a function.");
+  }
+}
+
+export function assertWorkspaceSectionMoveValidator(
+  value: unknown,
+): asserts value is WorkspaceSectionMoveValidator | undefined {
+  if (value !== undefined && typeof value !== "function") {
+    throw new TypeError("Workspace validateSectionMove must be a function.");
   }
 }
 

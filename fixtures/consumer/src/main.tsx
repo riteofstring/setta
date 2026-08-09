@@ -5,6 +5,7 @@ import {
   type WorkspaceExternalDropValidator,
   type WorkspaceGroupFactory,
   type WorkspaceSectionMoveMode,
+  type WorkspaceSectionMoveValidator,
   type WorkspaceToolbarControl,
 } from "@setta/workspace/react";
 import "@setta/workspace/styles.css";
@@ -18,6 +19,10 @@ if (!root) {
 
 const workspaceDocument = createEmptyWorkspaceDocument();
 const sectionMoveMode: WorkspaceSectionMoveMode = "sort";
+const validateSectionMove: WorkspaceSectionMoveValidator = ({ plan }) =>
+  plan.destinationParentId === "reserved"
+    ? { allowed: false, reason: "The consumer reserves this container." }
+    : { allowed: true };
 const onExternalDrop: WorkspaceExternalDropHandler = () => undefined;
 const validateExternalDrop: WorkspaceExternalDropValidator = ({ event }) =>
   event.dataTransferTypes.includes("application/x-consumer-section")
@@ -63,6 +68,7 @@ createRoot(root).render(
       sectionMoveMode={sectionMoveMode}
       toolbarControls={toolbarControls}
       validateExternalDrop={validateExternalDrop}
+      validateSectionMove={validateSectionMove}
     />
   </StrictMode>,
 );

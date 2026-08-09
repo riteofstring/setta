@@ -76,7 +76,11 @@ function projectedNodes(document: WorkspaceDocument, selectedSectionIds: readonl
     unchanged,
     validTitle,
     resizeBindings,
-    { movementBlocked: false, selectedSectionIds: new Set(selectedSectionIds) },
+    {
+      movementBlocked: false,
+      selectedSectionIds: new Set(selectedSectionIds),
+      structuralMovementBlocked: false,
+    },
   );
 }
 
@@ -207,11 +211,16 @@ describe("workspace canvas root projection", () => {
       recursiveSectionRegistry,
       "root",
       new Set(["nested"]),
+      true,
     );
 
-    expect(initial.map(({ section, selected }) => [section.id, selected])).toEqual([
-      ["nested", true],
-    ]);
+    expect(
+      initial.map(({ section, selected, selectionMovementBlocked }) => [
+        section.id,
+        selected,
+        selectionMovementBlocked,
+      ]),
+    ).toEqual([["nested", true, true]]);
     const nested = document.sections.nested as WorkspaceSection;
     const projected = projectWorkspaceSectionChildren(
       {
@@ -224,6 +233,7 @@ describe("workspace canvas root projection", () => {
       recursiveSectionRegistry,
       "root",
       new Set(["nested"]),
+      true,
     );
     const synchronized = synchronizeWorkspaceSectionTrees(initial, projected);
 

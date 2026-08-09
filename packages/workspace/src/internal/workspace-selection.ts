@@ -19,6 +19,8 @@ export type WorkspaceSectionSelectionRequest = Readonly<{
 export type WorkspaceRootSelectionResult =
   Readonly<{ allowed: true; block: SelectionBlock }> | Readonly<{ allowed: false; reason: string }>;
 
+export type WorkspaceStructuralSelectionResult = WorkspaceRootSelectionResult;
+
 function sameSelection(left: readonly string[], right: readonly string[]): boolean {
   return (
     left.length === right.length && left.every((sectionId, index) => sectionId === right[index])
@@ -124,6 +126,26 @@ function selectionHierarchy(document: WorkspaceDocument<unknown>): SectionHierar
   };
 }
 
+export function resolveWorkspaceStructuralSelection(
+  document: WorkspaceDocument<unknown>,
+  selectedSectionIds: readonly string[],
+): WorkspaceStructuralSelectionResult {
+  const selected = resolveWorkspaceSelection(document, selectedSectionIds);
+  const result = resolveSelectionBlock(selected, selectionHierarchy(document));
+  if (!result.allowed) {
+    return result;
+  }
+  const lockedSectionId = result.block.sectionIds.find(
+    (sectionId) => document.sections[sectionId]?.positionAndSizeLocked,
+  );
+  return lockedSectionId
+    ? {
+        allowed: false,
+        reason: "The selection contains a locked section and cannot move.",
+      }
+    : result;
+}
+
 export function resolveWorkspaceRootSelection(
   document: WorkspaceDocument<unknown>,
   selectedSectionIds: readonly string[],
@@ -131,7 +153,7 @@ export function resolveWorkspaceRootSelection(
 ): WorkspaceRootSelectionResult {
   const selected = resolveWorkspaceSelection(document, selectedSectionIds);
   const effectiveSelection = selected.includes(activeSectionId) ? selected : [activeSectionId];
-  const result = resolveSelectionBlock(effectiveSelection, selectionHierarchy(document));
+  const result = resolveWorkspaceStructuralSelection(document, effectiveSelection);
   if (!result.allowed) {
     return result;
   }
@@ -139,15 +161,6 @@ export function resolveWorkspaceRootSelection(
     return {
       allowed: false,
       reason: "Selected sections must all be top-level for spatial movement.",
-    };
-  }
-  const lockedSectionId = result.block.sectionIds.find(
-    (sectionId) => document.sections[sectionId]?.positionAndSizeLocked,
-  );
-  if (lockedSectionId) {
-    return {
-      allowed: false,
-      reason: "The selection contains a locked section and cannot move.",
     };
   }
   return result;

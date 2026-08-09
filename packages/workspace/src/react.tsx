@@ -7,6 +7,7 @@ import {
 } from "./internal/workspace-interaction-boundary.js";
 
 export type {
+  SectionMovePlan,
   WorkspaceBooleanPreferenceChangeHandler,
   WorkspaceDocumentChangeHandler,
   WorkspaceExternalDropCandidate,
@@ -22,7 +23,10 @@ export type {
   WorkspaceOverlayRenderer,
   WorkspaceOverlaySlots,
   WorkspaceProps,
+  WorkspaceSectionMoveDecision,
   WorkspaceSectionMoveMode,
+  WorkspaceSectionMoveValidationRequest,
+  WorkspaceSectionMoveValidator,
   WorkspaceSelectionOptions,
   WorkspaceToolbarControl,
   WorkspaceToolbarControlPlacement,

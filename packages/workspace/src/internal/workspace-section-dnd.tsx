@@ -12,7 +12,11 @@ import {
 import type { WorkspaceActionResult, WorkspaceDocument } from "../core.js";
 import type { WorkspaceGeometryIndex } from "./geometry-index.js";
 import type { InteractionInput } from "./interaction-owner.js";
-import type { SectionMovePlan, WorkspaceSectionMoveMode } from "./section-move-planning.js";
+import type {
+  SectionMovePlan,
+  WorkspaceSectionMoveMode,
+  WorkspaceSectionMoveValidator,
+} from "./section-move-planning.js";
 import type { SectionHierarchySnapshot } from "./selection-planning.js";
 import {
   UpstreamDndBoundary,
@@ -75,6 +79,33 @@ const DISABLED_SECTION_DND_CONTEXT: WorkspaceSectionDndContextValue = {
   unregisterFrame: () => undefined,
   unregisterHandle: () => undefined,
 };
+
+export function workspaceSectionMoveDescription({
+  locked,
+  mode,
+  selectionMovementBlocked,
+  structural,
+}: Readonly<{
+  locked: boolean;
+  mode: WorkspaceSectionMoveMode;
+  selectionMovementBlocked: boolean;
+  structural: boolean;
+}>): string {
+  if (locked) {
+    return "Movement unavailable because this section is locked.";
+  }
+  if (selectionMovementBlocked) {
+    return "Movement unavailable because selected sections must share one parent and all selected roots must be unlocked.";
+  }
+  if (!structural) {
+    return "Drag to move. Use the arrow keys for keyboard movement.";
+  }
+  const effect =
+    mode === "sort"
+      ? "Sorting keeps this section in its current parent."
+      : "Free move can change this section's parent.";
+  return `${effect} Press Enter or Space to start keyboard movement.`;
+}
 
 function sourceId(sectionId: string, root: boolean): string {
   return `${root ? ROOT_SECTION_DND_PREFIX : NESTED_SECTION_DND_PREFIX}${sectionId}`;
@@ -150,6 +181,7 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
   sectionTitle,
   selectedSectionIds,
   structureEditable,
+  validateSectionMove,
 }: Readonly<{
   activationEnabled: boolean;
   activeSectionId: string | null;
@@ -171,6 +203,7 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
   sectionTitle(sectionId: string): string;
   selectedSectionIds: readonly string[];
   structureEditable: boolean;
+  validateSectionMove: WorkspaceSectionMoveValidator<TSectionData> | undefined;
 }>) {
   const activeSessionRef = useRef<WorkspaceSectionMoveSession<TSectionData> | null>(null);
   const preparedSessionRef = useRef<Readonly<{
@@ -327,6 +360,7 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
       geometry,
       gridOptions,
       session,
+      validateSectionMove,
     });
     activeSessionRef.current = {
       ...session,
@@ -351,6 +385,7 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
         geometry,
         gridOptions,
         session,
+        validateSectionMove,
       });
       const preview = matchingWorkspaceSectionMovePreview(session.preview, resolution);
       if (preview) {

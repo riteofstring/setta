@@ -30,6 +30,7 @@
   :is(
     .setta-workspace__empty-panel,
     .setta-workspace__external-drop-feedback,
+    .setta-workspace__section-move-feedback,
     .setta-workspace__creation-dialog,
     .setta-workspace__selection-action-dialog,
     .setta-workspace__host-overlay,
@@ -491,6 +492,39 @@
 }
 
 .setta-workspace:dir(rtl) .setta-workspace__external-drop-feedback {
+  transform: translateX(50%);
+}
+
+.setta-workspace__section-move-feedback {
+  position: absolute;
+  z-index: 8;
+  inset-block-start: 1rem;
+  inset-inline-start: 50%;
+  display: flex;
+  max-inline-size: min(32rem, calc(100% - 7rem));
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  align-items: baseline;
+  justify-content: center;
+  padding: 0.625rem 0.875rem;
+  pointer-events: none;
+  color: var(--setta-workspace-section-text);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  text-align: center;
+  background: var(--setta-workspace-toolbar-background);
+  border-radius: 0.75rem;
+  box-shadow:
+    0 0 0 2px var(--setta-workspace-invalid),
+    0 0.75rem 2rem oklch(0 0 0 / 0.14);
+  transform: translateX(-50%);
+}
+
+.setta-workspace__section-move-feedback strong {
+  color: var(--setta-workspace-invalid);
+}
+
+.setta-workspace:dir(rtl) .setta-workspace__section-move-feedback {
   transform: translateX(50%);
 }
 
@@ -1185,9 +1219,11 @@
 
 .setta-workspace__section-move-placeholder--canvas,
 .setta-workspace__section-move-placeholder--empty {
-  border: 3px dashed var(--setta-workspace-selection);
+  --setta-workspace-section-move-color: var(--setta-workspace-selection);
+
+  border: 3px dashed var(--setta-workspace-section-move-color);
   border-radius: 0.75rem;
-  background: color-mix(in oklch, var(--setta-workspace-selection) 14%, transparent);
+  background: color-mix(in oklch, var(--setta-workspace-section-move-color) 14%, transparent);
   box-shadow: 0 0 0 2px
     color-mix(in oklch, var(--setta-workspace-canvas-background) 82%, transparent);
 }
@@ -1196,11 +1232,17 @@
   .setta-workspace__section-move-placeholder--horizontal,
   .setta-workspace__section-move-placeholder--vertical
 ) {
-  background: var(--setta-workspace-selection);
+  --setta-workspace-section-move-color: var(--setta-workspace-selection);
+
+  background: var(--setta-workspace-section-move-color);
   border-radius: 999px;
   box-shadow:
     0 0 0 2px var(--setta-workspace-canvas-background),
     0 0.25rem 0.75rem oklch(0 0 0 / 0.18);
+}
+
+.setta-workspace__section-move-placeholder[data-workspace-section-move-placeholder="invalid"] {
+  --setta-workspace-section-move-color: var(--setta-workspace-invalid);
 }
 
 .setta-workspace__section-state {

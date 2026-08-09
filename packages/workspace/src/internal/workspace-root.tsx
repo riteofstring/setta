@@ -35,6 +35,7 @@ import {
   assertWorkspaceExternalDropCallbacks,
   assertWorkspaceGroupFactory,
   assertWorkspaceSectionFactory,
+  assertWorkspaceSectionMoveValidator,
   assertWorkspaceSectionTitleValidator,
   assertWorkspaceViewportWithinGestureBounds,
   renderWorkspaceOverlaySlots,
@@ -146,6 +147,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     style,
     toolbarControls: toolbarControlOverrides,
     validateExternalDrop,
+    validateSectionMove,
     validateSectionTitle,
     ...sectionProps
   } = props;
@@ -153,6 +155,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   assertWorkspaceExternalDropCallbacks(onExternalDrop, validateExternalDrop);
   assertWorkspaceGroupFactory<TSectionData>(groupFactory);
   assertWorkspaceSectionFactory<TSectionData>(sectionFactory);
+  assertWorkspaceSectionMoveValidator(validateSectionMove);
   assertWorkspaceSectionTitleValidator(validateSectionTitle);
   const gestureOptions = useMemo(
     () => resolveWorkspaceGestureOptions(gestureOptionOverrides),
@@ -642,6 +645,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         structureEditable={capabilities.editStructure}
         toolbarControls={toolbarControls}
         validateExternalDrop={validateExternalDrop}
+        validateSectionMove={validateSectionMove}
         validateSectionTitle={handleSectionTitleValidation}
         workspaceController={controller}
       />

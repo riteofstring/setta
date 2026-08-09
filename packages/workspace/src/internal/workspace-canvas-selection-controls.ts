@@ -16,6 +16,7 @@ import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service
 import {
   applyWorkspaceSectionSelectionRequest,
   resolveWorkspaceRootSelection,
+  resolveWorkspaceStructuralSelection,
   type WorkspaceSectionSelectionRequest,
 } from "./workspace-selection.js";
 
@@ -34,9 +35,8 @@ function selectionAnnouncement<TSectionData>(
     selectedSections.length === 1
       ? `${selectedSections[0]?.title ?? "Section"} selected.`
       : `${String(selectedSections.length)} sections selected.`;
-  return selectedSections.some(({ positionAndSizeLocked }) => positionAndSizeLocked)
-    ? `${subject} The selection contains a locked section and cannot move as a block.`
-    : subject;
+  const movement = resolveWorkspaceStructuralSelection(document, selectedSectionIds);
+  return movement.allowed ? subject : `${subject} ${movement.reason}`;
 }
 
 export function targetAcceptsWorkspaceCanvasShortcut(
@@ -123,9 +123,14 @@ export function useWorkspaceCanvasSelectionControls<TSectionData>({
     const movement = activeSelectedRoot
       ? resolveWorkspaceRootSelection(document, selectedSectionIds, activeSelectedRoot.sectionId)
       : null;
+    const structuralMovement =
+      selectedSectionIds.length > 0
+        ? resolveWorkspaceStructuralSelection(document, selectedSectionIds)
+        : null;
     return {
       movementBlocked: movement !== null && !movement.allowed,
       selectedSectionIds: selectedIds,
+      structuralMovementBlocked: structuralMovement !== null && !structuralMovement.allowed,
     };
   }, [document, selectedSectionIds]);
   const marqueeSelection = useWorkspaceMarqueeSelection({

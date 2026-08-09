@@ -75,6 +75,33 @@ async function requiredBoundingBox(locator: Locator, label: string) {
   return box;
 }
 
+async function visibleCanvasTargetPoint(
+  canvas: Locator,
+  target: Locator,
+  label: string,
+): Promise<{ x: number; y: number }> {
+  const [canvasBox, targetBox] = await Promise.all([
+    requiredBoundingBox(canvas, "The workspace canvas"),
+    requiredBoundingBox(target, label),
+  ]);
+  const left = Math.max(canvasBox.x, targetBox.x);
+  const top = Math.max(canvasBox.y, targetBox.y);
+  const right = Math.min(canvasBox.x + canvasBox.width, targetBox.x + targetBox.width);
+  const bottom = Math.min(canvasBox.y + canvasBox.height, targetBox.y + targetBox.height);
+  if (right <= left || bottom <= top) {
+    throw new Error(`${label} must intersect the workspace canvas.`);
+  }
+  const inset = Math.min(16, (right - left) / 4, (bottom - top) / 4);
+  const canvasCenter = {
+    x: canvasBox.x + canvasBox.width / 2,
+    y: canvasBox.y + canvasBox.height / 2,
+  };
+  return {
+    x: Math.min(right - inset, Math.max(left + inset, canvasCenter.x)),
+    y: Math.min(bottom - inset, Math.max(top + inset, canvasCenter.y)),
+  };
+}
+
 async function recursiveChangeCount(page: Page): Promise<number> {
   return Number(await page.getByTestId("canvas-shell-change-count").textContent());
 }
@@ -491,6 +518,119 @@ test("structural previews commit exact sort and free-move plans", async ({ page 
   await expect(nestedAlpha).toHaveAttribute("data-workspace-depth", "0");
   await page.keyboard.press("Control+Shift+z");
   await expect(nestedAlpha).toHaveAttribute("data-workspace-parent-section-id", "empty-container");
+  const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
+  expect(accessibility.violations).toEqual([]);
+});
+
+test("structural move rejection is preflighted, visible, and host-controlled", async ({ page }) => {
+  await page.setViewportSize({ height: 1_000, width: 1_440 });
+  const workspace = await loadRecursiveFixture(page);
+  await page.getByRole("button", { name: "Fit recursive descendants" }).click();
+  await setCanvasZoom(page, 0.5);
+  await page.getByRole("combobox", { name: "Section movement" }).selectOption("free");
+  const canvas = workspace.getByRole("application", { name: "Canvas shell workspace canvas" });
+  const root = workspace.getByRole("article", { name: "Recursive workspace" });
+  const nestedAlpha = workspace.getByRole("article", { name: "Nested Alpha" });
+  const nestedBeta = workspace.getByRole("article", { name: "Nested Beta" });
+  const deepContainer = workspace.getByRole("article", { name: "Deep container" });
+  const emptyContainer = workspace.getByRole("article", { name: "Empty container" });
+  const alphaHandle = nestedAlpha.getByRole("button", { name: "Move Nested Alpha" });
+  const structureAnnouncement = workspace.locator(
+    "[data-workspace-structure-movement-announcement]",
+  );
+  const previewAnnouncement = workspace.locator(
+    "[data-workspace-section-move-preview-announcement]",
+  );
+  const invalidFeedback = workspace.locator('[data-workspace-section-move-feedback="invalid"]');
+  const invalidIndicator = workspace.locator('[data-workspace-section-move-placeholder="invalid"]');
+
+  await page.getByRole("checkbox", { name: "Reserve empty container from section moves" }).check();
+  await workspace.evaluate((element) =>
+    element.scrollIntoView({ block: "center", inline: "nearest" }),
+  );
+  const emptyTarget = emptyContainer.locator("[data-workspace-empty-child-container]");
+  const emptyTargetPoint = await visibleCanvasTargetPoint(
+    canvas,
+    emptyTarget,
+    "Reserved empty container target",
+  );
+  await dragHandleToPoint(page, alphaHandle, emptyTargetPoint);
+
+  await expect(invalidFeedback.locator("strong")).toHaveText("Move unavailable");
+  await expect(invalidFeedback.locator("span")).toHaveText(
+    "Host policy keeps Empty container reserved.",
+  );
+  await expect(invalidIndicator).toBeVisible();
+  await expect(previewAnnouncement).toHaveText("Host policy keeps Empty container reserved.");
+  await expect(canvas).toHaveScreenshot("recursive-section-move-rejected.png");
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
+
+  await page.getByRole("button", { name: "Fit recursive descendants" }).click();
+  await setCanvasZoom(page, 0.5);
+  await workspace.evaluate((element) =>
+    element.scrollIntoView({ block: "center", inline: "nearest" }),
+  );
+  const completionTargetPoint = await visibleCanvasTargetPoint(
+    canvas,
+    emptyTarget,
+    "Reserved empty container completion target",
+  );
+  const baselineChanges = await recursiveChangeCount(page);
+  await dragHandleToPoint(page, alphaHandle, completionTargetPoint);
+  await expect(previewAnnouncement).toHaveText("Host policy keeps Empty container reserved.");
+  await page.mouse.up();
+
+  await expect(structureAnnouncement).toHaveText(
+    "Nested Alpha did not move. Host policy keeps Empty container reserved.",
+  );
+  await expect(nestedAlpha).toHaveAttribute("data-workspace-parent-section-id", "recursive-root");
+  expect(await recursiveChangeCount(page)).toBe(baselineChanges);
+
+  const rootHandle = root.getByRole("button", { name: "Move Recursive workspace" });
+  const deepChildRegion = deepContainer.getByRole("group", {
+    name: "Deep container child sections",
+  });
+  const deepRegionPoint = await visibleCanvasTargetPoint(
+    canvas,
+    deepChildRegion,
+    "Descendant move target",
+  );
+  await dragHandleToPoint(page, rootHandle, deepRegionPoint);
+
+  await expect(invalidFeedback).toContainText(
+    "A section cannot move into itself or one of its descendants.",
+  );
+  await expect(invalidIndicator).toBeVisible();
+  await page.mouse.up();
+  await expect(structureAnnouncement).toHaveText(
+    "Recursive workspace did not move. A section cannot move into itself or one of its descendants.",
+  );
+  expect(await recursiveChangeCount(page)).toBe(baselineChanges);
+
+  await nestedAlpha.getByRole("button", { name: "Select Nested Alpha" }).click();
+  await nestedBeta
+    .getByRole("button", { name: "Select Nested Beta" })
+    .click({ modifiers: ["Shift"] });
+  await expect(workspace.locator("[data-workspace-selection-announcement]")).toHaveText(
+    "2 sections selected. Selected sections must share one parent for batch movement.",
+  );
+  await expect(alphaHandle).toBeDisabled();
+  const betaHandle = nestedBeta.getByRole("button", { name: "Move Nested Beta" });
+  await expect(betaHandle).toBeDisabled();
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
+
+  await nestedBeta.getByRole("button", { name: "Select Nested Beta" }).click();
+  await nestedBeta.getByRole("button", { name: "Lock Nested Beta" }).click();
+  await expect(nestedBeta).toContainText("Locked");
+  await expect(betaHandle).toBeDisabled();
+  const betaMoveDescriptionId = await betaHandle.getAttribute("aria-describedby");
+  expect(betaMoveDescriptionId).toBeTruthy();
+  await expect(workspace.locator(`#${String(betaMoveDescriptionId)}`)).toHaveText(
+    "Movement unavailable because this section is locked.",
+  );
+
   const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
   expect(accessibility.violations).toEqual([]);
 });

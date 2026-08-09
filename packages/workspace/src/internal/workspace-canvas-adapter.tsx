@@ -22,7 +22,7 @@ import type {
 } from "../core.js";
 import { WorkspaceGeometryIndex } from "./geometry-index.js";
 import type { InteractionInput } from "./interaction-owner.js";
-import type { SectionMovePlan } from "./section-move-planning.js";
+import type { SectionMovePlan, WorkspaceSectionMoveValidator } from "./section-move-planning.js";
 import {
   WorkspaceCanvasAnnouncements,
   WorkspaceCanvasEmptyPanel,
@@ -142,6 +142,7 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   structureEditable: boolean;
   toolbarControls: readonly WorkspaceToolbarControl<TSectionData>[];
   validateExternalDrop: WorkspaceExternalDropValidator | undefined;
+  validateSectionMove: WorkspaceSectionMoveValidator<TSectionData> | undefined;
   validateSectionTitle: WorkspaceSectionTitleValidator;
   workspaceController: WorkspaceController<TSectionData>;
 }>;
@@ -225,6 +226,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   structureEditable,
   toolbarControls,
   validateExternalDrop,
+  validateSectionMove,
   validateSectionTitle,
   workspaceController,
 }: WorkspaceCanvasAdapterProps<TSectionData>) {
@@ -457,6 +459,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         sectionTitle={sectionTitle}
         selectedSectionIds={selectedSectionIds}
         structureEditable={structureEditable}
+        validateSectionMove={validateSectionMove}
       >
         <ReactFlow<WorkspaceRootNode>
           aria-label={`${ariaLabel} canvas`}

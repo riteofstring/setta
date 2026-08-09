@@ -67,6 +67,7 @@ export type ActiveRootMovement = Readonly<{
 export type RootSelectionProjection = Readonly<{
   movementBlocked: boolean;
   selectedSectionIds: ReadonlySet<string>;
+  structuralMovementBlocked: boolean;
 }>;
 
 function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
@@ -92,6 +93,7 @@ function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
     definition: data.definition,
     section: data.section,
     selected: data.selected,
+    selectionMovementBlocked: data.selectionMovementBlocked,
   };
   return (
     <>
@@ -302,6 +304,7 @@ export function projectNodes<TSectionData>(
         sectionRegistry,
         root.sectionId,
         selection.selectedSectionIds,
+        selection.structuralMovementBlocked,
       ),
       geometry,
       section as WorkspaceSection<unknown>,

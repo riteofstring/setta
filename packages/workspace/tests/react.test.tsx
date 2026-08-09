@@ -570,6 +570,15 @@ describe("Workspace scaffold", () => {
     ).toThrow("validateSectionTitle must be a function");
     expect(() =>
       renderToStaticMarkup(
+        <Workspace
+          validateSectionMove={
+            null as unknown as NonNullable<WorkspaceProps["validateSectionMove"]>
+          }
+        />,
+      ),
+    ).toThrow("validateSectionMove must be a function");
+    expect(() =>
+      renderToStaticMarkup(
         <Workspace sectionColorPalette={[{ color: "invalid", label: "Broken" }]} />,
       ),
     ).toThrow("color must be a valid CSS color");

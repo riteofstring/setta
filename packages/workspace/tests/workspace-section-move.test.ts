@@ -7,7 +7,9 @@ import {
 } from "../src/core.js";
 import { applyWorkspaceDocumentCommand } from "../src/internal/document-commands.js";
 import {
+  resolveWorkspaceSectionMoveDecision,
   serializeSectionMovePlan,
+  validateWorkspaceSectionMovePlan,
   type SectionMovePlan,
 } from "../src/internal/section-move-planning.js";
 import {
@@ -77,6 +79,60 @@ function plan(overrides: Partial<SectionMovePlan> = {}): SectionMovePlan {
 }
 
 describe("workspace section move command", () => {
+  it("normalizes strict host decisions against an immutable plan snapshot", () => {
+    const document = movementDocument();
+    const proposedPlan = plan({
+      destinationIndex: 0,
+      destinationParentId: "empty",
+      mode: "free",
+    });
+    const decision = validateWorkspaceSectionMovePlan(
+      document,
+      proposedPlan,
+      ({ document: currentDocument, plan: receivedPlan }) => {
+        expect(currentDocument).toBe(document);
+        expect(receivedPlan).toEqual(proposedPlan);
+        expect(Object.isFrozen(receivedPlan)).toBe(true);
+        expect(Object.isFrozen(receivedPlan.sectionIds)).toBe(true);
+        return { allowed: false, reason: "  Empty stays reserved.  " };
+      },
+    );
+
+    expect(decision).toEqual({ allowed: false, reason: "Empty stays reserved." });
+    expect(validateWorkspaceSectionMovePlan(document, proposedPlan, undefined)).toEqual({
+      allowed: true,
+    });
+  });
+
+  it("rejects contradictory, blank, extra, and accessor-backed host decisions", () => {
+    expect(() =>
+      resolveWorkspaceSectionMoveDecision({
+        allowed: true,
+        reason: "Contradictory",
+      } as unknown as { allowed: true }),
+    ).toThrow("cannot provide a reason");
+    expect(() => resolveWorkspaceSectionMoveDecision({ allowed: false, reason: "  " })).toThrow(
+      "reason must be a non-empty string",
+    );
+    expect(() =>
+      resolveWorkspaceSectionMoveDecision({
+        allowed: true,
+        source: "host",
+      } as unknown as { allowed: true }),
+    ).toThrow("section-move decision field source");
+
+    const accessor = {} as Record<string, unknown>;
+    Object.defineProperty(accessor, "allowed", {
+      enumerable: true,
+      get: () => {
+        throw new Error("The decision getter must not run.");
+      },
+    });
+    expect(() =>
+      resolveWorkspaceSectionMoveDecision(accessor as unknown as { allowed: true }),
+    ).toThrow("section-move decision field allowed");
+  });
+
   it("serializes every plan field without delimiter or coordinate-rounding collisions", () => {
     const first = plan({
       destinationParentId: null,

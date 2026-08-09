@@ -1,4 +1,5 @@
-import type { InteractionPoint } from "./interaction-geometry.js";
+import type { WorkspaceDocument, WorkspaceJsonValue, WorkspacePoint } from "../core.js";
+import { optionOverridesAt } from "./runtime-option-validation.js";
 import {
   resolveSelectionBlock,
   selectionContainsSectionOrAncestor,
@@ -15,14 +16,26 @@ export type SectionMovePlan = {
   sourceParentId: string | null;
   destinationParentId: string | null;
   destinationIndex: number;
-  topLevelPositions: Readonly<Record<string, InteractionPoint>> | null;
+  topLevelPositions: Readonly<Record<string, WorkspacePoint>> | null;
 };
 
 export type SectionMoveDestination = {
   parentId: string | null;
   index: number;
-  topLevelPositions: Readonly<Record<string, InteractionPoint>> | null;
+  topLevelPositions: Readonly<Record<string, WorkspacePoint>> | null;
 };
+
+export type WorkspaceSectionMoveDecision =
+  Readonly<{ allowed: false; reason: string }> | Readonly<{ allowed: true }>;
+
+export type WorkspaceSectionMoveValidationRequest<TSectionData = WorkspaceJsonValue> = Readonly<{
+  document: WorkspaceDocument<TSectionData>;
+  plan: SectionMovePlan;
+}>;
+
+export type WorkspaceSectionMoveValidator<TSectionData = WorkspaceJsonValue> = (
+  request: WorkspaceSectionMoveValidationRequest<TSectionData>,
+) => WorkspaceSectionMoveDecision;
 
 export type SectionMoveRejectionCode = SelectionBlockRejectionCode | "host-policy" | "invalid-move";
 
@@ -33,6 +46,74 @@ export type SectionMoveDecision =
   | { status: "rejected"; code: SectionMoveRejectionCode; reason: string };
 
 export type AppliedHierarchy = SectionHierarchySnapshot;
+
+const sectionMoveDecisionKeys = ["allowed", "reason"] as const;
+
+export function resolveWorkspaceSectionMoveDecision(
+  value: WorkspaceSectionMoveDecision,
+): WorkspaceSectionMoveDecision {
+  const decision = optionOverridesAt(
+    value,
+    sectionMoveDecisionKeys,
+    "Workspace section-move decision",
+    "workspace section-move decision field",
+  );
+  if (typeof decision.allowed !== "boolean") {
+    throw new TypeError("Workspace section-move decision allowed must be a boolean.");
+  }
+  if (decision.allowed) {
+    if (Object.hasOwn(decision, "reason")) {
+      throw new TypeError("An allowed workspace section move cannot provide a reason.");
+    }
+    return Object.freeze({ allowed: true });
+  }
+  if (typeof decision.reason !== "string" || decision.reason.trim().length === 0) {
+    throw new TypeError("Workspace section-move rejection reason must be a non-empty string.");
+  }
+  return Object.freeze({ allowed: false, reason: decision.reason.trim() });
+}
+
+function snapshotTopLevelPositions(
+  positions: Readonly<Record<string, WorkspacePoint>> | null,
+): Readonly<Record<string, WorkspacePoint>> | null {
+  if (!positions) {
+    return null;
+  }
+  return Object.freeze(
+    Object.fromEntries(
+      Object.entries(positions).map(([sectionId, position]) => [
+        sectionId,
+        Object.freeze({ x: position.x, y: position.y }),
+      ]),
+    ),
+  );
+}
+
+function snapshotSectionMovePlan(plan: SectionMovePlan): SectionMovePlan {
+  return Object.freeze({
+    ...plan,
+    sectionIds: Object.freeze([...plan.sectionIds]),
+    topLevelPositions: snapshotTopLevelPositions(plan.topLevelPositions),
+  });
+}
+
+export function validateWorkspaceSectionMovePlan<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  plan: SectionMovePlan,
+  validator: WorkspaceSectionMoveValidator<TSectionData> | undefined,
+): WorkspaceSectionMoveDecision {
+  if (!validator) {
+    return Object.freeze({ allowed: true });
+  }
+  return resolveWorkspaceSectionMoveDecision(
+    validator(
+      Object.freeze({
+        document,
+        plan: snapshotSectionMovePlan(plan),
+      }),
+    ),
+  );
+}
 
 export function serializeSectionMovePlan(plan: SectionMovePlan): string {
   const positions = plan.topLevelPositions
@@ -233,7 +314,7 @@ function validateTopLevelPositions(
 
 function topLevelPositionIdsMatch(
   sectionIds: readonly string[],
-  positions: Readonly<Record<string, InteractionPoint>>,
+  positions: Readonly<Record<string, WorkspacePoint>>,
 ): boolean {
   const expectedSectionIds = new Set(sectionIds);
   const positionIds = Object.keys(positions);
@@ -321,9 +402,9 @@ function resolveNextParents(
 }
 
 function resolveNextRootPositions(
-  current: Readonly<Record<string, InteractionPoint>>,
+  current: Readonly<Record<string, WorkspacePoint>>,
   plan: SectionMovePlan,
-): Readonly<Record<string, InteractionPoint>> {
+): Readonly<Record<string, WorkspacePoint>> {
   const next = { ...current };
   for (const sectionId of plan.sectionIds) {
     if (plan.topLevelPositions) {
@@ -374,8 +455,8 @@ function parentRecordsEqual(
 }
 
 function positionRecordsEqual(
-  left: Readonly<Record<string, InteractionPoint>>,
-  right: Readonly<Record<string, InteractionPoint>>,
+  left: Readonly<Record<string, WorkspacePoint>>,
+  right: Readonly<Record<string, WorkspacePoint>>,
 ): boolean {
   const keys = Object.keys(left);
   return (

@@ -19,6 +19,7 @@ export type WorkspaceSectionTreeNode = Readonly<{
   definition: ResolvedSectionDefinition<unknown>;
   section: WorkspaceSection<unknown>;
   selected: boolean;
+  selectionMovementBlocked: boolean;
 }>;
 
 export type WorkspaceSectionTreeBindings = Pick<
@@ -45,6 +46,7 @@ function requireTreeSection<TSectionData>(
   registry: WorkspaceSectionRegistry<TSectionData>,
   sectionId: string,
   selectedSectionIds: ReadonlySet<string>,
+  selectionMovementBlocked: boolean,
 ): WorkspaceSectionTreeNode {
   const section = document.sections[sectionId];
   const definition = section ? registry.definition(section.kind) : undefined;
@@ -54,11 +56,12 @@ function requireTreeSection<TSectionData>(
   const childIds = section.childLayout?.sectionIds ?? [];
   return {
     children: childIds.map((childId) =>
-      requireTreeSection(document, registry, childId, selectedSectionIds),
+      requireTreeSection(document, registry, childId, selectedSectionIds, selectionMovementBlocked),
     ),
     definition: definition as ResolvedSectionDefinition<unknown>,
     section: section as WorkspaceSection<unknown>,
     selected: selectedSectionIds.has(sectionId),
+    selectionMovementBlocked: selectedSectionIds.has(sectionId) && selectionMovementBlocked,
   };
 }
 
@@ -67,13 +70,14 @@ export function projectWorkspaceSectionChildren<TSectionData>(
   registry: WorkspaceSectionRegistry<TSectionData>,
   parentSectionId: string,
   selectedSectionIds: ReadonlySet<string>,
+  selectionMovementBlocked = false,
 ): readonly WorkspaceSectionTreeNode[] {
   const parent = document.sections[parentSectionId];
   if (!parent) {
     throw new Error(`Workspace section tree is missing parent ${parentSectionId}.`);
   }
   return (parent.childLayout?.sectionIds ?? []).map((sectionId) =>
-    requireTreeSection(document, registry, sectionId, selectedSectionIds),
+    requireTreeSection(document, registry, sectionId, selectedSectionIds, selectionMovementBlocked),
   );
 }
 
@@ -89,7 +93,8 @@ function synchronizeTreeNode(
     children === current.children &&
     current.definition === projected.definition &&
     current.section === projected.section &&
-    current.selected === projected.selected
+    current.selected === projected.selected &&
+    current.selectionMovementBlocked === projected.selectionMovementBlocked
   ) {
     return current;
   }
@@ -139,7 +144,7 @@ function WorkspaceNestedSection({
       resizing={false}
       section={node.section}
       selected={node.selected}
-      selectionMovementBlocked={false}
+      selectionMovementBlocked={node.selectionMovementBlocked}
     />
   );
 }

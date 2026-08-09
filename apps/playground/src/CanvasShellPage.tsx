@@ -265,6 +265,7 @@ export function CanvasShellPage() {
   const [preventHostPan, setPreventHostPan] = useState(true);
   const [preventHostWheel, setPreventHostWheel] = useState(true);
   const [sectionMoveMode, setSectionMoveMode] = useState<WorkspaceSectionMoveMode>("sort");
+  const [reserveEmptyContainer, setReserveEmptyContainer] = useState(false);
   const [showHostExtensions, setShowHostExtensions] = useState(
     () => window.matchMedia(HOST_EXTENSIONS_DEFAULT_QUERY).matches,
   );
@@ -503,6 +504,14 @@ export function CanvasShellPage() {
                 type="checkbox"
               />
               Show host extensions
+            </label>
+            <label>
+              <input
+                checked={reserveEmptyContainer}
+                onChange={(event) => setReserveEmptyContainer(event.currentTarget.checked)}
+                type="checkbox"
+              />
+              Reserve empty container from section moves
             </label>
           </fieldset>
           <fieldset className="canvas-shell-settings">
@@ -789,6 +798,14 @@ export function CanvasShellPage() {
                     reason: "Recursive child fixture drops require a section container.",
                   };
             }}
+            validateSectionMove={({ plan }) =>
+              reserveEmptyContainer && plan.destinationParentId === "empty-container"
+                ? {
+                    allowed: false,
+                    reason: "Host policy keeps Empty container reserved.",
+                  }
+                : { allowed: true }
+            }
           />
         ) : null}
         <label className="canvas-shell-document">

@@ -30,7 +30,10 @@ import type {
   WorkspaceSectionColorOption,
   WorkspaceSectionTitleValidator,
 } from "./workspace-section-contract.js";
-import { useWorkspaceSectionDnd } from "./workspace-section-dnd.js";
+import {
+  useWorkspaceSectionDnd,
+  workspaceSectionMoveDescription,
+} from "./workspace-section-dnd.js";
 import { SectionPresentationEditor, SectionTitleEditor } from "./workspace-section-editors.js";
 import { WorkspaceSectionOrientationControl } from "./workspace-section-orientation.js";
 import { WorkspaceSectionOverflowControl } from "./workspace-section-overflow.js";
@@ -547,19 +550,6 @@ function sectionFrameMoving(spatialMoving: boolean, structuralMoving: boolean): 
   return spatialMoving || structuralMoving;
 }
 
-function sectionMoveDescription(
-  dnd: Readonly<{ mode: "free" | "sort"; structural: boolean }>,
-): string {
-  if (!dnd.structural) {
-    return "Drag to move. Use the arrow keys for keyboard movement.";
-  }
-  const effect =
-    dnd.mode === "sort"
-      ? "Sorting keeps this section in its current parent."
-      : "Free move can change this section's parent.";
-  return `${effect} Press Enter or Space to start keyboard movement.`;
-}
-
 function SectionTitleContent({
   editing,
   editorId,
@@ -941,7 +931,12 @@ export function WorkspaceSectionFrame({
       tabIndex={-1}
     >
       <span className="setta-workspace__visually-hidden" id={moveDescriptionId}>
-        {sectionMoveDescription(sectionDnd)}
+        {workspaceSectionMoveDescription({
+          locked: section.positionAndSizeLocked,
+          mode: sectionDnd.mode,
+          selectionMovementBlocked,
+          structural: sectionDnd.structural,
+        })}
       </span>
       <SectionHeading
         controls={

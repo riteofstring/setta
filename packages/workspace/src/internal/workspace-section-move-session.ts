@@ -21,11 +21,16 @@ import {
 import {
   planSectionMove,
   serializeSectionMovePlan,
+  validateWorkspaceSectionMovePlan,
   type SectionMoveDecision,
   type SectionMovePlan,
   type WorkspaceSectionMoveMode,
+  type WorkspaceSectionMoveValidator,
 } from "./section-move-planning.js";
-import { resolveSelectionBlock, type SectionHierarchySnapshot } from "./selection-planning.js";
+import {
+  selectionContainsSectionOrAncestor,
+  type SectionHierarchySnapshot,
+} from "./selection-planning.js";
 import type { AdapterDndEvent } from "./upstream-dnd-adapter.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
@@ -38,6 +43,7 @@ import {
 } from "./workspace-section-move-collision.js";
 import { workspaceSectionHierarchySnapshot } from "./workspace-section-move-command.js";
 import { resolveWorkspaceSectionMoveLayoutPreview } from "./workspace-section-move-layout-preview.js";
+import { resolveWorkspaceStructuralSelection } from "./workspace-selection.js";
 
 const WORKSPACE_SECTION_CHILD_REGION_ATTRIBUTE = "data-workspace-section-child-region";
 
@@ -59,6 +65,7 @@ export type WorkspaceSectionMovePreview = Readonly<{
 
 export type WorkspaceSectionMovePreviewResolution = Readonly<{
   collisionState: CollisionTrackerState;
+  invalidIndicator?: WorkspaceSectionMoveIndicator;
   preview: WorkspaceSectionMovePreview | null;
   reason: string;
 }>;
@@ -269,7 +276,7 @@ export function createWorkspaceSectionMoveSession<TSectionData>({
   const requestedIds = selectedSectionIds.includes(activeSectionId)
     ? selectedSectionIds
     : [activeSectionId];
-  const selection = resolveSelectionBlock(requestedIds, hierarchy);
+  const selection = resolveWorkspaceStructuralSelection(document, requestedIds);
   if (!selection.allowed) {
     return selection;
   }
@@ -339,6 +346,39 @@ function pointInsideRect(point: InteractionPoint, rect: ScreenRect): boolean {
     point.x <= rect.x + rect.width &&
     point.y >= rect.y &&
     point.y <= rect.y + rect.height
+  );
+}
+
+function sectionDepth(sectionId: string, hierarchy: SectionHierarchySnapshot): number {
+  let depth = 0;
+  let parentId = hierarchy.parentByChild[sectionId] ?? null;
+  while (parentId) {
+    depth += 1;
+    parentId = hierarchy.parentByChild[parentId] ?? null;
+  }
+  return depth;
+}
+
+function invalidDestinationRegion(
+  point: InteractionPoint,
+  session: WorkspaceSectionMoveSession,
+): WorkspaceSectionMoveRegion | null {
+  const movingIds = new Set(session.sectionIds);
+  const invalidRegions = session.regions.filter(
+    (region) =>
+      pointInsideRect(point, region.clientRect) &&
+      selectionContainsSectionOrAncestor(
+        region.parentSectionId,
+        movingIds,
+        session.hierarchy.parentByChild,
+      ),
+  );
+  return (
+    invalidRegions.sort(
+      (left, right) =>
+        sectionDepth(right.parentSectionId, session.hierarchy) -
+        sectionDepth(left.parentSectionId, session.hierarchy),
+    )[0] ?? null
   );
 }
 
@@ -544,7 +584,7 @@ function previewFromDecision<TSectionData>(
         : decision.status === "unchanged"
           ? "The section block is already at this location."
           : "Section movement was canceled.";
-    return { collisionState, preview: null, reason };
+    return { collisionState, invalidIndicator: indicator, preview: null, reason };
   }
   const layoutPreview = resolveWorkspaceSectionMoveLayoutPreview({
     hierarchy: session.hierarchy,
@@ -573,11 +613,13 @@ function resolveNestedPreview<TSectionData>({
   document,
   frame,
   session,
+  validateSectionMove,
 }: Readonly<{
   collision: WorkspaceSectionCollisionResolution;
   document: WorkspaceDocument<TSectionData>;
   frame: DragGeometryFrame;
   session: WorkspaceSectionMoveSession<TSectionData>;
+  validateSectionMove: WorkspaceSectionMoveValidator<TSectionData> | undefined;
 }>): WorkspaceSectionMovePreviewResolution {
   const target = collision.target;
   if (!target) {
@@ -615,6 +657,7 @@ function resolveNestedPreview<TSectionData>({
     hierarchy: session.hierarchy,
     mode: session.mode,
     selectedIds: session.sectionIds,
+    validate: (plan) => validateWorkspaceSectionMovePlan(document, plan, validateSectionMove),
   });
   const indicator = workspaceSectionInsertionIndicator({
     direction: target.direction,
@@ -675,6 +718,7 @@ function resolveCanvasPreview<TSectionData>({
   gridOptions,
   point,
   session,
+  validateSectionMove,
 }: Readonly<{
   document: WorkspaceDocument<TSectionData>;
   event: AdapterDndEvent;
@@ -682,6 +726,7 @@ function resolveCanvasPreview<TSectionData>({
   gridOptions: ResolvedWorkspaceGridOptions;
   point: InteractionPoint;
   session: WorkspaceSectionMoveSession<TSectionData>;
+  validateSectionMove: WorkspaceSectionMoveValidator<TSectionData> | undefined;
 }>): WorkspaceSectionMovePreviewResolution {
   const collisionState = clearCollisionTarget(session.collisionState);
   if (session.mode === "sort") {
@@ -705,6 +750,7 @@ function resolveCanvasPreview<TSectionData>({
     hierarchy: session.hierarchy,
     mode: session.mode,
     selectedIds: session.sectionIds,
+    validate: (plan) => validateWorkspaceSectionMovePlan(document, plan, validateSectionMove),
   });
   const anchorPosition = positions[session.sectionIds[0] ?? ""];
   const anchorSource = session.sourceRects[session.sectionIds[0] ?? ""];
@@ -728,12 +774,14 @@ export function resolveWorkspaceSectionMovePreview<TSectionData>({
   geometry,
   gridOptions,
   session,
+  validateSectionMove,
 }: Readonly<{
   document: WorkspaceDocument<TSectionData>;
   event: AdapterDndEvent;
   geometry: WorkspaceGeometryMeasurements;
   gridOptions: ResolvedWorkspaceGridOptions;
   session: WorkspaceSectionMoveSession<TSectionData>;
+  validateSectionMove: WorkspaceSectionMoveValidator<TSectionData> | undefined;
 }>): WorkspaceSectionMovePreviewResolution {
   const canvas = geometry.canvasElement();
   if (!canvas) {
@@ -755,6 +803,22 @@ export function resolveWorkspaceSectionMovePreview<TSectionData>({
       reason: "The pointer is outside the workspace canvas.",
     };
   }
+  const invalidRegion = invalidDestinationRegion(point, session);
+  if (invalidRegion) {
+    return {
+      collisionState: clearCollisionTarget(session.collisionState),
+      invalidIndicator: workspaceSectionInsertionIndicator({
+        direction: invalidRegion.direction,
+        index: 0,
+        orderedRects: [],
+        orientation: invalidRegion.orientation,
+        regionRect: invalidRegion.workspaceRect,
+        zoom: frame.viewport.zoom,
+      }),
+      preview: null,
+      reason: "A section cannot move into itself or one of its descendants.",
+    };
+  }
   const activeRect = createInteractionRect(
     session.sourceClientBounds.x + event.transform.x,
     session.sourceClientBounds.y + event.transform.y,
@@ -773,7 +837,13 @@ export function resolveWorkspaceSectionMovePreview<TSectionData>({
     sourceParentId: session.sourceParentId,
   });
   if (collision.target) {
-    return resolveNestedPreview({ collision, document, frame, session });
+    return resolveNestedPreview({
+      collision,
+      document,
+      frame,
+      session,
+      validateSectionMove,
+    });
   }
   if (session.mode === "sort") {
     return {
@@ -782,7 +852,15 @@ export function resolveWorkspaceSectionMovePreview<TSectionData>({
       reason: collision.reason,
     };
   }
-  return resolveCanvasPreview({ document, event, frame, gridOptions, point, session });
+  return resolveCanvasPreview({
+    document,
+    event,
+    frame,
+    gridOptions,
+    point,
+    session,
+    validateSectionMove,
+  });
 }
 
 export function matchingWorkspaceSectionMovePreview(

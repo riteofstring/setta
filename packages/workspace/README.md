@@ -68,6 +68,11 @@ const sectionDefinitions = [
   }}
   minimapOptions={{ placement: "right", visible: true }}
   sectionMoveMode="sort"
+  validateSectionMove={({ plan }) =>
+    plan.destinationParentId === reservedSectionId
+      ? { allowed: false, reason: "This container is reserved for generated sections." }
+      : { allowed: true }
+  }
   selectionOptions={{ marqueeMode: "partial" }}
   validateExternalDrop={({ event }) =>
     event.dataTransferTypes.includes("application/x-example-note")
@@ -186,6 +191,14 @@ package's structural DnD owner. In `free` mode, root and nested handles both act
 owner. The mode captured when a gesture starts remains in force until completion or cancellation;
 changing the prop affects the next gesture. Root layout, structural DnD, and viewport gestures
 exclude their competing activators and restore them when the active owner releases.
+
+`validateSectionMove` is an optional synchronous, side-effect-free host policy for structural
+moves. It receives the current document and an immutable `SectionMovePlan` after package-owned
+shared-parent, containment, cycle, destination, and lock checks. Return a specific rejection reason
+for host relationships the generic document cannot express. Rejected targets never publish a
+document change; the reason is shown as non-color-only feedback and announced through the
+pre-mounted polite movement region. Locked sections cannot be moved directly, while a locked
+container remains a valid destination unless this host policy rejects it.
 
 Selected top-level roots expose logical inline-end, block-end, and corner resize controls according
 to their registered `resize.axes` policy. The controls mirror in right-to-left layouts, retain

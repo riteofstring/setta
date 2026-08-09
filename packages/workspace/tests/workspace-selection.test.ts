@@ -7,6 +7,7 @@ import {
   reconcileWorkspaceSelection,
   resolveWorkspaceRootSelection,
   resolveWorkspaceSelection,
+  resolveWorkspaceStructuralSelection,
   translateWorkspaceRootSelection,
 } from "../src/internal/workspace-selection.js";
 import { createWorkspaceTestDocument, WorkspaceInMemoryHost } from "../src/testing.js";
@@ -109,6 +110,56 @@ describe("workspace selection", () => {
     };
 
     expect(resolveWorkspaceRootSelection(document, ["alpha", "beta"], "alpha")).toEqual({
+      allowed: false,
+      reason: "The selection contains a locked section and cannot move.",
+    });
+  });
+
+  it("preflights nested structural selections for shared parents and locks", () => {
+    const flat = createWorkspaceTestDocument([
+      { id: "root", title: "Root" },
+      { id: "alpha", title: "Alpha" },
+      { id: "beta", title: "Beta" },
+      { id: "nested", title: "Nested" },
+    ]);
+    const root = flat.sections.root as WorkspaceSection;
+    const nested = flat.sections.nested as WorkspaceSection;
+    const beta = flat.sections.beta as WorkspaceSection;
+    const document: WorkspaceDocument = {
+      ...flat,
+      rootSections: [{ position: { x: 0, y: 0 }, sectionId: "root" }],
+      sections: {
+        ...flat.sections,
+        beta: { ...beta, positionAndSizeLocked: true },
+        nested: {
+          ...nested,
+          childLayout: {
+            orientation: "vertical",
+            overflow: "grow",
+            sectionIds: ["beta"],
+          },
+        },
+        root: {
+          ...root,
+          childLayout: {
+            orientation: "vertical",
+            overflow: "grow",
+            sectionIds: ["alpha", "nested"],
+          },
+        },
+      },
+    };
+
+    expect(resolveWorkspaceStructuralSelection(document, ["alpha", "beta"])).toEqual({
+      allowed: false,
+      code: "mixed-parent-selection",
+      reason: "Selected sections must share one parent for batch movement.",
+    });
+    expect(resolveWorkspaceStructuralSelection(document, ["nested", "beta"])).toEqual({
+      allowed: true,
+      block: { sectionIds: ["nested"], sourceParentId: "root" },
+    });
+    expect(resolveWorkspaceStructuralSelection(document, ["beta"])).toEqual({
       allowed: false,
       reason: "The selection contains a locked section and cannot move.",
     });

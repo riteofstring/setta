@@ -10,6 +10,7 @@ import type {
 
 type WorkspaceSectionMoveFeedbackSnapshot = Readonly<{
   active: boolean;
+  invalidIndicator: WorkspaceSectionMovePreviewResolution["invalidIndicator"] | null;
   preview: WorkspaceSectionMovePreview | null;
   reason: string;
   sourceBounds: WorkspaceRect | null;
@@ -17,6 +18,7 @@ type WorkspaceSectionMoveFeedbackSnapshot = Readonly<{
 
 const EMPTY_FEEDBACK_SNAPSHOT: WorkspaceSectionMoveFeedbackSnapshot = {
   active: false,
+  invalidIndicator: null,
   preview: null,
   reason: "",
   sourceBounds: null,
@@ -36,6 +38,7 @@ export class WorkspaceSectionMoveFeedbackStore {
   start(session: WorkspaceSectionMoveSession): void {
     this.#set({
       active: true,
+      invalidIndicator: null,
       preview: null,
       reason: "",
       sourceBounds: session.sourceWorkspaceBounds,
@@ -43,16 +46,27 @@ export class WorkspaceSectionMoveFeedbackStore {
   }
 
   rejectStart(reason: string): void {
-    this.#set({ active: true, preview: null, reason, sourceBounds: null });
+    this.#set({
+      active: true,
+      invalidIndicator: null,
+      preview: null,
+      reason,
+      sourceBounds: null,
+    });
   }
 
   preview(resolution: WorkspaceSectionMovePreviewResolution): void {
-    this.#set({ preview: resolution.preview, reason: resolution.reason });
+    this.#set({
+      invalidIndicator: resolution.invalidIndicator ?? null,
+      preview: resolution.preview,
+      reason: resolution.reason,
+    });
   }
 
   complete(): void {
     this.#set({
       active: false,
+      invalidIndicator: null,
       preview: null,
       reason: "",
       sourceBounds: null,
@@ -70,17 +84,17 @@ export class WorkspaceSectionMoveFeedbackStore {
 function Placeholder({
   kind,
   rect,
-  source,
+  state,
 }: Readonly<{
   kind: "canvas" | "empty" | "horizontal" | "source" | "vertical";
   rect: WorkspaceRect;
-  source: boolean;
+  state: "destination" | "invalid" | "source";
 }>) {
   return (
     <div
       aria-hidden="true"
       className={`setta-workspace__section-move-placeholder setta-workspace__section-move-placeholder--${kind}`}
-      data-workspace-section-move-placeholder={source ? "source" : "destination"}
+      data-workspace-section-move-placeholder={state}
       style={{
         height: rect.height,
         transform: `translate(${String(rect.x)}px, ${String(rect.y)}px)`,
@@ -94,6 +108,25 @@ function sourceIsProjected(preview: WorkspaceSectionMovePreview | null): boolean
   return preview
     ? preview.plan.sectionIds.some((sectionId) => preview.transformsById[sectionId] !== undefined)
     : false;
+}
+
+function WorkspaceSectionMoveRejection({
+  active,
+  reason,
+}: Readonly<{ active: boolean; reason: string }>) {
+  if (!active || !reason) {
+    return null;
+  }
+  return (
+    <div
+      aria-hidden="true"
+      className="setta-workspace__section-move-feedback"
+      data-workspace-section-move-feedback="invalid"
+    >
+      <strong>Move unavailable</strong>
+      <span>{reason}</span>
+    </div>
+  );
 }
 
 export function WorkspaceSectionMoveFeedback({
@@ -115,7 +148,7 @@ export function WorkspaceSectionMoveFeedback({
       {snapshot.sourceBounds ? (
         <ViewportPortal>
           {sourceProjected ? null : (
-            <Placeholder kind="source" rect={snapshot.sourceBounds} source />
+            <Placeholder kind="source" rect={snapshot.sourceBounds} state="source" />
           )}
           {snapshot.preview ? (
             <div
@@ -128,12 +161,20 @@ export function WorkspaceSectionMoveFeedback({
               <Placeholder
                 kind={snapshot.preview.indicator.kind}
                 rect={snapshot.preview.indicator.rect}
-                source={false}
+                state="destination"
               />
             </div>
           ) : null}
+          {snapshot.invalidIndicator ? (
+            <Placeholder
+              kind={snapshot.invalidIndicator.kind}
+              rect={snapshot.invalidIndicator.rect}
+              state="invalid"
+            />
+          ) : null}
         </ViewportPortal>
       ) : null}
+      <WorkspaceSectionMoveRejection active={snapshot.active} reason={snapshot.reason} />
     </>
   );
 }
