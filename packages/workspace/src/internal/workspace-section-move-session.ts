@@ -25,10 +25,7 @@ import {
   type WorkspaceSectionMoveMode,
   type WorkspaceSectionMoveValidator,
 } from "./section-move-planning.js";
-import {
-  selectionContainsSectionOrAncestor,
-  type SectionHierarchySnapshot,
-} from "./selection-planning.js";
+import type { SectionHierarchySnapshot } from "./selection-planning.js";
 import type { AdapterDndEvent } from "./upstream-dnd-adapter.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
@@ -36,6 +33,8 @@ import { snapWorkspacePointToGrid } from "./workspace-preferences.js";
 import {
   resolveSameParentFreeformKeyboardPreview,
   resolveSameParentFreeformPointerPreview,
+  resolveWorkspaceFreeformCollisionPreview,
+  workspaceSectionPointerDelta,
 } from "./workspace-section-freeform-move-session.js";
 import { resolveWorkspaceSectionKeyboardMove } from "./workspace-section-keyboard-move.js";
 import { workspaceSectionMovePreviewAnnouncement } from "./workspace-section-move-announcements.js";
@@ -48,6 +47,8 @@ import { workspaceSectionHierarchySnapshot } from "./workspace-section-move-comm
 import { resolveWorkspaceSectionMoveLayoutPreview } from "./workspace-section-move-layout-preview.js";
 import {
   captureWorkspaceSectionMoveRegions,
+  refreshWorkspaceSectionFreeformRegions,
+  resolveWorkspaceSectionInvalidMoveRegion,
   type WorkspaceSectionFreeformRegion,
   type WorkspaceSectionMoveGeometryFrame,
 } from "./workspace-section-move-regions.js";
@@ -367,39 +368,6 @@ function pointInsideRect(point: InteractionPoint, rect: ScreenRect): boolean {
   );
 }
 
-function sectionDepth(sectionId: string, hierarchy: SectionHierarchySnapshot): number {
-  let depth = 0;
-  let parentId = hierarchy.parentByChild[sectionId] ?? null;
-  while (parentId) {
-    depth += 1;
-    parentId = hierarchy.parentByChild[parentId] ?? null;
-  }
-  return depth;
-}
-
-function invalidDestinationRegion(
-  point: InteractionPoint,
-  session: WorkspaceSectionMoveSession,
-): WorkspaceSectionMoveRegion | null {
-  const movingIds = new Set(session.sectionIds);
-  const invalidRegions = session.regions.filter(
-    (region) =>
-      pointInsideRect(point, region.clientRect) &&
-      selectionContainsSectionOrAncestor(
-        region.parentSectionId,
-        movingIds,
-        session.hierarchy.parentByChild,
-      ),
-  );
-  return (
-    invalidRegions.sort(
-      (left, right) =>
-        sectionDepth(right.parentSectionId, session.hierarchy) -
-        sectionDepth(left.parentSectionId, session.hierarchy),
-    )[0] ?? null
-  );
-}
-
 type DragGeometryFrame = WorkspaceSectionMoveGeometryFrame;
 
 function pastLogicalMidpoint(
@@ -594,6 +562,13 @@ function resolveNestedPreview<TSectionData>({
       reason: collision.reason,
     };
   }
+  if (target.placement !== "ordered") {
+    return {
+      collisionState: clearCollisionTarget(collision.collisionState),
+      preview: null,
+      reason: "The ordered destination container is unavailable.",
+    };
+  }
   const selected = new Set(session.sectionIds);
   const layout = document.sections[target.destinationParentId]?.childLayout;
   const destinationIds = (layout?.sectionIds ?? []).filter((sectionId) => !selected.has(sectionId));
@@ -632,25 +607,6 @@ function resolveNestedPreview<TSectionData>({
     zoom: frame.viewport.zoom,
   });
   return previewFromDecision(collision.collisionState, document, decision, indicator, session);
-}
-
-function workspaceDelta(
-  event: AdapterDndEvent,
-  point: InteractionPoint,
-  frame: DragGeometryFrame,
-  session: WorkspaceSectionMoveSession,
-): WorkspacePoint {
-  if (session.startWorkspacePoint) {
-    const current = clientPointToWorkspace(point, frame.canvasBounds, frame.viewport);
-    return {
-      x: current.x - session.startWorkspacePoint.x,
-      y: current.y - session.startWorkspacePoint.y,
-    };
-  }
-  return {
-    x: event.transform.x / frame.viewport.zoom,
-    y: event.transform.y / frame.viewport.zoom,
-  };
 }
 
 function canvasPositions(
@@ -702,7 +658,7 @@ function resolveCanvasPreview<TSectionData>({
   }
   const positions = canvasPositions(
     session,
-    workspaceDelta(event, point, frame, session),
+    workspaceSectionPointerDelta(event, point, frame, session),
     gridOptions,
   );
   const decision = planSectionMove({
@@ -759,6 +715,7 @@ export function resolveWorkspaceSectionMovePreview<TSectionData>({
     canvasBounds: geometry.canvasBounds(),
     viewport: geometry.currentViewport(),
   };
+  const freeformRegions = refreshWorkspaceSectionFreeformRegions(session.freeformRegions, frame);
   if (!pointInsideRect(point, frame.canvasBounds)) {
     return {
       collisionState: clearCollisionTarget(session.collisionState),
@@ -766,18 +723,28 @@ export function resolveWorkspaceSectionMovePreview<TSectionData>({
       reason: "The pointer is outside the workspace canvas.",
     };
   }
-  const invalidRegion = invalidDestinationRegion(point, session);
+  const invalidRegion = resolveWorkspaceSectionInvalidMoveRegion({
+    freeformRegions,
+    hierarchy: session.hierarchy,
+    orderedRegions: session.regions,
+    point,
+    sectionIds: session.sectionIds,
+  });
   if (invalidRegion) {
+    const indicator =
+      invalidRegion.positioning === "freeform"
+        ? ({ kind: "freeform", rect: invalidRegion.region.workspaceRect } as const)
+        : workspaceSectionInsertionIndicator({
+            direction: invalidRegion.region.direction,
+            index: 0,
+            orderedRects: [],
+            orientation: invalidRegion.region.orientation,
+            regionRect: invalidRegion.region.workspaceRect,
+            zoom: frame.viewport.zoom,
+          });
     return {
       collisionState: clearCollisionTarget(session.collisionState),
-      invalidIndicator: workspaceSectionInsertionIndicator({
-        direction: invalidRegion.direction,
-        index: 0,
-        orderedRects: [],
-        orientation: invalidRegion.orientation,
-        regionRect: invalidRegion.workspaceRect,
-        zoom: frame.viewport.zoom,
-      }),
+      invalidIndicator: indicator,
       preview: null,
       reason: "A section cannot move into itself or one of its descendants.",
     };
@@ -792,6 +759,7 @@ export function resolveWorkspaceSectionMovePreview<TSectionData>({
   const collision = resolveWorkspaceSectionCollision({
     activeRect,
     clientRectsById: session.clientRectsById,
+    freeformRegions,
     hierarchy: session.hierarchy,
     mode: session.mode,
     pointer: point,
@@ -801,6 +769,21 @@ export function resolveWorkspaceSectionMovePreview<TSectionData>({
     sourceParentId: session.activeSourceParentId,
   });
   if (collision.target) {
+    if (collision.target.placement === "freeform") {
+      return resolveWorkspaceFreeformCollisionPreview({
+        collisionState: collision.collisionState,
+        document,
+        event,
+        frame,
+        gridOptions,
+        point,
+        region: freeformRegions.find(
+          (candidate) => candidate.parentSectionId === collision.target?.destinationParentId,
+        ),
+        session,
+        validateSectionMove,
+      });
+    }
     return resolveNestedPreview({
       collision,
       document,
@@ -865,9 +848,16 @@ export function resolveWorkspaceSectionKeyboardMovePreview<TSectionData>({
   if (freeformPreview) {
     return freeformPreview;
   }
+  const frame = {
+    canvasBounds: geometry.canvasBounds(),
+    viewport: geometry.currentViewport(),
+  };
+  const freeformRegions = refreshWorkspaceSectionFreeformRegions(session.freeformRegions, frame);
   const resolution = resolveWorkspaceSectionKeyboardMove({
     direction,
     document,
+    freeformRegions,
+    gridOptions,
     session,
     validateSectionMove,
   });
@@ -877,6 +867,15 @@ export function resolveWorkspaceSectionKeyboardMovePreview<TSectionData>({
       preview: null,
       reason: resolution.reason,
     };
+  }
+  if (resolution.freeformIndicator) {
+    return previewFromDecision(
+      clearCollisionTarget(session.collisionState),
+      document,
+      resolution.decision,
+      resolution.freeformIndicator,
+      session,
+    );
   }
   if (!resolution.region) {
     return previewFromDecision(
@@ -903,7 +902,7 @@ export function resolveWorkspaceSectionKeyboardMovePreview<TSectionData>({
     orderedRects: orderedRects as readonly WorkspaceRect[],
     orientation: resolution.region.orientation,
     regionRect: resolution.region.workspaceRect,
-    zoom: geometry.currentViewport().zoom,
+    zoom: frame.viewport.zoom,
   });
   return previewFromDecision(
     clearCollisionTarget(session.collisionState),

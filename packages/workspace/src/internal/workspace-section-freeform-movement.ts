@@ -10,6 +10,11 @@ export type WorkspaceFreeformMove = Readonly<{
   positions: Readonly<Record<string, WorkspacePoint>>;
 }>;
 
+export type WorkspaceFreeformDestinationPlacement = Readonly<{
+  indicator: WorkspaceRect;
+  positions: Readonly<Record<string, WorkspacePoint>>;
+}>;
+
 function recordFromEntries<T>(entries: Iterable<readonly [string, T]>): Record<string, T> {
   const record = Object.create(null) as Record<string, T>;
   for (const [key, value] of entries) {
@@ -27,6 +32,17 @@ function requiredPosition(
     throw new Error(`Workspace freeform movement is missing the position for ${sectionId}.`);
   }
   return position;
+}
+
+function requiredRect(
+  rects: Readonly<Record<string, WorkspaceRect>>,
+  sectionId: string,
+): WorkspaceRect {
+  const rect = rects[sectionId];
+  if (!rect) {
+    throw new Error(`Workspace freeform destination is missing geometry for ${sectionId}.`);
+  }
+  return rect;
 }
 
 function clampedDelta(
@@ -111,6 +127,74 @@ export function resolveWorkspaceFreeformKeyboardMove({
     delta: resolvedDelta,
     positions: translatedPositions(positions, sectionIds, resolvedDelta),
   };
+}
+
+export function resolveWorkspaceFreeformDestinationPlacement({
+  activeSectionId,
+  destinationBlockPosition,
+  destinationSurfacePosition,
+  gridOptions,
+  sectionIds,
+  sourceRects,
+  sourceWorkspaceBounds,
+}: Readonly<{
+  activeSectionId: string;
+  destinationBlockPosition: WorkspacePoint;
+  destinationSurfacePosition: WorkspacePoint;
+  gridOptions: Pick<ResolvedWorkspaceGridOptions, "snap" | "spacing">;
+  sectionIds: readonly string[];
+  sourceRects: Readonly<Record<string, WorkspaceRect>>;
+  sourceWorkspaceBounds: WorkspaceRect;
+}>): WorkspaceFreeformDestinationPlacement {
+  const localPositions = recordFromEntries(
+    sectionIds.map((sectionId) => {
+      const rect = requiredRect(sourceRects, sectionId);
+      return [
+        sectionId,
+        {
+          x:
+            destinationBlockPosition.x +
+            rect.x -
+            sourceWorkspaceBounds.x -
+            destinationSurfacePosition.x,
+          y:
+            destinationBlockPosition.y +
+            rect.y -
+            sourceWorkspaceBounds.y -
+            destinationSurfacePosition.y,
+        },
+      ] as const;
+    }),
+  );
+  const move = resolveWorkspaceFreeformPointerMove({
+    activeSectionId,
+    delta: { x: 0, y: 0 },
+    gridOptions,
+    positions: localPositions,
+    sectionIds,
+  });
+  const frames = sectionIds.map((sectionId) => {
+    const position = requiredPosition(move.positions, sectionId);
+    const rect = requiredRect(sourceRects, sectionId);
+    return {
+      height: rect.height,
+      width: rect.width,
+      x: destinationSurfacePosition.x + position.x,
+      y: destinationSurfacePosition.y + position.y,
+    };
+  });
+  const first = frames[0];
+  if (!first) {
+    throw new Error("Workspace freeform destination requires at least one section.");
+  }
+  const bounds = frames.slice(1).reduce((current, rect) => {
+    const x = Math.min(current.x, rect.x);
+    const y = Math.min(current.y, rect.y);
+    const right = Math.max(current.x + current.width, rect.x + rect.width);
+    const bottom = Math.max(current.y + current.height, rect.y + rect.height);
+    return { height: bottom - y, width: right - x, x, y };
+  }, first);
+  return { indicator: bounds, positions: move.positions };
 }
 
 export function workspaceFreeformMoveTransforms(

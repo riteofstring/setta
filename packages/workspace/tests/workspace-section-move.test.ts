@@ -274,6 +274,50 @@ describe("workspace section move command", () => {
     });
   });
 
+  it("moves between freeform parents while pruning and installing exact local positions", () => {
+    const source = freeformMovementDocument();
+    const empty = source.sections.empty as WorkspaceSection;
+    const document: WorkspaceDocument = {
+      ...source,
+      sections: {
+        ...source.sections,
+        empty: {
+          ...empty,
+          childLayout: {
+            overflow: "grow",
+            positioning: "freeform",
+            positions: {},
+            sectionIds: [],
+          },
+        },
+      },
+    };
+    const result = applyWorkspaceSectionMove(
+      document,
+      plan({
+        destination: freeformDestination("empty", { "child-a": { x: 72, y: 96 } }),
+        mode: "free",
+      }),
+    );
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") throw new Error("Expected a freeform cross-parent move.");
+    expect(result.document.sections.container?.childLayout).toMatchObject({
+      positioning: "freeform",
+      positions: {
+        "child-b": { x: 180, y: 44 },
+        nested: { x: 80, y: 240 },
+      },
+      sectionIds: ["child-b", "nested"],
+    });
+    expect(result.document.sections.empty?.childLayout).toEqual({
+      overflow: "grow",
+      positioning: "freeform",
+      positions: { "child-a": { x: 72, y: 96 } },
+      sectionIds: ["child-a"],
+    });
+  });
+
   it("rejects mismatched or invalid nested placement without changing the document", () => {
     const document = freeformMovementDocument();
     expect(

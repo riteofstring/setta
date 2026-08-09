@@ -7,6 +7,7 @@ import {
   serializeSectionMovePlan,
   type SectionMovePlan,
 } from "../src/internal/section-move-planning.js";
+import { WORKSPACE_DEFAULT_GRID_OPTIONS } from "../src/internal/workspace-preferences.js";
 import { resolveWorkspaceSectionKeyboardMove } from "../src/internal/workspace-section-keyboard-move.js";
 import { workspaceSectionHierarchySnapshot } from "../src/internal/workspace-section-move-command.js";
 import {
@@ -63,6 +64,20 @@ function region(
     orientation,
     parentSectionId,
     workspaceRect: rect,
+  } as const;
+}
+
+function freeformRegion(parentSectionId: string, x: number, y: number) {
+  const clientRect = createInteractionRect(x, y, 360, 360);
+  const element = {} as HTMLElement;
+  return {
+    clientRect,
+    element,
+    parentSectionId,
+    surface: element,
+    surfaceClientRect: clientRect,
+    surfaceWorkspaceRect: { height: 360, width: 360, x: x + 12, y: y + 12 },
+    workspaceRect: { height: 360, width: 360, x, y },
   } as const;
 }
 
@@ -128,15 +143,27 @@ function nestedKeyboardSession(): WorkspaceSectionMoveSession {
   };
 }
 
+function resolveKeyboardMove(
+  session: WorkspaceSectionMoveSession,
+  direction: "down" | "left" | "right" | "up",
+  validateSectionMove?: Parameters<
+    typeof resolveWorkspaceSectionKeyboardMove
+  >[0]["validateSectionMove"],
+) {
+  return resolveWorkspaceSectionKeyboardMove({
+    direction,
+    document: session.document,
+    freeformRegions: session.freeformRegions,
+    gridOptions: WORKSPACE_DEFAULT_GRID_OPTIONS,
+    session,
+    validateSectionMove,
+  });
+}
+
 describe("workspace section keyboard movement", () => {
   it("moves to the next vertical sibling boundary through the canonical planner", () => {
     const session = keyboardSession("sort");
-    const resolution = resolveWorkspaceSectionKeyboardMove({
-      direction: "down",
-      document: session.document,
-      session,
-      validateSectionMove: undefined,
-    });
+    const resolution = resolveKeyboardMove(session, "down");
 
     expect(resolution).toMatchObject({
       decision: {
@@ -155,35 +182,18 @@ describe("workspace section keyboard movement", () => {
       direction: "rtl",
       orientation: "horizontal",
     });
-    const resolution = resolveWorkspaceSectionKeyboardMove({
-      direction: "left",
-      document: session.document,
-      session,
-      validateSectionMove: undefined,
-    });
+    const resolution = resolveKeyboardMove(session, "left");
 
     expect(resolution).toMatchObject({
       decision: { plan: { destination: { placement: { index: 1 } } }, status: "planned" },
       status: "resolved",
     });
-    expect(
-      resolveWorkspaceSectionKeyboardMove({
-        direction: "right",
-        document: session.document,
-        session,
-        validateSectionMove: undefined,
-      }),
-    ).toMatchObject({ status: "unavailable" });
+    expect(resolveKeyboardMove(session, "right")).toMatchObject({ status: "unavailable" });
   });
 
   it("moves one normalized sibling block to the nearest valid container in arrow direction", () => {
     const session = keyboardSession("free", ["alpha", "beta", "nested"]);
-    const resolution = resolveWorkspaceSectionKeyboardMove({
-      direction: "right",
-      document: session.document,
-      session,
-      validateSectionMove: undefined,
-    });
+    const resolution = resolveKeyboardMove(session, "right");
 
     expect(resolution).toMatchObject({
       decision: {
@@ -197,15 +207,56 @@ describe("workspace section keyboard movement", () => {
     });
   });
 
+  it("converts a keyboard block into a freeform destination's local coordinates", () => {
+    const original = keyboardSession("free");
+    const empty = original.document.sections.empty as WorkspaceSection;
+    const document: WorkspaceDocument = {
+      ...original.document,
+      sections: {
+        ...original.document.sections,
+        empty: {
+          ...empty,
+          childLayout: {
+            overflow: "grow",
+            positioning: "freeform",
+            positions: {},
+            sectionIds: [],
+          },
+        },
+      },
+    };
+    const session: WorkspaceSectionMoveSession = {
+      ...original,
+      document,
+      freeformRegions: [freeformRegion("empty", 400, 0)],
+      hierarchy: workspaceSectionHierarchySnapshot(document),
+      regions: original.regions.filter((candidate) => candidate.parentSectionId === "root"),
+    };
+    const resolution = resolveKeyboardMove(session, "right");
+
+    expect(resolution).toMatchObject({
+      decision: {
+        plan: {
+          destination: {
+            parentId: "empty",
+            placement: { positions: { alpha: { x: 120, y: 120 } }, type: "freeform" },
+          },
+        },
+        status: "planned",
+      },
+      freeformIndicator: {
+        kind: "freeform",
+        rect: { height: 80, width: 120, x: 532, y: 132 },
+      },
+      region: null,
+      status: "resolved",
+    });
+  });
+
   it("moves a nested sibling block to the canvas when no container is available beyond its edge", () => {
     const original = keyboardSession("free", ["alpha", "beta"]);
     const session = { ...original, regions: [region("root", 0, 0)] };
-    const resolution = resolveWorkspaceSectionKeyboardMove({
-      direction: "left",
-      document: session.document,
-      session,
-      validateSectionMove: undefined,
-    });
+    const resolution = resolveKeyboardMove(session, "left");
 
     expect(resolution).toMatchObject({
       decision: {
@@ -234,12 +285,7 @@ describe("workspace section keyboard movement", () => {
       ...original,
       sourceParentIds: ["root", "nested"],
     };
-    const resolution = resolveWorkspaceSectionKeyboardMove({
-      direction: "down",
-      document: session.document,
-      session,
-      validateSectionMove: undefined,
-    });
+    const resolution = resolveKeyboardMove(session, "down");
 
     expect(resolution).toMatchObject({
       decision: {
@@ -256,15 +302,11 @@ describe("workspace section keyboard movement", () => {
 
   it("returns the exact host rejection for the chosen keyboard destination", () => {
     const session = keyboardSession("free", ["alpha", "beta", "nested"]);
-    const resolution = resolveWorkspaceSectionKeyboardMove({
-      direction: "right",
-      document: session.document,
-      session,
-      validateSectionMove: ({ plan }) =>
-        plan.destination.parentId === "empty"
-          ? { allowed: false, reason: "Empty stays reserved." }
-          : { allowed: true },
-    });
+    const resolution = resolveKeyboardMove(session, "right", ({ plan }) =>
+      plan.destination.parentId === "empty"
+        ? { allowed: false, reason: "Empty stays reserved." }
+        : { allowed: true },
+    );
 
     expect(resolution).toMatchObject({
       decision: { reason: "Empty stays reserved.", status: "rejected" },
@@ -275,12 +317,7 @@ describe("workspace section keyboard movement", () => {
 
   it("promotes a valid descendant container above its colliding ancestor region", () => {
     const session = nestedKeyboardSession();
-    const resolution = resolveWorkspaceSectionKeyboardMove({
-      direction: "down",
-      document: session.document,
-      session,
-      validateSectionMove: undefined,
-    });
+    const resolution = resolveKeyboardMove(session, "down");
 
     expect(resolution).toMatchObject({
       decision: {

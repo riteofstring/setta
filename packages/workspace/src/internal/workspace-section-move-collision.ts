@@ -13,7 +13,10 @@ import {
   type InteractionRect,
 } from "./interaction-geometry.js";
 import type { WorkspaceSectionMoveMode } from "./section-move-planning.js";
-import type { SectionHierarchySnapshot } from "./selection-planning.js";
+import {
+  selectionContainsSectionOrAncestor,
+  type SectionHierarchySnapshot,
+} from "./selection-planning.js";
 
 export type WorkspaceSectionMoveDirection = "ltr" | "rtl";
 
@@ -26,14 +29,28 @@ export type WorkspaceSectionMoveRegion = Readonly<{
   workspaceRect: WorkspaceRect;
 }>;
 
-type WorkspaceSectionCollisionTarget = Readonly<{
+export type WorkspaceSectionFreeformCollisionRegion = Readonly<{
+  clientRect: InteractionRect;
+  parentSectionId: string;
+}>;
+
+type WorkspaceSectionOrderedCollisionTarget = Readonly<{
   destinationIndex: number;
   destinationParentId: string;
   direction: WorkspaceSectionMoveDirection;
   orientation: ListOrientation;
+  placement: "ordered";
   region: WorkspaceSectionMoveRegion;
   targetSectionId: string | null;
 }>;
+
+type WorkspaceSectionFreeformCollisionTarget = Readonly<{
+  destinationParentId: string;
+  placement: "freeform";
+}>;
+
+type WorkspaceSectionCollisionTarget =
+  WorkspaceSectionFreeformCollisionTarget | WorkspaceSectionOrderedCollisionTarget;
 
 export type WorkspaceSectionCollisionResolution = Readonly<{
   collisionState: CollisionTrackerState;
@@ -44,13 +61,22 @@ export type WorkspaceSectionCollisionResolution = Readonly<{
 type CollisionTargetMetadata = Readonly<{
   candidateId: string;
   destinationIds: readonly string[];
+  ownerSectionId: string;
+  placement: "ordered";
   region: WorkspaceSectionMoveRegion;
   targetSectionId: string | null;
 }>;
 
+type FreeformCollisionTargetMetadata = Readonly<{
+  candidateId: string;
+  ownerSectionId: string;
+  placement: "freeform";
+  region: WorkspaceSectionFreeformCollisionRegion;
+}>;
+
 type CollisionEntry = Readonly<{
   candidate: CollisionCandidate;
-  metadata: CollisionTargetMetadata;
+  metadata: CollisionTargetMetadata | FreeformCollisionTargetMetadata;
 }>;
 
 function sectionCandidateId(sectionId: string): string {
@@ -110,13 +136,47 @@ function collisionEntry(
       sortableContainerId: region.parentSectionId,
       triggerDistance: directionalTriggerDistance(activeRect, targetRect, region),
     },
-    metadata: { candidateId, destinationIds, region, targetSectionId },
+    metadata: {
+      candidateId,
+      destinationIds,
+      ownerSectionId: targetSectionId ?? region.parentSectionId,
+      placement: "ordered",
+      region,
+      targetSectionId,
+    },
+  };
+}
+
+function freeformCollisionEntry(
+  activeRect: InteractionRect,
+  region: WorkspaceSectionFreeformCollisionRegion,
+): CollisionEntry | null {
+  const area = intersectionArea(activeRect, region.clientRect);
+  if (area <= 0) {
+    return null;
+  }
+  const candidateId = regionCandidateId(region.parentSectionId);
+  return {
+    candidate: {
+      id: candidateId,
+      intersectionArea: area,
+      orientation: "vertical",
+      rect: region.clientRect,
+      sortableContainerId: region.parentSectionId,
+      triggerDistance: null,
+    },
+    metadata: {
+      candidateId,
+      ownerSectionId: region.parentSectionId,
+      placement: "freeform",
+      region,
+    },
   };
 }
 
 function regionAllowsMode(
   mode: WorkspaceSectionMoveMode,
-  region: WorkspaceSectionMoveRegion,
+  region: Readonly<{ parentSectionId: string }>,
   sourceParentId: string | null,
 ): boolean {
   return mode === "free" || region.parentSectionId === sourceParentId;
@@ -197,16 +257,59 @@ function regionEntries({
   return entry ? [entry] : [];
 }
 
+function freeformRegionEntries({
+  activeRect,
+  hierarchy,
+  mode,
+  movingIds,
+  region,
+  sourceParentId,
+}: Readonly<{
+  activeRect: InteractionRect;
+  hierarchy: SectionHierarchySnapshot;
+  mode: WorkspaceSectionMoveMode;
+  movingIds: ReadonlySet<string>;
+  region: WorkspaceSectionFreeformCollisionRegion;
+  sourceParentId: string | null;
+}>): readonly CollisionEntry[] {
+  if (
+    selectionContainsSectionOrAncestor(
+      region.parentSectionId,
+      movingIds,
+      hierarchy.parentByChild,
+    ) ||
+    !regionAllowsMode(mode, region, sourceParentId)
+  ) {
+    return [];
+  }
+  const entry = freeformCollisionEntry(activeRect, region);
+  return entry ? [entry] : [];
+}
+
 function collisionParentLookup(
   entries: readonly CollisionEntry[],
   hierarchy: SectionHierarchySnapshot,
 ): Readonly<Record<string, string | null>> {
+  const candidateIds = new Set(entries.map(({ candidate }) => candidate.id));
   return Object.fromEntries(
     entries.map(({ metadata }) => {
-      const parentId = metadata.targetSectionId
-        ? (hierarchy.parentByChild[metadata.targetSectionId] ?? null)
-        : metadata.region.parentSectionId;
-      return [metadata.candidateId, parentId ? sectionCandidateId(parentId) : null];
+      const sectionCandidate = sectionCandidateId(metadata.ownerSectionId);
+      if (metadata.placement === "freeform" && candidateIds.has(sectionCandidate)) {
+        return [metadata.candidateId, sectionCandidate];
+      }
+      let parentId = hierarchy.parentByChild[metadata.ownerSectionId] ?? null;
+      while (parentId) {
+        const parentRegion = regionCandidateId(parentId);
+        if (candidateIds.has(parentRegion)) {
+          return [metadata.candidateId, parentRegion];
+        }
+        const parentSection = sectionCandidateId(parentId);
+        if (candidateIds.has(parentSection)) {
+          return [metadata.candidateId, parentSection];
+        }
+        parentId = hierarchy.parentByChild[parentId] ?? null;
+      }
+      return [metadata.candidateId, null];
     }),
   );
 }
@@ -246,6 +349,7 @@ function destinationIndex(metadata: CollisionTargetMetadata, pastMidpoint: boole
 export function resolveWorkspaceSectionCollision({
   activeRect,
   clientRectsById,
+  freeformRegions,
   hierarchy,
   mode,
   pointer,
@@ -256,6 +360,7 @@ export function resolveWorkspaceSectionCollision({
 }: Readonly<{
   activeRect: InteractionRect;
   clientRectsById: Readonly<Record<string, InteractionRect>>;
+  freeformRegions: readonly WorkspaceSectionFreeformCollisionRegion[];
   hierarchy: SectionHierarchySnapshot;
   mode: WorkspaceSectionMoveMode;
   pointer: InteractionPoint | null;
@@ -276,19 +381,47 @@ export function resolveWorkspaceSectionCollision({
       sourceParentId,
     }),
   );
+  const freeformEntries = freeformRegions.flatMap((region) =>
+    freeformRegionEntries({
+      activeRect,
+      hierarchy,
+      mode,
+      movingIds,
+      region,
+      sourceParentId,
+    }),
+  );
+  const allEntries = [...entries, ...freeformEntries];
   const winner = pickCollisionCandidate(
-    entries.map(({ candidate }) => candidate),
-    collisionParentLookup(entries, hierarchy),
+    allEntries.map(({ candidate }) => candidate),
+    collisionParentLookup(allEntries, hierarchy),
     previousState.targetId,
   );
   const metadata = winner
-    ? entries.find(({ metadata: current }) => current.candidateId === winner.id)?.metadata
+    ? allEntries.find(({ metadata: current }) => current.candidateId === winner.id)?.metadata
     : undefined;
   if (!winner || !metadata) {
     return {
       collisionState: clearCollisionTarget(previousState),
       reason: "The section block is outside every measured destination.",
       target: null,
+    };
+  }
+  if (metadata.placement === "freeform") {
+    const collision = resolveCollisionFrame({
+      activeRect,
+      candidates: [winner],
+      parentByChild: {},
+      pointer,
+      previousState,
+    });
+    return {
+      collisionState: collision.state,
+      reason: "",
+      target: {
+        destinationParentId: metadata.region.parentSectionId,
+        placement: "freeform",
+      },
     };
   }
   const logical = logicalCollisionGeometry(activeRect, winner, pointer, metadata.region.direction);
@@ -316,6 +449,7 @@ export function resolveWorkspaceSectionCollision({
       destinationParentId: metadata.region.parentSectionId,
       direction: metadata.region.direction,
       orientation: metadata.region.orientation,
+      placement: "ordered",
       region: metadata.region,
       targetSectionId: metadata.targetSectionId,
     },

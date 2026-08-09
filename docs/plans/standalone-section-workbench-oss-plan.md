@@ -1710,8 +1710,10 @@ The schema-v2 document and static recursive-projection foundation is recorded in
 [Phase 6 nested-freeform document-contract evidence](../evidence/phase-6-nested-freeform-document-contract.md).
 Same-parent freeform movement and the local-coordinate target/application contract are recorded in
 [Phase 6 nested-freeform local-movement evidence](../evidence/phase-6-nested-freeform-local-movement.md).
-Interactive cross-parent freeform target resolution and coordinate conversion are now the earliest
-incomplete repository-actionable Phase 6 work.
+Interactive cross-parent target resolution and coordinate conversion are recorded in
+[Phase 6 nested-freeform cross-parent movement evidence](../evidence/phase-6-nested-freeform-cross-parent-movement.md).
+Freeform-aware grouping and ungrouping position derivation are now the earliest incomplete
+repository-actionable Phase 6 work.
 
 - Completed (nested-freeform representation prerequisite): compared the plan-mandated all-section
   XYFlow graph, separately provided inner-XYFlow instances, and package-owned absolutely positioned
@@ -1783,6 +1785,28 @@ incomplete repository-actionable Phase 6 work.
   allowlisting, lockfile policy, strict build, and runtime verification. No dependency input
   changed, so the network-backed supply-chain gate was not duplicated; the recorded unavailable
   in-app-browser release gate was not retried.
+
+- Completed (nested-freeform cross-parent movement slice): unified ordered and freeform collision
+  candidates under the existing target memory, hysteresis, invalid-target, and ancestor-promotion
+  owner. Pointer and touch structural movement now resolve a measured selected block into exact
+  destination-local positions through current outer viewport and nested-scroll geometry, preserving
+  root offsets, snapping the active anchor, and translating the block at local start edges. Free-mode
+  keyboard movement exposes the same measured freeform destinations, while sort-mode freeform arrows
+  remain local. Canvas, ordered, and freeform transitions share exact host validation,
+  spatial-preview, completion, announcement, and focus-restoration plans; framework-neutral
+  application proves freeform-to-freeform position-key replacement. The complete record is
+  `docs/evidence/phase-6-nested-freeform-cross-parent-movement.md`.
+- Nested-freeform cross-parent verification: exact Node 24.18.1, repository-local Corepack 0.35.0,
+  and pnpm 11.19.0 focused coverage passed 53 coordinate, collision, keyboard, and application tests.
+  The complete six-test nested-freeform Chromium selector passed pointer, touch, local and structural
+  keyboard movement, canvas/ordered/freeform transitions, controlled commits, focus restoration,
+  nested scroll, 2× outer zoom, Axe, 200% page scale, reduced motion, 320-CSS-pixel reflow, and the
+  inspected cross-parent baseline. Changed-file quality passed repository boundaries, dependency
+  policy, formatting, lint and complexity, file lengths, strict types, dead-code analysis, unit and
+  boundary tests, plan-loop automation, builds, exact tarball contents, documentation links, and the
+  declaration report. The unrelated tarball-installed consumer passed lockfile policy, strict build,
+  and runtime verification. No dependency input changed, so the network-backed supply-chain gate was
+  not duplicated; the recorded unavailable in-app-browser release gate was not retried.
 
 - Completed (viewport-culling batch): added strict opt-in all-depth browser windowing through one
   canvas-rooted observer, exact-size named placeholders, canonical-ID-scoped retained geometry,

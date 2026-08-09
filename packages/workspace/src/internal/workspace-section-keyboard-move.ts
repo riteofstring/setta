@@ -8,6 +8,8 @@ import {
 } from "./section-move-planning.js";
 import { selectionContainsSectionOrAncestor } from "./selection-planning.js";
 import type { AdapterDndKeyboardDirection } from "./upstream-dnd-adapter.js";
+import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
+import { resolveWorkspaceFreeformDestinationPlacement } from "./workspace-section-freeform-movement.js";
 import type { WorkspaceSectionMoveDirection } from "./workspace-section-move-collision.js";
 import type {
   WorkspaceSectionMoveIndicator,
@@ -15,10 +17,13 @@ import type {
 } from "./workspace-section-move-session.js";
 
 type DestinationRegion = WorkspaceSectionMoveSession["regions"][number];
+type FreeformDestinationRegion = WorkspaceSectionMoveSession["freeformRegions"][number];
 
 type KeyboardDestination = Readonly<{
   destinationIndex: number;
   destinationParentId: string | null;
+  freeformIndicator: WorkspaceSectionMoveIndicator | null;
+  freeformPositions: Readonly<Record<string, WorkspacePoint>> | null;
   point: Readonly<{ x: number; y: number }>;
   region: DestinationRegion | null;
   topLevelPositions: Readonly<Record<string, WorkspacePoint>> | null;
@@ -27,7 +32,6 @@ type KeyboardDestination = Readonly<{
 type KeyboardContainerDestination = KeyboardDestination &
   Readonly<{
     destinationParentId: string;
-    region: DestinationRegion;
     topLevelPositions: null;
   }>;
 
@@ -36,6 +40,7 @@ export type WorkspaceSectionKeyboardMoveResolution =
       decision: SectionMoveDecision;
       destinationIndex: number;
       destinationIds: readonly string[];
+      freeformIndicator: WorkspaceSectionMoveIndicator | null;
       region: DestinationRegion | null;
       status: "resolved";
     }>
@@ -115,6 +120,8 @@ function adjacentDestination(
   return {
     destinationIndex,
     destinationParentId: region.parentSectionId,
+    freeformIndicator: null,
+    freeformPositions: null,
     point: insertionPoint(region, destinationIds, destinationIndex, session),
     region,
     topLevelPositions: null,
@@ -241,12 +248,72 @@ function directionalScore(
   return primary + secondary * 0.5;
 }
 
-function spatialDestinations(
+function freeformSpatialDestinations(
   session: WorkspaceSectionMoveSession,
+  freeformRegions: readonly FreeformDestinationRegion[],
+  gridOptions: ResolvedWorkspaceGridOptions,
 ): readonly KeyboardContainerDestination[] {
   const moving = new Set(session.sectionIds);
   const currentParentId = currentDestination(session).parentId;
-  return session.regions.flatMap((region) => {
+  const sharedCurrentParent = session.sourceParentIds.every(
+    (parentId) => parentId === currentParentId,
+  );
+  return freeformRegions.flatMap((region) => {
+    if (
+      (sharedCurrentParent && region.parentSectionId === currentParentId) ||
+      selectionContainsSectionOrAncestor(
+        region.parentSectionId,
+        moving,
+        session.hierarchy.parentByChild,
+      )
+    ) {
+      return [];
+    }
+    const destinationBlockPosition = {
+      x:
+        region.workspaceRect.x +
+        (region.workspaceRect.width - session.sourceWorkspaceBounds.width) / 2,
+      y:
+        region.workspaceRect.y +
+        (region.workspaceRect.height - session.sourceWorkspaceBounds.height) / 2,
+    };
+    const placement = resolveWorkspaceFreeformDestinationPlacement({
+      activeSectionId: session.activeSelectionRootId,
+      destinationBlockPosition,
+      destinationSurfacePosition: {
+        x: region.surfaceWorkspaceRect.x,
+        y: region.surfaceWorkspaceRect.y,
+      },
+      gridOptions,
+      sectionIds: session.sectionIds,
+      sourceRects: session.sourceRects,
+      sourceWorkspaceBounds: session.sourceWorkspaceBounds,
+    });
+    return [
+      {
+        destinationIndex: 0,
+        destinationParentId: region.parentSectionId,
+        freeformIndicator: { kind: "freeform", rect: placement.indicator },
+        freeformPositions: placement.positions,
+        point: {
+          x: region.workspaceRect.x + region.workspaceRect.width / 2,
+          y: region.workspaceRect.y + region.workspaceRect.height / 2,
+        },
+        region: null,
+        topLevelPositions: null,
+      },
+    ];
+  });
+}
+
+function spatialDestinations(
+  session: WorkspaceSectionMoveSession,
+  freeformRegions: readonly FreeformDestinationRegion[],
+  gridOptions: ResolvedWorkspaceGridOptions,
+): readonly KeyboardContainerDestination[] {
+  const moving = new Set(session.sectionIds);
+  const currentParentId = currentDestination(session).parentId;
+  const ordered = session.regions.flatMap((region) => {
     if (
       region.parentSectionId === currentParentId ||
       selectionContainsSectionOrAncestor(
@@ -264,22 +331,29 @@ function spatialDestinations(
     return Array.from({ length: destinationIds.length + 1 }, (_, destinationIndex) => ({
       destinationIndex,
       destinationParentId: region.parentSectionId,
+      freeformIndicator: null,
+      freeformPositions: null,
       point: insertionPoint(region, destinationIds, destinationIndex, session),
       region,
       topLevelPositions: null,
     }));
   });
+  return [...ordered, ...freeformSpatialDestinations(session, freeformRegions, gridOptions)];
 }
 
 function nearestSpatialDestination(
   direction: AdapterDndKeyboardDirection,
   session: WorkspaceSectionMoveSession,
+  freeformRegions: readonly FreeformDestinationRegion[],
+  gridOptions: ResolvedWorkspaceGridOptions,
 ): KeyboardContainerDestination | null {
   const origin = navigationOrigin(session);
-  const directional = spatialDestinations(session).flatMap((destination) => {
-    const score = directionalScore(direction, origin, destination.point);
-    return score === null ? [] : [{ destination, score }];
-  });
+  const directional = spatialDestinations(session, freeformRegions, gridOptions).flatMap(
+    (destination) => {
+      const score = directionalScore(direction, origin, destination.point);
+      return score === null ? [] : [{ destination, score }];
+    },
+  );
   const promoted = directional.filter(
     ({ destination }) =>
       !directional.some(
@@ -324,6 +398,8 @@ function canvasDestination(session: WorkspaceSectionMoveSession): KeyboardDestin
     destinationIndex: withoutMoving(session.hierarchy.rootSectionIds, new Set(session.sectionIds))
       .length,
     destinationParentId: null,
+    freeformIndicator: null,
+    freeformPositions: null,
     point: navigationOrigin(session),
     region: null,
     topLevelPositions,
@@ -336,6 +412,9 @@ function resolvedDestination<TSectionData>(
   session: WorkspaceSectionMoveSession<TSectionData>,
   validateSectionMove: WorkspaceSectionMoveValidator<TSectionData> | undefined,
 ): WorkspaceSectionKeyboardMoveResolution {
+  const placement = destination.freeformPositions
+    ? { positions: destination.freeformPositions, type: "freeform" as const }
+    : { index: destination.destinationIndex, type: "ordered" as const };
   return {
     decision: planSectionMove({
       destination:
@@ -349,7 +428,7 @@ function resolvedDestination<TSectionData>(
             }
           : {
               parentId: destination.destinationParentId,
-              placement: { index: destination.destinationIndex, type: "ordered" },
+              placement,
             },
       hierarchy: session.hierarchy,
       mode: session.mode,
@@ -358,6 +437,7 @@ function resolvedDestination<TSectionData>(
     }),
     destinationIndex: destination.destinationIndex,
     destinationIds: destinationIds(destination, session),
+    freeformIndicator: destination.freeformIndicator,
     region: destination.region,
     status: "resolved",
   };
@@ -382,11 +462,15 @@ function sortUnavailableReason(
 export function resolveWorkspaceSectionKeyboardMove<TSectionData>({
   direction,
   document,
+  freeformRegions,
+  gridOptions,
   session,
   validateSectionMove,
 }: Readonly<{
   direction: AdapterDndKeyboardDirection;
   document: WorkspaceDocument<TSectionData>;
+  freeformRegions: readonly FreeformDestinationRegion[];
+  gridOptions: ResolvedWorkspaceGridOptions;
   session: WorkspaceSectionMoveSession<TSectionData>;
   validateSectionMove: WorkspaceSectionMoveValidator<TSectionData> | undefined;
 }>): WorkspaceSectionKeyboardMoveResolution {
@@ -400,7 +484,7 @@ export function resolveWorkspaceSectionKeyboardMove<TSectionData>({
       status: "unavailable",
     };
   }
-  const spatial = nearestSpatialDestination(direction, session);
+  const spatial = nearestSpatialDestination(direction, session, freeformRegions, gridOptions);
   const destination = spatial ?? canvasDestination(session);
   return destination
     ? resolvedDestination(destination, document, session, validateSectionMove)

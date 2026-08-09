@@ -1,6 +1,10 @@
 import type { WorkspaceDocument, WorkspaceFreeformChildLayout, WorkspacePoint } from "../core.js";
 import { clearCollisionTarget, type CollisionTrackerState } from "./collision-characterization.js";
-import { clientPointToWorkspace, clientRectToWorkspace } from "./geometry-index.js";
+import {
+  clientPointToWorkspace,
+  clientRectToWorkspace,
+  type WorkspaceRect,
+} from "./geometry-index.js";
 import type { InteractionPoint } from "./interaction-geometry.js";
 import {
   planSectionMove,
@@ -13,12 +17,14 @@ import type { AdapterDndEvent } from "./upstream-dnd-adapter.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
 import {
+  resolveWorkspaceFreeformDestinationPlacement,
   resolveWorkspaceFreeformKeyboardMove,
   resolveWorkspaceFreeformPointerMove,
   workspaceFreeformMoveIndicator,
   workspaceFreeformMoveTransforms,
 } from "./workspace-section-freeform-movement.js";
 import { workspaceSectionMovePreviewAnnouncement } from "./workspace-section-move-announcements.js";
+import { resolveWorkspaceSectionMoveLayoutPreview } from "./workspace-section-move-layout-preview.js";
 import {
   workspaceScreenRect,
   type WorkspaceSectionFreeformRegion,
@@ -82,7 +88,7 @@ function surfaceDelta(
   };
 }
 
-function pointerWorkspaceDelta(
+export function workspaceSectionPointerDelta(
   event: AdapterDndEvent,
   point: InteractionPoint,
   frame: WorkspaceSectionMoveGeometryFrame,
@@ -98,6 +104,64 @@ function pointerWorkspaceDelta(
   return {
     x: event.transform.x / frame.viewport.zoom,
     y: event.transform.y / frame.viewport.zoom,
+  };
+}
+
+type WorkspaceCrossParentFreeformPointerDestination = Readonly<{
+  decision: SectionMoveDecision;
+  indicator: Readonly<{
+    kind: "freeform";
+    rect: WorkspaceRect;
+  }>;
+}>;
+
+function resolveWorkspaceCrossParentFreeformPointerDestination<TSectionData>({
+  document,
+  event,
+  frame,
+  gridOptions,
+  point,
+  region,
+  session,
+  validateSectionMove,
+}: Readonly<{
+  document: WorkspaceDocument<TSectionData>;
+  event: AdapterDndEvent;
+  frame: WorkspaceSectionMoveGeometryFrame;
+  gridOptions: ResolvedWorkspaceGridOptions;
+  point: InteractionPoint;
+  region: WorkspaceSectionFreeformRegion;
+  session: WorkspaceSectionMoveSession<TSectionData>;
+  validateSectionMove: WorkspaceSectionMoveValidator<TSectionData> | undefined;
+}>): WorkspaceCrossParentFreeformPointerDestination {
+  const delta = workspaceSectionPointerDelta(event, point, frame, session);
+  const placement = resolveWorkspaceFreeformDestinationPlacement({
+    activeSectionId: session.activeSelectionRootId,
+    destinationBlockPosition: {
+      x: session.sourceWorkspaceBounds.x + delta.x,
+      y: session.sourceWorkspaceBounds.y + delta.y,
+    },
+    destinationSurfacePosition: {
+      x: region.surfaceWorkspaceRect.x,
+      y: region.surfaceWorkspaceRect.y,
+    },
+    gridOptions,
+    sectionIds: session.sectionIds,
+    sourceRects: session.sourceRects,
+    sourceWorkspaceBounds: session.sourceWorkspaceBounds,
+  });
+  return {
+    decision: planSectionMove({
+      destination: {
+        parentId: region.parentSectionId,
+        placement: { positions: placement.positions, type: "freeform" },
+      },
+      hierarchy: session.hierarchy,
+      mode: session.mode,
+      selectedIds: session.sectionIds,
+      validate: (plan) => validateWorkspaceSectionMovePlan(document, plan, validateSectionMove),
+    }),
+    indicator: { kind: "freeform", rect: placement.indicator },
   };
 }
 
@@ -175,6 +239,8 @@ function freeformPlanPreview<TSectionData>({
 }
 
 export function resolveSameParentFreeformPointerPreview<TSectionData>({
+  collisionState,
+  currentRegion,
   document,
   event,
   frame,
@@ -183,6 +249,8 @@ export function resolveSameParentFreeformPointerPreview<TSectionData>({
   session,
   validateSectionMove,
 }: Readonly<{
+  collisionState?: CollisionTrackerState;
+  currentRegion?: WorkspaceSectionFreeformRegion;
   document: WorkspaceDocument<TSectionData>;
   event: AdapterDndEvent;
   frame: WorkspaceSectionMoveGeometryFrame;
@@ -192,18 +260,21 @@ export function resolveSameParentFreeformPointerPreview<TSectionData>({
   validateSectionMove: WorkspaceSectionMoveValidator<TSectionData> | undefined;
 }>): WorkspaceSectionMovePreviewResolution | null {
   const source = sameParentFreeformSource(document, session);
-  if (!source || (session.mode !== "sort" && !pointInsideRegion(point, source.region))) {
+  if (
+    !source ||
+    (session.mode !== "sort" && !pointInsideRegion(point, currentRegion ?? source.region))
+  ) {
     return null;
   }
   const currentSurfaceDelta = surfaceDelta(frame, source.region);
   if (!currentSurfaceDelta) {
     return {
-      collisionState: clearCollisionTarget(session.collisionState),
+      collisionState: collisionState ?? clearCollisionTarget(session.collisionState),
       preview: null,
       reason: "The source freeform movement surface is unavailable.",
     };
   }
-  const pointerDelta = pointerWorkspaceDelta(event, point, frame, session);
+  const pointerDelta = workspaceSectionPointerDelta(event, point, frame, session);
   const move = resolveWorkspaceFreeformPointerMove({
     activeSectionId: session.activeSelectionRootId,
     delta: {
@@ -215,7 +286,7 @@ export function resolveSameParentFreeformPointerPreview<TSectionData>({
     sectionIds: session.sectionIds,
   });
   return freeformPlanPreview({
-    collisionState: clearCollisionTarget(session.collisionState),
+    collisionState: collisionState ?? clearCollisionTarget(session.collisionState),
     currentPositions: source.layout.positions,
     document,
     movePositions: move.positions,
@@ -224,6 +295,93 @@ export function resolveSameParentFreeformPointerPreview<TSectionData>({
     surfaceMovement: currentSurfaceDelta,
     validateSectionMove,
   });
+}
+
+export function resolveWorkspaceFreeformCollisionPreview<TSectionData>({
+  collisionState,
+  document,
+  event,
+  frame,
+  gridOptions,
+  point,
+  region,
+  session,
+  validateSectionMove,
+}: Readonly<{
+  collisionState: CollisionTrackerState;
+  document: WorkspaceDocument<TSectionData>;
+  event: AdapterDndEvent;
+  frame: WorkspaceSectionMoveGeometryFrame;
+  gridOptions: ResolvedWorkspaceGridOptions;
+  point: InteractionPoint;
+  region: WorkspaceSectionFreeformRegion | undefined;
+  session: WorkspaceSectionMoveSession<TSectionData>;
+  validateSectionMove: WorkspaceSectionMoveValidator<TSectionData> | undefined;
+}>): WorkspaceSectionMovePreviewResolution {
+  if (!region) {
+    return {
+      collisionState: clearCollisionTarget(collisionState),
+      preview: null,
+      reason: "The freeform destination container is unavailable.",
+    };
+  }
+  const sameParentPreview = resolveSameParentFreeformPointerPreview({
+    collisionState,
+    currentRegion: region,
+    document,
+    event,
+    frame,
+    gridOptions,
+    point,
+    session,
+    validateSectionMove,
+  });
+  if (
+    session.sourceParentIds.every((parentId) => parentId === region.parentSectionId) &&
+    sameParentPreview
+  ) {
+    return sameParentPreview;
+  }
+  const destination = resolveWorkspaceCrossParentFreeformPointerDestination({
+    document,
+    event,
+    frame,
+    gridOptions,
+    point,
+    region,
+    session,
+    validateSectionMove,
+  });
+  if (destination.decision.status !== "planned") {
+    return {
+      collisionState,
+      invalidIndicator: destination.indicator,
+      preview: null,
+      reason: decisionReason(destination.decision),
+    };
+  }
+  const layoutPreview = resolveWorkspaceSectionMoveLayoutPreview({
+    hierarchy: session.hierarchy,
+    plan: destination.decision.plan,
+    rectsById: session.workspaceRectsById,
+    regions: session.regions,
+  });
+  return layoutPreview.allowed
+    ? {
+        collisionState,
+        preview: {
+          announcement: workspaceSectionMovePreviewAnnouncement(
+            document,
+            destination.decision.plan,
+          ),
+          destinationKey: serializeSectionMovePlan(destination.decision.plan),
+          indicator: destination.indicator,
+          plan: destination.decision.plan,
+          transformsById: layoutPreview.preview.transformsById,
+        },
+        reason: "",
+      }
+    : { collisionState, preview: null, reason: layoutPreview.reason };
 }
 
 export function resolveSameParentFreeformKeyboardPreview<TSectionData>({
@@ -242,7 +400,7 @@ export function resolveSameParentFreeformKeyboardPreview<TSectionData>({
   validateSectionMove: WorkspaceSectionMoveValidator<TSectionData> | undefined;
 }>): WorkspaceSectionMovePreviewResolution | null {
   const source = sameParentFreeformSource(document, session);
-  if (!source) {
+  if (!source || session.mode !== "sort") {
     return null;
   }
   const previewPlacement = session.preview?.plan.destination.placement;

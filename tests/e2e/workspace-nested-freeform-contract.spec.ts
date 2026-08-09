@@ -272,6 +272,116 @@ test.describe("Phase 6 nested freeform document contract", () => {
     expect(results.violations).toEqual([]);
   });
 
+  test("reparents between canvas, freeform, and ordered destinations", async ({ page }) => {
+    await page.setViewportSize({ height: 1_000, width: 1_280 });
+    await page.goto(contractUrl);
+    await page.getByRole("checkbox", { name: "Show host extensions" }).uncheck();
+    await page.getByRole("combobox", { name: "Section movement" }).selectOption("free");
+    await setCanvasZoom(page, 1);
+    const workspace = page.getByRole("region", { exact: true, name: "Canvas shell workspace" });
+    const canvas = workspace.getByRole("application", { name: "Canvas shell workspace canvas" });
+    const alpha = workspace.getByRole("article", { name: "Nested Alpha" });
+    const handle = alpha.getByRole("button", { name: "Move Nested Alpha" });
+    const baselineChanges = await recursiveChangeCount(page);
+
+    await handle.focus();
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("ArrowLeft");
+    await expect(
+      workspace.locator(
+        '[data-workspace-section-move-destination-parent="canvas"]' +
+          '[data-workspace-section-move-destination-placement="freeform"]',
+      ),
+    ).toHaveCount(1);
+    await page.keyboard.press("Enter");
+    await expect(handle).toBeFocused();
+    await expect(alpha).toHaveAttribute("data-workspace-depth", "0");
+
+    const handleBox = await requiredBoundingBox(handle, "Promoted Nested Alpha handle");
+    const alphaBox = await requiredBoundingBox(alpha, "Promoted Nested Alpha frame");
+    const rootRegion = workspace.locator('[data-workspace-section-child-region="recursive-root"]');
+    let rootRegionBox = await requiredBoundingBox(rootRegion, "Recursive root freeform region");
+    await dragHandleToPoint(page, handle, {
+      x: handleBox.x + handleBox.width / 2 + rootRegionBox.x - 24 - alphaBox.x,
+      y: handleBox.y + handleBox.height / 2 + rootRegionBox.y + 260 - alphaBox.y,
+    });
+    await expect(
+      workspace.locator(
+        '[data-workspace-section-move-destination-parent="recursive-root"]' +
+          '[data-workspace-section-move-destination-placement="freeform"]',
+      ),
+    ).toHaveCount(1);
+    await expect(canvas).toHaveScreenshot("nested-freeform-cross-parent-preview.png", {
+      animations: "disabled",
+    });
+    await page.mouse.up();
+    await expect(alpha).toHaveAttribute("data-workspace-parent-section-id", "recursive-root");
+
+    const beta = workspace.getByRole("article", { name: "Nested Beta" });
+    const betaBox = await requiredBoundingBox(beta, "Nested Beta ordered destination");
+    await dragHandleToPoint(page, handle, {
+      x: betaBox.x + betaBox.width / 2,
+      y: betaBox.y + betaBox.height / 2,
+    });
+    await expect(
+      workspace.locator(
+        '[data-workspace-section-move-destination-parent="nested-row"]' +
+          '[data-workspace-section-move-destination-placement="ordered"]',
+      ),
+    ).toHaveCount(1);
+    await page.mouse.up();
+    await expect(alpha).toHaveAttribute("data-workspace-parent-section-id", "nested-row");
+
+    const orderedHandleBox = await requiredBoundingBox(handle, "Ordered Nested Alpha handle");
+    const orderedAlphaBox = await requiredBoundingBox(alpha, "Ordered Nested Alpha frame");
+    rootRegionBox = await requiredBoundingBox(rootRegion, "Recursive root freeform region");
+    await dragHandleToPoint(page, handle, {
+      x: orderedHandleBox.x + orderedHandleBox.width / 2 + rootRegionBox.x - 24 - orderedAlphaBox.x,
+      y:
+        orderedHandleBox.y +
+        orderedHandleBox.height / 2 +
+        rootRegionBox.y +
+        260 -
+        orderedAlphaBox.y,
+    });
+    await expect(
+      workspace.locator(
+        '[data-workspace-section-move-destination-parent="recursive-root"]' +
+          '[data-workspace-section-move-destination-placement="freeform"]',
+      ),
+    ).toHaveCount(1);
+    await page.mouse.up();
+
+    await expect(alpha).toHaveAttribute("data-workspace-parent-section-id", "recursive-root");
+    await expect(handle).toBeFocused();
+    expect(await recursiveChangeCount(page)).toBe(baselineChanges + 4);
+    const serialized = JSON.parse(await page.getByTestId("canvas-shell-document").inputValue()) as {
+      rootSections: readonly { sectionId: string }[];
+      sections: Record<
+        string,
+        {
+          childLayout:
+            | { positioning: "freeform"; positions: Record<string, unknown>; sectionIds: string[] }
+            | { positioning: "ordered"; sectionIds: string[] }
+            | null;
+        }
+      >;
+    };
+    expect(serialized.rootSections.some(({ sectionId }) => sectionId === "nested-alpha")).toBe(
+      false,
+    );
+    expect(serialized.sections["recursive-root"]?.childLayout).toMatchObject({
+      positioning: "freeform",
+      sectionIds: expect.arrayContaining(["nested-alpha"]),
+    });
+    expect(serialized.sections["deep-container"]?.childLayout).toMatchObject({
+      positioning: "freeform",
+      sectionIds: ["nested-gamma"],
+    });
+    const results = await new AxeBuilder({ page }).include(".setta-workspace").analyze();
+    expect(results.violations).toEqual([]);
+  });
+
   test("keeps movement local through nested scrolling and outer zoom", async ({ page }) => {
     await page.setViewportSize({ height: 1_000, width: 1_280 });
     await page.goto(contractUrl);

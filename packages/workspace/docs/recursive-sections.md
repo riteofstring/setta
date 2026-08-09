@@ -84,7 +84,7 @@ accepted orientation change creates one `section-orientation` history entry.
 | Mode   | Root handle                      | Ordered child handle       | Freeform child handle           | Result                                                                    |
 | ------ | -------------------------------- | -------------------------- | ------------------------------- | ------------------------------------------------------------------------- |
 | `sort` | Ordinary spatial XYFlow movement | Structural sibling sorting | Same-parent spatial positioning | Parent stays fixed; ordered moves change order, freeform moves positions. |
-| `free` | Structural movement              | Structural movement        | Structural movement             | Move to the canvas or a valid measured ordered container at any depth.    |
+| `free` | Structural movement              | Structural movement        | Structural movement             | Move to the canvas or any valid measured ordered or freeform container.   |
 
 The mode captured at activation stays in force through completion or cancellation. The active
 interaction owner disables root movement and viewport activators that would compete for the same
@@ -94,10 +94,12 @@ in progress.
 Only a named section movement handle starts a recursive drag. Pointer and touch previews use the
 same package planner as keyboard movement. A free move into an ordered container resolves one
 orientation-aware insertion index; a free move to the canvas resolves workbench coordinates rather
-than client pixels. The framework-neutral command contract also accepts explicit local positions
-for a valid freeform destination; interactive cross-parent freeform target resolution remains
-unavailable. Preview and completion are revalidated against the current document, geometry, lock
-state, and host policy before one `section-move` proposal is emitted.
+than client pixels. A free move into a nested freeform container converts the measured selection
+block into that surface's local coordinates, preserves relative offsets, snaps and clamps the block
+as one unit, and accounts for the outer viewport plus intervening native scrolling. Keyboard free
+move selects the nearest valid measured ordered or freeform destination in the requested direction.
+Preview and completion are revalidated against the current document, geometry, lock state, and host
+policy before one `section-move` proposal is emitted.
 
 ### Selection blocks
 

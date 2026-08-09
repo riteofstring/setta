@@ -50,10 +50,18 @@ function region({
   };
 }
 
+function freeformRegion(parentSectionId: string, x: number, y: number, width = 240, height = 240) {
+  return {
+    clientRect: createInteractionRect(x, y, width, height),
+    parentSectionId,
+  } as const;
+}
+
 function collision({
   activeRect,
   clientRectsById,
   currentHierarchy,
+  currentFreeformRegions = [],
   currentRegions,
   pointer = null,
   previousState = EMPTY_COLLISION_TRACKER_STATE,
@@ -62,6 +70,10 @@ function collision({
   activeRect: InteractionRect;
   clientRectsById: Readonly<Record<string, InteractionRect>>;
   currentHierarchy: SectionHierarchySnapshot;
+  currentFreeformRegions?: readonly Readonly<{
+    clientRect: InteractionRect;
+    parentSectionId: string;
+  }>[];
   currentRegions: readonly WorkspaceSectionMoveRegion[];
   pointer?: Readonly<{ x: number; y: number }> | null;
   previousState?: typeof EMPTY_COLLISION_TRACKER_STATE;
@@ -70,6 +82,7 @@ function collision({
   return resolveWorkspaceSectionCollision({
     activeRect,
     clientRectsById,
+    freeformRegions: currentFreeformRegions,
     hierarchy: currentHierarchy,
     mode: "free",
     pointer,
@@ -78,6 +91,13 @@ function collision({
     sectionIds,
     sourceParentId: "root",
   });
+}
+
+function orderedTarget(result: ReturnType<typeof collision>) {
+  if (result.target?.placement !== "ordered") {
+    throw new Error("Expected an ordered collision target.");
+  }
+  return result.target;
 }
 
 describe("workspace section collision planning", () => {
@@ -134,8 +154,8 @@ describe("workspace section collision planning", () => {
       previousState: first.collisionState,
     });
 
-    expect(first.target?.targetSectionId).toBe("previous");
-    expect(retained.target?.targetSectionId).toBe("previous");
+    expect(orderedTarget(first).targetSectionId).toBe("previous");
+    expect(orderedTarget(retained).targetSectionId).toBe("previous");
   });
 
   it("retains the old target rectangle while feedback geometry changes", () => {
@@ -165,8 +185,8 @@ describe("workspace section collision planning", () => {
       previousState: initial.collisionState,
     });
 
-    expect(initial.target?.destinationIndex).toBe(0);
-    expect(crossed.target?.destinationIndex).toBe(1);
+    expect(orderedTarget(initial).destinationIndex).toBe(0);
+    expect(orderedTarget(crossed).destinationIndex).toBe(1);
   });
 
   it("promotes a colliding child above its containing parent", () => {
@@ -191,6 +211,90 @@ describe("workspace section collision planning", () => {
     expect(result.target).toMatchObject({
       destinationParentId: "container",
       targetSectionId: "deep",
+    });
+  });
+
+  it("resolves a nested freeform region through the shared collision state", () => {
+    const currentHierarchy = hierarchy(
+      { destination: [], source: ["moving"] },
+      { destination: null, moving: "source", source: null },
+    );
+    const initial = collision({
+      activeRect: createInteractionRect(210, 40, 80, 80),
+      clientRectsById: { moving: createInteractionRect(0, 40, 80, 80) },
+      currentFreeformRegions: [freeformRegion("destination", 200, 0)],
+      currentHierarchy,
+      currentRegions: [region({ parentSectionId: "source", width: 160 })],
+      pointer: { x: 250, y: 80 },
+    });
+    const retained = collision({
+      activeRect: createInteractionRect(215, 40, 80, 80),
+      clientRectsById: { moving: createInteractionRect(0, 40, 80, 80) },
+      currentFreeformRegions: [freeformRegion("destination", 204, 0)],
+      currentHierarchy,
+      currentRegions: [region({ parentSectionId: "source", width: 160 })],
+      pointer: { x: 255, y: 80 },
+      previousState: initial.collisionState,
+    });
+
+    expect(initial.target).toEqual({
+      destinationParentId: "destination",
+      placement: "freeform",
+    });
+    expect(retained.target).toEqual(initial.target);
+    expect(retained.collisionState.targetId).toBe(initial.collisionState.targetId);
+  });
+
+  it("promotes a freeform child region above its ordered ancestor frame", () => {
+    const currentHierarchy = hierarchy(
+      { container: [], root: ["moving", "container"] },
+      { container: "root", moving: "root", root: null },
+    );
+    const result = collision({
+      activeRect: createInteractionRect(40, 40, 80, 80),
+      clientRectsById: {
+        container: createInteractionRect(0, 0, 240, 240),
+        moving: createInteractionRect(300, 0, 80, 80),
+      },
+      currentFreeformRegions: [freeformRegion("container", 20, 20, 200, 200)],
+      currentHierarchy,
+      currentRegions: [region({ height: 260, parentSectionId: "root", width: 260 })],
+    });
+
+    expect(result.target).toEqual({
+      destinationParentId: "container",
+      placement: "freeform",
+    });
+  });
+
+  it("promotes an ordered descendant target above its freeform ancestor region", () => {
+    const currentHierarchy = hierarchy(
+      { "freeform-root": ["ordered-child"], "ordered-child": ["target"], source: ["moving"] },
+      {
+        "freeform-root": null,
+        moving: "source",
+        "ordered-child": "freeform-root",
+        source: null,
+        target: "ordered-child",
+      },
+    );
+    const result = collision({
+      activeRect: createInteractionRect(80, 80, 80, 80),
+      clientRectsById: {
+        moving: createInteractionRect(400, 0, 80, 80),
+        target: createInteractionRect(60, 60, 120, 120),
+      },
+      currentFreeformRegions: [freeformRegion("freeform-root", 0, 0, 260, 260)],
+      currentHierarchy,
+      currentRegions: [
+        region({ height: 180, parentSectionId: "ordered-child", width: 180, x: 40, y: 40 }),
+      ],
+    });
+
+    expect(result.target).toMatchObject({
+      destinationParentId: "ordered-child",
+      placement: "ordered",
+      targetSectionId: "target",
     });
   });
 
@@ -219,7 +323,7 @@ describe("workspace section collision planning", () => {
       previousState: first.collisionState,
     });
 
-    expect(first.target?.targetSectionId).toBe("target");
+    expect(orderedTarget(first).targetSectionId).toBe("target");
     expect(cleared.target).toBeNull();
     expect(cleared.collisionState.targetId).toBeNull();
     expect(cleared.collisionState.targetRect).toBeNull();
@@ -257,8 +361,8 @@ describe("workspace section collision planning", () => {
       previousState: initial.collisionState,
     });
 
-    expect(initial.target?.destinationIndex).toBe(0);
-    expect(crossed.target?.destinationIndex).toBe(1);
+    expect(orderedTarget(initial).destinationIndex).toBe(0);
+    expect(orderedTarget(crossed).destinationIndex).toBe(1);
   });
 
   it.each([0.5, 1, 2])(
@@ -283,7 +387,7 @@ describe("workspace section collision planning", () => {
         ],
       });
 
-      expect(result.target?.targetSectionId).toBe("pre-trigger");
+      expect(orderedTarget(result).targetSectionId).toBe("pre-trigger");
     },
   );
 });
