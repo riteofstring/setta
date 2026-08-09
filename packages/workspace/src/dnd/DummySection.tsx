@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { TbDragDrop } from "react-icons/tb";
 import { useDndState } from "./dndState";
 import { resolveRectBoundsFromMap, type DragRectLike } from "./dragRectBounds";
+import { DRAG_PREVIEW_Z_INDEX } from "./layers";
 
 // The reference wraps these in `forwardRef`; the package's React 19 peer takes `ref` as a
 // regular prop.
@@ -143,7 +144,7 @@ export function DummyDragOverlay({ ref }: { ref?: Ref<HTMLDivElement> }) {
         width: overlay.overlayRect.width,
         height: overlay.overlayRect.height,
         pointerEvents: "none",
-        zIndex: 1000,
+        zIndex: DRAG_PREVIEW_Z_INDEX,
       }}
       ref={ref}
     />,

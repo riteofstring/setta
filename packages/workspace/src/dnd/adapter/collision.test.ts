@@ -121,4 +121,65 @@ describe("collision tracker", () => {
 
     expect(resetCollision?.data?.intersectionRatio).toBe(100);
   });
+
+  it("uses the dragged start edge for stable cross-parent insertion", () => {
+    const tracker = createCollisionTracker({ getParentByChild: () => ({}) });
+    const droppableRect = createRect({ top: 100, left: 200, width: 200, height: 200 });
+    const activeRect = createRect({ top: 150, left: 0, width: 210, height: 200 });
+    const droppable = createDroppable("child", droppableRect, {
+      sortable: { containerId: "target-group" },
+    });
+
+    const firstCollision = tracker.collisionDetector({
+      droppable,
+      dragOperation: createDragOperation({
+        id: "active",
+        rect: activeRect,
+        pointerCoordinates: { x: 190, y: 190 },
+      }),
+    } as never) as SettaCollision;
+    tracker.update([firstCollision]);
+
+    const afterSmallDownwardMotion = tracker.collisionDetector({
+      droppable,
+      dragOperation: createDragOperation({
+        id: "active",
+        rect: activeRect,
+        pointerCoordinates: { x: 191, y: 191 },
+      }),
+    } as never) as SettaCollision;
+
+    expect(afterSmallDownwardMotion.pastHalfway).toBe(false);
+  });
+
+  it("keeps direction-aware edges for sorting within the same parent", () => {
+    const tracker = createCollisionTracker({ getParentByChild: () => ({}) });
+    const droppableRect = createRect({ top: 100, left: 200, width: 200, height: 200 });
+    const activeRect = createRect({ top: 150, left: 0, width: 210, height: 200 });
+    const sortableData = { sortable: { containerId: "shared-group" } };
+    const droppable = createDroppable("child", droppableRect, sortableData);
+
+    const firstCollision = tracker.collisionDetector({
+      droppable,
+      dragOperation: createDragOperation({
+        id: "active",
+        rect: activeRect,
+        data: sortableData,
+        pointerCoordinates: { x: 190, y: 190 },
+      }),
+    } as never) as SettaCollision;
+    tracker.update([firstCollision]);
+
+    const afterDownwardMotion = tracker.collisionDetector({
+      droppable,
+      dragOperation: createDragOperation({
+        id: "active",
+        rect: activeRect,
+        data: sortableData,
+        pointerCoordinates: { x: 191, y: 191 },
+      }),
+    } as never) as SettaCollision;
+
+    expect(afterDownwardMotion.pastHalfway).toBe(true);
+  });
 });

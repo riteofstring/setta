@@ -2,6 +2,8 @@ import { createWithEqualityFn } from "zustand/traditional";
 import { withResetFn } from "../state/storeUtils";
 import type { PanOnScrollMode, SelectionMode } from "./types";
 
+export type WorkspaceGridPattern = "lines" | "dots" | "cross";
+
 // The preferences/appearance seam: the reference reads these from `useSettings.gui` and
 // `useLocalStorage`; the package owns them as host-configurable interaction options. Defaults
 // match the frozen reference's shipped defaults (`internal/settingsstate/defaults.json` and the
@@ -20,6 +22,11 @@ export type WorkspaceInteractionOptions = {
   transitionDuration: number;
   snapToGrid: boolean;
   snapGrid: [number, number];
+  showGridLines: boolean;
+  gridPattern: WorkspaceGridPattern;
+  gridPatternSize: number;
+  gridColor: string;
+  gridColorDarkMode: string;
   selectionMode: SelectionMode;
 };
 
@@ -38,6 +45,11 @@ export const useWorkspaceOptions = createWithEqualityFn(
     transitionDuration: 50,
     snapToGrid: true,
     snapGrid: [15, 15],
+    showGridLines: true,
+    gridPattern: "dots",
+    gridPatternSize: 2,
+    gridColor: "#afbacf",
+    gridColorDarkMode: "#2b364a",
     selectionMode: "partial",
   })),
 );

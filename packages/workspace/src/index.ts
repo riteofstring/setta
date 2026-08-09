@@ -1,7 +1,7 @@
 // Provisional Phase 1 surface. The ratified public API is a post-parity decision; these exports
 // exist so the playground can drive the extracted slice, and they may change freely.
 export { useWorkspaceOptions } from "./canvas/options";
-export type { WorkspaceInteractionOptions } from "./canvas/options";
+export type { WorkspaceGridPattern, WorkspaceInteractionOptions } from "./canvas/options";
 // These two string unions appear in WorkspaceInteractionOptions; riding the index keeps
 // consumers off deep canvas-internal import paths.
 export type { PanOnScrollMode, SelectionMode } from "./canvas/types";

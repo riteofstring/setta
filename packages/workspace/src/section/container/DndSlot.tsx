@@ -1,23 +1,41 @@
-import type { ReactNode } from "react";
+import { useLayoutEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { RiDragDropFill } from "react-icons/ri";
 import { BehaviorDropTypeEnum, behaviorToPretty, type BehaviorDropType } from "../../dnd/dropTypes";
+import { DROP_FEEDBACK_Z_INDEX } from "../../dnd/layers";
+import { useSectionRefs } from "../sectionRefs";
+
+type DropIndicatorRect = {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+};
 
 export function DndSlot({
   behaviorDropType,
   children,
   isGroup,
+  sectionId,
 }: {
   behaviorDropType: BehaviorDropType | null;
   children: ReactNode;
   isGroup: boolean;
+  sectionId: string;
 }) {
+  const target = useSectionRefs(
+    (state) => state.withNested[sectionId] ?? state.selfOnly[sectionId] ?? null,
+  );
+  const targetRect = useDropIndicatorRect(target, behaviorDropType !== null);
+
   return (
     <>
-      {behaviorDropType && (
+      {behaviorDropType && targetRect && (
         <DndSlotMiddle
           text={behaviorToPretty[behaviorDropType]}
           behaviorDropType={behaviorDropType}
           isGroup={isGroup}
+          targetRect={targetRect}
         />
       )}
       {children}
@@ -29,20 +47,80 @@ function DndSlotMiddle({
   text,
   behaviorDropType,
   isGroup,
+  targetRect,
 }: {
   text: string;
   behaviorDropType: BehaviorDropType;
   isGroup: boolean;
+  targetRect: DropIndicatorRect;
 }) {
-  return (
+  return createPortal(
     <div
-      className={`absolute z-20 grid h-full w-full justify-center ${
+      className={`grid justify-center ${
         isGroup ? "[place-content:end_center]" : "place-content-center"
       }`}
+      data-dnd-slot-overlay="true"
+      style={{
+        position: "fixed",
+        top: targetRect.top,
+        left: targetRect.left,
+        width: targetRect.width,
+        height: targetRect.height,
+        pointerEvents: "none",
+        zIndex: DROP_FEEDBACK_Z_INDEX,
+      }}
     >
       <DndSlotInner text={text} behaviorDropType={behaviorDropType} isGroup={isGroup} />
-    </div>
+    </div>,
+    document.body,
   );
+}
+
+function useDropIndicatorRect(target: HTMLElement | null, active: boolean) {
+  const [targetRect, setTargetRect] = useState<DropIndicatorRect | null>(null);
+
+  useLayoutEffect(() => {
+    if (!active || !target) {
+      setTargetRect(null);
+      return undefined;
+    }
+    const observedTarget = target;
+
+    function updateTargetRect() {
+      const next = observedTarget.getBoundingClientRect();
+      setTargetRect((current) => {
+        if (
+          current?.top === next.top &&
+          current.left === next.left &&
+          current.width === next.width &&
+          current.height === next.height
+        ) {
+          return current;
+        }
+        return {
+          top: next.top,
+          left: next.left,
+          width: next.width,
+          height: next.height,
+        };
+      });
+    }
+
+    updateTargetRect();
+    const resizeObserver = new ResizeObserver(updateTargetRect);
+    resizeObserver.observe(observedTarget);
+    window.addEventListener("resize", updateTargetRect);
+    window.addEventListener("pointermove", updateTargetRect);
+    document.addEventListener("scroll", updateTargetRect, true);
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateTargetRect);
+      window.removeEventListener("pointermove", updateTargetRect);
+      document.removeEventListener("scroll", updateTargetRect, true);
+    };
+  }, [active, target]);
+
+  return targetRect;
 }
 
 function DndSlotInner({

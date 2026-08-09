@@ -108,8 +108,8 @@
 
 /* Canvas structural CSS extracted from the fork's init.css/style.css, written as the effective
  * values after the reference app's `react-flow-css.css` overrides (which reset the renderer and
- * pane z-indexes to auto). Edge, handle, background, panel, and drag-handle rules left with
- * their excluded features. */
+ * pane z-indexes to auto). Edge, handle, panel, and drag-handle rules left with their excluded
+ * features. */
 
 .react-flow__container {
   position: absolute;
@@ -132,6 +132,11 @@
 
 .react-flow__renderer {
   z-index: auto;
+}
+
+.react-flow__background {
+  z-index: auto;
+  pointer-events: none;
 }
 
 .react-flow__selection {
@@ -201,6 +206,13 @@
  * The reference sets the shared scale on its <main>; the package scopes it to the canvas root. */
 .react-flow {
   --ggs: 0.5;
+  /* Exact `bg-setta-light` canvas surface inherited from main's app-base. */
+  background-color: #94a3b8;
+}
+
+html.dark .react-flow {
+  /* Exact `dark:bg-setta-dark` canvas surface inherited from main's app-base. */
+  background-color: hsl(220, 27%, 15%);
 }
 
 .gg-menu {

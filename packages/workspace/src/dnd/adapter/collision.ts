@@ -72,6 +72,8 @@ type SortingCollisionContext = SharedDetectorContext & {
   containerId: string;
 };
 
+type PastHalfwayReference = "directional-edge" | "start-edge";
+
 export function createCollisionTracker({
   getParentByChild,
 }: CollisionTrackerOptions): CollisionTracker {
@@ -179,6 +181,7 @@ export function createCollisionTracker({
       containerIsHorizontal,
       currentId: droppable.id,
       pointerCoordinates: context.pointerCoordinates,
+      reference: getPastHalfwayReference(context.activeData, droppableData),
       state,
     });
 
@@ -239,6 +242,7 @@ export function createCollisionTracker({
         containerIsHorizontal,
         currentId: droppable.id,
         pointerCoordinates: context.pointerCoordinates,
+        reference: "directional-edge",
         state,
       }),
     };
@@ -291,6 +295,15 @@ export function createCollisionTracker({
     update,
     reset,
   };
+}
+
+function getPastHalfwayReference(
+  activeData: DndEntityData | null,
+  droppableData: DndEntityData | null,
+): PastHalfwayReference {
+  const activeContainerId = activeData?.sortable?.containerId;
+  const droppableContainerId = droppableData?.sortable?.containerId;
+  return activeContainerId === droppableContainerId ? "directional-edge" : "start-edge";
 }
 
 export const defaultCollisionTracker = createCollisionTracker({
@@ -506,6 +519,7 @@ function getPastHalfway({
   containerIsHorizontal,
   currentId,
   pointerCoordinates,
+  reference,
   state,
 }: {
   activeRect: ClientRect;
@@ -513,6 +527,7 @@ function getPastHalfway({
   containerIsHorizontal: boolean;
   currentId: Draggable["id"];
   pointerCoordinates: Coordinates | null;
+  reference: PastHalfwayReference;
   state: CollisionTrackerState;
 }): boolean {
   const effectiveDroppableRect = getEffectiveDroppableRect({
@@ -525,6 +540,7 @@ function getPastHalfway({
     activeRect,
     containerIsHorizontal,
     pointerCoordinates,
+    reference,
     axisDirection: getPointerAxisDirection(state, containerIsHorizontal),
   });
   return (
@@ -559,13 +575,18 @@ function getReferenceAxisValue({
   activeRect,
   containerIsHorizontal,
   pointerCoordinates,
+  reference,
   axisDirection,
 }: {
   activeRect: ClientRect;
   containerIsHorizontal: boolean;
   pointerCoordinates: Coordinates | null;
+  reference: PastHalfwayReference;
   axisDirection: number | null;
 }): number {
+  if (reference === "start-edge") {
+    return containerIsHorizontal ? activeRect.left : activeRect.top;
+  }
   const pointerEdgeValue = getPointerEdgeValue({
     activeRect,
     containerIsHorizontal,

@@ -33,7 +33,7 @@ function DndSlotAndDndWatcherComponent({
   });
 
   return (
-    <DndSlot behaviorDropType={behaviorDropType} isGroup={isGroup}>
+    <DndSlot behaviorDropType={behaviorDropType} isGroup={isGroup} sectionId={sectionId}>
       <DndWatcherAndContainer
         isGroup={isGroup}
         sectionId={sectionId}

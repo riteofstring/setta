@@ -17,6 +17,7 @@ import {
 } from "./sectionContentContext";
 import { useReactFlow } from "./store";
 import Viewport from "./Viewport";
+import { WorkspaceBackground } from "./WorkspaceBackground";
 
 const wrapperStyle: CSSProperties = {
   width: "100%",
@@ -33,8 +34,8 @@ type WorkspaceCanvasProps = {
   renderSectionContent: SectionContentRenderer;
 };
 
-// The package composition of the reference's `<ReactFlow />`: the edge renderers, grid
-// background, and app chrome hooks left with their excluded features.
+// The package composition of the reference's `<ReactFlow />`: edge renderers and app chrome hooks
+// stay with their excluded features; the reference canvas background is part of this visible slice.
 export function WorkspaceCanvas({ renderSectionContent }: WorkspaceCanvasProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [initialized, setInitialized] = useState(false);
@@ -78,6 +79,7 @@ export function WorkspaceCanvas({ renderSectionContent }: WorkspaceCanvasProps) 
             </FlowRenderer>
           </SectionDndContext>
         </SectionContentRendererContext.Provider>
+        <WorkspaceBackground />
       </div>
     </div>
   );
