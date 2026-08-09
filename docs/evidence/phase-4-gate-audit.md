@@ -2,16 +2,17 @@
 
 ## Result
 
-All repository-actionable Phase 4 work is complete after correction commit
-`b21db6d89a0356120f3d03a1cfb3dbe944d36d4a`. No Phase 5 implementation is included.
+All repository-actionable Phase 4 work is complete after the audit correction and the supervising
+post-audit correction in `4967f27aa7e06d200a70a3022c7d96512c83f17f`. No Phase 5 implementation is
+included.
 
 The requested minimum range
 `6735f008effd93f254ac8d44aa823227e72ace74..2351fda47568f032cc6dbdb9100419c28a1f2da4`
 already starts at the completed Phase 3 audit boundary and contains every Phase 4 implementation
 commit. The audit extends that range through
-`b21db6d89a0356120f3d03a1cfb3dbe944d36d4a`: three implementation and correction commits changing
-44 files, with 5,508 insertions and 254 deletions. No earlier commit belongs to Phase 4, so a restarted
-mid-phase range did not hide additional implementation.
+`4967f27aa7e06d200a70a3022c7d96512c83f17f`: five implementation, audit, and correction commits
+changing 47 files, with 5,681 insertions and 254 deletions. No earlier commit belongs to Phase 4, so a
+restarted mid-phase range did not hide additional implementation.
 
 One static pass checked every assumption affected by the new sortable-item model, React interaction
 surface, playground payload, and adapter behavior. Tree validation remains strict and iterative, move
@@ -35,6 +36,13 @@ section completion uses the same point for final collision geometry. The retaine
 for controlled host reconciliation before reading DOM order, and the creation-palette baseline now
 includes the Phase 4 field-list entry.
 
+Supervising review then closed two evidence and robustness gaps before Phase 5. A browser workflow now
+moves an item to a nested parent, proves the changed section payload in local storage, resets the
+playground, restores the changed tree through JSON import, reloads the page, and proves the same nested
+structure again. The dnd-kit adapter no longer infers plugin ownership from constructor names: it uses
+the exact public `Accessibility` and `AutoScroller` class identities from a new exact-pinned direct
+`@dnd-kit/dom@0.5.0` dependency.
+
 ## Gate-by-gate record
 
 | Gate                                  | Result and evidence                                                                                                                                                                                                                                                                                                |
@@ -44,7 +52,7 @@ includes the Phase 4 field-list entry.
 | Ownership and lifecycle               | Pass. Item movement excludes section layout and viewport competitors, preserves the containing section selection, releases ownership when the tree unmounts, and restores ordinary activators after completion or cancellation. The shared upstream adapter uses the final real pointer point during revalidation. |
 | Focus and accessibility               | Pass. Native handles, editable inputs, accessible names and descriptions, polite status output, logical keyboard directions, Space/Enter parity, reduced motion, Axe scans, and remount-safe focus are covered. Focus recovery does not steal focus from a later meaningful user target.                           |
 | Controlled host contracts             | Pass. `canContainChildren` and `canMove` are synchronous, side-effect-free decision boundaries with specific malformed-result failures. Final completion revalidates the current tree and host policy, emits at most one plan, and waits for controlled DOM reconciliation in browser assertions.                  |
-| Playground and persistence            | Pass. The field-list payload contains real inputs and one nested group, accepted moves round-trip through export, import, reset, and local restoration, malformed non-group containment is rejected, and transient item selection is not serialized into `WorkspaceDocument`.                                      |
+| Playground and persistence            | Pass. The field-list payload contains real inputs and one nested group. An accepted nested move is present in local storage, survives a reset plus JSON import, and survives a page reload. Malformed non-group containment is rejected, and transient item selection is not serialized into `WorkspaceDocument`.  |
 | Visual evidence                       | Pass. The atomic keyboard placeholder and overlay, selected rows, nested inputs, and expanded creation palette were inspected at original resolution. Every retained Playwright visual baseline passes.                                                                                                            |
 | Package boundary                      | Pass. Strict types, the exact tarball allowlist, and the generated declaration closure remain green with no XYFlow, dnd-kit, application, or source-path leak. The audit clarifies one testing-subpath preview union but does not change the consumer fixture's core or React import contract.                     |
 | Phase boundary                        | Pass. The work ends with one sortable item tree per section, one active item or normalized sibling block, and the documented playground example. Phase 5 hardening, release work, cross-section item moves, mixed-parent blocks, multiple named lists, and compatibility paths are not included.                   |
@@ -73,20 +81,21 @@ rerun:
 The exact three-scenario correction workflow then passed 3/3 and regenerated only the intentional
 creation baseline. Final applicable broad evidence is:
 
-- Exact Node 24.18.1, Corepack 0.35.0, and pnpm 11.19.0 `quality:all` passed for 256 project files:
-  repository boundaries across 255 files, all four dependency manifests, formatting, lint, strict
+- Exact Node 24.18.1, Corepack 0.35.0, and pnpm 11.19.0 `quality:all` passed after the post-audit
+  correction for 257 project files: repository boundaries across 256 files, all four dependency
+  manifests, formatting, lint, strict
   types, dead-code analysis, complexity and file-length limits, 389 unit tests, six boundary tests,
   plan-loop automation, package/playground builds, exact tarball verification, and declaration-closure
   API report generation.
-- The final full Chromium invocation passed all 68 workflows in 39.0 seconds, including every Phase 4
+- The final post-audit full Chromium invocation passed all 69 workflows, including every Phase 4
   pointer, touch, keyboard, persistence, ownership, focus, accessibility, zoom, reflow, reduced-motion,
   and visual-baseline path.
-- The already-green packed consumer run postdates the Phase 4 core and React public surface. Audit
-  corrections changed runtime behavior and a testing-only diagnostic union, not the fixture's imported
-  contract, so `consumer:check` was not duplicated.
-- No manifest, lockfile, patch, dependency exception, or dependency-policy input changed in Phase 4.
-  The already-green registry-backed `supply-chain:check` therefore postdates every relevant dependency
-  input and was not duplicated.
+- The unrelated packed consumer installed the corrected artifact and built successfully.
+- The exact package manifest and lockfile now declare the adapter's direct use of
+  `@dnd-kit/dom@0.5.0`. The registry-backed `supply-chain:check` passed the frozen install,
+  minimum-release-age and dependency-trust policy, high/critical vulnerability audit, license
+  allowlist, and regenerated machine-readable dependency inventory with no new package resolution or
+  exception.
 - Phase 4 has no external provider or credential-backed workflow. The repository's self-contained
   Playwright suite is the applicable live browser evidence; unavailable external verification was not
   retried.
