@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
@@ -24,6 +25,13 @@ import {
   type AdapterDndEvent,
 } from "./upstream-dnd-adapter.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
+import {
+  IDLE_WORKSPACE_INTERACTION_ACTIVATION_STORE,
+  rootLayoutInteractionActive,
+  sectionStructureActivationAllowed,
+  type WorkspaceInteractionActivationSnapshot,
+  type WorkspaceInteractionActivationStore,
+} from "./workspace-interaction-activation.js";
 import type { WorkspaceStructuralInteractionStart } from "./workspace-interaction-owner.js";
 import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
 import {
@@ -55,14 +63,11 @@ type WorkspaceSectionDndSource = Readonly<{
 }>;
 
 type WorkspaceSectionDndContextValue = Readonly<{
-  activationEnabled: boolean;
-  activeSectionId: string | null;
-  activeSectionMode: WorkspaceSectionMoveMode | null;
+  activation: WorkspaceInteractionActivationStore;
   layoutEditable: boolean;
   mode: WorkspaceSectionMoveMode;
   registerFrame(sectionId: string, element: HTMLElement): void;
   registerHandle(sectionId: string, element: Element): void;
-  rootLayoutActive: boolean;
   structureEditable: boolean;
   unregisterFrame(sectionId: string, element: HTMLElement): void;
   unregisterHandle(sectionId: string, element: Element): void;
@@ -70,14 +75,11 @@ type WorkspaceSectionDndContextValue = Readonly<{
 
 const WorkspaceSectionDndContext = createContext<WorkspaceSectionDndContextValue | null>(null);
 const DISABLED_SECTION_DND_CONTEXT: WorkspaceSectionDndContextValue = {
-  activationEnabled: false,
-  activeSectionId: null,
-  activeSectionMode: null,
+  activation: IDLE_WORKSPACE_INTERACTION_ACTIVATION_STORE,
   layoutEditable: false,
   mode: "sort",
   registerFrame: () => undefined,
   registerHandle: () => undefined,
-  rootLayoutActive: false,
   structureEditable: false,
   unregisterFrame: () => undefined,
   unregisterHandle: () => undefined,
@@ -139,41 +141,35 @@ function interactionInput(input: AdapterDndEvent["input"]): InteractionInput {
 }
 
 function sectionUsesStructuralDrag(
-  context: WorkspaceSectionDndContextValue,
+  snapshot: WorkspaceInteractionActivationSnapshot,
+  mode: WorkspaceSectionMoveMode,
   depth: number,
   sectionId: string,
 ): boolean {
-  if (depth === 0 && context.rootLayoutActive) {
+  if (depth === 0 && rootLayoutInteractionActive(snapshot)) {
     return false;
   }
-  return context.activeSectionId === sectionId || depth > 0 || context.mode === "free";
+  return snapshot.activeSectionId === sectionId || depth > 0 || mode === "free";
 }
 
-function sectionStructuralDragEnabled(
+function sectionStructuralDragConfigEnabled(
   context: WorkspaceSectionDndContextValue,
   blocked: boolean,
   freeformChild: boolean,
-  sectionId: string,
-  structural: boolean,
 ): boolean {
-  if (blocked || !structural) {
-    return false;
-  }
   return (
-    context.activeSectionId === sectionId ||
-    (context.activationEnabled &&
-      context.layoutEditable &&
-      (context.structureEditable || (freeformChild && context.mode === "sort")))
+    !blocked &&
+    context.layoutEditable &&
+    (context.structureEditable || (freeformChild && context.mode === "sort"))
   );
 }
 
 function sectionStructuralDragMode(
-  context: WorkspaceSectionDndContextValue,
+  snapshot: WorkspaceInteractionActivationSnapshot,
+  mode: WorkspaceSectionMoveMode,
   sectionId: string,
 ): WorkspaceSectionMoveMode {
-  return context.activeSectionId === sectionId
-    ? (context.activeSectionMode ?? context.mode)
-    : context.mode;
+  return snapshot.activeSectionId === sectionId ? (snapshot.activeSectionMode ?? mode) : mode;
 }
 
 function sessionUsesLocalFreeformMovement(session: WorkspaceSectionMoveSession | null): boolean {
@@ -198,9 +194,7 @@ function sectionHasFreeformParent<TSectionData>(
 }
 
 export function WorkspaceSectionDndBoundary<TSectionData>({
-  activationEnabled,
-  activeSectionId,
-  activeSectionMode,
+  activation,
   children,
   document,
   feedbackStore,
@@ -214,15 +208,12 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
   onReconciliation,
   onSelectionRequest,
   onStart,
-  rootLayoutActive,
   sectionTitle,
   selectedSectionIds,
   structureEditable,
   validateSectionMove,
 }: Readonly<{
-  activationEnabled: boolean;
-  activeSectionId: string | null;
-  activeSectionMode: WorkspaceSectionMoveMode | null;
+  activation: WorkspaceInteractionActivationStore;
   children: ReactNode;
   document: WorkspaceDocument<TSectionData>;
   feedbackStore: WorkspaceSectionMoveFeedbackStore;
@@ -236,7 +227,6 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
   onReconciliation(announcement: string): void;
   onSelectionRequest(sectionId: string, request: WorkspaceSectionSelectionRequest): void;
   onStart(start: WorkspaceStructuralInteractionStart): void;
-  rootLayoutActive: boolean;
   sectionTitle(sectionId: string): string;
   selectedSectionIds: readonly string[];
   structureEditable: boolean;
@@ -300,31 +290,29 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
   );
   const context = useMemo<WorkspaceSectionDndContextValue>(
     () => ({
-      activationEnabled,
-      activeSectionId,
-      activeSectionMode,
+      activation,
       layoutEditable,
       mode,
       registerFrame,
       registerHandle,
-      rootLayoutActive,
       structureEditable,
       unregisterFrame,
       unregisterHandle,
     }),
     [
-      activationEnabled,
-      activeSectionId,
-      activeSectionMode,
+      activation,
       layoutEditable,
       mode,
       registerFrame,
       registerHandle,
-      rootLayoutActive,
       structureEditable,
       unregisterFrame,
       unregisterHandle,
     ],
+  );
+  const preventActivation = useCallback(
+    () => activation.getGatingSnapshot().phase === "active",
+    [activation],
   );
   useEffect(() => () => sectionMoveProjection.clear(), [sectionMoveProjection]);
   useEffect(() => {
@@ -355,16 +343,35 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
     },
     [document, geometry, geometryIndex, mode, selectedSectionIds],
   );
+  // Start-time feedback (placeholder mount, live announcement, touch
+  // selection) is presentation-only, so it leaves the pointer-down dispatch
+  // and lands on the next canvas frame. Ownership staging and the session
+  // stay synchronous, and any later drag event flushes the pending feedback
+  // first so the observable start -> preview -> complete order is unchanged.
+  const pendingStartFeedbackRef = useRef<(() => void) | null>(null);
+  const flushStartFeedback = useCallback(() => {
+    const pending = pendingStartFeedbackRef.current;
+    if (pending) {
+      pendingStartFeedbackRef.current = null;
+      pending();
+    }
+  }, []);
+  const deferStartFeedback = useCallback(
+    (feedback: () => void) => {
+      pendingStartFeedbackRef.current = feedback;
+      const view = geometry.canvasElement()?.ownerDocument.defaultView;
+      if (view) {
+        view.requestAnimationFrame(() => flushStartFeedback());
+      } else {
+        queueMicrotask(flushStartFeedback);
+      }
+    },
+    [flushStartFeedback, geometry],
+  );
   const handleStart = (event: AdapterDndEvent) => {
     pendingMoveReconciliationRef.current = null;
     sectionMoveProjection.clear();
     const source = workspaceSectionDndSource(event.sourceId);
-    if (event.input === "touch") {
-      onSelectionRequest(source.sectionId, {
-        additive: false,
-        preserveSelected: selectedSectionIds.includes(source.sectionId),
-      });
-    }
     const prepared = preparedSessionRef.current;
     preparedSessionRef.current = null;
     const result = prepared?.sourceId === event.sourceId ? prepared.result : createSession(event);
@@ -384,14 +391,26 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
     if (result.allowed) {
       activeSessionRef.current = result.session;
       rejectedStartReasonRef.current = "";
-      feedbackStore.start(result.session);
     } else {
       activeSessionRef.current = null;
       rejectedStartReasonRef.current = result.reason;
-      feedbackStore.rejectStart(result.reason);
     }
+    deferStartFeedback(() => {
+      if (event.input === "touch") {
+        onSelectionRequest(source.sectionId, {
+          additive: false,
+          preserveSelected: selectedSectionIds.includes(source.sectionId),
+        });
+      }
+      if (result.allowed) {
+        feedbackStore.start(result.session);
+      } else {
+        feedbackStore.rejectStart(result.reason);
+      }
+    });
   };
   const handleMove = (event: AdapterDndEvent) => {
+    flushStartFeedback();
     const session = activeSessionRef.current;
     if (!session || (event.input === "keyboard" && !event.keyboardDirection)) {
       return;
@@ -422,6 +441,7 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
     feedbackStore.preview(resolution);
   };
   const handleComplete = (completion: AdapterDndCompletion) => {
+    flushStartFeedback();
     const source = workspaceSectionDndSource(completion.sourceId);
     const session = activeSessionRef.current;
     let announcement: string;
@@ -486,9 +506,10 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
         onMove={handleMove}
         onStart={handleStart}
         overlayClassName="setta-workspace__section-drag-overlay"
+        preventActivation={preventActivation}
         overlayLabel={(id) => {
           const source = workspaceSectionDndSource(id);
-          const activeMode = activeSectionMode ?? mode;
+          const activeMode = activation.getSnapshot().activeSectionMode ?? mode;
           const localLayout = sessionUsesLocalFreeformMovement(activeSessionRef.current);
           const sectionCount = activeSessionRef.current?.sectionIds.length ?? 1;
           const suffix = sectionCount === 1 ? "" : ` and ${String(sectionCount - 1)} more`;
@@ -512,28 +533,48 @@ export function useWorkspaceSectionDnd({
   depth,
   freeformChild,
   sectionId,
-  spatialMoving,
 }: Readonly<{
   blocked: boolean;
   depth: number;
   freeformChild: boolean;
   sectionId: string;
-  spatialMoving: boolean;
 }>) {
   const context = useContext(WorkspaceSectionDndContext);
   const resolvedContext = context ?? DISABLED_SECTION_DND_CONTEXT;
-  const structural = sectionUsesStructuralDrag(resolvedContext, depth, sectionId);
-  const enabled = sectionStructuralDragEnabled(
-    resolvedContext,
-    blocked,
-    freeformChild,
-    sectionId,
-    structural,
+  const activation = resolvedContext.activation;
+  const contextMode = resolvedContext.mode;
+  // Gesture-scoped state arrives through primitive store selections so a drag
+  // start rerenders only the frames whose derived values actually change.
+  const structuralSnapshot = useCallback(
+    () => sectionUsesStructuralDrag(activation.getSnapshot(), contextMode, depth, sectionId),
+    [activation, contextMode, depth, sectionId],
   );
+  const structural = useSyncExternalStore(
+    activation.subscribe,
+    structuralSnapshot,
+    structuralSnapshot,
+  );
+  const activeSelfSnapshot = useCallback(
+    () => activation.getSnapshot().activeSectionId === sectionId,
+    [activation, sectionId],
+  );
+  const activeSelf = useSyncExternalStore(
+    activation.subscribe,
+    activeSelfSnapshot,
+    activeSelfSnapshot,
+  );
+  const modeSnapshot = useCallback(
+    () => sectionStructuralDragMode(activation.getSnapshot(), contextMode, sectionId),
+    [activation, contextMode, sectionId],
+  );
+  const mode = useSyncExternalStore(activation.subscribe, modeSnapshot, modeSnapshot);
+  const configEnabled =
+    structural && sectionStructuralDragConfigEnabled(resolvedContext, blocked, freeformChild);
   const draggable = useUpstreamDndDraggable({
     data: { kind: "section", sectionId },
-    disabled: !enabled,
+    disabled: !(configEnabled || (structural && activeSelf)),
     id: sourceId(sectionId, depth === 0),
+    trackActive: false,
   });
   const draggableElementRef = draggable.elementRef;
   const draggableHandleRef = draggable.handleRef;
@@ -575,12 +616,54 @@ export function useWorkspaceSectionDnd({
     throw new Error("Workspace section dragging requires its workbench interaction boundary.");
   }
   return {
-    active: draggable.active,
+    active: activeSelf,
+    configEnabled,
     elementRef,
-    enabled,
     handleRef,
-    mode: sectionStructuralDragMode(context, sectionId),
-    spatialEnabled: context.activationEnabled || (context.rootLayoutActive && spatialMoving),
+    mode,
     structural,
   };
+}
+
+/**
+ * Gesture-time activation state for one section's movement handle. Subscribed
+ * at the handle so an interaction start updates only handle buttons, not
+ * every recursive section frame.
+ */
+export function useWorkspaceSectionDragHandleActivation({
+  configEnabled,
+  sectionId,
+  spatialMoving,
+}: Readonly<{
+  configEnabled: boolean;
+  sectionId: string;
+  spatialMoving: boolean;
+}>) {
+  const context = useContext(WorkspaceSectionDndContext);
+  const activation = (context ?? DISABLED_SECTION_DND_CONTEXT).activation;
+  const structuralSnapshot = useCallback(() => {
+    const snapshot = activation.getSnapshot();
+    return (
+      snapshot.activeSectionId === sectionId ||
+      (sectionStructureActivationAllowed(snapshot) && configEnabled)
+    );
+  }, [activation, configEnabled, sectionId]);
+  const structuralEnabled = useSyncExternalStore(
+    activation.subscribe,
+    structuralSnapshot,
+    structuralSnapshot,
+  );
+  const spatialSnapshot = useCallback(() => {
+    const snapshot = activation.getSnapshot();
+    return (
+      sectionStructureActivationAllowed(snapshot) ||
+      (rootLayoutInteractionActive(snapshot) && spatialMoving)
+    );
+  }, [activation, spatialMoving]);
+  const spatialEnabled = useSyncExternalStore(
+    activation.subscribe,
+    spatialSnapshot,
+    spatialSnapshot,
+  );
+  return { spatialEnabled, structuralEnabled };
 }

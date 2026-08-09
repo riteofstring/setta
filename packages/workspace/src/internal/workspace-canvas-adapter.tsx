@@ -279,8 +279,20 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     geometry.setRetainedSectionIds(visibleSectionIds);
   }, [geometry, parentLookup, viewportCulling, viewportCullingOptions, visibleSectionIds]);
   const sectionMoveFeedbackStore = useMemo(() => new WorkspaceSectionMoveFeedbackStore(), []);
+  const scheduleInteractionFrame = useCallback(
+    (callback: () => void) => {
+      const view = geometry.canvasElement()?.ownerDocument.defaultView;
+      if (view) {
+        view.requestAnimationFrame(() => callback());
+      } else {
+        queueMicrotask(callback);
+      }
+    },
+    [geometry],
+  );
   const interaction = useWorkspaceInteractionOwner({
     layoutEnabled: layoutEditable,
+    scheduleFrame: scheduleInteractionFrame,
     sectionMode: sectionMoveMode,
     structureEnabled: structureEditable,
   });
@@ -523,16 +535,13 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
       onContextMenuCapture={selectionActions.handleCanvasContextMenuCapture}
     >
       <WorkspaceItemInteractionProvider
-        activeTreeId={interaction.activeItemTreeId}
+        activation={interaction.activationStore}
         finish={interaction.finishItemTree}
-        itemTreeEnabled={interaction.activationPolicy.itemTreeEnabled}
         start={interaction.startItemTree}
         zoom={document.viewport.zoom}
       >
         <WorkspaceSectionDndBoundary
-          activationEnabled={interaction.activationPolicy.sectionStructureEnabled}
-          activeSectionId={interaction.activeSectionId}
-          activeSectionMode={interaction.activeSectionMode}
+          activation={interaction.activationStore}
           document={document}
           feedbackStore={sectionMoveFeedbackStore}
           geometry={geometry}
@@ -549,7 +558,6 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
           onReconciliation={interaction.announceSectionStructure}
           onSelectionRequest={selection.handleSelectionRequest}
           onStart={interaction.startSectionStructure}
-          rootLayoutActive={interaction.ownership.owner === "root-layout"}
           sectionTitle={sectionTitle}
           selectedSectionIds={selectedSectionIds}
           structureEditable={structureEditable}

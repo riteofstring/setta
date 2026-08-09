@@ -1,19 +1,22 @@
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
 
 import type { InteractionInput } from "./interaction-owner.js";
+import {
+  IDLE_WORKSPACE_INTERACTION_ACTIVATION_STORE,
+  itemTreeActivationEnabled,
+  type WorkspaceInteractionActivationStore,
+} from "./workspace-interaction-activation.js";
 
 type WorkspaceItemInteractionContextValue = Readonly<{
-  activeTreeId: string | null;
-  itemTreeEnabled: boolean;
+  activation: WorkspaceInteractionActivationStore;
   finish(treeId: string, type: "cancel" | "complete"): void;
   start(treeId: string, input: InteractionInput): boolean;
   zoom: number;
 }>;
 
 const STANDALONE_ITEM_INTERACTION: WorkspaceItemInteractionContextValue = {
-  activeTreeId: null,
+  activation: IDLE_WORKSPACE_INTERACTION_ACTIVATION_STORE,
   finish: () => undefined,
-  itemTreeEnabled: true,
   start: () => true,
   zoom: 1,
 };
@@ -21,16 +24,15 @@ const STANDALONE_ITEM_INTERACTION: WorkspaceItemInteractionContextValue = {
 const WorkspaceItemInteractionContext = createContext(STANDALONE_ITEM_INTERACTION);
 
 export function WorkspaceItemInteractionProvider({
-  activeTreeId,
+  activation,
   children,
   finish,
-  itemTreeEnabled,
   start,
   zoom,
 }: WorkspaceItemInteractionContextValue & Readonly<{ children: ReactNode }>) {
   const value = useMemo<WorkspaceItemInteractionContextValue>(
-    () => ({ activeTreeId, finish, itemTreeEnabled, start, zoom }),
-    [activeTreeId, finish, itemTreeEnabled, start, zoom],
+    () => ({ activation, finish, start, zoom }),
+    [activation, finish, start, zoom],
   );
   return (
     <WorkspaceItemInteractionContext.Provider value={value}>
@@ -41,12 +43,33 @@ export function WorkspaceItemInteractionProvider({
 
 export function useWorkspaceItemInteraction(treeId: string) {
   const context = useContext(WorkspaceItemInteractionContext);
-  const ownedByThisTree = context.activeTreeId === treeId;
+  const activation = context.activation;
+  const owned = useSyncExternalStore(
+    activation.subscribe,
+    () => activation.getSnapshot().activeItemTreeId === treeId,
+    () => activation.getSnapshot().activeItemTreeId === treeId,
+  );
+  const enabled = useSyncExternalStore(
+    activation.subscribe,
+    () => itemTreeMovementEnabled(activation, treeId),
+    () => itemTreeMovementEnabled(activation, treeId),
+  );
   return {
-    enabled: (context.itemTreeEnabled && context.activeTreeId === null) || ownedByThisTree,
+    enabled,
     finish: (type: "cancel" | "complete") => context.finish(treeId, type),
-    owned: ownedByThisTree,
+    owned,
     start: (input: InteractionInput) => context.start(treeId, input),
     zoom: context.zoom,
   };
+}
+
+function itemTreeMovementEnabled(
+  activation: WorkspaceInteractionActivationStore,
+  treeId: string,
+): boolean {
+  const snapshot = activation.getSnapshot();
+  return (
+    (itemTreeActivationEnabled(snapshot) && snapshot.activeItemTreeId === null) ||
+    snapshot.activeItemTreeId === treeId
+  );
 }

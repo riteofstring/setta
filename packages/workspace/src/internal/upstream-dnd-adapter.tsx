@@ -10,7 +10,7 @@ import {
   type DragDropManager,
   type DragMoveEvent,
 } from "@dnd-kit/react";
-import { useCallback, useRef, type ComponentProps, type ReactNode } from "react";
+import { useCallback, useMemo, useRef, type ComponentProps, type ReactNode } from "react";
 
 import type { InteractionPoint } from "./interaction-geometry.js";
 
@@ -45,6 +45,12 @@ export type UpstreamDndBoundaryProps = {
   manageAutoScroll?: boolean;
   overlayClassName?: string;
   overlayLabel?(sourceId: string): string;
+  /**
+   * Activation-time veto evaluated by the sensors before a gesture starts.
+   * Return true to refuse activation, e.g. while another workspace
+   * interaction system already owns the current gesture.
+   */
+  preventActivation?(): boolean;
   renderOverlay?(sourceId: string): ReactNode;
   resolveCollisionRect?(
     sourceId: string,
@@ -84,8 +90,8 @@ function restorePendingKeyboardScroll(): void {
 }
 
 class ScrollStableKeyboardSensor extends KeyboardSensor {
-  constructor(manager: AdapterKeyboardManager) {
-    super(manager, { offset: 72 });
+  constructor(manager: AdapterKeyboardManager, options?: AdapterKeyboardOptions) {
+    super(manager, { offset: 72, ...options });
   }
 
   protected override handleStart(
@@ -131,6 +137,7 @@ export function UpstreamDndBoundary({
   manageAutoScroll = true,
   overlayClassName = "setta-adapter-proof__drag-overlay",
   overlayLabel,
+  preventActivation,
   renderOverlay,
   resolveCollisionRect,
   onMove,
@@ -142,6 +149,16 @@ export function UpstreamDndBoundary({
   const activeActivatorPoint = useRef<InteractionPoint | null>(null);
   const activeClientPoint = useRef<InteractionPoint | null>(null);
   const activeInput = useRef<AdapterDndInput>("pointer");
+  const sensors = useMemo(
+    () =>
+      preventActivation
+        ? [
+            { plugin: PointerSensor, options: { preventActivation } },
+            { plugin: ScrollStableKeyboardSensor, options: { preventActivation } },
+          ]
+        : adapterProofSensors,
+    [preventActivation],
+  );
 
   const syncCollisionRect = useCallback((manager: DragDropManager, transform: InteractionPoint) => {
     const base = baseCollisionRect.current;
@@ -153,7 +170,7 @@ export function UpstreamDndBoundary({
   return (
     <DragDropProvider
       {...adapterPluginProps(manageAccessibility, manageAutoScroll)}
-      sensors={adapterProofSensors}
+      sensors={sensors}
       onDragStart={({ nativeEvent, operation }, manager) => {
         restorePendingKeyboardScroll();
         const sourceId = stringId(operation.source?.id);
@@ -279,12 +296,24 @@ export type UpstreamDndDraggableOptions = Readonly<{
   data?: Readonly<Record<string, unknown>>;
   disabled: boolean;
   id: string;
+  /**
+   * Reading isDragSource subscribes this component to a synchronous rerender
+   * inside the drag-start input dispatch. Callers that derive their active
+   * state from a deferred source opt out to keep activation off the render
+   * hot path.
+   */
+  trackActive?: boolean;
 }>;
 
-export function useUpstreamDndDraggable({ data, disabled, id }: UpstreamDndDraggableOptions) {
+export function useUpstreamDndDraggable({
+  data,
+  disabled,
+  id,
+  trackActive = true,
+}: UpstreamDndDraggableOptions) {
   const draggable = useDraggable({ ...(data ? { data } : {}), disabled, id });
   return {
-    active: draggable.isDragSource,
+    active: trackActive ? draggable.isDragSource : false,
     elementRef: draggable.ref,
     handleRef: draggable.handleRef,
   };

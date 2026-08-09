@@ -255,6 +255,18 @@ export class WorkspaceGeometryMeasurements {
     this.#measureAll();
   }
 
+  /**
+   * Flush only when a measurement pass is scheduled. Every geometry
+   * invalidation (registration, resize, scroll, viewport change) schedules a
+   * pass, so an empty schedule means the index already reflects the DOM and a
+   * synchronous full re-measure would be redundant forced-layout work.
+   */
+  settleMeasurement(): void {
+    if (this.#frameRequest !== null) {
+      this.flushMeasurement();
+    }
+  }
+
   clientPointToWorkspace(point: ScreenPoint): WorkspacePoint {
     return clientPointToWorkspace(point, this.canvasBounds(), this.#viewport);
   }

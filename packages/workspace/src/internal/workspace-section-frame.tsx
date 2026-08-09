@@ -39,6 +39,7 @@ import {
 } from "./workspace-section-detachment.js";
 import {
   useWorkspaceSectionDnd,
+  useWorkspaceSectionDragHandleActivation,
   workspaceSectionMoveDescription,
 } from "./workspace-section-dnd.js";
 import { SectionPresentationEditor, SectionTitleEditor } from "./workspace-section-editors.js";
@@ -302,6 +303,7 @@ function SectionDragHandle({
   section,
   selected,
   selectionMovementBlocked,
+  spatialMoving,
   structuralDrag,
 }: Readonly<{
   depth: number;
@@ -313,24 +315,29 @@ function SectionDragHandle({
   section: WorkspaceSection<unknown>;
   selected: boolean;
   selectionMovementBlocked: boolean;
+  spatialMoving: boolean;
   structuralDrag: Readonly<{
     active: boolean;
-    enabled: boolean;
+    configEnabled: boolean;
     handleRef(element: Element | null): void;
     mode: "free" | "sort";
-    spatialEnabled: boolean;
     structural: boolean;
   }>;
 }>) {
+  const activation = useWorkspaceSectionDragHandleActivation({
+    configEnabled: structuralDrag.configEnabled,
+    sectionId: section.id,
+    spatialMoving,
+  });
   const disabled = structuralDrag.structural
-    ? !structuralDrag.enabled
+    ? !activation.structuralEnabled
     : spatialDragDisabled(
         depth,
         detached,
         layoutEditable,
         section,
         selectionMovementBlocked,
-        structuralDrag.spatialEnabled,
+        activation.spatialEnabled,
       );
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (structuralDrag.structural) {
@@ -739,7 +746,6 @@ export function WorkspaceSectionFrame({
     depth,
     freeformChild,
     sectionId: section.id,
-    spatialMoving: moving,
   });
   const sectionDndElementRef = sectionDnd.elementRef;
   const registerElement = useCallback(
@@ -834,6 +840,7 @@ export function WorkspaceSectionFrame({
       section={section}
       selected={selected}
       selectionMovementBlocked={selectionMovementBlocked}
+      spatialMoving={moving}
       structuralDrag={sectionDnd}
     />
   );

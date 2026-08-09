@@ -266,7 +266,7 @@ export function createWorkspaceSectionMoveSession<TSectionData>({
   mode: WorkspaceSectionMoveMode;
   selectedSectionIds: readonly string[];
 }>): WorkspaceSectionMoveSessionResult<TSectionData> {
-  geometry.flushMeasurement();
+  geometry.settleMeasurement();
   const hierarchy = workspaceSectionHierarchySnapshot(document);
   const requestedIds = selectedSectionIds.includes(activeSectionId)
     ? selectedSectionIds

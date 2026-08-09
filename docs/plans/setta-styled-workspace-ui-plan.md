@@ -2,16 +2,30 @@
 
 ## Decision
 
-Status: **in progress** (Phase 0 complete 2026-08-10, pending audit). Phase 0 artifacts: the
-before-screenshot evidence set and public-API-only visual-matrix route
+Status: **in progress** (Phase 0 complete 2026-08-10, pending audit; Phase 1 partially landed
+2026-08-10). Phase 0 artifacts: the before-screenshot evidence set and public-API-only
+visual-matrix route
 ([docs/evidence/setta-ui-before-screenshots.md](../evidence/setta-ui-before-screenshots.md)), the
 repeatable development/production interaction profiler (`corepack pnpm perf:interaction`) with
 baseline traces reproducing the structural-drag activation stall
 ([perf/interaction-profile.md](../../perf/interaction-profile.md)), the visual reference matrix
 ([docs/evidence/setta-ui-visual-reference-matrix.md](../evidence/setta-ui-visual-reference-matrix.md)),
 and the ratified semantic tokens and state matrix
-([docs/evidence/setta-ui-design-contract.md](../evidence/setta-ui-design-contract.md)). Phase 1,
-removing the structural-drag hitch, is next.
+([docs/evidence/setta-ui-design-contract.md](../evidence/setta-ui-design-contract.md)).
+
+Phase 1 progress: profiling attributed the activation stall to a whole-tree React sync render
+broadcast inside the pointer-down dispatch plus synchronous feedback mounting, an unconditional
+geometry re-measure, and interleaved forced layouts. The gesture-scoped activation state now lives
+in a two-phase external store with per-frame/per-handle primitive subscriptions, presentation
+broadcasts and start feedback defer to the next canvas frame with order-preserving flushes, and
+sensors gate activation imperatively. Root-drag activation and all warm production structural
+gaps are within cadence; development structural activation (33–42 ms warm) and two cold 33.4 ms
+production first-drag cells still exceed the 32 ms exit bar. Cause, before/after numbers, and the
+remaining owners are recorded in
+[perf/phase-1-structural-drag-activation.md](../../perf/phase-1-structural-drag-activation.md)
+(`phase-1` label in the interaction profile report). Finishing Phase 1 means removing that
+remaining in-dispatch tail (dnd-kit start-flush isolation, index-sourced drop regions, cold-path
+tail) without changing gesture semantics.
 
 Make the Setta visual language the opinionated default for `@setta/workspace`, redesign the
 backend-free playground around the canvas, and remove the measurable structural-drag startup hitch.

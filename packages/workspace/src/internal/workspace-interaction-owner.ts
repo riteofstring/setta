@@ -9,6 +9,7 @@ import {
   type InteractionOwnershipState,
 } from "./interaction-owner.js";
 import type { WorkspaceSectionMoveMode } from "./section-move-planning.js";
+import { WorkspaceInteractionActivationStore } from "./workspace-interaction-activation.js";
 
 export type WorkspaceStructuralInteractionStart = Readonly<{
   input: InteractionInput;
@@ -58,19 +59,78 @@ function structuralEndAnnouncement(
 
 export function useWorkspaceInteractionOwner({
   layoutEnabled,
+  scheduleFrame,
   sectionMode,
   structureEnabled,
 }: Readonly<{
   layoutEnabled: boolean;
+  scheduleFrame?: (callback: () => void) => void;
   sectionMode: WorkspaceSectionMoveMode;
   structureEnabled: boolean;
 }>) {
   const [announcementText, setAnnouncementText] = useState("");
   const [state, setState] = useState<WorkspaceInteractionCoordinatorState>(IDLE_COORDINATOR_STATE);
+  const [activationStore] = useState(() => new WorkspaceInteractionActivationStore());
   const stateRef = useRef(state);
   stateRef.current = state;
+  // Mirror ownership into the activation store: staged synchronously inside
+  // the input dispatch for imperative gating, published to React subscribers
+  // with the presentation broadcast.
+  const activationSnapshot = useCallback(
+    (next: WorkspaceInteractionCoordinatorState) => ({
+      activeItemTreeId: next.itemTreeId,
+      activeSectionId: next.structuralSession?.sectionId ?? null,
+      activeSectionMode: next.structuralSession?.mode ?? null,
+      owner: next.ownership.owner,
+      phase: next.ownership.phase,
+    }),
+    [],
+  );
+  const publishActivation = useCallback(
+    (next: WorkspaceInteractionCoordinatorState) => {
+      activationStore.publish(activationSnapshot(next));
+    },
+    [activationSnapshot, activationStore],
+  );
+  const stageActivation = useCallback(
+    (next: WorkspaceInteractionCoordinatorState) => {
+      activationStore.stage(activationSnapshot(next));
+    },
+    [activationSnapshot, activationStore],
+  );
+  // Gating always reads stateRef and the activation store synchronously; the
+  // React state below only drives presentation (canvas attributes, overlays,
+  // announcements). Start broadcasts defer that presentation commit to the
+  // next canvas frame so gesture activation is not billed for a broad render,
+  // while finish/mode transitions first flush any pending broadcast to keep
+  // the committed React state sequence identical to the ownership sequence.
+  const pendingBroadcastRef = useRef<(() => void) | null>(null);
+  const flushPendingBroadcast = useCallback(() => {
+    const pending = pendingBroadcastRef.current;
+    if (pending) {
+      pendingBroadcastRef.current = null;
+      pending();
+    }
+  }, []);
+  const scheduleFrameRef = useRef(scheduleFrame);
+  scheduleFrameRef.current = scheduleFrame;
+  const deferBroadcast = useCallback(
+    (broadcast: () => void) => {
+      pendingBroadcastRef.current = broadcast;
+      const schedule = scheduleFrameRef.current ?? queueMicrotask;
+      schedule(flushPendingBroadcast);
+    },
+    [flushPendingBroadcast],
+  );
+  useEffect(
+    () => () => {
+      pendingBroadcastRef.current = null;
+    },
+    [],
+  );
 
   useEffect(() => {
+    flushPendingBroadcast();
     stateRef.current = {
       ...stateRef.current,
       ownership: transitionInteractionOwnership(stateRef.current.ownership, {
@@ -78,7 +138,8 @@ export function useWorkspaceInteractionOwner({
         type: "mode-change",
       }),
     };
-  }, [sectionMode]);
+    publishActivation(stateRef.current);
+  }, [flushPendingBroadcast, publishActivation, sectionMode]);
 
   const startRootLayout = useCallback(
     (input: InteractionInput): boolean => {
@@ -102,10 +163,21 @@ export function useWorkspaceInteractionOwner({
       }
       const next = { itemTreeId: null, ownership, structuralSession: null };
       stateRef.current = next;
-      setState(next);
+      stageActivation(next);
+      deferBroadcast(() => {
+        activationStore.publishStaged();
+        setState(next);
+      });
       return true;
     },
-    [layoutEnabled, sectionMode, structureEnabled],
+    [
+      activationStore,
+      deferBroadcast,
+      layoutEnabled,
+      sectionMode,
+      stageActivation,
+      structureEnabled,
+    ],
   );
 
   const startSectionStructure = useCallback(
@@ -133,10 +205,14 @@ export function useWorkspaceInteractionOwner({
       };
       const next = { itemTreeId: null, ownership, structuralSession };
       stateRef.current = next;
-      setAnnouncementText(structuralStartAnnouncement(start));
-      setState(next);
+      stageActivation(next);
+      deferBroadcast(() => {
+        activationStore.publishStaged();
+        setAnnouncementText(structuralStartAnnouncement(start));
+        setState(next);
+      });
     },
-    [layoutEnabled, structureEnabled],
+    [activationStore, deferBroadcast, layoutEnabled, stageActivation, structureEnabled],
   );
 
   const startViewport = useCallback(
@@ -161,27 +237,43 @@ export function useWorkspaceInteractionOwner({
       }
       const next = { itemTreeId: null, ownership, structuralSession: null };
       stateRef.current = next;
-      setState(next);
+      stageActivation(next);
+      deferBroadcast(() => {
+        activationStore.publishStaged();
+        setState(next);
+      });
       return true;
     },
-    [layoutEnabled, sectionMode, structureEnabled],
+    [
+      activationStore,
+      deferBroadcast,
+      layoutEnabled,
+      sectionMode,
+      stageActivation,
+      structureEnabled,
+    ],
   );
 
-  const finish = useCallback((type: "cancel" | "complete", announcement?: string) => {
-    const current = stateRef.current;
-    const next = {
-      itemTreeId: null,
-      ownership: transitionInteractionOwnership(current.ownership, { type }),
-      structuralSession: null,
-    };
-    stateRef.current = next;
-    if (current.structuralSession) {
-      setAnnouncementText(
-        announcement ?? structuralEndAnnouncement(current.structuralSession, type === "cancel"),
-      );
-    }
-    setState(next);
-  }, []);
+  const finish = useCallback(
+    (type: "cancel" | "complete", announcement?: string) => {
+      flushPendingBroadcast();
+      const current = stateRef.current;
+      const next = {
+        itemTreeId: null,
+        ownership: transitionInteractionOwnership(current.ownership, { type }),
+        structuralSession: null,
+      };
+      stateRef.current = next;
+      publishActivation(next);
+      if (current.structuralSession) {
+        setAnnouncementText(
+          announcement ?? structuralEndAnnouncement(current.structuralSession, type === "cancel"),
+        );
+      }
+      setState(next);
+    },
+    [flushPendingBroadcast, publishActivation],
+  );
   const cancel = useCallback(() => finish("cancel"), [finish]);
   const finishOwned = useCallback(
     (owner: InteractionOwner, type: "cancel" | "complete", announcement?: string) => {
@@ -226,10 +318,21 @@ export function useWorkspaceInteractionOwner({
       }
       const next = { itemTreeId: treeId, ownership, structuralSession: null };
       stateRef.current = next;
-      setState(next);
+      stageActivation(next);
+      deferBroadcast(() => {
+        activationStore.publishStaged();
+        setState(next);
+      });
       return true;
     },
-    [layoutEnabled, sectionMode, structureEnabled],
+    [
+      activationStore,
+      deferBroadcast,
+      layoutEnabled,
+      sectionMode,
+      stageActivation,
+      structureEnabled,
+    ],
   );
   const finishItemTree = useCallback(
     (treeId: string, type: "cancel" | "complete") => {
@@ -252,6 +355,7 @@ export function useWorkspaceInteractionOwner({
 
   return {
     activationPolicy,
+    activationStore,
     activeItemTreeId: state.itemTreeId,
     activeInput: state.structuralSession?.input ?? null,
     activeSectionId: state.structuralSession?.sectionId ?? null,
