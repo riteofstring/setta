@@ -69,7 +69,7 @@ export type ReactFlowStore = {
 };
 
 type ReactFlowActions = {
-  setNodesSelection: (selectedNodesCount: number) => void;
+  setNodesSelection: (selectedNodesCount: number, ignoreGrid?: boolean) => void;
   shiftNodesSelection: (delta: Position) => void;
   panBy: (delta: Position) => boolean;
 };

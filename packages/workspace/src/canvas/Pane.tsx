@@ -140,7 +140,7 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
       onClick();
     }
 
-    useReactFlow.getState().setNodesSelection(prevSelectedNodesCount.current);
+    useReactFlow.getState().setNodesSelection(prevSelectedNodesCount.current, true);
     resetUserSelection();
   };
 

@@ -5,8 +5,10 @@ import "d3-transition";
 import { getActiveSectionIds } from "../document/activeSections";
 import { useNodeInternals } from "../document/stores";
 import type { Node, Viewport } from "../document/types";
+import { useSectionRefs } from "../section/sectionRefs";
 import type { Rect, Transform } from "./types";
 import { boxToRect, clamp, getBoundsOfBoxes, getOverlappingArea, rectToBox } from "./utils";
+import { screenToFlowPosition } from "./viewportPosition";
 
 export const getNodesBounds = (nodes: Array<Pick<Node, "position" | "width" | "height">>): Rect => {
   if (nodes.length === 0) {
@@ -32,10 +34,10 @@ export const getNodesBounds = (nodes: Array<Pick<Node, "position" | "width" | "h
   return boxToRect(box);
 };
 
-export function getActiveSectionsBounds() {
+export function getActiveSectionsBounds(ignoreGrid = false) {
   const activeSectionIds = getActiveSectionIds();
   return (
-    getSectionBounds(activeSectionIds) ?? {
+    getSectionBounds(activeSectionIds, ignoreGrid) ?? {
       x: 0,
       y: 0,
       width: 0,
@@ -44,9 +46,22 @@ export function getActiveSectionsBounds() {
   );
 }
 
-// The reference falls back to section DOM refs for unmeasured or nested sections; that fallback
-// arrives with the section-container batch that owns the package section-ref registry. Until
-// then only measured top-level nodes participate in marquee hit testing and selection bounds.
+// Measures a section through its registered DOM ref: the fallback for nested sections and
+// nodes that have not been measured yet.
+export function getSectionRect(sectionId: string, ignoreGrid = false): Rect | null {
+  const ref =
+    useSectionRefs.getState().selfOnly[sectionId] ??
+    useSectionRefs.getState().withNested[sectionId];
+  if (!ref) {
+    return null;
+  }
+
+  const { clientWidth: width, clientHeight: height } = ref;
+  const { x: _x, y: _y } = ref.getBoundingClientRect();
+  const { x, y } = screenToFlowPosition({ x: _x, y: _y }, ignoreGrid);
+  return { x, y, width, height };
+}
+
 export function getNodesInside(
   rect: Rect,
   [tx, ty, tScale]: Transform = [0, 0, 1],
@@ -99,7 +114,7 @@ export const getD3Transition = (
   return selection.transition().duration(duration);
 };
 
-function getSectionBounds(sectionIds: Array<string>): Rect | null {
+function getSectionBounds(sectionIds: Array<string>, ignoreGrid = false): Rect | null {
   const nodeInternals = useNodeInternals.getState().x;
   const sections = sectionIds.flatMap((sectionId) => {
     const node = nodeInternals.get(sectionId);
@@ -112,7 +127,12 @@ function getSectionBounds(sectionIds: Array<string>): Rect | null {
         },
       ];
     }
-    return [];
+
+    const rect = getSectionRect(sectionId, ignoreGrid);
+    if (!rect || !hasPositiveRectBounds(rect.width, rect.height)) {
+      return [];
+    }
+    return [{ position: { x: rect.x, y: rect.y }, width: rect.width, height: rect.height }];
   });
 
   if (sections.length === 0) {

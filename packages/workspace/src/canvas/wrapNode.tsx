@@ -5,7 +5,7 @@ import { memo, useEffect, useRef } from "react";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { Position } from "../document/types";
 import { NO_PAN_CLASS_NAME } from "../interaction";
-import { useSectionContentRenderer } from "./sectionContentContext";
+import { SectionContainer } from "../section/container/SectionContainer";
 import useDrag from "./useDrag";
 
 export const arrowKeyDiffs: Record<string, Position> = {
@@ -29,7 +29,6 @@ const NodeWrapperComponent = ({
   const node = useNodeInternals((x) => x.x.get(id), _.isEqual);
   const section = useWorkspaceDocument((x) => x.sections[id]);
   const nodeRef = useRef<HTMLDivElement>(null);
-  const renderSectionContent = useSectionContentRenderer();
   const isDraggable = _isDraggable && section !== undefined && !section.positionAndSizeLocked;
 
   useEffect(() => {
@@ -69,7 +68,7 @@ const NodeWrapperComponent = ({
       }}
       data-id={id}
     >
-      {renderSectionContent(section)}
+      <SectionContainer sectionId={id} />
     </div>
   );
 };

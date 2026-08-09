@@ -1,6 +1,15 @@
 import { useWorkspaceDocument, type WorkspaceDocumentState } from "./stores";
 import type { WorkspaceSection } from "./types";
 
+// The package equivalent of the reference's `SectionTypeEnum.Group`: groups are the one
+// package-owned section kind (nested children, orientation, group chrome). Every other kind is
+// host-registered and rendered through the content seam.
+export const GROUP_SECTION_KIND = "group";
+
+export function isGroupSection(section: WorkspaceSection): boolean {
+  return section.kind === GROUP_SECTION_KIND;
+}
+
 export function getSectionOrThrow(
   state: WorkspaceDocumentState,
   sectionId: string,

@@ -20,8 +20,8 @@ function makeLeafSection(
   };
 }
 
-// The Phase 1 chrome states as a workspace document: idle, locked, and style-colored leaves.
-// Selection states are reached interactively instead of being hardcoded previews.
+// The approved Phase 1 slice shape: root leaves in the reachable chrome states plus one root
+// group with a nested leaf. Selection states are reached interactively.
 export const sliceDocument: WorkspaceDocument = {
   sections: {
     "idle-leaf": makeLeafSection("idle-leaf", "Idle leaf"),
@@ -31,11 +31,25 @@ export const sliceDocument: WorkspaceDocument = {
     "styled-leaf": makeLeafSection("styled-leaf", "Style-colored leaf", {
       styleColor: "#3b82f6",
     }),
+    "root-group": {
+      id: "root-group",
+      kind: "group",
+      name: "Root group",
+      size: { width: "auto", height: "auto" },
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isHorizontalOrientation: false,
+      styleColor: null,
+      tagColor: null,
+      children: ["nested-leaf"],
+    },
+    "nested-leaf": makeLeafSection("nested-leaf", "Nested leaf"),
   },
   topLevelSections: {
     "idle-leaf": { x: 24, y: 24, w: 224, h: 96, zIndex: 0 },
     "locked-leaf": { x: 312, y: 24, w: 224, h: 96, zIndex: 1 },
     "styled-leaf": { x: 600, y: 24, w: 224, h: 96, zIndex: 2 },
+    "root-group": { x: 24, y: 216, w: null, h: null, zIndex: 3 },
   },
   viewport: { x: 0, y: 0, zoom: 1 },
   activeIds: [],

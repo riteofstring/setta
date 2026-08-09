@@ -39,9 +39,9 @@ export const initialCanvasState: ReactFlowStore = {
 export const useReactFlow = createWithEqualityFn<ReactFlowState>()(
   subscribeWithSelector((set, get) => ({
     ...initialCanvasState,
-    setNodesSelection: (selectedNodesCount) => {
+    setNodesSelection: (selectedNodesCount, ignoreGrid = false) => {
       if (selectedNodesCount > 0) {
-        set({ nodesSelectionDims: getActiveSectionsBounds() });
+        set({ nodesSelectionDims: getActiveSectionsBounds(ignoreGrid) });
       }
     },
     shiftNodesSelection: (delta) => {
