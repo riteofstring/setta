@@ -6,6 +6,7 @@ import { applyZoomToTransform, transformToString } from "../../dnd/adapter/zoom"
 import { isTempSection } from "../../dnd/dndIds";
 import { useDndState } from "../../dnd/dndState";
 import { TempDNDSection } from "../../dnd/DummySection";
+import { DRAG_PREVIEW_Z_INDEX, DROP_TARGET_Z_INDEX } from "../../dnd/layers";
 import { useDndProps } from "../../dnd/useDndUtils";
 import type { SectionDragListeners } from "./ContainerCore";
 import { SectionContainer } from "./SectionContainer";
@@ -102,7 +103,7 @@ function SortableCoreComponent({
   const style: CSSProperties = {
     transform: transformToString(scaledTransform),
     transition,
-    zIndex: isDragging ? 1000 : overIsSelf ? 500 : undefined,
+    zIndex: isDragging ? DRAG_PREVIEW_Z_INDEX : overIsSelf ? DROP_TARGET_Z_INDEX : undefined,
   };
   const stackProps = { style, ref: setNodeRef, ...attributes };
 

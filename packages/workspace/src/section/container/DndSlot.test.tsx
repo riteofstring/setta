@@ -4,7 +4,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BehaviorDropTypeEnum } from "../../dnd/dropTypes";
-import { DROP_FEEDBACK_Z_INDEX } from "../../dnd/layers";
+import { DRAG_PREVIEW_Z_INDEX, DROP_FEEDBACK_Z_INDEX, DROP_TARGET_Z_INDEX } from "../../dnd/layers";
 import { useSectionRefs } from "../sectionRefs";
 import { DndSlot } from "./DndSlot";
 
@@ -34,7 +34,7 @@ describe("DndSlot", () => {
     useSectionRefs.getState().reset();
   });
 
-  it("portals invalid feedback above the free-move drag overlay", async () => {
+  it("portals invalid feedback above the target and below the drag preview", async () => {
     await act(async () => {
       root.render(
         createElement(DndSlot, {
@@ -53,6 +53,8 @@ describe("DndSlot", () => {
     expect(overlay?.style.width).toBe("200px");
     expect(overlay?.style.height).toBe("120px");
     expect(overlay?.style.zIndex).toBe(String(DROP_FEEDBACK_Z_INDEX));
+    expect(DROP_FEEDBACK_Z_INDEX).toBeGreaterThan(DROP_TARGET_Z_INDEX);
+    expect(DROP_FEEDBACK_Z_INDEX).toBeLessThan(DRAG_PREVIEW_Z_INDEX);
     expect(overlay?.textContent).toContain("No nesting");
   });
 });
