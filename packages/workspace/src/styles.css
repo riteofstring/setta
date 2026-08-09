@@ -1881,19 +1881,34 @@
   display: block;
 }
 
-.setta-workspace__freeform-child-surface {
+.setta-workspace__child-surface[data-workspace-child-surface-positioning="ordered"],
+.setta-workspace__child-placement[data-workspace-child-placement-positioning="ordered"] {
+  display: contents;
+}
+
+.setta-workspace__child-surface[data-workspace-child-surface-positioning="freeform"] {
   position: relative;
   min-block-size: 6rem;
   min-inline-size: 12rem;
 }
 
-.setta-workspace__freeform-child-placement {
+.setta-workspace__child-placement[data-workspace-child-placement-positioning="freeform"] {
   position: absolute;
   top: 0;
   left: 0;
 }
 
-.setta-workspace__freeform-child-surface > .setta-workspace__empty-child-container {
+.setta-workspace__child-placement[data-workspace-child-placement-positioning="freeform"]:has(
+    .setta-workspace__section-frame:is(
+      [data-workspace-moving="true"],
+      [data-workspace-section-move-preview-transform]
+    )
+  ) {
+  z-index: 1;
+}
+
+.setta-workspace__child-surface[data-workspace-child-surface-positioning="freeform"]
+  > .setta-workspace__empty-child-container {
   block-size: 100%;
   inline-size: 100%;
 }

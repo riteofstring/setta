@@ -177,16 +177,18 @@ function WorkspaceNestedSection({
       selectionMovementBlocked={node.selectionMovementBlocked}
     />
   );
-  if (!node.position) {
-    return frame;
-  }
-  const style = {
-    transform: `translate(${String(node.position.x)}px, ${String(node.position.y)}px)`,
-  } satisfies CSSProperties;
+  const positioning = node.position ? "freeform" : "ordered";
+  const style = node.position
+    ? ({
+        transform: `translate(${String(node.position.x)}px, ${String(node.position.y)}px)`,
+      } satisfies CSSProperties)
+    : undefined;
   return (
     <div
-      className="setta-workspace__freeform-child-placement"
-      data-workspace-freeform-child-placement={node.section.id}
+      className="setta-workspace__child-placement"
+      data-workspace-child-placement={node.section.id}
+      data-workspace-child-placement-positioning={positioning}
+      data-workspace-freeform-child-placement={node.position ? node.section.id : undefined}
       style={style}
     >
       {frame}
@@ -243,12 +245,12 @@ function freeformSurfaceSizesMatch(left: FreeformSurfaceSize, right: FreeformSur
   return left.height === right.height && left.width === right.width;
 }
 
-function useFreeformSurfaceSize(children: readonly WorkspaceSectionTreeNode[]) {
+function useFreeformSurfaceSize(children: readonly WorkspaceSectionTreeNode[], enabled: boolean) {
   const [element, setElement] = useState<HTMLDivElement | null>(null);
   const fallback = fallbackFreeformSurfaceSize(children);
   const [size, setSize] = useState<FreeformSurfaceSize>(fallback);
   useEffect(() => {
-    if (!element) {
+    if (!enabled || !element) {
       return;
     }
     const measure = () => {
@@ -265,17 +267,19 @@ function useFreeformSurfaceSize(children: readonly WorkspaceSectionTreeNode[]) {
       observer.observe(placement);
     }
     return () => observer.disconnect();
-  }, [children, element]);
+  }, [children, element, enabled]);
   return {
     ref: setElement,
-    style: {
-      blockSize: Math.max(fallback.height, size.height),
-      inlineSize: Math.max(fallback.width, size.width),
-    } satisfies CSSProperties,
+    style: enabled
+      ? ({
+          blockSize: Math.max(fallback.height, size.height),
+          inlineSize: Math.max(fallback.width, size.width),
+        } satisfies CSSProperties)
+      : undefined,
   };
 }
 
-function FreeformChildren({
+function PositionedChildren({
   bindings,
   depth,
   node,
@@ -284,11 +288,15 @@ function FreeformChildren({
   depth: number;
   node: WorkspaceSectionTreeNode;
 }>) {
-  const surfaceSize = useFreeformSurfaceSize(node.children);
+  const positioning = node.section.childLayout?.positioning ?? "ordered";
+  const freeform = positioning === "freeform";
+  const surfaceSize = useFreeformSurfaceSize(node.children, freeform);
   return (
     <div
-      className="setta-workspace__freeform-child-surface"
-      data-workspace-freeform-child-surface=""
+      className="setta-workspace__child-surface"
+      data-workspace-child-surface=""
+      data-workspace-child-surface-positioning={positioning}
+      data-workspace-freeform-child-surface={freeform ? "" : undefined}
       ref={surfaceSize.ref}
       style={surfaceSize.style}
     >
@@ -308,33 +316,6 @@ function FreeformChildren({
       )}
     </div>
   );
-}
-
-function PositionedChildren({
-  bindings,
-  depth,
-  node,
-}: Readonly<{
-  bindings: WorkspaceSectionTreeBindings;
-  depth: number;
-  node: WorkspaceSectionTreeNode;
-}>) {
-  if (node.section.childLayout?.positioning === "freeform") {
-    return <FreeformChildren bindings={bindings} depth={depth} node={node} />;
-  }
-  if (node.children.length === 0) {
-    return <EmptyChildSectionRegion />;
-  }
-  return node.children.map((child, order) => (
-    <WorkspaceNestedSection
-      bindings={bindings}
-      depth={depth + 1}
-      key={child.section.id}
-      node={child}
-      order={order}
-      parentSectionId={node.section.id}
-    />
-  ));
 }
 
 export function WorkspaceSectionChildren({

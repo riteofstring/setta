@@ -384,7 +384,9 @@ test("structural previews commit exact sort and free-move plans", async ({ page 
   const baselineChanges = await recursiveChangeCount(page);
   const directChildIds = (region: Locator) =>
     region
-      .locator(":scope > [data-workspace-section-id]")
+      .locator(
+        ":scope > [data-workspace-child-surface] > [data-workspace-child-placement] > [data-workspace-section-id]",
+      )
       .evaluateAll((elements) =>
         elements.map((element) => element.getAttribute("data-workspace-section-id")),
       );
@@ -808,7 +810,9 @@ test("container orientation and overflow switch stably and preserve child order"
   await browserSession.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
   const directChildIds = () =>
     childRegion
-      .locator(":scope > [data-workspace-section-id]")
+      .locator(
+        ":scope > [data-workspace-child-surface] > [data-workspace-child-placement] > [data-workspace-section-id]",
+      )
       .evaluateAll((elements) =>
         elements.map((element) => element.getAttribute("data-workspace-section-id")),
       );

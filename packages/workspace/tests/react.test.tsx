@@ -362,6 +362,9 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain('data-workspace-parent-section-id="nested"');
     expect(markup).toContain('aria-label="Root container child sections"');
     expect(markup).toContain('data-workspace-child-orientation="vertical"');
+    expect(markup).toContain('data-workspace-child-surface-positioning="ordered"');
+    expect(markup).toContain('data-workspace-child-placement="first"');
+    expect(markup).toContain('data-workspace-child-placement-positioning="ordered"');
     expect(markup).toContain('aria-label="Nested row child sections"');
     expect(markup).toContain('data-workspace-child-orientation="horizontal"');
     expect(markup).toContain('data-workspace-child-overflow="scroll"');
@@ -406,7 +409,10 @@ describe("Workspace scaffold", () => {
     );
 
     expect(markup).toContain('data-workspace-child-positioning="freeform"');
+    expect(markup).toContain('data-workspace-child-surface-positioning="freeform"');
     expect(markup).toContain('data-workspace-freeform-child-surface=""');
+    expect(markup).toContain('data-workspace-child-placement="first"');
+    expect(markup).toContain('data-workspace-child-placement-positioning="freeform"');
     expect(markup).toContain('data-workspace-freeform-child-placement="first"');
     expect(markup).toContain("transform:translate(16px, 20px)");
     expect(markup).toContain('data-workspace-freeform-child-placement="nested"');

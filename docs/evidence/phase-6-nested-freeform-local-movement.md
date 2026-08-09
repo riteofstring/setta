@@ -65,6 +65,15 @@ resulting local coordinates. Native button semantics, activation keys, focus res
 focus, coarse-pointer ownership, reduced motion, 200% page scale, 320-CSS-pixel reflow, and Axe
 coverage remain on the existing accessibility path.
 
+Post-batch supervision corrected two projection details before cross-parent targeting built on this
+slice. Ordered and freeform child regions now retain the same keyed surface and placement elements;
+ordered wrappers use `display: contents`, while freeform wrappers own their local positioning. A
+positioning switch can therefore preserve the mounted host renderer, its React state, and focused
+descendants instead of replacing the subtree solely because its parent layout changed. During a
+freeform preview, every freeform placement on the active descendant path receives a transient local
+stack lift, keeping single- and multi-section feedback above later siblings without changing the
+canonical `sectionIds` stacking order.
+
 ## Playground, consumer, and visual proof
 
 The backend-free `/?canvas-shell&nested-freeform-contract` route now uses a fixed scrollable
@@ -97,6 +106,11 @@ Playwright Chromium baselines were inspected at original resolution).
 - The five-test nested-freeform Chromium selector passes pointer, touch, keyboard, controlled
   commits, focus restoration, local snapping, a scroll change during an active drag, 2× outer zoom,
   200% page scale, 320-CSS-pixel reflow, reduced motion, Axe, and both inspected baselines.
+- The post-batch focused selector passes all five nested-freeform workflows plus the directly
+  affected ordered structural-preview workflow. It asserts the active freeform placement's stack
+  lift, and the regenerated original-resolution movement baseline shows the complete active frame
+  above the later sibling. Static React coverage verifies the shared ordered/freeform surface and
+  placement topology.
 - The directly affected keyboard canvas-promotion selector passes with the new freeform destination
   discriminant and no obsolete destination index.
 - The unrelated tarball-installed consumer passes exact-file allowlisting, lockfile policy, strict

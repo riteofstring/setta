@@ -234,6 +234,10 @@ test.describe("Phase 6 nested freeform document contract", () => {
     await expect(
       workspace.locator("[data-workspace-section-move-preview-announcement]"),
     ).toHaveText("Preview: Nested Alpha will move to Recursive workspace at x 72, y 48.");
+    await expect(workspace.locator('[data-workspace-child-placement="nested-alpha"]')).toHaveCSS(
+      "z-index",
+      "1",
+    );
     await expect(canvas).toHaveScreenshot("nested-freeform-movement-preview.png", {
       animations: "disabled",
     });
