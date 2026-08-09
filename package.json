@@ -18,6 +18,7 @@
     "consumer:check": "node scripts/verify-consumer.mjs",
     "dependency:inventory": "node scripts/generate-dependency-inventory.mjs",
     "dev": "corepack pnpm build:package && corepack pnpm --filter @setta/workspace-playground dev",
+    "evidence:visual": "node scripts/capture-visual-evidence.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "knip": "knip",

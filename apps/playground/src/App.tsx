@@ -3,6 +3,7 @@ import { CanvasShellPage } from "./CanvasShellPage.js";
 import { DefaultPlaygroundPage } from "./DefaultPlaygroundPage.js";
 import { NestedFreeformRepresentationProofPage } from "./NestedFreeformRepresentationProofPage.js";
 import { StateContractPage } from "./StateContractPage.js";
+import { VisualMatrixPage } from "./VisualMatrixPage.js";
 
 export function App() {
   const search = new URLSearchParams(window.location.search);
@@ -17,6 +18,9 @@ export function App() {
   }
   if (search.has("canvas-shell")) {
     return <CanvasShellPage />;
+  }
+  if (search.has("visual-matrix")) {
+    return <VisualMatrixPage />;
   }
 
   return (

@@ -2,7 +2,10 @@
 
 ## Decision
 
-Status: **proposed** (2026-08-09).
+Status: **in progress** (Phase 0 started 2026-08-09). The before-screenshot evidence set and the
+public-API-only visual-matrix route are complete; see
+[docs/evidence/setta-ui-before-screenshots.md](../evidence/setta-ui-before-screenshots.md). The
+interaction profiler, visual reference matrix, and token/state ratification remain open.
 
 Make the Setta visual language the opinionated default for `@setta/workspace`, redesign the
 backend-free playground around the canvas, and remove the measurable structural-drag startup hitch.
