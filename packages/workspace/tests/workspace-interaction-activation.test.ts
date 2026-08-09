@@ -5,10 +5,13 @@ import {
   itemTreeActivationEnabled,
   rootLayoutInteractionActive,
   sectionStructureActivationAllowed,
+  sectionStructureInteractionActive,
+  viewportInteractionEnabled,
   WorkspaceInteractionActivationStore,
 } from "../src/internal/workspace-interaction-activation.js";
 
 const ACTIVE_SECTION_SNAPSHOT = {
+  activeInput: "pointer",
   activeItemTreeId: null,
   activeSectionId: "note",
   activeSectionMode: "sort",
@@ -82,5 +85,40 @@ describe("workspace interaction activation store", () => {
         phase: "active",
       }),
     ).toBe(true);
+
+    expect(sectionStructureInteractionActive(IDLE_INTERACTION_ACTIVATION)).toBe(false);
+    expect(sectionStructureInteractionActive(ACTIVE_SECTION_SNAPSHOT)).toBe(true);
+
+    expect(viewportInteractionEnabled(IDLE_INTERACTION_ACTIVATION)).toBe(true);
+    expect(viewportInteractionEnabled(ACTIVE_SECTION_SNAPSHOT)).toBe(false);
+    expect(
+      viewportInteractionEnabled({
+        ...IDLE_INTERACTION_ACTIVATION,
+        owner: "viewport",
+        phase: "active",
+      }),
+    ).toBe(true);
+  });
+
+  it("announces on its own channel without publishing staged ownership", () => {
+    const store = new WorkspaceInteractionActivationStore();
+    let notifications = 0;
+    store.subscribe(() => {
+      notifications += 1;
+    });
+
+    store.stage(ACTIVE_SECTION_SNAPSHOT);
+    store.announce("Note sorting started.");
+
+    expect(store.getAnnouncement()).toBe("Note sorting started.");
+    expect(store.getSnapshot()).toBe(IDLE_INTERACTION_ACTIVATION);
+    expect(store.getGatingSnapshot()).toBe(ACTIVE_SECTION_SNAPSHOT);
+    expect(notifications).toBe(1);
+
+    store.publishStaged();
+
+    expect(store.getSnapshot()).toBe(ACTIVE_SECTION_SNAPSHOT);
+    expect(store.getAnnouncement()).toBe("Note sorting started.");
+    expect(notifications).toBe(2);
   });
 });

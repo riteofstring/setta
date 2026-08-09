@@ -8,6 +8,10 @@ import {
   type WorkspaceCanvasController,
 } from "./workspace-canvas-navigation.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
+import {
+  viewportInteractionEnabled,
+  type WorkspaceInteractionActivationStore,
+} from "./workspace-interaction-activation.js";
 import type { WorkspaceExternalDropCandidate } from "./workspace-react-contract.js";
 import { WorkspaceViewportLifecycle } from "./workspace-viewport-lifecycle.js";
 import { workspaceViewportsMatch } from "./workspace-viewport-synchronizer.js";
@@ -73,20 +77,20 @@ function synchronizeUnattributedViewportEnd(
 }
 
 export function useWorkspaceCanvasViewport({
+  activation,
   canonicalViewport,
   geometry,
   gestureOptions,
-  interactionEnabled,
   onCanvasControllerChange,
   onDetach,
   onViewportCommit,
   resolveInsertionCandidate,
   revealSection,
 }: Readonly<{
+  activation: WorkspaceInteractionActivationStore;
   canonicalViewport: WorkspaceViewport;
   geometry: WorkspaceGeometryMeasurements;
   gestureOptions: WorkspaceGestureOptions;
-  interactionEnabled: boolean;
   onCanvasControllerChange(controller: WorkspaceCanvasController | null): void;
   onDetach(): void;
   onViewportCommit(viewport: WorkspaceViewport): void;
@@ -152,9 +156,12 @@ export function useWorkspaceCanvasViewport({
     },
     [geometry, lifecycle, onDetach],
   );
+  // Ownership gating reads the published activation snapshot at event time,
+  // matching the presentation broadcast the previous render-committed boolean
+  // followed, so a gesture start does not have to rerender this hook's owner.
   const handleMoveStart = useCallback(
     (event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
-      if (!mountedRef.current || (event && !interactionEnabled)) {
+      if (!mountedRef.current || (event && !viewportInteractionEnabled(activation.getSnapshot()))) {
         return;
       }
       if (event) {
@@ -170,11 +177,11 @@ export function useWorkspaceCanvasViewport({
         "begin",
       );
     },
-    [geometry, interactionEnabled, lifecycle, supersedeProgrammaticViewport],
+    [activation, geometry, lifecycle, supersedeProgrammaticViewport],
   );
   const handleMove = useCallback(
     (event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
-      if (!mountedRef.current || (event && !interactionEnabled)) {
+      if (!mountedRef.current || (event && !viewportInteractionEnabled(activation.getSnapshot()))) {
         return;
       }
       const nextViewport = viewportFromUpstream(viewport);
@@ -187,11 +194,11 @@ export function useWorkspaceCanvasViewport({
         "update",
       );
     },
-    [geometry, interactionEnabled, lifecycle],
+    [activation, geometry, lifecycle],
   );
   const handleMoveEnd = useCallback(
     (event: MouseEvent | TouchEvent | null, viewport: Viewport) => {
-      if (!mountedRef.current || (event && !interactionEnabled)) {
+      if (!mountedRef.current || (event && !viewportInteractionEnabled(activation.getSnapshot()))) {
         return;
       }
       const nextViewport = viewportFromUpstream(viewport);
@@ -212,7 +219,7 @@ export function useWorkspaceCanvasViewport({
       }
       completeViewportGesture(geometry, lifecycle, nextViewport, onViewportCommit);
     },
-    [geometry, interactionEnabled, lifecycle, onViewportCommit],
+    [activation, geometry, lifecycle, onViewportCommit],
   );
 
   return {

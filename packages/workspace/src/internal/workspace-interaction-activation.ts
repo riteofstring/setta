@@ -1,4 +1,4 @@
-import type { InteractionOwner } from "./interaction-owner.js";
+import type { InteractionInput, InteractionOwner } from "./interaction-owner.js";
 import type { WorkspaceSectionMoveMode } from "./section-move-planning.js";
 
 /**
@@ -10,6 +10,7 @@ import type { WorkspaceSectionMoveMode } from "./section-move-planning.js";
  * store mirrors them synchronously inside the same input dispatch.
  */
 export type WorkspaceInteractionActivationSnapshot = Readonly<{
+  activeInput: InteractionInput | null;
   activeItemTreeId: string | null;
   activeSectionId: string | null;
   activeSectionMode: WorkspaceSectionMoveMode | null;
@@ -18,6 +19,7 @@ export type WorkspaceInteractionActivationSnapshot = Readonly<{
 }>;
 
 export const IDLE_INTERACTION_ACTIVATION: WorkspaceInteractionActivationSnapshot = {
+  activeInput: null,
   activeItemTreeId: null,
   activeSectionId: null,
   activeSectionMode: null,
@@ -27,6 +29,7 @@ export const IDLE_INTERACTION_ACTIVATION: WorkspaceInteractionActivationSnapshot
 
 export class WorkspaceInteractionActivationStore {
   readonly #listeners = new Set<() => void>();
+  #announcement = "";
   #gating = IDLE_INTERACTION_ACTIVATION;
   #snapshot = IDLE_INTERACTION_ACTIVATION;
 
@@ -38,6 +41,10 @@ export class WorkspaceInteractionActivationStore {
    * published snapshot by one presentation frame during a gesture start.
    */
   getGatingSnapshot = (): WorkspaceInteractionActivationSnapshot => this.#gating;
+
+  /** Structural-movement live-region text; its own channel so an announce
+   * never publishes a staged ownership transition early. */
+  getAnnouncement = (): string => this.#announcement;
 
   subscribe = (listener: () => void): (() => void) => {
     this.#listeners.add(listener);
@@ -59,6 +66,15 @@ export class WorkspaceInteractionActivationStore {
   publish(snapshot: WorkspaceInteractionActivationSnapshot): void {
     this.#gating = snapshot;
     this.#snapshot = snapshot;
+    this.#notify();
+  }
+
+  announce(announcement: string): void {
+    this.#announcement = announcement;
+    this.#notify();
+  }
+
+  #notify(): void {
     for (const listener of this.#listeners) {
       listener();
     }
@@ -85,4 +101,16 @@ export function rootLayoutInteractionActive(
   snapshot: WorkspaceInteractionActivationSnapshot,
 ): boolean {
   return snapshot.owner === "root-layout";
+}
+
+export function sectionStructureInteractionActive(
+  snapshot: WorkspaceInteractionActivationSnapshot,
+): boolean {
+  return snapshot.owner === "section-structure";
+}
+
+export function viewportInteractionEnabled(
+  snapshot: WorkspaceInteractionActivationSnapshot,
+): boolean {
+  return snapshot.phase === "idle" || snapshot.owner === "viewport";
 }

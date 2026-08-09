@@ -9,6 +9,7 @@ import {
 import { useCallback, useRef, useSyncExternalStore, type ReactNode } from "react";
 
 import type { WorkspaceRootNode } from "./workspace-canvas-root-node.js";
+import type { WorkspaceInteractionActivationStore } from "./workspace-interaction-activation.js";
 import {
   WORKSPACE_NO_PAN_CLASS_NAME,
   WORKSPACE_NO_WHEEL_CLASS_NAME,
@@ -88,6 +89,32 @@ function WorkspaceSelectionAnnouncement({
   );
 }
 
+/**
+ * Structural-movement announcements publish through the interaction
+ * activation store (deferred to the broadcast frame on starts, synchronous on
+ * finishes), so this live region subscribes on its own and an ownership
+ * transition rerenders only this div.
+ */
+function WorkspaceStructureMovementAnnouncement({
+  interactionActivation,
+}: Readonly<{ interactionActivation: WorkspaceInteractionActivationStore }>) {
+  const announcement = useSyncExternalStore(
+    interactionActivation.subscribe,
+    interactionActivation.getAnnouncement,
+    interactionActivation.getAnnouncement,
+  );
+  return (
+    <div
+      aria-atomic="true"
+      aria-live="polite"
+      className="setta-workspace__visually-hidden"
+      data-workspace-structure-movement-announcement=""
+    >
+      {announcement}
+    </div>
+  );
+}
+
 export function WorkspaceCanvasAnnouncements({
   clipboard,
   creation,
@@ -96,12 +123,12 @@ export function WorkspaceCanvasAnnouncements({
   containerPositioning,
   externalDrop,
   history,
+  interactionActivation,
   movement,
   selectionStore,
   selectionAction,
   sectionState,
   sizing,
-  structureMovement,
 }: Readonly<{
   clipboard: string;
   creation: string;
@@ -110,12 +137,12 @@ export function WorkspaceCanvasAnnouncements({
   containerPositioning: string;
   externalDrop: string;
   history: string;
+  interactionActivation: WorkspaceInteractionActivationStore;
   movement: string;
   selectionStore: WorkspaceSelectionStore;
   selectionAction: string;
   sectionState: string;
   sizing: string;
-  structureMovement: string;
 }>) {
   return (
     <>
@@ -208,14 +235,7 @@ export function WorkspaceCanvasAnnouncements({
       >
         {selectionAction}
       </div>
-      <div
-        aria-atomic="true"
-        aria-live="polite"
-        className="setta-workspace__visually-hidden"
-        data-workspace-structure-movement-announcement=""
-      >
-        {structureMovement}
-      </div>
+      <WorkspaceStructureMovementAnnouncement interactionActivation={interactionActivation} />
     </>
   );
 }

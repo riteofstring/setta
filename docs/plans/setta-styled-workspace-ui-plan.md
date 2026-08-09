@@ -45,13 +45,24 @@ subscriptions; commits still publish synchronously in the dispatch, and node-lev
 selected/draggable state reapplies through one identity-preserving node update (upstream reads
 `node.selected` for block drags — do not remove it again). Development structural spans fell to
 22–33.6 ms with no ≥50 ms long tasks anywhere; production is clean except one cold structural
-0.5× cell (33.3 ms). Phase 1 remains open: development structural/freeform passes still show one
-repeatable 33–43 ms activation gap, now owned by the residual dnd-kit start work plus the deferred
-ownership broadcast, whose adapter-wide React commit (canvas data attributes, gesture policy)
-skips the first frame in development. The next change should narrow that broadcast the same
-store-driven way without changing the committed state sequence. Evidence:
+0.5× cell (33.3 ms).
+
+The ownership-broadcast store distribution landed next (2026-08-10): the interaction owner hook
+now holds no React state, so a gesture start commits no adapter render at all. The extracted
+`WorkspaceCanvasFlow` is the only broadcast subscriber that rerenders (pan/zoom gesture props);
+the gesture-scoped canvas data attributes update imperatively from the store; the structural live
+region and selection overlay subscribe individually; viewport handlers read the published
+activation snapshot at event time; and `nodesDraggable` is static because every node's explicit
+boolean `draggable` made the per-gesture flips inert while fanning a prop change into every
+upstream NodeWrapper. Production now clears its side of the Phase 1 exit gate: zero >32 ms
+activation gaps and no long tasks in all 27 cells. Phase 1 remains open on development only —
+one ~33 ms gap (a single skipped frame) persists in 10 of 27 cells because the pointer-down
+dispatch itself still spans 24–33.5 ms there, owned by dnd-kit's start flush (scroller
+`elementFromPoint`, Feedback measurement, overlay flush) plus session build. The next
+owner-preserving change must shrink or split that in-dispatch span without replacing dnd-kit's
+lifecycle plugins or changing gating semantics; the broadcast side is done. Evidence:
 [perf/phase-1-structural-drag-activation.md](../../perf/phase-1-structural-drag-activation.md)
-(`phase-1-selection-store`, 13:07/13:09 runs).
+(`phase-1-ownership-store`, 13:45 runs).
 
 Make the Setta visual language the opinionated default for `@setta/workspace`, redesign the
 backend-free playground around the canvas, and remove the measurable structural-drag startup hitch.

@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   IDLE_INTERACTION_OWNERSHIP,
-  resolveInteractionActivationPolicy,
   transitionInteractionOwnership,
   type InteractionInput,
   type InteractionOwner,
@@ -68,16 +67,16 @@ export function useWorkspaceInteractionOwner({
   sectionMode: WorkspaceSectionMoveMode;
   structureEnabled: boolean;
 }>) {
-  const [announcementText, setAnnouncementText] = useState("");
-  const [state, setState] = useState<WorkspaceInteractionCoordinatorState>(IDLE_COORDINATOR_STATE);
   const [activationStore] = useState(() => new WorkspaceInteractionActivationStore());
-  const stateRef = useRef(state);
-  stateRef.current = state;
-  // Mirror ownership into the activation store: staged synchronously inside
-  // the input dispatch for imperative gating, published to React subscribers
-  // with the presentation broadcast.
+  const stateRef = useRef(IDLE_COORDINATOR_STATE);
+  // The coordinator holds no React state: gating reads stateRef and the
+  // activation store synchronously inside the input dispatch, and every
+  // presentation consumer (canvas attributes, gesture policy, overlays, the
+  // structural live region) subscribes narrowly to the store. A gesture start
+  // therefore never commits a broad adapter render.
   const activationSnapshot = useCallback(
     (next: WorkspaceInteractionCoordinatorState) => ({
+      activeInput: next.structuralSession?.input ?? null,
       activeItemTreeId: next.itemTreeId,
       activeSectionId: next.structuralSession?.sectionId ?? null,
       activeSectionMode: next.structuralSession?.mode ?? null,
@@ -98,12 +97,11 @@ export function useWorkspaceInteractionOwner({
     },
     [activationSnapshot, activationStore],
   );
-  // Gating always reads stateRef and the activation store synchronously; the
-  // React state below only drives presentation (canvas attributes, overlays,
-  // announcements). Start broadcasts defer that presentation commit to the
-  // next canvas frame so gesture activation is not billed for a broad render,
-  // while finish/mode transitions first flush any pending broadcast to keep
-  // the committed React state sequence identical to the ownership sequence.
+  // Start broadcasts stage the store synchronously for imperative gating and
+  // defer the subscriber publication to the next canvas frame so activation is
+  // not billed for presentation work, while finish/mode transitions first
+  // flush any pending broadcast to keep the published state sequence
+  // identical to the ownership sequence.
   const pendingBroadcastRef = useRef<(() => void) | null>(null);
   const flushPendingBroadcast = useCallback(() => {
     const pending = pendingBroadcastRef.current;
@@ -166,7 +164,6 @@ export function useWorkspaceInteractionOwner({
       stageActivation(next);
       deferBroadcast(() => {
         activationStore.publishStaged();
-        setState(next);
       });
       return true;
     },
@@ -208,8 +205,7 @@ export function useWorkspaceInteractionOwner({
       stageActivation(next);
       deferBroadcast(() => {
         activationStore.publishStaged();
-        setAnnouncementText(structuralStartAnnouncement(start));
-        setState(next);
+        activationStore.announce(structuralStartAnnouncement(start));
       });
     },
     [activationStore, deferBroadcast, layoutEnabled, stageActivation, structureEnabled],
@@ -240,7 +236,6 @@ export function useWorkspaceInteractionOwner({
       stageActivation(next);
       deferBroadcast(() => {
         activationStore.publishStaged();
-        setState(next);
       });
       return true;
     },
@@ -266,13 +261,12 @@ export function useWorkspaceInteractionOwner({
       stateRef.current = next;
       publishActivation(next);
       if (current.structuralSession) {
-        setAnnouncementText(
+        activationStore.announce(
           announcement ?? structuralEndAnnouncement(current.structuralSession, type === "cancel"),
         );
       }
-      setState(next);
     },
-    [flushPendingBroadcast, publishActivation],
+    [activationStore, flushPendingBroadcast, publishActivation],
   );
   const cancel = useCallback(() => finish("cancel"), [finish]);
   const finishOwned = useCallback(
@@ -321,7 +315,6 @@ export function useWorkspaceInteractionOwner({
       stageActivation(next);
       deferBroadcast(() => {
         activationStore.publishStaged();
-        setState(next);
       });
       return true;
     },
@@ -345,30 +338,22 @@ export function useWorkspaceInteractionOwner({
     },
     [finish],
   );
-  const announceSectionStructure = useCallback((announcement: string) => {
-    setAnnouncementText(announcement);
-  }, []);
-  const activationPolicy = useMemo(
-    () => resolveInteractionActivationPolicy(state.ownership, sectionMode),
-    [sectionMode, state.ownership],
+  const announceSectionStructure = useCallback(
+    (announcement: string) => {
+      activationStore.announce(announcement);
+    },
+    [activationStore],
   );
 
   return {
-    activationPolicy,
     activationStore,
-    activeItemTreeId: state.itemTreeId,
-    activeInput: state.structuralSession?.input ?? null,
-    activeSectionId: state.structuralSession?.sectionId ?? null,
-    activeSectionMode: state.structuralSession?.mode ?? null,
     announceSectionStructure,
-    announcementText,
     cancel,
     cancelSectionStructure,
     complete,
     completeRootLayout,
     completeViewport,
     finishItemTree,
-    ownership: state.ownership,
     startRootLayout,
     startItemTree,
     startSectionStructure,

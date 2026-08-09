@@ -16,6 +16,10 @@ import type {
   WorkspaceRect,
 } from "./geometry-index.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
+import {
+  sectionStructureInteractionActive,
+  type WorkspaceInteractionActivationStore,
+} from "./workspace-interaction-activation.js";
 import type { WorkspaceSelectionStore } from "./workspace-selection-store.js";
 
 type MarqueeSession = Readonly<{
@@ -49,12 +53,12 @@ function measuredSelectionRoots(
 }
 
 export function WorkspaceSelectionOverlay({
+  activation,
   geometryIndex,
-  hidden,
   selectionStore,
 }: Readonly<{
+  activation: WorkspaceInteractionActivationStore;
   geometryIndex: WorkspaceGeometryIndex;
-  hidden: boolean;
   selectionStore: WorkspaceSelectionStore;
 }>) {
   useGeometryRevision(geometryIndex);
@@ -66,6 +70,17 @@ export function WorkspaceSelectionOverlay({
     selectionStore.subscribe,
     selectionSnapshot,
     selectionSnapshot,
+  );
+  // Structural drags hide the overlay through the activation store so the
+  // ownership broadcast rerenders only this component, not the adapter.
+  const structuralMoveSnapshot = useCallback(
+    () => sectionStructureInteractionActive(activation.getSnapshot()),
+    [activation],
+  );
+  const hidden = useSyncExternalStore(
+    activation.subscribe,
+    structuralMoveSnapshot,
+    structuralMoveSnapshot,
   );
   if (hidden) {
     return null;

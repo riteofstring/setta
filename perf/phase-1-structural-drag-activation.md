@@ -203,3 +203,57 @@ gone; and (b) the deferred ownership broadcast still commits an adapter-wide Rea
 which in development costs enough to skip that frame. The next owner-preserving change is to narrow
 the ownership broadcast the same way (store-driven canvas attributes and gesture flags) without
 changing the committed state sequence.
+
+## Ownership-broadcast store distribution — landed 2026-08-10
+
+This change removes owner (b) above: the deferred ownership broadcast no longer commits any
+adapter render. `useWorkspaceInteractionOwner` now holds no React state — ownership decisions stay
+in the hook's synchronous ref/stage sequence, and every presentation consumer subscribes narrowly
+to `WorkspaceInteractionActivationStore`:
+
+- The extracted `WorkspaceCanvasFlow` (workspace-canvas-flow.tsx) is the only component that
+  rerenders on a broadcast. It derives the viewport gesture flag (`viewportInteractionEnabled`)
+  through `useSyncExternalStore` and reconciles just the upstream pan/zoom props.
+- The gesture-scoped canvas data attributes (`data-workspace-interaction-owner`,
+  `-section-move-input`, `-structural-move-mode`) render once as idle literals and update
+  imperatively from a store subscription, so the profiler's attribute-mutation activation signal
+  is unchanged.
+- The structural live region and the selection overlay subscribe individually (a new announcement
+  channel on the activation store replaces the hook's announcement state; starts still announce in
+  the deferred broadcast frame, finishes synchronously).
+- Viewport pan/move/end handlers read `viewportInteractionEnabled` from the published snapshot at
+  event time instead of a render-committed policy boolean — the same values at the same
+  transitions, without requiring a rerender to update a closure.
+- `nodesDraggable` is now static (`layoutEditable`). Every workspace node carries an explicit
+  boolean `draggable` (creation and `applyRootSelectionState` maintain it) which upstream gives
+  precedence, and free-move handles opt out via `noDragClassName`, so the previous per-gesture
+  flips were behaviorally inert — but each flip fanned a prop change into every upstream
+  `NodeWrapper`, which was a large slice of the development broadcast cost.
+
+`phase-1-ownership-store` (13:45 development, then production) records the result against
+`phase-1-selection-store`:
+
+| Build       | Metric                             | selection-store            | ownership-store            |
+| ----------- | ---------------------------------- | -------------------------- | -------------------------- |
+| development | structural-sort activation max gap | 33.4–41.8 ms (8/9 > 32)    | 24–42.1 ms (4/9 > 32)      |
+| development | nested-freeform activation max gap | 33.4–43.1 ms (9/9 > 32)    | 25–34.2 ms (6/9 > 32)      |
+| development | root-drag activation max gap       | 10.1–33.3 ms (1 cold > 32) | 16.6–33.3 ms (1 cold > 32) |
+| development | long tasks ≥50 ms                  | none                       | none                       |
+| production  | structural-sort activation max gap | 16.7–33.3 ms (1 cold > 32) | 10.2–26.2 ms (0 > 32)      |
+| production  | nested-freeform activation max gap | 9.8–25.6 ms (0 > 32)       | 9.4–26.5 ms (0 > 32)       |
+| production  | root-drag activation max gap       | 8.4–24.8 ms (0 > 32)       | 8.5–16.7 ms (0 > 32)       |
+
+Production now has zero >32 ms activation gaps and no long tasks in all 27 cells — the production
+side of the Phase 1 exit gate is clear. Development improved (worst freeform gap fell from
+43.1 ms to 34.2 ms, and most structural cells at 1×/2× are now under 32 ms) but still shows one
+~33 ms gap (one skipped frame) in 10 of 27 cells. With the broadcast render gone, the timeline
+places the whole remaining cost inside the pointer-down dispatch itself: dnd-kit's start flush
+(scroller `elementFromPoint`, Feedback measurement, overlay flush) plus session build produce
+24–33.5 ms development handler spans, which skip the next frame whenever the dispatch lands
+mid-frame. Phase 1 remains open; the next owner must shrink or split that in-dispatch span without
+replacing dnd-kit's lifecycle plugins or changing gating semantics.
+
+Gates for this change: `pnpm quality` (typecheck, lint, format, boundaries, packed artifact, API
+report), the package vitest suite (536), the recursive-rendering browser workflow (structural,
+root, and touch ownership, announcements, rejection — 8/8), and the playground viewport-gesture
+workflows (“coalesces viewport gestures”, “complete runtime gesture matrix” — 2/2).
