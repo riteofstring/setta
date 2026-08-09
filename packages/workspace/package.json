@@ -1,0 +1,48 @@
+{
+  "name": "@setta/workspace",
+  "version": "0.0.0",
+  "description": "A nested spatial workbench for React.",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist",
+    "docs",
+    "README.md",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "sideEffects": [
+    "./dist/styles.css"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "peerDependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-package.mjs"
+  },
+  "dependencies": {
+    "@dnd-kit/dom": "0.5.0",
+    "@dnd-kit/geometry": "0.5.0",
+    "@dnd-kit/react": "0.5.0",
+    "@xyflow/react": "12.11.2"
+  }
+}
