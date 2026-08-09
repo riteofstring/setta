@@ -1,11 +1,15 @@
-import { applySortableItemListMove, type SortableItemListMovePlan } from "@setta/workspace/core";
+import {
+  applySortableItemListMove,
+  deriveSortableItemParentLookup,
+  type SortableItemListMovePlan,
+} from "@setta/workspace/core";
 import {
   SortableItemLists,
   WorkspaceInteractionBoundary,
   type SectionDefinition,
   type SectionRenderProps,
 } from "@setta/workspace/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type {
   PlaygroundFieldItem,
@@ -92,6 +96,33 @@ function FieldListItem({
   );
 }
 
+function filteredFieldItemIds(
+  fieldList: PlaygroundFieldListData,
+  query: string,
+): readonly string[] | undefined {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (normalizedQuery.length === 0) return undefined;
+  const visible = new Set(
+    Object.entries(fieldList.items)
+      .filter(([, item]) => item.label.toLocaleLowerCase().includes(normalizedQuery))
+      .map(([itemId]) => itemId),
+  );
+  for (const list of fieldList.lists) {
+    const parents = deriveSortableItemParentLookup(list.tree);
+    for (const itemId of list.tree.itemIds) {
+      if (!visible.has(itemId)) continue;
+      let parentId = parents.get(itemId);
+      while (parentId !== undefined && parentId !== list.tree.rootId) {
+        visible.add(parentId);
+        parentId = parents.get(parentId);
+      }
+    }
+  }
+  return Object.freeze(
+    fieldList.lists.flatMap((list) => list.tree.itemIds.filter((itemId) => visible.has(itemId))),
+  );
+}
+
 function SampleFieldListSection({
   data,
   onDataChange,
@@ -107,15 +138,27 @@ function SampleFieldListSection({
   const [selectedItemIds, setSelectedItemIds] = useState<readonly string[]>(
     () => selectionStore.get(sectionId) ?? [],
   );
+  const [filterQuery, setFilterQuery] = useState("");
+  const visibleItemIds = useMemo(
+    () => filteredFieldItemIds(fieldList, filterQuery),
+    [fieldList, filterQuery],
+  );
+  const totalItemCount = fieldList.lists.reduce(
+    (total, list) => total + list.tree.itemIds.length,
+    0,
+  );
+  const visibleItemCount = visibleItemIds?.length ?? totalItemCount;
   useEffect(() => {
-    const existingIds = new Set(fieldList.lists.flatMap((list) => list.tree.itemIds));
+    const selectableIds = new Set(
+      visibleItemIds ?? fieldList.lists.flatMap((list) => list.tree.itemIds),
+    );
     setSelectedItemIds((current) => {
-      const next = current.filter((itemId) => existingIds.has(itemId));
+      const next = current.filter((itemId) => selectableIds.has(itemId));
       if (next.length === current.length) return current;
       selectionStore.set(sectionId, next);
       return next;
     });
-  }, [fieldList.lists, sectionId, selectionStore]);
+  }, [fieldList.lists, sectionId, selectionStore, visibleItemIds]);
   const itemLabel = (itemId: string) => fieldList.items[itemId]?.label ?? itemId;
   const handleValueChange = (itemId: string, value: string) => {
     const item = fieldList.items[itemId];
@@ -148,34 +191,64 @@ function SampleFieldListSection({
     selectionStore.set(sectionId, itemIds);
     setSelectedItemIds(itemIds);
   };
+  const filterId = `sample-field-filter-${sectionId}`;
   return (
-    <SortableItemLists
-      ariaLabel="Profile field lists"
-      canContainChildren={(itemId) => fieldList.items[itemId]?.type === "group"}
-      canMove={(plan) =>
-        !(plan.destinationParentId === "preferences" && plan.itemIds.includes("notes"))
-      }
-      disabled={readOnly}
-      getItemLabel={itemLabel}
-      lists={fieldList.lists}
-      onMove={handleMove}
-      onSelectedItemIdsChange={handleSelectionChange}
-      renderItem={(itemId) => {
-        const item = fieldList.items[itemId];
-        if (!item) {
-          throw new TypeError(`Field-list item ${JSON.stringify(itemId)} has no renderer data.`);
-        }
-        return (
-          <FieldListItem
-            item={item}
-            itemId={itemId}
-            onValueChange={handleValueChange}
-            readOnly={readOnly}
+    <>
+      <div className="sample-field-filter">
+        <label htmlFor={filterId}>Filter fields</label>
+        <div className="sample-field-filter__controls">
+          <input
+            id={filterId}
+            onChange={(event) => setFilterQuery(event.currentTarget.value)}
+            placeholder="Name or email"
+            type="search"
+            value={filterQuery}
           />
-        );
-      }}
-      selectedItemIds={selectedItemIds}
-    />
+          <button
+            disabled={filterQuery.length === 0}
+            onClick={() => setFilterQuery("")}
+            type="button"
+          >
+            Clear filter
+          </button>
+        </div>
+        <output aria-live="polite" htmlFor={filterId}>
+          {visibleItemCount === 0 && filterQuery.trim().length > 0
+            ? `No fields match “${filterQuery.trim()}”. Clear the filter to show all fields.`
+            : `Showing ${String(visibleItemCount)} of ${String(totalItemCount)} fields.`}
+        </output>
+      </div>
+      <SortableItemLists
+        ariaLabel="Profile field lists"
+        canContainChildren={(itemId) => fieldList.items[itemId]?.type === "group"}
+        canMove={(plan) =>
+          !(plan.destinationParentId === "preferences" && plan.itemIds.includes("notes"))
+        }
+        disabled={readOnly}
+        getItemLabel={itemLabel}
+        lists={fieldList.lists}
+        onMove={handleMove}
+        onSelectedItemIdsChange={handleSelectionChange}
+        renderItem={(itemId) => {
+          const item = fieldList.items[itemId];
+          if (!item) {
+            throw new TypeError(`Field-list item ${JSON.stringify(itemId)} has no renderer data.`);
+          }
+          return (
+            <FieldListItem
+              item={item}
+              itemId={itemId}
+              onValueChange={handleValueChange}
+              readOnly={readOnly}
+            />
+          );
+        }}
+        selectedItemIds={selectedItemIds.filter(
+          (itemId) => visibleItemIds === undefined || visibleItemIds.includes(itemId),
+        )}
+        {...(visibleItemIds ? { visibleItemIds } : {})}
+      />
+    </>
   );
 }
 

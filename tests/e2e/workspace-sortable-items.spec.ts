@@ -350,6 +350,88 @@ test("an accepted cross-list move survives JSON import and local reload", async 
   await expect.poll(() => namedListOrder(tree, "optional-fields")).toEqual(["notes", "email"]);
 });
 
+test("filtered keyboard reorder reconciles one visible move to the canonical tree", async ({
+  page,
+}) => {
+  await page.setViewportSize({ height: 1_000, width: 1_440 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  const fieldSection = await resetFieldListExample(page);
+  await hideDataAndFit(page);
+  const filter = fieldSection.getByRole("searchbox", { name: "Filter fields" });
+  const tree = fieldSection.getByRole("group", { name: "Profile field lists" });
+  await filter.fill("zzzz");
+  await expect(fieldSection.getByText("No fields match “zzzz”.")).toBeVisible();
+  await expect(tree).toHaveAttribute("data-sortable-item-visible-count", "0");
+  await expect(tree.getByText("No matching items in Required fields")).toBeVisible();
+  await expect(tree.getByText("No matching items in Optional fields")).toBeVisible();
+
+  await filter.fill("a");
+  await expect(fieldSection.getByText("Showing 2 of 5 fields.")).toBeVisible();
+
+  await expect(tree).toHaveAttribute("data-sortable-item-filtered", "");
+  await expect(tree).toHaveAttribute("data-sortable-item-canonical-count", "5");
+  await expect(tree).toHaveAttribute("data-sortable-item-visible-count", "2");
+  await expect.poll(() => namedListOrder(tree, "required-fields")).toEqual(["name", "email"]);
+  await expect.poll(() => namedListOrder(tree, "optional-fields")).toEqual([]);
+  await expect(tree.locator('[data-sortable-item-id="preferences"]')).toHaveCount(0);
+  await expect(tree.locator('[data-sortable-item-id="theme"]')).toHaveCount(0);
+  await expect(tree.locator('[data-sortable-item-id="notes"]')).toHaveCount(0);
+  await expect(tree.getByText("No matching items in Optional fields")).toBeVisible();
+
+  const nameHandle = tree.getByRole("button", { name: "Move Name" });
+  await nameHandle.focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    tree
+      .getByRole("region", { name: "Required fields" })
+      .locator('[data-sortable-item-placeholder][data-sortable-item-destination-index="1"]'),
+  ).toBeVisible();
+  await expect(tree.getByRole("status")).toHaveText(
+    "Preview: Name will move to the Required fields list, visible position 2.",
+  );
+  await expect(fieldSection).toHaveScreenshot("sortable-item-filtered-preview.png");
+  await page.keyboard.press("Enter");
+
+  await expect(nameHandle).toBeFocused();
+  await expect.poll(() => namedListOrder(tree, "required-fields")).toEqual(["email", "name"]);
+  await expect(tree.getByRole("status")).toHaveText(
+    "Name moved to the Required fields list, visible position 2.",
+  );
+  await fieldSection.getByRole("button", { name: "Clear filter" }).click();
+  await expect(tree).not.toHaveAttribute("data-sortable-item-filtered");
+  await expect(fieldSection.getByText("Showing 5 of 5 fields.")).toBeVisible();
+  await expect
+    .poll(() => namedListOrder(tree, "required-fields"))
+    .toEqual(["email", "name", "preferences"]);
+  await expect.poll(() => itemTreeOrder(tree, "preferences")).toEqual(["theme"]);
+  await expect
+    .poll(() =>
+      page.evaluate((key) => {
+        const stored = localStorage.getItem(key);
+        if (!stored) return null;
+        const document = JSON.parse(stored) as {
+          sections: Record<
+            string,
+            {
+              data?: {
+                lists?: readonly { tree: { childrenByParent?: Record<string, string[]> } }[];
+              };
+            }
+          >;
+        };
+        return document.sections["example-fields"]?.data?.lists?.[0]?.tree.childrenByParent?.[
+          "required-fields-root"
+        ];
+      }, DOCUMENT_STORAGE_KEY),
+    )
+    .toEqual(["email", "name", "preferences"]);
+  const accessibility = await new AxeBuilder({ page })
+    .include('[data-workspace-section-id="example-fields"]')
+    .analyze();
+  expect(accessibility.violations).toEqual([]);
+});
+
 test("pointer block feedback stays zoom-correct and excludes outer movement owners", async ({
   page,
 }) => {

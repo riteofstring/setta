@@ -48,8 +48,10 @@ export type SortableItemSurfaceRoot = Readonly<{
 export type SortableItemRenderContextValue = Readonly<{
   blockedTargetIds: ReadonlySet<string>;
   canContain(itemId: string): boolean;
+  canonicalIndex: SortableItemTreeIndex;
   dndIds: SortableItemDndIds;
   feedback: SortableItemFeedback;
+  filtered: boolean;
   handleKeyDown(itemId: string, event: KeyboardEvent<HTMLButtonElement>): void;
   handlePointerDown(itemId: string, event: PointerEvent<HTMLButtonElement>): void;
   handleSelection(
@@ -266,10 +268,22 @@ function branchLabel(context: SortableItemRenderContextValue, parentId: string):
 
 function EmptySortableItemBranch({
   depth,
+  filtered,
   label,
   visible,
-}: Readonly<{ depth: number; label: string; visible: boolean }>) {
+}: Readonly<{ depth: number; filtered: boolean; label: string; visible: boolean }>) {
   if (!visible) return null;
+  if (filtered) {
+    return (
+      <li className="setta-workspace__sortable-item-empty">
+        {depth === 0
+          ? label === "Top-level items"
+            ? "No matching items"
+            : `No matching items in ${label}`
+          : "No matching child items"}
+      </li>
+    );
+  }
   return (
     <li className="setta-workspace__sortable-item-empty">
       {depth === 0
@@ -340,6 +354,7 @@ function SortableItemBranch({ depth, parentId }: Readonly<{ depth: number; paren
     [droppable, parentId, registerBranch],
   );
   const children = context.index.childrenByParent.get(parentId) ?? [];
+  const canonicalChildren = context.canonicalIndex.childrenByParent.get(parentId) ?? [];
   const label = branchLabel(context, parentId);
   const placeholderIndex = branchPlaceholderIndex(context, children, parentId);
   const placeholderHeight = (context.feedback.bounds?.height ?? 40) / context.feedback.zoom;
@@ -354,6 +369,7 @@ function SortableItemBranch({ depth, parentId }: Readonly<{ depth: number; paren
     >
       <EmptySortableItemBranch
         depth={depth}
+        filtered={context.filtered && canonicalChildren.length > 0}
         label={label}
         visible={children.length === 0 && placeholderIndex < 0}
       />

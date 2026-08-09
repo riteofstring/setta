@@ -1570,14 +1570,35 @@ Gate:
 ### Phase 6: Deferred capability expansion in the same package
 
 Status: **in progress** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
-optional outline-navigator, top-level auto-layout, and named item-list batches are implemented and recorded in
+optional outline-navigator, top-level auto-layout, named item-list, and filtered item-list batches are implemented and recorded in
 [Phase 6 detachable-section evidence](../evidence/phase-6-detachable-sections.md) and
 [Phase 6 clipboard evidence](../evidence/phase-6-clipboard.md), with the navigator record in
 [Phase 6 outline-navigator evidence](../evidence/phase-6-outline-navigator.md) and the layout record
 in [Phase 6 top-level auto-layout evidence](../evidence/phase-6-auto-layout.md). The named-list record
-is [Phase 6 named item-list evidence](../evidence/phase-6-named-item-lists.md). Filtered-list
-reordering against a larger canonical tree is the earliest incomplete repository-actionable Phase
-6 work.
+is [Phase 6 named item-list evidence](../evidence/phase-6-named-item-lists.md), with the filtered
+projection record in [Phase 6 filtered item-list evidence](../evidence/phase-6-filtered-item-lists.md).
+Mixed-parent batch section and item dragging is the earliest incomplete repository-actionable Phase
+6 evaluation and implementation work.
+
+- Completed (filtered canonical item-list batch): added strict ancestry-closed tree projection and
+  visible-to-canonical move reconciliation, plus optional `visibleItemIds` on both controlled React
+  item surfaces. Pointer, touch, and keyboard planning keeps one interaction owner and visible
+  feedback while host policy and persistence receive canonical plans. Hidden siblings retain
+  relative order, hidden descendants travel with visible subtree roots, and the playground and
+  unrelated packed consumer use only declared exports. The complete record is
+  `docs/evidence/phase-6-filtered-item-lists.md`.
+- Filtered item-list verification: exact Node 24.18.1, repository-local Corepack 0.35.0, and pnpm
+  11.19.0 focused coverage passed 43 framework-neutral/static React tests. Final exact Chromium
+  selectors passed the filtered empty-result/recovery/reorder workflow and 320 CSS-pixel reflow;
+  four directly affected existing workflows remained green, with all five retained
+  original-resolution baselines inspected. Changed-file quality passed for 27 project files with
+  repository/import boundaries across 301 files, all four manifests, formatting, lint and
+  complexity, file lengths, strict types, dead-code analysis, 436 unit tests across 41 files, six
+  boundary tests, plan-loop automation, package/playground builds, exact tarball contents, and the
+  declaration report. The unrelated tarball-installed consumer passed strict build and runtime
+  smoke through declared filtered-list exports. No dependency input changed, so the network-backed
+  supply-chain gate was not duplicated; the recorded unavailable in-app-browser release gate was
+  not retried.
 
 - Completed (named item-list and cross-list movement batch): added strict framework-neutral list
   validation, list-aware move planning and immutable application, plus one React interaction owner
@@ -1646,7 +1667,7 @@ Then evaluate or implement independently:
 - Completed: pure top-level auto-layout and packing commands.
 - Completed: multiple named item lists within one section.
 - Completed: same-section cross-list item movement.
-- Filtered-list reordering against a larger canonical tree.
+- Completed: filtered-list reordering against a larger canonical tree.
 - Mixed-parent batch section and item dragging if a deterministic interaction proves understandable.
 - Saved viewport presets.
 - Generic edges and ports.
@@ -1682,6 +1703,8 @@ Cover:
 - History coalescing and restoration.
 - Item-tree and named-list validation.
 - Single- and multi-item selection normalization plus same-list and cross-list move planning.
+- Ancestry-closed filtered projection, visible-anchor reconciliation, hidden-order preservation,
+  and complete hidden-subtree movement.
 - Section and item cycle and invalid-target rejection.
 - Applying a move plan without mutating the input.
 - Deterministic outputs.
@@ -1711,6 +1734,8 @@ Cover:
 - Measured top-level auto layout through a host toolbar control without changing stack order, sizes, viewport, or selection.
 - Optional outline hierarchy, disclosure, selection, direction-aware keyboard navigation, and controller-backed focus.
 - Native named item-list regions with one shared pointer, touch, keyboard, focus, and announcement owner.
+- Filtered item rows and targets with canonical host plans, visible-position feedback, stable
+  geometry, empty-result semantics, and hidden-selection rejection.
 - Section and item drag scopes.
 - Input, button, and text-selection interaction.
 - Pointer cancellation.
@@ -1746,7 +1771,8 @@ Cover the real playground:
 - Import and export.
 - Undo and redo.
 - Pan and zoom.
-- Single- and multi-item selection, same-list reorder, nesting, indent, outdent, and atomic cross-list movement.
+- Single- and multi-item selection, same-list reorder, nesting, indent, outdent, atomic cross-list
+  movement, and filtered reorder persisted against the complete canonical tree.
 - Accept and reject external drops at root and nested coordinates without invoking native file semantics inside the package.
 - Enforce read-only and granular layout/structure/presentation capabilities without a gesture starting and then snapping back.
 - Invalid self, descendant, locked-active-section, and host-rejected move feedback.
@@ -1794,7 +1820,8 @@ The initial package documentation includes:
 - Sorting-mode, free-move-mode, target-stability, and orientation guide.
 - Locking, minimizing, fixed/content sizing, grow/scroll overflow, and resizing reference.
 - Grid, snapping, appearance, per-section presentation, chrome variants, and semantic theme-token reference.
-- Single- and multi-item sortable-tree plus named-list and cross-list movement reference.
+- Single- and multi-item sortable-tree plus named-list, cross-list, and filtered canonical
+  reconciliation reference.
 - Detachable-window, adapter-driven clipboard, and optional outline-navigator integration guidance.
 - Pure rectangle-packing and measured top-level auto-layout guidance.
 - Persistence integration example.

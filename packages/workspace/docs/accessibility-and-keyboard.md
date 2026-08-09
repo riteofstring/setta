@@ -66,6 +66,12 @@ Logical backward stops at a named-list root and announces the Page Up/Page Down 
 than silently crossing a region. Inputs and buttons rendered inside an item row remain natively
 operable because the row itself is not the drag activator.
 
+When `visibleItemIds` filters a surface, the surface description identifies the filtered view and
+announcements call destination indexes “visible positions.” The surface exposes shown and
+canonical counts in its accessible description. Hosts must give their filter a native label,
+announce result-count changes politely, clear selection that becomes hidden, and provide a clear
+filter action for an empty result.
+
 ## Outline navigator commands
 
 | Focus                       | Keys                                  | Result                                                                                          |

@@ -47,8 +47,9 @@ The locally packed artifact includes focused guides for the package's permanent 
   selection, grouping, stacking, minimap, history, and external drops.
 - [Recursive sections](docs/recursive-sections.md): containment, movement modes, orientation,
   locking, minimizing, sizing, overflow, snapping, chrome, accents, and tags.
-- [Sortable item trees](docs/sortable-item-trees.md): controlled item data, named lists, selection,
-  same-list/cross-list planning, pointer/touch/keyboard movement, zoom, and persistence.
+- [Sortable item trees](docs/sortable-item-trees.md): controlled item data, named and filtered
+  lists, canonical reconciliation, selection, pointer/touch/keyboard movement, zoom, and
+  persistence.
 - [Theming](docs/theming.md): required CSS, scoped appearance, semantic tokens, grid styling, and
   host-renderer colors.
 - [Accessibility and keyboard](docs/accessibility-and-keyboard.md): complete keyboard tables,
@@ -413,6 +414,14 @@ the host explicitly stores the returned tree in a section payload.
 `applySortableItemListMove` performs the same strict revalidation for list-aware plans. A moved
 item carries its complete descendant subtree, cross-list moves update both affected trees in one
 result, and untouched list objects and tree arrays retain their identities.
+
+Pass an ancestry-closed `visibleItemIds` array to either React surface when the host renders a
+filtered view. Movement feedback uses visible positions, while `canMove` and `onMove` receive a
+plan reconciled to the complete canonical tree. Hidden items retain relative order and hidden
+descendants move with their visible subtree root. The framework-neutral
+`createFilteredSortableItemTree` and `reconcileFilteredSortableItemMove` helpers expose the same
+projection and canonical-anchor rules outside React. The host owns query input, result-count
+announcements, clearing hidden selection, and transient filter persistence.
 
 ## Section selection and movement
 

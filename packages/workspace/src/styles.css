@@ -1579,6 +1579,18 @@
   box-shadow: inset 0 0 0 2px currentColor;
 }
 
+[data-sortable-item-filtered] > .setta-workspace__sortable-item-feedback {
+  position: relative;
+  inset: auto;
+  min-block-size: 1.95rem;
+  margin-block-end: 0.625rem;
+}
+
+[data-sortable-item-filtered][data-sortable-item-interaction="idle"]
+  > .setta-workspace__sortable-item-feedback {
+  visibility: hidden;
+}
+
 .setta-workspace__sortable-item-overlay {
   display: grid;
   min-block-size: 2.75rem;

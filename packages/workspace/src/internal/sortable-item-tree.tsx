@@ -8,21 +8,15 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
-  type ReactNode,
 } from "react";
 
-import {
-  createSortableItemListsIndex,
-  sortableItemListPlanFromInternal,
-  type SortableItemListsIndex,
-} from "./sortable-item-lists.js";
+import { createSortableItemListsIndex } from "./sortable-item-lists.js";
 import { sortableItemTreesMatch } from "./sortable-item-move-application.js";
 import {
   resolveSortableItemDragBlock,
   resolveSortableItemSelectionChange,
 } from "./sortable-item-selection.js";
 import type {
-  ItemMovePlan,
   SortableItemDragBlock,
   SortableItemKeyboardCommand,
   SortableItemTree as SortableItemTreeModel,
@@ -39,8 +33,6 @@ import {
 import {
   resolveSortableItemListsProps,
   resolveSortableItemTreeProps,
-  type ResolvedSortableItemListsProps,
-  type ResolvedSortableItemTreeProps,
   type SortableItemListsProps,
   type SortableItemTreeProps,
 } from "./sortable-item-tree-react-contract.js";
@@ -64,6 +56,11 @@ import {
   type SortableItemPreviewResolution,
 } from "./sortable-item-tree-session.js";
 import {
+  createNamedListsSurfaceProps,
+  createSingleTreeSurfaceProps,
+  type ResolvedSortableItemSurfaceProps,
+} from "./sortable-item-tree-surfaces.js";
+import {
   createSortableItemTreeIndex,
   type SortableItemTreeIndex,
 } from "./sortable-item-tree-validation.js";
@@ -84,6 +81,7 @@ type ItemSession = {
   activeItemId: string;
   block: SortableItemDragBlock;
   branchRects: ReadonlyMap<string, SortableItemClientRect>;
+  canonicalTree: SortableItemTreeModel;
   direction: "ltr" | "rtl";
   input: AdapterDndInput;
   preview: SortableItemPreview | null;
@@ -100,22 +98,6 @@ type PreparedItemSession = Readonly<{
   branchRects: ReadonlyMap<string, SortableItemClientRect>;
   rowRects: ReadonlyMap<string, SortableItemClientRect>;
   sourceBounds: ItemBounds;
-}>;
-
-type ResolvedSortableItemSurfaceProps = Readonly<{
-  ariaLabel: string;
-  canContainChildren?: (itemId: string) => boolean;
-  canMove?: (plan: ItemMovePlan) => boolean;
-  destinationLabel(parentId: string): string;
-  disabled: boolean;
-  getItemLabel(itemId: string): string;
-  onMove(plan: ItemMovePlan): void;
-  onSelectedItemIdsChange(itemIds: readonly string[]): void;
-  renderItem(itemId: string): ReactNode;
-  roots: readonly SortableItemSurfaceRoot[];
-  selectedItemIds: readonly string[];
-  supportsListTransfer: boolean;
-  tree: SortableItemTreeModel;
 }>;
 
 const IDLE_FEEDBACK: ItemFeedback = {
@@ -250,7 +232,8 @@ function previewMessage(
   preview: SortableItemPreview,
   props: ResolvedSortableItemSurfaceProps,
 ): string {
-  return `Preview: ${movementLabel(session, props)} will move to ${destinationLabel(preview, props)}, position ${String(preview.destinationIndex + 1)}.`;
+  const position = props.filtered ? "visible position" : "position";
+  return `Preview: ${movementLabel(session, props)} will move to ${destinationLabel(preview, props)}, ${position} ${String(preview.destinationIndex + 1)}.`;
 }
 
 function completionMessage(
@@ -258,7 +241,8 @@ function completionMessage(
   preview: SortableItemPreview,
   props: ResolvedSortableItemSurfaceProps,
 ): string {
-  return `${movementLabel(session, props)} moved to ${destinationLabel(preview, props)}, position ${String(preview.destinationIndex + 1)}.`;
+  const position = props.filtered ? "visible position" : "position";
+  return `${movementLabel(session, props)} moved to ${destinationLabel(preview, props)}, ${position} ${String(preview.destinationIndex + 1)}.`;
 }
 
 function selectedTargetIds(
@@ -357,91 +341,68 @@ function itemMovementStartKey(key: string): boolean {
   return key === "Enter" || key === " ";
 }
 
-function singleTreeSurfaceProps(
-  resolved: ResolvedSortableItemTreeProps,
-): ResolvedSortableItemSurfaceProps {
-  return {
-    ...resolved,
-    destinationLabel: (parentId) =>
-      parentId === resolved.tree.rootId ? "the top level" : resolved.getItemLabel(parentId),
-    roots: [{ label: "Top-level items", listId: null, parentId: resolved.tree.rootId }],
-    supportsListTransfer: false,
-  };
+function enabledDataAttribute(enabled: boolean): "" | undefined {
+  return enabled ? "" : undefined;
 }
 
-function itemListId(index: SortableItemListsIndex, itemId: string): string {
-  const listId = index.itemListIdByItem.get(itemId);
-  if (!listId) {
-    throw new TypeError(`Sortable item ${JSON.stringify(itemId)} is not in a named list.`);
-  }
-  return listId;
-}
-
-function namedListsSurfaceProps(
-  index: SortableItemListsIndex,
-  resolved: ResolvedSortableItemListsProps,
-): ResolvedSortableItemSurfaceProps {
-  const labelBySyntheticRoot = new Map(
-    index.roots.map((root) => [root.syntheticRootId, root.label] as const),
+function FilteredItemSurfaceDescription({
+  canonicalItemCount,
+  descriptionId,
+  filtered,
+  visibleItemCount,
+}: Readonly<{
+  canonicalItemCount: number;
+  descriptionId: string;
+  filtered: boolean;
+  visibleItemCount: number;
+}>) {
+  if (!filtered) return null;
+  return (
+    <span className="setta-workspace__visually-hidden" id={descriptionId}>
+      Filtered view. {visibleItemCount} of {canonicalItemCount} items shown. Moves use visible
+      positions and preserve hidden item order in the canonical tree.
+    </span>
   );
-  const canContainChildren = resolved.canContainChildren
-    ? (itemId: string) => {
-        if (index.listIdBySyntheticRoot.has(itemId)) return true;
-        return resolved.canContainChildren?.(itemId, itemListId(index, itemId)) ?? true;
-      }
-    : undefined;
-  const canMove = resolved.canMove
-    ? (plan: ItemMovePlan) => {
-        if (plan.destinationParentId === index.aggregateRootId) return false;
-        return resolved.canMove?.(sortableItemListPlanFromInternal(index, plan)) ?? true;
-      }
-    : (plan: ItemMovePlan) => plan.destinationParentId !== index.aggregateRootId;
-  return {
-    ariaLabel: resolved.ariaLabel,
-    ...(canContainChildren ? { canContainChildren } : {}),
-    canMove,
-    destinationLabel: (parentId) => {
-      const rootLabel = labelBySyntheticRoot.get(parentId);
-      return rootLabel
-        ? `the ${rootLabel} list`
-        : resolved.getItemLabel(parentId, itemListId(index, parentId));
-    },
-    disabled: resolved.disabled,
-    getItemLabel: (itemId) => {
-      const rootLabel = labelBySyntheticRoot.get(itemId);
-      return rootLabel ?? resolved.getItemLabel(itemId, itemListId(index, itemId));
-    },
-    onMove: (plan) => resolved.onMove(sortableItemListPlanFromInternal(index, plan)),
-    onSelectedItemIdsChange: resolved.onSelectedItemIdsChange,
-    renderItem: (itemId) => resolved.renderItem(itemId, itemListId(index, itemId)),
-    roots: index.roots.map((root) => ({
-      label: root.label,
-      listId: root.listId,
-      parentId: root.syntheticRootId,
-    })),
-    selectedItemIds: resolved.selectedItemIds,
-    supportsListTransfer: index.roots.length > 1,
-    tree: index.aggregateTree,
-  };
+}
+
+function SortableItemMovementFeedback({
+  feedback,
+  filtered,
+}: Readonly<{ feedback: ItemFeedback; filtered: boolean }>) {
+  if (!feedback.message && !filtered) return null;
+  return (
+    <div
+      aria-hidden="true"
+      className="setta-workspace__sortable-item-feedback"
+      data-status={feedback.status}
+    >
+      {feedback.message}
+    </div>
+  );
 }
 
 export function SortableItemTree(props: SortableItemTreeProps) {
   const resolved = resolveSortableItemTreeProps(props);
-  return <SortableItemSurface resolved={singleTreeSurfaceProps(resolved)} />;
+  return <SortableItemSurface resolved={createSingleTreeSurfaceProps(resolved)} />;
 }
 
 export function SortableItemLists(props: SortableItemListsProps) {
   const index = useMemo(() => createSortableItemListsIndex(props.lists), [props.lists]);
   const resolved = resolveSortableItemListsProps(props, index);
-  return <SortableItemSurface resolved={namedListsSurfaceProps(index, resolved)} />;
+  return <SortableItemSurface resolved={createNamedListsSurfaceProps(index, resolved)} />;
 }
 
 function SortableItemSurface({
   resolved,
 }: Readonly<{ resolved: ResolvedSortableItemSurfaceProps }>) {
   const index = useMemo(() => createSortableItemTreeIndex(resolved.tree), [resolved.tree]);
+  const canonicalIndex = useMemo(
+    () => createSortableItemTreeIndex(resolved.canonicalTree),
+    [resolved.canonicalTree],
+  );
   const reactId = useId().replaceAll(":", "");
   const treeId = `setta-sortable-item-tree-${reactId}`;
+  const filterDescriptionId = `${treeId}-filter-description`;
   const dndIds = useMemo(() => itemDndIds(treeId, index), [index, treeId]);
   const interaction = useWorkspaceItemInteraction(treeId);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -537,6 +498,7 @@ function SortableItemSurface({
       const current = propsRef.current;
       const session: ItemSession = {
         ...prepared,
+        canonicalTree: current.canonicalTree,
         direction: sortableItemWritingDirection(rootRef.current),
         input: event.input,
         preview: null,
@@ -750,6 +712,10 @@ function SortableItemSurface({
         setAnnouncement(`${label} did not move because the item tree changed.`);
         return;
       }
+      if (!sortableItemTreesMatch(current.canonicalTree, session.canonicalTree)) {
+        setAnnouncement(`${label} did not move because the canonical item tree changed.`);
+        return;
+      }
       if (
         !sortableItemMoveStillAllowed({
           ...moveCallbacks(current),
@@ -878,8 +844,10 @@ function SortableItemSurface({
     () => ({
       blockedTargetIds,
       canContain,
+      canonicalIndex,
       dndIds,
       feedback,
+      filtered: resolved.filtered,
       handleKeyDown,
       handlePointerDown,
       handleSelection,
@@ -900,6 +868,7 @@ function SortableItemSurface({
     [
       blockedTargetIds,
       canContain,
+      canonicalIndex,
       dndIds,
       feedback,
       handleKeyDown,
@@ -912,6 +881,7 @@ function SortableItemSurface({
       registerItem,
       registerRow,
       resolved.getItemLabel,
+      resolved.filtered,
       resolved.renderItem,
       resolved.roots,
       resolved.selectedItemIds,
@@ -922,19 +892,29 @@ function SortableItemSurface({
 
   return (
     <div
+      aria-describedby={resolved.filtered ? filterDescriptionId : undefined}
       aria-label={resolved.ariaLabel}
       className={`setta-workspace__sortable-item-tree setta-workspace__interaction-boundary ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_ROOT_DRAG_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
-      data-sortable-item-disabled={resolved.disabled ? "true" : "false"}
+      data-sortable-item-canonical-count={resolved.canonicalItemCount}
+      data-sortable-item-disabled={String(resolved.disabled)}
+      data-sortable-item-filtered={enabledDataAttribute(resolved.filtered)}
       data-sortable-item-interaction={feedback.status}
-      data-sortable-item-lists={resolved.supportsListTransfer ? "" : undefined}
+      data-sortable-item-lists={enabledDataAttribute(resolved.supportsListTransfer)}
       data-sortable-item-tree=""
-      data-workspace-local-shortcuts={feedback.status === "idle" ? undefined : ""}
+      data-sortable-item-visible-count={resolved.visibleItemCount}
+      data-workspace-local-shortcuts={enabledDataAttribute(feedback.status !== "idle")}
       data-workspace-prevent-pan="true"
       data-workspace-prevent-wheel="true"
       id={treeId}
       ref={rootRef}
       role="group"
     >
+      <FilteredItemSurfaceDescription
+        canonicalItemCount={resolved.canonicalItemCount}
+        descriptionId={filterDescriptionId}
+        filtered={resolved.filtered}
+        visibleItemCount={resolved.visibleItemCount}
+      />
       <div
         aria-atomic="true"
         aria-live="polite"
@@ -943,15 +923,7 @@ function SortableItemSurface({
       >
         {announcement}
       </div>
-      {feedback.message ? (
-        <div
-          aria-hidden="true"
-          className="setta-workspace__sortable-item-feedback"
-          data-status={feedback.status}
-        >
-          {feedback.message}
-        </div>
-      ) : null}
+      <SortableItemMovementFeedback feedback={feedback} filtered={resolved.filtered} />
       <ItemTreeRenderContext.Provider value={renderContext}>
         <UpstreamDndBoundary
           manageAccessibility={false}

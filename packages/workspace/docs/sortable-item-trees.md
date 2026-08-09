@@ -4,7 +4,8 @@
 `SortableItemLists` extends the same interaction owner across multiple named lists in one section.
 Both are fully controlled React surfaces: the package owns interaction, selection planning,
 feedback, and move validation, while the host owns item values, canonical trees, persistence, and
-history.
+history. Either surface can render an ancestry-closed filtered projection while continuing to emit
+plans for the complete canonical tree.
 
 ## Tree contract
 
@@ -96,6 +97,46 @@ completion, cancellation, and rejection announcements.
 selection in canonical preorder so host state is deterministic. Set `disabled` to retain rendering
 and selection semantics while preventing movement. In a named-list surface, canonical order is
 list order followed by each tree's preorder.
+
+## Filtered projections
+
+Pass `visibleItemIds` when the host needs to show search or filter results without replacing its
+canonical tree:
+
+```tsx
+const visibleItemIds = includeMatchingItemsAndAncestors(fieldLists, filterQuery);
+
+<SortableItemLists
+  lists={fieldLists}
+  visibleItemIds={visibleItemIds}
+  selectedItemIds={selectedItemIds}
+  onSelectedItemIdsChange={setSelectedItemIds}
+  getItemLabel={(itemId) => fields[itemId].label}
+  renderItem={(itemId) => <FieldEditor field={fields[itemId]} />}
+  onMove={(plan) => setFieldLists((current) => applySortableItemListMove(current, plan))}
+/>;
+```
+
+The visible IDs form a strict projection, not a replacement tree. IDs must be unique, known, and
+ancestry-closed: when a descendant is visible, every rendered ancestor must also be visible. An
+empty projection is valid. Selection must contain only currently visible IDs, so clear hidden
+selection before rendering a new filter. Labels, containment policy, and canonical validation still
+cover every host item; hidden items do not mount renderers or register drop targets.
+
+Pointer and keyboard planning use visible sibling positions. Before `canMove` or `onMove` runs, the
+component reconciles that position to the canonical tree: it inserts immediately before the next
+visible sibling, otherwise immediately after the previous visible sibling, and appends when the
+destination has no visible anchor. Hidden items retain relative order, and hidden descendants move
+with a visible subtree root. Feedback calls these positions “visible positions” so assistive
+technology does not mistake them for canonical indexes.
+
+Use `createFilteredSortableItemTree` for the same deterministic projection outside React. When a
+host owns a separate filtered interaction surface, `reconcileFilteredSortableItemMove` converts its
+accepted filtered `ItemMovePlan` into the canonical plan before `applySortableItemMove` runs.
+
+The host owns the filter input, query matching, result count, and clear action. Keep the input
+natively labeled, announce result-count changes politely, and offer a clear recovery when no items
+match. Filter text and visible IDs are transient UI state and do not belong in `WorkspaceDocument`.
 
 ## Containment and host policy
 
@@ -206,6 +247,6 @@ This composition also lets the host decide whether an item move shares package h
 a larger application history, or is persisted remotely. The package never mutates workspace state
 merely because an item moved.
 
-Named lists and cross-list movement are supported only within one mounted `SortableItemLists`
-surface. Cross-section movement, filtered-list reconciliation against a larger canonical tree, and
-mixed-parent batch dragging remain deferred.
+Named lists, cross-list movement, and filtered canonical reconciliation are supported only within
+one mounted `SortableItemLists` surface. Cross-section movement and mixed-parent batch dragging
+remain deferred.

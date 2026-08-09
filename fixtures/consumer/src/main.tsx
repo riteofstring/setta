@@ -2,6 +2,7 @@ import { SortableItemLists, Workspace, WorkspaceOutline } from "@setta/workspace
 import {
   applySortableItemListMove,
   createEmptyWorkspaceDocument,
+  createFilteredSortableItemTree,
   createWorkspaceJsonClipboardAdapter,
   packWorkspaceRectangles,
   planWorkspaceRootAutoLayout,
@@ -161,6 +162,11 @@ const itemLists = [
   },
 ] satisfies readonly SortableItemList[];
 validateSortableItemLists(itemLists);
+const consumerPrimaryList = itemLists.find((list) => list.listId === "consumer-primary");
+if (!consumerPrimaryList) throw new Error("The consumer primary item list is required.");
+const consumerVisibleItemIds = createFilteredSortableItemTree(consumerPrimaryList.tree, [
+  "consumer-group",
+]).itemIds;
 
 function ConsumerSortableItems() {
   const [lists, setLists] = useState<readonly SortableItemList[]>(itemLists);
@@ -175,6 +181,7 @@ function ConsumerSortableItems() {
       onSelectedItemIdsChange={setSelectedItemIds}
       renderItem={(itemId) => <span>{itemId}</span>}
       selectedItemIds={selectedItemIds}
+      visibleItemIds={consumerVisibleItemIds}
     />
   );
 }

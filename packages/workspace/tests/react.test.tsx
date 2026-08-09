@@ -899,6 +899,80 @@ describe("SortableItemTree scaffold", () => {
     expect(markup).toContain("Page Up or Page Down to move between named lists");
   });
 
+  it("renders an accessible filtered projection while retaining canonical empty-state context", () => {
+    const lists = [
+      {
+        label: "Required fields",
+        listId: "required",
+        tree: {
+          childrenByParent: { group: ["theme"], root: ["name", "email", "group"] },
+          itemIds: ["name", "email", "group", "theme"],
+          rootId: "root",
+        },
+      },
+      {
+        label: "Optional fields",
+        listId: "optional",
+        tree: {
+          childrenByParent: { root: ["notes"] },
+          itemIds: ["notes"],
+          rootId: "root",
+        },
+      },
+    ] as const;
+    const markup = renderToStaticMarkup(
+      <SortableItemLists
+        canContainChildren={(itemId) => itemId === "group"}
+        getItemLabel={(itemId) => itemId}
+        lists={lists}
+        onMove={() => undefined}
+        onSelectedItemIdsChange={() => undefined}
+        renderItem={(itemId) => <span>{itemId}</span>}
+        selectedItemIds={[]}
+        visibleItemIds={["name", "group"]}
+      />,
+    );
+
+    expect(markup).toContain('data-sortable-item-filtered=""');
+    expect(markup).toContain('data-sortable-item-canonical-count="5"');
+    expect(markup).toContain('data-sortable-item-visible-count="2"');
+    expect(markup).toContain("Filtered view. 2 of 5 items shown.");
+    expect(markup).toContain('data-sortable-item-id="name"');
+    expect(markup).toContain('data-sortable-item-id="group"');
+    expect(markup).not.toContain('data-sortable-item-id="email"');
+    expect(markup).not.toContain('data-sortable-item-id="theme"');
+    expect(markup).not.toContain('data-sortable-item-id="notes"');
+    expect(markup).toContain("No matching child items");
+    expect(markup).toContain("No matching items in Optional fields");
+  });
+
+  it("rejects hidden selection and ancestry gaps in a filtered React surface", () => {
+    expect(() =>
+      renderToStaticMarkup(
+        <SortableItemTree
+          onMove={() => undefined}
+          onSelectedItemIdsChange={() => undefined}
+          renderItem={() => null}
+          selectedItemIds={["nested"]}
+          tree={itemTree}
+          visibleItemIds={["name", "group"]}
+        />,
+      ),
+    ).toThrow("selectedItemIds must contain only visible item IDs while filtered");
+    expect(() =>
+      renderToStaticMarkup(
+        <SortableItemTree
+          onMove={() => undefined}
+          onSelectedItemIdsChange={() => undefined}
+          renderItem={() => null}
+          selectedItemIds={[]}
+          tree={itemTree}
+          visibleItemIds={["nested"]}
+        />,
+      ),
+    ).toThrow('requires visible ancestor "group"');
+  });
+
   it("fails before rendering inconsistent named-list callbacks or selection", () => {
     const lists = [
       {

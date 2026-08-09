@@ -1,3 +1,7 @@
+export {
+  createFilteredSortableItemTree,
+  reconcileFilteredSortableItemMove,
+} from "./internal/sortable-item-filtering.js";
 export { planSortableItemKeyboardMove } from "./internal/sortable-item-keyboard-move.js";
 export {
   applySortableItemListMove,

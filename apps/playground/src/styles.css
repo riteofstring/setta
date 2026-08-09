@@ -291,6 +291,57 @@ main {
   line-height: 1;
 }
 
+.sample-field-filter {
+  display: grid;
+  gap: 0.375rem;
+  margin-block-end: 1rem;
+  color: var(--setta-workspace-section-muted-text);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.sample-field-filter__controls {
+  display: grid;
+  min-inline-size: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+}
+
+.sample-field-filter input,
+.sample-field-filter button {
+  min-block-size: 2.75rem;
+  min-inline-size: 0;
+  padding-inline: 0.75rem;
+  color: var(--setta-workspace-section-text);
+  font: inherit;
+  font-size: 1rem;
+  background: var(--setta-workspace-toolbar-background);
+  border: 0;
+  border-radius: 0.5rem;
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--setta-workspace-section-text) 16%, transparent);
+}
+
+.sample-field-filter button {
+  cursor: pointer;
+}
+
+.sample-field-filter button:hover:not(:disabled) {
+  background: color-mix(
+    in oklch,
+    var(--setta-workspace-toolbar-background) 88%,
+    var(--setta-workspace-selection)
+  );
+}
+
+.sample-field-filter button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.sample-field-filter output {
+  font-variant-numeric: tabular-nums;
+}
+
 .sample-field-row {
   display: grid;
   min-inline-size: 0;

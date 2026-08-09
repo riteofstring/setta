@@ -74,6 +74,22 @@ async function verifyConsumerRuntime(distributionRoot) {
       page.on("pageerror", (error) => pageErrors.push(error.message));
       await page.goto(url);
 
+      const consumerItems = page.getByRole("group", { exact: true, name: "Consumer items" });
+      await consumerItems.waitFor();
+      await consumerItems.getByRole("button", { name: "Move Consumer group" }).waitFor();
+      const filterState = await consumerItems.evaluate((element) => ({
+        canonicalCount: element.getAttribute("data-sortable-item-canonical-count"),
+        filtered: element.hasAttribute("data-sortable-item-filtered"),
+        visibleCount: element.getAttribute("data-sortable-item-visible-count"),
+      }));
+      if (
+        !filterState.filtered ||
+        filterState.canonicalCount !== "2" ||
+        filterState.visibleCount !== "1"
+      ) {
+        throw new Error("Packed consumer did not render the filtered canonical item contract.");
+      }
+
       const workspace = page.getByRole("region", { exact: true, name: "Consumer workspace" });
       await workspace.getByRole("article", { name: "Consumer note 1" }).waitFor();
       await workspace.getByRole("textbox", { name: "Consumer note body" }).waitFor();

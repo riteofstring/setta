@@ -145,11 +145,11 @@ Top-level auto layout is implemented as a measured controller command over a pur
 rectangle packer. It preserves the root anchor and canonical stacking, rejects locked or unmeasured
 roots atomically, and records one ordinary root-movement history entry.
 
-Multiple named item lists and same-section cross-list movement are implemented through one shared
-interaction owner. Still deferred are filtered-list reconciliation, cross-section item movement,
-mixed-parent batch dragging, saved viewport presets, generic edges and ports, pane registration
-beyond current extensions, viewport culling, absolute nested positioning, and complete
-descendant-subtree collapse.
+Multiple named item lists, same-section cross-list movement, and ancestry-closed filtered views with
+canonical move reconciliation are implemented through one shared interaction owner. Still deferred
+are cross-section item movement, mixed-parent batch dragging, saved viewport presets, generic edges
+and ports, pane registration beyond current extensions, viewport culling, absolute nested
+positioning, and complete descendant-subtree collapse.
 
 ## Explicit non-goals
 
