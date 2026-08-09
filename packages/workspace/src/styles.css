@@ -601,6 +601,21 @@
   cursor: grabbing;
 }
 
+/* Replaces dnd-kit's Cursor and PreventSelection stylesheet injection.
+   Those plugins insert universal-selector rules during the pointer-down
+   dispatch, which invalidates and re-lays the whole document inside the
+   drag-activation input dispatch. This attribute is published on the frame
+   after activation, so the same cursor and selection suppression land
+   without the mid-dispatch invalidation. */
+.setta-workspace__canvas[data-workspace-interaction-owner="item-tree"],
+.setta-workspace__canvas[data-workspace-interaction-owner="item-tree"] *,
+.setta-workspace__canvas[data-workspace-interaction-owner="section-structure"],
+.setta-workspace__canvas[data-workspace-interaction-owner="section-structure"] * {
+  cursor: grabbing !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
 .setta-workspace__grid,
 .setta-workspace__grid .react-flow__background {
   pointer-events: none;

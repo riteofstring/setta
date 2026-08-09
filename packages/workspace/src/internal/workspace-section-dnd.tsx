@@ -506,6 +506,16 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
         onMove={handleMove}
         onStart={handleStart}
         overlayClassName="setta-workspace__section-drag-overlay"
+        // Sessions are prepared at beforedragstart, while layout is still
+        // clean: dnd-kit's cursor/selection/feedback plugins write styles
+        // before dragstart, so the same geometry reads there would force a
+        // whole-tree layout inside the pointer-down dispatch.
+        prepareStart={(id, activatorPoint) => {
+          preparedSessionRef.current = {
+            result: createSession({ activatorPoint, sourceId: id }),
+            sourceId: id,
+          };
+        }}
         preventActivation={preventActivation}
         overlayLabel={(id) => {
           const source = workspaceSectionDndSource(id);
@@ -517,7 +527,11 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
           return `${verb} ${sectionTitle(source.sectionId)}${suffix}`;
         }}
         resolveCollisionRect={(id, activatorPoint) => {
-          const result = createSession({ activatorPoint, sourceId: id });
+          const prepared = preparedSessionRef.current;
+          const result =
+            prepared?.sourceId === id
+              ? prepared.result
+              : createSession({ activatorPoint, sourceId: id });
           preparedSessionRef.current = { result, sourceId: id };
           return result.allowed ? result.session.sourceClientBounds : null;
         }}

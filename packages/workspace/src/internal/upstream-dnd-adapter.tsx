@@ -1,4 +1,4 @@
-import { Accessibility, AutoScroller } from "@dnd-kit/dom";
+import { Accessibility, AutoScroller, Cursor, PreventSelection, Scroller } from "@dnd-kit/dom";
 import { Rectangle, type BoundingRectangle } from "@dnd-kit/geometry";
 import {
   DragDropProvider,
@@ -6,11 +6,19 @@ import {
   KeyboardSensor,
   PointerSensor,
   useDraggable,
+  useDragDropManager,
   useDroppable,
   type DragDropManager,
   type DragMoveEvent,
 } from "@dnd-kit/react";
-import { useCallback, useMemo, useRef, type ComponentProps, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 
 import type { InteractionPoint } from "./interaction-geometry.js";
 
@@ -45,6 +53,13 @@ export type UpstreamDndBoundaryProps = {
   manageAutoScroll?: boolean;
   overlayClassName?: string;
   overlayLabel?(sourceId: string): string;
+  /**
+   * Synchronous hook dispatched at dnd-kit's beforedragstart, before its
+   * plugins write cursor, selection-suppression, or feedback styles. Layout
+   * is still clean here, so geometry reads for session preparation avoid the
+   * forced layout they would trigger later in the same input dispatch.
+   */
+  prepareStart?(sourceId: string, activatorPoint: InteractionPoint | null): void;
   /**
    * Activation-time veto evaluated by the sensors before a gesture starts.
    * Return true to refuse activation, e.g. while another workspace
@@ -112,23 +127,194 @@ class ScrollStableKeyboardSensor extends KeyboardSensor {
 const adapterProofSensors = [PointerSensor, ScrollStableKeyboardSensor];
 function adapterPluginProps(
   manageAccessibility: boolean,
-  manageAutoScroll: boolean,
 ): Pick<ComponentProps<typeof DragDropProvider>, "plugins"> {
-  if (manageAccessibility && manageAutoScroll) return {};
+  // The upstream AutoScroller is always replaced: its synchronous start-time
+  // scrollable-ancestor probe forces a whole-tree layout inside the input
+  // dispatch. DeferredAutoScrollDriver reproduces its behavior with the
+  // initial probe deferred to the next animation frame.
   return {
     plugins: (defaults) =>
       defaults.filter((plugin) => {
         const pluginType = "plugin" in plugin ? plugin.plugin : plugin;
         return (
           (manageAccessibility || pluginType !== Accessibility) &&
-          (manageAutoScroll || pluginType !== AutoScroller)
+          pluginType !== AutoScroller &&
+          pluginType !== Cursor &&
+          pluginType !== PreventSelection
         );
       }),
   };
 }
 
+const AUTOSCROLL_INTERVAL_MS = 10;
+
+function clearDocumentSelection(ownerDocument: Document): void {
+  const selection = ownerDocument.getSelection();
+  if (selection && selection.rangeCount > 0) {
+    selection.removeAllRanges();
+  }
+}
+
+/**
+ * Replaces dnd-kit's PreventSelection plugin behavior of clearing the
+ * document selection when a drag starts and keeping it cleared while the
+ * drag runs. The plugin itself is not registered because it injects a
+ * universal user-select stylesheet during the pointer-down dispatch, which
+ * invalidates and re-lays the whole document mid-gesture; the package
+ * stylesheet applies the equivalent user-select suppression through the
+ * deferred interaction-owner attribute, and the pointer sensor already
+ * prevents native selection from starting during pointer moves.
+ */
+class DragSelectionSuppressor {
+  #document: Document | null = null;
+
+  start(ownerDocument: Document): void {
+    this.stop();
+    this.#document = ownerDocument;
+    clearDocumentSelection(ownerDocument);
+    ownerDocument.addEventListener("selectionchange", this.#onSelectionChange, { capture: true });
+  }
+
+  stop(): void {
+    if (!this.#document) {
+      return;
+    }
+    this.#document.removeEventListener("selectionchange", this.#onSelectionChange, {
+      capture: true,
+    });
+    this.#document = null;
+  }
+
+  readonly #onSelectionChange = (): void => {
+    if (this.#document) {
+      clearDocumentSelection(this.#document);
+    }
+  };
+}
+
+/**
+ * Auto-scroll pacing that mirrors dnd-kit's AutoScroller plugin (one probe
+ * per position change, a 10 ms interval while an ancestor can scroll, and
+ * the scroller's autoScrolling intent flag) except that the first probe
+ * after activation waits for the next animation frame. The upstream plugin
+ * probes synchronously while its own cursor, selection-suppression, and
+ * feedback styles are still dirty, which forces a whole-tree layout inside
+ * the pointer-down dispatch.
+ */
+class DeferredAutoScrollDriver {
+  #frame: number | null = null;
+  #interval: ReturnType<typeof setInterval> | null = null;
+  #manager: DragDropManager | null = null;
+  #view: Window | null = null;
+
+  start(manager: DragDropManager): void {
+    this.stop();
+    this.#manager = manager;
+    if (!this.#scroller()) {
+      throw new Error("Deferred auto-scroll requires dnd-kit's core Scroller plugin.");
+    }
+    this.#view = manager.dragOperation.source?.element?.ownerDocument.defaultView ?? null;
+    if (!this.#view) {
+      this.#probe();
+      return;
+    }
+    this.#frame = this.#view.requestAnimationFrame(() => {
+      this.#frame = null;
+      this.#probe();
+    });
+  }
+
+  move(): void {
+    if (!this.#manager) {
+      return;
+    }
+    if (this.#frame !== null) {
+      this.#view?.cancelAnimationFrame(this.#frame);
+      this.#frame = null;
+    }
+    this.#probe();
+  }
+
+  stop(): void {
+    if (this.#frame !== null) {
+      this.#view?.cancelAnimationFrame(this.#frame);
+      this.#frame = null;
+    }
+    this.#clearInterval();
+    const scroller = this.#scroller();
+    if (scroller) {
+      scroller.autoScrolling = false;
+    }
+    this.#manager = null;
+    this.#view = null;
+  }
+
+  #scroller(): Scroller | null {
+    return this.#manager?.registry.plugins.get(Scroller) ?? null;
+  }
+
+  #clearInterval(): void {
+    if (this.#interval !== null) {
+      clearInterval(this.#interval);
+      this.#interval = null;
+    }
+  }
+
+  #probe(): void {
+    const scroller = this.#scroller();
+    if (!scroller) {
+      return;
+    }
+    this.#clearInterval();
+    if (scroller.scroll()) {
+      scroller.autoScrolling = true;
+      this.#interval = setInterval(() => scroller.scroll(), AUTOSCROLL_INTERVAL_MS);
+      return;
+    }
+    scroller.autoScrolling = false;
+  }
+}
+
 function stringId(id: string | number | undefined): string | null {
   return id === undefined ? null : String(id);
+}
+
+/**
+ * Registers a direct beforedragstart monitor listener. The DragDropProvider
+ * prop would route the callback through the React renderer's transition
+ * tracking, which gates the dragstart dispatch behind an asynchronous render;
+ * a plain monitor listener keeps preparation synchronous inside the input
+ * dispatch without changing when the drag starts.
+ */
+function PrepareStartBridge({
+  prepareStart,
+}: Readonly<{
+  prepareStart(sourceId: string, activatorPoint: InteractionPoint | null): void;
+}>) {
+  const manager = useDragDropManager();
+  const prepareStartRef = useRef(prepareStart);
+  useEffect(() => {
+    prepareStartRef.current = prepareStart;
+  }, [prepareStart]);
+  useEffect(() => {
+    if (!manager) {
+      return;
+    }
+    return manager.monitor.addEventListener("beforedragstart", ({ operation }) => {
+      const sourceId = stringId(operation.source?.id);
+      if (!sourceId) {
+        return;
+      }
+      prepareStartRef.current(
+        sourceId,
+        adapterDragStartPoint(
+          adapterActivatorPoint(operation.activatorEvent),
+          operation.transform,
+        ),
+      );
+    });
+  }, [manager]);
+  return null;
 }
 
 export function UpstreamDndBoundary({
@@ -137,6 +323,7 @@ export function UpstreamDndBoundary({
   manageAutoScroll = true,
   overlayClassName = "setta-adapter-proof__drag-overlay",
   overlayLabel,
+  prepareStart,
   preventActivation,
   renderOverlay,
   resolveCollisionRect,
@@ -149,6 +336,15 @@ export function UpstreamDndBoundary({
   const activeActivatorPoint = useRef<InteractionPoint | null>(null);
   const activeClientPoint = useRef<InteractionPoint | null>(null);
   const activeInput = useRef<AdapterDndInput>("pointer");
+  const autoScroll = useMemo(() => new DeferredAutoScrollDriver(), []);
+  const selectionSuppressor = useMemo(() => new DragSelectionSuppressor(), []);
+  useEffect(
+    () => () => {
+      autoScroll.stop();
+      selectionSuppressor.stop();
+    },
+    [autoScroll, selectionSuppressor],
+  );
   const sensors = useMemo(
     () =>
       preventActivation
@@ -169,10 +365,17 @@ export function UpstreamDndBoundary({
 
   return (
     <DragDropProvider
-      {...adapterPluginProps(manageAccessibility, manageAutoScroll)}
+      {...adapterPluginProps(manageAccessibility)}
       sensors={sensors}
       onDragStart={({ nativeEvent, operation }, manager) => {
         restorePendingKeyboardScroll();
+        if (manageAutoScroll) {
+          autoScroll.start(manager);
+        }
+        const sourceDocument = operation.source?.element?.ownerDocument;
+        if (sourceDocument) {
+          selectionSuppressor.start(sourceDocument);
+        }
         const sourceId = stringId(operation.source?.id);
         if (sourceId) {
           const activatorEvent = operation.activatorEvent ?? nativeEvent;
@@ -202,6 +405,9 @@ export function UpstreamDndBoundary({
       onDragMove={(event, manager) => {
         if (event.defaultPrevented) {
           return;
+        }
+        if (manageAutoScroll) {
+          autoScroll.move();
         }
         const { operation } = event;
         const sourceId = stringId(operation.source?.id);
@@ -247,6 +453,8 @@ export function UpstreamDndBoundary({
         }
       }}
       onDragEnd={({ canceled, nativeEvent, operation }, manager) => {
+        autoScroll.stop();
+        selectionSuppressor.stop();
         onPreviewTarget?.(null);
         const sourceId = stringId(operation.source?.id);
         if (!sourceId) {
@@ -275,6 +483,7 @@ export function UpstreamDndBoundary({
         activeClientPoint.current = null;
       }}
     >
+      {prepareStart ? <PrepareStartBridge prepareStart={prepareStart} /> : null}
       {children}
       <DragOverlay dropAnimation={null}>
         {(source) => {
