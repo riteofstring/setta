@@ -150,7 +150,7 @@ async function openSelectionActions(page: Page, trigger: Locator): Promise<Locat
 async function blankPanePoint(page: Page): Promise<{ x: number; y: number }> {
   return page.locator(".react-flow__pane").evaluate((pane) => {
     const bounds = pane.getBoundingClientRect();
-    const offsets = [16, 32, 64, 96, 128];
+    const offsets = [128, 96, 64];
     const candidates = offsets.flatMap((offset) => [
       { x: bounds.left + offset, y: bounds.top + offset },
       { x: bounds.right - offset, y: bounds.top + offset },
