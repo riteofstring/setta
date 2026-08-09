@@ -194,6 +194,7 @@ describe("ColorValueControl", () => {
     expect(input.getAttribute("aria-label")).toBe("Accent color");
     for (const expectedClass of [
       "setta-workspace-native-reset",
+      "setta-workspace-native-color",
       "single-cell-child",
       "!rounded-lg",
       "!border",
