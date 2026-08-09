@@ -1333,6 +1333,18 @@ Phase 4 progress (2026-08-11):
   packed unrelated-consumer proof, and live Chrome inspection across all twelve triggers pass. No
   dependency changed, so the supply-chain gate was not duplicated. The consolidated developer
   acceptance and first package-output baselines remain open; Phase 5 is still not actionable.
+- Consolidated gate diagnostic support — opt-in structured pan trace (2026-08-12): developer live
+  inspection reported a direction-dependent pan failure that could not yet be described as a
+  deterministic sequence. The package now exposes an inert-by-default pan diagnostic sink and the
+  playground installs it for this supervised investigation. Each trace snapshots filter allow or
+  block reasons, pointer or wheel input, target section/control boundaries, selection and dnd
+  ownership, viewport interaction flags, transforms, and balanced gesture start/move/end events.
+  The playground prints JSON-prefixed records and retains a bounded in-page trace; no package
+  consumer receives logging unless it explicitly installs a sink. Unit coverage locks JSON-safe
+  snapshots, blocker reporting, and lifecycle order. This is diagnostic instrumentation only: no
+  pan behavior has changed, and the reported defect remains open pending developer reproduction.
+  The consolidated developer acceptance and first package-output baselines remain open; Phase 5 is
+  still not actionable.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
