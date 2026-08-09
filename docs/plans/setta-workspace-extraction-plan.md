@@ -1636,6 +1636,20 @@ Phase 4 progress (2026-08-11):
   left the clean worktree unchanged, and returned `PLAN_PHASE_AUDIT_COMPLETE`. The workspace-shell
   evidence and ownership preflight is now the earliest repository-actionable work; do not request
   another Phase 5 audit.
+- Workspace-shell ownership preflight complete; evidence-contract blocker recorded (2026-08-12):
+  the complete shell/pane, Overview, UI Editor, context-menu, and canvas-geometry source cone and
+  every state read are classified in `docs/evidence/workspace-shell/reference/ownership-map.md`.
+  Frozen-source inspection plus the accepted Phase 0 captures establish that several states the
+  amendment requires before implementation do not exist at `043d3b2e9`: Overview is an
+  always-expanded flat indented list with no selected-row state, disclosure, ARIA tree, roving
+  focus, or arrow navigation; UI Editor has no one-selected-item branch and reduces multi-section
+  selection to its generic no-sole-section placeholder; and workspace menus have no Menu-key or
+  Shift+F10 invocation. `docs/evidence/workspace-shell/reference/README.md` separates the missing
+  but producible supervised captures from these source-proven gaps. Because running main is product
+  authority and the full reference evidence is a pre-implementation gate, no workspace-shell
+  implementation batch may begin until the developer explicitly amends the evidence/behavior
+  authority or re-baselines the reference. No package source, fixture, dependency, or baseline
+  changed in this preflight.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
