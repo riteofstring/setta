@@ -1501,6 +1501,34 @@ Phase 4 progress (2026-08-11):
   large-document performance measurement and the final broad gates remain. The required matched
   live RTL/coarse/200%/320 comparison, explicit developer acceptance, and any accepted baseline
   refresh remain at the final developer gate and are not claimed by these automated checks.
+- Phase 5 large-document performance batch complete (2026-08-12): the playground has a
+  query-only production profile surface with 256 fixed-size top-level leaves across a 4,295 x
+  2,642 workspace-unit plane, using the real registered renderer, canvas, controls, minimap,
+  tooltip, compiled package, and host chrome. The zero-new-dependency runner builds both
+  workspaces, serves production output, launches an isolated headless Chrome profile, and drives
+  three fresh render passes plus three 96-move empty-pane pans and section drags through CDP. It
+  records frame gaps, handler spans, target mutations, long tasks, page-scroll drift, CDP work,
+  browser issues, exact fixture/mount/visibility counts, and source/artifact hashes; fixture drift,
+  missing sustained work, page scrolling, or browser warnings/errors fail specifically. The
+  useful probe mechanism was reimplemented from the experimental donor against this package's DOM;
+  none of its workspace engine, culling architecture, visual fixture, Playwright stack, or
+  thresholds was adopted. Frozen main mounts every node id, so the reference-parity baseline
+  correctly measured all 256 nodes mounted (20 visible, 236 mounted offscreen) and did not invent a
+  culling subsystem. The inherited hotspot was instead specific: every drag frame deep-cloned the
+  complete node-internals map. Node publication now shallow-copies the map and replaces only moved,
+  remeasured, or actually re-layered records while retaining the reference's position object,
+  values, full-map publication, canonical commit, DOM, and geometry. Against a disposable
+  same-commit baseline worktree, median drag scripting fell from 138.9 to 103.5 ms (25.5%) and task
+  time from 328.1 to 285.6 ms (13.0%); render medians stayed 216.6/216.9 ms, pan scripting stayed
+  235.9/234.9 ms, and both versions sustained drag at 9.4 ms or better with no gesture long task.
+  The raw three-pass traces and method are under `docs/evidence/phase5/performance/`. Focused node
+  publication and fixture suites pass (5 and 2 tests), both profile runs rebuilt the package and
+  playground production artifacts with the built boundary green, and the changed-file static gate
+  passes. The frozen reference remains clean at `043d3b2e9`; no dependency changed, so the
+  supply-chain gate was not duplicated. This completes Phase 5 repository implementation; the
+  final coherence audit, required matched developer comparison and explicit acceptance, any
+  accepted baseline refresh, and the scheduled post-acceptance broad gates remain. No automated
+  performance result claims visual approval.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { Node, WorkspaceSection } from "../document/types";
-import { commitTopLevelLayoutToDocument } from "./nodeInternalsActions";
+import {
+  commitTopLevelLayoutToDocument,
+  raiseTempZIndex,
+  updateNodePositions,
+} from "./nodeInternalsActions";
 
 function createSection(id: string, children: Array<string> = []): WorkspaceSection {
   return {
@@ -39,6 +43,55 @@ beforeEach(() => {
 
 afterEach(() => {
   setWorkspaceDocumentChangeCallback(null);
+});
+
+describe("node-internals publication", () => {
+  it("publishes a moved node without replacing untouched node records", () => {
+    const moving = createNode({ id: "moving", position: { x: 10, y: 20 } });
+    const untouched = createNode({ id: "untouched", position: { x: 100, y: 200 } });
+    const nextPosition = { x: 35, y: 45 };
+    useNodeInternals.setState({
+      x: new Map([
+        [moving.id, moving],
+        [untouched.id, untouched],
+      ]),
+    });
+
+    updateNodePositions([
+      {
+        id: moving.id,
+        position: nextPosition,
+        distance: { x: 0, y: 0 },
+      },
+    ]);
+
+    const nextNodes = useNodeInternals.getState().x;
+    expect(nextNodes.get(moving.id)).not.toBe(moving);
+    expect(nextNodes.get(moving.id)?.position).toBe(nextPosition);
+    expect(nextNodes.get(untouched.id)).toBe(untouched);
+  });
+
+  it("changes identities only where the temporary z-order value changes", () => {
+    const moving = createNode({ id: "moving", zIndex: 2, tempZIndex: 2 });
+    const untouched = createNode({ id: "untouched", zIndex: 3, tempZIndex: 3 });
+    const stale = createNode({ id: "stale", zIndex: 4, tempZIndex: 1004 });
+    useNodeInternals.setState({
+      x: new Map([
+        [moving.id, moving],
+        [untouched.id, untouched],
+        [stale.id, stale],
+      ]),
+    });
+
+    raiseTempZIndex([{ id: moving.id }]);
+
+    const nextNodes = useNodeInternals.getState().x;
+    expect(nextNodes.get(moving.id)).toMatchObject({ tempZIndex: 1002 });
+    expect(nextNodes.get(moving.id)).not.toBe(moving);
+    expect(nextNodes.get(untouched.id)).toBe(untouched);
+    expect(nextNodes.get(stale.id)).toMatchObject({ tempZIndex: 4 });
+    expect(nextNodes.get(stale.id)).not.toBe(stale);
+  });
 });
 
 describe("commitTopLevelLayoutToDocument", () => {

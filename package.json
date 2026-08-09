@@ -12,6 +12,7 @@
     "consumer:check": "node scripts/verify-packed-consumer.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "performance:profile": "node scripts/profile-workspace-performance.mjs",
     "quality": "node scripts/quality.mjs",
     "quality:all": "node scripts/quality.mjs --all",
     "report:complexity": "node scripts/report-complexity.mjs",

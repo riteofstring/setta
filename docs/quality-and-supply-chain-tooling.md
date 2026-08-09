@@ -22,6 +22,7 @@ toolchain below.
 | `pnpm run format`              | Prettier write mode                         | Before committing                  |
 | `pnpm run supply-chain:check`  | Networked: install, registry audit, license | Dependency changes and phase gates |
 | `pnpm run consumer:check`      | Networked: pack, temp install, build        | Phase gates and packaging changes  |
+| `pnpm run performance:profile` | Production Chrome large-document profile    | Phase 5, targeted remeasurement    |
 | `pnpm run report:complexity`   | Non-blocking hotspot report                 | Discovery; never a deletion order  |
 | `pnpm run report:file-lengths` | Non-blocking hotspot report                 | Discovery; never a deletion order  |
 
@@ -56,6 +57,15 @@ manifest `files` allowlist), then installs the fixture against the tarball in a 
 directory under the same pnpm supply-chain settings and runs its `tsc` + `vite build`. It is
 networked (temporary registry install) and runs at phase gates and on packaging changes;
 `--keep` retains the installed consumer so the developer can `pnpm run preview` it.
+
+`performance:profile` builds the package and playground, serves the production-only
+`?performance-profile` playground route, launches an isolated headless Chrome profile, and records
+three fresh render, pan, and top-level drag passes by default. It requires Google Chrome at the
+standard macOS location or an explicit absolute `--chrome-binary` path; `--passes` changes the
+positive pass count, `--output` writes JSON to an absolute path, and `--skip-build` is reserved for
+an already-built diagnostic rerun. The runner's fixture, gesture-work, page-scroll, and browser
+issue assertions fail loudly, while timings remain machine-local evidence rather than portable CI
+thresholds. It is a Phase 5/targeted diagnostic and never joins the routine static quality command.
 
 ## Enforced thresholds
 

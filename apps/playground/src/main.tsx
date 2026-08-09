@@ -3,6 +3,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./index.css";
+import { PerformanceProfileApp } from "./PerformanceProfileApp";
+import { performanceProfileDocument } from "./performanceProfileDocument";
 import { playgroundDocument } from "./playgroundDocument";
 import { registerPlaygroundSectionKinds } from "./sectionKinds";
 
@@ -11,7 +13,8 @@ import { registerPlaygroundSectionKinds } from "./sectionKinds";
 // precedes the load: loading validates section kinds against the registry.
 setWorkspaceColorMode(document.documentElement.classList.contains("dark") ? "dark" : "light");
 registerPlaygroundSectionKinds();
-loadWorkspaceDocument(playgroundDocument);
+const isPerformanceProfile = new URLSearchParams(window.location.search).has("performance-profile");
+loadWorkspaceDocument(isPerformanceProfile ? performanceProfileDocument : playgroundDocument);
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
@@ -19,7 +22,5 @@ if (!rootElement) {
 }
 
 createRoot(rootElement).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+  <StrictMode>{isPerformanceProfile ? <PerformanceProfileApp /> : <App />}</StrictMode>,
 );

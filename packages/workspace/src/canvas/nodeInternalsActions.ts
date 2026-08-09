@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { Node, TopLevelSectionLayout } from "../document/types";
@@ -12,28 +11,34 @@ export function getNodes(): Array<Node> {
 }
 
 export function updateNodePositions(nodeDragItems: Array<NodeDragItem>) {
-  const newNodes = getNewNodes();
+  const currentNodes = useNodeInternals.getState().x;
+  const newNodes = new Map(currentNodes);
   for (const item of nodeDragItems) {
-    const node = newNodes.get(item.id);
+    const node = currentNodes.get(item.id);
     if (!node) {
       throw new Error(`Missing node ${item.id} during a drag position update.`);
     }
-    node.position = item.position;
+    // Preserve the reference's published position object while cloning only the node record that
+    // changed. The drag loop replaces (rather than mutates) this object on its next frame.
+    newNodes.set(item.id, { ...node, position: item.position });
   }
   useNodeInternals.setState({ x: newNodes });
 }
 
 export function raiseTempZIndex(items: Array<{ id: string }>) {
-  const newNodes = getNewNodes();
-  for (const [, node] of newNodes) {
-    node.tempZIndex = node.zIndex;
-  }
-  for (const item of items) {
-    const node = newNodes.get(item.id);
-    if (!node) {
-      throw new Error(`Missing node ${item.id} during a temp z-index raise.`);
+  const currentNodes = useNodeInternals.getState().x;
+  const raisedIds = new Set(items.map(({ id }) => id));
+  for (const id of raisedIds) {
+    if (!currentNodes.has(id)) {
+      throw new Error(`Missing node ${id} during a temp z-index raise.`);
     }
-    node.tempZIndex = node.zIndex + 1000;
+  }
+  const newNodes = new Map(currentNodes);
+  for (const [id, node] of currentNodes) {
+    const tempZIndex = node.zIndex + (raisedIds.has(id) ? 1000 : 0);
+    if (node.tempZIndex !== tempZIndex) {
+      newNodes.set(id, { ...node, tempZIndex });
+    }
   }
   useNodeInternals.setState({ x: newNodes });
 }
@@ -79,7 +84,7 @@ export function updateNodeDimensionsFromResizeObserver(entries: Array<ResizeObse
     return;
   }
 
-  const newNodes = getNewNodes();
+  const newNodes = new Map(useNodeInternals.getState().x);
   for (const entry of entries) {
     applyNodeDimensionUpdate(newNodes, entry);
   }
@@ -129,8 +134,4 @@ export function maybeCompleteInitialFitView() {
       ...fitViewOnInitOptions,
     }),
   });
-}
-
-function getNewNodes() {
-  return _.cloneDeep(useNodeInternals.getState().x);
 }
