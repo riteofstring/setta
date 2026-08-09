@@ -121,6 +121,11 @@ function validateBuiltStylesheet() {
     // compilation; both are cascade-critical (scopedBase.css, commit ae1e8c3b6).
     [":where(.setta-workspace, .setta-workspace *)", "scoped base subset"],
     [".react-flow__controls-button.react-flow__controls-button", "reset-zoom control rule"],
+    // The section grid placement vocabulary is the host content seam: consumers place their
+    // registered section content with these classes, so Tailwind's content scan can never see
+    // the usage and the rules must ship unconditionally (Phase 2 Setta-integration render
+    // proof caught the layered variant being tree-shaken out).
+    [".section-full-no-title", "host content-placement rule"],
   ];
   return [
     ...(contents.includes("@tailwind")

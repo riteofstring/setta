@@ -365,8 +365,31 @@ Phase 2 progress (2026-08-11):
   donor candidates close no gap in this phase and stay unadopted. The evidence also records a
   content-placement observation (`section-full-no-title` as de-facto API) for the Phase 5
   ratification.
-- Remaining Phase 2 work: the temporary Setta integration worktree (item 5) and its
-  integration evidence plus worktree removal (item 8).
+- Temporary Setta integration worktree (item 5 and the evidence half of item 8, 2026-08-11):
+  `../setta-workspace-integration` created detached at the recorded reference commit
+  `043d3b2e9` (never touching `../setta-main`, re-verified clean before and after), the packed
+  tarball installed into its `frontend/` as a `file:` dependency under the reference's own
+  install posture, and the minimal adapter added: a second Vite entry that registers the
+  playground's leaf kind, loads the accepted slice document, and composes canvas/toolbar/
+  tooltip from the packed public exports and compiled stylesheet only. Verified by the
+  adapter typecheck under the reference's TypeScript, the reference's own production build
+  compiling the full application and the proof entry in one graph with packed-runtime and
+  scoped-stylesheet output assertions, and a headless render proof at the Phase 1 viewport
+  (all slice sections and the toolbar render; idle leaf outer box exactly the accepted
+  202 x 124; dark and light screenshots; no page errors). The render proof caught a real
+  compiled-artifact regression invisible to every build-level check: the section grid
+  placement classes (the host content seam, `.section-full-no-title` and siblings) were
+  declared in `@layer utilities`, so the compiled stylesheet tree-shook them against package
+  source and every packed consumer rendered section bodies overlapping the title cell. The
+  placement vocabulary moved out of the Tailwind layer into plain CSS (the reference ships
+  all of it at runtime), a `check-package-boundary --built` marker freezes it, and
+  `consumer:check` reran green on the fixed artifact. Evidence, adapter patch, screenshots,
+  and the recorded `exports`-only/`moduleResolution: "node"` typing observation for Phase 5
+  are in `docs/evidence/phase2/setta-integration.md`. The worktree is retained, dirty by
+  design (uncommitted proof adapter), for the developer's exit-gate inspection; its removal
+  command is recorded in the evidence and runs after the developer confirms the gate.
+- Remaining Phase 2 work: none before the exit gate. After the developer confirms the gate,
+  remove the temporary integration worktree (the recorded item 8 command).
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

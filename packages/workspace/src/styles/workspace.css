@@ -1,70 +1,73 @@
 /* Extracted from the frozen reference's root index.css: the section grid system and the
  * transition-radius helper used by the section chrome. Compiled into the package-owned
- * stylesheet through src/styles/index.css; consumers import the compiled dist/styles.css. */
+ * stylesheet through src/styles/index.css; consumers import the compiled dist/styles.css.
+ *
+ * The reference declares the placement classes in `@layer utilities`, but the compiled
+ * package stylesheet must not: Tailwind tree-shakes layered rules against package source
+ * alone, and the placement vocabulary is the host content seam — consumers place their
+ * registered section content with these classes and are never scanned by this build. */
 
-@layer utilities {
-  .section-title {
-    grid-area: title;
-  }
+.section-title {
+  grid-area: title;
+}
 
-  .section-center {
-    grid-area: center-gutter;
-  }
+.section-center {
+  grid-area: center-gutter;
+}
 
-  .section-search {
-    grid-area: search;
-  }
-  .section-args {
-    grid-area: args;
-  }
-  .section-key {
-    grid-column: key / key;
-    grid-row: 1 / 2;
-  }
-  .section-value {
-    grid-column: value / value;
-    grid-row: 1 / 2;
-  }
-  .section-key-value {
-    grid-column: key / value;
-  }
+.section-search {
+  grid-area: search;
+}
+.section-args {
+  grid-area: args;
+}
+.section-key {
+  grid-column: key / key;
+  grid-row: 1 / 2;
+}
+.section-value {
+  grid-column: value / value;
+  grid-row: 1 / 2;
+}
+.section-key-value {
+  grid-column: key / value;
+}
 
-  .section-key-right-gutter {
-    grid-column: key / right-gutter;
-  }
-  .section-w-full {
-    grid-column: left-gutter / right-gutter;
-  }
+.section-key-right-gutter {
+  grid-column: key / right-gutter;
+}
+.section-w-full {
+  grid-column: left-gutter / right-gutter;
+}
 
-  .section-lg-value {
-    grid-column: left-gutter / value;
-  }
+.section-lg-value {
+  grid-column: left-gutter / value;
+}
 
-  .section-row-search-gutter {
-    grid-row: search / left-gutter;
-  }
+.section-row-search-gutter {
+  grid-row: search / left-gutter;
+}
 
-  .section-full {
-    grid-row: title / left-gutter;
-    grid-column: left-gutter / right-gutter;
-  }
-  .section-full-no-title {
-    grid-row: search / left-gutter;
-    grid-column: left-gutter / right-gutter;
-  }
+.section-full {
+  grid-row: title / left-gutter;
+  grid-column: left-gutter / right-gutter;
+}
+.section-full-no-title {
+  grid-row: search / left-gutter;
+  grid-column: left-gutter / right-gutter;
+}
 
-  .section-min-rows {
-    grid-auto-rows: min-content;
-  }
+.section-min-rows {
+  grid-auto-rows: min-content;
+}
 
-  .section-main {
-    grid-row: search / left-gutter;
-    grid-column: key / value;
-  }
-  .section-main-full-w {
-    grid-row: search / left-gutter;
-    grid-column: left-gutter / right-gutter;
-  }
+.section-main {
+  grid-row: search / left-gutter;
+  grid-column: key / value;
+}
+.section-main-full-w {
+  grid-row: search / left-gutter;
+  grid-column: left-gutter / right-gutter;
 }
 
 .section-grid-cols {
