@@ -36,7 +36,9 @@ function makeLeafSection(
 // switch at the captured `enabled` fixture, the empty dropdown over the captured
 // Alpha/Beta/Gamma choices, the configured color trigger over the captured Red/Green/Blue
 // choices, the native color input at the `/settings` recorded value, and the captured editable
-// `rename_me` name seam. Name validation remains host-owned opaque-data policy.
+// `rename_me` name seam. The remaining-controls continuation adds the captured ordinary slider
+// (0..100 by 1) and rotary (0..1 by 0.1) rows through the same opaque configuration shape. Name
+// validation remains host-owned opaque-data policy.
 function makeItem(
   id: string,
   data: Record<string, WorkspaceSectionData>,
@@ -60,6 +62,8 @@ const itemPanelTree: WorkspaceSectionItemTree = {
       "item-iota",
       "item-kappa",
       "item-lambda",
+      "item-slider",
+      "item-rotary",
       "item-enabled",
       "item-choice",
       "item-accent",
@@ -82,6 +86,22 @@ const itemPanelTree: WorkspaceSectionItemTree = {
     "item-iota": makeItem("item-iota", { label: "iota", value: "0.05" }),
     "item-kappa": makeItem("item-kappa", { label: "kappa", value: "100" }),
     "item-lambda": makeItem("item-lambda", { label: "lambda", value: "0.0005" }),
+    "item-slider": makeItem("item-slider", {
+      label: "slider",
+      value: "0",
+      control: "slider",
+      min: 0,
+      max: 100,
+      step: 1,
+    }),
+    "item-rotary": makeItem("item-rotary", {
+      label: "rotary",
+      value: "0",
+      control: "rotary",
+      min: 0,
+      max: 1,
+      step: 0.1,
+    }),
     "item-enabled": makeItem("item-enabled", {
       label: "enabled",
       value: "true",

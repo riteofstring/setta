@@ -25,11 +25,12 @@ import {
 // the package's built-in controls chosen by this host's opaque `control` field — the two-layer
 // text value editor (the default; the Lezer-highlighted idle dummy at the reference's
 // monospace treatment plus the value-column divider with its focus paint, at the reference
-// settings surface's python language), the boolean switch, the dropdown pill over this
-// host's flat choices, and the color picker in both its configured-choices and native-input
-// forms, plus the editable `rename_me` name seam. Every accepted control edit commits back
-// through the host's `setItemData` funnel into the canonical document; duplicate-name proposals
-// stay blocked by this host and ride the package's captured error presentation.
+// settings surface's python language), the boolean switch, the dropdown pill over this host's
+// flat choices, the slider and rotary over opaque numeric configuration, and the color picker in
+// both its configured-choices and native-input forms, plus the editable `rename_me` name seam.
+// Every accepted control edit commits back through the host's `setItemData` funnel into the
+// canonical document; duplicate-name proposals stay blocked by this host and ride the package's
+// captured error presentation.
 
 const REFERENCE_LABEL_CLASS_NAME =
   "truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200";
@@ -190,6 +191,56 @@ describe("the playground item renderer presentation contract", () => {
     expect(getDocumentItemValue("item-enabled")).toBe("false");
     expect(switchRow.querySelector<HTMLButtonElement>('button[role="switch"]')?.dataset.state).toBe(
       "unchecked",
+    );
+  });
+
+  it("renders the slider row with opaque limits and commits keyboard stepping", () => {
+    const sliderRow = findRowByLabel(container, "slider");
+    const thumb = sliderRow.querySelector<HTMLElement>('[role="slider"]');
+    if (!thumb) {
+      throw new Error("The slider row does not mount the slider control.");
+    }
+    expect(thumb.getAttribute("aria-label")).toBe("slider value");
+    expect(thumb.getAttribute("aria-valuemin")).toBe("0");
+    expect(thumb.getAttribute("aria-valuemax")).toBe("100");
+    expect(thumb.getAttribute("aria-valuenow")).toBe("0");
+    act(() => {
+      thumb.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowRight",
+          code: "ArrowRight",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    expect(getDocumentItemValue("item-slider")).toBe("1");
+    expect(sliderRow.querySelector('[role="slider"]')?.getAttribute("aria-valuenow")).toBe("1");
+  });
+
+  it("renders the rotary row with opaque limits and commits step-aware keyboard updates", () => {
+    const rotaryRow = findRowByLabel(container, "rotary");
+    const knob = rotaryRow.querySelector<HTMLButtonElement>('button[role="slider"]');
+    if (!knob) {
+      throw new Error("The rotary row does not mount the rotary control.");
+    }
+    expect(knob.getAttribute("aria-label")).toBe("rotary value");
+    expect(knob.getAttribute("aria-valuemin")).toBe("0");
+    expect(knob.getAttribute("aria-valuemax")).toBe("1");
+    expect(knob.getAttribute("aria-valuenow")).toBe("0");
+    act(() => {
+      knob.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowRight",
+          code: "ArrowRight",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    expect(getDocumentItemValue("item-rotary")).toBe("0.1");
+    expect(rotaryRow.querySelector('button[role="slider"]')?.getAttribute("aria-valuenow")).toBe(
+      "0.1",
     );
   });
 

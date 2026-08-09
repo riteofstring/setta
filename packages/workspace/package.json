@@ -38,6 +38,7 @@
     "@dnd-kit/state": "0.2.4",
     "@lezer/highlight": "1.2.0",
     "@radix-ui/react-popover": "1.1.15",
+    "@radix-ui/react-slider": "1.2.0",
     "@radix-ui/react-switch": "1.1.0",
     "@uiw/codemirror-theme-github": "4.21.21",
     "@uiw/codemirror-themes": "4.23.0",

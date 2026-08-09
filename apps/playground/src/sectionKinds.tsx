@@ -5,7 +5,9 @@ import {
   ItemDndContext,
   ItemNameEditor,
   registerSectionKinds,
+  RotaryValueControl,
   setItemData,
+  SliderValueControl,
   SwitchValueControl,
   TextValueEditor,
   WorkspaceItemList,
@@ -80,6 +82,14 @@ function getItemLabel(item: WorkspaceItem): string {
   return label;
 }
 
+function getItemNumber(item: WorkspaceItem, field: string): number {
+  const value = getItemDataRecord(item)[field];
+  if (typeof value !== "number") {
+    throw new Error(`Item ${item.id} is missing its numeric ${field} field.`);
+  }
+  return value;
+}
+
 function isGroupItem(item: WorkspaceItem): boolean {
   return getItemField(item, "group") === true;
 }
@@ -91,10 +101,10 @@ function isGroupItem(item: WorkspaceItem): boolean {
 // input it focuses. Values mount the package's built-in controls from the item-controls
 // milestone, chosen by this host's opaque `control` field: the two-layer text value editor
 // (the default, at python — the reference settings surface's generated `configLanguage`), the
-// boolean switch, the dropdown over this host's flat choice strings, and the color picker in
-// both its configured-choices and native-input forms. The captured `rename_me` row composes the
-// package's editable name control; this host validates proposed names against its opaque sibling
-// labels and owns whether a proposal commits.
+// boolean switch, slider, rotary, the dropdown over this host's flat choice strings, and the
+// color picker in both its configured-choices and native-input forms. The captured `rename_me`
+// row composes the package's editable name control; this host validates proposed names against
+// its opaque sibling labels and owns whether a proposal commits.
 // The playground owns persistence: accepted changes commit back into this host's opaque item
 // data through the `setItemData` funnel. Value controls need no fixture validation; the name
 // seam applies the sibling rule above. The reference's debounced transport and backend paths
@@ -244,6 +254,32 @@ function ItemValueControl({ context }: { context: ItemRowRenderContext }) {
         ariaLabel={ariaLabel}
         sectionId={context.sectionId}
         value={value}
+        onValueChange={onValueChange}
+      />
+    );
+  }
+  if (control === "slider") {
+    return (
+      <SliderValueControl
+        ariaLabel={ariaLabel}
+        sectionId={context.sectionId}
+        value={value}
+        min={getItemNumber(context.item, "min")}
+        max={getItemNumber(context.item, "max")}
+        step={getItemNumber(context.item, "step")}
+        onValueChange={onValueChange}
+      />
+    );
+  }
+  if (control === "rotary") {
+    return (
+      <RotaryValueControl
+        ariaLabel={ariaLabel}
+        sectionId={context.sectionId}
+        value={value}
+        min={getItemNumber(context.item, "min")}
+        max={getItemNumber(context.item, "max")}
+        step={getItemNumber(context.item, "step")}
         onValueChange={onValueChange}
       />
     );

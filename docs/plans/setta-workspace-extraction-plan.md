@@ -1071,6 +1071,24 @@ Phase 4 progress (2026-08-11):
   calendar preset and computed meta-control geometry, then indexed the result under
   `docs/evidence/remaining-controls-and-meta/`. The disposable project was removed after capture;
   no source in `../setta-main` was edited. Implementation may proceed in narrow audited batches.
+- Remaining-controls slider and rotary batch complete (2026-08-12): the package now exports
+  `SliderValueControl` and `RotaryValueControl` through the existing controlled-string and
+  host-configuration seams. The slider ports the ordinary-row Radix track/range/thumb plus its
+  responsive numeric field, finite temporary parsing, clamping, keyboard stepping, separate live
+  change/end-of-gesture commit callbacks, Escape focus restoration, and host/item-select
+  disabledness. The rotary ports the -135°..135° layered knob, step-aware display and rounding,
+  pointer capture, wheel and Arrow/Home/End adjustments, Escape focus restoration, disabled
+  treatment, and the package no-drag/no-pan/no-wheel ownership boundaries. Both require a
+  host-supplied accessible label and fail specifically on non-finite or unordered bounds and on a
+  non-positive or out-of-range step instead of inventing replacement configuration. The playground
+  demonstrates the frozen 0..100/1 slider and 0..1/0.1 rotary through opaque item data and commits
+  their string updates through `setItemData`. Dependency deviation forced by the existing strict
+  peer policy: frozen main pins `@radix-ui/react-slider 1.1.0`, whose React peers stop at 18, so the
+  package uses `1.2.0`, the earliest stable release admitting React 19. Focused package controls
+  (25 tests), the directly affected playground renderer (11 tests), package production build and
+  built-boundary check, changed-file static gate, and dependency supply-chain gate pass. Remaining
+  row-control batches: password plus multiline text; date plus time; dropzone. Meta controls follow
+  after the complete row set as authorized.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

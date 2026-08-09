@@ -19,6 +19,10 @@ export type {
 } from "./controls/dropdown/DropdownValueControl";
 export { ItemNameEditor } from "./controls/name/ItemNameEditor";
 export type { ItemNameEditorProps } from "./controls/name/ItemNameEditor";
+export { RotaryValueControl } from "./controls/rotary/RotaryValueControl";
+export type { RotaryValueControlProps } from "./controls/rotary/RotaryValueControl";
+export { SliderValueControl } from "./controls/slider/SliderValueControl";
+export type { SliderValueControlProps } from "./controls/slider/SliderValueControl";
 export { SwitchValueControl } from "./controls/switch/SwitchValueControl";
 export type { SwitchValueControlProps } from "./controls/switch/SwitchValueControl";
 export { TextValueEditor } from "./controls/text/TextValueEditor";
