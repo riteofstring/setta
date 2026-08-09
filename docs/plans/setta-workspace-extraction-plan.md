@@ -1333,18 +1333,14 @@ Phase 4 progress (2026-08-11):
   packed unrelated-consumer proof, and live Chrome inspection across all twelve triggers pass. No
   dependency changed, so the supply-chain gate was not duplicated. The consolidated developer
   acceptance and first package-output baselines remain open; Phase 5 is still not actionable.
-- Consolidated gate diagnostic support — opt-in structured pan trace (2026-08-12): developer live
-  inspection reported a direction-dependent pan failure that could not yet be described as a
-  deterministic sequence. The package now exposes an inert-by-default pan diagnostic sink and the
-  playground installs it for this supervised investigation. Each trace snapshots filter allow or
-  block reasons, pointer or wheel input, target section/control boundaries, selection and dnd
-  ownership, viewport interaction flags, transforms, and balanced gesture start/move/end events.
-  The playground prints JSON-prefixed records and retains a bounded in-page trace; no package
-  consumer receives logging unless it explicitly installs a sink. Unit coverage locks JSON-safe
-  snapshots, blocker reporting, and lifecycle order. This is diagnostic instrumentation only: no
-  pan behavior has changed, and the reported defect remains open pending developer reproduction.
-  The consolidated developer acceptance and first package-output baselines remain open; Phase 5 is
-  still not actionable.
+- Temporary pan diagnostic trace removed (2026-08-12): developer live inspection reported a
+  direction-dependent pan failure that could not initially be reduced to a deterministic sequence.
+  A temporary package sink and playground capture recorded raw wheel input, target ownership,
+  interaction state, and viewport transforms long enough to isolate the cause below. After the
+  focused correction passed the developer's live retest, the developer requested removal. The
+  public diagnostic exports, canvas instrumentation and raw listeners, playground console/buffer
+  capture, and diagnostic-only tests are removed; no issue-specific pan logging remains. The
+  behavioral regression for the accepted fix remains.
 - Consolidated controls gate correction — direction-dependent Time-area panning (2026-08-12): the
   developer reproduction produced a decisive trace rather than a stale-state failure. Twenty-nine
   consecutive horizontal wheel events over the direct-on-canvas Time input were rejected by its
@@ -1355,8 +1351,8 @@ Phase 4 progress (2026-08-11):
   removes only their stray wheel boundary while retaining `nodrag` and `nopan`; genuinely scrollable
   areas and wheel-driven controls keep `nowheel`. A canvas regression locks starting horizontal pan
   over an interactive `nopan` target while proving an explicit `nowheel` target still blocks a new
-  burst, and date/time regressions lock the corrected class contract. The focused suites (23 tests),
-  complete package suite (81 files, 590 tests), complete playground suite (3 files, 23 tests),
+  burst, and date/time regressions lock the corrected class contract. The focused suites (22 tests),
+  complete package suite (80 files, 587 tests), complete playground suite (3 files, 23 tests),
   package and playground production builds, changed-file static gate, packed unrelated-consumer
   proof, and live Chrome trace over the Time input pass. The developer's live retest confirmed that
   the direction no longer becomes trapped. This accepts the focused pan correction only; the

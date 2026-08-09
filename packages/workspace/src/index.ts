@@ -8,12 +8,6 @@ export type {
 } from "./canvas/options";
 // These two string unions appear in WorkspaceInteractionOptions; riding the index keeps
 // consumers off deep canvas-internal import paths.
-export { setWorkspacePanDiagnosticLogger } from "./canvas/panDiagnostics";
-export type {
-  WorkspacePanDiagnosticEvent,
-  WorkspacePanDiagnosticLogger,
-  WorkspacePanDiagnosticPhase,
-} from "./canvas/panDiagnostics";
 export type { PanOnScrollMode, SelectionMode } from "./canvas/types";
 export { WorkspaceCanvas } from "./canvas/WorkspaceCanvas";
 export { ColorValueControl } from "./controls/color/ColorValueControl";

@@ -5,10 +5,6 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import { useWorkspaceOptions } from "./options";
-import {
-  setWorkspacePanDiagnosticLogger,
-  type WorkspacePanDiagnosticEvent,
-} from "./panDiagnostics";
 import { initialCanvasState, useReactFlow } from "./store";
 import ZoomPane, {
   getViewportInteractionActiveValue,
@@ -202,7 +198,6 @@ describe("getViewportInteractionActiveValue", () => {
   });
 
   afterEach(() => {
-    setWorkspacePanDiagnosticLogger(null);
     vi.restoreAllMocks();
     vi.useRealTimers();
     useNodeInternals.getState().reset();
@@ -283,82 +278,6 @@ describe("getViewportInteractionActiveValue", () => {
         );
       });
       expect(useReactFlow.getState().transform).toEqual([-10, 0, 1]);
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-
-  it("reports why a pointer start was filtered and records its gesture lifecycle", async () => {
-    const events: Array<WorkspacePanDiagnosticEvent> = [];
-    setWorkspacePanDiagnosticLogger((event) => events.push(event));
-    const { host, renderer, root } = await renderZoomPane();
-
-    try {
-      const blockedTarget = document.createElement("button");
-      blockedTarget.className = "nopan";
-      renderer.appendChild(blockedTarget);
-      blockedTarget.dispatchEvent(
-        new MouseEvent("mousedown", {
-          bubbles: true,
-          cancelable: true,
-          button: 0,
-          buttons: 1,
-          clientX: 140,
-          clientY: 160,
-        }),
-      );
-
-      expect(events.at(-1)).toMatchObject({
-        phase: "filter",
-        target: { noPan: true },
-        details: {
-          allowed: false,
-          decisionReason: "no-pan-target",
-          blockers: ["no-pan-target"],
-        },
-      });
-
-      const d3Zoom = useReactFlow.getState().d3Zoom;
-      if (!d3Zoom) {
-        throw new Error("Expected ZoomPane to initialize d3 zoom state.");
-      }
-      const startHandler = d3Zoom.on("start");
-      const zoomHandler = d3Zoom.on("zoom");
-      const endHandler = d3Zoom.on("end");
-      if (
-        typeof startHandler !== "function" ||
-        typeof zoomHandler !== "function" ||
-        typeof endHandler !== "function"
-      ) {
-        throw new Error("Expected ZoomPane to register the complete gesture lifecycle.");
-      }
-
-      const transform = { x: 12, y: 24, k: 1 };
-      startHandler.call(
-        renderer,
-        { sourceEvent: new MouseEvent("mousedown"), transform },
-        undefined,
-      );
-      zoomHandler.call(
-        renderer,
-        { sourceEvent: new MouseEvent("mousemove"), transform },
-        undefined,
-      );
-      endHandler.call(renderer, { sourceEvent: new MouseEvent("mouseup"), transform }, undefined);
-
-      expect(events.slice(-3).map((event) => event.phase)).toEqual([
-        "gesture-start",
-        "gesture-move",
-        "gesture-end",
-      ]);
-      expect(events.at(-1)?.state).toMatchObject({
-        paneDragging: false,
-        viewportInteractionActive: false,
-        transform: [12, 24, 1],
-      });
     } finally {
       await act(async () => {
         root.unmount();
