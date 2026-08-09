@@ -1227,6 +1227,63 @@
   pointer-events: none;
 }
 
+.setta-workspace__connections {
+  position: absolute;
+  z-index: 1;
+  inset: 0 auto auto 0;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: visible;
+  color: var(--setta-workspace-connection);
+  pointer-events: none;
+}
+
+.setta-workspace__connection-underlay,
+.setta-workspace__connection-edge {
+  fill: none;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.setta-workspace__connection-underlay {
+  stroke: var(--setta-workspace-canvas-background);
+  stroke-width: 6px;
+}
+
+.setta-workspace__connection-edge {
+  stroke: currentcolor;
+  stroke-width: 2px;
+}
+
+.setta-workspace__connection-arrow {
+  fill: currentcolor;
+}
+
+.setta-workspace__connection-label {
+  fill: var(--setta-workspace-section-text);
+  stroke: var(--setta-workspace-canvas-background);
+  paint-order: stroke;
+  font-family: inherit;
+  font-weight: 700;
+}
+
+.setta-workspace__connection-port-underlay {
+  fill: var(--setta-workspace-canvas-background);
+}
+
+.setta-workspace__connection-port {
+  fill: currentcolor;
+  stroke: var(--setta-workspace-section-background);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+@container (max-width: 24rem) {
+  .setta-workspace__connection-label {
+    display: none;
+  }
+}
+
 .setta-workspace__selection-overlay {
   z-index: 4;
   border-radius: 1rem;

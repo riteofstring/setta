@@ -150,11 +150,16 @@ controlled React utility overlay. The host owns IDs and persistence; the package
 capture/restore interaction, inline management, focus, and announcements without adding a document
 field or history owner.
 
+Generic edges and ports are implemented as a strict versioned, host-controlled collection outside
+`WorkspaceDocument`. The package owns document-relative validation, accessible descriptions, and
+all-depth measured projection; the host owns persistence, editing, authorization, and domain
+meaning. No edge interaction, execution, or history contract is implied.
+
 Multiple named item lists, same-section cross-list movement, mixed-parent batch movement, and
 ancestry-closed filtered views with canonical move reconciliation are implemented through one
-shared interaction owner. Still deferred are cross-section item movement, generic edges and ports,
-pane registration beyond current extensions, viewport culling, absolute nested positioning, and
-complete descendant-subtree collapse.
+shared interaction owner. Still deferred are cross-section item movement, pane registration beyond
+current extensions, viewport culling, absolute nested positioning, and complete descendant-subtree
+collapse.
 
 ## Explicit non-goals
 

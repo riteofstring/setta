@@ -1,6 +1,9 @@
 import {
+  WORKSPACE_CONNECTIONS_SCHEMA_VERSION,
+  createEmptyWorkspaceConnections,
   createEmptyWorkspaceDocument,
   type WorkspaceAppearance,
+  type WorkspaceConnections,
   type WorkspaceController,
   type WorkspaceDocument,
   type WorkspaceGestureOptions,
@@ -17,7 +20,7 @@ import {
   type WorkspaceSectionMoveMode,
   type WorkspaceToolbarControl,
 } from "@setta/workspace/react";
-import { useRef, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 
 function HostToolbarIcon({ children }: Readonly<{ children: ReactNode }>) {
   return (
@@ -252,6 +255,66 @@ function createRecursiveDocument(): WorkspaceDocument {
   };
 }
 
+function createCanvasShellConnections(document: WorkspaceDocument): WorkspaceConnections {
+  const recursiveSectionIds = ["empty-container", "nested-alpha", "nested-beta", "nested-gamma"];
+  if (!recursiveSectionIds.every((sectionId) => Object.hasOwn(document.sections, sectionId))) {
+    return {
+      edges: [],
+      ports: [],
+      schemaVersion: WORKSPACE_CONNECTIONS_SCHEMA_VERSION,
+    };
+  }
+  return {
+    edges: [
+      {
+        directed: true,
+        id: "nested-review-flow",
+        label: "Review flow",
+        source: { portId: "review-out", sectionId: "nested-alpha" },
+        target: { portId: "review-in", sectionId: "nested-gamma" },
+      },
+      {
+        directed: false,
+        id: "nested-reference",
+        label: "Shared context",
+        source: { portId: "context", sectionId: "nested-beta" },
+        target: { portId: "context", sectionId: "empty-container" },
+      },
+    ],
+    ports: [
+      {
+        id: "review-out",
+        label: "Review output",
+        offset: 0.5,
+        sectionId: "nested-alpha",
+        side: "right",
+      },
+      {
+        id: "context",
+        label: "Context",
+        offset: 0.5,
+        sectionId: "nested-beta",
+        side: "bottom",
+      },
+      {
+        id: "review-in",
+        label: "Review input",
+        offset: 0.5,
+        sectionId: "nested-gamma",
+        side: "left",
+      },
+      {
+        id: "context",
+        label: "Context",
+        offset: 0.5,
+        sectionId: "empty-container",
+        side: "top",
+      },
+    ],
+    schemaVersion: WORKSPACE_CONNECTIONS_SCHEMA_VERSION,
+  };
+}
+
 function workspaceSectionsAvailable(
   document: WorkspaceDocument,
   mounted: boolean,
@@ -261,8 +324,11 @@ function workspaceSectionsAvailable(
 }
 
 export function CanvasShellPage() {
+  const connectionsEnabled = new URLSearchParams(window.location.search).has("connections");
   const controller = useRef<WorkspaceController>(null);
-  const [document, setDocument] = useState<WorkspaceDocument>(createEmptyWorkspaceDocument);
+  const [document, setDocument] = useState<WorkspaceDocument>(() =>
+    connectionsEnabled ? createRecursiveDocument() : createEmptyWorkspaceDocument(),
+  );
   const [documentChangeCount, setDocumentChangeCount] = useState(0);
   const [appearance, setAppearance] = useState<WorkspaceAppearance>("system");
   const [customGridColor, setCustomGridColor] = useState(false);
@@ -288,6 +354,13 @@ export function CanvasShellPage() {
   const [zoomOnPinch, setZoomOnPinch] = useState(true);
   const [zoomOnScroll, setZoomOnScroll] = useState(false);
   const [status, setStatus] = useState("Canvas ready.");
+  const connections = useMemo(
+    () =>
+      connectionsEnabled
+        ? createCanvasShellConnections(document)
+        : createEmptyWorkspaceConnections(),
+    [connectionsEnabled, document],
+  );
 
   const runNavigation = async (
     label: string,
@@ -687,6 +760,7 @@ export function CanvasShellPage() {
                 : { appearance }
             }
             controllerRef={controller}
+            connections={connections}
             document={document}
             emptyState="No sections yet. Use the gesture controls to explore the canvas."
             gestureOptions={{

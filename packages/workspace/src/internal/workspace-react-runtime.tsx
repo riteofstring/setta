@@ -79,6 +79,7 @@ export function workspaceThemeStyle(
   const tokens = options[appearance];
   return {
     "--setta-workspace-canvas-background": tokens.canvasBackground,
+    "--setta-workspace-connection": tokens.connection,
     "--setta-workspace-focus": tokens.focus,
     "--setta-workspace-grid-color": tokens.gridColor,
     "--setta-workspace-invalid": tokens.invalid,

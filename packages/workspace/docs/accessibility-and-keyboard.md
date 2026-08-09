@@ -10,6 +10,12 @@ each `WorkspaceOutline`, `WorkspaceViewportPresets`, `SortableItemTree`, and `So
 surface its own `ariaLabel`, and give sortable items stable labels. Each named item list exposes a
 visible label and a native named region inside the shared movement group.
 
+Optional connections expose a visually hidden group named from the workspace. It lists every
+labeled port and every complete source-to-target edge, including directed state. The visible SVG
+and port marks are non-interactive and hidden from assistive technology, so they add no pointer-only
+action or keyboard stop. A host-provided connection editor remains responsible for native controls,
+focus, announcements, and equivalent keyboard completion.
+
 ## Global and selection commands
 
 | Focus or context                                 | Keys                                         | Result                                                                                                      |

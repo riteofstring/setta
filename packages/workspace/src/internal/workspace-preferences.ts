@@ -27,6 +27,7 @@ const gridOptionKeys = new Set(["markSize", "pattern", "snap", "spacing", "visib
 const appearanceOptionKeys = new Set(["appearance", "dark", "light"]);
 const themeTokenKeys = [
   "canvasBackground",
+  "connection",
   "focus",
   "gridColor",
   "invalid",
@@ -49,6 +50,7 @@ export const WORKSPACE_DEFAULT_GRID_OPTIONS: ResolvedWorkspaceGridOptions = Obje
 
 export const WORKSPACE_DEFAULT_LIGHT_THEME: WorkspaceThemeTokens = Object.freeze({
   canvasBackground: "oklch(0.965 0.008 255)",
+  connection: "oklch(0.44 0.07 205)",
   focus: "oklch(0.42 0.12 255)",
   gridColor: "oklch(0.72 0.025 255)",
   invalid: "oklch(0.48 0.18 25)",
@@ -62,6 +64,7 @@ export const WORKSPACE_DEFAULT_LIGHT_THEME: WorkspaceThemeTokens = Object.freeze
 
 export const WORKSPACE_DEFAULT_DARK_THEME: WorkspaceThemeTokens = Object.freeze({
   canvasBackground: "oklch(0.18 0.02 255)",
+  connection: "oklch(0.78 0.07 205)",
   focus: "oklch(0.82 0.08 255)",
   gridColor: "oklch(0.42 0.03 255)",
   invalid: "oklch(0.72 0.16 25)",

@@ -381,6 +381,64 @@ canvas lifecycle, preserves selection and section state, and creates no structur
 It remains available in `readOnly` mode. A preset outside the live workbench's narrower gesture
 zoom bounds is reported specifically instead of being clamped or partially applied.
 
+## Generic edges and ports
+
+`connections` projects optional host-owned relationships between section ports without changing
+`WorkspaceDocument`. Each port has an ID scoped to one section, a physical `top`, `right`, `bottom`,
+or `left` side, an offset from 0 through 1, and a required accessible label. An edge references two
+exact section/port pairs, has a required label, and explicitly chooses directed or undirected
+presentation.
+
+```tsx
+import {
+  WORKSPACE_CONNECTIONS_SCHEMA_VERSION,
+  parseWorkspaceConnections,
+  serializeWorkspaceConnections,
+  type WorkspaceConnections,
+} from "@setta/workspace/core";
+
+const connections = {
+  schemaVersion: WORKSPACE_CONNECTIONS_SCHEMA_VERSION,
+  ports: [
+    { id: "out", label: "Review output", sectionId: "draft", side: "right", offset: 0.5 },
+    { id: "in", label: "Review input", sectionId: "approval", side: "left", offset: 0.5 },
+  ],
+  edges: [
+    {
+      id: "review-flow",
+      label: "Review flow",
+      directed: true,
+      source: { sectionId: "draft", portId: "out" },
+      target: { sectionId: "approval", portId: "in" },
+    },
+  ],
+} satisfies WorkspaceConnections;
+
+const serialized = serializeWorkspaceConnections(document, connections);
+const restored = parseWorkspaceConnections(document, serialized);
+
+<Workspace connections={restored} document={document} onDocumentChange={setDocument} />;
+```
+
+Validation is strict and document-relative: arrays must be dense, IDs and labels are trimmed and
+non-empty, edge IDs are unique, port IDs are unique within a section, endpoints must resolve, and
+unknown sections, fields, accessors, schema versions, or identical endpoints fail specifically.
+When a host deletes or replaces a section, derive the controlled connection collection from the
+same accepted host state so one render never contains a dangling reference.
+
+The package uses the shared measured geometry index to keep root and recursively nested endpoints
+aligned through pan, zoom, nested scroll, resize, reflow, and orientation changes. Stroke widths,
+port marks, arrowheads, and labels remain legible instead of scaling with canvas zoom. A hidden
+named group lists every port and complete labeled edge for screen-reader navigation; the visible
+SVG is non-interactive and hidden from assistive technology. Visible edge labels progressively hide
+when the canvas becomes too narrow for them; the routes, ports, and complete named description
+remain available.
+
+Hosts own connection IDs, persistence, authorization, editing UI, and any domain meaning. This
+surface intentionally adds no edge-creation gesture, selection, document command, history entry,
+execution semantics, or XYFlow type. The backend-free all-depth fixture is available at
+`/?canvas-shell&connections` in the playground.
+
 ## Controller commands
 
 The controller is unavailable until the upstream viewport initializes. Read it through

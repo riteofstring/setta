@@ -6,6 +6,7 @@ import {
   type WorkspaceCapabilities,
   type WorkspaceCapabilityOverrides,
   type WorkspaceClipboardAdapter,
+  type WorkspaceConnections,
   type WorkspaceController,
   type WorkspaceDocument,
   type WorkspaceDocumentChange,
@@ -131,6 +132,7 @@ type SharedWorkspaceProps<TSectionData> = Omit<
   appearanceOptions?: WorkspaceAppearanceOptionOverrides;
   capabilities?: WorkspaceCapabilityOverrides;
   clipboardAdapter?: WorkspaceClipboardAdapter<TSectionData>;
+  connections?: WorkspaceConnections;
   controllerRef?: Ref<WorkspaceController<TSectionData>>;
   emptyState?: ReactNode;
   gestureOptions?: WorkspaceGestureOptionOverrides;

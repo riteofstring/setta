@@ -23,6 +23,7 @@ export type WorkspaceAppearance = "dark" | "light" | "system";
 
 export type WorkspaceThemeTokens = Readonly<{
   canvasBackground: string;
+  connection: string;
   focus: string;
   gridColor: string;
   invalid: string;

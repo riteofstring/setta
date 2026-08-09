@@ -57,6 +57,22 @@ export type {
   WorkspaceJsonClipboardDataValidationRequest,
   WorkspaceTextClipboard,
 } from "./internal/workspace-clipboard.js";
+export {
+  WORKSPACE_CONNECTIONS_SCHEMA_VERSION,
+  createEmptyWorkspaceConnections,
+  parseWorkspaceConnections,
+  resolveWorkspacePortPosition,
+  serializeWorkspaceConnections,
+  validateWorkspaceConnections,
+} from "./internal/workspace-connections.js";
+export type {
+  WorkspaceConnectionRect,
+  WorkspaceConnections,
+  WorkspaceEdge,
+  WorkspaceEdgeEndpoint,
+  WorkspacePort,
+  WorkspacePortSide,
+} from "./internal/workspace-connections.js";
 export { WORKSPACE_DOCUMENT_SCHEMA_VERSION } from "./internal/workspace-document-contract.js";
 export type {
   SectionChrome,

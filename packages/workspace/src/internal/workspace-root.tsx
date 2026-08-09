@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 
 import {
+  createEmptyWorkspaceConnections,
   resolveWorkspaceCapabilities,
   resolveWorkspaceGestureOptions,
+  validateWorkspaceConnections,
   type SectionOrientation,
   type SectionOverflow,
   type WorkspaceController,
@@ -132,6 +134,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     capabilities: capabilityOverrides,
     className,
     clipboardAdapter,
+    connections: connectionOverrides,
     controllerRef,
     defaultDocument,
     document: controlledDocument,
@@ -236,6 +239,11 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     assertWorkspaceViewportWithinGestureBounds(document, gestureOptions);
     return document;
   }, [document, gestureOptions, sectionRegistry]);
+  const connections = useMemo(() => {
+    const value = connectionOverrides ?? createEmptyWorkspaceConnections();
+    validateWorkspaceConnections(validatedDocument, value);
+    return value;
+  }, [connectionOverrides, validatedDocument]);
   const capabilities = useMemo(
     () => resolveWorkspaceCapabilities(capabilityOverrides, readOnly),
     [capabilityOverrides, readOnly],
@@ -641,6 +649,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         clipboardAnnouncement={clipboard.announcement}
         clipboardConfigured={clipboard.configured}
         controllerSynchronizationRevision={controllerSynchronizationRevision}
+        connections={connections}
         creationAnnouncement={creationAnnouncement}
         creationConfigured={creationAvailability.configured}
         creationEnabled={creationAvailability.enabled}

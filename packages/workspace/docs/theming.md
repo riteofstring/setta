@@ -42,6 +42,7 @@ their content inherits the same resolved appearance without importing package st
 | Token               | CSS custom property                    | Meaning                                    |
 | ------------------- | -------------------------------------- | ------------------------------------------ |
 | `canvasBackground`  | `--setta-workspace-canvas-background`  | Spatial canvas and grid backdrop.          |
+| `connection`        | `--setta-workspace-connection`         | Generic edge strokes, arrows, and ports.   |
 | `gridColor`         | `--setta-workspace-grid-color`         | Decorative grid marks only.                |
 | `sectionBackground` | `--setta-workspace-section-background` | Default section and item surfaces.         |
 | `sectionText`       | `--setta-workspace-section-text`       | Primary package and host-renderer text.    |

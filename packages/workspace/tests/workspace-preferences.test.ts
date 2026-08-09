@@ -104,7 +104,7 @@ function expectThemeContrast(tokens: WorkspaceThemeTokens): void {
   expect(wcagContrast(tokens.sectionMutedText, tokens.sectionBackground)).toBeGreaterThanOrEqual(
     4.5,
   );
-  for (const state of [tokens.focus, tokens.invalid, tokens.selection]) {
+  for (const state of [tokens.connection, tokens.focus, tokens.invalid, tokens.selection]) {
     expect(wcagContrast(state, tokens.canvasBackground)).toBeGreaterThanOrEqual(3);
     expect(wcagContrast(state, tokens.sectionBackground)).toBeGreaterThanOrEqual(3);
   }

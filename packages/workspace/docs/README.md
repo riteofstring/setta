@@ -7,14 +7,14 @@ contracts fit together without exposing XYFlow, dnd-kit, or package internals.
 Start with the package [quickstart](../README.md#five-minute-uncontrolled-example), then use the
 smallest guide that matches the integration being built.
 
-| Guide                                                       | Use it for                                                                                                                                                                                   |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Host integration](integration.md)                          | Document ownership, persistence, capabilities, creation, auto layout, saved views, clipboard adapters, detachable windows, outline navigation, controller commands, extensions, and history. |
-| [Recursive sections](recursive-sections.md)                 | Container registration, canonical containment, sorting and free-move modes, orientation, locking, minimizing, size modes, overflow, snapping, and section presentation.                      |
-| [Sortable item trees](sortable-item-trees.md)               | Host-owned item data, named and filtered lists, canonical reconciliation, selection, atomic move plans, pointer/touch/keyboard movement, zoom, and persistence.                              |
-| [Theming](theming.md)                                       | Required CSS, scoped light/dark/system appearance, semantic tokens, grid styling, chrome, accents, tags, and host-renderer theming.                                                          |
-| [Accessibility and keyboard](accessibility-and-keyboard.md) | Package keyboard commands, focus and announcements, host-renderer responsibilities, zoom/reflow, coarse pointers, and reduced motion.                                                        |
-| [Verification and support](verification-and-support.md)     | Performance guidance, browser policy, local package checks, supply-chain policy, attribution, deferred capabilities, and non-goals.                                                          |
+| Guide                                                       | Use it for                                                                                                                                                                                                            |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Host integration](integration.md)                          | Document ownership, persistence, capabilities, creation, auto layout, saved views, generic edges and ports, clipboard adapters, detachable windows, outline navigation, controller commands, extensions, and history. |
+| [Recursive sections](recursive-sections.md)                 | Container registration, canonical containment, sorting and free-move modes, orientation, locking, minimizing, size modes, overflow, snapping, and section presentation.                                               |
+| [Sortable item trees](sortable-item-trees.md)               | Host-owned item data, named and filtered lists, canonical reconciliation, selection, atomic move plans, pointer/touch/keyboard movement, zoom, and persistence.                                                       |
+| [Theming](theming.md)                                       | Required CSS, scoped light/dark/system appearance, semantic tokens, grid styling, chrome, accents, tags, and host-renderer theming.                                                                                   |
+| [Accessibility and keyboard](accessibility-and-keyboard.md) | Package keyboard commands, focus and announcements, host-renderer responsibilities, zoom/reflow, coarse pointers, and reduced motion.                                                                                 |
+| [Verification and support](verification-and-support.md)     | Performance guidance, browser policy, local package checks, supply-chain policy, attribution, deferred capabilities, and non-goals.                                                                                   |
 
 ## Stable ownership boundary
 
@@ -29,6 +29,8 @@ smallest guide that matches the integration being built.
   document, selection, focus, and viewport boundary.
 - `WorkspaceViewportPresets` owns the accessible capture/restore management surface; the host owns
   preset IDs, the controlled collection, persistence, and authorization.
+- `WorkspaceConnections` owns strict relationship validation and measured visual projection; the
+  host owns the separate collection, persistence, editing, authorization, and domain meaning.
 - Root auto layout owns only measured rectangle packing and one atomic position command; payloads,
   root sizes, stacking, and persistence retain their existing owners.
 - `SortableItemTree` or `SortableItemLists` owns item interaction, filtered projection, and

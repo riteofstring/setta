@@ -10,13 +10,17 @@ import {
   createFilteredSortableItemTree,
   createWorkspaceJsonClipboardAdapter,
   packWorkspaceRectangles,
+  parseWorkspaceConnections,
   parseWorkspaceViewportPresets,
   planWorkspaceRootAutoLayout,
+  serializeWorkspaceConnections,
   serializeWorkspaceViewportPresets,
   validateSortableItemLists,
   validateWorkspaceDocument,
+  WORKSPACE_CONNECTIONS_SCHEMA_VERSION,
   type SortableItemList,
   type WorkspaceClipboardAdapter,
+  type WorkspaceConnections,
   type WorkspaceDocument,
   type WorkspaceRootAutoLayoutOptions,
 } from "@setta/workspace/core";
@@ -63,6 +67,23 @@ const workspaceDocument: WorkspaceDocument<ConsumerSectionData> = {
   },
 };
 validateWorkspaceDocument(workspaceDocument);
+
+const consumerConnections = parseWorkspaceConnections(
+  workspaceDocument,
+  serializeWorkspaceConnections(workspaceDocument, {
+    edges: [],
+    ports: [
+      {
+        id: "consumer-output",
+        label: "Consumer output",
+        offset: 0.5,
+        sectionId: "consumer-note-1",
+        side: "right",
+      },
+    ],
+    schemaVersion: WORKSPACE_CONNECTIONS_SCHEMA_VERSION,
+  } satisfies WorkspaceConnections),
+);
 
 const consumerPackingPreview = packWorkspaceRectangles({
   gap: 16,
@@ -257,6 +278,7 @@ createRoot(root).render(
           appearanceOptions={{ appearance: "light" }}
           ariaLabel="Consumer workspace"
           clipboardAdapter={consumerClipboardAdapter}
+          connections={consumerConnections}
           data-item-list-count={itemLists.length}
           data-version={workspaceDocument.schemaVersion}
           defaultDocument={workspaceDocument}

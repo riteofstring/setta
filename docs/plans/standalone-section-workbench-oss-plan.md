@@ -1584,7 +1584,8 @@ Gate:
 
 Status: **in progress** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
 optional outline-navigator, top-level auto-layout, named item-list, filtered item-list,
-mixed-parent batch-movement, and saved viewport-preset batches are implemented and recorded in
+mixed-parent batch-movement, saved viewport-preset, and generic edge-and-port batches are
+implemented and recorded in
 [Phase 6 detachable-section evidence](../evidence/phase-6-detachable-sections.md) and
 [Phase 6 clipboard evidence](../evidence/phase-6-clipboard.md), with the navigator record in
 [Phase 6 outline-navigator evidence](../evidence/phase-6-outline-navigator.md) and the layout record
@@ -1594,8 +1595,32 @@ projection record in [Phase 6 filtered item-list evidence](../evidence/phase-6-f
 and the mixed-parent record in
 [Phase 6 mixed-parent batch-movement evidence](../evidence/phase-6-mixed-parent-batch-movement.md).
 The saved-view record is
-[Phase 6 viewport-preset evidence](../evidence/phase-6-viewport-presets.md). Generic edges and ports
-are the earliest incomplete repository-actionable Phase 6 work.
+[Phase 6 viewport-preset evidence](../evidence/phase-6-viewport-presets.md), and the connection
+record is [Phase 6 generic edge and port evidence](../evidence/phase-6-generic-connections.md). Pane
+registration beyond toolbar and overlay slots is the earliest incomplete repository-actionable
+Phase 6 work.
+
+- Completed (generic edge-and-port batch): added a strict versioned host-controlled collection of
+  labeled section ports and directed or undirected edges, with document-relative validation,
+  immutable parsing, and deterministic side/offset projection. The optional React projection uses
+  the existing all-depth measured geometry index and keeps fixed-weight routes, arrowheads, labels,
+  and port marks aligned through canvas transforms and nested scrolling. Complete relationships are
+  available in a named screen-reader group while the visible SVG remains non-interactive. The
+  collection stays outside `WorkspaceDocument`; hosts retain persistence, authorization, editing,
+  and domain meaning, and no graph execution, history, or upstream type enters the public boundary.
+  The complete record is `docs/evidence/phase-6-generic-connections.md`.
+- Generic edge-and-port verification: exact Node 24.18.1, repository-local Corepack 0.35.0, and pnpm
+  11.19.0 focused coverage passed 27 core/static React and color-contract tests. The final exact
+  Chromium selector passed two all-depth connection workflows covering nested scroll, zoom,
+  endpoint alignment, accessible descriptions, Axe, reduced motion, 200% page scale, dark
+  appearance, 320-CSS-pixel reflow, and two inspected original-resolution baselines. Changed-file
+  quality passed for 25 project files with boundaries across 317 files, dependency policy,
+  formatting, lint and complexity, file lengths, strict types, dead-code analysis, 456 unit tests
+  across 43 files, six boundary tests, plan-loop automation, builds, exact tarball contents, and the
+  declaration report. The unrelated tarball-installed consumer passed lockfile policy, strict
+  build, and runtime smoke through declared connection exports. No dependency input changed, so the
+  network-backed supply-chain gate was not duplicated; the recorded unavailable in-app-browser
+  release gate was not retried.
 
 - Completed (saved viewport-preset batch): added a strict versioned core preference format and an
   optional controlled React panel for capturing, restoring, renaming, and deleting named
@@ -1735,7 +1760,7 @@ Then evaluate or implement independently:
 - Completed: mixed-parent batch section and item dragging with active-root anchoring and atomic
   convergence into one destination.
 - Completed: saved viewport presets.
-- Generic edges and ports.
+- Completed: generic edges and ports.
 - Pane registration beyond toolbar and overlay slots.
 - Viewport culling.
 - Absolute/freeform positioning inside nested containers.
@@ -1892,6 +1917,7 @@ The initial package documentation includes:
 - Pure rectangle-packing and measured top-level auto-layout guidance.
 - Persistence integration example.
 - Saved viewport-preset ownership, persistence, and restore-only integration guidance.
+- Generic edge-and-port ownership, validation, persistence, theming, and projection guidance.
 - Keyboard interaction table.
 - Accessibility expectations for host renderers.
 - Styling and light/dark theme tokens.

@@ -93,6 +93,7 @@ async function verifyConsumerRuntime(distributionRoot) {
       const workspace = page.getByRole("region", { exact: true, name: "Consumer workspace" });
       await workspace.getByRole("article", { name: "Consumer note 1" }).waitFor();
       await workspace.getByRole("textbox", { name: "Consumer note body" }).waitFor();
+      await workspace.locator('[data-workspace-port-id="consumer-output"]').waitFor();
       await workspace
         .getByRole("region", { name: "Consumer saved views" })
         .getByRole("button", { name: "Restore Consumer overview" })

@@ -13,6 +13,7 @@ import type {
   SectionOrientation,
   SectionOverflow,
   WorkspaceActionResult,
+  WorkspaceConnections,
   WorkspaceController,
   WorkspaceDocument,
   WorkspaceGestureOptions,
@@ -46,6 +47,7 @@ import {
 import { WorkspaceSelectionOverlay } from "./workspace-canvas-selection.js";
 import { useWorkspaceCanvasViewport } from "./workspace-canvas-viewport.js";
 import { resolveWorkspaceClipboardShortcut } from "./workspace-clipboard.js";
+import { WorkspaceConnectionLayer } from "./workspace-connections-react.js";
 import { useWorkspaceExternalDrop } from "./workspace-external-drop.js";
 import { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 import { resolveWorkspaceHistoryShortcut } from "./workspace-history.js";
@@ -90,6 +92,7 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   clipboardAnnouncement: string;
   clipboardConfigured: boolean;
   controllerSynchronizationRevision: number;
+  connections: WorkspaceConnections;
   creationAnnouncement: string;
   creationConfigured: boolean;
   creationEnabled: boolean;
@@ -195,6 +198,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   clipboardAnnouncement,
   clipboardConfigured,
   controllerSynchronizationRevision,
+  connections,
   creationAnnouncement,
   creationConfigured,
   creationEnabled,
@@ -609,6 +613,14 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
             {creation.dialog}
             {selectionActions.dialog}
             {externalDrop.feedback}
+            {connections.ports.length > 0 ? (
+              <WorkspaceConnectionLayer
+                ariaLabel={ariaLabel}
+                connections={connections}
+                document={document}
+                geometryIndex={geometryIndex}
+              />
+            ) : null}
             <WorkspaceSelectionOverlay
               geometryIndex={geometryIndex}
               hidden={interaction.ownership.owner === "section-structure"}
