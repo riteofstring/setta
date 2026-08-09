@@ -2,7 +2,7 @@
 
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../../canvas/store";
 import { useDndChildren } from "../../dnd/dndChildren";
 import { useDndState } from "../../dnd/dndState";
@@ -94,6 +94,36 @@ function loadDeepDocument() {
   });
 }
 
+function loadMetaControlDocument(
+  onEdit: (section: WorkspaceSection) => void,
+  overrides: Partial<WorkspaceSection> = {},
+) {
+  registerSectionKinds({
+    leaf: { renderContent: renderSectionBody },
+    meta: {
+      renderContent: () => createElement("div", { "data-testid": "meta-body" }, "Meta body"),
+      presentation: {
+        type: "meta-control",
+        resolveControlKind: () => "text",
+        onEdit,
+      },
+    },
+  });
+  const { size: _size, ...metaWithoutSize } = makeSection("meta", {
+    kind: "meta",
+    name: "Meta text",
+    styleColor: "#3b82f6",
+    data: { control: "text" },
+    ...overrides,
+  });
+  loadWorkspaceDocument({
+    sections: { meta: metaWithoutSize },
+    topLevelSections: { meta: { x: 0, y: 0, w: 200, h: 44, zIndex: 0 } },
+    viewport: { x: 0, y: 0, zoom: 1 },
+    activeIds: [],
+  });
+}
+
 // Mirrors production, where NodeRenderer stops rendering a section's container in the same
 // pass that removes it from the document.
 function SectionHost({ sectionId }: { sectionId: string }) {
@@ -172,6 +202,86 @@ describe("SectionContainer", () => {
     // The container registers both DOM refs for measurement fallbacks.
     expect(useSectionRefs.getState().selfOnly["leaf"]).toBeInstanceOf(HTMLElement);
     expect(useSectionRefs.getState().withNested["leaf"]).toBeInstanceOf(HTMLElement);
+  });
+
+  it("renders package-owned meta chrome at the captured inner geometry", async () => {
+    const onEdit = vi.fn();
+    loadMetaControlDocument(onEdit);
+    await mount("meta");
+
+    const shell = host.querySelector<HTMLElement>('[data-section-id="meta"]');
+    if (!shell) {
+      throw new Error("The meta-control shell did not render.");
+    }
+    expect(shell.getAttribute("data-section-presentation")).toBe("meta-control");
+    expect(shell.getAttribute("aria-label")).toBe("Meta control");
+    for (const expectedClass of [
+      "bg-transparent",
+      "!border-transparent",
+      "outline-2",
+      "group-hover/card-section:outline-setta-400/60",
+    ]) {
+      expect(shell.classList.contains(expectedClass)).toBe(true);
+    }
+    // Meta presentation suppresses a section style color rather than repainting its transparent
+    // shell with the ordinary themed variables.
+    expect(shell.className).not.toContain("--setta-section-style");
+    expect(String(shell.getAttribute("style"))).not.toContain("--setta-section-style");
+
+    const surface = host.querySelector<HTMLElement>("#meta-CustomResizable");
+    if (!surface) {
+      throw new Error("The meta-control resizable surface did not render.");
+    }
+    expect(surface.style.width).toBe("200px");
+    expect(surface.style.height).toBe("44px");
+    for (const expectedClass of [
+      "bg-transparent",
+      "grid-cols-1",
+      "grid-rows-1",
+      "group-hover/card-section:z-[170]",
+      "before:!border-transparent",
+    ]) {
+      expect(surface.classList.contains(expectedClass)).toBe(true);
+    }
+    expect(host.querySelector('[data-testid="meta-body"]')).not.toBeNull();
+    expect(host.querySelector("i.gg-menu")).toBeNull();
+    expect(host.querySelector('[aria-label="Minimize section"]')).toBeNull();
+
+    const rightHandle = host.querySelector<HTMLElement>(".section-resize-handle-right");
+    const bottomHandle = host.querySelector<HTMLElement>(".section-resize-handle-bottom");
+    const cornerHandle = host.querySelector<HTMLElement>(".section-resize-handle-bottom-right");
+    if (!rightHandle || !bottomHandle || !cornerHandle) {
+      throw new Error("The meta-control resize handles did not render.");
+    }
+    expect(rightHandle.style.right).toBe("-8px");
+    expect(rightHandle.style.width).toBe("16px");
+    expect(rightHandle.style.height).toBe("100%");
+    expect(bottomHandle.style.bottom).toBe("-8px");
+    expect(bottomHandle.style.height).toBe("16px");
+    expect(bottomHandle.style.width).toBe("100%");
+    expect(cornerHandle.style.width).toBe("16px");
+    expect(cornerHandle.style.height).toBe("16px");
+    expect(rightHandle.className).toContain("hover:after:bg-blue-500/80");
+
+    expect(host.querySelector('[data-meta-control-drag-handle="true"]')).not.toBeNull();
+    const editButton = host.querySelector<HTMLButtonElement>('[data-meta-control-edit="true"]');
+    if (!editButton) {
+      throw new Error("The meta-control edit affordance did not render.");
+    }
+    expect(editButton.getAttribute("aria-label")).toBe("Edit Meta text");
+    await act(async () => editButton.click());
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: "meta" }));
+  });
+
+  it("removes meta drag and resize affordances when its layout is locked", async () => {
+    loadMetaControlDocument(() => {}, { positionAndSizeLocked: true });
+    await mount("meta");
+
+    expect(host.querySelector('[data-meta-control-drag-handle="true"]')).toBeNull();
+    expect(host.querySelector(".section-resize-handle")).toBeNull();
+    expect(host.querySelector('[data-meta-control-edit="true"]')).not.toBeNull();
+    expect(host.querySelector('[data-section-id="meta"]')?.className).toContain("rounded-sm");
   });
 
   it("renders a registered kind icon with the reference icon treatment", async () => {

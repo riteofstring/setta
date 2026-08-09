@@ -74,6 +74,19 @@ describe("getSectionContainerShellClassName", () => {
       `${SHELL_BASE} border-white dark:border-setta-700 rounded-lg bg-white dark:bg-setta-925 outline-4 outline-[color:var(--setta-section-style-outline)] ${THEMED_SHELL_CHROME}`,
     );
   });
+
+  it("renders the transparent headerless meta-control shell", () => {
+    expect(
+      getSectionContainerShellClassName({
+        isActiveSection: false,
+        hasSectionStyleTheme: false,
+        positionAndSizeLocked: false,
+        useMetaControlStyle: true,
+      }),
+    ).toBe(
+      `${SHELL_BASE} border-white dark:border-setta-700 rounded-lg bg-transparent dark:bg-transparent !border-transparent dark:!border-transparent outline-2 outline-transparent group-hover/card-section:outline-setta-400/60 dark:group-hover/card-section:outline-setta-700/60`,
+    );
+  });
 });
 
 describe("getSectionSurfaceClassName", () => {
@@ -111,6 +124,22 @@ describe("getSectionSurfaceClassName", () => {
       }),
     ).toBe(
       `bg-setta-50 dark:bg-setta-860 section-grid-cols section-grid-rows section-grid-areas ${SURFACE_BASE} before:border rounded-sm z-10 before:border-white dark:before:border-setta-700 !bg-[color:var(--setta-section-style-bg)] before:!border-[color:var(--setta-section-style-border)]`,
+    );
+  });
+
+  it("renders the single-cell transparent meta-control surface and hover frame", () => {
+    expect(
+      getSectionSurfaceClassName({
+        bgColor: "bg-transparent",
+        hasSectionStyleTheme: false,
+        positionAndSizeLocked: false,
+        layoutClassName: "grid-cols-1 grid-rows-1",
+        metaHoverZIndexClassName: "group-hover/card-section:z-[170]",
+        frameClassName:
+          "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60",
+      }),
+    ).toBe(
+      `bg-transparent grid-cols-1 grid-rows-1 ${SURFACE_BASE} before:border rounded-lg z-10 group-hover/card-section:z-[170] before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60`,
     );
   });
 });

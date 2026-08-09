@@ -3,6 +3,7 @@ import {
   armLoadedDocumentFitView,
 } from "../canvas/documentViewportSync";
 import { maybeCompleteInitialFitView } from "../canvas/nodeInternalsActions";
+import { getMetaControlDefaultSize } from "../controls/meta/metaControlTypes";
 import { resetDndSessionForLoadedDocument } from "../dnd/dndState";
 import { assertNoReservedItemDndTokens } from "../dnd/itemDndState";
 import { resetItemDragState } from "../items/itemDragHandlers";
@@ -30,9 +31,9 @@ import type {
 // size are auto-sized in both dimensions.
 const DEFAULT_LOADED_SECTION_SIZE: SectionSize = { width: "auto", height: "auto" };
 
-// Every non-group kind must be registered before its documents load, and a section without an
-// explicit size resolves to its kind's registered default — the load-time equivalent of the
-// reference's generated per-type constructors filling `size` from their defaults.
+// Every non-group kind must be registered before its documents load. An omitted ordinary size
+// resolves through its registered default; an omitted meta size resolves through the projected
+// package control policy — the load-time equivalent of the reference's generated constructors.
 function resolveLoadedSections(
   sections: Record<string, WorkspaceSectionInput>,
 ): Record<string, WorkspaceSection> {
@@ -41,9 +42,16 @@ function resolveLoadedSections(
     const definition = isGroupSection(section)
       ? null
       : getRegisteredSectionKindOrThrow(section.kind);
+    const metaControlDefaultSize = definition?.presentation
+      ? getMetaControlDefaultSize(definition.presentation.resolveControlKind(section))
+      : null;
     resolved[sectionId] = {
       ...section,
-      size: section.size ?? definition?.defaultSize ?? DEFAULT_LOADED_SECTION_SIZE,
+      size:
+        section.size ??
+        metaControlDefaultSize ??
+        definition?.defaultSize ??
+        DEFAULT_LOADED_SECTION_SIZE,
     };
   }
   return resolved;

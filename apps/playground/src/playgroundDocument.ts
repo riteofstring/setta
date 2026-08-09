@@ -1,9 +1,10 @@
-import type {
-  WorkspaceDocumentInput,
-  WorkspaceItem,
-  WorkspaceSectionData,
-  WorkspaceSectionInput,
-  WorkspaceSectionItemTree,
+import {
+  DEFAULT_META_CONTROL_SIZE,
+  type WorkspaceDocumentInput,
+  type WorkspaceItem,
+  type WorkspaceSectionData,
+  type WorkspaceSectionInput,
+  type WorkspaceSectionItemTree,
 } from "@setta/workspace";
 
 function makeLeafSection(
@@ -206,13 +207,34 @@ function makeGroupSection(
   };
 }
 
+function makeMetaControlSection(
+  id: string,
+  name: string,
+  data: Record<string, WorkspaceSectionData>,
+): WorkspaceSectionInput {
+  return {
+    id,
+    kind: "meta-control",
+    name,
+    // The package resolves the omitted size from the projected control kind. Button and Text
+    // both use the captured 200 x 44 inner default in this representative surface batch.
+    data,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isHorizontalOrientation: false,
+    styleColor: null,
+    tagColor: null,
+    children: [],
+  };
+}
+
 // The accepted Phase 1 chrome states (idle, locked, style-colored root leaves) plus Phase 3's
 // representative recursive structure from the Phase 0 captures: the root group holds a nested
 // leaf and a nested group, which holds a horizontal group with three leaves — three group
 // levels with both child flows, leaves at the fourth. The freeform surface is the top-level
 // workspace layout itself, exactly as the reference: groups flow their children in order.
-// Phase 4 adds the item panel: a section whose registered kind renders the package item list
-// from this host's opaque item data.
+// Phase 4 adds the item panel from opaque item data; the meta-controls continuation adds the
+// representative Button and Text canvas nodes from opaque section data.
 export const playgroundDocument: WorkspaceDocumentInput = {
   sections: {
     "idle-leaf": makeLeafSection("idle-leaf", "Idle leaf"),
@@ -246,6 +268,22 @@ export const playgroundDocument: WorkspaceDocumentInput = {
       children: [],
       itemTree: itemPanelTree,
     },
+    "meta-button": makeMetaControlSection("meta-button", "Button", {
+      control: "button",
+      label: "Trigger",
+      disabled: false,
+      pending: false,
+      showSectionTitle: false,
+      actionCount: 0,
+      editRequests: 0,
+    }),
+    "meta-text": makeMetaControlSection("meta-text", "Text", {
+      control: "text",
+      value: "",
+      disabled: false,
+      showSectionTitle: false,
+      editRequests: 0,
+    }),
   },
   topLevelSections: {
     "idle-leaf": { x: 24, y: 24, w: 200, h: 122, zIndex: 0 },
@@ -255,6 +293,22 @@ export const playgroundDocument: WorkspaceDocumentInput = {
     // The recorded `/settings` Dict measurement (552 x 352) is the complete outer section;
     // document dimensions describe the inner surface the shell borders by 1 px per side.
     "item-panel": { x: 600, y: 216, w: 550, h: 350, zIndex: 4 },
+    // Document dimensions describe the inner control surface; the one-pixel shell border on
+    // each side produces frozen main's 202 x 46 complete outer measurement.
+    "meta-button": {
+      x: 1200,
+      y: 24,
+      w: DEFAULT_META_CONTROL_SIZE.width,
+      h: DEFAULT_META_CONTROL_SIZE.height,
+      zIndex: 5,
+    },
+    "meta-text": {
+      x: 1200,
+      y: 100,
+      w: DEFAULT_META_CONTROL_SIZE.width,
+      h: DEFAULT_META_CONTROL_SIZE.height,
+      zIndex: 6,
+    },
   },
   viewport: { x: 0, y: 0, zoom: 1 },
   activeIds: [],

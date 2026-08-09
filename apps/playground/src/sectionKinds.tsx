@@ -6,10 +6,12 @@ import {
   getWorkspaceDocument,
   ItemDndContext,
   ItemNameEditor,
+  MetaControl,
   PasswordValueControl,
   registerSectionKinds,
   RotaryValueControl,
   setItemData,
+  setSectionData,
   SliderValueControl,
   SwitchValueControl,
   TextValueEditor,
@@ -21,6 +23,7 @@ import {
   type DropzonePolicy,
   type DropzoneRejection,
   type ItemRowRenderContext,
+  type MetaControlKind,
   type WorkspaceItem,
   type WorkspaceSection,
   type WorkspaceSectionData,
@@ -723,6 +726,125 @@ export function ItemListSectionBody({ section }: { section: WorkspaceSection }) 
   );
 }
 
+function getMetaControlDataRecord(section: Pick<WorkspaceSection, "id" | "data">): {
+  [key: string]: WorkspaceSectionData;
+} {
+  const data = section.data;
+  if (data === null || data === undefined || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error(`Meta control section ${section.id} is missing its control data.`);
+  }
+  return data;
+}
+
+function getMetaControlKind(section: Pick<WorkspaceSection, "id" | "data">): MetaControlKind {
+  const kind = getMetaControlDataRecord(section)["control"];
+  if (kind === "button" || kind === "text") {
+    return kind;
+  }
+  throw new Error(`Meta control section ${section.id} names the unknown control ${String(kind)}.`);
+}
+
+function getMetaControlString(section: WorkspaceSection, field: string): string {
+  const value = getMetaControlDataRecord(section)[field];
+  if (typeof value !== "string") {
+    throw new Error(`Meta control section ${section.id} is missing its string ${field} field.`);
+  }
+  return value;
+}
+
+function getMetaControlBoolean(section: WorkspaceSection, field: string): boolean {
+  const value = getMetaControlDataRecord(section)[field];
+  if (typeof value !== "boolean") {
+    throw new Error(`Meta control section ${section.id} is missing its boolean ${field} field.`);
+  }
+  return value;
+}
+
+function updateMetaControlData(
+  sectionId: string,
+  update: (current: { [key: string]: WorkspaceSectionData }) => {
+    [key: string]: WorkspaceSectionData;
+  },
+) {
+  const section = getWorkspaceDocument().sections[sectionId];
+  if (!section) {
+    throw new Error(`Unknown meta control section ${sectionId}.`);
+  }
+  setSectionData(sectionId, update(getMetaControlDataRecord(section)));
+}
+
+// Exported for the focused host-seam regression. The package reports an edit request; this
+// unrelated host decides how that request changes its opaque section data.
+export function commitPlaygroundMetaControlEditRequest(sectionId: string) {
+  updateMetaControlData(sectionId, (current) => {
+    const editRequests = current["editRequests"];
+    if (typeof editRequests !== "number") {
+      throw new Error(
+        `Meta control section ${sectionId} is missing its numeric editRequests field.`,
+      );
+    }
+    return { ...current, editRequests: editRequests + 1 };
+  });
+}
+
+export function commitPlaygroundMetaControlTextValue(sectionId: string, value: string) {
+  updateMetaControlData(sectionId, (current) => {
+    if (current["control"] !== "text") {
+      throw new Error(`Meta control section ${sectionId} is not a Text control.`);
+    }
+    return { ...current, value };
+  });
+}
+
+// The first direct-on-canvas batch demonstrates frozen main's representative action and text
+// controls through opaque host data. The package owns their enlarged presentation and the host
+// owns both action/value commits; the remaining ten dispatch adapters land in the next batch.
+export function MetaControlSectionBody({ section }: { section: WorkspaceSection }) {
+  const kind = getMetaControlKind(section);
+  const showSectionTitle = getMetaControlBoolean(section, "showSectionTitle");
+  if (kind === "button") {
+    return (
+      <MetaControl
+        sectionId={section.id}
+        sectionName={section.name}
+        showSectionTitle={showSectionTitle}
+        control={{
+          kind,
+          label: getMetaControlString(section, "label"),
+          disabled: getMetaControlBoolean(section, "disabled"),
+          pending: getMetaControlBoolean(section, "pending"),
+          onAction: () =>
+            updateMetaControlData(section.id, (current) => {
+              const actionCount = current["actionCount"];
+              if (typeof actionCount !== "number") {
+                throw new Error(
+                  `Meta control section ${section.id} is missing its numeric actionCount field.`,
+                );
+              }
+              return { ...current, actionCount: actionCount + 1 };
+            }),
+        }}
+      />
+    );
+  }
+  return (
+    <MetaControl
+      sectionId={section.id}
+      sectionName={section.name}
+      showSectionTitle={showSectionTitle}
+      control={{
+        kind,
+        controlId: "value",
+        ariaLabel: `${section.name} value`,
+        value: getMetaControlString(section, "value"),
+        language: "python",
+        disabled: getMetaControlBoolean(section, "disabled"),
+        onValueChange: (value) => commitPlaygroundMetaControlTextValue(section.id, value),
+      }}
+    />
+  );
+}
+
 // Loading validates every non-group kind against the registry, so registration precedes the
 // initial document load. Registered sizes describe the inner section surface; the shell adds
 // a 1 px border on every side. The leaf's 200 x 122 renders the accepted 202 x 124 outer
@@ -737,6 +859,14 @@ export function registerPlaygroundSectionKinds(): void {
     "item-list": {
       renderContent: (section) => <ItemListSectionBody section={section} />,
       defaultSize: { width: 550, height: 350 },
+    },
+    "meta-control": {
+      renderContent: (section) => <MetaControlSectionBody section={section} />,
+      presentation: {
+        type: "meta-control",
+        resolveControlKind: getMetaControlKind,
+        onEdit: (section) => commitPlaygroundMetaControlEditRequest(section.id),
+      },
     },
   });
 }

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { GROUP_SECTION_KIND } from "./documentSelectors";
 import {
+  getMetaControlPresentation,
   getRegisteredSectionKindOrThrow,
   registerSectionKinds,
   type SectionKindDefinition,
@@ -39,5 +40,46 @@ describe("sectionKindRegistry", () => {
     expect(() => registerSectionKinds({ [GROUP_SECTION_KIND]: makeDefinition() })).toThrowError(
       /package-owned/,
     );
+  });
+
+  it("returns the registered direct-on-canvas presentation for a meta section", () => {
+    const presentation = {
+      type: "meta-control" as const,
+      resolveControlKind: () => "text" as const,
+      onEdit: () => {},
+    };
+    registerSectionKinds({
+      meta: { renderContent: () => null, presentation },
+    });
+    expect(
+      getMetaControlPresentation({
+        id: "meta-text",
+        kind: "meta",
+        name: "Text",
+        size: { width: 200, height: 44 },
+        isMinimized: false,
+        positionAndSizeLocked: false,
+        isHorizontalOrientation: false,
+        styleColor: null,
+        tagColor: null,
+        children: [],
+      }),
+    ).toBe(presentation);
+  });
+
+  it("rejects a competing host default for package-owned meta geometry", () => {
+    expect(() =>
+      registerSectionKinds({
+        meta: {
+          renderContent: () => null,
+          defaultSize: { width: 900, height: 600 },
+          presentation: {
+            type: "meta-control",
+            resolveControlKind: () => "button",
+            onEdit: () => {},
+          },
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(/cannot register a defaultSize/);
   });
 });

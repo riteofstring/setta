@@ -79,12 +79,14 @@ export function App() {
           their headers rename, lock, minimize, and delete; group headers also flip their child flow
           between vertical and horizontal. The toolbar zooms, fits, and toggles grid snapping; its
           minimap group hides the pannable, click-to-center minimap or moves it between the bottom
-          corners. Hold Q while hovering a control for its tooltip. Hold Alt and drag to move
-          sections into, out of, and between groups; hold Cmd/Ctrl+Alt and drag to sort within a
-          group. Hold Cmd/Ctrl+Shift (or use the button) for item select mode: click the item
-          panel&apos;s rows to select them, drag rows to sort or re-parent them, then Alt+Arrow
-          moves the selection, Tab and Shift+Tab indent and unindent it, and Escape clears it.
-          Reload restores the loaded document and camera in place without counting as a change.
+          corners. The Button and Text controls at the upper right use the headerless canvas
+          presentation: interact inside the control, or drag and resize from its remaining surface.
+          Hold Q while hovering a control for its tooltip. Hold Alt and drag to move sections into,
+          out of, and between groups; hold Cmd/Ctrl+Alt and drag to sort within a group. Hold
+          Cmd/Ctrl+Shift (or use the button) for item select mode: click the item panel&apos;s rows
+          to select them, drag rows to sort or re-parent them, then Alt+Arrow moves the selection,
+          Tab and Shift+Tab indent and unindent it, and Escape clears it. Reload restores the loaded
+          document and camera in place without counting as a change.
         </p>
       </header>
       <div className="flex min-h-0 flex-1 gap-2">

@@ -1164,6 +1164,28 @@ Phase 4 progress (2026-08-11):
   dependency-free work. This intermediate milestone has no standalone developer gate; meta
   controls remain next, and the consolidated controls-and-meta comparison, acceptance, and first
   package-output baselines remain open exactly where scheduled.
+- Meta-controls representative surface batch complete (2026-08-12): registered kinds can now opt
+  into a package-owned `meta-control` presentation that projects opaque section data to a strict
+  package control kind and supplies the host-owned edit callback. The restored frozen-main surface
+  is transparent and headerless, suppresses ordinary style-color paint, carries the outboard
+  adjustments affordance and top drag pill, uses the enlarged bottom/right/corner resize hit strips
+  with hover/active paint, and enforces projected package default/minimum geometry. Button and Text
+  compose one controlled `MetaControl` dispatcher without forking the existing two-layer text
+  editor: Button preserves the captured full-area action classes with explicit label, disabled,
+  pending, and `onAction` inputs; Text preserves the captured full-area CodeMirror wrapper and
+  optional uppercase title. Unknown kinds fail specifically. The new `setSectionData` funnel
+  replaces one host-owned opaque section payload and notifies once. The unrelated playground
+  registers the presentation and demonstrates captured `Trigger` and empty Text nodes at 200 x 44
+  inner / 202 x 46 outer geometry, with action, edit-request, and text-value commits remaining
+  host-owned. Focused package verification passed (76 batch tests, followed by a green 35-test
+  directly affected rerun after the complexity-only editor extraction); the directly affected
+  playground item renderer (16 tests) and meta host regression (4 tests), final package production
+  build and built-boundary check, and complete changed-file static gate pass. No dependency changed,
+  so the supply-chain gate was not duplicated. The next repository-actionable batch is the complete
+  remaining meta-control dispatch and playground fixture, followed by the scheduled interaction,
+  resize/min-size, appearance, and packed-export audit. The consolidated matched live comparison,
+  explicit developer acceptance, and first package-output baselines remain open at their existing
+  gate; this repository test result is not visual approval.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

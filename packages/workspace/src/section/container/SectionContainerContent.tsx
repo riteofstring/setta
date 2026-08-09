@@ -3,11 +3,12 @@ import type { WorkspaceSection } from "../../document/types";
 import { SectionHeader } from "../header/SectionHeader";
 import { CustomResizable } from "../resize/CustomResizable";
 import { DEFAULT_SECTION_BG_COLOR } from "../sectionColors";
+import { MetaControlChrome } from "./MetaControlChrome";
 
-// The reference's `SectionContainerCoreResizabe`, cut at the renderer seam: the twenty-two
-// application area renderers, chat windowing, section-window placeholders, and meta-control
-// chrome are replaced by the kind's registered content renderer. A minimized section keeps
-// its header and drops its body, exactly like the reference's `AreaSwitch`.
+// The reference's `SectionContainerCoreResizabe`, cut at the renderer seam: application area
+// renderers, chat windowing, and section-window placeholders are replaced by registered content.
+// The meta-control presentation restores its package-owned headerless chrome at that seam. An
+// ordinary minimized section keeps its header and drops its body like the reference's `AreaSwitch`.
 type SectionContainerContentProps = {
   section: WorkspaceSection;
   hasSectionStyleTheme: boolean;
@@ -17,16 +18,25 @@ export function SectionContainerContent({
   section,
   hasSectionStyleTheme,
 }: SectionContainerContentProps) {
-  const { renderContent } = getRegisteredSectionKindOrThrow(section.kind);
+  const definition = getRegisteredSectionKindOrThrow(section.kind);
+  const { renderContent } = definition;
+  const metaControlPresentation =
+    definition.presentation?.type === "meta-control" ? definition.presentation : null;
+  const isMetaControl = metaControlPresentation !== null;
 
   return (
     <CustomResizable
       sectionId={section.id}
-      bgColor={DEFAULT_SECTION_BG_COLOR}
+      bgColor={isMetaControl ? "bg-transparent" : DEFAULT_SECTION_BG_COLOR}
       positionAndSizeLocked={section.positionAndSizeLocked}
       hasSectionStyleTheme={hasSectionStyleTheme}
+      isMetaControl={isMetaControl}
     >
-      <SectionHeader sectionId={section.id} hasSectionStyleTheme={hasSectionStyleTheme} />
+      {metaControlPresentation ? (
+        <MetaControlChrome section={section} onEdit={metaControlPresentation.onEdit} />
+      ) : (
+        <SectionHeader sectionId={section.id} hasSectionStyleTheme={hasSectionStyleTheme} />
+      )}
       {!section.isMinimized && renderContent(section)}
     </CustomResizable>
   );

@@ -1,6 +1,7 @@
 // Extracted from the frozen reference's sectionChrome.ts, trimmed to the states the approved
-// Phase 1 slice reaches. Cut with their features (not kept as dead branches): meta-control and
-// joined attached-terminal chrome, full-bleed section/chat-window overrides, agentic handle-scope
+// Phase 1 slice reached, with the direct-on-canvas meta-control branch restored by its owning
+// milestone. Still cut with their features (not kept as dead branches): joined attached-terminal
+// chrome, full-bleed section/chat-window overrides, agentic handle-scope
 // classes, AI-follow and agentic-scope highlight class slots, and the YouTube overflow special
 // case. Class emission order matches the reference so live DOM comparison stays diffable.
 import { getOutlineColor } from "./sectionColors";
@@ -9,6 +10,7 @@ type SectionContainerShellClassNameOptions = {
   isActiveSection: boolean;
   hasSectionStyleTheme: boolean;
   positionAndSizeLocked: boolean;
+  useMetaControlStyle?: boolean;
 };
 
 type SectionSurfaceClassNameOptions = {
@@ -19,6 +21,7 @@ type SectionSurfaceClassNameOptions = {
   frameClassName?: string;
   layoutClassName?: string;
   zIndexClassName?: string;
+  metaHoverZIndexClassName?: string;
 };
 
 const DEFAULT_SECTION_SURFACE_LAYOUT_CLASS_NAME =
@@ -64,6 +67,27 @@ function getSectionShellBorderClasses(positionAndSizeLocked: boolean) {
   };
 }
 
+function getSectionShellContainerClasses(
+  useMetaControlStyle: boolean,
+  sectionStyleOutlineClassName: string,
+) {
+  if (!useMetaControlStyle) {
+    return {
+      containerBgClassName: "bg-white dark:bg-setta-925",
+      containerBorderClassName: "",
+      outlineClassName: sectionStyleOutlineClassName,
+      outlineSizeClassName: "outline-4",
+    };
+  }
+  return {
+    containerBgClassName: "bg-transparent dark:bg-transparent",
+    containerBorderClassName: "!border-transparent dark:!border-transparent",
+    outlineClassName:
+      "outline-transparent group-hover/card-section:outline-setta-400/60 dark:group-hover/card-section:outline-setta-700/60",
+    outlineSizeClassName: "outline-2",
+  };
+}
+
 function getSectionSurfaceChromeClassName(hasSectionStyleTheme: boolean) {
   return hasSectionStyleTheme
     ? "!bg-[color:var(--setta-section-style-bg)] before:!border-[color:var(--setta-section-style-border)]"
@@ -74,12 +98,15 @@ export function getSectionContainerShellClassName({
   isActiveSection,
   hasSectionStyleTheme,
   positionAndSizeLocked,
+  useMetaControlStyle = false,
 }: SectionContainerShellClassNameOptions): string {
   const sectionStyleChromeClassName = getSectionShellChromeClassName(hasSectionStyleTheme);
-  const outlineClassName = getSectionShellOutlineClassName({
+  const sectionStyleOutlineClassName = getSectionShellOutlineClassName({
     isActiveSection,
     hasSectionStyleTheme,
   });
+  const { containerBgClassName, containerBorderClassName, outlineClassName, outlineSizeClassName } =
+    getSectionShellContainerClasses(useMetaControlStyle, sectionStyleOutlineClassName);
   const { borderColorClassName, cornerClassName } =
     getSectionShellBorderClasses(positionAndSizeLocked);
 
@@ -89,8 +116,9 @@ export function getSectionContainerShellClassName({
     "border",
     borderColorClassName,
     cornerClassName,
-    "bg-white dark:bg-setta-925",
-    "outline-4",
+    containerBgClassName,
+    containerBorderClassName,
+    outlineSizeClassName,
     outlineClassName,
     sectionStyleChromeClassName,
   );
@@ -104,6 +132,7 @@ export function getSectionSurfaceClassName({
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
   zIndexClassName = "z-10",
+  metaHoverZIndexClassName = "",
 }: SectionSurfaceClassNameOptions): string {
   const layoutClassNameToUse = layoutClassName ?? DEFAULT_SECTION_SURFACE_LAYOUT_CLASS_NAME;
   const sectionStyleChromeClassName = getSectionSurfaceChromeClassName(hasSectionStyleTheme);
@@ -117,6 +146,7 @@ export function getSectionSurfaceClassName({
     "before:border",
     cornerClassName,
     zIndexClassName,
+    metaHoverZIndexClassName,
     frameClassName,
     sectionStyleChromeClassName,
   );

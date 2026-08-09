@@ -38,4 +38,20 @@ describe("getSectionMinMaxDims", () => {
       maxWidth: 100_000,
     });
   });
+
+  it("applies a meta control's projected minimum without changing the policy maxima", () => {
+    expect(
+      getSectionMinMaxDims({
+        isMinimized: false,
+        isAutoHeight: false,
+        isResizing: false,
+        minimumSize: { width: 240, height: 120 },
+      }),
+    ).toEqual({
+      minHeight: 120,
+      maxHeight: 100_000,
+      minWidth: 240,
+      maxWidth: 100_000,
+    });
+  });
 });

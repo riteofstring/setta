@@ -30,6 +30,11 @@ package's changes, not echoes of the host's own writes. The callback must not mu
 workspace synchronously; apply host reactions (including rejecting a change by re-loading the
 authoritative document) asynchronously. Snapshots share store state — treat them as immutable.
 
+Registered renderers commit validated host-owned payloads through `setSectionData(sectionId,
+data)` and item controls through `setItemData(sectionId, itemId, data)`. Both replace one opaque
+payload, preserve package-owned structure, and issue one canonical document notification; neither
+merges or interprets application data.
+
 ## Section kind registration
 
 `registerSectionKinds(kinds)` replaces the registered application kind set; hosts register
@@ -42,6 +47,14 @@ default; emitted documents always carry resolved sizes). Groups are the one pack
 kind and cannot be registered. Sections may carry application-owned opaque serializable
 `data` (JSON values): the package round-trips it through the document and hands it to the
 kind's renderer without reading it.
+
+A kind whose `presentation.type` is `"meta-control"` projects its opaque data to a package
+`MetaControlKind` and supplies the host callback for the outboard edit affordance. The package then
+owns the transparent headerless shell, drag/resize chrome, control minimums, and omitted-size
+default; such a kind cannot register a competing `defaultSize`. The first surface batch exports
+controlled Button and Text definitions through `MetaControl`, both at the captured 200 x 44 inner
+default (202 x 46 including the shell border). Unknown projected or rendered control kinds fail
+specifically instead of displaying a fallback.
 
 ## Consumption during extraction
 

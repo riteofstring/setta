@@ -41,6 +41,15 @@ export type {
   DropzoneValueControlProps,
 } from "./controls/dropzone/dropzoneTypes";
 export { DropzoneValueControl } from "./controls/dropzone/DropzoneValueControl";
+export { MetaControl } from "./controls/meta/MetaControl";
+export type {
+  ButtonMetaControl,
+  MetaControlDefinition,
+  MetaControlProps,
+  TextMetaControl,
+} from "./controls/meta/MetaControl";
+export { DEFAULT_META_CONTROL_SIZE } from "./controls/meta/metaControlTypes";
+export type { MetaControlKind } from "./controls/meta/metaControlTypes";
 export { ItemNameEditor } from "./controls/name/ItemNameEditor";
 export type { ItemNameEditorProps } from "./controls/name/ItemNameEditor";
 export { PasswordValueControl } from "./controls/password/PasswordValueControl";
@@ -74,8 +83,12 @@ export {
 } from "./document/itemSelectionMode";
 export type { ItemSelectionModeState } from "./document/itemSelectionMode";
 export { loadWorkspaceDocument } from "./document/loadWorkspaceDocument";
+export { setSectionData } from "./document/sectionData";
 export { registerSectionKinds } from "./document/sectionKindRegistry";
-export type { SectionKindDefinition } from "./document/sectionKindRegistry";
+export type {
+  MetaControlSectionPresentation,
+  SectionKindDefinition,
+} from "./document/sectionKindRegistry";
 export { useWorkspaceAppearance } from "./document/stores";
 export type { WorkspaceAppearanceState } from "./document/stores";
 export type {

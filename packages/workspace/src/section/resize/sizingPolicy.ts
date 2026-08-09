@@ -1,14 +1,17 @@
 import _ from "lodash";
+import { getMetaControlMinimumSize } from "../../controls/meta/metaControlTypes";
 import { getSectionOrThrow } from "../../document/documentSelectors";
+import { getMetaControlPresentation } from "../../document/sectionKindRegistry";
 import { useWorkspaceDocument } from "../../document/stores";
 import { useResizeEvent } from "./resizeEvents";
 
 // The reference's section sizing policy (`useSettings.sectionSizingPolicy`), trimmed to the
 // slice-reachable branches of `useSectionMinMaxDims`. The values are the shipped defaults from
 // `internal/settingsstate/defaults.json` at 043d3b2e9 for the generic section shape; the
-// params/search measured-height minimums, per-application-type overrides, and meta-control
-// sizing modes left with their features. Per-kind sizing registration is a Phase 2
-// registry decision.
+// params/search measured-height minimums and per-application-type overrides left with their
+// features. The meta-control milestone restores frozen main's per-control minimum dimensions
+// through the registered presentation projection; its auto-only size modes return with the
+// controls that use them.
 export const SECTION_SIZING_POLICY = {
   minHeight: 0,
   maxHeight: 100_000,
@@ -29,29 +32,34 @@ export function getSectionMinMaxDims({
   isMinimized,
   isAutoHeight,
   isResizing,
+  minimumSize,
 }: {
   isMinimized: boolean;
   isAutoHeight: boolean;
   isResizing: boolean;
+  minimumSize?: { width: number; height: number };
 }): SectionMinMaxDims {
+  const minWidth = Math.max(SECTION_SIZING_POLICY.minWidth, minimumSize?.width ?? 0);
+  const minimumContentHeight = Math.max(SECTION_SIZING_POLICY.minHeight, minimumSize?.height ?? 0);
   if (isMinimized) {
+    const minimizedHeight = Math.max(SECTION_SIZING_POLICY.minimizedHeight, minimumContentHeight);
     return {
-      minHeight: SECTION_SIZING_POLICY.minimizedHeight,
-      maxHeight: SECTION_SIZING_POLICY.minimizedHeight,
-      minWidth: SECTION_SIZING_POLICY.minWidth,
+      minHeight: minimizedHeight,
+      maxHeight: minimizedHeight,
+      minWidth,
       maxWidth: SECTION_SIZING_POLICY.maxWidth,
     };
   }
-  const { minHeight, maxHeight: policyMaxHeight, autoMaxHeight } = SECTION_SIZING_POLICY;
+  const { maxHeight: policyMaxHeight, autoMaxHeight } = SECTION_SIZING_POLICY;
   const cappedAutoMaxHeight = Math.min(policyMaxHeight, autoMaxHeight);
   const maxHeight =
     isAutoHeight && !isResizing
-      ? Math.max(minHeight, cappedAutoMaxHeight)
-      : Math.max(minHeight, policyMaxHeight);
+      ? Math.max(minimumContentHeight, cappedAutoMaxHeight)
+      : Math.max(minimumContentHeight, policyMaxHeight);
   return {
-    minHeight,
+    minHeight: minimumContentHeight,
     maxHeight,
-    minWidth: SECTION_SIZING_POLICY.minWidth,
+    minWidth,
     maxWidth: SECTION_SIZING_POLICY.maxWidth,
   };
 }
@@ -60,10 +68,15 @@ export function useSectionMinMaxDims(sectionId: string): SectionMinMaxDims {
   const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
   return useWorkspaceDocument((x) => {
     const section = getSectionOrThrow(x, sectionId);
+    const metaControlPresentation = getMetaControlPresentation(section);
+    const minimumSize = metaControlPresentation
+      ? getMetaControlMinimumSize(metaControlPresentation.resolveControlKind(section))
+      : undefined;
     return getSectionMinMaxDims({
       isMinimized: section.isMinimized,
       isAutoHeight: section.size.height === "auto",
       isResizing: resizeEvent === "start",
+      minimumSize,
     });
   }, _.isEqual);
 }

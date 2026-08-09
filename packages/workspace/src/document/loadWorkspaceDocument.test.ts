@@ -251,6 +251,35 @@ describe("loadWorkspaceDocument", () => {
     expect(loaded["sized"]?.size).toEqual({ width: 64, height: 48 });
   });
 
+  it("resolves an omitted meta-control size from the package control policy", () => {
+    registerSectionKinds({
+      meta: {
+        renderContent: () => null,
+        presentation: {
+          type: "meta-control",
+          resolveControlKind: () => "button",
+          onEdit: () => {},
+        },
+      },
+    });
+    const { size: _size, ...metaWithoutSize } = makeSection("meta", {
+      kind: "meta",
+      data: { control: "button" },
+    });
+    loadWorkspaceDocument(
+      makeDocument({
+        sections: { meta: metaWithoutSize },
+        topLevelSections: { meta: { x: 0, y: 0, w: 200, h: 44, zIndex: 0 } },
+        activeIds: [],
+      }),
+    );
+
+    expect(useWorkspaceDocument.getState().sections["meta"]?.size).toEqual({
+      width: 200,
+      height: 44,
+    });
+  });
+
   it("round-trips opaque section data into the emitted document", () => {
     const data = { body: "Leaf body", tags: ["a", "b"], pinned: true };
     loadWorkspaceDocument(

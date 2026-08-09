@@ -1,6 +1,6 @@
 import _ from "lodash";
 import type { MouseEvent, ReactNode } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCanvasGestures } from "../../canvas/gestureState";
 import { useWorkspaceOptions } from "../../canvas/options";
 import { useShouldDisablePointerEvents } from "../../canvas/useShouldDisablePointerEvents";
@@ -35,10 +35,10 @@ import { useSectionMinMaxDims } from "./sizingPolicy";
 // The reference's `CustomResizable`, trimmed to the slice-reachable resize treatment: only
 // bottom, right, and bottom-right handles; the reference's default hit geometry (10px edges with
 // -8px offsets, 20x20 corner from re-resizable's defaults); handles disabled entirely while
-// pointer events are suppressed or the section is locked. The meta-control and
-// attached-terminal handle treatments, aspect-ratio locking, and per-type size modes left with
-// their application features. Handle classes are DOM markers for `closest()` hit-testing; they
-// deliberately have no CSS rules.
+// pointer events are suppressed or the section is locked. The meta-control milestone restores
+// its enlarged invisible hit strips and restrained blue hover/active paint. The attached-terminal
+// treatment, aspect-ratio locking, and per-type size modes stay with their features. Handle
+// marker classes have no CSS rules; they preserve direction hit-testing without changing paint.
 const HANDLE_BASE_CLASS_NAME = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
 const DEFAULT_HANDLE_CLASSES = {
   right: `${HANDLE_BASE_CLASS_NAME} section-resize-handle section-resize-handle-right`,
@@ -51,6 +51,26 @@ const DEFAULT_HANDLE_STYLES = {
 };
 const DEFAULT_HANDLE_WRAPPER_CLASS_NAME =
   "absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20";
+const META_CONTROL_HANDLE_STYLES = {
+  right: { right: "-8px", width: 16, top: 0, bottom: 0, height: "100%" },
+  bottom: {
+    bottom: "-8px",
+    height: 16,
+    left: 0,
+    right: 0,
+    width: "100%",
+  },
+  bottomRight: { right: "-8px", bottom: "-8px", width: 16, height: 16 },
+};
+const META_CONTROL_HANDLE_BASE_CLASS_NAME =
+  "relative flex items-center justify-center opacity-0 transition-opacity hover:opacity-100 after:absolute after:rounded after:bg-transparent hover:after:bg-blue-500/80 dark:hover:after:bg-blue-400/80";
+const ACTIVE_META_CONTROL_HANDLE_CLASS_NAME =
+  "opacity-100 after:bg-blue-500/80 dark:after:bg-blue-400/80";
+const META_CONTROL_HANDLE_CURSOR_CLASSES = {
+  right: "cursor-col-resize after:inset-y-1 after:left-1/2 after:w-[3px] after:-translate-x-1/2",
+  bottom: "cursor-row-resize after:inset-x-1 after:top-1/2 after:h-[3px] after:-translate-y-1/2",
+  bottomRight: "cursor-nwse-resize after:inset-1",
+};
 const RESIZE_HANDLE_CLASS_NAMES = [
   ["section-resize-handle-bottom-right", "bottomRight"],
   ["section-resize-handle-bottom", "bottom"],
@@ -62,6 +82,7 @@ type CustomResizableProps = {
   bgColor: string;
   positionAndSizeLocked: boolean;
   hasSectionStyleTheme: boolean;
+  isMetaControl?: boolean;
   children: ReactNode;
 };
 
@@ -77,6 +98,7 @@ export function CustomResizable({
   bgColor,
   positionAndSizeLocked,
   hasSectionStyleTheme,
+  isMetaControl = false,
   children,
 }: CustomResizableProps) {
   const { minHeight, maxHeight, minWidth, maxWidth } = useSectionMinMaxDims(sectionId);
@@ -94,6 +116,7 @@ export function CustomResizable({
     lastDirection: ResizeHandleDirection | null;
   }>({ lastTimestampMs: null, lastDirection: null });
   const doubleClickPendingRef = useRef(false);
+  const [activeResizeHandle, setActiveResizeHandle] = useState<string | null>(null);
 
   function maybePromoteAutoSize(direction: ResizeHandleDirection, ref: ResizeCallbackRef) {
     if (autoSizePromotedRef.current || !canEditLayout || positionAndSizeLocked) {
@@ -117,7 +140,8 @@ export function CustomResizable({
     }
   }
 
-  function onResizeStart() {
+  function onResizeStart(_event?: unknown, direction?: string) {
+    setActiveResizeHandle(direction ?? null);
     resizeStartedRef.current = false;
     autoSizePromotedRef.current = false;
     resizeAttemptedRef.current = false;
@@ -160,6 +184,7 @@ export function CustomResizable({
     ref: ResizeCallbackRef,
     delta: { width: number; height: number },
   ) {
+    setActiveResizeHandle(null);
     const isZeroDelta = delta.width === 0 && delta.height === 0;
     const resizeAttempted = resizeAttemptedRef.current;
     const isDoubleClick = isResizeDoubleClick({
@@ -211,7 +236,13 @@ export function CustomResizable({
     hasSectionStyleTheme,
     positionAndSizeLocked,
     shouldDisablePointerEvents: disablePointerEvents,
+    frameClassName: isMetaControl
+      ? "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60"
+      : undefined,
+    layoutClassName: isMetaControl ? "grid-cols-1 grid-rows-1" : undefined,
+    metaHoverZIndexClassName: isMetaControl ? "group-hover/card-section:z-[170]" : undefined,
   });
+  const handleConfig = getResizableHandleConfig({ isMetaControl, activeResizeHandle });
 
   function handleResizeMouseDownCapture(event: MouseEvent<HTMLDivElement>) {
     const direction = getResizeHandleDirection(event.target);
@@ -234,16 +265,58 @@ export function CustomResizable({
       onResize={onResize}
       onResizeStop={onResizeStop}
       onMouseDownCapture={handleResizeMouseDownCapture}
-      handleWrapperClass={DEFAULT_HANDLE_WRAPPER_CLASS_NAME}
+      handleWrapperClass={handleConfig.handleWrapperClassName}
       enable={enable}
       className={surfaceClassName}
-      handleStyles={DEFAULT_HANDLE_STYLES}
-      handleClasses={DEFAULT_HANDLE_CLASSES}
+      handleStyles={handleConfig.handleStyles}
+      handleClasses={handleConfig.handleClasses}
       grid={snapToGrid ? snapGrid : undefined}
     >
       {children}
     </ResizableWithScale>
   );
+}
+
+function getMetaControlHandleClass(
+  direction: keyof typeof META_CONTROL_HANDLE_CURSOR_CLASSES,
+  activeResizeHandle: string | null,
+) {
+  const directionMarker = direction === "bottomRight" ? "bottom-right" : direction;
+  return [
+    HANDLE_BASE_CLASS_NAME,
+    "section-resize-handle",
+    `section-resize-handle-${directionMarker}`,
+    META_CONTROL_HANDLE_BASE_CLASS_NAME,
+    activeResizeHandle === direction ? ACTIVE_META_CONTROL_HANDLE_CLASS_NAME : "",
+    META_CONTROL_HANDLE_CURSOR_CLASSES[direction],
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function getResizableHandleConfig({
+  isMetaControl,
+  activeResizeHandle,
+}: {
+  isMetaControl: boolean;
+  activeResizeHandle: string | null;
+}) {
+  if (isMetaControl) {
+    return {
+      handleStyles: META_CONTROL_HANDLE_STYLES,
+      handleClasses: {
+        right: getMetaControlHandleClass("right", activeResizeHandle),
+        bottom: getMetaControlHandleClass("bottom", activeResizeHandle),
+        bottomRight: getMetaControlHandleClass("bottomRight", activeResizeHandle),
+      },
+      handleWrapperClassName: DEFAULT_HANDLE_WRAPPER_CLASS_NAME,
+    };
+  }
+  return {
+    handleStyles: DEFAULT_HANDLE_STYLES,
+    handleClasses: DEFAULT_HANDLE_CLASSES,
+    handleWrapperClassName: DEFAULT_HANDLE_WRAPPER_CLASS_NAME,
+  };
 }
 
 function resolveResizeStopSize({
