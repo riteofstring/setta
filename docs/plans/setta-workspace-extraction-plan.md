@@ -910,6 +910,9 @@ Phase 4 progress (2026-08-11):
   backend-free milestone derived from the frozen main parameter UI — including the exact initial
   control slice, controlled value/name update seams, visual and interaction evidence, exclusions,
   and an exit gate — and return to the developer for explicit approval of that amendment.
+- Item-controls amendment approved (2026-08-11): after the independent plan audit confirmed the
+  amendment against frozen main and the existing package seams, the developer explicitly approved
+  the exact initial control slice and authorized implementation to proceed.
 - Item-controls milestone amendment drafted (2026-08-11): the required amendment is the
   "Item-controls milestone — built-in parameter editing controls" section below, derived from the
   frozen reference's `ParamUI` dispatch, control implementations, and the recorded `/settings`
@@ -1411,7 +1414,7 @@ developer chooses which capability becomes the next narrow extraction milestone 
 amendment before implementation. Candidates include:
 
 - built-in, opinionated parameter editing controls (chosen 2026-08-11; specified as the
-  item-controls milestone below; developer approval of that amendment pending);
+  item-controls milestone below; amendment approved 2026-08-11);
 
 - inline title renaming, accent/tag editing, and alternate compact/transparent/headerless chrome;
 - grow-with-content versus fixed container sizing, content-fit sizing, and overflow behavior;
@@ -1430,9 +1433,9 @@ place in the first standalone package.
 
 ### Item-controls milestone — built-in parameter editing controls
 
-This section is the plan amendment required by the 2026-08-11 capability choice. Implementation may
-not begin until the developer explicitly approves this amendment. The milestone is bounded and
-backend-free, derived from the frozen reference's parameter UI at `043d3b2e9`: `ParamUI`'s control
+This section is the plan amendment required by the 2026-08-11 capability choice. The developer
+explicitly approved this amendment on 2026-08-11, so implementation may proceed. The milestone is
+bounded and backend-free, derived from the frozen reference's parameter UI at `043d3b2e9`: `ParamUI`'s control
 dispatch (`frontend/src/components/Params/ParamUIs/`), the live `/settings` capture (Phase 0
 screenshot 29 and `computed/settings-style-metrics.json`), and the accepted Phase 4 item surface.
 Main remains the product authority; the package terms stay "item"/"list", never "param".
