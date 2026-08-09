@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "../../interaction";
 import { focusSectionAfterEscape } from "../sectionFocus";
@@ -43,6 +43,10 @@ const INPUT_BASE_CLASS_NAME = `${INTERACTION_BOUNDARY_CLASS_NAME} peer/textinput
 const FORMATTED_CLASS_NAME = "text-[10px] font-mono text-setta-500 dark:text-setta-400";
 const DIVIDER_BASE_CLASS_NAME =
   "section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30";
+const META_CONTAINER_CLASS_NAME =
+  "single-cell-container grid h-full min-h-0 w-full grid-cols-[1fr,auto] rounded-lg border border-setta-300/70 bg-setta-50 px-3 py-2 dark:border-setta-700 dark:bg-setta-850";
+const META_TRANSPARENT_CONTAINER_CLASS_NAME =
+  "single-cell-container grid h-full min-h-0 w-full grid-cols-[1fr,auto] rounded-lg border border-transparent bg-transparent px-3 py-2";
 const DATE_DISPLAY_FORMATS = ["iso", "us", "eu", "long"] as const;
 const DATE_CONTROL_MODES = ["input", "calendar"] as const;
 const DATE_SELECTION_MODES = ["single", "multiple"] as const;
@@ -69,6 +73,8 @@ type DateTimeControlClasses = {
   formatted: string;
   border: string;
 };
+
+type DateTimePresentation = "item-row" | "meta-control";
 
 type EditableDateTimeMode = "datetime-local" | "formatted-date" | "time";
 
@@ -169,6 +175,43 @@ function getRowClasses(isDisabled: boolean, isSelectingItems: boolean): DateTime
   };
 }
 
+function getMetaClasses(): DateTimeControlClasses {
+  return {
+    wrapper: `${INTERACTION_BOUNDARY_CLASS_NAME} section-value single-cell-child flex min-w-0 items-center gap-2`,
+    input: `${INTERACTION_BOUNDARY_CLASS_NAME} peer/textinput flex min-w-0 flex-1 cursor-text self-center text-xs text-[rgb(3,_47,_98);] selection:bg-blue-500/30 dark:text-[rgb(165,_214,_255)]`,
+    formatted: FORMATTED_CLASS_NAME,
+    border:
+      "single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 dark:border-setta-600/30 peer-focus-within/textinput:border-blue-400",
+  };
+}
+
+function getDateTimeClasses(
+  presentation: DateTimePresentation,
+  isDisabled: boolean,
+  isSelectingItems: boolean,
+): DateTimeControlClasses {
+  return presentation === "meta-control"
+    ? getMetaClasses()
+    : getRowClasses(isDisabled, isSelectingItems);
+}
+
+function wrapDateTimePresentation(
+  content: ReactNode,
+  presentation: DateTimePresentation,
+  transparent: boolean,
+) {
+  if (presentation === "item-row") {
+    return content;
+  }
+  return (
+    <div
+      className={transparent ? META_TRANSPARENT_CONTAINER_CLASS_NAME : META_CONTAINER_CLASS_NAME}
+    >
+      {content}
+    </div>
+  );
+}
+
 function handleEscape(event: KeyboardEvent<HTMLElement>, onEscape: () => void): void {
   if (event.code === "Escape") {
     onEscape();
@@ -176,15 +219,27 @@ function handleEscape(event: KeyboardEvent<HTMLElement>, onEscape: () => void): 
 }
 
 export function DateValueControl(props: DateValueControlProps) {
+  return <DateValueControlCore {...props} presentation="item-row" />;
+}
+
+// Package-internal direct-on-canvas presentation. Date parsing, calendar state, selection, and
+// accessibility stay shared with the row control inside frozen main's full-area field wrapper.
+export function MetaDateValueControl(props: DateValueControlProps) {
+  return <DateValueControlCore {...props} presentation="meta-control" />;
+}
+
+function DateValueControlCore(
+  props: DateValueControlProps & { presentation: DateTimePresentation },
+) {
   const isSelectingItems = useItemSelectionMode((state) => state.isSelectingItems);
   const config = resolveDateValueControlConfig(props);
   const isDisabled = config.disabled || isSelectingItems;
   assertDateConfig(config);
-  const classes = getRowClasses(isDisabled, isSelectingItems);
+  const classes = getDateTimeClasses(props.presentation, isDisabled, isSelectingItems);
   const onEscape = () => focusSectionAfterEscape(props.sectionId);
 
   if (config.controlMode === "calendar") {
-    return (
+    return wrapDateTimePresentation(
       <CalendarDateControl
         ariaLabel={props.ariaLabel}
         value={props.value}
@@ -197,7 +252,9 @@ export function DateValueControl(props: DateValueControlProps) {
         dateDisplayFormat={config.displayFormat}
         timeDisplayFormat={config.timeDisplayFormat}
         classes={classes}
-      />
+      />,
+      props.presentation,
+      false,
     );
   }
 
@@ -207,7 +264,7 @@ export function DateValueControl(props: DateValueControlProps) {
     includeTime: config.includeTime,
     timeDisplayFormat: config.timeDisplayFormat,
   });
-  return (
+  return wrapDateTimePresentation(
     <EditableDateTimeInput
       ariaLabel={props.ariaLabel}
       value={props.value}
@@ -217,11 +274,21 @@ export function DateValueControl(props: DateValueControlProps) {
       dateDisplayFormat={config.displayFormat}
       classes={classes}
       view={view}
-    />
+    />,
+    props.presentation,
+    false,
   );
 }
 
-export function TimeValueControl({
+export function TimeValueControl({ ...props }: TimeValueControlProps) {
+  return <TimeValueControlCore {...props} presentation="item-row" />;
+}
+
+export function MetaTimeValueControl(props: TimeValueControlProps) {
+  return <TimeValueControlCore {...props} presentation="meta-control" />;
+}
+
+function TimeValueControlCore({
   ariaLabel,
   sectionId,
   value,
@@ -232,14 +299,15 @@ export function TimeValueControl({
   scale = 1,
   font = "monospace",
   disabled = false,
-}: TimeValueControlProps) {
+  presentation,
+}: TimeValueControlProps & { presentation: DateTimePresentation }) {
   const isSelectingItems = useItemSelectionMode((state) => state.isSelectingItems);
   const isDisabled = disabled || isSelectingItems;
   assertTimeConfig({ controlMode, displayFormat, scale, font });
-  const classes = getRowClasses(isDisabled, isSelectingItems);
+  const classes = getDateTimeClasses(presentation, isDisabled, isSelectingItems);
 
   if (controlMode === "display") {
-    return (
+    return wrapDateTimePresentation(
       <DisplayTimeValue
         ariaLabel={ariaLabel}
         value={value}
@@ -248,12 +316,14 @@ export function TimeValueControl({
         scale={scale}
         font={font}
         classes={classes}
-      />
+      />,
+      presentation,
+      transparent,
     );
   }
 
   const normalizedValue = normalizeTimeTo24Hour(value);
-  return (
+  return wrapDateTimePresentation(
     <EditableDateTimeInput
       ariaLabel={ariaLabel}
       value={value}
@@ -268,7 +338,9 @@ export function TimeValueControl({
         normalizedValue,
         formattedValue: formatTimeForDisplay(normalizedValue, displayFormat),
       }}
-    />
+    />,
+    presentation,
+    false,
   );
 }
 

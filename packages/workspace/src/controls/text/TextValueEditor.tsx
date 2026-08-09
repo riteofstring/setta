@@ -41,6 +41,7 @@ export type TextValueEditorProps = {
 type TextValueEditorCoreProps = Omit<TextValueEditorProps, "itemId"> & {
   controlId: string;
   presentation: "item-row" | "meta-control";
+  metaMinimumHeight?: boolean;
 };
 
 // The reference `ParamUI` class strings for the text control, minus its backend error branch.
@@ -74,11 +75,13 @@ type TextValuePresentationConfig = {
 function getTextValuePresentationConfig(
   presentation: TextValueEditorCoreProps["presentation"],
   isDisabled: boolean,
+  metaMinimumHeight: boolean,
 ): TextValuePresentationConfig {
   if (presentation === "meta-control") {
+    const minimumHeightClassName = metaMinimumHeight ? " min-h-24" : "";
     return {
-      dummyClassName: getMetaControlDummyClassName(isDisabled),
-      realClassName: META_CONTROL_REAL_CLASS_NAME,
+      dummyClassName: `${getMetaControlDummyClassName(isDisabled)}${minimumHeightClassName}`,
+      realClassName: `${META_CONTROL_REAL_CLASS_NAME}${minimumHeightClassName}`,
       dummyIdSuffix: "MetaControl",
       showDivider: false,
       wrapperClassName: META_CONTROL_WRAPPER_CLASS_NAME,
@@ -131,6 +134,7 @@ export function MetaTextValueEditor({
   singleLine = false,
   wrapLines,
   disabled = false,
+  metaMinimumHeight = false,
 }: Omit<TextValueEditorCoreProps, "presentation">) {
   return (
     <TextValueEditorCore
@@ -144,6 +148,7 @@ export function MetaTextValueEditor({
       singleLine={singleLine}
       wrapLines={wrapLines}
       disabled={disabled}
+      metaMinimumHeight={metaMinimumHeight}
       presentation="meta-control"
     />
   );
@@ -161,13 +166,18 @@ function TextValueEditorCore({
   wrapLines,
   disabled = false,
   presentation,
+  metaMinimumHeight = false,
 }: TextValueEditorCoreProps) {
   const [activationEvent, setActivationEvent] = useState<TextValueActivationEvent | null>(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
   const isDisabled = disabled || isSelectingItems;
   const theme = useTextValueTheme();
-  const presentationConfig = getTextValuePresentationConfig(presentation, isDisabled);
+  const presentationConfig = getTextValuePresentationConfig(
+    presentation,
+    isDisabled,
+    metaMinimumHeight,
+  );
 
   useEffect(() => {
     mountTextValueThemeStyles();

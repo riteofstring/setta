@@ -107,6 +107,174 @@ describe("MetaControl", () => {
     expect(host.querySelector("span.section-value")).toBeNull();
   });
 
+  it("dispatches Slider and Rotary through their enlarged numeric presentations", async () => {
+    await mount({
+      sectionId: "meta-slider",
+      sectionName: "Slider",
+      control: {
+        kind: "slider",
+        ariaLabel: "Slider value",
+        value: "25",
+        min: 0,
+        max: 100,
+        step: 1,
+        onValueChange: () => {},
+      },
+    });
+    const slider = host.querySelector<HTMLElement>("[role='slider']");
+    expect(slider?.getAttribute("aria-label")).toBe("Slider value");
+    expect(slider?.closest(".SliderRoot")?.className).toContain("w-full flex-1");
+    expect(host.querySelector<HTMLInputElement>("input")?.className).toBe("hidden");
+
+    await mount({
+      sectionId: "meta-rotary",
+      sectionName: "Rotary",
+      control: {
+        kind: "rotary",
+        ariaLabel: "Rotary value",
+        value: "0.5",
+        min: 0,
+        max: 1,
+        step: 0.1,
+        onValueChange: () => {},
+      },
+    });
+    const rotary = host.querySelector<HTMLElement>("[role='slider']");
+    expect(rotary?.getAttribute("aria-label")).toBe("Rotary value");
+    expect(rotary?.parentElement?.parentElement?.className).toContain("justify-center");
+  });
+
+  it("dispatches Switch, Dropdown, and Color with the frozen meta wrappers", async () => {
+    await mount({
+      sectionId: "meta-switch",
+      sectionName: "Switch",
+      control: {
+        kind: "switch",
+        ariaLabel: "Switch value",
+        label: "thick_otter",
+        value: "false",
+        onValueChange: () => {},
+      },
+    });
+    expect(host.textContent).toContain("thick_otter");
+    const switchControl = host.querySelector("[role='switch']");
+    expect(switchControl?.getAttribute("aria-label")).toBe("Switch value");
+    expect(switchControl?.parentElement?.className).toContain("nodrag section-value");
+
+    await mount({
+      sectionId: "meta-dropdown",
+      sectionName: "Dropdown",
+      control: {
+        kind: "dropdown",
+        ariaLabel: "Dropdown value",
+        value: "",
+        choices: ["Alpha", "Beta"],
+        onValueChange: () => {},
+      },
+    });
+    expect(host.querySelector<HTMLInputElement>("[role='combobox']")?.placeholder).toBe("Choose");
+    expect(host.querySelector("search")?.className).toContain("!mx-0");
+
+    await mount({
+      sectionId: "meta-color",
+      sectionName: "Color",
+      control: {
+        kind: "color",
+        controlId: "value",
+        ariaLabel: "Color value",
+        value: "#ef4444",
+        onValueChange: () => {},
+      },
+    });
+    const colorInput = host.querySelector<HTMLInputElement>("input[type='color']");
+    expect(colorInput?.id).toBe("meta-color-value-ColorValueInput");
+    expect(colorInput?.getAttribute("aria-label")).toBe("Color value");
+  });
+
+  it("dispatches Date and Time inside the full-area field container", async () => {
+    await mount({
+      sectionId: "meta-date",
+      sectionName: "Date",
+      control: {
+        kind: "date",
+        ariaLabel: "Date value",
+        value: "2026-08-12",
+        onValueChange: () => {},
+      },
+    });
+    const dateInput = host.querySelector<HTMLInputElement>("input[aria-label='Date value']");
+    expect(dateInput?.value).toBe("2026-08-12");
+    expect(dateInput?.closest(".single-cell-container")?.className).toContain("px-3 py-2");
+
+    await mount({
+      sectionId: "meta-time",
+      sectionName: "Time",
+      control: {
+        kind: "time",
+        ariaLabel: "Time value",
+        value: "13:45",
+        controlMode: "display",
+        onValueChange: () => {},
+      },
+    });
+    expect(host.querySelector("[aria-label='Time value: 13:45']")?.textContent).toBe("13:45");
+  });
+
+  it("dispatches TextArea, Password, and Dropzone at their special full-area surfaces", async () => {
+    await mount({
+      sectionId: "meta-textarea",
+      sectionName: "TextArea",
+      control: {
+        kind: "textarea",
+        controlId: "value",
+        ariaLabel: "Text area value",
+        value: "first line\nsecond line",
+        onValueChange: () => {},
+      },
+    });
+    const textAreaDummy = document.getElementById("meta-textarea-value-MetaControl");
+    expect(textAreaDummy?.className).toContain("min-h-24");
+    expect(textAreaDummy?.textContent).toContain("second line");
+
+    await mount({
+      sectionId: "meta-password",
+      sectionName: "Password",
+      control: {
+        kind: "password",
+        controlId: "value",
+        ariaLabel: "Password value",
+        value: "secret",
+        onValueChange: () => {},
+      },
+    });
+    const password = host.querySelector<HTMLInputElement>("input[type='password']");
+    expect(password?.id).toBe("meta-password-value-PasswordValueInput");
+    expect(password?.closest(".single-cell-container")?.className).toContain("h-full");
+
+    await mount({
+      sectionId: "meta-dropzone",
+      sectionName: "Dropzone",
+      control: {
+        kind: "dropzone",
+        controlId: "value",
+        ariaLabel: "Dropzone value",
+        attachments: [],
+        policy: {
+          maxAttachments: null,
+          maxFileBytes: 1024,
+          maxTotalBytes: null,
+          allowedMimePrefixes: [],
+        },
+        onAccepted: () => {},
+        onRejected: () => {},
+      },
+    });
+    expect(
+      host.querySelector("[role='group'][aria-label='Dropzone value: Drop a file here']"),
+    ).not.toBeNull();
+    expect(host.textContent).toContain("Drop a file here");
+  });
+
   it("fails specifically instead of rendering an unknown control fallback", () => {
     expect(() =>
       MetaControl({

@@ -4,6 +4,7 @@ import {
   getWorkspaceDocument,
   loadWorkspaceDocument,
   type WorkspaceSection,
+  type WorkspaceSectionData,
 } from "@setta/workspace";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -11,7 +12,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { playgroundDocument } from "./playgroundDocument";
 import {
   commitPlaygroundMetaControlEditRequest,
-  commitPlaygroundMetaControlTextValue,
+  commitPlaygroundMetaControlValue,
   MetaControlSectionBody,
   registerPlaygroundSectionKinds,
 } from "./sectionKinds";
@@ -50,6 +51,30 @@ function getMetaDataString(sectionId: string, field: string): string {
   return value;
 }
 
+function getMetaDataArray(sectionId: string, field: string): Array<WorkspaceSectionData> {
+  const data = getMetaSection(sectionId).data;
+  if (data === null || data === undefined || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error(`Meta section ${sectionId} lost its opaque data.`);
+  }
+  const value = data[field];
+  if (!Array.isArray(value)) {
+    throw new Error(`Meta section ${sectionId} lost its array ${field} field.`);
+  }
+  return value;
+}
+
+function getRequiredElement<ElementType extends Element>(
+  parent: ParentNode,
+  selector: string,
+  description: string,
+): ElementType {
+  const element = parent.querySelector<ElementType>(selector);
+  if (!element) {
+    throw new Error(`The playground ${description} did not render.`);
+  }
+  return element;
+}
+
 describe("the playground representative meta controls", () => {
   let host: HTMLDivElement;
   let root: Root;
@@ -74,11 +99,28 @@ describe("the playground representative meta controls", () => {
     });
   }
 
-  it("loads Button and Text at the captured 202 x 46 outer geometry", () => {
-    for (const sectionId of ["meta-button", "meta-text"]) {
+  it("loads all twelve controls with their frozen default and fixture geometry", () => {
+    for (const sectionId of [
+      "meta-button",
+      "meta-color",
+      "meta-rotary",
+      "meta-switch",
+      "meta-text",
+      "meta-time",
+    ]) {
       expect(getMetaSection(sectionId).size).toEqual({ width: 200, height: 44 });
       expect(playgroundDocument.topLevelSections[sectionId]).toMatchObject({ w: 200, h: 44 });
     }
+    for (const sectionId of ["meta-dropdown", "meta-password", "meta-slider"]) {
+      expect(getMetaSection(sectionId).size).toEqual({ width: 200, height: "auto" });
+      expect(playgroundDocument.topLevelSections[sectionId]).toMatchObject({ w: 200, h: 44 });
+    }
+    expect(getMetaSection("meta-date").size).toEqual({ width: 200, height: "auto" });
+    expect(playgroundDocument.topLevelSections["meta-date"]).toMatchObject({ w: 200, h: null });
+    expect(getMetaSection("meta-textarea").size).toEqual({ width: 200, height: 98 });
+    expect(playgroundDocument.topLevelSections["meta-textarea"]).toMatchObject({ w: 200, h: 98 });
+    expect(getMetaSection("meta-dropzone").size).toEqual({ width: 240, height: 120 });
+    expect(playgroundDocument.topLevelSections["meta-dropzone"]).toMatchObject({ w: 240, h: 120 });
   });
 
   it("commits Button actions and edit requests into opaque section data", async () => {
@@ -92,16 +134,97 @@ describe("the playground representative meta controls", () => {
     expect(getMetaDataNumber("meta-button", "editRequests")).toBe(1);
   });
 
-  it("renders Text and commits its controlled callback through the section-data funnel", async () => {
+  it("renders the complete host fixture through the package dispatcher", async () => {
+    await mount("meta-dropdown");
+    expect(
+      getRequiredElement(host, "[role='combobox']", "Dropdown combobox").getAttribute("aria-label"),
+    ).toBe("Dropdown value");
+
+    await mount("meta-slider");
+    expect(
+      getRequiredElement(host, "[role='slider']", "Slider thumb").getAttribute("aria-label"),
+    ).toBe("Slider value");
+
+    await mount("meta-rotary");
+    expect(
+      getRequiredElement(host, "[role='slider']", "Rotary knob").getAttribute("aria-label"),
+    ).toBe("Rotary value");
+
+    await mount("meta-switch");
+    expect(
+      getRequiredElement(host, "[role='switch']", "Switch action").getAttribute("aria-label"),
+    ).toBe("Switch value");
+
     await mount("meta-text");
-    const dummy = document.getElementById("meta-text-value-MetaControl");
-    if (!dummy) {
-      throw new Error("The playground Text meta control did not render its idle editor.");
-    }
+    const dummy = getRequiredElement<HTMLElement>(
+      document,
+      "#meta-text-value-MetaControl",
+      "Text idle editor",
+    );
     expect(dummy.getAttribute("aria-label")).toBe("Text value");
     expect(dummy.className).toContain("single-cell-child");
-    commitPlaygroundMetaControlTextValue("meta-text", "threshold");
+
+    await mount("meta-date");
+    expect(host.querySelector("[role='group'][aria-label='Date value']")).not.toBeNull();
+
+    await mount("meta-time");
+    expect(
+      getRequiredElement(host, "[aria-label='Time value: 13:45']", "Time display").textContent,
+    ).toBe("13:45");
+
+    await mount("meta-textarea");
+    expect(
+      getRequiredElement<HTMLElement>(
+        document,
+        "#meta-textarea-value-MetaControl",
+        "TextArea idle editor",
+      ).className,
+    ).toContain("min-h-24");
+
+    await mount("meta-password");
+    expect(
+      getRequiredElement(host, "input[type='password']", "Password input").getAttribute(
+        "aria-label",
+      ),
+    ).toBe("Password value");
+
+    await mount("meta-color");
+    expect(
+      getRequiredElement(host, "input[type='color']", "Color input").getAttribute("aria-label"),
+    ).toBe("Color value");
+
+    await mount("meta-button");
+    expect(getRequiredElement(host, "button", "Button action").textContent).toBe("Trigger");
+
+    await mount("meta-dropzone");
+    expect(
+      host.querySelector("[role='group'][aria-label='Dropzone dropzone: Drop a file here']"),
+    ).not.toBeNull();
+  });
+
+  it("commits controlled values and dropzone metadata through host-owned section data", async () => {
+    commitPlaygroundMetaControlValue("meta-text", "text", "threshold");
     expect(getMetaDataString("meta-text", "value")).toBe("threshold");
+
+    await mount("meta-switch");
+    const switchButton = host.querySelector<HTMLButtonElement>("[role='switch']");
+    if (!switchButton) {
+      throw new Error("The playground Switch meta control did not render its action.");
+    }
+    await act(async () => switchButton.click());
+    expect(getMetaDataString("meta-switch", "value")).toBe("true");
+
+    await mount("meta-dropzone");
+    const serverButton = Array.from(host.querySelectorAll("button")).find(
+      (button) => button.textContent === "Server file...",
+    );
+    if (!serverButton) {
+      throw new Error("The playground Dropzone meta control did not render its server action.");
+    }
+    await act(async () => serverButton.click());
+    expect(getMetaDataArray("meta-dropzone", "attachments")).toEqual([
+      expect.objectContaining({ kind: "file", name: "server-example.csv", size: 2048 }),
+    ]);
   });
 
   it("fails specifically for an unknown host control kind", () => {

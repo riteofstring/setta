@@ -1,29 +1,31 @@
-import type { ReactNode } from "react";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
 import { MetaTextValueEditor } from "../text/TextValueEditor";
-import type { TextValueLanguage } from "../text/textValueLanguages";
+import type {
+  ButtonMetaControl,
+  MetaControlDefinition,
+  TextAreaMetaControl,
+  TextMetaControl,
+} from "./metaControlDefinitions";
+import { MetaControlTitleStack } from "./MetaControlTitleStack";
+import { assertMetaControlKind } from "./metaControlTypes";
+import { MetaValueControl } from "./MetaValueControl";
 
-export type ButtonMetaControl = {
-  kind: "button";
-  label: string;
-  onAction: () => void;
-  disabled?: boolean;
-  pending?: boolean;
-};
-
-export type TextMetaControl = {
-  kind: "text";
-  controlId: string;
-  ariaLabel: string;
-  value: string;
-  onValueChange: (nextValue: string) => void;
-  placeholder?: string;
-  language?: TextValueLanguage | null;
-  disabled?: boolean;
-};
-
-export type MetaControlDefinition = ButtonMetaControl | TextMetaControl;
+export type {
+  ButtonMetaControl,
+  ColorMetaControl,
+  DateMetaControl,
+  DropdownMetaControl,
+  DropzoneMetaControl,
+  MetaControlDefinition,
+  PasswordMetaControl,
+  RotaryMetaControl,
+  SliderMetaControl,
+  SwitchMetaControl,
+  TextAreaMetaControl,
+  TextMetaControl,
+  TimeMetaControl,
+} from "./metaControlDefinitions";
 
 export type MetaControlProps = {
   sectionId: string;
@@ -35,15 +37,15 @@ export type MetaControlProps = {
 const BUTTON_WRAPPER_CLASS_NAME = "flex h-full w-full items-stretch";
 const BUTTON_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex h-full min-h-8 w-full items-center justify-center rounded-lg border border-setta-600 bg-setta-600 px-3 text-xs font-semibold text-white shadow-sm transition-all hover:border-setta-700 hover:bg-setta-700 active:translate-y-[2px] active:scale-[0.96] active:bg-setta-700 active:shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 dark:border-setta-500 dark:bg-setta-700 dark:text-setta-50 dark:hover:border-setta-400 dark:hover:bg-setta-600 dark:active:bg-setta-600 cursor-pointer select-none disabled:cursor-not-allowed disabled:opacity-60`;
 
-// The first meta-control surface batch deliberately supports only its representative Button and
-// Text content. The dispatcher fails on any unrecognized runtime value; later audited batches
-// extend this same union with the remaining frozen-main controls instead of adding a fallback.
 export function MetaControl({
   sectionId,
   sectionName,
   showSectionTitle = false,
   control,
 }: MetaControlProps) {
+  // Public TypeScript callers already have the discriminated union; this runtime assertion keeps
+  // opaque-data adapters honest and preserves the package's specific no-fallback failure.
+  assertMetaControlKind((control as { kind?: unknown }).kind);
   return (
     <div className="col-span-full row-span-full flex h-full w-full items-stretch p-0">
       {renderMetaControl({ sectionId, sectionName, showSectionTitle, control })}
@@ -57,7 +59,7 @@ function renderMetaControl({
   showSectionTitle,
   control,
 }: Required<Pick<MetaControlProps, "sectionId" | "sectionName" | "showSectionTitle">> &
-  Pick<MetaControlProps, "control">): ReactNode {
+  Pick<MetaControlProps, "control">) {
   if (control.kind === "button") {
     return (
       <ButtonControl
@@ -67,7 +69,7 @@ function renderMetaControl({
       />
     );
   }
-  if (control.kind === "text") {
+  if (control.kind === "text" || control.kind === "textarea") {
     return (
       <TextControl
         sectionId={sectionId}
@@ -77,7 +79,14 @@ function renderMetaControl({
       />
     );
   }
-  throw new Error(`Unknown meta control kind: ${String((control as { kind?: unknown }).kind)}.`);
+  return (
+    <MetaValueControl
+      sectionId={sectionId}
+      sectionName={sectionName}
+      showSectionTitle={showSectionTitle}
+      control={control}
+    />
+  );
 }
 
 function ButtonControl({
@@ -122,7 +131,7 @@ function TextControl({
   sectionId: string;
   sectionName: string;
   showSectionTitle: boolean;
-  control: TextMetaControl;
+  control: TextMetaControl | TextAreaMetaControl;
 }) {
   return (
     <MetaControlTitleStack
@@ -141,33 +150,8 @@ function TextControl({
         singleLine={false}
         wrapLines
         disabled={control.disabled}
+        metaMinimumHeight={control.kind === "textarea"}
       />
     </MetaControlTitleStack>
-  );
-}
-
-function MetaControlTitleStack({
-  showSectionTitle,
-  sectionName,
-  children,
-  contentClassName,
-}: {
-  showSectionTitle: boolean;
-  sectionName: string;
-  children: ReactNode;
-  contentClassName?: string;
-}) {
-  const showTitle = showSectionTitle && sectionName.trim().length > 0;
-  return (
-    <div className="relative h-full min-h-0 w-full min-w-0">
-      {showTitle ? (
-        <span className="pointer-events-none absolute left-0 top-0 z-10 -translate-y-full truncate text-[10px] uppercase tracking-[0.2em] text-setta-500 dark:text-setta-400">
-          {sectionName}
-        </span>
-      ) : null}
-      <div className={`flex h-full min-h-0 w-full min-w-0 ${contentClassName ?? ""}`}>
-        {children}
-      </div>
-    </div>
   );
 }

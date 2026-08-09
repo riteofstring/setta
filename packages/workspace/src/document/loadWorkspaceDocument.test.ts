@@ -280,6 +280,54 @@ describe("loadWorkspaceDocument", () => {
     });
   });
 
+  it("preserves special and auto-only meta-control defaults when size is omitted", () => {
+    registerSectionKinds({
+      slider: {
+        renderContent: () => null,
+        presentation: {
+          type: "meta-control",
+          resolveControlKind: () => "slider",
+          onEdit: () => {},
+        },
+      },
+      textarea: {
+        renderContent: () => null,
+        presentation: {
+          type: "meta-control",
+          resolveControlKind: () => "textarea",
+          onEdit: () => {},
+        },
+      },
+      dropzone: {
+        renderContent: () => null,
+        presentation: {
+          type: "meta-control",
+          resolveControlKind: () => "dropzone",
+          onEdit: () => {},
+        },
+      },
+    });
+    const { size: _sliderSize, ...slider } = makeSection("slider", { kind: "slider" });
+    const { size: _textareaSize, ...textarea } = makeSection("textarea", {
+      kind: "textarea",
+    });
+    const { size: _dropzoneSize, ...dropzone } = makeSection("dropzone", {
+      kind: "dropzone",
+    });
+    loadWorkspaceDocument(
+      makeDocument({
+        sections: { slider, textarea, dropzone },
+        topLevelSections: {},
+        activeIds: [],
+      }),
+    );
+
+    const sections = useWorkspaceDocument.getState().sections;
+    expect(sections["slider"]?.size).toEqual({ width: 200, height: "auto" });
+    expect(sections["textarea"]?.size).toEqual({ width: 200, height: 98 });
+    expect(sections["dropzone"]?.size).toEqual({ width: 240, height: 120 });
+  });
+
   it("round-trips opaque section data into the emitted document", () => {
     const data = { body: "Leaf body", tags: ["a", "b"], pinned: true };
     loadWorkspaceDocument(

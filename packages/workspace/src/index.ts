@@ -44,11 +44,25 @@ export { DropzoneValueControl } from "./controls/dropzone/DropzoneValueControl";
 export { MetaControl } from "./controls/meta/MetaControl";
 export type {
   ButtonMetaControl,
+  ColorMetaControl,
+  DateMetaControl,
+  DropdownMetaControl,
+  DropzoneMetaControl,
   MetaControlDefinition,
   MetaControlProps,
+  PasswordMetaControl,
+  RotaryMetaControl,
+  SliderMetaControl,
+  SwitchMetaControl,
+  TextAreaMetaControl,
   TextMetaControl,
+  TimeMetaControl,
 } from "./controls/meta/MetaControl";
-export { DEFAULT_META_CONTROL_SIZE } from "./controls/meta/metaControlTypes";
+export {
+  DEFAULT_META_CONTROL_SIZE,
+  DROPZONE_META_CONTROL_SIZE,
+  TEXTAREA_META_CONTROL_SIZE,
+} from "./controls/meta/metaControlTypes";
 export type { MetaControlKind } from "./controls/meta/metaControlTypes";
 export { ItemNameEditor } from "./controls/name/ItemNameEditor";
 export type { ItemNameEditorProps } from "./controls/name/ItemNameEditor";

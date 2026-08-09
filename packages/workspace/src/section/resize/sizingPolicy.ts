@@ -1,5 +1,9 @@
 import _ from "lodash";
-import { getMetaControlMinimumSize } from "../../controls/meta/metaControlTypes";
+import {
+  getMetaControlHeightSizeMode,
+  getMetaControlMinimumSize,
+  type MetaControlHeightSizeMode,
+} from "../../controls/meta/metaControlTypes";
 import { getSectionOrThrow } from "../../document/documentSelectors";
 import { getMetaControlPresentation } from "../../document/sectionKindRegistry";
 import { useWorkspaceDocument } from "../../document/stores";
@@ -9,9 +13,8 @@ import { useResizeEvent } from "./resizeEvents";
 // slice-reachable branches of `useSectionMinMaxDims`. The values are the shipped defaults from
 // `internal/settingsstate/defaults.json` at 043d3b2e9 for the generic section shape; the
 // params/search measured-height minimums and per-application-type overrides left with their
-// features. The meta-control milestone restores frozen main's per-control minimum dimensions
-// through the registered presentation projection; its auto-only size modes return with the
-// controls that use them.
+// features. The meta-control milestone restores frozen main's per-control minimum dimensions and
+// auto-only height modes through the registered presentation projection.
 export const SECTION_SIZING_POLICY = {
   minHeight: 0,
   maxHeight: 100_000,
@@ -26,6 +29,7 @@ export type SectionMinMaxDims = {
   maxHeight: number;
   minWidth: number;
   maxWidth: number;
+  heightSizeMode: MetaControlHeightSizeMode;
 };
 
 export function getSectionMinMaxDims({
@@ -33,11 +37,13 @@ export function getSectionMinMaxDims({
   isAutoHeight,
   isResizing,
   minimumSize,
+  heightSizeMode = "any",
 }: {
   isMinimized: boolean;
   isAutoHeight: boolean;
   isResizing: boolean;
   minimumSize?: { width: number; height: number };
+  heightSizeMode?: MetaControlHeightSizeMode;
 }): SectionMinMaxDims {
   const minWidth = Math.max(SECTION_SIZING_POLICY.minWidth, minimumSize?.width ?? 0);
   const minimumContentHeight = Math.max(SECTION_SIZING_POLICY.minHeight, minimumSize?.height ?? 0);
@@ -48,6 +54,7 @@ export function getSectionMinMaxDims({
       maxHeight: minimizedHeight,
       minWidth,
       maxWidth: SECTION_SIZING_POLICY.maxWidth,
+      heightSizeMode,
     };
   }
   const { maxHeight: policyMaxHeight, autoMaxHeight } = SECTION_SIZING_POLICY;
@@ -61,6 +68,7 @@ export function getSectionMinMaxDims({
     maxHeight,
     minWidth,
     maxWidth: SECTION_SIZING_POLICY.maxWidth,
+    heightSizeMode,
   };
 }
 
@@ -69,14 +77,15 @@ export function useSectionMinMaxDims(sectionId: string): SectionMinMaxDims {
   return useWorkspaceDocument((x) => {
     const section = getSectionOrThrow(x, sectionId);
     const metaControlPresentation = getMetaControlPresentation(section);
-    const minimumSize = metaControlPresentation
-      ? getMetaControlMinimumSize(metaControlPresentation.resolveControlKind(section))
-      : undefined;
+    const controlKind = metaControlPresentation?.resolveControlKind(section);
+    const minimumSize = controlKind ? getMetaControlMinimumSize(controlKind) : undefined;
+    const heightSizeMode = controlKind ? getMetaControlHeightSizeMode(controlKind) : "any";
     return getSectionMinMaxDims({
       isMinimized: section.isMinimized,
       isAutoHeight: section.size.height === "auto",
       isResizing: resizeEvent === "start",
       minimumSize,
+      heightSizeMode,
     });
   }, _.isEqual);
 }

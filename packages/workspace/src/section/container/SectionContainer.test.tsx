@@ -4,6 +4,7 @@ import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../../canvas/store";
+import type { MetaControlKind } from "../../controls/meta/metaControlTypes";
 import { useDndChildren } from "../../dnd/dndChildren";
 import { useDndState } from "../../dnd/dndState";
 import { SectionDndContext } from "../../dnd/SectionDndContext";
@@ -97,6 +98,7 @@ function loadDeepDocument() {
 function loadMetaControlDocument(
   onEdit: (section: WorkspaceSection) => void,
   overrides: Partial<WorkspaceSection> = {},
+  controlKind: MetaControlKind = "text",
 ) {
   registerSectionKinds({
     leaf: { renderContent: renderSectionBody },
@@ -104,7 +106,7 @@ function loadMetaControlDocument(
       renderContent: () => createElement("div", { "data-testid": "meta-body" }, "Meta body"),
       presentation: {
         type: "meta-control",
-        resolveControlKind: () => "text",
+        resolveControlKind: () => controlKind,
         onEdit,
       },
     },
@@ -282,6 +284,16 @@ describe("SectionContainer", () => {
     expect(host.querySelector(".section-resize-handle")).toBeNull();
     expect(host.querySelector('[data-meta-control-edit="true"]')).not.toBeNull();
     expect(host.querySelector('[data-section-id="meta"]')?.className).toContain("rounded-sm");
+  });
+
+  it("keeps only the horizontal resize handle for an auto-height-only meta control", async () => {
+    loadMetaControlDocument(() => {}, {}, "slider");
+    await mount("meta");
+
+    expect(host.querySelector(".section-resize-handle-right")).not.toBeNull();
+    expect(host.querySelector(".section-resize-handle-bottom")).toBeNull();
+    expect(host.querySelector(".section-resize-handle-bottom-right")).toBeNull();
+    expect(host.querySelector<HTMLElement>("#meta-CustomResizable")?.style.height).toBe("auto");
   });
 
   it("renders a registered kind icon with the reference icon treatment", async () => {

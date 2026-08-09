@@ -36,9 +36,10 @@ import { useSectionMinMaxDims } from "./sizingPolicy";
 // bottom, right, and bottom-right handles; the reference's default hit geometry (10px edges with
 // -8px offsets, 20x20 corner from re-resizable's defaults); handles disabled entirely while
 // pointer events are suppressed or the section is locked. The meta-control milestone restores
-// its enlarged invisible hit strips and restrained blue hover/active paint. The attached-terminal
-// treatment, aspect-ratio locking, and per-type size modes stay with their features. Handle
-// marker classes have no CSS rules; they preserve direction hit-testing without changing paint.
+// its enlarged invisible hit strips, restrained blue hover/active paint, and the auto-only height
+// policy used by Slider, Dropdown, and Password. Attached-terminal treatment and aspect-ratio
+// locking stay with their features. Handle marker classes preserve direction hit-testing without
+// changing paint.
 const HANDLE_BASE_CLASS_NAME = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
 const DEFAULT_HANDLE_CLASSES = {
   right: `${HANDLE_BASE_CLASS_NAME} section-resize-handle section-resize-handle-right`,
@@ -101,7 +102,8 @@ export function CustomResizable({
   isMetaControl = false,
   children,
 }: CustomResizableProps) {
-  const { minHeight, maxHeight, minWidth, maxWidth } = useSectionMinMaxDims(sectionId);
+  const { minHeight, maxHeight, minWidth, maxWidth, heightSizeMode } =
+    useSectionMinMaxDims(sectionId);
   const size = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId).size, _.isEqual);
   const canEditLayout = useWorkspaceCapabilities((x) => x.canEditLayout);
   const disablePointerEvents = useShouldDisablePointerEvents();
@@ -214,6 +216,13 @@ export function CustomResizable({
   }
 
   useEffect(() => {
+    if (heightSizeMode === "auto-only" && size.height !== "auto") {
+      if (!canEditLayout || positionAndSizeLocked) {
+        return;
+      }
+      persistSectionSizeChange(sectionId, { height: "auto" });
+      return;
+    }
     const nextSize = getAutoClampSize({ size, minHeight, minWidth });
     if (!nextSize) {
       return;
@@ -223,9 +232,9 @@ export function CustomResizable({
     }
     persistSectionSizeChange(sectionId, nextSize);
     // `size` is selected with deep equality, so its identity only changes with its contents.
-  }, [minHeight, minWidth, sectionId, size, canEditLayout, positionAndSizeLocked]);
+  }, [minHeight, minWidth, sectionId, size, canEditLayout, positionAndSizeLocked, heightSizeMode]);
 
-  const heightResizable = minHeight !== maxHeight;
+  const heightResizable = minHeight !== maxHeight && heightSizeMode !== "auto-only";
   const enable = getResizableEnable({
     disablePointerEvents,
     positionAndSizeLocked,

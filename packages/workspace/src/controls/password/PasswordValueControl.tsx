@@ -32,6 +32,11 @@ const INPUT_BASE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/t
 const TOGGLE_BASE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} absolute inset-y-0 right-0 grid w-8 place-items-center text-setta-400 dark:text-setta-500`;
 const DIVIDER_BASE_CLASS_NAME =
   "section-value self-end border-b border-setta-200/50 dark:border-setta-600/30";
+const META_WRAPPER_CLASS_NAME =
+  "single-cell-container grid h-full min-h-0 w-full grid-cols-[1fr,auto]";
+const META_INPUT_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} single-cell-child flex h-full w-full min-w-0 max-w-[calc(100%_-_1.1rem)] cursor-text select-text self-center justify-self-start pr-8 font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
+const META_DIVIDER_CLASS_NAME =
+  "single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 dark:border-setta-600/30";
 
 function getInputClassName(isDisabled: boolean) {
   return `${!isDisabled ? "cursor-text select-text" : ""} ${INPUT_BASE_CLASS_NAME}`;
@@ -78,6 +83,8 @@ export function PasswordValueControl({
           onValueChange={onValueChange}
           placeholder={placeholder}
           disabled={isDisabled}
+          inputClassName={getInputClassName(isDisabled)}
+          wrapperClassName={INPUT_WRAPPER_CLASS_NAME}
         />
         {savedValueAction ? (
           <SavedValueRevealButton action={savedValueAction} disabled={isDisabled} />
@@ -85,6 +92,37 @@ export function PasswordValueControl({
       </div>
       <span className={getDividerClassName(isSelectingItems)} />
     </>
+  );
+}
+
+// Package-internal meta presentation. The obscured/visible state and keyboard behavior remain
+// shared; only the full-area grid and frozen input/divider geometry differ from an item row.
+export function MetaPasswordValueControl({
+  ariaLabel,
+  sectionId,
+  controlId,
+  value,
+  onValueChange,
+  placeholder,
+  disabled = false,
+}: Omit<PasswordValueControlProps, "itemId" | "savedValueAction"> & { controlId: string }) {
+  const isSelectingItems = useItemSelectionMode((state) => state.isSelectingItems);
+  const isDisabled = disabled || isSelectingItems;
+  return (
+    <div className={META_WRAPPER_CLASS_NAME}>
+      <PasswordInput
+        ariaLabel={ariaLabel}
+        sectionId={sectionId}
+        itemId={controlId}
+        value={value}
+        onValueChange={onValueChange}
+        placeholder={placeholder}
+        disabled={isDisabled}
+        inputClassName={META_INPUT_CLASS_NAME}
+        wrapperClassName="single-cell-child relative min-w-0"
+      />
+      <span className={META_DIVIDER_CLASS_NAME} />
+    </div>
   );
 }
 
@@ -96,6 +134,8 @@ function PasswordInput({
   onValueChange,
   placeholder,
   disabled,
+  inputClassName,
+  wrapperClassName,
 }: {
   ariaLabel: string;
   sectionId: string;
@@ -104,14 +144,16 @@ function PasswordInput({
   onValueChange: (nextValue: string) => void;
   placeholder: string | undefined;
   disabled: boolean;
+  inputClassName: string;
+  wrapperClassName: string;
 }) {
   const [showPassword, setShowPassword] = useState(false);
   return (
-    <div className={INPUT_WRAPPER_CLASS_NAME}>
+    <div className={wrapperClassName}>
       <input
         id={`${sectionId}-${itemId}-PasswordValueInput`}
         aria-label={ariaLabel}
-        className={getInputClassName(disabled)}
+        className={inputClassName}
         value={value}
         onChange={(event) => onValueChange(event.target.value)}
         disabled={disabled}

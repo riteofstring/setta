@@ -2,10 +2,10 @@ import type { SectionSize } from "../../document/types";
 import type { ResizeHandleDirection } from "../sectionSizes";
 
 // Extracted from the reference's `components/Utils/Resizable/utils.ts`. The reference threads a
-// per-application-type size mode (`SIZE_MODE`) through these helpers; slice sections are always
-// freely resizable ("any"/"any"), so the auto-only and manual-only branches left with the
-// application section types that produce them. Double-click on a handle returns the affected
-// dimensions to "auto"; a plain resize commits the pixel size re-resizable wrote to the element.
+// per-application-type size mode (`SIZE_MODE`) through these helpers. The package enforces the
+// extracted meta controls' auto-only height mode at the resizable boundary, so these pure helpers
+// only receive enabled directions. Double-click on a handle returns the affected dimensions to
+// "auto"; a plain resize commits the pixel size re-resizable wrote to the element.
 
 const RESIZE_HANDLE_DOUBLE_CLICK_MS = 300;
 

@@ -1,5 +1,7 @@
 import {
   DEFAULT_META_CONTROL_SIZE,
+  DROPZONE_META_CONTROL_SIZE,
+  TEXTAREA_META_CONTROL_SIZE,
   type WorkspaceDocumentInput,
   type WorkspaceItem,
   type WorkspaceSectionData,
@@ -211,13 +213,14 @@ function makeMetaControlSection(
   id: string,
   name: string,
   data: Record<string, WorkspaceSectionData>,
+  overrides: Partial<WorkspaceSectionInput> = {},
 ): WorkspaceSectionInput {
   return {
     id,
     kind: "meta-control",
     name,
-    // The package resolves the omitted size from the projected control kind. Button and Text
-    // both use the captured 200 x 44 inner default in this representative surface batch.
+    // The package resolves omitted sizes from the projected control kind. The calendar fixture
+    // alone keeps auto height so its live month grid can expand like frozen main.
     data,
     isMinimized: false,
     positionAndSizeLocked: false,
@@ -225,6 +228,7 @@ function makeMetaControlSection(
     styleColor: null,
     tagColor: null,
     children: [],
+    ...overrides,
   };
 }
 
@@ -234,7 +238,7 @@ function makeMetaControlSection(
 // levels with both child flows, leaves at the fourth. The freeform surface is the top-level
 // workspace layout itself, exactly as the reference: groups flow their children in order.
 // Phase 4 adds the item panel from opaque item data; the meta-controls continuation adds the
-// representative Button and Text canvas nodes from opaque section data.
+// complete frozen direct-on-canvas control dispatch from opaque section data.
 export const playgroundDocument: WorkspaceDocumentInput = {
   sections: {
     "idle-leaf": makeLeafSection("idle-leaf", "Idle leaf"),
@@ -284,6 +288,107 @@ export const playgroundDocument: WorkspaceDocumentInput = {
       showSectionTitle: false,
       editRequests: 0,
     }),
+    "meta-dropdown": makeMetaControlSection("meta-dropdown", "Dropdown", {
+      control: "dropdown",
+      value: "",
+      choices: ["Alpha", "Beta", "Gamma"],
+      disabled: false,
+      showSectionTitle: false,
+      editRequests: 0,
+    }),
+    "meta-slider": makeMetaControlSection("meta-slider", "Slider", {
+      control: "slider",
+      value: "0",
+      min: 0,
+      max: 100,
+      step: 1,
+      disabled: false,
+      showSectionTitle: false,
+      editRequests: 0,
+    }),
+    "meta-rotary": makeMetaControlSection("meta-rotary", "Rotary", {
+      control: "rotary",
+      value: "0",
+      min: 0,
+      max: 1,
+      step: 0.1,
+      disabled: false,
+      showSectionTitle: false,
+      editRequests: 0,
+    }),
+    "meta-switch": makeMetaControlSection("meta-switch", "Switch", {
+      control: "switch",
+      label: "thick_otter",
+      value: "false",
+      disabled: false,
+      showSectionTitle: false,
+      editRequests: 0,
+    }),
+    "meta-date": makeMetaControlSection(
+      "meta-date",
+      "Date",
+      {
+        control: "date",
+        value: '["2026-08-12"]',
+        displayFormat: "iso",
+        controlMode: "calendar",
+        selectionMode: "multiple",
+        weekStart: "sunday",
+        includeTime: false,
+        timeDisplayFormat: "twenty_four_hour",
+        disabled: false,
+        showSectionTitle: false,
+        editRequests: 0,
+      },
+      { size: { width: DEFAULT_META_CONTROL_SIZE.width, height: "auto" } },
+    ),
+    "meta-time": makeMetaControlSection("meta-time", "Time", {
+      control: "time",
+      value: "13:45",
+      controlMode: "display",
+      displayFormat: "twenty_four_hour",
+      transparent: false,
+      scale: 1,
+      font: "monospace",
+      disabled: false,
+      showSectionTitle: false,
+      editRequests: 0,
+    }),
+    "meta-textarea": makeMetaControlSection("meta-textarea", "TextArea", {
+      control: "textarea",
+      value: "first line\nsecond line",
+      disabled: false,
+      showSectionTitle: false,
+      editRequests: 0,
+    }),
+    "meta-password": makeMetaControlSection("meta-password", "Password", {
+      control: "password",
+      value: "",
+      disabled: false,
+      showSectionTitle: false,
+      editRequests: 0,
+    }),
+    "meta-color": makeMetaControlSection("meta-color", "Color", {
+      control: "color",
+      value: "#ef4444",
+      disabled: false,
+      showSectionTitle: false,
+      editRequests: 0,
+    }),
+    "meta-dropzone": makeMetaControlSection("meta-dropzone", "Dropzone", {
+      control: "dropzone",
+      attachments: [],
+      maxAttachments: null,
+      maxFileBytes: 26_214_400,
+      maxTotalBytes: null,
+      allowedMimePrefixes: [],
+      serverPicker: true,
+      pending: false,
+      errorMessage: "",
+      disabled: false,
+      showSectionTitle: false,
+      editRequests: 0,
+    }),
   },
   topLevelSections: {
     "idle-leaf": { x: 24, y: 24, w: 200, h: 122, zIndex: 0 },
@@ -293,21 +398,91 @@ export const playgroundDocument: WorkspaceDocumentInput = {
     // The recorded `/settings` Dict measurement (552 x 352) is the complete outer section;
     // document dimensions describe the inner surface the shell borders by 1 px per side.
     "item-panel": { x: 600, y: 216, w: 550, h: 350, zIndex: 4 },
-    // Document dimensions describe the inner control surface; the one-pixel shell border on
-    // each side produces frozen main's 202 x 46 complete outer measurement.
-    "meta-button": {
+    // The twelve controls follow frozen main's four-column by three-row fixture. Document
+    // dimensions describe the inner surface; the package shell contributes one pixel per side.
+    "meta-dropdown": {
       x: 1200,
       y: 24,
       w: DEFAULT_META_CONTROL_SIZE.width,
       h: DEFAULT_META_CONTROL_SIZE.height,
       zIndex: 5,
     },
-    "meta-text": {
-      x: 1200,
-      y: 100,
+    "meta-slider": {
+      x: 1480,
+      y: 24,
       w: DEFAULT_META_CONTROL_SIZE.width,
       h: DEFAULT_META_CONTROL_SIZE.height,
       zIndex: 6,
+    },
+    "meta-rotary": {
+      x: 1760,
+      y: 24,
+      w: DEFAULT_META_CONTROL_SIZE.width,
+      h: DEFAULT_META_CONTROL_SIZE.height,
+      zIndex: 7,
+    },
+    "meta-switch": {
+      x: 2040,
+      y: 24,
+      w: DEFAULT_META_CONTROL_SIZE.width,
+      h: DEFAULT_META_CONTROL_SIZE.height,
+      zIndex: 8,
+    },
+    "meta-text": {
+      x: 1200,
+      y: 110,
+      w: DEFAULT_META_CONTROL_SIZE.width,
+      h: DEFAULT_META_CONTROL_SIZE.height,
+      zIndex: 9,
+    },
+    "meta-date": {
+      x: 1480,
+      y: 110,
+      w: DEFAULT_META_CONTROL_SIZE.width,
+      h: null,
+      zIndex: 10,
+    },
+    "meta-time": {
+      x: 1760,
+      y: 110,
+      w: DEFAULT_META_CONTROL_SIZE.width,
+      h: DEFAULT_META_CONTROL_SIZE.height,
+      zIndex: 11,
+    },
+    "meta-textarea": {
+      x: 2040,
+      y: 110,
+      w: TEXTAREA_META_CONTROL_SIZE.width,
+      h: TEXTAREA_META_CONTROL_SIZE.height,
+      zIndex: 12,
+    },
+    "meta-password": {
+      x: 1200,
+      y: 220,
+      w: DEFAULT_META_CONTROL_SIZE.width,
+      h: DEFAULT_META_CONTROL_SIZE.height,
+      zIndex: 13,
+    },
+    "meta-color": {
+      x: 1480,
+      y: 220,
+      w: DEFAULT_META_CONTROL_SIZE.width,
+      h: DEFAULT_META_CONTROL_SIZE.height,
+      zIndex: 14,
+    },
+    "meta-button": {
+      x: 1760,
+      y: 220,
+      w: DEFAULT_META_CONTROL_SIZE.width,
+      h: DEFAULT_META_CONTROL_SIZE.height,
+      zIndex: 15,
+    },
+    "meta-dropzone": {
+      x: 2040,
+      y: 220,
+      w: DROPZONE_META_CONTROL_SIZE.width,
+      h: DROPZONE_META_CONTROL_SIZE.height,
+      zIndex: 16,
     },
   },
   viewport: { x: 0, y: 0, zoom: 1 },

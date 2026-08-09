@@ -21,21 +21,33 @@ export type SwitchValueControlProps = {
 // The `ParamUI` placement wrapper plus the reference `SwitchInput` base and default theme
 // class strings, verbatim.
 const OUTER_DIV_CLASS_NAME = "section-value flex justify-self-start self-center";
+const META_OUTER_DIV_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${OUTER_DIV_CLASS_NAME}`;
 const ROOT_CLASS_NAME = `${NO_DRAG_CLASS_NAME} relative inline-flex h-2.5 w-7 min-w-7 cursor-pointer items-center rounded-full p-[0.2rem] [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black focus-visible:ring-2 disabled:pointer-events-none bg-setta-400 data-[state='checked']:bg-blue-500 dark:bg-setta-600 dark:data-[state='checked']:bg-blue-700`;
 const THUMB_CLASS_NAME =
   "block h-2.5 w-2.5 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 bg-white dark:bg-setta-800";
 
-export function SwitchValueControl({
+export function SwitchValueControl(props: SwitchValueControlProps) {
+  return <SwitchValueControlCore {...props} outerClassName={OUTER_DIV_CLASS_NAME} />;
+}
+
+// Package-internal direct-on-canvas presentation. Behavior stays shared while the wrapper carries
+// frozen main's full meta-control drag exclusion rather than relying only on the switch root.
+export function MetaSwitchValueControl(props: SwitchValueControlProps) {
+  return <SwitchValueControlCore {...props} outerClassName={META_OUTER_DIV_CLASS_NAME} />;
+}
+
+function SwitchValueControlCore({
   ariaLabel,
   sectionId,
   value,
   onValueChange,
   disabled = false,
-}: SwitchValueControlProps) {
+  outerClassName,
+}: SwitchValueControlProps & { outerClassName: string }) {
   const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
   const isDisabled = disabled || isSelectingItems;
   return (
-    <div className={OUTER_DIV_CLASS_NAME}>
+    <div className={outerClassName}>
       <Switch.Root
         aria-label={ariaLabel}
         className={ROOT_CLASS_NAME}

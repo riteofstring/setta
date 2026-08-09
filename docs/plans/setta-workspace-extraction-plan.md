@@ -1186,6 +1186,27 @@ Phase 4 progress (2026-08-11):
   resize/min-size, appearance, and packed-export audit. The consolidated matched live comparison,
   explicit developer acceptance, and first package-output baselines remain open at their existing
   gate; this repository test result is not visual approval.
+- Meta-controls complete dispatch batch complete (2026-08-12): `MetaControl` now exports strict
+  controlled definitions for frozen main's complete twelve-kind dispatch — Button, Text,
+  TextArea, Date, Time, Slider, Rotary, Switch, Color, Dropdown, Password, and Dropzone — while
+  hosts continue to own values, configuration, actions, attachment metadata, and persistence.
+  Shared package behavior remains single-sourced: TextArea configures the existing two-layer text
+  editor; Slider, Dropdown, Password, Date, and Time add only their frozen full-area presentations;
+  and Rotary, Switch, Color, and Dropzone compose the already-extracted controls. The projected
+  sizing policy now covers the captured 200 x 44 default, 200 x 98 TextArea, and 240 x 120 Dropzone
+  inner geometry, plus frozen main's auto-only height for Dropdown, Password, and Slider; those
+  controls expose only horizontal resizing. The unrelated playground supplies a four-column by
+  three-row fixture for every kind entirely through opaque section data and explicit callbacks,
+  including calendar/date options, switch/value commits, Button actions, and backend-free
+  Dropzone server-selection metadata. Package and playground source typechecks, the focused
+  package set (102 tests, followed by green focused dispatcher and sizing-policy reruns), the
+  focused playground host workflow (5 tests), both production builds, the package built-boundary
+  check, changed-file static gate, and packed unrelated-consumer proof pass. No dependency changed,
+  so the supply-chain gate was not duplicated. The next repository-actionable batch is the
+  scheduled meta-controls coherence audit across interaction ownership, resize/minimum behavior,
+  appearance, and public packed exports. The consolidated matched live comparison, explicit
+  developer acceptance, and first package-output baselines remain open at their existing gate;
+  this repository verification is not visual approval.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

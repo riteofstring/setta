@@ -13,6 +13,7 @@ describe("getSectionMinMaxDims", () => {
       maxHeight: 32,
       minWidth: 200,
       maxWidth: 100_000,
+      heightSizeMode: "any",
     });
   });
 
@@ -36,6 +37,7 @@ describe("getSectionMinMaxDims", () => {
       maxHeight: 100_000,
       minWidth: 200,
       maxWidth: 100_000,
+      heightSizeMode: "any",
     });
   });
 
@@ -52,6 +54,19 @@ describe("getSectionMinMaxDims", () => {
       maxHeight: 100_000,
       minWidth: 240,
       maxWidth: 100_000,
+      heightSizeMode: "any",
     });
+  });
+
+  it("threads a compact meta control's intrinsic-height mode to the resizable shell", () => {
+    expect(
+      getSectionMinMaxDims({
+        isMinimized: false,
+        isAutoHeight: true,
+        isResizing: false,
+        minimumSize: { width: 200, height: 32 },
+        heightSizeMode: "auto-only",
+      }),
+    ).toMatchObject({ minHeight: 32, minWidth: 200, heightSizeMode: "auto-only" });
   });
 });

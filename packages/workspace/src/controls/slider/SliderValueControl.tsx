@@ -4,6 +4,7 @@ import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
+  SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "../../interaction";
 import { assertNumericControlConfig, clampNumericValue } from "../numeric/numericControlConfig";
@@ -29,15 +30,40 @@ export type SliderValueControlProps = {
 
 // The `ParamUI` placement and `SliderInput` class strings, with package interaction boundaries
 // on the wrapper so neither the track, thumb, nor numeric field starts section drag or canvas pan.
-const WRAPPER_CLASS_NAME = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} cursor-pointer @container/slider section-value flex gap-1`;
-const ROOT_CLASS_NAME =
+const ITEM_WRAPPER_CLASS_NAME = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} cursor-pointer @container/slider section-value flex gap-1`;
+const ITEM_ROOT_CLASS_NAME =
   "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5";
-const TRACK_CLASS_NAME =
+const ITEM_TRACK_CLASS_NAME =
   "relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700";
 const RANGE_CLASS_NAME = "absolute h-full rounded-full bg-blue-500";
-const THUMB_CLASS_NAME = `${NO_DRAG_CLASS_NAME} block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:!bg-setta-100 hover:dark:!bg-setta-700 focus-visible:!border-blue-500 focus-visible:bg-blue-500 focus-visible:dark:bg-blue-700 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600 data-[disabled]:pointer-events-none`;
-const TEXT_INPUT_CLASS_NAME =
+const ITEM_THUMB_CLASS_NAME = `${NO_DRAG_CLASS_NAME} block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:!bg-setta-100 hover:dark:!bg-setta-700 focus-visible:!border-blue-500 focus-visible:bg-blue-500 focus-visible:dark:bg-blue-700 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600 data-[disabled]:pointer-events-none`;
+const ITEM_TEXT_INPUT_CLASS_NAME =
   "hidden my-auto mr-[1px] h-5/6 w-8 cursor-auto resize-none rounded-lg border border-solid border-setta-300/20 bg-white px-2 text-center font-mono text-xs focus-visible:border-blue-300 dark:border-setta-875 dark:bg-setta-875 dark:text-setta-300 @[132px]/slider:block";
+const META_WRAPPER_CLASS_NAME = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex w-full min-w-0 items-center gap-2 cursor-pointer`;
+const META_ROOT_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full flex-1 touch-none select-none items-center data-[orientation='horizontal']:h-5 cursor-pointer`;
+const META_TRACK_CLASS_NAME = `${NO_DRAG_CLASS_NAME} relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700 cursor-pointer`;
+const META_THUMB_CLASS_NAME = `${SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION} ${NO_DRAG_CLASS_NAME} block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm hover:!bg-setta-100 dark:border-setta-400 dark:bg-setta-600`;
+
+type SliderPresentation = "item-row" | "meta-control";
+
+function getSliderPresentation(presentation: SliderPresentation) {
+  if (presentation === "meta-control") {
+    return {
+      wrapperClassName: META_WRAPPER_CLASS_NAME,
+      rootClassName: META_ROOT_CLASS_NAME,
+      trackClassName: META_TRACK_CLASS_NAME,
+      thumbClassName: META_THUMB_CLASS_NAME,
+      textInputClassName: "hidden",
+    };
+  }
+  return {
+    wrapperClassName: ITEM_WRAPPER_CLASS_NAME,
+    rootClassName: ITEM_ROOT_CLASS_NAME,
+    trackClassName: ITEM_TRACK_CLASS_NAME,
+    thumbClassName: ITEM_THUMB_CLASS_NAME,
+    textInputClassName: ITEM_TEXT_INPUT_CLASS_NAME,
+  };
+}
 
 function parseSliderValue(value: string, min: number, max: number): number {
   const parsed = Number(value);
@@ -49,7 +75,17 @@ function parseSliderValue(value: string, min: number, max: number): number {
   return clampNumericValue(parsed, min, max);
 }
 
-export function SliderValueControl({
+export function SliderValueControl({ ...props }: SliderValueControlProps) {
+  return <SliderValueControlCore {...props} presentation="item-row" />;
+}
+
+// Package-internal meta presentation: the behavior stays shared while frozen main's full-width
+// track and always-hidden numeric field replace the ordinary row's responsive field.
+export function MetaSliderValueControl(props: SliderValueControlProps) {
+  return <SliderValueControlCore {...props} presentation="meta-control" />;
+}
+
+function SliderValueControlCore({
   ariaLabel,
   sectionId,
   value,
@@ -59,18 +95,20 @@ export function SliderValueControl({
   max,
   step,
   disabled = false,
-}: SliderValueControlProps) {
+  presentation,
+}: SliderValueControlProps & { presentation: SliderPresentation }) {
   assertNumericControlConfig("SliderValueControl", { min, max, step });
   const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
   const isDisabled = disabled || isSelectingItems;
   const numericValue = parseSliderValue(value, min, max);
+  const classes = getSliderPresentation(presentation);
   const reportChange = (nextValue: number) => onValueChange(String(nextValue));
   const reportCommit = (nextValue: number) => onValueCommit?.(String(nextValue));
 
   return (
-    <div className={WRAPPER_CLASS_NAME}>
+    <div className={classes.wrapperClassName}>
       <Slider.Root
-        className={ROOT_CLASS_NAME}
+        className={classes.rootClassName}
         value={[numericValue]}
         min={min}
         max={max}
@@ -89,12 +127,12 @@ export function SliderValueControl({
           }
         }}
       >
-        <Slider.Track className={TRACK_CLASS_NAME}>
+        <Slider.Track className={classes.trackClassName}>
           <Slider.Range className={RANGE_CLASS_NAME} />
         </Slider.Track>
         <Slider.Thumb
           aria-label={ariaLabel}
-          className={THUMB_CLASS_NAME}
+          className={classes.thumbClassName}
           onKeyDown={(event) => {
             if (event.code === "Escape") {
               focusSectionAfterEscape(sectionId);
@@ -111,6 +149,7 @@ export function SliderValueControl({
         min={min}
         max={max}
         disabled={isDisabled}
+        className={classes.textInputClassName}
       />
     </div>
   );
@@ -125,6 +164,7 @@ function SliderNumericField({
   min,
   max,
   disabled,
+  className,
 }: {
   ariaLabel: string;
   sectionId: string;
@@ -134,6 +174,7 @@ function SliderNumericField({
   min: number;
   max: number;
   disabled: boolean;
+  className: string;
 }) {
   const [temporaryValue, setTemporaryValue] = useState(value);
 
@@ -144,7 +185,7 @@ function SliderNumericField({
   return (
     <input
       aria-label={ariaLabel}
-      className={TEXT_INPUT_CLASS_NAME}
+      className={className}
       inputMode="decimal"
       value={temporaryValue}
       disabled={disabled}

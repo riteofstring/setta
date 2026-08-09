@@ -23,6 +23,7 @@ import {
   type DropzonePolicy,
   type DropzoneRejection,
   type ItemRowRenderContext,
+  type MetaControlDefinition,
   type MetaControlKind,
   type WorkspaceItem,
   type WorkspaceSection,
@@ -292,51 +293,51 @@ function getItemStringArray(item: WorkspaceItem, field: string): Array<string> {
 }
 
 function getDropzoneAttachmentString(
-  item: WorkspaceItem,
+  owner: { id: string },
   attachment: { [key: string]: WorkspaceSectionData },
   field: "id" | "name",
 ): string {
   const value = attachment[field];
   if (typeof value !== "string") {
-    throw new Error(`Item ${item.id} has a malformed dropzone attachment ${field}.`);
+    throw new Error(`${owner.id} has a malformed dropzone attachment ${field}.`);
   }
   return value;
 }
 
 function getDropzoneAttachmentKind(
-  item: WorkspaceItem,
+  owner: { id: string },
   attachment: { [key: string]: WorkspaceSectionData },
 ): DropzoneAttachment["kind"] {
   const kind = attachment["kind"];
   if (kind !== "file" && kind !== "text") {
-    throw new Error(`Item ${item.id} has a malformed dropzone attachment kind.`);
+    throw new Error(`${owner.id} has a malformed dropzone attachment kind.`);
   }
   return kind;
 }
 
 function getDropzoneAttachmentSize(
-  item: WorkspaceItem,
+  owner: { id: string },
   attachment: { [key: string]: WorkspaceSectionData },
 ): number | null {
   const size = attachment["size"];
   if (size !== null && typeof size !== "number") {
-    throw new Error(`Item ${item.id} has a malformed dropzone attachment size.`);
+    throw new Error(`${owner.id} has a malformed dropzone attachment size.`);
   }
   return size;
 }
 
 function parseDropzoneAttachment(
-  item: WorkspaceItem,
+  owner: { id: string },
   value: WorkspaceSectionData,
 ): DropzoneAttachment {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`Item ${item.id} has a malformed dropzone attachment.`);
+    throw new Error(`${owner.id} has a malformed dropzone attachment.`);
   }
   return {
-    id: getDropzoneAttachmentString(item, value, "id"),
-    kind: getDropzoneAttachmentKind(item, value),
-    name: getDropzoneAttachmentString(item, value, "name"),
-    size: getDropzoneAttachmentSize(item, value),
+    id: getDropzoneAttachmentString(owner, value, "id"),
+    kind: getDropzoneAttachmentKind(owner, value),
+    name: getDropzoneAttachmentString(owner, value, "name"),
+    size: getDropzoneAttachmentSize(owner, value),
   };
 }
 
@@ -375,13 +376,13 @@ function commitDropzoneData(
 }
 
 function resolveAcceptedDropzoneAttachments(
-  item: WorkspaceItem,
+  owner: { id: string },
   result: DropzoneAcceptedResult,
 ): Array<DropzoneAttachment> {
   if (result.kind === "text") {
     return [
       {
-        id: createPlaygroundDropzoneAttachmentId(item.id),
+        id: createPlaygroundDropzoneAttachmentId(owner.id),
         kind: "text",
         name: "Dropped text",
         size: null,
@@ -389,7 +390,7 @@ function resolveAcceptedDropzoneAttachments(
     ];
   }
   return result.files.map((file) => ({
-    id: createPlaygroundDropzoneAttachmentId(item.id),
+    id: createPlaygroundDropzoneAttachmentId(owner.id),
     kind: "file" as const,
     name: file.name,
     size: file.size,
@@ -738,8 +739,22 @@ function getMetaControlDataRecord(section: Pick<WorkspaceSection, "id" | "data">
 
 function getMetaControlKind(section: Pick<WorkspaceSection, "id" | "data">): MetaControlKind {
   const kind = getMetaControlDataRecord(section)["control"];
-  if (kind === "button" || kind === "text") {
-    return kind;
+  const knownKinds: ReadonlyArray<MetaControlKind> = [
+    "button",
+    "color",
+    "date",
+    "dropdown",
+    "dropzone",
+    "password",
+    "rotary",
+    "slider",
+    "switch",
+    "text",
+    "textarea",
+    "time",
+  ];
+  if (typeof kind === "string" && knownKinds.includes(kind as MetaControlKind)) {
+    return kind as MetaControlKind;
   }
   throw new Error(`Meta control section ${section.id} names the unknown control ${String(kind)}.`);
 }
@@ -758,6 +773,42 @@ function getMetaControlBoolean(section: WorkspaceSection, field: string): boolea
     throw new Error(`Meta control section ${section.id} is missing its boolean ${field} field.`);
   }
   return value;
+}
+
+function getMetaControlNumber(section: WorkspaceSection, field: string): number {
+  const value = getMetaControlDataRecord(section)[field];
+  if (typeof value !== "number") {
+    throw new Error(`Meta control section ${section.id} is missing its numeric ${field} field.`);
+  }
+  return value;
+}
+
+function getMetaControlNullableNumber(section: WorkspaceSection, field: string): number | null {
+  const value = getMetaControlDataRecord(section)[field];
+  if (value !== null && typeof value !== "number") {
+    throw new Error(`Meta control section ${section.id} has a malformed ${field} field.`);
+  }
+  return value;
+}
+
+function getMetaControlStringArray(section: WorkspaceSection, field: string): Array<string> {
+  const value = getMetaControlDataRecord(section)[field];
+  if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) {
+    throw new Error(`Meta control section ${section.id} has a malformed ${field} field.`);
+  }
+  return value;
+}
+
+function getMetaControlOption<const Option extends string>(
+  section: WorkspaceSection,
+  field: string,
+  options: ReadonlyArray<Option>,
+): Option {
+  const value = getMetaControlDataRecord(section)[field];
+  if (typeof value !== "string" || !options.includes(value as Option)) {
+    throw new Error(`Meta control section ${section.id} has an invalid ${field} field.`);
+  }
+  return value as Option;
 }
 
 function updateMetaControlData(
@@ -787,60 +838,282 @@ export function commitPlaygroundMetaControlEditRequest(sectionId: string) {
   });
 }
 
-export function commitPlaygroundMetaControlTextValue(sectionId: string, value: string) {
+export function commitPlaygroundMetaControlValue(
+  sectionId: string,
+  expectedKind: Exclude<MetaControlKind, "button" | "dropzone">,
+  value: string,
+) {
   updateMetaControlData(sectionId, (current) => {
-    if (current["control"] !== "text") {
-      throw new Error(`Meta control section ${sectionId} is not a Text control.`);
+    if (current["control"] !== expectedKind) {
+      throw new Error(`Meta control section ${sectionId} is not a ${expectedKind} control.`);
     }
     return { ...current, value };
   });
 }
 
-// The first direct-on-canvas batch demonstrates frozen main's representative action and text
-// controls through opaque host data. The package owns their enlarged presentation and the host
-// owns both action/value commits; the remaining ten dispatch adapters land in the next batch.
-export function MetaControlSectionBody({ section }: { section: WorkspaceSection }) {
-  const kind = getMetaControlKind(section);
-  const showSectionTitle = getMetaControlBoolean(section, "showSectionTitle");
-  if (kind === "button") {
-    return (
-      <MetaControl
-        sectionId={section.id}
-        sectionName={section.name}
-        showSectionTitle={showSectionTitle}
-        control={{
-          kind,
-          label: getMetaControlString(section, "label"),
-          disabled: getMetaControlBoolean(section, "disabled"),
-          pending: getMetaControlBoolean(section, "pending"),
-          onAction: () =>
-            updateMetaControlData(section.id, (current) => {
-              const actionCount = current["actionCount"];
-              if (typeof actionCount !== "number") {
-                throw new Error(
-                  `Meta control section ${section.id} is missing its numeric actionCount field.`,
-                );
-              }
-              return { ...current, actionCount: actionCount + 1 };
-            }),
-        }}
-      />
-    );
+function getMetaControlColorChoices(
+  section: WorkspaceSection,
+): Array<ColorValueChoice> | undefined {
+  const choices = getMetaControlDataRecord(section)["choices"];
+  if (choices === undefined) {
+    return undefined;
   }
+  if (!Array.isArray(choices) || !choices.every(isColorValueChoice)) {
+    throw new Error(`Meta control section ${section.id} has malformed color choices.`);
+  }
+  return choices;
+}
+
+function getMetaDropzoneAttachmentsFromData(
+  sectionId: string,
+  data: { [key: string]: WorkspaceSectionData },
+): Array<DropzoneAttachment> {
+  const attachments = data["attachments"];
+  if (!Array.isArray(attachments)) {
+    throw new Error(`Meta control section ${sectionId} has malformed dropzone attachments.`);
+  }
+  return attachments.map((attachment) =>
+    parseDropzoneAttachment({ id: `Meta control section ${sectionId}` }, attachment),
+  );
+}
+
+function getMetaDropzonePolicy(section: WorkspaceSection): DropzonePolicy {
+  return {
+    maxAttachments: getMetaControlNullableNumber(section, "maxAttachments"),
+    maxFileBytes: getMetaControlNumber(section, "maxFileBytes"),
+    maxTotalBytes: getMetaControlNullableNumber(section, "maxTotalBytes"),
+    allowedMimePrefixes: getMetaControlStringArray(section, "allowedMimePrefixes"),
+  };
+}
+
+function commitMetaDropzoneAccepted(section: WorkspaceSection, result: DropzoneAcceptedResult) {
+  updateMetaControlData(section.id, (current) => ({
+    ...current,
+    attachments: [
+      ...getMetaDropzoneAttachmentsFromData(section.id, current),
+      ...resolveAcceptedDropzoneAttachments(section, result),
+    ],
+    errorMessage: "",
+  }));
+}
+
+function buildButtonOrTextMetaControl(
+  section: WorkspaceSection,
+  kind: MetaControlKind,
+): MetaControlDefinition | null {
+  if (kind === "button") {
+    return {
+      kind,
+      label: getMetaControlString(section, "label"),
+      disabled: getMetaControlBoolean(section, "disabled"),
+      pending: getMetaControlBoolean(section, "pending"),
+      onAction: () =>
+        updateMetaControlData(section.id, (current) => {
+          const actionCount = current["actionCount"];
+          if (typeof actionCount !== "number") {
+            throw new Error(
+              `Meta control section ${section.id} is missing its numeric actionCount field.`,
+            );
+          }
+          return { ...current, actionCount: actionCount + 1 };
+        }),
+    };
+  }
+  if (kind === "text" || kind === "textarea") {
+    return {
+      kind,
+      controlId: "value",
+      ariaLabel: `${section.name} value`,
+      value: getMetaControlString(section, "value"),
+      language: "python",
+      disabled: getMetaControlBoolean(section, "disabled"),
+      onValueChange: (value) => commitPlaygroundMetaControlValue(section.id, kind, value),
+    };
+  }
+  return null;
+}
+
+function buildNumericMetaControl(
+  section: WorkspaceSection,
+  kind: MetaControlKind,
+): MetaControlDefinition | null {
+  if (kind !== "slider" && kind !== "rotary") {
+    return null;
+  }
+  return {
+    kind,
+    ariaLabel: `${section.name} value`,
+    value: getMetaControlString(section, "value"),
+    min: getMetaControlNumber(section, "min"),
+    max: getMetaControlNumber(section, "max"),
+    step: getMetaControlNumber(section, "step"),
+    disabled: getMetaControlBoolean(section, "disabled"),
+    onValueChange: (value) => commitPlaygroundMetaControlValue(section.id, kind, value),
+  };
+}
+
+function buildChoiceMetaControl(
+  section: WorkspaceSection,
+  kind: MetaControlKind,
+): MetaControlDefinition | null {
+  if (kind !== "switch" && kind !== "color" && kind !== "dropdown") {
+    return null;
+  }
+  const shared = {
+    ariaLabel: `${section.name} value`,
+    value: getMetaControlString(section, "value"),
+    disabled: getMetaControlBoolean(section, "disabled"),
+    onValueChange: (value: string) => commitPlaygroundMetaControlValue(section.id, kind, value),
+  };
+  if (kind === "switch") {
+    return { kind, ...shared, label: getMetaControlString(section, "label") };
+  }
+  if (kind === "color") {
+    return {
+      kind,
+      ...shared,
+      controlId: "value",
+      choices: getMetaControlColorChoices(section),
+    };
+  }
+  return { kind, ...shared, choices: getMetaControlStringArray(section, "choices") };
+}
+
+function buildDateTimeMetaControl(
+  section: WorkspaceSection,
+  kind: MetaControlKind,
+): MetaControlDefinition | null {
+  if (kind !== "date" && kind !== "time") {
+    return null;
+  }
+  const shared = {
+    ariaLabel: `${section.name} value`,
+    value: getMetaControlString(section, "value"),
+    disabled: getMetaControlBoolean(section, "disabled"),
+  };
+  if (kind === "date") {
+    return {
+      kind,
+      ...shared,
+      displayFormat: getMetaControlOption(section, "displayFormat", ["iso", "us", "eu", "long"]),
+      controlMode: getMetaControlOption(section, "controlMode", ["input", "calendar"]),
+      selectionMode: getMetaControlOption(section, "selectionMode", ["single", "multiple"]),
+      weekStart: getMetaControlOption(section, "weekStart", ["sunday", "monday"]),
+      includeTime: getMetaControlBoolean(section, "includeTime"),
+      timeDisplayFormat: getMetaControlOption(section, "timeDisplayFormat", [
+        "twenty_four_hour",
+        "twelve_hour",
+      ]),
+      onValueChange: (value) => commitPlaygroundMetaControlValue(section.id, kind, value),
+    };
+  }
+  return {
+    kind,
+    ...shared,
+    controlMode: getMetaControlOption(section, "controlMode", ["input", "display"]),
+    displayFormat: getMetaControlOption(section, "displayFormat", [
+      "twenty_four_hour",
+      "twelve_hour",
+    ]),
+    transparent: getMetaControlBoolean(section, "transparent"),
+    scale: getMetaControlNumber(section, "scale"),
+    font: getMetaControlOption(section, "font", ["clock", "monospace", "system"]),
+    onValueChange: (value) => commitPlaygroundMetaControlValue(section.id, kind, value),
+  };
+}
+
+function buildPasswordOrDropzoneMetaControl(
+  section: WorkspaceSection,
+  kind: MetaControlKind,
+): MetaControlDefinition | null {
+  if (kind === "password") {
+    return {
+      kind,
+      controlId: "value",
+      ariaLabel: `${section.name} value`,
+      value: getMetaControlString(section, "value"),
+      disabled: getMetaControlBoolean(section, "disabled"),
+      onValueChange: (value) => commitPlaygroundMetaControlValue(section.id, kind, value),
+    };
+  }
+  if (kind !== "dropzone") {
+    return null;
+  }
+  const attachments = getMetaDropzoneAttachmentsFromData(
+    section.id,
+    getMetaControlDataRecord(section),
+  );
+  const serverPicker = getMetaControlBoolean(section, "serverPicker");
+  return {
+    kind,
+    controlId: "value",
+    ariaLabel: `${section.name} dropzone`,
+    attachments,
+    policy: getMetaDropzonePolicy(section),
+    placeholder: "Drop a file here",
+    pending: getMetaControlBoolean(section, "pending"),
+    errorMessage: getMetaControlString(section, "errorMessage") || undefined,
+    disabled: getMetaControlBoolean(section, "disabled"),
+    onAccepted: (result) => commitMetaDropzoneAccepted(section, result),
+    onRejected: (rejections) => {
+      const firstRejection = rejections[0];
+      if (firstRejection) {
+        updateMetaControlData(section.id, (current) => ({
+          ...current,
+          errorMessage: describeDropzoneRejection(firstRejection),
+        }));
+      }
+    },
+    onServerFilePickerRequest: serverPicker
+      ? () =>
+          updateMetaControlData(section.id, (current) => ({
+            ...current,
+            attachments: [
+              ...getMetaDropzoneAttachmentsFromData(section.id, current),
+              {
+                id: createPlaygroundDropzoneAttachmentId(section.id),
+                kind: "file",
+                name: "server-example.csv",
+                size: 2048,
+              },
+            ],
+            errorMessage: "",
+          }))
+      : undefined,
+    onAttachmentRemove: (attachmentId) =>
+      updateMetaControlData(section.id, (current) => ({
+        ...current,
+        attachments: getMetaDropzoneAttachmentsFromData(section.id, current).filter(
+          (attachment) => attachment.id !== attachmentId,
+        ),
+        errorMessage: "",
+      })),
+  };
+}
+
+function getPlaygroundMetaControl(section: WorkspaceSection): MetaControlDefinition {
+  const kind = getMetaControlKind(section);
+  const control =
+    buildButtonOrTextMetaControl(section, kind) ??
+    buildNumericMetaControl(section, kind) ??
+    buildChoiceMetaControl(section, kind) ??
+    buildDateTimeMetaControl(section, kind) ??
+    buildPasswordOrDropzoneMetaControl(section, kind);
+  if (!control) {
+    throw new Error(`Meta control section ${section.id} has no adapter for ${kind}.`);
+  }
+  return control;
+}
+
+// The complete direct-on-canvas fixture is host-owned opaque data. The package composes every
+// built-in control, while this unrelated host owns values, actions, validation, and file metadata.
+export function MetaControlSectionBody({ section }: { section: WorkspaceSection }) {
   return (
     <MetaControl
       sectionId={section.id}
       sectionName={section.name}
-      showSectionTitle={showSectionTitle}
-      control={{
-        kind,
-        controlId: "value",
-        ariaLabel: `${section.name} value`,
-        value: getMetaControlString(section, "value"),
-        language: "python",
-        disabled: getMetaControlBoolean(section, "disabled"),
-        onValueChange: (value) => commitPlaygroundMetaControlTextValue(section.id, value),
-      }}
+      showSectionTitle={getMetaControlBoolean(section, "showSectionTitle")}
+      control={getPlaygroundMetaControl(section)}
     />
   );
 }

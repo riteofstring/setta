@@ -34,10 +34,12 @@ export type DropdownValueControlProps = {
 
 // The `ParamUI` placement wrapper composed after the reference combobox's small outer frame,
 // verbatim (including the reference composition's repeated flex token).
-const OUTER_DIV_CLASS_NAME =
+const ITEM_OUTER_DIV_CLASS_NAME =
   "flex h-[20px] relative w-full min-w-0 flex-col items-stretch overflow-visible section-value flex justify-self-start self-center [&_search]:my-auto";
 // The reference `StandardSearch` shell; the `<search>` wrapper carries the no-drag boundary.
-const SEARCH_WRAPPER_CLASS_NAME = `flex min-w-0 mx-[2px] items-center relative ${NO_DRAG_CLASS_NAME} dark:text-setta-200`;
+const ITEM_SEARCH_WRAPPER_CLASS_NAME = `flex min-w-0 mx-[2px] items-center relative ${NO_DRAG_CLASS_NAME} dark:text-setta-200`;
+const META_OUTER_DIV_CLASS_NAME = `flex h-[20px] relative w-full min-w-0 flex-col items-stretch overflow-visible ${NO_DRAG_CLASS_NAME} section-value flex w-full justify-self-start self-center`;
+const META_SEARCH_WRAPPER_CLASS_NAME = `flex min-w-0 mx-[2px] items-center relative ${NO_DRAG_CLASS_NAME} dark:text-setta-200 !mx-0`;
 // The recorded pill presentation at the small size: rounded-full 12 px mono over the default
 // white/setta-900 field, 12 px left and 24 px right padding around the 16 px field height, and
 // the recorded 2 px blue focus-visible ring.
@@ -76,18 +78,31 @@ function toItemGroups(
   return [{ group: "Choices", items: choices.map((choice) => ({ id: choice, name: choice })) }];
 }
 
-export function DropdownValueControl({
+export function DropdownValueControl({ ...props }: DropdownValueControlProps) {
+  return <DropdownValueControlCore {...props} presentation="item-row" />;
+}
+
+// Package-internal meta presentation. It shares the combobox state and portal while restoring
+// frozen main's edge-to-edge search shell and "Choose" placeholder.
+export function MetaDropdownValueControl(props: DropdownValueControlProps) {
+  return <DropdownValueControlCore {...props} presentation="meta-control" />;
+}
+
+function DropdownValueControlCore({
   ariaLabel,
   value,
   onValueChange,
   choices,
   // The reference's recorded default: the params path never overrides the `StandardSearch`
   // "Search" placeholder.
-  placeholder = "Search",
+  placeholder,
   disabled = false,
-}: DropdownValueControlProps) {
+  presentation,
+}: DropdownValueControlProps & { presentation: "item-row" | "meta-control" }) {
   const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
   const isDisabled = disabled || isSelectingItems;
+  const resolvedPlaceholder =
+    placeholder ?? (presentation === "meta-control" ? "Choose" : "Search");
   return (
     <DropdownCombobox
       ariaLabel={ariaLabel}
@@ -97,8 +112,9 @@ export function DropdownValueControl({
       // string seam.
       value={value ? value : null}
       onSelectedItemChange={(id) => onValueChange(id ?? "")}
-      placeholder={placeholder}
+      placeholder={resolvedPlaceholder}
       isDisabled={isDisabled}
+      presentation={presentation}
     />
   );
 }
@@ -114,6 +130,7 @@ function DropdownCombobox({
   onSelectedItemChange,
   placeholder,
   isDisabled,
+  presentation,
 }: {
   ariaLabel: string;
   allItems: Array<ComboboxItemGroup>;
@@ -121,12 +138,23 @@ function DropdownCombobox({
   onSelectedItemChange: OnSelectedItemChange;
   placeholder: string;
   isDisabled: boolean;
+  presentation: "item-row" | "meta-control";
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const combobox = useDropdownCombobox({ allItems, value, onSelectedItemChange });
   return (
-    <div className={OUTER_DIV_CLASS_NAME}>
-      <search className={SEARCH_WRAPPER_CLASS_NAME}>
+    <div
+      className={
+        presentation === "meta-control" ? META_OUTER_DIV_CLASS_NAME : ITEM_OUTER_DIV_CLASS_NAME
+      }
+    >
+      <search
+        className={
+          presentation === "meta-control"
+            ? META_SEARCH_WRAPPER_CLASS_NAME
+            : ITEM_SEARCH_WRAPPER_CLASS_NAME
+        }
+      >
         <input
           className={INPUT_CLASS_NAME}
           placeholder={placeholder}

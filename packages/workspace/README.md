@@ -51,9 +51,12 @@ kind's renderer without reading it.
 A kind whose `presentation.type` is `"meta-control"` projects its opaque data to a package
 `MetaControlKind` and supplies the host callback for the outboard edit affordance. The package then
 owns the transparent headerless shell, drag/resize chrome, control minimums, and omitted-size
-default; such a kind cannot register a competing `defaultSize`. The first surface batch exports
-controlled Button and Text definitions through `MetaControl`, both at the captured 200 x 44 inner
-default (202 x 46 including the shell border). Unknown projected or rendered control kinds fail
+default; such a kind cannot register a competing `defaultSize`. `MetaControl` exports controlled
+definitions for Button, Text, TextArea, Date, Time, Slider, Rotary, Switch, Color, Dropdown,
+Password, and Dropzone. Values, actions, configuration, attachment metadata, and persistence cross
+explicit host callbacks. The ordinary inner default is 200 x 44 (202 x 46 including the shell
+border); TextArea defaults to 200 x 98, Dropzone to 240 x 120, and Dropdown, Password, and Slider
+keep frozen main's auto-only height policy. Unknown projected or rendered control kinds fail
 specifically instead of displaying a fallback.
 
 ## Consumption during extraction
