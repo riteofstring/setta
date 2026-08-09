@@ -2,7 +2,7 @@
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useDndState } from "../dnd/dndState";
 import { useWorkspaceTooltip } from "../tooltip/WorkspaceTooltip";
 import { useCanvasKeyActivations } from "./keyActivations";
@@ -156,6 +156,92 @@ describe("useCanvasKeyActivations", () => {
       );
     });
     expect(useDndState.getState().isMovingFree).toBe(false);
+  });
+
+  it("does not re-activate a dnd mode from auto-repeat keydowns", async () => {
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", altKey: true }));
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Control", altKey: true, ctrlKey: true }),
+      );
+    });
+    expect(useDndState.getState().isSorting).toBe(true);
+
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keyup", { key: "Control", altKey: true }));
+    });
+    expect(useDndState.getState().pendingDeactivation).toBe(true);
+
+    // Held modifiers auto-repeat keydowns on some platforms; the reference engine never
+    // activates from a repeat, so free move must not re-enter while Alt stays held.
+    await act(async () => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Alt", altKey: true, repeat: true }),
+      );
+    });
+    expect(useDndState.getState().isMovingFree).toBe(false);
+    expect(useDndState.getState().pendingDeactivation).toBe(true);
+  });
+
+  it("releases sorting on mouse movement without the mod key held", async () => {
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", altKey: true }));
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Control", altKey: true, ctrlKey: true }),
+      );
+    });
+    expect(useDndState.getState().isSorting).toBe(true);
+
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent("mousemove", { ctrlKey: true }));
+    });
+    expect(useDndState.getState().pendingDeactivation).toBe(false);
+
+    // An aborted Mod+Tab app switch delivers neither a keyup nor a blur; the first mouse
+    // move without the mod key held releases the mod-gated mode, as the reference does.
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent("mousemove", { ctrlKey: false }));
+    });
+    expect(useDndState.getState().pendingDeactivation).toBe(true);
+  });
+
+  it("prunes stale held keys so a swallowed keyup cannot block activation", async () => {
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "a", code: "KeyA" }));
+      });
+      vi.setSystemTime(Date.now() + 150);
+      await act(async () => {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", altKey: true }));
+      });
+      expect(useDndState.getState().isMovingFree).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("hides the tooltip when another key goes down while the tooltip key is held", async () => {
+    await dispatchKey("keydown", "q");
+    expect(useWorkspaceTooltip.getState().isEnabled).toBe(true);
+
+    await act(async () => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Shift", shiftKey: true, bubbles: true }),
+      );
+    });
+    expect(useWorkspaceTooltip.getState().isEnabled).toBe(false);
+
+    // Auto-repeats of the still-held tooltip key must not re-enable it; only a fresh press
+    // does, matching the reference's pressed-key-set comparison.
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "q", repeat: true }));
+    });
+    expect(useWorkspaceTooltip.getState().isEnabled).toBe(false);
+
+    await dispatchKey("keyup", "q");
+    await dispatchKey("keydown", "q");
+    expect(useWorkspaceTooltip.getState().isEnabled).toBe(true);
   });
 
   it("queues dnd deactivation on window blur", async () => {

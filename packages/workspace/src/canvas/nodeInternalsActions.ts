@@ -40,24 +40,32 @@ export function raiseTempZIndex(items: Array<{ id: string }>) {
 // The reference funnels this through `debounced_route_set_top_level_section_layout`, which
 // mirrors node geometry into the canonical config immediately and debounces only the backend
 // send. The package keeps the immediate canonical mirror; the Phase 2 change-callback seam owns
-// notifying the host.
+// notifying the host. Like the reference funnel, the layout dict is wholesale-replaced from
+// entries filtered to parent-less sections, so a section that currently has a parent loses its
+// stale top-level entry at the first layout write, and node geometry is written verbatim
+// (a null measurement clears the stored size back to auto).
 export function commitTopLevelLayoutToDocument() {
   const documentState = useWorkspaceDocument.getState();
   const nodeInternals = useNodeInternals.getState().x;
-  const nextLayouts: Record<string, TopLevelSectionLayout> = {
-    ...documentState.topLevelSections,
-  };
+  const isTopLevel = (sectionId: string) =>
+    (documentState.parentSectionMap[sectionId] ?? null) === null;
+
+  const nextLayouts: Record<string, TopLevelSectionLayout> = {};
+  for (const [sectionId, layout] of Object.entries(documentState.topLevelSections)) {
+    if (sectionId in documentState.sections && isTopLevel(sectionId)) {
+      nextLayouts[sectionId] = { ...layout };
+    }
+  }
   for (const node of nodeInternals.values()) {
-    if (!(node.id in documentState.sections)) {
+    if (!(node.id in documentState.sections) || !isTopLevel(node.id)) {
       continue;
     }
-    const existingLayout = nextLayouts[node.id];
     nextLayouts[node.id] = {
       x: node.position.x,
       y: node.position.y,
       zIndex: node.zIndex,
-      w: node.width ?? existingLayout?.w ?? null,
-      h: node.height ?? existingLayout?.h ?? null,
+      w: node.width,
+      h: node.height,
     };
   }
   useWorkspaceDocument.setState({ topLevelSections: nextLayouts });

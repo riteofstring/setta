@@ -3,7 +3,7 @@ import type { Selection as D3Selection } from "d3-selection";
 // d3-transition dependency).
 import "d3-transition";
 import { getActiveSectionIds } from "../document/activeSections";
-import { useNodeInternals } from "../document/stores";
+import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { Node, Viewport } from "../document/types";
 import { useSectionRefs } from "../section/sectionRefs";
 import type { Rect, Transform } from "./types";
@@ -76,13 +76,27 @@ export function getNodesInside(
 
   const visibleNodes = [];
   const nodeInternals = useNodeInternals.getState().x;
+  const handledSectionIds = new Set<string>();
 
   for (const node of nodeInternals.values()) {
-    if (
-      hasMeasuredNodeBounds(node) &&
-      isNodeOverlappingWithRect(node, rectToLookInside, partially)
-    ) {
+    const isVisible = hasMeasuredNodeBounds(node)
+      ? isNodeOverlappingWithRect(node, rectToLookInside, partially)
+      : isSectionOverlappingWithRect(node.id, rectToLookInside, partially);
+
+    if (isVisible) {
       visibleNodes.push(node.id);
+    }
+    handledSectionIds.add(node.id);
+  }
+
+  // Nested sections have no node-internals entry; measure them through their registered DOM
+  // refs so a marquee can select them, as the reference does with its project sections sweep.
+  for (const sectionId of Object.keys(useWorkspaceDocument.getState().sections)) {
+    if (handledSectionIds.has(sectionId)) {
+      continue;
+    }
+    if (isSectionOverlappingWithRect(sectionId, rectToLookInside, partially)) {
+      visibleNodes.push(sectionId);
     }
   }
 
@@ -140,6 +154,24 @@ function getSectionBounds(sectionIds: Array<string>, ignoreGrid = false): Rect |
   }
 
   return getNodesBounds(sections);
+}
+
+function isSectionOverlappingWithRect(sectionId: string, otherRect: Rect, partially: boolean) {
+  const rect = getSectionRect(sectionId, true);
+  if (!rect) {
+    return false;
+  }
+
+  const { x, y, width, height } = rect;
+  if (!hasPositiveRectBounds(width, height)) {
+    return false;
+  }
+
+  const nodeRect = { x, y, width, height };
+  const overlappingArea = getOverlappingArea(otherRect, nodeRect);
+  const partiallyVisible = partially && overlappingArea > 0;
+  const area = width * height;
+  return partiallyVisible || overlappingArea >= area;
 }
 
 function isNodeOverlappingWithRect(node: Node, otherRect: Rect, partially: boolean) {

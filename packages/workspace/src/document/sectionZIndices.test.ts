@@ -51,6 +51,16 @@ describe("setZIndices", () => {
     expect(useNodeInternals.getState().x).toBe(before);
   });
 
+  it("always normalizes when the drag-end flag is set, below the raise threshold", () => {
+    setNodes([makeNode("a", 3), makeNode("b", 1), makeNode("c", 2)]);
+    setZIndices(["b"], true);
+    expect(zIndexById()).toEqual({
+      c: { zIndex: 0, tempZIndex: 0 },
+      a: { zIndex: 1, tempZIndex: 1 },
+      b: { zIndex: 2, tempZIndex: 2 },
+    });
+  });
+
   it("normalizes dense z-indices once the maximum exceeds four times the node count", () => {
     setNodes([makeNode("a", 100), makeNode("b", 7), makeNode("c", 42)]);
     setZIndices(["a"]);

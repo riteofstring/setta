@@ -1,4 +1,4 @@
-import { getSectionOrThrow } from "./documentSelectors";
+import { getSectionOrThrow, isGroupSection } from "./documentSelectors";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
 import {
   runWithAtomicallyPublishedWorkspaceStores,
@@ -41,6 +41,10 @@ export function toggleMinimized(sectionId: string) {
 
 export function toggleGroupOrientation(sectionId: string) {
   const section = getSectionOrThrow(useWorkspaceDocument.getState(), sectionId);
+  // The reference funnel refuses to write orientation onto anything but a group.
+  if (!isGroupSection(section)) {
+    return;
+  }
   setSectionValues(sectionId, {
     isHorizontalOrientation: !section.isHorizontalOrientation,
   });

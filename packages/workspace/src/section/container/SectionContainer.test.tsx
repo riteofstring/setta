@@ -12,6 +12,7 @@ import { useWorkspaceCapabilities } from "../../document/capabilities";
 import { loadWorkspaceDocument } from "../../document/loadWorkspaceDocument";
 import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../../document/stores";
 import type { WorkspaceSection } from "../../document/types";
+import { useWorkspaceTooltip } from "../../tooltip/WorkspaceTooltip";
 import { useSectionRefs } from "../sectionRefs";
 import { SectionContainer } from "./SectionContainer";
 
@@ -92,6 +93,7 @@ describe("SectionContainer", () => {
     useWorkspaceCapabilities.getState().reset();
     useDndState.getState().reset();
     useDndChildren.getState().reset();
+    useWorkspaceTooltip.getState().reset();
     useReactFlow.setState({ ...initialCanvasState });
   });
 
@@ -203,6 +205,24 @@ describe("SectionContainer", () => {
 
     // The commit normalizes surrounding whitespace, mirroring the reference.
     expect(useWorkspaceDocument.getState().sections["leaf"]?.name).toBe("Renamed leaf");
+  });
+
+  it("drives the tooltip content from the hovered section title", async () => {
+    await mount("leaf");
+
+    const title = Array.from(host.querySelectorAll('[role="button"]')).find(
+      (el) => el.textContent === "Leaf section",
+    ) as HTMLElement;
+    // React synthesizes onMouseEnter/onMouseLeave from native mouseover/mouseout.
+    await act(async () => {
+      title.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    });
+    expect(useWorkspaceTooltip.getState().content).toBe("Leaf section");
+
+    await act(async () => {
+      title.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+    });
+    expect(useWorkspaceTooltip.getState().content).toBeNull();
   });
 
   it("reverts the title on Escape", async () => {

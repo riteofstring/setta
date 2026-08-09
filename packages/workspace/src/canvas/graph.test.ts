@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { setActiveSectionIds } from "../document/activeSections";
-import { useActiveSections, useNodeInternals } from "../document/stores";
-import type { Node } from "../document/types";
+import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import type { Node, WorkspaceSection } from "../document/types";
 import { useSectionRefs } from "../section/sectionRefs";
 import {
   getActiveSectionsBounds,
@@ -38,6 +38,7 @@ beforeEach(() => {
   useNodeInternals.getState().reset();
   useActiveSections.getState().reset();
   useSectionRefs.getState().reset();
+  useWorkspaceDocument.getState().reset();
   useWorkspaceOptions.getState().reset();
   useReactFlow.setState({ ...initialCanvasState });
 });
@@ -68,6 +69,21 @@ function setCanvasDomNode() {
   });
 }
 
+function createWorkspaceSection(id: string, children: Array<string> = []): WorkspaceSection {
+  return {
+    id,
+    kind: "leaf",
+    name: id,
+    size: { width: "auto", height: "auto" },
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isHorizontalOrientation: false,
+    styleColor: null,
+    tagColor: null,
+    children,
+  };
+}
+
 describe("getNodesInside", () => {
   it("uses node internals geometry to resolve overlapping nodes", () => {
     setNodes([
@@ -91,7 +107,7 @@ describe("getNodesInside", () => {
     ]);
   });
 
-  it("does not select unmeasured nodes", () => {
+  it("does not select unmeasured nodes without a registered DOM ref", () => {
     setNodes([
       createNode({ id: "section-a", position: { x: 10, y: 20 }, width: null, height: null }),
     ]);
@@ -99,13 +115,57 @@ describe("getNodesInside", () => {
     expect(getNodesInside({ x: 0, y: 0, width: 500, height: 500 })).toEqual([]);
   });
 
-  it("treats zero-sized node internals as unmeasured for marquee hit testing", () => {
+  it("treats zero-sized node internals without a DOM ref as unmeasured", () => {
     setNodes([
       createNode({ id: "section-width-zero", position: { x: 5, y: 5 }, width: 0, height: 40 }),
       createNode({ id: "section-height-zero", position: { x: 5, y: 50 }, width: 40, height: 0 }),
     ]);
 
     expect(getNodesInside({ x: 0, y: 0, width: 200, height: 200 })).toEqual([]);
+  });
+
+  it("falls back to section DOM bounds for unmeasured node internals", () => {
+    setCanvasDomNode();
+    setNodes([
+      createNode({ id: "section-a", position: { x: 10, y: 20 }, width: null, height: null }),
+    ]);
+    useSectionRefs.setState({
+      selfOnly: { "section-a": createSectionRefElement({ x: 40, y: 60, width: 120, height: 80 }) },
+    });
+
+    expect(getNodesInside({ x: 30, y: 50, width: 140, height: 100 })).toEqual(["section-a"]);
+    expect(getNodesInside({ x: 500, y: 500, width: 10, height: 10 })).toEqual([]);
+  });
+
+  it("falls back to section DOM bounds when node internals have zero-sized geometry", () => {
+    setCanvasDomNode();
+    setNodes([createNode({ id: "section-a", position: { x: 10, y: 20 }, width: 0, height: 40 })]);
+    useSectionRefs.setState({
+      selfOnly: { "section-a": createSectionRefElement({ x: 40, y: 60, width: 120, height: 80 }) },
+    });
+
+    expect(getNodesInside({ x: 30, y: 50, width: 140, height: 100 })).toEqual(["section-a"]);
+  });
+
+  it("falls back to nested section DOM geometry when a selectable section has no node internals entry", () => {
+    setCanvasDomNode();
+    useWorkspaceDocument.setState({
+      sections: {
+        "group-section": createWorkspaceSection("group-section", ["group-child-a"]),
+        "group-child-a": createWorkspaceSection("group-child-a"),
+      },
+      parentSectionMap: { "group-child-a": "group-section" },
+    });
+    setNodes([
+      createNode({ id: "group-section", position: { x: 300, y: 120 }, width: 260, height: 220 }),
+    ]);
+    useSectionRefs.setState({
+      selfOnly: {
+        "group-child-a": createSectionRefElement({ x: 360, y: 180, width: 120, height: 64 }),
+      },
+    });
+
+    expect(getNodesInside({ x: 350, y: 170, width: 140, height: 84 })).toEqual(["group-child-a"]);
   });
 });
 

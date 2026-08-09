@@ -33,13 +33,19 @@ function getIsEditableTarget(event: KeyboardEvent): boolean {
 
 const modifierKeys = new Set(["Shift", "Meta", "Control", "Alt"]);
 
+// The reference prunes pressed keys whose keydown is older than this before processing the
+// next keydown: on macOS, keyups are swallowed while Meta is held, so a swallowed key can
+// only be told apart from a held one by its auto-repeat refreshing the timestamp.
+const STALE_HELD_KEY_MS = 100;
+
 // The reference's hold-shortcut semantics for the dnd modes: a mode activates on the keydown
 // whose modifier state matches it exactly (with no non-modifier keys held), releases through
 // `deactivateDnd` as soon as any event no longer matches, and — like the reference engine —
-// keydown events are the only activator, so releasing Mod while still holding Alt deactivates
-// sorting without re-entering the free-move mode.
+// non-repeat keydown events are the only activator: auto-repeat keydowns never activate a
+// mode, so releasing Mod while still holding Alt deactivates sorting without re-entering the
+// free-move mode even where modifier keys auto-repeat.
 function createDndModeTracker(macOS: boolean) {
-  const heldKeys = new Set<string>();
+  const heldKeys = new Map<string, number>();
   let movingFreePressed = false;
   let sortingPressed = false;
 
@@ -64,12 +70,28 @@ function createDndModeTracker(macOS: boolean) {
     }
   }
 
+  function pruneStaleHeldKeys() {
+    const now = Date.now();
+    for (const [code, timestamp] of heldKeys) {
+      if (now - timestamp > STALE_HELD_KEY_MS) {
+        heldKeys.delete(code);
+      }
+    }
+  }
+
   return {
     onKeyDown(event: KeyboardEvent) {
+      // The reference prunes after any Mod shortcut ran; the package owns no other Mod
+      // shortcuts to key that off, so it prunes before every keydown. Held keys survive
+      // through their auto-repeat refreshing the timestamp below.
+      pruneStaleHeldKeys();
       if (!modifierKeys.has(event.key)) {
-        heldKeys.add(event.code);
+        heldKeys.set(event.code, Date.now());
       }
       releaseUnmatchedModes(event);
+      if (event.repeat) {
+        return;
+      }
       if (!movingFreePressed && matchesModifiers(event, false)) {
         movingFreePressed = true;
         activateDndMovingFreeMode();
@@ -88,6 +110,20 @@ function createDndModeTracker(macOS: boolean) {
       }
       releaseUnmatchedModes(event);
     },
+    // The reference's aborted-Cmd-Tab recovery: switching away via Mod+Tab and back delivers
+    // neither a keyup nor a blur, so the first mouse move without the mod key held releases
+    // the mod-gated mode (sorting; free move is not mod-gated, matching the reference's
+    // mod-shortcut-only listener).
+    onMouseMove(event: MouseEvent) {
+      if (!sortingPressed) {
+        return;
+      }
+      const modHeld = macOS ? event.metaKey : event.ctrlKey;
+      if (!modHeld) {
+        sortingPressed = false;
+        deactivateDnd();
+      }
+    },
     onBlur() {
       heldKeys.clear();
       if (movingFreePressed || sortingPressed) {
@@ -104,6 +140,17 @@ export function useCanvasKeyActivations() {
     const macOS = isMacOs();
     const modKey = macOS ? "Meta" : "Control";
     const dndModeTracker = createDndModeTracker(macOS);
+    // Mirrors the reference shortcut's `wasPressed`: the tooltip releases on any keydown that
+    // no longer matches the bare tooltip key (the reference compares the full pressed-key
+    // set), and an auto-repeat of the tooltip key never re-enables it.
+    let tooltipPressed = false;
+
+    const disableTooltipIfPressed = () => {
+      if (tooltipPressed) {
+        tooltipPressed = false;
+        disableWorkspaceTooltip();
+      }
+    };
 
     const onKeyDown = (event: KeyboardEvent) => {
       dndModeTracker.onKeyDown(event);
@@ -119,8 +166,13 @@ export function useCanvasKeyActivations() {
       if (event.key === " " && !getIsEditableTarget(event)) {
         useReactFlow.setState({ panActivationKeyPressed: true });
       }
-      if (isBareTooltipKey(event) && !getIsEditableTarget(event)) {
-        enableWorkspaceTooltip();
+      if (isBareTooltipKey(event)) {
+        if (!event.repeat && !getIsEditableTarget(event)) {
+          tooltipPressed = true;
+          enableWorkspaceTooltip();
+        }
+      } else {
+        disableTooltipIfPressed();
       }
     };
 
@@ -136,15 +188,19 @@ export function useCanvasKeyActivations() {
         // pressed-key set the same way).
         if (macOS) {
           useReactFlow.setState({ panActivationKeyPressed: false });
-          disableWorkspaceTooltip();
+          disableTooltipIfPressed();
         }
       }
       if (event.key === " ") {
         useReactFlow.setState({ panActivationKeyPressed: false });
       }
       if (event.key === "q" || event.key === "Q") {
-        disableWorkspaceTooltip();
+        disableTooltipIfPressed();
       }
+    };
+
+    const onMouseMove = (event: MouseEvent) => {
+      dndModeTracker.onMouseMove(event);
     };
 
     const onWindowBlur = () => {
@@ -155,16 +211,18 @@ export function useCanvasKeyActivations() {
         zoomActivationKeyPressed: false,
         panActivationKeyPressed: false,
       });
-      disableWorkspaceTooltip();
+      disableTooltipIfPressed();
     };
 
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("keyup", onKeyUp);
+    window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("blur", onWindowBlur);
 
     return () => {
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("blur", onWindowBlur);
     };
   }, []);

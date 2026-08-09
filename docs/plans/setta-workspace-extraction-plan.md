@@ -81,7 +81,8 @@ Phase 1 progress (2026-08-10):
   transitive is CC-BY-4.0, outside the license allowlist; prefixing is a Phase 2 compiled-stylesheet
   decision). Runtime pins (`react 19.1.1`, `tailwindcss 3.4.1`) match the reference.
 - Document/selection state extracted (2026-08-10): the package owns the structural document store
-  (resolved sections, top-level layout with layout-memory semantics, viewport, parent map), the
+  (resolved sections, top-level layout with the reference's purge-at-write semantics — see the
+  Phase 1 audit entry, viewport, parent map), the
   node-internals projection (measured-size-wins, style-color node backgrounds via the package
   appearance store), the active-sections store, the slice-reachable selection policy
   (section-click single/multi, pane-click, selection-rect), z-index raise/normalize, and the
@@ -119,7 +120,9 @@ Phase 1 progress (2026-08-10):
   ported for the zoom filter/pan-on-scroll/interaction-burst lifecycle and initial-fit (jsdom
   component mounts), fit-view, marquee hit-testing, and drag grouping; new focused tests freeze
   the controller, key activations, and viewport seam. Playground renders the document on the real
-  canvas via the provisional render-prop content seam. New exact pins from the reference:
+  canvas via the provisional render-prop content seam. Seam adaptation: fit-view centering and
+  edge auto-pan measure the package canvas wrapper alone; the reference offsets both by its
+  Overview/UI-editor rail widths, which are app chrome outside the package seam. New exact pins from the reference:
   `classcat 5.0.3`, `d3-drag 3.0.0`, `d3-interpolate 3.0.1`, `d3-selection 3.0.0`,
   `d3-transition 3.0.1`, `d3-zoom 3.0.0` (+ per-module `@types/d3-*`, `react-dom 19.1.1`,
   `jsdom 28.1.0` dev-only). The supply-chain gate reran clean after adding OSI-approved `MIT-0`
@@ -142,8 +145,11 @@ Phase 1 progress (2026-08-10):
   editable), and `GROUP_SECTION_KIND`; the playground slice added a root group with a nested
   leaf. Lint-forced, visually identical deviations: the leaf shell and editable title render as
   `div role="button"` (the a11y gate forbids interactive roles on section/p), keyboard activation
-  lands on the shell/group root, and effect deps are exact. New exact reference pins:
-  `re-resizable 6.10.3`, `react-icons 5.3.0`; supply-chain gate rerun clean.
+  lands on the shell/group root, and effect deps are exact. New exact reference pin:
+  `react-icons 5.3.0`. Deviation forced by the supply-chain controls (controls kept, version
+  moved): the reference pins `re-resizable 6.9.0`, whose react/react-dom peer ranges
+  (`^16.13.1 || ^17.0.0`) fail the repository's strict peer resolution against React 19, so the
+  pin moved to `6.10.3`, whose peers admit React 19. Supply-chain gate rerun clean.
 - Toolbar zoom/fit surface and tooltip singleton extracted (2026-08-11): the viewport toolbar at
   the seam proposal's slice form — the viewport group alone (zoom in/out, fit, snap grid, reset
   zoom) with the reference chrome, order, icons, and active/disabled states; the edge-toggle and
@@ -205,6 +211,31 @@ Phase 1 progress (2026-08-10):
   collision integration); new focused tests freeze the move funnel and the held modes, and the
   section-container suite now mounts the real dnd context. Supply-chain gate rerun clean on
   the dependency change.
+- Phase 1 coherence audit (2026-08-11): the six batches were audited as one change against the
+  frozen reference. Restored cross-batch promises that had only half-landed: marquee hit-testing
+  now falls back to registered section DOM refs and sweeps document sections without
+  node-internals entries (the canvas batch's promise, previously delivered only for selection
+  bounds — reference fallback tests ported), and the pointer-events suppression hook gained its
+  dnd half (sorting/free-move now disable section content, title, and resize surfaces as in the
+  reference). Restored reference behaviors: drag end always densely normalizes z-indices before
+  the layout commit; the layout write purges entries for parented or unknown sections and writes
+  node measurements verbatim (the earlier "layout-memory" description was wrong — the reference
+  purges at every layout write); dnd hold modes never activate from auto-repeat keydowns, prune
+  stale held keys (macOS Meta-swallowed keyups), and release sorting on the first mouse move
+  without the mod key (aborted Mod+Tab); the tooltip releases on any other keydown while held and
+  never re-enables from an auto-repeat; section titles attach the tooltip handlers in both
+  presentations (truncated-name tooltip); the orientation funnel refuses non-groups.
+  Boundary/tooling: `PanOnScrollMode`/`SelectionMode` ride the package index, Knip's
+  characterization-test entry role is now explicit (production entries come from the package
+  `exports` map, which Knip reads; Knip polices at file granularity, so test-only exports stay
+  visible to it only as entries), and the package README documents the React `^19.1.0` peer
+  range the manifests already carried. All restored behaviors are frozen by new or ported tests.
+- Known Phase 1 seam limits (documented, deliberate): `loadWorkspaceDocument` is a
+  load-before-canvas-mount seam — re-loading while the canvas is mounted neither re-applies the
+  loaded camera nor resets dnd bookkeeping (for example the disable registry), and the Phase 2
+  controlled-document/change-callback boundary owns re-load semantics; the tooltip and toolbar
+  Q-key handling mounts with the canvas key activations, so the separately-exported surfaces
+  assume a mounted `WorkspaceCanvas`.
 - Remaining Phase 1 work: the live side-by-side comparison feeding the developer exit gate.
 
 - Extraction branch: `workspace-extraction`

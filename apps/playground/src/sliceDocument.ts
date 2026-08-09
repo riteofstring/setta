@@ -20,8 +20,10 @@ function makeLeafSection(
   };
 }
 
-// The approved Phase 1 slice shape: root leaves in the reachable chrome states plus one root
-// group with a nested leaf. Selection states are reached interactively.
+// The approved Phase 1 slice is one root leaf plus one root group with a nested leaf. The two
+// extra root leaves add no features: they only pre-instantiate the slice-reachable locked and
+// style-colored chrome states so the side-by-side gate can compare them without scripted
+// setup. Selection states are reached interactively.
 export const sliceDocument: WorkspaceDocument = {
   sections: {
     "idle-leaf": makeLeafSection("idle-leaf", "Idle leaf"),

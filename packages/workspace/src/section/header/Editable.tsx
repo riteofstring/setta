@@ -17,6 +17,9 @@ type EditableProps = {
   onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
   titleProps: EditableTitleClassNames;
   blurTriggeredByEscapeKey: RefObject<boolean>;
+  // The reference forwards these to both modes so the section title can drive the tooltip.
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 };
 
 export function Editable({
@@ -26,6 +29,8 @@ export function Editable({
   onKeyDown,
   titleProps,
   blurTriggeredByEscapeKey,
+  onMouseEnter,
+  onMouseLeave,
 }: EditableProps) {
   const [isEditing, setIsEditing] = useState(false);
   const paragraphRef = useRef<HTMLDivElement | null>(null);
@@ -56,6 +61,8 @@ export function Editable({
       onBlur={localOnBlur}
       onKeyDown={onKeyDown}
       titleProps={titleProps.editing}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     />
   ) : (
     <InNonEditMode
@@ -63,6 +70,8 @@ export function Editable({
       onClick={onClick}
       titleProps={titleProps.notEditing}
       paragraphRef={paragraphRef}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     />
   );
 }
@@ -73,12 +82,16 @@ function InEditMode({
   onBlur,
   onKeyDown,
   titleProps,
+  onMouseEnter,
+  onMouseLeave,
 }: {
   value: string;
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   onBlur: (e: FocusEvent<HTMLInputElement>) => void;
   onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
   titleProps?: string;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -99,6 +112,8 @@ function InEditMode({
       className={titleProps}
       ref={inputRef}
       size={1}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     />
   );
 }
@@ -108,11 +123,15 @@ function InNonEditMode({
   onClick,
   titleProps,
   paragraphRef,
+  onMouseEnter,
+  onMouseLeave,
 }: {
   value: string;
   onClick: (e: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>) => void;
   titleProps?: string;
   paragraphRef: RefObject<HTMLDivElement | null>;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }) {
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (e.code === "Space") {
@@ -129,6 +148,8 @@ function InNonEditMode({
       tabIndex={0}
       onKeyDown={onKeyDown}
       ref={paragraphRef}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       {value}
     </div>

@@ -21,8 +21,9 @@ export function getSectionOrThrow(
   return section;
 }
 
-// Only true top-level sections render as canvas nodes. A section that currently has a parent
-// keeps its top-level layout entry (layout memory), but is rendered via the nested tree.
+// Only true top-level sections render as canvas nodes. A loaded document may carry a stale
+// layout entry for a section that currently has a parent; the entry is ignored here and, as in
+// the reference, purged at the first layout write (`commitTopLevelLayoutToDocument`).
 export function getTopLevelSectionIdsForDisplay(state: WorkspaceDocumentState): Array<string> {
   return Object.keys(state.topLevelSections).filter((sectionId) => {
     const parentId = state.parentSectionMap[sectionId] ?? null;

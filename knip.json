@@ -6,6 +6,7 @@
       "project": ["scripts/**/*.mjs", "*.js"]
     },
     "packages/workspace": {
+      "entry": ["src/**/*.test.{ts,tsx}"],
       "project": ["src/**/*.{ts,tsx}", "*.{mjs,ts}"]
     },
     "apps/playground": {

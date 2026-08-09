@@ -1,7 +1,12 @@
 import _ from "lodash";
 import { useNodeInternals, type NodeInternalsState } from "./stores";
 
-function shouldNormalizeZIndices(nodeInternals: NodeInternalsState["x"]) {
+function shouldNormalizeZIndices(nodeInternals: NodeInternalsState["x"], alwaysNormalize: boolean) {
+  // The reference treats its canonical layout writes (`incrementVersion=true`, e.g. every
+  // drag end) as "always normalize"; the threshold only governs the raise-only paths.
+  if (alwaysNormalize) {
+    return true;
+  }
   let maxZIndex = -1;
   for (const node of nodeInternals.values()) {
     maxZIndex = Math.max(maxZIndex, node.zIndex);
@@ -63,9 +68,9 @@ function raiseNodeZIndices(nodeInternals: NodeInternalsState["x"], sectionIds: A
   return changed ? newValues : nodeInternals;
 }
 
-export function setZIndices(sectionIds: Array<string>) {
+export function setZIndices(sectionIds: Array<string>, alwaysNormalize: boolean = false) {
   const nodeInternals = useNodeInternals.getState().x;
-  const newValues = shouldNormalizeZIndices(nodeInternals)
+  const newValues = shouldNormalizeZIndices(nodeInternals, alwaysNormalize)
     ? normalizeNodeZIndices(nodeInternals, sectionIds)
     : raiseNodeZIndices(nodeInternals, sectionIds);
   if (newValues !== nodeInternals) {

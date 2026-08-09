@@ -164,7 +164,12 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
         autoPanStarted.current = false;
         dragStarted.current = false;
         cancelAnimationFrame(autoPanId.current);
-        setZIndices(dragItems.current.map((dragItem) => dragItem.id));
+        // The reference's drag end always normalizes: every completed drag densely renumbers
+        // the nodes with the dragged ones on top before the layout commit.
+        setZIndices(
+          dragItems.current.map((dragItem) => dragItem.id),
+          true,
+        );
         // The reference persists the finished gesture through its layout commit funnel here.
         commitTopLevelLayoutToDocument();
       };

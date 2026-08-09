@@ -65,6 +65,11 @@ describe("per-flag section mutations", () => {
     expect(useWorkspaceDocument.getState().sections["group"]?.isHorizontalOrientation).toBe(true);
   });
 
+  it("refuses to write orientation onto a non-group, as the reference funnel does", () => {
+    toggleGroupOrientation("leaf");
+    expect(useWorkspaceDocument.getState().sections["leaf"]?.isHorizontalOrientation).toBe(false);
+  });
+
   it("throws for an unknown section", () => {
     expect(() => setSectionName("missing", "x")).toThrow(/Unknown section/);
   });

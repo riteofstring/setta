@@ -2,6 +2,7 @@ import { useWorkspaceCapabilities } from "../../document/capabilities";
 import { getSectionOrThrow } from "../../document/documentSelectors";
 import { setSectionName } from "../../document/sectionMutations";
 import { useWorkspaceDocument } from "../../document/stores";
+import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip";
 import { Editable } from "./Editable";
 import { useEditableOnSubmit } from "./useEditableOnSubmit";
 
@@ -24,12 +25,18 @@ export function SectionTitle({ sectionId, titleProps }: SectionTitleProps) {
   const sectionName = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId).name);
   const canEditStructure = useWorkspaceCapabilities((x) => x.canEditStructure);
 
+  // As the reference, both title presentations attach the tooltip handlers so holding the
+  // tooltip key while hovering shows the full name of a truncated title.
   if (canEditStructure) {
     return (
       <EditableTitle sectionId={sectionId} sectionName={sectionName} titleProps={titleProps} />
     );
   }
-  return <h2 className={titleProps.fixed}>{sectionName}</h2>;
+  return (
+    <h2 className={titleProps.fixed} {...getWorkspaceTooltipHandlers({ content: sectionName })}>
+      {sectionName}
+    </h2>
+  );
 }
 
 function EditableTitle({
@@ -58,6 +65,7 @@ function EditableTitle({
         onKeyDown={editable.onKeyDown}
         titleProps={titleProps}
         blurTriggeredByEscapeKey={editable.blurTriggeredByEscapeKey}
+        {...getWorkspaceTooltipHandlers({ content: sectionName })}
       />
     </div>
   );
