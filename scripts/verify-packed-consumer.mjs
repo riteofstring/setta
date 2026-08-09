@@ -135,6 +135,9 @@ function assertBuiltConsumer(consumerRoot) {
   if (!scripts.some((contents) => contents.includes("registerSectionKinds"))) {
     throw new Error("The consumer bundle does not contain the packed workspace runtime.");
   }
+  if (!scripts.some((contents) => contents.includes("Packed time value"))) {
+    throw new Error("The consumer bundle does not contain the packed meta-control fixture.");
+  }
   if (!stylesheets.some((contents) => contents.includes(".setta-workspace"))) {
     throw new Error("The consumer bundle does not contain the scoped workspace stylesheet.");
   }

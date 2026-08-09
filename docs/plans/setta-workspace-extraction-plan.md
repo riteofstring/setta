@@ -1207,6 +1207,24 @@ Phase 4 progress (2026-08-11):
   appearance, and public packed exports. The consolidated matched live comparison, explicit
   developer acceptance, and first package-output baselines remain open at their existing gate;
   this repository verification is not visual approval.
+- Meta-controls coherence audit repository work complete (2026-08-12): the audit reviewed
+  `af42822726486a95f0b7a822e1714c1967d97923..e7edc4f9c97b8ba1f43ea58980b3530ef06011fb`
+  as one change against frozen main and confirmed the shared controls preserve control-owned
+  pointer/keyboard/wheel/file boundaries, section-owned remaining drag surface, projected minimum
+  and auto-only resize policies, Escape focus restoration, and the captured light/dark class
+  treatment. It found and fixed one dispatcher-default defect: an omitted direct-on-canvas Time
+  mode now resolves to frozen main's formatted display while the ordinary row control retains its
+  editable-input default. The unrelated packed consumer now imports and renders the public
+  `MetaControl` surface through a registered meta presentation, its controlled definition type,
+  and its exported size constant, so the tarball proof exercises the new public boundary rather
+  than merely installing it. The focused dispatcher (8) and date/time (10) suites, complete package
+  suite (77 files, 577 tests), complete playground suite (3 files, 23 tests), package production
+  build and built-boundary check, playground production build, full static gate, and packed
+  unrelated-consumer proof pass. No dependency changed, so the already-green supply-chain gate was
+  not duplicated. Repository-actionable work for the meta-controls milestone is complete. The
+  consolidated matched dark/light live comparison, explicit developer acceptance, and first
+  package-output baselines remain open at the existing controls-and-meta exit gate; no later phase
+  is actionable before that gate.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

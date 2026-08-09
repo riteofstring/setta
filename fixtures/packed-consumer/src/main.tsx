@@ -1,12 +1,15 @@
 import {
+  DEFAULT_META_CONTROL_SIZE,
   GROUP_SECTION_KIND,
   loadWorkspaceDocument,
+  MetaControl,
   registerSectionKinds,
   setWorkspaceDocumentChangeCallback,
   useWorkspaceAppearance,
   WorkspaceCanvas,
   WorkspaceControls,
   WorkspaceTooltip,
+  type MetaControlDefinition,
   type WorkspaceDocumentInput,
   type WorkspaceSection,
   type WorkspaceSectionInput,
@@ -18,8 +21,8 @@ import "./consumer.css";
 
 // An unrelated React application consuming the locally packed @setta/workspace artifact: it
 // depends only on the tarball's public exports and compiled stylesheet, registers its own
-// section kind with its own renderer, icon, and default size, and styles its host chrome
-// with plain CSS — no Tailwind, no package source, and no Setta application code.
+// section kinds with host renderers, opaque data, and package presentation seams, and styles its
+// host chrome with plain CSS — no Tailwind, no package source, and no Setta application code.
 
 function getNoteText(section: WorkspaceSection): string {
   const data = section.data;
@@ -60,6 +63,28 @@ function NoteIcon({ className }: { className?: string }) {
   );
 }
 
+function getPackedTimeValue(section: WorkspaceSection): string {
+  const data = section.data;
+  if (data === null || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error(`Packed time section ${section.id} is missing its control data.`);
+  }
+  const value = data["value"];
+  if (typeof value !== "string") {
+    throw new Error(`Packed time section ${section.id} is missing its string value.`);
+  }
+  return value;
+}
+
+function PackedTimeBody({ section }: { section: WorkspaceSection }) {
+  const control = {
+    kind: "time",
+    ariaLabel: "Packed time value",
+    value: getPackedTimeValue(section),
+    onValueChange: () => {},
+  } satisfies MetaControlDefinition;
+  return <MetaControl sectionId={section.id} sectionName={section.name} control={control} />;
+}
+
 function makeNoteSection(id: string, name: string, text: string): WorkspaceSectionInput {
   return {
     id,
@@ -96,10 +121,29 @@ const consumerDocument: WorkspaceDocumentInput = {
       children: ["nested-note"],
     },
     "nested-note": makeNoteSection("nested-note", "Nested note", "A nested note inside the group."),
+    "packed-time": {
+      id: "packed-time",
+      kind: "packed-time",
+      name: "Packed time",
+      data: { value: "13:45" },
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isHorizontalOrientation: false,
+      styleColor: null,
+      tagColor: null,
+      children: [],
+    },
   },
   topLevelSections: {
     "welcome-note": { x: 24, y: 24, w: 240, h: 140, zIndex: 0 },
     "notes-group": { x: 24, y: 232, w: null, h: null, zIndex: 1 },
+    "packed-time": {
+      x: 328,
+      y: 24,
+      w: DEFAULT_META_CONTROL_SIZE.width,
+      h: DEFAULT_META_CONTROL_SIZE.height,
+      zIndex: 2,
+    },
   },
   viewport: { x: 0, y: 0, zoom: 1 },
   activeIds: [],
@@ -162,6 +206,14 @@ registerSectionKinds({
     renderContent: (section) => <NoteBody section={section} />,
     icon: NoteIcon,
     defaultSize: { width: 240, height: 140 },
+  },
+  "packed-time": {
+    renderContent: (section) => <PackedTimeBody section={section} />,
+    presentation: {
+      type: "meta-control",
+      resolveControlKind: () => "time",
+      onEdit: () => {},
+    },
   },
 });
 loadWorkspaceDocument(consumerDocument);

@@ -191,7 +191,7 @@ describe("MetaControl", () => {
     expect(colorInput?.getAttribute("aria-label")).toBe("Color value");
   });
 
-  it("dispatches Date and Time inside the full-area field container", async () => {
+  it("dispatches Date and Time inside the full-area field container with the meta Time default", async () => {
     await mount({
       sectionId: "meta-date",
       sectionName: "Date",
@@ -213,11 +213,11 @@ describe("MetaControl", () => {
         kind: "time",
         ariaLabel: "Time value",
         value: "13:45",
-        controlMode: "display",
         onValueChange: () => {},
       },
     });
     expect(host.querySelector("[aria-label='Time value: 13:45']")?.textContent).toBe("13:45");
+    expect(host.querySelector("input[type='time']")).toBeNull();
   });
 
   it("dispatches TextArea, Password, and Dropzone at their special full-area surfaces", async () => {

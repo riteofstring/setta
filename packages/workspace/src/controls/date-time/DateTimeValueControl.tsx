@@ -285,7 +285,15 @@ export function TimeValueControl({ ...props }: TimeValueControlProps) {
 }
 
 export function MetaTimeValueControl(props: TimeValueControlProps) {
-  return <TimeValueControlCore {...props} presentation="meta-control" />;
+  // Frozen main's direct-on-canvas Time dispatcher defaults to the formatted display, while the
+  // ordinary item-row Time control defaults to its editable native input.
+  return (
+    <TimeValueControlCore
+      {...props}
+      controlMode={props.controlMode ?? "display"}
+      presentation="meta-control"
+    />
+  );
 }
 
 function TimeValueControlCore({
