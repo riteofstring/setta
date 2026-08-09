@@ -1569,11 +1569,15 @@ Gate:
 
 ### Phase 6: Deferred capability expansion in the same package
 
-Status: **in progress** (updated 2026-08-09). The detachable-section batch is implemented and
-recorded in [Phase 6 detachable-section evidence](../evidence/phase-6-detachable-sections.md).
-Adapter-driven copy and paste remains the earliest incomplete repository-actionable Phase 6 work.
+Status: **in progress** (updated 2026-08-09). The detachable-section and adapter-driven clipboard
+batches are implemented and recorded in
+[Phase 6 detachable-section evidence](../evidence/phase-6-detachable-sections.md) and
+[Phase 6 clipboard evidence](../evidence/phase-6-clipboard.md). Evaluating the optional hierarchical
+outline navigator is the earliest incomplete repository-actionable Phase 6 work.
 
-The initial package milestone does not wait for browser windowing or domain-safe clipboard integration. They remain intended capabilities of `@setta/workspace`, not separate domain products. Whether any version is distributed publicly remains a separate decision.
+The initial package milestone did not wait for browser windowing or domain-safe clipboard
+integration. Both are now implemented as optional capabilities of `@setta/workspace`, not separate
+domain products. Whether any version is distributed publicly remains a separate decision.
 
 Implement detachable sections as an optional React export:
 
@@ -1746,7 +1750,7 @@ The initial package documentation includes:
 - Locking, minimizing, fixed/content sizing, grow/scroll overflow, and resizing reference.
 - Grid, snapping, appearance, per-section presentation, chrome variants, and semantic theme-token reference.
 - Single- and multi-item sortable-tree reference.
-- Detachable-window integration guidance and planned clipboard-adapter boundary notes that do not imply clipboard availability.
+- Detachable-window and adapter-driven clipboard integration guidance.
 - Persistence integration example.
 - Keyboard interaction table.
 - Accessibility expectations for host renderers.
@@ -1822,7 +1826,8 @@ This plan does not include:
 - Public revision-checked transactions.
 - Dry-run approvals or human-readable machine-operation summaries.
 - References, variants, or saved views.
-- Browser pop-out windowing and copy/paste in the initial milestone; both are planned same-package follow-on modules in Phase 6.
+- Browser pop-out windowing and copy/paste in the initial milestone; both were implemented later as
+  optional same-package Phase 6 capabilities.
 - Generic edges, ports, or execution semantics in the initial scope.
 - Side-pane systems in the initial scope.
 - Absolute/freeform child positioning inside nested containers in the initial scope. Free-move mode means cross-container section movement; nested destinations still use their parent's vertical or horizontal ordered layout.

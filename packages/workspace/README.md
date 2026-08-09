@@ -43,8 +43,8 @@ Source aliases and undeclared package internals are not consumer APIs.
 The locally packed artifact includes focused guides for the package's permanent host boundaries:
 
 - [Host integration](docs/integration.md): documents, persistence, capabilities, controller
-  commands, extensions, creation, detachable windows, selection, grouping, stacking, minimap,
-  history, and external drops.
+  commands, extensions, creation, clipboard adapters, detachable windows, selection, grouping,
+  stacking, minimap, history, and external drops.
 - [Recursive sections](docs/recursive-sections.md): containment, movement modes, orientation,
   locking, minimizing, sizing, overflow, snapping, chrome, accents, and tags.
 - [Sortable item trees](docs/sortable-item-trees.md): controlled item data, selection, planning,
@@ -194,6 +194,7 @@ const sectionDefinitions = [
   }}
   capabilities={{ editStructure: canEditStructure }}
   appearanceOptions={{ appearance: "system" }}
+  clipboardAdapter={clipboardAdapter}
   gestureOptions={{
     minZoom: 0.5,
     maxZoom: 2,

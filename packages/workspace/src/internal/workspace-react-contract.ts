@@ -5,6 +5,7 @@ import {
   type WorkspaceAppearanceOptionOverrides,
   type WorkspaceCapabilities,
   type WorkspaceCapabilityOverrides,
+  type WorkspaceClipboardAdapter,
   type WorkspaceController,
   type WorkspaceDocument,
   type WorkspaceDocumentChange,
@@ -129,6 +130,7 @@ type SharedWorkspaceProps<TSectionData> = Omit<
   ariaLabel?: string;
   appearanceOptions?: WorkspaceAppearanceOptionOverrides;
   capabilities?: WorkspaceCapabilityOverrides;
+  clipboardAdapter?: WorkspaceClipboardAdapter<TSectionData>;
   controllerRef?: Ref<WorkspaceController<TSectionData>>;
   emptyState?: ReactNode;
   gestureOptions?: WorkspaceGestureOptionOverrides;
@@ -201,6 +203,7 @@ const toolbarControlKeys = new Set([
 ]);
 const minimapOptionKeys = new Set(["placement", "visible"]);
 const selectionOptionKeys = new Set(["marqueeMode"]);
+const clipboardAdapterKeys = new Set(["cloneSections", "read", "write"]);
 
 function plainRecord(value: unknown, label: string): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -413,6 +416,19 @@ export function assertWorkspaceSectionTitleValidator(
 ): asserts value is WorkspaceSectionTitleValidator | undefined {
   if (value !== undefined && typeof value !== "function") {
     throw new TypeError("Workspace validateSectionTitle must be a function.");
+  }
+}
+
+export function assertWorkspaceClipboardAdapter<TSectionData>(
+  value: unknown,
+): asserts value is WorkspaceClipboardAdapter<TSectionData> | undefined {
+  if (value === undefined) return;
+  const adapter = plainRecord(value, "Workspace clipboard adapter");
+  assertKnownKeys(adapter, clipboardAdapterKeys, "workspace clipboard adapter field");
+  for (const method of clipboardAdapterKeys) {
+    if (typeof adapter[method] !== "function") {
+      throw new TypeError(`Workspace clipboard adapter ${method} must be a function.`);
+    }
   }
 }
 

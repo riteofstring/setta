@@ -1,4 +1,5 @@
 import {
+  createWorkspaceJsonClipboardAdapter,
   type WorkspaceAppearance,
   type WorkspaceController,
   type WorkspaceDocument,
@@ -21,6 +22,7 @@ import {
   persistPlaygroundDocument,
   persistPlaygroundPreferences,
   playgroundImportErrorMessage,
+  validatePlaygroundClipboardSectionData,
   type PlaygroundFieldListData,
   type PlaygroundPreferences,
   type PlaygroundSectionData,
@@ -75,6 +77,7 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
   const [announcement, setAnnouncement] = useState(initialState.message);
   const [fieldListSelectionEpoch, setFieldListSelectionEpoch] = useState(0);
   const controllerRef = useRef<WorkspaceController<PlaygroundSectionData>>(null);
+  const clipboardSectionNumberRef = useRef(1);
   const externalSampleBodyRef = useRef<string | null>(null);
   const documentJson = useMemo(() => formatPlaygroundDocument(document), [document]);
   const handleFieldListDataChange = useCallback(
@@ -97,6 +100,21 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
     () => createPlaygroundSectionDefinitions(handleFieldListDataChange, fieldListSelectionEpoch),
     [fieldListSelectionEpoch, handleFieldListDataChange],
   );
+  const clipboardAdapter = useMemo(() => {
+    if (!navigator.clipboard) return undefined;
+    return createWorkspaceJsonClipboardAdapter<PlaygroundSectionData>({
+      allocateSectionId: ({ kind }) => {
+        let sectionId: string;
+        do {
+          sectionId = `${kind}-copy-${String(clipboardSectionNumberRef.current)}`;
+          clipboardSectionNumberRef.current += 1;
+        } while (Object.hasOwn(document.sections, sectionId));
+        return sectionId;
+      },
+      clipboard: navigator.clipboard,
+      validateSectionData: validatePlaygroundClipboardSectionData,
+    });
+  }, [document.sections]);
 
   useEffect(() => {
     reportPersistenceFailure(persistPlaygroundDocument(document), setAnnouncement);
@@ -256,6 +274,7 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
           }
         >
           <Workspace
+            {...(clipboardAdapter ? { clipboardAdapter } : {})}
             appearanceOptions={{ appearance: preferences.appearance }}
             ariaLabel="Section workspace"
             controllerRef={controllerRef}

@@ -186,6 +186,20 @@ describe("workspace controller", () => {
     expect(host.changes()).toEqual([]);
   });
 
+  it("fails clipboard controller calls specifically when no React adapter is configured", async () => {
+    const host = new WorkspaceInMemoryHost(recursiveDocument());
+
+    await expect(host.controller.copySelection()).resolves.toEqual({
+      reason: "clipboard-unavailable",
+      status: "rejected",
+    });
+    await expect(host.controller.paste()).resolves.toEqual({
+      reason: "clipboard-unavailable",
+      status: "rejected",
+    });
+    expect(host.changes()).toEqual([]);
+  });
+
   it("deletes normalized section subtrees with one committed change", () => {
     const host = new WorkspaceInMemoryHost(recursiveDocument());
 

@@ -59,6 +59,7 @@ export function WorkspaceGridBackground({
 }
 
 export function WorkspaceCanvasAnnouncements({
+  clipboard,
   creation,
   containerLayout,
   containerOrientation,
@@ -71,6 +72,7 @@ export function WorkspaceCanvasAnnouncements({
   sizing,
   structureMovement,
 }: Readonly<{
+  clipboard: string;
   creation: string;
   containerLayout: string;
   containerOrientation: string;
@@ -85,6 +87,14 @@ export function WorkspaceCanvasAnnouncements({
 }>) {
   return (
     <>
+      <div
+        aria-atomic="true"
+        aria-live="polite"
+        className="setta-workspace__visually-hidden"
+        data-workspace-clipboard-announcement=""
+      >
+        {clipboard}
+      </div>
       <div
         aria-atomic="true"
         aria-live="polite"

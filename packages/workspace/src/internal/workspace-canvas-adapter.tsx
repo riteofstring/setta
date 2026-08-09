@@ -6,6 +6,7 @@ import {
   useRef,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 
 import type {
@@ -44,6 +45,7 @@ import {
 } from "./workspace-canvas-selection-controls.js";
 import { WorkspaceSelectionOverlay } from "./workspace-canvas-selection.js";
 import { useWorkspaceCanvasViewport } from "./workspace-canvas-viewport.js";
+import { resolveWorkspaceClipboardShortcut } from "./workspace-clipboard.js";
 import { useWorkspaceExternalDrop } from "./workspace-external-drop.js";
 import { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 import { resolveWorkspaceHistoryShortcut } from "./workspace-history.js";
@@ -85,6 +87,8 @@ import { WorkspaceViewportSynchronizer } from "./workspace-viewport-synchronizer
 export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Readonly<{
   ariaLabel: string;
   appearance: "dark" | "light";
+  clipboardAnnouncement: string;
+  clipboardConfigured: boolean;
   controllerSynchronizationRevision: number;
   creationAnnouncement: string;
   creationConfigured: boolean;
@@ -102,6 +106,7 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   minimapPlacement: WorkspaceMinimapPlacement;
   minimapVisible: boolean;
   onCanvasControllerChange(controller: WorkspaceCanvasController | null): void;
+  onCanvasPointChange(point: WorkspacePoint): void;
   onExternalDrop: WorkspaceExternalDropHandler | undefined;
   onGridSnapChange(value: boolean): void;
   onMinimapVisibilityChange(value: boolean): void;
@@ -187,6 +192,8 @@ function interactionGesturePolicy(
 export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   ariaLabel,
   appearance,
+  clipboardAnnouncement,
+  clipboardConfigured,
   controllerSynchronizationRevision,
   creationAnnouncement,
   creationConfigured,
@@ -204,6 +211,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   minimapPlacement,
   minimapVisible,
   onCanvasControllerChange,
+  onCanvasPointChange,
   onExternalDrop,
   onGridSnapChange,
   onMinimapVisibilityChange,
@@ -424,6 +432,16 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         event.stopPropagation();
         return;
       }
+      const clipboardAction = clipboardConfigured ? resolveWorkspaceClipboardShortcut(event) : null;
+      if (
+        clipboardAction &&
+        targetAcceptsWorkspaceCanvasShortcut(event.target, event.currentTarget.ownerDocument)
+      ) {
+        void workspaceController[clipboardAction]();
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       selection.handleCanvasKeyDownCapture(event);
       if (!event.defaultPrevented) {
         selectionActions.handleCanvasKeyDownCapture(event);
@@ -432,8 +450,23 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         creation.handleCanvasKeyDownCapture(event);
       }
     },
-    [creation, selection, selectionActions, workspaceController],
+    [clipboardConfigured, creation, selection, selectionActions, workspaceController],
   );
+  const handlePointerMoveCapture = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      creation.handlePointerMoveCapture(event);
+      onCanvasPointChange(geometry.clientPointToWorkspace({ x: event.clientX, y: event.clientY }));
+    },
+    [creation, geometry, onCanvasPointChange],
+  );
+  const canvasKeyShortcuts = [
+    "Control+A Meta+A",
+    clipboardConfigured ? "Control+C Meta+C Control+V Meta+V" : "",
+    "Control+Y Meta+Y Control+Z Meta+Z Control+Shift+Z Meta+Shift+Z",
+    "Shift+F10 ContextMenu Escape",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div
@@ -475,7 +508,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         >
           <ReactFlow<WorkspaceRootNode>
             aria-label={`${ariaLabel} canvas`}
-            aria-keyshortcuts="Control+A Meta+A Control+Y Meta+Y Control+Z Meta+Z Control+Shift+Z Meta+Shift+Z Shift+F10 ContextMenu Escape"
+            aria-keyshortcuts={canvasKeyShortcuts}
             autoPanOnNodeDrag={false}
             autoPanOnNodeFocus={false}
             className="setta-workspace__canvas"
@@ -531,7 +564,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
             onPointerCancel={selection.marqueeSelection.onPointerCancel}
             onPointerDownCapture={selection.marqueeSelection.onPointerDownCapture}
             onPointerMove={selection.marqueeSelection.onPointerMove}
-            onPointerMoveCapture={creation.handlePointerMoveCapture}
+            onPointerMoveCapture={handlePointerMoveCapture}
             onPointerUp={selection.marqueeSelection.onPointerUp}
             onDrop={externalDrop.onDrop}
             panActivationKeyCode={interactionGestures.panActivationKeyCode}
@@ -560,6 +593,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
               />
             ) : null}
             <WorkspaceCanvasAnnouncements
+              clipboard={clipboardAnnouncement}
               creation={creationAnnouncement}
               containerLayout={rootProjection.containerLayoutAnnouncementText}
               containerOrientation={rootProjection.containerOrientationAnnouncementText}

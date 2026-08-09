@@ -2,9 +2,11 @@ import { SortableItemTree, Workspace } from "@setta/workspace";
 import {
   applySortableItemMove,
   createEmptyWorkspaceDocument,
+  createWorkspaceJsonClipboardAdapter,
   validateSortableItemTree,
   validateWorkspaceDocument,
   type SortableItemTree as SortableItemTreeModel,
+  type WorkspaceClipboardAdapter,
   type WorkspaceDocument,
 } from "@setta/workspace/core";
 import {
@@ -82,6 +84,22 @@ const consumerSectionDefinitions = [
 ] satisfies readonly SectionDefinition<ConsumerSectionData>[];
 
 let nextConsumerSectionNumber = 2;
+let consumerClipboardText = "";
+const consumerClipboardAdapter: WorkspaceClipboardAdapter<ConsumerSectionData> =
+  createWorkspaceJsonClipboardAdapter({
+    allocateSectionId: ({ kind }) => `${kind}-${String(nextConsumerSectionNumber++)}`,
+    clipboard: {
+      readText: async () => consumerClipboardText,
+      writeText: async (value) => {
+        consumerClipboardText = value;
+      },
+    },
+    validateSectionData: ({ data }) =>
+      typeof data === "object" &&
+      data !== null &&
+      !Array.isArray(data) &&
+      typeof (data as { body?: unknown }).body === "string",
+  });
 const itemTree = {
   childrenByParent: { "consumer-group": ["consumer-child"], "consumer-items": ["consumer-group"] },
   itemIds: ["consumer-group", "consumer-child"],
@@ -156,6 +174,7 @@ createRoot(root).render(
         <Workspace<ConsumerSectionData>
           appearanceOptions={{ appearance: "light" }}
           ariaLabel="Consumer workspace"
+          clipboardAdapter={consumerClipboardAdapter}
           data-item-tree-root={itemTree.rootId}
           data-version={workspaceDocument.schemaVersion}
           defaultDocument={workspaceDocument}

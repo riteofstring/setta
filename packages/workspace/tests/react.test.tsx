@@ -90,6 +90,27 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain("Shift+F10 ContextMenu");
   });
 
+  it("advertises clipboard shortcuts and keeps a pre-rendered announcement when configured", () => {
+    const clipboardAdapter = {
+      cloneSections: () => ({ allowed: true as const, sections: [] }),
+      read: async () => null,
+      write: async () => undefined,
+    };
+    const markup = renderToStaticMarkup(<Workspace clipboardAdapter={clipboardAdapter} />);
+
+    expect(markup).toContain("Control+C Meta+C Control+V Meta+V");
+    expect(markup).toContain('data-workspace-clipboard-announcement=""');
+    expect(() =>
+      renderToStaticMarkup(
+        <Workspace
+          clipboardAdapter={
+            { ...clipboardAdapter, read: null } as unknown as typeof clipboardAdapter
+          }
+        />,
+      ),
+    ).toThrow("Workspace clipboard adapter read must be a function");
+  });
+
   it("preserves arbitrary host markup in the empty-state surface", () => {
     const markup = renderToStaticMarkup(
       <Workspace

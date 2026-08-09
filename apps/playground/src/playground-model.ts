@@ -8,6 +8,7 @@ import {
   type SortableItemTree,
   type WorkspaceAppearance,
   type WorkspaceDocument,
+  type WorkspaceJsonClipboardDataValidationRequest,
 } from "@setta/workspace/core";
 
 export type PlaygroundNoteData = Readonly<{
@@ -315,6 +316,26 @@ function validatePlaygroundPayloads(document: WorkspaceDocument<unknown>): void 
       `Section ${JSON.stringify(sectionId)} uses unsupported kind ${JSON.stringify(section.kind)}.`,
     );
   }
+}
+
+export function validatePlaygroundClipboardSectionData({
+  data,
+  kind,
+  sourceSectionId,
+}: WorkspaceJsonClipboardDataValidationRequest): boolean {
+  if (kind === "sample-note") {
+    validateNoteData(data, sourceSectionId);
+    return true;
+  }
+  if (kind === "sample-status") {
+    validateStatusData(data, sourceSectionId);
+    return true;
+  }
+  if (kind === "sample-field-list") {
+    validateFieldListData(data, sourceSectionId);
+    return true;
+  }
+  return false;
 }
 
 export function parsePlaygroundDocument(

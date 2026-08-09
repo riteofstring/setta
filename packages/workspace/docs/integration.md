@@ -92,6 +92,53 @@ last valid in-memory document when recovery fails. Persist appearance, grid visi
 minimap visibility, and other host preferences separately unless the host deliberately embeds them
 in its own project format.
 
+## Adapter-driven copy and paste
+
+Copy and paste is available only when `Workspace` receives a `clipboardAdapter`. The package owns
+Control/Command+C and Control/Command+V outside local editing surfaces, normalized selection-root
+and complete-subtree extraction, the versioned
+`application/vnd.setta.workspace.sections+json` frame, untrusted-input validation, relative root
+offsets, non-overlapping placement, controlled-host reconciliation, selection/focus recovery, and
+one `section-paste` history entry. Copy remains available in read-only mode; paste requires
+`editStructure`.
+
+The adapter owns clipboard transport, authorization, every new section ID, and cloning or remapping
+host payloads and domain references. `cloneSections` receives structurally validated source
+sections and their root IDs, then returns either a specific `invalid`, `unauthorized`, or
+`unsupported` rejection or exactly one `{ sourceSectionId, id, data }` result for every source
+section. A controlled host may await a backend clone in that method before returning the accepted
+subtree mapping. Missing, duplicate, colliding, accessor-backed, cyclic, or otherwise invalid clone
+results reject the complete paste; no partial subtree is inserted.
+
+The backend-free JSON path uses `createWorkspaceJsonClipboardAdapter`. It deliberately requires a
+host data validator and ID allocator, uses the supplied text clipboard, and calls
+`structuredClone` only after validation. It does not claim that arbitrary payloads are cloneable.
+
+```tsx
+import { createWorkspaceJsonClipboardAdapter } from "@setta/workspace/core";
+
+const clipboardAdapter = createWorkspaceJsonClipboardAdapter<NoteData>({
+  clipboard: navigator.clipboard,
+  allocateSectionId: ({ kind }) => allocateSectionId(`${kind}-copy`),
+  validateSectionData: ({ data, kind }) => kind === "note" && isNoteData(data),
+});
+
+<Workspace
+  clipboardAdapter={clipboardAdapter}
+  document={document}
+  onDocumentChange={setDocument}
+  sectionDefinitions={noteDefinitions}
+/>;
+```
+
+Treat every `read()` result as hostile even when the operating-system clipboard was written by the
+same application. Before `cloneSections` runs, the package validates the MIME and clipboard schema,
+document structure, containment, dimensions, colors, and registered kinds. After cloning, it
+validates the complete ID mapping and JSON-safe payloads again before proposing a document, so no
+renderer mounts on an invalid or only partly cloneable frame. The default paste origin is the last
+meaningful canvas point, then the current measured selection, then the visible viewport; a pasted
+root block preserves its measured relative offsets and follows the active snap grid.
+
 ## Controlled and uncontrolled ownership
 
 Pass neither `document` nor `defaultDocument` for an empty uncontrolled workbench, or pass one
@@ -117,7 +164,7 @@ Capability overrides default to `true`. `readOnly` resolves all three package ca
 | Capability         | Package actions it gates                                                                                                                                                            |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `editLayout`       | Spatial movement, structural reorder/reparent, batch movement, resize, fixed/content transitions, container orientation and overflow, direct lock changes, and persistent stacking. |
-| `editStructure`    | Section creation, deletion, grouping, ungrouping, and the package-owned external-drop handoff.                                                                                      |
+| `editStructure`    | Section creation, deletion, grouping, ungrouping, paste, and the package-owned external-drop handoff.                                                                               |
 | `editPresentation` | Title edits, minimize/expand, chrome, accent, and tag changes.                                                                                                                      |
 
 Selection, focus, fit, minimap navigation, pan, and zoom remain available. The package cannot make
@@ -210,6 +257,7 @@ the same result.
 | Read state              | `getDocument`, `getCapabilities`, `getSelectedSectionIds`, `getHistoryState`                                          |
 | Selection               | `selectSections`, `clearSelection`                                                                                    |
 | Creation and structure  | `createSection`, `deleteSections`, `groupSections`, `ungroupSection`                                                  |
+| Clipboard               | Async `copySelection`, `paste` when a host adapter is configured                                                      |
 | Frame state             | `setSectionTitle`, `setSectionPresentation`, `setSectionsLocked`, `setSectionMinimized`, `setSectionChildOrientation` |
 | Viewport and navigation | `setViewport`, `focusSection`, `fitSection`, `fitSections`, `focusNextSection`, `focusPreviousSection`                |
 | Stacking                | `bringToFront`, `bringForward`, `sendBackward`, `sendToBack`                                                          |

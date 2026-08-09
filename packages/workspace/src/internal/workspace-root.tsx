@@ -12,12 +12,14 @@ import {
 } from "../core.js";
 import { WorkspaceCanvasAdapter } from "./workspace-canvas-adapter.js";
 import type { WorkspaceCanvasController } from "./workspace-canvas-navigation.js";
+import type { WorkspaceClipboardPlacedSections } from "./workspace-clipboard.js";
 import {
   createWorkspaceController,
   createWorkspaceRootSection,
   groupWorkspaceSections,
   moveWorkspaceRootSections,
   moveWorkspaceSections,
+  pasteWorkspaceRootSections,
   resizeWorkspaceRootSection,
   setWorkspaceSectionChildOverflow,
   setWorkspaceSectionContentSize,
@@ -28,9 +30,11 @@ import {
   resolveWorkspaceAppearanceOptions,
   resolveWorkspaceGridOptions,
 } from "./workspace-preferences.js";
+import { useWorkspaceClipboardCoordinator } from "./workspace-react-clipboard.js";
 import {
   assertStableWorkspaceMode,
   assertWorkspaceAccessibleName,
+  assertWorkspaceClipboardAdapter,
   assertWorkspaceExternalDropCallbacks,
   assertWorkspaceGroupFactory,
   assertWorkspaceSectionFactory,
@@ -127,6 +131,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     appearanceOptions: appearanceOptionOverrides,
     capabilities: capabilityOverrides,
     className,
+    clipboardAdapter,
     controllerRef,
     defaultDocument,
     document: controlledDocument,
@@ -154,6 +159,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     ...sectionProps
   } = props;
   assertWorkspaceAccessibleName(ariaLabel);
+  assertWorkspaceClipboardAdapter<TSectionData>(clipboardAdapter);
   assertWorkspaceExternalDropCallbacks(onExternalDrop, validateExternalDrop);
   assertWorkspaceGroupFactory<TSectionData>(groupFactory);
   assertWorkspaceSectionFactory<TSectionData>(sectionFactory);
@@ -301,6 +307,28 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   });
   const synchronizeHistory = history.synchronize;
   const historySynchronizationRevision = history.synchronizationRevision;
+  const commitClipboardPaste = useCallback(
+    (paste: WorkspaceClipboardPlacedSections<TSectionData>) => {
+      const bindings = controllerBindingsRef.current;
+      if (!bindings) {
+        throw new Error("Workspace controller bindings are unavailable before initialization.");
+      }
+      return pasteWorkspaceRootSections(bindings, paste);
+    },
+    [],
+  );
+  const clipboard = useWorkspaceClipboardCoordinator({
+    adapter: clipboardAdapter,
+    canvasControllerRef,
+    capabilitiesRef,
+    commitPaste: commitClipboardPaste,
+    commitSelection,
+    document: validatedDocument,
+    documentRef,
+    gridOptionsRef,
+    registryRef: sectionRegistryRef,
+    selectionRef,
+  });
   const pendingCreatedSectionRef = useRef<Readonly<{
     panIntoView: boolean;
     sectionId: string;
@@ -328,6 +356,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         }
         onDocumentChangeRef.current?.(nextDocument, change);
       },
+      copySelection: clipboard.copySelection,
       createSection: (kind, options) => {
         const factory = sectionFactoryRef.current;
         if (!factory) {
@@ -391,6 +420,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       getHistoryState: history.getState,
       getSelection: () => selectionRef.current,
       getViewportBounds: () => gestureOptionsRef.current,
+      paste: clipboard.paste,
       requestViewportSynchronization: () =>
         setControllerSynchronizationRevision((revision) => revision + 1),
       redo: () => history.navigate("redo", bindings),
@@ -608,6 +638,8 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       <WorkspaceCanvasAdapter
         ariaLabel={ariaLabel}
         appearance={resolvedAppearance}
+        clipboardAnnouncement={clipboard.announcement}
+        clipboardConfigured={clipboard.configured}
         controllerSynchronizationRevision={controllerSynchronizationRevision}
         creationAnnouncement={creationAnnouncement}
         creationConfigured={creationAvailability.configured}
@@ -625,6 +657,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         minimapPlacement={minimapOptions.placement}
         minimapVisible={minimapVisible}
         onCanvasControllerChange={handleCanvasControllerChange}
+        onCanvasPointChange={clipboard.recordCanvasPoint}
         onExternalDrop={onExternalDrop}
         onGridSnapChange={setGridSnap}
         onMinimapVisibilityChange={setMinimapVisible}

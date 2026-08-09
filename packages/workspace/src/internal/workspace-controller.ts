@@ -23,6 +23,7 @@ import {
 import { denseArrayAt, optionOverridesAt } from "./runtime-option-validation.js";
 import type { SectionMovePlan } from "./section-move-planning.js";
 import type { WorkspaceCanvasController } from "./workspace-canvas-navigation.js";
+import type { WorkspaceClipboardPlacedSections } from "./workspace-clipboard.js";
 import { validateWorkspaceViewport } from "./workspace-document-validation.js";
 import type { WorkspaceRootStackingAction } from "./workspace-root-stacking.js";
 import {
@@ -41,6 +42,7 @@ import type {
 export type WorkspaceControllerBindings<TSectionData> = Readonly<{
   canMinimizeSection?(sectionId: string): boolean;
   commit(document: WorkspaceDocument<TSectionData>, change: WorkspaceDocumentChange): void;
+  copySelection?(): Promise<WorkspaceActionResult>;
   createSection?(kind: string, options: WorkspaceCreateSectionOptions): WorkspaceActionResult;
   getCapabilities(): WorkspaceCapabilities;
   getCanvasController?(): WorkspaceCanvasController | null;
@@ -49,6 +51,7 @@ export type WorkspaceControllerBindings<TSectionData> = Readonly<{
   getSelection?(): readonly string[];
   getViewportBounds?(): Readonly<{ maxZoom: number; minZoom: number }>;
   groupSections?(sectionIds: readonly string[]): WorkspaceActionResult;
+  paste?(): Promise<WorkspaceActionResult>;
   requestViewportSynchronization?(): void;
   redo?(): WorkspaceActionResult;
   setSelection?(sectionIds: readonly string[]): WorkspaceActionResult;
@@ -403,6 +406,9 @@ export function createWorkspaceController<TSectionData>(
     bringForward: (sectionIds) => stackRootSections(bindings, sectionIds, "bring-forward"),
     bringToFront: (sectionIds) => stackRootSections(bindings, sectionIds, "bring-to-front"),
     clearSelection: () => setSelection([]),
+    copySelection: () =>
+      bindings.copySelection?.() ??
+      Promise.resolve({ reason: "clipboard-unavailable", status: "rejected" }),
     createSection: (kind, options) => createSection(bindings, kind, options),
     deleteSections: (sectionIds) =>
       dispatch(bindings, { sectionIds: sectionIdsAt(sectionIds), type: "delete-sections" }),
@@ -418,6 +424,9 @@ export function createWorkspaceController<TSectionData>(
     getHistoryState: () => bindings.getHistoryState?.() ?? { canRedo: false, canUndo: false },
     getSelectedSectionIds: () => [...getSelection()],
     groupSections: (sectionIds) => groupSections(bindings, sectionIds),
+    paste: () =>
+      bindings.paste?.() ??
+      Promise.resolve({ reason: "clipboard-unavailable", status: "rejected" }),
     redo: () => bindings.redo?.() ?? { status: "unchanged" },
     selectSections: (sectionIds) => {
       const selectedIds = sectionIdsAt(sectionIds);
@@ -471,6 +480,13 @@ export function moveWorkspaceRootSections<TSectionData>(
   positions: Readonly<Record<string, WorkspacePoint>>,
 ): WorkspaceActionResult {
   return dispatch(bindings, { positions, type: "move-root-sections" });
+}
+
+export function pasteWorkspaceRootSections<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  paste: WorkspaceClipboardPlacedSections<TSectionData>,
+): WorkspaceActionResult {
+  return dispatch(bindings, { paste, type: "paste-root-sections" });
 }
 
 export function moveWorkspaceSections<TSectionData>(

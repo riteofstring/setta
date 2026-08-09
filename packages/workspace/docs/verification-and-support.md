@@ -129,13 +129,13 @@ third-party compliance.
 
 ## Deferred capabilities
 
-No current export copies or pastes section subtrees. The planned boundary gives the package
-selection shortcuts, structural validation, relative placement, and clipboard MIME framing while
-the host allocates IDs and clones payloads/domain references. Clipboard input remains untrusted and
-must be fully validated before a renderer mounts. A JSON-only adapter may support the playground;
-arbitrary payloads are not assumed cloneable.
+Adapter-driven section copy and paste is implemented. It remains an opt-in host integration rather
+than an implicit browser capability: the package owns its versioned MIME frame, validation,
+shortcuts, relative placement, and atomic history command, while the host adapter owns transport,
+authorization, IDs, and payload/domain cloning. The playground's JSON-only adapter validates its
+known payload kinds before structured cloning; arbitrary payloads are not assumed cloneable.
 
-Also deferred are an optional outline navigator, top-level auto-layout, multiple or cross-list item
+Still deferred are an optional outline navigator, top-level auto-layout, multiple or cross-list item
 trees, filtered-list reconciliation, mixed-parent batch dragging, saved viewport presets, generic
 edges and ports, pane registration beyond current extensions, viewport culling, absolute nested
 positioning, and complete descendant-subtree collapse.

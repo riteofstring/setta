@@ -44,6 +44,21 @@ export type WorkspaceAppearanceOptionOverrides = Partial<WorkspaceAppearanceOpti
 
 export type WorkspaceActionRejectionReason =
   | "canvas-unavailable"
+  | "clipboard-busy"
+  | "clipboard-clone-failed"
+  | "clipboard-clone-invalid"
+  | "clipboard-clone-partial"
+  | "clipboard-data-invalid"
+  | "clipboard-data-unsupported"
+  | "clipboard-empty"
+  | "clipboard-format-unsupported"
+  | "clipboard-invalid"
+  | "clipboard-read-failed"
+  | "clipboard-selection-empty"
+  | "clipboard-unauthorized"
+  | "clipboard-unavailable"
+  | "clipboard-version-unsupported"
+  | "clipboard-write-failed"
   | "group-kind-cannot-contain-sections"
   | "group-selection-too-small"
   | "grouping-unavailable"
@@ -85,6 +100,7 @@ export type WorkspaceDocumentChangeReason =
   | "section-move"
   | "section-orientation"
   | "section-overflow"
+  | "section-paste"
   | "section-presentation"
   | "section-resize"
   | "section-size-mode"
@@ -106,6 +122,7 @@ export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
   bringForward(sectionIds: readonly string[]): WorkspaceActionResult;
   bringToFront(sectionIds: readonly string[]): WorkspaceActionResult;
   clearSelection(): WorkspaceActionResult;
+  copySelection(): Promise<WorkspaceActionResult>;
   createSection(kind: string, options?: WorkspaceCreateSectionOptions): WorkspaceActionResult;
   deleteSections(sectionIds: readonly string[]): WorkspaceActionResult;
   fitSection(sectionId: string, options?: WorkspaceFitOptions): Promise<WorkspaceActionResult>;
@@ -114,6 +131,7 @@ export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
     options?: WorkspaceFitOptions,
   ): Promise<WorkspaceActionResult>;
   groupSections(sectionIds: readonly string[]): WorkspaceActionResult;
+  paste(): Promise<WorkspaceActionResult>;
   focusNextSection(sectionId: string): Promise<WorkspaceActionResult>;
   focusPreviousSection(sectionId: string): Promise<WorkspaceActionResult>;
   focusSection(sectionId: string): Promise<WorkspaceActionResult>;

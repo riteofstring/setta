@@ -24,6 +24,22 @@ export {
   validateSortableItemTree,
 } from "./internal/sortable-item-tree-validation.js";
 export type { SortableItemTreeValidationCode } from "./internal/sortable-item-tree-validation.js";
+export {
+  WORKSPACE_CLIPBOARD_MIME_TYPE,
+  WORKSPACE_CLIPBOARD_SCHEMA_VERSION,
+  createWorkspaceJsonClipboardAdapter,
+} from "./internal/workspace-clipboard.js";
+export type {
+  WorkspaceClipboardAdapter,
+  WorkspaceClipboardCloneDecision,
+  WorkspaceClipboardCloneRejectionCode,
+  WorkspaceClipboardCloneRequest,
+  WorkspaceClipboardItem,
+  WorkspaceClipboardSectionClone,
+  WorkspaceJsonClipboardAdapterOptions,
+  WorkspaceJsonClipboardDataValidationRequest,
+  WorkspaceTextClipboard,
+} from "./internal/workspace-clipboard.js";
 export { WORKSPACE_DOCUMENT_SCHEMA_VERSION } from "./internal/workspace-document-contract.js";
 export type {
   SectionChrome,

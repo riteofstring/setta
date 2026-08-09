@@ -19,6 +19,8 @@ import {
   optionOverridesAt,
 } from "./runtime-option-validation.js";
 import type { SectionMovePlan } from "./section-move-planning.js";
+import { applyWorkspaceClipboardPaste } from "./workspace-clipboard-command.js";
+import type { WorkspaceClipboardPlacedSections } from "./workspace-clipboard.js";
 import {
   planWorkspaceRootStacking,
   workspaceRootStackingMatches,
@@ -36,6 +38,10 @@ export type WorkspaceDocumentCommand<TSectionData = unknown> =
       position: WorkspacePoint;
       section: WorkspaceSection<TSectionData>;
       type: "create-root-section";
+    }>
+  | Readonly<{
+      paste: WorkspaceClipboardPlacedSections<TSectionData>;
+      type: "paste-root-sections";
     }>
   | Readonly<{ sectionIds: readonly string[]; type: "delete-sections" }>
   | Readonly<{
@@ -142,7 +148,11 @@ const layoutCommandTypes = new Set<WorkspaceDocumentCommand<unknown>["type"]>([
 function commandCapability(
   command: WorkspaceDocumentCommand<unknown>,
 ): WorkspaceEditCapability | null {
-  if (command.type === "create-root-section" || command.type === "delete-sections") {
+  if (
+    command.type === "create-root-section" ||
+    command.type === "delete-sections" ||
+    command.type === "paste-root-sections"
+  ) {
     return "editStructure";
   }
   if (layoutCommandTypes.has(command.type)) {
@@ -840,6 +850,7 @@ type WorkspaceRootDocumentCommand<TSectionData> = Extract<
     type:
       | "create-root-section"
       | "move-root-sections"
+      | "paste-root-sections"
       | "resize-root-section"
       | "set-viewport"
       | "stack-root-sections";
@@ -867,6 +878,7 @@ function isRootDocumentCommand<TSectionData>(
   return (
     command.type === "create-root-section" ||
     command.type === "move-root-sections" ||
+    command.type === "paste-root-sections" ||
     command.type === "resize-root-section" ||
     command.type === "stack-root-sections" ||
     command.type === "set-viewport"
@@ -882,6 +894,12 @@ function applyRootDocumentCommand<TSectionData>(
   }
   if (command.type === "create-root-section") {
     return applyRootCreation(document, command.section, command.position);
+  }
+  if (command.type === "paste-root-sections") {
+    const result = applyWorkspaceClipboardPaste(document, command.paste);
+    return result.status === "applied"
+      ? applied(result.document, "section-paste")
+      : { document, reason: result.reason, status: "rejected" };
   }
   if (command.type === "move-root-sections") {
     return applyRootMovement(document, command.positions);

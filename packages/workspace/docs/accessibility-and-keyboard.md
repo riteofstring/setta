@@ -10,20 +10,25 @@ each `SortableItemTree` its own `ariaLabel` and stable item labels.
 
 ## Global and selection commands
 
-| Focus or context                                | Keys                                         | Result                                                                                                      |
-| ----------------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Workbench, outside a local text-editing surface | Control/Command+A                            | Select every section in canonical order.                                                                    |
-| Workbench with a selection                      | Escape                                       | Clear selection when no more specific dialog, editor, or drag owns Escape.                                  |
-| Blank canvas                                    | Shift+drag                                   | Marquee-select using the configured partial/full mode.                                                      |
-| Section selection control                       | Enter or Space                               | Select that section; hold Shift to toggle it in the selection.                                              |
-| Section or selection control                    | Shift+F10 or Context Menu                    | Open the package selection-actions menu.                                                                    |
-| Blank canvas keyboard context                   | Shift+F10 or Context Menu                    | Open searchable creation at the last meaningful canvas point or viewport center when creation is available. |
-| Workbench                                       | Control/Command+Z                            | Undo the latest accepted section command.                                                                   |
-| Workbench                                       | Control/Command+Shift+Z or Control/Command+Y | Redo.                                                                                                       |
+| Focus or context                                 | Keys                                         | Result                                                                                                      |
+| ------------------------------------------------ | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Workbench, outside a local text-editing surface  | Control/Command+A                            | Select every section in canonical order.                                                                    |
+| Workbench with a selection                       | Escape                                       | Clear selection when no more specific dialog, editor, or drag owns Escape.                                  |
+| Blank canvas                                     | Shift+drag                                   | Marquee-select using the configured partial/full mode.                                                      |
+| Section selection control                        | Enter or Space                               | Select that section; hold Shift to toggle it in the selection.                                              |
+| Section or selection control                     | Shift+F10 or Context Menu                    | Open the package selection-actions menu.                                                                    |
+| Blank canvas keyboard context                    | Shift+F10 or Context Menu                    | Open searchable creation at the last meaningful canvas point or viewport center when creation is available. |
+| Workbench                                        | Control/Command+Z                            | Undo the latest accepted section command.                                                                   |
+| Workbench                                        | Control/Command+Shift+Z or Control/Command+Y | Redo.                                                                                                       |
+| Workbench with a selection and clipboard adapter | Control/Command+C                            | Copy normalized selection roots and their complete subtrees.                                                |
+| Workbench with a clipboard adapter               | Control/Command+V                            | Validate, clone, place, select, and focus one pasted root block.                                            |
 
 Inputs, textareas, selects, editable content, and elements marked with
-`data-workspace-local-shortcuts` keep their local undo/redo and editing shortcuts. Do not intercept
-these keys in a host wrapper and forward them to the canvas.
+`data-workspace-local-shortcuts` keep their local copy, paste, undo/redo, and editing shortcuts. Do
+not intercept these keys in a host wrapper and forward them to the canvas. Clipboard completion,
+invalid input, unsupported versions or kinds, host rejection, and controlled rejection use a
+pre-mounted polite live region. Accepted paste moves focus to the first pasted selection control;
+copy does not move focus.
 
 ## Section movement and resizing
 
