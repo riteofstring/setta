@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 
 import type { WorkspaceDocument, WorkspacePoint, WorkspaceSection } from "../core.js";
 import {
@@ -331,6 +331,23 @@ export function WorkspaceSectionChildren({
   const layout = node.section.childLayout;
   const scrollMode = layout?.overflow === "scroll";
   const scrollability = useWorkspaceChildRegionScrollability(node.children, scrollMode);
+  const geometry = bindings.geometry;
+  const scrollabilityRef = scrollability.ref;
+  const parentSectionId = node.section.id;
+  const regionRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      scrollabilityRef(element);
+      if (!element) {
+        return;
+      }
+      const unregister = geometry.registerChildRegion({ element, parentSectionId });
+      return () => {
+        unregister();
+        scrollabilityRef(null);
+      };
+    },
+    [geometry, parentSectionId, scrollabilityRef],
+  );
   if (!layout) {
     return null;
   }
@@ -347,7 +364,7 @@ export function WorkspaceSectionChildren({
       data-workspace-prevent-pan="true"
       data-workspace-prevent-wheel={scrollability.scrollable ? "true" : undefined}
       data-workspace-scrollable={String(scrollability.scrollable)}
-      ref={scrollability.ref}
+      ref={regionRef}
       role={scrollMode ? "region" : "group"}
       tabIndex={scrollability.scrollable ? 0 : undefined}
     >

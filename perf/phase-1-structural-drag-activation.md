@@ -69,6 +69,27 @@ at display cadence everywhere. All structural gates stayed green (vitest suite, 
 grouping/keyboard/mixed-parent, root movement, sortable items, nested-freeform contract, section
 state, and visual matrix E2E).
 
+## Indexed child-region follow-up
+
+The `phase-1-region-index` traces record the retained follow-up change. Child destination bounds,
+layout gaps, direction, and freeform surface bounds now publish through the incremental geometry
+service and structural sessions consume that snapshot. This removes the activation-time
+`querySelectorAll`, computed-style reads, and destination `getBoundingClientRect` calls while
+preserving the existing region validation and document order.
+
+On the same reference machine, warm development pointer-down handlers fell from 40–46 ms to
+25–26 ms. Warm production pointer-down handlers were 23–25 ms and activation gaps were
+16.7–25.6 ms. The change does **not** exit Phase 1: development activation gaps remained
+33.4–43 ms, one development cold pass produced a 51 ms long task, and the production 0.5× cold
+pass had a 50 ms activation gap. The fixture caveats below also still prevent treating per-pass
+variance as definitive.
+
+An exploratory replacement of dnd-kit's AutoScroller, Cursor, and PreventSelection plugins was
+discarded. It reduced some warm handler samples but retained the cold/33 ms misses and duplicated
+upstream lifecycle behavior, creating unacceptable auto-scroll and input-semantic risk. Future
+work must keep those plugins and use owner-preserving provider isolation or another trace-proven
+change after correcting the fixture.
+
 ## Remaining gap (Phase 1 not yet exited)
 
 The repeatable >32 ms activation gap is smaller but still present in three places on this
@@ -79,13 +100,10 @@ reference machine:
 - production root-drag cold first drag at 0.5× (33.4 ms, previously 17.6 ms — the deferred
   broadcast now lands in its own first frame while cold).
 
-Timeline traces of the current code place the remaining in-dispatch cost at: session capture and
-its one forced layout (~8 ms development), a second forced layout after dnd-kit's overlay commit
-feeding `elementFromPoint` (~4 ms), and an ~12 ms development-only React sync flush originating in
-dnd-kit's signal-driven start rendering (mostly shallow re-render/bailout work under StrictMode's
-double render; production equivalent is a few ms). Candidate next steps: keep dnd-kit's start
-flush cheap by isolating its provider subtree, source drop regions from the geometry index instead
-of direct DOM reads, and re-examine the cold-path JIT tail.
+Timeline traces place the remaining in-dispatch cost at the dnd-kit overlay/start flush and the
+cold-path React/JIT tail. Destination region reads are no longer part of session activation.
+Candidate next steps are to correct the profiler fixture, keep dnd-kit's start flush cheap through
+provider isolation that preserves its lifecycle plugins, and re-examine the cold-path tail.
 
 ## Fixture caveats discovered while measuring
 

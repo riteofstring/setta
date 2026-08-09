@@ -23,9 +23,12 @@ gaps are within cadence; development structural activation (33–42 ms warm) and
 production first-drag cells still exceed the 32 ms exit bar. Cause, before/after numbers, and the
 remaining owners are recorded in
 [perf/phase-1-structural-drag-activation.md](../../perf/phase-1-structural-drag-activation.md)
-(`phase-1` label in the interaction profile report). Finishing Phase 1 means removing that
-remaining in-dispatch tail (dnd-kit start-flush isolation, index-sourced drop regions, cold-path
-tail) without changing gesture semantics.
+(`phase-1` and `phase-1-region-index` labels in the interaction profile report). Child drop-region
+geometry is now published by the incremental geometry service instead of being read from the DOM
+during activation. Finishing Phase 1 means fixing the unstable profiler cells, then removing the
+remaining dnd-kit start-flush and cold-path tail without changing gesture semantics. Do not replace
+dnd-kit's AutoScroller, Cursor, or PreventSelection lifecycle plugins: that experiment did not
+clear the exit gate and duplicated upstream behavior with unacceptable semantic risk.
 
 Make the Setta visual language the opinionated default for `@setta/workspace`, redesign the
 backend-free playground around the canvas, and remove the measurable structural-drag startup hitch.

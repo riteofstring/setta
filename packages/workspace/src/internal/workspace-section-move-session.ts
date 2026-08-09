@@ -106,7 +106,6 @@ export type WorkspaceSectionMoveSessionResult<TSectionData> =
 type SourceGeometryResult =
   | Readonly<{
       allowed: true;
-      canvas: HTMLElement;
       clientRectsById: Readonly<Record<string, InteractionRect>>;
       frame: DragGeometryFrame;
       rects: Readonly<Record<string, WorkspaceRect>>;
@@ -192,8 +191,7 @@ function resolveSourceGeometry(
   if (!rects || !workspaceBounds) {
     return { allowed: false, reason: "The selected section block is not completely measured." };
   }
-  const canvas = geometry.canvasElement();
-  if (!canvas) {
+  if (!geometry.canvasElement()) {
     return { allowed: false, reason: "The workspace canvas is unavailable." };
   }
   const frame = {
@@ -202,7 +200,6 @@ function resolveSourceGeometry(
   };
   return {
     allowed: true,
-    canvas,
     clientRectsById: clientRectRecord(snapshot, frame),
     frame,
     rects,
@@ -279,7 +276,11 @@ export function createWorkspaceSectionMoveSession<TSectionData>({
   if (!source.allowed) {
     return source;
   }
-  const regionCapture = captureWorkspaceSectionMoveRegions(source.canvas, document, source.frame);
+  const regionCapture = captureWorkspaceSectionMoveRegions(
+    document,
+    source.frame,
+    geometry.childRegions(),
+  );
   if (!regionCapture.allowed) {
     return regionCapture;
   }

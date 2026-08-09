@@ -453,3 +453,136 @@ describe("WorkspaceGeometryMeasurements lifecycle", () => {
     expect(canvas.focus).toHaveBeenCalledWith({ preventScroll: true });
   });
 });
+
+describe("WorkspaceGeometryMeasurements child regions", () => {
+  function fakeRegionWindow(style: Readonly<Record<string, string>>) {
+    const fixture = fakeWindow();
+    const getComputedStyle = vi.fn(() => style);
+    (fixture.window as unknown as { getComputedStyle: unknown }).getComputedStyle =
+      getComputedStyle;
+    const ownerDocument = {
+      activeElement: null,
+      defaultView: fixture.window,
+    } as unknown as Document;
+    return { fixture, getComputedStyle, ownerDocument };
+  }
+
+  function fakeRegionElement(
+    window: Window,
+    ownerDocument: Document,
+    rect: Readonly<{ height: number; width: number; x: number; y: number }>,
+    surface: HTMLElement | null,
+  ) {
+    const { element } = fakeElement(window, rect, ownerDocument);
+    const querySelector = vi.fn(() => surface);
+    (element as unknown as { querySelector: unknown }).querySelector = querySelector;
+    return { element, querySelector };
+  }
+
+  it("measures registered child regions with gaps, direction, and surface geometry", async () => {
+    const { fixture, getComputedStyle, ownerDocument } = fakeRegionWindow({
+      columnGap: "12px",
+      direction: "rtl",
+      rowGap: "8px",
+    });
+    const canvas = fakeElement(
+      fixture.window,
+      { height: 600, width: 800, x: 100, y: 50 },
+      ownerDocument,
+    );
+    const surface = fakeElement(
+      fixture.window,
+      { height: 100, width: 180, x: 170, y: 100 },
+      ownerDocument,
+    );
+    const region = fakeRegionElement(
+      fixture.window,
+      ownerDocument,
+      { height: 120, width: 200, x: 160, y: 90 },
+      surface.element,
+    );
+    const geometry = new WorkspaceGeometryMeasurements(new WorkspaceGeometryIndex());
+    geometry.setCanvasElement(canvas.element);
+    geometry.registerChildRegion({ element: region.element, parentSectionId: "container" });
+    expect(geometry.childRegions().get("container")).toBeNull();
+    await flushNextAnimationFrame(fixture);
+
+    const measured = geometry.childRegions().get("container");
+    expect(measured).toMatchObject({
+      columnGap: 12,
+      direction: "rtl",
+      parentSectionId: "container",
+      rowGap: 8,
+      surfaceWorkspaceRect: { height: 100, width: 180, x: 70, y: 50 },
+      workspaceRect: { height: 120, width: 200, x: 60, y: 40 },
+    });
+    expect(measured?.surface).toBe(surface.element);
+    expect(getComputedStyle).toHaveBeenCalledWith(region.element);
+  });
+
+  it("marks unparsable gaps as unavailable and defaults the direction", async () => {
+    const { fixture, ownerDocument } = fakeRegionWindow({
+      columnGap: "normal",
+      direction: "",
+      rowGap: "-4px",
+    });
+    const canvas = fakeElement(
+      fixture.window,
+      { height: 600, width: 800, x: 0, y: 0 },
+      ownerDocument,
+    );
+    const region = fakeRegionElement(
+      fixture.window,
+      ownerDocument,
+      { height: 120, width: 200, x: 20, y: 30 },
+      null,
+    );
+    const geometry = new WorkspaceGeometryMeasurements(new WorkspaceGeometryIndex());
+    geometry.setCanvasElement(canvas.element);
+    geometry.registerChildRegion({ element: region.element, parentSectionId: "container" });
+    await flushNextAnimationFrame(fixture);
+
+    expect(geometry.childRegions().get("container")).toMatchObject({
+      columnGap: null,
+      direction: "ltr",
+      rowGap: null,
+      surface: null,
+      surfaceWorkspaceRect: null,
+    });
+  });
+
+  it("rejects duplicate registrations and supports re-registration after unregistering", async () => {
+    const { fixture, ownerDocument } = fakeRegionWindow({
+      columnGap: "0px",
+      direction: "ltr",
+      rowGap: "0px",
+    });
+    const canvas = fakeElement(
+      fixture.window,
+      { height: 600, width: 800, x: 0, y: 0 },
+      ownerDocument,
+    );
+    const region = fakeRegionElement(
+      fixture.window,
+      ownerDocument,
+      { height: 120, width: 200, x: 20, y: 30 },
+      null,
+    );
+    const geometry = new WorkspaceGeometryMeasurements(new WorkspaceGeometryIndex());
+    geometry.setCanvasElement(canvas.element);
+    const unregister = geometry.registerChildRegion({
+      element: region.element,
+      parentSectionId: "container",
+    });
+    expect(() =>
+      geometry.registerChildRegion({ element: region.element, parentSectionId: "container" }),
+    ).toThrow("Section container already has a measured child region.");
+    unregister();
+    expect(geometry.childRegions().size).toBe(0);
+    geometry.registerChildRegion({ element: region.element, parentSectionId: "container" });
+    await flushNextAnimationFrame(fixture);
+    expect(geometry.childRegions().get("container")).not.toBeNull();
+    geometry.setCanvasElement(null);
+    expect(geometry.childRegions().size).toBe(0);
+  });
+});

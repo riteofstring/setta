@@ -147,3 +147,33 @@ Environment: darwin arm64, 8 cores, Node v24.18.1, Playwright 1.62.1, CPU thrott
 | nested-freeform | 2    | 1 (cold) | 0.3                        | null                           | 9.3                     | 9.4                    | 0           | none              |
 | nested-freeform | 2    | 2        | 0                          | null                           | 9                       | 9.4                    | 0           | none              |
 | nested-freeform | 2    | 3        | 0                          | null                           | 8.8                     | 9.4                    | 0           | none              |
+
+## phase-1-region-index — 2026-08-10T10:04:49.886Z
+
+Environment: darwin arm64, 8 cores, Node v24.18.1, Playwright 1.62.1, CPU throttle 1x, 3 passes per zoom.
+
+### development
+
+| Scenario        | Zoom | Pass     | Pointer-down handlers (ms) | First mutation after down (ms) | Activation max gap (ms) | Sustained max gap (ms) | Gaps >32 ms | Long tasks ≥50 ms |
+| --------------- | ---- | -------- | -------------------------- | ------------------------------ | ----------------------- | ---------------------- | ----------- | ----------------- |
+| structural-sort | 0.5  | 1 (cold) | 47.4                       | 4.1                            | 67.8                    | 25.1                   | 1           | none              |
+| structural-sort | 0.5  | 2        | 26.1                       | 4.6                            | 43                      | 10.2                   | 1           | none              |
+| structural-sort | 0.5  | 3        | 26.2                       | 4.4                            | 33.9                    | 9.5                    | 1           | none              |
+| structural-sort | 1    | 1 (cold) | 50.7                       | 3.3                            | 59.7                    | 16.7                   | 1           | 1 (max 51 ms)     |
+| structural-sort | 1    | 2        | 25.1                       | 4.1                            | 41.5                    | 10.3                   | 1           | none              |
+| structural-sort | 1    | 3        | 25.8                       | 4.8                            | 33.4                    | 10.2                   | 1           | none              |
+
+## phase-1-region-index — 2026-08-10T10:05:10.954Z
+
+Environment: darwin arm64, 8 cores, Node v24.18.1, Playwright 1.62.1, CPU throttle 1x, 3 passes per zoom.
+
+### production
+
+| Scenario        | Zoom | Pass     | Pointer-down handlers (ms) | First mutation after down (ms) | Activation max gap (ms) | Sustained max gap (ms) | Gaps >32 ms | Long tasks ≥50 ms |
+| --------------- | ---- | -------- | -------------------------- | ------------------------------ | ----------------------- | ---------------------- | ----------- | ----------------- |
+| structural-sort | 0.5  | 1 (cold) | 34.8                       | 3.9                            | 50                      | 10.3                   | 1           | none              |
+| structural-sort | 0.5  | 2        | 25.1                       | 3                              | 23.6                    | 10.2                   | 0           | none              |
+| structural-sort | 0.5  | 3        | 24.2                       | 2.9                            | 25.6                    | 10.3                   | 0           | none              |
+| structural-sort | 1    | 1 (cold) | 25.5                       | 2.1                            | 25                      | 10.3                   | 0           | none              |
+| structural-sort | 1    | 2        | 24.4                       | 2.7                            | 25                      | 10.2                   | 0           | none              |
+| structural-sort | 1    | 3        | 23.3                       | 1.7                            | 16.7                    | 10.3                   | 0           | none              |

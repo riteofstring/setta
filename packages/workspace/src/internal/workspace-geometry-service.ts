@@ -16,10 +16,30 @@ export type MeasuredWorkspaceElement = Omit<MeasuredWorkspaceFrame, "rect"> & {
   element: HTMLElement;
 };
 
+export type MeasuredWorkspaceChildRegionElement = Readonly<{
+  element: HTMLElement;
+  parentSectionId: string;
+}>;
+
+export type MeasuredWorkspaceChildRegion = Readonly<{
+  columnGap: number | null;
+  direction: "ltr" | "rtl";
+  element: HTMLElement;
+  parentSectionId: string;
+  rowGap: number | null;
+  surface: HTMLElement | null;
+  surfaceWorkspaceRect: WorkspaceRect | null;
+  workspaceRect: WorkspaceRect;
+}>;
+
 type RegisteredMeasuredElement = MeasuredWorkspaceElement & {
   frame: MeasuredWorkspaceFrame | null;
   registration: GeometryRegistration | null;
   token: symbol;
+};
+
+type RegisteredChildRegionElement = MeasuredWorkspaceChildRegionElement & {
+  measured: MeasuredWorkspaceChildRegion | null;
 };
 
 type RetainedMeasuredElement = Readonly<{
@@ -44,9 +64,15 @@ type PendingFocusRequest = Readonly<{
 }>;
 
 const SAME_FRAME_TOLERANCE = 0.01;
+const WORKSPACE_CHILD_SURFACE_SELECTOR = ":scope > [data-workspace-child-surface]";
 
 function screenRect(rect: DOMRect): ScreenRect {
   return { height: rect.height, width: rect.width, x: rect.x, y: rect.y };
+}
+
+function parsedLayoutGap(value: string | undefined): number | null {
+  const gap = Number.parseFloat(value ?? "");
+  return Number.isFinite(gap) && gap >= 0 ? gap : null;
 }
 
 function measuredFramesMatch(left: MeasuredWorkspaceFrame, right: MeasuredWorkspaceFrame): boolean {
@@ -146,6 +172,7 @@ async function waitForFocusReconciliation(
 }
 
 export class WorkspaceGeometryMeasurements {
+  readonly #childRegions = new Map<string, RegisteredChildRegionElement>();
   readonly #entries = new Map<string, RegisteredMeasuredElement>();
   readonly #geometryIndex: WorkspaceGeometryIndex;
   readonly #pendingFocus = new Map<string, Set<PendingFocusRequest>>();
@@ -183,6 +210,37 @@ export class WorkspaceGeometryMeasurements {
     this.requestMeasurement();
 
     return () => this.#unregister(entry);
+  }
+
+  /**
+   * Track one section's child drop region so structural-move sessions can
+   * source region geometry from the measurement cache instead of forcing
+   * layout with direct DOM reads inside the drag-activation dispatch.
+   */
+  registerChildRegion(regionElement: MeasuredWorkspaceChildRegionElement): () => void {
+    if (this.#childRegions.has(regionElement.parentSectionId)) {
+      throw new Error(
+        `Section ${regionElement.parentSectionId} already has a measured child region.`,
+      );
+    }
+    const entry: RegisteredChildRegionElement = { ...regionElement, measured: null };
+    this.#childRegions.set(entry.parentSectionId, entry);
+    this.#requireResizeObserver(entry.element).observe(entry.element);
+    this.requestMeasurement();
+    return () => {
+      if (this.#childRegions.get(entry.parentSectionId) !== entry) {
+        return;
+      }
+      this.#resizeObserver?.unobserve(entry.element);
+      this.#childRegions.delete(entry.parentSectionId);
+      this.#disconnectUnusedResizeObserver();
+    };
+  }
+
+  childRegions(): ReadonlyMap<string, MeasuredWorkspaceChildRegion | null> {
+    return new Map(
+      [...this.#childRegions].map(([parentSectionId, entry]) => [parentSectionId, entry.measured]),
+    );
   }
 
   setRetainedSectionIds(sectionIds: readonly string[]): void {
@@ -462,7 +520,11 @@ export class WorkspaceGeometryMeasurements {
       );
       this.#settleUnavailableFocus(entry.sectionId);
     }
-    if (this.#entries.size === 0) {
+    this.#disconnectUnusedResizeObserver();
+  }
+
+  #disconnectUnusedResizeObserver(): void {
+    if (this.#entries.size === 0 && this.#childRegions.size === 0) {
       this.#resizeObserver?.disconnect();
       this.#resizeObserver = null;
     }
@@ -487,13 +549,41 @@ export class WorkspaceGeometryMeasurements {
   }
 
   #measureAll(): void {
-    if (!this.#canvasElement || this.#entries.size === 0) {
+    if (!this.#canvasElement || (this.#entries.size === 0 && this.#childRegions.size === 0)) {
       return;
     }
     const canvasBounds = screenRect(this.#canvasElement.getBoundingClientRect());
     for (const entry of this.#entries.values()) {
       this.#measure(entry, canvasBounds);
     }
+    for (const entry of this.#childRegions.values()) {
+      this.#measureChildRegion(entry, canvasBounds);
+    }
+  }
+
+  #measureChildRegion(entry: RegisteredChildRegionElement, canvasBounds: ScreenRect): void {
+    const style = entry.element.ownerDocument.defaultView?.getComputedStyle(entry.element);
+    const surface = entry.element.querySelector<HTMLElement>(WORKSPACE_CHILD_SURFACE_SELECTOR);
+    entry.measured = {
+      columnGap: parsedLayoutGap(style?.columnGap),
+      direction: style?.direction === "rtl" ? "rtl" : "ltr",
+      element: entry.element,
+      parentSectionId: entry.parentSectionId,
+      rowGap: parsedLayoutGap(style?.rowGap),
+      surface,
+      surfaceWorkspaceRect: surface
+        ? clientRectToWorkspace(
+            screenRect(surface.getBoundingClientRect()),
+            canvasBounds,
+            this.#viewport,
+          )
+        : null,
+      workspaceRect: clientRectToWorkspace(
+        screenRect(entry.element.getBoundingClientRect()),
+        canvasBounds,
+        this.#viewport,
+      ),
+    };
   }
 
   #measure(entry: RegisteredMeasuredElement, canvasBounds: ScreenRect): void {
@@ -528,6 +618,7 @@ export class WorkspaceGeometryMeasurements {
     for (const entry of this.#retainedEntries.values()) {
       entry.registration.dispose();
     }
+    this.#childRegions.clear();
     this.#entries.clear();
     this.#retainedEntries.clear();
     this.#settleDetachedFocus();

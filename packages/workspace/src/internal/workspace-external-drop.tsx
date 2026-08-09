@@ -305,15 +305,18 @@ export function useWorkspaceExternalDrop<TSectionData = WorkspaceJsonValue>({
       if (flush) {
         geometry.flushMeasurement();
       }
-      const canvas = geometry.canvasElement();
-      if (!canvas) {
+      if (!geometry.canvasElement()) {
         return { reason: "The workspace drop surface is unavailable.", status: "rejected" };
       }
       const currentDocument = documentRef.current;
-      const regions = captureWorkspaceSectionFreeformRegions(canvas, currentDocument, {
-        canvasBounds: geometry.canvasBounds(),
-        viewport: geometry.currentViewport(),
-      });
+      const regions = captureWorkspaceSectionFreeformRegions(
+        currentDocument,
+        {
+          canvasBounds: geometry.canvasBounds(),
+          viewport: geometry.currentViewport(),
+        },
+        geometry.childRegions(),
+      );
       if (!regions.allowed) {
         return { reason: regions.reason, status: "rejected" };
       }

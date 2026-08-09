@@ -1,5 +1,9 @@
 import type { WorkspaceDocument } from "../core.js";
-import { clientRectToWorkspace, type WorkspaceRect } from "./geometry-index.js";
+import {
+  clientRectToWorkspace,
+  workspaceRectToClient,
+  type WorkspaceRect,
+} from "./geometry-index.js";
 import {
   createInteractionRect,
   type InteractionPoint,
@@ -10,18 +14,18 @@ import {
   selectionContainsSectionOrAncestor,
   type SectionHierarchySnapshot,
 } from "./selection-planning.js";
-import type {
-  WorkspaceSectionMoveDirection,
-  WorkspaceSectionMoveRegion,
-} from "./workspace-section-move-collision.js";
-
-const WORKSPACE_SECTION_CHILD_REGION_ATTRIBUTE = "data-workspace-section-child-region";
-const WORKSPACE_FREEFORM_SURFACE_SELECTOR = ":scope > [data-workspace-freeform-child-surface]";
+import type { MeasuredWorkspaceChildRegion } from "./workspace-geometry-service.js";
+import type { WorkspaceSectionMoveRegion } from "./workspace-section-move-collision.js";
 
 export type WorkspaceSectionMoveGeometryFrame = Readonly<{
   canvasBounds: WorkspaceRect;
   viewport: ViewportTransform;
 }>;
+
+export type WorkspaceMeasuredChildRegions = ReadonlyMap<
+  string,
+  MeasuredWorkspaceChildRegion | null
+>;
 
 export type WorkspaceSectionFreeformRegion = Readonly<{
   clientRect: InteractionRect;
@@ -107,46 +111,48 @@ export function resolveWorkspaceSectionInvalidMoveRegion({
   );
 }
 
-function logicalDirection(region: HTMLElement): WorkspaceSectionMoveDirection {
-  return region.ownerDocument.defaultView?.getComputedStyle(region).direction === "rtl"
-    ? "rtl"
-    : "ltr";
-}
-
-function layoutGap(region: HTMLElement, orientation: "horizontal" | "vertical"): number | null {
-  const style = region.ownerDocument.defaultView?.getComputedStyle(region);
-  const value = style ? (orientation === "horizontal" ? style.columnGap : style.rowGap) : "";
-  const gap = Number.parseFloat(value);
-  return Number.isFinite(gap) && gap >= 0 ? gap : null;
-}
-
 export function workspaceScreenRect(rect: DOMRect): InteractionRect {
   return createInteractionRect(rect.x, rect.y, rect.width, rect.height);
 }
 
-function freeformRegion(
-  element: HTMLElement,
-  parentSectionId: string,
+function regionClientRect(
+  rect: WorkspaceRect,
   frame: WorkspaceSectionMoveGeometryFrame,
-): WorkspaceSectionFreeformRegion | null {
-  const surface = element.querySelector<HTMLElement>(WORKSPACE_FREEFORM_SURFACE_SELECTOR);
-  if (!surface) {
-    return null;
+): InteractionRect {
+  const client = workspaceRectToClient(rect, frame.canvasBounds, frame.viewport);
+  return createInteractionRect(client.x, client.y, client.width, client.height);
+}
+
+function documentOrderSectionIds<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+): readonly string[] {
+  const ordered: string[] = [];
+  const visit = (sectionId: string): void => {
+    ordered.push(sectionId);
+    for (const childId of document.sections[sectionId]?.childLayout?.sectionIds ?? []) {
+      visit(childId);
+    }
+  };
+  for (const root of document.rootSections) {
+    visit(root.sectionId);
   }
-  const clientRect = workspaceScreenRect(element.getBoundingClientRect());
-  const surfaceClientRect = workspaceScreenRect(surface.getBoundingClientRect());
+  return ordered;
+}
+
+function freeformRegionFromMeasurement(
+  measured: MeasuredWorkspaceChildRegion,
+  surface: HTMLElement,
+  surfaceWorkspaceRect: WorkspaceRect,
+  frame: WorkspaceSectionMoveGeometryFrame,
+): WorkspaceSectionFreeformRegion {
   return {
-    clientRect,
-    element,
-    parentSectionId,
+    clientRect: regionClientRect(measured.workspaceRect, frame),
+    element: measured.element,
+    parentSectionId: measured.parentSectionId,
     surface,
-    surfaceClientRect,
-    surfaceWorkspaceRect: clientRectToWorkspace(
-      surfaceClientRect,
-      frame.canvasBounds,
-      frame.viewport,
-    ),
-    workspaceRect: clientRectToWorkspace(clientRect, frame.canvasBounds, frame.viewport),
+    surfaceClientRect: regionClientRect(surfaceWorkspaceRect, frame),
+    surfaceWorkspaceRect,
+    workspaceRect: measured.workspaceRect,
   };
 }
 
@@ -183,33 +189,34 @@ export function refreshWorkspaceSectionFreeformRegions(
 }
 
 export function captureWorkspaceSectionFreeformRegions<TSectionData>(
-  canvas: HTMLElement,
   document: WorkspaceDocument<TSectionData>,
   frame: WorkspaceSectionMoveGeometryFrame,
+  measuredRegions: WorkspaceMeasuredChildRegions,
 ): WorkspaceSectionFreeformRegionCapture {
   const freeformRegions: WorkspaceSectionFreeformRegion[] = [];
-  const seen = new Set<string>();
-  const elements = canvas.querySelectorAll<HTMLElement>(
-    `[${WORKSPACE_SECTION_CHILD_REGION_ATTRIBUTE}]`,
-  );
-  for (const element of elements) {
-    const parentSectionId = element.getAttribute(WORKSPACE_SECTION_CHILD_REGION_ATTRIBUTE);
-    const layout = parentSectionId ? document.sections[parentSectionId]?.childLayout : undefined;
-    if (!parentSectionId || layout?.positioning !== "freeform") {
+  for (const sectionId of documentOrderSectionIds(document)) {
+    if (!measuredRegions.has(sectionId)) {
       continue;
     }
-    if (seen.has(parentSectionId)) {
-      return { allowed: false, reason: "A freeform drop destination region is duplicated." };
+    const layout = document.sections[sectionId]?.childLayout;
+    if (layout?.positioning !== "freeform") {
+      continue;
     }
-    seen.add(parentSectionId);
-    const region = freeformRegion(element, parentSectionId, frame);
-    if (!region) {
+    const measured = measuredRegions.get(sectionId);
+    if (!measured?.surface || !measured.surfaceWorkspaceRect) {
       return {
         allowed: false,
-        reason: `The ${parentSectionId} freeform drop surface is unavailable.`,
+        reason: `The ${sectionId} freeform drop surface is unavailable.`,
       };
     }
-    freeformRegions.push(region);
+    freeformRegions.push(
+      freeformRegionFromMeasurement(
+        measured,
+        measured.surface,
+        measured.surfaceWorkspaceRect,
+        frame,
+      ),
+    );
   }
   return { allowed: true, freeformRegions };
 }
@@ -223,63 +230,74 @@ type CapturedWorkspaceSectionMoveRegion =
   | Readonly<{ allowed: false; reason: string }>;
 
 function captureWorkspaceSectionMoveRegion<TSectionData>(
-  element: HTMLElement,
   document: WorkspaceDocument<TSectionData>,
   frame: WorkspaceSectionMoveGeometryFrame,
-  seen: Set<string>,
+  parentSectionId: string,
+  measured: MeasuredWorkspaceChildRegion | null,
 ): CapturedWorkspaceSectionMoveRegion {
-  const parentSectionId = element.getAttribute(WORKSPACE_SECTION_CHILD_REGION_ATTRIBUTE);
-  if (!parentSectionId) {
-    return { allowed: false, reason: "A section move destination region is invalid." };
-  }
-  if (seen.has(parentSectionId)) {
-    return { allowed: false, reason: "A section move destination region is invalid." };
-  }
   const layout = document.sections[parentSectionId]?.childLayout;
   if (!layout) {
     return { allowed: false, reason: "A section move destination region is invalid." };
   }
-  seen.add(parentSectionId);
-  if (layout.positioning === "freeform") {
-    const capturedFreeformRegion = freeformRegion(element, parentSectionId, frame);
-    return capturedFreeformRegion
-      ? { allowed: true, freeformRegion: capturedFreeformRegion }
-      : {
-          allowed: false,
-          reason: `The ${parentSectionId} freeform movement surface is unavailable.`,
-        };
+  if (!measured) {
+    return {
+      allowed: false,
+      reason: `The ${parentSectionId} drop destination region is not completely measured.`,
+    };
   }
-  const gap = layoutGap(element, layout.orientation);
+  if (layout.positioning === "freeform") {
+    if (!measured.surface || !measured.surfaceWorkspaceRect) {
+      return {
+        allowed: false,
+        reason: `The ${parentSectionId} freeform movement surface is unavailable.`,
+      };
+    }
+    return {
+      allowed: true,
+      freeformRegion: freeformRegionFromMeasurement(
+        measured,
+        measured.surface,
+        measured.surfaceWorkspaceRect,
+        frame,
+      ),
+    };
+  }
+  const gap = layout.orientation === "horizontal" ? measured.columnGap : measured.rowGap;
   if (gap === null) {
     return { allowed: false, reason: `The ${parentSectionId} layout gap is unavailable.` };
   }
-  const clientRect = workspaceScreenRect(element.getBoundingClientRect());
   return {
     allowed: true,
     region: {
-      clientRect,
-      direction: logicalDirection(element),
+      clientRect: regionClientRect(measured.workspaceRect, frame),
+      direction: measured.direction,
       gap,
       orientation: layout.orientation,
       parentSectionId,
-      workspaceRect: clientRectToWorkspace(clientRect, frame.canvasBounds, frame.viewport),
+      workspaceRect: measured.workspaceRect,
     },
   };
 }
 
 export function captureWorkspaceSectionMoveRegions<TSectionData>(
-  canvas: HTMLElement,
   document: WorkspaceDocument<TSectionData>,
   frame: WorkspaceSectionMoveGeometryFrame,
+  measuredRegions: WorkspaceMeasuredChildRegions,
 ): WorkspaceSectionMoveRegionCapture {
   const freeformRegions: WorkspaceSectionFreeformRegion[] = [];
   const regions: WorkspaceSectionMoveRegion[] = [];
-  const seen = new Set<string>();
-  const elements = canvas.querySelectorAll<HTMLElement>(
-    `[${WORKSPACE_SECTION_CHILD_REGION_ATTRIBUTE}]`,
-  );
-  for (const element of elements) {
-    const captured = captureWorkspaceSectionMoveRegion(element, document, frame, seen);
+  let visited = 0;
+  for (const sectionId of documentOrderSectionIds(document)) {
+    if (!measuredRegions.has(sectionId)) {
+      continue;
+    }
+    visited += 1;
+    const captured = captureWorkspaceSectionMoveRegion(
+      document,
+      frame,
+      sectionId,
+      measuredRegions.get(sectionId) ?? null,
+    );
     if (!captured.allowed) {
       return captured;
     }
@@ -289,6 +307,9 @@ export function captureWorkspaceSectionMoveRegions<TSectionData>(
     if (captured.region) {
       regions.push(captured.region);
     }
+  }
+  if (visited !== measuredRegions.size) {
+    return { allowed: false, reason: "A section move destination region is invalid." };
   }
   return { allowed: true, freeformRegions, regions };
 }
