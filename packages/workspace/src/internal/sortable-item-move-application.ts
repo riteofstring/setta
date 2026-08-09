@@ -5,14 +5,14 @@ import {
   type SortableItemTreeIndex,
 } from "./sortable-item-tree-validation.js";
 
-const planKeys = ["destinationIndex", "destinationParentId", "itemIds", "sourceParentId"] as const;
+const planKeys = ["destinationIndex", "destinationParentId", "itemIds", "sourceParentIds"] as const;
 
 type ValidatedItemMove = Readonly<{
   destinationChildren: readonly string[];
   index: SortableItemTreeIndex;
   itemIds: readonly string[];
   plan: ItemMovePlan;
-  sourceChildren: readonly string[];
+  sourceChildrenByParent: ReadonlyMap<string, readonly string[]>;
 }>;
 
 function nonEmptyId(value: unknown, label: string): string {
@@ -57,30 +57,44 @@ function knownParent(value: unknown, index: SortableItemTreeIndex, label: string
 
 function validateSourceOrder(
   itemIds: readonly string[],
-  sourceParentId: string,
-  sourceChildren: readonly string[],
+  value: unknown,
   index: SortableItemTreeIndex,
-): void {
-  if (itemIds.some((itemId) => index.parentByItem.get(itemId) !== sourceParentId)) {
-    throw new TypeError("Sortable item move plan items must share the declared source parent.");
+): readonly string[] {
+  if (!isDenseArray(value) || value.length !== itemIds.length) {
+    throw new TypeError(
+      "Sortable item move plan sourceParentIds must align with every moving item.",
+    );
   }
+  const sourceParentIds = Object.freeze(
+    value.map((candidate, itemIndex) => {
+      const parentId = knownParent(
+        candidate,
+        index,
+        `Sortable item move plan sourceParentIds at index ${String(itemIndex)}`,
+      );
+      if (index.parentByItem.get(itemIds[itemIndex] as string) !== parentId) {
+        throw new TypeError(
+          "Sortable item move plan sourceParentIds must match canonical item placement.",
+        );
+      }
+      return parentId;
+    }),
+  );
   const moving = new Set(itemIds);
-  const canonical = sourceChildren.filter((itemId) => moving.has(itemId));
+  const canonical = index.itemOrder.filter((itemId) => moving.has(itemId));
   if (!arraysEqual(canonical, itemIds)) {
-    throw new TypeError("Sortable item move plan items must follow canonical sibling order.");
+    throw new TypeError("Sortable item move plan items must follow canonical tree order.");
   }
+  return sourceParentIds;
 }
 
 function validateDestinationIndex(
   value: unknown,
   destinationChildren: readonly string[],
   itemIds: readonly string[],
-  sameParent: boolean,
 ): number {
   const moving = new Set(itemIds);
-  const maximum = sameParent
-    ? destinationChildren.filter((itemId) => !moving.has(itemId)).length
-    : destinationChildren.length;
+  const maximum = destinationChildren.filter((itemId) => !moving.has(itemId)).length;
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > maximum) {
     throw new TypeError(
       `Sortable item move plan destinationIndex must be an integer from 0 through ${String(maximum)}.`,
@@ -117,24 +131,17 @@ function validateItemMove(tree: SortableItemTree, value: ItemMovePlan): Validate
     "sortable item move plan field",
   );
   const itemIds = planItemIds(record.itemIds, index);
-  const sourceParentId = knownParent(
-    record.sourceParentId,
-    index,
-    "Sortable item move plan sourceParentId",
-  );
+  const sourceParentIds = validateSourceOrder(itemIds, record.sourceParentIds, index);
   const destinationParentId = knownParent(
     record.destinationParentId,
     index,
     "Sortable item move plan destinationParentId",
   );
-  const sourceChildren = index.childrenByParent.get(sourceParentId) ?? [];
   const destinationChildren = index.childrenByParent.get(destinationParentId) ?? [];
-  validateSourceOrder(itemIds, sourceParentId, sourceChildren, index);
   const destinationIndex = validateDestinationIndex(
     record.destinationIndex,
     destinationChildren,
     itemIds,
-    sourceParentId === destinationParentId,
   );
   validateNoCycle(destinationParentId, itemIds, index);
   return {
@@ -145,9 +152,14 @@ function validateItemMove(tree: SortableItemTree, value: ItemMovePlan): Validate
       destinationIndex,
       destinationParentId,
       itemIds,
-      sourceParentId,
+      sourceParentIds,
     }),
-    sourceChildren,
+    sourceChildrenByParent: new Map(
+      [...new Set(sourceParentIds)].map((parentId) => [
+        parentId,
+        index.childrenByParent.get(parentId) ?? [],
+      ]),
+    ),
   };
 }
 
@@ -191,23 +203,24 @@ export function applySortableItemMove(
 ): SortableItemTree {
   const move = validateItemMove(tree, value);
   const moving = new Set(move.itemIds);
-  const sameParent = move.plan.sourceParentId === move.plan.destinationParentId;
   const destination = nextParentChildren(
     move.destinationChildren,
     moving,
     move.plan.destinationIndex,
     move.itemIds,
   );
-  if (sameParent && arraysEqual(move.sourceChildren, destination)) {
-    return tree;
-  }
   const updates = new Map<string, readonly string[]>();
   updates.set(move.plan.destinationParentId, destination);
-  if (!sameParent) {
-    updates.set(
-      move.plan.sourceParentId,
-      nextParentChildren(move.sourceChildren, moving, null, move.itemIds),
-    );
+  for (const [sourceParentId, sourceChildren] of move.sourceChildrenByParent) {
+    if (sourceParentId === move.plan.destinationParentId) continue;
+    updates.set(sourceParentId, nextParentChildren(sourceChildren, moving, null, move.itemIds));
+  }
+  if (
+    [...updates].every(([parentId, children]) =>
+      arraysEqual(move.index.childrenByParent.get(parentId) ?? [], children),
+    )
+  ) {
+    return tree;
   }
   return Object.freeze({
     childrenByParent: childrenRecord(tree, move.index, updates),

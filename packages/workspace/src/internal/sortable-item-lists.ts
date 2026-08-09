@@ -17,11 +17,10 @@ export type SortableItemList = Readonly<{
 }>;
 
 export type SortableItemListDragBlock = Readonly<{
-  fallbackReason: string | null;
   itemIds: readonly string[];
   selectedItemIds: readonly string[];
-  sourceListId: string;
-  sourceParentId: string;
+  sourceListIds: readonly string[];
+  sourceParentIds: readonly string[];
 }>;
 
 export type SortableItemListMovePlan = Readonly<{
@@ -29,8 +28,8 @@ export type SortableItemListMovePlan = Readonly<{
   destinationListId: string;
   destinationParentId: string;
   itemIds: readonly string[];
-  sourceListId: string;
-  sourceParentId: string;
+  sourceListIds: readonly string[];
+  sourceParentIds: readonly string[];
 }>;
 
 export type SortableItemListMoveRejectionCode =
@@ -94,8 +93,8 @@ const movePlanKeys = [
   "destinationListId",
   "destinationParentId",
   "itemIds",
-  "sourceListId",
-  "sourceParentId",
+  "sourceListIds",
+  "sourceParentIds",
 ] as const;
 
 function requiredField(record: Record<string, unknown>, key: string, label: string): unknown {
@@ -254,15 +253,23 @@ export function sortableItemListPlanFromInternal(
   index: SortableItemListsIndex,
   plan: ItemMovePlan,
 ): SortableItemListMovePlan {
-  const sourceList = listForInternalParent(index, plan.sourceParentId);
   const destinationList = listForInternalParent(index, plan.destinationParentId);
+  const sourceLists = plan.sourceParentIds.map((parentId) =>
+    listForInternalParent(index, parentId),
+  );
   return Object.freeze({
     destinationIndex: plan.destinationIndex,
     destinationListId: destinationList.listId,
     destinationParentId: publicParentId(index, destinationList, plan.destinationParentId),
     itemIds: Object.freeze([...plan.itemIds]),
-    sourceListId: sourceList.listId,
-    sourceParentId: publicParentId(index, sourceList, plan.sourceParentId),
+    sourceListIds: Object.freeze(sourceLists.map((list) => list.listId)),
+    sourceParentIds: Object.freeze(
+      plan.sourceParentIds.map((parentId, itemIndex) => {
+        const sourceList = sourceLists[itemIndex];
+        if (!sourceList) throw new Error("Every moving item must resolve its source list.");
+        return publicParentId(index, sourceList, parentId);
+      }),
+    ),
   });
 }
 
@@ -270,13 +277,20 @@ function publicDragBlock(
   index: SortableItemListsIndex,
   block: SortableItemDragBlock,
 ): SortableItemListDragBlock {
-  const sourceList = listForInternalParent(index, block.sourceParentId);
+  const sourceLists = block.sourceParentIds.map((parentId) =>
+    listForInternalParent(index, parentId),
+  );
   return Object.freeze({
-    fallbackReason: block.fallbackReason,
     itemIds: Object.freeze([...block.itemIds]),
     selectedItemIds: Object.freeze([...block.selectedItemIds]),
-    sourceListId: sourceList.listId,
-    sourceParentId: publicParentId(index, sourceList, block.sourceParentId),
+    sourceListIds: Object.freeze(sourceLists.map((list) => list.listId)),
+    sourceParentIds: Object.freeze(
+      block.sourceParentIds.map((parentId, itemIndex) => {
+        const sourceList = sourceLists[itemIndex];
+        if (!sourceList) throw new Error("Every moving item must resolve its source list.");
+        return publicParentId(index, sourceList, parentId);
+      }),
+    ),
   });
 }
 
@@ -313,17 +327,26 @@ function internalPlanFromPublic(
     "Sortable item list move plan",
     "sortable item list move plan field",
   );
-  const sourceListId = nonEmptyString(
-    requiredField(record, "sourceListId", "Sortable item list move plan"),
-    "Sortable item list move plan sourceListId",
+  const itemIds = denseArrayAt(
+    requiredField(record, "itemIds", "Sortable item list move plan"),
+    "Sortable item list move plan itemIds",
   );
+  const sourceListIds = denseArrayAt(
+    requiredField(record, "sourceListIds", "Sortable item list move plan"),
+    "Sortable item list move plan sourceListIds",
+  );
+  const sourceParentIds = denseArrayAt(
+    requiredField(record, "sourceParentIds", "Sortable item list move plan"),
+    "Sortable item list move plan sourceParentIds",
+  );
+  if (sourceListIds.length !== itemIds.length || sourceParentIds.length !== itemIds.length) {
+    throw new TypeError(
+      "Sortable item list move plan source arrays must align with every moving item.",
+    );
+  }
   const destinationListId = nonEmptyString(
     requiredField(record, "destinationListId", "Sortable item list move plan"),
     "Sortable item list move plan destinationListId",
-  );
-  const sourceParentId = nonEmptyString(
-    requiredField(record, "sourceParentId", "Sortable item list move plan"),
-    "Sortable item list move plan sourceParentId",
   );
   const destinationParentId = nonEmptyString(
     requiredField(record, "destinationParentId", "Sortable item list move plan"),
@@ -341,8 +364,21 @@ function internalPlanFromPublic(
       destinationParentId,
       "Destination",
     ),
-    itemIds: requiredField(record, "itemIds", "Sortable item list move plan") as readonly string[],
-    sourceParentId: internalParentId(index, sourceListId, sourceParentId, "Source"),
+    itemIds: itemIds as readonly string[],
+    sourceParentIds: sourceParentIds.map((parentId, itemIndex) =>
+      internalParentId(
+        index,
+        nonEmptyString(
+          sourceListIds[itemIndex],
+          `Sortable item list move plan sourceListIds at index ${String(itemIndex)}`,
+        ),
+        nonEmptyString(
+          parentId,
+          `Sortable item list move plan sourceParentIds at index ${String(itemIndex)}`,
+        ),
+        "Source",
+      ),
+    ),
   };
 }
 

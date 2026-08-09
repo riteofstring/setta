@@ -84,7 +84,7 @@ describe("filtered sortable item trees", () => {
       destinationIndex: 0,
       destinationParentId: "root",
       itemIds: ["beta"],
-      sourceParentId: "root",
+      sourceParentIds: ["root"],
     } as const;
     const plan = reconcileFilteredSortableItemMove(
       canonical,
@@ -112,7 +112,7 @@ describe("filtered sortable item trees", () => {
         destinationIndex: 2,
         destinationParentId: "root",
         itemIds: ["alpha"],
-        sourceParentId: "root",
+        sourceParentIds: ["root"],
       },
     );
 
@@ -136,7 +136,7 @@ describe("filtered sortable item trees", () => {
         destinationIndex: 1,
         destinationParentId: "root",
         itemIds: ["group"],
-        sourceParentId: "root",
+        sourceParentIds: ["root"],
       },
     );
     const next = applySortableItemMove(canonical, plan);
@@ -152,13 +152,40 @@ describe("filtered sortable item trees", () => {
     expect(next.childrenByParent.group).toEqual(["hidden-child", "visible-child"]);
   });
 
+  it("reconciles mixed visible source parents without disturbing hidden siblings", () => {
+    const canonical = canonicalTree();
+    const plan = reconcileFilteredSortableItemMove(
+      canonical,
+      ["alpha", "beta", "group", "visible-child"],
+      {
+        destinationIndex: 0,
+        destinationParentId: "root",
+        itemIds: ["beta", "visible-child"],
+        sourceParentIds: ["root", "group"],
+      },
+    );
+    const next = applySortableItemMove(canonical, plan);
+
+    expect(plan.destinationIndex).toBe(1);
+    expect(next.childrenByParent.root).toEqual([
+      "hidden-first",
+      "beta",
+      "visible-child",
+      "alpha",
+      "hidden-middle",
+      "group",
+      "hidden-last",
+    ]);
+    expect(next.childrenByParent.group).toEqual(["hidden-child"]);
+  });
+
   it("appends to a destination with no visible children while preserving hidden order", () => {
     const canonical = canonicalTree();
     const plan = reconcileFilteredSortableItemMove(canonical, ["alpha", "group"], {
       destinationIndex: 0,
       destinationParentId: "group",
       itemIds: ["alpha"],
-      sourceParentId: "root",
+      sourceParentIds: ["root"],
     });
     const next = applySortableItemMove(canonical, plan);
 
@@ -173,7 +200,7 @@ describe("filtered sortable item trees", () => {
         destinationIndex: 1,
         destinationParentId: "root",
         itemIds: ["hidden-middle"],
-        sourceParentId: "root",
+        sourceParentIds: ["root"],
       }),
     ).toThrow('move plan item "hidden-middle" is unknown');
     expect(() =>
@@ -181,7 +208,7 @@ describe("filtered sortable item trees", () => {
         destinationIndex: 3,
         destinationParentId: "root",
         itemIds: ["alpha"],
-        sourceParentId: "root",
+        sourceParentIds: ["root"],
       }),
     ).toThrow("destinationIndex must be an integer from 0 through 1");
   });

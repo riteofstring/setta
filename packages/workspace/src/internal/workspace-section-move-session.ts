@@ -74,6 +74,8 @@ export type WorkspaceSectionMovePreviewResolution = Readonly<{
 
 export type WorkspaceSectionMoveSession<TSectionData = unknown> = Readonly<{
   activeSectionId: string;
+  activeSelectionRootId: string;
+  activeSourceParentId: string | null;
   activatorClientPoint: InteractionPoint | null;
   clientRectsById: Readonly<Record<string, InteractionRect>>;
   collisionState: CollisionTrackerState;
@@ -84,7 +86,7 @@ export type WorkspaceSectionMoveSession<TSectionData = unknown> = Readonly<{
   regions: readonly WorkspaceSectionMoveRegion[];
   sectionIds: readonly string[];
   sourceClientBounds: ScreenRect;
-  sourceParentId: string | null;
+  sourceParentIds: readonly (string | null)[];
   sourceRects: Readonly<Record<string, WorkspaceRect>>;
   sourceWorkspaceBounds: WorkspaceRect;
   startWorkspacePoint: WorkspacePoint | null;
@@ -253,18 +255,37 @@ function captureMoveRegions<TSectionData>(
 
 function validateSortRegion(
   mode: WorkspaceSectionMoveMode,
-  sourceParentId: string | null,
+  sourceParentIds: readonly (string | null)[],
   regions: readonly WorkspaceSectionMoveRegion[],
 ): string | null {
   if (mode !== "sort") {
     return null;
   }
+  const uniqueParents = new Set(sourceParentIds);
+  if (uniqueParents.size !== 1) {
+    return "Sorting mode requires selected sections to share one nested parent.";
+  }
+  const sourceParentId = sourceParentIds[0] ?? null;
   if (sourceParentId === null) {
     return "Top-level sections are spatial and cannot use sorting mode.";
   }
   return regions.some((region) => region.parentSectionId === sourceParentId)
     ? null
     : "The source container is unavailable.";
+}
+
+function activeSelectionRoot(
+  activeSectionId: string,
+  sectionIds: readonly string[],
+  hierarchy: SectionHierarchySnapshot,
+): string {
+  const roots = new Set(sectionIds);
+  let sectionId: string | null = activeSectionId;
+  while (sectionId !== null) {
+    if (roots.has(sectionId)) return sectionId;
+    sectionId = hierarchy.parentByChild[sectionId] ?? null;
+  }
+  throw new Error("The active section is outside the normalized movement selection.");
 }
 
 export function createWorkspaceSectionMoveSession<TSectionData>({
@@ -303,16 +324,20 @@ export function createWorkspaceSectionMoveSession<TSectionData>({
   }
   const sortReason = validateSortRegion(
     mode,
-    selection.block.sourceParentId,
+    selection.block.sourceParentIds,
     regionCapture.regions,
   );
   if (sortReason) {
     return { allowed: false, reason: sortReason };
   }
+  const activeRootId = activeSelectionRoot(activeSectionId, selection.block.sectionIds, hierarchy);
+  const activeRootIndex = selection.block.sectionIds.indexOf(activeRootId);
   return {
     allowed: true,
     session: {
       activeSectionId,
+      activeSelectionRootId: activeRootId,
+      activeSourceParentId: selection.block.sourceParentIds[activeRootIndex] ?? null,
       activatorClientPoint,
       clientRectsById: source.clientRectsById,
       collisionState: EMPTY_COLLISION_TRACKER_STATE,
@@ -327,7 +352,7 @@ export function createWorkspaceSectionMoveSession<TSectionData>({
         source.frame.canvasBounds,
         source.frame.viewport,
       ),
-      sourceParentId: selection.block.sourceParentId,
+      sourceParentIds: selection.block.sourceParentIds,
       sourceRects: source.rects,
       sourceWorkspaceBounds: source.workspaceBounds,
       startWorkspacePoint: activatorClientPoint
@@ -824,7 +849,7 @@ export function resolveWorkspaceSectionMovePreview<TSectionData>({
     previousState: session.collisionState,
     regions: session.regions,
     sectionIds: session.sectionIds,
-    sourceParentId: session.sourceParentId,
+    sourceParentId: session.activeSourceParentId,
   });
   if (collision.target) {
     return resolveNestedPreview({

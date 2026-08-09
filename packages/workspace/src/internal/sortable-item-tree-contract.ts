@@ -11,13 +11,12 @@ export type SortableItemKeyboardCommand = "indent" | "move-down" | "move-up" | "
 export type SortableItemDragBlock = Readonly<{
   itemIds: readonly string[];
   selectedItemIds: readonly string[];
-  sourceParentId: string;
-  fallbackReason: string | null;
+  sourceParentIds: readonly string[];
 }>;
 
 export type ItemMovePlan = Readonly<{
   itemIds: readonly string[];
-  sourceParentId: string;
+  sourceParentIds: readonly string[];
   destinationParentId: string;
   destinationIndex: number;
 }>;

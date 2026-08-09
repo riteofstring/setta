@@ -9,15 +9,11 @@ export type SectionHierarchySnapshot = {
 
 export type SelectionBlock = {
   sectionIds: readonly string[];
-  sourceParentId: string | null;
+  sourceParentIds: readonly (string | null)[];
 };
 
 export type SelectionBlockRejectionCode =
-  | "empty-selection"
-  | "mixed-parent-selection"
-  | "parent-cycle"
-  | "root-layout-missing"
-  | "selection-not-direct-children";
+  "empty-selection" | "parent-cycle" | "root-layout-missing" | "selection-not-direct-children";
 
 type SelectionBlockRejection = {
   allowed: false;
@@ -41,15 +37,7 @@ export function resolveSelectionBlock(
   if (!rootResult.allowed) {
     return rootResult;
   }
-  const sharedParentResult = resolveSharedParent(rootResult.rootIds, hierarchy.parentByChild);
-  if (!sharedParentResult.allowed) {
-    return sharedParentResult;
-  }
-  const orderResult = orderSelectionRoots(
-    rootResult.rootIds,
-    sharedParentResult.parentId,
-    hierarchy,
-  );
+  const orderResult = orderSelectionRoots(rootResult.rootIds, hierarchy);
   if (!orderResult.allowed) {
     return orderResult;
   }
@@ -58,7 +46,9 @@ export function resolveSelectionBlock(
     allowed: true,
     block: {
       sectionIds: orderResult.sectionIds,
-      sourceParentId: sharedParentResult.parentId,
+      sourceParentIds: orderResult.sectionIds.map(
+        (sectionId) => hierarchy.parentByChild[sectionId] ?? null,
+      ),
     },
   };
 }
@@ -129,12 +119,12 @@ function hasSelectedAncestor(
   return { allowed: true, hasSelectedAncestor: false };
 }
 
-type ParentResolution = { allowed: true; parentId: string | null } | SelectionBlockRejection;
+type OrderResolution = { allowed: true; sectionIds: readonly string[] } | SelectionBlockRejection;
 
-function resolveSharedParent(
+function orderSelectionRoots(
   sectionIds: readonly string[],
-  parentByChild: Readonly<Record<string, string | null>>,
-): ParentResolution {
+  hierarchy: SectionHierarchySnapshot,
+): OrderResolution {
   const firstId = sectionIds[0];
   if (!firstId) {
     return {
@@ -143,31 +133,48 @@ function resolveSharedParent(
       reason: "No selection roots remain.",
     };
   }
-  const parentId = parentByChild[firstId] ?? null;
-  const hasMixedParents = sectionIds.some(
-    (sectionId) => (parentByChild[sectionId] ?? null) !== parentId,
-  );
-  if (hasMixedParents) {
-    return {
-      allowed: false,
-      code: "mixed-parent-selection",
-      reason: "Selected sections must share one parent for batch movement.",
-    };
+  const parentId = hierarchy.parentByChild[firstId] ?? null;
+  if (sectionIds.every((sectionId) => (hierarchy.parentByChild[sectionId] ?? null) === parentId)) {
+    return parentId
+      ? orderNestedSelection(sectionIds, parentId, hierarchy.childrenByParent)
+      : orderRootSelection(sectionIds, hierarchy);
   }
-  return { allowed: true, parentId };
+  return orderMixedSelection(sectionIds, hierarchy);
 }
 
-type OrderResolution = { allowed: true; sectionIds: readonly string[] } | SelectionBlockRejection;
-
-function orderSelectionRoots(
+function orderMixedSelection(
   sectionIds: readonly string[],
-  parentId: string | null,
   hierarchy: SectionHierarchySnapshot,
 ): OrderResolution {
-  if (parentId) {
-    return orderNestedSelection(sectionIds, parentId, hierarchy.childrenByParent);
+  const selected = new Set(sectionIds);
+  const ordered: string[] = [];
+  const stackIndexById = new Map(
+    hierarchy.rootSectionIds.map((sectionId, index) => [sectionId, index]),
+  );
+  const roots = hierarchy.rootSectionIds
+    .slice()
+    .sort((leftId, rightId) =>
+      compareRootLayout(leftId, rightId, hierarchy.rootPositions, stackIndexById),
+    );
+  const stack = roots.slice().reverse();
+  while (stack.length > 0) {
+    const sectionId = stack.pop();
+    if (sectionId === undefined) break;
+    if (selected.has(sectionId)) ordered.push(sectionId);
+    const children = hierarchy.childrenByParent[sectionId] ?? [];
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      const childId = children[index];
+      if (childId !== undefined) stack.push(childId);
+    }
   }
-  return orderRootSelection(sectionIds, hierarchy);
+  if (ordered.length !== sectionIds.length) {
+    return {
+      allowed: false,
+      code: "selection-not-direct-children",
+      reason: "Selected sections are not all placed in the canonical hierarchy.",
+    };
+  }
+  return { allowed: true, sectionIds: ordered };
 }
 
 function orderNestedSelection(

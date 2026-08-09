@@ -71,12 +71,12 @@ function currentDestination(
     };
   }
   const sourceIds =
-    session.sourceParentId === null
+    session.activeSourceParentId === null
       ? session.hierarchy.rootSectionIds
-      : (session.hierarchy.childrenByParent[session.sourceParentId] ?? []);
+      : (session.hierarchy.childrenByParent[session.activeSourceParentId] ?? []);
   return {
-    index: sourceIds.findIndex((sectionId) => session.sectionIds.includes(sectionId)),
-    parentId: session.sourceParentId,
+    index: sourceIds.indexOf(session.activeSelectionRootId),
+    parentId: session.activeSourceParentId,
   };
 }
 
@@ -306,7 +306,7 @@ function destinationIds(
 }
 
 function canvasDestination(session: WorkspaceSectionMoveSession): KeyboardDestination | null {
-  if (session.sourceParentId === null) {
+  if (session.sourceParentIds.every((parentId) => parentId === null)) {
     return null;
   }
   const topLevelPositions = Object.create(null) as Record<string, WorkspacePoint>;
@@ -356,7 +356,7 @@ function sortUnavailableReason(
   direction: AdapterDndKeyboardDirection,
   session: WorkspaceSectionMoveSession,
 ): string {
-  const region = regionForParent(session.regions, session.sourceParentId);
+  const region = regionForParent(session.regions, session.activeSourceParentId);
   if (!region) {
     return "Keyboard sorting is unavailable because the source container is not measured.";
   }

@@ -11,6 +11,7 @@ import {
   resolveSortableItemDragBlock,
   resolveSortableItemSelectionChange,
   validateSortableItemTree,
+  type ItemMovePlan,
   type SortableItemTree,
   type SortableItemTreeValidationCode,
 } from "../src/core.js";
@@ -200,28 +201,25 @@ describe("sortable item selection planning", () => {
       "group-1",
     ]);
     expect(resolveSortableItemDragBlock(tree(), ["a-2", "a-1"], "a-2")).toEqual({
-      fallbackReason: null,
       itemIds: ["a-1", "a-2"],
       selectedItemIds: ["a-1", "a-2"],
-      sourceParentId: "a",
+      sourceParentIds: ["a", "a"],
     });
   });
 
-  it("keeps mixed-parent selection but falls drag movement back to the active item", () => {
+  it("keeps mixed-parent selection as one canonical movement block", () => {
     expect(resolveSortableItemDragBlock(tree(), ["group-1", "a-1"], "a-1")).toEqual({
-      fallbackReason: 'Selected items do not share one parent. Only "a-1" will move.',
-      itemIds: ["a-1"],
+      itemIds: ["a-1", "group-1"],
       selectedItemIds: ["a-1", "group-1"],
-      sourceParentId: "a",
+      sourceParentIds: ["a", "group"],
     });
   });
 
   it("selects only an unselected active item and rejects stale selection IDs", () => {
     expect(resolveSortableItemDragBlock(tree(), ["a-1", "a-2"], "group-1")).toEqual({
-      fallbackReason: null,
       itemIds: ["group-1"],
       selectedItemIds: ["group-1"],
-      sourceParentId: "group",
+      sourceParentIds: ["group"],
     });
     expect(() => normalizeSortableItemSelectionRoots(tree(), ["missing"])).toThrow(
       '"missing" is not in the sortable item tree',
@@ -246,7 +244,7 @@ describe("sortable item move planning", () => {
         destinationIndex: 1,
         destinationParentId: "root",
         itemIds: ["b"],
-        sourceParentId: "root",
+        sourceParentIds: ["root"],
       },
       status: "planned",
     });
@@ -268,7 +266,7 @@ describe("sortable item move planning", () => {
         destinationIndex: 2,
         destinationParentId: "root",
         itemIds: ["b", "group"],
-        sourceParentId: "root",
+        sourceParentIds: ["root", "root"],
       },
       status: "planned",
     });
@@ -284,7 +282,7 @@ describe("sortable item move planning", () => {
         tree: tree(),
       }),
     ).toMatchObject({
-      plan: { destinationIndex: 1, destinationParentId: "a", sourceParentId: "root" },
+      plan: { destinationIndex: 1, destinationParentId: "a", sourceParentIds: ["root"] },
       status: "planned",
     });
     expect(
@@ -296,7 +294,7 @@ describe("sortable item move planning", () => {
         tree: tree(),
       }),
     ).toMatchObject({
-      plan: { destinationParentId: "group", sourceParentId: "a" },
+      plan: { destinationParentId: "group", sourceParentIds: ["a"] },
       status: "planned",
     });
     expect(
@@ -308,7 +306,7 @@ describe("sortable item move planning", () => {
         tree: tree(),
       }),
     ).toMatchObject({
-      plan: { destinationIndex: 0, destinationParentId: "root", sourceParentId: "group" },
+      plan: { destinationIndex: 0, destinationParentId: "root", sourceParentIds: ["group"] },
       status: "planned",
     });
     expect(
@@ -406,9 +404,10 @@ describe("sortable item move planning", () => {
   });
 
   it("passes one immutable atomic plan to host policy and reports rejection", () => {
-    const canMove = vi.fn((plan: Readonly<{ itemIds: readonly string[] }>) => {
+    const canMove = vi.fn((plan: ItemMovePlan) => {
       expect(Object.isFrozen(plan)).toBe(true);
       expect(Object.isFrozen(plan.itemIds)).toBe(true);
+      expect(Object.isFrozen(plan.sourceParentIds)).toBe(true);
       return false;
     });
     const decision = planSortableItemMove({
@@ -426,11 +425,11 @@ describe("sortable item move planning", () => {
       destinationIndex: 0,
       destinationParentId: "group",
       itemIds: ["a-1", "a-2"],
-      sourceParentId: "a",
+      sourceParentIds: ["a", "a"],
     });
   });
 
-  it("plans only the active item when a selected batch has mixed parents", () => {
+  it("plans a mixed-parent batch against one destination", () => {
     expect(
       planSortableItemMove({
         activeItemId: "a-1",
@@ -441,11 +440,15 @@ describe("sortable item move planning", () => {
       }),
     ).toMatchObject({
       block: {
-        fallbackReason: 'Selected items do not share one parent. Only "a-1" will move.',
-        itemIds: ["a-1"],
+        itemIds: ["a-1", "group-1"],
         selectedItemIds: ["a-1", "group-1"],
+        sourceParentIds: ["a", "group"],
       },
-      plan: { itemIds: ["a-1"] },
+      plan: {
+        destinationParentId: "empty",
+        itemIds: ["a-1", "group-1"],
+        sourceParentIds: ["a", "group"],
+      },
       status: "planned",
     });
   });
@@ -481,7 +484,7 @@ describe("sortable item move application", () => {
       destinationIndex: 2,
       destinationParentId: "root",
       itemIds: ["b", "group"],
-      sourceParentId: "root",
+      sourceParentIds: ["root", "root"],
     });
 
     expect(next).not.toBe(candidate);
@@ -500,7 +503,7 @@ describe("sortable item move application", () => {
       destinationIndex: 0,
       destinationParentId: "empty",
       itemIds: ["a-1", "a-2"],
-      sourceParentId: "a",
+      sourceParentIds: ["a", "a"],
     });
 
     expect(next.childrenByParent.a).toEqual([]);
@@ -517,6 +520,30 @@ describe("sortable item move application", () => {
     ]);
   });
 
+  it("removes mixed-parent roots atomically and keeps complete subtrees attached", () => {
+    const candidate = tree();
+    const next = applySortableItemMove(candidate, {
+      destinationIndex: 0,
+      destinationParentId: "empty",
+      itemIds: ["a-1", "group"],
+      sourceParentIds: ["a", "root"],
+    });
+
+    expect(next.childrenByParent.a).toEqual(["a-2"]);
+    expect(next.childrenByParent.root).toEqual(["b", "a", "empty"]);
+    expect(next.childrenByParent.empty).toEqual(["a-1", "group"]);
+    expect(next.childrenByParent.group).toBe(candidate.childrenByParent.group);
+    expect(getSortableItemOrder(next)).toEqual([
+      "b",
+      "a",
+      "a-2",
+      "empty",
+      "a-1",
+      "group",
+      "group-1",
+    ]);
+  });
+
   it("returns the original tree for a no-op and rejects stale or unsafe plans", () => {
     const candidate = tree();
     expect(
@@ -524,7 +551,7 @@ describe("sortable item move application", () => {
         destinationIndex: 1,
         destinationParentId: "root",
         itemIds: ["a"],
-        sourceParentId: "root",
+        sourceParentIds: ["root"],
       }),
     ).toBe(candidate);
     expect(() =>
@@ -532,7 +559,7 @@ describe("sortable item move application", () => {
         destinationIndex: 0,
         destinationParentId: "a-1",
         itemIds: ["a"],
-        sourceParentId: "root",
+        sourceParentIds: ["root"],
       }),
     ).toThrow("cannot move an item into its own subtree");
     expect(() =>
@@ -540,17 +567,17 @@ describe("sortable item move application", () => {
         destinationIndex: 0,
         destinationParentId: "empty",
         itemIds: ["a-2", "a-1"],
-        sourceParentId: "a",
+        sourceParentIds: ["a", "a"],
       }),
-    ).toThrow("canonical sibling order");
+    ).toThrow("canonical tree order");
     expect(() =>
       applySortableItemMove(candidate, {
         destinationIndex: 0,
         destinationParentId: "empty",
         itemIds: ["a-1"],
-        sourceParentId: "root",
+        sourceParentIds: ["root"],
       }),
-    ).toThrow("share the declared source parent");
+    ).toThrow("must match canonical item placement");
   });
 
   it("preserves prototype-mutator parent IDs in the returned serializable record", () => {
@@ -565,7 +592,7 @@ describe("sortable item move application", () => {
       destinationIndex: 0,
       destinationParentId: "__proto__",
       itemIds: ["constructor"],
-      sourceParentId: "root",
+      sourceParentIds: ["root"],
     });
 
     expect(Object.hasOwn(next.childrenByParent, "__proto__")).toBe(true);
@@ -624,6 +651,25 @@ describe("sortable item keyboard move planning", () => {
         destinationIndex: 2,
         destinationParentId: "root",
         itemIds: ["a-1", "a-2"],
+      },
+      status: "planned",
+    });
+  });
+
+  it("anchors mixed-parent keyboard movement to the active normalized root", () => {
+    const decision = planSortableItemKeyboardMove({
+      activeItemId: "a-1",
+      command: "move-down",
+      selectedItemIds: ["a-1", "group-1"],
+      tree: tree(),
+    });
+
+    expect(decision).toMatchObject({
+      plan: {
+        destinationIndex: 1,
+        destinationParentId: "a",
+        itemIds: ["a-1", "group-1"],
+        sourceParentIds: ["a", "group"],
       },
       status: "planned",
     });

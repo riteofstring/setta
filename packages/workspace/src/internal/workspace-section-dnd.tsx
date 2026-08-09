@@ -104,7 +104,7 @@ export function workspaceSectionMoveDescription({
     return "Movement unavailable because this section is locked.";
   }
   if (selectionMovementBlocked) {
-    return "Movement unavailable because selected sections must share one parent and all selected roots must be unlocked and docked.";
+    return "Movement unavailable because every selected root must be unlocked and docked.";
   }
   if (!structural) {
     return "Drag to move. Use the arrow keys for keyboard movement.";

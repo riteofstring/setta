@@ -1,6 +1,9 @@
 import { optionOverridesAt } from "./runtime-option-validation.js";
 import { planSortableItemMove } from "./sortable-item-move-planning.js";
-import { resolveSortableItemDragBlockFromIndex } from "./sortable-item-selection.js";
+import {
+  resolveSortableItemDragAnchor,
+  resolveSortableItemDragBlockFromIndex,
+} from "./sortable-item-selection.js";
 import type {
   ItemMovePlan,
   SortableItemKeyboardCommand,
@@ -145,12 +148,16 @@ export function planSortableItemKeyboardMove(
     input.selectedItemIds as readonly string[],
     input.activeItemId as string,
   );
-  const sourceChildren = index.childrenByParent.get(block.sourceParentId) ?? [];
+  const anchor = resolveSortableItemDragAnchor(index, block, input.activeItemId as string);
+  const sourceChildren = index.childrenByParent.get(anchor.parentId) ?? [];
+  const movingFromAnchorParent = block.itemIds.filter(
+    (_, itemIndex) => block.sourceParentIds[itemIndex] === anchor.parentId,
+  );
   const destination = keyboardDestination(
     input.command as SortableItemKeyboardCommand,
-    block.sourceParentId,
+    anchor.parentId,
     sourceChildren,
-    block.itemIds,
+    movingFromAnchorParent,
     index.rootId,
     index.parentByItem,
     index.childrenByParent,

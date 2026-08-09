@@ -294,7 +294,7 @@ function previewPlan(overrides: Partial<SectionMovePlan> = {}): SectionMovePlan 
     destinationParentId: "root",
     mode: "sort",
     sectionIds: ["a"],
-    sourceParentId: "root",
+    sourceParentIds: ["root"],
     topLevelPositions: null,
     ...overrides,
   };
@@ -410,7 +410,7 @@ describe("workspace section layout-stable preview", () => {
         destinationParentId: "destination",
         mode: "free",
         sectionIds: ["a", "b"],
-        sourceParentId: "source",
+        sourceParentIds: ["source", "source"],
       }),
       rectsById: {
         a: { height: 10, width: 100, x: 0, y: 0 },
@@ -428,6 +428,55 @@ describe("workspace section layout-stable preview", () => {
     expect(result).toEqual({
       allowed: true,
       preview: { transformsById: { c: { x: 0, y: -40 }, e: { x: 0, y: 40 } } },
+    });
+  });
+
+  it("closes every mixed source layout before opening one destination", () => {
+    const result = resolveWorkspaceSectionMoveLayoutPreview({
+      hierarchy: hierarchy(
+        { destination: ["d", "e"], "source-a": ["a", "x"], "source-b": ["b", "y"] },
+        {
+          a: "source-a",
+          b: "source-b",
+          d: "destination",
+          destination: null,
+          e: "destination",
+          "source-a": null,
+          "source-b": null,
+          x: "source-a",
+          y: "source-b",
+        },
+      ),
+      plan: previewPlan({
+        destinationParentId: "destination",
+        mode: "free",
+        sectionIds: ["a", "b"],
+        sourceParentIds: ["source-a", "source-b"],
+      }),
+      rectsById: {
+        a: { height: 10, width: 100, x: 0, y: 0 },
+        b: { height: 10, width: 100, x: 120, y: 0 },
+        d: { height: 10, width: 100, x: 240, y: 0 },
+        e: { height: 10, width: 100, x: 240, y: 20 },
+        x: { height: 10, width: 100, x: 0, y: 20 },
+        y: { height: 10, width: 100, x: 120, y: 20 },
+      },
+      regions: [
+        region({ parentSectionId: "source-a" }),
+        region({ parentSectionId: "source-b", x: 120 }),
+        region({ parentSectionId: "destination", x: 240 }),
+      ],
+    });
+
+    expect(result).toEqual({
+      allowed: true,
+      preview: {
+        transformsById: {
+          e: { x: 0, y: 40 },
+          x: { x: 0, y: -20 },
+          y: { x: 0, y: -20 },
+        },
+      },
     });
   });
 

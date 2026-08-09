@@ -45,7 +45,7 @@ describe("Phase 0 selection characterization", () => {
       allowed: true,
       block: {
         sectionIds: ["nested"],
-        sourceParentId: "container",
+        sourceParentIds: ["container"],
       },
     });
   });
@@ -55,23 +55,25 @@ describe("Phase 0 selection characterization", () => {
       allowed: true,
       block: {
         sectionIds: ["child-a", "child-b"],
-        sourceParentId: "container",
+        sourceParentIds: ["container", "container"],
       },
     });
     expect(resolveSelectionBlock(["root-b", "root-a"], hierarchy())).toEqual({
       allowed: true,
       block: {
         sectionIds: ["root-a", "root-b"],
-        sourceParentId: null,
+        sourceParentIds: [null, null],
       },
     });
   });
 
-  it("rejects mixed-parent blocks with one specific result", () => {
+  it("orders mixed-parent roots canonically with aligned source parents", () => {
     expect(resolveSelectionBlock(["root-a", "child-a"], hierarchy())).toEqual({
-      allowed: false,
-      code: "mixed-parent-selection",
-      reason: "Selected sections must share one parent for batch movement.",
+      allowed: true,
+      block: {
+        sectionIds: ["root-a", "child-a"],
+        sourceParentIds: [null, "container"],
+      },
     });
   });
 
@@ -94,7 +96,10 @@ describe("Phase 0 selection characterization", () => {
 
     expect(selection).toEqual({
       allowed: true,
-      block: { sectionIds: ["item-a", "item-c"], sourceParentId: "group" },
+      block: {
+        sectionIds: ["item-a", "item-c"],
+        sourceParentIds: ["group", "group"],
+      },
     });
     expect(bounds).toEqual(createInteractionRect(0, 0, 100, 80));
   });
@@ -195,7 +200,7 @@ describe("Phase 0 section-move planning characterization", () => {
         destinationParentId: "container",
         mode: "sort",
         sectionIds: ["child-a"],
-        sourceParentId: "container",
+        sourceParentIds: ["container"],
       },
     });
     if (moved.status === "planned") {
@@ -248,6 +253,30 @@ describe("Phase 0 section-move planning characterization", () => {
       status: "planned",
       plan: { destinationParentId: "nested", destinationIndex: 1 },
     });
+  });
+
+  it("moves mixed-parent roots as one canonical free-move block", () => {
+    const snapshot = hierarchy();
+    const decision = planSectionMove({
+      destination: { parentId: "empty", index: 0, topLevelPositions: null },
+      hierarchy: snapshot,
+      mode: "free",
+      selectedIds: ["child-a", "root-a"],
+    });
+
+    expect(decision).toMatchObject({
+      status: "planned",
+      plan: {
+        destinationParentId: "empty",
+        sectionIds: ["root-a", "child-a"],
+        sourceParentIds: [null, "container"],
+      },
+    });
+    if (decision.status !== "planned") throw new Error("Expected a mixed-parent move plan.");
+    const moved = applySectionMovePlan(snapshot, decision.plan);
+    expect(moved.rootSectionIds).toEqual(["root-b", "container", "empty"]);
+    expect(moved.childrenByParent.container).toEqual(["child-b", "nested"]);
+    expect(moved.childrenByParent.empty).toEqual(["root-a", "child-a"]);
   });
 
   it("inserts into an empty container and preserves selected sibling order", () => {

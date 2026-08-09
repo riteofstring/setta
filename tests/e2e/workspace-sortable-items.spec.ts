@@ -350,6 +350,43 @@ test("an accepted cross-list move survives JSON import and local reload", async 
   await expect.poll(() => namedListOrder(tree, "optional-fields")).toEqual(["notes", "email"]);
 });
 
+test("mixed-parent item roots move as one keyboard block across named lists", async ({ page }) => {
+  await page.setViewportSize({ height: 1_000, width: 1_440 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  const fieldSection = await resetFieldListExample(page);
+  await hideDataAndFit(page);
+  const tree = fieldSection.getByRole("group", { name: "Profile field lists" });
+  await tree.getByRole("button", { name: "Select Theme" }).click();
+  await tree.getByRole("button", { name: "Select Notes" }).click({ modifiers: ["Shift"] });
+  const themeHandle = tree.getByRole("button", { name: "Move Theme" });
+  await themeHandle.focus();
+  await page.keyboard.press("Enter");
+  await expect(tree.locator('[data-sortable-item-moving="true"]')).toHaveCount(2);
+  await expect(tree.locator('[data-sortable-item-overlay-count="2"]')).toBeVisible();
+  await page.keyboard.press("PageDown");
+  await expect(
+    tree
+      .getByRole("region", { name: "Optional fields" })
+      .locator('[data-sortable-item-placeholder][data-sortable-item-destination-index="0"]'),
+  ).toBeVisible();
+  await expect(tree.getByRole("status")).toHaveText(
+    "Preview: Theme and 1 more will move to the Optional fields list, position 1.",
+  );
+  await expect(fieldSection).toHaveScreenshot("sortable-item-mixed-parent-preview.png");
+  await page.keyboard.press("Enter");
+
+  await expect(themeHandle).toBeFocused();
+  await expect.poll(() => itemTreeOrder(tree, "preferences")).toEqual([]);
+  await expect.poll(() => namedListOrder(tree, "optional-fields")).toEqual(["theme", "notes"]);
+  await expect(tree.getByRole("status")).toHaveText(
+    "Theme and 1 more moved to the Optional fields list, position 1.",
+  );
+  const accessibility = await new AxeBuilder({ page })
+    .include("[data-sortable-item-tree]")
+    .analyze();
+  expect(accessibility.violations).toEqual([]);
+});
+
 test("filtered keyboard reorder reconciles one visible move to the canonical tree", async ({
   page,
 }) => {

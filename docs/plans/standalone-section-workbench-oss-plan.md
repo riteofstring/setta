@@ -181,7 +181,12 @@ The two section drag modes are interaction modes, not two serialized layout mode
 - **Sorting mode** keeps the current parent and changes only sibling order. It is available for nested sections; top-level sections remain spatial rather than sortable.
 - **Free-move mode** may change parent and depth. A drop on the canvas produces a top-level position; a drop inside a section produces an orientation-aware child insertion index. It must support canvas-to-nested, nested-to-canvas, and nested-to-nested moves regardless of source or destination depth.
 
-The initial package milestone supports dragging one section or a selected sibling block. Batch movement operates on normalized selection roots: when a selected section contains another selected section, only the ancestor participates. A dragged block must share one source parent in the initial scope. Top-level blocks preserve spatial offsets; nested blocks preserve logical sibling order. Mixed-parent batch dragging is rejected specifically rather than producing an ambiguous partial move.
+The initial package milestone supported dragging one section or a selected sibling block. Phase 6
+extends batch movement to mixed-parent normalized selection roots: when a selected section contains
+another selected section, only the ancestor participates. Same-parent nested blocks preserve
+logical sibling order; mixed-parent blocks use deterministic visual/hierarchy order; canvas drops
+preserve measured spatial offsets. Sorting remains sibling-only, while free-move may converge a
+mixed-source block into one destination atomically.
 
 ### Workbench modes, controls, and extension surfaces
 
@@ -487,7 +492,7 @@ The public or testable shape should remain close to:
 type SectionMovePlan = {
   sectionIds: string[];
   mode: "sort" | "free";
-  sourceParentId: string | null;
+  sourceParentIds: (string | null)[];
   destinationParentId: string | null;
   destinationIndex: number;
   topLevelPositions: Record<string, { x: number; y: number }> | null;
@@ -502,14 +507,17 @@ The workbench accepts an optional host callback that evaluates a `SectionMovePla
 
 Required behavior:
 
-- `sectionIds` contains one section or normalized selection roots with one shared source parent. Nested blocks follow canonical sibling order; top-level blocks use deterministic `y`, `x`, persistent stack order, and stable-ID order.
+- `sectionIds` contains one section or normalized selection roots. `sourceParentIds` aligns with
+  those IDs. Same-parent nested blocks follow canonical sibling order; top-level and mixed-parent
+  blocks use deterministic visual/hierarchy order.
 - Sorting mode changes only `destinationIndex` under the existing parent and moves a selected block atomically.
 - Free-move mode accepts any valid source and destination depth, including an empty destination container.
 - A free move to the canvas resolves one or more positions in workbench coordinates, not screen coordinates, and preserves a top-level block's relative offsets.
 - A free move into an ordered container inserts the selected block in source order at one destination index.
 - Moving between coordinate spaces preserves the section's visible position until the destination layout takes over.
 - Moving any selected root into itself or one of its descendants is rejected before preview and commit.
-- Mixed-parent batch moves are rejected before a drag starts in the initial scope.
+- Mixed-parent free moves remove every normalized root from its exact source parent and insert the
+  complete canonical block at one destination; sorting mode still requires one nested parent.
 - Host policy can reject a destination without changing canonical state.
 - The previewed parent and index exactly match the committed move.
 - Reparenting changes one canonical child list relationship; a parent lookup index is derived rather than serialized as a second source of truth.
@@ -579,7 +587,7 @@ type SortableItemTree = {
 
 type ItemMovePlan = {
   itemIds: string[];
-  sourceParentId: string;
+  sourceParentIds: string[];
   destinationParentId: string;
   destinationIndex: number;
 };
@@ -604,12 +612,17 @@ Required item-tree invariants:
 - Every child is a known item.
 - The tree is acyclic and every item is reachable from the root.
 - A destination index is resolved against the destination's children after removing every moving item in the selected sibling block.
-- Move plans contain normalized selected roots in stable source order.
-- Multi-item dragging initially requires one shared source parent. A mixed-parent selection remains selectable for host actions, but starting a batch drag falls back to the active item with specific feedback.
+- Move plans contain normalized selected roots in stable canonical tree order with one aligned
+  source parent per moving root.
+- Multi-item dragging may converge roots from multiple parents or named lists within one mounted
+  surface. The active normalized root anchors the first keyboard direction; pointer, touch, and
+  subsequent keyboard previews move the complete block.
 - Dragging an unselected item selects only that item. Dragging a selected item moves the normalized selected sibling block.
 - Keyboard move, indent, and outdent operate on the same selection roots and commit atomically.
 
-The first implementation supports one item tree per section and one dragged item or selected sibling block. Multiple named lists, filtered-list reconciliation, mixed-parent batch dragging, and cross-section item moves are deferred.
+The first implementation supported one item tree per section and one dragged item or selected
+sibling block. Phase 6 adds multiple named lists, filtered-list reconciliation, and mixed-parent
+batch dragging. Cross-section item moves remain deferred.
 
 ### Interaction arbitration
 
@@ -1570,15 +1583,42 @@ Gate:
 ### Phase 6: Deferred capability expansion in the same package
 
 Status: **in progress** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
-optional outline-navigator, top-level auto-layout, named item-list, and filtered item-list batches are implemented and recorded in
+optional outline-navigator, top-level auto-layout, named item-list, filtered item-list, and
+mixed-parent batch-movement batches are implemented and recorded in
 [Phase 6 detachable-section evidence](../evidence/phase-6-detachable-sections.md) and
 [Phase 6 clipboard evidence](../evidence/phase-6-clipboard.md), with the navigator record in
 [Phase 6 outline-navigator evidence](../evidence/phase-6-outline-navigator.md) and the layout record
 in [Phase 6 top-level auto-layout evidence](../evidence/phase-6-auto-layout.md). The named-list record
 is [Phase 6 named item-list evidence](../evidence/phase-6-named-item-lists.md), with the filtered
-projection record in [Phase 6 filtered item-list evidence](../evidence/phase-6-filtered-item-lists.md).
-Mixed-parent batch section and item dragging is the earliest incomplete repository-actionable Phase
-6 evaluation and implementation work.
+projection record in [Phase 6 filtered item-list evidence](../evidence/phase-6-filtered-item-lists.md)
+and the mixed-parent record in
+[Phase 6 mixed-parent batch-movement evidence](../evidence/phase-6-mixed-parent-batch-movement.md).
+Saved viewport presets are the earliest incomplete repository-actionable Phase 6 work.
+
+- Completed (mixed-parent batch-movement batch): section free moves and sortable-item movement now
+  normalize selected ancestors, retain every remaining root in deterministic order, carry one
+  aligned source parent per root, and remove all roots from their exact sources before inserting
+  the complete block into one destination. Named-list item plans also carry aligned source-list
+  ownership. Pointer, touch, and keyboard sessions use the active normalized root as their anchor,
+  while one preview, one live-feedback owner, one controlled commit, and one focus-restoration path
+  cover the complete block. Sorting and grouping retain their one-parent constraints. This
+  intentionally supersedes the Phase 3 mixed-parent movement rejection and item active-row
+  fallback without a compatibility path. The complete record is
+  `docs/evidence/phase-6-mixed-parent-batch-movement.md`.
+- Mixed-parent batch-movement verification: exact Node 24.18.1, repository-local Corepack 0.35.0,
+  and pnpm 11.19.0 focused coverage passed 115 tests across nine files for section/item
+  normalization, aligned ownership, strict application, multi-source layout preview,
+  filtering/list reconciliation, and active-root keyboard anchoring. Exact Chromium selectors
+  cover atomic mixed-section pointer movement, mixed-item keyboard transfer across named lists,
+  retained host rejection, focus, announcements, and Axe; both new baselines and the directly
+  affected rejection baseline were inspected at original resolution. Changed-file quality passed
+  for 41 project files with boundaries across 305 files, all four manifests, formatting, lint and
+  complexity, file lengths, strict types, dead-code analysis, 444 unit tests across 41 files, six
+  boundary tests, plan-loop automation, package/playground builds, exact tarball contents, and the
+  declaration report. The unrelated tarball-installed consumer passed lockfile-policy
+  verification, strict build, and runtime smoke through declared exports. No dependency input
+  changed, so the network-backed supply-chain gate is not duplicated; the recorded unavailable
+  in-app-browser release gate is not retried.
 
 - Completed (filtered canonical item-list batch): added strict ancestry-closed tree projection and
   visible-to-canonical move reconciliation, plus optional `visibleItemIds` on both controlled React
@@ -1668,7 +1708,8 @@ Then evaluate or implement independently:
 - Completed: multiple named item lists within one section.
 - Completed: same-section cross-list item movement.
 - Completed: filtered-list reordering against a larger canonical tree.
-- Mixed-parent batch section and item dragging if a deterministic interaction proves understandable.
+- Completed: mixed-parent batch section and item dragging with active-root anchoring and atomic
+  convergence into one destination.
 - Saved viewport presets.
 - Generic edges and ports.
 - Pane registration beyond toolbar and overlay slots.
@@ -1758,7 +1799,8 @@ Cover the real playground:
 - Marquee-select and focus/fit nested descendants at unrelated depths, then verify their bounds agree with collision and drop geometry through pan, zoom, recursive reflow, grow/scroll changes, and minimization.
 - Focus interactive content in offscreen root and nested sections without producing an independent workbench-wrapper scroll offset or unexpected canvas movement.
 - Build a section tree to multiple depths, then move sections into, out of, and between nested containers.
-- Move selected sibling blocks through representative root and nested transitions and reject mixed-parent batch movement.
+- Move same-parent and mixed-parent normalized blocks through representative root and nested
+  transitions, including pointer and keyboard completion.
 - Reorder vertical and horizontal siblings in sorting mode.
 - Switch a populated container between vertical and horizontal orientation without changing logical order.
 - Switch a populated container between grow and scroll overflow, scroll it without panning the canvas, and return it to grow mode.

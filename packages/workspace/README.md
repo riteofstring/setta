@@ -394,8 +394,9 @@ inconsistent controlled tree instead of hiding that item's descendants.
 
 Click a named selection button to replace selection; Control/Command/Shift-click toggles an item.
 Dragging an unselected handle moves only that item. Dragging a selected handle moves normalized
-selected siblings in canonical order; a mixed-parent selection stays selected but movement falls
-back to the active item with specific feedback. Focus a handle and press Enter or Space to start,
+selection roots in canonical tree order, even when they begin under different parents or named
+lists. The active normalized root anchors the first keyboard direction. Focus a handle and press
+Enter or Space to start,
 Up/Down to reorder, logical forward to indent, logical backward to outdent, Enter or Space to
 commit, or Escape to cancel. In `SortableItemLists`, Page Up or Page Down moves the active block to
 the previous or next named list; horizontal commands never escape the current list root. Logical
@@ -470,14 +471,16 @@ ArrowUp and ArrowDown move through vertical sibling positions; ArrowLeft and Arr
 through horizontal positions and mirror their logical order in right-to-left layouts. In free mode,
 an arrow at the edge of the current container previews the nearest valid measured container in that
 direction. Each preview announces its container and position. Press Enter or Space to commit the
-displayed plan, or Escape to cancel and restore focus. A selected sibling block follows the same
-path as one atomic move. When no measured container is available beyond a nested block's edge, the
+displayed plan, or Escape to cancel and restore focus. A normalized selection block follows the same
+path as one atomic move. In free mode, normalized roots from different source parents use
+deterministic visual/hierarchy order and the active root anchors the first keyboard direction. When
+no measured container is available beyond a nested block's edge, the
 next arrow previews the canvas while preserving that block's measured workbench placement; after
 commit, switch to sort mode for ordinary root arrow-key positioning.
 
 `validateSectionMove` is an optional synchronous, side-effect-free host policy for structural
 moves. It receives the current document and an immutable `SectionMovePlan` after package-owned
-shared-parent, containment, cycle, destination, and lock checks. Return a specific rejection reason
+source-placement, containment, cycle, destination, and lock checks. Return a specific rejection reason
 for host relationships the generic document cannot express. Rejected targets never publish a
 document change; the reason is shown as non-color-only feedback and announced through the
 pre-mounted polite movement region. Locked sections cannot be moved directly, while a locked

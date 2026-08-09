@@ -13,7 +13,7 @@ export type WorkspaceSectionMoveMode = "free" | "sort";
 export type SectionMovePlan = {
   sectionIds: readonly string[];
   mode: WorkspaceSectionMoveMode;
-  sourceParentId: string | null;
+  sourceParentIds: readonly (string | null)[];
   destinationParentId: string | null;
   destinationIndex: number;
   topLevelPositions: Readonly<Record<string, WorkspacePoint>> | null;
@@ -93,6 +93,7 @@ function snapshotSectionMovePlan(plan: SectionMovePlan): SectionMovePlan {
   return Object.freeze({
     ...plan,
     sectionIds: Object.freeze([...plan.sectionIds]),
+    sourceParentIds: Object.freeze([...plan.sourceParentIds]),
     topLevelPositions: snapshotTopLevelPositions(plan.topLevelPositions),
   });
 }
@@ -123,7 +124,7 @@ export function serializeSectionMovePlan(plan: SectionMovePlan): string {
     : null;
   return JSON.stringify([
     plan.mode,
-    plan.sourceParentId,
+    plan.sourceParentIds,
     plan.destinationParentId,
     plan.destinationIndex,
     plan.sectionIds,
@@ -134,7 +135,7 @@ export function serializeSectionMovePlan(plan: SectionMovePlan): string {
 export function sectionMovePlansEqual(left: SectionMovePlan, right: SectionMovePlan): boolean {
   return (
     left.mode === right.mode &&
-    left.sourceParentId === right.sourceParentId &&
+    arraysEqual(left.sourceParentIds, right.sourceParentIds) &&
     left.destinationParentId === right.destinationParentId &&
     left.destinationIndex === right.destinationIndex &&
     arraysEqual(left.sectionIds, right.sectionIds) &&
@@ -205,23 +206,27 @@ export function applySectionMovePlan(
   hierarchy: SectionHierarchySnapshot,
   plan: SectionMovePlan,
 ): AppliedHierarchy {
-  const sourceOrder = getChildOrder(hierarchy, plan.sourceParentId);
-  const sourceWithoutSelection = removeIds(sourceOrder, plan.sectionIds);
+  const sourceParents = new Set(plan.sourceParentIds);
+  const sourceOrders = new Map(
+    [...sourceParents].map((parentId) => [
+      parentId,
+      removeIds(getChildOrder(hierarchy, parentId), plan.sectionIds),
+    ]),
+  );
   const destinationBase =
-    plan.sourceParentId === plan.destinationParentId
-      ? sourceWithoutSelection
-      : removeIds(getChildOrder(hierarchy, plan.destinationParentId), plan.sectionIds);
+    sourceOrders.get(plan.destinationParentId) ??
+    removeIds(getChildOrder(hierarchy, plan.destinationParentId), plan.sectionIds);
   const destinationOrder = insertIds(destinationBase, plan.destinationIndex, plan.sectionIds);
 
   const rootSectionIds = resolveNextRoots(
     hierarchy.rootSectionIds,
-    sourceWithoutSelection,
+    sourceOrders.get(null) ?? hierarchy.rootSectionIds,
     destinationOrder,
     plan,
   );
   const childrenByParent = resolveNextChildren(
     hierarchy.childrenByParent,
-    sourceWithoutSelection,
+    sourceOrders,
     destinationOrder,
     plan,
   );
@@ -239,7 +244,7 @@ function validateMoveRequest(
   destination: SectionMoveDestination,
   hierarchy: SectionHierarchySnapshot,
 ): string | null {
-  const modeReason = validateMode(mode, block.sourceParentId, destination.parentId);
+  const modeReason = validateMode(mode, block.sourceParentIds, destination.parentId);
   if (modeReason) {
     return modeReason;
   }
@@ -271,7 +276,7 @@ function validateMoveRequest(
 
 function validateMode(
   mode: WorkspaceSectionMoveMode,
-  sourceParentId: string | null,
+  sourceParentIds: readonly (string | null)[],
   destinationParentId: string | null,
 ): string | null {
   if (mode !== "free" && mode !== "sort") {
@@ -280,6 +285,11 @@ function validateMode(
   if (mode !== "sort") {
     return null;
   }
+  const uniqueParents = new Set(sourceParentIds);
+  if (uniqueParents.size !== 1) {
+    return "Sorting mode requires selected sections to share one nested parent.";
+  }
+  const sourceParentId = sourceParentIds[0] ?? null;
   if (!sourceParentId) {
     return "Top-level sections are spatial and cannot use sorting mode.";
   }
@@ -332,7 +342,7 @@ function createPlan(
   return {
     sectionIds: block.sectionIds,
     mode,
-    sourceParentId: block.sourceParentId,
+    sourceParentIds: block.sourceParentIds,
     destinationParentId: destination.parentId,
     destinationIndex: destination.index,
     topLevelPositions: destination.topLevelPositions,
@@ -369,24 +379,27 @@ function resolveNextRoots(
   destinationOrder: readonly string[],
   plan: SectionMovePlan,
 ): readonly string[] {
-  if (plan.sourceParentId === null && plan.destinationParentId === null) {
+  const sourceParents = new Set(plan.sourceParentIds);
+  if (sourceParents.size === 1 && sourceParents.has(null) && plan.destinationParentId === null) {
     return currentRoots.slice();
   }
   if (plan.destinationParentId === null) {
     return destinationOrder;
   }
-  return plan.sourceParentId === null ? sourceOrder : currentRoots.slice();
+  return sourceParents.has(null) ? sourceOrder : currentRoots.slice();
 }
 
 function resolveNextChildren(
   current: Readonly<Record<string, readonly string[]>>,
-  sourceOrder: readonly string[],
+  sourceOrders: ReadonlyMap<string | null, readonly string[]>,
   destinationOrder: readonly string[],
   plan: SectionMovePlan,
 ): Readonly<Record<string, readonly string[]>> {
   const next = copyRecord(current);
-  if (plan.sourceParentId) {
-    next[plan.sourceParentId] = sourceOrder;
+  for (const [parentId, sourceOrder] of sourceOrders) {
+    if (parentId) {
+      next[parentId] = sourceOrder;
+    }
   }
   if (plan.destinationParentId) {
     next[plan.destinationParentId] = destinationOrder;
@@ -435,7 +448,7 @@ export function sectionHierarchySnapshotsEqual(
   );
 }
 
-function arraysEqual(left: readonly string[], right: readonly string[]): boolean {
+function arraysEqual<T>(left: readonly T[], right: readonly T[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 

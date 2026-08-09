@@ -116,36 +116,52 @@ export function resolveSortableItemDragBlockFromIndex(
   const activeId = knownItemId(activeItemId, index, "Active sortable item ID");
   const selected = selectionSet(selectedItemIds, index);
   if (!selected.has(activeId)) {
-    return dragBlock([activeId], [activeId], index, null);
+    return dragBlock([activeId], [activeId], index);
   }
   const selectedRoots = normalizedRoots(selected, index);
-  const selectedParents = new Set(selectedRoots.map((itemId) => index.parentByItem.get(itemId)));
-  if (selectedParents.size > 1) {
-    return dragBlock(
-      [activeId],
-      canonicalSelection(selected, index),
-      index,
-      `Selected items do not share one parent. Only "${activeId}" will move.`,
-    );
-  }
-  return dragBlock(selectedRoots, canonicalSelection(selected, index), index, null);
+  return dragBlock(selectedRoots, canonicalSelection(selected, index), index);
 }
 
 function dragBlock(
   itemIds: readonly string[],
   selectedItemIds: readonly string[],
   index: SortableItemTreeIndex,
-  fallbackReason: string | null,
 ): SortableItemDragBlock {
-  const firstItemId = itemIds[0];
-  const sourceParentId = firstItemId ? index.parentByItem.get(firstItemId) : undefined;
-  if (sourceParentId === undefined) {
+  if (itemIds.length === 0) {
     throw new TypeError("A sortable item drag block must contain at least one placed item.");
   }
+  const sourceParentIds = itemIds.map((itemId) => {
+    const parentId = index.parentByItem.get(itemId);
+    if (parentId === undefined) {
+      throw new TypeError(`Sortable item ${JSON.stringify(itemId)} is not placed.`);
+    }
+    return parentId;
+  });
   return Object.freeze({
-    fallbackReason,
     itemIds: Object.freeze([...itemIds]),
     selectedItemIds: Object.freeze([...selectedItemIds]),
-    sourceParentId,
+    sourceParentIds: Object.freeze(sourceParentIds),
   });
+}
+
+export function resolveSortableItemDragAnchor(
+  index: SortableItemTreeIndex,
+  block: SortableItemDragBlock,
+  activeItemId: string,
+): Readonly<{ itemId: string; parentId: string }> {
+  const moving = new Set(block.itemIds);
+  let itemId = knownItemId(activeItemId, index, "Active sortable item ID");
+  while (!moving.has(itemId)) {
+    const parentId = index.parentByItem.get(itemId);
+    if (parentId === undefined || parentId === index.rootId) {
+      throw new TypeError("The active sortable item is outside the normalized movement block.");
+    }
+    itemId = parentId;
+  }
+  const itemIndex = block.itemIds.indexOf(itemId);
+  const parentId = block.sourceParentIds[itemIndex];
+  if (!parentId) {
+    throw new TypeError("The active sortable item movement root has no source parent.");
+  }
+  return Object.freeze({ itemId, parentId });
 }

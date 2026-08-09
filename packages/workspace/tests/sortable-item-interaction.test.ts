@@ -171,7 +171,7 @@ describe("sortable item keyboard preview", () => {
           destinationIndex: 3,
           destinationParentId: "root",
           itemIds: ["group"],
-          sourceParentId: "root",
+          sourceParentIds: ["root"],
         },
       },
       status: "planned",
@@ -203,7 +203,7 @@ describe("sortable item keyboard preview", () => {
           destinationIndex: 2,
           destinationParentId: "root",
           itemIds: ["name"],
-          sourceParentId: "root",
+          sourceParentIds: ["root"],
         },
       },
       status: "planned",
@@ -229,7 +229,7 @@ describe("sortable item keyboard preview", () => {
       projectedTree: originalTree,
     });
     expect(indented).toMatchObject({
-      preview: { plan: { destinationParentId: "group", sourceParentId: "root" } },
+      preview: { plan: { destinationParentId: "group", sourceParentIds: ["root"] } },
       status: "planned",
     });
     if (indented.status !== "planned") throw new Error("Indent must be planned.");
@@ -279,7 +279,7 @@ describe("sortable item keyboard preview", () => {
       destinationIndex: 0,
       destinationParentId: "group",
       itemIds: ["email"],
-      sourceParentId: "root",
+      sourceParentIds: ["root"],
     } as const;
     expect(sortableItemMoveStillAllowed({ plan, tree: candidate })).toBe(true);
     expect(sortableItemMoveStillAllowed({ canMove: () => false, plan, tree: candidate })).toBe(

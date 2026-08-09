@@ -125,19 +125,18 @@ describe("sortable named item lists", () => {
 
     expect(decision).toEqual({
       block: {
-        fallbackReason: null,
         itemIds: ["name"],
         selectedItemIds: ["name"],
-        sourceListId: "required",
-        sourceParentId: "required-root",
+        sourceListIds: ["required"],
+        sourceParentIds: ["required-root"],
       },
       plan: {
         destinationIndex: 1,
         destinationListId: "optional",
         destinationParentId: "optional-root",
         itemIds: ["name"],
-        sourceListId: "required",
-        sourceParentId: "required-root",
+        sourceListIds: ["required"],
+        sourceParentIds: ["required-root"],
       },
       status: "planned",
     });
@@ -152,8 +151,8 @@ describe("sortable named item lists", () => {
       destinationListId: "optional",
       destinationParentId: "optional-root",
       itemIds: ["group"],
-      sourceListId: "required",
-      sourceParentId: "required-root",
+      sourceListIds: ["required"],
+      sourceParentIds: ["required-root"],
     };
 
     const next = applySortableItemListMove(current, plan);
@@ -172,6 +171,42 @@ describe("sortable named item lists", () => {
     ).not.toBe(current);
   });
 
+  it("moves mixed-parent roots across named lists with aligned public ownership", () => {
+    const current = lists();
+    const decision = planSortableItemListMove({
+      activeItemId: "theme",
+      destinationIndex: 1,
+      destinationListId: "optional",
+      destinationParentId: "optional-root",
+      lists: current,
+      selectedItemIds: ["theme", "notes"],
+    });
+
+    expect(decision).toMatchObject({
+      block: {
+        itemIds: ["theme", "notes"],
+        sourceListIds: ["required", "optional"],
+        sourceParentIds: ["group", "optional-root"],
+      },
+      plan: {
+        destinationIndex: 0,
+        destinationListId: "optional",
+        destinationParentId: "optional-root",
+        itemIds: ["theme", "notes"],
+        sourceListIds: ["required", "optional"],
+        sourceParentIds: ["group", "optional-root"],
+      },
+      status: "planned",
+    });
+    if (decision.status !== "planned") throw new Error("Expected a mixed-list move plan.");
+    const next = applySortableItemListMove(current, decision.plan);
+    expect(listById(next, "required").tree.childrenByParent.group).toEqual([]);
+    expect(listById(next, "optional").tree.childrenByParent["optional-root"]).toEqual([
+      "theme",
+      "notes",
+    ]);
+  });
+
   it("preserves the original collection and list identities for a same-position no-op", () => {
     const current = lists();
     const next = applySortableItemListMove(current, {
@@ -179,8 +214,8 @@ describe("sortable named item lists", () => {
       destinationListId: "required",
       destinationParentId: "required-root",
       itemIds: ["name"],
-      sourceListId: "required",
-      sourceParentId: "required-root",
+      sourceListIds: ["required"],
+      sourceParentIds: ["required-root"],
     });
 
     expect(next).toBe(current);
@@ -202,7 +237,7 @@ describe("sortable named item lists", () => {
       plan: {
         destinationListId: "required",
         destinationParentId: "group",
-        sourceListId: "required",
+        sourceListIds: ["required"],
       },
       status: "planned",
     });
@@ -231,8 +266,8 @@ describe("sortable named item lists", () => {
       destinationListId: "optional",
       destinationParentId: "optional-root",
       itemIds: ["name"],
-      sourceListId: "required",
-      sourceParentId: "required-root",
+      sourceListIds: ["required"],
+      sourceParentIds: ["required-root"],
     });
 
     expect(
@@ -264,18 +299,18 @@ describe("sortable named item lists", () => {
         destinationListId: "optional",
         destinationParentId: "optional-root",
         itemIds: ["name"],
-        sourceListId: "optional",
-        sourceParentId: "optional-root",
+        sourceListIds: ["optional"],
+        sourceParentIds: ["optional-root"],
       }),
-    ).toThrow("items must share the declared source parent");
+    ).toThrow("sourceParentIds must match canonical item placement");
     expect(() =>
       applySortableItemListMove(lists(), {
         destinationIndex: 2,
         destinationListId: "optional",
         destinationParentId: "optional-root",
         itemIds: ["name"],
-        sourceListId: "required",
-        sourceParentId: "required-root",
+        sourceListIds: ["required"],
+        sourceParentIds: ["required-root"],
       }),
     ).toThrow("destinationIndex must be an integer from 0 through 1");
     expect(() =>
@@ -284,8 +319,8 @@ describe("sortable named item lists", () => {
         destinationListId: "optional",
         destinationParentId: "optional-root",
         itemIds: ["name"],
-        sourceListId: "required",
+        sourceListIds: ["required"],
       } as unknown as SortableItemListMovePlan),
-    ).toThrow("missing required field sourceParentId");
+    ).toThrow("missing required field sourceParentIds");
   });
 });

@@ -149,28 +149,7 @@ function requireRegion(
   return regions.find((region) => region.parentSectionId === parentSectionId) ?? null;
 }
 
-function sameParentPreview({
-  hierarchy,
-  plan,
-  rectsById,
-  region,
-}: Readonly<{
-  hierarchy: SectionHierarchySnapshot;
-  plan: SectionMovePlan;
-  rectsById: Readonly<Record<string, WorkspaceRect>>;
-  region: WorkspaceSectionMoveRegion;
-}>): WorkspaceSectionMoveLayoutPreviewResolution {
-  const currentOrder = childOrder(hierarchy, region.parentSectionId);
-  const remaining = withoutIds(currentOrder, new Set(plan.sectionIds));
-  return regionTransforms({
-    currentOrder,
-    nextOrder: insertAt(remaining, plan.destinationIndex, plan.sectionIds),
-    rectsById,
-    region,
-  });
-}
-
-function crossParentPreview({
+function affectedParentPreview({
   hierarchy,
   plan,
   rectsById,
@@ -186,40 +165,34 @@ function crossParentPreview({
     string,
     InteractionPoint
   >;
-  if (plan.sourceParentId) {
-    const sourceRegion = requireRegion(regions, plan.sourceParentId);
-    if (!sourceRegion) {
-      return { allowed: false, reason: "The source layout preview region is unavailable." };
+  const affectedParentIds = [
+    ...new Set(
+      [...plan.sourceParentIds, plan.destinationParentId].filter(
+        (parentId): parentId is string => parentId !== null,
+      ),
+    ),
+  ];
+  for (const parentSectionId of affectedParentIds) {
+    const region = requireRegion(regions, parentSectionId);
+    if (!region) {
+      return { allowed: false, reason: "A layout preview region is unavailable." };
     }
-    const currentOrder = childOrder(hierarchy, plan.sourceParentId);
-    const source = regionTransforms({
-      currentOrder,
-      nextOrder: withoutIds(currentOrder, movingIds),
-      rectsById,
-      region: sourceRegion,
-    });
-    if (!source.allowed) {
-      return source;
-    }
-    transformsById = source.preview.transformsById;
-  }
-  if (plan.destinationParentId) {
-    const destinationRegion = requireRegion(regions, plan.destinationParentId);
-    if (!destinationRegion) {
-      return { allowed: false, reason: "The destination layout preview region is unavailable." };
-    }
-    const currentOrder = childOrder(hierarchy, plan.destinationParentId);
+    const currentOrder = childOrder(hierarchy, parentSectionId);
     const remaining = withoutIds(currentOrder, movingIds);
-    const destination = regionTransforms({
+    const nextOrder =
+      parentSectionId === plan.destinationParentId
+        ? insertAt(remaining, plan.destinationIndex, plan.sectionIds)
+        : remaining;
+    const preview = regionTransforms({
       currentOrder,
-      nextOrder: insertAt(remaining, plan.destinationIndex, plan.sectionIds),
+      nextOrder,
       rectsById,
-      region: destinationRegion,
+      region,
     });
-    if (!destination.allowed) {
-      return destination;
+    if (!preview.allowed) {
+      return preview;
     }
-    transformsById = mergeTransforms(transformsById, destination.preview.transformsById);
+    transformsById = mergeTransforms(transformsById, preview.preview.transformsById);
   }
   return { allowed: true, preview: { transformsById } };
 }
@@ -235,11 +208,5 @@ export function resolveWorkspaceSectionMoveLayoutPreview({
   rectsById: Readonly<Record<string, WorkspaceRect>>;
   regions: readonly WorkspaceSectionMoveRegion[];
 }>): WorkspaceSectionMoveLayoutPreviewResolution {
-  if (plan.sourceParentId && plan.sourceParentId === plan.destinationParentId) {
-    const region = requireRegion(regions, plan.sourceParentId);
-    return region
-      ? sameParentPreview({ hierarchy, plan, rectsById, region })
-      : { allowed: false, reason: "The source layout preview region is unavailable." };
-  }
-  return crossParentPreview({ hierarchy, plan, rectsById, regions });
+  return affectedParentPreview({ hierarchy, plan, rectsById, regions });
 }

@@ -80,6 +80,8 @@ function keyboardSession(
   );
   return {
     activeSectionId: sectionIds[0] as string,
+    activeSelectionRootId: sectionIds[0] as string,
+    activeSourceParentId: "root",
     activatorClientPoint: null,
     clientRectsById: {},
     collisionState: EMPTY_COLLISION_TRACKER_STATE,
@@ -94,7 +96,7 @@ function keyboardSession(
     ],
     sectionIds,
     sourceClientBounds: { height: 80, width: 120, x: 20, y: 20 },
-    sourceParentId: "root",
+    sourceParentIds: sectionIds.map(() => "root"),
     sourceRects,
     sourceWorkspaceBounds: { height: 80, width: 120, x: 20, y: 20 },
     startWorkspacePoint: null,
@@ -110,9 +112,11 @@ function nestedKeyboardSession(): WorkspaceSectionMoveSession {
   return {
     ...session,
     activeSectionId: "grandchild",
+    activeSelectionRootId: "grandchild",
+    activeSourceParentId: "nested",
     sectionIds: ["grandchild"],
     sourceClientBounds: sourceRect,
-    sourceParentId: "nested",
+    sourceParentIds: ["nested"],
     sourceRects: { grandchild: sourceRect },
     sourceWorkspaceBounds: sourceRect,
   };
@@ -213,6 +217,33 @@ describe("workspace section keyboard movement", () => {
     });
   });
 
+  it("uses the active root to keyboard-move a mixed-parent block", () => {
+    const original = keyboardSession("free", ["alpha", "grandchild"]);
+    const session: WorkspaceSectionMoveSession = {
+      ...original,
+      sourceParentIds: ["root", "nested"],
+    };
+    const resolution = resolveWorkspaceSectionKeyboardMove({
+      direction: "down",
+      document: session.document,
+      session,
+      validateSectionMove: undefined,
+    });
+
+    expect(resolution).toMatchObject({
+      decision: {
+        plan: {
+          destinationIndex: 1,
+          destinationParentId: "root",
+          sectionIds: ["alpha", "grandchild"],
+          sourceParentIds: ["root", "nested"],
+        },
+        status: "planned",
+      },
+      status: "resolved",
+    });
+  });
+
   it("returns the exact host rejection for the chosen keyboard destination", () => {
     const session = keyboardSession("free", ["alpha", "beta", "nested"]);
     const resolution = resolveWorkspaceSectionKeyboardMove({
@@ -257,7 +288,7 @@ describe("workspace section keyboard movement", () => {
       destinationParentId: "empty",
       mode: "free",
       sectionIds: original.sectionIds,
-      sourceParentId: "root",
+      sourceParentIds: ["root", "root", "root"],
       topLevelPositions: null,
     } satisfies SectionMovePlan;
     const session: WorkspaceSectionMoveSession = {

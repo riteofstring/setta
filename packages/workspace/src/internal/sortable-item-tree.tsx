@@ -13,6 +13,7 @@ import {
 import { createSortableItemListsIndex } from "./sortable-item-lists.js";
 import { sortableItemTreesMatch } from "./sortable-item-move-application.js";
 import {
+  resolveSortableItemDragAnchor,
   resolveSortableItemDragBlock,
   resolveSortableItemSelectionChange,
 } from "./sortable-item-selection.js";
@@ -282,8 +283,13 @@ function outdentLeavesNamedList(
 ): boolean {
   if (command !== "outdent") return false;
   if (!props.supportsListTransfer) return false;
-  const sourceParentId = currentDragBlock(session).sourceParentId;
-  return props.roots.some((root) => root.parentId === sourceParentId);
+  const block = currentDragBlock(session);
+  const anchor = resolveSortableItemDragAnchor(
+    createSortableItemTreeIndex(session.projectedTree),
+    block,
+    session.activeItemId,
+  );
+  return props.roots.some((root) => root.parentId === anchor.parentId);
 }
 
 function owningSurfaceRoot(
@@ -311,9 +317,9 @@ function adjacentListDestination(
   if (!destinationRoot) return null;
   const index = createSortableItemTreeIndex(session.projectedTree);
   const block = currentDragBlock(session);
-  const sourceChildren = index.childrenByParent.get(block.sourceParentId) ?? [];
-  const moving = new Set(block.itemIds);
-  const firstSourceIndex = sourceChildren.findIndex((itemId) => moving.has(itemId));
+  const anchor = resolveSortableItemDragAnchor(index, block, session.activeItemId);
+  const sourceChildren = index.childrenByParent.get(anchor.parentId) ?? [];
+  const firstSourceIndex = sourceChildren.indexOf(anchor.itemId);
   const destinationChildren = index.childrenByParent.get(destinationRoot.parentId) ?? [];
   return {
     destinationIndex: Math.min(Math.max(0, firstSourceIndex), destinationChildren.length),
@@ -510,7 +516,7 @@ function SortableItemSurface({
       setFeedback({
         activeItemId: session.activeItemId,
         bounds: session.sourceBounds,
-        message: prepared.block.fallbackReason ?? "Choose a destination.",
+        message: "Choose a destination.",
         preview: null,
         status: "active",
         targetId: null,
@@ -520,9 +526,7 @@ function SortableItemSurface({
         event.input === "keyboard"
           ? " Use the arrow keys to move, Enter or Space to finish, or Escape to cancel."
           : "";
-      setAnnouncement(
-        `${prepared.block.fallbackReason ?? `${movementLabel(session, current)} movement started.`}${instruction}`,
-      );
+      setAnnouncement(`${movementLabel(session, current)} movement started.${instruction}`);
     },
     [interaction, prepareSession, selectDragBlock],
   );

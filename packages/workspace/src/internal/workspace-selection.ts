@@ -157,7 +157,7 @@ export function resolveWorkspaceRootSelection(
   if (!result.allowed) {
     return result;
   }
-  if (result.block.sourceParentId !== null) {
+  if (result.block.sourceParentIds.some((parentId) => parentId !== null)) {
     return {
       allowed: false,
       reason: "Selected sections must all be top-level for spatial movement.",
@@ -172,7 +172,7 @@ export function translateWorkspaceRootSelection(
   activeSectionId: string,
   activePosition: WorkspacePoint,
 ): Readonly<Record<string, WorkspacePoint>> {
-  if (block.sourceParentId !== null) {
+  if (block.sourceParentIds.some((parentId) => parentId !== null)) {
     throw new Error("Only a top-level selection can be translated spatially.");
   }
   const rootsById = new Map(document.rootSections.map((root) => [root.sectionId, root]));

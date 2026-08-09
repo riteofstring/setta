@@ -49,12 +49,7 @@ export function planSortableItemMove(value: SortableItemMoveInput): SortableItem
   if (constraintRejection) {
     return constraintRejection;
   }
-  const resolvedIndex = resolveDestinationIndex(
-    destination.index,
-    destination.children,
-    block,
-    destination.parentId,
-  );
+  const resolvedIndex = resolveDestinationIndex(destination.index, destination.children, block);
   const plan = itemMovePlan(block, destination.parentId, resolvedIndex);
   if (moveIsUnchanged(plan, index.childrenByParent)) {
     return Object.freeze({ block, plan, status: "unchanged" });
@@ -180,11 +175,7 @@ function resolveDestinationIndex(
   destinationIndex: number,
   destinationChildren: readonly string[],
   block: SortableItemDragBlock,
-  destinationParentId: string,
 ): number {
-  if (block.sourceParentId !== destinationParentId) {
-    return destinationIndex;
-  }
   const movingItems = new Set(block.itemIds);
   return (
     destinationIndex -
@@ -202,7 +193,7 @@ function itemMovePlan(
     destinationIndex,
     destinationParentId,
     itemIds: Object.freeze([...block.itemIds]),
-    sourceParentId: block.sourceParentId,
+    sourceParentIds: Object.freeze([...block.sourceParentIds]),
   });
 }
 
@@ -210,10 +201,10 @@ function moveIsUnchanged(
   plan: ItemMovePlan,
   childrenByParent: ReadonlyMap<string, readonly string[]>,
 ): boolean {
-  if (plan.sourceParentId !== plan.destinationParentId) {
+  if (plan.sourceParentIds.some((parentId) => parentId !== plan.destinationParentId)) {
     return false;
   }
-  const current = childrenByParent.get(plan.sourceParentId) ?? [];
+  const current = childrenByParent.get(plan.destinationParentId) ?? [];
   const movingItems = new Set(plan.itemIds);
   const remaining = current.filter((itemId) => !movingItems.has(itemId));
   const next = [

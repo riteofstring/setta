@@ -31,8 +31,9 @@ function nestedPositionDescription<TSectionData>(
     return "";
   }
   const currentCount = document.sections[plan.destinationParentId]?.childLayout?.sectionIds.length;
-  const movedFromDestination =
-    plan.sourceParentId === plan.destinationParentId ? plan.sectionIds.length : 0;
+  const movedFromDestination = plan.sourceParentIds.filter(
+    (parentId) => parentId === plan.destinationParentId,
+  ).length;
   const total = (currentCount ?? 0) - movedFromDestination + plan.sectionIds.length;
   const first = plan.destinationIndex + 1;
   const last = plan.destinationIndex + plan.sectionIds.length;

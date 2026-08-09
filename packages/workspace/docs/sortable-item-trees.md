@@ -158,11 +158,10 @@ An ordinary item selection replaces the current selection. Control, Command, or 
 item. If an ancestor and descendant are both selected, only the ancestor participates in movement.
 
 Dragging an unselected item selects and moves only that item. Dragging a selected item moves the
-normalized selected roots when they are siblings. The block follows canonical source order and is
-committed atomically. If a selected set spans parents, the broader selection remains available for
-host actions, but movement falls back to the active item with a specific announcement. That same
-fallback applies when selection spans named lists; one sibling block from one source list may still
-move to any valid destination list.
+normalized selected roots in canonical tree order and commits them atomically. A block may span
+parents or named lists inside one mounted surface; every root carries its aligned original parent
+and list ownership into the host plan. The active normalized root anchors the first keyboard
+direction, after which the complete block shares the previewed destination.
 
 `resolveSortableItemSelectionChange`, `normalizeSortableItemSelectionRoots`, and
 `resolveSortableItemDragBlock` expose the same framework-neutral planning behavior when the host
@@ -175,14 +174,16 @@ Every accepted move has one shape:
 ```ts
 type ItemMovePlan = {
   itemIds: readonly string[];
-  sourceParentId: string;
+  sourceParentIds: readonly string[];
   destinationParentId: string;
   destinationIndex: number;
 };
 ```
 
-The destination index is resolved against destination children after removing every moving item.
-This makes same-parent reorder and cross-parent insertion use one deterministic contract.
+`sourceParentIds` aligns positionally with `itemIds`, so hosts can validate every original
+placement without a second lookup or a shared-parent assumption. The destination index is resolved
+against destination children after removing every moving item. This makes same-parent reorder,
+mixed-parent convergence, and cross-parent insertion use one deterministic contract.
 `planSortableItemMove` returns planned, unchanged, or specifically rejected output without
 mutation.
 
@@ -196,8 +197,8 @@ Named-list movement adds explicit ownership to the plan:
 ```ts
 type SortableItemListMovePlan = {
   itemIds: readonly string[];
-  sourceListId: string;
-  sourceParentId: string;
+  sourceListIds: readonly string[];
+  sourceParentIds: readonly string[];
   destinationListId: string;
   destinationParentId: string;
   destinationIndex: number;
@@ -213,7 +214,7 @@ objects, trees, and child arrays keep their identities.
 ## Pointer, touch, keyboard, and zoom
 
 Pointer and long-press touch movement use an immutable drag-start measurement. One overlay and one
-placeholder represent the complete selected sibling block. The placeholder converts captured
+placeholder represent the complete normalized selection block. The placeholder converts captured
 client geometry into workbench units using the active zoom; the portal overlay remains in client
 pixels. Final completion uses the real final point and revalidates the current tree, previewed plan,
 and host policy before calling `onMove` once.
@@ -247,6 +248,6 @@ This composition also lets the host decide whether an item move shares package h
 a larger application history, or is persisted remotely. The package never mutates workspace state
 merely because an item moved.
 
-Named lists, cross-list movement, and filtered canonical reconciliation are supported only within
-one mounted `SortableItemLists` surface. Cross-section movement and mixed-parent batch dragging
-remain deferred.
+Named lists, cross-list movement, mixed-parent batch movement, and filtered canonical
+reconciliation are supported only within one mounted `SortableItemLists` surface. Cross-section
+item movement remains deferred.

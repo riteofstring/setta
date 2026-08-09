@@ -72,7 +72,7 @@ function plan(overrides: Partial<SectionMovePlan> = {}): SectionMovePlan {
     destinationParentId: "container",
     mode: "sort",
     sectionIds: ["child-a"],
-    sourceParentId: "container",
+    sourceParentIds: ["container"],
     topLevelPositions: null,
     ...overrides,
   };
@@ -94,6 +94,7 @@ describe("workspace section move command", () => {
         expect(receivedPlan).toEqual(proposedPlan);
         expect(Object.isFrozen(receivedPlan)).toBe(true);
         expect(Object.isFrozen(receivedPlan.sectionIds)).toBe(true);
+        expect(Object.isFrozen(receivedPlan.sourceParentIds)).toBe(true);
         return { allowed: false, reason: "  Empty stays reserved.  " };
       },
     );
@@ -138,7 +139,7 @@ describe("workspace section move command", () => {
       destinationParentId: null,
       mode: "free",
       sectionIds: ["child+a"],
-      sourceParentId: "container:first",
+      sourceParentIds: ["container:first"],
       topLevelPositions: { "child+a": { x: 1.0001, y: -0.5 } },
     });
 
@@ -153,7 +154,7 @@ describe("workspace section move command", () => {
       }),
     );
     expect(serializeSectionMovePlan(first)).not.toBe(
-      serializeSectionMovePlan({ ...first, sourceParentId: "container:second" }),
+      serializeSectionMovePlan({ ...first, sourceParentIds: ["container:second"] }),
     );
     expect(serializeSectionMovePlan(first)).not.toBe(
       serializeSectionMovePlan({
@@ -194,6 +195,7 @@ describe("workspace section move command", () => {
         destinationParentId: "empty",
         mode: "free",
         sectionIds: ["child-a", "child-b"],
+        sourceParentIds: ["container", "container"],
       }),
     );
 
@@ -238,7 +240,7 @@ describe("workspace section move command", () => {
         destinationIndex: 1,
         mode: "free",
         sectionIds: ["root-a"],
-        sourceParentId: null,
+        sourceParentIds: [null],
       }),
     );
     const nestedToCanvas = applyWorkspaceSectionMove(
@@ -291,6 +293,32 @@ describe("workspace section move command", () => {
     }
   });
 
+  it("moves mixed-parent roots atomically in canonical hierarchy order", () => {
+    const result = applyWorkspaceSectionMove(
+      movementDocument(),
+      plan({
+        destinationIndex: 0,
+        destinationParentId: "empty",
+        mode: "free",
+        sectionIds: ["root-a", "child-a"],
+        sourceParentIds: [null, "container"],
+      }),
+    );
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") throw new Error("Expected a mixed-parent section move.");
+    expect(result.document.rootSections.map(({ sectionId }) => sectionId)).toEqual([
+      "root-b",
+      "container",
+      "empty",
+    ]);
+    expect(result.document.sections.container?.childLayout?.sectionIds).toEqual([
+      "child-b",
+      "nested",
+    ]);
+    expect(result.document.sections.empty?.childLayout?.sectionIds).toEqual(["root-a", "child-a"]);
+  });
+
   it("moves a legal prototype-mutator section from a container to the canvas", () => {
     const flat = createWorkspaceTestDocument([
       { id: "container", title: "Container" },
@@ -315,7 +343,7 @@ describe("workspace section move command", () => {
         destinationParentId: null,
         mode: "free",
         sectionIds: ["__proto__"],
-        sourceParentId: "container",
+        sourceParentIds: ["container"],
         topLevelPositions,
       }),
     );
@@ -345,12 +373,15 @@ describe("workspace section move command", () => {
       },
     };
 
-    expect(applyWorkspaceSectionMove(document, plan({ sourceParentId: "nested" }))).toEqual({
+    expect(applyWorkspaceSectionMove(document, plan({ sourceParentIds: ["nested"] }))).toEqual({
       reason: "section-move-invalid",
       status: "rejected",
     });
     expect(
-      applyWorkspaceSectionMove(document, plan({ destinationIndex: 0, sourceParentId: "nested" })),
+      applyWorkspaceSectionMove(
+        document,
+        plan({ destinationIndex: 0, sourceParentIds: ["nested"] }),
+      ),
     ).toEqual({ reason: "section-move-invalid", status: "rejected" });
     expect(
       applyWorkspaceSectionMove(
@@ -366,7 +397,7 @@ describe("workspace section move command", () => {
           destinationParentId: "nested",
           mode: "free",
           sectionIds: ["container"],
-          sourceParentId: null,
+          sourceParentIds: [null],
         }),
       ),
     ).toEqual({ reason: "section-move-invalid", status: "rejected" });
@@ -378,10 +409,10 @@ describe("workspace section move command", () => {
           destinationParentId: "empty",
           mode: "free",
           sectionIds: ["root-a", "child-a"],
-          sourceParentId: null,
+          sourceParentIds: [null, null],
         }),
       ),
-    ).toEqual({ reason: "mixed-parent-selection", status: "rejected" });
+    ).toEqual({ reason: "section-move-invalid", status: "rejected" });
     expect(applyWorkspaceSectionMove(lockedDocument, plan())).toEqual({
       reason: "section-locked",
       status: "rejected",
@@ -393,7 +424,7 @@ describe("workspace section move command", () => {
           destinationParentId: null,
           mode: "free",
           sectionIds: ["root-a"],
-          sourceParentId: null,
+          sourceParentIds: [null],
           topLevelPositions: {
             "root-a": { x: 0, y: 0 },
             "root-b": { x: 120, y: 0 },

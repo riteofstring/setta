@@ -73,7 +73,7 @@ function movedSections<TSectionData>(
   plan: SectionMovePlan,
 ): Readonly<Record<string, WorkspaceSection<TSectionData>>> {
   const changedParentIds = new Set(
-    [plan.sourceParentId, plan.destinationParentId].filter(
+    [...plan.sourceParentIds, plan.destinationParentId].filter(
       (sectionId): sectionId is string => sectionId !== null,
     ),
   );
@@ -169,15 +169,7 @@ export function applyWorkspaceSectionMove<TSectionData>(
       : { reason: "section-move-invalid", status: "rejected" };
   }
   if (decision.status !== "planned") {
-    return {
-      reason:
-        decision.status === "rejected"
-          ? decision.code === "mixed-parent-selection"
-            ? "mixed-parent-selection"
-            : "section-move-invalid"
-          : "section-move-invalid",
-      status: "rejected",
-    };
+    return { reason: "section-move-invalid", status: "rejected" };
   }
   if (!sectionMovePlansEqual(decision.plan, plan)) {
     return { reason: "section-move-invalid", status: "rejected" };

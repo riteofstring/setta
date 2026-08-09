@@ -84,7 +84,10 @@ describe("workspace selection", () => {
 
     expect(result).toEqual({
       allowed: true,
-      block: { sectionIds: ["beta", "gamma", "alpha"], sourceParentId: null },
+      block: {
+        sectionIds: ["beta", "gamma", "alpha"],
+        sourceParentIds: [null, null, null],
+      },
     });
     if (!result.allowed) {
       throw new Error(result.reason);
@@ -115,7 +118,7 @@ describe("workspace selection", () => {
     });
   });
 
-  it("preflights nested structural selections for shared parents and locks", () => {
+  it("preflights mixed-parent structural selections and locks", () => {
     const flat = createWorkspaceTestDocument([
       { id: "root", title: "Root" },
       { id: "alpha", title: "Alpha" },
@@ -125,12 +128,11 @@ describe("workspace selection", () => {
     const root = flat.sections.root as WorkspaceSection;
     const nested = flat.sections.nested as WorkspaceSection;
     const beta = flat.sections.beta as WorkspaceSection;
-    const document: WorkspaceDocument = {
+    const unlockedDocument: WorkspaceDocument = {
       ...flat,
       rootSections: [{ position: { x: 0, y: 0 }, sectionId: "root" }],
       sections: {
         ...flat.sections,
-        beta: { ...beta, positionAndSizeLocked: true },
         nested: {
           ...nested,
           childLayout: {
@@ -149,15 +151,24 @@ describe("workspace selection", () => {
         },
       },
     };
+    const document: WorkspaceDocument = {
+      ...unlockedDocument,
+      sections: {
+        ...unlockedDocument.sections,
+        beta: { ...beta, positionAndSizeLocked: true },
+      },
+    };
 
-    expect(resolveWorkspaceStructuralSelection(document, ["alpha", "beta"])).toEqual({
-      allowed: false,
-      code: "mixed-parent-selection",
-      reason: "Selected sections must share one parent for batch movement.",
-    });
-    expect(resolveWorkspaceStructuralSelection(document, ["nested", "beta"])).toEqual({
+    expect(resolveWorkspaceStructuralSelection(unlockedDocument, ["alpha", "beta"])).toEqual({
       allowed: true,
-      block: { sectionIds: ["nested"], sourceParentId: "root" },
+      block: {
+        sectionIds: ["alpha", "beta"],
+        sourceParentIds: ["root", "nested"],
+      },
+    });
+    expect(resolveWorkspaceStructuralSelection(unlockedDocument, ["nested", "beta"])).toEqual({
+      allowed: true,
+      block: { sectionIds: ["nested"], sourceParentIds: ["root"] },
     });
     expect(resolveWorkspaceStructuralSelection(document, ["beta"])).toEqual({
       allowed: false,
@@ -195,7 +206,7 @@ describe("workspace selection", () => {
       resolveWorkspaceRootSelection(document, ["constructor", "__proto__"], "__proto__"),
     ).toEqual({
       allowed: true,
-      block: { sectionIds: ["__proto__"], sourceParentId: null },
+      block: { sectionIds: ["__proto__"], sourceParentIds: [null] },
     });
   });
 

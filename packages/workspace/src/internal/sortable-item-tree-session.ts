@@ -40,7 +40,12 @@ export function sortableItemMovePlansMatch(
 ): boolean {
   if (left === right) return true;
   if (!left || !right) return false;
-  if (left.sourceParentId !== right.sourceParentId) return false;
+  if (
+    left.sourceParentIds.length !== right.sourceParentIds.length ||
+    left.sourceParentIds.some((parentId, index) => parentId !== right.sourceParentIds[index])
+  ) {
+    return false;
+  }
   if (left.destinationParentId !== right.destinationParentId) return false;
   if (left.destinationIndex !== right.destinationIndex) return false;
   return (
@@ -183,7 +188,7 @@ function rebasedPlan(
     destinationIndex,
     destinationParentId,
     itemIds: Object.freeze([...block.itemIds]),
-    sourceParentId: block.sourceParentId,
+    sourceParentIds: Object.freeze([...block.sourceParentIds]),
   });
   const applied = applySortableItemMove(originalTree, plan);
   if (!sortableItemTreesMatch(applied, projectedTree)) {

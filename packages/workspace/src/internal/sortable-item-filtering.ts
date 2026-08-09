@@ -115,7 +115,7 @@ function canonicalPlan(
     destinationIndex: canonicalDestinationIndex(canonicalIndex, filteredIndex, plan),
     destinationParentId: plan.destinationParentId,
     itemIds: Object.freeze([...plan.itemIds]),
-    sourceParentId: plan.sourceParentId,
+    sourceParentIds: Object.freeze([...plan.sourceParentIds]),
   });
 }
 

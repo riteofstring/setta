@@ -43,8 +43,9 @@ copy does not move focus.
 | Resize handle                           | Applicable Arrow keys | Resize along the handle axes with the same constraints, zoom correction, and snapping as pointer resize.                                                          |
 | Resize handle                           | Enter or Space        | Return supported handle axes to content sizing.                                                                                                                   |
 
-A pointer or keyboard section move starts only from the named movement handle. A selected sibling
-block moves atomically; mixed-parent movement and locked selections report why movement is
+A pointer or keyboard section move starts only from the named movement handle. Normalized selected
+roots move atomically in free-move mode even across source parents; the active root anchors the
+first keyboard direction. Sorting remains sibling-only, and locked selections report why movement is
 unavailable. Start, destination, parent/depth changes, rejection, completion, and cancellation are
 announced from a polite live region.
 
@@ -60,8 +61,8 @@ announced from a polite live region.
 | Active item movement handle in named lists | Page Up / Page Down | Move to the corresponding position in the previous or next named list.        |
 | Active item movement handle                | Escape              | Cancel and restore focus.                                                     |
 
-The package announces whether a selected sibling block or mixed-parent active-item fallback is
-moving, the proposed list, parent, and position, host rejection, completion, and cancellation.
+The package announces the complete normalized moving block, the proposed list, parent, and
+position, host rejection, completion, and cancellation.
 Logical backward stops at a named-list root and announces the Page Up/Page Down alternative rather
 than silently crossing a region. Inputs and buttons rendered inside an item row remain natively
 operable because the row itself is not the drag activator.

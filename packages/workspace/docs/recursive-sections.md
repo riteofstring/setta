@@ -67,9 +67,10 @@ lock state, and host policy before one `section-move` proposal is emitted.
 ### Selection blocks
 
 Dragging an unselected section selects and moves it. Dragging a selected section moves normalized
-selection roots when they share one source parent. Ancestors suppress selected descendants, nested
-blocks preserve canonical sibling order, and root blocks preserve relative workbench offsets.
-Mixed-parent batch movement rejects specifically rather than moving a partial or guessed subset.
+selection roots as one atomic block. Ancestors suppress selected descendants; roots from one parent
+preserve canonical sibling order, while mixed-parent roots use deterministic visual/hierarchy
+order. Canvas drops preserve every measured root's relative workbench offset. Sorting remains
+sibling-only; free-move can converge roots from multiple source parents into one destination.
 
 The moving roots are excluded from collision candidates. Empty containers remain valid targets.
 Moving a section into itself or its descendants is rejected before commit, and leaving every valid
@@ -93,7 +94,7 @@ Use `validateSectionMove` only for relationships the generic hierarchy cannot ex
 ```
 
 The callback is synchronous and side-effect-free. It receives an immutable `SectionMovePlan` after
-package-owned shared-parent, destination, cycle, and lock checks. A rejection reason is displayed
+package-owned source-placement, destination, cycle, and lock checks. A rejection reason is displayed
 with a non-color cue and announced. Do not mutate or persist from the preview callback; persist the
 single accepted document proposal instead.
 
