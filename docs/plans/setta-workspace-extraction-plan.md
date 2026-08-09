@@ -438,7 +438,7 @@ Phase 3 progress (2026-08-11):
   `setCenter` returned to `viewportHelpers` for minimap click-to-center, and `getPaneRect`/
   `getBoundsOfRects` joined the canvas utils. Reactive minimap visuals resolve through the
   package document (styleColor → `deriveSectionStyleTheme` background, kind) instead of the
-  reference's variant indirection; the section-style *preview* colors left with the app's
+  reference's variant indirection; the section-style _preview_ colors left with the app's
   style-color editing feature. Seam adaptations shared with fit-view/auto-pan: the pane rect,
   the click coordinate, and `setCenter` lost their Overview/UI-editor rail offsets, and the
   wrapper's rail-driven translateX placement was cut (`minimapSide` still flips the bottom
