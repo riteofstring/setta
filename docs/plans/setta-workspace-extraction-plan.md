@@ -8,16 +8,18 @@
 - Extraction base: `main` at `043d3b2e9`
 - Executable reference: the Setta application on that `main` commit
 - Experimental donor branch: `workspace-blank-slate`
-- Publishing, repository creation, package naming, licensing, and release automation remain undecided.
+- Working package name: `@setta/workspace` (local and unpublished during extraction)
+- Publishing, repository creation, final public naming, licensing, and release automation remain
+  undecided.
 
-This plan replaces the greenfield-rewrite strategy for the workspace UI. It does not continue the
-implementation phases in `docs/plans/standalone-section-workbench-oss-plan.md`, and it must not
-silently import their design or interaction decisions.
+This plan replaces the deleted greenfield-rewrite plan for the workspace UI. Git retains that
+document's history, but its implementation phases are obsolete and its design or interaction
+decisions must not be imported silently.
 
 ## User outcome
 
 Recover reusable value from the frontend work already present in Setta `main` by extracting an
-opinionated, standalone React workspace library that:
+opinionated, standalone TypeScript/React workspace package that:
 
 - looks and behaves like the Setta workspace by default;
 - preserves the interaction quality of the running Setta application rather than approximating it
@@ -104,7 +106,7 @@ The intended target structure is:
 ```text
 frontend/
 ├── packages/
-│   └── workspace/              # package source and package-local tests
+│   └── workspace/              # @setta/workspace TypeScript source and package-local tests
 ├── examples/
 │   └── workspace-playground/   # backend-free consumer using only package exports
 └── src/                        # existing Setta application and temporary extraction adapter
@@ -118,6 +120,19 @@ different layout materially safer. Any change must retain three independently ch
    state; and
 3. the example can install and run using only public package exports and ordinary third-party
    dependencies.
+
+### TypeScript package contract
+
+- Author the package in TypeScript and TSX under the working name `@setta/workspace`.
+- Build standard ESM JavaScript, TypeScript declaration files, source maps, and one package-owned,
+  compiled, scoped stylesheet. Consumers do not compile the package's TypeScript or Tailwind source.
+- Expose the supported runtime, type, and stylesheet entry points through the package `exports` map.
+- Treat React and React DOM as host-provided peer dependencies; keep other runtime dependencies
+  explicit and exact-pinned under the repository dependency policy.
+- Prove normal consumption by adding a locally packed `@setta/workspace` artifact to an unrelated
+  React application's `package.json`, then importing only public exports and the compiled CSS.
+- Keep the package local and unpublished during this plan. The working name can change before any
+  later publication decision without carrying a compatibility alias.
 
 ### Source anchors in main
 
@@ -262,6 +277,35 @@ Preserve main's working event boundaries before simplifying them:
 Do not switch to upstream interaction primitives during extraction merely because their API is
 cleaner. Characterize, substitute, and compare them later as a separate decision.
 
+## Repository hygiene and tooling preflight
+
+Complete this preflight before Phase 0 evidence gathering and before package implementation:
+
+1. Delete obsolete plan documents and remove generated, temporary, or abandoned extraction
+   artifacts from the working tree. Git history is sufficient archival storage.
+2. Keep the executable Setta application and its source intact through the parity gates. Do not
+   bulk-delete or refactor unrelated `main` code before extraction; doing so would destroy the live
+   reference and enlarge the change surface. Prune temporary adapters and decide whether to split
+   repositories only after the packed unrelated consumer passes.
+3. Confirm that `workspace-extraction` is clean, based on the recorded `main` commit, and governed by
+   this plan as the single active workspace-extraction plan.
+4. Inventory the existing `main` checks and port only the proven standalone tooling needed by the
+   package from `workspace-blank-slate`. Do not bring over its implementation, UI, snapshots, or
+   generated evidence as part of tooling setup.
+5. Establish package commands and enforced thresholds for formatting, linting, TypeScript
+   type-checking, dead-code detection, code complexity, and file length before Phase 1 code lands.
+   Run fast changed-file checks for each reviewable batch and the complete package checks at every
+   phase exit gate.
+6. Establish supply-chain policy before adding or updating dependencies: exact direct pins, a frozen
+   lockfile in verification, strict peer checks, a strict minimum release age of 10,080 minutes
+   (seven days), no dependency build scripts unless explicitly allowlisted, and machine-checked
+   dependency provenance/inventory. Any exception must name the exact package/version, document the
+   concrete reason, and require developer approval; do not inherit the experimental branch's
+   exceptions automatically.
+7. Run vulnerability and license audits whenever dependencies change and at every phase exit gate.
+   A known vulnerability or policy exception fails the gate unless the developer explicitly accepts
+   a documented, narrowly scoped exception.
+
 ## Implementation phases
 
 ### Phase 0 — executable reference and dependency map
@@ -308,7 +352,7 @@ stop. Do not continue into package abstraction, hardening, or additional feature
 
 ### Phase 2 — standalone package boundary
 
-1. Establish the package and backend-free example directories.
+1. Establish the `@setta/workspace` TypeScript package and backend-free example directories.
 2. Replace main application state reads with the minimal controlled document, registry, capability,
    and callback boundary proven by Phase 1.
 3. Remove application aliases, OpenAPI/generated backend types, project stores, and backend runtime
@@ -388,7 +432,7 @@ place in the first standalone package.
 
 Only after the visible product is accepted:
 
-- ratify the public API and package name;
+- ratify the public API and confirm or change the working package name;
 - add documented section, icon, toolbar, pane, and overlay extension points required by real examples;
 - verify light/dark/system appearance and documented semantic customization;
 - verify keyboard, screen reader, focus restoration, reduced motion, RTL, coarse pointer, 200% zoom,
@@ -454,7 +498,7 @@ This plan does not include:
 
 ## Open decisions deferred until evidence exists
 
-- Final package name: `@setta/workspace`, `@setta/section-workspace`, or another name.
+- Whether `@setta/workspace` remains the final public name if publication is later approved.
 - Whether the public object term is “section” or “node.”
 - Which main fork modules remain package-owned after parity.
 - Whether the final source stays in this repository or moves later.
