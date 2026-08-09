@@ -1358,8 +1358,10 @@ Phase 4 progress (2026-08-11):
   burst, and date/time regressions lock the corrected class contract. The focused suites (23 tests),
   complete package suite (81 files, 590 tests), complete playground suite (3 files, 23 tests),
   package and playground production builds, changed-file static gate, packed unrelated-consumer
-  proof, and live Chrome trace over the Time input pass. The consolidated developer interaction
-  acceptance remains open pending live retest; Phase 5 is still not actionable.
+  proof, and live Chrome trace over the Time input pass. The developer's live retest confirmed that
+  the direction no longer becomes trapped. This accepts the focused pan correction only; the
+  consolidated controls and meta-controls acceptance remains open, and Phase 5 is still not
+  actionable.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
