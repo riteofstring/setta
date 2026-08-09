@@ -1,6 +1,9 @@
 import {
+  activateItemSelect,
+  deactivateItemSelect,
   loadWorkspaceDocument,
   setWorkspaceDocumentChangeCallback,
+  useItemSelectionMode,
   useWorkspaceAppearance,
   WorkspaceCanvas,
   WorkspaceControls,
@@ -19,6 +22,21 @@ function toggleDarkMode() {
 // (selection, move, resize, rename, flag toggles, delete, layout, viewport) invokes the
 // callback with the serializable document; a host re-load never does. The count lives in its
 // own component so per-frame viewport notifications re-render this readout, not the canvas.
+// The host drives item-select mode: the reference holds it active through its app shortcut
+// engine, which stays application-side (the package hold-key activation is a later batch).
+function ItemSelectModeToggle() {
+  const isSelectingItems = useItemSelectionMode((state) => state.isSelectingItems);
+  return (
+    <button
+      type="button"
+      onClick={() => (isSelectingItems ? deactivateItemSelect() : activateItemSelect())}
+      className="rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300"
+    >
+      {isSelectingItems ? "Exit item select mode" : "Enter item select mode"}
+    </button>
+  );
+}
+
 function DocumentChangeReadout() {
   const [documentChangeCount, setDocumentChangeCount] = useState(0);
   useEffect(() => {
@@ -53,6 +71,7 @@ export function App() {
         >
           Reload document
         </button>
+        <ItemSelectModeToggle />
         <p className="text-xs text-setta-500 dark:text-setta-400">
           <DocumentChangeReadout /> document changes reported. Drag sections or the background,
           scroll or pinch to pan and zoom, click to select, Cmd/Ctrl-click to multi-select,
@@ -62,8 +81,9 @@ export function App() {
           minimap group hides the pannable, click-to-center minimap or moves it between the bottom
           corners. Hold Q while hovering a control for its tooltip. Hold Alt and drag to move
           sections into, out of, and between groups; hold Cmd/Ctrl+Alt and drag to sort within a
-          group. Reload restores the loaded document and camera in place without counting as a
-          change.
+          group. In item select mode, click the item panel&apos;s rows to select them and drag rows
+          to sort or re-parent them. Reload restores the loaded document and camera in place without
+          counting as a change.
         </p>
       </header>
       <div className="flex min-h-0 flex-1 gap-2">

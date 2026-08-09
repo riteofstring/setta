@@ -50,8 +50,9 @@ export function setItemDndState(nextState: Partial<ItemDndState>) {
   useItemDndState.setState(nextState);
 }
 
-// The reference's `resetParamDndState` wrapper returns with the monitor batch that owns the
-// drag-lifecycle reset path.
+export function resetItemDndState() {
+  useItemDndState.getState().reset();
+}
 
 const ITEM_DND_LIST_KEY_SEPARATOR = "::settaParamList::";
 const ITEM_DND_TEMP_SUFFIX = "::TempParamDND";

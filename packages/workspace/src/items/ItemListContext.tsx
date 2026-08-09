@@ -1,0 +1,143 @@
+import _ from "lodash";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { SortableContext, verticalListSortingStrategy } from "../dnd/adapter";
+import { useItemDndChildren } from "../dnd/itemDndChildren";
+import { getItemDndId, isTempItem, useItemDndState, type ItemListKey } from "../dnd/itemDndState";
+import type { WorkspaceItem } from "../document/types";
+
+// The reference's app-level `ParamDndContext` (list context, `useParamDndChildrenForParent`,
+// and the `ParamDndProvider` sortable list). The package context additionally carries the
+// host-registered row renderer, group predicate, and visible set, because row content is
+// opaque application data where the reference renders its own params: the package-owned row
+// recursion reads them from context instead of threading host props through every level.
+
+export type ItemRowRenderContext = {
+  sectionId: string;
+  listKey: ItemListKey;
+  item: WorkspaceItem;
+  isSelected: boolean;
+};
+
+type ItemListContextValue = {
+  enabled: boolean;
+  sectionId: string;
+  listKey: ItemListKey;
+  visibleItemIds: ReadonlySet<string>;
+  renderItem: (context: ItemRowRenderContext) => ReactNode;
+  isGroupItem: (item: WorkspaceItem) => boolean;
+};
+
+const ItemListContext = createContext<ItemListContextValue | null>(null);
+
+export function useItemListContext(): ItemListContextValue {
+  const context = useContext(ItemListContext);
+  if (!context) {
+    throw new Error("Item rows must render inside a WorkspaceItemList.");
+  }
+  return context;
+}
+
+export function useItemDndChildrenForParent(parentId: string, fallback: Array<string>) {
+  const context = useContext(ItemListContext);
+  const { activeId, sectionId, listKey } = useItemDndState(
+    (state) => ({
+      activeId: state.activeId,
+      sectionId: state.sectionId,
+      listKey: state.listKey,
+    }),
+    _.isEqual,
+  );
+  const isActiveList = Boolean(
+    context && activeId && sectionId === context.sectionId && listKey === context.listKey,
+  );
+  const tempChildren = useItemDndChildren(
+    (state) => (isActiveList ? (state.x[parentId] ?? null) : null),
+    _.isEqual,
+  );
+  return tempChildren ?? fallback;
+}
+
+type ItemListProviderProps = ItemListContextValue & {
+  rootId: string;
+  flatItemIds: Array<string>;
+  children: ReactNode;
+};
+
+export function ItemListProvider({
+  enabled,
+  sectionId,
+  listKey,
+  visibleItemIds,
+  renderItem,
+  isGroupItem,
+  rootId,
+  flatItemIds,
+  children,
+}: ItemListProviderProps) {
+  const contextValue = useMemo(
+    () => ({
+      enabled,
+      sectionId,
+      listKey,
+      visibleItemIds,
+      renderItem,
+      isGroupItem,
+    }),
+    [enabled, isGroupItem, listKey, renderItem, sectionId, visibleItemIds],
+  );
+  const activeInfo = useItemDndState(
+    (state) => ({
+      activeId: state.activeId,
+      sectionId: state.sectionId,
+      listKey: state.listKey,
+    }),
+    _.isEqual,
+  );
+  const isActiveList =
+    Boolean(activeInfo.activeId) &&
+    activeInfo.sectionId === sectionId &&
+    activeInfo.listKey === listKey;
+  const tempChildren = useItemDndChildren((state) => (isActiveList ? state.x : null), _.isEqual);
+
+  const items = useMemo(() => {
+    const toDndId = (id: string) => (isTempItem(id) ? id : getItemDndId(id, listKey));
+    if (isActiveList && tempChildren) {
+      return flattenItemChildren(rootId, tempChildren).map(toDndId);
+    }
+    return flatItemIds.map(toDndId);
+  }, [flatItemIds, isActiveList, listKey, rootId, tempChildren]);
+
+  // The reference mounts the sortable list only while param dnd is enabled; rows fall back to
+  // the adapter's inert default sortable context otherwise. The list context itself always
+  // mounts because the package rows read their renderer from it.
+  return (
+    <ItemListContext.Provider value={contextValue}>
+      {enabled ? (
+        <SortableContext
+          id={`${sectionId}:${listKey}`}
+          items={items}
+          strategy={verticalListSortingStrategy}
+        >
+          {children}
+        </SortableContext>
+      ) : (
+        children
+      )}
+    </ItemListContext.Provider>
+  );
+}
+
+function flattenItemChildren(rootId: string, childrenByParent: Record<string, Array<string>>) {
+  const flat: Array<string> = [];
+
+  function walk(parentId: string) {
+    const children = childrenByParent[parentId] ?? [];
+    for (const childId of children) {
+      flat.push(childId);
+      walk(childId);
+    }
+  }
+
+  walk(rootId);
+  return flat;
+}

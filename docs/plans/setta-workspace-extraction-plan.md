@@ -497,7 +497,7 @@ Phase 4 progress (2026-08-11):
   persists `selectedParams` on the section impl, so selection is canonical document state).
   The root is a real move target (the reference normalizes section-level drops onto it) but
   never a row; the reference's leaf→`NestedParam` promotion is structural because every item
-  carries `children`, and the leaf-versus-group *type* distinction stays application-side
+  carries `children`, and the leaf-versus-group _type_ distinction stays application-side
   behind the opaque data — the tree-view flat rows drop the reference's `isParent` flag.
   Load validation fails loudly on malformed trees (missing root, key/id mismatch, unknown or
   doubly-claimed children, a claimed root, items unreachable from the root — which also rules
@@ -523,11 +523,51 @@ Phase 4 progress (2026-08-11):
   funnel, and selection suites; the reference's four param policy cases ported in item terms;
   load round-trip/validation cases; and a controller case freezing the item-mode
   section-click path against the document's selection.
-- Remaining Phase 4 work: the item dnd provider/monitor/overlay and row surface with
-  host-registered renderers, host-registered list views, and playground reachability; the
-  interactive item selection surface and keyboard movement (hold-key mode activation, offset
-  moves, indent/unindent) over this batch's primitives; and the section-drag versus item-drag
-  ownership gating.
+- Item dnd provider/monitor/overlay and the registered row surface (2026-08-11): the item half
+  of the fork sensors returned (item-type-only activation with the reference's 5 px distance
+  constraint, gated by item-select mode and the edit-structure capability), and the package
+  owns the reference's per-section nested drag provider (`ItemDndContext`: item-mode collision
+  tracker whose updates are filtered to the active list, with shape sync, monitor, and overlay
+  mounted while item dnd is enabled or a drag is still resolving), the monitor drag lifecycle
+  (start snapshots the canonical tree, collapses the selection to draggable roots — the
+  multi-parent toast stays application-side, the drag-only-the-active-item fallback is
+  unchanged — and replaces the dragged items with the temp placeholder; rAF-coalesced over
+  resolution through the ported collision compare, past-halfway/trigger-distance conditions,
+  and the placeholder move plans; end maps the temp position through the visible-insertion
+  resolution into one canonical `moveItems` commit with the reference's no-op/descendant/
+  detached aborts; the deferred reset completes when the operation returns to idle, and
+  releasing item-select mid-drag cancels the live operation), and the blue drag overlay
+  portaled to document.body with the scope marker at the measured multi-item placeholder size.
+  The row surface is the registered seam: `WorkspaceItemList` mounts one list per item area
+  (host-named list key, host list membership, the visible-set filtered-list seam, a
+  `filterActive` flag disabling dnd exactly as the reference's param filter, the row renderer,
+  and the group predicate — leaf-versus-group stays behind the opaque item data with a
+  structural default), and mounting registers the live list view: drag start resolves the
+  drag's list key first, then the section's other lists in mount order, generalizing the
+  reference's fixed pinned-then-unpinned fallback. The list context carries the renderer
+  through the package-owned row recursion; the sortable list composes temp-aware flattened
+  dnd ids with the vertical strategy and mounts only while enabled, as the reference. `ItemRow`
+  ports the reference's leaf/nested-root/parent layouts on the `--param-column-width` grids
+  (the wire-verbatim variable; the column-resize feature that writes it stays application-side),
+  the nested-children rail, the temp placeholder row at the zoom-normalized placeholder size,
+  the selection/hover treatments in both plain and section-style-theme variants, drag opacity
+  and z-raise, and the reference's selection clicks (canonical commit driving the batch-2
+  active-section policy); rows carry `data-item-row` in item terms. The playground registers an
+  item-panel section kind rendering the surface from opaque label/value/group item data, and a
+  host header button drives item-select mode (the reference holds the mode through its app
+  shortcut engine; the package hold-key activation is the keyboard batch). A11y-forced,
+  visually identical deviations, documented in code: rows render as `div role="button"` with a
+  keyboard selection toggle where the reference strips the sortable role from its articles.
+  Tests: the reference monitor-utils suite ported in item terms plus the shared list-key
+  collision filter; registry resolution order; a drag-lifecycle freeze (start snapshot and
+  selection collapse, mode/view/filter guards, past-halfway reorder and trigger-distance
+  re-parent placeholder moves, cross-list collision rejection, canonical commit with one host
+  notification, positional no-op, deferred cancel/reset); and a mounted-list suite (reference
+  layouts and rail, visible-set pruning, view registration lifecycle, mode-gated click
+  selection with the selected treatment, live temp-projection rendering during a drag).
+- Remaining Phase 4 work: the item keyboard surface (hold-key mode activation, offset moves,
+  indent/unindent, keyboard cancellation) over this batch's primitives, and the section-drag
+  versus item-drag ownership gating.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

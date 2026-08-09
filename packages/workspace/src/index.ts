@@ -10,6 +10,7 @@ export type {
 // consumers off deep canvas-internal import paths.
 export type { PanOnScrollMode, SelectionMode } from "./canvas/types";
 export { WorkspaceCanvas } from "./canvas/WorkspaceCanvas";
+export { ItemDndContext } from "./dnd/ItemDndContext";
 export { useWorkspaceCapabilities } from "./document/capabilities";
 export type { WorkspaceCapabilitiesState } from "./document/capabilities";
 export {
@@ -18,6 +19,12 @@ export {
 } from "./document/documentChangeCallback";
 export type { WorkspaceDocumentChangeCallback } from "./document/documentChangeCallback";
 export { GROUP_SECTION_KIND } from "./document/documentSelectors";
+export {
+  activateItemSelect,
+  deactivateItemSelect,
+  useItemSelectionMode,
+} from "./document/itemSelectionMode";
+export type { ItemSelectionModeState } from "./document/itemSelectionMode";
 export { loadWorkspaceDocument } from "./document/loadWorkspaceDocument";
 export { registerSectionKinds } from "./document/sectionKindRegistry";
 export type { SectionKindDefinition } from "./document/sectionKindRegistry";
@@ -44,5 +51,8 @@ export {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "./interaction";
+export type { ItemRowRenderContext } from "./items/ItemListContext";
+export { WorkspaceItemList } from "./items/WorkspaceItemList";
+export type { WorkspaceItemListProps } from "./items/WorkspaceItemList";
 export { WorkspaceControls } from "./toolbar/WorkspaceControls";
 export { WorkspaceTooltip } from "./tooltip/WorkspaceTooltip";

@@ -7,7 +7,6 @@ import type { WorkspaceItem, WorkspaceSectionItemTree } from "./types";
 // behind the opaque item data. The flat rows therefore drop the reference's `isParent` flag —
 // the registered row surface sources group-ness from the host, not the package.
 
-// Exported with the owning row-surface batch, which renders the flat rows.
 type ItemTreeFlatRow = {
   id: string;
   parentId: string;

@@ -1,13 +1,14 @@
-import { KeyboardSensor, PointerSensor } from "@dnd-kit/dom";
+import { KeyboardSensor, PointerActivationConstraints, PointerSensor } from "@dnd-kit/dom";
 import { useMemo } from "react";
 import { useWorkspaceCapabilities } from "../document/capabilities";
+import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME } from "../interaction";
 import { useDndState } from "./dndState";
 import { selectionDragHandle, selectionDragPrimaryId } from "./selectionDragHandle";
 
-// The section half of the reference's `useDNDSensors.ts`; the param sensors left with the
-// Phase 4 parameter/item surface. Section drags have no distance constraint — activation is
-// gated purely by the held dnd mode.
+// Both halves of the reference's `useDNDSensors.ts`: section drags have no distance
+// constraint — activation is gated purely by the held dnd mode — while item drags carry the
+// reference's 5 px distance constraint and activate only in item-select mode.
 
 type DndSource = {
   id: string | number;
@@ -20,6 +21,10 @@ type DndSource = {
     };
   };
 };
+
+function getDragType(source: DndSource): string | null {
+  return source.data?.current?.type ?? null;
+}
 
 function getIsTopLevel(source: DndSource): boolean {
   return Boolean(source.data?.current?.isTopLevel);
@@ -77,4 +82,43 @@ export function useSectionDndSensors() {
 
     return [pointerSensor, keyboardSensor];
   }, [canEditLayout]);
+}
+
+function preventItemActivation(_event: Event, source: DndSource): boolean {
+  if (getDragType(source) !== "item") {
+    return true;
+  }
+  return !useItemSelectionMode.getState().isSelectingItems;
+}
+
+export function useItemDndSensors() {
+  const canEditStructure = useWorkspaceCapabilities((x) => x.canEditStructure);
+  const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
+  return useMemo(() => {
+    if (!canEditStructure || !isSelectingItems) {
+      return [];
+    }
+
+    // Only activate for item drags so the nested provider doesn't capture sections.
+    const pointerSensor = PointerSensor.configure({
+      activationConstraints: (_event: Event, source: DndSource) => {
+        if (getDragType(source) !== "item") {
+          return undefined;
+        }
+
+        return [
+          new PointerActivationConstraints.Distance({
+            value: 5,
+          }),
+        ];
+      },
+      preventActivation: preventItemActivation,
+    });
+
+    const keyboardSensor = KeyboardSensor.configure({
+      preventActivation: preventItemActivation,
+    });
+
+    return [pointerSensor, keyboardSensor];
+  }, [canEditStructure, isSelectingItems]);
 }
