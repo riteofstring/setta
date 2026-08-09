@@ -304,10 +304,10 @@ react,state} 0.2.1` (the experimental v0.2 line; `@dnd-kit/core` absent). The 17
   (`traditional` + `subscribeWithSelector` + `immer`), `immer 10.1.1`, `lodash 4.18.1`,
   `re-resizable 6.9.0`, `react-icons 5.3.0`, `classcat 5.0.3`.
 
-## 4. Open Phase 0 items
+## 4. Open Phase 0 item
 
-- Item 2 (run `main`, capture the visual/interaction reference set, computed geometry and styles,
-  and interaction recordings) is supervised developer work and remains open; the automation loop
-  must not attempt it.
-- Item 8 (present reference set + seam to the developer) depends on item 2's captures; the seam
-  proposal is ready in `extraction-seam-proposal.md`.
+- Item 2 is complete: the supervised executable reference, visual/interaction captures, computed
+  geometry/styles, and gesture-ownership observations are indexed in `reference/README.md`.
+- Item 8 remains open: present that reference set together with `extraction-seam-proposal.md` and
+  obtain the developer's explicit approval or rejection of the exact Phase 1 slice. The automation
+  loop cannot waive or infer this gate.

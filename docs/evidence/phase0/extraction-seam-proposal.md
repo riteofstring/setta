@@ -1,8 +1,8 @@
 # Phase 0 — smallest package seam proposal
 
 Phase 0 item 7. Proposed from the dependency evidence in `dependency-map.md`; ratification is the
-developer's Phase 0 exit-gate decision together with the visual reference set (item 2, still
-supervised/open). Nothing here widens the Phase 1 slice defined by the plan.
+developer's Phase 0 exit-gate decision together with the completed executable reference set in
+`reference/README.md`. Nothing here widens the Phase 1 slice defined by the plan.
 
 ## 1. What the evidence says the slice actually needs
 

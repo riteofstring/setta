@@ -10,9 +10,9 @@ exit gate remain supervised developer work that no agent or test suite can waive
 
 Preflight progress (2026-08-10):
 
-- Item 1: `../setta-main` verified clean on `main` at `043d3b2e9`. Verifying that the reference
-  application _runs_ requires launching it and is recorded as an open gate for Phase 0 evidence
-  capture; the automation loop must not attempt it.
+- Item 1: `../setta-main` verified clean on `main` at `043d3b2e9`. The supervised Phase 0 capture
+  subsequently launched that exact checkout successfully against disposable runtime/project data;
+  the frozen worktree remained clean.
 - Items 2–3: complete — branch pruned to a package-focused skeleton in a mechanical cleanup
   commit; confirmed no Setta runtime, backend, domain, or generated-client source remains tracked.
   The worktree-scoped Chrome DevTools MCP helpers (`scripts/chrome-devtools-mcp.sh`,
@@ -41,7 +41,11 @@ Preflight progress (2026-08-10):
 Phase 0 progress (2026-08-10):
 
 - Item 1: complete — `../setta-main` re-verified clean on `main` at `043d3b2e9`; the "able to run"
-  check remains part of the supervised item 2 capture.
+  check passed during the supervised item 2 capture.
+- Item 2: complete — the frozen reference ran successfully and the required light/dark screenshots,
+  interaction traces, no-drag checks, computed geometry/styles, narrow viewport, browser 200% page
+  scale, and XYFlow 200% zoom evidence are indexed in
+  `docs/evidence/phase0/reference/README.md`.
 - Items 3–5: complete — the import/dependency cone of the leaf, group, toolbar, minimap, drag, and
   resize surfaces, the classification of every application-owned state read, and the exact
   Tailwind/font/icon/style/fork inventory are recorded in `docs/evidence/phase0/dependency-map.md`.
@@ -49,10 +53,9 @@ Phase 0 progress (2026-08-10):
   adoption in `docs/evidence/phase0/donor-comparison.md`.
 - Item 7: complete — the smallest package seam and every temporary main-only dependency are
   proposed in `docs/evidence/phase0/extraction-seam-proposal.md`.
-- Items 2 and 8 remain open supervised developer work: running `main`, capturing the visual and
-  interaction reference set (with computed geometry/styles), and reviewing the reference set plus
-  the seam proposal at the Phase 0 exit gate. The automation loop must not attempt them; this is
-  the release gate blocking the Phase 0 exit.
+- Item 8 remains open supervised developer work: review the captured reference set together with
+  the seam proposal and explicitly approve or reject the exact Phase 1 slice. The automation loop
+  must not infer approval; this developer-only exit gate blocks Phase 1.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

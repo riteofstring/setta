@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-10T22:43:58-07:00",
+  "source": {
+    "worktree": "../setta-main",
+    "branch": "main",
+    "commit": "043d3b2e9c69caf99d1246f1408b3ad7194b7864",
+    "url": "http://127.0.0.1:3063/being_cliff",
+    "captureClient": "Chrome DevTools MCP / CDP 9309"
+  },
+  "desktopCapture": {
+    "requestedBrowserWindowCssPx": { "width": 1440, "height": 900 },
+    "pageViewportCssPx": { "width": 1440, "height": 772 },
+    "devicePixelRatio": 2,
+    "pngPixels": { "width": 2880, "height": 1544 },
+    "explicitAppTheme": "dark",
+    "emulatedColorScheme": "light",
+    "reactFlowTransform": "matrix(0.923838, 0, 0, 0.923838, 882.281, 308.412)"
+  },
+  "rootLeafAtOriginalScale": {
+    "idleBoundingBoxCssPx": { "x": 496.5, "y": 230, "width": 202, "height": 124 },
+    "selectedBoundingBoxCssPx": { "x": 496.5, "y": 230, "width": 202, "height": 124 },
+    "selectionLayoutShiftCssPx": { "x": 0, "y": 0, "width": 0, "height": 0 },
+    "authoredOuterSizeCssPx": { "width": 202, "height": 124 },
+    "idle": {
+      "outline": "4px solid transparent",
+      "zIndex": 10
+    },
+    "selected": {
+      "darkOutline": "4px solid rgb(29, 78, 216)",
+      "lightOutline": "4px solid rgb(37, 99, 235)",
+      "zIndex": 150
+    },
+    "darkOuter": {
+      "border": "1px solid rgb(43, 54, 74)",
+      "borderRadiusCssPx": 8,
+      "backgroundColor": "rgb(9, 11, 14)",
+      "boxShadow": "none"
+    },
+    "lightOuter": {
+      "border": "1px solid rgb(255, 255, 255)",
+      "borderRadiusCssPx": 8,
+      "backgroundColor": "rgb(255, 255, 255)",
+      "boxShadow": "none"
+    },
+    "darkInnerBackgroundColor": "rgb(16, 20, 27)",
+    "lightInnerBackgroundColor": "rgb(239, 241, 246)",
+    "minimizedAuthoredSizeCssPx": { "width": 202, "height": 34 },
+    "resizedAuthoredSizeCssPx": { "width": 302, "height": 212 }
+  },
+  "resizedSelectedRootAtWorkspaceZoom0_923838": {
+    "outerBoundingBoxCssPx": { "x": 383.409, "y": 164.264, "width": 278.999, "height": 195.854 },
+    "authoredOuterSizeCssPx": { "width": 302, "height": 212 },
+    "authoredInnerSizeCssPx": { "width": 300, "height": 210 },
+    "authoredInnerMinimumCssPx": { "width": 200, "height": 122 },
+    "header": {
+      "authoredSizeCssPx": { "width": 284, "height": 22 },
+      "marginCssPx": { "left": 8, "right": 8 },
+      "titleFontFamily": "ui-sans-serif, system-ui, sans-serif",
+      "titleFontSizeCssPx": 11.2,
+      "titleFontWeight": 700,
+      "titleLineHeightCssPx": 20,
+      "titleLetterSpacingCssPx": -0.28,
+      "darkTitleColor": "rgb(96, 165, 250)",
+      "lightTitleColor": "rgb(37, 99, 235)"
+    },
+    "argsHeader": {
+      "authoredSizeCssPx": { "width": 300, "height": 34 },
+      "paddingInlineCssPx": 4,
+      "borderRadiusCssPx": 12,
+      "zIndex": 10,
+      "boxShadow": "rgba(0, 0, 0, 0.05) 0px 1px 2px 0px"
+    },
+    "parameterRows": {
+      "authoredSizeCssPx": { "width": 276, "height": 20 },
+      "paddingInlineCssPx": 2,
+      "verticalStepCssPx": 24,
+      "borderRadiusCssPx": 2,
+      "selectedBackgroundColor": "rgb(29, 78, 216)",
+      "capturedOrder": ["beta", "gamma", "alpha", "delta"]
+    },
+    "bottomRightResizeHandle": {
+      "authoredSizeCssPx": { "width": 20, "height": 20 },
+      "offsetCssPx": { "right": -10, "bottom": -10 },
+      "cursor": "se-resize",
+      "zIndex": 20,
+      "pointerEvents": "auto"
+    }
+  },
+  "groupFixtureAtWorkspaceZoom0_923838": {
+    "rootGroupBoundingBoxCssPx": {
+      "x": 882.281,
+      "y": 113.453,
+      "width": 469.309,
+      "height": 399.098
+    },
+    "rootGroupAuthoredSizeCssPx": { "width": 508, "height": 432 },
+    "rootGroupPaddingCssPx": { "inline": 24, "top": 8, "bottom": 24 },
+    "rootGroupBorderRadiusCssPx": 24,
+    "rootGroupHeaderAuthoredSizeCssPx": { "width": 460, "height": 40 },
+    "orderedChildWrapperAuthoredSizeCssPx": { "width": 460, "height": 140 },
+    "horizontalChildWrapperAuthoredSizeCssPx": { "width": 460, "height": 204 },
+    "sortableWrapperOutline": "2px solid transparent with 2px outline offset",
+    "screenshotWithThreePlusLevels": "../screenshots/10-three-level-nesting-horizontal-group-dark.png",
+    "screenshotWithFreeformOuterGroup": "../screenshots/11-freeform-nested-group-dark.png"
+  },
+  "toolbar": {
+    "boundingBoxCssPx": { "x": 3.5, "y": 421, "width": 32, "height": 303 },
+    "paddingCssPx": { "top": 6, "right": 2, "bottom": 8, "left": 2 },
+    "gapCssPx": 4,
+    "borderRadiusCssPx": 6,
+    "darkBorder": "1px solid rgb(26, 33, 45)",
+    "lightBorder": "1px solid rgb(229, 231, 235)",
+    "standardControlBoundingBoxCssPx": { "width": 23, "height": 23 },
+    "resetZoomControlBoundingBoxCssPx": { "width": 26, "height": 26 },
+    "iconBoundingBoxCssPx": { "width": 15, "height": 15 },
+    "controlPaddingCssPx": 4,
+    "controlBorderRadiusCssPx": 6,
+    "focusVisibleRing": "0 0 0 2px rgb(59, 130, 246)",
+    "capturedPressed": {
+      "toggle agentic edges": true,
+      "toggle arg edges": true,
+      "toggle snap to grid": true,
+      "toggle minimap": true
+    }
+  },
+  "minimap": {
+    "panelBoundingBoxCssPx": { "x": 350, "y": 605, "width": 202, "height": 152 },
+    "svgBoundingBoxCssPx": { "width": 200, "height": 150 },
+    "borderRadiusCssPx": 6,
+    "marginCssPx": 15,
+    "zIndex": 5,
+    "boxShadow": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+    "darkPanel": {
+      "border": "1px solid rgba(26, 33, 45, 0.55)",
+      "backgroundColor": "rgba(11, 14, 19, 0.72)",
+      "maskFill": "rgba(20, 22, 31, 0.5)",
+      "maskStroke": "rgba(226, 232, 240, 0.9)"
+    },
+    "lightPanel": {
+      "border": "1px solid rgba(255, 255, 255, 0)",
+      "backgroundColor": "rgba(148, 163, 184, 0.714)",
+      "maskFill": "rgba(51, 65, 85, 0.3)",
+      "maskStroke": "rgba(30, 41, 59, 0.6)"
+    },
+    "maskStrokeWidthCssPx": 2,
+    "nodePaint": {
+      "fill": "#2D384D",
+      "stroke": "#e2e8f0",
+      "strokeWidthCssPx": 2,
+      "cornerRadiusCssPx": 5
+    }
+  },
+  "responsiveAndZoom": {
+    "narrowPageViewportCssPx": { "width": 800, "height": 772 },
+    "narrowPngPixels": { "width": 1600, "height": 1544 },
+    "browserPageScale200Percent": {
+      "pageViewportCssPx": { "width": 1440, "height": 772 },
+      "visualViewportCssPx": { "width": 720, "height": 386 },
+      "visualViewportScale": 2
+    },
+    "workspaceZoom200Percent": {
+      "reactFlowZoom": 2,
+      "browserVisualViewportScale": 1
+    }
+  }
+}
