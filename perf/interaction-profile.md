@@ -147,3 +147,167 @@ Environment: darwin arm64, 8 cores, Node v24.18.1, Playwright 1.62.1, CPU thrott
 | nested-freeform | 2    | 1 (cold) | 0.3                        | null                           | 9.3                     | 9.4                    | 0           | none              |
 | nested-freeform | 2    | 2        | 0                          | null                           | 9                       | 9.4                    | 0           | none              |
 | nested-freeform | 2    | 3        | 0                          | null                           | 8.8                     | 9.4                    | 0           | none              |
+
+## wip-region-index — 2026-08-10T09:19:56.462Z
+
+Environment: darwin arm64, 8 cores, Node v24.18.1, Playwright 1.62.1, CPU throttle 1x, 3 passes per zoom.
+
+### development
+
+| Scenario | Zoom | Pass | Pointer-down handlers (ms) | First mutation after down (ms) | Activation max gap (ms) | Sustained max gap (ms) | Gaps >32 ms | Long tasks ≥50 ms |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| structural-sort | 0.5 | 1 (cold) | 57 | 5.1 | 75 | 9.2 | 1 | 1 (max 58 ms) |
+| structural-sort | 0.5 | 2 | 18.8 | 2.3 | 33.3 | 9.4 | 1 | none |
+| structural-sort | 0.5 | 3 | 23.2 | 2.5 | 33.2 | 9.4 | 1 | none |
+| structural-sort | 1 | 1 (cold) | 44.9 | 2.5 | 58.3 | 9.3 | 1 | none |
+| structural-sort | 1 | 2 | 22.5 | 2.5 | 33 | 9.3 | 1 | none |
+| structural-sort | 1 | 3 | 20.1 | 2.3 | 33.5 | 9.2 | 1 | none |
+
+
+## wip-prepare-start — 2026-08-10T09:28:21.111Z
+
+Environment: darwin arm64, 8 cores, Node v24.18.1, Playwright 1.62.1, CPU throttle 1x, 3 passes per zoom.
+
+### development
+
+| Scenario | Zoom | Pass | Pointer-down handlers (ms) | First mutation after down (ms) | Activation max gap (ms) | Sustained max gap (ms) | Gaps >32 ms | Long tasks ≥50 ms |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| root-drag | 0.5 | 1 (cold) | 32.9 | 32.9 | 41.7 | 10.2 | 1 | none |
+| root-drag | 0.5 | 2 | 2.3 | 33.3 | 25.2 | 10.3 | 0 | none |
+| root-drag | 0.5 | 3 | 2.2 | 39.5 | 24.7 | 10.3 | 0 | none |
+| root-drag | 1 | 1 (cold) | 29.9 | 29.9 | 26.1 | 17.8 | 0 | none |
+| root-drag | 1 | 2 | 2.2 | 39.2 | 25.1 | 18.6 | 0 | none |
+| root-drag | 1 | 3 | 2 | 33.4 | 24.7 | 16.7 | 0 | none |
+| structural-sort | 0.5 | 1 (cold) | 55.6 | 17.3 | 58.2 | 16.6 | 1 | 1 (max 56 ms) |
+| structural-sort | 0.5 | 2 | 21.6 | 8.7 | 33.5 | 10.2 | 1 | none |
+| structural-sort | 0.5 | 3 | 21.4 | 8.5 | 34.2 | 10.2 | 1 | none |
+| structural-sort | 1 | 1 (cold) | 44.4 | 4.9 | 50 | 16.6 | 1 | none |
+| structural-sort | 1 | 2 | 11.9 | 3.3 | 17.1 | 10.2 | 0 | none |
+| structural-sort | 1 | 3 | 20.7 | 7.8 | 34.4 | 10.4 | 1 | none |
+
+
+## wip-prepare-start — 2026-08-10T09:30:51.452Z
+
+Environment: darwin arm64, 8 cores, Node v24.18.1, Playwright 1.62.1, CPU throttle 1x, 3 passes per zoom.
+
+### production
+
+| Scenario | Zoom | Pass | Pointer-down handlers (ms) | First mutation after down (ms) | Activation max gap (ms) | Sustained max gap (ms) | Gaps >32 ms | Long tasks ≥50 ms |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| root-drag | 0.5 | 1 (cold) | 11.3 | 11.3 | 16.7 | 10.2 | 0 | none |
+| root-drag | 0.5 | 2 | 2.6 | 22.2 | 10.3 | 10.3 | 0 | none |
+| root-drag | 0.5 | 3 | 1.8 | 21.4 | 9.4 | 10.4 | 0 | none |
+| root-drag | 1 | 1 (cold) | 8.4 | 8.3 | 8.5 | 10.3 | 0 | none |
+| root-drag | 1 | 2 | 0.8 | 13.5 | 10.4 | 10.4 | 0 | none |
+| root-drag | 1 | 3 | 2.1 | 19.7 | 10 | 10.2 | 0 | none |
+| structural-sort | 0.5 | 1 (cold) | 34.3 | 3.8 | 33.4 | 10.3 | 1 | none |
+| structural-sort | 0.5 | 2 | 25.7 | 2.9 | 25 | 10.2 | 0 | none |
+| structural-sort | 0.5 | 3 | 25.1 | 2.7 | 16.4 | 10.4 | 0 | none |
+| structural-sort | 1 | 1 (cold) | 25.1 | 2.2 | 25.1 | 10.3 | 0 | none |
+| structural-sort | 1 | 2 | 9.4 | 0.5 | 9.9 | 10.4 | 0 | none |
+| structural-sort | 1 | 3 | 17.4 | 1.2 | 8.9 | 10.3 | 0 | none |
+
+
+## wip-deferred-autoscroll — 2026-08-10T09:34:26.468Z
+
+Environment: darwin arm64, 8 cores, Node v24.18.1, Playwright 1.62.1, CPU throttle 1x, 3 passes per zoom.
+
+### development
+
+| Scenario | Zoom | Pass | Pointer-down handlers (ms) | First mutation after down (ms) | Activation max gap (ms) | Sustained max gap (ms) | Gaps >32 ms | Long tasks ≥50 ms |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| root-drag | 0.5 | 1 (cold) | 30.7 | 30.7 | 41.7 | 10.3 | 1 | none |
+| root-drag | 0.5 | 2 | 2.1 | 36.2 | 24.9 | 10.3 | 0 | none |
+| root-drag | 0.5 | 3 | 1.3 | 28.9 | 18 | 9.9 | 0 | none |
+| root-drag | 1 | 1 (cold) | 29 | 28.9 | 25.9 | 17.7 | 0 | none |
+| root-drag | 1 | 2 | 1.5 | 34.2 | 16.8 | 16.8 | 0 | none |
+| root-drag | 1 | 3 | 2 | 36.1 | 24.9 | 18.2 | 0 | none |
+| structural-sort | 0.5 | 1 (cold) | 53.3 | 16.7 | 66.7 | 26.5 | 1 | 1 (max 54 ms) |
+| structural-sort | 0.5 | 2 | 16 | 4.9 | 33.3 | 10.3 | 1 | none |
+| structural-sort | 0.5 | 3 | 18.1 | 6.3 | 33.4 | 10.2 | 1 | none |
+| structural-sort | 1 | 1 (cold) | 44.1 | 4.7 | 58.7 | 16.6 | 1 | none |
+| structural-sort | 1 | 2 | 20.9 | 8.4 | 33.3 | 8.4 | 1 | none |
+| structural-sort | 1 | 3 | 17.8 | 6.3 | 25.1 | 10.3 | 0 | none |
+
+
+## wip-no-universal-styles — 2026-08-10T09:40:07.852Z
+
+Environment: darwin arm64, 8 cores, Node v24.18.1, Playwright 1.62.1, CPU throttle 1x, 3 passes per zoom.
+
+### development
+
+| Scenario | Zoom | Pass | Pointer-down handlers (ms) | First mutation after down (ms) | Activation max gap (ms) | Sustained max gap (ms) | Gaps >32 ms | Long tasks ≥50 ms |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| structural-sort | 0.5 | 1 (cold) | 55.8 | 24 | 75 | 26.3 | 1 | 1 (max 57 ms) |
+| structural-sort | 0.5 | 2 | 12.8 | 11.8 | 34 | 10.4 | 1 | none |
+| structural-sort | 0.5 | 3 | 15.1 | 14.2 | 33.4 | 10.2 | 1 | none |
+| structural-sort | 1 | 1 (cold) | 44 | 10.2 | 58.4 | 10.2 | 1 | none |
+| structural-sort | 1 | 2 | 15.2 | 14.2 | 25.1 | 9.8 | 0 | none |
+| structural-sort | 1 | 3 | 10.2 | 9.4 | 24.9 | 9.9 | 0 | none |
+
+
+## wip-owned-drag-styles — 2026-08-10T09:44:35.386Z
+
+Environment: darwin arm64, 8 cores, Node v24.18.1, Playwright 1.62.1, CPU throttle 1x, 3 passes per zoom.
+
+### development
+
+| Scenario | Zoom | Pass | Pointer-down handlers (ms) | First mutation after down (ms) | Activation max gap (ms) | Sustained max gap (ms) | Gaps >32 ms | Long tasks ≥50 ms |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| root-drag | 0.5 | 1 (cold) | 30.6 | 30.5 | 41.6 | 10.3 | 1 | none |
+| root-drag | 0.5 | 2 | 2.3 | 40.3 | 24.9 | 15.3 | 0 | none |
+| root-drag | 0.5 | 3 | 2.2 | 41.2 | 25.2 | 10.3 | 0 | none |
+| root-drag | 1 | 1 (cold) | 22.1 | 22 | 26.2 | 17.6 | 0 | none |
+| root-drag | 1 | 2 | 2.3 | 37.2 | 25.9 | 17.9 | 0 | none |
+| root-drag | 1 | 3 | 1.2 | 36.3 | 16.8 | 17.4 | 0 | none |
+| structural-sort | 0.5 | 1 (cold) | 50 | 22.9 | 58.7 | 16.7 | 1 | 1 (max 51 ms) |
+| structural-sort | 0.5 | 2 | 15.4 | 14.6 | 33.2 | 10.3 | 1 | none |
+| structural-sort | 0.5 | 3 | 15.2 | 14.3 | 33.4 | 10.1 | 1 | none |
+| structural-sort | 1 | 1 (cold) | 44 | 12.4 | 50.2 | 16.7 | 1 | none |
+| structural-sort | 1 | 2 | 14.9 | 14.1 | 34.5 | 9.9 | 1 | none |
+| structural-sort | 1 | 3 | 16 | 15.2 | 25.3 | 9.9 | 0 | none |
+
+
+## wip-owned-drag-styles — 2026-08-10T09:46:14.828Z
+
+Environment: darwin arm64, 8 cores, Node v24.18.1, Playwright 1.62.1, CPU throttle 1x, 3 passes per zoom.
+
+### production
+
+| Scenario | Zoom | Pass | Pointer-down handlers (ms) | First mutation after down (ms) | Activation max gap (ms) | Sustained max gap (ms) | Gaps >32 ms | Long tasks ≥50 ms |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| root-drag | 0.5 | 1 (cold) | 11 | 11 | 16.6 | 10.3 | 0 | none |
+| root-drag | 0.5 | 2 | 2.8 | 20.8 | 10.1 | 10.2 | 0 | none |
+| root-drag | 0.5 | 3 | 2.1 | 20 | 10 | 10.3 | 0 | none |
+| root-drag | 1 | 1 (cold) | 8.2 | 8.1 | 10.1 | 10.4 | 0 | none |
+| root-drag | 1 | 2 | 1.9 | 21 | 9.9 | 10.3 | 0 | none |
+| root-drag | 1 | 3 | 0.5 | 10.5 | 8.4 | 10.3 | 0 | none |
+| structural-sort | 0.5 | 1 (cold) | 33.2 | 3.6 | 34.7 | 16.7 | 1 | none |
+| structural-sort | 0.5 | 2 | 24.4 | 2.9 | 24.9 | 10.3 | 0 | none |
+| structural-sort | 0.5 | 3 | 19 | 1.4 | 16.3 | 10.3 | 0 | none |
+| structural-sort | 1 | 1 (cold) | 23.6 | 2.4 | 25.5 | 16.7 | 0 | none |
+| structural-sort | 1 | 2 | 26.6 | 2.7 | 25.1 | 10.3 | 0 | none |
+| structural-sort | 1 | 3 | 24.7 | 2.3 | 25.4 | 10.2 | 0 | none |
+
+
+## wip-owned-drag-styles-v2 — 2026-08-10T09:47:31.007Z
+
+Environment: darwin arm64, 8 cores, Node v24.18.1, Playwright 1.62.1, CPU throttle 1x, 3 passes per zoom.
+
+### production
+
+| Scenario | Zoom | Pass | Pointer-down handlers (ms) | First mutation after down (ms) | Activation max gap (ms) | Sustained max gap (ms) | Gaps >32 ms | Long tasks ≥50 ms |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| root-drag | 0.5 | 1 (cold) | 11 | 10.9 | 16.6 | 10.3 | 0 | none |
+| root-drag | 0.5 | 2 | 2.6 | 19.5 | 9.6 | 10.3 | 0 | none |
+| root-drag | 0.5 | 3 | 1.3 | 17 | 9.4 | 10.3 | 0 | none |
+| root-drag | 1 | 1 (cold) | 7.7 | 7.7 | 9.2 | 10.3 | 0 | none |
+| root-drag | 1 | 2 | 2 | 19.7 | 10.1 | 10.3 | 0 | none |
+| root-drag | 1 | 3 | 2.1 | 23 | 9.9 | 10.4 | 0 | none |
+| structural-sort | 0.5 | 1 (cold) | 30.6 | 23.4 | 33.4 | 18.1 | 1 | none |
+| structural-sort | 0.5 | 2 | 14.3 | 13.5 | 16.4 | 10.2 | 0 | none |
+| structural-sort | 0.5 | 3 | 12 | 11.1 | 17.7 | 10.3 | 0 | none |
+| structural-sort | 1 | 1 (cold) | 16.4 | 10.7 | 16.7 | 10.3 | 0 | none |
+| structural-sort | 1 | 2 | 13.9 | 13.1 | 16.7 | 10.3 | 0 | none |
+| structural-sort | 1 | 3 | 10 | 9.4 | 8.4 | 10.2 | 0 | none |
+
