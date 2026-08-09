@@ -12,14 +12,16 @@ import { ItemListSectionBody, registerPlaygroundSectionKinds } from "./sectionKi
 // The host-owned presentation regression from the Phase 4 presentation-parity correction: the
 // package leaves opaque item contents to this renderer, so the reference's label and value
 // roles — 12/16 px semibold sans-serif labels in setta-800/200 with the reference padding,
-// 12/16 px medium monospace tabular values, the subtle value-column divider, and the default
-// half-width column split through `--param-column-width` — are this host's contract, frozen
-// here as literal expectations independent of the renderer's constants.
+// 12/16 px regular monospace values with normal numerals in the reference CodeMirror GitHub
+// theme foregrounds (#24292e light, #c9d1d9 dark, the live idle Dict text-value metrics from
+// the Phase 4 gate), the subtle value-column divider, and the default half-width column split
+// through `--param-column-width` — are this host's contract, frozen here as literal
+// expectations independent of the renderer's constants.
 
 const REFERENCE_LABEL_CLASS_NAME =
   "truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200";
 const REFERENCE_VALUE_CLASS_NAME =
-  "section-value self-end break-words py-[.125rem] font-mono text-xs font-medium tabular-nums text-setta-800 dark:text-setta-300";
+  "section-value self-end break-words py-[.125rem] font-mono text-xs text-[#24292e] dark:text-[#c9d1d9]";
 const REFERENCE_VALUE_DIVIDER_CLASS_NAME =
   "section-value self-end border-b border-setta-200/50 dark:border-setta-600/30";
 

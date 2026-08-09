@@ -841,8 +841,24 @@ Phase 4 progress (2026-08-11):
   focused presentation regression, and do not reopen the now-matching label, divider, scrollbar,
   geometry, or interaction contracts. Run the narrow checks and repeat the live dark/light
   comparison before requesting approval.
-- Remaining Phase 4 work: implement and audit the host value-font correction, repeat the live
-  main-Dict versus unrelated-item comparison, and obtain a renewed developer exit-gate decision.
+- Value-font correction (2026-08-11): the host renderer's value role now reproduces the live
+  idle Dict text-value metrics. The combobox-derived medium/tabular treatment in
+  setta-800/300 was dropped for the reference value path's actual presentation: no weight or
+  numeral utility (the reference `ParamUI` idle dummy-code class
+  carries none, so the default regular 400 weight and normal numerals apply through the same
+  mechanism as main), and the reference CodeMirror GitHub theme foregrounds as literal
+  utilities `text-[#24292e] dark:text-[#c9d1d9]` — `defaultSettingsGithubLight`/`Dark`
+  `foreground` verified in the frozen reference's installed `@uiw/codemirror-theme-github`,
+  exactly the measured `rgb(36,41,46)` / `rgb(201,209,217)`; theme colors, not setta palette
+  slots. Only the host value-role class string changed: the 12/16 px monospace metrics,
+  bottom alignment, and padding are retained, and the now-matching label, divider, scrollbar,
+  geometry, and interaction contracts are untouched (no package source changed). The focused
+  presentation regression freezes the corrected literal. Playground suite green (6); the
+  playground production build compiles both new color utilities with the dark rule correctly
+  class-scoped; changed-file static gate green (no dependency or packaging changes, so the
+  supply-chain and consumer gates were not rerun).
+- Remaining Phase 4 work: audit the host value-font correction, repeat the live main-Dict
+  versus unrelated-item comparison, and obtain a renewed developer exit-gate decision.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

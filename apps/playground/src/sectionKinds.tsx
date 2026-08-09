@@ -59,14 +59,17 @@ function isGroupItem(item: WorkspaceItem): boolean {
 // `/settings` Dict's label and value roles. Labels carry the reference `ParamTextLabel`
 // treatment verbatim (12/16 px semibold sans-serif in setta-800/200 with the reference's
 // 0.125 rem vertical padding); its click-to-focus affordance stays application-side with the
-// input it focuses. Values are 12/16 px medium monospace with tabular figures, bottom-aligned
-// in the value column like the reference's idle value text, and the empty self-end span draws
-// the reference's subtle value-column divider. The reference's CodeMirror editing surface and
-// syntax coloring stay application-side; the playground renders opaque value strings.
+// input it focuses. Values reproduce the live idle Dict text-value metrics from the Phase 4
+// gate: 12/16 px regular monospace with normal numerals (the reference value class carries no
+// weight or numeral utility), bottom-aligned in the value column, colored with the reference
+// CodeMirror GitHub theme foregrounds (#24292e light, #c9d1d9 dark — theme colors, not setta
+// palette slots), and the empty self-end span draws the reference's subtle value-column
+// divider. The reference's CodeMirror editing surface and syntax coloring stay
+// application-side; the playground renders opaque value strings.
 const ITEM_LABEL_CLASS_NAME =
   "truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200";
 const ITEM_VALUE_CLASS_NAME =
-  "section-value self-end break-words py-[.125rem] font-mono text-xs font-medium tabular-nums text-setta-800 dark:text-setta-300";
+  "section-value self-end break-words py-[.125rem] font-mono text-xs text-[#24292e] dark:text-[#c9d1d9]";
 const ITEM_VALUE_DIVIDER_CLASS_NAME =
   "section-value self-end border-b border-setta-200/50 dark:border-setta-600/30";
 
