@@ -91,6 +91,18 @@ export type {
   WorkspaceGestureOptions,
   WorkspacePanOnScrollMode,
 } from "./internal/workspace-policy.js";
+export {
+  packWorkspaceRectangles,
+  planWorkspaceRootAutoLayout,
+} from "./internal/workspace-root-auto-layout.js";
+export type {
+  WorkspacePackedRectangle,
+  WorkspacePackingRectangle,
+  WorkspaceRectanglePackingInput,
+  WorkspaceRootAutoLayoutInput,
+  WorkspaceRootAutoLayoutPlan,
+  WorkspaceRootAutoLayoutRectangle,
+} from "./internal/workspace-root-auto-layout.js";
 export { planWorkspaceSectionPlacement } from "./internal/workspace-smart-placement.js";
 export type {
   WorkspacePlacementRect,
@@ -113,5 +125,6 @@ export type {
   WorkspaceGridOptions,
   WorkspaceGridPattern,
   WorkspaceHistoryState,
+  WorkspaceRootAutoLayoutOptions,
   WorkspaceThemeTokens,
 } from "./internal/workspace-surface-contract.js";

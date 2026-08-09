@@ -1569,12 +1569,31 @@ Gate:
 
 ### Phase 6: Deferred capability expansion in the same package
 
-Status: **in progress** (updated 2026-08-09). The detachable-section, adapter-driven clipboard, and
-optional outline-navigator batches are implemented and recorded in
+Status: **in progress** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
+optional outline-navigator, and top-level auto-layout batches are implemented and recorded in
 [Phase 6 detachable-section evidence](../evidence/phase-6-detachable-sections.md) and
 [Phase 6 clipboard evidence](../evidence/phase-6-clipboard.md), with the navigator record in
-[Phase 6 outline-navigator evidence](../evidence/phase-6-outline-navigator.md). Pure top-level
-auto-layout and packing commands are the earliest incomplete repository-actionable Phase 6 work.
+[Phase 6 outline-navigator evidence](../evidence/phase-6-outline-navigator.md) and the layout record
+in [Phase 6 top-level auto-layout evidence](../evidence/phase-6-auto-layout.md). Multiple named item
+lists within one section are the earliest incomplete repository-actionable Phase 6 work.
+
+- Completed (top-level auto-layout batch): added a deterministic framework-neutral rectangle
+  packer, a root-layout planner that retains the current minimum anchor, and one measured public
+  controller command that atomically moves every unlocked root through the existing movement and
+  history boundary. The playground and unrelated consumer opt into that command through the host
+  toolbar-control contract; no document field, layout dependency, mandatory control, or upstream
+  rendering type entered the public boundary. The complete record is
+  `docs/evidence/phase-6-auto-layout.md`.
+- Top-level auto-layout verification: exact Node 24.18.1, repository-local Corepack 0.35.0, and
+  pnpm 11.19.0 focused unit coverage passed seven tests and the exact Chromium selector passed both
+  workflows with its reviewed original-resolution baseline. Changed-file quality passed for 17
+  project files with repository/import boundaries across 292 files, all four manifests,
+  formatting, lint, file length, strict types, dead-code analysis, 415 unit tests across 39 files,
+  six boundary tests, plan-loop automation, package/playground builds, exact tarball contents, and
+  the declaration report. The unrelated tarball-installed consumer passed strict build and
+  runtime smoke while importing the pure helpers and invoking the controller command. No
+  dependency input changed, so the current network-backed supply-chain gate was not duplicated;
+  the recorded unavailable in-app-browser release gate was not retried.
 
 The initial package milestone did not wait for browser windowing or domain-safe clipboard
 integration. Both are now implemented as optional capabilities of `@setta/workspace`, not separate
@@ -1605,7 +1624,7 @@ Implement adapter-driven copy and paste:
 Then evaluate or implement independently:
 
 - Completed: an optional hierarchical outline navigator built on the initial controller and traversal helpers.
-- Pure top-level auto-layout and packing commands.
+- Completed: pure top-level auto-layout and packing commands.
 - Multiple named item lists within one section.
 - Cross-list item movement.
 - Filtered-list reordering against a larger canonical tree.
@@ -1629,6 +1648,7 @@ Cover:
 - Recursive containment validation and derived parent lookup.
 - Coordinate conversion across canvas and nested placement contexts.
 - Smart placement inside and outside viewport bounds with deterministic non-overlap and grid behavior.
+- Deterministic top-level rectangle packing, root-anchor preservation, measured auto-layout planning, lock/readiness rejection, and one-command history.
 - Root minimap projection and all-depth focus/fit bounds from the shared geometry index.
 - Marquee intersection and containment geometry, selection-root normalization, deterministic navigation order, and combined selection bounds at every visible depth.
 - Section single/block sorting, free-move, grouping, ungrouping, orientation, batch subtree deletion, persistent stacking, resize, size mode, overflow, presentation, title, lock, and minimize reducers.
@@ -1669,6 +1689,7 @@ Cover:
 - Independent grid visibility and snap settings.
 - Scoped light, dark, system, and custom-token appearance behavior.
 - Configurable viewport gestures, built-in toolbar, host toolbar controls and overlays, minimap interaction, and controller helpers.
+- Measured top-level auto layout through a host toolbar control without changing stack order, sizes, viewport, or selection.
 - Optional outline hierarchy, disclosure, selection, direction-aware keyboard navigation, and controller-backed focus.
 - Section and item drag scopes.
 - Input, button, and text-selection interaction.
@@ -1686,6 +1707,7 @@ Cover the real playground:
 - Create through palette, context menu, and keyboard; smart-place, rename, restyle, move, resize, content-fit, lock, minimize, persist, and reload.
 - Configure every viewport gesture family, use scrollable host content without moving the canvas, and operate the built-in and host-injected toolbar controls.
 - Navigate through the minimap and focus/fit helpers without losing selection or host state.
+- Arrange measured top-level roots without overlap, preserve their anchor and stack order, then undo and redo the one atomic movement command.
 - Navigate recursive sections through the optional outline by pointer and keyboard, including modifier selection, RTL, 200% page scale, 320-pixel reflow, coarse targets, and reduced motion.
 - Marquee-select with partial and full containment, move the selected block, batch lock/delete, group, ungroup, and use explicit stacking commands.
 - Marquee-select and focus/fit nested descendants at unrelated depths, then verify their bounds agree with collision and drop geometry through pan, zoom, recursive reflow, grow/scroll changes, and minimization.
@@ -1754,6 +1776,7 @@ The initial package documentation includes:
 - Grid, snapping, appearance, per-section presentation, chrome variants, and semantic theme-token reference.
 - Single- and multi-item sortable-tree reference.
 - Detachable-window, adapter-driven clipboard, and optional outline-navigator integration guidance.
+- Pure rectangle-packing and measured top-level auto-layout guidance.
 - Persistence integration example.
 - Keyboard interaction table.
 - Accessibility expectations for host renderers.

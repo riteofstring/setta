@@ -190,6 +190,37 @@ Search covers display name, kind, group, and keywords. A successful package crea
 focuses the new frame. The host owns additional creation items, asynchronous domain work, and any
 payload validation.
 
+## Top-level auto layout and rectangle packing
+
+`controller.autoLayoutRootSections({ gap })` measures every canonical top-level frame through the
+package geometry index, orders rectangles by measured height and width with persistent root order
+as the stable tie-breaker, and shelf-packs them into a deterministic near-square area. The default
+gap is 48 workbench units. An explicit gap must be finite and non-negative.
+
+The command preserves the roots' existing minimum x/y anchor, persistent stacking order, section
+records and sizes, hierarchy, viewport, and transient selection. It requires `editLayout`, rejects
+the complete operation when any root is locked or any root geometry is unavailable, and commits all
+new positions as one `section-move` history entry. Repeating the command against the resulting
+geometry is a no-op.
+
+Hosts that need planning without a mounted React workbench can import the pure core helpers.
+`packWorkspaceRectangles` packs positive finite rectangles from an explicit origin;
+`planWorkspaceRootAutoLayout` additionally derives the origin from the supplied root rectangles and
+returns a prototype-safe position record. Both validate dense inputs, unique non-empty section IDs,
+finite geometry, and the gap without reading section payloads or mutating the input.
+
+Expose the command through a host toolbar control when it fits the product:
+
+```tsx
+const autoLayoutControl: WorkspaceToolbarControl = {
+  icon: <ArrangeIcon />,
+  id: "auto-layout",
+  label: "Arrange sections",
+  onPress: (controller) => controller.autoLayoutRootSections({ gap: 48 }),
+  placement: "project",
+};
+```
+
 ## Detachable section windows
 
 Detachment is explicit at both boundaries: the section definition sets `detachable: true`, and the

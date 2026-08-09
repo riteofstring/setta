@@ -141,10 +141,14 @@ The optional `WorkspaceOutline` navigator is also implemented. It uses only the 
 and canonical traversal, keeps disclosure transient, and provides pointer plus direction-aware
 keyboard selection and focus without serializing pane state.
 
-Still deferred are top-level auto-layout, multiple or cross-list item trees, filtered-list
-reconciliation, mixed-parent batch dragging, saved viewport presets, generic edges and ports, pane
-registration beyond current extensions, viewport culling, absolute nested positioning, and complete
-descendant-subtree collapse.
+Top-level auto layout is implemented as a measured controller command over a pure deterministic
+rectangle packer. It preserves the root anchor and canonical stacking, rejects locked or unmeasured
+roots atomically, and records one ordinary root-movement history entry.
+
+Still deferred are multiple or cross-list item trees, filtered-list reconciliation, mixed-parent
+batch dragging, saved viewport presets, generic edges and ports, pane registration beyond current
+extensions, viewport culling, absolute nested positioning, and complete descendant-subtree
+collapse.
 
 ## Explicit non-goals
 

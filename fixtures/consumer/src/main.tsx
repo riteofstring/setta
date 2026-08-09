@@ -3,11 +3,14 @@ import {
   applySortableItemMove,
   createEmptyWorkspaceDocument,
   createWorkspaceJsonClipboardAdapter,
+  packWorkspaceRectangles,
+  planWorkspaceRootAutoLayout,
   validateSortableItemTree,
   validateWorkspaceDocument,
   type SortableItemTree as SortableItemTreeModel,
   type WorkspaceClipboardAdapter,
   type WorkspaceDocument,
+  type WorkspaceRootAutoLayoutOptions,
 } from "@setta/workspace/core";
 import {
   WorkspaceDetachmentProvider,
@@ -53,12 +56,46 @@ const workspaceDocument: WorkspaceDocument<ConsumerSectionData> = {
 };
 validateWorkspaceDocument(workspaceDocument);
 
+const consumerPackingPreview = packWorkspaceRectangles({
+  gap: 16,
+  origin: { x: 32, y: 32 },
+  rectangles: [{ height: 180, sectionId: "consumer-note-1", width: 300 }],
+});
+const consumerLayoutPreview = planWorkspaceRootAutoLayout({
+  gap: 16,
+  rootRects: [{ height: 180, sectionId: "consumer-note-1", width: 300, x: 32, y: 32 }],
+});
+if (
+  consumerPackingPreview[0]?.x !== 32 ||
+  consumerLayoutPreview.positions["consumer-note-1"]?.y !== 32
+) {
+  throw new Error("Packed consumer root-layout helpers returned an unexpected origin.");
+}
+
 function ConsumerNote({ data, readOnly }: SectionRenderProps<ConsumerSectionData>) {
   return (
     <label>
       Consumer note body
       <input defaultValue={data.body} readOnly={readOnly} />
     </label>
+  );
+}
+
+function ConsumerArrangeIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      focusable="false"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      viewBox="0 0 20 20"
+    >
+      <rect height="5" rx="1" width="5" x="3.5" y="3.5" />
+      <rect height="5" rx="1" width="5" x="11.5" y="3.5" />
+      <rect height="5" rx="1" width="5" x="3.5" y="11.5" />
+      <rect height="5" rx="1" width="5" x="11.5" y="11.5" />
+    </svg>
   );
 }
 
@@ -143,12 +180,20 @@ const groupFactory: WorkspaceGroupFactory<ConsumerSectionData> = ({ sectionIds }
     title: `Consumer group ${String(sectionNumber)}`,
   };
 };
+const consumerAutoLayoutOptions = { gap: 48 } satisfies WorkspaceRootAutoLayoutOptions;
 const toolbarControls = [
   {
     icon: <span>+</span>,
     id: "consumer-focus",
     label: "Focus consumer canvas",
     onPress: (controller) => void controller.setViewport({ x: 0, y: 0, zoom: 1 }),
+    placement: "project",
+  },
+  {
+    icon: <ConsumerArrangeIcon />,
+    id: "consumer-auto-layout",
+    label: "Arrange consumer sections",
+    onPress: (controller) => controller.autoLayoutRootSections(consumerAutoLayoutOptions),
     placement: "project",
   },
   {

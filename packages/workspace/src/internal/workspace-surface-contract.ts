@@ -89,6 +89,10 @@ export type WorkspaceCreateSectionOptions = Readonly<{
   position?: WorkspacePoint;
 }>;
 
+export type WorkspaceRootAutoLayoutOptions = Readonly<{
+  gap?: number;
+}>;
+
 export type WorkspaceDocumentChangeReason =
   | "history-redo"
   | "history-undo"
@@ -119,6 +123,7 @@ export type WorkspaceHistoryState = Readonly<{
 }>;
 
 export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
+  autoLayoutRootSections(options?: WorkspaceRootAutoLayoutOptions): WorkspaceActionResult;
   bringForward(sectionIds: readonly string[]): WorkspaceActionResult;
   bringToFront(sectionIds: readonly string[]): WorkspaceActionResult;
   clearSelection(): WorkspaceActionResult;

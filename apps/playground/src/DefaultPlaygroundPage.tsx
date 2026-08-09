@@ -1,5 +1,6 @@
 import {
   createWorkspaceJsonClipboardAdapter,
+  type WorkspaceActionResult,
   type WorkspaceAppearance,
   type WorkspaceController,
   type WorkspaceDocument,
@@ -8,6 +9,7 @@ import {
   Workspace,
   WorkspaceDetachmentProvider,
   type WorkspaceSectionTitleValidationRequest,
+  type WorkspaceToolbarControl,
 } from "@setta/workspace/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -70,6 +72,45 @@ function reportPersistenceFailure(
   }
 }
 
+function ArrangeSectionsIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      focusable="false"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      viewBox="0 0 20 20"
+    >
+      <rect height="5" rx="1" width="5" x="3.5" y="3.5" />
+      <rect height="5" rx="1" width="5" x="11.5" y="3.5" />
+      <rect height="5" rx="1" width="5" x="3.5" y="11.5" />
+      <rect height="5" rx="1" width="5" x="11.5" y="11.5" />
+    </svg>
+  );
+}
+
+function autoLayoutAnnouncement(result: WorkspaceActionResult): string {
+  if (result.status === "applied") {
+    return "Top-level sections arranged.";
+  }
+  if (result.status === "unchanged") {
+    return "Top-level sections are already arranged.";
+  }
+  if (!("reason" in result)) {
+    return "Unable to arrange top-level sections.";
+  }
+  const messages = {
+    "canvas-unavailable": "The workspace canvas is unavailable.",
+    "layout-edit-disabled": "Turn on layout editing to arrange sections.",
+    "section-geometry-unavailable": "Sections are still being measured. Try arranging them again.",
+    "section-locked": "Unlock all top-level sections before arranging them.",
+  } as const;
+  return (
+    messages[result.reason as keyof typeof messages] ?? "Unable to arrange top-level sections."
+  );
+}
+
 export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean }>) {
   const [initialState] = useState(loadPlaygroundState);
   const [document, setDocument] = useState(initialState.document);
@@ -115,6 +156,21 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
       validateSectionData: validatePlaygroundClipboardSectionData,
     });
   }, [document.sections]);
+  const toolbarControls = useMemo<readonly WorkspaceToolbarControl<PlaygroundSectionData>[]>(
+    () => [
+      {
+        disabled: readOnly || document.rootSections.length < 2,
+        icon: <ArrangeSectionsIcon />,
+        id: "arrange-sections",
+        label: "Arrange sections",
+        onPress: (controller) => {
+          setAnnouncement(autoLayoutAnnouncement(controller.autoLayoutRootSections()));
+        },
+        placement: "project",
+      },
+    ],
+    [document.rootSections.length, readOnly],
+  );
 
   useEffect(() => {
     reportPersistenceFailure(persistPlaygroundDocument(document), setAnnouncement);
@@ -311,6 +367,7 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
             readOnly={readOnly}
             sectionDefinitions={sectionDefinitions}
             sectionFactory={({ kind }) => nextFactoryResult(kind)}
+            toolbarControls={toolbarControls}
             validateExternalDrop={({ event }) =>
               event.dataTransferTypes.includes(EXTERNAL_SAMPLE_MIME)
                 ? { allowed: true, label: "Import sample note" }

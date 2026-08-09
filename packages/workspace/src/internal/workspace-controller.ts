@@ -1,6 +1,7 @@
 import {
   getAdjacentWorkspaceSectionId,
   getWorkspaceSectionOrder,
+  planWorkspaceRootAutoLayout,
   WorkspaceDocumentValidationError,
   type SectionOrientation,
   type SectionOverflow,
@@ -13,6 +14,7 @@ import {
   type WorkspaceFitOptions,
   type WorkspaceHistoryState,
   type WorkspacePoint,
+  type WorkspaceRootAutoLayoutOptions,
   type WorkspaceSection,
   type WorkspaceViewport,
 } from "../core.js";
@@ -133,6 +135,77 @@ function createSectionOptionsAt(value: unknown): WorkspaceCreateSectionOptions {
   return options.position === undefined
     ? Object.freeze({})
     : Object.freeze({ position: pointAt(options.position, "Workspace creation position") });
+}
+
+function rootAutoLayoutOptionsAt(value: unknown): WorkspaceRootAutoLayoutOptions {
+  const options = optionOverridesAt(
+    value,
+    ["gap"],
+    "Workspace root auto-layout options",
+    "workspace root auto-layout option",
+  );
+  if (options.gap === undefined) {
+    return Object.freeze({});
+  }
+  if (typeof options.gap !== "number" || !Number.isFinite(options.gap) || options.gap < 0) {
+    throw new TypeError("Workspace root auto-layout gap must be a finite non-negative number.");
+  }
+  return Object.freeze({ gap: options.gap });
+}
+
+function measuredRootAutoLayoutRectangles<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  canvasController: WorkspaceCanvasController,
+) {
+  const rectangles = document.rootSections.map(({ sectionId }) => {
+    const rect = canvasController.getSectionRect(sectionId);
+    if (
+      !rect ||
+      !Number.isFinite(rect.x) ||
+      !Number.isFinite(rect.y) ||
+      !Number.isFinite(rect.width) ||
+      !Number.isFinite(rect.height) ||
+      rect.width <= 0 ||
+      rect.height <= 0
+    ) {
+      return null;
+    }
+    return { ...rect, sectionId };
+  });
+  return rectangles.some((rectangle) => rectangle === null)
+    ? null
+    : rectangles.filter((rectangle) => rectangle !== null);
+}
+
+function autoLayoutRootSections<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  optionsValue: WorkspaceRootAutoLayoutOptions | undefined,
+): WorkspaceActionResult {
+  const options = rootAutoLayoutOptionsAt(optionsValue);
+  if (!bindings.getCapabilities().editLayout) {
+    return { reason: "layout-edit-disabled", status: "rejected" };
+  }
+  const document = bindings.getDocument();
+  if (document.rootSections.length < 2) {
+    return { status: "unchanged" };
+  }
+  if (
+    document.rootSections.some(
+      ({ sectionId }) => document.sections[sectionId]?.positionAndSizeLocked,
+    )
+  ) {
+    return { reason: "section-locked", status: "rejected" };
+  }
+  const canvasController = bindings.getCanvasController?.();
+  if (!canvasController) {
+    return { reason: "canvas-unavailable", status: "rejected" };
+  }
+  const rootRects = measuredRootAutoLayoutRectangles(document, canvasController);
+  if (!rootRects) {
+    return { reason: "section-geometry-unavailable", status: "rejected" };
+  }
+  const plan = planWorkspaceRootAutoLayout({ ...options, rootRects });
+  return dispatch(bindings, { positions: plan.positions, type: "move-root-sections" });
 }
 
 function createSection<TSectionData>(
@@ -403,6 +476,7 @@ export function createWorkspaceController<TSectionData>(
     return { status: "applied" };
   };
   return {
+    autoLayoutRootSections: (options) => autoLayoutRootSections(bindings, options),
     bringForward: (sectionIds) => stackRootSections(bindings, sectionIds, "bring-forward"),
     bringToFront: (sectionIds) => stackRootSections(bindings, sectionIds, "bring-to-front"),
     clearSelection: () => setSelection([]),

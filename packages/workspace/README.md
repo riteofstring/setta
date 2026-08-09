@@ -572,6 +572,14 @@ normalized selection roots and the same canonical command boundary. Persistent s
 section IDs at any depth, maps them to distinct top-level ancestors, and preserves selected order;
 ordinary selection and dragging use only a transient render lift.
 
+`autoLayoutRootSections({ gap })` uses measured top-level frame sizes to deterministically pack every
+root into near-square shelves while preserving the current minimum x/y anchor. It changes neither
+root stacking nor section sizes, hierarchy, viewport, or selection. The command requires layout
+editing, rejects locked roots and incomplete geometry atomically, and records one `section-move`
+history entry. The default gap is 48 workbench units. Framework-neutral consumers may call
+`packWorkspaceRectangles` or `planWorkspaceRootAutoLayout` from the core entry point with explicit
+geometry.
+
 Canonical projection reuses unchanged root-node and renderer data identities. Selection, viewport,
 transient movement/resize, and single-section document updates therefore avoid rerendering unrelated
 host section bodies even for large root sets.
@@ -611,6 +619,7 @@ controller.current?.getSelectedSectionIds();
 controller.current?.clearSelection();
 controller.current?.createSection("note");
 controller.current?.createSection("note", { position: { x: 120, y: 80 } });
+controller.current?.autoLayoutRootSections({ gap: 48 });
 controller.current?.groupSections(["summary", "details"]);
 controller.current?.ungroupSection("summary-group");
 controller.current?.bringToFront(["summary", "details"]);
