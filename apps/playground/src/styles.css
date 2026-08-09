@@ -296,11 +296,6 @@ main {
   margin-block-start: 0.5rem;
 }
 
-.playground-data-actions--top {
-  justify-content: flex-end;
-  margin-block-start: 0;
-}
-
 .playground-data-actions button,
 .playground-control-link,
 .playground-panel__close,

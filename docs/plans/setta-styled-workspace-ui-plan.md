@@ -4,8 +4,8 @@
 
 Status: **in progress** (Phase 0 complete 2026-08-10, final audit pending; Phase 1 complete and
 independently audited 2026-08-10; Phase 2 implementation complete 2026-08-10 and ready for its
-independent phase audit; Phase 3 implementation complete 2026-08-10 and ready for its independent
-phase audit). Phase 0 artifacts: the before-screenshot evidence set and public-API-only
+independent phase audit; Phase 3 complete and independently audited 2026-08-10). Phase 0
+artifacts: the before-screenshot evidence set and public-API-only
 visual-matrix route
 ([docs/evidence/setta-ui-before-screenshots.md](../evidence/setta-ui-before-screenshots.md)), the
 repeatable development/production interaction profiler (`corepack pnpm perf:interaction`) with
@@ -202,6 +202,19 @@ tests, build/pack/API report) and two consecutive green passes of the 50 affecte
 with intentionally refreshed baselines; driven Chrome screenshots verified the fitted first
 viewport at 1440 × 900, 1024 × 768, and 360 px, plus dark appearance with the Help panel open.
 Phase 3 is ready for its independent audit.
+
+An independent Fable 5 phase audit accepted Phase 3 on 2026-08-10 with one cleanup: the orphaned
+`.playground-data-actions--top` stylesheet rule left behind by the removed data-controls header was
+deleted (its last consumer went away with the hero/harness layout). The audit statically verified
+the canvas-first shell against the plan (overlay panels that never shrink the canvas, Escape/close
+focus restoration, the v2 storage key with the one-time StrictMode-safe fit, the persisted empty
+state, query-string proof routes intact) and confirmed no stale references to the removed harness
+UI or the v1 document key remain — the surviving "No sections yet." and "Appearance" test
+references belong to the canvas-shell route and the package default. After the cleanup,
+`corepack pnpm quality:all` passed (EXIT 0) and the complete deterministic browser matrix passed
+118/118 in one run. A driven Chrome check confirmed the fitted populated first launch at
+1440 × 900 and 1024 × 768, dark appearance with the Help panel overlaying the canvas, and 360 px
+reflow with the Data panel open.
 
 Make the Setta visual language the opinionated default for `@setta/workspace`, redesign the
 backend-free playground around the canvas, and remove the measurable structural-drag startup hitch.
