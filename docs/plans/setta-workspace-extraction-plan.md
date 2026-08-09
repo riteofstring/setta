@@ -453,8 +453,12 @@ Phase 3 progress (2026-08-11):
   appearance dependency the reference exercises through its localStorage store); new focused
   tests freeze the wrapper placement/mask chrome, the canvas mount gating, the toolbar group,
   and the `setCenter` seam. No dependency changes.
-- Remaining Phase 3 repository work: none — the developer checkpoints and the phase exit gate
-  remain.
+- Phase 3 exit gate complete (2026-08-11): the developer inspected the representative recursive
+  workspace in the backend-free playground in light and dark mode, explicitly approved Phase 3,
+  and authorized continuation. The recursive structure, orientation switching, cross-depth
+  movement/sorting, and minimap controls remain independent of main runtime state; `../setta-main`
+  remains clean at `043d3b2e9`. Phase 4 may proceed.
+- Remaining Phase 3 work: none.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
