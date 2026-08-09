@@ -7,6 +7,7 @@ import {
   useState,
   type MutableRefObject,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
 
@@ -21,6 +22,7 @@ import {
   WORKSPACE_NO_PAN_CLASS_NAME,
   WORKSPACE_NO_WHEEL_CLASS_NAME,
 } from "./workspace-interaction-boundary.js";
+import type { WorkspacePaneToolbarControl } from "./workspace-panes.js";
 import type {
   WorkspaceToolbarControl,
   WorkspaceToolbarControlPlacement,
@@ -30,13 +32,16 @@ import { workspaceViewportsMatch } from "./workspace-viewport-synchronizer.js";
 type ResolvedToolbarControl = Readonly<{
   ariaControls?: string;
   disabled: boolean;
+  dismissTooltipOnPress?: boolean;
+  expanded?: boolean;
   icon: ReactNode;
   id: string;
   label: string;
   onPress(trigger: HTMLButtonElement): void;
+  paneId?: string;
   placement: WorkspaceToolbarControlPlacement;
   pressed?: boolean;
-  source: "built-in" | "host";
+  source: "built-in" | "host" | "pane";
 }>;
 
 type ToolbarControlGroup = Readonly<{
@@ -61,6 +66,7 @@ type WorkspaceToolbarProps<TSectionData> = Readonly<{
   minimapVisible: boolean;
   onGridSnapChange(value: boolean): void;
   onMinimapVisibilityChange(value: boolean): void;
+  paneControls: readonly WorkspacePaneToolbarControl[];
   sectionIds: readonly string[];
   toolbarControls: readonly WorkspaceToolbarControl<TSectionData>[];
 }>;
@@ -274,24 +280,29 @@ function ToolbarControlButton({
     }
     keyboard.handleKeyDown(event);
   };
+  const handlePress = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    control.onPress(event.currentTarget);
+    if (control.dismissTooltipOnPress) setTooltipDismissed(true);
+  };
   return (
     <span
       className="setta-workspace__toolbar-item"
       data-tooltip-dismissed={tooltipDismissed ? "true" : undefined}
       onPointerEnter={() => setTooltipDismissed(false)}
-      onPointerLeave={() => setTooltipDismissed(false)}
     >
       <button
         aria-controls={control.ariaControls}
+        aria-expanded={control.expanded}
         aria-label={control.label}
         aria-pressed={control.pressed}
         className="setta-workspace__toolbar-control"
         data-workspace-control-id={control.id}
         data-workspace-control-placement={control.placement}
         data-workspace-control-source={control.source}
+        data-workspace-pane-trigger={control.paneId}
         disabled={control.disabled}
         onBlur={handleBlur}
-        onClick={(event) => control.onPress(event.currentTarget)}
+        onClick={handlePress}
         onFocus={handleFocus}
         onKeyDown={handleKeyDown}
         ref={(element) => keyboard.registerControl(control.id, element)}
@@ -358,6 +369,7 @@ export function WorkspaceToolbar<TSectionData = WorkspaceJsonValue>({
   minimapVisible,
   onGridSnapChange,
   onMinimapVisibilityChange,
+  paneControls,
   sectionIds,
   toolbarControls,
 }: WorkspaceToolbarProps<TSectionData>) {
@@ -495,6 +507,23 @@ export function WorkspaceToolbar<TSectionData = WorkspaceJsonValue>({
       })),
     [controller, toolbarControls],
   );
+  const resolvedPaneControls = useMemo<readonly ResolvedToolbarControl[]>(
+    () =>
+      paneControls.map((control) => ({
+        ariaControls: control.ariaControls,
+        disabled: false,
+        dismissTooltipOnPress: true,
+        expanded: control.expanded,
+        icon: control.icon,
+        id: control.controlId,
+        label: control.label,
+        onPress: control.onPress,
+        paneId: control.paneId,
+        placement: "utility",
+        source: "pane",
+      })),
+    [paneControls],
+  );
   const orderedControls = useMemo(
     () => [
       ...builtInControls.filter((control) => control.placement === "project"),
@@ -502,9 +531,10 @@ export function WorkspaceToolbar<TSectionData = WorkspaceJsonValue>({
       ...builtInControls.filter((control) => control.placement === "viewport"),
       ...hostControls.filter((control) => control.placement === "viewport"),
       ...hostControls.filter((control) => control.placement === "utility"),
+      ...resolvedPaneControls,
       ...builtInControls.filter((control) => control.placement === "utility"),
     ],
-    [builtInControls, hostControls],
+    [builtInControls, hostControls, resolvedPaneControls],
   );
   const keyboard = useToolbarFocus(orderedControls);
   const groups = toolbarGroups(orderedControls);

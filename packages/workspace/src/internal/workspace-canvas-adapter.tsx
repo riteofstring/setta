@@ -58,6 +58,7 @@ import {
 } from "./workspace-interaction-boundary.js";
 import { useWorkspaceInteractionOwner } from "./workspace-interaction-owner.js";
 import { WorkspaceItemInteractionProvider } from "./workspace-item-interaction-context.js";
+import type { WorkspacePaneToolbarControl } from "./workspace-panes.js";
 import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
 import type {
   WorkspaceExternalDropHandler,
@@ -143,6 +144,7 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   onSelectionChange(sectionIds: readonly string[]): WorkspaceActionResult;
   onViewportCommit(viewport: WorkspaceViewport): void;
   overlaySlots: Partial<Record<WorkspaceOverlayPlacement, ReactNode>>;
+  paneControls: readonly WorkspacePaneToolbarControl[];
   presentationEditable: boolean;
   readOnly: boolean;
   sectionColorPalette: readonly WorkspaceSectionColorOption[];
@@ -232,6 +234,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   onSelectionChange,
   onViewportCommit,
   overlaySlots,
+  paneControls,
   presentationEditable,
   readOnly,
   sectionColorPalette,
@@ -659,6 +662,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
               minimapVisible={minimapVisible}
               onGridSnapChange={onGridSnapChange}
               onMinimapVisibilityChange={onMinimapVisibilityChange}
+              paneControls={paneControls}
               sectionIds={sectionIds}
               toolbarControls={toolbarControls}
             />

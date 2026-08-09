@@ -1584,8 +1584,8 @@ Gate:
 
 Status: **in progress** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
 optional outline-navigator, top-level auto-layout, named item-list, filtered item-list,
-mixed-parent batch-movement, saved viewport-preset, and generic edge-and-port batches are
-implemented and recorded in
+mixed-parent batch-movement, saved viewport-preset, generic edge-and-port, and pane-registration
+batches are implemented. They are recorded in
 [Phase 6 detachable-section evidence](../evidence/phase-6-detachable-sections.md) and
 [Phase 6 clipboard evidence](../evidence/phase-6-clipboard.md), with the navigator record in
 [Phase 6 outline-navigator evidence](../evidence/phase-6-outline-navigator.md) and the layout record
@@ -1597,8 +1597,31 @@ and the mixed-parent record in
 The saved-view record is
 [Phase 6 viewport-preset evidence](../evidence/phase-6-viewport-presets.md), and the connection
 record is [Phase 6 generic edge and port evidence](../evidence/phase-6-generic-connections.md). Pane
-registration beyond toolbar and overlay slots is the earliest incomplete repository-actionable
-Phase 6 work.
+registration is recorded in
+[Phase 6 pane-registration evidence](../evidence/phase-6-pane-registration.md). Viewport culling is
+the earliest incomplete repository-actionable Phase 6 work.
+
+- Completed (pane-registration batch): added strict controller-only logical start/end pane
+  registrations, controlled and uncontrolled one-active-pane state, linked utility-toolbar
+  disclosures, close-focus restoration, and responsive layout that reserves measured canvas space
+  when wide and stacks without covering focusable canvas content when narrow. Pane visibility,
+  registration, renderer data, persistence, and authorization remain host-owned outside
+  `WorkspaceDocument` and structural history. The backend-free playground registers its outline
+  and saved-view surfaces, while the unrelated packed consumer switches between both through only
+  declared exports. The complete record is `docs/evidence/phase-6-pane-registration.md`.
+- Pane-registration verification: exact Node 24.18.1, repository-local Corepack 0.35.0, and pnpm
+  11.19.0 focused coverage passed four static React tests. The final exact Chromium selector passed
+  two pane workflows and both directly affected saved-view workflows, covering controlled
+  switching, measured wide layout, close-focus restoration, persistence, read-only usage, Axe,
+  200% page scale, coarse pointers, reduced motion, RTL, and 320-CSS-pixel reflow; all three
+  affected baselines were inspected at original resolution. Changed-file quality passed for 25
+  project files with boundaries across 324 files, dependency policy, formatting, lint and
+  complexity, file lengths, strict types, dead-code analysis, 460 unit tests across 44 files, six
+  boundary tests, plan-loop automation, builds, exact tarball contents, and the declaration report.
+  The unrelated tarball-installed consumer passed lockfile policy, strict build, and runtime pane
+  switching through declared exports. No dependency input changed, so the network-backed
+  supply-chain gate was not duplicated; the recorded unavailable in-app-browser release gate was
+  not retried.
 
 - Completed (generic edge-and-port batch): added a strict versioned host-controlled collection of
   labeled section ports and directed or undirected edges, with document-relative validation,
@@ -1761,7 +1784,7 @@ Then evaluate or implement independently:
   convergence into one destination.
 - Completed: saved viewport presets.
 - Completed: generic edges and ports.
-- Pane registration beyond toolbar and overlay slots.
+- Completed: pane registration beyond toolbar and overlay slots.
 - Viewport culling.
 - Absolute/freeform positioning inside nested containers.
 - Collapsing an entire descendant subtree as part of section minimization.

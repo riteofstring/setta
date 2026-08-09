@@ -31,6 +31,7 @@ import {
   type WorkspaceExternalDropHandler,
   type WorkspaceExternalDropValidator,
   type WorkspaceGroupFactory,
+  type WorkspacePaneRegistration,
   type WorkspaceSectionMoveMode,
   type WorkspaceSectionMoveValidator,
   type WorkspaceToolbarControl,
@@ -267,6 +268,31 @@ const toolbarControls = [
   },
 ] satisfies readonly WorkspaceToolbarControl[];
 
+const consumerPanes = [
+  {
+    icon: <span>O</span>,
+    id: "consumer-outline",
+    label: "Consumer outline",
+    placement: "start",
+    render: (controller) => (
+      <WorkspaceOutline ariaLabel="Consumer section outline" controller={controller} />
+    ),
+  },
+  {
+    icon: <span>V</span>,
+    id: "consumer-saved-views",
+    label: "Consumer saved views",
+    placement: "end",
+    render: (controller) => (
+      <WorkspaceViewportPresets
+        ariaLabel="Consumer saved views"
+        controller={controller}
+        presets={consumerViewportPresets}
+      />
+    ),
+  },
+] satisfies readonly WorkspacePaneRegistration<ConsumerSectionData>[];
+
 createRoot(root).render(
   <StrictMode>
     <ConsumerSortableItems />
@@ -281,23 +307,13 @@ createRoot(root).render(
           connections={consumerConnections}
           data-item-list-count={itemLists.length}
           data-version={workspaceDocument.schemaVersion}
+          defaultActivePaneId="consumer-outline"
           defaultDocument={workspaceDocument}
           gestureOptions={{ maxZoom: 2, minZoom: 0.5, panOnScroll: true, zoomOnScroll: false }}
           gridOptions={{ pattern: "cross", snap: false, spacing: [24, 18], visible: true }}
           groupFactory={groupFactory}
           onExternalDrop={onExternalDrop}
-          overlaySlots={{
-            utility: (controller) => (
-              <div style={{ display: "grid", gap: "12px" }}>
-                <WorkspaceOutline ariaLabel="Consumer section outline" controller={controller} />
-                <WorkspaceViewportPresets
-                  ariaLabel="Consumer saved views"
-                  controller={controller}
-                  presets={consumerViewportPresets}
-                />
-              </div>
-            ),
-          }}
+          panes={consumerPanes}
           sectionDefinitions={consumerSectionDefinitions}
           sectionFactory={({ kind }) => {
             const definition = consumerSectionDefinitions.find(

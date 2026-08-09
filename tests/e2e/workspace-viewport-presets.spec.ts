@@ -33,10 +33,14 @@ async function showSavedViews(
   page: Page,
 ): Promise<Readonly<{ panel: Locator; workspace: Locator }>> {
   const workspace = page.getByRole("region", { exact: true, name: "Section workspace" });
-  const toggle = page.getByRole("button", { exact: true, name: "Saved views" });
-  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  const toggle = workspace.getByRole("button", { exact: true, name: "Saved views" });
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(workspace.locator('[data-workspace-pane-id="saved-views"]')).toHaveAttribute(
+    "data-workspace-pane-placement",
+    "end",
+  );
   const panel = workspace.getByRole("region", { name: "Saved workspace views" });
   await expect(panel).toBeVisible();
   return { panel, workspace };

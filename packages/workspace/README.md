@@ -537,7 +537,7 @@ document, or host-rendered state. Default palette values are gamut-safe OKLCH co
 roles for canvas, grid, section surfaces and text, toolbar, minimap, selection, focus, and invalid
 states.
 
-## Toolbar, overlays, and minimap
+## Toolbar, overlays, panes, and minimap
 
 The default vertical toolbar provides Add section when a factory is registered, zoom in/out, reset
 zoom, fit sections, snap-to-grid, and minimap visibility controls. `toolbarControls` adds
@@ -552,21 +552,38 @@ toolbar isolate their pointer and wheel input from the viewport; transformed can
 `WorkspaceInteractionBoundary` for the same isolation. Direct `Workspace` children are not an
 overlay API.
 
-`WorkspaceOutline` is an optional ready-made utility overlay built only on that controller and the
-canonical document hierarchy. It renders visible branches as an accessible multiselect tree,
-focuses a section on ordinary activation, supports modifier selection, and keeps disclosure state
-transient. Top-level containers start expanded by default; `defaultExpandedSectionIds` can choose a
-different set of known initial branches.
+`panes` registers richer controller-only surfaces that should reserve layout space instead of
+floating over the canvas. Each strict descriptor supplies a unique ID, visible label, decorative
+icon, logical `start` or `end` placement, and renderer. The package adds its disclosure button to
+the utility toolbar, links it to the active complementary landmark, keeps at most one pane open,
+and restores trigger focus from the native close button. Wide workbenches reduce the measured
+canvas; narrow workbenches stack the pane and canvas without page-level horizontal overflow.
+`activePaneId` plus `onActivePaneChange` makes visibility controlled; otherwise use
+`defaultActivePaneId` or start closed. Pane visibility is a host UI preference, never a
+`WorkspaceDocument` field, and inactive renderers are not mounted.
+
+`WorkspaceOutline` is an optional ready-made pane or utility overlay built only on that controller
+and the canonical document hierarchy. It renders visible branches as an accessible multiselect
+tree, focuses a section on ordinary activation, supports modifier selection, and keeps disclosure
+state transient. Top-level containers start expanded by default; `defaultExpandedSectionIds` can
+choose a different set of known initial branches.
 
 ```tsx
 import { Workspace, WorkspaceOutline } from "@setta/workspace/react";
 
 <Workspace
-  overlaySlots={{
-    utility: (controller) => (
-      <WorkspaceOutline ariaLabel="Document sections" controller={controller} />
-    ),
-  }}
+  defaultActivePaneId="sections"
+  panes={[
+    {
+      icon: <SectionsIcon />,
+      id: "sections",
+      label: "Sections",
+      placement: "start",
+      render: (controller) => (
+        <WorkspaceOutline ariaLabel="Document sections" controller={controller} />
+      ),
+    },
+  ]}
   {...workspaceProps}
 />;
 ```
@@ -577,7 +594,7 @@ minimap to pan, or click a root summary to select, center, and focus that sectio
 controls and the controller's focus, fit, and next/previous helpers provide the corresponding
 keyboard navigation paths.
 
-`WorkspaceViewportPresets` is an optional utility overlay for host-persisted saved views. It
+`WorkspaceViewportPresets` is an optional registered pane or utility overlay for host-persisted saved views. It
 captures the current canonical viewport, restores through the public controller, and supplies
 native save, restore, rename, and delete controls with validation, focus recovery, and polite
 feedback. The controlled `presets` array remains a separate host preference; callbacks request

@@ -15,6 +15,11 @@ export { SortableItemLists, SortableItemTree } from "./internal/sortable-item-tr
 export { WorkspaceOutline } from "./internal/workspace-outline.js";
 export type { WorkspaceOutlineProps } from "./internal/workspace-outline.js";
 export type {
+  WorkspaceActivePaneChangeHandler,
+  WorkspacePanePlacement,
+  WorkspacePaneRegistration,
+} from "./internal/workspace-panes.js";
+export type {
   SectionMovePlan,
   WorkspaceBooleanPreferenceChangeHandler,
   WorkspaceDocumentChangeHandler,

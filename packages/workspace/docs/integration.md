@@ -263,7 +263,7 @@ host rejection leave the renderer docked and announce a specific recovery. Movem
 grouping, and ungrouping that would affect a detached section are unavailable until it is redocked;
 cross-window drag-and-drop is not a supported contract.
 
-## Toolbar and overlay extensions
+## Toolbar, overlay, and pane extensions
 
 `toolbarControls` covers the common native-button case. IDs must be unique and cannot shadow a
 built-in control. A descriptor supplies `project`, `viewport`, or `utility` placement, an accessible
@@ -274,30 +274,83 @@ Use `overlaySlots` for richer project, viewport, utility, or transformed canvas 
 is a render function receiving the same controller. Fixed overlays isolate pointer and wheel input
 from the viewport. Wrap interactive transformed content in `WorkspaceInteractionBoundary` when it
 must suppress pan, wheel, or external-drop handling. Direct `Workspace` children are not an overlay
-contract, and neither extension surface receives an internal store.
+contract, and none of these extension surfaces receives an internal store.
+
+Use `panes` when richer content should reserve workbench layout space. Registrations are strict,
+dense, and unique. Each supplies a host ID, visible label, decorative icon, logical `start` or
+`end` placement, and a render function that receives only the public controller. The package owns
+the corresponding utility-toolbar disclosure button, one-active-pane rule, complementary landmark,
+native close action, focus restoration, gesture isolation, and responsive layout. An inactive pane
+renderer is not mounted, so keep durable pane data in host state.
+
+```tsx
+import {
+  Workspace,
+  WorkspaceOutline,
+  type WorkspacePaneRegistration,
+} from "@setta/workspace/react";
+
+const panes = [
+  {
+    icon: <SectionsIcon />,
+    id: "sections",
+    label: "Sections",
+    placement: "start",
+    render: (controller) => (
+      <WorkspaceOutline ariaLabel="Document sections" controller={controller} />
+    ),
+  },
+] satisfies readonly WorkspacePaneRegistration<SectionData>[];
+
+const [activePaneId, setActivePaneId] = useState<string | null>("sections");
+
+<Workspace
+  activePaneId={activePaneId}
+  document={document}
+  onActivePaneChange={setActivePaneId}
+  onDocumentChange={setDocument}
+  panes={panes}
+  sectionDefinitions={sectionDefinitions}
+/>;
+```
+
+Controlled pane state requires both `activePaneId` (a registered ID or `null`) and
+`onActivePaneChange`; proposals remain host-authoritative until the controlled value changes.
+Uncontrolled usage may set `defaultActivePaneId` and optionally observe changes. Visibility,
+registration order, and placement are host UI preferences outside `WorkspaceDocument`; pane
+changes do not create structural history. Generated pane-control IDs use a reserved
+`workspace-pane:` prefix, so host `toolbarControls` cannot claim that namespace.
 
 ## Optional outline navigator
 
-`WorkspaceOutline` is a ready-made hierarchical navigator for a fixed overlay. It reads the current
-document and selection through the public controller, flattens only visible branches in canonical
-order, and reports explicit tree level, sibling position, expansion, and selection state. It does
-not add fields to `WorkspaceDocument`, create another store, or interpret section kinds or payloads.
+`WorkspaceOutline` is a ready-made hierarchical navigator for a registered pane or fixed overlay.
+It reads the current document and selection through the public controller, flattens only visible
+branches in canonical order, and reports explicit tree level, sibling position, expansion, and
+selection state. It does not add fields to `WorkspaceDocument`, create another store, or interpret
+section kinds or payloads.
 
 ```tsx
 import { Workspace, WorkspaceOutline } from "@setta/workspace/react";
 
 <Workspace
+  defaultActivePaneId="sections"
   document={document}
   onDocumentChange={setDocument}
-  overlaySlots={{
-    utility: (controller) => (
-      <WorkspaceOutline
-        ariaLabel="Document sections"
-        controller={controller}
-        defaultExpandedSectionIds={["planning"]}
-      />
-    ),
-  }}
+  panes={[
+    {
+      icon: <SectionsIcon />,
+      id: "sections",
+      label: "Sections",
+      placement: "start",
+      render: (controller) => (
+        <WorkspaceOutline
+          ariaLabel="Document sections"
+          controller={controller}
+          defaultExpandedSectionIds={["planning"]}
+        />
+      ),
+    },
+  ]}
   sectionDefinitions={sectionDefinitions}
 />;
 ```
@@ -311,15 +364,15 @@ the tree. Logical forward expands or enters a branch; logical backward collapses
 parent, so horizontal keys mirror in RTL. Up/Down, Home, and End use roving focus across visible
 rows.
 
-Render the component through `overlaySlots` so the workspace rerenders it with current controller
-state and supplies scoped theme tokens plus gesture isolation. A host that places it elsewhere must
-rerender it when its controlled document or package selection changes and provide an equivalent
-sized, themed container. For very large documents, keep inactive branches collapsed so the outline
-adds DOM only for rows users are currently navigating.
+Render the component through `panes` or `overlaySlots` so the workspace rerenders it with current
+controller state and supplies scoped theme tokens plus gesture isolation. A host that places it
+elsewhere must rerender it when its controlled document or package selection changes and provide an
+equivalent sized, themed container. For very large documents, keep inactive branches collapsed so
+the outline adds DOM only for rows users are currently navigating.
 
 ## Saved viewport presets
 
-`WorkspaceViewportPresets` is an optional utility overlay for host-persisted viewport shortcuts.
+`WorkspaceViewportPresets` is an optional registered pane or utility overlay for host-persisted viewport shortcuts.
 The package validates and renders ordered `{ id, name, viewport }` records, captures the current
 canonical viewport, restores a selected preset through `controller.setViewport`, and owns native
 save, restore, rename, and delete controls with local validation, focus recovery, and polite

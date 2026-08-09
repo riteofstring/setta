@@ -133,5 +133,7 @@ Host renderers should follow the same `prefers-reduced-motion` preference and av
 animations on every reorder or canonical document update.
 
 Do not depend on undocumented package class names or XYFlow/dnd-kit markup. Use the typed theme
-tokens, inherited custom properties, `SectionRenderProps`, toolbar descriptors, overlay slots, and
-`WorkspaceInteractionBoundary` as the supported extension surfaces.
+tokens, inherited custom properties, `SectionRenderProps`, toolbar descriptors, registered panes,
+overlay slots, and `WorkspaceInteractionBoundary` as the supported extension surfaces. Registered
+pane shells inherit the scoped workbench appearance; pane renderers should use inherited semantic
+colors or their own locally scoped tokens rather than mutating the host document theme.

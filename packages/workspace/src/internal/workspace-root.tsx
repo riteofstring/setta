@@ -29,6 +29,11 @@ import {
   type WorkspaceControllerBindings,
 } from "./workspace-controller.js";
 import {
+  resolveWorkspacePaneRegistrations,
+  useWorkspacePanes,
+  WorkspacePaneLayout,
+} from "./workspace-panes.js";
+import {
   resolveWorkspaceAppearanceOptions,
   resolveWorkspaceGridOptions,
 } from "./workspace-preferences.js";
@@ -129,6 +134,7 @@ function structuralSelectionAccepted(
 
 export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspaceProps<TSectionData>) {
   const {
+    activePaneId,
     ariaLabel = "Workspace",
     appearanceOptions: appearanceOptionOverrides,
     capabilities: capabilityOverrides,
@@ -137,6 +143,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     connections: connectionOverrides,
     controllerRef,
     defaultDocument,
+    defaultActivePaneId,
     document: controlledDocument,
     emptyState = "No sections yet. Add a section to start.",
     gestureOptions: gestureOptionOverrides,
@@ -147,7 +154,9 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     onExternalDrop,
     onGridSnapChange,
     onMinimapVisibilityChange,
+    onActivePaneChange,
     overlaySlots: overlaySlotOverrides,
+    panes: paneOverrides,
     readOnly = false,
     sectionColorPalette: sectionColorPaletteOverrides,
     sectionDefinitions: sectionDefinitionOverrides,
@@ -188,6 +197,16 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     () => resolveWorkspaceToolbarControls(toolbarControlOverrides),
     [toolbarControlOverrides],
   );
+  const paneRegistrations = useMemo(
+    () => resolveWorkspacePaneRegistrations(paneOverrides),
+    [paneOverrides],
+  );
+  const panes = useWorkspacePanes({
+    activePaneId,
+    defaultActivePaneId,
+    onActivePaneChange,
+    registrations: paneRegistrations,
+  });
   const overlayRenderers = useMemo(
     () => resolveWorkspaceOverlayRenderers(overlaySlotOverrides),
     [overlaySlotOverrides],
@@ -643,59 +662,66 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       data-workspace-resolved-appearance={resolvedAppearance}
       style={{ ...style, ...themeStyle }}
     >
-      <WorkspaceCanvasAdapter
-        ariaLabel={ariaLabel}
-        appearance={resolvedAppearance}
-        clipboardAnnouncement={clipboard.announcement}
-        clipboardConfigured={clipboard.configured}
-        controllerSynchronizationRevision={controllerSynchronizationRevision}
-        connections={connections}
-        creationAnnouncement={creationAnnouncement}
-        creationConfigured={creationAvailability.configured}
-        creationEnabled={creationAvailability.enabled}
-        creationReconciliation={creationReconciliation}
-        document={validatedDocument}
-        detachedSectionIds={detachedSectionIds}
-        emptyState={resolvedEmptyState}
-        gestureOptions={gestureOptions}
-        gridOptions={effectiveGridOptions}
-        groupingConfigured={groupingConfigured}
-        historyAnnouncement={history.announcement}
-        layoutEditable={capabilities.editLayout}
-        marqueeSelectionMode={selectionOptions.marqueeMode}
-        minimapPlacement={minimapOptions.placement}
-        minimapVisible={minimapVisible}
-        onCanvasControllerChange={handleCanvasControllerChange}
-        onCanvasPointChange={clipboard.recordCanvasPoint}
-        onExternalDrop={onExternalDrop}
-        onGridSnapChange={setGridSnap}
-        onMinimapVisibilityChange={setMinimapVisible}
-        onRootMoveCommit={handleRootMoveCommit}
-        onRootResizeCommit={handleRootResizeCommit}
-        onSectionContentSizeCommit={handleSectionContentSizeCommit}
-        onSectionLockedCommit={handleSectionLockedCommit}
-        onSectionMinimizedCommit={handleSectionMinimizedCommit}
-        onSectionMoveCommit={handleSectionMoveCommit}
-        onSectionOrientationCommit={handleSectionOrientationCommit}
-        onSectionOverflowCommit={handleSectionOverflowCommit}
-        onSectionPresentationCommit={handleSectionPresentationCommit}
-        onSectionTitleCommit={handleSectionTitleCommit}
-        onSelectionChange={commitSelection}
-        onViewportCommit={controller.setViewport}
-        overlaySlots={overlaySlots}
-        presentationEditable={capabilities.editPresentation}
-        readOnly={sectionReadOnly}
-        sectionColorPalette={sectionColorPalette}
-        sectionMoveMode={sectionMoveMode}
-        sectionRegistry={sectionRegistry}
-        selectedSectionIds={selectedSectionIds}
-        structureEditable={capabilities.editStructure}
-        toolbarControls={toolbarControls}
-        validateExternalDrop={validateExternalDrop}
-        validateSectionMove={validateSectionMove}
-        validateSectionTitle={handleSectionTitleValidation}
-        workspaceController={controller}
-      />
+      <WorkspacePaneLayout
+        activePane={panes.activePane}
+        controller={controller}
+        onClose={panes.closeActivePane}
+      >
+        <WorkspaceCanvasAdapter
+          ariaLabel={ariaLabel}
+          appearance={resolvedAppearance}
+          clipboardAnnouncement={clipboard.announcement}
+          clipboardConfigured={clipboard.configured}
+          controllerSynchronizationRevision={controllerSynchronizationRevision}
+          connections={connections}
+          creationAnnouncement={creationAnnouncement}
+          creationConfigured={creationAvailability.configured}
+          creationEnabled={creationAvailability.enabled}
+          creationReconciliation={creationReconciliation}
+          document={validatedDocument}
+          detachedSectionIds={detachedSectionIds}
+          emptyState={resolvedEmptyState}
+          gestureOptions={gestureOptions}
+          gridOptions={effectiveGridOptions}
+          groupingConfigured={groupingConfigured}
+          historyAnnouncement={history.announcement}
+          layoutEditable={capabilities.editLayout}
+          marqueeSelectionMode={selectionOptions.marqueeMode}
+          minimapPlacement={minimapOptions.placement}
+          minimapVisible={minimapVisible}
+          onCanvasControllerChange={handleCanvasControllerChange}
+          onCanvasPointChange={clipboard.recordCanvasPoint}
+          onExternalDrop={onExternalDrop}
+          onGridSnapChange={setGridSnap}
+          onMinimapVisibilityChange={setMinimapVisible}
+          onRootMoveCommit={handleRootMoveCommit}
+          onRootResizeCommit={handleRootResizeCommit}
+          onSectionContentSizeCommit={handleSectionContentSizeCommit}
+          onSectionLockedCommit={handleSectionLockedCommit}
+          onSectionMinimizedCommit={handleSectionMinimizedCommit}
+          onSectionMoveCommit={handleSectionMoveCommit}
+          onSectionOrientationCommit={handleSectionOrientationCommit}
+          onSectionOverflowCommit={handleSectionOverflowCommit}
+          onSectionPresentationCommit={handleSectionPresentationCommit}
+          onSectionTitleCommit={handleSectionTitleCommit}
+          onSelectionChange={commitSelection}
+          onViewportCommit={controller.setViewport}
+          overlaySlots={overlaySlots}
+          paneControls={panes.controls}
+          presentationEditable={capabilities.editPresentation}
+          readOnly={sectionReadOnly}
+          sectionColorPalette={sectionColorPalette}
+          sectionMoveMode={sectionMoveMode}
+          sectionRegistry={sectionRegistry}
+          selectedSectionIds={selectedSectionIds}
+          structureEditable={capabilities.editStructure}
+          toolbarControls={toolbarControls}
+          validateExternalDrop={validateExternalDrop}
+          validateSectionMove={validateSectionMove}
+          validateSectionTitle={handleSectionTitleValidation}
+          workspaceController={controller}
+        />
+      </WorkspacePaneLayout>
     </section>
   );
 }

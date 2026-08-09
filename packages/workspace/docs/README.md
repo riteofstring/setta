@@ -27,6 +27,8 @@ smallest guide that matches the integration being built.
   preference bounds and explicit head contributions.
 - `WorkspaceOutline` owns transient disclosure and tree navigation; the controller remains the
   document, selection, focus, and viewport boundary.
+- Registered panes own one active responsive complementary surface and its toolbar disclosure;
+  the host owns registrations, visibility preferences, renderer data, and authorization.
 - `WorkspaceViewportPresets` owns the accessible capture/restore management surface; the host owns
   preset IDs, the controlled collection, persistence, and authorization.
 - `WorkspaceConnections` owns strict relationship validation and measured visual projection; the

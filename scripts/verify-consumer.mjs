@@ -94,6 +94,16 @@ async function verifyConsumerRuntime(distributionRoot) {
       await workspace.getByRole("article", { name: "Consumer note 1" }).waitFor();
       await workspace.getByRole("textbox", { name: "Consumer note body" }).waitFor();
       await workspace.locator('[data-workspace-port-id="consumer-output"]').waitFor();
+      await workspace.getByRole("navigation", { name: "Consumer section outline" }).waitFor();
+      const savedViewsTrigger = workspace.getByRole("button", {
+        exact: true,
+        name: "Consumer saved views",
+      });
+      await savedViewsTrigger.click();
+      if ((await savedViewsTrigger.getAttribute("aria-expanded")) !== "true") {
+        throw new Error("Packed consumer did not activate the registered saved-view pane.");
+      }
+      await workspace.locator('[data-workspace-pane-id="consumer-saved-views"]').waitFor();
       await workspace
         .getByRole("region", { name: "Consumer saved views" })
         .getByRole("button", { name: "Restore Consumer overview" })

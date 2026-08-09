@@ -22,6 +22,10 @@ import type {
   WorkspaceSectionMoveValidator,
 } from "./section-move-planning.js";
 import type {
+  WorkspaceActivePaneChangeHandler,
+  WorkspacePaneRegistration,
+} from "./workspace-panes.js";
+import type {
   SectionDefinition,
   WorkspaceGroupFactory,
   WorkspaceSectionColorOption,
@@ -128,12 +132,14 @@ type SharedWorkspaceProps<TSectionData> = Omit<
   HTMLAttributes<HTMLElement>,
   "aria-label" | "children"
 > & {
+  activePaneId?: string | null;
   ariaLabel?: string;
   appearanceOptions?: WorkspaceAppearanceOptionOverrides;
   capabilities?: WorkspaceCapabilityOverrides;
   clipboardAdapter?: WorkspaceClipboardAdapter<TSectionData>;
   connections?: WorkspaceConnections;
   controllerRef?: Ref<WorkspaceController<TSectionData>>;
+  defaultActivePaneId?: string | null;
   emptyState?: ReactNode;
   gestureOptions?: WorkspaceGestureOptionOverrides;
   groupFactory?: WorkspaceGroupFactory<TSectionData>;
@@ -142,7 +148,9 @@ type SharedWorkspaceProps<TSectionData> = Omit<
   onExternalDrop?: WorkspaceExternalDropHandler;
   onGridSnapChange?: WorkspaceBooleanPreferenceChangeHandler;
   onMinimapVisibilityChange?: WorkspaceBooleanPreferenceChangeHandler;
+  onActivePaneChange?: WorkspaceActivePaneChangeHandler;
   overlaySlots?: WorkspaceOverlaySlots<TSectionData>;
+  panes?: readonly WorkspacePaneRegistration<TSectionData>[];
   readOnly?: boolean;
   sectionColorPalette?: readonly WorkspaceSectionColorOption[];
   sectionDefinitions?: readonly SectionDefinition<TSectionData>[];
@@ -238,6 +246,20 @@ function optionalBoolean(value: unknown, label: string): boolean | undefined {
   return value;
 }
 
+function validateToolbarControlId(value: unknown, label: string): asserts value is string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new TypeError(`${label} id must be a non-empty string.`);
+  }
+  if (reservedToolbarControlIds.has(value)) {
+    throw new TypeError(`Workspace toolbar control id ${JSON.stringify(value)} is reserved.`);
+  }
+  if (value.startsWith("workspace-pane:")) {
+    throw new TypeError(
+      `Workspace toolbar control id ${JSON.stringify(value)} uses the reserved pane prefix.`,
+    );
+  }
+}
+
 function validateToolbarControl<TSectionData>(
   value: WorkspaceToolbarControl<TSectionData>,
   index: number,
@@ -245,12 +267,7 @@ function validateToolbarControl<TSectionData>(
   const label = `Workspace toolbar control at index ${String(index)}`;
   const record = plainRecord(value, label);
   assertKnownKeys(record, toolbarControlKeys, "workspace toolbar control field");
-  if (typeof record.id !== "string" || record.id.trim().length === 0) {
-    throw new TypeError(`${label} id must be a non-empty string.`);
-  }
-  if (reservedToolbarControlIds.has(record.id)) {
-    throw new TypeError(`Workspace toolbar control id ${JSON.stringify(record.id)} is reserved.`);
-  }
+  validateToolbarControlId(record.id, label);
   if (typeof record.label !== "string" || record.label.trim().length === 0) {
     throw new TypeError(`${label} label must be a non-empty string.`);
   }

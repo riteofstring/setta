@@ -113,6 +113,11 @@ DOM but remain unchanged in the workbench document.
   focused until corrected or canceled.
 - Toolbar and host-injected controls are native buttons. Their visible `label`, `pressed`, and
   `disabled` state is the accessible contract; an icon or tooltip is not the name.
+- Registered pane controls are native toolbar disclosures with `aria-expanded` and `aria-controls`.
+  One named complementary landmark mounts at a time. Activation retains trigger focus; the pane's
+  native close button returns focus to that trigger. Logical start/end placement mirrors in RTL,
+  and narrow workbenches stack pane and canvas in reading order instead of covering focusable
+  canvas content.
 - Lock uses pressed-state semantics. Minimize uses expanded/collapsed semantics. Orientation and
   overflow controls name the resulting state rather than only showing an icon.
 - The minimap is supplementary pointer navigation. The toolbar plus section selection controls and
@@ -178,9 +183,9 @@ Do not place host hit targets where they overlap package handles. Touch movement
 handle and long-press activation; ordinary touch scrolling inside host content must remain
 available.
 
-Package transitions respect `prefers-reduced-motion`. Host renderers, icons, and overlays must also
-remove nonessential motion and avoid autoplay or repeated entrance animation during pan, drag,
-resize, reorder, and canonical document updates.
+Package transitions respect `prefers-reduced-motion`. Host renderers, icons, overlays, and pane
+content must also remove nonessential motion and avoid autoplay or repeated entrance animation
+during pan, drag, resize, reorder, and canonical document updates.
 
 Before shipping an integration, verify accessible names, roles, states, error associations, live
 announcements, focus order/restoration, keyboard completion and cancellation, 200% zoom, 320-pixel

@@ -155,11 +155,16 @@ Generic edges and ports are implemented as a strict versioned, host-controlled c
 all-depth measured projection; the host owns persistence, editing, authorization, and domain
 meaning. No edge interaction, execution, or history contract is implied.
 
+Pane registration is implemented as an optional React extension surface. The package owns strict
+registration validation, linked utility-toolbar disclosures, one active logical start/end pane,
+close-focus restoration, gesture isolation, and wide/narrow layout. Hosts own renderer meaning,
+visibility preferences, authorization, and durable pane data; no pane state enters the document or
+history model.
+
 Multiple named item lists, same-section cross-list movement, mixed-parent batch movement, and
 ancestry-closed filtered views with canonical move reconciliation are implemented through one
-shared interaction owner. Still deferred are cross-section item movement, pane registration beyond
-current extensions, viewport culling, absolute nested positioning, and complete descendant-subtree
-collapse.
+shared interaction owner. Still deferred are cross-section item movement, viewport culling,
+absolute nested positioning, and complete descendant-subtree collapse.
 
 ## Explicit non-goals
 

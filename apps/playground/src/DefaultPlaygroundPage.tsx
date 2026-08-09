@@ -9,7 +9,9 @@ import {
 import {
   Workspace,
   WorkspaceDetachmentProvider,
+  WorkspaceOutline,
   WorkspaceViewportPresets,
+  type WorkspacePaneRegistration,
   type WorkspaceSectionTitleValidationRequest,
   type WorkspaceToolbarControl,
   type WorkspaceViewportPresetCreateRequest,
@@ -94,6 +96,40 @@ function ArrangeSectionsIcon() {
   );
 }
 
+function SectionsPaneIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      focusable="false"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      viewBox="0 0 20 20"
+    >
+      <path d="M6 4.5h8M6 10h8M6 15.5h8" />
+      <circle cx="3.5" cy="4.5" r="1" />
+      <circle cx="3.5" cy="10" r="1" />
+      <circle cx="3.5" cy="15.5" r="1" />
+    </svg>
+  );
+}
+
+function SavedViewsPaneIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      focusable="false"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      viewBox="0 0 20 20"
+    >
+      <path d="M5 3.5h10v13l-5-3-5 3z" />
+      <path d="M7.5 7h5" />
+    </svg>
+  );
+}
+
 function nextViewportPresetId(presets: readonly WorkspaceViewportPreset[]): string {
   let number = 1;
   while (presets.some(({ id }) => id === `saved-view-${String(number)}`)) number += 1;
@@ -127,7 +163,7 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
   const [preferences, setPreferences] = useState(initialState.preferences);
   const [announcement, setAnnouncement] = useState(initialState.message);
   const [fieldListSelectionEpoch, setFieldListSelectionEpoch] = useState(0);
-  const [showSavedViews, setShowSavedViews] = useState(false);
+  const [activePaneId, setActivePaneId] = useState<string | null>(null);
   const controllerRef = useRef<WorkspaceController<PlaygroundSectionData>>(null);
   const clipboardSectionNumberRef = useRef(1);
   const externalSampleBodyRef = useRef<string | null>(null);
@@ -195,31 +231,67 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
     setPreferences((current) => ({ ...current, ...updates }));
   };
 
-  const createViewportPreset = ({ name, viewport }: WorkspaceViewportPresetCreateRequest) => {
-    setPreferences((current) => ({
-      ...current,
-      viewportPresets: [
-        ...current.viewportPresets,
-        { id: nextViewportPresetId(current.viewportPresets), name, viewport },
-      ],
-    }));
-  };
+  const createViewportPreset = useCallback(
+    ({ name, viewport }: WorkspaceViewportPresetCreateRequest) => {
+      setPreferences((current) => ({
+        ...current,
+        viewportPresets: [
+          ...current.viewportPresets,
+          { id: nextViewportPresetId(current.viewportPresets), name, viewport },
+        ],
+      }));
+    },
+    [],
+  );
 
-  const renameViewportPreset = ({ name, presetId }: WorkspaceViewportPresetRenameRequest) => {
-    setPreferences((current) => ({
-      ...current,
-      viewportPresets: current.viewportPresets.map((preset) =>
-        preset.id === presetId ? { ...preset, name } : preset,
-      ),
-    }));
-  };
+  const renameViewportPreset = useCallback(
+    ({ name, presetId }: WorkspaceViewportPresetRenameRequest) => {
+      setPreferences((current) => ({
+        ...current,
+        viewportPresets: current.viewportPresets.map((preset) =>
+          preset.id === presetId ? { ...preset, name } : preset,
+        ),
+      }));
+    },
+    [],
+  );
 
-  const deleteViewportPreset = (presetId: string) => {
+  const deleteViewportPreset = useCallback((presetId: string) => {
     setPreferences((current) => ({
       ...current,
       viewportPresets: current.viewportPresets.filter(({ id }) => id !== presetId),
     }));
-  };
+  }, []);
+
+  const panes = useMemo<readonly WorkspacePaneRegistration<PlaygroundSectionData>[]>(
+    () => [
+      {
+        icon: <SectionsPaneIcon />,
+        id: "sections",
+        label: "Sections",
+        placement: "start",
+        render: (workspaceController) => (
+          <WorkspaceOutline ariaLabel="Workspace sections" controller={workspaceController} />
+        ),
+      },
+      {
+        icon: <SavedViewsPaneIcon />,
+        id: "saved-views",
+        label: "Saved views",
+        placement: "end",
+        render: (workspaceController) => (
+          <WorkspaceViewportPresets
+            controller={workspaceController}
+            onCreatePreset={createViewportPreset}
+            onDeletePreset={deleteViewportPreset}
+            onRenamePreset={renameViewportPreset}
+            presets={preferences.viewportPresets}
+          />
+        ),
+      },
+    ],
+    [createViewportPreset, deleteViewportPreset, preferences.viewportPresets, renameViewportPreset],
+  );
 
   const importDocument = (serialized: string): PlaygroundImportResult => {
     try {
@@ -336,13 +408,6 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
           />
         </div>
         <div className="playground-toolbar">
-          <button
-            aria-pressed={showSavedViews}
-            onClick={() => setShowSavedViews((current) => !current)}
-            type="button"
-          >
-            Saved views
-          </button>
           <p className="announcement" role="status" aria-live="polite">
             {announcement}
           </p>
@@ -375,6 +440,7 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
         >
           <Workspace
             {...(clipboardAdapter ? { clipboardAdapter } : {})}
+            activePaneId={activePaneId}
             appearanceOptions={{ appearance: preferences.appearance }}
             ariaLabel="Section workspace"
             controllerRef={controllerRef}
@@ -408,18 +474,8 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
               );
             }}
             onGridSnapChange={(gridSnap) => updatePreferences({ gridSnap })}
-            overlaySlots={{
-              utility: (workspaceController) =>
-                showSavedViews ? (
-                  <WorkspaceViewportPresets
-                    controller={workspaceController}
-                    onCreatePreset={createViewportPreset}
-                    onDeletePreset={deleteViewportPreset}
-                    onRenamePreset={renameViewportPreset}
-                    presets={preferences.viewportPresets}
-                  />
-                ) : null,
-            }}
+            onActivePaneChange={setActivePaneId}
+            panes={panes}
             readOnly={readOnly}
             sectionDefinitions={sectionDefinitions}
             sectionFactory={({ kind }) => nextFactoryResult(kind)}
