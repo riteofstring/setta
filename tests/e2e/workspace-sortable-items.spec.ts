@@ -249,6 +249,73 @@ test("keyboard item movement stays atomic, editable, persistent, and accessible"
   );
 });
 
+test("an accepted item-tree move survives JSON import and local reload", async ({ page }) => {
+  await page.setViewportSize({ height: 1_000, width: 1_440 });
+  let fieldSection = await resetFieldListExample(page);
+  await hideDataAndFit(page);
+  let tree = fieldSection.getByRole("group", { name: "Profile field order" });
+
+  const emailHandle = tree.getByRole("button", { name: "Move Email" });
+  await emailHandle.focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Enter");
+  await expect
+    .poll(() => itemTreeOrder(tree, "field-list-root"))
+    .toEqual(["name", "preferences", "notes"]);
+  await expect.poll(() => itemTreeOrder(tree, "preferences")).toEqual(["theme", "email"]);
+  await expect
+    .poll(() =>
+      page.evaluate((key) => {
+        const stored = localStorage.getItem(key);
+        if (!stored) return null;
+        const document = JSON.parse(stored) as {
+          sections: Record<
+            string,
+            { data?: { tree?: { childrenByParent?: Record<string, readonly string[]> } } }
+          >;
+        };
+        return document.sections["example-fields"]?.data?.tree?.childrenByParent ?? null;
+      }, DOCUMENT_STORAGE_KEY),
+    )
+    .toMatchObject({
+      "field-list-root": ["name", "preferences", "notes"],
+      preferences: ["theme", "email"],
+    });
+
+  await page.getByRole("button", { name: "Show workspace data" }).click();
+  const editor = page.getByTestId("workspace-json");
+  const movedDocumentJson = await editor.inputValue();
+  await page.getByRole("button", { name: "Reset example" }).click();
+  await page
+    .getByRole("group", { name: "Confirm reset" })
+    .getByRole("button", { name: "Reset workspace" })
+    .click();
+  fieldSection = page.getByRole("article", { name: "Profile fields" });
+  tree = fieldSection.getByRole("group", { name: "Profile field order" });
+  await expect
+    .poll(() => itemTreeOrder(tree, "field-list-root"))
+    .toEqual(["name", "email", "preferences", "notes"]);
+
+  await editor.fill(movedDocumentJson);
+  await page.getByRole("button", { name: "Import JSON" }).click();
+  fieldSection = page.getByRole("article", { name: "Profile fields" });
+  tree = fieldSection.getByRole("group", { name: "Profile field order" });
+  await expect
+    .poll(() => itemTreeOrder(tree, "field-list-root"))
+    .toEqual(["name", "preferences", "notes"]);
+  await expect.poll(() => itemTreeOrder(tree, "preferences")).toEqual(["theme", "email"]);
+
+  await page.reload();
+  fieldSection = page.getByRole("article", { name: "Profile fields" });
+  tree = fieldSection.getByRole("group", { name: "Profile field order" });
+  await expect
+    .poll(() => itemTreeOrder(tree, "field-list-root"))
+    .toEqual(["name", "preferences", "notes"]);
+  await expect.poll(() => itemTreeOrder(tree, "preferences")).toEqual(["theme", "email"]);
+});
+
 test("pointer block feedback stays zoom-correct and excludes outer movement owners", async ({
   page,
 }) => {

@@ -1,3 +1,4 @@
+import { Accessibility, AutoScroller } from "@dnd-kit/dom";
 import { Rectangle, type BoundingRectangle } from "@dnd-kit/geometry";
 import {
   DragDropProvider,
@@ -111,10 +112,10 @@ function adapterPluginProps(
   return {
     plugins: (defaults) =>
       defaults.filter((plugin) => {
-        const name = ("plugin" in plugin ? plugin.plugin : plugin).name.replace(/^_+/u, "");
+        const pluginType = "plugin" in plugin ? plugin.plugin : plugin;
         return (
-          (manageAccessibility || name !== "Accessibility") &&
-          (manageAutoScroll || name !== "AutoScroller")
+          (manageAccessibility || pluginType !== Accessibility) &&
+          (manageAutoScroll || pluginType !== AutoScroller)
         );
       }),
   };
