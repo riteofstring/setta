@@ -407,7 +407,8 @@ trimmed_nonempty_message() {
     -e 's/^[[:space:]]*//' \
     -e 's/[[:space:]]*$//' \
     -e '/^$/d' \
-    "${message_file}"
+    "${message_file}" \
+    | tail -n 1
 }
 
 while [[ $# -gt 0 ]]; do

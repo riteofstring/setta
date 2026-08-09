@@ -181,7 +181,7 @@ case "${call_count}" in
       echo "second agent call was not an implementation batch" >&2
       exit 1
     fi
-    printf 'PLAN_PHASE_READY_FOR_AUDIT\n'
+    printf 'Phase implementation summary.\nPLAN_PHASE_READY_FOR_AUDIT\n'
     ;;
   4)
     if [[ "${prompt}" != *"Before acting, inspect docs/plan.md"* ]]; then
@@ -313,16 +313,16 @@ case "${call_count}" in
       echo "third agent call was not the phase audit" >&2
       exit 1
     fi
-    printf 'PLAN_PHASE_AUDIT_COMPLETE\n' >"${last_message_file}"
-    printf 'PLAN_PHASE_AUDIT_COMPLETE\n'
+    printf 'Phase audit summary.\nPLAN_PHASE_AUDIT_COMPLETE\n' >"${last_message_file}"
+    printf 'Phase audit summary.\nPLAN_PHASE_AUDIT_COMPLETE\n'
     ;;
   5)
     if [[ "${prompt}" != *"final whole-plan audit"* ]]; then
       echo "fifth agent call was not the final audit" >&2
       exit 1
     fi
-    printf 'PLAN_IMPLEMENTATION_COMPLETE\n' >"${last_message_file}"
-    printf 'PLAN_IMPLEMENTATION_COMPLETE\n'
+    printf 'Final audit summary.\nPLAN_IMPLEMENTATION_COMPLETE\n' >"${last_message_file}"
+    printf 'Final audit summary.\nPLAN_IMPLEMENTATION_COMPLETE\n'
     ;;
   *)
     echo "unexpected Codex call ${call_count}" >&2
