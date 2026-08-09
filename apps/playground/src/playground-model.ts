@@ -250,6 +250,19 @@ function validateFieldItem(value: unknown, itemId: string): PlaygroundFieldItem 
   return record as PlaygroundFieldItem;
 }
 
+function validateFieldListContainment(
+  tree: SortableItemTree,
+  items: ReadonlyMap<string, PlaygroundFieldItem>,
+): void {
+  for (const [parentId, children] of Object.entries(tree.childrenByParent)) {
+    if (parentId !== tree.rootId && children.length > 0 && items.get(parentId)?.type !== "group") {
+      throw new PlaygroundDocumentPayloadError(
+        `Field-list item ${JSON.stringify(parentId)} must be a group before it can contain children.`,
+      );
+    }
+  }
+}
+
 function validateFieldListData(
   value: unknown,
   sectionId: string,
@@ -278,7 +291,10 @@ function validateFieldListData(
       `${label} items must match the sortable tree item IDs exactly.`,
     );
   }
-  itemKeys.forEach((itemId) => validateFieldItem(items[itemId], itemId));
+  const validatedItems = new Map(
+    itemKeys.map((itemId) => [itemId, validateFieldItem(items[itemId], itemId)] as const),
+  );
+  validateFieldListContainment(record.tree, validatedItems);
 }
 
 function validatePlaygroundPayloads(document: WorkspaceDocument<unknown>): void {

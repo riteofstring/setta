@@ -136,6 +136,24 @@ test("keyboard item movement stays atomic, editable, persistent, and accessible"
   const sectionHandle = fieldSection.getByRole("button", { name: "Move Profile fields" });
   await emailHandle.focus();
   await page.keyboard.press("Enter");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowUp");
+  await expect(tree.locator("[data-sortable-item-placeholder]")).toHaveCount(0);
+  await expect(tree.getByRole("status")).toHaveText(
+    "The selected items are back at their original position.",
+  );
+  await page.keyboard.press("Enter");
+  expect(await itemTreeOrder(tree, "field-list-root")).toEqual([
+    "name",
+    "email",
+    "preferences",
+    "notes",
+  ]);
+  await expect(tree.getByRole("status")).toHaveText("Email did not move.");
+  await expect(emailHandle).toBeFocused();
+
+  await emailHandle.focus();
+  await page.keyboard.press("Enter");
   await expect(page.getByRole("application")).toHaveAttribute(
     "data-workspace-interaction-owner",
     "item-tree",
@@ -163,6 +181,9 @@ test("keyboard item movement stays atomic, editable, persistent, and accessible"
   expect(await itemTreeOrder(tree, "field-list-root")).toEqual(["name", "preferences", "notes"]);
   expect(await itemTreeOrder(tree, "preferences")).toEqual(["theme", "email"]);
   await expect(tree.getByRole("status")).toHaveText("Email moved to Preferences, position 2.");
+  await nameInput.focus();
+  await page.waitForTimeout(300);
+  await expect(nameInput).toBeFocused();
 
   await emailHandle.focus();
   await page.keyboard.press("Enter");
@@ -189,6 +210,7 @@ test("keyboard item movement stays atomic, editable, persistent, and accessible"
   await page.mouse.up();
   await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
   await expect(emailHandle).toBeEnabled();
+  await expect(fieldSection).toHaveAttribute("data-workspace-selected", "true");
 
   await emailHandle.focus();
   await page.keyboard.press("Enter");
@@ -197,10 +219,34 @@ test("keyboard item movement stays atomic, editable, persistent, and accessible"
   await page.keyboard.press("Escape");
   await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
   await expect(emailHandle).toBeFocused();
+  await expect(fieldSection).toHaveAttribute("data-workspace-selected", "true");
   const accessibility = await new AxeBuilder({ page })
     .include("[data-sortable-item-tree]")
     .analyze();
   expect(accessibility.violations).toEqual([]);
+
+  await emailHandle.focus();
+  await page.keyboard.press("Enter");
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "item-tree");
+  await page
+    .getByRole("button", { name: "Show workspace data" })
+    .evaluate((element: HTMLButtonElement) => element.click());
+  const editor = page.getByTestId("workspace-json");
+  const emptyDocument = JSON.parse(await editor.inputValue()) as {
+    rootSections: unknown[];
+    sections: Record<string, unknown>;
+  };
+  emptyDocument.rootSections = [];
+  emptyDocument.sections = {};
+  await editor.fill(JSON.stringify(emptyDocument, null, 2));
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "item-tree");
+  await page
+    .getByRole("button", { name: "Import JSON" })
+    .evaluate((element: HTMLButtonElement) => element.click());
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
+  await expect(page.getByRole("region", { name: "Section workspace" })).toContainText(
+    "No sections yet.",
+  );
 });
 
 test("pointer block feedback stays zoom-correct and excludes outer movement owners", async ({
@@ -252,12 +298,9 @@ test("pointer block feedback stays zoom-correct and excludes outer movement owne
     0,
   );
   await page.mouse.up();
-  expect(await itemTreeOrder(tree, "field-list-root")).toEqual([
-    "preferences",
-    "notes",
-    "name",
-    "email",
-  ]);
+  await expect
+    .poll(() => itemTreeOrder(tree, "field-list-root"))
+    .toEqual(["preferences", "notes", "name", "email"]);
   await expect(page.getByRole("application")).toHaveAttribute(
     "data-workspace-interaction-owner",
     "none",
@@ -273,6 +316,8 @@ test("pointer block feedback stays zoom-correct and excludes outer movement owne
   fieldSection = page.getByRole("article", { name: "Profile fields" });
   await fieldSection.scrollIntoViewIfNeeded();
   tree = fieldSection.getByRole("group", { name: "Profile field order" });
+  await expect(tree.getByRole("button", { name: "Select Name" })).toBeVisible();
+  await expect(tree.getByRole("button", { name: "Select Email" })).toBeVisible();
   await beginPointerDrag(
     page,
     tree.getByRole("button", { name: "Move Name" }),
@@ -289,12 +334,9 @@ test("pointer block feedback stays zoom-correct and excludes outer movement owne
     0,
   );
   await page.mouse.up();
-  expect(await itemTreeOrder(tree, "field-list-root")).toEqual([
-    "email",
-    "name",
-    "preferences",
-    "notes",
-  ]);
+  await expect
+    .poll(() => itemTreeOrder(tree, "field-list-root"))
+    .toEqual(["email", "name", "preferences", "notes"]);
 });
 
 test("touch movement and host rejection preserve inputs and canonical item state", async ({

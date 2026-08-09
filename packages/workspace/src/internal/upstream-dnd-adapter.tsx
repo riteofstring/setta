@@ -235,6 +235,10 @@ export function UpstreamDndBoundary({
           throw new Error("The completed dnd-kit operation has no source ID.");
         }
         syncCollisionRect(manager, operation.transform);
+        const completionClientPoint =
+          adapterActivatorPoint(nativeEvent) ??
+          activeClientPoint.current ??
+          translatedClientPoint(activeActivatorPoint.current, operation.transform);
         const completion = {
           ...adapterEvent(
             sourceId,
@@ -242,8 +246,7 @@ export function UpstreamDndBoundary({
             activeInput.current,
             operation.transform,
             activeActivatorPoint.current,
-            translatedClientPoint(activeActivatorPoint.current, operation.transform) ??
-              activeClientPoint.current,
+            completionClientPoint,
             nativeEvent,
           ),
           canceled,

@@ -175,6 +175,7 @@ function SampleFieldListSection({
 
 export function createPlaygroundSectionDefinitions(
   onFieldListDataChange: PlaygroundFieldListDataChangeHandler,
+  fieldListSelectionEpoch: number,
 ) {
   const fieldListSelectionStore = new Map<string, readonly string[]>();
   const definitions = [
@@ -210,6 +211,7 @@ export function createPlaygroundSectionDefinitions(
       render: (props: SectionRenderProps<PlaygroundSectionData>) => (
         <SampleFieldListSection
           {...props}
+          key={`${props.sectionId}-${String(fieldListSelectionEpoch)}`}
           onDataChange={onFieldListDataChange}
           selectionStore={fieldListSelectionStore}
         />

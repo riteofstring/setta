@@ -27,7 +27,12 @@ export type SortableItemPreview = Readonly<{
 
 export type SortableItemPreviewResolution =
   | Readonly<{ preview: SortableItemPreview; status: "planned" }>
-  | Readonly<{ reason: string; status: "rejected" | "unchanged" }>;
+  | Readonly<{ reason: string; status: "rejected" }>
+  | Readonly<{
+      projectedTree?: SortableItemTree;
+      reason: string;
+      status: "unchanged";
+    }>;
 
 export function sortableItemMovePlansMatch(
   left: ItemMovePlan | null,
@@ -224,7 +229,7 @@ export function resolveSortableItemKeyboardPreview({
     activeItemId,
     ...(canContainChildren ? { canContainChildren } : {}),
     command,
-    selectedItemIds: block.itemIds,
+    selectedItemIds: block.selectedItemIds,
     tree: projectedTree,
   });
   if (step.status === "rejected") {
@@ -232,20 +237,22 @@ export function resolveSortableItemKeyboardPreview({
   }
   if (step.status === "unchanged") {
     return {
+      projectedTree,
       reason: "The selected items cannot move farther in that direction.",
       status: "unchanged",
     };
   }
   const nextTree = applySortableItemMove(projectedTree, step.plan);
   const plan = rebasedPlan(originalTree, nextTree, block);
-  if (!hostAccepts(canMove, plan)) {
-    return { reason: "The host rejected this item move.", status: "rejected" };
-  }
   if (sortableItemTreesMatch(nextTree, originalTree)) {
     return {
+      projectedTree: nextTree,
       reason: "The selected items are back at their original position.",
       status: "unchanged",
     };
+  }
+  if (!hostAccepts(canMove, plan)) {
+    return { reason: "The host rejected this item move.", status: "rejected" };
   }
   return {
     preview: {

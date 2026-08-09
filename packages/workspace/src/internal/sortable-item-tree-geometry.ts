@@ -119,3 +119,63 @@ export function findSortableItemHandle(tree: HTMLElement, itemId: string): HTMLE
   }
   return null;
 }
+
+function hasMeaningfulFocus(ownerDocument: Document): boolean {
+  const activeElement = ownerDocument.activeElement;
+  return Boolean(
+    activeElement?.isConnected &&
+    activeElement !== ownerDocument.body &&
+    activeElement !== ownerDocument.documentElement,
+  );
+}
+
+export function beginSortableItemHandleFocusRecovery(
+  ownerDocument: Document,
+  treeId: string,
+  itemId: string,
+): () => void {
+  const target = () => {
+    const tree = ownerDocument.getElementById(treeId);
+    return tree ? findSortableItemHandle(tree, itemId) : null;
+  };
+  const view = ownerDocument.defaultView;
+  if (!view) {
+    if (!hasMeaningfulFocus(ownerDocument)) target()?.focus({ preventScroll: true });
+    return () => undefined;
+  }
+  let stopped = false;
+  let firstFrame: number | null = null;
+  let secondFrame: number | null = null;
+  let timeout: number | null = null;
+  const observer = new view.MutationObserver(recover);
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    observer.disconnect();
+    if (firstFrame !== null) view.cancelAnimationFrame(firstFrame);
+    if (secondFrame !== null) view.cancelAnimationFrame(secondFrame);
+    if (timeout !== null) view.clearTimeout(timeout);
+  };
+  function recover(): void {
+    if (stopped) return;
+    const handle = target();
+    if (handle && ownerDocument.activeElement === handle) return;
+    if (hasMeaningfulFocus(ownerDocument)) {
+      stop();
+      return;
+    }
+    handle?.focus({ preventScroll: true });
+  }
+  observer.observe(ownerDocument, { childList: true, subtree: true });
+  recover();
+  if (stopped) return stop;
+  firstFrame = view.requestAnimationFrame(() => {
+    recover();
+    if (!stopped) secondFrame = view.requestAnimationFrame(recover);
+  });
+  timeout = view.setTimeout(() => {
+    recover();
+    stop();
+  }, 250);
+  return stop;
+}

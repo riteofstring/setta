@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useId,
   useMemo,
   useRef,
@@ -20,7 +21,7 @@ import type {
   SortableItemTree as SortableItemTreeModel,
 } from "./sortable-item-tree-contract.js";
 import {
-  findSortableItemHandle,
+  beginSortableItemHandleFocusRecovery,
   snapshotSortableItemClientRects,
   sortableItemEventClientY,
   sortableItemPointerTargetForEvent,
@@ -168,6 +169,38 @@ function itemCountLabel(itemIds: readonly string[], firstLabel: string): string 
   return itemIds.length === 1 ? firstLabel : `${firstLabel} and ${String(itemIds.length - 1)} more`;
 }
 
+function movementLabel(
+  session: Pick<ItemSession, "block">,
+  props: ResolvedSortableItemTreeProps,
+): string {
+  const firstItemId = session.block.itemIds[0];
+  if (!firstItemId) throw new Error("A sortable item session must contain one moving item.");
+  return itemCountLabel(session.block.itemIds, props.getItemLabel(firstItemId));
+}
+
+function overlayLabel(
+  feedback: ItemFeedback,
+  session: ItemSession | null,
+  props: ResolvedSortableItemTreeProps,
+): string {
+  const itemIds = session?.block.itemIds ?? [];
+  const firstItemId = itemIds[0] ?? feedback.activeItemId;
+  if (!firstItemId) return "Moving item";
+  return itemCountLabel(
+    itemIds.length > 0 ? itemIds : [firstItemId],
+    props.getItemLabel(firstItemId),
+  );
+}
+
+function preserveKeyboardPreview(
+  session: ItemSession,
+  resolution: Exclude<SortableItemPreviewResolution, { status: "planned" }>,
+): boolean {
+  if (resolution.status === "rejected" || !resolution.projectedTree) return true;
+  session.projectedTree = resolution.projectedTree;
+  return !sortableItemTreesMatch(resolution.projectedTree, session.tree);
+}
+
 function destinationLabel(
   preview: SortableItemPreview,
   props: ResolvedSortableItemTreeProps,
@@ -191,8 +224,7 @@ function previewMessage(
   preview: SortableItemPreview,
   props: ResolvedSortableItemTreeProps,
 ): string {
-  const label = itemCountLabel(session.block.itemIds, props.getItemLabel(session.activeItemId));
-  return `Preview: ${label} will move to ${destinationLabel(preview, props)}, position ${String(preview.destinationIndex + 1)}.`;
+  return `Preview: ${movementLabel(session, props)} will move to ${destinationLabel(preview, props)}, position ${String(preview.destinationIndex + 1)}.`;
 }
 
 function completionMessage(
@@ -200,8 +232,7 @@ function completionMessage(
   preview: SortableItemPreview,
   props: ResolvedSortableItemTreeProps,
 ): string {
-  const label = itemCountLabel(session.block.itemIds, props.getItemLabel(session.activeItemId));
-  return `${label} moved to ${destinationLabel(preview, props)}, position ${String(preview.destinationIndex + 1)}.`;
+  return `${movementLabel(session, props)} moved to ${destinationLabel(preview, props)}, position ${String(preview.destinationIndex + 1)}.`;
 }
 
 function selectedTargetIds(
@@ -239,10 +270,23 @@ export function SortableItemTree(props: SortableItemTreeProps) {
   const rowElementsRef = useRef(new Map<string, HTMLElement>());
   const sessionRef = useRef<ItemSession | null>(null);
   const preparedRef = useRef<PreparedItemSession | null>(null);
+  const focusRecoveryCleanupRef = useRef<() => void>(() => undefined);
+  const interactionRef = useRef(interaction);
+  interactionRef.current = interaction;
   const propsRef = useRef(resolved);
   propsRef.current = resolved;
   const [feedback, setFeedback] = useState<ItemFeedback>(IDLE_FEEDBACK);
   const [announcement, setAnnouncement] = useState("");
+
+  useEffect(
+    () => () => {
+      if (!sessionRef.current) return;
+      sessionRef.current = null;
+      preparedRef.current = null;
+      interactionRef.current.finish("cancel");
+    },
+    [],
+  );
 
   const registerElement = useCallback(
     (collection: Map<string, HTMLElement>, itemId: string, element: HTMLElement | null) => {
@@ -299,6 +343,8 @@ export function SortableItemTree(props: SortableItemTreeProps) {
 
   const handleStart = useCallback(
     (event: AdapterDndEvent) => {
+      focusRecoveryCleanupRef.current();
+      focusRecoveryCleanupRef.current = () => undefined;
       const prepared = preparedRef.current ?? prepareSession(event.sourceId);
       preparedRef.current = null;
       if (!interaction.start(event.input)) {
@@ -328,16 +374,12 @@ export function SortableItemTree(props: SortableItemTreeProps) {
         targetId: null,
         zoom: session.zoom,
       });
-      const label = itemCountLabel(
-        session.block.itemIds,
-        current.getItemLabel(session.activeItemId),
-      );
       const instruction =
         event.input === "keyboard"
-          ? " Use the arrow keys to move, Enter to finish, or Escape to cancel."
+          ? " Use the arrow keys to move, Enter or Space to finish, or Escape to cancel."
           : "";
       setAnnouncement(
-        `${prepared.block.fallbackReason ?? `${label} movement started.`}${instruction}`,
+        `${prepared.block.fallbackReason ?? `${movementLabel(session, current)} movement started.`}${instruction}`,
       );
     },
     [interaction, prepareSession, selectDragBlock],
@@ -405,7 +447,13 @@ export function SortableItemTree(props: SortableItemTreeProps) {
           projectedTree: session.projectedTree,
         });
         if (resolution.status === "planned") updatePlannedFeedback(session, resolution, null);
-        else updateRejectedFeedback(session, resolution, null, true);
+        else
+          updateRejectedFeedback(
+            session,
+            resolution,
+            null,
+            preserveKeyboardPreview(session, resolution),
+          );
         return;
       }
       if (event.input === "keyboard") return;
@@ -442,21 +490,13 @@ export function SortableItemTree(props: SortableItemTreeProps) {
   const restoreHandleFocus = useCallback(
     (itemId: string) => {
       const document = rootRef.current?.ownerDocument;
-      const view = document?.defaultView;
-      if (!document || !view) return;
-      const focus = () => {
-        const tree = document.getElementById(treeId);
-        if (!tree || !(tree instanceof view.HTMLElement)) return;
-        findSortableItemHandle(tree, itemId)?.focus({ preventScroll: true });
-      };
-      const observer = new view.MutationObserver(focus);
-      observer.observe(document, { childList: true, subtree: true });
-      focus();
-      view.requestAnimationFrame(() => view.requestAnimationFrame(focus));
-      view.setTimeout(() => {
-        focus();
-        observer.disconnect();
-      }, 250);
+      if (!document) return;
+      focusRecoveryCleanupRef.current();
+      focusRecoveryCleanupRef.current = beginSortableItemHandleFocusRecovery(
+        document,
+        treeId,
+        itemId,
+      );
     },
     [treeId],
   );
@@ -499,14 +539,18 @@ export function SortableItemTree(props: SortableItemTreeProps) {
       interaction.finish(canceled ? "cancel" : "complete");
       restoreHandleFocus(session.activeItemId);
       const current = propsRef.current;
-      const label = current.getItemLabel(session.activeItemId);
+      const label = movementLabel(session, current);
       if (canceled) {
         setAnnouncement(`${label} movement canceled.`);
         return;
       }
       const preview = matchingCompletionPreview(completion, session);
       if (!preview) {
-        setAnnouncement(`${label} did not move because the final destination changed.`);
+        setAnnouncement(
+          completion.input === "keyboard"
+            ? `${label} did not move.`
+            : `${label} did not move because the final destination changed.`,
+        );
         return;
       }
       if (!sortableItemTreesMatch(current.tree, session.tree)) {
@@ -629,12 +673,7 @@ export function SortableItemTree(props: SortableItemTreeProps) {
       resolved.selectedItemIds,
     ],
   );
-  const overlayLabel = feedback.activeItemId
-    ? itemCountLabel(
-        movingItemIds.size ? [...movingItemIds] : [feedback.activeItemId],
-        resolved.getItemLabel(feedback.activeItemId),
-      )
-    : "Moving item";
+  const dragOverlayLabel = overlayLabel(feedback, sessionRef.current, resolved);
 
   return (
     <div
@@ -643,6 +682,7 @@ export function SortableItemTree(props: SortableItemTreeProps) {
       data-sortable-item-disabled={resolved.disabled ? "true" : "false"}
       data-sortable-item-interaction={feedback.status}
       data-sortable-item-tree=""
+      data-workspace-local-shortcuts={feedback.status === "idle" ? undefined : ""}
       data-workspace-prevent-pan="true"
       data-workspace-prevent-wheel="true"
       id={treeId}
@@ -674,7 +714,11 @@ export function SortableItemTree(props: SortableItemTreeProps) {
           onMove={handleMove}
           onStart={handleStart}
           renderOverlay={() => (
-            <ItemDragOverlay count={movingItemIds.size} feedback={feedback} label={overlayLabel} />
+            <ItemDragOverlay
+              count={movingItemIds.size}
+              feedback={feedback}
+              label={dragOverlayLabel}
+            />
           )}
           resolveCollisionRect={(sourceId) => {
             const prepared = prepareSession(sourceId);

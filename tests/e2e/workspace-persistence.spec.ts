@@ -101,6 +101,22 @@ test("the playground imports, exports, resets, and locally restores workspace st
   await expect(page.getByRole("article", { name: "Persisted planning note" })).toBeVisible();
 
   importedDocument.schemaVersion = currentSchemaVersion;
+  const fieldSection = importedDocument.sections["example-fields"] as unknown as {
+    data: {
+      tree: { childrenByParent: Record<string, string[]> };
+    };
+  };
+  fieldSection.data.tree.childrenByParent.name = ["theme"];
+  fieldSection.data.tree.childrenByParent.preferences = [];
+  await documentJson.fill(JSON.stringify(importedDocument, null, 2));
+  await page.getByRole("button", { name: "Import JSON" }).click();
+  await expect(page.locator("#workspace-json-error")).toContainText(
+    'Field-list item "name" must be a group before it can contain children.',
+  );
+  await expect(page.getByRole("article", { name: "Profile fields" })).toBeVisible();
+  delete fieldSection.data.tree.childrenByParent.name;
+  fieldSection.data.tree.childrenByParent.preferences = ["theme"];
+
   const statusSection = importedDocument.sections["example-status"] as unknown as {
     data: unknown;
   };

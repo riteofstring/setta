@@ -771,6 +771,18 @@ describe("SortableItemTree scaffold", () => {
         />,
       ),
     ).toThrow("selectedItemIds must contain only known item IDs");
+    expect(() =>
+      renderToStaticMarkup(
+        <SortableItemTree
+          canContainChildren={() => false}
+          onMove={() => undefined}
+          onSelectedItemIdsChange={() => undefined}
+          renderItem={() => null}
+          selectedItemIds={[]}
+          tree={itemTree}
+        />,
+      ),
+    ).toThrow('item "group" has children but canContainChildren rejected it');
   });
 });
 

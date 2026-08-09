@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   applySortableItemMove,
@@ -154,6 +154,30 @@ describe("sortable item pointer preview", () => {
 });
 
 describe("sortable item keyboard preview", () => {
+  it("keeps a selected ancestor as the atomic root when its descendant handle is active", () => {
+    const originalTree = tree();
+    const block = resolveSortableItemDragBlock(originalTree, ["group", "theme"], "theme");
+    const resolution = resolveSortableItemKeyboardPreview({
+      activeItemId: "theme",
+      block,
+      command: "move-down",
+      originalTree,
+      projectedTree: originalTree,
+    });
+
+    expect(resolution).toMatchObject({
+      preview: {
+        plan: {
+          destinationIndex: 3,
+          destinationParentId: "root",
+          itemIds: ["group"],
+          sourceParentId: "root",
+        },
+      },
+      status: "planned",
+    });
+  });
+
   it("accumulates arrows into one plan against the original tree", () => {
     const originalTree = tree();
     const block = resolveSortableItemDragBlock(originalTree, ["name"], "name");
@@ -218,6 +242,35 @@ describe("sortable item keyboard preview", () => {
       projectedTree: indented.preview.projectedTree,
     });
     expect(outdented).toMatchObject({ status: "unchanged" });
+  });
+
+  it("clears the cumulative preview when an arrow returns the block to its start", () => {
+    const originalTree = tree();
+    const block = resolveSortableItemDragBlock(originalTree, ["name"], "name");
+    const moved = resolveSortableItemKeyboardPreview({
+      activeItemId: "name",
+      block,
+      command: "move-down",
+      originalTree,
+      projectedTree: originalTree,
+    });
+    if (moved.status !== "planned") throw new Error("The first keyboard step must be planned.");
+    const canMove = vi.fn(() => true);
+    const returned = resolveSortableItemKeyboardPreview({
+      activeItemId: "name",
+      block,
+      canMove,
+      command: "move-up",
+      originalTree,
+      projectedTree: moved.preview.projectedTree,
+    });
+
+    expect(returned).toMatchObject({
+      projectedTree: originalTree,
+      reason: "The selected items are back at their original position.",
+      status: "unchanged",
+    });
+    expect(canMove).not.toHaveBeenCalled();
   });
 
   it("revalidates exact plan fields and current host policy", () => {

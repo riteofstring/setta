@@ -175,6 +175,10 @@ whether the accepted move participates in host history.
 />
 ```
 
+`canContainChildren` and `canMove` are synchronous, side-effect-free policies. Every item that
+already owns children must be accepted by `canContainChildren`; the component rejects an
+inconsistent controlled tree instead of hiding that item's descendants.
+
 Click a named selection button to replace selection; Control/Command/Shift-click toggles an item.
 Dragging an unselected handle moves only that item. Dragging a selected handle moves normalized
 selected siblings in canonical order; a mixed-parent selection stays selected but movement falls

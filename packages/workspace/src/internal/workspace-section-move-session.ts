@@ -346,11 +346,29 @@ function currentClientPoint(
   event: AdapterDndEvent,
   session: WorkspaceSectionMoveSession,
 ): InteractionPoint {
+  if (event.clientPoint) {
+    return event.clientPoint;
+  }
   const origin = session.activatorClientPoint ?? {
     x: session.sourceClientBounds.x + session.sourceClientBounds.width / 2,
     y: session.sourceClientBounds.y + session.sourceClientBounds.height / 2,
   };
   return { x: origin.x + event.transform.x, y: origin.y + event.transform.y };
+}
+
+function currentClientTransform(
+  event: AdapterDndEvent,
+  point: InteractionPoint,
+  session: WorkspaceSectionMoveSession,
+): InteractionPoint {
+  if (!event.clientPoint) {
+    return event.transform;
+  }
+  const origin = session.activatorClientPoint ?? {
+    x: session.sourceClientBounds.x + session.sourceClientBounds.width / 2,
+    y: session.sourceClientBounds.y + session.sourceClientBounds.height / 2,
+  };
+  return { x: point.x - origin.x, y: point.y - origin.y };
 }
 
 function pointInsideRect(point: InteractionPoint, rect: ScreenRect): boolean {
@@ -790,9 +808,10 @@ export function resolveWorkspaceSectionMovePreview<TSectionData>({
       reason: "A section cannot move into itself or one of its descendants.",
     };
   }
+  const transform = currentClientTransform(event, point, session);
   const activeRect = createInteractionRect(
-    session.sourceClientBounds.x + event.transform.x,
-    session.sourceClientBounds.y + event.transform.y,
+    session.sourceClientBounds.x + transform.x,
+    session.sourceClientBounds.y + transform.y,
     session.sourceClientBounds.width,
     session.sourceClientBounds.height,
   );

@@ -2,7 +2,10 @@ import type { ReactNode } from "react";
 
 import { isDenseArray } from "./runtime-option-validation.js";
 import type { ItemMovePlan, SortableItemTree } from "./sortable-item-tree-contract.js";
-import { createSortableItemTreeIndex } from "./sortable-item-tree-validation.js";
+import {
+  createSortableItemTreeIndex,
+  type SortableItemTreeIndex,
+} from "./sortable-item-tree-validation.js";
 
 export type SortableItemTreeProps = Readonly<{
   ariaLabel?: string;
@@ -49,6 +52,27 @@ function accessibleLabel(value: unknown, label: string): string {
   return value.trim();
 }
 
+function containmentPolicy(
+  callback: ((itemId: string) => boolean) | undefined,
+  index: SortableItemTreeIndex,
+): ((itemId: string) => boolean) | undefined {
+  if (!callback) return undefined;
+  const acceptedItemIds = new Set<string>();
+  for (const itemId of index.itemOrder) {
+    const accepted = callback(itemId);
+    if (typeof accepted !== "boolean") {
+      throw new TypeError("SortableItemTree canContainChildren must return a boolean.");
+    }
+    if (!accepted && (index.childrenByParent.get(itemId)?.length ?? 0) > 0) {
+      throw new TypeError(
+        `SortableItemTree item ${JSON.stringify(itemId)} has children but canContainChildren rejected it.`,
+      );
+    }
+    if (accepted) acceptedItemIds.add(itemId);
+  }
+  return (itemId: string) => acceptedItemIds.has(itemId);
+}
+
 export function resolveSortableItemTreeProps(
   props: SortableItemTreeProps,
 ): ResolvedSortableItemTreeProps {
@@ -76,9 +100,10 @@ export function resolveSortableItemTreeProps(
   const getItemLabel = (itemId: string) =>
     accessibleLabel(props.getItemLabel?.(itemId) ?? itemId, `Label for sortable item ${itemId}`);
   index.itemOrder.forEach(getItemLabel);
+  const canContainChildren = containmentPolicy(props.canContainChildren, index);
   return {
     ariaLabel: accessibleLabel(props.ariaLabel ?? "Sortable items", "SortableItemTree ariaLabel"),
-    ...(props.canContainChildren ? { canContainChildren: props.canContainChildren } : {}),
+    ...(canContainChildren ? { canContainChildren } : {}),
     ...(props.canMove ? { canMove: props.canMove } : {}),
     disabled: props.disabled ?? false,
     getItemLabel,

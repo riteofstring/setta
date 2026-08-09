@@ -62,6 +62,7 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
   const [document, setDocument] = useState(initialState.document);
   const [preferences, setPreferences] = useState(initialState.preferences);
   const [announcement, setAnnouncement] = useState(initialState.message);
+  const [fieldListSelectionEpoch, setFieldListSelectionEpoch] = useState(0);
   const controllerRef = useRef<WorkspaceController<PlaygroundSectionData>>(null);
   const externalSampleBodyRef = useRef<string | null>(null);
   const documentJson = useMemo(() => formatPlaygroundDocument(document), [document]);
@@ -82,8 +83,8 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
     [],
   );
   const sectionDefinitions = useMemo(
-    () => createPlaygroundSectionDefinitions(handleFieldListDataChange),
-    [handleFieldListDataChange],
+    () => createPlaygroundSectionDefinitions(handleFieldListDataChange, fieldListSelectionEpoch),
+    [fieldListSelectionEpoch, handleFieldListDataChange],
   );
 
   useEffect(() => {
@@ -102,6 +103,7 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
     try {
       const importedDocument = parsePlaygroundDocument(serialized);
       const documentJson = formatPlaygroundDocument(importedDocument);
+      setFieldListSelectionEpoch((current) => current + 1);
       setDocument(importedDocument);
       setAnnouncement(
         `Workspace imported. ${String(Object.keys(importedDocument.sections).length)} sections restored.`,
@@ -201,6 +203,7 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
             currentDocumentJson={documentJson}
             onImport={importDocument}
             onReset={() => {
+              setFieldListSelectionEpoch((current) => current + 1);
               setDocument(createPlaygroundExampleDocument());
               setAnnouncement(
                 "Example workspace restored with a note, status, and field-list section.",

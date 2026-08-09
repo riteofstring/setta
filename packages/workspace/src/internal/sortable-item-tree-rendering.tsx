@@ -98,7 +98,8 @@ function rowDropState(
   targetId: string,
 ): "rejected" | "target" | undefined {
   if (feedback.targetId !== targetId) return undefined;
-  return feedback.status === "rejected" ? "rejected" : "target";
+  if (feedback.status === "rejected") return "rejected";
+  return feedback.status === "planned" ? "target" : undefined;
 }
 
 function SortableItemRow({ depth, itemId }: Readonly<{ depth: number; itemId: string }>) {
@@ -182,7 +183,7 @@ function SortableItemRow({ depth, itemId }: Readonly<{ depth: number; itemId: st
         </button>
         <span className="setta-workspace__visually-hidden" id={`${sourceId}-description`}>
           Press Enter or Space to start. Use Up and Down to reorder, logical forward to indent,
-          logical backward to outdent, Enter to finish, or Escape to cancel.
+          logical backward to outdent, Enter or Space to finish, or Escape to cancel.
         </span>
         {dropState === "rejected" ? (
           <span aria-hidden="true" className="setta-workspace__sortable-item-unavailable">
