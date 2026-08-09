@@ -1,6 +1,5 @@
 import {
   deriveWorkspaceParentLookup,
-  isValidWorkspaceColor,
   validateWorkspaceDocument,
   type SectionOrientation,
   type SectionOverflow,
@@ -19,12 +18,14 @@ import {
   isEnumerableDataProperty,
   optionOverridesAt,
 } from "./runtime-option-validation.js";
+import type { SectionMovePlan } from "./section-move-planning.js";
 import {
   planWorkspaceRootStacking,
   workspaceRootStackingMatches,
   type WorkspaceRootStackingAction,
 } from "./workspace-root-stacking.js";
 import { resolveWorkspaceSiblingSelection } from "./workspace-section-grouping.js";
+import { applyWorkspaceSectionMove } from "./workspace-section-move-command.js";
 import { planWorkspaceSectionOrientationTransition } from "./workspace-section-orientation-command.js";
 import { planWorkspaceSectionOverflowTransition } from "./workspace-section-overflow-command.js";
 import type { WorkspaceSectionResizeAxis } from "./workspace-section-sizing.js";
@@ -46,6 +47,10 @@ export type WorkspaceDocumentCommand<TSectionData = unknown> =
   | Readonly<{
       positions: Readonly<Record<string, WorkspacePoint>>;
       type: "move-root-sections";
+    }>
+  | Readonly<{
+      plan: SectionMovePlan;
+      type: "move-sections";
     }>
   | Readonly<{
       axes: readonly WorkspaceSectionResizeAxis[];
@@ -157,7 +162,11 @@ function rejectionFor(
   command: WorkspaceDocumentCommand<unknown>,
   capabilities: WorkspaceCapabilities,
 ): WorkspaceActionRejectionReason | null {
-  if (command.type === "group-sections" || command.type === "ungroup-section") {
+  if (
+    command.type === "group-sections" ||
+    command.type === "move-sections" ||
+    command.type === "ungroup-section"
+  ) {
     if (!capabilities.editStructure) {
       return "structure-edit-disabled";
     }
@@ -186,53 +195,6 @@ function applied<TSectionData>(
 ): WorkspaceDocumentCommandResult<TSectionData> {
   validateWorkspaceDocument(document);
   return { document, reason, status: "applied" };
-}
-
-export function normalizeWorkspaceSectionTitle(value: unknown): string {
-  if (typeof value !== "string") {
-    throw new TypeError("Workspace section title must be a string.");
-  }
-  const title = value.trim();
-  if (title.length === 0) {
-    throw new TypeError("Workspace section title must not be empty.");
-  }
-  return title;
-}
-
-export function resolveWorkspaceSectionPresentation(value: unknown): WorkspaceSectionPresentation {
-  const record = optionOverridesAt(
-    value,
-    ["accentColor", "chrome", "tagColor"],
-    "Workspace section presentation",
-    "workspace section presentation field",
-  );
-  const missingKey = (["accentColor", "chrome", "tagColor"] as const).find(
-    (key) => !Object.hasOwn(record, key),
-  );
-  if (missingKey) {
-    throw new TypeError(`Workspace section presentation must provide ${missingKey}.`);
-  }
-  return {
-    accentColor: sectionPresentationColor(record.accentColor, "accent color"),
-    chrome: sectionChrome(record.chrome),
-    tagColor: sectionPresentationColor(record.tagColor, "tag color"),
-  };
-}
-
-function sectionChrome(value: unknown): WorkspaceSectionPresentation["chrome"] {
-  if (value !== "compact" && value !== "default" && value !== "none" && value !== "transparent") {
-    throw new TypeError(
-      "Workspace section presentation chrome must be compact, default, none, or transparent.",
-    );
-  }
-  return value;
-}
-
-function sectionPresentationColor(value: unknown, label: string): string | null {
-  if (value !== null && (typeof value !== "string" || !isValidWorkspaceColor(value))) {
-    throw new TypeError(`Workspace section presentation ${label} must be null or a valid color.`);
-  }
-  return value;
 }
 
 function finiteCoordinate(value: unknown, label: string): number {
@@ -859,6 +821,19 @@ function applySectionDeletion<TSectionData>(
   );
 }
 
+function applySectionMovement<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  plan: SectionMovePlan,
+): WorkspaceDocumentCommandResult<TSectionData> {
+  const movement = applyWorkspaceSectionMove(document, plan);
+  if (movement.status === "applied") {
+    return applied(movement.document, "section-move");
+  }
+  return movement.status === "rejected"
+    ? { document, reason: movement.reason, status: "rejected" }
+    : { document, status: "unchanged" };
+}
+
 type WorkspaceRootDocumentCommand<TSectionData> = Extract<
   WorkspaceDocumentCommand<TSectionData>,
   {
@@ -879,6 +854,11 @@ type WorkspaceSectionDocumentCommand<TSectionData> = Exclude<
 type WorkspaceSectionChildLayoutCommand<TSectionData> = Extract<
   WorkspaceSectionDocumentCommand<TSectionData>,
   { type: "set-section-child-orientation" | "set-section-child-overflow" }
+>;
+
+type WorkspaceSectionStructureCommand<TSectionData> = Extract<
+  WorkspaceSectionDocumentCommand<TSectionData>,
+  { type: "group-sections" | "move-sections" | "ungroup-section" }
 >;
 
 function isRootDocumentCommand<TSectionData>(
@@ -930,15 +910,34 @@ function applySectionChildLayoutCommand<TSectionData>(
     : applySectionChildOverflow(document, command);
 }
 
-function applySectionDocumentCommand<TSectionData>(
-  document: WorkspaceDocument<TSectionData>,
+function isSectionStructureCommand<TSectionData>(
   command: WorkspaceSectionDocumentCommand<TSectionData>,
+): command is WorkspaceSectionStructureCommand<TSectionData> {
+  return (
+    command.type === "group-sections" ||
+    command.type === "move-sections" ||
+    command.type === "ungroup-section"
+  );
+}
+
+function applySectionStructureCommand<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  command: WorkspaceSectionStructureCommand<TSectionData>,
 ): WorkspaceDocumentCommandResult<TSectionData> {
   if (command.type === "group-sections") {
     return applySectionGrouping(document, command);
   }
-  if (command.type === "ungroup-section") {
-    return applySectionUngrouping(document, command);
+  return command.type === "move-sections"
+    ? applySectionMovement(document, command.plan)
+    : applySectionUngrouping(document, command);
+}
+
+function applySectionDocumentCommand<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  command: WorkspaceSectionDocumentCommand<TSectionData>,
+): WorkspaceDocumentCommandResult<TSectionData> {
+  if (isSectionStructureCommand(command)) {
+    return applySectionStructureCommand(document, command);
   }
   if (command.type === "set-section-content-size") {
     return applySectionContentSize(document, command.sectionId, command.axes);

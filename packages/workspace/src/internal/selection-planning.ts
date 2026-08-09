@@ -12,8 +12,21 @@ export type SelectionBlock = {
   sourceParentId: string | null;
 };
 
+export type SelectionBlockRejectionCode =
+  | "empty-selection"
+  | "mixed-parent-selection"
+  | "parent-cycle"
+  | "root-layout-missing"
+  | "selection-not-direct-children";
+
+type SelectionBlockRejection = {
+  allowed: false;
+  code: SelectionBlockRejectionCode;
+  reason: string;
+};
+
 export type SelectionBlockResult =
-  { allowed: true; block: SelectionBlock } | { allowed: false; reason: string };
+  { allowed: true; block: SelectionBlock } | SelectionBlockRejection;
 
 export function resolveSelectionBlock(
   selectedIds: readonly string[],
@@ -21,7 +34,7 @@ export function resolveSelectionBlock(
 ): SelectionBlockResult {
   const uniqueIds = [...new Set(selectedIds)];
   if (uniqueIds.length === 0) {
-    return { allowed: false, reason: "No sections are selected." };
+    return { allowed: false, code: "empty-selection", reason: "No sections are selected." };
   }
 
   const rootResult = removeSelectedDescendants(uniqueIds, hierarchy.parentByChild);
@@ -70,8 +83,7 @@ export function selectionContainsSectionOrAncestor(
   return false;
 }
 
-type RootResolution =
-  { allowed: true; rootIds: readonly string[] } | { allowed: false; reason: string };
+type RootResolution = { allowed: true; rootIds: readonly string[] } | SelectionBlockRejection;
 
 function removeSelectedDescendants(
   selectedIds: readonly string[],
@@ -91,8 +103,7 @@ function removeSelectedDescendants(
   return { allowed: true, rootIds };
 }
 
-type AncestorResult =
-  { allowed: true; hasSelectedAncestor: boolean } | { allowed: false; reason: string };
+type AncestorResult = { allowed: true; hasSelectedAncestor: boolean } | SelectionBlockRejection;
 
 function hasSelectedAncestor(
   sectionId: string,
@@ -108,6 +119,7 @@ function hasSelectedAncestor(
     if (visited.has(parentId)) {
       return {
         allowed: false,
+        code: "parent-cycle",
         reason: `Parent lookup contains a cycle at section "${parentId}".`,
       };
     }
@@ -117,8 +129,7 @@ function hasSelectedAncestor(
   return { allowed: true, hasSelectedAncestor: false };
 }
 
-type ParentResolution =
-  { allowed: true; parentId: string | null } | { allowed: false; reason: string };
+type ParentResolution = { allowed: true; parentId: string | null } | SelectionBlockRejection;
 
 function resolveSharedParent(
   sectionIds: readonly string[],
@@ -126,7 +137,11 @@ function resolveSharedParent(
 ): ParentResolution {
   const firstId = sectionIds[0];
   if (!firstId) {
-    return { allowed: false, reason: "No selection roots remain." };
+    return {
+      allowed: false,
+      code: "empty-selection",
+      reason: "No selection roots remain.",
+    };
   }
   const parentId = parentByChild[firstId] ?? null;
   const hasMixedParents = sectionIds.some(
@@ -135,14 +150,14 @@ function resolveSharedParent(
   if (hasMixedParents) {
     return {
       allowed: false,
+      code: "mixed-parent-selection",
       reason: "Selected sections must share one parent for batch movement.",
     };
   }
   return { allowed: true, parentId };
 }
 
-type OrderResolution =
-  { allowed: true; sectionIds: readonly string[] } | { allowed: false; reason: string };
+type OrderResolution = { allowed: true; sectionIds: readonly string[] } | SelectionBlockRejection;
 
 function orderSelectionRoots(
   sectionIds: readonly string[],
@@ -165,6 +180,7 @@ function orderNestedSelection(
   if (ordered.length !== sectionIds.length) {
     return {
       allowed: false,
+      code: "selection-not-direct-children",
       reason: `Selected sections are not all direct children of "${parentId}".`,
     };
   }
@@ -182,6 +198,7 @@ function orderRootSelection(
     if (!hierarchy.rootPositions[sectionId] || !stackIndexById.has(sectionId)) {
       return {
         allowed: false,
+        code: "root-layout-missing",
         reason: `Top-level section "${sectionId}" is missing canonical layout data.`,
       };
     }

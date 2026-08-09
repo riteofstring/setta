@@ -55,6 +55,7 @@ export type WorkspaceActionRejectionReason =
   | "section-id-exists"
   | "section-locked"
   | "section-minimized"
+  | "section-move-invalid"
   | "section-not-minimizable"
   | "section-not-container"
   | "section-not-root"

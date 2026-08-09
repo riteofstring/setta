@@ -4,6 +4,7 @@ import {
   selectionContainsSectionOrAncestor,
   type SectionHierarchySnapshot,
   type SelectionBlock,
+  type SelectionBlockRejectionCode,
 } from "./selection-planning.js";
 
 export type WorkspaceSectionMoveMode = "free" | "sort";
@@ -23,13 +24,43 @@ export type SectionMoveDestination = {
   topLevelPositions: Readonly<Record<string, InteractionPoint>> | null;
 };
 
+export type SectionMoveRejectionCode = SelectionBlockRejectionCode | "host-policy" | "invalid-move";
+
 export type SectionMoveDecision =
   | { status: "planned"; plan: SectionMovePlan }
   | { status: "cancelled" }
-  | { status: "unchanged" }
-  | { status: "rejected"; reason: string };
+  | { status: "unchanged"; plan: SectionMovePlan }
+  | { status: "rejected"; code: SectionMoveRejectionCode; reason: string };
 
 export type AppliedHierarchy = SectionHierarchySnapshot;
+
+export function serializeSectionMovePlan(plan: SectionMovePlan): string {
+  const positions = plan.topLevelPositions
+    ? Object.entries(plan.topLevelPositions)
+        .sort(([leftId], [rightId]) => (leftId < rightId ? -1 : leftId > rightId ? 1 : 0))
+        .map(([sectionId, position]) => [sectionId, position.x, position.y] as const)
+    : null;
+  return JSON.stringify([
+    plan.mode,
+    plan.sourceParentId,
+    plan.destinationParentId,
+    plan.destinationIndex,
+    plan.sectionIds,
+    positions,
+  ]);
+}
+
+export function sectionMovePlansEqual(left: SectionMovePlan, right: SectionMovePlan): boolean {
+  return (
+    left.mode === right.mode &&
+    left.sourceParentId === right.sourceParentId &&
+    left.destinationParentId === right.destinationParentId &&
+    left.destinationIndex === right.destinationIndex &&
+    arraysEqual(left.sectionIds, right.sectionIds) &&
+    positionRecordsEqual(left.topLevelPositions ?? {}, right.topLevelPositions ?? {}) &&
+    (left.topLevelPositions === null) === (right.topLevelPositions === null)
+  );
+}
 
 export function planSectionMove({
   cancelled = false,
@@ -50,16 +81,24 @@ export function planSectionMove({
     return { status: "cancelled" };
   }
   if (!destination) {
-    return { status: "rejected", reason: "A move destination is required." };
+    return {
+      status: "rejected",
+      code: "invalid-move",
+      reason: "A move destination is required.",
+    };
   }
 
   const selectionResult = resolveSelectionBlock(selectedIds, hierarchy);
   if (!selectionResult.allowed) {
-    return { status: "rejected", reason: selectionResult.reason };
+    return {
+      status: "rejected",
+      code: selectionResult.code,
+      reason: selectionResult.reason,
+    };
   }
   const validationReason = validateMoveRequest(mode, selectionResult.block, destination, hierarchy);
   if (validationReason) {
-    return { status: "rejected", reason: validationReason };
+    return { status: "rejected", code: "invalid-move", reason: validationReason };
   }
 
   const plan = createPlan(mode, selectionResult.block, destination);
@@ -72,13 +111,13 @@ function evaluatePlan(
   validate:
     ((plan: SectionMovePlan) => { allowed: true } | { allowed: false; reason: string }) | undefined,
 ): SectionMoveDecision {
-  if (hierarchiesEqual(hierarchy, applySectionMovePlan(hierarchy, plan))) {
-    return { status: "unchanged" };
+  if (sectionHierarchySnapshotsEqual(hierarchy, applySectionMovePlan(hierarchy, plan))) {
+    return { status: "unchanged", plan };
   }
   const hostDecision = validate?.(plan) ?? { allowed: true };
   return hostDecision.allowed
     ? { status: "planned", plan }
-    : { status: "rejected", reason: hostDecision.reason };
+    : { status: "rejected", code: "host-policy", reason: hostDecision.reason };
 }
 
 export function applySectionMovePlan(
@@ -154,6 +193,9 @@ function validateMode(
   sourceParentId: string | null,
   destinationParentId: string | null,
 ): string | null {
+  if (mode !== "free" && mode !== "sort") {
+    return "Section movement mode must be sort or free.";
+  }
   if (mode !== "sort") {
     return null;
   }
@@ -177,6 +219,9 @@ function validateTopLevelPositions(
   if (!destination.topLevelPositions) {
     return "Canvas destinations require a position for every moved section.";
   }
+  if (!topLevelPositionIdsMatch(sectionIds, destination.topLevelPositions)) {
+    return "Canvas destinations may only include positions for the moved sections.";
+  }
   for (const sectionId of sectionIds) {
     const position = destination.topLevelPositions[sectionId];
     if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) {
@@ -184,6 +229,18 @@ function validateTopLevelPositions(
     }
   }
   return null;
+}
+
+function topLevelPositionIdsMatch(
+  sectionIds: readonly string[],
+  positions: Readonly<Record<string, InteractionPoint>>,
+): boolean {
+  const expectedSectionIds = new Set(sectionIds);
+  const positionIds = Object.keys(positions);
+  return (
+    positionIds.length === expectedSectionIds.size &&
+    positionIds.every((sectionId) => expectedSectionIds.has(sectionId))
+  );
 }
 
 function createPlan(
@@ -281,7 +338,7 @@ function resolveNextRootPositions(
   return next;
 }
 
-function hierarchiesEqual(
+export function sectionHierarchySnapshotsEqual(
   left: SectionHierarchySnapshot,
   right: SectionHierarchySnapshot,
 ): boolean {

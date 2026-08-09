@@ -18,6 +18,7 @@ import {
   createWorkspaceRootSection,
   groupWorkspaceSections,
   moveWorkspaceRootSections,
+  moveWorkspaceSections,
   resizeWorkspaceRootSection,
   setWorkspaceSectionChildOverflow,
   setWorkspaceSectionContentSize,
@@ -481,6 +482,16 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     },
     [],
   );
+  const handleSectionMoveCommit = useCallback(
+    (plan: Parameters<typeof moveWorkspaceSections>[1]) => {
+      const bindings = controllerBindingsRef.current;
+      if (!bindings) {
+        throw new Error("Workspace controller bindings are unavailable before initialization.");
+      }
+      return moveWorkspaceSections(bindings, plan);
+    },
+    [],
+  );
   const handleRootResizeCommit = useCallback(
     (
       sectionId: string,
@@ -614,6 +625,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         onSectionContentSizeCommit={handleSectionContentSizeCommit}
         onSectionLockedCommit={handleSectionLockedCommit}
         onSectionMinimizedCommit={handleSectionMinimizedCommit}
+        onSectionMoveCommit={handleSectionMoveCommit}
         onSectionOrientationCommit={handleSectionOrientationCommit}
         onSectionOverflowCommit={handleSectionOverflowCommit}
         onSectionPresentationCommit={handleSectionPresentationCommit}

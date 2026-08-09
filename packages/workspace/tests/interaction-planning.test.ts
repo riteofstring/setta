@@ -70,6 +70,7 @@ describe("Phase 0 selection characterization", () => {
   it("rejects mixed-parent blocks with one specific result", () => {
     expect(resolveSelectionBlock(["root-a", "child-a"], hierarchy())).toEqual({
       allowed: false,
+      code: "mixed-parent-selection",
       reason: "Selected sections must share one parent for batch movement.",
     });
   });
@@ -178,7 +179,7 @@ describe("Phase 0 section-move planning characterization", () => {
       selectedIds: ["child-b", "child-a"],
     });
 
-    expect(decision).toEqual({ status: "unchanged" });
+    expect(decision).toMatchObject({ status: "unchanged" });
     expect(snapshot).toEqual(before);
 
     const moved = planSectionMove({
@@ -321,6 +322,7 @@ describe("Phase 0 section-move planning characterization", () => {
       }),
     ).toEqual({
       status: "rejected",
+      code: "invalid-move",
       reason: "A section cannot move into itself or one of its descendants.",
     });
     expect(
@@ -332,6 +334,7 @@ describe("Phase 0 section-move planning characterization", () => {
       }),
     ).toEqual({
       status: "rejected",
+      code: "invalid-move",
       reason: "Sorting mode cannot change a section's parent.",
     });
   });
@@ -346,6 +349,7 @@ describe("Phase 0 section-move planning characterization", () => {
       }),
     ).toEqual({
       status: "rejected",
+      code: "invalid-move",
       reason: 'Destination parent "missing" is not in the hierarchy.',
     });
   });
@@ -368,6 +372,10 @@ describe("Phase 0 section-move planning characterization", () => {
         selectedIds: ["child-a"],
         validate: () => ({ allowed: false, reason: "Host policy rejected Empty." }),
       }),
-    ).toEqual({ status: "rejected", reason: "Host policy rejected Empty." });
+    ).toEqual({
+      status: "rejected",
+      code: "host-policy",
+      reason: "Host policy rejected Empty.",
+    });
   });
 });

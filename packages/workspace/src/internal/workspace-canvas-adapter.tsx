@@ -22,6 +22,7 @@ import type {
 } from "../core.js";
 import { WorkspaceGeometryIndex } from "./geometry-index.js";
 import type { InteractionInput } from "./interaction-owner.js";
+import type { SectionMovePlan } from "./section-move-planning.js";
 import {
   WorkspaceCanvasAnnouncements,
   WorkspaceCanvasEmptyPanel,
@@ -67,6 +68,10 @@ import type {
 } from "./workspace-section-contract.js";
 import { useWorkspaceSectionCreationMenu } from "./workspace-section-creation-menu.js";
 import { WorkspaceSectionDndBoundary } from "./workspace-section-dnd.js";
+import {
+  WorkspaceSectionMoveFeedback,
+  WorkspaceSectionMoveFeedbackStore,
+} from "./workspace-section-move-feedback.js";
 import type { WorkspaceSectionRegistry } from "./workspace-section-registry.js";
 import type {
   WorkspaceRootResizeSnapshot,
@@ -110,6 +115,7 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   ): WorkspaceActionResult;
   onSectionLockedCommit(sectionId: string, locked: boolean): WorkspaceActionResult;
   onSectionMinimizedCommit(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
+  onSectionMoveCommit(plan: SectionMovePlan): WorkspaceActionResult;
   onSectionOrientationCommit(
     sectionId: string,
     orientation: SectionOrientation,
@@ -202,6 +208,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   onSectionContentSizeCommit,
   onSectionLockedCommit,
   onSectionMinimizedCommit,
+  onSectionMoveCommit,
   onSectionOrientationCommit,
   onSectionOverflowCommit,
   onSectionPresentationCommit,
@@ -228,6 +235,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   const geometryRef = useRef<WorkspaceGeometryMeasurements | null>(null);
   geometryRef.current ??= new WorkspaceGeometryMeasurements(geometryIndex, document.viewport);
   const geometry = geometryRef.current;
+  const sectionMoveFeedbackStore = useMemo(() => new WorkspaceSectionMoveFeedbackStore(), []);
   const interaction = useWorkspaceInteractionOwner({
     layoutEnabled: layoutEditable,
     sectionMode: sectionMoveMode,
@@ -429,11 +437,20 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         activationEnabled={interaction.activationPolicy.sectionStructureEnabled}
         activeSectionId={interaction.activeSectionId}
         activeSectionMode={interaction.activeSectionMode}
+        document={document}
+        feedbackStore={sectionMoveFeedbackStore}
+        geometry={geometry}
+        geometryIndex={geometryIndex}
+        gridOptions={gridOptions}
         layoutEditable={layoutEditable}
         mode={sectionMoveMode}
-        onComplete={(canceled) =>
-          canceled ? interaction.cancelSectionStructure() : interaction.complete()
+        onComplete={(canceled, announcement) =>
+          canceled
+            ? interaction.cancelSectionStructure(announcement)
+            : interaction.complete(announcement)
         }
+        onMoveCommit={onSectionMoveCommit}
+        onReconciliation={interaction.announceSectionStructure}
         onSelectionRequest={selection.handleSelectionRequest}
         onStart={interaction.startSectionStructure}
         rootLayoutActive={interaction.ownership.owner === "root-layout"}
@@ -545,6 +562,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
             geometryIndex={geometryIndex}
             selectedSectionIds={selectedSectionIds}
           />
+          <WorkspaceSectionMoveFeedback store={sectionMoveFeedbackStore} />
           {selection.marqueeSelection.overlay}
           <WorkspaceCanvasHostOverlay>{overlaySlots.canvas}</WorkspaceCanvasHostOverlay>
           <WorkspaceCanvasEmptyPanel>{emptyState}</WorkspaceCanvasEmptyPanel>

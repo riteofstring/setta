@@ -14,6 +14,7 @@ import {
 } from "./interaction-geometry.js";
 import {
   planSectionMove,
+  serializeSectionMovePlan,
   type SectionMovePlan,
   type WorkspaceSectionMoveMode,
 } from "./section-move-planning.js";
@@ -105,18 +106,7 @@ export function adapterProofSelectionBounds(
 }
 
 export function serializeAdapterProofPlan(plan: SectionMovePlan): string {
-  const parent = plan.destinationParentId ?? "canvas";
-  const positions = plan.topLevelPositions
-    ? plan.sectionIds
-        .map((sectionId) => {
-          const position = plan.topLevelPositions?.[sectionId];
-          return position
-            ? `${sectionId}@${roundCoordinate(position.x)},${roundCoordinate(position.y)}`
-            : `${sectionId}@missing`;
-        })
-        .join("+")
-    : plan.sectionIds.join("+");
-  return `${plan.mode}:${parent}:${String(plan.destinationIndex)}:${positions}`;
+  return serializeSectionMovePlan(plan);
 }
 
 function resolveCanvasPreview(
@@ -387,8 +377,4 @@ function triggerDistance(
 
 function insertAt<T>(items: readonly T[], index: number, inserted: readonly T[]): readonly T[] {
   return [...items.slice(0, index), ...inserted, ...items.slice(index)];
-}
-
-function roundCoordinate(value: number): string {
-  return value.toFixed(3);
 }

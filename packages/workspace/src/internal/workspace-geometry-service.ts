@@ -199,6 +199,14 @@ export class WorkspaceGeometryMeasurements {
     return workspacePointToClient(point, this.canvasBounds(), this.#viewport);
   }
 
+  currentViewport(): ViewportTransform {
+    return { ...this.#viewport };
+  }
+
+  canvasElement(): HTMLElement | null {
+    return this.#canvasElement;
+  }
+
   workspaceRect(sectionId: string): WorkspaceRect | undefined {
     return this.#geometryIndex.get(sectionId)?.rect;
   }

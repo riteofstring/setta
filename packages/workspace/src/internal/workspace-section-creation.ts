@@ -6,7 +6,6 @@ import type {
   WorkspaceSection,
 } from "../core.js";
 import { planWorkspaceSectionPlacement } from "../core.js";
-import { normalizeWorkspaceSectionTitle } from "./document-commands.js";
 import { optionOverridesAt } from "./runtime-option-validation.js";
 import type { WorkspaceCanvasController } from "./workspace-canvas-navigation.js";
 import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
@@ -14,6 +13,7 @@ import type {
   WorkspaceSectionFactory,
   WorkspaceSectionFactoryResult,
 } from "./workspace-section-contract.js";
+import { normalizeWorkspaceSectionTitle } from "./workspace-section-input-validation.js";
 import type {
   ResolvedSectionDefinition,
   WorkspaceSectionRegistry,

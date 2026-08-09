@@ -901,6 +901,7 @@
 }
 
 .setta-workspace__section-drag-overlay {
+  inline-size: max-content;
   max-inline-size: min(20rem, calc(100vw - 2rem));
   padding: 0.75rem 1rem;
   overflow: hidden;
@@ -1144,7 +1145,8 @@
 }
 
 .setta-workspace__selection-overlay,
-.setta-workspace__marquee {
+.setta-workspace__marquee,
+.setta-workspace__section-move-placeholder {
   position: absolute;
   inset: 0 auto auto 0;
   pointer-events: none;
@@ -1164,6 +1166,36 @@
   background: color-mix(in oklch, var(--setta-workspace-selection) 14%, transparent);
   border: 2px dashed var(--setta-workspace-selection);
   border-radius: 0.5rem;
+}
+
+.setta-workspace__section-move-placeholder {
+  z-index: 5;
+}
+
+.setta-workspace__section-move-placeholder--source {
+  border: 2px dotted var(--setta-workspace-selection);
+  border-radius: 0.75rem;
+  background: color-mix(in oklch, var(--setta-workspace-selection) 5%, transparent);
+}
+
+.setta-workspace__section-move-placeholder--canvas,
+.setta-workspace__section-move-placeholder--empty {
+  border: 3px dashed var(--setta-workspace-selection);
+  border-radius: 0.75rem;
+  background: color-mix(in oklch, var(--setta-workspace-selection) 14%, transparent);
+  box-shadow: 0 0 0 2px
+    color-mix(in oklch, var(--setta-workspace-canvas-background) 82%, transparent);
+}
+
+.setta-workspace__section-move-placeholder:is(
+  .setta-workspace__section-move-placeholder--horizontal,
+  .setta-workspace__section-move-placeholder--vertical
+) {
+  background: var(--setta-workspace-selection);
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 2px var(--setta-workspace-canvas-background),
+    0 0.25rem 0.75rem oklch(0 0 0 / 0.18);
 }
 
 .setta-workspace__section-state {

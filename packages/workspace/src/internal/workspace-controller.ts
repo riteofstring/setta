@@ -18,14 +18,17 @@ import {
 } from "../core.js";
 import {
   applyWorkspaceDocumentCommand,
-  normalizeWorkspaceSectionTitle,
-  resolveWorkspaceSectionPresentation,
   type WorkspaceDocumentCommand,
 } from "./document-commands.js";
 import { denseArrayAt, optionOverridesAt } from "./runtime-option-validation.js";
+import type { SectionMovePlan } from "./section-move-planning.js";
 import type { WorkspaceCanvasController } from "./workspace-canvas-navigation.js";
 import { validateWorkspaceViewport } from "./workspace-document-validation.js";
 import type { WorkspaceRootStackingAction } from "./workspace-root-stacking.js";
+import {
+  normalizeWorkspaceSectionTitle,
+  resolveWorkspaceSectionPresentation,
+} from "./workspace-section-input-validation.js";
 import {
   resolveWorkspaceSectionOrientation,
   workspaceSectionOrientationRequiresMeasurement,
@@ -468,6 +471,13 @@ export function moveWorkspaceRootSections<TSectionData>(
   positions: Readonly<Record<string, WorkspacePoint>>,
 ): WorkspaceActionResult {
   return dispatch(bindings, { positions, type: "move-root-sections" });
+}
+
+export function moveWorkspaceSections<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  plan: SectionMovePlan,
+): WorkspaceActionResult {
+  return dispatch(bindings, { plan, type: "move-sections" });
 }
 
 export function resizeWorkspaceRootSection<TSectionData>(

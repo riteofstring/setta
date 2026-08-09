@@ -4,6 +4,17 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 const proofUrl = "/?adapter-proof";
 const proofRootIds = ["root-alpha", "root-beta"] as const;
 
+function serializedPlanFields(key: string | null): readonly unknown[] {
+  if (!key) {
+    throw new Error("The drag preview must expose its serialized plan key.");
+  }
+  const parsed: unknown = JSON.parse(key);
+  if (!Array.isArray(parsed)) {
+    throw new Error("The serialized drag plan key must be an array.");
+  }
+  return parsed;
+}
+
 async function readNumericAttribute(locator: Locator, attribute: string): Promise<number> {
   const value = await locator.getAttribute(attribute);
   if (value === null || !Number.isFinite(Number(value))) {
@@ -633,7 +644,9 @@ test.describe("upstream adapter proof", () => {
         "adapter-proof-canvas",
       );
       const previewKey = await destinationPlaceholder.getAttribute("data-proof-destination-key");
-      expect(previewKey).toContain("free:canvas:");
+      const previewFields = serializedPlanFields(previewKey);
+      expect(previewFields[0]).toBe("free");
+      expect(previewFields[2]).toBeNull();
       expect(
         Number(await planningRoot.getAttribute("data-proof-render-count")),
       ).toBeLessThanOrEqual(renderCountBefore + 1);
@@ -710,7 +723,9 @@ test.describe("upstream adapter proof", () => {
     const destination = page.locator('[data-proof-drag-placeholder="destination"]');
     await expect(destination).toHaveAttribute("data-proof-destination-target", "nested-note-d");
     const previewKey = await destination.getAttribute("data-proof-destination-key");
-    expect(previewKey).toContain("sort:root-alpha:");
+    const previewFields = serializedPlanFields(previewKey);
+    expect(previewFields[0]).toBe("sort");
+    expect(previewFields[2]).toBe("root-alpha");
     await page.mouse.up();
 
     await expect(page.locator("[data-proof-command-count]")).toHaveText("Commands: 1");

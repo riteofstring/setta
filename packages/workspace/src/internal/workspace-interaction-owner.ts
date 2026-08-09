@@ -160,7 +160,7 @@ export function useWorkspaceInteractionOwner({
     [layoutEnabled, sectionMode, structureEnabled],
   );
 
-  const finish = useCallback((type: "cancel" | "complete") => {
+  const finish = useCallback((type: "cancel" | "complete", announcement?: string) => {
     const current = stateRef.current;
     const next = {
       ownership: transitionInteractionOwnership(current.ownership, { type }),
@@ -168,29 +168,37 @@ export function useWorkspaceInteractionOwner({
     };
     stateRef.current = next;
     if (current.structuralSession) {
-      setAnnouncementText(structuralEndAnnouncement(current.structuralSession, type === "cancel"));
+      setAnnouncementText(
+        announcement ?? structuralEndAnnouncement(current.structuralSession, type === "cancel"),
+      );
     }
     setState(next);
   }, []);
   const cancel = useCallback(() => finish("cancel"), [finish]);
   const finishOwned = useCallback(
-    (owner: InteractionOwner, type: "cancel" | "complete") => {
+    (owner: InteractionOwner, type: "cancel" | "complete", announcement?: string) => {
       if (stateRef.current.ownership.owner === owner) {
-        finish(type);
+        finish(type, announcement);
       }
     },
     [finish],
   );
   const cancelSectionStructure = useCallback(
-    () => finishOwned("section-structure", "cancel"),
+    (announcement?: string) => finishOwned("section-structure", "cancel", announcement),
     [finishOwned],
   );
-  const complete = useCallback(() => finishOwned("section-structure", "complete"), [finishOwned]);
+  const complete = useCallback(
+    (announcement?: string) => finishOwned("section-structure", "complete", announcement),
+    [finishOwned],
+  );
   const completeRootLayout = useCallback(
     () => finishOwned("root-layout", "complete"),
     [finishOwned],
   );
   const completeViewport = useCallback(() => finishOwned("viewport", "complete"), [finishOwned]);
+  const announceSectionStructure = useCallback((announcement: string) => {
+    setAnnouncementText(announcement);
+  }, []);
   const activationPolicy = useMemo(
     () => resolveInteractionActivationPolicy(state.ownership, sectionMode),
     [sectionMode, state.ownership],
@@ -201,6 +209,7 @@ export function useWorkspaceInteractionOwner({
     activeInput: state.structuralSession?.input ?? null,
     activeSectionId: state.structuralSession?.sectionId ?? null,
     activeSectionMode: state.structuralSession?.mode ?? null,
+    announceSectionStructure,
     announcementText,
     cancel,
     cancelSectionStructure,

@@ -93,9 +93,11 @@ export function UpstreamDndBoundary({
       onDragStart={({ nativeEvent, operation }, manager) => {
         const sourceId = stringId(operation.source?.id);
         if (sourceId) {
-          activeInput.current = adapterInput(nativeEvent ?? operation.activatorEvent);
-          activeActivatorPoint.current = adapterActivatorPoint(
-            nativeEvent ?? operation.activatorEvent,
+          const activatorEvent = operation.activatorEvent ?? nativeEvent;
+          activeInput.current = adapterInput(activatorEvent);
+          activeActivatorPoint.current = adapterDragStartPoint(
+            adapterActivatorPoint(activatorEvent),
+            operation.transform,
           );
           const collisionRect = resolveCollisionRect?.(sourceId);
           baseCollisionRect.current = collisionRect ? boundingRect(collisionRect) : null;
@@ -349,6 +351,13 @@ function adapterActivatorPoint(event: Event | null | undefined): InteractionPoin
     return { x: event.clientX, y: event.clientY };
   }
   return null;
+}
+
+function adapterDragStartPoint(
+  currentPoint: InteractionPoint | null,
+  transform: InteractionPoint,
+): InteractionPoint | null {
+  return currentPoint ? { x: currentPoint.x - transform.x, y: currentPoint.y - transform.y } : null;
 }
 
 function adapterInput(event: Event | null | undefined): AdapterDndInput {

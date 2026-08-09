@@ -173,6 +173,7 @@ export function WorkspaceSectionChildren({
       className={`setta-workspace__section-children setta-workspace__interaction-boundary ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_ROOT_DRAG_CLASS_NAME}${scrollability.scrollable ? ` ${WORKSPACE_NO_WHEEL_CLASS_NAME}` : ""}`}
       data-workspace-child-orientation={layout.orientation}
       data-workspace-child-overflow={layout.overflow}
+      data-workspace-section-child-region={node.section.id}
       data-workspace-prevent-pan="true"
       data-workspace-prevent-wheel={scrollability.scrollable ? "true" : undefined}
       data-workspace-scrollable={String(scrollability.scrollable)}
