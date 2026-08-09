@@ -17,28 +17,38 @@ function destinationDescription<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   plan: SectionMovePlan,
 ): string {
-  if (plan.destinationParentId === null) {
+  if (plan.destination.parentId === null) {
     return "the canvas";
   }
-  return document.sections[plan.destinationParentId]?.title ?? "the destination container";
+  return document.sections[plan.destination.parentId]?.title ?? "the destination container";
 }
 
 function nestedPositionDescription<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   plan: SectionMovePlan,
 ): string {
-  if (plan.destinationParentId === null) {
+  if (plan.destination.parentId === null) {
     return "";
   }
-  const currentCount = document.sections[plan.destinationParentId]?.childLayout?.sectionIds.length;
+  if (plan.destination.placement.type === "freeform") {
+    const position = plan.destination.placement.positions[plan.sectionIds[0] ?? ""];
+    return position
+      ? ` at x ${formatCoordinate(position.x)}, y ${formatCoordinate(position.y)}`
+      : "";
+  }
+  const currentCount = document.sections[plan.destination.parentId]?.childLayout?.sectionIds.length;
   const movedFromDestination = plan.sourceParentIds.filter(
-    (parentId) => parentId === plan.destinationParentId,
+    (parentId) => parentId === plan.destination.parentId,
   ).length;
   const total = (currentCount ?? 0) - movedFromDestination + plan.sectionIds.length;
-  const first = plan.destinationIndex + 1;
-  const last = plan.destinationIndex + plan.sectionIds.length;
+  const first = plan.destination.placement.index + 1;
+  const last = plan.destination.placement.index + plan.sectionIds.length;
   const position = first === last ? String(first) : `${String(first)} through ${String(last)}`;
   return `, position ${position} of ${String(total)}`;
+}
+
+function formatCoordinate(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.0+$/u, "");
 }
 
 export function workspaceSectionMovePreviewAnnouncement<TSectionData>(

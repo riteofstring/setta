@@ -52,7 +52,11 @@ import {
   transitionInteractionOwnership,
   type InteractionOwnershipState,
 } from "./interaction-owner.js";
-import { applySectionMovePlan, type WorkspaceSectionMoveMode } from "./section-move-planning.js";
+import {
+  applySectionMovePlan,
+  type SectionMoveDestination,
+  type WorkspaceSectionMoveMode,
+} from "./section-move-planning.js";
 import { resolveSelectionBlock, type SectionHierarchySnapshot } from "./selection-planning.js";
 import {
   AdapterProofDragDiagnostics,
@@ -101,8 +105,7 @@ export type AdapterProofCommand =
     }
   | {
       type: "move-section-block";
-      destinationIndex: number;
-      destinationParentId: string | null;
+      destination: SectionMoveDestination;
       mode: WorkspaceSectionMoveMode;
       previewKey: string;
       sectionIds: readonly string[];
@@ -714,8 +717,7 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
       geometryMeasurements.requestMeasurement();
       recordCommand({
         type: "move-section-block",
-        destinationIndex: preview.plan.destinationIndex,
-        destinationParentId: preview.plan.destinationParentId,
+        destination: preview.plan.destination,
         mode: preview.plan.mode,
         previewKey: preview.destinationKey,
         sectionIds: preview.plan.sectionIds,

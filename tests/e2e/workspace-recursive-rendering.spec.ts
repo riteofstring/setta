@@ -455,7 +455,11 @@ test("structural previews commit exact sort and free-move plans", async ({ page 
   const canvasPreview = workspace.locator(
     '[data-workspace-section-move-destination-parent="canvas"]',
   );
-  await expect(canvasPreview).toHaveAttribute("data-workspace-section-move-destination-index", "1");
+  await expect(canvasPreview).toHaveAttribute(
+    "data-workspace-section-move-destination-placement",
+    "freeform",
+  );
+  await expect(canvasPreview).not.toHaveAttribute("data-workspace-section-move-destination-index");
   await expect(
     canvasPreview.locator(".setta-workspace__section-move-placeholder--canvas"),
   ).toBeVisible();

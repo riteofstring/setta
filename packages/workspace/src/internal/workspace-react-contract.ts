@@ -71,6 +71,8 @@ export type WorkspaceMinimapOptions = Readonly<{
 
 export type WorkspaceMarqueeSelectionMode = "full" | "partial";
 export type {
+  SectionMoveDestination,
+  SectionMovePlacement,
   SectionMovePlan,
   WorkspaceSectionMoveDecision,
   WorkspaceSectionMoveMode,

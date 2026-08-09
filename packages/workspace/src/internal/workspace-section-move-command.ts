@@ -70,12 +70,47 @@ export function workspaceSectionHierarchySnapshot<TSectionData>(
 
 export function workspaceDocumentMatchesSectionMove<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
-  hierarchy: SectionHierarchySnapshot,
+  sourceDocument: WorkspaceDocument<TSectionData>,
   plan: SectionMovePlan,
 ): boolean {
-  return sectionHierarchySnapshotsEqual(
-    workspaceSectionHierarchySnapshot(document),
-    applySectionMovePlan(hierarchy, plan),
+  const result = applyWorkspaceSectionMove(sourceDocument, plan);
+  const expected = result.status === "applied" ? result.document : sourceDocument;
+  return workspaceMovementStateMatches(document, expected);
+}
+
+function workspaceMovementStateMatches<TSectionData>(
+  left: WorkspaceDocument<TSectionData>,
+  right: WorkspaceDocument<TSectionData>,
+): boolean {
+  if (
+    !sectionHierarchySnapshotsEqual(
+      workspaceSectionHierarchySnapshot(left),
+      workspaceSectionHierarchySnapshot(right),
+    )
+  ) {
+    return false;
+  }
+  return Object.keys(right.sections).every((sectionId) => {
+    const leftLayout = left.sections[sectionId]?.childLayout;
+    const rightLayout = right.sections[sectionId]?.childLayout;
+    if (leftLayout?.positioning !== "freeform" || rightLayout?.positioning !== "freeform") {
+      return leftLayout?.positioning === rightLayout?.positioning;
+    }
+    return positionsMatch(leftLayout.positions, rightLayout.positions);
+  });
+}
+
+function positionsMatch(
+  left: Readonly<Record<string, WorkspacePoint>>,
+  right: Readonly<Record<string, WorkspacePoint>>,
+): boolean {
+  const keys = Object.keys(left);
+  return (
+    keys.length === Object.keys(right).length &&
+    keys.every(
+      (sectionId) =>
+        left[sectionId]?.x === right[sectionId]?.x && left[sectionId]?.y === right[sectionId]?.y,
+    )
   );
 }
 
@@ -85,41 +120,63 @@ function movedSections<TSectionData>(
   plan: SectionMovePlan,
 ): Readonly<Record<string, WorkspaceSection<TSectionData>>> {
   const changedParentIds = new Set(
-    [...plan.sourceParentIds, plan.destinationParentId].filter(
+    [...plan.sourceParentIds, plan.destination.parentId].filter(
       (sectionId): sectionId is string => sectionId !== null,
     ),
   );
   if (changedParentIds.size === 0) {
     return document.sections;
   }
-  return Object.fromEntries(
-    Object.entries(document.sections).map(([sectionId, section]) => {
-      const childLayout = section.childLayout;
-      if (!childLayout || !changedParentIds.has(sectionId)) {
-        return [sectionId, section];
-      }
-      const sectionIds = hierarchy.childrenByParent[sectionId] ?? [];
-      return [
-        sectionId,
-        {
-          ...section,
-          childLayout:
-            childLayout.positioning === "ordered"
-              ? { ...childLayout, sectionIds }
-              : {
-                  ...childLayout,
-                  positions: Object.fromEntries(
-                    sectionIds.map((childId) => [
-                      childId,
-                      requiredFreeformPosition(childLayout, childId),
-                    ]),
-                  ),
-                  sectionIds,
-                },
-        },
-      ];
-    }),
-  );
+  const entries = Object.entries(document.sections).map(([sectionId, section]) => {
+    const childLayout = section.childLayout;
+    if (!childLayout || !changedParentIds.has(sectionId)) {
+      return [sectionId, section] as const;
+    }
+    const sectionIds = hierarchy.childrenByParent[sectionId] ?? [];
+    const nextLayout =
+      childLayout.positioning === "ordered"
+        ? { ...childLayout, sectionIds }
+        : {
+            ...childLayout,
+            positions: Object.fromEntries(
+              sectionIds.map((childId) => [
+                childId,
+                destinationFreeformPosition(plan, sectionId, childId) ??
+                  requiredFreeformPosition(childLayout, childId),
+              ]),
+            ),
+            sectionIds,
+          };
+    const unchanged =
+      arraysMatch(childLayout.sectionIds, sectionIds) &&
+      (childLayout.positioning === "ordered" ||
+        (nextLayout.positioning === "freeform" &&
+          positionsMatch(childLayout.positions, nextLayout.positions)));
+    return unchanged
+      ? ([sectionId, section] as const)
+      : ([sectionId, { ...section, childLayout: nextLayout }] as const);
+  });
+  return entries.every(([sectionId, section]) => section === document.sections[sectionId])
+    ? document.sections
+    : Object.fromEntries(entries);
+}
+
+function arraysMatch(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function destinationFreeformPosition(
+  plan: SectionMovePlan,
+  parentSectionId: string,
+  childSectionId: string,
+): WorkspacePoint | null {
+  if (
+    plan.destination.parentId !== parentSectionId ||
+    plan.destination.placement.type !== "freeform"
+  ) {
+    return null;
+  }
+  return plan.destination.placement.positions[childSectionId] ?? null;
 }
 
 function movedRootSections<TSectionData>(
@@ -158,18 +215,28 @@ function directMoveRejection<TSectionData>(
   if (plan.sectionIds.some((sectionId) => !Object.hasOwn(document.sections, sectionId))) {
     return "section-move-invalid";
   }
-  if (!destinationCanContainSections(document, plan.destinationParentId)) {
+  if (!destinationCanContainSections(document, plan.destination.parentId)) {
     return "section-not-container";
   }
-  if (
-    plan.destinationParentId !== null &&
-    document.sections[plan.destinationParentId]?.childLayout?.positioning === "freeform"
-  ) {
+  if (!destinationPlacementMatches(document, plan)) {
     return "section-layout-unsupported";
   }
   return plan.sectionIds.some((sectionId) => document.sections[sectionId]?.positionAndSizeLocked)
     ? "section-locked"
     : null;
+}
+
+function destinationPlacementMatches<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  plan: SectionMovePlan,
+): boolean {
+  if (plan.destination.parentId === null) {
+    return plan.destination.placement.type === "freeform";
+  }
+  return (
+    document.sections[plan.destination.parentId]?.childLayout?.positioning ===
+    plan.destination.placement.type
+  );
 }
 
 export function applyWorkspaceSectionMove<TSectionData>(
@@ -183,11 +250,7 @@ export function applyWorkspaceSectionMove<TSectionData>(
 
   const hierarchy = workspaceSectionHierarchySnapshot(document);
   const decision = planSectionMove({
-    destination: {
-      index: plan.destinationIndex,
-      parentId: plan.destinationParentId,
-      topLevelPositions: plan.topLevelPositions,
-    },
+    destination: plan.destination,
     hierarchy,
     mode: plan.mode,
     selectedIds: plan.sectionIds,
@@ -205,11 +268,16 @@ export function applyWorkspaceSectionMove<TSectionData>(
   }
 
   const nextHierarchy = applySectionMovePlan(hierarchy, decision.plan);
+  const nextRootSections = movedRootSections(document, nextHierarchy);
+  const nextSections = movedSections(document, nextHierarchy, decision.plan);
+  if (nextRootSections === document.rootSections && nextSections === document.sections) {
+    return { status: "unchanged" };
+  }
   return {
     document: {
       ...document,
-      rootSections: movedRootSections(document, nextHierarchy),
-      sections: movedSections(document, nextHierarchy, decision.plan),
+      rootSections: nextRootSections,
+      sections: nextSections,
     },
     status: "applied",
   };

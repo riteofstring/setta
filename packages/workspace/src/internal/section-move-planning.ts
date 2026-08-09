@@ -10,19 +10,23 @@ import {
 
 export type WorkspaceSectionMoveMode = "free" | "sort";
 
+export type SectionMovePlacement =
+  | Readonly<{ index: number; type: "ordered" }>
+  | Readonly<{
+      positions: Readonly<Record<string, WorkspacePoint>>;
+      type: "freeform";
+    }>;
+
+export type SectionMoveDestination = Readonly<{
+  parentId: string | null;
+  placement: SectionMovePlacement;
+}>;
+
 export type SectionMovePlan = {
   sectionIds: readonly string[];
   mode: WorkspaceSectionMoveMode;
   sourceParentIds: readonly (string | null)[];
-  destinationParentId: string | null;
-  destinationIndex: number;
-  topLevelPositions: Readonly<Record<string, WorkspacePoint>> | null;
-};
-
-export type SectionMoveDestination = {
-  parentId: string | null;
-  index: number;
-  topLevelPositions: Readonly<Record<string, WorkspacePoint>> | null;
+  destination: SectionMoveDestination;
 };
 
 export type WorkspaceSectionMoveDecision =
@@ -73,12 +77,9 @@ export function resolveWorkspaceSectionMoveDecision(
   return Object.freeze({ allowed: false, reason: decision.reason.trim() });
 }
 
-function snapshotTopLevelPositions(
-  positions: Readonly<Record<string, WorkspacePoint>> | null,
-): Readonly<Record<string, WorkspacePoint>> | null {
-  if (!positions) {
-    return null;
-  }
+function snapshotPositions(
+  positions: Readonly<Record<string, WorkspacePoint>>,
+): Readonly<Record<string, WorkspacePoint>> {
   return Object.freeze(
     Object.fromEntries(
       Object.entries(positions).map(([sectionId, position]) => [
@@ -89,12 +90,26 @@ function snapshotTopLevelPositions(
   );
 }
 
+function snapshotDestination(destination: SectionMoveDestination): SectionMoveDestination {
+  return Object.freeze({
+    parentId: destination.parentId,
+    placement: Object.freeze(
+      destination.placement.type === "ordered"
+        ? { index: destination.placement.index, type: "ordered" as const }
+        : {
+            positions: snapshotPositions(destination.placement.positions),
+            type: "freeform" as const,
+          },
+    ),
+  });
+}
+
 function snapshotSectionMovePlan(plan: SectionMovePlan): SectionMovePlan {
   return Object.freeze({
-    ...plan,
+    destination: snapshotDestination(plan.destination),
+    mode: plan.mode,
     sectionIds: Object.freeze([...plan.sectionIds]),
     sourceParentIds: Object.freeze([...plan.sourceParentIds]),
-    topLevelPositions: snapshotTopLevelPositions(plan.topLevelPositions),
   });
 }
 
@@ -117,18 +132,21 @@ export function validateWorkspaceSectionMovePlan<TSectionData>(
 }
 
 export function serializeSectionMovePlan(plan: SectionMovePlan): string {
-  const positions = plan.topLevelPositions
-    ? Object.entries(plan.topLevelPositions)
-        .sort(([leftId], [rightId]) => (leftId < rightId ? -1 : leftId > rightId ? 1 : 0))
-        .map(([sectionId, position]) => [sectionId, position.x, position.y] as const)
-    : null;
+  const placement =
+    plan.destination.placement.type === "freeform"
+      ? [
+          "freeform",
+          Object.entries(plan.destination.placement.positions)
+            .sort(([leftId], [rightId]) => (leftId < rightId ? -1 : leftId > rightId ? 1 : 0))
+            .map(([sectionId, position]) => [sectionId, position.x, position.y] as const),
+        ]
+      : ["ordered", plan.destination.placement.index];
   return JSON.stringify([
     plan.mode,
     plan.sourceParentIds,
-    plan.destinationParentId,
-    plan.destinationIndex,
+    plan.destination.parentId,
+    placement,
     plan.sectionIds,
-    positions,
   ]);
 }
 
@@ -136,12 +154,20 @@ export function sectionMovePlansEqual(left: SectionMovePlan, right: SectionMoveP
   return (
     left.mode === right.mode &&
     arraysEqual(left.sourceParentIds, right.sourceParentIds) &&
-    left.destinationParentId === right.destinationParentId &&
-    left.destinationIndex === right.destinationIndex &&
     arraysEqual(left.sectionIds, right.sectionIds) &&
-    positionRecordsEqual(left.topLevelPositions ?? {}, right.topLevelPositions ?? {}) &&
-    (left.topLevelPositions === null) === (right.topLevelPositions === null)
+    destinationsEqual(left.destination, right.destination)
   );
+}
+
+function destinationsEqual(left: SectionMoveDestination, right: SectionMoveDestination): boolean {
+  if (left.parentId !== right.parentId || left.placement.type !== right.placement.type) {
+    return false;
+  }
+  return left.placement.type === "ordered" && right.placement.type === "ordered"
+    ? left.placement.index === right.placement.index
+    : left.placement.type === "freeform" && right.placement.type === "freeform"
+      ? positionRecordsEqual(left.placement.positions, right.placement.positions)
+      : false;
 }
 
 export function planSectionMove({
@@ -193,7 +219,10 @@ function evaluatePlan(
   validate:
     ((plan: SectionMovePlan) => { allowed: true } | { allowed: false; reason: string }) | undefined,
 ): SectionMoveDecision {
-  if (sectionHierarchySnapshotsEqual(hierarchy, applySectionMovePlan(hierarchy, plan))) {
+  if (
+    plan.destination.placement.type === "ordered" &&
+    sectionHierarchySnapshotsEqual(hierarchy, applySectionMovePlan(hierarchy, plan))
+  ) {
     return { status: "unchanged", plan };
   }
   const hostDecision = validate?.(plan) ?? { allowed: true };
@@ -213,10 +242,15 @@ export function applySectionMovePlan(
       removeIds(getChildOrder(hierarchy, parentId), plan.sectionIds),
     ]),
   );
+  const destinationParentId = plan.destination.parentId;
   const destinationBase =
-    sourceOrders.get(plan.destinationParentId) ??
-    removeIds(getChildOrder(hierarchy, plan.destinationParentId), plan.sectionIds);
-  const destinationOrder = insertIds(destinationBase, plan.destinationIndex, plan.sectionIds);
+    sourceOrders.get(destinationParentId) ??
+    removeIds(getChildOrder(hierarchy, destinationParentId), plan.sectionIds);
+  const destinationOrder = resolveDestinationOrder(
+    destinationBase,
+    getChildOrder(hierarchy, destinationParentId),
+    plan,
+  );
 
   const rootSectionIds = resolveNextRoots(
     hierarchy.rootSectionIds,
@@ -236,6 +270,20 @@ export function applySectionMovePlan(
     parentByChild: resolveNextParents(hierarchy.parentByChild, plan),
     rootPositions: resolveNextRootPositions(hierarchy.rootPositions, plan),
   };
+}
+
+function resolveDestinationOrder(
+  destinationBase: readonly string[],
+  currentOrder: readonly string[],
+  plan: SectionMovePlan,
+): readonly string[] {
+  if (plan.destination.placement.type === "ordered") {
+    return insertIds(destinationBase, plan.destination.placement.index, plan.sectionIds);
+  }
+  const sameParent = plan.sourceParentIds.every(
+    (parentId) => parentId === plan.destination.parentId,
+  );
+  return sameParent ? currentOrder.slice() : [...destinationBase, ...plan.sectionIds];
 }
 
 function validateMoveRequest(
@@ -261,17 +309,7 @@ function validateMoveRequest(
   ) {
     return "A section cannot move into itself or one of its descendants.";
   }
-  const destinationCount = removeIds(
-    getChildOrder(hierarchy, destination.parentId),
-    block.sectionIds,
-  ).length;
-  if (!Number.isInteger(destination.index) || destination.index < 0) {
-    return "The destination index must be a non-negative integer.";
-  }
-  if (destination.index > destinationCount) {
-    return `The destination index exceeds the ${destinationCount}-section destination.`;
-  }
-  return validateTopLevelPositions(block.sectionIds, destination);
+  return validateDestinationPlacement(block.sectionIds, destination, hierarchy);
 }
 
 function validateMode(
@@ -298,31 +336,54 @@ function validateMode(
     : "Sorting mode cannot change a section's parent.";
 }
 
-function validateTopLevelPositions(
+function validateDestinationPlacement(
   sectionIds: readonly string[],
   destination: SectionMoveDestination,
+  hierarchy: SectionHierarchySnapshot,
 ): string | null {
-  if (destination.parentId !== null) {
-    return destination.topLevelPositions === null
-      ? null
-      : "Nested destinations cannot include top-level positions.";
+  if (destination.placement.type === "ordered") {
+    if (destination.parentId === null) {
+      return "Canvas destinations require freeform positions.";
+    }
+    const destinationCount = removeIds(
+      getChildOrder(hierarchy, destination.parentId),
+      sectionIds,
+    ).length;
+    if (!Number.isInteger(destination.placement.index) || destination.placement.index < 0) {
+      return "The destination index must be a non-negative integer.";
+    }
+    return destination.placement.index > destinationCount
+      ? `The destination index exceeds the ${destinationCount}-section destination.`
+      : null;
   }
-  if (!destination.topLevelPositions) {
-    return "Canvas destinations require a position for every moved section.";
-  }
-  if (!topLevelPositionIdsMatch(sectionIds, destination.topLevelPositions)) {
-    return "Canvas destinations may only include positions for the moved sections.";
+  return validateFreeformPositions(
+    sectionIds,
+    destination.parentId,
+    destination.placement.positions,
+  );
+}
+
+function validateFreeformPositions(
+  sectionIds: readonly string[],
+  parentId: string | null,
+  positions: Readonly<Record<string, WorkspacePoint>>,
+): string | null {
+  if (!positionIdsMatch(sectionIds, positions)) {
+    return "Freeform destinations may only include positions for the moved sections.";
   }
   for (const sectionId of sectionIds) {
-    const position = destination.topLevelPositions[sectionId];
+    const position = positions[sectionId];
     if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) {
-      return `Canvas destination is missing a finite position for "${sectionId}".`;
+      return `Freeform destination is missing a finite position for "${sectionId}".`;
+    }
+    if (parentId !== null && (position.x < 0 || position.y < 0)) {
+      return `Nested freeform destination position for "${sectionId}" must be non-negative.`;
     }
   }
   return null;
 }
 
-function topLevelPositionIdsMatch(
+function positionIdsMatch(
   sectionIds: readonly string[],
   positions: Readonly<Record<string, WorkspacePoint>>,
 ): boolean {
@@ -340,12 +401,10 @@ function createPlan(
   destination: SectionMoveDestination,
 ): SectionMovePlan {
   return {
+    destination,
     sectionIds: block.sectionIds,
     mode,
     sourceParentIds: block.sourceParentIds,
-    destinationParentId: destination.parentId,
-    destinationIndex: destination.index,
-    topLevelPositions: destination.topLevelPositions,
   };
 }
 
@@ -380,10 +439,10 @@ function resolveNextRoots(
   plan: SectionMovePlan,
 ): readonly string[] {
   const sourceParents = new Set(plan.sourceParentIds);
-  if (sourceParents.size === 1 && sourceParents.has(null) && plan.destinationParentId === null) {
+  if (sourceParents.size === 1 && sourceParents.has(null) && plan.destination.parentId === null) {
     return currentRoots.slice();
   }
-  if (plan.destinationParentId === null) {
+  if (plan.destination.parentId === null) {
     return destinationOrder;
   }
   return sourceParents.has(null) ? sourceOrder : currentRoots.slice();
@@ -401,8 +460,8 @@ function resolveNextChildren(
       next[parentId] = sourceOrder;
     }
   }
-  if (plan.destinationParentId) {
-    next[plan.destinationParentId] = destinationOrder;
+  if (plan.destination.parentId) {
+    next[plan.destination.parentId] = destinationOrder;
   }
   return next;
 }
@@ -413,7 +472,7 @@ function resolveNextParents(
 ): Readonly<Record<string, string | null>> {
   const next = copyRecord(current);
   for (const sectionId of plan.sectionIds) {
-    next[sectionId] = plan.destinationParentId;
+    next[sectionId] = plan.destination.parentId;
   }
   return next;
 }
@@ -424,8 +483,8 @@ function resolveNextRootPositions(
 ): Readonly<Record<string, WorkspacePoint>> {
   const next = copyRecord(current);
   for (const sectionId of plan.sectionIds) {
-    if (plan.topLevelPositions) {
-      const position = plan.topLevelPositions[sectionId];
+    if (plan.destination.parentId === null && plan.destination.placement.type === "freeform") {
+      const position = plan.destination.placement.positions[sectionId];
       if (position) {
         next[sectionId] = position;
       }

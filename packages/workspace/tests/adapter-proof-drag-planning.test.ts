@@ -75,13 +75,18 @@ describe("Phase 0 adapter selection-block drag planning", () => {
       destinationBounds: { x: 430, y: 340, width: 280, height: 242 },
       order: sectionIds,
       plan: {
-        destinationParentId: null,
+        destination: {
+          parentId: null,
+          placement: {
+            positions: {
+              "nested-container": { x: 430, y: 432 },
+              "nested-note-a": { x: 430, y: 340 },
+            },
+            type: "freeform",
+          },
+        },
         mode: "free",
         sectionIds,
-        topLevelPositions: {
-          "nested-container": { x: 430, y: 432 },
-          "nested-note-a": { x: 430, y: 340 },
-        },
       },
       targetId: ADAPTER_PROOF_CANVAS_TARGET_ID,
     });
@@ -108,8 +113,10 @@ describe("Phase 0 adapter selection-block drag planning", () => {
     expect(resolution.preview).toMatchObject({
       order: ["nested-note-d", "nested-note-a", "nested-container"],
       plan: {
-        destinationIndex: 1,
-        destinationParentId: "root-alpha",
+        destination: {
+          parentId: "root-alpha",
+          placement: { index: 1, type: "ordered" },
+        },
         mode: "sort",
         sectionIds,
       },

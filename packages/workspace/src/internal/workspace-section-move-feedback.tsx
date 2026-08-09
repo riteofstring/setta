@@ -86,7 +86,7 @@ function Placeholder({
   rect,
   state,
 }: Readonly<{
-  kind: "canvas" | "empty" | "horizontal" | "source" | "vertical";
+  kind: "canvas" | "empty" | "freeform" | "horizontal" | "source" | "vertical";
   rect: WorkspaceRect;
   state: "destination" | "invalid" | "source";
 }>) {
@@ -129,12 +129,57 @@ function WorkspaceSectionMoveRejection({
   );
 }
 
+function WorkspaceSectionMoveDestination({
+  preview,
+}: Readonly<{ preview: WorkspaceSectionMovePreview }>) {
+  const placement = preview.plan.destination.placement;
+  return (
+    <div
+      data-workspace-section-move-destination-index={
+        placement.type === "ordered" ? placement.index : undefined
+      }
+      data-workspace-section-move-destination-key={preview.destinationKey}
+      data-workspace-section-move-destination-parent={preview.plan.destination.parentId ?? "canvas"}
+      data-workspace-section-move-destination-placement={placement.type}
+    >
+      <Placeholder
+        kind={preview.indicator.kind}
+        rect={preview.indicator.rect}
+        state="destination"
+      />
+    </div>
+  );
+}
+
+function WorkspaceSectionMoveViewportFeedback({
+  snapshot,
+}: Readonly<{ snapshot: WorkspaceSectionMoveFeedbackSnapshot }>) {
+  const sourceBounds = snapshot.sourceBounds;
+  if (!sourceBounds) {
+    return null;
+  }
+  return (
+    <ViewportPortal>
+      {sourceIsProjected(snapshot.preview) ? null : (
+        <Placeholder kind="source" rect={sourceBounds} state="source" />
+      )}
+      {snapshot.preview ? <WorkspaceSectionMoveDestination preview={snapshot.preview} /> : null}
+      {snapshot.invalidIndicator ? (
+        <Placeholder
+          kind={snapshot.invalidIndicator.kind}
+          rect={snapshot.invalidIndicator.rect}
+          state="invalid"
+        />
+      ) : null}
+    </ViewportPortal>
+  );
+}
+
 export function WorkspaceSectionMoveFeedback({
   store,
 }: Readonly<{ store: WorkspaceSectionMoveFeedbackStore }>) {
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const announcement = snapshot.preview?.announcement ?? snapshot.reason;
-  const sourceProjected = sourceIsProjected(snapshot.preview);
   return (
     <>
       <div
@@ -145,35 +190,7 @@ export function WorkspaceSectionMoveFeedback({
       >
         {snapshot.active ? announcement : ""}
       </div>
-      {snapshot.sourceBounds ? (
-        <ViewportPortal>
-          {sourceProjected ? null : (
-            <Placeholder kind="source" rect={snapshot.sourceBounds} state="source" />
-          )}
-          {snapshot.preview ? (
-            <div
-              data-workspace-section-move-destination-index={snapshot.preview.plan.destinationIndex}
-              data-workspace-section-move-destination-key={snapshot.preview.destinationKey}
-              data-workspace-section-move-destination-parent={
-                snapshot.preview.plan.destinationParentId ?? "canvas"
-              }
-            >
-              <Placeholder
-                kind={snapshot.preview.indicator.kind}
-                rect={snapshot.preview.indicator.rect}
-                state="destination"
-              />
-            </div>
-          ) : null}
-          {snapshot.invalidIndicator ? (
-            <Placeholder
-              kind={snapshot.invalidIndicator.kind}
-              rect={snapshot.invalidIndicator.rect}
-              state="invalid"
-            />
-          ) : null}
-        </ViewportPortal>
-      ) : null}
+      <WorkspaceSectionMoveViewportFeedback snapshot={snapshot} />
       <WorkspaceSectionMoveRejection active={snapshot.active} reason={snapshot.reason} />
     </>
   );

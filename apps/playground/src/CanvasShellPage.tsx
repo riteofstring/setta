@@ -278,7 +278,7 @@ function createNestedFreeformContractDocument(): WorkspaceDocument {
       "recursive-root": {
         ...recursiveRoot,
         childLayout: {
-          overflow: "grow",
+          overflow: "scroll",
           positioning: "freeform",
           positions: {
             "empty-container": { x: 80, y: 500 },
@@ -289,6 +289,7 @@ function createNestedFreeformContractDocument(): WorkspaceDocument {
         },
         size: {
           ...recursiveRoot.size,
+          height: { mode: "fixed", value: 620 },
           width: { mode: "fixed", value: 720 },
         },
       },
@@ -930,7 +931,7 @@ export function CanvasShellPage() {
                   };
             }}
             validateSectionMove={({ plan }) =>
-              reserveEmptyContainer && plan.destinationParentId === "empty-container"
+              reserveEmptyContainer && plan.destination.parentId === "empty-container"
                 ? {
                     allowed: false,
                     reason: "Host policy keeps Empty container reserved.",

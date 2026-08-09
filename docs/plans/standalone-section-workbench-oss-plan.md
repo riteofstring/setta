@@ -1708,7 +1708,9 @@ nested-freeform representation prerequisite is recorded in
 [Phase 6 nested-freeform representation evidence](../evidence/phase-6-nested-freeform-representation.md).
 The schema-v2 document and static recursive-projection foundation is recorded in
 [Phase 6 nested-freeform document-contract evidence](../evidence/phase-6-nested-freeform-document-contract.md).
-Same-parent freeform movement and the local-coordinate target/application contract are the earliest
+Same-parent freeform movement and the local-coordinate target/application contract are recorded in
+[Phase 6 nested-freeform local-movement evidence](../evidence/phase-6-nested-freeform-local-movement.md).
+Interactive cross-parent freeform target resolution and coordinate conversion are now the earliest
 incomplete repository-actionable Phase 6 work.
 
 - Completed (nested-freeform representation prerequisite): compared the plan-mandated all-section
@@ -1741,9 +1743,9 @@ incomplete repository-actionable Phase 6 work.
   operation specifically. The selected recursive-DOM owner projects canonical local coordinates,
   measures content-sized direct wrappers for stable grow extent, preserves native scroll policy,
   retains one outer XYFlow viewport, and exposes no second culling owner. The playground and
-  unrelated packed consumer exercise the declared schema-v2 package boundary. Same-parent spatial
-  gesture movement, cross-layout freeform destinations, and the positioning control remain in this
-  batch and are not marked complete.
+  unrelated packed consumer exercise the declared schema-v2 package boundary. At that checkpoint,
+  same-parent spatial gesture movement, cross-layout freeform destinations, and the positioning
+  control remained in this batch; the local-movement follow-on below now completes the first slice.
 - Nested-freeform document-foundation verification: exact Node 24.18.1, repository-local Corepack
   0.35.0, and pnpm 11.19.0 focused coverage passed the strict schema/command, recursive projection,
   overflow, movement-invariant, clipboard, grouping, and external-drop selectors. Two directly
@@ -1757,6 +1759,30 @@ incomplete repository-actionable Phase 6 work.
   contract, passed lockfile policy, strict build, and Chromium runtime verification. No dependency
   input changed, so the network-backed supply-chain gate was not duplicated; the recorded
   unavailable in-app-browser release gate was not retried.
+
+- Completed (nested-freeform local-movement slice): replaced the flat section-move destination
+  fields with an explicit ordered/freeform placement union and no compatibility path. Same-parent
+  freeform pointer, touch, and keyboard gestures now preserve canonical stacking order and selected
+  offsets, snap in destination-local coordinates, translate the complete block at local start
+  edges, remain correct through nested native scrolling and outer zoom, publish one layout-only
+  controlled command, announce coordinates, and restore the native handle focus. Framework-neutral
+  application also accepts an explicit validated freeform destination for the downstream
+  cross-layout target work. The playground, public guide, exact package allowlist, and unrelated
+  packed consumer use the new contract. The complete record is
+  `docs/evidence/phase-6-nested-freeform-local-movement.md`.
+- Nested-freeform local-movement verification: exact Node 24.18.1, repository-local Corepack
+  0.35.0, and pnpm 11.19.0 focused coverage passed 112 tests across eight movement and static React
+  files. The five-test nested-freeform Chromium selector passed pointer, touch, keyboard, controlled
+  commits, focus restoration, nested scroll during active movement, 2× outer zoom, Axe, 200% page
+  scale, reduced motion, 320-CSS-pixel reflow, and two inspected baselines. The directly affected
+  keyboard canvas-promotion selector passed the new destination discriminant. Changed-file quality
+  passed for 42 project files with boundaries across 350 files, dependency policy, formatting, lint
+  and complexity, file lengths, strict types, dead-code analysis, 495 unit tests across 48 files,
+  six boundary tests, plan-loop automation, builds, exact tarball contents, documentation links,
+  and the declaration report. The unrelated tarball-installed consumer passed exact-file
+  allowlisting, lockfile policy, strict build, and runtime verification. No dependency input
+  changed, so the network-backed supply-chain gate was not duplicated; the recorded unavailable
+  in-app-browser release gate was not retried.
 
 - Completed (viewport-culling batch): added strict opt-in all-depth browser windowing through one
   canvas-rooted observer, exact-size named placeholders, canonical-ID-scoped retained geometry,

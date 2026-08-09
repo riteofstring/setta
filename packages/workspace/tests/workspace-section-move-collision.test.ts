@@ -290,12 +290,10 @@ describe("workspace section collision planning", () => {
 
 function previewPlan(overrides: Partial<SectionMovePlan> = {}): SectionMovePlan {
   return {
-    destinationIndex: 1,
-    destinationParentId: "root",
+    destination: { parentId: "root", placement: { index: 1, type: "ordered" } },
     mode: "sort",
     sectionIds: ["a"],
     sourceParentIds: ["root"],
-    topLevelPositions: null,
     ...overrides,
   };
 }
@@ -407,7 +405,10 @@ describe("workspace section layout-stable preview", () => {
         },
       ),
       plan: previewPlan({
-        destinationParentId: "destination",
+        destination: {
+          parentId: "destination",
+          placement: { index: 1, type: "ordered" },
+        },
         mode: "free",
         sectionIds: ["a", "b"],
         sourceParentIds: ["source", "source"],
@@ -448,7 +449,10 @@ describe("workspace section layout-stable preview", () => {
         },
       ),
       plan: previewPlan({
-        destinationParentId: "destination",
+        destination: {
+          parentId: "destination",
+          placement: { index: 1, type: "ordered" },
+        },
         mode: "free",
         sectionIds: ["a", "b"],
         sourceParentIds: ["source-a", "source-b"],

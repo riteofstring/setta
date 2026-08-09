@@ -1492,6 +1492,7 @@
 }
 
 .setta-workspace__section-move-placeholder--canvas,
+.setta-workspace__section-move-placeholder--freeform,
 .setta-workspace__section-move-placeholder--empty {
   --setta-workspace-section-move-color: var(--setta-workspace-selection);
 

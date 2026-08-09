@@ -178,7 +178,7 @@ describe("Phase 0 section-move planning characterization", () => {
     const snapshot = hierarchy();
     const before = structuredClone(snapshot);
     const decision = planSectionMove({
-      destination: { parentId: "container", index: 0, topLevelPositions: null },
+      destination: { parentId: "container", placement: { index: 0, type: "ordered" } },
       hierarchy: snapshot,
       mode: "sort",
       selectedIds: ["child-b", "child-a"],
@@ -188,7 +188,7 @@ describe("Phase 0 section-move planning characterization", () => {
     expect(snapshot).toEqual(before);
 
     const moved = planSectionMove({
-      destination: { parentId: "container", index: 1, topLevelPositions: null },
+      destination: { parentId: "container", placement: { index: 1, type: "ordered" } },
       hierarchy: snapshot,
       mode: "sort",
       selectedIds: ["child-a"],
@@ -196,8 +196,7 @@ describe("Phase 0 section-move planning characterization", () => {
     expect(moved).toMatchObject({
       status: "planned",
       plan: {
-        destinationIndex: 1,
-        destinationParentId: "container",
+        destination: { parentId: "container", placement: { index: 1, type: "ordered" } },
         mode: "sort",
         sectionIds: ["child-a"],
         sourceParentIds: ["container"],
@@ -216,7 +215,7 @@ describe("Phase 0 section-move planning characterization", () => {
   it("plans canvas-to-nested, nested-to-canvas, and nested-to-nested moves", () => {
     const snapshot = hierarchy();
     const canvasToNested = planSectionMove({
-      destination: { parentId: "container", index: 1, topLevelPositions: null },
+      destination: { parentId: "container", placement: { index: 1, type: "ordered" } },
       hierarchy: snapshot,
       mode: "free",
       selectedIds: ["root-a"],
@@ -224,15 +223,17 @@ describe("Phase 0 section-move planning characterization", () => {
     const nestedToCanvas = planSectionMove({
       destination: {
         parentId: null,
-        index: 1,
-        topLevelPositions: { "child-a": { x: -50, y: 250 } },
+        placement: {
+          positions: { "child-a": { x: -50, y: 250 } },
+          type: "freeform",
+        },
       },
       hierarchy: snapshot,
       mode: "free",
       selectedIds: ["child-a"],
     });
     const nestedToNested = planSectionMove({
-      destination: { parentId: "nested", index: 1, topLevelPositions: null },
+      destination: { parentId: "nested", placement: { index: 1, type: "ordered" } },
       hierarchy: snapshot,
       mode: "free",
       selectedIds: ["child-a"],
@@ -240,25 +241,27 @@ describe("Phase 0 section-move planning characterization", () => {
 
     expect(canvasToNested).toMatchObject({
       status: "planned",
-      plan: { destinationParentId: "container", sectionIds: ["root-a"] },
+      plan: { destination: { parentId: "container" }, sectionIds: ["root-a"] },
     });
     expect(nestedToCanvas).toMatchObject({
       status: "planned",
       plan: {
-        destinationParentId: null,
-        topLevelPositions: { "child-a": { x: -50, y: 250 } },
+        destination: {
+          parentId: null,
+          placement: { positions: { "child-a": { x: -50, y: 250 } } },
+        },
       },
     });
     expect(nestedToNested).toMatchObject({
       status: "planned",
-      plan: { destinationParentId: "nested", destinationIndex: 1 },
+      plan: { destination: { parentId: "nested", placement: { index: 1 } } },
     });
   });
 
   it("moves mixed-parent roots as one canonical free-move block", () => {
     const snapshot = hierarchy();
     const decision = planSectionMove({
-      destination: { parentId: "empty", index: 0, topLevelPositions: null },
+      destination: { parentId: "empty", placement: { index: 0, type: "ordered" } },
       hierarchy: snapshot,
       mode: "free",
       selectedIds: ["child-a", "root-a"],
@@ -267,7 +270,7 @@ describe("Phase 0 section-move planning characterization", () => {
     expect(decision).toMatchObject({
       status: "planned",
       plan: {
-        destinationParentId: "empty",
+        destination: { parentId: "empty" },
         sectionIds: ["root-a", "child-a"],
         sourceParentIds: [null, "container"],
       },
@@ -281,7 +284,7 @@ describe("Phase 0 section-move planning characterization", () => {
 
   it("inserts into an empty container and preserves selected sibling order", () => {
     const decision = planSectionMove({
-      destination: { parentId: "empty", index: 0, topLevelPositions: null },
+      destination: { parentId: "empty", placement: { index: 0, type: "ordered" } },
       hierarchy: hierarchy(),
       mode: "free",
       selectedIds: ["child-b", "child-a"],
@@ -313,8 +316,7 @@ describe("Phase 0 section-move planning characterization", () => {
     const decision = planSectionMove({
       destination: {
         parentId: null,
-        index: 0,
-        topLevelPositions,
+        placement: { positions: topLevelPositions ?? {}, type: "freeform" },
       },
       hierarchy: hierarchy(),
       mode: "free",
@@ -325,9 +327,13 @@ describe("Phase 0 section-move planning characterization", () => {
       status: "planned",
       plan: {
         sectionIds: ["root-a", "root-b"],
-        topLevelPositions: {
-          "root-a": { x: 100, y: 50 },
-          "root-b": { x: 120, y: 50 },
+        destination: {
+          placement: {
+            positions: {
+              "root-a": { x: 100, y: 50 },
+              "root-b": { x: 120, y: 50 },
+            },
+          },
         },
       },
     });
@@ -344,7 +350,7 @@ describe("Phase 0 section-move planning characterization", () => {
   it("rejects descendant cycles and sort-mode parent changes before preview", () => {
     expect(
       planSectionMove({
-        destination: { parentId: "grandchild", index: 0, topLevelPositions: null },
+        destination: { parentId: "grandchild", placement: { index: 0, type: "ordered" } },
         hierarchy: hierarchy(),
         mode: "free",
         selectedIds: ["container"],
@@ -356,7 +362,7 @@ describe("Phase 0 section-move planning characterization", () => {
     });
     expect(
       planSectionMove({
-        destination: { parentId: "nested", index: 0, topLevelPositions: null },
+        destination: { parentId: "nested", placement: { index: 0, type: "ordered" } },
         hierarchy: hierarchy(),
         mode: "sort",
         selectedIds: ["child-a"],
@@ -371,7 +377,7 @@ describe("Phase 0 section-move planning characterization", () => {
   it("rejects unknown destination parents before preview", () => {
     expect(
       planSectionMove({
-        destination: { parentId: "missing", index: 0, topLevelPositions: null },
+        destination: { parentId: "missing", placement: { index: 0, type: "ordered" } },
         hierarchy: hierarchy(),
         mode: "free",
         selectedIds: ["child-a"],
@@ -387,7 +393,7 @@ describe("Phase 0 section-move planning characterization", () => {
     expect(
       planSectionMove({
         cancelled: true,
-        destination: { parentId: "empty", index: 0, topLevelPositions: null },
+        destination: { parentId: "empty", placement: { index: 0, type: "ordered" } },
         hierarchy: hierarchy(),
         mode: "free",
         selectedIds: ["child-a"],
@@ -395,7 +401,7 @@ describe("Phase 0 section-move planning characterization", () => {
     ).toEqual({ status: "cancelled" });
     expect(
       planSectionMove({
-        destination: { parentId: "empty", index: 0, topLevelPositions: null },
+        destination: { parentId: "empty", placement: { index: 0, type: "ordered" } },
         hierarchy: hierarchy(),
         mode: "free",
         selectedIds: ["child-a"],

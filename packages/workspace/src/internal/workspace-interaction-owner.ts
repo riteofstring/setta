@@ -12,6 +12,7 @@ import type { WorkspaceSectionMoveMode } from "./section-move-planning.js";
 
 export type WorkspaceStructuralInteractionStart = Readonly<{
   input: InteractionInput;
+  localLayout: boolean;
   mode: WorkspaceSectionMoveMode;
   root: boolean;
   sectionId: string;
@@ -35,7 +36,11 @@ const IDLE_COORDINATOR_STATE: WorkspaceInteractionCoordinatorState = {
 };
 
 function structuralStartAnnouncement(start: WorkspaceStructuralInteractionStart): string {
-  const mode = start.mode === "sort" ? "sorting" : "free-move";
+  const mode = start.localLayout
+    ? "freeform positioning"
+    : start.mode === "sort"
+      ? "sorting"
+      : "free-move";
   if (start.input === "keyboard") {
     return `${start.title} ${mode} started. Use the arrow keys to move, Enter to finish, or Escape to cancel.`;
   }
@@ -111,7 +116,7 @@ export function useWorkspaceInteractionOwner({
           itemMovementEnabled: false,
           layoutEnabled,
           sectionMode: start.mode,
-          structureEnabled: layoutEnabled && structureEnabled,
+          structureEnabled: layoutEnabled && (structureEnabled || start.localLayout),
           surface: start.root ? "root-section-handle" : "nested-section-handle",
           viewportOverride: false,
         },

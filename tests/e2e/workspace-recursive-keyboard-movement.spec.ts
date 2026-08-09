@@ -243,6 +243,9 @@ test("keyboard free-move promotes a nested section to the canvas without a visua
   await expect(
     workspace.locator('[data-workspace-section-move-destination-parent="canvas"]'),
   ).toHaveCount(1);
+  await expect(
+    workspace.locator('[data-workspace-section-move-destination-parent="canvas"]'),
+  ).toHaveAttribute("data-workspace-section-move-destination-placement", "freeform");
   await expect(workspace.locator("[data-workspace-section-move-preview-announcement]")).toHaveText(
     "Preview: Nested Alpha will move to the canvas.",
   );

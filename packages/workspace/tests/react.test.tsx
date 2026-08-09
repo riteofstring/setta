@@ -391,6 +391,7 @@ describe("Workspace scaffold", () => {
   it("renders nested freeform positions through absolute recursive DOM wrappers", () => {
     const markup = renderToStaticMarkup(
       <Workspace
+        capabilities={{ editLayout: true, editPresentation: true, editStructure: false }}
         defaultDocument={freeformRenderDocument()}
         sectionDefinitions={[
           {
@@ -410,6 +411,14 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain("transform:translate(16px, 20px)");
     expect(markup).toContain('data-workspace-freeform-child-placement="nested"');
     expect(markup).toContain("transform:translate(288px, 48px)");
+    expect(markup).toContain(
+      "Positioning keeps this section in its current freeform parent. Press Enter or Space to start keyboard movement.",
+    );
+    expect(markup).toMatch(
+      /aria-label="Move First child"[^>]+data-workspace-section-drag-mode="sort"/u,
+    );
+    expect(markup).not.toMatch(/aria-label="Move First child"[^>]+disabled/u);
+    expect(markup).toMatch(/aria-label="Move Deep child"[^>]+disabled/u);
     expect(markup).not.toMatch(
       /data-workspace-section-id="root"[^>]+data-workspace-child-orientation/u,
     );

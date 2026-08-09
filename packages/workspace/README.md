@@ -213,7 +213,7 @@ const sectionDefinitions = [
   minimapOptions={{ placement: "right", visible: true }}
   sectionMoveMode="sort"
   validateSectionMove={({ plan }) =>
-    plan.destinationParentId === reservedSectionId
+    plan.destination.parentId === reservedSectionId
       ? { allowed: false, reason: "This container is reserved for generated sections." }
       : { allowed: true }
   }
@@ -458,16 +458,22 @@ preserves its relative workbench offsets. One completed block gesture still publ
 `section-move` change. If any selected root is locked, block movement is disabled with specific
 feedback; selection itself remains available and does not publish a document change.
 
-### Recursive structural movement
+### Recursive movement
 
 `sectionMoveMode` is a host-owned interaction preference and defaults to `sort`. In sort mode,
-top-level handles retain ordinary XYFlow spatial dragging while nested handles activate the
-package's structural DnD owner. In `free` mode, root and nested handles both activate that structural
-owner. The mode captured when a gesture starts remains in force until completion or cancellation;
-changing the prop affects the next gesture. Root layout, structural DnD, and viewport gestures
-exclude their competing activators and restore them when the active owner releases.
+top-level handles retain ordinary XYFlow spatial dragging. Nested ordered and freeform handles use
+the package's shared DnD owner, but ordered sorting requires structure editing while same-parent
+freeform positioning requires only layout editing. In `free` mode, root and nested handles both
+activate structural movement. The mode captured when a gesture starts remains in force until
+completion or cancellation; changing the prop affects the next gesture. Root layout, recursive
+DnD, and viewport gestures exclude their competing activators and restore them when the active
+owner releases.
 
-For structural keyboard movement, focus a named section movement handle and press Enter or Space.
+For recursive keyboard movement, focus a named section movement handle and press Enter or Space.
+When that handle belongs to a freeform parent in sort mode, every arrow moves the selected block in
+the parent's local coordinate system. Snapping advances the active section to the next grid line;
+without snapping, each press moves ten local units. Pointer and touch use the same local positions,
+preserve the block's offsets, and clamp the complete block at the local start edges.
 ArrowUp and ArrowDown move through vertical sibling positions; ArrowLeft and ArrowRight move
 through horizontal positions and mirror their logical order in right-to-left layouts. In free mode,
 an arrow at the edge of the current container previews the nearest valid measured container in that
@@ -479,13 +485,16 @@ no measured container is available beyond a nested block's edge, the
 next arrow previews the canvas while preserving that block's measured workbench placement; after
 commit, switch to sort mode for ordinary root arrow-key positioning.
 
-`validateSectionMove` is an optional synchronous, side-effect-free host policy for structural
-moves. It receives the current document and an immutable `SectionMovePlan` after package-owned
-source-placement, containment, cycle, destination, and lock checks. Return a specific rejection reason
-for host relationships the generic document cannot express. Rejected targets never publish a
-document change; the reason is shown as non-color-only feedback and announced through the
-pre-mounted polite movement region. Locked sections cannot be moved directly, while a locked
-container remains a valid destination unless this host policy rejects it.
+`validateSectionMove` is an optional synchronous, side-effect-free host policy for section moves.
+It receives the current document and an immutable `SectionMovePlan` after package-owned
+source-placement, containment, cycle, destination-placement, and lock checks. The plan's
+`destination.placement` is either `{ type: "ordered", index }` or
+`{ type: "freeform", positions }`; the freeform map contains exactly the moved selection roots in
+destination-local coordinates. Return a specific rejection reason for host relationships the
+generic document cannot express. Rejected targets never publish a document change; the reason is
+shown as non-color-only feedback and announced through the pre-mounted polite movement region.
+Locked sections cannot be moved directly, while a locked container remains a valid destination
+unless this host policy rejects it.
 
 ## Resizing and size modes
 

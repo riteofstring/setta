@@ -167,7 +167,7 @@ function affectedParentPreview({
   >;
   const affectedParentIds = [
     ...new Set(
-      [...plan.sourceParentIds, plan.destinationParentId].filter(
+      [...plan.sourceParentIds, plan.destination.parentId].filter(
         (parentId): parentId is string => parentId !== null,
       ),
     ),
@@ -175,13 +175,19 @@ function affectedParentPreview({
   for (const parentSectionId of affectedParentIds) {
     const region = requireRegion(regions, parentSectionId);
     if (!region) {
-      return { allowed: false, reason: "A layout preview region is unavailable." };
+      if (
+        parentSectionId === plan.destination.parentId &&
+        plan.destination.placement.type === "ordered"
+      ) {
+        return { allowed: false, reason: "A layout preview region is unavailable." };
+      }
+      continue;
     }
     const currentOrder = childOrder(hierarchy, parentSectionId);
     const remaining = withoutIds(currentOrder, movingIds);
     const nextOrder =
-      parentSectionId === plan.destinationParentId
-        ? insertAt(remaining, plan.destinationIndex, plan.sectionIds)
+      parentSectionId === plan.destination.parentId && plan.destination.placement.type === "ordered"
+        ? insertAt(remaining, plan.destination.placement.index, plan.sectionIds)
         : remaining;
     const preview = regionTransforms({
       currentOrder,

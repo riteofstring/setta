@@ -124,12 +124,11 @@ function resolveCanvasPreview(
       return [sectionId, { x: rect.x + workspaceDelta.x, y: rect.y + workspaceDelta.y }];
     }),
   );
-  const selected = new Set(session.sectionIds);
-  const destinationIndex = session.hierarchy.rootSectionIds.filter(
-    (sectionId) => !selected.has(sectionId),
-  ).length;
   const decision = planSectionMove({
-    destination: { parentId: null, index: destinationIndex, topLevelPositions },
+    destination: {
+      parentId: null,
+      placement: { positions: topLevelPositions, type: "freeform" },
+    },
     hierarchy: session.hierarchy,
     mode: session.mode,
     selectedIds: session.sectionIds,
@@ -198,7 +197,10 @@ function resolveNestedPreview({
   }
   const destinationIndex = targetIndex + Number(collision.state.pastMidpoint);
   const decision = planSectionMove({
-    destination: { parentId: targetParentId, index: destinationIndex, topLevelPositions: null },
+    destination: {
+      parentId: targetParentId,
+      placement: { index: destinationIndex, type: "ordered" },
+    },
     hierarchy: session.hierarchy,
     mode: session.mode,
     selectedIds: session.sectionIds,

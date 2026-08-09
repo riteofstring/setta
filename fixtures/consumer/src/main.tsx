@@ -244,7 +244,7 @@ function ConsumerSortableItems() {
 }
 const sectionMoveMode: WorkspaceSectionMoveMode = "sort";
 const validateSectionMove: WorkspaceSectionMoveValidator = ({ plan }) =>
-  plan.destinationParentId === "reserved"
+  plan.destination.parentId === "reserved"
     ? { allowed: false, reason: "The consumer reserves this container." }
     : { allowed: true };
 const onExternalDrop: WorkspaceExternalDropHandler = () => undefined;

@@ -63,6 +63,7 @@ export type WorkspaceSectionFrameProps = Readonly<{
   colorPalette: readonly WorkspaceSectionColorOption[];
   definition: ResolvedSectionDefinition<unknown>;
   depth: number;
+  freeformChild: boolean;
   geometry: WorkspaceGeometryMeasurements;
   layoutEditable: boolean;
   moving: boolean;
@@ -664,6 +665,7 @@ export function WorkspaceSectionFrame({
   colorPalette,
   definition,
   depth,
+  freeformChild,
   geometry,
   layoutEditable,
   moving,
@@ -737,6 +739,7 @@ export function WorkspaceSectionFrame({
   const sectionDnd = useWorkspaceSectionDnd({
     blocked: sectionDragBlocked(section, selectionMovementBlocked, detached),
     depth,
+    freeformChild,
     sectionId: section.id,
     spatialMoving: moving,
   });
@@ -937,6 +940,7 @@ export function WorkspaceSectionFrame({
         <span className="setta-workspace__visually-hidden" id={moveDescriptionId}>
           {workspaceSectionMoveDescription({
             detached,
+            freeformChild,
             locked: section.positionAndSizeLocked,
             mode: sectionDnd.mode,
             selectionMovementBlocked,

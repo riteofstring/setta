@@ -66,24 +66,56 @@ function movementDocument(): WorkspaceDocument {
   };
 }
 
+function freeformMovementDocument(): WorkspaceDocument {
+  const document = movementDocument();
+  const section = document.sections.container as WorkspaceSection;
+  return {
+    ...document,
+    sections: {
+      ...document.sections,
+      container: {
+        ...section,
+        childLayout: {
+          overflow: "grow",
+          positioning: "freeform",
+          positions: {
+            "child-a": { x: 20, y: 24 },
+            "child-b": { x: 180, y: 44 },
+            nested: { x: 80, y: 240 },
+          },
+          sectionIds: ["child-a", "child-b", "nested"],
+        },
+      },
+    },
+  };
+}
+
 function plan(overrides: Partial<SectionMovePlan> = {}): SectionMovePlan {
   return {
-    destinationIndex: 1,
-    destinationParentId: "container",
+    destination: orderedDestination("container", 1),
     mode: "sort",
     sectionIds: ["child-a"],
     sourceParentIds: ["container"],
-    topLevelPositions: null,
     ...overrides,
   };
+}
+
+function orderedDestination(parentId: string, index: number): SectionMovePlan["destination"] {
+  return { parentId, placement: { index, type: "ordered" } };
+}
+
+function freeformDestination(
+  parentId: string | null,
+  positions: Readonly<Record<string, Readonly<{ x: number; y: number }>>>,
+): SectionMovePlan["destination"] {
+  return { parentId, placement: { positions, type: "freeform" } };
 }
 
 describe("workspace section move command", () => {
   it("normalizes strict host decisions against an immutable plan snapshot", () => {
     const document = movementDocument();
     const proposedPlan = plan({
-      destinationIndex: 0,
-      destinationParentId: "empty",
+      destination: orderedDestination("empty", 0),
       mode: "free",
     });
     const decision = validateWorkspaceSectionMovePlan(
@@ -136,21 +168,20 @@ describe("workspace section move command", () => {
 
   it("serializes every plan field without delimiter or coordinate-rounding collisions", () => {
     const first = plan({
-      destinationParentId: null,
+      destination: freeformDestination(null, { "child+a": { x: 1.0001, y: -0.5 } }),
       mode: "free",
       sectionIds: ["child+a"],
       sourceParentIds: ["container:first"],
-      topLevelPositions: { "child+a": { x: 1.0001, y: -0.5 } },
     });
 
     expect(serializeSectionMovePlan(first)).not.toBe(
       serializeSectionMovePlan({
         ...first,
-        sectionIds: ["child", "a"],
-        topLevelPositions: {
+        destination: freeformDestination(null, {
           a: { x: 1.0001, y: -0.5 },
           child: { x: 1.0001, y: -0.5 },
-        },
+        }),
+        sectionIds: ["child", "a"],
       }),
     );
     expect(serializeSectionMovePlan(first)).not.toBe(
@@ -159,7 +190,7 @@ describe("workspace section move command", () => {
     expect(serializeSectionMovePlan(first)).not.toBe(
       serializeSectionMovePlan({
         ...first,
-        topLevelPositions: { "child+a": { x: 1.0002, y: -0.5 } },
+        destination: freeformDestination(null, { "child+a": { x: 1.0002, y: -0.5 } }),
       }),
     );
   });
@@ -187,12 +218,85 @@ describe("workspace section move command", () => {
     expect(document).toEqual(before);
   });
 
+  it("updates only same-parent freeform positions and preserves sibling stacking order", () => {
+    const document = freeformMovementDocument();
+    const before = structuredClone(document);
+    const move = plan({
+      destination: freeformDestination("container", {
+        "child-a": { x: 40, y: 60 },
+        "child-b": { x: 200, y: 80 },
+      }),
+      sectionIds: ["child-a", "child-b"],
+      sourceParentIds: ["container", "container"],
+    });
+    const result = applyWorkspaceSectionMove(document, move);
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") throw new Error("Expected a same-parent freeform move.");
+    expect(result.document.sections.container?.childLayout).toEqual({
+      overflow: "grow",
+      positioning: "freeform",
+      positions: {
+        "child-a": { x: 40, y: 60 },
+        "child-b": { x: 200, y: 80 },
+        nested: { x: 80, y: 240 },
+      },
+      sectionIds: ["child-a", "child-b", "nested"],
+    });
+    expect(result.document.rootSections).toBe(document.rootSections);
+    expect(workspaceDocumentMatchesSectionMove(result.document, document, move)).toBe(true);
+    expect(document).toEqual(before);
+  });
+
+  it("applies the local-position contract when entering a nested freeform destination", () => {
+    const document = freeformMovementDocument();
+    const result = applyWorkspaceSectionMove(
+      document,
+      plan({
+        destination: freeformDestination("container", { "root-a": { x: 360, y: 180 } }),
+        mode: "free",
+        sectionIds: ["root-a"],
+        sourceParentIds: [null],
+      }),
+    );
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") throw new Error("Expected a nested freeform destination.");
+    expect(result.document.rootSections.map(({ sectionId }) => sectionId)).toEqual([
+      "root-b",
+      "container",
+      "empty",
+    ]);
+    expect(result.document.sections.container?.childLayout).toMatchObject({
+      positioning: "freeform",
+      positions: { "root-a": { x: 360, y: 180 } },
+      sectionIds: ["child-a", "child-b", "nested", "root-a"],
+    });
+  });
+
+  it("rejects mismatched or invalid nested placement without changing the document", () => {
+    const document = freeformMovementDocument();
+    expect(
+      applyWorkspaceSectionMove(
+        document,
+        plan({ destination: orderedDestination("container", 0) }),
+      ),
+    ).toEqual({ reason: "section-layout-unsupported", status: "rejected" });
+    expect(
+      applyWorkspaceSectionMove(
+        document,
+        plan({
+          destination: freeformDestination("container", { "child-a": { x: -1, y: 24 } }),
+        }),
+      ),
+    ).toEqual({ reason: "section-move-invalid", status: "rejected" });
+  });
+
   it("moves a selected sibling block atomically into an empty container", () => {
     const result = applyWorkspaceSectionMove(
       movementDocument(),
       plan({
-        destinationIndex: 0,
-        destinationParentId: "empty",
+        destination: orderedDestination("empty", 0),
         mode: "free",
         sectionIds: ["child-a", "child-b"],
         sourceParentIds: ["container", "container"],
@@ -209,27 +313,15 @@ describe("workspace section move command", () => {
 
   it("recognizes only the exact canonical document projected by an accepted move", () => {
     const document = movementDocument();
-    const move = plan({ destinationIndex: 0, destinationParentId: "empty", mode: "free" });
+    const move = plan({ destination: orderedDestination("empty", 0), mode: "free" });
     const result = applyWorkspaceSectionMove(document, move);
 
     expect(result.status).toBe("applied");
     if (result.status !== "applied") {
       throw new Error("Expected the exact-document move fixture to apply.");
     }
-    expect(
-      workspaceDocumentMatchesSectionMove(
-        result.document,
-        workspaceSectionHierarchySnapshot(document),
-        move,
-      ),
-    ).toBe(true);
-    expect(
-      workspaceDocumentMatchesSectionMove(
-        document,
-        workspaceSectionHierarchySnapshot(document),
-        move,
-      ),
-    ).toBe(false);
+    expect(workspaceDocumentMatchesSectionMove(result.document, document, move)).toBe(true);
+    expect(workspaceDocumentMatchesSectionMove(document, document, move)).toBe(false);
   });
 
   it("applies canvas-to-nested, nested-to-canvas, and unrelated-depth moves", () => {
@@ -237,7 +329,7 @@ describe("workspace section move command", () => {
     const canvasToNested = applyWorkspaceSectionMove(
       document,
       plan({
-        destinationIndex: 1,
+        destination: orderedDestination("container", 1),
         mode: "free",
         sectionIds: ["root-a"],
         sourceParentIds: [null],
@@ -246,18 +338,15 @@ describe("workspace section move command", () => {
     const nestedToCanvas = applyWorkspaceSectionMove(
       document,
       plan({
-        destinationIndex: 4,
-        destinationParentId: null,
+        destination: freeformDestination(null, { "child-a": { x: -48, y: 264 } }),
         mode: "free",
         sectionIds: ["child-a"],
-        topLevelPositions: { "child-a": { x: -48, y: 264 } },
       }),
     );
     const cousinMove = applyWorkspaceSectionMove(
       document,
       plan({
-        destinationIndex: 1,
-        destinationParentId: "nested",
+        destination: orderedDestination("nested", 1),
         mode: "free",
         sectionIds: ["child-b"],
       }),
@@ -297,8 +386,7 @@ describe("workspace section move command", () => {
     const result = applyWorkspaceSectionMove(
       movementDocument(),
       plan({
-        destinationIndex: 0,
-        destinationParentId: "empty",
+        destination: orderedDestination("empty", 0),
         mode: "free",
         sectionIds: ["root-a", "child-a"],
         sourceParentIds: [null, "container"],
@@ -339,12 +427,10 @@ describe("workspace section move command", () => {
     const result = applyWorkspaceSectionMove(
       document,
       plan({
-        destinationIndex: 1,
-        destinationParentId: null,
+        destination: freeformDestination(null, topLevelPositions),
         mode: "free",
         sectionIds: ["__proto__"],
         sourceParentIds: ["container"],
-        topLevelPositions,
       }),
     );
 
@@ -380,21 +466,20 @@ describe("workspace section move command", () => {
     expect(
       applyWorkspaceSectionMove(
         document,
-        plan({ destinationIndex: 0, sourceParentIds: ["nested"] }),
+        plan({ destination: orderedDestination("container", 0), sourceParentIds: ["nested"] }),
       ),
     ).toEqual({ reason: "section-move-invalid", status: "rejected" });
     expect(
       applyWorkspaceSectionMove(
         document,
-        plan({ destinationIndex: 0, destinationParentId: "grandchild", mode: "free" }),
+        plan({ destination: orderedDestination("grandchild", 0), mode: "free" }),
       ),
     ).toEqual({ reason: "section-not-container", status: "rejected" });
     expect(
       applyWorkspaceSectionMove(
         document,
         plan({
-          destinationIndex: 0,
-          destinationParentId: "nested",
+          destination: orderedDestination("nested", 0),
           mode: "free",
           sectionIds: ["container"],
           sourceParentIds: [null],
@@ -405,8 +490,7 @@ describe("workspace section move command", () => {
       applyWorkspaceSectionMove(
         document,
         plan({
-          destinationIndex: 0,
-          destinationParentId: "empty",
+          destination: orderedDestination("empty", 0),
           mode: "free",
           sectionIds: ["root-a", "child-a"],
           sourceParentIds: [null, null],
@@ -421,14 +505,13 @@ describe("workspace section move command", () => {
       applyWorkspaceSectionMove(
         document,
         plan({
-          destinationParentId: null,
+          destination: freeformDestination(null, {
+            "root-a": { x: 0, y: 0 },
+            "root-b": { x: 120, y: 0 },
+          }),
           mode: "free",
           sectionIds: ["root-a"],
           sourceParentIds: [null],
-          topLevelPositions: {
-            "root-a": { x: 0, y: 0 },
-            "root-b": { x: 120, y: 0 },
-          },
         }),
       ),
     ).toEqual({ reason: "section-move-invalid", status: "rejected" });
@@ -456,6 +539,26 @@ describe("workspace section move command", () => {
       status: "rejected",
     });
     expect(accepted).toMatchObject({ reason: "section-move", status: "applied" });
+  });
+
+  it("treats same-parent freeform positioning as a layout-only command", () => {
+    const command = {
+      plan: plan({
+        destination: freeformDestination("container", { "child-a": { x: 96, y: 72 } }),
+      }),
+      type: "move-sections",
+    } as const;
+    const withoutStructure = applyWorkspaceDocumentCommand(freeformMovementDocument(), command, {
+      ...WORKSPACE_DEFAULT_CAPABILITIES,
+      editStructure: false,
+    });
+    const withoutLayout = applyWorkspaceDocumentCommand(freeformMovementDocument(), command, {
+      ...WORKSPACE_DEFAULT_CAPABILITIES,
+      editLayout: false,
+    });
+
+    expect(withoutStructure).toMatchObject({ reason: "section-move", status: "applied" });
+    expect(withoutLayout).toMatchObject({ reason: "layout-edit-disabled", status: "rejected" });
   });
 });
 

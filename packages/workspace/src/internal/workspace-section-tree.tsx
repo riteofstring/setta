@@ -167,6 +167,7 @@ function WorkspaceNestedSection({
       }
       definition={node.definition}
       depth={depth}
+      freeformChild={node.position !== null}
       moving={false}
       order={order}
       parentSectionId={parentSectionId}

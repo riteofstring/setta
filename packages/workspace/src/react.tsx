@@ -20,6 +20,8 @@ export type {
   WorkspacePaneRegistration,
 } from "./internal/workspace-panes.js";
 export type {
+  SectionMoveDestination,
+  SectionMovePlacement,
   SectionMovePlan,
   WorkspaceBooleanPreferenceChangeHandler,
   WorkspaceDocumentChangeHandler,

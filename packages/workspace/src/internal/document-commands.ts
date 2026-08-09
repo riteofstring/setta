@@ -95,22 +95,32 @@ function capabilityRejection(capability: WorkspaceEditCapability): WorkspaceActi
   return capability === "editLayout" ? "layout-edit-disabled" : "presentation-edit-disabled";
 }
 
+function layoutAndStructureRejection(
+  capabilities: WorkspaceCapabilities,
+  structureRequired: boolean,
+): WorkspaceActionRejectionReason | null {
+  if (structureRequired && !capabilities.editStructure) {
+    return "structure-edit-disabled";
+  }
+  return capabilities.editLayout ? null : "layout-edit-disabled";
+}
+
+function sectionMoveChangesStructure(plan: SectionMovePlan): boolean {
+  return (
+    plan.destination.placement.type === "ordered" ||
+    plan.sourceParentIds.some((parentId) => parentId !== plan.destination.parentId)
+  );
+}
+
 function rejectionFor(
   command: WorkspaceDocumentCommand<unknown>,
   capabilities: WorkspaceCapabilities,
 ): WorkspaceActionRejectionReason | null {
-  if (
-    command.type === "group-sections" ||
-    command.type === "move-sections" ||
-    command.type === "ungroup-section"
-  ) {
-    if (!capabilities.editStructure) {
-      return "structure-edit-disabled";
-    }
-    if (!capabilities.editLayout) {
-      return "layout-edit-disabled";
-    }
-    return null;
+  if (command.type === "move-sections") {
+    return layoutAndStructureRejection(capabilities, sectionMoveChangesStructure(command.plan));
+  }
+  if (command.type === "group-sections" || command.type === "ungroup-section") {
+    return layoutAndStructureRejection(capabilities, true);
   }
   const capability = commandCapability(command);
   return capability && !capabilities[capability] ? capabilityRejection(capability) : null;

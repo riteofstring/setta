@@ -60,10 +60,11 @@ controller.setSectionChildPositioning("group", {
 ```
 
 The recursive DOM renders those local positions without another XYFlow store or viewport. The
-current contract foundation does not yet enable same-parent freeform dragging, freeform collision
-targets, or grouping directly inside a freeform parent; those actions reject rather than leaving a
-partial position map. Moving or deleting a child out of a freeform parent prunes its position key,
-and clipboard cloning remaps position keys with the cloned child IDs.
+same-parent freeform movement path updates only the moved position entries and preserves canonical
+stacking order. Freeform collision targets and grouping directly inside a freeform parent remain
+unavailable; those actions reject rather than leaving a partial position map. Moving or deleting a
+child out of a freeform parent prunes its position key, and clipboard cloning remaps position keys
+with the cloned child IDs.
 
 ## Orientation and logical order
 
@@ -80,21 +81,23 @@ accepted orientation change creates one `section-orientation` history entry.
 
 `sectionMoveMode` defaults to `sort` and is a host/session preference, not serialized state.
 
-| Mode   | Root handle                      | Nested handle              | Allowed structural result                                        |
-| ------ | -------------------------------- | -------------------------- | ---------------------------------------------------------------- |
-| `sort` | Ordinary spatial XYFlow movement | Structural sibling sorting | Parent is unchanged; only the sibling index may change.          |
-| `free` | Structural movement              | Structural movement        | Move to the canvas or any valid measured container at any depth. |
+| Mode   | Root handle                      | Ordered child handle       | Freeform child handle           | Result                                                                    |
+| ------ | -------------------------------- | -------------------------- | ------------------------------- | ------------------------------------------------------------------------- |
+| `sort` | Ordinary spatial XYFlow movement | Structural sibling sorting | Same-parent spatial positioning | Parent stays fixed; ordered moves change order, freeform moves positions. |
+| `free` | Structural movement              | Structural movement        | Structural movement             | Move to the canvas or a valid measured ordered container at any depth.    |
 
 The mode captured at activation stays in force through completion or cancellation. The active
 interaction owner disables root movement and viewport activators that would compete for the same
 pointer, touch, or keyboard gesture. Switching the prop changes the next gesture, never one already
 in progress.
 
-Only a named section movement handle starts a structural drag. Pointer and touch previews use the
-same package planner as keyboard movement. A free move into a container resolves one
+Only a named section movement handle starts a recursive drag. Pointer and touch previews use the
+same package planner as keyboard movement. A free move into an ordered container resolves one
 orientation-aware insertion index; a free move to the canvas resolves workbench coordinates rather
-than client pixels. Preview and completion are revalidated against the current document, geometry,
-lock state, and host policy before one `section-move` proposal is emitted.
+than client pixels. The framework-neutral command contract also accepts explicit local positions
+for a valid freeform destination; interactive cross-parent freeform target resolution remains
+unavailable. Preview and completion are revalidated against the current document, geometry, lock
+state, and host policy before one `section-move` proposal is emitted.
 
 ### Selection blocks
 
@@ -117,7 +120,7 @@ Use `validateSectionMove` only for relationships the generic hierarchy cannot ex
   sectionMoveMode="free"
   validateSectionMove={({ document, plan }) => {
     const destination =
-      plan.destinationParentId === null ? null : document.sections[plan.destinationParentId];
+      plan.destination.parentId === null ? null : document.sections[plan.destination.parentId];
     return destination?.kind === "generated-only"
       ? { allowed: false, reason: "This group accepts generated sections only." }
       : { allowed: true };
@@ -126,9 +129,17 @@ Use `validateSectionMove` only for relationships the generic hierarchy cannot ex
 ```
 
 The callback is synchronous and side-effect-free. It receives an immutable `SectionMovePlan` after
-package-owned source-placement, destination, cycle, and lock checks. A rejection reason is displayed
-with a non-color cue and announced. Do not mutate or persist from the preview callback; persist the
-single accepted document proposal instead.
+package-owned source-placement, destination placement, cycle, and lock checks. Ordered
+destinations carry an insertion index. Canvas and nested freeform destinations carry one
+destination-local position for each moved selection root. A rejection reason is displayed with a
+non-color cue and announced. Do not mutate or persist from the preview callback; persist the single
+accepted document proposal instead.
+
+In sort mode, a child of an ordered parent reorders among siblings, while a child of a freeform
+parent moves spatially without changing `sectionIds`. Pointer, touch, and keyboard movement share
+the same local-coordinate plan, grid snapping, selected-block offsets, start-edge clamping, focus
+restoration, and one controlled commit. Native scrolling of the freeform parent and outer canvas
+zoom do not change the persisted local coordinates.
 
 ## Grouping and ungrouping
 

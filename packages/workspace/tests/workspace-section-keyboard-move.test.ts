@@ -91,6 +91,7 @@ function keyboardSession(
     clientRectsById: {},
     collisionState: EMPTY_COLLISION_TRACKER_STATE,
     document,
+    freeformRegions: [],
     hierarchy: workspaceSectionHierarchySnapshot(document),
     mode,
     preview: null,
@@ -139,7 +140,10 @@ describe("workspace section keyboard movement", () => {
 
     expect(resolution).toMatchObject({
       decision: {
-        plan: { destinationIndex: 1, destinationParentId: "root", sectionIds: ["alpha"] },
+        plan: {
+          destination: { parentId: "root", placement: { index: 1 } },
+          sectionIds: ["alpha"],
+        },
         status: "planned",
       },
       status: "resolved",
@@ -159,7 +163,7 @@ describe("workspace section keyboard movement", () => {
     });
 
     expect(resolution).toMatchObject({
-      decision: { plan: { destinationIndex: 1 }, status: "planned" },
+      decision: { plan: { destination: { placement: { index: 1 } } }, status: "planned" },
       status: "resolved",
     });
     expect(
@@ -184,8 +188,7 @@ describe("workspace section keyboard movement", () => {
     expect(resolution).toMatchObject({
       decision: {
         plan: {
-          destinationIndex: 0,
-          destinationParentId: "empty",
+          destination: { parentId: "empty", placement: { index: 0 } },
           sectionIds: ["alpha", "beta", "nested"],
         },
         status: "planned",
@@ -207,13 +210,16 @@ describe("workspace section keyboard movement", () => {
     expect(resolution).toMatchObject({
       decision: {
         plan: {
-          destinationIndex: 1,
-          destinationParentId: null,
-          sectionIds: ["alpha", "beta"],
-          topLevelPositions: {
-            alpha: { x: 20, y: 20 },
-            beta: { x: 20, y: 112 },
+          destination: {
+            parentId: null,
+            placement: {
+              positions: {
+                alpha: { x: 20, y: 20 },
+                beta: { x: 20, y: 112 },
+              },
+            },
           },
+          sectionIds: ["alpha", "beta"],
         },
         status: "planned",
       },
@@ -238,8 +244,7 @@ describe("workspace section keyboard movement", () => {
     expect(resolution).toMatchObject({
       decision: {
         plan: {
-          destinationIndex: 1,
-          destinationParentId: "root",
+          destination: { parentId: "root", placement: { index: 1 } },
           sectionIds: ["alpha", "grandchild"],
           sourceParentIds: ["root", "nested"],
         },
@@ -256,7 +261,7 @@ describe("workspace section keyboard movement", () => {
       document: session.document,
       session,
       validateSectionMove: ({ plan }) =>
-        plan.destinationParentId === "empty"
+        plan.destination.parentId === "empty"
           ? { allowed: false, reason: "Empty stays reserved." }
           : { allowed: true },
     });
@@ -279,7 +284,7 @@ describe("workspace section keyboard movement", () => {
 
     expect(resolution).toMatchObject({
       decision: {
-        plan: { destinationIndex: 0, destinationParentId: "empty" },
+        plan: { destination: { parentId: "empty", placement: { index: 0 } } },
         status: "planned",
       },
       status: "resolved",
@@ -289,12 +294,13 @@ describe("workspace section keyboard movement", () => {
   it("revalidates the exact displayed keyboard plan at completion", () => {
     const original = keyboardSession("free", ["alpha", "beta", "nested"]);
     const plan = {
-      destinationIndex: 0,
-      destinationParentId: "empty",
+      destination: {
+        parentId: "empty",
+        placement: { index: 0, type: "ordered" },
+      },
       mode: "free",
       sectionIds: original.sectionIds,
       sourceParentIds: ["root", "root", "root"],
-      topLevelPositions: null,
     } satisfies SectionMovePlan;
     const session: WorkspaceSectionMoveSession = {
       ...original,

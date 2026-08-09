@@ -278,12 +278,13 @@ describe("workspace child positioning", () => {
     });
 
     const movement = applyWorkspaceSectionMove(positioningDocument("freeform"), {
-      destinationIndex: 1,
-      destinationParentId: null,
+      destination: {
+        parentId: null,
+        placement: { positions: { first: { x: 640, y: 120 } }, type: "freeform" },
+      },
       mode: "free",
       sectionIds: ["first"],
       sourceParentIds: ["container"],
-      topLevelPositions: { first: { x: 640, y: 120 } },
     });
     expect(movement.status).toBe("applied");
     if (movement.status !== "applied") {

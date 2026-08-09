@@ -109,6 +109,7 @@ function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
         colorPalette={data.colorPalette}
         definition={data.definition}
         depth={0}
+        freeformChild={false}
         geometry={data.geometry}
         layoutEditable={data.layoutEditable}
         moving={data.moving}

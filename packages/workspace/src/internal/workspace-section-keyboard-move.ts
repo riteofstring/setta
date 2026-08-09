@@ -66,8 +66,11 @@ function currentDestination(
 ): Readonly<{ index: number; parentId: string | null }> {
   if (session.preview) {
     return {
-      index: session.preview.plan.destinationIndex,
-      parentId: session.preview.plan.destinationParentId,
+      index:
+        session.preview.plan.destination.placement.type === "ordered"
+          ? session.preview.plan.destination.placement.index
+          : 0,
+      parentId: session.preview.plan.destination.parentId,
     };
   }
   const sourceIds =
@@ -335,11 +338,19 @@ function resolvedDestination<TSectionData>(
 ): WorkspaceSectionKeyboardMoveResolution {
   return {
     decision: planSectionMove({
-      destination: {
-        index: destination.destinationIndex,
-        parentId: destination.destinationParentId,
-        topLevelPositions: destination.topLevelPositions,
-      },
+      destination:
+        destination.destinationParentId === null
+          ? {
+              parentId: null,
+              placement: {
+                positions: destination.topLevelPositions ?? {},
+                type: "freeform",
+              },
+            }
+          : {
+              parentId: destination.destinationParentId,
+              placement: { index: destination.destinationIndex, type: "ordered" },
+            },
       hierarchy: session.hierarchy,
       mode: session.mode,
       selectedIds: session.sectionIds,

@@ -17,7 +17,6 @@ import type {
   WorkspaceSectionMoveMode,
   WorkspaceSectionMoveValidator,
 } from "./section-move-planning.js";
-import type { SectionHierarchySnapshot } from "./selection-planning.js";
 import {
   UpstreamDndBoundary,
   useUpstreamDndDraggable,
@@ -86,12 +85,14 @@ const DISABLED_SECTION_DND_CONTEXT: WorkspaceSectionDndContextValue = {
 
 export function workspaceSectionMoveDescription({
   detached,
+  freeformChild,
   locked,
   mode,
   selectionMovementBlocked,
   structural,
 }: Readonly<{
   detached: boolean;
+  freeformChild: boolean;
   locked: boolean;
   mode: WorkspaceSectionMoveMode;
   selectionMovementBlocked: boolean;
@@ -108,6 +109,9 @@ export function workspaceSectionMoveDescription({
   }
   if (!structural) {
     return "Drag to move. Use the arrow keys for keyboard movement.";
+  }
+  if (freeformChild && mode === "sort") {
+    return "Positioning keeps this section in its current freeform parent. Press Enter or Space to start keyboard movement.";
   }
   const effect =
     mode === "sort"
@@ -148,6 +152,7 @@ function sectionUsesStructuralDrag(
 function sectionStructuralDragEnabled(
   context: WorkspaceSectionDndContextValue,
   blocked: boolean,
+  freeformChild: boolean,
   sectionId: string,
   structural: boolean,
 ): boolean {
@@ -156,7 +161,9 @@ function sectionStructuralDragEnabled(
   }
   return (
     context.activeSectionId === sectionId ||
-    (context.activationEnabled && context.layoutEditable && context.structureEditable)
+    (context.activationEnabled &&
+      context.layoutEditable &&
+      (context.structureEditable || (freeformChild && context.mode === "sort")))
   );
 }
 
@@ -167,6 +174,27 @@ function sectionStructuralDragMode(
   return context.activeSectionId === sectionId
     ? (context.activeSectionMode ?? context.mode)
     : context.mode;
+}
+
+function sessionUsesLocalFreeformMovement(session: WorkspaceSectionMoveSession | null): boolean {
+  const parentId = session?.sourceParentIds[0] ?? null;
+  return Boolean(
+    session &&
+    parentId &&
+    session.sourceParentIds.every((candidate) => candidate === parentId) &&
+    session.document.sections[parentId]?.childLayout?.positioning === "freeform",
+  );
+}
+
+function sectionHasFreeformParent<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  sectionId: string,
+): boolean {
+  return Object.values(document.sections).some(
+    (section) =>
+      section.childLayout?.positioning === "freeform" &&
+      section.childLayout.sectionIds.includes(sectionId),
+  );
 }
 
 export function WorkspaceSectionDndBoundary<TSectionData>({
@@ -221,10 +249,10 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
   }> | null>(null);
   const pendingMoveReconciliationRef = useRef<Readonly<{
     acceptedAnnouncement: string;
-    hierarchy: SectionHierarchySnapshot;
     plan: SectionMovePlan;
     rejectedAnnouncement: string;
     sectionId: string;
+    sourceDocument: WorkspaceDocument<TSectionData>;
   }> | null>(null);
   const [reconciliationRevision, setReconciliationRevision] = useState(0);
   const rejectedStartReasonRef = useRef("");
@@ -305,7 +333,7 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
       return;
     }
     pendingMoveReconciliationRef.current = null;
-    if (workspaceDocumentMatchesSectionMove(document, pending.hierarchy, pending.plan)) {
+    if (workspaceDocumentMatchesSectionMove(document, pending.sourceDocument, pending.plan)) {
       restoreHandleFocus(pending.sectionId);
       onReconciliation(pending.acceptedAnnouncement);
       return;
@@ -337,17 +365,22 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
         preserveSelected: selectedSectionIds.includes(source.sectionId),
       });
     }
+    const prepared = preparedSessionRef.current;
+    preparedSessionRef.current = null;
+    const result = prepared?.sourceId === event.sourceId ? prepared.result : createSession(event);
+    const localLayout =
+      mode === "sort" &&
+      (sectionHasFreeformParent(document, source.sectionId) ||
+        (result.allowed && sessionUsesLocalFreeformMovement(result.session)));
     const start = {
       input: interactionInput(event.input),
+      localLayout,
       mode,
       root: source.root,
       sectionId: source.sectionId,
       title: sectionTitle(source.sectionId),
     } as const;
     onStart(start);
-    const prepared = preparedSessionRef.current;
-    preparedSessionRef.current = null;
-    const result = prepared?.sourceId === event.sourceId ? prepared.result : createSession(event);
     if (result.allowed) {
       activeSessionRef.current = result.session;
       rejectedStartReasonRef.current = "";
@@ -368,6 +401,7 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
           direction: event.keyboardDirection,
           document: session.document,
           geometry,
+          gridOptions,
           session,
           validateSectionMove,
         })
@@ -413,13 +447,13 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
           acceptedAnnouncement: workspaceSectionMoveCompletionAnnouncement(session, preview, {
             status: "applied",
           }),
-          hierarchy: session.hierarchy,
           plan: preview.plan,
           rejectedAnnouncement: workspaceSectionMoveControlledRejectionAnnouncement(
             session,
             preview,
           ),
           sectionId: source.sectionId,
+          sourceDocument: session.document,
         } as const;
         pendingMoveReconciliationRef.current = pendingFocus;
         const result = onMoveCommit(preview.plan);
@@ -455,9 +489,11 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
         overlayLabel={(id) => {
           const source = workspaceSectionDndSource(id);
           const activeMode = activeSectionMode ?? mode;
+          const localLayout = sessionUsesLocalFreeformMovement(activeSessionRef.current);
           const sectionCount = activeSessionRef.current?.sectionIds.length ?? 1;
           const suffix = sectionCount === 1 ? "" : ` and ${String(sectionCount - 1)} more`;
-          return `${activeMode === "sort" ? "Sorting" : "Moving"} ${sectionTitle(source.sectionId)}${suffix}`;
+          const verb = localLayout ? "Positioning" : activeMode === "sort" ? "Sorting" : "Moving";
+          return `${verb} ${sectionTitle(source.sectionId)}${suffix}`;
         }}
         resolveCollisionRect={(id, activatorPoint) => {
           const result = createSession({ activatorPoint, sourceId: id });
@@ -474,18 +510,26 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
 export function useWorkspaceSectionDnd({
   blocked,
   depth,
+  freeformChild,
   sectionId,
   spatialMoving,
 }: Readonly<{
   blocked: boolean;
   depth: number;
+  freeformChild: boolean;
   sectionId: string;
   spatialMoving: boolean;
 }>) {
   const context = useContext(WorkspaceSectionDndContext);
   const resolvedContext = context ?? DISABLED_SECTION_DND_CONTEXT;
   const structural = sectionUsesStructuralDrag(resolvedContext, depth, sectionId);
-  const enabled = sectionStructuralDragEnabled(resolvedContext, blocked, sectionId, structural);
+  const enabled = sectionStructuralDragEnabled(
+    resolvedContext,
+    blocked,
+    freeformChild,
+    sectionId,
+    structural,
+  );
   const draggable = useUpstreamDndDraggable({
     data: { kind: "section", sectionId },
     disabled: !enabled,
