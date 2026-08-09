@@ -8,6 +8,11 @@ accepted nested-row index required before batch 3. It is not package-output evid
 approval. The producible Inspector and context-menu captures remain attached to their corresponding
 later batches.
 
+The supervised frozen reference service for this milestone is
+`http://127.0.0.1:3063/` (including `http://127.0.0.1:3063/settings`) with its backend on
+`http://127.0.0.1:8063/`. Ports `3000`, `5173`, and the package playground on `5174` are not this
+reference. Verify these recorded endpoints before treating a reference page as unavailable.
+
 The detailed dependency cone, state-read classification, algorithm boundary, and package seam are
 in [`ownership-map.md`](ownership-map.md).
 

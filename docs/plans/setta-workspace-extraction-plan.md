@@ -1729,6 +1729,13 @@ Phase 4 progress (2026-08-11):
   supply-chain gate is not duplicated. This completes implementation batch 3; the producible UI
   Editor reference capture precedes batch 4, and no package-output baseline or developer visual
   approval is claimed before the combined milestone gate.
+- Workspace-shell Inspector capture endpoint correction (2026-08-12): a loop iteration incorrectly
+  treated unrelated ports `3000` and `5173` as the frozen Setta service and stopped after those URLs
+  failed. The already-running pinned reference remains healthy at `http://127.0.0.1:3063/` (including
+  `/settings`) with its backend on `8063`; both processes and the clean `043d3b2e9` worktree were
+  verified by the supervising agent. This was not a developer gate. Inspector reference capture and
+  batch 4 remain repository-actionable, and future capture iterations must use the recorded service
+  endpoints rather than infer ports from unrelated processes.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
