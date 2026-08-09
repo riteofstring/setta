@@ -1144,6 +1144,11 @@
   box-shadow: inset 0 0 0 3px var(--setta-workspace-selection);
 }
 
+.setta-workspace__section-frame[data-workspace-section-move-preview-transform] {
+  translate: var(--setta-workspace-section-move-preview-x)
+    var(--setta-workspace-section-move-preview-y);
+}
+
 .setta-workspace__selection-overlay,
 .setta-workspace__marquee,
 .setta-workspace__section-move-placeholder {

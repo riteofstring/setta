@@ -25,6 +25,7 @@ import type { WorkspaceStructuralInteractionStart } from "./workspace-interactio
 import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
 import { workspaceDocumentMatchesSectionMove } from "./workspace-section-move-command.js";
 import type { WorkspaceSectionMoveFeedbackStore } from "./workspace-section-move-feedback.js";
+import { WorkspaceSectionMoveProjection } from "./workspace-section-move-projection.js";
 import {
   createWorkspaceSectionMoveSession,
   matchingWorkspaceSectionMovePreview,
@@ -34,6 +35,7 @@ import {
   workspaceSectionMoveMismatchAnnouncement,
   workspaceSectionMovePendingAnnouncement,
   type WorkspaceSectionMoveSession,
+  type WorkspaceSectionMoveSessionResult,
 } from "./workspace-section-move-session.js";
 import type { WorkspaceSectionSelectionRequest } from "./workspace-selection.js";
 
@@ -51,9 +53,11 @@ type WorkspaceSectionDndContextValue = Readonly<{
   activeSectionMode: WorkspaceSectionMoveMode | null;
   layoutEditable: boolean;
   mode: WorkspaceSectionMoveMode;
+  registerFrame(sectionId: string, element: HTMLElement): void;
   registerHandle(sectionId: string, element: Element): void;
   rootLayoutActive: boolean;
   structureEditable: boolean;
+  unregisterFrame(sectionId: string, element: HTMLElement): void;
   unregisterHandle(sectionId: string, element: Element): void;
 }>;
 
@@ -64,9 +68,11 @@ const DISABLED_SECTION_DND_CONTEXT: WorkspaceSectionDndContextValue = {
   activeSectionMode: null,
   layoutEditable: false,
   mode: "sort",
+  registerFrame: () => undefined,
   registerHandle: () => undefined,
   rootLayoutActive: false,
   structureEditable: false,
+  unregisterFrame: () => undefined,
   unregisterHandle: () => undefined,
 };
 
@@ -167,6 +173,10 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
   structureEditable: boolean;
 }>) {
   const activeSessionRef = useRef<WorkspaceSectionMoveSession<TSectionData> | null>(null);
+  const preparedSessionRef = useRef<Readonly<{
+    result: WorkspaceSectionMoveSessionResult<TSectionData>;
+    sourceId: string;
+  }> | null>(null);
   const pendingMoveReconciliationRef = useRef<Readonly<{
     acceptedAnnouncement: string;
     hierarchy: SectionHierarchySnapshot;
@@ -176,7 +186,17 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
   }> | null>(null);
   const [reconciliationRevision, setReconciliationRevision] = useState(0);
   const rejectedStartReasonRef = useRef("");
+  const sectionMoveProjection = useMemo(() => new WorkspaceSectionMoveProjection(), []);
   const handleElementsRef = useRef(new Map<string, Element>());
+  const registerFrame = useCallback(
+    (sectionId: string, element: HTMLElement) => sectionMoveProjection.register(sectionId, element),
+    [sectionMoveProjection],
+  );
+  const unregisterFrame = useCallback(
+    (sectionId: string, element: HTMLElement) =>
+      sectionMoveProjection.unregister(sectionId, element),
+    [sectionMoveProjection],
+  );
   const registerHandle = useCallback((sectionId: string, element: Element) => {
     handleElementsRef.current.set(sectionId, element);
   }, []);
@@ -215,9 +235,11 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
       activeSectionMode,
       layoutEditable,
       mode,
+      registerFrame,
       registerHandle,
       rootLayoutActive,
       structureEditable,
+      unregisterFrame,
       unregisterHandle,
     }),
     [
@@ -226,12 +248,15 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
       activeSectionMode,
       layoutEditable,
       mode,
+      registerFrame,
       registerHandle,
       rootLayoutActive,
       structureEditable,
+      unregisterFrame,
       unregisterHandle,
     ],
   );
+  useEffect(() => () => sectionMoveProjection.clear(), [sectionMoveProjection]);
   useEffect(() => {
     const pending = pendingMoveReconciliationRef.current;
     if (!pending) {
@@ -262,6 +287,7 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
   );
   const handleStart = (event: AdapterDndEvent) => {
     pendingMoveReconciliationRef.current = null;
+    sectionMoveProjection.clear();
     const source = workspaceSectionDndSource(event.sourceId);
     if (event.input === "touch") {
       onSelectionRequest(source.sectionId, {
@@ -277,7 +303,9 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
       title: sectionTitle(source.sectionId),
     } as const;
     onStart(start);
-    const result = createSession(event);
+    const prepared = preparedSessionRef.current;
+    preparedSessionRef.current = null;
+    const result = prepared?.sourceId === event.sourceId ? prepared.result : createSession(event);
     if (result.allowed) {
       activeSessionRef.current = result.session;
       rejectedStartReasonRef.current = "";
@@ -297,11 +325,15 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
       document: session.document,
       event,
       geometry,
-      geometryIndex,
       gridOptions,
       session,
     });
-    activeSessionRef.current = { ...session, preview: resolution.preview };
+    activeSessionRef.current = {
+      ...session,
+      collisionState: resolution.collisionState,
+      preview: resolution.preview,
+    };
+    sectionMoveProjection.preview(resolution.preview?.transformsById ?? {});
     feedbackStore.preview(resolution);
   };
   const handleComplete = (completion: AdapterDndCompletion) => {
@@ -317,7 +349,6 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
         document: session.document,
         event: completion,
         geometry,
-        geometryIndex,
         gridOptions,
         session,
       });
@@ -351,7 +382,9 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
       }
     }
     activeSessionRef.current = null;
+    preparedSessionRef.current = null;
     rejectedStartReasonRef.current = "";
+    sectionMoveProjection.clear();
     feedbackStore.complete();
     onComplete(completion.canceled, announcement);
     restoreHandleFocus(source.sectionId);
@@ -371,8 +404,9 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
           const suffix = sectionCount === 1 ? "" : ` and ${String(sectionCount - 1)} more`;
           return `${activeMode === "sort" ? "Sorting" : "Moving"} ${sectionTitle(source.sectionId)}${suffix}`;
         }}
-        resolveCollisionRect={(id) => {
-          const result = createSession({ activatorPoint: null, sourceId: id });
+        resolveCollisionRect={(id, activatorPoint) => {
+          const result = createSession({ activatorPoint, sourceId: id });
+          preparedSessionRef.current = { result, sourceId: id };
           return result.allowed ? result.session.sourceClientBounds : null;
         }}
       >
@@ -402,10 +436,28 @@ export function useWorkspaceSectionDnd({
     disabled: !enabled,
     id: sourceId(sectionId, depth === 0),
   });
+  const draggableElementRef = draggable.elementRef;
   const draggableHandleRef = draggable.handleRef;
+  const registerFrame = resolvedContext.registerFrame;
   const registerHandle = resolvedContext.registerHandle;
+  const unregisterFrame = resolvedContext.unregisterFrame;
   const unregisterHandle = resolvedContext.unregisterHandle;
+  const registeredFrameRef = useRef<HTMLElement | null>(null);
   const registeredHandleRef = useRef<Element | null>(null);
+  const elementRef = useCallback(
+    (element: HTMLElement | null) => {
+      draggableElementRef(element);
+      const previousElement = registeredFrameRef.current;
+      if (previousElement && previousElement !== element) {
+        unregisterFrame(sectionId, previousElement);
+      }
+      if (element) {
+        registerFrame(sectionId, element);
+      }
+      registeredFrameRef.current = element;
+    },
+    [draggableElementRef, registerFrame, sectionId, unregisterFrame],
+  );
   const handleRef = useCallback(
     (element: Element | null) => {
       draggableHandleRef(element);
@@ -425,7 +477,7 @@ export function useWorkspaceSectionDnd({
   }
   return {
     active: draggable.active,
-    elementRef: draggable.elementRef,
+    elementRef,
     enabled,
     handleRef,
     mode: sectionStructuralDragMode(context, sectionId),

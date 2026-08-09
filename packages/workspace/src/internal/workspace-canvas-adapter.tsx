@@ -560,6 +560,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
           {externalDrop.feedback}
           <WorkspaceSelectionOverlay
             geometryIndex={geometryIndex}
+            hidden={interaction.ownership.owner === "section-structure"}
             selectedSectionIds={selectedSectionIds}
           />
           <WorkspaceSectionMoveFeedback store={sectionMoveFeedbackStore} />

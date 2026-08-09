@@ -90,11 +90,18 @@ function Placeholder({
   );
 }
 
+function sourceIsProjected(preview: WorkspaceSectionMovePreview | null): boolean {
+  return preview
+    ? preview.plan.sectionIds.some((sectionId) => preview.transformsById[sectionId] !== undefined)
+    : false;
+}
+
 export function WorkspaceSectionMoveFeedback({
   store,
 }: Readonly<{ store: WorkspaceSectionMoveFeedbackStore }>) {
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const announcement = snapshot.preview?.announcement ?? snapshot.reason;
+  const sourceProjected = sourceIsProjected(snapshot.preview);
   return (
     <>
       <div
@@ -107,7 +114,9 @@ export function WorkspaceSectionMoveFeedback({
       </div>
       {snapshot.sourceBounds ? (
         <ViewportPortal>
-          <Placeholder kind="source" rect={snapshot.sourceBounds} source />
+          {sourceProjected ? null : (
+            <Placeholder kind="source" rect={snapshot.sourceBounds} source />
+          )}
           {snapshot.preview ? (
             <div
               data-workspace-section-move-destination-index={snapshot.preview.plan.destinationIndex}

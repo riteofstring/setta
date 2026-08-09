@@ -49,12 +49,17 @@ function measuredSelectionRoots(
 
 export function WorkspaceSelectionOverlay({
   geometryIndex,
+  hidden,
   selectedSectionIds,
 }: Readonly<{
   geometryIndex: WorkspaceGeometryIndex;
+  hidden: boolean;
   selectedSectionIds: readonly string[];
 }>) {
   useGeometryRevision(geometryIndex);
+  if (hidden) {
+    return null;
+  }
   const selectionRoots = measuredSelectionRoots(geometryIndex, selectedSectionIds);
   const bounds = geometryIndex.boundsWhenReady(selectionRoots);
   if (!bounds) {

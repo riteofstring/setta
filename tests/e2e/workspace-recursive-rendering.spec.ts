@@ -413,12 +413,36 @@ test("structural previews commit exact sort and free-move plans", async ({ page 
   await expect(
     workspace.locator("[data-workspace-section-move-preview-announcement]"),
   ).toContainText("Preview: Nested Alpha will move to Recursive workspace, position 2 of 3.");
+  await expect(nestedAlpha).toHaveAttribute("data-workspace-section-move-preview-transform", /.+/);
+  await expect(nestedRow).toHaveAttribute("data-workspace-section-move-preview-transform", /.+/);
+  await expect(emptyContainer).not.toHaveAttribute(
+    "data-workspace-section-move-preview-transform",
+    /.+/,
+  );
+  expect(await directChildIds(rootChildren)).toEqual([
+    "nested-alpha",
+    "nested-row",
+    "empty-container",
+  ]);
+  await expect(workspace.locator(".setta-workspace__selection-overlay")).toHaveCount(0);
   await expect(canvas).toHaveScreenshot("recursive-section-movement-preview.png");
   await page.mouse.up();
 
   await expect
     .poll(() => directChildIds(rootChildren))
     .toEqual(["nested-row", "nested-alpha", "empty-container"]);
+  await expect(nestedAlpha).not.toHaveAttribute(
+    "data-workspace-section-move-preview-transform",
+    /.+/,
+  );
+  await expect(nestedRow).not.toHaveAttribute(
+    "data-workspace-section-move-preview-transform",
+    /.+/,
+  );
+  await expect(workspace.locator(".setta-workspace__selection-overlay")).toHaveAttribute(
+    "data-workspace-selection-roots",
+    "nested-alpha",
+  );
   await expect(alphaHandle).toBeFocused();
   await expect(workspace.locator("[data-workspace-structure-movement-announcement]")).toHaveText(
     "Nested Alpha moved to Recursive workspace, position 2 of 3.",

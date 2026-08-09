@@ -39,7 +39,10 @@ export type UpstreamDndBoundaryProps = {
   manageAccessibility?: boolean;
   overlayClassName?: string;
   overlayLabel?(sourceId: string): string;
-  resolveCollisionRect?(sourceId: string): AdapterDndCollisionRect | null;
+  resolveCollisionRect?(
+    sourceId: string,
+    activatorPoint: InteractionPoint | null,
+  ): AdapterDndCollisionRect | null;
   onMove?(event: AdapterDndEvent): void;
   onStart?(event: AdapterDndEvent): void;
   onPreviewTarget?(targetId: string | null): void;
@@ -99,7 +102,7 @@ export function UpstreamDndBoundary({
             adapterActivatorPoint(activatorEvent),
             operation.transform,
           );
-          const collisionRect = resolveCollisionRect?.(sourceId);
+          const collisionRect = resolveCollisionRect?.(sourceId, activeActivatorPoint.current);
           baseCollisionRect.current = collisionRect ? boundingRect(collisionRect) : null;
           syncCollisionRect(manager, operation.transform);
           onStart?.(

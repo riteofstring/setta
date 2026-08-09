@@ -1,12 +1,23 @@
 import type { WorkspaceActionResult, WorkspaceDocument, WorkspacePoint } from "../core.js";
 import {
+  clearCollisionTarget,
+  EMPTY_COLLISION_TRACKER_STATE,
+  type CollisionTrackerState,
+} from "./collision-characterization.js";
+import {
   clientPointToWorkspace,
   clientRectToWorkspace,
   workspaceRectToClient,
+  type MeasuredWorkspaceFrame,
   type WorkspaceGeometryIndex,
   type WorkspaceRect,
 } from "./geometry-index.js";
-import type { InteractionPoint, ViewportTransform } from "./interaction-geometry.js";
+import {
+  createInteractionRect,
+  type InteractionPoint,
+  type InteractionRect,
+  type ViewportTransform,
+} from "./interaction-geometry.js";
 import {
   planSectionMove,
   serializeSectionMovePlan,
@@ -19,7 +30,14 @@ import type { AdapterDndEvent } from "./upstream-dnd-adapter.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
 import { snapWorkspacePointToGrid } from "./workspace-preferences.js";
+import {
+  resolveWorkspaceSectionCollision,
+  type WorkspaceSectionCollisionResolution,
+  type WorkspaceSectionMoveDirection,
+  type WorkspaceSectionMoveRegion,
+} from "./workspace-section-move-collision.js";
 import { workspaceSectionHierarchySnapshot } from "./workspace-section-move-command.js";
+import { resolveWorkspaceSectionMoveLayoutPreview } from "./workspace-section-move-layout-preview.js";
 
 const WORKSPACE_SECTION_CHILD_REGION_ATTRIBUTE = "data-workspace-section-child-region";
 
@@ -36,9 +54,11 @@ export type WorkspaceSectionMovePreview = Readonly<{
   destinationKey: string;
   indicator: WorkspaceSectionMoveIndicator;
   plan: SectionMovePlan;
+  transformsById: Readonly<Record<string, WorkspacePoint>>;
 }>;
 
 export type WorkspaceSectionMovePreviewResolution = Readonly<{
+  collisionState: CollisionTrackerState;
   preview: WorkspaceSectionMovePreview | null;
   reason: string;
 }>;
@@ -46,16 +66,20 @@ export type WorkspaceSectionMovePreviewResolution = Readonly<{
 export type WorkspaceSectionMoveSession<TSectionData = unknown> = Readonly<{
   activeSectionId: string;
   activatorClientPoint: InteractionPoint | null;
+  clientRectsById: Readonly<Record<string, InteractionRect>>;
+  collisionState: CollisionTrackerState;
   document: WorkspaceDocument<TSectionData>;
   hierarchy: SectionHierarchySnapshot;
   mode: WorkspaceSectionMoveMode;
   preview: WorkspaceSectionMovePreview | null;
+  regions: readonly WorkspaceSectionMoveRegion[];
   sectionIds: readonly string[];
   sourceClientBounds: ScreenRect;
+  sourceParentId: string | null;
   sourceRects: Readonly<Record<string, WorkspaceRect>>;
-  sortRegion: HTMLElement | null;
   sourceWorkspaceBounds: WorkspaceRect;
   startWorkspacePoint: WorkspacePoint | null;
+  workspaceRectsById: Readonly<Record<string, WorkspaceRect>>;
 }>;
 
 export type WorkspaceSectionMoveSessionResult<TSectionData> =
@@ -66,14 +90,12 @@ type SourceGeometryResult =
   | Readonly<{
       allowed: true;
       canvas: HTMLElement;
+      clientRectsById: Readonly<Record<string, InteractionRect>>;
       frame: DragGeometryFrame;
       rects: Readonly<Record<string, WorkspaceRect>>;
       workspaceBounds: WorkspaceRect;
+      workspaceRectsById: Readonly<Record<string, WorkspaceRect>>;
     }>
-  | Readonly<{ allowed: false; reason: string }>;
-
-type SortRegionResult =
-  | Readonly<{ allowed: true; region: HTMLElement | null }>
   | Readonly<{ allowed: false; reason: string }>;
 
 function rectBounds(rects: readonly WorkspaceRect[]): WorkspaceRect | null {
@@ -95,12 +117,18 @@ function rectBounds(rects: readonly WorkspaceRect[]): WorkspaceRect | null {
   return { height: bottom - y, width: right - x, x, y };
 }
 
-function sourceRects(
-  geometryIndex: WorkspaceGeometryIndex,
+function rectRecord(
+  snapshot: readonly MeasuredWorkspaceFrame[],
+): Readonly<Record<string, WorkspaceRect>> {
+  return Object.fromEntries(snapshot.map(({ rect, sectionId }) => [sectionId, rect]));
+}
+
+function selectedRects(
+  rectsById: Readonly<Record<string, WorkspaceRect>>,
   sectionIds: readonly string[],
 ): Readonly<Record<string, WorkspaceRect>> | null {
   const entries = sectionIds.map((sectionId) => {
-    const rect = geometryIndex.get(sectionId)?.rect;
+    const rect = rectsById[sectionId];
     return rect ? ([sectionId, rect] as const) : null;
   });
   return entries.some((entry) => entry === null)
@@ -108,12 +136,30 @@ function sourceRects(
     : Object.fromEntries(entries as readonly (readonly [string, WorkspaceRect])[]);
 }
 
+function interactionRect(rect: WorkspaceRect): InteractionRect {
+  return createInteractionRect(rect.x, rect.y, rect.width, rect.height);
+}
+
+function clientRectRecord(
+  snapshot: readonly MeasuredWorkspaceFrame[],
+  frame: DragGeometryFrame,
+): Readonly<Record<string, InteractionRect>> {
+  return Object.fromEntries(
+    snapshot.map(({ rect, sectionId }) => [
+      sectionId,
+      interactionRect(workspaceRectToClient(rect, frame.canvasBounds, frame.viewport)),
+    ]),
+  );
+}
+
 function resolveSourceGeometry(
   geometry: WorkspaceGeometryMeasurements,
   geometryIndex: WorkspaceGeometryIndex,
   sectionIds: readonly string[],
 ): SourceGeometryResult {
-  const rects = sourceRects(geometryIndex, sectionIds);
+  const snapshot = geometryIndex.snapshot();
+  const workspaceRectsById = rectRecord(snapshot);
+  const rects = selectedRects(workspaceRectsById, sectionIds);
   const workspaceBounds = rects ? rectBounds(Object.values(rects)) : null;
   if (!rects || !workspaceBounds) {
     return { allowed: false, reason: "The selected section block is not completely measured." };
@@ -122,36 +168,83 @@ function resolveSourceGeometry(
   if (!canvas) {
     return { allowed: false, reason: "The workspace canvas is unavailable." };
   }
+  const frame = {
+    canvasBounds: geometry.canvasBounds(),
+    viewport: geometry.currentViewport(),
+  };
   return {
     allowed: true,
     canvas,
-    frame: {
-      canvasBounds: geometry.canvasBounds(),
-      viewport: geometry.currentViewport(),
-    },
+    clientRectsById: clientRectRecord(snapshot, frame),
+    frame,
     rects,
     workspaceBounds,
+    workspaceRectsById,
   };
 }
 
-function resolveSortRegion(
+type RegionCaptureResult =
+  | Readonly<{ allowed: true; regions: readonly WorkspaceSectionMoveRegion[] }>
+  | Readonly<{ allowed: false; reason: string }>;
+
+function logicalDirection(region: HTMLElement): WorkspaceSectionMoveDirection {
+  return region.ownerDocument.defaultView?.getComputedStyle(region).direction === "rtl"
+    ? "rtl"
+    : "ltr";
+}
+
+function layoutGap(region: HTMLElement, orientation: "horizontal" | "vertical"): number | null {
+  const style = region.ownerDocument.defaultView?.getComputedStyle(region);
+  const value = style ? (orientation === "horizontal" ? style.columnGap : style.rowGap) : "";
+  const gap = Number.parseFloat(value);
+  return Number.isFinite(gap) && gap >= 0 ? gap : null;
+}
+
+function captureMoveRegions<TSectionData>(
+  canvas: HTMLElement,
+  document: WorkspaceDocument<TSectionData>,
+  frame: DragGeometryFrame,
+): RegionCaptureResult {
+  const regions: WorkspaceSectionMoveRegion[] = [];
+  const seen = new Set<string>();
+  for (const element of childRegions(canvas)) {
+    const parentSectionId = element.getAttribute(WORKSPACE_SECTION_CHILD_REGION_ATTRIBUTE);
+    const layout = parentSectionId ? document.sections[parentSectionId]?.childLayout : null;
+    if (!parentSectionId || !layout || seen.has(parentSectionId)) {
+      return { allowed: false, reason: "A section move destination region is invalid." };
+    }
+    const gap = layoutGap(element, layout.orientation);
+    if (gap === null) {
+      return { allowed: false, reason: `The ${parentSectionId} layout gap is unavailable.` };
+    }
+    const clientRect = interactionRect(screenRect(element.getBoundingClientRect()));
+    regions.push({
+      clientRect,
+      direction: logicalDirection(element),
+      gap,
+      orientation: layout.orientation,
+      parentSectionId,
+      workspaceRect: clientRectToWorkspace(clientRect, frame.canvasBounds, frame.viewport),
+    });
+    seen.add(parentSectionId);
+  }
+  return { allowed: true, regions };
+}
+
+function validateSortRegion(
   mode: WorkspaceSectionMoveMode,
   sourceParentId: string | null,
-  canvas: HTMLElement,
-): SortRegionResult {
+  regions: readonly WorkspaceSectionMoveRegion[],
+): string | null {
   if (mode !== "sort") {
-    return { allowed: true, region: null };
+    return null;
   }
   if (sourceParentId === null) {
-    return {
-      allowed: false,
-      reason: "Top-level sections are spatial and cannot use sorting mode.",
-    };
+    return "Top-level sections are spatial and cannot use sorting mode.";
   }
-  const region = childRegionForParent(canvas, sourceParentId);
-  return region
-    ? { allowed: true, region }
-    : { allowed: false, reason: "The source container is unavailable." };
+  return regions.some((region) => region.parentSectionId === sourceParentId)
+    ? null
+    : "The source container is unavailable.";
 }
 
 export function createWorkspaceSectionMoveSession<TSectionData>({
@@ -184,27 +277,38 @@ export function createWorkspaceSectionMoveSession<TSectionData>({
   if (!source.allowed) {
     return source;
   }
-  const sort = resolveSortRegion(mode, selection.block.sourceParentId, source.canvas);
-  if (!sort.allowed) {
-    return sort;
+  const regionCapture = captureMoveRegions(source.canvas, document, source.frame);
+  if (!regionCapture.allowed) {
+    return regionCapture;
+  }
+  const sortReason = validateSortRegion(
+    mode,
+    selection.block.sourceParentId,
+    regionCapture.regions,
+  );
+  if (sortReason) {
+    return { allowed: false, reason: sortReason };
   }
   return {
     allowed: true,
     session: {
       activeSectionId,
       activatorClientPoint,
+      clientRectsById: source.clientRectsById,
+      collisionState: EMPTY_COLLISION_TRACKER_STATE,
       document,
       hierarchy,
       mode,
       preview: null,
+      regions: regionCapture.regions,
       sectionIds: selection.block.sectionIds,
       sourceClientBounds: workspaceRectToClient(
         source.workspaceBounds,
         source.frame.canvasBounds,
         source.frame.viewport,
       ),
+      sourceParentId: selection.block.sourceParentId,
       sourceRects: source.rects,
-      sortRegion: sort.region,
       sourceWorkspaceBounds: source.workspaceBounds,
       startWorkspacePoint: activatorClientPoint
         ? clientPointToWorkspace(
@@ -213,6 +317,7 @@ export function createWorkspaceSectionMoveSession<TSectionData>({
             source.frame.viewport,
           )
         : null,
+      workspaceRectsById: source.workspaceRectsById,
     },
   };
 }
@@ -241,47 +346,6 @@ function childRegions(canvas: HTMLElement): readonly HTMLElement[] {
   return [...canvas.querySelectorAll<HTMLElement>(`[${WORKSPACE_SECTION_CHILD_REGION_ATTRIBUTE}]`)];
 }
 
-function childRegionForParent(canvas: HTMLElement, parentSectionId: string): HTMLElement | null {
-  return (
-    childRegions(canvas).find(
-      (region) => region.getAttribute(WORKSPACE_SECTION_CHILD_REGION_ATTRIBUTE) === parentSectionId,
-    ) ?? null
-  );
-}
-
-function childRegionAtPoint(canvas: HTMLElement, point: InteractionPoint): HTMLElement | null {
-  const ownerDocument = canvas.ownerDocument;
-  const elements = ownerDocument.elementsFromPoint
-    ? ownerDocument.elementsFromPoint(point.x, point.y)
-    : [ownerDocument.elementFromPoint(point.x, point.y)].filter(
-        (element): element is Element => element !== null,
-      );
-  for (const element of elements) {
-    const region = element.closest<HTMLElement>(`[${WORKSPACE_SECTION_CHILD_REGION_ATTRIBUTE}]`);
-    if (region && canvas.contains(region)) {
-      return region;
-    }
-  }
-  return null;
-}
-
-function resolvedChildRegion(
-  canvas: HTMLElement,
-  point: InteractionPoint,
-  session: WorkspaceSectionMoveSession,
-): HTMLElement | null {
-  if (session.mode === "free") {
-    return childRegionAtPoint(canvas, point);
-  }
-  const region = session.sortRegion;
-  return region &&
-    region.isConnected &&
-    canvas.contains(region) &&
-    pointInsideRect(point, screenRect(region.getBoundingClientRect()))
-    ? region
-    : null;
-}
-
 function screenRect(rect: DOMRect): ScreenRect {
   return { height: rect.height, width: rect.width, x: rect.x, y: rect.y };
 }
@@ -290,12 +354,6 @@ type DragGeometryFrame = Readonly<{
   canvasBounds: ScreenRect;
   viewport: ViewportTransform;
 }>;
-
-function logicalDirection(region: HTMLElement): LogicalDirection {
-  return region.ownerDocument.defaultView?.getComputedStyle(region).direction === "rtl"
-    ? "rtl"
-    : "ltr";
-}
 
 function pastLogicalMidpoint(
   point: InteractionPoint,
@@ -473,9 +531,11 @@ function previewAnnouncement<TSectionData>(
 }
 
 function previewFromDecision<TSectionData>(
+  collisionState: CollisionTrackerState,
   document: WorkspaceDocument<TSectionData>,
   decision: SectionMoveDecision,
   indicator: WorkspaceSectionMoveIndicator,
+  session: WorkspaceSectionMoveSession<TSectionData>,
 ): WorkspaceSectionMovePreviewResolution {
   if (decision.status !== "planned") {
     const reason =
@@ -484,75 +544,87 @@ function previewFromDecision<TSectionData>(
         : decision.status === "unchanged"
           ? "The section block is already at this location."
           : "Section movement was canceled.";
-    return { preview: null, reason };
+    return { collisionState, preview: null, reason };
+  }
+  const layoutPreview = resolveWorkspaceSectionMoveLayoutPreview({
+    hierarchy: session.hierarchy,
+    plan: decision.plan,
+    rectsById: session.workspaceRectsById,
+    regions: session.regions,
+  });
+  if (!layoutPreview.allowed) {
+    return { collisionState, preview: null, reason: layoutPreview.reason };
   }
   return {
+    collisionState,
     preview: {
       announcement: previewAnnouncement(document, decision.plan),
       destinationKey: serializeSectionMovePlan(decision.plan),
       indicator,
       plan: decision.plan,
+      transformsById: layoutPreview.preview.transformsById,
     },
     reason: "",
   };
 }
 
 function resolveNestedPreview<TSectionData>({
+  collision,
   document,
   frame,
-  geometryIndex,
-  point,
-  region,
   session,
 }: Readonly<{
+  collision: WorkspaceSectionCollisionResolution;
   document: WorkspaceDocument<TSectionData>;
   frame: DragGeometryFrame;
-  geometryIndex: WorkspaceGeometryIndex;
-  point: InteractionPoint;
-  region: HTMLElement;
   session: WorkspaceSectionMoveSession<TSectionData>;
 }>): WorkspaceSectionMovePreviewResolution {
-  const parentId = region.getAttribute(WORKSPACE_SECTION_CHILD_REGION_ATTRIBUTE);
-  const layout = parentId ? document.sections[parentId]?.childLayout : null;
-  if (!parentId || !layout) {
-    return { preview: null, reason: "The destination container is unavailable." };
+  const target = collision.target;
+  if (!target) {
+    return {
+      collisionState: collision.collisionState,
+      preview: null,
+      reason: collision.reason,
+    };
   }
   const selected = new Set(session.sectionIds);
-  const destinationIds = layout.sectionIds.filter((sectionId) => !selected.has(sectionId));
-  const workspaceRects = destinationIds.map((sectionId) => geometryIndex.get(sectionId)?.rect);
+  const layout = document.sections[target.destinationParentId]?.childLayout;
+  const destinationIds = (layout?.sectionIds ?? []).filter((sectionId) => !selected.has(sectionId));
+  const workspaceRects = destinationIds.map((sectionId) => session.workspaceRectsById[sectionId]);
+  if (!layout) {
+    return {
+      collisionState: clearCollisionTarget(collision.collisionState),
+      preview: null,
+      reason: "The destination container is unavailable.",
+    };
+  }
   if (workspaceRects.some((rect) => !rect)) {
-    return { preview: null, reason: "The destination order is not completely measured." };
+    return {
+      collisionState: clearCollisionTarget(collision.collisionState),
+      preview: null,
+      reason: "The destination order is not completely measured.",
+    };
   }
   const orderedWorkspaceRects = workspaceRects as readonly WorkspaceRect[];
-  const orderedClientRects = orderedWorkspaceRects.map((rect) =>
-    workspaceRectToClient(rect, frame.canvasBounds, frame.viewport),
-  );
-  const direction = logicalDirection(region);
-  const destinationIndex = resolveWorkspaceSectionInsertionIndex({
-    direction,
-    orderedRects: orderedClientRects,
-    orientation: layout.orientation,
-    point,
-  });
   const decision = planSectionMove({
-    destination: { index: destinationIndex, parentId, topLevelPositions: null },
+    destination: {
+      index: target.destinationIndex,
+      parentId: target.destinationParentId,
+      topLevelPositions: null,
+    },
     hierarchy: session.hierarchy,
     mode: session.mode,
     selectedIds: session.sectionIds,
   });
   const indicator = workspaceSectionInsertionIndicator({
-    direction,
-    index: destinationIndex,
+    direction: target.direction,
+    index: target.destinationIndex,
     orderedRects: orderedWorkspaceRects,
-    orientation: layout.orientation,
-    regionRect: clientRectToWorkspace(
-      screenRect(region.getBoundingClientRect()),
-      frame.canvasBounds,
-      frame.viewport,
-    ),
+    orientation: target.orientation,
+    regionRect: target.region.workspaceRect,
     zoom: frame.viewport.zoom,
   });
-  return previewFromDecision(document, decision, indicator);
+  return previewFromDecision(collision.collisionState, document, decision, indicator, session);
 }
 
 function workspaceDelta(
@@ -611,8 +683,13 @@ function resolveCanvasPreview<TSectionData>({
   point: InteractionPoint;
   session: WorkspaceSectionMoveSession<TSectionData>;
 }>): WorkspaceSectionMovePreviewResolution {
+  const collisionState = clearCollisionTarget(session.collisionState);
   if (session.mode === "sort") {
-    return { preview: null, reason: "Sorting mode cannot move a section to the canvas." };
+    return {
+      collisionState,
+      preview: null,
+      reason: "Sorting mode cannot move a section to the canvas.",
+    };
   }
   const positions = canvasPositions(
     session,
@@ -642,27 +719,29 @@ function resolveCanvasPreview<TSectionData>({
           }
         : session.sourceWorkspaceBounds,
   } as const;
-  return previewFromDecision(document, decision, indicator);
+  return previewFromDecision(collisionState, document, decision, indicator, session);
 }
 
 export function resolveWorkspaceSectionMovePreview<TSectionData>({
   document,
   event,
   geometry,
-  geometryIndex,
   gridOptions,
   session,
 }: Readonly<{
   document: WorkspaceDocument<TSectionData>;
   event: AdapterDndEvent;
   geometry: WorkspaceGeometryMeasurements;
-  geometryIndex: WorkspaceGeometryIndex;
   gridOptions: ResolvedWorkspaceGridOptions;
   session: WorkspaceSectionMoveSession<TSectionData>;
 }>): WorkspaceSectionMovePreviewResolution {
   const canvas = geometry.canvasElement();
   if (!canvas) {
-    return { preview: null, reason: "The workspace canvas is unavailable." };
+    return {
+      collisionState: clearCollisionTarget(session.collisionState),
+      preview: null,
+      reason: "The workspace canvas is unavailable.",
+    };
   }
   const point = currentClientPoint(event, session);
   const frame = {
@@ -671,14 +750,39 @@ export function resolveWorkspaceSectionMovePreview<TSectionData>({
   };
   if (!pointInsideRect(point, frame.canvasBounds)) {
     return {
+      collisionState: clearCollisionTarget(session.collisionState),
       preview: null,
       reason: "The pointer is outside the workspace canvas.",
     };
   }
-  const region = resolvedChildRegion(canvas, point, session);
-  return region
-    ? resolveNestedPreview({ document, frame, geometryIndex, point, region, session })
-    : resolveCanvasPreview({ document, event, frame, gridOptions, point, session });
+  const activeRect = createInteractionRect(
+    session.sourceClientBounds.x + event.transform.x,
+    session.sourceClientBounds.y + event.transform.y,
+    session.sourceClientBounds.width,
+    session.sourceClientBounds.height,
+  );
+  const collision = resolveWorkspaceSectionCollision({
+    activeRect,
+    clientRectsById: session.clientRectsById,
+    hierarchy: session.hierarchy,
+    mode: session.mode,
+    pointer: point,
+    previousState: session.collisionState,
+    regions: session.regions,
+    sectionIds: session.sectionIds,
+    sourceParentId: session.sourceParentId,
+  });
+  if (collision.target) {
+    return resolveNestedPreview({ collision, document, frame, session });
+  }
+  if (session.mode === "sort") {
+    return {
+      collisionState: collision.collisionState,
+      preview: null,
+      reason: collision.reason,
+    };
+  }
+  return resolveCanvasPreview({ document, event, frame, gridOptions, point, session });
 }
 
 export function matchingWorkspaceSectionMovePreview(
