@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-08-11T17:26:51Z",
+  "capturedAt": "2026-08-11T18:07:57Z",
   "source": {
     "mainCommit": "043d3b2e9c69caf99d1246f1408b3ad7194b7864",
-    "extractionCommit": "6a295560f01337fbd73dce638e908087b19badc2",
+    "extractionCommit": "2cbb1d9dcb991fc3eb90f8ec74a49ad014d1caaf",
     "mainUrl": "http://127.0.0.1:3063/being_cliff",
     "playgroundUrl": "http://127.0.0.1:5174/"
   },
@@ -54,7 +54,14 @@
       "commit": "6a295560f",
       "problem": "The leading-edge correction fixed entry placement but made top-to-bottom switching require the dragged section's top edge to cross the frozen target midpoint, biasing the threshold by the preview height.",
       "result": "Cross-parent insertion compares the pointer with the frozen target midpoint and preserves a symmetric 10 px dead band; vertical and horizontal transitions are covered. Same-parent sorting continues to use directional edges.",
-      "parityClassification": "Developer-directed collision correction recovered from the pre-directional-edge implementation history and scoped to cross-parent moves."
+      "parityClassification": "Developer-directed collision correction recovered from the pre-directional-edge implementation history and scoped to cross-parent moves.",
+      "supersededBy": "2cbb1d9dc"
+    },
+    {
+      "commit": "2cbb1d9dc",
+      "problem": "Placeholder insertion moved the nested target down 132 px (midpoint 486 to 618), and alternating group/child collision winners caused the single global hysteresis snapshot to forget the child's original geometry.",
+      "result": "The tracker now preserves the first geometry and current past-halfway state independently for each collision target. Alternating winners no longer shift the pointer threshold; the temporary trace was removed and a focused regression recreates the displacement.",
+      "parityClassification": "Principled correction to make target-local hysteresis state match target-local insertion decisions."
     }
   ],
   "canvasBackground": {
@@ -256,8 +263,8 @@
     },
     "heldDndModes": {
       "liveAutomation": "The Chrome extension API cannot preserve a keydown across a later pointer command, so no sustained Alt or Mod+Alt package screenshot was synthesized.",
-      "coverage": "Ported held-mode, collision, sorting, reparenting, shape-sync, and deferred-release characterization/integration tests are part of the 243-test package suite; focused tests cover feedback layering plus symmetric vertical and horizontal pointer thresholds for cross-parent insertion; frozen main sustained gestures are in Phase 0.",
-      "developerRecheck": "Required for the corrected invalid-drop overlay and cross-parent placeholder because sustained held-key gestures cannot be driven by the Chrome extension API."
+      "coverage": "Ported held-mode, collision, sorting, reparenting, shape-sync, and deferred-release characterization/integration tests are part of the 244-test package suite; focused tests cover feedback layering, symmetric vertical and horizontal pointer thresholds, and placeholder-displaced targets across alternating collision winners; frozen main sustained gestures are in Phase 0.",
+      "developerRecheck": "The developer manually rechecked the corrected cross-parent placeholder path and described it as ‘Much better.’ Explicit acceptance of the complete Phase 1 gate remains required."
     }
   },
   "console": {
@@ -267,5 +274,5 @@
       "React 19 element.ref diagnostics"
     ]
   },
-  "developerDecision": "rejected once; corrected; recheck pending"
+  "developerDecision": "interaction correction accepted; full Phase 1 acceptance pending"
 }

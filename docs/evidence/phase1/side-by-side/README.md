@@ -10,7 +10,7 @@ the gate.
 - Frozen product authority: `../setta-main`, branch `main`, commit
   `043d3b2e9c69caf99d1246f1408b3ad7194b7864`.
 - Extraction implementation under review: branch `workspace-extraction`, commit
-  `6a295560f01337fbd73dce638e908087b19badc2` plus this evidence commit.
+  `2cbb1d9dcb991fc3eb90f8ec74a49ad014d1caaf` plus this evidence commit.
 - Capture date: 2026-08-11 in `America/Los_Angeles`.
 - Live URLs: main at `http://127.0.0.1:3063/being_cliff`; playground at
   `http://127.0.0.1:5174/`.
@@ -49,8 +49,8 @@ The initial supervised pass rejected the playground output and fixed three visib
    main's 26 x 26 control. Commit `ae1e8c3b6` restored the live 5-pixel padding with consumer-safe
    selector specificity.
 
-The developer then rejected the first gate presentation for three additional discrepancies. Commit
-`66d225825` closes them for recheck:
+The developer then rejected the first gate presentation for three additional discrepancies. The
+following correction series closes them for recheck:
 
 1. The canvas used the playground host's near-black surface and omitted the fork's SVG grid. The
    package now owns main's exact light/dark canvas colors, zoom-aware grid pattern, and grid option
@@ -63,6 +63,16 @@ The developer then rejected the first gate presentation for three additional dis
    dragged section's full height. Commit `6a295560f` instead compares the pointer with the frozen target
    midpoint using the existing 10-pixel dead band; same-parent sorting retains its direction-aware
    edges.
+
+A temporary supervised trace of the developer's next reproduction isolated a second-order failure:
+inserting the placeholder moved the nested child down 132 pixels, changing its measured midpoint from
+486 to 618. Collision resolution alternated between the group and child, while the tracker kept only
+one global hysteresis rectangle, so the child's original midpoint was overwritten and the placeholder
+did not switch until the pointer reached about 629. Commit `2cbb1d9dc` makes the hysteresis rectangle
+and past-halfway state target-specific. Alternating group/child winners can no longer replace one
+another's geometry, and a focused regression recreates the placeholder-induced shift. The temporary
+tracing was removed before commit. The developer manually rechecked the corrected path and described
+it as “Much better.”
 
 The latter two changes are explicit developer-directed interaction corrections, not literal
 preservation of the frozen behavior; the developer's gate feedback supersedes that behavior.
@@ -87,14 +97,15 @@ After those fixes, the live package output matches the accepted Phase 0 measurem
 The Chrome extension API cannot keep a keyboard key depressed across a later pointer command, so
 it cannot produce a sustained Alt or Mod+Alt package drag screenshot. Those held-mode, collision,
 sorting, reparenting, and deferred-release paths are covered by the ported package
-characterization/integration suites (243 tests), including focused regression tests for the two
-reported drop-feedback defects. The live main and playground tabs are left open for the required
-manual held-key recheck at the developer gate.
+characterization/integration suites (244 tests), including focused regression tests for the two
+reported drop-feedback defects and target-alternation hysteresis. The corrected cross-parent path was
+manually rechecked by the developer; the live main and playground tabs remain open for any final gate
+review.
 
 No warnings or errors were emitted by the playground during the comparison. Main emitted only the
 previously recorded React Router future warning and React 19 `element.ref` diagnostics.
 
 ## Decision
 
-**Rejected once; corrected; developer recheck pending.** Phase 2 must not begin until the developer
-accepts the corrected visual and interaction result.
+**Rejected once; corrected interaction manually accepted; full gate approval pending.** Phase 2 must
+not begin until the developer explicitly accepts the complete Phase 1 result.

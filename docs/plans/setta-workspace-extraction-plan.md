@@ -176,8 +176,8 @@ Phase 1 progress (2026-08-10):
 - dnd-kit fork drag slice extracted (2026-08-11): the fork's adapter (the re-created v6-shaped
   API over upstream `@dnd-kit` — provider with the AutoScroller filtered out, the 600-line
   re-implemented `SortableContext`, transform-based `useSortable`, re-vendored sorting
-  strategies, and the custom collision layer with its hysteresis: ±10 px past-halfway buffer
-  keyed on the previous collision, ×1.1 previous-winner boost, zoom-scaled 20/100 px
+  strategies, and the custom collision layer with its hysteresis: ±10 px past-halfway buffer and
+  first-encounter geometry snapshot per collision target, ×1.1 previous-winner boost, zoom-scaled 20/100 px
   move-to-parent triggers) and the section-drag modules (drag-session and dnd-children stores,
   sensors, live re-parenting with temp-placeholder insertion, pure move planners, drop-time
   sorting fallback, deferred deactivation, shape sync, temp placeholder and free-move overlay)
@@ -250,14 +250,19 @@ Phase 1 progress (2026-08-10):
   initial leading-edge correction fixed cross-parent entry but made the reverse threshold depend on
   the dragged section's height; the developer's follow-up reproduction exposed that bias. Commit
   `6a295560f` uses pointer position against the frozen target midpoint with the existing 10-pixel
-  dead band for cross-parent insertion while retaining direction-aware edges within one parent.
-  Refreshed live evidence is ready; the corrected held-key behaviors require developer recheck
-  because Chrome automation cannot sustain Alt across pointer commands. The feedback-layer and
-  cross-parent collision-reference changes are explicit developer-directed corrections that
-  supersede literal preservation of the frozen behavior.
+  dead band for cross-parent insertion while retaining direction-aware edges within one parent. A
+  temporary supervised trace of the next reproduction then showed that placeholder insertion moved
+  the nested target 132 pixels and alternating group/child winners caused the tracker's single
+  hysteresis rectangle to adopt the displaced geometry. Commit `2cbb1d9dc` stores the initial
+  rectangle and past-halfway state per collision target, with a regression that recreates the
+  alternation and geometry shift. Temporary tracing was removed before commit. The developer
+  manually rechecked this corrected path and described it as “Much better”; Chrome automation still
+  cannot synthesize the sustained Alt gesture itself. The feedback-layer and cross-parent
+  collision-reference changes are explicit developer-directed corrections that supersede literal
+  preservation of the frozen behavior.
   The supplementary `/settings` parameter-style source suggested by the developer is captured in
-  the Phase 0 reference bundle without widening the Phase 1 slice. Developer acceptance remains
-  pending.
+  the Phase 0 reference bundle without widening the Phase 1 slice. The interaction correction is
+  accepted; explicit acceptance of the complete Phase 1 exit gate remains pending.
 - Remaining Phase 1 work: developer acceptance of the live side-by-side evidence at the exit gate.
 
 - Extraction branch: `workspace-extraction`
