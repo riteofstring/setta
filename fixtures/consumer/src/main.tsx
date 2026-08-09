@@ -1,4 +1,8 @@
-import { createEmptyWorkspaceDocument } from "@setta/workspace/core";
+import {
+  createEmptyWorkspaceDocument,
+  validateSortableItemTree,
+  type SortableItemTree,
+} from "@setta/workspace/core";
 import {
   Workspace,
   type WorkspaceExternalDropHandler,
@@ -18,6 +22,12 @@ if (!root) {
 }
 
 const workspaceDocument = createEmptyWorkspaceDocument();
+const itemTree = {
+  childrenByParent: { "consumer-items": [] },
+  itemIds: [],
+  rootId: "consumer-items",
+} satisfies SortableItemTree;
+validateSortableItemTree(itemTree);
 const sectionMoveMode: WorkspaceSectionMoveMode = "sort";
 const validateSectionMove: WorkspaceSectionMoveValidator = ({ plan }) =>
   plan.destinationParentId === "reserved"
@@ -60,6 +70,7 @@ createRoot(root).render(
     <Workspace
       appearanceOptions={{ appearance: "light" }}
       ariaLabel="Consumer workspace"
+      data-item-tree-root={itemTree.rootId}
       data-version={workspaceDocument.schemaVersion}
       gestureOptions={{ maxZoom: 2, minZoom: 0.5, panOnScroll: true, zoomOnScroll: false }}
       gridOptions={{ pattern: "cross", snap: false, spacing: [24, 18], visible: true }}

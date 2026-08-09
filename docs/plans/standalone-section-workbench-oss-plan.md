@@ -1473,6 +1473,11 @@ Gate:
 
 ### Phase 4: Sortable items inside a section
 
+Status: **implementation in progress** (updated 2026-08-09).
+
+- Completed (ordered items 1-6): one public, framework-neutral sortable-item-tree kernel now validates the non-rendered root, unique non-empty IDs, exact single placement, known parents and children, reachability, and acyclic containment without recursive traversal. It derives canonical preorder and parent lookup, supports replacement and modifier-style selection, normalizes selected ancestors over descendants, preserves canonical sibling order, selects an unselected active item alone, and falls a mixed-parent selected drag back to the active item with specific feedback while retaining the broader selection. One immutable planner covers flat single and selected-sibling-block reorder, nested moves into, out of, across, and to empty parents, post-removal insertion indexes, no-op detection, self/descendant cycles, containment policy, and one synchronous boolean host `canMove` decision. React interaction, keyboard movement, zoom-aware feedback, outer/inner arbitration, the public apply helper, and the field-list example remain in ordered items 7-11.
+- Ordered-items-1-6 verification: exact Node 24.18.1 and pnpm 11.19.0 changed-file quality passed for nine project files with 371 unit tests, six boundary tests, plan-loop automation, strict types, formatting, lint, dead-code, complexity/file-length, package/playground builds, exact tarball contents including the four new item-tree internals, and the expanded declaration-closure API report. Twenty-one focused item-tree tests cover strict and prototype-safe validation, 2,048-level iterative traversal, modifier selection, normalized and mixed-parent drag blocks, flat and nested single/block planning, empty and cross-parent destinations, post-removal indexes, cycles, no-ops, containment, immutable host policy, and malformed callbacks. The unrelated consumer imports the new public core contract, installs the local tarball, and builds successfully. No dependency or lockfile input changed, so the registry-backed supply-chain and vulnerability gates were not duplicated; no browser or CDP verification applies to this framework-neutral batch.
+
 Implement in this order:
 
 1. Pure generic tree validation and move planning.

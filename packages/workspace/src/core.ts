@@ -1,3 +1,25 @@
+export { planSortableItemMove } from "./internal/sortable-item-move-planning.js";
+export {
+  normalizeSortableItemSelectionRoots,
+  resolveSortableItemDragBlock,
+  resolveSortableItemSelectionChange,
+} from "./internal/sortable-item-selection.js";
+export type {
+  ItemMovePlan,
+  SortableItemDragBlock,
+  SortableItemMoveDecision,
+  SortableItemMoveInput,
+  SortableItemMoveRejectionCode,
+  SortableItemSelectionMode,
+  SortableItemTree,
+} from "./internal/sortable-item-tree-contract.js";
+export {
+  SortableItemTreeValidationError,
+  deriveSortableItemParentLookup,
+  getSortableItemOrder,
+  validateSortableItemTree,
+} from "./internal/sortable-item-tree-validation.js";
+export type { SortableItemTreeValidationCode } from "./internal/sortable-item-tree-validation.js";
 export { WORKSPACE_DOCUMENT_SCHEMA_VERSION } from "./internal/workspace-document-contract.js";
 export type {
   SectionChrome,
