@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { getActiveSectionIds } from "../document/activeSections";
+import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { Node, WorkspaceSection } from "../document/types";
 import { applyActiveSectionChange } from "./activeSectionController";
@@ -36,6 +37,7 @@ beforeEach(() => {
   useActiveSections.getState().reset();
   useWorkspaceDocument.getState().reset();
   useNodeInternals.getState().reset();
+  useItemSelectionMode.getState().reset();
   useReactFlow.setState({ ...initialCanvasState });
   useWorkspaceDocument.setState({
     sections: {
@@ -97,5 +99,35 @@ describe("applyActiveSectionChange", () => {
     });
 
     expect(getActiveSectionIds()).toEqual(["group-a", "leaf-b"]);
+  });
+
+  it("routes section clicks through the item-mode branch using the document's item selection", () => {
+    useItemSelectionMode.setState({ isSelectingItems: true });
+    useActiveSections.setState({ activeIds: ["group-a"] });
+    useWorkspaceDocument.setState((state) => ({
+      sections: {
+        ...state.sections,
+        "leaf-b": {
+          ...makeSection("leaf-b"),
+          itemTree: {
+            rootId: "item-root",
+            items: {
+              "item-root": { id: "item-root", children: ["row"] },
+              row: { id: "row", children: [] },
+            },
+            selectedItemIds: ["row"],
+          },
+        },
+      },
+    }));
+
+    // Clicking a section without selected items keeps the current active ids.
+    applyActiveSectionChange({ interaction: "section-click", sectionId: "child-a" });
+    expect(getActiveSectionIds()).toEqual(["group-a"]);
+
+    // Clicking a section whose items are selected activates it.
+    const result = applyActiveSectionChange({ interaction: "section-click", sectionId: "leaf-b" });
+    expect(result.reason).toBe("section-click:item-select-set");
+    expect(getActiveSectionIds()).toEqual(["leaf-b"]);
   });
 });

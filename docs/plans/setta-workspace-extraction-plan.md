@@ -490,9 +490,43 @@ Phase 4 progress (2026-08-11):
   item-drag suppression. The item sensors, the nested item drag context, the monitor/overlay
   lifecycle, the canonical item model with its move funnels, and the registered item surface
   follow with their owning Phase 4 batches.
-- Remaining Phase 4 work: the canonical item model and move/selection logic, the item dnd
-  provider/monitor/overlay and row surface with host-registered renderers and playground
-  reachability, item selection and keyboard movement, and the section-drag versus item-drag
+- Canonical item model and move/selection logic (2026-08-11): sections may now carry the
+  canonical item surface — `WorkspaceItem` (id, ordered children, opaque data on the same
+  JSON-value contract as section data) inside a per-section `WorkspaceSectionItemTree` (one
+  root item whose children are the top-level rows, plus `selectedItemIds`; the reference
+  persists `selectedParams` on the section impl, so selection is canonical document state).
+  The root is a real move target (the reference normalizes section-level drops onto it) but
+  never a row; the reference's leaf→`NestedParam` promotion is structural because every item
+  carries `children`, and the leaf-versus-group *type* distinction stays application-side
+  behind the opaque data — the tree-view flat rows drop the reference's `isParent` flag.
+  Load validation fails loudly on malformed trees (missing root, key/id mismatch, unknown or
+  doubly-claimed children, a claimed root, items unreachable from the root — which also rules
+  out cycles — and selection naming unknown, root, or duplicate ids); the item types ride the
+  provisional index. `itemTree.ts` ports the `paramTree.ts` helpers (parent map, visible tree
+  view with whole-subtree pruning, root-selected reduction, shared parent,
+  descendant-of-selection, visible→full insertion-index resolution) with visibility as a
+  caller-supplied set — the filtered-list seam the registered list views feed in the row
+  batch. `moveItems.ts` is the reference's `applyParamMove`/`moveParamsWithBackend` minus the
+  optimistic-op plumbing and backend route (the document-change callback notifies the host
+  once per applied move); the pinned/unpinned shown-order cache sync left with the app (the
+  package derives list membership from canonical children live); aborted moves (detached
+  first item, out-of-range index, empty ids) leave the tree untouched and silent, and the
+  funnel throws on own-subtree moves where the reference leans on monitor plus backend
+  validation. Selection primitives (`toggleItemSelected`/`unselectAllItems`/`selectOnlyItem`)
+  commit canonically and then drive the same active-section decision as the reference; the
+  policy gains the item-toggle interactions and the section-click item-mode branches (reasons
+  renamed to item terms), the controller reads the new `isSelectingItems` mode store (the
+  reference's `useMisc.isSelectingParams`; the keyboard batch owns its hold-key activation)
+  and the document's item selection for section-click contexts, and the reference's
+  policy-dead `hasSelectedParams` intent field is dropped. Complexity-lint-forced deviation:
+  the item tree load validation splits into three assert helpers. Tests: new item tree, move
+  funnel, and selection suites; the reference's four param policy cases ported in item terms;
+  load round-trip/validation cases; and a controller case freezing the item-mode
+  section-click path against the document's selection.
+- Remaining Phase 4 work: the item dnd provider/monitor/overlay and row surface with
+  host-registered renderers, host-registered list views, and playground reachability; the
+  interactive item selection surface and keyboard movement (hold-key mode activation, offset
+  moves, indent/unindent) over this batch's primitives; and the section-drag versus item-drag
   ownership gating.
 
 - Extraction branch: `workspace-extraction`

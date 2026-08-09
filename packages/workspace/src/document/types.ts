@@ -41,6 +41,29 @@ export type WorkspaceSectionData =
   | Array<WorkspaceSectionData>
   | { [key: string]: WorkspaceSectionData };
 
+// The package term for the reference's params is "items": the rows a section carries that the
+// package can select, order, and nest. Item data is opaque exactly like section data — the
+// package owns only the structure (id, ordered children) and selection; rendering and any
+// leaf-versus-group semantics stay application-side behind the registered item surface.
+export type WorkspaceItem = {
+  id: string;
+  children: Array<string>;
+  data?: WorkspaceSectionData;
+};
+
+// The canonical per-section item tree, mirroring the reference's per-section param root
+// (`getParamRootId`): one root item whose children are the top-level rows. The root is a real
+// move target (the reference normalizes section-level drops onto it) but never a row, so it can
+// never be selected. Where the reference promotes a leaf param to `NestedParam` when something
+// drops into it, package items always carry `children`, so that promotion is structural.
+// Selection is part of the canonical tree — the reference persists `selectedParams` on the
+// section impl through its toggle routes.
+export type WorkspaceSectionItemTree = {
+  rootId: string;
+  items: Record<string, WorkspaceItem>;
+  selectedItemIds: Array<string>;
+};
+
 // The resolved structural section record. The application resolves any variant indirection
 // on its side of the seam; the package never sees unresolved variants.
 export type WorkspaceSection = {
@@ -55,6 +78,8 @@ export type WorkspaceSection = {
   tagColor: string | null;
   children: Array<string>;
   data?: WorkspaceSectionData;
+  // Absent for sections without items, mirroring the reference's params-free section types.
+  itemTree?: WorkspaceSectionItemTree;
 };
 
 // The load shape of a section: `size` may be omitted, in which case the kind's registered

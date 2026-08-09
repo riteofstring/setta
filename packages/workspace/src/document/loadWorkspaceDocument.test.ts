@@ -13,7 +13,12 @@ import {
   useWorkspaceAppearance,
   useWorkspaceDocument,
 } from "./stores";
-import type { WorkspaceDocumentInput, WorkspaceSection, WorkspaceSectionInput } from "./types";
+import type {
+  WorkspaceDocumentInput,
+  WorkspaceSection,
+  WorkspaceSectionInput,
+  WorkspaceSectionItemTree,
+} from "./types";
 
 function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): WorkspaceSection {
   return {
@@ -250,6 +255,113 @@ describe("loadWorkspaceDocument", () => {
       }),
     );
     expect(getWorkspaceDocument().sections["leaf"]?.data).toEqual(data);
+  });
+
+  it("round-trips a valid item tree into the emitted document", () => {
+    const itemTree: WorkspaceSectionItemTree = {
+      rootId: "item-root",
+      items: {
+        "item-root": { id: "item-root", children: ["a", "group"] },
+        a: { id: "a", children: [], data: { label: "Row A" } },
+        group: { id: "group", children: ["nested"] },
+        nested: { id: "nested", children: [] },
+      },
+      selectedItemIds: ["a", "nested"],
+    };
+    loadWorkspaceDocument(
+      makeDocument({
+        sections: { leaf: makeSection("leaf", { itemTree }) },
+        topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
+        activeIds: [],
+      }),
+    );
+    expect(getWorkspaceDocument().sections["leaf"]?.itemTree).toEqual(itemTree);
+  });
+
+  it("rejects malformed item trees", () => {
+    const load = (itemTree: WorkspaceSectionItemTree) =>
+      loadWorkspaceDocument(
+        makeDocument({
+          sections: { leaf: makeSection("leaf", { itemTree }) },
+          topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
+          activeIds: [],
+        }),
+      );
+
+    expect(() => load({ rootId: "missing", items: {}, selectedItemIds: [] })).toThrowError(
+      /missing its root item missing/,
+    );
+    expect(() =>
+      load({
+        rootId: "item-root",
+        items: { "item-root": { id: "other", children: [] } },
+        selectedItemIds: [],
+      }),
+    ).toThrowError(/does not match item id other/);
+    expect(() =>
+      load({
+        rootId: "item-root",
+        items: { "item-root": { id: "item-root", children: ["ghost"] } },
+        selectedItemIds: [],
+      }),
+    ).toThrowError(/lists unknown child ghost/);
+    expect(() =>
+      load({
+        rootId: "item-root",
+        items: {
+          "item-root": { id: "item-root", children: ["a", "b"] },
+          a: { id: "a", children: ["shared"] },
+          b: { id: "b", children: ["shared"] },
+          shared: { id: "shared", children: [] },
+        },
+        selectedItemIds: [],
+      }),
+    ).toThrowError(/item shared is claimed by parents a and b/);
+    expect(() =>
+      load({
+        rootId: "item-root",
+        items: {
+          "item-root": { id: "item-root", children: ["a"] },
+          a: { id: "a", children: ["item-root"] },
+        },
+        selectedItemIds: [],
+      }),
+    ).toThrowError(/claims the root item as a child/);
+    expect(() =>
+      load({
+        rootId: "item-root",
+        items: {
+          "item-root": { id: "item-root", children: [] },
+          orphan: { id: "orphan", children: ["cycled"] },
+          cycled: { id: "cycled", children: ["orphan"] },
+        },
+        selectedItemIds: [],
+      }),
+    ).toThrowError(/item orphan is not reachable from root item-root/);
+    expect(() =>
+      load({
+        rootId: "item-root",
+        items: { "item-root": { id: "item-root", children: [] } },
+        selectedItemIds: ["ghost"],
+      }),
+    ).toThrowError(/selects unknown item ghost/);
+    expect(() =>
+      load({
+        rootId: "item-root",
+        items: { "item-root": { id: "item-root", children: [] } },
+        selectedItemIds: ["item-root"],
+      }),
+    ).toThrowError(/selects its root item item-root/);
+    expect(() =>
+      load({
+        rootId: "item-root",
+        items: {
+          "item-root": { id: "item-root", children: ["a"] },
+          a: { id: "a", children: [] },
+        },
+        selectedItemIds: ["a", "a"],
+      }),
+    ).toThrowError(/selects item a twice/);
   });
 
   it("rejects top-level layouts and active ids for unknown sections", () => {

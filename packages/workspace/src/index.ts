@@ -31,9 +31,11 @@ export type {
   Viewport,
   WorkspaceDocument,
   WorkspaceDocumentInput,
+  WorkspaceItem,
   WorkspaceSection,
   WorkspaceSectionData,
   WorkspaceSectionInput,
+  WorkspaceSectionItemTree,
 } from "./document/types";
 export {
   NO_DRAG_CLASS_NAME,

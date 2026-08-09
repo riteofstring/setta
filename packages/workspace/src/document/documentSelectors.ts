@@ -1,5 +1,5 @@
 import { useWorkspaceDocument, type WorkspaceDocumentState } from "./stores";
-import type { WorkspaceSection } from "./types";
+import type { WorkspaceSection, WorkspaceSectionItemTree } from "./types";
 
 // The package equivalent of the reference's `SectionTypeEnum.Group`: groups are the one
 // package-owned section kind (nested children, orientation, group chrome). Every other kind is
@@ -19,6 +19,25 @@ export function getSectionOrThrow(
     throw new Error(`Unknown section ${sectionId}.`);
   }
   return section;
+}
+
+export function getSectionItemTreeOrThrow(
+  state: WorkspaceDocumentState,
+  sectionId: string,
+): WorkspaceSectionItemTree {
+  const itemTree = getSectionOrThrow(state, sectionId).itemTree;
+  if (!itemTree) {
+    throw new Error(`Section ${sectionId} has no item tree.`);
+  }
+  return itemTree;
+}
+
+// The reference's `getHasSelectedParams` answers false for section types without params.
+export function getSectionHasSelectedItems(
+  state: WorkspaceDocumentState,
+  sectionId: string,
+): boolean {
+  return (getSectionOrThrow(state, sectionId).itemTree?.selectedItemIds.length ?? 0) > 0;
 }
 
 // Only true top-level sections render as canvas nodes. A loaded document may carry a stale

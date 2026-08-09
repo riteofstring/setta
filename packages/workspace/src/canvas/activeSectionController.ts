@@ -5,12 +5,15 @@ import type {
 } from "../document/activeSectionPolicy";
 import { resolveActiveSectionChange } from "../document/activeSectionPolicy";
 import { getActiveSectionIds, setActiveSectionIds } from "../document/activeSections";
-import { getHighestAncestor } from "../document/documentSelectors";
+import { getHighestAncestor, getSectionHasSelectedItems } from "../document/documentSelectors";
+import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { setZIndices } from "../document/sectionZIndices";
+import { useWorkspaceDocument } from "../document/stores";
 import { useReactFlow } from "./store";
 
-// The reference controller also carries app-only intents (input-focus, go-to, param toggles) and
-// backend-sync options; the slice-reachable intents are exactly the three policy interactions.
+// The reference controller also carries app-only intents (input-focus, go-to) and backend-sync
+// options. Its param-toggle intents carry a `hasSelectedParams` the policy never reads; the
+// package item toggles drop it.
 type SectionClickIntent = {
   interaction: "section-click";
   sectionId: string;
@@ -25,7 +28,13 @@ type SelectionRectIntent = {
   selectedIds: Array<string>;
 };
 
-export type ActiveSectionIntent = SectionClickIntent | PaneClickIntent | SelectionRectIntent;
+type ItemToggleIntent = {
+  interaction: "item-select" | "item-unselect";
+  sectionId: string;
+};
+
+export type ActiveSectionIntent =
+  SectionClickIntent | PaneClickIntent | SelectionRectIntent | ItemToggleIntent;
 
 type ActiveSectionControllerResult = ActiveSectionPolicyResult & {
   activeIdsChanged: boolean;
@@ -34,6 +43,7 @@ type ActiveSectionControllerResult = ActiveSectionPolicyResult & {
 function buildPolicyContext(
   intent: ActiveSectionIntent,
   activeIds: Array<string>,
+  isSelectingItems: boolean,
   multiSelectionActive: boolean,
 ): ActiveSectionPolicyContext {
   if (intent.interaction === "section-click") {
@@ -41,6 +51,11 @@ function buildPolicyContext(
       interaction: "section-click",
       sectionId: intent.sectionId,
       activeIds,
+      isSelectingItems,
+      hasSelectedItems: getSectionHasSelectedItems(
+        useWorkspaceDocument.getState(),
+        intent.sectionId,
+      ),
       multiSelectionActive,
     };
   }
@@ -50,10 +65,18 @@ function buildPolicyContext(
       activeIds,
     };
   }
+  if (intent.interaction === "selection-rect") {
+    return {
+      interaction: "selection-rect",
+      activeIds,
+      selectedIds: intent.selectedIds,
+    };
+  }
   return {
-    interaction: "selection-rect",
+    interaction: intent.interaction,
     activeIds,
-    selectedIds: intent.selectedIds,
+    sectionId: intent.sectionId,
+    isSelectingItems,
   };
 }
 
@@ -61,9 +84,10 @@ export function applyActiveSectionChange(
   intent: ActiveSectionIntent,
 ): ActiveSectionControllerResult {
   const activeIds = getActiveSectionIds();
+  const isSelectingItems = useItemSelectionMode.getState().isSelectingItems;
   const multiSelectionActive = useReactFlow.getState().multiSelectionActive;
 
-  const context = buildPolicyContext(intent, activeIds, multiSelectionActive);
+  const context = buildPolicyContext(intent, activeIds, isSelectingItems, multiSelectionActive);
   const decision = resolveActiveSectionChange(context);
   const activeIdsChanged = !_.isEqual(activeIds, decision.nextActiveIds);
 

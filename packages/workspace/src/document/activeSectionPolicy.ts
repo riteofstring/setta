@@ -5,6 +5,8 @@ type BaseContext = {
 type SectionClickContext = BaseContext & {
   interaction: "section-click";
   sectionId: string;
+  isSelectingItems: boolean;
+  hasSelectedItems: boolean;
   multiSelectionActive: boolean;
 };
 
@@ -17,8 +19,16 @@ type SelectionRectContext = BaseContext & {
   selectedIds: Array<string>;
 };
 
+// The reference declares separate param-select/param-unselect contexts with an unused
+// `hasSelectedParams` field; the toggle decision reads only the mode flag.
+type ItemToggleContext = BaseContext & {
+  interaction: "item-select" | "item-unselect";
+  sectionId: string;
+  isSelectingItems: boolean;
+};
+
 export type ActiveSectionPolicyContext =
-  SectionClickContext | PaneClickContext | SelectionRectContext;
+  SectionClickContext | PaneClickContext | SelectionRectContext | ItemToggleContext;
 
 export type ActiveSectionPolicyResult = {
   nextActiveIds: Array<string>;
@@ -52,6 +62,24 @@ function removeActiveId(activeIds: Array<string>, sectionId: string): Array<stri
   return activeIds.filter((id) => id !== sectionId);
 }
 
+function resolveItemToggleChange(context: ItemToggleContext): ActiveSectionPolicyResult {
+  if (!context.isSelectingItems) {
+    return createPolicyResult(context.activeIds, false, "item-toggle:ignored");
+  }
+  return createPolicyResult(
+    [context.sectionId],
+    false,
+    context.interaction === "item-select" ? "item-select:set-active" : "item-unselect:set-active",
+  );
+}
+
+function resolveItemSelectingSectionClick(context: SectionClickContext): ActiveSectionPolicyResult {
+  if (!context.hasSelectedItems) {
+    return createPolicyResult(context.activeIds, true, "section-click:item-select-noop");
+  }
+  return createPolicyResult([context.sectionId], true, "section-click:item-select-set");
+}
+
 function resolveMultiSelectionSectionClick(
   context: SectionClickContext,
 ): ActiveSectionPolicyResult {
@@ -66,6 +94,9 @@ function resolveMultiSelectionSectionClick(
 }
 
 function resolveSectionClickChange(context: SectionClickContext): ActiveSectionPolicyResult {
+  if (context.isSelectingItems) {
+    return resolveItemSelectingSectionClick(context);
+  }
   if (context.multiSelectionActive) {
     return resolveMultiSelectionSectionClick(context);
   }
@@ -81,6 +112,10 @@ export function resolveActiveSectionChange(
     }
     case "selection-rect": {
       return createPolicyResult(context.selectedIds, false, "selection-rect:update");
+    }
+    case "item-select":
+    case "item-unselect": {
+      return resolveItemToggleChange(context);
     }
     case "section-click": {
       return resolveSectionClickChange(context);
