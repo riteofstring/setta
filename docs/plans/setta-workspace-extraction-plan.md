@@ -1363,6 +1363,16 @@ Phase 4 progress (2026-08-11):
   corrections recorded above, the developer explicitly accepted the combined visual and
   interaction result. This satisfies the developer-only exit gate. Record the first accepted
   package-output baselines before beginning Phase 5 repository work.
+- Consolidated controls and meta-controls accepted-output baseline recorded (2026-08-12): the
+  already-approved package output is locked under `docs/evidence/controls-and-meta/` with dark/light
+  full-playground captures, the two ordinary-control scroll positions that expose the complete row
+  control set, focused dark/light crops of all twelve canvas controls at workspace zoom 1, and the
+  corrected meta configure/drag hover chrome. Machine-readable geometry, appearance facts, capture
+  context, dimensions, and SHA-256 hashes accompany the images. The post-acceptance browser surface
+  emitted CSS-pixel-sized JPEGs at DPR 1; the bundle records that separate raster context explicitly
+  and does not replace the completed supervised DPR 2 parity comparison. The frozen reference stayed
+  clean and untouched at `043d3b2e9`. This completes the prerequisite baseline, so Phase 5
+  repository work may begin.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
