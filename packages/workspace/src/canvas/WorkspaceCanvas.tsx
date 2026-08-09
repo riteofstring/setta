@@ -7,6 +7,7 @@ import {
   type UIEvent,
 } from "react";
 import { SectionDndContext } from "../dnd/SectionDndContext";
+import { WORKSPACE_SCOPE_CLASS_NAME } from "../styles/workspaceScope";
 import { useCanvasViewportDocumentSync } from "./documentViewportSync";
 import FlowRenderer from "./FlowRenderer";
 import { useCanvasKeyActivations } from "./keyActivations";
@@ -49,7 +50,7 @@ export function WorkspaceCanvas() {
   return (
     <div
       style={wrapperStyle}
-      className="react-flow"
+      className={`${WORKSPACE_SCOPE_CLASS_NAME} react-flow`}
       ref={ref}
       onScroll={(e) => cancelOutScrolling(e, initialized)}
     >

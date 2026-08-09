@@ -6,6 +6,7 @@ import { onFitViewHandler } from "../canvas/fitView";
 import { toggleSnapToGrid, useWorkspaceOptions } from "../canvas/options";
 import { useReactFlow } from "../canvas/store";
 import { resetZoom, zoomIn, zoomOut } from "../canvas/viewportHelpers";
+import { WORKSPACE_SCOPE_CLASS_NAME } from "../styles/workspaceScope";
 import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip";
 
 // The reference's viewport toolbar (`forks/xyflow/controls/Controls.tsx`) at the slice form the
@@ -116,7 +117,7 @@ export const WorkspaceControls = memo(function WorkspaceControls() {
 
   return (
     <div
-      className="mt-auto flex w-8 flex-col items-center gap-1 overflow-hidden rounded-md border px-0.5 pb-2 pt-1.5 dark:border-setta-800"
+      className={`${WORKSPACE_SCOPE_CLASS_NAME} mt-auto flex w-8 flex-col items-center gap-1 overflow-hidden rounded-md border px-0.5 pb-2 pt-1.5 dark:border-setta-800`}
       data-testid="rf__controls"
     >
       <ViewportControls

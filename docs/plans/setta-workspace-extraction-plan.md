@@ -316,10 +316,36 @@ Phase 2 progress (2026-08-11):
   (no icon — the accepted gg-menu fallback), renders bodies from `data`, and takes the
   accepted 200 x 122 leaf geometry from the registered default size, keeping the approved
   slice visuals unchanged.
-- Remaining Phase 2 work: the compiled package build (ESM, declarations,
-  source maps, compiled scoped stylesheet — items 1 and 4), the forbidden-import verification
-  (item 3), the temporary Setta integration worktree and the packed unrelated consumer
-  (items 5–6), donor consideration (item 7), and integration evidence (item 8).
+- Compiled package build, scoped stylesheet, and forbidden-import verification (items 1, 3, and
+  4, 2026-08-11): the package `exports` map now serves compiled output — `vite build` in library
+  mode bundles the runtime to `dist/index.js` (standard ESM with a source map; every bare
+  specifier external, so the artifact imports only declared runtime dependencies and peers),
+  `tsc -p tsconfig.build.json` emits the declaration tree, and the Tailwind CLI compiles the
+  package-owned stylesheet to `dist/styles.css` from package source alone (`tailwindcss 3.4.1`
+  added as a package devDependency — the version already pinned by the playground; supply-chain
+  gate rerun clean). The compiled sheet ships no global Preflight and no host-wide selectors:
+  `optimizeUniversalDefaults` keeps the Tailwind variable defaults on the utility classes
+  instead of a `*` rule, and the Preflight subset the package's own elements rely on
+  (box-sizing/border resets, heading/paragraph margins, media display, form-control font
+  inheritance, button appearance and cursor) is scoped at Preflight's zero cascade specificity
+  under the new `setta-workspace` marker class, which every package-rendered root now carries —
+  the canvas, toolbar, tooltip, and both drag overlays portaled to `document.body`. The
+  playground consumes only the compiled artifact: its Tailwind content no longer scans package
+  source, its own preflight remains host chrome (mirroring the reference application shell), and
+  the Phase 1 cascade fix for the reset-zoom control survives by its existing doubled-class
+  specificity, which the build now asserts. The forbidden-import verification is mechanical:
+  `scripts/check-package-boundary.mjs` joined the static quality gate (every package source
+  import must be package-relative or a declared dependency, test files may also use dev
+  dependencies, and the package tsconfigs must not alias resolution), and its `--built` mode
+  runs at the end of every package build (bundled artifact imports only declared runtime
+  dependencies/peers; stylesheet contains no host-wide selectors and retains the scoped base
+  and reset-zoom markers). Because the playground typechecks against the built declarations,
+  the quality gate now demands `packages/workspace/dist` with an explicit failure message
+  instead of building implicitly; the build command is `pnpm --filter @setta/workspace build`
+  (root `pnpm run build`). Knip derives the production entry from the vite library config, and
+  the redundant explicit entry was removed after Knip flagged it.
+- Remaining Phase 2 work: the temporary Setta integration worktree and the packed unrelated
+  consumer (items 5–6), donor consideration (item 7), and integration evidence (item 8).
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

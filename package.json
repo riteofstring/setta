@@ -8,6 +8,7 @@
     "node": "25.2.1"
   },
   "scripts": {
+    "build": "pnpm --filter @setta/workspace run build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "quality": "node scripts/quality.mjs",

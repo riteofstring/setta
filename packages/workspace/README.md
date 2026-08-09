@@ -45,6 +45,21 @@ kind's renderer without reading it.
 
 ## Consumption during extraction
 
-Phase 1 consumers (the playground) compile the package source directly through the `exports`
-map; Phase 2 ships compiled ESM, declarations, and the compiled scoped stylesheet. The
-package is local and unpublished for the duration of the extraction plan.
+Consumers install the compiled package: the `exports` map serves ESM with a source map
+(`dist/index.js`), TypeScript declarations (`dist/types/`), and the compiled scoped stylesheet
+(`@setta/workspace/styles.css`). `pnpm --filter @setta/workspace build` produces `dist/` —
+`vite build` bundles the runtime with every dependency external, `tsc -p tsconfig.build.json`
+emits declarations, the Tailwind CLI compiles the stylesheet from package source alone, and
+`scripts/check-package-boundary.mjs --built` verifies the artifact imports and stylesheet
+scoping. The quality gate typechecks the playground against the built declarations, so build
+before running it on a fresh tree.
+
+The stylesheet ships without global Tailwind Preflight: every rule is class-scoped, and the
+Preflight subset the package's own elements rely on is scoped under the `setta-workspace`
+marker class (`src/styles/scopedBase.css`), which the package applies to every root it
+renders — the canvas, the toolbar and tooltip surfaces, and the drag overlays portaled to
+`document.body`. Hosts need no Tailwind setup; the optional `@setta/workspace/tailwind-preset`
+export exists for hosts that want the setta palette in their own chrome, as the playground
+does. Host page context (fonts, background) stays host-owned, as in the reference application.
+
+The package is local and unpublished for the duration of the extraction plan.

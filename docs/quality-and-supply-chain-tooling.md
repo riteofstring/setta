@@ -29,10 +29,22 @@ toolchain below.
 explicit list.
 
 The changed-file gate runs, in order: dependency/boundary policy (`scripts/check-dependencies.mjs`),
-Prettier check, `bash -n` shell syntax, ESLint (type-aware TypeScript baseline with React Hooks and
-JSX accessibility), file-length ceilings, `tsc --noEmit` for each workspace `tsconfig.json`, and
-Knip dead-code analysis. Tests, builds, packing, browser checks, and networked audits are separate
+the package forbidden-import boundary (`scripts/check-package-boundary.mjs`: every
+`packages/workspace` source import must be package-relative or a declared dependency — test files
+may also use dev dependencies — and the package tsconfigs must not alias resolution), Prettier
+check, `bash -n` shell syntax, ESLint (type-aware TypeScript baseline with React Hooks and JSX
+accessibility), file-length ceilings, `tsc --noEmit` for each workspace `tsconfig.json`, and Knip
+dead-code analysis. Tests, builds, packing, browser checks, and networked audits are separate
 commands invoked by their phase gates — never part of the routine quality command.
+
+One build artifact is a gate prerequisite rather than a gate step: the playground resolves and
+typechecks `@setta/workspace` through its `exports` map, which points at the compiled `dist/`.
+The quality command fails with an explicit message when `packages/workspace/dist` is missing;
+run `pnpm --filter @setta/workspace build` (or root `pnpm run build`) first. The package build
+chains `vite build` (ESM plus source map), `tsc -p tsconfig.build.json` (declarations), the
+Tailwind compile of the scoped stylesheet, and `check-package-boundary.mjs --built`, which
+verifies that the bundled artifact imports only declared runtime dependencies and peers and that
+the compiled stylesheet contains no host-wide selectors.
 
 ## Enforced thresholds
 

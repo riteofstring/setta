@@ -1,7 +1,6 @@
 /* Extracted from the frozen reference's root index.css: the section grid system and the
- * transition-radius helper used by the section chrome. The playground compiles this file inside
- * its Tailwind entry during Phase 1; Phase 2 replaces that arrangement with the package-owned
- * compiled, scoped stylesheet. */
+ * transition-radius helper used by the section chrome. Compiled into the package-owned
+ * stylesheet through src/styles/index.css; consumers import the compiled dist/styles.css. */
 
 @layer utilities {
   .section-title {

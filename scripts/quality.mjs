@@ -33,6 +33,7 @@ function typecheckProjects() {
 
 console.log(`Checking ${selectedFiles.length} project files.`);
 run(process.execPath, [path.join(repositoryRoot, "scripts/check-dependencies.mjs")]);
+run(process.execPath, [path.join(repositoryRoot, "scripts/check-package-boundary.mjs")]);
 
 if (formattingFiles.length > 0) {
   runPnpm(["exec", "prettier", "--check", ...formattingFiles]);
@@ -56,6 +57,18 @@ run(process.execPath, [
 const tsconfigPaths = typecheckProjects();
 if (tsconfigPaths.length === 0) {
   console.log("No TypeScript projects yet; skipping typecheck.");
+}
+// The playground typechecks and resolves against the built package (`exports` points at dist),
+// so the static gate demands the artifact rather than silently skipping or building here.
+const workspaceDeclarationsPath = "packages/workspace/dist/types/index.d.ts";
+if (
+  existsSync(path.join(repositoryRoot, "packages/workspace")) &&
+  !existsSync(path.join(repositoryRoot, workspaceDeclarationsPath))
+) {
+  console.error(
+    `${workspaceDeclarationsPath} is missing; run \`pnpm --filter @setta/workspace build\` before the quality gate.`,
+  );
+  process.exit(1);
 }
 for (const tsconfigPath of tsconfigPaths) {
   runPnpm(["exec", "tsc", "-p", tsconfigPath, "--noEmit", "--pretty", "false"]);

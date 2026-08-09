@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { RiDragDropFill } from "react-icons/ri";
 import { BehaviorDropTypeEnum, behaviorToPretty, type BehaviorDropType } from "../../dnd/dropTypes";
 import { DROP_FEEDBACK_Z_INDEX } from "../../dnd/layers";
+import { WORKSPACE_SCOPE_CLASS_NAME } from "../../styles/workspaceScope";
 import { useSectionRefs } from "../sectionRefs";
 
 type DropIndicatorRect = {
@@ -56,7 +57,7 @@ function DndSlotMiddle({
 }) {
   return createPortal(
     <div
-      className={`grid justify-center ${
+      className={`${WORKSPACE_SCOPE_CLASS_NAME} grid justify-center ${
         isGroup ? "[place-content:end_center]" : "place-content-center"
       }`}
       data-dnd-slot-overlay="true"

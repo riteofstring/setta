@@ -1,8 +1,9 @@
 import workspacePreset from "@setta/workspace/tailwind-preset";
 
-// Scanning the package source is the provisional Phase 1 arrangement; Phase 2 ships the
-// package-owned compiled stylesheet instead.
+// The playground's Tailwind covers only its own host chrome; the package surface arrives fully
+// compiled through `@setta/workspace/styles.css`. The preset supplies the setta palette the host
+// chrome shares with the reference application shell.
 export default {
   presets: [workspacePreset],
-  content: ["./index.html", "./src/**/*.{ts,tsx}", "../../packages/workspace/src/**/*.{ts,tsx}"],
+  content: ["./index.html", "./src/**/*.{ts,tsx}"],
 };

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { createWithEqualityFn } from "zustand/traditional";
 import { withResetFn } from "../state/storeUtils";
+import { WORKSPACE_SCOPE_CLASS_NAME } from "../styles/workspaceScope";
 
 // The seam-8 tooltip singleton: the reference's `FloatingBox` trimmed to its mouse-following
 // form. The box is enabled while the tooltip key is held (the reference's `showTooltipShortcut`,
@@ -103,7 +104,7 @@ export function WorkspaceTooltip() {
 
   return (
     <div
-      className="absolute left-0 top-0 z-[80]"
+      className={`${WORKSPACE_SCOPE_CLASS_NAME} absolute left-0 top-0 z-[80]`}
       ref={boxRef}
       style={{
         transform: `translate(${positionRef.current.x}px, ${positionRef.current.y}px)`,

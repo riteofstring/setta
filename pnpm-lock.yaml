@@ -151,6 +151,9 @@ importers:
       react-dom:
         specifier: 19.1.1
         version: 19.1.1(react@19.1.1)
+      tailwindcss:
+        specifier: 3.4.1
+        version: 3.4.1
       vite:
         specifier: 6.4.3
         version: 6.4.3(jiti@2.7.0)(yaml@2.9.0)

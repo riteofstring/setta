@@ -4,11 +4,15 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./styles.css": "./src/styles/workspace.css",
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles.css": "./dist/styles.css",
     "./tailwind-preset": "./tailwind-preset.mjs"
   },
   "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json && tailwindcss -c tailwind.config.js -i src/styles/index.css -o dist/styles.css && node ../../scripts/check-package-boundary.mjs --built",
     "test": "vitest run"
   },
   "dependencies": {
@@ -45,6 +49,7 @@
     "jsdom": "28.1.0",
     "react": "19.1.1",
     "react-dom": "19.1.1",
+    "tailwindcss": "3.4.1",
     "vite": "6.4.3",
     "vitest": "4.1.10"
   }
