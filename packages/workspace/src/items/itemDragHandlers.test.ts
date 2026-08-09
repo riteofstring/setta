@@ -185,12 +185,15 @@ describe("item drag lifecycle", () => {
   });
 
   it("drags the shared-parent selection roots together and collapses cross-parent selections", () => {
+    // A document load releases item-select mode, so each mid-test reload re-enters it.
     loadTestDocument(["item-c", "item-d"]);
+    activateItemSelect();
     handleItemDragStart(makeStartEvent("item-c"), null);
     expect(useItemDndState.getState().draggingIds).toEqual(["item-c", "item-d"]);
 
     resetItemDragState();
     loadTestDocument(["item-a", "item-c"]);
+    activateItemSelect();
     handleItemDragStart(makeStartEvent("item-a"), null);
     // The reference's multi-parent toast stays application-side; the fallback drags only the
     // active item and collapses the selection to it.
@@ -209,8 +212,13 @@ describe("item drag lifecycle", () => {
     expect(useItemDndState.getState().activeId).toBeNull();
 
     registerTestListView({ filterActive: true });
+    changeCallback.mockClear();
     handleItemDragStart(makeStartEvent("item-a"), null);
     expect(useItemDndState.getState().activeId).toBeNull();
+    // The filter abort is side-effect-free: the selection collapse never commits and the
+    // host is never notified, as the reference checks its filter before anything mutates.
+    expect(getPanelItemTree().selectedItemIds).toEqual([]);
+    expect(changeCallback).not.toHaveBeenCalled();
   });
 
   it("reorders the placeholder within the parent from a past-halfway collision", async () => {

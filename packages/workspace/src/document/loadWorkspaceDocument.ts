@@ -4,8 +4,11 @@ import {
 } from "../canvas/documentViewportSync";
 import { maybeCompleteInitialFitView } from "../canvas/nodeInternalsActions";
 import { resetDndSessionForLoadedDocument } from "../dnd/dndState";
+import { assertNoReservedItemDndTokens } from "../dnd/itemDndState";
+import { resetItemDragState } from "../items/itemDragHandlers";
 import { runWithWorkspaceDocumentChangeNotificationsSuppressed } from "./documentChangeCallback";
 import { isGroupSection } from "./documentSelectors";
+import { deactivateItemSelect } from "./itemSelectionMode";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
 import { getRegisteredSectionKindOrThrow } from "./sectionKindRegistry";
 import {
@@ -102,6 +105,7 @@ function assertValidItemChildClaims(sectionId: string, itemTree: WorkspaceSectio
         `Section ${sectionId} item record key ${itemId} does not match item id ${item.id}.`,
       );
     }
+    assertNoReservedItemDndTokens(itemId, `Section ${sectionId} item id`);
     for (const childId of item.children) {
       if (!(childId in itemTree.items)) {
         throw new Error(`Section ${sectionId} item ${itemId} lists unknown child ${childId}.`);
@@ -160,9 +164,15 @@ function assertValidItemSelection(sectionId: string, itemTree: WorkspaceSectionI
 
 function assertValidSectionItemTrees(sections: Record<string, WorkspaceSection>) {
   for (const [sectionId, section] of Object.entries(sections)) {
-    if (section.itemTree) {
-      assertValidSectionItemTree(sectionId, section.itemTree);
+    if (!section.itemTree) {
+      continue;
     }
+    // The reference cannot represent params on a Group (its section-click policy guards on
+    // `isBaseSectionWithParamsImpl`), so a group section never carries an item tree.
+    if (isGroupSection(section)) {
+      throw new Error(`Section ${sectionId} is a group section and cannot carry an item tree.`);
+    }
+    assertValidSectionItemTree(sectionId, section.itemTree);
   }
 }
 
@@ -223,6 +233,10 @@ export function loadWorkspaceDocument(document: WorkspaceDocumentInput): void {
       },
     );
     resetDndSessionForLoadedDocument(new Set(Object.keys(document.sections)));
+    // The item half of the drag-session reset: a load replaces the document the item drag
+    // bookkeeping references, and item-select mode releases like the held section dnd modes.
+    resetItemDragState();
+    deactivateItemSelect();
     applyLoadedDocumentViewport(document.viewport);
   });
   // Outside the suppression: when surviving measurements let the armed fit complete

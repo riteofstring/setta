@@ -3,8 +3,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import type { ReactFlowState } from "../canvas/types";
 import { setDndDisabled, useDndState } from "../dnd/dndState";
+import { updateItemChildren, useItemDndChildren } from "../dnd/itemDndChildren";
+import { setItemDndState, useItemDndState } from "../dnd/itemDndState";
 import { getWorkspaceDocument } from "./documentChangeCallback";
 import { getHighestAncestor } from "./documentSelectors";
+import { activateItemSelect, useItemSelectionMode } from "./itemSelectionMode";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { registerSectionKinds } from "./sectionKindRegistry";
 import {
@@ -59,6 +62,9 @@ function resetWorkspaceStores() {
   useActiveSections.getState().reset();
   useWorkspaceAppearance.getState().reset();
   useDndState.getState().reset();
+  useItemDndState.getState().reset();
+  useItemDndChildren.getState().reset();
+  useItemSelectionMode.getState().reset();
   useReactFlow.setState({ ...initialCanvasState });
 }
 
@@ -362,6 +368,28 @@ describe("loadWorkspaceDocument", () => {
         selectedItemIds: ["a", "a"],
       }),
     ).toThrowError(/selects item a twice/);
+    // Host item ids ride the dnd-id wire encoding verbatim, so the reserved tokens are
+    // rejected at load instead of silently mis-decoding mid-drag.
+    expect(() =>
+      load({
+        rootId: "item-root",
+        items: {
+          "item-root": { id: "item-root", children: ["a::settaParamList::b"] },
+          "a::settaParamList::b": { id: "a::settaParamList::b", children: [] },
+        },
+        selectedItemIds: [],
+      }),
+    ).toThrowError(/contains the reserved dnd token "::settaParamList::"/);
+    expect(() =>
+      load({
+        rootId: "item-root",
+        items: {
+          "item-root": { id: "item-root", children: ["a::TempParamDND"] },
+          "a::TempParamDND": { id: "a::TempParamDND", children: [] },
+        },
+        selectedItemIds: [],
+      }),
+    ).toThrowError(/contains the reserved dnd token "::TempParamDND"/);
   });
 
   it("rejects top-level layouts and active ids for unknown sections", () => {
@@ -422,5 +450,40 @@ describe("loadWorkspaceDocument", () => {
     expect(dndState.isSorting).toBe(false);
     expect(dndState.activeId).toBeNull();
     expect(Object.keys(dndState.disabled)).toEqual(["leaf"]);
+  });
+
+  it("force-ends the item drag session and releases item-select mode", () => {
+    loadWorkspaceDocument(makeDocument());
+    activateItemSelect();
+    setItemDndState({ activeId: "item-a", sectionId: "leaf", listKey: "main" });
+    updateItemChildren({ "item-root": ["item-a"] });
+
+    loadWorkspaceDocument(makeDocument());
+
+    expect(useItemDndState.getState().activeId).toBeNull();
+    expect(useItemDndChildren.getState().x).toEqual({});
+    expect(useItemSelectionMode.getState().isSelectingItems).toBe(false);
+  });
+
+  it("rejects an item tree on a group section", () => {
+    expect(() =>
+      loadWorkspaceDocument(
+        makeDocument({
+          sections: {
+            root: makeSection("root", {
+              kind: "group",
+              children: [],
+              itemTree: {
+                rootId: "item-root",
+                items: { "item-root": { id: "item-root", children: [] } },
+                selectedItemIds: [],
+              },
+            }),
+          },
+          topLevelSections: { root: { x: 0, y: 0, w: 400, h: 300, zIndex: 0 } },
+          activeIds: [],
+        }),
+      ),
+    ).toThrowError(/group section and cannot carry an item tree/);
   });
 });

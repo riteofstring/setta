@@ -100,17 +100,19 @@ export function handleItemDragStart(event: DragStartEvent, manager: DragDropMana
     return;
   }
 
+  // The filter abort runs before the selection collapse can commit, as the reference checks
+  // its param filter before anything mutates.
+  const view = resolveItemListView(sectionId, activeId, dragData.listKey);
+  if (!view || view.filterActive) {
+    return;
+  }
+
   const draggingIds = resolveDraggingItemIds({
     sectionId,
     activeId,
     parentById,
     selectedItemIds: itemTree.selectedItemIds,
   });
-
-  const view = resolveItemListView(sectionId, activeId, dragData.listKey);
-  if (!view || view.filterActive) {
-    return;
-  }
 
   const tree = buildItemTreeView(itemTree, view.topLevelItemIds, view.visibleItemIds);
   const activeDndId = getItemDndId(activeId, view.listKey);

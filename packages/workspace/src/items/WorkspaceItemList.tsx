@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import type { ItemListKey } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { getSectionItemTreeOrThrow } from "../document/documentSelectors";
@@ -12,7 +12,12 @@ import {
   type ItemRowRenderContext,
 } from "./ItemListContext";
 import { ItemRow } from "./ItemRow";
-import { registerItemListView, unregisterItemListView } from "./itemListRegistry";
+import {
+  isItemListViewRegistered,
+  registerItemListView,
+  unregisterItemListView,
+  updateItemListView,
+} from "./itemListRegistry";
 
 // The reference's `ParamDndList` as the registered item surface: the host mounts one list per
 // item area (the reference hard-codes its pinned/unpinned areas), names it with a list key,
@@ -86,15 +91,25 @@ export function WorkspaceItemList({
     [itemTree, topLevelItemIds, visibleSet],
   );
 
+  const view = useMemo(
+    () => ({ listKey, topLevelItemIds, visibleItemIds: visibleSet, filterActive }),
+    [filterActive, listKey, topLevelItemIds, visibleSet],
+  );
+  const viewRef = useRef(view);
+
+  // Keeps the latest view for the registration effect below and refreshes a live
+  // registration in place, so re-renders never change the section's mount order.
   useEffect(() => {
-    registerItemListView(sectionId, {
-      listKey,
-      topLevelItemIds,
-      visibleItemIds: visibleSet,
-      filterActive,
-    });
+    viewRef.current = view;
+    if (isItemListViewRegistered(sectionId, view.listKey)) {
+      updateItemListView(sectionId, view);
+    }
+  }, [sectionId, view]);
+
+  useEffect(() => {
+    registerItemListView(sectionId, viewRef.current);
     return () => unregisterItemListView(sectionId, listKey);
-  }, [filterActive, listKey, sectionId, topLevelItemIds, visibleSet]);
+  }, [sectionId, listKey]);
 
   return (
     <ItemListProvider

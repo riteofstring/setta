@@ -175,6 +175,88 @@ describe("WorkspaceItemList", () => {
     expect(host.querySelector('[data-testid="row-item-c"]')).toBeNull();
   });
 
+  it("renders the nested-root layout when a non-group row has child rows", async () => {
+    // The reference's "renders the nested-root layout when top-level params have child rows":
+    // a leaf-styled row that carries children takes the subgrid nested-root layout.
+    loadWorkspaceDocument({
+      sections: {
+        panel: {
+          id: "panel",
+          kind: "leaf",
+          name: "panel",
+          size: { width: 280, height: 240 },
+          isMinimized: false,
+          positionAndSizeLocked: false,
+          isHorizontalOrientation: false,
+          styleColor: null,
+          tagColor: null,
+          children: [],
+          itemTree: {
+            rootId: "item-root",
+            items: {
+              "item-root": { id: "item-root", children: ["item-nest"] },
+              "item-nest": { id: "item-nest", children: ["item-n1"], data: { group: false } },
+              "item-n1": { id: "item-n1", children: [], data: { group: false } },
+            },
+            selectedItemIds: [],
+          },
+        },
+      },
+      topLevelSections: { panel: { x: 0, y: 0, w: 280, h: 240, zIndex: 0 } },
+      viewport: { x: 0, y: 0, zoom: 1 },
+      activeIds: [],
+    });
+    await mount({ topLevelItemIds: ["item-nest"] });
+
+    const nestedRootRow = getRowByContent(host, "item-nest");
+    expect(nestedRootRow.className).toContain("section-args-nested-key-value");
+    expect(nestedRootRow.style.gridTemplateColumns).toContain("[c3]");
+
+    const rail = host.querySelector<HTMLElement>("div.section-args-nested");
+    expect(rail?.contains(getRowByContent(host, "item-n1"))).toBe(true);
+  });
+
+  it("takes the section-style-theme treatments only when the style color derives a theme", async () => {
+    const loadPanelWithStyleColor = (styleColor: string | null) => {
+      const itemTree = makeItemTree();
+      itemTree.selectedItemIds = ["item-a"];
+      loadWorkspaceDocument({
+        sections: {
+          panel: {
+            id: "panel",
+            kind: "leaf",
+            name: "panel",
+            size: { width: 280, height: 240 },
+            isMinimized: false,
+            positionAndSizeLocked: false,
+            isHorizontalOrientation: false,
+            styleColor,
+            tagColor: null,
+            children: [],
+            itemTree,
+          },
+        },
+        topLevelSections: { panel: { x: 0, y: 0, w: 280, h: 240, zIndex: 0 } },
+        viewport: { x: 0, y: 0, zoom: 1 },
+        activeIds: [],
+      });
+    };
+
+    loadPanelWithStyleColor("#3b82f6");
+    await mount();
+    expect(getRowByContent(host, "item-a").className).toContain(
+      "!bg-[color:var(--setta-section-style-outline)]",
+    );
+
+    // A style color that derives no theme leaves the row on the plain selected treatment,
+    // matching the section chrome's derived-theme gate.
+    loadPanelWithStyleColor("");
+    await mount();
+    const plainRow = getRowByContent(host, "item-a");
+    expect(plainRow.className).toContain("!bg-blue-700");
+    expect(plainRow.className).not.toContain("--setta-section-style-outline");
+  });
+
   it("registers its list view while mounted", async () => {
     await mount();
     expect(resolveItemListView("panel", "item-c", LIST_KEY)?.listKey).toBe(LIST_KEY);
@@ -183,6 +265,15 @@ describe("WorkspaceItemList", () => {
       root.render(createElement(ItemDndContext, null));
     });
     expect(resolveItemListView("panel", "item-c", LIST_KEY)).toBeNull();
+  });
+
+  it("updates its registered view in place on re-render", async () => {
+    await mount();
+    expect(resolveItemListView("panel", "item-c", LIST_KEY)?.listKey).toBe(LIST_KEY);
+
+    await mount({ visibleItemIds: ["item-a", "item-b"] });
+    expect(resolveItemListView("panel", "item-c", LIST_KEY)).toBeNull();
+    expect(resolveItemListView("panel", "item-a", LIST_KEY)?.listKey).toBe(LIST_KEY);
   });
 
   it("toggles canonical selection from row clicks only in item-select mode", async () => {

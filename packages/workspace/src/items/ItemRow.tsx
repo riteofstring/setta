@@ -8,7 +8,8 @@ import { getSectionItemTreeOrThrow, getSectionOrThrow } from "../document/docume
 import { toggleItemSelected } from "../document/itemSelection";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { getItemOrThrow } from "../document/itemTree";
-import { useWorkspaceDocument } from "../document/stores";
+import { useWorkspaceAppearance, useWorkspaceDocument } from "../document/stores";
+import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
 import { useItemDndChildrenForParent, useItemListContext } from "./ItemListContext";
 
 // The reference's `ParamSwitch`/`ParamContainer` row pair trimmed to the package seam: the
@@ -296,14 +297,21 @@ function ItemNestedChildren({ renderChildren }: { renderChildren: Array<string> 
 function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
   const { enabled, sectionId, listKey, visibleItemIds, renderItem, isGroupItem } =
     useItemListContext();
+  const darkMode = useWorkspaceAppearance((x) => x.darkMode);
   const rowState = useWorkspaceDocument((x) => {
     const itemTree = getSectionItemTreeOrThrow(x, sectionId);
+    const styleColor = getSectionOrThrow(x, sectionId).styleColor;
     return {
       item: getItemOrThrow(itemTree, itemId),
       isSelected: itemTree.selectedItemIds.includes(itemId),
-      hasSectionStyleTheme: getSectionOrThrow(x, sectionId).styleColor !== null,
+      styleColor,
     };
   }, _.isEqual);
+  // The same derived-theme gate as the section chrome: a style color that derives no theme
+  // leaves the row on the plain treatments, so the themed classes never reference unset vars.
+  const hasSectionStyleTheme = Boolean(
+    rowState.styleColor && deriveSectionStyleTheme(rowState.styleColor, darkMode),
+  );
   const { handleItemClick, handleItemMouseDown, handleItemKeyDown } = useItemSelectionHandlers(
     sectionId,
     itemId,
@@ -335,10 +343,10 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
     layout,
     {
       bg: resolveItemBackgroundClass({
-        hasSectionStyleTheme: rowState.hasSectionStyleTheme,
+        hasSectionStyleTheme: hasSectionStyleTheme,
         isSelected: rowState.isSelected,
       }),
-      hoverClassName: getItemHoverClassName(rowState.hasSectionStyleTheme),
+      hoverClassName: getItemHoverClassName(hasSectionStyleTheme),
       dndClassName: isDragging ? "opacity-80" : "",
       dndStyle: createSortableStyle({ transform, transition, isDragging }),
     },
@@ -384,7 +392,10 @@ function ItemRowShell({
   children: ReactNode;
 }) {
   // The reference renders rows as role-less articles; the package row is a div with a button
-  // role and keyboard activation for the repository's accessibility gate — visually identical.
+  // role and a keyboard selection toggle for the repository's accessibility gate — visually
+  // identical. Rows stay out of the tab order (tabIndex -1): Tab is the item indent chord
+  // while a selection exists, so the toggle is reachable from click or programmatic focus,
+  // not from tab navigation, matching the reference's role-less rows.
   return (
     <div
       className={rowClassName}
@@ -397,7 +408,7 @@ function ItemRowShell({
       {...(dndAttributes as React.HTMLAttributes<HTMLDivElement>)}
       {...(dndListeners as React.HTMLAttributes<HTMLDivElement>)}
       role="button"
-      tabIndex={-1} // keeps the row focusable for programmatic focus
+      tabIndex={-1}
     >
       {children}
     </div>

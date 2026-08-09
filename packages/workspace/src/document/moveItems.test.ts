@@ -126,6 +126,17 @@ describe("moveItems", () => {
     expect(documentChangeSpy).not.toHaveBeenCalled();
   });
 
+  it("leaves the tree untouched and silent when the first item is detached", () => {
+    // The root has no parent and an unknown id has no parent-map entry: both abort before
+    // anything mutates, the third documented silent-abort leg beside empty ids and
+    // out-of-range indices.
+    moveItems({ sectionId: "leaf", itemIds: ["item-root"], newParentId: "group", newIndex: 0 });
+    moveItems({ sectionId: "leaf", itemIds: ["missing"], newParentId: "item-root", newIndex: 0 });
+
+    expect(getLoadedItemTree().items["item-root"]?.children).toEqual(["a", "b", "group"]);
+    expect(documentChangeSpy).not.toHaveBeenCalled();
+  });
+
   it("throws instead of nesting items into their own subtree", () => {
     expect(() =>
       moveItems({ sectionId: "leaf", itemIds: ["group"], newParentId: "nested", newIndex: 0 }),

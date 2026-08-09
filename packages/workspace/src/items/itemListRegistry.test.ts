@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  isItemListViewRegistered,
   registerItemListView,
   resetItemListViews,
   resolveItemListView,
   unregisterItemListView,
+  updateItemListView,
   type RegisteredItemListView,
 } from "./itemListRegistry";
 
@@ -54,5 +56,40 @@ describe("resolveItemListView", () => {
     unregisterItemListView("section", "main");
 
     expect(resolveItemListView("section", "item-a", "main")).toBeNull();
+  });
+
+  it("keeps the mount order when a registered view updates in place", () => {
+    registerItemListView("section", makeView("pinned", ["item-a"]));
+    registerItemListView("section", makeView("unpinned", ["item-a"]));
+
+    updateItemListView("section", makeView("pinned", ["item-a", "item-b"]));
+
+    // The fallback still resolves the first-mounted list, not the most recently updated one.
+    expect(resolveItemListView("section", "item-a", null)?.listKey).toBe("pinned");
+    expect(resolveItemListView("section", "item-b", null)?.listKey).toBe("pinned");
+  });
+
+  it("fails loudly on a list key carrying a reserved dnd token", () => {
+    expect(() =>
+      registerItemListView("section", makeView("bad::settaParamList::key", ["item-a"])),
+    ).toThrow(/contains the reserved dnd token "::settaParamList::"/);
+    expect(() =>
+      registerItemListView("section", makeView("bad::TempParamDND", ["item-a"])),
+    ).toThrow(/contains the reserved dnd token "::TempParamDND"/);
+  });
+
+  it("fails loudly on a duplicate list key registration", () => {
+    registerItemListView("section", makeView("main", ["item-a"]));
+
+    expect(() => registerItemListView("section", makeView("main", ["item-b"]))).toThrow(
+      'item list key "main" is already registered for section "section"',
+    );
+  });
+
+  it("fails loudly when updating an unregistered view", () => {
+    expect(() => updateItemListView("section", makeView("main", ["item-a"]))).toThrow(
+      'item list key "main" is not registered for section "section"',
+    );
+    expect(isItemListViewRegistered("section", "main")).toBe(false);
   });
 });

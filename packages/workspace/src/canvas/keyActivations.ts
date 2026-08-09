@@ -47,89 +47,129 @@ function getIsEditableTarget(event: KeyboardEvent): boolean {
 
 const modifierKeys = new Set(["Shift", "Meta", "Control", "Alt"]);
 
-// The reference prunes pressed keys whose keydown is older than this before processing the
-// next keydown: on macOS, keyups are swallowed while Meta is held, so a swallowed key can
-// only be told apart from a held one by its auto-repeat refreshing the timestamp.
-const STALE_HELD_KEY_MS = 100;
+// One engine-bound hold shortcut: the exact modifier state plus the exact non-modifier
+// pressed set that must match for the mode to hold.
+type HoldChord = {
+  mod: boolean;
+  alt: boolean;
+  shift: boolean;
+  keys: Array<string>;
+};
 
-// The reference's hold-shortcut semantics for the dnd modes and the item-select chord: a mode
-// activates on the keydown whose modifier state matches it exactly (with no non-modifier keys
-// held), releases through its deactivation action as soon as any event no longer matches, and
-// — like the reference engine — non-repeat keydown events are the only activator: auto-repeat
-// keydowns never activate a mode, so releasing Mod while still holding Alt deactivates sorting
-// without re-entering the free-move mode even where modifier keys auto-repeat.
+type HoldMode = {
+  chord: HoldChord;
+  // The reference engine ignores its shift-only, mod-only, and no-modifier shortcut
+  // patterns while typing in an input (`getIgnoreWhenInInputField`); the alt-parsed dnd
+  // holds and the Mod+Shift item chord are not in that set and activate everywhere.
+  ignoreInInput: boolean;
+  pressed: boolean;
+  activate: () => void;
+  deactivate: () => void;
+};
+
+// The reference's hold-shortcut semantics, shared by the dnd modes, the item-select chord,
+// and the canvas activation keys (marquee "Shift", multi-select and zoom "Mod", pan
+// "Space"): a mode activates on the keydown whose modifier state and pressed-key set match
+// it exactly, releases through its deactivation action as soon as any event no longer
+// matches, and — like the reference engine — non-repeat keydown events are the only
+// activator: auto-repeat keydowns never activate a mode, so releasing Mod while still
+// holding Alt deactivates sorting without re-entering the free-move mode even where
+// modifier keys auto-repeat. The reference prunes stale pressed keys only on the first
+// keydown after a key'd Mod shortcut ran; the package owns no key'd Mod chords, so there is
+// no prune — swallowed macOS keyups are recovered by the Meta-keyup clear below.
 function createHoldChordTracker(macOS: boolean) {
-  const heldKeys = new Map<string, number>();
-  let movingFreePressed = false;
-  let sortingPressed = false;
-  let itemSelectPressed = false;
+  const heldKeys = new Set<string>();
 
-  function matchesModifiers(event: KeyboardEvent, withMod: boolean): boolean {
-    if (heldKeys.size > 0 || event.shiftKey || !event.altKey) {
+  const modes: Array<HoldMode> = [
+    {
+      chord: { mod: false, alt: true, shift: false, keys: [] },
+      ignoreInInput: false,
+      pressed: false,
+      activate: activateDndMovingFreeMode,
+      deactivate: deactivateDnd,
+    },
+    {
+      chord: { mod: true, alt: true, shift: false, keys: [] },
+      ignoreInInput: false,
+      pressed: false,
+      activate: activateDndSortingMode,
+      deactivate: deactivateDnd,
+    },
+    // The reference's `paramSelect` shortcut "Mod + Shift": exactly Mod and Shift.
+    {
+      chord: { mod: true, alt: false, shift: true, keys: [] },
+      ignoreInInput: false,
+      pressed: false,
+      activate: activateItemSelect,
+      deactivate: deactivateItemSelect,
+    },
+    {
+      chord: { mod: false, alt: false, shift: true, keys: [] },
+      ignoreInInput: true,
+      pressed: false,
+      activate: () => useReactFlow.setState({ selectionKeyPressed: true }),
+      deactivate: () => useReactFlow.setState({ selectionKeyPressed: false }),
+    },
+    // The reference registers multi-selection and zoom activation as two "Mod" shortcuts
+    // with identical lifecycles; the package drives both states through one mode.
+    {
+      chord: { mod: true, alt: false, shift: false, keys: [] },
+      ignoreInInput: true,
+      pressed: false,
+      activate: () =>
+        useReactFlow.setState({ multiSelectionActive: true, zoomActivationKeyPressed: true }),
+      deactivate: () =>
+        useReactFlow.setState({ multiSelectionActive: false, zoomActivationKeyPressed: false }),
+    },
+    {
+      chord: { mod: false, alt: false, shift: false, keys: ["Space"] },
+      ignoreInInput: true,
+      pressed: false,
+      activate: () => useReactFlow.setState({ panActivationKeyPressed: true }),
+      deactivate: () => useReactFlow.setState({ panActivationKeyPressed: false }),
+    },
+  ];
+
+  // The reference engine's pressed-key equality (`isShortcutPressed` compares the whole
+  // non-modifier pressed set against the shortcut's keys).
+  function heldKeysEqual(codes: Array<string>): boolean {
+    return heldKeys.size === codes.length && codes.every((code) => heldKeys.has(code));
+  }
+
+  function matchesChord(event: KeyboardEvent, chord: HoldChord): boolean {
+    if (event.shiftKey !== chord.shift || event.altKey !== chord.alt) {
       return false;
     }
-    if (macOS) {
-      return event.metaKey === withMod && !event.ctrlKey;
-    }
-    return event.ctrlKey === withMod;
-  }
-
-  // The reference's `paramSelect` shortcut "Mod + Shift": exactly Mod and Shift, nothing else.
-  function matchesItemSelectChord(event: KeyboardEvent): boolean {
-    if (heldKeys.size > 0 || !event.shiftKey || event.altKey) {
+    if (!heldKeysEqual(chord.keys)) {
       return false;
     }
-    return macOS ? event.metaKey && !event.ctrlKey : event.ctrlKey;
+    return macOS ? event.metaKey === chord.mod && !event.ctrlKey : event.ctrlKey === chord.mod;
   }
 
-  function releaseUnmatchedModes(event: KeyboardEvent) {
-    if (movingFreePressed && !matchesModifiers(event, false)) {
-      movingFreePressed = false;
-      deactivateDnd();
+  function releaseMode(mode: HoldMode) {
+    if (!mode.pressed) {
+      return;
     }
-    if (sortingPressed && !matchesModifiers(event, true)) {
-      sortingPressed = false;
-      deactivateDnd();
-    }
-    if (itemSelectPressed && !matchesItemSelectChord(event)) {
-      itemSelectPressed = false;
-      deactivateItemSelect();
-    }
-  }
-
-  function pruneStaleHeldKeys() {
-    const now = Date.now();
-    for (const [code, timestamp] of heldKeys) {
-      if (now - timestamp > STALE_HELD_KEY_MS) {
-        heldKeys.delete(code);
-      }
-    }
+    mode.pressed = false;
+    mode.deactivate();
   }
 
   return {
     onKeyDown(event: KeyboardEvent) {
-      // The reference prunes after any Mod shortcut ran; the package owns no other Mod
-      // shortcuts to key that off, so it prunes before every keydown. Held keys survive
-      // through their auto-repeat refreshing the timestamp below.
-      pruneStaleHeldKeys();
       if (!modifierKeys.has(event.key)) {
-        heldKeys.set(event.code, Date.now());
+        heldKeys.add(event.code);
       }
-      releaseUnmatchedModes(event);
-      if (event.repeat) {
-        return;
-      }
-      if (!movingFreePressed && matchesModifiers(event, false)) {
-        movingFreePressed = true;
-        activateDndMovingFreeMode();
-      }
-      if (!sortingPressed && matchesModifiers(event, true)) {
-        sortingPressed = true;
-        activateDndSortingMode();
-      }
-      if (!itemSelectPressed && matchesItemSelectChord(event)) {
-        itemSelectPressed = true;
-        activateItemSelect();
+      const editableTarget = getIsEditableTarget(event);
+      for (const mode of modes) {
+        if (!matchesChord(event, mode.chord)) {
+          releaseMode(mode);
+          continue;
+        }
+        if (mode.pressed || event.repeat || (mode.ignoreInInput && editableTarget)) {
+          continue;
+        }
+        mode.pressed = true;
+        mode.activate();
       }
     },
     onKeyUp(event: KeyboardEvent) {
@@ -139,49 +179,38 @@ function createHoldChordTracker(macOS: boolean) {
       if (macOS && event.key === "Meta") {
         heldKeys.clear();
       }
-      releaseUnmatchedModes(event);
+      for (const mode of modes) {
+        if (!matchesChord(event, mode.chord)) {
+          releaseMode(mode);
+        }
+      }
     },
     // The reference's aborted-Cmd-Tab recovery: switching away via Mod+Tab and back delivers
     // neither a keyup nor a blur, so the first mouse move without the mod key held releases
-    // the mod-gated modes (sorting and item select; free move is not mod-gated, matching the
-    // reference's mod-shortcut-only listener).
+    // every Mod-parsed mode (sorting, item select, and the multi-select/zoom activation;
+    // free move, marquee, and pan are not Mod-gated, matching the reference's
+    // mod-shortcut-only listener).
     onMouseMove(event: MouseEvent) {
-      if (!sortingPressed && !itemSelectPressed) {
+      if (!modes.some((mode) => mode.chord.mod && mode.pressed)) {
         return;
       }
       const modHeld = macOS ? event.metaKey : event.ctrlKey;
       if (modHeld) {
         return;
       }
-      if (sortingPressed) {
-        sortingPressed = false;
-        deactivateDnd();
-      }
-      if (itemSelectPressed) {
-        itemSelectPressed = false;
-        deactivateItemSelect();
+      for (const mode of modes) {
+        if (mode.chord.mod) {
+          releaseMode(mode);
+        }
       }
     },
     onBlur() {
       heldKeys.clear();
-      if (movingFreePressed || sortingPressed) {
-        movingFreePressed = false;
-        sortingPressed = false;
-        deactivateDnd();
-      }
-      if (itemSelectPressed) {
-        itemSelectPressed = false;
-        deactivateItemSelect();
+      for (const mode of modes) {
+        releaseMode(mode);
       }
     },
-    isItemSelectPressed(): boolean {
-      return itemSelectPressed;
-    },
-    // The reference engine's pressed-key equality (`isShortcutPressed` compares the whole
-    // non-modifier pressed set against the shortcut's keys).
-    heldKeysEqual(codes: Array<string>): boolean {
-      return heldKeys.size === codes.length && codes.every((code) => heldKeys.has(code));
-    },
+    heldKeysEqual,
   };
 }
 
@@ -324,38 +353,9 @@ function handleEscapeShortcut(event: KeyboardEvent, tracker: HoldChordTracker, m
   clearActiveSectionSelectionIfNeeded(sectionNode);
 }
 
-// While the item-select chord is held, the reference's exact-chord Shift and Mod shortcuts
-// release (Mod+Shift matches neither), so the chord clears those states and suppresses
-// re-arming them until a keydown outside the chord.
-function updateActivationKeyStates(
-  event: KeyboardEvent,
-  itemSelectHeld: boolean,
-  modKey: string,
-  macOS: boolean,
-) {
-  if (itemSelectHeld) {
-    useReactFlow.setState({
-      selectionKeyPressed: false,
-      multiSelectionActive: false,
-      zoomActivationKeyPressed: false,
-    });
-  }
-  if (event.key === "Shift" && !itemSelectHeld) {
-    useReactFlow.setState({ selectionKeyPressed: true });
-  }
-  if (event.key === modKey && !itemSelectHeld) {
-    useReactFlow.setState({ multiSelectionActive: true, zoomActivationKeyPressed: true });
-  }
-  // The reference's "Space" pan shortcut matches only with no modifiers held.
-  if (event.key === " " && hasNoModifiers(event, macOS) && !getIsEditableTarget(event)) {
-    useReactFlow.setState({ panActivationKeyPressed: true });
-  }
-}
-
 export function useCanvasKeyActivations() {
   useEffect(() => {
     const macOS = isMacOs();
-    const modKey = macOS ? "Meta" : "Control";
     const chordTracker = createHoldChordTracker(macOS);
     // Mirrors the reference shortcut's `wasPressed`: the tooltip releases on any keydown that
     // no longer matches the bare tooltip key (the reference compares the full pressed-key
@@ -371,7 +371,6 @@ export function useCanvasKeyActivations() {
 
     const onKeyDown = (event: KeyboardEvent) => {
       chordTracker.onKeyDown(event);
-      updateActivationKeyStates(event, chordTracker.isItemSelectPressed(), modKey, macOS);
       if (isBareTooltipKey(event)) {
         if (!event.repeat && !getIsEditableTarget(event)) {
           tooltipPressed = true;
@@ -387,21 +386,11 @@ export function useCanvasKeyActivations() {
 
     const onKeyUp = (event: KeyboardEvent) => {
       chordTracker.onKeyUp(event);
-      if (event.key === "Shift") {
-        useReactFlow.setState({ selectionKeyPressed: false });
-      }
-      if (event.key === modKey) {
-        useReactFlow.setState({ multiSelectionActive: false, zoomActivationKeyPressed: false });
-        // On macOS, keyup events for held non-modifier keys are swallowed while Meta is down,
-        // so releasing Meta also releases the pan activation (the reference clears its
-        // pressed-key set the same way).
-        if (macOS) {
-          useReactFlow.setState({ panActivationKeyPressed: false });
-          disableTooltipIfPressed();
-        }
-      }
-      if (event.key === " ") {
-        useReactFlow.setState({ panActivationKeyPressed: false });
+      // On macOS, keyup events for the held tooltip key are swallowed while Meta is down, so
+      // releasing Meta also releases the tooltip (the reference clears its pressed-key set
+      // the same way).
+      if (macOS && event.key === "Meta") {
+        disableTooltipIfPressed();
       }
       if (event.key === "q" || event.key === "Q") {
         disableTooltipIfPressed();
@@ -414,12 +403,6 @@ export function useCanvasKeyActivations() {
 
     const onWindowBlur = () => {
       chordTracker.onBlur();
-      useReactFlow.setState({
-        selectionKeyPressed: false,
-        multiSelectionActive: false,
-        zoomActivationKeyPressed: false,
-        panActivationKeyPressed: false,
-      });
       disableTooltipIfPressed();
     };
 

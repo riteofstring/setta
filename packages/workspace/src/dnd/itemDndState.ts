@@ -57,6 +57,19 @@ export function resetItemDndState() {
 const ITEM_DND_LIST_KEY_SEPARATOR = "::settaParamList::";
 const ITEM_DND_TEMP_SUFFIX = "::TempParamDND";
 
+// Host-defined item ids and list keys ride the dnd-id encoding verbatim (the reference is
+// immune: its list keys are the closed pinned/unpinned union and its param ids are
+// app-generated). A value containing a reserved token would decode as the wrong item or
+// classify a real row as the temp placeholder, so the entry seams — document load and list
+// registration — fail loudly instead.
+export function assertNoReservedItemDndTokens(value: string, role: string): void {
+  for (const token of [ITEM_DND_LIST_KEY_SEPARATOR, ITEM_DND_TEMP_SUFFIX]) {
+    if (value.includes(token)) {
+      throw new Error(`${role} "${value}" contains the reserved dnd token "${token}".`);
+    }
+  }
+}
+
 export function getItemDndId(itemId: string, listKey: ItemListKey) {
   return `${itemId}${ITEM_DND_LIST_KEY_SEPARATOR}${listKey}`;
 }

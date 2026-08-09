@@ -1,4 +1,4 @@
-import type { ItemListKey } from "../dnd/itemDndState";
+import { assertNoReservedItemDndTokens, type ItemListKey } from "../dnd/itemDndState";
 
 // The registered-list-view half of the Phase 4 item surface. The reference resolves a drag's
 // list view from application state (`getParamListView` over its hard-coded pinned/unpinned
@@ -21,9 +21,29 @@ export type RegisteredItemListView = {
 const registeredListViewsBySection = new Map<string, Map<ItemListKey, RegisteredItemListView>>();
 
 export function registerItemListView(sectionId: string, view: RegisteredItemListView): void {
+  assertNoReservedItemDndTokens(view.listKey, "item list key");
   const views = registeredListViewsBySection.get(sectionId) ?? new Map();
+  if (views.has(view.listKey)) {
+    throw new Error(
+      `item list key "${view.listKey}" is already registered for section "${sectionId}"`,
+    );
+  }
   views.set(view.listKey, view);
   registeredListViewsBySection.set(sectionId, views);
+}
+
+export function isItemListViewRegistered(sectionId: string, listKey: ItemListKey): boolean {
+  return registeredListViewsBySection.get(sectionId)?.has(listKey) ?? false;
+}
+
+// Replaces a live registration in place: `Map.set` on an existing key keeps the section's
+// mount order, so a re-rendering list never migrates to the end of the resolution fallback.
+export function updateItemListView(sectionId: string, view: RegisteredItemListView): void {
+  const views = registeredListViewsBySection.get(sectionId);
+  if (!views?.has(view.listKey)) {
+    throw new Error(`item list key "${view.listKey}" is not registered for section "${sectionId}"`);
+  }
+  views.set(view.listKey, view);
 }
 
 export function unregisterItemListView(sectionId: string, listKey: ItemListKey): void {

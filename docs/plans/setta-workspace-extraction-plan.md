@@ -606,6 +606,29 @@ Phase 4 progress (2026-08-11):
   release, marquee suppression), the command dispatch (repeat, editable decline,
   `[data-tab-native]`, active-section gate), and the Escape ordering. Playground copy documents
   the chord and keyboard moves; its mode button stays as the pointer-driven host alternative.
+- Phase 4 coherence audit (2026-08-11): a five-reviewer audit of the four batches against the
+  reference confirmed the ported algorithms, state shapes, wire constants, and test fidelity and
+  surfaced fixes, applied with this entry. Keyboard: the canvas activation-key states (marquee,
+  multi-select+zoom, pan) moved into the hold-chord tracker with the reference engine's
+  exact-chord semantics — exact modifier state plus pressed-set equality, release on any
+  non-matching event, the engine's shift-only/mod-only/no-modifier input-field ignore, no arming
+  from auto-repeats — so Alt excludes the marquee, Alt joining Mod releases multi-select/zoom,
+  and the aborted-Cmd-Tab mouse-move sweep now releases every Mod-parsed mode as the reference's
+  `specialModTabCase` does; the always-prune of stale held keys was removed (the reference prunes
+  only on the first keydown after a key'd Mod shortcut ran and the package owns no key'd Mod
+  chords — the macOS Meta-keyup clear remains the swallow recovery), so a held key excludes
+  chords until its keyup, and the mac chord paths and Escape blur/fallback-focus steps gained
+  test coverage. Drag start: the filter abort now precedes the selection collapse, so an
+  aborted-for-filter start is side-effect-free as in the reference. Rows: the section-style-theme
+  row treatments now gate on the section chrome's derived-theme check instead of styleColor
+  presence, and the reference's nested-root layout case is ported. Registry: duplicate list keys
+  fail loudly, re-renders update a live registration in place so mount order never reshuffles the
+  resolution fallback, and host item ids and list keys carrying the reserved dnd wire tokens are
+  rejected loudly at load and registration instead of silently mis-decoding. Load: a document
+  load now resets the item drag-session stores and releases item-select mode alongside the held
+  section dnd modes, the detached-first-item silent abort is frozen by a test, and a group
+  section rejects an item tree (the reference cannot represent params on a Group, whose
+  section-click policy never treats it as item-carrying).
 - Remaining Phase 4 work: none in the repository; the developer exit gate (an unrelated example
   supplying its own item data and reproducing the accepted main interaction) remains.
 
