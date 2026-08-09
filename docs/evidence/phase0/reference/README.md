@@ -117,3 +117,6 @@ selection geometry, full-surface movement with interactive exclusions, reference
 the minimal zoom/fit toolbar, and a backend-free playground route. Recursive groups, parameter
 dragging, broad APIs, and later hardening remain outside Phase 1 even though they are captured now as
 future reference behavior.
+
+**Decision:** the developer explicitly approved this reference set and exact Phase 1 slice on
+2026-08-10. Phase 1 may proceed; the approval does not extend to later gates.

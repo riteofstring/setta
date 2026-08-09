@@ -53,9 +53,9 @@ Phase 0 progress (2026-08-10):
   adoption in `docs/evidence/phase0/donor-comparison.md`.
 - Item 7: complete — the smallest package seam and every temporary main-only dependency are
   proposed in `docs/evidence/phase0/extraction-seam-proposal.md`.
-- Item 8 remains open supervised developer work: review the captured reference set together with
-  the seam proposal and explicitly approve or reject the exact Phase 1 slice. The automation loop
-  must not infer approval; this developer-only exit gate blocks Phase 1.
+- Item 8 and the Phase 0 exit gate are complete — on 2026-08-10 the developer explicitly approved
+  the captured reference set and exact Phase 1 slice together with the seam proposal. Phase 1 may
+  proceed, without widening the approved slice.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

@@ -4,6 +4,9 @@ Phase 0 item 7. Proposed from the dependency evidence in `dependency-map.md`; ra
 developer's Phase 0 exit-gate decision together with the completed executable reference set in
 `reference/README.md`. Nothing here widens the Phase 1 slice defined by the plan.
 
+**Decision:** approved by the developer on 2026-08-10 together with the executable reference set
+and the exact Phase 1 slice. Later phases and deferred capabilities remain unapproved.
+
 ## 1. What the evidence says the slice actually needs
 
 The Phase 1 slice (one root leaf, one root group with a nested leaf, exact chrome, selection
