@@ -20,11 +20,11 @@ test("mixed-parent section roots move atomically into one container", async ({ p
   const nestedBeta = workspace.getByRole("article", { name: "Nested Beta" });
   const emptyContainer = workspace.getByRole("article", { name: "Empty container" });
   const alphaHandle = nestedAlpha.getByRole("button", { name: "Move Nested Alpha" });
+  const selectAlpha = nestedAlpha.getByRole("button", { name: "Select Nested Alpha" });
+  const selectBeta = nestedBeta.getByRole("button", { name: "Select Nested Beta" });
 
-  await nestedAlpha.getByRole("button", { name: "Select Nested Alpha" }).click();
-  await nestedBeta
-    .getByRole("button", { name: "Select Nested Beta" })
-    .click({ modifiers: ["Shift"] });
+  await selectAlpha.click();
+  await selectBeta.click({ modifiers: ["Shift"] });
   await expect(workspace.locator("[data-workspace-selection-announcement]")).toHaveText(
     "2 sections selected.",
   );
@@ -33,21 +33,47 @@ test("mixed-parent section roots move atomically into one container", async ({ p
   await workspace.evaluate((element) =>
     element.scrollIntoView({ block: "center", inline: "nearest" }),
   );
+  const emptyTarget = emptyContainer.locator("[data-workspace-empty-child-container]");
   const target = await visibleCanvasTargetPoint(
     canvas,
-    emptyContainer.locator("[data-workspace-empty-child-container]"),
+    emptyTarget,
     "Mixed-parent empty container target",
   );
-  const baselineChanges = await recursiveChangeCount(page);
-  const scrollPosition = await page.evaluate(() => ({ left: window.scrollX, top: window.scrollY }));
+  const previewAnnouncement = workspace.locator(
+    "[data-workspace-section-move-preview-announcement]",
+  );
 
   await dragHandleToPoint(page, alphaHandle, target);
-  await expect(
-    workspace.locator("[data-workspace-section-move-preview-announcement]"),
-  ).toContainText("Nested Alpha and 1 more will move to Empty container");
+  await expect(previewAnnouncement).toContainText(
+    "Nested Alpha and 1 more will move to Empty container",
+  );
   await expect(canvas).toHaveScreenshot("recursive-mixed-parent-section-preview.png");
-  await page.evaluate(({ left, top }) => window.scrollTo(left, top), scrollPosition);
-  await page.mouse.move(target.x, target.y);
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
+  await expect(nestedAlpha).toHaveAttribute("data-workspace-parent-section-id", "recursive-root");
+  await expect(nestedBeta).toHaveAttribute("data-workspace-parent-section-id", "nested-row");
+
+  await selectAlpha.click();
+  await selectBeta.click({ modifiers: ["Shift"] });
+  await expect(workspace.locator("[data-workspace-selection-announcement]")).toHaveText(
+    "2 sections selected.",
+  );
+  await page.getByRole("button", { name: "Fit recursive descendants" }).click();
+  await setCanvasZoom(page, 0.5);
+  await workspace.evaluate((element) =>
+    element.scrollIntoView({ block: "center", inline: "nearest" }),
+  );
+  const completionTarget = await visibleCanvasTargetPoint(
+    canvas,
+    emptyTarget,
+    "Mixed-parent empty container completion target",
+  );
+  const completionBaselineChanges = await recursiveChangeCount(page);
+  await dragHandleToPoint(page, alphaHandle, completionTarget);
+  await expect(previewAnnouncement).toContainText(
+    "Nested Alpha and 1 more will move to Empty container",
+  );
   await page.mouse.up();
 
   await expect(nestedAlpha).toHaveAttribute("data-workspace-parent-section-id", "empty-container");
@@ -55,7 +81,7 @@ test("mixed-parent section roots move atomically into one container", async ({ p
   await expect(workspace.locator("[data-workspace-structure-movement-announcement]")).toContainText(
     "Nested Alpha and 1 more moved to Empty container",
   );
-  expect(await recursiveChangeCount(page)).toBe(baselineChanges + 1);
+  expect(await recursiveChangeCount(page)).toBe(completionBaselineChanges + 1);
   await expect(alphaHandle).toBeFocused();
   const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
   expect(accessibility.violations).toEqual([]);
