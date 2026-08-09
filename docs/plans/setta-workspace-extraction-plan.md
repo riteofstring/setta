@@ -80,9 +80,22 @@ Phase 1 progress (2026-08-10):
   transform serves the playground without fast refresh), and no `autoprefixer` (its `caniuse-lite`
   transitive is CC-BY-4.0, outside the license allowlist; prefixing is a Phase 2 compiled-stylesheet
   decision). Runtime pins (`react 19.1.1`, `tailwindcss 3.4.1`) match the reference.
+- Document/selection state extracted (2026-08-10): the package owns the structural document store
+  (resolved sections, top-level layout with layout-memory semantics, viewport, parent map), the
+  node-internals projection (measured-size-wins, style-color node backgrounds via the package
+  appearance store), the active-sections store, the slice-reachable selection policy
+  (section-click single/multi, pane-click, selection-rect), z-index raise/normalize, and the
+  atomic-publication discipline (`runWithAtomicallyPublishedWorkspaceStores`), all frozen by
+  characterization tests ported from or written against the reference algorithms. Backend-sync
+  bookkeeping, param interactions, view modes, and variant indirection stayed application-side per
+  the seam proposal; the selection controller (`applyActiveSectionChange`) lands with the canvas
+  batch that owns the multi-selection key state. The playground now loads a workspace document and
+  drives selection/z-order through the package stores instead of hardcoded chrome previews.
+  Runtime pins from the reference: `zustand 5.0.8`, `use-sync-external-store 1.6.0`,
+  `lodash 4.18.1` (supply-chain gate rerun clean on the dependency change).
 - Remaining Phase 1 work: the xyflow-fork canvas/viewport slice, dnd-kit fork drag slice, section
-  header and resize treatment, document/selection state, toolbar zoom/fit surface, and the live
-  side-by-side comparison feeding the developer exit gate.
+  header and resize treatment, toolbar zoom/fit surface, and the live side-by-side comparison
+  feeding the developer exit gate.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
