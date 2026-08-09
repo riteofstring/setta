@@ -718,8 +718,30 @@ Phase 4 progress (2026-08-11):
   the fixture geometry/density. Playground suite 4/4 green, changed-file static gate green,
   supply-chain gate rerun clean on the dev-dependency change, playground production build
   compiles every new utility.
-- Remaining Phase 4 work: audit the presentation-parity correction, repeat the live main-Dict
-  versus unrelated-item comparison, and obtain a renewed developer exit-gate decision.
+- Phase 4 correction audit (2026-08-11): a static audit of the two post-rejection corrections
+  against the frozen reference confirmed both faithful, with no code changes required. Nested
+  grid: the restored `.section-args-nested` / `.section-args-nested-key-value` rules are
+  verbatim copies of the reference root `index.css` at its un-layered post-utilities cascade
+  position, the authored `[&>p]:section-key-value > p` rule matches the reference's compiled
+  variant output, `ItemListShell` reproduces `GetUnpinnedParams`' exact outer clip column and
+  inner scroll-shell class strings with only the two documented deviations (the computed-dead
+  `grid-cols-subgrid`, the application-side persisted min-height), `useIsScrollable` is the
+  reference hook minus its application-side `onMeasure`, and the boundary-check relaxation
+  admits `node:` builtins in test files only while the build tsconfig pins production types
+  back to browser-pure. Presentation: the playground label string is `ParamTextLabel`'s
+  verbatim class treatment minus its application-side click-to-focus affordances, the value
+  and divider strings carry the reference's idle-value classes plus the directive's recorded
+  medium/tabular metrics, dropping the reference divider's `grid-row-start-1` is a no-op
+  because both vocabularies pin `.section-value` to `grid-row: 1 / 2` (and `border-box` is
+  defined nowhere in the reference, so omitting it changes nothing), and the half-width
+  derivation matches `getDefaultColumnWidth` minus the 18 px `CENTER_OFFSET` with the
+  clamping left to the application-side resize feature it belongs to. Phase-gate verification
+  completed: the full-scope static gate (`quality:all`, 326 files) and the packed
+  unrelated-consumer proof are green post-correction; the recorded playground suite, package
+  suite, changed-scope gate, and supply-chain runs already postdate the last relevant code
+  change and were not duplicated.
+- Remaining Phase 4 work: repeat the live main-Dict versus unrelated-item comparison and
+  obtain a renewed developer exit-gate decision.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
