@@ -903,6 +903,13 @@ Phase 4 progress (2026-08-11):
   the frozen reference was not relaunched for this post-acceptance recording. Remaining Phase 4
   work: none. Do not infer a deferred capability choice from the Phase 4 approval: the
   developer-choice rule below still applies.
+- Post-Phase 4 capability chosen (2026-08-11): the developer chose built-in, opinionated parameter
+  editing controls as the next narrow extraction milestone, consistent with the library's
+  batteries-included direction. Phase 4 extracted item structure and interaction only; its
+  playground renderer remains display-only. Before implementation, amend this plan with a bounded,
+  backend-free milestone derived from the frozen main parameter UI — including the exact initial
+  control slice, controlled value/name update seams, visual and interaction evidence, exclusions,
+  and an exit gate — and return to the developer for explicit approval of that amendment.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
@@ -1391,6 +1398,8 @@ The earlier plans named useful capabilities that may still belong in the library
 allowed to enlarge the parity slice or recursive/item extraction phases. After Phase 4, the
 developer chooses which capability becomes the next narrow extraction milestone and approves a plan
 amendment before implementation. Candidates include:
+
+- built-in, opinionated parameter editing controls (chosen 2026-08-11; amendment approval pending);
 
 - inline title renaming, accent/tag editing, and alternate compact/transparent/headerless chrome;
 - grow-with-content versus fixed container sizing, content-fit sizing, and overflow behavior;
