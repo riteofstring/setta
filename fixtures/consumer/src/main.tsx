@@ -1,3 +1,4 @@
+import { SortableItemTree, Workspace } from "@setta/workspace";
 import {
   applySortableItemMove,
   createEmptyWorkspaceDocument,
@@ -5,8 +6,6 @@ import {
   type SortableItemTree as SortableItemTreeModel,
 } from "@setta/workspace/core";
 import {
-  SortableItemTree,
-  Workspace,
   type WorkspaceExternalDropHandler,
   type WorkspaceExternalDropValidator,
   type WorkspaceGroupFactory,
@@ -23,7 +22,9 @@ if (!root) {
   throw new Error("Missing consumer root element.");
 }
 
-const workspaceDocument = createEmptyWorkspaceDocument();
+type ConsumerSectionData = null;
+
+const workspaceDocument = createEmptyWorkspaceDocument<ConsumerSectionData>();
 const itemTree = {
   childrenByParent: { "consumer-group": ["consumer-child"], "consumer-items": ["consumer-group"] },
   itemIds: ["consumer-group", "consumer-child"],

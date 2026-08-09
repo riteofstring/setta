@@ -1524,6 +1524,11 @@ Gate:
 
 ### Phase 5: Hardening and reusable package milestone
 
+Status: **implementation in progress** (updated 2026-08-09).
+
+- Completed (public API and onboarding batch): reviewed the complete generated declaration closure and all five declared package entry points; retained the section/item naming boundary without aliases; made `createEmptyWorkspaceDocument` preserve a consumer's payload type without an internal cast; added the private package description; and upgraded the packed README with local-install guidance, an entry-point map, a five-minute uncontrolled example, a controlled generic-document example, and navigable reference sections. The review and remaining Phase 5 boundary are recorded in `docs/evidence/phase-5-public-api-review.md`.
+- Public API and onboarding verification: exact Node 24.18.1, repository-local Corepack 0.35.0, and pnpm 11.19.0 focused core/React tests passed 58 tests; changed-file quality passed for nine project files with repository/import boundaries across 257 files, all four dependency manifests, formatting, file length, strict types, dead-code analysis, 389 unit tests, six boundary tests, plan-loop automation, builds, exact tarball contents, and the regenerated 36-file declaration report. The unrelated tarball-installed consumer builds with the root runtime entry point plus direct core, React-type, and CSS subpaths. No dependency version or lockfile input changed, so registry-backed release-age, trust, and vulnerability checks were not duplicated; no rendered UI or styling changed, so browser and CDP visual verification do not apply.
+
 Complete:
 
 - API review and naming cleanup.

@@ -371,7 +371,7 @@ export function resolveWorkspaceMode<TSectionData>(
   if (defaultDocument !== undefined) {
     return { document: defaultDocument, type: "uncontrolled" };
   }
-  const emptyDocument = createEmptyWorkspaceDocument() as WorkspaceDocument<TSectionData>;
+  const emptyDocument = createEmptyWorkspaceDocument<TSectionData>();
   return {
     document: {
       ...emptyDocument,

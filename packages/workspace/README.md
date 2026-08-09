@@ -1,15 +1,134 @@
 # `@setta/workspace`
 
-Private blank-slate implementation of the standalone Setta workspace package.
+A nested spatial workbench for React with pannable top-level sections, recursive ordered
+containers, and host-defined sortable item trees.
 
-The package exposes the versioned recursive `WorkspaceDocument`, strict parsing and validation,
-controlled and uncontrolled React ownership, granular edit capabilities, `readOnly`, and a stable
-controller ref. The canvas uses exact-pinned upstream XYFlow behind an internal adapter: root
-sections are derived projections, live viewport and root-drag transforms remain transient, and one
-completed viewport or root-movement gesture publishes one document change.
+The package is private and locally installable while distribution, repository hosting, licensing,
+and release policy remain undecided. It requires React 19.2.8 and React DOM 19.2.8 as exact peer
+dependencies.
+
+## Install and import
+
+Use a workspace dependency while developing in the same pnpm workspace, or install the locally
+packed tarball into an unrelated application. Registry installation is intentionally unavailable.
+
+```json
+{
+  "dependencies": {
+    "@setta/workspace": "workspace:*"
+  }
+}
+```
+
+Import code from the root convenience entry point or from the narrower subpaths. Import the CSS
+entry point once in the consuming application.
 
 ```tsx
-const controller = useRef<WorkspaceController>(null);
+import { Workspace } from "@setta/workspace/react";
+import "@setta/workspace/styles.css";
+```
+
+| Entry point                   | Purpose                                                                |
+| ----------------------------- | ---------------------------------------------------------------------- |
+| `@setta/workspace`            | Convenience union of the framework-neutral and React runtime surfaces. |
+| `@setta/workspace/core`       | Documents, validation, planning, policies, and immutable helpers.      |
+| `@setta/workspace/react`      | `Workspace`, `SortableItemTree`, React contracts, and boundaries.      |
+| `@setta/workspace/testing`    | Testing helpers and deterministic adapter evidence.                    |
+| `@setta/workspace/styles.css` | Required package-owned styles and scoped theme tokens.                 |
+
+Source aliases and undeclared package internals are not consumer APIs.
+
+## Five-minute uncontrolled example
+
+Give the workbench a sized parent, register at least one host renderer, and provide a factory when
+users should be able to create sections. Omitting both `document` and `defaultDocument` selects
+uncontrolled ownership with an empty versioned document.
+
+```tsx
+import { createRoot } from "react-dom/client";
+import { Workspace, type SectionDefinition, type SectionRenderProps } from "@setta/workspace/react";
+import "@setta/workspace/styles.css";
+
+type NoteData = Readonly<{ body: string }>;
+
+function NoteSection({ data }: SectionRenderProps<NoteData>) {
+  return <p>{data.body}</p>;
+}
+
+const noteDefinitions = [
+  {
+    kind: "note",
+    displayName: "Note",
+    defaultTitle: "Untitled note",
+    defaultSize: { width: 280, height: 180 },
+    creation: { group: "Basics", keywords: ["text", "memo"] },
+    render: NoteSection,
+  },
+] satisfies readonly SectionDefinition<NoteData>[];
+
+let nextSectionNumber = 1;
+
+function App() {
+  return (
+    <main style={{ height: "100dvh" }}>
+      <Workspace<NoteData>
+        ariaLabel="Notes workspace"
+        sectionDefinitions={noteDefinitions}
+        sectionFactory={() => ({
+          data: { body: "Write something useful." },
+          id: `note-${nextSectionNumber++}`,
+        })}
+      />
+    </main>
+  );
+}
+
+createRoot(document.getElementById("root")!).render(<App />);
+```
+
+The built-in Add section control now creates, selects, and focuses a smart-placed note. The host
+still owns the note payload and any operation that changes it.
+
+## Controlled example
+
+Controlled ownership requires both `document` and `onDocumentChange`. The generic empty-document
+factory preserves the host payload type without a cast.
+
+```tsx
+import { useState } from "react";
+import { createEmptyWorkspaceDocument, type WorkspaceDocument } from "@setta/workspace/core";
+import { Workspace } from "@setta/workspace/react";
+
+function ControlledNotesWorkspace() {
+  const [document, setDocument] = useState<WorkspaceDocument<NoteData>>(() =>
+    createEmptyWorkspaceDocument<NoteData>(),
+  );
+
+  return (
+    <Workspace
+      document={document}
+      onDocumentChange={(nextDocument) => setDocument(nextDocument)}
+      sectionDefinitions={noteDefinitions}
+      sectionFactory={() => ({
+        data: { body: "Controlled by the host." },
+        id: `note-${nextSectionNumber++}`,
+      })}
+    />
+  );
+}
+```
+
+The callback receives one immutable document proposal and one compact change reason per committed
+package action. Persist or reject that proposal in the host; pointer previews, selection, and live
+measurements do not produce per-frame document changes.
+
+## Integrated controlled configuration
+
+The following composition shows the main host extension points together. Application-specific
+renderers, ID allocation, persistence, and policies remain host-owned.
+
+```tsx
+const controller = useRef<WorkspaceController<NoteData>>(null);
 
 const sectionDefinitions = [
   {
@@ -103,6 +222,8 @@ const sectionDefinitions = [
 />;
 ```
 
+## Section registry and creation
+
 Every populated document kind must have one matching `sectionDefinitions` entry. Registrations are
 validated before rendering: kinds must be unique, default dimensions and resize constraints must be
 finite and compatible, content-sized axes must be enabled, child-layout defaults require a
@@ -119,6 +240,8 @@ focuses the new frame without changing zoom. The same strict path is available t
 `controller.createSection(kind, { position })`, where omitting `position` requests smart placement.
 If a controlled host declines a creation proposal, the picker restores its invoking control,
 announces the retained canonical document, and clears the deferred selection/focus request.
+
+### External drops
 
 Supplying `onExternalDrop` enables the generic browser-drop boundary. During drag enter and
 dragover, the package converts client coordinates into workbench coordinates and resolves the
@@ -137,6 +260,8 @@ those values into asynchronous work. The package never detects file kinds, uploa
 the filesystem, or maps a payload to a section. Invalid drops are consumed without invoking the
 host so the browser cannot navigate to a dropped file.
 
+## Section frame, title, and presentation
+
 The package-owned frame supplies the visible title and section-kind label, then renders the host
 component with `sectionId`, serialized `data`, resolved `light` or `dark` appearance, and the
 resolved workbench `readOnly` state. Its content boundary automatically prevents inputs and
@@ -154,6 +279,8 @@ focus, and keeps an asynchronously rejected proposal open with an associated err
 `validateSectionTitle` may perform host validation or persistence before the package commits one
 `section-title` change. A controlled host that declines the resulting title proposal keeps the
 editor open with a specific error instead of reporting success against unchanged canonical state.
+
+## Sortable item trees
 
 Host renderers can place one controlled `SortableItemTree` inside a section without exposing item
 data to `WorkspaceDocument`. The package owns native selection and movement controls, normalized
@@ -196,6 +323,8 @@ It returns the original tree for a no-op and preserves unaffected host arrays. T
 only item mutation boundary: the package never writes item data to the workspace document unless
 the host explicitly stores the returned tree in a section payload.
 
+## Section selection and movement
+
 Accent and tag choices are serialized section presentation. The default editor provides six
 gamut-safe OKLCH choices plus reset; `sectionColorPalette` can replace those labeled choices with
 other supported CSS colors. Accents derive only frame-local decorative chrome tokens, tags retain a
@@ -227,6 +356,8 @@ preserves its relative workbench offsets. One completed block gesture still publ
 `section-move` change. If any selected root is locked, block movement is disabled with specific
 feedback; selection itself remains available and does not publish a document change.
 
+### Recursive structural movement
+
 `sectionMoveMode` is a host-owned interaction preference and defaults to `sort`. In sort mode,
 top-level handles retain ordinary XYFlow spatial dragging while nested handles activate the
 package's structural DnD owner. In `free` mode, root and nested handles both activate that structural
@@ -252,6 +383,8 @@ document change; the reason is shown as non-color-only feedback and announced th
 pre-mounted polite movement region. Locked sections cannot be moved directly, while a locked
 container remains a valid destination unless this host policy rejects it.
 
+## Resizing and size modes
+
 Selected top-level roots expose logical inline-end, block-end, and corner resize controls according
 to their registered `resize.axes` policy. The controls mirror in right-to-left layouts, retain
 40-pixel desktop and 44-pixel coarse-pointer targets, and enforce registered minimums, maximums,
@@ -268,6 +401,8 @@ later pointer or keyboard resize measures the rendered frame, promotes only the 
 fixed mode, and applies the resize from that measurement. Live `ResizeObserver` measurements update
 the shared geometry index but do not publish canonical document changes.
 
+## Ownership, persistence, and capabilities
+
 Use `defaultDocument` instead of `document` for uncontrolled ownership. The two modes are mutually
 exclusive, and a controlled workspace requires `onDocumentChange`. `readOnly` disables package-owned
 layout, structure, and presentation edits while viewport navigation and arbitrary host-rendered
@@ -278,6 +413,8 @@ canonical JSON, then validate each registered kind's host payload before accepti
 The backend-free playground demonstrates versioned local document storage, separate host preference
 storage, strict import recovery, export, and confirmed reset without putting storage or native file
 semantics in the package.
+
+## Viewport, grid, and appearance
 
 `gestureOptions` configures pan-on-drag, pan-on-scroll, wheel, pinch, double-click zoom, zoom bounds,
 scroll direction and speed, and temporary activation keys without exposing XYFlow types. The
@@ -296,6 +433,8 @@ and CSS custom properties without changing the host document element, global cla
 document, or host-rendered state. Default palette values are gamut-safe OKLCH colors with distinct
 roles for canvas, grid, section surfaces and text, toolbar, minimap, selection, focus, and invalid
 states.
+
+## Toolbar, overlays, and minimap
 
 The default vertical toolbar provides Add section when a factory is registered, zoom in/out, reset
 zoom, fit sections, snap-to-grid, and minimap visibility controls. `toolbarControls` adds
@@ -319,6 +458,8 @@ keyboard navigation paths.
 omitted. Supplying `onGridSnapChange` or `onMinimapVisibilityChange` makes that preference
 controlled; keep the corresponding option and callback ownership mode stable for the mount.
 
+## Interaction boundaries and lifecycle
+
 Wrap interactive or scrollable content rendered inside the canvas with
 `WorkspaceInteractionBoundary`. It independently suppresses canvas panning and wheel handling while
 leaving the host control usable; consumers do not need to know the adapter's internal marker class
@@ -329,6 +470,8 @@ surface owns native drops itself; that opt-out does not change pan or wheel arbi
 Unmounting the workspace cancels active transient viewport and root-movement gestures, releases its
 persistent geometry observers and global listeners, rejects pending measurement subscriptions, and
 leaves the accepted document unchanged for an exact later remount.
+
+## Controller, grouping, and history
 
 The controller's measured navigation helpers wait for visible frame geometry, propose one canonical
 viewport change, and resolve after the upstream viewport reconciles to the host's current canonical
@@ -401,6 +544,8 @@ controller.current?.setSectionPresentation("details", {
   tagColor: null,
 });
 ```
+
+## Testing entry point
 
 Testing-only exports continue to exercise exact-pinned upstream XYFlow and dnd-kit behind
 package-owned geometry, command, and interaction boundaries without making their types public.

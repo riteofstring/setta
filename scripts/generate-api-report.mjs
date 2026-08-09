@@ -9,6 +9,32 @@ const declarationsDirectory = path.join(repositoryRoot, "packages/workspace/dist
 const packageManifest = JSON.parse(
   readFileSync(path.join(repositoryRoot, "packages/workspace/package.json"), "utf8"),
 );
+
+function packageSpecifier(exportKey) {
+  return exportKey === "."
+    ? packageManifest.name
+    : `${packageManifest.name}/${exportKey.replace(/^\.\//u, "")}`;
+}
+
+function exportTarget(exportValue, condition) {
+  if (typeof exportValue === "string") {
+    return condition === "import" ? exportValue : null;
+  }
+  if (exportValue === null || typeof exportValue !== "object") {
+    return null;
+  }
+  const target = exportValue[condition];
+  return typeof target === "string" ? target : null;
+}
+
+function reportCell(value) {
+  return value === null ? "—" : `\`${value}\``;
+}
+
+const entrypointRows = Object.entries(packageManifest.exports).map(
+  ([exportKey, exportValue]) =>
+    `| \`${packageSpecifier(exportKey)}\` | ${reportCell(exportTarget(exportValue, "types"))} | ${reportCell(exportTarget(exportValue, "import"))} |`,
+);
 const declarationEntrypoints = Object.values(packageManifest.exports).flatMap((exportValue) => {
   if (
     typeof exportValue !== "object" ||
@@ -61,13 +87,13 @@ function declarationClosure(entrypoints) {
 
 const declarationFiles = declarationClosure(declarationEntrypoints);
 const report = declarationFiles
-  .map((name) => `## ${name}\n\n${readFileSync(path.join(declarationsDirectory, name), "utf8")}`)
+  .map((name) => `### ${name}\n\n${readFileSync(path.join(declarationsDirectory, name), "utf8")}`)
   .join("\n");
 const reportsDirectory = path.join(repositoryRoot, ".reports");
 mkdirSync(reportsDirectory, { recursive: true });
 writeFileSync(
   path.join(reportsDirectory, "public-api.md"),
-  `# Generated public API review\n\n${report}`,
+  `# Generated public API review\n\n${packageManifest.description}\n\nThis file is a human-review artifact generated from the built package. It is not a compatibility promise or a checked-in API snapshot.\n\n## Declared package entry points\n\n| Specifier | Types | Import |\n| --- | --- | --- |\n${entrypointRows.join("\n")}\n\n## Declaration closure (${String(declarationFiles.length)} files)\n\n${report}`,
 );
 
 console.log("Generated .reports/public-api.md.");

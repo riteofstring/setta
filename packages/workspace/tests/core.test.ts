@@ -111,7 +111,10 @@ function expectValidationError(
 
 describe("workspace document", () => {
   it("creates a serializable empty document with an explicit viewport", () => {
-    expect(JSON.parse(JSON.stringify(createEmptyWorkspaceDocument()))).toEqual({
+    type NoteData = Readonly<{ body: string }>;
+    const document: WorkspaceDocument<NoteData> = createEmptyWorkspaceDocument<NoteData>();
+
+    expect(JSON.parse(JSON.stringify(document))).toEqual({
       rootSections: [],
       schemaVersion: WORKSPACE_DOCUMENT_SCHEMA_VERSION,
       sections: {},

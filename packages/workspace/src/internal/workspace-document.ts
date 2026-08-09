@@ -1,6 +1,7 @@
 import {
   WORKSPACE_DOCUMENT_SCHEMA_VERSION,
   type WorkspaceDocument,
+  type WorkspaceJsonValue,
   type WorkspaceParentLookup,
 } from "./workspace-document-contract.js";
 import {
@@ -10,7 +11,9 @@ import {
 } from "./workspace-document-validation.js";
 import { WORKSPACE_DEFAULT_ZOOM } from "./workspace-policy.js";
 
-export function createEmptyWorkspaceDocument(): WorkspaceDocument {
+export function createEmptyWorkspaceDocument<
+  TSectionData = WorkspaceJsonValue,
+>(): WorkspaceDocument<TSectionData> {
   return {
     rootSections: [],
     schemaVersion: WORKSPACE_DOCUMENT_SCHEMA_VERSION,
