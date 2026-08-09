@@ -781,8 +781,23 @@ Phase 4 progress (2026-08-11):
   suite (4/4), and the package build with the source and built-artifact boundary checks. The
   packed-consumer and supply-chain gates were not duplicated: their recorded green runs postdate
   the last packaging and dependency change, and this correction touched neither.
-- Remaining Phase 4 work: repeat the live main-Dict versus unrelated-item comparison and obtain
-  a renewed developer exit-gate decision.
+- Supervised live comparison rejected one remaining host-context omission (2026-08-11): the
+  corrected playground panel now measures exactly 552 x 352 outer, with 550 px list-area width,
+  257 px label column, and 20 px rows, but its scrollable list still measured 550 px client width
+  and 532 px rows. Live main's same 550 px scroll shell measured 544 px client width and 526 px
+  rows because the frozen application's host stylesheet gives every descendant a 0.375 rem (6 px)
+  WebKit scrollbar with a translucent `#94a3b83a` thumb; the playground only mirrors main's body
+  font and background and therefore leaves Chromium's overlay scrollbar behavior in effect. Both
+  lists were verified scrollable (`328 > 320` in the playground, `780 > 290` in main), so this is
+  a missing reference host presentation rule, not item geometry or fixture density. Add the
+  frozen host's relevant Firefox and WebKit scrollbar treatment to the playground host stylesheet,
+  without shipping it as package policy or changing `WorkspaceItemList`. Add the narrowest
+  regression that proves the playground carries the exact host scrollbar contract, run the focused
+  checks, and repeat the live dark/light comparison. Acceptance requires the scroll shell to remain
+  550 px outer while reserving 6 px for the scrollbar, yielding main's 544 px client width and
+  526 x 20 row geometry alongside the already-matching label/value/divider metrics.
+- Remaining Phase 4 work: implement and audit the host-scrollbar correction, repeat the live
+  main-Dict versus unrelated-item comparison, and obtain a renewed developer exit-gate decision.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
