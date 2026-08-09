@@ -33,12 +33,13 @@ function makeLeafSection(
 // cross-parent item movement reachable, and the leaf count fills the recorded 552 x 352 outer
 // geometry so the repeated 20 px row rhythm stays inspectable against the frozen `/settings`
 // Dict. The item-controls rows exercise every built-in control the milestone has landed: the
-// switch at the captured `enabled` fixture, the password and wrapped multiline rows, the empty dropdown over the captured
-// Alpha/Beta/Gamma choices, the configured color trigger over the captured Red/Green/Blue
-// choices, the native color input at the `/settings` recorded value, and the captured editable
-// `rename_me` name seam. The remaining-controls continuation adds the captured ordinary slider
-// (0..100 by 1) and rotary (0..1 by 0.1) rows through the same opaque configuration shape. Name
-// validation remains host-owned opaque-data policy.
+// switch at the captured `enabled` fixture, the date and time native-input rows, the password and
+// wrapped multiline rows, the empty dropdown over the captured Alpha/Beta/Gamma choices, the
+// configured color trigger over the captured Red/Green/Blue choices, the native color input at the
+// `/settings` recorded value, and the captured editable `rename_me` name seam. The
+// remaining-controls continuation adds the captured ordinary slider (0..100 by 1) and rotary
+// (0..1 by 0.1) rows through the same opaque configuration shape. Name validation remains
+// host-owned opaque-data policy.
 function makeItem(
   id: string,
   data: Record<string, WorkspaceSectionData>,
@@ -64,6 +65,8 @@ const itemPanelTree: WorkspaceSectionItemTree = {
       "item-lambda",
       "item-slider",
       "item-rotary",
+      "item-date",
+      "item-time",
       "item-password",
       "item-textarea",
       "item-enabled",
@@ -103,6 +106,27 @@ const itemPanelTree: WorkspaceSectionItemTree = {
       min: 0,
       max: 1,
       step: 0.1,
+    }),
+    "item-date": makeItem("item-date", {
+      label: "date",
+      value: "2026-08-12",
+      control: "date",
+      displayFormat: "iso",
+      controlMode: "input",
+      selectionMode: "single",
+      weekStart: "sunday",
+      includeTime: false,
+      timeDisplayFormat: "twenty_four_hour",
+    }),
+    "item-time": makeItem("item-time", {
+      label: "time",
+      value: "13:45",
+      control: "time",
+      controlMode: "input",
+      displayFormat: "twenty_four_hour",
+      transparent: false,
+      scale: 1,
+      font: "monospace",
     }),
     "item-password": makeItem("item-password", {
       label: "password",

@@ -1,5 +1,6 @@
 import {
   ColorValueControl,
+  DateValueControl,
   DropdownValueControl,
   getWorkspaceDocument,
   ItemDndContext,
@@ -11,6 +12,7 @@ import {
   SliderValueControl,
   SwitchValueControl,
   TextValueEditor,
+  TimeValueControl,
   WorkspaceItemList,
   type ColorValueChoice,
   type ItemRowRenderContext,
@@ -91,6 +93,26 @@ function getItemNumber(item: WorkspaceItem, field: string): number {
   return value;
 }
 
+function getItemBoolean(item: WorkspaceItem, field: string): boolean {
+  const value = getItemDataRecord(item)[field];
+  if (typeof value !== "boolean") {
+    throw new Error(`Item ${item.id} is missing its boolean ${field} field.`);
+  }
+  return value;
+}
+
+function getItemOption<const Option extends string>(
+  item: WorkspaceItem,
+  field: string,
+  options: ReadonlyArray<Option>,
+): Option {
+  const value = getItemDataRecord(item)[field];
+  if (typeof value !== "string" || !options.includes(value as Option)) {
+    throw new Error(`Item ${item.id} has an invalid ${field} field.`);
+  }
+  return value as Option;
+}
+
 function isGroupItem(item: WorkspaceItem): boolean {
   return getItemField(item, "group") === true;
 }
@@ -102,8 +124,8 @@ function isGroupItem(item: WorkspaceItem): boolean {
 // input it focuses. Values mount the package's built-in controls from the item-controls
 // milestone, chosen by this host's opaque `control` field: the two-layer text value editor
 // (the default, at python — the reference settings surface's generated `configLanguage`), the
-// boolean switch, slider, rotary, password, the dropdown over this host's flat choice strings,
-// multiline text through the same wrapped editor path, and the color picker in both its
+// boolean switch, slider, rotary, date, time, password, the dropdown over this host's flat choice
+// strings, multiline text through the same wrapped editor path, and the color picker in both its
 // configured-choices and native-input forms. The captured `rename_me`
 // row composes the package's editable name control; this host validates proposed names against
 // its opaque sibling labels and owns whether a proposal commits.
@@ -250,41 +272,14 @@ function ItemValueControl({ context }: { context: ItemRowRenderContext }) {
   const value = getItemValue(context.item);
   const ariaLabel = `${getItemLabel(context.item)} value`;
   const onValueChange = (nextValue: string) => commitItemValue(context, nextValue);
-  if (control === "switch") {
-    return (
-      <SwitchValueControl
-        ariaLabel={ariaLabel}
-        sectionId={context.sectionId}
-        value={value}
-        onValueChange={onValueChange}
-      />
-    );
-  }
-  if (control === "slider") {
-    return (
-      <SliderValueControl
-        ariaLabel={ariaLabel}
-        sectionId={context.sectionId}
-        value={value}
-        min={getItemNumber(context.item, "min")}
-        max={getItemNumber(context.item, "max")}
-        step={getItemNumber(context.item, "step")}
-        onValueChange={onValueChange}
-      />
-    );
-  }
-  if (control === "rotary") {
-    return (
-      <RotaryValueControl
-        ariaLabel={ariaLabel}
-        sectionId={context.sectionId}
-        value={value}
-        min={getItemNumber(context.item, "min")}
-        max={getItemNumber(context.item, "max")}
-        step={getItemNumber(context.item, "step")}
-        onValueChange={onValueChange}
-      />
-    );
+  const specializedControl = renderSpecializedItemValueControl(control, {
+    context,
+    value,
+    ariaLabel,
+    onValueChange,
+  });
+  if (specializedControl !== null) {
+    return specializedControl;
   }
   if (control === "password") {
     return (
@@ -344,6 +339,103 @@ function ItemValueControl({ context }: { context: ItemRowRenderContext }) {
       value={value}
       language={ITEM_VALUE_LANGUAGE}
       onValueChange={onValueChange}
+    />
+  );
+}
+
+type SpecializedItemValueControlProps = {
+  context: ItemRowRenderContext;
+  value: string;
+  ariaLabel: string;
+  onValueChange: (nextValue: string) => void;
+};
+
+function renderSpecializedItemValueControl(
+  control: string | boolean | undefined,
+  props: SpecializedItemValueControlProps,
+) {
+  if (control === "switch") {
+    return (
+      <SwitchValueControl
+        ariaLabel={props.ariaLabel}
+        sectionId={props.context.sectionId}
+        value={props.value}
+        onValueChange={props.onValueChange}
+      />
+    );
+  }
+  if (control === "slider" || control === "rotary") {
+    return <NumericItemValueControl {...props} control={control} />;
+  }
+  if (control === "date" || control === "time") {
+    return <DateTimeItemValueControl {...props} control={control} />;
+  }
+  return null;
+}
+
+function NumericItemValueControl({
+  context,
+  control,
+  value,
+  ariaLabel,
+  onValueChange,
+}: SpecializedItemValueControlProps & { control: "slider" | "rotary" }) {
+  const props = {
+    ariaLabel,
+    sectionId: context.sectionId,
+    value,
+    min: getItemNumber(context.item, "min"),
+    max: getItemNumber(context.item, "max"),
+    step: getItemNumber(context.item, "step"),
+    onValueChange,
+  };
+  return control === "slider" ? (
+    <SliderValueControl {...props} />
+  ) : (
+    <RotaryValueControl {...props} />
+  );
+}
+
+function DateTimeItemValueControl({
+  context,
+  control,
+  value,
+  ariaLabel,
+  onValueChange,
+}: SpecializedItemValueControlProps & { control: "date" | "time" }) {
+  if (control === "date") {
+    return (
+      <DateValueControl
+        ariaLabel={ariaLabel}
+        sectionId={context.sectionId}
+        value={value}
+        onValueChange={onValueChange}
+        displayFormat={getItemOption(context.item, "displayFormat", ["iso", "us", "eu", "long"])}
+        controlMode={getItemOption(context.item, "controlMode", ["input", "calendar"])}
+        selectionMode={getItemOption(context.item, "selectionMode", ["single", "multiple"])}
+        weekStart={getItemOption(context.item, "weekStart", ["sunday", "monday"])}
+        includeTime={getItemBoolean(context.item, "includeTime")}
+        timeDisplayFormat={getItemOption(context.item, "timeDisplayFormat", [
+          "twenty_four_hour",
+          "twelve_hour",
+        ])}
+      />
+    );
+  }
+  return (
+    <TimeValueControl
+      ariaLabel={ariaLabel}
+      sectionId={context.sectionId}
+      value={value}
+      onValueChange={onValueChange}
+      controlMode={getItemOption(context.item, "controlMode", ["input", "display"])}
+      displayFormat={getItemOption(context.item, "displayFormat", [
+        "twenty_four_hour",
+        "twelve_hour",
+      ])}
+      transparent={getItemBoolean(context.item, "transparent")}
+      scale={getItemNumber(context.item, "scale")}
+      font={getItemOption(context.item, "font", ["clock", "monospace", "system"])}
     />
   );
 }

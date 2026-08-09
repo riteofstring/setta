@@ -26,8 +26,9 @@ import {
 // text value editor (the default; the Lezer-highlighted idle dummy at the reference's
 // monospace treatment plus the value-column divider with its focus paint, at the reference
 // settings surface's python language), the boolean switch, the dropdown pill over this host's
-// flat choices, the slider and rotary over opaque numeric configuration, the password input and
-// wrapped multiline editor, and the color picker in
+// flat choices, the slider and rotary over opaque numeric configuration, the native date/time
+// controls over opaque formatting configuration, the password input and wrapped multiline editor,
+// and the color picker in
 // both its configured-choices and native-input forms, plus the editable `rename_me` name seam.
 // Every accepted control edit commits back through the host's `setItemData` funnel into the
 // canonical document; duplicate-name proposals stay blocked by this host and ride the package's
@@ -243,6 +244,44 @@ describe("the playground item renderer presentation contract", () => {
     expect(rotaryRow.querySelector('button[role="slider"]')?.getAttribute("aria-valuenow")).toBe(
       "0.1",
     );
+  });
+
+  it("renders the date row with opaque formatting config and commits ISO string updates", () => {
+    const dateRow = findRowByLabel(container, "date");
+    const input = dateRow.querySelector<HTMLInputElement>('input[type="text"]');
+    if (!input) {
+      throw new Error("The date row does not mount its configured input control.");
+    }
+    expect(input.getAttribute("aria-label")).toBe("date value");
+    expect(input.value).toBe("2026-08-12");
+    const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    if (!valueSetter) {
+      throw new Error("The native input value setter is unavailable.");
+    }
+    act(() => {
+      valueSetter.call(input, "2026-08-13");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(getDocumentItemValue("item-date")).toBe("2026-08-13");
+  });
+
+  it("renders the time row with opaque display config and commits 24-hour strings", () => {
+    const timeRow = findRowByLabel(container, "time");
+    const input = timeRow.querySelector<HTMLInputElement>('input[type="time"]');
+    if (!input) {
+      throw new Error("The time row does not mount its configured input control.");
+    }
+    expect(input.getAttribute("aria-label")).toBe("time value");
+    expect(input.value).toBe("13:45");
+    const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    if (!valueSetter) {
+      throw new Error("The native input value setter is unavailable.");
+    }
+    act(() => {
+      valueSetter.call(input, "14:30");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(getDocumentItemValue("item-time")).toBe("14:30");
   });
 
   it("renders the password row and keeps visibility separate from the controlled value", () => {

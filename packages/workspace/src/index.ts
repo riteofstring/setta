@@ -12,6 +12,18 @@ export type { PanOnScrollMode, SelectionMode } from "./canvas/types";
 export { WorkspaceCanvas } from "./canvas/WorkspaceCanvas";
 export { ColorValueControl } from "./controls/color/ColorValueControl";
 export type { ColorValueChoice, ColorValueControlProps } from "./controls/color/ColorValueControl";
+export type {
+  DateCalendarWeekStart,
+  DateControlMode,
+  DateDisplayFormat,
+  DateSelectionMode,
+  DateValueControlProps,
+  TimeControlMode,
+  TimeDisplayFont,
+  TimeDisplayFormat,
+  TimeValueControlProps,
+} from "./controls/date-time/dateTimeTypes";
+export { DateValueControl, TimeValueControl } from "./controls/date-time/DateTimeValueControl";
 export { DropdownValueControl } from "./controls/dropdown/DropdownValueControl";
 export type {
   DropdownValueChoiceGroup,

@@ -1107,6 +1107,26 @@ Phase 4 progress (2026-08-11):
   the directly affected playground renderer suite (13), package production build and built-boundary
   check, and changed-file static gate pass. Remaining row-control batches: date plus time; dropzone.
   Meta controls follow after the complete row set as authorized.
+- Remaining-controls date and time batch complete (2026-08-12): the package now exports
+  `DateValueControl` and `TimeValueControl` over the controlled-string seam, with package-owned
+  configuration types and specific runtime validation. Date ports the reference's configured
+  text input (ISO, US, EU, and long display formats), datetime-local include-time path, and live
+  42-cell calendar with single/multiple selection, Sunday/Monday week starts, month navigation,
+  optional time editing, deterministic JSON-array serialization, and the frozen summary text.
+  Time ports the native input and formatted-display modes, 12/24-hour formatting, transparent
+  display, the bounded 0.5–3 scale, and monospace/system/clock presentation. Invalid enum values
+  and out-of-range display scales fail specifically instead of selecting heuristic defaults. Both
+  controls preserve the ordinary-row typography, divider/focus paint, host/item-select
+  disabledness, Escape focus restoration, and package no-drag/no-pan/no-wheel boundaries.
+  Non-visual accessibility additions give every native input, calendar surface, month action, and
+  date cell an accessible name; selected/today/disabled calendar state is programmatic, and the
+  month title announces navigation without changing the captured pixels. The playground supplies
+  the captured date/time values and every option through opaque item data, committing updates via
+  `setItemData`. Ported utility/calendar characterization plus component interaction coverage totals
+  22 focused package tests; the directly affected playground renderer suite (15), package
+  production build and built-boundary check, and explicit changed-file static gate pass. No
+  dependencies changed, so the supply-chain gate was not duplicated. Remaining row-control batch:
+  dropzone. Meta controls follow after the complete row set as authorized.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
