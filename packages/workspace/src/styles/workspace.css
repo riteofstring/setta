@@ -1,0 +1,107 @@
+/* Extracted from the frozen reference's root index.css: the section grid system and the
+ * transition-radius helper used by the section chrome. The playground compiles this file inside
+ * its Tailwind entry during Phase 1; Phase 2 replaces that arrangement with the package-owned
+ * compiled, scoped stylesheet. */
+
+@layer utilities {
+  .section-title {
+    grid-area: title;
+  }
+
+  .section-center {
+    grid-area: center-gutter;
+  }
+
+  .section-search {
+    grid-area: search;
+  }
+  .section-args {
+    grid-area: args;
+  }
+  .section-key {
+    grid-column: key / key;
+    grid-row: 1 / 2;
+  }
+  .section-value {
+    grid-column: value / value;
+    grid-row: 1 / 2;
+  }
+  .section-key-value {
+    grid-column: key / value;
+  }
+
+  .section-key-right-gutter {
+    grid-column: key / right-gutter;
+  }
+  .section-w-full {
+    grid-column: left-gutter / right-gutter;
+  }
+
+  .section-lg-value {
+    grid-column: left-gutter / value;
+  }
+
+  .section-row-search-gutter {
+    grid-row: search / left-gutter;
+  }
+
+  .section-full {
+    grid-row: title / left-gutter;
+    grid-column: left-gutter / right-gutter;
+  }
+  .section-full-no-title {
+    grid-row: search / left-gutter;
+    grid-column: left-gutter / right-gutter;
+  }
+
+  .section-min-rows {
+    grid-auto-rows: min-content;
+  }
+
+  .section-main {
+    grid-row: search / left-gutter;
+    grid-column: key / value;
+  }
+  .section-main-full-w {
+    grid-row: search / left-gutter;
+    grid-column: left-gutter / right-gutter;
+  }
+}
+
+.section-grid-cols {
+  grid-template-columns: [c1] 0.75rem [c2] 1fr [c3] 0.75rem [c4] 1fr [c5] 0.75rem [c6];
+}
+.section-grid-rows {
+  grid-template-rows:
+    [r1]
+    0.25rem
+    [r2]
+    minmax(0, min-content)
+    [r3]
+    minmax(0, min-content)
+    [r4]
+    minmax(0, min-content)
+    [r5]
+    minmax(0, min-content)
+    [r6]
+    minmax(0, 1fr)
+    [r7]
+    0.25rem
+    [r8];
+}
+.section-grid-areas {
+  grid-template-areas:
+    "top-gutter top-gutter top-gutter top-gutter top-gutter"
+    "title title title title title"
+    "search search search search search"
+    "args args args args args"
+    "pin-lg pin-key pin-cg pin-value pin-rg"
+    "left-gutter key center-gutter value right-gutter"
+    "bottom-gutter bottom-gutter bottom-gutter bottom-gutter bottom-gutter";
+}
+
+.transition-radius {
+  transition-property: border-radius, box-shadow, drop-shadow;
+  transition-duration: 170ms;
+  animation-timing-function: ease-in-out;
+}

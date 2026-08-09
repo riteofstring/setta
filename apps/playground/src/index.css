@@ -1,0 +1,20 @@
+@import "@setta/workspace/styles.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Host-page context mirroring the frozen reference's body rendering environment
+ * (system font stack and workspace background colors from index.css at 043d3b2e9). */
+body {
+  margin: 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell",
+    "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  background-color: hsl(219, 24%, 89%);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html.dark body {
+  background-color: hsl(220, 27%, 6%);
+}

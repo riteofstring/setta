@@ -1,0 +1,23 @@
+{
+  "name": "@setta/playground",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5174 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@setta/workspace": "workspace:*",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.12",
+    "@types/react-dom": "19.1.8",
+    "postcss": "8.5.25",
+    "tailwindcss": "3.4.1",
+    "vite": "6.4.3"
+  }
+}

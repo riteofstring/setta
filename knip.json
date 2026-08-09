@@ -4,6 +4,12 @@
     ".": {
       "entry": ["scripts/*.mjs"],
       "project": ["scripts/**/*.mjs", "*.js"]
+    },
+    "packages/workspace": {
+      "project": ["src/**/*.{ts,tsx}", "*.{mjs,ts}"]
+    },
+    "apps/playground": {
+      "project": ["src/**/*.{ts,tsx}", "*.{js,ts}"]
     }
   }
 }

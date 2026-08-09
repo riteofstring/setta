@@ -57,6 +57,33 @@ Phase 0 progress (2026-08-10):
   the captured reference set and exact Phase 1 slice together with the seam proposal. Phase 1 may
   proceed, without widening the approved slice.
 
+Phase 1 progress (2026-08-10):
+
+- Foundation batch complete: `packages/workspace` (`@setta/workspace`, provisional source exports)
+  and `apps/playground` (backend-free Vite host, port 5174 for side-by-side against main's 5173)
+  exist as pnpm workspaces wired into the quality, Knip, dependency-policy, and typecheck gates.
+- Chrome core extracted from the frozen reference: `sectionStyleColors.ts` verbatim;
+  `sectionStyleVars` trimmed to the six core section-style variables (the arg/agentic handle
+  variables left with the excluded edge features); `sectionColors`/`sectionChrome` trimmed to the
+  slice-reachable states (meta-control, attached-terminal, full-bleed, agentic-scope, AI-highlight,
+  and app-type branches cut at extraction per the seam proposal). Characterization tests freeze the
+  exact emitted class strings and hex derivations produced by executing the reference algorithm.
+  The section grid system and `transition-radius` moved into the package stylesheet, and the setta
+  palette into a package-owned Tailwind preset; the playground renders the five reachable chrome
+  states in light/dark and compiles the package source provisionally (Phase 2 ships the compiled
+  scoped stylesheet).
+- Tooling pins diverge from the reference only where the repository's supply-chain controls block
+  the reference's versions (controls kept, versions moved): `vite 6.4.3` (≤6.4.2 has
+  GHSA-fx2h-pf6j-xcff), `postcss 8.5.25` (8.4.31 has two high sourceMappingURL advisories),
+  `vitest 4.1.10` (2.1.9 depends on vite ^5, a blocked trust downgrade), no `@vitejs/plugin-react`
+  (its `@babel/core` → `semver@6.3.1` edge is a blocked trust downgrade; Vite's esbuild JSX
+  transform serves the playground without fast refresh), and no `autoprefixer` (its `caniuse-lite`
+  transitive is CC-BY-4.0, outside the license allowlist; prefixing is a Phase 2 compiled-stylesheet
+  decision). Runtime pins (`react 19.1.1`, `tailwindcss 3.4.1`) match the reference.
+- Remaining Phase 1 work: the xyflow-fork canvas/viewport slice, dnd-kit fork drag slice, section
+  header and resize treatment, document/selection state, toolbar zoom/fit surface, and the live
+  side-by-side comparison feeding the developer exit gate.
+
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
 - Frozen reference worktree: `../setta-main` on `main` at `043d3b2e9`
