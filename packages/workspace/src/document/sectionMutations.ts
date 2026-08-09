@@ -1,3 +1,4 @@
+import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
 import { getSectionOrThrow, isGroupSection } from "./documentSelectors";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
 import {
@@ -11,8 +12,8 @@ import type { WorkspaceSection } from "./types";
 
 // The reference's per-flag commit funnels (optimistic impl write + one backend route each:
 // `setSectionName`, `togglePositionLocks`, `toggleMinimized`, `toggleGroupOrientation`,
-// `deleteSections`). The package applies the same canonical writes directly; the Phase 2
-// change-callback seam owns notifying the host from these funnels.
+// `deleteSections`). The package applies the same canonical writes directly and notifies the
+// host once per funnel through the document-change callback.
 
 function setSectionValues(sectionId: string, values: Partial<WorkspaceSection>) {
   useWorkspaceDocument.setState((state) => {
@@ -21,6 +22,7 @@ function setSectionValues(sectionId: string, values: Partial<WorkspaceSection>) 
       sections: { ...state.sections, [sectionId]: { ...section, ...values } },
     };
   });
+  notifyWorkspaceDocumentChange();
 }
 
 export function setSectionName(sectionId: string, name: string) {
@@ -113,4 +115,5 @@ export function deleteSection(sectionId: string) {
       useActiveSections.setState(nextActiveSections);
     },
   );
+  notifyWorkspaceDocumentChange();
 }

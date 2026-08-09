@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { Node, TopLevelSectionLayout } from "../document/types";
 import { fitView } from "./fitView";
@@ -39,11 +40,12 @@ export function raiseTempZIndex(items: Array<{ id: string }>) {
 
 // The reference funnels this through `debounced_route_set_top_level_section_layout`, which
 // mirrors node geometry into the canonical config immediately and debounces only the backend
-// send. The package keeps the immediate canonical mirror; the Phase 2 change-callback seam owns
-// notifying the host. Like the reference funnel, the layout dict is wholesale-replaced from
-// entries filtered to parent-less sections, so a section that currently has a parent loses its
-// stale top-level entry at the first layout write, and node geometry is written verbatim
-// (a null measurement clears the stored size back to auto).
+// send. The package keeps the immediate canonical mirror and notifies the host through the
+// document-change callback (host-side debouncing is transport policy). Like the reference
+// funnel, the layout dict is wholesale-replaced from entries filtered to parent-less sections,
+// so a section that currently has a parent loses its stale top-level entry at the first layout
+// write, and node geometry is written verbatim (a null measurement clears the stored size back
+// to auto).
 export function commitTopLevelLayoutToDocument() {
   const documentState = useWorkspaceDocument.getState();
   const nodeInternals = useNodeInternals.getState().x;
@@ -69,6 +71,7 @@ export function commitTopLevelLayoutToDocument() {
     };
   }
   useWorkspaceDocument.setState({ topLevelSections: nextLayouts });
+  notifyWorkspaceDocumentChange();
 }
 
 export function updateNodeDimensionsFromResizeObserver(entries: Array<ResizeObserverEntry>) {
@@ -112,7 +115,10 @@ function applyNodeDimensionUpdate(newNodes: Map<string, Node>, entry: ResizeObse
   });
 }
 
-function maybeCompleteInitialFitView() {
+// Also called by the load orchestrator after a mounted re-load arms fit-on-init: surviving
+// sections keep their measurements, so the armed fit may be completable without waiting for a
+// ResizeObserver pass.
+export function maybeCompleteInitialFitView() {
   const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions } = useReactFlow.getState();
   if (!fitViewOnInit || fitViewOnInitDone) {
     return;

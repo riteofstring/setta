@@ -9,7 +9,8 @@ import { useEditableOnSubmit } from "./useEditableOnSubmit";
 // The reference's `SectionTitle`, trimmed to the slice: renaming is gated by
 // `canEditStructure`; the fixed presentation renders when editing is not allowed. The
 // backend name-validation pipeline and its error chrome stayed application-side with the
-// generated naming rules; the Phase 2 change callback is where a host can reject a rename.
+// generated naming rules; a host that rejects a rename reported through the document-change
+// callback re-loads its authoritative document.
 export type SectionTitleClassNames = {
   editing?: string;
   notEditing?: string;

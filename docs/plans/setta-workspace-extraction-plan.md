@@ -230,10 +230,10 @@ Phase 1 progress (2026-08-10):
   `exports` map, which Knip reads; Knip polices at file granularity, so test-only exports stay
   visible to it only as entries), and the package README documents the React `^19.1.0` peer
   range the manifests already carried. All restored behaviors are frozen by new or ported tests.
-- Known Phase 1 seam limits (documented, deliberate): `loadWorkspaceDocument` is a
-  load-before-canvas-mount seam — re-loading while the canvas is mounted neither re-applies the
-  loaded camera nor resets dnd bookkeeping (for example the disable registry), and the Phase 2
-  controlled-document/change-callback boundary owns re-load semantics; the tooltip and toolbar
+- Known Phase 1 seam limits (documented, deliberate): `loadWorkspaceDocument` was a
+  load-before-canvas-mount seam — re-loading while the canvas was mounted neither re-applied the
+  loaded camera nor reset dnd bookkeeping (for example the disable registry); the first Phase 2
+  batch lifted this limit (see the Phase 2 progress entry). Still true: the tooltip and toolbar
   Q-key handling mounts with the canvas key activations, so the separately-exported surfaces
   assume a mounted `WorkspaceCanvas`.
 - Supervised live side-by-side pass (2026-08-11): frozen main and the playground ran concurrently
@@ -265,6 +265,42 @@ Phase 1 progress (2026-08-10):
   rechecking the corrected cross-parent interaction, the developer explicitly accepted the complete
   Phase 1 live side-by-side result. The Phase 1 exit gate is complete and Phase 2 may proceed.
 - Remaining Phase 1 work: none.
+
+Phase 2 progress (2026-08-11):
+
+- Controlled document and change callback (the callback half of Phase 2 item 2): the package now
+  owns `setWorkspaceDocumentChangeCallback`/`getWorkspaceDocument`, and every canonical commit
+  funnel notifies the host once with the full serializable `WorkspaceDocument` (moved to
+  `document/types.ts`) — the per-flag mutations (rename, lock, minimize, orientation; the
+  non-group orientation refusal does not notify), delete, the dnd move commit, the resize
+  funnel, drag-end and measurement layout writes, selection commits (the reference persists
+  selection through `route_set_active_ids`), and the viewport mirror. Notification cadence
+  matches the reference's canonical writes: the reference debounces only its network transport
+  (500 ms layout / 1000 ms viewport), so debouncing is host policy and per-frame viewport
+  mirrors notify per commit. Loads never notify (the callback reports package-initiated changes,
+  not echoes of the host's own writes), and a callback that mutates the workspace synchronously
+  fails loudly as a feedback loop.
+- Mounted re-load semantics (lifting the documented Phase 1 load-before-mount seam limit):
+  `loadWorkspaceDocument` is now the composition point between the document layer and the
+  canvas/dnd runtimes. On a mounted canvas a re-load applies the loaded camera through d3-zoom —
+  constrained exactly as mount-time initialization, keeping the element's internal zoom state
+  consistent where the reference writes transform state directly and otherwise relies on keyed
+  remounts — or, without a saved camera, arms fit-on-init before the publication (so the sync
+  mirror fired by the flag flip lands in the outgoing document) and attempts completion from
+  surviving measurements after it. Every load force-ends the drag session and prunes the dnd
+  disable registry to the loaded document's sections. `ZoomPane` clears its d3 handles on
+  unmount so the mounted-canvas detection stays honest, and `getInitialCanvasViewport`'s
+  saved-camera branch now normalizes stale armed fit flags (mirroring the reference's
+  `applyViewportFromProjectState` saved branch) — a deliberate correction: an unmounted-while-
+  armed fit can no longer complete over a saved camera on remount; the two frozen ZoomPane fit
+  tests were updated to the now-reachable state shapes. New focused suites freeze the callback
+  contract, the re-load camera/dnd behavior, and the unmount cleanup; the playground registers
+  the callback (render-isolated change readout) and drives an in-place document reload.
+- Remaining Phase 2 work: the registration surface (section kinds, icons, default sizes,
+  renderers, opaque section data — items 1–2), the compiled package build (ESM, declarations,
+  source maps, compiled scoped stylesheet — items 1 and 4), the forbidden-import verification
+  (item 3), the temporary Setta integration worktree and the packed unrelated consumer
+  (items 5–6), donor consideration (item 7), and integration evidence (item 8).
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

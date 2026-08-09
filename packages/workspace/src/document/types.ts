@@ -44,6 +44,18 @@ export type WorkspaceSection = {
   children: Array<string>;
 };
 
+// The controlled serializable workspace document: the shape a host passes to
+// `loadWorkspaceDocument` and receives back from the document-change callback. It mirrors the
+// reference's persisted project surface for the slice — structural sections, top-level layout,
+// camera, and selection (the reference persists selection through `route_set_active_ids`).
+export type WorkspaceDocument = {
+  sections: Record<string, WorkspaceSection>;
+  topLevelSections: Record<string, TopLevelSectionLayout>;
+  // null loads without a saved camera; the canvas fits the content on init.
+  viewport: Viewport | null;
+  activeIds: Array<string>;
+};
+
 export type Node = {
   id: string;
   position: Position;

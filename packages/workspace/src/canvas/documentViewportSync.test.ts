@@ -1,7 +1,16 @@
+import type { ZoomTransform } from "d3-zoom";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { useWorkspaceDocument } from "../document/stores";
-import { getInitialCanvasViewport, startCanvasViewportDocumentSync } from "./documentViewportSync";
+import type { WorkspaceDocument } from "../document/types";
+import {
+  applyLoadedDocumentViewport,
+  armLoadedDocumentFitView,
+  getInitialCanvasViewport,
+  startCanvasViewportDocumentSync,
+} from "./documentViewportSync";
 import { initialCanvasState, useReactFlow } from "./store";
+import type { ReactFlowState } from "./types";
 
 beforeEach(() => {
   useWorkspaceDocument.getState().reset();
@@ -9,9 +18,25 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  setWorkspaceDocumentChangeCallback(null);
   useWorkspaceDocument.getState().reset();
   useReactFlow.setState({ ...initialCanvasState });
 });
+
+// A d3-zoom stand-in that records applied transforms and constrains identically to d3's
+// unconstrained infinite-extent behavior.
+function mountFakeZoomRuntime() {
+  const applied: Array<ZoomTransform> = [];
+  const fakeZoom = {
+    constrain: () => (transform: ZoomTransform) => transform,
+    transform: (_selection: unknown, transform: ZoomTransform) => {
+      applied.push(transform);
+    },
+  } as unknown as NonNullable<ReactFlowState["d3Zoom"]>;
+  const fakeSelection = {} as NonNullable<ReactFlowState["d3Selection"]>;
+  useReactFlow.setState({ d3Zoom: fakeZoom, d3Selection: fakeSelection, width: 800, height: 600 });
+  return applied;
+}
 
 describe("getInitialCanvasViewport", () => {
   it("returns the saved document camera without arming fit-on-init", () => {
@@ -19,6 +44,17 @@ describe("getInitialCanvasViewport", () => {
 
     expect(getInitialCanvasViewport()).toEqual({ x: 12, y: -30, zoom: 1.5 });
     expect(useReactFlow.getState().fitViewOnInit).toBe(false);
+  });
+
+  it("normalizes stale armed fit flags in the saved-camera branch", () => {
+    // An unmount while a fit was armed leaves the flags behind; the next mount with a saved
+    // camera must not complete that stale fit over the saved viewport.
+    useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
+    useWorkspaceDocument.setState({ viewport: { x: 5, y: 6, zoom: 2 } });
+
+    expect(getInitialCanvasViewport()).toEqual({ x: 5, y: 6, zoom: 2 });
+    expect(useReactFlow.getState().fitViewOnInit).toBe(false);
+    expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
   });
 
   it("arms fit-on-init at the identity camera when the document has no saved viewport", () => {
@@ -38,6 +74,20 @@ describe("startCanvasViewportDocumentSync", () => {
     useReactFlow.setState({ transform: [40, -25, 2] });
 
     expect(useWorkspaceDocument.getState().viewport).toEqual({ x: 40, y: -25, zoom: 2 });
+    stop();
+  });
+
+  it("notifies the document-change callback for each mirrored change", () => {
+    const reported: Array<WorkspaceDocument> = [];
+    setWorkspaceDocumentChangeCallback((document) => {
+      reported.push(document);
+    });
+    const stop = startCanvasViewportDocumentSync();
+
+    useReactFlow.setState({ transform: [40, -25, 2] });
+
+    expect(reported).toHaveLength(1);
+    expect(reported[0]?.viewport).toEqual({ x: 40, y: -25, zoom: 2 });
     stop();
   });
 
@@ -64,5 +114,55 @@ describe("startCanvasViewportDocumentSync", () => {
     useReactFlow.setState({ transform: [10, 10, 1] });
 
     expect(useWorkspaceDocument.getState().viewport).toBeNull();
+  });
+});
+
+describe("armLoadedDocumentFitView", () => {
+  it("arms fit-on-init on a mounted canvas for a document without a saved camera", () => {
+    mountFakeZoomRuntime();
+    armLoadedDocumentFitView(null);
+
+    expect(useReactFlow.getState().fitViewOnInit).toBe(true);
+    expect(useReactFlow.getState().fitViewOnInitDone).toBe(false);
+  });
+
+  it("does nothing for a saved camera or an unmounted canvas", () => {
+    armLoadedDocumentFitView(null);
+    expect(useReactFlow.getState().fitViewOnInit).toBe(false);
+
+    mountFakeZoomRuntime();
+    armLoadedDocumentFitView({ x: 1, y: 2, zoom: 1 });
+    expect(useReactFlow.getState().fitViewOnInit).toBe(false);
+  });
+});
+
+describe("applyLoadedDocumentViewport", () => {
+  it("pushes the loaded camera through d3-zoom and cancels any pending fit", () => {
+    const applied = mountFakeZoomRuntime();
+    useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
+
+    applyLoadedDocumentViewport({ x: 100, y: -50, zoom: 1.5 });
+
+    expect(applied).toHaveLength(1);
+    expect(applied[0]).toMatchObject({ x: 100, y: -50, k: 1.5 });
+    expect(useReactFlow.getState().fitViewOnInit).toBe(false);
+    expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
+  });
+
+  it("clamps the loaded zoom to the option limits", () => {
+    const applied = mountFakeZoomRuntime();
+
+    applyLoadedDocumentViewport({ x: 0, y: 0, zoom: 500 });
+
+    expect(applied[0]?.k).toBeLessThan(500);
+  });
+
+  it("does nothing for a missing camera or an unmounted canvas", () => {
+    applyLoadedDocumentViewport({ x: 1, y: 2, zoom: 1 });
+    expect(useReactFlow.getState().fitViewOnInitDone).toBe(false);
+
+    const applied = mountFakeZoomRuntime();
+    applyLoadedDocumentViewport(null);
+    expect(applied).toHaveLength(0);
   });
 });

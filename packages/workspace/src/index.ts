@@ -8,9 +8,13 @@ export type { PanOnScrollMode, SelectionMode } from "./canvas/types";
 export { WorkspaceCanvas } from "./canvas/WorkspaceCanvas";
 export { useWorkspaceCapabilities } from "./document/capabilities";
 export type { WorkspaceCapabilitiesState } from "./document/capabilities";
+export {
+  getWorkspaceDocument,
+  setWorkspaceDocumentChangeCallback,
+} from "./document/documentChangeCallback";
+export type { WorkspaceDocumentChangeCallback } from "./document/documentChangeCallback";
 export { GROUP_SECTION_KIND } from "./document/documentSelectors";
 export { loadWorkspaceDocument } from "./document/loadWorkspaceDocument";
-export type { WorkspaceDocument } from "./document/loadWorkspaceDocument";
 export { useWorkspaceAppearance } from "./document/stores";
 export type { WorkspaceAppearanceState } from "./document/stores";
 export type {
@@ -19,6 +23,7 @@ export type {
   SectionSizeValue,
   TopLevelSectionLayout,
   Viewport,
+  WorkspaceDocument,
   WorkspaceSection,
 } from "./document/types";
 export {

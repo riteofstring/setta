@@ -109,6 +109,20 @@ export function forceDeactivateDnd() {
   resetDndState();
 }
 
+// The load half of the reference's project-switch reset registry: a document load force-ends any
+// live drag session and prunes the per-section disable registry to the loaded document's
+// sections. Mounted sections that survive the load keep their registrations — their mount
+// effects do not re-run — while entries for removed sections would otherwise linger forever.
+// Runs after the document publication so the children resync reads the loaded document.
+export function resetDndSessionForLoadedDocument(sectionIds: ReadonlySet<string>) {
+  resetDndState();
+  useDndState.setState((state) => ({
+    disabled: Object.fromEntries(
+      Object.entries(state.disabled).filter(([id]) => sectionIds.has(id)),
+    ),
+  }));
+}
+
 export function setDndDisabled(sectionId: string, disabled: Disabled) {
   useDndState.setState((state) => ({
     disabled: { ...state.disabled, [sectionId]: disabled },

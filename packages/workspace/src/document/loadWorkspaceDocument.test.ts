@@ -1,13 +1,17 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import type { ZoomTransform } from "d3-zoom";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { initialCanvasState, useReactFlow } from "../canvas/store";
+import type { ReactFlowState } from "../canvas/types";
+import { setDndDisabled, useDndState } from "../dnd/dndState";
 import { getHighestAncestor } from "./documentSelectors";
-import { loadWorkspaceDocument, type WorkspaceDocument } from "./loadWorkspaceDocument";
+import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceAppearance,
   useWorkspaceDocument,
 } from "./stores";
-import type { WorkspaceSection } from "./types";
+import type { WorkspaceDocument, WorkspaceSection } from "./types";
 
 function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): WorkspaceSection {
   return {
@@ -47,10 +51,31 @@ function resetWorkspaceStores() {
   useNodeInternals.getState().reset();
   useActiveSections.getState().reset();
   useWorkspaceAppearance.getState().reset();
+  useDndState.getState().reset();
+  useReactFlow.setState({ ...initialCanvasState });
+}
+
+// A d3-zoom stand-in for the mounted-canvas re-load paths: it records applied transforms and
+// constrains identically to d3's unconstrained infinite-extent behavior.
+function mountFakeZoomRuntime() {
+  const applied: Array<ZoomTransform> = [];
+  const fakeZoom = {
+    constrain: () => (transform: ZoomTransform) => transform,
+    transform: (_selection: unknown, transform: ZoomTransform) => {
+      applied.push(transform);
+    },
+  } as unknown as NonNullable<ReactFlowState["d3Zoom"]>;
+  const fakeSelection = {} as NonNullable<ReactFlowState["d3Selection"]>;
+  useReactFlow.setState({ d3Zoom: fakeZoom, d3Selection: fakeSelection, width: 800, height: 600 });
+  return applied;
 }
 
 describe("loadWorkspaceDocument", () => {
   beforeEach(() => {
+    resetWorkspaceStores();
+  });
+
+  afterEach(() => {
     resetWorkspaceStores();
   });
 
@@ -188,5 +213,52 @@ describe("loadWorkspaceDocument", () => {
     expect(() => loadWorkspaceDocument(makeDocument({ activeIds: ["ghost"] }))).toThrowError(
       /Active ids references unknown section ghost/,
     );
+  });
+
+  it("re-applies a loaded camera through d3-zoom on a mounted canvas", () => {
+    loadWorkspaceDocument(makeDocument());
+    const applied = mountFakeZoomRuntime();
+    useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
+
+    loadWorkspaceDocument(makeDocument({ viewport: { x: 60, y: -40, zoom: 1.25 } }));
+
+    expect(applied).toHaveLength(1);
+    expect(applied[0]).toMatchObject({ x: 60, y: -40, k: 1.25 });
+    expect(useReactFlow.getState().fitViewOnInit).toBe(false);
+    expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
+  });
+
+  it("arms and immediately completes fit-on-init when re-loading without a saved camera", () => {
+    loadWorkspaceDocument(makeDocument());
+    const applied = mountFakeZoomRuntime();
+
+    // The loaded layout carries measured sizes, so the armed fit completes without waiting for
+    // a ResizeObserver pass; the fake d3 runtime records the fitted transform.
+    loadWorkspaceDocument(makeDocument({ viewport: null }));
+
+    expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
+    expect(applied).toHaveLength(1);
+    expect(useWorkspaceDocument.getState().viewport).toBeNull();
+  });
+
+  it("leaves the canvas fit flags alone when loading before the canvas mounts", () => {
+    loadWorkspaceDocument(makeDocument({ viewport: null }));
+
+    expect(useReactFlow.getState().fitViewOnInit).toBe(false);
+    expect(useReactFlow.getState().fitViewOnInitDone).toBe(false);
+  });
+
+  it("force-ends the drag session and prunes dnd bookkeeping to the loaded document", () => {
+    loadWorkspaceDocument(makeDocument());
+    setDndDisabled("leaf", { draggable: false, droppable: true });
+    setDndDisabled("ghost", { draggable: false, droppable: false });
+    useDndState.setState({ isSorting: true, activeId: "leaf" });
+
+    loadWorkspaceDocument(makeDocument());
+
+    const dndState = useDndState.getState();
+    expect(dndState.isSorting).toBe(false);
+    expect(dndState.activeId).toBeNull();
+    expect(Object.keys(dndState.disabled)).toEqual(["leaf"]);
   });
 });

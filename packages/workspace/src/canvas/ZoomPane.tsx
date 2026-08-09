@@ -1008,6 +1008,20 @@ export default ZoomPane;
 function useZoomPaneInit(zoomPane: RefObject<HTMLDivElement | null>) {
   useEffect(() => {
     zoomPaneInit(zoomPane);
+    // The reference swaps whole keyed project surfaces, so it never observes a canvas store that
+    // outlives its zoom pane. The package canvas store does outlive an unmounted canvas, and the
+    // load orchestrator treats live d3 handles as "canvas mounted" — so an unmount must clear
+    // them. Only the handles: the fit flags feed the still-subscribed viewport sync (parent
+    // effects clean up after children), and the next mount's `getInitialCanvasViewport` resets
+    // them from the document either way.
+    return () => {
+      useReactFlow.setState({
+        d3Zoom: null,
+        d3Selection: null,
+        d3ZoomHandler: undefined,
+        domNode: null,
+      });
+    };
   }, [zoomPane]);
 }
 

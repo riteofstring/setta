@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { Node, WorkspaceSection } from "../document/types";
 import { commitTopLevelLayoutToDocument } from "./nodeInternalsActions";
@@ -34,6 +35,10 @@ function createNode(overrides: Partial<Node> & Pick<Node, "id">): Node {
 beforeEach(() => {
   useWorkspaceDocument.getState().reset();
   useNodeInternals.getState().reset();
+});
+
+afterEach(() => {
+  setWorkspaceDocumentChangeCallback(null);
 });
 
 describe("commitTopLevelLayoutToDocument", () => {
@@ -82,5 +87,23 @@ describe("commitTopLevelLayoutToDocument", () => {
     expect(useWorkspaceDocument.getState().topLevelSections).toEqual({
       top: { x: 1, y: 2, w: null, h: null, zIndex: 0 },
     });
+  });
+
+  it("notifies the document-change callback once per layout commit", () => {
+    useWorkspaceDocument.setState({
+      sections: { top: createSection("top") },
+      topLevelSections: { top: { x: 1, y: 2, w: 200, h: 100, zIndex: 0 } },
+    });
+    useNodeInternals.setState({
+      x: new Map([["top", createNode({ id: "top", position: { x: 5, y: 6 } })]]),
+    });
+    let notified = 0;
+    setWorkspaceDocumentChangeCallback(() => {
+      notified += 1;
+    });
+
+    commitTopLevelLayoutToDocument();
+
+    expect(notified).toBe(1);
   });
 });

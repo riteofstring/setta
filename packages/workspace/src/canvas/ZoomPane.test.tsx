@@ -337,13 +337,13 @@ describe("getViewportInteractionActiveValue", () => {
         ],
       ]),
     });
+    // A document without a saved camera arms fit-on-init through the mount-time
+    // `getInitialCanvasViewport`; the initialization effect then completes the fit.
+    useWorkspaceDocument.setState({ viewport: null });
     useReactFlow.setState({
       ...initialCanvasState,
       width: 800,
       height: 600,
-      fitViewOnInit: true,
-      fitViewOnInitDone: false,
-      fitViewOnInitOptions: { nodes: [{ id: "settings-core-node" }] },
     });
 
     const { host, root } = await renderZoomPane();
@@ -381,8 +381,12 @@ describe("getViewportInteractionActiveValue", () => {
     const { host, root } = await renderZoomPane();
 
     try {
-      expect(useReactFlow.getState().fitViewOnInitDone).toBe(false);
+      // Mounting with the saved camera normalizes the fit flags instead of arming.
+      expect(useReactFlow.getState().fitViewOnInit).toBe(false);
+      expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
 
+      // The shape of a mounted re-load without a saved camera: `armLoadedDocumentFitView`
+      // arms while d3 is already initialized, and the initialization effect retries.
       await act(async () => {
         useReactFlow.setState({
           fitViewOnInit: true,
@@ -400,5 +404,22 @@ describe("getViewportInteractionActiveValue", () => {
       });
       host.remove();
     }
+  });
+
+  it("clears the d3 handles on unmount so a load no longer sees a mounted canvas", async () => {
+    const { host, root } = await renderZoomPane();
+
+    expect(useReactFlow.getState().d3Zoom).not.toBeNull();
+    expect(useReactFlow.getState().d3Selection).not.toBeNull();
+    expect(useReactFlow.getState().domNode).not.toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
+
+    expect(useReactFlow.getState().d3Zoom).toBeNull();
+    expect(useReactFlow.getState().d3Selection).toBeNull();
+    expect(useReactFlow.getState().domNode).toBeNull();
   });
 });

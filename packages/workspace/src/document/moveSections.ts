@@ -1,4 +1,5 @@
 import { insertIntoArray } from "./arrayUtils";
+import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
 import { getSectionOrThrow } from "./documentSelectors";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
 import {
@@ -12,8 +13,8 @@ import type { Position, WorkspaceSection } from "./types";
 
 // The reference's single dnd commit funnel (`moveSectionsWithBackend`,
 // `state/actions/sections/moveSections.ts`) minus the app-only branches: the optimistic-op
-// plumbing and backend routes stay application-side (the Phase 2 change-callback seam owns host
-// notification), and the code-section attached-terminal handling left with that feature. The
+// plumbing and backend routes stay application-side (the document-change callback notifies the
+// host instead), and the code-section attached-terminal handling left with that feature. The
 // canonical document changes once per gesture, and the document, derived node geometry, and
 // selection publish atomically.
 
@@ -61,6 +62,7 @@ export function moveSections({
       useWorkspaceDocument.setState(nextDocumentState);
     },
   );
+  notifyWorkspaceDocumentChange();
 }
 
 function moveSectionsToPane({
