@@ -221,7 +221,14 @@ function WorkspaceSectionCreationDialog<TSectionData>({
         >
           {`${String(filteredDefinitions.length)} section ${filteredDefinitions.length === 1 ? "type" : "types"} available.`}
         </p>
-        {error ? <p className="setta-workspace__creation-error">{error}</p> : null}
+        <p
+          aria-atomic="true"
+          aria-live="polite"
+          className={error ? "setta-workspace__creation-error" : "setta-workspace__visually-hidden"}
+          data-workspace-creation-error-status=""
+        >
+          {error}
+        </p>
         <div className="setta-workspace__creation-results" ref={resultsRef}>
           {groups.map((group) => (
             <section className="setta-workspace__creation-group" key={group.label}>

@@ -211,6 +211,9 @@ describe("Workspace scaffold", () => {
     expect(markup).toMatch(/<dialog[^>]+aria-labelledby="[^"]+"/u);
     expect(markup).toContain("Search sections");
     expect(markup).toContain("Host note");
+    expect(markup).toMatch(
+      /<p[^>]+aria-atomic="true"[^>]+aria-live="polite"[^>]+data-workspace-creation-error-status=""/u,
+    );
   });
 
   it("renders registered host content inside an accessible package-owned section frame", () => {

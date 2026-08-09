@@ -51,6 +51,7 @@ export function StateContractPage() {
   const [rejectedControlledDocument, setRejectedControlledDocument] =
     useState<WorkspaceDocument | null>(null);
   const [acceptControlledChanges, setAcceptControlledChanges] = useState(true);
+  const [reuseExistingCreationId, setReuseExistingCreationId] = useState(false);
   const [readOnly, setReadOnly] = useState(false);
   const [status, setStatus] = useState("");
 
@@ -210,6 +211,14 @@ export function StateContractPage() {
               />
               Accept controlled changes
             </label>
+            <label>
+              <input
+                checked={reuseExistingCreationId}
+                onChange={(event) => setReuseExistingCreationId(event.currentTarget.checked)}
+                type="checkbox"
+              />
+              Reuse existing section ID for creation
+            </label>
             <button type="button" onClick={panControlledViewport}>
               Pan controlled viewport
             </button>
@@ -251,6 +260,13 @@ export function StateContractPage() {
               }}
               sectionDefinitions={testSectionDefinitions}
               sectionFactory={() => {
+                if (reuseExistingCreationId) {
+                  return {
+                    data: null,
+                    id: "alpha",
+                    title: "Duplicate controlled fixture",
+                  };
+                }
                 controlledSectionSequence.current += 1;
                 const sequence = controlledSectionSequence.current;
                 return {

@@ -163,6 +163,30 @@ test("controlled creation rejection restores focus and clears deferred selection
   await expect(applyReplacement).toBeFocused();
 });
 
+test("immediate creation rejection remains visible and announced", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/?state-contract");
+
+  await page.getByRole("checkbox", { name: "Reuse existing section ID for creation" }).check();
+  const controlled = page.getByRole("region", { name: "Controlled workspace", exact: true });
+  await controlled.getByRole("button", { name: "Add section" }).click();
+  const picker = controlled.getByRole("dialog", { name: "Add a section" });
+  const search = picker.getByRole("searchbox", { name: "Search sections" });
+  await picker.getByRole("button", { name: "State fixture" }).click();
+
+  const message = "That section ID is already in use. Choose the section type again.";
+  await expect(picker.getByText(message, { exact: true })).toBeVisible();
+  await expect(search).toBeFocused();
+  const status = picker.locator("[data-workspace-creation-error-status]");
+  await expect(status).toHaveAttribute("aria-atomic", "true");
+  await expect(status).toHaveAttribute("aria-live", "polite");
+  await expect(status).toHaveText(message);
+  const accessibility = await new AxeBuilder({ page })
+    .include("[data-workspace-creation-source]")
+    .analyze();
+  expect(accessibility.violations).toEqual([]);
+});
+
 test("the section picker reflows at 320 CSS pixels", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 720 });
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
