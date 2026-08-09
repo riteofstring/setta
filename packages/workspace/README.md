@@ -193,6 +193,14 @@ owner. The mode captured when a gesture starts remains in force until completion
 changing the prop affects the next gesture. Root layout, structural DnD, and viewport gestures
 exclude their competing activators and restore them when the active owner releases.
 
+For structural keyboard movement, focus a named section movement handle and press Enter or Space.
+ArrowUp and ArrowDown move through vertical sibling positions; ArrowLeft and ArrowRight move
+through horizontal positions and mirror their logical order in right-to-left layouts. In free mode,
+an arrow at the edge of the current container previews the nearest valid measured container in that
+direction. Each preview announces its container and position. Press Enter or Space to commit the
+displayed plan, or Escape to cancel and restore focus. A selected sibling block follows the same
+path as one atomic move.
+
 `validateSectionMove` is an optional synchronous, side-effect-free host policy for structural
 moves. It receives the current document and an immutable `SectionMovePlan` after package-owned
 shared-parent, containment, cycle, destination, and lock checks. Return a specific rejection reason

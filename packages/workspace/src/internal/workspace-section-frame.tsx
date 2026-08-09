@@ -25,7 +25,10 @@ import {
   WORKSPACE_NO_ROOT_DRAG_CLASS_NAME,
   WORKSPACE_NO_WHEEL_CLASS_NAME,
 } from "./workspace-interaction-boundary.js";
-import type { WorkspaceKeyboardMoveDirection } from "./workspace-root-movement.js";
+import {
+  workspaceKeyboardMoveDirectionForKey,
+  type WorkspaceKeyboardMoveDirection,
+} from "./workspace-root-movement.js";
 import type {
   WorkspaceSectionColorOption,
   WorkspaceSectionTitleValidator,
@@ -200,19 +203,6 @@ function SectionHeading(props: SectionHeadingProps) {
   return <HeaderlessSectionHeading {...props} />;
 }
 
-function moveDirection(key: string): WorkspaceKeyboardMoveDirection | null {
-  if (key === "ArrowDown") {
-    return "down";
-  }
-  if (key === "ArrowLeft") {
-    return "left";
-  }
-  if (key === "ArrowRight") {
-    return "right";
-  }
-  return key === "ArrowUp" ? "up" : null;
-}
-
 function MoveIcon() {
   return (
     <svg
@@ -328,6 +318,26 @@ function spatialDragDisabled(
   );
 }
 
+function handleStructuralDragKey(
+  event: KeyboardEvent<HTMLButtonElement>,
+  active: boolean,
+  disabled: boolean,
+  section: WorkspaceSection<unknown>,
+  selected: boolean,
+  onSelectionRequest: (sectionId: string, request: WorkspaceSectionSelectionRequest) => void,
+): void {
+  if (active && workspaceKeyboardMoveDirectionForKey(event.key)) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  if ((event.key === "Enter" || event.key === " ") && !disabled) {
+    onSelectionRequest(section.id, {
+      additive: event.shiftKey,
+      preserveSelected: selected,
+    });
+  }
+}
+
 function SectionDragHandle({
   depth,
   descriptionId,
@@ -367,15 +377,17 @@ function SectionDragHandle({
       );
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (structuralDrag.structural) {
-      if ((event.key === "Enter" || event.key === " ") && !disabled) {
-        onSelectionRequest(section.id, {
-          additive: event.shiftKey,
-          preserveSelected: selected,
-        });
-      }
+      handleStructuralDragKey(
+        event,
+        structuralDrag.active,
+        disabled,
+        section,
+        selected,
+        onSelectionRequest,
+      );
       return;
     }
-    const direction = moveDirection(event.key);
+    const direction = workspaceKeyboardMoveDirectionForKey(event.key);
     if (!direction || event.altKey || event.ctrlKey || event.metaKey) {
       return;
     }

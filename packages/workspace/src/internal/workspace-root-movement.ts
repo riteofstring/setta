@@ -3,6 +3,21 @@ import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
 
 export type WorkspaceKeyboardMoveDirection = "down" | "left" | "right" | "up";
 
+export function workspaceKeyboardMoveDirectionForKey(
+  key: string,
+): WorkspaceKeyboardMoveDirection | null {
+  if (key === "ArrowDown") {
+    return "down";
+  }
+  if (key === "ArrowLeft") {
+    return "left";
+  }
+  if (key === "ArrowRight") {
+    return "right";
+  }
+  return key === "ArrowUp" ? "up" : null;
+}
+
 const UNSNAPPED_KEYBOARD_INCREMENT = 10;
 const keyboardDirections = {
   down: { axis: "y", direction: 1 },

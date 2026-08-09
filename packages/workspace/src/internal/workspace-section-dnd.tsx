@@ -27,17 +27,21 @@ import {
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 import type { WorkspaceStructuralInteractionStart } from "./workspace-interaction-owner.js";
 import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
+import {
+  workspaceSectionMoveCompletionAnnouncement,
+  workspaceSectionMoveControlledRejectionAnnouncement,
+  workspaceSectionMoveMismatchAnnouncement,
+  workspaceSectionMovePendingAnnouncement,
+} from "./workspace-section-move-announcements.js";
 import { workspaceDocumentMatchesSectionMove } from "./workspace-section-move-command.js";
 import type { WorkspaceSectionMoveFeedbackStore } from "./workspace-section-move-feedback.js";
 import { WorkspaceSectionMoveProjection } from "./workspace-section-move-projection.js";
 import {
   createWorkspaceSectionMoveSession,
   matchingWorkspaceSectionMovePreview,
+  resolveWorkspaceSectionKeyboardMovePreview,
   resolveWorkspaceSectionMovePreview,
-  workspaceSectionMoveCompletionAnnouncement,
-  workspaceSectionMoveControlledRejectionAnnouncement,
-  workspaceSectionMoveMismatchAnnouncement,
-  workspaceSectionMovePendingAnnouncement,
+  revalidateWorkspaceSectionKeyboardMovePreview,
   type WorkspaceSectionMoveSession,
   type WorkspaceSectionMoveSessionResult,
 } from "./workspace-section-move-session.js";
@@ -351,17 +355,25 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
   };
   const handleMove = (event: AdapterDndEvent) => {
     const session = activeSessionRef.current;
-    if (!session) {
+    if (!session || (event.input === "keyboard" && !event.keyboardDirection)) {
       return;
     }
-    const resolution = resolveWorkspaceSectionMovePreview({
-      document: session.document,
-      event,
-      geometry,
-      gridOptions,
-      session,
-      validateSectionMove,
-    });
+    const resolution = event.keyboardDirection
+      ? resolveWorkspaceSectionKeyboardMovePreview({
+          direction: event.keyboardDirection,
+          document: session.document,
+          geometry,
+          session,
+          validateSectionMove,
+        })
+      : resolveWorkspaceSectionMovePreview({
+          document: session.document,
+          event,
+          geometry,
+          gridOptions,
+          session,
+          validateSectionMove,
+        });
     activeSessionRef.current = {
       ...session,
       collisionState: resolution.collisionState,
@@ -379,14 +391,17 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
     } else if (!session) {
       announcement = `${sectionTitle(source.sectionId)} did not move. ${rejectedStartReasonRef.current}`;
     } else {
-      const resolution = resolveWorkspaceSectionMovePreview({
-        document: session.document,
-        event: completion,
-        geometry,
-        gridOptions,
-        session,
-        validateSectionMove,
-      });
+      const resolution =
+        completion.input === "keyboard"
+          ? revalidateWorkspaceSectionKeyboardMovePreview({ session, validateSectionMove })
+          : resolveWorkspaceSectionMovePreview({
+              document: session.document,
+              event: completion,
+              geometry,
+              gridOptions,
+              session,
+              validateSectionMove,
+            });
       const preview = matchingWorkspaceSectionMovePreview(session.preview, resolution);
       if (preview) {
         const pendingFocus = {

@@ -1,4 +1,4 @@
-import type { WorkspaceActionResult, WorkspaceDocument, WorkspacePoint } from "../core.js";
+import type { WorkspaceDocument, WorkspacePoint } from "../core.js";
 import {
   clearCollisionTarget,
   EMPTY_COLLISION_TRACKER_STATE,
@@ -35,6 +35,8 @@ import type { AdapterDndEvent } from "./upstream-dnd-adapter.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 import type { ResolvedWorkspaceGridOptions } from "./workspace-preferences.js";
 import { snapWorkspacePointToGrid } from "./workspace-preferences.js";
+import { resolveWorkspaceSectionKeyboardMove } from "./workspace-section-keyboard-move.js";
+import { workspaceSectionMovePreviewAnnouncement } from "./workspace-section-move-announcements.js";
 import {
   resolveWorkspaceSectionCollision,
   type WorkspaceSectionCollisionResolution,
@@ -528,48 +530,6 @@ export function workspaceSectionInsertionIndicator({
   };
 }
 
-function moveSubject<TSectionData>(
-  document: WorkspaceDocument<TSectionData>,
-  sectionIds: readonly string[],
-): string {
-  const title = document.sections[sectionIds[0] ?? ""]?.title ?? "Section";
-  return sectionIds.length === 1 ? title : `${title} and ${String(sectionIds.length - 1)} more`;
-}
-
-function destinationDescription<TSectionData>(
-  document: WorkspaceDocument<TSectionData>,
-  plan: SectionMovePlan,
-): string {
-  if (plan.destinationParentId === null) {
-    return "the canvas";
-  }
-  return document.sections[plan.destinationParentId]?.title ?? "the destination container";
-}
-
-function nestedPositionDescription<TSectionData>(
-  document: WorkspaceDocument<TSectionData>,
-  plan: SectionMovePlan,
-): string {
-  if (plan.destinationParentId === null) {
-    return "";
-  }
-  const currentCount = document.sections[plan.destinationParentId]?.childLayout?.sectionIds.length;
-  const movedFromDestination =
-    plan.sourceParentId === plan.destinationParentId ? plan.sectionIds.length : 0;
-  const total = (currentCount ?? 0) - movedFromDestination + plan.sectionIds.length;
-  const first = plan.destinationIndex + 1;
-  const last = plan.destinationIndex + plan.sectionIds.length;
-  const position = first === last ? String(first) : `${String(first)} through ${String(last)}`;
-  return `, position ${position} of ${String(total)}`;
-}
-
-function previewAnnouncement<TSectionData>(
-  document: WorkspaceDocument<TSectionData>,
-  plan: SectionMovePlan,
-): string {
-  return `Preview: ${moveSubject(document, plan.sectionIds)} will move to ${destinationDescription(document, plan)}${nestedPositionDescription(document, plan)}.`;
-}
-
 function previewFromDecision<TSectionData>(
   collisionState: CollisionTrackerState,
   document: WorkspaceDocument<TSectionData>,
@@ -598,7 +558,7 @@ function previewFromDecision<TSectionData>(
   return {
     collisionState,
     preview: {
-      announcement: previewAnnouncement(document, decision.plan),
+      announcement: workspaceSectionMovePreviewAnnouncement(document, decision.plan),
       destinationKey: serializeSectionMovePlan(decision.plan),
       indicator,
       plan: decision.plan,
@@ -863,48 +823,98 @@ export function resolveWorkspaceSectionMovePreview<TSectionData>({
   });
 }
 
+export function resolveWorkspaceSectionKeyboardMovePreview<TSectionData>({
+  direction,
+  document,
+  geometry,
+  session,
+  validateSectionMove,
+}: Readonly<{
+  direction: NonNullable<AdapterDndEvent["keyboardDirection"]>;
+  document: WorkspaceDocument<TSectionData>;
+  geometry: WorkspaceGeometryMeasurements;
+  session: WorkspaceSectionMoveSession<TSectionData>;
+  validateSectionMove: WorkspaceSectionMoveValidator<TSectionData> | undefined;
+}>): WorkspaceSectionMovePreviewResolution {
+  const resolution = resolveWorkspaceSectionKeyboardMove({
+    direction,
+    document,
+    session,
+    validateSectionMove,
+  });
+  if (resolution.status === "unavailable") {
+    return {
+      collisionState: clearCollisionTarget(session.collisionState),
+      preview: null,
+      reason: resolution.reason,
+    };
+  }
+  const orderedRects = resolution.destinationIds.map(
+    (sectionId) => session.workspaceRectsById[sectionId],
+  );
+  if (orderedRects.some((rect) => !rect)) {
+    return {
+      collisionState: clearCollisionTarget(session.collisionState),
+      preview: null,
+      reason: "The keyboard destination order is not completely measured.",
+    };
+  }
+  const indicator = workspaceSectionInsertionIndicator({
+    direction: resolution.region.direction,
+    index: resolution.destinationIndex,
+    orderedRects: orderedRects as readonly WorkspaceRect[],
+    orientation: resolution.region.orientation,
+    regionRect: resolution.region.workspaceRect,
+    zoom: geometry.currentViewport().zoom,
+  });
+  return previewFromDecision(
+    clearCollisionTarget(session.collisionState),
+    document,
+    resolution.decision,
+    indicator,
+    session,
+  );
+}
+
+export function revalidateWorkspaceSectionKeyboardMovePreview<TSectionData>({
+  session,
+  validateSectionMove,
+}: Readonly<{
+  session: WorkspaceSectionMoveSession<TSectionData>;
+  validateSectionMove: WorkspaceSectionMoveValidator<TSectionData> | undefined;
+}>): WorkspaceSectionMovePreviewResolution {
+  const preview = session.preview;
+  if (!preview) {
+    return {
+      collisionState: clearCollisionTarget(session.collisionState),
+      preview: null,
+      reason: "No keyboard move destination is selected.",
+    };
+  }
+  const decision = planSectionMove({
+    destination: {
+      index: preview.plan.destinationIndex,
+      parentId: preview.plan.destinationParentId,
+      topLevelPositions: preview.plan.topLevelPositions,
+    },
+    hierarchy: session.hierarchy,
+    mode: session.mode,
+    selectedIds: session.sectionIds,
+    validate: (plan) =>
+      validateWorkspaceSectionMovePlan(session.document, plan, validateSectionMove),
+  });
+  return previewFromDecision(
+    clearCollisionTarget(session.collisionState),
+    session.document,
+    decision,
+    preview.indicator,
+    session,
+  );
+}
+
 export function matchingWorkspaceSectionMovePreview(
   displayed: WorkspaceSectionMovePreview | null,
   resolved: WorkspaceSectionMovePreviewResolution,
 ): WorkspaceSectionMovePreview | null {
   return displayed?.destinationKey === resolved.preview?.destinationKey ? resolved.preview : null;
-}
-
-export function workspaceSectionMoveCompletionAnnouncement<TSectionData>(
-  session: WorkspaceSectionMoveSession<TSectionData>,
-  preview: WorkspaceSectionMovePreview,
-  result: WorkspaceActionResult,
-): string {
-  const subject = moveSubject(session.document, preview.plan.sectionIds);
-  if (result.status === "applied") {
-    return `${subject} moved to ${destinationDescription(session.document, preview.plan)}${nestedPositionDescription(session.document, preview.plan)}.`;
-  }
-  if (result.status === "unchanged") {
-    return `${subject} stayed in place.`;
-  }
-  if ("reason" in result && result.reason === "section-locked") {
-    return `${subject} did not move because one of the selected sections is locked.`;
-  }
-  return `${subject} did not move because the proposed destination was rejected.`;
-}
-
-export function workspaceSectionMovePendingAnnouncement(
-  session: WorkspaceSectionMoveSession,
-  preview: WorkspaceSectionMovePreview,
-): string {
-  return `Checking the move for ${moveSubject(session.document, preview.plan.sectionIds)}.`;
-}
-
-export function workspaceSectionMoveControlledRejectionAnnouncement(
-  session: WorkspaceSectionMoveSession,
-  preview: WorkspaceSectionMovePreview,
-): string {
-  return `${moveSubject(session.document, preview.plan.sectionIds)} did not move because the controlled host did not accept the change.`;
-}
-
-export function workspaceSectionMoveMismatchAnnouncement(
-  session: WorkspaceSectionMoveSession,
-  reason: string,
-): string {
-  return `${moveSubject(session.document, session.sectionIds)} did not move. ${reason || "The displayed destination changed before completion."}`;
 }

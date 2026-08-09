@@ -15,8 +15,11 @@ import type { InteractionPoint } from "./interaction-geometry.js";
 
 export type AdapterDndInput = "keyboard" | "pointer" | "touch";
 
+export type AdapterDndKeyboardDirection = "down" | "left" | "right" | "up";
+
 export type AdapterDndEvent = {
   activatorPoint: InteractionPoint | null;
+  keyboardDirection: AdapterDndKeyboardDirection | null;
   sourceId: string;
   targetId: string | null;
   input: AdapterDndInput;
@@ -112,6 +115,7 @@ export function UpstreamDndBoundary({
               activeInput.current,
               operation.transform,
               activeActivatorPoint.current,
+              activatorEvent,
             ),
           );
         }
@@ -134,6 +138,7 @@ export function UpstreamDndBoundary({
             activeInput.current,
             transform,
             activeActivatorPoint.current,
+            event.nativeEvent,
           ),
         );
       }}
@@ -150,11 +155,12 @@ export function UpstreamDndBoundary({
               activeInput.current,
               operation.transform,
               activeActivatorPoint.current,
+              undefined,
             ),
           );
         }
       }}
-      onDragEnd={({ canceled, operation }, manager) => {
+      onDragEnd={({ canceled, nativeEvent, operation }, manager) => {
         onPreviewTarget?.(null);
         const sourceId = stringId(operation.source?.id);
         if (!sourceId) {
@@ -168,6 +174,7 @@ export function UpstreamDndBoundary({
             activeInput.current,
             operation.transform,
             activeActivatorPoint.current,
+            nativeEvent,
           ),
           canceled,
         };
@@ -323,14 +330,32 @@ function adapterEvent(
   input: AdapterDndInput,
   transform: InteractionPoint,
   activatorPoint: InteractionPoint | null,
+  nativeEvent: Event | undefined,
 ): AdapterDndEvent {
   return {
     activatorPoint,
+    keyboardDirection: adapterKeyboardDirection(nativeEvent),
     sourceId,
     targetId: stringId(targetId),
     input,
     transform: { x: transform.x, y: transform.y },
   };
+}
+
+function adapterKeyboardDirection(event: Event | undefined): AdapterDndKeyboardDirection | null {
+  if (!(event instanceof KeyboardEvent)) {
+    return null;
+  }
+  if (event.key === "ArrowDown") {
+    return "down";
+  }
+  if (event.key === "ArrowLeft") {
+    return "left";
+  }
+  if (event.key === "ArrowRight") {
+    return "right";
+  }
+  return event.key === "ArrowUp" ? "up" : null;
 }
 
 function moveEventTransform({ by, operation, to }: DragMoveEvent): InteractionPoint {
