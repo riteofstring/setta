@@ -22,6 +22,8 @@ import {
 } from "@setta/workspace/react";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 
+import { applyRecursiveChildDrop } from "./recursive-child-drop.js";
+
 function HostToolbarIcon({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <svg
@@ -166,7 +168,7 @@ function recursiveContainer(
 ): WorkspaceSection {
   return {
     ...navigationSection(id, title),
-    childLayout: { orientation, overflow, sectionIds },
+    childLayout: { orientation, overflow, positioning: "ordered", sectionIds },
     kind: "navigation group",
     size: {
       height: { mode: "content", value: height },
@@ -256,6 +258,44 @@ function createRecursiveDocument(): WorkspaceDocument {
   };
 }
 
+function createNestedFreeformContractDocument(): WorkspaceDocument {
+  const document = createRecursiveDocument();
+  const recursiveRoot = document.sections["recursive-root"] as WorkspaceSection;
+  const deepContainer = document.sections["deep-container"] as WorkspaceSection;
+  return {
+    ...document,
+    sections: {
+      ...document.sections,
+      "deep-container": {
+        ...deepContainer,
+        childLayout: {
+          overflow: "grow",
+          positioning: "freeform",
+          positions: { "nested-gamma": { x: 20, y: 24 } },
+          sectionIds: ["nested-gamma"],
+        },
+      },
+      "recursive-root": {
+        ...recursiveRoot,
+        childLayout: {
+          overflow: "grow",
+          positioning: "freeform",
+          positions: {
+            "empty-container": { x: 80, y: 500 },
+            "nested-alpha": { x: 16, y: 16 },
+            "nested-row": { x: 232, y: 48 },
+          },
+          sectionIds: ["nested-alpha", "nested-row", "empty-container"],
+        },
+        size: {
+          ...recursiveRoot.size,
+          width: { mode: "fixed", value: 720 },
+        },
+      },
+    },
+  };
+}
+
 function createCanvasShellConnections(document: WorkspaceDocument): WorkspaceConnections {
   const recursiveSectionIds = ["empty-container", "nested-alpha", "nested-beta", "nested-gamma"];
   if (!recursiveSectionIds.every((sectionId) => Object.hasOwn(document.sections, sectionId))) {
@@ -327,12 +367,15 @@ function workspaceSectionsAvailable(
 export function CanvasShellPage() {
   const search = new URLSearchParams(window.location.search);
   const connectionsEnabled = search.has("connections");
+  const nestedFreeformContractEnabled = search.has("nested-freeform-contract");
   const viewportCullingEnabled = search.has("viewport-culling");
   const controller = useRef<WorkspaceController>(null);
   const [document, setDocument] = useState<WorkspaceDocument>(() =>
-    connectionsEnabled || viewportCullingEnabled
-      ? createRecursiveDocument()
-      : createEmptyWorkspaceDocument(),
+    nestedFreeformContractEnabled
+      ? createNestedFreeformContractDocument()
+      : connectionsEnabled || viewportCullingEnabled
+        ? createRecursiveDocument()
+        : createEmptyWorkspaceDocument(),
   );
   const [documentChangeCount, setDocumentChangeCount] = useState(0);
   const [appearance, setAppearance] = useState<WorkspaceAppearance>("system");
@@ -809,45 +852,19 @@ export function CanvasShellPage() {
             }}
             onGridSnapChange={setGridSnap}
             onMinimapVisibilityChange={setMinimapVisible}
-            onExternalDrop={({ candidate, dataTransfer }) => {
-              const parentSectionId = candidate.parentSectionId;
-              const parent = parentSectionId ? document.sections[parentSectionId] : undefined;
-              if (!parentSectionId || !parent?.childLayout) {
-                setStatus("Recursive child drop canceled because its container is unavailable.");
+            onExternalDrop={(request) => {
+              const result = applyRecursiveChildDrop(
+                document,
+                request,
+                RECURSIVE_CHILD_MIME,
+                navigationSection,
+              );
+              setStatus(result.status);
+              if (!result.document) {
                 return;
               }
-              const nextNumber =
-                Object.keys(document.sections).filter((sectionId) =>
-                  sectionId.startsWith("external-child-"),
-                ).length + 1;
-              const sectionId = `external-child-${String(nextNumber)}`;
-              const title =
-                dataTransfer.getData(RECURSIVE_CHILD_MIME).trim() ||
-                `Dropped child ${String(nextNumber)}`;
-              const insertionIndex = candidate.insertionIndex;
-              if (
-                !Number.isInteger(insertionIndex) ||
-                insertionIndex < 0 ||
-                insertionIndex > parent.childLayout.sectionIds.length
-              ) {
-                setStatus("Recursive child drop canceled because its insertion point changed.");
-                return;
-              }
-              const sectionIds = [...parent.childLayout.sectionIds];
-              sectionIds.splice(insertionIndex, 0, sectionId);
-              setDocument({
-                ...document,
-                sections: {
-                  ...document.sections,
-                  [parentSectionId]: {
-                    ...parent,
-                    childLayout: { ...parent.childLayout, sectionIds },
-                  },
-                  [sectionId]: navigationSection(sectionId, title),
-                },
-              });
+              setDocument(result.document);
               setDocumentChangeCount((count) => count + 1);
-              setStatus(`${title} added to ${parent.title}.`);
             }}
             sectionDefinitions={navigationSectionDefinitions}
             sectionMoveMode={sectionMoveMode}

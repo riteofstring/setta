@@ -1706,8 +1706,10 @@ windowing is recorded in
 [Phase 6 viewport-culling evidence](../evidence/phase-6-viewport-culling.md). The bounded
 nested-freeform representation prerequisite is recorded in
 [Phase 6 nested-freeform representation evidence](../evidence/phase-6-nested-freeform-representation.md).
-The schema-v2 contract and production behavior for absolute/freeform positioning inside nested
-containers are the earliest incomplete repository-actionable Phase 6 work.
+The schema-v2 document and static recursive-projection foundation is recorded in
+[Phase 6 nested-freeform document-contract evidence](../evidence/phase-6-nested-freeform-document-contract.md).
+Same-parent freeform movement and the local-coordinate target/application contract are the earliest
+incomplete repository-actionable Phase 6 work.
 
 - Completed (nested-freeform representation prerequisite): compared the plan-mandated all-section
   XYFlow graph, separately provided inner-XYFlow instances, and package-owned absolutely positioned
@@ -1730,6 +1732,31 @@ containers are the earliest incomplete repository-actionable Phase 6 work.
   build, and Chromium runtime verification. No dependency input changed, so the network-backed
   supply-chain gate was not duplicated; the recorded unavailable in-app-browser release gate was
   not retried.
+- Completed (nested-freeform document and projection foundation): incremented the strict document
+  contract to schema version 2 and replaced the ordered-only layout with an explicit exact
+  ordered/freeform union. One immutable `editLayout` controller command switches positioning with
+  complete geometry or orientation input and one history boundary. Deletion, movement out,
+  clipboard cloning, overflow, grouping, ungrouping, orientation, and external-drop planning now
+  either preserve the freeform position-map invariant or reject a not-yet-owned local-position
+  operation specifically. The selected recursive-DOM owner projects canonical local coordinates,
+  measures content-sized direct wrappers for stable grow extent, preserves native scroll policy,
+  retains one outer XYFlow viewport, and exposes no second culling owner. The playground and
+  unrelated packed consumer exercise the declared schema-v2 package boundary. Same-parent spatial
+  gesture movement, cross-layout freeform destinations, and the positioning control remain in this
+  batch and are not marked complete.
+- Nested-freeform document-foundation verification: exact Node 24.18.1, repository-local Corepack
+  0.35.0, and pnpm 11.19.0 focused coverage passed the strict schema/command, recursive projection,
+  overflow, movement-invariant, clipboard, grouping, and external-drop selectors. Two directly
+  affected Chromium workflows passed exact local placement at representative depth, one outer
+  viewport, measured grow extent, serialization, Axe, an inspected fitted baseline, 200% page
+  scale, reduced motion, and 320-CSS-pixel reflow. Changed-file quality passed for 55 project files
+  with boundaries across 344 files, dependency policy, formatting, lint and complexity, file
+  lengths, strict types, dead-code analysis, 486 unit tests across 47 files, six boundary tests,
+  plan-loop automation, builds, exact tarball contents, documentation links, and the declaration
+  report. The unrelated tarball-installed consumer imported and rendered the public freeform
+  contract, passed lockfile policy, strict build, and Chromium runtime verification. No dependency
+  input changed, so the network-backed supply-chain gate was not duplicated; the recorded
+  unavailable in-app-browser release gate was not retried.
 
 - Completed (viewport-culling batch): added strict opt-in all-depth browser windowing through one
   canvas-rooted observer, exact-size named placeholders, canonical-ID-scoped retained geometry,

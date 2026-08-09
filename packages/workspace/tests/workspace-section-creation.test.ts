@@ -50,7 +50,12 @@ describe("workspace section creation", () => {
         title: "  Planning group  ",
       })),
     ).toEqual({
-      childLayout: { orientation: "horizontal", overflow: "grow", sectionIds: [] },
+      childLayout: {
+        orientation: "horizontal",
+        overflow: "grow",
+        positioning: "ordered",
+        sectionIds: [],
+      },
       data: { requestedKind: "container" },
       id: "container-1",
       isMinimized: false,

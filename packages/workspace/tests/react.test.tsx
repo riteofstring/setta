@@ -41,13 +41,19 @@ function recursiveRenderDocument(): WorkspaceDocument {
       ...base.sections,
       empty: {
         ...section("empty"),
-        childLayout: { orientation: "vertical", overflow: "grow", sectionIds: [] },
+        childLayout: {
+          orientation: "vertical",
+          overflow: "grow",
+          positioning: "ordered",
+          sectionIds: [],
+        },
       },
       nested: {
         ...section("nested"),
         childLayout: {
           orientation: "horizontal",
           overflow: "scroll",
+          positioning: "ordered",
           sectionIds: ["deep"],
         },
       },
@@ -56,9 +62,34 @@ function recursiveRenderDocument(): WorkspaceDocument {
         childLayout: {
           orientation: "vertical",
           overflow: "grow",
+          positioning: "ordered",
           sectionIds: ["first", "nested", "empty"],
         },
         isMinimized: true,
+      },
+    },
+  };
+}
+
+function freeformRenderDocument(): WorkspaceDocument {
+  const document = recursiveRenderDocument();
+  const root = document.sections.root as WorkspaceSection;
+  return {
+    ...document,
+    sections: {
+      ...document.sections,
+      root: {
+        ...root,
+        childLayout: {
+          overflow: "grow",
+          positioning: "freeform",
+          positions: {
+            empty: { x: 96, y: 420 },
+            first: { x: 16, y: 20 },
+            nested: { x: 288, y: 48 },
+          },
+          sectionIds: ["first", "nested", "empty"],
+        },
       },
     },
   };
@@ -355,6 +386,35 @@ describe("Workspace scaffold", () => {
       /aria-label="Move First child"[^>]+data-workspace-section-drag-mode="sort"/u,
     );
     expect(markup).not.toMatch(/aria-label="Move First child"[^>]+disabled/u);
+  });
+
+  it("renders nested freeform positions through absolute recursive DOM wrappers", () => {
+    const markup = renderToStaticMarkup(
+      <Workspace
+        defaultDocument={freeformRenderDocument()}
+        sectionDefinitions={[
+          {
+            canContainSections: true,
+            defaultSize: { height: 180, width: 240 },
+            displayName: "Recursive fixture",
+            kind: "test",
+            render: ({ sectionId }) => <span>Host body for {sectionId}</span>,
+          },
+        ]}
+      />,
+    );
+
+    expect(markup).toContain('data-workspace-child-positioning="freeform"');
+    expect(markup).toContain('data-workspace-freeform-child-surface=""');
+    expect(markup).toContain('data-workspace-freeform-child-placement="first"');
+    expect(markup).toContain("transform:translate(16px, 20px)");
+    expect(markup).toContain('data-workspace-freeform-child-placement="nested"');
+    expect(markup).toContain("transform:translate(288px, 48px)");
+    expect(markup).not.toMatch(
+      /data-workspace-section-id="root"[^>]+data-workspace-child-orientation/u,
+    );
+    expect(markup).not.toContain("Arrange Root container child sections horizontally");
+    expect(markup).toContain("Arrange Nested row child sections vertically");
   });
 
   it("omits minimize controls for a section kind that opts out", () => {

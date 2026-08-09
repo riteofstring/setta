@@ -61,7 +61,12 @@ describe("workspace root stacking", () => {
         ...flat.sections,
         beta: {
           ...beta,
-          childLayout: { orientation: "vertical", overflow: "grow", sectionIds: ["gamma"] },
+          childLayout: {
+            orientation: "vertical",
+            overflow: "grow",
+            positioning: "ordered",
+            sectionIds: ["gamma"],
+          },
         },
         gamma,
       },

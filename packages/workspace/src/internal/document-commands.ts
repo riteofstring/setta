@@ -1,12 +1,11 @@
 import {
   deriveWorkspaceParentLookup,
   validateWorkspaceDocument,
-  type SectionOrientation,
-  type SectionOverflow,
   type WorkspaceActionRejectionReason,
   type WorkspaceCapabilities,
   type WorkspaceDocument,
   type WorkspaceDocumentChangeReason,
+  type WorkspaceFreeformChildLayout,
   type WorkspacePoint,
   type WorkspaceSection,
   type WorkspaceSectionPresentation,
@@ -20,101 +19,28 @@ import {
 } from "./runtime-option-validation.js";
 import type { SectionMovePlan } from "./section-move-planning.js";
 import { applyWorkspaceClipboardPaste } from "./workspace-clipboard-command.js";
-import type { WorkspaceClipboardPlacedSections } from "./workspace-clipboard.js";
+import type {
+  WorkspaceDocumentCommand,
+  WorkspaceDocumentCommandResult,
+} from "./workspace-document-command-contract.js";
 import {
   planWorkspaceRootStacking,
   workspaceRootStackingMatches,
   type WorkspaceRootStackingAction,
 } from "./workspace-root-stacking.js";
+import { applyWorkspaceSectionGrouping } from "./workspace-section-group-command.js";
 import { resolveWorkspaceSiblingSelection } from "./workspace-section-grouping.js";
 import { applyWorkspaceSectionMove } from "./workspace-section-move-command.js";
 import { planWorkspaceSectionOrientationTransition } from "./workspace-section-orientation-command.js";
 import { planWorkspaceSectionOverflowTransition } from "./workspace-section-overflow-command.js";
+import { planWorkspaceSectionPositioningTransition } from "./workspace-section-positioning-command.js";
 import type { WorkspaceSectionResizeAxis } from "./workspace-section-sizing.js";
 import { normalizeWorkspaceSelectionRoots } from "./workspace-selection.js";
 
-export type WorkspaceDocumentCommand<TSectionData = unknown> =
-  | Readonly<{
-      position: WorkspacePoint;
-      section: WorkspaceSection<TSectionData>;
-      type: "create-root-section";
-    }>
-  | Readonly<{
-      paste: WorkspaceClipboardPlacedSections<TSectionData>;
-      type: "paste-root-sections";
-    }>
-  | Readonly<{ sectionIds: readonly string[]; type: "delete-sections" }>
-  | Readonly<{
-      group: WorkspaceSection<TSectionData>;
-      position: WorkspacePoint | null;
-      sectionIds: readonly string[];
-      type: "group-sections";
-    }>
-  | Readonly<{
-      positions: Readonly<Record<string, WorkspacePoint>>;
-      type: "move-root-sections";
-    }>
-  | Readonly<{
-      plan: SectionMovePlan;
-      type: "move-sections";
-    }>
-  | Readonly<{
-      axes: readonly WorkspaceSectionResizeAxis[];
-      position: WorkspacePoint;
-      sectionId: string;
-      size: Readonly<{ height: number; width: number }>;
-      type: "resize-root-section";
-    }>
-  | Readonly<{
-      action: WorkspaceRootStackingAction;
-      sectionIds: readonly string[];
-      type: "stack-root-sections";
-    }>
-  | Readonly<{
-      axes: readonly WorkspaceSectionResizeAxis[];
-      sectionId: string;
-      type: "set-section-content-size";
-    }>
-  | Readonly<{
-      growWithContentSizing: boolean;
-      measuredSize: Readonly<{ height: number; width: number }> | null;
-      overflow: SectionOverflow;
-      sectionId: string;
-      type: "set-section-child-overflow";
-    }>
-  | Readonly<{
-      measuredSize: Readonly<{ height: number; width: number }> | null;
-      orientation: SectionOrientation;
-      sectionId: string;
-      type: "set-section-child-orientation";
-    }>
-  | Readonly<{ isMinimized: boolean; sectionId: string; type: "set-section-minimized" }>
-  | Readonly<{
-      presentation: WorkspaceSectionPresentation;
-      sectionId: string;
-      type: "set-section-presentation";
-    }>
-  | Readonly<{ sectionId: string; title: string; type: "set-section-title" }>
-  | Readonly<{ locked: boolean; sectionIds: readonly string[]; type: "set-sections-locked" }>
-  | Readonly<{
-      rootPositions: Readonly<Record<string, WorkspacePoint>> | null;
-      sectionId: string;
-      type: "ungroup-section";
-    }>
-  | Readonly<{ type: "set-viewport"; viewport: WorkspaceViewport }>;
-
-export type WorkspaceDocumentCommandResult<TSectionData> =
-  | Readonly<{
-      document: WorkspaceDocument<TSectionData>;
-      reason: WorkspaceDocumentChangeReason;
-      status: "applied";
-    }>
-  | Readonly<{ document: WorkspaceDocument<TSectionData>; status: "unchanged" }>
-  | Readonly<{
-      document: WorkspaceDocument<TSectionData>;
-      reason: WorkspaceActionRejectionReason;
-      status: "rejected";
-    }>;
+export type {
+  WorkspaceDocumentCommand,
+  WorkspaceDocumentCommandResult,
+} from "./workspace-document-command-contract.js";
 
 type WorkspaceCommandErrorCode = "unknown-section";
 
@@ -140,6 +66,7 @@ const layoutCommandTypes = new Set<WorkspaceDocumentCommand<unknown>["type"]>([
   "resize-root-section",
   "set-section-child-orientation",
   "set-section-child-overflow",
+  "set-section-child-positioning",
   "set-section-content-size",
   "set-sections-locked",
   "stack-root-sections",
@@ -466,6 +393,33 @@ function applySectionChildOrientation<TSectionData>(
     : { document, ...transition };
 }
 
+type SectionPositioningCommand<TSectionData> = Extract<
+  WorkspaceDocumentCommand<TSectionData>,
+  { type: "set-section-child-positioning" }
+>;
+
+function applySectionChildPositioning<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  command: SectionPositioningCommand<TSectionData>,
+): WorkspaceDocumentCommandResult<TSectionData> {
+  assertKnownSections(document, [command.sectionId]);
+  const section = document.sections[command.sectionId] as WorkspaceSection<TSectionData>;
+  const transition = planWorkspaceSectionPositioningTransition(
+    section,
+    command.change,
+    command.measuredSize,
+  );
+  return transition.status === "applied"
+    ? applied(
+        {
+          ...document,
+          sections: { ...document.sections, [command.sectionId]: transition.section },
+        },
+        "section-positioning",
+      )
+    : { document, ...transition };
+}
+
 function applyRootCreation<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   section: WorkspaceSection<TSectionData>,
@@ -485,40 +439,6 @@ function applyRootCreation<TSectionData>(
   );
 }
 
-function replaceSelectedIds(
-  siblingIds: readonly string[],
-  selectedIds: ReadonlySet<string>,
-  replacementId: string,
-): readonly string[] {
-  const firstSelectedIndex = siblingIds.findIndex((sectionId) => selectedIds.has(sectionId));
-  return siblingIds.flatMap((sectionId, index) => {
-    if (!selectedIds.has(sectionId)) {
-      return [sectionId];
-    }
-    return index === firstSelectedIndex ? [replacementId] : [];
-  });
-}
-
-function groupedSections<TSectionData>(
-  document: WorkspaceDocument<TSectionData>,
-  group: WorkspaceSection<TSectionData>,
-  childSectionIds: readonly string[],
-): Readonly<Record<string, WorkspaceSection<TSectionData>>> {
-  if (!group.childLayout) {
-    throw new TypeError("Workspace group section must provide a child layout.");
-  }
-  if (group.childLayout.sectionIds.length > 0) {
-    throw new TypeError("Workspace group section child layout must start empty.");
-  }
-  return {
-    ...document.sections,
-    [group.id]: {
-      ...group,
-      childLayout: { ...group.childLayout, sectionIds: childSectionIds },
-    },
-  };
-}
-
 function applySectionGrouping<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   command: Extract<WorkspaceDocumentCommand<TSectionData>, { type: "group-sections" }>,
@@ -528,52 +448,14 @@ function applySectionGrouping<TSectionData>(
   if (resolved.status === "rejected") {
     return { document, reason: resolved.reason, status: "rejected" };
   }
-  const { parentSectionId, sectionIds } = resolved.selection;
-  if (Object.hasOwn(document.sections, command.group.id)) {
-    return { document, reason: "section-id-exists", status: "rejected" };
-  }
-  const selected = new Set(sectionIds);
-  const sections = groupedSections(document, command.group, sectionIds);
-  if (parentSectionId === null) {
-    if (command.position === null) {
+  let position = command.position;
+  if (resolved.selection.parentSectionId === null) {
+    if (position === null) {
       throw new TypeError("Top-level workspace grouping requires a position.");
     }
-    const position = rootPositionAt(command.position, command.group.id);
-    const firstSelectedIndex = document.rootSections.findIndex(({ sectionId }) =>
-      selected.has(sectionId),
-    );
-    const rootSections = document.rootSections.flatMap((root, index) => {
-      if (!selected.has(root.sectionId)) {
-        return [root];
-      }
-      return index === firstSelectedIndex ? [{ position, sectionId: command.group.id }] : [];
-    });
-    return applied({ ...document, rootSections, sections }, "section-group");
+    position = rootPositionAt(position, command.group.id);
   }
-  if (command.position !== null) {
-    throw new TypeError("Nested workspace grouping must not provide a root position.");
-  }
-  const parent = document.sections[parentSectionId] as WorkspaceSection<TSectionData>;
-  const childLayout = parent.childLayout;
-  if (!childLayout) {
-    throw new Error(`Workspace parent section ${parentSectionId} is missing its child layout.`);
-  }
-  return applied(
-    {
-      ...document,
-      sections: {
-        ...sections,
-        [parentSectionId]: {
-          ...parent,
-          childLayout: {
-            ...childLayout,
-            sectionIds: replaceSelectedIds(childLayout.sectionIds, selected, command.group.id),
-          },
-        },
-      },
-    },
-    "section-group",
-  );
+  return applyWorkspaceSectionGrouping(document, command.group, resolved.selection, position);
 }
 
 function promotedSections<TSectionData>(
@@ -634,6 +516,9 @@ function applySectionUngrouping<TSectionData>(
   const childLayout = parent.childLayout;
   if (!childLayout) {
     throw new Error(`Workspace parent section ${parentSectionId} is missing its child layout.`);
+  }
+  if (childLayout.positioning === "freeform") {
+    return { document, reason: "section-layout-unsupported", status: "rejected" };
   }
   return applied(
     {
@@ -791,13 +676,34 @@ function withoutRemovedChildren<TSectionData>(
   if (!childLayout || !childLayout.sectionIds.some((sectionId) => removed.has(sectionId))) {
     return section;
   }
+  const sectionIds = childLayout.sectionIds.filter((sectionId) => !removed.has(sectionId));
   return {
     ...section,
-    childLayout: {
-      ...childLayout,
-      sectionIds: childLayout.sectionIds.filter((sectionId) => !removed.has(sectionId)),
-    },
+    childLayout:
+      childLayout.positioning === "ordered"
+        ? { ...childLayout, sectionIds }
+        : {
+            ...childLayout,
+            positions: Object.fromEntries(
+              sectionIds.map((sectionId) => [
+                sectionId,
+                requiredFreeformPosition(childLayout, sectionId),
+              ]),
+            ),
+            sectionIds,
+          },
   };
+}
+
+function requiredFreeformPosition(
+  layout: WorkspaceFreeformChildLayout,
+  sectionId: string,
+): WorkspacePoint {
+  const position = layout.positions[sectionId];
+  if (!position) {
+    throw new Error(`Workspace freeform child ${sectionId} is missing its canonical position.`);
+  }
+  return position;
 }
 
 function remainingSections<TSectionData>(
@@ -864,7 +770,12 @@ type WorkspaceSectionDocumentCommand<TSectionData> = Exclude<
 
 type WorkspaceSectionChildLayoutCommand<TSectionData> = Extract<
   WorkspaceSectionDocumentCommand<TSectionData>,
-  { type: "set-section-child-orientation" | "set-section-child-overflow" }
+  {
+    type:
+      | "set-section-child-orientation"
+      | "set-section-child-overflow"
+      | "set-section-child-positioning";
+  }
 >;
 
 type WorkspaceSectionStructureCommand<TSectionData> = Extract<
@@ -915,7 +826,8 @@ function isSectionChildLayoutCommand<TSectionData>(
 ): command is WorkspaceSectionChildLayoutCommand<TSectionData> {
   return (
     command.type === "set-section-child-orientation" ||
-    command.type === "set-section-child-overflow"
+    command.type === "set-section-child-overflow" ||
+    command.type === "set-section-child-positioning"
   );
 }
 
@@ -923,9 +835,12 @@ function applySectionChildLayoutCommand<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   command: WorkspaceSectionChildLayoutCommand<TSectionData>,
 ): WorkspaceDocumentCommandResult<TSectionData> {
-  return command.type === "set-section-child-orientation"
-    ? applySectionChildOrientation(document, command)
-    : applySectionChildOverflow(document, command);
+  if (command.type === "set-section-child-orientation") {
+    return applySectionChildOrientation(document, command);
+  }
+  return command.type === "set-section-child-overflow"
+    ? applySectionChildOverflow(document, command)
+    : applySectionChildPositioning(document, command);
 }
 
 function isSectionStructureCommand<TSectionData>(

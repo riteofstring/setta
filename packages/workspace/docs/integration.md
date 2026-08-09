@@ -10,7 +10,7 @@ from `@setta/workspace/core`, and the required CSS once from `@setta/workspace/s
 
 ```ts
 type WorkspaceDocument<TSectionData> = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   viewport: { x: number; y: number; zoom: number };
   rootSections: Array<{
     sectionId: string;
@@ -34,21 +34,33 @@ type WorkspaceDocument<TSectionData> = {
         tagColor: string | null;
       };
       data: TSectionData;
-      childLayout: {
-        orientation: "vertical" | "horizontal";
-        overflow: "grow" | "scroll";
-        sectionIds: string[];
-      } | null;
+      childLayout:
+        | {
+            orientation: "vertical" | "horizontal";
+            overflow: "grow" | "scroll";
+            positioning: "ordered";
+            sectionIds: string[];
+          }
+        | {
+            overflow: "grow" | "scroll";
+            positioning: "freeform";
+            positions: Record<string, { x: number; y: number }>;
+            sectionIds: string[];
+          }
+        | null;
     }
   >;
 };
 ```
 
-Only roots have free workbench positions. A nested section appears once in its immediate parent's
-ordered `sectionIds`; there is no serialized `parentId`. Root order is persistent stacking order,
-and each child list is logical sibling order. IDs are non-empty and unique, every section is placed
-exactly once, containment is reachable and acyclic, dimensions and viewport values are finite, and
-section payloads must be JSON-serializable without accessors or cycles.
+Roots have free workbench positions. Every nested section appears once in its immediate parent's
+canonical `sectionIds`; there is no serialized `parentId`. An ordered layout also carries an
+orientation. A freeform layout instead carries exactly one finite, non-negative local `x`/`y`
+position for every direct child ID and no other keys. Root order is persistent stacking order, and
+each child list is deterministic traversal and sibling stacking order. IDs are non-empty and
+unique, every section is placed exactly once, containment is reachable and acyclic, dimensions and
+viewport values are finite, and section payloads must be JSON-serializable without accessors or
+cycles. Schema-v1 discriminator-less child layouts are rejected rather than migrated or inferred.
 
 Use `validateWorkspaceDocument` for unknown values, `parseWorkspaceDocument` for JSON text, and
 `serializeWorkspaceDocument` before storage or export. Structural validation cannot know the host
@@ -161,11 +173,11 @@ section unmounts its host body.
 Capability overrides default to `true`. `readOnly` resolves all three package capabilities to
 `false` and wins over individual overrides.
 
-| Capability         | Package actions it gates                                                                                                                                                            |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `editLayout`       | Spatial movement, structural reorder/reparent, batch movement, resize, fixed/content transitions, container orientation and overflow, direct lock changes, and persistent stacking. |
-| `editStructure`    | Section creation, deletion, grouping, ungrouping, paste, and the package-owned external-drop handoff.                                                                               |
-| `editPresentation` | Title edits, minimize/expand, chrome, accent, and tag changes.                                                                                                                      |
+| Capability         | Package actions it gates                                                                                                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `editLayout`       | Spatial movement, structural reorder/reparent, batch movement, resize, fixed/content transitions, container positioning, orientation and overflow, direct lock changes, and persistent stacking. |
+| `editStructure`    | Section creation, deletion, grouping, ungrouping, paste, and the package-owned external-drop handoff.                                                                                            |
+| `editPresentation` | Title edits, minimize/expand, chrome, accent, and tag changes.                                                                                                                                   |
 
 Selection, focus, fit, minimap navigation, pan, and zoom remain available. The package cannot make
 arbitrary host-rendered controls read-only; use the `readOnly` render prop to enforce the host's

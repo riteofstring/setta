@@ -1,8 +1,9 @@
 # Recursive sections, movement, and frame layout
 
 Top-level sections are free spatial objects. Descendants are ordinary package-rendered DOM frames
-in the ordered layout of their immediate parent. The package imposes no numeric containment depth,
-and consumers do not project descendants as XYFlow nodes or maintain a second parent map.
+in the explicit ordered or freeform layout of their immediate parent. The package imposes no
+numeric containment depth, and consumers do not project descendants as XYFlow nodes or maintain a
+second parent map.
 
 ## Registering a container kind
 
@@ -24,7 +25,8 @@ const containerDefinition = {
 } satisfies SectionDefinition<GroupData>;
 ```
 
-The matching document section has one non-null `childLayout`, even while empty. The package owns
+The matching document section starts with one ordered, non-null `childLayout`, even while empty.
+The package owns
 the child region, empty-container affordance, measurement, insertion geometry, accessible scroll
 region, and recursive frame rendering. The host renderer stays adjacent to that region and must not
 replace its ordering markup.
@@ -32,6 +34,36 @@ replace its ordering markup.
 Registered containment support is necessary but not sufficient for an existing document: every
 child must appear exactly once, the complete hierarchy must be reachable and acyclic, and each
 persisted parent-child relationship must be acceptable to the host's permanent domain rules.
+
+## Ordered and freeform positioning
+
+Every schema-v2 child layout has an explicit `positioning` discriminator. Ordered layouts carry an
+orientation and use `sectionIds` as logical layout order. Freeform layouts omit orientation, retain
+`sectionIds` as deterministic traversal and back-to-front sibling order, and carry exactly one
+finite, non-negative local position for every direct child.
+
+`controller.setSectionChildPositioning` switches the complete direct-child region in one
+`section-positioning` history entry. Ordered-to-freeform callers provide the measured local
+positions; freeform-to-ordered callers select the new orientation. The command preserves child
+identity, order, overflow, selection, and unrelated section records. It snapshots the supplied
+positions and rejects incomplete, extra, accessor-backed, negative, or non-finite coordinates
+before proposing a document.
+
+```ts
+controller.setSectionChildPositioning("group", {
+  positioning: "freeform",
+  positions: {
+    "note-a": { x: 24, y: 32 },
+    "note-b": { x: 312, y: 84 },
+  },
+});
+```
+
+The recursive DOM renders those local positions without another XYFlow store or viewport. The
+current contract foundation does not yet enable same-parent freeform dragging, freeform collision
+targets, or grouping directly inside a freeform parent; those actions reject rather than leaving a
+partial position map. Moving or deleting a child out of a freeform parent prunes its position key,
+and clipboard cloning remaps position keys with the cloned child IDs.
 
 ## Orientation and logical order
 
@@ -148,11 +180,12 @@ measurements reject specifically rather than silently changing a different size 
 
 ## Grow and scroll overflow
 
-`grow` lets the child region participate in content sizing. `scroll` constrains the orientation's
-main axis and gives the child region its own named scroll surface. Switching a content-sized main
-axis to scroll captures its current measured dimension as fixed, avoiding a visual jump. Switching
-back to grow restores content participation when that axis is supported, without changing
-containment, order, or orientation.
+`grow` lets the child region participate in content sizing. For an ordered layout, `scroll`
+constrains the orientation's main axis. For a freeform layout, it constrains both dimensions so the
+complete local surface can scroll on either axis. Switching a content-sized constrained axis to
+scroll captures its current measured dimension as fixed, avoiding a visual jump. Switching back to
+grow restores content participation when that axis is supported, without changing containment,
+order, or positioning.
 
 Wheel input inside an actually scrollable child region stays with that region. At an edge, the
 configured outer viewport policy may resume according to the normal interaction boundary. Locked,
@@ -162,8 +195,9 @@ minimized, unmeasured, or non-container transitions reject with a specific actio
 
 Grid visibility and snapping are independent host preferences. `gridOptions.spacing` is a two-axis
 workbench-unit grid used by root movement and root resize, including negative coordinates. Dots,
-lines, and crosses remain phased through pan and zoom. Nested children stay ordered by their parent
-and are not spatially snapped.
+lines, and crosses remain phased through pan and zoom. Ordered nested children do not use spatial
+snapping; direct manipulation of freeform local positions remains part of the next Phase 6
+interaction batch.
 
 Showing a grid does not enable snapping, and hiding it does not disable snapping. Keep controlled
 snap ownership stable by passing both `gridOptions.snap` and `onGridSnapChange`, or omit the callback

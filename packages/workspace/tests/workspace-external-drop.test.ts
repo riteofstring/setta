@@ -40,6 +40,7 @@ function externalDropDocument(): WorkspaceDocument {
         childLayout: {
           orientation: "horizontal",
           overflow: "grow",
+          positioning: "ordered",
           sectionIds: ["nested-first", "nested-last"],
         },
       },
@@ -48,6 +49,7 @@ function externalDropDocument(): WorkspaceDocument {
         childLayout: {
           orientation: "vertical",
           overflow: "grow",
+          positioning: "ordered",
           sectionIds: ["first", "nested", "last"],
         },
       },
@@ -136,6 +138,36 @@ describe("workspace external-drop planning", () => {
         parentSectionId: "root",
       }),
     ).toBe("Drop into Root container");
+  });
+
+  it("skips freeform containers until local-position drop planning is available", () => {
+    const orderedDocument = externalDropDocument();
+    const nested = orderedDocument.sections.nested as WorkspaceSection;
+    const document: WorkspaceDocument = {
+      ...orderedDocument,
+      sections: {
+        ...orderedDocument.sections,
+        nested: {
+          ...nested,
+          childLayout: {
+            overflow: "grow",
+            positioning: "freeform",
+            positions: {
+              "nested-first": { x: 20, y: 30 },
+              "nested-last": { x: 220, y: 30 },
+            },
+            sectionIds: ["nested-first", "nested-last"],
+          },
+        },
+      },
+    };
+
+    expect(
+      resolveWorkspaceExternalDropCandidate(document, externalDropGeometry(), registry, {
+        x: 210,
+        y: 220,
+      }),
+    ).toEqual({ insertionIndex: 1, parentSectionId: "root" });
   });
 
   it("normalizes strict valid and invalid host decisions", () => {

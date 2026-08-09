@@ -40,6 +40,7 @@ export type WorkspaceGroupingPlan<TSectionData> =
         | "mixed-parent-selection"
         | "section-geometry-unavailable"
         | "section-id-exists"
+        | "section-layout-unsupported"
         | "unknown-section-kind"
       >;
       status: "rejected";
@@ -55,7 +56,10 @@ export type WorkspaceUngroupingPlan =
   | Readonly<{
       reason: Extract<
         WorkspaceActionRejectionReason,
-        "canvas-unavailable" | "section-geometry-unavailable" | "section-not-container"
+        | "canvas-unavailable"
+        | "section-geometry-unavailable"
+        | "section-layout-unsupported"
+        | "section-not-container"
       >;
       status: "rejected";
     }>;
@@ -190,6 +194,7 @@ function groupedSection<TSectionData>(
     childLayout: {
       orientation: definition.defaultChildOrientation,
       overflow: definition.defaultChildOverflow,
+      positioning: "ordered",
       sectionIds: [],
     },
     data: result.data,
@@ -212,6 +217,44 @@ function groupedSection<TSectionData>(
   };
 }
 
+function freeformGroupingParent<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  parentSectionId: string | null,
+): boolean {
+  if (parentSectionId === null) {
+    return false;
+  }
+  return document.sections[parentSectionId]?.childLayout?.positioning === "freeform";
+}
+
+type GroupingBoundsResult =
+  | Readonly<{ bounds: WorkspacePlacementRect | null; status: "ready" }>
+  | Readonly<{
+      reason: "canvas-unavailable" | "section-geometry-unavailable";
+      status: "rejected";
+    }>;
+
+function groupingBounds(
+  selection: WorkspaceSiblingSelection,
+  canvasController: WorkspaceCanvasController | null,
+): GroupingBoundsResult {
+  if (selection.parentSectionId !== null) {
+    return { bounds: null, status: "ready" };
+  }
+  if (!canvasController) {
+    return { reason: "canvas-unavailable", status: "rejected" };
+  }
+  const rects: WorkspacePlacementRect[] = [];
+  for (const sectionId of selection.sectionIds) {
+    const rect = canvasController.getSectionRect(sectionId);
+    if (!rect) {
+      return { reason: "section-geometry-unavailable", status: "rejected" };
+    }
+    rects.push(rect);
+  }
+  return { bounds: combinedBounds(rects), status: "ready" };
+}
+
 export function planWorkspaceSectionGrouping<TSectionData>({
   canvasController,
   document,
@@ -230,18 +273,12 @@ export function planWorkspaceSectionGrouping<TSectionData>({
     return resolvedSelection;
   }
   const selection = resolvedSelection.selection;
-  let bounds: WorkspacePlacementRect | null = null;
-  if (selection.parentSectionId === null) {
-    if (!canvasController) {
-      return { reason: "canvas-unavailable", status: "rejected" };
-    }
-    const rects = selection.sectionIds.map((sectionId) =>
-      canvasController.getSectionRect(sectionId),
-    );
-    if (rects.some((rect) => rect === undefined)) {
-      return { reason: "section-geometry-unavailable", status: "rejected" };
-    }
-    bounds = combinedBounds(rects as readonly WorkspacePlacementRect[]);
+  if (freeformGroupingParent(document, selection.parentSectionId)) {
+    return { reason: "section-layout-unsupported", status: "rejected" };
+  }
+  const boundsResult = groupingBounds(selection, canvasController);
+  if (boundsResult.status === "rejected") {
+    return boundsResult;
   }
   const factoryResult = groupFactoryResultAt(
     factory({
@@ -260,9 +297,9 @@ export function planWorkspaceSectionGrouping<TSectionData>({
     return { reason: "group-kind-cannot-contain-sections", status: "rejected" };
   }
   return {
-    group: groupedSection(definition, factoryResult, bounds),
+    group: groupedSection(definition, factoryResult, boundsResult.bounds),
     parentSectionId: selection.parentSectionId,
-    position: bounds ? { x: bounds.x, y: bounds.y } : null,
+    position: boundsResult.bounds ? { x: boundsResult.bounds.x, y: boundsResult.bounds.y } : null,
     sectionIds: selection.sectionIds,
     status: "ready",
   };
@@ -323,6 +360,9 @@ function planWorkspaceTopLevelUngroupPositions(
   if (!childLayout) {
     throw new TypeError("Workspace ungrouping requires a container section.");
   }
+  if (childLayout.positioning !== "ordered") {
+    throw new TypeError("Ordered workspace ungroup placement requires an ordered container.");
+  }
   const occupied = [...occupiedRootRects];
   const positions = Object.create(null) as Record<string, WorkspacePoint>;
   let cursor = { x: groupBounds.x, y: groupBounds.y };
@@ -359,6 +399,81 @@ function rootPlacementRects<TSectionData>(
     });
 }
 
+function nestedUngroupingPlan<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  section: WorkspaceSection<TSectionData>,
+  parentSectionId: string,
+): WorkspaceUngroupingPlan {
+  const childLayout = section.childLayout;
+  if (!childLayout) {
+    throw new TypeError("Workspace ungrouping requires a container section.");
+  }
+  if (document.sections[parentSectionId]?.childLayout?.positioning === "freeform") {
+    return { reason: "section-layout-unsupported", status: "rejected" };
+  }
+  return {
+    childSectionIds: childLayout.sectionIds,
+    parentSectionId,
+    rootPositions: null,
+    status: "ready",
+  };
+}
+
+function measuredChildRootPositions(
+  sectionIds: readonly string[],
+  canvasController: WorkspaceCanvasController,
+): Readonly<Record<string, WorkspacePoint>> | null {
+  const positions = Object.create(null) as Record<string, WorkspacePoint>;
+  for (const sectionId of sectionIds) {
+    const rect = canvasController.getSectionRect(sectionId);
+    if (!rect) {
+      return null;
+    }
+    positions[sectionId] = { x: rect.x, y: rect.y };
+  }
+  return positions;
+}
+
+function topLevelUngroupingPlan<TSectionData>(
+  canvasController: WorkspaceCanvasController | null,
+  document: WorkspaceDocument<TSectionData>,
+  section: WorkspaceSection<TSectionData>,
+): WorkspaceUngroupingPlan {
+  const childLayout = section.childLayout;
+  if (!childLayout) {
+    throw new TypeError("Workspace ungrouping requires a container section.");
+  }
+  if (!canvasController) {
+    return { reason: "canvas-unavailable", status: "rejected" };
+  }
+  const groupBounds = canvasController.getSectionRect(section.id);
+  if (!groupBounds) {
+    return { reason: "section-geometry-unavailable", status: "rejected" };
+  }
+  if (childLayout.positioning === "freeform") {
+    const rootPositions = measuredChildRootPositions(childLayout.sectionIds, canvasController);
+    return rootPositions
+      ? {
+          childSectionIds: childLayout.sectionIds,
+          parentSectionId: null,
+          rootPositions,
+          status: "ready",
+        }
+      : { reason: "section-geometry-unavailable", status: "rejected" };
+  }
+  return {
+    childSectionIds: childLayout.sectionIds,
+    parentSectionId: null,
+    rootPositions: planWorkspaceTopLevelUngroupPositions(
+      document,
+      section as WorkspaceSection<unknown>,
+      groupBounds,
+      rootPlacementRects(document, section.id, canvasController),
+    ),
+    status: "ready",
+  };
+}
+
 export function planWorkspaceSectionUngrouping<TSectionData>({
   canvasController,
   document,
@@ -374,29 +489,7 @@ export function planWorkspaceSectionUngrouping<TSectionData>({
   }
   const parentSectionId = deriveWorkspaceParentLookup(document).get(sectionId) ?? null;
   if (parentSectionId !== null) {
-    return {
-      childSectionIds: section.childLayout.sectionIds,
-      parentSectionId,
-      rootPositions: null,
-      status: "ready",
-    };
+    return nestedUngroupingPlan(document, section, parentSectionId);
   }
-  if (!canvasController) {
-    return { reason: "canvas-unavailable", status: "rejected" };
-  }
-  const groupBounds = canvasController.getSectionRect(sectionId);
-  if (!groupBounds) {
-    return { reason: "section-geometry-unavailable", status: "rejected" };
-  }
-  return {
-    childSectionIds: section.childLayout.sectionIds,
-    parentSectionId,
-    rootPositions: planWorkspaceTopLevelUngroupPositions(
-      document,
-      section as WorkspaceSection<unknown>,
-      groupBounds,
-      rootPlacementRects(document, sectionId, canvasController),
-    ),
-    status: "ready",
-  };
+  return topLevelUngroupingPlan(canvasController, document, section);
 }

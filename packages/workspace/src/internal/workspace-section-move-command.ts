@@ -2,6 +2,7 @@ import {
   deriveWorkspaceParentLookup,
   type WorkspaceActionRejectionReason,
   type WorkspaceDocument,
+  type WorkspaceFreeformChildLayout,
   type WorkspacePoint,
   type WorkspaceSection,
 } from "../core.js";
@@ -45,6 +46,17 @@ function workspaceRootPositions<TSectionData>(
   );
 }
 
+function requiredFreeformPosition(
+  layout: WorkspaceFreeformChildLayout,
+  sectionId: string,
+): WorkspacePoint {
+  const position = layout.positions[sectionId];
+  if (!position) {
+    throw new Error(`Workspace freeform child ${sectionId} is missing its canonical position.`);
+  }
+  return position;
+}
+
 export function workspaceSectionHierarchySnapshot<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
 ): SectionHierarchySnapshot {
@@ -82,17 +94,28 @@ function movedSections<TSectionData>(
   }
   return Object.fromEntries(
     Object.entries(document.sections).map(([sectionId, section]) => {
-      if (!section.childLayout || !changedParentIds.has(sectionId)) {
+      const childLayout = section.childLayout;
+      if (!childLayout || !changedParentIds.has(sectionId)) {
         return [sectionId, section];
       }
+      const sectionIds = hierarchy.childrenByParent[sectionId] ?? [];
       return [
         sectionId,
         {
           ...section,
-          childLayout: {
-            ...section.childLayout,
-            sectionIds: hierarchy.childrenByParent[sectionId] ?? [],
-          },
+          childLayout:
+            childLayout.positioning === "ordered"
+              ? { ...childLayout, sectionIds }
+              : {
+                  ...childLayout,
+                  positions: Object.fromEntries(
+                    sectionIds.map((childId) => [
+                      childId,
+                      requiredFreeformPosition(childLayout, childId),
+                    ]),
+                  ),
+                  sectionIds,
+                },
         },
       ];
     }),
@@ -137,6 +160,12 @@ function directMoveRejection<TSectionData>(
   }
   if (!destinationCanContainSections(document, plan.destinationParentId)) {
     return "section-not-container";
+  }
+  if (
+    plan.destinationParentId !== null &&
+    document.sections[plan.destinationParentId]?.childLayout?.positioning === "freeform"
+  ) {
+    return "section-layout-unsupported";
   }
   return plan.sectionIds.some((sectionId) => document.sections[sectionId]?.positionAndSizeLocked)
     ? "section-locked"

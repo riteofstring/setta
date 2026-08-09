@@ -20,6 +20,9 @@ function insertionIndexForParent<TSectionData>(
   if (!childLayout) {
     throw new Error(`External-drop parent ${parentSectionId} has no child layout.`);
   }
+  if (childLayout.positioning === "freeform") {
+    throw new Error(`External-drop parent ${parentSectionId} must use ordered positioning.`);
+  }
   const axis = childLayout.orientation === "horizontal" ? "x" : "y";
   const coordinate = position[axis];
   for (const [index, sectionId] of childLayout.sectionIds.entries()) {
@@ -43,7 +46,7 @@ function containingParent<TSectionData>(
   for (const frame of geometryIndex.framesAt(position)) {
     const section = document.sections[frame.sectionId];
     const definition = section ? registry.definition(section.kind) : undefined;
-    if (section?.childLayout && definition?.canContainSections) {
+    if (section?.childLayout?.positioning === "ordered" && definition?.canContainSections) {
       return section.id;
     }
   }

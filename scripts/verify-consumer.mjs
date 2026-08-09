@@ -95,8 +95,16 @@ async function verifyConsumerRuntime(distributionRoot) {
       if ((await canvas.getAttribute("data-workspace-viewport-culling")) !== "true") {
         throw new Error("Packed consumer did not enable the declared viewport-culling contract.");
       }
-      await workspace.getByRole("article", { name: "Consumer note 1" }).waitFor();
-      await workspace.getByRole("textbox", { name: "Consumer note body" }).waitFor();
+      const freeformGroup = workspace.getByRole("article", {
+        name: "Consumer freeform group",
+      });
+      await freeformGroup.waitFor();
+      if ((await freeformGroup.getAttribute("data-workspace-child-positioning")) !== "freeform") {
+        throw new Error("Packed consumer did not render the declared freeform child layout.");
+      }
+      const consumerNote = workspace.getByRole("article", { name: "Consumer note 1" });
+      await consumerNote.waitFor();
+      await consumerNote.getByRole("textbox", { name: "Consumer note body" }).waitFor();
       await workspace.locator('[data-workspace-port-id="consumer-output"]').waitFor();
       await workspace.getByRole("navigation", { name: "Consumer section outline" }).waitFor();
       const savedViewsTrigger = workspace.getByRole("button", {

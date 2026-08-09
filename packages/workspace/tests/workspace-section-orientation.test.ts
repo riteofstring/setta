@@ -35,7 +35,12 @@ function orientationDocument(
       ...flat.sections,
       container: {
         ...container,
-        childLayout: { orientation, overflow, sectionIds: ["first", "second"] },
+        childLayout: {
+          orientation,
+          overflow,
+          positioning: "ordered",
+          sectionIds: ["first", "second"],
+        },
         size: {
           height: {
             mode: overflow === "scroll" && mainAxis === "height" ? "fixed" : "content",
@@ -105,6 +110,7 @@ describe("workspace section orientation", () => {
     expect(container.childLayout).toEqual({
       orientation: "horizontal",
       overflow: "grow",
+      positioning: "ordered",
       sectionIds: ["first", "second"],
     });
     expect(container.childLayout?.sectionIds).toBe(initialLayout?.sectionIds);
@@ -126,6 +132,7 @@ describe("workspace section orientation", () => {
     expect(changed.childLayout).toEqual({
       orientation: "horizontal",
       overflow: "scroll",
+      positioning: "ordered",
       sectionIds: ["first", "second"],
     });
     expect(changed.size.height).toEqual({ mode: "fixed", value: 360 });

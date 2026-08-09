@@ -138,6 +138,7 @@ describe("workspace selection", () => {
           childLayout: {
             orientation: "vertical",
             overflow: "grow",
+            positioning: "ordered",
             sectionIds: ["beta"],
           },
         },
@@ -146,6 +147,7 @@ describe("workspace selection", () => {
           childLayout: {
             orientation: "vertical",
             overflow: "grow",
+            positioning: "ordered",
             sectionIds: ["alpha", "nested"],
           },
         },
@@ -194,6 +196,7 @@ describe("workspace selection", () => {
                 childLayout: {
                   orientation: "vertical" as const,
                   overflow: "grow" as const,
+                  positioning: "ordered" as const,
                   sectionIds: ["constructor"],
                 },
               }

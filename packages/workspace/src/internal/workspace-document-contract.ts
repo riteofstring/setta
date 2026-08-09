@@ -1,4 +1,4 @@
-export const WORKSPACE_DOCUMENT_SCHEMA_VERSION = 1 as const;
+export const WORKSPACE_DOCUMENT_SCHEMA_VERSION = 2 as const;
 
 export type WorkspaceJsonValue =
   | boolean
@@ -22,6 +22,7 @@ export type SectionOrientation = "horizontal" | "vertical";
 export type SectionOverflow = "grow" | "scroll";
 export type SectionChrome = "compact" | "default" | "none" | "transparent";
 export type SectionDimensionMode = "content" | "fixed";
+export type SectionChildPositioning = "freeform" | "ordered";
 
 export type SectionDimension = Readonly<{
   mode: SectionDimensionMode;
@@ -39,11 +40,31 @@ export type WorkspaceSectionPresentation = Readonly<{
   tagColor: string | null;
 }>;
 
-export type WorkspaceChildLayout = Readonly<{
+export type WorkspaceOrderedChildLayout = Readonly<{
   orientation: SectionOrientation;
   overflow: SectionOverflow;
+  positioning: "ordered";
   sectionIds: readonly string[];
 }>;
+
+export type WorkspaceFreeformChildLayout = Readonly<{
+  overflow: SectionOverflow;
+  positioning: "freeform";
+  positions: Readonly<Record<string, WorkspacePoint>>;
+  sectionIds: readonly string[];
+}>;
+
+export type WorkspaceChildLayout = WorkspaceFreeformChildLayout | WorkspaceOrderedChildLayout;
+
+export type WorkspaceChildLayoutPositioningChange =
+  | Readonly<{
+      orientation: SectionOrientation;
+      positioning: "ordered";
+    }>
+  | Readonly<{
+      positioning: "freeform";
+      positions: Readonly<Record<string, WorkspacePoint>>;
+    }>;
 
 export type WorkspaceSection<TSectionData = WorkspaceJsonValue> = Readonly<{
   childLayout: WorkspaceChildLayout | null;

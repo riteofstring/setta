@@ -34,7 +34,12 @@ function connectionDocument(): WorkspaceDocument {
     sections: {
       container: {
         ...container,
-        childLayout: { orientation: "vertical", overflow: "grow", sectionIds: ["target"] },
+        childLayout: {
+          orientation: "vertical",
+          overflow: "grow",
+          positioning: "ordered",
+          sectionIds: ["target"],
+        },
       },
       source,
       target,

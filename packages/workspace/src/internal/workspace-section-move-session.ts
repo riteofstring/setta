@@ -235,6 +235,9 @@ function captureMoveRegions<TSectionData>(
     if (!parentSectionId || !layout || seen.has(parentSectionId)) {
       return { allowed: false, reason: "A section move destination region is invalid." };
     }
+    if (layout.positioning === "freeform") {
+      continue;
+    }
     const gap = layoutGap(element, layout.orientation);
     if (gap === null) {
       return { allowed: false, reason: `The ${parentSectionId} layout gap is unavailable.` };
@@ -647,7 +650,7 @@ function resolveNestedPreview<TSectionData>({
   const layout = document.sections[target.destinationParentId]?.childLayout;
   const destinationIds = (layout?.sectionIds ?? []).filter((sectionId) => !selected.has(sectionId));
   const workspaceRects = destinationIds.map((sectionId) => session.workspaceRectsById[sectionId]);
-  if (!layout) {
+  if (!layout || layout.positioning !== "ordered") {
     return {
       collisionState: clearCollisionTarget(collision.collisionState),
       preview: null,

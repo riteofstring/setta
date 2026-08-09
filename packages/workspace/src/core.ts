@@ -75,14 +75,18 @@ export type {
 } from "./internal/workspace-connections.js";
 export { WORKSPACE_DOCUMENT_SCHEMA_VERSION } from "./internal/workspace-document-contract.js";
 export type {
+  SectionChildPositioning,
   SectionChrome,
   SectionDimension,
   SectionDimensionMode,
   SectionOrientation,
   SectionOverflow,
   WorkspaceChildLayout,
+  WorkspaceChildLayoutPositioningChange,
   WorkspaceDocument,
+  WorkspaceFreeformChildLayout,
   WorkspaceJsonValue,
+  WorkspaceOrderedChildLayout,
   WorkspaceParentLookup,
   WorkspacePoint,
   WorkspaceRootSection,

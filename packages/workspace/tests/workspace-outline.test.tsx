@@ -28,13 +28,19 @@ function outlineDocument(): WorkspaceDocument {
       ...base.sections,
       nested: {
         ...section("nested"),
-        childLayout: { orientation: "horizontal", overflow: "scroll", sectionIds: ["deep"] },
+        childLayout: {
+          orientation: "horizontal",
+          overflow: "scroll",
+          positioning: "ordered",
+          sectionIds: ["deep"],
+        },
       },
       root: {
         ...section("root"),
         childLayout: {
           orientation: "vertical",
           overflow: "grow",
+          positioning: "ordered",
           sectionIds: ["first", "nested"],
         },
       },

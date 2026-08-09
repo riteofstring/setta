@@ -24,7 +24,7 @@ export function workspaceSectionOrientationRequiresMeasurement<TSectionData>(
   section: WorkspaceSection<TSectionData>,
   orientation: SectionOrientation,
 ): boolean {
-  if (!section.childLayout) {
+  if (!section.childLayout || section.childLayout.positioning !== "ordered") {
     return false;
   }
   if (section.childLayout.orientation === orientation) {
@@ -80,6 +80,9 @@ export function planWorkspaceSectionOrientationTransition<TSectionData>(
   const childLayout = section.childLayout;
   if (!childLayout) {
     return { reason: "section-not-container", status: "rejected" };
+  }
+  if (childLayout.positioning !== "ordered") {
+    return { reason: "section-layout-not-ordered", status: "rejected" };
   }
   const orientation = resolveWorkspaceSectionOrientation(orientationValue);
   if (orientation === childLayout.orientation) {

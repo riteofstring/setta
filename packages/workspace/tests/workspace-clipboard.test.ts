@@ -39,7 +39,12 @@ function recursiveClipboardDocument(): WorkspaceDocument {
       child: { ...child, data: { source: "child" } },
       root: {
         ...root,
-        childLayout: { orientation: "vertical", overflow: "grow", sectionIds: ["child"] },
+        childLayout: {
+          overflow: "grow",
+          positioning: "freeform",
+          positions: { child: { x: 24, y: 36 } },
+          sectionIds: ["child"],
+        },
         data: { source: "root" },
       },
     },
@@ -246,6 +251,12 @@ describe("workspace clipboard host cloning", () => {
     expect(materialized.paste.sections["copy-root"]?.childLayout?.sectionIds).toEqual([
       "copy-child",
     ]);
+    expect(materialized.paste.sections["copy-root"]?.childLayout).toEqual({
+      overflow: "grow",
+      positioning: "freeform",
+      positions: { "copy-child": { x: 24, y: 36 } },
+      sectionIds: ["copy-child"],
+    });
     expect(Object.keys(materialized.paste.sections)).toEqual(["copy-root", "copy-child"]);
 
     expect(

@@ -30,7 +30,7 @@ function container(
 ): WorkspaceSection {
   return {
     ...section,
-    childLayout: { orientation, overflow: "grow", sectionIds },
+    childLayout: { orientation, overflow: "grow", positioning: "ordered", sectionIds },
   };
 }
 

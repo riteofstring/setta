@@ -81,6 +81,7 @@ function createWorkspaceSectionFromFactoryResult<TSectionData>(
       ? {
           orientation: definition.defaultChildOrientation,
           overflow: definition.defaultChildOverflow,
+          positioning: "ordered",
           sectionIds: [],
         }
       : null,

@@ -18,7 +18,12 @@ import { createWorkspaceTestDocument } from "../src/testing.js";
 function container(section: WorkspaceSection, sectionIds: readonly string[]): WorkspaceSection {
   return {
     ...section,
-    childLayout: { orientation: "vertical", overflow: "grow", sectionIds },
+    childLayout: {
+      orientation: "vertical",
+      overflow: "grow",
+      positioning: "ordered",
+      sectionIds,
+    },
   };
 }
 

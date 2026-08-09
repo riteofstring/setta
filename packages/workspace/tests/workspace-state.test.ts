@@ -36,12 +36,18 @@ function recursiveDocument(): WorkspaceDocument {
         childLayout: {
           orientation: "horizontal",
           overflow: "grow",
+          positioning: "ordered",
           sectionIds: ["grandchild"],
         },
       },
       root: {
         ...root,
-        childLayout: { orientation: "vertical", overflow: "grow", sectionIds: ["child"] },
+        childLayout: {
+          orientation: "vertical",
+          overflow: "grow",
+          positioning: "ordered",
+          sectionIds: ["child"],
+        },
       },
     },
   };

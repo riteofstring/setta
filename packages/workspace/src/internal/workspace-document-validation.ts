@@ -53,7 +53,8 @@ const sectionKeys = [
 const sizeKeys = ["height", "width"] as const;
 const dimensionKeys = ["mode", "value"] as const;
 const presentationKeys = ["accentColor", "chrome", "tagColor"] as const;
-const childLayoutKeys = ["orientation", "overflow", "sectionIds"] as const;
+const orderedChildLayoutKeys = ["orientation", "overflow", "positioning", "sectionIds"] as const;
+const freeformChildLayoutKeys = ["overflow", "positioning", "positions", "sectionIds"] as const;
 
 const cssNumber = String.raw`[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?`;
 const cssNumberOrPercent = String.raw`${cssNumber}%?`;
@@ -179,6 +180,14 @@ function positiveNumberAt(value: unknown, path: string): number {
   return number;
 }
 
+function nonNegativeNumberAt(value: unknown, path: string): number {
+  const number = finiteNumberAt(value, path);
+  if (number < 0) {
+    fail("invalid-value", path, "expected a non-negative number");
+  }
+  return number;
+}
+
 function enumAt<T extends string>(
   value: unknown,
   values: readonly T[],
@@ -282,18 +291,72 @@ function validatePresentation(value: unknown, path: string): void {
   validateColor(presentation.tagColor, `${path}.tagColor`);
 }
 
+function validateChildPosition(value: unknown, path: string): void {
+  const position = recordAt(value, path);
+  exactKeys(position, positionKeys, path);
+  nonNegativeNumberAt(position.x, `${path}.x`);
+  nonNegativeNumberAt(position.y, `${path}.y`);
+}
+
+function validateFreeformPositions(
+  value: unknown,
+  path: string,
+  childIds: readonly string[],
+): void {
+  const positions = recordAt(value, path);
+  const positionIds = enumerableStringKeys(positions, path);
+  const expectedIds = new Set(childIds);
+  const unexpectedId = positionIds.find((sectionId) => !expectedIds.has(sectionId));
+  if (unexpectedId) {
+    fail(
+      "invalid-section",
+      `${path}[${JSON.stringify(unexpectedId)}]`,
+      "position is not for a direct child",
+    );
+  }
+  const missingId = childIds.find((sectionId) => !Object.hasOwn(positions, sectionId));
+  if (missingId) {
+    fail(
+      "invalid-section",
+      `${path}[${JSON.stringify(missingId)}]`,
+      "missing direct-child position",
+    );
+  }
+  for (const sectionId of positionIds) {
+    validateChildPosition(positions[sectionId], `${path}[${JSON.stringify(sectionId)}]`);
+  }
+}
+
+function validateChildIds(value: unknown, path: string): readonly string[] {
+  const childIds = arrayAt(value, path);
+  childIds.forEach((sectionId, index) => stringAt(sectionId, `${path}[${index}]`, "section ID"));
+  return childIds as readonly string[];
+}
+
 function validateChildLayout(value: unknown, path: string): WorkspaceChildLayout | null {
   if (value === null) {
     return null;
   }
   const layout = recordAt(value, path);
-  exactKeys(layout, childLayoutKeys, path);
-  enumAt(layout.orientation, ["horizontal", "vertical"], `${path}.orientation`, "orientation");
-  enumAt(layout.overflow, ["grow", "scroll"], `${path}.overflow`, "overflow mode");
-  const childIds = arrayAt(layout.sectionIds, `${path}.sectionIds`);
-  childIds.forEach((sectionId, index) =>
-    stringAt(sectionId, `${path}.sectionIds[${index}]`, "section ID"),
+  enumerableStringKeys(layout, path);
+  const positioning = enumAt(
+    layout.positioning,
+    ["freeform", "ordered"],
+    `${path}.positioning`,
+    "child positioning",
   );
+  exactKeys(
+    layout,
+    positioning === "ordered" ? orderedChildLayoutKeys : freeformChildLayoutKeys,
+    path,
+  );
+  enumAt(layout.overflow, ["grow", "scroll"], `${path}.overflow`, "overflow mode");
+  const childIds = validateChildIds(layout.sectionIds, `${path}.sectionIds`);
+  if (positioning === "ordered") {
+    enumAt(layout.orientation, ["horizontal", "vertical"], `${path}.orientation`, "orientation");
+  } else {
+    validateFreeformPositions(layout.positions, `${path}.positions`, childIds);
+  }
   return layout as unknown as WorkspaceChildLayout;
 }
 
@@ -367,6 +430,18 @@ function validateJsonValue(value: unknown, path: string): void {
 function validateScrollSize(section: WorkspaceSection<unknown>, path: string): void {
   const layout = section.childLayout;
   if (!layout || layout.overflow !== "scroll") {
+    return;
+  }
+  if (layout.positioning === "freeform") {
+    for (const axis of sizeKeys) {
+      if (section.size[axis].mode !== "fixed") {
+        fail(
+          "invalid-section",
+          `${path}.size.${axis}`,
+          "freeform scroll overflow requires a fixed dimension",
+        );
+      }
+    }
     return;
   }
   const mainDimension =

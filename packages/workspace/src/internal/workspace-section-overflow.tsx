@@ -56,8 +56,11 @@ function measuredSizeForOverflow(
   if (!section.childLayout || overflow !== "scroll") {
     return null;
   }
-  const axis = section.childLayout.orientation === "vertical" ? "height" : "width";
-  if (section.size[axis].mode === "fixed") {
+  const axes =
+    section.childLayout.positioning === "freeform"
+      ? (["height", "width"] as const)
+      : ([section.childLayout.orientation === "vertical" ? "height" : "width"] as const);
+  if (axes.every((axis) => section.size[axis].mode === "fixed")) {
     return null;
   }
   geometry.flushMeasurement();

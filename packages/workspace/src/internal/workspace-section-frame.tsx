@@ -646,6 +646,18 @@ function OpenSectionPresentationEditor({
   ) : null;
 }
 
+function sectionChildLayoutData(section: WorkspaceSection<unknown>) {
+  const layout = section.childLayout;
+  if (!layout) {
+    return { orientation: undefined, overflow: undefined, positioning: undefined };
+  }
+  return {
+    orientation: layout.positioning === "ordered" ? layout.orientation : undefined,
+    overflow: layout.overflow,
+    positioning: layout.positioning,
+  };
+}
+
 export function WorkspaceSectionFrame({
   appearance,
   childSectionRegion,
@@ -719,6 +731,7 @@ export function WorkspaceSectionFrame({
     }
   }, [editingTitle]);
   const hasStatus = hasSectionStatus(section, detached);
+  const childLayoutData = sectionChildLayoutData(section);
   const showHeader = shouldShowSectionHeader(section, detached, editingTitle, presentationOpen);
   const presentedSection = sectionWithPresentation(section, presentationPreview);
   const sectionDnd = useWorkspaceSectionDnd({
@@ -901,8 +914,9 @@ export function WorkspaceSectionFrame({
         data-workspace-chrome={presentedSection.presentation.chrome}
         data-workspace-culled="false"
         data-workspace-minimized={String(section.isMinimized)}
-        data-workspace-child-orientation={section.childLayout?.orientation}
-        data-workspace-child-overflow={section.childLayout?.overflow}
+        data-workspace-child-orientation={childLayoutData.orientation}
+        data-workspace-child-overflow={childLayoutData.overflow}
+        data-workspace-child-positioning={childLayoutData.positioning}
         data-workspace-moving={String(sectionFrameMoving(moving, sectionDnd.active))}
         data-workspace-parent-section-id={parentSectionId ?? undefined}
         data-workspace-presentation-open={String(presentationOpen)}

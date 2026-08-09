@@ -190,7 +190,12 @@ describe("workspace document section-definition compatibility", () => {
 
     const container = documentWithSection((section) => ({
       ...section,
-      childLayout: { orientation: "vertical", overflow: "grow", sectionIds: [] },
+      childLayout: {
+        orientation: "vertical",
+        overflow: "grow",
+        positioning: "ordered",
+        sectionIds: [],
+      },
     }));
     expect(() =>
       validateWorkspaceSectionDefinitions(container, resolveSectionDefinitions([definition()])),

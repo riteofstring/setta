@@ -18,7 +18,12 @@ import { createWorkspaceTestDocument } from "../src/testing.js";
 
 function groupSection(id = "group"): WorkspaceSection {
   return {
-    childLayout: { orientation: "vertical", overflow: "grow", sectionIds: [] },
+    childLayout: {
+      orientation: "vertical",
+      overflow: "grow",
+      positioning: "ordered",
+      sectionIds: [],
+    },
     data: null,
     id,
     isMinimized: false,
@@ -63,6 +68,7 @@ function nestedDocument(): WorkspaceDocument {
         childLayout: {
           orientation: "horizontal",
           overflow: "grow",
+          positioning: "ordered",
           sectionIds: ["alpha", "beta", "gamma"],
         },
       },
@@ -269,7 +275,12 @@ describe("workspace section grouping planning", () => {
     }
     expect(plan.position).toEqual({ x: 40, y: 80 });
     expect(plan.group).toMatchObject({
-      childLayout: { orientation: "vertical", overflow: "grow", sectionIds: [] },
+      childLayout: {
+        orientation: "vertical",
+        overflow: "grow",
+        positioning: "ordered",
+        sectionIds: [],
+      },
       size: {
         height: { mode: "fixed", value: 260 },
         width: { mode: "fixed", value: 600 },

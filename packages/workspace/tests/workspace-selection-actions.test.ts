@@ -22,7 +22,12 @@ function actionDocument(): WorkspaceDocument {
       ...flat.sections,
       beta: {
         ...beta,
-        childLayout: { orientation: "vertical", overflow: "grow", sectionIds: ["child"] },
+        childLayout: {
+          orientation: "vertical",
+          overflow: "grow",
+          positioning: "ordered",
+          sectionIds: ["child"],
+        },
       },
     },
   };

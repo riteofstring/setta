@@ -14,6 +14,9 @@ import {
 import { WorkspaceDocumentHistory } from "../src/internal/workspace-history.js";
 import { createWorkspaceTestDocument } from "../src/testing.js";
 
+const CONTENT_SIZING_ENABLED = { height: true, width: true } as const;
+const CONTENT_SIZING_DISABLED = { height: false, width: false } as const;
+
 function overflowDocument(orientation: "horizontal" | "vertical" = "vertical"): WorkspaceDocument {
   const flat = createWorkspaceTestDocument([
     { id: "container", title: "Container" },
@@ -27,7 +30,12 @@ function overflowDocument(orientation: "horizontal" | "vertical" = "vertical"): 
       ...flat.sections,
       container: {
         ...container,
-        childLayout: { orientation, overflow: "grow" as const, sectionIds: ["child"] },
+        childLayout: {
+          orientation,
+          overflow: "grow" as const,
+          positioning: "ordered",
+          sectionIds: ["child"],
+        },
         size: {
           height: { mode: orientation === "vertical" ? "content" : "fixed", value: 240 },
           width: { mode: orientation === "horizontal" ? "content" : "fixed", value: 360 },
@@ -76,7 +84,7 @@ describe("workspace child overflow", () => {
             height: axis === "height" ? measurement : 240,
             width: axis === "width" ? measurement : 360,
           },
-          true,
+          CONTENT_SIZING_ENABLED,
         ),
       ).toEqual({ status: "applied" });
 
@@ -84,13 +92,20 @@ describe("workspace child overflow", () => {
       expect(scrolled.childLayout).toEqual({
         orientation,
         overflow: "scroll",
+        positioning: "ordered",
         sectionIds: ["child"],
       });
       expect(scrolled.size[axis]).toEqual({ mode: "fixed", value: measurement });
       expect(state.changes).toEqual([{ reason: "section-overflow" }]);
 
       expect(
-        setWorkspaceSectionChildOverflow(state.bindings, "container", "grow", null, true),
+        setWorkspaceSectionChildOverflow(
+          state.bindings,
+          "container",
+          "grow",
+          null,
+          CONTENT_SIZING_ENABLED,
+        ),
       ).toEqual({ status: "applied" });
       expect((state.document().sections.container as WorkspaceSection).size[axis]).toEqual({
         mode: "content",
@@ -108,7 +123,7 @@ describe("workspace child overflow", () => {
       "container",
       "scroll",
       { height: 420, width: 360 },
-      true,
+      CONTENT_SIZING_ENABLED,
     );
     state.history.synchronize(state.document(), [], false);
 
@@ -124,7 +139,13 @@ describe("workspace child overflow", () => {
     const initial = overflowDocument();
     const withoutGeometry = fixture(initial);
     expect(
-      setWorkspaceSectionChildOverflow(withoutGeometry.bindings, "container", "scroll", null, true),
+      setWorkspaceSectionChildOverflow(
+        withoutGeometry.bindings,
+        "container",
+        "scroll",
+        null,
+        CONTENT_SIZING_ENABLED,
+      ),
     ).toEqual({ reason: "section-geometry-unavailable", status: "rejected" });
 
     const layoutDisabled = fixture(initial, false);
@@ -134,7 +155,7 @@ describe("workspace child overflow", () => {
         "container",
         "scroll",
         { height: 420, width: 360 },
-        true,
+        CONTENT_SIZING_ENABLED,
       ),
     ).toEqual({ reason: "layout-edit-disabled", status: "rejected" });
 
@@ -153,7 +174,7 @@ describe("workspace child overflow", () => {
           "container",
           "scroll",
           { height: 420, width: 360 },
-          true,
+          CONTENT_SIZING_ENABLED,
         ),
       ).toEqual({ reason, status: "rejected" });
     }
@@ -170,7 +191,7 @@ describe("workspace child overflow", () => {
         "child",
         "scroll",
         { height: 180, width: 240 },
-        true,
+        CONTENT_SIZING_ENABLED,
       ),
     ).toEqual({ reason: "section-not-container", status: "rejected" });
   });
@@ -183,9 +204,15 @@ describe("workspace child overflow", () => {
       "container",
       "scroll",
       { height: 420, width: 360 },
-      false,
+      CONTENT_SIZING_DISABLED,
     );
-    setWorkspaceSectionChildOverflow(state.bindings, "container", "grow", null, false);
+    setWorkspaceSectionChildOverflow(
+      state.bindings,
+      "container",
+      "grow",
+      null,
+      CONTENT_SIZING_DISABLED,
+    );
 
     expect((state.document().sections.container as WorkspaceSection).size.height).toEqual({
       mode: "fixed",

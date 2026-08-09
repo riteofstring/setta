@@ -37,7 +37,7 @@ function childLayoutFor(
   if (!children) {
     return null;
   }
-  return { orientation, overflow, sectionIds: children };
+  return { orientation, overflow, positioning: "ordered", sectionIds: children };
 }
 
 function sectionSizeFor(
@@ -91,6 +91,26 @@ function recursiveDocument(): WorkspaceDocument {
       root: section("root", { children: ["child"] }),
     },
     viewport: { x: 25, y: -10, zoom: 1.5 },
+  };
+}
+
+function freeformDocument(): WorkspaceDocument {
+  const document = recursiveDocument();
+  const root = document.sections.root as WorkspaceSection;
+  return {
+    ...document,
+    sections: {
+      ...document.sections,
+      root: {
+        ...root,
+        childLayout: {
+          overflow: "grow",
+          positioning: "freeform",
+          positions: { child: { x: 48.5, y: 32 } },
+          sectionIds: ["child"],
+        },
+      },
+    },
   };
 }
 
@@ -150,6 +170,21 @@ describe("workspace document", () => {
     expect(getWorkspaceSectionOrder(restored).at(-1)).toBe(`section-${depth - 1}`);
   });
 
+  it("round trips explicit nested freeform positions without changing traversal order", () => {
+    const document = freeformDocument();
+
+    const restored = parseWorkspaceDocument(serializeWorkspaceDocument(document));
+
+    expect(restored).toEqual(document);
+    expect(getWorkspaceSectionOrder(restored)).toEqual(["root", "child", "grandchild", "peer"]);
+    expect(restored.sections.root?.childLayout).toEqual({
+      overflow: "grow",
+      positioning: "freeform",
+      positions: { child: { x: 48.5, y: 32 } },
+      sectionIds: ["child"],
+    });
+  });
+
   it("derives parents and deterministic pre-order without serializing parallel parents", () => {
     const document = recursiveDocument();
     const parents = deriveWorkspaceParentLookup(document);
@@ -207,10 +242,99 @@ describe("workspace document validation", () => {
       expect.objectContaining({ code: "invalid-json", path: "$" }),
     );
     expectValidationError(
-      { ...recursiveDocument(), schemaVersion: 2 },
+      { ...recursiveDocument(), schemaVersion: 1 },
       "unsupported-schema-version",
       "$.schemaVersion",
     );
+  });
+
+  it("requires the schema-v2 positioning discriminator without a legacy fallback", () => {
+    const candidate = structuredClone(recursiveDocument()) as unknown as {
+      sections: Record<string, { childLayout: Record<string, unknown> | null }>;
+    };
+    const layout = candidate.sections.root?.childLayout;
+    if (!layout) {
+      throw new Error("Expected the root layout fixture.");
+    }
+    delete layout.positioning;
+
+    expectValidationError(candidate, "invalid-value", '$.sections["root"].childLayout.positioning');
+  });
+
+  it.each([
+    ["missing child", {}, '$.sections["root"].childLayout.positions["child"]', "invalid-section"],
+    [
+      "unknown child",
+      { child: { x: 0, y: 0 }, extra: { x: 1, y: 1 } },
+      '$.sections["root"].childLayout.positions["extra"]',
+      "invalid-section",
+    ],
+    [
+      "negative coordinate",
+      { child: { x: -1, y: 0 } },
+      '$.sections["root"].childLayout.positions["child"].x',
+      "invalid-value",
+    ],
+    [
+      "non-finite coordinate",
+      { child: { x: 0, y: Number.NaN } },
+      '$.sections["root"].childLayout.positions["child"].y',
+      "invalid-value",
+    ],
+  ] as const)("rejects a freeform position map with a %s", (_label, positions, path, code) => {
+    const document = freeformDocument();
+    const root = document.sections.root as WorkspaceSection;
+    const childLayout = root.childLayout;
+    if (!childLayout || childLayout.positioning !== "freeform") {
+      throw new Error("Expected the freeform root fixture.");
+    }
+    const candidate = {
+      ...document,
+      sections: {
+        ...document.sections,
+        root: { ...root, childLayout: { ...childLayout, positions } },
+      },
+    };
+
+    expectValidationError(candidate, code, path);
+  });
+
+  it("rejects freeform-only extra fields and accessor-backed position entries without evaluation", () => {
+    const extraField = structuredClone(freeformDocument()) as unknown as {
+      sections: Record<string, { childLayout: Record<string, unknown> }>;
+    };
+    const layout = extraField.sections.root?.childLayout;
+    if (!layout) {
+      throw new Error("Expected the freeform root fixture.");
+    }
+    layout.orientation = "vertical";
+    expectValidationError(
+      extraField,
+      "invalid-value",
+      '$.sections["root"].childLayout.orientation',
+    );
+
+    let evaluated = false;
+    const accessorDocument = structuredClone(freeformDocument()) as unknown as {
+      sections: Record<string, { childLayout: { positions: Record<string, unknown> } }>;
+    };
+    const positions = accessorDocument.sections.root?.childLayout.positions;
+    if (!positions) {
+      throw new Error("Expected the freeform position map fixture.");
+    }
+    Object.defineProperty(positions, "child", {
+      enumerable: true,
+      get() {
+        evaluated = true;
+        return { x: 0, y: 0 };
+      },
+    });
+    expectValidationError(
+      accessorDocument,
+      "invalid-value",
+      '$.sections["root"].childLayout.positions',
+    );
+    expect(evaluated).toBe(false);
   });
 
   it("enforces the supported viewport zoom bounds", () => {
@@ -244,7 +368,12 @@ describe("workspace document validation", () => {
           ...unknown.sections,
           root: {
             ...unknown.sections.root,
-            childLayout: { orientation: "vertical", overflow: "grow", sectionIds: ["missing"] },
+            childLayout: {
+              orientation: "vertical",
+              overflow: "grow",
+              positioning: "ordered",
+              sectionIds: ["missing"],
+            },
           },
         },
       },
@@ -350,6 +479,31 @@ describe("workspace document validation", () => {
     };
 
     expectValidationError(invalid, "invalid-section", '$.sections["child"].size');
+  });
+
+  it("requires both dimensions to be fixed for freeform scroll overflow", () => {
+    const document = freeformDocument();
+    const root = document.sections.root as WorkspaceSection;
+    const childLayout = root.childLayout;
+    if (!childLayout || childLayout.positioning !== "freeform") {
+      throw new Error("Expected the freeform root fixture.");
+    }
+    const invalid = {
+      ...document,
+      sections: {
+        ...document.sections,
+        root: {
+          ...root,
+          childLayout: { ...childLayout, overflow: "scroll" as const },
+          size: {
+            height: { mode: "fixed" as const, value: 400 },
+            width: { mode: "content" as const, value: 500 },
+          },
+        },
+      },
+    };
+
+    expectValidationError(invalid, "invalid-section", '$.sections["root"].size.width');
   });
 
   it("rejects non-JSON payload data without imposing a containment depth limit", () => {

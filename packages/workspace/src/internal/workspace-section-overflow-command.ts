@@ -1,5 +1,6 @@
 import type {
   SectionOverflow,
+  WorkspaceChildLayout,
   WorkspaceSection,
   WorkspaceSectionSize,
 } from "./workspace-document-contract.js";
@@ -24,16 +25,21 @@ function positiveMeasuredDimension(value: unknown, axis: "height" | "width"): nu
   return value;
 }
 
+type WorkspaceContentSizing = Readonly<{ height: boolean; width: boolean }>;
+type WorkspaceSectionAxis = "height" | "width";
+
 function overflowDimension<TSectionData>(
   section: WorkspaceSection<TSectionData>,
-  axis: "height" | "width",
+  axis: WorkspaceSectionAxis,
   overflow: SectionOverflow,
   measuredSize: Readonly<{ height: number; width: number }> | null,
-  growWithContentSizing: boolean,
+  growWithContentSizing: WorkspaceContentSizing,
 ): WorkspaceSectionSize["height"] {
   const currentDimension = section.size[axis];
   if (overflow === "grow") {
-    return growWithContentSizing ? { ...currentDimension, mode: "content" } : currentDimension;
+    return growWithContentSizing[axis]
+      ? { ...currentDimension, mode: "content" }
+      : currentDimension;
   }
   return {
     mode: "fixed",
@@ -43,11 +49,18 @@ function overflowDimension<TSectionData>(
   };
 }
 
+function overflowAxes(layout: WorkspaceChildLayout): readonly WorkspaceSectionAxis[] {
+  if (layout.positioning === "freeform") {
+    return ["height", "width"];
+  }
+  return [layout.orientation === "vertical" ? "height" : "width"];
+}
+
 export function planWorkspaceSectionOverflowTransition<TSectionData>(
   section: WorkspaceSection<TSectionData>,
   overflowValue: unknown,
   measuredSize: Readonly<{ height: number; width: number }> | null,
-  growWithContentSizing: boolean,
+  growWithContentSizing: WorkspaceContentSizing,
 ): WorkspaceSectionOverflowTransition<TSectionData> {
   const childLayout = section.childLayout;
   if (!childLayout) {
@@ -63,18 +76,26 @@ export function planWorkspaceSectionOverflowTransition<TSectionData>(
   if (section.isMinimized) {
     return { reason: "section-minimized", status: "rejected" };
   }
-  const axis = childLayout.orientation === "vertical" ? "height" : "width";
-  if (overflow === "scroll" && section.size[axis].mode === "content" && !measuredSize) {
+  const axes = overflowAxes(childLayout);
+  if (
+    overflow === "scroll" &&
+    axes.some((axis) => section.size[axis].mode === "content") &&
+    !measuredSize
+  ) {
     return { reason: "section-geometry-unavailable", status: "rejected" };
   }
+  const size = axes.reduce<WorkspaceSectionSize>(
+    (nextSize, axis) => ({
+      ...nextSize,
+      [axis]: overflowDimension(section, axis, overflow, measuredSize, growWithContentSizing),
+    }),
+    section.size,
+  );
   return {
     section: {
       ...section,
       childLayout: { ...childLayout, overflow },
-      size: {
-        ...section.size,
-        [axis]: overflowDimension(section, axis, overflow, measuredSize, growWithContentSizing),
-      },
+      size,
     },
     status: "applied",
   };

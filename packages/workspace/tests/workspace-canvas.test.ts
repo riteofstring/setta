@@ -107,6 +107,7 @@ function recursiveDocument(): WorkspaceDocument {
         childLayout: {
           orientation: "vertical",
           overflow: "grow",
+          positioning: "ordered",
           sectionIds: ["nested"],
         },
       },

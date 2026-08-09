@@ -598,14 +598,12 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       }
       const section = documentRef.current.sections[sectionId];
       const definition = section ? sectionRegistryRef.current.definition(section.kind) : undefined;
-      const orientation = section?.childLayout?.orientation;
-      const contentSizingAxis = orientation === "horizontal" ? "width" : "height";
       return setWorkspaceSectionChildOverflow(
         bindings,
         sectionId,
         overflow,
         measuredSize,
-        Boolean(definition?.contentSizing[contentSizingAxis]),
+        definition?.contentSizing ?? { height: false, width: false },
       );
     },
     [],

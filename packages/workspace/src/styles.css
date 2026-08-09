@@ -1876,6 +1876,27 @@
   align-items: flex-start;
 }
 
+.setta-workspace__section-children[data-workspace-child-positioning="freeform"] {
+  display: block;
+}
+
+.setta-workspace__freeform-child-surface {
+  position: relative;
+  min-block-size: 6rem;
+  min-inline-size: 12rem;
+}
+
+.setta-workspace__freeform-child-placement {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.setta-workspace__freeform-child-surface > .setta-workspace__empty-child-container {
+  block-size: 100%;
+  inline-size: 100%;
+}
+
 .setta-workspace__section-children[data-workspace-child-overflow="grow"] {
   overflow: visible;
 }

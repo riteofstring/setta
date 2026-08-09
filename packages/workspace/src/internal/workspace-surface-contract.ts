@@ -1,5 +1,6 @@
 import type {
   SectionOrientation,
+  WorkspaceChildLayoutPositioningChange,
   WorkspaceDocument,
   WorkspaceJsonValue,
   WorkspacePoint,
@@ -70,6 +71,8 @@ export type WorkspaceActionRejectionReason =
   | "section-geometry-unavailable"
   | "section-id-exists"
   | "section-locked"
+  | "section-layout-not-ordered"
+  | "section-layout-unsupported"
   | "section-minimized"
   | "section-move-invalid"
   | "section-not-minimizable"
@@ -105,6 +108,7 @@ export type WorkspaceDocumentChangeReason =
   | "section-move"
   | "section-orientation"
   | "section-overflow"
+  | "section-positioning"
   | "section-paste"
   | "section-presentation"
   | "section-resize"
@@ -152,6 +156,10 @@ export type WorkspaceController<TSectionData = WorkspaceJsonValue> = Readonly<{
   setSectionChildOrientation(
     sectionId: string,
     orientation: SectionOrientation,
+  ): WorkspaceActionResult;
+  setSectionChildPositioning(
+    sectionId: string,
+    change: WorkspaceChildLayoutPositioningChange,
   ): WorkspaceActionResult;
   setSectionMinimized(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
   setSectionPresentation(

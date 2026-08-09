@@ -94,6 +94,7 @@ function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
   const rootTreeNode: WorkspaceSectionTreeNode = {
     children: data.childSections,
     definition: data.definition,
+    position: null,
     section: data.section,
     selected: data.selected,
     selectionMovementBlocked: data.selectionMovementBlocked,

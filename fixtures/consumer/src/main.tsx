@@ -22,6 +22,7 @@ import {
   type WorkspaceClipboardAdapter,
   type WorkspaceConnections,
   type WorkspaceDocument,
+  type WorkspaceFreeformChildLayout,
   type WorkspaceRootAutoLayoutOptions,
 } from "@setta/workspace/core";
 import {
@@ -48,10 +49,31 @@ if (!root) {
 
 type ConsumerSectionData = Readonly<{ body: string }>;
 
+const consumerFreeformChildLayout = {
+  overflow: "grow",
+  positioning: "freeform",
+  positions: { "consumer-note-1": { x: 32, y: 40 } },
+  sectionIds: ["consumer-note-1"],
+} satisfies WorkspaceFreeformChildLayout;
+
 const workspaceDocument: WorkspaceDocument<ConsumerSectionData> = {
   ...createEmptyWorkspaceDocument<ConsumerSectionData>(),
-  rootSections: [{ position: { x: 32, y: 32 }, sectionId: "consumer-note-1" }],
+  rootSections: [{ position: { x: 32, y: 32 }, sectionId: "consumer-group-1" }],
   sections: {
+    "consumer-group-1": {
+      childLayout: consumerFreeformChildLayout,
+      data: { body: "Freeform container rendered from the packed consumer." },
+      id: "consumer-group-1",
+      isMinimized: false,
+      kind: "consumer-group",
+      positionAndSizeLocked: false,
+      presentation: { accentColor: null, chrome: "default", tagColor: null },
+      size: {
+        height: { mode: "content", value: 400 },
+        width: { mode: "fixed", value: 420 },
+      },
+      title: "Consumer freeform group",
+    },
     "consumer-note-1": {
       childLayout: null,
       data: { body: "Rendered from the packed consumer." },
@@ -90,11 +112,11 @@ const consumerConnections = parseWorkspaceConnections(
 const consumerPackingPreview = packWorkspaceRectangles({
   gap: 16,
   origin: { x: 32, y: 32 },
-  rectangles: [{ height: 180, sectionId: "consumer-note-1", width: 300 }],
+  rectangles: [{ height: 400, sectionId: "consumer-group-1", width: 420 }],
 });
 const consumerLayoutPreview = planWorkspaceRootAutoLayout({
   gap: 16,
-  rootRects: [{ height: 180, sectionId: "consumer-note-1", width: 300, x: 32, y: 32 }],
+  rootRects: [{ height: 400, sectionId: "consumer-group-1", width: 420, x: 32, y: 32 }],
 });
 const consumerViewportPresets = parseWorkspaceViewportPresets(
   serializeWorkspaceViewportPresets([
@@ -103,7 +125,7 @@ const consumerViewportPresets = parseWorkspaceViewportPresets(
 );
 if (
   consumerPackingPreview[0]?.x !== 32 ||
-  consumerLayoutPreview.positions["consumer-note-1"]?.y !== 32
+  consumerLayoutPreview.positions["consumer-group-1"]?.y !== 32
 ) {
   throw new Error("Packed consumer root-layout helpers returned an unexpected origin.");
 }

@@ -7,6 +7,7 @@ import {
   type SectionOverflow,
   type WorkspaceActionResult,
   type WorkspaceCapabilities,
+  type WorkspaceChildLayoutPositioningChange,
   type WorkspaceController,
   type WorkspaceCreateSectionOptions,
   type WorkspaceDocument,
@@ -36,6 +37,10 @@ import {
   resolveWorkspaceSectionOrientation,
   workspaceSectionOrientationRequiresMeasurement,
 } from "./workspace-section-orientation-command.js";
+import {
+  resolveWorkspaceChildLayoutPositioningChange,
+  workspaceSectionPositioningRequiresMeasurement,
+} from "./workspace-section-positioning-command.js";
 import type {
   WorkspaceRootResizeSnapshot,
   WorkspaceSectionResizeAxis,
@@ -465,6 +470,26 @@ function measuredSizeForSectionOrientation<TSectionData>(
   return measuredSizeFromRect(bindings.getCanvasController?.()?.getSectionRect(sectionId));
 }
 
+function measuredSizeForSectionPositioning<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  sectionId: string,
+  change: WorkspaceChildLayoutPositioningChange,
+): Readonly<{ height: number; width: number }> | null {
+  if (!bindings.getCapabilities().editLayout) {
+    return null;
+  }
+  const section = bindings.getDocument().sections[sectionId];
+  if (
+    !section ||
+    section.positionAndSizeLocked ||
+    section.isMinimized ||
+    !workspaceSectionPositioningRequiresMeasurement(section, change)
+  ) {
+    return null;
+  }
+  return measuredSizeFromRect(bindings.getCanvasController?.()?.getSectionRect(sectionId));
+}
+
 export function createWorkspaceController<TSectionData>(
   bindings: WorkspaceControllerBindings<TSectionData>,
 ): WorkspaceController<TSectionData> {
@@ -526,6 +551,16 @@ export function createWorkspaceController<TSectionData>(
         resolvedSectionId,
         resolvedOrientation,
         measuredSizeForSectionOrientation(bindings, resolvedSectionId, resolvedOrientation),
+      );
+    },
+    setSectionChildPositioning: (sectionId, change) => {
+      const resolvedSectionId = sectionIdAt(sectionId);
+      const resolvedChange = resolveWorkspaceChildLayoutPositioningChange(change);
+      return setWorkspaceSectionChildPositioning(
+        bindings,
+        resolvedSectionId,
+        resolvedChange,
+        measuredSizeForSectionPositioning(bindings, resolvedSectionId, resolvedChange),
       );
     },
     setSectionMinimized: (sectionId, isMinimized) =>
@@ -603,7 +638,7 @@ export function setWorkspaceSectionChildOverflow<TSectionData>(
   sectionId: string,
   overflow: SectionOverflow,
   measuredSize: Readonly<{ height: number; width: number }> | null,
-  growWithContentSizing: boolean,
+  growWithContentSizing: Readonly<{ height: boolean; width: boolean }>,
 ): WorkspaceActionResult {
   return dispatch(bindings, {
     growWithContentSizing,
@@ -625,6 +660,20 @@ function setWorkspaceSectionChildOrientation<TSectionData>(
     orientation,
     sectionId,
     type: "set-section-child-orientation",
+  });
+}
+
+function setWorkspaceSectionChildPositioning<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  sectionId: string,
+  change: WorkspaceChildLayoutPositioningChange,
+  measuredSize: Readonly<{ height: number; width: number }> | null,
+): WorkspaceActionResult {
+  return dispatch(bindings, {
+    change,
+    measuredSize,
+    sectionId,
+    type: "set-section-child-positioning",
   });
 }
 

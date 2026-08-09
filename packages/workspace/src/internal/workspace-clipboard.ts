@@ -2,6 +2,7 @@ import { isDenseArray, optionOverridesAt } from "./runtime-option-validation.js"
 import {
   WORKSPACE_DOCUMENT_SCHEMA_VERSION,
   type WorkspaceDocument,
+  type WorkspaceFreeformChildLayout,
   type WorkspaceJsonValue,
   type WorkspacePoint,
   type WorkspaceRootSection,
@@ -529,6 +530,17 @@ function cloneIndex<TSectionData>(
   return index.size === sourceIds.length ? index : null;
 }
 
+function requiredFreeformPosition(
+  layout: WorkspaceFreeformChildLayout,
+  sectionId: string,
+): WorkspacePoint {
+  const position = layout.positions[sectionId];
+  if (!position) {
+    throw new Error(`Workspace clipboard child ${sectionId} is missing its canonical position.`);
+  }
+  return position;
+}
+
 function remappedSections<TSectionData>(
   frame: WorkspaceClipboardFrame,
   clones: ReadonlyMap<string, WorkspaceClipboardSectionClone<TSectionData>>,
@@ -536,14 +548,31 @@ function remappedSections<TSectionData>(
   return Object.fromEntries(
     Object.values(frame.sections).map((source) => {
       const clone = clones.get(source.id) as WorkspaceClipboardSectionClone<TSectionData>;
-      const childLayout = source.childLayout
-        ? {
-            ...source.childLayout,
-            sectionIds: source.childLayout.sectionIds.map(
-              (sourceId) =>
-                (clones.get(sourceId) as WorkspaceClipboardSectionClone<TSectionData>).id,
-            ),
-          }
+      const sourceLayout = source.childLayout;
+      const remappedChildEntries =
+        sourceLayout?.sectionIds.map(
+          (sourceId) =>
+            [
+              sourceId,
+              (clones.get(sourceId) as WorkspaceClipboardSectionClone<TSectionData>).id,
+            ] as const,
+        ) ?? [];
+      const childLayout = sourceLayout
+        ? sourceLayout.positioning === "ordered"
+          ? {
+              ...sourceLayout,
+              sectionIds: remappedChildEntries.map(([, cloneId]) => cloneId),
+            }
+          : {
+              ...sourceLayout,
+              positions: Object.fromEntries(
+                remappedChildEntries.map(([sourceId, cloneId]) => [
+                  cloneId,
+                  requiredFreeformPosition(sourceLayout, sourceId),
+                ]),
+              ),
+              sectionIds: remappedChildEntries.map(([, cloneId]) => cloneId),
+            }
         : null;
       return [clone.id, { ...source, childLayout, data: clone.data, id: clone.id }] as const;
     }),

@@ -62,7 +62,7 @@ export function useWorkspaceSectionOrientationActions<TSectionData>({
 
   const handleCommit = useCallback((sectionId: string, orientation: SectionOrientation) => {
     const section = documentRef.current.sections[sectionId];
-    if (!section?.childLayout) {
+    if (!section?.childLayout || section.childLayout.positioning !== "ordered") {
       throw new Error(`Workspace orientation action is missing container ${sectionId}.`);
     }
     const action = { orientation, sectionId, title: section.title } as const;
@@ -84,8 +84,9 @@ export function useWorkspaceSectionOrientationActions<TSectionData>({
     if (!pending) {
       return;
     }
+    const childLayout = document.sections[pending.sectionId]?.childLayout;
     const accepted =
-      document.sections[pending.sectionId]?.childLayout?.orientation === pending.orientation;
+      childLayout?.positioning === "ordered" && childLayout.orientation === pending.orientation;
     setAnnouncementText(orientationAnnouncement(pending, accepted));
     pendingRef.current = null;
   }, [document.sections, synchronizationRevision]);
@@ -132,7 +133,7 @@ export function WorkspaceSectionOrientationControl({
   section: WorkspaceSection<unknown>;
 }>) {
   const childLayout = section.childLayout;
-  if (!childLayout) {
+  if (!childLayout || childLayout.positioning !== "ordered") {
     return null;
   }
   const nextOrientation = oppositeOrientation(childLayout.orientation);
