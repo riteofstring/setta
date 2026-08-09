@@ -84,9 +84,10 @@ describe("DateValueControl and TimeValueControl", () => {
     expect(input.getAttribute("aria-label")).toBe("Date value");
     expect(input.classList.contains("bg-transparent")).toBe(true);
     expect(input.classList.contains("dark:[color-scheme:dark]")).toBe(false);
-    for (const boundary of ["nodrag", "nopan", "nowheel"]) {
+    for (const boundary of ["nodrag", "nopan"]) {
       expect(input.classList.contains(boundary)).toBe(true);
     }
+    expect(input.classList.contains("nowheel")).toBe(false);
 
     setInputValue(input, "01/02/2027");
     expect(onValueChange).toHaveBeenCalledOnce();
@@ -191,6 +192,7 @@ describe("DateValueControl and TimeValueControl", () => {
     expect(input.value).toBe("13:05");
     expect(input.getAttribute("aria-label")).toBe("Time value");
     expect(input.classList.contains("dark:[color-scheme:dark]")).toBe(true);
+    expect(input.classList.contains("nowheel")).toBe(false);
     expect(host.textContent).toContain("1:05 PM");
     setInputValue(input, "09:45");
     expect(onValueChange).toHaveBeenCalledWith("09:45");

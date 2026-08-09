@@ -1345,6 +1345,21 @@ Phase 4 progress (2026-08-11):
   pan behavior has changed, and the reported defect remains open pending developer reproduction.
   The consolidated developer acceptance and first package-output baselines remain open; Phase 5 is
   still not actionable.
+- Consolidated controls gate correction — direction-dependent Time-area panning (2026-08-12): the
+  developer reproduction produced a decisive trace rather than a stale-state failure. Twenty-nine
+  consecutive horizontal wheel events over the direct-on-canvas Time input were rejected by its
+  extracted `nowheel` class while the viewport transform remained fixed; the same deltas applied
+  as soon as the pointer reached its edge. Once a pan burst started there, the existing continuation
+  rule allowed later events even over `nowheel`, creating the observed directional asymmetry.
+  Frozen main's date/time inputs own pointer editing but do not claim wheel input, so the package
+  removes only their stray wheel boundary while retaining `nodrag` and `nopan`; genuinely scrollable
+  areas and wheel-driven controls keep `nowheel`. A canvas regression locks starting horizontal pan
+  over an interactive `nopan` target while proving an explicit `nowheel` target still blocks a new
+  burst, and date/time regressions lock the corrected class contract. The focused suites (23 tests),
+  complete package suite (81 files, 590 tests), complete playground suite (3 files, 23 tests),
+  package and playground production builds, changed-file static gate, packed unrelated-consumer
+  proof, and live Chrome trace over the Time input pass. The consolidated developer interaction
+  acceptance remains open pending live retest; Phase 5 is still not actionable.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

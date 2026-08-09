@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "../../interaction";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
 import { focusSectionAfterEscape } from "../sectionFocus";
 import {
   buildCalendarMonthGrid,
@@ -38,7 +38,7 @@ import {
 // configuration selects the native time input or formatted display. The package keeps no clock,
 // locale, persistence, or parameter-model state.
 
-const INTERACTION_BOUNDARY_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`;
+const INTERACTION_BOUNDARY_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
 // Let the browser paint native date/time affordances for the active appearance. Without this,
 // Chromium keeps the default dark picker indicator over Setta's dark input surface.
 const NATIVE_DATE_TIME_COLOR_SCHEME_CLASS_NAME = "dark:[color-scheme:dark]";

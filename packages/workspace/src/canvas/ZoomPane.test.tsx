@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { act } from "react";
+import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
@@ -40,7 +40,9 @@ const zoomPaneOptions = {
   wrapperDimensions: { width: 800, height: 600 },
 } as const;
 
-async function renderZoomPane(): Promise<RenderedZoomPane> {
+async function renderZoomPane(
+  overrides: Partial<ComponentProps<typeof ZoomPane>> = {},
+): Promise<RenderedZoomPane> {
   const host = document.createElement("div");
   document.body.appendChild(host);
 
@@ -48,7 +50,7 @@ async function renderZoomPane(): Promise<RenderedZoomPane> {
   await act(async () => {
     root.render(
       <div className="react-flow">
-        <ZoomPane {...zoomPaneOptions}>
+        <ZoomPane {...zoomPaneOptions} {...overrides}>
           <div />
         </ZoomPane>
       </div>,
@@ -244,6 +246,49 @@ describe("getViewportInteractionActiveValue", () => {
 
     expect(useReactFlow.getState().viewportInteractionActive).toBe(false);
     expect(useReactFlow.getState().paneDragging).toBe(false);
+  });
+
+  it("starts wheel panning on an interactive nopan target unless it explicitly owns wheel", async () => {
+    const { host, renderer, root } = await renderZoomPane({
+      panOnScroll: true,
+      zoomOnScroll: false,
+    });
+    const target = document.createElement("input");
+    target.className = "nopan";
+    renderer.appendChild(target);
+
+    try {
+      await act(async () => {
+        target.dispatchEvent(
+          new WheelEvent("wheel", {
+            bubbles: true,
+            cancelable: true,
+            deltaX: 20,
+          }),
+        );
+      });
+      expect(useReactFlow.getState().transform).toEqual([-10, 0, 1]);
+
+      await act(async () => {
+        vi.advanceTimersByTime(150);
+      });
+      target.classList.add("nowheel");
+      await act(async () => {
+        target.dispatchEvent(
+          new WheelEvent("wheel", {
+            bubbles: true,
+            cancelable: true,
+            deltaX: 20,
+          }),
+        );
+      });
+      expect(useReactFlow.getState().transform).toEqual([-10, 0, 1]);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
   });
 
   it("reports why a pointer start was filtered and records its gesture lifecycle", async () => {
