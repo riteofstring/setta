@@ -10,7 +10,7 @@ the gate.
 - Frozen product authority: `../setta-main`, branch `main`, commit
   `043d3b2e9c69caf99d1246f1408b3ad7194b7864`.
 - Extraction implementation under review: branch `workspace-extraction`, commit
-  `ae1e8c3b6ae34419a17d5da0ad56b22af6791b72` plus this evidence commit.
+  `66d22582582b971b42ce184da5c387e1a83d9d3f` plus this evidence commit.
 - Capture date: 2026-08-11 in `America/Los_Angeles`.
 - Live URLs: main at `http://127.0.0.1:3063/being_cliff`; playground at
   `http://127.0.0.1:5174/`.
@@ -39,8 +39,7 @@ Exact geometry, colors, toolbar measurements, and before/after interaction obser
 
 ## Live comparison result
 
-The first supervised pass rejected the playground output and fixed three visible discrepancies
-before this bundle was captured:
+The initial supervised pass rejected the playground output and fixed three visible discrepancies:
 
 1. The host body used the `section-full` grid area and overlapped the package header. Commit
    `c63e6f890` moved it to the reference body rows.
@@ -50,8 +49,26 @@ before this bundle was captured:
    main's 26 x 26 control. Commit `ae1e8c3b6` restored the live 5-pixel padding with consumer-safe
    selector specificity.
 
+The developer then rejected the first gate presentation for three additional discrepancies. Commit
+`66d225825` closes them for recheck:
+
+1. The canvas used the playground host's near-black surface and omitted the fork's SVG grid. The
+   package now owns main's exact light/dark canvas colors, zoom-aware grid pattern, and grid option
+   seam.
+2. Invalid-drop feedback rendered inside the target section's stacking context, so the opaque blue
+   drag preview covered the red label. Feedback now uses a body portal one layer above the preview.
+3. Cross-parent insertion used the motion-sensitive trailing edge of the dragged section. A one-pixel
+   downward movement could therefore place the placeholder after the first child on entry. Cross-parent
+   insertion now compares the dragged section's leading edge; same-parent sorting retains its
+   direction-aware hysteresis.
+
+The latter two changes are explicit developer-directed interaction corrections, not literal
+preservation of the frozen behavior; the developer's gate feedback supersedes that behavior.
+
 After those fixes, the live package output matches the accepted Phase 0 measurements:
 
+- the canvas surface is `rgb(28, 35, 49)` with `#2b364a` dots in dark appearance and
+  `rgb(148, 163, 184)` with `#afbacf` dots in light appearance, using the reference 15-pixel grid;
 - idle and selected leaves are both 202 x 124; selection changes only the 4-pixel outline and
   z-index (10 to 150);
 - dark/light outer, inner, border, outline, and style-colored chrome match the recorded values;
@@ -66,16 +83,16 @@ After those fixes, the live package output matches the accepted Phase 0 measurem
   1 -> 1.2 -> 1 -> 1, and fit view keeps all slice sections visible.
 
 The Chrome extension API cannot keep a keyboard key depressed across a later pointer command, so
-it cannot produce a sustained Alt or Mod+Alt package drag screenshot. Those exact held-mode,
-collision, sorting, reparenting, and deferred-release paths are covered by the ported package
-characterization/integration suites (234 tests), while main's sustained gestures remain preserved
-in the Phase 0 traces and screenshots. The live main and playground tabs are left open for optional
-manual held-key comparison at the developer gate.
+it cannot produce a sustained Alt or Mod+Alt package drag screenshot. Those held-mode, collision,
+sorting, reparenting, and deferred-release paths are covered by the ported package
+characterization/integration suites (242 tests), including focused regression tests for the two
+reported drop-feedback defects. The live main and playground tabs are left open for the required
+manual held-key recheck at the developer gate.
 
 No warnings or errors were emitted by the playground during the comparison. Main emitted only the
 previously recorded React Router future warning and React 19 `element.ref` diagnostics.
 
 ## Decision
 
-**Pending developer acceptance.** Phase 2 must not begin until the developer accepts this visual
-and interaction result.
+**Rejected once; corrected; developer recheck pending.** Phase 2 must not begin until the developer
+accepts the corrected visual and interaction result.

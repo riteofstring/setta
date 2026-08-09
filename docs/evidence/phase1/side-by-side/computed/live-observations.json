@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "capturedAt": "2026-08-11T12:13:33Z",
+  "capturedAt": "2026-08-11T17:26:51Z",
   "source": {
     "mainCommit": "043d3b2e9c69caf99d1246f1408b3ad7194b7864",
-    "extractionCommit": "ae1e8c3b6ae34419a17d5da0ad56b22af6791b72",
+    "extractionCommit": "66d22582582b971b42ce184da5c387e1a83d9d3f",
     "mainUrl": "http://127.0.0.1:3063/being_cliff",
     "playgroundUrl": "http://127.0.0.1:5174/"
   },
@@ -31,8 +31,42 @@
       "commit": "ae1e8c3b6",
       "problem": "A later Tailwind p-1 utility reduced reset zoom from the reference's 26 x 26 to 24 x 24.",
       "result": "The package fork rule owns the live 5 px padding again; reset zoom is 26 x 26 with a 12 x 12 icon."
+    },
+    {
+      "commit": "66d225825",
+      "problem": "The package canvas inherited the playground's near-black host surface and omitted the frozen fork's SVG grid.",
+      "result": "The package owns the exact reference canvas surfaces and zoom-aware grid: dark rgb(28, 35, 49) with #2b364a dots, light rgb(148, 163, 184) with #afbacf dots, and a 15 px default gap."
+    },
+    {
+      "commit": "66d225825",
+      "problem": "Invalid-drop feedback stayed inside the target section's stacking context and appeared behind the opaque free-move preview.",
+      "result": "Drop feedback is portaled to the body at z-index 1001, one layer above the free-move preview at z-index 1000.",
+      "parityClassification": "Developer-directed correction that intentionally supersedes the frozen stacking behavior."
+    },
+    {
+      "commit": "66d225825",
+      "problem": "Cross-parent insertion inherited direction-sensitive trailing-edge logic, so tiny downward pointer motion could show the placeholder after the first child on entry.",
+      "result": "Cross-parent insertion uses the dragged section's leading edge; same-parent sorting retains direction-aware edge selection and its 10 px hysteresis.",
+      "parityClassification": "Developer-directed correction that intentionally supersedes the frozen cross-parent edge choice."
     }
   ],
+  "canvasBackground": {
+    "referenceAndPlaygroundDark": {
+      "surface": "rgb(28, 35, 49)",
+      "gridPattern": "dots",
+      "gridColor": "#2b364a",
+      "gridGapCssPxAtZoom1": 15,
+      "dotRadiusCssPxAtZoom1": 1
+    },
+    "referenceAndPlaygroundLight": {
+      "surface": "rgb(148, 163, 184)",
+      "gridPattern": "dots",
+      "gridColor": "#afbacf",
+      "gridGapCssPxAtZoom1": 15,
+      "dotRadiusCssPxAtZoom1": 1
+    },
+    "behavior": "Grid translation, gap, and mark size track the package viewport transform exactly as in the frozen XYFlow fork."
+  },
   "rootLeaf": {
     "referenceDarkIdle": {
       "outerCssPx": {
@@ -215,7 +249,8 @@
     },
     "heldDndModes": {
       "liveAutomation": "The Chrome extension API cannot preserve a keydown across a later pointer command, so no sustained Alt or Mod+Alt package screenshot was synthesized.",
-      "coverage": "Ported held-mode, collision, sorting, reparenting, shape-sync, and deferred-release characterization/integration tests are part of the 234-test package suite; frozen main sustained gestures are in Phase 0."
+      "coverage": "Ported held-mode, collision, sorting, reparenting, shape-sync, and deferred-release characterization/integration tests are part of the 242-test package suite; focused tests cover feedback layering and stable cross-parent insertion; frozen main sustained gestures are in Phase 0.",
+      "developerRecheck": "Required for the corrected invalid-drop overlay and cross-parent placeholder because sustained held-key gestures cannot be driven by the Chrome extension API."
     }
   },
   "console": {
@@ -225,5 +260,5 @@
       "React 19 element.ref diagnostics"
     ]
   },
-  "developerDecision": "pending"
+  "developerDecision": "rejected once; corrected; recheck pending"
 }

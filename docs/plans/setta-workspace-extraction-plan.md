@@ -243,9 +243,18 @@ Phase 1 progress (2026-08-10):
   geometry (`1b4c516df`), and a Tailwind cascade that reduced reset zoom from main's 26 x 26 to
   24 x 24 (`ae1e8c3b6`). The recaptured dark/light, selected, moved, resized, minimized, and fit
   states plus exact computed comparisons are in
-  `docs/evidence/phase1/side-by-side/README.md`. The supplementary `/settings` parameter-style
-  source suggested by the developer is now captured in the Phase 0 reference bundle without
-  widening the Phase 1 slice. Developer acceptance remains pending.
+  `docs/evidence/phase1/side-by-side/README.md`. The developer rejected the first gate presentation
+  for a missing reference canvas surface/grid, invalid-drop feedback hidden below the opaque drag
+  preview, and unstable cross-parent placeholder placement. Commit `66d225825` restores the exact
+  light/dark canvas and zoom-aware grid, portals drop feedback one layer above the preview, and uses
+  the dragged section's leading edge for cross-parent insertion while retaining direction-aware
+  hysteresis within one parent. Refreshed live evidence is ready; the corrected held-key behaviors
+  require developer recheck because Chrome automation cannot sustain Alt across pointer commands.
+  The feedback-layer and cross-parent-edge changes are explicit developer-directed corrections that
+  supersede literal preservation of the frozen behavior.
+  The supplementary `/settings` parameter-style source suggested by the developer is captured in
+  the Phase 0 reference bundle without widening the Phase 1 slice. Developer acceptance remains
+  pending.
 - Remaining Phase 1 work: developer acceptance of the live side-by-side evidence at the exit gate.
 
 - Extraction branch: `workspace-extraction`
