@@ -82,6 +82,7 @@ describe("DateValueControl and TimeValueControl", () => {
     }
     expect(input.value).toBe("12/31/2026");
     expect(input.getAttribute("aria-label")).toBe("Date value");
+    expect(input.classList.contains("bg-transparent")).toBe(true);
     for (const boundary of ["nodrag", "nopan", "nowheel"]) {
       expect(input.classList.contains(boundary)).toBe(true);
     }

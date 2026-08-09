@@ -39,7 +39,9 @@ import {
 // locale, persistence, or parameter-model state.
 
 const INTERACTION_BOUNDARY_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`;
-const INPUT_BASE_CLASS_NAME = `${INTERACTION_BOUNDARY_CLASS_NAME} peer/textinput flex min-w-0 flex-1 self-center font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
+// Frozen main's global `input { all: unset }` makes these native inputs transparent. Keep the
+// equivalent paint local to the package instead of leaking that host-wide reset to consumers.
+const INPUT_BASE_CLASS_NAME = `${INTERACTION_BOUNDARY_CLASS_NAME} peer/textinput flex min-w-0 flex-1 self-center bg-transparent font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
 const FORMATTED_CLASS_NAME = "text-[10px] font-mono text-setta-500 dark:text-setta-400";
 const DIVIDER_BASE_CLASS_NAME =
   "section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30";
@@ -178,7 +180,7 @@ function getRowClasses(isDisabled: boolean, isSelectingItems: boolean): DateTime
 function getMetaClasses(): DateTimeControlClasses {
   return {
     wrapper: `${INTERACTION_BOUNDARY_CLASS_NAME} section-value single-cell-child flex min-w-0 items-center gap-2`,
-    input: `${INTERACTION_BOUNDARY_CLASS_NAME} peer/textinput flex min-w-0 flex-1 cursor-text self-center text-xs text-[rgb(3,_47,_98);] selection:bg-blue-500/30 dark:text-[rgb(165,_214,_255)]`,
+    input: `${INTERACTION_BOUNDARY_CLASS_NAME} peer/textinput flex min-w-0 flex-1 cursor-text self-center bg-transparent text-xs text-[rgb(3,_47,_98);] selection:bg-blue-500/30 dark:text-[rgb(165,_214,_255)]`,
     formatted: FORMATTED_CLASS_NAME,
     border:
       "single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 dark:border-setta-600/30 peer-focus-within/textinput:border-blue-400",

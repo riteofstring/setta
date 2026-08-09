@@ -204,6 +204,7 @@ describe("MetaControl", () => {
     });
     const dateInput = host.querySelector<HTMLInputElement>("input[aria-label='Date value']");
     expect(dateInput?.value).toBe("2026-08-12");
+    expect(dateInput?.classList.contains("bg-transparent")).toBe(true);
     expect(dateInput?.closest(".single-cell-container")?.className).toContain("px-3 py-2");
 
     await mount({
