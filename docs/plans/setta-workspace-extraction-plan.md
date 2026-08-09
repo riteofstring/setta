@@ -6,7 +6,10 @@
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
-- Executable reference: the Setta application on that `main` commit
+- Frozen reference worktree: `../setta-main` on `main` at `043d3b2e9`
+- Extraction worktree: this folder on `workspace-extraction`
+- Temporary integration worktree: `../setta-workspace-integration`, created only when Phase 2 needs
+  to prove that Setta can consume the packed package
 - Experimental donor branch: `workspace-blank-slate`
 - Working package name: `@setta/workspace` (local and unpublished during extraction)
 - Publishing, repository creation, final public naming, licensing, and release automation remain
@@ -58,6 +61,9 @@ make it valuable.
    Any later automation must stop at every developer-approval gate.
 10. **Do not merge the experimental branch wholesale.** It is a donor of individually proven
     algorithms, tests, and tooling—not a second source of product truth.
+11. **Keep the reference isolated.** Do not edit, pull, switch, install the extracted package into,
+    or commit from `../setta-main` during a parity milestone. A changed reference requires an
+    explicit re-baseline.
 
 ## Product thesis
 
@@ -98,28 +104,44 @@ Passing tests cannot close a visual phase under this plan.
 
 ## Extraction strategy
 
-Work inside the main repository until the extracted package passes an unrelated-consumer check. This
-keeps the executable reference and the extraction code adjacent while dependencies are separated.
+Use separate sibling worktrees so the product authority, extraction code, and later integration
+proof cannot contaminate one another:
+
+| Worktree                         | Role                                           | Mutation policy                                                               |
+| -------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------- |
+| `../setta-main`                  | Executable and source reference at `043d3b2e9` | Run and inspect only; no source, dependency, branch, or commit changes        |
+| This folder                      | Package-focused `workspace-extraction` branch  | Clean aggressively, extract code, and build the package and playground        |
+| `../setta-workspace-integration` | Temporary Setta host created in Phase 2        | Make only the adapter changes needed to install and verify the packed package |
+
+The reference source remains directly inspectable and copyable from `../setta-main`; it does not need
+to remain duplicated in the extraction worktree. If the integration proof needs changes to the Setta
+application, create the temporary integration worktree from the recorded reference commit. Never use
+the frozen reference worktree for integration edits.
 
 The intended target structure is:
 
 ```text
-frontend/
+.
 ├── packages/
-│   └── workspace/              # @setta/workspace TypeScript source and package-local tests
-├── examples/
-│   └── workspace-playground/   # backend-free consumer using only package exports
-└── src/                        # existing Setta application and temporary extraction adapter
+│   └── workspace/       # @setta/workspace TypeScript source and package-local tests
+├── apps/
+│   └── playground/      # backend-free consumer using only package exports
+├── docs/
+│   ├── plans/           # this plan
+│   └── evidence/        # accepted reference and parity evidence
+└── scripts/             # package-focused quality, security, and development tooling
 ```
 
-Phase 0 may adjust these exact directories if the existing frontend install/build topology proves a
-different layout materially safer. Any change must retain three independently checkable boundaries:
+The cleanup preflight may adjust these exact directories if a different package-workspace layout is
+materially safer. Any change must retain four independently checkable boundaries:
 
-1. the existing Setta application can consume the extracted surface through a temporary adapter;
-2. the package can build without application aliases, generated backend clients, or Setta runtime
+1. the frozen Setta reference runs independently from `../setta-main`;
+2. the package builds without application aliases, generated backend clients, or Setta runtime
    state; and
 3. the example can install and run using only public package exports and ordinary third-party
-   dependencies.
+   dependencies; and
+4. the temporary integration worktree can install the packed artifact without modifying the frozen
+   reference.
 
 ### TypeScript package contract
 
@@ -138,16 +160,16 @@ different layout materially safer. Any change must retain three independently ch
 
 Begin the extraction map from the proven surfaces, including:
 
-- `frontend/src/components/Section/Container/sectionChrome.ts`
-- `frontend/src/components/Section/Container/ContainerCore.tsx`
-- `frontend/src/components/Section/Container/SectionContainerCore.tsx`
-- `frontend/src/components/Section/Header/SectionHeader.tsx`
-- `frontend/src/components/Section/Header/HeaderIcon.tsx`
-- `frontend/src/components/Utils/Resizable/CustomResizable.tsx`
-- `frontend/src/forks/xyflow/controls/Controls.tsx`
-- `frontend/src/components/Pages/Project/ResponsiveMiniMap.tsx`
-- `frontend/src/forks/xyflow/`
-- `frontend/src/forks/dnd-kit/`
+- `../setta-main/frontend/src/components/Section/Container/sectionChrome.ts`
+- `../setta-main/frontend/src/components/Section/Container/ContainerCore.tsx`
+- `../setta-main/frontend/src/components/Section/Container/SectionContainerCore.tsx`
+- `../setta-main/frontend/src/components/Section/Header/SectionHeader.tsx`
+- `../setta-main/frontend/src/components/Section/Header/HeaderIcon.tsx`
+- `../setta-main/frontend/src/components/Utils/Resizable/CustomResizable.tsx`
+- `../setta-main/frontend/src/forks/xyflow/controls/Controls.tsx`
+- `../setta-main/frontend/src/components/Pages/Project/ResponsiveMiniMap.tsx`
+- `../setta-main/frontend/src/forks/xyflow/`
+- `../setta-main/frontend/src/forks/dnd-kit/`
 - the Tailwind theme, font dependencies, and relevant global/component styles used by those
   surfaces.
 
@@ -281,28 +303,36 @@ cleaner. Characterize, substitute, and compare them later as a separate decision
 
 Complete this preflight before Phase 0 evidence gathering and before package implementation:
 
-1. Delete obsolete plan documents and remove generated, temporary, or abandoned extraction
-   artifacts from the working tree. Git history is sufficient archival storage.
-2. Keep the executable Setta application and its source intact through the parity gates. Do not
-   bulk-delete or refactor unrelated `main` code before extraction; doing so would destroy the live
-   reference and enlarge the change surface. Prune temporary adapters and decide whether to split
-   repositories only after the packed unrelated consumer passes.
-3. Confirm that `workspace-extraction` is clean, based on the recorded `main` commit, and governed by
-   this plan as the single active workspace-extraction plan.
-4. Inventory the existing `main` checks and port only the proven standalone tooling needed by the
+1. Verify that `../setta-main` is clean, on `main` at `043d3b2e9`, and able to run. Record its commit
+   in every reference evidence bundle and do not update it during a parity milestone.
+2. Prune this extraction branch to a package-focused skeleton before implementation. Remove the Go
+   and Python backends, plugins, generated clients, existing Setta application, unrelated tests,
+   unrelated documentation and assets, and legacy application scripts/configuration. Preserve only
+   repository governance needed for the new branch, this plan, and the minimal package/tooling
+   surface. Git history and `../setta-main` preserve the deleted material.
+3. Make the pruning a mechanical cleanup commit with no package implementation. Confirm afterward
+   that no Setta runtime, backend, domain, or generated-client source remains in the extraction
+   worktree.
+4. Replace branch-local repository instructions with package-focused guidance covering the frozen
+   reference, TypeScript ownership, visual parity gates, dependency policy, and the prohibition on
+   backward-compatibility code.
+5. Delete obsolete plan documents and generated, temporary, or abandoned extraction artifacts. Git
+   history is sufficient archival storage. Confirm that this plan is the single active extraction
+   plan and that the worktree is clean before Phase 0 begins.
+6. Inventory the existing `main` checks and port only the proven standalone tooling needed by the
    package from `workspace-blank-slate`. Do not bring over its implementation, UI, snapshots, or
    generated evidence as part of tooling setup.
-5. Establish package commands and enforced thresholds for formatting, linting, TypeScript
+7. Establish package commands and enforced thresholds for formatting, linting, TypeScript
    type-checking, dead-code detection, code complexity, and file length before Phase 1 code lands.
    Run fast changed-file checks for each reviewable batch and the complete package checks at every
    phase exit gate.
-6. Establish supply-chain policy before adding or updating dependencies: exact direct pins, a frozen
+8. Establish supply-chain policy before adding or updating dependencies: exact direct pins, a frozen
    lockfile in verification, strict peer checks, a strict minimum release age of 10,080 minutes
    (seven days), no dependency build scripts unless explicitly allowlisted, and machine-checked
    dependency provenance/inventory. Any exception must name the exact package/version, document the
    concrete reason, and require developer approval; do not inherit the experimental branch's
    exceptions automatically.
-7. Run vulnerability and license audits whenever dependencies change and at every phase exit gate.
+9. Run vulnerability and license audits whenever dependencies change and at every phase exit gate.
    A known vulnerability or policy exception fails the gate unless the developer explicitly accepts
    a documented, narrowly scoped exception.
 
@@ -313,16 +343,17 @@ Complete this preflight before Phase 0 evidence gathering and before package imp
 This phase is read-only except for evidence, tests that characterize existing behavior, and this
 plan's approved amendments.
 
-1. Capture the required main visual and interaction reference set.
-2. Map the import/dependency cone of the smallest leaf, group, toolbar, minimap, drag, and resize
-   surfaces.
-3. Identify application-owned state reads and classify each as structural workspace state, section
+1. Confirm that the frozen reference worktree is clean and still at the recorded commit.
+2. Run `../setta-main` and capture the required main visual and interaction reference set.
+3. Map, from `../setta-main`, the import/dependency cone of the smallest leaf, group, toolbar,
+   minimap, drag, and resize surfaces.
+4. Identify application-owned state reads and classify each as structural workspace state, section
    content state, capability, persistence, backend data, or unrelated app chrome.
-4. Identify the exact Tailwind theme, fonts, icon packages, styles, XYFlow fork modules, and dnd-kit
+5. Identify the exact Tailwind theme, fonts, icon packages, styles, XYFlow fork modules, and dnd-kit
    fork modules used by the slice.
-5. Compare relevant experimental-branch donors against the main owners without adopting them.
-6. Propose the smallest package/adapter seam and list every temporary main-only dependency.
-7. Present the reference set and extraction seam to the developer.
+6. Compare relevant experimental-branch donors against the main owners without adopting them.
+7. Propose the smallest package seam and list every temporary main-only dependency.
+8. Present the reference set and extraction seam to the developer.
 
 **Exit gate:** the developer approves the captured reference and the exact Phase 1 slice. No agent or
 test suite can waive this gate.
@@ -338,33 +369,40 @@ Build one deliberately small vertical slice:
 - full-surface pointer dragging with interactive exclusions;
 - the reference resize treatment;
 - the reference toolbar surface with the minimum controls needed to exercise zoom and fit; and
-- a minimal backend-free host route for the slice.
+- a minimal backend-free route in `apps/playground` for the slice.
 
-Keep the existing main surface available for side-by-side comparison throughout the phase. Do not
-add arbitrary-depth support, parameter DnD, clipboard, detachment, saved views, generic panes, or a
-large public API merely because they are future requirements.
+Run `../setta-main` and the extraction playground concurrently on distinct ports for side-by-side
+comparison throughout the phase. The provisional slice may live under `packages/workspace`, but do
+not ratify a broad public API before parity. Do not add arbitrary-depth support, parameter DnD,
+clipboard, detachment, saved views, generic panes, or a large public API merely because they are
+future requirements.
 
 Run focused correctness and performance checks, but do not optimize imperceptible measurements or
 build broad matrices before visual approval.
 
 **Exit gate:** the developer accepts the side-by-side visual and interaction result. If rejected,
-stop. Do not continue into package abstraction, hardening, or additional features.
+stop. Do not continue into standalone boundary hardening or additional features.
 
 ### Phase 2 — standalone package boundary
 
-1. Establish the `@setta/workspace` TypeScript package and backend-free example directories.
+1. Harden the provisional slice as the installable `@setta/workspace` TypeScript package and keep
+   the backend-free example dependent only on its public exports.
 2. Replace main application state reads with the minimal controlled document, registry, capability,
    and callback boundary proven by Phase 1.
 3. Remove application aliases, OpenAPI/generated backend types, project stores, and backend runtime
    dependencies from the package dependency graph.
 4. Compile and consume the package-owned Tailwind CSS without requiring consumer Tailwind setup.
-5. Add a temporary Setta application adapter so main can consume the same extracted package surface.
+5. Create `../setta-workspace-integration` from the recorded reference commit, install the locally
+   packed artifact there, and add only the temporary Setta adapter needed to prove consumption. Do
+   not modify `../setta-main`.
 6. Build a packed unrelated consumer using only public exports.
 7. Consider experimental-branch donors individually where they close a proven standalone gap.
+8. Preserve the integration evidence, then remove the temporary integration worktree when it is no
+   longer needed; its adapter is proof code, not package compatibility code.
 
-**Exit gate:** both Setta and the backend-free example render the accepted slice from the package;
-the package and packed consumer contain no forbidden main imports; the developer confirms parity is
-unchanged.
+**Exit gate:** the temporary Setta integration and the backend-free example both render the accepted
+slice from the packed package; `../setta-main` remains clean and unchanged; the package and packed
+consumer contain no forbidden main imports; the developer confirms parity is unchanged.
 
 ### Phase 3 — recursive section workspace
 
@@ -448,7 +486,7 @@ This phase does not publish the package.
 
 For every visual or interaction batch:
 
-1. Reproduce the main reference state.
+1. Reproduce the main reference state from the pinned `../setta-main` worktree.
 2. Implement the smallest package change.
 3. Run focused static/unit checks.
 4. Compare main and package live through Chrome DevTools at the same viewport, appearance, zoom, and
@@ -485,7 +523,7 @@ This plan does not include:
 - selecting a public license or final public repository structure;
 - preserving the experimental branch's APIs or theme;
 - migrating existing experimental documents;
-- cleaning or modularizing unrelated Setta main code;
+- cleaning or modularizing code inside the frozen `../setta-main` reference worktree;
 - replacing Tailwind;
 - replacing Setta's XYFlow/dnd-kit adaptations during extraction;
 - Python code generation, execution, MCP, agents, files, authentication, collaboration, or backend
@@ -509,6 +547,8 @@ This plan does not include:
 
 This extraction succeeds when:
 
+- `../setta-main` remains clean and pinned to the recorded reference commit throughout accepted
+  parity milestones;
 - the developer accepts the package workspace as visually and behaviorally faithful to main;
 - sections drag from their normal non-interactive surface rather than requiring one small pointer
   handle;
@@ -516,6 +556,8 @@ This extraction succeeds when:
   preserve the accepted Setta product language;
 - an unrelated React example installs the local package, imports its compiled CSS, registers custom
   section and item renderers, and uses the workspace without a Setta backend;
+- a temporary Setta integration worktree installs the same packed artifact without modifying the
+  frozen reference worktree;
 - recursive ordered/freeform section movement and nested item movement retain main's stable behavior;
 - the package contains no Setta application state, generated backend client, or domain-model imports;
 - retained dependencies and forked behavior are explicit and justified by observable value;
