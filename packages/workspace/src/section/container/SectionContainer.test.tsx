@@ -126,6 +126,17 @@ function loadMetaControlDocument(
   });
 }
 
+function updateMetaSizeForTest(sections: Record<string, WorkspaceSection>) {
+  const meta = sections["meta"];
+  if (!meta) {
+    throw new Error("The meta-control test document is missing its section.");
+  }
+  return {
+    ...sections,
+    meta: { ...meta, size: { width: 200, height: 44 } },
+  };
+}
+
 // Mirrors production, where NodeRenderer stops rendering a section's container in the same
 // pass that removes it from the document.
 function SectionHost({ sectionId }: { sectionId: string }) {
@@ -271,6 +282,9 @@ describe("SectionContainer", () => {
       throw new Error("The meta-control edit affordance did not render.");
     }
     expect(editButton.getAttribute("aria-label")).toBe("Edit Meta text");
+    expect(editButton.className).toContain("after:h-12");
+    expect(editButton.className).toContain("after:w-10");
+    expect(editButton.className).toContain("focus:opacity-100");
     await act(async () => editButton.click());
     expect(onEdit).toHaveBeenCalledTimes(1);
     expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: "meta" }));
@@ -286,6 +300,16 @@ describe("SectionContainer", () => {
     expect(host.querySelector('[data-section-id="meta"]')?.className).toContain("rounded-sm");
   });
 
+  it("removes meta drag and resize affordances when layout editing is unavailable", async () => {
+    useWorkspaceCapabilities.setState({ canEditLayout: false });
+    loadMetaControlDocument(() => {});
+    await mount("meta");
+
+    expect(host.querySelector('[data-meta-control-drag-handle="true"]')).toBeNull();
+    expect(host.querySelector(".section-resize-handle")).toBeNull();
+    expect(host.querySelector('[data-meta-control-edit="true"]')).not.toBeNull();
+  });
+
   it("keeps only the horizontal resize handle for an auto-height-only meta control", async () => {
     loadMetaControlDocument(() => {}, {}, "slider");
     await mount("meta");
@@ -294,6 +318,24 @@ describe("SectionContainer", () => {
     expect(host.querySelector(".section-resize-handle-bottom")).toBeNull();
     expect(host.querySelector(".section-resize-handle-bottom-right")).toBeNull();
     expect(host.querySelector<HTMLElement>("#meta-CustomResizable")?.style.height).toBe("auto");
+  });
+
+  it("normalizes auto-height-only meta controls independently of layout editability", async () => {
+    loadMetaControlDocument(() => {}, { positionAndSizeLocked: true }, "slider");
+    useWorkspaceDocument.setState((state) => ({
+      sections: updateMetaSizeForTest(state.sections),
+    }));
+    useWorkspaceCapabilities.setState({ canEditLayout: false });
+    const onDocumentChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onDocumentChange);
+
+    await mount("meta");
+
+    expect(useWorkspaceDocument.getState().sections["meta"]?.size).toEqual({
+      width: 200,
+      height: "auto",
+    });
+    expect(onDocumentChange).toHaveBeenCalledTimes(1);
   });
 
   it("renders a registered kind icon with the reference icon treatment", async () => {
@@ -517,6 +559,7 @@ describe("SectionContainer", () => {
     ) as HTMLButtonElement;
     expect(lockButton.disabled).toBe(true);
     expect(lockButton.className).toContain("cursor-not-allowed");
+    expect(host.querySelector(".section-resize-handle")).toBeNull();
   });
 
   it("marks the shell active when the section is selected", async () => {

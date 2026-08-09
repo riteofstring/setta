@@ -3,6 +3,7 @@ import _ from "lodash";
 import React, { useEffect, useRef, type KeyboardEvent } from "react";
 import { useDndMode } from "../dnd/dndState";
 import { setSelectionDragHandle, setSelectionDragPrimaryId } from "../dnd/selectionDragHandle";
+import { useWorkspaceCapabilities } from "../document/capabilities";
 import { useActiveSections } from "../document/stores";
 import { NO_PAN_CLASS_NAME } from "../interaction";
 import { useReactFlow } from "./store";
@@ -16,6 +17,7 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
     (s) => `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
   );
   const { isSorting, isMovingFree } = useDndMode();
+  const canEditLayout = useWorkspaceCapabilities((state) => state.canEditLayout);
   const activeIds = useActiveSections((state) => state.activeIds, _.isEqual);
   const nodeRef = useRef<HTMLDivElement>(null);
   const primarySelectionId =
@@ -41,10 +43,11 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
 
   useDrag({
     nodeRef,
+    disabled: !canEditLayout,
   });
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (Object.prototype.hasOwnProperty.call(arrowKeyDiffs, event.key)) {
+    if (canEditLayout && Object.prototype.hasOwnProperty.call(arrowKeyDiffs, event.key)) {
       const diff = arrowKeyDiffs[event.key];
       if (!diff) {
         throw new Error(`Missing arrow key diff for ${event.key}.`);
@@ -59,7 +62,11 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
 
   return (
     <div
-      className={cc(["react-flow__nodesselection", "react-flow__container", NO_PAN_CLASS_NAME])}
+      className={cc([
+        "react-flow__nodesselection",
+        "react-flow__container",
+        { [NO_PAN_CLASS_NAME]: canEditLayout },
+      ])}
       style={{
         transform: transformString,
       }}
@@ -69,6 +76,7 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
         ref={nodeRef}
         role="button"
         aria-label="Selected sections"
+        aria-disabled={!canEditLayout}
         className="react-flow__nodesselection-rect"
         onKeyDown={onKeyDown}
         style={{
@@ -134,7 +142,8 @@ export const NodesSelectionWrapper = React.memo(NodesSelectionWrapperComponent);
 function NodesSelectionDragHandleWrapperComponent() {
   const nodesSelectionDims = useReactFlow((s) => s.nodesSelectionDims, _.isEqual);
   const { isMovingFree } = useDndMode();
-  if (!nodesSelectionDims || !isMovingFree) {
+  const canEditLayout = useWorkspaceCapabilities((state) => state.canEditLayout);
+  if (!nodesSelectionDims || !isMovingFree || !canEditLayout) {
     return null;
   }
   return <NodesSelectionDragHandle {...nodesSelectionDims} />;

@@ -2,6 +2,7 @@ import cc from "classcat";
 import _ from "lodash";
 import type { CSSProperties } from "react";
 import { memo, useEffect, useRef } from "react";
+import { useWorkspaceCapabilities } from "../document/capabilities";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { Position } from "../document/types";
 import { NO_PAN_CLASS_NAME } from "../interaction";
@@ -28,8 +29,10 @@ const NodeWrapperComponent = ({
 }) => {
   const node = useNodeInternals((x) => x.x.get(id), _.isEqual);
   const section = useWorkspaceDocument((x) => x.sections[id]);
+  const canEditLayout = useWorkspaceCapabilities((x) => x.canEditLayout);
   const nodeRef = useRef<HTMLDivElement>(null);
-  const isDraggable = _isDraggable && section !== undefined && !section.positionAndSizeLocked;
+  const isDraggable =
+    _isDraggable && canEditLayout && section !== undefined && !section.positionAndSizeLocked;
 
   useEffect(() => {
     if (nodeRef.current) {

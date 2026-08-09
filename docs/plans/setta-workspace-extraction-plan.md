@@ -1225,6 +1225,30 @@ Phase 4 progress (2026-08-11):
   consolidated matched dark/light live comparison, explicit developer acceptance, and first
   package-output baselines remain open at the existing controls-and-meta exit gate; no later phase
   is actionable before that gate.
+- Meta-controls final phase audit repository work complete (2026-08-12): the loop audit treated
+  `3fcfc5c01b60a5af8410e4fbddac582d96e8b441..6242f05086dadbebe4f05f035bf7625822404514`
+  as one coherent change; `d6b56b7ce6bdd044876ceb597f221ef2550dfbd4` is the first meta-controls
+  implementation commit, so the requested range already reaches the phase boundary. The frozen
+  reference remained clean at `043d3b2e9c69caf99d1246f1408b3ad7194b7864`. One static pass over
+  every affected behavior found and fixed four coupled boundary/accessibility defects. The
+  `canEditLayout` capability now blocks the shared top-level node drag, selection-box drag and
+  Arrow-key movement, and ordinary/meta resize handles rather than hiding only the meta drag pill;
+  disabled drag surfaces return their non-interactive area to canvas pan. Auto-height-only Slider,
+  Dropdown, and Password meta sections now normalize to `auto` even when locked or read-only, as
+  frozen main does, instead of retaining an unsupported numeric height. The outboard meta edit
+  glyph keeps its exact 14 x 14 paint while its reserved 40 x 48 hit area is live, reveals itself
+  for keyboard focus instead of creating an invisible tab stop, and derives a nonblank accessible
+  name. A malformed missing `MetaControl` definition now reaches the same specific unknown-kind
+  failure as every other invalid opaque adapter result. Focused verification and the complete
+  package suite pass (79 files, 581 tests), followed by the final directly affected container suite
+  (20 tests); the package production build and built-boundary check, playground production build
+  and complete suite (3 files, 23 tests), full static gate (422 project files), and packed unrelated-
+  consumer proof also pass. No dependency changed, so the already-green supply-chain gate was not
+  duplicated. Repository-actionable work for the meta-controls phase remains complete. The
+  existing frozen-reference captures are still preimplementation evidence, not package approval:
+  the consolidated matched dark/light live comparison, explicit developer acceptance, and first
+  package-output baselines remain incomplete at the required developer gate, and Phase 5 is not
+  actionable.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

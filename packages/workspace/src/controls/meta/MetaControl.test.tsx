@@ -283,5 +283,12 @@ describe("MetaControl", () => {
         control: { kind: "mystery" } as never,
       }),
     ).toThrowError("Unknown meta control kind: mystery.");
+    expect(() =>
+      MetaControl({
+        sectionId: "meta-missing",
+        sectionName: "Missing",
+        control: null as never,
+      }),
+    ).toThrowError("Unknown meta control kind: undefined.");
   });
 });

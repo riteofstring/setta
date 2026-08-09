@@ -1,9 +1,13 @@
 import { getActiveSectionIds } from "../document/activeSections";
+import { useWorkspaceCapabilities } from "../document/capabilities";
 import { getNodes, updateNodePositions } from "./nodeInternalsActions";
 import { useWorkspaceOptions } from "./options";
 import { useReactFlow } from "./store";
 
 export const updatePositions = (params: { x: number; y: number; isShiftPressed: boolean }) => {
+  if (!useWorkspaceCapabilities.getState().canEditLayout) {
+    return;
+  }
   const { nodesSelectionDims, shiftNodesSelection } = useReactFlow.getState();
   const { snapGrid, snapToGrid } = useWorkspaceOptions.getState();
   const activeSectionIds = getActiveSectionIds();
