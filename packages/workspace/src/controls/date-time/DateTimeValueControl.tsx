@@ -39,6 +39,9 @@ import {
 // locale, persistence, or parameter-model state.
 
 const INTERACTION_BOUNDARY_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`;
+// Let the browser paint native date/time affordances for the active appearance. Without this,
+// Chromium keeps the default dark picker indicator over Setta's dark input surface.
+const NATIVE_DATE_TIME_COLOR_SCHEME_CLASS_NAME = "dark:[color-scheme:dark]";
 // Frozen main's global `input { all: unset }` makes these native inputs transparent. Keep the
 // equivalent paint local to the package instead of leaking that host-wide reset to consumers.
 const INPUT_BASE_CLASS_NAME = `${INTERACTION_BOUNDARY_CLASS_NAME} peer/textinput flex min-w-0 flex-1 self-center bg-transparent font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
@@ -469,7 +472,9 @@ function EditableDateTimeInput({
         <input
           aria-label={ariaLabel}
           type={view.inputType}
-          className={classes.input}
+          className={`${classes.input} ${
+            view.inputType === "text" ? "" : NATIVE_DATE_TIME_COLOR_SCHEME_CLASS_NAME
+          }`}
           value={renderedInputValue}
           onChange={(event) => {
             const result = resolveEditableDateTimeChange({
@@ -854,7 +859,7 @@ function CalendarDateControl({
             <input
               type="time"
               aria-label={`${ariaLabel} time`}
-              className={`${INTERACTION_BOUNDARY_CLASS_NAME} w-full rounded border border-setta-300 bg-transparent px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:text-setta-300`}
+              className={`${INTERACTION_BOUNDARY_CLASS_NAME} ${NATIVE_DATE_TIME_COLOR_SCHEME_CLASS_NAME} w-full rounded border border-setta-300 bg-transparent px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:text-setta-300`}
               value={selectedTimeValue}
               onChange={(event) => {
                 const nextDate = selectedDates[0] ?? todayIso;

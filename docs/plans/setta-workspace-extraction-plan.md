@@ -1264,6 +1264,19 @@ Phase 4 progress (2026-08-11):
   paths pass; typing no longer opens a completion menu and Escape still restores section focus.
   No dependency changed, so the supply-chain gate was not duplicated. The consolidated developer
   acceptance and first package-output baselines remain open; Phase 5 is still not actionable.
+- Consolidated controls gate correction — native date/time affordance contrast (2026-08-12): the
+  developer's dark-mode inspection exposed Chromium's nearly black native time-picker indicator
+  over the dark item surface. Frozen-main source comparison confirmed that the localized native
+  time field plus trailing configured-format value is deliberate parity, and that the formatted
+  date input without time deliberately uses `type="text"`; neither layout was redesigned. The
+  package now scopes `color-scheme: dark` to native time and datetime-local inputs, including the
+  calendar's optional time field, so the browser paints its own picker affordances for the active
+  dark appearance while formatted text inputs remain untouched. A focused regression covers all
+  native date/time paths. The focused date/time suite (10 tests), complete package suite (80 files,
+  585 tests), package production build and built-boundary check, changed-file static gate,
+  playground production build, and packed unrelated-consumer proof pass. No dependency changed,
+  so the supply-chain gate was not duplicated. The consolidated developer acceptance and first
+  package-output baselines remain open; Phase 5 is still not actionable.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

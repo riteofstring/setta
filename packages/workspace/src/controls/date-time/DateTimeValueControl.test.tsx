@@ -83,6 +83,7 @@ describe("DateValueControl and TimeValueControl", () => {
     expect(input.value).toBe("12/31/2026");
     expect(input.getAttribute("aria-label")).toBe("Date value");
     expect(input.classList.contains("bg-transparent")).toBe(true);
+    expect(input.classList.contains("dark:[color-scheme:dark]")).toBe(false);
     for (const boundary of ["nodrag", "nopan", "nowheel"]) {
       expect(input.classList.contains(boundary)).toBe(true);
     }
@@ -112,6 +113,7 @@ describe("DateValueControl and TimeValueControl", () => {
       throw new Error("The datetime-local input is not rendered.");
     }
     expect(input.value).toBe("2026-12-31T09:30");
+    expect(input.classList.contains("dark:[color-scheme:dark]")).toBe(true);
     expect(host.textContent).toContain("12/31/2026 9:30 AM");
     setInputValue(input, "2027-01-02T14:45");
     expect(onValueChange).toHaveBeenCalledWith("2027-01-02T14:45");
@@ -174,6 +176,7 @@ describe("DateValueControl and TimeValueControl", () => {
       throw new Error("The calendar time input is not rendered.");
     }
     expect(timeInput.getAttribute("aria-label")).toBe("Date value time");
+    expect(timeInput.classList.contains("dark:[color-scheme:dark]")).toBe(true);
     setInputValue(timeInput, "14:45");
     expect(onValueChange).toHaveBeenCalledWith("2026-02-17T14:45");
   });
@@ -187,6 +190,7 @@ describe("DateValueControl and TimeValueControl", () => {
     }
     expect(input.value).toBe("13:05");
     expect(input.getAttribute("aria-label")).toBe("Time value");
+    expect(input.classList.contains("dark:[color-scheme:dark]")).toBe(true);
     expect(host.textContent).toContain("1:05 PM");
     setInputValue(input, "09:45");
     expect(onValueChange).toHaveBeenCalledWith("09:45");
