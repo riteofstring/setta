@@ -245,6 +245,47 @@ from the viewport. Wrap interactive transformed content in `WorkspaceInteraction
 must suppress pan, wheel, or external-drop handling. Direct `Workspace` children are not an overlay
 contract, and neither extension surface receives an internal store.
 
+## Optional outline navigator
+
+`WorkspaceOutline` is a ready-made hierarchical navigator for a fixed overlay. It reads the current
+document and selection through the public controller, flattens only visible branches in canonical
+order, and reports explicit tree level, sibling position, expansion, and selection state. It does
+not add fields to `WorkspaceDocument`, create another store, or interpret section kinds or payloads.
+
+```tsx
+import { Workspace, WorkspaceOutline } from "@setta/workspace/react";
+
+<Workspace
+  document={document}
+  onDocumentChange={setDocument}
+  overlaySlots={{
+    utility: (controller) => (
+      <WorkspaceOutline
+        ariaLabel="Document sections"
+        controller={controller}
+        defaultExpandedSectionIds={["planning"]}
+      />
+    ),
+  }}
+  sectionDefinitions={sectionDefinitions}
+/>;
+```
+
+Top-level containers with children start expanded when `defaultExpandedSectionIds` is omitted. An
+explicit initial list must be dense, unique, and identify known sections. Disclosure state remains
+local to the mounted outline; changing it does not publish a document change or create history.
+Ordinary pointer, Enter, or Space activation selects, centers, and focuses the section. Control,
+Command, or Shift activation toggles selection and announces the new count while focus remains in
+the tree. Logical forward expands or enters a branch; logical backward collapses or returns to its
+parent, so horizontal keys mirror in RTL. Up/Down, Home, and End use roving focus across visible
+rows.
+
+Render the component through `overlaySlots` so the workspace rerenders it with current controller
+state and supplies scoped theme tokens plus gesture isolation. A host that places it elsewhere must
+rerender it when its controlled document or package selection changes and provide an equivalent
+sized, themed container. For very large documents, keep inactive branches collapsed so the outline
+adds DOM only for rows users are currently navigating.
+
 ## Controller commands
 
 The controller is unavailable until the upstream viewport initializes. Read it through

@@ -6,7 +6,8 @@ restoration, and pre-mounted polite announcements. Automated scans supplement th
 contracts; they do not replace host testing with a keyboard and screen reader.
 
 Set a concise `ariaLabel` on each `Workspace` when a page contains more than one workbench. Give
-each `SortableItemTree` its own `ariaLabel` and stable item labels.
+each `WorkspaceOutline` and `SortableItemTree` its own `ariaLabel`, and give sortable items stable
+labels.
 
 ## Global and selection commands
 
@@ -61,6 +62,22 @@ The package announces whether a selected sibling block or mixed-parent active-it
 moving, the proposed parent and position, host rejection, completion, and cancellation. Inputs and
 buttons rendered inside an item row remain natively operable because the row itself is not the drag
 activator.
+
+## Outline navigator commands
+
+| Focus                       | Keys                                  | Result                                                                                          |
+| --------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Outline tree item           | ArrowUp / ArrowDown                   | Move roving focus through visible sections without moving the viewport.                         |
+| Outline tree item           | Home / End                            | Move focus to the first or last visible section.                                                |
+| Collapsed container         | Logical forward                       | Expand it; press again to move to its first child.                                              |
+| Expanded container or child | Logical backward                      | Collapse the container or move from a child to its parent.                                      |
+| Outline tree item           | Enter or Space                        | Select, center, and focus that section in the workbench.                                        |
+| Outline tree item           | Control, Command, or Shift + activate | Toggle that section in the selection and announce the resulting count without leaving the tree. |
+
+Logical forward is ArrowRight in LTR and ArrowLeft in RTL; logical backward is the opposite. Every
+visible row reports its level, sibling position and count, selected state, and container expansion.
+Pointer disclosure changes only transient outline state. Collapsed descendants leave the outline
+DOM but remain unchanged in the workbench document.
 
 ## Menus, editors, toolbar, and minimap alternatives
 

@@ -537,6 +537,12 @@ main {
   background: var(--setta-workspace-section-background);
 }
 
+.canvas-shell-utility-overlays {
+  display: grid;
+  justify-items: end;
+  gap: 1rem;
+}
+
 .canvas-shell-host-fixture {
   display: grid;
   inline-size: min(13rem, max(7rem, calc(100cqi - 11rem)));

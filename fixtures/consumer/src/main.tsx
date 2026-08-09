@@ -1,4 +1,4 @@
-import { SortableItemTree, Workspace } from "@setta/workspace";
+import { SortableItemTree, Workspace, WorkspaceOutline } from "@setta/workspace";
 import {
   applySortableItemMove,
   createEmptyWorkspaceDocument,
@@ -182,6 +182,11 @@ createRoot(root).render(
           gridOptions={{ pattern: "cross", snap: false, spacing: [24, 18], visible: true }}
           groupFactory={groupFactory}
           onExternalDrop={onExternalDrop}
+          overlaySlots={{
+            utility: (controller) => (
+              <WorkspaceOutline ariaLabel="Consumer section outline" controller={controller} />
+            ),
+          }}
           sectionDefinitions={consumerSectionDefinitions}
           sectionFactory={({ kind }) => {
             const definition = consumerSectionDefinitions.find(

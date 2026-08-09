@@ -28,13 +28,13 @@ import { Workspace } from "@setta/workspace/react";
 import "@setta/workspace/styles.css";
 ```
 
-| Entry point                   | Purpose                                                                |
-| ----------------------------- | ---------------------------------------------------------------------- |
-| `@setta/workspace`            | Convenience union of the framework-neutral and React runtime surfaces. |
-| `@setta/workspace/core`       | Documents, validation, planning, policies, and immutable helpers.      |
-| `@setta/workspace/react`      | Workspaces, detachable windows, sortable trees, and React boundaries.  |
-| `@setta/workspace/testing`    | Testing helpers and deterministic adapter evidence.                    |
-| `@setta/workspace/styles.css` | Required package-owned styles and scoped theme tokens.                 |
+| Entry point                   | Purpose                                                                                   |
+| ----------------------------- | ----------------------------------------------------------------------------------------- |
+| `@setta/workspace`            | Convenience union of the framework-neutral and React runtime surfaces.                    |
+| `@setta/workspace/core`       | Documents, validation, planning, policies, and immutable helpers.                         |
+| `@setta/workspace/react`      | Workspaces, outline navigation, detachable windows, sortable trees, and React boundaries. |
+| `@setta/workspace/testing`    | Testing helpers and deterministic adapter evidence.                                       |
+| `@setta/workspace/styles.css` | Required package-owned styles and scoped theme tokens.                                    |
 
 Source aliases and undeclared package internals are not consumer APIs.
 
@@ -43,8 +43,8 @@ Source aliases and undeclared package internals are not consumer APIs.
 The locally packed artifact includes focused guides for the package's permanent host boundaries:
 
 - [Host integration](docs/integration.md): documents, persistence, capabilities, controller
-  commands, extensions, creation, clipboard adapters, detachable windows, selection, grouping,
-  stacking, minimap, history, and external drops.
+  commands, extensions, outline navigation, creation, clipboard adapters, detachable windows,
+  selection, grouping, stacking, minimap, history, and external drops.
 - [Recursive sections](docs/recursive-sections.md): containment, movement modes, orientation,
   locking, minimizing, sizing, overflow, snapping, chrome, accents, and tags.
 - [Sortable item trees](docs/sortable-item-trees.md): controlled item data, selection, planning,
@@ -511,6 +511,25 @@ Every slot is a render function that receives the same public controller. Fixed 
 toolbar isolate their pointer and wheel input from the viewport; transformed canvas content can use
 `WorkspaceInteractionBoundary` for the same isolation. Direct `Workspace` children are not an
 overlay API.
+
+`WorkspaceOutline` is an optional ready-made utility overlay built only on that controller and the
+canonical document hierarchy. It renders visible branches as an accessible multiselect tree,
+focuses a section on ordinary activation, supports modifier selection, and keeps disclosure state
+transient. Top-level containers start expanded by default; `defaultExpandedSectionIds` can choose a
+different set of known initial branches.
+
+```tsx
+import { Workspace, WorkspaceOutline } from "@setta/workspace/react";
+
+<Workspace
+  overlaySlots={{
+    utility: (controller) => (
+      <WorkspaceOutline ariaLabel="Document sections" controller={controller} />
+    ),
+  }}
+  {...workspaceProps}
+/>;
+```
 
 The minimap is visible on the right by default and can be placed on either physical side. Once the
 workbench has root sections, click empty minimap space to center that workbench point, drag the

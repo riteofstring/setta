@@ -1569,11 +1569,12 @@ Gate:
 
 ### Phase 6: Deferred capability expansion in the same package
 
-Status: **in progress** (updated 2026-08-09). The detachable-section and adapter-driven clipboard
-batches are implemented and recorded in
+Status: **in progress** (updated 2026-08-09). The detachable-section, adapter-driven clipboard, and
+optional outline-navigator batches are implemented and recorded in
 [Phase 6 detachable-section evidence](../evidence/phase-6-detachable-sections.md) and
-[Phase 6 clipboard evidence](../evidence/phase-6-clipboard.md). Evaluating the optional hierarchical
-outline navigator is the earliest incomplete repository-actionable Phase 6 work.
+[Phase 6 clipboard evidence](../evidence/phase-6-clipboard.md), with the navigator record in
+[Phase 6 outline-navigator evidence](../evidence/phase-6-outline-navigator.md). Pure top-level
+auto-layout and packing commands are the earliest incomplete repository-actionable Phase 6 work.
 
 The initial package milestone did not wait for browser windowing or domain-safe clipboard
 integration. Both are now implemented as optional capabilities of `@setta/workspace`, not separate
@@ -1603,7 +1604,7 @@ Implement adapter-driven copy and paste:
 
 Then evaluate or implement independently:
 
-- An optional hierarchical outline navigator built on the initial controller and traversal helpers.
+- Completed: an optional hierarchical outline navigator built on the initial controller and traversal helpers.
 - Pure top-level auto-layout and packing commands.
 - Multiple named item lists within one section.
 - Cross-list item movement.
@@ -1668,6 +1669,7 @@ Cover:
 - Independent grid visibility and snap settings.
 - Scoped light, dark, system, and custom-token appearance behavior.
 - Configurable viewport gestures, built-in toolbar, host toolbar controls and overlays, minimap interaction, and controller helpers.
+- Optional outline hierarchy, disclosure, selection, direction-aware keyboard navigation, and controller-backed focus.
 - Section and item drag scopes.
 - Input, button, and text-selection interaction.
 - Pointer cancellation.
@@ -1684,6 +1686,7 @@ Cover the real playground:
 - Create through palette, context menu, and keyboard; smart-place, rename, restyle, move, resize, content-fit, lock, minimize, persist, and reload.
 - Configure every viewport gesture family, use scrollable host content without moving the canvas, and operate the built-in and host-injected toolbar controls.
 - Navigate through the minimap and focus/fit helpers without losing selection or host state.
+- Navigate recursive sections through the optional outline by pointer and keyboard, including modifier selection, RTL, 200% page scale, 320-pixel reflow, coarse targets, and reduced motion.
 - Marquee-select with partial and full containment, move the selected block, batch lock/delete, group, ungroup, and use explicit stacking commands.
 - Marquee-select and focus/fit nested descendants at unrelated depths, then verify their bounds agree with collision and drop geometry through pan, zoom, recursive reflow, grow/scroll changes, and minimization.
 - Focus interactive content in offscreen root and nested sections without producing an independent workbench-wrapper scroll offset or unexpected canvas movement.
@@ -1750,7 +1753,7 @@ The initial package documentation includes:
 - Locking, minimizing, fixed/content sizing, grow/scroll overflow, and resizing reference.
 - Grid, snapping, appearance, per-section presentation, chrome variants, and semantic theme-token reference.
 - Single- and multi-item sortable-tree reference.
-- Detachable-window and adapter-driven clipboard integration guidance.
+- Detachable-window, adapter-driven clipboard, and optional outline-navigator integration guidance.
 - Persistence integration example.
 - Keyboard interaction table.
 - Accessibility expectations for host renderers.

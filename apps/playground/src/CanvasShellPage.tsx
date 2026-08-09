@@ -11,6 +11,7 @@ import {
 import {
   Workspace,
   WorkspaceInteractionBoundary,
+  WorkspaceOutline,
   type SectionDefinition,
   type WorkspaceMinimapPlacement,
   type WorkspaceSectionMoveMode,
@@ -56,6 +57,17 @@ function RemoveExtensionsIcon() {
   return (
     <HostToolbarIcon>
       <path d="m5.5 5.5 9 9M14.5 5.5l-9 9" />
+    </HostToolbarIcon>
+  );
+}
+
+function OutlineIcon() {
+  return (
+    <HostToolbarIcon>
+      <path d="M6.5 5.5h9M8.5 10h7M10.5 14.5h5" />
+      <circle cx="4" cy="5.5" r="1" />
+      <circle cx="6" cy="10" r="1" />
+      <circle cx="8" cy="14.5" r="1" />
     </HostToolbarIcon>
   );
 }
@@ -270,6 +282,7 @@ export function CanvasShellPage() {
   const [showHostExtensions, setShowHostExtensions] = useState(
     () => window.matchMedia(HOST_EXTENSIONS_DEFAULT_QUERY).matches,
   );
+  const [showOutline, setShowOutline] = useState(false);
   const [workspaceMounted, setWorkspaceMounted] = useState(true);
   const [zoomOnDoubleClick, setZoomOnDoubleClick] = useState(true);
   const [zoomOnPinch, setZoomOnPinch] = useState(true);
@@ -298,7 +311,7 @@ export function CanvasShellPage() {
     "nested-alpha",
     "nested-gamma",
   ]);
-  const toolbarControls = (
+  const extensionToolbarControls = (
     showHostExtensions
       ? [
           {
@@ -339,6 +352,20 @@ export function CanvasShellPage() {
         ]
       : []
   ) satisfies readonly WorkspaceToolbarControl[];
+  const toolbarControls = [
+    {
+      icon: <OutlineIcon />,
+      id: "show-outline",
+      label: "Show outline",
+      onPress: () => {
+        setShowOutline((visible) => !visible);
+        setStatus(showOutline ? "Outline hidden." : "Outline shown.");
+      },
+      placement: "utility",
+      pressed: showOutline,
+    },
+    ...extensionToolbarControls,
+  ] satisfies readonly WorkspaceToolbarControl[];
 
   return (
     <>
@@ -770,19 +797,26 @@ export function CanvasShellPage() {
                   </label>
                 </WorkspaceInteractionBoundary>
               ),
-              utility: (workspaceController) =>
-                showHostExtensions ? (
-                  <button
-                    className="canvas-shell-overlay-action"
-                    type="button"
-                    onClick={() => {
-                      const result = workspaceController.setViewport({ x: 0, y: 0, zoom: 1 });
-                      setStatus(`Reset viewport: ${result.status}.`);
-                    }}
-                  >
-                    Reset viewport
-                  </button>
-                ) : null,
+              utility: (workspaceController) => {
+                if (!showHostExtensions && !showOutline) return null;
+                return (
+                  <div className="canvas-shell-utility-overlays">
+                    {showOutline ? <WorkspaceOutline controller={workspaceController} /> : null}
+                    {showHostExtensions ? (
+                      <button
+                        className="canvas-shell-overlay-action"
+                        type="button"
+                        onClick={() => {
+                          const result = workspaceController.setViewport({ x: 0, y: 0, zoom: 1 });
+                          setStatus(`Reset viewport: ${result.status}.`);
+                        }}
+                      >
+                        Reset viewport
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              },
             }}
             toolbarControls={toolbarControls}
             validateExternalDrop={({ candidate, event }) => {

@@ -73,6 +73,8 @@ by following the same ownership shape:
 - Avoid DOM measurement in host render. Use package geometry-backed controller actions for
   selection focus and fit, and `ResizeObserver` only for host-owned geometry the package cannot
   observe.
+- Keep inactive `WorkspaceOutline` branches collapsed for large documents; the optional navigator
+  renders visible rows and does not introduce a second canonical hierarchy.
 - Profile representative payloads, inputs, nested depth, item counts, appearance switching, and
   minimize/unmount behavior in the consuming application. Lightweight fixture timing is not a
   substitute for host render counts.
@@ -135,10 +137,14 @@ shortcuts, relative placement, and atomic history command, while the host adapte
 authorization, IDs, and payload/domain cloning. The playground's JSON-only adapter validates its
 known payload kinds before structured cloning; arbitrary payloads are not assumed cloneable.
 
-Still deferred are an optional outline navigator, top-level auto-layout, multiple or cross-list item
-trees, filtered-list reconciliation, mixed-parent batch dragging, saved viewport presets, generic
-edges and ports, pane registration beyond current extensions, viewport culling, absolute nested
-positioning, and complete descendant-subtree collapse.
+The optional `WorkspaceOutline` navigator is also implemented. It uses only the public controller
+and canonical traversal, keeps disclosure transient, and provides pointer plus direction-aware
+keyboard selection and focus without serializing pane state.
+
+Still deferred are top-level auto-layout, multiple or cross-list item trees, filtered-list
+reconciliation, mixed-parent batch dragging, saved viewport presets, generic edges and ports, pane
+registration beyond current extensions, viewport culling, absolute nested positioning, and complete
+descendant-subtree collapse.
 
 ## Explicit non-goals
 

@@ -9,6 +9,8 @@ import {
 export type { SortableItemTreeProps } from "./internal/sortable-item-tree-react-contract.js";
 export { SortableItemTree } from "./internal/sortable-item-tree.js";
 
+export { WorkspaceOutline } from "./internal/workspace-outline.js";
+export type { WorkspaceOutlineProps } from "./internal/workspace-outline.js";
 export type {
   SectionMovePlan,
   WorkspaceBooleanPreferenceChangeHandler,
