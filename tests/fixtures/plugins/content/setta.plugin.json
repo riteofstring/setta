@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "setta-fixture-content",
+  "name": "Setta Fixture Content",
+  "version": "0.1.0",
+  "settaVersionRange": ">=0.0.0",
+  "enabledByDefault": true,
+  "content": {
+    "blueprintsDir": "content/blueprints",
+    "projectTemplatesDir": "content/project_templates",
+    "promptsDir": "content/prompts"
+  },
+  "capabilities": []
+}

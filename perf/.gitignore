@@ -1,0 +1,19 @@
+# Keep the repo small: commit markdown reports, not raw profiling artifacts.
+/artifacts/*
+!/artifacts/README.md
+
+# Common exported trace/profile formats (in case they land outside artifacts/).
+*.cpuprofile
+*.heapsnapshot
+*.trace
+*.har
+*.json
+*.json.gz
+*.gz
+*.zip
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.mp4
+*.log

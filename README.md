@@ -1,110 +1,87 @@
-# Setta Workspace
+# Setta
 
-This branch is the blank-slate implementation home for `@setta/workspace`: a backend-neutral React library for a pannable, zoomable workbench with recursively nested sections and sortable host-defined items.
+Setta is a visual app/workflow environment with a React frontend, a Go backend,
+and a Python package surface for CLI dispatch, source SDKs, and packaging.
 
-The package is private and locally installable while distribution, repository hosting, licensing, and release policy remain undecided.
+## Repo shape
 
-## Repository layout
+- `cmd/setta` and `cmd/setta-server` are the CLI and server entrypoints.
+- `internal/` owns the backend runtime, HTTP/ws transports, state, services,
+  codegen, packaging helpers, and frontend binding generation.
+- `backend/setta/` is the Python package and SDK surface:
+  - `python -m setta` / installed `setta` dispatch through
+    `backend/setta/entrypoint.py`
+  - `backend/setta/api/*` contains the source Python SDK/runtime helpers
+    (`SettaListener`, `ListenerHotReloader`, `chat_toolkit`, `SettaRunner`)
+  - package-level helpers such as `local_core_client.py`, `runtime_compat.py`,
+    and `plugin_runtime/*` are thin Go-backed/package-facing surfaces shipped
+    in the wheel
+  - packaged assets, sidecars, and bundled binaries ship from here
+- `plugins/` contains first-party Setta plugin packages, including
+  package-managed language-server plugins, the Watch Code provider, the JSON
+  Render app-subsystem provider, and their manifests/config schemas.
+- `frontend/` contains the Vite/React UI and generated TS bindings.
+- `tests/` contains Python/package pytest coverage; Go tests are
+  co-located under `cmd/*` and `internal/*`.
 
-- `packages/workspace`: reusable package source and unit tests.
-- `apps/playground`: backend-free development playground.
-- `fixtures/consumer`: unrelated packed-package consumer template.
-- `tests/e2e`: browser, accessibility, and visual checks.
-- `perf`: append-only focused performance evidence.
-- `docs/plans`: product and implementation plan.
-- `docs/evidence`: source-linked behavioral evidence from the previous Setta implementation.
-- `scripts`: Node-owned quality, packaging, and supply-chain tooling.
+## Dev loop
 
-The [tooling carryover inventory](docs/evidence/tooling-carryover-inventory.md) maps every retained policy to its new-tree owner and records the application/runtime tooling that is intentionally excluded. `corepack pnpm check:boundaries` enforces that tree and import boundary.
+Default setup:
 
-The optional long-running plan executor lives under `scripts/automation/codex-loop`. It runs fresh Codex or Claude Code implementer agents, requests a second-agent review at phase boundaries, requires clean committed batches, and finishes only after a separate whole-plan audit. It deliberately bypasses CLI permission prompts, so use it only for unattended repository-local execution after reviewing its README.
-
-## Setup
-
-Use Node `24.18.1`, Corepack `0.35.0`, and the exact pnpm version declared in `package.json`. Install the exact Corepack prerequisite once if it is not already available; Corepack is also pinned as a development dependency so repository commands do not drift after the initial install.
-
-```text
-npm install --global corepack@0.35.0
-corepack enable
-corepack pnpm install --frozen-lockfile
-corepack pnpm quality:all
-corepack pnpm dev
+```sh
+./dev_install.sh
+./scripts/run-dev-instance.sh
 ```
 
-Run `corepack pnpm exec playwright install chromium` once before the browser suite on a new machine.
+Refresh dependency lockfiles explicitly when dependency manifests change:
 
-## Supply-chain policy
+```sh
+./update_dependencies.sh
+```
 
-All direct dependencies are exact-pinned. pnpm enforces a strict seven-day release quarantine
-across the loaded lockfile, rejects trust downgrades and exotic transitive sources, and currently
-allows no dependency lifecycle scripts. `corepack pnpm supply-chain:check` performs a frozen
-install, high/critical vulnerability audit, dependency-license allowlist check, and dependency
-inventory.
+Common commands:
 
-Temporary release-age exceptions live in `supply-chain-exceptions.json`. Each must identify one exact version, rationale, owner, and expiry; the dependency check fails for undocumented, missing, duplicate, or expired exceptions.
+- `./scripts/go.sh test ./... -count=1` or `./scripts/run_go_tests.sh`
+- `./scripts/run_backend_tests.sh`
+- `pnpm -C frontend exec vitest run`
+- `./scripts/run-playwright-e2e.sh`
+- `./build.sh`
+- `./verify_install.sh`
 
-Phase 0 exact-pinned upstream XYFlow and dnd-kit behind package-owned testing adapters. The selected
-root-node/recursive-DOM representation, shared geometry index, interaction kernel, non-DnD/browser
-characterization, and completed Phase 0 gate audit are recorded under `docs/evidence` without
-exposing upstream contracts publicly. Phase 1 now includes the serializable document, React
-state/controller boundary, upstream canvas shell, runtime gesture policy, coalesced viewport
-publication, host-content interaction boundaries, production frame measurement, and
-geometry-backed focus, fit, and spatial next/previous navigation. It also includes independent
-grid visibility and snapping, all three grid patterns, shared two-axis spacing, and scoped
-light/dark/system semantic theme tokens. It now also includes the default accessible toolbar, typed
-host controls and overlay placements, and a side-configurable minimap that projects root sections,
-centers pointer-selected points or roots, and pans through the canonical viewport lifecycle. The complete
-gesture matrix, independent host pan/wheel arbitration, exact viewport restoration, and
-mount/observer/listener/subscription cleanup close the audited Phase 1 implementation. Interactive
-in-app CDP review remains recorded as an external release gate. Phase 2 implementation adds the strict
-section-definition registry and the first package-owned root frame that renders unrelated host
-components with accessible naming, scoped appearance/read-only context, and automatic viewport
-gesture isolation. Root frames now also provide native pointer and keyboard movement handles backed
-by a transient XYFlow projection, one canonical `section-move` callback, shared grid snapping,
-position-and-size lock enforcement, and transient active-root lift. Package-owned selection now
-adds native pressed controls, Shift modifier selection, configurable partial/full Shift-marquee,
-select-all and clear shortcuts, measured selection-root outlines, controller selection methods, and
-single-commit top-level block movement with relative-offset preservation and locked-block rejection.
-The frame now also owns trimmed, asynchronously validated inline title editing plus resettable,
-frame-scoped accent/tag and chrome controls. These presentation affordances enforce live capability
-policy before opening and commit one canonical title or presentation change through the public
-controller. Selected frames now also expose semantic lock/unlock and minimize/expand controls with
-live capability gating, focus restoration, compact minimized chrome, and controlled-host
-reconciliation through the same canonical controller boundary. Minimization retains descendants by
-default; container definitions may opt into complete descendant collapse without changing the
-serialized document. Registry metadata now also drives a
-built-in searchable creation picker, pointer-based context creation, and deterministic visible smart
-placement; a strict host factory continues to own section IDs and payload data while the public
-controller commits one canonical `section-create` change and the new frame receives package
-selection and focus. Selected roots now expose logical inline-end, block-end, and corner resize
-controls that mirror in RTL, honor registered axes and size constraints at every canvas zoom, share
-grid snapping with movement, and publish one canonical `section-resize` change on completion.
-Keyboard arrows provide the same constrained resizing path. Double-click, Enter, or Space returns
-supported axes to content sizing, while the next manual resize promotes measured content dimensions
-back to fixed sizing without publishing live observer measurements.
-Phase 2 now also exposes generic external drops through a strict host validator and final callback.
-The shared geometry index supplies workbench coordinates, deepest eligible container candidates,
-and orientation-aware insertion indices; accessible valid/invalid feedback remains transient,
-structure capabilities gate the handoff, and host content can opt out without importing adapter
-markers or file semantics.
-Normalized multi-selection now also drives a ready-made pointer and keyboard action menu for batch
-lock, unlock, subtree deletion, and explicit persistent root stacking. The four public stacking
-commands preserve selected order, map nested selections to top-level ancestors, publish one
-canonical change, and remain separate from transient selection lift.
-The same menu now completes top-level grouping through a strict host group factory and registered
-container kind, then ungroups direct children into deterministic non-overlapping root positions.
-Both paths preserve canonical sibling order, publish one structural change, update selection only
-after controlled-host acceptance, and restore keyboard focus to the resulting visible structure.
-Phase 2 now also includes package-owned structural undo and redo. Accepted section commands create
-one in-memory entry while viewport and selection remain outside history; controlled rejection does
-not consume an entry, live capabilities gate navigation, and keyboard or public-controller paths
-restore recorded selection without stealing focus from surviving controls.
-The backend-free playground closes the Phase 2 implementation with note and status renderers,
-strict JSON import/export, confirmed example reset, and separately versioned local persistence for
-the canonical document and host-owned appearance/grid preferences. The library itself remains
-storage- and file-agnostic. Later phases add arbitrary-depth recursive rendering and structural
-movement, then extend the same package-owned recursive DOM with explicit ordered or freeform child
-layouts. Selected containers now provide a named positioning control: ordered children retain their
-measured arrangement when converted to freeform, while freeform-to-ordered conversion offers a
-vertical or horizontal choice and confirms only a material rearrangement. The backend-free
-playground and packed unrelated consumer exercise that controlled `section-positioning` boundary.
+`./dev_install.sh` also creates the repo Python environment used for package
+tooling, tests, and the first-party defaults plugin. Activate it when you need
+direct Python/package commands:
+
+```sh
+source activate.sh
+```
+
+`dev_install.sh` uses frozen installs and should not rewrite lockfiles.
+
+On a fresh workspace, the repo-local defaults install profile bootstraps
+`setta-basedpyright` as the selected Python language server when that
+first-party plugin is available. Watch Code is available through the optional
+first-party `setta-watch-code` plugin. See
+[`docs/reference/plugin-language-servers.md`](docs/reference/plugin-language-servers.md)
+and [`docs/reference/watch-code.md`](docs/reference/watch-code.md).
+
+## Packaging boundary
+
+The shipped package is a Python wheel that dispatches into packaged Go
+binaries:
+
+- installed `setta` and `python -m setta` resolve through the package
+  entrypoint wrapper
+- the wrapper dispatches into packaged Go binaries under `backend/setta/go_bin`
+- the slim wheel includes dispatch plus package-facing runtime helpers; broader
+  source-only Python SDK modules stay outside the packaged-user install path
+- source-checkout dev flows run the Go entrypoints directly through
+  `./scripts/go.sh`
+
+## Docs
+
+- [Docs overview](docs/README.md)
+- [Dev quickstart](docs/guides/dev-quickstart.md)
+- [Dev scripts](docs/guides/dev-scripts.md)
+- [Dev vs built runtime](docs/reference/dev-vs-built.md)
+- [Worktree dev quickstart](docs/guides/worktree-dev-quickstart.md)
