@@ -1,0 +1,20 @@
+{
+  "captures": [
+    {
+      "description": "Visual matrix in dark appearance with dir=rtl, prefers-reduced-motion, and a two-section selection revealing state controls.",
+      "name": "matrix-dark-rtl-reduced-selected.png"
+    },
+    {
+      "description": "Default playground at 320 CSS px in dark system appearance and reduced motion with the Data and diagnostics overlay open.",
+      "name": "playground-dark-320-data-panel.png"
+    },
+    {
+      "description": "Populated default playground at 200% page scale.",
+      "name": "playground-zoom-200.png"
+    },
+    {
+      "description": "Visual matrix under a coarse pointer with the selected-state style menu open at 44 px targets.",
+      "name": "matrix-coarse-style-menu.png"
+    }
+  ]
+}
