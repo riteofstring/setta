@@ -1,0 +1,480 @@
+# Setta Workspace Extraction Plan
+
+## Status
+
+**Draft for review. No implementation beyond this plan is authorized yet.**
+
+- Extraction branch: `workspace-extraction`
+- Extraction base: `main` at `043d3b2e9`
+- Executable reference: the Setta application on that `main` commit
+- Experimental donor branch: `workspace-blank-slate`
+- Publishing, repository creation, package naming, licensing, and release automation remain undecided.
+
+This plan replaces the greenfield-rewrite strategy for the workspace UI. It does not continue the
+implementation phases in `docs/plans/standalone-section-workbench-oss-plan.md`, and it must not
+silently import their design or interaction decisions.
+
+## User outcome
+
+Recover reusable value from the frontend work already present in Setta `main` by extracting an
+opinionated, standalone React workspace library that:
+
+- looks and behaves like the Setta workspace by default;
+- preserves the interaction quality of the running Setta application rather than approximating it
+  from prose;
+- can be installed by an unrelated React application and populated with application-owned section
+  renderers and data;
+- can later support more specific Setta-derived libraries without owning their Python, code
+  generation, MCP, agent, backend, or persistence behavior; and
+- remains useful without publishing it during this implementation effort.
+
+The immediate objective is not maximum genericity or feature count. It is to prove that Setta's
+existing workspace product can be separated from the application without losing the qualities that
+make it valuable.
+
+## Non-negotiable decisions
+
+1. **Main is the product authority.** The running application, captured interaction states, and
+   computed styles outrank descriptions in a plan or an agent's interpretation of “Setta-like.”
+2. **Extract before refactoring.** Preserve a working vertical slice first. Remove coupling through
+   explicit seams only after visual and behavioral parity is demonstrated.
+3. **Parity before genericity.** Do not redesign controls, rename concepts, modernize spacing, or
+   substitute a generic design system during extraction.
+4. **Dependencies are allowed.** Keep exact-pinned dependencies that improve the probability of
+   preserving behavior. Dependency reduction is not an extraction milestone.
+5. **Tailwind is allowed internally.** Start from the same pinned Tailwind version, relevant theme,
+   fonts, and utility recipes as `main`. The eventual package ships compiled scoped CSS; consumers
+   do not need Tailwind or Setta's Tailwind configuration.
+6. **Keep proven fork behavior initially.** Do not replace Setta's XYFlow or dnd-kit adaptations with
+   upstream packages during the parity slice. Upstream substitution is a later, separately measured
+   decision.
+7. **No backward compatibility.** Do not add migrations, aliases, dual paths, compatibility shims,
+   transitional styles, or legacy APIs.
+8. **No agent may approve visual quality.** Automated agents and screenshot tests can identify
+   regressions, but only the developer can accept a visual parity milestone.
+9. **No autonomous loop before the parity gate.** Phase 0 and Phase 1 are supervised, bounded work.
+   Any later automation must stop at every developer-approval gate.
+10. **Do not merge the experimental branch wholesale.** It is a donor of individually proven
+    algorithms, tests, and tooling—not a second source of product truth.
+
+## Product thesis
+
+The initial OSS-worthy product remains a standalone spatial section workspace. Its distinctive
+value is not a generic infinite canvas, which XYFlow already supplies. Its value is the combination
+already demonstrated by Setta:
+
+- polished section and group chrome;
+- arbitrary recursive nesting;
+- ordered and freeform layouts;
+- stable cross-depth drag-and-drop with hysteresis;
+- section-content and parameter/item interaction boundaries;
+- compact viewport controls and minimap;
+- selection, movement, resizing, locking, minimizing, and stacking behavior that feels coherent;
+  and
+- a renderer boundary that allows unrelated applications to supply their own section content.
+
+The first package should be opinionated. Generalize only when a concrete standalone consumer needs a
+variation. Do not begin by building a universal canvas framework, design-system engine, backend
+protocol, or family of micro-packages.
+
+## Why the previous approach failed
+
+The previous branch rebuilt a new workspace engine and UI from plans instead of extracting the
+working product. It also allowed several process failures that this plan explicitly prevents:
+
+- “Like Setta” became “Setta-inspired,” permitting visible and behavioral divergence.
+- An explicit movement button replaced main's broad section drag surface.
+- Tailwind and existing application dependencies were treated as liabilities before extraction.
+- Performance and hardening work preceded developer approval of the visible product.
+- Large visual batches refreshed screenshots without first establishing that the screenshots were
+  desirable.
+- Accessibility hit-area requirements were painted as large visible controls instead of separating
+  invisible hit geometry from compact visible affordances.
+- Automated phase audits verified deterministic output, not product quality.
+
+Passing tests cannot close a visual phase under this plan.
+
+## Extraction strategy
+
+Work inside the main repository until the extracted package passes an unrelated-consumer check. This
+keeps the executable reference and the extraction code adjacent while dependencies are separated.
+
+The intended target structure is:
+
+```text
+frontend/
+├── packages/
+│   └── workspace/              # package source and package-local tests
+├── examples/
+│   └── workspace-playground/   # backend-free consumer using only package exports
+└── src/                        # existing Setta application and temporary extraction adapter
+```
+
+Phase 0 may adjust these exact directories if the existing frontend install/build topology proves a
+different layout materially safer. Any change must retain three independently checkable boundaries:
+
+1. the existing Setta application can consume the extracted surface through a temporary adapter;
+2. the package can build without application aliases, generated backend clients, or Setta runtime
+   state; and
+3. the example can install and run using only public package exports and ordinary third-party
+   dependencies.
+
+### Source anchors in main
+
+Begin the extraction map from the proven surfaces, including:
+
+- `frontend/src/components/Section/Container/sectionChrome.ts`
+- `frontend/src/components/Section/Container/ContainerCore.tsx`
+- `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+- `frontend/src/components/Section/Header/SectionHeader.tsx`
+- `frontend/src/components/Section/Header/HeaderIcon.tsx`
+- `frontend/src/components/Utils/Resizable/CustomResizable.tsx`
+- `frontend/src/forks/xyflow/controls/Controls.tsx`
+- `frontend/src/components/Pages/Project/ResponsiveMiniMap.tsx`
+- `frontend/src/forks/xyflow/`
+- `frontend/src/forks/dnd-kit/`
+- the Tailwind theme, font dependencies, and relevant global/component styles used by those
+  surfaces.
+
+These are investigation anchors, not a command to copy entire directories. Record the dependency
+cone and extract the smallest coherent path that produces the accepted behavior.
+
+### Experimental-branch donor policy
+
+Candidate donors from `workspace-blank-slate` include the standalone build/security tooling,
+serializable document experiments, geometry index, culling, collision/hysteresis planners, history,
+selection algorithms, and unrelated-consumer checks.
+
+A donor is accepted only when all of the following are true:
+
+- the main behavior it replaces has been characterized first;
+- focused parity tests demonstrate the same observable result;
+- it reduces application coupling rather than introducing a parallel architecture;
+- it does not bring the experimental React chrome, CSS, toolbar, resize presentation, playground,
+  or handle-only pointer interaction with it; and
+- the adoption is a small, reviewable commit with an explicit reason.
+
+Do not merge, rebase, or cherry-pick the experimental branch as a batch.
+
+## Reference and acceptance contract
+
+### Required executable reference set
+
+Before package implementation, run `main` and capture the following at original resolution in both
+light and dark appearance where applicable:
+
+- the full workspace at a representative desktop viewport;
+- one root leaf section, idle and selected;
+- one root group with vertical children;
+- a horizontal nested group;
+- a freeform nested group;
+- at least three levels of nesting;
+- locked, minimized, resizing, moving, and invalid-drop states;
+- the viewport toolbar, its groups, hover/focus/pressed states, and tooltips;
+- the minimap and its viewport mask;
+- sorting within a parent;
+- free movement across parents and depths;
+- dragging from section header, body whitespace, and other non-interactive section surfaces;
+- pointer attempts beginning from an editor, input, button, resize affordance, and other no-drag
+  content;
+- nested parameter/item dragging; and
+- relevant narrow and 200% zoom states.
+
+For each critical component, record relevant computed geometry and styles rather than relying only on
+screenshots: bounding boxes, padding, gaps, font properties, colors, borders, outlines, radii,
+shadows, icon sizes, and z-index relationships.
+
+Record short interaction captures for drag activation, sustained movement, drop feedback, selection,
+and resize. A static screenshot cannot specify interaction feel.
+
+### Parity rules
+
+- A section starts pointer movement from any non-interactive part of its surface, not only a small
+  movement button.
+- Interactive descendants opt out through one explicit package-owned interaction boundary; hosts do
+  not need to understand XYFlow or dnd-kit classes.
+- Selection does not change section or descendant geometry.
+- Selecting a group does not reveal controls in every descendant.
+- Visible section controls remain as compact as main. Large pointer/touch hit areas must not become
+  large painted controls.
+- Resize affordances retain usable hit geometry while their visible grips match main's restrained
+  edge/corner treatment.
+- Section and group borders, outlines, radii, padding, typography, icons, colors, and shadows match
+  the reference before token abstraction.
+- Toolbar dimensions, order, grouping, icons, spacing, active states, and surface treatment match the
+  reference.
+- Nested sections preserve main's containment legibility without accumulating arbitrary visual
+  depth effects.
+- Pointer activation, hysteresis, projection, stacking, and cancellation are compared behaviorally,
+  not inferred from unit tests.
+
+The developer reviews the side-by-side evidence. “Close enough,” “more modern,” or “technically more
+accessible” does not satisfy the gate without explicit developer acceptance.
+
+## Minimal package boundary
+
+The parity slice should expose the smallest API needed by the backend-free example. Exact names are
+ratified only after Phase 1, but the boundary must cover:
+
+- a controlled serializable workspace document;
+- a document-change callback or controller transaction boundary;
+- registration of application-owned section kinds, icons, default sizes, and renderers;
+- application-owned opaque serializable section data;
+- edit/read-only capabilities;
+- appearance selection;
+- package-owned interaction boundaries for controls, editable content, wheel, pan, and external
+  drops; and
+- an imperative viewport controller only for concrete operations such as fit, focus, and reveal.
+
+Do not expose Setta application stores, generated API types, backend concepts, XYFlow internals,
+dnd-kit stores, Tailwind classes, or private selectors.
+
+Avoid designing a comprehensive operation protocol, transport model, plugin system, or theme engine
+until the parity slice identifies a real requirement. The public API can change directly during this
+greenfield extraction.
+
+## Styling and Tailwind policy
+
+- Reuse main's exact pinned Tailwind version and relevant theme values first.
+- Reuse the same font packages needed for visual parity.
+- Author package components with Tailwind where that makes extraction more direct.
+- Compile a package-owned stylesheet and scope its rules to the package surface.
+- Do not ship global Tailwind Preflight or host-wide resets.
+- Do not require consumers to install Tailwind, scan package source, or extend a Tailwind config.
+- Preserve semantic CSS variables only where they correspond to proven customization needs.
+- Do not translate known main colors into approximate replacements during extraction.
+- Do not expose utility class names as public customization API.
+
+## Interaction ownership policy
+
+Preserve main's working event boundaries before simplifying them:
+
+- XYFlow owns canvas pan, zoom, spatial projection, and any root movement it currently owns.
+- Setta's dnd-kit integration owns the sorting/free-move interactions it currently owns.
+- One gesture has one movement owner.
+- The section surface is the normal pointer drag activator; interactive descendants and explicit
+  controls are excluded.
+- Keyboard movement remains available without forcing pointer users onto a visible movement button.
+- Canonical document state changes once when a gesture commits, not on every pointer frame.
+- Hysteresis, previous-target retention, nested scroll/zoom coordinates, cancellation, and
+  auto-scroll are extracted as observable behavior.
+
+Do not switch to upstream interaction primitives during extraction merely because their API is
+cleaner. Characterize, substitute, and compare them later as a separate decision.
+
+## Implementation phases
+
+### Phase 0 — executable reference and dependency map
+
+This phase is read-only except for evidence, tests that characterize existing behavior, and this
+plan's approved amendments.
+
+1. Capture the required main visual and interaction reference set.
+2. Map the import/dependency cone of the smallest leaf, group, toolbar, minimap, drag, and resize
+   surfaces.
+3. Identify application-owned state reads and classify each as structural workspace state, section
+   content state, capability, persistence, backend data, or unrelated app chrome.
+4. Identify the exact Tailwind theme, fonts, icon packages, styles, XYFlow fork modules, and dnd-kit
+   fork modules used by the slice.
+5. Compare relevant experimental-branch donors against the main owners without adopting them.
+6. Propose the smallest package/adapter seam and list every temporary main-only dependency.
+7. Present the reference set and extraction seam to the developer.
+
+**Exit gate:** the developer approves the captured reference and the exact Phase 1 slice. No agent or
+test suite can waive this gate.
+
+### Phase 1 — exact parity slice
+
+Build one deliberately small vertical slice:
+
+- one root leaf section;
+- one root group with a nested leaf;
+- exact main section/group/header chrome;
+- exact selected and idle presentation with no layout shift;
+- full-surface pointer dragging with interactive exclusions;
+- the reference resize treatment;
+- the reference toolbar surface with the minimum controls needed to exercise zoom and fit; and
+- a minimal backend-free host route for the slice.
+
+Keep the existing main surface available for side-by-side comparison throughout the phase. Do not
+add arbitrary-depth support, parameter DnD, clipboard, detachment, saved views, generic panes, or a
+large public API merely because they are future requirements.
+
+Run focused correctness and performance checks, but do not optimize imperceptible measurements or
+build broad matrices before visual approval.
+
+**Exit gate:** the developer accepts the side-by-side visual and interaction result. If rejected,
+stop. Do not continue into package abstraction, hardening, or additional features.
+
+### Phase 2 — standalone package boundary
+
+1. Establish the package and backend-free example directories.
+2. Replace main application state reads with the minimal controlled document, registry, capability,
+   and callback boundary proven by Phase 1.
+3. Remove application aliases, OpenAPI/generated backend types, project stores, and backend runtime
+   dependencies from the package dependency graph.
+4. Compile and consume the package-owned Tailwind CSS without requiring consumer Tailwind setup.
+5. Add a temporary Setta application adapter so main can consume the same extracted package surface.
+6. Build a packed unrelated consumer using only public exports.
+7. Consider experimental-branch donors individually where they close a proven standalone gap.
+
+**Exit gate:** both Setta and the backend-free example render the accepted slice from the package;
+the package and packed consumer contain no forbidden main imports; the developer confirms parity is
+unchanged.
+
+### Phase 3 — recursive section workspace
+
+Expand only from accepted reference behaviors:
+
+- arbitrary-depth nested sections;
+- vertical and horizontal ordered children;
+- nested freeform children;
+- switching child positioning and orientation;
+- sorting and cross-depth free movement;
+- stable hysteresis and invalid-target feedback;
+- empty-container drop affordances;
+- section selection, multi-selection, marquee selection, and stacking;
+- lock, minimize, resize, snap-to-grid, and content sizing; and
+- toolbar and minimap behavior needed to navigate those states.
+
+Each interaction lands as a narrow vertical batch with a main recording, package recording, focused
+tests, and a developer-visible checkpoint. Do not implement the complete list as one batch.
+
+**Exit gate:** the developer accepts the representative recursive workspace in light and dark mode,
+and the backend-free example demonstrates the same interaction behavior without main runtime state.
+
+### Phase 4 — nested parameter/item drag-and-drop
+
+Extract Setta's reusable parameter/item interaction as a package-owned registered surface:
+
+- single and multi-item selection;
+- single and multi-item dragging;
+- same-list and cross-list sorting;
+- nested lists/groups where demonstrated by main;
+- filtered-list behavior;
+- zoom and scroll coordinate correctness;
+- keyboard movement and cancellation; and
+- stable section-drag versus item-drag ownership.
+
+Keep item data application-owned and opaque. The package owns generic selection, ordering, geometry,
+and interaction behavior, not Python parameters or Setta domain semantics.
+
+**Exit gate:** an unrelated example supplies its own item data and reproduces the accepted main
+interaction without importing Setta parameter types or state.
+
+### Deferred capability inventory
+
+The earlier plans named useful capabilities that may still belong in the library, but they are not
+allowed to enlarge the parity slice or recursive/item extraction phases. After Phase 4, the
+developer chooses which capability becomes the next narrow extraction milestone and approves a plan
+amendment before implementation. Candidates include:
+
+- inline title renaming, accent/tag editing, and alternate compact/transparent/headerless chrome;
+- grow-with-content versus fixed container sizing, content-fit sizing, and overflow behavior;
+- searchable pointer-context creation, smart placement, and empty-workspace creation;
+- external/file drop callbacks with screen and workspace coordinates;
+- copy/paste, group/ungroup, and batch lock/delete/move actions;
+- workspace edit/read-only or freeze-all behavior;
+- configurable pan/zoom gestures and stacking policy;
+- host toolbar extensions, panes, outline navigation, next/previous navigation, focus/fit helpers,
+  and saved viewport presets;
+- detaching a section into a separate floating window; and
+- additional connection, minimap, and presentation behavior demonstrated by main.
+
+This list preserves product options without pretending that every earlier idea has already earned a
+place in the first standalone package.
+
+### Phase 5 — extension surface and hardening
+
+Only after the visible product is accepted:
+
+- ratify the public API and package name;
+- add documented section, icon, toolbar, pane, and overlay extension points required by real examples;
+- verify light/dark/system appearance and documented semantic customization;
+- verify keyboard, screen reader, focus restoration, reduced motion, RTL, coarse pointer, 200% zoom,
+  and narrow reflow without visibly inflating the accepted UI;
+- baseline and remeasure large-document rendering, culling, drag activation, and sustained movement;
+- run package build, type, formatting, lint, dead-code, complexity, file-length, supply-chain,
+  vulnerability, license, packed-consumer, and browser gates; and
+- record final evidence only after developer visual approval.
+
+This phase does not publish the package.
+
+## Verification order
+
+For every visual or interaction batch:
+
+1. Reproduce the main reference state.
+2. Implement the smallest package change.
+3. Run focused static/unit checks.
+4. Compare main and package live through Chrome DevTools at the same viewport, appearance, zoom, and
+   state.
+5. Present side-by-side screenshots or recordings to the developer.
+6. After developer acceptance, add or refresh the corresponding visual baseline.
+7. Run the broader phase gate once on the stable tree.
+8. Commit a reviewable batch.
+
+Visual baselines are regression locks for accepted output. They are never evidence that previously
+unreviewed output is attractive or correct.
+
+## Stop conditions and escalation
+
+Stop and return to the developer instead of expanding scope when:
+
+- the Phase 1 slice does not convincingly match main;
+- parity requires changing a user-visible main behavior rather than extracting it;
+- an application/backend dependency cannot be represented by a narrow explicit host seam;
+- a proposed donor changes observable behavior;
+- a dependency or fork substitution changes drag, resize, zoom, or nesting feel;
+- a visual milestone has not received developer approval;
+- an implementation batch becomes too large to compare meaningfully; or
+- a test passes while the live side-by-side comparison is visibly wrong.
+
+Do not respond to a failed visual gate by adding more features, more snapshots, more abstractions, or
+more performance instrumentation.
+
+## Explicit non-goals
+
+This plan does not include:
+
+- publishing to npm or GitHub;
+- selecting a public license or final public repository structure;
+- preserving the experimental branch's APIs or theme;
+- migrating existing experimental documents;
+- cleaning or modularizing unrelated Setta main code;
+- replacing Tailwind;
+- replacing Setta's XYFlow/dnd-kit adaptations during extraction;
+- Python code generation, execution, MCP, agents, files, authentication, collaboration, or backend
+  persistence;
+- a neutral visual preset;
+- a universal node editor or diagramming framework;
+- a theme marketplace or token for every visual constant;
+- multiple public micro-packages; or
+- backward compatibility of any kind.
+
+## Open decisions deferred until evidence exists
+
+- Final package name: `@setta/workspace`, `@setta/section-workspace`, or another name.
+- Whether the public object term is “section” or “node.”
+- Which main fork modules remain package-owned after parity.
+- Whether the final source stays in this repository or moves later.
+- Which additional features follow parameter/item DnD.
+- Publication, licensing, versioning, and release automation.
+
+## Definition of success
+
+This extraction succeeds when:
+
+- the developer accepts the package workspace as visually and behaviorally faithful to main;
+- sections drag from their normal non-interactive surface rather than requiring one small pointer
+  handle;
+- selection, resize affordances, nested groups, toolbar, minimap, typography, icons, and appearance
+  preserve the accepted Setta product language;
+- an unrelated React example installs the local package, imports its compiled CSS, registers custom
+  section and item renderers, and uses the workspace without a Setta backend;
+- recursive ordered/freeform section movement and nested item movement retain main's stable behavior;
+- the package contains no Setta application state, generated backend client, or domain-model imports;
+- retained dependencies and forked behavior are explicit and justified by observable value;
+- quality, accessibility, performance, supply-chain, vulnerability, license, pack, and consumer
+  checks pass without overriding the accepted UI; and
+- no publishing decision has been made implicitly by implementation.
