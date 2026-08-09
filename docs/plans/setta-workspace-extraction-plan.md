@@ -2081,6 +2081,16 @@ implementation; it does not authorize an agent or test suite to approve the fina
 
 Only after the visible product is accepted:
 
+- make parameter/item-column resizing package-owned. This 2026-08-12 developer decision
+  supersedes the earlier application-side deferral: every `WorkspaceItemList` row exposes the
+  frozen reference's shared center divider with its compact visible paint and larger drag target;
+  dragging any divider updates the whole section at canvas-correct zoom, clamps the split for the
+  deepest nested item and a 100 px minimum value column, and double-click resets it to the default
+  half-width split. Persist the authored split as package document state in item terminology and
+  publish it through the normal document-change callback; default derivation, live container-resize
+  behavior, and drag/reset commits remain backend-free, with no application store or persistence
+  adapter required. Port the reference algorithms and focused tests before the final matched live
+  comparison;
 - ratify the public API and confirm or change the working package name;
 - add documented section, icon, toolbar, pane, and overlay extension points required by real examples;
 - verify light/dark/system appearance and documented semantic customization;
