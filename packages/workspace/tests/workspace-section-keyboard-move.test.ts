@@ -185,6 +185,34 @@ describe("workspace section keyboard movement", () => {
     });
   });
 
+  it("moves a nested sibling block to the canvas when no container is available beyond its edge", () => {
+    const original = keyboardSession("free", ["alpha", "beta"]);
+    const session = { ...original, regions: [region("root", 0, 0)] };
+    const resolution = resolveWorkspaceSectionKeyboardMove({
+      direction: "left",
+      document: session.document,
+      session,
+      validateSectionMove: undefined,
+    });
+
+    expect(resolution).toMatchObject({
+      decision: {
+        plan: {
+          destinationIndex: 1,
+          destinationParentId: null,
+          sectionIds: ["alpha", "beta"],
+          topLevelPositions: {
+            alpha: { x: 20, y: 20 },
+            beta: { x: 20, y: 112 },
+          },
+        },
+        status: "planned",
+      },
+      region: null,
+      status: "resolved",
+    });
+  });
+
   it("returns the exact host rejection for the chosen keyboard destination", () => {
     const session = keyboardSession("free", ["alpha", "beta", "nested"]);
     const resolution = resolveWorkspaceSectionKeyboardMove({

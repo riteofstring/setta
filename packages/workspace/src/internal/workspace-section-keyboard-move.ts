@@ -1,4 +1,4 @@
-import type { WorkspaceDocument } from "../core.js";
+import type { WorkspaceDocument, WorkspacePoint } from "../core.js";
 import type { WorkspaceRect } from "./geometry-index.js";
 import {
   planSectionMove,
@@ -18,17 +18,25 @@ type DestinationRegion = WorkspaceSectionMoveSession["regions"][number];
 
 type KeyboardDestination = Readonly<{
   destinationIndex: number;
-  destinationParentId: string;
+  destinationParentId: string | null;
   point: Readonly<{ x: number; y: number }>;
-  region: DestinationRegion;
+  region: DestinationRegion | null;
+  topLevelPositions: Readonly<Record<string, WorkspacePoint>> | null;
 }>;
+
+type KeyboardContainerDestination = KeyboardDestination &
+  Readonly<{
+    destinationParentId: string;
+    region: DestinationRegion;
+    topLevelPositions: null;
+  }>;
 
 export type WorkspaceSectionKeyboardMoveResolution =
   | Readonly<{
       decision: SectionMoveDecision;
       destinationIndex: number;
       destinationIds: readonly string[];
-      region: DestinationRegion;
+      region: DestinationRegion | null;
       status: "resolved";
     }>
   | Readonly<{ reason: string; status: "unavailable" }>;
@@ -82,7 +90,7 @@ function regionForParent(
 function adjacentDestination(
   direction: AdapterDndKeyboardDirection,
   session: WorkspaceSectionMoveSession,
-): KeyboardDestination | null {
+): KeyboardContainerDestination | null {
   const current = currentDestination(session);
   const region = regionForParent(session.regions, current.parentId);
   if (!region) {
@@ -106,6 +114,7 @@ function adjacentDestination(
     destinationParentId: region.parentSectionId,
     point: insertionPoint(region, destinationIds, destinationIndex, session),
     region,
+    topLevelPositions: null,
   };
 }
 
@@ -229,7 +238,9 @@ function directionalScore(
   return primary + secondary * 0.5;
 }
 
-function spatialDestinations(session: WorkspaceSectionMoveSession): readonly KeyboardDestination[] {
+function spatialDestinations(
+  session: WorkspaceSectionMoveSession,
+): readonly KeyboardContainerDestination[] {
   const moving = new Set(session.sectionIds);
   const currentParentId = currentDestination(session).parentId;
   return session.regions.flatMap((region) => {
@@ -252,6 +263,7 @@ function spatialDestinations(session: WorkspaceSectionMoveSession): readonly Key
       destinationParentId: region.parentSectionId,
       point: insertionPoint(region, destinationIds, destinationIndex, session),
       region,
+      topLevelPositions: null,
     }));
   });
 }
@@ -259,7 +271,7 @@ function spatialDestinations(session: WorkspaceSectionMoveSession): readonly Key
 function nearestSpatialDestination(
   direction: AdapterDndKeyboardDirection,
   session: WorkspaceSectionMoveSession,
-): KeyboardDestination | null {
+): KeyboardContainerDestination | null {
   const origin = navigationOrigin(session);
   const directional = spatialDestinations(session).flatMap((destination) => {
     const score = directionalScore(direction, origin, destination.point);
@@ -284,10 +296,35 @@ function destinationIds(
   destination: KeyboardDestination,
   session: WorkspaceSectionMoveSession,
 ): readonly string[] {
+  if (destination.destinationParentId === null) {
+    return withoutMoving(session.hierarchy.rootSectionIds, new Set(session.sectionIds));
+  }
   return withoutMoving(
     session.hierarchy.childrenByParent[destination.destinationParentId] ?? [],
     new Set(session.sectionIds),
   );
+}
+
+function canvasDestination(session: WorkspaceSectionMoveSession): KeyboardDestination | null {
+  if (session.sourceParentId === null) {
+    return null;
+  }
+  const topLevelPositions = Object.create(null) as Record<string, WorkspacePoint>;
+  for (const sectionId of session.sectionIds) {
+    const rect = session.sourceRects[sectionId];
+    if (!rect) {
+      return null;
+    }
+    topLevelPositions[sectionId] = { x: rect.x, y: rect.y };
+  }
+  return {
+    destinationIndex: withoutMoving(session.hierarchy.rootSectionIds, new Set(session.sectionIds))
+      .length,
+    destinationParentId: null,
+    point: navigationOrigin(session),
+    region: null,
+    topLevelPositions,
+  };
 }
 
 function resolvedDestination<TSectionData>(
@@ -301,7 +338,7 @@ function resolvedDestination<TSectionData>(
       destination: {
         index: destination.destinationIndex,
         parentId: destination.destinationParentId,
-        topLevelPositions: null,
+        topLevelPositions: destination.topLevelPositions,
       },
       hierarchy: session.hierarchy,
       mode: session.mode,
@@ -353,10 +390,11 @@ export function resolveWorkspaceSectionKeyboardMove<TSectionData>({
     };
   }
   const spatial = nearestSpatialDestination(direction, session);
-  return spatial
-    ? resolvedDestination(spatial, document, session, validateSectionMove)
+  const destination = spatial ?? canvasDestination(session);
+  return destination
+    ? resolvedDestination(destination, document, session, validateSectionMove)
     : {
-        reason: "No container is available in that direction. Try another arrow key.",
+        reason: "No structural destination is available in that direction. Try another arrow key.",
         status: "unavailable",
       };
 }

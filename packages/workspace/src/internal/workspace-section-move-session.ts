@@ -107,6 +107,14 @@ type SourceGeometryResult =
     }>
   | Readonly<{ allowed: false; reason: string }>;
 
+function recordFromEntries<T>(entries: Iterable<readonly [string, T]>): Record<string, T> {
+  const record = Object.create(null) as Record<string, T>;
+  for (const [key, value] of entries) {
+    record[key] = value;
+  }
+  return record;
+}
+
 function rectBounds(rects: readonly WorkspaceRect[]): WorkspaceRect | null {
   const first = rects[0];
   if (!first) {
@@ -129,7 +137,7 @@ function rectBounds(rects: readonly WorkspaceRect[]): WorkspaceRect | null {
 function rectRecord(
   snapshot: readonly MeasuredWorkspaceFrame[],
 ): Readonly<Record<string, WorkspaceRect>> {
-  return Object.fromEntries(snapshot.map(({ rect, sectionId }) => [sectionId, rect]));
+  return recordFromEntries(snapshot.map(({ rect, sectionId }) => [sectionId, rect] as const));
 }
 
 function selectedRects(
@@ -142,7 +150,7 @@ function selectedRects(
   });
   return entries.some((entry) => entry === null)
     ? null
-    : Object.fromEntries(entries as readonly (readonly [string, WorkspaceRect])[]);
+    : recordFromEntries(entries as readonly (readonly [string, WorkspaceRect])[]);
 }
 
 function interactionRect(rect: WorkspaceRect): InteractionRect {
@@ -153,11 +161,14 @@ function clientRectRecord(
   snapshot: readonly MeasuredWorkspaceFrame[],
   frame: DragGeometryFrame,
 ): Readonly<Record<string, InteractionRect>> {
-  return Object.fromEntries(
-    snapshot.map(({ rect, sectionId }) => [
-      sectionId,
-      interactionRect(workspaceRectToClient(rect, frame.canvasBounds, frame.viewport)),
-    ]),
+  return recordFromEntries(
+    snapshot.map(
+      ({ rect, sectionId }) =>
+        [
+          sectionId,
+          interactionRect(workspaceRectToClient(rect, frame.canvasBounds, frame.viewport)),
+        ] as const,
+    ),
   );
 }
 
@@ -663,10 +674,10 @@ function canvasPositions(
     ? snapWorkspacePointToGrid(rawAnchor, gridOptions.spacing)
     : rawAnchor;
   const snappedDelta = { x: nextAnchor.x - anchor.x, y: nextAnchor.y - anchor.y };
-  return Object.fromEntries(
+  return recordFromEntries(
     session.sectionIds.map((sectionId) => {
       const rect = session.sourceRects[sectionId] as WorkspaceRect;
-      return [sectionId, { x: rect.x + snappedDelta.x, y: rect.y + snappedDelta.y }];
+      return [sectionId, { x: rect.x + snappedDelta.x, y: rect.y + snappedDelta.y }] as const;
     }),
   );
 }
@@ -848,6 +859,15 @@ export function resolveWorkspaceSectionKeyboardMovePreview<TSectionData>({
       preview: null,
       reason: resolution.reason,
     };
+  }
+  if (!resolution.region) {
+    return previewFromDecision(
+      clearCollisionTarget(session.collisionState),
+      document,
+      resolution.decision,
+      { kind: "canvas", rect: session.sourceWorkspaceBounds },
+      session,
+    );
   }
   const orderedRects = resolution.destinationIds.map(
     (sectionId) => session.workspaceRectsById[sectionId],

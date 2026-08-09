@@ -52,7 +52,54 @@ export type UpstreamDndBoundaryProps = {
   onComplete(completion: AdapterDndCompletion): void;
 };
 
-const adapterProofSensors = [PointerSensor, KeyboardSensor.configure({ offset: 72 })];
+type AdapterKeyboardSource = Parameters<InstanceType<typeof KeyboardSensor>["bind"]>[0];
+type AdapterKeyboardOptions = Parameters<InstanceType<typeof KeyboardSensor>["bind"]>[1];
+type AdapterKeyboardManager = ConstructorParameters<typeof KeyboardSensor>[0];
+
+let pendingKeyboardScrollRestore: (() => void) | null = null;
+
+function captureScrollRestore(element: Element): () => void {
+  const elementPositions: Array<Readonly<{ element: Element; left: number; top: number }>> = [];
+  for (let current: Element | null = element; current; current = current.parentElement) {
+    elementPositions.push({ element: current, left: current.scrollLeft, top: current.scrollTop });
+  }
+  const view = element.ownerDocument.defaultView;
+  const windowPosition = view ? { left: view.scrollX, top: view.scrollY, view } : null;
+  return () => {
+    for (const position of elementPositions) {
+      position.element.scrollLeft = position.left;
+      position.element.scrollTop = position.top;
+    }
+    windowPosition?.view.scrollTo(windowPosition.left, windowPosition.top);
+  };
+}
+
+function restorePendingKeyboardScroll(): void {
+  pendingKeyboardScrollRestore?.();
+  pendingKeyboardScrollRestore = null;
+}
+
+class ScrollStableKeyboardSensor extends KeyboardSensor {
+  constructor(manager: AdapterKeyboardManager) {
+    super(manager, { offset: 72 });
+  }
+
+  protected override handleStart(
+    event: KeyboardEvent,
+    source: AdapterKeyboardSource,
+    options: AdapterKeyboardOptions,
+  ): void {
+    const element = source.element;
+    pendingKeyboardScrollRestore = element ? captureScrollRestore(element) : null;
+    try {
+      super.handleStart(event, source, options);
+    } finally {
+      restorePendingKeyboardScroll();
+    }
+  }
+}
+
+const adapterProofSensors = [PointerSensor, ScrollStableKeyboardSensor];
 const accessibilityPluginDisabled = {
   plugins: (defaults) =>
     defaults.filter(
@@ -97,6 +144,7 @@ export function UpstreamDndBoundary({
       {...accessibilityPluginProps(manageAccessibility)}
       sensors={adapterProofSensors}
       onDragStart={({ nativeEvent, operation }, manager) => {
+        restorePendingKeyboardScroll();
         const sourceId = stringId(operation.source?.id);
         if (sourceId) {
           const activatorEvent = operation.activatorEvent ?? nativeEvent;

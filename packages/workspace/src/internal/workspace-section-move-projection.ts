@@ -26,7 +26,9 @@ export class WorkspaceSectionMoveProjection {
       clearPreview(previous);
     }
     this.#elements.set(sectionId, element);
-    const transform = this.#transforms[sectionId];
+    const transform = Object.hasOwn(this.#transforms, sectionId)
+      ? this.#transforms[sectionId]
+      : undefined;
     if (transform) {
       applyPreview(element, transform);
     }
@@ -47,7 +49,9 @@ export class WorkspaceSectionMoveProjection {
       if (!element) {
         continue;
       }
-      const transform = transformsById[sectionId];
+      const transform = Object.hasOwn(transformsById, sectionId)
+        ? transformsById[sectionId]
+        : undefined;
       if (transform) {
         applyPreview(element, transform);
       } else {

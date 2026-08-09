@@ -291,6 +291,49 @@ describe("workspace section move command", () => {
     }
   });
 
+  it("moves a legal prototype-mutator section from a container to the canvas", () => {
+    const flat = createWorkspaceTestDocument([
+      { id: "container", title: "Container" },
+      { id: "__proto__", title: "Prototype section" },
+    ]);
+    const document: WorkspaceDocument = {
+      ...flat,
+      rootSections: [{ position: { x: 0, y: 0 }, sectionId: "container" }],
+      sections: {
+        ...flat.sections,
+        container: container(flat.sections.container as WorkspaceSection, ["__proto__"]),
+      },
+    };
+    const before = workspaceSectionHierarchySnapshot(document);
+    const topLevelPositions = Object.fromEntries([["__proto__", { x: 144, y: 96 }]]) as Readonly<
+      Record<string, { x: number; y: number }>
+    >;
+    const result = applyWorkspaceSectionMove(
+      document,
+      plan({
+        destinationIndex: 1,
+        destinationParentId: null,
+        mode: "free",
+        sectionIds: ["__proto__"],
+        sourceParentId: "container",
+        topLevelPositions,
+      }),
+    );
+
+    expect(before.childrenByParent["__proto__"]).toBeUndefined();
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") {
+      throw new Error("Expected the prototype-mutator section move to apply.");
+    }
+    expect(result.document.rootSections.at(-1)).toEqual({
+      position: { x: 144, y: 96 },
+      sectionId: "__proto__",
+    });
+    const after = workspaceSectionHierarchySnapshot(result.document);
+    expect(Object.hasOwn(after.rootPositions, "__proto__")).toBe(true);
+    expect(after.rootPositions["__proto__"]).toEqual({ x: 144, y: 96 });
+  });
+
   it("rejects stale, cyclic, leaf, and locked plans without partial changes", () => {
     const document = movementDocument();
     const lockedChild = document.sections["child-a"] as WorkspaceSection;

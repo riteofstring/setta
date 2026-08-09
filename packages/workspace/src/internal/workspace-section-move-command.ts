@@ -19,21 +19,29 @@ export type WorkspaceSectionMoveApplication<TSectionData> =
   | Readonly<{ status: "unchanged" }>
   | Readonly<{ reason: WorkspaceActionRejectionReason; status: "rejected" }>;
 
+function recordFromEntries<T>(entries: Iterable<readonly [string, T]>): Record<string, T> {
+  const record = Object.create(null) as Record<string, T>;
+  for (const [key, value] of entries) {
+    record[key] = value;
+  }
+  return record;
+}
+
 function workspaceChildrenByParent<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
 ): Readonly<Record<string, readonly string[]>> {
-  return Object.fromEntries(
+  return recordFromEntries(
     Object.values(document.sections)
       .filter((section) => section.childLayout !== null)
-      .map((section) => [section.id, section.childLayout?.sectionIds ?? []]),
+      .map((section) => [section.id, section.childLayout?.sectionIds ?? []] as const),
   );
 }
 
 function workspaceRootPositions<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
 ): Readonly<Record<string, WorkspacePoint>> {
-  return Object.fromEntries(
-    document.rootSections.map(({ position, sectionId }) => [sectionId, position]),
+  return recordFromEntries(
+    document.rootSections.map(({ position, sectionId }) => [sectionId, position] as const),
   );
 }
 
@@ -42,7 +50,7 @@ export function workspaceSectionHierarchySnapshot<TSectionData>(
 ): SectionHierarchySnapshot {
   return {
     childrenByParent: workspaceChildrenByParent(document),
-    parentByChild: Object.fromEntries(deriveWorkspaceParentLookup(document)),
+    parentByChild: recordFromEntries(deriveWorkspaceParentLookup(document)),
     rootPositions: workspaceRootPositions(document),
     rootSectionIds: document.rootSections.map(({ sectionId }) => sectionId),
   };

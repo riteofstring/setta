@@ -106,7 +106,7 @@ function Placeholder({
 
 function sourceIsProjected(preview: WorkspaceSectionMovePreview | null): boolean {
   return preview
-    ? preview.plan.sectionIds.some((sectionId) => preview.transformsById[sectionId] !== undefined)
+    ? preview.plan.sectionIds.some((sectionId) => Object.hasOwn(preview.transformsById, sectionId))
     : false;
 }
 

@@ -199,7 +199,9 @@ through horizontal positions and mirror their logical order in right-to-left lay
 an arrow at the edge of the current container previews the nearest valid measured container in that
 direction. Each preview announces its container and position. Press Enter or Space to commit the
 displayed plan, or Escape to cancel and restore focus. A selected sibling block follows the same
-path as one atomic move.
+path as one atomic move. When no measured container is available beyond a nested block's edge, the
+next arrow previews the canvas while preserving that block's measured workbench placement; after
+commit, switch to sort mode for ordinary root arrow-key positioning.
 
 `validateSectionMove` is an optional synchronous, side-effect-free host policy for structural
 moves. It receives the current document and an immutable `SectionMovePlan` after package-owned

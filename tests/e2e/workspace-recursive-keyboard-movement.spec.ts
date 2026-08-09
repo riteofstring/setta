@@ -69,6 +69,7 @@ async function recursiveChangeCount(page: Page): Promise<number> {
 }
 
 async function recursiveDocument(page: Page): Promise<{
+  rootSections: readonly { position: { x: number; y: number }; sectionId: string }[];
   sections: Readonly<
     Record<string, { childLayout: { sectionIds: readonly string[] } | null; id: string }>
   >;
@@ -198,6 +199,67 @@ test("keyboard free-move promotes the deep container target above its ancestor",
   await expect(workspace.locator("[data-workspace-structure-movement-announcement]")).toHaveText(
     "Nested Beta movement canceled.",
   );
+  const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
+  expect(accessibility.violations).toEqual([]);
+});
+
+test("keyboard structural activation preserves the document scroll position", async ({ page }) => {
+  await page.setViewportSize({ height: 1_000, width: 1_440 });
+  const workspace = await loadRecursiveFixture(page);
+  await page.getByRole("combobox", { name: "Section movement" }).selectOption("free");
+  const handle = workspace
+    .getByRole("article", { name: "Nested Alpha" })
+    .getByRole("button", { name: "Move Nested Alpha" });
+
+  await handle.focus();
+  const before = await page.evaluate(() => ({ x: window.scrollX, y: window.scrollY }));
+  await page.keyboard.press("Enter");
+  const after = await page.evaluate(() => ({ x: window.scrollX, y: window.scrollY }));
+
+  expect(after).toEqual(before);
+  await page.keyboard.press("Escape");
+  await expect(handle).toBeFocused();
+});
+
+test("keyboard free-move promotes a nested section to the canvas without a visual jump", async ({
+  page,
+}) => {
+  await page.setViewportSize({ height: 1_000, width: 1_440 });
+  const workspace = await loadRecursiveFixture(page);
+  await page.getByRole("combobox", { name: "Section movement" }).selectOption("free");
+  const nestedAlpha = workspace.getByRole("article", { name: "Nested Alpha" });
+  const handle = nestedAlpha.getByRole("button", { name: "Move Nested Alpha" });
+  const before = await requiredBoundingBox(nestedAlpha, "The nested canvas-move source");
+  const baselineChanges = await recursiveChangeCount(page);
+
+  await handle.focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("ArrowLeft");
+  await expect(
+    workspace.locator('[data-workspace-section-move-destination-parent="nested-row"]'),
+  ).toHaveCount(1);
+  await page.keyboard.press("ArrowLeft");
+
+  await expect(
+    workspace.locator('[data-workspace-section-move-destination-parent="canvas"]'),
+  ).toHaveCount(1);
+  await expect(workspace.locator("[data-workspace-section-move-preview-announcement]")).toHaveText(
+    "Preview: Nested Alpha will move to the canvas.",
+  );
+  await page.keyboard.press("Enter");
+
+  await expect(handle).toBeFocused();
+  await expect(nestedAlpha).toHaveAttribute("data-workspace-depth", "0");
+  await expect(nestedAlpha).not.toHaveAttribute("data-workspace-parent-section-id", /.+/);
+  const after = await requiredBoundingBox(nestedAlpha, "The promoted canvas section");
+  expect(after.x).toBeCloseTo(before.x, 0);
+  expect(after.y).toBeCloseTo(before.y, 0);
+  await expect(workspace.locator("[data-workspace-structure-movement-announcement]")).toHaveText(
+    "Nested Alpha moved to the canvas.",
+  );
+  const document = await recursiveDocument(page);
+  expect(document.rootSections.at(-1)?.sectionId).toBe("nested-alpha");
+  expect(await recursiveChangeCount(page)).toBe(baselineChanges + 1);
   const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
   expect(accessibility.violations).toEqual([]);
 });

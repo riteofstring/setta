@@ -12,6 +12,7 @@ import {
   type WorkspaceSectionMoveRegion,
 } from "../src/internal/workspace-section-move-collision.js";
 import { resolveWorkspaceSectionMoveLayoutPreview } from "../src/internal/workspace-section-move-layout-preview.js";
+import { WorkspaceSectionMoveProjection } from "../src/internal/workspace-section-move-projection.js";
 
 function hierarchy(
   childrenByParent: Readonly<Record<string, readonly string[]>>,
@@ -343,6 +344,52 @@ describe("workspace section layout-stable preview", () => {
       allowed: true,
       preview: { transformsById: { a: { x: -20, y: 0 }, b: { x: 20, y: 0 } } },
     });
+  });
+
+  it("retains prototype-mutator IDs in layout and imperative frame projections", () => {
+    const result = resolveWorkspaceSectionMoveLayoutPreview({
+      hierarchy: hierarchy(
+        { root: ["__proto__", "b"] },
+        Object.fromEntries([
+          ["__proto__", "root"],
+          ["b", "root"],
+          ["root", null],
+        ]),
+      ),
+      plan: previewPlan({ sectionIds: ["__proto__"] }),
+      rectsById: Object.fromEntries([
+        ["__proto__", { height: 10, width: 100, x: 0, y: 0 }],
+        ["b", { height: 10, width: 100, x: 0, y: 20 }],
+      ]),
+      regions: [region({ parentSectionId: "root" })],
+    });
+
+    expect(result.allowed).toBe(true);
+    if (!result.allowed) {
+      throw new Error("Expected a prototype-mutator layout preview.");
+    }
+    expect(Object.hasOwn(result.preview.transformsById, "__proto__")).toBe(true);
+    expect(result.preview.transformsById["__proto__"]).toEqual({ x: 0, y: 20 });
+
+    const attributes = new Map<string, string>();
+    const properties = new Map<string, string>();
+    const element = {
+      removeAttribute: (name: string) => attributes.delete(name),
+      setAttribute: (name: string, value: string) => attributes.set(name, value),
+      style: {
+        removeProperty: (name: string) => properties.delete(name),
+        setProperty: (name: string, value: string) => properties.set(name, value),
+      },
+    } as unknown as HTMLElement;
+    const projection = new WorkspaceSectionMoveProjection();
+    projection.register("__proto__", element);
+    expect(attributes.has("data-workspace-section-move-preview-transform")).toBe(false);
+
+    projection.preview(Object.fromEntries([["__proto__", { x: 4, y: 8 }]]));
+    expect(attributes.get("data-workspace-section-move-preview-transform")).toBe("4,8");
+    expect(properties.get("--setta-workspace-section-move-preview-x")).toBe("4px");
+    projection.preview({});
+    expect(attributes.has("data-workspace-section-move-preview-transform")).toBe(false);
   });
 
   it("closes the source and opens the destination for a cross-parent sibling block", () => {

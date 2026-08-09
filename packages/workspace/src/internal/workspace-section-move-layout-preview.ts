@@ -54,7 +54,7 @@ function plannedStarts(
   orientation: "horizontal" | "vertical",
   rectsById: Readonly<Record<string, WorkspaceRect>>,
 ): Readonly<Record<string, number>> | null {
-  const starts: Record<string, number> = {};
+  const starts = Object.create(null) as Record<string, number>;
   let nextStart = baseline;
   for (const sectionId of order) {
     const rect = rectsById[sectionId];
@@ -182,7 +182,10 @@ function crossParentPreview({
   regions: readonly WorkspaceSectionMoveRegion[];
 }>): WorkspaceSectionMoveLayoutPreviewResolution {
   const movingIds = new Set(plan.sectionIds);
-  let transformsById: Readonly<Record<string, InteractionPoint>> = {};
+  let transformsById: Readonly<Record<string, InteractionPoint>> = Object.create(null) as Record<
+    string,
+    InteractionPoint
+  >;
   if (plan.sourceParentId) {
     const sourceRegion = requireRegion(regions, plan.sourceParentId);
     if (!sourceRegion) {

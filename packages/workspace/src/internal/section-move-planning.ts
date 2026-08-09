@@ -359,6 +359,10 @@ function insertIds(
   return [...ids.slice(0, index), ...insertedIds, ...ids.slice(index)];
 }
 
+function copyRecord<T>(current: Readonly<Record<string, T>>): Record<string, T> {
+  return Object.assign(Object.create(null) as Record<string, T>, current);
+}
+
 function resolveNextRoots(
   currentRoots: readonly string[],
   sourceOrder: readonly string[],
@@ -380,7 +384,7 @@ function resolveNextChildren(
   destinationOrder: readonly string[],
   plan: SectionMovePlan,
 ): Readonly<Record<string, readonly string[]>> {
-  const next = { ...current };
+  const next = copyRecord(current);
   if (plan.sourceParentId) {
     next[plan.sourceParentId] = sourceOrder;
   }
@@ -394,7 +398,7 @@ function resolveNextParents(
   current: Readonly<Record<string, string | null>>,
   plan: SectionMovePlan,
 ): Readonly<Record<string, string | null>> {
-  const next = { ...current };
+  const next = copyRecord(current);
   for (const sectionId of plan.sectionIds) {
     next[sectionId] = plan.destinationParentId;
   }
@@ -405,7 +409,7 @@ function resolveNextRootPositions(
   current: Readonly<Record<string, WorkspacePoint>>,
   plan: SectionMovePlan,
 ): Readonly<Record<string, WorkspacePoint>> {
-  const next = { ...current };
+  const next = copyRecord(current);
   for (const sectionId of plan.sectionIds) {
     if (plan.topLevelPositions) {
       const position = plan.topLevelPositions[sectionId];
