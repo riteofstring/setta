@@ -1570,12 +1570,31 @@ Gate:
 ### Phase 6: Deferred capability expansion in the same package
 
 Status: **in progress** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
-optional outline-navigator, and top-level auto-layout batches are implemented and recorded in
+optional outline-navigator, top-level auto-layout, and named item-list batches are implemented and recorded in
 [Phase 6 detachable-section evidence](../evidence/phase-6-detachable-sections.md) and
 [Phase 6 clipboard evidence](../evidence/phase-6-clipboard.md), with the navigator record in
 [Phase 6 outline-navigator evidence](../evidence/phase-6-outline-navigator.md) and the layout record
-in [Phase 6 top-level auto-layout evidence](../evidence/phase-6-auto-layout.md). Multiple named item
-lists within one section are the earliest incomplete repository-actionable Phase 6 work.
+in [Phase 6 top-level auto-layout evidence](../evidence/phase-6-auto-layout.md). The named-list record
+is [Phase 6 named item-list evidence](../evidence/phase-6-named-item-lists.md). Filtered-list
+reordering against a larger canonical tree is the earliest incomplete repository-actionable Phase
+6 work.
+
+- Completed (named item-list and cross-list movement batch): added strict framework-neutral list
+  validation, list-aware move planning and immutable application, plus one React interaction owner
+  for visible named regions. Pointer, touch, and keyboard paths move complete item subtrees within
+  or across list-scoped roots without exposing internal aggregation IDs. The playground persists
+  the new list-array payload directly, and the unrelated consumer uses only declared package
+  exports. The complete record is `docs/evidence/phase-6-named-item-lists.md`.
+- Named item-list verification: exact Node 24.18.1, repository-local Corepack 0.35.0, and pnpm
+  11.19.0 focused coverage passed 41 core/static React tests and the final exact Chromium selector
+  passed both keyboard/list-transfer workflows with two reviewed original-resolution baselines.
+  Changed-file quality passed for 26 project files with repository/import boundaries across 296
+  files, all four manifests, formatting, lint and complexity, file lengths, strict types,
+  dead-code analysis, 426 unit tests across 40 files, six boundary tests, plan-loop automation,
+  package/playground builds, exact tarball contents, and the declaration report. The unrelated
+  tarball-installed consumer passed strict build and runtime smoke while using the public list
+  helpers and React surface. No dependency input changed, so the network-backed supply-chain gate
+  was not duplicated; the recorded unavailable in-app-browser release gate was not retried.
 
 - Completed (top-level auto-layout batch): added a deterministic framework-neutral rectangle
   packer, a root-layout planner that retains the current minimum anchor, and one measured public
@@ -1625,8 +1644,8 @@ Then evaluate or implement independently:
 
 - Completed: an optional hierarchical outline navigator built on the initial controller and traversal helpers.
 - Completed: pure top-level auto-layout and packing commands.
-- Multiple named item lists within one section.
-- Cross-list item movement.
+- Completed: multiple named item lists within one section.
+- Completed: same-section cross-list item movement.
 - Filtered-list reordering against a larger canonical tree.
 - Mixed-parent batch section and item dragging if a deterministic interaction proves understandable.
 - Saved viewport presets.
@@ -1661,8 +1680,8 @@ Cover:
 - Selection-bound geometry, selected-root collision exclusion, and coordinate correction for single and multi-section drags under a scaled viewport.
 - Layout-stable sortable preview transforms and exact preview/commit parity without constrained-scroll jumps.
 - History coalescing and restoration.
-- Item-tree validation.
-- Single- and multi-item selection normalization and move planning.
+- Item-tree and named-list validation.
+- Single- and multi-item selection normalization plus same-list and cross-list move planning.
 - Section and item cycle and invalid-target rejection.
 - Applying a move plan without mutating the input.
 - Deterministic outputs.
@@ -1691,6 +1710,7 @@ Cover:
 - Configurable viewport gestures, built-in toolbar, host toolbar controls and overlays, minimap interaction, and controller helpers.
 - Measured top-level auto layout through a host toolbar control without changing stack order, sizes, viewport, or selection.
 - Optional outline hierarchy, disclosure, selection, direction-aware keyboard navigation, and controller-backed focus.
+- Native named item-list regions with one shared pointer, touch, keyboard, focus, and announcement owner.
 - Section and item drag scopes.
 - Input, button, and text-selection interaction.
 - Pointer cancellation.
@@ -1726,7 +1746,7 @@ Cover the real playground:
 - Import and export.
 - Undo and redo.
 - Pan and zoom.
-- Single- and multi-item selection, reorder, nesting, indent, and outdent.
+- Single- and multi-item selection, same-list reorder, nesting, indent, outdent, and atomic cross-list movement.
 - Accept and reject external drops at root and nested coordinates without invoking native file semantics inside the package.
 - Enforce read-only and granular layout/structure/presentation capabilities without a gesture starting and then snapping back.
 - Invalid self, descendant, locked-active-section, and host-rejected move feedback.
@@ -1774,7 +1794,7 @@ The initial package documentation includes:
 - Sorting-mode, free-move-mode, target-stability, and orientation guide.
 - Locking, minimizing, fixed/content sizing, grow/scroll overflow, and resizing reference.
 - Grid, snapping, appearance, per-section presentation, chrome variants, and semantic theme-token reference.
-- Single- and multi-item sortable-tree reference.
+- Single- and multi-item sortable-tree plus named-list and cross-list movement reference.
 - Detachable-window, adapter-driven clipboard, and optional outline-navigator integration guidance.
 - Pure rectangle-packing and measured top-level auto-layout guidance.
 - Persistence integration example.

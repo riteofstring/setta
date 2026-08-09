@@ -8,14 +8,21 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
+  type ReactNode,
 } from "react";
 
+import {
+  createSortableItemListsIndex,
+  sortableItemListPlanFromInternal,
+  type SortableItemListsIndex,
+} from "./sortable-item-lists.js";
 import { sortableItemTreesMatch } from "./sortable-item-move-application.js";
 import {
   resolveSortableItemDragBlock,
   resolveSortableItemSelectionChange,
 } from "./sortable-item-selection.js";
 import type {
+  ItemMovePlan,
   SortableItemDragBlock,
   SortableItemKeyboardCommand,
   SortableItemTree as SortableItemTreeModel,
@@ -30,20 +37,25 @@ import {
   type SortableItemDomTargetIdentity,
 } from "./sortable-item-tree-geometry.js";
 import {
+  resolveSortableItemListsProps,
   resolveSortableItemTreeProps,
+  type ResolvedSortableItemListsProps,
   type ResolvedSortableItemTreeProps,
+  type SortableItemListsProps,
   type SortableItemTreeProps,
 } from "./sortable-item-tree-react-contract.js";
 import {
   SortableItemDragOverlay as ItemDragOverlay,
   SortableItemRenderContext as ItemTreeRenderContext,
-  SortableItemBranch,
+  SortableItemSurfaceRoots,
   type SortableItemBounds as ItemBounds,
   type SortableItemDndIds as ItemDndIds,
   type SortableItemFeedback as ItemFeedback,
   type SortableItemRenderContextValue as ItemTreeRenderContextValue,
+  type SortableItemSurfaceRoot,
 } from "./sortable-item-tree-rendering.js";
 import {
+  resolveSortableItemKeyboardDestinationPreview,
   resolveSortableItemKeyboardPreview,
   resolveSortableItemPointerPreview,
   sortableItemMovePlansMatch,
@@ -88,6 +100,22 @@ type PreparedItemSession = Readonly<{
   branchRects: ReadonlyMap<string, SortableItemClientRect>;
   rowRects: ReadonlyMap<string, SortableItemClientRect>;
   sourceBounds: ItemBounds;
+}>;
+
+type ResolvedSortableItemSurfaceProps = Readonly<{
+  ariaLabel: string;
+  canContainChildren?: (itemId: string) => boolean;
+  canMove?: (plan: ItemMovePlan) => boolean;
+  destinationLabel(parentId: string): string;
+  disabled: boolean;
+  getItemLabel(itemId: string): string;
+  onMove(plan: ItemMovePlan): void;
+  onSelectedItemIdsChange(itemIds: readonly string[]): void;
+  renderItem(itemId: string): ReactNode;
+  roots: readonly SortableItemSurfaceRoot[];
+  selectedItemIds: readonly string[];
+  supportsListTransfer: boolean;
+  tree: SortableItemTreeModel;
 }>;
 
 const IDLE_FEEDBACK: ItemFeedback = {
@@ -171,7 +199,7 @@ function itemCountLabel(itemIds: readonly string[], firstLabel: string): string 
 
 function movementLabel(
   session: Pick<ItemSession, "block">,
-  props: ResolvedSortableItemTreeProps,
+  props: ResolvedSortableItemSurfaceProps,
 ): string {
   const firstItemId = session.block.itemIds[0];
   if (!firstItemId) throw new Error("A sortable item session must contain one moving item.");
@@ -181,7 +209,7 @@ function movementLabel(
 function overlayLabel(
   feedback: ItemFeedback,
   session: ItemSession | null,
-  props: ResolvedSortableItemTreeProps,
+  props: ResolvedSortableItemSurfaceProps,
 ): string {
   const itemIds = session?.block.itemIds ?? [];
   const firstItemId = itemIds[0] ?? feedback.activeItemId;
@@ -203,16 +231,14 @@ function preserveKeyboardPreview(
 
 function destinationLabel(
   preview: SortableItemPreview,
-  props: ResolvedSortableItemTreeProps,
+  props: ResolvedSortableItemSurfaceProps,
 ): string {
-  return preview.destinationParentId === props.tree.rootId
-    ? "the top level"
-    : props.getItemLabel(preview.destinationParentId);
+  return props.destinationLabel(preview.destinationParentId);
 }
 
 function moveCallbacks(
-  props: ResolvedSortableItemTreeProps,
-): Pick<ResolvedSortableItemTreeProps, "canContainChildren" | "canMove"> {
+  props: ResolvedSortableItemSurfaceProps,
+): Pick<ResolvedSortableItemSurfaceProps, "canContainChildren" | "canMove"> {
   return {
     ...(props.canContainChildren ? { canContainChildren: props.canContainChildren } : {}),
     ...(props.canMove ? { canMove: props.canMove } : {}),
@@ -222,7 +248,7 @@ function moveCallbacks(
 function previewMessage(
   session: ItemSession,
   preview: SortableItemPreview,
-  props: ResolvedSortableItemTreeProps,
+  props: ResolvedSortableItemSurfaceProps,
 ): string {
   return `Preview: ${movementLabel(session, props)} will move to ${destinationLabel(preview, props)}, position ${String(preview.destinationIndex + 1)}.`;
 }
@@ -230,7 +256,7 @@ function previewMessage(
 function completionMessage(
   session: ItemSession,
   preview: SortableItemPreview,
-  props: ResolvedSortableItemTreeProps,
+  props: ResolvedSortableItemSurfaceProps,
 ): string {
   return `${movementLabel(session, props)} moved to ${destinationLabel(preview, props)}, position ${String(preview.destinationIndex + 1)}.`;
 }
@@ -257,8 +283,162 @@ function selectedTargetIds(
   return blocked;
 }
 
+function currentDragBlock(session: ItemSession): SortableItemDragBlock {
+  return resolveSortableItemDragBlock(
+    session.projectedTree,
+    session.block.selectedItemIds,
+    session.activeItemId,
+  );
+}
+
+function outdentLeavesNamedList(
+  session: ItemSession,
+  command: SortableItemKeyboardCommand,
+  props: ResolvedSortableItemSurfaceProps,
+): boolean {
+  if (command !== "outdent") return false;
+  if (!props.supportsListTransfer) return false;
+  const sourceParentId = currentDragBlock(session).sourceParentId;
+  return props.roots.some((root) => root.parentId === sourceParentId);
+}
+
+function owningSurfaceRoot(
+  tree: SortableItemTreeModel,
+  itemId: string,
+  roots: readonly SortableItemSurfaceRoot[],
+): string | null {
+  const rootIds = new Set(roots.map((root) => root.parentId));
+  const index = createSortableItemTreeIndex(tree);
+  let parentId = index.parentByItem.get(itemId);
+  while (parentId !== undefined && !rootIds.has(parentId)) {
+    parentId = index.parentByItem.get(parentId);
+  }
+  return parentId ?? null;
+}
+
+function adjacentListDestination(
+  session: ItemSession,
+  roots: readonly SortableItemSurfaceRoot[],
+  direction: "next" | "previous",
+): Readonly<{ destinationIndex: number; destinationParentId: string }> | null {
+  const rootId = owningSurfaceRoot(session.projectedTree, session.activeItemId, roots);
+  const rootIndex = roots.findIndex((root) => root.parentId === rootId);
+  const destinationRoot = roots[rootIndex + (direction === "next" ? 1 : -1)];
+  if (!destinationRoot) return null;
+  const index = createSortableItemTreeIndex(session.projectedTree);
+  const block = currentDragBlock(session);
+  const sourceChildren = index.childrenByParent.get(block.sourceParentId) ?? [];
+  const moving = new Set(block.itemIds);
+  const firstSourceIndex = sourceChildren.findIndex((itemId) => moving.has(itemId));
+  const destinationChildren = index.childrenByParent.get(destinationRoot.parentId) ?? [];
+  return {
+    destinationIndex: Math.min(Math.max(0, firstSourceIndex), destinationChildren.length),
+    destinationParentId: destinationRoot.parentId,
+  };
+}
+
+type NamedListKeyboardTransfer = Readonly<{
+  direction: "next" | "previous";
+  session: ItemSession;
+}>;
+
+function namedListKeyboardTransfer(
+  session: ItemSession | null,
+  props: ResolvedSortableItemSurfaceProps,
+  key: string,
+): NamedListKeyboardTransfer | null {
+  if (!session || !props.supportsListTransfer) return null;
+  if (key === "PageUp") return { direction: "previous", session };
+  if (key === "PageDown") return { direction: "next", session };
+  return null;
+}
+
+function itemMovementStartKey(key: string): boolean {
+  return key === "Enter" || key === " ";
+}
+
+function singleTreeSurfaceProps(
+  resolved: ResolvedSortableItemTreeProps,
+): ResolvedSortableItemSurfaceProps {
+  return {
+    ...resolved,
+    destinationLabel: (parentId) =>
+      parentId === resolved.tree.rootId ? "the top level" : resolved.getItemLabel(parentId),
+    roots: [{ label: "Top-level items", listId: null, parentId: resolved.tree.rootId }],
+    supportsListTransfer: false,
+  };
+}
+
+function itemListId(index: SortableItemListsIndex, itemId: string): string {
+  const listId = index.itemListIdByItem.get(itemId);
+  if (!listId) {
+    throw new TypeError(`Sortable item ${JSON.stringify(itemId)} is not in a named list.`);
+  }
+  return listId;
+}
+
+function namedListsSurfaceProps(
+  index: SortableItemListsIndex,
+  resolved: ResolvedSortableItemListsProps,
+): ResolvedSortableItemSurfaceProps {
+  const labelBySyntheticRoot = new Map(
+    index.roots.map((root) => [root.syntheticRootId, root.label] as const),
+  );
+  const canContainChildren = resolved.canContainChildren
+    ? (itemId: string) => {
+        if (index.listIdBySyntheticRoot.has(itemId)) return true;
+        return resolved.canContainChildren?.(itemId, itemListId(index, itemId)) ?? true;
+      }
+    : undefined;
+  const canMove = resolved.canMove
+    ? (plan: ItemMovePlan) => {
+        if (plan.destinationParentId === index.aggregateRootId) return false;
+        return resolved.canMove?.(sortableItemListPlanFromInternal(index, plan)) ?? true;
+      }
+    : (plan: ItemMovePlan) => plan.destinationParentId !== index.aggregateRootId;
+  return {
+    ariaLabel: resolved.ariaLabel,
+    ...(canContainChildren ? { canContainChildren } : {}),
+    canMove,
+    destinationLabel: (parentId) => {
+      const rootLabel = labelBySyntheticRoot.get(parentId);
+      return rootLabel
+        ? `the ${rootLabel} list`
+        : resolved.getItemLabel(parentId, itemListId(index, parentId));
+    },
+    disabled: resolved.disabled,
+    getItemLabel: (itemId) => {
+      const rootLabel = labelBySyntheticRoot.get(itemId);
+      return rootLabel ?? resolved.getItemLabel(itemId, itemListId(index, itemId));
+    },
+    onMove: (plan) => resolved.onMove(sortableItemListPlanFromInternal(index, plan)),
+    onSelectedItemIdsChange: resolved.onSelectedItemIdsChange,
+    renderItem: (itemId) => resolved.renderItem(itemId, itemListId(index, itemId)),
+    roots: index.roots.map((root) => ({
+      label: root.label,
+      listId: root.listId,
+      parentId: root.syntheticRootId,
+    })),
+    selectedItemIds: resolved.selectedItemIds,
+    supportsListTransfer: index.roots.length > 1,
+    tree: index.aggregateTree,
+  };
+}
+
 export function SortableItemTree(props: SortableItemTreeProps) {
   const resolved = resolveSortableItemTreeProps(props);
+  return <SortableItemSurface resolved={singleTreeSurfaceProps(resolved)} />;
+}
+
+export function SortableItemLists(props: SortableItemListsProps) {
+  const index = useMemo(() => createSortableItemListsIndex(props.lists), [props.lists]);
+  const resolved = resolveSortableItemListsProps(props, index);
+  return <SortableItemSurface resolved={namedListsSurfaceProps(index, resolved)} />;
+}
+
+function SortableItemSurface({
+  resolved,
+}: Readonly<{ resolved: ResolvedSortableItemSurfaceProps }>) {
   const index = useMemo(() => createSortableItemTreeIndex(resolved.tree), [resolved.tree]);
   const reactId = useId().replaceAll(":", "");
   const treeId = `setta-sortable-item-tree-${reactId}`;
@@ -438,6 +618,19 @@ export function SortableItemTree(props: SortableItemTreeProps) {
       const current = propsRef.current;
       const command = keyboardCommand(event.keyboardDirection, session.direction);
       if (command) {
+        if (outdentLeavesNamedList(session, command, current)) {
+          updateRejectedFeedback(
+            session,
+            {
+              reason:
+                "Items cannot move outside a named list. Use Page Up or Page Down to move between lists.",
+              status: "rejected",
+            },
+            null,
+            true,
+          );
+          return;
+        }
         const resolution = resolveSortableItemKeyboardPreview({
           activeItemId: session.activeItemId,
           block: session.block,
@@ -601,20 +794,66 @@ export function SortableItemTree(props: SortableItemTreeProps) {
     [selectDragBlock],
   );
 
+  const previewAdjacentList = useCallback(
+    (session: ItemSession, direction: "next" | "previous") => {
+      const current = propsRef.current;
+      const destination = adjacentListDestination(session, current.roots, direction);
+      if (!destination) {
+        updateRejectedFeedback(
+          session,
+          {
+            reason: `There is no ${direction} named list.`,
+            status: "unchanged",
+          },
+          null,
+          true,
+        );
+        return;
+      }
+      const resolution = resolveSortableItemKeyboardDestinationPreview({
+        activeItemId: session.activeItemId,
+        block: session.block,
+        ...moveCallbacks(current),
+        ...destination,
+        originalTree: session.tree,
+        projectedTree: session.projectedTree,
+      });
+      if (resolution.status === "planned") {
+        updatePlannedFeedback(session, resolution, null);
+      } else {
+        updateRejectedFeedback(
+          session,
+          resolution,
+          null,
+          preserveKeyboardPreview(session, resolution),
+        );
+      }
+    },
+    [updatePlannedFeedback, updateRejectedFeedback],
+  );
+
   const handleKeyDown = useCallback(
     (itemId: string, event: KeyboardEvent<HTMLButtonElement>) => {
+      const session = sessionRef.current;
+      const transfer = namedListKeyboardTransfer(session, propsRef.current, event.key);
+      if (transfer) {
+        event.preventDefault();
+        event.stopPropagation();
+        previewAdjacentList(transfer.session, transfer.direction);
+        return;
+      }
       if (sessionRef.current && event.key.startsWith("Arrow")) {
         event.preventDefault();
         event.stopPropagation();
       }
-      if ((event.key === "Enter" || event.key === " ") && !sessionRef.current) {
+      if (itemMovementStartKey(event.key) && !sessionRef.current) {
         const current = propsRef.current;
         selectDragBlock({
           block: resolveSortableItemDragBlock(current.tree, current.selectedItemIds, itemId),
         });
       }
     },
-    [selectDragBlock],
+    [previewAdjacentList, selectDragBlock],
   );
 
   const movingItemIds = useMemo(() => {
@@ -652,7 +891,11 @@ export function SortableItemTree(props: SortableItemTreeProps) {
       registerItem,
       registerRow,
       renderItem: resolved.renderItem,
+      rootLabelByParent: new Map(
+        resolved.roots.map((root) => [root.parentId, root.label] as const),
+      ),
       selectedItemIds: new Set(resolved.selectedItemIds),
+      supportsListTransfer: resolved.supportsListTransfer,
     }),
     [
       blockedTargetIds,
@@ -670,7 +913,9 @@ export function SortableItemTree(props: SortableItemTreeProps) {
       registerRow,
       resolved.getItemLabel,
       resolved.renderItem,
+      resolved.roots,
       resolved.selectedItemIds,
+      resolved.supportsListTransfer,
     ],
   );
   const dragOverlayLabel = overlayLabel(feedback, sessionRef.current, resolved);
@@ -681,6 +926,7 @@ export function SortableItemTree(props: SortableItemTreeProps) {
       className={`setta-workspace__sortable-item-tree setta-workspace__interaction-boundary ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_ROOT_DRAG_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
       data-sortable-item-disabled={resolved.disabled ? "true" : "false"}
       data-sortable-item-interaction={feedback.status}
+      data-sortable-item-lists={resolved.supportsListTransfer ? "" : undefined}
       data-sortable-item-tree=""
       data-workspace-local-shortcuts={feedback.status === "idle" ? undefined : ""}
       data-workspace-prevent-pan="true"
@@ -726,7 +972,7 @@ export function SortableItemTree(props: SortableItemTreeProps) {
             return prepared.sourceBounds;
           }}
         >
-          <SortableItemBranch depth={0} parentId={index.rootId} />
+          <SortableItemSurfaceRoots roots={resolved.roots} treeId={treeId} />
         </UpstreamDndBoundary>
       </ItemTreeRenderContext.Provider>
     </div>

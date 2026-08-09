@@ -6,8 +6,9 @@ restoration, and pre-mounted polite announcements. Automated scans supplement th
 contracts; they do not replace host testing with a keyboard and screen reader.
 
 Set a concise `ariaLabel` on each `Workspace` when a page contains more than one workbench. Give
-each `WorkspaceOutline` and `SortableItemTree` its own `ariaLabel`, and give sortable items stable
-labels.
+each `WorkspaceOutline`, `SortableItemTree`, and `SortableItemLists` surface its own `ariaLabel`,
+and give sortable items stable labels. Each named item list exposes a visible label and a native
+named region inside the shared movement group.
 
 ## Global and selection commands
 
@@ -49,19 +50,21 @@ announced from a polite live region.
 
 ## Sortable-item commands
 
-| Focus                       | Keys                | Result                                                                        |
-| --------------------------- | ------------------- | ----------------------------------------------------------------------------- |
-| Item selection control      | Enter or Space      | Select that item; Control, Command, or Shift toggles it.                      |
-| Item movement handle        | Enter or Space      | Start movement; press again to commit the displayed preview.                  |
-| Active item movement handle | ArrowUp / ArrowDown | Move before or after siblings.                                                |
-| Active item movement handle | Logical forward     | Indent into a valid preceding container: ArrowRight in LTR, ArrowLeft in RTL. |
-| Active item movement handle | Logical backward    | Outdent: ArrowLeft in LTR, ArrowRight in RTL.                                 |
-| Active item movement handle | Escape              | Cancel and restore focus.                                                     |
+| Focus                                      | Keys                | Result                                                                        |
+| ------------------------------------------ | ------------------- | ----------------------------------------------------------------------------- |
+| Item selection control                     | Enter or Space      | Select that item; Control, Command, or Shift toggles it.                      |
+| Item movement handle                       | Enter or Space      | Start movement; press again to commit the displayed preview.                  |
+| Active item movement handle                | ArrowUp / ArrowDown | Move before or after siblings.                                                |
+| Active item movement handle                | Logical forward     | Indent into a valid preceding container: ArrowRight in LTR, ArrowLeft in RTL. |
+| Active item movement handle                | Logical backward    | Outdent: ArrowLeft in LTR, ArrowRight in RTL.                                 |
+| Active item movement handle in named lists | Page Up / Page Down | Move to the corresponding position in the previous or next named list.        |
+| Active item movement handle                | Escape              | Cancel and restore focus.                                                     |
 
 The package announces whether a selected sibling block or mixed-parent active-item fallback is
-moving, the proposed parent and position, host rejection, completion, and cancellation. Inputs and
-buttons rendered inside an item row remain natively operable because the row itself is not the drag
-activator.
+moving, the proposed list, parent, and position, host rejection, completion, and cancellation.
+Logical backward stops at a named-list root and announces the Page Up/Page Down alternative rather
+than silently crossing a region. Inputs and buttons rendered inside an item row remain natively
+operable because the row itself is not the drag activator.
 
 ## Outline navigator commands
 

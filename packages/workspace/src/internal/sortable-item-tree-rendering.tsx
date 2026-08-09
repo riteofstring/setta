@@ -39,6 +39,12 @@ export type SortableItemDndIds = Readonly<{
   targetById: ReadonlyMap<string, SortableItemDomTargetIdentity>;
 }>;
 
+export type SortableItemSurfaceRoot = Readonly<{
+  label: string;
+  listId: string | null;
+  parentId: string;
+}>;
+
 export type SortableItemRenderContextValue = Readonly<{
   blockedTargetIds: ReadonlySet<string>;
   canContain(itemId: string): boolean;
@@ -58,7 +64,9 @@ export type SortableItemRenderContextValue = Readonly<{
   registerItem(itemId: string, element: HTMLElement | null): void;
   registerRow(itemId: string, element: HTMLElement | null): void;
   renderItem(itemId: string): ReactNode;
+  rootLabelByParent: ReadonlyMap<string, string>;
   selectedItemIds: ReadonlySet<string>;
+  supportsListTransfer: boolean;
 }>;
 
 export const SortableItemRenderContext = createContext<SortableItemRenderContextValue | null>(null);
@@ -100,6 +108,15 @@ function rowDropState(
   if (feedback.targetId !== targetId) return undefined;
   if (feedback.status === "rejected") return "rejected";
   return feedback.status === "planned" ? "target" : undefined;
+}
+
+function itemKeyboardShortcuts(supportsListTransfer: boolean): string {
+  const listKeys = supportsListTransfer ? " PageUp PageDown" : "";
+  return `Enter Space ArrowUp ArrowDown ArrowLeft ArrowRight${listKeys} Escape`;
+}
+
+function itemListTransferInstruction(supportsListTransfer: boolean): string {
+  return supportsListTransfer ? ", Page Up or Page Down to move between named lists" : "";
 }
 
 function SortableItemRow({ depth, itemId }: Readonly<{ depth: number; itemId: string }>) {
@@ -169,7 +186,7 @@ function SortableItemRow({ depth, itemId }: Readonly<{ depth: number; itemId: st
         <button
           aria-describedby={`${sourceId}-description`}
           aria-grabbed={active}
-          aria-keyshortcuts="Enter Space ArrowUp ArrowDown ArrowLeft ArrowRight Escape"
+          aria-keyshortcuts={itemKeyboardShortcuts(context.supportsListTransfer)}
           aria-label={`Move ${context.itemLabel(itemId)}`}
           aria-roledescription="draggable"
           className="setta-workspace__sortable-item-handle"
@@ -183,7 +200,9 @@ function SortableItemRow({ depth, itemId }: Readonly<{ depth: number; itemId: st
         </button>
         <span className="setta-workspace__visually-hidden" id={`${sourceId}-description`}>
           Press Enter or Space to start. Use Up and Down to reorder, logical forward to indent,
-          logical backward to outdent, Enter or Space to finish, or Escape to cancel.
+          logical backward to outdent
+          {itemListTransferInstruction(context.supportsListTransfer)}, Enter or Space to finish, or
+          Escape to cancel.
         </span>
         {dropState === "rejected" ? (
           <span aria-hidden="true" className="setta-workspace__sortable-item-unavailable">
@@ -242,19 +261,22 @@ function branchPlaceholderIndex(
 }
 
 function branchLabel(context: SortableItemRenderContextValue, parentId: string): string {
-  return parentId === context.index.rootId
-    ? "Top-level items"
-    : `${context.itemLabel(parentId)} child items`;
+  return context.rootLabelByParent.get(parentId) ?? `${context.itemLabel(parentId)} child items`;
 }
 
 function EmptySortableItemBranch({
   depth,
+  label,
   visible,
-}: Readonly<{ depth: number; visible: boolean }>) {
+}: Readonly<{ depth: number; label: string; visible: boolean }>) {
   if (!visible) return null;
   return (
     <li className="setta-workspace__sortable-item-empty">
-      {depth === 0 ? "No items" : "Drop items here"}
+      {depth === 0
+        ? label === "Top-level items"
+          ? "No items"
+          : `No items in ${label}`
+        : "Drop items here"}
     </li>
   );
 }
@@ -297,10 +319,7 @@ function renderBranchRows(
   return rows;
 }
 
-export function SortableItemBranch({
-  depth,
-  parentId,
-}: Readonly<{ depth: number; parentId: string }>) {
+function SortableItemBranch({ depth, parentId }: Readonly<{ depth: number; parentId: string }>) {
   const context = useSortableItemRenderContext();
   const { registerBranch } = context;
   const targetId = context.dndIds.parentTargetByParent.get(parentId);
@@ -321,12 +340,13 @@ export function SortableItemBranch({
     [droppable, parentId, registerBranch],
   );
   const children = context.index.childrenByParent.get(parentId) ?? [];
+  const label = branchLabel(context, parentId);
   const placeholderIndex = branchPlaceholderIndex(context, children, parentId);
   const placeholderHeight = (context.feedback.bounds?.height ?? 40) / context.feedback.zoom;
   const dropState = context.feedback.targetId === targetId ? context.feedback.status : undefined;
   return (
     <ul
-      aria-label={branchLabel(context, parentId)}
+      aria-label={label}
       className="setta-workspace__sortable-item-list"
       data-sortable-item-drop-state={dropState}
       data-sortable-item-parent-id={parentId}
@@ -334,10 +354,40 @@ export function SortableItemBranch({
     >
       <EmptySortableItemBranch
         depth={depth}
+        label={label}
         visible={children.length === 0 && placeholderIndex < 0}
       />
       {renderBranchRows(context, children, depth, parentId, placeholderIndex, placeholderHeight)}
     </ul>
+  );
+}
+
+export function SortableItemSurfaceRoots({
+  roots,
+  treeId,
+}: Readonly<{ roots: readonly SortableItemSurfaceRoot[]; treeId: string }>) {
+  if (roots.length === 1 && roots[0]?.listId === null) {
+    return <SortableItemBranch depth={0} parentId={roots[0].parentId} />;
+  }
+  return (
+    <div className="setta-workspace__sortable-item-lists">
+      {roots.map((root, index) => {
+        const labelId = `${treeId}-list-${String(index)}-label`;
+        return (
+          <section
+            aria-labelledby={labelId}
+            className="setta-workspace__sortable-item-list-region"
+            data-sortable-item-list-id={root.listId}
+            key={root.parentId}
+          >
+            <div className="setta-workspace__sortable-item-list-label" id={labelId}>
+              {root.label}
+            </div>
+            <SortableItemBranch depth={0} parentId={root.parentId} />
+          </section>
+        );
+      })}
+    </div>
   );
 }
 

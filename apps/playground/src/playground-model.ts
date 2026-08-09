@@ -1,10 +1,10 @@
 import {
-  SortableItemTreeValidationError,
   WORKSPACE_DOCUMENT_SCHEMA_VERSION,
   WorkspaceDocumentValidationError,
   parseWorkspaceDocument,
   serializeWorkspaceDocument,
-  validateSortableItemTree,
+  validateSortableItemLists,
+  type SortableItemList,
   type SortableItemTree,
   type WorkspaceAppearance,
   type WorkspaceDocument,
@@ -28,7 +28,7 @@ export type PlaygroundFieldItem =
 
 export type PlaygroundFieldListData = Readonly<{
   items: Readonly<Record<string, PlaygroundFieldItem>>;
-  tree: SortableItemTree;
+  lists: readonly SortableItemList[];
   type: "field-list";
 }>;
 
@@ -159,14 +159,29 @@ export function createPlaygroundFieldListData(): PlaygroundFieldListData {
       preferences: { label: "Preferences", type: "group" },
       theme: { label: "Theme", type: "field", value: "System" },
     },
-    tree: {
-      childrenByParent: {
-        "field-list-root": ["name", "email", "preferences", "notes"],
-        preferences: ["theme"],
+    lists: [
+      {
+        label: "Required fields",
+        listId: "required-fields",
+        tree: {
+          childrenByParent: {
+            "required-fields-root": ["name", "email", "preferences"],
+            preferences: ["theme"],
+          },
+          itemIds: ["name", "email", "preferences", "theme"],
+          rootId: "required-fields-root",
+        },
       },
-      itemIds: ["name", "email", "preferences", "theme", "notes"],
-      rootId: "field-list-root",
-    },
+      {
+        label: "Optional fields",
+        listId: "optional-fields",
+        tree: {
+          childrenByParent: { "optional-fields-root": ["notes"] },
+          itemIds: ["notes"],
+          rootId: "optional-fields-root",
+        },
+      },
+    ],
     type: "field-list",
   };
 }
@@ -270,22 +285,20 @@ function validateFieldListData(
 ): asserts value is PlaygroundFieldListData {
   const label = `Field-list data for ${JSON.stringify(sectionId)}`;
   const record = plainRecord(value, label);
-  assertExactKeys(record, ["items", "tree", "type"], label);
+  assertExactKeys(record, ["items", "lists", "type"], label);
   if (record.type !== "field-list") {
     throw new PlaygroundDocumentPayloadError(`${label} must use the field-list type.`);
   }
   try {
-    validateSortableItemTree(record.tree);
+    validateSortableItemLists(record.lists);
   } catch (error) {
-    if (error instanceof SortableItemTreeValidationError) {
-      throw new PlaygroundDocumentPayloadError(
-        `${label} has an invalid item tree: ${error.message}`,
-      );
+    if (error instanceof TypeError) {
+      throw new PlaygroundDocumentPayloadError(`${label} has invalid item lists: ${error.message}`);
     }
     throw error;
   }
   const items = plainRecord(record.items, `${label} items`);
-  const itemIds = new Set(record.tree.itemIds);
+  const itemIds = new Set(record.lists.flatMap((list) => list.tree.itemIds));
   const itemKeys = Object.keys(items);
   if (itemKeys.length !== itemIds.size || itemKeys.some((itemId) => !itemIds.has(itemId))) {
     throw new PlaygroundDocumentPayloadError(
@@ -295,7 +308,7 @@ function validateFieldListData(
   const validatedItems = new Map(
     itemKeys.map((itemId) => [itemId, validateFieldItem(items[itemId], itemId)] as const),
   );
-  validateFieldListContainment(record.tree, validatedItems);
+  record.lists.forEach((list) => validateFieldListContainment(list.tree, validatedItems));
 }
 
 function validatePlaygroundPayloads(document: WorkspaceDocument<unknown>): void {

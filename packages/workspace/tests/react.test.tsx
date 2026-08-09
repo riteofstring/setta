@@ -7,6 +7,7 @@ import {
   type WorkspaceSection,
 } from "../src/core.js";
 import {
+  SortableItemLists,
   SortableItemTree,
   Workspace,
   WorkspaceDetachmentProvider,
@@ -797,6 +798,21 @@ describe("SortableItemTree scaffold", () => {
     expect(markup).toContain('aria-label="name value"');
   });
 
+  it("preserves the single-tree empty-state copy", () => {
+    const markup = renderToStaticMarkup(
+      <SortableItemTree
+        onMove={() => undefined}
+        onSelectedItemIdsChange={() => undefined}
+        renderItem={() => null}
+        selectedItemIds={[]}
+        tree={{ childrenByParent: { root: [] }, itemIds: [], rootId: "root" }}
+      />,
+    );
+
+    expect(markup).toContain(">No items</li>");
+    expect(markup).not.toContain("No items in Top-level items");
+  });
+
   it("fails specifically for an invalid accessible label or stale selection", () => {
     expect(() =>
       renderToStaticMarkup(
@@ -833,6 +849,92 @@ describe("SortableItemTree scaffold", () => {
         />,
       ),
     ).toThrow('item "group" has children but canContainChildren rejected it');
+  });
+
+  it("renders multiple named list regions under one movement owner", () => {
+    const lists = [
+      {
+        label: "Required fields",
+        listId: "required",
+        tree: {
+          childrenByParent: { "required-root": ["name"] },
+          itemIds: ["name"],
+          rootId: "required-root",
+        },
+      },
+      {
+        label: "Optional fields",
+        listId: "optional",
+        tree: {
+          childrenByParent: { "optional-root": [] },
+          itemIds: [],
+          rootId: "optional-root",
+        },
+      },
+    ] as const;
+    const markup = renderToStaticMarkup(
+      <SortableItemLists
+        ariaLabel="Profile field lists"
+        getItemLabel={() => "Name"}
+        lists={lists}
+        onMove={() => undefined}
+        onSelectedItemIdsChange={() => undefined}
+        renderItem={() => <input aria-label="Name" />}
+        selectedItemIds={["name"]}
+      />,
+    );
+
+    expect(markup).toContain('aria-label="Profile field lists"');
+    expect(markup).toContain('data-sortable-item-lists=""');
+    expect(markup).toContain('data-sortable-item-list-id="required"');
+    expect(markup).toContain('data-sortable-item-list-id="optional"');
+    expect(markup).toContain(">Required fields</div>");
+    expect(markup).toContain(">Optional fields</div>");
+    expect(markup).toContain('aria-label="Required fields"');
+    expect(markup).toContain('aria-label="Optional fields"');
+    expect(markup).toContain("No items in Optional fields");
+    expect(markup).toContain(
+      'aria-keyshortcuts="Enter Space ArrowUp ArrowDown ArrowLeft ArrowRight PageUp PageDown Escape"',
+    );
+    expect(markup).toContain("Page Up or Page Down to move between named lists");
+  });
+
+  it("fails before rendering inconsistent named-list callbacks or selection", () => {
+    const lists = [
+      {
+        label: "Groups",
+        listId: "groups",
+        tree: {
+          childrenByParent: { group: ["child"], root: ["group"] },
+          itemIds: ["group", "child"],
+          rootId: "root",
+        },
+      },
+    ] as const;
+
+    expect(() =>
+      renderToStaticMarkup(
+        <SortableItemLists
+          canContainChildren={() => false}
+          lists={lists}
+          onMove={() => undefined}
+          onSelectedItemIdsChange={() => undefined}
+          renderItem={() => null}
+          selectedItemIds={[]}
+        />,
+      ),
+    ).toThrow('item "group" has children but canContainChildren rejected it');
+    expect(() =>
+      renderToStaticMarkup(
+        <SortableItemLists
+          lists={lists}
+          onMove={() => undefined}
+          onSelectedItemIdsChange={() => undefined}
+          renderItem={() => null}
+          selectedItemIds={["missing"]}
+        />,
+      ),
+    ).toThrow("selectedItemIds must contain only known item IDs");
   });
 });
 

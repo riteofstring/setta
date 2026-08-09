@@ -265,6 +265,66 @@ export function resolveSortableItemKeyboardPreview({
   };
 }
 
+export function resolveSortableItemKeyboardDestinationPreview({
+  activeItemId,
+  block,
+  canContainChildren,
+  canMove,
+  destinationIndex,
+  destinationParentId,
+  originalTree,
+  projectedTree,
+}: Readonly<{
+  activeItemId: string;
+  block: SortableItemDragBlock;
+  canContainChildren?: (itemId: string) => boolean;
+  canMove?: (plan: ItemMovePlan) => boolean;
+  destinationIndex: number;
+  destinationParentId: string;
+  originalTree: SortableItemTree;
+  projectedTree: SortableItemTree;
+}>): SortableItemPreviewResolution {
+  const decision = planSortableItemMove({
+    activeItemId,
+    ...(canContainChildren ? { canContainChildren } : {}),
+    destinationIndex,
+    destinationParentId,
+    selectedItemIds: block.selectedItemIds,
+    tree: projectedTree,
+  });
+  if (decision.status === "rejected") {
+    return { reason: decision.reason, status: "rejected" };
+  }
+  if (decision.status === "unchanged") {
+    return {
+      projectedTree,
+      reason: "The selected items are already at that position.",
+      status: "unchanged",
+    };
+  }
+  const nextTree = applySortableItemMove(projectedTree, decision.plan);
+  const plan = rebasedPlan(originalTree, nextTree, block);
+  if (sortableItemTreesMatch(nextTree, originalTree)) {
+    return {
+      projectedTree: nextTree,
+      reason: "The selected items are back at their original position.",
+      status: "unchanged",
+    };
+  }
+  if (!hostAccepts(canMove, plan)) {
+    return { reason: "The host rejected this item move.", status: "rejected" };
+  }
+  return {
+    preview: {
+      destinationIndex: plan.destinationIndex,
+      destinationParentId: plan.destinationParentId,
+      plan,
+      projectedTree: nextTree,
+    },
+    status: "planned",
+  };
+}
+
 export function sortableItemMoveStillAllowed({
   canContainChildren,
   canMove,

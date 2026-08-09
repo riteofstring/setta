@@ -1,4 +1,17 @@
 export { planSortableItemKeyboardMove } from "./internal/sortable-item-keyboard-move.js";
+export {
+  applySortableItemListMove,
+  planSortableItemListMove,
+  validateSortableItemLists,
+} from "./internal/sortable-item-lists.js";
+export type {
+  SortableItemList,
+  SortableItemListDragBlock,
+  SortableItemListMoveDecision,
+  SortableItemListMoveInput,
+  SortableItemListMovePlan,
+  SortableItemListMoveRejectionCode,
+} from "./internal/sortable-item-lists.js";
 export { applySortableItemMove } from "./internal/sortable-item-move-application.js";
 export { planSortableItemMove } from "./internal/sortable-item-move-planning.js";
 export {

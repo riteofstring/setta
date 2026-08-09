@@ -1,6 +1,6 @@
-import { applySortableItemMove, type ItemMovePlan } from "@setta/workspace/core";
+import { applySortableItemListMove, type SortableItemListMovePlan } from "@setta/workspace/core";
 import {
-  SortableItemTree,
+  SortableItemLists,
   WorkspaceInteractionBoundary,
   type SectionDefinition,
   type SectionRenderProps,
@@ -108,14 +108,14 @@ function SampleFieldListSection({
     () => selectionStore.get(sectionId) ?? [],
   );
   useEffect(() => {
-    const existingIds = new Set(fieldList.tree.itemIds);
+    const existingIds = new Set(fieldList.lists.flatMap((list) => list.tree.itemIds));
     setSelectedItemIds((current) => {
       const next = current.filter((itemId) => existingIds.has(itemId));
       if (next.length === current.length) return current;
       selectionStore.set(sectionId, next);
       return next;
     });
-  }, [fieldList.tree.itemIds, sectionId, selectionStore]);
+  }, [fieldList.lists, sectionId, selectionStore]);
   const itemLabel = (itemId: string) => fieldList.items[itemId]?.label ?? itemId;
   const handleValueChange = (itemId: string, value: string) => {
     const item = fieldList.items[itemId];
@@ -131,11 +131,17 @@ function SampleFieldListSection({
       `${item.label} updated.`,
     );
   };
-  const handleMove = (plan: ItemMovePlan) => {
+  const handleMove = (plan: SortableItemListMovePlan) => {
+    const destinationList = fieldList.lists.find((list) => list.listId === plan.destinationListId);
+    if (!destinationList) {
+      throw new TypeError(
+        `Field-list destination ${JSON.stringify(plan.destinationListId)} is unavailable.`,
+      );
+    }
     onDataChange(
       sectionId,
-      { ...fieldList, tree: applySortableItemMove(fieldList.tree, plan) },
-      `${itemLabel(plan.itemIds[0] ?? "Item")} item move stored in the section payload.`,
+      { ...fieldList, lists: applySortableItemListMove(fieldList.lists, plan) },
+      `${itemLabel(plan.itemIds[0] ?? "Item")} moved to ${destinationList.label}.`,
     );
   };
   const handleSelectionChange = (itemIds: readonly string[]) => {
@@ -143,14 +149,15 @@ function SampleFieldListSection({
     setSelectedItemIds(itemIds);
   };
   return (
-    <SortableItemTree
-      ariaLabel="Profile field order"
+    <SortableItemLists
+      ariaLabel="Profile field lists"
       canContainChildren={(itemId) => fieldList.items[itemId]?.type === "group"}
       canMove={(plan) =>
         !(plan.destinationParentId === "preferences" && plan.itemIds.includes("notes"))
       }
       disabled={readOnly}
       getItemLabel={itemLabel}
+      lists={fieldList.lists}
       onMove={handleMove}
       onSelectedItemIdsChange={handleSelectionChange}
       renderItem={(itemId) => {
@@ -168,7 +175,6 @@ function SampleFieldListSection({
         );
       }}
       selectedItemIds={selectedItemIds}
-      tree={fieldList.tree}
     />
   );
 }

@@ -11,7 +11,7 @@ smallest guide that matches the integration being built.
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [Host integration](integration.md)                          | Document ownership, persistence, capabilities, creation, auto layout, clipboard adapters, detachable windows, outline navigation, controller commands, extensions, and history. |
 | [Recursive sections](recursive-sections.md)                 | Container registration, canonical containment, sorting and free-move modes, orientation, locking, minimizing, size modes, overflow, snapping, and section presentation.         |
-| [Sortable item trees](sortable-item-trees.md)               | Host-owned item data, validation, selection, atomic move plans, pointer/touch/keyboard movement, zoom, and persistence.                                                         |
+| [Sortable item trees](sortable-item-trees.md)               | Host-owned item data, named lists, validation, selection, atomic same-list/cross-list move plans, pointer/touch/keyboard movement, zoom, and persistence.                       |
 | [Theming](theming.md)                                       | Required CSS, scoped light/dark/system appearance, semantic tokens, grid styling, chrome, accents, tags, and host-renderer theming.                                             |
 | [Accessibility and keyboard](accessibility-and-keyboard.md) | Package keyboard commands, focus and announcements, host-renderer responsibilities, zoom/reflow, coarse pointers, and reduced motion.                                           |
 | [Verification and support](verification-and-support.md)     | Performance guidance, browser policy, local package checks, supply-chain policy, attribution, deferred capabilities, and non-goals.                                             |
@@ -29,8 +29,8 @@ smallest guide that matches the integration being built.
   document, selection, focus, and viewport boundary.
 - Root auto layout owns only measured rectangle packing and one atomic position command; payloads,
   root sizes, stacking, and persistence retain their existing owners.
-- `SortableItemTree` owns item interaction and planning; the host owns the item tree and applies an
-  accepted `ItemMovePlan`.
+- `SortableItemTree` or `SortableItemLists` owns item interaction and planning; the host owns the
+  tree or named-list array and applies the corresponding accepted move plan.
 - Upstream canvas and drag-and-drop contracts stay behind package adapters.
 - No current Setta application model, backend, source alias, compatibility layer, or undeclared
   package path is part of the consumer contract.

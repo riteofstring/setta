@@ -38,6 +38,14 @@ async function itemTreeOrder(tree: Locator, parentId: string): Promise<readonly 
     .evaluateAll((items) => items.map((item) => item.getAttribute("data-sortable-item-id") ?? ""));
 }
 
+async function namedListOrder(tree: Locator, listId: string): Promise<readonly string[]> {
+  return tree
+    .locator(
+      `[data-sortable-item-list-id="${listId}"] > .setta-workspace__sortable-item-list > [data-sortable-item-id]`,
+    )
+    .evaluateAll((items) => items.map((item) => item.getAttribute("data-sortable-item-id") ?? ""));
+}
+
 async function requiredBox(locator: Locator, label: string) {
   const box = await locator.boundingBox();
   if (!box) throw new Error(`${label} must expose browser geometry.`);
@@ -111,7 +119,7 @@ test("keyboard item movement stays atomic, editable, persistent, and accessible"
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
   const fieldSection = await resetFieldListExample(page);
   await hideDataAndFit(page);
-  const tree = fieldSection.getByRole("group", { name: "Profile field order" });
+  const tree = fieldSection.getByRole("group", { name: "Profile field lists" });
   const nameInput = tree.getByRole("textbox", { name: "Name" });
   await nameInput.fill("Grace Hopper");
   await expect(nameInput).toHaveValue("Grace Hopper");
@@ -143,12 +151,7 @@ test("keyboard item movement stays atomic, editable, persistent, and accessible"
     "The selected items are back at their original position.",
   );
   await page.keyboard.press("Enter");
-  expect(await itemTreeOrder(tree, "field-list-root")).toEqual([
-    "name",
-    "email",
-    "preferences",
-    "notes",
-  ]);
+  expect(await namedListOrder(tree, "required-fields")).toEqual(["name", "email", "preferences"]);
   await expect(tree.getByRole("status")).toHaveText("Email did not move.");
   await expect(emailHandle).toBeFocused();
 
@@ -178,7 +181,7 @@ test("keyboard item movement stays atomic, editable, persistent, and accessible"
     "none",
   );
   await expect(sectionHandle).toBeEnabled();
-  expect(await itemTreeOrder(tree, "field-list-root")).toEqual(["name", "preferences", "notes"]);
+  expect(await namedListOrder(tree, "required-fields")).toEqual(["name", "preferences"]);
   expect(await itemTreeOrder(tree, "preferences")).toEqual(["theme", "email"]);
   await expect(tree.getByRole("status")).toHaveText("Email moved to Preferences, position 2.");
   await nameInput.focus();
@@ -249,22 +252,43 @@ test("keyboard item movement stays atomic, editable, persistent, and accessible"
   );
 });
 
-test("an accepted item-tree move survives JSON import and local reload", async ({ page }) => {
-  await page.setViewportSize({ height: 1_000, width: 1_440 });
+test("an accepted cross-list move survives JSON import and local reload", async ({ page }) => {
+  await page.setViewportSize({ height: 1_200, width: 1_440 });
   let fieldSection = await resetFieldListExample(page);
   await hideDataAndFit(page);
-  let tree = fieldSection.getByRole("group", { name: "Profile field order" });
+  let tree = fieldSection.getByRole("group", { name: "Profile field lists" });
+
+  await expect(tree.getByRole("region", { name: "Required fields" })).toBeVisible();
+  await expect(tree.getByRole("region", { name: "Optional fields" })).toBeVisible();
 
   const emailHandle = tree.getByRole("button", { name: "Move Email" });
+  await expect(emailHandle).toHaveAttribute("aria-keyshortcuts", /PageUp PageDown/u);
   await emailHandle.focus();
   await page.keyboard.press("Enter");
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowLeft");
+  await expect(tree.getByRole("status")).toHaveText(
+    "Items cannot move outside a named list. Use Page Up or Page Down to move between lists.",
+  );
+  await page.keyboard.press("PageDown");
+  await expect(
+    tree
+      .getByRole("region", { name: "Optional fields" })
+      .locator('[data-sortable-item-placeholder][data-sortable-item-destination-index="1"]'),
+  ).toBeVisible();
+  await expect(tree.getByRole("status")).toHaveText(
+    "Preview: Email will move to the Optional fields list, position 2.",
+  );
+  await fieldSection.locator(".setta-workspace__section-content").evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect(fieldSection).toHaveScreenshot("sortable-item-cross-list-preview.png");
   await page.keyboard.press("Enter");
-  await expect
-    .poll(() => itemTreeOrder(tree, "field-list-root"))
-    .toEqual(["name", "preferences", "notes"]);
-  await expect.poll(() => itemTreeOrder(tree, "preferences")).toEqual(["theme", "email"]);
+  await expect.poll(() => namedListOrder(tree, "required-fields")).toEqual(["name", "preferences"]);
+  await expect.poll(() => namedListOrder(tree, "optional-fields")).toEqual(["notes", "email"]);
+  await expect(tree.getByRole("button", { name: "Move Email" })).toBeFocused();
+  await expect(tree.getByRole("status")).toHaveText(
+    "Email moved to the Optional fields list, position 2.",
+  );
   await expect
     .poll(() =>
       page.evaluate((key) => {
@@ -273,16 +297,29 @@ test("an accepted item-tree move survives JSON import and local reload", async (
         const document = JSON.parse(stored) as {
           sections: Record<
             string,
-            { data?: { tree?: { childrenByParent?: Record<string, readonly string[]> } } }
+            {
+              data?: {
+                lists?: readonly {
+                  listId: string;
+                  tree: { childrenByParent?: Record<string, readonly string[]> };
+                }[];
+              };
+            }
           >;
         };
-        return document.sections["example-fields"]?.data?.tree?.childrenByParent ?? null;
+        return document.sections["example-fields"]?.data?.lists ?? null;
       }, DOCUMENT_STORAGE_KEY),
     )
-    .toMatchObject({
-      "field-list-root": ["name", "preferences", "notes"],
-      preferences: ["theme", "email"],
-    });
+    .toMatchObject([
+      {
+        listId: "required-fields",
+        tree: { childrenByParent: { "required-fields-root": ["name", "preferences"] } },
+      },
+      {
+        listId: "optional-fields",
+        tree: { childrenByParent: { "optional-fields-root": ["notes", "email"] } },
+      },
+    ]);
 
   await page.getByRole("button", { name: "Show workspace data" }).click();
   const editor = page.getByTestId("workspace-json");
@@ -293,27 +330,24 @@ test("an accepted item-tree move survives JSON import and local reload", async (
     .getByRole("button", { name: "Reset workspace" })
     .click();
   fieldSection = page.getByRole("article", { name: "Profile fields" });
-  tree = fieldSection.getByRole("group", { name: "Profile field order" });
+  tree = fieldSection.getByRole("group", { name: "Profile field lists" });
   await expect
-    .poll(() => itemTreeOrder(tree, "field-list-root"))
-    .toEqual(["name", "email", "preferences", "notes"]);
+    .poll(() => namedListOrder(tree, "required-fields"))
+    .toEqual(["name", "email", "preferences"]);
+  await expect.poll(() => namedListOrder(tree, "optional-fields")).toEqual(["notes"]);
 
   await editor.fill(movedDocumentJson);
   await page.getByRole("button", { name: "Import JSON" }).click();
   fieldSection = page.getByRole("article", { name: "Profile fields" });
-  tree = fieldSection.getByRole("group", { name: "Profile field order" });
-  await expect
-    .poll(() => itemTreeOrder(tree, "field-list-root"))
-    .toEqual(["name", "preferences", "notes"]);
-  await expect.poll(() => itemTreeOrder(tree, "preferences")).toEqual(["theme", "email"]);
+  tree = fieldSection.getByRole("group", { name: "Profile field lists" });
+  await expect.poll(() => namedListOrder(tree, "required-fields")).toEqual(["name", "preferences"]);
+  await expect.poll(() => namedListOrder(tree, "optional-fields")).toEqual(["notes", "email"]);
 
   await page.reload();
   fieldSection = page.getByRole("article", { name: "Profile fields" });
-  tree = fieldSection.getByRole("group", { name: "Profile field order" });
-  await expect
-    .poll(() => itemTreeOrder(tree, "field-list-root"))
-    .toEqual(["name", "preferences", "notes"]);
-  await expect.poll(() => itemTreeOrder(tree, "preferences")).toEqual(["theme", "email"]);
+  tree = fieldSection.getByRole("group", { name: "Profile field lists" });
+  await expect.poll(() => namedListOrder(tree, "required-fields")).toEqual(["name", "preferences"]);
+  await expect.poll(() => namedListOrder(tree, "optional-fields")).toEqual(["notes", "email"]);
 });
 
 test("pointer block feedback stays zoom-correct and excludes outer movement owners", async ({
@@ -324,7 +358,7 @@ test("pointer block feedback stays zoom-correct and excludes outer movement owne
   await setWorkspaceZoom(page, 0.5);
   fieldSection = page.getByRole("article", { name: "Profile fields" });
   await fieldSection.scrollIntoViewIfNeeded();
-  let tree = fieldSection.getByRole("group", { name: "Profile field order" });
+  let tree = fieldSection.getByRole("group", { name: "Profile field lists" });
   await tree.getByRole("button", { name: "Select Name" }).click();
   await expect(tree.getByRole("button", { name: "Deselect Name" })).toBeVisible();
   await tree.getByRole("button", { name: "Select Email" }).click({ modifiers: ["Control"] });
@@ -365,9 +399,10 @@ test("pointer block feedback stays zoom-correct and excludes outer movement owne
     0,
   );
   await page.mouse.up();
+  await expect.poll(() => namedListOrder(tree, "required-fields")).toEqual(["preferences"]);
   await expect
-    .poll(() => itemTreeOrder(tree, "field-list-root"))
-    .toEqual(["preferences", "notes", "name", "email"]);
+    .poll(() => namedListOrder(tree, "optional-fields"))
+    .toEqual(["notes", "name", "email"]);
   await expect(page.getByRole("application")).toHaveAttribute(
     "data-workspace-interaction-owner",
     "none",
@@ -382,7 +417,7 @@ test("pointer block feedback stays zoom-correct and excludes outer movement owne
   await setWorkspaceZoom(page, 2);
   fieldSection = page.getByRole("article", { name: "Profile fields" });
   await fieldSection.scrollIntoViewIfNeeded();
-  tree = fieldSection.getByRole("group", { name: "Profile field order" });
+  tree = fieldSection.getByRole("group", { name: "Profile field lists" });
   await expect(tree.getByRole("button", { name: "Select Name" })).toBeVisible();
   await expect(tree.getByRole("button", { name: "Select Email" })).toBeVisible();
   await beginPointerDrag(
@@ -402,8 +437,9 @@ test("pointer block feedback stays zoom-correct and excludes outer movement owne
   );
   await page.mouse.up();
   await expect
-    .poll(() => itemTreeOrder(tree, "field-list-root"))
-    .toEqual(["email", "name", "preferences", "notes"]);
+    .poll(() => namedListOrder(tree, "required-fields"))
+    .toEqual(["email", "name", "preferences"]);
+  await expect.poll(() => namedListOrder(tree, "optional-fields")).toEqual(["notes"]);
 });
 
 test("touch movement and host rejection preserve inputs and canonical item state", async ({
@@ -412,7 +448,7 @@ test("touch movement and host rejection preserve inputs and canonical item state
   await page.setViewportSize({ height: 1_000, width: 1_440 });
   let fieldSection = await resetFieldListExample(page);
   await hideDataAndFit(page);
-  let tree = fieldSection.getByRole("group", { name: "Profile field order" });
+  let tree = fieldSection.getByRole("group", { name: "Profile field lists" });
   const nameHandle = tree.getByRole("button", { name: "Move Name" });
   const preferencesRow = tree.locator(
     '[data-sortable-item-id="preferences"] > .setta-workspace__sortable-item-row',
@@ -445,7 +481,7 @@ test("touch movement and host rejection preserve inputs and canonical item state
     .click();
   await hideDataAndFit(page);
   fieldSection = page.getByRole("article", { name: "Profile fields" });
-  tree = fieldSection.getByRole("group", { name: "Profile field order" });
+  tree = fieldSection.getByRole("group", { name: "Profile field lists" });
   const notesInput = tree.getByRole("textbox", { name: "Notes" });
   await notesInput.fill("Editable during item DnD");
   await expect(notesInput).toHaveValue("Editable during item DnD");
@@ -460,12 +496,8 @@ test("touch movement and host rejection preserve inputs and canonical item state
   );
   await expect(tree.getByText("Move unavailable")).toBeVisible();
   await page.mouse.up();
-  expect(await itemTreeOrder(tree, "field-list-root")).toEqual([
-    "name",
-    "email",
-    "preferences",
-    "notes",
-  ]);
+  expect(await namedListOrder(tree, "required-fields")).toEqual(["name", "email", "preferences"]);
+  expect(await namedListOrder(tree, "optional-fields")).toEqual(["notes"]);
   const accessibility = await new AxeBuilder({ page })
     .include("[data-sortable-item-tree]")
     .analyze();

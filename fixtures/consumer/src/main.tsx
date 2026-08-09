@@ -1,13 +1,13 @@
-import { SortableItemTree, Workspace, WorkspaceOutline } from "@setta/workspace";
+import { SortableItemLists, Workspace, WorkspaceOutline } from "@setta/workspace";
 import {
-  applySortableItemMove,
+  applySortableItemListMove,
   createEmptyWorkspaceDocument,
   createWorkspaceJsonClipboardAdapter,
   packWorkspaceRectangles,
   planWorkspaceRootAutoLayout,
-  validateSortableItemTree,
+  validateSortableItemLists,
   validateWorkspaceDocument,
-  type SortableItemTree as SortableItemTreeModel,
+  type SortableItemList,
   type WorkspaceClipboardAdapter,
   type WorkspaceDocument,
   type WorkspaceRootAutoLayoutOptions,
@@ -137,26 +137,44 @@ const consumerClipboardAdapter: WorkspaceClipboardAdapter<ConsumerSectionData> =
       !Array.isArray(data) &&
       typeof (data as { body?: unknown }).body === "string",
   });
-const itemTree = {
-  childrenByParent: { "consumer-group": ["consumer-child"], "consumer-items": ["consumer-group"] },
-  itemIds: ["consumer-group", "consumer-child"],
-  rootId: "consumer-items",
-} satisfies SortableItemTreeModel;
-validateSortableItemTree(itemTree);
+const itemLists = [
+  {
+    label: "Consumer primary items",
+    listId: "consumer-primary",
+    tree: {
+      childrenByParent: {
+        "consumer-group": ["consumer-child"],
+        "consumer-primary-root": ["consumer-group"],
+      },
+      itemIds: ["consumer-group", "consumer-child"],
+      rootId: "consumer-primary-root",
+    },
+  },
+  {
+    label: "Consumer secondary items",
+    listId: "consumer-secondary",
+    tree: {
+      childrenByParent: { "consumer-secondary-root": [] },
+      itemIds: [],
+      rootId: "consumer-secondary-root",
+    },
+  },
+] satisfies readonly SortableItemList[];
+validateSortableItemLists(itemLists);
 
 function ConsumerSortableItems() {
-  const [tree, setTree] = useState<SortableItemTreeModel>(itemTree);
+  const [lists, setLists] = useState<readonly SortableItemList[]>(itemLists);
   const [selectedItemIds, setSelectedItemIds] = useState<readonly string[]>([]);
   return (
-    <SortableItemTree
+    <SortableItemLists
       ariaLabel="Consumer items"
       canContainChildren={(itemId) => itemId === "consumer-group"}
       getItemLabel={(itemId) => (itemId === "consumer-group" ? "Consumer group" : "Consumer child")}
-      onMove={(plan) => setTree((current) => applySortableItemMove(current, plan))}
+      lists={lists}
+      onMove={(plan) => setLists((current) => applySortableItemListMove(current, plan))}
       onSelectedItemIdsChange={setSelectedItemIds}
       renderItem={(itemId) => <span>{itemId}</span>}
       selectedItemIds={selectedItemIds}
-      tree={tree}
     />
   );
 }
@@ -220,7 +238,7 @@ createRoot(root).render(
           appearanceOptions={{ appearance: "light" }}
           ariaLabel="Consumer workspace"
           clipboardAdapter={consumerClipboardAdapter}
-          data-item-tree-root={itemTree.rootId}
+          data-item-list-count={itemLists.length}
           data-version={workspaceDocument.schemaVersion}
           defaultDocument={workspaceDocument}
           gestureOptions={{ maxZoom: 2, minZoom: 0.5, panOnScroll: true, zoomOnScroll: false }}

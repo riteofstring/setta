@@ -47,8 +47,8 @@ The locally packed artifact includes focused guides for the package's permanent 
   selection, grouping, stacking, minimap, history, and external drops.
 - [Recursive sections](docs/recursive-sections.md): containment, movement modes, orientation,
   locking, minimizing, sizing, overflow, snapping, chrome, accents, and tags.
-- [Sortable item trees](docs/sortable-item-trees.md): controlled item data, selection, planning,
-  pointer/touch/keyboard movement, zoom, application, and persistence.
+- [Sortable item trees](docs/sortable-item-trees.md): controlled item data, named lists, selection,
+  same-list/cross-list planning, pointer/touch/keyboard movement, zoom, and persistence.
 - [Theming](docs/theming.md): required CSS, scoped appearance, semantic tokens, grid styling, and
   host-renderer colors.
 - [Accessibility and keyboard](docs/accessibility-and-keyboard.md): complete keyboard tables,
@@ -345,11 +345,11 @@ grouping, ungrouping, or resizing can change its container or geometry.
 
 ## Sortable item trees
 
-Host renderers can place one controlled `SortableItemTree` inside a section without exposing item
-data to `WorkspaceDocument`. The package owns native selection and movement controls, normalized
-selected-root movement, pointer/touch/keyboard feedback, focus restoration, cycle prevention, and
-the atomic `ItemMovePlan`; the host owns item values, labels, containment policy, persistence, and
-whether the accepted move participates in host history.
+Host renderers can place a controlled `SortableItemTree` or `SortableItemLists` surface inside a
+section without exposing item data to `WorkspaceDocument`. The package owns native selection and
+movement controls, normalized selected-root movement, pointer/touch/keyboard feedback, focus
+restoration, cycle prevention, and atomic move plans; the host owns item values, labels,
+containment policy, persistence, and whether an accepted move participates in host history.
 
 ```tsx
 <SortableItemTree
@@ -365,6 +365,28 @@ whether the accepted move participates in host history.
 />
 ```
 
+Use one `SortableItemLists` owner when a section contains multiple named lists and items may move
+between them:
+
+```tsx
+<SortableItemLists
+  ariaLabel="Profile field lists"
+  lists={fieldLists}
+  selectedItemIds={selectedFieldIds}
+  onSelectedItemIdsChange={setSelectedFieldIds}
+  getItemLabel={(itemId) => fields[itemId].label}
+  renderItem={(itemId) => <FieldEditor field={fields[itemId]} />}
+  canContainChildren={(itemId) => fields[itemId].type === "group"}
+  canMove={(plan) => hostPolicyAllows(plan)}
+  onMove={(plan) => setFieldLists((lists) => applySortableItemListMove(lists, plan))}
+/>
+```
+
+Each list supplies a stable `listId`, visible `label`, and its own `SortableItemTree`. Item IDs are
+unique across the complete list set. Public cross-list plans include both source and destination
+list IDs, so root parent IDs remain scoped to their list and internal aggregation IDs never reach
+the host.
+
 `canContainChildren` and `canMove` are synchronous, side-effect-free policies. Every item that
 already owns children must be accepted by `canContainChildren`; the component rejects an
 inconsistent controlled tree instead of hiding that item's descendants.
@@ -374,17 +396,23 @@ Dragging an unselected handle moves only that item. Dragging a selected handle m
 selected siblings in canonical order; a mixed-parent selection stays selected but movement falls
 back to the active item with specific feedback. Focus a handle and press Enter or Space to start,
 Up/Down to reorder, logical forward to indent, logical backward to outdent, Enter or Space to
-commit, or Escape to cancel. Logical horizontal commands mirror in right-to-left layouts. The
-placeholder is measured in workbench units from the captured client rectangle and zoom, while the
-portal overlay retains client-pixel geometry. Item ownership disables section and viewport
-activators until completion or cancellation. Inputs in `renderItem` remain editable because only
-the explicit item handle starts movement.
+commit, or Escape to cancel. In `SortableItemLists`, Page Up or Page Down moves the active block to
+the previous or next named list; horizontal commands never escape the current list root. Logical
+horizontal commands mirror in right-to-left layouts. The placeholder is measured in workbench
+units from the captured client rectangle and zoom, while the portal overlay retains client-pixel
+geometry. Item ownership disables section and viewport activators until completion or
+cancellation. Inputs in `renderItem` remain editable because only the explicit item handle starts
+movement.
 
 `applySortableItemMove` validates the accepted post-removal destination index, exact shared source
 parent, canonical item order, known parents, and cycles before returning a new serializable tree.
 It returns the original tree for a no-op and preserves unaffected host arrays. The callback is the
 only item mutation boundary: the package never writes item data to the workspace document unless
 the host explicitly stores the returned tree in a section payload.
+
+`applySortableItemListMove` performs the same strict revalidation for list-aware plans. A moved
+item carries its complete descendant subtree, cross-list moves update both affected trees in one
+result, and untouched list objects and tree arrays retain their identities.
 
 ## Section selection and movement
 

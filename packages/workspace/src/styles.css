@@ -1377,6 +1377,28 @@
   user-select: none;
 }
 
+.setta-workspace__sortable-item-lists {
+  display: grid;
+  min-inline-size: 0;
+  gap: 1.25rem;
+}
+
+.setta-workspace__sortable-item-list-region {
+  display: grid;
+  min-inline-size: 0;
+  gap: 0.625rem;
+}
+
+.setta-workspace__sortable-item-list-label {
+  min-inline-size: 0;
+  padding-inline: 0.25rem;
+  color: var(--setta-workspace-section-local-muted-text);
+  font-size: 0.8125rem;
+  font-weight: 750;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .setta-workspace__sortable-item-list {
   display: flex;
   min-inline-size: 0;

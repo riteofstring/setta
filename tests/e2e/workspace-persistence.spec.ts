@@ -103,19 +103,24 @@ test("the playground imports, exports, resets, and locally restores workspace st
   importedDocument.schemaVersion = currentSchemaVersion;
   const fieldSection = importedDocument.sections["example-fields"] as unknown as {
     data: {
-      tree: { childrenByParent: Record<string, string[]> };
+      lists: Array<{
+        listId: string;
+        tree: { childrenByParent: Record<string, string[]> };
+      }>;
     };
   };
-  fieldSection.data.tree.childrenByParent.name = ["theme"];
-  fieldSection.data.tree.childrenByParent.preferences = [];
+  const requiredFields = fieldSection.data.lists.find((list) => list.listId === "required-fields");
+  if (!requiredFields) throw new Error("The required-fields list is missing.");
+  requiredFields.tree.childrenByParent.name = ["theme"];
+  requiredFields.tree.childrenByParent.preferences = [];
   await documentJson.fill(JSON.stringify(importedDocument, null, 2));
   await page.getByRole("button", { name: "Import JSON" }).click();
   await expect(page.locator("#workspace-json-error")).toContainText(
     'Field-list item "name" must be a group before it can contain children.',
   );
   await expect(page.getByRole("article", { name: "Profile fields" })).toBeVisible();
-  delete fieldSection.data.tree.childrenByParent.name;
-  fieldSection.data.tree.childrenByParent.preferences = ["theme"];
+  delete requiredFields.tree.childrenByParent.name;
+  requiredFields.tree.childrenByParent.preferences = ["theme"];
 
   const statusSection = importedDocument.sections["example-status"] as unknown as {
     data: unknown;
