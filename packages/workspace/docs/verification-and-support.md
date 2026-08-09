@@ -76,9 +76,15 @@ by following the same ownership shape:
 
 Repository baselines cover 2,000 registered frames, repeated all-depth marquee and combined-bounds
 queries, incremental geometry updates, 96-step structural and root movement, and a 96-event viewport
-burst. They intentionally guard subscription and render architecture instead of setting a
-cross-machine frame-time budget. The Phase 5 milestone performance report is the place to add
-production-workbench measurements and any justified budgets.
+burst. `corepack pnpm perf:milestone` additionally profiles the built public artifact with a
+1,024-section recursive document, 512-section sibling lists, a 64-section selected block, 256
+collision candidates, 80 smart-placement rectangles, a 2,000-item sibling list, and a 2,048-level
+item tree. The append-only Phase 5 report records the environment, totals, checksums, browser
+evidence, findings, and limits.
+
+These baselines guard subscription, traversal, planning, identity, and render architecture. They do
+not set a cross-machine frame-time budget. Add an elapsed-time gate only after repeated measurements
+on a declared runner and a stable representative host payload justify one.
 
 Viewport culling is not part of the initial milestone. Very large host DOMs still require measured
 product limits and possibly the deferred culling capability; do not hide whole-tree rerenders behind
