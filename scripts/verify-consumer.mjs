@@ -91,6 +91,15 @@ async function verifyConsumerRuntime(distributionRoot) {
       await created.getByRole("button", { name: "Save title" }).click();
       await workspace.getByRole("article", { name: "Packed consumer note" }).waitFor();
 
+      await workspace.getByRole("button", { name: "Add section" }).click();
+      await workspace
+        .getByRole("dialog", { name: "Add a section" })
+        .getByRole("button", { name: "Consumer group" })
+        .click();
+      const createdGroup = workspace.getByRole("article", { name: "Consumer group 3" });
+      await createdGroup.waitFor();
+      await createdGroup.getByRole("textbox", { name: "Consumer note body" }).waitFor();
+
       if (pageErrors.length > 0) {
         throw new Error(`Packed consumer runtime errors:\n${pageErrors.join("\n")}`);
       }

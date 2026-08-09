@@ -79,7 +79,7 @@ const consumerSectionDefinitions = [
   },
 ] satisfies readonly SectionDefinition<ConsumerSectionData>[];
 
-let nextSectionNumber = 2;
+let nextConsumerSectionNumber = 2;
 const itemTree = {
   childrenByParent: { "consumer-group": ["consumer-child"], "consumer-items": ["consumer-group"] },
   itemIds: ["consumer-group", "consumer-child"],
@@ -113,12 +113,16 @@ const validateExternalDrop: WorkspaceExternalDropValidator = ({ event }) =>
   event.dataTransferTypes.includes("application/x-consumer-section")
     ? { allowed: true, label: "Import consumer section" }
     : { allowed: false, reason: "Unsupported consumer drop." };
-const groupFactory: WorkspaceGroupFactory<ConsumerSectionData> = ({ sectionIds }) => ({
-  data: { body: "Grouped by the packed consumer." },
-  id: `consumer-group-${String(sectionIds.length)}`,
-  kind: "consumer-group",
-  title: "Consumer group",
-});
+const groupFactory: WorkspaceGroupFactory<ConsumerSectionData> = ({ sectionIds }) => {
+  const sectionNumber = nextConsumerSectionNumber;
+  nextConsumerSectionNumber += 1;
+  return {
+    data: { body: `Grouped ${String(sectionIds.length)} sections in the packed consumer.` },
+    id: `consumer-group-${String(sectionNumber)}`,
+    kind: "consumer-group",
+    title: `Consumer group ${String(sectionNumber)}`,
+  };
+};
 const toolbarControls = [
   {
     icon: <span>+</span>,
@@ -155,13 +159,19 @@ createRoot(root).render(
         groupFactory={groupFactory}
         onExternalDrop={onExternalDrop}
         sectionDefinitions={consumerSectionDefinitions}
-        sectionFactory={() => {
-          const sectionNumber = nextSectionNumber;
-          nextSectionNumber += 1;
+        sectionFactory={({ kind }) => {
+          const definition = consumerSectionDefinitions.find(
+            (candidate) => candidate.kind === kind,
+          );
+          if (!definition) {
+            throw new Error(`Unknown consumer section kind ${JSON.stringify(kind)}.`);
+          }
+          const sectionNumber = nextConsumerSectionNumber;
+          nextConsumerSectionNumber += 1;
           return {
             data: { body: "Created from the packed consumer." },
-            id: `consumer-note-${String(sectionNumber)}`,
-            title: `Consumer note ${String(sectionNumber)}`,
+            id: `${kind}-${String(sectionNumber)}`,
+            title: `${definition.defaultTitle} ${String(sectionNumber)}`,
           };
         }}
         sectionMoveMode={sectionMoveMode}

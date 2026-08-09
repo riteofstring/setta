@@ -481,12 +481,13 @@ controlled; keep the corresponding option and callback ownership mode stable for
 
 ## Interaction boundaries and lifecycle
 
-Wrap interactive or scrollable content rendered inside the canvas with
-`WorkspaceInteractionBoundary`. It independently suppresses canvas panning and wheel handling while
-leaving the host control usable; consumers do not need to know the adapter's internal marker class
-names. The transformed canvas-slot wrapper is neutral, so setting either boundary option to `false`
-deliberately returns that gesture family to the canvas. Set `preventExternalDrop` when a nested host
-surface owns native drops itself; that opt-out does not change pan or wheel arbitration.
+Registered section renderers already receive a package-owned interaction boundary. Wrap interactive
+or scrollable content in a transformed `canvas` overlay slot with `WorkspaceInteractionBoundary`.
+It independently suppresses canvas panning and wheel handling while leaving the host control usable;
+consumers do not need to know the adapter's internal marker class names. The transformed canvas-slot
+wrapper is neutral, so setting either boundary option to `false` deliberately returns that gesture
+family to the canvas. Set `preventExternalDrop` when a nested host surface owns native drops itself;
+that opt-out does not change pan or wheel arbitration.
 
 Unmounting the workspace cancels active transient viewport and root-movement gestures, releases its
 persistent geometry observers and global listeners, rejects pending measurement subscriptions, and

@@ -18,8 +18,8 @@ the completed private milestone as pre-milestone. The consumer now supplies a ty
 document, note and container definitions, host payload renderer, creation factory, item tree,
 toolbar extensions, and host policies. `consumer:check` builds that fixture from the tarball, serves
 only its generated assets on an ephemeral loopback port, and uses headless Chromium to render the
-host input, create a note, and rename it. The guide now distinguishes the completed private
-milestone from the still-undecided distribution and public compatibility policy.
+host input, create a note and a container, and rename the note. The guide now distinguishes the
+completed private milestone from the still-undecided distribution and public compatibility policy.
 
 The final broad Chromium run exposed one retained proof race. The adapter touch-owner test held its
 finger eight pixels from a scroll edge while awaiting an assertion. The trace showed successful
@@ -36,7 +36,7 @@ scroll workflows remain unchanged.
 | Public API and naming             | Pass. The five declared entry points remain section/item based and package-owned. The 36-file declaration closure contains no XYFlow, dnd-kit, application, source-alias, backend, or compatibility contract. `createEmptyWorkspaceDocument` preserves a consumer payload type without a cast.                                                       |
 | Packaging and onboarding          | Pass. The private manifest has the discoverable package description, exact exports, generated declarations and source maps, required CSS, README, seven linked guides, and third-party notice. The exact tarball allowlist and local-link validation reject undeclared files and source escapes.                                                     |
 | Developer documentation           | Pass. The quickstart, controlled example, host integration, recursive layout and movement, sizing/overflow, grid/appearance, sortable items, theming, accessibility/keyboard, performance, browser policy, persistence, supply chain, deferred boundaries, and non-goals are documented without legacy aliases.                                      |
-| Unrelated packed consumer         | Pass. A temporary unrelated React app installs the tarball using declared dependencies and all five entry-point forms, validates a typed document/item tree, registers host renderers, builds without aliases, then runs the renderer and ready-made create/rename workflow in Chromium.                                                             |
+| Unrelated packed consumer         | Pass. A temporary unrelated React app installs the tarball using declared dependencies and the root, core, React, and CSS application entry points, validates a typed document/item tree, registers host renderers, builds without aliases, then runs the renderer and ready-made note/container creation and rename workflow in Chromium.           |
 | Playground primary workflow       | Pass. The backend-free fixture covers creation and naming, top-level and recursive movement, grouping, selection/actions, locking, minimizing, sizing/overflow, grid/snapping, presentation, minimap, external drop, history, item trees, import/export, local persistence, and controlled rejection.                                                |
 | Browser and accessibility         | Pass. All 69 Chromium workflows have green final-tree or post-relevant-change evidence, including pointer, trusted keyboard, long-press touch, Axe scans, focus restoration, announcements, 200% scale, 320-pixel reflow, coarse pointers, reduced motion, RTL, and every retained screenshot baseline.                                              |
 | Performance                       | Pass. The built-artifact milestone fixture retains checksum `146531890` across 1,024 sections, 512-section sibling lists, a 64-section block, 256 collision candidates, 80 placement rectangles, 2,000 items, and 2,048 item levels. The 2,000-frame geometry fixture and trusted-browser render-budget workflow also pass.                          |
@@ -71,7 +71,8 @@ presentation-editor, and dark-grid baselines inspected; every retained Playwrigh
   exact touch selector passed once; the broad matrix was not redundantly rerun. Thus every one of
   the 69 workflows and all visual baselines has green final-tree or post-relevant-change evidence.
 - `consumer:check` installed the tarball twice in one temporary fixture (initial lock creation and
-  frozen-lockfile confirmation), built it, and passed the new renderer/create/rename runtime smoke.
+  frozen-lockfile confirmation), built it, and passed the new renderer, note/container creation,
+  and rename runtime smoke.
 - `supply-chain:check` passed the deterministic dependency policy, registry-backed frozen install,
   high/critical vulnerability policy with no known vulnerabilities, license allowlist, and current
   machine-readable dependency inventory.
