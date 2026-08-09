@@ -828,8 +828,21 @@ Phase 4 progress (2026-08-11):
   and the package build with the source and built-artifact boundary checks. The supply-chain and
   packed-consumer gates were not duplicated: the correction carries no dependency or packaging
   change, and their recorded green runs postdate the last relevant change.
-- Remaining Phase 4 work: repeat the live main-Dict versus unrelated-item comparison, and obtain
-  a renewed developer exit-gate decision.
+- Supervised live dark/light comparison rejected the value-font interpretation (2026-08-11): after
+  the scrollbar correction, package and main match exactly on the 552 x 352 outer panel, 550/544 px
+  scroll-shell outer/client widths, 526 x 20 rows, 257 px label column, label typography/color, and
+  1 px divider color in both appearances. The playground value role still uses the earlier
+  directive's combobox-derived `font-medium tabular-nums text-setta-800 dark:text-setta-300`
+  treatment. The actual live main text-value path being compared — the Dict's idle CodeMirror value
+  — measures regular 400-weight monospace with normal numerals, `rgb(36,41,46)` in light and
+  `rgb(201,209,217)` in dark; the playground instead measured weight 500 with `rgb(26,33,45)` light
+  and `rgb(150,164,192)` dark. Running main outranks the supplementary combobox metric. Correct only
+  the host renderer's value-role classes to reproduce those live text-value metrics, update the
+  focused presentation regression, and do not reopen the now-matching label, divider, scrollbar,
+  geometry, or interaction contracts. Run the narrow checks and repeat the live dark/light
+  comparison before requesting approval.
+- Remaining Phase 4 work: implement and audit the host value-font correction, repeat the live
+  main-Dict versus unrelated-item comparison, and obtain a renewed developer exit-gate decision.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
