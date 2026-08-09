@@ -17,7 +17,9 @@ The package is a developer-facing reusable library. Whether it is later publishe
 Use the broad package name `@setta/workspace` while retaining **section** as the public name for a content-bearing workbench region.
 
 - Public contracts use names such as `WorkspaceSection`, `SectionDefinition`, `sectionId`, and `focusSection`.
-- Do not expose **node** as the primary package concept. In this product, a section owns content, frame chrome, sizing, and an optional ordered child layout; calling it a node would imply graph, edge, port, or execution semantics that are outside the initial scope.
+- Do not expose **node** as the primary package concept. In this product, a section owns content,
+  frame chrome, sizing, and an optional ordered or freeform child layout; calling it a node would
+  imply graph, edge, port, or execution semantics that are outside the core workspace scope.
 - XYFlow nodes are an internal rendering-adapter detail. They must not leak into `WorkspaceDocument`, section render props, commands, callbacks, or consumer persistence.
 - Reserve **node** for XYFlow integration code and any future explicit graph surface. Reserve **item** for the host-defined sortable tree inside a section.
 - The package name does not need to encode every object it contains. The README and package description should identify it as a nested spatial workbench for React so the shorter name remains discoverable.
@@ -153,10 +155,13 @@ The package owns:
 - Typed toolbar-control and canvas-overlay extension points for host-defined actions without replacing package controls.
 - Section movement at arbitrary supported zoom levels.
 - Recursive section containment with no package-imposed maximum depth.
-- Vertical and horizontal ordered layouts for the direct children of a nested section container.
-- Sorting mode for reordering a nested section among its current siblings.
+- Vertical and horizontal ordered layouts and freeform spatial layouts for the direct children of a
+  nested section container.
+- Sorting mode for reordering a nested section among ordered siblings or spatially moving it within
+  its current freeform parent.
 - Free-move mode for moving a section from any source depth to the top-level canvas or any valid nested destination depth.
-- Orientation-aware insertion previews, collision resolution, and keyboard movement.
+- Orientation-aware insertion previews and freeform position previews, collision resolution, and
+  keyboard movement.
 - Stable, zoom-aware drop targeting across adjacent siblings and parent-child boundaries.
 - Section resizing at any depth with kind-defined axes and minimum and maximum dimensions.
 - Per-section position-and-size locking.
@@ -174,12 +179,22 @@ The package owns:
 - Structural undo and redo for committed section changes.
 - A minimal, versioned, serializable workbench document.
 
-Top-level sections use free spatial positions. Nested children use their immediate parent's ordered vertical or horizontal layout. The initial scope does not add absolute positioning inside nested containers.
+The initial package milestone used free spatial positions only at the top level; every nested child
+participated in its immediate parent's ordered vertical or horizontal layout. Phase 6 deliberately
+extends that model so any container may choose ordered or freeform positioning for its direct
+children. There is no compatibility reader or migration for the earlier package-private document
+shape.
 
-The two section drag modes are interaction modes, not two serialized layout models:
+The two section drag modes remain interaction preferences, distinct from a parent's serialized
+positioning strategy:
 
-- **Sorting mode** keeps the current parent and changes only sibling order. It is available for nested sections; top-level sections remain spatial rather than sortable.
-- **Free-move mode** may change parent and depth. A drop on the canvas produces a top-level position; a drop inside a section produces an orientation-aware child insertion index. It must support canvas-to-nested, nested-to-canvas, and nested-to-nested moves regardless of source or destination depth.
+- **Sorting mode** never changes parent. In an ordered parent it changes sibling order; on the
+  top-level canvas or in a freeform parent it performs ordinary same-parent spatial movement.
+- **Free-move mode** may change parent and depth. A drop on the canvas or in a freeform container
+  produces positions in that spatial parent's coordinate system; a drop in an ordered container
+  produces an orientation-aware child insertion index. It must support canvas-to-nested,
+  nested-to-canvas, and nested-to-nested moves regardless of source or destination depth and
+  positioning strategy.
 
 The initial package milestone supported dragging one section or a selected sibling block. Phase 6
 extends batch movement to mixed-parent normalized selection roots: when a selected section contains
@@ -228,7 +243,9 @@ type WorkspaceToolbarControl = {
 Required behavior:
 
 - `readOnly` is a convenience for disabling layout, structure, and package-owned presentation edits; it is not a security boundary.
-- `editLayout: false` prevents movement, reordering, reparenting, resizing, orientation changes, stacking commands, and direct lock changes while preserving navigation and host-content interaction.
+- `editLayout: false` prevents movement, reordering, reparenting, resizing, child positioning or
+  orientation changes, stacking commands, and direct lock changes while preserving navigation and
+  host-content interaction.
 - `editStructure: false` prevents creation, deletion, grouping, ungrouping, and other membership changes.
 - `editPresentation: false` prevents title, minimize, chrome, accent, and tag changes while leaving transient selection, pan, zoom, focus, and fit behavior available.
 - The package cannot make arbitrary host-rendered content read-only. It passes the resolved workbench read-only state to the renderer so the host can enforce its own content policy.
@@ -249,7 +266,7 @@ The package owns:
 - The section frame.
 - A drag handle.
 - Recursive rendering of child section containers.
-- The ordered child-section region and its vertical or horizontal layout.
+- The child-section region and its ordered vertical/horizontal or freeform spatial layout.
 - Selection, focus, disabled, and resizing presentation.
 - A package-owned title, optional icon slot, and inline title editor with validation, cancel, commit, and error presentation.
 - Default, compact, transparent, and headerless chrome variants with an accessible drag/selection affordance even when the normal header is absent.
@@ -258,9 +275,10 @@ The package owns:
 - Error containment for a failing section renderer.
 - Default-size metadata.
 - Default size-mode, chrome, accent, and title metadata.
-- Default child-orientation metadata for section kinds that accept children.
+- Default child-positioning and ordered-orientation metadata for section kinds that accept children.
 - Searchable creation metadata such as label, group, keywords, and icon.
-- A public action for changing a section's child orientation without changing its child order.
+- Public actions for changing a section's child positioning and, while ordered, its orientation
+  without changing child identity or canonical order.
 - Hooks or callbacks for host-provided section actions.
 
 The host owns:
@@ -302,6 +320,7 @@ type SectionDefinition<TData> = {
   };
   minimizable?: boolean;
   canContainSections?: boolean;
+  defaultChildPositioning?: "ordered" | "freeform";
   defaultChildOrientation?: "vertical" | "horizontal";
   defaultChildOverflow?: "grow" | "scroll";
   chrome?: "default" | "compact" | "transparent" | "none";
@@ -322,15 +341,26 @@ type SectionRenderProps<TData> = {
 };
 ```
 
-The exact names may change during implementation, but the boundary must remain host-rendered and backend-neutral. Theme variables inherit into the host renderer, and the resolved light or dark appearance is also passed explicitly so consumers can theme custom content without reading package-internal state. Proposed defaults are resize on both axes, content sizing permitted on both axes but fixed initially, minimizable, default chrome, not a section container, and vertical child orientation with growing overflow when containment is enabled.
+The exact names may change during implementation, but the boundary must remain host-rendered and
+backend-neutral. Theme variables inherit into the host renderer, and the resolved light or dark
+appearance is also passed explicitly so consumers can theme custom content without reading
+package-internal state. Proposed defaults are resize on both axes, content sizing permitted on both
+axes but fixed initially, minimizable, default chrome, not a section container, and ordered vertical
+child positioning with growing overflow when containment is enabled.
 
 Title behavior is package-owned because the frame renders it. A controlled consumer may validate or persist a proposed title asynchronously, but the editor owns keyboard behavior, Escape cancellation, focus restoration, pending state, and specific rejection presentation. A title change is one committed document change. The searchable creation UI is generated from registry metadata; consumers may hide kinds or provide additional creation items without replacing its keyboard and filtering behavior.
 
 Chrome variants change presentation, not structural semantics. A headerless or transparent section remains selectable, keyboard reachable, draggable when unlocked, and capable of exposing its actions through selected-state chrome or an accessible floating handle. Accent and tag colors never become the only indication of selection, lock, error, or drop validity.
 
-The package-owned frame renders the recursive child-section region adjacent to host-rendered content. A host may style documented slots, but it cannot replace the ordered container or its drag geometry with unrelated markup. This keeps collision detection, accessibility, and orientation behavior consistent at every depth.
+The package-owned frame renders the recursive child-section region adjacent to host-rendered
+content. A host may style documented slots, but it cannot replace the ordered or freeform container
+or its drag geometry with unrelated markup. This keeps collision detection, accessibility, and
+positioning behavior consistent at every depth.
 
-Changing orientation preserves the same logical child order. Vertical layout follows the block axis. Horizontal layout follows the logical inline axis, so leading and trailing behavior remains correct in right-to-left documents as well as left-to-right documents.
+Changing an ordered orientation preserves the same logical child order. Vertical layout follows the
+block axis. Horizontal layout follows the logical inline axis, so leading and trailing behavior
+remains correct in right-to-left documents as well as left-to-right documents. Changing positioning
+uses the explicit geometry-bearing conversion command defined for Phase 6.
 
 ### Section locking, minimizing, and resizing
 
@@ -375,7 +405,8 @@ Content sizing and container overflow are separate, explicit capabilities:
 - A container in `grow` overflow mode allows its child region to participate in content measurement.
 - A container in `scroll` overflow mode retains a bounded section size and scrolls its child region internally. Wheel interaction inside that region does not pan or zoom the outer canvas while scrolling remains possible.
 - Switching from grow to scroll captures stable measured dimensions for any axis that must become fixed, preventing a visual jump.
-- Switching from scroll to grow restores content participation without changing containment, orientation, or child order.
+- Switching from scroll to grow restores content participation without changing containment,
+  positioning, ordered orientation, child order, or freeform positions.
 - Content measurement uses `ResizeObserver` or an equivalent bounded observer strategy, avoids measure-update loops, and never writes canonical document state on every subpixel fluctuation.
 - Fixed dimensions restore exactly after minimization. Content-sized dimensions resume content fitting and remeasure after expansion using their stored finite fallback values until measurement completes.
 - Size mode and container overflow changes are explicit, undoable commands and create one history entry each.
@@ -477,7 +508,9 @@ Creation without an explicit position uses a pure TypeScript placement helper ow
 External drop is an extension boundary, not a built-in file importer:
 
 - The package recognizes a browser drag entering the canvas, resolves workbench coordinates and a candidate parent, and exposes valid/invalid feedback.
-- On drop it calls the host with `DataTransfer`, workbench position, candidate parent and insertion index, and the originating browser event metadata required to distinguish files or application-defined MIME data.
+- On drop it calls the host with `DataTransfer`, workbench position, candidate parent, and either an
+  ordered insertion index or freeform local position, plus the originating browser event metadata
+  required to distinguish files or application-defined MIME data.
 - The host decides whether to create a section, reject the drop, or perform asynchronous import work.
 - Native file type detection, upload, filesystem access, and file-to-section mapping remain host responsibilities.
 - External drop never silently becomes section DnD or item-tree DnD, and scrollable content can opt out of receiving it.
@@ -493,9 +526,18 @@ type SectionMovePlan = {
   sectionIds: string[];
   mode: "sort" | "free";
   sourceParentIds: (string | null)[];
-  destinationParentId: string | null;
-  destinationIndex: number;
-  topLevelPositions: Record<string, { x: number; y: number }> | null;
+  destination:
+    | {
+        parentId: string;
+        placement: { type: "ordered"; index: number };
+      }
+    | {
+        parentId: string | null;
+        placement: {
+          type: "freeform";
+          positions: Record<string, { x: number; y: number }>;
+        };
+      };
 };
 
 type SectionMoveDecision =
@@ -510,17 +552,21 @@ Required behavior:
 - `sectionIds` contains one section or normalized selection roots. `sourceParentIds` aligns with
   those IDs. Same-parent nested blocks follow canonical sibling order; top-level and mixed-parent
   blocks use deterministic visual/hierarchy order.
-- Sorting mode changes only `destinationIndex` under the existing parent and moves a selected block atomically.
+- Sorting mode retains the existing parent. It changes only the destination index in an ordered
+  parent and only local positions in a freeform parent or on the root canvas.
 - Free-move mode accepts any valid source and destination depth, including an empty destination container.
-- A free move to the canvas resolves one or more positions in workbench coordinates, not screen coordinates, and preserves a top-level block's relative offsets.
+- A free move to the canvas resolves one or more positions in workbench coordinates, not screen
+  coordinates. A free move into a freeform container resolves positions in that container's local
+  content coordinate system. Both preserve the selected block's measured relative offsets.
 - A free move into an ordered container inserts the selected block in source order at one destination index.
 - Moving between coordinate spaces preserves the section's visible position until the destination layout takes over.
 - Moving any selected root into itself or one of its descendants is rejected before preview and commit.
 - Mixed-parent free moves remove every normalized root from its exact source parent and insert the
   complete canonical block at one destination; sorting mode still requires one nested parent.
 - Host policy can reject a destination without changing canonical state.
-- The previewed parent and index exactly match the committed move.
-- Reparenting changes one canonical child list relationship; a parent lookup index is derived rather than serialized as a second source of truth.
+- The previewed parent and ordered index or freeform positions exactly match the committed move.
+- Reparenting updates every affected canonical child list and freeform position map atomically; a
+  parent lookup index is derived rather than serialized as a second source of truth.
 
 Target resolution must preserve the useful stability of Setta's current section DnD rather than replacing it with naive pointer intersection:
 
@@ -659,8 +705,22 @@ type SectionDimension = {
   value: number;
 };
 
+type OrderedChildLayout = {
+  positioning: "ordered";
+  orientation: SectionOrientation;
+  overflow: "grow" | "scroll";
+  sectionIds: string[];
+};
+
+type FreeformChildLayout = {
+  positioning: "freeform";
+  overflow: "grow" | "scroll";
+  positions: Record<string, { x: number; y: number }>;
+  sectionIds: string[];
+};
+
 type WorkspaceDocument<TSectionData = unknown> = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   viewport: {
     x: number;
     y: number;
@@ -691,11 +751,7 @@ type WorkspaceDocument<TSectionData = unknown> = {
         tagColor: string | null;
       };
       data: TSectionData;
-      childLayout: {
-        orientation: SectionOrientation;
-        overflow: "grow" | "scroll";
-        sectionIds: string[];
-      } | null;
+      childLayout: OrderedChildLayout | FreeformChildLayout | null;
     }
   >;
 };
@@ -709,23 +765,34 @@ Required invariants:
 - Every section appears exactly once, either in `rootSections` or in one section's `childLayout.sectionIds`.
 - Containment is acyclic, and every section is reachable from `rootSections`.
 - A section may have descendants to arbitrary depth; validation does not impose a numeric depth limit.
-- The order of `rootSections` defines top-level stacking order, and each nested `sectionIds` array defines sibling layout order.
-- Only root entries have free spatial positions. Nested placement comes from the immediate parent's ordered layout.
-- Root positions and all dimension fallback values are finite numbers.
+- The order of `rootSections` defines top-level stacking order. Each nested `sectionIds` array
+  defines ordered layout order or freeform back-to-front stacking and deterministic traversal order.
+- Root entries use free workbench positions. Each parent explicitly discriminates ordered or
+  freeform placement for its direct children; no optional-field inference is accepted.
+- Root positions, nested freeform positions, and all dimension fallback values are finite numbers.
+  Nested freeform coordinates are non-negative and their keys exactly match direct child IDs.
 - Dimension fallback values are positive, and every size mode is supported by the registered section definition.
 - A content dimension's numeric value is a stable fallback and last fixed measurement, not a promise to serialize every live `ResizeObserver` result.
 - Lock and minimized states are explicit booleans rather than inferred from presentation.
 - A minimized section retains the same serialized expanded size modes and values.
 - Titles are non-empty after package normalization and remain independent of host payload shape.
 - Chrome, accent, and tag presentation are explicit package-owned fields; valid CSS colors are parsed specifically rather than silently ignored.
-- A non-null `childLayout` has a supported orientation and overflow mode even when it has no children.
+- A non-null `childLayout` has a supported positioning and overflow mode even when empty. Only an
+  ordered layout has an orientation; only a freeform layout has a position map.
 - Scroll overflow has a bounded measured region and cannot resolve to an unbounded content-sized main axis at runtime.
 - Registered section containment policy accepts every persisted parent-child relationship.
 - The viewport zoom is finite and within documented bounds.
 - Unknown section kinds produce a clear render error or a host-provided unknown-kind renderer.
 - Parsing and validation fail specifically; malformed documents do not silently fall back to an empty workbench.
 
-Containment has one serialized source of truth: `rootSections` plus each section's ordered child list. The runtime may derive and incrementally maintain a parent lookup map, but it must not serialize a parallel `parentId` map that can drift from those lists.
+Containment has one serialized source of truth: `rootSections` plus each section's child list.
+Freeform position maps describe placement but never duplicate containment. The runtime may derive
+and incrementally maintain a parent lookup map, but it must not serialize a parallel `parentId` map
+that can drift from those lists.
+
+Phase 6 increments the package-private schema to version 2 and accepts only version 2. Update every
+fixture and consumer directly; do not parse version 1, migrate it, retain aliases, or dual-write
+both shapes.
 
 Do not reserve speculative fields for edges, variants, references, revisions, approvals, or future applications. Add fields only when an implemented generic capability owns them.
 
@@ -760,6 +827,7 @@ Initial internal commands are limited to:
 - Set one or more sections' position-and-size lock.
 - Set a section's minimized state.
 - Set a section's child orientation.
+- Set a section's child positioning with explicit conversion inputs.
 - Change persistent root stacking order explicitly.
 - Select sections.
 - Set viewport.
@@ -775,7 +843,10 @@ The public change callback may include a compact reason such as `section-move` o
 Built-in history covers committed changes to `WorkspaceDocument`:
 
 - One pointer drag creates one history entry.
-- One section or sibling-block reparent, sibling reorder, resize, size-mode change, overflow-mode change, lock change, minimize change, orientation change, title change, presentation change, grouping, ungrouping, persistent stacking command, or batch subtree deletion restores exactly on undo and redo.
+- One section or sibling-block reparent, sibling reorder, freeform spatial move, resize, size-mode
+  change, overflow-mode change, lock change, minimize change, orientation or positioning change,
+  title change, presentation change, grouping, ungrouping, persistent stacking command, or batch
+  subtree deletion restores exactly on undo and redo.
 - Transient pointer movement does not create history entries.
 - Viewport movement is not undoable by default.
 - Selection changes are not undoable by default.
@@ -870,6 +941,15 @@ The 2026-08-07 audit inspected upstream `xyflow/xyflow` main at commit `ee402099
 
 Those primitives do not replace the product described here. XYFlow parent-child nodes remain spatially positioned relative to a parent rather than automatically participating in an ordered vertical or horizontal child layout. Upstream does not provide Setta's sorting/free-move distinction, arbitrary cross-depth reparenting UI, target hysteresis, grow-versus-scroll containers, section document and registry, section frame behavior, grouping commands, structural history, smart creation, or generic sortable item trees.
 
+Two upstream implementation details are decisive. In the exact pinned release, `parentId` changes
+coordinate calculation, containment, expansion, and hierarchy semantics, but `NodeRenderer` still
+renders every node wrapper as a sibling in one flat `.react-flow__nodes` element. A child node is
+therefore not a DOM child that can naturally participate in its parent's flex layout or native
+scroll/clipping region. Likewise, `onlyRenderVisibleElements` filters only entries in that XYFlow
+instance's node lookup; it cannot cull recursive section frames rendered inside a node component.
+The package must not claim those two upstream features cover elements that it has not projected as
+XYFlow nodes.
+
 The current Setta runtime establishes the most credible initial representation. Its XYFlow node renderer mounts only top-level spatial sections, while nested sections render recursively as ordinary ordered DOM and use dnd-kit for structure. Its marquee logic first uses measured XYFlow root nodes and then falls back to measured DOM frames for every remaining visible nested section. This is a meaningful workbench behavior, not functionality that the latest upstream XYFlow supplies automatically.
 
 Begin Phase 0 with this architecture:
@@ -878,6 +958,24 @@ Begin Phase 0 with this architecture:
 - Render descendants as package-owned recursive DOM inside their parent frame so CSS layout, grow/scroll behavior, and dnd-kit ordering remain natural.
 - Register every visible root and descendant frame in one package-owned measured-geometry index expressed in workbench coordinates.
 - Treat an all-sections-as-XYFlow-nodes projection or shadow-node hybrid as challenger designs only. Adopt one only if the proof shows a material advantage while preserving ordered layout, nested scrolling, all-depth selection, resize semantics, accessibility, and single-owner dragging without duplicated geometry or movement.
+
+Phase 6 reopens that representation decision only for a freeform direct-child region because the
+new capability changes the earlier proof's premises. Before broad freeform implementation, run one
+bounded executable comparison of:
+
+1. one all-sections XYFlow graph;
+2. a separately provided, fixed-viewport XYFlow instance inside each freeform container; and
+3. package-owned absolutely positioned recursive DOM using the existing geometry and interaction
+   adapters.
+
+Prefer upstream XYFlow whenever a candidate satisfies the complete contract through public APIs.
+The proof must cover one ordered-to-freeform-to-ordered switch, arbitrary-depth mixed ordered and
+freeform nesting, grow and native scroll overflow, same-parent multi-section spatial dragging,
+cross-parent free movement, nested focus and marquee, culling inside both the outer viewport and an
+inner scroll region, one gesture owner, and bounded store/render cost for many containers. Reject a
+candidate as soon as a required invariant demonstrably fails; do not turn the proof into an
+open-ended upstream audit. Record the selected owner and the concrete reasons the other candidates
+failed. No XYFlow type, store, or persisted node projection may enter the public contract.
 
 Only root sections have independent spatial positions, so the initial minimap projects roots by default. A future nested summary may consume the package geometry index, but must not present ordered descendants as independently positioned canvas roots.
 
@@ -888,6 +986,11 @@ The adapter must preserve these boundaries:
 - Prefer documented components, props, controller helpers, viewport hooks, measurement hooks, portals, and lifecycle callbacks. A documented public `useStoreApi` access is permitted only when a focused Phase 0 proof demonstrates that higher-level public APIs cannot meet a required high-frequency or imperative seam. Keep that access inside the adapter, cover the exact fields with exact-version contract tests, and never expose the store or its state shape.
 - Do not import non-public source paths, copy internal modules, or make undocumented XYFlow store fields part of the implementation contract.
 - Upstream marquee selection operates only on registered XYFlow nodes. The package owns all-depth marquee geometry, transient selection state, normalized selection roots, and the combined selection outline and hit area. Upstream selection behavior may be reused for projected roots only when it produces the same package outcomes.
+- Upstream visible-element rendering applies only to nodes in the selected XYFlow projection. The
+  existing all-depth culling owner remains responsible for recursive DOM frames, exact retained
+  geometry, focus/activity pinning, and controller-driven ancestry reveal. If the Phase 6 proof
+  projects freeform children into XYFlow, it must assign each frame to exactly one culling owner;
+  do not enable overlapping upstream and package windowing for the same frame.
 - XYFlow position and resize change events update only an internal transient render projection during a gesture. They must not call `onDocumentChange`, create history, or become canonical section commands per frame. Pointer, touch, keyboard, and cancellation paths commit at most one accepted package command at the documented boundary.
 - Exactly one subsystem owns movement at a time. XYFlow owns ordinary root spatial dragging; dnd-kit owns section sorting and free-move structure. Entering either structural mode disables XYFlow root dragging and conflicting viewport gestures, while leaving structural mode disables dnd-kit section activation. The selected-block overlay exposes the correct movement surface for the active mode.
 - Root sections may use upstream resize primitives when they satisfy package constraints. Nested resize handles, content/fixed size promotion, grow/scroll participation, package snapping, and one-command commit behavior remain package-owned unless the chosen representation proves otherwise.
@@ -1625,6 +1728,93 @@ work.
   and React prop. No dependency input changed, so the network-backed supply-chain gate was not
   duplicated; the recorded unavailable in-app-browser release gate was not retried.
 
+#### Remaining batch: absolute/freeform positioning inside nested containers
+
+This batch is a clean document-contract expansion, not a presence-based inference layered over the
+ordered shape. Replace `WorkspaceChildLayout` with an explicit discriminated union close to:
+
+```ts
+type WorkspaceOrderedChildLayout = {
+  positioning: "ordered";
+  orientation: "horizontal" | "vertical";
+  overflow: "grow" | "scroll";
+  sectionIds: readonly string[];
+};
+
+type WorkspaceFreeformChildLayout = {
+  positioning: "freeform";
+  overflow: "grow" | "scroll";
+  positions: Readonly<Record<string, { x: number; y: number }>>;
+  sectionIds: readonly string[];
+};
+
+type WorkspaceChildLayout = WorkspaceOrderedChildLayout | WorkspaceFreeformChildLayout;
+```
+
+Every serialized child layout carries `positioning`; do not infer it from optional fields, retain
+the old discriminator-less shape, or add a compatibility parser. `positions` has exactly one own
+entry for every direct child ID and no others. Nested coordinates are finite, non-negative local
+content coordinates; the root canvas continues to allow arbitrary finite workbench coordinates.
+`sectionIds` remains canonical containment and deterministic traversal order and, for a freeform
+parent, is also its persistent back-to-front sibling stacking order.
+
+Required framework-neutral behavior:
+
+- Add immutable, exact-validation commands for ordered/freeform switching. Ordered-to-freeform
+  receives geometry-derived local positions for every child. Freeform-to-ordered receives the
+  selected orientation. Both preserve child identity, canonical order, overflow, selection, and
+  one structural history boundary.
+- Invalid or incomplete position maps, non-finite or negative coordinates, unknown IDs, cycles,
+  locked active sections, unsupported container kinds, and host-rejected changes fail specifically
+  without a partial document.
+- A same-parent spatial move updates only the moved freeform positions and preserves selected-block
+  offsets. Snapping uses the package grid in the local coordinate system. Crossing the local start
+  edge clamps or translates the complete selected block as one unit rather than collapsing its
+  offsets.
+- A structural free move can enter or leave any ordered or freeform container at any depth. Ordered
+  destinations receive one insertion index; freeform destinations receive one position per moved
+  selection root. Mixed-source selections converge atomically and preserve measured relative
+  offsets after coordinate conversion.
+- Grouping, ungrouping, copy/paste, deletion, history, locking, stacking commands, and controlled
+  reconciliation preserve or intentionally derive freeform positions. No command may leave stale
+  position keys behind.
+- Grow mode derives a stable local content extent from child positions and measured sizes. Scroll
+  mode retains the container's fixed dimensions, exposes the complete local extent through native
+  scrolling, and isolates that scroll from the outer viewport. Empty freeform containers retain a
+  useful drop surface and affordance.
+
+Required React and interaction behavior:
+
+- Run the bounded XYFlow representation proof above first and use its selected single owner. Do not
+  handwrite an alternative pan/zoom system inside a nested container: the outer XYFlow viewport
+  remains the only workbench pan/zoom owner.
+- In `sort` mode, an ordered child handle invokes sibling sorting while a root or freeform child
+  handle invokes same-parent spatial movement. In `free` mode, the structural dnd-kit owner can
+  reparent either kind. Pointer, touch, keyboard, cancellation, and controlled rejection each
+  commit at most one command and restore the correct native handle focus.
+- Freeform target resolution converts the displayed pointer/selection rectangle through outer
+  pan/zoom and every intervening scroll offset into the destination's local coordinates. It reuses
+  the characterized target memory, entry/exit hysteresis, ancestor promotion, invalid-target
+  feedback, and preview/completion parity without inventing an ordered insertion marker.
+- Arrow keys move a freeform selection by the configured snap step (or unsnapped keyboard step) in
+  logical local coordinates. The existing structural activation keys expose cross-parent free-move
+  destinations and announce the target container and resulting coordinates.
+- Ordered orientation controls are unavailable for a freeform layout. A named positioning control
+  switches the parent layout with confirmation only when the operation would materially rearrange
+  children; it remains keyboard reachable and reports the accepted outcome.
+- Marquee, focus/fit, navigator, minimap policy, generic connections, detachment placeholders, and
+  viewport culling consume the same all-depth geometry after freeform movement, nested scrolling,
+  layout switching, and remount. A freeform child must not be simultaneously windowed by two
+  culling owners.
+- The playground and unrelated packed consumer demonstrate mixed ordered/freeform containers at
+  arbitrary representative depth, both overflow modes, same-parent spatial movement, every
+  cross-layout reparenting direction, multi-selection, snapping, layout switching, keyboard use,
+  200% zoom, 320-CSS-pixel reflow, reduced motion, RTL where logical controls apply, and Axe.
+
+Record the representation decision, API and document changes, performance evidence, browser
+baselines, focused regression matrix, packed-consumer proof, and exact verification commands in a
+dedicated Phase 6 evidence document before marking this batch complete.
+
 - Completed (pane-registration batch): added strict controller-only logical start/end pane
   registrations, controlled and uncontrolled one-active-pane state, linked utility-toolbar
   disclosures, close-focus restoration, and responsive layout that reserves measured canvas space
@@ -1821,19 +2011,24 @@ Each follow-on addition must preserve the standalone one-sentence purpose, remai
 
 Cover:
 
-- Document validation and serialization.
+- Document validation and serialization, including the required ordered/freeform discriminator and
+  exact freeform position-map ownership.
 - Recursive containment validation and derived parent lookup.
 - Coordinate conversion across canvas and nested placement contexts.
 - Smart placement inside and outside viewport bounds with deterministic non-overlap and grid behavior.
 - Deterministic top-level rectangle packing, root-anchor preservation, measured auto-layout planning, lock/readiness rejection, and one-command history.
 - Root minimap projection and all-depth focus/fit bounds from the shared geometry index.
 - Marquee intersection and containment geometry, selection-root normalization, deterministic navigation order, and combined selection bounds at every visible depth.
-- Section single/block sorting, free-move, grouping, ungrouping, orientation, batch subtree deletion, persistent stacking, resize, size mode, overflow, presentation, title, lock, and minimize reducers.
-- Movement and resize snapping at positive and negative coordinates.
+- Section single/block sorting, same-parent freeform movement, cross-layout free-move, grouping,
+  ungrouping, positioning switches, ordered orientation, batch subtree deletion, persistent
+  stacking, resize, size mode, overflow, presentation, title, lock, and minimize reducers.
+- Root movement and resize snapping at positive and negative workbench coordinates, plus
+  non-negative local snapping and selected-block edge clamping in nested freeform containers.
 - Resize-axis, fixed/content promotion, minimum, maximum, and aspect-ratio constraint resolution.
 - Light, dark, and system appearance resolution plus semantic token merging, sRGB gamut checks, APCA targets, and WCAG 2 compatibility measurements.
 - Accent and tag-color parsing, gamut handling, semantic-role isolation, and accessible token derivation.
-- Vertical and horizontal insertion-index planning.
+- Vertical and horizontal insertion-index planning plus freeform local-position planning through
+  pan, zoom, and nested scroll coordinate spaces.
 - Collision ranking, previous-target preference, previous-rectangle retention, child-over-parent promotion, midpoint transitions, zoom-scaled directional trigger distances, target hysteresis, and stale-target clearing.
 - Selection-bound geometry, selected-root collision exclusion, and coordinate correction for single and multi-section drags under a scaled viewport.
 - Layout-stable sortable preview transforms and exact preview/commit parity without constrained-scroll jumps.
@@ -1856,11 +2051,12 @@ Cover:
 - Registry-driven searchable creation, inline title editing and rejection, smart placement, and external-drop callbacks.
 - Unknown-kind handling.
 - Default, compact, transparent, and headerless chrome plus accent and tag presentation.
-- Recursive rendering across mixed vertical and horizontal layouts.
+- Recursive rendering across mixed vertical, horizontal, and freeform layouts.
 - Root-node projection, recursive-DOM descendant measurement, geometry-index cleanup, and agreement among marquee, selection bounds, focus/fit, collision, and nested drop coordinates.
 - Sorting-mode and free-move-mode activation, preview, cancellation, and commit.
 - Mutual exclusion among XYFlow root drag, dnd-kit sorting/free-move, selected-block movement, and viewport gestures through pointer, touch, keyboard, cancellation, and runtime mode changes.
-- Single and sibling-block cross-depth movement, root normalization, grouping, ungrouping, and orientation changes.
+- Single and selected-block cross-depth movement, local freeform movement, root normalization,
+  grouping, ungrouping, and child positioning/orientation changes.
 - Lock behavior for top-level and nested sections without disabling host content or descendants.
 - Minimize and expand behavior with exact fixed-size restoration, content-fit resumption, and focus restoration.
 - Resize gestures, fixed/content sizing, grow/scroll overflow, wheel isolation, and keyboard resizing with constraints and optional snapping.
@@ -1895,10 +2091,15 @@ Cover the real playground:
 - Marquee-select and focus/fit nested descendants at unrelated depths, then verify their bounds agree with collision and drop geometry through pan, zoom, recursive reflow, grow/scroll changes, and minimization.
 - Focus interactive content in offscreen root and nested sections without producing an independent workbench-wrapper scroll offset or unexpected canvas movement.
 - Build a section tree to multiple depths, then move sections into, out of, and between nested containers.
+- Render mixed ordered and freeform parents at multiple depths, spatially move one and multiple
+  siblings, then move them through every ordered/freeform/root destination direction without
+  losing local offsets.
 - Move same-parent and mixed-parent normalized blocks through representative root and nested
   transitions, including pointer and keyboard completion.
 - Reorder vertical and horizontal siblings in sorting mode.
 - Switch a populated container between vertical and horizontal orientation without changing logical order.
+- Switch a populated container from ordered to freeform and back using measured placement, then
+  undo and redo both conversions without stale position keys or geometry drift.
 - Switch a populated container between grow and scroll overflow, scroll it without panning the canvas, and return it to grow mode.
 - Exercise stable drop targeting near sibling and parent-child boundaries at multiple zoom levels.
 - Verify move and resize snapping while the grid is visible and hidden.
@@ -1919,7 +2120,15 @@ Cover the real playground:
 - Browser zoom at 200% with the toolbar, creation menu, title editor, selection actions, and equivalent minimap navigation still reachable.
 - Coarse-pointer interaction where automation supports it.
 
-Run browser verification through the documented CDP workflow. Visual review must include default, single-selected, marquee, multi-selected, selection-dragging, grouped, locked, read-only, minimized, fixed-size, content-size, grow-overflow, scroll-overflow, sorting, free-moving, snapped movement, resize handles, nested-parent preview, empty-container affordance, sibling insertion preview, invalid-drop, vertical, horizontal, default/compact/transparent/headerless chrome, accent and tag colors, toolbar default and host controls, minimap on both sides, context-menu filtering and empty results, grid-hidden, each grid pattern, custom grid color, light appearance, dark appearance, focus-visible, right-to-left, coarse-pointer, and reduced-motion states.
+Run browser verification through the documented CDP workflow. Visual review must include default,
+single-selected, marquee, multi-selected, selection-dragging, grouped, locked, read-only, minimized,
+fixed-size, content-size, grow-overflow, scroll-overflow, sorting, free-moving, same-parent nested
+freeform movement, snapped movement, resize handles, nested-parent preview, freeform-position
+preview, empty-container affordance, sibling insertion preview, invalid-drop, vertical, horizontal,
+freeform, default/compact/transparent/headerless chrome, accent and tag colors, toolbar default and
+host controls, minimap on both sides, context-menu filtering and empty results, grid-hidden, each
+grid pattern, custom grid color, light appearance, dark appearance, focus-visible, right-to-left,
+coarse-pointer, and reduced-motion states.
 
 ### Consumer, packaging, and supply-chain tests
 
@@ -1955,7 +2164,8 @@ The initial package documentation includes:
 - Public controller, focus/fit/navigation, toolbar-control, overlay, smart-placement, and external-drop references.
 - Searchable creation, inline naming, minimap, marquee selection, grouping, batch commands, and stacking guide.
 - Recursive section containment and validation reference.
-- Sorting-mode, free-move-mode, target-stability, and orientation guide.
+- Sorting-mode, free-move-mode, target-stability, ordered/freeform positioning, and orientation
+  guide.
 - Locking, minimizing, fixed/content sizing, grow/scroll overflow, and resizing reference.
 - Grid, snapping, appearance, per-section presentation, chrome variants, and semantic theme-token reference.
 - Single- and multi-item sortable-tree plus named-list, cross-list, and filtered canonical

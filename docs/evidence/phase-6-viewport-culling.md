@@ -29,6 +29,16 @@ minimization, deliberate offscreen culling unmounts component-local renderer sta
 hierarchy, section payloads, stacking, viewport, pane state, clipboard data, and structural history
 retain their existing owners.
 
+XYFlow's `onlyRenderVisibleElements` is intentionally not a second owner here. The production
+projection contains only root sections as XYFlow nodes; every descendant is recursive DOM inside a
+root node component, so upstream windowing cannot cover all depths. Its node renderer also removes
+an offscreen node wrapper rather than retaining the package's exact named placeholder,
+focus/activity pinning, and ancestry-reveal boundary. Assigning roots to upstream windowing and
+descendants to the package observer would split one frame hierarchy across two asynchronous
+culling lifecycles. The single package observer therefore owns both projected roots and recursive
+descendants. A future representation that projects nested freeform children as XYFlow nodes must
+prove and document one non-overlapping owner per frame before changing this decision.
+
 ## Interaction, accessibility, performance, and visual evidence
 
 The lightweight placeholder retains the frame's accessible name plus a hidden description that
