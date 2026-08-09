@@ -1,5 +1,5 @@
-// Provisional Phase 1 surface. The ratified public API is a post-parity decision; these exports
-// exist so the playground can drive the extracted slice, and they may change freely.
+// Public package surface. Package-relative modules stay implementation details unless they are
+// re-exported here; consumers use this entry and the compiled stylesheet export only.
 export { useWorkspaceOptions } from "./canvas/options";
 export type {
   MiniMapSide,
@@ -119,14 +119,10 @@ export type {
   WorkspaceSectionInput,
   WorkspaceSectionItemTree,
 } from "./document/types";
-export {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-  NO_WHEEL_CLASS_NAME,
-  SETTA_PREVENT_SECTION_ACTIVE_CSS,
-  SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
-} from "./interaction";
+export { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "./interaction";
 export type { ItemRowRenderContext } from "./items/ItemListContext";
+export { WorkspaceItemLabel } from "./items/WorkspaceItemLabel";
+export type { WorkspaceItemLabelProps } from "./items/WorkspaceItemLabel";
 export { WorkspaceItemList } from "./items/WorkspaceItemList";
 export type { WorkspaceItemListProps } from "./items/WorkspaceItemList";
 export { WorkspaceControls } from "./toolbar/WorkspaceControls";

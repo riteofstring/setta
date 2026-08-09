@@ -95,6 +95,11 @@ sustained Alt gesture required a developer manual recheck because Chrome automat
 preserve the held modifier across a later pointer command. The developer completed that recheck
 and explicitly approved the corrected Phase 2 result on 2026-08-11.
 
+Phase 5 resolution: the package remains standard ESM with one exports-only entry map. It does not
+add duplicate `main`, `module`, `types`, `typings`, or `typesVersions` paths for legacy
+`moduleResolution: "node"`; consumers use `"bundler"`, `"node16"`, or `"nodenext"`. The package
+boundary gate now enforces that manifest decision.
+
 ## Retention and removal (item 8)
 
 After the developer approved the Phase 2 gate, the temporary worktree was removed with:

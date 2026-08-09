@@ -64,3 +64,9 @@ Registered content renderers currently place themselves in the section grid with
 leans on a compiled class name as de-facto API, which the plan forbids ratifying as public
 customization surface — the Phase 5 ratification should either wrap registered content in a
 package-owned placed container or expose an explicit content-slot contract.
+
+Resolved in the Phase 5 API ratification: ordinary registered content is now wrapped in the
+package-owned body slot, with an optional `contentClassName` for host presentation. The playground
+and packed consumer no longer name the grid utility. `WorkspaceItemLabel` similarly owns the
+leaf/group label placement required by registered item renderers, so current consumers use no
+package-private grid class.

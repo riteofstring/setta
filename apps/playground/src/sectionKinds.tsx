@@ -16,6 +16,7 @@ import {
   SwitchValueControl,
   TextValueEditor,
   TimeValueControl,
+  WorkspaceItemLabel,
   WorkspaceItemList,
   type ColorValueChoice,
   type DropzoneAcceptedResult,
@@ -49,11 +50,7 @@ function getLeafBody(section: WorkspaceSection): string {
 }
 
 function LeafSectionBody({ section }: { section: WorkspaceSection }) {
-  return (
-    <div className="section-full-no-title px-1">
-      <p className="text-xs text-setta-500 dark:text-setta-400">{getLeafBody(section)}</p>
-    </div>
-  );
+  return <p className="text-xs text-setta-500 dark:text-setta-400">{getLeafBody(section)}</p>;
 }
 
 // The host side of the registered item surface: the item panel kind mounts the package's
@@ -662,15 +659,17 @@ function ItemRowContent({ context }: { context: ItemRowRenderContext }) {
     );
   }
   if (isGroup) {
-    // Group labels stay direct <p> children: the package row places them across the
-    // key..value tracks through its compiled `[&>p]:section-key-value` rule.
-    return <p className={ITEM_LABEL_CLASS_NAME}>{label}</p>;
+    return (
+      <WorkspaceItemLabel className={ITEM_LABEL_CLASS_NAME} isGroup>
+        {label}
+      </WorkspaceItemLabel>
+    );
   }
   return (
     <>
-      <div className="section-key overflow-hidden">
-        <p className={ITEM_LABEL_CLASS_NAME}>{label}</p>
-      </div>
+      <WorkspaceItemLabel className={ITEM_LABEL_CLASS_NAME} isGroup={false}>
+        {label}
+      </WorkspaceItemLabel>
       <ItemValueControl context={context} />
     </>
   );
@@ -684,17 +683,15 @@ export function ItemListSectionBody({ section }: { section: WorkspaceSection }) 
     throw new Error(`Item panel section ${section.id} is missing its item tree.`);
   }
   return (
-    <div className="section-full-no-title flex min-h-0 flex-col">
-      <ItemDndContext>
-        <WorkspaceItemList
-          sectionId={section.id}
-          listKey="main"
-          topLevelItemIds={itemTree.items[itemTree.rootId]?.children ?? []}
-          renderItem={(context) => <ItemRowContent context={context} />}
-          isGroupItem={isGroupItem}
-        />
-      </ItemDndContext>
-    </div>
+    <ItemDndContext>
+      <WorkspaceItemList
+        sectionId={section.id}
+        listKey="main"
+        topLevelItemIds={itemTree.items[itemTree.rootId]?.children ?? []}
+        renderItem={(context) => <ItemRowContent context={context} />}
+        isGroupItem={isGroupItem}
+      />
+    </ItemDndContext>
   );
 }
 
@@ -1098,10 +1095,12 @@ export function registerPlaygroundSectionKinds(): void {
   registerSectionKinds({
     leaf: {
       renderContent: (section) => <LeafSectionBody section={section} />,
+      contentClassName: "px-1",
       defaultSize: { width: 200, height: 122 },
     },
     "item-list": {
       renderContent: (section) => <ItemListSectionBody section={section} />,
+      contentClassName: "flex min-h-0 flex-col",
       defaultSize: { width: 550, height: 350 },
     },
     "meta-control": {

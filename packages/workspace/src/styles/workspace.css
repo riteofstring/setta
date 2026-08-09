@@ -3,9 +3,9 @@
  * stylesheet through src/styles/index.css; consumers import the compiled dist/styles.css.
  *
  * The reference declares the placement classes in `@layer utilities`, but the compiled
- * package stylesheet must not: Tailwind tree-shakes layered rules against package source
- * alone, and the placement vocabulary is the host content seam — consumers place their
- * registered section content with these classes and are never scanned by this build. */
+ * package stylesheet keeps them un-layered at the same effective cascade position. Registered
+ * content now reaches these classes only through package-owned slots; consumers never depend on
+ * the private vocabulary. */
 
 .section-title {
   grid-area: title;

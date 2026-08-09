@@ -1,8 +1,42 @@
 # @setta/workspace
 
-The Setta workspace UI, extracted as a standalone TypeScript/React package. The working name,
-public API, and every export are provisional until the Phase 1 parity gate and the Phase 2
-boundary work in `docs/plans/setta-workspace-extraction-plan.md` ratify them.
+The Setta workspace UI, extracted as a standalone TypeScript/React package. Phase 5 ratified the
+package surface exported from `src/index.ts`; package-relative modules are implementation details.
+`@setta/workspace` remains the confirmed working name for this local, unpublished extraction. It is
+not a final publication-name decision.
+
+The runtime owns one workspace document and its interaction state. A host registers section kinds,
+loads the controlled serializable document, configures the package-owned appearance, capabilities,
+and interaction stores, and mounts the independently composable canvas surfaces. Package changes
+may still change this unpublished API directly; no compatibility aliases or transition paths are
+provided.
+
+## Public composition surface
+
+- `WorkspaceCanvas` renders the spatial document, package section chrome, drag/drop contexts,
+  background, and configured minimap. It fills the host element that contains it.
+- `WorkspaceControls` is the accepted compact viewport/minimap toolbar. The host chooses its pane
+  and placement; the playground and packed consumer mount it in their own left rail.
+- `WorkspaceTooltip` is the package overlay for the held-Q control tooltips and is mounted once as a
+  sibling of the host workspace shell.
+- `registerSectionKinds` is the section extension point. Each kind supplies opaque-content
+  rendering, an optional icon, and an optional default size. Ordinary content is automatically
+  placed in the package-owned body slot; `contentClassName` adds host padding or layout to that
+  wrapper without exposing the section grid vocabulary.
+- `WorkspaceItemList` and `ItemDndContext` are the registered item-tree extension point.
+  `WorkspaceItemLabel` places host-styled leaf and group labels without exposing item-grid classes;
+  the built-in value/name controls own their corresponding placements and interactions.
+
+Host panes remain ordinary siblings around the canvas, and host overlays remain ordinary siblings
+or portals owned by the host. This keeps application navigation, configuration panels, and modal
+state out of the workspace document while allowing them to use the document callback and exported
+controller stores. XYFlow panels, dnd-kit stores, Tailwind utility names, and package-private DOM
+selectors are not extension APIs.
+
+Custom interactive renderer content uses only the three exported interaction-boundary constants:
+`NO_DRAG_CLASS_NAME` prevents section/item drag activation, `NO_PAN_CLASS_NAME` preserves the
+element's pointer interaction, and `NO_WHEEL_CLASS_NAME` preserves its wheel behavior. Package
+controls apply these boundaries themselves.
 
 ## Peer dependencies
 
@@ -70,6 +104,21 @@ border); TextArea defaults to 200 x 98, Dropzone to 240 x 120, and Dropdown, Pas
 keep frozen main's auto-only height policy. Unknown projected or rendered control kinds fail
 specifically instead of displaying a fallback.
 
+Ordinary renderers return their content only. The package wraps that result in the correct
+header-below body slot; consumers must not add `section-full-no-title` or any other package grid
+class. For example:
+
+```tsx
+registerSectionKinds({
+  note: {
+    renderContent: (section) => <Note data={section.data} />,
+    icon: NoteIcon,
+    defaultSize: { width: 240, height: 140 },
+    contentClassName: "note-content",
+  },
+});
+```
+
 ## Consumption during extraction
 
 Consumers install the compiled package: the `exports` map serves ESM with a source map
@@ -88,5 +137,10 @@ renders — the canvas, the toolbar and tooltip surfaces, and the drag overlays 
 `document.body`. Hosts need no Tailwind setup; the optional `@setta/workspace/tailwind-preset`
 export exists for hosts that want the setta palette in their own chrome, as the playground
 does. Host page context (fonts, background) stays host-owned, as in the reference application.
+
+The manifest is deliberately exports-only: it has no duplicate top-level `main`, `module`,
+`types`, `typings`, or `typesVersions` path. TypeScript consumers use a package-exports-aware
+resolution mode (`"bundler"`, `"node16"`, or `"nodenext"`). CommonJS and legacy
+`moduleResolution: "node"` consumption are outside this ESM package contract.
 
 The package is local and unpublished for the duration of the extraction plan.

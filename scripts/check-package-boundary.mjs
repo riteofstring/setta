@@ -20,6 +20,35 @@ const runtimeDependencyNames = new Set([
 ]);
 const developmentDependencyNames = new Set(Object.keys(manifest.devDependencies ?? {}));
 
+function validateLegacyManifestFields() {
+  return ["main", "module", "types", "typings", "typesVersions"].flatMap((legacyField) =>
+    legacyField in manifest
+      ? [
+          `${packageRootRelative}/package.json: ${legacyField} duplicates the exports-only package surface`,
+        ]
+      : [],
+  );
+}
+
+function validateCompiledExports() {
+  const rootExport = manifest.exports?.["."];
+  if (rootExport?.types !== "./dist/types/index.d.ts" || rootExport?.import !== "./dist/index.js") {
+    return [
+      `${packageRootRelative}/package.json: the root export must map types and import to compiled dist artifacts`,
+    ];
+  }
+  return [];
+}
+
+function validateStylesheetExport() {
+  if (manifest.exports?.["./styles.css"] !== "./dist/styles.css") {
+    return [
+      `${packageRootRelative}/package.json: the stylesheet export must map to ./dist/styles.css`,
+    ];
+  }
+  return [];
+}
+
 function walkSourceFiles(absoluteDirectory) {
   return readdirSync(absoluteDirectory, { withFileTypes: true }).flatMap((entry) => {
     const absolutePath = path.join(absoluteDirectory, entry.name);
@@ -129,11 +158,10 @@ function validateBuiltStylesheet() {
     [":where(.setta-workspace, .setta-workspace *)", "scoped base subset"],
     [":where(.setta-workspace) :where(dl, dd)", "scoped dropdown-list reset"],
     [".react-flow__controls-button.react-flow__controls-button", "reset-zoom control rule"],
-    // The section grid placement vocabulary is the host content seam: consumers place their
-    // registered section content with these classes, so Tailwind's content scan can never see
-    // the usage and the rules must ship unconditionally (Phase 2 Setta-integration render
-    // proof caught the layered variant being tree-shaken out).
-    [".section-full-no-title", "host content-placement rule"],
+    // Registered bodies are placed by the package-owned content slot. The rule must still ship
+    // unconditionally: the Phase 2 Setta-integration render proof caught its earlier layered form
+    // being tree-shaken out of the packed artifact.
+    [".section-full-no-title", "registered content-slot rule"],
     // The nested item grid contract: the Phase 4 gate rejection caught the compiled sheet
     // shipping the nested placement vocabulary without these named grids, which collapsed a
     // group's children into an implicit side column beside the group label.
@@ -160,6 +188,9 @@ function validateBuiltStylesheet() {
 }
 
 const failures = [
+  ...validateLegacyManifestFields(),
+  ...validateCompiledExports(),
+  ...validateStylesheetExport(),
   ...validateSourceImports(),
   ...validateTsconfigAliases(),
   ...(checkBuilt ? validateBuiltArtifacts() : []),

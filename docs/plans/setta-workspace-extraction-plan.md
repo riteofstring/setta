@@ -1397,6 +1397,36 @@ Phase 4 progress (2026-08-11):
   supply-chain gate was not duplicated. The remaining Phase 5 API ratification, extension points,
   hardening audits, performance work, final matched developer comparison, and phase gates remain
   open; no visual baseline was refreshed by this implementation batch.
+- Phase 5 public API and composition-extension ratification complete (2026-08-12): the root runtime
+  and declaration entry is now the deliberate package surface rather than a provisional Phase 1
+  export list. An exact runtime-export regression prevents broad barrel leakage; the two private
+  `SETTA_PREVENT_SECTION_*` selector constants left the public entry while the three approved
+  semantic interaction-boundary constants remain. The Phase 2 content-placement observation is
+  resolved at the package boundary: ordinary registered renderers are wrapped in the package-owned
+  section body slot and may add host presentation through `contentClassName`, so neither the
+  playground nor the packed consumer names `section-full-no-title`; direct-on-canvas controls keep
+  their separately owned full-area placement and reject a competing host slot. The new
+  `WorkspaceItemLabel` similarly owns leaf-key versus direct group-label placement, removing the
+  last package-grid class from the playground's registered item renderer without changing its
+  accepted DOM or geometry. The package README ratifies the real-example extension model: section
+  renderers and icons register per kind, `WorkspaceControls` composes in a host toolbar pane,
+  `WorkspaceCanvas` fills the host canvas pane, and host/package overlays compose as siblings or
+  portals; no XYFlow panel, dnd store, Tailwind utility, or private selector became API. The working
+  local name remains `@setta/workspace` for this plan only; final publication naming remains an
+  explicit developer decision. The Phase 2 legacy-resolution observation is closed by retaining
+  one standard ESM exports map: no duplicate `main`/`module`/`types`/`typings`/`typesVersions`
+  metadata or CommonJS path, enforced by the package-boundary gate and documented with the required
+  TypeScript resolution modes. Focused package verification passes (four files, 31 tests), as does
+  the directly affected playground renderer suite (16 tests), package and playground production
+  builds, built-artifact boundary check, exact packed unrelated-consumer install/typecheck/build,
+  and changed-file static gate. A narrow live playground check at 1492 x 696 confirms the accepted
+  composition is unchanged: 552 x 352 item outer, 550 x 350 surface, 550 x 320 package body slot,
+  550/544 px list outer/client widths, 526 x 20 rows, the leaf's `px-1` body slot, and the group
+  label as a direct row child, with no browser warning or error. The frozen reference remains clean
+  at `043d3b2e9`; no dependency changed, so the supply-chain gate was not duplicated. The remaining
+  Phase 5 repository work is the appearance/input/accessibility hardening audit, large-document
+  performance measurement, and the final broad and developer-acceptance gates; no visual baseline
+  was refreshed by this API batch.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

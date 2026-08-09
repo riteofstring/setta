@@ -37,13 +37,8 @@ function getNoteText(section: WorkspaceSection): string {
 }
 
 function NoteBody({ section }: { section: WorkspaceSection }) {
-  // The compiled stylesheet's section grid utility places the body across the content rows,
-  // the same placement the playground consumer uses.
-  return (
-    <div className="section-full-no-title">
-      <p className="consumer-note-body">{getNoteText(section)}</p>
-    </div>
-  );
+  // Registration places this host content in the package-owned section body slot.
+  return <p className="consumer-note-body">{getNoteText(section)}</p>;
 }
 
 function NoteIcon({ className }: { className?: string }) {

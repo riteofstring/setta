@@ -24,7 +24,9 @@ export type MetaControlSectionPresentation = {
 
 type SectionKindBaseDefinition = {
   // Rendered as the section body inside the package-owned shell, chrome, and header. The
-  // section carries the kind's opaque `data`; the package never interprets it.
+  // section carries the kind's opaque `data`; the package never interprets it. Ordinary
+  // registered content is placed in the package-owned body slot, so renderers never need a
+  // private section-grid class.
   renderContent: (section: WorkspaceSection) => ReactNode;
   // Header icon component, rendered with the reference's icon treatment. Kinds without one
   // render the reference's `gg-menu` fallback glyph.
@@ -37,12 +39,16 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         // Applied when an ordinary loaded section omits its size. Kinds without one load at the
         // reference's auto/auto default, exactly like `createSectionSize()` without options.
         defaultSize?: SectionSize;
+        // Appended to the package-owned body-slot wrapper. This is for host presentation such as
+        // padding or flex layout; the package continues to own the grid placement itself.
+        contentClassName?: string;
         presentation?: undefined;
       }
     | {
         // Direct-on-canvas kinds opt into package-owned chrome and per-control default/minimum
         // geometry; a competing registered default would make that contract ambiguous.
         defaultSize?: never;
+        contentClassName?: never;
         presentation: MetaControlSectionPresentation;
       }
   );
@@ -62,6 +68,12 @@ export function registerSectionKinds(kinds: Record<string, SectionKindDefinition
       throw new Error(
         `Meta-control section kind ${kind} cannot register a defaultSize; ` +
           "the package owns control-specific default geometry.",
+      );
+    }
+    if (definition.presentation && definition.contentClassName !== undefined) {
+      throw new Error(
+        `Meta-control section kind ${kind} cannot register a contentClassName; ` +
+          "the package owns its full-area control placement.",
       );
     }
   }

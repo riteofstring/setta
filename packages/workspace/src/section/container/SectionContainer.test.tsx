@@ -205,6 +205,9 @@ describe("SectionContainer", () => {
     expect(host.querySelector('[aria-label="Minimize section"]')).not.toBeNull();
     expect(host.querySelector('[aria-label="Delete section"]')).not.toBeNull();
     expect(host.textContent).toContain("Leaf section body");
+    expect(host.querySelector('[data-testid="section-body"]')?.parentElement?.className).toBe(
+      "section-full-no-title",
+    );
 
     const rightHandle = host.querySelector(".section-resize-handle-right") as HTMLElement;
     const bottomHandle = host.querySelector(".section-resize-handle-bottom") as HTMLElement;
@@ -365,6 +368,21 @@ describe("SectionContainer", () => {
     await mount("leaf");
     expect(host.querySelector('[data-testid="kind-icon"]')?.getAttribute("class")).toContain(
       "text-[color:var(--setta-section-style-muted-text)]",
+    );
+  });
+
+  it("appends host presentation to the package-owned content slot", async () => {
+    registerSectionKinds({
+      leaf: {
+        renderContent: renderSectionBody,
+        contentClassName: "host-content-layout",
+      },
+    });
+    loadTestDocument();
+    await mount("leaf");
+
+    expect(host.querySelector('[data-testid="section-body"]')?.parentElement?.className).toBe(
+      "section-full-no-title host-content-layout",
     );
   });
 

@@ -1,4 +1,7 @@
-import { getRegisteredSectionKindOrThrow } from "../../document/sectionKindRegistry";
+import {
+  getRegisteredSectionKindOrThrow,
+  type SectionKindDefinition,
+} from "../../document/sectionKindRegistry";
 import type { WorkspaceSection } from "../../document/types";
 import { SectionHeader } from "../header/SectionHeader";
 import { CustomResizable } from "../resize/CustomResizable";
@@ -19,7 +22,6 @@ export function SectionContainerContent({
   hasSectionStyleTheme,
 }: SectionContainerContentProps) {
   const definition = getRegisteredSectionKindOrThrow(section.kind);
-  const { renderContent } = definition;
   const metaControlPresentation =
     definition.presentation?.type === "meta-control" ? definition.presentation : null;
   const isMetaControl = metaControlPresentation !== null;
@@ -37,7 +39,17 @@ export function SectionContainerContent({
       ) : (
         <SectionHeader sectionId={section.id} hasSectionStyleTheme={hasSectionStyleTheme} />
       )}
-      {!section.isMinimized && renderContent(section)}
+      {!section.isMinimized && renderRegisteredContent(definition, section)}
     </CustomResizable>
   );
+}
+
+function renderRegisteredContent(definition: SectionKindDefinition, section: WorkspaceSection) {
+  if (definition.presentation?.type === "meta-control") {
+    return definition.renderContent(section);
+  }
+  const bodySlotClassName = definition.contentClassName
+    ? `section-full-no-title ${definition.contentClassName}`
+    : "section-full-no-title";
+  return <div className={bodySlotClassName}>{definition.renderContent(section)}</div>;
 }

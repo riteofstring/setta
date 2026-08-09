@@ -82,4 +82,20 @@ describe("sectionKindRegistry", () => {
       }),
     ).toThrowError(/cannot register a defaultSize/);
   });
+
+  it("rejects a competing host content slot for package-owned meta placement", () => {
+    expect(() =>
+      registerSectionKinds({
+        meta: {
+          renderContent: () => null,
+          contentClassName: "host-slot",
+          presentation: {
+            type: "meta-control",
+            resolveControlKind: () => "button",
+            onEdit: () => {},
+          },
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(/cannot register a contentClassName/);
+  });
 });

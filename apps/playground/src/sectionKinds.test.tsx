@@ -181,7 +181,9 @@ describe("the playground item renderer presentation contract", () => {
 
   it("renders leaf rows with the reference label and the built-in text value control", () => {
     const leafRow = findRowByLabel(container, "alpha");
-    const label = leafRow.querySelector<HTMLElement>(".section-key > p");
+    const label = Array.from(leafRow.querySelectorAll<HTMLElement>(":scope > div > p")).find(
+      (candidate) => candidate.textContent === "alpha",
+    );
     const value = leafRow.querySelector<HTMLElement>('[role="textbox"]');
     const divider = leafRow.querySelector<HTMLElement>("span.section-value");
     if (!label || !value || !divider) {
@@ -468,8 +470,7 @@ describe("the playground item renderer presentation contract", () => {
 
   it("renders group labels as direct children carrying the reference label treatment", () => {
     const groupRow = findRowByLabel(container, "options");
-    // The package places direct <p> children across key..value through its compiled
-    // `[&>p]:section-key-value` rule, so the label must stay a direct child.
+    // WorkspaceItemLabel owns the package's grid placement and keeps group labels direct children.
     const groupLabel = Array.from(groupRow.children).find(
       (child) => child.tagName === "P" && child.textContent === "options",
     );
