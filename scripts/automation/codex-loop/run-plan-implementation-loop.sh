@@ -49,11 +49,11 @@ behavior change before rerunning a focused end-to-end scenario. Broad matrices
 and live-provider suites are phase/final gates, not per-checkbox debugging
 loops.
 
-The loop succeeds only when Agent 2's final message is exactly:
+The loop succeeds only when Agent 2's final non-empty line is exactly:
   PLAN_IMPLEMENTATION_COMPLETE
 
 The loop exits with status 3 when either agent establishes a genuine plan-level
-blocker, commits the required evidence, and returns exactly:
+blocker, commits the required evidence, and ends its response with the exact line:
   PLAN_IMPLEMENTATION_BLOCKED
 
 Review findings, failing checks, and incomplete plan work advance to another
@@ -372,7 +372,7 @@ run_agent() {
   done
 }
 
-trimmed_nonempty_message() {
+last_trimmed_nonempty_line() {
   local message_file="$1"
 
   sed \
@@ -380,7 +380,8 @@ trimmed_nonempty_message() {
     -e 's/^[[:space:]]*//' \
     -e 's/[[:space:]]*$//' \
     -e '/^$/d' \
-    "${message_file}"
+    "${message_file}" |
+    tail -n 1
 }
 
 while [[ $# -gt 0 ]]; do
@@ -616,7 +617,7 @@ while true; do
   iteration_start_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
   run_agent "agent-1" "${AGENT_ONE_PROMPT}" "${run_dir}" "${AGENT_ONE_RUNNER}" "${AGENT_ONE_MODEL}" "${AGENT_ONE_EFFORT}" 1
   implementer_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
-  implementer_message="$(trimmed_nonempty_message "${implementer_last_message}")"
+  implementer_message="$(last_trimmed_nonempty_line "${implementer_last_message}")"
   if [[ "${implementer_message}" == "${BLOCKED_SENTINEL}" ]] && repo_is_clean; then
     require_clean_repo "at the Agent 1 blocked exit"
     log_info "Agent 1 returned ${BLOCKED_SENTINEL}; implementation is blocked by committed plan evidence."
@@ -643,7 +644,7 @@ while true; do
   run_agent "agent-2" "${reviewer_prompt}" "${run_dir}" "${AGENT_TWO_RUNNER}" "${AGENT_TWO_MODEL}" "${AGENT_TWO_EFFORT}" 1
   require_clean_repo "after agent-2 review"
 
-  reviewer_message="$(trimmed_nonempty_message "${reviewer_last_message}")"
+  reviewer_message="$(last_trimmed_nonempty_line "${reviewer_last_message}")"
   if [[ "${reviewer_message}" == "${BLOCKED_SENTINEL}" ]]; then
     require_clean_repo "at the Agent 2 blocked exit"
     log_info "Agent 2 returned ${BLOCKED_SENTINEL}; implementation is blocked by committed plan evidence."
