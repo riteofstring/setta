@@ -1304,6 +1304,19 @@ Phase 4 progress (2026-08-11):
   live Chrome geometry check pass. No dependency changed, so the supply-chain gate was not
   duplicated. The consolidated developer acceptance and first package-output baselines remain
   open; Phase 5 is still not actionable.
+- Consolidated controls gate correction — stable slider value width (2026-08-12): developer live
+  inspection exposed the frozen ordinary slider field's fixed 32 px box clipping the configured
+  value `100` to two visible digits. With its preserved 8 px inline padding and borders, that box
+  left only about 14 px for text. The explicitly requested correction replaces the fixed width with
+  a character budget derived once from `min`, `max`, and `step`, including sign and decimal
+  precision, and uses tabular digits. Width therefore remains constant as the live value changes,
+  while configured endpoints fit without drag-time layout jitter. A regression covers integer and
+  signed-decimal configurations and freezes width across `9` to `100`. The focused slider suite
+  (8 tests), complete package suite (80 files, 586 tests), complete playground suite (3 files, 23
+  tests), package production build and built-boundary check, playground production build, full
+  changed-file static gate, packed unrelated-consumer proof, and live Chrome style inspection pass.
+  No dependency changed, so the supply-chain gate was not duplicated. The consolidated developer
+  acceptance and first package-output baselines remain open; Phase 5 is still not actionable.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

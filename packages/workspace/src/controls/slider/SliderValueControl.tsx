@@ -41,7 +41,7 @@ const ITEM_TEXT_INPUT_CLASS_NAME =
   // The responsive display must beat a consumer's later generic `.hidden` utility. The package
   // stylesheet is intentionally importable before host styles, unlike frozen main's single
   // Tailwind sheet, so the threshold declaration is important while preserving the same result.
-  "hidden my-auto mr-[1px] h-5/6 w-8 cursor-auto resize-none rounded-lg border border-solid border-setta-300/20 bg-white px-2 text-center font-mono text-xs focus-visible:border-blue-300 dark:border-setta-875 dark:bg-setta-875 dark:text-setta-300 @[132px]/slider:!block";
+  "hidden my-auto mr-[1px] h-5/6 cursor-auto resize-none rounded-lg border border-solid border-setta-300/20 bg-white px-2 text-center font-mono text-xs tabular-nums focus-visible:border-blue-300 dark:border-setta-875 dark:bg-setta-875 dark:text-setta-300 @[132px]/slider:!block";
 const META_WRAPPER_CLASS_NAME = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex w-full min-w-0 items-center gap-2 cursor-pointer`;
 const META_ROOT_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full flex-1 touch-none select-none items-center data-[orientation='horizontal']:h-5 cursor-pointer`;
 const META_TRACK_CLASS_NAME = `${NO_DRAG_CLASS_NAME} relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700 cursor-pointer`;
@@ -78,6 +78,29 @@ function parseSliderValue(value: string, min: number, max: number): number {
   return clampNumericValue(parsed, min, max);
 }
 
+function getDecimalPlaces(value: number): number {
+  const [coefficient = "", exponentText] = String(Math.abs(value)).toLowerCase().split("e");
+  const fractionLength = coefficient.split(".")[1]?.length ?? 0;
+  const exponent = exponentText === undefined ? 0 : Number(exponentText);
+  return Math.max(0, fractionLength - exponent);
+}
+
+// Reserve the widest fixed-point value implied by the configuration rather than sizing from the
+// live value. The field therefore neither clips a configured endpoint nor changes width while the
+// thumb moves. Its horizontal padding and borders remain outside this character-width budget.
+function getNumericFieldCharacterCount(min: number, max: number, step: number): number {
+  const precision = Math.max(getDecimalPlaces(min), getDecimalPlaces(max), getDecimalPlaces(step));
+  const largestMagnitude = Math.max(Math.abs(min), Math.abs(max));
+  const integerDigits = largestMagnitude < 1 ? 1 : Math.floor(Math.log10(largestMagnitude)) + 1;
+  const signCharacters = min < 0 ? 1 : 0;
+  const fractionalCharacters = precision === 0 ? 0 : precision + 1;
+  return Math.max(
+    String(min).length,
+    String(max).length,
+    signCharacters + integerDigits + fractionalCharacters,
+  );
+}
+
 export function SliderValueControl({ ...props }: SliderValueControlProps) {
   return <SliderValueControlCore {...props} presentation="item-row" />;
 }
@@ -104,6 +127,7 @@ function SliderValueControlCore({
   const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
   const isDisabled = disabled || isSelectingItems;
   const numericValue = parseSliderValue(value, min, max);
+  const numericFieldCharacterCount = getNumericFieldCharacterCount(min, max, step);
   const classes = getSliderPresentation(presentation);
   const reportChange = (nextValue: number) => onValueChange(String(nextValue));
   const reportCommit = (nextValue: number) => onValueCommit?.(String(nextValue));
@@ -153,6 +177,7 @@ function SliderValueControlCore({
         max={max}
         disabled={isDisabled}
         className={classes.textInputClassName}
+        characterCount={numericFieldCharacterCount}
       />
     </div>
   );
@@ -168,6 +193,7 @@ function SliderNumericField({
   max,
   disabled,
   className,
+  characterCount,
 }: {
   ariaLabel: string;
   sectionId: string;
@@ -178,6 +204,7 @@ function SliderNumericField({
   max: number;
   disabled: boolean;
   className: string;
+  characterCount: number;
 }) {
   const [temporaryValue, setTemporaryValue] = useState(value);
 
@@ -190,6 +217,7 @@ function SliderNumericField({
       aria-label={ariaLabel}
       className={className}
       inputMode="decimal"
+      style={{ inlineSize: `calc(${characterCount}ch + 1rem + 2px)` }}
       value={temporaryValue}
       disabled={disabled}
       onChange={(event) => setTemporaryValue(event.target.value)}

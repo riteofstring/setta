@@ -123,14 +123,26 @@ describe("SliderValueControl", () => {
     expect(input.inputMode).toBe("decimal");
     for (const expectedClass of [
       "hidden",
-      "w-8",
       "rounded-lg",
       "font-mono",
       "text-xs",
+      "tabular-nums",
       "@[132px]/slider:!block",
     ]) {
       expect(input.classList.contains(expectedClass)).toBe(true);
     }
+    expect(input.style.inlineSize).toBe("calc(2ch + 2px + 1rem)");
+  });
+
+  it("reserves a stable numeric width from the configured range and precision", async () => {
+    await mount({ value: "9", min: 0, max: 100, step: 1 });
+    expect(getNumericInput().style.inlineSize).toBe("calc(3ch + 2px + 1rem)");
+
+    await mount({ value: "100", min: 0, max: 100, step: 1 });
+    expect(getNumericInput().style.inlineSize).toBe("calc(3ch + 2px + 1rem)");
+
+    await mount({ value: "-9.75", min: -10, max: 10, step: 0.25 });
+    expect(getNumericInput().style.inlineSize).toBe("calc(6ch + 2px + 1rem)");
   });
 
   it("reports Radix keyboard changes and their end-of-gesture commit as strings", async () => {
