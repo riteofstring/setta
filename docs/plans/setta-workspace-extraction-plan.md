@@ -11,7 +11,7 @@ exit gate remain supervised developer work that no agent or test suite can waive
 Preflight progress (2026-08-10):
 
 - Item 1: `../setta-main` verified clean on `main` at `043d3b2e9`. Verifying that the reference
-  application *runs* requires launching it and is recorded as an open gate for Phase 0 evidence
+  application _runs_ requires launching it and is recorded as an open gate for Phase 0 evidence
   capture; the automation loop must not attempt it.
 - Items 2–3: complete — branch pruned to a package-focused skeleton in a mechanical cleanup
   commit; confirmed no Setta runtime, backend, domain, or generated-client source remains tracked.
@@ -21,8 +21,22 @@ Preflight progress (2026-08-10):
 - Item 5: complete — obsolete plan documents deleted (`modular-workbench-oss-plan.md`; the
   greenfield `standalone-section-workbench-oss-plan.md` was deleted earlier). This is the single
   active extraction plan.
-- Items 6–8 (quality and supply-chain tooling contract): not started; they must land before
-  Phase 1 code.
+- Items 6–8 (quality and supply-chain tooling contract): complete on 2026-08-10. The tooling was
+  inventoried and the package-relevant contract implemented in `scripts/*.mjs` with plain Node/pnpm
+  (no Go or Python runtime): `pnpm run quality` with changed/staged/all/
+  explicit-file modes runs the static gate (formatting, ESLint with source/test complexity plus
+  production `max-depth`/`max-params`, typecheck dispatch, dependency/boundary policy, Knip,
+  file-length ceilings ratified from frozen-reference evidence). The networked
+  `pnpm run supply-chain:check` gate covers frozen install, an isolated lockfile-sync check,
+  an independent transitive release-age audit, `pnpm audit` at moderate, the SPDX license
+  allowlist, and the dependency inventory. The seven-day release-age policy lives in
+  `supply-chain-policy.json` and
+  is mechanically checked against `pnpm-workspace.yaml`; `supply-chain-exceptions.json` starts
+  empty and every exception path demands owned, expiring metadata. Item 8's blocking
+  demonstrations (install-time and audited release age, lockfile drift, disallowed builds,
+  unowned/expired exceptions, vulnerabilities, licenses) ran against a clean frozen install and
+  are recorded in `docs/quality-and-supply-chain-tooling.md`. The preflight is complete; Phase 0
+  evidence capture remains supervised developer work.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

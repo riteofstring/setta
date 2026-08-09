@@ -53,8 +53,12 @@ code here.
 
 ## Verification
 
-- The quality and supply-chain tooling contract in the plan is established by preflight items 6–8;
-  until those commands land, run the narrowest focused checks that exercise a change.
+- `pnpm run quality` (changed files by default; `--staged`, `--all`, `--files <path>...`) is the
+  static gate for every reviewable source batch. `pnpm run supply-chain:check` runs on dependency
+  changes and phase gates only. Thresholds, policy files, and exception rules are documented in
+  `docs/quality-and-supply-chain-tooling.md`; do not weaken a control to make a change pass.
+- Use the standalone pnpm from `~/Library/pnpm` (corepack is broken on this machine); the pinned
+  toolchain is pnpm 10.23.0 on Node 25.2.1.
 - Visual batches follow the plan's verification order: reproduce the main reference, implement the
   smallest change, run focused checks, compare main and package live through Chrome DevTools at the
   same viewport, appearance, zoom, and state, present side-by-side evidence, and refresh visual
