@@ -1,0 +1,40 @@
+import type { ReactNode } from "react";
+import { useDraggable, useDroppable } from "../../dnd/adapter";
+import { useDndMode, useDndState } from "../../dnd/dndState";
+import { useDndProps } from "../../dnd/useDndUtils";
+import { DndSlotAndDndWatcher } from "./ContainerWrappers";
+
+export function TopLevelContainer({
+  isGroup,
+  sectionId,
+  children,
+}: {
+  isGroup: boolean;
+  sectionId: string;
+  children: ReactNode;
+}) {
+  const activeIsSelf = useDndState((x) => x.activeId === sectionId);
+  const { isMovingFree } = useDndMode();
+  const dndProps = useDndProps({ sectionId, isTopLevel: true });
+  const { setNodeRef: droppableRef } = useDroppable({
+    ...dndProps,
+    disabled: activeIsSelf,
+  });
+  const { listeners: dragListeners, setNodeRef: draggableRef } = useDraggable({
+    ...dndProps,
+    feedback: isMovingFree ? "none" : undefined,
+  });
+
+  return (
+    <DndSlotAndDndWatcher
+      isGroup={isGroup}
+      sectionId={sectionId}
+      isTopLevel={true}
+      droppableRef={droppableRef}
+      draggableRef={draggableRef}
+      dragListeners={dragListeners}
+    >
+      {children}
+    </DndSlotAndDndWatcher>
+  );
+}

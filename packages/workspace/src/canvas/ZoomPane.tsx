@@ -3,6 +3,7 @@ import { pointer, select, type Selection as D3Selection } from "d3-selection";
 import { zoom, zoomIdentity, type D3ZoomEvent } from "d3-zoom";
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { shallow } from "zustand/shallow";
+import { useDndState } from "../dnd/dndState";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "../interaction";
 import { getInitialCanvasViewport } from "./documentViewportSync";
 import { fitView } from "./fitView";
@@ -516,7 +517,14 @@ function shouldBlockZoomFilterByInteractionState({
   if (!zoomOnDoubleClick && event.type === "dblclick") {
     return true;
   }
-  return blocksPointerStartWithoutPan({ event, eventButton, panOnDrag });
+  if (blocksPointerStartWithoutPan({ event, eventButton, panOnDrag })) {
+    return true;
+  }
+
+  // The zoom pane suspends panning while a dnd mode is held; the two interaction engines
+  // coexist by giving the held mode's gesture one owner.
+  const { isSorting, isMovingFree } = useDndState.getState();
+  return isSorting || isMovingFree;
 }
 
 function shouldBlockZoomFilterByTarget({

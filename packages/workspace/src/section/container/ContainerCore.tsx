@@ -1,6 +1,8 @@
-import type { KeyboardEvent, ReactNode } from "react";
+import _ from "lodash";
+import React, { type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { applyActiveSectionChange } from "../../canvas/activeSectionController";
 import { useShouldDisablePointerEvents } from "../../canvas/useShouldDisablePointerEvents";
+import { useHasTempNested } from "../../dnd/useDndUtils";
 import { getSectionOrThrow } from "../../document/documentSelectors";
 import { useActiveSections, useWorkspaceDocument } from "../../document/stores";
 import { ChangeOrientationButton } from "../header/ChangeOrientationButton";
@@ -12,32 +14,61 @@ import { getOnSectionClick } from "../sectionClick";
 import { getOutlineColor } from "../sectionColors";
 import { useSectionRefAndInit } from "../sectionRefs";
 
+export type SectionDragListeners = React.HTMLAttributes<HTMLDivElement>;
+export type SectionDragRef = (element: Element | null) => void;
+
 // The reference's `ContainerCore`: the leaf wrapper div and the group chrome. A group paints
 // its frame and selection outline on an absolutely positioned sibling layer, so selection never
-// shifts group layout. The reference's overflow mode, view-mode props, and dnd ref/listener
-// merging left with their owning features; the dnd batch reintroduces the drag wiring.
-export function Container({
+// shifts group layout. The section element merges three ref systems (positional registry, dnd
+// droppable, dnd draggable) and spreads the mode-gated drag listeners over its whole surface.
+// The reference's overflow mode and view-mode props left with their owning features.
+function ContainerComponent({
   isGroup,
   sectionId,
+  droppableRef,
+  draggableRef,
+  className,
+  style,
+  trueDragListeners,
   children,
 }: {
   isGroup: boolean;
   sectionId: string;
+  droppableRef?: SectionDragRef;
+  draggableRef?: SectionDragRef;
+  className?: string;
+  style?: CSSProperties;
+  trueDragListeners?: SectionDragListeners;
   children: ReactNode;
 }) {
   const refForPosition = useSectionRefAndInit(sectionId, "withNested");
 
-  if (isGroup) {
-    return (
-      <ContainerGroup sectionId={sectionId} refForPosition={refForPosition}>
-        {children}
-      </ContainerGroup>
-    );
+  function totalRef(element: HTMLDivElement | null) {
+    refForPosition.current = element;
+    if (droppableRef) {
+      droppableRef(element);
+    }
+    if (draggableRef) {
+      draggableRef(element);
+    }
   }
-  return (
+
+  const commonProps = { ref: totalRef, ...trueDragListeners };
+
+  return isGroup ? (
+    <ContainerGroup
+      sectionId={sectionId}
+      commonProps={commonProps}
+      className={className}
+      style={style}
+    >
+      {children}
+    </ContainerGroup>
+  ) : (
     <div
-      className="focus-visible:outline-none"
-      ref={refForPosition}
+      className={`${className ?? ""} focus-visible:outline-none`}
+      style={style}
+      {...commonProps}
       tabIndex={-1} // keeps section focusable for programmatic focus
     >
       {children}
@@ -45,22 +76,29 @@ export function Container({
   );
 }
 
+export const Container = React.memo(ContainerComponent, _.isEqual);
+
+type GroupCommonProps = SectionDragListeners & {
+  ref: (element: HTMLDivElement | null) => void;
+};
+
 function ContainerGroup({
   sectionId,
-  refForPosition,
+  commonProps,
+  className,
+  style,
   children,
 }: {
   sectionId: string;
-  refForPosition: React.RefObject<HTMLDivElement | null>;
+  commonProps: GroupCommonProps;
+  className?: string;
+  style?: CSSProperties;
   children: ReactNode;
 }) {
-  const { positionAndSizeLocked, hasNested } = useWorkspaceDocument((x) => {
-    const section = getSectionOrThrow(x, sectionId);
-    return {
-      positionAndSizeLocked: section.positionAndSizeLocked,
-      hasNested: section.children.length > 0,
-    };
-  });
+  const hasNested = useHasTempNested(sectionId);
+  const positionAndSizeLocked = useWorkspaceDocument(
+    (x) => getSectionOrThrow(x, sectionId).positionAndSizeLocked,
+  );
   const isActiveSection = useActiveSections((x) => x.activeIds.includes(sectionId));
   const disablePointerEvents = useShouldDisablePointerEvents();
 
@@ -80,13 +118,14 @@ function ContainerGroup({
 
   return (
     <div
-      className={getGroupRootClassName()}
-      ref={refForPosition}
+      className={getGroupRootClassName(className)}
+      {...commonProps}
       onClick={getOnSectionClick(sectionId)}
       onKeyDown={onKeyDown}
       role="button"
       aria-label="Group section"
       tabIndex={-1} // keeps section focusable for programmatic focus
+      style={style}
     >
       <div className={outlineClassName} />
       <GroupHeader sectionId={sectionId} pointerSelectClassName={pointerSelectClassName} />
@@ -105,8 +144,8 @@ function getPointerSelectClassName(disablePointerEvents: boolean) {
   return disablePointerEvents ? "pointer-events-none select-none" : "";
 }
 
-function getGroupRootClassName() {
-  return "group/group-section flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-2 focus-visible:outline-none";
+function getGroupRootClassName(className: string | undefined) {
+  return `group/group-section flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-2 focus-visible:outline-none ${className ?? ""}`;
 }
 
 function getGroupOutlineClassName(positionAndSizeLocked: boolean, outlineColor: string) {

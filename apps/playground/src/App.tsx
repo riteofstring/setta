@@ -43,6 +43,8 @@ export function App() {
           Cmd/Ctrl-click to multi-select, Shift-drag to draw a selection. Sections resize from their
           bottom and right edges, and their headers rename, lock, minimize, and delete. The toolbar
           zooms, fits, and toggles grid snapping; hold Q while hovering a control for its tooltip.
+          Hold Alt and drag to move sections into, out of, and between groups; hold Cmd/Ctrl+Alt and
+          drag to sort within a group.
         </p>
       </header>
       <div className="flex min-h-0 flex-1 gap-2">

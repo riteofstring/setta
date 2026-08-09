@@ -5,6 +5,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SectionContentRendererContext } from "../../canvas/sectionContentContext";
 import { initialCanvasState, useReactFlow } from "../../canvas/store";
+import { useDndChildren } from "../../dnd/dndChildren";
+import { useDndState } from "../../dnd/dndState";
+import { SectionDndContext } from "../../dnd/SectionDndContext";
 import { useWorkspaceCapabilities } from "../../document/capabilities";
 import { loadWorkspaceDocument } from "../../document/loadWorkspaceDocument";
 import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../../document/stores";
@@ -87,16 +90,20 @@ describe("SectionContainer", () => {
     useActiveSections.getState().reset();
     useSectionRefs.getState().reset();
     useWorkspaceCapabilities.getState().reset();
+    useDndState.getState().reset();
+    useDndChildren.getState().reset();
     useReactFlow.setState({ ...initialCanvasState });
   });
 
+  // Production always renders section containers inside the dnd context, which also owns the
+  // document → dnd-children sync that feeds nested child lists.
   async function mount(sectionId: string) {
     await act(async () => {
       root.render(
         createElement(
           SectionContentRendererContext.Provider,
           { value: renderSectionBody },
-          createElement(SectionHost, { sectionId }),
+          createElement(SectionDndContext, null, createElement(SectionHost, { sectionId })),
         ),
       );
     });

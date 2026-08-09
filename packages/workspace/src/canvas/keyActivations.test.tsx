@@ -3,6 +3,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { useDndState } from "../dnd/dndState";
 import { useWorkspaceTooltip } from "../tooltip/WorkspaceTooltip";
 import { useCanvasKeyActivations } from "./keyActivations";
 import { initialCanvasState, useReactFlow } from "./store";
@@ -22,6 +23,7 @@ describe("useCanvasKeyActivations", () => {
   beforeEach(async () => {
     useReactFlow.setState({ ...initialCanvasState });
     useWorkspaceTooltip.getState().reset();
+    useDndState.getState().reset();
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -37,6 +39,7 @@ describe("useCanvasKeyActivations", () => {
     host.remove();
     useReactFlow.setState({ ...initialCanvasState });
     useWorkspaceTooltip.getState().reset();
+    useDndState.getState().reset();
   });
 
   async function dispatchKey(type: "keydown" | "keyup", key: string, target?: EventTarget) {
@@ -107,6 +110,64 @@ describe("useCanvasKeyActivations", () => {
       );
     });
     expect(useWorkspaceTooltip.getState().isEnabled).toBe(false);
+  });
+
+  it("activates the free-move mode while Alt is held alone", async () => {
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", altKey: true }));
+    });
+    expect(useDndState.getState().isMovingFree).toBe(true);
+
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keyup", { key: "Alt" }));
+    });
+    expect(useDndState.getState().pendingDeactivation).toBe(true);
+  });
+
+  it("switches from free-move to sorting when the mod key joins Alt", async () => {
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", altKey: true }));
+    });
+    expect(useDndState.getState().isMovingFree).toBe(true);
+
+    await act(async () => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Control", altKey: true, ctrlKey: true }),
+      );
+    });
+    const state = useDndState.getState();
+    expect(state.isSorting).toBe(true);
+    expect(state.isMovingFree).toBe(false);
+    expect(state.pendingDeactivation).toBe(false);
+
+    // Releasing the mod key deactivates sorting without re-entering free move: the reference
+    // engine only activates on keydown events.
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keyup", { key: "Control", altKey: true }));
+    });
+    expect(useDndState.getState().pendingDeactivation).toBe(true);
+  });
+
+  it("does not activate a dnd mode while a non-modifier key is held", async () => {
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "a", code: "KeyA" }));
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Alt", code: "AltLeft", altKey: true }),
+      );
+    });
+    expect(useDndState.getState().isMovingFree).toBe(false);
+  });
+
+  it("queues dnd deactivation on window blur", async () => {
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", altKey: true }));
+    });
+    expect(useDndState.getState().isMovingFree).toBe(true);
+
+    await act(async () => {
+      window.dispatchEvent(new Event("blur"));
+    });
+    expect(useDndState.getState().pendingDeactivation).toBe(true);
   });
 
   it("releases every activation on window blur", async () => {

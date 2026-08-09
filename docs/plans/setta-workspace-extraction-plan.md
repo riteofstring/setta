@@ -167,8 +167,45 @@ Phase 1 progress (2026-08-10):
   their native titles, both as the reference. The playground hosts the toolbar in a left rail
   (the reference composes it at the Overview rail bottom, outside the canvas) and mounts the
   tooltip singleton. No dependency changes.
-- Remaining Phase 1 work: the dnd-kit fork drag slice (sorting/reparenting with hysteresis) and
-  the live side-by-side comparison feeding the developer exit gate.
+- dnd-kit fork drag slice extracted (2026-08-11): the fork's adapter (the re-created v6-shaped
+  API over upstream `@dnd-kit` — provider with the AutoScroller filtered out, the 600-line
+  re-implemented `SortableContext`, transform-based `useSortable`, re-vendored sorting
+  strategies, and the custom collision layer with its hysteresis: ±10 px past-halfway buffer
+  keyed on the previous collision, ×1.1 previous-winner boost, zoom-scaled 20/100 px
+  move-to-parent triggers) and the section-drag modules (drag-session and dnd-children stores,
+  sensors, live re-parenting with temp-placeholder insertion, pure move planners, drop-time
+  sorting fallback, deferred deactivation, shape sync, temp placeholder and free-move overlay)
+  moved into `packages/workspace/src/dnd/` with the fork's MIT license file. The package key
+  activations gained the held dnd modes at the shipped defaults (Alt = free move, Mod+Alt =
+  sorting) with the reference engine's hold semantics: keydown is the only activator, releasing
+  a key queues the deferred deactivation, and releasing Mod while holding Alt does not re-enter
+  free move. The deliberate canvas-batch cuts returned with this owning batch: the zoom pane
+  suspends panning while a dnd mode is held, and the multi-select box hands its surface to the
+  free-move drag handle (`selectionDragHandle` + the invisible hitbox layer). The container
+  side wires the reference structure: `TopLevelContainer` (droppable + draggable),
+  `SortableSectionContainer`/`DNDSortable`/`ManyNestedSections` rendering nested children from
+  the live dnd-children projection, `DndSlot` invalid-drop chrome plus droppable highlight and
+  drag-opacity treatments, and `ContainerCore` merging the three ref systems and spreading the
+  mode-gated drag listeners over the whole section surface. The commit funnel is the package
+  `moveSections` (the reference's `moveSectionsWithBackend` canonical result; the backend send
+  is the Phase 2 change-callback), which mirrors node z-raises into the layout before the
+  atomic rebuild. Drop validity collapsed to the package rules — groups nest, never into the
+  dragged selection; the reference's code/terminal-attachment, frozen-variant, singleton, and
+  top-level-only rules left with their app features, as did the multi-parent-selection toast
+  (the drag-only-the-active-section fallback is unchanged) and the DEV-only collision-stats
+  instrumentation. The document → dnd-children sync is owned by the mounted dnd context
+  (the package store lifecycle) instead of the reference's app-level store subscription.
+  Deviation forced by the supply-chain controls (controls kept, versions moved): the reference
+  pins `@dnd-kit/* 0.2.1`, but the packages' internal caret ranges resolve to the current
+  0.2.x patch and the repository forbids version overrides, so the direct pins moved to
+  `0.2.4` to keep the proven single-instance signal runtime; `forwardRef` wrappers became
+  React 19 ref props. Reference characterization suites ported (collision tracker and
+  compare, drag-event mapping, rect/sorting/zoom math, sortable presentation model, dnd
+  state/children stores, sorting-over fallback, drop-type rules, move planners, shape sync,
+  collision integration); new focused tests freeze the move funnel and the held modes, and the
+  section-container suite now mounts the real dnd context. Supply-chain gate rerun clean on
+  the dependency change.
+- Remaining Phase 1 work: the live side-by-side comparison feeding the developer exit gate.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

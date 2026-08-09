@@ -6,6 +6,7 @@ import {
   type RefObject,
   type UIEvent,
 } from "react";
+import { SectionDndContext } from "../dnd/SectionDndContext";
 import { useCanvasViewportDocumentSync } from "./documentViewportSync";
 import FlowRenderer from "./FlowRenderer";
 import { useCanvasKeyActivations } from "./keyActivations";
@@ -71,9 +72,11 @@ export function WorkspaceCanvas({ renderSectionContent }: WorkspaceCanvasProps) 
         }}
       >
         <SectionContentRendererContext.Provider value={renderSectionContent}>
-          <FlowRenderer wrapperDimensions={wrapperDimensions}>
-            <Viewport>{readyToRender && <NodeRenderer />}</Viewport>
-          </FlowRenderer>
+          <SectionDndContext>
+            <FlowRenderer wrapperDimensions={wrapperDimensions}>
+              <Viewport>{readyToRender && <NodeRenderer />}</Viewport>
+            </FlowRenderer>
+          </SectionDndContext>
         </SectionContentRendererContext.Provider>
       </div>
     </div>

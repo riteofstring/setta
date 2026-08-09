@@ -12,6 +12,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@dnd-kit/abstract": "0.2.4",
+    "@dnd-kit/dom": "0.2.4",
+    "@dnd-kit/geometry": "0.2.4",
+    "@dnd-kit/react": "0.2.4",
+    "@dnd-kit/state": "0.2.4",
     "classcat": "5.0.3",
     "d3-drag": "3.0.0",
     "d3-interpolate": "3.0.1",

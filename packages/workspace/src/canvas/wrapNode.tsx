@@ -68,7 +68,7 @@ const NodeWrapperComponent = ({
       }}
       data-id={id}
     >
-      <SectionContainer sectionId={id} />
+      <SectionContainer sectionId={id} isTopLevel />
     </div>
   );
 };

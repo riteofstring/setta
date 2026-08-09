@@ -30,6 +30,21 @@ export function getTopLevelSectionIdsForDisplay(state: WorkspaceDocumentState): 
   });
 }
 
+export function getSectionChildren(
+  state: WorkspaceDocumentState,
+  sectionId: string,
+): Array<string> {
+  return getSectionOrThrow(state, sectionId).children;
+}
+
+// The reference resolves this through the variant indirection (`getSectionIsHorizontalOrientation`
+// in `state/actions/sectionInfos.ts`); the package reads the resolved section. Non-groups are
+// never horizontal, exactly as the reference answers for non-group section types.
+export function getSectionIsHorizontalOrientation(sectionId: string): boolean {
+  const section = getSectionOrThrow(useWorkspaceDocument.getState(), sectionId);
+  return isGroupSection(section) && section.isHorizontalOrientation;
+}
+
 export function getHighestAncestor(sectionId: string): string {
   const parentSectionMap = useWorkspaceDocument.getState().parentSectionMap;
   let parentId = parentSectionMap[sectionId] ?? null;
