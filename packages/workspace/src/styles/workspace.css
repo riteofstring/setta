@@ -370,7 +370,9 @@
  * zoomout/fitview marker classes have no rules, and the stylesheet's `:disabled` rules are
  * unreachable because the reset-zoom control never disables. */
 
-.react-flow__controls-button {
+/* Repeat the class so this imported rule remains authoritative when a consumer emits its
+ * Tailwind utility layer after the package stylesheet. Main's live effective padding is 5 px. */
+.react-flow__controls-button.react-flow__controls-button {
   border: none;
   box-sizing: content-box;
   display: flex;
