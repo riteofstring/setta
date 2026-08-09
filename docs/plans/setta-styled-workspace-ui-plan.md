@@ -18,17 +18,24 @@ broadcast inside the pointer-down dispatch plus synchronous feedback mounting, a
 geometry re-measure, and interleaved forced layouts. The gesture-scoped activation state now lives
 in a two-phase external store with per-frame/per-handle primitive subscriptions, presentation
 broadcasts and start feedback defer to the next canvas frame with order-preserving flushes, and
-sensors gate activation imperatively. Root-drag activation and all warm production structural
-gaps are within cadence; development structural activation (33–42 ms warm) and two cold 33.4 ms
-production first-drag cells still exceed the 32 ms exit bar. Cause, before/after numbers, and the
-remaining owners are recorded in
+sensors gate activation imperatively. The profiler fixture now fails closed unless every declared
+cell publishes its expected interaction owner, drives all pointer moves, restores the canonical
+document, and avoids page-scroll contamination. Its corrected reference run still shows
+49.6–66.6 ms development structural activation gaps and 49.9–58.4 ms nested-freeform gaps;
+production is substantially better but does not make the development miss ignorable. Cause,
+before/after numbers, and the remaining owners are recorded in
 [perf/phase-1-structural-drag-activation.md](../../perf/phase-1-structural-drag-activation.md)
-(`phase-1` and `phase-1-region-index` labels in the interaction profile report). Child drop-region
-geometry is now published by the incremental geometry service instead of being read from the DOM
-during activation. Finishing Phase 1 means fixing the unstable profiler cells, then removing the
-remaining dnd-kit start-flush and cold-path tail without changing gesture semantics. Do not replace
-dnd-kit's AutoScroller, Cursor, or PreventSelection lifecycle plugins: that experiment did not
-clear the exit gate and duplicated upstream behavior with unacceptable semantic risk.
+(`phase-1-fixture-activation` is the corrected label in the interaction profile report). Child
+drop-region geometry is now published by the incremental geometry service instead of being read
+from the DOM during activation. A measured follow-up that deferred host selection, memoized the
+recursive tree, cached validation, delayed overlay content, and frame-flushed owner/feedback
+renders cut handler spans but still left repeatable 32.9–42.7 ms development gaps and reproduced a
+stuck `root-layout` owner after pointer-up in a normal playground workflow; all runtime changes
+from that bundle were discarded. Do not retry that selection-timing/frame-flush/overlay bundle,
+and do not replace dnd-kit's AutoScroller, Cursor, or PreventSelection lifecycle plugins: neither
+experiment cleared the exit gate, and both introduced unacceptable semantic risk. Finishing Phase
+1 requires a different owner-preserving change that clears the corrected profile without changing
+callback timing or gesture lifecycle.
 
 Make the Setta visual language the opinionated default for `@setta/workspace`, redesign the
 backend-free playground around the canvas, and remove the measurable structural-drag startup hitch.

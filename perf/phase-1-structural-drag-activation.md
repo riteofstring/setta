@@ -135,3 +135,22 @@ better: root drags stay at 7.3–11.4 ms, nested freeform at 19.2–29.7 ms, and
 results supersede the invalid cells described above and make the remaining target explicit:
 remove the development-only structural/freeform activation stall without replacing dnd-kit's
 lifecycle plugins.
+
+## Deferred-selection/frame-flush experiment — discarded 2026-08-10
+
+The `phase-1-selection-defer`, `phase-1-activation-offload`, `phase-1-frame-memo`,
+`phase-1-noise-check`, and `phase-1-frame-flush` traces record one bounded experiment. It deferred
+non-additive host selection commits, memoized recursive tree bindings, cached validation of
+immutable document snapshots, delayed drag-overlay content, and forced the already-deferred owner
+and feedback renders to commit inside their scheduled frames. The experiment was useful
+diagnostically: final development pointer-down spans fell to 17.2–27.2 ms for structural sort and
+18.7–25.7 ms for nested freeform, while production stayed at 17.7–29.1 ms and 14.4–24.3 ms
+respectively, with no long tasks.
+
+It did not clear the Phase 1 gate. The final development trace still contains repeatable
+32.9–42.7 ms activation gaps, and a default-playground workflow reproduced `root-layout`
+ownership remaining active after pointer-up while the bundle was applied. Because the changes
+also altered host selection timing and drag-overlay lifecycle, the runtime bundle was discarded in
+full. Retain the traces as negative evidence; do not retry this combined selection deferral,
+frame-flush, validation-cache, memoization, or overlay-offload approach. The next change must
+preserve callback timing and upstream lifecycle while proving a different measured owner.
