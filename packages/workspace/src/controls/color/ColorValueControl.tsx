@@ -48,8 +48,10 @@ const MENU_CONTENT_CLASS_NAME =
 const MENU_ITEM_CLASS_NAME =
   "flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700";
 const MENU_ITEM_TEXT_CLASS_NAME = "max-w-48 truncate text-xs text-setta-500 dark:text-setta-300";
+// The package-only reset marker recreates main's global input reset without touching controls
+// supplied through the host renderer seam; the remaining classes are the native path verbatim.
 const NATIVE_INPUT_CLASS_NAME =
-  "single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid !border-setta-500/20 dark:!border-setta-500/40";
+  "setta-workspace-native-reset single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid !border-setta-500/20 dark:!border-setta-500/40";
 
 // The reference's auto-contrast paint: the swatch color as background, flipped to black or
 // white text by perceptual lightness (from https://codepen.io/devongovett/pen/QwLbRrW).

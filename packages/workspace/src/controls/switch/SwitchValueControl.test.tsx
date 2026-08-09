@@ -69,6 +69,7 @@ describe("SwitchValueControl", () => {
     // translation (translate-x-4), and the no-drag boundary.
     for (const expectedClass of [
       "nodrag",
+      "setta-workspace-native-reset",
       "h-2.5",
       "w-7",
       "min-w-7",

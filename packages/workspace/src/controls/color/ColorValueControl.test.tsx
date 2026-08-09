@@ -193,6 +193,7 @@ describe("ColorValueControl", () => {
     expect(input.value).toBe("#afbacf");
     expect(input.getAttribute("aria-label")).toBe("Accent color");
     for (const expectedClass of [
+      "setta-workspace-native-reset",
       "single-cell-child",
       "!rounded-lg",
       "!border",

@@ -243,6 +243,23 @@ describe("WorkspaceItemList", () => {
     expect(shell.classList.contains("nowheel")).toBe(true);
   });
 
+  it("preserves the list element and scroll position when item-select mode activates", async () => {
+    await mount();
+
+    const shell = host.querySelector<HTMLElement>("div.overflow-y-scroll");
+    if (!shell) {
+      throw new Error("expected the package-owned list-area shell");
+    }
+    shell.scrollTop = 48;
+
+    await act(async () => {
+      activateItemSelect();
+    });
+
+    expect(host.querySelector("div.overflow-y-scroll")).toBe(shell);
+    expect(shell.scrollTop).toBe(48);
+  });
+
   it("takes the section-style-theme treatments only when the style color derives a theme", async () => {
     const loadPanelWithStyleColor = (styleColor: string | null) => {
       const itemTree = makeItemTree();
@@ -317,7 +334,6 @@ describe("WorkspaceItemList", () => {
     await act(async () => {
       activateItemSelect();
     });
-    // Enabling the list mounts the sortable context, which remounts the row subtree.
     await act(async () => {
       getRowByContent(host, "item-a").click();
     });

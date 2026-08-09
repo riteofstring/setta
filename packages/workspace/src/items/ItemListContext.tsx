@@ -107,22 +107,18 @@ export function ItemListProvider({
     return flatItemIds.map(toDndId);
   }, [flatItemIds, isActiveList, listKey, rootId, tempChildren]);
 
-  // The reference mounts the sortable list only while param dnd is enabled; rows fall back to
-  // the adapter's inert default sortable context otherwise. The list context itself always
-  // mounts because the package rows read their renderer from it.
+  // Frozen main keeps this provider mounted while item-select mode toggles and disables each
+  // row's sortable registration through the context flag. Preserving that element identity is
+  // also what keeps a constrained list's live scroll position when Mod+Shift is pressed.
   return (
     <ItemListContext.Provider value={contextValue}>
-      {enabled ? (
-        <SortableContext
-          id={`${sectionId}:${listKey}`}
-          items={items}
-          strategy={verticalListSortingStrategy}
-        >
-          {children}
-        </SortableContext>
-      ) : (
-        children
-      )}
+      <SortableContext
+        id={`${sectionId}:${listKey}`}
+        items={items}
+        strategy={verticalListSortingStrategy}
+      >
+        {children}
+      </SortableContext>
     </ItemListContext.Provider>
   );
 }
