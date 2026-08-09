@@ -1618,6 +1618,19 @@ Phase 4 progress (2026-08-11):
   type-specific configuration through an opinionated package schema. The authorized amendment is
   specified after Phase 5. Phase 5's post-acceptance evidence and broad gates complete before that
   milestone begins; the extraction plan is no longer complete at the end of Phase 5.
+- Phase 5 accepted-output baseline and post-acceptance gates complete (2026-08-12): the approved
+  package output is locked under `docs/evidence/phase5/` with fresh production desktop dark/light,
+  compact 320 px dark/light, and effective 200%-scale CSS-viewport captures, machine-readable
+  geometry, appearance, artifact and screenshot hashes, plus trusted keyboard and wheel traces.
+  The production browser gate found no page overflow, dialog, URL drift, or console warning/error;
+  it rechecked title Escape focus restoration, item-column keyboard resize/reset, minimap keyboard
+  navigation, Rotary value ownership, and the corrected following-pane horizontal wheel path. The
+  fresh package build/built boundary, playground build, complete package suite (91 files, 662
+  tests), complete playground suite (5 files, 28 tests), all-files static quality gate, supply-chain
+  gate (601 locked versions), and exact packed unrelated-consumer proof pass. The Phase 5
+  performance profile was not duplicated because its target-input hash still matches the optimized
+  evidence. This closes Phase 5 repository work and makes the workspace-shell evidence and
+  ownership preflight the next repository-actionable milestone, after the required phase audit.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
