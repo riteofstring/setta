@@ -1,0 +1,22 @@
+{
+  "minimumReleaseAge": [
+    {
+      "package": "nanoid",
+      "version": "3.3.17",
+      "rationale": "Temporarily admit the patched transitive release required to resolve GHSA-2v37-7h3g-55p8.",
+      "owner": "Setta maintainers",
+      "expires": "2026-08-11"
+    }
+  ],
+  "patchedDependencies": [
+    {
+      "package": "@xyflow/system",
+      "version": "0.0.79",
+      "patch": "patches/@xyflow__system@0.0.79.patch",
+      "rationale": "Permit explicit undefined on already-optional NodeBase declaration fields so TypeScript 6.0.3 can check XYFlow with exactOptionalPropertyTypes and skipLibCheck disabled; runtime code is unchanged.",
+      "owner": "Setta maintainers",
+      "expires": "2026-11-07",
+      "removalCondition": "Remove when an exact-pinned @xyflow/system release passes the repository's strict TypeScript check without this declaration-only patch."
+    }
+  ]
+}

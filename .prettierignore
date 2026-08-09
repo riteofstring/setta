@@ -1,0 +1,9 @@
+.artifacts
+.reports
+coverage
+dist
+docs/plans/standalone-section-workbench-oss-plan.md
+node_modules
+playwright-report
+pnpm-lock.yaml
+test-results
