@@ -1650,6 +1650,17 @@ Phase 4 progress (2026-08-11):
   implementation batch may begin until the developer explicitly amends the evidence/behavior
   authority or re-baselines the reference. No package source, fixture, dependency, or baseline
   changed in this preflight.
+- Workspace-shell authority gap resolved (2026-08-12): the developer's explicit authorization of
+  this amendment already authorizes the Outline's disclosure/selection/tree-keyboard behavior, the
+  selection-aware item and multi-section Inspector branches, and keyboard context-menu invocation
+  as new, opinionated package behavior. Frozen main remains authoritative for the surrounding pane,
+  menu, Overview, and UI Editor paint and for every behavior it actually implements; it is not an
+  executable reference for states proven absent at `043d3b2e9`. For those states, this milestone's
+  typed behavior and accessibility contracts are the implementation target, and the combined final
+  developer gate remains the only visual/interaction approval. The source-proven absence is
+  evidence, not a blocker, and no reference re-baseline is required. Remaining producible main
+  captures may be gathered by the supervised implementation loop before their corresponding
+  user-visible batch; they do not prevent the typed-item-schema batch from starting.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
@@ -2399,8 +2410,13 @@ This phase does not publish the package.
 This plan amendment was explicitly authorized by the developer on 2026-08-12 after Phase 5 visual
 acceptance. It is the next narrow extraction milestone, not a reopening of Phase 5. Complete the
 accepted Phase 5 baseline refresh and post-acceptance broad gates before implementation. Frozen main
-at `043d3b2e9` remains the product authority for pane geometry, context-menu behavior, outline
-navigation, and the right-side UI-editor presentation.
+at `043d3b2e9` remains the product authority for pane geometry, pointer context-menu behavior, and
+the reusable Overview/UI Editor presentation it actually implements. The developer-authorized
+Outline disclosure/selection/tree-keyboard behavior, selection-aware item and multi-section
+Inspector branches, and Menu-key/Shift+F10 invocation are deliberately new package behavior because
+the frozen reference has no such states. Their authority is this milestone's explicit contracts,
+with visual and interaction quality decided only at the combined developer exit gate; agents must
+not fabricate matching-main evidence for them or treat their absence in main as a blocker.
 
 The milestone makes the standalone package meaningfully batteries included while preserving a
 backend-free boundary. It extracts reusable workspace chrome and state only. Main's file browser,
@@ -2410,21 +2426,26 @@ and must not enter the package.
 
 #### Evidence and ownership preflight
 
-Before implementation, capture and index the following matched dark/light reference states:
+Before each corresponding user-visible shell/menu batch, capture and index the following available
+matched dark/light reference states. The source/ownership map must precede all implementation, but
+the typed-item-schema batch may begin while the remaining producible live captures are gathered:
 
 - the canvas pointer menu opened near every viewport edge, its search/filter and keyboard paths,
   and creation at the pointer's workspace coordinate;
 - the section and multi-selection menu in mixed locked/unlocked states, including disabled actions;
 - the left and right rails and panes closed, open, resized, full-width, restored, simultaneously
   open, and constrained at the narrow breakpoint;
-- the Overview section tree with nested groups, active and multi-selected sections, collapsed
-  groups, pointer selection, and keyboard navigation; and
-- the UI Editor's reusable section and parameter-UI configuration presentation, including no
-  selection, one section, one item, and multiple-selection states.
+- the Overview nested-section presentation and pointer/Space activation that main implements, plus
+  source evidence that selected rows, disclosure, ARIA tree semantics, and tree keyboard navigation
+  are absent; and
+- the UI Editor's reusable no-selection, one-section, and parameter-UI configuration presentation,
+  plus source evidence that one-selected-item and planned multi-selection branches are absent.
 
 Record computed geometry, type, color, focus, overflow, stacking, and transition facts plus short
-interaction traces. Classify every main state read before porting it. Evidence goes under
-`docs/evidence/workspace-shell/reference/`; no package-output baseline precedes developer acceptance.
+interaction traces. Classify every main state read before porting it. Existing frozen-main services
+and deterministic browser automation may be used under root supervision; this capture does not
+require a separate developer approval. Evidence goes under `docs/evidence/workspace-shell/reference/`;
+no package-output baseline precedes the combined developer acceptance.
 
 #### Package-owned shell and panes
 

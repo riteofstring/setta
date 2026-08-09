@@ -6,7 +6,7 @@ Reference: `../setta-main` at `043d3b2e9c69caf99d1246f1408b3ad7194b7864`, verifi
 This document classifies the complete state-read surface of the workspace-shell source cone before
 porting. Deep application panes and inspectors are inventoried at their boundary and excluded; they
 are not silently treated as package dependencies. The package paths name the already-accepted seams
-that future implementation would compose after the evidence blocker is resolved.
+that future implementation composes after this ownership classification.
 
 ## 1. Frozen source cone
 
@@ -80,7 +80,7 @@ pair and their shared pure negotiation rules are candidates for the shell.
 | `useAIStore.agentRuns`, load completion, project id                                               | `useActiveAgentSectionIds`                | Backend/AI activity                                   | Exclude the badge and load side effect                                                                                                |
 | `useReactFlow`, section DOM refs, `useSettings.gui.transitionDuration`                            | `goToSection`                             | Canvas geometry and interaction preference            | Reuse package viewport internals and scoped motion. The package command must explicitly decide activation versus center-only behavior |
 | Canonical active section mutation                                                                 | `goToSection`                             | Workspace selection                                   | Reuse `applyActiveSectionChange`; do not write stores from the Outline component                                                      |
-| Outline disclosure, roving focus, typeahead                                                       | **No frozen-main read exists**            | Planned shell view state                              | Must be package-owned controlled view state only after the authority gap is resolved                                                  |
+| Outline disclosure, roving focus, typeahead                                                       | **No frozen-main read exists**            | Developer-authorized package behavior                 | Package-owned controlled view state governed by the milestone's tree contract                                                         |
 
 ### Inspector and typed item presentation
 
@@ -94,9 +94,9 @@ pair and their shared pure negotiation rules are candidates for the shell.
 | Current variant/base implementation and non-preset/preset `CodeObjType` inventory | `UIConfig`, `UITypeCombobox`                   | Generated domain/variant state          | Replace with the package's discriminated presentation kinds and accepted type-specific option types        |
 | `useShareCapabilities.canEditStructure` and section-setting capability reads      | UI type and section config                     | Capability                              | Reuse `useWorkspaceCapabilities` fields; disable rather than invent alternate mutations                    |
 | API/project id, optimistic operations, settings persistence, preview stores       | UI/section config descendants                  | Persistence/backend state               | Exclude all transports and previews; one canonical package mutation notifies once                          |
-| Selected item ids                                                                 | **Not read by `UiEditor` or `UIConfig`**       | Missing reference branch                | The planned item Inspector is new behavior and needs explicit authority before implementation              |
+| Selected item ids                                                                 | **Not read by `UiEditor` or `UIConfig`**       | Developer-authorized package behavior   | The planned item Inspector is governed by the milestone contract and uses main only as a presentation seed |
 
-The first implementation batch, once unblocked, replaces the playground-only decoder in
+The first implementation batch replaces the playground-only decoder in
 `apps/playground/src/sectionKinds.tsx` and its `WorkspaceItem.data.control` fixtures directly. It
 must add no alias, legacy data decoder, migration, dual renderer, or fallback. Custom opaque items
 remain valid only through the existing registered-renderer extension path.
@@ -115,7 +115,7 @@ remain valid only through the existing registered-renderer extension path.
 | OpenAPI group/delete/lock/visibility routes and optimistic dispatch                      | selection menu                            | Backend persistence                      | Replace Group/Delete/Lock with package canonical batch funnels and one document notification                         |
 | ReactFlow `nodesSelectionDims`                                                           | selection menu close                      | Private canvas presentation              | Clear through an internal menu/selection controller; never public API                                                |
 | Pointer target, screen coordinates, pan gesture start                                    | pane, selection, zoom owners              | Gesture state                            | Package owns mutually exclusive menu/drag/pan/wheel boundaries and invocation-owner focus                            |
-| Menu key / Shift+F10                                                                     | **No frozen-main read or handler exists** | Missing reference interaction            | New package behavior requiring explicit authority; do not claim it was extracted                                     |
+| Menu key / Shift+F10                                                                     | **No frozen-main read or handler exists** | Developer-authorized package behavior    | Implement the milestone contract and do not claim the interaction was extracted                                      |
 
 The reference `TypeErrorContextMenu` and the Pane file/native-drop branches are application features
 and are excluded completely. Additional host menu actions receive immutable public contexts; they
@@ -139,8 +139,9 @@ actual center cell. It must not copy frozen main's global pane-width reads back 
 
 ## 4. Pure algorithms and characterization anchors
 
-Future implementation should port or re-express only these proven mechanisms after live evidence
-and authority are complete:
+Future implementation should port or re-express only these proven mechanisms after the
+corresponding producible live evidence is captured; developer-authorized absent states instead use
+the milestone's explicit behavior contract:
 
 - `paneLayout.ts`: opening with opposite-pane shrink/close, resize negotiation, full-width toggle,
   remembered restore width, and viewport-change normalization. Port only the workspace pair. The
@@ -176,8 +177,9 @@ The package boundary is technically representable without importing a Setta stor
 backend route, plugin runtime, view mode, or private XYFlow/dnd-kit surface. The mapped ownership
 cuts are narrow and align with the amendment.
 
-Implementation is nevertheless blocked before batch 1 because the required executable evidence
-includes Outline and Inspector interactions that frozen main does not implement. The source facts,
-existing visual corroboration, and required developer resolution are indexed in
-[`README.md`](README.md). This is a plan-authority blocker, not a missing credential, service,
-browser, or verification result.
+The developer's explicit authorization of the workspace-shell amendment resolves the source-proven
+gaps: Outline tree interactions, selection-aware Inspector branches, and keyboard menu invocation
+are new package behavior governed by the milestone contracts and final combined acceptance gate.
+The remaining producible live captures are still required before their corresponding user-visible
+batch, but they do not block the first typed-item-schema batch. The source facts and capture routing
+are indexed in [`README.md`](README.md).

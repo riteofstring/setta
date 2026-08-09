@@ -27,20 +27,22 @@ matched dark/light evidence requirement by itself.
 ## Required live capture matrix
 
 The following states remain uncaptured. Rows marked **producible** have a frozen-main source path
-and can be captured in a supervised reference session. Rows marked **absent** cannot be produced by
-the frozen reference at the recorded commit; the exact source findings are below.
+and must be captured by the supervised implementation loop before their corresponding user-visible
+batch. Rows marked **absent / authorized new behavior** cannot be produced by the frozen reference
+at the recorded commit; their source proof is the pre-implementation evidence, while the milestone
+contract and final combined developer gate govern their implementation.
 
-| Surface                                                                         | Frozen-main status                  | Required evidence before implementation                                                                                                                                             |
-| ------------------------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pane creation menu at each viewport edge                                        | Producible by pointer               | Dark/light original-pixel captures; search, filtering, arrow/Enter/Escape trace; computed menu geometry, overflow, focus, and created workspace coordinate                          |
-| Section and multi-selection menu                                                | Producible by pointer               | Single and mixed locked/unlocked selections, capability-disabled actions, labels, geometry, focus, and dismissal                                                                    |
-| Left/right rails and panes                                                      | Producible                          | Closed, open, resized, simultaneous, full-width, restored, viewport-normalized, and narrow states; resize and focus traces; paint, seam, stacking, overflow, and transition metrics |
-| Overview nested section listing                                                 | Partially producible                | Dark/light nested rows and pointer/Space activation can be captured; depth, type, color, and focus metrics can be measured                                                          |
-| Overview collapsed groups, selected-row treatment, and tree keyboard navigation | **Absent**                          | Frozen main has no disclosure state or control, no selected-section row state, no tree semantics, and no roving/arrow navigation to capture                                         |
-| UI Editor with no selection and exactly one selected section                    | Producible                          | Placeholder and ordinary section/UI configuration presentations in both appearances                                                                                                 |
-| Selection-aware UI Editor for exactly one selected item                         | **Absent**                          | Item selection is not an input to `UiEditor`; its UI Config tab renders all parameters for the sole active section                                                                  |
-| Selection-aware UI Editor for multiple selected sections                        | **Absent as the planned inspector** | Multiple active sections remove the sole-section id and produce the generic placeholder; there are no mixed common actions                                                          |
-| Menu-key/Shift+F10 context-menu opening                                         | **Absent**                          | Frozen main opens the workspace menus only from `contextmenu` pointer handlers; keyboard code operates only after the pane menu is already open                                     |
+| Surface                                                                         | Frozen-main status                   | Required evidence before implementation                                                                                                                                              |
+| ------------------------------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Pane creation menu at each viewport edge                                        | Producible by pointer                | Dark/light original-pixel captures; search, filtering, arrow/Enter/Escape trace; computed menu geometry, overflow, focus, and created workspace coordinate                           |
+| Section and multi-selection menu                                                | Producible by pointer                | Single and mixed locked/unlocked selections, capability-disabled actions, labels, geometry, focus, and dismissal                                                                     |
+| Left/right rails and panes                                                      | Producible                           | Closed, open, resized, simultaneous, full-width, restored, viewport-normalized, and narrow states; resize and focus traces; paint, seam, stacking, overflow, and transition metrics  |
+| Overview nested section listing                                                 | Partially producible                 | Dark/light nested rows and pointer/Space activation can be captured; depth, type, color, and focus metrics can be measured                                                           |
+| Overview collapsed groups, selected-row treatment, and tree keyboard navigation | **Absent / authorized new behavior** | Frozen main has no disclosure state or control, no selected-section row state, no tree semantics, and no roving/arrow navigation to capture; implement the milestone's tree contract |
+| UI Editor with no selection and exactly one selected section                    | Producible                           | Placeholder and ordinary section/UI configuration presentations in both appearances                                                                                                  |
+| Selection-aware UI Editor for exactly one selected item                         | **Absent / authorized new behavior** | Item selection is not an input to `UiEditor`; use its UI-control presentation as the visual seed and implement the milestone's selected-item contract                                |
+| Selection-aware UI Editor for multiple selected sections                        | **Absent / authorized new behavior** | Multiple active sections produce the generic placeholder; implement only the common actions expressly named by the milestone                                                         |
+| Menu-key/Shift+F10 context-menu opening                                         | **Absent / authorized new behavior** | Frozen main opens menus only from pointer `contextmenu`; implement the milestone's keyboard invocation and focus-restoration contract                                                |
 
 ## Source-proven reference gaps
 
@@ -80,20 +82,16 @@ invocation or invocation-owner focus restoration.
 
 ## Gate conclusion
 
-The ownership preflight is complete, but the required pre-implementation reference capture cannot
-be completed as written. Several states that the plan requires to be captured from frozen main do
-not exist in frozen main, and the product-authority rule forbids an implementation agent from
-inventing their visual or interaction reference.
+The ownership preflight is complete, and the authority gap is resolved by the developer's explicit
+2026-08-12 authorization of the workspace-shell amendment. The Outline tree interactions,
+selection-aware Inspector branches, and keyboard context-menu invocation are new, opinionated
+package behavior governed by the milestone's concrete contracts. Frozen main remains authoritative
+for the surrounding pane/menu behavior and presentation seeds that it actually implements. No
+reference re-baseline is required, and the source-proven absent states must not be represented as
+matching-main captures.
 
-Before any workspace-shell implementation batch begins, the developer must explicitly resolve the
-authority gap by doing one of the following:
-
-1. amend the evidence contract to identify the Outline tree, selection-aware Inspector, and
-   keyboard menu invocation as developer-authorized new package behavior, with a concrete
-   pre-implementation interaction/presentation target; or
-2. explicitly re-baseline the product authority to a reference that implements the required
-   states.
-
-The remaining producible dark/light reference states also still require the supervised capture
-defined by the plan. No package source, fixture, dependency, baseline, or public API was changed by
-this preflight.
+The remaining producible dark/light states still require capture before their corresponding
+user-visible shell/menu batch. The existing frozen-main service and deterministic browser tooling
+may be used under root supervision; no intermediate developer approval is required. The typed item
+schema is therefore the next actionable batch, and the combined milestone gate remains the sole
+developer visual/interaction approval.
