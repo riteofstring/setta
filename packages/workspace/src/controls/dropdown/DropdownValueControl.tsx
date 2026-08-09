@@ -41,10 +41,12 @@ const ITEM_SEARCH_WRAPPER_CLASS_NAME = `flex min-w-0 mx-[2px] items-center relat
 const META_OUTER_DIV_CLASS_NAME = `flex h-[20px] relative w-full min-w-0 flex-col items-stretch overflow-visible ${NO_DRAG_CLASS_NAME} section-value flex w-full justify-self-start self-center`;
 const META_SEARCH_WRAPPER_CLASS_NAME = `flex min-w-0 mx-[2px] items-center relative ${NO_DRAG_CLASS_NAME} dark:text-setta-200 !mx-0`;
 // The recorded pill presentation at the small size: rounded-full 12 px mono over the default
-// white/setta-900 field, 12 px left and 24 px right padding around the 16 px field height, and
-// the recorded 2 px blue focus-visible ring.
+// white/setta-900 field, 12 px left and 24 px right padding around the 16 px content height, and
+// the recorded 2 px blue focus-visible ring. The package-only reset marker recreates main's
+// global input reset without touching host-rendered inputs; its content-box geometry lets the
+// one-pixel authored borders produce main's recorded 18 px outer height.
 const INPUT_CLASS_NAME =
-  "flex-grow truncate outline-0 cursor-auto rounded-full text-xs font-mono text-setta-600 font-medium pl-3 focus-visible:border-white hover:bg-white/50 hover:dark:bg-setta-950 dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-700/70 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 bg-white dark:bg-setta-900 pr-6 h-4 my-auto";
+  "setta-workspace-native-reset flex-grow truncate outline-0 cursor-auto rounded-full text-xs font-mono text-setta-600 font-medium pl-3 focus-visible:border-white hover:bg-white/50 hover:dark:bg-setta-950 dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-700/70 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 bg-white dark:bg-setta-900 pr-6 h-4 my-auto";
 const RIGHT_ADORNMENT_CLASS_NAME = "absolute inset-y-0 right-0 grid select-none place-items-center";
 // The reference `StandardSearchRightBtn` at the pill/small composition, verbatim (the trailing
 // right-1 rides along from the reference's pill class map even though the button is static).

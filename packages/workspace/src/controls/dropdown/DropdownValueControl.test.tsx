@@ -116,9 +116,10 @@ describe("DropdownValueControl", () => {
     );
     const input = getInput();
     // The recorded pill geometry and paint: rounded-full 12 px mono, 12 px left and 24 px
-    // right padding at the 16 px small height, the default white/setta-900 field, and the
-    // 2 px focus-visible ring.
+    // right padding at the 16 px content height plus one-pixel borders, the default
+    // white/setta-900 field, and the 2 px focus-visible ring.
     for (const expectedClass of [
+      "setta-workspace-native-reset",
       "rounded-full",
       "text-xs",
       "font-mono",
