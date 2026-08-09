@@ -72,7 +72,7 @@ type SortingCollisionContext = SharedDetectorContext & {
   containerId: string;
 };
 
-type PastHalfwayReference = "directional-edge" | "start-edge";
+type PastHalfwayReference = "directional-edge" | "pointer";
 
 export function createCollisionTracker({
   getParentByChild,
@@ -303,7 +303,7 @@ function getPastHalfwayReference(
 ): PastHalfwayReference {
   const activeContainerId = activeData?.sortable?.containerId;
   const droppableContainerId = droppableData?.sortable?.containerId;
-  return activeContainerId === droppableContainerId ? "directional-edge" : "start-edge";
+  return activeContainerId === droppableContainerId ? "directional-edge" : "pointer";
 }
 
 export const defaultCollisionTracker = createCollisionTracker({
@@ -584,8 +584,13 @@ function getReferenceAxisValue({
   reference: PastHalfwayReference;
   axisDirection: number | null;
 }): number {
-  if (reference === "start-edge") {
-    return containerIsHorizontal ? activeRect.left : activeRect.top;
+  if (reference === "pointer") {
+    if (pointerCoordinates) {
+      return containerIsHorizontal ? pointerCoordinates.x : pointerCoordinates.y;
+    }
+    return containerIsHorizontal
+      ? (activeRect.left + activeRect.right) / 2
+      : (activeRect.top + activeRect.bottom) / 2;
   }
   const pointerEdgeValue = getPointerEdgeValue({
     activeRect,

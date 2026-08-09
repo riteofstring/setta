@@ -122,7 +122,7 @@ describe("collision tracker", () => {
     expect(resetCollision?.data?.intersectionRatio).toBe(100);
   });
 
-  it("uses the dragged start edge for stable cross-parent insertion", () => {
+  it("uses the pointer with a symmetric dead band for cross-parent insertion", () => {
     const tracker = createCollisionTracker({ getParentByChild: () => ({}) });
     const droppableRect = createRect({ top: 100, left: 200, width: 200, height: 200 });
     const activeRect = createRect({ top: 150, left: 0, width: 210, height: 200 });
@@ -130,26 +130,63 @@ describe("collision tracker", () => {
       sortable: { containerId: "target-group" },
     });
 
-    const firstCollision = tracker.collisionDetector({
-      droppable,
-      dragOperation: createDragOperation({
-        id: "active",
-        rect: activeRect,
-        pointerCoordinates: { x: 190, y: 190 },
-      }),
-    } as never) as SettaCollision;
-    tracker.update([firstCollision]);
+    function detect(pointerY: number) {
+      return tracker.collisionDetector({
+        droppable,
+        dragOperation: createDragOperation({
+          id: "active",
+          rect: activeRect,
+          pointerCoordinates: { x: 190, y: pointerY },
+        }),
+      } as never) as SettaCollision;
+    }
 
-    const afterSmallDownwardMotion = tracker.collisionDetector({
-      droppable,
-      dragOperation: createDragOperation({
-        id: "active",
-        rect: activeRect,
-        pointerCoordinates: { x: 191, y: 191 },
-      }),
-    } as never) as SettaCollision;
+    let collision = detect(190);
+    expect(collision.pastHalfway).toBe(false);
+    tracker.update([collision]);
 
-    expect(afterSmallDownwardMotion.pastHalfway).toBe(false);
+    collision = detect(209);
+    expect(collision.pastHalfway).toBe(false);
+    tracker.update([collision]);
+
+    collision = detect(211);
+    expect(collision.pastHalfway).toBe(true);
+    tracker.update([collision]);
+
+    collision = detect(191);
+    expect(collision.pastHalfway).toBe(true);
+    tracker.update([collision]);
+
+    collision = detect(189);
+    expect(collision.pastHalfway).toBe(false);
+  });
+
+  it("uses the pointer on the horizontal axis for cross-parent insertion", () => {
+    const tracker = createCollisionTracker({ getParentByChild: () => ({}) });
+    const droppableRect = createRect({ top: 200, left: 100, width: 200, height: 200 });
+    const activeRect = createRect({ top: 0, left: 150, width: 200, height: 210 });
+    const droppable = createDroppable("child", droppableRect, {
+      sortable: { containerId: "target-group" },
+      sortableOrientation: "horizontal",
+    });
+
+    function detect(pointerX: number) {
+      return tracker.collisionDetector({
+        droppable,
+        dragOperation: createDragOperation({
+          id: "active",
+          rect: activeRect,
+          pointerCoordinates: { x: pointerX, y: 190 },
+        }),
+      } as never) as SettaCollision;
+    }
+
+    let collision = detect(190);
+    expect(collision.pastHalfway).toBe(false);
+    tracker.update([collision]);
+
+    collision = detect(211);
+    expect(collision.pastHalfway).toBe(true);
   });
 
   it("keeps direction-aware edges for sorting within the same parent", () => {
