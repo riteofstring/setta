@@ -16,10 +16,14 @@ import type { ClientRect, SettaCollision } from "./types";
 
 type ParentByChildMap = Record<string, string | null>;
 
+type CollisionHysteresisSnapshot = {
+  pastHalfway: boolean | null;
+  rect: ClientRect | null;
+};
+
 type CollisionTrackerState = {
   prevCollisionId: Draggable["id"] | null;
-  prevPastHalfway: boolean | null;
-  prevCollisionRect: ClientRect | null;
+  hysteresisByCollisionId: Map<Draggable["id"], CollisionHysteresisSnapshot>;
   prevPointerX: number | null;
   prevPointerY: number | null;
   prevPointerDirectionX: number | null;
@@ -79,8 +83,7 @@ export function createCollisionTracker({
 }: CollisionTrackerOptions): CollisionTracker {
   const state: CollisionTrackerState = {
     prevCollisionId: null,
-    prevPastHalfway: null,
-    prevCollisionRect: null,
+    hysteresisByCollisionId: new Map(),
     prevPointerX: null,
     prevPointerY: null,
     prevPointerDirectionX: null,
@@ -477,8 +480,7 @@ function getTriggerDistCondition({
 
 function clearResolvedCollisionState(state: CollisionTrackerState): void {
   state.prevCollisionId = null;
-  state.prevPastHalfway = null;
-  state.prevCollisionRect = null;
+  state.hysteresisByCollisionId.clear();
 }
 
 function clearPointerState(state: CollisionTrackerState): void {
@@ -508,9 +510,26 @@ function setResolvedCollisionState(
   }
 
   state.prevCollisionId = resolvedCollision.id;
-  state.prevPastHalfway = resolvedCollision.pastHalfway ?? null;
-  const droppableRect = resolvedCollision.data?.droppable?.shape?.boundingRectangle;
-  state.prevCollisionRect = droppableRect ? toClientRect(droppableRect) : null;
+  const previousSnapshot = state.hysteresisByCollisionId.get(resolvedCollision.id);
+  state.hysteresisByCollisionId.set(
+    resolvedCollision.id,
+    getNextHysteresisSnapshot(resolvedCollision, previousSnapshot),
+  );
+}
+
+function getNextHysteresisSnapshot(
+  resolvedCollision: SettaCollision,
+  previousSnapshot: CollisionHysteresisSnapshot | undefined,
+): CollisionHysteresisSnapshot {
+  return {
+    pastHalfway: resolvedCollision.pastHalfway ?? previousSnapshot?.pastHalfway ?? null,
+    rect: previousSnapshot?.rect ?? getCollisionRect(resolvedCollision),
+  };
+}
+
+function getCollisionRect(collision: SettaCollision): ClientRect | null {
+  const shape = collision.data?.droppable?.shape;
+  return shape ? toClientRect(shape.boundingRectangle) : null;
 }
 
 function getPastHalfway({
@@ -536,17 +555,18 @@ function getPastHalfway({
     state,
   });
   updatePointerDirections(pointerCoordinates, state);
+  const axisDirection = getPointerAxisDirection(state, containerIsHorizontal);
   const referenceAxisValue = getReferenceAxisValue({
     activeRect,
     containerIsHorizontal,
     pointerCoordinates,
     reference,
-    axisDirection: getPointerAxisDirection(state, containerIsHorizontal),
+    axisDirection,
   });
-  return (
-    referenceAxisValue + getPastHalfwayBuffer(state, currentId) >
-    getAxisMidpoint(effectiveDroppableRect, containerIsHorizontal)
-  );
+  const buffer = getPastHalfwayBuffer(state, currentId);
+  const midpoint = getAxisMidpoint(effectiveDroppableRect, containerIsHorizontal);
+  const pastHalfway = referenceAxisValue + buffer > midpoint;
+  return pastHalfway;
 }
 
 function getEffectiveDroppableRect({
@@ -558,10 +578,7 @@ function getEffectiveDroppableRect({
   droppableRect: ClientRect;
   state: CollisionTrackerState;
 }): ClientRect {
-  if (state.prevCollisionId === currentId && state.prevCollisionRect) {
-    return state.prevCollisionRect;
-  }
-  return droppableRect;
+  return state.hysteresisByCollisionId.get(currentId)?.rect ?? droppableRect;
 }
 
 function getPointerAxisDirection(
@@ -626,13 +643,11 @@ function getPointerEdgeValue({
 }
 
 function getPastHalfwayBuffer(state: CollisionTrackerState, currentId: Draggable["id"]): number {
-  if (state.prevCollisionId !== currentId) {
-    return 0;
-  }
-  if (state.prevPastHalfway === true) {
+  const previousPastHalfway = state.hysteresisByCollisionId.get(currentId)?.pastHalfway;
+  if (previousPastHalfway === true) {
     return 10;
   }
-  if (state.prevPastHalfway === false) {
+  if (previousPastHalfway === false) {
     return -10;
   }
   return 0;

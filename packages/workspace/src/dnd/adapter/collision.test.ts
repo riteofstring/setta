@@ -189,6 +189,46 @@ describe("collision tracker", () => {
     expect(collision.pastHalfway).toBe(true);
   });
 
+  it("keeps each target's hysteresis snapshot when the resolved collision alternates", () => {
+    const tracker = createCollisionTracker({ getParentByChild: () => ({}) });
+    const originalChildRect = createRect({ top: 100, left: 200, width: 200, height: 200 });
+    const shiftedChildRect = createRect({ top: 300, left: 200, width: 200, height: 200 });
+    const activeRect = createRect({ top: 150, left: 0, width: 210, height: 250 });
+    const childData = { sortable: { containerId: "target-group" } };
+
+    const initialChildCollision = tracker.collisionDetector({
+      droppable: createDroppable("child", originalChildRect, childData),
+      dragOperation: createDragOperation({
+        id: "active",
+        rect: activeRect,
+        pointerCoordinates: { x: 190, y: 190 },
+      }),
+    } as never) as SettaCollision;
+    expect(initialChildCollision.pastHalfway).toBe(false);
+    tracker.update([initialChildCollision]);
+
+    tracker.update([
+      {
+        ...createCollision(
+          "target-group",
+          createRect({ top: 0, left: 100, width: 400, height: 600 }),
+        ),
+        pastHalfway: false,
+      },
+    ]);
+
+    const afterPlaceholderShift = tracker.collisionDetector({
+      droppable: createDroppable("child", shiftedChildRect, childData),
+      dragOperation: createDragOperation({
+        id: "active",
+        rect: activeRect,
+        pointerCoordinates: { x: 190, y: 211 },
+      }),
+    } as never) as SettaCollision;
+
+    expect(afterPlaceholderShift.pastHalfway).toBe(true);
+  });
+
   it("keeps direction-aware edges for sorting within the same parent", () => {
     const tracker = createCollisionTracker({ getParentByChild: () => ({}) });
     const droppableRect = createRect({ top: 100, left: 200, width: 200, height: 200 });
