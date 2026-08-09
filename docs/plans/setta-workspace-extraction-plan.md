@@ -1358,6 +1358,11 @@ Phase 4 progress (2026-08-11):
   the direction no longer becomes trapped. This accepts the focused pan correction only; the
   consolidated controls and meta-controls acceptance remains open, and Phase 5 is still not
   actionable.
+- Consolidated controls and meta-controls exit gate accepted (2026-08-12): after completing the
+  ordinary parameter-control and direct-on-canvas meta-control review, including the focused
+  corrections recorded above, the developer explicitly accepted the combined visual and
+  interaction result. This satisfies the developer-only exit gate. Record the first accepted
+  package-output baselines before beginning Phase 5 repository work.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
