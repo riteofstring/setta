@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import { workspaceManifestPaths } from "./lib/files.mjs";
+import { fixtureManifestPaths, workspaceManifestPaths } from "./lib/files.mjs";
 import { repositoryRoot } from "./lib/process.mjs";
 
 const expectedPackageManager = "pnpm@10.23.0";
@@ -24,13 +24,19 @@ function readJson(relativePath) {
 }
 
 function listManifestPaths() {
-  return ["package.json", ...workspaceManifestPaths()];
+  return ["package.json", ...workspaceManifestPaths(), ...fixtureManifestPaths()];
 }
 
 function validatePinnedDependencies(relativePath, manifest) {
   return pinnedDependencyFields.flatMap((field) =>
     Object.entries(manifest[field] ?? {}).flatMap(([name, specifier]) => {
-      if (exactVersionPattern.test(specifier) || specifier.startsWith("workspace:")) {
+      // The policy admits exact versions plus explicit workspace/local artifact specifiers;
+      // the packed-consumer fixture depends on the tarball through a file: placeholder.
+      if (
+        exactVersionPattern.test(specifier) ||
+        specifier.startsWith("workspace:") ||
+        specifier.startsWith("file:")
+      ) {
         return [];
       }
       return [`${relativePath}: ${field}.${name} must use an exact version, got ${specifier}`];

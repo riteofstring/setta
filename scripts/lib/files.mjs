@@ -5,7 +5,7 @@ import { repositoryRoot, run } from "./process.mjs";
 
 const ignoredDirectoryNames = new Set([".git", ".reports", "coverage", "dist", "node_modules"]);
 
-const projectDirectories = ["apps", "docs", "packages", "scripts"];
+const projectDirectories = ["apps", "docs", "fixtures", "packages", "scripts"];
 const rootFiles = [
   ".gitattributes",
   ".gitignore",
@@ -82,17 +82,25 @@ export function selectFiles(args) {
   return [...new Set([...changedFiles, ...untrackedFiles].filter(isProjectFile))].sort();
 }
 
+function manifestPathsIn(groupDirectory) {
+  const absoluteGroup = path.join(repositoryRoot, groupDirectory);
+  if (!existsSync(absoluteGroup)) {
+    return [];
+  }
+  return readdirSync(absoluteGroup, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => `${groupDirectory}/${entry.name}/package.json`)
+    .filter((relativePath) => existsSync(path.join(repositoryRoot, relativePath)));
+}
+
 export function workspaceManifestPaths() {
-  return ["packages", "apps"].flatMap((groupDirectory) => {
-    const absoluteGroup = path.join(repositoryRoot, groupDirectory);
-    if (!existsSync(absoluteGroup)) {
-      return [];
-    }
-    return readdirSync(absoluteGroup, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => `${groupDirectory}/${entry.name}/package.json`)
-      .filter((relativePath) => existsSync(path.join(repositoryRoot, relativePath)));
-  });
+  return ["packages", "apps"].flatMap(manifestPathsIn);
+}
+
+// Checked-in consumer fixtures (installed outside the pnpm workspace) still answer to the
+// manifest policy: exact pins, explicit local artifact specifiers, and the toolchain pins.
+export function fixtureManifestPaths() {
+  return manifestPathsIn("fixtures");
 }
 
 export function isTestFile(relativePath) {

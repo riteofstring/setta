@@ -21,6 +21,7 @@ toolchain below.
 | `pnpm run quality:all`         | Same checks over all project files          | Stable-tree sweeps, phase gates    |
 | `pnpm run format`              | Prettier write mode                         | Before committing                  |
 | `pnpm run supply-chain:check`  | Networked: install, registry audit, license | Dependency changes and phase gates |
+| `pnpm run consumer:check`      | Networked: pack, temp install, build        | Phase gates and packaging changes  |
 | `pnpm run report:complexity`   | Non-blocking hotspot report                 | Discovery; never a deletion order  |
 | `pnpm run report:file-lengths` | Non-blocking hotspot report                 | Discovery; never a deletion order  |
 
@@ -45,6 +46,15 @@ chains `vite build` (ESM plus source map), `tsc -p tsconfig.build.json` (declara
 Tailwind compile of the scoped stylesheet, and `check-package-boundary.mjs --built`, which
 verifies that the bundled artifact imports only declared runtime dependencies and peers and that
 the compiled stylesheet contains no host-wide selectors.
+
+`consumer:check` (`scripts/verify-packed-consumer.mjs`) is the packed unrelated-consumer proof:
+it asserts the checked-in fixture (`fixtures/packed-consumer`) imports only `react`, `react-dom`,
+and the `@setta/workspace` public entry points, builds and packs the package, asserts the tarball
+carries only the compiled surface (dist, the tailwind preset, the fork LICENSE files — the
+manifest `files` allowlist), then installs the fixture against the tarball in a temporary
+directory under the same pnpm supply-chain settings and runs its `tsc` + `vite build`. It is
+networked (temporary registry install) and runs at phase gates and on packaging changes;
+`--keep` retains the installed consumer so the developer can `pnpm run preview` it.
 
 ## Enforced thresholds
 

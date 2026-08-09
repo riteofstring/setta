@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "pnpm --filter @setta/workspace run build",
+    "consumer:check": "node scripts/verify-packed-consumer.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "quality": "node scripts/quality.mjs",

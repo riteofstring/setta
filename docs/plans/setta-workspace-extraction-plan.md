@@ -344,8 +344,29 @@ Phase 2 progress (2026-08-11):
   instead of building implicitly; the build command is `pnpm --filter @setta/workspace build`
   (root `pnpm run build`). Knip derives the production entry from the vite library config, and
   the redundant explicit entry was removed after Knip flagged it.
-- Remaining Phase 2 work: the temporary Setta integration worktree and the packed unrelated
-  consumer (items 5–6), donor consideration (item 7), and integration evidence (item 8).
+- Packed unrelated consumer and donor consideration (items 6–7, 2026-08-11): the package
+  manifest gained a `files` allowlist so `pnpm pack` emits only the compiled surface (dist, the
+  tailwind preset, the two fork LICENSE files), and `pnpm run consumer:check`
+  (`scripts/verify-packed-consumer.mjs`) proves consumption: it asserts the checked-in
+  unrelated fixture (`fixtures/packed-consumer` — react, react-dom, and the tarball only; its
+  own plain-CSS host chrome, section kind, renderer, header icon, default size, opaque data,
+  and change-callback registration; no Tailwind, no workspace link) imports nothing but the
+  public entry points, packs the package, asserts the tarball's compiled-only contents,
+  installs the fixture against the tarball in a temporary directory under the root's strict
+  pnpm supply-chain settings, and runs its `tsc` + `vite build` with built-output assertions
+  (scoped stylesheet marker, packed runtime). First run passed; `--keep` retains the installed
+  consumer for the developer's exit-gate preview. The fixture manifest joined the dependency
+  policy (fixtures scanned; explicit `file:` artifact specifiers admitted per the written
+  policy) and the fixture joined the static gate's file selection. Donor consideration is
+  recorded in `docs/evidence/phase2/packed-consumer.md`: the experimental branch's
+  unrelated-consumer check was the one donor closing a proven standalone gap — its mechanism
+  was reimplemented (fixture + placeholder + temporary strict install), its experimental-API
+  content, Playwright drive, and exact tarball manifest were not adopted; the other named
+  donor candidates close no gap in this phase and stay unadopted. The evidence also records a
+  content-placement observation (`section-full-no-title` as de-facto API) for the Phase 5
+  ratification.
+- Remaining Phase 2 work: the temporary Setta integration worktree (item 5) and its
+  integration evidence plus worktree removal (item 8).
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

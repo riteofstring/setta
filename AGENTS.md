@@ -55,7 +55,8 @@ code here.
 
 - `pnpm run quality` (changed files by default; `--staged`, `--all`, `--files <path>...`) is the
   static gate for every reviewable source batch. `pnpm run supply-chain:check` runs on dependency
-  changes and phase gates only. Thresholds, policy files, and exception rules are documented in
+  changes and phase gates only. `pnpm run consumer:check` (the packed unrelated-consumer proof
+  against `fixtures/packed-consumer`) runs at phase gates and on packaging changes. Thresholds, policy files, and exception rules are documented in
   `docs/quality-and-supply-chain-tooling.md`; do not weaken a control to make a change pass.
 - Use the standalone pnpm from `~/Library/pnpm` (corepack is broken on this machine); the pinned
   toolchain is pnpm 10.23.0 on Node 25.2.1.
