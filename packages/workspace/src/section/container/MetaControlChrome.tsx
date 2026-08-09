@@ -7,9 +7,12 @@ import {
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "../../interaction";
 
-const EDIT_TRIGGER_CLASS_NAME = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${NO_DRAG_CLASS_NAME} relative flex h-[14px] w-[14px] cursor-pointer select-none items-center justify-center rounded-full p-1 mr-1 -ml-0.5 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus:opacity-100 focus:pointer-events-auto focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800 opacity-0 pointer-events-none group-hover/card-section:opacity-100 group-hover/card-section:pointer-events-auto disabled:cursor-not-allowed disabled:opacity-50 after:absolute after:right-[-0.25rem] after:top-1/2 after:h-12 after:w-10 after:-translate-y-1/2 after:content-['']`;
+// The developer-approved correction gives the shared meta action a conventional 16 px glyph in a
+// compact 24 px visible button. Its outboard 40 x 48 hit geometry remains unchanged, so increasing
+// the paint does not move the control or create a competing drag target.
+const EDIT_TRIGGER_CLASS_NAME = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${NO_DRAG_CLASS_NAME} relative flex h-6 w-6 cursor-pointer select-none items-center justify-center rounded-full p-1 mr-1 -ml-0.5 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus:opacity-100 focus:pointer-events-auto focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800 opacity-0 pointer-events-none group-hover/card-section:opacity-100 group-hover/card-section:pointer-events-auto disabled:cursor-not-allowed disabled:opacity-50 after:absolute after:right-[-0.25rem] after:top-1/2 after:h-12 after:w-10 after:-translate-y-1/2 after:content-['']`;
 const EDIT_ICON_CLASS_NAME =
-  "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]";
+  "h-4 w-4 shrink-0 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]";
 
 export function MetaControlChrome({
   section,

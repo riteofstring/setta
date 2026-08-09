@@ -282,9 +282,14 @@ describe("SectionContainer", () => {
       throw new Error("The meta-control edit affordance did not render.");
     }
     expect(editButton.getAttribute("aria-label")).toBe("Edit Meta text");
+    expect(editButton.className).toContain("h-6");
+    expect(editButton.className).toContain("w-6");
     expect(editButton.className).toContain("after:h-12");
     expect(editButton.className).toContain("after:w-10");
     expect(editButton.className).toContain("focus:opacity-100");
+    const editIcon = editButton.querySelector("svg") as SVGSVGElement;
+    expect(editIcon.classList.contains("h-4")).toBe(true);
+    expect(editIcon.classList.contains("w-4")).toBe(true);
     await act(async () => editButton.click());
     expect(onEdit).toHaveBeenCalledTimes(1);
     expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: "meta" }));

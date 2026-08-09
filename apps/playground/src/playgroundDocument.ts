@@ -345,7 +345,7 @@ export const playgroundDocument: WorkspaceDocumentInput = {
     "meta-time": makeMetaControlSection("meta-time", "Time", {
       control: "time",
       value: "13:45",
-      controlMode: "display",
+      controlMode: "input",
       displayFormat: "twenty_four_hour",
       transparent: false,
       scale: 1,

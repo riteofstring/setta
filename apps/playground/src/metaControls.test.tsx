@@ -168,9 +168,13 @@ describe("the playground representative meta controls", () => {
     expect(host.querySelector("[role='group'][aria-label='Date value']")).not.toBeNull();
 
     await mount("meta-time");
-    expect(
-      getRequiredElement(host, "[aria-label='Time value: 13:45']", "Time display").textContent,
-    ).toBe("13:45");
+    const timeInput = getRequiredElement<HTMLInputElement>(
+      host,
+      "input[type='time']",
+      "Time input",
+    );
+    expect(timeInput.getAttribute("aria-label")).toBe("Time value");
+    expect(timeInput.value).toBe("13:45");
 
     await mount("meta-textarea");
     expect(

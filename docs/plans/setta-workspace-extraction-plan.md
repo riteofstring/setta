@@ -1317,6 +1317,22 @@ Phase 4 progress (2026-08-11):
   changed-file static gate, packed unrelated-consumer proof, and live Chrome style inspection pass.
   No dependency changed, so the supply-chain gate was not duplicated. The consolidated developer
   acceptance and first package-output baselines remain open; Phase 5 is still not actionable.
+- Consolidated controls gate correction — meta configure affordance and editable Time fixture
+  (2026-08-12): developer inspection rejected the shared outboard configure glyph as too small on
+  every meta control. The frozen 14 x 14 button with 4 px padding left only about 6 x 6 px of icon
+  paint even though the extraction already reserved a 40 x 48 interaction target. All twelve meta
+  controls now share a compact 24 x 24 visible button and explicit 16 x 16 icon while retaining the
+  same large hit geometry, hover/focus reveal, accessible name, drag exclusion, and host-owned
+  `onEdit` callback. The playground callback continues to demonstrate host ownership by recording
+  the edit request in opaque section data rather than inventing package configuration persistence.
+  The review fixture's Time control now opts into the supported native input mode so its value is
+  directly editable; formatted display mode and its meta default remain covered by package tests.
+  The focused container (20 tests) and playground meta-control (5 tests) suites, complete package
+  suite (80 files, 586 tests), complete playground suite (3 files, 23 tests), package production
+  build and built-boundary check, playground production build, full changed-file static gate,
+  packed unrelated-consumer proof, and live Chrome inspection across all twelve triggers pass. No
+  dependency changed, so the supply-chain gate was not duplicated. The consolidated developer
+  acceptance and first package-output baselines remain open; Phase 5 is still not actionable.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
