@@ -38,6 +38,10 @@ type DummyInteractionProps = {
   className: string;
   onMouseDownCapture: MouseEventHandler<HTMLElement>;
   onFocus: FocusEventHandler<HTMLElement>;
+  ariaLabel?: string;
+  ariaDescribedBy?: string;
+  ariaInvalid?: boolean;
+  ariaDisabled?: boolean;
 };
 
 type DummyCodeMirrorProps = DummyInteractionProps & {
@@ -60,6 +64,10 @@ export function DummyCodeMirror({
   language,
   singleLine,
   wrapLines,
+  ariaLabel,
+  ariaDescribedBy,
+  ariaInvalid,
+  ariaDisabled,
 }: DummyCodeMirrorProps) {
   const shouldWrap = wrapLines ?? !singleLine;
   const resolvedStyle = shouldWrap ? lineWrapStyle : singleLineStyle;
@@ -73,6 +81,10 @@ export function DummyCodeMirror({
       className={className}
       language={language}
       style={resolvedStyle}
+      ariaLabel={ariaLabel}
+      ariaDescribedBy={ariaDescribedBy}
+      ariaInvalid={ariaInvalid}
+      ariaDisabled={ariaDisabled}
     />
   ) : (
     <PlaceholderCode
@@ -82,6 +94,10 @@ export function DummyCodeMirror({
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
       style={resolvedStyle}
+      ariaLabel={ariaLabel}
+      ariaDescribedBy={ariaDescribedBy}
+      ariaInvalid={ariaInvalid}
+      ariaDisabled={ariaDisabled}
     />
   );
 }
@@ -93,6 +109,10 @@ function PlaceholderCode({
   onMouseDownCapture,
   onFocus,
   style,
+  ariaLabel,
+  ariaDescribedBy,
+  ariaInvalid,
+  ariaDisabled,
 }: DummyInteractionProps & { placeholder: string | undefined; style: CSSProperties }) {
   // returns <br/> if no placeholder, so that the div takes up space
   return (
@@ -104,6 +124,10 @@ function PlaceholderCode({
       onFocus={onFocus}
       role="textbox"
       tabIndex={0}
+      aria-label={ariaLabel}
+      aria-describedby={ariaDescribedBy}
+      aria-invalid={ariaInvalid || undefined}
+      aria-disabled={ariaDisabled || undefined}
     >
       {placeholder ? placeholder : <br />}
     </span>
@@ -168,6 +192,10 @@ function HighlightedCode({
   language,
   onFocus,
   style,
+  ariaLabel,
+  ariaDescribedBy,
+  ariaInvalid,
+  ariaDisabled,
 }: DummyInteractionProps & {
   code: string;
   theme: TextValueTheme;
@@ -185,6 +213,10 @@ function HighlightedCode({
         onFocus={onFocus}
         role="textbox"
         tabIndex={0}
+        aria-label={ariaLabel}
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid || undefined}
+        aria-disabled={ariaDisabled || undefined}
       >
         {code.split("\n").map((line, index) => (
           <div key={`line-${index + 1}`} className="cm-line">
@@ -217,6 +249,10 @@ function HighlightedCode({
       onFocus={onFocus}
       role="textbox"
       tabIndex={0}
+      aria-label={ariaLabel}
+      aria-describedby={ariaDescribedBy}
+      aria-invalid={ariaInvalid || undefined}
+      aria-disabled={ariaDisabled || undefined}
     >
       {outputDivs}
     </div>

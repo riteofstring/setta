@@ -1010,6 +1010,28 @@ Phase 4 progress (2026-08-11):
   the pill and a commit through the `setItemData` funnel. Package (475) and playground (10)
   suites plus the changed-file static gate pass. Remaining batches: name editor; then the live
   comparison and the explicit developer-acceptance exit gate.
+- Item-controls name editor batch complete (2026-08-12): the fourth and final source batch landed
+  the package `ItemNameEditor` — the reference `ParamNameInput` at its kwarg-name presentation:
+  the green-theme highlighted idle layer and single-line live CodeMirror swap, key-column and
+  child-spanning placements, mouse-down-capture/input-focus activation, no-pan/no-drag boundaries,
+  Escape focus restoration, item-select/host disabledness, blue focused underline, and the
+  section-local zoom-normalized error bubble at the captured 10 px typography and exact light/dark
+  treatment. Proposed names cross the controlled `name`/`onNameChange` seam unchanged; an optional
+  host error message drives the red editor/underline/bubble state, while normalization, uniqueness,
+  display-name meaning, and persistence stay host-owned. Non-visual accessibility additions give
+  both editor layers an accessible name and disabled/error state, connect the error through
+  `aria-describedby`, and announce the portaled bubble as a polite status. The shared theme loader
+  regained the frozen reference's green "boring" themes without changing the accepted GitHub value
+  themes. The playground gained the captured `rename_me` row; its renderer derives duplicate-name
+  validation from opaque sibling labels, blocks the duplicate proposal with the captured message,
+  commits accepted labels through `setItemData`, and restores the committed proposal on blur. No
+  typed name model or validation policy entered the package document. The name path reaches the
+  frozen source's direct `@uiw/codemirror-themes 4.23.0` pin, which was not needed by the earlier
+  GitHub-theme-only text batch; the supply-chain gate reran green. The final focused package name
+  suite (7), focused playground renderer suite (9), package build/built-boundary check, and
+  changed-file static gate pass. Remaining repository-actionable implementation for this milestone:
+  none. The supervised dark/light live comparison and explicit developer-acceptance exit gate remain
+  open; no package-output baseline has been recorded.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

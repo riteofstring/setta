@@ -35,7 +35,8 @@ function makeLeafSection(
 // Dict. The item-controls rows exercise every built-in control the milestone has landed: the
 // switch at the captured `enabled` fixture, the empty dropdown over the captured
 // Alpha/Beta/Gamma choices, the configured color trigger over the captured Red/Green/Blue
-// choices, and the native color input at the `/settings` recorded value.
+// choices, the native color input at the `/settings` recorded value, and the captured editable
+// `rename_me` name seam. Name validation remains host-owned opaque-data policy.
 function makeItem(
   id: string,
   data: Record<string, WorkspaceSectionData>,
@@ -63,6 +64,7 @@ const itemPanelTree: WorkspaceSectionItemTree = {
       "item-choice",
       "item-accent",
       "item-tint",
+      "item-rename",
     ]),
     "item-alpha": makeItem("item-alpha", { label: "alpha", value: "0.001" }),
     "item-beta": makeItem("item-beta", { label: "beta", value: "0.999" }),
@@ -102,6 +104,11 @@ const itemPanelTree: WorkspaceSectionItemTree = {
       ],
     }),
     "item-tint": makeItem("item-tint", { label: "tint", value: "#afbacf", control: "color" }),
+    "item-rename": makeItem("item-rename", {
+      label: "rename_me",
+      value: "",
+      editableName: true,
+    }),
   },
   selectedItemIds: [],
 };

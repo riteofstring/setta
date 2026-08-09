@@ -1,7 +1,9 @@
 import {
   ColorValueControl,
   DropdownValueControl,
+  getWorkspaceDocument,
   ItemDndContext,
+  ItemNameEditor,
   registerSectionKinds,
   setItemData,
   SwitchValueControl,
@@ -13,7 +15,7 @@ import {
   type WorkspaceSection,
   type WorkspaceSectionData,
 } from "@setta/workspace";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // The host side of the registration seam: the package owns the shell, chrome, header, and
 // resize treatment; the playground registers its one leaf kind and renders the section body
@@ -70,6 +72,14 @@ function getItemValue(item: WorkspaceItem): string {
   return value;
 }
 
+function getItemLabel(item: WorkspaceItem): string {
+  const label = getItemField(item, "label");
+  if (typeof label !== "string") {
+    throw new Error(`Item ${item.id} is missing its string label.`);
+  }
+  return label;
+}
+
 function isGroupItem(item: WorkspaceItem): boolean {
   return getItemField(item, "group") === true;
 }
@@ -82,10 +92,13 @@ function isGroupItem(item: WorkspaceItem): boolean {
 // milestone, chosen by this host's opaque `control` field: the two-layer text value editor
 // (the default, at python — the reference settings surface's generated `configLanguage`), the
 // boolean switch, the dropdown over this host's flat choice strings, and the color picker in
-// both its configured-choices and native-input forms.
-// The playground owns persistence: each reported change commits back into this host's opaque
-// item data through the `setItemData` funnel, with no validation — the reference's debounced
-// transport and backend paths have no playground equivalent.
+// both its configured-choices and native-input forms. The captured `rename_me` row composes the
+// package's editable name control; this host validates proposed names against its opaque sibling
+// labels and owns whether a proposal commits.
+// The playground owns persistence: accepted changes commit back into this host's opaque item
+// data through the `setItemData` funnel. Value controls need no fixture validation; the name
+// seam applies the sibling rule above. The reference's debounced transport and backend paths
+// have no playground equivalent.
 const ITEM_LABEL_CLASS_NAME =
   "truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200";
 const ITEM_VALUE_LANGUAGE = "python";
@@ -95,6 +108,98 @@ function commitItemValue(context: ItemRowRenderContext, nextValue: string) {
     ...getItemDataRecord(context.item),
     value: nextValue,
   });
+}
+
+function commitItemName(context: ItemRowRenderContext, nextName: string) {
+  setItemData(context.sectionId, context.item.id, {
+    ...getItemDataRecord(context.item),
+    label: nextName,
+  });
+}
+
+function getItemTreeForSection(sectionId: string) {
+  const itemTree = getWorkspaceDocument().sections[sectionId]?.itemTree;
+  if (!itemTree) {
+    throw new Error(`Section ${sectionId} is missing its item tree.`);
+  }
+  return itemTree;
+}
+
+function getItemParentId(sectionId: string, itemId: string): string {
+  const itemTree = getItemTreeForSection(sectionId);
+  for (const [parentId, parent] of Object.entries(itemTree.items)) {
+    if (parent.children.includes(itemId)) {
+      return parentId;
+    }
+  }
+  throw new Error(`Item ${itemId} has no parent in section ${sectionId}.`);
+}
+
+function getDuplicateItemNameError(context: ItemRowRenderContext, proposedName: string): string {
+  const normalizedName = proposedName.trim();
+  if (!normalizedName) {
+    return "";
+  }
+  const itemTree = getItemTreeForSection(context.sectionId);
+  const parentId = getItemParentId(context.sectionId, context.item.id);
+  const parent = itemTree.items[parentId];
+  if (!parent) {
+    throw new Error(`Item parent ${parentId} is missing from section ${context.sectionId}.`);
+  }
+  const hasDuplicate = parent.children.some((siblingId) => {
+    if (siblingId === context.item.id) {
+      return false;
+    }
+    const sibling = itemTree.items[siblingId];
+    if (!sibling) {
+      throw new Error(`Sibling item ${siblingId} is missing from section ${context.sectionId}.`);
+    }
+    return getItemLabel(sibling).trim() === normalizedName;
+  });
+  return hasDuplicate ? `Param name "${normalizedName}" already exists under this parent.` : "";
+}
+
+// Exported only for the focused host-seam regression. The package reports proposals; this
+// unrelated host decides whether its opaque label data accepts one.
+export function commitPlaygroundItemNameProposal(
+  context: ItemRowRenderContext,
+  proposedName: string,
+): string {
+  const errorMessage = getDuplicateItemNameError(context, proposedName);
+  if (!errorMessage) {
+    commitItemName(context, proposedName);
+  }
+  return errorMessage;
+}
+
+function EditableItemName({
+  context,
+  hasChildren,
+}: {
+  context: ItemRowRenderContext;
+  hasChildren: boolean;
+}) {
+  const committedName = getItemLabel(context.item);
+  const [proposedName, setProposedName] = useState(committedName);
+  useEffect(() => {
+    setProposedName(committedName);
+  }, [committedName]);
+  const errorMessage = getDuplicateItemNameError(context, proposedName);
+  return (
+    <ItemNameEditor
+      sectionId={context.sectionId}
+      itemId={context.item.id}
+      name={proposedName}
+      language={ITEM_VALUE_LANGUAGE}
+      hasChildren={hasChildren}
+      errorMessage={errorMessage}
+      onNameChange={(nextName) => {
+        setProposedName(nextName);
+        commitPlaygroundItemNameProposal(context, nextName);
+      }}
+      onBlur={() => setProposedName(committedName)}
+    />
+  );
 }
 
 function isColorValueChoice(candidate: WorkspaceSectionData): candidate is ColorValueChoice {
@@ -176,8 +281,17 @@ function ItemValueControl({ context }: { context: ItemRowRenderContext }) {
 }
 
 function ItemRowContent({ context }: { context: ItemRowRenderContext }) {
-  const label = getItemField(context.item, "label");
-  if (isGroupItem(context.item)) {
+  const label = getItemLabel(context.item);
+  const isGroup = isGroupItem(context.item);
+  if (getItemField(context.item, "editableName") === true) {
+    return (
+      <>
+        <EditableItemName context={context} hasChildren={isGroup} />
+        {!isGroup && <ItemValueControl context={context} />}
+      </>
+    );
+  }
+  if (isGroup) {
     // Group labels stay direct <p> children: the package row places them across the
     // key..value tracks through its compiled `[&>p]:section-key-value` rule.
     return <p className={ITEM_LABEL_CLASS_NAME}>{label}</p>;

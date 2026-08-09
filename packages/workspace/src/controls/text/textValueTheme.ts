@@ -1,13 +1,20 @@
 import { HighlightStyle } from "@codemirror/language";
 import { EditorState, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { githubDarkInit, githubLightInit } from "@uiw/codemirror-theme-github";
+import { tags } from "@lezer/highlight";
+import {
+  defaultSettingsGithubDark,
+  defaultSettingsGithubLight,
+  githubDarkInit,
+  githubLightInit,
+} from "@uiw/codemirror-theme-github";
+import { createTheme } from "@uiw/codemirror-themes";
 import { useWorkspaceAppearance } from "../../document/stores";
 
-// The reference's `useCodeMirrorStyle` GitHub idle path over its transparent common settings.
-// The green "boring" theme variant serves application-only surfaces and stays
-// application-side; appearance rides the package appearance store instead of the reference's
-// local-storage store.
+// The reference's `useCodeMirrorStyle` themes over its transparent common settings. The value
+// editor uses the GitHub theme; the editable item-name control uses the same green "boring"
+// theme as `ParamNameInput`. Appearance rides the package appearance store instead of the
+// reference's local-storage store.
 
 const commonSettings = {
   background: "#ffffff00",
@@ -19,11 +26,41 @@ const commonSettings = {
 // editor and the style mount below register, or the class names would not line up.
 const githubDarkTheme = githubDarkInit({ settings: commonSettings });
 const githubLightTheme = githubLightInit({ settings: commonSettings });
+const greenDarkTheme = createGreenTheme(true, "#7ee787");
+const greenLightTheme = createGreenTheme(false, "hsla(157, 100%, 28%, 1)");
 
 export type TextValueTheme = Extension;
+export type TextValueThemeColor = "github" | "green";
 
-export function useTextValueTheme(): TextValueTheme {
+function createGreenTheme(darkMode: boolean, color: string): TextValueTheme {
+  const githubSettings = darkMode ? defaultSettingsGithubDark : defaultSettingsGithubLight;
+  return createTheme({
+    theme: darkMode ? "dark" : "light",
+    settings: { ...githubSettings, ...commonSettings },
+    styles: [
+      { tag: [tags.comment, tags.bracket], color },
+      { tag: tags.variableName, color },
+      { tag: [tags.string, tags.special(tags.brace)], color },
+      { tag: tags.number, color },
+      { tag: tags.bool, color },
+      { tag: tags.null, color },
+      { tag: tags.keyword, color },
+      { tag: tags.operator, color },
+      { tag: tags.className, color },
+      { tag: tags.definition(tags.typeName), color },
+      { tag: tags.typeName, color },
+      { tag: tags.angleBracket, color },
+      { tag: tags.tagName, color },
+      { tag: tags.attributeName, color },
+    ],
+  });
+}
+
+export function useTextValueTheme(color: TextValueThemeColor = "github"): TextValueTheme {
   const darkMode = useWorkspaceAppearance((x) => x.darkMode);
+  if (color === "green") {
+    return darkMode ? greenDarkTheme : greenLightTheme;
+  }
   return darkMode ? githubDarkTheme : githubLightTheme;
 }
 
@@ -68,8 +105,8 @@ let textValueThemeStylesMounted = false;
 
 // The reference's `useCodeMirrorStyleLoader` trimmed to the two GitHub themes: dummy layers
 // depend on CodeMirror css classes that only mount when a real editor instantiates them, so
-// the first control mounts an off-screen view once per document and immediately destroys it.
-// The injected style rules outlive the view.
+// the first control mounts an off-screen view once per document and immediately cycles through
+// all four reference themes. The injected style rules outlive the view.
 export function mountTextValueThemeStyles(): void {
   if (textValueThemeStylesMounted) {
     return;
@@ -85,6 +122,8 @@ export function mountTextValueThemeStyles(): void {
     parent: container,
   });
   view.setState(EditorState.create({ extensions: [githubDarkTheme] }));
+  view.setState(EditorState.create({ extensions: [greenLightTheme] }));
+  view.setState(EditorState.create({ extensions: [greenDarkTheme] }));
   view.destroy();
   document.body.removeChild(container);
 }

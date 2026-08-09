@@ -17,6 +17,8 @@ export type {
   DropdownValueChoiceGroup,
   DropdownValueControlProps,
 } from "./controls/dropdown/DropdownValueControl";
+export { ItemNameEditor } from "./controls/name/ItemNameEditor";
+export type { ItemNameEditorProps } from "./controls/name/ItemNameEditor";
 export { SwitchValueControl } from "./controls/switch/SwitchValueControl";
 export type { SwitchValueControlProps } from "./controls/switch/SwitchValueControl";
 export { TextValueEditor } from "./controls/text/TextValueEditor";

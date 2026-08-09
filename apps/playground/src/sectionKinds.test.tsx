@@ -3,13 +3,19 @@
 import {
   getWorkspaceDocument,
   loadWorkspaceDocument,
+  setItemData,
+  type ItemRowRenderContext,
   type WorkspaceSection,
 } from "@setta/workspace";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { playgroundDocument } from "./playgroundDocument";
-import { ItemListSectionBody, registerPlaygroundSectionKinds } from "./sectionKinds";
+import {
+  commitPlaygroundItemNameProposal,
+  ItemListSectionBody,
+  registerPlaygroundSectionKinds,
+} from "./sectionKinds";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -21,8 +27,9 @@ import { ItemListSectionBody, registerPlaygroundSectionKinds } from "./sectionKi
 // monospace treatment plus the value-column divider with its focus paint, at the reference
 // settings surface's python language), the boolean switch, the dropdown pill over this
 // host's flat choices, and the color picker in both its configured-choices and native-input
-// forms. Every control edit commits back through the host's `setItemData` funnel into the
-// canonical document.
+// forms, plus the editable `rename_me` name seam. Every accepted control edit commits back
+// through the host's `setItemData` funnel into the canonical document; duplicate-name proposals
+// stay blocked by this host and ride the package's captured error presentation.
 
 const REFERENCE_LABEL_CLASS_NAME =
   "truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200";
@@ -87,6 +94,24 @@ function getDocumentItemValue(itemId: string): string | undefined {
   }
   const value = data["value"];
   return typeof value === "string" ? value : undefined;
+}
+
+function getDocumentItemLabel(itemId: string): string | undefined {
+  const itemTree = getWorkspaceDocument().sections["item-panel"]?.itemTree;
+  const data = itemTree?.items[itemId]?.data;
+  if (data === null || data === undefined || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error(`Item ${itemId} lost its row data.`);
+  }
+  const label = data["label"];
+  return typeof label === "string" ? label : undefined;
+}
+
+function getItemRowContext(itemId: string): ItemRowRenderContext {
+  const item = getWorkspaceDocument().sections["item-panel"]?.itemTree?.items[itemId];
+  if (!item) {
+    throw new Error(`Item ${itemId} is missing from the playground document.`);
+  }
+  return { sectionId: "item-panel", listKey: "main", item, isSelected: false };
 }
 
 function findRowByLabel(container: HTMLElement, label: string): HTMLElement {
@@ -224,6 +249,49 @@ describe("the playground item renderer presentation contract", () => {
     }
     expect(input.id).toBe("item-panel-item-tint-ColorValueInput");
     expect(input.value).toBe("#afbacf");
+  });
+
+  it("renders the editable name seam and keeps duplicate-name validation host-owned", () => {
+    const dummy = document.getElementById("ItemNameInput-item-panel-item-rename");
+    if (!dummy) {
+      throw new Error("The rename row does not mount the editable name control.");
+    }
+    expect(dummy.textContent).toBe("rename_me");
+    for (const nameClass of [
+      "section-key",
+      "peer/nameinput",
+      "font-mono",
+      "text-xs",
+      "py-[.125rem]",
+    ]) {
+      expect(dummy.classList.contains(nameClass)).toBe(true);
+    }
+    expect(dummy.querySelector(".cm-line span")?.className).toMatch(/ͼ/);
+
+    const context = getItemRowContext("item-rename");
+    const duplicateError = commitPlaygroundItemNameProposal(context, "enabled");
+    expect(duplicateError).toBe('Param name "enabled" already exists under this parent.');
+    expect(getDocumentItemLabel("item-rename")).toBe("rename_me");
+
+    const validError = commitPlaygroundItemNameProposal(context, "renamed");
+    expect(validError).toBe("");
+    expect(getDocumentItemLabel("item-rename")).toBe("renamed");
+
+    // A host-provided invalid controlled state drives the package error treatment independently
+    // of the canonical-blocking assertion above.
+    act(() => {
+      const renamedItem =
+        getWorkspaceDocument().sections["item-panel"]?.itemTree?.items["item-rename"];
+      if (!renamedItem || renamedItem.data === null || typeof renamedItem.data !== "object") {
+        throw new Error("The renamed item lost its opaque data.");
+      }
+      setItemData("item-panel", "item-rename", { ...renamedItem.data, label: "enabled" });
+    });
+    const invalidDummy = document.getElementById("ItemNameInput-item-panel-item-rename");
+    expect(invalidDummy?.getAttribute("aria-invalid")).toBe("true");
+    expect(invalidDummy?.classList.contains("text-red-500")).toBe(true);
+    const bubble = document.getElementById("ItemNameError-item-panel-item-rename");
+    expect(bubble?.textContent).toBe('Param name "enabled" already exists under this parent.');
   });
 
   it("renders group labels as direct children carrying the reference label treatment", () => {
