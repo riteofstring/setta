@@ -24,8 +24,9 @@ import { useItemColumnWidth } from "./useItemColumnWidth";
 
 // The reference's `ParamDndList` as the registered item surface: the host mounts one list per
 // item area (the reference hard-codes its pinned/unpinned areas), names it with a list key,
-// supplies list membership, the visible set (the filtered-list seam), and the row renderer,
-// and the mounted list registers its live view for drag-start resolution. List enablement
+// supplies list membership and the visible set (the filtered-list seam), and optionally renders
+// custom rows. Typed rows need no renderer. The mounted list registers its live view for drag-start
+// resolution. List enablement
 // follows the reference: item-select mode, the edit-structure capability, and no active
 // filter.
 
@@ -40,10 +41,11 @@ export type WorkspaceItemListProps = {
   // The reference disables param dnd while its param filter is active; hosts report the
   // equivalent for their own filtering.
   filterActive?: boolean;
-  renderItem: (context: ItemRowRenderContext) => ReactNode;
+  // Omit for a list made entirely of package-owned typed presentations. A custom opaque row
+  // fails specifically at render time when this extension renderer is absent.
+  renderItem?: (context: ItemRowRenderContext) => ReactNode;
   // Group rows keep the reference's parent-row layout even when empty. The default is
-  // structural; hosts whose leaf-versus-group distinction lives in their opaque item data
-  // supply the predicate.
+  // structural for custom items; explicit typed groups always use their presentation kind.
   isGroupItem?: (item: WorkspaceItem) => boolean;
 };
 

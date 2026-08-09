@@ -41,14 +41,149 @@ export type WorkspaceSectionData =
   | Array<WorkspaceSectionData>
   | { [key: string]: WorkspaceSectionData };
 
+export type WorkspaceItemTextLanguage =
+  "python" | "typescript" | "javascript" | "json" | "yaml" | "toml" | "markdown";
+
+export type WorkspaceItemAutocompletePolicy = "off";
+
+export type WorkspaceItemControlBaseConfiguration = {
+  disabled: boolean;
+};
+
+export type WorkspaceTextItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
+  autocomplete: WorkspaceItemAutocompletePolicy;
+  placeholder: string | null;
+  singleLine: boolean;
+  wrapLines: boolean;
+};
+
+export type WorkspaceCodeItemControlConfiguration = WorkspaceTextItemControlConfiguration & {
+  language: WorkspaceItemTextLanguage;
+};
+
+export type WorkspaceTextAreaItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
+  autocomplete: WorkspaceItemAutocompletePolicy;
+  language: WorkspaceItemTextLanguage | null;
+  placeholder: string | null;
+};
+
+export type WorkspaceSwitchItemControlConfiguration = WorkspaceItemControlBaseConfiguration;
+
+export type WorkspaceDropdownChoiceGroup = {
+  group: string;
+  choices: Array<string>;
+};
+
+export type WorkspaceDropdownItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
+  choices: Array<string> | Array<WorkspaceDropdownChoiceGroup>;
+  placeholder: string | null;
+};
+
+export type WorkspaceColorChoice = {
+  color: string;
+  description: string;
+};
+
+export type WorkspaceColorItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
+  choices: Array<WorkspaceColorChoice> | null;
+};
+
+export type WorkspaceNumericItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
+  min: number;
+  max: number;
+  step: number;
+};
+
+export type WorkspacePasswordItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
+  placeholder: string | null;
+  savedValuePending: boolean;
+};
+
+export type WorkspaceDateItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
+  displayFormat: "iso" | "us" | "eu" | "long";
+  controlMode: "input" | "calendar";
+  selectionMode: "single" | "multiple";
+  weekStart: "sunday" | "monday";
+  includeTime: boolean;
+  timeDisplayFormat: "twenty_four_hour" | "twelve_hour";
+};
+
+export type WorkspaceTimeItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
+  controlMode: "input" | "display";
+  displayFormat: "twenty_four_hour" | "twelve_hour";
+  transparent: boolean;
+  scale: number;
+  font: "clock" | "monospace" | "system";
+};
+
+export type WorkspaceDropzoneAttachment = {
+  id: string;
+  kind: "file" | "text";
+  name: string;
+  size: number | null;
+};
+
+export type WorkspaceDropzonePolicy = {
+  maxAttachments: number | null;
+  maxFileBytes: number;
+  maxTotalBytes: number | null;
+  allowedMimePrefixes: Array<string>;
+};
+
+export type WorkspaceDropzoneItemControlConfiguration = WorkspaceItemControlBaseConfiguration & {
+  attachments: Array<WorkspaceDropzoneAttachment>;
+  policy: WorkspaceDropzonePolicy;
+  placeholder: string;
+  pending: boolean;
+  errorMessage: string | null;
+};
+
+type WorkspaceValueItemControl<Kind extends string, Configuration> = {
+  kind: Kind;
+  value: string;
+  configuration: Configuration;
+};
+
+// The package-owned ordinary item presentation. Changing `kind` requires a complete replacement
+// control presentation, so the package never invents configuration while switching UI types.
+export type WorkspaceItemControlPresentation =
+  | { kind: "group" }
+  | WorkspaceValueItemControl<"text", WorkspaceTextItemControlConfiguration>
+  | WorkspaceValueItemControl<"code", WorkspaceCodeItemControlConfiguration>
+  | WorkspaceValueItemControl<"textarea", WorkspaceTextAreaItemControlConfiguration>
+  | WorkspaceValueItemControl<"switch", WorkspaceSwitchItemControlConfiguration>
+  | WorkspaceValueItemControl<"dropdown", WorkspaceDropdownItemControlConfiguration>
+  | WorkspaceValueItemControl<"color", WorkspaceColorItemControlConfiguration>
+  | WorkspaceValueItemControl<"slider", WorkspaceNumericItemControlConfiguration>
+  | WorkspaceValueItemControl<"rotary", WorkspaceNumericItemControlConfiguration>
+  | WorkspaceValueItemControl<"password", WorkspacePasswordItemControlConfiguration>
+  | WorkspaceValueItemControl<"date", WorkspaceDateItemControlConfiguration>
+  | WorkspaceValueItemControl<"time", WorkspaceTimeItemControlConfiguration>
+  | WorkspaceValueItemControl<"dropzone", WorkspaceDropzoneItemControlConfiguration>;
+
+export type WorkspaceItemControlKind = WorkspaceItemControlPresentation["kind"];
+
+export type WorkspaceItemControlConfiguration =
+  Exclude<WorkspaceItemControlPresentation, { kind: "group" }> extends infer Control
+    ? Control extends { kind: infer Kind; configuration: infer Configuration }
+      ? { kind: Kind; configuration: Configuration }
+      : never
+    : never;
+
+export type WorkspaceItemPresentation = {
+  label: string;
+  control: WorkspaceItemControlPresentation;
+};
+
 // The package term for the reference's params is "items": the rows a section carries that the
-// package can select, order, and nest. Item data is opaque exactly like section data — the
-// package owns only the structure (id, ordered children) and selection; rendering and any
-// leaf-versus-group semantics stay application-side behind the registered item surface.
+// package can select, order, and nest. A row either uses the package-owned typed presentation or
+// remains custom opaque content rendered through `WorkspaceItemList.renderItem`; load validation
+// rejects a row that supplies both. The root has neither because it is a structural move target.
 export type WorkspaceItem = {
   id: string;
   children: Array<string>;
   data?: WorkspaceSectionData;
+  presentation?: WorkspaceItemPresentation;
 };
 
 // The canonical per-section item tree, mirroring the reference's per-section param root

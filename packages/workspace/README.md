@@ -23,9 +23,10 @@ transition paths are provided.
   rendering, an optional icon, and an optional default size. Ordinary content is automatically
   placed in the package-owned body slot; `contentClassName` adds host padding or layout to that
   wrapper without exposing the section grid vocabulary.
-- `WorkspaceItemList` and `ItemDndContext` are the registered item-tree extension point.
-  `WorkspaceItemLabel` places host-styled leaf and group labels without exposing item-grid classes;
-  the built-in value/name controls own their corresponding placements and interactions.
+- `WorkspaceItemList` and `ItemDndContext` render item trees. Items with a typed `presentation`
+  use the package's editable label and built-in control directly; a list needs `renderItem` only
+  for custom opaque items. `WorkspaceItemLabel` remains the grid-safe label helper for that custom
+  renderer extension.
 
 Host panes remain ordinary siblings around the canvas, and host overlays remain ordinary siblings
 or portals owned by the host. This keeps application navigation, configuration panels, and modal
@@ -132,10 +133,12 @@ package's changes, not echoes of the host's own writes. The callback must not mu
 workspace synchronously; apply host reactions (including rejecting a change by re-loading the
 authoritative document) asynchronously. Snapshots share store state — treat them as immutable.
 
-Registered renderers commit validated host-owned payloads through `setSectionData(sectionId,
-data)` and item controls through `setItemData(sectionId, itemId, data)`. Both replace one opaque
-payload, preserve package-owned structure, and issue one canonical document notification; neither
-merges or interprets application data.
+Registered renderers commit host-owned payloads through `setSectionData(sectionId, data)` and
+custom item renderers through `setItemData(sectionId, itemId, data)`. Both replace one opaque
+payload, preserve package-owned structure, and issue one canonical document notification. A typed
+item rejects `setItemData`; its label, scalar value, complete control presentation, and typed
+configuration use `setItemLabel`, `setItemValue`, `setItemPresentation`, and
+`setItemControlConfiguration` respectively. Each accepted call publishes once.
 
 Sections with a `WorkspaceSectionItemTree` also carry the package-owned item-column layout. An
 omitted `itemColumnWidth` derives the live half-width split; dragging any row's shared center
@@ -147,6 +150,31 @@ commits through the same document-change callback. Consumers do not set the priv
 order: Left/Right Arrow adjusts by 10 px (Shift adjusts by 1 px), while activating the button resets
 the default split. Left/Right describe visual movement and therefore mirror under RTL. The remaining
 identical row targets stay pointer-accessible without adding one tab stop per row.
+
+## Typed built-in items
+
+`WorkspaceItem.presentation` is the package-owned serializable row schema. It contains an editable
+`label` and a discriminated `control`: `group`, `text`, `code`, `textarea`, `switch`, `dropdown`,
+`color`, `slider`, `rotary`, `password`, `date`, `time`, or `dropzone`. Every non-group control
+carries a controlled string `value` and its exact validated configuration. Code/text configuration
+records the accepted autocomplete policy (`"off"`); numeric bounds, date/time modes, choices,
+colors, attachment metadata, and dropzone limits reject malformed values at load and mutation
+boundaries. A structural root has neither presentation nor opaque data. A row cannot carry both a
+typed presentation and opaque `data`.
+
+Changing UI type uses `setItemPresentation` with the complete next control (kind, value, and
+configuration); the package never guesses defaults while switching types. Configuration-only
+edits carry their current kind to `setItemControlConfiguration`, so a stale Inspector write fails
+instead of applying options to the wrong control.
+
+Browser and host actions are intentionally not serializable. `registerItemHandlers([...])` replaces
+the explicit handler set keyed by section and stable item id; register it before mounting those
+rows. Replacing handlers does not mutate or notify the document. A built-in dropzone requires
+accepted and rejected-result handlers and may register server-picker and attachment-removal
+callbacks. A password may register a saved-value reveal action; its pending flag stays in the
+serializable configuration. Scalar controls and labels need no handler registration. Custom items
+remain valid through `data` plus `WorkspaceItemList.renderItem`, and missing custom renderers fail
+specifically.
 
 ## Section kind registration
 

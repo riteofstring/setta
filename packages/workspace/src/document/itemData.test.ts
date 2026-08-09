@@ -6,8 +6,7 @@ import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { registerSectionKinds } from "./sectionKindRegistry";
 import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "./stores";
 
-// The host-persistence funnel behind the built-in controls: one canonical commit of the
-// opaque item data, one host notification, and loud failures for unknown targets.
+// The custom-row persistence funnel: one canonical opaque-data replacement and one notification.
 
 function loadTestDocument() {
   registerSectionKinds({ leaf: { renderContent: () => null } });
@@ -27,7 +26,7 @@ function loadTestDocument() {
         itemTree: {
           rootId: "item-root",
           items: {
-            "item-root": { id: "item-root", children: ["item-a"], data: {} },
+            "item-root": { id: "item-root", children: ["item-a"] },
             "item-a": { id: "item-a", children: [], data: { label: "alpha", value: "0.001" } },
           },
           selectedItemIds: [],
@@ -66,5 +65,42 @@ describe("setItemData", () => {
   it("fails loudly for an unknown section or item", () => {
     expect(() => setItemData("missing", "item-a", {})).toThrow();
     expect(() => setItemData("panel", "missing", {})).toThrow();
+    expect(() => setItemData("panel", "item-root", {})).toThrowError(
+      "Section panel item item-root is the structural root and has no data.",
+    );
+  });
+
+  it("refuses to create an opaque-data path on a typed built-in item", () => {
+    const document = useWorkspaceDocument.getState();
+    const section = document.sections.panel;
+    const itemTree = section?.itemTree;
+    if (!section || !itemTree) {
+      throw new Error("The item-data fixture lost its panel tree.");
+    }
+    useWorkspaceDocument.setState({
+      sections: {
+        ...document.sections,
+        panel: {
+          ...section,
+          itemTree: {
+            ...itemTree,
+            items: {
+              ...itemTree.items,
+              "item-a": {
+                id: "item-a",
+                children: [],
+                presentation: {
+                  label: "alpha",
+                  control: { kind: "switch", value: "true", configuration: { disabled: false } },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(() => setItemData("panel", "item-a", {})).toThrowError(
+      "Section panel item item-a has a built-in presentation; use its typed mutation funnels.",
+    );
   });
 });

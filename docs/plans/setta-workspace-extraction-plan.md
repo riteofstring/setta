@@ -1661,6 +1661,22 @@ Phase 4 progress (2026-08-11):
   evidence, not a blocker, and no reference re-baseline is required. Remaining producible main
   captures may be gathered by the supervised implementation loop before their corresponding
   user-visible batch; they do not prevent the typed-item-schema batch from starting.
+- Workspace-shell typed-item batch complete (2026-08-12): ordinary package rows now use one exact,
+  serializable discriminated presentation for explicit groups and the full accepted text, code,
+  textarea, switch, dropdown, color, slider, rotary, password, date, time, and dropzone set. Load
+  and mutation boundaries validate discriminants, exact type-specific configuration, structural
+  root ownership, and typed-versus-opaque exclusivity. Package rows render their editable label and
+  built-in control without a host decoder, while custom opaque rows retain the explicit renderer
+  extension. Label, value, complete presentation, and kind-tagged configuration edits each publish
+  once; non-serializable dropzone and saved-password actions use the explicit stable-item handler
+  registry. The playground and packed unrelated consumer were directly migrated with no alias,
+  dual decoder, migration, or fallback. Focused package schema/data/registry/list/public-API tests
+  pass (31 tests), as does the focused playground control workflow (16 tests), package and
+  playground production builds, the source/compiled package boundary, and the exact packed
+  unrelated-consumer install/typecheck/build. No dependency changed, so the supply-chain gate is
+  not duplicated. This completes implementation batch 1; the producible shell/pane reference
+  captures precede batch 2, and the milestone's combined developer visual/interaction gate remains
+  later.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

@@ -5,21 +5,27 @@ import { useSortable } from "../dnd/adapter";
 import { applyZoomToTransform, transformToString } from "../dnd/adapter/zoom";
 import { getItemDndId, isTempItem, useItemDndState } from "../dnd/itemDndState";
 import { getSectionItemTreeOrThrow, getSectionOrThrow } from "../document/documentSelectors";
+import { hasWorkspaceItemPresentation } from "../document/itemPresentation";
 import { toggleItemSelected } from "../document/itemSelection";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { getItemOrThrow } from "../document/itemTree";
 import { useWorkspaceAppearance, useWorkspaceDocument } from "../document/stores";
 import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
+import { BuiltInItemRowContent } from "./BuiltInItemRowContent";
 import { ItemColumnResizeHandle } from "./ItemColumnResizeHandle";
-import { useItemDndChildrenForParent, useItemListContext } from "./ItemListContext";
+import {
+  useItemDndChildrenForParent,
+  useItemListContext,
+  type ItemRowRenderContext,
+} from "./ItemListContext";
 
 // The reference's `ParamSwitch`/`ParamContainer` row pair trimmed to the package seam: the
 // package owns the row interaction chrome — sortable wiring with zoom-scaled transforms, the
 // temp placeholder row, selection and hover treatments, and the nested-children flow with the
-// reference's leading rail and shared item-column divider — while the host-registered renderer
-// supplies the row content (the reference's param labels, inputs, error and search treatments
-// stay application-side). The private `--param-column-width` wire variable rides the row grids
-// verbatim; the package derives and persists its item-termed document value.
+// reference's leading rail and shared item-column divider. Package-owned typed presentations
+// supply the accepted label and controls directly; only custom opaque rows delegate content to
+// the optional host renderer. The private `--param-column-width` wire variable rides the row
+// grids verbatim; the package derives and persists its item-termed document value.
 
 const ITEM_COLUMN_WIDTH = "var(--param-column-width, 200px)";
 
@@ -295,6 +301,21 @@ function ItemNestedChildren({ renderChildren }: { renderChildren: Array<string> 
   );
 }
 
+function renderItemRowContent(
+  context: ItemRowRenderContext,
+  renderItem: ((context: ItemRowRenderContext) => ReactNode) | undefined,
+) {
+  if (hasWorkspaceItemPresentation(context.item)) {
+    return <BuiltInItemRowContent context={context} />;
+  }
+  if (!renderItem) {
+    throw new Error(
+      `Custom item ${context.sectionId}/${context.item.id} requires a registered row renderer.`,
+    );
+  }
+  return renderItem(context);
+}
+
 function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
   const { enabled, sectionId, listKey, visibleItemIds, renderItem, isGroupItem } =
     useItemListContext();
@@ -334,9 +355,17 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
     },
   });
 
+  const renderContext = {
+    sectionId,
+    listKey,
+    item: rowState.item,
+    isSelected: rowState.isSelected,
+  };
   const layout = resolveItemRowLayout({
     hasChildRows: renderChildren.length > 0,
-    isGroup: isGroupItem(rowState.item),
+    isGroup: hasWorkspaceItemPresentation(rowState.item)
+      ? rowState.item.presentation.control.kind === "group"
+      : isGroupItem(rowState.item),
   });
   const { rowClassName, rowStyle } = buildItemRowProps(
     layout,
@@ -366,7 +395,7 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       isSelected={rowState.isSelected}
       itemId={itemId}
     >
-      {renderItem({ sectionId, listKey, item: rowState.item, isSelected: rowState.isSelected })}
+      {renderItemRowContent(renderContext, renderItem)}
       <ItemColumnResizeHandle itemId={itemId} />
       {layout !== "leaf" && <ItemNestedChildren renderChildren={renderChildren} />}
     </ItemRowShell>

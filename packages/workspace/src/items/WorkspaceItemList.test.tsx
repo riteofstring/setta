@@ -69,11 +69,13 @@ function makeItemTree(): WorkspaceSectionItemTree {
     items: Object.fromEntries(
       ids.map((id) => [
         id,
-        {
-          id,
-          children: childrenById[id] ?? [],
-          data: { label: id, group: id === "item-group" },
-        },
+        id === "item-root"
+          ? { id, children: childrenById[id] ?? [] }
+          : {
+              id,
+              children: childrenById[id] ?? [],
+              data: { label: id, group: id === "item-group" },
+            },
       ]),
     ),
     selectedItemIds: [],
@@ -231,6 +233,65 @@ describe("WorkspaceItemList", () => {
     expect(rail?.className).toContain("before:w-[0.4rem]");
     const nestedRow = getRowByContent(host, "item-c");
     expect(rail?.contains(nestedRow)).toBe(true);
+  });
+
+  it("renders a typed built-in row without a host renderer and commits its value", async () => {
+    loadWorkspaceDocument({
+      sections: {
+        panel: {
+          id: "panel",
+          kind: "leaf",
+          name: "panel",
+          size: { width: 280, height: 240 },
+          isMinimized: false,
+          positionAndSizeLocked: false,
+          isHorizontalOrientation: false,
+          styleColor: null,
+          tagColor: null,
+          children: [],
+          itemTree: {
+            rootId: "item-root",
+            items: {
+              "item-root": { id: "item-root", children: ["item-switch"] },
+              "item-switch": {
+                id: "item-switch",
+                children: [],
+                presentation: {
+                  label: "enabled",
+                  control: {
+                    kind: "switch",
+                    value: "true",
+                    configuration: { disabled: false },
+                  },
+                },
+              },
+            },
+            selectedItemIds: [],
+          },
+        },
+      },
+      topLevelSections: { panel: { x: 0, y: 0, w: 280, h: 240, zIndex: 0 } },
+      viewport: { x: 0, y: 0, zoom: 1 },
+      activeIds: [],
+    });
+    await mount({ topLevelItemIds: ["item-switch"], renderItem: undefined });
+
+    expect(document.getElementById("ItemNameInput-panel-item-switch")?.textContent).toBe("enabled");
+    const toggle = host.querySelector<HTMLButtonElement>('[role="switch"]');
+    if (!toggle) {
+      throw new Error("expected the built-in switch row");
+    }
+    act(() => toggle.click());
+    expect(
+      useWorkspaceDocument.getState().sections.panel?.itemTree?.items["item-switch"]?.presentation
+        ?.control,
+    ).toMatchObject({ kind: "switch", value: "false" });
+  });
+
+  it("fails specifically when a custom row has no renderer", async () => {
+    await expect(mount({ renderItem: undefined })).rejects.toThrowError(
+      "Custom item panel/item-a requires a registered row renderer.",
+    );
   });
 
   it("renders the compact shared column divider on every real row and gates layout edits", async () => {

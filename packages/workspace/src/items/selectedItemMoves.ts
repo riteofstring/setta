@@ -31,7 +31,7 @@ import { getSectionItemVisibility } from "./itemListRegistry";
 // contiguous selected run under its nearest preceding unselected sibling, unindent promotes
 // each per-parent run to just after its parent. The reference's leaf→`NestedParam` promotion on
 // indent and its empty-parent type restore on unindent are structural no-ops here — every item
-// carries `children` and the leaf-versus-group distinction stays behind the opaque item data.
+// carries `children`; presentation changes remain independent of structural movement.
 // App-only branches dropped: the backend routes (the document-change callback notifies the host
 // once per applied action), the deployment-mode guard (the `canEditStructure` capability), and
 // the filter/hidden/multi-parent toasts (the disabled fallbacks they narrate are unchanged).

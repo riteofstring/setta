@@ -4,6 +4,7 @@ import {
   TEXTAREA_META_CONTROL_SIZE,
   type WorkspaceDocumentInput,
   type WorkspaceItem,
+  type WorkspaceItemControlPresentation,
   type WorkspaceSectionData,
   type WorkspaceSectionInput,
   type WorkspaceSectionItemTree,
@@ -31,158 +32,179 @@ function makeLeafSection(
   };
 }
 
-// The item panel's rows: the label/value/group/control shape is this host's opaque item data —
-// the package sees only ids, ordered children, and selection. One nested group keeps
-// cross-parent item movement reachable, and the leaf count fills the recorded 552 x 352 outer
-// geometry so the repeated 20 px row rhythm stays inspectable against the frozen `/settings`
-// Dict. The item-controls rows exercise every built-in control the milestone has landed: the
-// switch at the captured `enabled` fixture, the date and time native-input rows, the password and
-// wrapped multiline rows, the backend-free dropzone, the empty dropdown over the captured
-// Alpha/Beta/Gamma choices, the configured color trigger over the captured Red/Green/Blue choices,
-// the native color input at the `/settings` recorded value, and the captured editable `rename_me`
-// name seam. The
-// remaining-controls continuation adds the captured ordinary slider (0..100 by 1) and rotary
-// (0..1 by 0.1) rows through the same opaque configuration shape. Name validation remains
-// host-owned opaque-data policy.
-function makeItem(
+// The item panel now uses the package-owned discriminated presentation directly. One explicit
+// group keeps cross-parent movement reachable, while every scalar row exercises the accepted
+// built-in ordinary controls without a host decoder or row renderer.
+function makeBuiltInItem(
   id: string,
-  data: Record<string, WorkspaceSectionData>,
+  label: string,
+  control: WorkspaceItemControlPresentation,
   children: Array<string> = [],
 ): WorkspaceItem {
-  return { id, children, data };
+  return { id, children, presentation: { label, control } };
+}
+
+function makeCodeItem(id: string, label: string, value: string): WorkspaceItem {
+  return makeBuiltInItem(id, label, {
+    kind: "code",
+    value,
+    configuration: {
+      autocomplete: "off",
+      disabled: false,
+      language: "python",
+      placeholder: null,
+      singleLine: false,
+      wrapLines: true,
+    },
+  });
 }
 
 const itemPanelTree: WorkspaceSectionItemTree = {
   rootId: "item-root",
   items: {
-    "item-root": makeItem("item-root", {}, [
-      "item-alpha",
-      "item-beta",
-      "item-gamma",
-      "item-delta",
-      "item-epsilon",
-      "item-options",
-      "item-eta",
-      "item-theta",
-      "item-iota",
-      "item-kappa",
-      "item-lambda",
-      "item-slider",
-      "item-rotary",
-      "item-password",
-      "item-textarea",
-      "item-date",
-      "item-time",
-      "item-dropzone",
-      "item-enabled",
-      "item-choice",
-      "item-accent",
-      "item-tint",
-      "item-rename",
-    ]),
-    "item-alpha": makeItem("item-alpha", { label: "alpha", value: "0.001" }),
-    "item-beta": makeItem("item-beta", { label: "beta", value: "0.999" }),
-    "item-gamma": makeItem("item-gamma", { label: "gamma", value: "0.57721" }),
-    "item-delta": makeItem("item-delta", { label: "delta", value: "4096" }),
-    "item-epsilon": makeItem("item-epsilon", { label: "epsilon", value: "1e-8" }),
-    "item-options": makeItem("item-options", { label: "options", group: true }, [
+    "item-root": {
+      id: "item-root",
+      children: [
+        "item-alpha",
+        "item-beta",
+        "item-gamma",
+        "item-delta",
+        "item-epsilon",
+        "item-options",
+        "item-eta",
+        "item-theta",
+        "item-iota",
+        "item-kappa",
+        "item-lambda",
+        "item-slider",
+        "item-rotary",
+        "item-password",
+        "item-textarea",
+        "item-date",
+        "item-time",
+        "item-dropzone",
+        "item-enabled",
+        "item-choice",
+        "item-accent",
+        "item-tint",
+        "item-rename",
+      ],
+    },
+    "item-alpha": makeCodeItem("item-alpha", "alpha", "0.001"),
+    "item-beta": makeCodeItem("item-beta", "beta", "0.999"),
+    "item-gamma": makeCodeItem("item-gamma", "gamma", "0.57721"),
+    "item-delta": makeCodeItem("item-delta", "delta", "4096"),
+    "item-epsilon": makeCodeItem("item-epsilon", "epsilon", "1e-8"),
+    "item-options": makeBuiltInItem("item-options", "options", { kind: "group" }, [
       "item-momentum",
       "item-decay",
     ]),
-    "item-momentum": makeItem("item-momentum", { label: "momentum", value: "0.9" }),
-    "item-decay": makeItem("item-decay", { label: "decay", value: "1e-4" }),
-    "item-eta": makeItem("item-eta", { label: "eta", value: "0.25" }),
-    "item-theta": makeItem("item-theta", { label: "theta", value: "1.618" }),
-    "item-iota": makeItem("item-iota", { label: "iota", value: "0.05" }),
-    "item-kappa": makeItem("item-kappa", { label: "kappa", value: "100" }),
-    "item-lambda": makeItem("item-lambda", { label: "lambda", value: "0.0005" }),
-    "item-slider": makeItem("item-slider", {
-      label: "slider",
+    "item-momentum": makeCodeItem("item-momentum", "momentum", "0.9"),
+    "item-decay": makeCodeItem("item-decay", "decay", "1e-4"),
+    "item-eta": makeCodeItem("item-eta", "eta", "0.25"),
+    "item-theta": makeCodeItem("item-theta", "theta", "1.618"),
+    "item-iota": makeCodeItem("item-iota", "iota", "0.05"),
+    "item-kappa": makeCodeItem("item-kappa", "kappa", "100"),
+    "item-lambda": makeCodeItem("item-lambda", "lambda", "0.0005"),
+    "item-slider": makeBuiltInItem("item-slider", "slider", {
+      kind: "slider",
       value: "0",
-      control: "slider",
-      min: 0,
-      max: 100,
-      step: 1,
+      configuration: { disabled: false, min: 0, max: 100, step: 1 },
     }),
-    "item-rotary": makeItem("item-rotary", {
-      label: "rotary",
+    "item-rotary": makeBuiltInItem("item-rotary", "rotary", {
+      kind: "rotary",
       value: "0",
-      control: "rotary",
-      min: 0,
-      max: 1,
-      step: 0.1,
+      configuration: { disabled: false, min: 0, max: 1, step: 0.1 },
     }),
-    "item-date": makeItem("item-date", {
-      label: "date",
+    "item-date": makeBuiltInItem("item-date", "date", {
+      kind: "date",
       value: "2026-08-12",
-      control: "date",
-      displayFormat: "iso",
-      controlMode: "input",
-      selectionMode: "single",
-      weekStart: "sunday",
-      includeTime: false,
-      timeDisplayFormat: "twenty_four_hour",
+      configuration: {
+        disabled: false,
+        displayFormat: "iso",
+        controlMode: "input",
+        selectionMode: "single",
+        weekStart: "sunday",
+        includeTime: false,
+        timeDisplayFormat: "twenty_four_hour",
+      },
     }),
-    "item-time": makeItem("item-time", {
-      label: "time",
+    "item-time": makeBuiltInItem("item-time", "time", {
+      kind: "time",
       value: "13:45",
-      control: "time",
-      controlMode: "input",
-      displayFormat: "twenty_four_hour",
-      transparent: false,
-      scale: 1,
-      font: "monospace",
+      configuration: {
+        disabled: false,
+        controlMode: "input",
+        displayFormat: "twenty_four_hour",
+        transparent: false,
+        scale: 1,
+        font: "monospace",
+      },
     }),
-    "item-password": makeItem("item-password", {
-      label: "password",
+    "item-password": makeBuiltInItem("item-password", "password", {
+      kind: "password",
       value: "",
-      control: "password",
+      configuration: { disabled: false, placeholder: null, savedValuePending: false },
     }),
-    "item-textarea": makeItem("item-textarea", {
-      label: "textarea",
+    "item-textarea": makeBuiltInItem("item-textarea", "textarea", {
+      kind: "textarea",
       value: "",
-      control: "multiline",
+      configuration: {
+        autocomplete: "off",
+        disabled: false,
+        language: null,
+        placeholder: null,
+      },
     }),
-    "item-dropzone": makeItem("item-dropzone", {
-      label: "dropzone",
+    "item-dropzone": makeBuiltInItem("item-dropzone", "dropzone", {
+      kind: "dropzone",
       value: "",
-      control: "dropzone",
-      attachments: [],
-      maxAttachments: null,
-      maxFileBytes: 26_214_400,
-      maxTotalBytes: null,
-      allowedMimePrefixes: [],
-      serverPicker: true,
-      pending: false,
-      errorMessage: "",
+      configuration: {
+        disabled: false,
+        attachments: [],
+        policy: {
+          maxAttachments: null,
+          maxFileBytes: 26_214_400,
+          maxTotalBytes: null,
+          allowedMimePrefixes: [],
+        },
+        placeholder: "Drop a file here",
+        pending: false,
+        errorMessage: null,
+      },
     }),
-    "item-enabled": makeItem("item-enabled", {
-      label: "enabled",
+    "item-enabled": makeBuiltInItem("item-enabled", "enabled", {
+      kind: "switch",
       value: "true",
-      control: "switch",
+      configuration: { disabled: false },
     }),
-    "item-choice": makeItem("item-choice", {
-      label: "choice",
+    "item-choice": makeBuiltInItem("item-choice", "choice", {
+      kind: "dropdown",
       value: "",
-      control: "dropdown",
-      choices: ["Alpha", "Beta", "Gamma"],
+      configuration: {
+        disabled: false,
+        choices: ["Alpha", "Beta", "Gamma"],
+        placeholder: null,
+      },
     }),
-    "item-accent": makeItem("item-accent", {
-      label: "accent",
+    "item-accent": makeBuiltInItem("item-accent", "accent", {
+      kind: "color",
       value: "#22c55e",
-      control: "color",
-      choices: [
-        { color: "#ef4444", description: "Red" },
-        { color: "#22c55e", description: "Green" },
-        { color: "#3b82f6", description: "Blue" },
-      ],
+      configuration: {
+        disabled: false,
+        choices: [
+          { color: "#ef4444", description: "Red" },
+          { color: "#22c55e", description: "Green" },
+          { color: "#3b82f6", description: "Blue" },
+        ],
+      },
     }),
-    "item-tint": makeItem("item-tint", { label: "tint", value: "#afbacf", control: "color" }),
-    "item-rename": makeItem("item-rename", {
-      label: "rename_me",
-      value: "",
-      editableName: true,
+    "item-tint": makeBuiltInItem("item-tint", "tint", {
+      kind: "color",
+      value: "#afbacf",
+      configuration: { disabled: false, choices: null },
     }),
+    "item-rename": makeCodeItem("item-rename", "rename_me", ""),
   },
   selectedItemIds: [],
 };
@@ -237,8 +259,8 @@ function makeMetaControlSection(
 // leaf and a nested group, which holds a horizontal group with three leaves — three group
 // levels with both child flows, leaves at the fourth. The freeform surface is the top-level
 // workspace layout itself, exactly as the reference: groups flow their children in order.
-// Phase 4 adds the item panel from opaque item data; the meta-controls continuation adds the
-// complete frozen direct-on-canvas control dispatch from opaque section data.
+// The workspace-shell milestone moves the item panel onto the typed built-in schema; the
+// meta-control fixture remains host-owned opaque section data by design.
 export const playgroundDocument: WorkspaceDocumentInput = {
   sections: {
     "idle-leaf": makeLeafSection("idle-leaf", "Idle leaf"),

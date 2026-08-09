@@ -1,6 +1,7 @@
 import {
   DEFAULT_META_CONTROL_SIZE,
   GROUP_SECTION_KIND,
+  ItemDndContext,
   loadWorkspaceDocument,
   MetaControl,
   registerSectionKinds,
@@ -9,6 +10,7 @@ import {
   useWorkspaceAppearance,
   WorkspaceCanvas,
   WorkspaceControls,
+  WorkspaceItemList,
   WorkspaceTooltip,
   type MetaControlDefinition,
   type WorkspaceDocumentInput,
@@ -81,6 +83,22 @@ function PackedTimeBody({ section }: { section: WorkspaceSection }) {
   return <MetaControl sectionId={section.id} sectionName={section.name} control={control} />;
 }
 
+function PackedItemsBody({ section }: { section: WorkspaceSection }) {
+  const itemTree = section.itemTree;
+  if (!itemTree) {
+    throw new Error(`Packed item section ${section.id} is missing its item tree.`);
+  }
+  return (
+    <ItemDndContext>
+      <WorkspaceItemList
+        sectionId={section.id}
+        listKey="main"
+        topLevelItemIds={itemTree.items[itemTree.rootId]?.children ?? []}
+      />
+    </ItemDndContext>
+  );
+}
+
 function makeNoteSection(id: string, name: string, text: string): WorkspaceSectionInput {
   return {
     id,
@@ -129,6 +147,57 @@ const consumerDocument: WorkspaceDocumentInput = {
       tagColor: null,
       children: [],
     },
+    "packed-items": {
+      id: "packed-items",
+      kind: "packed-items",
+      name: "Packed items",
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isHorizontalOrientation: false,
+      styleColor: null,
+      tagColor: null,
+      children: [],
+      itemTree: {
+        rootId: "packed-item-root",
+        items: {
+          "packed-item-root": {
+            id: "packed-item-root",
+            children: ["packed-item-text", "packed-item-switch"],
+          },
+          "packed-item-text": {
+            id: "packed-item-text",
+            children: [],
+            presentation: {
+              label: "message",
+              control: {
+                kind: "text",
+                value: "Packed typed row",
+                configuration: {
+                  autocomplete: "off",
+                  disabled: false,
+                  placeholder: null,
+                  singleLine: true,
+                  wrapLines: false,
+                },
+              },
+            },
+          },
+          "packed-item-switch": {
+            id: "packed-item-switch",
+            children: [],
+            presentation: {
+              label: "enabled",
+              control: {
+                kind: "switch",
+                value: "true",
+                configuration: { disabled: false },
+              },
+            },
+          },
+        },
+        selectedItemIds: [],
+      },
+    },
   },
   topLevelSections: {
     "welcome-note": { x: 24, y: 24, w: 240, h: 140, zIndex: 0 },
@@ -140,6 +209,7 @@ const consumerDocument: WorkspaceDocumentInput = {
       h: DEFAULT_META_CONTROL_SIZE.height,
       zIndex: 2,
     },
+    "packed-items": { x: 328, y: 144, w: 320, h: 160, zIndex: 3 },
   },
   viewport: { x: 0, y: 0, zoom: 1 },
   activeIds: [],
@@ -211,6 +281,11 @@ registerSectionKinds({
       resolveControlKind: () => "time",
       onEdit: () => {},
     },
+  },
+  "packed-items": {
+    renderContent: (section) => <PackedItemsBody section={section} />,
+    contentClassName: "consumer-packed-items",
+    defaultSize: { width: 320, height: 160 },
   },
 });
 loadWorkspaceDocument(consumerDocument);

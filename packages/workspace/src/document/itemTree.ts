@@ -3,9 +3,8 @@ import type { WorkspaceItem, WorkspaceSectionItemTree } from "./types";
 // The reference's param tree helpers (`state/actions/params/paramTree.ts`) over the canonical
 // item tree. The reference walks code-object impls behind its variant indirection and recurses
 // only into `NestedParam`-typed parents; package items always carry `children`, so the parent
-// checks are structural and the leaf-versus-group type distinction stays application-side
-// behind the opaque item data. The flat rows therefore drop the reference's `isParent` flag —
-// the registered row surface sources group-ness from the host, not the package.
+// checks are structural. Typed rows carry an explicit group presentation, while custom rows may
+// still supply a host group predicate. The flat projection needs no duplicated `isParent` flag.
 
 type ItemTreeFlatRow = {
   id: string;

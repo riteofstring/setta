@@ -89,6 +89,12 @@ html.dark .consumer-note-body {
   color: hsl(219, 14%, 68%);
 }
 
+.consumer-packed-items {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
 @media (max-width: 60rem) {
   .consumer-shell {
     height: 100dvh;

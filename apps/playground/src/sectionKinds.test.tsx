@@ -3,39 +3,20 @@
 import {
   getWorkspaceDocument,
   loadWorkspaceDocument,
-  setItemData,
-  type ItemRowRenderContext,
+  setItemLabel,
   type WorkspaceSection,
 } from "@setta/workspace";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { playgroundDocument } from "./playgroundDocument";
-import {
-  commitPlaygroundItemNameProposal,
-  ItemListSectionBody,
-  registerPlaygroundSectionKinds,
-} from "./sectionKinds";
+import { ItemListSectionBody, registerPlaygroundSectionKinds } from "./sectionKinds";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-// The host-owned presentation regression from the Phase 4 presentation-parity correction,
-// amended by the item-controls milestone: labels stay this host's contract (12/16 px semibold
-// sans-serif in setta-800/200 with the reference padding), while the value role now mounts
-// the package's built-in controls chosen by this host's opaque `control` field — the two-layer
-// text value editor (the default; the Lezer-highlighted idle dummy at the reference's
-// monospace treatment plus the value-column divider with its focus paint, at the reference
-// settings surface's python language), the boolean switch, the dropdown pill over this host's
-// flat choices, the slider and rotary over opaque numeric configuration, the native date/time
-// controls over opaque formatting configuration, the password input, wrapped multiline editor,
-// backend-free dropzone, and the color picker in
-// both its configured-choices and native-input forms, plus the editable `rename_me` name seam.
-// Every accepted control edit commits back through the host's `setItemData` funnel into the
-// canonical document; duplicate-name proposals stay blocked by this host and ride the package's
-// captured error presentation.
-
-const REFERENCE_LABEL_CLASS_NAME =
-  "truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200";
+// The workspace-shell typed-item regression: the unrelated playground supplies serialized
+// presentations and no row decoder. Package-owned labels and controls render directly, scalar
+// edits commit through the dedicated funnels, and only dropzone side effects use host handlers.
 const REFERENCE_VALUE_DUMMY_CLASSES = [
   "nopan",
   "nodrag",
@@ -88,65 +69,35 @@ function getItemPanelSection(): WorkspaceSection {
   return { ...input, size: { width: 550, height: 350 } };
 }
 
-// Reads a committed value back out of the canonical document's opaque item data.
 function getDocumentItemValue(itemId: string): string | undefined {
   const itemTree = getWorkspaceDocument().sections["item-panel"]?.itemTree;
-  const data = itemTree?.items[itemId]?.data;
-  if (data === null || data === undefined || typeof data !== "object" || Array.isArray(data)) {
-    throw new Error(`Item ${itemId} lost its row data.`);
-  }
-  const value = data["value"];
-  return typeof value === "string" ? value : undefined;
+  const control = itemTree?.items[itemId]?.presentation?.control;
+  return control && control.kind !== "group" ? control.value : undefined;
 }
 
 function getDocumentItemLabel(itemId: string): string | undefined {
-  const itemTree = getWorkspaceDocument().sections["item-panel"]?.itemTree;
-  const data = itemTree?.items[itemId]?.data;
-  if (data === null || data === undefined || typeof data !== "object" || Array.isArray(data)) {
-    throw new Error(`Item ${itemId} lost its row data.`);
-  }
-  const label = data["label"];
-  return typeof label === "string" ? label : undefined;
+  return getWorkspaceDocument().sections["item-panel"]?.itemTree?.items[itemId]?.presentation
+    ?.label;
 }
 
 function getDocumentDropzoneAttachmentNames(): Array<string> {
-  const data =
-    getWorkspaceDocument().sections["item-panel"]?.itemTree?.items["item-dropzone"]?.data;
-  if (data === null || data === undefined || typeof data !== "object" || Array.isArray(data)) {
-    throw new Error("The dropzone item lost its opaque data.");
+  const control =
+    getWorkspaceDocument().sections["item-panel"]?.itemTree?.items["item-dropzone"]?.presentation
+      ?.control;
+  if (!control || control.kind !== "dropzone") {
+    throw new Error("The dropzone item lost its typed presentation.");
   }
-  const attachments = data["attachments"];
-  if (!Array.isArray(attachments)) {
-    throw new Error("The dropzone item lost its attachment metadata.");
-  }
-  return attachments.map((attachment) => {
-    if (
-      attachment === null ||
-      typeof attachment !== "object" ||
-      Array.isArray(attachment) ||
-      typeof attachment["name"] !== "string"
-    ) {
-      throw new Error("The dropzone item has malformed attachment metadata.");
-    }
-    return attachment["name"];
-  });
-}
-
-function getItemRowContext(itemId: string): ItemRowRenderContext {
-  const item = getWorkspaceDocument().sections["item-panel"]?.itemTree?.items[itemId];
-  if (!item) {
-    throw new Error(`Item ${itemId} is missing from the playground document.`);
-  }
-  return { sectionId: "item-panel", listKey: "main", item, isSelected: false };
+  return control.configuration.attachments.map((attachment) => attachment.name);
 }
 
 function findRowByLabel(container: HTMLElement, label: string): HTMLElement {
-  const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-item-row="true"]'));
-  const row = rows.find((candidate) =>
-    Array.from(candidate.querySelectorAll(":scope > * p, :scope > p")).some(
-      (paragraph) => paragraph.textContent === label,
-    ),
-  );
+  const items = getWorkspaceDocument().sections["item-panel"]?.itemTree?.items ?? {};
+  const itemId = Object.values(items).find((item) => item.presentation?.label === label)?.id;
+  const row = itemId
+    ? document
+        .getElementById(`ItemNameInput-item-panel-${itemId}`)
+        ?.closest<HTMLElement>('[data-item-row="true"]')
+    : null;
   if (!row) {
     throw new Error(`No item row renders the label ${label}.`);
   }
@@ -179,25 +130,23 @@ describe("the playground item renderer presentation contract", () => {
     observedResizeTargets.clear();
   });
 
-  it("renders leaf rows with the reference label and the built-in text value control", () => {
+  it("renders typed rows without a host renderer", () => {
     const leafRow = findRowByLabel(container, "alpha");
-    const label = Array.from(leafRow.querySelectorAll<HTMLElement>(":scope > div > p")).find(
-      (candidate) => candidate.textContent === "alpha",
-    );
-    const value = leafRow.querySelector<HTMLElement>('[role="textbox"]');
+    const label = document.getElementById("ItemNameInput-item-panel-item-alpha");
+    const valueLayers = leafRow.querySelectorAll<HTMLElement>('[role="textbox"]');
+    const valueEditor = valueLayers[1];
     const divider = leafRow.querySelector<HTMLElement>("span.section-value");
-    if (!label || !value || !divider) {
+    if (!label || !valueEditor || !divider) {
       throw new Error("The leaf row is missing its label, value, or divider element.");
     }
-    expect(label.className).toBe(REFERENCE_LABEL_CLASS_NAME);
-    // The control's idle dummy layer carries the reference value treatment, the
-    // host-addressable id, and the python Lezer highlight for the numeric value.
-    expect(value.id).toBe("item-panel-item-alpha-ItemValueInput");
-    expect(value.textContent).toBe("0.001");
+    expect(label.classList.contains("section-key")).toBe(true);
+    expect(label.classList.contains("font-mono")).toBe(true);
+    expect(valueEditor.id).toBe("item-panel-item-alpha-ItemValueInput");
+    expect(valueEditor.textContent).toBe("0.001");
     for (const dummyClass of REFERENCE_VALUE_DUMMY_CLASSES) {
-      expect(value.classList.contains(dummyClass)).toBe(true);
+      expect(valueEditor.classList.contains(dummyClass)).toBe(true);
     }
-    expect(value.querySelector(".cm-line span")?.className).toMatch(/ͼ/);
+    expect(valueEditor.querySelector(".cm-line span")?.className).toMatch(/ͼ/);
     expect(divider.className).toBe(REFERENCE_VALUE_DIVIDER_CLASS_NAME);
   });
 
@@ -213,15 +162,14 @@ describe("the playground item renderer presentation contract", () => {
     act(() => {
       switchButton.click();
     });
-    // The host funnel committed the stringified boolean into the canonical opaque data, and
-    // the re-rendered control reflects it.
+    // The package value funnel committed one canonical string update and re-rendered the control.
     expect(getDocumentItemValue("item-enabled")).toBe("false");
     expect(switchRow.querySelector<HTMLButtonElement>('button[role="switch"]')?.dataset.state).toBe(
       "unchecked",
     );
   });
 
-  it("renders the slider row with opaque limits and commits keyboard stepping", () => {
+  it("renders the slider row from typed limits and commits keyboard stepping", () => {
     const sliderRow = findRowByLabel(container, "slider");
     const thumb = sliderRow.querySelector<HTMLElement>('[role="slider"]');
     if (!thumb) {
@@ -245,7 +193,7 @@ describe("the playground item renderer presentation contract", () => {
     expect(sliderRow.querySelector('[role="slider"]')?.getAttribute("aria-valuenow")).toBe("1");
   });
 
-  it("renders the rotary row with opaque limits and commits step-aware keyboard updates", () => {
+  it("renders the rotary row from typed limits and commits step-aware keyboard updates", () => {
     const rotaryRow = findRowByLabel(container, "rotary");
     const knob = rotaryRow.querySelector<HTMLButtonElement>('button[role="slider"]');
     if (!knob) {
@@ -271,7 +219,7 @@ describe("the playground item renderer presentation contract", () => {
     );
   });
 
-  it("renders the date row with opaque formatting config and commits ISO string updates", () => {
+  it("renders the date row from typed formatting config and commits ISO string updates", () => {
     const dateRow = findRowByLabel(container, "date");
     const input = dateRow.querySelector<HTMLInputElement>('input[type="text"]');
     if (!input) {
@@ -290,7 +238,7 @@ describe("the playground item renderer presentation contract", () => {
     expect(getDocumentItemValue("item-date")).toBe("2026-08-13");
   });
 
-  it("renders the time row with opaque display config and commits 24-hour strings", () => {
+  it("renders the time row from typed display config and commits 24-hour strings", () => {
     const timeRow = findRowByLabel(container, "time");
     const input = timeRow.querySelector<HTMLInputElement>('input[type="time"]');
     if (!input) {
@@ -327,7 +275,9 @@ describe("the playground item renderer presentation contract", () => {
 
   it("renders the multiline row through the wrapped text editor path", () => {
     const textAreaRow = findRowByLabel(container, "textarea");
-    const dummy = textAreaRow.querySelector<HTMLElement>('[role="textbox"]');
+    const dummy = textAreaRow.querySelector<HTMLElement>(
+      "#item-panel-item-textarea-ItemValueInput",
+    );
     if (!dummy) {
       throw new Error("The textarea row does not mount the idle text editor.");
     }
@@ -394,8 +344,7 @@ describe("the playground item renderer presentation contract", () => {
     act(() => {
       gamma?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
-    // The host funnel committed the picked choice string into the canonical opaque data, and
-    // the re-rendered pill reflects it.
+    // The package value funnel committed the picked choice and the re-rendered pill reflects it.
     expect(getDocumentItemValue("item-choice")).toBe("Gamma");
     expect(dropdownRow.querySelector<HTMLInputElement>('input[role="combobox"]')?.value).toBe(
       "Gamma",
@@ -425,7 +374,7 @@ describe("the playground item renderer presentation contract", () => {
     expect(input.value).toBe("#afbacf");
   });
 
-  it("renders the editable name seam and keeps duplicate-name validation host-owned", () => {
+  it("renders package-owned editable labels and commits through the label funnel", () => {
     const dummy = document.getElementById("ItemNameInput-item-panel-item-rename");
     if (!dummy) {
       throw new Error("The rename row does not mount the editable name control.");
@@ -442,42 +391,22 @@ describe("the playground item renderer presentation contract", () => {
     }
     expect(dummy.querySelector(".cm-line span")?.className).toMatch(/ͼ/);
 
-    const context = getItemRowContext("item-rename");
-    const duplicateError = commitPlaygroundItemNameProposal(context, "enabled");
-    expect(duplicateError).toBe('Param name "enabled" already exists under this parent.');
-    expect(getDocumentItemLabel("item-rename")).toBe("rename_me");
-
-    const validError = commitPlaygroundItemNameProposal(context, "renamed");
-    expect(validError).toBe("");
+    act(() => setItemLabel("item-panel", "item-rename", "renamed"));
     expect(getDocumentItemLabel("item-rename")).toBe("renamed");
-
-    // A host-provided invalid controlled state drives the package error treatment independently
-    // of the canonical-blocking assertion above.
-    act(() => {
-      const renamedItem =
-        getWorkspaceDocument().sections["item-panel"]?.itemTree?.items["item-rename"];
-      if (!renamedItem || renamedItem.data === null || typeof renamedItem.data !== "object") {
-        throw new Error("The renamed item lost its opaque data.");
-      }
-      setItemData("item-panel", "item-rename", { ...renamedItem.data, label: "enabled" });
-    });
-    const invalidDummy = document.getElementById("ItemNameInput-item-panel-item-rename");
-    expect(invalidDummy?.getAttribute("aria-invalid")).toBe("true");
-    expect(invalidDummy?.classList.contains("text-red-500")).toBe(true);
-    const bubble = document.getElementById("ItemNameError-item-panel-item-rename");
-    expect(bubble?.textContent).toBe('Param name "enabled" already exists under this parent.');
+    expect(document.getElementById("ItemNameInput-item-panel-item-rename")?.textContent).toBe(
+      "renamed",
+    );
   });
 
-  it("renders group labels as direct children carrying the reference label treatment", () => {
+  it("renders explicit groups with an editable spanning label", () => {
     const groupRow = findRowByLabel(container, "options");
-    // WorkspaceItemLabel owns the package's grid placement and keeps group labels direct children.
-    const groupLabel = Array.from(groupRow.children).find(
-      (child) => child.tagName === "P" && child.textContent === "options",
-    );
+    const groupLabel = document.getElementById("ItemNameInput-item-panel-item-options");
     if (!groupLabel) {
-      throw new Error("The group row does not render its label as a direct child.");
+      throw new Error("The group row does not render its built-in label.");
     }
-    expect(groupLabel.className).toBe(REFERENCE_LABEL_CLASS_NAME);
+    expect(groupLabel.parentElement).toBe(groupRow);
+    expect(groupLabel.classList.contains("section-key-value")).toBe(true);
+    expect(groupLabel.getAttribute("aria-label")).toBe("Item name");
   });
 
   it("lets the package derive the default split from half the list area width", () => {

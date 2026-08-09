@@ -10,6 +10,7 @@ import { resetItemDragState } from "../items/itemDragHandlers";
 import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
 import { runWithWorkspaceDocumentChangeNotificationsSuppressed } from "./documentChangeCallback";
 import { isGroupSection } from "./documentSelectors";
+import { assertWorkspaceItemPresentationBoundary } from "./itemPresentation";
 import { deactivateItemSelect } from "./itemSelectionMode";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
 import { getRegisteredSectionKindOrThrow } from "./sectionKindRegistry";
@@ -120,6 +121,9 @@ function assertValidSectionItemTree(sectionId: string, itemTree: WorkspaceSectio
     throw new Error(`Section ${sectionId} item column width must be finite.`);
   }
   assertValidItemChildClaims(sectionId, itemTree);
+  for (const item of Object.values(itemTree.items)) {
+    assertWorkspaceItemPresentationBoundary(sectionId, item, itemTree.rootId);
+  }
   assertItemsReachableFromRoot(sectionId, itemTree);
   assertValidItemSelection(sectionId, itemTree);
 }

@@ -92,6 +92,12 @@ export type { WorkspaceDocumentChangeCallback } from "./document/documentChangeC
 export { GROUP_SECTION_KIND } from "./document/documentSelectors";
 export { setItemData } from "./document/itemData";
 export {
+  setItemControlConfiguration,
+  setItemLabel,
+  setItemPresentation,
+  setItemValue,
+} from "./document/itemPresentationMutations";
+export {
   activateItemSelect,
   deactivateItemSelect,
   useItemSelectionMode,
@@ -112,13 +118,35 @@ export type {
   SectionSizeValue,
   TopLevelSectionLayout,
   Viewport,
+  WorkspaceCodeItemControlConfiguration,
+  WorkspaceColorChoice,
+  WorkspaceColorItemControlConfiguration,
+  WorkspaceDateItemControlConfiguration,
   WorkspaceDocument,
   WorkspaceDocumentInput,
+  WorkspaceDropdownChoiceGroup,
+  WorkspaceDropdownItemControlConfiguration,
+  WorkspaceDropzoneAttachment,
+  WorkspaceDropzoneItemControlConfiguration,
+  WorkspaceDropzonePolicy,
   WorkspaceItem,
+  WorkspaceItemAutocompletePolicy,
+  WorkspaceItemControlBaseConfiguration,
+  WorkspaceItemControlConfiguration,
+  WorkspaceItemControlKind,
+  WorkspaceItemControlPresentation,
+  WorkspaceItemPresentation,
+  WorkspaceItemTextLanguage,
+  WorkspaceNumericItemControlConfiguration,
+  WorkspacePasswordItemControlConfiguration,
   WorkspaceSection,
   WorkspaceSectionData,
   WorkspaceSectionInput,
   WorkspaceSectionItemTree,
+  WorkspaceSwitchItemControlConfiguration,
+  WorkspaceTextAreaItemControlConfiguration,
+  WorkspaceTextItemControlConfiguration,
+  WorkspaceTimeItemControlConfiguration,
 } from "./document/types";
 export {
   MANUAL_WHEEL_CLASS_NAME,
@@ -126,6 +154,12 @@ export {
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
 } from "./interaction";
+export { registerItemHandlers } from "./items/itemHandlerRegistry";
+export type {
+  WorkspaceDropzoneItemHandlerRegistration,
+  WorkspaceItemHandlerRegistration,
+  WorkspacePasswordItemHandlerRegistration,
+} from "./items/itemHandlerRegistry";
 export type { ItemRowRenderContext } from "./items/ItemListContext";
 export { WorkspaceItemLabel } from "./items/WorkspaceItemLabel";
 export type { WorkspaceItemLabelProps } from "./items/WorkspaceItemLabel";

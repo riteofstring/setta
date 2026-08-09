@@ -15,9 +15,8 @@ import type { WorkspaceItem } from "../document/types";
 
 // The reference's app-level `ParamDndContext` (list context, `useParamDndChildrenForParent`,
 // and the `ParamDndProvider` sortable list). The package context additionally carries the
-// host-registered row renderer, group predicate, and visible set, because row content is
-// opaque application data where the reference renders its own params: the package-owned row
-// recursion reads them from context instead of threading host props through every level.
+// optional custom-row renderer, group predicate, and visible set. Typed rows render directly;
+// custom opaque rows read their host extension from this context at any recursive depth.
 
 export type ItemRowRenderContext = {
   sectionId: string;
@@ -31,7 +30,7 @@ type ItemListContextValue = {
   sectionId: string;
   listKey: ItemListKey;
   visibleItemIds: ReadonlySet<string>;
-  renderItem: (context: ItemRowRenderContext) => ReactNode;
+  renderItem?: (context: ItemRowRenderContext) => ReactNode;
   isGroupItem: (item: WorkspaceItem) => boolean;
   onColumnResizeStart: PointerEventHandler<HTMLButtonElement>;
   onColumnResizeKeyDown: KeyboardEventHandler<HTMLButtonElement>;
