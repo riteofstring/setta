@@ -349,3 +349,28 @@
   left: -3px;
   top: 2px;
 }
+
+/* The viewport toolbar stylesheet (`forks/xyflow/controls/style.css`), as the effective rules.
+ * Only the reset-zoom control carries `react-flow__controls-button` in the reference (26x26
+ * against the other controls' 23x23 — frozen in the Phase 0 computed metrics); the zoomin/
+ * zoomout/fitview marker classes have no rules, and the stylesheet's `:disabled` rules are
+ * unreachable because the reset-zoom control never disables. */
+
+.react-flow__controls-button {
+  border: none;
+  box-sizing: content-box;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  user-select: none;
+  padding: 5px;
+}
+
+.react-flow__controls-button svg {
+  width: 100%;
+  max-width: 12px;
+  max-height: 12px;
+}

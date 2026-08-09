@@ -1,4 +1,10 @@
-import { useWorkspaceAppearance, WorkspaceCanvas, type WorkspaceSection } from "@setta/workspace";
+import {
+  useWorkspaceAppearance,
+  WorkspaceCanvas,
+  WorkspaceControls,
+  WorkspaceTooltip,
+  type WorkspaceSection,
+} from "@setta/workspace";
 
 function toggleDarkMode() {
   const next = !useWorkspaceAppearance.getState().darkMode;
@@ -35,12 +41,21 @@ export function App() {
         <p className="text-xs text-setta-500 dark:text-setta-400">
           Drag sections or the background, scroll or pinch to pan and zoom, click to select,
           Cmd/Ctrl-click to multi-select, Shift-drag to draw a selection. Sections resize from their
-          bottom and right edges, and their headers rename, lock, minimize, and delete.
+          bottom and right edges, and their headers rename, lock, minimize, and delete. The toolbar
+          zooms, fits, and toggles grid snapping; hold Q while hovering a control for its tooltip.
         </p>
       </header>
-      <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-setta-200 dark:border-setta-800">
-        <WorkspaceCanvas renderSectionContent={(section) => <SectionBody section={section} />} />
+      <div className="flex min-h-0 flex-1 gap-2">
+        {/* The host side of the toolbar placement: the reference composes the toolbar at the
+            bottom of the Overview left rail, outside the canvas. */}
+        <aside className="flex w-9 flex-col pb-1">
+          <WorkspaceControls />
+        </aside>
+        <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-setta-200 dark:border-setta-800">
+          <WorkspaceCanvas renderSectionContent={(section) => <SectionBody section={section} />} />
+        </div>
       </div>
+      <WorkspaceTooltip />
     </main>
   );
 }

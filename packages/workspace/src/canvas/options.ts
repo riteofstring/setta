@@ -17,6 +17,7 @@ export type WorkspaceInteractionOptions = {
   minZoom: number;
   maxZoom: number;
   defaultZoomLevel: number;
+  transitionDuration: number;
   snapToGrid: boolean;
   snapGrid: [number, number];
   selectionMode: SelectionMode;
@@ -34,8 +35,15 @@ export const useWorkspaceOptions = createWithEqualityFn(
     minZoom: 0.1,
     maxZoom: 10,
     defaultZoomLevel: 1.0,
+    transitionDuration: 50,
     snapToGrid: true,
     snapGrid: [15, 15],
     selectionMode: "partial",
   })),
 );
+
+// The reference's `toggleSnapToGrid` (`state/actions/localStorage.ts`) flips the same preference
+// on its localStorage store.
+export function toggleSnapToGrid() {
+  useWorkspaceOptions.setState((state) => ({ snapToGrid: !state.snapToGrid }));
+}

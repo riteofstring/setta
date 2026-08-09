@@ -25,3 +25,5 @@ export {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "./interaction";
+export { WorkspaceControls } from "./toolbar/WorkspaceControls";
+export { WorkspaceTooltip } from "./tooltip/WorkspaceTooltip";

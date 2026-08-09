@@ -125,9 +125,50 @@ Phase 1 progress (2026-08-10):
   `jsdom 28.1.0` dev-only). The supply-chain gate reran clean after adding OSI-approved `MIT-0`
   to the license allowlist for jsdom's dev-only cssstyle transitives (documented in
   `docs/quality-and-supply-chain-tooling.md`).
-- Remaining Phase 1 work: the dnd-kit fork drag slice (sorting/reparenting with hysteresis),
-  section header and resize treatment, toolbar zoom/fit surface, and the live side-by-side
-  comparison feeding the developer exit gate.
+- Section container, header, and resize extracted (2026-08-11, `a99e5ac8f`): the node wrapper
+  renders the package-owned `SectionContainer` instead of handing the whole node to the host —
+  leaf shell (selection-outline overlay, compositor hoist during viewport interaction), group
+  chrome (sibling outline layer, recursive nested children, orientation flow, empty-group drop
+  hint), and the header with the double-click-editable title and the
+  menu/lock/minimize/delete/change-orientation controls (css.gg glyphs at the slice-reachable
+  subset); the host content seam moved inside the shell. Resize returned with its owning batch:
+  `CustomResizable` on `re-resizable` (bottom/right/corner handles with reference hit geometry,
+  auto-size promotion, double-click reset, min/max clamping, resize events),
+  `ResizableWithScale`, and the sizing policy; the section-ref registry supplies the
+  DOM-measurement fallback promised by the canvas batch for marquee hit-testing and selection
+  bounds. The document layer gained the per-flag mutation funnels (rename, lock, minimize,
+  orientation, delete — canonical writes; the Phase 2 change-callback seam owns host
+  notification), the capability seam (`canEditLayout`/`canEditStructure`, default fully
+  editable), and `GROUP_SECTION_KIND`; the playground slice added a root group with a nested
+  leaf. Lint-forced, visually identical deviations: the leaf shell and editable title render as
+  `div role="button"` (the a11y gate forbids interactive roles on section/p), keyboard activation
+  lands on the shell/group root, and effect deps are exact. New exact reference pins:
+  `re-resizable 6.10.3`, `react-icons 5.3.0`; supply-chain gate rerun clean.
+- Toolbar zoom/fit surface and tooltip singleton extracted (2026-08-11): the viewport toolbar at
+  the seam proposal's slice form — the viewport group alone (zoom in/out, fit, snap grid, reset
+  zoom) with the reference chrome, order, icons, and active/disabled states; the edge-toggle and
+  plugin-placement groups left with their features, and the minimap group arrives with the
+  minimap batch that makes its toggles reachable (with one group, the reference's dividers never
+  render). The reference's asymmetric control geometry is preserved: only reset-zoom carries
+  `react-flow__controls-button` (26×26 content-box against the other controls' 23×23, per the
+  Phase 0 computed metrics), and that stylesheet's `:disabled` rules were not carried because the
+  only control with the class never disables. The zoom commands moved from the reference's
+  `useViewportHelper` (50 ms-throttled scaleBy 1.2, reset to `defaultZoomLevel` over 100 ms;
+  `setViewport`/`setCenter` stayed with minimap and AI-follow), and `onFitViewHandler` extracted
+  verbatim including its post-transition `fitViewOnInit` arming hack and document-sync interplay;
+  `transitionDuration` (50 ms) joined the interaction options. The seam-8 tooltip singleton is
+  the reference `FloatingBox` trimmed to its mouse-following form: enabled while the bare tooltip
+  key is held (shipped default "Q", ignored in editable targets, owned by the package key
+  activations), it shows the hovered control's content string at the reference's initial 256 px
+  width; frozen mode, the copy button, multi-page content, the shortcut-hint footer, and the
+  resizable width left with the app shortcut engine and convert-to-section features that drive
+  them, and the engine's command shortcuts (fit "F", zoom "="/"-", zoom-to-mouse "Z") remain
+  application-side. The header's lock/minimize/delete buttons attach the tooltip handlers beside
+  their native titles, both as the reference. The playground hosts the toolbar in a left rail
+  (the reference composes it at the Overview rail bottom, outside the canvas) and mounts the
+  tooltip singleton. No dependency changes.
+- Remaining Phase 1 work: the dnd-kit fork drag slice (sorting/reparenting with hysteresis) and
+  the live side-by-side comparison feeding the developer exit gate.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

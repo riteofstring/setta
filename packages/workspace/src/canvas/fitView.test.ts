@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useNodeInternals } from "../document/stores";
 import type { Node } from "../document/types";
-import { fitView } from "./fitView";
+import { fitView, onFitViewHandler } from "./fitView";
 import { useWorkspaceOptions } from "./options";
 import { initialCanvasState, useReactFlow } from "./store";
 
@@ -107,5 +107,35 @@ describe("fitView", () => {
       d3Selection,
       expect.objectContaining({ k: expect.any(Number) }),
     );
+  });
+
+  it("onFitViewHandler fits with the transition duration, then arms fitViewOnInit", () => {
+    vi.useFakeTimers();
+    try {
+      const { transform } = setupFitViewState();
+      setNodes([createNode({ id: "section-a" })]);
+
+      onFitViewHandler();
+
+      expect(transform).toHaveBeenCalledWith(
+        transitionObject,
+        expect.objectContaining({ k: expect.any(Number) }),
+      );
+      expect(useReactFlow.getState().fitViewOnInit).toBe(false);
+
+      vi.advanceTimersByTime(useWorkspaceOptions.getState().transitionDuration + 10);
+      expect(useReactFlow.getState().fitViewOnInit).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("onFitViewHandler is a no-op while fitViewOnInit is armed", () => {
+    const { transform } = setupFitViewState({ fitViewOnInit: true });
+    setNodes([createNode({ id: "section-a" })]);
+
+    onFitViewHandler();
+
+    expect(transform).not.toHaveBeenCalled();
   });
 });

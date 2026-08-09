@@ -3,10 +3,10 @@ import { useWorkspaceCapabilities } from "../../document/capabilities";
 import { getSectionOrThrow, isGroupSection } from "../../document/documentSelectors";
 import { togglePositionLock } from "../../document/sectionMutations";
 import { useWorkspaceDocument } from "../../document/stores";
+import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip";
 
 // The reference's `LockPositionButton`: css.gg lock glyphs, orange locked tone, `canEditLayout`
-// gate. The floating-box tooltip handlers arrive with the seam-8 tooltip singleton; the native
-// `title` matches the reference today.
+// gate, and both the native `title` and the seam-8 tooltip handlers.
 type LockPositionButtonStyleState = {
   canEditLayout: boolean;
   hasSectionStyleTheme: boolean;
@@ -126,6 +126,7 @@ export function LockPositionButton({
       disabled={!canEditLayout}
       title={label}
       type="button"
+      {...getWorkspaceTooltipHandlers({ content: label })}
     >
       <i className={iconClassName} />
     </button>

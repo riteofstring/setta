@@ -1,5 +1,6 @@
 import { useWorkspaceCapabilities } from "../../document/capabilities";
 import { deleteSection } from "../../document/sectionMutations";
+import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip";
 
 // The reference's `DeleteOrHideButton`. The hide/show variants belong to view modes, which
 // stayed application-side, so the slice always renders the reference's delete variant
@@ -65,6 +66,7 @@ export function DeleteOrHideButton({
       disabled={!canEditStructure}
       title={label}
       type="button"
+      {...getWorkspaceTooltipHandlers({ content: label })}
     >
       <i className="gg-close" />
     </button>

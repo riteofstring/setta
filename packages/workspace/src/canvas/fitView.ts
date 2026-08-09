@@ -97,6 +97,19 @@ export function fitView(options: InternalFitViewOptions = {}) {
   return true;
 }
 
+export function onFitViewHandler() {
+  if (useReactFlow.getState().fitViewOnInit) {
+    return;
+  }
+  const duration = useWorkspaceOptions.getState().transitionDuration;
+  fitView({ duration });
+  // Hack to set fitViewOnInit after transform is done.
+  // If it gets set before the transform is done, then the
+  // canvas viewport document-sync subscription will get
+  // triggered and it will reset to fitViewOnInit
+  setTimeout(() => useReactFlow.setState({ fitViewOnInit: true }), duration + 10);
+}
+
 export function computeReadyToBeVisible(reactFlowState: ReactFlowState) {
   return !reactFlowState.fitViewOnInit || reactFlowState.fitViewOnInitDone;
 }

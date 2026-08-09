@@ -1,6 +1,7 @@
 import { getSectionOrThrow } from "../../document/documentSelectors";
 import { toggleMinimized } from "../../document/sectionMutations";
 import { useWorkspaceDocument } from "../../document/stores";
+import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip";
 
 // The reference's `MinimizeButton` (css.gg minus/maximize glyphs). Roots never minimize in the
 // reference, so the container only renders this for leaf sections.
@@ -24,6 +25,7 @@ export function MinimizeButton({ sectionId, hasSectionStyleTheme = false }: Mini
       onClick={() => toggleMinimized(sectionId)}
       title={label}
       type="button"
+      {...getWorkspaceTooltipHandlers({ content: label })}
     >
       {!isMinimized ? <i className="gg-math-minus" /> : <i className="gg-maximize !scale-[.4]" />}
     </button>

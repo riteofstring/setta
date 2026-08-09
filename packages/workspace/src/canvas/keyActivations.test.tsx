@@ -3,6 +3,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { useWorkspaceTooltip } from "../tooltip/WorkspaceTooltip";
 import { useCanvasKeyActivations } from "./keyActivations";
 import { initialCanvasState, useReactFlow } from "./store";
 
@@ -20,6 +21,7 @@ describe("useCanvasKeyActivations", () => {
 
   beforeEach(async () => {
     useReactFlow.setState({ ...initialCanvasState });
+    useWorkspaceTooltip.getState().reset();
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -34,6 +36,7 @@ describe("useCanvasKeyActivations", () => {
     });
     host.remove();
     useReactFlow.setState({ ...initialCanvasState });
+    useWorkspaceTooltip.getState().reset();
   });
 
   async function dispatchKey(type: "keydown" | "keyup", key: string, target?: EventTarget) {
@@ -79,10 +82,38 @@ describe("useCanvasKeyActivations", () => {
     input.remove();
   });
 
+  it("enables the tooltip while the tooltip key is held", async () => {
+    await dispatchKey("keydown", "q");
+    expect(useWorkspaceTooltip.getState().isEnabled).toBe(true);
+
+    await dispatchKey("keyup", "q");
+    expect(useWorkspaceTooltip.getState().isEnabled).toBe(false);
+  });
+
+  it("ignores the tooltip key while typing in an input", async () => {
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+
+    await dispatchKey("keydown", "q", input);
+    expect(useWorkspaceTooltip.getState().isEnabled).toBe(false);
+
+    input.remove();
+  });
+
+  it("ignores the tooltip key with a modifier held", async () => {
+    await act(async () => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "q", ctrlKey: true, bubbles: true }),
+      );
+    });
+    expect(useWorkspaceTooltip.getState().isEnabled).toBe(false);
+  });
+
   it("releases every activation on window blur", async () => {
     await dispatchKey("keydown", "Shift");
     await dispatchKey("keydown", "Control");
     await dispatchKey("keydown", " ");
+    await dispatchKey("keydown", "q");
 
     await act(async () => {
       window.dispatchEvent(new Event("blur"));
@@ -93,5 +124,6 @@ describe("useCanvasKeyActivations", () => {
     expect(state.multiSelectionActive).toBe(false);
     expect(state.zoomActivationKeyPressed).toBe(false);
     expect(state.panActivationKeyPressed).toBe(false);
+    expect(useWorkspaceTooltip.getState().isEnabled).toBe(false);
   });
 });

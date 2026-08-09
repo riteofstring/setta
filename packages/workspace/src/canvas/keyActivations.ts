@@ -1,11 +1,24 @@
 import { useEffect } from "react";
+import { disableWorkspaceTooltip, enableWorkspaceTooltip } from "../tooltip/WorkspaceTooltip";
 import { useReactFlow } from "./store";
 import { isMacOs } from "./utils";
 
 // The reference binds these through its app shortcut engine with the shipped defaults:
 // selectionKeyCode = Shift, multiSelectionKeyCode = Mod, zoomActivationKeyCode = Mod,
-// panActivationKeyCode = Space (ignored while typing in editable targets). The package owns the
-// same activation-key state directly on the canvas store.
+// panActivationKeyCode = Space, showTooltipShortcut = Q (bare keys ignored while typing in
+// editable targets). The package owns the same activation-key state directly; the engine's
+// command shortcuts (fit view "F", zoom "="/"-", zoom to mouse "Z") stay application-side.
+// The reference's shortcut engine matches the bare "Q" shortcut only with no modifiers held.
+function isBareTooltipKey(event: KeyboardEvent): boolean {
+  return (
+    (event.key === "q" || event.key === "Q") &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.altKey &&
+    !event.shiftKey
+  );
+}
+
 function getIsEditableTarget(event: KeyboardEvent): boolean {
   const target = event.target;
   return (
@@ -34,6 +47,9 @@ export function useCanvasKeyActivations() {
       if (event.key === " " && !getIsEditableTarget(event)) {
         useReactFlow.setState({ panActivationKeyPressed: true });
       }
+      if (isBareTooltipKey(event) && !getIsEditableTarget(event)) {
+        enableWorkspaceTooltip();
+      }
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
@@ -47,10 +63,14 @@ export function useCanvasKeyActivations() {
         // pressed-key set the same way).
         if (macOS) {
           useReactFlow.setState({ panActivationKeyPressed: false });
+          disableWorkspaceTooltip();
         }
       }
       if (event.key === " ") {
         useReactFlow.setState({ panActivationKeyPressed: false });
+      }
+      if (event.key === "q" || event.key === "Q") {
+        disableWorkspaceTooltip();
       }
     };
 
@@ -61,6 +81,7 @@ export function useCanvasKeyActivations() {
         zoomActivationKeyPressed: false,
         panActivationKeyPressed: false,
       });
+      disableWorkspaceTooltip();
     };
 
     document.addEventListener("keydown", onKeyDown);
