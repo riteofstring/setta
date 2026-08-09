@@ -1,68 +1,64 @@
-# Repository Guidelines
+# Repository Guidelines — workspace extraction branch
 
-## Source Of Truth
+This branch extracts Setta's workspace UI into a standalone TypeScript/React package. The single
+active plan is `docs/plans/setta-workspace-extraction-plan.md`; read it before making changes. The
+Setta application, its Go/Python backends, and its application tooling were removed from this branch
+by the hygiene preflight. Git history and `../setta-main` preserve them; do not restore application
+code here.
 
-- Treat `cmd/` and `internal/` as the backend runtime, `backend/setta/` as the Python package and SDK surface with `backend/setta/api/` kept thin, `plugins/` as first-party Setta plugin packages and plugin-owned config/probe surfaces, and `frontend/` as the React/Vite UI with app code in `src/`, shared templates in `generation/`, and static assets in `public/`.
-- Go owns canonical behavior, validation, derived metadata, shared contracts, endpoint shapes, and correctness-sensitive local runtime behavior unless the developer explicitly says otherwise.
-- Prefer solutions in this order: `1.` Go-owned logic, `2.` Go-owned contracts with generated Python/TypeScript surfaces, `3.` duplicated Python/TypeScript logic only with explicit justification.
-- Any duplicated non-trivial Python or TypeScript logic must have a concrete justification such as latency, offline requirements, or a platform constraint. Convenience alone is not enough.
-- Before adding a new Python or TypeScript type, alias, helper, adapter, or normalizer, search for an existing authoritative generated or owner-defined one first. Reuse it, or export it from the owner. Do not create a parallel local definition.
-- When duplication is unavoidable, keep the duplicated surface minimal and document the reason near the implementation or in the relevant design notes.
-- Go tests belong with packages under `cmd/*` and `internal/*`. Frontend unit and integration tests belong alongside frontend code under `frontend/src/*` where appropriate, and frontend E2E coverage belongs under `frontend/tests/`. Python/package pytest coverage belongs under `tests/`.
-- Python SDK/runtime ownership boundaries are defined in `docs/reference/go-backed-python.md`.
+## Worktrees and sources of truth
 
-## Generation & Contracts
+- `../setta-main` is the frozen product reference: `main` at `043d3b2e9`. Run and inspect it only.
+  Never edit, pull, switch branches, install packages into, or commit from it. A changed reference
+  requires an explicit developer re-baseline.
+- This worktree (`workspace-extraction`) holds the package, playground, tooling, and evidence.
+- `../setta-workspace-integration` is a temporary integration host created only when Phase 2 needs
+  it, from the recorded reference commit.
+- `workspace-blank-slate` is a donor branch of individually proven algorithms, tests, and tooling.
+  Never merge the branch wholesale or import unrelated application code.
 
-- When Go-owned contracts need downstream Python or TypeScript surfaces, prefer generation over hand-maintained mirrors.
-- Drive generators from authoritative Go-side structure or metadata, prefer broad discovery plus pruning over brittle inventories, and keep generator-specific design constraints in `docs/reference/generation-contracts.md`.
-- When a generated helper, union, type guard, or exported value is missing, first extend or export the existing authoritative generator path such as semantic sidecar metadata, discovery-driven declarations, or owner-owned metadata. Do not add handwritten compatibility declarations, hard-coded member inventories, or parallel generator-only mirrors when the same surface can be derived from an existing owner path.
-- If a generator exception is truly unavoidable, keep it minimal, document in code why the authoritative path could not be used, and prefer a Go-owned metadata input over restating downstream TypeScript or Python structure in generator code.
-- For HTTP, frontend callers must use the standard OpenAPI-generated client/types rather than bespoke generated endpoint wrappers. For non-HTTP route/constants surfaces, use the current Go-owned generated or value-exported frontend surface rather than hand-maintained mirrors.
-- If you edit `frontend/generation/`, backend endpoints, or Go-owned types used by the frontend or Python surface, regenerate affected outputs before cleanup and before finishing the task.
-- Prefer `./gcf.sh` when full generate/cleanup/format is appropriate. Large diffs after generation or cleanup are normal.
-- Do not manually edit `backend/setta/types/generated`, checked-in OpenAPI artifacts under `frontend/generation/`, or generated frontend clients under `frontend/src/openapi/*/generated`.
+## Product authority and parity
 
-## Workflow & Verification
+- The running `../setta-main` application outranks prose, plans, and any agent's interpretation of
+  "Setta-like."
+- Extract before refactoring; parity before genericity. Do not redesign controls, rename concepts,
+  modernize spacing, or substitute a generic design system during extraction.
+- No agent or test suite may approve visual quality. Every visual or interaction milestone requires
+  explicit developer acceptance of live side-by-side evidence.
+- Sections drag from any non-interactive part of their surface; visible controls stay as compact as
+  main while hit geometry stays large; selection never changes geometry. The plan's parity rules
+  are the full contract.
 
-- Use `dev_install.sh` for the default local setup, including the repo Python environment and first-party dev plugins.
-- Neither install script should rewrite lockfiles. Use `./update_dependencies.sh` when a dependency update needs lockfile changes.
-- Use `docs/guides/dev-scripts.md` when you need the exact command map for generation, cleanup, or the source-checkout dev loop.
-- Use `docs/guides/browser-mcp-quickstart.md`, `docs/guides/verification-checklist.md`, and `docs/guides/chrome-repro-recording.md` for browser verification workflows when relevant.
-- For dependency audit or upgrade work, use `docs/guides/dependency-audits.md`.
-- For Python/package tooling, use `source activate.sh && <command>`.
-- Pin checked-in direct dependency versions exactly. Do not use floating version ranges like `^`, `~`, `>=`, `>`, `*`, or `latest` in dependency manifests.
-- Run Go through `./scripts/go.sh`.
-- For Go API and documentation inspection, prefer `./scripts/go.sh doc <pkg-or-symbol>` for authoritative docs and `./scripts/gopls.sh` for semantic navigation before falling back to text search.
-- Format Go with `GOROOT="$(./scripts/go.sh env GOROOT)" && "$GOROOT/bin/gofmt" -w <files>`.
-- Default test entrypoints are `./scripts/run_go_tests.sh`, `./scripts/run_backend_tests.sh` for Python/package pytest, `pnpm -C frontend exec vitest run <path>`, and `./scripts/run-playwright-e2e.sh`.
-- When changing runtime behavior, add Go tests beside the backend owner. When changing Python SDK or package boundaries, add focused pytest coverage under `tests/`.
-- Unless the developer explicitly narrows verification scope, run `./check_quality.sh` before committing. Its default scope is the current git changes; use `--staged` only when you intentionally want to verify exactly what is staged.
-- Do not skip tests broadly. Missing dependencies or capabilities should usually fail loudly. Any skip must be narrow and justified.
-- A `Chrome recording` means a bundle produced by `./scripts/record-chrome-repro.sh`, and `see the latest Chrome recording` means `./scripts/latest-chrome-recording.sh --json`.
-- Do not add generator drift tests that only rerun generators or formatters and compare checked-in artifacts against current output.
-- Tests must use temporary directories instead of `setta_files`, must never mutate real git history in this repo or any non-disposable developer worktree, and should exercise production paths instead of mocks or test-only code paths.
-- Do not add tautological tests that only restate the implementation or reproduce the same logic to compute the expected result.
+## Code ownership and layout
 
-## UI Rules
+- The package is authored in TypeScript/TSX under the working name `@setta/workspace` in
+  `packages/workspace/`; the backend-free consumer lives in `apps/playground/`; package-focused
+  tooling lives in `scripts/`; accepted evidence lives in `docs/evidence/`.
+- Ship compiled ESM, TypeScript declarations, source maps, and one compiled, scoped stylesheet.
+  Consumers must not need Tailwind, the package's build setup, or Setta configuration.
+- React and React DOM are host-provided peer dependencies with documented compatible ranges. All
+  other checked-in direct dependencies are exact-pinned; no floating ranges (`^`, `~`, `>=`, `*`,
+  `latest`) outside `peerDependencies`.
+- Do not expose Setta application stores, generated backend clients, backend concepts, XYFlow
+  internals, dnd-kit stores, Tailwind class names, or private selectors as public API.
 
-- Frontend code must handle very large DOMs efficiently.
-- Default dropdown and selection UIs to the shared combobox system unless there is a documented reason not to.
-- Use `docs/reference/ui-style-consistency.md` as the UI style anchor map.
-- Do not add borders by default unless they convey structure.
-- Prefer backend-initiated websocket updates over polling when the backend already knows when state changes.
-- Treat frontend performance verification as first-class. Prefer automated guardrails, and use chrome-devtools profiling when deeper analysis is needed.
-- UI changes require chrome-devtools visual verification when relevant.
-- Never start `pnpm ai`, `pnpm -C frontend ai`, or `pnpm -C frontend aireset` yourself.
-- Final responses for UI work must include `CDP visual check: done (...)` or `CDP visual check: not run (reason)`.
+## Absolute prohibitions
 
-## Code Shape & Safety
+- No backward-compatibility code of any kind: no migrations, aliases, dual paths, shims,
+  transitional styles, legacy APIs, or unreachable states — in code or in plans.
+- No publishing, public repository creation, licensing, or final-naming decisions by
+  implementation.
+- No heuristic fallbacks or broad catch-all handling; fail loudly and specifically. Do not add
+  `try/catch` unless it handles a specific failure path.
 
-- Keep Go HTTP routes thin under `internal/httpapi`, websocket transports thin under `internal/wsapi`, and business logic in focused `internal/*` services.
-- Keep code explicit and avoid div soup.
-- Do not add `try/except` or `try/catch` blocks unless they are actually needed to handle a specific failure path.
-- If a robust solution is not possible, say so explicitly and present the real tradeoffs.
-- Prefer failing loudly and specifically over silent fallbacks, fake estimates, brittle keyword heuristics, or broad catch-all handling. Do not implement heuristic fallbacks without explicit approval.
-- Prefer provider or runtime metadata, typed APIs, deterministic parsing, or explicit protocol fields over heuristics.
-- Never add backward-compatibility shims, legacy support paths, migrations, transitional adapters, dual-read/write paths, old-field aliases, silent compatibility fallbacks, or compatibility layers unless the developer explicitly asks for that exact compatibility work.
-- If behavior is unclear, stop and ask.
-- For performance-relevant refactors, baseline first, re-measure after, and record before/after results in `perf/` as append-only reports.
+## Verification
+
+- The quality and supply-chain tooling contract in the plan is established by preflight items 6–8;
+  until those commands land, run the narrowest focused checks that exercise a change.
+- Visual batches follow the plan's verification order: reproduce the main reference, implement the
+  smallest change, run focused checks, compare main and package live through Chrome DevTools at the
+  same viewport, appearance, zoom, and state, present side-by-side evidence, and refresh visual
+  baselines only after developer acceptance. Baselines are regression locks, never approval.
+- `scripts/chrome-devtools-mcp.sh` provides the worktree-scoped Chrome DevTools MCP server used by
+  `.codex/config.toml`; `scripts/automation/codex-loop/` holds the plan-implementation loop runner.
+- Stop and return to the developer at every plan stop condition instead of expanding scope.

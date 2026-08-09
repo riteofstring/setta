@@ -2,7 +2,27 @@
 
 ## Status
 
-**Draft for review. No implementation beyond this plan is authorized yet.**
+**In implementation.** On 2026-08-10 the developer added the plan-implementation loop runner
+(`scripts/automation/codex-loop/run-plan-implementation-loop.sh`, commit `179364666`) and launched
+it against this plan, authorizing implementation to proceed under this plan's gates. The loop
+performs repository-actionable work only; Phase 0 evidence capture and every developer-approval
+exit gate remain supervised developer work that no agent or test suite can waive.
+
+Preflight progress (2026-08-10):
+
+- Item 1: `../setta-main` verified clean on `main` at `043d3b2e9`. Verifying that the reference
+  application *runs* requires launching it and is recorded as an open gate for Phase 0 evidence
+  capture; the automation loop must not attempt it.
+- Items 2–3: complete — branch pruned to a package-focused skeleton in a mechanical cleanup
+  commit; confirmed no Setta runtime, backend, domain, or generated-client source remains tracked.
+  The worktree-scoped Chrome DevTools MCP helpers (`scripts/chrome-devtools-mcp.sh`,
+  `scripts/cdp-port.sh`) and the loop runner were retained as minimal tooling surface.
+- Item 4: complete — `AGENTS.md` and `README.md` replaced with package-focused guidance.
+- Item 5: complete — obsolete plan documents deleted (`modular-workbench-oss-plan.md`; the
+  greenfield `standalone-section-workbench-oss-plan.md` was deleted earlier). This is the single
+  active extraction plan.
+- Items 6–8 (quality and supply-chain tooling contract): not started; they must land before
+  Phase 1 code.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
