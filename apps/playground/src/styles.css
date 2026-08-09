@@ -37,6 +37,9 @@ a {
   inset-block-start: 0.75rem;
   inset-inline-start: -100vw;
   z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.75rem;
   padding: 0.75rem 1rem;
   color: #ffffff;
   background: #172033;
@@ -827,5 +830,11 @@ main {
 
   .canvas-shell-settings button:hover:not(:disabled) {
     background: #2d384d;
+  }
+}
+
+@media (pointer: coarse) {
+  .sample-field-row input {
+    min-block-size: 2.75rem;
   }
 }
