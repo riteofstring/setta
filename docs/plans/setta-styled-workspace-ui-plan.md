@@ -2,10 +2,16 @@
 
 ## Decision
 
-Status: **in progress** (Phase 0 started 2026-08-09). The before-screenshot evidence set and the
-public-API-only visual-matrix route are complete; see
-[docs/evidence/setta-ui-before-screenshots.md](../evidence/setta-ui-before-screenshots.md). The
-interaction profiler, visual reference matrix, and token/state ratification remain open.
+Status: **in progress** (Phase 0 complete 2026-08-10, pending audit). Phase 0 artifacts: the
+before-screenshot evidence set and public-API-only visual-matrix route
+([docs/evidence/setta-ui-before-screenshots.md](../evidence/setta-ui-before-screenshots.md)), the
+repeatable development/production interaction profiler (`corepack pnpm perf:interaction`) with
+baseline traces reproducing the structural-drag activation stall
+([perf/interaction-profile.md](../../perf/interaction-profile.md)), the visual reference matrix
+([docs/evidence/setta-ui-visual-reference-matrix.md](../evidence/setta-ui-visual-reference-matrix.md)),
+and the ratified semantic tokens and state matrix
+([docs/evidence/setta-ui-design-contract.md](../evidence/setta-ui-design-contract.md)). Phase 1,
+removing the structural-drag hitch, is next.
 
 Make the Setta visual language the opinionated default for `@setta/workspace`, redesign the
 backend-free playground around the canvas, and remove the measurable structural-drag startup hitch.

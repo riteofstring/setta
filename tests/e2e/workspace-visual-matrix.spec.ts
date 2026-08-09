@@ -70,3 +70,17 @@ test("the visual matrix honors the appearance and read-only query modes", async 
     "true",
   );
 });
+
+test("the visual matrix honors the viewport query used by the interaction profiler", async ({
+  page,
+}) => {
+  await page.goto("/?visual-matrix&zoom=1&viewport-x=0&viewport-y=0");
+  const workspace = page.getByRole("region", { exact: true, name: "Visual matrix workspace" });
+  const article = workspace.getByRole("article", { name: "Default chrome" });
+  await expect(article).toBeVisible();
+  const box = await article.boundingBox();
+  if (!box) {
+    throw new Error("The default chrome section must expose browser geometry.");
+  }
+  expect(Math.round(box.width)).toBe(240);
+});

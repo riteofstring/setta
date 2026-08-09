@@ -7,6 +7,7 @@ import {
   type WorkspaceDocument,
   type WorkspaceSection,
   type WorkspaceSectionPresentation,
+  type WorkspaceViewport,
 } from "@setta/workspace/core";
 import { Workspace, type SectionDefinition } from "@setta/workspace/react";
 import { useRef, useState } from "react";
@@ -97,7 +98,11 @@ function orderedChildren(
   return { orientation, overflow: "grow", positioning: "ordered", sectionIds };
 }
 
-function createVisualMatrixDocument(): WorkspaceDocument<MatrixSectionData> {
+const DEFAULT_MATRIX_VIEWPORT: WorkspaceViewport = { x: 88, y: 8, zoom: 0.6 };
+
+function createVisualMatrixDocument(
+  viewport: WorkspaceViewport,
+): WorkspaceDocument<MatrixSectionData> {
   return {
     rootSections: [
       { position: { x: 24, y: 24 }, sectionId: "chrome-default" },
@@ -222,7 +227,32 @@ function createVisualMatrixDocument(): WorkspaceDocument<MatrixSectionData> {
         600,
       ),
     },
-    viewport: { x: 88, y: 8, zoom: 0.6 },
+    viewport,
+  };
+}
+
+function matrixViewportNumber(search: URLSearchParams, name: string): number | null {
+  const raw = search.get(name);
+  if (raw === null) {
+    return null;
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value)) {
+    throw new TypeError(
+      `The visual matrix ${name} query must be a finite number, not ${JSON.stringify(raw)}.`,
+    );
+  }
+  return value;
+}
+
+function matrixViewport(search: URLSearchParams): WorkspaceViewport {
+  const zoom = matrixViewportNumber(search, "zoom");
+  const x = matrixViewportNumber(search, "viewport-x");
+  const y = matrixViewportNumber(search, "viewport-y");
+  return {
+    x: x ?? DEFAULT_MATRIX_VIEWPORT.x,
+    y: y ?? DEFAULT_MATRIX_VIEWPORT.y,
+    zoom: zoom ?? DEFAULT_MATRIX_VIEWPORT.zoom,
   };
 }
 
@@ -245,7 +275,9 @@ export function VisualMatrixPage() {
   const appearance = matrixAppearance(search);
   const readOnly = search.has("read-only");
   const controllerRef = useRef<WorkspaceController<MatrixSectionData>>(null);
-  const [document, setDocument] = useState(createVisualMatrixDocument);
+  const [document, setDocument] = useState(() =>
+    createVisualMatrixDocument(matrixViewport(search)),
+  );
   const [status, setStatus] = useState("Visual matrix ready.");
 
   const selectSections = (label: string, sectionIds: readonly string[]) => {
@@ -269,7 +301,8 @@ export function VisualMatrixPage() {
         <p className="lede">
           Chrome variants, section states, nesting depths, and canvas controls rendered only through
           the public package API. Add appearance=dark or read-only to the query string to review the
-          other appearance and interaction modes.
+          other appearance and interaction modes. The zoom, viewport-x, and viewport-y queries set
+          the initial viewport for repeatable captures and interaction profiling.
         </p>
       </header>
       <main id="visual-matrix-content" tabIndex={-1}>
