@@ -55,7 +55,7 @@ test("section title and presentation editing stay accessible and canonical", asy
   await titleInput.press("Enter");
   article = workspace.getByRole("article", { name: "Planning note" });
   await expect(article.getByRole("heading", { name: "Planning note" })).toBeVisible();
-  await expect(page.getByRole("status")).toHaveText("Document change: section-title.");
+  await expect(page.locator(".announcement")).toHaveText("Document change: section-title.");
   await expect(article.getByRole("button", { name: "Rename Planning note" })).toBeFocused();
 
   const style = article.getByRole("button", { name: "Style Planning note" });
@@ -66,7 +66,7 @@ test("section title and presentation editing stay accessible and canonical", asy
   const tealAccent = stylePanel.getByRole("button", { name: "Use Teal accent" });
   await tealAccent.focus();
   await expect(article).toHaveAttribute("data-workspace-accent-color", "oklch(0.64 0.1 195)");
-  await expect(page.getByRole("status")).toHaveText("Document change: section-title.");
+  await expect(page.locator(".announcement")).toHaveText("Document change: section-title.");
   await chrome.focus();
   await expect(article).not.toHaveAttribute("data-workspace-accent-color");
   await chrome.selectOption("transparent");
@@ -84,7 +84,7 @@ test("section title and presentation editing stay accessible and canonical", asy
   await stylePanel.getByRole("button", { name: "Reset accent" }).click();
   await expect(article).not.toHaveAttribute("data-workspace-accent-color");
   await stylePanel.getByRole("button", { name: "Use Blue accent" }).click();
-  await expect(page.getByRole("status")).toHaveText("Document change: section-presentation.");
+  await expect(page.locator(".announcement")).toHaveText("Document change: section-presentation.");
   await stylePanel.evaluate((element) => element.scrollTo({ top: 0 }));
   await expect(workspace).toHaveScreenshot("section-presentation-editors.png");
 

@@ -23,11 +23,13 @@ type WorkspaceStructuralInteractionSession = Readonly<
 >;
 
 type WorkspaceInteractionCoordinatorState = Readonly<{
+  itemTreeId: string | null;
   ownership: InteractionOwnershipState;
   structuralSession: WorkspaceStructuralInteractionSession | null;
 }>;
 
 const IDLE_COORDINATOR_STATE: WorkspaceInteractionCoordinatorState = {
+  itemTreeId: null,
   ownership: IDLE_INTERACTION_OWNERSHIP,
   structuralSession: null,
 };
@@ -93,7 +95,7 @@ export function useWorkspaceInteractionOwner({
       if (ownership.owner !== "root-layout") {
         return false;
       }
-      const next = { ownership, structuralSession: null };
+      const next = { itemTreeId: null, ownership, structuralSession: null };
       stateRef.current = next;
       setState(next);
       return true;
@@ -124,7 +126,7 @@ export function useWorkspaceInteractionOwner({
         sectionId: start.sectionId,
         title: start.title,
       };
-      const next = { ownership, structuralSession };
+      const next = { itemTreeId: null, ownership, structuralSession };
       stateRef.current = next;
       setAnnouncementText(structuralStartAnnouncement(start));
       setState(next);
@@ -152,7 +154,7 @@ export function useWorkspaceInteractionOwner({
       if (ownership.owner !== "viewport") {
         return false;
       }
-      const next = { ownership, structuralSession: null };
+      const next = { itemTreeId: null, ownership, structuralSession: null };
       stateRef.current = next;
       setState(next);
       return true;
@@ -163,6 +165,7 @@ export function useWorkspaceInteractionOwner({
   const finish = useCallback((type: "cancel" | "complete", announcement?: string) => {
     const current = stateRef.current;
     const next = {
+      itemTreeId: null,
       ownership: transitionInteractionOwnership(current.ownership, { type }),
       structuralSession: null,
     };
@@ -196,6 +199,44 @@ export function useWorkspaceInteractionOwner({
     [finishOwned],
   );
   const completeViewport = useCallback(() => finishOwned("viewport", "complete"), [finishOwned]);
+  const startItemTree = useCallback(
+    (treeId: string, input: InteractionInput): boolean => {
+      if (stateRef.current.ownership.phase === "active") {
+        return false;
+      }
+      const ownership = transitionInteractionOwnership(stateRef.current.ownership, {
+        request: {
+          input,
+          itemMovementEnabled: true,
+          layoutEnabled,
+          sectionMode,
+          structureEnabled,
+          surface: "item-handle",
+          viewportOverride: false,
+        },
+        type: "start",
+      });
+      if (ownership.owner !== "item-tree") {
+        return false;
+      }
+      const next = { itemTreeId: treeId, ownership, structuralSession: null };
+      stateRef.current = next;
+      setState(next);
+      return true;
+    },
+    [layoutEnabled, sectionMode, structureEnabled],
+  );
+  const finishItemTree = useCallback(
+    (treeId: string, type: "cancel" | "complete") => {
+      if (
+        stateRef.current.ownership.owner === "item-tree" &&
+        stateRef.current.itemTreeId === treeId
+      ) {
+        finish(type);
+      }
+    },
+    [finish],
+  );
   const announceSectionStructure = useCallback((announcement: string) => {
     setAnnouncementText(announcement);
   }, []);
@@ -206,6 +247,7 @@ export function useWorkspaceInteractionOwner({
 
   return {
     activationPolicy,
+    activeItemTreeId: state.itemTreeId,
     activeInput: state.structuralSession?.input ?? null,
     activeSectionId: state.structuralSession?.sectionId ?? null,
     activeSectionMode: state.structuralSession?.mode ?? null,
@@ -216,8 +258,10 @@ export function useWorkspaceInteractionOwner({
     complete,
     completeRootLayout,
     completeViewport,
+    finishItemTree,
     ownership: state.ownership,
     startRootLayout,
+    startItemTree,
     startSectionStructure,
     startViewport,
   };

@@ -35,12 +35,12 @@ test("the searchable section palette creates, selects, and focuses smart-placed 
   const first = page.getByRole("article", { name: "Sample section 1" });
   await expect(first).toBeFocused();
   await expect(first).toHaveAttribute("data-workspace-selected", "true");
-  await expect(page.getByRole("status")).toHaveText("Document change: section-create.");
+  await expect(page.locator(".announcement")).toHaveText("Document change: section-create.");
 
   await addSampleSection(page);
   const second = page.getByRole("article", { name: "Sample section 2" });
   await expect(second).toBeFocused();
-  await expect(page.getByRole("status")).toHaveText("Document change: section-create.");
+  await expect(page.locator(".announcement")).toHaveText("Document change: section-create.");
   const [firstBox, secondBox] = await Promise.all([first.boundingBox(), second.boundingBox()]);
   if (!firstBox || !secondBox) {
     throw new Error("Created sections must have browser geometry.");

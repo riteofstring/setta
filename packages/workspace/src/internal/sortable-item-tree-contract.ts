@@ -6,6 +6,8 @@ export type SortableItemTree = Readonly<{
 
 export type SortableItemSelectionMode = "replace" | "toggle";
 
+export type SortableItemKeyboardCommand = "indent" | "move-down" | "move-up" | "outdent";
+
 export type SortableItemDragBlock = Readonly<{
   itemIds: readonly string[];
   selectedItemIds: readonly string[];
@@ -47,6 +49,15 @@ export type SortableItemMoveInput = Readonly<{
   canMove?: (plan: ItemMovePlan) => boolean;
   destinationIndex: number;
   destinationParentId: string;
+  selectedItemIds: readonly string[];
+  tree: SortableItemTree;
+}>;
+
+export type SortableItemKeyboardMoveInput = Readonly<{
+  activeItemId: string;
+  canContainChildren?: (itemId: string) => boolean;
+  canMove?: (plan: ItemMovePlan) => boolean;
+  command: SortableItemKeyboardCommand;
   selectedItemIds: readonly string[];
   tree: SortableItemTree;
 }>;

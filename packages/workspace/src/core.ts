@@ -1,3 +1,5 @@
+export { planSortableItemKeyboardMove } from "./internal/sortable-item-keyboard-move.js";
+export { applySortableItemMove } from "./internal/sortable-item-move-application.js";
 export { planSortableItemMove } from "./internal/sortable-item-move-planning.js";
 export {
   normalizeSortableItemSelectionRoots,
@@ -7,6 +9,8 @@ export {
 export type {
   ItemMovePlan,
   SortableItemDragBlock,
+  SortableItemKeyboardCommand,
+  SortableItemKeyboardMoveInput,
   SortableItemMoveDecision,
   SortableItemMoveInput,
   SortableItemMoveRejectionCode,

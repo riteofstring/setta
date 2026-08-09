@@ -37,10 +37,12 @@ test("the playground imports, exports, resets, and locally restores workspace st
 
   const welcomeNote = page.getByRole("article", { name: "Welcome note" });
   const workspaceStatus = page.getByRole("article", { name: "Workspace status" });
+  const profileFields = page.getByRole("article", { name: "Profile fields" });
   await expect(welcomeNote).toContainText("Arrange sections freely");
   await expect(workspaceStatus).toContainText("3 workspace checks ready");
-  await expect(page.getByRole("status")).toHaveText(
-    "Example workspace restored with a note and status section.",
+  await expect(profileFields.getByRole("textbox", { name: "Name" })).toHaveValue("Ada Lovelace");
+  await expect(page.locator(".announcement")).toHaveText(
+    "Example workspace restored with a note, status, and field-list section.",
   );
   await expect(page.locator(".playground-host-controls")).toHaveScreenshot(
     "playground-persistence-controls.png",
@@ -58,6 +60,7 @@ test("the playground imports, exports, resets, and locally restores workspace st
     sections: Record<string, { title: string }>;
   };
   expect(exportedDocument.sections["example-note"]?.title).toBe("Welcome note");
+  expect(exportedDocument.sections["example-fields"]?.title).toBe("Profile fields");
 
   await page.getByRole("combobox", { name: "Appearance" }).selectOption("dark");
   await page.getByRole("checkbox", { name: "Show grid" }).uncheck();
@@ -76,7 +79,9 @@ test("the playground imports, exports, resets, and locally restores workspace st
   await documentJson.fill(JSON.stringify(importedDocument, null, 2));
   await page.getByRole("button", { name: "Import JSON" }).click();
   await expect(page.getByRole("article", { name: "Persisted planning note" })).toBeVisible();
-  await expect(page.getByRole("status")).toHaveText("Workspace imported. 2 sections restored.");
+  await expect(page.locator(".announcement")).toHaveText(
+    "Workspace imported. 3 sections restored.",
+  );
 
   await documentJson.fill("{");
   await page.getByRole("button", { name: "Import JSON" }).click();
@@ -148,8 +153,10 @@ test("invalid saved state recovers accessibly without losing reflow or input rea
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
   await page.goto("/");
 
-  await expect(page.getByRole("status")).toContainText("Saved workspace could not be restored.");
-  await expect(page.getByRole("status")).toContainText("Default preferences are active.");
+  await expect(page.locator(".announcement")).toContainText(
+    "Saved workspace could not be restored.",
+  );
+  await expect(page.locator(".announcement")).toContainText("Default preferences are active.");
   await expect(page.getByRole("region", { name: "Section workspace" })).toContainText(
     "No sections yet.",
   );

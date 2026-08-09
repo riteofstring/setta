@@ -1271,6 +1271,212 @@
   user-select: text;
 }
 
+.setta-workspace__sortable-item-tree {
+  position: relative;
+  min-inline-size: 15rem;
+  color: var(--setta-workspace-section-local-text, var(--setta-workspace-section-text));
+  user-select: none;
+}
+
+.setta-workspace__sortable-item-list {
+  display: flex;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+  list-style: none;
+}
+
+.setta-workspace__sortable-item-list .setta-workspace__sortable-item-list {
+  margin-block-start: 0.5rem;
+  margin-inline-start: 1.25rem;
+  padding-inline-start: 0.75rem;
+  border-inline-start: 2px solid
+    color-mix(in oklch, var(--setta-workspace-section-local-text) 12%, transparent);
+}
+
+.setta-workspace__sortable-item-row {
+  position: relative;
+  display: grid;
+  min-block-size: 2.75rem;
+  min-inline-size: 0;
+  grid-template-columns: 2.5rem minmax(0, 1fr) 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem;
+  background: color-mix(
+    in oklch,
+    var(--setta-workspace-section-local-background) 94%,
+    var(--setta-workspace-canvas-background)
+  );
+  border-radius: 0.75rem;
+  box-shadow: 0 0 0 1px
+    color-mix(in oklch, var(--setta-workspace-section-local-text) 11%, transparent);
+}
+
+[data-sortable-item-selected="true"] > .setta-workspace__sortable-item-row {
+  box-shadow: inset 0 0 0 2px var(--setta-workspace-selection);
+}
+
+[data-sortable-item-moving="true"] > .setta-workspace__sortable-item-row,
+[data-sortable-item-moving="true"] > .setta-workspace__sortable-item-list {
+  opacity: 0.42;
+}
+
+.setta-workspace__sortable-item-row[data-sortable-item-drop-state="target"] {
+  box-shadow: inset 0 0 0 3px var(--setta-workspace-selection);
+}
+
+.setta-workspace__sortable-item-row[data-sortable-item-drop-state="rejected"] {
+  box-shadow: inset 0 0 0 3px var(--setta-workspace-invalid);
+}
+
+.setta-workspace__sortable-item-select,
+.setta-workspace__sortable-item-handle {
+  display: grid;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  padding: 0;
+  place-items: center;
+  color: var(--setta-workspace-section-local-muted-text);
+  background: transparent;
+  border: 0;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.setta-workspace__sortable-item-handle {
+  cursor: grab;
+}
+
+.setta-workspace__sortable-item-handle:active:not(:disabled),
+[data-sortable-item-interaction]:not([data-sortable-item-interaction="idle"])
+  .setta-workspace__sortable-item-handle[aria-grabbed="true"] {
+  color: var(--setta-workspace-selection);
+  cursor: grabbing;
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+
+.setta-workspace__sortable-item-select:hover,
+.setta-workspace__sortable-item-handle:hover:not(:disabled) {
+  color: var(--setta-workspace-section-local-text);
+  background: color-mix(
+    in oklch,
+    var(--setta-workspace-section-local-background) 78%,
+    var(--setta-workspace-selection)
+  );
+}
+
+.setta-workspace__sortable-item-handle:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.setta-workspace__sortable-item-select svg,
+.setta-workspace__sortable-item-handle svg {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  overflow: visible;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.setta-workspace__sortable-item-content {
+  min-inline-size: 0;
+  user-select: text;
+}
+
+.setta-workspace__sortable-item-empty {
+  display: grid;
+  min-block-size: 3.5rem;
+  padding: 0.75rem;
+  place-items: center;
+  color: var(--setta-workspace-section-local-muted-text);
+  font-size: 0.75rem;
+  font-weight: 650;
+  text-align: center;
+  border: 2px dashed color-mix(in oklch, var(--setta-workspace-section-local-text) 18%, transparent);
+  border-radius: 0.625rem;
+}
+
+.setta-workspace__sortable-item-placeholder {
+  display: grid;
+  min-block-size: 2.75rem;
+  block-size: max(2.75rem, var(--setta-workspace-item-placeholder-height));
+  padding: 0.5rem;
+  place-items: center;
+  color: var(--setta-workspace-selection);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  background: color-mix(in oklch, var(--setta-workspace-selection) 10%, transparent);
+  border: 2px dashed currentColor;
+  border-radius: 0.625rem;
+  pointer-events: none;
+}
+
+.setta-workspace__sortable-item-unavailable {
+  position: absolute;
+  inset-block-end: calc(100% - 0.25rem);
+  inset-inline-end: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  color: var(--setta-workspace-section-background);
+  font-size: 0.6875rem;
+  font-weight: 750;
+  background: var(--setta-workspace-invalid);
+  border-radius: 999px;
+}
+
+.setta-workspace__sortable-item-feedback {
+  position: absolute;
+  z-index: 3;
+  inset-block-end: calc(100% + 0.375rem);
+  inset-inline-start: 0;
+  max-inline-size: min(24rem, 100%);
+  padding: 0.375rem 0.625rem;
+  overflow: hidden;
+  color: var(--setta-workspace-section-local-text);
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--setta-workspace-section-local-background);
+  border-radius: 0.5rem;
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--setta-workspace-section-local-text) 12%, transparent),
+    0 0.375rem 1rem oklch(0 0 0 / 0.12);
+  pointer-events: none;
+}
+
+.setta-workspace__sortable-item-feedback[data-status="rejected"] {
+  color: var(--setta-workspace-invalid);
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+
+.setta-workspace__sortable-item-overlay {
+  display: grid;
+  min-block-size: 2.75rem;
+  max-block-size: min(24rem, calc(100vh - 2rem));
+  max-inline-size: min(28rem, calc(100vw - 2rem));
+  padding: 0.75rem;
+  place-items: center;
+  overflow: hidden;
+  color: var(--setta-workspace-section-text);
+  font-size: 0.8125rem;
+  font-weight: 750;
+  text-align: center;
+  background: color-mix(in oklch, var(--setta-workspace-section-background) 92%, transparent);
+  border: 2px solid var(--setta-workspace-selection);
+  border-radius: 0.75rem;
+  box-shadow: 0 0.75rem 2rem oklch(0 0 0 / 0.18);
+  pointer-events: none;
+}
+
 .setta-workspace__section-children {
   display: flex;
   flex: none;
@@ -1633,6 +1839,8 @@
   .setta-workspace__section-edit-control,
   .setta-workspace__section-selection-control,
   .setta-workspace__section-drag-handle,
+  .setta-workspace__sortable-item-handle,
+  .setta-workspace__sortable-item-select,
   .setta-workspace__section-resize-button {
     transition:
       color 120ms ease-out,
@@ -1642,6 +1850,7 @@
 
   .setta-workspace__section-edit-control:active:not(:disabled),
   .setta-workspace__section-selection-control:active,
+  .setta-workspace__sortable-item-select:active,
   .setta-workspace__section-title-form button:active:not(:disabled),
   .setta-workspace__section-presentation-heading button:active,
   .setta-workspace__section-color-option:active,
@@ -1693,6 +1902,8 @@
   .setta-workspace__section-selection-control,
   .setta-workspace__section-edit-control,
   .setta-workspace__section-drag-handle,
+  .setta-workspace__sortable-item-handle,
+  .setta-workspace__sortable-item-select,
   .setta-workspace__section-title-form button,
   .setta-workspace__section-presentation-heading button {
     inline-size: 2.75rem;

@@ -291,6 +291,46 @@ main {
   line-height: 1;
 }
 
+.sample-field-row {
+  display: grid;
+  min-inline-size: 0;
+  gap: 0.25rem;
+  color: var(--setta-workspace-section-muted-text);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.sample-field-row input {
+  inline-size: 100%;
+  min-block-size: 2.5rem;
+  min-inline-size: 0;
+  padding-inline: 0.625rem;
+  color: var(--setta-workspace-section-text);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  background: var(--setta-workspace-toolbar-background);
+  border: 0;
+  border-radius: 0.5rem;
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--setta-workspace-section-text) 16%, transparent);
+}
+
+.sample-field-group {
+  display: flex;
+  min-block-size: 2.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.sample-field-group span {
+  color: var(--setta-workspace-section-muted-text);
+  font-size: 0.6875rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .playground-toolbar button {
   min-block-size: 2.75rem;
   padding-inline: 1rem;

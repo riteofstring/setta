@@ -1,9 +1,11 @@
 import {
+  applySortableItemMove,
   createEmptyWorkspaceDocument,
   validateSortableItemTree,
-  type SortableItemTree,
+  type SortableItemTree as SortableItemTreeModel,
 } from "@setta/workspace/core";
 import {
+  SortableItemTree,
   Workspace,
   type WorkspaceExternalDropHandler,
   type WorkspaceExternalDropValidator,
@@ -13,7 +15,7 @@ import {
   type WorkspaceToolbarControl,
 } from "@setta/workspace/react";
 import "@setta/workspace/styles.css";
-import { StrictMode } from "react";
+import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 const root = document.getElementById("root");
@@ -23,11 +25,28 @@ if (!root) {
 
 const workspaceDocument = createEmptyWorkspaceDocument();
 const itemTree = {
-  childrenByParent: { "consumer-items": [] },
-  itemIds: [],
+  childrenByParent: { "consumer-group": ["consumer-child"], "consumer-items": ["consumer-group"] },
+  itemIds: ["consumer-group", "consumer-child"],
   rootId: "consumer-items",
-} satisfies SortableItemTree;
+} satisfies SortableItemTreeModel;
 validateSortableItemTree(itemTree);
+
+function ConsumerSortableItems() {
+  const [tree, setTree] = useState<SortableItemTreeModel>(itemTree);
+  const [selectedItemIds, setSelectedItemIds] = useState<readonly string[]>([]);
+  return (
+    <SortableItemTree
+      ariaLabel="Consumer items"
+      canContainChildren={(itemId) => itemId === "consumer-group"}
+      getItemLabel={(itemId) => (itemId === "consumer-group" ? "Consumer group" : "Consumer child")}
+      onMove={(plan) => setTree((current) => applySortableItemMove(current, plan))}
+      onSelectedItemIdsChange={setSelectedItemIds}
+      renderItem={(itemId) => <span>{itemId}</span>}
+      selectedItemIds={selectedItemIds}
+      tree={tree}
+    />
+  );
+}
 const sectionMoveMode: WorkspaceSectionMoveMode = "sort";
 const validateSectionMove: WorkspaceSectionMoveValidator = ({ plan }) =>
   plan.destinationParentId === "reserved"
@@ -67,6 +86,7 @@ const toolbarControls = [
 
 createRoot(root).render(
   <StrictMode>
+    <ConsumerSortableItems />
     <Workspace
       appearanceOptions={{ appearance: "light" }}
       ariaLabel="Consumer workspace"

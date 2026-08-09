@@ -11,6 +11,7 @@ export type InteractionOwnershipState = {
 };
 
 export type InteractionActivationPolicy = {
+  itemTreeEnabled: boolean;
   rootLayoutEnabled: boolean;
   sectionStructureEnabled: boolean;
   viewportEnabled: boolean;
@@ -80,6 +81,7 @@ export function resolveInteractionActivationPolicy(
 ): InteractionActivationPolicy {
   const idle = state.phase === "idle";
   return {
+    itemTreeEnabled: idle || state.owner === "item-tree",
     rootLayoutEnabled: state.owner === "root-layout" || (idle && sectionMode === "sort"),
     sectionStructureEnabled: idle,
     viewportEnabled: state.owner === "viewport" || idle,

@@ -7,6 +7,7 @@ import {
   type WorkspaceSection,
 } from "../src/core.js";
 import {
+  SortableItemTree,
   Workspace,
   WorkspaceInteractionBoundary,
   type SectionDefinition,
@@ -677,6 +678,99 @@ describe("Workspace scaffold", () => {
         />,
       ),
     ).toThrow("viewport zoom must be within");
+  });
+});
+
+describe("SortableItemTree scaffold", () => {
+  const itemTree = {
+    childrenByParent: {
+      group: ["nested"],
+      root: ["name", "group"],
+    },
+    itemIds: ["name", "group", "nested"],
+    rootId: "root",
+  } as const;
+
+  it("renders native selection and movement controls around editable host content", () => {
+    const markup = renderToStaticMarkup(
+      <SortableItemTree
+        ariaLabel="Profile fields"
+        canContainChildren={(itemId) => itemId === "group"}
+        getItemLabel={(itemId) =>
+          ({ group: "Preferences", name: "Name", nested: "Theme" })[itemId] ?? itemId
+        }
+        onMove={() => undefined}
+        onSelectedItemIdsChange={() => undefined}
+        renderItem={(itemId) =>
+          itemId === "group" ? (
+            <strong>Preferences</strong>
+          ) : (
+            <label>
+              {itemId}
+              <input defaultValue={itemId} />
+            </label>
+          )
+        }
+        selectedItemIds={["name"]}
+        tree={itemTree}
+      />,
+    );
+
+    expect(markup).toContain('role="group"');
+    expect(markup).toContain('aria-label="Profile fields"');
+    expect(markup).toContain('aria-label="Top-level items"');
+    expect(markup).toContain('aria-label="Preferences child items"');
+    expect(markup).toMatch(/aria-label="Deselect Name"[^>]+aria-pressed="true"/u);
+    expect(markup).toContain('aria-label="Move Name"');
+    expect(markup).toContain('aria-roledescription="draggable"');
+    expect(markup).toContain("logical forward to indent");
+    expect(markup).toContain('aria-live="polite"');
+    expect(markup).toContain("<input");
+    expect(markup).not.toMatch(/aria-label="Move Name"[^>]+disabled/u);
+  });
+
+  it("disables movement without removing selection or host input semantics", () => {
+    const markup = renderToStaticMarkup(
+      <SortableItemTree
+        disabled
+        onMove={() => undefined}
+        onSelectedItemIdsChange={() => undefined}
+        renderItem={(itemId) => <input aria-label={`${itemId} value`} />}
+        selectedItemIds={[]}
+        tree={itemTree}
+      />,
+    );
+
+    expect(markup).toContain('data-sortable-item-disabled="true"');
+    expect(markup).toMatch(/aria-label="Move name"[^>]+disabled/u);
+    expect(markup).toContain('aria-label="Select name"');
+    expect(markup).toContain('aria-label="name value"');
+  });
+
+  it("fails specifically for an invalid accessible label or stale selection", () => {
+    expect(() =>
+      renderToStaticMarkup(
+        <SortableItemTree
+          ariaLabel=" "
+          onMove={() => undefined}
+          onSelectedItemIdsChange={() => undefined}
+          renderItem={() => null}
+          selectedItemIds={[]}
+          tree={itemTree}
+        />,
+      ),
+    ).toThrow("ariaLabel must be a non-empty string");
+    expect(() =>
+      renderToStaticMarkup(
+        <SortableItemTree
+          onMove={() => undefined}
+          onSelectedItemIdsChange={() => undefined}
+          renderItem={() => null}
+          selectedItemIds={["missing"]}
+          tree={itemTree}
+        />,
+      ),
+    ).toThrow("selectedItemIds must contain only known item IDs");
   });
 });
 

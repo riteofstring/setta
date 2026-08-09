@@ -21,6 +21,8 @@ export * from "./internal/interaction-geometry.js";
 export * from "./internal/interaction-owner.js";
 export * from "./internal/section-move-planning.js";
 export * from "./internal/selection-planning.js";
+export * from "./internal/sortable-item-tree-geometry.js";
+export * from "./internal/sortable-item-tree-session.js";
 export * from "./internal/sorting-preview.js";
 export * from "./internal/transient-root-projection.js";
 export * from "./internal/upstream-adapter-proof.js";

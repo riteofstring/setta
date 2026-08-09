@@ -132,11 +132,13 @@ describe("Phase 0 interaction-owner characterization", () => {
 
   it("hands root layout and structural activation between modes without enabling competitors", () => {
     expect(resolveInteractionActivationPolicy(IDLE_INTERACTION_OWNERSHIP, "sort")).toEqual({
+      itemTreeEnabled: true,
       rootLayoutEnabled: true,
       sectionStructureEnabled: true,
       viewportEnabled: true,
     });
     expect(resolveInteractionActivationPolicy(IDLE_INTERACTION_OWNERSHIP, "free")).toEqual({
+      itemTreeEnabled: true,
       rootLayoutEnabled: false,
       sectionStructureEnabled: true,
       viewportEnabled: true,
@@ -147,11 +149,13 @@ describe("Phase 0 interaction-owner characterization", () => {
       type: "start",
     });
     expect(resolveInteractionActivationPolicy(structural, "free")).toEqual({
+      itemTreeEnabled: false,
       rootLayoutEnabled: false,
       sectionStructureEnabled: false,
       viewportEnabled: false,
     });
     expect(resolveInteractionActivationPolicy(structural, "sort")).toEqual({
+      itemTreeEnabled: false,
       rootLayoutEnabled: false,
       sectionStructureEnabled: false,
       viewportEnabled: false,
@@ -162,6 +166,7 @@ describe("Phase 0 interaction-owner characterization", () => {
         "sort",
       ),
     ).toEqual({
+      itemTreeEnabled: true,
       rootLayoutEnabled: true,
       sectionStructureEnabled: true,
       viewportEnabled: true,
@@ -175,6 +180,7 @@ describe("Phase 0 interaction-owner characterization", () => {
     });
 
     expect(resolveInteractionActivationPolicy(rootLayout, "free")).toEqual({
+      itemTreeEnabled: false,
       rootLayoutEnabled: true,
       sectionStructureEnabled: false,
       viewportEnabled: false,
@@ -188,6 +194,7 @@ describe("Phase 0 interaction-owner characterization", () => {
     });
 
     expect(resolveInteractionActivationPolicy(viewport, "sort")).toEqual({
+      itemTreeEnabled: false,
       rootLayoutEnabled: false,
       sectionStructureEnabled: false,
       viewportEnabled: true,

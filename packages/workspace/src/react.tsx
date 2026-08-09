@@ -6,6 +6,9 @@ import {
   WORKSPACE_NO_WHEEL_CLASS_NAME,
 } from "./internal/workspace-interaction-boundary.js";
 
+export type { SortableItemTreeProps } from "./internal/sortable-item-tree-react-contract.js";
+export { SortableItemTree } from "./internal/sortable-item-tree.js";
+
 export type {
   SectionMovePlan,
   WorkspaceBooleanPreferenceChangeHandler,

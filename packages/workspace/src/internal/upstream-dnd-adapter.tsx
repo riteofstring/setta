@@ -19,6 +19,7 @@ export type AdapterDndKeyboardDirection = "down" | "left" | "right" | "up";
 
 export type AdapterDndEvent = {
   activatorPoint: InteractionPoint | null;
+  clientPoint: InteractionPoint | null;
   keyboardDirection: AdapterDndKeyboardDirection | null;
   sourceId: string;
   targetId: string | null;
@@ -40,8 +41,10 @@ export type AdapterDndCollisionRect = {
 export type UpstreamDndBoundaryProps = {
   children: ReactNode;
   manageAccessibility?: boolean;
+  manageAutoScroll?: boolean;
   overlayClassName?: string;
   overlayLabel?(sourceId: string): string;
+  renderOverlay?(sourceId: string): ReactNode;
   resolveCollisionRect?(
     sourceId: string,
     activatorPoint: InteractionPoint | null,
@@ -100,17 +103,21 @@ class ScrollStableKeyboardSensor extends KeyboardSensor {
 }
 
 const adapterProofSensors = [PointerSensor, ScrollStableKeyboardSensor];
-const accessibilityPluginDisabled = {
-  plugins: (defaults) =>
-    defaults.filter(
-      (plugin) => ("plugin" in plugin ? plugin.plugin : plugin).name !== "Accessibility",
-    ),
-} satisfies Pick<ComponentProps<typeof DragDropProvider>, "plugins">;
-
-function accessibilityPluginProps(
+function adapterPluginProps(
   manageAccessibility: boolean,
+  manageAutoScroll: boolean,
 ): Pick<ComponentProps<typeof DragDropProvider>, "plugins"> {
-  return manageAccessibility ? {} : accessibilityPluginDisabled;
+  if (manageAccessibility && manageAutoScroll) return {};
+  return {
+    plugins: (defaults) =>
+      defaults.filter((plugin) => {
+        const name = ("plugin" in plugin ? plugin.plugin : plugin).name.replace(/^_+/u, "");
+        return (
+          (manageAccessibility || name !== "Accessibility") &&
+          (manageAutoScroll || name !== "AutoScroller")
+        );
+      }),
+  };
 }
 
 function stringId(id: string | number | undefined): string | null {
@@ -120,8 +127,10 @@ function stringId(id: string | number | undefined): string | null {
 export function UpstreamDndBoundary({
   children,
   manageAccessibility = true,
+  manageAutoScroll = true,
   overlayClassName = "setta-adapter-proof__drag-overlay",
   overlayLabel,
+  renderOverlay,
   resolveCollisionRect,
   onMove,
   onStart,
@@ -130,6 +139,7 @@ export function UpstreamDndBoundary({
 }: UpstreamDndBoundaryProps) {
   const baseCollisionRect = useRef<BoundingRectangle | null>(null);
   const activeActivatorPoint = useRef<InteractionPoint | null>(null);
+  const activeClientPoint = useRef<InteractionPoint | null>(null);
   const activeInput = useRef<AdapterDndInput>("pointer");
 
   const syncCollisionRect = useCallback((manager: DragDropManager, transform: InteractionPoint) => {
@@ -141,7 +151,7 @@ export function UpstreamDndBoundary({
 
   return (
     <DragDropProvider
-      {...accessibilityPluginProps(manageAccessibility)}
+      {...adapterPluginProps(manageAccessibility, manageAutoScroll)}
       sensors={adapterProofSensors}
       onDragStart={({ nativeEvent, operation }, manager) => {
         restorePendingKeyboardScroll();
@@ -153,6 +163,8 @@ export function UpstreamDndBoundary({
             adapterActivatorPoint(activatorEvent),
             operation.transform,
           );
+          activeClientPoint.current =
+            adapterActivatorPoint(activatorEvent) ?? activeActivatorPoint.current;
           const collisionRect = resolveCollisionRect?.(sourceId, activeActivatorPoint.current);
           baseCollisionRect.current = collisionRect ? boundingRect(collisionRect) : null;
           syncCollisionRect(manager, operation.transform);
@@ -163,6 +175,7 @@ export function UpstreamDndBoundary({
               activeInput.current,
               operation.transform,
               activeActivatorPoint.current,
+              activeClientPoint.current,
               activatorEvent,
             ),
           );
@@ -178,6 +191,7 @@ export function UpstreamDndBoundary({
           return;
         }
         const transform = moveEventTransform(event);
+        activeClientPoint.current = translatedClientPoint(activeActivatorPoint.current, transform);
         syncCollisionRect(manager, transform);
         onMove?.(
           adapterEvent(
@@ -186,11 +200,16 @@ export function UpstreamDndBoundary({
             activeInput.current,
             transform,
             activeActivatorPoint.current,
+            activeClientPoint.current,
             event.nativeEvent,
           ),
         );
       }}
       onDragOver={({ operation }, manager) => {
+        activeClientPoint.current = translatedClientPoint(
+          activeActivatorPoint.current,
+          operation.transform,
+        );
         syncCollisionRect(manager, operation.transform);
         const targetId = stringId(operation.target?.id);
         onPreviewTarget?.(targetId);
@@ -203,6 +222,7 @@ export function UpstreamDndBoundary({
               activeInput.current,
               operation.transform,
               activeActivatorPoint.current,
+              activeClientPoint.current,
               undefined,
             ),
           );
@@ -222,6 +242,8 @@ export function UpstreamDndBoundary({
             activeInput.current,
             operation.transform,
             activeActivatorPoint.current,
+            translatedClientPoint(activeActivatorPoint.current, operation.transform) ??
+              activeClientPoint.current,
             nativeEvent,
           ),
           canceled,
@@ -229,15 +251,21 @@ export function UpstreamDndBoundary({
         onComplete(completion);
         baseCollisionRect.current = null;
         activeActivatorPoint.current = null;
+        activeClientPoint.current = null;
       }}
     >
       {children}
       <DragOverlay dropAnimation={null}>
-        {(source) => (
-          <div aria-hidden="true" className={overlayClassName}>
-            {overlayLabel?.(String(source.id)) ?? `Moving ${String(source.id)}`}
-          </div>
-        )}
+        {(source) => {
+          const id = String(source.id);
+          return (
+            renderOverlay?.(id) ?? (
+              <div aria-hidden="true" className={overlayClassName}>
+                {overlayLabel?.(id) ?? `Moving ${id}`}
+              </div>
+            )
+          );
+        }}
       </DragOverlay>
     </DragDropProvider>
   );
@@ -255,6 +283,31 @@ export function useUpstreamDndDraggable({ data, disabled, id }: UpstreamDndDragg
     active: draggable.isDragSource,
     elementRef: draggable.ref,
     handleRef: draggable.handleRef,
+  };
+}
+
+export type UpstreamDndDroppableOptions = Readonly<{
+  collisionPriority?: number;
+  data?: Readonly<Record<string, unknown>>;
+  disabled: boolean;
+  id: string;
+}>;
+
+export function useUpstreamDndDroppable({
+  collisionPriority,
+  data,
+  disabled,
+  id,
+}: UpstreamDndDroppableOptions) {
+  const droppable = useDroppable({
+    ...(collisionPriority === undefined ? {} : { collisionPriority }),
+    ...(data ? { data } : {}),
+    disabled,
+    id,
+  });
+  return {
+    active: droppable.isDropTarget,
+    elementRef: droppable.ref,
   };
 }
 
@@ -378,16 +431,27 @@ function adapterEvent(
   input: AdapterDndInput,
   transform: InteractionPoint,
   activatorPoint: InteractionPoint | null,
+  clientPoint: InteractionPoint | null,
   nativeEvent: Event | undefined,
 ): AdapterDndEvent {
   return {
     activatorPoint,
+    clientPoint,
     keyboardDirection: adapterKeyboardDirection(nativeEvent),
     sourceId,
     targetId: stringId(targetId),
     input,
     transform: { x: transform.x, y: transform.y },
   };
+}
+
+function translatedClientPoint(
+  activatorPoint: InteractionPoint | null,
+  transform: InteractionPoint,
+): InteractionPoint | null {
+  return activatorPoint
+    ? { x: activatorPoint.x + transform.x, y: activatorPoint.y + transform.y }
+    : null;
 }
 
 function adapterKeyboardDirection(event: Event | undefined): AdapterDndKeyboardDirection | null {

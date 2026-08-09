@@ -66,7 +66,7 @@ test("top-level sections move once per pointer or keyboard interaction", async (
   await expect(moveAlpha).toBeFocused();
   await expect.poll(() => canvasRootPosition(page, "alpha")).toEqual({ x: 504, y: 80 });
   await expect(announcement).toHaveText("Alpha frame moved to 504, 80.");
-  await expect(page.getByRole("status")).toContainText("Document change: section-move.");
+  await expect(page.locator(".announcement")).toContainText("Document change: section-move.");
 
   const snap = page.getByRole("button", { name: "Snap to grid" });
   await snap.click();

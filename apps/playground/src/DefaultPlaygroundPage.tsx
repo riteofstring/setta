@@ -4,18 +4,20 @@ import {
   type WorkspaceDocument,
 } from "@setta/workspace/core";
 import { Workspace, type WorkspaceSectionTitleValidationRequest } from "@setta/workspace/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { PlaygroundDataPanel, type PlaygroundImportResult } from "./PlaygroundDataPanel.js";
-import { playgroundSectionDefinitions } from "./PlaygroundSections.js";
+import { createPlaygroundSectionDefinitions } from "./PlaygroundSections.js";
 import {
   createPlaygroundExampleDocument,
+  createPlaygroundFieldListData,
   formatPlaygroundDocument,
   loadPlaygroundState,
   parsePlaygroundDocument,
   persistPlaygroundDocument,
   persistPlaygroundPreferences,
   playgroundImportErrorMessage,
+  type PlaygroundFieldListData,
   type PlaygroundPreferences,
   type PlaygroundSectionData,
 } from "./playground-model.js";
@@ -63,6 +65,26 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
   const controllerRef = useRef<WorkspaceController<PlaygroundSectionData>>(null);
   const externalSampleBodyRef = useRef<string | null>(null);
   const documentJson = useMemo(() => formatPlaygroundDocument(document), [document]);
+  const handleFieldListDataChange = useCallback(
+    (sectionId: string, data: PlaygroundFieldListData, message: string) => {
+      setDocument((current) => {
+        const section = current.sections[sectionId];
+        if (!section || section.kind !== "sample-field-list") {
+          throw new TypeError(`Field-list section ${JSON.stringify(sectionId)} is unavailable.`);
+        }
+        return {
+          ...current,
+          sections: { ...current.sections, [sectionId]: { ...section, data } },
+        };
+      });
+      setAnnouncement(message);
+    },
+    [],
+  );
+  const sectionDefinitions = useMemo(
+    () => createPlaygroundSectionDefinitions(handleFieldListDataChange),
+    [handleFieldListDataChange],
+  );
 
   useEffect(() => {
     reportPersistenceFailure(persistPlaygroundDocument(document), setAnnouncement);
@@ -109,6 +131,14 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
         data: { count: 0, label: "checks ready", type: "status" as const },
         id: `status-${String(nextNumber)}`,
         title: `Workspace status ${String(nextNumber)}`,
+      };
+    }
+    if (kind === "sample-field-list") {
+      const nextNumber = nextSectionNumber(document, "fields");
+      return {
+        data: createPlaygroundFieldListData(),
+        id: `fields-${String(nextNumber)}`,
+        title: `Profile fields ${String(nextNumber)}`,
       };
     }
     throw new TypeError(`Unsupported playground section kind ${JSON.stringify(kind)}.`);
@@ -172,7 +202,9 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
             onImport={importDocument}
             onReset={() => {
               setDocument(createPlaygroundExampleDocument());
-              setAnnouncement("Example workspace restored with a note and status section.");
+              setAnnouncement(
+                "Example workspace restored with a note, status, and field-list section.",
+              );
             }}
             onStatus={setAnnouncement}
             readOnly={readOnly}
@@ -218,7 +250,7 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
           }}
           onGridSnapChange={(gridSnap) => updatePreferences({ gridSnap })}
           readOnly={readOnly}
-          sectionDefinitions={playgroundSectionDefinitions}
+          sectionDefinitions={sectionDefinitions}
           sectionFactory={({ kind }) => nextFactoryResult(kind)}
           validateExternalDrop={({ event }) =>
             event.dataTransferTypes.includes(EXTERNAL_SAMPLE_MIME)

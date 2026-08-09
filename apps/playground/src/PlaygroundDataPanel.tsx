@@ -153,7 +153,7 @@ export function PlaygroundDataPanel({
 
           {confirmationOpen ? (
             <div className="playground-reset-confirmation" role="group" aria-label="Confirm reset">
-              <p>Replace the current workspace with the note and status example?</p>
+              <p>Replace the current workspace with the note, status, and field-list example?</p>
               <div className="playground-data-actions">
                 <button
                   type="button"

@@ -2,9 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   SortableItemTreeValidationError,
+  applySortableItemMove,
   deriveSortableItemParentLookup,
   getSortableItemOrder,
   normalizeSortableItemSelectionRoots,
+  planSortableItemKeyboardMove,
   planSortableItemMove,
   resolveSortableItemDragBlock,
   resolveSortableItemSelectionChange,
@@ -469,5 +471,198 @@ describe("sortable item move planning", () => {
         tree: tree(),
       }),
     ).toThrow("canMove must return a boolean");
+  });
+});
+
+describe("sortable item move application", () => {
+  it("applies one immutable sibling block move and preserves unaffected tree fields", () => {
+    const candidate = tree();
+    const next = applySortableItemMove(candidate, {
+      destinationIndex: 2,
+      destinationParentId: "root",
+      itemIds: ["b", "group"],
+      sourceParentId: "root",
+    });
+
+    expect(next).not.toBe(candidate);
+    expect(next.itemIds).toBe(candidate.itemIds);
+    expect(next.childrenByParent).toEqual({
+      a: ["a-1", "a-2"],
+      group: ["group-1"],
+      root: ["a", "empty", "b", "group"],
+    });
+    expect(candidate.childrenByParent.root).toEqual(["b", "a", "group", "empty"]);
+  });
+
+  it("moves a sibling block across parents and keeps its subtree attached", () => {
+    const candidate = tree();
+    const next = applySortableItemMove(candidate, {
+      destinationIndex: 0,
+      destinationParentId: "empty",
+      itemIds: ["a-1", "a-2"],
+      sourceParentId: "a",
+    });
+
+    expect(next.childrenByParent.a).toEqual([]);
+    expect(next.childrenByParent.empty).toEqual(["a-1", "a-2"]);
+    expect(next.childrenByParent.group).toBe(candidate.childrenByParent.group);
+    expect(getSortableItemOrder(next)).toEqual([
+      "b",
+      "a",
+      "group",
+      "group-1",
+      "empty",
+      "a-1",
+      "a-2",
+    ]);
+  });
+
+  it("returns the original tree for a no-op and rejects stale or unsafe plans", () => {
+    const candidate = tree();
+    expect(
+      applySortableItemMove(candidate, {
+        destinationIndex: 1,
+        destinationParentId: "root",
+        itemIds: ["a"],
+        sourceParentId: "root",
+      }),
+    ).toBe(candidate);
+    expect(() =>
+      applySortableItemMove(candidate, {
+        destinationIndex: 0,
+        destinationParentId: "a-1",
+        itemIds: ["a"],
+        sourceParentId: "root",
+      }),
+    ).toThrow("cannot move an item into its own subtree");
+    expect(() =>
+      applySortableItemMove(candidate, {
+        destinationIndex: 0,
+        destinationParentId: "empty",
+        itemIds: ["a-2", "a-1"],
+        sourceParentId: "a",
+      }),
+    ).toThrow("canonical sibling order");
+    expect(() =>
+      applySortableItemMove(candidate, {
+        destinationIndex: 0,
+        destinationParentId: "empty",
+        itemIds: ["a-1"],
+        sourceParentId: "root",
+      }),
+    ).toThrow("share the declared source parent");
+  });
+
+  it("preserves prototype-mutator parent IDs in the returned serializable record", () => {
+    const childrenByParent = Object.create(null) as Record<string, readonly string[]>;
+    childrenByParent.root = ["__proto__", "constructor"];
+    const candidate: SortableItemTree = {
+      childrenByParent,
+      itemIds: ["__proto__", "constructor"],
+      rootId: "root",
+    };
+    const next = applySortableItemMove(candidate, {
+      destinationIndex: 0,
+      destinationParentId: "__proto__",
+      itemIds: ["constructor"],
+      sourceParentId: "root",
+    });
+
+    expect(Object.hasOwn(next.childrenByParent, "__proto__")).toBe(true);
+    expect(next.childrenByParent.__proto__).toEqual(["constructor"]);
+    expect(() => validateSortableItemTree(next)).not.toThrow();
+  });
+});
+
+describe("sortable item keyboard move planning", () => {
+  it("moves selected roots one sibling boundary up or down", () => {
+    expect(
+      planSortableItemKeyboardMove({
+        activeItemId: "a",
+        command: "move-up",
+        selectedItemIds: ["a"],
+        tree: tree(),
+      }),
+    ).toMatchObject({
+      plan: { destinationIndex: 0, destinationParentId: "root", itemIds: ["a"] },
+      status: "planned",
+    });
+    expect(
+      planSortableItemKeyboardMove({
+        activeItemId: "b",
+        command: "move-down",
+        selectedItemIds: ["group", "b"],
+        tree: tree(),
+      }),
+    ).toMatchObject({
+      plan: { destinationIndex: 2, itemIds: ["b", "group"] },
+      status: "planned",
+    });
+  });
+
+  it("indents under the previous sibling and outdents after the current parent", () => {
+    expect(
+      planSortableItemKeyboardMove({
+        activeItemId: "group",
+        command: "indent",
+        selectedItemIds: ["group"],
+        tree: tree(),
+      }),
+    ).toMatchObject({
+      plan: { destinationIndex: 2, destinationParentId: "a", itemIds: ["group"] },
+      status: "planned",
+    });
+    expect(
+      planSortableItemKeyboardMove({
+        activeItemId: "a-1",
+        command: "outdent",
+        selectedItemIds: ["a-1", "a-2"],
+        tree: tree(),
+      }),
+    ).toMatchObject({
+      plan: {
+        destinationIndex: 2,
+        destinationParentId: "root",
+        itemIds: ["a-1", "a-2"],
+      },
+      status: "planned",
+    });
+  });
+
+  it("reports unchanged edge commands and applies containment and host policy", () => {
+    expect(
+      planSortableItemKeyboardMove({
+        activeItemId: "b",
+        command: "move-up",
+        selectedItemIds: ["b"],
+        tree: tree(),
+      }),
+    ).toMatchObject({ status: "unchanged" });
+    expect(
+      planSortableItemKeyboardMove({
+        activeItemId: "b",
+        command: "indent",
+        selectedItemIds: ["b"],
+        tree: tree(),
+      }),
+    ).toMatchObject({ status: "unchanged" });
+    expect(
+      planSortableItemKeyboardMove({
+        activeItemId: "group",
+        canContainChildren: () => false,
+        command: "indent",
+        selectedItemIds: ["group"],
+        tree: tree(),
+      }),
+    ).toMatchObject({ code: "destination-cannot-contain", status: "rejected" });
+    expect(
+      planSortableItemKeyboardMove({
+        activeItemId: "a-1",
+        canMove: () => false,
+        command: "outdent",
+        selectedItemIds: ["a-1"],
+        tree: tree(),
+      }),
+    ).toMatchObject({ code: "host-policy", status: "rejected" });
   });
 });

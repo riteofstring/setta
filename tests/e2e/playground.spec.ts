@@ -101,7 +101,7 @@ test("the blank workspace supports keyboard and assistive technology", async ({ 
   await expect(page.getByRole("article", { name: "Sample section 1" })).toContainText(
     "Host-rendered content inside the package-owned section frame.",
   );
-  await expect(page.getByRole("status")).toHaveText("Document change: section-create.");
+  await expect(page.locator(".announcement")).toHaveText("Document change: section-create.");
 
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
@@ -135,7 +135,7 @@ test("the primary workflow remains operable at 200% page scale", async ({ page }
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Sample section 1" })).toBeVisible();
-  await expect(page.getByRole("status")).toHaveText("Document change: section-create.");
+  await expect(page.locator(".announcement")).toHaveText("Document change: section-create.");
 
   await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
   await session.detach();
@@ -161,7 +161,7 @@ test("controlled and uncontrolled state honor live capability policy", async ({ 
     exact: true,
   });
   const hostNote = page.getByRole("textbox", { name: "Host note" });
-  const status = page.getByRole("status");
+  const status = page.locator(".announcement");
   const moveUncontrolledAlpha = uncontrolledWorkspace.getByRole("button", { name: "Move Alpha" });
   await expect(uncontrolledWorkspace).toHaveAttribute("data-workspace-mode", "uncontrolled");
   await expect(controlledWorkspace).toHaveAttribute("data-workspace-mode", "controlled");
@@ -293,7 +293,7 @@ test("the canvas shell coalesces viewport gestures and isolates host input", asy
     .toBeGreaterThan(0);
   await expect(documentJson).toHaveValue(/"x": 0[,.]/u);
   await expect(documentJson).toHaveValue(/"y": 0[,.]/u);
-  await expect(page.getByRole("status")).toContainText("Committed document changes: 0.");
+  await expect(page.locator(".announcement")).toContainText("Committed document changes: 0.");
 
   await canvas.scrollIntoViewIfNeeded();
   const canvasBounds = await canvas.boundingBox();
@@ -311,13 +311,13 @@ test("the canvas shell coalesces viewport gestures and isolates host input", asy
       return (JSON.parse(value) as { viewport: { y: number } }).viewport.y;
     })
     .not.toBe(0);
-  await expect(page.getByRole("status")).toContainText("Committed document changes: 1.");
+  await expect(page.locator(".announcement")).toContainText("Committed document changes: 1.");
 
   await page.getByRole("button", { name: "Reset viewport" }).click();
   await expect(documentJson).toHaveValue(/"x": 0[,.]/u);
   await expect(documentJson).toHaveValue(/"y": 0[,.]/u);
   await expect(documentJson).toHaveValue(/"zoom": 1/u);
-  await expect(page.getByRole("status")).toContainText("Committed document changes: 2.");
+  await expect(page.locator(".announcement")).toContainText("Committed document changes: 2.");
 
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
@@ -766,7 +766,7 @@ test("the canvas toolbar, host extensions, and empty minimap synchronize and cle
   await expect(page.getByRole("button", { name: "Set grid probe viewport" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Reset viewport" })).toBeVisible();
   await page.getByRole("button", { name: "Set grid probe viewport" }).click();
-  await expect(page.getByRole("status")).toContainText("Grid probe viewport: applied.");
+  await expect(page.locator(".announcement")).toContainText("Grid probe viewport: applied.");
   await expect(page.getByRole("button", { name: "Set grid probe viewport" })).toHaveAttribute(
     "aria-pressed",
     "true",
@@ -814,7 +814,7 @@ test("the canvas shell navigates measured geometry without browser scroll", asyn
 
   await page.getByRole("button", { name: "Focus Alpha" }).click();
   await expect(alpha).toBeFocused();
-  await expect(page.getByRole("status")).toContainText("Focus Alpha: applied.");
+  await expect(page.locator(".announcement")).toContainText("Focus Alpha: applied.");
 
   const focusNext = page.getByRole("button", { name: "Focus next from Alpha" });
   const session = await page.context().newCDPSession(page);
@@ -823,7 +823,7 @@ test("the canvas shell navigates measured geometry without browser scroll", asyn
   await expect(focusNext).toBeFocused();
   const browserScroll = await page.evaluate(() => ({ x: window.scrollX, y: window.scrollY }));
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("status")).toContainText("Focus next from Alpha: applied.");
+  await expect(page.locator(".announcement")).toContainText("Focus next from Alpha: applied.");
   await expect(beta).toBeFocused();
   await expect.poll(() => page.evaluate(() => window.visualViewport?.scale ?? 1)).toBe(2);
   await expect
@@ -839,10 +839,10 @@ test("the canvas shell navigates measured geometry without browser scroll", asyn
 
   await page.getByRole("button", { name: "Focus previous from Alpha" }).click();
   await expect(gamma).toBeFocused();
-  await expect(page.getByRole("status")).toContainText("Focus previous from Alpha: applied.");
+  await expect(page.locator(".announcement")).toContainText("Focus previous from Alpha: applied.");
 
   await page.getByRole("button", { name: "Fit navigation fixture" }).click();
-  await expect(page.getByRole("status")).toContainText("Fit navigation fixture: applied.");
+  await expect(page.locator(".announcement")).toContainText("Fit navigation fixture: applied.");
   await expect
     .poll(async () => {
       const value = await documentJson.inputValue();
@@ -936,12 +936,12 @@ test("the canvas grid and scoped appearance remain independent and aligned", asy
     )
     .toBe("oklch(0.68 0.11 305)");
   await expect(documentJson).toHaveValue(initialDocument);
-  await expect(page.getByRole("status")).toContainText("Committed document changes: 0.");
+  await expect(page.locator(".announcement")).toContainText("Committed document changes: 0.");
 
   await page.getByRole("combobox", { name: "Grid pattern" }).selectOption("lines");
   await expect(canvas).toHaveAttribute("data-workspace-grid-pattern", "lines");
   await page.getByRole("button", { name: "Set grid probe viewport" }).click();
-  await expect(page.getByRole("status")).toContainText("Grid probe viewport: applied.");
+  await expect(page.locator(".announcement")).toContainText("Grid probe viewport: applied.");
   const pattern = background.locator("pattern");
   await expect(pattern).toHaveAttribute("width", "36");
   await expect(pattern).toHaveAttribute("height", "36");

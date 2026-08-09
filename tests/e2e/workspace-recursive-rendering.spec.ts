@@ -307,7 +307,7 @@ test("recursive frames share all-depth selection, geometry, focus, and fit", asy
     element.scrollTop = 0;
   });
   await page.getByRole("button", { name: "Fit recursive descendants" }).click();
-  await expect(page.getByRole("status")).toContainText("Fit recursive descendants: applied.");
+  await expect(page.locator(".announcement")).toContainText("Fit recursive descendants: applied.");
   await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
   await expect(workspace).toHaveScreenshot("recursive-section-tree.png", {
     maxDiffPixels: 20,
@@ -317,7 +317,7 @@ test("recursive frames share all-depth selection, geometry, focus, and fit", asy
   await expect(nestedGamma).toBeFocused();
   await expect(selectGamma).toHaveAttribute("aria-pressed", "true");
   await expect(selectAlpha).toHaveAttribute("aria-pressed", "false");
-  await expect(page.getByRole("status")).toContainText("Focus Nested Gamma: applied.");
+  await expect(page.locator(".announcement")).toContainText("Focus Nested Gamma: applied.");
 
   await canvas.focus();
   await page.keyboard.press("Control+a");
@@ -970,7 +970,9 @@ test("container orientation and overflow switch stably and preserve child order"
 
   await expect(emptyContainer.locator("[data-workspace-empty-child-container]")).toHaveCount(0);
   await expect(emptyContainer.getByRole("article", { name: "External child" })).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("External child added to Empty container.");
+  await expect(page.locator(".announcement")).toContainText(
+    "External child added to Empty container.",
+  );
   const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
   expect(accessibility.violations).toEqual([]);
   await expect(workspace).toHaveScreenshot("recursive-container-overflow.png");
