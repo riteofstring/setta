@@ -33,10 +33,12 @@ state out of the workspace document while allowing them to use the document call
 controller stores. XYFlow panels, dnd-kit stores, Tailwind utility names, and package-private DOM
 selectors are not extension APIs.
 
-Custom interactive renderer content uses only the three exported interaction-boundary constants:
-`NO_DRAG_CLASS_NAME` prevents section/item drag activation, `NO_PAN_CLASS_NAME` preserves the
-element's pointer interaction, and `NO_WHEEL_CLASS_NAME` preserves its wheel behavior. Package
-controls apply these boundaries themselves.
+Custom interactive renderer content uses only the four exported interaction-boundary constants:
+`NO_DRAG_CLASS_NAME` prevents section/item drag activation and `NO_PAN_CLASS_NAME` preserves the
+element's pointer interaction. `NO_WHEEL_CLASS_NAME` preserves browser-native wheel behavior such
+as scrolling. `MANUAL_WHEEL_CLASS_NAME` is for controls with an `onWheel` handler: the control still
+receives the event, while the canvas synchronously prevents Chrome from latching horizontal
+Back/Forward navigation. Package controls apply these boundaries themselves.
 
 ## Peer dependencies
 

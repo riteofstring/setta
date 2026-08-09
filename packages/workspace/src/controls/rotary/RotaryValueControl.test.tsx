@@ -109,7 +109,7 @@ describe("RotaryValueControl", () => {
     for (const expectedClass of [
       "nodrag",
       "nopan",
-      "nowheel",
+      "setta-manual-wheel",
       "h-10",
       "w-10",
       "touch-none",
@@ -162,9 +162,8 @@ describe("RotaryValueControl", () => {
     await act(async () => {
       getKnob().dispatchEvent(event);
     });
-    // The `nowheel` boundary is the observable canvas-ownership contract. React attaches its
-    // delegated wheel listener passively, so SyntheticEvent.preventDefault does not mark this
-    // jsdom native event even though the handler invokes it like the reference.
+    // The manual-wheel boundary lets the canvas cancel browser history navigation synchronously.
+    // React still owns the value update through its delegated listener.
     expect(onValueChange).toHaveBeenCalledOnce();
     expect(onValueChange).toHaveBeenCalledWith("0.6");
   });
@@ -242,6 +241,7 @@ describe("RotaryValueControl", () => {
     expect(getKnob().classList.contains("cursor-not-allowed")).toBe(true);
     expect(getKnob().classList.contains("opacity-50")).toBe(true);
     expect(getKnob().classList.contains("nowheel")).toBe(false);
+    expect(getKnob().classList.contains("setta-manual-wheel")).toBe(false);
     await act(async () => {
       getKnob().dispatchEvent(
         new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: -1 }),
@@ -253,5 +253,6 @@ describe("RotaryValueControl", () => {
     await mount({ disabled: false });
     expect(getKnob().disabled).toBe(true);
     expect(getKnob().classList.contains("nowheel")).toBe(false);
+    expect(getKnob().classList.contains("setta-manual-wheel")).toBe(false);
   });
 });

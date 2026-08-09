@@ -14,6 +14,7 @@ const RUNTIME_EXPORTS = [
   "ItemDndContext",
   "ItemNameEditor",
   "MetaControl",
+  "MANUAL_WHEEL_CLASS_NAME",
   "NO_DRAG_CLASS_NAME",
   "NO_PAN_CLASS_NAME",
   "NO_WHEEL_CLASS_NAME",

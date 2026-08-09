@@ -4,7 +4,7 @@ import { zoom, zoomIdentity, type D3ZoomEvent } from "d3-zoom";
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { shallow } from "zustand/shallow";
 import { useDndState } from "../dnd/dndState";
-import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "../interaction";
+import { MANUAL_WHEEL_CLASS_NAME, NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "../interaction";
 import { getInitialCanvasViewport } from "./documentViewportSync";
 import { fitView } from "./fitView";
 import { useWorkspaceOptions } from "./options";
@@ -62,6 +62,8 @@ type PanOnScrollDelta = {
   deltaX: number;
   deltaY: number;
 };
+
+type WheelTargetDisposition = "canvas" | "manual" | "native";
 
 type PinchZoomCheck = {
   event: Pick<WheelEvent, "ctrlKey">;
@@ -229,7 +231,7 @@ export function resolvePanOnScrollDelta({
   return { deltaX, deltaY };
 }
 
-function shouldSkipPanOnScrollWheelEvent({
+function resolveWheelTargetDisposition({
   event,
   isMacOS,
   isPanScrolling,
@@ -241,13 +243,17 @@ function shouldSkipPanOnScrollWheelEvent({
   isPanScrolling: boolean;
   zoomActivationKeyPressed: boolean;
   zoomOnPinch: boolean;
-}): boolean {
-  return (
-    isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
-    !zoomActivationKeyPressed &&
-    !isPinchZoomWheelEvent({ event, zoomOnPinch, isMacOS }) &&
-    !isPanScrolling
-  );
+}): WheelTargetDisposition {
+  if (zoomActivationKeyPressed || isPinchZoomWheelEvent({ event, zoomOnPinch, isMacOS })) {
+    return "canvas";
+  }
+  if (isWrappedWithClass(event, MANUAL_WHEEL_CLASS_NAME)) {
+    return "manual";
+  }
+  if (isPanScrolling) {
+    return "canvas";
+  }
+  return isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) ? "native" : "canvas";
 }
 
 function handlePinchZoomWheelEvent({
@@ -292,15 +298,17 @@ function createPanOnScrollWheelHandler({
 }: PanOnScrollWheelHandlerParams) {
   return (event: WheelEvent) => {
     const isMacOS = isMacOs();
-    if (
-      shouldSkipPanOnScrollWheelEvent({
-        event,
-        isMacOS,
-        isPanScrolling: interactionRefs.isPanScrolling.current,
-        zoomActivationKeyPressed,
-        zoomOnPinch,
-      })
-    ) {
+    const targetDisposition = resolveWheelTargetDisposition({
+      event,
+      isMacOS,
+      isPanScrolling: interactionRefs.isPanScrolling.current,
+      zoomActivationKeyPressed,
+      zoomOnPinch,
+    });
+    if (targetDisposition !== "canvas") {
+      if (targetDisposition === "manual") {
+        event.preventDefault();
+      }
       return;
     }
 
@@ -338,28 +346,6 @@ function createPanOnScrollWheelHandler({
   };
 }
 
-function shouldSkipDefaultWheelHandler({
-  event,
-  zoomActivationKeyPressed,
-  zoomOnPinch,
-}: {
-  event: WheelEvent;
-  zoomActivationKeyPressed: boolean;
-  zoomOnPinch: boolean;
-}): boolean {
-  if (!isWrappedWithClass(event, NO_WHEEL_CLASS_NAME)) {
-    return false;
-  }
-  if (zoomActivationKeyPressed) {
-    return false;
-  }
-  return !isPinchZoomWheelEvent({
-    event,
-    zoomOnPinch,
-    isMacOS: isMacOs(),
-  });
-}
-
 function createDefaultWheelHandler({
   d3ZoomHandler,
   interactionRefs,
@@ -367,13 +353,17 @@ function createDefaultWheelHandler({
   zoomOnPinch,
 }: DefaultWheelHandlerParams) {
   return function defaultWheelHandler(this: Element, event: WheelEvent, data: unknown) {
-    if (
-      shouldSkipDefaultWheelHandler({
-        event,
-        zoomActivationKeyPressed,
-        zoomOnPinch,
-      })
-    ) {
+    const targetDisposition = resolveWheelTargetDisposition({
+      event,
+      isMacOS: isMacOs(),
+      isPanScrolling: false,
+      zoomActivationKeyPressed,
+      zoomOnPinch,
+    });
+    if (targetDisposition !== "canvas") {
+      if (targetDisposition === "manual") {
+        event.preventDefault();
+      }
       return;
     }
 
@@ -432,7 +422,10 @@ function blocksNoWheelTarget({
   if (!isWheelEventType(event.type)) {
     return false;
   }
-  if (!isWrappedWithClass(event, NO_WHEEL_CLASS_NAME)) {
+  if (
+    !isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
+    !isWrappedWithClass(event, MANUAL_WHEEL_CLASS_NAME)
+  ) {
     return false;
   }
   if (zoomActivationKeyPressed) {

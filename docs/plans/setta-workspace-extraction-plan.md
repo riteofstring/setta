@@ -1588,6 +1588,26 @@ Phase 4 progress (2026-08-11):
   plan schedules their final phase runs after developer acceptance. The required matched Phase 5
   comparison, explicit developer acceptance, accepted baseline refresh, and post-acceptance gates
   remain incomplete, so this audit does not start another phase.
+- Phase 5 persistent browser-history gesture correction accepted (2026-08-12): the developer's
+  live retest exposed a browser-level failure that the preceding synthetic audit did not model.
+  A structured trusted-event trace proved that the first wheel event over Rotary was cancelable
+  but left uncanceled; Chrome then made the rest of that trackpad gesture non-cancelable. On the
+  next horizontal gesture over the empty pane, the package wheel handler ran, canceled the event,
+  and moved the canvas from x=-870 to x=-869, yet Chrome still issued `beforeunload` 119 ms later
+  and navigated Back because the earlier control gesture had armed browser history navigation.
+  The interaction seam now distinguishes browser-native wheel owners (`NO_WHEEL_CLASS_NAME`) from
+  manually handled controls (`MANUAL_WHEEL_CLASS_NAME`). The non-passive canvas listener
+  synchronously prevents the browser default for the latter without stopping propagation, so
+  Rotary's React handler still changes its value while Chrome cannot latch Back/Forward; manual
+  ownership wins even when a canvas pan burst was already active. Focused regressions freeze the
+  filter, native-versus-manual default-prevention contract, continuation behavior, and enabled/
+  disabled rotary markers. The developer repeated the failing rotary-then-pane sequence live and
+  accepted the correction. All temporary structured logging and navigation persistence were then
+  removed. The complete package suite passes (91 files, 662 tests), the playground suite passes
+  (5 files, 28 tests), the production package build and source/compiled boundary pass, and the
+  exact packed unrelated-consumer install/typecheck/build passes. No dependency changed, so the
+  supply-chain gate was not duplicated. The broader Phase 5 developer comparison and final
+  post-acceptance gates remain at their existing gate.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

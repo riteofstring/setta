@@ -1,9 +1,9 @@
 import { useRef, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import {
+  MANUAL_WHEEL_CLASS_NAME,
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
-  NO_WHEEL_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "../../interaction";
 import {
@@ -58,7 +58,7 @@ export function RotaryValueControl({
   const knobStateClasses = isDisabled
     ? "cursor-not-allowed opacity-50"
     : "cursor-grab active:cursor-grabbing";
-  const wheelBoundaryClassName = isDisabled ? "" : NO_WHEEL_CLASS_NAME;
+  const wheelBoundaryClassName = isDisabled ? "" : MANUAL_WHEEL_CLASS_NAME;
   const reportChange = (nextValue: number) => onValueChange(String(nextValue));
 
   function updateFromPointer(event: PointerEvent<HTMLButtonElement>) {

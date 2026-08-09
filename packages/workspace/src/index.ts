@@ -120,7 +120,12 @@ export type {
   WorkspaceSectionInput,
   WorkspaceSectionItemTree,
 } from "./document/types";
-export { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "./interaction";
+export {
+  MANUAL_WHEEL_CLASS_NAME,
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
+} from "./interaction";
 export type { ItemRowRenderContext } from "./items/ItemListContext";
 export { WorkspaceItemLabel } from "./items/WorkspaceItemLabel";
 export type { WorkspaceItemLabelProps } from "./items/WorkspaceItemLabel";

@@ -6,6 +6,9 @@
 export const NO_DRAG_CLASS_NAME = "nodrag";
 // Lets an element keep its own wheel behavior instead of canvas zoom/pan-on-scroll.
 export const NO_WHEEL_CLASS_NAME = "nowheel";
+// Gives a manually handled wheel gesture to the control while the canvas synchronously cancels
+// the browser default, preventing Chrome from latching horizontal history navigation.
+export const MANUAL_WHEEL_CLASS_NAME = "setta-manual-wheel";
 // Excludes an element from starting a canvas pan.
 export const NO_PAN_CLASS_NAME = "nopan";
 // Keeps a focused scalar control's Arrow keys with the control instead of section movement.

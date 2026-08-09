@@ -164,6 +164,23 @@ describe("shouldAllowZoomFilterEvent", () => {
     ).toBe(false);
   });
 
+  it("blocks manually consumed wheel targets from wheel zoom", () => {
+    const target = appendTargetWithClass("setta-manual-wheel");
+    const event = withEventTarget(new WheelEvent("wheel", { deltaY: -120 }), target);
+
+    expect(
+      shouldAllowZoomFilterEvent({
+        event,
+        panOnDrag: true,
+        panOnScroll: false,
+        userSelectionActive: false,
+        zoomOnDoubleClick: true,
+        zoomOnPinch: true,
+        zoomOnScroll: true,
+      }),
+    ).toBe(false);
+  });
+
   it("blocks pointer starts while the marquee selection is active", () => {
     expect(
       shouldAllowZoomFilterEvent({
@@ -243,7 +260,7 @@ describe("getViewportInteractionActiveValue", () => {
     expect(useReactFlow.getState().paneDragging).toBe(false);
   });
 
-  it("starts wheel panning on an interactive nopan target unless it explicitly owns wheel", async () => {
+  it("distinguishes native wheel areas from manually consumed controls", async () => {
     const { host, renderer, root } = await renderZoomPane({
       panOnScroll: true,
       zoomOnScroll: false,
@@ -264,6 +281,21 @@ describe("getViewportInteractionActiveValue", () => {
       });
       expect(useReactFlow.getState().transform).toEqual([-10, 0, 1]);
       expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
+
+      target.classList.add("setta-manual-wheel");
+      let manualEvent: WheelEvent | undefined;
+      await act(async () => {
+        manualEvent = new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaX: -20,
+        });
+        target.dispatchEvent(manualEvent);
+      });
+      expect(useReactFlow.getState().transform).toEqual([-10, 0, 1]);
+      expect(manualEvent?.defaultPrevented).toBe(true);
+      expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
+      target.classList.remove("setta-manual-wheel");
 
       await act(async () => {
         vi.advanceTimersByTime(150);
