@@ -629,8 +629,22 @@ Phase 4 progress (2026-08-11):
   section dnd modes, the detached-first-item silent abort is frozen by a test, and a group
   section rejects an item tree (the reference cannot represent params on a Group, whose
   section-click policy never treats it as item-carrying).
-- Remaining Phase 4 work: none in the repository; the developer exit gate (an unrelated example
-  supplying its own item data and reproducing the accepted main interaction) remains.
+- Phase 4 developer gate rejected (2026-08-11): live inspection of the unrelated item-panel
+  example exposed a real nested-grid parity failure. The package row port uses the reference's
+  `section-args-nested` and `section-args-nested-key-value` placement vocabulary, but the compiled
+  package stylesheet omitted the corresponding named grid-area rules from the frozen reference.
+  The browser therefore creates implicit columns: the selected `options` group's `momentum` and
+  `decay` children render beside the group label instead of beneath it. At the rejected viewport,
+  the group occupied 272 x 36 authored px while each child collapsed into the 124 px right-side
+  implicit column; this does not reproduce the main Dict surface. The owning correction must keep
+  the geometry package-owned, restore the smallest complete reference grid contract (including
+  the list-area shell if the live comparison proves it necessary), and must not paper over the
+  defect with playground-only offsets or item-specific markup. Add a rendered geometry regression
+  that fails when nested children share the parent-label row or collapse into an implicit side
+  column, then repeat the live main-Dict versus unrelated-item comparison before requesting
+  approval again.
+- Remaining Phase 4 work: correct the rejected nested item layout/parity defect, run the Phase 4
+  verification gates, and obtain a renewed developer exit-gate decision.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
