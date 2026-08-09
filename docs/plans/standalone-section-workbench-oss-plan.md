@@ -1703,9 +1703,33 @@ record is [Phase 6 generic edge and port evidence](../evidence/phase-6-generic-c
 registration is recorded in
 [Phase 6 pane-registration evidence](../evidence/phase-6-pane-registration.md), and browser
 windowing is recorded in
-[Phase 6 viewport-culling evidence](../evidence/phase-6-viewport-culling.md). Absolute/freeform
-positioning inside nested containers is the earliest incomplete repository-actionable Phase 6
-work.
+[Phase 6 viewport-culling evidence](../evidence/phase-6-viewport-culling.md). The bounded
+nested-freeform representation prerequisite is recorded in
+[Phase 6 nested-freeform representation evidence](../evidence/phase-6-nested-freeform-representation.md).
+The schema-v2 contract and production behavior for absolute/freeform positioning inside nested
+containers are the earliest incomplete repository-actionable Phase 6 work.
+
+- Completed (nested-freeform representation prerequisite): compared the plan-mandated all-section
+  XYFlow graph, separately provided inner-XYFlow instances, and package-owned absolutely positioned
+  recursive DOM in one executable playground proof. The all-section graph fails native parent DOM
+  containment because XYFlow flattens parent and child wrappers. Six separately provided inner
+  instances require seven total stores and viewports. The selected recursive DOM retains one outer
+  XYFlow store/viewport while proving ordered/freeform switching, mixed-depth native scrolling,
+  focus isolation, equal selected-block local deltas, atomic representative reparenting, bounded
+  narrow layout, and one culling/geometry ownership path. This selects the implementation owner; it
+  does not mark the schema-v2 or production interaction batch complete.
+- Nested-freeform representation verification: exact Node 24.18.1, repository-local Corepack
+  0.35.0, and pnpm 11.19.0 focused coverage passed two representation-contract unit tests. Focused
+  Chromium coverage passed the challenger/store observations, the selected-owner interaction
+  workflow, and the inspected narrow visual baseline; the corrected 320-CSS-pixel geometry was
+  measured with every control inside the workbench bounds. Changed-file quality passed for 11
+  project files with boundaries across 336 files, dependency policy, formatting, lint and
+  complexity, file lengths, strict types, dead-code analysis, 468 unit tests across 46 files, six
+  boundary tests, plan-loop automation, builds, exact tarball contents, documentation links, and
+  the declaration report. The unrelated tarball-installed consumer passed lockfile policy, strict
+  build, and Chromium runtime verification. No dependency input changed, so the network-backed
+  supply-chain gate was not duplicated; the recorded unavailable in-app-browser release gate was
+  not retried.
 
 - Completed (viewport-culling batch): added strict opt-in all-depth browser windowing through one
   canvas-rooted observer, exact-size named placeholders, canonical-ID-scoped retained geometry,
@@ -1785,9 +1809,9 @@ Required framework-neutral behavior:
 
 Required React and interaction behavior:
 
-- Run the bounded XYFlow representation proof above first and use its selected single owner. Do not
-  handwrite an alternative pan/zoom system inside a nested container: the outer XYFlow viewport
-  remains the only workbench pan/zoom owner.
+- Completed prerequisite: the bounded XYFlow representation proof selected package-owned absolutely
+  positioned recursive DOM. Use that single owner. Do not handwrite an alternative pan/zoom system
+  inside a nested container: the outer XYFlow viewport remains the only workbench pan/zoom owner.
 - In `sort` mode, an ordered child handle invokes sibling sorting while a root or freeform child
   handle invokes same-parent spatial movement. In `free` mode, the structural dnd-kit owner can
   reparent either kind. Pointer, touch, keyboard, cancellation, and controlled rejection each

@@ -3027,3 +3027,363 @@
     --setta-workspace-surface: #222b3c;
   }
 }
+
+.setta-nested-freeform-proof {
+  --setta-proof-accent: #315f9f;
+  --setta-proof-canvas: #eef3fa;
+  --setta-proof-foreground: #172033;
+  --setta-proof-muted: #526079;
+  --setta-proof-selected: #e2edff;
+  --setta-proof-surface: #ffffff;
+
+  color: var(--setta-proof-foreground);
+}
+
+.setta-nested-freeform-proof *,
+.setta-nested-freeform-proof *::before,
+.setta-nested-freeform-proof *::after {
+  box-sizing: border-box;
+}
+
+.setta-nested-freeform-proof__intro {
+  max-inline-size: 72ch;
+  margin: 0 0 1.5rem;
+  color: var(--setta-proof-muted);
+  line-height: 1.55;
+}
+
+.setta-nested-freeform-proof__candidates {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.setta-nested-freeform-proof__candidate {
+  min-inline-size: 0;
+  padding: 1rem;
+  background: var(--setta-proof-surface);
+  border: 1px solid color-mix(in srgb, var(--setta-proof-muted) 30%, transparent);
+  border-radius: 1rem;
+  box-shadow: 0 0.625rem 2rem rgb(23 32 51 / 8%);
+}
+
+.setta-nested-freeform-proof__candidate[data-proof-verdict="selected"] {
+  background: color-mix(in srgb, var(--setta-proof-selected) 48%, var(--setta-proof-surface));
+  border-color: color-mix(in srgb, var(--setta-proof-accent) 56%, transparent);
+}
+
+.setta-nested-freeform-proof__candidate-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block-end: 1rem;
+}
+
+.setta-nested-freeform-proof__candidate-heading h2,
+.setta-nested-freeform-proof__candidate-heading p,
+.setta-nested-freeform-proof__flat-frame h3,
+.setta-nested-freeform-proof__nested-flow-frame h3,
+.setta-nested-freeform-proof__recursive-section h3 {
+  margin: 0;
+}
+
+.setta-nested-freeform-proof__candidate-heading h2 {
+  font-size: 1.125rem;
+  line-height: 1.3;
+}
+
+.setta-nested-freeform-proof__candidate-verdict {
+  margin-block-end: 0.25rem !important;
+  color: var(--setta-proof-accent);
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.setta-nested-freeform-proof__candidate-mark {
+  display: grid;
+  flex: 0 0 2rem;
+  inline-size: 2rem;
+  block-size: 2rem;
+  place-items: center;
+  color: var(--setta-proof-accent);
+  font-size: 1.25rem;
+  font-weight: 800;
+  background: color-mix(in srgb, var(--setta-proof-accent) 12%, transparent);
+  border-radius: 50%;
+}
+
+.setta-nested-freeform-proof__flow {
+  position: relative;
+  min-inline-size: 0;
+  block-size: 18rem;
+  overflow: hidden;
+  background: var(--setta-proof-canvas);
+  border-radius: 0.75rem;
+}
+
+.setta-nested-freeform-proof__flow--selected {
+  block-size: 37rem;
+}
+
+.setta-nested-freeform-proof__flow .react-flow__node {
+  cursor: default;
+}
+
+.setta-nested-freeform-proof__flow .react-flow__node:focus-visible,
+.setta-nested-freeform-proof :focus-visible {
+  outline: 2px solid;
+  outline-offset: 2px;
+}
+
+.setta-nested-freeform-proof__flat-frame,
+.setta-nested-freeform-proof__nested-flow-frame,
+.setta-nested-freeform-proof__root-frame {
+  inline-size: 100%;
+  block-size: 100%;
+  color: var(--setta-proof-foreground);
+  text-align: start;
+  background: var(--setta-proof-surface);
+  border: 1px solid color-mix(in srgb, var(--setta-proof-muted) 32%, transparent);
+  border-radius: 0.625rem;
+}
+
+.setta-nested-freeform-proof__flat-frame {
+  padding: 0.75rem;
+}
+
+.setta-nested-freeform-proof__flat-frame h3,
+.setta-nested-freeform-proof__nested-flow-frame h3 {
+  font-size: 0.8125rem;
+}
+
+.setta-nested-freeform-proof__flat-frame [data-proof-native-child-region] {
+  min-block-size: 5rem;
+  margin-block-start: 0.75rem;
+  padding: 0.5rem;
+  color: var(--setta-proof-muted);
+  background: color-mix(in srgb, var(--setta-proof-canvas) 72%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--setta-proof-muted) 44%, transparent);
+  border-radius: 0.5rem;
+}
+
+.setta-nested-freeform-proof__nested-flow-frame {
+  padding: 0.5rem;
+}
+
+.setta-nested-freeform-proof__inner-flow {
+  block-size: 4.5rem;
+  margin-block-start: 0.375rem;
+  overflow: hidden;
+  background: var(--setta-proof-canvas);
+  border-radius: 0.375rem;
+}
+
+.setta-nested-freeform-proof__inner-flow .react-flow__node {
+  min-inline-size: 7rem;
+  padding: 0.25rem 0.375rem;
+  font-size: 0.6875rem;
+}
+
+.setta-nested-freeform-proof__diagnostics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin: 1rem 0 0;
+}
+
+.setta-nested-freeform-proof__diagnostics div {
+  display: grid;
+  gap: 0.125rem;
+}
+
+.setta-nested-freeform-proof__diagnostics dt {
+  color: var(--setta-proof-muted);
+  font-size: 0.75rem;
+}
+
+.setta-nested-freeform-proof__diagnostics dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.setta-nested-freeform-proof__reason {
+  max-inline-size: 76ch;
+  margin: 1rem 0 0;
+  color: var(--setta-proof-muted);
+  line-height: 1.5;
+}
+
+.setta-nested-freeform-proof__root-frame {
+  padding: 0.75rem;
+}
+
+.setta-nested-freeform-proof__recursive-surface {
+  display: grid;
+  gap: 0.75rem;
+  block-size: 100%;
+}
+
+.setta-nested-freeform-proof__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.setta-nested-freeform-proof button {
+  min-block-size: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--setta-proof-foreground);
+  font: inherit;
+  font-weight: 650;
+  background: var(--setta-proof-surface);
+  border: 1px solid color-mix(in srgb, var(--setta-proof-muted) 38%, transparent);
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.setta-nested-freeform-proof button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--setta-proof-selected) 72%, var(--setta-proof-surface));
+}
+
+.setta-nested-freeform-proof button:active:not(:disabled) {
+  scale: 0.96;
+}
+
+.setta-nested-freeform-proof button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.setta-nested-freeform-proof__recursive-region {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-block-size: 23rem;
+  padding: 0.75rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--setta-proof-canvas);
+  border-radius: 0.625rem;
+  scrollbar-gutter: stable;
+}
+
+.setta-nested-freeform-proof__recursive-region[data-proof-positioning="freeform"] {
+  display: block;
+}
+
+.setta-nested-freeform-proof__recursive-section {
+  inline-size: min(100%, 19rem);
+  min-block-size: 4.75rem;
+  padding: 0.625rem;
+  background: var(--setta-proof-surface);
+  border: 2px solid transparent;
+  border-radius: 0.625rem;
+  box-shadow: 0 0.375rem 1rem rgb(23 32 51 / 10%);
+}
+
+.setta-nested-freeform-proof__recursive-region[data-proof-positioning="freeform"]
+  > .setta-nested-freeform-proof__recursive-section {
+  position: absolute;
+  inline-size: 9rem;
+}
+
+.setta-nested-freeform-proof__recursive-region[data-proof-positioning="freeform"]
+  > [data-proof-recursive-section="container"] {
+  inline-size: 14rem;
+  min-block-size: 19rem;
+}
+
+.setta-nested-freeform-proof__recursive-section[data-selected="true"] {
+  border-color: var(--setta-proof-accent);
+}
+
+.setta-nested-freeform-proof__recursive-section h3 {
+  margin-block-end: 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.setta-nested-freeform-proof__scroll-region {
+  display: grid;
+  gap: 0.5rem;
+  block-size: 13rem;
+  padding: 0.375rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: color-mix(in srgb, var(--setta-proof-canvas) 78%, transparent);
+  border-radius: 0.5rem;
+  scrollbar-gutter: stable;
+}
+
+.setta-nested-freeform-proof__scroll-region button {
+  min-block-size: 2.5rem;
+  text-align: start;
+}
+
+.setta-nested-freeform-proof__container-bank {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.375rem;
+}
+
+.setta-nested-freeform-proof__container-bank span {
+  padding: 0.25rem 0.375rem;
+  color: var(--setta-proof-muted);
+  font-size: 0.6875rem;
+  text-align: center;
+  background: color-mix(in srgb, var(--setta-proof-canvas) 76%, transparent);
+  border-radius: 0.375rem;
+}
+
+.setta-nested-freeform-proof__recursive-surface [role="status"] {
+  min-block-size: 1.5rem;
+  margin: 0;
+  color: var(--setta-proof-muted);
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 40rem) {
+  .setta-nested-freeform-proof__candidate {
+    padding: 0.75rem;
+  }
+
+  .setta-nested-freeform-proof__flow--selected {
+    block-size: 49rem;
+  }
+
+  .setta-nested-freeform-proof__controls,
+  .setta-nested-freeform-proof__controls button {
+    min-inline-size: 0;
+    inline-size: 100%;
+  }
+
+  .setta-nested-freeform-proof__controls button {
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  .setta-nested-freeform-proof__controls {
+    display: grid;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .setta-nested-freeform-proof button {
+    transition-property: background-color, scale;
+    transition-duration: 120ms;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .setta-nested-freeform-proof {
+    --setta-proof-accent: #9ebbf0;
+    --setta-proof-canvas: #171e2c;
+    --setta-proof-foreground: #edf3ff;
+    --setta-proof-muted: #bdc8da;
+    --setta-proof-selected: #30496d;
+    --setta-proof-surface: #222b3c;
+  }
+}
