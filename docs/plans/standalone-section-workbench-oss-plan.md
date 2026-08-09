@@ -1685,7 +1685,7 @@ Gate:
 
 ### Phase 6: Deferred capability expansion in the same package
 
-Status: **implementation complete; phase audit complete** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
+Status: **phase audit reopened; supervisor correction required** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
 optional outline-navigator, top-level auto-layout, named item-list, filtered item-list,
 mixed-parent batch-movement, saved viewport-preset, generic edge-and-port, pane-registration, and
 viewport-culling batches are implemented. They are recorded in
@@ -1720,10 +1720,26 @@ named production positioning control and integrated performance/browser matrix a
 [Phase 6 nested-freeform positioning evidence](../evidence/phase-6-nested-freeform-positioning.md).
 The final implementation batch is recorded in
 [Phase 6 descendant-subtree minimization evidence](../evidence/phase-6-descendant-subtree-minimization.md).
-All listed repository-actionable Phase 6 capability batches are implemented and audited. The
-expanded range, static corrections, deterministic matrix, browser proof, performance result, and
-retained release gates are recorded in
-[Phase 6 gate-audit evidence](../evidence/phase-6-gate-audit.md).
+The listed capability batches have implementation and audit coverage, but Phase 6 is not complete
+until the two supervisor-required corrections below are implemented and independently re-audited.
+The prior expanded-range audit, static corrections, deterministic matrix, browser proof,
+performance result, and retained release gates are recorded in
+[Phase 6 gate-audit evidence](../evidence/phase-6-gate-audit.md); that record is historical evidence,
+not a final Phase 6 sign-off.
+
+- Remaining correction (detached renderer identity): the current React implementation switches
+  between `DockedSectionContent` and `DetachedWindowContent`, and each branch creates a distinct
+  `definition.render` element. Detaching and redocking therefore remount the host renderer even
+  though the static content, canonical document, theme, and focus tests pass. Keep one renderer
+  subtree and one stable portal target mounted while moving that target between the docked frame
+  and same-origin detached window. Add browser proof that uncontrolled renderer state and mount
+  identity survive both detach and redock, while retaining the existing popup-blocking, window-loss,
+  minimize, deletion, theme/head, placeholder-geometry, and focus behavior.
+- Remaining correction (non-tautological proof): remove or replace
+  `packages/workspace/tests/nested-freeform-representation.test.ts`. Assertions that restate the
+  exported candidate IDs, selected flag, and reason strings do not exercise a production path and
+  violate the repository test policy. Retain the executable browser representation proof and add
+  focused production-path coverage only if it proves behavior not already covered there.
 
 - Phase-audit corrections: clipboard framing rejects overflow-derived non-finite geometry and
   clipboard paste retains one busy owner through current-registry and controlled-host

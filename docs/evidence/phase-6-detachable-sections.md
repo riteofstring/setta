@@ -1,12 +1,19 @@
 # Phase 6 Detachable-Section Evidence
 
+> Supervisor correction (2026-08-09): the implementation covered window lifecycle, theme, head,
+> geometry, policy, and focus behavior, but did not preserve renderer mount identity. The docked and
+> detached branches each instantiate `definition.render`, and the existing browser workflow checks
+> only static renderer content. This evidence is incomplete until one stable renderer subtree moves
+> between documents and an uncontrolled-state test proves preservation through detach and redock.
+
 ## Result and scope
 
-The first repository-actionable Phase 6 batch is implemented. A registered section can opt into a
-same-origin detached window through the public React surface without changing `WorkspaceDocument`,
-renderer payload ownership, or controlled/uncontrolled document identity. The docked frame retains
-measured geometry and explicit focus/redock controls, while the existing renderer stays mounted
-through a React portal with live title, data, appearance, read-only state, and context.
+The first repository-actionable Phase 6 batch implements the window lifecycle. A registered section
+can opt into a same-origin detached window through the public React surface without changing
+`WorkspaceDocument`, renderer payload ownership, or controlled/uncontrolled document identity. The
+docked frame retains measured geometry and explicit focus/redock controls, and the detached renderer
+receives live title, data, appearance, and read-only props. As the supervisor correction above
+records, renderer mount identity and local React state are not yet preserved.
 
 This record covers only the tightly coupled detachable-section items. Adapter-driven copy and paste
 and the independently evaluated Phase 6 follow-ons remain incomplete and repository-actionable.

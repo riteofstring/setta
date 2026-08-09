@@ -1,9 +1,17 @@
 # Phase 6 Gate Audit
 
+> Supervisor correction (2026-08-09): this is not final Phase 6 sign-off. The audit missed that
+> `WorkspaceSectionContent` instantiates the registered renderer in separate docked and detached
+> branches, so detach and redock remount local React state. Phase 6 remains repository-actionable
+> until one stable renderer subtree/portal target preserves mount identity in both directions, a
+> browser workflow proves uncontrolled state preservation, the tautological representation metadata
+> test is removed or replaced with production-path evidence, and an independent re-audit passes.
+
 ## Result
 
-All repository-actionable Phase 6 work is complete after one coherent static review and the audit
-corrections in the commit containing this record. The requested minimum range
+This audit originally concluded that all repository-actionable Phase 6 work was complete after one
+coherent static review and the corrections in the commit containing this record. The supervisor
+correction above reopens that conclusion. The requested minimum range
 `1a90381d4132b64822cb50075d9f7e0abd323280..0191e63fd544c86596080224c996ae3b6dba8e78`
 starts after most Phase 6 capabilities were already committed. The audit therefore expands to the
 completed Phase 5 boundary at `902fad247638386b0a30cccc1b5244c5bfa939ee`, covering all 22 Phase 6
