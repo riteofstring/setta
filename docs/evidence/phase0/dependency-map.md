@@ -18,9 +18,11 @@ Clean subgraph (no app-only reach, portable as-is):
   positioned `::before` overlay, so neither selection nor border presence shifts layout. Its one
   import (`getOutlineColor` from `Container/utils.tsx:33`) is a pure function.
 - `ContainerSwitch.tsx`, `TopLevelContainer.tsx`, `DndSlot.tsx` — store-free or dnd-fork-only.
-- Zero-import leaves: `utils/sectionStyleColors.ts` (`deriveSectionStyleTheme`, the whole
-  section-style theme system), `forks/xyflow/core/contexts/NodeIdContext.tsx`,
-  `forks/dnd-kit/dropTypes.ts`.
+- Leaves: `utils/sectionStyleColors.ts` (`deriveSectionStyleTheme`, the whole section-style theme
+  system) has zero imports; `forks/xyflow/core/contexts/NodeIdContext.tsx` imports only `react`;
+  `forks/dnd-kit/dropTypes.ts` imports only the `ObjectValues` type helper from
+  `utils/generatedTypes` — a type-only edge into the generated hub that the type seam must
+  re-author.
 
 Core components and their reads:
 
@@ -37,8 +39,8 @@ Core components and their reads:
 - `SectionContainer.tsx` — visibility/view-mode gating and the joined code+terminal branch
   (app-only). Duplicates group outline chrome inline at `:271-287` instead of calling
   `sectionChrome.ts`.
-- `SectionContainerCoreResizabe.tsx` — **the heaviest app-only bridge**: 22 `../Layouts/*` section
-  content renderers, chat windowing (`UnifiedChatSurface`, `state/actions/projectChatWindowing`,
+- `SectionContainerCoreResizabe.tsx` — **the heaviest app-only bridge**: 20 section content
+  renderers imported from 18 `../Layouts/*` modules, chat windowing (`UnifiedChatSurface`, `state/actions/projectChatWindowing`,
   2,339 lines), section-window placeholders, meta-control menus, and `CustomResizable`. This file is
   where the package renderer seam must land.
 - `ContainerWrappers.tsx`, `SortableSectionContainer.tsx`, `ManyNestedSections.tsx` — dnd wiring
@@ -122,7 +124,8 @@ Hub modules (count = direct importers among the 11 container anchors):
 
 ### 1.5 Minimap (`components/Pages/Project/ResponsiveMiniMap.tsx` + `forks/xyflow/minimap/`)
 
-- `ResponsiveMiniMap.tsx` has **zero app-only imports**: it wraps the forked `MiniMap` with node
+- `ResponsiveMiniMap.tsx`'s only app import is `useLocalStorage` from `state/definitions`
+  (minimap side plus pane widths, both preference reads): it wraps the forked `MiniMap` with node
   color/stroke functions, `nodeBorderRadius={5}`, mask stroke, pannable, click-to-`setCenter`, and a
   CSS-transform placement driven by `useLocalStorage.minimapSide` plus pane widths.
 - The fork minimap (652 lines) is d3-zoom pannable with a viewport mask, syncs selection from
@@ -290,7 +293,8 @@ react,state} 0.2.1` (the experimental v0.2 line; `@dnd-kit/core` absent). The 17
   `useDNDSensors`) are Phase 4 territory but are referenced from shared adapter code
   (`collision.ts`, `dragEventMapping.ts`, `DragOperationShapeSync.tsx`), so they enter the module
   graph even though no param drag is reachable in the section slice.
-- Reverse coupling: no fork file imports `openapi/*`; the only network write is indirect
+- Reverse coupling: no fork production file imports `openapi/*` (only `Pane.test.tsx` does, to
+  mock it); the only network write is indirect
   (`useMoveSection` → `moveSectionsWithBackend`). The fork→app imports concentrate on
   `state/definitions`, `state/actions/sectionInfos`, `state/actions/nodeInternals`,
   `state/actions/sections/*`, `state/activeSectionUI`, `utils/generatedTypes`, `utils/constants`,
