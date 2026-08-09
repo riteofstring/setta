@@ -4,7 +4,8 @@
 
 Status: **in progress** (Phase 0 complete 2026-08-10, final audit pending; Phase 1 complete and
 independently audited 2026-08-10; Phase 2 implementation complete 2026-08-10 and ready for its
-independent phase audit; Phase 3 complete and independently audited 2026-08-10). Phase 0
+independent phase audit; Phase 3 complete and independently audited 2026-08-10; Phase 4 started
+2026-08-10 with the large-document culling profile). Phase 0
 artifacts: the before-screenshot evidence set and public-API-only
 visual-matrix route
 ([docs/evidence/setta-ui-before-screenshots.md](../evidence/setta-ui-before-screenshots.md)), the
@@ -215,6 +216,26 @@ references belong to the canvas-shell route and the package default. After the c
 118/118 in one run. A driven Chrome check confirmed the fitted populated first launch at
 1440 × 900 and 1024 × 768, dark appearance with the Help panel overlaying the canvas, and 360 px
 reflow with the Data panel open.
+
+Phase 4 started 2026-08-10 with the large-document culling profile: `corepack pnpm perf:culling`
+drives a new public-API-only `/?culling-profile` route (deterministic 305-section document across
+three nesting depths, culling enabled at the default overscan, a vacant pan-alley column, named
+focus-pin and drag targets) and appends to the new append-only
+[perf/culling-profile.md](../../perf/culling-profile.md); a focused deterministic E2E guards the
+route's contract. On the declared reference run, production is clean everywhere (worst pan/pinned
+wheel-pan/drag gap 17.5 ms, no long tasks, drag activation on the 305-section document matching
+the small-fixture profile) and the zoom-out mass mount (14 → 209 rendered frames) costs exactly
+one 33.3 ms doubled frame per pass. The one repeatable development-only cell is that same
+zoom-out mass mount (91.7 ms max gap, 52–76 ms long tasks, ~3× production script with identical
+layout/recalc counts — dev-build React overhead, not a CSS/layout defect); no
+repository-actionable defect fell out. Harness lesson encoded in the profiler and E2E rather
+than papered over: selected/focused pinning is focus-scoped by design, so a pointer pan on the
+pane releases the pin and the pinned workload measures wheel pan. Cause, semantics, and numbers:
+[perf/phase-4-culling-profile.md](../../perf/phase-4-culling-profile.md). Remaining Phase 4
+work: the together-verification of accessibility dimensions, workflow re-runs with refreshed
+intentional baselines, detached-window/no-attribution verification, the full gate set (build,
+pack, consumer, API report, quality, supply-chain, license, vulnerability), and the final
+screenshot/trace evidence set.
 
 Make the Setta visual language the opinionated default for `@setta/workspace`, redesign the
 backend-free playground around the canvas, and remove the measurable structural-drag startup hitch.

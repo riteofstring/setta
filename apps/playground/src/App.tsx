@@ -1,5 +1,6 @@
 import { AdapterProofPage } from "./AdapterProofPage.js";
 import { CanvasShellPage } from "./CanvasShellPage.js";
+import { CullingProfilePage } from "./CullingProfilePage.js";
 import { DefaultPlaygroundPage } from "./DefaultPlaygroundPage.js";
 import { NestedFreeformRepresentationProofPage } from "./NestedFreeformRepresentationProofPage.js";
 import { StateContractPage } from "./StateContractPage.js";
@@ -21,6 +22,9 @@ export function App() {
   }
   if (search.has("visual-matrix")) {
     return <VisualMatrixPage />;
+  }
+  if (search.has("culling-profile")) {
+    return <CullingProfilePage />;
   }
 
   return (

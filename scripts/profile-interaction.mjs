@@ -19,7 +19,6 @@
  *        [--scenario name[,name]] [--cpu-throttle 1] [--skip-build]
  */
 
-import { spawn } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
@@ -34,14 +33,14 @@ import {
   cdpMetricsDelta,
   PROBE_INIT_SCRIPT,
 } from "./lib/interaction-probe.mjs";
-import { repositoryRoot, runPnpm } from "./lib/process.mjs";
+import { startServer, stopServer } from "./lib/playground-server.mjs";
+import { repositoryRoot } from "./lib/process.mjs";
 
 const VIEWPORT = { height: 1000, width: 1440 };
 const MOVE_COUNT = 96;
 const MOVE_PAUSE_MS = 7;
 const HOVER_SETTLE_MS = 150;
 const COMMIT_SETTLE_MS = 250;
-const SERVER_READY_TIMEOUT_MS = 180_000;
 const DEFAULT_ZOOMS = [0.5, 1, 2];
 // Minimum distance from every window edge for the whole gesture, keeping the
 // pointer outside dnd-kit's window auto-scroll region.
@@ -79,8 +78,6 @@ const SCENARIOS = [
     workload: "Same-parent nested freeform drag inside the freeform container.",
   },
 ];
-
-const MODE_PORTS = { development: 4_173, production: 4_174 };
 
 function argValue(name, fallback) {
   const index = process.argv.indexOf(`--${name}`);
@@ -139,51 +136,6 @@ function parseConfiguration() {
     skipBuild: process.argv.includes("--skip-build"),
     zooms,
   };
-}
-
-async function serverReachable(baseUrl) {
-  try {
-    const response = await fetch(baseUrl);
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
-
-async function waitForServer(baseUrl) {
-  const deadline = Date.now() + SERVER_READY_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    if (await serverReachable(baseUrl)) {
-      return;
-    }
-    await delay(1_000);
-  }
-  throw new Error(`The playground did not become reachable at ${baseUrl}.`);
-}
-
-async function startServer(mode, skipBuild) {
-  const baseUrl = `http://127.0.0.1:${String(MODE_PORTS[mode])}`;
-  if (await serverReachable(baseUrl)) {
-    return { baseUrl, server: null };
-  }
-  if (mode === "production" && !skipBuild) {
-    runPnpm(["build"]);
-  }
-  const args =
-    mode === "production" ? ["--filter", "@setta/workspace-playground", "preview"] : ["dev"];
-  const server = spawn("corepack", ["pnpm", ...args], {
-    cwd: repositoryRoot,
-    detached: true,
-    stdio: ["ignore", "ignore", "inherit"],
-  });
-  await waitForServer(baseUrl);
-  return { baseUrl, server };
-}
-
-function stopServer(server) {
-  if (server?.pid) {
-    process.kill(-server.pid, "SIGTERM");
-  }
 }
 
 function scenarioUrl(baseUrl, scenario, zoom, canvasBox, offset = { x: 0, y: 0 }) {

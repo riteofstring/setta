@@ -236,6 +236,33 @@ export function analyzeGestureSample(sample) {
   };
 }
 
+/**
+ * Convert one probe sample of a continuous non-pointer interaction (wheel
+ * pan/zoom) into frame-pacing metrics. The window spans every recorded frame,
+ * so callers begin the probe immediately before the interaction and end it
+ * after their settle delay.
+ */
+export function analyzeContinuousSample(sample) {
+  if (sample.frames.length < 2) {
+    throw new Error("A continuous sample needs at least two animation frames.");
+  }
+  const frameGaps = intervals(sample.frames);
+  return {
+    frameCount: sample.frames.length,
+    gapsOver20Ms: frameGaps.filter((gap) => gap > 20).map(round1),
+    longTasks: overlappingLongTasks(
+      sample.longTasks,
+      sample.frames[0],
+      sample.frames[sample.frames.length - 1],
+    ),
+    overall: gapStats(frameGaps),
+    pageScrollDelta: {
+      x: round1(sample.scroll.end.x - sample.scroll.begin.x),
+      y: round1(sample.scroll.end.y - sample.scroll.begin.y),
+    },
+  };
+}
+
 const CDP_COUNT_METRICS = ["LayoutCount", "RecalcStyleCount"];
 const CDP_DURATION_METRICS = [
   "LayoutDuration",
