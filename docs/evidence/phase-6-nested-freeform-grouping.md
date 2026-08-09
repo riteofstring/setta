@@ -50,7 +50,8 @@ top-level grouping baseline was narrowed from the entire playground page to the 
 1,152 by 631 workspace region after its reviewed diff proved confined to subpixel icon rendering;
 the regenerated scoped image was also inspected at original resolution.
 
-CDP visual check: done (focused Playwright Chromium baselines inspected at original resolution).
+CDP visual check: not run (the recorded in-app browser surface remains unavailable; focused
+Playwright Chromium baselines were inspected at original resolution).
 
 ## Verification boundary
 
