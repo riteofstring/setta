@@ -1,7 +1,7 @@
 # `@setta/workspace`
 
-A nested spatial workbench for React with pannable top-level sections, recursive ordered
-containers, and host-defined sortable item trees.
+A nested spatial workbench for React with pannable top-level sections, recursive ordered or
+freeform containers, and host-defined sortable item trees.
 
 The package is private and locally installable while distribution, repository hosting, licensing,
 and release policy remain undecided. It requires React 19.2.8 and React DOM 19.2.8 as exact peer
@@ -487,6 +487,15 @@ deterministic visual/hierarchy order and the active root anchors the first keybo
 no measured container is available beyond a nested block's edge, the
 next arrow previews the canvas while preserving that block's measured workbench placement; after
 commit, switch to sort mode for ordinary root arrow-key positioning.
+
+Selected containers also expose a named child-positioning control when layout editing is
+available. Ordered-to-freeform conversion measures every direct child and preserves those visible
+local offsets without a confirmation dialog. Freeform-to-ordered conversion offers vertical and
+horizontal choices, then asks for confirmation only when the selected orientation would materially
+rearrange the measured children. Cancel or Escape retains the document and restores trigger focus;
+one accepted conversion publishes one `section-positioning` change and announces the reconciled
+result. A controlled host may retain its document, in which case the freeform layout remains
+visible and the control reports that the proposed change was not accepted.
 
 `validateSectionMove` is an optional synchronous, side-effect-free host policy for section moves.
 It receives the current document and an immutable `SectionMovePlan` after package-owned

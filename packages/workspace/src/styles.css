@@ -331,6 +331,18 @@
   text-transform: uppercase;
 }
 
+.setta-workspace__section-positioning-description {
+  margin: 0;
+  color: var(--setta-workspace-section-muted-text);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.setta-workspace__section-positioning-dialog .setta-workspace__selection-action-group {
+  gap: 0.75rem;
+}
+
 .setta-workspace__selection-action-surface [role="menu"] {
   display: flex;
   flex-direction: column;
@@ -1054,12 +1066,39 @@
   display: grid;
 }
 
+.setta-workspace__section-frame:focus-within .setta-workspace__section-positioning-control,
+.setta-workspace__section-frame:is(
+    [data-workspace-selected="true"],
+    [data-workspace-presentation-open="true"],
+    [data-workspace-title-editing="true"]
+  )
+  .setta-workspace__section-positioning-control {
+  display: none;
+}
+
+.setta-workspace__section-frame:is(
+    [data-workspace-selected="true"],
+    [data-workspace-presentation-open="true"],
+    [data-workspace-title-editing="true"],
+    :focus
+  ):not(:has(.setta-workspace__section-frame:focus-within))
+  > .setta-workspace__section-header
+  > .setta-workspace__section-actions
+  > .setta-workspace__section-positioning-control,
+.setta-workspace__section-frame
+  > .setta-workspace__section-header:focus-within
+  > .setta-workspace__section-actions
+  > .setta-workspace__section-positioning-control {
+  display: grid;
+}
+
 .setta-workspace__section-edit-control:hover:not(:disabled) {
   color: var(--setta-workspace-section-local-text);
   background: var(--setta-workspace-section-local-background);
 }
 
 .setta-workspace__section-state-control:is([aria-pressed="true"], [aria-expanded="false"]),
+.setta-workspace__section-positioning-control[data-workspace-current-positioning="freeform"],
 .setta-workspace__section-overflow-control[aria-pressed="true"] {
   color: var(--setta-workspace-selection);
   box-shadow: inset 0 0 0 2px currentColor;
@@ -2642,6 +2681,9 @@
   }
 
   .setta-workspace__section-edit-control:active:not(:disabled),
+  .setta-workspace__section-positioning-dialog
+    .setta-workspace__selection-action-group
+    button:active,
   .setta-workspace__pane-close:active,
   .setta-workspace__section-detachment-control:active,
   .setta-workspace__section-selection-control:active,

@@ -376,11 +376,15 @@ describe("Workspace scaffold", () => {
     expect(markup).toMatch(
       /aria-label="Arrange Nested row child sections vertically"[^>]+data-workspace-next-orientation="vertical"/u,
     );
+    expect(markup).toContain('aria-label="Use freeform positioning for Nested row child sections"');
     expect(markup).toMatch(
       /aria-label="Scroll Root container child sections"[^>]+aria-pressed="false"[^>]+disabled/u,
     );
     expect(markup).toMatch(
       /aria-label="Arrange Root container child sections horizontally"[^>]+data-workspace-next-orientation="horizontal"/u,
+    );
+    expect(markup).toMatch(
+      /aria-label="Use freeform positioning for Root container child sections"[^>]+disabled/u,
     );
     expect(markup).not.toContain("Host body for root");
     expect(markup).toContain("Host body for first");
@@ -429,7 +433,12 @@ describe("Workspace scaffold", () => {
       /data-workspace-section-id="root"[^>]+data-workspace-child-orientation/u,
     );
     expect(markup).not.toContain("Arrange Root container child sections horizontally");
+    expect(markup).toContain('aria-label="Change Root container child positioning"');
     expect(markup).toContain("Arrange Nested row child sections vertically");
+    expect(markup).toContain('aria-label="Use freeform positioning for Nested row child sections"');
+    expect(markup).toMatch(
+      /<dialog[^>]+setta-workspace__section-positioning-dialog[^>]+data-workspace-local-shortcuts=""/u,
+    );
   });
 
   it("omits minimize controls for a section kind that opts out", () => {
@@ -584,7 +593,11 @@ describe("Workspace scaffold", () => {
     ]);
     expect(markup).toContain('role="toolbar"');
     expect(markup).toContain('aria-label="Extension workspace controls"');
-    expect(markup).not.toContain("aria-describedby");
+    const toolbarControlTags = [
+      ...markup.matchAll(/<button[^>]+data-workspace-control-id[^>]*>/gu),
+    ];
+    expect(toolbarControlTags).toHaveLength(9);
+    expect(toolbarControlTags.every(([tag]) => !tag.includes("aria-describedby"))).toBe(true);
     expect(markup).toMatch(/aria-pressed="true"[^>]+data-workspace-control-id="host-project"/u);
     expect(markup).toMatch(/data-workspace-control-id="host-viewport"[^>]+disabled=""/u);
     expect(markup).toContain('role="img"');

@@ -1716,8 +1716,10 @@ Freeform-aware grouping and ungrouping are recorded in
 [Phase 6 nested-freeform grouping evidence](../evidence/phase-6-nested-freeform-grouping.md).
 Clipboard and external-drop placement are recorded in
 [Phase 6 nested-freeform placement evidence](../evidence/phase-6-nested-freeform-placement.md). The
-named production positioning control and final integrated performance/browser matrix are now the
-earliest incomplete repository-actionable Phase 6 work.
+named production positioning control and integrated performance/browser matrix are recorded in
+[Phase 6 nested-freeform positioning evidence](../evidence/phase-6-nested-freeform-positioning.md).
+Complete descendant-subtree minimization is now the earliest incomplete repository-actionable
+Phase 6 work.
 
 - Completed (nested-freeform representation prerequisite): compared the plan-mandated all-section
   XYFlow graph, separately provided inner-XYFlow instances, and package-owned absolutely positioned
@@ -1856,6 +1858,36 @@ earliest incomplete repository-actionable Phase 6 work.
   the declared placement union. No dependency input changed, so the network-backed supply-chain
   gate was not duplicated; the recorded unavailable in-app-browser release gate was not retried.
 
+- Completed (nested-freeform positioning and integrated-evidence slice): added one named native
+  positioning control to the production recursive frame. Ordered-to-freeform conversion measures
+  keyed direct-child rectangles and commits a complete normalized local position map without a
+  prompt. Freeform-to-ordered conversion offers vertical or horizontal layout and confirms only
+  when a pure LTR/RTL-aware projection establishes material rearrangement. The dialog isolates
+  local Escape handling, restores focus, preserves selection, and reports exact accepted,
+  unchanged, rejected, or controlled-host-retained outcomes through a pre-mounted live region.
+  Direct-header visibility avoids expanding ancestor chrome during descendant interaction. The
+  playground and unrelated packed consumer exercise both conversion directions through declared
+  exports. The complete record is
+  `docs/evidence/phase-6-nested-freeform-positioning.md`, with the bounded 512-child measurement in
+  `perf/phase-6-nested-freeform-performance.md`.
+- Nested-freeform positioning verification: exact Node 24.18.1, repository-local Corepack 0.35.0,
+  and pnpm 11.19.0 focused coverage passed 57 command, React-geometry, static-contract, and canvas
+  tests. New Chromium conversion and controlled-retention workflows passed exact change counts,
+  measured positions, material confirmation, safe Escape, focus/selection reconciliation,
+  announcements, and Axe. Eleven adjacent nested, recursive, and grouping workflows plus the
+  focused structural-ownership probe passed, and all refreshed baselines were inspected at original
+  resolution. The duplicate-failure rule prevented a third identical rerun of the complete reflow
+  scenario and three legacy empty-container collision scenarios after focused corrections; their
+  replacement Escape and ancestor-chrome probes are green and the unchanged exact scenarios remain
+  committed for the phase audit. The milestone benchmark passed 80 public-controller conversions
+  of 512 children in 867.521 ms with deterministic checksum `2,498,560`, and the unrelated
+  tarball-installed consumer passed lockfile policy, strict build, and runtime conversion. The
+  changed-file quality gate passed repository boundaries, dependency policy, formatting, lint and complexity,
+  file lengths, strict types, dead-code analysis, tests, automation, builds, exact tarball contents,
+  documentation links, and the declaration report. No dependency input changed, so the network-
+  backed supply-chain gate was not duplicated; the recorded unavailable in-app-browser release gate
+  was not retried.
+
 - Completed (viewport-culling batch): added strict opt-in all-depth browser windowing through one
   canvas-rooted observer, exact-size named placeholders, canonical-ID-scoped retained geometry,
   focused and active-frame pinning, and controller ancestry reveal around measured focus. Culling
@@ -1877,7 +1909,7 @@ earliest incomplete repository-actionable Phase 6 work.
   and React prop. No dependency input changed, so the network-backed supply-chain gate was not
   duplicated; the recorded unavailable in-app-browser release gate was not retried.
 
-#### Remaining batch: absolute/freeform positioning inside nested containers
+#### Completed batch: absolute/freeform positioning inside nested containers
 
 This batch is a clean document-contract expansion, not a presence-based inference layered over the
 ordered shape. Replace `WorkspaceChildLayout` with an explicit discriminated union close to:
@@ -2149,7 +2181,7 @@ Then evaluate or implement independently:
 - Completed: generic edges and ports.
 - Completed: pane registration beyond toolbar and overlay slots.
 - Completed: viewport culling.
-- Absolute/freeform positioning inside nested containers.
+- Completed: absolute/freeform positioning inside nested containers.
 - Collapsing an entire descendant subtree as part of section minimization.
 
 Each follow-on addition must preserve the standalone one-sentence purpose, remain in the same package unless independently useful, and prove that its data ownership is generic rather than inherited from Setta application behavior.

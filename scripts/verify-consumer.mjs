@@ -64,6 +64,45 @@ async function closeConsumerServer(server) {
   });
 }
 
+async function verifyConsumerPositioning(workspace) {
+  const freeformGroup = workspace.getByRole("article", {
+    name: "Consumer freeform group",
+  });
+  await freeformGroup.waitFor();
+  if ((await freeformGroup.getAttribute("data-workspace-child-positioning")) !== "freeform") {
+    throw new Error("Packed consumer did not render the declared freeform child layout.");
+  }
+  await freeformGroup.getByRole("button", { name: "Select Consumer freeform group" }).click();
+  await freeformGroup
+    .getByRole("button", { name: "Change Consumer freeform group child positioning" })
+    .click();
+  await workspace
+    .getByRole("dialog", { name: "Arrange child sections" })
+    .getByRole("button", { name: "Arrange vertically" })
+    .click();
+  await workspace
+    .getByRole("dialog", { name: "Arrange child sections?" })
+    .getByRole("button", { name: "Arrange vertically" })
+    .click();
+  await workspace
+    .locator(
+      '[data-workspace-section-id="consumer-group-1"]' +
+        '[data-workspace-child-positioning="ordered"]',
+    )
+    .waitFor({ state: "visible" });
+  await freeformGroup
+    .getByRole("button", {
+      name: "Use freeform positioning for Consumer freeform group child sections",
+    })
+    .click();
+  await workspace
+    .locator(
+      '[data-workspace-section-id="consumer-group-1"]' +
+        '[data-workspace-child-positioning="freeform"]',
+    )
+    .waitFor({ state: "visible" });
+}
+
 async function verifyConsumerRuntime(distributionRoot) {
   const browser = await chromium.launch();
   try {
@@ -95,13 +134,7 @@ async function verifyConsumerRuntime(distributionRoot) {
       if ((await canvas.getAttribute("data-workspace-viewport-culling")) !== "true") {
         throw new Error("Packed consumer did not enable the declared viewport-culling contract.");
       }
-      const freeformGroup = workspace.getByRole("article", {
-        name: "Consumer freeform group",
-      });
-      await freeformGroup.waitFor();
-      if ((await freeformGroup.getAttribute("data-workspace-child-positioning")) !== "freeform") {
-        throw new Error("Packed consumer did not render the declared freeform child layout.");
-      }
+      await verifyConsumerPositioning(workspace);
       const consumerNote = workspace.getByRole("article", { name: "Consumer note 1" });
       await consumerNote.waitFor();
       await consumerNote.getByRole("textbox", { name: "Consumer note body" }).waitFor();

@@ -7,6 +7,7 @@ import {
   validateWorkspaceConnections,
   type SectionOrientation,
   type SectionOverflow,
+  type WorkspaceChildLayoutPositioningChange,
   type WorkspaceController,
   type WorkspaceJsonValue,
   type WorkspacePoint,
@@ -613,6 +614,11 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       controller.setSectionChildOrientation(sectionId, orientation),
     [controller],
   );
+  const handleSectionPositioningCommit = useCallback(
+    (sectionId: string, change: WorkspaceChildLayoutPositioningChange) =>
+      controller.setSectionChildPositioning(sectionId, change),
+    [controller],
+  );
   const handleSectionPresentationCommit = useCallback(
     (sectionId: string, presentation: WorkspaceSectionPresentation) =>
       controller.setSectionPresentation(sectionId, presentation),
@@ -706,6 +712,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
           onSectionMoveCommit={handleSectionMoveCommit}
           onSectionOrientationCommit={handleSectionOrientationCommit}
           onSectionOverflowCommit={handleSectionOverflowCommit}
+          onSectionPositioningCommit={handleSectionPositioningCommit}
           onSectionPresentationCommit={handleSectionPresentationCommit}
           onSectionTitleCommit={handleSectionTitleCommit}
           onSelectionChange={commitSelection}

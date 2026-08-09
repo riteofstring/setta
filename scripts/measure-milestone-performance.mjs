@@ -10,6 +10,7 @@ const documentRootCount = 128;
 const documentChildrenPerRoot = 7;
 const sectionSiblingCount = 512;
 const sectionBlockSize = 64;
+const positioningChildCount = 512;
 const collisionCandidateCount = 256;
 const itemCount = 2_000;
 const deepItemDepth = 2_048;
@@ -35,6 +36,7 @@ function milestoneSection(id, childIds, index) {
         : {
             orientation: index % 2 === 0 ? "vertical" : "horizontal",
             overflow: index % 3 === 0 ? "scroll" : "grow",
+            positioning: "ordered",
             sectionIds: childIds,
           },
     data: { index },
@@ -113,6 +115,43 @@ function createSectionHierarchy() {
       rootSectionIds: [sourceParentId, destinationParentId],
     },
     selectedIds: sourceIds.slice(192, 192 + sectionBlockSize).reverse(),
+  };
+}
+
+function createPositioningFixture() {
+  const rootId = "positioning-root";
+  const sectionIds = Array.from(
+    { length: positioningChildCount },
+    (_, index) => `positioning-child-${String(index)}`,
+  );
+  const sections = Object.fromEntries(
+    sectionIds.map((sectionId, index) => [sectionId, milestoneSection(sectionId, [], index)]),
+  );
+  sections[rootId] = {
+    ...milestoneSection(rootId, sectionIds, -1),
+    childLayout: {
+      orientation: "vertical",
+      overflow: "scroll",
+      positioning: "ordered",
+      sectionIds,
+    },
+    size: fixedSize(1_600, 960),
+  };
+  return {
+    document: {
+      rootSections: [{ position: { x: 0, y: 0 }, sectionId: rootId }],
+      schemaVersion: core.WORKSPACE_DOCUMENT_SCHEMA_VERSION,
+      sections,
+      viewport: { x: 0, y: 0, zoom: 1 },
+    },
+    positions: Object.fromEntries(
+      sectionIds.map((sectionId, index) => [
+        sectionId,
+        { x: (index % 16) * 96, y: Math.floor(index / 16) * 72 },
+      ]),
+    ),
+    rootId,
+    sectionIds,
   };
 }
 
@@ -218,9 +257,8 @@ const sectionFixture = createSectionHierarchy();
 const sectionPlanAndApply = measure(200, () => {
   const decision = testing.planSectionMove({
     destination: {
-      index: 256,
       parentId: sectionFixture.destinationParentId,
-      topLevelPositions: null,
+      placement: { index: 256, type: "ordered" },
     },
     hierarchy: sectionFixture.hierarchy,
     mode: "free",
@@ -231,6 +269,30 @@ const sectionPlanAndApply = measure(200, () => {
   return (
     decision.plan.sectionIds.length +
     (applied.childrenByParent[sectionFixture.destinationParentId]?.length ?? 0)
+  );
+});
+
+const positioningFixture = createPositioningFixture();
+const positioningHost = new testing.WorkspaceInMemoryHost(positioningFixture.document);
+const sectionPositioning = measure(80, () => {
+  const current = positioningHost.document().sections[positioningFixture.rootId].childLayout;
+  assert.ok(current);
+  const result =
+    current.positioning === "ordered"
+      ? positioningHost.controller.setSectionChildPositioning(positioningFixture.rootId, {
+          positioning: "freeform",
+          positions: positioningFixture.positions,
+        })
+      : positioningHost.controller.setSectionChildPositioning(positioningFixture.rootId, {
+          orientation: "vertical",
+          positioning: "ordered",
+        });
+  assert.equal(result.status, "applied");
+  const next = positioningHost.document().sections[positioningFixture.rootId].childLayout;
+  assert.ok(next);
+  return (
+    next.sectionIds.length +
+    (next.positioning === "freeform" ? Object.keys(next.positions).length : 0)
   );
 });
 
@@ -306,6 +368,7 @@ const observations = {
   documentTraversal,
   itemPlanAndApply,
   sectionPlanAndApply,
+  sectionPositioning,
   sectionPreview,
   smartPlacement,
 };
@@ -326,6 +389,7 @@ console.log(
         documentSections: documentSectionCount,
         flatItems: itemCount,
         sectionBlockSize,
+        positioningChildren: positioningChildCount,
         sectionSiblingsPerParent: sectionSiblingCount,
       },
       observations,

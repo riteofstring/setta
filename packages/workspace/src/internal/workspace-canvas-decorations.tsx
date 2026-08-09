@@ -63,6 +63,7 @@ export function WorkspaceCanvasAnnouncements({
   creation,
   containerLayout,
   containerOrientation,
+  containerPositioning,
   externalDrop,
   history,
   movement,
@@ -76,6 +77,7 @@ export function WorkspaceCanvasAnnouncements({
   creation: string;
   containerLayout: string;
   containerOrientation: string;
+  containerPositioning: string;
   externalDrop: string;
   history: string;
   movement: string;
@@ -110,6 +112,14 @@ export function WorkspaceCanvasAnnouncements({
         data-workspace-container-orientation-announcement=""
       >
         {containerOrientation}
+      </div>
+      <div
+        aria-atomic="true"
+        aria-live="polite"
+        className="setta-workspace__visually-hidden"
+        data-workspace-container-positioning-announcement=""
+      >
+        {containerPositioning}
       </div>
       <div
         aria-atomic="true"

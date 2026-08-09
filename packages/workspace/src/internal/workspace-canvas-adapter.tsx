@@ -14,6 +14,7 @@ import type {
   SectionOrientation,
   SectionOverflow,
   WorkspaceActionResult,
+  WorkspaceChildLayoutPositioningChange,
   WorkspaceConnections,
   WorkspaceController,
   WorkspaceDocument,
@@ -137,6 +138,10 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
     sectionId: string,
     orientation: SectionOrientation,
   ): WorkspaceActionResult;
+  onSectionPositioningCommit(
+    sectionId: string,
+    change: WorkspaceChildLayoutPositioningChange,
+  ): WorkspaceActionResult;
   onSectionOverflowCommit(
     sectionId: string,
     overflow: SectionOverflow,
@@ -236,6 +241,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   onSectionMoveCommit,
   onSectionOrientationCommit,
   onSectionOverflowCommit,
+  onSectionPositioningCommit,
   onSectionPresentationCommit,
   onSectionTitleCommit,
   onSelectionChange,
@@ -328,6 +334,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     onSectionMinimizedCommit,
     onSectionOrientationCommit,
     onSectionOverflowCommit,
+    onSectionPositioningCommit,
     onSectionPresentationCommit,
     onSectionTitleCommit,
     onSelectionRequest: selection.handleSelectionRequest,
@@ -638,6 +645,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
               creation={creationAnnouncement}
               containerLayout={rootProjection.containerLayoutAnnouncementText}
               containerOrientation={rootProjection.containerOrientationAnnouncementText}
+              containerPositioning={rootProjection.containerPositioningAnnouncementText}
               externalDrop={externalDrop.announcementText}
               history={historyAnnouncement}
               movement={rootProjection.announcementText}
@@ -648,6 +656,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
               structureMovement={interaction.announcementText}
             />
             {creation.dialog}
+            {rootProjection.containerPositioningDialog}
             {selectionActions.dialog}
             {externalDrop.feedback}
             {connections.ports.length > 0 ? (

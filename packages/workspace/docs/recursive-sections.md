@@ -8,7 +8,7 @@ second parent map.
 ## Registering a container kind
 
 A section kind opts into containment with `canContainSections: true`. Its definition may also set
-the initial child orientation and overflow mode.
+the initial child positioning, ordered orientation, and overflow mode.
 
 ```tsx
 const containerDefinition = {
@@ -19,6 +19,7 @@ const containerDefinition = {
   defaultSizeMode: { width: "fixed", height: "content" },
   contentSizing: { width: true, height: true },
   canContainSections: true,
+  defaultChildPositioning: "ordered",
   defaultChildOrientation: "vertical",
   defaultChildOverflow: "grow",
   render: GroupSummary,
@@ -58,6 +59,15 @@ controller.setSectionChildPositioning("group", {
   },
 });
 ```
+
+Selected containers expose the same conversion through a named native control when layout editing
+is available. Ordered-to-freeform conversion derives a complete local position map from the direct
+child rectangles and commits immediately because it preserves their displayed arrangement.
+Freeform-to-ordered conversion opens a native dialog for vertical or horizontal order. It asks for
+confirmation only when the chosen order differs materially from the measured positions; Cancel and
+Escape retain the current layout and restore trigger focus. Accepted, unchanged, rejected, and
+controlled-host-retained outcomes use a pre-mounted polite announcement. The control is unavailable
+for locked or minimized containers because their required conversion geometry is not actionable.
 
 The recursive DOM renders those local positions without another XYFlow store or viewport. The
 same-parent freeform movement path updates only the moved position entries and preserves canonical
@@ -214,10 +224,10 @@ minimized, unmeasured, or non-container transitions reject with a specific actio
 ## Grid and snapping
 
 Grid visibility and snapping are independent host preferences. `gridOptions.spacing` is a two-axis
-workbench-unit grid used by root movement and root resize, including negative coordinates. Dots,
-lines, and crosses remain phased through pan and zoom. Ordered nested children do not use spatial
-snapping; direct manipulation of freeform local positions remains part of the next Phase 6
-interaction batch.
+workbench-unit grid used by root movement, root resize, and freeform child movement. Dots, lines,
+and crosses remain phased through pan and zoom. Ordered nested children do not use spatial
+snapping. Freeform pointer, touch, and keyboard movement snaps in the immediate parent's local
+coordinate system and translates a selected block together at its local start edges.
 
 Showing a grid does not enable snapping, and hiding it does not disable snapping. Keep controlled
 snap ownership stable by passing both `gridOptions.snap` and `onGridSnapChange`, or omit the callback

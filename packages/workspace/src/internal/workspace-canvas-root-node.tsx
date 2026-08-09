@@ -41,6 +41,7 @@ type WorkspaceRootNodeData = {
   onMinimizedCommit: WorkspaceSectionFrameProps["onMinimizedCommit"];
   onOrientationCommit: WorkspaceSectionFrameProps["onOrientationCommit"];
   onOverflowCommit: WorkspaceSectionFrameProps["onOverflowCommit"];
+  onPositioningRequest: WorkspaceSectionFrameProps["onPositioningRequest"];
   onPresentationCommit: WorkspaceSectionFrameProps["onPresentationCommit"];
   onSelectionRequest(sectionId: string, request: WorkspaceSectionSelectionRequest): void;
   onTitleCommit: WorkspaceSectionFrameProps["onTitleCommit"];
@@ -83,6 +84,7 @@ function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
     onMinimizedCommit: data.onMinimizedCommit,
     onOrientationCommit: data.onOrientationCommit,
     onOverflowCommit: data.onOverflowCommit,
+    onPositioningRequest: data.onPositioningRequest,
     onPresentationCommit: data.onPresentationCommit,
     onSelectionRequest: data.onSelectionRequest,
     onTitleCommit: data.onTitleCommit,
@@ -118,6 +120,7 @@ function WorkspaceRootShell({ data }: NodeProps<WorkspaceRootNode>) {
         onMinimizedCommit={data.onMinimizedCommit}
         onOrientationCommit={data.onOrientationCommit}
         onOverflowCommit={data.onOverflowCommit}
+        onPositioningRequest={data.onPositioningRequest}
         onPresentationCommit={data.onPresentationCommit}
         onSelectionRequest={data.onSelectionRequest}
         onTitleCommit={data.onTitleCommit}
@@ -221,6 +224,7 @@ function rootNode(
   onMinimizedCommit: WorkspaceRootNodeData["onMinimizedCommit"],
   onOrientationCommit: WorkspaceRootNodeData["onOrientationCommit"],
   onOverflowCommit: WorkspaceRootNodeData["onOverflowCommit"],
+  onPositioningRequest: WorkspaceRootNodeData["onPositioningRequest"],
   onPresentationCommit: WorkspaceRootNodeData["onPresentationCommit"],
   onSelectionRequest: WorkspaceRootNodeData["onSelectionRequest"],
   onTitleCommit: WorkspaceRootNodeData["onTitleCommit"],
@@ -246,6 +250,7 @@ function rootNode(
       onMinimizedCommit,
       onOrientationCommit,
       onOverflowCommit,
+      onPositioningRequest,
       onPresentationCommit,
       onSelectionRequest,
       onTitleCommit,
@@ -292,6 +297,7 @@ export function projectNodes<TSectionData>(
   onMinimizedCommit: WorkspaceRootNodeData["onMinimizedCommit"],
   onOrientationCommit: WorkspaceRootNodeData["onOrientationCommit"],
   onOverflowCommit: WorkspaceRootNodeData["onOverflowCommit"],
+  onPositioningRequest: WorkspaceRootNodeData["onPositioningRequest"],
   onPresentationCommit: WorkspaceRootNodeData["onPresentationCommit"],
   onSelectionRequest: WorkspaceRootNodeData["onSelectionRequest"],
   onTitleCommit: WorkspaceRootNodeData["onTitleCommit"],
@@ -328,6 +334,7 @@ export function projectNodes<TSectionData>(
       onMinimizedCommit,
       onOrientationCommit,
       onOverflowCommit,
+      onPositioningRequest,
       onPresentationCommit,
       onSelectionRequest,
       onTitleCommit,

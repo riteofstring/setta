@@ -43,8 +43,7 @@ import {
 } from "./workspace-section-dnd.js";
 import { SectionPresentationEditor, SectionTitleEditor } from "./workspace-section-editors.js";
 import { MoveIcon, RenameIcon, SelectionIcon, StyleIcon } from "./workspace-section-frame-icons.js";
-import { WorkspaceSectionOrientationControl } from "./workspace-section-orientation.js";
-import { WorkspaceSectionOverflowControl } from "./workspace-section-overflow.js";
+import { WorkspaceSectionLayoutControls } from "./workspace-section-layout-controls.js";
 import type { ResolvedSectionDefinition } from "./workspace-section-registry.js";
 import { WorkspaceSectionStateControls } from "./workspace-section-state-controls.js";
 import type { WorkspaceSectionSelectionRequest } from "./workspace-selection.js";
@@ -72,6 +71,7 @@ export type WorkspaceSectionFrameProps = Readonly<{
   onMinimizedCommit(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
   onOrientationCommit(sectionId: string, orientation: SectionOrientation): WorkspaceActionResult;
   onOverflowCommit(sectionId: string, overflow: SectionOverflow): WorkspaceActionResult;
+  onPositioningRequest(sectionId: string, trigger: HTMLButtonElement): void;
   onPresentationCommit(
     sectionId: string,
     presentation: WorkspaceSectionPresentation,
@@ -674,6 +674,7 @@ export function WorkspaceSectionFrame({
   onMinimizedCommit,
   onOrientationCommit,
   onOverflowCommit,
+  onPositioningRequest,
   onPresentationCommit,
   onSelectionRequest,
   onTitleCommit,
@@ -871,28 +872,15 @@ export function WorkspaceSectionFrame({
     />
   );
   const layoutControls = (
-    <>
-      <WorkspaceSectionOrientationControl
-        controlRef={orientationControlRef}
-        layoutEditable={layoutEditable}
-        onCommit={(sectionId, orientation) => {
-          const result = onOrientationCommit(sectionId, orientation);
-          focusWithoutScroll(orientationControlRef);
-          return result;
-        }}
-        section={section}
-      />
-      <WorkspaceSectionOverflowControl
-        controlRef={overflowControlRef}
-        layoutEditable={layoutEditable}
-        onCommit={(sectionId, overflow) => {
-          const result = onOverflowCommit(sectionId, overflow);
-          focusWithoutScroll(overflowControlRef);
-          return result;
-        }}
-        section={section}
-      />
-    </>
+    <WorkspaceSectionLayoutControls
+      layoutEditable={layoutEditable}
+      onOrientationCommit={onOrientationCommit}
+      onOverflowCommit={onOverflowCommit}
+      onPositioningRequest={onPositioningRequest}
+      orientationControlRef={orientationControlRef}
+      overflowControlRef={overflowControlRef}
+      section={section}
+    />
   );
   const selectionControl = (
     <SectionSelectionControl

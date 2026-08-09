@@ -100,5 +100,9 @@ restore recorded selection without stealing focus from surviving controls.
 The backend-free playground closes the Phase 2 implementation with note and status renderers,
 strict JSON import/export, confirmed example reset, and separately versioned local persistence for
 the canonical document and host-owned appearance/grid preferences. The library itself remains
-storage- and file-agnostic. This is still an internal top-level-section milestone; recursive child
-rendering and nested layout remain explicitly assigned to Phase 3.
+storage- and file-agnostic. Later phases add arbitrary-depth recursive rendering and structural
+movement, then extend the same package-owned recursive DOM with explicit ordered or freeform child
+layouts. Selected containers now provide a named positioning control: ordered children retain their
+measured arrangement when converted to freeform, while freeform-to-ordered conversion offers a
+vertical or horizontal choice and confirms only a material rearrangement. The backend-free
+playground and packed unrelated consumer exercise that controlled `section-positioning` boundary.

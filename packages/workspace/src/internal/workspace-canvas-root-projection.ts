@@ -5,6 +5,7 @@ import type {
   SectionOrientation,
   SectionOverflow,
   WorkspaceActionResult,
+  WorkspaceChildLayoutPositioningChange,
   WorkspaceDocument,
   WorkspaceJsonValue,
   WorkspacePoint,
@@ -35,6 +36,7 @@ import type {
 } from "./workspace-section-contract.js";
 import { useWorkspaceSectionOrientationActions } from "./workspace-section-orientation.js";
 import { useWorkspaceSectionOverflowActions } from "./workspace-section-overflow.js";
+import { useWorkspaceSectionPositioningActions } from "./workspace-section-positioning.js";
 import type { WorkspaceSectionRegistry } from "./workspace-section-registry.js";
 import type { WorkspaceSectionResizeBindings } from "./workspace-section-resize-controls.js";
 import {
@@ -106,6 +108,7 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
   onSectionMinimizedCommit,
   onSectionOrientationCommit,
   onSectionOverflowCommit,
+  onSectionPositioningCommit,
   onRootMoveCommit,
   onRootResizeCommit,
   onSelectionRequest,
@@ -137,6 +140,10 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
     sectionId: string,
     overflow: SectionOverflow,
     measuredSize: Readonly<{ height: number; width: number }> | null,
+  ): WorkspaceActionResult;
+  onSectionPositioningCommit(
+    sectionId: string,
+    change: WorkspaceChildLayoutPositioningChange,
   ): WorkspaceActionResult;
   onRootMoveCommit(positions: Readonly<Record<string, WorkspacePoint>>): WorkspaceActionResult;
   onRootResizeCommit(
@@ -198,6 +205,11 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
     document,
     geometry,
     onCommit: onSectionOverflowCommit,
+  });
+  const positioningActions = useWorkspaceSectionPositioningActions({
+    document,
+    geometry,
+    onCommit: onSectionPositioningCommit,
   });
   const recordMovementResult = useCallback(
     (
@@ -272,6 +284,7 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
         sectionStateActions.handleMinimizedCommit,
         orientationActions.handleCommit,
         overflowActions.handleCommit,
+        positioningActions.handleRequest,
         onSectionPresentationCommit,
         onSelectionRequest,
         onSectionTitleCommit,
@@ -292,6 +305,7 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
       onSectionTitleCommit,
       orientationActions.handleCommit,
       overflowActions.handleCommit,
+      positioningActions.handleRequest,
       presentationEditable,
       readOnly,
       resizeBindings,
@@ -494,6 +508,8 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
     cancelRootMovement,
     containerLayoutAnnouncementText: overflowActions.announcementText,
     containerOrientationAnnouncementText: orientationActions.announcementText,
+    containerPositioningAnnouncementText: positioningActions.announcementText,
+    containerPositioningDialog: positioningActions.dialog,
     handleNodeDragStart,
     handleNodeDragStop,
     handleNodesChange,

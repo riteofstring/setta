@@ -273,6 +273,9 @@ test("structural interaction ownership excludes XYFlow and viewport competitors"
   const nested = workspace.getByRole("article", { name: "Nested Alpha" });
   const nestedHandle = nested.getByRole("button", { name: "Move Nested Alpha" });
   const rootHandle = root.getByRole("button", { name: "Move Recursive workspace" });
+  const rootPositioning = root.locator(
+    ':scope > .setta-workspace__section-header [data-workspace-section-layout-control="positioning"]',
+  );
   const announcement = workspace.locator("[data-workspace-structure-movement-announcement]");
   const baselineChanges = await recursiveChangeCount(page);
   const viewportBeforeStructure = await canvasViewport(page);
@@ -337,6 +340,7 @@ test("structural interaction ownership excludes XYFlow and viewport competitors"
 
   await mode.selectOption("sort");
   await nestedHandle.focus();
+  await expect(rootPositioning).toBeHidden();
   await page.keyboard.press("Enter");
   await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "section-structure");
   await expect(canvas).toHaveAttribute("data-workspace-section-move-input", "keyboard");
@@ -752,6 +756,11 @@ test("minimizing a recursive container preserves descendants and narrow reflow",
       name: "Arrange Recursive workspace child sections horizontally",
     }),
   ).toBeEnabled();
+  await expect(
+    root.getByRole("button", {
+      name: "Use freeform positioning for Recursive workspace child sections",
+    }),
+  ).toBeDisabled();
 
   await page.setViewportSize({ height: 720, width: 320 });
   await page.getByRole("button", { name: "Fit recursive descendants" }).click();
@@ -800,12 +809,19 @@ test("container orientation and overflow switch stably and preserve child order"
   const orientationControl = header.locator(
     '[data-workspace-section-layout-control="orientation"]',
   );
+  const positioningControl = header.locator(
+    '[data-workspace-section-layout-control="positioning"]',
+  );
+  await expect(positioningControl).toHaveAccessibleName(
+    "Use freeform positioning for Nested row child sections",
+  );
   await expect(orientationControl).toHaveAccessibleName(
     "Arrange Nested row child sections vertically",
   );
   await expect(orientationControl).toHaveAttribute("data-workspace-next-orientation", "vertical");
   const browserSession = await page.context().newCDPSession(page);
   await browserSession.send("Emulation.setPageScaleFactor", { pageScaleFactor: 2 });
+  await expect(positioningControl).toBeVisible();
   await expect(orientationControl).toBeVisible();
   await browserSession.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
   const directChildIds = () =>

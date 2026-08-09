@@ -371,6 +371,7 @@ export function CanvasShellPage() {
   const search = new URLSearchParams(window.location.search);
   const connectionsEnabled = search.has("connections");
   const nestedFreeformContractEnabled = search.has("nested-freeform-contract");
+  const rejectPositioningChanges = search.has("reject-positioning");
   const viewportCullingEnabled = search.has("viewport-culling");
   const controller = useRef<WorkspaceController>(null);
   const clipboardSectionNumber = useRef(1);
@@ -868,6 +869,10 @@ export function CanvasShellPage() {
             }}
             minimapOptions={{ placement: minimapPlacement, visible: minimapVisible }}
             onDocumentChange={(nextDocument, change) => {
+              if (rejectPositioningChanges && change.reason === "section-positioning") {
+                setStatus("Positioning change retained by the controlled host.");
+                return;
+              }
               setDocument(nextDocument);
               setDocumentChangeCount((count) => count + 1);
               setStatus(`Document change: ${change.reason}.`);

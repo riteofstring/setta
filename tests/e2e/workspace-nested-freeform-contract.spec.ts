@@ -123,11 +123,19 @@ async function expectDeepFreeformLayout(workspace: Locator, root: Locator): Prom
 async function expectPositioningControls(root: Locator): Promise<void> {
   await root.getByRole("button", { name: "Select Recursive workspace" }).click();
   await expect(
+    root.getByRole("button", { name: "Change Recursive workspace child positioning" }),
+  ).toHaveAttribute("aria-haspopup", "dialog");
+  await expect(
     root.getByRole("button", {
       name: "Arrange Recursive workspace child sections horizontally",
     }),
   ).toHaveCount(0);
   await root.getByRole("button", { name: "Select Nested row" }).click();
+  await expect(
+    root.getByRole("button", {
+      name: "Use freeform positioning for Nested row child sections",
+    }),
+  ).toBeVisible();
   await expect(
     root.getByRole("button", { name: "Arrange Nested row child sections vertically" }),
   ).toBeVisible();
@@ -333,7 +341,11 @@ test.describe("Phase 6 nested freeform document contract", () => {
     await page.setViewportSize({ height: 900, width: 320 });
     await page.goto(contractUrl);
     const workspace = page.getByRole("region", { exact: true, name: "Canvas shell workspace" });
-    await expect(workspace.getByRole("article", { name: "Recursive workspace" })).toBeVisible();
+    const root = workspace.getByRole("article", { name: "Recursive workspace" });
+    await expect(root).toBeVisible();
+    const selectRoot = root.getByRole("button", { name: "Select Recursive workspace" });
+    await selectRoot.click();
+    await expect(selectRoot).toHaveAttribute("aria-pressed", "true");
     const session = await page.context().newCDPSession(page);
     await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 2 });
 
@@ -347,7 +359,156 @@ test.describe("Phase 6 nested freeform document contract", () => {
     const row = await placementDelta(rootSurface, "nested-row");
     expect(row.x - alpha.x).toBeCloseTo(232 - 16, 0);
     expect(row.y - alpha.y).toBeCloseTo(48 - 16, 0);
+
+    const positioning = root.getByRole("button", {
+      name: "Change Recursive workspace child positioning",
+    });
+    await positioning.focus();
+    await positioning.press("Enter");
+    const choiceDialog = page.getByRole("dialog", { name: "Arrange child sections" });
+    const verticalChoice = choiceDialog.getByRole("button", { name: "Arrange vertically" });
+    await expect(verticalChoice).toBeFocused();
+    await verticalChoice.press("Enter");
+    const confirmation = page.getByRole("dialog", { name: "Arrange child sections?" });
+    await expect(confirmation).toHaveAttribute(
+      "data-workspace-section-positioning-step",
+      "confirm",
+    );
+    await expect(confirmation.getByRole("button", { name: "Cancel" })).toBeFocused();
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+      .toBe(true);
+    const dialogAccessibility = await new AxeBuilder({ page }).include("dialog[open]").analyze();
+    expect(dialogAccessibility.violations).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(positioning).toBeFocused();
     await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
+  });
+
+  test("switches child positioning with confirmation only for material rearrangement", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ height: 1_000, width: 1_280 });
+    await page.goto(contractUrl);
+    await page.getByRole("checkbox", { name: "Show host extensions" }).uncheck();
+    await setCanvasZoom(page, 1);
+    const workspace = page.getByRole("region", { exact: true, name: "Canvas shell workspace" });
+    const root = workspace.getByRole("article", { name: "Recursive workspace" });
+    const rootRegion = root.locator('[data-workspace-section-child-region="recursive-root"]');
+    const rootSelection = root.getByRole("button", { name: "Select Recursive workspace" });
+    await rootSelection.click();
+    const freeformControl = root.getByRole("button", {
+      name: "Change Recursive workspace child positioning",
+    });
+    const baselineChanges = await recursiveChangeCount(page);
+
+    await freeformControl.click();
+    let choiceDialog = page.getByRole("dialog", { name: "Arrange child sections" });
+    await expect(choiceDialog.getByRole("button", { name: "Arrange horizontally" })).toBeVisible();
+    await choiceDialog.getByRole("button", { name: "Arrange vertically" }).click();
+    let confirmation = page.getByRole("dialog", { name: "Arrange child sections?" });
+    await expect(confirmation).toContainText(
+      "This will move 3 child sections in Recursive workspace into vertical order.",
+    );
+    await expect(confirmation.getByRole("button", { name: "Cancel" })).toBeFocused();
+    await expect(page).toHaveScreenshot("nested-freeform-positioning-confirmation.png", {
+      animations: "disabled",
+    });
+    await page.keyboard.press("Escape");
+    await expect(rootSelection).toHaveAttribute("aria-pressed", "true");
+    await expect(freeformControl).toBeFocused();
+    await expect(rootRegion).toHaveAttribute("data-workspace-child-positioning", "freeform");
+    expect(await recursiveChangeCount(page)).toBe(baselineChanges);
+
+    await freeformControl.click();
+    choiceDialog = page.getByRole("dialog", { name: "Arrange child sections" });
+    await choiceDialog.getByRole("button", { name: "Arrange vertically" }).click();
+    confirmation = page.getByRole("dialog", { name: "Arrange child sections?" });
+    await confirmation.getByRole("button", { name: "Arrange vertically" }).click();
+    await expect(rootRegion).toHaveAttribute("data-workspace-child-positioning", "ordered");
+    await expect(rootRegion).toHaveAttribute("data-workspace-child-orientation", "vertical");
+    await expect(
+      workspace.locator("[data-workspace-container-positioning-announcement]"),
+    ).toHaveText("Recursive workspace child sections are arranged vertically.");
+    expect(await recursiveChangeCount(page)).toBe(baselineChanges + 1);
+
+    const sectionIds = ["nested-alpha", "nested-row", "empty-container"] as const;
+    const orderedBoxes = await Promise.all(
+      sectionIds.map((sectionId) =>
+        requiredBoundingBox(
+          workspace.locator(`[data-workspace-section-id="${sectionId}"]`),
+          `Ordered ${sectionId}`,
+        ),
+      ),
+    );
+    const minimumX = Math.min(...orderedBoxes.map(({ x }) => x));
+    const minimumY = Math.min(...orderedBoxes.map(({ y }) => y));
+    const orderedControl = root.getByRole("button", {
+      name: "Use freeform positioning for Recursive workspace child sections",
+    });
+    await orderedControl.click();
+    await expect(rootRegion).toHaveAttribute("data-workspace-child-positioning", "freeform");
+    await expect(page.getByRole("dialog", { name: "Arrange child sections" })).toHaveCount(0);
+    await expect(freeformControl).toBeFocused();
+    expect(await recursiveChangeCount(page)).toBe(baselineChanges + 2);
+
+    const freeformDocument = await nestedFreeformSerializedDocument(page);
+    for (const [index, sectionId] of sectionIds.entries()) {
+      const orderedBox = orderedBoxes[index];
+      if (!orderedBox) {
+        throw new Error(`Ordered ${sectionId} geometry is unavailable.`);
+      }
+      const position = requiredSerializedFreeformPosition(
+        freeformDocument,
+        "recursive-root",
+        sectionId,
+      );
+      expect(position.x).toBeCloseTo(orderedBox.x - minimumX, 3);
+      expect(position.y).toBeCloseTo(orderedBox.y - minimumY, 3);
+    }
+
+    await freeformControl.click();
+    choiceDialog = page.getByRole("dialog", { name: "Arrange child sections" });
+    await choiceDialog.getByRole("button", { name: "Arrange vertically" }).click();
+    await expect(confirmation).toHaveCount(0);
+    await expect(rootRegion).toHaveAttribute("data-workspace-child-positioning", "ordered");
+    expect(await recursiveChangeCount(page)).toBe(baselineChanges + 3);
+
+    const results = await new AxeBuilder({ page }).include(".setta-workspace").analyze();
+    expect(results.violations).toEqual([]);
+  });
+
+  test("reports a controlled host that retains child positioning", async ({ page }) => {
+    await page.setViewportSize({ height: 1_000, width: 1_280 });
+    await page.goto(`${contractUrl}&reject-positioning`);
+    await page.getByRole("checkbox", { name: "Show host extensions" }).uncheck();
+    const workspace = page.getByRole("region", { exact: true, name: "Canvas shell workspace" });
+    const root = workspace.getByRole("article", { name: "Recursive workspace" });
+    const rootRegion = root.locator('[data-workspace-section-child-region="recursive-root"]');
+    await root.getByRole("button", { name: "Select Recursive workspace" }).click();
+    const positioning = root.getByRole("button", {
+      name: "Change Recursive workspace child positioning",
+    });
+    const baselineChanges = await recursiveChangeCount(page);
+
+    await positioning.click();
+    await page
+      .getByRole("dialog", { name: "Arrange child sections" })
+      .getByRole("button", { name: "Arrange vertically" })
+      .click();
+    await page
+      .getByRole("dialog", { name: "Arrange child sections?" })
+      .getByRole("button", { name: "Arrange vertically" })
+      .click();
+
+    await expect(rootRegion).toHaveAttribute("data-workspace-child-positioning", "freeform");
+    await expect(
+      workspace.locator("[data-workspace-container-positioning-announcement]"),
+    ).toHaveText(
+      "Recursive workspace child positioning did not change because the host did not accept the change.",
+    );
+    await expect(positioning).toBeFocused();
+    expect(await recursiveChangeCount(page)).toBe(baselineChanges);
   });
 
   test("moves a freeform child by pointer and keyboard through one local plan", async ({

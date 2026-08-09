@@ -119,7 +119,10 @@ DOM but remain unchanged in the workbench document.
   and narrow workbenches stack pane and canvas in reading order instead of covering focusable
   canvas content.
 - Lock uses pressed-state semantics. Minimize uses expanded/collapsed semantics. Orientation and
-  overflow controls name the resulting state rather than only showing an icon.
+  overflow controls name the resulting state rather than only showing an icon. The child-positioning
+  control names the target mode; freeform-to-ordered selection uses a native dialog whose
+  confirmation step initially focuses Cancel when measured children would materially rearrange.
+  Escape keeps the current layout and restores focus to the positioning control.
 - The minimap is supplementary pointer navigation. The toolbar plus section selection controls and
   controller-backed focus, fit, next, and previous actions provide equivalent keyboard paths.
 
@@ -141,10 +144,10 @@ screen reader, zoom, reflow, contrast, and reduced-motion settings.
 ## Focus behavior
 
 Focus restoration is bounded and context-aware. Creation returns to its invoker on cancellation;
-title, style, lock, minimize, orientation, overflow, and resize actions return to a surviving
-control; move completion and cancellation return to the active handle; group/ungroup and deletion
-move focus to the resulting visible structure. Undo and redo recover focus only when the previously
-focused element was removed.
+title, style, lock, minimize, positioning, orientation, overflow, and resize actions return to a
+surviving control; move completion and cancellation return to the active handle; group/ungroup and
+deletion move focus to the resulting visible structure. Undo and redo recover focus only when the
+previously focused element was removed.
 
 Measured navigation uses `preventScroll` and waits for the accepted viewport so browser scroll does
 not diverge from canvas pan. A controlled rejection or a later user focus change cancels stale

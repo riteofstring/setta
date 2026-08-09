@@ -36,6 +36,7 @@ export type WorkspaceSectionTreeBindings = Pick<
   | "onMinimizedCommit"
   | "onOrientationCommit"
   | "onOverflowCommit"
+  | "onPositioningRequest"
   | "onPresentationCommit"
   | "onSelectionRequest"
   | "onTitleCommit"

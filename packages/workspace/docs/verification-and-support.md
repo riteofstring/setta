@@ -168,8 +168,9 @@ history model.
 Multiple named item lists, same-section cross-list movement, mixed-parent batch movement, and
 ancestry-closed filtered views with canonical move reconciliation are implemented through one
 shared interaction owner. Optional all-depth viewport culling is implemented outside the document
-and history contracts. Still deferred are cross-section item movement, absolute nested positioning,
-and complete descendant-subtree collapse.
+and history contracts. Absolute nested positioning and its ordered/freeform conversion control are
+implemented through the recursive DOM owner. Still deferred are cross-section item movement and
+complete descendant-subtree collapse.
 
 ## Explicit non-goals
 
