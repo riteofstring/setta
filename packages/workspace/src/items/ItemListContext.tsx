@@ -1,5 +1,12 @@
 import _ from "lodash";
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useMemo,
+  type KeyboardEventHandler,
+  type MouseEventHandler,
+  type ReactNode,
+} from "react";
 import { SortableContext, verticalListSortingStrategy } from "../dnd/adapter";
 import { useItemDndChildren } from "../dnd/itemDndChildren";
 import { getItemDndId, isTempItem, useItemDndState, type ItemListKey } from "../dnd/itemDndState";
@@ -25,6 +32,10 @@ type ItemListContextValue = {
   visibleItemIds: ReadonlySet<string>;
   renderItem: (context: ItemRowRenderContext) => ReactNode;
   isGroupItem: (item: WorkspaceItem) => boolean;
+  onColumnResizeStart: MouseEventHandler<HTMLButtonElement>;
+  onColumnResizeKeyDown: KeyboardEventHandler<HTMLButtonElement>;
+  onColumnResizeClick: MouseEventHandler<HTMLButtonElement>;
+  keyboardColumnResizeItemId: string | null;
 };
 
 const ItemListContext = createContext<ItemListContextValue | null>(null);
@@ -70,6 +81,10 @@ export function ItemListProvider({
   visibleItemIds,
   renderItem,
   isGroupItem,
+  onColumnResizeStart,
+  onColumnResizeKeyDown,
+  onColumnResizeClick,
+  keyboardColumnResizeItemId,
   rootId,
   flatItemIds,
   children,
@@ -82,8 +97,23 @@ export function ItemListProvider({
       visibleItemIds,
       renderItem,
       isGroupItem,
+      onColumnResizeStart,
+      onColumnResizeKeyDown,
+      onColumnResizeClick,
+      keyboardColumnResizeItemId,
     }),
-    [enabled, isGroupItem, listKey, renderItem, sectionId, visibleItemIds],
+    [
+      enabled,
+      isGroupItem,
+      keyboardColumnResizeItemId,
+      listKey,
+      onColumnResizeClick,
+      onColumnResizeKeyDown,
+      onColumnResizeStart,
+      renderItem,
+      sectionId,
+      visibleItemIds,
+    ],
   );
   const activeInfo = useItemDndState(
     (state) => ({

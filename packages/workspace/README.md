@@ -35,6 +35,17 @@ data)` and item controls through `setItemData(sectionId, itemId, data)`. Both re
 payload, preserve package-owned structure, and issue one canonical document notification; neither
 merges or interprets application data.
 
+Sections with a `WorkspaceSectionItemTree` also carry the package-owned item-column layout. An
+omitted `itemColumnWidth` derives the live half-width split; dragging any row's shared center
+divider persists the authored width on the tree, and double-clicking resets it. The split is shared
+across the section, stays proportional while its container resizes, accounts for canvas zoom and
+the deepest nested item, preserves at least 100 px for the value column, and reports drag/reset
+commits through the same document-change callback. Consumers do not set the private
+`--param-column-width` CSS variable. The first visible divider in a mounted list joins the keyboard
+order: Left/Right Arrow adjusts by 10 px (Shift adjusts by 1 px), while activating the button resets
+the default split; the remaining identical row targets stay pointer-accessible without adding one
+tab stop per row.
+
 ## Section kind registration
 
 `registerSectionKinds(kinds)` replaces the registered application kind set; hosts register

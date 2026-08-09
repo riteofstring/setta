@@ -1373,6 +1373,30 @@ Phase 4 progress (2026-08-11):
   and does not replace the completed supervised DPR 2 parity comparison. The frozen reference stayed
   clean and untouched at `043d3b2e9`. This completes the prerequisite baseline, so Phase 5
   repository work may begin.
+- Phase 5 package-owned item-column resizing batch complete (2026-08-12): the application-side
+  `--param-column-width` deferral is removed. `WorkspaceSectionItemTree.itemColumnWidth` is the
+  optional canonical authored width (finite at load, round-tripped in the controlled document),
+  and drag/reset/keyboard commits publish it once through the normal document-change callback.
+  `WorkspaceItemList` now owns frozen main's complete split algorithm: half-width default minus the
+  18 px center offset, a 72 px base key-side margin plus 12 px per nested level, the deepest
+  canonical item as the depth input, a 100 px minimum value side, canvas-zoom-correct pointer
+  deltas, percentage-preserving live container resize, and double-click reset. Every real row
+  exposes the reference's compact center paint and 16 px pointer target; `canEditLayout` removes the
+  interaction. A non-visual accessibility addition makes the first visible divider in each mounted
+  list a named native button with a focus-visible outline, 10 px Arrow-key adjustment (1 px with
+  Shift), and activation-to-reset, while identical row targets stay out of the repeated tab order
+  and keyboard activation cannot toggle item selection. The playground's host-owned ResizeObserver
+  split hook was deleted; its renderer now relies only on the package surface. Focused package
+  verification passes (three files, 40 tests), as does the directly affected playground renderer
+  suite (16 tests), package production build/built-boundary check, and changed-file static gate. A
+  narrow live playground check at the accepted geometry measured the unchanged 552 x 352 panel,
+  550 px list area, 526 x 20 row, 257 px default split, 16 x 18 pointer target, and one tab stop
+  across 25 row handles; a 40 px drag produced a 297 px shared split without moving the section or
+  camera, double-click restored 257 px, and keyboard Right Arrow/Enter produced 267 px/restored
+  257 px with focus retained. No browser warnings or errors appeared. No dependency changed, so the
+  supply-chain gate was not duplicated. The remaining Phase 5 API ratification, extension points,
+  hardening audits, performance work, final matched developer comparison, and phase gates remain
+  open; no visual baseline was refreshed by this implementation batch.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

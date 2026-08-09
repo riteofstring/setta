@@ -2,7 +2,7 @@
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import {
   replaceItemsWithTemp,
@@ -28,6 +28,28 @@ import { resetItemListViews, resolveItemListView } from "./itemListRegistry";
 import { WorkspaceItemList } from "./WorkspaceItemList";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+const observedResizeTargets = new Map<Element, ResizeObserverCallback>();
+
+class CapturingResizeObserver {
+  private readonly callback: ResizeObserverCallback;
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+  }
+
+  observe(target: Element) {
+    observedResizeTargets.set(target, this.callback);
+  }
+
+  unobserve(target: Element) {
+    observedResizeTargets.delete(target);
+  }
+
+  disconnect() {}
+}
+
+globalThis.ResizeObserver = CapturingResizeObserver as unknown as typeof ResizeObserver;
 
 // Freezes the registered item surface: rows render the canonical tree through the host
 // renderer with the reference's leaf/parent layouts and nested-children rail, selection
@@ -129,25 +151,57 @@ describe("WorkspaceItemList", () => {
     useItemDndState.getState().reset();
     useItemDndChildren.getState().reset();
     useReactFlow.setState({ ...initialCanvasState });
+    observedResizeTargets.clear();
   });
 
   async function mount(props: Partial<Parameters<typeof WorkspaceItemList>[0]> = {}) {
     await act(async () => {
       root.render(
         createElement(
-          ItemDndContext,
-          null,
-          createElement(WorkspaceItemList, {
-            sectionId: "panel",
-            listKey: LIST_KEY,
-            topLevelItemIds: ["item-a", "item-group", "item-b"],
-            renderItem: renderRowContent,
-            isGroupItem,
-            ...props,
-          }),
+          "div",
+          { "data-section-id": "panel" },
+          createElement(
+            ItemDndContext,
+            null,
+            createElement(WorkspaceItemList, {
+              sectionId: "panel",
+              listKey: LIST_KEY,
+              topLevelItemIds: ["item-a", "item-group", "item-b"],
+              renderItem: renderRowContent,
+              isGroupItem,
+              ...props,
+            }),
+          ),
         ),
       );
     });
+  }
+
+  function getListOuter(): HTMLElement {
+    const scrollArea = host.querySelector<HTMLElement>(".overflow-y-scroll");
+    const listOuter = scrollArea?.parentElement;
+    if (!listOuter) {
+      throw new Error("expected the package-owned item-list outer");
+    }
+    return listOuter;
+  }
+
+  function resizeListOuter(listOuter: HTMLElement, width: number) {
+    Object.defineProperty(listOuter, "clientWidth", { configurable: true, value: width });
+    const callback = observedResizeTargets.get(listOuter);
+    if (!callback) {
+      throw new Error("expected the item-list outer to be resize-observed");
+    }
+    callback(
+      [
+        {
+          target: listOuter,
+          borderBoxSize: [],
+          contentRect: { width },
+        } as unknown as ResizeObserverEntry,
+      ],
+      new CapturingResizeObserver(callback) as unknown as ResizeObserver,
+    );
   }
 
   it("renders leaf and parent rows with the reference layouts and nested rail", async () => {
@@ -165,6 +219,151 @@ describe("WorkspaceItemList", () => {
     expect(rail?.className).toContain("before:w-[0.4rem]");
     const nestedRow = getRowByContent(host, "item-c");
     expect(rail?.contains(nestedRow)).toBe(true);
+  });
+
+  it("renders the compact shared column divider on every real row and gates layout edits", async () => {
+    await mount();
+
+    const handles = host.querySelectorAll<HTMLElement>('[data-item-column-resize-handle="true"]');
+    expect(handles).toHaveLength(4);
+    const firstHandle = handles[0];
+    if (!firstHandle) {
+      throw new Error("expected the first item-column handle");
+    }
+    expect(firstHandle.className).toContain("-ml-2 flex w-4 cursor-col-resize");
+    expect(firstHandle.className).toContain("setta-prevent-section-active-css");
+    expect(firstHandle.className).toContain("setta-prevent-arrow-keys-moving-section");
+    expect(firstHandle.className).toContain("nopan nodrag");
+    expect(firstHandle.getAttribute("aria-label")).toBe("Resize item columns; activate to reset");
+    expect(firstHandle.tabIndex).toBe(0);
+    expect([...handles].slice(1).every((handle) => handle.tabIndex === -1)).toBe(true);
+    expect(firstHandle.parentElement?.className).toContain(
+      "section-center relative mx-auto h-[90%] w-0.5",
+    );
+    expect(firstHandle.firstElementChild?.className).toContain("w-1.5 rounded bg-transparent");
+
+    await act(async () => {
+      useWorkspaceCapabilities.setState({ canEditLayout: false });
+    });
+    expect(host.querySelector('[data-item-column-resize-handle="true"]')).toBeNull();
+  });
+
+  it("drags at canvas scale and persists once", async () => {
+    const onDocumentChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    await mount();
+
+    const listOuter = getListOuter();
+    const columnContainer = host.querySelector<HTMLElement>('[data-section-id="panel"]');
+    if (!columnContainer) {
+      throw new Error("expected the package-owned section column container");
+    }
+    act(() => resizeListOuter(listOuter, 550));
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("257px");
+
+    useReactFlow.setState({ transform: [0, 0, 2] });
+    const handle = host.querySelector<HTMLElement>('[data-item-column-resize-handle="true"]');
+    if (!handle) {
+      throw new Error("expected an item-column resize handle");
+    }
+    await act(async () => {
+      handle.dispatchEvent(
+        new MouseEvent("mousedown", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 100,
+          detail: 1,
+        }),
+      );
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 140 }));
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("277px");
+
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent("mouseup"));
+    });
+    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(277);
+    expect(onDocumentChange).toHaveBeenCalledTimes(1);
+    expect(onDocumentChange.mock.calls[0]?.[0]?.sections["panel"]?.itemTree?.itemColumnWidth).toBe(
+      277,
+    );
+  });
+
+  it("resizes the live split proportionally and double-click resets it", async () => {
+    const onDocumentChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    await mount();
+
+    const listOuter = getListOuter();
+    const columnContainer = host.querySelector<HTMLElement>('[data-section-id="panel"]');
+    const handle = host.querySelector<HTMLElement>('[data-item-column-resize-handle="true"]');
+    if (!columnContainer || !handle) {
+      throw new Error("expected the item-column surface");
+    }
+    act(() => resizeListOuter(listOuter, 550));
+    act(() => {
+      handle.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }),
+      );
+    });
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("267px");
+    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(267);
+    expect(onDocumentChange).toHaveBeenCalledTimes(1);
+
+    act(() => resizeListOuter(listOuter, 660));
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("324px");
+    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(267);
+    expect(onDocumentChange).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      handle.dispatchEvent(
+        new MouseEvent("mousedown", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 140,
+          detail: 2,
+        }),
+      );
+    });
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("312px");
+    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(312);
+    expect(onDocumentChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("offers one keyboard path for the shared split without adding every row to tab order", async () => {
+    const onDocumentChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    await mount();
+
+    const listOuter = getListOuter();
+    const columnContainer = host.querySelector<HTMLElement>('[data-section-id="panel"]');
+    const handle = host.querySelector<HTMLButtonElement>(
+      '[data-item-column-resize-handle="true"][tabindex="0"]',
+    );
+    if (!columnContainer || !handle) {
+      throw new Error("expected the keyboard item-column surface");
+    }
+    act(() => resizeListOuter(listOuter, 550));
+    act(() => {
+      handle.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }),
+      );
+    });
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("267px");
+    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(267);
+    expect(onDocumentChange).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      activateItemSelect();
+    });
+    act(() => handle.click());
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("257px");
+    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(257);
+    expect(onDocumentChange).toHaveBeenCalledTimes(2);
+    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.selectedItemIds).toEqual(
+      [],
+    );
   });
 
   it("prunes invisible subtrees through the visible-set seam", async () => {

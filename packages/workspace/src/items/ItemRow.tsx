@@ -10,15 +10,16 @@ import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { getItemOrThrow } from "../document/itemTree";
 import { useWorkspaceAppearance, useWorkspaceDocument } from "../document/stores";
 import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
+import { ItemColumnResizeHandle } from "./ItemColumnResizeHandle";
 import { useItemDndChildrenForParent, useItemListContext } from "./ItemListContext";
 
 // The reference's `ParamSwitch`/`ParamContainer` row pair trimmed to the package seam: the
 // package owns the row interaction chrome — sortable wiring with zoom-scaled transforms, the
 // temp placeholder row, selection and hover treatments, and the nested-children flow with the
-// reference's left rail — while the host-registered renderer supplies the row content (the
-// reference's param labels, inputs, error and search treatments stay application-side). The
-// reference's `--param-column-width` variable rides the row grids verbatim, like the dnd-id
-// wire constants; the column-resize feature that writes it stays application-side.
+// reference's left rail and shared item-column divider — while the host-registered renderer
+// supplies the row content (the reference's param labels, inputs, error and search treatments
+// stay application-side). The private `--param-column-width` wire variable rides the row grids
+// verbatim; the package derives and persists its item-termed document value.
 
 const ITEM_COLUMN_WIDTH = "var(--param-column-width, 200px)";
 
@@ -365,6 +366,7 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       onKeyDown={handleItemKeyDown}
     >
       {renderItem({ sectionId, listKey, item: rowState.item, isSelected: rowState.isSelected })}
+      <ItemColumnResizeHandle itemId={itemId} />
       {layout !== "leaf" && <ItemNestedChildren renderChildren={renderChildren} />}
     </ItemRowShell>
   );

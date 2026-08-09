@@ -62,6 +62,10 @@ export type WorkspaceSectionItemTree = {
   rootId: string;
   items: Record<string, WorkspaceItem>;
   selectedItemIds: Array<string>;
+  // The authored label-column width, excluding the center-gutter offset. When omitted, the
+  // mounted item surface derives the reference's half-width default from its live container.
+  // Drag and reset commits persist this package-owned item-layout value in the document.
+  itemColumnWidth?: number;
 };
 
 // The resolved structural section record. The application resolves any variant indirection

@@ -100,6 +100,9 @@ function assertValidSectionItemTree(sectionId: string, itemTree: WorkspaceSectio
   if (!(itemTree.rootId in itemTree.items)) {
     throw new Error(`Section ${sectionId} item tree is missing its root item ${itemTree.rootId}.`);
   }
+  if (itemTree.itemColumnWidth !== undefined && !Number.isFinite(itemTree.itemColumnWidth)) {
+    throw new Error(`Section ${sectionId} item column width must be finite.`);
+  }
   assertValidItemChildClaims(sectionId, itemTree);
   assertItemsReachableFromRoot(sectionId, itemTree);
   assertValidItemSelection(sectionId, itemTree);

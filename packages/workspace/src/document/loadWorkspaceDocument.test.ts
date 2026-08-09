@@ -350,6 +350,7 @@ describe("loadWorkspaceDocument", () => {
         nested: { id: "nested", children: [] },
       },
       selectedItemIds: ["a", "nested"],
+      itemColumnWidth: 146.5,
     };
     loadWorkspaceDocument(
       makeDocument({
@@ -374,6 +375,14 @@ describe("loadWorkspaceDocument", () => {
     expect(() => load({ rootId: "missing", items: {}, selectedItemIds: [] })).toThrowError(
       /missing its root item missing/,
     );
+    expect(() =>
+      load({
+        rootId: "item-root",
+        items: { "item-root": { id: "item-root", children: [] } },
+        selectedItemIds: [],
+        itemColumnWidth: Number.NaN,
+      }),
+    ).toThrowError(/item column width must be finite/);
     expect(() =>
       load({
         rootId: "item-root",

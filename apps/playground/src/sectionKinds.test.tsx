@@ -60,7 +60,7 @@ const RECORDED_OUTER_DICT_WIDTH_PX = 552;
 const RECORDED_OUTER_DICT_HEIGHT_PX = 352;
 const SHELL_BORDER_WIDTH_PX = 1;
 
-// Replaces the setup stub so the test can drive the host's resize-driven default split. The
+// Replaces the setup stub so the test can drive the package's resize-driven default split. The
 // import-time observer inside the built package already constructed against the stub.
 const observedResizeTargets = new Map<Element, ResizeObserverCallback>();
 
@@ -479,22 +479,35 @@ describe("the playground item renderer presentation contract", () => {
     expect(groupLabel.className).toBe(REFERENCE_LABEL_CLASS_NAME);
   });
 
-  it("derives the default column split from half the list area width", () => {
-    const listArea = container.querySelector<HTMLElement>(".section-full-no-title");
-    if (!listArea) {
-      throw new Error("The item panel did not mount its list area.");
+  it("lets the package derive the default split from half the list area width", () => {
+    const scrollArea = container.querySelector<HTMLElement>(".overflow-y-scroll");
+    const listOuter = scrollArea?.parentElement;
+    if (!listOuter) {
+      throw new Error("The item panel did not mount its package-owned list outer.");
     }
-    const applySplit = observedResizeTargets.get(listArea);
+    const applySplit = observedResizeTargets.get(listOuter);
     if (!applySplit) {
-      throw new Error("The list area is not observed for resizes.");
+      throw new Error("The package-owned list outer is not observed for resizes.");
     }
     // The 550 x 350 inner fixture gives the list area live main's measured 550 px width;
     // the reference default is half that minus the 18 px center offset: 257 px.
-    Object.defineProperty(listArea, "clientWidth", { configurable: true, value: 550 });
+    Object.defineProperty(listOuter, "clientWidth", { configurable: true, value: 550 });
     act(() => {
-      applySplit([], new CapturingResizeObserver(applySplit) as unknown as ResizeObserver);
+      applySplit(
+        [
+          {
+            target: listOuter,
+            borderBoxSize: [],
+            contentRect: { width: 550 },
+          } as unknown as ResizeObserverEntry,
+        ],
+        new CapturingResizeObserver(applySplit) as unknown as ResizeObserver,
+      );
     });
-    expect(listArea.style.getPropertyValue("--param-column-width")).toBe("257px");
+    expect(listOuter.style.getPropertyValue("--param-column-width")).toBe("257px");
+    expect(container.querySelectorAll('[data-item-column-resize-handle="true"]')).toHaveLength(
+      container.querySelectorAll('[data-item-row="true"]').length,
+    );
   });
 
   it("keeps the recorded fixture geometry and an inspectable row rhythm", () => {

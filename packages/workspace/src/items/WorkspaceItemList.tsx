@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
 import type { ItemListKey } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { getSectionItemTreeOrThrow } from "../document/documentSelectors";
@@ -20,6 +20,7 @@ import {
   updateItemListView,
 } from "./itemListRegistry";
 import { useIsScrollable } from "./useIsScrollable";
+import { useItemColumnWidth } from "./useItemColumnWidth";
 
 // The reference's `ParamDndList` as the registered item surface: the host mounts one list per
 // item area (the reference hard-codes its pinned/unpinned areas), names it with a list key,
@@ -82,6 +83,8 @@ export function WorkspaceItemList({
   const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
   const canEditStructure = useWorkspaceCapabilities((x) => x.canEditStructure);
   const enabled = isSelectingItems && canEditStructure && !filterActive;
+  const listOuterRef = useRef<HTMLDivElement | null>(null);
+  const columnResizeHandlers = useItemColumnWidth(sectionId, listOuterRef);
 
   const visibleSet = useMemo(
     () =>
@@ -121,10 +124,12 @@ export function WorkspaceItemList({
       visibleItemIds={visibleSet}
       renderItem={renderItem}
       isGroupItem={isGroupItem}
+      {...columnResizeHandlers}
+      keyboardColumnResizeItemId={treeView.flat[0]?.id ?? null}
       rootId={treeView.rootId}
       flatItemIds={treeView.flat.map((row) => row.id)}
     >
-      <ItemListShell>
+      <ItemListShell outerRef={listOuterRef}>
         <ItemListBody
           rootId={treeView.rootId}
           topLevelRowIds={treeView.visibleChildrenByParent[treeView.rootId] ?? []}
@@ -141,10 +146,16 @@ export function WorkspaceItemList({
 // carries a `grid-cols-subgrid` its own stylesheet outranks with `.section-args-nested`; the
 // port drops that computed-dead utility so a host sheet loaded after the package sheet cannot
 // flip the winner across the package boundary.
-function ItemListShell({ children }: { children: ReactNode }) {
+function ItemListShell({
+  children,
+  outerRef,
+}: {
+  children: ReactNode;
+  outerRef: RefObject<HTMLDivElement | null>;
+}) {
   const { ref, isScrollable } = useIsScrollable();
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+    <div ref={outerRef} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div
         className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
           isScrollable ? NO_WHEEL_CLASS_NAME : ""

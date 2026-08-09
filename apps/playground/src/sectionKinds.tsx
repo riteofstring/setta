@@ -29,7 +29,7 @@ import {
   type WorkspaceSection,
   type WorkspaceSectionData,
 } from "@setta/workspace";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 // The host side of the registration seam: the package owns the shell, chrome, header, and
 // resize treatment; the playground registers its one leaf kind and renders the section body
@@ -676,44 +676,15 @@ function ItemRowContent({ context }: { context: ItemRowRenderContext }) {
   );
 }
 
-// The reference derives its default label/value split from half the available list width:
-// `useParamColumnWidth` halves the args area's clientWidth and applies it minus the 18 px
-// center offset as `--param-column-width`. The playground supplies the same default through
-// the package's existing host variable and re-derives it when the area resizes; the
-// column-resize drag that persists an authored width stays application-side.
-const COLUMN_CENTER_OFFSET_PX = 18;
-
-function useDefaultColumnSplit() {
-  const listAreaRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const listArea = listAreaRef.current;
-    if (!listArea) {
-      throw new Error("The item list area did not mount.");
-    }
-    const applyDefaultSplit = () => {
-      listArea.style.setProperty(
-        "--param-column-width",
-        `${listArea.clientWidth / 2 - COLUMN_CENTER_OFFSET_PX}px`,
-      );
-    };
-    applyDefaultSplit();
-    const observer = new ResizeObserver(applyDefaultSplit);
-    observer.observe(listArea);
-    return () => observer.disconnect();
-  }, []);
-  return listAreaRef;
-}
-
 // Exported for the focused host-presentation regression; the application mounts it only
 // through the registered section kind.
 export function ItemListSectionBody({ section }: { section: WorkspaceSection }) {
-  const listAreaRef = useDefaultColumnSplit();
   const itemTree = section.itemTree;
   if (!itemTree) {
     throw new Error(`Item panel section ${section.id} is missing its item tree.`);
   }
   return (
-    <div ref={listAreaRef} className="section-full-no-title flex min-h-0 flex-col">
+    <div className="section-full-no-title flex min-h-0 flex-col">
       <ItemDndContext>
         <WorkspaceItemList
           sectionId={section.id}
