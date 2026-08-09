@@ -1127,6 +1127,28 @@ Phase 4 progress (2026-08-11):
   production build and built-boundary check, and explicit changed-file static gate pass. No
   dependencies changed, so the supply-chain gate was not duplicated. Remaining row-control batch:
   dropzone. Meta controls follow after the complete row set as authorized.
+- Remaining-controls dropzone batch complete (2026-08-12): the package now exports
+  `DropzoneValueControl` with the frozen drop target, drag-depth treatment, compact local/server
+  actions, controlled attachment list, pending/error presentation, and byte labels. Local picker
+  and file-drop results preserve raw browser `File` identities without reading their payloads;
+  dropped text, ordered file/text policy rejections, optional server-picker requests, and removal
+  requests cross explicit callbacks. The host owns attachment identities and metadata as well as
+  every upload, persistence, deletion, and server-file decision. Runtime validation rejects
+  invalid MIME-prefix, byte/count, attachment-metadata, and duplicate-identity configuration
+  specifically; the frozen size, slot, MIME, and stateless-total filtering order remains covered.
+  The server action exists only when its callback is supplied. Host/item-select/pending/capacity
+  disabledness blocks native, button, and drag paths, while Escape restores section focus from the
+  native actions. Non-visual accessibility additions name the drop and picker surfaces, expose
+  busy/error/list semantics, keep live regions mounted, hide the decorative upload icon, and
+  enlarge compact action hit geometry without changing its paint. The playground demonstrates the
+  captured row from opaque item data and deliberately performs the host side of result-to-metadata
+  conversion, simulated server selection, rejection messaging, and removal. No dependencies
+  changed. The focused package policy/component suite (15), directly affected playground renderer
+  suite (16), package production build and built-boundary check, explicit changed-file static gate,
+  and packed unrelated-consumer proof pass. Repository-actionable work for the remaining-controls
+  milestone is complete; meta controls are next under the existing consolidated authorization.
+  The matched dark/light comparison and explicit developer acceptance remain open at the
+  consolidated controls-and-meta exit gate, and no package-output baseline has been recorded.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

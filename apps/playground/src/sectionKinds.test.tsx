@@ -27,8 +27,8 @@ import {
 // monospace treatment plus the value-column divider with its focus paint, at the reference
 // settings surface's python language), the boolean switch, the dropdown pill over this host's
 // flat choices, the slider and rotary over opaque numeric configuration, the native date/time
-// controls over opaque formatting configuration, the password input and wrapped multiline editor,
-// and the color picker in
+// controls over opaque formatting configuration, the password input, wrapped multiline editor,
+// backend-free dropzone, and the color picker in
 // both its configured-choices and native-input forms, plus the editable `rename_me` name seam.
 // Every accepted control edit commits back through the host's `setItemData` funnel into the
 // canonical document; duplicate-name proposals stay blocked by this host and ride the package's
@@ -107,6 +107,29 @@ function getDocumentItemLabel(itemId: string): string | undefined {
   }
   const label = data["label"];
   return typeof label === "string" ? label : undefined;
+}
+
+function getDocumentDropzoneAttachmentNames(): Array<string> {
+  const data =
+    getWorkspaceDocument().sections["item-panel"]?.itemTree?.items["item-dropzone"]?.data;
+  if (data === null || data === undefined || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error("The dropzone item lost its opaque data.");
+  }
+  const attachments = data["attachments"];
+  if (!Array.isArray(attachments)) {
+    throw new Error("The dropzone item lost its attachment metadata.");
+  }
+  return attachments.map((attachment) => {
+    if (
+      attachment === null ||
+      typeof attachment !== "object" ||
+      Array.isArray(attachment) ||
+      typeof attachment["name"] !== "string"
+    ) {
+      throw new Error("The dropzone item has malformed attachment metadata.");
+    }
+    return attachment["name"];
+  });
 }
 
 function getItemRowContext(itemId: string): ItemRowRenderContext {
@@ -310,6 +333,36 @@ describe("the playground item renderer presentation contract", () => {
     expect(dummy.getAttribute("aria-label")).toBe("textarea value");
     expect(dummy.style.whiteSpace).toBe("break-spaces");
     expect(dummy.classList.contains("break-words")).toBe(true);
+  });
+
+  it("renders the dropzone and keeps accepted files, server picks, and removal host-owned", () => {
+    const dropzoneRow = findRowByLabel(container, "dropzone");
+    const target = dropzoneRow.querySelector<HTMLElement>('[role="group"]');
+    const fileInput = dropzoneRow.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!target || !fileInput) {
+      throw new Error("The dropzone row does not mount its drop target and file input.");
+    }
+    expect(target.getAttribute("aria-label")).toBe("dropzone dropzone: Drop a file here");
+    expect(target.classList.contains("border-dashed")).toBe(true);
+    expect(dropzoneRow.textContent).toContain("Local file...");
+    expect(dropzoneRow.textContent).toContain("Server file...");
+    const file = new File(["png!"], "photo.png", { type: "image/png" });
+    Object.defineProperty(fileInput, "files", { configurable: true, value: [file] });
+    act(() => fileInput.dispatchEvent(new Event("change", { bubbles: true })));
+    expect(getDocumentDropzoneAttachmentNames()).toEqual(["photo.png"]);
+    expect(dropzoneRow.textContent).toContain("1 attachment");
+
+    const removeLocal = dropzoneRow.querySelector<HTMLButtonElement>(
+      'button[aria-label="Delete photo.png"]',
+    );
+    act(() => removeLocal?.click());
+    expect(getDocumentDropzoneAttachmentNames()).toEqual([]);
+
+    const serverButton = Array.from(dropzoneRow.querySelectorAll("button")).find(
+      (button) => button.textContent === "Server file...",
+    );
+    act(() => serverButton?.click());
+    expect(getDocumentDropzoneAttachmentNames()).toEqual(["server-example.csv"]);
   });
 
   it("renders the dropdown row as the reference pill and commits a selection to the document", () => {

@@ -2,6 +2,7 @@ import {
   ColorValueControl,
   DateValueControl,
   DropdownValueControl,
+  DropzoneValueControl,
   getWorkspaceDocument,
   ItemDndContext,
   ItemNameEditor,
@@ -15,6 +16,10 @@ import {
   TimeValueControl,
   WorkspaceItemList,
   type ColorValueChoice,
+  type DropzoneAcceptedResult,
+  type DropzoneAttachment,
+  type DropzonePolicy,
+  type DropzoneRejection,
   type ItemRowRenderContext,
   type WorkspaceItem,
   type WorkspaceSection,
@@ -125,8 +130,8 @@ function isGroupItem(item: WorkspaceItem): boolean {
 // milestone, chosen by this host's opaque `control` field: the two-layer text value editor
 // (the default, at python — the reference settings surface's generated `configLanguage`), the
 // boolean switch, slider, rotary, date, time, password, the dropdown over this host's flat choice
-// strings, multiline text through the same wrapped editor path, and the color picker in both its
-// configured-choices and native-input forms. The captured `rename_me`
+// strings, multiline text through the same wrapped editor path, the backend-free dropzone, and the
+// color picker in both its configured-choices and native-input forms. The captured `rename_me`
 // row composes the package's editable name control; this host validates proposed names against
 // its opaque sibling labels and owns whether a proposal commits.
 // The playground owns persistence: accepted changes commit back into this host's opaque item
@@ -267,6 +272,204 @@ function getItemDropdownChoices(item: WorkspaceItem): Array<string> {
   return choices;
 }
 
+function getItemNullableNumber(item: WorkspaceItem, field: string): number | null {
+  const value = getItemDataRecord(item)[field];
+  if (value !== null && typeof value !== "number") {
+    throw new Error(`Item ${item.id} has a malformed ${field} field.`);
+  }
+  return value;
+}
+
+function getItemStringArray(item: WorkspaceItem, field: string): Array<string> {
+  const value = getItemDataRecord(item)[field];
+  if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) {
+    throw new Error(`Item ${item.id} has a malformed ${field} field.`);
+  }
+  return value;
+}
+
+function getDropzoneAttachmentString(
+  item: WorkspaceItem,
+  attachment: { [key: string]: WorkspaceSectionData },
+  field: "id" | "name",
+): string {
+  const value = attachment[field];
+  if (typeof value !== "string") {
+    throw new Error(`Item ${item.id} has a malformed dropzone attachment ${field}.`);
+  }
+  return value;
+}
+
+function getDropzoneAttachmentKind(
+  item: WorkspaceItem,
+  attachment: { [key: string]: WorkspaceSectionData },
+): DropzoneAttachment["kind"] {
+  const kind = attachment["kind"];
+  if (kind !== "file" && kind !== "text") {
+    throw new Error(`Item ${item.id} has a malformed dropzone attachment kind.`);
+  }
+  return kind;
+}
+
+function getDropzoneAttachmentSize(
+  item: WorkspaceItem,
+  attachment: { [key: string]: WorkspaceSectionData },
+): number | null {
+  const size = attachment["size"];
+  if (size !== null && typeof size !== "number") {
+    throw new Error(`Item ${item.id} has a malformed dropzone attachment size.`);
+  }
+  return size;
+}
+
+function parseDropzoneAttachment(
+  item: WorkspaceItem,
+  value: WorkspaceSectionData,
+): DropzoneAttachment {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`Item ${item.id} has a malformed dropzone attachment.`);
+  }
+  return {
+    id: getDropzoneAttachmentString(item, value, "id"),
+    kind: getDropzoneAttachmentKind(item, value),
+    name: getDropzoneAttachmentString(item, value, "name"),
+    size: getDropzoneAttachmentSize(item, value),
+  };
+}
+
+function getItemDropzoneAttachments(item: WorkspaceItem): Array<DropzoneAttachment> {
+  const attachments = getItemDataRecord(item)["attachments"];
+  if (!Array.isArray(attachments)) {
+    throw new Error(`Item ${item.id} has malformed dropzone attachments.`);
+  }
+  return attachments.map((attachment) => parseDropzoneAttachment(item, attachment));
+}
+
+function getItemDropzonePolicy(item: WorkspaceItem): DropzonePolicy {
+  return {
+    maxAttachments: getItemNullableNumber(item, "maxAttachments"),
+    maxFileBytes: getItemNumber(item, "maxFileBytes"),
+    maxTotalBytes: getItemNullableNumber(item, "maxTotalBytes"),
+    allowedMimePrefixes: getItemStringArray(item, "allowedMimePrefixes"),
+  };
+}
+
+let playgroundDropzoneAttachmentSequence = 0;
+
+function createPlaygroundDropzoneAttachmentId(itemId: string): string {
+  playgroundDropzoneAttachmentSequence += 1;
+  return `${itemId}-attachment-${playgroundDropzoneAttachmentSequence}`;
+}
+
+function commitDropzoneData(
+  context: ItemRowRenderContext,
+  update: Record<string, WorkspaceSectionData>,
+): void {
+  setItemData(context.sectionId, context.item.id, {
+    ...getItemDataRecord(context.item),
+    ...update,
+  });
+}
+
+function resolveAcceptedDropzoneAttachments(
+  item: WorkspaceItem,
+  result: DropzoneAcceptedResult,
+): Array<DropzoneAttachment> {
+  if (result.kind === "text") {
+    return [
+      {
+        id: createPlaygroundDropzoneAttachmentId(item.id),
+        kind: "text",
+        name: "Dropped text",
+        size: null,
+      },
+    ];
+  }
+  return result.files.map((file) => ({
+    id: createPlaygroundDropzoneAttachmentId(item.id),
+    kind: "file" as const,
+    name: file.name,
+    size: file.size,
+  }));
+}
+
+function commitAcceptedDropzoneResult(
+  context: ItemRowRenderContext,
+  result: DropzoneAcceptedResult,
+): void {
+  const attachments = getItemDropzoneAttachments(context.item);
+  commitDropzoneData(context, {
+    attachments: [...attachments, ...resolveAcceptedDropzoneAttachments(context.item, result)],
+    errorMessage: "",
+  });
+}
+
+function describeDropzoneRejection(rejection: DropzoneRejection): string {
+  if (rejection.reason === "attachment-count") {
+    return "The attachment limit has been reached.";
+  }
+  if (rejection.reason === "file-size") {
+    return `${rejection.kind === "file" ? rejection.file.name : "The drop"} is too large.`;
+  }
+  if (rejection.reason === "mime-type") {
+    return `${rejection.file.name} has a disallowed file type.`;
+  }
+  return "The drop exceeds the total size limit.";
+}
+
+function PlaygroundDropzoneControl({ context }: { context: ItemRowRenderContext }) {
+  const attachments = getItemDropzoneAttachments(context.item);
+  const data = getItemDataRecord(context.item);
+  const errorMessage = data["errorMessage"];
+  if (typeof errorMessage !== "string") {
+    throw new Error(`Item ${context.item.id} has a malformed errorMessage field.`);
+  }
+  const onServerFilePickerRequest = getItemBoolean(context.item, "serverPicker")
+    ? () => {
+        commitDropzoneData(context, {
+          attachments: [
+            ...attachments,
+            {
+              id: createPlaygroundDropzoneAttachmentId(context.item.id),
+              kind: "file",
+              name: "server-example.csv",
+              size: 2048,
+            },
+          ],
+          errorMessage: "",
+        });
+      }
+    : undefined;
+  return (
+    <DropzoneValueControl
+      ariaLabel={`${getItemLabel(context.item)} dropzone`}
+      sectionId={context.sectionId}
+      controlId={context.item.id}
+      attachments={attachments}
+      policy={getItemDropzonePolicy(context.item)}
+      placeholder="Drop a file here"
+      pending={getItemBoolean(context.item, "pending")}
+      errorMessage={errorMessage || undefined}
+      onAccepted={(result) => commitAcceptedDropzoneResult(context, result)}
+      onRejected={(rejections) => {
+        const firstRejection = rejections[0];
+        if (firstRejection) {
+          commitDropzoneData(context, {
+            errorMessage: describeDropzoneRejection(firstRejection),
+          });
+        }
+      }}
+      onServerFilePickerRequest={onServerFilePickerRequest}
+      onAttachmentRemove={(attachmentId) => {
+        commitDropzoneData(context, {
+          attachments: attachments.filter((attachment) => attachment.id !== attachmentId),
+          errorMessage: "",
+        });
+      }}
+    />
+  );
+}
+
 function ItemValueControl({ context }: { context: ItemRowRenderContext }) {
   const control = getItemField(context.item, "control");
   const value = getItemValue(context.item);
@@ -280,6 +483,9 @@ function ItemValueControl({ context }: { context: ItemRowRenderContext }) {
   });
   if (specializedControl !== null) {
     return specializedControl;
+  }
+  if (control === "dropzone") {
+    return <PlaygroundDropzoneControl context={context} />;
   }
   if (control === "password") {
     return (

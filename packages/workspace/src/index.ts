@@ -29,6 +29,18 @@ export type {
   DropdownValueChoiceGroup,
   DropdownValueControlProps,
 } from "./controls/dropdown/DropdownValueControl";
+export type {
+  DropzoneAcceptedResult,
+  DropzoneAttachment,
+  DropzoneFileRejection,
+  DropzoneFileRejectionReason,
+  DropzonePolicy,
+  DropzoneRejection,
+  DropzoneServerPickerRequest,
+  DropzoneTextRejection,
+  DropzoneValueControlProps,
+} from "./controls/dropzone/dropzoneTypes";
+export { DropzoneValueControl } from "./controls/dropzone/DropzoneValueControl";
 export { ItemNameEditor } from "./controls/name/ItemNameEditor";
 export type { ItemNameEditorProps } from "./controls/name/ItemNameEditor";
 export { PasswordValueControl } from "./controls/password/PasswordValueControl";
