@@ -229,10 +229,10 @@ test("keyboard free-move promotes a nested section to the canvas without a visua
   await page.getByRole("combobox", { name: "Section movement" }).selectOption("free");
   const nestedAlpha = workspace.getByRole("article", { name: "Nested Alpha" });
   const handle = nestedAlpha.getByRole("button", { name: "Move Nested Alpha" });
-  const before = await requiredBoundingBox(nestedAlpha, "The nested canvas-move source");
   const baselineChanges = await recursiveChangeCount(page);
 
   await handle.focus();
+  const before = await requiredBoundingBox(nestedAlpha, "The nested canvas-move source");
   await page.keyboard.press("Enter");
   await page.keyboard.press("ArrowLeft");
   await expect(

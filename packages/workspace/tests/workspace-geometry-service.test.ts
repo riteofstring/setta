@@ -14,6 +14,7 @@ type FakeWindowFixture = Readonly<{
   addEventListener: ReturnType<typeof vi.fn>;
   cancelAnimationFrame: ReturnType<typeof vi.fn>;
   instances: FakeResizeObserverInstance[];
+  pendingAnimationFrameCount(): number;
   flushAnimationFrames(): void;
   removeEventListener: ReturnType<typeof vi.fn>;
   requestAnimationFrame: ReturnType<typeof vi.fn>;
@@ -62,10 +63,19 @@ function fakeWindow(): FakeWindowFixture {
       }
     },
     instances,
+    pendingAnimationFrameCount: () => animationFrames.length,
     removeEventListener,
     requestAnimationFrame,
     window,
   };
+}
+
+async function flushNextAnimationFrame(fixture: FakeWindowFixture): Promise<void> {
+  for (let turn = 0; turn < 4 && fixture.pendingAnimationFrameCount() === 0; turn += 1) {
+    await Promise.resolve();
+  }
+  expect(fixture.pendingAnimationFrameCount()).toBeGreaterThan(0);
+  fixture.flushAnimationFrames();
 }
 
 function fakeElement(
@@ -297,7 +307,7 @@ describe("WorkspaceGeometryMeasurements lifecycle", () => {
     expect(selection.focus).toHaveBeenCalledWith({ preventScroll: true });
   });
 
-  it("recovers focus only after the element active before navigation disappears", async () => {
+  it("recovers focus when the active section is removed or becomes a nested descendant", async () => {
     const fixture = fakeWindow();
     const body = { isConnected: true } as HTMLElement;
     const documentElement = { isConnected: true } as HTMLElement;
@@ -318,6 +328,11 @@ describe("WorkspaceGeometryMeasurements lifecycle", () => {
       { height: 120, width: 200, x: 40, y: 60 },
       ownerDocument,
     );
+    const group = fakeElement(
+      fixture.window,
+      { height: 240, width: 320, x: 40, y: 60 },
+      ownerDocument,
+    );
     const geometry = new WorkspaceGeometryMeasurements(new WorkspaceGeometryIndex());
     geometry.setCanvasElement(canvas.element);
     geometry.register({
@@ -327,8 +342,18 @@ describe("WorkspaceGeometryMeasurements lifecycle", () => {
       parentSectionId: null,
       sectionId: "alpha",
     });
+    geometry.register({
+      depth: 0,
+      element: group.element,
+      order: 1,
+      parentSectionId: null,
+      sectionId: "group",
+    });
 
-    const survivingAnchor = { isConnected: true } as Element;
+    const survivingAnchor = {
+      closest: () => ({ getAttribute: () => "alpha" }),
+      isConnected: true,
+    } as unknown as Element;
     documentState.activeElement = survivingAnchor;
     expect(geometry.captureFocus()).toBe(survivingAnchor);
     const preservedFocus = geometry.recoverFocus("alpha", survivingAnchor);
@@ -336,9 +361,25 @@ describe("WorkspaceGeometryMeasurements lifecycle", () => {
     await expect(preservedFocus).resolves.toBe(false);
     expect(alpha.focus).not.toHaveBeenCalled();
 
+    const promotedFocus = geometry.recoverFocus("group", survivingAnchor);
+    group.focus.mockImplementationOnce(() => {
+      documentState.activeElement = body;
+    });
+    for (let frame = 0; frame < 3; frame += 1) {
+      await flushNextAnimationFrame(fixture);
+    }
+    await expect(promotedFocus).resolves.toBe(true);
+    expect(group.focus).toHaveBeenCalledTimes(2);
+    expect(group.focus).toHaveBeenLastCalledWith({ preventScroll: true });
+    expect(documentState.activeElement).toBe(group.element);
+
     const removedAnchor = { isConnected: false } as Element;
     documentState.activeElement = canvas.element;
-    await expect(geometry.recoverFocus("alpha", removedAnchor)).resolves.toBe(true);
+    const restoredFocus = geometry.recoverFocus("alpha", removedAnchor);
+    for (let frame = 0; frame < 2; frame += 1) {
+      await flushNextAnimationFrame(fixture);
+    }
+    await expect(restoredFocus).resolves.toBe(true);
     expect(alpha.focus).toHaveBeenCalledWith({ preventScroll: true });
     expect(documentState.activeElement).toBe(alpha.element);
 

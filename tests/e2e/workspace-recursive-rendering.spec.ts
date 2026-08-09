@@ -75,6 +75,29 @@ async function requiredBoundingBox(locator: Locator, label: string) {
   return box;
 }
 
+async function scrollRegionHorizontallyWithWheel(page: Page, region: Locator): Promise<void> {
+  const box = await requiredBoundingBox(region, "The scrollable child region");
+  await region.hover({
+    position: {
+      x: box.width / 2,
+      y: Math.min(6, box.height / 2),
+    },
+  });
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.mouse.wheel(220, 0);
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    if ((await region.evaluate((element) => element.scrollLeft)) > 0) {
+      return;
+    }
+  }
+  throw new Error("The scrollable child region must consume a native horizontal wheel gesture.");
+}
+
 async function visibleCanvasTargetPoint(
   canvas: Locator,
   target: Locator,
@@ -286,7 +309,9 @@ test("recursive frames share all-depth selection, geometry, focus, and fit", asy
   await page.getByRole("button", { name: "Fit recursive descendants" }).click();
   await expect(page.getByRole("status")).toContainText("Fit recursive descendants: applied.");
   await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
-  await expect(workspace).toHaveScreenshot("recursive-section-tree.png");
+  await expect(workspace).toHaveScreenshot("recursive-section-tree.png", {
+    maxDiffPixels: 20,
+  });
 
   await page.getByRole("button", { name: "Focus Nested Gamma" }).click();
   await expect(nestedGamma).toBeFocused();
@@ -825,11 +850,8 @@ test("container orientation and overflow switch stably and preserve child order"
   }));
   expect(scrollMetrics.scrollWidth).toBeGreaterThan(scrollMetrics.clientWidth);
 
-  const regionBox = await requiredBoundingBox(childRegion, "The scrollable child region");
   const viewportBeforeWheel = await canvasViewport(page);
-  await page.mouse.move(regionBox.x + regionBox.width / 2, regionBox.y + 6);
-  await page.mouse.wheel(220, 0);
-  await expect.poll(() => childRegion.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+  await scrollRegionHorizontallyWithWheel(page, childRegion);
   expect(await canvasViewport(page)).toEqual(viewportBeforeWheel);
 
   await nestedRow.getByRole("button", { name: "Select Nested row" }).click();

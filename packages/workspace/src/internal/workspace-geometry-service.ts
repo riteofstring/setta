@@ -86,6 +86,50 @@ function hasMeaningfulActiveElement(ownerDocument: Document, excluded: Element):
   );
 }
 
+function focusedWorkspaceSectionId(element: Element): string | null {
+  if (typeof element.closest !== "function") {
+    return null;
+  }
+  return (
+    element
+      .closest<HTMLElement>("[data-workspace-section-id]")
+      ?.getAttribute("data-workspace-section-id") ?? null
+  );
+}
+
+function capturedFocusShouldRemain(
+  ownerDocument: Document,
+  focusAnchor: Element | null,
+  sectionId: string | null,
+): boolean {
+  if (!focusAnchor?.isConnected || ownerDocument.activeElement !== focusAnchor) {
+    return false;
+  }
+  const anchorSectionId = focusedWorkspaceSectionId(focusAnchor);
+  return !anchorSectionId || !sectionId || anchorSectionId === sectionId;
+}
+
+function activeFocusBlocksRecovery(
+  ownerDocument: Document,
+  canvas: Element,
+  focusAnchor: Element | null,
+): boolean {
+  return (
+    ownerDocument.activeElement !== focusAnchor && hasMeaningfulActiveElement(ownerDocument, canvas)
+  );
+}
+
+async function waitForAnimationFrames(ownerDocument: Document, count: number): Promise<void> {
+  const view = ownerDocument.defaultView;
+  if (!view) {
+    await Promise.resolve();
+    return;
+  }
+  for (let frame = 0; frame < count; frame += 1) {
+    await new Promise<void>((resolve) => view.requestAnimationFrame(() => resolve()));
+  }
+}
+
 async function waitForFocusReconciliation(
   ownerDocument: Document,
   focusAnchor: Element | null,
@@ -93,12 +137,7 @@ async function waitForFocusReconciliation(
   if (!focusAnchor?.isConnected || ownerDocument.activeElement !== focusAnchor) {
     return;
   }
-  const view = ownerDocument.defaultView;
-  if (!view) {
-    await Promise.resolve();
-    return;
-  }
-  await new Promise<void>((resolve) => view.requestAnimationFrame(() => resolve()));
+  await waitForAnimationFrames(ownerDocument, 1);
 }
 
 export class WorkspaceGeometryMeasurements {
@@ -330,18 +369,44 @@ export class WorkspaceGeometryMeasurements {
     if (this.#canvasElement !== canvas) {
       return false;
     }
-    const activeElement = ownerDocument.activeElement;
-    if (focusAnchor?.isConnected && activeElement === focusAnchor) {
+    if (capturedFocusShouldRemain(ownerDocument, focusAnchor, sectionId)) {
       return false;
     }
-    if (hasMeaningfulActiveElement(ownerDocument, canvas)) {
+    if (activeFocusBlocksRecovery(ownerDocument, canvas, focusAnchor)) {
       return false;
     }
     if (sectionId) {
-      return this.focusSectionWhenReady(sectionId);
+      return this.#recoverSectionFocus(sectionId, ownerDocument, canvas, focusAnchor);
     }
     canvas.focus({ preventScroll: true });
     return ownerDocument.activeElement === canvas;
+  }
+
+  async #recoverSectionFocus(
+    sectionId: string,
+    ownerDocument: Document,
+    canvas: HTMLElement,
+    focusAnchor: Element | null,
+  ): Promise<boolean> {
+    if (!(await this.focusSectionWhenReady(sectionId))) {
+      return false;
+    }
+    await waitForAnimationFrames(ownerDocument, 2);
+    if (this.#canvasElement !== canvas) {
+      return false;
+    }
+    const target = this.#entries.get(sectionId)?.element;
+    if (!target) {
+      return false;
+    }
+    if (ownerDocument.activeElement === target) {
+      return true;
+    }
+    if (activeFocusBlocksRecovery(ownerDocument, canvas, focusAnchor)) {
+      return false;
+    }
+    target.focus({ preventScroll: true });
+    return ownerDocument.activeElement === target;
   }
 
   #unregister(entry: RegisteredMeasuredElement): void {
