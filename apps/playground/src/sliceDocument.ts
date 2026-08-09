@@ -9,7 +9,9 @@ function makeLeafSection(
     id,
     kind: "leaf",
     name,
-    size: { width: 224, height: 96 },
+    // The package shell adds a 1 px border on each side, producing the frozen reference's
+    // measured 202 x 124 px outer leaf geometry.
+    size: { width: 200, height: 122 },
     isMinimized: false,
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
@@ -48,9 +50,9 @@ export const sliceDocument: WorkspaceDocument = {
     "nested-leaf": makeLeafSection("nested-leaf", "Nested leaf"),
   },
   topLevelSections: {
-    "idle-leaf": { x: 24, y: 24, w: 224, h: 96, zIndex: 0 },
-    "locked-leaf": { x: 312, y: 24, w: 224, h: 96, zIndex: 1 },
-    "styled-leaf": { x: 600, y: 24, w: 224, h: 96, zIndex: 2 },
+    "idle-leaf": { x: 24, y: 24, w: 200, h: 122, zIndex: 0 },
+    "locked-leaf": { x: 312, y: 24, w: 200, h: 122, zIndex: 1 },
+    "styled-leaf": { x: 600, y: 24, w: 200, h: 122, zIndex: 2 },
     "root-group": { x: 24, y: 216, w: null, h: null, zIndex: 3 },
   },
   viewport: { x: 0, y: 0, zoom: 1 },
