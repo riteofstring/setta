@@ -37,4 +37,17 @@ describe("workspace adaptive stylesheet contract", () => {
     expect(workspaceStyles).toMatch(/\.setta-workspace-shell-resize-handle\s*\{[^}]*width: 10px/su);
     expect(workspaceStyles).not.toContain(".setta-workspace-shell-resize-handle::before");
   });
+
+  it("keeps Outline paint compact inside logical, visible-focus tree geometry", () => {
+    expect(workspaceStyles).toMatch(/\.setta-workspace-outline-item\s*\{[^}]*min-height: 24px/su);
+    expect(workspaceStyles).toMatch(/\.setta-workspace-outline-row\s*\{[^}]*height: 20px/su);
+    expect(workspaceStyles).toContain("margin-inline-start: var(--setta-workspace-outline-depth)");
+    expect(workspaceStyles).toContain(
+      ".setta-workspace-outline-item:focus-visible .setta-workspace-outline-row",
+    );
+    expect(workspaceStyles).toContain("@media (forced-colors: active)");
+    expect(workspaceStyles).toMatch(
+      /@media \(prefers-reduced-motion: no-preference\)[^{]*\{[^}]*\.setta-workspace-outline-disclosure svg/su,
+    );
+  });
 });

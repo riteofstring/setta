@@ -226,6 +226,7 @@ describe("WorkspaceShell", () => {
     ).toEqual(["Leading workspace panes", "Trailing workspace panes"]);
     expect(getButton("Notes").getAttribute("aria-selected")).toBe("true");
     expect(getButton("Notes").tabIndex).toBe(0);
+    expect(getButton("Outline").tabIndex).toBe(-1);
     expect(getButton("Guide").tabIndex).toBe(-1);
     expect(host.querySelector('[role="tabpanel"] h2')?.textContent).toBe("Notes");
     expect(host.textContent).toContain("Notes content");
@@ -233,6 +234,18 @@ describe("WorkspaceShell", () => {
     expect(host.querySelector('[data-testid="workspace-canvas"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="workspace-controls"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="workspace-tooltip"]')).not.toBeNull();
+  });
+
+  it("prepends the built-in Outline and focuses its empty tree when opened", async () => {
+    await act(async () => {
+      getButton("Outline").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const tree = host.querySelector<HTMLElement>('[role="tree"][aria-label="Workspace outline"]');
+    expect(tree?.textContent).toContain("No sections");
+    expect(tree?.tabIndex).toBe(0);
+    expect(document.activeElement).toBe(tree);
+    expect(getButton("Outline").getAttribute("aria-selected")).toBe("true");
   });
 
   it("opens a registered tab into its requested focus target and restores its rail tab on close", async () => {

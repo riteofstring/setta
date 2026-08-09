@@ -132,14 +132,12 @@ const trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
   },
 ];
 
-const INITIAL_LEADING_TAB_ID = "host-notes";
 const INITIAL_TRAILING_TAB_ID = "host-status";
 
 export function App() {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
   const [shellViewState, setShellViewState] = useState(() =>
     createWorkspaceShellViewState({
-      leadingTabId: INITIAL_LEADING_TAB_ID,
       trailingTabId: INITIAL_TRAILING_TAB_ID,
     }),
   );

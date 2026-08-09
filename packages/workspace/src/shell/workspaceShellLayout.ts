@@ -5,6 +5,7 @@ import type {
 } from "./workspaceShellTypes";
 
 export const WORKSPACE_SHELL_CLOSED_PANE_WIDTH = 40;
+export const WORKSPACE_OUTLINE_TAB_ID = "outline";
 const WORKSPACE_SHELL_INITIAL_LEADING_WIDTH = 335;
 const WORKSPACE_SHELL_INITIAL_TRAILING_WIDTH = 500;
 
@@ -23,10 +24,10 @@ function assertTabId(tabId: string, pane: WorkspaceShellPane): void {
 }
 
 export function createWorkspaceShellViewState({
-  leadingTabId,
+  leadingTabId = WORKSPACE_OUTLINE_TAB_ID,
   trailingTabId,
 }: {
-  leadingTabId: string;
+  leadingTabId?: string;
   trailingTabId: string;
 }): WorkspaceShellViewState {
   assertTabId(leadingTabId, "leading");
@@ -44,6 +45,10 @@ export function createWorkspaceShellViewState({
       width: WORKSPACE_SHELL_INITIAL_TRAILING_WIDTH,
       rememberedNonFullWidth: WORKSPACE_SHELL_INITIAL_TRAILING_WIDTH,
     },
+    outline: {
+      collapsedGroupIds: [],
+      focusedSectionId: null,
+    },
   };
 }
 
@@ -51,6 +56,10 @@ function cloneViewState(state: WorkspaceShellViewState): WorkspaceShellViewState
   return {
     leading: { ...state.leading },
     trailing: { ...state.trailing },
+    outline: {
+      collapsedGroupIds: [...state.outline.collapsedGroupIds],
+      focusedSectionId: state.outline.focusedSectionId,
+    },
   };
 }
 

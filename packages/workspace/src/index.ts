@@ -9,6 +9,7 @@ export type {
 // These two string unions appear in WorkspaceInteractionOptions; riding the index keeps
 // consumers off deep canvas-internal import paths.
 export type { PanOnScrollMode, SelectionMode } from "./canvas/types";
+export { focusWorkspaceSection } from "./canvas/viewportHelpers";
 export { WorkspaceCanvas } from "./canvas/WorkspaceCanvas";
 export { ColorValueControl } from "./controls/color/ColorValueControl";
 export type { ColorValueChoice, ColorValueControlProps } from "./controls/color/ColorValueControl";
@@ -166,9 +167,13 @@ export type { WorkspaceItemLabelProps } from "./items/WorkspaceItemLabel";
 export { WorkspaceItemList } from "./items/WorkspaceItemList";
 export type { WorkspaceItemListProps } from "./items/WorkspaceItemList";
 export { WorkspaceShell } from "./shell/WorkspaceShell";
-export { createWorkspaceShellViewState } from "./shell/workspaceShellLayout";
+export {
+  WORKSPACE_OUTLINE_TAB_ID,
+  createWorkspaceShellViewState,
+} from "./shell/workspaceShellLayout";
 export type {
   WorkspaceShellLeadingPaneCameraMode,
+  WorkspaceShellOutlineViewState,
   WorkspaceShellPane,
   WorkspaceShellPaneViewState,
   WorkspaceShellProps,

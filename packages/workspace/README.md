@@ -15,11 +15,12 @@ transition paths are provided.
 ## Public composition surface
 
 - `WorkspaceShell` is the package-owned integrated surface. It composes the canvas, controls,
-  tooltip, logical leading/trailing rails, and controlled panes. Hosts register typed tabs with
-  icons and content rendered from public props only.
+  tooltip, logical leading/trailing rails, controlled panes, and the built-in leading Outline.
+  Hosts register additional typed tabs with icons and content rendered from public props only.
 - `createWorkspaceShellViewState` creates the initial serializable pane state. Hosts own that value
   and apply the shell's single `onViewStateChange` callback directly or persist it separately from
-  `WorkspaceDocument`.
+  `WorkspaceDocument`. The same value owns Outline disclosure and roving-focus state; canonical
+  section selection remains in the workspace document.
 - `WorkspaceCanvas`, `WorkspaceControls`, and `WorkspaceTooltip` remain public for a host that
   intentionally does not want the integrated shell. The canvas fills its host element; a
   standalone host owns the other surfaces' placement.
@@ -38,10 +39,12 @@ utility, or package-private DOM selector as an extension API.
 
 ## Controlled workspace shell
 
-Each side needs one or more tabs with unique stable ids, non-empty labels, decorative icon
-components, and render functions. The selected tab, visibility, current width, and remembered
-non-full width are controlled serializable view state, deliberately separate from the canonical
-workspace document.
+The built-in `Outline` is always the first leading tab; `WORKSPACE_OUTLINE_TAB_ID` is its reserved
+id. A host supplies zero or more additional leading tabs and one or more trailing tabs with unique
+stable ids, non-empty labels, decorative icon components, and render functions. The selected tab,
+visibility, current width, remembered non-full width, Outline disclosure, and Outline keyboard
+focus are controlled serializable view state, deliberately separate from the canonical workspace
+document.
 
 ```tsx
 const leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
@@ -65,7 +68,6 @@ const trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
 function HostWorkspace() {
   const [viewState, setViewState] = useState(() =>
     createWorkspaceShellViewState({
-      leadingTabId: "host-notes",
       trailingTabId: "host-details",
     }),
   );
@@ -88,6 +90,14 @@ separators support pointer dragging plus Arrow Left/Right and Home/End. Set
 `leadingPaneCameraMode="preserve-screen-position"` to counter-pan when the leading pane changes
 width; the default `"shift-with-pane"` leaves the canvas camera unchanged as its actual center box
 moves.
+
+The Outline projects top-level sections and recursive group children in document order. It uses
+the registered section-kind icons, announces selection and disclosure independently, supports one
+roving tab stop with Arrow keys, Home/End, Left/Right disclosure, Enter/Space activation, and name
+typeahead, and restores focus deterministically after document changes. Pointer and keyboard
+activation combine the canvas selection policy with the public `focusWorkspaceSection` command.
+Hosts may call that command directly to fit a mounted section at no more than 100% zoom; it never
+changes canonical selection.
 
 Custom interactive renderer content uses only the four exported interaction-boundary constants:
 `NO_DRAG_CLASS_NAME` prevents section/item drag activation and `NO_PAN_CLASS_NAME` preserves the

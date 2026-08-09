@@ -32,6 +32,10 @@ describe("workspace shell layout", () => {
         width: 500,
         rememberedNonFullWidth: 500,
       },
+      outline: {
+        collapsedGroupIds: [],
+        focusedSectionId: null,
+      },
     });
     expect(getWorkspaceShellPaneTrueWidth(createState().trailing)).toBe(40);
   });
@@ -119,11 +123,17 @@ describe("workspace shell layout", () => {
 
   it("selects and opens a different tab but toggles an already selected tab", () => {
     const state = createState();
+    state.outline = { collapsedGroupIds: ["group-a"], focusedSectionId: "leaf-a" };
     const selected = selectWorkspaceShellTab(state, "trailing", "hostDetails", 1000);
     expect(selected.trailing).toMatchObject({
       selectedTabId: "hostDetails",
       visible: true,
     });
+    expect(selected.outline).toEqual({
+      collapsedGroupIds: ["group-a"],
+      focusedSectionId: "leaf-a",
+    });
+    expect(selected.outline).not.toBe(state.outline);
 
     const closed = selectWorkspaceShellTab(selected, "trailing", "hostDetails", 1000);
     expect(closed.trailing.visible).toBe(false);
@@ -136,5 +146,11 @@ describe("workspace shell layout", () => {
     expect(() => resizeWorkspaceShellPane(createState(), "leading", Number.NaN, 1000)).toThrow(
       /width must be finite/,
     );
+  });
+
+  it("defaults the built-in leading tab to Outline", () => {
+    expect(
+      createWorkspaceShellViewState({ trailingTabId: "inspector" }).leading.selectedTabId,
+    ).toBe("outline");
   });
 });

@@ -17,6 +17,9 @@ import { useReactFlow } from "./store";
 type SectionClickIntent = {
   interaction: "section-click";
   sectionId: string;
+  // Pointer surfaces outside the canvas receive modifier state from their own event. Omitting
+  // this keeps canvas section clicks bound to the live interaction store.
+  multiSelectionActive?: boolean;
 };
 
 // The reference's input-focus intent, package-owned since the built-in controls arrived:
@@ -99,7 +102,10 @@ export function applyActiveSectionChange(
 ): ActiveSectionControllerResult {
   const activeIds = getActiveSectionIds();
   const isSelectingItems = useItemSelectionMode.getState().isSelectingItems;
-  const multiSelectionActive = useReactFlow.getState().multiSelectionActive;
+  const multiSelectionActive =
+    intent.interaction === "section-click" && intent.multiSelectionActive !== undefined
+      ? intent.multiSelectionActive
+      : useReactFlow.getState().multiSelectionActive;
 
   const context = buildPolicyContext(intent, activeIds, isSelectingItems, multiSelectionActive);
   const decision = resolveActiveSectionChange(context);

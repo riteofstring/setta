@@ -1,7 +1,8 @@
 import { zoomIdentity } from "d3-zoom";
 import _ from "lodash";
+import { useWorkspaceDocument } from "../document/stores";
 import { prefersReducedWorkspaceMotion } from "../styles/motion";
-import { getD3Transition } from "./graph";
+import { getD3Transition, getSectionRect, getViewportForBounds } from "./graph";
 import { useWorkspaceOptions } from "./options";
 import { useReactFlow } from "./store";
 import type { ReactFlowState } from "./types";
@@ -65,4 +66,32 @@ export function setCenter(x: number, y: number, options?: ZoomOptions) {
   const transform = zoomIdentity.translate(centerX, centerY).scale(nextZoom);
 
   d3Zoom.transform(getZoomTarget(d3Selection, options?.duration), transform);
+}
+
+// The public counterpart of frozen main's Overview `goToSection`: fit one mounted section into
+// the actual canvas center, cap ordinary focus at 100%, and leave canonical selection untouched.
+export function focusWorkspaceSection(sectionId: string): void {
+  if (!useWorkspaceDocument.getState().sections[sectionId]) {
+    throw new Error(`Cannot focus unknown workspace section ${sectionId}.`);
+  }
+  const rect = getSectionRect(sectionId);
+  if (!rect) {
+    throw new Error(
+      `Cannot focus workspace section ${sectionId} before its canvas element mounted.`,
+    );
+  }
+  if (rect.width <= 0 || rect.height <= 0) {
+    throw new Error(`Cannot focus workspace section ${sectionId} with empty canvas bounds.`);
+  }
+
+  const { width, height } = useReactFlow.getState();
+  if (width <= 0 || height <= 0) {
+    throw new Error("Cannot focus a workspace section before the canvas has measurable bounds.");
+  }
+  const { transitionDuration } = useWorkspaceOptions.getState();
+  const viewport = getViewportForBounds(rect, width, height, { minZoom: 0, maxZoom: 1 }, 0.1);
+  setCenter(rect.x + rect.width / 2, rect.y + rect.height / 2, {
+    zoom: viewport.zoom,
+    duration: transitionDuration,
+  });
 }

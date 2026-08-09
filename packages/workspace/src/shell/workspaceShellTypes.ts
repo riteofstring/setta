@@ -9,11 +9,17 @@ export type WorkspaceShellPaneViewState = {
   rememberedNonFullWidth: number;
 };
 
+export type WorkspaceShellOutlineViewState = {
+  collapsedGroupIds: Array<string>;
+  focusedSectionId: string | null;
+};
+
 // Shell view state is deliberately separate from WorkspaceDocument. A host may serialize and
 // persist this controlled value without introducing pane state into the canonical workspace.
 export type WorkspaceShellViewState = {
   leading: WorkspaceShellPaneViewState;
   trailing: WorkspaceShellPaneViewState;
+  outline: WorkspaceShellOutlineViewState;
 };
 
 export type WorkspaceShellTabIconProps = {
@@ -43,6 +49,8 @@ export type WorkspaceShellLeadingPaneCameraMode = "shift-with-pane" | "preserve-
 export type WorkspaceShellProps = {
   viewState: WorkspaceShellViewState;
   onViewStateChange: (nextState: WorkspaceShellViewState) => void;
+  // Package tabs are composed before these host extensions. `outline` is reserved by the
+  // built-in leading tab and therefore fails the same duplicate-id validation as any collision.
   leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
   trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
   // Frozen main's default setting shifts the map with the leading pane. In an integrated shell,

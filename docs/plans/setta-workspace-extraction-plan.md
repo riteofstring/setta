@@ -1701,6 +1701,34 @@ Phase 4 progress (2026-08-11):
   changed, so the supply-chain gate is not duplicated. This completes implementation batch 2; the
   producible Overview capture precedes batch 3, and the combined milestone developer gate remains
   later.
+- Workspace-shell Outline batch complete (2026-08-12): the frozen-reference preflight now indexes
+  the already-accepted nested dark/light Overview captures and adds fresh computed row geometry,
+  typography, appearance, focus, and source-boundary facts plus real pointer/Space activation
+  traces from the clean pinned application. `WorkspaceShell` prepends the package-owned Outline to
+  host leading-tab extensions, while controlled serializable shell state owns collapsed group ids
+  and the single roving focus id independently of `WorkspaceDocument`. The projection follows
+  top-level and recursive child arrays in canonical document order and renders registered kind
+  icons, tag/style cues, locked/minimized cues, selected rows, and the ARIA tree/treeitem/group
+  pattern without interactive descendants inside a treeitem. Pointer and Enter/Space activation
+  combine the existing section-selection policy, including explicit Cmd/Ctrl multi-selection,
+  with the new public selection-preserving `focusWorkspaceSection` command for fitting the mounted
+  section.
+  Arrow Up/Down, Home/End, Left/Right disclosure and parent/child movement, cyclic name typeahead,
+  one tab stop, visible focus, forced-colors paint, reduced-motion-bounded disclosure, logical RTL
+  indentation, and deterministic rename/delete/collapse focus restoration complete the authorized
+  accessibility behavior. The playground and packed unrelated consumer now open the built-in
+  Outline by default while retaining host tab extensions. Focused model/component/shell/selection/
+  viewport/style/public-API coverage passes (57 tests); a stale compiled-grid fixture found by the
+  authorized package run was corrected to stop placing opaque row data on the typed schema's
+  structural root, and its four focused tests pass. Changed-file quality, package and playground
+  production builds, the source/compiled boundary, and the exact packed unrelated-consumer
+  install/typecheck/build pass. Live Chrome checks in dark/light at 1492 x 696 and light at a 320 x
+  800 host exercised pointer selection and camera fitting, collapse/expand, child navigation,
+  typeahead, Space activation, one-tab-stop retention, deep-label truncation, and zero page-level
+  horizontal overflow with no console warnings or errors. No dependency changed, so the
+  supply-chain gate is not duplicated. This completes implementation batch 3; the producible UI
+  Editor reference capture precedes batch 4, and no package-output baseline or developer visual
+  approval is claimed before the combined milestone gate.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

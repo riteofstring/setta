@@ -1,8 +1,11 @@
 import type { ZoomTransform } from "d3-zoom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useActiveSections, useWorkspaceDocument } from "../document/stores";
+import type { WorkspaceSection } from "../document/types";
+import { useSectionRefs } from "../section/sectionRefs";
 import { useWorkspaceOptions } from "./options";
 import { initialCanvasState, useReactFlow } from "./store";
-import { resetZoom, setCenter, zoomIn, zoomOut } from "./viewportHelpers";
+import { focusWorkspaceSection, resetZoom, setCenter, zoomIn, zoomOut } from "./viewportHelpers";
 
 function setupZoomRuntime() {
   const scaleBy = vi.fn();
@@ -32,6 +35,9 @@ describe("viewport zoom helpers", () => {
     vi.useFakeTimers();
     useWorkspaceOptions.getState().reset();
     useReactFlow.setState({ ...initialCanvasState });
+    useWorkspaceDocument.getState().reset();
+    useActiveSections.getState().reset();
+    useSectionRefs.getState().reset();
   });
 
   afterEach(() => {
@@ -40,6 +46,9 @@ describe("viewport zoom helpers", () => {
     vi.useRealTimers();
     useWorkspaceOptions.getState().reset();
     useReactFlow.setState({ ...initialCanvasState });
+    useWorkspaceDocument.getState().reset();
+    useActiveSections.getState().reset();
+    useSectionRefs.getState().reset();
     vi.unstubAllGlobals();
   });
 
@@ -141,6 +150,76 @@ describe("viewport zoom helpers", () => {
     expect(applied.k).toBe(4);
     expect(applied.x).toBe(400);
     expect(applied.y).toBe(300);
+  });
+
+  it("focuses a mounted section at a maximum of 100% without changing selection", () => {
+    const { transform, transitionObject, durations } = setupZoomRuntime();
+    const section: WorkspaceSection = {
+      id: "section-a",
+      kind: "leaf",
+      name: "Section A",
+      size: { width: 200, height: 100 },
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isHorizontalOrientation: false,
+      styleColor: null,
+      tagColor: null,
+      children: [],
+    };
+    useWorkspaceDocument.setState({ sections: { "section-a": section } });
+    useActiveSections.setState({ activeIds: ["section-a", "section-b"] });
+    useWorkspaceOptions.setState({ minZoom: 2, maxZoom: 10 });
+    useReactFlow.setState({
+      width: 800,
+      height: 600,
+      domNode: {
+        getBoundingClientRect: () => ({ x: 0, y: 0 }),
+      } as unknown as HTMLDivElement,
+    });
+    useSectionRefs.setState({
+      selfOnly: {
+        "section-a": {
+          clientWidth: 200,
+          clientHeight: 100,
+          getBoundingClientRect: () => ({ x: 100, y: 50 }),
+        } as unknown as HTMLElement,
+      },
+    });
+
+    focusWorkspaceSection("section-a");
+
+    const [target, applied] = getFirstTransformCall(transform);
+    expect(target).toBe(transitionObject);
+    expect(applied.k).toBe(1);
+    expect(applied.x).toBe(195);
+    expect(applied.y).toBe(205);
+    expect(durations).toEqual([50]);
+    expect(useActiveSections.getState().activeIds).toEqual(["section-a", "section-b"]);
+  });
+
+  it("fails specifically for unknown and unmounted focus targets", () => {
+    expect(() => focusWorkspaceSection("missing")).toThrowError(
+      "Cannot focus unknown workspace section missing.",
+    );
+    useWorkspaceDocument.setState({
+      sections: {
+        known: {
+          id: "known",
+          kind: "leaf",
+          name: "Known",
+          size: { width: 200, height: 100 },
+          isMinimized: false,
+          positionAndSizeLocked: false,
+          isHorizontalOrientation: false,
+          styleColor: null,
+          tagColor: null,
+          children: [],
+        },
+      },
+    });
+    expect(() => focusWorkspaceSection("known")).toThrowError(
+      "Cannot focus workspace section known before its canvas element mounted.",
+    );
   });
 });
 

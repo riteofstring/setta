@@ -1,18 +1,22 @@
 import {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
+import { TbListTree } from "react-icons/tb";
 import { WorkspaceCanvas } from "../canvas/WorkspaceCanvas";
 import { useReactFlow } from "../canvas/store";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { WorkspaceControls } from "../toolbar/WorkspaceControls";
 import { WorkspaceTooltip } from "../tooltip/WorkspaceTooltip";
+import { WorkspaceOutline } from "./WorkspaceOutline";
 import { WorkspaceShellPane } from "./WorkspaceShellPane";
 import {
   getWorkspaceShellPaneMinimumWidth,
@@ -23,6 +27,7 @@ import {
   selectWorkspaceShellTab,
   toggleWorkspaceShellPane,
   toggleWorkspaceShellPaneFullWidth,
+  WORKSPACE_OUTLINE_TAB_ID,
 } from "./workspaceShellLayout";
 import type {
   WorkspaceShellPane as WorkspaceShellPaneSide,
@@ -61,7 +66,7 @@ type ShellFocusRegistry = {
 };
 
 function viewStatesEqual(a: WorkspaceShellViewState, b: WorkspaceShellViewState): boolean {
-  return (Object.keys(a) as Array<WorkspaceShellPaneSide>).every((pane) => {
+  const panesEqual = (["leading", "trailing"] as const).every((pane) => {
     const left = a[pane];
     const right = b[pane];
     return (
@@ -71,6 +76,14 @@ function viewStatesEqual(a: WorkspaceShellViewState, b: WorkspaceShellViewState)
       left.rememberedNonFullWidth === right.rememberedNonFullWidth
     );
   });
+  return (
+    panesEqual &&
+    a.outline.focusedSectionId === b.outline.focusedSectionId &&
+    a.outline.collapsedGroupIds.length === b.outline.collapsedGroupIds.length &&
+    a.outline.collapsedGroupIds.every(
+      (sectionId, index) => sectionId === b.outline.collapsedGroupIds[index],
+    )
+  );
 }
 
 function assertTabDefinition(
@@ -125,6 +138,29 @@ function assertTabs(
   }
   assertPositivePaneWidth(pane, "width", paneState.width);
   assertPositivePaneWidth(pane, "rememberedNonFullWidth", paneState.rememberedNonFullWidth);
+}
+
+function assertOutlineViewState(viewState: WorkspaceShellViewState): void {
+  const { collapsedGroupIds, focusedSectionId } = viewState.outline;
+  if (!Array.isArray(collapsedGroupIds)) {
+    throw new Error("Workspace shell Outline collapsedGroupIds must be an array.");
+  }
+  const uniqueIds = new Set<string>();
+  for (const sectionId of collapsedGroupIds) {
+    if (typeof sectionId !== "string" || sectionId === "") {
+      throw new Error("Workspace shell Outline collapsed group ids must be non-empty strings.");
+    }
+    if (uniqueIds.has(sectionId)) {
+      throw new Error(`Workspace shell Outline collapses group ${sectionId} twice.`);
+    }
+    uniqueIds.add(sectionId);
+  }
+  if (
+    focusedSectionId !== null &&
+    (typeof focusedSectionId !== "string" || focusedSectionId === "")
+  ) {
+    throw new Error("Workspace shell Outline focusedSectionId must be null or a non-empty string.");
+  }
 }
 
 function getTabs(
@@ -232,9 +268,8 @@ export function WorkspaceShell({
   trailingTabs,
   viewState,
 }: WorkspaceShellProps) {
-  assertTabs("leading", leadingTabs, viewState.leading);
-  assertTabs("trailing", trailingTabs, viewState.trailing);
   const scopeClassName = useWorkspaceScopeClassName();
+  const outlineInitialFocusRef = useRef<HTMLElement>(null);
   const rootRef = useRef<HTMLElement>(null);
   const centerRef = useRef<HTMLDivElement>(null);
   const instanceId = `workspace-shell-${useId().replaceAll(":", "")}`;
@@ -257,13 +292,41 @@ export function WorkspaceShell({
 
   const displayState = liveViewState ?? viewState;
 
-  function requestViewState(nextState: WorkspaceShellViewState, focusRequest?: FocusRequest): void {
-    if (viewStatesEqual(nextState, viewStateRef.current)) {
-      return;
-    }
-    focusRequestRef.current = focusRequest ?? null;
-    callbackRef.current(nextState);
-  }
+  const requestViewState = useCallback(
+    (nextState: WorkspaceShellViewState, focusRequest?: FocusRequest): void => {
+      if (viewStatesEqual(nextState, viewStateRef.current)) {
+        return;
+      }
+      focusRequestRef.current = focusRequest ?? null;
+      callbackRef.current(nextState);
+    },
+    [],
+  );
+  const outlineTab = useMemo<WorkspaceShellTabDefinition>(
+    () => ({
+      id: WORKSPACE_OUTLINE_TAB_ID,
+      label: "Outline",
+      icon: TbListTree,
+      initialFocusRef: outlineInitialFocusRef,
+      renderContent: () => (
+        <WorkspaceOutline
+          initialFocusRef={outlineInitialFocusRef}
+          onViewStateChange={(outline) => {
+            requestViewState({ ...viewStateRef.current, outline });
+          }}
+          viewState={viewState.outline}
+        />
+      ),
+    }),
+    [requestViewState, viewState.outline],
+  );
+  const combinedLeadingTabs = useMemo(
+    () => [outlineTab, ...leadingTabs],
+    [leadingTabs, outlineTab],
+  );
+  assertOutlineViewState(viewState);
+  assertTabs("leading", combinedLeadingTabs, viewState.leading);
+  assertTabs("trailing", trailingTabs, viewState.trailing);
 
   function requireMeasuredWidth(): number {
     if (shellWidth <= 0) {
@@ -302,7 +365,7 @@ export function WorkspaceShell({
   useLayoutEffect(() => {
     const previousState = previousViewStateRef.current;
     const focusRequest = focusRequestRef.current;
-    const tabs = { leadingTabs, trailingTabs };
+    const tabs = { leadingTabs: combinedLeadingTabs, trailingTabs };
     const focusRequestStatus = applyRequestedFocus(focusRequest, viewState, tabs, tabRefs.current);
     if (focusRequestStatus === "fulfilled") {
       focusRequestRef.current = null;
@@ -317,7 +380,7 @@ export function WorkspaceShell({
       }
     }
     previousViewStateRef.current = viewState;
-  }, [leadingTabs, trailingTabs, viewState]);
+  }, [combinedLeadingTabs, trailingTabs, viewState]);
 
   useLayoutEffect(() => {
     const center = centerRef.current;
@@ -353,7 +416,10 @@ export function WorkspaceShell({
 
   function activateTab(pane: WorkspaceShellPaneSide, tabId: string): void {
     const next = selectWorkspaceShellTab(viewStateRef.current, pane, tabId, requireMeasuredWidth());
-    const tab = getTab(pane, tabId, { leadingTabs, trailingTabs });
+    const tab = getTab(pane, tabId, {
+      leadingTabs: combinedLeadingTabs,
+      trailingTabs,
+    });
     requestViewState(next, {
       pane,
       tabId,
@@ -380,7 +446,7 @@ export function WorkspaceShell({
     pane: WorkspaceShellPaneSide,
     tabId: string,
   ): void {
-    const tabs = getTabs(pane, { leadingTabs, trailingTabs });
+    const tabs = getTabs(pane, { leadingTabs: combinedLeadingTabs, trailingTabs });
     const currentIndex = tabs.findIndex((tab) => tab.id === tabId);
     let nextIndex: number | null = null;
     if (event.key === "ArrowDown") {
@@ -532,7 +598,7 @@ export function WorkspaceShell({
         pane="leading"
         paneState={displayState.leading}
         regionStyle={getRegionStyle(getWorkspaceShellPaneTrueWidth(displayState.leading))}
-        tabs={leadingTabs}
+        tabs={combinedLeadingTabs}
       />
       <div className="setta-workspace-shell-center" ref={centerRef}>
         <WorkspaceCanvas />

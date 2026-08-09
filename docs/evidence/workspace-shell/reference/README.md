@@ -3,9 +3,10 @@
 Reference: `../setta-main` verified clean on `main` at
 `043d3b2e9c69caf99d1246f1408b3ad7194b7864` on 2026-08-12. This directory contains the
 repository-actionable source/ownership preflight and the completed frozen-main pane/rail capture
-required before workspace-shell implementation batch 2. It is not package-output evidence or
-developer approval. The producible Outline, Inspector, and context-menu captures remain attached
-to their corresponding later batches.
+required before workspace-shell implementation batch 2, plus the completed Overview capture and
+accepted nested-row index required before batch 3. It is not package-output evidence or developer
+approval. The producible Inspector and context-menu captures remain attached to their corresponding
+later batches.
 
 The detailed dependency cone, state-read classification, algorithm boundary, and package seam are
 in [`ownership-map.md`](ownership-map.md).
@@ -16,12 +17,13 @@ The workspace-shell amendment postdates Phase 0, so the earlier bundle is incomp
 milestone. These accepted captures still establish a small subset of the shell reference without
 being copied or relabelled:
 
-| Existing evidence                                                                                                                                                                   | What it proves                                                                                                                                            | What it does not prove                                                                             |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| [Desktop dark](../../phase0/reference/screenshots/01-full-workspace-dark-1440x900.png) and [desktop light](../../phase0/reference/screenshots/02-full-workspace-light-1440x900.png) | Left Overview pane open at its normal desktop width, both 40 px icon rails, right pane closed, pane/canvas seams, minimap placement, and light/dark paint | Pane resizing, paired panes, full width, context menus, right pane contents, focus, or transitions |
-| [Narrow dark](../../phase0/reference/screenshots/22-narrow-workspace-dark-800x900.png)                                                                                              | The existing 800 px product layout and the Overview list's depth indentation                                                                              | The milestone's 320 px package shell, paired-pane negotiation, or an accessible collapsible tree   |
-| [Browser 200% dark](../../phase0/reference/screenshots/23-browser-page-scale-200-dark.png)                                                                                          | Frozen main's effective 200% product presentation and the still-flat Overview list                                                                        | The package's already-accepted 200% reflow contract or any new shell behavior                      |
-| [Phase 0 style metrics](../../phase0/reference/computed/reference-style-metrics.json)                                                                                               | Previously accepted canvas, toolbar, minimap, section, and z-layer facts                                                                                  | Pane, rail, context-menu, Outline, and Inspector metrics required by this milestone                |
+| Existing evidence                                                                                                                                                                             | What it proves                                                                                                                                            | What it does not prove                                                                             |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| [Desktop dark](../../phase0/reference/screenshots/01-full-workspace-dark-1440x900.png) and [desktop light](../../phase0/reference/screenshots/02-full-workspace-light-1440x900.png)           | Left Overview pane open at its normal desktop width, both 40 px icon rails, right pane closed, pane/canvas seams, minimap placement, and light/dark paint | Pane resizing, paired panes, full width, context menus, right pane contents, focus, or transitions |
+| [Narrow dark](../../phase0/reference/screenshots/22-narrow-workspace-dark-800x900.png)                                                                                                        | The existing 800 px product layout and the Overview list's depth indentation                                                                              | The milestone's 320 px package shell, paired-pane negotiation, or an accessible collapsible tree   |
+| [Browser 200% dark](../../phase0/reference/screenshots/23-browser-page-scale-200-dark.png)                                                                                                    | Frozen main's effective 200% product presentation and the still-flat Overview list                                                                        | The package's already-accepted 200% reflow contract or any new shell behavior                      |
+| [Nested dark](../../phase0/reference/screenshots/10-three-level-nesting-horizontal-group-dark.png) and [nested light](../../phase0/reference/screenshots/26-final-fixture-light-1440x900.png) | Recursive Overview rows, document-order nesting, compact row paint, and depth indentation in both appearances                                             | Disclosure, selected-row paint, ARIA tree semantics, or tree keyboard behavior                     |
+| [Phase 0 style metrics](../../phase0/reference/computed/reference-style-metrics.json)                                                                                                         | Previously accepted canvas, toolbar, minimap, section, and z-layer facts                                                                                  | Pane, rail, context-menu, Outline, and Inspector metrics required by this milestone                |
 
 No earlier capture shows an open right pane or a workspace context menu. The new pane/rail bundle
 below closes the former gap; context-menu evidence remains with batch 5.
@@ -52,6 +54,23 @@ full-width/restore, and normalization traces are in
 main has native button activation but no roving tablist or Arrow/Home/End behavior; the milestone
 contract is the authority for that deliberate accessibility addition.
 
+## Overview capture complete
+
+The already-accepted Phase 0 nested dark/light captures above are the original pinned-product
+visuals required by the batch-3 matrix; they remain authoritative at their original paths rather
+than being copied or relabelled. A fresh deterministic pass over the already-running pinned
+reference recorded exact 20 px row geometry, 12/16 typography, 12 px depth indentation, tag-dot,
+idle/hover/focus paint, and the source-proven boundary between main's flattened Overview and the
+authorized package Outline. Those facts are in
+[`computed/outline-style-metrics.json`](computed/outline-style-metrics.json).
+
+The same pass used a real pointer click and Space key to activate the first two live Overview rows.
+It records focus retention, fitted camera matrices, selection outlines, and z-index changes in
+[`interactions/outline-trace.json`](interactions/outline-trace.json). Main's pointer/Space behavior
+is the executable reference. Disclosure, selected-row presentation, ARIA tree semantics, roving
+focus, Arrow/Home/End/typeahead behavior, registered kind icons, and locked/minimized cues are the
+milestone-authorized package additions documented below.
+
 ## Required live capture matrix
 
 The following states remain uncaptured. Rows marked **producible** have a frozen-main source path
@@ -65,7 +84,7 @@ contract and final combined developer gate govern their implementation.
 | Pane creation menu at each viewport edge                                        | Producible by pointer                | Dark/light original-pixel captures; search, filtering, arrow/Enter/Escape trace; computed menu geometry, overflow, focus, and created workspace coordinate                                   |
 | Section and multi-selection menu                                                | Producible by pointer                | Single and mixed locked/unlocked selections, capability-disabled actions, labels, geometry, focus, and dismissal                                                                             |
 | Left/right rails and panes                                                      | **Captured for batch 2**             | Complete in the pane/rail bundle above: closed, open, resized, simultaneous, full-width, restored, viewport-normalized, narrow, focus, paint, seam, stacking, overflow, and transition facts |
-| Overview nested section listing                                                 | Partially producible                 | Dark/light nested rows and pointer/Space activation can be captured; depth, type, color, and focus metrics can be measured                                                                   |
+| Overview nested section listing                                                 | **Captured for batch 3**             | Complete through the accepted dark/light nested captures above plus fresh row metrics and the pointer/Space trace                                                                            |
 | Overview collapsed groups, selected-row treatment, and tree keyboard navigation | **Absent / authorized new behavior** | Frozen main has no disclosure state or control, no selected-section row state, no tree semantics, and no roving/arrow navigation to capture; implement the milestone's tree contract         |
 | UI Editor with no selection and exactly one selected section                    | Producible                           | Placeholder and ordinary section/UI configuration presentations in both appearances                                                                                                          |
 | Selection-aware UI Editor for exactly one selected item                         | **Absent / authorized new behavior** | Item selection is not an input to `UiEditor`; use its UI-control presentation as the visual seed and implement the milestone's selected-item contract                                        |
@@ -118,8 +137,8 @@ for the surrounding pane/menu behavior and presentation seeds that it actually i
 reference re-baseline is required, and the source-proven absent states must not be represented as
 matching-main captures.
 
-The pane/rail capture is complete, so workspace-shell implementation batch 2 may proceed. The
-remaining producible dark/light Outline, Inspector, and menu states still require capture before
-their corresponding batches. The existing frozen-main service and deterministic browser tooling
-may be used under root supervision; no intermediate developer approval is required. The combined
-milestone gate remains the sole developer visual/interaction approval.
+The pane/rail and Overview captures are complete, so workspace-shell implementation batches 2 and
+3 may proceed. The remaining producible dark/light Inspector and menu states still require capture
+before their corresponding batches. The existing frozen-main service and deterministic browser
+tooling may be used under root supervision; no intermediate developer approval is required. The
+combined milestone gate remains the sole developer visual/interaction approval.

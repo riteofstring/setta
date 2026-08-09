@@ -140,7 +140,9 @@ function loadRejectedScene() {
               {
                 id,
                 children: entry.children,
-                data: { label: entry.label, group: entry.group === true },
+                ...(id === "item-root"
+                  ? {}
+                  : { data: { label: entry.label, group: entry.group === true } }),
               },
             ]),
           ),

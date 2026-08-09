@@ -95,6 +95,26 @@ describe("applyActiveSectionChange", () => {
     expect(getActiveSectionIds()).toEqual(["group-a"]);
   });
 
+  it("accepts explicit modifier state from selection surfaces outside the canvas", () => {
+    useReactFlow.setState({ multiSelectionActive: false });
+    useActiveSections.setState({ activeIds: ["leaf-b"] });
+
+    applyActiveSectionChange({
+      interaction: "section-click",
+      sectionId: "group-a",
+      multiSelectionActive: true,
+    });
+    expect(getActiveSectionIds()).toEqual(["leaf-b", "group-a"]);
+
+    useReactFlow.setState({ multiSelectionActive: true });
+    applyActiveSectionChange({
+      interaction: "section-click",
+      sectionId: "group-a",
+      multiSelectionActive: false,
+    });
+    expect(getActiveSectionIds()).toEqual(["group-a"]);
+  });
+
   it("clears the selection on a pane click without touching z-order", () => {
     useActiveSections.setState({ activeIds: ["leaf-b"] });
     const zBefore = useNodeInternals.getState().x.get("leaf-b")?.zIndex;

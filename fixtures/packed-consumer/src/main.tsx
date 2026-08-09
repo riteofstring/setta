@@ -296,14 +296,12 @@ const consumerTrailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
   },
 ];
 
-const INITIAL_CONSUMER_LEADING_TAB_ID = "consumer-notes";
 const INITIAL_CONSUMER_TRAILING_TAB_ID = "consumer-details";
 
 function ConsumerApp() {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
   const [shellViewState, setShellViewState] = useState(() =>
     createWorkspaceShellViewState({
-      leadingTabId: INITIAL_CONSUMER_LEADING_TAB_ID,
       trailingTabId: INITIAL_CONSUMER_TRAILING_TAB_ID,
     }),
   );
