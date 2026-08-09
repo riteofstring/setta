@@ -194,8 +194,14 @@ function resolveSourceGeometry(
   if (!geometry.canvasElement()) {
     return { allowed: false, reason: "The workspace canvas is unavailable." };
   }
+  // Activation runs inside the pointer-down dispatch, after the upstream drag
+  // stylesheets were injected: a live canvasBounds() read here forces a full
+  // style recalculation and layout of the whole document. The measured bounds
+  // are the ones the geometry-index rects were captured against, so the
+  // session's client-space geometry stays self-consistent without any
+  // activation-time layout read.
   const frame = {
-    canvasBounds: geometry.canvasBounds(),
+    canvasBounds: geometry.measuredCanvasBounds(),
     viewport: geometry.currentViewport(),
   };
   return {

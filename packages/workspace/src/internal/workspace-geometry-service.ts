@@ -362,6 +362,26 @@ export class WorkspaceGeometryMeasurements {
     return screenRect(this.#canvasElement.getBoundingClientRect());
   }
 
+  /**
+   * The client-space anchor for the workspace-space geometry index: canvas
+   * bounds captured by the most recent measurement pass and re-anchored at
+   * the capture phase of every canvas pointer-down and keydown. Unlike
+   * canvasBounds(), reading these bounds never forces style or layout, so
+   * drag activation can build its session inside the pointer-down dispatch
+   * without paying a synchronous full style recalculation after the upstream
+   * drag machinery dirties document styles. Call settleMeasurement() first so
+   * any scheduled geometry invalidation is applied before reading.
+   */
+  measuredCanvasBounds(): ScreenRect {
+    if (!this.#canvasElement) {
+      throw new Error("Workspace canvas geometry is unavailable before mount or after unmount.");
+    }
+    if (!this.#measuredCanvasBounds) {
+      throw new Error("Workspace canvas bounds are unavailable before the first measurement pass.");
+    }
+    return this.#measuredCanvasBounds;
+  }
+
   async boundsWhenReady(sectionIds: readonly string[]): Promise<WorkspaceRect> {
     const uniqueSectionIds = [...new Set(sectionIds)];
     if (uniqueSectionIds.length === 0) {
@@ -706,6 +726,27 @@ export class WorkspaceGeometryMeasurements {
     }
     this.#pendingViewports.clear();
   }
+
+  readonly #onActivationInput = () => {
+    if (!this.#canvasElement) {
+      return;
+    }
+    const bounds = screenRect(this.#canvasElement.getBoundingClientRect());
+    const previous = this.#measuredCanvasBounds;
+    this.#measuredCanvasBounds = bounds;
+    if (
+      !previous ||
+      previous.x !== bounds.x ||
+      previous.y !== bounds.y ||
+      previous.width !== bounds.width ||
+      previous.height !== bounds.height
+    ) {
+      // The canvas moved without an invalidation: the workspace-space rects in
+      // the index were anchored to the previous bounds, so re-measure before
+      // an activation in this dispatch settles the measurement.
+      this.requestMeasurement();
+    }
+  };
 
   readonly #onResize = () => this.requestMeasurement();
   readonly #onScroll = () => this.requestMeasurement();
