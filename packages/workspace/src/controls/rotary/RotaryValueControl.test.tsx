@@ -96,8 +96,9 @@ describe("RotaryValueControl", () => {
     await mount();
     const wrapper = getWrapper();
     expect(wrapper.className).toBe(
-      "setta-prevent-section-active-css nodrag nopan nowheel section-value flex items-center gap-2",
+      "setta-prevent-section-active-css nodrag nopan section-value flex items-center gap-2",
     );
+    expect(wrapper.classList.contains("nowheel")).toBe(false);
     const knob = getKnob();
     expect(knob.getAttribute("aria-label")).toBe("Mix value");
     expect(knob.getAttribute("aria-valuemin")).toBe("0");
@@ -240,6 +241,7 @@ describe("RotaryValueControl", () => {
     expect(getKnob().disabled).toBe(true);
     expect(getKnob().classList.contains("cursor-not-allowed")).toBe(true);
     expect(getKnob().classList.contains("opacity-50")).toBe(true);
+    expect(getKnob().classList.contains("nowheel")).toBe(false);
     await act(async () => {
       getKnob().dispatchEvent(
         new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: -1 }),
@@ -250,5 +252,6 @@ describe("RotaryValueControl", () => {
     useItemSelectionMode.setState({ isSelectingItems: true });
     await mount({ disabled: false });
     expect(getKnob().disabled).toBe(true);
+    expect(getKnob().classList.contains("nowheel")).toBe(false);
   });
 });

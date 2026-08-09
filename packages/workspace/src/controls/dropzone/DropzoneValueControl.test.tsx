@@ -125,13 +125,14 @@ describe("DropzoneValueControl", () => {
       "setta-prevent-section-active-css",
       "nodrag",
       "nopan",
-      "nowheel",
       "section-value",
       "min-h-0",
     ]) {
       expect(rootElement.classList.contains(className)).toBe(true);
     }
+    expect(rootElement.classList.contains("nowheel")).toBe(false);
     const target = getDropTarget();
+    expect(target.classList.contains("nowheel")).toBe(false);
     expect(target.getAttribute("aria-label")).toBe("Assets: Drop a file here");
     expect(target.getAttribute("aria-disabled")).toBe("false");
     expect(target.getAttribute("aria-busy")).toBe("false");

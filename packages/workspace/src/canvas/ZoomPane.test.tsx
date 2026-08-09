@@ -278,6 +278,17 @@ describe("getViewportInteractionActiveValue", () => {
         );
       });
       expect(useReactFlow.getState().transform).toEqual([-10, 0, 1]);
+
+      await act(async () => {
+        renderer.dispatchEvent(
+          new WheelEvent("wheel", {
+            bubbles: true,
+            cancelable: true,
+            deltaX: 20,
+          }),
+        );
+      });
+      expect(useReactFlow.getState().transform).toEqual([-20, 0, 1]);
     } finally {
       await act(async () => {
         root.unmount();

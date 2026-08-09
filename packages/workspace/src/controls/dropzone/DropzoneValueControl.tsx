@@ -11,7 +11,6 @@ import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
-  NO_WHEEL_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "../../interaction";
 import { handleSectionControlEscape } from "../sectionFocus";
@@ -34,7 +33,7 @@ import type {
 // explicit host seam. The package filters metadata and emits raw `File` objects or dropped text;
 // it never reads byte payloads, creates attachment identities, uploads, persists, or deletes.
 
-const INTERACTION_BOUNDARY_CLASS_NAME = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`;
+const INTERACTION_BOUNDARY_CLASS_NAME = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
 const ROOT_CLASS_NAME = `${INTERACTION_BOUNDARY_CLASS_NAME} section-value flex h-full min-h-0 w-full flex-col gap-2`;
 const DROP_TARGET_BASE_CLASS_NAME =
   "section-value flex h-full w-full flex-1 items-center justify-center gap-2 rounded-xl border-4 border-dashed border-setta-300 bg-setta-50/70 px-4 py-3 text-center text-xs font-bold uppercase tracking-widest text-setta-500/80 dark:border-setta-700 dark:bg-setta-900/50 dark:text-setta-500";

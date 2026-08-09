@@ -1078,9 +1078,10 @@ Phase 4 progress (2026-08-11):
   change/end-of-gesture commit callbacks, Escape focus restoration, and host/item-select
   disabledness. The rotary ports the -135°..135° layered knob, step-aware display and rounding,
   pointer capture, wheel and Arrow/Home/End adjustments, Escape focus restoration, disabled
-  treatment, and the package no-drag/no-pan/no-wheel ownership boundaries. Both require a
-  host-supplied accessible label and fail specifically on non-finite or unordered bounds and on a
-  non-positive or out-of-range step instead of inventing replacement configuration. The playground
+  treatment, package no-drag/no-pan boundaries, and wheel ownership scoped to the enabled knob.
+  Both controls require a host-supplied accessible label and fail specifically on non-finite or
+  unordered bounds and on a non-positive or out-of-range step instead of inventing replacement
+  configuration. The playground
   demonstrates the frozen 0..100/1 slider and 0..1/0.1 rotary through opaque item data and commits
   their string updates through `setItemData`. Dependency deviation forced by the existing strict
   peer policy: frozen main pins `@radix-ui/react-slider 1.1.0`, whose React peers stop at 18, so the
@@ -1117,7 +1118,8 @@ Phase 4 progress (2026-08-11):
   display, the bounded 0.5–3 scale, and monospace/system/clock presentation. Invalid enum values
   and out-of-range display scales fail specifically instead of selecting heuristic defaults. Both
   controls preserve the ordinary-row typography, divider/focus paint, host/item-select
-  disabledness, Escape focus restoration, and package no-drag/no-pan/no-wheel boundaries.
+  disabledness, Escape focus restoration, and package no-drag/no-pan boundaries; the later
+  direction-dependent pan correction removed their stray no-wheel boundary.
   Non-visual accessibility additions give every native input, calendar surface, month action, and
   date cell an accessible name; selected/today/disabled calendar state is programmatic, and the
   month title announces navigation without changing the captured pixels. The playground supplies
@@ -1209,7 +1211,7 @@ Phase 4 progress (2026-08-11):
   this repository verification is not visual approval.
 - Meta-controls coherence audit repository work complete (2026-08-12): the audit reviewed
   `af42822726486a95f0b7a822e1714c1967d97923..e7edc4f9c97b8ba1f43ea58980b3530ef06011fb`
-  as one change against frozen main and confirmed the shared controls preserve control-owned
+  as one change against frozen main and confirmed the shared controls preserve control-specific
   pointer/keyboard/wheel/file boundaries, section-owned remaining drag surface, projected minimum
   and auto-only resize policies, Escape focus restoration, and the captured light/dark class
   treatment. It found and fixed one dispatcher-default defect: an omitted direct-on-canvas Time
@@ -1557,6 +1559,20 @@ Phase 4 progress (2026-08-11):
   reference remains clean at `043d3b2e9`. The required matched Phase 5 comparison, explicit
   developer acceptance, accepted baseline refresh, and post-acceptance gates remain incomplete;
   this audit makes no visual-approval claim and does not start the next phase.
+- Phase 5 wheel-ownership correction implementation complete (2026-08-12): the remaining control
+  surface carried two `nowheel` scopes broader than the behavior they protected. Dropzone has no
+  wheel interaction, so its root and drop target now leave wheel panning to the canvas while
+  retaining their no-drag/no-pan ownership. Rotary keeps `nowheel` only on its enabled 40 px knob,
+  where wheel input adjusts the value; its wrapper, value-side whitespace, and disabled knob now
+  return wheel input to the canvas. This matches frozen main's inert surrounding surfaces while
+  retaining the package's explicit wheel owner where React's delegated passive wheel listener
+  cannot itself protect the canvas gesture. The canvas regression additionally proves that a
+  blocked `nowheel` event does not arm a false pan burst that contaminates the next pane wheel
+  gesture, and control regressions freeze both scopes. The three directly affected files pass 34
+  focused tests, and the changed-file static gate passes. No dependency or packaging contract
+  changed, so the supply-chain and packed-consumer gates were not duplicated. The required matched
+  Phase 5 comparison, developer acceptance, accepted baseline refresh, and post-acceptance gates
+  remain incomplete; this correction makes no visual-approval claim.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
@@ -2118,8 +2134,10 @@ deployment, and frozen-state composition stays host-owned behind that flag.
   its renderer from its opaque item data. This milestone adds no typed value model to the
   workspace document and does not reopen the opaque item-data contract; promoting value kinds into
   the document is a separate future amendment.
-- Controls carry the package's existing no-drag/no-pan/no-wheel interaction boundaries so editing
-  never starts a section or item drag; the Phase 4 item selection and dnd contracts are unchanged.
+- Controls carry the package's existing no-drag/no-pan interaction boundaries so editing never
+  starts a section or item drag. Only a surface with actual wheel behavior carries the no-wheel
+  boundary; inert control space remains available to canvas wheel panning. The Phase 4 item
+  selection and dnd contracts are unchanged.
 
 #### Evidence before implementation
 
@@ -2243,10 +2261,12 @@ than section chrome or an item list.
 - Meta-control configuration and value/action persistence remain host-owned. Use explicit renderer
   data or package control props without adding Setta type names to the workspace document. Unknown
   control kinds fail specifically; there is no generic visual fallback.
-- Control interaction owns pointer, keyboard, wheel, and file gestures inside the content; the
-  remaining surface owns section drag. Resizing respects each control's minimum and package canvas
-  zoom. The meta node participates in normal selection, z-order, lock, document change callbacks,
-  fit view, minimap, and light/dark appearance without inventing a second canvas path.
+- Control interaction owns pointer, keyboard, and file gestures inside the content, plus wheel
+  gestures on the smallest surface that implements wheel behavior; controls without wheel behavior
+  leave wheel input to the canvas. The remaining surface owns section drag. Resizing respects each
+  control's minimum and package canvas zoom. The meta node participates in normal selection,
+  z-order, lock, document change callbacks, fit view, minimap, and light/dark appearance without
+  inventing a second canvas path.
 
 #### Verification and batches
 

@@ -58,6 +58,7 @@ export function RotaryValueControl({
   const knobStateClasses = isDisabled
     ? "cursor-not-allowed opacity-50"
     : "cursor-grab active:cursor-grabbing";
+  const wheelBoundaryClassName = isDisabled ? "" : NO_WHEEL_CLASS_NAME;
   const reportChange = (nextValue: number) => onValueChange(String(nextValue));
 
   function updateFromPointer(event: PointerEvent<HTMLButtonElement>) {
@@ -115,11 +116,11 @@ export function RotaryValueControl({
 
   return (
     <div
-      className={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} section-value flex items-center gap-2`}
+      className={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value flex items-center gap-2`}
     >
       <button
         type="button"
-        className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} ${knobStateClasses} relative h-10 w-10 touch-none select-none rounded-full bg-transparent p-0`}
+        className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${wheelBoundaryClassName} ${knobStateClasses} relative h-10 w-10 touch-none select-none rounded-full bg-transparent p-0`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={finishPointer}
