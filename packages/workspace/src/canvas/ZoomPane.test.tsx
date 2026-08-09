@@ -263,32 +263,38 @@ describe("getViewportInteractionActiveValue", () => {
         );
       });
       expect(useReactFlow.getState().transform).toEqual([-10, 0, 1]);
+      expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
 
       await act(async () => {
         vi.advanceTimersByTime(150);
       });
+      expect(useReactFlow.getState().viewportInteractionActive).toBe(false);
       target.classList.add("nowheel");
+      let blockedEvent: WheelEvent | undefined;
       await act(async () => {
-        target.dispatchEvent(
-          new WheelEvent("wheel", {
-            bubbles: true,
-            cancelable: true,
-            deltaX: 20,
-          }),
-        );
+        blockedEvent = new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaX: 20,
+        });
+        target.dispatchEvent(blockedEvent);
       });
       expect(useReactFlow.getState().transform).toEqual([-10, 0, 1]);
+      expect(blockedEvent?.defaultPrevented).toBe(false);
+      expect(useReactFlow.getState().viewportInteractionActive).toBe(false);
 
+      let paneEvent: WheelEvent | undefined;
       await act(async () => {
-        renderer.dispatchEvent(
-          new WheelEvent("wheel", {
-            bubbles: true,
-            cancelable: true,
-            deltaX: 20,
-          }),
-        );
+        paneEvent = new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaX: 20,
+        });
+        renderer.dispatchEvent(paneEvent);
       });
       expect(useReactFlow.getState().transform).toEqual([-20, 0, 1]);
+      expect(paneEvent?.defaultPrevented).toBe(true);
+      expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
     } finally {
       await act(async () => {
         root.unmount();

@@ -1573,6 +1573,21 @@ Phase 4 progress (2026-08-11):
   changed, so the supply-chain and packed-consumer gates were not duplicated. The required matched
   Phase 5 comparison, developer acceptance, accepted baseline refresh, and post-acceptance gates
   remain incomplete; this correction makes no visual-approval claim.
+- Phase 5 wheel-ownership correction audit repository work complete (2026-08-12): the audit kept
+  the requested `ad6173062f8dbdcf1c6f8ffd21ce2dc635f179da..fe78a17b9afe1dba9f9b4e44f695796c799aa3f7`
+  range narrow because its base already records the complete Phase 5 coherence audit. Frozen-main
+  source confirms that Dropzone owns no wheel gesture and that Rotary owns wheel input only on its
+  knob; one bounded marker pass confirms that the package now retains `nowheel` only on actual
+  scroll or rotary-wheel owners in the affected control/item surfaces. No runtime defect was
+  found. The audit corrected one verification-only gap: the canvas regression previously checked
+  only transforms, which could not prove its claim that a blocked `nowheel` event left no false pan
+  burst armed. It now directly freezes interaction-active state and default-prevention ownership
+  across pan start, timeout, blocked control wheel, and the next pane wheel. The complete package
+  suite passes (91 files, 661 tests), as does the final explicit-file static gate. No dependency or
+  packaging contract changed, so supply-chain and packed-consumer gates were not duplicated; the
+  plan schedules their final phase runs after developer acceptance. The required matched Phase 5
+  comparison, explicit developer acceptance, accepted baseline refresh, and post-acceptance gates
+  remain incomplete, so this audit does not start another phase.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
