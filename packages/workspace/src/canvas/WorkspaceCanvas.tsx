@@ -11,10 +11,6 @@ import { useCanvasViewportDocumentSync } from "./documentViewportSync";
 import FlowRenderer from "./FlowRenderer";
 import { useCanvasKeyActivations } from "./keyActivations";
 import NodeRenderer from "./NodeRenderer";
-import {
-  SectionContentRendererContext,
-  type SectionContentRenderer,
-} from "./sectionContentContext";
 import { useReactFlow } from "./store";
 import Viewport from "./Viewport";
 import { WorkspaceBackground } from "./WorkspaceBackground";
@@ -30,13 +26,10 @@ const wrapperStyle: CSSProperties = {
 
 const SCROLL_INIT = 5000;
 
-type WorkspaceCanvasProps = {
-  renderSectionContent: SectionContentRenderer;
-};
-
 // The package composition of the reference's `<ReactFlow />`: edge renderers and app chrome hooks
 // stay with their excluded features; the reference canvas background is part of this visible slice.
-export function WorkspaceCanvas({ renderSectionContent }: WorkspaceCanvasProps) {
+// Section bodies come from the host's registered section kinds, not from canvas props.
+export function WorkspaceCanvas() {
   const ref = useRef<HTMLDivElement>(null);
   const [initialized, setInitialized] = useState(false);
   const wrapperDimensions = useWrapperDivDimensions(ref);
@@ -72,13 +65,11 @@ export function WorkspaceCanvas({ renderSectionContent }: WorkspaceCanvasProps) 
           left: `${SCROLL_INIT}px`,
         }}
       >
-        <SectionContentRendererContext.Provider value={renderSectionContent}>
-          <SectionDndContext>
-            <FlowRenderer wrapperDimensions={wrapperDimensions}>
-              <Viewport>{readyToRender && <NodeRenderer />}</Viewport>
-            </FlowRenderer>
-          </SectionDndContext>
-        </SectionContentRendererContext.Provider>
+        <SectionDndContext>
+          <FlowRenderer wrapperDimensions={wrapperDimensions}>
+            <Viewport>{readyToRender && <NodeRenderer />}</Viewport>
+          </FlowRenderer>
+        </SectionDndContext>
         <WorkspaceBackground />
       </div>
     </div>

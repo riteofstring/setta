@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
+import { registerSectionKinds } from "./sectionKindRegistry";
 import {
   deleteSection,
   setSectionName,
@@ -27,6 +28,7 @@ function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): Wor
 }
 
 beforeEach(() => {
+  registerSectionKinds({ leaf: { renderContent: () => null } });
   loadWorkspaceDocument({
     sections: {
       leaf: makeSection("leaf"),

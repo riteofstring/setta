@@ -5,7 +5,6 @@ import {
   WorkspaceCanvas,
   WorkspaceControls,
   WorkspaceTooltip,
-  type WorkspaceSection,
 } from "@setta/workspace";
 import { useEffect, useState } from "react";
 import { sliceDocument } from "./sliceDocument";
@@ -14,16 +13,6 @@ function toggleDarkMode() {
   const next = !useWorkspaceAppearance.getState().darkMode;
   document.documentElement.classList.toggle("dark", next);
   useWorkspaceAppearance.setState({ darkMode: next });
-}
-
-// The host side of the renderer seam: the package owns the shell, chrome, header, and resize
-// treatment; the host renders only the section body.
-function SectionBody({ section }: { section: WorkspaceSection }) {
-  return (
-    <div className="section-full-no-title px-1">
-      <p className="text-xs text-setta-500 dark:text-setta-400">{section.name}</p>
-    </div>
-  );
 }
 
 // The host side of the document-change callback: every package-initiated canonical commit
@@ -82,7 +71,7 @@ export function App() {
           <WorkspaceControls />
         </aside>
         <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-setta-200 dark:border-setta-800">
-          <WorkspaceCanvas renderSectionContent={(section) => <SectionBody section={section} />} />
+          <WorkspaceCanvas />
         </div>
       </div>
       <WorkspaceTooltip />

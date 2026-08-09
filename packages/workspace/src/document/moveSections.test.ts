@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GROUP_SECTION_KIND } from "./documentSelectors";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { moveSections } from "./moveSections";
+import { registerSectionKinds } from "./sectionKindRegistry";
 import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "./stores";
 import type { WorkspaceSection } from "./types";
 
@@ -25,6 +26,7 @@ function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): Wor
 }
 
 function loadTestDocument() {
+  registerSectionKinds({ leaf: { renderContent: () => null } });
   loadWorkspaceDocument({
     sections: {
       leaf: makeSection("leaf"),

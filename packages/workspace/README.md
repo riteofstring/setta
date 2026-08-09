@@ -30,6 +30,19 @@ package's changes, not echoes of the host's own writes. The callback must not mu
 workspace synchronously; apply host reactions (including rejecting a change by re-loading the
 authoritative document) asynchronously. Snapshots share store state — treat them as immutable.
 
+## Section kind registration
+
+`registerSectionKinds(kinds)` replaces the registered application kind set; hosts register
+every kind once, before loading or rendering documents that use them. A
+`SectionKindDefinition` maps a kind to its content renderer (the section body inside the
+package-owned shell, chrome, and header), an optional header icon component (kinds without
+one render the reference's gg-menu fallback glyph), and an optional default size, applied
+when a loaded section omits `size` (kinds without one load at the reference's auto/auto
+default; emitted documents always carry resolved sizes). Groups are the one package-owned
+kind and cannot be registered. Sections may carry application-owned opaque serializable
+`data` (JSON values): the package round-trips it through the document and hands it to the
+kind's renderer without reading it.
+
 ## Consumption during extraction
 
 Phase 1 consumers (the playground) compile the package source directly through the `exports`

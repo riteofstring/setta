@@ -9,6 +9,7 @@ import {
 } from "./documentChangeCallback";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { moveSections } from "./moveSections";
+import { registerSectionKinds } from "./sectionKindRegistry";
 import {
   deleteSection,
   setSectionName,
@@ -54,6 +55,7 @@ function makeDocument(): WorkspaceDocument {
 let reported: Array<WorkspaceDocument>;
 
 beforeEach(() => {
+  registerSectionKinds({ leaf: { renderContent: () => null } });
   loadWorkspaceDocument(makeDocument());
   reported = [];
   setWorkspaceDocumentChangeCallback((document) => {

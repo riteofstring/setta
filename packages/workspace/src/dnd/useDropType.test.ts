@@ -2,6 +2,7 @@ import { CollisionPriority, CollisionType } from "@dnd-kit/abstract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GROUP_SECTION_KIND } from "../document/documentSelectors";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
+import { registerSectionKinds } from "../document/sectionKindRegistry";
 import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { WorkspaceSection } from "../document/types";
 import { updateDndChildren, useDndChildren } from "./dndChildren";
@@ -36,6 +37,7 @@ function makeSection(spec: SectionSpec): WorkspaceSection {
 }
 
 function seedDocument(specs: Array<SectionSpec>) {
+  registerSectionKinds({ leaf: { renderContent: () => null } });
   const sections = Object.fromEntries(specs.map((spec) => [spec.id, makeSection(spec)]));
   const childIds = new Set(specs.flatMap((spec) => spec.children ?? []));
   const topLevelSections = Object.fromEntries(

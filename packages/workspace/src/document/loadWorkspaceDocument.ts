@@ -5,7 +5,9 @@ import {
 import { maybeCompleteInitialFitView } from "../canvas/nodeInternalsActions";
 import { resetDndSessionForLoadedDocument } from "../dnd/dndState";
 import { runWithWorkspaceDocumentChangeNotificationsSuppressed } from "./documentChangeCallback";
+import { isGroupSection } from "./documentSelectors";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
+import { getRegisteredSectionKindOrThrow } from "./sectionKindRegistry";
 import {
   runWithAtomicallyPublishedWorkspaceStores,
   useActiveSections,
@@ -13,7 +15,35 @@ import {
   useWorkspaceDocument,
   type WorkspaceDocumentState,
 } from "./stores";
-import type { WorkspaceDocument, WorkspaceSection } from "./types";
+import type {
+  SectionSize,
+  WorkspaceDocumentInput,
+  WorkspaceSection,
+  WorkspaceSectionInput,
+} from "./types";
+
+// The reference's `createSectionSize()` default: sections materialized without an explicit
+// size are auto-sized in both dimensions.
+const DEFAULT_LOADED_SECTION_SIZE: SectionSize = { width: "auto", height: "auto" };
+
+// Every non-group kind must be registered before its documents load, and a section without an
+// explicit size resolves to its kind's registered default — the load-time equivalent of the
+// reference's generated per-type constructors filling `size` from their defaults.
+function resolveLoadedSections(
+  sections: Record<string, WorkspaceSectionInput>,
+): Record<string, WorkspaceSection> {
+  const resolved: Record<string, WorkspaceSection> = {};
+  for (const [sectionId, section] of Object.entries(sections)) {
+    const definition = isGroupSection(section)
+      ? null
+      : getRegisteredSectionKindOrThrow(section.kind);
+    resolved[sectionId] = {
+      ...section,
+      size: section.size ?? definition?.defaultSize ?? DEFAULT_LOADED_SECTION_SIZE,
+    };
+  }
+  return resolved;
+}
 
 function buildParentSectionMap(sections: Record<string, WorkspaceSection>): Record<string, string> {
   const parentSectionMap: Record<string, string> = {};
@@ -51,7 +81,11 @@ function assertAcyclicParentChains(parentSectionMap: Record<string, string>) {
   }
 }
 
-function assertKnownSectionIds(document: WorkspaceDocument, ids: Iterable<string>, role: string) {
+function assertKnownSectionIds(
+  document: WorkspaceDocumentInput,
+  ids: Iterable<string>,
+  role: string,
+) {
   for (const sectionId of ids) {
     if (!(sectionId in document.sections)) {
       throw new Error(`${role} references unknown section ${sectionId}.`);
@@ -68,14 +102,15 @@ function assertKnownSectionIds(document: WorkspaceDocument, ids: Iterable<string
 // runtimes: a load on a mounted canvas re-applies the loaded camera (or re-arms fit-on-init)
 // and resets the drag-session bookkeeping, replacing the Phase 1 load-before-mount-only seam.
 // The funnel modules themselves stay canvas-free.
-export function loadWorkspaceDocument(document: WorkspaceDocument): void {
-  const parentSectionMap = buildParentSectionMap(document.sections);
+export function loadWorkspaceDocument(document: WorkspaceDocumentInput): void {
+  const sections = resolveLoadedSections(document.sections);
+  const parentSectionMap = buildParentSectionMap(sections);
   assertAcyclicParentChains(parentSectionMap);
   assertKnownSectionIds(document, Object.keys(document.topLevelSections), "Top-level layout");
   assertKnownSectionIds(document, document.activeIds, "Active ids");
 
   const nextDocumentState: WorkspaceDocumentState = {
-    sections: document.sections,
+    sections,
     topLevelSections: document.topLevelSections,
     viewport: document.viewport,
     parentSectionMap,

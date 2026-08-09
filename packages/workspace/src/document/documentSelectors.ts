@@ -6,7 +6,7 @@ import type { WorkspaceSection } from "./types";
 // host-registered and rendered through the content seam.
 export const GROUP_SECTION_KIND = "group";
 
-export function isGroupSection(section: WorkspaceSection): boolean {
+export function isGroupSection(section: Pick<WorkspaceSection, "kind">): boolean {
   return section.kind === GROUP_SECTION_KIND;
 }
 

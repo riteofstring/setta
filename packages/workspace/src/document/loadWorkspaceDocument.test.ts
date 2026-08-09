@@ -3,15 +3,17 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import type { ReactFlowState } from "../canvas/types";
 import { setDndDisabled, useDndState } from "../dnd/dndState";
+import { getWorkspaceDocument } from "./documentChangeCallback";
 import { getHighestAncestor } from "./documentSelectors";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
+import { registerSectionKinds } from "./sectionKindRegistry";
 import {
   useActiveSections,
   useNodeInternals,
   useWorkspaceAppearance,
   useWorkspaceDocument,
 } from "./stores";
-import type { WorkspaceDocument, WorkspaceSection } from "./types";
+import type { WorkspaceDocumentInput, WorkspaceSection, WorkspaceSectionInput } from "./types";
 
 function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): WorkspaceSection {
   return {
@@ -29,7 +31,7 @@ function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): Wor
   };
 }
 
-function makeDocument(overrides: Partial<WorkspaceDocument> = {}): WorkspaceDocument {
+function makeDocument(overrides: Partial<WorkspaceDocumentInput> = {}): WorkspaceDocumentInput {
   return {
     sections: {
       root: makeSection("root", { kind: "group", children: ["nested"] }),
@@ -72,10 +74,12 @@ function mountFakeZoomRuntime() {
 
 describe("loadWorkspaceDocument", () => {
   beforeEach(() => {
+    registerSectionKinds({ leaf: { renderContent: () => null } });
     resetWorkspaceStores();
   });
 
   afterEach(() => {
+    registerSectionKinds({});
     resetWorkspaceStores();
   });
 
@@ -200,6 +204,52 @@ describe("loadWorkspaceDocument", () => {
       topLevelSections: {},
     });
     expect(() => loadWorkspaceDocument(document)).toThrowError(/does not match section id/);
+  });
+
+  it("rejects a section whose kind is not registered", () => {
+    const document = makeDocument({
+      sections: { mystery: makeSection("mystery", { kind: "mystery" }) },
+      topLevelSections: {},
+      activeIds: [],
+    });
+    expect(() => loadWorkspaceDocument(document)).toThrowError(
+      /Section kind mystery is not registered/,
+    );
+  });
+
+  it("resolves omitted sizes from the registered kind default, then auto/auto", () => {
+    registerSectionKinds({
+      leaf: { renderContent: () => null, defaultSize: { width: 320, height: 180 } },
+      bare: { renderContent: () => null },
+    });
+    const { size: _leafSize, ...leafWithoutSize } = makeSection("leaf");
+    const { size: _bareSize, ...bareWithoutSize } = makeSection("bare", { kind: "bare" });
+    const { size: _groupSize, ...groupWithoutSize } = makeSection("group", { kind: "group" });
+    const sections: Record<string, WorkspaceSectionInput> = {
+      leaf: leafWithoutSize,
+      bare: bareWithoutSize,
+      group: groupWithoutSize,
+      sized: makeSection("sized", { size: { width: 64, height: 48 } }),
+    };
+    loadWorkspaceDocument(makeDocument({ sections, topLevelSections: {}, activeIds: [] }));
+
+    const loaded = useWorkspaceDocument.getState().sections;
+    expect(loaded["leaf"]?.size).toEqual({ width: 320, height: 180 });
+    expect(loaded["bare"]?.size).toEqual({ width: "auto", height: "auto" });
+    expect(loaded["group"]?.size).toEqual({ width: "auto", height: "auto" });
+    expect(loaded["sized"]?.size).toEqual({ width: 64, height: 48 });
+  });
+
+  it("round-trips opaque section data into the emitted document", () => {
+    const data = { body: "Leaf body", tags: ["a", "b"], pinned: true };
+    loadWorkspaceDocument(
+      makeDocument({
+        sections: { leaf: makeSection("leaf", { data }) },
+        topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
+        activeIds: [],
+      }),
+    );
+    expect(getWorkspaceDocument().sections["leaf"]?.data).toEqual(data);
   });
 
   it("rejects top-level layouts and active ids for unknown sections", () => {

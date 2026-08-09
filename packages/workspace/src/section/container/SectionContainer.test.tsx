@@ -3,13 +3,13 @@
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { SectionContentRendererContext } from "../../canvas/sectionContentContext";
 import { initialCanvasState, useReactFlow } from "../../canvas/store";
 import { useDndChildren } from "../../dnd/dndChildren";
 import { useDndState } from "../../dnd/dndState";
 import { SectionDndContext } from "../../dnd/SectionDndContext";
 import { useWorkspaceCapabilities } from "../../document/capabilities";
 import { loadWorkspaceDocument } from "../../document/loadWorkspaceDocument";
+import { registerSectionKinds } from "../../document/sectionKindRegistry";
 import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../../document/stores";
 import type { WorkspaceSection } from "../../document/types";
 import { useWorkspaceTooltip } from "../../tooltip/WorkspaceTooltip";
@@ -75,6 +75,7 @@ describe("SectionContainer", () => {
   let root: Root;
 
   beforeEach(() => {
+    registerSectionKinds({ leaf: { renderContent: renderSectionBody } });
     loadTestDocument();
     host = document.createElement("div");
     document.body.appendChild(host);
@@ -86,6 +87,7 @@ describe("SectionContainer", () => {
       root.unmount();
     });
     host.remove();
+    registerSectionKinds({});
     useWorkspaceDocument.getState().reset();
     useNodeInternals.getState().reset();
     useActiveSections.getState().reset();
@@ -102,11 +104,7 @@ describe("SectionContainer", () => {
   async function mount(sectionId: string) {
     await act(async () => {
       root.render(
-        createElement(
-          SectionContentRendererContext.Provider,
-          { value: renderSectionBody },
-          createElement(SectionDndContext, null, createElement(SectionHost, { sectionId })),
-        ),
+        createElement(SectionDndContext, null, createElement(SectionHost, { sectionId })),
       );
     });
   }
@@ -135,6 +133,31 @@ describe("SectionContainer", () => {
     // The container registers both DOM refs for measurement fallbacks.
     expect(useSectionRefs.getState().selfOnly["leaf"]).toBeInstanceOf(HTMLElement);
     expect(useSectionRefs.getState().withNested["leaf"]).toBeInstanceOf(HTMLElement);
+  });
+
+  it("renders a registered kind icon with the reference icon treatment", async () => {
+    registerSectionKinds({
+      leaf: {
+        renderContent: renderSectionBody,
+        icon: ({ className }) => createElement("svg", { "data-testid": "kind-icon", className }),
+      },
+    });
+    loadTestDocument();
+    await mount("leaf");
+
+    // The registered icon replaces the gg-menu fallback and carries the reference's default
+    // blue simple-icon treatment.
+    expect(host.querySelector("i.gg-menu")).toBeNull();
+    const icon = host.querySelector('[data-testid="kind-icon"]');
+    expect(icon).not.toBeNull();
+    expect(icon?.getAttribute("class")).toContain("text-setta-300");
+
+    // A style-colored section swaps in the themed treatment, exactly as the reference.
+    loadTestDocument({ leaf: { styleColor: "#3b82f6" } });
+    await mount("leaf");
+    expect(host.querySelector('[data-testid="kind-icon"]')?.getAttribute("class")).toContain(
+      "text-[color:var(--setta-section-style-muted-text)]",
+    );
   });
 
   it("disables resize handles and squares the corners while locked", async () => {

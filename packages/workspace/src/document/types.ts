@@ -29,6 +29,18 @@ export type TopLevelSectionLayout = {
   zIndex: number;
 };
 
+// Application-owned opaque serializable section data: the package round-trips it through the
+// document and hands it to the kind's registered renderer, but never reads or writes it. The
+// JSON-value shape is the serializability contract, mirroring the reference's plugin-section
+// `data` payloads.
+export type WorkspaceSectionData =
+  | string
+  | number
+  | boolean
+  | null
+  | Array<WorkspaceSectionData>
+  | { [key: string]: WorkspaceSectionData };
+
 // The resolved structural section record. The application resolves any variant indirection
 // on its side of the seam; the package never sees unresolved variants.
 export type WorkspaceSection = {
@@ -42,18 +54,30 @@ export type WorkspaceSection = {
   styleColor: string | null;
   tagColor: string | null;
   children: Array<string>;
+  data?: WorkspaceSectionData;
 };
 
-// The controlled serializable workspace document: the shape a host passes to
-// `loadWorkspaceDocument` and receives back from the document-change callback. It mirrors the
-// reference's persisted project surface for the slice — structural sections, top-level layout,
-// camera, and selection (the reference persists selection through `route_set_active_ids`).
+// The load shape of a section: `size` may be omitted, in which case the kind's registered
+// default (or the reference's auto/auto default) applies at load. Canonical sections always
+// carry their resolved size, so a document emitted by the package loads back unchanged.
+export type WorkspaceSectionInput = Omit<WorkspaceSection, "size"> & { size?: SectionSize };
+
+// The controlled serializable workspace document: the canonical shape the document-change
+// callback and `getWorkspaceDocument` emit, and a valid `loadWorkspaceDocument` input. It
+// mirrors the reference's persisted project surface for the slice — structural sections,
+// top-level layout, camera, and selection (the reference persists selection through
+// `route_set_active_ids`).
 export type WorkspaceDocument = {
   sections: Record<string, WorkspaceSection>;
   topLevelSections: Record<string, TopLevelSectionLayout>;
   // null loads without a saved camera; the canvas fits the content on init.
   viewport: Viewport | null;
   activeIds: Array<string>;
+};
+
+// The load shape of a document: sections may omit their sizes.
+export type WorkspaceDocumentInput = Omit<WorkspaceDocument, "sections"> & {
+  sections: Record<string, WorkspaceSectionInput>;
 };
 
 export type Node = {

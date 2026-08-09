@@ -1,17 +1,17 @@
-import type { WorkspaceDocument, WorkspaceSection } from "@setta/workspace";
+import type { WorkspaceDocumentInput, WorkspaceSectionInput } from "@setta/workspace";
 
 function makeLeafSection(
   id: string,
   name: string,
-  overrides: Partial<WorkspaceSection> = {},
-): WorkspaceSection {
+  overrides: Partial<WorkspaceSectionInput> = {},
+): WorkspaceSectionInput {
   return {
     id,
     kind: "leaf",
     name,
-    // The package shell adds a 1 px border on each side, producing the frozen reference's
-    // measured 202 x 124 px outer leaf geometry.
-    size: { width: 200, height: 122 },
+    // The body text is the leaf kind's opaque data; the size comes from the kind's registered
+    // default (the accepted 200 x 122 leaf geometry).
+    data: { body: name },
     isMinimized: false,
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
@@ -26,7 +26,7 @@ function makeLeafSection(
 // extra root leaves add no features: they only pre-instantiate the slice-reachable locked and
 // style-colored chrome states so the side-by-side gate can compare them without scripted
 // setup. Selection states are reached interactively.
-export const sliceDocument: WorkspaceDocument = {
+export const sliceDocument: WorkspaceDocumentInput = {
   sections: {
     "idle-leaf": makeLeafSection("idle-leaf", "Idle leaf"),
     "locked-leaf": makeLeafSection("locked-leaf", "Locked leaf", {
@@ -35,11 +35,12 @@ export const sliceDocument: WorkspaceDocument = {
     "styled-leaf": makeLeafSection("styled-leaf", "Style-colored leaf", {
       styleColor: "#3b82f6",
     }),
+    // Groups have no registered kind; without an explicit size they load at the reference's
+    // auto/auto default.
     "root-group": {
       id: "root-group",
       kind: "group",
       name: "Root group",
-      size: { width: "auto", height: "auto" },
       isMinimized: false,
       positionAndSizeLocked: false,
       isHorizontalOrientation: false,

@@ -1,9 +1,12 @@
 import { FaLayerGroup } from "react-icons/fa6";
+import { GROUP_SECTION_KIND } from "../../document/documentSelectors";
+import { getRegisteredSectionKindOrThrow } from "../../document/sectionKindRegistry";
 
-// The reference's `HeaderIcon`, trimmed to the slice-reachable renderers: the package-owned
-// group icon and the `gg-menu` fallback every unmapped kind receives. The per-application-type
-// icon record, list-element index text, and other-project-config icon left with those features;
-// host-kind icon registration is a Phase 2 registry decision.
+// The reference's `HeaderIcon` over the section-kind registry: the package-owned group icon,
+// the registered kind icon rendered with the reference's simple-icon treatment
+// (`renderSimpleHeaderIcon`), and the `gg-menu` fallback every kind without an icon receives.
+// The reference's per-application-type renderers (code language, text block, social, ...) are
+// the application's to register.
 const themedHeaderIconClassName =
   "text-[color:var(--setta-section-style-muted-text)] transition-colors group-hover/card-section:text-[color:var(--setta-section-style-outline)] group-hover/group-section:text-[color:var(--setta-section-style-outline)]";
 const defaultBlueHeaderIconClassName =
@@ -12,14 +15,14 @@ const defaultGroupHeaderIconClassName =
   "[&_*]:!scale-120 text-setta-400 transition-colors group-hover/group-section:text-blue-600 dark:text-setta-500 dark:group-hover/group-section:text-[#0084ff]";
 
 type HeaderIconProps = {
-  isGroup: boolean;
+  sectionKind: string;
   hasSectionStyleTheme: boolean;
 };
 
-export function HeaderIcon({ isGroup, hasSectionStyleTheme }: HeaderIconProps) {
+export function HeaderIcon({ sectionKind, hasSectionStyleTheme }: HeaderIconProps) {
   const themedIconClassName = hasSectionStyleTheme ? themedHeaderIconClassName : null;
 
-  if (isGroup) {
+  if (sectionKind === GROUP_SECTION_KIND) {
     return (
       <FaLayerGroup
         className={
@@ -29,6 +32,11 @@ export function HeaderIcon({ isGroup, hasSectionStyleTheme }: HeaderIconProps) {
         }
       />
     );
+  }
+
+  const RegisteredIcon = getRegisteredSectionKindOrThrow(sectionKind).icon;
+  if (RegisteredIcon) {
+    return <RegisteredIcon className={themedIconClassName ?? defaultBlueHeaderIconClassName} />;
   }
 
   return (

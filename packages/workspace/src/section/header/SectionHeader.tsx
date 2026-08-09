@@ -29,13 +29,14 @@ type SectionHeaderProps = {
 
 export function SectionHeader({ sectionId, hasSectionStyleTheme }: SectionHeaderProps) {
   const tagColor = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId).tagColor);
+  const sectionKind = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId).kind);
 
   return (
     <header
       className={sectionHeaderBaseClassName}
       style={getSectionHeaderStyle(hasSectionStyleTheme)}
     >
-      <MenuButton isGroup={false} hasSectionStyleTheme={hasSectionStyleTheme} />
+      <MenuButton sectionKind={sectionKind} hasSectionStyleTheme={hasSectionStyleTheme} />
       <SectionTagColorIndicator tagColor={tagColor} />
       <SectionCardTitle sectionId={sectionId} hasSectionStyleTheme={hasSectionStyleTheme} />
       <div className="z-10 ml-auto flex items-center">

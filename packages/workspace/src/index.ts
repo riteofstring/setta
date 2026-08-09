@@ -15,6 +15,8 @@ export {
 export type { WorkspaceDocumentChangeCallback } from "./document/documentChangeCallback";
 export { GROUP_SECTION_KIND } from "./document/documentSelectors";
 export { loadWorkspaceDocument } from "./document/loadWorkspaceDocument";
+export { registerSectionKinds } from "./document/sectionKindRegistry";
+export type { SectionKindDefinition } from "./document/sectionKindRegistry";
 export { useWorkspaceAppearance } from "./document/stores";
 export type { WorkspaceAppearanceState } from "./document/stores";
 export type {
@@ -24,7 +26,10 @@ export type {
   TopLevelSectionLayout,
   Viewport,
   WorkspaceDocument,
+  WorkspaceDocumentInput,
   WorkspaceSection,
+  WorkspaceSectionData,
+  WorkspaceSectionInput,
 } from "./document/types";
 export {
   NO_DRAG_CLASS_NAME,

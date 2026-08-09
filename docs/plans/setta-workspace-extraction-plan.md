@@ -296,8 +296,27 @@ Phase 2 progress (2026-08-11):
   tests were updated to the now-reachable state shapes. New focused suites freeze the callback
   contract, the re-load camera/dnd behavior, and the unmount cleanup; the playground registers
   the callback (render-isolated change readout) and drives an in-place document reload.
-- Remaining Phase 2 work: the registration surface (section kinds, icons, default sizes,
-  renderers, opaque section data — items 1–2), the compiled package build (ESM, declarations,
+- Registration surface (the registry half of Phase 2 item 2, completing the boundary's
+  kind/icon/default-size/renderer and opaque-data items): the package owns
+  `registerSectionKinds`/`SectionKindDefinition` — application section kinds map to a content
+  renderer, an optional header icon, and an optional default size, replacing the reference's
+  per-type area switch (`SectionContainerCoreResizabe`), header icon record (`HeaderIcon`),
+  and generated per-type size constructors (`createSectionSize` call sites). The provisional
+  `renderSectionContent` canvas prop and its context were removed at the cut; section bodies
+  resolve through the registry, headers render a registered icon with the reference's
+  simple-icon treatment (themed / default-blue) or the reference's gg-menu fallback, and
+  groups stay the one package-owned kind (registering `group` fails loudly). Loading
+  validates every non-group kind against the registry and resolves an omitted section size
+  from the kind's registered default, then the reference's auto/auto `createSectionSize()`
+  default — `WorkspaceSectionInput`/`WorkspaceDocumentInput` are the load shapes; emitted
+  documents always carry resolved sizes, so package output loads back unchanged. Sections
+  gained application-owned opaque serializable `data` (JSON-value typed) that the package
+  round-trips and hands to the renderer untouched. Registry, load-boundary, and icon suites
+  freeze the contract; the playground registers its leaf kind before the initial load
+  (no icon — the accepted gg-menu fallback), renders bodies from `data`, and takes the
+  accepted 200 x 122 leaf geometry from the registered default size, keeping the approved
+  slice visuals unchanged.
+- Remaining Phase 2 work: the compiled package build (ESM, declarations,
   source maps, compiled scoped stylesheet — items 1 and 4), the forbidden-import verification
   (item 3), the temporary Setta integration worktree and the packed unrelated consumer
   (items 5–6), donor consideration (item 7), and integration evidence (item 8).
