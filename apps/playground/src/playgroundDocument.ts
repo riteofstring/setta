@@ -1,6 +1,7 @@
 import type {
   WorkspaceDocumentInput,
   WorkspaceItem,
+  WorkspaceSectionData,
   WorkspaceSectionInput,
   WorkspaceSectionItemTree,
 } from "@setta/workspace";
@@ -27,13 +28,16 @@ function makeLeafSection(
   };
 }
 
-// The item panel's rows: the label/value/group shape is this host's opaque item data — the
-// package sees only ids, ordered children, and selection. One nested group keeps cross-parent
-// item movement reachable, and the leaf count fills the recorded 552 x 352 outer geometry so
-// the repeated 20 px row rhythm stays inspectable against the frozen `/settings` Dict.
+// The item panel's rows: the label/value/group/control shape is this host's opaque item data —
+// the package sees only ids, ordered children, and selection. One nested group keeps
+// cross-parent item movement reachable, and the leaf count fills the recorded 552 x 352 outer
+// geometry so the repeated 20 px row rhythm stays inspectable against the frozen `/settings`
+// Dict. The item-controls rows exercise every built-in control the milestone has landed: the
+// switch at the captured `enabled` fixture, the configured color trigger over the captured
+// Red/Green/Blue choices, and the native color input at the `/settings` recorded value.
 function makeItem(
   id: string,
-  data: Record<string, string | boolean>,
+  data: Record<string, WorkspaceSectionData>,
   children: Array<string> = [],
 ): WorkspaceItem {
   return { id, children, data };
@@ -54,6 +58,9 @@ const itemPanelTree: WorkspaceSectionItemTree = {
       "item-iota",
       "item-kappa",
       "item-lambda",
+      "item-enabled",
+      "item-accent",
+      "item-tint",
     ]),
     "item-alpha": makeItem("item-alpha", { label: "alpha", value: "0.001" }),
     "item-beta": makeItem("item-beta", { label: "beta", value: "0.999" }),
@@ -71,6 +78,22 @@ const itemPanelTree: WorkspaceSectionItemTree = {
     "item-iota": makeItem("item-iota", { label: "iota", value: "0.05" }),
     "item-kappa": makeItem("item-kappa", { label: "kappa", value: "100" }),
     "item-lambda": makeItem("item-lambda", { label: "lambda", value: "0.0005" }),
+    "item-enabled": makeItem("item-enabled", {
+      label: "enabled",
+      value: "true",
+      control: "switch",
+    }),
+    "item-accent": makeItem("item-accent", {
+      label: "accent",
+      value: "#22c55e",
+      control: "color",
+      choices: [
+        { color: "#ef4444", description: "Red" },
+        { color: "#22c55e", description: "Green" },
+        { color: "#3b82f6", description: "Blue" },
+      ],
+    }),
+    "item-tint": makeItem("item-tint", { label: "tint", value: "#afbacf", control: "color" }),
   },
   selectedItemIds: [],
 };

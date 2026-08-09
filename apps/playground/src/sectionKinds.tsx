@@ -1,9 +1,12 @@
 import {
+  ColorValueControl,
   ItemDndContext,
   registerSectionKinds,
   setItemData,
+  SwitchValueControl,
   TextValueEditor,
   WorkspaceItemList,
+  type ColorValueChoice,
   type ItemRowRenderContext,
   type WorkspaceItem,
   type WorkspaceSection,
@@ -74,13 +77,13 @@ function isGroupItem(item: WorkspaceItem): boolean {
 // `/settings` Dict's label and value roles. Labels carry the reference `ParamTextLabel`
 // treatment verbatim (12/16 px semibold sans-serif in setta-800/200 with the reference's
 // 0.125 rem vertical padding); its click-to-focus affordance stays application-side with the
-// input it focuses. Values mount the package's built-in text value editor from the
-// item-controls milestone: the idle Lezer-highlighted dummy at the accepted Phase 4 metrics,
-// the live CodeMirror swap, and the value-column divider with its focus treatment all live in
-// the control. The playground declares the reference settings surface's language (python, the
-// generated `configLanguage` default) and owns persistence: each reported change commits back
-// into this host's opaque item data through the `setItemData` funnel, with no validation —
-// the reference's debounced transport and backend paths have no playground equivalent.
+// input it focuses. Values mount the package's built-in controls from the item-controls
+// milestone, chosen by this host's opaque `control` field: the two-layer text value editor
+// (the default, at python — the reference settings surface's generated `configLanguage`), the
+// boolean switch, and the color picker in both its configured-choices and native-input forms.
+// The playground owns persistence: each reported change commits back into this host's opaque
+// item data through the `setItemData` funnel, with no validation — the reference's debounced
+// transport and backend paths have no playground equivalent.
 const ITEM_LABEL_CLASS_NAME =
   "truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200";
 const ITEM_VALUE_LANGUAGE = "python";
@@ -90,6 +93,65 @@ function commitItemValue(context: ItemRowRenderContext, nextValue: string) {
     ...getItemDataRecord(context.item),
     value: nextValue,
   });
+}
+
+function isColorValueChoice(candidate: WorkspaceSectionData): candidate is ColorValueChoice {
+  return (
+    candidate !== null &&
+    typeof candidate === "object" &&
+    !Array.isArray(candidate) &&
+    typeof candidate["color"] === "string" &&
+    typeof candidate["description"] === "string"
+  );
+}
+
+function getItemColorChoices(item: WorkspaceItem): Array<ColorValueChoice> | undefined {
+  const choices = getItemDataRecord(item)["choices"];
+  if (choices === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(choices) || !choices.every(isColorValueChoice)) {
+    throw new Error(`Item ${item.id} has malformed color choices.`);
+  }
+  return choices;
+}
+
+function ItemValueControl({ context }: { context: ItemRowRenderContext }) {
+  const control = getItemField(context.item, "control");
+  const value = getItemValue(context.item);
+  const onValueChange = (nextValue: string) => commitItemValue(context, nextValue);
+  if (control === "switch") {
+    return (
+      <SwitchValueControl
+        sectionId={context.sectionId}
+        value={value}
+        onValueChange={onValueChange}
+      />
+    );
+  }
+  if (control === "color") {
+    return (
+      <ColorValueControl
+        sectionId={context.sectionId}
+        itemId={context.item.id}
+        value={value}
+        choices={getItemColorChoices(context.item)}
+        onValueChange={onValueChange}
+      />
+    );
+  }
+  if (control !== undefined) {
+    throw new Error(`Item ${context.item.id} names the unknown control ${String(control)}.`);
+  }
+  return (
+    <TextValueEditor
+      sectionId={context.sectionId}
+      itemId={context.item.id}
+      value={value}
+      language={ITEM_VALUE_LANGUAGE}
+      onValueChange={onValueChange}
+    />
+  );
 }
 
 function ItemRowContent({ context }: { context: ItemRowRenderContext }) {
@@ -104,13 +166,7 @@ function ItemRowContent({ context }: { context: ItemRowRenderContext }) {
       <div className="section-key overflow-hidden">
         <p className={ITEM_LABEL_CLASS_NAME}>{label}</p>
       </div>
-      <TextValueEditor
-        sectionId={context.sectionId}
-        itemId={context.item.id}
-        value={getItemValue(context.item)}
-        language={ITEM_VALUE_LANGUAGE}
-        onValueChange={(nextValue) => commitItemValue(context, nextValue)}
-      />
+      <ItemValueControl context={context} />
     </>
   );
 }

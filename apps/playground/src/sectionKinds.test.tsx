@@ -1,6 +1,10 @@
 /* @vitest-environment jsdom */
 
-import { loadWorkspaceDocument, type WorkspaceSection } from "@setta/workspace";
+import {
+  getWorkspaceDocument,
+  loadWorkspaceDocument,
+  type WorkspaceSection,
+} from "@setta/workspace";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -12,10 +16,12 @@ import { ItemListSectionBody, registerPlaygroundSectionKinds } from "./sectionKi
 // The host-owned presentation regression from the Phase 4 presentation-parity correction,
 // amended by the item-controls milestone: labels stay this host's contract (12/16 px semibold
 // sans-serif in setta-800/200 with the reference padding), while the value role now mounts
-// the package's built-in text value editor — the Lezer-highlighted idle dummy at the
-// reference's monospace treatment plus the value-column divider with its focus paint. The
-// host wires the control to its opaque item data with the reference settings surface's
-// python language, so the idle layer must highlight and carry the host-addressable dummy id.
+// the package's built-in controls chosen by this host's opaque `control` field — the two-layer
+// text value editor (the default; the Lezer-highlighted idle dummy at the reference's
+// monospace treatment plus the value-column divider with its focus paint, at the reference
+// settings surface's python language), the boolean switch, and the color picker in both its
+// configured-choices and native-input forms. Every control edit commits back through the
+// host's `setItemData` funnel into the canonical document.
 
 const REFERENCE_LABEL_CLASS_NAME =
   "truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200";
@@ -69,6 +75,17 @@ function getItemPanelSection(): WorkspaceSection {
     throw new Error("The playground document lost its item panel section.");
   }
   return { ...input, size: { width: 550, height: 350 } };
+}
+
+// Reads a committed value back out of the canonical document's opaque item data.
+function getDocumentItemValue(itemId: string): string | undefined {
+  const itemTree = getWorkspaceDocument().sections["item-panel"]?.itemTree;
+  const data = itemTree?.items[itemId]?.data;
+  if (data === null || data === undefined || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error(`Item ${itemId} lost its row data.`);
+  }
+  const value = data["value"];
+  return typeof value === "string" ? value : undefined;
 }
 
 function findRowByLabel(container: HTMLElement, label: string): HTMLElement {
@@ -128,6 +145,49 @@ describe("the playground item renderer presentation contract", () => {
     }
     expect(value.querySelector(".cm-line span")?.className).toMatch(/ͼ/);
     expect(divider.className).toBe(REFERENCE_VALUE_DIVIDER_CLASS_NAME);
+  });
+
+  it("renders switch rows with the built-in switch and commits toggles to the document", () => {
+    const switchRow = findRowByLabel(container, "enabled");
+    const wrapper = switchRow.querySelector<HTMLElement>("div.section-value");
+    expect(wrapper?.className).toBe("section-value flex justify-self-start self-center");
+    const switchButton = switchRow.querySelector<HTMLButtonElement>('button[role="switch"]');
+    if (!switchButton) {
+      throw new Error("The enabled row does not mount the switch control.");
+    }
+    expect(switchButton.dataset.state).toBe("checked");
+    act(() => {
+      switchButton.click();
+    });
+    // The host funnel committed the stringified boolean into the canonical opaque data, and
+    // the re-rendered control reflects it.
+    expect(getDocumentItemValue("item-enabled")).toBe("false");
+    expect(switchRow.querySelector<HTMLButtonElement>('button[role="switch"]')?.dataset.state).toBe(
+      "unchecked",
+    );
+  });
+
+  it("renders the configured color row with the reference trigger presentation", () => {
+    const colorRow = findRowByLabel(container, "accent");
+    const trigger = colorRow.querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]');
+    if (!trigger) {
+      throw new Error("The accent row does not mount the configured color trigger.");
+    }
+    const swatch = trigger.querySelector<HTMLElement>("div.single-cell-child.rounded-lg");
+    expect(swatch?.style.backgroundColor).toBe("rgb(34, 197, 94)");
+    expect(trigger.querySelector("p")?.textContent).toBe("Green");
+    expect(trigger.querySelector("i.gg-chevron-down")).not.toBeNull();
+  });
+
+  it("renders the choiceless color row as the native input behind the eyedropper", () => {
+    const colorRow = findRowByLabel(container, "tint");
+    expect(colorRow.querySelector("i.gg-color-picker")).not.toBeNull();
+    const input = colorRow.querySelector<HTMLInputElement>('input[type="color"]');
+    if (!input) {
+      throw new Error("The tint row does not mount the native color input.");
+    }
+    expect(input.id).toBe("item-panel-item-tint-ColorValueInput");
+    expect(input.value).toBe("#afbacf");
   });
 
   it("renders group labels as direct children carrying the reference label treatment", () => {

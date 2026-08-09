@@ -3,7 +3,7 @@ import { useEffect, useState, type MouseEvent } from "react";
 import { applyActiveSectionChange } from "../../canvas/activeSectionController";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
-import { useSectionRefs } from "../../section/sectionRefs";
+import { focusSectionAfterEscape } from "../sectionFocus";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getOnCreateEditor, type TextValueActivationEvent } from "./onCreateEditor";
 import { getTextValueExtensions } from "./textValueExtensions";
@@ -47,17 +47,6 @@ const REAL_CLASS_NAME = `${NO_PAN_CLASS_NAME} ${NO_DRAG_CLASS_NAME} self-end pee
 // suppresses the blue focus paint exactly as the reference's param-select mode does.
 function getDividerClassName(isSelectingItems: boolean) {
   return `section-value self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingItems ? "peer-focus-within/textinput:border-blue-400" : ""}`;
-}
-
-// The reference's `focusOnSection(null, sectionId, false)` without its pane-move travel —
-// canvas focus/fit helpers are a deferred capability. Moving focus to the section container
-// blurs the live editor, which restores the dummy presentation.
-function focusSectionAfterEscape(sectionId: string) {
-  const sectionRef = useSectionRefs.getState().withNested[sectionId];
-  if (!sectionRef) {
-    return;
-  }
-  sectionRef.focus({ preventScroll: true });
 }
 
 export function TextValueEditor({

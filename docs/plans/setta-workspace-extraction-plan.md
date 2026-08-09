@@ -955,6 +955,35 @@ Phase 4 progress (2026-08-11):
   configs so tests keep the browser build's single-instance module graph. Remaining batches:
   switch and color picker; dropdown; name editor; then the live comparison and the explicit
   developer-acceptance exit gate.
+- Item-controls switch and color picker batch complete (2026-08-12): the second implementation
+  batch landed the package `SwitchValueControl` — the reference `SwitchInput` at the `ParamUI`
+  switch presentation (the recorded 10 px Radix track/thumb in 3.2 px padding at full radius,
+  `blue-500`/dark `blue-700` checked paint, 16 px checked thumb translation, Escape
+  stop-propagation returning focus to the section) with the reference's checked parse across the
+  string seam and the stringified boolean commit — and the package `ColorValueControl` — the
+  reference `ColorPickerInput` at the `ParamUI` color presentation: with host choices, the
+  recorded swatch/auto-contrast-label/chevron trigger over a portaled 16 px-swatch listbox
+  through a package `ControlPopover` (the reference `StandardPopover` trimmed to the control
+  usage, with its canvas-transform reposition subscription always on); without choices, the
+  recorded native color input behind the eyedropper glyph. Both controls disable from the host
+  flag plus item-select mode; the shared Escape-to-section helper moved to
+  `controls/sectionFocus.ts`. Documented deviations: the color wrapper carries the package
+  no-drag boundary (the reference's params color path lacks `nodrag`, but this amendment
+  requires that editing never starts a section drag and the package drag filter exempts only
+  that class); the native input binds only React's value-tracked `onChange` (the reference's
+  paired `onInput`/`onChange` double-report each gesture into its idempotent app seam, while
+  the package seam specifies one report per edit) and keys its id per item (the reference's
+  static `id="colorPicker"` duplicates across rows); three inert trigger tokens are trimmed
+  (`colorpicker` — only reference draw-area/meta-control surfaces target it — plus `min-w-0s`
+  and `@[90px]:inline-block`, which emit no CSS on this path in either build). The playground's
+  item panel gained switch, configured-color, and native-color rows driven by its opaque
+  `control`/`choices` data through the `setItemData` funnel, and its presentation regression
+  freezes them. Dependency pins: `@radix-ui/react-popover 1.1.15` exactly as the reference;
+  `@radix-ui/react-switch` moved 1.0.1 → 1.1.0 (strict-peer-forced: 1.0.1's React peer stops at
+  ^18, 1.1.0 is the earliest version admitting React 19; same forced-move rule as re-resizable
+  in Phase 1). The supply-chain gate reran green on the dependency change; package (464) and
+  playground (9) suites plus the changed-file static gate pass. Remaining batches: dropdown;
+  name editor; then the live comparison and the explicit developer-acceptance exit gate.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

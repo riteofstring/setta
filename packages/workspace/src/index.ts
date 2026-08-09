@@ -10,6 +10,10 @@ export type {
 // consumers off deep canvas-internal import paths.
 export type { PanOnScrollMode, SelectionMode } from "./canvas/types";
 export { WorkspaceCanvas } from "./canvas/WorkspaceCanvas";
+export { ColorValueControl } from "./controls/color/ColorValueControl";
+export type { ColorValueChoice, ColorValueControlProps } from "./controls/color/ColorValueControl";
+export { SwitchValueControl } from "./controls/switch/SwitchValueControl";
+export type { SwitchValueControlProps } from "./controls/switch/SwitchValueControl";
 export { TextValueEditor } from "./controls/text/TextValueEditor";
 export type { TextValueEditorProps } from "./controls/text/TextValueEditor";
 export type { TextValueLanguage } from "./controls/text/textValueLanguages";
