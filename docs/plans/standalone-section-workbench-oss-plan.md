@@ -1685,7 +1685,7 @@ Gate:
 
 ### Phase 6: Deferred capability expansion in the same package
 
-Status: **implementation complete; independent phase re-audit required** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
+Status: **implementation complete; independent phase re-audit complete** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
 optional outline-navigator, top-level auto-layout, named item-list, filtered item-list,
 mixed-parent batch-movement, saved viewport-preset, generic edge-and-port, pane-registration, and
 viewport-culling batches are implemented. They are recorded in
@@ -1721,11 +1721,18 @@ named production positioning control and integrated performance/browser matrix a
 The final implementation batch is recorded in
 [Phase 6 descendant-subtree minimization evidence](../evidence/phase-6-descendant-subtree-minimization.md).
 The listed capability batches and both supervisor-required corrections have implementation coverage,
-but Phase 6 is not complete until an independent re-audit accepts the corrected settled tree.
-The prior expanded-range audit, static corrections, deterministic matrix, browser proof,
-performance result, and retained release gates are recorded in
-[Phase 6 gate-audit evidence](../evidence/phase-6-gate-audit.md); that record is historical evidence,
-not a final Phase 6 sign-off.
+and the corrected settled tree is accepted by the
+[Phase 6 final gate re-audit](../evidence/phase-6-final-gate-audit.md). The prior expanded-range
+audit, static corrections, deterministic matrix, browser proof, performance result, and retained
+release gates remain recorded in
+[Phase 6 gate-audit evidence](../evidence/phase-6-gate-audit.md) as historical evidence.
+
+- Independent phase re-audit: reviewed the stable detached-renderer portal target, provider/frame
+  lifecycle, renderer-state and DOM-identity proof, removal of the metadata-restatement test, and
+  the directly affected mixed-parent preview/completion stabilization. Focused final-tree static
+  and browser evidence passes, no remaining repository correction was found, and the historical
+  packed-consumer terminal loss plus unavailable connected-browser surface remain non-actionable
+  release gates rather than incomplete implementation.
 
 - Completed supervisor correction (detached renderer identity): one stable renderer portal target
   now moves between the docked content surface and the same-origin detached window. Every redock or

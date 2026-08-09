@@ -1,8 +1,9 @@
 # Phase 6 Detachable-Section Evidence
 
-> Supervisor correction resolved (2026-08-09): one stable renderer portal target now moves between
-> the dock and pop-out document. Focused browser coverage proves the same renderer-owned input node
-> and local React state survive detach and redock. An independent Phase 6 re-audit remains required.
+> Supervisor correction resolved and independently accepted (2026-08-09): one stable renderer
+> portal target now moves between the dock and pop-out document. Focused browser coverage proves
+> the same renderer-owned input node and local React state survive detach and redock. The final
+> acceptance record is [Phase 6 final gate re-audit](phase-6-final-gate-audit.md).
 
 ## Result and scope
 

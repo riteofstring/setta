@@ -1,10 +1,10 @@
 # Phase 6 Gate Audit
 
-> Supervisor correction status (2026-08-09): this remains historical rather than final Phase 6
-> sign-off. A subsequent implementation batch now moves one stable renderer portal target between
-> documents, proves renderer-local state and DOM identity through detach/redock, and removes the
-> tautological representation metadata test. An independent re-audit of the corrected settled tree
-> is still required.
+> Supervisor correction status (2026-08-09): this remains the historical expanded-range audit
+> rather than the final Phase 6 sign-off. A subsequent implementation batch moves one stable
+> renderer portal target between documents, proves renderer-local state and DOM identity through
+> detach/redock, and removes the tautological representation metadata test. The corrected settled
+> tree is accepted by the [Phase 6 final gate re-audit](phase-6-final-gate-audit.md).
 
 ## Result
 
