@@ -45,6 +45,7 @@ describe("workspace section registry", () => {
       defaultSize: { height: 180, width: 240 },
       defaultSizeMode: { height: "fixed", width: "fixed" },
       defaultTitle: "Test section",
+      detachable: false,
       displayName: "Test section",
       kind: "test",
       minimizable: true,
@@ -69,6 +70,7 @@ describe("workspace section registry", () => {
         defaultSize: { height: 200, width: 320 },
         defaultSizeMode: { height: "fixed", width: "content" },
         defaultTitle: "Container",
+        detachable: true,
         minimizable: false,
         resize: {
           axes: "horizontal",
@@ -87,6 +89,7 @@ describe("workspace section registry", () => {
       defaultChildOverflow: "scroll",
       defaultSizeMode: { height: "fixed", width: "content" },
       defaultTitle: "Container",
+      detachable: true,
       minimizable: false,
       resize: {
         axes: "horizontal",
@@ -125,6 +128,9 @@ describe("workspace section registry", () => {
     expect(() =>
       resolveSectionDefinitions([definition({ creation: { keywords: ["note", "note"] } })]),
     ).toThrow("keywords must not contain duplicates");
+    expect(() =>
+      resolveSectionDefinitions([definition({ detachable: "yes" as unknown as boolean })]),
+    ).toThrow("detachable must be a boolean");
 
     const sparse = new Array<SectionDefinition>(1);
     expect(() => resolveSectionDefinitions(sparse)).toThrow(

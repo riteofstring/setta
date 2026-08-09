@@ -6,6 +6,7 @@ import {
   WORKSPACE_NO_PAN_CLASS_NAME,
   WORKSPACE_NO_WHEEL_CLASS_NAME,
 } from "./workspace-interaction-boundary.js";
+import { useWorkspaceSectionDetached } from "./workspace-section-detachment.js";
 import type { ResolvedSectionDefinition } from "./workspace-section-registry.js";
 import {
   workspaceSectionResizeBounds,
@@ -167,10 +168,12 @@ export function WorkspaceSectionResizeControls({
   selected: boolean;
 }>) {
   const descriptionId = `setta-workspace-resize-${useId().replaceAll(":", "")}`;
+  const detached = useWorkspaceSectionDetached(section.id);
   const handles = workspaceSectionResizeHandles(definition);
   const visible =
     selected &&
     layoutEditable &&
+    !detached &&
     !section.isMinimized &&
     !section.positionAndSizeLocked &&
     handles.length > 0;

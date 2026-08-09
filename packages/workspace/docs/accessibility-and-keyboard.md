@@ -76,6 +76,21 @@ activator.
 - The minimap is supplementary pointer navigation. The toolbar plus section selection controls and
   controller-backed focus, fit, next, and previous actions provide equivalent keyboard paths.
 
+## Detached-window focus and recovery
+
+An opted-in section's native Open in a new window button works with Enter or Space and exposes its
+current pressed state. On success, focus moves to the detached window's named heading. The docked
+placeholder retains native Focus window and Redock section buttons, while the popup provides Return
+to workspace. Redocking, closing, reloading, or losing the opener restores focus to the original
+detachment control when it still exists. Popup blocking and host-policy rejection leave focus and
+content in the workbench and use a pre-mounted polite status message with recovery guidance.
+
+Detached content keeps the renderer's React context and current accessible state, but a second
+browser window is a separate focus context. Host renderers must not assume `window` or `document`
+means the opener, install unscoped global listeners, or rely on opener-only styles. Use
+`renderWindowHead` for explicit renderer metadata or styles and test the popup itself with keyboard,
+screen reader, zoom, reflow, contrast, and reduced-motion settings.
+
 ## Focus behavior
 
 Focus restoration is bounded and context-aware. Creation returns to its invoker on cancellation;

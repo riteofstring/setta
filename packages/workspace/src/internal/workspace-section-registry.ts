@@ -43,6 +43,7 @@ export type ResolvedSectionDefinition<TSectionData = WorkspaceJsonValue> = Reado
   defaultSize: SectionDefaultSize;
   defaultSizeMode: SectionDefaultSizeMode;
   defaultTitle: string;
+  detachable: boolean;
   displayName: string;
   kind: string;
   minimizable: boolean;
@@ -60,6 +61,7 @@ const definitionKeys = [
   "defaultSize",
   "defaultSizeMode",
   "defaultTitle",
+  "detachable",
   "displayName",
   "kind",
   "minimizable",
@@ -339,6 +341,7 @@ function resolveDefinition<TSectionData>(
       record.defaultTitle === undefined
         ? displayName
         : nonEmptyString(record.defaultTitle, `${label} defaultTitle`),
+    detachable: booleanOrDefault(record.detachable, false, `${label} detachable`),
     displayName,
     kind,
     minimizable: booleanOrDefault(record.minimizable, true, `${label} minimizable`),

@@ -32,7 +32,7 @@ import "@setta/workspace/styles.css";
 | ----------------------------- | ---------------------------------------------------------------------- |
 | `@setta/workspace`            | Convenience union of the framework-neutral and React runtime surfaces. |
 | `@setta/workspace/core`       | Documents, validation, planning, policies, and immutable helpers.      |
-| `@setta/workspace/react`      | `Workspace`, `SortableItemTree`, React contracts, and boundaries.      |
+| `@setta/workspace/react`      | Workspaces, detachable windows, sortable trees, and React boundaries.  |
 | `@setta/workspace/testing`    | Testing helpers and deterministic adapter evidence.                    |
 | `@setta/workspace/styles.css` | Required package-owned styles and scoped theme tokens.                 |
 
@@ -43,8 +43,8 @@ Source aliases and undeclared package internals are not consumer APIs.
 The locally packed artifact includes focused guides for the package's permanent host boundaries:
 
 - [Host integration](docs/integration.md): documents, persistence, capabilities, controller
-  commands, extensions, creation, selection, grouping, stacking, minimap, history, and external
-  drops.
+  commands, extensions, creation, detachable windows, selection, grouping, stacking, minimap,
+  history, and external drops.
 - [Recursive sections](docs/recursive-sections.md): containment, movement modes, orientation,
   locking, minimizing, sizing, overflow, snapping, chrome, accents, and tags.
 - [Sortable item trees](docs/sortable-item-trees.md): controlled item data, selection, planning,
@@ -300,6 +300,47 @@ focus, and keeps an asynchronously rejected proposal open with an associated err
 `validateSectionTitle` may perform host validation or persistence before the package commits one
 `section-title` change. A controlled host that declines the resulting title proposal keeps the
 editor open with a specific error instead of reporting success against unchanged canonical state.
+
+## Detachable sections
+
+Set `detachable: true` on an eligible `SectionDefinition`, then wrap the workbench in
+`WorkspaceDetachmentProvider`. The package opens a same-origin `about:blank` window directly from
+the built-in button's user gesture and portals the existing renderer into it. React context,
+controlled document ownership, renderer data, title changes, resolved appearance, and read-only
+state therefore remain live rather than creating a second workspace.
+
+```tsx
+import { Workspace, WorkspaceDetachmentProvider } from "@setta/workspace/react";
+
+<WorkspaceDetachmentProvider
+  getInitialWindowBounds={({ sectionId }) => savedWindowBounds.get(sectionId)}
+  onWindowChange={({ bounds, open, sectionId }) => {
+    saveWindowPreference(sectionId, { bounds, open });
+  }}
+  renderWindowHead={({ kind }) =>
+    kind === "note" ? <meta content="note" name="application-section-kind" /> : null
+  }
+  validateDetachment={({ kind }) =>
+    kind === "note"
+      ? { allowed: true }
+      : { allowed: false, reason: "This section must stay in the workspace." }
+  }
+>
+  <Workspace sectionDefinitions={sectionDefinitions} />
+</WorkspaceDetachmentProvider>;
+```
+
+The docked frame keeps a measured placeholder with Focus window and Redock section actions. The
+detached window receives package metadata, styles, current theme tokens, an accessible title, and
+an explicit Return to workspace action; `renderWindowHead` lets the host add only the metadata or
+styles its renderer needs. Popup rejection is announced with recovery guidance. Closing,
+reloading, navigating away, losing the live opener, minimizing, deleting, or unmounting the section
+redocks or releases it predictably and restores focus when its original control survives.
+
+Window bounds and open state are host preferences reported through `onWindowChange`; they never
+enter `WorkspaceDocument` or history. Cross-window dragging is intentionally absent. A detached
+section, selected ancestor, or selected descendant must be redocked before package movement,
+grouping, ungrouping, or resizing can change its container or geometry.
 
 ## Sortable item trees
 

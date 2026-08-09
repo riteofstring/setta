@@ -85,21 +85,26 @@ const DISABLED_SECTION_DND_CONTEXT: WorkspaceSectionDndContextValue = {
 };
 
 export function workspaceSectionMoveDescription({
+  detached,
   locked,
   mode,
   selectionMovementBlocked,
   structural,
 }: Readonly<{
+  detached: boolean;
   locked: boolean;
   mode: WorkspaceSectionMoveMode;
   selectionMovementBlocked: boolean;
   structural: boolean;
 }>): string {
+  if (detached) {
+    return "Movement unavailable while this section is open in another window. Redock it before moving or nesting it.";
+  }
   if (locked) {
     return "Movement unavailable because this section is locked.";
   }
   if (selectionMovementBlocked) {
-    return "Movement unavailable because selected sections must share one parent and all selected roots must be unlocked.";
+    return "Movement unavailable because selected sections must share one parent and all selected roots must be unlocked and docked.";
   }
   if (!structural) {
     return "Drag to move. Use the arrow keys for keyboard movement.";

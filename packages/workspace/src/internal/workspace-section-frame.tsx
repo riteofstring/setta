@@ -23,7 +23,6 @@ import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service
 import {
   WORKSPACE_NO_PAN_CLASS_NAME,
   WORKSPACE_NO_ROOT_DRAG_CLASS_NAME,
-  WORKSPACE_NO_WHEEL_CLASS_NAME,
 } from "./workspace-interaction-boundary.js";
 import {
   workspaceKeyboardMoveDirectionForKey,
@@ -33,6 +32,11 @@ import type {
   WorkspaceSectionColorOption,
   WorkspaceSectionTitleValidator,
 } from "./workspace-section-contract.js";
+import {
+  useWorkspaceSectionDetached,
+  WorkspaceSectionContent,
+  WorkspaceSectionDetachmentControl,
+} from "./workspace-section-detachment.js";
 import {
   useWorkspaceSectionDnd,
   workspaceSectionMoveDescription,
@@ -86,13 +90,15 @@ type SwatchStyle = CSSProperties &
   }>;
 
 function SectionStateLabels({
+  detached,
   isMinimized,
   locked,
-}: Readonly<{ isMinimized: boolean; locked: boolean }>) {
+}: Readonly<{ detached: boolean; isMinimized: boolean; locked: boolean }>) {
   return (
     <>
       {locked ? <span className="setta-workspace__section-state">Locked</span> : null}
       {isMinimized ? <span className="setta-workspace__section-state">Minimized</span> : null}
+      {detached ? <span className="setta-workspace__section-state">Detached</span> : null}
     </>
   );
 }
@@ -116,6 +122,7 @@ function SectionTag({ color }: Readonly<{ color: string | null }>) {
 type SectionHeadingProps = Readonly<{
   controls: ReactNode;
   definition: ResolvedSectionDefinition<unknown>;
+  detached: boolean;
   hasStatus: boolean;
   headingId: string;
   section: WorkspaceSection<unknown>;
@@ -128,6 +135,7 @@ type SectionHeadingProps = Readonly<{
 function VisibleSectionHeading({
   controls,
   definition,
+  detached,
   hasStatus,
   section,
   selectionControl,
@@ -155,6 +163,7 @@ function VisibleSectionHeading({
         {hasStatus ? (
           <div className="setta-workspace__section-states" id={statusId}>
             <SectionStateLabels
+              detached={detached}
               isMinimized={section.isMinimized}
               locked={section.positionAndSizeLocked}
             />
@@ -168,6 +177,7 @@ function VisibleSectionHeading({
 
 function HeaderlessSectionHeading({
   controls,
+  detached,
   hasStatus,
   headingId,
   section,
@@ -185,6 +195,7 @@ function HeaderlessSectionHeading({
         {hasStatus ? (
           <div className="setta-workspace__section-states" id={statusId}>
             <SectionStateLabels
+              detached={detached}
               isMinimized={section.isMinimized}
               locked={section.positionAndSizeLocked}
             />
@@ -304,6 +315,7 @@ function structuralDragAttribute<Value>(structural: boolean, value: Value): Valu
 
 function spatialDragDisabled(
   depth: number,
+  detached: boolean,
   layoutEditable: boolean,
   section: WorkspaceSection<unknown>,
   selectionMovementBlocked: boolean,
@@ -311,6 +323,7 @@ function spatialDragDisabled(
 ): boolean {
   return (
     !spatialEnabled ||
+    detached ||
     depth > 0 ||
     !layoutEditable ||
     section.positionAndSizeLocked ||
@@ -341,6 +354,7 @@ function handleStructuralDragKey(
 function SectionDragHandle({
   depth,
   descriptionId,
+  detached,
   layoutEditable,
   onKeyboardMove,
   onSelectionRequest,
@@ -351,6 +365,7 @@ function SectionDragHandle({
 }: Readonly<{
   depth: number;
   descriptionId: string;
+  detached: boolean;
   layoutEditable: boolean;
   onKeyboardMove(sectionId: string, direction: WorkspaceKeyboardMoveDirection): void;
   onSelectionRequest(sectionId: string, request: WorkspaceSectionSelectionRequest): void;
@@ -370,6 +385,7 @@ function SectionDragHandle({
     ? !structuralDrag.enabled
     : spatialDragDisabled(
         depth,
+        detached,
         layoutEditable,
         section,
         selectionMovementBlocked,
@@ -418,7 +434,7 @@ function SectionDragHandle({
       }
       aria-label={`Move ${section.title}`}
       aria-roledescription={structuralDragAttribute(structuralDrag.structural, "draggable")}
-      className={`setta-workspace__section-drag-handle${depth === 0 ? " setta-workspace__section-drag-handle--root" : ""}${structuralDrag.structural ? ` ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_ROOT_DRAG_CLASS_NAME}` : ""}`}
+      className={`setta-workspace__section-drag-handle${depth === 0 && !detached ? " setta-workspace__section-drag-handle--root" : ""}${structuralDrag.structural ? ` ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_ROOT_DRAG_CLASS_NAME}` : ""}`}
       data-workspace-section-drag-mode={structuralDrag.structural ? structuralDrag.mode : "spatial"}
       disabled={disabled}
       onKeyDown={handleKeyDown}
@@ -444,39 +460,6 @@ function focusWithoutScroll(ref: RefObject<HTMLElement | null>): void {
   }
 }
 
-function SectionContent({
-  appearance,
-  contentId,
-  definition,
-  inactive,
-  readOnly,
-  section,
-}: Pick<WorkspaceSectionFrameProps, "appearance" | "definition" | "readOnly" | "section"> &
-  Readonly<{ contentId: string; inactive: boolean }>) {
-  if (section.isMinimized) {
-    return <div hidden id={contentId} />;
-  }
-  const Renderer = definition.render;
-  return (
-    <div
-      aria-hidden={inactive || undefined}
-      className={`setta-workspace__section-content setta-workspace__interaction-boundary ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
-      data-workspace-prevent-pan="true"
-      data-workspace-prevent-wheel="true"
-      id={contentId}
-      inert={inactive || undefined}
-      tabIndex={inactive ? undefined : 0}
-    >
-      <Renderer
-        appearance={appearance}
-        data={section.data}
-        readOnly={readOnly}
-        sectionId={section.id}
-      />
-    </div>
-  );
-}
-
 function registerSectionFrame(
   depth: number,
   element: HTMLElement | null,
@@ -497,18 +480,20 @@ function registerSectionFrame(
   });
 }
 
-function hasSectionStatus(section: WorkspaceSection<unknown>): boolean {
-  return section.positionAndSizeLocked || section.isMinimized;
+function hasSectionStatus(section: WorkspaceSection<unknown>, detached: boolean): boolean {
+  return section.positionAndSizeLocked || section.isMinimized || detached;
 }
 
 function shouldShowSectionHeader(
   section: WorkspaceSection<unknown>,
+  detached: boolean,
   editingTitle: boolean,
   presentationOpen: boolean,
 ): boolean {
   return (
     section.presentation.chrome !== "none" ||
     section.isMinimized ||
+    detached ||
     editingTitle ||
     presentationOpen
   );
@@ -554,8 +539,9 @@ function sectionWithPresentation(
 function sectionDragBlocked(
   section: WorkspaceSection<unknown>,
   selectionMovementBlocked: boolean,
+  detached: boolean,
 ): boolean {
-  return section.positionAndSizeLocked || selectionMovementBlocked;
+  return section.positionAndSizeLocked || selectionMovementBlocked || detached;
 }
 
 function sectionFrameMoving(spatialMoving: boolean, structuralMoving: boolean): boolean {
@@ -666,12 +652,14 @@ function SectionEditControls({
 }
 
 function SectionFrameControls({
+  detachmentControl,
   editingTitle,
   editControls,
   dragHandle,
   layoutControls,
   stateControls,
 }: Readonly<{
+  detachmentControl: ReactNode;
   editingTitle: boolean;
   editControls: ReactNode;
   dragHandle: ReactNode;
@@ -684,18 +672,12 @@ function SectionFrameControls({
   return (
     <>
       {stateControls}
+      {detachmentControl}
       {layoutControls}
       {editControls}
       {dragHandle}
     </>
   );
-}
-
-function SectionFrameSelectionControl({
-  editingTitle,
-  selectionControl,
-}: Readonly<{ editingTitle: boolean; selectionControl: ReactNode }>) {
-  return editingTitle ? null : selectionControl;
 }
 
 function OpenSectionPresentationEditor({
@@ -761,6 +743,8 @@ export function WorkspaceSectionFrame({
   const presentationEditorId = `setta-workspace-section-${reactId}-presentation`;
   const statusId = `setta-workspace-section-${reactId}-status`;
   const titleEditorId = `setta-workspace-section-${reactId}-title-editor`;
+  const contentElementRef = useRef<HTMLDivElement>(null);
+  const detachmentControlRef = useRef<HTMLButtonElement>(null);
   const frameElementRef = useRef<HTMLElement>(null);
   const lockControlRef = useRef<HTMLButtonElement>(null);
   const minimizeControlRef = useRef<HTMLButtonElement>(null);
@@ -773,6 +757,7 @@ export function WorkspaceSectionFrame({
   const [presentationPreview, setPresentationPreview] =
     useState<WorkspaceSectionPresentation | null>(null);
   const [presentationOpen, setPresentationOpen] = useState(false);
+  const detached = useWorkspaceSectionDetached(section.id);
   useEffect(() => {
     if (presentationEditable || (!editingTitle && !presentationOpen)) {
       return;
@@ -795,11 +780,11 @@ export function WorkspaceSectionFrame({
       focusWithoutScroll(renameControlRef);
     }
   }, [editingTitle]);
-  const hasStatus = hasSectionStatus(section);
-  const showHeader = shouldShowSectionHeader(section, editingTitle, presentationOpen);
+  const hasStatus = hasSectionStatus(section, detached);
+  const showHeader = shouldShowSectionHeader(section, detached, editingTitle, presentationOpen);
   const presentedSection = sectionWithPresentation(section, presentationPreview);
   const sectionDnd = useWorkspaceSectionDnd({
-    blocked: sectionDragBlocked(section, selectionMovementBlocked),
+    blocked: sectionDragBlocked(section, selectionMovementBlocked, detached),
     depth,
     sectionId: section.id,
     spatialMoving: moving,
@@ -855,6 +840,7 @@ export function WorkspaceSectionFrame({
     <SectionDragHandle
       depth={depth}
       descriptionId={moveDescriptionId}
+      detached={detached}
       layoutEditable={layoutEditable}
       onKeyboardMove={onKeyboardMove}
       onSelectionRequest={onSelectionRequest}
@@ -862,6 +848,16 @@ export function WorkspaceSectionFrame({
       selected={selected}
       selectionMovementBlocked={selectionMovementBlocked}
       structuralDrag={sectionDnd}
+    />
+  );
+  const detachmentControl = (
+    <WorkspaceSectionDetachmentControl
+      contentId={contentId}
+      contentRef={contentElementRef}
+      controlRef={detachmentControlRef}
+      definition={definition}
+      frameRef={frameElementRef}
+      section={section}
     />
   );
   const stateControls = (
@@ -922,6 +918,7 @@ export function WorkspaceSectionFrame({
       aria-labelledby={headingId}
       className={`setta-workspace__section-frame ${depth === 0 ? "setta-workspace__root-shell" : "setta-workspace__nested-shell"}`}
       data-workspace-depth={depth}
+      data-workspace-detached={String(detached)}
       data-workspace-accent-color={presentedSection.presentation.accentColor ?? undefined}
       data-workspace-chrome={presentedSection.presentation.chrome}
       data-workspace-minimized={String(section.isMinimized)}
@@ -944,6 +941,7 @@ export function WorkspaceSectionFrame({
     >
       <span className="setta-workspace__visually-hidden" id={moveDescriptionId}>
         {workspaceSectionMoveDescription({
+          detached,
           locked: section.positionAndSizeLocked,
           mode: sectionDnd.mode,
           selectionMovementBlocked,
@@ -953,6 +951,7 @@ export function WorkspaceSectionFrame({
       <SectionHeading
         controls={
           <SectionFrameControls
+            detachmentControl={detachmentControl}
             dragHandle={dragHandle}
             editControls={editControls}
             editingTitle={editingTitle}
@@ -961,23 +960,21 @@ export function WorkspaceSectionFrame({
           />
         }
         definition={definition}
+        detached={detached}
         hasStatus={hasStatus}
         headingId={headingId}
         section={presentedSection}
-        selectionControl={
-          <SectionFrameSelectionControl
-            editingTitle={editingTitle}
-            selectionControl={selectionControl}
-          />
-        }
+        selectionControl={editingTitle ? null : selectionControl}
         showHeader={showHeader}
         statusId={statusId}
         titleContent={titleContent}
       />
-      <SectionContent
+      <WorkspaceSectionContent
         appearance={appearance}
         contentId={contentId}
+        contentRef={contentElementRef}
         definition={definition}
+        frameRef={frameElementRef}
         inactive={presentationOpen}
         readOnly={readOnly}
         section={section}

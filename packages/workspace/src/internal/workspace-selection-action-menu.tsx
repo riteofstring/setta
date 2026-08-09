@@ -620,6 +620,7 @@ function WorkspaceSelectionActionDialog({
 
 export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValue>({
   controller,
+  detachedSectionIds,
   document,
   groupingConfigured,
   layoutEditable,
@@ -629,6 +630,7 @@ export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValu
   structureEditable,
 }: Readonly<{
   controller: WorkspaceController<TSectionData>;
+  detachedSectionIds: readonly string[];
   document: WorkspaceDocument<TSectionData>;
   groupingConfigured: boolean;
   layoutEditable: boolean;
@@ -663,9 +665,10 @@ export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValu
       return null;
     }
     return planWorkspaceSelectionActions(document, state.sectionIds, capabilities, {
+      detachedSectionIds,
       groupingConfigured,
     });
-  }, [capabilities, document, groupingConfigured, state]);
+  }, [capabilities, detachedSectionIds, document, groupingConfigured, state]);
 
   const open = useCallback(
     (
@@ -680,14 +683,20 @@ export function useWorkspaceSelectionActionMenu<TSectionData = WorkspaceJsonValu
         documentRef.current,
         selectedSectionIds,
         capabilities,
-        { groupingConfigured },
+        { detachedSectionIds, groupingConfigured },
       );
       if (nextPlan.sectionIds.length === 0) {
         return;
       }
       setState({ anchor, canvasElement, restoreFocus, sectionIds: nextPlan.sectionIds });
     },
-    [capabilities, groupingConfigured, onSelectionRequest, selectedSectionIdsRef],
+    [
+      capabilities,
+      detachedSectionIds,
+      groupingConfigured,
+      onSelectionRequest,
+      selectedSectionIdsRef,
+    ],
   );
 
   const handleCanvasContextMenuCapture = useCallback(

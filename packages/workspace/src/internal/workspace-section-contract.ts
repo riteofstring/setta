@@ -154,6 +154,7 @@ export type SectionDefinition<TSectionData = WorkspaceJsonValue> = Readonly<{
   defaultSize: SectionDefaultSize;
   defaultSizeMode?: SectionDefaultSizeMode;
   defaultTitle?: string;
+  detachable?: boolean;
   displayName: string;
   kind: string;
   minimizable?: boolean;

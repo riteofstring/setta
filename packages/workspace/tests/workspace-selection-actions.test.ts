@@ -136,4 +136,26 @@ describe("workspace selection actions", () => {
       "Turn on layout editing to use this action.",
     );
   });
+
+  it("requires detached sections and their descendants to be redocked before containment changes", () => {
+    const groupPlan = planWorkspaceSelectionActions(
+      actionDocument(),
+      ["alpha", "beta"],
+      WORKSPACE_DEFAULT_CAPABILITIES,
+      { detachedSectionIds: ["alpha"], groupingConfigured: true },
+    );
+    const ungroupPlan = planWorkspaceSelectionActions(
+      actionDocument(),
+      ["beta"],
+      WORKSPACE_DEFAULT_CAPABILITIES,
+      { detachedSectionIds: ["child"], groupingConfigured: true },
+    );
+
+    expect(groupPlan.actions.find(({ id }) => id === "group")?.disabledReason).toBe(
+      "Redock detached sections before changing their container.",
+    );
+    expect(ungroupPlan.actions.find(({ id }) => id === "ungroup")?.disabledReason).toBe(
+      "Redock detached sections before changing their container.",
+    );
+  });
 });

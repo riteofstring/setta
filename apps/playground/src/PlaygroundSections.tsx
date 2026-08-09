@@ -184,6 +184,7 @@ export function createPlaygroundSectionDefinitions(
       creation: { group: "Basics", icon: "N", keywords: ["example", "note"] },
       defaultSize: { height: 320, width: 320 },
       defaultTitle: "Sample section",
+      detachable: true,
       displayName: "Sample note",
       kind: "sample-note",
       render: SampleNoteSection,

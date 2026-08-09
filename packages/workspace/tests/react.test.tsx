@@ -9,6 +9,7 @@ import {
 import {
   SortableItemTree,
   Workspace,
+  WorkspaceDetachmentProvider,
   WorkspaceInteractionBoundary,
   type SectionDefinition,
   type SectionRenderProps,
@@ -180,6 +181,34 @@ describe("Workspace scaffold", () => {
     expect(markup).toContain('data-workspace-prevent-pan="true"');
     expect(markup).toContain('data-workspace-prevent-wheel="true"');
     expect(markup).toMatch(/setta-workspace__section-content[^>]+tabindex="0"/u);
+  });
+
+  it("exposes detachment only through an explicit provider and opt-in definition", () => {
+    const document = createWorkspaceTestDocument([{ id: "alpha", title: "Portable note" }]);
+    const definitions = [
+      {
+        defaultSize: { height: 180, width: 240 },
+        detachable: true,
+        displayName: "Portable host",
+        kind: "test",
+        render: () => <span>Portable body</span>,
+      },
+    ] satisfies readonly SectionDefinition[];
+
+    const providerMarkup = renderToStaticMarkup(
+      <WorkspaceDetachmentProvider>
+        <Workspace defaultDocument={document} sectionDefinitions={definitions} />
+      </WorkspaceDetachmentProvider>,
+    );
+    const unprovidedMarkup = renderToStaticMarkup(
+      <Workspace defaultDocument={document} sectionDefinitions={definitions} />,
+    );
+
+    expect(providerMarkup).toMatch(
+      /aria-label="Open Portable note in a new window"[^>]+aria-pressed="false"/u,
+    );
+    expect(providerMarkup).toContain('data-workspace-detachment-announcement=""');
+    expect(unprovidedMarkup).not.toContain("data-workspace-section-detachment-control");
   });
 
   it("keeps headerless titles accessible and unmounts minimized host renderers", () => {

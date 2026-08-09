@@ -41,9 +41,10 @@ scale, 320-CSS-pixel reflow, coarse-pointer emulation where supported, reduced m
 reviewed screenshot baselines through the backend-free playground.
 
 The implementation depends on modern browser APIs and CSS including Pointer Events, ResizeObserver,
-DataTransfer, `<dialog>`, `matchMedia`, CSS custom properties, OKLCH, and `color-mix()`. The host must
-provide a sized workbench container and may need its normal application transpilation policy around
-the package's ESM output.
+MutationObserver, `window.open`, same-origin React portals, DataTransfer, `<dialog>`, `matchMedia`,
+CSS custom properties, OKLCH, and `color-mix()`. The host must provide a sized workbench container,
+allow user-initiated popups when using detachable sections, and may need its normal application
+transpilation policy around the package's ESM output.
 
 Firefox, WebKit/Safari, embedded webviews, and older browsers are not current verified support
 targets. Test and record them before making a product claim. A failure in an unavailable external
@@ -127,11 +128,6 @@ or contribution model is outside this milestone and requires an explicit decisio
 third-party compliance.
 
 ## Deferred capabilities
-
-No current export detaches a section into another browser window. The planned same-origin design
-would require an opt-in section definition, a user gesture, a measured canvas placeholder,
-preserved React context and document identity, explicit host window-head contributions, predictable
-redocking, and clear popup/opener failure states. Cross-window dragging is not implied.
 
 No current export copies or pastes section subtrees. The planned boundary gives the package
 selection shortcuts, structural validation, relative placement, and clipboard MIME framing while

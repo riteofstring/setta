@@ -2,6 +2,7 @@ import type { NodeMouseHandler } from "@xyflow/react";
 import { useCallback, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 
 import {
+  deriveWorkspaceParentLookup,
   getWorkspaceSectionOrder,
   type WorkspaceActionResult,
   type WorkspaceDocument,
@@ -15,10 +16,30 @@ import { useWorkspaceMarqueeSelection } from "./workspace-canvas-selection.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
 import {
   applyWorkspaceSectionSelectionRequest,
+  normalizeWorkspaceSelectionRoots,
   resolveWorkspaceRootSelection,
   resolveWorkspaceStructuralSelection,
   type WorkspaceSectionSelectionRequest,
 } from "./workspace-selection.js";
+
+function selectionContainsDetachedSection(
+  document: WorkspaceDocument<unknown>,
+  selectedSectionIds: readonly string[],
+  detachedSectionIds: readonly string[],
+): boolean {
+  const selectedRoots = new Set(normalizeWorkspaceSelectionRoots(document, selectedSectionIds));
+  const parentLookup = deriveWorkspaceParentLookup(document);
+  return detachedSectionIds.some((detachedSectionId) => {
+    let sectionId: string | null = detachedSectionId;
+    while (sectionId !== null) {
+      if (selectedRoots.has(sectionId)) {
+        return true;
+      }
+      sectionId = parentLookup.get(sectionId) ?? null;
+    }
+    return false;
+  });
+}
 
 function selectionAnnouncement<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
@@ -74,6 +95,7 @@ function clickedWorkspaceSectionId<TSectionData>(
 }
 
 export function useWorkspaceCanvasSelectionControls<TSectionData>({
+  detachedSectionIds,
   document,
   geometry,
   geometryIndex,
@@ -81,6 +103,7 @@ export function useWorkspaceCanvasSelectionControls<TSectionData>({
   onSelectionChange,
   selectedSectionIds,
 }: Readonly<{
+  detachedSectionIds: readonly string[];
   document: WorkspaceDocument<TSectionData>;
   geometry: WorkspaceGeometryMeasurements;
   geometryIndex: WorkspaceGeometryIndex;
@@ -127,12 +150,18 @@ export function useWorkspaceCanvasSelectionControls<TSectionData>({
       selectedSectionIds.length > 0
         ? resolveWorkspaceStructuralSelection(document, selectedSectionIds)
         : null;
+    const detachmentBlocked = selectionContainsDetachedSection(
+      document,
+      selectedSectionIds,
+      detachedSectionIds,
+    );
     return {
-      movementBlocked: movement !== null && !movement.allowed,
+      movementBlocked: detachmentBlocked || (movement !== null && !movement.allowed),
       selectedSectionIds: selectedIds,
-      structuralMovementBlocked: structuralMovement !== null && !structuralMovement.allowed,
+      structuralMovementBlocked:
+        detachmentBlocked || (structuralMovement !== null && !structuralMovement.allowed),
     };
-  }, [document, selectedSectionIds]);
+  }, [detachedSectionIds, document, selectedSectionIds]);
   const marqueeSelection = useWorkspaceMarqueeSelection({
     geometry,
     geometryIndex,

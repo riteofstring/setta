@@ -3,7 +3,11 @@ import {
   type WorkspaceController,
   type WorkspaceDocument,
 } from "@setta/workspace/core";
-import { Workspace, type WorkspaceSectionTitleValidationRequest } from "@setta/workspace/react";
+import {
+  Workspace,
+  WorkspaceDetachmentProvider,
+  type WorkspaceSectionTitleValidationRequest,
+} from "@setta/workspace/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { PlaygroundDataPanel, type PlaygroundImportResult } from "./PlaygroundDataPanel.js";
@@ -23,6 +27,13 @@ import {
 } from "./playground-model.js";
 
 const EXTERNAL_SAMPLE_MIME = "application/x-setta-workspace-sample";
+const DETACHED_NOTE_HEAD_STYLE = `
+.sample-section-copy {
+  margin: 0;
+  color: var(--setta-workspace-section-local-text);
+  font-weight: 600;
+}
+`;
 
 async function validateSampleSectionTitle({
   title,
@@ -218,53 +229,80 @@ export function DefaultPlaygroundPage({ readOnly }: Readonly<{ readOnly: boolean
             {announcement}
           </p>
         </div>
-        <Workspace
-          appearanceOptions={{ appearance: preferences.appearance }}
-          ariaLabel="Section workspace"
-          controllerRef={controllerRef}
-          document={document}
-          emptyState="No sections yet. Use Add section or restore the example to start."
-          gridOptions={{ snap: preferences.gridSnap, visible: preferences.gridVisible }}
-          onDocumentChange={(nextDocument, change) => {
-            setDocument(nextDocument);
-            setAnnouncement(`Document change: ${change.reason}.`);
-          }}
-          onExternalDrop={({ candidate, dataTransfer, event, position }) => {
-            const controller = controllerRef.current;
-            if (!controller) {
-              throw new Error("The playground workspace controller is unavailable.");
-            }
-            externalSampleBodyRef.current =
-              dataTransfer.getData(EXTERNAL_SAMPLE_MIME) || "Imported host content.";
-            const result = controller.createSection("sample-note", { position });
-            externalSampleBodyRef.current = null;
-            const destination = candidate.parentSectionId
-              ? `in section ${candidate.parentSectionId}`
-              : "on the canvas";
-            const rejectionMessage =
-              result.status === "rejected"
-                ? `Unable to add dropped content (${result.reason}).`
-                : "Nothing was added from the drop.";
+        <WorkspaceDetachmentProvider
+          getInitialWindowBounds={() => ({ height: 560, width: 720 })}
+          onWindowChange={({ bounds, open, title }) => {
             setAnnouncement(
-              result.status === "applied"
-                ? `Imported a sample note from ${event.dataTransferTypes.join(", ")} with ${fileCountText(event.fileCount)}. Placed it ${destination} at index ${String(candidate.insertionIndex)} and position ${String(Math.round(position.x))}, ${String(Math.round(position.y))}.`
-                : rejectionMessage,
+              open
+                ? `${title} opened in a ${String(Math.round(bounds.width))} by ${String(Math.round(bounds.height))} window.`
+                : `${title} returned to the workspace.`,
             );
           }}
-          onGridSnapChange={(gridSnap) => updatePreferences({ gridSnap })}
-          readOnly={readOnly}
-          sectionDefinitions={sectionDefinitions}
-          sectionFactory={({ kind }) => nextFactoryResult(kind)}
-          validateExternalDrop={({ event }) =>
-            event.dataTransferTypes.includes(EXTERNAL_SAMPLE_MIME)
-              ? { allowed: true, label: "Import sample note" }
+          renderWindowHead={({ kind }) =>
+            kind === "sample-note" ? (
+              <>
+                <meta content="playground-note" name="setta-workspace-renderer" />
+                <style>{DETACHED_NOTE_HEAD_STYLE}</style>
+              </>
+            ) : null
+          }
+          validateDetachment={({ kind, title }) =>
+            kind === "sample-note" && title !== "Docked-only note"
+              ? { allowed: true }
               : {
                   allowed: false,
-                  reason: "Only sample-note drops are supported here.",
+                  reason: "The playground host requires this section to stay docked.",
                 }
           }
-          validateSectionTitle={validateSampleSectionTitle}
-        />
+        >
+          <Workspace
+            appearanceOptions={{ appearance: preferences.appearance }}
+            ariaLabel="Section workspace"
+            controllerRef={controllerRef}
+            document={document}
+            emptyState="No sections yet. Use Add section or restore the example to start."
+            gridOptions={{ snap: preferences.gridSnap, visible: preferences.gridVisible }}
+            onDocumentChange={(nextDocument, change) => {
+              setDocument(nextDocument);
+              setAnnouncement(`Document change: ${change.reason}.`);
+            }}
+            onExternalDrop={({ candidate, dataTransfer, event, position }) => {
+              const controller = controllerRef.current;
+              if (!controller) {
+                throw new Error("The playground workspace controller is unavailable.");
+              }
+              externalSampleBodyRef.current =
+                dataTransfer.getData(EXTERNAL_SAMPLE_MIME) || "Imported host content.";
+              const result = controller.createSection("sample-note", { position });
+              externalSampleBodyRef.current = null;
+              const destination = candidate.parentSectionId
+                ? `in section ${candidate.parentSectionId}`
+                : "on the canvas";
+              const rejectionMessage =
+                result.status === "rejected"
+                  ? `Unable to add dropped content (${result.reason}).`
+                  : "Nothing was added from the drop.";
+              setAnnouncement(
+                result.status === "applied"
+                  ? `Imported a sample note from ${event.dataTransferTypes.join(", ")} with ${fileCountText(event.fileCount)}. Placed it ${destination} at index ${String(candidate.insertionIndex)} and position ${String(Math.round(position.x))}, ${String(Math.round(position.y))}.`
+                  : rejectionMessage,
+              );
+            }}
+            onGridSnapChange={(gridSnap) => updatePreferences({ gridSnap })}
+            readOnly={readOnly}
+            sectionDefinitions={sectionDefinitions}
+            sectionFactory={({ kind }) => nextFactoryResult(kind)}
+            validateExternalDrop={({ event }) =>
+              event.dataTransferTypes.includes(EXTERNAL_SAMPLE_MIME)
+                ? { allowed: true, label: "Import sample note" }
+                : {
+                    allowed: false,
+                    reason: "Only sample-note drops are supported here.",
+                  }
+            }
+            validateSectionTitle={validateSampleSectionTitle}
+          />
+        </WorkspaceDetachmentProvider>
       </main>
     </>
   );

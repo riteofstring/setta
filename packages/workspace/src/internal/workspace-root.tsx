@@ -63,6 +63,7 @@ import {
   type WorkspaceSectionTitleValidator,
 } from "./workspace-section-contract.js";
 import { planWorkspaceRootSectionCreation } from "./workspace-section-creation.js";
+import { useWorkspaceDetachedSectionIds } from "./workspace-section-detachment.js";
 import {
   planWorkspaceSectionGrouping,
   planWorkspaceSectionUngrouping,
@@ -234,6 +235,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     [capabilityOverrides, readOnly],
   );
   const sectionReadOnly = workspaceCapabilitiesAreReadOnly(capabilities);
+  const detachedSectionIds = useWorkspaceDetachedSectionIds();
   const documentRef = useRef(validatedDocument);
   const capabilitiesRef = useRef(capabilities);
   const gestureOptionsRef = useRef(gestureOptions);
@@ -612,6 +614,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
         creationEnabled={creationAvailability.enabled}
         creationReconciliation={creationReconciliation}
         document={validatedDocument}
+        detachedSectionIds={detachedSectionIds}
         emptyState={resolvedEmptyState}
         gestureOptions={gestureOptions}
         gridOptions={effectiveGridOptions}

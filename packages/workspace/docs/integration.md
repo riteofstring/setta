@@ -143,6 +143,48 @@ Search covers display name, kind, group, and keywords. A successful package crea
 focuses the new frame. The host owns additional creation items, asynchronous domain work, and any
 payload validation.
 
+## Detachable section windows
+
+Detachment is explicit at both boundaries: the section definition sets `detachable: true`, and the
+host renders `Workspace` under `WorkspaceDetachmentProvider`. Without either opt-in, no detachment
+control is rendered. The provider opens a same-origin `about:blank` popup synchronously from the
+native control's user gesture and uses a React portal, preserving renderer context and the one live
+controlled or uncontrolled document.
+
+```tsx
+<WorkspaceDetachmentProvider
+  getInitialWindowBounds={({ sectionId }) => windowPreferences[sectionId]?.bounds}
+  onWindowChange={({ bounds, open, sectionId }) => {
+    updateWindowPreference(sectionId, { bounds, open });
+  }}
+  renderWindowHead={({ kind }) =>
+    kind === "note" ? <meta content="note" name="application-section-kind" /> : null
+  }
+  validateDetachment={({ kind }) =>
+    kind === "note"
+      ? { allowed: true }
+      : { allowed: false, reason: "This section must stay docked." }
+  }
+>
+  <Workspace document={document} onDocumentChange={setDocument} {...workspaceOptions} />
+</WorkspaceDetachmentProvider>
+```
+
+`getInitialWindowBounds` may return positive width/height and finite screen coordinates.
+`onWindowChange` reports actual bounds with `open: true` after opening and `open: false` after
+redocking or loss; persist these as host preferences, never in `WorkspaceDocument`. The optional
+synchronous validator must return a strict allowed decision or a non-empty rejection reason.
+`renderWindowHead` portals explicit host metadata, styles, or same-origin resources into the popup
+head; the package already owns its charset, viewport metadata, base styles, title, and live theme
+tokens.
+
+The original frame retains a measured placeholder and native focus/redock controls. Closing or
+reloading the popup, navigating it away, losing its live opener, minimizing or deleting the
+section, or unmounting the provider closes the transient session predictably. Popup blocking and
+host rejection leave the renderer docked and announce a specific recovery. Movement, resizing,
+grouping, and ungrouping that would affect a detached section are unavailable until it is redocked;
+cross-window drag-and-drop is not a supported contract.
+
 ## Toolbar and overlay extensions
 
 `toolbarControls` covers the common native-button case. IDs must be unique and cannot shadow a

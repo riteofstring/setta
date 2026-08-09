@@ -8,6 +8,7 @@ import {
   type WorkspaceDocument,
 } from "@setta/workspace/core";
 import {
+  WorkspaceDetachmentProvider,
   type SectionDefinition,
   type SectionRenderProps,
   type WorkspaceExternalDropHandler,
@@ -64,6 +65,7 @@ const consumerSectionDefinitions = [
     creation: { group: "Consumer sections", keywords: ["note"] },
     defaultSize: { height: 180, width: 300 },
     defaultTitle: "Consumer note",
+    detachable: true,
     displayName: "Consumer note",
     kind: "consumer-note",
     render: ConsumerNote,
@@ -148,37 +150,41 @@ createRoot(root).render(
   <StrictMode>
     <ConsumerSortableItems />
     <div style={{ height: "720px" }}>
-      <Workspace<ConsumerSectionData>
-        appearanceOptions={{ appearance: "light" }}
-        ariaLabel="Consumer workspace"
-        data-item-tree-root={itemTree.rootId}
-        data-version={workspaceDocument.schemaVersion}
-        defaultDocument={workspaceDocument}
-        gestureOptions={{ maxZoom: 2, minZoom: 0.5, panOnScroll: true, zoomOnScroll: false }}
-        gridOptions={{ pattern: "cross", snap: false, spacing: [24, 18], visible: true }}
-        groupFactory={groupFactory}
-        onExternalDrop={onExternalDrop}
-        sectionDefinitions={consumerSectionDefinitions}
-        sectionFactory={({ kind }) => {
-          const definition = consumerSectionDefinitions.find(
-            (candidate) => candidate.kind === kind,
-          );
-          if (!definition) {
-            throw new Error(`Unknown consumer section kind ${JSON.stringify(kind)}.`);
-          }
-          const sectionNumber = nextConsumerSectionNumber;
-          nextConsumerSectionNumber += 1;
-          return {
-            data: { body: "Created from the packed consumer." },
-            id: `${kind}-${String(sectionNumber)}`,
-            title: `${definition.defaultTitle} ${String(sectionNumber)}`,
-          };
-        }}
-        sectionMoveMode={sectionMoveMode}
-        toolbarControls={toolbarControls}
-        validateExternalDrop={validateExternalDrop}
-        validateSectionMove={validateSectionMove}
-      />
+      <WorkspaceDetachmentProvider
+        renderWindowHead={() => <meta content="consumer" name="packed-consumer" />}
+      >
+        <Workspace<ConsumerSectionData>
+          appearanceOptions={{ appearance: "light" }}
+          ariaLabel="Consumer workspace"
+          data-item-tree-root={itemTree.rootId}
+          data-version={workspaceDocument.schemaVersion}
+          defaultDocument={workspaceDocument}
+          gestureOptions={{ maxZoom: 2, minZoom: 0.5, panOnScroll: true, zoomOnScroll: false }}
+          gridOptions={{ pattern: "cross", snap: false, spacing: [24, 18], visible: true }}
+          groupFactory={groupFactory}
+          onExternalDrop={onExternalDrop}
+          sectionDefinitions={consumerSectionDefinitions}
+          sectionFactory={({ kind }) => {
+            const definition = consumerSectionDefinitions.find(
+              (candidate) => candidate.kind === kind,
+            );
+            if (!definition) {
+              throw new Error(`Unknown consumer section kind ${JSON.stringify(kind)}.`);
+            }
+            const sectionNumber = nextConsumerSectionNumber;
+            nextConsumerSectionNumber += 1;
+            return {
+              data: { body: "Created from the packed consumer." },
+              id: `${kind}-${String(sectionNumber)}`,
+              title: `${definition.defaultTitle} ${String(sectionNumber)}`,
+            };
+          }}
+          sectionMoveMode={sectionMoveMode}
+          toolbarControls={toolbarControls}
+          validateExternalDrop={validateExternalDrop}
+          validateSectionMove={validateSectionMove}
+        />
+      </WorkspaceDetachmentProvider>
     </div>
   </StrictMode>,
 );

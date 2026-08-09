@@ -90,6 +90,7 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   creationConfigured: boolean;
   creationEnabled: boolean;
   creationReconciliation: Readonly<{ accepted: boolean; revision: number }>;
+  detachedSectionIds: readonly string[];
   document: WorkspaceDocument<TSectionData>;
   emptyState: ReactNode;
   gestureOptions: WorkspaceGestureOptions;
@@ -191,6 +192,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   creationConfigured,
   creationEnabled,
   creationReconciliation,
+  detachedSectionIds,
   document,
   emptyState,
   gestureOptions,
@@ -254,6 +256,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     validateExternalDrop,
   });
   const selection = useWorkspaceCanvasSelectionControls({
+    detachedSectionIds,
     document,
     geometry,
     geometryIndex,
@@ -271,6 +274,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   const selectionActions = useWorkspaceSelectionActionMenu({
     controller: workspaceController,
     document,
+    detachedSectionIds,
     groupingConfigured,
     layoutEditable,
     onSelectionRequest: selection.handleSelectionRequest,

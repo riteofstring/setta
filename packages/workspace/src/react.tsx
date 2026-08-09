@@ -55,6 +55,19 @@ export type {
   WorkspaceSectionTitleValidationRequest,
   WorkspaceSectionTitleValidator,
 } from "./internal/workspace-section-contract.js";
+export type {
+  WorkspaceDetachedWindowBounds,
+  WorkspaceDetachedWindowBoundsResolver,
+  WorkspaceDetachedWindowChange,
+  WorkspaceDetachedWindowChangeHandler,
+  WorkspaceDetachedWindowHeadRenderer,
+  WorkspaceDetachedWindowInitialBounds,
+  WorkspaceDetachmentDecision,
+  WorkspaceDetachmentProviderProps,
+  WorkspaceDetachmentRequest,
+  WorkspaceDetachmentValidator,
+} from "./internal/workspace-section-detachment-contract.js";
+export { WorkspaceDetachmentProvider } from "./internal/workspace-section-detachment.js";
 
 export type WorkspaceInteractionBoundaryProps = HTMLAttributes<HTMLDivElement> &
   Readonly<{

@@ -34,10 +34,12 @@ export type WorkspaceSelectionActionPlan = Readonly<{
 }>;
 
 export type WorkspaceSelectionActionOptions = Readonly<{
+  detachedSectionIds?: readonly string[];
   groupingConfigured: boolean;
 }>;
 
 const defaultSelectionActionOptions: WorkspaceSelectionActionOptions = Object.freeze({
+  detachedSectionIds: Object.freeze([]),
   groupingConfigured: false,
 });
 
@@ -92,10 +94,30 @@ function stackingActionItems(
   });
 }
 
+function containmentChangeIncludesDetached(
+  document: WorkspaceDocument<unknown>,
+  sectionIds: readonly string[],
+  detachedSectionIds: readonly string[],
+): boolean {
+  const selectedRoots = new Set(sectionIds);
+  const parentLookup = deriveWorkspaceParentLookup(document);
+  return detachedSectionIds.some((detachedSectionId) => {
+    let sectionId: string | null = detachedSectionId;
+    while (sectionId !== null) {
+      if (selectedRoots.has(sectionId)) {
+        return true;
+      }
+      sectionId = parentLookup.get(sectionId) ?? null;
+    }
+    return false;
+  });
+}
+
 function groupDisabledReason(
   document: WorkspaceDocument<unknown>,
   sectionIds: readonly string[],
   capabilities: WorkspaceCapabilities,
+  detachedSectionIds: readonly string[],
   groupingConfigured: boolean,
 ): string | null {
   const policyReason = structureDisabledReason(capabilities);
@@ -108,6 +130,9 @@ function groupDisabledReason(
   }
   if (sectionIds.length < 2) {
     return "Select at least two sibling sections to group.";
+  }
+  if (containmentChangeIncludesDetached(document, sectionIds, detachedSectionIds)) {
+    return "Redock detached sections before changing their container.";
   }
   const parentLookup = deriveWorkspaceParentLookup(document);
   const parentIds = new Set(sectionIds.map((sectionId) => parentLookup.get(sectionId) ?? null));
@@ -123,6 +148,7 @@ function ungroupDisabledReason(
   document: WorkspaceDocument<unknown>,
   sectionIds: readonly string[],
   capabilities: WorkspaceCapabilities,
+  detachedSectionIds: readonly string[],
 ): string | null {
   const policyReason = structureDisabledReason(capabilities);
   if (policyReason) {
@@ -134,6 +160,9 @@ function ungroupDisabledReason(
   }
   if (sectionIds.length !== 1) {
     return "Select one container section to ungroup.";
+  }
+  if (containmentChangeIncludesDetached(document, sectionIds, detachedSectionIds)) {
+    return "Redock detached sections before changing their container.";
   }
   const section = document.sections[sectionIds[0] as string];
   return section?.childLayout && section.childLayout.sectionIds.length > 0
@@ -182,6 +211,7 @@ export function planWorkspaceSelectionActions(
   options: WorkspaceSelectionActionOptions = defaultSelectionActionOptions,
 ): WorkspaceSelectionActionPlan {
   const sectionIds = normalizeWorkspaceSelectionRoots(document, selectedSectionIds);
+  const detachedSectionIds = options.detachedSectionIds ?? [];
   const noun = selectedNoun(sectionIds.length);
   const actions: readonly WorkspaceSelectionAction[] = [
     ...stateActionItems(document, sectionIds, capabilities),
@@ -191,13 +221,14 @@ export function planWorkspaceSelectionActions(
         document,
         sectionIds,
         capabilities,
+        detachedSectionIds,
         options.groupingConfigured,
       ),
       id: "group",
       label: "Group sections",
     },
     {
-      disabledReason: ungroupDisabledReason(document, sectionIds, capabilities),
+      disabledReason: ungroupDisabledReason(document, sectionIds, capabilities, detachedSectionIds),
       id: "ungroup",
       label: "Ungroup section",
     },
