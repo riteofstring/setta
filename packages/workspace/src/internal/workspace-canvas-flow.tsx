@@ -234,7 +234,7 @@ export function WorkspaceCanvasFlow({
       panOnScrollMode={gesturePolicy.panOnScrollMode}
       panOnScrollSpeed={gesturePolicy.panOnScrollSpeed}
       preventScrolling={gesturePolicy.preventScrolling}
-      proOptions={{ hideAttribution: false }}
+      proOptions={{ hideAttribution: true }}
       ref={handleCanvasElement}
       selectionKeyCode={null}
       selectionOnDrag={false}

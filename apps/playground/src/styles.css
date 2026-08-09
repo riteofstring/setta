@@ -91,6 +91,15 @@ main {
   padding-block-end: 4rem;
 }
 
+/* The workbench fills whatever box its host supplies; the playground keeps the
+   previous clamp-based height and owns the embedding boundary. */
+.workspace-host {
+  block-size: clamp(24rem, 70vh, 44rem);
+  overflow: hidden;
+  border: 1px solid #d9e0ec;
+  border-radius: 0.75rem;
+}
+
 .playground-toolbar {
   display: flex;
   min-block-size: 3.5rem;
@@ -471,8 +480,15 @@ main {
 }
 
 .state-contract-host-field {
+  /* Keep the canvas-overlay fixture clear of the section row at the canvas
+     origin so it proves input isolation without covering section controls.
+     Absolute placement also keeps the package overlay wrapper at zero size,
+     so the wrapper box cannot intercept section clicks. */
+  position: absolute;
+  inset-block-start: 14rem;
+  inset-inline-start: 0;
   display: grid;
-  max-inline-size: 20rem;
+  inline-size: 20rem;
   gap: 0.5rem;
   font-weight: 700;
 }

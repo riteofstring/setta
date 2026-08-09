@@ -26,6 +26,7 @@ test("the visual matrix renders every chrome, state, and nesting sample", async 
   await expect(accentTag).toHaveAttribute("data-workspace-tag-color", "oklch(0.72 0.11 80)");
 
   const locked = workspace.getByRole("article", { name: "Locked section" });
+  await expect(locked).toHaveAttribute("data-workspace-locked", "true");
   await expect(locked.getByText("Locked", { exact: true })).toBeVisible();
   await expect(locked.getByRole("button", { name: "Move Locked section" })).toBeDisabled();
   await expect(workspace.getByRole("article", { name: "Minimized section" })).toHaveAttribute(

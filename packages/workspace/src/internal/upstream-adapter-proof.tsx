@@ -860,7 +860,7 @@ export function UpstreamAdapterProof({ onCommand }: UpstreamAdapterProofProps) {
               }}
               onNodesChange={onNodesChange}
               panOnScroll
-              proOptions={{ hideAttribution: false }}
+              proOptions={{ hideAttribution: true }}
               zoomOnDoubleClick={false}
             >
               <Background

@@ -352,18 +352,20 @@ export function VisualMatrixPage() {
         <p className="announcement" role="status" aria-live="polite">
           {status}
         </p>
-        <Workspace
-          appearanceOptions={{ appearance }}
-          ariaLabel="Visual matrix workspace"
-          controllerRef={controllerRef}
-          document={document}
-          onDocumentChange={(nextDocument, change) => {
-            setDocument(nextDocument);
-            setStatus(`Document change: ${change.reason}.`);
-          }}
-          readOnly={readOnly}
-          sectionDefinitions={MATRIX_SECTION_DEFINITIONS}
-        />
+        <div className="workspace-host">
+          <Workspace
+            appearanceOptions={{ appearance }}
+            ariaLabel="Visual matrix workspace"
+            controllerRef={controllerRef}
+            document={document}
+            onDocumentChange={(nextDocument, change) => {
+              setDocument(nextDocument);
+              setStatus(`Document change: ${change.reason}.`);
+            }}
+            readOnly={readOnly}
+            sectionDefinitions={MATRIX_SECTION_DEFINITIONS}
+          />
+        </div>
       </main>
     </>
   );

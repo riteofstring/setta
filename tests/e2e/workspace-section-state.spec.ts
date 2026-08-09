@@ -32,6 +32,7 @@ test("locks, minimizes, restores focus, and preserves host content state", async
   await expect(unlock).toHaveAttribute("aria-pressed", "true");
   await expect(unlock).toBeFocused();
   await expect(move).toBeDisabled();
+  await expect(article).toHaveAttribute("data-workspace-locked", "true");
   await expect(article.getByText("Locked", { exact: true })).toBeVisible();
   await expect(announcement).toHaveText("Sample section 1 locked.");
   await expect(selection).toHaveAttribute("aria-pressed", "true");

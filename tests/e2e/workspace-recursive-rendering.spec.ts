@@ -181,7 +181,7 @@ test("recursive frames share all-depth selection, geometry, focus, and fit", asy
   await expect(deepContainer).toHaveAttribute("data-workspace-depth", "2");
   await expect(nestedGamma).toHaveAttribute("data-workspace-depth", "3");
   await expect(nestedGamma).toHaveAttribute("data-workspace-parent-section-id", "deep-container");
-  await expect(emptyContainer.getByText("Drop a section here", { exact: true })).toBeVisible();
+  await expect(emptyContainer.getByText("Drop sections here", { exact: true })).toBeVisible();
   await expect(
     root.getByRole("group", { name: "Recursive workspace child sections" }),
   ).toHaveAttribute("data-workspace-child-orientation", "vertical");

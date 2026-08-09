@@ -406,5 +406,5 @@ test("reconciles a controlled host resize rejection to canonical geometry", asyn
   await expect(controlled.locator("[data-workspace-sizing-announcement]")).toHaveText(
     "Alpha stayed at its previous size.",
   );
-  await expect(controlled.locator("..")).toContainText("Committed changes: 0");
+  await expect(controlled.locator("../..")).toContainText("Committed changes: 0");
 });

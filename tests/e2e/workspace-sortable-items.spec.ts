@@ -15,6 +15,10 @@ async function resetFieldListExample(page: Page): Promise<Locator> {
 async function hideDataAndFit(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Hide workspace data" }).click();
   await page.getByRole("button", { name: "Fit sections" }).click();
+  // Keyboard item movement only offers targets the browser can currently
+  // see, so the whole field-list section must be inside the viewport before
+  // a movement session starts.
+  await page.getByRole("article", { name: "Profile fields" }).scrollIntoViewIfNeeded();
 }
 
 async function setWorkspaceZoom(page: Page, zoom: number): Promise<void> {
@@ -115,6 +119,12 @@ async function dispatchTouchDrag({
 test("keyboard item movement stays atomic, editable, persistent, and accessible", async ({
   page,
 }) => {
+  const insertionEffectErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.text().includes("useInsertionEffect must not schedule updates")) {
+      insertionEffectErrors.push(message.text());
+    }
+  });
   await page.setViewportSize({ height: 1_000, width: 1_440 });
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
   const fieldSection = await resetFieldListExample(page);
@@ -144,6 +154,10 @@ test("keyboard item movement stays atomic, editable, persistent, and accessible"
   const sectionHandle = fieldSection.getByRole("button", { name: "Move Profile fields" });
   await emailHandle.focus();
   await page.keyboard.press("Enter");
+  await expect(page.getByRole("application")).toHaveAttribute(
+    "data-workspace-interaction-owner",
+    "item-tree",
+  );
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowUp");
   await expect(tree.locator("[data-sortable-item-placeholder]")).toHaveCount(0);
@@ -250,6 +264,7 @@ test("keyboard item movement stays atomic, editable, persistent, and accessible"
   await expect(page.getByRole("region", { name: "Section workspace" })).toContainText(
     "No sections yet.",
   );
+  expect(insertionEffectErrors).toEqual([]);
 });
 
 test("an accepted cross-list move survives JSON import and local reload", async ({ page }) => {
@@ -418,6 +433,10 @@ test("filtered keyboard reorder reconciles one visible move to the canonical tre
   const nameHandle = tree.getByRole("button", { name: "Move Name" });
   await nameHandle.focus();
   await page.keyboard.press("Enter");
+  await expect(page.getByRole("application")).toHaveAttribute(
+    "data-workspace-interaction-owner",
+    "item-tree",
+  );
   await page.keyboard.press("ArrowDown");
   await expect(
     tree

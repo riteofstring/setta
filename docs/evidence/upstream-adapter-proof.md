@@ -23,7 +23,9 @@ Registry metadata was checked on 2026-08-07.
 
 All three direct releases exceed the repository's strict seven-day release-age floor. React and React DOM are
 exact peer dependencies. No current upstream provider implementation source was copied. The package imports
-XYFlow's published base stylesheet and retains its visible attribution.
+XYFlow's published base stylesheet. Package-owned canvases set `proOptions.hideAttribution`, so the visible
+"React Flow" badge is product branding removed from the UI; the dependency's license material, the
+third-party notices file, and the license audits are unchanged by that flag.
 
 ## Adapter boundaries
 

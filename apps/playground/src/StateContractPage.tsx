@@ -169,27 +169,29 @@ export function StateContractPage() {
                 Redo uncontrolled change
               </button>
             </fieldset>
-            <Workspace
-              ariaLabel="Uncontrolled workspace"
-              controllerRef={uncontrolledController}
-              defaultDocument={uncontrolledDocument}
-              onDocumentChange={(document) => {
-                setUncontrolledDocument(document);
-                setUncontrolledChanges((count) => count + 1);
-              }}
-              overlaySlots={{
-                canvas: () => (
-                  <WorkspaceInteractionBoundary>
-                    <label className="state-contract-host-field">
-                      Host note
-                      <input name="host-note" />
-                    </label>
-                  </WorkspaceInteractionBoundary>
-                ),
-              }}
-              readOnly={readOnly}
-              sectionDefinitions={testSectionDefinitions}
-            />
+            <div className="workspace-host">
+              <Workspace
+                ariaLabel="Uncontrolled workspace"
+                controllerRef={uncontrolledController}
+                defaultDocument={uncontrolledDocument}
+                onDocumentChange={(document) => {
+                  setUncontrolledDocument(document);
+                  setUncontrolledChanges((count) => count + 1);
+                }}
+                overlaySlots={{
+                  canvas: () => (
+                    <WorkspaceInteractionBoundary>
+                      <label className="state-contract-host-field">
+                        Host note
+                        <input name="host-note" />
+                      </label>
+                    </WorkspaceInteractionBoundary>
+                  ),
+                }}
+                readOnly={readOnly}
+                sectionDefinitions={testSectionDefinitions}
+              />
+            </div>
             <p>Committed changes: {uncontrolledChanges}</p>
             <textarea
               aria-label="Uncontrolled document JSON"
@@ -244,38 +246,40 @@ export function StateContractPage() {
             <button type="button" onClick={() => runHistory(controlledController, "redo")}>
               Redo controlled change
             </button>
-            <Workspace
-              ariaLabel="Controlled workspace"
-              controllerRef={controlledController}
-              document={controlledDocument}
-              onDocumentChange={(document) => {
-                if (!acceptControlledChanges) {
-                  setRejectedControlledDocument(document);
-                  setStatus("Controlled change rejected by host.");
-                  return;
-                }
-                setRejectedControlledDocument(null);
-                setControlledDocument(document);
-                setControlledChanges((count) => count + 1);
-              }}
-              sectionDefinitions={testSectionDefinitions}
-              sectionFactory={() => {
-                if (reuseExistingCreationId) {
+            <div className="workspace-host">
+              <Workspace
+                ariaLabel="Controlled workspace"
+                controllerRef={controlledController}
+                document={controlledDocument}
+                onDocumentChange={(document) => {
+                  if (!acceptControlledChanges) {
+                    setRejectedControlledDocument(document);
+                    setStatus("Controlled change rejected by host.");
+                    return;
+                  }
+                  setRejectedControlledDocument(null);
+                  setControlledDocument(document);
+                  setControlledChanges((count) => count + 1);
+                }}
+                sectionDefinitions={testSectionDefinitions}
+                sectionFactory={() => {
+                  if (reuseExistingCreationId) {
+                    return {
+                      data: null,
+                      id: "alpha",
+                      title: "Duplicate controlled fixture",
+                    };
+                  }
+                  controlledSectionSequence.current += 1;
+                  const sequence = controlledSectionSequence.current;
                   return {
                     data: null,
-                    id: "alpha",
-                    title: "Duplicate controlled fixture",
+                    id: `controlled-created-${String(sequence)}`,
+                    title: `Controlled fixture ${String(sequence)}`,
                   };
-                }
-                controlledSectionSequence.current += 1;
-                const sequence = controlledSectionSequence.current;
-                return {
-                  data: null,
-                  id: `controlled-created-${String(sequence)}`,
-                  title: `Controlled fixture ${String(sequence)}`,
-                };
-              }}
-            />
+                }}
+              />
+            </div>
             <p>Committed changes: {controlledChanges}</p>
             <textarea
               aria-label="Controlled document JSON"

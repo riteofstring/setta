@@ -783,156 +783,158 @@ export function CanvasShellPage() {
           <span data-testid="canvas-shell-change-count">{documentChangeCount}</span>.
         </p>
         {workspaceMounted ? (
-          <Workspace
-            {...(clipboardAdapter ? { clipboardAdapter } : {})}
-            ariaLabel="Canvas shell workspace"
-            appearanceOptions={
-              customGridColor
-                ? {
-                    appearance,
-                    dark: { gridColor: "oklch(0.68 0.11 305)" },
-                    light: { gridColor: "oklch(0.58 0.12 305)" },
-                  }
-                : { appearance }
-            }
-            controllerRef={controller}
-            connections={connections}
-            document={document}
-            emptyState="No sections yet. Use the gesture controls to explore the canvas."
-            gestureOptions={{
-              initialZoom: 1,
-              maxZoom: 2,
-              minZoom: 0.5,
-              panActivationKey: "Space",
-              panOnDrag: panOnDrag(panOnDragMode),
-              panOnScroll,
-              panOnScrollMode,
-              panOnScrollSpeed,
-              zoomActivationKey: "Alt",
-              zoomOnDoubleClick,
-              zoomOnPinch,
-              zoomOnScroll,
-            }}
-            gridOptions={{
-              markSize: 1,
-              pattern: gridPattern,
-              snap: gridSnap,
-              spacing: [24, 24],
-              visible: gridVisible,
-            }}
-            groupFactory={({ sectionIds }) => {
-              let number = 1;
-              while (Object.hasOwn(document.sections, `navigation-group-${String(number)}`)) {
-                number += 1;
+          <div className="workspace-host">
+            <Workspace
+              {...(clipboardAdapter ? { clipboardAdapter } : {})}
+              ariaLabel="Canvas shell workspace"
+              appearanceOptions={
+                customGridColor
+                  ? {
+                      appearance,
+                      dark: { gridColor: "oklch(0.68 0.11 305)" },
+                      light: { gridColor: "oklch(0.58 0.12 305)" },
+                    }
+                  : { appearance }
               }
-              return {
-                data: null,
-                id: `navigation-group-${String(number)}`,
-                kind: "navigation group",
-                title: `Group ${String(number)} (${String(sectionIds.length)} sections)`,
-              };
-            }}
-            minimapOptions={{ placement: minimapPlacement, visible: minimapVisible }}
-            onDocumentChange={(nextDocument, change) => {
-              if (rejectPositioningChanges && change.reason === "section-positioning") {
-                setStatus("Positioning change retained by the controlled host.");
-                return;
-              }
-              setDocument(nextDocument);
-              setDocumentChangeCount((count) => count + 1);
-              setStatus(`Document change: ${change.reason}.`);
-            }}
-            onGridSnapChange={setGridSnap}
-            onMinimapVisibilityChange={setMinimapVisible}
-            onExternalDrop={(request) => {
-              const result = applyRecursiveChildDrop(
-                document,
-                request,
-                RECURSIVE_CHILD_MIME,
-                navigationSection,
-              );
-              setStatus(result.status);
-              if (!result.document) {
-                return;
-              }
-              setDocument(result.document);
-              setDocumentChangeCount((count) => count + 1);
-            }}
-            sectionDefinitions={canvasShellSectionDefinitions}
-            sectionMoveMode={sectionMoveMode}
-            selectionOptions={{ marqueeMode: "full" }}
-            overlaySlots={{
-              canvas: () => (
-                <WorkspaceInteractionBoundary
-                  className="canvas-shell-host-fixture"
-                  hidden={!showHostExtensions}
-                  preventPan={preventHostPan}
-                  preventWheel={preventHostWheel}
-                >
-                  <label>
-                    Host note
-                    <input name="canvas-shell-note" />
-                  </label>
-                  <label>
-                    Scrollable host content
-                    <textarea
-                      data-testid="canvas-shell-scroll-fixture"
-                      readOnly
-                      rows={5}
-                      spellCheck={false}
-                      value={scrollFixture}
-                    />
-                  </label>
-                </WorkspaceInteractionBoundary>
-              ),
-              utility: (workspaceController) => {
-                if (!showHostExtensions && !showOutline) return null;
-                return (
-                  <div className="canvas-shell-utility-overlays">
-                    {showOutline ? <WorkspaceOutline controller={workspaceController} /> : null}
-                    {showHostExtensions ? (
-                      <button
-                        className="canvas-shell-overlay-action"
-                        type="button"
-                        onClick={() => {
-                          const result = workspaceController.setViewport({ x: 0, y: 0, zoom: 1 });
-                          setStatus(`Reset viewport: ${result.status}.`);
-                        }}
-                      >
-                        Reset viewport
-                      </button>
-                    ) : null}
-                  </div>
-                );
-              },
-            }}
-            toolbarControls={toolbarControls}
-            validateExternalDrop={({ candidate, event }) => {
-              if (!event.dataTransferTypes.includes(RECURSIVE_CHILD_MIME)) {
+              controllerRef={controller}
+              connections={connections}
+              document={document}
+              emptyState="No sections yet. Use the gesture controls to explore the canvas."
+              gestureOptions={{
+                initialZoom: 1,
+                maxZoom: 2,
+                minZoom: 0.5,
+                panActivationKey: "Space",
+                panOnDrag: panOnDrag(panOnDragMode),
+                panOnScroll,
+                panOnScrollMode,
+                panOnScrollSpeed,
+                zoomActivationKey: "Alt",
+                zoomOnDoubleClick,
+                zoomOnPinch,
+                zoomOnScroll,
+              }}
+              gridOptions={{
+                markSize: 1,
+                pattern: gridPattern,
+                snap: gridSnap,
+                spacing: [24, 24],
+                visible: gridVisible,
+              }}
+              groupFactory={({ sectionIds }) => {
+                let number = 1;
+                while (Object.hasOwn(document.sections, `navigation-group-${String(number)}`)) {
+                  number += 1;
+                }
                 return {
-                  allowed: false,
-                  reason: "Only recursive child fixture drops are accepted here.",
+                  data: null,
+                  id: `navigation-group-${String(number)}`,
+                  kind: "navigation group",
+                  title: `Group ${String(number)} (${String(sectionIds.length)} sections)`,
                 };
-              }
-              return candidate.parentSectionId
-                ? { allowed: true, label: "Add child section to this container" }
-                : {
+              }}
+              minimapOptions={{ placement: minimapPlacement, visible: minimapVisible }}
+              onDocumentChange={(nextDocument, change) => {
+                if (rejectPositioningChanges && change.reason === "section-positioning") {
+                  setStatus("Positioning change retained by the controlled host.");
+                  return;
+                }
+                setDocument(nextDocument);
+                setDocumentChangeCount((count) => count + 1);
+                setStatus(`Document change: ${change.reason}.`);
+              }}
+              onGridSnapChange={setGridSnap}
+              onMinimapVisibilityChange={setMinimapVisible}
+              onExternalDrop={(request) => {
+                const result = applyRecursiveChildDrop(
+                  document,
+                  request,
+                  RECURSIVE_CHILD_MIME,
+                  navigationSection,
+                );
+                setStatus(result.status);
+                if (!result.document) {
+                  return;
+                }
+                setDocument(result.document);
+                setDocumentChangeCount((count) => count + 1);
+              }}
+              sectionDefinitions={canvasShellSectionDefinitions}
+              sectionMoveMode={sectionMoveMode}
+              selectionOptions={{ marqueeMode: "full" }}
+              overlaySlots={{
+                canvas: () => (
+                  <WorkspaceInteractionBoundary
+                    className="canvas-shell-host-fixture"
+                    hidden={!showHostExtensions}
+                    preventPan={preventHostPan}
+                    preventWheel={preventHostWheel}
+                  >
+                    <label>
+                      Host note
+                      <input name="canvas-shell-note" />
+                    </label>
+                    <label>
+                      Scrollable host content
+                      <textarea
+                        data-testid="canvas-shell-scroll-fixture"
+                        readOnly
+                        rows={5}
+                        spellCheck={false}
+                        value={scrollFixture}
+                      />
+                    </label>
+                  </WorkspaceInteractionBoundary>
+                ),
+                utility: (workspaceController) => {
+                  if (!showHostExtensions && !showOutline) return null;
+                  return (
+                    <div className="canvas-shell-utility-overlays">
+                      {showOutline ? <WorkspaceOutline controller={workspaceController} /> : null}
+                      {showHostExtensions ? (
+                        <button
+                          className="canvas-shell-overlay-action"
+                          type="button"
+                          onClick={() => {
+                            const result = workspaceController.setViewport({ x: 0, y: 0, zoom: 1 });
+                            setStatus(`Reset viewport: ${result.status}.`);
+                          }}
+                        >
+                          Reset viewport
+                        </button>
+                      ) : null}
+                    </div>
+                  );
+                },
+              }}
+              toolbarControls={toolbarControls}
+              validateExternalDrop={({ candidate, event }) => {
+                if (!event.dataTransferTypes.includes(RECURSIVE_CHILD_MIME)) {
+                  return {
                     allowed: false,
-                    reason: "Recursive child fixture drops require a section container.",
+                    reason: "Only recursive child fixture drops are accepted here.",
                   };
-            }}
-            validateSectionMove={({ plan }) =>
-              reserveEmptyContainer && plan.destination.parentId === "empty-container"
-                ? {
-                    allowed: false,
-                    reason: "Host policy keeps Empty container reserved.",
-                  }
-                : { allowed: true }
-            }
-            {...(viewportCullingEnabled
-              ? { viewportCullingOptions: ENABLED_VIEWPORT_CULLING_OPTIONS }
-              : {})}
-          />
+                }
+                return candidate.parentSectionId
+                  ? { allowed: true, label: "Add child section to this container" }
+                  : {
+                      allowed: false,
+                      reason: "Recursive child fixture drops require a section container.",
+                    };
+              }}
+              validateSectionMove={({ plan }) =>
+                reserveEmptyContainer && plan.destination.parentId === "empty-container"
+                  ? {
+                      allowed: false,
+                      reason: "Host policy keeps Empty container reserved.",
+                    }
+                  : { allowed: true }
+              }
+              {...(viewportCullingEnabled
+                ? { viewportCullingOptions: ENABLED_VIEWPORT_CULLING_OPTIONS }
+                : {})}
+            />
+          </div>
         ) : null}
         <label className="canvas-shell-document">
           Workspace document JSON

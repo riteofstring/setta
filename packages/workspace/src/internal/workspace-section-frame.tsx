@@ -107,7 +107,7 @@ function SectionTag({ color }: Readonly<{ color: string | null }>) {
         className="setta-workspace__section-tag-swatch"
         style={{ "--setta-workspace-section-swatch": color } as SwatchStyle}
       />
-      Tagged
+      <span className="setta-workspace__visually-hidden">Tagged</span>
     </span>
   );
 }
@@ -143,13 +143,8 @@ function VisibleSectionHeading({
             {definition.creation.icon}
           </span>
         ) : null}
-        <div className="setta-workspace__section-heading">
-          {titleContent}
-          <div className="setta-workspace__section-metadata">
-            <span className="setta-workspace__section-kind">{definition.displayName}</span>
-            <SectionTag color={section.presentation.tagColor} />
-          </div>
-        </div>
+        <div className="setta-workspace__section-heading">{titleContent}</div>
+        <SectionTag color={section.presentation.tagColor} />
       </div>
       <div className="setta-workspace__section-actions">
         {selectionControl}
@@ -513,6 +508,7 @@ export function WorkspaceSectionFrame({
   const contentId = `setta-workspace-section-${reactId}-content`;
   const descendantRegionId = `setta-workspace-section-${reactId}-descendants`;
   const headingId = `setta-workspace-section-${reactId}-title`;
+  const kindId = `setta-workspace-section-${reactId}-kind`;
   const moveDescriptionId = `setta-workspace-section-${reactId}-move-description`;
   const presentationEditorId = `setta-workspace-section-${reactId}-presentation`;
   const statusId = `setta-workspace-section-${reactId}-status`;
@@ -724,13 +720,14 @@ export function WorkspaceSectionFrame({
     >
       <article
         aria-describedby={hasStatus ? statusId : undefined}
-        aria-labelledby={headingId}
+        aria-labelledby={`${headingId} ${kindId}`}
         className={`setta-workspace__section-frame ${depth === 0 ? "setta-workspace__root-shell" : "setta-workspace__nested-shell"}`}
         data-workspace-depth={depth}
         data-workspace-detached={String(detached)}
         data-workspace-accent-color={presentedSection.presentation.accentColor ?? undefined}
         data-workspace-chrome={presentedSection.presentation.chrome}
         data-workspace-culled="false"
+        data-workspace-locked={String(section.positionAndSizeLocked)}
         data-workspace-minimized={String(section.isMinimized)}
         data-workspace-minimize-scope={definition.minimizeScope}
         data-workspace-descendants-collapsed={String(descendantsCollapsed)}
@@ -754,6 +751,9 @@ export function WorkspaceSectionFrame({
         style={frameStyle}
         tabIndex={-1}
       >
+        <span className="setta-workspace__visually-hidden" id={kindId}>
+          {definition.displayName}
+        </span>
         <span className="setta-workspace__visually-hidden" id={moveDescriptionId}>
           {workspaceSectionMoveDescription({
             detached,

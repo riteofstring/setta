@@ -660,6 +660,7 @@ test.describe("Phase 6 nested freeform document contract", () => {
           '[data-workspace-section-move-destination-placement="freeform"]',
       ),
     ).toHaveCount(1);
+    await expect(alpha).toHaveAttribute("data-workspace-moving", "true");
     await expect(canvas).toHaveScreenshot("nested-freeform-cross-parent-preview.png", {
       animations: "disabled",
     });
@@ -681,18 +682,20 @@ test.describe("Phase 6 nested freeform document contract", () => {
     await page.mouse.up();
     await expect(alpha).toHaveAttribute("data-workspace-parent-section-id", "nested-row");
 
+    await handle.scrollIntoViewIfNeeded();
     const orderedHandleBox = await requiredBoundingBox(handle, "Ordered Nested Alpha handle");
     const orderedAlphaBox = await requiredBoundingBox(alpha, "Ordered Nested Alpha frame");
     rootRegionBox = await requiredBoundingBox(rootRegion, "Recursive root freeform region");
-    await dragHandleToPoint(page, handle, {
-      x: orderedHandleBox.x + orderedHandleBox.width / 2 + rootRegionBox.x - 24 - orderedAlphaBox.x,
+    const orderedReparentPoint = {
+      x: rootRegionBox.x + 12,
       y:
         orderedHandleBox.y +
         orderedHandleBox.height / 2 +
         rootRegionBox.y +
         260 -
         orderedAlphaBox.y,
-    });
+    };
+    await dragHandleToPoint(page, handle, orderedReparentPoint);
     await expect(
       workspace.locator(
         '[data-workspace-section-move-destination-parent="recursive-root"]' +

@@ -202,6 +202,7 @@ function WorkspaceSectionCreationDialog<TSectionData>({
           Search sections
           <input
             autoComplete="off"
+            id={`${dialogId}-search`}
             onChange={(event) => {
               setQuery(event.currentTarget.value);
               setError("");

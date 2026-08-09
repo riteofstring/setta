@@ -53,15 +53,15 @@ export const WORKSPACE_DEFAULT_GRID_OPTIONS: ResolvedWorkspaceGridOptions = Obje
 });
 
 export const WORKSPACE_DEFAULT_LIGHT_THEME: WorkspaceThemeTokens = Object.freeze({
-  canvasBackground: "oklch(0.965 0.008 255)",
+  canvasBackground: "oklch(0.956 0.011 255)",
   connection: "oklch(0.44 0.07 205)",
   controlBackground: "oklch(0.985 0.004 255)",
   focus: "oklch(0.42 0.12 255)",
-  gridColor: "oklch(0.72 0.025 255)",
+  gridColor: "oklch(0.855 0.018 255)",
   groupBackground: "oklch(0.92 0.015 255 / 0.45)",
   invalid: "oklch(0.48 0.18 25)",
-  minimapBackground: "oklch(0.925 0.012 255)",
-  sectionBackground: "oklch(0.99 0 255)",
+  minimapBackground: "oklch(0.94 0.013 255)",
+  sectionBackground: "oklch(0.99 0.002 255)",
   sectionBorder: "oklch(0.89 0.014 255)",
   sectionHeaderBackground: "oklch(0.975 0.006 255)",
   sectionMutedText: "oklch(0.36 0.025 255)",
@@ -71,15 +71,15 @@ export const WORKSPACE_DEFAULT_LIGHT_THEME: WorkspaceThemeTokens = Object.freeze
 });
 
 export const WORKSPACE_DEFAULT_DARK_THEME: WorkspaceThemeTokens = Object.freeze({
-  canvasBackground: "oklch(0.18 0.02 255)",
+  canvasBackground: "oklch(0.17 0.021 255)",
   connection: "oklch(0.78 0.07 205)",
   controlBackground: "oklch(0.27 0.024 255)",
   focus: "oklch(0.82 0.08 255)",
-  gridColor: "oklch(0.42 0.03 255)",
+  gridColor: "oklch(0.305 0.026 255)",
   groupBackground: "oklch(0.28 0.024 255 / 0.5)",
   invalid: "oklch(0.72 0.16 25)",
-  minimapBackground: "oklch(0.215 0.022 255)",
-  sectionBackground: "oklch(0.235 0.025 255)",
+  minimapBackground: "oklch(0.21 0.022 255)",
+  sectionBackground: "oklch(0.225 0.024 255)",
   sectionBorder: "oklch(0.36 0.03 255)",
   sectionHeaderBackground: "oklch(0.24 0.022 255)",
   sectionMutedText: "oklch(0.86 0.02 255)",

@@ -47,8 +47,12 @@ test("mixed-parent section roots move atomically into one container", async ({ p
   await expect(previewAnnouncement).toContainText(
     "Nested Alpha and 1 more will move to Empty container",
   );
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "section-structure");
   await expect(canvas).toHaveScreenshot("recursive-mixed-parent-section-preview.png");
   await page.keyboard.press("Escape");
+  await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
+  await expect(nestedAlpha).toHaveAttribute("data-workspace-parent-section-id", "recursive-root");
+  await expect(nestedBeta).toHaveAttribute("data-workspace-parent-section-id", "nested-row");
   await page.mouse.up();
   await expect(canvas).toHaveAttribute("data-workspace-interaction-owner", "none");
   await expect(nestedAlpha).toHaveAttribute("data-workspace-parent-section-id", "recursive-root");

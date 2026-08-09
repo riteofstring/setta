@@ -124,6 +124,12 @@ configuration, and undeclared entry points must not appear.
 
 ## Attribution
 
+Visible product branding and third-party legal compliance are separate obligations. Every
+package-owned ReactFlow canvas (the production adapter and the internal proof routes) sets
+`proOptions.hideAttribution`, so the upstream "React Flow" UI badge does not appear in
+Setta-branded surfaces; the default playground and proof routes assert its absence. Hiding that
+badge changes nothing below.
+
 `THIRD_PARTY_NOTICES.md` travels in the packed artifact. It records the MIT notice for the
 historical dnd-kit-derived collision and sorting kernels and identifies their source snapshot.
 Exact-pinned runtime dependencies retain their own license material. The repository license audit

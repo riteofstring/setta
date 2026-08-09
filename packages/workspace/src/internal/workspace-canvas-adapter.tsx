@@ -173,6 +173,13 @@ function nodeDragInput(event: MouseEvent | TouchEvent): InteractionInput {
   return "touches" in event ? "touch" : "pointer";
 }
 
+function activeGestureOwnsEscape(
+  event: ReactKeyboardEvent<HTMLDivElement>,
+  activationPhase: string,
+): boolean {
+  return event.key === "Escape" && activationPhase === "active";
+}
+
 export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   ariaLabel,
   appearance,
@@ -430,6 +437,9 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   );
   const handleCanvasKeyDownCapture = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (activeGestureOwnsEscape(event, interaction.activationStore.getGatingSnapshot().phase)) {
+        return;
+      }
       const historyDirection = resolveWorkspaceHistoryShortcut(event);
       if (
         historyDirection &&
@@ -458,7 +468,14 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
         creation.handleCanvasKeyDownCapture(event);
       }
     },
-    [clipboardConfigured, creation, selection, selectionActions, workspaceController],
+    [
+      clipboardConfigured,
+      creation,
+      interaction.activationStore,
+      selection,
+      selectionActions,
+      workspaceController,
+    ],
   );
   const handlePointerMoveCapture = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {

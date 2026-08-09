@@ -165,7 +165,7 @@ test("controlled hosts reconcile rejected title and style proposals truthfully",
     ),
   ).toBeVisible();
   await expect(titleInput).toBeFocused();
-  await expect(article).toHaveAccessibleName("Alpha");
+  await expect(article).toHaveAccessibleName("Alpha State fixture");
   await titleInput.press("Escape");
   await expect(rename).toBeFocused();
 

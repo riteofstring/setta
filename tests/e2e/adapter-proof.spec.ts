@@ -311,6 +311,7 @@ test.describe("upstream adapter proof", () => {
     await expect(page.locator("[data-proof-geometry-count]")).toContainText("Frames: 8");
     await expect(page.locator("[data-proof-initial-fit]")).toHaveText("Initial fit: ready");
     await expect(page.getByRole("group", { name: "Adapter proof controls" })).toBeVisible();
+    await expect(page.locator(".react-flow__attribution")).toHaveCount(0);
     await expectSelectionAligned(page);
 
     await page.getByRole("button", { name: "Zoom in" }).click();

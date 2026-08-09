@@ -95,6 +95,7 @@ test("the blank workspace supports keyboard and assistive technology", async ({ 
 
   const workspace = page.getByRole("region", { name: "Section workspace" });
   await expect(workspace).toContainText("No sections yet.");
+  await expect(page.locator(".react-flow__attribution")).toHaveCount(0);
 
   await addSampleSection(page);
   await expect(page.getByRole("heading", { name: "Sample section 1" })).toBeVisible();

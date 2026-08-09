@@ -1,4 +1,4 @@
-import { Accessibility, AutoScroller } from "@dnd-kit/dom";
+import { Accessibility, AutoScroller, DragDropManager } from "@dnd-kit/dom";
 import { Rectangle, type BoundingRectangle } from "@dnd-kit/geometry";
 import {
   DragDropProvider,
@@ -7,7 +7,6 @@ import {
   PointerSensor,
   useDraggable,
   useDroppable,
-  type DragDropManager,
   type DragMoveEvent,
 } from "@dnd-kit/react";
 import { useCallback, useMemo, useRef, type ComponentProps, type ReactNode } from "react";
@@ -65,8 +64,60 @@ export type UpstreamDndBoundaryProps = {
 type AdapterKeyboardSource = Parameters<InstanceType<typeof KeyboardSensor>["bind"]>[0];
 type AdapterKeyboardOptions = Parameters<InstanceType<typeof KeyboardSensor>["bind"]>[1];
 type AdapterKeyboardManager = ConstructorParameters<typeof KeyboardSensor>[0];
+type AdapterPointerSource = Parameters<InstanceType<typeof PointerSensor>["bind"]>[0];
+
+const KEYBOARD_DIRECTION_FACTOR: Readonly<Record<AdapterDndKeyboardDirection, InteractionPoint>> = {
+  down: { x: 0, y: 1 },
+  left: { x: -1, y: 0 },
+  right: { x: 1, y: 0 },
+  up: { x: 0, y: -1 },
+};
 
 let pendingKeyboardScrollRestore: (() => void) | null = null;
+
+function normalizeKeyboardOffset(offset: InteractionPoint | number): InteractionPoint {
+  return typeof offset === "number" ? { x: offset, y: offset } : offset;
+}
+
+function keyboardMoveDelta(
+  direction: AdapterDndKeyboardDirection,
+  offset: InteractionPoint,
+  factor: number,
+): InteractionPoint {
+  const directionFactor = KEYBOARD_DIRECTION_FACTOR[direction];
+  return {
+    x: directionFactor.x * offset.x * factor,
+    y: directionFactor.y * offset.y * factor,
+  };
+}
+
+class CaptureEscapePointerSensor extends PointerSensor {
+  #escapeController: AbortController | null = null;
+
+  protected override handleStart(source: AdapterPointerSource, event: PointerEvent): void {
+    this.#escapeController?.abort();
+    const controller = new AbortController();
+    this.#escapeController = controller;
+    source.element?.ownerDocument.addEventListener("keydown", this.handleKeyDown, {
+      capture: true,
+      signal: controller.signal,
+    });
+    super.handleStart(source, event);
+  }
+
+  protected override handleKeyDown(event: KeyboardEvent): void {
+    super.handleKeyDown(event);
+    if (event.key === "Escape") {
+      event.stopPropagation();
+    }
+  }
+
+  protected override cleanup(): void {
+    this.#escapeController?.abort();
+    this.#escapeController = null;
+    super.cleanup();
+  }
+}
 
 function captureScrollRestore(element: Element): () => void {
   const elementPositions: Array<Readonly<{ element: Element; left: number; top: number }>> = [];
@@ -109,7 +160,38 @@ class ScrollStableKeyboardSensor extends KeyboardSensor {
   }
 }
 
-const adapterProofSensors = [PointerSensor, ScrollStableKeyboardSensor];
+class NoScrollKeyboardSensor extends ScrollStableKeyboardSensor {
+  #sourceElement: Element | null = null;
+
+  protected override handleStart(
+    event: KeyboardEvent,
+    source: AdapterKeyboardSource,
+    options: AdapterKeyboardOptions,
+  ): void {
+    this.#sourceElement = source.element ?? null;
+    super.handleStart(event, source, options);
+  }
+
+  protected override handleMove(
+    direction: AdapterDndKeyboardDirection,
+    event: KeyboardEvent,
+  ): void {
+    const offset = normalizeKeyboardOffset(this.options?.offset ?? KeyboardSensor.defaults.offset);
+    const factor = event.shiftKey ? 5 : 1;
+    const by = keyboardMoveDelta(direction, offset, factor);
+    const restore = this.#sourceElement ? captureScrollRestore(this.#sourceElement) : null;
+    event.preventDefault();
+    this.manager.actions.move({ by, cancelable: false, event });
+    restore?.();
+  }
+
+  protected override cleanup(): void {
+    this.#sourceElement = null;
+    super.cleanup();
+  }
+}
+
+const adapterProofSensors = [CaptureEscapePointerSensor, ScrollStableKeyboardSensor];
 function adapterPluginProps(
   manageAccessibility: boolean,
   manageAutoScroll: boolean,
@@ -125,6 +207,24 @@ function adapterPluginProps(
         );
       }),
   };
+}
+
+function createReactSafeManager(
+  input: ConstructorParameters<typeof DragDropManager>[0],
+): DragDropManager {
+  const manager = new DragDropManager(input);
+  const destroy = manager.destroy;
+  let destroyScheduled = false;
+  manager.destroy = () => {
+    if (destroyScheduled) return;
+    destroyScheduled = true;
+    // dnd-kit destroys its manager from a React insertion-effect cleanup. An
+    // active operation dispatches state updates from that restricted phase.
+    // Let React finish the unmount first; normal gesture completion remains
+    // synchronous, while teardown cleanup is deferred by one microtask.
+    queueMicrotask(destroy);
+  };
+  return manager;
 }
 
 function stringId(id: string | number | undefined): string | null {
@@ -149,16 +249,26 @@ export function UpstreamDndBoundary({
   const activeActivatorPoint = useRef<InteractionPoint | null>(null);
   const activeClientPoint = useRef<InteractionPoint | null>(null);
   const activeInput = useRef<AdapterDndInput>("pointer");
-  const sensors = useMemo(
-    () =>
-      preventActivation
-        ? [
-            { plugin: PointerSensor, options: { preventActivation } },
-            { plugin: ScrollStableKeyboardSensor, options: { preventActivation } },
-          ]
-        : adapterProofSensors,
-    [preventActivation],
+  const sensors = useMemo(() => {
+    const keyboardSensor = manageAutoScroll ? ScrollStableKeyboardSensor : NoScrollKeyboardSensor;
+    return preventActivation
+      ? [
+          { plugin: CaptureEscapePointerSensor, options: { preventActivation } },
+          { plugin: keyboardSensor, options: { preventActivation } },
+        ]
+      : manageAutoScroll
+        ? adapterProofSensors
+        : [CaptureEscapePointerSensor, keyboardSensor];
+  }, [manageAutoScroll, preventActivation]);
+  const pluginProps = useMemo(
+    () => adapterPluginProps(manageAccessibility, manageAutoScroll),
+    [manageAccessibility, manageAutoScroll],
   );
+  const managerRef = useRef<DragDropManager | null>(null);
+  if (!managerRef.current) {
+    managerRef.current = createReactSafeManager({ ...pluginProps, sensors });
+  }
+  const manager = managerRef.current;
 
   const syncCollisionRect = useCallback((manager: DragDropManager, transform: InteractionPoint) => {
     const base = baseCollisionRect.current;
@@ -169,7 +279,8 @@ export function UpstreamDndBoundary({
 
   return (
     <DragDropProvider
-      {...adapterPluginProps(manageAccessibility, manageAutoScroll)}
+      {...pluginProps}
+      manager={manager}
       sensors={sensors}
       onDragStart={({ nativeEvent, operation }, manager) => {
         restorePendingKeyboardScroll();

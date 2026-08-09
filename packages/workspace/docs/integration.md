@@ -4,6 +4,15 @@ This guide covers the permanent boundary between `@setta/workspace` and a consum
 application. Import runtime components from `@setta/workspace/react`, framework-neutral helpers
 from `@setta/workspace/core`, and the required CSS once from `@setta/workspace/styles.css`.
 
+## Host sizing
+
+The workbench fills the box its host supplies: the root element is `block-size: 100%` with no
+viewport-based height of its own. Mount `Workspace` inside a host-owned container with a definite
+height (a fixed value, a flex/grid track, or a viewport-derived length the host chooses). A host
+that gives the container no resolvable height gets a zero-height canvas — that is a host layout
+bug, not a package fallback. Recommend at least 24rem × 20rem for a usable workbench; the host
+also owns any embedding boundary (border, radius, page background) around the canvas.
+
 ## Document contract
 
 `WorkspaceDocument<TSectionData>` is the only canonical package document:

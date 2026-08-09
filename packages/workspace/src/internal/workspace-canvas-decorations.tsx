@@ -334,15 +334,12 @@ export function WorkspaceMinimap({
           ariaLabel={`${ariaLabel} minimap`}
           bgColor="var(--setta-workspace-minimap-background)"
           className={`setta-workspace__minimap ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
-          maskColor="color-mix(in oklch, var(--setta-workspace-canvas-background) 72%, transparent)"
+          maskColor="color-mix(in oklch, var(--setta-workspace-section-text) 26%, transparent)"
           maskStrokeColor="var(--setta-workspace-selection)"
           maskStrokeWidth={2}
-          nodeBorderRadius={6}
-          nodeColor={(node) =>
-            node.data.section.presentation.accentColor ??
-            "var(--setta-workspace-section-background)"
-          }
-          nodeStrokeColor="var(--setta-workspace-section-muted-text)"
+          nodeBorderRadius={4}
+          nodeColor="color-mix(in oklch, var(--setta-workspace-section-muted-text) 22%, var(--setta-workspace-minimap-background))"
+          nodeStrokeColor="var(--setta-workspace-section-border)"
           onClick={handlePointNavigate}
           onNodeClick={handleSectionNavigate}
           pannable={interactive}

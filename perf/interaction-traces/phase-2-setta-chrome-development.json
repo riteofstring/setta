@@ -1,0 +1,1449 @@
+{
+  "baseUrl": "http://127.0.0.1:4173",
+  "command": "node scripts/profile-interaction.mjs --label phase-2-setta-chrome --mode development",
+  "configuration": {
+    "commitSettleMs": 250,
+    "cpuThrottle": 1,
+    "hoverSettleMs": 150,
+    "moveCount": 96,
+    "movePauseMs": 7,
+    "passes": 3,
+    "viewport": {
+      "height": 1000,
+      "width": 1440
+    },
+    "zooms": [0.5, 1, 2]
+  },
+  "environment": {
+    "architecture": "arm64",
+    "cpuCount": 8,
+    "node": "v24.18.1",
+    "platform": "darwin",
+    "playwright": "1.62.1"
+  },
+  "mode": "development",
+  "results": [
+    {
+      "cold": true,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 33.1,
+          "over20Count": 1,
+          "over32Count": 1,
+          "over50Count": 0
+        },
+        "activationOwners": ["root-layout"],
+        "firstActivationAfterDownMs": 44.5,
+        "firstFrameAfterDownMs": 0.6,
+        "firstMutationAfterDownMs": 17.4,
+        "frameCount": 257,
+        "gapsOver20Ms": [33.1],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0.3,
+        "meanMoveIntervalMs": 19.3,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 33.1,
+        "overall": {
+          "maxGapMs": 33.1,
+          "over20Count": 1,
+          "over32Count": 1,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 17.5,
+        "pointerUpHandlerMs": 0.2,
+        "sustained": {
+          "maxGapMs": 9.3,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 37,
+          "RecalcStyleCount": 90,
+          "LayoutDurationMs": 2.3,
+          "RecalcStyleDurationMs": 13.7,
+          "ScriptDurationMs": 297,
+          "TaskDurationMs": 430.5
+        }
+      },
+      "pass": 1,
+      "scenario": "root-drag",
+      "zoom": 0.5
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["root-layout"],
+        "firstActivationAfterDownMs": 28.3,
+        "firstFrameAfterDownMs": 1.8,
+        "firstMutationAfterDownMs": 18.8,
+        "frameCount": 251,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0.3,
+        "meanMoveIntervalMs": 18.9,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 33.2,
+        "overall": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 18.9,
+        "pointerUpHandlerMs": 0.1,
+        "sustained": {
+          "maxGapMs": 9.2,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 37,
+          "RecalcStyleCount": 92,
+          "LayoutDurationMs": 2.3,
+          "RecalcStyleDurationMs": 13.1,
+          "ScriptDurationMs": 278.4,
+          "TaskDurationMs": 386.3
+        }
+      },
+      "pass": 2,
+      "scenario": "root-drag",
+      "zoom": 0.5
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 16.6,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["root-layout"],
+        "firstActivationAfterDownMs": 25.4,
+        "firstFrameAfterDownMs": 15.6,
+        "firstMutationAfterDownMs": 16.5,
+        "frameCount": 256,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0.4,
+        "meanMoveIntervalMs": 19.5,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 34.2,
+        "overall": {
+          "maxGapMs": 16.6,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 16.5,
+        "pointerUpHandlerMs": 0,
+        "sustained": {
+          "maxGapMs": 16.6,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 37,
+          "RecalcStyleCount": 92,
+          "LayoutDurationMs": 2.3,
+          "RecalcStyleDurationMs": 13.5,
+          "ScriptDurationMs": 290.7,
+          "TaskDurationMs": 402.3
+        }
+      },
+      "pass": 3,
+      "scenario": "root-drag",
+      "zoom": 0.5
+    },
+    {
+      "cold": true,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 17.5,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["root-layout"],
+        "firstActivationAfterDownMs": 20.3,
+        "firstFrameAfterDownMs": 2.2,
+        "firstMutationAfterDownMs": 14.4,
+        "frameCount": 245,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0.2,
+        "meanMoveIntervalMs": 18.3,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 32.9,
+        "overall": {
+          "maxGapMs": 17.5,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 14.4,
+        "pointerUpHandlerMs": 0.1,
+        "sustained": {
+          "maxGapMs": 9.3,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 25,
+          "RecalcStyleCount": 59,
+          "LayoutDurationMs": 2.3,
+          "RecalcStyleDurationMs": 11.3,
+          "ScriptDurationMs": 225.1,
+          "TaskDurationMs": 336.8
+        }
+      },
+      "pass": 1,
+      "scenario": "root-drag",
+      "zoom": 1
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["root-layout"],
+        "firstActivationAfterDownMs": 28.1,
+        "firstFrameAfterDownMs": 0.7,
+        "firstMutationAfterDownMs": 18.4,
+        "frameCount": 246,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0.2,
+        "meanMoveIntervalMs": 18.3,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 32.6,
+        "overall": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 18.5,
+        "pointerUpHandlerMs": 0.1,
+        "sustained": {
+          "maxGapMs": 9.4,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 25,
+          "RecalcStyleCount": 62,
+          "LayoutDurationMs": 2.4,
+          "RecalcStyleDurationMs": 10.3,
+          "ScriptDurationMs": 234.5,
+          "TaskDurationMs": 325.7
+        }
+      },
+      "pass": 2,
+      "scenario": "root-drag",
+      "zoom": 1
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["root-layout"],
+        "firstActivationAfterDownMs": 27.6,
+        "firstFrameAfterDownMs": 1.2,
+        "firstMutationAfterDownMs": 17.8,
+        "frameCount": 245,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0.2,
+        "meanMoveIntervalMs": 18.3,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 33,
+        "overall": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 17.8,
+        "pointerUpHandlerMs": 0.1,
+        "sustained": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 25,
+          "RecalcStyleCount": 63,
+          "LayoutDurationMs": 2.5,
+          "RecalcStyleDurationMs": 11.1,
+          "ScriptDurationMs": 228.9,
+          "TaskDurationMs": 321.3
+        }
+      },
+      "pass": 3,
+      "scenario": "root-drag",
+      "zoom": 1
+    },
+    {
+      "cold": true,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["root-layout"],
+        "firstActivationAfterDownMs": 20.8,
+        "firstFrameAfterDownMs": 3,
+        "firstMutationAfterDownMs": 14.1,
+        "frameCount": 235,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0.3,
+        "meanMoveIntervalMs": 17.5,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 33.2,
+        "overall": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 14.1,
+        "pointerUpHandlerMs": 0,
+        "sustained": {
+          "maxGapMs": 9.3,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 15,
+          "RecalcStyleCount": 50,
+          "LayoutDurationMs": 2,
+          "RecalcStyleDurationMs": 8.7,
+          "ScriptDurationMs": 153.6,
+          "TaskDurationMs": 242.3
+        }
+      },
+      "pass": 1,
+      "scenario": "root-drag",
+      "zoom": 2
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 8.9,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["root-layout"],
+        "firstActivationAfterDownMs": 26.3,
+        "firstFrameAfterDownMs": 6.4,
+        "firstMutationAfterDownMs": 16.6,
+        "frameCount": 236,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0.3,
+        "meanMoveIntervalMs": 17.4,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 33.7,
+        "overall": {
+          "maxGapMs": 9.2,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 16.6,
+        "pointerUpHandlerMs": 0.1,
+        "sustained": {
+          "maxGapMs": 9.2,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 15,
+          "RecalcStyleCount": 53,
+          "LayoutDurationMs": 1.9,
+          "RecalcStyleDurationMs": 8.6,
+          "ScriptDurationMs": 156.8,
+          "TaskDurationMs": 247.3
+        }
+      },
+      "pass": 2,
+      "scenario": "root-drag",
+      "zoom": 2
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["root-layout"],
+        "firstActivationAfterDownMs": 26.8,
+        "firstFrameAfterDownMs": 0.3,
+        "firstMutationAfterDownMs": 18.7,
+        "frameCount": 238,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0.3,
+        "meanMoveIntervalMs": 17.7,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 33.2,
+        "overall": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 18.7,
+        "pointerUpHandlerMs": 0.1,
+        "sustained": {
+          "maxGapMs": 16.6,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 15,
+          "RecalcStyleCount": 54,
+          "LayoutDurationMs": 1.9,
+          "RecalcStyleDurationMs": 9.5,
+          "ScriptDurationMs": 146.7,
+          "TaskDurationMs": 239.6
+        }
+      },
+      "pass": 3,
+      "scenario": "root-drag",
+      "zoom": 2
+    },
+    {
+      "cold": true,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 33.5,
+          "over20Count": 1,
+          "over32Count": 1,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 29.8,
+        "firstFrameAfterDownMs": 3.7,
+        "firstMutationAfterDownMs": 4.3,
+        "frameCount": 227,
+        "gapsOver20Ms": [33.5],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.8,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 25.4,
+        "overall": {
+          "maxGapMs": 33.5,
+          "over20Count": 1,
+          "over32Count": 1,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 28.1,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 15.9,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 11,
+          "RecalcStyleCount": 179,
+          "LayoutDurationMs": 6.4,
+          "RecalcStyleDurationMs": 32.5,
+          "ScriptDurationMs": 187,
+          "TaskDurationMs": 380.3
+        }
+      },
+      "pass": 1,
+      "scenario": "structural-sort",
+      "zoom": 0.5
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 13.2,
+        "firstFrameAfterDownMs": 2.5,
+        "firstMutationAfterDownMs": 3,
+        "frameCount": 226,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.7,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 24.8,
+        "overall": {
+          "maxGapMs": 17,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 12.3,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 17,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 11,
+          "RecalcStyleCount": 181,
+          "LayoutDurationMs": 5.3,
+          "RecalcStyleDurationMs": 29.3,
+          "ScriptDurationMs": 182.9,
+          "TaskDurationMs": 342
+        }
+      },
+      "pass": 2,
+      "scenario": "structural-sort",
+      "zoom": 0.5
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 16.6,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 19.2,
+        "firstFrameAfterDownMs": 6.5,
+        "firstMutationAfterDownMs": 3.9,
+        "frameCount": 225,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.7,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 18.6,
+        "overall": {
+          "maxGapMs": 17.2,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 17.6,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 17.2,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 11,
+          "RecalcStyleCount": 181,
+          "LayoutDurationMs": 6.6,
+          "RecalcStyleDurationMs": 32.9,
+          "ScriptDurationMs": 193.1,
+          "TaskDurationMs": 374.8
+        }
+      },
+      "pass": 3,
+      "scenario": "structural-sort",
+      "zoom": 0.5
+    },
+    {
+      "cold": true,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 9.1,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 11.2,
+        "firstFrameAfterDownMs": 3.6,
+        "firstMutationAfterDownMs": 1.6,
+        "frameCount": 230,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.9,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 24.9,
+        "overall": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 10.3,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 9,
+          "RecalcStyleCount": 177,
+          "LayoutDurationMs": 5.3,
+          "RecalcStyleDurationMs": 31,
+          "ScriptDurationMs": 201.2,
+          "TaskDurationMs": 365.5
+        }
+      },
+      "pass": 1,
+      "scenario": "structural-sort",
+      "zoom": 1
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 24.4,
+          "over20Count": 1,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 23.6,
+        "firstFrameAfterDownMs": 1.8,
+        "firstMutationAfterDownMs": 6.9,
+        "frameCount": 226,
+        "gapsOver20Ms": [24.4],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.7,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 18,
+        "overall": {
+          "maxGapMs": 24.4,
+          "over20Count": 1,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 22.3,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 9.4,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 9,
+          "RecalcStyleCount": 175,
+          "LayoutDurationMs": 5.3,
+          "RecalcStyleDurationMs": 32.8,
+          "ScriptDurationMs": 193.5,
+          "TaskDurationMs": 340.6
+        }
+      },
+      "pass": 2,
+      "scenario": "structural-sort",
+      "zoom": 1
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 24.9,
+          "over20Count": 1,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 22.2,
+        "firstFrameAfterDownMs": 3.1,
+        "firstMutationAfterDownMs": 6.5,
+        "frameCount": 226,
+        "gapsOver20Ms": [24.9],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.7,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 19.8,
+        "overall": {
+          "maxGapMs": 24.9,
+          "over20Count": 1,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 20.5,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 17.5,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 9,
+          "RecalcStyleCount": 175,
+          "LayoutDurationMs": 5.3,
+          "RecalcStyleDurationMs": 31.4,
+          "ScriptDurationMs": 171.6,
+          "TaskDurationMs": 309.3
+        }
+      },
+      "pass": 3,
+      "scenario": "structural-sort",
+      "zoom": 1
+    },
+    {
+      "cold": true,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 13.3,
+        "firstFrameAfterDownMs": 2.8,
+        "firstMutationAfterDownMs": 3,
+        "frameCount": 227,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.7,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 19.9,
+        "overall": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 12.2,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 9,
+          "RecalcStyleCount": 175,
+          "LayoutDurationMs": 4.9,
+          "RecalcStyleDurationMs": 30.9,
+          "ScriptDurationMs": 197.6,
+          "TaskDurationMs": 336.8
+        }
+      },
+      "pass": 1,
+      "scenario": "structural-sort",
+      "zoom": 2
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 25,
+          "over20Count": 1,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 20.7,
+        "firstFrameAfterDownMs": 3.3,
+        "firstMutationAfterDownMs": 3.4,
+        "frameCount": 226,
+        "gapsOver20Ms": [25],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.6,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 17.8,
+        "overall": {
+          "maxGapMs": 25,
+          "over20Count": 1,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 19,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 9.4,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 9,
+          "RecalcStyleCount": 176,
+          "LayoutDurationMs": 6,
+          "RecalcStyleDurationMs": 31.5,
+          "ScriptDurationMs": 163.5,
+          "TaskDurationMs": 284
+        }
+      },
+      "pass": 2,
+      "scenario": "structural-sort",
+      "zoom": 2
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 9.3,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 13.2,
+        "firstFrameAfterDownMs": 7.6,
+        "firstMutationAfterDownMs": 3.5,
+        "frameCount": 226,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.7,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 18.5,
+        "overall": {
+          "maxGapMs": 15.9,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 12.4,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 15.9,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 9,
+          "RecalcStyleCount": 176,
+          "LayoutDurationMs": 4.1,
+          "RecalcStyleDurationMs": 30.1,
+          "ScriptDurationMs": 180.8,
+          "TaskDurationMs": 308
+        }
+      },
+      "pass": 3,
+      "scenario": "structural-sort",
+      "zoom": 2
+    },
+    {
+      "cold": true,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 17.6,
+        "firstFrameAfterDownMs": 3.4,
+        "firstMutationAfterDownMs": 1.7,
+        "frameCount": 227,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.7,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 25.8,
+        "overall": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 16,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 16.6,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 16,
+          "RecalcStyleCount": 185,
+          "LayoutDurationMs": 7,
+          "RecalcStyleDurationMs": 35.6,
+          "ScriptDurationMs": 216.1,
+          "TaskDurationMs": 411.8
+        }
+      },
+      "pass": 1,
+      "scenario": "nested-freeform",
+      "zoom": 0.5
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 17.4,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 15.8,
+        "firstFrameAfterDownMs": 16.1,
+        "firstMutationAfterDownMs": 3.8,
+        "frameCount": 225,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.7,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 18.5,
+        "overall": {
+          "maxGapMs": 17.4,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 15,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 9.4,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 16,
+          "RecalcStyleCount": 187,
+          "LayoutDurationMs": 5.8,
+          "RecalcStyleDurationMs": 35.2,
+          "ScriptDurationMs": 213.5,
+          "TaskDurationMs": 385.1
+        }
+      },
+      "pass": 2,
+      "scenario": "nested-freeform",
+      "zoom": 0.5
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 9.2,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 13.8,
+        "firstFrameAfterDownMs": 6.1,
+        "firstMutationAfterDownMs": 3.3,
+        "frameCount": 227,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.7,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 17.9,
+        "overall": {
+          "maxGapMs": 9.4,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 12.6,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 9.4,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 16,
+          "RecalcStyleCount": 188,
+          "LayoutDurationMs": 5.3,
+          "RecalcStyleDurationMs": 32.7,
+          "ScriptDurationMs": 203.3,
+          "TaskDurationMs": 381.8
+        }
+      },
+      "pass": 3,
+      "scenario": "nested-freeform",
+      "zoom": 0.5
+    },
+    {
+      "cold": true,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 15,
+        "firstFrameAfterDownMs": 1.6,
+        "firstMutationAfterDownMs": 2.1,
+        "frameCount": 226,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.8,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 25.9,
+        "overall": {
+          "maxGapMs": 16.8,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 13.8,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 16.2,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 14,
+          "RecalcStyleCount": 184,
+          "LayoutDurationMs": 5.6,
+          "RecalcStyleDurationMs": 32.5,
+          "ScriptDurationMs": 207.8,
+          "TaskDurationMs": 373.1
+        }
+      },
+      "pass": 1,
+      "scenario": "nested-freeform",
+      "zoom": 1
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 8.9,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 13,
+        "firstFrameAfterDownMs": 6.9,
+        "firstMutationAfterDownMs": 3.6,
+        "frameCount": 227,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.8,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 25.9,
+        "overall": {
+          "maxGapMs": 16.6,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 12.1,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 16.6,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 14,
+          "RecalcStyleCount": 186,
+          "LayoutDurationMs": 4.8,
+          "RecalcStyleDurationMs": 30.1,
+          "ScriptDurationMs": 186.1,
+          "TaskDurationMs": 318.9
+        }
+      },
+      "pass": 2,
+      "scenario": "nested-freeform",
+      "zoom": 1
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 25,
+          "over20Count": 1,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 22.3,
+        "firstFrameAfterDownMs": 1.2,
+        "firstMutationAfterDownMs": 5.3,
+        "frameCount": 226,
+        "gapsOver20Ms": [25],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.7,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 18.5,
+        "overall": {
+          "maxGapMs": 25,
+          "over20Count": 1,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 21.3,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 14,
+          "RecalcStyleCount": 185,
+          "LayoutDurationMs": 6.8,
+          "RecalcStyleDurationMs": 35,
+          "ScriptDurationMs": 202.6,
+          "TaskDurationMs": 353.6
+        }
+      },
+      "pass": 3,
+      "scenario": "nested-freeform",
+      "zoom": 1
+    },
+    {
+      "cold": true,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 13.2,
+        "firstFrameAfterDownMs": 1.9,
+        "firstMutationAfterDownMs": 2,
+        "frameCount": 226,
+        "gapsOver20Ms": [],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.6,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 17.6,
+        "overall": {
+          "maxGapMs": 16.7,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 12,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 9.3,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 10,
+          "RecalcStyleCount": 180,
+          "LayoutDurationMs": 4.1,
+          "RecalcStyleDurationMs": 29.7,
+          "ScriptDurationMs": 179.7,
+          "TaskDurationMs": 315.1
+        }
+      },
+      "pass": 1,
+      "scenario": "nested-freeform",
+      "zoom": 2
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 24.9,
+          "over20Count": 1,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 23,
+        "firstFrameAfterDownMs": 5.5,
+        "firstMutationAfterDownMs": 4.2,
+        "frameCount": 228,
+        "gapsOver20Ms": [24.9],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.8,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 24.7,
+        "overall": {
+          "maxGapMs": 24.9,
+          "over20Count": 1,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 21.3,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 9,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 10,
+          "RecalcStyleCount": 181,
+          "LayoutDurationMs": 5.6,
+          "RecalcStyleDurationMs": 36,
+          "ScriptDurationMs": 201.2,
+          "TaskDurationMs": 351.5
+        }
+      },
+      "pass": 2,
+      "scenario": "nested-freeform",
+      "zoom": 2
+    },
+    {
+      "cold": false,
+      "metrics": {
+        "activation": {
+          "maxGapMs": 24.9,
+          "over20Count": 1,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "activationOwners": ["section-structure"],
+        "firstActivationAfterDownMs": 21.9,
+        "firstFrameAfterDownMs": 4.3,
+        "firstMutationAfterDownMs": 3.4,
+        "frameCount": 227,
+        "gapsOver20Ms": [24.9],
+        "longTasks": [],
+        "maxMoveHandlerMs": 0,
+        "meanMoveIntervalMs": 16.7,
+        "moveCount": 96,
+        "maxMoveIntervalMs": 25.1,
+        "overall": {
+          "maxGapMs": 24.9,
+          "over20Count": 1,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "pageScrollDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "pointerDownHandlerMs": 20.1,
+        "pointerUpHandlerMs": null,
+        "sustained": {
+          "maxGapMs": 16.6,
+          "over20Count": 0,
+          "over32Count": 0,
+          "over50Count": 0
+        },
+        "cdp": {
+          "LayoutCount": 10,
+          "RecalcStyleCount": 179,
+          "LayoutDurationMs": 6.2,
+          "RecalcStyleDurationMs": 37.3,
+          "ScriptDurationMs": 211.8,
+          "TaskDurationMs": 370.2
+        }
+      },
+      "pass": 3,
+      "scenario": "nested-freeform",
+      "zoom": 2
+    }
+  ],
+  "scenarios": [
+    {
+      "article": "Default chrome",
+      "focus": {
+        "x": 144,
+        "y": 108
+      },
+      "name": "root-drag",
+      "owner": "root-layout",
+      "vector": {
+        "x": 150,
+        "y": 90
+      },
+      "workload": "Top-level XYFlow spatial drag of the root leaf section."
+    },
+    {
+      "article": "Nested leaf",
+      "focus": {
+        "x": 200,
+        "y": 560
+      },
+      "name": "structural-sort",
+      "owner": "section-structure",
+      "vector": {
+        "x": 0,
+        "y": 120
+      },
+      "workload": "dnd-kit nested structural drag inside the vertical ordered group."
+    },
+    {
+      "article": "Freeform note A",
+      "focus": {
+        "x": 1188,
+        "y": 328
+      },
+      "name": "nested-freeform",
+      "owner": "section-structure",
+      "vector": {
+        "x": 26,
+        "y": 20
+      },
+      "workload": "Same-parent nested freeform drag inside the freeform container."
+    }
+  ],
+  "startedAt": "2026-08-10T19:59:17.509Z"
+}

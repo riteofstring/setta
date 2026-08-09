@@ -174,7 +174,7 @@ function WorkspaceNestedSection({
 function EmptyChildSectionRegion() {
   return (
     <div className="setta-workspace__empty-child-container" data-workspace-empty-child-container="">
-      Drop a section here
+      Drop sections here
     </div>
   );
 }

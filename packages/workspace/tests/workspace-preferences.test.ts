@@ -203,7 +203,7 @@ describe("workspace appearance preferences", () => {
     expect(resolved.dark.controlBackground).toBe(WORKSPACE_DEFAULT_DARK_THEME.controlBackground);
     expect(resolved.light.canvasBackground).toBe("white");
     expect(resolved.light.groupBackground).toBe("oklch(0.9 0.02 255 / 0.4)");
-    expect(WORKSPACE_DEFAULT_LIGHT_THEME.canvasBackground).toBe("oklch(0.965 0.008 255)");
+    expect(WORKSPACE_DEFAULT_LIGHT_THEME.canvasBackground).toBe("oklch(0.956 0.011 255)");
     expect(Object.isFrozen(resolved.dark)).toBe(true);
     expect(Object.isFrozen(resolved)).toBe(true);
   });

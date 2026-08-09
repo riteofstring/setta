@@ -452,67 +452,69 @@ export function DefaultPlaygroundPage({
                 }
           }
         >
-          <Workspace
-            {...(clipboardAdapter ? { clipboardAdapter } : {})}
-            activePaneId={activePaneId}
-            appearanceOptions={{ appearance: preferences.appearance }}
-            ariaLabel="Section workspace"
-            controllerRef={controllerRef}
-            document={document}
-            emptyState="No sections yet. Use Add section or restore the example to start."
-            gridOptions={{ snap: preferences.gridSnap, visible: preferences.gridVisible }}
-            onDocumentChange={(nextDocument, change) => {
-              if (rejectViewportChanges && change.reason === "viewport") {
-                setAnnouncement("The controlled playground retained its current viewport.");
-                return;
+          <div className="workspace-host">
+            <Workspace
+              {...(clipboardAdapter ? { clipboardAdapter } : {})}
+              activePaneId={activePaneId}
+              appearanceOptions={{ appearance: preferences.appearance }}
+              ariaLabel="Section workspace"
+              controllerRef={controllerRef}
+              document={document}
+              emptyState="No sections yet. Use Add section or restore the example to start."
+              gridOptions={{ snap: preferences.gridSnap, visible: preferences.gridVisible }}
+              onDocumentChange={(nextDocument, change) => {
+                if (rejectViewportChanges && change.reason === "viewport") {
+                  setAnnouncement("The controlled playground retained its current viewport.");
+                  return;
+                }
+                setDocument(nextDocument);
+                setAnnouncement(`Document change: ${change.reason}.`);
+              }}
+              onExternalDrop={({ candidate, dataTransfer, event, position }) => {
+                const controller = controllerRef.current;
+                if (!controller) {
+                  throw new Error("The playground workspace controller is unavailable.");
+                }
+                externalSampleBodyRef.current =
+                  dataTransfer.getData(EXTERNAL_SAMPLE_MIME) || "Imported host content.";
+                const result = controller.createSection("sample-note", { position });
+                externalSampleBodyRef.current = null;
+                const destination = candidate.parentSectionId
+                  ? `in section ${candidate.parentSectionId}`
+                  : "on the canvas";
+                const placement =
+                  candidate.placement.type === "ordered"
+                    ? `at index ${String(candidate.placement.index)}`
+                    : `${candidate.parentSectionId ? "at local" : "at"} position ${String(Math.round(candidate.placement.position.x))}, ${String(Math.round(candidate.placement.position.y))}`;
+                const rejectionMessage =
+                  result.status === "rejected"
+                    ? `Unable to add dropped content (${result.reason}).`
+                    : "Nothing was added from the drop.";
+                setAnnouncement(
+                  result.status === "applied"
+                    ? `Imported a sample note from ${event.dataTransferTypes.join(", ")} with ${fileCountText(event.fileCount)}. Placed it ${destination} ${placement}; workspace position ${String(Math.round(position.x))}, ${String(Math.round(position.y))}.`
+                    : rejectionMessage,
+                );
+              }}
+              onGridSnapChange={(gridSnap) => updatePreferences({ gridSnap })}
+              onActivePaneChange={setActivePaneId}
+              panes={panes}
+              readOnly={readOnly}
+              sectionDefinitions={sectionDefinitions}
+              sectionFactory={({ kind }) => nextFactoryResult(kind)}
+              toolbarControls={toolbarControls}
+              validateExternalDrop={({ event }) =>
+                event.dataTransferTypes.includes(EXTERNAL_SAMPLE_MIME)
+                  ? { allowed: true, label: "Import sample note" }
+                  : {
+                      allowed: false,
+                      reason: "Only sample-note drops are supported here.",
+                    }
               }
-              setDocument(nextDocument);
-              setAnnouncement(`Document change: ${change.reason}.`);
-            }}
-            onExternalDrop={({ candidate, dataTransfer, event, position }) => {
-              const controller = controllerRef.current;
-              if (!controller) {
-                throw new Error("The playground workspace controller is unavailable.");
-              }
-              externalSampleBodyRef.current =
-                dataTransfer.getData(EXTERNAL_SAMPLE_MIME) || "Imported host content.";
-              const result = controller.createSection("sample-note", { position });
-              externalSampleBodyRef.current = null;
-              const destination = candidate.parentSectionId
-                ? `in section ${candidate.parentSectionId}`
-                : "on the canvas";
-              const placement =
-                candidate.placement.type === "ordered"
-                  ? `at index ${String(candidate.placement.index)}`
-                  : `${candidate.parentSectionId ? "at local" : "at"} position ${String(Math.round(candidate.placement.position.x))}, ${String(Math.round(candidate.placement.position.y))}`;
-              const rejectionMessage =
-                result.status === "rejected"
-                  ? `Unable to add dropped content (${result.reason}).`
-                  : "Nothing was added from the drop.";
-              setAnnouncement(
-                result.status === "applied"
-                  ? `Imported a sample note from ${event.dataTransferTypes.join(", ")} with ${fileCountText(event.fileCount)}. Placed it ${destination} ${placement}; workspace position ${String(Math.round(position.x))}, ${String(Math.round(position.y))}.`
-                  : rejectionMessage,
-              );
-            }}
-            onGridSnapChange={(gridSnap) => updatePreferences({ gridSnap })}
-            onActivePaneChange={setActivePaneId}
-            panes={panes}
-            readOnly={readOnly}
-            sectionDefinitions={sectionDefinitions}
-            sectionFactory={({ kind }) => nextFactoryResult(kind)}
-            toolbarControls={toolbarControls}
-            validateExternalDrop={({ event }) =>
-              event.dataTransferTypes.includes(EXTERNAL_SAMPLE_MIME)
-                ? { allowed: true, label: "Import sample note" }
-                : {
-                    allowed: false,
-                    reason: "Only sample-note drops are supported here.",
-                  }
-            }
-            validateSectionTitle={validateSampleSectionTitle}
-            viewportCullingOptions={VIEWPORT_CULLING_OPTIONS}
-          />
+              validateSectionTitle={validateSampleSectionTitle}
+              viewportCullingOptions={VIEWPORT_CULLING_OPTIONS}
+            />
+          </div>
         </WorkspaceDetachmentProvider>
       </main>
     </>

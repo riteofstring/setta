@@ -3,7 +3,8 @@
 ## Decision
 
 Status: **in progress** (Phase 0 complete 2026-08-10, final audit pending; Phase 1 complete and
-independently audited 2026-08-10; Phase 2 started 2026-08-10). Phase 0 artifacts: the before-screenshot evidence set and public-API-only
+independently audited 2026-08-10; Phase 2 implementation complete 2026-08-10 and ready for its
+independent phase audit). Phase 0 artifacts: the before-screenshot evidence set and public-API-only
 visual-matrix route
 ([docs/evidence/setta-ui-before-screenshots.md](../evidence/setta-ui-before-screenshots.md)), the
 repeatable development/production interaction profiler (`corepack pnpm perf:interaction`) with
@@ -127,6 +128,50 @@ derives its chrome locally — re-pointing the stylesheet at the new roles, retu
 palettes, and hiding the React Flow badge all land with the visual restyle batch so the ~47
 screenshot baselines are refreshed once against the reviewed Setta look instead of once per
 color batch.
+
+The visual restyle batch landed 2026-08-10 and implements the rest of the Phase 2 checklist.
+Palettes: quieter grid marks, slightly deeper slate canvases, and a near-canvas minimap tone in
+both appearances; every retuned default still clears the gamut/contrast/uniqueness unit gate.
+Chrome: the stylesheet now derives all hairlines, dividers, and locked borders from
+`sectionBorder` (with a `--setta-workspace-section-local-border` per-shell derivation that accent
+tints), header bands from `sectionHeaderBackground`, container washes from `groupBackground`
+(frames with a child layout drop card elevation for the translucent wash, a 1rem radius, and an
+inline transparent header), and control/menu/pane/input/toast surfaces from `controlBackground`.
+The section frame is the compact Setta card: single-line ~13 px/700 header (the kind line moved
+into a visually hidden span that joins the accessible article name), tag dot with hidden label,
+state pills replaced by compact icons + hidden text, ghost header controls with the existing
+reveal rules, root-only elevation, 0.5 rem hairline-only nested cards, `data-workspace-locked`
+driving the tighter-corner/stronger-border lock cue (120 ms radius transition, reduced-motion
+disabled), a quiet "Drop sections here" affordance that strengthens under
+`[data-workspace-structural-move-mode]`, and a compact header-band drag overlay. The toolbar is a
+narrow rail (hairline group dividers, ghost controls, selection-tinted active state), floating
+surfaces share one recipe, and the minimap uses a slate mask with tonal node fills. The workbench
+is host-sized (`block-size: 100%`, no clamp/radius/inset ring; playground pages wrap mounts in a
+sized `.workspace-host`; the consumer fixture already supplied a height; integration guide
+documents host sizing), and both remaining ReactFlow instances hide the attribution badge with
+dead badge CSS removed, no-badge E2E assertions added, and the compliance wording updated.
+Regressions caught and fixed during verification: the compact header put trailing controls under
+the screen-fixed edge resize handles, so the header now stacks above them (z-index 8 > 6), while
+section content stays above the resize surface without covering header actions. Nested freeform
+and mixed-parent previews now scroll their movement handle into the browser viewport before dnd-kit
+enumerates visible targets. The adapter preserves document scroll for keyboard item movement,
+bypasses dnd-kit's first-arrow scroller consumption when auto-scroll is disabled, and captures
+pointer Escape before the canvas can claim cancellation. Manager teardown is deferred by one
+microtask so an active sortable surface can unmount without dnd-kit dispatching React state updates
+from insertion-effect cleanup. Tests assert the semantic owner transition before screenshotting
+these states rather than racing the first render.
+
+Phase 2 implementation gates are green: `corepack pnpm quality:all` passed with 539 unit tests,
+package build/pack/consumer/API checks, and the complete 117-test deterministic browser matrix.
+The driven light/dark/narrow evidence set is in
+[`docs/evidence/setta-ui-redesign/phase-2-setta-chrome`](../evidence/setta-ui-redesign/phase-2-setta-chrome),
+and live Chrome/CDP review confirmed 18 rendered section surfaces, correct selection, loaded fonts,
+zero visible React Flow attribution, and no unnamed form fields. The declared development and
+production profile is appended under `phase-2-setta-chrome` in
+[`perf/interaction-profile.md`](../../perf/interaction-profile.md), with full traces in
+`perf/interaction-traces/`: production has zero gaps above 32 ms, development has only two isolated
+cold 0.5× samples (33.1 and 33.5 ms), no cell repeats a miss, and neither build has a long task at
+or above 50 ms. Phase 2 is ready for its independent audit.
 
 Make the Setta visual language the opinionated default for `@setta/workspace`, redesign the
 backend-free playground around the canvas, and remove the measurable structural-drag startup hitch.
