@@ -23,7 +23,7 @@ export type WorkspaceDocumentCommand<TSectionData = unknown> =
     }>
   | Readonly<{
       paste: WorkspaceClipboardPlacedSections<TSectionData>;
-      type: "paste-root-sections";
+      type: "paste-sections";
     }>
   | Readonly<{ sectionIds: readonly string[]; type: "delete-sections" }>
   | Readonly<{

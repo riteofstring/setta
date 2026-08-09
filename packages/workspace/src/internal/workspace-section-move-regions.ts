@@ -41,6 +41,13 @@ export type WorkspaceSectionMoveRegionCapture =
     }>
   | Readonly<{ allowed: false; reason: string }>;
 
+export type WorkspaceSectionFreeformRegionCapture =
+  | Readonly<{
+      allowed: true;
+      freeformRegions: readonly WorkspaceSectionFreeformRegion[];
+    }>
+  | Readonly<{ allowed: false; reason: string }>;
+
 export type WorkspaceSectionInvalidMoveRegion =
   | Readonly<{ positioning: "freeform"; region: WorkspaceSectionFreeformRegion }>
   | Readonly<{ positioning: "ordered"; region: WorkspaceSectionMoveRegion }>;
@@ -173,6 +180,38 @@ export function refreshWorkspaceSectionFreeformRegions(
     const refreshed = refreshWorkspaceSectionFreeformRegion(region, frame);
     return refreshed ? [refreshed] : [];
   });
+}
+
+export function captureWorkspaceSectionFreeformRegions<TSectionData>(
+  canvas: HTMLElement,
+  document: WorkspaceDocument<TSectionData>,
+  frame: WorkspaceSectionMoveGeometryFrame,
+): WorkspaceSectionFreeformRegionCapture {
+  const freeformRegions: WorkspaceSectionFreeformRegion[] = [];
+  const seen = new Set<string>();
+  const elements = canvas.querySelectorAll<HTMLElement>(
+    `[${WORKSPACE_SECTION_CHILD_REGION_ATTRIBUTE}]`,
+  );
+  for (const element of elements) {
+    const parentSectionId = element.getAttribute(WORKSPACE_SECTION_CHILD_REGION_ATTRIBUTE);
+    const layout = parentSectionId ? document.sections[parentSectionId]?.childLayout : undefined;
+    if (!parentSectionId || layout?.positioning !== "freeform") {
+      continue;
+    }
+    if (seen.has(parentSectionId)) {
+      return { allowed: false, reason: "A freeform drop destination region is duplicated." };
+    }
+    seen.add(parentSectionId);
+    const region = freeformRegion(element, parentSectionId, frame);
+    if (!region) {
+      return {
+        allowed: false,
+        reason: `The ${parentSectionId} freeform drop surface is unavailable.`,
+      };
+    }
+    freeformRegions.push(region);
+  }
+  return { allowed: true, freeformRegions };
 }
 
 type CapturedWorkspaceSectionMoveRegion =

@@ -102,13 +102,16 @@ function placedClipboardBlock(document: WorkspaceDocument) {
   );
   if (materialized.status !== "ready") throw new Error("Expected a materialized block.");
   return placeWorkspaceClipboardSections(materialized.paste, {
-    grid: [24, 24],
-    preferredPosition: { x: 40, y: 40 },
-    rootRects: document.rootSections.map((root) => ({
+    destination: {
+      parentId: null,
+      placement: { position: { x: 40, y: 40 }, type: "freeform" },
+    },
+    existingRects: document.rootSections.map((root) => ({
       height: 180,
       width: 240,
       ...root.position,
     })),
+    grid: [24, 24],
   });
 }
 
@@ -290,15 +293,18 @@ describe("workspace clipboard placement and command", () => {
       { id: "beta", title: "Beta" },
     ]);
     const placed = placedClipboardBlock(document);
-    const [firstRoot, secondRoot] = placed.rootSections;
-    if (!firstRoot || !secondRoot) throw new Error("Expected two placed roots.");
+    const placement = placed.destination.placement;
+    if (placement.type !== "freeform") throw new Error("Expected a freeform paste placement.");
+    const firstPosition = placement.positions[placed.rootSectionIds[0] as string];
+    const secondPosition = placement.positions[placed.rootSectionIds[1] as string];
+    if (!firstPosition || !secondPosition) throw new Error("Expected two placed roots.");
 
-    expect(firstRoot.position.x % 24).toBe(0);
-    expect(firstRoot.position.y % 24).toBe(0);
-    expect(secondRoot.position.x - firstRoot.position.x).toBe(280);
+    expect(firstPosition.x % 24).toBe(0);
+    expect(firstPosition.y % 24).toBe(0);
+    expect(secondPosition.x - firstPosition.x).toBe(280);
     const result = applyWorkspaceDocumentCommand(
       document,
-      { paste: placed, type: "paste-root-sections" },
+      { paste: placed, type: "paste-sections" },
       WORKSPACE_DEFAULT_CAPABILITIES,
     );
     expect(result).toMatchObject({ reason: "section-paste", status: "applied" });
@@ -308,10 +314,104 @@ describe("workspace clipboard placement and command", () => {
     expect(
       applyWorkspaceDocumentCommand(
         document,
-        { paste: placed, type: "paste-root-sections" },
+        { paste: placed, type: "paste-sections" },
         { ...WORKSPACE_DEFAULT_CAPABILITIES, editStructure: false },
       ),
     ).toMatchObject({ reason: "structure-edit-disabled", status: "rejected" });
+  });
+
+  it("inserts a pasted block into ordered or freeform nested destinations atomically", () => {
+    const source = createWorkspaceTestDocument([
+      { id: "alpha", title: "Alpha" },
+      { id: "beta", title: "Beta" },
+    ]);
+    const placed = placedClipboardBlock(source);
+    const document = recursiveClipboardDocument();
+    const [firstId, secondId] = placed.rootSectionIds;
+    if (!firstId || !secondId) throw new Error("Expected two pasted roots.");
+    const freeformPaste = {
+      ...placed,
+      destination: {
+        parentId: "root",
+        placement: {
+          positions: {
+            [firstId]: { x: 48, y: 72 },
+            [secondId]: { x: 336, y: 96 },
+          },
+          type: "freeform" as const,
+        },
+      },
+    };
+    const freeformResult = applyWorkspaceDocumentCommand(
+      document,
+      { paste: freeformPaste, type: "paste-sections" },
+      WORKSPACE_DEFAULT_CAPABILITIES,
+    );
+    expect(freeformResult).toMatchObject({ reason: "section-paste", status: "applied" });
+    if (freeformResult.status !== "applied") throw new Error("Expected a nested freeform paste.");
+    expect(freeformResult.document.rootSections).toEqual(document.rootSections);
+    expect(freeformResult.document.sections.root?.childLayout).toEqual({
+      overflow: "grow",
+      positioning: "freeform",
+      positions: {
+        child: { x: 24, y: 36 },
+        [firstId]: { x: 48, y: 72 },
+        [secondId]: { x: 336, y: 96 },
+      },
+      sectionIds: ["child", firstId, secondId],
+    });
+
+    const root = document.sections.root as WorkspaceSection;
+    const orderedDocument: WorkspaceDocument = {
+      ...document,
+      sections: {
+        ...document.sections,
+        root: {
+          ...root,
+          childLayout: {
+            orientation: "vertical",
+            overflow: "grow",
+            positioning: "ordered",
+            sectionIds: ["child"],
+          },
+        },
+      },
+    };
+    const orderedPaste = {
+      ...placed,
+      destination: {
+        parentId: "root",
+        placement: { index: 0, type: "ordered" as const },
+      },
+    };
+    const orderedResult = applyWorkspaceDocumentCommand(
+      orderedDocument,
+      { paste: orderedPaste, type: "paste-sections" },
+      WORKSPACE_DEFAULT_CAPABILITIES,
+    );
+    expect(orderedResult).toMatchObject({ reason: "section-paste", status: "applied" });
+    if (orderedResult.status !== "applied") throw new Error("Expected a nested ordered paste.");
+    expect(orderedResult.document.sections.root?.childLayout?.sectionIds).toEqual([
+      firstId,
+      secondId,
+      "child",
+    ]);
+    expect(
+      applyWorkspaceDocumentCommand(
+        orderedDocument,
+        {
+          paste: {
+            ...orderedPaste,
+            destination: {
+              parentId: "root",
+              placement: { index: 2, type: "ordered" },
+            },
+          },
+          type: "paste-sections",
+        },
+        WORKSPACE_DEFAULT_CAPABILITIES,
+      ),
+    ).toMatchObject({ reason: "section-move-invalid", status: "rejected" });
   });
 
   it("resolves only unmodified platform copy and paste shortcuts", () => {

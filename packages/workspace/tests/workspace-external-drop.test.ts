@@ -114,11 +114,14 @@ describe("workspace external-drop planning", () => {
     const index = externalDropGeometry();
 
     expect(
-      resolveWorkspaceExternalDropCandidate(document, index, registry, { x: 210, y: 220 }),
-    ).toEqual({ insertionIndex: 1, parentSectionId: "nested" });
+      resolveWorkspaceExternalDropCandidate(document, index, registry, { x: 210, y: 220 }, []),
+    ).toEqual({
+      parentSectionId: "nested",
+      placement: { index: 1, type: "ordered" },
+    });
     expect(
-      resolveWorkspaceExternalDropCandidate(document, index, registry, { x: 210, y: 120 }),
-    ).toEqual({ insertionIndex: 1, parentSectionId: "root" });
+      resolveWorkspaceExternalDropCandidate(document, index, registry, { x: 210, y: 120 }, []),
+    ).toEqual({ parentSectionId: "root", placement: { index: 1, type: "ordered" } });
   });
 
   it("falls back to a spatial root drop outside every measured container", () => {
@@ -128,19 +131,23 @@ describe("workspace external-drop planning", () => {
       externalDropGeometry(),
       registry,
       { x: 600, y: 600 },
+      [],
     );
 
-    expect(candidate).toEqual({ insertionIndex: 1, parentSectionId: null });
+    expect(candidate).toEqual({
+      parentSectionId: null,
+      placement: { position: { x: 600, y: 600 }, type: "freeform" },
+    });
     expect(workspaceExternalDropDefaultLabel(document, candidate)).toBe("Drop on canvas");
     expect(
       workspaceExternalDropDefaultLabel(document, {
-        insertionIndex: 1,
         parentSectionId: "root",
+        placement: { index: 1, type: "ordered" },
       }),
     ).toBe("Drop into Root container");
   });
 
-  it("skips freeform containers until local-position drop planning is available", () => {
+  it("targets the deepest freeform surface with non-negative local coordinates", () => {
     const orderedDocument = externalDropDocument();
     const nested = orderedDocument.sections.nested as WorkspaceSection;
     const document: WorkspaceDocument = {
@@ -162,12 +169,38 @@ describe("workspace external-drop planning", () => {
       },
     };
 
+    const freeformRegions = [
+      {
+        parentSectionId: "nested",
+        surfaceWorkspaceRect: { height: 140, width: 320, x: 50, y: 160 },
+        workspaceRect: { height: 160, width: 340, x: 40, y: 150 },
+      },
+    ];
+
     expect(
-      resolveWorkspaceExternalDropCandidate(document, externalDropGeometry(), registry, {
-        x: 210,
-        y: 220,
-      }),
-    ).toEqual({ insertionIndex: 1, parentSectionId: "root" });
+      resolveWorkspaceExternalDropCandidate(
+        document,
+        externalDropGeometry(),
+        registry,
+        { x: 210, y: 220 },
+        freeformRegions,
+      ),
+    ).toEqual({
+      parentSectionId: "nested",
+      placement: { position: { x: 160, y: 60 }, type: "freeform" },
+    });
+    expect(
+      resolveWorkspaceExternalDropCandidate(
+        document,
+        externalDropGeometry(),
+        registry,
+        { x: 42, y: 152 },
+        freeformRegions,
+      ),
+    ).toEqual({
+      parentSectionId: "nested",
+      placement: { position: { x: 0, y: 0 }, type: "freeform" },
+    });
   });
 
   it("normalizes strict valid and invalid host decisions", () => {

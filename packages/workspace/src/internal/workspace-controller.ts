@@ -596,11 +596,11 @@ export function moveWorkspaceRootSections<TSectionData>(
   return dispatch(bindings, { positions, type: "move-root-sections" });
 }
 
-export function pasteWorkspaceRootSections<TSectionData>(
+export function pasteWorkspaceSections<TSectionData>(
   bindings: WorkspaceControllerBindings<TSectionData>,
   paste: WorkspaceClipboardPlacedSections<TSectionData>,
 ): WorkspaceActionResult {
-  return dispatch(bindings, { paste, type: "paste-root-sections" });
+  return dispatch(bindings, { paste, type: "paste-sections" });
 }
 
 export function moveWorkspaceSections<TSectionData>(

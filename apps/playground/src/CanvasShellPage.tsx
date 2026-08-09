@@ -2,7 +2,9 @@ import {
   WORKSPACE_CONNECTIONS_SCHEMA_VERSION,
   createEmptyWorkspaceConnections,
   createEmptyWorkspaceDocument,
+  createWorkspaceJsonClipboardAdapter,
   type WorkspaceAppearance,
+  type WorkspaceClipboardAdapter,
   type WorkspaceConnections,
   type WorkspaceController,
   type WorkspaceDocument,
@@ -371,6 +373,7 @@ export function CanvasShellPage() {
   const nestedFreeformContractEnabled = search.has("nested-freeform-contract");
   const viewportCullingEnabled = search.has("viewport-culling");
   const controller = useRef<WorkspaceController>(null);
+  const clipboardSectionNumber = useRef(1);
   const [document, setDocument] = useState<WorkspaceDocument>(() =>
     nestedFreeformContractEnabled
       ? createNestedFreeformContractDocument()
@@ -410,6 +413,23 @@ export function CanvasShellPage() {
         : createEmptyWorkspaceConnections(),
     [connectionsEnabled, document],
   );
+  const clipboardAdapter = useMemo<WorkspaceClipboardAdapter | undefined>(() => {
+    if (!nestedFreeformContractEnabled || !navigator.clipboard) {
+      return undefined;
+    }
+    return createWorkspaceJsonClipboardAdapter({
+      allocateSectionId: () => {
+        let sectionId: string;
+        do {
+          sectionId = `nested-freeform-copy-${String(clipboardSectionNumber.current)}`;
+          clipboardSectionNumber.current += 1;
+        } while (Object.hasOwn(document.sections, sectionId));
+        return sectionId;
+      },
+      clipboard: navigator.clipboard,
+      validateSectionData: ({ data }) => data === null,
+    });
+  }, [document.sections, nestedFreeformContractEnabled]);
 
   const runNavigation = async (
     label: string,
@@ -798,6 +818,7 @@ export function CanvasShellPage() {
         </p>
         {workspaceMounted ? (
           <Workspace
+            {...(clipboardAdapter ? { clipboardAdapter } : {})}
             ariaLabel="Canvas shell workspace"
             appearanceOptions={
               customGridColor

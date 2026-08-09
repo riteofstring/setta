@@ -1,5 +1,12 @@
 import { AxeBuilder } from "@axe-core/playwright";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type BrowserContext,
+  type JSHandle,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 
 import {
   dragHandleToPoint,
@@ -9,6 +16,54 @@ import {
 } from "./workspace-test-helpers.js";
 
 const contractUrl = "/?canvas-shell&nested-freeform-contract";
+const PLAYGROUND_ORIGIN = "http://127.0.0.1:4173";
+const RECURSIVE_CHILD_MIME = "application/x-setta-workspace-recursive-child";
+const NATIVE_COPY_SHORTCUT = process.platform === "darwin" ? "Meta+c" : "Control+c";
+
+async function grantClipboard(context: BrowserContext): Promise<void> {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin: PLAYGROUND_ORIGIN,
+  });
+}
+
+async function externalTransfer(page: Page, value: string): Promise<JSHandle<DataTransfer>> {
+  return page.evaluateHandle(
+    ({ mimeType, payload }) => {
+      const transfer = new DataTransfer();
+      transfer.setData(mimeType, payload);
+      return transfer;
+    },
+    { mimeType: RECURSIVE_CHILD_MIME, payload: value },
+  );
+}
+
+async function visibleRootFreeformPoint(
+  workspace: Locator,
+  offset: Readonly<{ x: number; y: number }>,
+) {
+  const region = workspace.locator('[data-workspace-section-child-region="recursive-root"]');
+  const surface = region.locator(":scope > [data-workspace-freeform-child-surface]");
+  await region.scrollIntoViewIfNeeded();
+  const [regionBox, surfaceBox] = await Promise.all([
+    requiredBoundingBox(region, "Recursive root drop region"),
+    requiredBoundingBox(surface, "Recursive root drop surface"),
+  ]);
+  const rawPoint = {
+    x: Math.min(
+      regionBox.x + regionBox.width - 12,
+      Math.max(regionBox.x + 12, surfaceBox.x + offset.x),
+    ),
+    y: Math.min(
+      regionBox.y + regionBox.height - 12,
+      Math.max(regionBox.y + 12, surfaceBox.y + offset.y),
+    ),
+  };
+  const point = { x: Math.round(rawPoint.x), y: Math.round(rawPoint.y) };
+  return {
+    local: { x: point.x - surfaceBox.x, y: point.y - surfaceBox.y },
+    point,
+  };
+}
 
 async function placementDelta(surface: Locator, sectionId: string) {
   const placement = surface.locator(`[data-workspace-freeform-child-placement="${sectionId}"]`);
@@ -139,6 +194,24 @@ function requiredSerializedChildLayout(
     throw new Error(`Serialized section ${sectionId} must provide a child layout.`);
   }
   return layout;
+}
+
+function requiredSerializedFreeformPosition(
+  document: NestedFreeformSerializedDocument,
+  parentSectionId: string,
+  sectionId: string,
+): Readonly<{ x: number; y: number }> {
+  const position = requiredSerializedChildLayout(document, parentSectionId).positions?.[sectionId];
+  if (!position) {
+    throw new Error(`Serialized freeform position for ${sectionId} is unavailable.`);
+  }
+  return position;
+}
+
+async function requiredAttribute(locator: Locator, name: string, label: string): Promise<string> {
+  const value = await locator.getAttribute(name);
+  if (!value) throw new Error(`${label} is unavailable.`);
+  return value;
 }
 
 function expectGroupedFreeformDocument(document: NestedFreeformSerializedDocument): void {
@@ -453,6 +526,102 @@ test.describe("Phase 6 nested freeform document contract", () => {
       positioning: "freeform",
       sectionIds: ["nested-gamma"],
     });
+    const results = await new AxeBuilder({ page }).include(".setta-workspace").analyze();
+    expect(results.violations).toEqual([]);
+  });
+
+  test("pastes and externally drops into a nested freeform parent", async ({ context, page }) => {
+    await grantClipboard(context);
+    await page.setViewportSize({ height: 1_000, width: 1_280 });
+    await page.goto(contractUrl);
+    await page.getByRole("checkbox", { name: "Show host extensions" }).uncheck();
+    await setCanvasZoom(page, 1);
+    const workspace = page.getByRole("region", {
+      exact: true,
+      name: "Canvas shell workspace",
+    });
+    const canvas = workspace.getByRole("application", {
+      name: "Canvas shell workspace canvas",
+    });
+    const alpha = workspace.getByRole("article", { name: "Nested Alpha" });
+    const selectAlpha = alpha.getByRole("button", { name: "Select Nested Alpha" });
+    const baselineChanges = await recursiveChangeCount(page);
+
+    await selectAlpha.click();
+    await selectAlpha.focus();
+    await page.keyboard.press(NATIVE_COPY_SHORTCUT);
+    const clipboardAnnouncement = workspace.locator("[data-workspace-clipboard-announcement]");
+    await expect(clipboardAnnouncement).toHaveText(
+      "Copied 1 selected section with 1 section in the complete subtree.",
+    );
+
+    const pasteTarget = await visibleRootFreeformPoint(workspace, { x: 24, y: 260 });
+    await page.mouse.move(pasteTarget.point.x, pasteTarget.point.y);
+    await canvas.focus();
+    await page.keyboard.press("Control+v");
+    const pastedPlacement = workspace.locator(
+      '[data-workspace-freeform-child-placement^="nested-freeform-copy-"]',
+    );
+    await expect(pastedPlacement).toHaveCount(1);
+    const pastedSectionId = await requiredAttribute(
+      pastedPlacement,
+      "data-workspace-freeform-child-placement",
+      "The pasted freeform section ID",
+    );
+    const pastedSection = workspace.locator(`[data-workspace-section-id="${pastedSectionId}"]`);
+    await expect(pastedSection).toHaveAttribute(
+      "data-workspace-parent-section-id",
+      "recursive-root",
+    );
+    await expect(pastedSection).toHaveAttribute("data-workspace-selected", "true");
+    await expect(pastedSection.getByRole("button", { name: "Select Nested Alpha" })).toBeFocused();
+    await expect(clipboardAnnouncement).toHaveText("Pasted 1 section in one change.");
+    let serialized = await nestedFreeformSerializedDocument(page);
+    const pastedPosition = requiredSerializedFreeformPosition(
+      serialized,
+      "recursive-root",
+      pastedSectionId,
+    );
+    expect(pastedPosition.x).toBeGreaterThanOrEqual(0);
+    expect(pastedPosition.y).toBeGreaterThanOrEqual(0);
+    expect(pastedPosition.x % 24).toBe(0);
+    expect(pastedPosition.y % 24).toBe(0);
+    expect(await recursiveChangeCount(page)).toBe(baselineChanges + 1);
+
+    const externalTarget = await visibleRootFreeformPoint(workspace, { x: 48, y: 284 });
+    const transfer = await externalTransfer(page, "Dropped into freeform root");
+    const eventInit = {
+      clientX: externalTarget.point.x,
+      clientY: externalTarget.point.y,
+      dataTransfer: transfer,
+    };
+    await canvas.dispatchEvent("dragenter", eventInit);
+    await canvas.dispatchEvent("dragover", eventInit);
+    const target = workspace.locator('[data-workspace-external-drop-target="recursive-root"]');
+    await expect(target).toHaveAttribute("data-workspace-external-drop-placement", "freeform");
+    await expect(target).toHaveAttribute("data-workspace-external-drop-valid", "true");
+    await expect(workspace.locator("[data-workspace-external-drop-announcement]")).toHaveText(
+      "Drop allowed. Add child section to this container",
+    );
+    await expect(canvas).toHaveScreenshot("nested-freeform-placement-preview.png", {
+      animations: "disabled",
+    });
+
+    await canvas.dispatchEvent("drop", eventInit);
+    const dropped = workspace.getByRole("article", { name: "Dropped into freeform root" });
+    await expect(dropped).toHaveAttribute("data-workspace-parent-section-id", "recursive-root");
+    serialized = await nestedFreeformSerializedDocument(page);
+    const droppedPosition = requiredSerializedFreeformPosition(
+      serialized,
+      "recursive-root",
+      "external-child-1",
+    );
+    expect(droppedPosition.x).toBeCloseTo(Math.max(0, externalTarget.local.x), 4);
+    expect(droppedPosition.y).toBeCloseTo(Math.max(0, externalTarget.local.y), 4);
+    expect(await recursiveChangeCount(page)).toBe(baselineChanges + 2);
+    await expect(page.locator(".announcement")).toContainText(
+      "Dropped into freeform root added to Recursive workspace.",
+    );
     const results = await new AxeBuilder({ page }).include(".setta-workspace").analyze();
     expect(results.violations).toEqual([]);
   });

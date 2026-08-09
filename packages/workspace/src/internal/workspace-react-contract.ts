@@ -84,9 +84,13 @@ export type WorkspaceSelectionOptions = Readonly<{
   marqueeMode?: WorkspaceMarqueeSelectionMode;
 }>;
 
+export type WorkspaceExternalDropPlacement =
+  | Readonly<{ index: number; type: "ordered" }>
+  | Readonly<{ position: WorkspacePoint; type: "freeform" }>;
+
 export type WorkspaceExternalDropCandidate = Readonly<{
-  insertionIndex: number;
   parentSectionId: string | null;
+  placement: WorkspaceExternalDropPlacement;
 }>;
 
 export type WorkspaceExternalDropEventMetadata = Readonly<{

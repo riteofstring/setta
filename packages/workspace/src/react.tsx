@@ -29,6 +29,7 @@ export type {
   WorkspaceExternalDropDecision,
   WorkspaceExternalDropEventMetadata,
   WorkspaceExternalDropHandler,
+  WorkspaceExternalDropPlacement,
   WorkspaceExternalDropRequest,
   WorkspaceExternalDropValidator,
   WorkspaceMarqueeSelectionMode,

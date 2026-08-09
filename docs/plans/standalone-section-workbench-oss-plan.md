@@ -1713,9 +1713,11 @@ Same-parent freeform movement and the local-coordinate target/application contra
 Interactive cross-parent target resolution and coordinate conversion are recorded in
 [Phase 6 nested-freeform cross-parent movement evidence](../evidence/phase-6-nested-freeform-cross-parent-movement.md).
 Freeform-aware grouping and ungrouping are recorded in
-[Phase 6 nested-freeform grouping evidence](../evidence/phase-6-nested-freeform-grouping.md). Paste
-and external-drop placement into nested freeform parents are now the earliest incomplete
-repository-actionable Phase 6 work.
+[Phase 6 nested-freeform grouping evidence](../evidence/phase-6-nested-freeform-grouping.md).
+Clipboard and external-drop placement are recorded in
+[Phase 6 nested-freeform placement evidence](../evidence/phase-6-nested-freeform-placement.md). The
+named production positioning control and final integrated performance/browser matrix are now the
+earliest incomplete repository-actionable Phase 6 work.
 
 - Completed (nested-freeform representation prerequisite): compared the plan-mandated all-section
   XYFlow graph, separately provided inner-XYFlow instances, and package-owned absolutely positioned
@@ -1830,6 +1832,29 @@ repository-actionable Phase 6 work.
   tarball-installed consumer passed lockfile policy, strict build, and runtime verification. No
   dependency input changed, so the network-backed supply-chain gate was not duplicated; the
   recorded unavailable in-app-browser release gate was not retried.
+
+- Completed (nested-freeform clipboard and external-drop placement slice): replaced the public
+  external-drop candidate's ordered-only insertion index with one exact ordered/freeform placement
+  union. One captured recursive geometry frame now resolves the deepest eligible parent, produces
+  an orientation-aware ordered index or a non-negative destination-local freeform position, and
+  preserves preview/completion identity without a second layout flush. Clipboard paste resolves
+  the same meaningful point, smart-places the cloned root block against direct destination
+  siblings, preserves relative offsets, snaps in destination-local coordinates, and atomically
+  inserts into the canvas, an ordered parent, or a freeform parent with an exact position map. The
+  playground applies the public candidate without guessing layout, and the complete record is
+  `docs/evidence/phase-6-nested-freeform-placement.md`.
+- Nested-freeform placement verification: exact Node 24.18.1, repository-local Corepack 0.35.0,
+  and pnpm 11.19.0 focused coverage passed 25 clipboard, external-drop, and navigation tests. The
+  exact nested-freeform, generic external-drop, and clipboard Chromium selectors passed local
+  coordinate conversion, one geometry capture, snapped non-overlap placement, controlled
+  reconciliation, selection and focus handoff, announcements, undo/redo/reload coverage, Axe, and
+  three inspected original-resolution baselines. Changed-file quality passed repository
+  boundaries, deterministic dependency policy, formatting, lint and complexity, file lengths,
+  strict types, dead-code analysis, unit and boundary tests, plan-loop automation, builds, exact
+  tarball contents, documentation links, and the declaration report. The unrelated
+  tarball-installed consumer passed lockfile policy, strict build, and runtime verification through
+  the declared placement union. No dependency input changed, so the network-backed supply-chain
+  gate was not duplicated; the recorded unavailable in-app-browser release gate was not retried.
 
 - Completed (viewport-culling batch): added strict opt-in all-depth browser windowing through one
   canvas-rooted observer, exact-size named placeholders, canonical-ID-scoped retained geometry,

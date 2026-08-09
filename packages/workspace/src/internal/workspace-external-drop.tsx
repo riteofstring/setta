@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 
-import type { WorkspaceDocument, WorkspaceJsonValue } from "../core.js";
+import type { WorkspaceDocument, WorkspaceJsonValue, WorkspacePoint } from "../core.js";
 import type { WorkspaceGeometryIndex } from "./geometry-index.js";
 import {
   resolveWorkspaceExternalDropCandidate,
@@ -25,13 +25,18 @@ import type {
   WorkspaceExternalDropRequest,
   WorkspaceExternalDropValidator,
 } from "./workspace-react-contract.js";
+import { captureWorkspaceSectionFreeformRegions } from "./workspace-section-move-regions.js";
 import type { WorkspaceSectionRegistry } from "./workspace-section-registry.js";
 
 type ExternalDropFeedbackState = Readonly<{
-  candidate: WorkspaceExternalDropRequest["candidate"];
+  candidate: WorkspaceExternalDropRequest["candidate"] | null;
   message: string;
   valid: boolean;
 }>;
+
+type ExternalDropCandidateResolution =
+  | Readonly<{ candidate: WorkspaceExternalDropRequest["candidate"]; status: "ready" }>
+  | Readonly<{ reason: string; status: "rejected" }>;
 
 export type WorkspaceExternalDropBindings = Readonly<{
   announcementText: string;
@@ -41,6 +46,7 @@ export type WorkspaceExternalDropBindings = Readonly<{
   onDragLeave(event: ReactDragEvent<HTMLDivElement>): void;
   onDragOver(event: ReactDragEvent<HTMLDivElement>): void;
   onDrop(event: ReactDragEvent<HTMLDivElement>): void;
+  resolveCandidate(position: WorkspacePoint): WorkspaceExternalDropRequest["candidate"] | null;
   state: "idle" | "invalid" | "valid";
 }>;
 
@@ -54,9 +60,13 @@ function targetOverlay(
   feedback: ExternalDropFeedbackState,
   geometryIndex: WorkspaceGeometryIndex,
 ): ReactNode {
+  if (!feedback.candidate) {
+    return null;
+  }
   const targetSectionId = feedback.candidate.parentSectionId;
   const commonProps = {
     "aria-hidden": true,
+    "data-workspace-external-drop-placement": feedback.candidate.placement.type,
     "data-workspace-external-drop-target": targetSectionId ?? "canvas",
     "data-workspace-external-drop-valid": String(feedback.valid),
   } as const;
@@ -130,23 +140,42 @@ function externalDropMetadata(
   });
 }
 
-function externalDropRequest<TSectionData>(
-  document: WorkspaceDocument<TSectionData>,
+function externalDropRequest(
+  candidate: WorkspaceExternalDropRequest["candidate"],
   event: ReactDragEvent<HTMLDivElement>,
-  geometry: WorkspaceGeometryMeasurements,
-  geometryIndex: WorkspaceGeometryIndex,
   phase: WorkspaceExternalDropEventMetadata["phase"],
-  registry: WorkspaceSectionRegistry<TSectionData>,
+  position: WorkspacePoint,
 ): WorkspaceExternalDropRequest {
-  const position = Object.freeze(
-    geometry.clientPointToWorkspace({ x: event.clientX, y: event.clientY }),
-  );
   return Object.freeze({
-    candidate: resolveWorkspaceExternalDropCandidate(document, geometryIndex, registry, position),
+    candidate,
     dataTransfer: event.dataTransfer,
     event: externalDropMetadata(event, phase),
-    position,
+    position: Object.freeze({ ...position }),
   });
+}
+
+function placementsMatch(
+  left: WorkspaceExternalDropRequest["candidate"]["placement"],
+  right: WorkspaceExternalDropRequest["candidate"]["placement"],
+): boolean {
+  return left.type === "ordered" && right.type === "ordered"
+    ? left.index === right.index
+    : left.type === "freeform" && right.type === "freeform"
+      ? left.position.x === right.position.x && left.position.y === right.position.y
+      : false;
+}
+
+function candidatesMatch(
+  left: WorkspaceExternalDropRequest["candidate"] | null,
+  right: WorkspaceExternalDropRequest["candidate"] | null,
+): boolean {
+  if (!left || !right) {
+    return left === right;
+  }
+  return (
+    left.parentSectionId === right.parentSectionId &&
+    placementsMatch(left.placement, right.placement)
+  );
 }
 
 function decisionsMatch(
@@ -154,8 +183,8 @@ function decisionsMatch(
   next: ExternalDropFeedbackState,
 ): boolean {
   return (
-    current?.candidate.parentSectionId === next.candidate.parentSectionId &&
-    current.candidate.insertionIndex === next.candidate.insertionIndex &&
+    current !== null &&
+    candidatesMatch(current.candidate, next.candidate) &&
     current.message === next.message &&
     current.valid === next.valid
   );
@@ -173,6 +202,10 @@ function feedbackForDecision<TSectionData>(
       : decision.reason,
     valid: decision.allowed,
   });
+}
+
+function geometryFeedback(reason: string): ExternalDropFeedbackState {
+  return Object.freeze({ candidate: null, message: reason, valid: false });
 }
 
 function announcementForFeedback(feedback: ExternalDropFeedbackState | null): string {
@@ -224,7 +257,11 @@ export function useWorkspaceExternalDrop<TSectionData = WorkspaceJsonValue>({
   validateExternalDrop: WorkspaceExternalDropValidator | undefined;
 }>): WorkspaceExternalDropBindings {
   const activeSessionRef = useRef(false);
+  const documentRef = useRef(document);
+  const registryRef = useRef(registry);
   const [feedbackState, setFeedbackState] = useState<ExternalDropFeedbackState | null>(null);
+  documentRef.current = document;
+  registryRef.current = registry;
   const cancel = useCallback(() => {
     activeSessionRef.current = false;
     setFeedbackState(null);
@@ -263,6 +300,45 @@ export function useWorkspaceExternalDrop<TSectionData = WorkspaceJsonValue>({
     [structureEditable, validateExternalDrop],
   );
 
+  const resolveCandidateAt = useCallback(
+    (position: WorkspacePoint, flush: boolean): ExternalDropCandidateResolution => {
+      if (flush) {
+        geometry.flushMeasurement();
+      }
+      const canvas = geometry.canvasElement();
+      if (!canvas) {
+        return { reason: "The workspace drop surface is unavailable.", status: "rejected" };
+      }
+      const currentDocument = documentRef.current;
+      const regions = captureWorkspaceSectionFreeformRegions(canvas, currentDocument, {
+        canvasBounds: geometry.canvasBounds(),
+        viewport: geometry.currentViewport(),
+      });
+      if (!regions.allowed) {
+        return { reason: regions.reason, status: "rejected" };
+      }
+      return {
+        candidate: resolveWorkspaceExternalDropCandidate(
+          currentDocument,
+          geometryIndex,
+          registryRef.current,
+          position,
+          regions.freeformRegions,
+        ),
+        status: "ready",
+      };
+    },
+    [geometry, geometryIndex],
+  );
+
+  const resolveCandidate = useCallback(
+    (position: WorkspacePoint) => {
+      const resolution = resolveCandidateAt(position, true);
+      return resolution.status === "ready" ? resolution.candidate : null;
+    },
+    [resolveCandidateAt],
+  );
+
   const preview = useCallback(
     (event: ReactDragEvent<HTMLDivElement>) => {
       if (!onExternalDrop) {
@@ -274,14 +350,17 @@ export function useWorkspaceExternalDrop<TSectionData = WorkspaceJsonValue>({
       }
       claimExternalDrop(event);
       measureSession();
-      const request = externalDropRequest(
-        document,
-        event,
-        geometry,
-        geometryIndex,
-        "preview",
-        registry,
-      );
+      const position = geometry.clientPointToWorkspace({ x: event.clientX, y: event.clientY });
+      const candidate = resolveCandidateAt(position, false);
+      if (candidate.status === "rejected") {
+        const nextFeedback = geometryFeedback(candidate.reason);
+        setFeedbackState((current) =>
+          decisionsMatch(current, nextFeedback) ? current : nextFeedback,
+        );
+        applyDropEffect(event, false);
+        return;
+      }
+      const request = externalDropRequest(candidate.candidate, event, "preview", position);
       const decision = decisionForRequest(request);
       const nextFeedback = feedbackForDecision(document, request, decision);
       setFeedbackState((current) =>
@@ -294,10 +373,9 @@ export function useWorkspaceExternalDrop<TSectionData = WorkspaceJsonValue>({
       decisionForRequest,
       document,
       geometry,
-      geometryIndex,
       measureSession,
       onExternalDrop,
-      registry,
+      resolveCandidateAt,
     ],
   );
 
@@ -309,14 +387,14 @@ export function useWorkspaceExternalDrop<TSectionData = WorkspaceJsonValue>({
       }
       claimExternalDrop(event);
       measureSession();
-      const request = externalDropRequest(
-        document,
-        event,
-        geometry,
-        geometryIndex,
-        "drop",
-        registry,
-      );
+      const position = geometry.clientPointToWorkspace({ x: event.clientX, y: event.clientY });
+      const candidate = resolveCandidateAt(position, false);
+      if (candidate.status === "rejected") {
+        applyDropEffect(event, false);
+        cancel();
+        return;
+      }
+      const request = externalDropRequest(candidate.candidate, event, "drop", position);
       const decision = decisionForRequest(request);
       applyDropEffect(event, decision.allowed);
       cancel();
@@ -324,16 +402,7 @@ export function useWorkspaceExternalDrop<TSectionData = WorkspaceJsonValue>({
         void onExternalDrop(request);
       }
     },
-    [
-      cancel,
-      decisionForRequest,
-      document,
-      geometry,
-      geometryIndex,
-      measureSession,
-      onExternalDrop,
-      registry,
-    ],
+    [cancel, decisionForRequest, geometry, measureSession, onExternalDrop, resolveCandidateAt],
   );
 
   const onDragLeave = useCallback(
@@ -355,6 +424,7 @@ export function useWorkspaceExternalDrop<TSectionData = WorkspaceJsonValue>({
     onDragLeave,
     onDragOver: preview,
     onDrop,
+    resolveCandidate,
     state: feedbackState ? (feedbackState.valid ? "valid" : "invalid") : "idle",
   };
 }

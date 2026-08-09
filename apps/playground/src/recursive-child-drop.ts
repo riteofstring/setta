@@ -10,6 +10,49 @@ function validInsertionIndex(index: number, length: number): boolean {
   return Number.isInteger(index) && index >= 0 && index <= length;
 }
 
+function validLocalPosition(position: Readonly<{ x: number; y: number }>): boolean {
+  return (
+    Number.isFinite(position.x) && Number.isFinite(position.y) && position.x >= 0 && position.y >= 0
+  );
+}
+
+function placementRejection(
+  layout: NonNullable<WorkspaceSection["childLayout"]>,
+  placement: WorkspaceExternalDropRequest["candidate"]["placement"],
+): string | null {
+  if (layout.positioning !== placement.type) {
+    return "Recursive child drop canceled because its container layout changed.";
+  }
+  if (placement.type === "ordered") {
+    return validInsertionIndex(placement.index, layout.sectionIds.length)
+      ? null
+      : "Recursive child drop canceled because its insertion point changed.";
+  }
+  return validLocalPosition(placement.position)
+    ? null
+    : "Recursive child drop canceled because its local position is invalid.";
+}
+
+function layoutWithDroppedChild(
+  layout: NonNullable<WorkspaceSection["childLayout"]>,
+  placement: WorkspaceExternalDropRequest["candidate"]["placement"],
+  sectionId: string,
+): NonNullable<WorkspaceSection["childLayout"]> {
+  if (layout.positioning === "ordered" && placement.type === "ordered") {
+    const sectionIds = [...layout.sectionIds];
+    sectionIds.splice(placement.index, 0, sectionId);
+    return { ...layout, sectionIds };
+  }
+  if (layout.positioning === "freeform" && placement.type === "freeform") {
+    return {
+      ...layout,
+      positions: { ...layout.positions, [sectionId]: placement.position },
+      sectionIds: [...layout.sectionIds, sectionId],
+    };
+  }
+  throw new Error("Recursive child drop placement must match its container layout.");
+}
+
 export function applyRecursiveChildDrop(
   document: WorkspaceDocument,
   request: WorkspaceExternalDropRequest,
@@ -30,18 +73,10 @@ export function applyRecursiveChildDrop(
       status: "Recursive child drop canceled because its container is unavailable.",
     };
   }
-  if (parent.childLayout.positioning === "freeform") {
-    return {
-      document: null,
-      status: "Recursive child drop canceled because freeform placement needs local geometry.",
-    };
-  }
-  const insertionIndex = request.candidate.insertionIndex;
-  if (!validInsertionIndex(insertionIndex, parent.childLayout.sectionIds.length)) {
-    return {
-      document: null,
-      status: "Recursive child drop canceled because its insertion point changed.",
-    };
+  const placement = request.candidate.placement;
+  const rejection = placementRejection(parent.childLayout, placement);
+  if (rejection) {
+    return { document: null, status: rejection };
   }
   const nextNumber =
     Object.keys(document.sections).filter((sectionId) => sectionId.startsWith("external-child-"))
@@ -49,8 +84,7 @@ export function applyRecursiveChildDrop(
   const sectionId = `external-child-${String(nextNumber)}`;
   const title =
     request.dataTransfer.getData(mimeType).trim() || `Dropped child ${String(nextNumber)}`;
-  const sectionIds = [...parent.childLayout.sectionIds];
-  sectionIds.splice(insertionIndex, 0, sectionId);
+  const childLayout = layoutWithDroppedChild(parent.childLayout, placement, sectionId);
   return {
     document: {
       ...document,
@@ -58,7 +92,7 @@ export function applyRecursiveChildDrop(
         ...document.sections,
         [parentSectionId]: {
           ...parent,
-          childLayout: { ...parent.childLayout, sectionIds },
+          childLayout,
         },
         [sectionId]: createSection(sectionId, title),
       },

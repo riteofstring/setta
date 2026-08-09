@@ -1,13 +1,14 @@
 import type { Viewport } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { WorkspaceGestureOptions, WorkspaceViewport } from "../core.js";
+import type { WorkspaceGestureOptions, WorkspacePoint, WorkspaceViewport } from "../core.js";
 import { createWorkspaceCanvasGesturePolicy } from "./workspace-canvas-gesture-policy.js";
 import {
   createWorkspaceCanvasController,
   type WorkspaceCanvasController,
 } from "./workspace-canvas-navigation.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
+import type { WorkspaceExternalDropCandidate } from "./workspace-react-contract.js";
 import { WorkspaceViewportLifecycle } from "./workspace-viewport-lifecycle.js";
 import { workspaceViewportsMatch } from "./workspace-viewport-synchronizer.js";
 
@@ -79,6 +80,7 @@ export function useWorkspaceCanvasViewport({
   onCanvasControllerChange,
   onDetach,
   onViewportCommit,
+  resolveInsertionCandidate,
   revealSection,
 }: Readonly<{
   canonicalViewport: WorkspaceViewport;
@@ -88,6 +90,7 @@ export function useWorkspaceCanvasViewport({
   onCanvasControllerChange(controller: WorkspaceCanvasController | null): void;
   onDetach(): void;
   onViewportCommit(viewport: WorkspaceViewport): void;
+  resolveInsertionCandidate(position: WorkspacePoint): WorkspaceExternalDropCandidate | null;
   revealSection(sectionId: string): () => void;
 }>) {
   const gestureOptionsRef = useRef(gestureOptions);
@@ -100,9 +103,9 @@ export function useWorkspaceCanvasViewport({
           maxZoom: gestureOptionsRef.current.maxZoom,
           minZoom: gestureOptionsRef.current.minZoom,
         }),
-        revealSection,
+        { resolveInsertionCandidate, revealSection },
       ),
-    [geometry, revealSection],
+    [geometry, resolveInsertionCandidate, revealSection],
   );
   const [initialized, setInitialized] = useState(false);
   const lifecycleRef = useRef<WorkspaceViewportLifecycle | null>(null);

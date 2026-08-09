@@ -77,6 +77,7 @@ test("copy and paste clone a selected root block as one persistent history chang
   expect(pastedRoots).toHaveLength(2);
   expect((pastedRoots[1]?.position.x ?? 0) - (pastedRoots[0]?.position.x ?? 0)).toBe(384);
   expect((pastedRoots[1]?.position.y ?? 0) - (pastedRoots[0]?.position.y ?? 0)).toBe(60);
+  await page.mouse.move(1_279, 1);
   await expect(workspace).toHaveScreenshot("workspace-pasted-root-block.png");
 
   await page.keyboard.press("Control+z");

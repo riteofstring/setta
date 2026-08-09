@@ -21,7 +21,7 @@ import {
   groupWorkspaceSections,
   moveWorkspaceRootSections,
   moveWorkspaceSections,
-  pasteWorkspaceRootSections,
+  pasteWorkspaceSections,
   resizeWorkspaceRootSection,
   setWorkspaceSectionChildOverflow,
   setWorkspaceSectionContentSize,
@@ -346,7 +346,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       if (!bindings) {
         throw new Error("Workspace controller bindings are unavailable before initialization.");
       }
-      return pasteWorkspaceRootSections(bindings, paste);
+      return pasteWorkspaceSections(bindings, paste);
     },
     [],
   );

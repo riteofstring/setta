@@ -270,12 +270,15 @@ announces the retained canonical document, and clears the deferred selection/foc
 Supplying `onExternalDrop` enables the generic browser-drop boundary. During drag enter and
 dragover, the package converts client coordinates into workbench coordinates and resolves the
 deepest measured container that can accept children, falling back to the spatial canvas. The
-request includes that candidate parent, its orientation-aware insertion index, the original
-`DataTransfer`, a snapshot of MIME types and file count, modifier keys, and both client and
-workbench positions. `validateExternalDrop` is an optional synchronous, side-effect-free preview
-policy; without it, configured drops are allowed. Its labeled acceptance or specific rejection is
-shown visually and announced without changing the document. `editStructure: false` rejects the
-package-owned handoff before the host callback runs.
+request includes that candidate parent and a discriminated placement: ordered parents receive an
+orientation-aware `{ type: "ordered", index }`, while the canvas and nested freeform parents
+receive `{ type: "freeform", position }`. A nested freeform position is local to the parent's
+child surface and non-negative; a canvas position is in workbench coordinates. The request also
+includes the original `DataTransfer`, a snapshot of MIME types and file count, modifier keys, and
+both client and workbench positions. `validateExternalDrop` is an optional synchronous,
+side-effect-free preview policy; without it, configured drops are allowed. Its labeled acceptance
+or specific rejection is shown visually and announced without changing the document.
+`editStructure: false` rejects the package-owned handoff before the host callback runs.
 
 The final callback owns every semantic decision, including whether to call a controller command,
 update controlled host state, reject the payload, or start asynchronous import work. Read custom

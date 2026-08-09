@@ -1,11 +1,11 @@
 import { isDenseArray, optionOverridesAt } from "./runtime-option-validation.js";
+import type { SectionMoveDestination } from "./section-move-planning.js";
 import {
   WORKSPACE_DOCUMENT_SCHEMA_VERSION,
   type WorkspaceDocument,
   type WorkspaceFreeformChildLayout,
   type WorkspaceJsonValue,
   type WorkspacePoint,
-  type WorkspaceRootSection,
   type WorkspaceSection,
 } from "./workspace-document-contract.js";
 import {
@@ -146,13 +146,19 @@ export type WorkspaceClipboardCloneResult<TSectionData> =
     }>;
 
 export type WorkspaceClipboardPlacementInput = Readonly<{
+  destination: Readonly<{
+    parentId: string | null;
+    placement:
+      | Readonly<{ index: number; type: "ordered" }>
+      | Readonly<{ position: WorkspacePoint; type: "freeform" }>;
+  }>;
+  existingRects: readonly WorkspaceClipboardRect[];
   grid: readonly [number, number] | null;
-  preferredPosition: WorkspacePoint;
-  rootRects: readonly WorkspaceClipboardRect[];
 }>;
 
 export type WorkspaceClipboardPlacedSections<TSectionData> = Readonly<{
-  rootSections: readonly WorkspaceRootSection[];
+  destination: SectionMoveDestination;
+  rootSectionIds: readonly string[];
   sections: Readonly<Record<string, WorkspaceSection<TSectionData>>>;
 }>;
 
@@ -731,22 +737,52 @@ export function placeWorkspaceClipboardSections<TSectionData>(
   paste: WorkspaceClipboardMaterialized<TSectionData>,
   input: WorkspaceClipboardPlacementInput,
 ): WorkspaceClipboardPlacedSections<TSectionData> {
-  const preferred = pointAt(input.preferredPosition, "Workspace clipboard preferred position");
-  const rootRects = input.rootRects.map((rect, index) =>
-    rectAt(rect, `Workspace clipboard existing root at index ${String(index)}`),
+  const rootSectionIds = paste.roots.map(({ sectionId }) => sectionId);
+  if (input.destination.placement.type === "ordered") {
+    if (
+      input.destination.parentId === null ||
+      !Number.isInteger(input.destination.placement.index) ||
+      input.destination.placement.index < 0
+    ) {
+      throw new TypeError("Workspace clipboard ordered placement is invalid.");
+    }
+    return {
+      destination: {
+        parentId: input.destination.parentId,
+        placement: { index: input.destination.placement.index, type: "ordered" },
+      },
+      rootSectionIds,
+      sections: paste.sections,
+    };
+  }
+  const preferred = pointAt(
+    input.destination.placement.position,
+    "Workspace clipboard preferred position",
+  );
+  const existingRects = input.existingRects.map((rect, index) =>
+    rectAt(rect, `Workspace clipboard existing section at index ${String(index)}`),
   );
   const block = blockBounds(paste.roots);
-  const candidates = placementCandidates(preferred, rootRects, block, input.grid);
+  const candidates = placementCandidates(preferred, existingRects, block, input.grid);
   const origin =
     candidates.find(
-      (candidate) => !rootRects.some((rect) => rectanglesOverlap(candidate, block, rect)),
+      (candidate) => !existingRects.some((rect) => rectanglesOverlap(candidate, block, rect)),
     ) ?? candidates.at(-1);
   if (!origin) throw new Error("Workspace clipboard placement did not produce a candidate.");
   return {
-    rootSections: paste.roots.map((root) => ({
-      position: { x: origin.x + root.position.x, y: origin.y + root.position.y },
-      sectionId: root.sectionId,
-    })),
+    destination: {
+      parentId: input.destination.parentId,
+      placement: {
+        positions: Object.fromEntries(
+          paste.roots.map((root) => [
+            root.sectionId,
+            { x: origin.x + root.position.x, y: origin.y + root.position.y },
+          ]),
+        ),
+        type: "freeform",
+      },
+    },
+    rootSectionIds,
     sections: paste.sections,
   };
 }

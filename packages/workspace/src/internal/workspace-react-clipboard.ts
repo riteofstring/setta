@@ -8,6 +8,7 @@ import type {
   WorkspaceDocument,
   WorkspacePoint,
 } from "../core.js";
+import { deriveWorkspaceParentLookup } from "../core.js";
 import type { WorkspaceCanvasController } from "./workspace-canvas-navigation.js";
 import {
   materializeWorkspaceClipboardClone,
@@ -16,6 +17,7 @@ import {
   readWorkspaceClipboardItem,
   workspaceClipboardCloneRequest,
   workspaceClipboardFrameDocument,
+  type WorkspaceClipboardMaterialized,
   type WorkspaceClipboardPlacedSections,
   type WorkspaceClipboardReadResult,
 } from "./workspace-clipboard.js";
@@ -35,9 +37,8 @@ type ClipboardStageRejection = Readonly<{
 
 type PendingWorkspacePaste<TSectionData> = Readonly<{
   focusSectionId: string;
-  rootSectionIds: readonly string[];
+  paste: WorkspaceClipboardPlacedSections<TSectionData>;
   sectionCount: number;
-  typedSections: WorkspaceClipboardPlacedSections<TSectionData>["sections"];
 }>;
 
 type PreparedWorkspacePaste<TSectionData> =
@@ -82,7 +83,7 @@ const clipboardRejectionText: Partial<Record<WorkspaceActionRejectionReason, str
   "clipboard-version-unsupported": "The copied sections use an unsupported clipboard version.",
   "clipboard-write-failed": "Unable to write the selected sections to the clipboard.",
   "section-geometry-unavailable":
-    "Wait for the selected sections to finish rendering, then copy them again.",
+    "Wait for workspace section geometry to finish rendering, then try again.",
   "section-id-exists": "Paste failed because the host returned a section ID already in use.",
   "structure-edit-disabled": "Paste is unavailable while structure editing is disabled.",
 };
@@ -92,20 +93,41 @@ function rejectionAnnouncement(reason: WorkspaceActionRejectionReason, detail?: 
   return detail && detail.trim().length > 0 ? `${base} ${detail}` : base;
 }
 
-function rootRects<TSectionData>(
+function existingPlacementRects<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   canvas: WorkspaceCanvasController,
+  parentSectionId: string | null,
 ) {
-  return document.rootSections.map((root) => {
-    const measured = canvas.getSectionRect(root.sectionId);
-    const section = document.sections[root.sectionId];
-    if (measured) return measured;
-    if (!section) throw new Error(`Workspace root ${root.sectionId} is missing its section.`);
+  if (parentSectionId === null) {
+    return document.rootSections.map((root) => {
+      const measured = canvas.getSectionRect(root.sectionId);
+      const section = document.sections[root.sectionId];
+      if (measured) return measured;
+      if (!section) throw new Error(`Workspace root ${root.sectionId} is missing its section.`);
+      return {
+        height: section.size.height.value,
+        width: section.size.width.value,
+        x: root.position.x,
+        y: root.position.y,
+      };
+    });
+  }
+  const layout = document.sections[parentSectionId]?.childLayout;
+  if (layout?.positioning !== "freeform") {
+    return [];
+  }
+  return layout.sectionIds.map((sectionId) => {
+    const position = layout.positions[sectionId];
+    const section = document.sections[sectionId];
+    if (!position || !section) {
+      throw new Error(`Workspace freeform child ${sectionId} is missing its placement.`);
+    }
+    const measured = canvas.getSectionRect(sectionId);
     return {
-      height: section.size.height.value,
-      width: section.size.width.value,
-      x: root.position.x,
-      y: root.position.y,
+      height: measured?.height ?? section.size.height.value,
+      width: measured?.width ?? section.size.width.value,
+      x: position.x,
+      y: position.y,
     };
   });
 }
@@ -189,6 +211,35 @@ async function requestAdapterClone<TSectionData>(
   }
 }
 
+function placeMaterializedWorkspaceClipboard<TSectionData>({
+  canvas,
+  document,
+  grid,
+  materialized,
+  preferredPosition,
+}: Readonly<{
+  canvas: WorkspaceCanvasController;
+  document: WorkspaceDocument<TSectionData>;
+  grid: ResolvedWorkspaceGridOptions;
+  materialized: WorkspaceClipboardMaterialized<TSectionData>;
+  preferredPosition: WorkspacePoint;
+}>): WorkspaceClipboardPlacedSections<TSectionData> | null {
+  const candidate = canvas.resolveInsertionCandidate(preferredPosition);
+  if (!candidate) return null;
+  const existingRects =
+    candidate.placement.type === "freeform"
+      ? existingPlacementRects(document, canvas, candidate.parentSectionId)
+      : [];
+  return placeWorkspaceClipboardSections(materialized, {
+    destination: {
+      parentId: candidate.parentSectionId,
+      placement: candidate.placement,
+    },
+    existingRects,
+    grid: grid.snap ? grid.spacing : null,
+  });
+}
+
 async function prepareWorkspacePaste<TSectionData>({
   adapter,
   canvas,
@@ -224,34 +275,107 @@ async function prepareWorkspacePaste<TSectionData>({
     new Set(Object.keys(currentDocument.sections)),
   );
   if (materialized.status === "rejected") return materialized;
-  const grid = gridOptionsRef.current;
-  const paste = placeWorkspaceClipboardSections(materialized.paste, {
-    grid: grid.snap ? grid.spacing : null,
-    preferredPosition: preferredPlacementPoint(selectionRef.current, canvas, lastCanvasPoint),
-    rootRects: rootRects(currentDocument, canvas),
+  const preferredPosition = preferredPlacementPoint(selectionRef.current, canvas, lastCanvasPoint);
+  const paste = placeMaterializedWorkspaceClipboard({
+    canvas,
+    document: currentDocument,
+    grid: gridOptionsRef.current,
+    materialized: materialized.paste,
+    preferredPosition,
   });
-  const rootSectionIds = paste.rootSections.map(({ sectionId }) => sectionId);
-  const focusSectionId = rootSectionIds[0];
+  if (!paste) {
+    return { reason: "section-geometry-unavailable", status: "rejected" };
+  }
+  const focusSectionId = paste.rootSectionIds[0];
   if (!focusSectionId) return { reason: "clipboard-clone-invalid", status: "rejected" };
   return {
     paste,
     pending: {
       focusSectionId,
-      rootSectionIds,
+      paste,
       sectionCount: materialized.paste.sectionCount,
-      typedSections: paste.sections,
     },
     status: "ready",
   };
+}
+
+function orderedPasteAccepted<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  paste: WorkspaceClipboardPlacedSections<TSectionData>,
+): boolean {
+  const placement = paste.destination.placement;
+  const layout = paste.destination.parentId
+    ? document.sections[paste.destination.parentId]?.childLayout
+    : null;
+  return (
+    placement.type === "ordered" &&
+    layout?.positioning === "ordered" &&
+    paste.rootSectionIds.every(
+      (sectionId, offset) => layout.sectionIds[placement.index + offset] === sectionId,
+    )
+  );
+}
+
+function rootFreeformPasteAccepted<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  paste: WorkspaceClipboardPlacedSections<TSectionData>,
+): boolean {
+  const placement = paste.destination.placement;
+  if (placement.type !== "freeform") return false;
+  const roots = new Map(
+    document.rootSections.map(({ position, sectionId }) => [sectionId, position] as const),
+  );
+  return paste.rootSectionIds.every((sectionId) => {
+    const actual = roots.get(sectionId);
+    const expected = placement.positions[sectionId];
+    return actual?.x === expected?.x && actual?.y === expected?.y;
+  });
+}
+
+function nestedFreeformPasteAccepted<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  paste: WorkspaceClipboardPlacedSections<TSectionData>,
+  parentId: string,
+): boolean {
+  const placement = paste.destination.placement;
+  if (placement.type !== "freeform") return false;
+  const layout = document.sections[parentId]?.childLayout;
+  return (
+    layout?.positioning === "freeform" &&
+    paste.rootSectionIds.every((sectionId) => {
+      const actual = layout.positions[sectionId];
+      const expected = placement.positions[sectionId];
+      return actual?.x === expected?.x && actual?.y === expected?.y;
+    })
+  );
+}
+
+function pastedPositionsAccepted<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  paste: WorkspaceClipboardPlacedSections<TSectionData>,
+): boolean {
+  if (paste.destination.placement.type === "ordered") {
+    return orderedPasteAccepted(document, paste);
+  }
+  return paste.destination.parentId === null
+    ? rootFreeformPasteAccepted(document, paste)
+    : nestedFreeformPasteAccepted(document, paste, paste.destination.parentId);
 }
 
 function pastedSectionsAccepted<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   pending: PendingWorkspacePaste<TSectionData>,
 ): boolean {
-  const rootIds = new Set(document.rootSections.map(({ sectionId }) => sectionId));
-  if (pending.rootSectionIds.some((sectionId) => !rootIds.has(sectionId))) return false;
-  return Object.entries(pending.typedSections).every(([sectionId, expected]) => {
+  const parents = deriveWorkspaceParentLookup(document);
+  if (
+    pending.paste.rootSectionIds.some(
+      (sectionId) => (parents.get(sectionId) ?? null) !== pending.paste.destination.parentId,
+    ) ||
+    !pastedPositionsAccepted(document, pending.paste)
+  ) {
+    return false;
+  }
+  return Object.entries(pending.paste.sections).every(([sectionId, expected]) => {
     const actual = document.sections[sectionId];
     return actual !== undefined && JSON.stringify(actual) === JSON.stringify(expected);
   });
@@ -380,7 +504,7 @@ export function useWorkspaceClipboardCoordinator<TSectionData>({
       setAnnouncement("Paste was not accepted by the controlled host. The workspace is unchanged.");
       return;
     }
-    commitSelection(pending.rootSectionIds);
+    commitSelection(pending.paste.rootSectionIds);
     setAnnouncement(`Pasted ${countText(pending.sectionCount, "section")} in one change.`);
     void canvasControllerRef.current?.focusSelectionControlWhenReady(pending.focusSectionId);
   }, [canvasControllerRef, commitSelection, document, revision]);

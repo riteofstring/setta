@@ -397,6 +397,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     onCanvasControllerChange,
     onDetach: cancelCanvasInteractions,
     onViewportCommit,
+    resolveInsertionCandidate: externalDrop.resolveCandidate,
     revealSection: viewportCulling.revealSection,
   });
   const completeViewport = interaction.completeViewport;

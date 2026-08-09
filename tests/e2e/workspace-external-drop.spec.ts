@@ -82,6 +82,10 @@ test("generic external drops expose feedback and hand accepted data to the host"
     "data-workspace-external-drop-valid",
     "true",
   );
+  await expect(page.locator('[data-workspace-external-drop-target="canvas"]')).toHaveAttribute(
+    "data-workspace-external-drop-placement",
+    "freeform",
+  );
   const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
   expect(accessibility.violations).toEqual([]);
   await expect(page.locator("[data-setta-workspace]")).toHaveScreenshot(
@@ -99,7 +103,7 @@ test("generic external drops expose feedback and hand accepted data to the host"
   await expect(canvas).toHaveAttribute("data-workspace-external-drop-state", "idle");
   await expect(page.locator(".announcement")).toContainText(EXTERNAL_SAMPLE_MIME);
   await expect(page.locator(".announcement")).toContainText("with 1 file");
-  await expect(page.locator(".announcement")).toContainText("on the canvas at index 0");
+  await expect(page.locator(".announcement")).toContainText("on the canvas at position");
   const importedBox = await imported.boundingBox();
   if (!importedBox) {
     throw new Error("Imported section must have browser geometry.");

@@ -78,7 +78,7 @@ function commandCapability(
   if (
     command.type === "create-root-section" ||
     command.type === "delete-sections" ||
-    command.type === "paste-root-sections"
+    command.type === "paste-sections"
   ) {
     return "editStructure";
   }
@@ -836,7 +836,7 @@ type WorkspaceRootDocumentCommand<TSectionData> = Extract<
     type:
       | "create-root-section"
       | "move-root-sections"
-      | "paste-root-sections"
+      | "paste-sections"
       | "resize-root-section"
       | "set-viewport"
       | "stack-root-sections";
@@ -869,7 +869,7 @@ function isRootDocumentCommand<TSectionData>(
   return (
     command.type === "create-root-section" ||
     command.type === "move-root-sections" ||
-    command.type === "paste-root-sections" ||
+    command.type === "paste-sections" ||
     command.type === "resize-root-section" ||
     command.type === "stack-root-sections" ||
     command.type === "set-viewport"
@@ -886,7 +886,7 @@ function applyRootDocumentCommand<TSectionData>(
   if (command.type === "create-root-section") {
     return applyRootCreation(document, command.section, command.position);
   }
-  if (command.type === "paste-root-sections") {
+  if (command.type === "paste-sections") {
     const result = applyWorkspaceClipboardPaste(document, command.paste);
     return result.status === "applied"
       ? applied(result.document, "section-paste")

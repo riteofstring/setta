@@ -64,7 +64,9 @@ same-parent freeform movement path updates only the moved position entries and p
 stacking order. Structural movement and grouping use measured destination-local positions inside a
 freeform parent. Moving, grouping, ungrouping, or deleting children replaces the exact position map
 atomically, so removed children leave no stale keys; clipboard cloning remaps position keys with the
-cloned child IDs.
+cloned child IDs. Paste resolves the deepest eligible parent at the meaningful canvas point,
+preserves the copied root block's offsets, and derives either one ordered insertion index or one
+destination-local freeform position per pasted root.
 
 ## Orientation and logical order
 

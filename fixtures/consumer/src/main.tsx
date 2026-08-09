@@ -247,7 +247,13 @@ const validateSectionMove: WorkspaceSectionMoveValidator = ({ plan }) =>
   plan.destination.parentId === "reserved"
     ? { allowed: false, reason: "The consumer reserves this container." }
     : { allowed: true };
-const onExternalDrop: WorkspaceExternalDropHandler = () => undefined;
+const onExternalDrop: WorkspaceExternalDropHandler = ({ candidate }) => {
+  const placementDescription =
+    candidate.placement.type === "ordered"
+      ? `index-${String(candidate.placement.index)}`
+      : `position-${String(candidate.placement.position.x)}-${String(candidate.placement.position.y)}`;
+  document.documentElement.dataset.consumerExternalDropPlacement = placementDescription;
+};
 const validateExternalDrop: WorkspaceExternalDropValidator = ({ event }) =>
   event.dataTransferTypes.includes("application/x-consumer-section")
     ? { allowed: true, label: "Import consumer section" }

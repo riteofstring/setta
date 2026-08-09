@@ -1,5 +1,10 @@
-import type { WorkspaceDocument, WorkspaceJsonValue, WorkspacePoint } from "../core.js";
-import type { WorkspaceGeometryIndex } from "./geometry-index.js";
+import type {
+  WorkspaceChildLayout,
+  WorkspaceDocument,
+  WorkspaceJsonValue,
+  WorkspacePoint,
+} from "../core.js";
+import type { WorkspaceGeometryIndex, WorkspaceRect } from "./geometry-index.js";
 import { optionOverridesAt } from "./runtime-option-validation.js";
 import type {
   WorkspaceExternalDropCandidate,
@@ -8,6 +13,12 @@ import type {
 import type { WorkspaceSectionRegistry } from "./workspace-section-registry.js";
 
 const decisionKeys = ["allowed", "label", "reason"] as const;
+
+export type WorkspaceExternalDropFreeformRegion = Readonly<{
+  parentSectionId: string;
+  surfaceWorkspaceRect: WorkspaceRect;
+  workspaceRect: WorkspaceRect;
+}>;
 
 function insertionIndexForParent<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
@@ -40,17 +51,74 @@ function insertionIndexForParent<TSectionData>(
 function containingParent<TSectionData>(
   document: WorkspaceDocument<TSectionData>,
   geometryIndex: WorkspaceGeometryIndex,
+  freeformRegions: readonly WorkspaceExternalDropFreeformRegion[],
   registry: WorkspaceSectionRegistry<TSectionData>,
   position: WorkspacePoint,
 ): string | null {
   for (const frame of geometryIndex.framesAt(position)) {
-    const section = document.sections[frame.sectionId];
-    const definition = section ? registry.definition(section.kind) : undefined;
-    if (section?.childLayout?.positioning === "ordered" && definition?.canContainSections) {
-      return section.id;
+    const layout = containingLayout(document, registry, frame.sectionId);
+    if (!layout) {
+      continue;
+    }
+    if (layout.positioning === "ordered") {
+      return frame.sectionId;
+    }
+    if (freeformParentContains(frame.sectionId, freeformRegions, position)) {
+      return frame.sectionId;
     }
   }
   return null;
+}
+
+function containingLayout<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  registry: WorkspaceSectionRegistry<TSectionData>,
+  sectionId: string,
+): WorkspaceChildLayout | null {
+  const section = document.sections[sectionId];
+  if (!section) return null;
+  const definition = registry.definition(section.kind);
+  if (!definition?.canContainSections) return null;
+  return section.childLayout;
+}
+
+function freeformParentContains(
+  parentSectionId: string,
+  regions: readonly WorkspaceExternalDropFreeformRegion[],
+  position: WorkspacePoint,
+): boolean {
+  const region = regions.find((candidate) => candidate.parentSectionId === parentSectionId);
+  if (!region) {
+    throw new Error(`External-drop freeform geometry for ${parentSectionId} is unavailable.`);
+  }
+  return pointInsideRect(position, region.workspaceRect);
+}
+
+function pointInsideRect(point: WorkspacePoint, rect: WorkspaceRect): boolean {
+  return (
+    point.x >= rect.x &&
+    point.x <= rect.x + rect.width &&
+    point.y >= rect.y &&
+    point.y <= rect.y + rect.height
+  );
+}
+
+function freeformPosition(
+  parentSectionId: string | null,
+  freeformRegions: readonly WorkspaceExternalDropFreeformRegion[],
+  position: WorkspacePoint,
+): WorkspacePoint {
+  if (parentSectionId === null) {
+    return Object.freeze({ ...position });
+  }
+  const region = freeformRegions.find((candidate) => candidate.parentSectionId === parentSectionId);
+  if (!region) {
+    throw new Error(`External-drop freeform geometry for ${parentSectionId} is unavailable.`);
+  }
+  return Object.freeze({
+    x: Math.max(0, position.x - region.surfaceWorkspaceRect.x),
+    y: Math.max(0, position.y - region.surfaceWorkspaceRect.y),
+  });
 }
 
 export function resolveWorkspaceExternalDropCandidate<TSectionData = WorkspaceJsonValue>(
@@ -58,14 +126,34 @@ export function resolveWorkspaceExternalDropCandidate<TSectionData = WorkspaceJs
   geometryIndex: WorkspaceGeometryIndex,
   registry: WorkspaceSectionRegistry<TSectionData>,
   position: WorkspacePoint,
+  freeformRegions: readonly WorkspaceExternalDropFreeformRegion[],
 ): WorkspaceExternalDropCandidate {
-  const parentSectionId = containingParent(document, geometryIndex, registry, position);
+  const parentSectionId = containingParent(
+    document,
+    geometryIndex,
+    freeformRegions,
+    registry,
+    position,
+  );
+  const childLayout = parentSectionId ? document.sections[parentSectionId]?.childLayout : null;
   return Object.freeze({
-    insertionIndex:
-      parentSectionId === null
-        ? document.rootSections.length
-        : insertionIndexForParent(document, geometryIndex, parentSectionId, position),
     parentSectionId,
+    placement: Object.freeze(
+      childLayout?.positioning === "ordered"
+        ? {
+            index: insertionIndexForParent(
+              document,
+              geometryIndex,
+              parentSectionId as string,
+              position,
+            ),
+            type: "ordered" as const,
+          }
+        : {
+            position: freeformPosition(parentSectionId, freeformRegions, position),
+            type: "freeform" as const,
+          },
+    ),
   });
 }
 

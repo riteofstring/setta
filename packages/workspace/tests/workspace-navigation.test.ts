@@ -48,6 +48,7 @@ function canvasController(focused: string[], revealEvents: string[]): WorkspaceC
     getSectionRect: () => undefined,
     getVisibleWorkspaceRect: () => ({ height: 600, width: 800, x: 0, y: 0 }),
     recoverFocus: vi.fn(async () => false),
+    resolveInsertionCandidate: () => null,
     revealSection: (sectionId) => {
       revealEvents.push(`reveal ${sectionId}`);
       return () => revealEvents.push(`release ${sectionId}`);
@@ -143,10 +144,14 @@ describe("workspace geometry navigation controller", () => {
     [{ padding: null }, "Workspace fit padding must be a finite non-negative number"],
     [{ unknown: true }, "Unknown workspace fit option unknown"],
   ])("rejects malformed fit policy %# before measuring geometry", async (options, message) => {
-    const controller = createWorkspaceCanvasController({} as WorkspaceGeometryMeasurements, () => ({
-      maxZoom: 2,
-      minZoom: 0.5,
-    }));
+    const controller = createWorkspaceCanvasController(
+      {} as WorkspaceGeometryMeasurements,
+      () => ({
+        maxZoom: 2,
+        minZoom: 0.5,
+      }),
+      { resolveInsertionCandidate: () => null },
+    );
 
     await expect(
       controller.fitSections(["alpha"], options as unknown as { padding?: number }),

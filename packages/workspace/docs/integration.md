@@ -148,8 +148,12 @@ same application. Before `cloneSections` runs, the package validates the MIME an
 document structure, containment, dimensions, colors, and registered kinds. After cloning, it
 validates the complete ID mapping and JSON-safe payloads again before proposing a document, so no
 renderer mounts on an invalid or only partly cloneable frame. The default paste origin is the last
-meaningful canvas point, then the current measured selection, then the visible viewport; a pasted
-root block preserves its measured relative offsets and follows the active snap grid.
+meaningful canvas point, then the current measured selection, then the visible viewport. The
+deepest eligible destination receives the complete pasted block: ordered parents receive one
+insertion index, while the canvas and nested freeform parents receive collision-aware spatial
+positions in their own coordinate system. Spatial paste preserves measured root offsets, avoids
+existing direct siblings, follows the active snap grid, and never leaves a partial child list or
+stale freeform position key.
 
 ## Controlled and uncontrolled ownership
 
@@ -606,9 +610,11 @@ rule applies to `gridOptions.snap` and `onGridSnapChange`.
 
 `onExternalDrop` enables a generic browser boundary, not a file importer. The request includes the
 original `DataTransfer`, a safe metadata snapshot, client and workbench coordinates, and the deepest
-measured candidate parent plus orientation-aware insertion index. `validateExternalDrop` is an
-optional synchronous, side-effect-free preview policy that returns a labeled acceptance or a
-specific rejection.
+measured candidate parent plus a discriminated placement. Ordered parents receive
+`{ type: "ordered", index }`; the canvas and freeform parents receive
+`{ type: "freeform", position }`, with nested positions expressed as non-negative coordinates
+local to that parent's child surface. `validateExternalDrop` is an optional synchronous,
+side-effect-free preview policy that returns a labeled acceptance or a specific rejection.
 
 Read custom transfer strings or capture `File` references synchronously before starting
 asynchronous work. The host decides whether to create a section, import data, or reject the drop.

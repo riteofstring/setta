@@ -4,6 +4,7 @@ import type { WorkspaceFitOptions, WorkspacePoint, WorkspaceViewport } from "../
 import type { WorkspaceRect } from "./geometry-index.js";
 import { optionOverridesAt } from "./runtime-option-validation.js";
 import type { WorkspaceGeometryMeasurements } from "./workspace-geometry-service.js";
+import type { WorkspaceExternalDropCandidate } from "./workspace-react-contract.js";
 
 const WORKSPACE_DEFAULT_FIT_PADDING = 0.4;
 const fitOptionKeys = ["padding"] as const;
@@ -22,6 +23,7 @@ export type WorkspaceCanvasController = Readonly<{
   getSectionRect(sectionId: string): WorkspaceRect | undefined;
   getVisibleWorkspaceRect(): WorkspaceRect;
   recoverFocus(sectionId: string | null, focusAnchor: Element | null): Promise<boolean>;
+  resolveInsertionCandidate(position: WorkspacePoint): WorkspaceExternalDropCandidate | null;
   revealSection(sectionId: string): () => void;
   waitForViewport(viewport: WorkspaceViewport): Promise<boolean>;
   workspacePointToClient(point: WorkspacePoint): WorkspacePoint;
@@ -52,6 +54,11 @@ type WorkspaceZoomBounds = Readonly<{
   minZoom: number;
 }>;
 
+type WorkspaceCanvasControllerOptions = Readonly<{
+  resolveInsertionCandidate(position: WorkspacePoint): WorkspaceExternalDropCandidate | null;
+  revealSection?: (sectionId: string) => () => void;
+}>;
+
 function fitPadding(options: WorkspaceFitOptions | undefined): number {
   const record = optionOverridesAt(
     options,
@@ -69,10 +76,10 @@ function fitPadding(options: WorkspaceFitOptions | undefined): number {
 export function createWorkspaceCanvasController(
   geometry: WorkspaceGeometryMeasurements,
   getZoomBounds: () => WorkspaceZoomBounds,
-  forceRevealSection?: (sectionId: string) => () => void,
+  options: WorkspaceCanvasControllerOptions,
 ): WorkspaceCanvasController {
   const focusWhenReady = (sectionId: string, focus: () => Promise<boolean>): Promise<boolean> => {
-    const release = forceRevealSection?.(sectionId);
+    const release = options.revealSection?.(sectionId);
     const result = focus();
     return release ? result.finally(release) : result;
   };
@@ -113,7 +120,8 @@ export function createWorkspaceCanvasController(
     getSectionRect: (sectionId) => geometry.workspaceRect(sectionId),
     getVisibleWorkspaceRect: () => geometry.visibleWorkspaceRect(),
     recoverFocus: (sectionId, focusAnchor) => geometry.recoverFocus(sectionId, focusAnchor),
-    revealSection: forceRevealSection ?? (() => () => undefined),
+    resolveInsertionCandidate: options.resolveInsertionCandidate,
+    revealSection: options.revealSection ?? (() => () => undefined),
     waitForViewport: (viewport) => geometry.waitForViewport(viewport),
     workspacePointToClient: (point) => geometry.workspacePointToClient(point),
   };
