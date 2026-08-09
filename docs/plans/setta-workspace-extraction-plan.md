@@ -740,8 +740,21 @@ Phase 4 progress (2026-08-11):
   unrelated-consumer proof are green post-correction; the recorded playground suite, package
   suite, changed-scope gate, and supply-chain runs already postdate the last relevant code
   change and were not duplicated.
-- Remaining Phase 4 work: repeat the live main-Dict versus unrelated-item comparison and
-  obtain a renewed developer exit-gate decision.
+- Supervised live comparison rejected the fixture-size interpretation (2026-08-11): at the live
+  dark comparison, main's `552 x 352` recorded Dict measurement is the complete outer section,
+  while the playground's document dimensions describe the inner section surface to which the
+  package shell adds a 1 px border on every side. Supplying `552 x 352` therefore produced a
+  `554 x 354` outer item panel instead of `552 x 352`. The two-pixel width excess propagated into
+  a 552 px list-area width and a 258 px label column, while live main measured a 552 px outer
+  section, 550 px list-area width, 526 x 20 rows, and a 257 px label column. The renderer's
+  typography and divider already match main's measured 12/16 px semibold sans-serif labels,
+  12/16 px monospace values, and 1 px rgba(65,80,108,.3) dark divider; do not reopen those source
+  roles or the item interaction geometry. Correct the playground's inner fixture and registered
+  default to `550 x 350`, update the focused regression so it asserts the actual outer `552 x 352`
+  result and 550 → 257 px derivation rather than equating inner and outer dimensions, run the
+  narrow checks, and repeat the live comparison before requesting approval.
+- Remaining Phase 4 work: correct and audit the two-pixel fixture-size error, repeat the live
+  main-Dict versus unrelated-item comparison, and obtain a renewed developer exit-gate decision.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
