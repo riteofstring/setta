@@ -1,10 +1,13 @@
 import {
   ItemDndContext,
   registerSectionKinds,
+  setItemData,
+  TextValueEditor,
   WorkspaceItemList,
   type ItemRowRenderContext,
   type WorkspaceItem,
   type WorkspaceSection,
+  type WorkspaceSectionData,
 } from "@setta/workspace";
 import { useEffect, useRef } from "react";
 
@@ -39,14 +42,26 @@ function LeafSectionBody({ section }: { section: WorkspaceSection }) {
 // group flag in that data drives the parent-row layout, so an emptied group keeps its chrome.
 // The package owns the list-area shell (the named nested grid, scrolling, and row rhythm);
 // the host only places the area in the section grid and gives it a column to fill.
-function getItemField(item: WorkspaceItem, field: string): string | boolean | undefined {
+function getItemDataRecord(item: WorkspaceItem): { [key: string]: WorkspaceSectionData } {
   const data = item.data;
-  if (data === null || typeof data !== "object" || Array.isArray(data)) {
+  if (data === null || data === undefined || typeof data !== "object" || Array.isArray(data)) {
     throw new Error(`Item ${item.id} is missing its row data.`);
   }
-  const value = (data as Record<string, unknown>)[field];
+  return data;
+}
+
+function getItemField(item: WorkspaceItem, field: string): string | boolean | undefined {
+  const value = getItemDataRecord(item)[field];
   if (value !== undefined && typeof value !== "string" && typeof value !== "boolean") {
     throw new Error(`Item ${item.id} has a malformed ${field} field.`);
+  }
+  return value;
+}
+
+function getItemValue(item: WorkspaceItem): string {
+  const value = getItemField(item, "value");
+  if (typeof value !== "string") {
+    throw new Error(`Item ${item.id} is missing its string value.`);
   }
   return value;
 }
@@ -59,19 +74,23 @@ function isGroupItem(item: WorkspaceItem): boolean {
 // `/settings` Dict's label and value roles. Labels carry the reference `ParamTextLabel`
 // treatment verbatim (12/16 px semibold sans-serif in setta-800/200 with the reference's
 // 0.125 rem vertical padding); its click-to-focus affordance stays application-side with the
-// input it focuses. Values reproduce the live idle Dict text-value metrics from the Phase 4
-// gate: 12/16 px regular monospace with normal numerals (the reference value class carries no
-// weight or numeral utility), bottom-aligned in the value column, colored with the reference
-// CodeMirror GitHub theme foregrounds (#24292e light, #c9d1d9 dark — theme colors, not setta
-// palette slots), and the empty self-end span draws the reference's subtle value-column
-// divider. The reference's CodeMirror editing surface and syntax coloring stay
-// application-side; the playground renders opaque value strings.
+// input it focuses. Values mount the package's built-in text value editor from the
+// item-controls milestone: the idle Lezer-highlighted dummy at the accepted Phase 4 metrics,
+// the live CodeMirror swap, and the value-column divider with its focus treatment all live in
+// the control. The playground declares the reference settings surface's language (python, the
+// generated `configLanguage` default) and owns persistence: each reported change commits back
+// into this host's opaque item data through the `setItemData` funnel, with no validation —
+// the reference's debounced transport and backend paths have no playground equivalent.
 const ITEM_LABEL_CLASS_NAME =
   "truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200";
-const ITEM_VALUE_CLASS_NAME =
-  "section-value self-end break-words py-[.125rem] font-mono text-xs text-[#24292e] dark:text-[#c9d1d9]";
-const ITEM_VALUE_DIVIDER_CLASS_NAME =
-  "section-value self-end border-b border-setta-200/50 dark:border-setta-600/30";
+const ITEM_VALUE_LANGUAGE = "python";
+
+function commitItemValue(context: ItemRowRenderContext, nextValue: string) {
+  setItemData(context.sectionId, context.item.id, {
+    ...getItemDataRecord(context.item),
+    value: nextValue,
+  });
+}
 
 function ItemRowContent({ context }: { context: ItemRowRenderContext }) {
   const label = getItemField(context.item, "label");
@@ -85,8 +104,13 @@ function ItemRowContent({ context }: { context: ItemRowRenderContext }) {
       <div className="section-key overflow-hidden">
         <p className={ITEM_LABEL_CLASS_NAME}>{label}</p>
       </div>
-      <p className={ITEM_VALUE_CLASS_NAME}>{getItemField(context.item, "value")}</p>
-      <span className={ITEM_VALUE_DIVIDER_CLASS_NAME} />
+      <TextValueEditor
+        sectionId={context.sectionId}
+        itemId={context.item.id}
+        value={getItemValue(context.item)}
+        language={ITEM_VALUE_LANGUAGE}
+        onValueChange={(nextValue) => commitItemValue(context, nextValue)}
+      />
     </>
   );
 }

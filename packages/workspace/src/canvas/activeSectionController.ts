@@ -11,11 +11,18 @@ import { setZIndices } from "../document/sectionZIndices";
 import { useWorkspaceDocument } from "../document/stores";
 import { useReactFlow } from "./store";
 
-// The reference controller also carries app-only intents (input-focus, go-to) and backend-sync
-// options. Its param-toggle intents carry a `hasSelectedParams` the policy never reads; the
-// package item toggles drop it.
+// The reference controller also carries the app-only go-to intent and backend-sync options.
+// Its param-toggle intents carry a `hasSelectedParams` the policy never reads; the package
+// item toggles drop it.
 type SectionClickIntent = {
   interaction: "section-click";
+  sectionId: string;
+};
+
+// The reference's input-focus intent, package-owned since the built-in controls arrived:
+// activating an editing control activates and raises its section.
+type InputFocusIntent = {
+  interaction: "input-focus";
   sectionId: string;
 };
 
@@ -34,7 +41,7 @@ type ItemToggleIntent = {
 };
 
 export type ActiveSectionIntent =
-  SectionClickIntent | PaneClickIntent | SelectionRectIntent | ItemToggleIntent;
+  SectionClickIntent | InputFocusIntent | PaneClickIntent | SelectionRectIntent | ItemToggleIntent;
 
 type ActiveSectionControllerResult = ActiveSectionPolicyResult & {
   activeIdsChanged: boolean;
@@ -57,6 +64,13 @@ function buildPolicyContext(
         intent.sectionId,
       ),
       multiSelectionActive,
+    };
+  }
+  if (intent.interaction === "input-focus") {
+    return {
+      interaction: "input-focus",
+      activeIds,
+      sectionId: intent.sectionId,
     };
   }
   if (intent.interaction === "pane-click") {
@@ -93,7 +107,10 @@ export function applyActiveSectionChange(
 
   setActiveSectionIds(decision.nextActiveIds);
 
-  if (decision.updateZIndex && intent.interaction === "section-click") {
+  if (
+    decision.updateZIndex &&
+    (intent.interaction === "section-click" || intent.interaction === "input-focus")
+  ) {
     setZIndices([getHighestAncestor(intent.sectionId)]);
   }
 

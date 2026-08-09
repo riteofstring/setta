@@ -934,6 +934,27 @@ Phase 4 progress (2026-08-11):
   delta, so the idle pixels are also the disabled visual reference. The temporary reference
   project was removed after capture. The implementation batches may now begin; the later package
   live-comparison and explicit developer-acceptance gate remain open.
+- Item-controls text value editor batch complete (2026-08-12): the first implementation batch
+  landed the package `TextValueEditor` — the reference's two-layer `TextInputCodeMirror` at the
+  `ParamUI` text presentation: the Lezer-highlighted idle dummy (with placeholder form), the
+  mouse-down-capture/tab-focus swap to the live CodeMirror editor over the GitHub idle themes and
+  common settings, the accepted override class strings, single-line versus wrapped modes,
+  Escape-returns-to-section, per-document-change reporting through the controlled string seam,
+  the value-column divider's `peer-focus-within` focus treatment, the host-declared language from
+  the reference's parser set, and interaction-first disabling from the host flag plus item-select
+  mode. Supporting seams: the reference's `input-focus` active-section intent became
+  package-owned (policy + controller + characterization), and the `setItemData` funnel gives
+  hosts canonical opaque-data persistence behind control change callbacks. The playground's text
+  rows replaced their display-only value role with the control (python, the reference settings
+  surface's language default); its presentation regression now freezes the control-mounted
+  rendering. Dependency pins follow the reference except two supply-chain-forced moves:
+  `@codemirror/state 6.7.1` and `@codemirror/view 6.43.8` (the transitive `^6` ranges resolve
+  there, the reference's 6.4.1/6.29.1 pins would split CodeMirror into two runtime instances,
+  and the dependency policy rejects overrides); the supply-chain gate reran green. Test-runner
+  note: the exports-map-less `@uiw` packages are aliased to their ESM entries in both vitest
+  configs so tests keep the browser build's single-instance module graph. Remaining batches:
+  switch and color picker; dropdown; name editor; then the live comparison and the explicit
+  developer-acceptance exit gate.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

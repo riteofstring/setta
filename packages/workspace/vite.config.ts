@@ -18,5 +18,18 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.{ts,tsx}"],
     setupFiles: ["./vitest.setup.ts"],
+    // The @uiw packages ship no `exports` map, so the test runner's node-style resolution
+    // (no mainFields) lands on their CJS mains and natively requires them — dragging in CJS
+    // copies of the `@codemirror/*` packages while package sources import the ESM builds.
+    // Two module instances of the same versions break CodeMirror's extension instanceof
+    // checks. Aliasing the @uiw entries to their ESM files keeps tests on the single-instance
+    // ESM graph the browser build produces; `test.alias` never touches the build output.
+    alias: {
+      "@uiw/react-codemirror": "@uiw/react-codemirror/esm/index.js",
+      "@uiw/codemirror-theme-github": "@uiw/codemirror-theme-github/esm/index.js",
+      "@uiw/codemirror-themes": "@uiw/codemirror-themes/esm/index.js",
+      "@uiw/codemirror-extensions-basic-setup":
+        "@uiw/codemirror-extensions-basic-setup/esm/index.js",
+    },
   },
 });

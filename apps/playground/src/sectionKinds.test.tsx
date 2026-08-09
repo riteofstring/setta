@@ -9,21 +9,33 @@ import { ItemListSectionBody, registerPlaygroundSectionKinds } from "./sectionKi
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-// The host-owned presentation regression from the Phase 4 presentation-parity correction: the
-// package leaves opaque item contents to this renderer, so the reference's label and value
-// roles — 12/16 px semibold sans-serif labels in setta-800/200 with the reference padding,
-// 12/16 px regular monospace values with normal numerals in the reference CodeMirror GitHub
-// theme foregrounds (#24292e light, #c9d1d9 dark, the live idle Dict text-value metrics from
-// the Phase 4 gate), the subtle value-column divider, and the default half-width column split
-// through `--param-column-width` — are this host's contract, frozen here as literal
-// expectations independent of the renderer's constants.
+// The host-owned presentation regression from the Phase 4 presentation-parity correction,
+// amended by the item-controls milestone: labels stay this host's contract (12/16 px semibold
+// sans-serif in setta-800/200 with the reference padding), while the value role now mounts
+// the package's built-in text value editor — the Lezer-highlighted idle dummy at the
+// reference's monospace treatment plus the value-column divider with its focus paint. The
+// host wires the control to its opaque item data with the reference settings surface's
+// python language, so the idle layer must highlight and carry the host-addressable dummy id.
 
 const REFERENCE_LABEL_CLASS_NAME =
   "truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200";
-const REFERENCE_VALUE_CLASS_NAME =
-  "section-value self-end break-words py-[.125rem] font-mono text-xs text-[#24292e] dark:text-[#c9d1d9]";
+const REFERENCE_VALUE_DUMMY_CLASSES = [
+  "nopan",
+  "nodrag",
+  "section-value",
+  "self-end",
+  "peer/textinput",
+  "cursor-text",
+  "select-text",
+  "break-words",
+  "font-mono",
+  "text-xs",
+  "[tab-size:4]",
+  "[word-break:break-word]",
+  "py-[.125rem]",
+];
 const REFERENCE_VALUE_DIVIDER_CLASS_NAME =
-  "section-value self-end border-b border-setta-200/50 dark:border-setta-600/30";
+  "section-value self-end border-b border-setta-200/50 dark:border-setta-600/30 peer-focus-within/textinput:border-blue-400";
 
 // Live main's complete outer `/settings` Dict measurement and the package shell border that
 // separates it from the inner surface the document and registered default describe.
@@ -98,17 +110,23 @@ describe("the playground item renderer presentation contract", () => {
     observedResizeTargets.clear();
   });
 
-  it("renders leaf rows with the reference label, value, and divider treatments", () => {
+  it("renders leaf rows with the reference label and the built-in text value control", () => {
     const leafRow = findRowByLabel(container, "alpha");
     const label = leafRow.querySelector<HTMLElement>(".section-key > p");
-    const value = leafRow.querySelector<HTMLElement>("p.section-value");
+    const value = leafRow.querySelector<HTMLElement>('[role="textbox"]');
     const divider = leafRow.querySelector<HTMLElement>("span.section-value");
     if (!label || !value || !divider) {
       throw new Error("The leaf row is missing its label, value, or divider element.");
     }
     expect(label.className).toBe(REFERENCE_LABEL_CLASS_NAME);
-    expect(value.className).toBe(REFERENCE_VALUE_CLASS_NAME);
+    // The control's idle dummy layer carries the reference value treatment, the
+    // host-addressable id, and the python Lezer highlight for the numeric value.
+    expect(value.id).toBe("item-panel-item-alpha-ItemValueInput");
     expect(value.textContent).toBe("0.001");
+    for (const dummyClass of REFERENCE_VALUE_DUMMY_CLASSES) {
+      expect(value.classList.contains(dummyClass)).toBe(true);
+    }
+    expect(value.querySelector(".cm-line span")?.className).toMatch(/ͼ/);
     expect(divider.className).toBe(REFERENCE_VALUE_DIVIDER_CLASS_NAME);
   });
 

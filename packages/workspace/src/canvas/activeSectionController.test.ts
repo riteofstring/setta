@@ -70,6 +70,20 @@ describe("applyActiveSectionChange", () => {
     expect(nodes.get("group-a")?.zIndex).toBeGreaterThan(nodes.get("leaf-b")?.zIndex ?? 0);
   });
 
+  it("activates and raises the section when an editing control takes input focus", () => {
+    useActiveSections.setState({ activeIds: ["leaf-b"] });
+
+    const result = applyActiveSectionChange({
+      interaction: "input-focus",
+      sectionId: "child-a",
+    });
+
+    expect(result.activeIdsChanged).toBe(true);
+    expect(getActiveSectionIds()).toEqual(["child-a"]);
+    const nodes = useNodeInternals.getState().x;
+    expect(nodes.get("group-a")?.zIndex).toBeGreaterThan(nodes.get("leaf-b")?.zIndex ?? 0);
+  });
+
   it("toggles membership while the multi-selection key is held", () => {
     useReactFlow.setState({ multiSelectionActive: true });
     useActiveSections.setState({ activeIds: ["leaf-b"] });

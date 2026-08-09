@@ -34,6 +34,20 @@ describe("resolveActiveSectionChange", () => {
         reason: "selection-rect:update",
       },
     },
+    {
+      // The reference's input-focus branch: activating an editing control makes its section
+      // the single active section and raises it.
+      context: {
+        interaction: "input-focus",
+        activeIds: ["section-a", "section-b"],
+        sectionId: "section-c",
+      },
+      expected: {
+        nextActiveIds: ["section-c"],
+        updateZIndex: true,
+        reason: "input-focus:set-active",
+      },
+    },
   ])("handles simple policy branches for %o", ({ context, expected }) => {
     expect(resolveActiveSectionChange(context)).toEqual(expected);
   });

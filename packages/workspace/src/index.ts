@@ -10,6 +10,9 @@ export type {
 // consumers off deep canvas-internal import paths.
 export type { PanOnScrollMode, SelectionMode } from "./canvas/types";
 export { WorkspaceCanvas } from "./canvas/WorkspaceCanvas";
+export { TextValueEditor } from "./controls/text/TextValueEditor";
+export type { TextValueEditorProps } from "./controls/text/TextValueEditor";
+export type { TextValueLanguage } from "./controls/text/textValueLanguages";
 export { ItemDndContext } from "./dnd/ItemDndContext";
 export { useWorkspaceCapabilities } from "./document/capabilities";
 export type { WorkspaceCapabilitiesState } from "./document/capabilities";
@@ -19,6 +22,7 @@ export {
 } from "./document/documentChangeCallback";
 export type { WorkspaceDocumentChangeCallback } from "./document/documentChangeCallback";
 export { GROUP_SECTION_KIND } from "./document/documentSelectors";
+export { setItemData } from "./document/itemData";
 export {
   activateItemSelect,
   deactivateItemSelect,
