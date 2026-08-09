@@ -20,6 +20,8 @@ html.dark body {
   height: 100vh;
   padding: 1.5rem;
   box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .consumer-header {
@@ -44,11 +46,16 @@ html.dark .consumer-header {
   margin: 0;
 }
 
+.consumer-header button {
+  min-width: 0;
+}
+
 .consumer-workspace {
   display: flex;
   flex: 1;
   gap: 0.5rem;
   min-height: 0;
+  min-width: 0;
 }
 
 .consumer-toolbar {
@@ -61,6 +68,7 @@ html.dark .consumer-header {
 .consumer-canvas {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
   border: 1px solid hsl(219, 18%, 76%);
   border-radius: 0.5rem;
@@ -79,4 +87,37 @@ html.dark .consumer-canvas {
 
 html.dark .consumer-note-body {
   color: hsl(219, 14%, 68%);
+}
+
+@media (max-width: 60rem) {
+  .consumer-shell {
+    height: 100dvh;
+    padding: 1rem;
+  }
+
+  .consumer-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .consumer-header h1,
+  .consumer-header p {
+    flex-basis: 100%;
+  }
+
+  .consumer-header button {
+    min-height: 2.75rem;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 40rem) {
+  .consumer-shell {
+    padding: 0.5rem;
+  }
+
+  .consumer-workspace {
+    gap: 0.25rem;
+  }
 }

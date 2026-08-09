@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { RiDragDropFill } from "react-icons/ri";
 import { BehaviorDropTypeEnum, behaviorToPretty, type BehaviorDropType } from "../../dnd/dropTypes";
 import { DROP_FEEDBACK_Z_INDEX } from "../../dnd/layers";
+import { getElementTextDirection, type WorkspaceTextDirection } from "../../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
 import { useSectionRefs } from "../sectionRefs";
 
@@ -31,10 +32,11 @@ export function DndSlot({
 
   return (
     <>
-      {behaviorDropType && targetRect && (
+      {behaviorDropType && targetRect && target && (
         <DndSlotMiddle
           text={behaviorToPretty[behaviorDropType]}
           behaviorDropType={behaviorDropType}
+          direction={getElementTextDirection(target)}
           isGroup={isGroup}
           targetRect={targetRect}
         />
@@ -47,11 +49,13 @@ export function DndSlot({
 function DndSlotMiddle({
   text,
   behaviorDropType,
+  direction,
   isGroup,
   targetRect,
 }: {
   text: string;
   behaviorDropType: BehaviorDropType;
+  direction: WorkspaceTextDirection;
   isGroup: boolean;
   targetRect: DropIndicatorRect;
 }) {
@@ -62,6 +66,7 @@ function DndSlotMiddle({
         isGroup ? "[place-content:end_center]" : "place-content-center"
       }`}
       data-dnd-slot-overlay="true"
+      dir={direction}
       style={{
         position: "fixed",
         top: targetRect.top,
@@ -137,7 +142,7 @@ function DndSlotInner({
   const invalid = behaviorDropType === BehaviorDropTypeEnum.INVALID;
   return (
     <div
-      className={`grid h-8 min-w-60 select-none place-items-center rounded-full  text-sm font-bold uppercase tracking-widest text-white shadow-md backdrop-blur-sm transition-opacity ${
+      className={`grid h-8 min-w-60 select-none place-items-center rounded-full  text-sm font-bold uppercase tracking-widest text-white shadow-md backdrop-blur-sm motion-safe:transition-opacity ${
         invalid
           ? "[background-color:rgba(185,_28,_28,_0.65)]"
           : "[background-color:rgba(37,_99,_235,_0.8)]"

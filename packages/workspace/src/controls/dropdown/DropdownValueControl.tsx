@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi2";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "../../interaction";
+import { getElementTextDirection, type WorkspaceTextDirection } from "../../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
 import type { ComboboxItem, ComboboxItemGroup, OnSelectedItemChange } from "./comboboxStateReducer";
 import { useDropdownCombobox } from "./useDropdownCombobox";
@@ -41,16 +42,16 @@ const ITEM_SEARCH_WRAPPER_CLASS_NAME = `flex min-w-0 mx-[2px] items-center relat
 const META_OUTER_DIV_CLASS_NAME = `flex h-[20px] relative w-full min-w-0 flex-col items-stretch overflow-visible ${NO_DRAG_CLASS_NAME} section-value flex w-full justify-self-start self-center`;
 const META_SEARCH_WRAPPER_CLASS_NAME = `flex min-w-0 mx-[2px] items-center relative ${NO_DRAG_CLASS_NAME} dark:text-setta-200 !mx-0`;
 // The recorded pill presentation at the small size: rounded-full 12 px mono over the default
-// white/setta-900 field, 12 px left and 24 px right padding around the 16 px content height, and
-// the recorded 2 px blue focus-visible ring. The package-only reset marker recreates main's
+// white/setta-900 field, 12 px leading and 24 px trailing padding around the 16 px content height,
+// and the recorded 2 px blue focus-visible ring. The package-only reset marker recreates main's
 // global input reset without touching host-rendered inputs; its content-box geometry lets the
 // one-pixel authored borders produce main's recorded 18 px outer height.
 const INPUT_CLASS_NAME =
-  "setta-workspace-native-reset flex-grow truncate outline-0 cursor-auto rounded-full text-xs font-mono text-setta-600 font-medium pl-3 focus-visible:border-white hover:bg-white/50 hover:dark:bg-setta-950 dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-700/70 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 bg-white dark:bg-setta-900 pr-6 h-4 my-auto";
-const RIGHT_ADORNMENT_CLASS_NAME = "absolute inset-y-0 right-0 grid select-none place-items-center";
+  "setta-workspace-native-reset flex-grow truncate outline-0 cursor-auto rounded-full text-xs font-mono text-setta-600 font-medium ps-3 focus-visible:border-white hover:bg-white/50 hover:dark:bg-setta-950 dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-700/70 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 bg-white dark:bg-setta-900 pe-6 h-4 my-auto";
+const RIGHT_ADORNMENT_CLASS_NAME = "absolute inset-y-0 end-0 grid select-none place-items-center";
 // The reference `StandardSearchRightBtn` at the pill/small composition, verbatim (the trailing
-// right-1 rides along from the reference's pill class map even though the button is static).
-const TOGGLE_BUTTON_CLASS_NAME = `${NO_DRAG_CLASS_NAME} grid cursor-pointer place-items-center justify-center focus-visible:ring-2 bg-transparent text-setta-500 rounded-full p-0 h-4 w-4 hover:bg-blue-500 hover:text-white dark:text-setta-500 dark:hover:bg-blue-700 dark:hover:text-setta-100 right-1`;
+// end-1 rides along from the reference's pill class map even though the button is static).
+const TOGGLE_BUTTON_CLASS_NAME = `${NO_DRAG_CLASS_NAME} grid cursor-pointer place-items-center justify-center focus-visible:ring-2 bg-transparent text-setta-500 rounded-full p-0 h-4 w-4 hover:bg-blue-500 hover:text-white dark:text-setta-500 dark:hover:bg-blue-700 dark:hover:text-setta-100 end-1`;
 // The recorded pill/small chevron size.
 const TOGGLE_ICON_SIZE_PX = 10;
 const GROUP_HEADER_CLASS_NAME =
@@ -175,6 +176,7 @@ function DropdownCombobox({
         <div className={RIGHT_ADORNMENT_CLASS_NAME}>
           <button
             className={TOGGLE_BUTTON_CLASS_NAME}
+            data-setta-workspace-touch-target="compact"
             {...combobox.getToggleButtonProps({
               "aria-label": `${combobox.isOpen ? "Close" : "Open"} ${ariaLabel} choices`,
               disabled: isDisabled,
@@ -207,7 +209,12 @@ function DropdownComboboxList({
   inputRef: RefObject<HTMLInputElement | null>;
   children: ReactNode;
 }) {
-  const [listDims, setListDims] = useState({ x: 0, y: 0, width: 0 });
+  const [listDims, setListDims] = useState<{
+    direction: WorkspaceTextDirection;
+    inlineOffset: number;
+    y: number;
+    width: number;
+  }>({ direction: "ltr", inlineOffset: 0, y: 0, width: 0 });
   const workspaceScopeClassName = useWorkspaceScopeClassName();
   const display = combobox.isOpen ? "flex" : "hidden";
 
@@ -217,8 +224,10 @@ function DropdownComboboxList({
       // The reference positions the body-portaled list once per open: 30 px up from the
       // input's bottom edge, pushed back down 32 px by mt-8 — net 2 px below the pill.
       const yMargin = -30;
+      const direction = getElementTextDirection(inputRef.current);
       setListDims({
-        x: rect.left,
+        direction,
+        inlineOffset: direction === "rtl" ? window.innerWidth - rect.right : rect.left,
         y: rect.bottom + yMargin,
         width: rect.width,
       });
@@ -229,8 +238,10 @@ function DropdownComboboxList({
     <div
       className={`${workspaceScopeClassName} ${NO_WHEEL_CLASS_NAME} ${NO_DRAG_CLASS_NAME} absolute w-fit pb-2 ${display} z-[80] mt-8 max-h-96 rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50`}
       {...combobox.getMenuProps({ "aria-label": `${ariaLabel} choices` })}
+      dir={listDims.direction}
       style={{
-        left: `${listDims.x}px`,
+        left: listDims.direction === "ltr" ? `${listDims.inlineOffset}px` : undefined,
+        right: listDims.direction === "rtl" ? `${listDims.inlineOffset}px` : undefined,
         top: `${listDims.y}px`,
         minWidth: listDims.width,
       }}

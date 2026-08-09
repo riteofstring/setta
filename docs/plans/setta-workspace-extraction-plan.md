@@ -1476,6 +1476,31 @@ Phase 4 progress (2026-08-11):
   Remaining Phase 5 hardening is reduced motion, RTL, coarse pointer, 200% zoom, and narrow reflow,
   followed by performance measurement and the final matched developer comparison and gates. No
   accepted visual baseline was refreshed by this non-geometric batch.
+- Phase 5 adaptive-hardening implementation batch complete (2026-08-12): package CSS motion now
+  opts in only under `prefers-reduced-motion: no-preference`, retained sortable inline transitions
+  collapse under the reduced preference, and package-owned d3 fit/reset/center commands apply
+  immediately without leaving a transition timer. Language-facing chrome uses logical placement;
+  horizontal calendar and shared item-divider keys follow visual direction; and dropdown, color,
+  tooltip, error, and drop-feedback surfaces preserve a locally scoped RTL direction across their
+  portals. Canvas coordinates, resize edges, and the public physical minimap side keep their
+  serialized meaning. The item divider now uses pointer events for touch dragging at canvas zoom.
+  Coarse-pointer CSS separates accepted compact paint from transparent 24 px hit geometry, gives
+  the isolated rotary gesture 44 px, expands the existing resize strips without overlap, and keeps
+  package control groups separated. The minimap retains its accepted 200 x 150 maximum while
+  clamping to a narrow pane. Both standalone hosts leave browser zoom unrestricted, wrap their own
+  chrome at the 200% content breakpoint, and keep a min-size-zero canvas inside a compact 320 px
+  shell without page-level horizontal scrolling. The README documents motion ownership, RTL's
+  physical-versus-logical boundary, coarse-pointer behavior, and host reflow obligations; the
+  built-artifact boundary locks the new media queries and minimap clamp. Focused package coverage
+  passes across 21 files and 170 tests, with the final three directly touched files rerun green for
+  39 tests after static-gate refinements; the three affected playground files pass 21 tests.
+  Package and playground production builds, the strengthened built boundary, changed-file static
+  quality gate, and exact packed unrelated-consumer install/typecheck/build pass. The frozen
+  reference remains clean at `043d3b2e9`; no dependency changed, so the supply-chain gate was not
+  duplicated. This completes the repository implementation for the remaining adaptive hardening;
+  large-document performance measurement and the final broad gates remain. The required matched
+  live RTL/coarse/200%/320 comparison, explicit developer acceptance, and any accepted baseline
+  refresh remain at the final developer gate and are not claimed by these automated checks.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

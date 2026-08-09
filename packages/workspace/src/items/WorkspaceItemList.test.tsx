@@ -124,6 +124,18 @@ function getRowByContent(host: HTMLElement, itemId: string): HTMLElement {
   return row;
 }
 
+function createPointerEvent(
+  type: string,
+  init: MouseEventInit & { pointerId?: number; pointerType?: string } = {},
+): MouseEvent {
+  const event = new MouseEvent(type, init);
+  Object.defineProperties(event, {
+    pointerId: { value: init.pointerId ?? 1 },
+    pointerType: { value: init.pointerType ?? "mouse" },
+  });
+  return event;
+}
+
 describe("WorkspaceItemList", () => {
   let host: HTMLDivElement;
   let root: Root;
@@ -230,7 +242,7 @@ describe("WorkspaceItemList", () => {
     if (!firstHandle) {
       throw new Error("expected the first item-column handle");
     }
-    expect(firstHandle.className).toContain("-ml-2 flex w-4 cursor-col-resize");
+    expect(firstHandle.className).toContain("-ml-2 flex w-4 touch-none cursor-col-resize");
     expect(firstHandle.className).toContain("setta-prevent-section-active-css");
     expect(firstHandle.className).toContain("setta-prevent-arrow-keys-moving-section");
     expect(firstHandle.className).toContain("nopan nodrag");
@@ -268,20 +280,28 @@ describe("WorkspaceItemList", () => {
     }
     await act(async () => {
       handle.dispatchEvent(
-        new MouseEvent("mousedown", {
+        createPointerEvent("pointerdown", {
           bubbles: true,
           cancelable: true,
           clientX: 100,
           detail: 1,
+          pointerId: 7,
+          pointerType: "touch",
         }),
       );
-      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 140 }));
+      window.dispatchEvent(
+        createPointerEvent("pointermove", {
+          clientX: 140,
+          pointerId: 7,
+          pointerType: "touch",
+        }),
+      );
       await new Promise((resolve) => requestAnimationFrame(resolve));
     });
     expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("277px");
 
     await act(async () => {
-      window.dispatchEvent(new MouseEvent("mouseup"));
+      window.dispatchEvent(createPointerEvent("pointerup", { pointerId: 7 }));
     });
     expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(277);
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
@@ -318,7 +338,7 @@ describe("WorkspaceItemList", () => {
 
     await act(async () => {
       handle.dispatchEvent(
-        new MouseEvent("mousedown", {
+        createPointerEvent("pointerdown", {
           bubbles: true,
           cancelable: true,
           clientX: 140,
@@ -329,6 +349,52 @@ describe("WorkspaceItemList", () => {
     expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("312px");
     expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(312);
     expect(onDocumentChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("mirrors pointer and keyboard divider movement in rtl without changing column meaning", async () => {
+    await mount();
+
+    const listOuter = getListOuter();
+    const columnContainer = host.querySelector<HTMLElement>('[data-section-id="panel"]');
+    const handle = host.querySelector<HTMLButtonElement>('[data-item-column-resize-handle="true"]');
+    if (!columnContainer || !handle) {
+      throw new Error("expected the rtl item-column surface");
+    }
+    columnContainer.dir = "rtl";
+    act(() => resizeListOuter(listOuter, 550));
+
+    act(() => {
+      handle.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true, cancelable: true }),
+      );
+    });
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("267px");
+
+    await act(async () => {
+      handle.dispatchEvent(
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 140,
+          pointerId: 9,
+          pointerType: "touch",
+        }),
+      );
+      window.dispatchEvent(
+        createPointerEvent("pointermove", {
+          clientX: 120,
+          pointerId: 9,
+          pointerType: "touch",
+        }),
+      );
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("287px");
+
+    await act(async () => {
+      window.dispatchEvent(createPointerEvent("pointerup", { pointerId: 9 }));
+    });
+    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(287);
   });
 
   it("offers one keyboard path for the shared split without adding every row to tab order", async () => {
@@ -425,7 +491,7 @@ describe("WorkspaceItemList", () => {
     }
     expect(shell.className.trim()).toBe(
       "section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min content-start " +
-        "gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5",
+        "gap-y-1 overflow-x-clip overflow-y-scroll py-2 pe-1.5",
     );
     expect(shell.parentElement?.className).toBe(
       "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",

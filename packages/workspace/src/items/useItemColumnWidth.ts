@@ -4,12 +4,14 @@ import {
   useRef,
   type KeyboardEventHandler,
   type MouseEventHandler,
+  type PointerEventHandler,
   type RefObject,
 } from "react";
 import { useReactFlow } from "../canvas/store";
 import { getSectionItemTreeOrThrow } from "../document/documentSelectors";
 import { setItemColumnWidth } from "../document/itemColumnWidth";
 import { useWorkspaceDocument } from "../document/stores";
+import { getInlineDirectionSign } from "../styles/textDirection";
 import {
   calculateBoundedItemColumnWidth,
   getDeepestItemDepth,
@@ -19,8 +21,8 @@ import {
 } from "./itemColumnWidth";
 
 type DragListeners = {
-  move: ((event: MouseEvent) => void) | null;
-  up: (() => void) | null;
+  move: ((event: PointerEvent) => void) | null;
+  finish: ((event: PointerEvent) => void) | null;
 };
 
 type ItemColumnWidthState = {
@@ -31,7 +33,7 @@ type ItemColumnWidthState = {
 };
 
 type ItemColumnResizeHandlers = {
-  onColumnResizeStart: MouseEventHandler<HTMLButtonElement>;
+  onColumnResizeStart: PointerEventHandler<HTMLButtonElement>;
   onColumnResizeKeyDown: KeyboardEventHandler<HTMLButtonElement>;
   onColumnResizeClick: MouseEventHandler<HTMLButtonElement>;
 };
@@ -67,7 +69,7 @@ export function useItemColumnWidth(
     isDragging: false,
   });
   const animationFrameRef = useRef<number | null>(null);
-  const dragListenersRef = useRef<DragListeners>({ move: null, up: null });
+  const dragListenersRef = useRef<DragListeners>({ move: null, finish: null });
 
   const applyWidth = useCallback(
     (rawWidth: number) => {
@@ -168,10 +170,11 @@ export function useItemColumnWidth(
   useEffect(() => {
     return () => {
       if (dragListenersRef.current.move) {
-        window.removeEventListener("mousemove", dragListenersRef.current.move);
+        window.removeEventListener("pointermove", dragListenersRef.current.move);
       }
-      if (dragListenersRef.current.up) {
-        window.removeEventListener("mouseup", dragListenersRef.current.up);
+      if (dragListenersRef.current.finish) {
+        window.removeEventListener("pointerup", dragListenersRef.current.finish);
+        window.removeEventListener("pointercancel", dragListenersRef.current.finish);
       }
       if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -190,7 +193,7 @@ export function useItemColumnWidth(
     setItemColumnWidth(sectionId, getItemColumnCssWidth(rawWidth));
   }, [outerRef, sectionId, setNewWidth]);
 
-  const onColumnResizeStart = useCallback<MouseEventHandler<HTMLButtonElement>>(
+  const onColumnResizeStart = useCallback<PointerEventHandler<HTMLButtonElement>>(
     (event) => {
       event.preventDefault();
       const outer = outerRef.current;
@@ -214,15 +217,20 @@ export function useItemColumnWidth(
 
       const startX = event.clientX;
       const startWidth = widthRef.current.currentWidth;
+      const pointerId = event.pointerId;
+      const inlineDirectionSign = getInlineDirectionSign(event.currentTarget);
       widthRef.current.isDragging = true;
 
-      const handleMouseMove = (moveEvent: MouseEvent) => {
+      const handlePointerMove = (moveEvent: PointerEvent) => {
+        if (moveEvent.pointerId !== pointerId) {
+          return;
+        }
         if (animationFrameRef.current !== null) {
           cancelAnimationFrame(animationFrameRef.current);
         }
         animationFrameRef.current = requestAnimationFrame(() => {
           const scale = useReactFlow.getState().transform[2];
-          const delta = (moveEvent.clientX - startX) / scale;
+          const delta = ((moveEvent.clientX - startX) / scale) * inlineDirectionSign;
           const nextWidth = getBoundedWidth(startWidth + delta, containerWidth);
           widthRef.current.currentWidth = nextWidth;
           applyWidth(nextWidth);
@@ -230,10 +238,14 @@ export function useItemColumnWidth(
         });
       };
 
-      const handleMouseUp = () => {
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
-        dragListenersRef.current = { move: null, up: null };
+      const handlePointerFinish = (finishEvent: PointerEvent) => {
+        if (finishEvent.pointerId !== pointerId) {
+          return;
+        }
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerup", handlePointerFinish);
+        window.removeEventListener("pointercancel", handlePointerFinish);
+        dragListenersRef.current = { move: null, finish: null };
         if (animationFrameRef.current !== null) {
           cancelAnimationFrame(animationFrameRef.current);
           animationFrameRef.current = null;
@@ -246,9 +258,10 @@ export function useItemColumnWidth(
         setItemColumnWidth(sectionId, getItemColumnCssWidth(finalWidth));
       };
 
-      dragListenersRef.current = { move: handleMouseMove, up: handleMouseUp };
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
+      dragListenersRef.current = { move: handlePointerMove, finish: handlePointerFinish };
+      window.addEventListener("pointermove", handlePointerMove);
+      window.addEventListener("pointerup", handlePointerFinish);
+      window.addEventListener("pointercancel", handlePointerFinish);
     },
     [applyWidth, getBoundedWidth, outerRef, resetWidth, sectionId, setNewWidth],
   );
@@ -266,7 +279,8 @@ export function useItemColumnWidth(
       }
       const currentWidth =
         widthRef.current.currentWidth || getDefaultItemColumnWidth(containerWidth);
-      const direction = event.key === "ArrowLeft" ? -1 : 1;
+      const direction =
+        (event.key === "ArrowLeft" ? -1 : 1) * getInlineDirectionSign(event.currentTarget);
       const increment = event.shiftKey ? 1 : 10;
       setNewWidth(containerWidth, currentWidth + direction * increment);
       setItemColumnWidth(sectionId, getItemColumnCssWidth(widthRef.current.currentWidth));

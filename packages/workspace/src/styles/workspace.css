@@ -149,10 +149,114 @@ input.setta-workspace-native-color::-moz-focus-inner {
     "bottom-gutter bottom-gutter bottom-gutter bottom-gutter bottom-gutter";
 }
 
-.transition-radius {
-  transition-property: border-radius, box-shadow, drop-shadow;
-  transition-duration: 170ms;
-  animation-timing-function: ease-in-out;
+/* Static by default; the accepted radius transition opts in only when the user permits motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .transition-radius {
+    transition-property: border-radius, box-shadow, drop-shadow;
+    transition-duration: 170ms;
+    transition-timing-function: ease-in-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Sortable transforms are emitted as inline styles by the retained dnd-kit fork. Limit the
+   * override to package-owned sortable wrappers so host renderer animation remains host policy. */
+  .setta-workspace [data-sortable-section-id],
+  .setta-workspace [data-item-row="true"] {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (pointer: coarse) {
+  /* Transparent pseudo-elements enlarge compact and gesture hit geometry without changing the
+   * accepted paint. */
+  .setta-workspace [data-setta-workspace-touch-target] {
+    position: relative;
+  }
+
+  .setta-workspace [data-setta-workspace-touch-target="compact"],
+  .setta-workspace [data-setta-workspace-touch-target="expanded"] {
+    touch-action: manipulation;
+  }
+
+  .setta-workspace [data-setta-workspace-touch-target]::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .setta-workspace [data-setta-workspace-touch-target="compact"]::after,
+  .setta-workspace [data-setta-workspace-touch-target="expanded"]::after {
+    inline-size: 1.5rem;
+    block-size: 1.5rem;
+  }
+
+  .setta-workspace [data-setta-workspace-touch-target="gesture-inline"]::after {
+    inline-size: 100%;
+    block-size: 1.5rem;
+  }
+
+  .setta-workspace [data-setta-workspace-touch-target="gesture"],
+  .setta-workspace [data-setta-workspace-touch-target="gesture-inline"] {
+    touch-action: none;
+  }
+
+  .setta-workspace [data-setta-workspace-touch-target="gesture"]::after {
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+  }
+
+  /* The toolbar clips its accepted 23 px buttons in the default presentation. Let their
+   * transparent 24 px coarse targets escape that clipping without changing button paint. */
+  .setta-workspace .react-flow__controls [data-setta-workspace-touch-target="compact"] {
+    overflow: visible;
+  }
+
+  /* The accepted 16 px leaf-header controls have a 4 px end margin. One additional coarse-only
+   * gap keeps their 24 px hit surfaces tangent rather than overlapping. */
+  .setta-workspace [data-setta-workspace-compact-control-group="true"] {
+    column-gap: 0.25rem;
+    margin-inline-start: 0.25rem;
+  }
+
+  .setta-workspace [data-item-column-resize-handle="true"] {
+    inset-block-start: 50%;
+    inset-block-end: auto;
+    block-size: 1.5rem;
+    inline-size: 1.5rem;
+    margin-left: -0.75rem;
+    transform: translateY(-50%);
+    touch-action: none;
+  }
+
+  .setta-workspace .section-resize-handle-right {
+    right: -12px !important;
+    bottom: 12px !important;
+    width: 24px !important;
+    height: calc(100% - 12px) !important;
+    touch-action: none;
+  }
+
+  .setta-workspace .section-resize-handle-bottom {
+    right: 12px !important;
+    bottom: -12px !important;
+    width: calc(100% - 12px) !important;
+    height: 24px !important;
+    touch-action: none;
+  }
+
+  .setta-workspace .section-resize-handle-bottom-right {
+    right: -12px !important;
+    bottom: -12px !important;
+    z-index: 21 !important;
+    width: 24px !important;
+    height: 24px !important;
+    touch-action: none;
+  }
 }
 
 /* Canvas structural CSS extracted from the fork's init.css/style.css, written as the effective
@@ -260,7 +364,14 @@ input.setta-workspace-native-color::-moz-focus-inner {
 }
 
 .react-flow__minimap {
+  width: min(200px, max(0px, calc(100% - 30px)));
+  aspect-ratio: 4 / 3;
   background-color: #94a3b8b6;
+}
+
+.react-flow__minimap > svg {
+  width: 100%;
+  height: 100%;
 }
 
 .react-flow__minimap svg:focus-visible {

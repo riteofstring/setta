@@ -76,6 +76,7 @@ export function DeleteOrHideButton({
       disabled={!canEditStructure}
       title={label}
       type="button"
+      data-setta-workspace-touch-target="compact"
       {...getWorkspaceTooltipHandlers({ content: label })}
     >
       <i aria-hidden="true" className="gg-close" />

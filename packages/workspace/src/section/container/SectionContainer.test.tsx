@@ -206,6 +206,14 @@ describe("SectionContainer", () => {
     expect(host.querySelector('[aria-label="Lock position and size"]')).not.toBeNull();
     expect(host.querySelector('[aria-label="Minimize section"]')).not.toBeNull();
     expect(host.querySelector('[aria-label="Delete section"]')).not.toBeNull();
+    const compactControlGroup = host.querySelector<HTMLElement>(
+      '[data-setta-workspace-compact-control-group="true"]',
+    ) as HTMLElement;
+    expect(compactControlGroup).not.toBeNull();
+    expect(compactControlGroup.querySelectorAll("button")).toHaveLength(3);
+    expect(
+      compactControlGroup.querySelectorAll('[data-setta-workspace-touch-target="compact"]'),
+    ).toHaveLength(3);
     expect(host.textContent).toContain("Leaf section body");
     expect(host.querySelector('[data-testid="section-body"]')?.parentElement?.className).toBe(
       "section-full-no-title",

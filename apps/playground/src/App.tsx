@@ -30,7 +30,7 @@ function ItemSelectModeToggle() {
     <button
       type="button"
       onClick={() => (isSelectingItems ? deactivateItemSelect() : activateItemSelect())}
-      className="rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300"
+      className="playground-action rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300"
     >
       {isSelectingItems ? "Exit item select mode" : "Enter item select mode"}
     </button>
@@ -58,27 +58,27 @@ export function App() {
   }, [darkMode]);
 
   return (
-    <main className="flex h-screen flex-col p-8">
-      <header className="mb-8 flex items-center gap-4">
+    <main className="playground-shell flex h-screen min-w-0 flex-col p-8">
+      <header className="playground-header mb-8 flex min-w-0 items-center gap-4">
         <h1 className="text-sm font-semibold text-setta-600 dark:text-setta-300">
           @setta/workspace canvas preview
         </h1>
         <button
           type="button"
           onClick={toggleDarkMode}
-          className="rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300"
+          className="playground-action rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300"
         >
           Switch to {darkMode ? "light" : "dark"} mode
         </button>
         <button
           type="button"
           onClick={() => loadWorkspaceDocument(playgroundDocument)}
-          className="rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300"
+          className="playground-action rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300"
         >
           Reload document
         </button>
         <ItemSelectModeToggle />
-        <p className="text-xs text-setta-500 dark:text-setta-400">
+        <p className="playground-intro min-w-0 text-xs text-setta-500 dark:text-setta-400">
           <DocumentChangeReadout /> document changes reported. Drag sections or the background,
           scroll or pinch to pan and zoom, click to select, Cmd/Ctrl-click to multi-select,
           Shift-drag to draw a selection. Sections resize from their bottom and right edges, and
@@ -96,13 +96,13 @@ export function App() {
           Reload restores the loaded document and camera in place without counting as a change.
         </p>
       </header>
-      <div className="flex min-h-0 flex-1 gap-2">
+      <div className="playground-workspace flex min-h-0 min-w-0 flex-1 gap-2">
         {/* The host side of the toolbar placement: the reference composes the toolbar at the
-            bottom of the Overview left rail, outside the canvas. */}
-        <aside className="flex w-9 flex-col pb-1">
+            bottom of the Overview side rail, outside the canvas. */}
+        <aside className="playground-toolbar flex w-9 flex-col pb-1">
           <WorkspaceControls />
         </aside>
-        <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-setta-200 dark:border-setta-800">
+        <div className="playground-canvas min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-setta-200 dark:border-setta-800">
           <WorkspaceCanvas />
         </div>
       </div>

@@ -30,9 +30,10 @@ const transitionObject = { id: "transition" };
 
 function setupFitViewState(overrides: Partial<typeof initialCanvasState> = {}) {
   const transform = vi.fn();
+  const transition = vi.fn(() => ({ duration: () => transitionObject }));
   const d3Selection = {
     id: "selection",
-    transition: () => ({ duration: () => transitionObject }),
+    transition,
   } as unknown as NonNullable<typeof initialCanvasState.d3Selection>;
   const d3Zoom = { transform } as unknown as NonNullable<typeof initialCanvasState.d3Zoom>;
 
@@ -45,7 +46,7 @@ function setupFitViewState(overrides: Partial<typeof initialCanvasState> = {}) {
     ...overrides,
   });
 
-  return { d3Selection, transform };
+  return { d3Selection, transform, transition };
 }
 
 describe("fitView", () => {
@@ -57,6 +58,7 @@ describe("fitView", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     useNodeInternals.getState().reset();
     useReactFlow.setState({ ...initialCanvasState });
   });
@@ -109,6 +111,22 @@ describe("fitView", () => {
     );
   });
 
+  it("applies a positive-duration fit immediately when reduced motion is requested", () => {
+    vi.stubGlobal("window", {
+      matchMedia: vi.fn(() => ({ matches: true })),
+    });
+    const { d3Selection, transform, transition } = setupFitViewState();
+    setNodes([createNode({ id: "section-a" })]);
+
+    expect(fitView({ duration: 120 })).toBe(true);
+
+    expect(transition).not.toHaveBeenCalled();
+    expect(transform).toHaveBeenCalledWith(
+      d3Selection,
+      expect.objectContaining({ k: expect.any(Number) }),
+    );
+  });
+
   it("onFitViewHandler fits with the transition duration, then arms fitViewOnInit", () => {
     vi.useFakeTimers();
     try {
@@ -124,6 +142,31 @@ describe("fitView", () => {
       expect(useReactFlow.getState().fitViewOnInit).toBe(false);
 
       vi.advanceTimersByTime(useWorkspaceOptions.getState().transitionDuration + 10);
+      expect(useReactFlow.getState().fitViewOnInit).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("onFitViewHandler removes both camera motion and its wait under reduced motion", () => {
+    vi.stubGlobal("window", {
+      matchMedia: vi.fn(() => ({ matches: true })),
+    });
+    vi.useFakeTimers();
+    try {
+      const { d3Selection, transform, transition } = setupFitViewState();
+      setNodes([createNode({ id: "section-a" })]);
+
+      onFitViewHandler();
+
+      expect(transition).not.toHaveBeenCalled();
+      expect(transform).toHaveBeenCalledWith(
+        d3Selection,
+        expect.objectContaining({ k: expect.any(Number) }),
+      );
+      vi.advanceTimersByTime(9);
+      expect(useReactFlow.getState().fitViewOnInit).toBe(false);
+      vi.advanceTimersByTime(1);
       expect(useReactFlow.getState().fitViewOnInit).toBe(true);
     } finally {
       vi.useRealTimers();

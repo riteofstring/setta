@@ -77,7 +77,7 @@ describe("PasswordValueControl", () => {
       "font-mono",
       "text-xs",
       "bg-transparent",
-      "pr-8",
+      "pe-8",
     ]) {
       const target = ["section-value", "flex-1"].includes(expectedClass)
         ? input.parentElement

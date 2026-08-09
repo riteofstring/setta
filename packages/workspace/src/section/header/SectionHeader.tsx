@@ -14,13 +14,13 @@ import { SectionTitle, type SectionTitleClassNames } from "./SectionTitle";
 // the params-area minimum height, which stayed application-side.
 const sectionHeaderBaseClassName = "section-title mx-2 flex flex-row items-center";
 const editingTitleBaseClassName =
-  "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full font-bold text-[.7rem] tracking-tight";
+  "cursor-text nodrag px-1 py-0 leading-5 -ms-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full font-bold text-[.7rem] tracking-tight";
 const editingTitleDefaultClassName = `${editingTitleBaseClassName} dark:text-white`;
 const fixedTitleBaseClassName =
-  "select-none italic focus-visible:ring-0 focus-visible:outline-none box-border border border-solid border-transparent focus-visible:border-blue-500 tracking-tighter text-xs max-w-full truncate pr-0.5";
+  "select-none italic focus-visible:ring-0 focus-visible:outline-none box-border border border-solid border-transparent focus-visible:border-blue-500 tracking-tighter text-xs max-w-full truncate pe-0.5";
 const fixedTitleDefaultClassName = `${fixedTitleBaseClassName} text-setta-400`;
 const notEditingTitleBaseClassName =
-  "px-1 py-0 -ml-1 w-full focus-visible:ring-0 focus-visible:outline-none box-border rounded-md border border-solid border-transparent focus-visible:border-blue-500 leading-5 font-bold tracking-tight cursor-pointer max-w-full text-[.7rem] truncate";
+  "px-1 py-0 -ms-1 w-full focus-visible:ring-0 focus-visible:outline-none box-border rounded-md border border-solid border-transparent focus-visible:border-blue-500 leading-5 font-bold tracking-tight cursor-pointer max-w-full text-[.7rem] truncate";
 
 type SectionHeaderProps = {
   sectionId: string;
@@ -39,7 +39,10 @@ export function SectionHeader({ sectionId, hasSectionStyleTheme }: SectionHeader
       <MenuButton sectionKind={sectionKind} hasSectionStyleTheme={hasSectionStyleTheme} />
       <SectionTagColorIndicator tagColor={tagColor} />
       <SectionCardTitle sectionId={sectionId} hasSectionStyleTheme={hasSectionStyleTheme} />
-      <div className="z-10 ml-auto flex items-center">
+      <div
+        className="z-10 ms-auto flex items-center"
+        data-setta-workspace-compact-control-group="true"
+      >
         <LockPositionButton sectionId={sectionId} hasSectionStyleTheme={hasSectionStyleTheme} />
         <MinimizeButton sectionId={sectionId} hasSectionStyleTheme={hasSectionStyleTheme} />
         <DeleteOrHideButton sectionId={sectionId} hasSectionStyleTheme={hasSectionStyleTheme} />
@@ -64,7 +67,7 @@ function SectionTagColorIndicator({ tagColor }: { tagColor: string | null }) {
     <span
       role="img"
       aria-label={`Color tag ${tagColor}`}
-      className="nodrag ml-2.5 mr-0.5 h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/10"
+      className="nodrag ms-2.5 me-0.5 h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/10"
       style={{ backgroundColor: tagColor }}
       title={`Color tag: ${tagColor}`}
     />

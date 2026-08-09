@@ -116,8 +116,8 @@ describe("DropdownValueControl", () => {
     );
     expect(search?.getAttribute("aria-label")).toBe("Choice value choices");
     const input = getInput();
-    // The recorded pill geometry and paint: rounded-full 12 px mono, 12 px left and 24 px
-    // right padding at the 16 px content height plus one-pixel borders, the default
+    // The recorded pill geometry and paint: rounded-full 12 px mono, 12 px leading and 24 px
+    // trailing padding at the 16 px content height plus one-pixel borders, the default
     // white/setta-900 field, and the 2 px focus-visible ring.
     for (const expectedClass of [
       "setta-workspace-native-reset",
@@ -125,8 +125,8 @@ describe("DropdownValueControl", () => {
       "text-xs",
       "font-mono",
       "font-medium",
-      "pl-3",
-      "pr-6",
+      "ps-3",
+      "pe-6",
       "h-4",
       "my-auto",
       "bg-white",
@@ -144,14 +144,14 @@ describe("DropdownValueControl", () => {
     expect(input.getAttribute("aria-label")).toBe("Choice value");
     expect(input.hasAttribute("aria-labelledby")).toBe(false);
     const toggle = getToggleButton();
-    for (const expectedClass of ["nodrag", "rounded-full", "h-4", "w-4", "right-1"]) {
+    for (const expectedClass of ["nodrag", "rounded-full", "h-4", "w-4", "end-1"]) {
       expect(toggle.classList.contains(expectedClass)).toBe(true);
     }
     expect(toggle.type).toBe("button");
     expect(toggle.getAttribute("aria-label")).toBe("Open Choice value choices");
     expect(toggle.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
     expect(toggle.parentElement?.className).toBe(
-      "absolute inset-y-0 right-0 grid select-none place-items-center",
+      "absolute inset-y-0 end-0 grid select-none place-items-center",
     );
   });
 
@@ -186,6 +186,18 @@ describe("DropdownValueControl", () => {
     expect(headers.map((header) => header.textContent)).toEqual(["Choices"]);
     expect(headers[0]?.className).toContain("uppercase");
     expect(getVisibleOptions()).toEqual(["Alpha", "Beta", "Gamma"]);
+  });
+
+  it("keeps a locally rtl trigger and its body-portaled list in the same direction", async () => {
+    host.dir = "rtl";
+    await mount({ value: "Beta" });
+
+    await openViaToggle();
+
+    const list = getList();
+    expect(list.dir).toBe("rtl");
+    expect(list.style.left).toBe("");
+    expect(list.style.right).not.toBe("");
   });
 
   it("renders one recorded group header per host-supplied group", async () => {

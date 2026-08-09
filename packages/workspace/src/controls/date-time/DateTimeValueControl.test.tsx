@@ -183,6 +183,25 @@ describe("DateValueControl and TimeValueControl", () => {
     expect(host.textContent).toContain("March 2026");
   });
 
+  it("maps horizontal calendar keys to visual direction inside a locally rtl host", () => {
+    host.dir = "rtl";
+    mountDate({ value: "2026-02-28", controlMode: "calendar" });
+    const selectedDate = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="February 28, 2026"]',
+    );
+    selectedDate?.focus();
+
+    act(() => {
+      selectedDate?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true, cancelable: true }),
+      );
+    });
+
+    expect(document.activeElement).toBe(
+      host.querySelector<HTMLButtonElement>('button[aria-label="March 1, 2026"]'),
+    );
+  });
+
   it("combines calendar date and time while forcing include-time to single selection", () => {
     const onValueChange = vi.fn();
     mountDate({

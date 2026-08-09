@@ -20,11 +20,12 @@ export function MinimizeButton({ sectionId, hasSectionStyleTheme = false }: Mini
 
   return (
     <button
-      className={`focus-visible:ring-2 inline-flex items-center nodrag justify-content-center mr-1 flex h-4 w-4 cursor-pointer justify-center rounded-full bg-transparent p-0 ${colorClassName}`}
+      className={`focus-visible:ring-2 inline-flex items-center nodrag justify-content-center me-1 flex h-4 w-4 cursor-pointer justify-center rounded-full bg-transparent p-0 ${colorClassName}`}
       aria-label={label}
       onClick={() => toggleMinimized(sectionId)}
       title={label}
       type="button"
+      data-setta-workspace-touch-target="compact"
       {...getWorkspaceTooltipHandlers({ content: label })}
     >
       {!isMinimized ? (

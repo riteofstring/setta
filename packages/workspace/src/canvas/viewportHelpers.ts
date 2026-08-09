@@ -1,8 +1,10 @@
 import { zoomIdentity } from "d3-zoom";
 import _ from "lodash";
+import { resolveWorkspaceMotionDuration } from "../styles/motion";
 import { getD3Transition } from "./graph";
 import { useWorkspaceOptions } from "./options";
 import { useReactFlow } from "./store";
+import type { ReactFlowState } from "./types";
 
 // The zoom commands from the reference's `hooks/useViewportHelper.ts`. `setCenter` returned with
 // the minimap batch that calls it; `setViewport` and the map-position helpers stayed behind with
@@ -23,19 +25,27 @@ function getZoomRuntime() {
   return { d3Zoom, d3Selection };
 }
 
+function getZoomTarget(selection: NonNullable<ReactFlowState["d3Selection"]>, duration?: number) {
+  const requestedDuration = duration ?? 0;
+  const resolvedDuration = resolveWorkspaceMotionDuration(requestedDuration);
+  return requestedDuration > 0 && resolvedDuration === 0
+    ? selection
+    : getD3Transition(selection, resolvedDuration);
+}
+
 export const zoomIn = _.throttle((options?: TransitionOptions) => {
   const { d3Zoom, d3Selection } = getZoomRuntime();
-  d3Zoom.scaleBy(getD3Transition(d3Selection, options?.duration), 1.2);
+  d3Zoom.scaleBy(getZoomTarget(d3Selection, options?.duration), 1.2);
 }, 50);
 
 export const zoomOut = _.throttle((options?: TransitionOptions) => {
   const { d3Zoom, d3Selection } = getZoomRuntime();
-  d3Zoom.scaleBy(getD3Transition(d3Selection, options?.duration), 1 / 1.2);
+  d3Zoom.scaleBy(getZoomTarget(d3Selection, options?.duration), 1 / 1.2);
 }, 50);
 
 function zoomTo(zoomLevel: number, options?: TransitionOptions) {
   const { d3Zoom, d3Selection } = getZoomRuntime();
-  d3Zoom.scaleTo(getD3Transition(d3Selection, options?.duration), zoomLevel);
+  d3Zoom.scaleTo(getZoomTarget(d3Selection, options?.duration), zoomLevel);
 }
 
 export function resetZoom() {
@@ -55,5 +65,5 @@ export function setCenter(x: number, y: number, options?: ZoomOptions) {
   const centerY = height / 2 - y * nextZoom;
   const transform = zoomIdentity.translate(centerX, centerY).scale(nextZoom);
 
-  d3Zoom.transform(getD3Transition(d3Selection, options?.duration), transform);
+  d3Zoom.transform(getZoomTarget(d3Selection, options?.duration), transform);
 }

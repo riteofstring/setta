@@ -69,6 +69,11 @@ describe("WorkspaceControls", () => {
       ),
     ).toBe(true);
     expect(getButton("reset zoom").className).toContain("react-flow__controls-button");
+    expect(
+      Array.from(host.querySelectorAll("button")).every(
+        (button) => button.dataset.settaWorkspaceTouchTarget === "compact",
+      ),
+    ).toBe(true);
     // The reference renders dividers only after the edge/plugin groups, which left with their
     // features — never between the viewport and minimap groups.
     expect(

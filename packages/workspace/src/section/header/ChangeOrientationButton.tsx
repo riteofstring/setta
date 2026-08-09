@@ -17,17 +17,22 @@ export function ChangeOrientationButton({ sectionId }: ChangeOrientationButtonPr
 
   return (
     <button
-      className="nodrag justify-content-center mr-1 flex inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-400 hover:text-setta-500 focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-400"
+      className="nodrag justify-content-center me-1 flex inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-400 hover:text-setta-500 focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-400"
       onClick={() => toggleGroupOrientation(sectionId)}
       aria-label={
         isHorizontalOrientation ? "Stack children vertically" : "Flow children horizontally"
       }
       type="button"
+      data-setta-workspace-touch-target="compact"
     >
       {!isHorizontalOrientation ? (
         <TbArrowBigDownLinesFilled aria-hidden="true" focusable="false" />
       ) : (
-        <TbArrowBigRightLinesFilled aria-hidden="true" focusable="false" />
+        <TbArrowBigRightLinesFilled
+          aria-hidden="true"
+          className="rtl:scale-x-[-1]"
+          focusable="false"
+        />
       )}
     </button>
   );

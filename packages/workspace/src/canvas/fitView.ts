@@ -1,4 +1,5 @@
 import { zoomIdentity } from "d3-zoom";
+import { resolveWorkspaceMotionDuration } from "../styles/motion";
 import { getD3Transition, getNodesBounds, getViewportForBounds } from "./graph";
 import { getNodes } from "./nodeInternalsActions";
 import { useWorkspaceOptions } from "./options";
@@ -64,9 +65,10 @@ function applyFitViewTransform(
   duration?: number,
 ) {
   const nextTransform = zoomIdentity.translate(viewport.x, viewport.y).scale(viewport.zoom);
+  const resolvedDuration = resolveWorkspaceMotionDuration(duration ?? 0);
 
-  if (typeof duration === "number" && duration > 0) {
-    runtime.d3Zoom.transform(getD3Transition(runtime.d3Selection, duration), nextTransform);
+  if (resolvedDuration > 0) {
+    runtime.d3Zoom.transform(getD3Transition(runtime.d3Selection, resolvedDuration), nextTransform);
     return;
   }
 
@@ -101,7 +103,9 @@ export function onFitViewHandler() {
   if (useReactFlow.getState().fitViewOnInit) {
     return;
   }
-  const duration = useWorkspaceOptions.getState().transitionDuration;
+  const duration = resolveWorkspaceMotionDuration(
+    useWorkspaceOptions.getState().transitionDuration,
+  );
   fitView({ duration });
   // Hack to set fitViewOnInit after transform is done.
   // If it gets set before the transform is done, then the

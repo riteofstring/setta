@@ -88,12 +88,15 @@ describe("SwitchValueControl", () => {
       "h-2.5",
       "w-2.5",
       "rounded-full",
+      "motion-safe:transition-all",
       "data-[state='checked']:translate-x-4",
+      "rtl:data-[state='checked']:-translate-x-4",
       "bg-white",
       "dark:bg-setta-800",
     ]) {
       expect(thumb?.classList.contains(expectedClass)).toBe(true);
     }
+    expect(switchButton.dataset.settaWorkspaceTouchTarget).toBe("expanded");
   });
 
   it("parses only the string form of the reference checked contract", async () => {

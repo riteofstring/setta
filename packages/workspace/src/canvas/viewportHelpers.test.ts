@@ -24,7 +24,7 @@ function setupZoomRuntime() {
 
   useReactFlow.setState({ ...initialCanvasState, d3Selection, d3Zoom });
 
-  return { scaleBy, scaleTo, transform, durations, transitionObject };
+  return { d3Selection, scaleBy, scaleTo, transform, durations, transitionObject };
 }
 
 describe("viewport zoom helpers", () => {
@@ -40,6 +40,7 @@ describe("viewport zoom helpers", () => {
     vi.useRealTimers();
     useWorkspaceOptions.getState().reset();
     useReactFlow.setState({ ...initialCanvasState });
+    vi.unstubAllGlobals();
   });
 
   it("zoomIn scales by 1.2 through a zero-duration transition", () => {
@@ -78,6 +79,21 @@ describe("viewport zoom helpers", () => {
 
     expect(scaleTo).toHaveBeenCalledWith(transitionObject, 1.5);
     expect(durations).toEqual([100]);
+  });
+
+  it("collapses requested camera transitions when reduced motion is requested", () => {
+    vi.stubGlobal("window", {
+      matchMedia: vi.fn(() => ({ matches: true })),
+    });
+    const { d3Selection, durations, scaleTo, transform } = setupZoomRuntime();
+    useReactFlow.setState({ width: 800, height: 600 });
+
+    resetZoom();
+    setCenter(100, 50, { zoom: 2, duration: 120 });
+
+    expect(durations).toEqual([]);
+    expect(scaleTo).toHaveBeenCalledWith(d3Selection, 1);
+    expect(transform).toHaveBeenCalledWith(d3Selection, expect.objectContaining({ k: 2 }));
   });
 
   it("fails loud when zooming before the zoom pane initialized", () => {

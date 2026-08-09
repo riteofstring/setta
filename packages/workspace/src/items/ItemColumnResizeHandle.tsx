@@ -25,9 +25,9 @@ export function ItemColumnResizeHandle({ itemId }: { itemId: string }) {
     <div className="section-center relative mx-auto h-[90%] w-0.5 rounded-sm group-hover/arg-group:bg-setta-500/15">
       <button
         type="button"
-        className={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION} ${NO_PAN_CLASS_NAME} ${NO_DRAG_CLASS_NAME} group/resize absolute inset-y-0 left-1/2 -ml-2 flex w-4 cursor-col-resize items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1`}
+        className={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION} ${NO_PAN_CLASS_NAME} ${NO_DRAG_CLASS_NAME} group/resize absolute inset-y-0 left-1/2 -ml-2 flex w-4 touch-none cursor-col-resize items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1`}
         data-item-column-resize-handle="true"
-        onMouseDown={onColumnResizeStart}
+        onPointerDown={onColumnResizeStart}
         onKeyDown={onColumnResizeKeyDown}
         onClick={onColumnResizeClick}
         aria-label="Resize item columns; activate to reset"

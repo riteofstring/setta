@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { getElementTextDirection } from "../../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
 
 // The reference `ParamNameInput` error bubble, positioned in the owning section's authored
@@ -36,7 +37,7 @@ function clampBubbleLeft(nextLeft: number, maxLeft: number, margin: number): num
   return nextLeft;
 }
 
-function computeBubblePosition(
+export function computeItemNameErrorBubblePosition(
   sectionId: string,
   liveEditorId: string,
   dummyEditorId: string,
@@ -54,14 +55,19 @@ function computeBubblePosition(
   const scaleX = getBubbleScale(containerElement.offsetWidth, containerRect.width);
   const scaleY = getBubbleScale(containerElement.offsetHeight, containerRect.height);
   const margin = 6;
-  const localLeft = (anchorRect.left - containerRect.left) / scaleX;
+  const localAnchorLeft = (anchorRect.left - containerRect.left) / scaleX;
   const localTop = (anchorRect.top - containerRect.top) / scaleY;
   const localAnchorHeight = anchorRect.height / scaleY;
   const localBubbleWidth = bubbleRect.width / scaleX;
+  const localAnchorRight = (anchorRect.right - containerRect.left) / scaleX;
+  const preferredLeft =
+    getElementTextDirection(anchorElement) === "rtl"
+      ? localAnchorRight - localBubbleWidth
+      : localAnchorLeft;
   const maxLeft = containerElement.offsetWidth - localBubbleWidth - margin;
   return {
     top: localTop + localAnchorHeight + margin,
-    left: clampBubbleLeft(localLeft, maxLeft, margin),
+    left: clampBubbleLeft(preferredLeft, maxLeft, margin),
     visible: true,
   };
 }
@@ -78,7 +84,7 @@ function useItemNameErrorBubblePosition(
     if (!errorMessage) {
       return;
     }
-    const nextPosition = computeBubblePosition(
+    const nextPosition = computeItemNameErrorBubblePosition(
       sectionId,
       liveEditorId,
       dummyEditorId,
@@ -145,7 +151,7 @@ export function ItemNameErrorBubble({
     >
       <span
         aria-hidden="true"
-        className="absolute -top-1 left-3 h-2 w-2 rotate-45 border-l border-t border-red-300 bg-red-50 dark:border-red-900 dark:bg-[#120000]"
+        className="absolute -top-1 start-3 h-2 w-2 rotate-45 border-s border-t border-red-300 bg-red-50 dark:border-red-900 dark:bg-[#120000]"
       />
       {errorMessage}
     </div>,

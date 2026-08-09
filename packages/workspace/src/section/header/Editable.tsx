@@ -18,7 +18,7 @@ type EditableProps = {
   titleProps: EditableTitleClassNames;
   restoreFocusAfterKeyboardSubmit: RefObject<boolean>;
   // The reference forwards these to both modes so the section title can drive the tooltip.
-  onMouseEnter?: () => void;
+  onMouseEnter?: (event: { currentTarget: HTMLElement }) => void;
   onMouseLeave?: () => void;
 };
 
@@ -93,7 +93,7 @@ function InEditMode({
   onBlur: (e: FocusEvent<HTMLInputElement>) => void;
   onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
   titleProps?: string;
-  onMouseEnter?: () => void;
+  onMouseEnter?: (event: { currentTarget: HTMLElement }) => void;
   onMouseLeave?: () => void;
   ariaLabel: string;
 }) {
@@ -136,7 +136,7 @@ function InNonEditMode({
   onClick: (e: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>) => void;
   titleProps?: string;
   paragraphRef: RefObject<HTMLDivElement | null>;
-  onMouseEnter?: () => void;
+  onMouseEnter?: (event: { currentTarget: HTMLElement }) => void;
   onMouseLeave?: () => void;
   ariaLabel: string;
 }) {

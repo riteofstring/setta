@@ -178,6 +178,13 @@ function validateBuiltStylesheet() {
     // container rules are absent, so lock the actual package artifact that consumers receive.
     ["container-name: slider;", "slider container-query root"],
     ["@container slider (min-width: 132px)", "slider numeric-field threshold"],
+    // Adaptive hardening must survive Tailwind compilation: source-only class assertions do not
+    // prove that consumers receive motion preferences, coarse hit areas, or the narrow minimap.
+    ["@media (prefers-reduced-motion: no-preference)", "motion opt-in query"],
+    ["@media (prefers-reduced-motion: reduce)", "reduced-motion override"],
+    ["@media (pointer: coarse)", "coarse-pointer hit-area query"],
+    ['[data-setta-workspace-touch-target="compact"]::after', "compact hit-area rule"],
+    ["width: min(200px, max(0px, calc(100% - 30px)))", "narrow minimap clamp"],
   ];
   return [
     ...(contents.includes("@tailwind")

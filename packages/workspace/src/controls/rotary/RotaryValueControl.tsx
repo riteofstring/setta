@@ -133,6 +133,7 @@ export function RotaryValueControl({
         aria-valuemax={max}
         aria-valuenow={clampedValue}
         aria-valuetext={displayValue}
+        data-setta-workspace-touch-target="gesture"
       >
         <div className="absolute inset-0 rounded-full border border-setta-300/70 bg-gradient-to-br from-setta-50 via-setta-200 to-setta-300 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.5)] dark:border-setta-700/70 dark:from-setta-900 dark:via-setta-800 dark:to-setta-950" />
         <div className="absolute inset-[5px] rounded-full border border-setta-200/70 bg-setta-100 dark:border-setta-700/70 dark:bg-setta-850" />

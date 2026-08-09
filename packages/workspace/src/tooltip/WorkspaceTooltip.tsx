@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { createWithEqualityFn } from "zustand/traditional";
 import { withResetFn } from "../state/storeUtils";
+import { getElementTextDirection, type WorkspaceTextDirection } from "../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 
 // The seam-8 tooltip singleton: the reference's `FloatingBox` trimmed to its mouse-following
@@ -16,18 +17,23 @@ const VIEWPORT_CLAMP_MARGIN_PX = 8;
 export type WorkspaceTooltipState = {
   isEnabled: boolean;
   content: string | null;
+  direction: WorkspaceTextDirection;
 };
 
 export const useWorkspaceTooltip = createWithEqualityFn(
   withResetFn<WorkspaceTooltipState>(() => ({
     isEnabled: false,
     content: null,
+    direction: "ltr",
   })),
 );
 
 export function getWorkspaceTooltipHandlers({ content }: { content: string }) {
-  function onMouseEnter() {
-    useWorkspaceTooltip.setState({ content });
+  function onMouseEnter(event: { currentTarget: HTMLElement }) {
+    useWorkspaceTooltip.setState({
+      content,
+      direction: getElementTextDirection(event.currentTarget),
+    });
   }
 
   function onMouseLeave() {
@@ -64,6 +70,7 @@ export function WorkspaceTooltip() {
   const workspaceScopeClassName = useWorkspaceScopeClassName();
   const isEnabled = useWorkspaceTooltip((state) => state.isEnabled);
   const content = useWorkspaceTooltip((state) => state.content);
+  const direction = useWorkspaceTooltip((state) => state.direction);
   const boxRef = useRef<HTMLDivElement>(null);
   const positionRef = useRef({ x: 0, y: 0 });
   useTrackMouseLocation();
@@ -106,6 +113,7 @@ export function WorkspaceTooltip() {
   return (
     <div
       className={`${workspaceScopeClassName} absolute left-0 top-0 z-[80]`}
+      dir={direction}
       ref={boxRef}
       style={{
         transform: `translate(${positionRef.current.x}px, ${positionRef.current.y}px)`,
@@ -113,7 +121,7 @@ export function WorkspaceTooltip() {
       }}
     >
       <div className="flex max-h-96 min-h-32 min-w-64 flex-col rounded-2xl border border-setta-200 bg-white p-4 shadow-lg dark:border-setta-700 dark:bg-setta-950">
-        <article className="flex-1 overflow-y-auto whitespace-pre-line break-words pr-4 text-sm text-setta-700 dark:text-setta-300">
+        <article className="flex-1 overflow-y-auto whitespace-pre-line break-words pe-4 text-sm text-setta-700 dark:text-setta-300">
           {content}
         </article>
       </div>

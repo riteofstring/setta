@@ -8,11 +8,11 @@ import { getRegisteredSectionKindOrThrow } from "../../document/sectionKindRegis
 // The reference's per-application-type renderers (code language, text block, social, ...) are
 // the application's to register.
 const themedHeaderIconClassName =
-  "text-[color:var(--setta-section-style-muted-text)] transition-colors group-hover/card-section:text-[color:var(--setta-section-style-outline)] group-hover/group-section:text-[color:var(--setta-section-style-outline)]";
+  "text-[color:var(--setta-section-style-muted-text)] motion-safe:transition-colors group-hover/card-section:text-[color:var(--setta-section-style-outline)] group-hover/group-section:text-[color:var(--setta-section-style-outline)]";
 const defaultBlueHeaderIconClassName =
-  "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]";
+  "text-setta-300 motion-safe:transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]";
 const defaultGroupHeaderIconClassName =
-  "[&_*]:!scale-120 text-setta-400 transition-colors group-hover/group-section:text-blue-600 dark:text-setta-500 dark:group-hover/group-section:text-[#0084ff]";
+  "[&_*]:!scale-120 text-setta-400 motion-safe:transition-colors group-hover/group-section:text-blue-600 dark:text-setta-500 dark:group-hover/group-section:text-[#0084ff]";
 
 type HeaderIconProps = {
   sectionKind: string;

@@ -16,7 +16,7 @@ import { useItemDndChildrenForParent, useItemListContext } from "./ItemListConte
 // The reference's `ParamSwitch`/`ParamContainer` row pair trimmed to the package seam: the
 // package owns the row interaction chrome — sortable wiring with zoom-scaled transforms, the
 // temp placeholder row, selection and hover treatments, and the nested-children flow with the
-// reference's left rail and shared item-column divider — while the host-registered renderer
+// reference's leading rail and shared item-column divider — while the host-registered renderer
 // supplies the row content (the reference's param labels, inputs, error and search treatments
 // stay application-side). The private `--param-column-width` wire variable rides the row grids
 // verbatim; the package derives and persists its item-termed document value.
@@ -24,7 +24,7 @@ import { useItemDndChildrenForParent, useItemListContext } from "./ItemListConte
 const ITEM_COLUMN_WIDTH = "var(--param-column-width, 200px)";
 
 const NESTED_CHILD_ROWS_CLASS_NAME =
-  "section-args-nested section-key-value relative grid min-w-0 gap-y-1 before:absolute before:bottom-0 before:left-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20";
+  "section-args-nested section-key-value relative grid min-w-0 gap-y-1 before:absolute before:bottom-0 before:start-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20";
 
 type ItemRowProps = {
   itemId: string;
@@ -141,7 +141,7 @@ function resolveItemSelectionClass(hasSectionStyleTheme: boolean) {
     ? "!bg-[color:var(--setta-section-style-outline)] !text-[color:var(--setta-section-style-text)] [&_*]:!text-[color:var(--setta-section-style-text)] active:!bg-[color:var(--setta-section-style-border)]"
     : "active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white";
 
-  return `transition-colors rounded-sm ${selectedBgClassName}`;
+  return `motion-safe:transition-colors rounded-sm ${selectedBgClassName}`;
 }
 
 function resolveItemBackgroundClass({
@@ -152,7 +152,7 @@ function resolveItemBackgroundClass({
   isSelected: boolean;
 }) {
   if (!isSelected) {
-    return "transition-colors rounded-sm";
+    return "motion-safe:transition-colors rounded-sm";
   }
 
   return resolveItemSelectionClass(hasSectionStyleTheme);

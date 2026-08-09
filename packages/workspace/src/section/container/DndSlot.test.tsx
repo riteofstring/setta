@@ -35,6 +35,7 @@ describe("DndSlot", () => {
   });
 
   it("portals invalid feedback above the target and below the drag preview", async () => {
+    target.dir = "rtl";
     await act(async () => {
       root.render(
         createElement(DndSlot, {
@@ -53,6 +54,7 @@ describe("DndSlot", () => {
     expect(overlay?.style.width).toBe("200px");
     expect(overlay?.style.height).toBe("120px");
     expect(overlay?.style.zIndex).toBe(String(DROP_FEEDBACK_Z_INDEX));
+    expect(overlay?.dir).toBe("rtl");
     expect(DROP_FEEDBACK_Z_INDEX).toBeGreaterThan(DROP_TARGET_Z_INDEX);
     expect(DROP_FEEDBACK_Z_INDEX).toBeLessThan(DRAG_PREVIEW_Z_INDEX);
     expect(overlay?.textContent).toContain("No nesting");

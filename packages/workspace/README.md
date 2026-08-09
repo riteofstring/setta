@@ -85,6 +85,32 @@ host content inside that section may consume the corresponding inherited custom 
 The derived primary text/background pairing is kept at WCAG AA contrast. `tagColor` is a compact
 categorical marker only; hosts must not use it as the sole way to communicate state or meaning.
 
+## Motion, direction, coarse pointer, and host reflow
+
+Package motion is opt-in. The compiled CSS emits accepted transitions only under
+`(prefers-reduced-motion: no-preference)` and neutralizes the retained sortable wrappers under the
+reduced preference. Package-owned d3 camera commands resolve requested durations to zero as well.
+Motion inside a registered host renderer remains host policy; renderers should apply the same media
+preference to their own animation.
+
+Set `dir="rtl"` on the document or on the common host element containing the independently mounted
+workspace surfaces. Language-facing chrome uses logical placement, horizontal calendar and item
+divider keys follow visual direction, and package dropdown, popover, and tooltip portals retain the
+direction of their trigger. Canvas document coordinates, physical resize edges, and the public
+`minimapSide: "left" | "right"` option remain physical rather than changing serialized meaning.
+
+Under `(pointer: coarse)`, transparent package-owned hit geometry gives compact actions a 24 px
+target floor without enlarging their accepted paint; the isolated rotary gesture reaches 44 px.
+Slider and item-column dragging use pointer events and suppress competing touch gestures. Hosts do
+not need to add touch padding to package chrome.
+
+`WorkspaceCanvas` fills a host box with `min-width: 0` and `min-height: 0`; its minimap keeps the
+accepted 4:3 size until the canvas is too narrow, then clamps inside the pane. The canvas is a
+genuine two-dimensional surface and pans internally, but surrounding host chrome must reflow rather
+than creating page-level horizontal scrolling. Do not restrict browser zoom in the viewport meta
+tag. The playground and packed-consumer fixture demonstrate wrapping chrome at the 200% browser-zoom
+content breakpoint and a compact 320 px shell.
+
 ## Controlled document and change callback
 
 `loadWorkspaceDocument(document)` replaces the canonical workspace state with a host-supplied
@@ -117,8 +143,8 @@ the deepest nested item, preserves at least 100 px for the value column, and rep
 commits through the same document-change callback. Consumers do not set the private
 `--param-column-width` CSS variable. The first visible divider in a mounted list joins the keyboard
 order: Left/Right Arrow adjusts by 10 px (Shift adjusts by 1 px), while activating the button resets
-the default split; the remaining identical row targets stay pointer-accessible without adding one
-tab stop per row.
+the default split. Left/Right describe visual movement and therefore mirror under RTL. The remaining
+identical row targets stay pointer-accessible without adding one tab stop per row.
 
 ## Section kind registration
 

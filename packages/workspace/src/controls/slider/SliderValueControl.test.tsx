@@ -86,6 +86,7 @@ describe("SliderValueControl", () => {
     if (!(sliderRoot instanceof HTMLElement)) {
       throw new Error("The Radix slider root is not rendered.");
     }
+    expect(sliderRoot.dataset.settaWorkspaceTouchTarget).toBe("gesture-inline");
     for (const expectedClass of [
       "SliderRoot",
       "relative",

@@ -31,13 +31,13 @@ const INPUT_WRAPPER_CLASS_NAME = `section-value relative min-w-0 flex-1 ${NO_DRA
 // Frozen main receives a transparent input background from its global `input { all: unset }`
 // rule. The package cannot ship that host-wide reset, so both scoped password presentations carry
 // the equivalent background explicitly.
-const INPUT_BASE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex w-full min-w-0 flex-1 self-center bg-transparent pr-8 font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
-const TOGGLE_BASE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} absolute inset-y-0 right-0 grid w-8 place-items-center text-setta-400 dark:text-setta-500`;
+const INPUT_BASE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex w-full min-w-0 flex-1 self-center bg-transparent pe-8 font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
+const TOGGLE_BASE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} absolute inset-y-0 end-0 grid w-8 place-items-center text-setta-400 dark:text-setta-500`;
 const DIVIDER_BASE_CLASS_NAME =
   "section-value self-end border-b border-setta-200/50 dark:border-setta-600/30";
 const META_WRAPPER_CLASS_NAME =
   "single-cell-container grid h-full min-h-0 w-full grid-cols-[1fr,auto]";
-const META_INPUT_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} single-cell-child flex h-full w-full min-w-0 max-w-[calc(100%_-_1.1rem)] cursor-text select-text self-center justify-self-start bg-transparent pr-8 font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
+const META_INPUT_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} single-cell-child flex h-full w-full min-w-0 max-w-[calc(100%_-_1.1rem)] cursor-text select-text self-center justify-self-start bg-transparent pe-8 font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
 const META_DIVIDER_CLASS_NAME =
   "single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 dark:border-setta-600/30";
 
@@ -169,6 +169,7 @@ function PasswordInput({
         className={getToggleClassName(disabled)}
         disabled={disabled}
         onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
+        data-setta-workspace-touch-target="compact"
       >
         {showPassword ? <BiShow aria-hidden="true" /> : <BiHide aria-hidden="true" />}
       </button>
@@ -189,13 +190,14 @@ function SavedValueRevealButton({
   return (
     <button
       type="button"
-      className={`${isDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex-none bg-transparent text-left font-mono text-xs text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`}
+      className={`${isDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex-none bg-transparent text-start font-mono text-xs text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`}
       onClick={action.onReveal}
       disabled={isDisabled}
       aria-busy={action.pending}
       aria-label="Reveal saved password"
       title="Reveal saved password"
       onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
+      data-setta-workspace-touch-target="compact"
     >
       {action.pending ? "Revealing..." : "Reveal"}
     </button>

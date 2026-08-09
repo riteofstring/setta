@@ -1,3 +1,4 @@
+import type { WorkspaceTextDirection } from "../../styles/textDirection";
 import { formatIsoDate, parseIsoDate } from "./calendarGrid";
 import type { DateCalendarWeekStart } from "./dateTimeTypes";
 
@@ -44,8 +45,13 @@ function resolveDayNavigation(
   isoDate: string,
   key: string,
   weekStartsOn: DateCalendarWeekStart,
+  direction: WorkspaceTextDirection,
 ): string | null {
-  const deltaDays = DAY_NAVIGATION_DELTAS[key];
+  let deltaDays = DAY_NAVIGATION_DELTAS[key];
+  const isHorizontalArrow = key === "ArrowLeft" || key === "ArrowRight";
+  if (deltaDays !== undefined && direction === "rtl" && isHorizontalArrow) {
+    deltaDays *= -1;
+  }
   if (deltaDays !== undefined) {
     return shiftCalendarDateByDays(isoDate, deltaDays);
   }
@@ -63,13 +69,15 @@ export function resolveCalendarKeyboardDate({
   key,
   shiftKey,
   weekStartsOn,
+  direction,
 }: {
   isoDate: string;
   key: string;
   shiftKey: boolean;
   weekStartsOn: DateCalendarWeekStart;
+  direction: WorkspaceTextDirection;
 }): string | null {
-  const dayNavigation = resolveDayNavigation(isoDate, key, weekStartsOn);
+  const dayNavigation = resolveDayNavigation(isoDate, key, weekStartsOn, direction);
   if (dayNavigation !== null) {
     return dayNavigation;
   }

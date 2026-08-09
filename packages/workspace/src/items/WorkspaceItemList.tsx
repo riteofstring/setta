@@ -157,7 +157,7 @@ function ItemListShell({
   return (
     <div ref={outerRef} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div
-        className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
+        className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pe-1.5 ${
           isScrollable ? NO_WHEEL_CLASS_NAME : ""
         }`}
         ref={ref}

@@ -1,6 +1,7 @@
 import * as Popover from "@radix-ui/react-popover";
 import { useEffect } from "react";
 import { useReactFlow } from "../../canvas/store";
+import type { WorkspaceTextDirection } from "../../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
 
 // The reference's `StandardPopover` atom trimmed to the built-in controls' usage: a controlled
@@ -52,6 +53,7 @@ export function ControlPopover({
   children,
   open,
   onOpenChange,
+  direction,
 }: {
   trigger: React.ReactElement;
   contentClasses: string;
@@ -59,6 +61,7 @@ export function ControlPopover({
   children: React.ReactNode;
   open: boolean;
   onOpenChange: (newOpen: boolean) => void;
+  direction: WorkspaceTextDirection;
 }) {
   useRepositionOnCanvasTransform(open);
   const workspaceScopeClassName = useWorkspaceScopeClassName();
@@ -69,6 +72,7 @@ export function ControlPopover({
         <Popover.Content
           className={`${workspaceScopeClassName} ${contentClasses}`}
           {...contentProps}
+          dir={direction}
         >
           <Popover.Arrow className={ARROW_CLASS_NAME} />
           {children}

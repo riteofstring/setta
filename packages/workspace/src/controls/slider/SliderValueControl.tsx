@@ -41,7 +41,7 @@ const ITEM_TEXT_INPUT_CLASS_NAME =
   // The responsive display must beat a consumer's later generic `.hidden` utility. The package
   // stylesheet is intentionally importable before host styles, unlike frozen main's single
   // Tailwind sheet, so the threshold declaration is important while preserving the same result.
-  "hidden my-auto mr-[1px] h-5/6 cursor-auto resize-none rounded-lg border border-solid border-setta-300/20 bg-white px-2 text-center font-mono text-xs tabular-nums focus-visible:border-blue-300 dark:border-setta-875 dark:bg-setta-875 dark:text-setta-300 @[132px]/slider:!block";
+  "hidden my-auto me-[1px] h-5/6 cursor-auto resize-none rounded-lg border border-solid border-setta-300/20 bg-white px-2 text-center font-mono text-xs tabular-nums focus-visible:border-blue-300 dark:border-setta-875 dark:bg-setta-875 dark:text-setta-300 @[132px]/slider:!block";
 const META_WRAPPER_CLASS_NAME = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex w-full min-w-0 items-center gap-2 cursor-pointer`;
 const META_ROOT_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full flex-1 touch-none select-none items-center data-[orientation='horizontal']:h-5 cursor-pointer`;
 const META_TRACK_CLASS_NAME = `${NO_DRAG_CLASS_NAME} relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700 cursor-pointer`;
@@ -153,6 +153,7 @@ function SliderValueControlCore({
             reportCommit(nextValue);
           }
         }}
+        data-setta-workspace-touch-target="gesture-inline"
       >
         <Slider.Track className={classes.trackClassName}>
           <Slider.Range className={RANGE_CLASS_NAME} />

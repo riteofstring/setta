@@ -1,6 +1,7 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME } from "../../interaction";
+import { getElementTextDirection, type WorkspaceTextDirection } from "../../styles/textDirection";
 import { ControlPopover } from "../popover/ControlPopover";
 import { focusSectionAfterEscape, handleSectionControlEscape } from "../sectionFocus";
 
@@ -129,7 +130,7 @@ function NativeColorPicker({
     <>
       <i
         aria-hidden="true"
-        className="gg-color-picker single-cell-child pointer-events-none mr-0.5 mt-0.5 place-self-center"
+        className="gg-color-picker single-cell-child pointer-events-none me-0.5 mt-0.5 place-self-center"
         style={getAutoContrastStyle(value)}
       />
       <input
@@ -184,7 +185,7 @@ function ColorChoiceOption({
     >
       <div
         aria-hidden="true"
-        className="mr-2 h-4 w-4 rounded-full"
+        className="me-2 h-4 w-4 rounded-full"
         style={{ backgroundColor: item.color }}
       />
       <p className={MENU_ITEM_TEXT_CLASS_NAME}>{item.description}</p>
@@ -213,12 +214,17 @@ function ColorChoicesPicker({
     0,
   );
   const [isOpen, setIsOpen] = useState(false);
+  const [direction, setDirection] = useState<WorkspaceTextDirection>("ltr");
   const [activeIndex, setActiveIndex] = useState(selectedIndex);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const restoreSectionFocusAfterClose = useRef(false);
   const changeOpen = (nextOpen: boolean) => {
     if (nextOpen) {
       setActiveIndex(selectedIndex);
+      if (triggerRef.current) {
+        setDirection(getElementTextDirection(triggerRef.current));
+      }
     }
     setIsOpen(nextOpen);
   };
@@ -253,6 +259,7 @@ function ColorChoicesPicker({
     <ControlPopover
       open={isOpen}
       onOpenChange={changeOpen}
+      direction={direction}
       contentClasses={MENU_CONTENT_CLASS_NAME}
       contentProps={{
         "aria-label": `${ariaLabel} choices`,
@@ -274,6 +281,7 @@ function ColorChoicesPicker({
       }}
       trigger={
         <button
+          ref={triggerRef}
           type="button"
           className={CHOICES_TRIGGER_CLASS_NAME}
           disabled={isDisabled}
@@ -288,7 +296,7 @@ function ColorChoicesPicker({
             style={{ backgroundColor: selectedItem.color }}
           />
           <div className="single-cell-child flex items-center justify-between overflow-hidden">
-            <p className="ml-[2px] truncate pl-2.5 text-xs font-semibold" style={labelStyle}>
+            <p className="ms-[2px] truncate ps-2.5 text-xs font-semibold" style={labelStyle}>
               {selectedItem.description}
             </p>
             <i aria-hidden="true" className="gg-chevron-down px-2" style={labelStyle} />

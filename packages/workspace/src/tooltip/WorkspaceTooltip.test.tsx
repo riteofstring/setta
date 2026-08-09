@@ -37,8 +37,9 @@ describe("WorkspaceTooltip", () => {
 
   it("stages and clears content through the hover handlers", () => {
     const handlers = getWorkspaceTooltipHandlers({ content: "Zoom in" });
+    const target = document.createElement("button");
 
-    handlers.onMouseEnter();
+    handlers.onMouseEnter({ currentTarget: target });
     expect(useWorkspaceTooltip.getState().content).toBe("Zoom in");
 
     handlers.onMouseLeave();
@@ -49,7 +50,7 @@ describe("WorkspaceTooltip", () => {
     expect(host.textContent).toBe("");
 
     await act(async () => {
-      getWorkspaceTooltipHandlers({ content: "Fit view" }).onMouseEnter();
+      getWorkspaceTooltipHandlers({ content: "Fit view" }).onMouseEnter({ currentTarget: host });
     });
     expect(host.textContent).toBe("");
 
@@ -66,7 +67,9 @@ describe("WorkspaceTooltip", () => {
 
   it("follows the pointer at a 10px offset while enabled", async () => {
     await act(async () => {
-      getWorkspaceTooltipHandlers({ content: "Reset zoom" }).onMouseEnter();
+      getWorkspaceTooltipHandlers({ content: "Reset zoom" }).onMouseEnter({
+        currentTarget: host,
+      });
       enableWorkspaceTooltip();
     });
 
@@ -76,5 +79,19 @@ describe("WorkspaceTooltip", () => {
 
     const box = host.firstElementChild as HTMLDivElement;
     expect(box.style.transform).toBe("translate(210px, 130px)");
+  });
+
+  it("preserves a locally rtl trigger direction on the separately mounted tooltip", async () => {
+    const target = document.createElement("button");
+    target.dir = "rtl";
+
+    await act(async () => {
+      getWorkspaceTooltipHandlers({ content: "Move minimap" }).onMouseEnter({
+        currentTarget: target,
+      });
+      enableWorkspaceTooltip();
+    });
+
+    expect(host.firstElementChild?.getAttribute("dir")).toBe("rtl");
   });
 });

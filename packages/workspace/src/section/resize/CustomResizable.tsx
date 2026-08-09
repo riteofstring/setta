@@ -64,7 +64,7 @@ const META_CONTROL_HANDLE_STYLES = {
   bottomRight: { right: "-8px", bottom: "-8px", width: 16, height: 16 },
 };
 const META_CONTROL_HANDLE_BASE_CLASS_NAME =
-  "relative flex items-center justify-center opacity-0 transition-opacity hover:opacity-100 after:absolute after:rounded after:bg-transparent hover:after:bg-blue-500/80 dark:hover:after:bg-blue-400/80";
+  "relative flex items-center justify-center opacity-0 motion-safe:transition-opacity hover:opacity-100 after:absolute after:rounded after:bg-transparent hover:after:bg-blue-500/80 dark:hover:after:bg-blue-400/80";
 const ACTIVE_META_CONTROL_HANDLE_CLASS_NAME =
   "opacity-100 after:bg-blue-500/80 dark:after:bg-blue-400/80";
 const META_CONTROL_HANDLE_CURSOR_CLASSES = {

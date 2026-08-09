@@ -19,6 +19,55 @@ html.dark body {
   background-color: hsl(220, 27%, 6%);
 }
 
+.playground-shell {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+@media (max-width: 60rem) {
+  .playground-shell {
+    padding: 1rem;
+  }
+
+  .playground-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .playground-header > h1,
+  .playground-intro {
+    flex-basis: 100%;
+  }
+
+  .playground-action {
+    min-height: 2.75rem;
+    min-width: 0;
+    flex: 1 1 11rem;
+    white-space: normal;
+  }
+
+  .playground-intro {
+    max-height: 5rem;
+    overflow-y: auto;
+    padding-inline-end: 0.25rem;
+  }
+}
+
+@media (max-width: 40rem) {
+  .playground-shell {
+    padding: 0.5rem;
+  }
+
+  .playground-action {
+    flex-basis: 100%;
+  }
+
+  .playground-workspace {
+    gap: 0.25rem;
+  }
+}
+
 /* The frozen host's scrollbar treatment (index.css at 043d3b2e9), copied verbatim including the
  * Firefox-only body overflow line. Styling ::-webkit-scrollbar opts Chromium out of overlay
  * scrollbars, so every scrollable descendant reserves the 6 px gutter inside its border box —

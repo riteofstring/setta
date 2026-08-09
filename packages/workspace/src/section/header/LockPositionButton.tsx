@@ -81,7 +81,7 @@ function getButtonClassName(styleState: LockPositionButtonStyleState): string {
     backgroundClassName,
     getIconSizeClassName(styleState),
     textClassName,
-    "mr-1 rounded-full p-0",
+    "me-1 rounded-full p-0",
     hoverClassName,
     sizeClassName,
     styleState.canEditLayout ? "" : "cursor-not-allowed opacity-50",
@@ -126,6 +126,7 @@ export function LockPositionButton({
       disabled={!canEditLayout}
       title={label}
       type="button"
+      data-setta-workspace-touch-target="compact"
       {...getWorkspaceTooltipHandlers({ content: label })}
     >
       <i aria-hidden="true" className={iconClassName} />

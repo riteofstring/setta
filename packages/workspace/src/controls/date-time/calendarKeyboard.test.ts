@@ -18,6 +18,7 @@ describe("calendar keyboard navigation", () => {
         key,
         shiftKey,
         weekStartsOn: "sunday",
+        direction: "ltr",
       }),
     ).toBe(expected);
   });
@@ -29,6 +30,7 @@ describe("calendar keyboard navigation", () => {
         key: "Home",
         shiftKey: false,
         weekStartsOn: "monday",
+        direction: "ltr",
       }),
     ).toBe("2026-03-02");
     expect(
@@ -37,8 +39,39 @@ describe("calendar keyboard navigation", () => {
         key: "End",
         shiftKey: false,
         weekStartsOn: "sunday",
+        direction: "ltr",
       }),
     ).toBe("2026-03-07");
+  });
+
+  it("maps horizontal arrows to visual movement in rtl grids", () => {
+    expect(
+      resolveCalendarKeyboardDate({
+        isoDate: "2026-03-01",
+        key: "ArrowLeft",
+        shiftKey: false,
+        weekStartsOn: "sunday",
+        direction: "rtl",
+      }),
+    ).toBe("2026-03-02");
+    expect(
+      resolveCalendarKeyboardDate({
+        isoDate: "2026-03-01",
+        key: "ArrowRight",
+        shiftKey: false,
+        weekStartsOn: "sunday",
+        direction: "rtl",
+      }),
+    ).toBe("2026-02-28");
+    expect(
+      resolveCalendarKeyboardDate({
+        isoDate: "2026-03-01",
+        key: "ArrowUp",
+        shiftKey: false,
+        weekStartsOn: "sunday",
+        direction: "rtl",
+      }),
+    ).toBe("2026-02-22");
   });
 
   it("clamps month and year movement to the destination month's last day", () => {
@@ -53,6 +86,7 @@ describe("calendar keyboard navigation", () => {
         key: "Enter",
         shiftKey: false,
         weekStartsOn: "sunday",
+        direction: "ltr",
       }),
     ).toBeNull();
     expect(() => shiftCalendarDateByMonths("2026-02-30", 1)).toThrow(

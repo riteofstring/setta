@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
+import { getElementTextDirection } from "../../styles/textDirection";
 import { focusSectionAfterEscape } from "../sectionFocus";
 import {
   buildCalendarMonthGrid,
@@ -746,6 +747,7 @@ function CalendarDateButton({
           key: event.key,
           shiftKey: event.shiftKey,
           weekStartsOn: weekStart,
+          direction: getElementTextDirection(event.currentTarget),
         });
         if (nextDate === null) {
           return;
@@ -874,6 +876,7 @@ function CalendarDateControl({
             onClick={() => moveDisplayedMonth(-1)}
             onKeyDown={(event) => handleEscape(event, onEscape)}
             disabled={isDisabled}
+            data-setta-workspace-touch-target="compact"
           >
             Prev
           </button>
@@ -890,6 +893,7 @@ function CalendarDateControl({
             onClick={() => moveDisplayedMonth(1)}
             onKeyDown={(event) => handleEscape(event, onEscape)}
             disabled={isDisabled}
+            data-setta-workspace-touch-target="compact"
           >
             Next
           </button>

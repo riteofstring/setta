@@ -166,11 +166,14 @@ function GroupHeader({
     <div className="z-10 flex min-h-10 w-full items-center">
       <MenuButton sectionKind={GROUP_SECTION_KIND} hasSectionStyleTheme={false} />
       <div
-        className={`${pointerSelectClassName} relative my-auto mr-2 flex min-h-10 w-full items-center overflow-hidden`}
+        className={`${pointerSelectClassName} relative my-auto me-2 flex min-h-10 w-full items-center overflow-hidden`}
       >
         <GroupSectionTitle sectionId={sectionId} />
       </div>
-      <div className="z-10 ml-auto flex items-center">
+      <div
+        className="z-10 ms-auto flex items-center"
+        data-setta-workspace-compact-control-group="true"
+      >
         <ChangeOrientationButton sectionId={sectionId} />
         <LockPositionButton sectionId={sectionId} />
         <DeleteOrHideButton sectionId={sectionId} size="min-w-4 h-4 scale-150  " />

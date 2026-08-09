@@ -31,6 +31,9 @@ const INACTIVE_CONTROL_CLASS_NAME = "text-setta-400 dark:text-setta-600";
 const TOGGLE_CONTROL_CLASS_NAME =
   "cursor-pointer items-center justify-center overflow-clip rounded-md p-1 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:text-setta-500";
 const DECORATIVE_ICON_PROPS = { "aria-hidden": true, focusable: "false" } as const;
+const COMPACT_TOUCH_TARGET_PROPS = {
+  "data-setta-workspace-touch-target": "compact",
+} as const;
 
 function getToggleControlClassName(active: boolean): string {
   return `${TOGGLE_CONTROL_CLASS_NAME} ${active ? ACTIVE_CONTROL_CLASS_NAME : INACTIVE_CONTROL_CLASS_NAME}`;
@@ -50,6 +53,7 @@ function ViewportControls(props: {
         aria-label="zoom in"
         disabled={props.maxZoomReached}
         type="button"
+        {...COMPACT_TOUCH_TARGET_PROPS}
         {...getWorkspaceTooltipHandlers({ content: "Zoom in" })}
       >
         <FaPlus {...DECORATIVE_ICON_PROPS} size={15} />
@@ -60,6 +64,7 @@ function ViewportControls(props: {
         aria-label="zoom out"
         disabled={props.minZoomReached}
         type="button"
+        {...COMPACT_TOUCH_TARGET_PROPS}
         {...getWorkspaceTooltipHandlers({ content: "Zoom out" })}
       >
         <FaMinus {...DECORATIVE_ICON_PROPS} size={15} />
@@ -69,6 +74,7 @@ function ViewportControls(props: {
         onClick={onFitViewHandler}
         aria-label="fit view"
         type="button"
+        {...COMPACT_TOUCH_TARGET_PROPS}
         {...getWorkspaceTooltipHandlers({ content: "Fit view" })}
       >
         <TbArrowAutofitWidth {...DECORATIVE_ICON_PROPS} size={15} />
@@ -79,6 +85,7 @@ function ViewportControls(props: {
         aria-label="toggle snap to grid"
         aria-pressed={props.snapToGrid}
         type="button"
+        {...COMPACT_TOUCH_TARGET_PROPS}
         {...getWorkspaceTooltipHandlers({
           content: props.snapToGrid ? "Disable snap to grid" : "Enable snap to grid",
         })}
@@ -90,6 +97,7 @@ function ViewportControls(props: {
         onClick={resetZoom}
         aria-label="reset zoom"
         type="button"
+        {...COMPACT_TOUCH_TARGET_PROPS}
         {...getWorkspaceTooltipHandlers({ content: "Reset zoom" })}
       >
         <TbZoomReset {...DECORATIVE_ICON_PROPS} size={15} />
@@ -112,6 +120,7 @@ function MiniMapControls(props: { minimapSide: MiniMapSide; showMinimap: boolean
         aria-label="toggle minimap"
         aria-pressed={props.showMinimap}
         type="button"
+        {...COMPACT_TOUCH_TARGET_PROPS}
         {...getWorkspaceTooltipHandlers({
           content: props.showMinimap ? "Hide minimap" : "Show minimap",
         })}
@@ -124,6 +133,7 @@ function MiniMapControls(props: { minimapSide: MiniMapSide; showMinimap: boolean
         aria-label={moveMinimapLabel}
         data-testid="rf__toggle-minimap-side"
         type="button"
+        {...COMPACT_TOUCH_TARGET_PROPS}
         {...getWorkspaceTooltipHandlers({
           content: moveMinimapContent,
         })}

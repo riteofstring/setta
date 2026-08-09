@@ -136,6 +136,15 @@ describe("ColorValueControl", () => {
     expect(document.querySelector('[role="listbox"]')).toBeNull();
   });
 
+  it("preserves a locally rtl trigger direction across the popover portal", async () => {
+    host.dir = "rtl";
+    await mount({ choices: CHOICES });
+
+    await openPopover();
+
+    expect(document.querySelector<HTMLElement>('[role="listbox"]')?.parentElement?.dir).toBe("rtl");
+  });
+
   it("keeps one listbox option tabbable and supports wrapped arrow, Home, and End navigation", async () => {
     await mount({ choices: CHOICES });
     await openPopover();

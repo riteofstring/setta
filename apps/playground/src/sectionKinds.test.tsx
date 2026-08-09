@@ -377,7 +377,7 @@ describe("the playground item renderer presentation contract", () => {
     // reference "Search" placeholder, wrapped in the no-drag search shell.
     expect(input.value).toBe("");
     expect(input.placeholder).toBe("Search");
-    for (const pillClass of ["rounded-full", "font-mono", "text-xs", "pl-3", "pr-6", "h-4"]) {
+    for (const pillClass of ["rounded-full", "font-mono", "text-xs", "ps-3", "pe-6", "h-4"]) {
       expect(input.classList.contains(pillClass)).toBe(true);
     }
     expect(input.closest("search")?.classList.contains("nodrag")).toBe(true);

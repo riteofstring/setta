@@ -104,6 +104,7 @@ describe("RotaryValueControl", () => {
     expect(knob.getAttribute("aria-valuemax")).toBe("1");
     expect(knob.getAttribute("aria-valuenow")).toBe("0.5");
     expect(knob.getAttribute("aria-valuetext")).toBe("0.5");
+    expect(knob.dataset.settaWorkspaceTouchTarget).toBe("gesture");
     for (const expectedClass of [
       "nodrag",
       "nopan",

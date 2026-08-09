@@ -6,6 +6,7 @@ import { getActiveSectionIds } from "../document/activeSections";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { Node, Viewport } from "../document/types";
 import { useSectionRefs } from "../section/sectionRefs";
+import { resolveWorkspaceMotionDuration } from "../styles/motion";
 import type { ReactFlowState, Rect, Transform } from "./types";
 import { boxToRect, clamp, getBoundsOfBoxes, getOverlappingArea, rectToBox } from "./utils";
 import { screenToFlowPosition } from "./viewportPosition";
@@ -156,7 +157,7 @@ export const getD3Transition = (
   selection: D3Selection<Element, unknown, null, undefined>,
   duration = 0,
 ) => {
-  return selection.transition().duration(duration);
+  return selection.transition().duration(resolveWorkspaceMotionDuration(duration));
 };
 
 function getSectionBounds(sectionIds: Array<string>, ignoreGrid = false): Rect | null {
