@@ -1,5 +1,7 @@
 import type { DragDropManager, Draggable, Droppable } from "@dnd-kit/dom";
 import type { Coordinates, Rectangle } from "@dnd-kit/geometry";
+import { getItemDndParentByChild } from "../itemDndChildren";
+import { useItemDndState, type ItemListKey } from "../itemDndState";
 import { promoteBestCollision } from "./collisionCompare";
 import { coerceClientRect, rectFromBoundingRect } from "./rect";
 import type {
@@ -10,11 +12,13 @@ import type {
   SettaCollision,
 } from "./types";
 
-// The reference maps param drags through their own parent-by-child projection here; that branch
-// left with the Phase 4 parameter/item surface.
-
 type DragStartOperation = {
   source: Draggable | null;
+};
+
+type ActiveDragData = {
+  type?: string;
+  listKey?: ItemListKey | null;
 };
 
 type DragOperation = {
@@ -60,7 +64,7 @@ export function mapDragEvent(
     return null;
   }
 
-  const collisions = getCollisions(manager);
+  const collisions = getCollisions(manager, active);
   return {
     activatorEvent: event.operation.activatorEvent ?? null,
     active,
@@ -71,13 +75,32 @@ export function mapDragEvent(
   };
 }
 
-function getCollisions(manager: DragDropManager): SettaCollision[] {
+function getCollisions(manager: DragDropManager, active: Draggable): SettaCollision[] {
   const collisions = manager.collisionObserver.collisions;
   if (!collisions || collisions.length === 0) {
     return [];
   }
 
-  return promoteBestCollision(collisions as SettaCollision[]);
+  return promoteBestCollision(
+    collisions as SettaCollision[],
+    getItemCollisionParentByChild(active),
+  );
+}
+
+// Item drags promote collisions through the item children projection (keyed by list-scoped dnd
+// ids) instead of the section dnd children default.
+function getItemCollisionParentByChild(active: Draggable) {
+  const activeData = getActiveDragData(active);
+  if (activeData?.type !== "item") {
+    return undefined;
+  }
+
+  const listKey = activeData.listKey ?? useItemDndState.getState().listKey;
+  return getItemDndParentByChild(listKey ?? null);
+}
+
+function getActiveDragData(active: Draggable): ActiveDragData | null {
+  return (active.data as { current?: ActiveDragData } | undefined)?.current ?? null;
 }
 
 function getManagerBoundingRect(

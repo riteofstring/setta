@@ -87,8 +87,48 @@ describe("collision tracker", () => {
     useReactFlow.setState({ transform: [0, 0, 1] });
   });
 
+  it("keeps item row collisions alive via vertical overlap when horizontal overlap is gone", () => {
+    // The reference's param-mode intersection fallback: a row dragged horizontally off its list
+    // still collides through vertical overlap x active width.
+    const tracker = createCollisionTracker({
+      mode: "item",
+      getParentByChild: () => ({}),
+    });
+    const activeRect = createRect({
+      top: 0,
+      left: 120,
+      width: 10,
+      height: 10,
+    });
+    const droppableRect = createRect({
+      top: 2,
+      left: 0,
+      width: 100,
+      height: 10,
+    });
+
+    const collision = tracker.collisionDetector({
+      droppable: createDroppable("drop", droppableRect, {
+        sortable: { containerId: "items" },
+        sortableOrientation: "vertical",
+      }),
+      dragOperation: createDragOperation({
+        id: "active",
+        rect: activeRect,
+        data: {
+          type: "item",
+        },
+        pointerCoordinates: { x: 125, y: 5 },
+      }),
+    } as never);
+
+    expect(collision?.priority).toBe(CollisionPriority.High);
+    expect(collision?.data?.intersectionRatio).toBe(80);
+  });
+
   it("boosts the previously resolved child collision and clears that state on reset", () => {
     const tracker = createCollisionTracker({
+      mode: "section",
       getParentByChild: () => ({ child: "parent" }),
     });
     const rect = createRect({
@@ -123,7 +163,7 @@ describe("collision tracker", () => {
   });
 
   it("uses the pointer with a symmetric dead band for cross-parent insertion", () => {
-    const tracker = createCollisionTracker({ getParentByChild: () => ({}) });
+    const tracker = createCollisionTracker({ mode: "section", getParentByChild: () => ({}) });
     const droppableRect = createRect({ top: 100, left: 200, width: 200, height: 200 });
     const activeRect = createRect({ top: 150, left: 0, width: 210, height: 200 });
     const droppable = createDroppable("child", droppableRect, {
@@ -162,7 +202,7 @@ describe("collision tracker", () => {
   });
 
   it("uses the pointer on the horizontal axis for cross-parent insertion", () => {
-    const tracker = createCollisionTracker({ getParentByChild: () => ({}) });
+    const tracker = createCollisionTracker({ mode: "section", getParentByChild: () => ({}) });
     const droppableRect = createRect({ top: 200, left: 100, width: 200, height: 200 });
     const activeRect = createRect({ top: 0, left: 150, width: 200, height: 210 });
     const droppable = createDroppable("child", droppableRect, {
@@ -190,7 +230,7 @@ describe("collision tracker", () => {
   });
 
   it("keeps each target's hysteresis snapshot when the resolved collision alternates", () => {
-    const tracker = createCollisionTracker({ getParentByChild: () => ({}) });
+    const tracker = createCollisionTracker({ mode: "section", getParentByChild: () => ({}) });
     const originalChildRect = createRect({ top: 100, left: 200, width: 200, height: 200 });
     const shiftedChildRect = createRect({ top: 300, left: 200, width: 200, height: 200 });
     const activeRect = createRect({ top: 150, left: 0, width: 210, height: 250 });
@@ -230,7 +270,7 @@ describe("collision tracker", () => {
   });
 
   it("keeps direction-aware edges for sorting within the same parent", () => {
-    const tracker = createCollisionTracker({ getParentByChild: () => ({}) });
+    const tracker = createCollisionTracker({ mode: "section", getParentByChild: () => ({}) });
     const droppableRect = createRect({ top: 100, left: 200, width: 200, height: 200 });
     const activeRect = createRect({ top: 150, left: 0, width: 210, height: 200 });
     const sortableData = { sortable: { containerId: "shared-group" } };

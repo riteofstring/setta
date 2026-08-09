@@ -7,12 +7,16 @@ import { useWorkspaceDocument } from "../../document/stores";
 import { useDndChildren } from "../dndChildren";
 import { isTempSection } from "../dndIds";
 import { useDndState } from "../dndState";
+import { isTempItem } from "../itemDndState";
 import { resolveOverCollision } from "./collisionCompare";
 import type { ClientRect, SettaCollision } from "./types";
 
-// The reference tracker also runs in a "param" mode (its own temp-id scheme, intersection
-// fallback, and 30 px trigger threshold); that mode left with the Phase 4 parameter/item
-// surface, so this tracker is the reference's section mode.
+// The reference tracker's two modes ("section" | "param"): section trackers ignore the dragged
+// sections and read container orientation from the document; item trackers (the reference's
+// param mode) ignore temp item placeholders, keep collisions alive through a vertical-overlap
+// fallback when horizontal overlap is gone, and use the 30 px move-to-parent trigger threshold.
+
+type CollisionMode = "section" | "item";
 
 type ParentByChildMap = Record<string, string | null>;
 
@@ -38,6 +42,7 @@ export type CollisionTracker = {
 };
 
 type CollisionTrackerOptions = {
+  mode: CollisionMode;
   getParentByChild: () => ParentByChildMap;
 };
 
@@ -79,6 +84,7 @@ type SortingCollisionContext = SharedDetectorContext & {
 type PastHalfwayReference = "directional-edge" | "pointer";
 
 export function createCollisionTracker({
+  mode,
   getParentByChild,
 }: CollisionTrackerOptions): CollisionTracker {
   const state: CollisionTrackerState = {
@@ -104,7 +110,7 @@ export function createCollisionTracker({
 
     const draggingIds = useDndState.getState().draggingIds;
     const droppableId = String(droppable.id);
-    if (shouldIgnoreDroppable({ droppableId, draggingIds })) {
+    if (shouldIgnoreDroppable({ mode, droppableId, draggingIds })) {
       return null;
     }
 
@@ -168,6 +174,7 @@ export function createCollisionTracker({
     const { active, activeRect, droppable, droppableData, droppableRect } = context;
     const containerId = droppableData?.sortable?.containerId;
     const containerIsHorizontal = getContainerIsHorizontal({
+      mode,
       containerId,
       activeData: context.activeData,
       droppableData,
@@ -210,6 +217,7 @@ export function createCollisionTracker({
         droppableData,
         triggerDist,
         containerIsHorizontal,
+        mode,
       }),
     };
   }
@@ -217,6 +225,7 @@ export function createCollisionTracker({
   function buildSortingCollision(context: SortingCollisionContext): SettaCollision | null {
     const { activeRect, droppable, droppableRect } = context;
     const containerIsHorizontal = getContainerIsHorizontal({
+      mode,
       containerId: context.containerId,
       activeData: context.activeData,
       droppableData: context.droppableData,
@@ -260,10 +269,11 @@ export function createCollisionTracker({
       return null;
     }
 
-    const intersectionRatio = getIntersectionRatio(
-      collisionContext.droppableRect,
-      collisionContext.activeRect,
-    );
+    const intersectionRatio = getResolvedIntersectionRatio({
+      mode,
+      activeRect: collisionContext.activeRect,
+      droppableRect: collisionContext.droppableRect,
+    });
     if (!intersectionRatio) {
       return null;
     }
@@ -310,6 +320,7 @@ function getPastHalfwayReference(
 }
 
 export const defaultCollisionTracker = createCollisionTracker({
+  mode: "section",
   getParentByChild: () => useDndChildren.getState().y,
 });
 
@@ -342,27 +353,61 @@ function getEntityData(entity: { data?: Record<string, unknown> } | null) {
 }
 
 function shouldIgnoreDroppable({
+  mode,
   droppableId,
   draggingIds,
 }: {
+  mode: CollisionMode;
   droppableId: string;
   draggingIds: Array<string>;
 }): boolean {
   if (isTempSection(droppableId)) {
     return true;
   }
-  return draggingIds.length > 0 && draggingIds.includes(droppableId);
+  if (mode === "item" && isTempItem(droppableId)) {
+    return true;
+  }
+  return mode === "section" && draggingIds.length > 0 && draggingIds.includes(droppableId);
+}
+
+function getResolvedIntersectionRatio({
+  mode,
+  activeRect,
+  droppableRect,
+}: {
+  mode: CollisionMode;
+  activeRect: ClientRect;
+  droppableRect: ClientRect;
+}): number {
+  const intersectionRatio = getIntersectionRatio(droppableRect, activeRect);
+  if (intersectionRatio || mode !== "item") {
+    return intersectionRatio;
+  }
+
+  const verticalOverlap = getVerticalOverlap(droppableRect, activeRect);
+  if (verticalOverlap <= 0) {
+    return 0;
+  }
+
+  // Keep item collisions alive when dragging horizontally outside the row.
+  return Number((verticalOverlap * activeRect.width).toFixed(4));
 }
 
 function getContainerIsHorizontal({
+  mode,
   containerId,
   activeData,
   droppableData,
 }: {
+  mode: CollisionMode;
   containerId?: string;
   activeData: DndEntityData | null;
   droppableData: DndEntityData | null;
 }): boolean {
+  if (mode !== "section") {
+    return false;
+  }
+
   const sortableOrientation = activeData?.sortableOrientation ?? droppableData?.sortableOrientation;
   if (sortableOrientation === "horizontal") {
     return true;
@@ -395,6 +440,12 @@ function getIntersectionRatio(entry: ClientRect, target: ClientRect): number {
   }
 
   return 0;
+}
+
+function getVerticalOverlap(entry: ClientRect, target: ClientRect): number {
+  const top = Math.max(target.top, entry.top);
+  const bottom = Math.min(target.bottom, entry.bottom);
+  return bottom - top;
 }
 
 const MAX_ABS_TRIGGER_DIST = 10000;
@@ -454,11 +505,13 @@ function getTriggerDistCondition({
   droppableData,
   triggerDist,
   containerIsHorizontal,
+  mode,
 }: {
   activeId: string;
   droppableData: DndEntityData | null;
   triggerDist: number;
   containerIsHorizontal: boolean;
+  mode: CollisionMode;
 }): boolean {
   if (!droppableData) {
     return false;
@@ -473,7 +526,7 @@ function getTriggerDistCondition({
   }
 
   const zoom = useReactFlow.getState().transform[2];
-  const threshold = containerIsHorizontal ? 20 : 100;
+  const threshold = mode === "item" ? 30 : containerIsHorizontal ? 20 : 100;
 
   return triggerDist > threshold * zoom;
 }

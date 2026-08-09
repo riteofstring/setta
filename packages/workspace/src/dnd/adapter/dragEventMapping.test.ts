@@ -1,6 +1,8 @@
 import { CollisionPriority, CollisionType } from "@dnd-kit/abstract";
 import { beforeEach, describe, expect, it } from "vitest";
 import { useDndChildren } from "../dndChildren";
+import { updateItemChildren, useItemDndChildren } from "../itemDndChildren";
+import { getItemDndId, setItemDndState, useItemDndState } from "../itemDndState";
 import { mapDragEvent, mapDragStartEvent } from "./dragEventMapping";
 import type { DragEndEvent, SettaCollision } from "./types";
 
@@ -39,6 +41,8 @@ function collision(id: string, intersectionRatio: number): SettaCollision {
 describe("dragEventMapping", () => {
   beforeEach(() => {
     useDndChildren.getState().reset();
+    useItemDndChildren.getState().reset();
+    useItemDndState.getState().reset();
   });
 
   it("returns null on drag start when source is missing", () => {
@@ -236,5 +240,53 @@ describe("dragEventMapping", () => {
     expect(mapped?.delta).toEqual({ x: 11, y: 13 });
     expect(mapped?.canceled).toBe(true);
     expect(mapped?.collisions?.map((entry) => entry.id)).toEqual(["over-1"]);
+  });
+
+  it("promotes best item collision using list-key parent mapping", () => {
+    // Validates item drag collision ordering uses list-key aware parentByChild mapping.
+    const listKey = "pinned";
+    const parentId = "parent";
+    const childId = "child";
+
+    updateItemChildren({
+      [parentId]: [childId],
+    });
+    setItemDndState({ listKey });
+
+    const parentDndId = getItemDndId(parentId, listKey);
+    const childDndId = getItemDndId(childId, listKey);
+
+    const active = {
+      id: childDndId,
+      data: {
+        current: {
+          type: "item",
+        },
+      },
+    };
+
+    const manager = {
+      collisionObserver: {
+        collisions: [
+          collision(parentDndId, 20),
+          collision(childDndId, 1),
+          collision("outside", 10),
+        ],
+      },
+    };
+
+    const mapped = mapDragEvent(
+      {
+        operation: {
+          source: active as never,
+          target: null,
+          activatorEvent: null,
+          transform: { x: 0, y: 0 },
+        },
+      },
+      manager as never,
+    );
+
+    expect(mapped?.collisions?.[0]?.id).toBe(childDndId);
   });
 });

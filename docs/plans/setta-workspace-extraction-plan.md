@@ -460,6 +460,41 @@ Phase 3 progress (2026-08-11):
   remains clean at `043d3b2e9`. Phase 4 may proceed.
 - Remaining Phase 3 work: none.
 
+Phase 4 progress (2026-08-11):
+
+- Item dnd fork substrate (2026-08-11): the four adapter branches deliberately cut at the Phase 1
+  dnd batch with "left with the Phase 4 parameter/item surface" markers returned with this owning
+  batch, together with the two fork stores they depend on. The package term for the reference's
+  params is "items", and list keys are host-defined strings where the reference hard-codes its
+  pinned/unpinned param areas; the dnd-id wire constants (`::settaParamList::`, `::TempParamDND`)
+  stay verbatim so the id encoding matches the reference exactly. New stores, ported from the
+  reference in the package store style (plain setState, identical observable state):
+  `itemDndState` (active-drag bookkeeping — active/section/list/root ids, dragging ids, parent
+  map, visible children, active rect, placeholder metrics, pending reset — plus the list-key
+  scoped dnd-id scheme with temp-placeholder suffixing) and `itemDndChildren` (the live
+  parent→children projection an item drag mutates: temp placeholder replacement anchored at the
+  first dragged item with stale-temp cleanup, live re-parenting, list-key mapped parentByChild
+  output). Adapter restorations: the collision tracker regained the reference's two modes —
+  item-mode trackers ignore temp item placeholders instead of dragged sections, keep row
+  collisions alive through the vertical-overlap × active-width intersection fallback, use the
+  30 px move-to-parent trigger threshold (zoom-scaled like the section 20/100 px thresholds),
+  and never resolve a horizontal container — composed with the package's developer-approved
+  per-target hysteresis and pointer-reference corrections, which item mode inherits;
+  `dragEventMapping` promotes item-drag collisions through the item children projection keyed by
+  list-scoped dnd ids; `useSortable` forces "none" feedback for item-type drags; and
+  `DragOperationShapeSync` syncs item-drag shapes from the item active rect (item drags never
+  adopt the section multi-selection rect). The section dnd context now names its tracker mode
+  explicitly. Reference characterization tests ported: the fork store suites (id scheme,
+  children/temp-placeholder state), the param-mode collision fallback case, the list-key
+  promotion case, and the integration mapping case; the shape-sync suite freezes the
+  item-drag suppression. The item sensors, the nested item drag context, the monitor/overlay
+  lifecycle, the canonical item model with its move funnels, and the registered item surface
+  follow with their owning Phase 4 batches.
+- Remaining Phase 4 work: the canonical item model and move/selection logic, the item dnd
+  provider/monitor/overlay and row surface with host-registered renderers and playground
+  reachability, item selection and keyboard movement, and the section-drag versus item-drag
+  ownership gating.
+
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
 - Frozen reference worktree: `../setta-main` on `main` at `043d3b2e9`

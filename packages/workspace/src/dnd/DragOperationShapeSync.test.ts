@@ -120,6 +120,7 @@ describe("resolveSelectionBoundingRect", () => {
           },
         },
         isMovingFree: true,
+        isItemDrag: false,
       }),
     ).toEqual({
       left: -5,
@@ -129,5 +130,34 @@ describe("resolveSelectionBoundingRect", () => {
       width: 45,
       height: 45,
     });
+  });
+
+  it("never combines section selection rects during an item drag", () => {
+    // Item drags size the operation shape from the item active rect, not the section selection.
+    expect(
+      resolveSelectionBoundingRect({
+        draggingIds: ["a", "b"],
+        draggingRectsById: {
+          a: {
+            left: 10,
+            top: 20,
+            right: 40,
+            bottom: 60,
+            width: 30,
+            height: 40,
+          },
+          b: {
+            left: -5,
+            top: 15,
+            right: 25,
+            bottom: 45,
+            width: 30,
+            height: 30,
+          },
+        },
+        isMovingFree: true,
+        isItemDrag: true,
+      }),
+    ).toBeNull();
   });
 });

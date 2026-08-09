@@ -1,14 +1,13 @@
 import { Rectangle, type BoundingRectangle } from "@dnd-kit/geometry";
 import { useDragDropManager } from "@dnd-kit/react";
+import { useComputed } from "@dnd-kit/react/hooks";
 import { effects } from "@dnd-kit/state";
 import _ from "lodash";
 import { useEffect, useRef, type MutableRefObject } from "react";
 import { useDndProviderContext } from "./adapter/DndProviderContext";
 import { useDndState } from "./dndState";
 import { resolveRectBoundsById, type DragRectLike } from "./dragRectBounds";
-
-// The reference also syncs param-drag shapes from the param dnd store; that branch left with
-// the Phase 4 parameter/item surface.
+import { useItemDndState } from "./itemDndState";
 
 type DragOperationShapeSyncProps = {
   enabled?: boolean;
@@ -29,7 +28,14 @@ export function DragOperationShapeSync({ enabled }: DragOperationShapeSyncProps 
     }),
     _.isEqual,
   );
-  const shouldSync = enabled === undefined ? isSorting || isMovingFree : enabled;
+  const itemActiveRect = useItemDndState((x) => x.activeRect);
+  const activeDragType = useComputed(() => {
+    const sourceData = manager?.dragOperation.source?.data as
+      { current?: { type?: string } } | undefined;
+    return sourceData?.current?.type ?? null;
+  }, [manager]).value;
+  const shouldSync =
+    enabled === undefined ? isSorting || isMovingFree || activeDragType === "item" : enabled;
   const baseRectRef = useRef<BoundingRectangle | null>(null);
   const activeIdRef = useRef<string | number | null>(null);
 
@@ -42,6 +48,8 @@ export function DragOperationShapeSync({ enabled }: DragOperationShapeSyncProps 
     return effects(() => {
       const nextShape = resolveNextDragOperationShape({
         manager,
+        activeDragType,
+        itemActiveRect,
         sectionActiveRect,
         draggingIds,
         draggingRectsById,
@@ -57,7 +65,16 @@ export function DragOperationShapeSync({ enabled }: DragOperationShapeSyncProps 
       updateDragBaseRefs(baseRectRef, activeIdRef, nextShape);
       manager.dragOperation.shape = nextShape.shape;
     });
-  }, [manager, shouldSync, sectionActiveRect, draggingIds, draggingRectsById, isMovingFree]);
+  }, [
+    manager,
+    shouldSync,
+    activeDragType,
+    itemActiveRect,
+    sectionActiveRect,
+    draggingIds,
+    draggingRectsById,
+    isMovingFree,
+  ]);
 
   return null;
 }
@@ -93,6 +110,8 @@ type ResolveDragBaseRectResult = {
 
 type ResolveNextDragOperationShapeArgs = {
   manager: DragDropManager;
+  activeDragType: string | null;
+  itemActiveRect: BoundingRectangle | null;
   sectionActiveRect: DragRect | null;
   draggingIds: Array<string>;
   draggingRectsById: Record<string, DragRect> | null;
@@ -130,6 +149,8 @@ function updateDragBaseRefs(
 
 function resolveNextDragOperationShape({
   manager,
+  activeDragType,
+  itemActiveRect,
   sectionActiveRect,
   draggingIds,
   draggingRectsById,
@@ -143,6 +164,7 @@ function resolveNextDragOperationShape({
   }
 
   const activeId = active.id;
+  const isItemDrag = activeDragType === "item";
   const { baseRect, refreshedBaseRect } = resolveDragBaseRect({
     activeId,
     previousActiveId,
@@ -151,9 +173,10 @@ function resolveNextDragOperationShape({
       draggingIds,
       draggingRectsById,
       isMovingFree,
+      isItemDrag,
     }),
     droppable: manager.registry.droppables.get(activeId),
-    fallbackRect: sectionActiveRect,
+    fallbackRect: isItemDrag ? itemActiveRect : sectionActiveRect,
   });
   if (!baseRect) {
     return null;
@@ -215,12 +238,14 @@ export function resolveSelectionBoundingRect({
   draggingIds,
   draggingRectsById,
   isMovingFree,
+  isItemDrag,
 }: {
   draggingIds: Array<string>;
   draggingRectsById: Record<string, DragRect> | null;
   isMovingFree: boolean;
+  isItemDrag: boolean;
 }): BoundingRectangle | null {
-  if (!isMovingFree) {
+  if (!isMovingFree || isItemDrag) {
     return null;
   }
 

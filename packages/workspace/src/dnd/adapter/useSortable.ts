@@ -62,7 +62,7 @@ export function useSortable({
   const isDragActive = useIsDragActive(manager);
   const shouldTrackSorting = sortingEnabled && isDragActive;
   const sortablePlugins = [SortableKeyboardPlugin];
-  const feedback = getFeedback(sortingEnabled, isMovingFree);
+  const feedback = getFeedback(sortingEnabled, isMovingFree, customData);
   const sortableTransition = getSortableTransition(transition, shouldTrackSorting);
   const dragModifiers = getDragModifiers(isSortingMode, containerId);
   const data = useMemo(
@@ -154,10 +154,13 @@ export function useSortable({
   };
 }
 
-// The reference also forces "none" feedback for param-type drags; that branch left with the
-// Phase 4 parameter/item surface.
-function getFeedback(sortingEnabled: boolean, isMovingFree: boolean): "none" | undefined {
-  return sortingEnabled || isMovingFree ? "none" : undefined;
+function getFeedback(
+  sortingEnabled: boolean,
+  isMovingFree: boolean,
+  customData: Record<string, unknown> | undefined,
+): "none" | undefined {
+  const itemType = typeof customData?.type === "string" ? customData.type : null;
+  return sortingEnabled || isMovingFree || itemType === "item" ? "none" : undefined;
 }
 
 function getSortableTransition(

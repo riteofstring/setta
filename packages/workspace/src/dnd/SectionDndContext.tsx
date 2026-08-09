@@ -42,6 +42,7 @@ export function SectionDndContext({ children }: { children: ReactNode }) {
   const collisionTracker = useMemo(
     () =>
       createCollisionTracker({
+        mode: "section",
         getParentByChild: () => useDndChildren.getState().y,
       }),
     [],
