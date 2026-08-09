@@ -1685,7 +1685,7 @@ Gate:
 
 ### Phase 6: Deferred capability expansion in the same package
 
-Status: **phase audit reopened; supervisor correction required** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
+Status: **implementation complete; independent phase re-audit required** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
 optional outline-navigator, top-level auto-layout, named item-list, filtered item-list,
 mixed-parent batch-movement, saved viewport-preset, generic edge-and-port, pane-registration, and
 viewport-culling batches are implemented. They are recorded in
@@ -1720,26 +1720,35 @@ named production positioning control and integrated performance/browser matrix a
 [Phase 6 nested-freeform positioning evidence](../evidence/phase-6-nested-freeform-positioning.md).
 The final implementation batch is recorded in
 [Phase 6 descendant-subtree minimization evidence](../evidence/phase-6-descendant-subtree-minimization.md).
-The listed capability batches have implementation and audit coverage, but Phase 6 is not complete
-until the two supervisor-required corrections below are implemented and independently re-audited.
+The listed capability batches and both supervisor-required corrections have implementation coverage,
+but Phase 6 is not complete until an independent re-audit accepts the corrected settled tree.
 The prior expanded-range audit, static corrections, deterministic matrix, browser proof,
 performance result, and retained release gates are recorded in
 [Phase 6 gate-audit evidence](../evidence/phase-6-gate-audit.md); that record is historical evidence,
 not a final Phase 6 sign-off.
 
-- Remaining correction (detached renderer identity): the current React implementation switches
-  between `DockedSectionContent` and `DetachedWindowContent`, and each branch creates a distinct
-  `definition.render` element. Detaching and redocking therefore remount the host renderer even
-  though the static content, canonical document, theme, and focus tests pass. Keep one renderer
-  subtree and one stable portal target mounted while moving that target between the docked frame
-  and same-origin detached window. Add browser proof that uncontrolled renderer state and mount
-  identity survive both detach and redock, while retaining the existing popup-blocking, window-loss,
-  minimize, deletion, theme/head, placeholder-geometry, and focus behavior.
-- Remaining correction (non-tautological proof): remove or replace
-  `packages/workspace/tests/nested-freeform-representation.test.ts`. Assertions that restate the
-  exported candidate IDs, selected flag, and reason strings do not exercise a production path and
-  violate the repository test policy. Retain the executable browser representation proof and add
-  focused production-path coverage only if it proves behavior not already covered there.
+- Completed supervisor correction (detached renderer identity): one stable renderer portal target
+  now moves between the docked content surface and the same-origin detached window. Every redock or
+  window-loss path returns that target to the dock synchronously before closing the pop-out. Focused
+  browser coverage proves the same renderer-owned input DOM node and local React state survive both
+  detach and redock, while popup blocking, host rejection, window loss, minimize, deletion,
+  theme/head propagation, placeholder geometry, focus restoration, baselines, and Axe remain green.
+- Completed supervisor correction (non-tautological proof): removed
+  `packages/workspace/tests/nested-freeform-representation.test.ts`. The retained Chromium
+  representation proof exercises real XYFlow wrapper containment, store/viewport counts, recursive
+  DOM movement, native scrolling, focus, accessibility, reflow, and the selected visual surface;
+  no replacement metadata-restatement test was added.
+- Supervisor-correction verification: exact Node 24.18.1, repository-local Corepack 0.35.0, and
+  pnpm 11.19.0 passed 40 focused detachment/static React tests and all six focused Chromium
+  detachment workflows with the two retained baselines and owner/pop-out Axe scans. Changed-file
+  quality selected nine project files and passed repository boundaries across 368 files, four-manifest
+  dependency policy, formatting, lint and complexity, file lengths, strict types, dead-code analysis,
+  517 unit tests across 49 files, six boundary tests, and plan-loop automation. A terminal yield hid
+  the orchestration tail, so an exit-zero traced automation diagnostic plus direct
+  package/playground build, exact tarball, and public-API report checks recovered those results
+  without duplicating the green unit/type/lint stages. No dependency input changed, so the
+  network-backed supply-chain gate and standing unavailable in-app-browser release gate were not
+  retried.
 
 - Phase-audit corrections: clipboard framing rejects overflow-derived non-finite geometry and
   clipboard paste retains one busy owner through current-registry and controlled-host
@@ -1768,8 +1777,9 @@ not a final Phase 6 sign-off.
   focus isolation, equal selected-block local deltas, atomic representative reparenting, bounded
   narrow layout, and one culling/geometry ownership path. This selects the implementation owner; it
   does not mark the schema-v2 or production interaction batch complete.
-- Nested-freeform representation verification: exact Node 24.18.1, repository-local Corepack
-  0.35.0, and pnpm 11.19.0 focused coverage passed two representation-contract unit tests. Focused
+- Nested-freeform representation verification at the prerequisite checkpoint: exact Node 24.18.1,
+  repository-local Corepack 0.35.0, and pnpm 11.19.0 focused coverage included two metadata tests
+  later removed by the supervisor correction above because they did not exercise production. Focused
   Chromium coverage passed the challenger/store observations, the selected-owner interaction
   workflow, and the inspected narrow visual baseline; the corrected 320-CSS-pixel geometry was
   measured with every control inside the workbench bounds. Changed-file quality passed for 11

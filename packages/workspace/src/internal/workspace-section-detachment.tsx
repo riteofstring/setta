@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -131,6 +132,7 @@ type DetachedPlaceholderSize = Readonly<{
 type DetachedSession = Readonly<{
   cleanup(): void;
   contentTarget: HTMLElement;
+  dockTarget: HTMLElement;
   document: Document;
   focusTrigger(): void;
   headTarget: HTMLHeadElement;
@@ -139,14 +141,17 @@ type DetachedSession = Readonly<{
   placeholderSize: DetachedPlaceholderSize;
   presentation: DetachedPresentation;
   request: { current: WorkspaceDetachmentRequest };
+  rendererTarget: HTMLElement;
   window: Window;
 }>;
 
 type DetachSectionInput = Readonly<{
+  dockTarget: HTMLElement;
   focusTrigger(): void;
   placeholderSize: DetachedPlaceholderSize;
   presentation: DetachedPresentation;
   request: WorkspaceDetachmentRequest;
+  rendererTarget: HTMLElement;
   sourceElement: HTMLElement;
 }>;
 
@@ -278,6 +283,7 @@ export function WorkspaceDetachmentProvider({
       }
       session.cleanup();
       sessionsRef.current.delete(sectionId);
+      session.dockTarget.append(session.rendererTarget);
       if (!session.window.closed) {
         session.lastBounds.current = actualWindowBounds(session.window);
         if (options.closeWindow) {
@@ -412,6 +418,7 @@ export function WorkspaceDetachmentProvider({
       const session: DetachedSession = Object.freeze({
         cleanup,
         contentTarget,
+        dockTarget: input.dockTarget,
         document,
         focusTrigger: input.focusTrigger,
         headTarget: document.head,
@@ -420,6 +427,7 @@ export function WorkspaceDetachmentProvider({
         placeholderSize: input.placeholderSize,
         presentation: input.presentation,
         request,
+        rendererTarget: input.rendererTarget,
         window: detachedWindow,
       });
       sessionsRef.current.set(input.request.sectionId, session);
@@ -591,11 +599,19 @@ export function WorkspaceSectionDetachmentControl({
     if (!content || !frame || !sourceElement) {
       throw new Error(`Workspace section ${section.id} is not ready to detach.`);
     }
+    const rendererTarget = content.querySelector<HTMLElement>(
+      ":scope > [data-workspace-section-renderer-target]",
+    );
+    if (!rendererTarget) {
+      throw new Error(`Workspace section ${section.id} renderer is not ready to detach.`);
+    }
     context.detach({
+      dockTarget: content,
       focusTrigger: () => controlRef.current?.focus({ preventScroll: true }),
       placeholderSize: measuredPlaceholderSize(content),
       presentation: detachedPresentation(frame),
       request: Object.freeze({ kind: section.kind, sectionId: section.id, title: section.title }),
+      rendererTarget,
       sourceElement,
     });
   };
@@ -706,25 +722,22 @@ function useLiveDetachedPresentation(
 
 function DetachedWindowContent({
   appearance,
-  definition,
   inactive,
   onRedock,
   presentation,
-  readOnly,
+  rendererTarget,
   section,
 }: Readonly<{
   appearance: "dark" | "light";
-  definition: ResolvedSectionDefinition<unknown>;
   inactive: boolean;
   onRedock(): void;
   presentation: DetachedPresentation;
-  readOnly: boolean;
+  rendererTarget: HTMLElement;
   section: WorkspaceSection<unknown>;
 }>) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const headingId = useId();
   useEffect(() => headingRef.current?.focus({ preventScroll: true }), []);
-  const Renderer = definition.render;
   return (
     <section
       aria-labelledby={headingId}
@@ -750,15 +763,9 @@ function DetachedWindowContent({
         data-workspace-prevent-pan="true"
         data-workspace-prevent-wheel="true"
         inert={inactive || undefined}
+        ref={(element) => element?.append(rendererTarget)}
         tabIndex={inactive ? undefined : 0}
-      >
-        <Renderer
-          appearance={appearance}
-          data={section.data}
-          readOnly={readOnly}
-          sectionId={section.id}
-        />
-      </div>
+      />
     </section>
   );
 }
@@ -804,37 +811,6 @@ function useDetachedSectionSessionLifecycle(
   );
 }
 
-function DockedSectionContent({
-  appearance,
-  contentId,
-  contentRef,
-  definition,
-  inactive,
-  readOnly,
-  section,
-}: Omit<WorkspaceSectionContentProps, "frameRef">) {
-  const Renderer = definition.render;
-  return (
-    <div
-      aria-hidden={inactive || undefined}
-      className={`setta-workspace__section-content setta-workspace__interaction-boundary ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
-      data-workspace-prevent-pan="true"
-      data-workspace-prevent-wheel="true"
-      id={contentId}
-      inert={inactive || undefined}
-      ref={contentRef}
-      tabIndex={inactive ? undefined : 0}
-    >
-      <Renderer
-        appearance={appearance}
-        data={section.data}
-        readOnly={readOnly}
-        sectionId={section.id}
-      />
-    </div>
-  );
-}
-
 function DetachedWindowHead({
   renderWindowHead,
   section,
@@ -861,48 +837,31 @@ function DetachedWindowHead({
 
 function DetachedSectionPortals({
   appearance,
-  contentId,
-  contentRef,
   context,
-  definition,
   inactive,
   presentation,
-  readOnly,
+  rendererTarget,
   section,
   session,
-}: Omit<WorkspaceSectionContentProps, "frameRef"> &
-  Readonly<{
-    context: DetachmentContextValue;
-    presentation: DetachedPresentation;
-    session: DetachedSession;
-  }>) {
+}: Readonly<{
+  appearance: "dark" | "light";
+  context: DetachmentContextValue | null;
+  inactive: boolean;
+  presentation: DetachedPresentation | null;
+  rendererTarget: HTMLElement | null;
+  section: WorkspaceSection<unknown>;
+  session: DetachedSession | null;
+}>) {
+  if (!context || !presentation || !rendererTarget || !session) return null;
   return (
     <>
-      <div
-        aria-hidden={inactive || undefined}
-        className={`setta-workspace__section-content setta-workspace__interaction-boundary ${WORKSPACE_NO_PAN_CLASS_NAME} ${WORKSPACE_NO_ROOT_DRAG_CLASS_NAME} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
-        data-workspace-prevent-pan="true"
-        data-workspace-prevent-wheel="true"
-        id={contentId}
-        inert={inactive || undefined}
-        ref={contentRef}
-      >
-        <DetachedSectionPlaceholder
-          inactive={inactive}
-          onFocus={() => context.focus(section.id)}
-          onRedock={() => context.redock(section.id)}
-          section={section}
-          size={session.placeholderSize}
-        />
-      </div>
       {createPortal(
         <DetachedWindowContent
           appearance={appearance}
-          definition={definition}
           inactive={inactive}
           onRedock={() => context.redock(section.id)}
           presentation={presentation}
-          readOnly={readOnly}
+          rendererTarget={rendererTarget}
           section={section}
         />,
         session.contentTarget,
@@ -917,24 +876,124 @@ function DetachedSectionPortals({
   );
 }
 
+function WorkspaceSectionRendererPlacement({
+  appearance,
+  definition,
+  insideContent,
+  readOnly,
+  rendererTarget,
+  section,
+}: Readonly<{
+  appearance: "dark" | "light";
+  definition: ResolvedSectionDefinition<unknown>;
+  insideContent: boolean;
+  readOnly: boolean;
+  rendererTarget: HTMLElement | null;
+  section: WorkspaceSection<unknown>;
+}>) {
+  const Renderer = definition.render;
+  const renderer = (
+    <Renderer
+      appearance={appearance}
+      data={section.data}
+      readOnly={readOnly}
+      sectionId={section.id}
+    />
+  );
+  if (!rendererTarget) return insideContent ? renderer : null;
+  return insideContent
+    ? null
+    : createPortal(renderer, rendererTarget, `setta-workspace-renderer-${section.id}`);
+}
+
+function OpenDetachedSectionPlaceholder({
+  context,
+  inactive,
+  section,
+  session,
+}: Readonly<{
+  context: DetachmentContextValue | null;
+  inactive: boolean;
+  section: WorkspaceSection<unknown>;
+  session: DetachedSession | null;
+}>) {
+  if (!context || !session) return null;
+  return (
+    <DetachedSectionPlaceholder
+      inactive={inactive}
+      onFocus={() => context.focus(section.id)}
+      onRedock={() => context.redock(section.id)}
+      section={section}
+      size={session.placeholderSize}
+    />
+  );
+}
+
 export function WorkspaceSectionContent(props: WorkspaceSectionContentProps) {
-  const { contentId, contentRef, frameRef, section } = props;
+  const { appearance, contentId, contentRef, definition, frameRef, inactive, readOnly, section } =
+    props;
   const context = useWorkspaceDetachmentContext();
   const session = context?.session(section.id) ?? null;
   const presentation = useLiveDetachedPresentation(frameRef, session);
+  const [rendererTarget] = useState(() => {
+    if (typeof document === "undefined") return null;
+    const target = document.createElement("div");
+    target.dataset.workspaceSectionRendererTarget = "";
+    target.style.display = "contents";
+    return target;
+  });
   useDetachedSectionSessionLifecycle(context, section, session);
+  useLayoutEffect(() => {
+    if (!rendererTarget || session || section.isMinimized) return;
+    contentRef.current?.append(rendererTarget);
+  }, [contentRef, rendererTarget, section.isMinimized, session]);
   if (section.isMinimized) {
     return <div hidden id={contentId} ref={contentRef} />;
   }
-  if (!context || !session || !presentation) {
-    return <DockedSectionContent {...props} />;
-  }
   return (
-    <DetachedSectionPortals
-      {...props}
-      context={context}
-      presentation={presentation}
-      session={session}
-    />
+    <>
+      <div
+        aria-hidden={inactive || undefined}
+        className={`setta-workspace__section-content setta-workspace__interaction-boundary ${WORKSPACE_NO_PAN_CLASS_NAME}${session ? ` ${WORKSPACE_NO_ROOT_DRAG_CLASS_NAME}` : ""} ${WORKSPACE_NO_WHEEL_CLASS_NAME}`}
+        data-workspace-prevent-pan="true"
+        data-workspace-prevent-wheel="true"
+        id={contentId}
+        inert={inactive || undefined}
+        ref={contentRef}
+        tabIndex={inactive || session ? undefined : 0}
+      >
+        <OpenDetachedSectionPlaceholder
+          context={context}
+          inactive={inactive}
+          section={section}
+          session={session}
+        />
+        <WorkspaceSectionRendererPlacement
+          appearance={appearance}
+          definition={definition}
+          insideContent
+          readOnly={readOnly}
+          rendererTarget={rendererTarget}
+          section={section}
+        />
+      </div>
+      <WorkspaceSectionRendererPlacement
+        appearance={appearance}
+        definition={definition}
+        insideContent={false}
+        readOnly={readOnly}
+        rendererTarget={rendererTarget}
+        section={section}
+      />
+      <DetachedSectionPortals
+        appearance={appearance}
+        context={context}
+        inactive={inactive}
+        presentation={presentation}
+        rendererTarget={rendererTarget}
+        section={section}
+        session={session}
+      />
+    </>
   );
 }

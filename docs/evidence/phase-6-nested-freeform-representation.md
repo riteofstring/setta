@@ -1,5 +1,8 @@
 # Phase 6 Nested-Freeform Representation Evidence
 
+> Proof-policy correction (2026-08-09): the metadata-restatement unit test was removed. The retained
+> Chromium proof below exercises the actual challenger and selected production-path projections.
+
 ## Result and scope
 
 The bounded representation prerequisite for Phase 6 nested freeform positioning is complete.
@@ -65,8 +68,8 @@ Playwright Chromium nested-freeform baseline was inspected at original resolutio
 
 ## Verification boundary
 
-- The focused unit selector passes two tests for the exact three-candidate comparison, one selected
-  owner, and one concrete stopping reason per candidate.
+- The former two-test metadata selector was removed because it only restated exported candidate IDs,
+  selection flags, and reason strings. No tautological replacement was added.
 - The challenger Chromium workflow passes the flat-wrapper and seven-store/seven-viewport
   observations. The interaction workflow passes ordered/freeform switching, native scroll and
   focus isolation, equal selected-block deltas, one-command accounting, reparenting, focus

@@ -21,6 +21,7 @@ export function App() {
 
   return (
     <DefaultPlaygroundPage
+      proveDetachmentRendererIdentity={search.has("detachment-renderer-proof")}
       readOnly={search.has("read-only")}
       rejectViewportChanges={search.has("reject-viewport")}
     />

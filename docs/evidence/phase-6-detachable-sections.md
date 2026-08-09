@@ -1,22 +1,20 @@
 # Phase 6 Detachable-Section Evidence
 
-> Supervisor correction (2026-08-09): the implementation covered window lifecycle, theme, head,
-> geometry, policy, and focus behavior, but did not preserve renderer mount identity. The docked and
-> detached branches each instantiate `definition.render`, and the existing browser workflow checks
-> only static renderer content. This evidence is incomplete until one stable renderer subtree moves
-> between documents and an uncontrolled-state test proves preservation through detach and redock.
+> Supervisor correction resolved (2026-08-09): one stable renderer portal target now moves between
+> the dock and pop-out document. Focused browser coverage proves the same renderer-owned input node
+> and local React state survive detach and redock. An independent Phase 6 re-audit remains required.
 
 ## Result and scope
 
-The first repository-actionable Phase 6 batch implements the window lifecycle. A registered section
-can opt into a same-origin detached window through the public React surface without changing
-`WorkspaceDocument`, renderer payload ownership, or controlled/uncontrolled document identity. The
-docked frame retains measured geometry and explicit focus/redock controls, and the detached renderer
-receives live title, data, appearance, and read-only props. As the supervisor correction above
-records, renderer mount identity and local React state are not yet preserved.
+The detachable-section implementation preserves both window lifecycle and renderer identity. A
+registered section can opt into a same-origin detached window through the public React surface
+without changing `WorkspaceDocument`, renderer payload ownership, or controlled/uncontrolled
+document identity. The docked frame retains measured geometry and explicit focus/redock controls.
+The one live renderer subtree receives live data, appearance, and read-only props while its stable
+portal target is adopted between the owner and pop-out documents without remounting.
 
-This record covers only the tightly coupled detachable-section items. Adapter-driven copy and paste
-and the independently evaluated Phase 6 follow-ons remain incomplete and repository-actionable.
+This record covers only the tightly coupled detachable-section items. Later Phase 6 evidence owns
+adapter-driven copy and paste and each independently evaluated follow-on capability.
 
 ## Public and ownership boundary
 
@@ -40,7 +38,8 @@ host-policy rejection.
 The focused Chromium workflow proves a direct native-button gesture, same-origin live opener,
 package and host head metadata, title and dark-theme propagation, placeholder geometry, movement
 and resize guards, keyboard-visible native controls, heading focus in the new window, focus-restoring
-redock, manual window closure, reload, opener loss, popup blocking, and host rejection. Axe scans
+redock, stable renderer-owned input identity and local state in both directions, minimize and delete
+cleanup, manual window closure, reload, opener loss, popup blocking, and host rejection. Axe scans
 pass independently in the owner workbench and detached window. Original-resolution dark placeholder
 and pop-out baselines were inspected, and the pre-existing presentation baseline was updated for the
 new selected-section action.
@@ -56,16 +55,22 @@ Chromium placeholder, pop-out, and affected presentation baselines were inspecte
 ## Verification boundary
 
 - Focused detachment contract, registry, selection-action, and React rendering unit tests pass.
-- The four-workflow `workspace-section-detachment.spec.ts` Chromium selector passes with its two
+- The six-workflow `workspace-section-detachment.spec.ts` Chromium selector passes with its two
   reviewed baselines and owner/pop-out Axe scans.
 - The directly affected runtime mode-switch ownership selector passes after stabilizing the empty
   no-provider detachment subscription; the affected presentation workflow passes with its reviewed
   baseline.
-- Changed-file quality passes for 33 project files: repository and dependency boundaries,
+- The original implementation changed-file quality passed for 33 project files: repository and dependency boundaries,
   formatting, lint and complexity, file lengths, strict types, dead-code analysis, all 394 unit
   tests, six boundary tests, plan-loop automation, package/playground builds, the exact tarball
   allowlist, documentation links, and generated public-API report. The unrelated packed-consumer
   install, frozen-lockfile confirmation, build, and runtime smoke also pass.
+- The supervisor-correction changed-file gate selected nine project files and passed repository
+  boundaries across 368 files, policy for four manifests, formatting, lint and complexity, file
+  lengths, strict types, dead-code analysis, 517 unit tests across 49 files, six boundary tests, and
+  plan-loop automation. The terminal yielded after automation began; an exit-zero traced automation
+  diagnostic and direct package/playground build, exact tarball, and public-API report checks
+  recovered the unreported tail without repeating the already-green checks.
 - No manifest, lockfile, external dependency, trust policy, or exception changed. The current
   network-backed Phase 5 supply-chain gate is not duplicated for this routine source batch;
   deterministic dependency policy remains part of changed-file quality.

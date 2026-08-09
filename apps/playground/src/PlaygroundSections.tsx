@@ -55,6 +55,25 @@ function SampleNoteSection({ data }: SectionRenderProps<PlaygroundSectionData>) 
   );
 }
 
+function StatefulSampleNoteSection({ data, readOnly }: SectionRenderProps<PlaygroundSectionData>) {
+  const note = noteData(data);
+  const [draft, setDraft] = useState("");
+  return (
+    <WorkspaceInteractionBoundary preventExternalDrop>
+      <p className="sample-section-copy">{note.body}</p>
+      <label>
+        <span>Renderer-local draft</span>
+        <input
+          data-sample-renderer-state=""
+          onChange={(event) => setDraft(event.currentTarget.value)}
+          readOnly={readOnly}
+          value={draft}
+        />
+      </label>
+    </WorkspaceInteractionBoundary>
+  );
+}
+
 function SampleStatusSection({ data }: SectionRenderProps<PlaygroundSectionData>) {
   const status = statusData(data);
   return (
@@ -255,6 +274,7 @@ function SampleFieldListSection({
 export function createPlaygroundSectionDefinitions(
   onFieldListDataChange: PlaygroundFieldListDataChangeHandler,
   fieldListSelectionEpoch: number,
+  proveDetachmentRendererIdentity = false,
 ) {
   const fieldListSelectionStore = new Map<string, readonly string[]>();
   const definitions = [
@@ -266,7 +286,7 @@ export function createPlaygroundSectionDefinitions(
       detachable: true,
       displayName: "Sample note",
       kind: "sample-note",
-      render: SampleNoteSection,
+      render: proveDetachmentRendererIdentity ? StatefulSampleNoteSection : SampleNoteSection,
     },
     {
       chrome: "compact",

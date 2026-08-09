@@ -159,9 +159,14 @@ function autoLayoutAnnouncement(result: WorkspaceActionResult): string {
 }
 
 export function DefaultPlaygroundPage({
+  proveDetachmentRendererIdentity,
   readOnly,
   rejectViewportChanges,
-}: Readonly<{ readOnly: boolean; rejectViewportChanges: boolean }>) {
+}: Readonly<{
+  proveDetachmentRendererIdentity: boolean;
+  readOnly: boolean;
+  rejectViewportChanges: boolean;
+}>) {
   const [initialState] = useState(loadPlaygroundState);
   const [document, setDocument] = useState(initialState.document);
   const [preferences, setPreferences] = useState(initialState.preferences);
@@ -189,8 +194,13 @@ export function DefaultPlaygroundPage({
     [],
   );
   const sectionDefinitions = useMemo(
-    () => createPlaygroundSectionDefinitions(handleFieldListDataChange, fieldListSelectionEpoch),
-    [fieldListSelectionEpoch, handleFieldListDataChange],
+    () =>
+      createPlaygroundSectionDefinitions(
+        handleFieldListDataChange,
+        fieldListSelectionEpoch,
+        proveDetachmentRendererIdentity,
+      ),
+    [fieldListSelectionEpoch, handleFieldListDataChange, proveDetachmentRendererIdentity],
   );
   const clipboardAdapter = useMemo(() => {
     if (!navigator.clipboard) return undefined;

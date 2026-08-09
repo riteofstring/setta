@@ -108,6 +108,76 @@ test("detached sections preserve live state, theme, accessibility, and redock fo
   ).toBeFocused();
 });
 
+test("detach and redock preserve renderer-local state and DOM identity", async ({ page }) => {
+  await page.goto("/?detachment-renderer-proof");
+  await addSampleSection(page);
+
+  const workspace = page.getByRole("region", { name: "Section workspace", exact: true });
+  const article = workspace.getByRole("article", { name: "Sample section 1" });
+  await article.getByRole("button", { name: "Select Sample section 1" }).click();
+  const draft = article.getByRole("textbox", { name: "Renderer-local draft" });
+  await draft.fill("Draft survives detachment");
+  await draft.evaluate((element) => {
+    (window as Window & { detachedRendererInput?: Element }).detachedRendererInput = element;
+  });
+
+  const popup = await openDetachedWindow(
+    article.getByRole("button", { name: "Open Sample section 1 in a new window" }),
+    page,
+  );
+  const detachedDraft = popup.getByRole("textbox", { name: "Renderer-local draft" });
+  await expect(detachedDraft).toHaveValue("Draft survives detachment");
+  expect(
+    await detachedDraft.evaluate(
+      (element) =>
+        (window.opener as (Window & { detachedRendererInput?: Element }) | null)
+          ?.detachedRendererInput === element,
+    ),
+  ).toBe(true);
+  await detachedDraft.fill("Draft survives redocking");
+
+  await popup.getByRole("button", { name: "Return to workspace" }).click();
+  await expect.poll(() => popup.isClosed()).toBe(true);
+  const redockedDraft = article.getByRole("textbox", { name: "Renderer-local draft" });
+  await expect(redockedDraft).toHaveValue("Draft survives redocking");
+  expect(
+    await redockedDraft.evaluate(
+      (element) =>
+        (window as Window & { detachedRendererInput?: Element }).detachedRendererInput === element,
+    ),
+  ).toBe(true);
+});
+
+test("minimizing and deleting a detached section close its window safely", async ({ page }) => {
+  await page.goto("/");
+  await addSampleSection(page);
+
+  const workspace = page.getByRole("region", { name: "Section workspace", exact: true });
+  const article = workspace.getByRole("article", { name: "Sample section 1" });
+  const select = article.getByRole("button", { name: "Select Sample section 1" });
+  await select.click();
+  const detach = article.getByRole("button", {
+    name: "Open Sample section 1 in a new window",
+  });
+  const minimizedPopup = await openDetachedWindow(detach, page);
+
+  await article.getByRole("button", { name: "Minimize Sample section 1" }).click();
+  await expect.poll(() => minimizedPopup.isClosed()).toBe(true);
+  await expect(article).toHaveAttribute("data-workspace-detached", "false");
+  await article.getByRole("button", { name: "Expand Sample section 1" }).click();
+  await expect(
+    article.getByText("Host-rendered content inside the package-owned section frame."),
+  ).toBeVisible();
+
+  const deletedPopup = await openDetachedWindow(detach, page);
+  await select.focus();
+  await page.keyboard.press("Shift+F10");
+  const actions = page.getByRole("dialog", { name: "Selection actions" });
+  await actions.getByRole("menuitem", { name: "Delete section", exact: true }).click();
+  await expect(article).toHaveCount(0);
+  await expect.poll(() => deletedPopup.isClosed()).toBe(true);
+});
+
 test("popup blocking leaves the renderer docked with actionable feedback", async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(window, "open", {
