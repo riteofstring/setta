@@ -1020,7 +1020,8 @@ Phase 4 progress (2026-08-11):
   host error message drives the red editor/underline/bubble state, while normalization, uniqueness,
   display-name meaning, and persistence stay host-owned. Non-visual accessibility additions give
   both editor layers an accessible name and disabled/error state, connect the error through
-  `aria-describedby`, and announce the portaled bubble as a polite status. The shared theme loader
+  `aria-describedby`, and announce error-message changes through a persistent polite status beside
+  the editor while the portaled bubble remains the visual description. The shared theme loader
   regained the frozen reference's green "boring" themes without changing the accepted GitHub value
   themes. The playground gained the captured `rename_me` row; its renderer derives duplicate-name
   validation from opaque sibling labels, blocks the duplicate proposal with the captured message,
@@ -1032,6 +1033,31 @@ Phase 4 progress (2026-08-11):
   changed-file static gate pass. Remaining repository-actionable implementation for this milestone:
   none. The supervised dark/light live comparison and explicit developer-acceptance exit gate remain
   open; no package-output baseline has been recorded.
+- Item-controls coherence audit repository work complete (2026-08-12): the audit expanded from
+  `0e26229d716ce93eba2680f6fc570a6a00106bea..c0c154637f24f7fbbda621fac0d7535a484877fe`
+  through the approved amendment, frozen evidence, and all four implementation batches. One static
+  pass over changed and removed behavior found and fixed three coupled boundary/accessibility
+  defects: the dropdown list and color-popover roots now carry the package scope marker when
+  portaled to `document.body`; the scoped Preflight subset now resets the dropdown's intrinsic
+  `dl`/`dd` margins, with a built-stylesheet marker preventing regression in unrelated consumers;
+  and each exported value control now requires a host-supplied accessible label and applies it to
+  every idle/live, native, trigger, toggle, and menu surface. Disabled text dummies expose their
+  state, dropdown toggles are explicit non-submitting buttons, and name errors update inside the
+  already-mounted polite status described above. The loop's new dirty-resume path and both
+  incomplete-result retries now retain the full governing implementation prompt instead of
+  replacing its plan, scope, verification, and sentinel rules with a finish-only sentence. All
+  affected package/playground call sites, exports, declarations, portal roots, and behavioral tests
+  were reviewed together; no Setta application import or backend concept entered the package.
+  Focused verification passed (five control files: 40 tests; playground renderer: 9 tests; loop
+  shell syntax). The one stable-tree deterministic phase sweep passed: package production build
+  plus built-boundary check; playground production build; package suite (65 files, 482 tests);
+  playground suite (2 files, 11 tests); and the all-files static gate (380 files). The phase's one
+  packed unrelated-consumer gate then installed and built the tarball from public exports only.
+  The already-green supply-chain gate recorded by the final dependency-bearing batch was not
+  duplicated because this audit changed no manifest or lockfile. Repository-actionable work for
+  the item-controls milestone is complete. Its supervised matched dark/light live comparison and
+  explicit developer acceptance remain incomplete as the required developer gate — not a release
+  gate — and no package-output baseline has been recorded.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

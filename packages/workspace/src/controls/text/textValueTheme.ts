@@ -103,7 +103,7 @@ export function getThemeScopeClassName(theme: TextValueTheme): string {
 
 let textValueThemeStylesMounted = false;
 
-// The reference's `useCodeMirrorStyleLoader` trimmed to the two GitHub themes: dummy layers
+// The reference's `useCodeMirrorStyleLoader` over the four value/name themes: dummy layers
 // depend on CodeMirror css classes that only mount when a real editor instantiates them, so
 // the first control mounts an off-screen view once per document and immediately cycles through
 // all four reference themes. The injected style rules outlive the view.

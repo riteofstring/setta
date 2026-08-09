@@ -1,6 +1,6 @@
 /* Package-scoped subset of Tailwind Preflight (tailwindcss 3.4.1), covering only the intrinsic
- * elements the package renders (div, button, input, i, span, svg, header, section, article, h2,
- * p) plus the div[role="button"] controls the a11y gate forced in place of interactive sections.
+ * elements the package renders (including search and the dropdown's dl/dt/dd list) plus the
+ * div[role="button"] controls the a11y gate forced in place of interactive sections.
  * The reference application runs under full Preflight; the compiled package stylesheet must not
  * reset host styles, so these declarations are scoped under the workspace surface marker class
  * (applied by the package to every root it renders, portals included) and written at Preflight's
@@ -35,6 +35,10 @@
   }
 
   :where(.setta-workspace) :where(h1, h2, h3, h4, h5, h6, p) {
+    margin: 0;
+  }
+
+  :where(.setta-workspace) :where(dl, dd) {
     margin: 0;
   }
 

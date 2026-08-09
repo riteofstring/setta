@@ -149,7 +149,18 @@ describe("ItemNameEditor", () => {
   });
 
   it("renders and announces the captured duplicate-name error treatment", async () => {
+    await mount({ name: "enabled" });
+    const status = host.querySelector<HTMLElement>('[role="status"]');
+    if (!status) {
+      throw new Error("The persistent name-error status did not render.");
+    }
+    expect(status.textContent).toBe("");
+
     await mount({ name: "enabled", errorMessage: DUPLICATE_ERROR });
+    expect(host.querySelector('[role="status"]')).toBe(status);
+    expect(status.getAttribute("aria-live")).toBe("polite");
+    expect(status.getAttribute("aria-atomic")).toBe("true");
+    expect(status.textContent).toBe(DUPLICATE_ERROR);
     const dummy = getDummy();
     expect(dummy.getAttribute("aria-invalid")).toBe("true");
     expect(dummy.getAttribute("aria-describedby")).toBe(ERROR_ID);
@@ -163,7 +174,7 @@ describe("ItemNameEditor", () => {
       throw new Error("The duplicate-name error bubble did not render.");
     }
     expect(bubble.parentElement).toBe(sectionSurface);
-    expect(bubble.getAttribute("role")).toBe("status");
+    expect(bubble.hasAttribute("role")).toBe(false);
     expect(bubble.textContent).toBe(DUPLICATE_ERROR);
     expect(bubble.classList.contains("setta-workspace")).toBe(true);
     for (const bubbleClass of [

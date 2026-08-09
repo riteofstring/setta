@@ -210,6 +210,9 @@ export function ItemNameEditor(props: ItemNameEditorProps) {
         />
       )}
       <span className={getUnderlineClassName(hasChildren, hasError)} />
+      <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {errorMessage}
+      </span>
       <ItemNameErrorBubble
         dummyEditorId={dummyEditorId}
         errorId={errorId}

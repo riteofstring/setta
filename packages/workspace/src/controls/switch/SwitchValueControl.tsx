@@ -11,6 +11,7 @@ import { focusSectionAfterEscape } from "../sectionFocus";
 // reference's interaction-first disabled contract with no blanket opacity treatment.
 
 export type SwitchValueControlProps = {
+  ariaLabel: string;
   sectionId: string;
   value: string;
   onValueChange: (nextValue: string) => void;
@@ -25,6 +26,7 @@ const THUMB_CLASS_NAME =
   "block h-2.5 w-2.5 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 bg-white dark:bg-setta-800";
 
 export function SwitchValueControl({
+  ariaLabel,
   sectionId,
   value,
   onValueChange,
@@ -35,6 +37,7 @@ export function SwitchValueControl({
   return (
     <div className={OUTER_DIV_CLASS_NAME}>
       <Switch.Root
+        aria-label={ariaLabel}
         className={ROOT_CLASS_NAME}
         // The reference parse is `value === true || value === "true"`; the boolean branch is
         // unrepresentable across the package's string seam.

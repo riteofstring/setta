@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi2";
 import { useItemSelectionMode } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "../../interaction";
+import { WORKSPACE_SCOPE_CLASS_NAME } from "../../styles/workspaceScope";
 import type { ComboboxItem, ComboboxItemGroup, OnSelectedItemChange } from "./comboboxStateReducer";
 import { useDropdownCombobox } from "./useDropdownCombobox";
 
@@ -23,6 +24,7 @@ export type DropdownValueChoiceGroup = {
 };
 
 export type DropdownValueControlProps = {
+  ariaLabel: string;
   value: string;
   onValueChange: (nextValue: string) => void;
   choices: Array<string> | Array<DropdownValueChoiceGroup>;
@@ -75,6 +77,7 @@ function toItemGroups(
 }
 
 export function DropdownValueControl({
+  ariaLabel,
   value,
   onValueChange,
   choices,
@@ -87,6 +90,7 @@ export function DropdownValueControl({
   const isDisabled = disabled || isSelectingItems;
   return (
     <DropdownCombobox
+      ariaLabel={ariaLabel}
       allItems={toItemGroups(choices)}
       // The reference maps the empty string to no selection on the way in; the control
       // projects the reference's null commits back to the empty string across the package's
@@ -104,12 +108,14 @@ export function DropdownValueControl({
 // the selection object found in them) may only be rebuilt when the host props change — a
 // single flattened component would rebuild them on every downshift dispatch and loop forever.
 function DropdownCombobox({
+  ariaLabel,
   allItems,
   value,
   onSelectedItemChange,
   placeholder,
   isDisabled,
 }: {
+  ariaLabel: string;
   allItems: Array<ComboboxItemGroup>;
   value: string | null;
   onSelectedItemChange: OnSelectedItemChange;
@@ -125,6 +131,7 @@ function DropdownCombobox({
           className={INPUT_CLASS_NAME}
           placeholder={placeholder}
           {...combobox.getInputProps({
+            "aria-label": ariaLabel,
             // The reference params path forwards no input id, and its explicit undefined
             // clobbers downshift's generated one; the rendered input carries no id in main.
             id: undefined,
@@ -137,7 +144,11 @@ function DropdownCombobox({
         <div className={RIGHT_ADORNMENT_CLASS_NAME}>
           <button
             className={TOGGLE_BUTTON_CLASS_NAME}
-            {...combobox.getToggleButtonProps({ disabled: isDisabled })}
+            {...combobox.getToggleButtonProps({
+              "aria-label": `${combobox.isOpen ? "Close" : "Open"} ${ariaLabel} choices`,
+              disabled: isDisabled,
+              type: "button",
+            })}
           >
             {combobox.isOpen ? (
               <HiChevronUp size={TOGGLE_ICON_SIZE_PX} />
@@ -147,7 +158,7 @@ function DropdownCombobox({
           </button>
         </div>
       </search>
-      <DropdownComboboxList combobox={combobox} inputRef={inputRef}>
+      <DropdownComboboxList ariaLabel={ariaLabel} combobox={combobox} inputRef={inputRef}>
         <DropdownComboboxItems combobox={combobox} />
       </DropdownComboboxList>
     </div>
@@ -155,10 +166,12 @@ function DropdownCombobox({
 }
 
 function DropdownComboboxList({
+  ariaLabel,
   combobox,
   inputRef,
   children,
 }: {
+  ariaLabel: string;
   combobox: DropdownCombobox;
   inputRef: RefObject<HTMLInputElement | null>;
   children: ReactNode;
@@ -182,8 +195,8 @@ function DropdownComboboxList({
 
   return createPortal(
     <div
-      className={`${NO_WHEEL_CLASS_NAME} ${NO_DRAG_CLASS_NAME} absolute w-fit pb-2 ${display} z-[80] mt-8 max-h-96 rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50`}
-      {...combobox.getMenuProps()}
+      className={`${WORKSPACE_SCOPE_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} ${NO_DRAG_CLASS_NAME} absolute w-fit pb-2 ${display} z-[80] mt-8 max-h-96 rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50`}
+      {...combobox.getMenuProps({ "aria-label": `${ariaLabel} choices` })}
       style={{
         left: `${listDims.x}px`,
         top: `${listDims.y}px`,

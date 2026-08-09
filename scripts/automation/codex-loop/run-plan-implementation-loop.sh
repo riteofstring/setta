@@ -354,7 +354,7 @@ run_agent() {
         return
       fi
 
-      attempt_prompt="${VERIFICATION_AUTHORIZATION_PROMPT} Finish and commit the current work. Do not start another plan batch."
+      attempt_prompt="${VERIFICATION_AUTHORIZATION_PROMPT} ${prompt} Continue from the existing repository work. Finish and commit the current work. Do not start another plan batch."
       log_info "${agent_name} left work to finish; starting another attempt in ${retry_delay_seconds}s."
     elif [[ "${completed_head}" != "${attempt_head}" ]] || [[ "${worktree_state}" == "dirty" ]]; then
       if [[ ! -s "${last_message_file}" ]]; then
@@ -368,7 +368,7 @@ run_agent() {
         return
       fi
 
-      attempt_prompt="${VERIFICATION_AUTHORIZATION_PROMPT} Finish and commit the current work. Do not start another plan batch."
+      attempt_prompt="${VERIFICATION_AUTHORIZATION_PROMPT} ${prompt} Continue from the existing repository work. Finish and commit the current work. Do not start another plan batch."
       log_info "${agent_name} left work to finish after an incomplete result; retrying in ${retry_delay_seconds}s."
     elif [[ "${exit_code}" -ne 0 ]]; then
       log_info "${agent_name} attempt ${attempt} failed without changing the repository; retrying in ${retry_delay_seconds}s."
@@ -647,7 +647,7 @@ while true; do
   iteration_start_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
   agent_one_prompt="${AGENT_ONE_PROMPT}"
   if [[ "${iteration}" -eq 1 ]] && [[ "${RESUME_DIRTY}" -eq 1 ]]; then
-    agent_one_prompt="Finish and commit the existing incomplete implementation batch. Inspect the plan and current diff for context. Do not discard the existing work and do not start another plan batch."
+    agent_one_prompt="${AGENT_ONE_PROMPT} Finish and commit the existing incomplete implementation batch. Inspect the current diff for context. Do not discard the existing work and do not start another plan batch."
   fi
   run_agent "agent-1" "${agent_one_prompt}" "${run_dir}" "${AGENT_ONE_RUNNER}" "${AGENT_ONE_MODEL}" "${AGENT_ONE_EFFORT}" 1
   implementer_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"

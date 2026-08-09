@@ -1,3 +1,4 @@
+import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { useEffect, useState, type MouseEvent } from "react";
 import { applyActiveSectionChange } from "../../canvas/activeSectionController";
@@ -25,6 +26,7 @@ import {
 // no blanket opacity treatment.
 
 export type TextValueEditorProps = {
+  ariaLabel: string;
   sectionId: string;
   itemId: string;
   value: string;
@@ -50,6 +52,7 @@ function getDividerClassName(isSelectingItems: boolean) {
 }
 
 export function TextValueEditor({
+  ariaLabel,
   sectionId,
   itemId,
   value,
@@ -118,10 +121,13 @@ export function TextValueEditor({
           theme={theme}
           placeholder={placeholder}
           language={language}
+          ariaLabel={ariaLabel}
+          ariaDisabled={isDisabled}
         />
       )}
       {activationEvent && (
         <LiveTextValueEditor
+          ariaLabel={ariaLabel}
           sectionId={sectionId}
           itemId={itemId}
           value={value}
@@ -144,6 +150,7 @@ export function TextValueEditor({
 }
 
 function LiveTextValueEditor({
+  ariaLabel,
   sectionId,
   itemId,
   value,
@@ -159,6 +166,7 @@ function LiveTextValueEditor({
   onEscape,
   onBlur,
 }: {
+  ariaLabel: string;
   sectionId: string;
   itemId: string;
   value: string;
@@ -175,7 +183,10 @@ function LiveTextValueEditor({
   onBlur: () => void;
 }) {
   const editorId = `CodeMirror-${sectionId}-${itemId}`;
-  const extensions = getTextValueExtensions({ language, singleLine, wrapLines, onEscape });
+  const extensions = [
+    ...getTextValueExtensions({ language, singleLine, wrapLines, onEscape }),
+    EditorView.contentAttributes.of({ "aria-label": ariaLabel }),
+  ];
   const onCreateEditor = getOnCreateEditor({
     initialEvent,
     setRealIsInitialized,

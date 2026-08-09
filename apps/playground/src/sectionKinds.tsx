@@ -236,10 +236,12 @@ function getItemDropdownChoices(item: WorkspaceItem): Array<string> {
 function ItemValueControl({ context }: { context: ItemRowRenderContext }) {
   const control = getItemField(context.item, "control");
   const value = getItemValue(context.item);
+  const ariaLabel = `${getItemLabel(context.item)} value`;
   const onValueChange = (nextValue: string) => commitItemValue(context, nextValue);
   if (control === "switch") {
     return (
       <SwitchValueControl
+        ariaLabel={ariaLabel}
         sectionId={context.sectionId}
         value={value}
         onValueChange={onValueChange}
@@ -249,6 +251,7 @@ function ItemValueControl({ context }: { context: ItemRowRenderContext }) {
   if (control === "dropdown") {
     return (
       <DropdownValueControl
+        ariaLabel={ariaLabel}
         value={value}
         choices={getItemDropdownChoices(context.item)}
         onValueChange={onValueChange}
@@ -258,6 +261,7 @@ function ItemValueControl({ context }: { context: ItemRowRenderContext }) {
   if (control === "color") {
     return (
       <ColorValueControl
+        ariaLabel={ariaLabel}
         sectionId={context.sectionId}
         itemId={context.item.id}
         value={value}
@@ -271,6 +275,7 @@ function ItemValueControl({ context }: { context: ItemRowRenderContext }) {
   }
   return (
     <TextValueEditor
+      ariaLabel={ariaLabel}
       sectionId={context.sectionId}
       itemId={context.item.id}
       value={value}

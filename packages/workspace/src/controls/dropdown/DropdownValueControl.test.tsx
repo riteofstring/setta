@@ -39,6 +39,7 @@ describe("DropdownValueControl", () => {
     await act(async () => {
       root.render(
         createElement(DropdownValueControl, {
+          ariaLabel: "Choice value",
           value: "Beta",
           onValueChange: () => {},
           choices: CHOICES,
@@ -138,10 +139,14 @@ describe("DropdownValueControl", () => {
     // downshift's generated one) and keeps the StandardSearch "Search" placeholder.
     expect(input.hasAttribute("id")).toBe(false);
     expect(input.placeholder).toBe("Search");
+    expect(input.getAttribute("aria-label")).toBe("Choice value");
+    expect(input.hasAttribute("aria-labelledby")).toBe(false);
     const toggle = getToggleButton();
     for (const expectedClass of ["nodrag", "rounded-full", "h-4", "w-4", "right-1"]) {
       expect(toggle.classList.contains(expectedClass)).toBe(true);
     }
+    expect(toggle.type).toBe("button");
+    expect(toggle.getAttribute("aria-label")).toBe("Open Choice value choices");
     expect(toggle.parentElement?.className).toBe(
       "absolute inset-y-0 right-0 grid select-none place-items-center",
     );
@@ -155,6 +160,10 @@ describe("DropdownValueControl", () => {
     await openViaToggle();
     expect(getInput().getAttribute("aria-expanded")).toBe("true");
     const list = getList();
+    expect(list.classList.contains("setta-workspace")).toBe(true);
+    expect(list.getAttribute("aria-label")).toBe("Choice value choices");
+    expect(list.hasAttribute("aria-labelledby")).toBe(false);
+    expect(getToggleButton().getAttribute("aria-label")).toBe("Close Choice value choices");
     // The reference's body-portaled list presentation with its interaction boundaries.
     for (const expectedClass of [
       "nowheel",

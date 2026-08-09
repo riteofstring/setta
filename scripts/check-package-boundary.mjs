@@ -127,6 +127,7 @@ function validateBuiltStylesheet() {
     // The scoped Preflight subset and the specificity-doubled reset-zoom rule must survive
     // compilation; both are cascade-critical (scopedBase.css, commit ae1e8c3b6).
     [":where(.setta-workspace, .setta-workspace *)", "scoped base subset"],
+    [":where(.setta-workspace) :where(dl, dd)", "scoped dropdown-list reset"],
     [".react-flow__controls-button.react-flow__controls-button", "reset-zoom control rule"],
     // The section grid placement vocabulary is the host content seam: consumers place their
     // registered section content with these classes, so Tailwind's content scan can never see

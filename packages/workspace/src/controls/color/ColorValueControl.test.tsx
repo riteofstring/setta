@@ -51,6 +51,7 @@ describe("ColorValueControl", () => {
     await act(async () => {
       root.render(
         createElement(ColorValueControl, {
+          ariaLabel: "Accent color",
           sectionId: SECTION_ID,
           itemId: ITEM_ID,
           value: "#22c55e",
@@ -97,6 +98,7 @@ describe("ColorValueControl", () => {
       expect(wrapper?.classList.contains(expectedClass)).toBe(true);
     }
     const trigger = getTrigger();
+    expect(trigger.getAttribute("aria-label")).toBe("Accent color: Green");
     for (const expectedClass of ["flex-1", "rounded-lg", "single-cell-container", "text-white"]) {
       expect(trigger.classList.contains(expectedClass)).toBe(true);
     }
@@ -118,7 +120,8 @@ describe("ColorValueControl", () => {
     await mount({ choices: CHOICES, onValueChange });
     await openPopover();
     const listbox = document.querySelector('[role="listbox"]');
-    expect(listbox?.getAttribute("aria-label")).toBe("Available colors");
+    expect(listbox?.getAttribute("aria-label")).toBe("Accent color choices");
+    expect(listbox?.parentElement?.classList.contains("setta-workspace")).toBe(true);
     const options = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]'));
     expect(options.map((option) => option.textContent)).toEqual(["Red", "Green", "Blue"]);
     // The recorded 16 px round swatch inside each option row.
@@ -188,6 +191,7 @@ describe("ColorValueControl", () => {
     }
     expect(input.id).toBe(NATIVE_INPUT_ID);
     expect(input.value).toBe("#afbacf");
+    expect(input.getAttribute("aria-label")).toBe("Accent color");
     for (const expectedClass of [
       "single-cell-child",
       "!rounded-lg",

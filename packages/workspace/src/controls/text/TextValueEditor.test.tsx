@@ -54,6 +54,7 @@ describe("TextValueEditor", () => {
     await act(async () => {
       root.render(
         createElement(TextValueEditor, {
+          ariaLabel: "Threshold value",
           sectionId: SECTION_ID,
           itemId: ITEM_ID,
           value: "0.001",
@@ -95,6 +96,7 @@ describe("TextValueEditor", () => {
     const dummy = getDummy();
     expect(dummy.textContent).toBe("0.001");
     expect(dummy.getAttribute("role")).toBe("textbox");
+    expect(dummy.getAttribute("aria-label")).toBe("Threshold value");
     for (const expectedClass of [
       "nopan",
       "nodrag",
@@ -131,6 +133,7 @@ describe("TextValueEditor", () => {
     await activate();
     expect(document.getElementById(`CodeMirror-${SECTION_ID}-${ITEM_ID}`)).not.toBeNull();
     expect(getLiveView().state.doc.toString()).toBe("0.001");
+    expect(getLiveView().contentDOM.getAttribute("aria-label")).toBe("Threshold value");
     // The dummy layer leaves once the live editor initializes.
     expect(document.getElementById(DUMMY_ID)).toBeNull();
     // The input-focus intent made the owning section the single active section.
@@ -173,6 +176,7 @@ describe("TextValueEditor", () => {
     await mount({ disabled: true });
     const dummy = getDummy();
     expect(dummy.classList.contains("cursor-text")).toBe(false);
+    expect(dummy.getAttribute("aria-disabled")).toBe("true");
     await activate();
     expect(host.querySelector(".cm-editor")).toBeNull();
     expect(useActiveSections.getState().activeIds).toEqual([]);

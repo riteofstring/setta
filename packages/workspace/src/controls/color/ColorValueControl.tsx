@@ -27,6 +27,7 @@ export type ColorValueChoice = {
 };
 
 export type ColorValueControlProps = {
+  ariaLabel: string;
   sectionId: string;
   itemId: string;
   value: string;
@@ -70,6 +71,7 @@ function resolveSelectedChoice(choices: Array<ColorValueChoice>, color: string):
 }
 
 export function ColorValueControl({
+  ariaLabel,
   sectionId,
   itemId,
   value,
@@ -83,6 +85,7 @@ export function ColorValueControl({
     <div className={WRAPPER_CLASS_NAME}>
       {choices.length > 0 ? (
         <ColorChoicesPicker
+          ariaLabel={ariaLabel}
           sectionId={sectionId}
           value={value}
           onValueChange={onValueChange}
@@ -91,6 +94,7 @@ export function ColorValueControl({
         />
       ) : (
         <NativeColorPicker
+          ariaLabel={ariaLabel}
           sectionId={sectionId}
           itemId={itemId}
           value={value}
@@ -103,12 +107,14 @@ export function ColorValueControl({
 }
 
 function NativeColorPicker({
+  ariaLabel,
   sectionId,
   itemId,
   value,
   onValueChange,
   isDisabled,
 }: {
+  ariaLabel: string;
   sectionId: string;
   itemId: string;
   value: string;
@@ -122,6 +128,7 @@ function NativeColorPicker({
         style={getAutoContrastStyle(value)}
       />
       <input
+        aria-label={ariaLabel}
         // The reference's static `id="colorPicker"` duplicates across rows; the package keys
         // the id like the text control's dummy layer so every row stays host-addressable.
         id={`${sectionId}-${itemId}-ColorValueInput`}
@@ -169,12 +176,14 @@ function ColorChoiceOption({
 }
 
 function ColorChoicesPicker({
+  ariaLabel,
   sectionId,
   value,
   onValueChange,
   choices,
   isDisabled,
 }: {
+  ariaLabel: string;
   sectionId: string;
   value: string;
   onValueChange: (nextValue: string) => void;
@@ -194,6 +203,7 @@ function ColorChoicesPicker({
       onOpenChange={setIsOpen}
       contentClasses={MENU_CONTENT_CLASS_NAME}
       contentProps={{
+        "aria-label": `${ariaLabel} choices`,
         align: "start",
         sideOffset: 6,
         style: { minWidth: "var(--radix-popover-trigger-width)" },
@@ -207,6 +217,7 @@ function ColorChoicesPicker({
           type="button"
           className={CHOICES_TRIGGER_CLASS_NAME}
           disabled={isDisabled}
+          aria-label={`${ariaLabel}: ${selectedItem.description}`}
           aria-expanded={isOpen}
           aria-haspopup="listbox"
           onKeyDown={(e) => {
@@ -230,7 +241,7 @@ function ColorChoicesPicker({
         </button>
       }
     >
-      <div role="listbox" aria-label="Available colors" className="flex flex-col">
+      <div role="listbox" aria-label={`${ariaLabel} choices`} className="flex flex-col">
         {choices.map((item, index) => (
           <ColorChoiceOption
             key={index}

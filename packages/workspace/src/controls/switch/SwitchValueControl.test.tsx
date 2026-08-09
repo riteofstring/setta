@@ -40,6 +40,7 @@ describe("SwitchValueControl", () => {
     await act(async () => {
       root.render(
         createElement(SwitchValueControl, {
+          ariaLabel: "Enabled value",
           sectionId: SECTION_ID,
           value: "true",
           onValueChange: () => {},
@@ -62,6 +63,7 @@ describe("SwitchValueControl", () => {
     const wrapper = host.firstElementChild;
     expect(wrapper?.className).toBe("section-value flex justify-self-start self-center");
     const switchButton = getSwitch();
+    expect(switchButton.getAttribute("aria-label")).toBe("Enabled value");
     // The recorded geometry: 10 px track and thumb (h-2.5/w-2.5), 3.2 px padding
     // (p-[0.2rem]), full radius, blue-500/dark blue-700 checked paint, 16 px checked thumb
     // translation (translate-x-4), and the no-drag boundary.
