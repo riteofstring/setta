@@ -14,12 +14,13 @@ import type { WorkspaceItem, WorkspaceSectionItemTree } from "./types";
 // package funnel is the last line and fails loudly instead. An aborted move (detached items,
 // out-of-range index) leaves the canonical tree untouched and does not notify.
 
-type MoveItemsInput = {
-  sectionId: string;
+export type ItemTreeMove = {
   itemIds: Array<string>;
   newParentId: string;
   newIndex: number;
 };
+
+type MoveItemsInput = ItemTreeMove & { sectionId: string };
 
 type PreparedItemMove = {
   oldParentId: string;
@@ -31,11 +32,20 @@ export function moveItems({ sectionId, itemIds, newParentId, newIndex }: MoveIte
   if (itemIds.length === 0) {
     return;
   }
+  const itemTree = getSectionItemTreeOrThrow(useWorkspaceDocument.getState(), sectionId);
+  commitSectionItemTree(
+    sectionId,
+    applyItemMoveToTree(itemTree, { itemIds, newParentId, newIndex }),
+  );
+}
+
+// One canonical commit and one host notification for however many tree changes the caller
+// folded together — the reference's keyboard actions apply a whole group-move batch through a
+// single optimistic dispatch. An unchanged tree commits and notifies nothing.
+export function commitSectionItemTree(sectionId: string, nextItemTree: WorkspaceSectionItemTree) {
   const documentState = useWorkspaceDocument.getState();
   const section = getSectionOrThrow(documentState, sectionId);
-  const itemTree = getSectionItemTreeOrThrow(documentState, sectionId);
-  const nextItemTree = applyItemMove(itemTree, { itemIds, newParentId, newIndex });
-  if (nextItemTree === itemTree) {
+  if (getSectionItemTreeOrThrow(documentState, sectionId) === nextItemTree) {
     return;
   }
   useWorkspaceDocument.setState({
@@ -47,9 +57,9 @@ export function moveItems({ sectionId, itemIds, newParentId, newIndex }: MoveIte
   notifyWorkspaceDocumentChange();
 }
 
-function applyItemMove(
+export function applyItemMoveToTree(
   itemTree: WorkspaceSectionItemTree,
-  move: Omit<MoveItemsInput, "sectionId">,
+  move: ItemTreeMove,
 ): WorkspaceSectionItemTree {
   const prepared = prepareItemMove(itemTree, move.itemIds);
   if (!prepared) {
@@ -101,7 +111,7 @@ function applySameParentItemMove(
 
 function applyCrossParentItemMove(
   itemTree: WorkspaceSectionItemTree,
-  move: Omit<MoveItemsInput, "sectionId">,
+  move: ItemTreeMove,
   prepared: PreparedItemMove,
 ): WorkspaceSectionItemTree {
   const movingIds = new Set(prepared.orderedItemIds);

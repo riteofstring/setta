@@ -60,6 +60,31 @@ export function resolveItemListView(
   return null;
 }
 
+// The keyboard-move half of the visibility seam: the reference reads its shown-param state
+// directly (`getCurrShownParamIds` union minus edge params), the package unions the mounted
+// list views. No registered views means the package cannot see any rows, so keyboard moves
+// stay disabled — the same answer the drag path gives through `resolveItemListView`.
+export type SectionItemVisibility = {
+  visibleItemIds: Set<string>;
+  filterActive: boolean;
+};
+
+export function getSectionItemVisibility(sectionId: string): SectionItemVisibility | null {
+  const views = registeredListViewsBySection.get(sectionId);
+  if (!views) {
+    return null;
+  }
+  const visibleItemIds = new Set<string>();
+  let filterActive = false;
+  for (const view of views.values()) {
+    for (const itemId of view.visibleItemIds) {
+      visibleItemIds.add(itemId);
+    }
+    filterActive = filterActive || view.filterActive;
+  }
+  return { visibleItemIds, filterActive };
+}
+
 export function resetItemListViews(): void {
   registeredListViewsBySection.clear();
 }

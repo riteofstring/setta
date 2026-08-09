@@ -565,9 +565,49 @@ Phase 4 progress (2026-08-11):
   notification, positional no-op, deferred cancel/reset); and a mounted-list suite (reference
   layouts and rail, visible-set pruning, view registration lifecycle, mode-gated click
   selection with the selected treatment, live temp-projection rendering during a drag).
-- Remaining Phase 4 work: the item keyboard surface (hold-key mode activation, offset moves,
-  indent/unindent, keyboard cancellation) over this batch's primitives, and the section-drag
-  versus item-drag ownership gating.
+- Item keyboard surface and drag-ownership gating (2026-08-11): the canvas key activations own
+  the reference's remaining param keyboard surface in item terms. The dnd-mode tracker became
+  the hold-chord tracker and gained the reference's `paramSelect` chord (Mod + Shift, exact:
+  activation only on a non-repeat keydown with no non-modifier key held; released by any
+  non-matching event, window blur, the macOS Meta-keyup sweep, and the aborted-Cmd-Tab
+  mouse-move recovery the package already applied to sorting), driving `isSelectingItems` — the
+  monitor's mid-drag cancel on mode release now has its keyboard trigger. The section-drag
+  versus item-drag ownership gating is chord exclusivity through the one tracker: Shift joining
+  Alt releases a held section move/sort mode on the same keydown without entering item select
+  (Alt excludes the item chord), and while the item chord is held the exact-chord Shift/Mod
+  activation states (marquee, multi-select, zoom-key) clear and stay suppressed, as the
+  reference engine releases those shortcuts; the Space pan arming gained the reference's
+  no-modifier requirement the chord made observable. Command chords match through the tracker's
+  pressed-key equality (the reference engine's `isShortcutPressed`): Alt+ArrowUp/Down offset
+  moves (repeat allowed; the browser default is consumed on every chord match while the action
+  declines inside editable targets, the reference's `runParamShortcut` split), Tab/Shift+Tab
+  indent/unindent over the shipped defaults (interception only while the active section has
+  selected items, `[data-tab-native]` opt-out; the fallback tab navigation is the app focus
+  manager and stays application-side), and the Escape handler (item unselection consumes the
+  keypress before an in-section active-selection clear with the reference's blur and
+  fallback-focus steps; the pane keeps its approved canvas-batch Escape path; frozen-tooltip
+  removal stays application-side). `selectedItemMoves.ts` ports the keyboard actions: offset
+  moves keep the reference's visible-group resolution (groups processed bottom-up when moving
+  down, indices resolved against the evolving sibling simulation, hidden siblings undisturbed
+  through the visible-insertion mapping); indent and unindent port the reference backend's
+  semantics (`param_moves.go`) — contiguous runs over the full child order collapse under the
+  nearest preceding unselected sibling, per-parent runs promote to just after their parent, and
+  the leaf→NestedParam promotion plus empty-parent type restore are structural no-ops behind
+  the opaque item data. Each action lands as one canonical commit and one host notification
+  (`commitSectionItemTree`; the reference dispatches one optimistic update per action); aborted
+  and no-op actions leave the tree untouched and silent while consuming their shortcut exactly
+  as the reference returns; gating mirrors drag start (`canEditStructure`, the registered list
+  views' union visibility and filter-active answer — no mounted views disables keyboard moves —
+  root-selected reduction, shared parent for offset/indent, active section first then document
+  order), and the filter/hidden/multi-parent toasts stay application-side. Tests: the reference
+  `moveParams.test.ts` offset cases and the backend `param_moves_test.go` orderings ported in
+  item terms plus the seam gating; key-activation cases freeze the chord lifecycle (activation,
+  exact-release set, repeat and held-key exclusion, blur and mouse-move recovery, dnd-mode
+  release, marquee suppression), the command dispatch (repeat, editable decline,
+  `[data-tab-native]`, active-section gate), and the Escape ordering. Playground copy documents
+  the chord and keyboard moves; its mode button stays as the pointer-driven host alternative.
+- Remaining Phase 4 work: none in the repository; the developer exit gate (an unrelated example
+  supplying its own item data and reproducing the accepted main interaction) remains.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

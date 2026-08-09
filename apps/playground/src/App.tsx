@@ -22,8 +22,8 @@ function toggleDarkMode() {
 // (selection, move, resize, rename, flag toggles, delete, layout, viewport) invokes the
 // callback with the serializable document; a host re-load never does. The count lives in its
 // own component so per-frame viewport notifications re-render this readout, not the canvas.
-// The host drives item-select mode: the reference holds it active through its app shortcut
-// engine, which stays application-side (the package hold-key activation is a later batch).
+// The package holds item-select mode through its Mod+Shift chord; this button is the
+// host-driven alternative for pointer-only exploration.
 function ItemSelectModeToggle() {
   const isSelectingItems = useItemSelectionMode((state) => state.isSelectingItems);
   return (
@@ -81,9 +81,10 @@ export function App() {
           minimap group hides the pannable, click-to-center minimap or moves it between the bottom
           corners. Hold Q while hovering a control for its tooltip. Hold Alt and drag to move
           sections into, out of, and between groups; hold Cmd/Ctrl+Alt and drag to sort within a
-          group. In item select mode, click the item panel&apos;s rows to select them and drag rows
-          to sort or re-parent them. Reload restores the loaded document and camera in place without
-          counting as a change.
+          group. Hold Cmd/Ctrl+Shift (or use the button) for item select mode: click the item
+          panel&apos;s rows to select them, drag rows to sort or re-parent them, then Alt+Arrow
+          moves the selection, Tab and Shift+Tab indent and unindent it, and Escape clears it.
+          Reload restores the loaded document and camera in place without counting as a change.
         </p>
       </header>
       <div className="flex min-h-0 flex-1 gap-2">
