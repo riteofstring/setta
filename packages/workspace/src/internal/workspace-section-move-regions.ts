@@ -10,20 +10,18 @@ import {
   selectionContainsSectionOrAncestor,
   type SectionHierarchySnapshot,
 } from "./selection-planning.js";
-import type { MeasuredWorkspaceChildRegion } from "./workspace-geometry-service.js";
 import type {
+  WorkspaceSectionMoveDirection,
   WorkspaceSectionMoveRegion,
 } from "./workspace-section-move-collision.js";
+
+const WORKSPACE_SECTION_CHILD_REGION_ATTRIBUTE = "data-workspace-section-child-region";
+const WORKSPACE_FREEFORM_SURFACE_SELECTOR = ":scope > [data-workspace-freeform-child-surface]";
 
 export type WorkspaceSectionMoveGeometryFrame = Readonly<{
   canvasBounds: WorkspaceRect;
   viewport: ViewportTransform;
 }>;
-
-export type WorkspaceMeasuredChildRegions = ReadonlyMap<
-  string,
-  MeasuredWorkspaceChildRegion | null
->;
 
 export type WorkspaceSectionFreeformRegion = Readonly<{
   clientRect: InteractionRect;
@@ -185,29 +183,33 @@ export function refreshWorkspaceSectionFreeformRegions(
 }
 
 export function captureWorkspaceSectionFreeformRegions<TSectionData>(
+  canvas: HTMLElement,
   document: WorkspaceDocument<TSectionData>,
   frame: WorkspaceSectionMoveGeometryFrame,
-  measuredRegions: WorkspaceMeasuredChildRegions,
 ): WorkspaceSectionFreeformRegionCapture {
   const freeformRegions: WorkspaceSectionFreeformRegion[] = [];
-  for (const sectionId of documentOrderSectionIds(document)) {
-    if (!measuredRegions.has(sectionId)) {
+  const seen = new Set<string>();
+  const elements = canvas.querySelectorAll<HTMLElement>(
+    `[${WORKSPACE_SECTION_CHILD_REGION_ATTRIBUTE}]`,
+  );
+  for (const element of elements) {
+    const parentSectionId = element.getAttribute(WORKSPACE_SECTION_CHILD_REGION_ATTRIBUTE);
+    const layout = parentSectionId ? document.sections[parentSectionId]?.childLayout : undefined;
+    if (!parentSectionId || layout?.positioning !== "freeform") {
       continue;
     }
-    const layout = document.sections[sectionId]?.childLayout;
-    if (layout?.positioning !== "freeform") {
-      continue;
+    if (seen.has(parentSectionId)) {
+      return { allowed: false, reason: "A freeform drop destination region is duplicated." };
     }
-    const measured = measuredRegions.get(sectionId);
-    if (!measured?.surface || !measured.surfaceWorkspaceRect) {
+    seen.add(parentSectionId);
+    const region = freeformRegion(element, parentSectionId, frame);
+    if (!region) {
       return {
         allowed: false,
-        reason: `The ${sectionId} freeform drop surface is unavailable.`,
+        reason: `The ${parentSectionId} freeform drop surface is unavailable.`,
       };
     }
-    freeformRegions.push(
-      freeformRegionFromMeasurement(measured, measured.surface, measured.surfaceWorkspaceRect, frame),
-    );
+    freeformRegions.push(region);
   }
   return { allowed: true, freeformRegions };
 }
