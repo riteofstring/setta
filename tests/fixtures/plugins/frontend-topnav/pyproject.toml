@@ -1,9 +1,0 @@
-[build-system]
-requires = ["setuptools==80.9.0", "wheel==0.45.1"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "setta-fixture-frontend-topnav"
-version = "0.1.0"
-description = "Frontend top-nav fixture plugin for Setta tests"
-requires-python = ">=3.12"
