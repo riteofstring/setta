@@ -44,7 +44,7 @@ describe("WorkspaceControls", () => {
     return button;
   }
 
-  it("renders the viewport group in the reference order", () => {
+  it("renders the viewport and minimap groups in the reference order without a divider", () => {
     const labels = Array.from(host.querySelectorAll("button")).map((button) =>
       button.getAttribute("aria-label"),
     );
@@ -54,9 +54,16 @@ describe("WorkspaceControls", () => {
       "fit view",
       "toggle snap to grid",
       "reset zoom",
+      "toggle minimap",
+      "move minimap to right",
     ]);
     expect(host.querySelector('[data-testid="rf__controls"]')).not.toBe(null);
     expect(getButton("reset zoom").className).toContain("react-flow__controls-button");
+    // The reference renders dividers only after the edge/plugin groups, which left with their
+    // features — never between the viewport and minimap groups.
+    expect(
+      host.querySelector('[data-testid="rf__controls"]')?.querySelectorAll("div"),
+    ).toHaveLength(0);
   });
 
   it("disables the zoom buttons at the zoom limits", async () => {
@@ -105,6 +112,37 @@ describe("WorkspaceControls", () => {
     expect(useWorkspaceOptions.getState().snapToGrid).toBe(false);
     expect(snapButton.getAttribute("aria-pressed")).toBe("false");
     expect(snapButton.className).not.toContain("bg-blue-500");
+  });
+
+  it("toggles the minimap preference and its active tint", async () => {
+    const toggleButton = getButton("toggle minimap");
+    expect(toggleButton.getAttribute("aria-pressed")).toBe("true");
+    expect(toggleButton.className).toContain("bg-blue-500");
+
+    await act(async () => {
+      toggleButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(useWorkspaceOptions.getState().showMinimap).toBe(false);
+    expect(toggleButton.getAttribute("aria-pressed")).toBe("false");
+    expect(toggleButton.className).not.toContain("bg-blue-500");
+  });
+
+  it("flips the minimap side and the side control label", async () => {
+    const sideButton = host.querySelector<HTMLButtonElement>(
+      '[data-testid="rf__toggle-minimap-side"]',
+    );
+    if (!sideButton) {
+      throw new Error("Missing minimap side control.");
+    }
+    expect(sideButton.getAttribute("aria-label")).toBe("move minimap to right");
+
+    await act(async () => {
+      sideButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(useWorkspaceOptions.getState().minimapSide).toBe("right");
+    expect(sideButton.getAttribute("aria-label")).toBe("move minimap to left");
   });
 
   it("tints the fit button while fitViewOnInit is armed", async () => {

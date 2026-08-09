@@ -4,6 +4,8 @@ import type { PanOnScrollMode, SelectionMode } from "./types";
 
 export type WorkspaceGridPattern = "lines" | "dots" | "cross";
 
+export type MiniMapSide = "left" | "right";
+
 // The preferences/appearance seam: the reference reads these from `useSettings.gui` and
 // `useLocalStorage`; the package owns them as host-configurable interaction options. Defaults
 // match the frozen reference's shipped defaults (`internal/settingsstate/defaults.json` and the
@@ -28,6 +30,8 @@ export type WorkspaceInteractionOptions = {
   gridColor: string;
   gridColorDarkMode: string;
   selectionMode: SelectionMode;
+  showMinimap: boolean;
+  minimapSide: MiniMapSide;
 };
 
 export const useWorkspaceOptions = createWithEqualityFn(
@@ -51,11 +55,23 @@ export const useWorkspaceOptions = createWithEqualityFn(
     gridColor: "#afbacf",
     gridColorDarkMode: "#2b364a",
     selectionMode: "partial",
+    showMinimap: true,
+    minimapSide: "left",
   })),
 );
 
-// The reference's `toggleSnapToGrid` (`state/actions/localStorage.ts`) flips the same preference
-// on its localStorage store.
+// The reference's `toggleSnapToGrid`/`toggleMiniMap`/`toggleMiniMapSide`
+// (`state/actions/localStorage.ts`) flip the same preferences on its localStorage store.
 export function toggleSnapToGrid() {
   useWorkspaceOptions.setState((state) => ({ snapToGrid: !state.snapToGrid }));
+}
+
+export function toggleMiniMap() {
+  useWorkspaceOptions.setState((state) => ({ showMinimap: !state.showMinimap }));
+}
+
+export function toggleMiniMapSide() {
+  useWorkspaceOptions.setState((state) => ({
+    minimapSide: state.minimapSide === "left" ? "right" : "left",
+  }));
 }

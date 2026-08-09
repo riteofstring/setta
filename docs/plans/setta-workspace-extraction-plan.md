@@ -422,9 +422,39 @@ Phase 3 progress (2026-08-11):
   item is recorded against the approved Phase 0 evidence: main has no freeform positioning
   inside groups — the freeform surface is the top-level workspace layout (captures 11 and 18),
   which the package already owns — so no group-level freeform mode exists to extract.
-- Remaining Phase 3 repository work: the minimap batch (the responsive minimap and the toolbar
-  minimap group whose toggles it makes reachable), then the developer checkpoints and the
-  phase exit gate.
+- Minimap batch (the responsive minimap and the toolbar minimap group whose toggles it makes
+  reachable, 2026-08-11): the fork minimap moved into `packages/workspace/src/minimap/` —
+  `MiniMap` (pane-rect mask, d3-zoom panning, `getXYWidthHeight` viewbox math, the imperative
+  selected-class sync with its MutationObserver re-application, custom-node and nodes-prop
+  `MinimapSvg` contract), `MiniMapNodes`/`MiniMapNodesReactive` (renderable filtering, the
+  render-affecting input equality, fit-gated visibility via `computeReadyToBeVisible`), and
+  `MiniMapNode`, with the fork's `Panel` (`canvas/Panel.tsx`) and the reference wrapper as the
+  package `ResponsiveMiniMap`. `WorkspaceCanvas` gained the reference UiPage's relative wrapper
+  and mounts the minimap beside the scroll shim gated on the new `showMinimap` preference;
+  `showMinimap`/`minimapSide` joined the interaction options at the reference defaults
+  (true/left) with the reference's `toggleMiniMap`/`toggleMiniMapSide` actions, and the toolbar
+  gained the minimap group (`IoMapOutline` toggle, side flip with the `TbLayoutSidebar*Collapse`
+  icon pair) — as in the reference, no divider renders between the viewport and minimap groups.
+  `setCenter` returned to `viewportHelpers` for minimap click-to-center, and `getPaneRect`/
+  `getBoundsOfRects` joined the canvas utils. Reactive minimap visuals resolve through the
+  package document (styleColor → `deriveSectionStyleTheme` background, kind) instead of the
+  reference's variant indirection; the section-style *preview* colors left with the app's
+  style-color editing feature. Seam adaptations shared with fit-view/auto-pan: the pane rect,
+  the click coordinate, and `setCenter` lost their Overview/UI-editor rail offsets, and the
+  wrapper's rail-driven translateX placement was cut (`minimapSide` still flips the bottom
+  corners). Cut as unreachable in the reference app: the wheel-zoom surface
+  (`zoomable`/`inversePan`/`zoomStep`), `onNodeClick`, the legacy xyflow "input"/"output"/
+  "default" node-color branches, and the top/center panel placements. Panel/minimap CSS ships
+  as the effective post-override values (the app's `#94a3b8b6` / dark `hsla(220,27%,6%,.72)`
+  `!important` overrides of the fork's white background). Lint-forced deviation: the memoized
+  minimap components inline named implementations instead of the reference's
+  underscore-prefixed functions. Reference minimap suites ported (viewbox math, selection
+  sync, node rendering/equality/reactive recolor — the dark-mode recolor case freezes the
+  appearance dependency the reference exercises through its localStorage store); new focused
+  tests freeze the wrapper placement/mask chrome, the canvas mount gating, the toolbar group,
+  and the `setCenter` seam. No dependency changes.
+- Remaining Phase 3 repository work: none — the developer checkpoints and the phase exit gate
+  remain.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

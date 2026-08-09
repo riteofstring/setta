@@ -7,14 +7,26 @@ import {
   type UIEvent,
 } from "react";
 import { SectionDndContext } from "../dnd/SectionDndContext";
+import { ResponsiveMiniMap } from "../minimap/ResponsiveMiniMap";
 import { WORKSPACE_SCOPE_CLASS_NAME } from "../styles/workspaceScope";
 import { useCanvasViewportDocumentSync } from "./documentViewportSync";
 import FlowRenderer from "./FlowRenderer";
 import { useCanvasKeyActivations } from "./keyActivations";
 import NodeRenderer from "./NodeRenderer";
+import { useWorkspaceOptions } from "./options";
 import { useReactFlow } from "./store";
 import Viewport from "./Viewport";
 import { WorkspaceBackground } from "./WorkspaceBackground";
+
+// The reference UiPage's canvas wrapper (`relative h-full min-h-0 w-full min-w-0`): the minimap
+// panel positions against this non-scrolling div, beside the scroll shim rather than inside it.
+const outerWrapperStyle: CSSProperties = {
+  position: "relative",
+  height: "100%",
+  width: "100%",
+  minHeight: 0,
+  minWidth: 0,
+};
 
 const wrapperStyle: CSSProperties = {
   width: "100%",
@@ -46,33 +58,37 @@ export function WorkspaceCanvas() {
   }, []);
 
   const readyToRender = wrapperDimensions.height > 0 && wrapperDimensions.width > 0;
+  const showMinimap = useWorkspaceOptions((x) => x.showMinimap);
 
   return (
-    <div
-      style={wrapperStyle}
-      className={`${WORKSPACE_SCOPE_CLASS_NAME} react-flow`}
-      ref={ref}
-      onScroll={(e) => cancelOutScrolling(e, initialized)}
-    >
-      {/* The purpose of this div is to allow us to set scrollTop and scrollLeft to a large initial value*/}
-      {/* so that onScroll can be triggered in any direction. */}
-      {/* That way, we can leverage the browser's scroll behavior in any direction, if we want to. */}
+    <div style={outerWrapperStyle} className={WORKSPACE_SCOPE_CLASS_NAME}>
       <div
-        style={{
-          position: "relative",
-          height: `${SCROLL_INIT}px`,
-          width: `${SCROLL_INIT}px`,
-          top: `${SCROLL_INIT}px`,
-          left: `${SCROLL_INIT}px`,
-        }}
+        style={wrapperStyle}
+        className={`${WORKSPACE_SCOPE_CLASS_NAME} react-flow`}
+        ref={ref}
+        onScroll={(e) => cancelOutScrolling(e, initialized)}
       >
-        <SectionDndContext>
-          <FlowRenderer wrapperDimensions={wrapperDimensions}>
-            <Viewport>{readyToRender && <NodeRenderer />}</Viewport>
-          </FlowRenderer>
-        </SectionDndContext>
-        <WorkspaceBackground />
+        {/* The purpose of this div is to allow us to set scrollTop and scrollLeft to a large initial value*/}
+        {/* so that onScroll can be triggered in any direction. */}
+        {/* That way, we can leverage the browser's scroll behavior in any direction, if we want to. */}
+        <div
+          style={{
+            position: "relative",
+            height: `${SCROLL_INIT}px`,
+            width: `${SCROLL_INIT}px`,
+            top: `${SCROLL_INIT}px`,
+            left: `${SCROLL_INIT}px`,
+          }}
+        >
+          <SectionDndContext>
+            <FlowRenderer wrapperDimensions={wrapperDimensions}>
+              <Viewport>{readyToRender && <NodeRenderer />}</Viewport>
+            </FlowRenderer>
+          </SectionDndContext>
+          <WorkspaceBackground />
+        </div>
       </div>
+      {showMinimap && <ResponsiveMiniMap />}
     </div>
   );
 }

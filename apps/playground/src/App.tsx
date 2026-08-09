@@ -58,10 +58,12 @@ export function App() {
           scroll or pinch to pan and zoom, click to select, Cmd/Ctrl-click to multi-select,
           Shift-drag to draw a selection. Sections resize from their bottom and right edges, and
           their headers rename, lock, minimize, and delete; group headers also flip their child flow
-          between vertical and horizontal. The toolbar zooms, fits, and toggles grid snapping; hold
-          Q while hovering a control for its tooltip. Hold Alt and drag to move sections into, out
-          of, and between groups; hold Cmd/Ctrl+Alt and drag to sort within a group. Reload restores
-          the loaded document and camera in place without counting as a change.
+          between vertical and horizontal. The toolbar zooms, fits, and toggles grid snapping; its
+          minimap group hides the pannable, click-to-center minimap or moves it between the bottom
+          corners. Hold Q while hovering a control for its tooltip. Hold Alt and drag to move
+          sections into, out of, and between groups; hold Cmd/Ctrl+Alt and drag to sort within a
+          group. Reload restores the loaded document and camera in place without counting as a
+          change.
         </p>
       </header>
       <div className="flex min-h-0 flex-1 gap-2">

@@ -25,6 +25,10 @@ export type PanOnScrollMode = "free" | "vertical" | "horizontal";
 
 export type SelectionMode = "partial" | "full";
 
+// The reference's `PanelPosition` trimmed to the corners the minimap panel reaches; the
+// top/center placements have no caller in the slice.
+export type PanelPosition = "bottom-left" | "bottom-right";
+
 export type FitViewOptions = {
   padding?: number;
   minZoom?: number;

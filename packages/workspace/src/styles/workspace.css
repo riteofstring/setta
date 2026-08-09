@@ -110,7 +110,7 @@
 
 /* Canvas structural CSS extracted from the fork's init.css/style.css, written as the effective
  * values after the reference app's `react-flow-css.css` overrides (which reset the renderer and
- * pane z-indexes to auto). Edge, handle, panel, and drag-handle rules left with their excluded
+ * pane z-indexes to auto). Edge, handle, and drag-handle rules left with their excluded
  * features. */
 
 .react-flow__container {
@@ -194,6 +194,36 @@
 .react-flow__selection {
   background: rgba(0, 89, 220, 0.08);
   border: 1px dotted rgba(0, 89, 220, 0.8);
+}
+
+/* The minimap panel, from the fork's init.css; only the bottom-corner placement classes the
+ * minimap reaches ship. The minimap surface colors are the effective values after the
+ * reference app's `react-flow-css.css` `!important` overrides of the fork's white background. */
+.react-flow__panel {
+  position: absolute;
+  z-index: 5;
+  margin: 15px;
+}
+
+.react-flow__panel.bottom {
+  bottom: 0;
+}
+
+.react-flow__panel.left {
+  left: 0;
+}
+
+.react-flow__panel.right {
+  right: 0;
+}
+
+.react-flow__minimap {
+  background-color: #94a3b8b6;
+}
+
+html.dark .react-flow__minimap {
+  background-color: hsla(220, 27%, 6%, 0.72);
+  border-color: hsla(220, 26%, 14%, 0.55);
 }
 
 .react-flow__nodesselection-rect:focus,

@@ -6,7 +6,7 @@ import { getActiveSectionIds } from "../document/activeSections";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { Node, Viewport } from "../document/types";
 import { useSectionRefs } from "../section/sectionRefs";
-import type { Rect, Transform } from "./types";
+import type { ReactFlowState, Rect, Transform } from "./types";
 import { boxToRect, clamp, getBoundsOfBoxes, getOverlappingArea, rectToBox } from "./utils";
 import { screenToFlowPosition } from "./viewportPosition";
 
@@ -101,6 +101,37 @@ export function getNodesInside(
   }
 
   return visibleNodes;
+}
+
+// The visible pane in flow coordinates, from the reference's `utils/graph.ts`. Seam adaptation
+// shared with fit-view centering and edge auto-pan: the reference subtracts its Overview and
+// UI-editor rail widths, which are app chrome outside the package seam — the package pane is
+// the canvas wrapper alone.
+export function getPaneRect(s: ReactFlowState): Rect {
+  if (!s.domNode) {
+    return {
+      x: -s.transform[0] / s.transform[2],
+      y: -s.transform[1] / s.transform[2],
+      width: s.width / s.transform[2],
+      height: s.height / s.transform[2],
+    };
+  }
+
+  const bounds = s.domNode.getBoundingClientRect();
+  const visibleWidth = Math.max(bounds.width, 0);
+  const visibleHeight = Math.max(bounds.height, 0);
+  const topLeft = screenToFlowPosition({ x: bounds.left, y: bounds.top }, true);
+  const bottomRight = screenToFlowPosition(
+    { x: bounds.left + visibleWidth, y: bounds.top + visibleHeight },
+    true,
+  );
+
+  return {
+    x: topLeft.x,
+    y: topLeft.y,
+    width: bottomRight.x - topLeft.x,
+    height: bottomRight.y - topLeft.y,
+  };
 }
 
 export const getViewportForBounds = (

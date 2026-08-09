@@ -1,11 +1,13 @@
+import type { ZoomTransform } from "d3-zoom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useWorkspaceOptions } from "./options";
 import { initialCanvasState, useReactFlow } from "./store";
-import { resetZoom, zoomIn, zoomOut } from "./viewportHelpers";
+import { resetZoom, setCenter, zoomIn, zoomOut } from "./viewportHelpers";
 
 function setupZoomRuntime() {
   const scaleBy = vi.fn();
   const scaleTo = vi.fn();
+  const transform = vi.fn();
   const durations: Array<number> = [];
   const transitionObject = { id: "transition" };
   const d3Selection = {
@@ -16,11 +18,13 @@ function setupZoomRuntime() {
       },
     }),
   } as unknown as NonNullable<typeof initialCanvasState.d3Selection>;
-  const d3Zoom = { scaleBy, scaleTo } as unknown as NonNullable<typeof initialCanvasState.d3Zoom>;
+  const d3Zoom = { scaleBy, scaleTo, transform } as unknown as NonNullable<
+    typeof initialCanvasState.d3Zoom
+  >;
 
   useReactFlow.setState({ ...initialCanvasState, d3Selection, d3Zoom });
 
-  return { scaleBy, scaleTo, durations, transitionObject };
+  return { scaleBy, scaleTo, transform, durations, transitionObject };
 }
 
 describe("viewport zoom helpers", () => {
@@ -79,4 +83,42 @@ describe("viewport zoom helpers", () => {
   it("fails loud when zooming before the zoom pane initialized", () => {
     expect(() => resetZoom()).toThrowError("Cannot zoom before the zoom pane initialized.");
   });
+
+  // The reference offsets the visible center by its Overview rail width; the package centers on
+  // the canvas wrapper alone (the shared seam adaptation).
+  it("setCenter centers the flow position on the canvas at the given zoom", () => {
+    const { transform, durations, transitionObject } = setupZoomRuntime();
+    useReactFlow.setState({ width: 800, height: 600 });
+
+    setCenter(100, 50, { zoom: 2, duration: 120 });
+
+    expect(transform).toHaveBeenCalledTimes(1);
+    const [target, applied] = getFirstTransformCall(transform);
+    expect(target).toBe(transitionObject);
+    expect(applied.k).toBe(2);
+    expect(applied.x).toBe(800 / 2 - 100 * 2);
+    expect(applied.y).toBe(600 / 2 - 50 * 2);
+    expect(durations).toEqual([120]);
+  });
+
+  it("setCenter defaults to the max zoom option", () => {
+    const { transform } = setupZoomRuntime();
+    useReactFlow.setState({ width: 800, height: 600 });
+    useWorkspaceOptions.setState({ maxZoom: 4 });
+
+    setCenter(0, 0);
+
+    const [, applied] = getFirstTransformCall(transform);
+    expect(applied.k).toBe(4);
+    expect(applied.x).toBe(400);
+    expect(applied.y).toBe(300);
+  });
 });
+
+function getFirstTransformCall(transform: ReturnType<typeof vi.fn>): [unknown, ZoomTransform] {
+  const call = transform.mock.calls[0];
+  if (!call) {
+    throw new Error("d3Zoom.transform was not called.");
+  }
+  return [call[0], call[1] as ZoomTransform];
+}

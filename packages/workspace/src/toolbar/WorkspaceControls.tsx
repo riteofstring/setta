@@ -1,18 +1,31 @@
 import { memo, useEffect, useState } from "react";
 import { FaMinus, FaPlus } from "react-icons/fa6";
-import { TbArrowAutofitWidth, TbGridDots, TbZoomReset } from "react-icons/tb";
+import { IoMapOutline } from "react-icons/io5";
+import {
+  TbArrowAutofitWidth,
+  TbGridDots,
+  TbLayoutSidebarLeftCollapse,
+  TbLayoutSidebarRightCollapse,
+  TbZoomReset,
+} from "react-icons/tb";
 import { shallow } from "zustand/shallow";
 import { onFitViewHandler } from "../canvas/fitView";
-import { toggleSnapToGrid, useWorkspaceOptions } from "../canvas/options";
+import {
+  toggleMiniMap,
+  toggleMiniMapSide,
+  toggleSnapToGrid,
+  useWorkspaceOptions,
+  type MiniMapSide,
+} from "../canvas/options";
 import { useReactFlow } from "../canvas/store";
 import { resetZoom, zoomIn, zoomOut } from "../canvas/viewportHelpers";
 import { WORKSPACE_SCOPE_CLASS_NAME } from "../styles/workspaceScope";
 import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip";
 
 // The reference's viewport toolbar (`forks/xyflow/controls/Controls.tsx`) at the slice form the
-// seam proposal fixes: the viewport group alone. The edge-toggle and plugin-placement groups left
-// with their features, and the minimap group returns with the minimap batch that makes its
-// toggles reachable; with one group, the reference's dividers never render.
+// seam proposal fixes: the viewport and minimap groups. The edge-toggle and plugin-placement
+// groups left with their features, and with them every divider — the reference renders no
+// divider between the viewport and minimap groups.
 const ACTIVE_CONTROL_CLASS_NAME = "text-white bg-blue-500 dark:text-blue-600 dark:bg-transparent";
 const INACTIVE_CONTROL_CLASS_NAME = "text-setta-400 dark:text-setta-600";
 const TOGGLE_CONTROL_CLASS_NAME =
@@ -84,6 +97,46 @@ function ViewportControls(props: {
   );
 }
 
+function MiniMapControls(props: { minimapSide: MiniMapSide; showMinimap: boolean }) {
+  const moveMinimapLabel =
+    props.minimapSide === "left" ? "move minimap to right" : "move minimap to left";
+  const moveMinimapContent =
+    props.minimapSide === "left" ? "Move minimap to right" : "Move minimap to left";
+
+  return (
+    <>
+      <button
+        onClick={toggleMiniMap}
+        className={getToggleControlClassName(props.showMinimap)}
+        aria-label="toggle minimap"
+        aria-pressed={props.showMinimap}
+        type="button"
+        {...getWorkspaceTooltipHandlers({
+          content: props.showMinimap ? "Hide minimap" : "Show minimap",
+        })}
+      >
+        <IoMapOutline size={15} />
+      </button>
+      <button
+        onClick={toggleMiniMapSide}
+        className={`${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
+        aria-label={moveMinimapLabel}
+        data-testid="rf__toggle-minimap-side"
+        type="button"
+        {...getWorkspaceTooltipHandlers({
+          content: moveMinimapContent,
+        })}
+      >
+        {props.minimapSide === "left" ? (
+          <TbLayoutSidebarRightCollapse size={15} />
+        ) : (
+          <TbLayoutSidebarLeftCollapse size={15} />
+        )}
+      </button>
+    </>
+  );
+}
+
 function useZoomReached() {
   const { minZoom, maxZoom } = useWorkspaceOptions(
     (x) => ({
@@ -106,6 +159,8 @@ export const WorkspaceControls = memo(function WorkspaceControls() {
   const { minZoomReached, maxZoomReached } = useZoomReached();
   const fitViewOnInit = useReactFlow((x) => x.fitViewOnInit);
   const snapToGrid = useWorkspaceOptions((x) => x.snapToGrid);
+  const showMinimap = useWorkspaceOptions((x) => x.showMinimap);
+  const minimapSide = useWorkspaceOptions((x) => x.minimapSide);
 
   useEffect(() => {
     setIsVisible(true);
@@ -126,6 +181,7 @@ export const WorkspaceControls = memo(function WorkspaceControls() {
         minZoomReached={minZoomReached}
         snapToGrid={snapToGrid}
       />
+      <MiniMapControls minimapSide={minimapSide} showMinimap={showMinimap} />
     </div>
   );
 });
