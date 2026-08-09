@@ -84,6 +84,7 @@ import {
 } from "./workspace-section-grouping.js";
 import {
   resolveSectionDefinitions,
+  resolveWorkspaceSectionVisibility,
   validateWorkspaceSectionDefinitions,
   type WorkspaceSectionRegistry,
 } from "./workspace-section-registry.js";
@@ -92,7 +93,7 @@ import type {
   WorkspaceSectionResizeAxis,
 } from "./workspace-section-sizing.js";
 import {
-  reconcileWorkspaceSelection,
+  reconcileWorkspaceVisibleSelection,
   resolveWorkspaceSelection,
   workspaceSelectionsMatch,
 } from "./workspace-selection.js";
@@ -265,6 +266,10 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
     assertWorkspaceViewportWithinGestureBounds(document, gestureOptions);
     return document;
   }, [document, gestureOptions, sectionRegistry]);
+  const sectionVisibility = useMemo(
+    () => resolveWorkspaceSectionVisibility(validatedDocument, sectionRegistry),
+    [sectionRegistry, validatedDocument],
+  );
   const connections = useMemo(() => {
     const value = connectionOverrides ?? createEmptyWorkspaceConnections();
     validateWorkspaceConnections(validatedDocument, value);
@@ -281,6 +286,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   const gestureOptionsRef = useRef(gestureOptions);
   const gridOptionsRef = useRef(effectiveGridOptions);
   const sectionRegistryRef = useRef<WorkspaceSectionRegistry<TSectionData>>(sectionRegistry);
+  const sectionVisibilityRef = useRef(sectionVisibility);
   const sectionFactoryRef = useRef<WorkspaceSectionFactory<TSectionData> | undefined>(
     sectionFactory,
   );
@@ -296,6 +302,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   gestureOptionsRef.current = gestureOptions;
   gridOptionsRef.current = effectiveGridOptions;
   sectionRegistryRef.current = sectionRegistry;
+  sectionVisibilityRef.current = sectionVisibility;
   sectionFactoryRef.current = sectionFactory;
   groupFactoryRef.current = groupFactory;
   controlledRef.current = mode.type === "controlled";
@@ -303,8 +310,8 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   validateSectionTitleRef.current = validateSectionTitle;
   const [selectionState, setSelectionState] = useState<readonly string[]>([]);
   const selectedSectionIds = useMemo(
-    () => reconcileWorkspaceSelection(validatedDocument, selectionState),
-    [selectionState, validatedDocument],
+    () => reconcileWorkspaceVisibleSelection(validatedDocument, selectionState, sectionVisibility),
+    [sectionVisibility, selectionState, validatedDocument],
   );
   const selectionRef = useRef<readonly string[]>(selectedSectionIds);
   selectionRef.current = selectedSectionIds;
@@ -315,6 +322,13 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
   }, [selectedSectionIds, selectionState]);
   const commitSelection = useCallback((sectionIds: readonly string[]) => {
     const nextSelection = resolveWorkspaceSelection(documentRef.current, sectionIds);
+    if (
+      nextSelection.some((sectionId) =>
+        sectionVisibilityRef.current.collapsedAncestorBySectionId.has(sectionId),
+      )
+    ) {
+      return { reason: "section-descendants-collapsed", status: "rejected" } as const;
+    }
     if (workspaceSelectionsMatch(selectionRef.current, nextSelection)) {
       return { status: "unchanged" } as const;
     }
@@ -450,6 +464,8 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
       },
       getCapabilities: () => capabilitiesRef.current,
       getCanvasController: () => canvasControllerRef.current,
+      getCollapsedAncestorSectionId: (sectionId) =>
+        sectionVisibilityRef.current.collapsedAncestorBySectionId.get(sectionId) ?? null,
       getDocument: () => documentRef.current,
       getHistoryState: history.getState,
       getSelection: () => selectionRef.current,
@@ -731,6 +747,7 @@ export function Workspace<TSectionData = WorkspaceJsonValue>(props: WorkspacePro
           validateSectionMove={validateSectionMove}
           validateSectionTitle={handleSectionTitleValidation}
           viewportCullingOptions={viewportCullingOptions}
+          visibleSectionIds={sectionVisibility.visibleSectionIds}
           workspaceController={controller}
         />
       </WorkspacePaneLayout>

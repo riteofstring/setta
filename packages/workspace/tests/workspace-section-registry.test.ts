@@ -4,6 +4,7 @@ import type { WorkspaceDocument, WorkspaceSection } from "../src/core.js";
 import type { SectionDefinition } from "../src/internal/workspace-section-contract.js";
 import {
   resolveSectionDefinitions,
+  resolveWorkspaceSectionVisibility,
   validateWorkspaceSectionDefinitions,
 } from "../src/internal/workspace-section-registry.js";
 import { createWorkspaceTestDocument } from "../src/testing.js";
@@ -48,6 +49,7 @@ describe("workspace section registry", () => {
       detachable: false,
       displayName: "Test section",
       kind: "test",
+      minimizeScope: "body",
       minimizable: true,
       resize: {
         axes: "both",
@@ -131,11 +133,80 @@ describe("workspace section registry", () => {
     expect(() =>
       resolveSectionDefinitions([definition({ detachable: "yes" as unknown as boolean })]),
     ).toThrow("detachable must be a boolean");
+    expect(() =>
+      resolveSectionDefinitions([definition({ minimizeScope: "all" as unknown as "body" })]),
+    ).toThrow("minimizeScope must be body or subtree");
+    expect(() => resolveSectionDefinitions([definition({ minimizeScope: "subtree" })])).toThrow(
+      "cannot minimize a subtree when canContainSections is false",
+    );
+    expect(() =>
+      resolveSectionDefinitions([
+        definition({
+          canContainSections: true,
+          minimizable: false,
+          minimizeScope: "subtree",
+        }),
+      ]),
+    ).toThrow("cannot declare minimizeScope when minimizable is false");
 
     const sparse = new Array<SectionDefinition>(1);
     expect(() => resolveSectionDefinitions(sparse)).toThrow(
       "Workspace section definitions must be a dense array without extra fields",
     );
+  });
+
+  it("resolves visible sections from the explicit subtree minimize scope", () => {
+    const base = createWorkspaceTestDocument([
+      { id: "root", title: "Root" },
+      { id: "child", title: "Child" },
+      { id: "deep", title: "Deep" },
+      { id: "other", title: "Other" },
+    ]);
+    const section = (sectionId: string) => base.sections[sectionId] as WorkspaceSection;
+    const document: WorkspaceDocument = {
+      ...base,
+      rootSections: [
+        { position: { x: 0, y: 0 }, sectionId: "root" },
+        { position: { x: 400, y: 0 }, sectionId: "other" },
+      ],
+      sections: {
+        ...base.sections,
+        child: {
+          ...section("child"),
+          childLayout: {
+            orientation: "vertical",
+            overflow: "grow",
+            positioning: "ordered",
+            sectionIds: ["deep"],
+          },
+          isMinimized: true,
+        },
+        root: {
+          ...section("root"),
+          childLayout: {
+            orientation: "vertical",
+            overflow: "grow",
+            positioning: "ordered",
+            sectionIds: ["child"],
+          },
+          isMinimized: true,
+        },
+      },
+    };
+    const bodyRegistry = resolveSectionDefinitions([definition({ canContainSections: true })]);
+    const subtreeRegistry = resolveSectionDefinitions([
+      definition({ canContainSections: true, minimizeScope: "subtree" }),
+    ]);
+
+    expect(resolveWorkspaceSectionVisibility(document, bodyRegistry)).toMatchObject({
+      visibleSectionIds: ["root", "child", "deep", "other"],
+    });
+    const subtreeVisibility = resolveWorkspaceSectionVisibility(document, subtreeRegistry);
+    expect(subtreeVisibility.visibleSectionIds).toEqual(["root", "other"]);
+    expect([...subtreeVisibility.collapsedAncestorBySectionId]).toEqual([
+      ["child", "root"],
+      ["deep", "root"],
+    ]);
   });
 
   it("rejects accessor-backed definition fields without evaluating them", () => {

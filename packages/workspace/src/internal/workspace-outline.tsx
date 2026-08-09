@@ -263,6 +263,13 @@ function workspaceOutlineSelectionAnnouncement(
   return `${document.sections[sectionIds[0] ?? ""]?.title ?? "Section"} selected.`;
 }
 
+function workspaceOutlineFocusRejection(reason: string): string {
+  if (reason === "section-descendants-collapsed") {
+    return "Expand the minimized ancestor before focusing this section.";
+  }
+  return "Unable to focus this section.";
+}
+
 function WorkspaceOutlineDisclosure({ expanded }: Readonly<{ expanded: boolean }>) {
   return (
     <span aria-hidden="true" className="setta-workspace__outline-disclosure">
@@ -348,7 +355,11 @@ export function WorkspaceOutline<TSectionData = WorkspaceJsonValue>({
       );
       return;
     }
-    void controller.focusSection(sectionId);
+    void controller.focusSection(sectionId).then((result) => {
+      if (result.status === "rejected") {
+        setAnnouncementText(workspaceOutlineFocusRejection(result.reason));
+      }
+    });
   };
   const handleItemKeyDown = (
     row: WorkspaceOutlineRow,

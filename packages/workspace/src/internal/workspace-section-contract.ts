@@ -144,6 +144,8 @@ export type SectionRenderProps<TSectionData = WorkspaceJsonValue> = Readonly<{
   sectionId: string;
 }>;
 
+export type SectionMinimizeScope = "body" | "subtree";
+
 export type SectionDefinition<TSectionData = WorkspaceJsonValue> = Readonly<{
   canContainSections?: boolean;
   chrome?: SectionChrome;
@@ -157,6 +159,7 @@ export type SectionDefinition<TSectionData = WorkspaceJsonValue> = Readonly<{
   detachable?: boolean;
   displayName: string;
   kind: string;
+  minimizeScope?: SectionMinimizeScope;
   minimizable?: boolean;
   render: ComponentType<SectionRenderProps<TSectionData>>;
   resize?: SectionResizeOptions;

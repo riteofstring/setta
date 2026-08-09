@@ -55,6 +55,7 @@ export type {
   SectionDefaultSize,
   SectionDefaultSizeMode,
   SectionDefinition,
+  SectionMinimizeScope,
   SectionRenderProps,
   SectionResizeAxes,
   SectionResizeOptions,

@@ -16,6 +16,7 @@ import type {
   SectionDefaultSize,
   SectionDefaultSizeMode,
   SectionDefinition,
+  SectionMinimizeScope,
   SectionRenderProps,
   SectionResizeAxes,
 } from "./workspace-section-contract.js";
@@ -46,6 +47,7 @@ export type ResolvedSectionDefinition<TSectionData = WorkspaceJsonValue> = Reado
   detachable: boolean;
   displayName: string;
   kind: string;
+  minimizeScope: SectionMinimizeScope;
   minimizable: boolean;
   render: ComponentType<SectionRenderProps<TSectionData>>;
   resize: ResolvedSectionResizeOptions;
@@ -64,6 +66,7 @@ const definitionKeys = [
   "detachable",
   "displayName",
   "kind",
+  "minimizeScope",
   "minimizable",
   "render",
   "resize",
@@ -116,6 +119,16 @@ function booleanAt(value: unknown, label: string): boolean {
     throw new TypeError(`${label} must be a boolean.`);
   }
   return value;
+}
+
+function minimizeScopeAt(value: unknown, label: string): SectionMinimizeScope {
+  if (value === undefined || value === "body") {
+    return "body";
+  }
+  if (value === "subtree") {
+    return value;
+  }
+  throw new TypeError(`${label} must be body or subtree.`);
 }
 
 function dimensionMode(value: unknown, label: string): SectionDimensionMode {
@@ -300,6 +313,27 @@ function assertAxisDefaults(axis: SectionAxis, definition: AxisDefaultDefinition
   assertDefaultSizeRange(axis, definition);
 }
 
+function minimizeDefinitionAt(
+  record: Record<string, unknown>,
+  label: string,
+  kind: string,
+  canContainSections: boolean,
+): Readonly<{ minimizable: boolean; minimizeScope: SectionMinimizeScope }> {
+  const minimizable = booleanOrDefault(record.minimizable, true, `${label} minimizable`);
+  const minimizeScope = minimizeScopeAt(record.minimizeScope, `${label} minimizeScope`);
+  if (minimizeScope === "subtree" && !canContainSections) {
+    throw new TypeError(
+      `Section definition ${JSON.stringify(kind)} cannot minimize a subtree when canContainSections is false.`,
+    );
+  }
+  if (Object.hasOwn(record, "minimizeScope") && !minimizable) {
+    throw new TypeError(
+      `Section definition ${JSON.stringify(kind)} cannot declare minimizeScope when minimizable is false.`,
+    );
+  }
+  return { minimizable, minimizeScope };
+}
+
 function resolveDefinition<TSectionData>(
   value: unknown,
   index: number,
@@ -325,6 +359,12 @@ function resolveDefinition<TSectionData>(
     throw new TypeError(`${label} render must be a React component.`);
   }
   const displayName = nonEmptyString(record.displayName, `${label} displayName`);
+  const { minimizable, minimizeScope } = minimizeDefinitionAt(
+    record,
+    label,
+    kind,
+    canContainSections,
+  );
   const resolved: ResolvedSectionDefinition<TSectionData> = Object.freeze({
     canContainSections,
     chrome: chromeAt(record.chrome, `${label} chrome`),
@@ -344,7 +384,8 @@ function resolveDefinition<TSectionData>(
     detachable: booleanOrDefault(record.detachable, false, `${label} detachable`),
     displayName,
     kind,
-    minimizable: booleanOrDefault(record.minimizable, true, `${label} minimizable`),
+    minimizeScope,
+    minimizable,
     render: record.render as ComponentType<SectionRenderProps<TSectionData>>,
     resize: resizeAt(record.resize, `${label} resize`),
   });
@@ -370,6 +411,99 @@ export class WorkspaceSectionRegistry<TSectionData = WorkspaceJsonValue> {
   definitions(): readonly ResolvedSectionDefinition<TSectionData>[] {
     return this.#definitionList;
   }
+}
+
+export type WorkspaceSectionVisibility = Readonly<{
+  collapsedAncestorBySectionId: ReadonlyMap<string, string>;
+  visibleSectionIds: readonly string[];
+}>;
+
+type PendingSectionVisibility = Readonly<{
+  collapsedAncestorId: string | null;
+  sectionId: string;
+}>;
+
+function registeredVisibilitySection<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  registry: WorkspaceSectionRegistry<TSectionData>,
+  sectionId: string,
+): Readonly<{
+  definition: ResolvedSectionDefinition<TSectionData>;
+  section: WorkspaceSection<TSectionData>;
+}> {
+  const section = document.sections[sectionId];
+  if (!section) {
+    throw new Error(`Workspace section visibility is missing section ${sectionId}.`);
+  }
+  const definition = registry.definition(section.kind);
+  if (!definition) {
+    throw new Error(`Workspace section visibility is missing registration for ${sectionId}.`);
+  }
+  return { definition, section };
+}
+
+function recordSectionVisibility(
+  candidate: PendingSectionVisibility,
+  sectionId: string,
+  collapsedAncestorBySectionId: Map<string, string>,
+  visibleSectionIds: string[],
+): void {
+  if (candidate.collapsedAncestorId) {
+    collapsedAncestorBySectionId.set(sectionId, candidate.collapsedAncestorId);
+    return;
+  }
+  visibleSectionIds.push(sectionId);
+}
+
+function collapsedAncestorForChildren<TSectionData>(
+  candidate: PendingSectionVisibility,
+  section: WorkspaceSection<TSectionData>,
+  definition: ResolvedSectionDefinition<TSectionData>,
+): string | null {
+  if (candidate.collapsedAncestorId) {
+    return candidate.collapsedAncestorId;
+  }
+  return section.isMinimized && definition.minimizeScope === "subtree" ? section.id : null;
+}
+
+function enqueueSectionVisibilityChildren<TSectionData>(
+  pending: PendingSectionVisibility[],
+  section: WorkspaceSection<TSectionData>,
+  collapsedAncestorId: string | null,
+): void {
+  const childIds = section.childLayout?.sectionIds ?? [];
+  for (let index = childIds.length - 1; index >= 0; index -= 1) {
+    pending.push({ collapsedAncestorId, sectionId: childIds[index] as string });
+  }
+}
+
+export function resolveWorkspaceSectionVisibility<TSectionData>(
+  document: WorkspaceDocument<TSectionData>,
+  registry: WorkspaceSectionRegistry<TSectionData>,
+): WorkspaceSectionVisibility {
+  const collapsedAncestorBySectionId = new Map<string, string>();
+  const visibleSectionIds: string[] = [];
+  const pending: PendingSectionVisibility[] = document.rootSections
+    .map(({ sectionId }) => ({ collapsedAncestorId: null, sectionId }))
+    .reverse();
+  while (pending.length > 0) {
+    const candidate = pending.pop() as PendingSectionVisibility;
+    const { definition, section } = registeredVisibilitySection(
+      document,
+      registry,
+      candidate.sectionId,
+    );
+    recordSectionVisibility(candidate, section.id, collapsedAncestorBySectionId, visibleSectionIds);
+    enqueueSectionVisibilityChildren(
+      pending,
+      section,
+      collapsedAncestorForChildren(candidate, section, definition),
+    );
+  }
+  return {
+    collapsedAncestorBySectionId,
+    visibleSectionIds: Object.freeze(visibleSectionIds),
+  };
 }
 
 export function resolveSectionDefinitions<TSectionData>(

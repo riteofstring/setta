@@ -733,44 +733,90 @@ test.describe("coarse-pointer structural ownership", () => {
   });
 });
 
-test("minimizing a recursive container preserves descendants and narrow reflow", async ({
+test("body and subtree minimize scopes preserve their distinct recursive contracts", async ({
   page,
 }) => {
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
   const workspace = await loadRecursiveFixture(page);
+  const canvas = workspace.getByRole("application", { name: "Canvas shell workspace canvas" });
   const root = workspace.getByRole("article", { name: "Recursive workspace" });
+  const nestedRow = workspace.getByRole("article", { name: "Nested row" });
   const nestedGamma = workspace.getByRole("article", { name: "Nested Gamma" });
-  await root.getByRole("button", { name: "Select Recursive workspace" }).click();
-  const minimize = root.getByRole("button", { name: "Minimize Recursive workspace" });
-  const contentId = await minimize.getAttribute("aria-controls");
-  if (!contentId) {
-    throw new Error("The recursive container minimize control must own its host content.");
+  await nestedRow.getByRole("button", { name: "Select Nested row" }).click();
+  const minimizeBody = nestedRow.getByRole("button", { name: "Minimize Nested row" });
+  const bodyContentId = await minimizeBody.getAttribute("aria-controls");
+  if (!bodyContentId || bodyContentId.includes(" ")) {
+    throw new Error("Body-only minimization must control exactly one stable host-content target.");
   }
-  await minimize.click();
-
-  await expect(root.locator(`[id="${contentId}"]`)).toBeHidden();
+  await minimizeBody.press("Space");
+  await expect(nestedRow.locator(`[id="${bodyContentId}"]`)).toBeHidden();
   await expect(nestedGamma).toBeVisible();
-  await expect(root.getByRole("button", { name: "Expand Recursive workspace" })).toBeFocused();
-  await expect(
-    root.getByRole("button", {
-      name: "Arrange Recursive workspace child sections horizontally",
-    }),
-  ).toBeEnabled();
-  await expect(
-    root.getByRole("button", {
-      name: "Use freeform positioning for Recursive workspace child sections",
-    }),
-  ).toBeDisabled();
+  const expandBody = nestedRow.getByRole("button", { name: "Expand Nested row" });
+  await expect(expandBody).toBeFocused();
+  await expandBody.press("Space");
+  await expect(nestedGamma).toBeVisible();
+
+  await root.getByRole("button", { name: "Select Recursive workspace" }).click();
+  const minimize = root.getByRole("button", {
+    name: "Minimize Recursive workspace and descendant sections",
+  });
+  const targetIds = (await minimize.getAttribute("aria-controls"))?.split(" ") ?? [];
+  if (targetIds.length !== 2) {
+    throw new Error("Subtree minimization must control stable body and descendant targets.");
+  }
+  const baselineChanges = await recursiveChangeCount(page);
+  await minimize.press("Space");
+
+  await expect.poll(() => recursiveChangeCount(page)).toBe(baselineChanges + 1);
+  await expect(root).toHaveAttribute("data-workspace-minimize-scope", "subtree");
+  await expect(root).toHaveAttribute("data-workspace-descendants-collapsed", "true");
+  await expect(root.locator(`[id="${targetIds[0] as string}"]`)).toBeHidden();
+  await expect(root.locator(`[id="${targetIds[1] as string}"]`)).toBeHidden();
+  await expect(workspace.getByRole("article")).toHaveCount(1);
+  await expect(nestedGamma).toHaveCount(0);
+  await expect(root).toContainText("Minimized subtree");
+  const expand = root.getByRole("button", {
+    name: "Expand Recursive workspace and descendant sections",
+  });
+  await expect(expand).toBeFocused();
+  await expect(workspace.locator("[data-workspace-section-state-announcement]")).toHaveText(
+    "Recursive workspace minimized with its descendant sections collapsed.",
+  );
+  await canvas.focus();
+  await page.keyboard.press("Control+a");
+  await expect(workspace.locator("[data-workspace-selection-announcement]")).toHaveText(
+    "Recursive workspace selected.",
+  );
+
+  await page.getByRole("button", { name: "Focus Nested Gamma" }).click();
+  await expect(page.locator(".announcement")).toContainText(
+    "Focus Nested Gamma: rejected (section-descendants-collapsed).",
+  );
+  await page.getByRole("button", { name: "Fit recursive descendants" }).click();
+  await expect(page.locator(".announcement")).toContainText(
+    "Fit recursive descendants: rejected (section-descendants-collapsed).",
+  );
+  await expect(root).toHaveAttribute("data-workspace-selected", "true");
 
   await page.setViewportSize({ height: 720, width: 320 });
-  await page.getByRole("button", { name: "Fit recursive descendants" }).click();
   const dimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+  await expect(workspace).toHaveScreenshot("recursive-section-subtree-minimized.png");
   const accessibility = await new AxeBuilder({ page }).include("[data-setta-workspace]").analyze();
   expect(accessibility.violations).toEqual([]);
+
+  await expand.press("Space");
+  await expect(root).toHaveAttribute("data-workspace-descendants-collapsed", "false");
+  await expect(workspace.getByRole("article")).toHaveCount(7);
+  await expect(workspace.getByRole("article", { name: "Nested Gamma" })).toBeVisible();
+  await expect(
+    root.getByRole("button", {
+      name: "Minimize Recursive workspace and descendant sections",
+    }),
+  ).toBeFocused();
 });
 
 test("container orientation and overflow switch stably and preserve child order", async ({

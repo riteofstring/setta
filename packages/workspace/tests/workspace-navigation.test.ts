@@ -58,7 +58,7 @@ function canvasController(focused: string[], revealEvents: string[]): WorkspaceC
   };
 }
 
-function controllerFixture() {
+function controllerFixture(collapsedAncestorBySectionId: ReadonlyMap<string, string> = new Map()) {
   let document = navigationDocument();
   const changes: WorkspaceDocumentChange[] = [];
   const focused: string[] = [];
@@ -75,6 +75,8 @@ function controllerFixture() {
       editStructure: false,
     }),
     getCanvasController: () => canvas,
+    getCollapsedAncestorSectionId: (sectionId) =>
+      collapsedAncestorBySectionId.get(sectionId) ?? null,
     getDocument: () => document,
   });
   return { canvas, changes, controller, document: () => document, focused, revealEvents };
@@ -218,6 +220,31 @@ describe("workspace geometry navigation controller", () => {
 
     expect(fixture.focused).toEqual(["beta", "beta"]);
     expect(fixture.controller.getSelectedSectionIds()).toEqual(["beta"]);
+  });
+
+  it("rejects hidden focus, fit, and selection while adjacent navigation skips collapsed descendants", async () => {
+    const fixture = controllerFixture(new Map([["beta", "gamma"]]));
+
+    await expect(fixture.controller.focusSection("beta")).resolves.toEqual({
+      reason: "section-descendants-collapsed",
+      status: "rejected",
+    });
+    await expect(fixture.controller.fitSections(["alpha", "beta"])).resolves.toEqual({
+      reason: "section-descendants-collapsed",
+      status: "rejected",
+    });
+    expect(fixture.controller.selectSections(["beta"])).toEqual({
+      reason: "section-descendants-collapsed",
+      status: "rejected",
+    });
+    await expect(fixture.controller.focusNextSection("gamma")).resolves.toEqual({
+      status: "applied",
+    });
+
+    expect(fixture.focused).toEqual(["alpha"]);
+    expect(fixture.controller.getSelectedSectionIds()).toEqual(["alpha"]);
+    expect(fixture.canvas.focusSection).toHaveBeenCalledTimes(1);
+    expect(fixture.canvas.fitSections).not.toHaveBeenCalled();
   });
 
   it("fails specifically for unknown sections and an unavailable canvas", async () => {

@@ -1685,7 +1685,7 @@ Gate:
 
 ### Phase 6: Deferred capability expansion in the same package
 
-Status: **in progress** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
+Status: **implementation complete; ready for phase audit** (updated 2026-08-09). The detachable-section, adapter-driven clipboard,
 optional outline-navigator, top-level auto-layout, named item-list, filtered item-list,
 mixed-parent batch-movement, saved viewport-preset, generic edge-and-port, pane-registration, and
 viewport-culling batches are implemented. They are recorded in
@@ -1718,8 +1718,10 @@ Clipboard and external-drop placement are recorded in
 [Phase 6 nested-freeform placement evidence](../evidence/phase-6-nested-freeform-placement.md). The
 named production positioning control and integrated performance/browser matrix are recorded in
 [Phase 6 nested-freeform positioning evidence](../evidence/phase-6-nested-freeform-positioning.md).
-Complete descendant-subtree minimization is now the earliest incomplete repository-actionable
-Phase 6 work.
+The final implementation batch is recorded in
+[Phase 6 descendant-subtree minimization evidence](../evidence/phase-6-descendant-subtree-minimization.md).
+All listed repository-actionable Phase 6 capability batches are implemented; the Phase 6 audit is
+the next repository-actionable milestone.
 
 - Completed (nested-freeform representation prerequisite): compared the plan-mandated all-section
   XYFlow graph, separately provided inner-XYFlow instances, and package-owned absolutely positioned
@@ -1887,6 +1889,26 @@ Phase 6 work.
   documentation links, and the declaration report. No dependency input changed, so the network-
   backed supply-chain gate was not duplicated; the recorded unavailable in-app-browser release gate
   was not retried.
+
+- Completed (descendant-subtree minimization batch): added strict definition-level
+  `minimizeScope: "subtree"` as an opt-in for containers while preserving body-only minimization as
+  the default. The recursive projection unmounts collapsed descendant frames and releases their
+  live geometry without changing the canonical document, history, or host payload. Selection
+  reconciles to the collapsed ancestor, select-all and adjacent navigation use visible IDs, and
+  direct focus, fit, or selection rejects with `section-descendants-collapsed`. The canonical
+  outline remains available and explains the expansion requirement. Native expanded state, stable
+  controlled targets, focus restoration, scope-specific announcements, the backend-free
+  playground, and the unrelated packed consumer complete the public React contract. The complete
+  record is `docs/evidence/phase-6-descendant-subtree-minimization.md`.
+- Descendant-subtree minimization verification: focused framework-neutral, controller, selection,
+  registry, static React, recursive browser, and outline coverage passes the default and opt-in
+  contracts, strict validation, hidden-selection reconciliation, visible navigation, exact change
+  counts, focus restoration, announcements, 320-CSS-pixel reflow, and Axe. The new collapsed view
+  and directly affected expanded recursive baseline were inspected at original resolution.
+  Changed-file quality and the packed-consumer boundary pass through the exact repository toolchain.
+  No dependency input changed, so the network-backed supply-chain gate was not duplicated; the
+  recorded unavailable in-app-browser release gate was not retried. CDP visual check: not run
+  (standing unavailable in-app-browser release gate; reviewed Playwright Chromium baselines instead).
 
 - Completed (viewport-culling batch): added strict opt-in all-depth browser windowing through one
   canvas-rooted observer, exact-size named placeholders, canonical-ID-scoped retained geometry,
@@ -2182,7 +2204,7 @@ Then evaluate or implement independently:
 - Completed: pane registration beyond toolbar and overlay slots.
 - Completed: viewport culling.
 - Completed: absolute/freeform positioning inside nested containers.
-- Collapsing an entire descendant subtree as part of section minimization.
+- Completed: collapsing an entire descendant subtree as an opt-in section-minimization scope.
 
 Each follow-on addition must preserve the standalone one-sentence purpose, remain in the same package unless independently useful, and prove that its data ownership is generic rather than inherited from Setta application behavior.
 
@@ -2436,7 +2458,7 @@ This plan does not include:
 - Generic edges, ports, or execution semantics in the initial scope.
 - Side-pane systems in the initial scope.
 - Absolute/freeform child positioning inside nested containers in the initial scope. Free-move mode means cross-container section movement; nested destinations still use their parent's vertical or horizontal ordered layout.
-- Hiding or collapsing a section's complete descendant subtree when minimizing it in the initial scope; minimizing hides only that section's host-rendered body.
+- Hiding or collapsing a section's complete descendant subtree when minimizing it in the initial scope; body-only behavior remains the default, and opt-in subtree scope was implemented later as a same-package Phase 6 capability.
 - A family of micro-packages or any registry/repository publication topology.
 
 ## Immediate next slice

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { WorkspaceActionResult, WorkspaceDocument } from "../core.js";
+import type { WorkspaceSectionRegistry } from "./workspace-section-registry.js";
 
 type PendingSectionState = Readonly<{
   kind: "locked" | "minimized";
   sectionId: string;
+  subtree: boolean;
   title: string;
   value: boolean;
 }>;
@@ -13,7 +15,12 @@ function sectionStateValue(action: PendingSectionState): string {
   if (action.kind === "locked") {
     return action.value ? "locked" : "unlocked";
   }
-  return action.value ? "minimized" : "expanded";
+  if (!action.subtree) {
+    return action.value ? "minimized" : "expanded";
+  }
+  return action.value
+    ? "minimized with its descendant sections collapsed"
+    : "expanded with its descendant sections restored";
 }
 
 function sectionStateAnnouncement(action: PendingSectionState, accepted: boolean): string {
@@ -42,17 +49,21 @@ export function useWorkspaceSectionStateActions<TSectionData>({
   document,
   onLockedCommit,
   onMinimizedCommit,
+  sectionRegistry,
 }: Readonly<{
   document: WorkspaceDocument<TSectionData>;
   onLockedCommit(sectionId: string, locked: boolean): WorkspaceActionResult;
   onMinimizedCommit(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
+  sectionRegistry: WorkspaceSectionRegistry<TSectionData>;
 }>) {
   const documentRef = useRef(document);
   const onLockedCommitRef = useRef(onLockedCommit);
   const onMinimizedCommitRef = useRef(onMinimizedCommit);
+  const sectionRegistryRef = useRef(sectionRegistry);
   documentRef.current = document;
   onLockedCommitRef.current = onLockedCommit;
   onMinimizedCommitRef.current = onMinimizedCommit;
+  sectionRegistryRef.current = sectionRegistry;
 
   const [announcementText, setAnnouncementText] = useState("");
   const [synchronizationRevision, setSynchronizationRevision] = useState(0);
@@ -78,7 +89,13 @@ export function useWorkspaceSectionStateActions<TSectionData>({
       if (!section) {
         throw new Error(`Workspace lock action is missing section ${sectionId}.`);
       }
-      const action = { kind: "locked", sectionId, title: section.title, value: locked } as const;
+      const action = {
+        kind: "locked",
+        sectionId,
+        subtree: false,
+        title: section.title,
+        value: locked,
+      } as const;
       const result = onLockedCommitRef.current(sectionId, locked);
       recordResult(action, result);
       return result;
@@ -95,6 +112,9 @@ export function useWorkspaceSectionStateActions<TSectionData>({
       const action = {
         kind: "minimized",
         sectionId,
+        subtree:
+          sectionRegistryRef.current.definition(section.kind)?.minimizeScope === "subtree" &&
+          Boolean(section.childLayout?.sectionIds.length),
         title: section.title,
         value: isMinimized,
       } as const;

@@ -4,11 +4,11 @@ import type { WorkspaceActionResult, WorkspaceSection } from "../core.js";
 import type { ResolvedSectionDefinition } from "./workspace-section-registry.js";
 
 export type WorkspaceSectionStateControlsProps = Readonly<{
-  contentId: string;
   definition: ResolvedSectionDefinition<unknown>;
   layoutEditable: boolean;
   lockControlRef: RefObject<HTMLButtonElement | null>;
   minimizeControlRef: RefObject<HTMLButtonElement | null>;
+  minimizeTargetIds: string;
   onLockedCommit(sectionId: string, locked: boolean): WorkspaceActionResult;
   onMinimizedCommit(sectionId: string, isMinimized: boolean): WorkspaceActionResult;
   presentationEditable: boolean;
@@ -50,11 +50,11 @@ function stopNodeSelection(event: MouseEvent<HTMLButtonElement>): void {
 }
 
 export function WorkspaceSectionStateControls({
-  contentId,
   definition,
   layoutEditable,
   lockControlRef,
   minimizeControlRef,
+  minimizeTargetIds,
   onLockedCommit,
   onMinimizedCommit,
   presentationEditable,
@@ -81,9 +81,9 @@ export function WorkspaceSectionStateControls({
       </button>
       {definition.minimizable ? (
         <button
-          aria-controls={contentId}
+          aria-controls={minimizeTargetIds}
           aria-expanded={!minimized}
-          aria-label={`${minimized ? "Expand" : "Minimize"} ${section.title}`}
+          aria-label={`${minimized ? "Expand" : "Minimize"} ${section.title}${definition.minimizeScope === "subtree" ? " and descendant sections" : ""}`}
           className="setta-workspace__section-edit-control setta-workspace__section-state-control"
           data-workspace-section-state-control="minimize"
           disabled={!presentationEditable}

@@ -168,6 +168,7 @@ export type WorkspaceCanvasAdapterProps<TSectionData = WorkspaceJsonValue> = Rea
   validateSectionMove: WorkspaceSectionMoveValidator<TSectionData> | undefined;
   validateSectionTitle: WorkspaceSectionTitleValidator;
   viewportCullingOptions: ResolvedWorkspaceViewportCullingOptions;
+  visibleSectionIds: readonly string[];
   workspaceController: WorkspaceController<TSectionData>;
 }>;
 
@@ -260,6 +261,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   validateSectionMove,
   validateSectionTitle,
   viewportCullingOptions,
+  visibleSectionIds,
   workspaceController,
 }: WorkspaceCanvasAdapterProps<TSectionData>) {
   const reactId = useId();
@@ -271,12 +273,11 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
   const geometry = geometryRef.current;
   const viewportCulling = useMemo(() => new WorkspaceViewportCulling(), []);
   const parentLookup = useMemo(() => deriveWorkspaceParentLookup(document), [document]);
-  const retainedSectionIds = useMemo(() => Object.keys(document.sections), [document.sections]);
   useLayoutEffect(() => {
     viewportCulling.setOptions(viewportCullingOptions);
     viewportCulling.setParentLookup(parentLookup);
-    geometry.setRetainedSectionIds(retainedSectionIds);
-  }, [geometry, parentLookup, retainedSectionIds, viewportCulling, viewportCullingOptions]);
+    geometry.setRetainedSectionIds(visibleSectionIds);
+  }, [geometry, parentLookup, viewportCulling, viewportCullingOptions, visibleSectionIds]);
   const sectionMoveFeedbackStore = useMemo(() => new WorkspaceSectionMoveFeedbackStore(), []);
   const interaction = useWorkspaceInteractionOwner({
     layoutEnabled: layoutEditable,
@@ -300,6 +301,7 @@ export function WorkspaceCanvasAdapter<TSectionData = WorkspaceJsonValue>({
     marqueeSelectionMode,
     onSelectionChange,
     selectedSectionIds,
+    visibleSectionIds,
   });
   const creation = useWorkspaceSectionCreationMenu({
     controller: workspaceController,

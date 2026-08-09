@@ -3,7 +3,6 @@ import { useCallback, useMemo, useRef, useState, type KeyboardEvent, type MouseE
 
 import {
   deriveWorkspaceParentLookup,
-  getWorkspaceSectionOrder,
   type WorkspaceActionResult,
   type WorkspaceDocument,
 } from "../core.js";
@@ -102,6 +101,7 @@ export function useWorkspaceCanvasSelectionControls<TSectionData>({
   marqueeSelectionMode,
   onSelectionChange,
   selectedSectionIds,
+  visibleSectionIds,
 }: Readonly<{
   detachedSectionIds: readonly string[];
   document: WorkspaceDocument<TSectionData>;
@@ -110,13 +110,16 @@ export function useWorkspaceCanvasSelectionControls<TSectionData>({
   marqueeSelectionMode: "full" | "partial";
   onSelectionChange(sectionIds: readonly string[]): WorkspaceActionResult;
   selectedSectionIds: readonly string[];
+  visibleSectionIds: readonly string[];
 }>) {
   const documentRef = useRef(document);
   const onSelectionChangeRef = useRef(onSelectionChange);
   const selectedSectionIdsRef = useRef<readonly string[]>(selectedSectionIds);
+  const visibleSectionIdsRef = useRef<readonly string[]>(visibleSectionIds);
   documentRef.current = document;
   onSelectionChangeRef.current = onSelectionChange;
   selectedSectionIdsRef.current = selectedSectionIds;
+  visibleSectionIdsRef.current = visibleSectionIds;
   const [announcementText, setAnnouncementText] = useState("");
   const commitSelection = useCallback((sectionIds: readonly string[]) => {
     const result = onSelectionChangeRef.current(sectionIds);
@@ -196,7 +199,7 @@ export function useWorkspaceCanvasSelectionControls<TSectionData>({
       if (!selectsAll && !clearsSelection) {
         return;
       }
-      commitSelection(selectsAll ? getWorkspaceSectionOrder(documentRef.current) : []);
+      commitSelection(selectsAll ? visibleSectionIdsRef.current : []);
       event.preventDefault();
       event.stopPropagation();
     },

@@ -196,6 +196,7 @@ export function useWorkspaceCanvasRootProjection<TSectionData = WorkspaceJsonVal
     document,
     onLockedCommit: onSectionLockedCommit,
     onMinimizedCommit: onSectionMinimizedCommit,
+    sectionRegistry,
   });
   const orientationActions = useWorkspaceSectionOrientationActions({
     document,

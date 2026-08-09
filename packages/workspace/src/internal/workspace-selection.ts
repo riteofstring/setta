@@ -10,6 +10,7 @@ import {
   type SectionHierarchySnapshot,
   type SelectionBlock,
 } from "./selection-planning.js";
+import type { WorkspaceSectionVisibility } from "./workspace-section-registry.js";
 
 export type WorkspaceSectionSelectionRequest = Readonly<{
   additive: boolean;
@@ -41,6 +42,22 @@ export function reconcileWorkspaceSelection(
 ): readonly string[] {
   const selected = new Set(sectionIds);
   return getWorkspaceSectionOrder(document).filter((sectionId) => selected.has(sectionId));
+}
+
+export function reconcileWorkspaceVisibleSelection(
+  document: WorkspaceDocument<unknown>,
+  sectionIds: readonly string[],
+  visibility: WorkspaceSectionVisibility,
+): readonly string[] {
+  const selected = new Set(
+    sectionIds.map(
+      (sectionId) => visibility.collapsedAncestorBySectionId.get(sectionId) ?? sectionId,
+    ),
+  );
+  return getWorkspaceSectionOrder(document).filter(
+    (sectionId) =>
+      selected.has(sectionId) && !visibility.collapsedAncestorBySectionId.has(sectionId),
+  );
 }
 
 export function resolveWorkspaceSelection(

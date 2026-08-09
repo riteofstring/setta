@@ -174,6 +174,7 @@ const consumerSectionDefinitions = [
     defaultTitle: "Consumer group",
     displayName: "Consumer group",
     kind: "consumer-group",
+    minimizeScope: "subtree",
     render: ConsumerNote,
   },
 ] satisfies readonly SectionDefinition<ConsumerSectionData>[];

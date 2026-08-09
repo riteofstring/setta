@@ -44,6 +44,11 @@ import {
 import { SectionPresentationEditor, SectionTitleEditor } from "./workspace-section-editors.js";
 import { MoveIcon, RenameIcon, SelectionIcon, StyleIcon } from "./workspace-section-frame-icons.js";
 import { WorkspaceSectionLayoutControls } from "./workspace-section-layout-controls.js";
+import {
+  SectionDescendantRegion,
+  sectionMinimizeTargetIds,
+  SectionStateLabels,
+} from "./workspace-section-minimization.js";
 import type { ResolvedSectionDefinition } from "./workspace-section-registry.js";
 import { WorkspaceSectionStateControls } from "./workspace-section-state-controls.js";
 import type { WorkspaceSectionSelectionRequest } from "./workspace-selection.js";
@@ -99,20 +104,6 @@ type SwatchStyle = CSSProperties &
   Readonly<{
     "--setta-workspace-section-swatch": string;
   }>;
-
-function SectionStateLabels({
-  detached,
-  isMinimized,
-  locked,
-}: Readonly<{ detached: boolean; isMinimized: boolean; locked: boolean }>) {
-  return (
-    <>
-      {locked ? <span className="setta-workspace__section-state">Locked</span> : null}
-      {isMinimized ? <span className="setta-workspace__section-state">Minimized</span> : null}
-      {detached ? <span className="setta-workspace__section-state">Detached</span> : null}
-    </>
-  );
-}
 
 function SectionTag({ color }: Readonly<{ color: string | null }>) {
   if (!color) {
@@ -177,6 +168,7 @@ function VisibleSectionHeading({
               detached={detached}
               isMinimized={section.isMinimized}
               locked={section.positionAndSizeLocked}
+              minimizeScope={definition.minimizeScope}
             />
           </div>
         ) : null}
@@ -188,13 +180,14 @@ function VisibleSectionHeading({
 
 function HeaderlessSectionHeading({
   controls,
+  definition,
   detached,
   hasStatus,
   headingId,
   section,
   selectionControl,
   statusId,
-}: Omit<SectionHeadingProps, "definition" | "showHeader" | "titleContent">) {
+}: Omit<SectionHeadingProps, "showHeader" | "titleContent">) {
   return (
     <>
       <h2 className="setta-workspace__visually-hidden" id={headingId}>
@@ -209,6 +202,7 @@ function HeaderlessSectionHeading({
               detached={detached}
               isMinimized={section.isMinimized}
               locked={section.positionAndSizeLocked}
+              minimizeScope={definition.minimizeScope}
             />
           </div>
         ) : null}
@@ -691,6 +685,7 @@ export function WorkspaceSectionFrame({
 }: WorkspaceSectionFrameProps) {
   const reactId = useId().replaceAll(":", "");
   const contentId = `setta-workspace-section-${reactId}-content`;
+  const descendantRegionId = `setta-workspace-section-${reactId}-descendants`;
   const headingId = `setta-workspace-section-${reactId}-title`;
   const moveDescriptionId = `setta-workspace-section-${reactId}-move-description`;
   const presentationEditorId = `setta-workspace-section-${reactId}-presentation`;
@@ -735,6 +730,8 @@ export function WorkspaceSectionFrame({
   }, [editingTitle]);
   const hasStatus = hasSectionStatus(section, detached);
   const childLayoutData = sectionChildLayoutData(section);
+  const subtreeMinimization = definition.minimizeScope === "subtree";
+  const descendantsCollapsed = subtreeMinimization && section.isMinimized;
   const showHeader = shouldShowSectionHeader(section, detached, editingTitle, presentationOpen);
   const presentedSection = sectionWithPresentation(section, presentationPreview);
   const sectionDnd = useWorkspaceSectionDnd({
@@ -852,11 +849,15 @@ export function WorkspaceSectionFrame({
   );
   const stateControls = (
     <WorkspaceSectionStateControls
-      contentId={contentId}
       definition={definition}
       layoutEditable={layoutEditable}
       lockControlRef={lockControlRef}
       minimizeControlRef={minimizeControlRef}
+      minimizeTargetIds={sectionMinimizeTargetIds(
+        definition.minimizeScope,
+        contentId,
+        descendantRegionId,
+      )}
       onLockedCommit={(sectionId, locked) => {
         const result = onLockedCommit(sectionId, locked);
         focusWithoutScroll(lockControlRef);
@@ -905,6 +906,8 @@ export function WorkspaceSectionFrame({
         data-workspace-chrome={presentedSection.presentation.chrome}
         data-workspace-culled="false"
         data-workspace-minimized={String(section.isMinimized)}
+        data-workspace-minimize-scope={definition.minimizeScope}
+        data-workspace-descendants-collapsed={String(descendantsCollapsed)}
         data-workspace-child-orientation={childLayoutData.orientation}
         data-workspace-child-overflow={childLayoutData.overflow}
         data-workspace-child-positioning={childLayoutData.positioning}
@@ -966,7 +969,14 @@ export function WorkspaceSectionFrame({
           readOnly={readOnly}
           section={section}
         />
-        {childSectionRegion}
+        <SectionDescendantRegion
+          collapsed={descendantsCollapsed}
+          descendantRegionId={descendantRegionId}
+          minimizeScope={definition.minimizeScope}
+          sectionId={section.id}
+        >
+          {childSectionRegion}
+        </SectionDescendantRegion>
         <OpenSectionPresentationEditor
           colorPalette={colorPalette}
           editorId={presentationEditorId}

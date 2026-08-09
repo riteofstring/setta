@@ -94,6 +94,37 @@ test("the outline navigates recursive sections and mirrors workspace selection",
   await session.detach();
 });
 
+test("the outline retains canonical hierarchy while collapsed descendants reject focus", async ({
+  page,
+}) => {
+  const { outline, workspace } = await loadRecursiveOutline(page);
+  const rootFrame = workspace.getByRole("article", { name: "Recursive workspace" });
+  const nestedAlpha = outlineItem(outline, "Nested Alpha");
+  await rootFrame.getByRole("button", { name: "Select Recursive workspace" }).click();
+  await rootFrame
+    .getByRole("button", {
+      name: "Minimize Recursive workspace and descendant sections",
+    })
+    .click();
+
+  await expect(nestedAlpha).toBeVisible();
+  await nestedAlpha.click();
+  await expect(nestedAlpha).toBeFocused();
+  await expect(outline.locator("[data-workspace-outline-announcement]")).toHaveText(
+    "Expand the minimized ancestor before focusing this section.",
+  );
+  await expect(rootFrame).toHaveAttribute("data-workspace-selected", "true");
+  await expect(workspace.getByRole("article", { name: "Nested Alpha" })).toHaveCount(0);
+
+  await rootFrame
+    .getByRole("button", {
+      name: "Expand Recursive workspace and descendant sections",
+    })
+    .click();
+  await nestedAlpha.click();
+  await expect(workspace.getByRole("article", { name: "Nested Alpha" })).toBeFocused();
+});
+
 test("the outline reflows at 320 CSS pixels and removes motion when requested", async ({
   page,
 }) => {

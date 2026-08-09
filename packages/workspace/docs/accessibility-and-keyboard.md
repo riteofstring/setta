@@ -154,6 +154,13 @@ not diverge from canvas pan. A controlled rejection or a later user focus change
 focus work. Hosts should not call `focus()` from render or use document-level scroll restoration
 that competes with these operations.
 
+A subtree-scoped minimize control is a native button whose accessible name states that descendants
+are included. It exposes expanded state and stable body/descendant targets through `aria-controls`.
+While collapsed, descendant frames and controls are absent from both tab order and the accessibility
+tree. Select-all and next/previous navigation skip them; direct controller or outline focus reports
+that the minimized ancestor must be expanded. Expansion restores the subtree while focus remains on
+the surviving control.
+
 When viewport culling is enabled, each offscreen frame remains a named, non-tabbable article with a
 hidden status description while its controls and renderer are absent. Controller, outline, and
 minimap focus paths reveal the required ancestry before focus moves. A frame containing focus is

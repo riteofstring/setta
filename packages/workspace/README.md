@@ -301,6 +301,10 @@ section definition with `minimizable: false` omits the minimize control. Minimiz
 compact chrome without changing their serialized fixed/content size modes or finite fallbacks, and
 expansion restores focus and canonical sizing even when headerless chrome replaces the control
 subtree. Controlled hosts that decline either proposal retain and announce the canonical state.
+Container definitions may set `minimizeScope: "subtree"` to unmount the complete descendant render
+tree while minimized. The default `"body"` scope preserves the child region. A subtree-scoped
+control names both its body and descendant target through stable `aria-controls`; expansion restores
+the descendants without adding document fields or a second history entry.
 Title input is trimmed, rejects empty values, supports Enter to save and Escape to cancel, restores
 focus, and keeps an asynchronously rejected proposal open with an associated error.
 `validateSectionTitle` may perform host validation or persistence before the package commits one
@@ -635,6 +639,13 @@ controller focus reveals the target's complete ancestry before moving DOM focus.
 renderer state in the section payload or host state because culling deliberately unmounts offscreen
 renderer instances. Enabling the option requires browser `IntersectionObserver` support.
 
+Subtree-scoped minimization is distinct from viewport culling. It removes descendant frames and
+their live geometry while the ancestor remains minimized. Select-all and adjacent navigation skip
+those hidden descendants; direct selection, focus, and fit reject with
+`section-descendants-collapsed`. Existing hidden selections reconcile to the nearest collapsed
+ancestor. The optional outline retains the canonical hierarchy and explains that the ancestor must
+be expanded before a hidden row can receive canvas focus.
+
 `gridOptions.snap` and `minimapOptions.visible` are locally toggleable when their change callback is
 omitted. Supplying `onGridSnapChange` or `onMinimapVisibilityChange` makes that preference
 controlled; keep the corresponding option and callback ownership mode stable for the mount.
@@ -663,7 +674,8 @@ superseded controlled proposals settle without moving stale focus.
 `fitSection` and `fitSections` honor the configured zoom bounds, reserve a default chrome-safe
 padding, and accept an optional non-negative padding value. Spatial next/previous navigation orders
 roots by workbench `y`, then `x`, persistent order, and stable ID, with descendants following
-canonical child order.
+canonical child order. Descendants hidden by subtree-scoped minimization are skipped until their
+collapsed ancestor expands.
 
 Right-click section chrome or press Shift+F10/Context Menu from a section control to open the
 built-in selection actions. Batch lock, unlock, subtree deletion, and persistent stacking use

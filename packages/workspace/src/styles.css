@@ -791,6 +791,14 @@
   min-block-size: 0;
 }
 
+.setta-workspace__section-descendants {
+  display: contents;
+}
+
+.setta-workspace__section-descendants[hidden] {
+  display: none;
+}
+
 .setta-workspace__section-frame[data-workspace-width-mode="content"] {
   container-type: normal;
   inline-size: max-content;

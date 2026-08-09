@@ -169,8 +169,9 @@ Multiple named item lists, same-section cross-list movement, mixed-parent batch 
 ancestry-closed filtered views with canonical move reconciliation are implemented through one
 shared interaction owner. Optional all-depth viewport culling is implemented outside the document
 and history contracts. Absolute nested positioning and its ordered/freeform conversion control are
-implemented through the recursive DOM owner. Still deferred are cross-section item movement and
-complete descendant-subtree collapse.
+implemented through the recursive DOM owner. Opt-in descendant-subtree minimization is implemented
+as section-definition metadata over that same recursive owner, while body-only minimization remains
+the default. Cross-section item movement remains deferred.
 
 ## Explicit non-goals
 

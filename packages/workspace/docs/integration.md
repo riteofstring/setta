@@ -170,7 +170,9 @@ the initiating UI has a pending workflow.
 Section payload changes remain host-owned. `SectionRenderProps` provides the current `data`,
 `sectionId`, resolved `appearance`, and resolved `readOnly` state; update the payload by producing a
 new controlled document in the host. Durable renderer state belongs in `data` because minimizing a
-section unmounts its host body.
+section unmounts its host body. A container definition may set `minimizeScope: "subtree"` when its
+complete descendant renderer tree should unmount too; the default `"body"` scope retains children.
+The scope is definition metadata, not a `WorkspaceDocument` field.
 
 ## Capabilities and read-only state
 
@@ -568,7 +570,9 @@ the same result.
 `focusSection` selects and focuses the requested frame while preserving zoom. Fit helpers wait for
 measured frame geometry, enforce configured zoom bounds, and accept non-negative padding.
 Next/previous navigation orders roots spatially, then follows canonical descendants. Do not infer
-completion from timeouts; await the returned promise.
+completion from timeouts; await the returned promise. Descendants hidden by subtree-scoped
+minimization are not actionable: direct focus, fit, and selection reject with
+`section-descendants-collapsed`, and adjacent navigation skips them until their ancestor expands.
 
 ## Selection, grouping, stacking, and history
 

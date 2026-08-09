@@ -354,6 +354,8 @@ describe("Workspace scaffold", () => {
 
     expect(markup.match(/<article/gu)).toHaveLength(5);
     expect(markup).toContain('data-workspace-section-id="root"');
+    expect(markup).toContain('data-workspace-minimize-scope="body"');
+    expect(markup).toContain('data-workspace-descendants-collapsed="false"');
     expect(markup).toContain('data-workspace-depth="0"');
     expect(markup).toMatch(
       /data-workspace-section-id="first"[^>]+data-workspace-depth="1"|data-workspace-depth="1"[^>]+data-workspace-section-id="first"/u,

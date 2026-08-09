@@ -5,6 +5,7 @@ import { workspaceMarqueeRect } from "../src/internal/workspace-canvas-selection
 import {
   applyWorkspaceSectionSelectionRequest,
   reconcileWorkspaceSelection,
+  reconcileWorkspaceVisibleSelection,
   resolveWorkspaceRootSelection,
   resolveWorkspaceSelection,
   resolveWorkspaceStructuralSelection,
@@ -76,6 +77,17 @@ describe("workspace selection", () => {
     expect(() => resolveWorkspaceSelection(document, ["missing"])).toThrow(
       'unknown section "missing"',
     );
+  });
+
+  it("reconciles hidden descendants to their visible collapsed ancestor", () => {
+    const document = rootSelectionDocument();
+
+    expect(
+      reconcileWorkspaceVisibleSelection(document, ["beta", "gamma"], {
+        collapsedAncestorBySectionId: new Map([["beta", "alpha"]]),
+        visibleSectionIds: ["alpha", "gamma"],
+      }),
+    ).toEqual(["alpha", "gamma"]);
   });
 
   it("normalizes and spatially orders a top-level block before preserving its offsets", () => {

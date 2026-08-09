@@ -8,9 +8,8 @@ recorded. The control uses the existing strict `setSectionChildPositioning` comm
 package-owned recursive DOM representation; it adds no public type, compatibility path, nested
 XYFlow instance, or alternate geometry owner.
 
-This completes the repository-actionable absolute/freeform nested-positioning batch. Complete
-descendant-subtree minimization remains the next repository-actionable Phase 6 capability, followed
-by the phase audit.
+This completes the repository-actionable absolute/freeform nested-positioning batch. The subsequent
+descendant-subtree minimization batch is recorded separately, followed by the Phase 6 audit.
 
 ## Conversion and reconciliation ownership
 
@@ -114,8 +113,8 @@ in-app-browser release gate was not retried.
   so the network-backed supply-chain gate was not duplicated. The recorded unavailable in-app
   browser release gate was not retried.
 
-## Remaining repository-actionable work
+## Subsequent repository-actionable work
 
-Phase 6 next implements complete descendant-subtree minimization without changing the existing
-default in which minimizing a section unmounts only its host-rendered body and retains its child
-region.
+Complete descendant-subtree minimization was implemented in the next batch without changing the
+existing body-only default. Its contract and verification are recorded in
+`docs/evidence/phase-6-descendant-subtree-minimization.md`; the Phase 6 audit follows.

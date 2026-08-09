@@ -17,13 +17,13 @@ import {
   Workspace,
   WorkspaceInteractionBoundary,
   WorkspaceOutline,
-  type SectionDefinition,
   type WorkspaceMinimapPlacement,
   type WorkspaceSectionMoveMode,
   type WorkspaceToolbarControl,
 } from "@setta/workspace/react";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 
+import { canvasShellSectionDefinitions } from "./canvas-shell-section-definitions.js";
 import { applyRecursiveChildDrop } from "./recursive-child-drop.js";
 
 function HostToolbarIcon({ children }: Readonly<{ children: ReactNode }>) {
@@ -86,46 +86,6 @@ const scrollFixture = Array.from(
 const HOST_EXTENSIONS_DEFAULT_QUERY = "(min-width: 40rem)";
 const RECURSIVE_CHILD_MIME = "application/x-setta-workspace-recursive-child";
 const ENABLED_VIEWPORT_CULLING_OPTIONS = Object.freeze({ enabled: true, overscan: 80 });
-
-const navigationSectionDefinitions = [
-  {
-    contentSizing: { height: true, width: true },
-    defaultSize: { height: 180, width: 240 },
-    displayName: "Navigation fixture",
-    kind: "navigation fixture",
-    render: ({ sectionId }) => (
-      <p className="canvas-shell-section-content">Measured host renderer for {sectionId}.</p>
-    ),
-    resize: {
-      axes: "both",
-      maxSize: { height: 360, width: 480 },
-      minSize: { height: 144, width: 192 },
-      preserveAspectRatio: false,
-    },
-  },
-  {
-    canContainSections: true,
-    defaultChildOrientation: "vertical",
-    defaultChildOverflow: "grow",
-    defaultSize: { height: 360, width: 480 },
-    defaultSizeMode: { height: "content", width: "fixed" },
-    defaultTitle: "Section group",
-    displayName: "Section group",
-    kind: "navigation group",
-    render: () => (
-      <p className="canvas-shell-section-content">
-        Grouped sections retain their identities and canonical order. Use Selection actions to
-        ungroup them.
-      </p>
-    ),
-    resize: {
-      axes: "both",
-      maxSize: { height: 1_600, width: 720 },
-      minSize: { height: 180, width: 220 },
-      preserveAspectRatio: false,
-    },
-  },
-] satisfies readonly SectionDefinition[];
 
 type PanOnDragMode = "all" | "disabled" | "middle" | "primary";
 
@@ -248,14 +208,17 @@ function createRecursiveDocument(): WorkspaceDocument {
         420,
         "scroll",
       ),
-      "recursive-root": recursiveContainer(
-        "recursive-root",
-        "Recursive workspace",
-        "vertical",
-        ["nested-alpha", "nested-row", "empty-container"],
-        700,
-        920,
-      ),
+      "recursive-root": {
+        ...recursiveContainer(
+          "recursive-root",
+          "Recursive workspace",
+          "vertical",
+          ["nested-alpha", "nested-row", "empty-container"],
+          700,
+          920,
+        ),
+        kind: "navigation collapsing group",
+      },
     },
   };
 }
@@ -434,14 +397,16 @@ export function CanvasShellPage() {
 
   const runNavigation = async (
     label: string,
-    action: (workspaceController: WorkspaceController) => Promise<{ status: string }>,
+    action: (
+      workspaceController: WorkspaceController,
+    ) => Promise<{ reason?: string; status: string }>,
   ) => {
     const workspaceController = controller.current;
     if (!workspaceController) {
       throw new Error("The canvas shell controller is not mounted.");
     }
     const result = await action(workspaceController);
-    setStatus(`${label}: ${result.status}.`);
+    setStatus(`${label}: ${result.status}${result.reason ? ` (${result.reason})` : ""}.`);
   };
 
   const hasSections = document.rootSections.length > 0;
@@ -893,7 +858,7 @@ export function CanvasShellPage() {
               setDocument(result.document);
               setDocumentChangeCount((count) => count + 1);
             }}
-            sectionDefinitions={navigationSectionDefinitions}
+            sectionDefinitions={canvasShellSectionDefinitions}
             sectionMoveMode={sectionMoveMode}
             selectionOptions={{ marqueeMode: "full" }}
             overlaySlots={{

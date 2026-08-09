@@ -186,6 +186,15 @@ dimensions restore exactly; content-sized axes retain finite fallbacks and resum
 expansion. Put durable host state in the section payload, not component-local state. A definition
 with `minimizable: false` exposes no minimize control and rejects the command.
 
+That body-only behavior is the default `minimizeScope: "body"`. A container definition may instead
+declare `minimizeScope: "subtree"`; minimizing it then unmounts every descendant frame and renderer
+while retaining the compact ancestor and canonical document tree. The registry rejects unknown
+scope values, subtree scope on non-containers, and any explicit scope on a non-minimizable kind.
+Hidden descendants leave selection, navigation, and retained geometry. Direct controller selection,
+focus, or fit rejects with `section-descendants-collapsed`, while adjacent navigation skips to the
+next visible frame. Expanding restores the canonical subtree and focus remains on the native state
+control.
+
 Both states have named native controls, persistent non-color indicators, controlled-host
 reconciliation, focus restoration, announcements, and one history entry per accepted change.
 

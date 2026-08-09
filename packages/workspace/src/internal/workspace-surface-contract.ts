@@ -68,6 +68,7 @@ export type WorkspaceActionRejectionReason =
   | "mixed-parent-selection"
   | "presentation-edit-disabled"
   | "section-creation-unavailable"
+  | "section-descendants-collapsed"
   | "section-geometry-unavailable"
   | "section-id-exists"
   | "section-locked"

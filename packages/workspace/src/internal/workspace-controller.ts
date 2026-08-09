@@ -53,6 +53,7 @@ export type WorkspaceControllerBindings<TSectionData> = Readonly<{
   createSection?(kind: string, options: WorkspaceCreateSectionOptions): WorkspaceActionResult;
   getCapabilities(): WorkspaceCapabilities;
   getCanvasController?(): WorkspaceCanvasController | null;
+  getCollapsedAncestorSectionId?(sectionId: string): string | null;
   getDocument(): WorkspaceDocument<TSectionData>;
   getHistoryState?(): WorkspaceHistoryState;
   getSelection?(): readonly string[];
@@ -337,6 +338,13 @@ function assertKnownSections<TSectionData>(
   }
 }
 
+function sectionDescendantsAreCollapsed<TSectionData>(
+  bindings: WorkspaceControllerBindings<TSectionData>,
+  sectionId: string,
+): boolean {
+  return typeof bindings.getCollapsedAncestorSectionId?.(sectionId) === "string";
+}
+
 async function focusSection<TSectionData>(
   bindings: WorkspaceControllerBindings<TSectionData>,
   setSelection: (sectionIds: readonly string[]) => WorkspaceActionResult,
@@ -345,6 +353,9 @@ async function focusSection<TSectionData>(
   sectionIdAt(sectionId);
   const document = bindings.getDocument();
   assertKnownSections(document, [sectionId]);
+  if (sectionDescendantsAreCollapsed(bindings, sectionId)) {
+    return { reason: "section-descendants-collapsed", status: "rejected" };
+  }
   setSelection([sectionId]);
   const canvasController = requireCanvasController(bindings);
   const release = canvasController.revealSection(sectionId);
@@ -371,6 +382,9 @@ async function fitSections<TSectionData>(
     return { status: "unchanged" };
   }
   assertKnownSections(bindings.getDocument(), uniqueSectionIds);
+  if (uniqueSectionIds.some((sectionId) => sectionDescendantsAreCollapsed(bindings, sectionId))) {
+    return { reason: "section-descendants-collapsed", status: "rejected" };
+  }
   const canvasController = requireCanvasController(bindings);
   const viewport = await canvasController.fitSections(uniqueSectionIds, options);
   const result = setViewport(bindings, viewport);
@@ -384,11 +398,11 @@ async function focusAdjacentSection<TSectionData>(
   sectionId: string,
   direction: "next" | "previous",
 ): Promise<WorkspaceActionResult> {
-  const adjacentSectionId = getAdjacentWorkspaceSectionId(
-    bindings.getDocument(),
-    sectionId,
-    direction,
-  );
+  const document = bindings.getDocument();
+  let adjacentSectionId = getAdjacentWorkspaceSectionId(document, sectionId, direction);
+  while (adjacentSectionId && sectionDescendantsAreCollapsed(bindings, adjacentSectionId)) {
+    adjacentSectionId = getAdjacentWorkspaceSectionId(document, adjacentSectionId, direction);
+  }
   return adjacentSectionId
     ? focusSection(bindings, setSelection, adjacentSectionId)
     : { status: "unchanged" };
@@ -536,6 +550,9 @@ export function createWorkspaceController<TSectionData>(
       const selectedIds = sectionIdsAt(sectionIds);
       const document = bindings.getDocument();
       assertKnownSections(document, selectedIds);
+      if (selectedIds.some((sectionId) => sectionDescendantsAreCollapsed(bindings, sectionId))) {
+        return { reason: "section-descendants-collapsed", status: "rejected" };
+      }
       const selected = new Set(selectedIds);
       return setSelection(
         getWorkspaceSectionOrder(document).filter((sectionId) => selected.has(sectionId)),
