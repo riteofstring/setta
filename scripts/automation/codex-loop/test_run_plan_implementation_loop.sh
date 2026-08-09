@@ -120,7 +120,9 @@ if [[ "${no_session_persistence}" != "1" ]]; then
   exit 1
 fi
 if [[ "${prompt}" != *"Never run an unbounded git diff"* ]] ||
-  [[ "${prompt}" != *"perform at most one bounded final review"* ]]; then
+  [[ "${prompt}" != *"perform at most one bounded final review"* ]] ||
+  [[ "${prompt}" != *"Never rerun an identical failing command against an unchanged tree"* ]] ||
+  [[ "${prompt}" != *"same focused check fails twice with the same symptom"* ]]; then
   echo "Agent 1 prompt is missing the bounded-review contract" >&2
   exit 1
 fi
@@ -271,6 +273,11 @@ if [[ "${cd_arg}" != "${repo}" ]]; then
 fi
 if [[ -z "${last_message_file}" ]]; then
   echo "expected --output-last-message" >&2
+  exit 1
+fi
+if [[ "${prompt}" != *"Never rerun an identical failing command against an unchanged tree"* ]] ||
+  [[ "${prompt}" != *"same focused check fails twice with the same symptom"* ]]; then
+  echo "Agent 2 prompt is missing the bounded-retry contract" >&2
   exit 1
 fi
 
