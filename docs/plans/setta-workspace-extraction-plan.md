@@ -667,8 +667,35 @@ Phase 4 progress (2026-08-11):
   tsconfig pins `types` back to empty so production source stays browser-pure. Focused item
   suites, the package build with boundary markers, the full 431-test package run, the changed
   static gate, and the supply-chain gate are green.
-- Remaining Phase 4 work: none in the repository; repeat the live main-Dict versus
-  unrelated-item comparison and obtain a renewed developer exit-gate decision.
+- Phase 4 renewed developer gate rejected for presentation parity (2026-08-11): the developer's
+  manual check confirmed that parameter manipulation works well and that the nested placement is
+  much better, but rejected the unrelated item panel's remaining visual treatment. The package
+  correctly leaves opaque item contents to the registered host renderer; the playground currently
+  demonstrates that seam with regular sans-serif labels and values, muted colors, no value-track
+  divider, the wire fallback `--param-column-width: 200px`, and a 280 x 240 fixture. The frozen
+  `/settings` Dict reference instead demonstrates 552 x 352 authored section geometry, 526 x 20
+  rows, 12/16 px semibold sans-serif labels, 12/16 px medium monospace values, a subtle value-column
+  underline, and a default label/value split derived from half the available list width. Those
+  differences—not the now-correct nested tree geometry—make the playground example appear loose and
+  visually unfinished.
+- Presentation parity correction required (2026-08-11): keep `WorkspaceItemList`'s package-owned
+  selection, nesting, row geometry, and dnd behavior intact unless a renewed live measurement proves
+  a package defect. At the host-renderer seam, make the unrelated playground demonstrate the smallest
+  complete, domain-neutral equivalent of the reference's label and value roles: reference label
+  weight/color/padding, monospace medium/tabular value typography, the subtle value-column divider,
+  and the reference default half-width column split supplied through the existing
+  `--param-column-width` host variable. Use the recorded 552 x 352 `/settings` Dict geometry and
+  enough opaque fixture rows to make repeated row rhythm inspectable while retaining the nested
+  group; fixture density must not substitute for the style corrections. Do not import Setta
+  parameter types, controls, stores, persistence, column-resize behavior, the ARGS toolbar, or filter
+  behavior, and do not turn application presentation into package policy or a new public API. Add a
+  focused playground-renderer regression for the host-owned presentation contract, run the focused
+  checks and static gate, then compare frozen main and playground live in dark and light appearance
+  at the same 1492 x 696 viewport, DPR, canvas zoom, authored section size, and representative
+  leaf/group/nested-child states. Record computed row, label, value, divider, and column metrics;
+  refresh or add visual evidence only after developer acceptance.
+- Remaining Phase 4 work: implement and audit the presentation-parity correction, repeat the live
+  main-Dict versus unrelated-item comparison, and obtain a renewed developer exit-gate decision.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
