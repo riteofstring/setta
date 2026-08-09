@@ -261,9 +261,10 @@ Phase 1 progress (2026-08-10):
   collision-reference changes are explicit developer-directed corrections that supersede literal
   preservation of the frozen behavior.
   The supplementary `/settings` parameter-style source suggested by the developer is captured in
-  the Phase 0 reference bundle without widening the Phase 1 slice. The interaction correction is
-  accepted; explicit acceptance of the complete Phase 1 exit gate remains pending.
-- Remaining Phase 1 work: developer acceptance of the live side-by-side evidence at the exit gate.
+  the Phase 0 reference bundle without widening the Phase 1 slice. On 2026-08-11, after manually
+  rechecking the corrected cross-parent interaction, the developer explicitly accepted the complete
+  Phase 1 live side-by-side result. The Phase 1 exit gate is complete and Phase 2 may proceed.
+- Remaining Phase 1 work: none.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

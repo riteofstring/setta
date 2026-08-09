@@ -107,5 +107,5 @@ previously recorded React Router future warning and React 19 `element.ref` diagn
 
 ## Decision
 
-**Rejected once; corrected interaction manually accepted; full gate approval pending.** Phase 2 must
-not begin until the developer explicitly accepts the complete Phase 1 result.
+**Approved.** On 2026-08-11, after manually rechecking the corrected cross-parent interaction, the
+developer explicitly accepted the complete Phase 1 result. Phase 2 may begin.

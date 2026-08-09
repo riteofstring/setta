@@ -274,5 +274,6 @@
       "React 19 element.ref diagnostics"
     ]
   },
-  "developerDecision": "interaction correction accepted; full Phase 1 acceptance pending"
+  "developerDecision": "approved after one rejection and corrected interaction recheck",
+  "developerDecisionAt": "2026-08-11T18:23:02Z"
 }
