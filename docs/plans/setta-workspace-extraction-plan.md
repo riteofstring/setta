@@ -891,10 +891,18 @@ Phase 4 progress (2026-08-11):
   renderer. The developer had already confirmed that item manipulation worked well and, after
   inspecting this final polished result, explicitly approved Phase 4. The backend-free example
   continues to supply only opaque item data and imports no Setta parameter types or state.
-- Remaining Phase 4 work: no implementation or approval work remains. Record the accepted dark/light
-  visual baseline and computed comparison under `docs/evidence/phase4/` as a regression lock before
-  advancing; this post-acceptance evidence is not a new approval gate. Do not infer a deferred
-  capability choice from the Phase 4 approval: the developer-choice rule below still applies.
+- Phase 4 accepted-output baseline recorded (2026-08-11): the approved dark/light output is locked
+  under `docs/evidence/phase4/` — full-viewport and original-pixel item-panel captures of the
+  playground production dist in headless Chrome at the exit gate's 1492 x 696 viewport and DPR 2,
+  from the boot state with the camera at the document viewport, plus computed metrics matching the
+  accepted values exactly in both appearances (552 x 352 outer panel, 550/544 px scroll-shell
+  outer/client widths over a genuinely scrollable list, 526 x 20 rows, 257 px label column,
+  12/16 px semibold sans-serif labels, 12/16 px regular monospace values with the
+  rgb(36,41,46)/rgb(201,209,217) foregrounds, 1 px divider colors, and nested children on their
+  own indented rows). The main-side comparison values are the supervised exit-gate measurements;
+  the frozen reference was not relaunched for this post-acceptance recording. Remaining Phase 4
+  work: none. Do not infer a deferred capability choice from the Phase 4 approval: the
+  developer-choice rule below still applies.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
