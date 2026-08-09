@@ -57,6 +57,7 @@ the package contract.
 | [`26-final-fixture-light-1440x900.png`](screenshots/26-final-fixture-light-1440x900.png)                             | Evolved full fixture with toolbar/minimap, light appearance                 |
 | [`27-root-callable-selected-with-params-light.png`](screenshots/27-root-callable-selected-with-params-light.png)     | Selected callable and item rows, light appearance at original pixels        |
 | [`28-three-level-nesting-horizontal-group-light.png`](screenshots/28-three-level-nesting-horizontal-group-light.png) | Nested group chrome and horizontal leaves, light appearance                 |
+| [`29-settings-dark-1492x696.png`](screenshots/29-settings-dark-1492x696.png)                                         | Live `/settings` workspace: dense parameter rows and value controls         |
 
 ## Interaction captures
 
@@ -89,6 +90,12 @@ radii, shadows, icon sizes, minimap paint, and z-index relationships. Important 
 - the minimap panel is 202 x 152 around a 200 x 150 SVG, with separately recorded light/dark mask
   paint; and
 - parameter rows are authored as 276 x 20 with a 4-pixel vertical rhythm inside the resized leaf.
+
+The supplementary `/settings` capture suggested during Phase 1 is characterized separately in
+[`computed/settings-style-metrics.json`](computed/settings-style-metrics.json). It records the
+552 x 352 authored `gui` section, 526 x 20 parameter rows, label typography, switch treatment,
+combobox geometry, and color-input treatment. It is a useful future source for Phase 4 parameter
+work; it does not widen the approved Phase 1 slice.
 
 ## Gesture ownership conclusions
 

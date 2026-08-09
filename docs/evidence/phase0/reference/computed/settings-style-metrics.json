@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-11T12:13:33Z",
+  "source": {
+    "commit": "043d3b2e9c69caf99d1246f1408b3ad7194b7864",
+    "url": "http://127.0.0.1:3063/settings",
+    "screenshot": "../screenshots/29-settings-dark-1492x696.png"
+  },
+  "browser": {
+    "viewportCssPx": {
+      "width": 1492,
+      "height": 696
+    },
+    "devicePixelRatio": 2
+  },
+  "workspaceTransform": "matrix(0.552615, 0, 0, 0.552615, 383.409, 86.9552)",
+  "workspaceScale": 0.552615,
+  "guiSectionAuthoredCssPx": {
+    "width": 552,
+    "height": 352
+  },
+  "parameterRow": {
+    "authoredCssPx": {
+      "width": 526,
+      "height": 20
+    },
+    "paddingCssPx": {
+      "block": 0,
+      "inline": 2
+    },
+    "borderRadiusCssPx": 2
+  },
+  "label": {
+    "authoredCssPx": {
+      "width": 257,
+      "height": 20
+    },
+    "paddingCssPx": {
+      "block": 2,
+      "inline": 0
+    },
+    "fontFamily": "ui-sans-serif, system-ui, sans-serif",
+    "fontSizeCssPx": 12,
+    "lineHeightCssPx": 16,
+    "fontWeight": 600,
+    "darkColor": "rgb(182, 192, 211)"
+  },
+  "checkedSwitch": {
+    "authoredOuterCssPx": {
+      "width": 34.3906,
+      "height": 16.3907
+    },
+    "paddingCssPx": 3.2,
+    "borderRadiusCssPx": 9999,
+    "darkBackgroundColor": "rgb(29, 78, 216)"
+  },
+  "combobox": {
+    "authoredOuterCssPx": {
+      "width": 249,
+      "height": 18
+    },
+    "paddingCssPx": {
+      "top": 0,
+      "right": 24,
+      "bottom": 0,
+      "left": 12
+    },
+    "border": "1px solid rgba(43, 54, 74, 0.7)",
+    "borderRadiusCssPx": 9999,
+    "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+    "fontSizeCssPx": 12,
+    "lineHeightCssPx": 16,
+    "fontWeight": 500,
+    "exampleValue": "free"
+  },
+  "colorInput": {
+    "authoredOuterCssPx": {
+      "width": 251,
+      "height": 16
+    },
+    "paddingCssPx": 0,
+    "border": "1px solid rgba(86, 105, 143, 0.4)",
+    "borderRadiusCssPx": 8,
+    "exampleValue": "#afbacf"
+  }
+}

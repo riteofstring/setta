@@ -236,7 +236,17 @@ Phase 1 progress (2026-08-10):
   controlled-document/change-callback boundary owns re-load semantics; the tooltip and toolbar
   Q-key handling mounts with the canvas key activations, so the separately-exported surfaces
   assume a mounted `WorkspaceCanvas`.
-- Remaining Phase 1 work: the live side-by-side comparison feeding the developer exit gate.
+- Supervised live side-by-side pass (2026-08-11): frozen main and the playground ran concurrently
+  in Chrome at the same 1492 x 696 CSS-pixel viewport and DPR 2. The first pass rejected three
+  visible playground discrepancies and closed them before presentation: host body/header overlap
+  (`c63e6f890`), arbitrary fixture dimensions instead of the reference's 202 x 124 outer leaf
+  geometry (`1b4c516df`), and a Tailwind cascade that reduced reset zoom from main's 26 x 26 to
+  24 x 24 (`ae1e8c3b6`). The recaptured dark/light, selected, moved, resized, minimized, and fit
+  states plus exact computed comparisons are in
+  `docs/evidence/phase1/side-by-side/README.md`. The supplementary `/settings` parameter-style
+  source suggested by the developer is now captured in the Phase 0 reference bundle without
+  widening the Phase 1 slice. Developer acceptance remains pending.
+- Remaining Phase 1 work: developer acceptance of the live side-by-side evidence at the exit gate.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
