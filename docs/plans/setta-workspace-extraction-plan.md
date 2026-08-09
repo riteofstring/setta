@@ -176,7 +176,9 @@ Begin the extraction map from the proven surfaces, including:
 These are investigation anchors, not a command to copy entire directories. Record the dependency
 cone and extract the smallest coherent path that produces the accepted behavior.
 
-### Experimental-branch donor policy
+### Donor policy
+
+#### Experimental branch
 
 Candidate donors from `workspace-blank-slate` include the standalone build/security tooling,
 serializable document experiments, geometry index, culling, collision/hysteresis planners, history,
@@ -192,6 +194,51 @@ A donor is accepted only when all of the following are true:
 - the adoption is a small, reviewable commit with an explicit reason.
 
 Do not merge, rebase, or cherry-pick the experimental branch as a batch.
+
+### Quality and dependency tooling contract
+
+The preflight implements a deliberate hybrid of the two donors:
+
+#### Fast quality checks
+
+- Provide one root quality command whose default scope is tracked changes plus untracked files and
+  which also supports staged, all-files, and explicit-file modes.
+- Keep the normal changed-file gate static and deterministic: formatting, linting, TypeScript
+  checking, dependency/boundary policy, dead-code analysis, complexity, and file length. Tests,
+  builds, packing, browser checks, and networked security audits remain separate commands invoked by
+  the relevant phase gate.
+- Use the experimental branch's Prettier, type-aware TypeScript ESLint, React Hooks, and JSX
+  accessibility baseline. Add separate source/test cyclomatic-complexity thresholds
+  and production `max-depth` and `max-params` checks.
+- Configure Knip for the actual pnpm workspaces and explicit package, playground, test, and tooling
+  entry points. Do not silence findings with broad ignores or treat a report as an automatic deletion
+  order.
+- Enforce separately documented source and test file-length ceilings. Ratify them during preflight;
+  choose values from the package's measured source and test sizes.
+- Provide all-files complexity and file-length reports for hotspot discovery without weakening the
+  blocking thresholds.
+
+#### Supply-chain and vulnerability checks
+
+- Keep a single checked-in seven-day release-age policy and mechanically verify that pnpm's
+  install-time configuration matches it.
+- Retain the experimental branch's strict pnpm controls: exact direct pins, strict peer resolution,
+  strict release age, failure on missing publication time, no trust downgrade, no blind lockfile
+  trust, blocked exotic transitive sources, and an initially empty dependency-build allowlist.
+- Add an independent audit of every registry package/version in the transitive lockfile
+  against registry publication timestamps. Run it on dependency changes and phase gates rather than
+  on every source-only commit.
+- Verify lockfile/manifest synchronization in an isolated temporary directory with lifecycle scripts
+  disabled, without rewriting the working tree.
+- Require exact versions in dependencies, development dependencies, and optional dependencies.
+  Permit only explicit workspace/local artifact specifiers and documented compatible ranges in
+  `peerDependencies`.
+- Run `pnpm audit` at `moderate` severity, retain the experimental branch's SPDX license allowlist and
+  dependency inventory, and fail closed on audit or metadata errors.
+- Start with no vulnerability, release-age, patched-dependency, trust-policy, or build-script
+  exceptions. Any later exception must identify the exact package/version or vulnerability, include
+  rationale, owner, expiry, and removal condition, and receive developer approval. Raw pnpm/npm
+  ignore configuration without matching checked-in metadata is forbidden.
 
 ## Reference and acceptance contract
 
@@ -319,22 +366,16 @@ Complete this preflight before Phase 0 evidence gathering and before package imp
 5. Delete obsolete plan documents and generated, temporary, or abandoned extraction artifacts. Git
    history is sufficient archival storage. Confirm that this plan is the single active extraction
    plan and that the worktree is clean before Phase 0 begins.
-6. Inventory the existing `main` checks and port only the proven standalone tooling needed by the
-   package from `workspace-blank-slate`. Do not bring over its implementation, UI, snapshots, or
-   generated evidence as part of tooling setup.
-7. Establish package commands and enforced thresholds for formatting, linting, TypeScript
-   type-checking, dead-code detection, code complexity, and file length before Phase 1 code lands.
-   Run fast changed-file checks for each reviewable batch and the complete package checks at every
-   phase exit gate.
-8. Establish supply-chain policy before adding or updating dependencies: exact direct pins, a frozen
-   lockfile in verification, strict peer checks, a strict minimum release age of 10,080 minutes
-   (seven days), no dependency build scripts unless explicitly allowlisted, and machine-checked
-   dependency provenance/inventory. Any exception must name the exact package/version, document the
-   concrete reason, and require developer approval; do not inherit the experimental branch's
-   exceptions automatically.
-9. Run vulnerability and license audits whenever dependencies change and at every phase exit gate.
-   A known vulnerability or policy exception fails the gate unless the developer explicitly accepts
-   a documented, narrowly scoped exception.
+6. Inventory the existing `main` checks and proven standalone tooling in
+   `workspace-blank-slate`. Implement the package-relevant quality and dependency
+   tooling contract without importing application code, generated evidence,
+   existing exceptions, or unrelated configuration.
+7. Establish every command, mode, policy file, and enforced threshold in that tooling contract before
+   Phase 1 code lands. Run the fast changed-file gate for each reviewable source batch and the broader
+   checks only at their specified dependency-change or phase gates.
+8. Demonstrate the supply-chain gate against a clean frozen install and confirm that release-age,
+   lockfile-drift, disallowed-build, vulnerability, license, and unowned-exception failures are
+   blocking. Do not weaken a control merely to make the initial dependency graph pass.
 
 ## Implementation phases
 
@@ -561,6 +602,8 @@ This extraction succeeds when:
 - recursive ordered/freeform section movement and nested item movement retain main's stable behavior;
 - the package contains no Setta application state, generated backend client, or domain-model imports;
 - retained dependencies and forked behavior are explicit and justified by observable value;
+- normal static quality checks require only the pinned Node/pnpm toolchain and support changed,
+  staged, all-files, and explicit-file scopes;
 - quality, accessibility, performance, supply-chain, vulnerability, license, pack, and consumer
   checks pass without overriding the accepted UI; and
 - no publishing decision has been made implicitly by implementation.
