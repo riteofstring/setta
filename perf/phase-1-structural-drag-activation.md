@@ -257,3 +257,49 @@ Gates for this change: `pnpm quality` (typecheck, lint, format, boundaries, pack
 report), the package vitest suite (536), the recursive-rendering browser workflow (structural,
 root, and touch ownership, announcements, rejection — 8/8), and the playground viewport-gesture
 workflows (“coalesces viewport gestures”, “complete runtime gesture matrix” — 2/2).
+
+## Measured canvas bounds — landed 2026-08-10
+
+Trace attribution after the ownership broadcast was removed found one avoidable forced-layout
+boundary in package-owned session construction. `resolveSourceGeometry` called
+`geometry.canvasBounds()` after dnd-kit's start flush had already injected drag styles. That live
+`getBoundingClientRect()` forced the browser to reconcile document style and layout before the
+session could return.
+
+`WorkspaceGeometryMeasurements` now retains canvas bounds from the same measurement pass used to
+build its workspace-space geometry index, and `resolveSourceGeometry` reads that retained anchor.
+The service refreshes the anchor during capture phase before a real section-movement activation
+(primary pointer or Enter/Space on a movement handle), while document-level scroll and resize
+continue to schedule a full measurement. If a silent layout shift moved the canvas, the capture
+read schedules and `settleMeasurement()` performs the required re-measure before session creation.
+Unrelated pointer and keyboard input does not incur the read. This preserves a self-consistent
+coordinate frame while removing the post-invalidation activation flush.
+
+The same batch corrects the structural overlay's local-freeform verb. The upstream overlay renders
+before `activeSessionRef` is assigned, so it now derives freeform-parent ownership from the
+document as well as the active session instead of briefly labeling a positioning gesture as a
+sort.
+
+`phase-1-measured-bounds` (15:14 development, then production) records the final filtered
+capture-hook implementation against `phase-1-ownership-store`:
+
+| Build       | Metric                       | ownership-store | measured-bounds |
+| ----------- | ---------------------------- | --------------- | --------------- |
+| development | structural-sort pointer-down | 23.9–33.5 ms    | 18.1–28.4 ms    |
+| development | nested-freeform pointer-down | 20.5–29.6 ms    | 17.7–25.4 ms    |
+| development | activation gaps above 32 ms  | 10/27 cells     | 5/27 cells      |
+| development | worst activation gap         | 42.1 ms         | 35 ms           |
+| development | long tasks at or above 50 ms | none            | none            |
+| production  | activation gaps above 32 ms  | 0/27 cells      | 0/27 cells      |
+| production  | long tasks at or above 50 ms | none            | none            |
+
+The package geometry lifecycle/root-movement unit gate (17 tests) and the directly affected real
+Chromium workflows (root pointer/keyboard movement, structural ownership, and exact sort/free-move
+commits, 3/3) are green. Full deterministic quality is also green: formatting, lint/complexity,
+file lengths, typecheck, boundaries, dependency policy, dead-code analysis, 539 unit tests,
+automation tests, builds, package inventory, and API report. Production remains fully inside the
+Phase 1 budget. Development improves materially but does not clear the exit gate: structural sort
+at 2× repeats a 33.4 ms skipped frame in two of three passes, and the overall development maximum
+is 35 ms. Phase 1 therefore remains open. Do not retry canvas-bounds caching, capture-anchor, or
+geometry-index variants; the remaining target is the narrower upstream dnd-kit start/session work
+and its frame alignment, without replacing lifecycle plugins or changing gating semantics.

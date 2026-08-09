@@ -64,6 +64,21 @@ lifecycle plugins or changing gating semantics; the broadcast side is done. Evid
 [perf/phase-1-structural-drag-activation.md](../../perf/phase-1-structural-drag-activation.md)
 (`phase-1-ownership-store`, 13:45 runs).
 
+The measured-canvas-bounds batch landed next (2026-08-10): structural session construction no
+longer reads live canvas bounds after upstream drag styles have invalidated the document. The
+geometry service retains the canvas bounds from the same measurement pass as its indexed section
+rects and refreshes that anchor in capture phase before an actual section-movement pointer or
+keyboard activation. Window-capture scroll invalidation and a focused silent-layout-shift check
+keep the cached coordinate frame correct without imposing a layout read on unrelated workspace
+input. Development pointer-down spans fell to 18.1–28.4 ms for structural sort and 17.7–25.4 ms
+for nested freeform; cells above 32 ms fell from 10/27 to 5/27, with no long tasks. Production
+remains clean in all 27 cells. Phase 1 remains open because two structural 2× passes repeat a
+33.4 ms skipped frame and the development maximum remains 35 ms. Do not repeat canvas-bounds
+caching or activation-anchor experiments; the remaining owner is the narrower upstream dnd-kit
+start/session work and frame alignment. Evidence:
+[perf/phase-1-structural-drag-activation.md](../../perf/phase-1-structural-drag-activation.md)
+(`phase-1-measured-bounds`, 15:14 runs).
+
 Make the Setta visual language the opinionated default for `@setta/workspace`, redesign the
 backend-free playground around the canvas, and remove the measurable structural-drag startup hitch.
 The result should feel like a focused Setta product immediately after `pnpm dev`, while remaining a

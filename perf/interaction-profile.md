@@ -695,3 +695,71 @@ Environment: darwin arm64, 8 cores, Node v24.18.1, Playwright 1.62.1, CPU thrott
 | nested-freeform | 2    | 1 (cold) | 21.6                       | 2.1                            | 18                      | 10.4                   | 0           | none              |
 | nested-freeform | 2    | 2        | 13.1                       | 0.7                            | 9.4                     | 10.2                   | 0           | none              |
 | nested-freeform | 2    | 3        | 22.1                       | 2.4                            | 25.4                    | 10.2                   | 0           | none              |
+
+## phase-1-measured-bounds — 2026-08-10T15:14:20.989Z
+
+Environment: darwin arm64, 8 cores, Node v24.18.1, Playwright 1.62.1, CPU throttle 1x, 3 passes per zoom.
+
+### development
+
+| Scenario        | Zoom | Pass     | Pointer-down handlers (ms) | First mutation after down (ms) | Activation max gap (ms) | Sustained max gap (ms) | Gaps >32 ms | Long tasks ≥50 ms |
+| --------------- | ---- | -------- | -------------------------- | ------------------------------ | ----------------------- | ---------------------- | ----------- | ----------------- |
+| root-drag       | 0.5  | 1 (cold) | 21                         | 21                             | 24.9                    | 16.6                   | 0           | none              |
+| root-drag       | 0.5  | 2        | 25.7                       | 25.7                           | 25.1                    | 16.7                   | 0           | none              |
+| root-drag       | 0.5  | 3        | 22.3                       | 22.2                           | 16.7                    | 10.4                   | 0           | none              |
+| root-drag       | 1    | 1 (cold) | 18.4                       | 18.4                           | 16.9                    | 16.8                   | 0           | none              |
+| root-drag       | 1    | 2        | 23.1                       | 23.1                           | 16.7                    | 16.8                   | 0           | none              |
+| root-drag       | 1    | 3        | 22.8                       | 22.7                           | 16.6                    | 10.3                   | 0           | none              |
+| root-drag       | 2    | 1 (cold) | 18.3                       | 18.2                           | 16.7                    | 17                     | 0           | none              |
+| root-drag       | 2    | 2        | 23.9                       | 23.8                           | 16.7                    | 24.7                   | 0           | none              |
+| root-drag       | 2    | 3        | 23.2                       | 23.2                           | 24.8                    | 17.6                   | 0           | none              |
+| structural-sort | 0.5  | 1 (cold) | 28.4                       | 5.3                            | 33.3                    | 16.7                   | 1           | none              |
+| structural-sort | 0.5  | 2        | 24.8                       | 6.8                            | 25                      | 17.3                   | 0           | none              |
+| structural-sort | 0.5  | 3        | 21.3                       | 4.9                            | 25                      | 16.7                   | 0           | none              |
+| structural-sort | 1    | 1 (cold) | 18.1                       | 3.8                            | 26.6                    | 16.7                   | 0           | none              |
+| structural-sort | 1    | 2        | 19.1                       | 2.9                            | 25                      | 16.7                   | 0           | none              |
+| structural-sort | 1    | 3        | 21.9                       | 4.2                            | 25                      | 16.6                   | 0           | none              |
+| structural-sort | 2    | 1 (cold) | 20.9                       | 3.8                            | 25                      | 16.7                   | 0           | none              |
+| structural-sort | 2    | 2        | 22.6                       | 5.4                            | 33.4                    | 10.1                   | 1           | none              |
+| structural-sort | 2    | 3        | 23.8                       | 5.5                            | 33.4                    | 10.3                   | 1           | none              |
+| nested-freeform | 0.5  | 1 (cold) | 17.7                       | 3.3                            | 25                      | 23.4                   | 0           | none              |
+| nested-freeform | 0.5  | 2        | 25.4                       | 6.7                            | 34.9                    | 16.3                   | 1           | none              |
+| nested-freeform | 0.5  | 3        | 21.5                       | 4                              | 25.1                    | 16.6                   | 0           | none              |
+| nested-freeform | 1    | 1 (cold) | 20.1                       | 3.9                            | 25                      | 25                     | 0           | none              |
+| nested-freeform | 1    | 2        | 20.4                       | 3.6                            | 35                      | 17.2                   | 1           | none              |
+| nested-freeform | 1    | 3        | 24.8                       | 5.7                            | 26.1                    | 25                     | 0           | none              |
+| nested-freeform | 2    | 1 (cold) | 21                         | 3.7                            | 25                      | 16.7                   | 0           | none              |
+| nested-freeform | 2    | 2        | 22.4                       | 4.9                            | 25                      | 25                     | 0           | none              |
+| nested-freeform | 2    | 3        | 23.4                       | 6.1                            | 26.4                    | 16.6                   | 0           | none              |
+
+### production
+
+| Scenario        | Zoom | Pass     | Pointer-down handlers (ms) | First mutation after down (ms) | Activation max gap (ms) | Sustained max gap (ms) | Gaps >32 ms | Long tasks ≥50 ms |
+| --------------- | ---- | -------- | -------------------------- | ------------------------------ | ----------------------- | ---------------------- | ----------- | ----------------- |
+| root-drag       | 0.5  | 1 (cold) | 9.7                        | 9.6                            | 24.9                    | 10.3                   | 0           | none              |
+| root-drag       | 0.5  | 2        | 10.9                       | 10.8                           | 8.5                     | 10.3                   | 0           | none              |
+| root-drag       | 0.5  | 3        | 5.4                        | 5.4                            | 10.3                    | 10.3                   | 0           | none              |
+| root-drag       | 1    | 1 (cold) | 7.1                        | 7                              | 9.9                     | 10.3                   | 0           | none              |
+| root-drag       | 1    | 2        | 6.7                        | 6.7                            | 8.5                     | 16.7                   | 0           | none              |
+| root-drag       | 1    | 3        | 8.3                        | 8.3                            | 8.4                     | 16.6                   | 0           | none              |
+| root-drag       | 2    | 1 (cold) | 6.4                        | 6.4                            | 9.8                     | 10.3                   | 0           | none              |
+| root-drag       | 2    | 2        | 7.7                        | 7.6                            | 9.9                     | 10.2                   | 0           | none              |
+| root-drag       | 2    | 3        | 9.5                        | 9.4                            | 8.9                     | 10.2                   | 0           | none              |
+| structural-sort | 0.5  | 1 (cold) | 23.9                       | 3.9                            | 24.9                    | 16.7                   | 0           | none              |
+| structural-sort | 0.5  | 2        | 18.9                       | 3.9                            | 18.2                    | 10.3                   | 0           | none              |
+| structural-sort | 0.5  | 3        | 18.6                       | 4.1                            | 26.1                    | 16.6                   | 0           | none              |
+| structural-sort | 1    | 1 (cold) | 16.6                       | 2.8                            | 16.9                    | 16.7                   | 0           | none              |
+| structural-sort | 1    | 2        | 19.1                       | 4                              | 16.9                    | 10.3                   | 0           | none              |
+| structural-sort | 1    | 3        | 19.4                       | 4                              | 15.1                    | 10.3                   | 0           | none              |
+| structural-sort | 2    | 1 (cold) | 15.8                       | 2.8                            | 16.6                    | 10.2                   | 0           | none              |
+| structural-sort | 2    | 2        | 18.7                       | 4.1                            | 16.9                    | 10                     | 0           | none              |
+| structural-sort | 2    | 3        | 20.4                       | 4.3                            | 16.8                    | 10.1                   | 0           | none              |
+| nested-freeform | 0.5  | 1 (cold) | 17.1                       | 2.7                            | 16.8                    | 10.3                   | 0           | none              |
+| nested-freeform | 0.5  | 2        | 20.2                       | 4.7                            | 16.7                    | 10.3                   | 0           | none              |
+| nested-freeform | 0.5  | 3        | 18.9                       | 4.3                            | 16.9                    | 10.4                   | 0           | none              |
+| nested-freeform | 1    | 1 (cold) | 17.1                       | 2.9                            | 16.8                    | 10.4                   | 0           | none              |
+| nested-freeform | 1    | 2        | 19.2                       | 3.9                            | 17.1                    | 10.4                   | 0           | none              |
+| nested-freeform | 1    | 3        | 21                         | 3.9                            | 17.1                    | 10.3                   | 0           | none              |
+| nested-freeform | 2    | 1 (cold) | 15.1                       | 2.7                            | 15.7                    | 10.4                   | 0           | none              |
+| nested-freeform | 2    | 2        | 19.5                       | 4.7                            | 17                      | 10.3                   | 0           | none              |
+| nested-freeform | 2    | 3        | 20.3                       | 4.5                            | 15.6                    | 10.3                   | 0           | none              |

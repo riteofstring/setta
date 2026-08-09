@@ -194,8 +194,13 @@ function resolveSourceGeometry(
   if (!geometry.canvasElement()) {
     return { allowed: false, reason: "The workspace canvas is unavailable." };
   }
+  // Session construction runs after upstream drag styles invalidate the
+  // document. A live canvasBounds() read here would force a full style/layout
+  // flush. The capture-phase activation hook already refreshed these measured
+  // bounds before that invalidation, and they share the geometry index's
+  // coordinate frame.
   const frame = {
-    canvasBounds: geometry.canvasBounds(),
+    canvasBounds: geometry.measuredCanvasBounds(),
     viewport: geometry.currentViewport(),
   };
   return {

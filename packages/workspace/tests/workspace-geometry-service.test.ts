@@ -92,6 +92,7 @@ function fakeElement(
   const removeEventListener = vi.fn();
   element = {
     addEventListener,
+    contains: vi.fn(() => true),
     focus,
     getBoundingClientRect,
     ownerDocument,
@@ -161,6 +162,130 @@ describe("WorkspaceGeometryMeasurements lifecycle", () => {
     geometry.setCanvasElement(null);
   });
 
+  it("serves measurement-pass canvas bounds without forcing a fresh layout read", () => {
+    const fixture = fakeWindow();
+    const canvas = fakeElement(fixture.window, { height: 500, width: 800, x: 50, y: 80 });
+    const root = fakeElement(fixture.window, { height: 120, width: 200, x: 90, y: 140 });
+    const index = new WorkspaceGeometryIndex();
+    const geometry = new WorkspaceGeometryMeasurements(index);
+
+    expect(() => geometry.measuredCanvasBounds()).toThrowError(
+      "Workspace canvas geometry is unavailable before mount or after unmount.",
+    );
+    geometry.setCanvasElement(canvas.element);
+    expect(() => geometry.measuredCanvasBounds()).toThrowError(
+      "Workspace canvas bounds are unavailable before the first measurement pass.",
+    );
+
+    geometry.register({
+      depth: 0,
+      element: root.element,
+      order: 0,
+      parentSectionId: null,
+      sectionId: "root",
+    });
+    geometry.flushMeasurement();
+    const readsAfterPass = canvas.getBoundingClientRect.mock.calls.length;
+
+    expect(geometry.measuredCanvasBounds()).toEqual({ height: 500, width: 800, x: 50, y: 80 });
+    expect(canvas.getBoundingClientRect.mock.calls.length).toBe(readsAfterPass);
+
+    geometry.setCanvasElement(null);
+    expect(() => geometry.measuredCanvasBounds()).toThrowError(
+      "Workspace canvas geometry is unavailable before mount or after unmount.",
+    );
+  });
+
+  it("re-measures canvas bounds after a document-level scroll settles", () => {
+    const fixture = fakeWindow();
+    const canvasRect = { height: 500, width: 800, x: 50, y: 80 };
+    const canvas = fakeElement(fixture.window, canvasRect);
+    const root = fakeElement(fixture.window, { height: 120, width: 200, x: 90, y: 140 });
+    const index = new WorkspaceGeometryIndex();
+    const geometry = new WorkspaceGeometryMeasurements(index);
+
+    geometry.setCanvasElement(canvas.element);
+    geometry.register({
+      depth: 0,
+      element: root.element,
+      order: 0,
+      parentSectionId: null,
+      sectionId: "root",
+    });
+    geometry.flushMeasurement();
+    expect(geometry.measuredCanvasBounds()).toEqual({ height: 500, width: 800, x: 50, y: 80 });
+
+    canvasRect.y = -1048;
+    const scrollListener = fixture.addEventListener.mock.calls.find(
+      ([type]) => type === "scroll",
+    )?.[1] as () => void;
+    expect(scrollListener).toBeTypeOf("function");
+    scrollListener();
+    geometry.settleMeasurement();
+    expect(geometry.measuredCanvasBounds()).toEqual({ height: 500, width: 800, x: 50, y: -1048 });
+
+    geometry.setCanvasElement(null);
+  });
+
+  it("re-anchors canvas bounds from capture-phase input after a silent layout shift", () => {
+    const fixture = fakeWindow();
+    const canvasRect = { height: 500, width: 800, x: 50, y: 1208 };
+    const canvas = fakeElement(fixture.window, canvasRect);
+    const root = fakeElement(fixture.window, { height: 120, width: 200, x: 90, y: 1268 });
+    const index = new WorkspaceGeometryIndex();
+    const geometry = new WorkspaceGeometryMeasurements(index);
+
+    geometry.setCanvasElement(canvas.element);
+    geometry.register({
+      depth: 0,
+      element: root.element,
+      order: 0,
+      parentSectionId: null,
+      sectionId: "root",
+    });
+    geometry.flushMeasurement();
+    expect(geometry.measuredCanvasBounds()).toEqual({ height: 500, width: 800, x: 50, y: 1208 });
+
+    // Content above the canvas collapses: the canvas moves without any
+    // scroll, resize, or observer notification.
+    canvasRect.y = 80;
+    const rafCallsAfterPass = fixture.requestAnimationFrame.mock.calls.length;
+    const pointerDownListener = canvas.addEventListener.mock.calls.find(
+      ([type]) => type === "pointerdown",
+    )?.[1] as (event: Event) => void;
+    expect(pointerDownListener).toBeTypeOf("function");
+    const movementHandle = {} as Element;
+    const readsBeforeIgnoredInput = canvas.getBoundingClientRect.mock.calls.length;
+    pointerDownListener({
+      button: 0,
+      isPrimary: true,
+      target: { closest: () => null },
+      type: "pointerdown",
+    } as unknown as PointerEvent);
+    expect(canvas.getBoundingClientRect.mock.calls.length).toBe(readsBeforeIgnoredInput);
+
+    pointerDownListener({
+      button: 0,
+      isPrimary: true,
+      target: { closest: () => movementHandle },
+      type: "pointerdown",
+    } as unknown as PointerEvent);
+    expect(geometry.measuredCanvasBounds()).toEqual({ height: 500, width: 800, x: 50, y: 80 });
+    expect(fixture.requestAnimationFrame.mock.calls.length).toBe(rafCallsAfterPass + 1);
+    geometry.settleMeasurement();
+
+    // A repeat input with an unmoved canvas schedules no re-measure.
+    pointerDownListener({
+      button: 0,
+      isPrimary: true,
+      target: { closest: () => movementHandle },
+      type: "pointerdown",
+    } as unknown as PointerEvent);
+    expect(fixture.requestAnimationFrame.mock.calls.length).toBe(rafCallsAfterPass + 1);
+
+    geometry.setCanvasElement(null);
+  });
+
   it("releases observers, listeners, frames, and scheduled work when the canvas detaches", () => {
     const fixture = fakeWindow();
     const canvas = fakeElement(fixture.window, { height: 500, width: 800, x: 50, y: 80 });
@@ -182,7 +307,7 @@ describe("WorkspaceGeometryMeasurements lifecycle", () => {
     expect(index.size).toBe(1);
     expect(geometry.canvasBounds()).toEqual({ height: 500, width: 800, x: 50, y: 80 });
     expect(fixture.addEventListener).toHaveBeenCalledWith("resize", expect.any(Function));
-    expect(canvas.addEventListener).toHaveBeenCalledWith("scroll", expect.any(Function), true);
+    expect(fixture.addEventListener).toHaveBeenCalledWith("scroll", expect.any(Function), true);
     expect(fixture.requestAnimationFrame).toHaveBeenCalledTimes(2);
     expect(fixture.instances).toHaveLength(1);
     expect(fixture.instances[0]?.observe).toHaveBeenCalledWith(root.element);
@@ -193,7 +318,7 @@ describe("WorkspaceGeometryMeasurements lifecycle", () => {
     expect(fixture.cancelAnimationFrame).toHaveBeenCalledWith(17);
     expect(fixture.instances[0]?.disconnect).toHaveBeenCalledOnce();
     expect(fixture.removeEventListener).toHaveBeenCalledWith("resize", expect.any(Function));
-    expect(canvas.removeEventListener).toHaveBeenCalledWith("scroll", expect.any(Function), true);
+    expect(fixture.removeEventListener).toHaveBeenCalledWith("scroll", expect.any(Function), true);
     expect(() => unregister()).not.toThrow();
     expect(() => fixture.instances[0]?.trigger()).not.toThrow();
     expect(fixture.requestAnimationFrame).toHaveBeenCalledTimes(2);

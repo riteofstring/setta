@@ -511,7 +511,14 @@ export function WorkspaceSectionDndBoundary<TSectionData>({
         overlayLabel={(id) => {
           const source = workspaceSectionDndSource(id);
           const activeMode = activation.getSnapshot().activeSectionMode ?? mode;
-          const localLayout = sessionUsesLocalFreeformMovement(activeSessionRef.current);
+          // The overlay renders during the upstream start flush, before
+          // handleStart assigns activeSessionRef, and no adapter render
+          // refreshes it afterwards — derive the local-freeform verb from the
+          // document the same way handleStart derives the announcement.
+          const localLayout =
+            activeMode === "sort" &&
+            (sectionHasFreeformParent(document, source.sectionId) ||
+              sessionUsesLocalFreeformMovement(activeSessionRef.current));
           const sectionCount = activeSessionRef.current?.sectionIds.length ?? 1;
           const suffix = sectionCount === 1 ? "" : ` and ${String(sectionCount - 1)} more`;
           const verb = localLayout ? "Positioning" : activeMode === "sort" ? "Sorting" : "Moving";

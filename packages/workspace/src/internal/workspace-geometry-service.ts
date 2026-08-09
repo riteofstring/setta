@@ -70,6 +70,33 @@ function screenRect(rect: DOMRect): ScreenRect {
   return { height: rect.height, width: rect.width, x: rect.x, y: rect.y };
 }
 
+function eventUsesSectionMovementHandle(canvas: HTMLElement, event: Event): boolean {
+  const target = event.target as Element | null;
+  const movementHandle = target?.closest?.("[data-workspace-section-drag-mode]");
+  return movementHandle !== null && movementHandle !== undefined && canvas.contains(movementHandle);
+}
+
+function isSectionMovementActivation(event: Event): boolean {
+  if (event.type === "keydown") {
+    return ["Enter", " "].includes((event as KeyboardEvent).key);
+  }
+  if (event.type === "pointerdown") {
+    const pointerEvent = event as PointerEvent;
+    return pointerEvent.button === 0 && pointerEvent.isPrimary;
+  }
+  return false;
+}
+
+function screenRectsMatch(left: ScreenRect | null, right: ScreenRect): boolean {
+  return (
+    left !== null &&
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height
+  );
+}
+
 function parsedLayoutGap(value: string | undefined): number | null {
   const gap = Number.parseFloat(value ?? "");
   return Number.isFinite(gap) && gap >= 0 ? gap : null;
@@ -182,6 +209,7 @@ export class WorkspaceGeometryMeasurements {
   #retainedSectionIds = new Set<string>();
   #canvasElement: HTMLElement | null = null;
   #frameRequest: number | null = null;
+  #measuredCanvasBounds: ScreenRect | null = null;
   #resizeObserver: ResizeObserver | null = null;
   #viewport: ViewportTransform;
   #window: Window | null = null;
@@ -267,13 +295,23 @@ export class WorkspaceGeometryMeasurements {
     this.#removeCanvasListeners();
     this.#cancelScheduledMeasurement();
     this.#canvasElement = element;
+    this.#measuredCanvasBounds = null;
     this.#window = element?.ownerDocument.defaultView ?? null;
     if (!element) {
       this.#releaseDetachedGeometry();
       return;
     }
-    element.addEventListener("scroll", this.#onScroll, true);
+    // Capture on the window, not the canvas: document-level scrolls never
+    // propagate through the canvas element, yet they move the canvas in
+    // client space and must invalidate the measured bounds.
+    this.#window?.addEventListener("scroll", this.#onScroll, true);
     this.#window?.addEventListener("resize", this.#onResize);
+    // Layout shifts can move the canvas without firing scroll, resize, or any
+    // observer. The capture phase of a gesture's first input event runs before
+    // drag machinery dirties document styles, so one canvas read here is cheap
+    // and re-anchors the measured bounds for the activation that follows.
+    element.addEventListener("keydown", this.#onActivationInput, true);
+    element.addEventListener("pointerdown", this.#onActivationInput, true);
     this.#measureAll();
   }
 
@@ -360,6 +398,26 @@ export class WorkspaceGeometryMeasurements {
       throw new Error("Workspace canvas geometry is unavailable before mount or after unmount.");
     }
     return screenRect(this.#canvasElement.getBoundingClientRect());
+  }
+
+  /**
+   * The client-space anchor for the workspace-space geometry index: canvas
+   * bounds captured by the most recent measurement pass and re-anchored in
+   * capture phase before every section-movement activation. Unlike
+   * canvasBounds(), reading these bounds never forces style or layout, so
+   * drag activation can build its session inside the pointer-down dispatch
+   * without paying a synchronous full style recalculation after the upstream
+   * drag machinery dirties document styles. Call settleMeasurement() first so
+   * any scheduled geometry invalidation is applied before reading.
+   */
+  measuredCanvasBounds(): ScreenRect {
+    if (!this.#canvasElement) {
+      throw new Error("Workspace canvas geometry is unavailable before mount or after unmount.");
+    }
+    if (!this.#measuredCanvasBounds) {
+      throw new Error("Workspace canvas bounds are unavailable before the first measurement pass.");
+    }
+    return this.#measuredCanvasBounds;
   }
 
   async boundsWhenReady(sectionIds: readonly string[]): Promise<WorkspaceRect> {
@@ -553,6 +611,7 @@ export class WorkspaceGeometryMeasurements {
       return;
     }
     const canvasBounds = screenRect(this.#canvasElement.getBoundingClientRect());
+    this.#measuredCanvasBounds = canvasBounds;
     for (const entry of this.#entries.values()) {
       this.#measure(entry, canvasBounds);
     }
@@ -635,8 +694,10 @@ export class WorkspaceGeometryMeasurements {
   }
 
   #removeCanvasListeners(): void {
-    this.#canvasElement?.removeEventListener("scroll", this.#onScroll, true);
+    this.#window?.removeEventListener("scroll", this.#onScroll, true);
     this.#window?.removeEventListener("resize", this.#onResize);
+    this.#canvasElement?.removeEventListener("keydown", this.#onActivationInput, true);
+    this.#canvasElement?.removeEventListener("pointerdown", this.#onActivationInput, true);
   }
 
   #requireResizeObserver(element: HTMLElement): ResizeObserver {
@@ -706,6 +767,25 @@ export class WorkspaceGeometryMeasurements {
     }
     this.#pendingViewports.clear();
   }
+
+  readonly #onActivationInput = (event: Event) => {
+    if (
+      !this.#canvasElement ||
+      !eventUsesSectionMovementHandle(this.#canvasElement, event) ||
+      !isSectionMovementActivation(event)
+    ) {
+      return;
+    }
+    const bounds = screenRect(this.#canvasElement.getBoundingClientRect());
+    const previous = this.#measuredCanvasBounds;
+    this.#measuredCanvasBounds = bounds;
+    if (!screenRectsMatch(previous, bounds)) {
+      // The canvas moved without an invalidation: the workspace-space rects in
+      // the index were anchored to the previous bounds, so re-measure before
+      // an activation in this dispatch settles the measurement.
+      this.requestMeasurement();
+    }
+  };
 
   readonly #onResize = () => this.requestMeasurement();
   readonly #onScroll = () => this.requestMeasurement();
