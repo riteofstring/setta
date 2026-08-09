@@ -19,6 +19,11 @@ export type {
 } from "./controls/dropdown/DropdownValueControl";
 export { ItemNameEditor } from "./controls/name/ItemNameEditor";
 export type { ItemNameEditorProps } from "./controls/name/ItemNameEditor";
+export { PasswordValueControl } from "./controls/password/PasswordValueControl";
+export type {
+  PasswordSavedValueAction,
+  PasswordValueControlProps,
+} from "./controls/password/PasswordValueControl";
 export { RotaryValueControl } from "./controls/rotary/RotaryValueControl";
 export type { RotaryValueControlProps } from "./controls/rotary/RotaryValueControl";
 export { SliderValueControl } from "./controls/slider/SliderValueControl";

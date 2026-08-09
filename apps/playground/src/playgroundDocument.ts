@@ -33,7 +33,7 @@ function makeLeafSection(
 // cross-parent item movement reachable, and the leaf count fills the recorded 552 x 352 outer
 // geometry so the repeated 20 px row rhythm stays inspectable against the frozen `/settings`
 // Dict. The item-controls rows exercise every built-in control the milestone has landed: the
-// switch at the captured `enabled` fixture, the empty dropdown over the captured
+// switch at the captured `enabled` fixture, the password and wrapped multiline rows, the empty dropdown over the captured
 // Alpha/Beta/Gamma choices, the configured color trigger over the captured Red/Green/Blue
 // choices, the native color input at the `/settings` recorded value, and the captured editable
 // `rename_me` name seam. The remaining-controls continuation adds the captured ordinary slider
@@ -64,6 +64,8 @@ const itemPanelTree: WorkspaceSectionItemTree = {
       "item-lambda",
       "item-slider",
       "item-rotary",
+      "item-password",
+      "item-textarea",
       "item-enabled",
       "item-choice",
       "item-accent",
@@ -101,6 +103,16 @@ const itemPanelTree: WorkspaceSectionItemTree = {
       min: 0,
       max: 1,
       step: 0.1,
+    }),
+    "item-password": makeItem("item-password", {
+      label: "password",
+      value: "",
+      control: "password",
+    }),
+    "item-textarea": makeItem("item-textarea", {
+      label: "textarea",
+      value: "",
+      control: "multiline",
     }),
     "item-enabled": makeItem("item-enabled", {
       label: "enabled",

@@ -1089,6 +1089,24 @@ Phase 4 progress (2026-08-11):
   built-boundary check, changed-file static gate, and dependency supply-chain gate pass. Remaining
   row-control batches: password plus multiline text; date plus time; dropzone. Meta controls follow
   after the complete row set as authorized.
+- Remaining-controls password and multiline-text batch complete (2026-08-12): the package now
+  exports `PasswordValueControl`, preserving the frozen ordinary-row native password input,
+  in-field show/hide icon and label swap, exact monospace/color/divider treatment, controlled
+  string updates, Escape focus restoration, host/item-select disabledness, and package no-drag/
+  no-pan boundaries. Placeholder text remains a direct host input. Hosts with separately persisted
+  secrets may supply one explicit saved-value action carrying its reveal callback and controlled
+  pending state; the package never infers a saved secret, owns no credential state, and performs no
+  persistence. The frozen toggle's `tabIndex={-1}` was deliberately omitted as a non-visual
+  accessibility deviation so its native button stays keyboard reachable; every input/action has an
+  accessible name and decorative icons are hidden from assistive technology. Frozen main dispatches
+  `TextAreaParam` through the same `TextParamConfigured`/`TextInputCodeMirror` path as text and code,
+  so multiline text reuses `TextValueEditor` explicitly configured for wrapped, non-single-line
+  input rather than adding a second editor; its existing row grid supplies the reference 20 px
+  empty-row minimum and content grows by line. The playground demonstrates both controls from opaque
+  item data through `setItemData`. No dependencies changed. Focused package password/text tests (14),
+  the directly affected playground renderer suite (13), package production build and built-boundary
+  check, and changed-file static gate pass. Remaining row-control batches: date plus time; dropzone.
+  Meta controls follow after the complete row set as authorized.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

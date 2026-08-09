@@ -4,6 +4,7 @@ import {
   getWorkspaceDocument,
   ItemDndContext,
   ItemNameEditor,
+  PasswordValueControl,
   registerSectionKinds,
   RotaryValueControl,
   setItemData,
@@ -101,8 +102,9 @@ function isGroupItem(item: WorkspaceItem): boolean {
 // input it focuses. Values mount the package's built-in controls from the item-controls
 // milestone, chosen by this host's opaque `control` field: the two-layer text value editor
 // (the default, at python — the reference settings surface's generated `configLanguage`), the
-// boolean switch, slider, rotary, the dropdown over this host's flat choice strings, and the
-// color picker in both its configured-choices and native-input forms. The captured `rename_me`
+// boolean switch, slider, rotary, password, the dropdown over this host's flat choice strings,
+// multiline text through the same wrapped editor path, and the color picker in both its
+// configured-choices and native-input forms. The captured `rename_me`
 // row composes the package's editable name control; this host validates proposed names against
 // its opaque sibling labels and owns whether a proposal commits.
 // The playground owns persistence: accepted changes commit back into this host's opaque item
@@ -284,6 +286,17 @@ function ItemValueControl({ context }: { context: ItemRowRenderContext }) {
       />
     );
   }
+  if (control === "password") {
+    return (
+      <PasswordValueControl
+        ariaLabel={ariaLabel}
+        sectionId={context.sectionId}
+        itemId={context.item.id}
+        value={value}
+        onValueChange={onValueChange}
+      />
+    );
+  }
   if (control === "dropdown") {
     return (
       <DropdownValueControl
@@ -302,6 +315,20 @@ function ItemValueControl({ context }: { context: ItemRowRenderContext }) {
         itemId={context.item.id}
         value={value}
         choices={getItemColorChoices(context.item)}
+        onValueChange={onValueChange}
+      />
+    );
+  }
+  if (control === "multiline") {
+    return (
+      <TextValueEditor
+        ariaLabel={ariaLabel}
+        sectionId={context.sectionId}
+        itemId={context.item.id}
+        value={value}
+        language={null}
+        singleLine={false}
+        wrapLines
         onValueChange={onValueChange}
       />
     );

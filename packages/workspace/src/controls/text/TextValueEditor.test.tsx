@@ -151,6 +151,26 @@ describe("TextValueEditor", () => {
     expect(onValueChange).toHaveBeenCalledWith("0.00123");
   });
 
+  it("reuses the editor as the wrapped multiline text-area presentation", async () => {
+    const onValueChange = vi.fn();
+    await mount({
+      value: "first line\nsecond line",
+      language: null,
+      singleLine: false,
+      wrapLines: true,
+      onValueChange,
+    });
+    expect(getDummy().querySelectorAll(":scope > .cm-line")).toHaveLength(2);
+    expect(getDummy().style.whiteSpace).toBe("break-spaces");
+    await activate();
+    expect(getLiveView().state.doc.lines).toBe(2);
+    await act(async () => {
+      getLiveView().dispatch({ changes: { from: 10, insert: "\nthird line" } });
+    });
+    expect(onValueChange).toHaveBeenCalledTimes(1);
+    expect(onValueChange).toHaveBeenCalledWith("first line\nthird line\nsecond line");
+  });
+
   it("returns focus to the section container on Escape and restores the dummy", async () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;

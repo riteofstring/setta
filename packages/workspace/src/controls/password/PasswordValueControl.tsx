@@ -1,0 +1,147 @@
+import { useState, type KeyboardEvent } from "react";
+import { BiHide, BiShow } from "react-icons/bi";
+import { useItemSelectionMode } from "../../document/itemSelectionMode";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
+import { focusSectionAfterEscape } from "../sectionFocus";
+
+// The remaining-controls milestone's password control: the frozen `PasswordInput` and its
+// ordinary-row `ParamUI` wrapper behind the package's controlled string seam. The package owns
+// only local obscured/visible presentation. A host that has a separately persisted secret may
+// provide the optional reveal action and its pending state; the package never infers a saved
+// secret from the value or placeholder and never stores credentials.
+
+export type PasswordSavedValueAction = {
+  pending: boolean;
+  onReveal: () => void;
+};
+
+export type PasswordValueControlProps = {
+  ariaLabel: string;
+  sectionId: string;
+  itemId: string;
+  value: string;
+  onValueChange: (nextValue: string) => void;
+  placeholder?: string;
+  savedValueAction?: PasswordSavedValueAction;
+  disabled?: boolean;
+};
+
+const WRAPPER_CLASS_NAME = "section-value flex min-w-0 items-center gap-2";
+const INPUT_WRAPPER_CLASS_NAME = `section-value relative min-w-0 ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
+const INPUT_BASE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex min-w-0 flex-1 self-center pr-8 font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
+const TOGGLE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} absolute inset-y-0 right-0 grid w-8 cursor-pointer place-items-center text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`;
+const DIVIDER_BASE_CLASS_NAME =
+  "section-value self-end border-b border-setta-200/50 dark:border-setta-600/30";
+
+function getInputClassName(isDisabled: boolean) {
+  return `${!isDisabled ? "cursor-text select-text" : ""} ${INPUT_BASE_CLASS_NAME}`;
+}
+
+function getDividerClassName(isSelectingItems: boolean) {
+  return `${DIVIDER_BASE_CLASS_NAME} ${!isSelectingItems ? "peer-focus-within/textinput:border-blue-400" : ""}`;
+}
+
+function handleEscape(event: KeyboardEvent<HTMLInputElement>, sectionId: string) {
+  if (event.code === "Escape") {
+    focusSectionAfterEscape(sectionId);
+  }
+}
+
+export function PasswordValueControl({
+  ariaLabel,
+  sectionId,
+  itemId,
+  value,
+  onValueChange,
+  placeholder,
+  savedValueAction,
+  disabled = false,
+}: PasswordValueControlProps) {
+  const isSelectingItems = useItemSelectionMode((state) => state.isSelectingItems);
+  const isDisabled = disabled || isSelectingItems;
+
+  return (
+    <>
+      <div className={WRAPPER_CLASS_NAME}>
+        <PasswordInput
+          ariaLabel={ariaLabel}
+          sectionId={sectionId}
+          itemId={itemId}
+          value={value}
+          onValueChange={onValueChange}
+          placeholder={placeholder}
+          disabled={isDisabled}
+        />
+        {savedValueAction ? (
+          <SavedValueRevealButton action={savedValueAction} disabled={isDisabled} />
+        ) : null}
+      </div>
+      <span className={getDividerClassName(isSelectingItems)} />
+    </>
+  );
+}
+
+function PasswordInput({
+  ariaLabel,
+  sectionId,
+  itemId,
+  value,
+  onValueChange,
+  placeholder,
+  disabled,
+}: {
+  ariaLabel: string;
+  sectionId: string;
+  itemId: string;
+  value: string;
+  onValueChange: (nextValue: string) => void;
+  placeholder: string | undefined;
+  disabled: boolean;
+}) {
+  const [showPassword, setShowPassword] = useState(false);
+  return (
+    <div className={INPUT_WRAPPER_CLASS_NAME}>
+      <input
+        id={`${sectionId}-${itemId}-PasswordValueInput`}
+        aria-label={ariaLabel}
+        className={getInputClassName(disabled)}
+        value={value}
+        onChange={(event) => onValueChange(event.target.value)}
+        disabled={disabled}
+        type={showPassword ? "text" : "password"}
+        placeholder={placeholder}
+        onKeyDown={(event) => handleEscape(event, sectionId)}
+      />
+      <button
+        type="button"
+        onClick={() => setShowPassword((visible) => !visible)}
+        aria-label={showPassword ? "Hide password" : "Show password"}
+        className={TOGGLE_CLASS_NAME}
+      >
+        {showPassword ? <BiShow aria-hidden="true" /> : <BiHide aria-hidden="true" />}
+      </button>
+    </div>
+  );
+}
+
+function SavedValueRevealButton({
+  action,
+  disabled,
+}: {
+  action: PasswordSavedValueAction;
+  disabled: boolean;
+}) {
+  const isDisabled = disabled || action.pending;
+  return (
+    <button
+      type="button"
+      className={`${isDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex-none bg-transparent text-left font-mono text-xs text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`}
+      onClick={action.onReveal}
+      disabled={isDisabled}
+      aria-busy={action.pending}
+      title="Reveal saved password"
+    >
+      {action.pending ? "Revealing..." : "Reveal"}
+    </button>
+  );
+}
