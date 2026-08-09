@@ -1,9 +1,11 @@
 # Workspace-shell frozen-reference preflight
 
 Reference: `../setta-main` verified clean on `main` at
-`043d3b2e9c69caf99d1246f1408b3ad7194b7864` on 2026-08-12. This directory is the
-repository-actionable source and ownership half of the workspace-shell evidence preflight. It is
-not a completed live reference bundle, package-output evidence, or developer approval.
+`043d3b2e9c69caf99d1246f1408b3ad7194b7864` on 2026-08-12. This directory contains the
+repository-actionable source/ownership preflight and the completed frozen-main pane/rail capture
+required before workspace-shell implementation batch 2. It is not package-output evidence or
+developer approval. The producible Outline, Inspector, and context-menu captures remain attached
+to their corresponding later batches.
 
 The detailed dependency cone, state-read classification, algorithm boundary, and package seam are
 in [`ownership-map.md`](ownership-map.md).
@@ -21,8 +23,34 @@ being copied or relabelled:
 | [Browser 200% dark](../../phase0/reference/screenshots/23-browser-page-scale-200-dark.png)                                                                                          | Frozen main's effective 200% product presentation and the still-flat Overview list                                                                        | The package's already-accepted 200% reflow contract or any new shell behavior                      |
 | [Phase 0 style metrics](../../phase0/reference/computed/reference-style-metrics.json)                                                                                               | Previously accepted canvas, toolbar, minimap, section, and z-layer facts                                                                                  | Pane, rail, context-menu, Outline, and Inspector metrics required by this milestone                |
 
-No existing capture shows an open right pane or a workspace context menu. None can satisfy the new
-matched dark/light evidence requirement by itself.
+No earlier capture shows an open right pane or a workspace context menu. The new pane/rail bundle
+below closes the former gap; context-menu evidence remains with batch 5.
+
+## Pane and rail capture complete
+
+The matched bundle was captured from the already-running frozen `/settings` reference through the
+worktree-scoped Chrome DevTools service. The source checkout remained clean. All PNGs preserve the
+page's device-pixel ratio of 2; the filename records the CSS-pixel viewport.
+
+| Files                                                                                                                                             | State                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| [`01`](screenshots/01-initial-left-open-right-closed-dark-1492x696.png), [`08`](screenshots/08-initial-left-open-right-closed-light-1492x696.png) | Initial 335 px leading pane, closed 40 px trailing rail              |
+| [`02`](screenshots/02-both-panes-open-dark-1492x696.png), [`09`](screenshots/09-both-panes-open-light-1492x696.png)                               | Both panes open at 335/500 px                                        |
+| [`03`](screenshots/03-both-open-left-resized-dark-1492x696.png), [`10`](screenshots/10-both-open-left-resized-light-1492x696.png)                 | Leading pane pointer-resized to 401 px while both panes remain open  |
+| [`04`](screenshots/04-left-full-width-right-closed-dark-1492x696.png), [`11`](screenshots/11-left-full-width-right-closed-light-1492x696.png)     | Leading pane at the 1452 px full-width maximum; trailing pane closed |
+| [`05`](screenshots/05-left-restored-dark-1492x696.png), [`12`](screenshots/12-left-restored-light-1492x696.png)                                   | Leading pane restored to its remembered 401 px width                 |
+| [`06`](screenshots/06-both-panes-closed-dark-1492x696.png), [`07`](screenshots/07-both-panes-closed-light-1492x696.png)                           | Both panes closed to their 40 px rails                               |
+| [`13`](screenshots/13-narrow-left-open-right-closed-light-800x772.png), [`16`](screenshots/16-narrow-left-open-right-closed-dark-800x772.png)     | Narrow initial state                                                 |
+| [`14`](screenshots/14-narrow-both-open-light-800x772.png), [`17`](screenshots/17-narrow-both-open-dark-800x772.png)                               | Narrow paired panes after exact overflow negotiation to 300/500 px   |
+| [`15`](screenshots/15-narrow-right-full-width-light-800x772.png), [`18`](screenshots/18-narrow-right-full-width-dark-800x772.png)                 | Narrow trailing pane at the 760 px full-width maximum                |
+
+Exact geometry, paint, z-order, overflow, transition, resize-target, full-width, and
+viewport-normalization facts are in
+[`computed/pane-style-metrics.json`](computed/pane-style-metrics.json). Pointer, focus, paired-pane,
+full-width/restore, and normalization traces are in
+[`interactions/pane-trace.json`](interactions/pane-trace.json). The trace also records that frozen
+main has native button activation but no roving tablist or Arrow/Home/End behavior; the milestone
+contract is the authority for that deliberate accessibility addition.
 
 ## Required live capture matrix
 
@@ -32,17 +60,17 @@ batch. Rows marked **absent / authorized new behavior** cannot be produced by th
 at the recorded commit; their source proof is the pre-implementation evidence, while the milestone
 contract and final combined developer gate govern their implementation.
 
-| Surface                                                                         | Frozen-main status                   | Required evidence before implementation                                                                                                                                              |
-| ------------------------------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Pane creation menu at each viewport edge                                        | Producible by pointer                | Dark/light original-pixel captures; search, filtering, arrow/Enter/Escape trace; computed menu geometry, overflow, focus, and created workspace coordinate                           |
-| Section and multi-selection menu                                                | Producible by pointer                | Single and mixed locked/unlocked selections, capability-disabled actions, labels, geometry, focus, and dismissal                                                                     |
-| Left/right rails and panes                                                      | Producible                           | Closed, open, resized, simultaneous, full-width, restored, viewport-normalized, and narrow states; resize and focus traces; paint, seam, stacking, overflow, and transition metrics  |
-| Overview nested section listing                                                 | Partially producible                 | Dark/light nested rows and pointer/Space activation can be captured; depth, type, color, and focus metrics can be measured                                                           |
-| Overview collapsed groups, selected-row treatment, and tree keyboard navigation | **Absent / authorized new behavior** | Frozen main has no disclosure state or control, no selected-section row state, no tree semantics, and no roving/arrow navigation to capture; implement the milestone's tree contract |
-| UI Editor with no selection and exactly one selected section                    | Producible                           | Placeholder and ordinary section/UI configuration presentations in both appearances                                                                                                  |
-| Selection-aware UI Editor for exactly one selected item                         | **Absent / authorized new behavior** | Item selection is not an input to `UiEditor`; use its UI-control presentation as the visual seed and implement the milestone's selected-item contract                                |
-| Selection-aware UI Editor for multiple selected sections                        | **Absent / authorized new behavior** | Multiple active sections produce the generic placeholder; implement only the common actions expressly named by the milestone                                                         |
-| Menu-key/Shift+F10 context-menu opening                                         | **Absent / authorized new behavior** | Frozen main opens menus only from pointer `contextmenu`; implement the milestone's keyboard invocation and focus-restoration contract                                                |
+| Surface                                                                         | Frozen-main status                   | Required evidence before implementation                                                                                                                                                      |
+| ------------------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pane creation menu at each viewport edge                                        | Producible by pointer                | Dark/light original-pixel captures; search, filtering, arrow/Enter/Escape trace; computed menu geometry, overflow, focus, and created workspace coordinate                                   |
+| Section and multi-selection menu                                                | Producible by pointer                | Single and mixed locked/unlocked selections, capability-disabled actions, labels, geometry, focus, and dismissal                                                                             |
+| Left/right rails and panes                                                      | **Captured for batch 2**             | Complete in the pane/rail bundle above: closed, open, resized, simultaneous, full-width, restored, viewport-normalized, narrow, focus, paint, seam, stacking, overflow, and transition facts |
+| Overview nested section listing                                                 | Partially producible                 | Dark/light nested rows and pointer/Space activation can be captured; depth, type, color, and focus metrics can be measured                                                                   |
+| Overview collapsed groups, selected-row treatment, and tree keyboard navigation | **Absent / authorized new behavior** | Frozen main has no disclosure state or control, no selected-section row state, no tree semantics, and no roving/arrow navigation to capture; implement the milestone's tree contract         |
+| UI Editor with no selection and exactly one selected section                    | Producible                           | Placeholder and ordinary section/UI configuration presentations in both appearances                                                                                                          |
+| Selection-aware UI Editor for exactly one selected item                         | **Absent / authorized new behavior** | Item selection is not an input to `UiEditor`; use its UI-control presentation as the visual seed and implement the milestone's selected-item contract                                        |
+| Selection-aware UI Editor for multiple selected sections                        | **Absent / authorized new behavior** | Multiple active sections produce the generic placeholder; implement only the common actions expressly named by the milestone                                                                 |
+| Menu-key/Shift+F10 context-menu opening                                         | **Absent / authorized new behavior** | Frozen main opens menus only from pointer `contextmenu`; implement the milestone's keyboard invocation and focus-restoration contract                                                        |
 
 ## Source-proven reference gaps
 
@@ -90,8 +118,8 @@ for the surrounding pane/menu behavior and presentation seeds that it actually i
 reference re-baseline is required, and the source-proven absent states must not be represented as
 matching-main captures.
 
-The remaining producible dark/light states still require capture before their corresponding
-user-visible shell/menu batch. The existing frozen-main service and deterministic browser tooling
-may be used under root supervision; no intermediate developer approval is required. The typed item
-schema is therefore the next actionable batch, and the combined milestone gate remains the sole
-developer visual/interaction approval.
+The pane/rail capture is complete, so workspace-shell implementation batch 2 may proceed. The
+remaining producible dark/light Outline, Inspector, and menu states still require capture before
+their corresponding batches. The existing frozen-main service and deterministic browser tooling
+may be used under root supervision; no intermediate developer approval is required. The combined
+milestone gate remains the sole developer visual/interaction approval.

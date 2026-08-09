@@ -37,4 +37,13 @@ describe("standalone host adaptivity", () => {
     expect(packedConsumerStyles).toContain("overflow: hidden");
     expect(packedConsumerStyles).toContain("padding: 0.5rem");
   });
+
+  it("keeps registered host-pane copy readable in both package appearances", () => {
+    expect(playgroundStyles).toContain(".playground-host-pane");
+    expect(packedConsumerStyles).toContain(".consumer-host-pane");
+    for (const stylesheet of [playgroundStyles, packedConsumerStyles]) {
+      expect(stylesheet).toContain("color: hsl(219, 26%, 23%)");
+      expect(stylesheet).toContain("color: hsl(219, 25%, 77%)");
+    }
+  });
 });

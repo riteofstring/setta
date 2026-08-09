@@ -1,14 +1,15 @@
 import {
   activateItemSelect,
+  createWorkspaceShellViewState,
   deactivateItemSelect,
   loadWorkspaceDocument,
   setWorkspaceColorMode,
   setWorkspaceDocumentChangeCallback,
   useItemSelectionMode,
   useWorkspaceAppearance,
-  WorkspaceCanvas,
-  WorkspaceControls,
-  WorkspaceTooltip,
+  WorkspaceShell,
+  type WorkspaceShellTabDefinition,
+  type WorkspaceShellTabIconProps,
 } from "@setta/workspace";
 import { useEffect, useState } from "react";
 import { playgroundDocument } from "./playgroundDocument";
@@ -48,8 +49,100 @@ function DocumentChangeReadout() {
   return <>{documentChangeCount}</>;
 }
 
+function HostNotesIcon({ className, ...iconProps }: WorkspaceShellTabIconProps) {
+  return (
+    <svg
+      {...iconProps}
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      viewBox="0 0 16 16"
+    >
+      <path d="M3 2.5h10v11H3z" />
+      <path d="M5.5 6h5M5.5 9h5" />
+    </svg>
+  );
+}
+
+function HostStatusIcon({ className, ...iconProps }: WorkspaceShellTabIconProps) {
+  return (
+    <svg
+      {...iconProps}
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      viewBox="0 0 16 16"
+    >
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="m5.5 8 1.7 1.7 3.6-3.8" />
+    </svg>
+  );
+}
+
+const leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
+  {
+    id: "host-notes",
+    label: "Host notes",
+    icon: HostNotesIcon,
+    renderContent: () => (
+      <div className="playground-host-pane">
+        <p>This pane is registered and rendered by the backend-free playground host.</p>
+        <p>The package owns its rail, sizing, focus, and interaction behavior.</p>
+      </div>
+    ),
+  },
+  {
+    id: "host-guide",
+    label: "Host guide",
+    icon: HostStatusIcon,
+    renderContent: ({ closePane }) => (
+      <div className="playground-host-pane">
+        <p>Use Arrow keys, Home, and End to move between registered tabs.</p>
+        <button className="playground-pane-action" onClick={closePane} type="button">
+          Close pane
+        </button>
+      </div>
+    ),
+  },
+];
+
+const trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
+  {
+    id: "host-status",
+    label: "Host status",
+    icon: HostStatusIcon,
+    renderContent: () => (
+      <div className="playground-host-pane">
+        <p>The host controls and may serialize the complete pane view state.</p>
+        <p>This content receives only the shell&apos;s documented public render props.</p>
+      </div>
+    ),
+  },
+  {
+    id: "host-help",
+    label: "Host help",
+    icon: HostNotesIcon,
+    renderContent: () => (
+      <div className="playground-host-pane">
+        <p>Drag the pane seam or focus it and use Arrow, Home, and End.</p>
+      </div>
+    ),
+  },
+];
+
+const INITIAL_LEADING_TAB_ID = "host-notes";
+const INITIAL_TRAILING_TAB_ID = "host-status";
+
 export function App() {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
+  const [shellViewState, setShellViewState] = useState(() =>
+    createWorkspaceShellViewState({
+      leadingTabId: INITIAL_LEADING_TAB_ID,
+      trailingTabId: INITIAL_TRAILING_TAB_ID,
+    }),
+  );
 
   // Package appearance is scoped to package roots. The playground mirrors the resolved mode only
   // for its own host chrome; real hosts can style their surrounding application independently.
@@ -61,7 +154,7 @@ export function App() {
     <main className="playground-shell flex h-screen min-w-0 flex-col p-8">
       <header className="playground-header mb-8 flex min-w-0 items-center gap-4">
         <h1 className="text-sm font-semibold text-setta-600 dark:text-setta-300">
-          @setta/workspace canvas preview
+          @setta/workspace shell preview
         </h1>
         <button
           type="button"
@@ -96,17 +189,15 @@ export function App() {
           Reload restores the loaded document and camera in place without counting as a change.
         </p>
       </header>
-      <div className="playground-workspace flex min-h-0 min-w-0 flex-1 gap-2">
-        {/* The host side of the toolbar placement: the reference composes the toolbar at the
-            bottom of the Overview side rail, outside the canvas. */}
-        <aside className="playground-toolbar flex w-9 flex-col pb-1">
-          <WorkspaceControls />
-        </aside>
-        <div className="playground-canvas min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-setta-200 dark:border-setta-800">
-          <WorkspaceCanvas />
-        </div>
+      <div className="playground-workspace flex min-h-0 min-w-0 flex-1">
+        <WorkspaceShell
+          ariaLabel="Playground workspace"
+          leadingTabs={leadingTabs}
+          onViewStateChange={setShellViewState}
+          trailingTabs={trailingTabs}
+          viewState={shellViewState}
+        />
       </div>
-      <WorkspaceTooltip />
     </main>
   );
 }

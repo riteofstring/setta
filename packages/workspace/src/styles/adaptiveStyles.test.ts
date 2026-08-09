@@ -26,4 +26,15 @@ describe("workspace adaptive stylesheet contract", () => {
     expect(workspaceStyles).toContain("aspect-ratio: 4 / 3");
     expect(workspaceStyles).toContain(".react-flow__minimap > svg");
   });
+
+  it("keeps shell motion bounded and maps pane chrome to logical edges", () => {
+    expect(workspaceStyles).toContain('.setta-workspace-shell-pane[data-pane="leading"]');
+    expect(workspaceStyles).toContain("inset-inline-start: 0");
+    expect(workspaceStyles).toContain("inset-inline-end: 0");
+    expect(workspaceStyles).toContain(':dir(rtl)[data-visible="false"]');
+    expect(workspaceStyles).toContain("transition-property: transform");
+    expect(workspaceStyles).not.toContain("transition: all");
+    expect(workspaceStyles).toMatch(/\.setta-workspace-shell-resize-handle\s*\{[^}]*width: 10px/su);
+    expect(workspaceStyles).not.toContain(".setta-workspace-shell-resize-handle::before");
+  });
 });

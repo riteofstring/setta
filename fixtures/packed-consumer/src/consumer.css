@@ -53,29 +53,34 @@ html.dark .consumer-header {
 .consumer-workspace {
   display: flex;
   flex: 1;
-  gap: 0.5rem;
   min-height: 0;
   min-width: 0;
 }
 
-.consumer-toolbar {
-  display: flex;
-  flex-direction: column;
-  width: 2.25rem;
-  padding-bottom: 0.25rem;
+.consumer-host-pane {
+  display: grid;
+  gap: 0.75rem;
+  color: hsl(219, 26%, 23%);
+  font-size: 0.75rem;
+  line-height: 1.25rem;
 }
 
-.consumer-canvas {
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid hsl(219, 18%, 76%);
-  border-radius: 0.5rem;
+html.dark .consumer-host-pane {
+  color: hsl(219, 25%, 77%);
 }
 
-html.dark .consumer-canvas {
-  border-color: hsl(220, 20%, 22%);
+.consumer-host-pane p {
+  margin: 0;
+}
+
+.consumer-host-pane button {
+  justify-self: start;
+  border: 1px solid currentColor;
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  color: inherit;
+  background: transparent;
+  font: inherit;
 }
 
 .consumer-note-body {
@@ -121,9 +126,5 @@ html.dark .consumer-note-body {
 @media (max-width: 40rem) {
   .consumer-shell {
     padding: 0.5rem;
-  }
-
-  .consumer-workspace {
-    gap: 0.25rem;
   }
 }

@@ -1677,6 +1677,30 @@ Phase 4 progress (2026-08-11):
   not duplicated. This completes implementation batch 1; the producible shell/pane reference
   captures precede batch 2, and the milestone's combined developer visual/interaction gate remains
   later.
+- Workspace-shell pane batch complete (2026-08-12): the frozen pane/rail reference bundle now
+  indexes 18 dark/light desktop and narrow captures plus machine-readable geometry, paint,
+  transition, overflow, resize-target, focus, paired-pane, full-width/restore, and viewport-
+  normalization facts. The public controlled `WorkspaceShell` composes the actual canvas center,
+  accepted controls and tooltip, logical leading/trailing landmarks, 40 px rails, and the two
+  reference-painted pane surfaces. Its serializable view state owns selected tab, visibility,
+  current width, and remembered non-full width independently of `WorkspaceDocument`; the ported
+  pure layout functions preserve the reference clamps, opposite-pane negotiation, full-width
+  memory, and container-resize behavior without reading `window` or application stores. Typed host
+  tabs receive public render props only. Roving vertical tablists, Arrow/Home/End operation,
+  focus-on-open/return-on-close, keyboard and pointer separators, RTL geometry, reduced-motion-
+  bounded transforms, and the explicit leading-pane camera option complete the authorized
+  accessibility/adaptivity additions. The playground and packed unrelated consumer now use only
+  public exports to demonstrate host tabs and controlled shell state; the performance-profile route
+  deliberately retains standalone `WorkspaceCanvas` composition. Focused shell/layout/style/public-
+  API coverage passes (22 tests), as do the focused host adaptivity/scrollbar workflow (6 tests),
+  changed-file quality, package and playground production builds, the built package boundary, and
+  the exact packed unrelated-consumer install/typecheck/build. Live Chrome checks in both
+  appearances at 1492 x 696, 800 x 772, and compact 320 x 800 exercised paired panes, the exact
+  335-to-401 px pointer resize, roving focus, keyboard resize, close restoration, full-width
+  normalization, and opposite-pane closure with no page-level horizontal overflow. No dependency
+  changed, so the supply-chain gate is not duplicated. This completes implementation batch 2; the
+  producible Overview capture precedes batch 3, and the combined milestone developer gate remains
+  later.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

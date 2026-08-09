@@ -7,18 +7,22 @@ not a final publication-name decision.
 
 The runtime owns one workspace document and its interaction state. A host registers section kinds,
 loads the controlled serializable document, configures the package-owned appearance controller,
-capability store, and interaction store, and mounts the independently composable canvas surfaces.
+capability store, and interaction store, and mounts the integrated shell or an intentionally
+standalone canvas.
 Package changes may still change this unpublished API directly; no compatibility aliases or
 transition paths are provided.
 
 ## Public composition surface
 
-- `WorkspaceCanvas` renders the spatial document, package section chrome, drag/drop contexts,
-  background, and configured minimap. It fills the host element that contains it.
-- `WorkspaceControls` is the accepted compact viewport/minimap toolbar. The host chooses its pane
-  and placement; the playground and packed consumer mount it in their own left rail.
-- `WorkspaceTooltip` is the package overlay for the held-Q control tooltips and is mounted once as a
-  sibling of the host workspace shell.
+- `WorkspaceShell` is the package-owned integrated surface. It composes the canvas, controls,
+  tooltip, logical leading/trailing rails, and controlled panes. Hosts register typed tabs with
+  icons and content rendered from public props only.
+- `createWorkspaceShellViewState` creates the initial serializable pane state. Hosts own that value
+  and apply the shell's single `onViewStateChange` callback directly or persist it separately from
+  `WorkspaceDocument`.
+- `WorkspaceCanvas`, `WorkspaceControls`, and `WorkspaceTooltip` remain public for a host that
+  intentionally does not want the integrated shell. The canvas fills its host element; a
+  standalone host owns the other surfaces' placement.
 - `registerSectionKinds` is the section extension point. Each kind supplies opaque-content
   rendering, an optional icon, and an optional default size. Ordinary content is automatically
   placed in the package-owned body slot; `contentClassName` adds host padding or layout to that
@@ -28,11 +32,62 @@ transition paths are provided.
   for custom opaque items. `WorkspaceItemLabel` remains the grid-safe label helper for that custom
   renderer extension.
 
-Host panes remain ordinary siblings around the canvas, and host overlays remain ordinary siblings
-or portals owned by the host. This keeps application navigation, configuration panels, and modal
-state out of the workspace document while allowing them to use the document callback and exported
-controller stores. XYFlow panels, dnd-kit stores, Tailwind utility names, and package-private DOM
-selectors are not extension APIs.
+Host application navigation and modal state stay outside the shell. Registered pane content may
+use its own application state, but receives no package store, XYFlow panel, dnd-kit store, Tailwind
+utility, or package-private DOM selector as an extension API.
+
+## Controlled workspace shell
+
+Each side needs one or more tabs with unique stable ids, non-empty labels, decorative icon
+components, and render functions. The selected tab, visibility, current width, and remembered
+non-full width are controlled serializable view state, deliberately separate from the canonical
+workspace document.
+
+```tsx
+const leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
+  {
+    id: "host-notes",
+    label: "Host notes",
+    icon: NotesIcon,
+    renderContent: ({ closePane }) => <HostNotes onDone={closePane} />,
+  },
+];
+
+const trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
+  {
+    id: "host-details",
+    label: "Host details",
+    icon: DetailsIcon,
+    renderContent: () => <HostDetails />,
+  },
+];
+
+function HostWorkspace() {
+  const [viewState, setViewState] = useState(() =>
+    createWorkspaceShellViewState({
+      leadingTabId: "host-notes",
+      trailingTabId: "host-details",
+    }),
+  );
+
+  return (
+    <WorkspaceShell
+      leadingTabs={leadingTabs}
+      trailingTabs={trailingTabs}
+      viewState={viewState}
+      onViewStateChange={setViewState}
+    />
+  );
+}
+```
+
+The shell observes its own host box rather than the global window. It applies the reference width
+clamps, paired-pane negotiation, full-width memory, and viewport resize normalization at embedded
+and compact sizes. Rail tabs use one roving tab stop with Arrow Up/Down and Home/End; resize
+separators support pointer dragging plus Arrow Left/Right and Home/End. Set
+`leadingPaneCameraMode="preserve-screen-position"` to counter-pan when the leading pane changes
+width; the default `"shift-with-pane"` leaves the canvas camera unchanged as its actual center box
+moves.
 
 Custom interactive renderer content uses only the four exported interaction-boundary constants:
 `NO_DRAG_CLASS_NAME` prevents section/item drag activation and `NO_PAN_CLASS_NAME` preserves the

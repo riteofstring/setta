@@ -165,5 +165,17 @@ export { WorkspaceItemLabel } from "./items/WorkspaceItemLabel";
 export type { WorkspaceItemLabelProps } from "./items/WorkspaceItemLabel";
 export { WorkspaceItemList } from "./items/WorkspaceItemList";
 export type { WorkspaceItemListProps } from "./items/WorkspaceItemList";
+export { WorkspaceShell } from "./shell/WorkspaceShell";
+export { createWorkspaceShellViewState } from "./shell/workspaceShellLayout";
+export type {
+  WorkspaceShellLeadingPaneCameraMode,
+  WorkspaceShellPane,
+  WorkspaceShellPaneViewState,
+  WorkspaceShellProps,
+  WorkspaceShellTabContentProps,
+  WorkspaceShellTabDefinition,
+  WorkspaceShellTabIconProps,
+  WorkspaceShellViewState,
+} from "./shell/workspaceShellTypes";
 export { WorkspaceControls } from "./toolbar/WorkspaceControls";
 export { WorkspaceTooltip } from "./tooltip/WorkspaceTooltip";

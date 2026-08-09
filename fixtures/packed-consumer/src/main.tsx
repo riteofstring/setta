@@ -1,4 +1,5 @@
 import {
+  createWorkspaceShellViewState,
   DEFAULT_META_CONTROL_SIZE,
   GROUP_SECTION_KIND,
   ItemDndContext,
@@ -8,14 +9,14 @@ import {
   setWorkspaceColorMode,
   setWorkspaceDocumentChangeCallback,
   useWorkspaceAppearance,
-  WorkspaceCanvas,
-  WorkspaceControls,
   WorkspaceItemList,
-  WorkspaceTooltip,
+  WorkspaceShell,
   type MetaControlDefinition,
   type WorkspaceDocumentInput,
   type WorkspaceSection,
   type WorkspaceSectionInput,
+  type WorkspaceShellTabDefinition,
+  type WorkspaceShellTabIconProps,
 } from "@setta/workspace";
 import "@setta/workspace/styles.css";
 import { StrictMode, useEffect, useState } from "react";
@@ -233,8 +234,79 @@ function DocumentChangeReadout() {
   return <>{documentChangeCount}</>;
 }
 
+function ConsumerNotesIcon({ className, ...iconProps }: WorkspaceShellTabIconProps) {
+  return (
+    <svg
+      {...iconProps}
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      viewBox="0 0 16 16"
+    >
+      <path d="M3 2.5h10v11H3z" />
+      <path d="M5.5 6h5M5.5 9h5" />
+    </svg>
+  );
+}
+
+function ConsumerDetailsIcon({ className, ...iconProps }: WorkspaceShellTabIconProps) {
+  return (
+    <svg
+      {...iconProps}
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      viewBox="0 0 16 16"
+    >
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M8 7.25v3.5M8 5.25h.01" />
+    </svg>
+  );
+}
+
+const consumerLeadingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
+  {
+    id: "consumer-notes",
+    label: "Consumer notes",
+    icon: ConsumerNotesIcon,
+    renderContent: () => (
+      <div className="consumer-host-pane">
+        <p>This is host-rendered content registered through the packed public API.</p>
+        <p>The package owns the surrounding pane, rail, and resize behavior.</p>
+      </div>
+    ),
+  },
+];
+
+const consumerTrailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
+  {
+    id: "consumer-details",
+    label: "Consumer details",
+    icon: ConsumerDetailsIcon,
+    renderContent: ({ closePane }) => (
+      <div className="consumer-host-pane">
+        <p>The shell state remains controlled and serializable by this unrelated host.</p>
+        <button onClick={closePane} type="button">
+          Close pane
+        </button>
+      </div>
+    ),
+  },
+];
+
+const INITIAL_CONSUMER_LEADING_TAB_ID = "consumer-notes";
+const INITIAL_CONSUMER_TRAILING_TAB_ID = "consumer-details";
+
 function ConsumerApp() {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
+  const [shellViewState, setShellViewState] = useState(() =>
+    createWorkspaceShellViewState({
+      leadingTabId: INITIAL_CONSUMER_LEADING_TAB_ID,
+      trailingTabId: INITIAL_CONSUMER_TRAILING_TAB_ID,
+    }),
+  );
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -252,14 +324,14 @@ function ConsumerApp() {
         </p>
       </header>
       <div className="consumer-workspace">
-        <aside className="consumer-toolbar">
-          <WorkspaceControls />
-        </aside>
-        <div className="consumer-canvas">
-          <WorkspaceCanvas />
-        </div>
+        <WorkspaceShell
+          ariaLabel="Packed consumer workspace"
+          leadingTabs={consumerLeadingTabs}
+          onViewStateChange={setShellViewState}
+          trailingTabs={consumerTrailingTabs}
+          viewState={shellViewState}
+        />
       </div>
-      <WorkspaceTooltip />
     </main>
   );
 }
