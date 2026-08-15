@@ -36,6 +36,7 @@ type ItemColumnResizeHandlers = {
   onColumnResizeStart: PointerEventHandler<HTMLButtonElement>;
   onColumnResizeKeyDown: KeyboardEventHandler<HTMLButtonElement>;
   onColumnResizeClick: MouseEventHandler<HTMLButtonElement>;
+  onColumnResizeDoubleClick: MouseEventHandler<HTMLButtonElement>;
 };
 
 function getStyleTarget(outer: HTMLDivElement, sectionId: string): HTMLElement {
@@ -210,11 +211,6 @@ export function useItemColumnWidth(
         setNewWidth(containerWidth, getDefaultItemColumnWidth(containerWidth));
       }
 
-      if (event.detail === 2) {
-        resetWidth();
-        return;
-      }
-
       const startX = event.clientX;
       const startWidth = widthRef.current.currentWidth;
       const pointerId = event.pointerId;
@@ -283,7 +279,7 @@ export function useItemColumnWidth(
       window.addEventListener("pointerup", handlePointerFinish);
       window.addEventListener("pointercancel", handlePointerFinish);
     },
-    [applyWidth, getBoundedWidth, outerRef, resetWidth, sectionId, setNewWidth],
+    [applyWidth, getBoundedWidth, outerRef, sectionId, setNewWidth],
   );
 
   const onColumnResizeKeyDown = useCallback<KeyboardEventHandler<HTMLButtonElement>>(
@@ -311,7 +307,7 @@ export function useItemColumnWidth(
   const onColumnResizeClick = useCallback<MouseEventHandler<HTMLButtonElement>>(
     (event) => {
       // Native keyboard activation emits a detail-zero click. Pointer clicks remain drag starts;
-      // only the reference's detail-two mouse-down resets them.
+      // Chrome reports their double activation through the dedicated `dblclick` event below.
       if (event.detail === 0) {
         event.preventDefault();
         event.stopPropagation();
@@ -321,5 +317,19 @@ export function useItemColumnWidth(
     [resetWidth],
   );
 
-  return { onColumnResizeStart, onColumnResizeKeyDown, onColumnResizeClick };
+  const onColumnResizeDoubleClick = useCallback<MouseEventHandler<HTMLButtonElement>>(
+    (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      resetWidth();
+    },
+    [resetWidth],
+  );
+
+  return {
+    onColumnResizeStart,
+    onColumnResizeKeyDown,
+    onColumnResizeClick,
+    onColumnResizeDoubleClick,
+  };
 }

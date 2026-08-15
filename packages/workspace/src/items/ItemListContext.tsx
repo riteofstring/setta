@@ -35,6 +35,7 @@ type ItemListContextValue = {
   onColumnResizeStart: PointerEventHandler<HTMLButtonElement>;
   onColumnResizeKeyDown: KeyboardEventHandler<HTMLButtonElement>;
   onColumnResizeClick: MouseEventHandler<HTMLButtonElement>;
+  onColumnResizeDoubleClick: MouseEventHandler<HTMLButtonElement>;
   keyboardColumnResizeItemId: string | null;
 };
 
@@ -84,6 +85,7 @@ export function ItemListProvider({
   onColumnResizeStart,
   onColumnResizeKeyDown,
   onColumnResizeClick,
+  onColumnResizeDoubleClick,
   keyboardColumnResizeItemId,
   rootId,
   flatItemIds,
@@ -100,6 +102,7 @@ export function ItemListProvider({
       onColumnResizeStart,
       onColumnResizeKeyDown,
       onColumnResizeClick,
+      onColumnResizeDoubleClick,
       keyboardColumnResizeItemId,
     }),
     [
@@ -108,6 +111,7 @@ export function ItemListProvider({
       keyboardColumnResizeItemId,
       listKey,
       onColumnResizeClick,
+      onColumnResizeDoubleClick,
       onColumnResizeKeyDown,
       onColumnResizeStart,
       renderItem,

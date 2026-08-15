@@ -489,12 +489,7 @@ describe("WorkspaceItemList", () => {
 
     await act(async () => {
       handle.dispatchEvent(
-        createPointerEvent("pointerdown", {
-          bubbles: true,
-          cancelable: true,
-          clientX: 140,
-          detail: 2,
-        }),
+        new MouseEvent("dblclick", { bubbles: true, cancelable: true, detail: 2 }),
       );
     });
     expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("312px");
@@ -633,7 +628,7 @@ describe("WorkspaceItemList", () => {
     expect(rail?.contains(getRowByContent(host, "item-n1"))).toBe(true);
   });
 
-  it("wraps the rows in the reference list-area shell and gates nowheel on scrollability", async () => {
+  it("wraps rows in the reference shell and gates only vertical wheel on scrollability", async () => {
     await mount();
 
     const shell = host.querySelector<HTMLElement>("div.overflow-y-scroll");
@@ -649,14 +644,15 @@ describe("WorkspaceItemList", () => {
     );
     expect(shell.contains(getRowByContent(host, "item-a"))).toBe(true);
 
-    // Overflowing content flips the wheel gate: the scrollable shell keeps its own wheel
-    // behavior instead of canvas zoom, re-measured through the reference's content observer.
+    // Overflowing content flips the vertical wheel gate. Horizontal input still belongs to the
+    // canvas, and scrollability is re-measured through the reference's content observer.
     Object.defineProperty(shell, "scrollHeight", { value: 100 });
     await act(async () => {
       shell.setAttribute("data-remeasure", "overflow");
       await Promise.resolve();
     });
-    expect(shell.classList.contains("nowheel")).toBe(true);
+    expect(shell.classList.contains("setta-native-wheel-y")).toBe(true);
+    expect(shell.classList.contains("nowheel")).toBe(false);
   });
 
   it("preserves the list element and scroll position when item-select mode activates", async () => {

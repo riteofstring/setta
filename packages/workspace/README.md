@@ -104,12 +104,16 @@ changes canonical selection.
 The Inspector projects canonical section and typed-item selection. Its empty state mirrors the
 frozen UI Editor; one section exposes package-owned identity, name, accent, lock/minimize,
 authored/resolved size, and group orientation; one typed item reuses the built-in label/value
-controls and exposes only the selected UI type's valid configuration. Multiple sections expose only
-batch lock/unlock, group, and delete, including an explicit mixed lock state. Every mutation uses
-the existing document funnels and change callback. Custom section or item data is never decoded:
-the owning section kind receives a read-only `WorkspaceInspectorContributionContext`, or the pane
-shows an explicit unsupported state. The Inspector owns inline validation, Escape restoration for
-its configuration fields, and a persistent polite mutation/selection status.
+controls and exposes only the selected UI type's valid configuration. Compact configuration rows
+commit each valid field or list action immediately; invalid numeric/text drafts remain local until
+corrected or canceled with Escape. Dropdown and color choices use dedicated item editors rather
+than JSON, and date/time options appear only when their selected mode uses them. Multiple sections
+expose only batch lock/unlock, group, and delete, including an explicit mixed lock state. Every
+mutation uses the existing document funnels and change callback. Custom section or item data is
+never decoded: the owning section kind receives a read-only
+`WorkspaceInspectorContributionContext`, or the pane shows an explicit unsupported state. The
+Inspector owns inline validation, Escape restoration for its configuration fields, and a persistent
+polite mutation/selection status.
 
 ## Context-menu extensions
 

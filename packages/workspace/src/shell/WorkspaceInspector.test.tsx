@@ -218,7 +218,7 @@ describe("WorkspaceInspector", () => {
     expect(accent.value).toBe("");
   });
 
-  it("edits a typed numeric configuration once and rejects an invalid range", async () => {
+  it("commits typed numeric fields directly and rejects an invalid range", async () => {
     const onChange = vi.fn();
     setWorkspaceDocumentChangeCallback(onChange);
     useItemSelectionMode.setState({ isSelectingItems: true });
@@ -231,9 +231,9 @@ describe("WorkspaceInspector", () => {
         }),
       }),
     );
-    const minimum = getLabeledControl<HTMLInputElement>(host, "Minimum");
-    const maximum = getLabeledControl<HTMLInputElement>(host, "Maximum");
-    const step = getLabeledControl<HTMLInputElement>(host, "Step");
+    const minimum = getLabeledControl<HTMLInputElement>(host, "min");
+    const maximum = getLabeledControl<HTMLInputElement>(host, "max");
+    const step = getLabeledControl<HTMLInputElement>(host, "step");
     expect(step.step).toBe("any");
     const liveValue = host.querySelector<HTMLInputElement>(
       '[aria-label="Amount value numeric value"]',
@@ -241,11 +241,9 @@ describe("WorkspaceInspector", () => {
     expect(liveValue?.disabled).toBe(false);
 
     await act(async () => {
+      minimum.focus();
       setInputValue(minimum, "10");
-      setInputValue(maximum, "5");
-      getButton(host, "Apply configuration").dispatchEvent(
-        new MouseEvent("click", { bubbles: true }),
-      );
+      minimum.blur();
     });
 
     expect(minimum.getAttribute("aria-invalid")).toBe("true");
@@ -262,12 +260,19 @@ describe("WorkspaceInspector", () => {
     expect(minimum.getAttribute("aria-invalid")).toBeNull();
 
     await act(async () => {
-      setInputValue(minimum, "10");
+      maximum.focus();
       setInputValue(maximum, "20");
+      maximum.blur();
+    });
+    await act(async () => {
+      minimum.focus();
+      setInputValue(minimum, "10");
+      minimum.blur();
+    });
+    await act(async () => {
+      step.focus();
       setInputValue(step, "0.5");
-      getButton(host, "Apply configuration").dispatchEvent(
-        new MouseEvent("click", { bubbles: true }),
-      );
+      step.blur();
     });
 
     const control =
@@ -277,7 +282,7 @@ describe("WorkspaceInspector", () => {
       kind: "slider",
       configuration: { min: 10, max: 20, step: 0.5 },
     });
-    expect(onChange).toHaveBeenCalledOnce();
+    expect(onChange).toHaveBeenCalledTimes(3);
     expect(host.querySelector(".setta-workspace-inspector-status")?.textContent).toContain(
       "slider configuration updated",
     );

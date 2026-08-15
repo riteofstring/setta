@@ -4,7 +4,12 @@ import { zoom, zoomIdentity, type D3ZoomEvent } from "d3-zoom";
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { shallow } from "zustand/shallow";
 import { useDndState } from "../dnd/dndState";
-import { MANUAL_WHEEL_CLASS_NAME, NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "../interaction";
+import {
+  MANUAL_WHEEL_CLASS_NAME,
+  NATIVE_VERTICAL_WHEEL_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
+} from "../interaction";
 import { getInitialCanvasViewport } from "./documentViewportSync";
 import { fitView } from "./fitView";
 import { useWorkspaceOptions } from "./options";
@@ -210,6 +215,13 @@ function isPinchZoomWheelEvent({ event, zoomOnPinch, isMacOS }: PinchZoomCheck):
   return event.ctrlKey && zoomOnPinch && isMacOS;
 }
 
+function isNativeVerticalWheelEvent(event: WheelEvent): boolean {
+  return (
+    isWrappedWithClass(event, NATIVE_VERTICAL_WHEEL_CLASS_NAME) &&
+    Math.abs(event.deltaY) >= Math.abs(event.deltaX)
+  );
+}
+
 export function resolvePanOnScrollDelta({
   event,
   isMacOS,
@@ -253,7 +265,9 @@ function resolveWheelTargetDisposition({
   if (isPanScrolling) {
     return "canvas";
   }
-  return isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) ? "native" : "canvas";
+  return isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) || isNativeVerticalWheelEvent(event)
+    ? "native"
+    : "canvas";
 }
 
 function handlePinchZoomWheelEvent({
@@ -424,7 +438,8 @@ function blocksNoWheelTarget({
   }
   if (
     !isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
-    !isWrappedWithClass(event, MANUAL_WHEEL_CLASS_NAME)
+    !isWrappedWithClass(event, MANUAL_WHEEL_CLASS_NAME) &&
+    !(event instanceof WheelEvent && isNativeVerticalWheelEvent(event))
   ) {
     return false;
   }

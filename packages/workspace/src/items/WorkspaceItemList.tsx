@@ -6,7 +6,7 @@ import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { buildItemTreeView, getItemOrThrow } from "../document/itemTree";
 import { useWorkspaceDocument } from "../document/stores";
 import type { WorkspaceItem, WorkspaceSectionItemTree } from "../document/types";
-import { NO_WHEEL_CLASS_NAME } from "../interaction";
+import { NATIVE_VERTICAL_WHEEL_CLASS_NAME } from "../interaction";
 import {
   ItemListProvider,
   useItemDndChildrenForParent,
@@ -143,7 +143,8 @@ export function WorkspaceItemList({
 
 // The reference's list-area shell (`GetUnpinnedParams`): the outer column clips, and the inner
 // named nested grid owns the row placement lines the row classes reference, the scrolling, and
-// the row rhythm; a scrollable list keeps its own wheel behavior instead of canvas zoom. The
+// the row rhythm; a scrollable list keeps vertical wheel behavior while horizontal wheel input
+// still pans the canvas. The
 // reference's persisted min-height measurement stays application-side. The reference string
 // carries a `grid-cols-subgrid` its own stylesheet outranks with `.section-args-nested`; the
 // port drops that computed-dead utility so a host sheet loaded after the package sheet cannot
@@ -160,7 +161,7 @@ function ItemListShell({
     <div ref={outerRef} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div
         className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pe-1.5 ${
-          isScrollable ? NO_WHEEL_CLASS_NAME : ""
+          isScrollable ? NATIVE_VERTICAL_WHEEL_CLASS_NAME : ""
         }`}
         ref={ref}
       >

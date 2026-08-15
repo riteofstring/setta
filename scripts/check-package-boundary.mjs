@@ -178,6 +178,9 @@ function validateBuiltStylesheet() {
     // container rules are absent, so lock the actual package artifact that consumers receive.
     ["container-name: slider;", "slider container-query root"],
     ["@container slider (min-width: 132px)", "slider numeric-field threshold"],
+    // Consumer Preflight can load after this scoped sheet. The unchecked switch track therefore
+    // needs an important utility instead of relying on stylesheet order against `[type=button]`.
+    [String.raw`.\!bg-setta-400 {`, "host-resistant unchecked switch paint"],
     // Adaptive hardening must survive Tailwind compilation: source-only class assertions do not
     // prove that consumers receive motion preferences, coarse hit areas, or the narrow minimap.
     ["@media (prefers-reduced-motion: no-preference)", "motion opt-in query"],

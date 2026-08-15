@@ -1837,6 +1837,27 @@ Phase 4 progress (2026-08-11):
   semantics and presentation where the current package surface is less considered. Do not import
   application stores, backend behavior, compatibility paths, or unsupported parameter concepts.
   No developer approval or package-output baseline is claimed.
+- Workspace-shell rejected-gate correction batch repository work complete (2026-08-13): trusted
+  Chrome paths now reset the shared item-column divider through the browser's real `dblclick`
+  event instead of a synthetic second-`pointerdown` detail. The overflowing item list now declares
+  only vertical-native wheel ownership: horizontal-dominant input pans the canvas, vertical-
+  dominant input scrolls the list, and the public all-axis `nowheel` seam is unchanged. The switch
+  track's four state/appearance paints are important at the compiled package boundary so a host
+  Preflight sheet loaded afterward cannot erase the unchecked track. Frozen-main source comparison
+  also replaced the Inspector's monolithic JSON/form transaction with compact reference-style
+  rows, immediate valid field/list commits, dedicated dropdown/color choices, slider/rotary blur
+  validation, and conditional date/time fields. Package-only serializable options remain explicit;
+  include-time atomically forces single-date selection, and no backend or unsupported main concept
+  crossed the seam. Focused divider/list, wheel, switch, configuration-editor, and integrated-
+  Inspector coverage passes (69 tests), as does the post-refactor 17-test editor rerun, the package
+  production build and compiled boundary, and changed-file quality. Live dark/light checks observed
+  the real divider reset from 267 px to 257 px, horizontal canvas movement over the item scroller
+  with a following vertical gesture leaving the viewport fixed, opaque unchecked switch tracks in
+  both appearances, checked paint, compact labeled configuration rows, and no console errors or
+  warnings. No dependency changed, and the plan's broad supply-chain/consumer/browser gates remain
+  deferred until developer acceptance. This closes the rejected gate's repository-actionable
+  corrections without claiming visual approval or refreshing package-output baselines; the required
+  implementation audit precedes re-presentation of the same combined developer gate.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

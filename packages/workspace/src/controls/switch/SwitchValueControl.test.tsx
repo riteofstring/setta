@@ -75,10 +75,10 @@ describe("SwitchValueControl", () => {
       "min-w-7",
       "rounded-full",
       "p-[0.2rem]",
-      "bg-setta-400",
-      "data-[state='checked']:bg-blue-500",
-      "dark:bg-setta-600",
-      "dark:data-[state='checked']:bg-blue-700",
+      "!bg-setta-400",
+      "data-[state='checked']:!bg-blue-500",
+      "dark:!bg-setta-600",
+      "dark:data-[state='checked']:!bg-blue-700",
       "disabled:pointer-events-none",
     ]) {
       expect(switchButton.classList.contains(expectedClass)).toBe(true);

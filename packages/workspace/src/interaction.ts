@@ -6,6 +6,10 @@
 export const NO_DRAG_CLASS_NAME = "nodrag";
 // Lets an element keep its own wheel behavior instead of canvas zoom/pan-on-scroll.
 export const NO_WHEEL_CLASS_NAME = "nowheel";
+// Package-internal boundary for a vertically scrolling surface. Vertical-dominant wheel input
+// stays native; horizontal-dominant input remains owned by canvas pan-on-scroll. This is not part
+// of the host interaction seam because consumers use `nowheel` when they own every wheel axis.
+export const NATIVE_VERTICAL_WHEEL_CLASS_NAME = "setta-native-wheel-y";
 // Gives a manually handled wheel gesture to the control while the canvas synchronously cancels
 // the browser default, preventing Chrome from latching horizontal history navigation.
 export const MANUAL_WHEEL_CLASS_NAME = "setta-manual-wheel";

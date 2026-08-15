@@ -15,6 +15,7 @@ export function ItemColumnResizeHandle({ itemId }: { itemId: string }) {
   const {
     keyboardColumnResizeItemId,
     onColumnResizeClick,
+    onColumnResizeDoubleClick,
     onColumnResizeKeyDown,
     onColumnResizeStart,
   } = useItemListContext();
@@ -30,6 +31,7 @@ export function ItemColumnResizeHandle({ itemId }: { itemId: string }) {
         onPointerDown={onColumnResizeStart}
         onKeyDown={onColumnResizeKeyDown}
         onClick={onColumnResizeClick}
+        onDoubleClick={onColumnResizeDoubleClick}
         aria-label="Resize item columns; activate to reset"
         tabIndex={keyboardColumnResizeItemId === itemId ? 0 : -1}
       >

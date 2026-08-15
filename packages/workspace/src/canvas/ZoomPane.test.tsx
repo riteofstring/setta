@@ -181,6 +181,29 @@ describe("shouldAllowZoomFilterEvent", () => {
     ).toBe(false);
   });
 
+  it("gives a vertical scroll surface only its vertical-dominant wheel input", () => {
+    const target = appendTargetWithClass("setta-native-wheel-y");
+    const verticalEvent = withEventTarget(
+      new WheelEvent("wheel", { deltaX: 8, deltaY: 40 }),
+      target,
+    );
+    const horizontalEvent = withEventTarget(
+      new WheelEvent("wheel", { deltaX: 40, deltaY: 8 }),
+      target,
+    );
+    const options = {
+      panOnDrag: true,
+      panOnScroll: true,
+      userSelectionActive: false,
+      zoomOnDoubleClick: true,
+      zoomOnPinch: true,
+      zoomOnScroll: false,
+    } as const;
+
+    expect(shouldAllowZoomFilterEvent({ event: verticalEvent, ...options })).toBe(false);
+    expect(shouldAllowZoomFilterEvent({ event: horizontalEvent, ...options })).toBe(true);
+  });
+
   it("blocks pointer starts while the marquee selection is active", () => {
     expect(
       shouldAllowZoomFilterEvent({
@@ -326,6 +349,49 @@ describe("getViewportInteractionActiveValue", () => {
       });
       expect(useReactFlow.getState().transform).toEqual([-20, 0, 1]);
       expect(paneEvent?.defaultPrevented).toBe(true);
+      expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("pans horizontally over a vertically scrollable item surface", async () => {
+    const { host, renderer, root } = await renderZoomPane({
+      panOnScroll: true,
+      zoomOnScroll: false,
+    });
+    const target = document.createElement("div");
+    target.className = "setta-native-wheel-y";
+    renderer.appendChild(target);
+
+    try {
+      let verticalEvent: WheelEvent | undefined;
+      await act(async () => {
+        verticalEvent = new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaY: 40,
+        });
+        target.dispatchEvent(verticalEvent);
+      });
+      expect(useReactFlow.getState().transform).toEqual([0, 0, 1]);
+      expect(verticalEvent?.defaultPrevented).toBe(false);
+      expect(useReactFlow.getState().viewportInteractionActive).toBe(false);
+
+      let horizontalEvent: WheelEvent | undefined;
+      await act(async () => {
+        horizontalEvent = new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          deltaX: 40,
+        });
+        target.dispatchEvent(horizontalEvent);
+      });
+      expect(useReactFlow.getState().transform).toEqual([-20, 0, 1]);
+      expect(horizontalEvent?.defaultPrevented).toBe(true);
       expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
     } finally {
       await act(async () => {
