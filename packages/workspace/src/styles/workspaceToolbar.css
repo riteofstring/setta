@@ -1,0 +1,26 @@
+/* Host controls contributed beside the package's own viewport toolbar. The reference mounts a
+ * contributed control as an opaque plugin surface; the package paints it as one of the toolbar's
+ * own, so these rules carry what a host icon and a refusing control need. */
+
+/* The package sizes the host icon to the 15 px the rest of the column uses rather than trusting
+ * what the host renders, the way the menus size the icons their entries carry. */
+.setta-workspace-toolbar-contribution-icon {
+  display: inline-flex;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  align-items: center;
+  justify-content: center;
+}
+
+.setta-workspace-toolbar-contribution-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* A refusing control keeps the reference's disabled control opacity while staying focusable and
+ * hoverable, so the sentence explaining it stays reachable. */
+.setta-workspace-toolbar-contribution[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: default;
+}

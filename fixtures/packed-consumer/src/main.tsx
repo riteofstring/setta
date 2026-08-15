@@ -10,6 +10,7 @@ import {
   registerWorkspaceCommands,
   registerWorkspaceCreationCommands,
   registerWorkspaceKeyBindings,
+  registerWorkspaceToolbarContributions,
   setGroupOverflowMode,
   setWorkspaceColorMode,
   setWorkspaceDocumentChangeCallback,
@@ -442,10 +443,14 @@ registerWorkspaceCommands([
     scope: "pane",
     surfaces: ["context-menu"],
     label: "Report packed position",
-    run: (context) =>
+    run: (context) => {
+      const position = context.workspacePosition;
       publishConsumerMenuStatus(
-        `Packed pane action at ${Math.round(context.workspacePosition.x)}, ${Math.round(context.workspacePosition.y)}.`,
-      ),
+        position
+          ? `Packed pane action at ${Math.round(position.x)}, ${Math.round(position.y)}.`
+          : "Packed pane action with no pointer position.",
+      );
+    },
   },
   {
     id: "consumer-section-selection",
@@ -475,6 +480,16 @@ registerWorkspaceCommands([
 ]);
 // The package ships locking bindable and unbound, so a consumer chooses its own chord for it.
 registerWorkspaceKeyBindings([{ id: "workspace.lock-sections", chord: "Mod + Alt + L" }]);
+// One contributed toolbar control over the creation command the pane menu already offers.
+registerWorkspaceToolbarContributions([
+  {
+    kind: "creation",
+    commandId: "consumer-note",
+    icon: NoteIcon,
+    placement: "before-viewport",
+    description: "Add a packed note in empty space",
+  },
+]);
 loadWorkspaceDocument(consumerDocument);
 
 const rootElement = document.getElementById("root");

@@ -10,6 +10,7 @@ the milestone-a and milestone-b bundles.
 - [C2 viewport and selection bindings](c2-viewport-and-selection-bindings.md)
 - [C2 focus scopes and section navigation](c2-focus-and-navigation-bindings.md)
 - [C2 creation chords and empty-space placement](c2-creation-bindings.md)
+- [C3 host toolbar contributions](c3-toolbar-contributions.md)
 
 ## Frozen reference
 

@@ -334,6 +334,10 @@ function PlaygroundGuideMenu() {
             <dd>Right-click, or use Shift+F10 from the keyboard.</dd>
           </div>
           <div>
+            <dt>Toolbar</dt>
+            <dd>Host controls sit above and below the zoom group. The top one adds a note.</dd>
+          </div>
+          <div>
             <dt>Control help</dt>
             <dd>Hold Q while hovering a parameter control.</dd>
           </div>

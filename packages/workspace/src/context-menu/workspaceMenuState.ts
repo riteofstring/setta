@@ -4,6 +4,7 @@ import type {
   WorkspacePaneCommandContext,
   WorkspaceSectionCommandContext,
 } from "../commands/workspaceCommandTypes";
+import type { Position } from "../document/types";
 import { withResetFn } from "../state/storeUtils";
 import type { WorkspaceTextDirection } from "../styles/textDirection";
 import type { WorkspaceMenuClientPoint } from "./workspaceMenuGeometry";
@@ -22,9 +23,13 @@ export type WorkspaceMenuInitialFocus = "first" | "last";
 export type WorkspaceSectionMenuSurface = "context-menu" | "header" | "outline";
 
 export type WorkspaceMenuInvocation =
+  // A pane menu always opens at a point, so it keeps that point beside the command context it
+  // hands to actions: a command reports no position when its surface has no pointer, and the
+  // menu's own creation entries still create exactly where they were asked to.
   | (WorkspaceMenuInvocationBase & {
       kind: "pane";
       context: WorkspacePaneCommandContext;
+      workspacePosition: Position;
     })
   | (WorkspaceMenuInvocationBase & {
       kind: "section";

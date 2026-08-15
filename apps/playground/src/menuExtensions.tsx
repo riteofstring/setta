@@ -5,6 +5,7 @@ import {
   registerWorkspaceCommands,
   registerWorkspaceCreationCommands,
   registerWorkspaceKeyBindings,
+  registerWorkspaceToolbarContributions,
   ungroupSections,
   type WorkspaceCommandIconProps,
   type WorkspaceCreationContext,
@@ -13,14 +14,21 @@ import {
 } from "@setta/workspace";
 import { useSyncExternalStore } from "react";
 
-let menuExtensionStatus = "No host menu action invoked.";
+const INITIAL_MENU_EXTENSION_STATUS = "No host menu action invoked.";
+
+let menuExtensionStatus = INITIAL_MENU_EXTENSION_STATUS;
+let toolbarHighlightEnabled = false;
 const menuExtensionListeners = new Set<() => void>();
 
-function publishMenuExtensionStatus(status: string): void {
-  menuExtensionStatus = status;
+function notifyMenuExtensionListeners(): void {
   for (const listener of menuExtensionListeners) {
     listener();
   }
+}
+
+function publishMenuExtensionStatus(status: string): void {
+  menuExtensionStatus = status;
+  notifyMenuExtensionListeners();
 }
 
 function subscribeMenuExtensionStatus(listener: () => void): () => void {
@@ -30,6 +38,38 @@ function subscribeMenuExtensionStatus(listener: () => void): () => void {
 
 function getMenuExtensionStatus(): string {
   return menuExtensionStatus;
+}
+
+function PlaygroundHighlightIcon({ className }: WorkspaceCommandIconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      focusable="false"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      viewBox="0 0 16 16"
+    >
+      <path d="M8 2.5 9.7 6l3.8.5-2.8 2.6.7 3.7L8 11.1 4.6 12.8l.7-3.7L2.5 6.5 6.3 6z" />
+    </svg>
+  );
+}
+
+function PlaygroundClearIcon({ className }: WorkspaceCommandIconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      focusable="false"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      viewBox="0 0 16 16"
+    >
+      <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5 5 13h6l.5-8.5" />
+    </svg>
+  );
 }
 
 function PlaygroundCreationIcon({ className }: WorkspaceCommandIconProps) {
@@ -104,10 +144,41 @@ export function registerPlaygroundMenuExtensions(): void {
       scope: "pane",
       surfaces: ["context-menu"],
       label: "Report position",
-      run: (context) =>
+      run: (context) => {
+        const position = context.workspacePosition;
         publishMenuExtensionStatus(
-          `Pane action at ${Math.round(context.workspacePosition.x)}, ${Math.round(context.workspacePosition.y)}.`,
-        ),
+          position
+            ? `Pane action at ${Math.round(position.x)}, ${Math.round(position.y)}.`
+            : "Pane action with no pointer position.",
+        );
+      },
+    },
+    // Two toolbar controls beside the package's own: a toggle whose pressed state the package
+    // paints from the command, and an action that refuses with a sentence until there is
+    // something to clear.
+    {
+      id: "playground-toolbar-highlight",
+      scope: "pane",
+      surfaces: ["context-menu", "toolbar"],
+      label: "Highlight host controls",
+      isChecked: () => toolbarHighlightEnabled,
+      run: () => {
+        toolbarHighlightEnabled = !toolbarHighlightEnabled;
+        publishMenuExtensionStatus(
+          `Host control highlight ${toolbarHighlightEnabled ? "on" : "off"}.`,
+        );
+      },
+    },
+    {
+      id: "playground-toolbar-clear-status",
+      scope: "pane",
+      surfaces: ["toolbar"],
+      label: "Clear host action status",
+      getDisabledReason: () =>
+        menuExtensionStatus === INITIAL_MENU_EXTENSION_STATUS
+          ? "There is no host action status to clear yet."
+          : null,
+      run: () => publishMenuExtensionStatus(INITIAL_MENU_EXTENSION_STATUS),
     },
     {
       id: "playground-section-selection",
@@ -154,6 +225,30 @@ export function registerPlaygroundMenuExtensions(): void {
         publishMenuExtensionStatus(
           `Outline action for ${context.section.name}; ${context.selectedSections.length} selected.`,
         ),
+    },
+  ]);
+  // The creation control runs the same operation as the pane menu's "Host note" entry and the "N"
+  // chord, so the toolbar creates in empty space and travels to the section when it had to land
+  // out of sight.
+  registerWorkspaceToolbarContributions([
+    {
+      kind: "creation",
+      commandId: "playground-note",
+      icon: PlaygroundCreationIcon,
+      placement: "before-viewport",
+      description: "Add a host note in empty space",
+    },
+    {
+      kind: "command",
+      commandId: "playground-toolbar-highlight",
+      icon: PlaygroundHighlightIcon,
+      placement: "before-minimap",
+    },
+    {
+      kind: "command",
+      commandId: "playground-toolbar-clear-status",
+      icon: PlaygroundClearIcon,
+      placement: "before-minimap",
     },
   ]);
 }

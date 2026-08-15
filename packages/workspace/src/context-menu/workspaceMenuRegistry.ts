@@ -1,7 +1,13 @@
+import { listWorkspaceCommands } from "../commands/workspaceCommandRegistry";
 import {
   assertWorkspaceKeyBindingsForCreationCommands,
   invalidateResolvedWorkspaceKeyBindings,
 } from "../keybindings/workspaceKeyBindingRegistry";
+import {
+  assertWorkspaceToolbarContributions,
+  createWorkspaceToolbarCommandCatalog,
+  getWorkspaceToolbarContributions,
+} from "../toolbar/workspaceToolbarContributions";
 import { setWorkspaceCreationCommands } from "./creationCommandStore";
 import type { WorkspaceCreationCommand } from "./workspaceMenuTypes";
 
@@ -62,9 +68,11 @@ function validateCreationCommand(
 
 // Like section-kind and item-handler registration, each call replaces the complete host-owned
 // set. Hosts register before mounting the canvas; the package owns the built-in structural items.
-// A creation command carrying a chord is also a key binding, so the whole binding set is
-// revalidated against the new catalog before it replaces the old one: a chord that would collide,
-// or a rebinding left naming a command this call removes, fails here rather than at the keypress.
+// A creation command carrying a chord is also a key binding, and a creation command can also be a
+// toolbar control, so the whole binding set and the standing toolbar contributions are revalidated
+// against the new catalog before it replaces the old one: a chord that would collide, a rebinding
+// left naming a command this call removes, or a contribution left naming one, fails here rather
+// than at the keypress or on the toolbar.
 export function registerWorkspaceCreationCommands(
   commands: ReadonlyArray<WorkspaceCreationCommand>,
 ): void {
@@ -74,6 +82,13 @@ export function registerWorkspaceCreationCommands(
   const ids = new Set<string>();
   const validated = commands.map((command) => validateCreationCommand(command, ids));
   assertWorkspaceKeyBindingsForCreationCommands(validated);
+  assertWorkspaceToolbarContributions(
+    getWorkspaceToolbarContributions(),
+    createWorkspaceToolbarCommandCatalog(
+      listWorkspaceCommands().map((command) => command.definition),
+      validated,
+    ),
+  );
   setWorkspaceCreationCommands(validated);
   invalidateResolvedWorkspaceKeyBindings();
 }

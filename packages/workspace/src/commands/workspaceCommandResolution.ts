@@ -111,6 +111,17 @@ function toWorkspaceCommandEntry(
   };
 }
 
+// The surfaces that place individual commands by id — the toolbar, whose contributions choose
+// both the command and its position — resolve one entry the same way a surface's list does.
+export function resolveWorkspaceCommandEntry(
+  id: string,
+  context: WorkspaceCommandContext,
+): WorkspaceCommandEntry {
+  const command = getWorkspaceCommandOrThrow(id);
+  assertCommandScope(command, context);
+  return toWorkspaceCommandEntry(command, context);
+}
+
 export function resolveWorkspaceCommandEntries(
   surface: WorkspaceCommandSurface,
   context: WorkspaceCommandContext,
@@ -131,15 +142,19 @@ export function hasApplicableWorkspaceCommands(
 
 // Command state is derived from the document, the host's capabilities, and the in-flight
 // parameter drag. Subscribing here keeps every surface that offers commands repainting on the
-// same changes instead of each one remembering which stores its entries depend on. A surface may
-// combine several contexts — the Inspector's parameter row offers section and item commands
-// together — so the subscription is per surface rather than per context.
+// same changes instead of each one remembering which stores its entries depend on.
+export function useWorkspaceCommandState(): void {
+  useWorkspaceDocument((state) => state);
+  useWorkspaceCapabilities((state) => state);
+  useItemDndState((state) => state.activeId);
+}
+
+// A surface may combine several contexts — the Inspector's parameter row offers section and item
+// commands together — so the subscription is per surface rather than per context.
 export function useWorkspaceCommandEntries(
   surface: WorkspaceCommandSurface,
   contexts: ReadonlyArray<WorkspaceCommandContext>,
 ): ReadonlyArray<WorkspaceCommandEntry> {
-  useWorkspaceDocument((state) => state);
-  useWorkspaceCapabilities((state) => state);
-  useItemDndState((state) => state.activeId);
+  useWorkspaceCommandState();
   return contexts.flatMap((context) => resolveWorkspaceCommandEntries(surface, context));
 }

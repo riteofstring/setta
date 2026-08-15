@@ -51,6 +51,7 @@ const RUNTIME_EXPORTS = [
   "registerWorkspaceCommands",
   "registerWorkspaceCreationCommands",
   "registerWorkspaceKeyBindings",
+  "registerWorkspaceToolbarContributions",
   "setItemData",
   "setItemControlConfiguration",
   "setItemHelpText",

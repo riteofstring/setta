@@ -1,3 +1,9 @@
+import { getWorkspaceCreationCommands } from "../context-menu/creationCommandStore";
+import {
+  assertWorkspaceToolbarContributions,
+  createWorkspaceToolbarCommandCatalog,
+  getWorkspaceToolbarContributions,
+} from "../toolbar/workspaceToolbarContributions";
 import { builtInWorkspaceCommands } from "./builtInWorkspaceCommands";
 import type {
   WorkspaceCommandDefinition,
@@ -12,7 +18,7 @@ const PACKAGE_COMMAND_PREFIX = "workspace.";
 // A scope decides which surfaces can offer a command: pane commands only exist where the pane
 // itself is the target, and item commands never reach a section header or the section action row.
 const SURFACES_BY_SCOPE: Record<WorkspaceCommandScope, ReadonlyArray<WorkspaceCommandSurface>> = {
-  pane: ["context-menu"],
+  pane: ["context-menu", "toolbar"],
   section: ["context-menu", "header", "inspector", "inspector-parameters", "outline"],
   item: ["context-menu", "inspector-parameters"],
 };
@@ -98,6 +104,7 @@ function validateHostCommand(
   assertCommandFunction(command.id, "run", command.run, true);
   assertCommandFunction(command.id, "getDisabledReason", command.getDisabledReason, false);
   assertCommandFunction(command.id, "getStatusMessage", command.getStatusMessage, false);
+  assertCommandFunction(command.id, "isChecked", command.isChecked, false);
   return Object.freeze<RegisteredWorkspaceCommand>({
     definition: Object.freeze({
       ...command,
@@ -110,7 +117,10 @@ function validateHostCommand(
 
 // Like section-kind and item-handler registration, each call replaces the complete host-owned set.
 // Package commands are always registered, so a host command that reuses a package id, an unknown
-// scope, or a surface its scope cannot reach fails here instead of at invocation time.
+// scope, or a surface its scope cannot reach fails here instead of at invocation time. A toolbar
+// contribution names a command, so the standing contributions are revalidated against the new
+// catalog: a registration that would drop a contributed command, or stop offering the toolbar
+// surface, fails here rather than leaving a control that cannot resolve.
 export function registerWorkspaceCommands(
   commands: ReadonlyArray<WorkspaceCommandDefinition>,
 ): void {
@@ -118,7 +128,15 @@ export function registerWorkspaceCommands(
     throw new Error("Workspace commands must be an array.");
   }
   const ids = new Set(packageCommands.map((command) => command.definition.id));
-  hostCommands = Object.freeze(commands.map((command) => validateHostCommand(command, ids)));
+  const validated = Object.freeze(commands.map((command) => validateHostCommand(command, ids)));
+  assertWorkspaceToolbarContributions(
+    getWorkspaceToolbarContributions(),
+    createWorkspaceToolbarCommandCatalog(
+      [...packageCommands, ...validated].map((command) => command.definition),
+      getWorkspaceCreationCommands(),
+    ),
+  );
+  hostCommands = validated;
   commandsBySurfaceKey.clear();
 }
 
@@ -145,10 +163,14 @@ export function getWorkspaceCommands(
   return commands;
 }
 
+// Every registered command, in registration order, for the surfaces that address commands by id
+// instead of asking for a surface's set.
+export function listWorkspaceCommands(): ReadonlyArray<RegisteredWorkspaceCommand> {
+  return [...packageCommands, ...hostCommands];
+}
+
 export function getWorkspaceCommandOrThrow(id: string): RegisteredWorkspaceCommand {
-  const command = [...packageCommands, ...hostCommands].find(
-    (candidate) => candidate.definition.id === id,
-  );
+  const command = listWorkspaceCommands().find((candidate) => candidate.definition.id === id);
   if (!command) {
     throw new Error(`Workspace command ${id} is not registered.`);
   }

@@ -34,10 +34,13 @@ function getItemSnapshot(item: WorkspaceItem): WorkspaceSnapshot<WorkspaceItem> 
   return snapshot;
 }
 
-export function createPaneCommandContext(workspacePosition: Position): WorkspacePaneCommandContext {
+export function createPaneCommandContext(
+  workspacePosition: Position | null,
+): WorkspacePaneCommandContext {
   return Object.freeze({
     scope: "pane" as const,
-    workspacePosition: cloneFrozenWorkspaceSnapshot(workspacePosition),
+    workspacePosition:
+      workspacePosition === null ? null : cloneFrozenWorkspaceSnapshot(workspacePosition),
   });
 }
 

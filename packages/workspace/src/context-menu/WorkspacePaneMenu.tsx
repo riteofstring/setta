@@ -62,8 +62,8 @@ export function WorkspacePaneMenu({
   const itemElementsRef = useRef(new Map<string, HTMLDivElement>());
   const didNavigateListRef = useRef(false);
   const creationContext = useMemo<WorkspaceCreationContext>(
-    () => Object.freeze({ workspacePosition: invocation.context.workspacePosition }),
-    [invocation.context.workspacePosition],
+    () => Object.freeze({ workspacePosition: invocation.workspacePosition }),
+    [invocation.workspacePosition],
   );
   const filteredCommands = useMemo(
     () => matchSorter(commands, query, { keys: ["label", "group"] }),
@@ -80,12 +80,12 @@ export function WorkspacePaneMenu({
           const section = command.createSection(creationContext);
           // A pane request always carries the pointer's position; the package resolves a place
           // only for the requests that have none.
-          insertWorkspaceSection(section, invocation.context.workspacePosition);
+          insertWorkspaceSection(section, invocation.workspacePosition);
           useReactFlow.setState({ nodesSelectionDims: null });
           closeWorkspaceMenu();
         },
       })),
-    [canEditStructure, creationContext, filteredCommands, invocation.context.workspacePosition],
+    [canEditStructure, creationContext, filteredCommands, invocation.workspacePosition],
   );
   const entriesByCommandId = useMemo(
     () => new Map(commandEntries.map((entry) => [entry.id.slice("create-".length), entry])),

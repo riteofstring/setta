@@ -64,12 +64,14 @@ export function openWorkspacePaneMenu(
   ) {
     return false;
   }
+  const workspacePosition = getWorkspacePosition(clientPoint);
   publishWorkspaceMenuInvocation({
     kind: "pane",
     clientPoint,
     direction: getElementTextDirection(owner),
     owner,
-    context: createPaneCommandContext(getWorkspacePosition(clientPoint)),
+    context: createPaneCommandContext(workspacePosition),
+    workspacePosition,
   });
   return true;
 }

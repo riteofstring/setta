@@ -234,4 +234,9 @@ export type {
   WorkspaceShellViewState,
 } from "./shell/workspaceShellTypes";
 export { WorkspaceControls } from "./toolbar/WorkspaceControls";
+export { registerWorkspaceToolbarContributions } from "./toolbar/workspaceToolbarRegistry";
+export type {
+  WorkspaceToolbarContribution,
+  WorkspaceToolbarPlacement,
+} from "./toolbar/workspaceToolbarTypes";
 export { WorkspaceTooltip } from "./tooltip/WorkspaceTooltip";

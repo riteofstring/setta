@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useWorkspaceOptions } from "../canvas/options";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import { zoomIn, zoomOut } from "../canvas/viewportHelpers";
+import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
 import { WorkspaceControls } from "./WorkspaceControls";
+import { registerWorkspaceToolbarContributions } from "./workspaceToolbarRegistry";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -32,6 +34,8 @@ describe("WorkspaceControls", () => {
     host.remove();
     zoomIn.cancel();
     zoomOut.cancel();
+    registerWorkspaceToolbarContributions([]);
+    registerWorkspaceCommands([]);
     useWorkspaceOptions.getState().reset();
     useReactFlow.setState({ ...initialCanvasState });
   });
@@ -79,6 +83,63 @@ describe("WorkspaceControls", () => {
     expect(
       host.querySelector('[data-testid="rf__controls"]')?.querySelectorAll("div"),
     ).toHaveLength(0);
+  });
+
+  it("seats contributed groups around the package groups, each closed by its own divider", async () => {
+    registerWorkspaceCommands([
+      {
+        id: "host-before-viewport",
+        scope: "pane",
+        surfaces: ["toolbar"],
+        label: "Host project action",
+        run: () => {},
+      },
+      {
+        id: "host-before-minimap",
+        scope: "pane",
+        surfaces: ["toolbar"],
+        label: "Host utility action",
+        run: () => {},
+      },
+    ]);
+    registerWorkspaceToolbarContributions([
+      {
+        kind: "command",
+        commandId: "host-before-viewport",
+        icon: () => null,
+        placement: "before-viewport",
+      },
+      {
+        kind: "command",
+        commandId: "host-before-minimap",
+        icon: () => null,
+        placement: "before-minimap",
+      },
+    ]);
+
+    await act(async () => {
+      root.render(createElement(WorkspaceControls));
+    });
+
+    expect(
+      Array.from(host.querySelectorAll("button")).map((button) =>
+        button.getAttribute("aria-label"),
+      ),
+    ).toEqual([
+      "Host project action",
+      "zoom in",
+      "zoom out",
+      "fit view",
+      "toggle snap to grid",
+      "reset zoom",
+      "Host utility action",
+      "toggle minimap",
+      "move minimap to right",
+    ]);
+    // The reference draws its rule after each contributed group, and never between its own groups.
+    expect(
+      host.querySelector('[data-testid="rf__controls"]')?.querySelectorAll("div"),
+    ).toHaveLength(2);
   });
 
   it("announces the current zoom as toolbar status", async () => {

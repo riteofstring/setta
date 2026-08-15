@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { FaMinus, FaPlus } from "react-icons/fa6";
 import { IoMapOutline } from "react-icons/io5";
 import {
@@ -21,23 +21,21 @@ import { useReactFlow } from "../canvas/store";
 import { resetZoom, zoomIn, zoomOut } from "../canvas/viewportHelpers";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip";
+import {
+  ACTIVE_CONTROL_CLASS_NAME,
+  COMPACT_TOUCH_TARGET_PROPS,
+  DECORATIVE_ICON_PROPS,
+  getToggleControlClassName,
+  INACTIVE_CONTROL_CLASS_NAME,
+  TOGGLE_CONTROL_CLASS_NAME,
+} from "./workspaceControlStyles";
+import { WorkspaceToolbarGroup } from "./WorkspaceToolbarGroup";
 
 // The reference's viewport toolbar (`forks/xyflow/controls/Controls.tsx`) at the slice form the
-// seam proposal fixes: the viewport and minimap groups. The edge-toggle and plugin-placement
-// groups left with their features, and with them every divider — the reference renders no
-// divider between the viewport and minimap groups.
-const ACTIVE_CONTROL_CLASS_NAME = "text-white bg-blue-500 dark:text-blue-600 dark:bg-transparent";
-const INACTIVE_CONTROL_CLASS_NAME = "text-setta-400 dark:text-setta-600";
-const TOGGLE_CONTROL_CLASS_NAME =
-  "cursor-pointer items-center justify-center overflow-clip rounded-md p-1 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:text-setta-500";
-const DECORATIVE_ICON_PROPS = { "aria-hidden": true, focusable: "false" } as const;
-const COMPACT_TOUCH_TARGET_PROPS = {
-  "data-setta-workspace-touch-target": "compact",
-} as const;
-
-function getToggleControlClassName(active: boolean): string {
-  return `${TOGGLE_CONTROL_CLASS_NAME} ${active ? ACTIVE_CONTROL_CLASS_NAME : INACTIVE_CONTROL_CLASS_NAME}`;
-}
+// seam proposal fixes: the viewport and minimap groups, with the host controls contributed around
+// them where the reference places its own. The edge-toggle group left with its feature, and with
+// it the only divider the package's own groups had — the reference renders no divider between the
+// viewport and minimap groups.
 
 function ViewportControls(props: {
   fitViewOnInit: boolean;
@@ -165,7 +163,11 @@ function useZoomReached() {
   );
 }
 
-export const WorkspaceControls = memo(function WorkspaceControls() {
+// The reference memoizes this toolbar because its contributed controls are imperative mounts that
+// update themselves. The package paints contributed controls from host-owned command state, so the
+// toolbar re-renders with the host's tree exactly as the panes, the Outline, the Inspector, and the
+// canvas already do.
+export function WorkspaceControls() {
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const workspaceScopeClassName = useWorkspaceScopeClassName();
   const { minZoomReached, maxZoomReached } = useZoomReached();
@@ -193,13 +195,15 @@ export const WorkspaceControls = memo(function WorkspaceControls() {
       <span role="status" className="sr-only">
         Zoom {Math.round(zoom * 100)}%
       </span>
+      <WorkspaceToolbarGroup placement="before-viewport" />
       <ViewportControls
         fitViewOnInit={fitViewOnInit}
         maxZoomReached={maxZoomReached}
         minZoomReached={minZoomReached}
         snapToGrid={snapToGrid}
       />
+      <WorkspaceToolbarGroup placement="before-minimap" />
       <MiniMapControls minimapSide={minimapSide} showMinimap={showMinimap} />
     </div>
   );
-});
+}

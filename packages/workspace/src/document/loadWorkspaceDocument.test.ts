@@ -128,6 +128,7 @@ describe("loadWorkspaceDocument", () => {
       direction: "ltr",
       owner,
       context: { scope: "pane", workspacePosition: { x: 40, y: 60 } },
+      workspacePosition: { x: 40, y: 60 },
     });
 
     expect(() =>

@@ -262,9 +262,13 @@ reference's canvas reading order, its `go-to` active-section intent, and its min
 travel. C2 is now complete: its fourth batch gives a host creation command its own conflict-checked
 chord in the same binding vocabulary, and ports the reference's backend empty-space search — prefer
 the visible pane, then beside it, then after the workspace — so a section created without a pointer
-lands in real empty space and the canvas travels to it when it had to land out of sight. C3
-remains. The package-only decisions and the deliberate behavior changes every batch introduces are
-recorded in `docs/evidence/milestone-c/` for the C4 gate.**
+lands in real empty space and the canvas travels to it when it had to land out of sight. C3 is
+complete: a host places typed contributions in the toolbar around the package's own viewport and
+minimap groups, each naming a pane command or a creation command, and the package paints them as
+toolbar controls carrying the reference's contributed-group rule and disabled opacity with the
+command's label, pressed state, and refusal sentence. The C4 developer acceptance gate is the
+milestone's remaining work. The package-only decisions and the deliberate behavior changes every
+batch introduces are recorded in `docs/evidence/milestone-c/` for that gate.**
 
 Make frequent workspace actions faster and consistent across every action surface.
 
