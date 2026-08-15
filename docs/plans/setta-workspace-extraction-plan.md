@@ -440,6 +440,12 @@ components relied on a header-only context even though the same registered icon 
 Outline. Section-kind icons now receive their section ID through one explicit public prop contract
 in every surface, and the Outline regression suite locks that contract.
 
+The same gate corrected the fixed-height CodeMirror surface: it now fills the remaining section
+body, keeps its horizontal scrollbar at the section edge, and claims native wheel input when
+either axis overflows, while releasing it again when both axes fit. The playground's host-owned
+Text and Code Inspector contributions also replaced their raw browser controls with labeled,
+compact options matching the accepted Inspector vocabulary.
+
 Only the D4 developer gate remains.**
 
 Add two optional, batteries-included content-section registrations. Hosts can register either,

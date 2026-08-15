@@ -114,78 +114,86 @@ export function PlaygroundCodeSectionInspector({ sectionId }: { sectionId: strin
   const data = getWorkspaceCodeSectionData(sectionId);
   return (
     <div className="playground-host-pane">
-      <label>
-        Language
-        <select
-          onChange={(event) =>
-            updatePlaygroundCodeSection(sectionId, (current) => ({
-              ...current,
-              language: event.target.value as WorkspaceCodeSectionLanguage,
-            }))
-          }
-          value={data.language}
-        >
-          {WORKSPACE_CODE_SECTION_LANGUAGES.map((language) => (
-            <option key={language} value={language}>
-              {language}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <input
-          checked={data.wrapLines}
-          onChange={(event) =>
-            updatePlaygroundCodeSection(sectionId, (current) => ({
-              ...current,
-              wrapLines: event.target.checked,
-            }))
-          }
-          type="checkbox"
-        />
-        Wrap lines
-      </label>
-      <label>
-        <input
-          checked={data.lineNumbers}
-          onChange={(event) =>
-            updatePlaygroundCodeSection(sectionId, (current) => ({
-              ...current,
-              lineNumbers: event.target.checked,
-            }))
-          }
-          type="checkbox"
-        />
-        Line numbers
-      </label>
-      <label>
-        Indent width
-        <input
-          max={WORKSPACE_CODE_SECTION_MAXIMUM_INDENT_WIDTH}
-          min={WORKSPACE_CODE_SECTION_MINIMUM_INDENT_WIDTH}
-          onChange={(event) =>
-            updatePlaygroundCodeSection(sectionId, (current) => ({
-              ...current,
-              indentWidth: Number(event.target.value),
-            }))
-          }
-          type="number"
-          value={data.indentWidth}
-        />
-      </label>
-      <label>
-        <input
-          checked={data.readOnly}
-          onChange={(event) =>
-            updatePlaygroundCodeSection(sectionId, (current) => ({
-              ...current,
-              readOnly: event.target.checked,
-            }))
-          }
-          type="checkbox"
-        />
-        Read only
-      </label>
+      <fieldset className="playground-section-options">
+        <legend>Editor options</legend>
+        <label className="playground-section-option-row">
+          <span>Language</span>
+          <select
+            className="playground-section-option-control"
+            onChange={(event) =>
+              updatePlaygroundCodeSection(sectionId, (current) => ({
+                ...current,
+                language: event.target.value as WorkspaceCodeSectionLanguage,
+              }))
+            }
+            value={data.language}
+          >
+            {WORKSPACE_CODE_SECTION_LANGUAGES.map((language) => (
+              <option key={language} value={language}>
+                {language}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="playground-section-option-row">
+          <span>Wrap lines</span>
+          <input
+            checked={data.wrapLines}
+            className="playground-section-option-switch"
+            onChange={(event) =>
+              updatePlaygroundCodeSection(sectionId, (current) => ({
+                ...current,
+                wrapLines: event.target.checked,
+              }))
+            }
+            type="checkbox"
+          />
+        </label>
+        <label className="playground-section-option-row">
+          <span>Line numbers</span>
+          <input
+            checked={data.lineNumbers}
+            className="playground-section-option-switch"
+            onChange={(event) =>
+              updatePlaygroundCodeSection(sectionId, (current) => ({
+                ...current,
+                lineNumbers: event.target.checked,
+              }))
+            }
+            type="checkbox"
+          />
+        </label>
+        <label className="playground-section-option-row">
+          <span>Indent width</span>
+          <input
+            className="playground-section-option-control playground-section-option-number"
+            max={WORKSPACE_CODE_SECTION_MAXIMUM_INDENT_WIDTH}
+            min={WORKSPACE_CODE_SECTION_MINIMUM_INDENT_WIDTH}
+            onChange={(event) =>
+              updatePlaygroundCodeSection(sectionId, (current) => ({
+                ...current,
+                indentWidth: Number(event.target.value),
+              }))
+            }
+            type="number"
+            value={data.indentWidth}
+          />
+        </label>
+        <label className="playground-section-option-row">
+          <span>Read only</span>
+          <input
+            checked={data.readOnly}
+            className="playground-section-option-switch"
+            onChange={(event) =>
+              updatePlaygroundCodeSection(sectionId, (current) => ({
+                ...current,
+                readOnly: event.target.checked,
+              }))
+            }
+            type="checkbox"
+          />
+        </label>
+      </fieldset>
     </div>
   );
 }
@@ -203,52 +211,58 @@ export function PlaygroundTextSectionInspector({ sectionId }: { sectionId: strin
   const data = getWorkspaceTextSectionData(sectionId);
   return (
     <div className="playground-host-pane">
-      <label>
-        Format
-        <select
-          onChange={(event) =>
-            updatePlaygroundTextSection(sectionId, (current) => ({
-              ...current,
-              format: event.target.value as WorkspaceTextSectionFormat,
-            }))
-          }
-          value={data.format}
-        >
-          {WORKSPACE_TEXT_SECTION_FORMATS.map((format) => (
-            <option key={format} value={format}>
-              {format}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Font size
-        <input
-          max={WORKSPACE_TEXT_SECTION_MAXIMUM_FONT_SIZE}
-          min={WORKSPACE_TEXT_SECTION_MINIMUM_FONT_SIZE}
-          onChange={(event) =>
-            updatePlaygroundTextSection(sectionId, (current) => ({
-              ...current,
-              fontSizePx: Number(event.target.value),
-            }))
-          }
-          type="number"
-          value={data.fontSizePx}
-        />
-      </label>
-      <label>
-        <input
-          checked={data.readOnly}
-          onChange={(event) =>
-            updatePlaygroundTextSection(sectionId, (current) => ({
-              ...current,
-              readOnly: event.target.checked,
-            }))
-          }
-          type="checkbox"
-        />
-        Read only
-      </label>
+      <fieldset className="playground-section-options">
+        <legend>Text options</legend>
+        <label className="playground-section-option-row">
+          <span>Format</span>
+          <select
+            className="playground-section-option-control"
+            onChange={(event) =>
+              updatePlaygroundTextSection(sectionId, (current) => ({
+                ...current,
+                format: event.target.value as WorkspaceTextSectionFormat,
+              }))
+            }
+            value={data.format}
+          >
+            {WORKSPACE_TEXT_SECTION_FORMATS.map((format) => (
+              <option key={format} value={format}>
+                {format}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="playground-section-option-row">
+          <span>Font size</span>
+          <input
+            className="playground-section-option-control playground-section-option-number"
+            max={WORKSPACE_TEXT_SECTION_MAXIMUM_FONT_SIZE}
+            min={WORKSPACE_TEXT_SECTION_MINIMUM_FONT_SIZE}
+            onChange={(event) =>
+              updatePlaygroundTextSection(sectionId, (current) => ({
+                ...current,
+                fontSizePx: Number(event.target.value),
+              }))
+            }
+            type="number"
+            value={data.fontSizePx}
+          />
+        </label>
+        <label className="playground-section-option-row">
+          <span>Read only</span>
+          <input
+            checked={data.readOnly}
+            className="playground-section-option-switch"
+            onChange={(event) =>
+              updatePlaygroundTextSection(sectionId, (current) => ({
+                ...current,
+                readOnly: event.target.checked,
+              }))
+            }
+            type="checkbox"
+          />
+        </label>
+      </fieldset>
     </div>
   );
 }

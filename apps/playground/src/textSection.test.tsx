@@ -83,6 +83,11 @@ describe("the playground's built-in text section", () => {
     if (!format || !readOnly || !fontSizePx) {
       throw new Error("The host text section Inspector lost one of its controls.");
     }
+    expect(container.querySelector("legend")?.textContent).toBe("Text options");
+    expect(format.classList.contains("playground-section-option-control")).toBe(true);
+    expect(fontSizePx.classList.contains("playground-section-option-number")).toBe(true);
+    expect(readOnly.classList.contains("playground-section-option-switch")).toBe(true);
+    expect(readOnly.closest("label")?.textContent).toContain("Read only");
 
     act(() => {
       format.value = "plaintext";

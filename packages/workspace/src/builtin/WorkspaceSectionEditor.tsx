@@ -50,8 +50,15 @@ export function WorkspaceSectionEditor({
   onChange,
 }: WorkspaceSectionEditorProps) {
   const theme = useTextValueTheme();
-  const { wrapperRef, handleCreateEditor, maxHeight, overflowClassName, wheelClassName } =
-    useSectionEditorHeight(sectionId);
+  const {
+    editorHeight,
+    wrapperRef,
+    handleCreateEditor,
+    handleEditorUpdate,
+    maxHeight,
+    overflowClassName,
+    wheelClassName,
+  } = useSectionEditorHeight(sectionId);
 
   const onEscape = useCallback(() => {
     // The reference defers the focus move by a frame: taking it synchronously scrolls the canvas
@@ -101,11 +108,14 @@ export function WorkspaceSectionEditor({
     >
       <CodeMirror
         basicSetup={basicSetup}
+        className={editorHeight === undefined ? undefined : "h-full"}
         extensions={extensions}
+        height={editorHeight}
         indentWithTab
         maxHeight={maxHeight}
         onChange={onChange}
         onCreateEditor={handleCreateEditor}
+        onUpdate={handleEditorUpdate}
         theme={theme}
         value={value}
       />

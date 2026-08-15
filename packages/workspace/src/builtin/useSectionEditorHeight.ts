@@ -1,4 +1,4 @@
-import type { EditorView } from "@codemirror/view";
+import type { EditorView, ViewUpdate } from "@codemirror/view";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { computeReadyToBeVisible } from "../canvas/fitView";
 import { useReactFlow } from "../canvas/store";
@@ -21,8 +21,10 @@ import { useSectionMinMaxDims } from "../section/resize/sizingPolicy";
 const SECTION_HEADER_ALLOWANCE_PX = 30;
 
 export type SectionEditorHeight = {
+  editorHeight: string | undefined;
   wrapperRef: RefObject<HTMLElement | null>;
   handleCreateEditor: (view: EditorView) => void;
+  handleEditorUpdate: (update: ViewUpdate) => void;
   maxHeight: string | undefined;
   overflowClassName: string;
   wheelClassName: string;
@@ -35,23 +37,52 @@ export function useSectionEditorHeight(sectionId: string): SectionEditorHeight {
   const wrapperRef = useRef<HTMLElement | null>(null);
   const editorRef = useRef<EditorView | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const wheelMeasureKeyRef = useRef({});
   const scrollHandoffRef = useRef({ editorScrollTop: 0, wrapperScrollTop: 0 });
   const [wheelClassName, setWheelClassName] = useState("");
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
 
-  const handleCreateEditor = useCallback((view: EditorView) => {
-    editorRef.current = view;
-    const resizeObserver = new ResizeObserver(([entry]) => {
-      if (!entry) {
-        return;
-      }
-      setWheelClassName(
-        entry.target.scrollHeight > entry.target.clientHeight ? NO_WHEEL_CLASS_NAME : "",
-      );
+  const requestWheelOwnershipMeasure = useCallback((view: EditorView) => {
+    view.requestMeasure({
+      key: wheelMeasureKeyRef.current,
+      read: (measuredView) => {
+        const scroller = measuredView.scrollDOM;
+        return (
+          scroller.scrollHeight - scroller.clientHeight > 1 ||
+          scroller.scrollWidth - scroller.clientWidth > 1
+        );
+      },
+      write: (hasNativeOverflow) => {
+        setWheelClassName(hasNativeOverflow ? NO_WHEEL_CLASS_NAME : "");
+      },
     });
-    resizeObserver.observe(view.scrollDOM);
-    resizeObserverRef.current = resizeObserver;
   }, []);
+
+  const handleCreateEditor = useCallback(
+    (view: EditorView) => {
+      editorRef.current = view;
+      resizeObserverRef.current?.disconnect();
+      const resizeObserver = new ResizeObserver(() => {
+        requestWheelOwnershipMeasure(view);
+      });
+      // The scroller catches section resizes. The content catches wrapping and document changes
+      // that create or remove horizontal overflow without changing the scroller's own box.
+      resizeObserver.observe(view.scrollDOM);
+      resizeObserver.observe(view.contentDOM);
+      resizeObserverRef.current = resizeObserver;
+      requestWheelOwnershipMeasure(view);
+    },
+    [requestWheelOwnershipMeasure],
+  );
+
+  const handleEditorUpdate = useCallback(
+    (update: ViewUpdate) => {
+      if (update.geometryChanged) {
+        requestWheelOwnershipMeasure(update.view);
+      }
+    },
+    [requestWheelOwnershipMeasure],
+  );
 
   useEffect(
     () => () => {
@@ -66,8 +97,9 @@ export function useSectionEditorHeight(sectionId: string): SectionEditorHeight {
       // The reference re-measures once the canvas finishes its fit, or some lines stay unpainted
       // until the next interaction.
       editorRef.current.requestMeasure();
+      requestWheelOwnershipMeasure(editorRef.current);
     }
-  }, [readyToBeVisible]);
+  }, [readyToBeVisible, requestWheelOwnershipMeasure]);
 
   const isAutoHeight = height === "auto";
   const maxHeight =
@@ -77,6 +109,9 @@ export function useSectionEditorHeight(sectionId: string): SectionEditorHeight {
         ? `${String(Math.max(0, sectionMaxHeight - SECTION_HEADER_ALLOWANCE_PX))}px`
         : `${String(height - SECTION_HEADER_ALLOWANCE_PX)}px`;
   const overflowClassName = resizeEvent === "start" || isAutoHeight ? "overflow-y-auto" : "";
+  // A fixed-height section gives CodeMirror the whole remaining body. Without this, its native
+  // horizontal scrollbar hugs the final line and leaves a misleading empty area below it.
+  const editorHeight = resizeEvent === "start" || isAutoHeight ? undefined : "100%";
 
   // The reference samples both offsets during render and hands them to an effect keyed on the
   // resize tick alone. Sampling into a ref keeps that timing while leaving the effect's inputs
@@ -96,5 +131,13 @@ export function useSectionEditorHeight(sectionId: string): SectionEditorHeight {
     }
   }, [resizeEvent]);
 
-  return { wrapperRef, handleCreateEditor, maxHeight, overflowClassName, wheelClassName };
+  return {
+    editorHeight,
+    wrapperRef,
+    handleCreateEditor,
+    handleEditorUpdate,
+    maxHeight,
+    overflowClassName,
+    wheelClassName,
+  };
 }

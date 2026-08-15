@@ -31,6 +31,38 @@ import { createWorkspaceCodeSection } from "./codeSectionKind";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+const resizeCallbacksByTarget = new Map<Element, Set<ResizeObserverCallback>>();
+
+class CapturingResizeObserver {
+  private readonly callback: ResizeObserverCallback;
+  private readonly targets = new Set<Element>();
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+  }
+
+  observe(target: Element) {
+    this.targets.add(target);
+    const callbacks = resizeCallbacksByTarget.get(target) ?? new Set<ResizeObserverCallback>();
+    callbacks.add(this.callback);
+    resizeCallbacksByTarget.set(target, callbacks);
+  }
+
+  unobserve(target: Element) {
+    this.targets.delete(target);
+    resizeCallbacksByTarget.get(target)?.delete(this.callback);
+  }
+
+  disconnect() {
+    for (const target of this.targets) {
+      resizeCallbacksByTarget.get(target)?.delete(this.callback);
+    }
+    this.targets.clear();
+  }
+}
+
+globalThis.ResizeObserver = CapturingResizeObserver as unknown as typeof ResizeObserver;
+
 // Freezes the built-in Code Editor section against the reference's `CoreCodeArea`: the editor
 // paints the section's authored language, gutters, wrapping, and indentation; every keystroke
 // commits through one document mutation; locking or the read-only option makes it read-only; and
@@ -102,6 +134,7 @@ describe("built-in code section body", () => {
   let root: Root;
 
   beforeEach(() => {
+    resizeCallbacksByTarget.clear();
     registerSectionKinds({
       leaf: { renderContent: () => null },
       [WORKSPACE_CODE_SECTION_KIND]: definition,
@@ -155,6 +188,19 @@ describe("built-in code section body", () => {
     return data as WorkspaceCodeSectionData;
   }
 
+  async function reportResize(target: Element) {
+    const callbacks = [...(resizeCallbacksByTarget.get(target) ?? [])];
+    if (callbacks.length === 0) {
+      throw new Error("The code section did not observe its editor scroller.");
+    }
+    await act(async () => {
+      for (const callback of callbacks) {
+        callback([{ target } as ResizeObserverEntry], {} as ResizeObserver);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+  }
+
   it("mounts the authored code behind the reference's interaction boundary", async () => {
     await mount();
     expect(getView().state.doc.toString()).toBe("alpha = 1\nbeta = 2\n");
@@ -183,6 +229,37 @@ describe("built-in code section body", () => {
     const view = getView();
     expect(view.dom.querySelector(".cm-gutters")).toBeNull();
     expect(view.contentDOM.classList.contains("cm-lineWrapping")).toBe(false);
+  });
+
+  it("fills a fixed-height body and owns horizontal trackpad overflow", async () => {
+    await mount(
+      makeCodeSection(
+        {
+          code: "const result = aVeryLongIdentifier + anotherVeryLongIdentifier;\n",
+          wrapLines: false,
+        },
+        { size: { width: 500, height: 400 } },
+      ),
+    );
+    const view = getView();
+    expect(view.dom.parentElement?.classList.contains("h-full")).toBe(true);
+    expect(getComputedStyle(view.dom).height).toBe("100%");
+
+    Object.defineProperties(view.scrollDOM, {
+      clientHeight: { configurable: true, value: 300 },
+      clientWidth: { configurable: true, value: 300 },
+      scrollHeight: { configurable: true, value: 300 },
+      scrollWidth: { configurable: true, value: 700 },
+    });
+    await reportResize(view.scrollDOM);
+
+    // `nowheel` hands both native axes to the CodeMirror scroller. ZoomPane's wheel regression
+    // locks that a horizontal trackpad gesture on this target never becomes canvas panning.
+    expect(getWrapper().classList.contains("nowheel")).toBe(true);
+
+    Object.defineProperty(view.scrollDOM, "scrollWidth", { configurable: true, value: 300 });
+    await reportResize(view.scrollDOM);
+    expect(getWrapper().classList.contains("nowheel")).toBe(false);
   });
 
   it("commits each edit through one document mutation and one notification", async () => {

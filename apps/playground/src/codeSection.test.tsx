@@ -77,6 +77,11 @@ describe("the playground's built-in code section", () => {
     if (!language || !wrapLines || !lineNumbers || !indentWidth) {
       throw new Error("The host code section Inspector lost one of its controls.");
     }
+    expect(container.querySelector("legend")?.textContent).toBe("Editor options");
+    expect(language.classList.contains("playground-section-option-control")).toBe(true);
+    expect(indentWidth.classList.contains("playground-section-option-number")).toBe(true);
+    expect(wrapLines.classList.contains("playground-section-option-switch")).toBe(true);
+    expect(wrapLines.closest("label")?.textContent).toContain("Wrap lines");
 
     act(() => {
       language.value = "yaml";
