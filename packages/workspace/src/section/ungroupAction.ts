@@ -8,7 +8,10 @@ import {
   useNodeInternals,
   useWorkspaceDocument,
 } from "../document/stores";
-import { prepareUngroupSections } from "../document/ungroupSections";
+import {
+  prepareUngroupSections,
+  type UngroupPromotedSectionMeasurement,
+} from "../document/ungroupSections";
 import { useSectionRefs } from "./sectionRefs";
 
 type UngroupFocusSurface = "canvas" | "outline";
@@ -17,6 +20,14 @@ type UngroupFocusPlan = {
   groupId: string;
   surface: UngroupFocusSurface;
 };
+
+function measurePromotedSection(sectionId: string): UngroupPromotedSectionMeasurement | null {
+  const section = useSectionRefs.getState().withNested[sectionId];
+  if (!section || section.offsetWidth <= 0 || section.offsetHeight <= 0) {
+    return null;
+  }
+  return { width: section.offsetWidth, height: section.offsetHeight };
+}
 
 function getOutlineItemId(element: HTMLElement): string | null {
   return (
@@ -91,7 +102,12 @@ export function ungroupSections(groupIds: ReadonlyArray<string>): void {
   }
   const currentDocument = useWorkspaceDocument.getState();
   const currentActiveSections = useActiveSections.getState();
-  const prepared = prepareUngroupSections(currentDocument, currentActiveSections, groupIds);
+  const prepared = prepareUngroupSections(
+    currentDocument,
+    currentActiveSections,
+    groupIds,
+    measurePromotedSection,
+  );
   const focusPlan = captureUngroupFocusPlan(prepared.groupIds);
   const nextNodes = createNodesMapFromDocumentChildren(
     prepared.document,

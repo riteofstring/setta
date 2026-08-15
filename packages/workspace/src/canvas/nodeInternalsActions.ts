@@ -6,6 +6,33 @@ import { useReactFlow } from "./store";
 import type { NodeDragItem } from "./types";
 import { getDimensions } from "./utils";
 
+function topLevelLayoutsEqual(
+  current: Readonly<Record<string, TopLevelSectionLayout>>,
+  next: Readonly<Record<string, TopLevelSectionLayout>>,
+): boolean {
+  const currentIds = Object.keys(current);
+  const nextIds = Object.keys(next);
+  if (currentIds.length !== nextIds.length) {
+    return false;
+  }
+  return currentIds.every((sectionId, index) => {
+    if (nextIds[index] !== sectionId) {
+      return false;
+    }
+    const currentLayout = current[sectionId];
+    const nextLayout = next[sectionId];
+    return (
+      currentLayout !== undefined &&
+      nextLayout !== undefined &&
+      currentLayout.x === nextLayout.x &&
+      currentLayout.y === nextLayout.y &&
+      currentLayout.w === nextLayout.w &&
+      currentLayout.h === nextLayout.h &&
+      currentLayout.zIndex === nextLayout.zIndex
+    );
+  });
+}
+
 export function getNodes(): Array<Node> {
   return Array.from(useNodeInternals.getState().x.values());
 }
@@ -75,6 +102,9 @@ export function commitTopLevelLayoutToDocument() {
       h: node.height,
     };
   }
+  if (topLevelLayoutsEqual(documentState.topLevelSections, nextLayouts)) {
+    return;
+  }
   useWorkspaceDocument.setState({ topLevelSections: nextLayouts });
   notifyWorkspaceDocumentChange();
 }
@@ -84,11 +114,15 @@ export function updateNodeDimensionsFromResizeObserver(entries: Array<ResizeObse
     return;
   }
 
-  const newNodes = new Map(useNodeInternals.getState().x);
+  const currentNodes = useNodeInternals.getState().x;
+  const newNodes = new Map(currentNodes);
+  let dimensionsChanged = false;
   for (const entry of entries) {
-    applyNodeDimensionUpdate(newNodes, entry);
+    dimensionsChanged = applyNodeDimensionUpdate(newNodes, entry) || dimensionsChanged;
   }
-  useNodeInternals.setState({ x: newNodes });
+  if (dimensionsChanged) {
+    useNodeInternals.setState({ x: newNodes });
+  }
   commitTopLevelLayoutToDocument();
   maybeCompleteInitialFitView();
 }
@@ -97,7 +131,10 @@ function hasViewportNode() {
   return !!useReactFlow.getState().domNode?.querySelector(".react-flow__viewport");
 }
 
-function applyNodeDimensionUpdate(newNodes: Map<string, Node>, entry: ResizeObserverEntry) {
+function applyNodeDimensionUpdate(
+  newNodes: Map<string, Node>,
+  entry: ResizeObserverEntry,
+): boolean {
   const target = entry.target;
   if (!(target instanceof HTMLDivElement)) {
     throw new Error("Node resize observer received a non-node element.");
@@ -108,16 +145,20 @@ function applyNodeDimensionUpdate(newNodes: Map<string, Node>, entry: ResizeObse
   }
   const node = newNodes.get(nodeId);
   if (!node) {
-    return;
+    return false;
   }
   const dimensions = getDimensions(target);
   if (!dimensions.width || !dimensions.height) {
-    return;
+    return false;
+  }
+  if (node.width === dimensions.width && node.height === dimensions.height) {
+    return false;
   }
   newNodes.set(node.id, {
     ...node,
     ...dimensions,
   });
+  return true;
 }
 
 // Also called by the load orchestrator after a mounted re-load arms fit-on-init: surviving

@@ -160,4 +160,27 @@ describe("commitTopLevelLayoutToDocument", () => {
 
     expect(notified).toBe(1);
   });
+
+  it("does not publish or notify when node geometry already matches the document", () => {
+    const layout = { x: 5, y: 6, w: 100, h: 80, zIndex: 1 };
+    useWorkspaceDocument.setState({
+      sections: { top: createSection("top") },
+      topLevelSections: { top: layout },
+    });
+    useNodeInternals.setState({
+      x: new Map([
+        ["top", createNode({ id: "top", position: { x: 5, y: 6 }, zIndex: 1, tempZIndex: 1 })],
+      ]),
+    });
+    const before = useWorkspaceDocument.getState().topLevelSections;
+    let notified = 0;
+    setWorkspaceDocumentChangeCallback(() => {
+      notified += 1;
+    });
+
+    commitTopLevelLayoutToDocument();
+
+    expect(useWorkspaceDocument.getState().topLevelSections).toBe(before);
+    expect(notified).toBe(0);
+  });
 });

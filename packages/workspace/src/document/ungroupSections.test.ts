@@ -64,6 +64,8 @@ function requireSection(state: WorkspaceDocumentState, sectionId: string): Works
   return section;
 }
 
+const noPromotedSectionMeasurement = () => null;
+
 describe("prepareUngroupSections", () => {
   it("promotes top-level children with reference placement and restores nested sibling order", () => {
     const state = makeState();
@@ -71,6 +73,7 @@ describe("prepareUngroupSections", () => {
       state,
       { activeIds: ["top-group", "nested-group", "standalone"] },
       ["top-group", "nested-group"],
+      noPromotedSectionMeasurement,
     );
 
     expect(prepared.document.sections["top-group"]).toBeUndefined();
@@ -105,6 +108,44 @@ describe("prepareUngroupSections", () => {
     expect(state.sections["parent"]?.children).toEqual(["nested-group", "sibling"]);
   });
 
+  it("records validated mounted sizes for promoted top-level children", () => {
+    const state = makeState();
+    const resolvedIds: Array<string> = [];
+    const prepared = prepareUngroupSections(
+      state,
+      { activeIds: [] },
+      ["top-group"],
+      (sectionId) => {
+        resolvedIds.push(sectionId);
+        return sectionId === "top-a"
+          ? { width: 120.4, height: 80.4 }
+          : { width: 140.6, height: 90.6 };
+      },
+    );
+
+    expect(resolvedIds).toEqual(["top-a", "top-b"]);
+    expect(prepared.document.topLevelSections["top-a"]).toEqual({
+      x: 400,
+      y: 60,
+      w: 120,
+      h: 80,
+      zIndex: 5,
+    });
+    expect(prepared.document.topLevelSections["top-b"]).toEqual({
+      x: 400,
+      y: 60,
+      w: 141,
+      h: 91,
+      zIndex: 6,
+    });
+    expect(() =>
+      prepareUngroupSections(state, { activeIds: [] }, ["top-group"], () => ({
+        width: 0,
+        height: 80,
+      })),
+    ).toThrow("Promoted section top-a measurement must have positive finite dimensions.");
+  });
+
   it("flattens selected ancestor and descendant groups in document order", () => {
     const state = makeState();
     state.sections["top-group"] = makeSection("top-group", "group", [
@@ -119,10 +160,12 @@ describe("prepareUngroupSections", () => {
     state.parentSectionMap["inner-a"] = "inner-group";
     state.parentSectionMap["inner-b"] = "inner-group";
 
-    const prepared = prepareUngroupSections(state, { activeIds: ["inner-group", "top-group"] }, [
-      "inner-group",
-      "top-group",
-    ]);
+    const prepared = prepareUngroupSections(
+      state,
+      { activeIds: ["inner-group", "top-group"] },
+      ["inner-group", "top-group"],
+      noPromotedSectionMeasurement,
+    );
 
     expect(Object.keys(prepared.document.topLevelSections).slice(-4)).toEqual([
       "top-a",
@@ -139,20 +182,35 @@ describe("prepareUngroupSections", () => {
     const snapshot = structuredClone(state);
 
     expect(() =>
-      prepareUngroupSections(state, { activeIds: [] }, ["top-group", "standalone"]),
+      prepareUngroupSections(
+        state,
+        { activeIds: [] },
+        ["top-group", "standalone"],
+        noPromotedSectionMeasurement,
+      ),
     ).toThrow("Cannot ungroup non-group section standalone.");
     expect(() =>
-      prepareUngroupSections(state, { activeIds: [] }, ["top-group", "locked-group"]),
+      prepareUngroupSections(
+        state,
+        { activeIds: [] },
+        ["top-group", "locked-group"],
+        noPromotedSectionMeasurement,
+      ),
     ).toThrow("Cannot ungroup locked group locked-group.");
-    expect(() => prepareUngroupSections(state, { activeIds: [] }, ["missing"])).toThrow(
-      "Unknown section missing.",
-    );
+    expect(() =>
+      prepareUngroupSections(state, { activeIds: [] }, ["missing"], noPromotedSectionMeasurement),
+    ).toThrow("Unknown section missing.");
 
     const impossible = makeState();
     delete impossible.topLevelSections["top-group"];
-    expect(() => prepareUngroupSections(impossible, { activeIds: [] }, ["top-group"])).toThrow(
-      "Top-level group top-group is missing its layout.",
-    );
+    expect(() =>
+      prepareUngroupSections(
+        impossible,
+        { activeIds: [] },
+        ["top-group"],
+        noPromotedSectionMeasurement,
+      ),
+    ).toThrow("Top-level group top-group is missing its layout.");
     expect(state).toEqual(snapshot);
   });
 

@@ -9,6 +9,15 @@ export type PreparedUngroupSections = {
   groupIds: Array<string>;
 };
 
+export type UngroupPromotedSectionMeasurement = {
+  height: number;
+  width: number;
+};
+
+export type ResolveUngroupPromotedSectionMeasurement = (
+  sectionId: string,
+) => UngroupPromotedSectionMeasurement | null;
+
 function getParentId(state: WorkspaceDocumentState, sectionId: string): string | null {
   return state.parentSectionMap[sectionId] ?? null;
 }
@@ -214,11 +223,33 @@ function copySurvivingTopLevelSections(
   return topLevelSections;
 }
 
+function resolvePromotedTopLevelDimensions(
+  sectionId: string,
+  resolvePromotedSectionMeasurement: ResolveUngroupPromotedSectionMeasurement,
+): { h: number | null; w: number | null } {
+  const measurement = resolvePromotedSectionMeasurement(sectionId);
+  if (measurement === null) {
+    return { w: null, h: null };
+  }
+  if (
+    !Number.isFinite(measurement.width) ||
+    measurement.width <= 0 ||
+    !Number.isFinite(measurement.height) ||
+    measurement.height <= 0
+  ) {
+    throw new Error(
+      `Promoted section ${sectionId} measurement must have positive finite dimensions.`,
+    );
+  }
+  return { w: Math.round(measurement.width), h: Math.round(measurement.height) };
+}
+
 function appendPromotedTopLevelSections(
   state: WorkspaceDocumentState,
   topLevelSections: WorkspaceDocumentState["topLevelSections"],
   topLevelGroupIds: ReadonlyArray<string>,
   replacementIdsByGroupId: ReadonlyMap<string, Array<string>>,
+  resolvePromotedSectionMeasurement: ResolveUngroupPromotedSectionMeasurement,
 ): void {
   let nextZIndex = getMaximumTopLevelZIndex(state) + 1;
   for (const groupId of topLevelGroupIds) {
@@ -230,8 +261,7 @@ function appendPromotedTopLevelSections(
       topLevelSections[sectionId] = {
         x: groupLayout.x,
         y: groupLayout.y,
-        w: null,
-        h: null,
+        ...resolvePromotedTopLevelDimensions(sectionId, resolvePromotedSectionMeasurement),
         zIndex: nextZIndex,
       };
       nextZIndex += 1;
@@ -244,6 +274,7 @@ function buildTopLevelSections(
   groupIds: ReadonlyArray<string>,
   removedGroupIds: ReadonlySet<string>,
   replacementIdsByGroupId: ReadonlyMap<string, Array<string>>,
+  resolvePromotedSectionMeasurement: ResolveUngroupPromotedSectionMeasurement,
 ): WorkspaceDocumentState["topLevelSections"] {
   const topLevelGroupIds = getTopLevelGroupIds(state, groupIds);
   const promotedIds = getPromotedTopLevelIds(topLevelGroupIds, replacementIdsByGroupId);
@@ -253,6 +284,7 @@ function buildTopLevelSections(
     topLevelSections,
     topLevelGroupIds,
     replacementIdsByGroupId,
+    resolvePromotedSectionMeasurement,
   );
   return topLevelSections;
 }
@@ -363,6 +395,7 @@ export function prepareUngroupSections(
   state: WorkspaceDocumentState,
   activeSections: ActiveSectionsState,
   requestedGroupIds: ReadonlyArray<string>,
+  resolvePromotedSectionMeasurement: ResolveUngroupPromotedSectionMeasurement,
 ): PreparedUngroupSections {
   const groupIds = normalizeGroupIds(requestedGroupIds);
   for (const groupId of groupIds) {
@@ -385,6 +418,7 @@ export function prepareUngroupSections(
       groupIds,
       removedGroupIds,
       replacementIdsByGroupId,
+      resolvePromotedSectionMeasurement,
     ),
     viewport: state.viewport,
     parentSectionMap: buildParentSectionMap(sections),

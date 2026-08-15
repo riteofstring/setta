@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { updateNodeDimensionsFromResizeObserver } from "../canvas/nodeInternalsActions";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
@@ -91,6 +92,45 @@ describe("ungroupSections", () => {
     expect(useReactFlow.getState().nodesSelectionDims).toBeNull();
     expect(onChange).toHaveBeenCalledOnce();
     expect(onChange.mock.calls[0]?.[0].activeIds).toEqual(["sibling"]);
+  });
+
+  it("includes mounted promoted sizes in the one notification and ignores matching remeasurement", () => {
+    const canvas = document.createElement("div");
+    const viewport = document.createElement("div");
+    viewport.className = "react-flow__viewport";
+    canvas.append(viewport);
+    useReactFlow.setState({ domNode: canvas });
+
+    const childA = document.createElement("div");
+    childA.dataset["id"] = "child-a";
+    Object.defineProperties(childA, {
+      offsetWidth: { configurable: true, value: 121 },
+      offsetHeight: { configurable: true, value: 81 },
+    });
+    const childB = document.createElement("div");
+    childB.dataset["id"] = "child-b";
+    Object.defineProperties(childB, {
+      offsetWidth: { configurable: true, value: 141 },
+      offsetHeight: { configurable: true, value: 91 },
+    });
+    useSectionRefs.setState({
+      withNested: { "child-a": childA, "child-b": childB },
+    });
+
+    const reported: Array<ReturnType<typeof useWorkspaceDocument.getState>> = [];
+    setWorkspaceDocumentChangeCallback(() => {
+      reported.push(useWorkspaceDocument.getState());
+    });
+
+    ungroupSections(["group"]);
+    updateNodeDimensionsFromResizeObserver([
+      { target: childA } as unknown as ResizeObserverEntry,
+      { target: childB } as unknown as ResizeObserverEntry,
+    ]);
+
+    expect(reported).toHaveLength(1);
+    expect(reported[0]?.topLevelSections["child-a"]).toMatchObject({ w: 121, h: 81 });
+    expect(reported[0]?.topLevelSections["child-b"]).toMatchObject({ w: 141, h: 91 });
   });
 
   it("rejects unavailable structure capability without changing any store", () => {
