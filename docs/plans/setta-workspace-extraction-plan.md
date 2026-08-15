@@ -473,7 +473,9 @@ For each implementation batch:
 2. record any required package-only design decision before implementation;
 3. implement the smallest coherent vertical slice;
 4. add focused tests for observable pointer, keyboard, focus, document, and interaction behavior;
-5. run the repository's authorized changed-file checks;
+5. run focused tests and the repository's authorized changed-file checks; do not run recommended,
+   full, `verify`, `gate`, `merge-gate`, or supplemental suites during plan implementation without
+   the separate authorization required by repository policy;
 6. update the current milestone's status sentence in the same implementation commit, checking its
    top-level box only after acceptance and audit; and
 7. continue until the milestone's repository work is ready for its developer gate.
