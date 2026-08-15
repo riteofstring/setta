@@ -1,4 +1,9 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { FaMinus, FaPlus } from "react-icons/fa6";
 import { IoMapOutline } from "react-icons/io5";
 import {
@@ -37,6 +42,24 @@ import { WorkspaceToolbarGroup } from "./WorkspaceToolbarGroup";
 // it the only divider the package's own groups had — the reference renders no divider between the
 // viewport and minimap groups.
 
+function runZoomOnPointerDown(event: ReactPointerEvent<HTMLButtonElement>, zoom: () => void): void {
+  if (event.button !== 0 || event.isPrimary === false) {
+    return;
+  }
+  zoom();
+}
+
+function runZoomOnNonPointerClick(
+  event: ReactMouseEvent<HTMLButtonElement>,
+  zoom: () => void,
+): void {
+  // Pointer activation already ran on pointer-down. Native keyboard activation and assistive
+  // technology dispatch a click with detail 0, so they retain the button's standard semantics.
+  if (event.detail === 0) {
+    zoom();
+  }
+}
+
 function ViewportControls(props: {
   fitViewOnInit: boolean;
   maxZoomReached: boolean;
@@ -46,7 +69,8 @@ function ViewportControls(props: {
   return (
     <>
       <button
-        onClick={() => zoomIn()}
+        onPointerDown={(event) => runZoomOnPointerDown(event, zoomIn)}
+        onClick={(event) => runZoomOnNonPointerClick(event, zoomIn)}
         className={`react-flow__controls-zoomin ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
         aria-label="zoom in"
         disabled={props.maxZoomReached}
@@ -57,7 +81,8 @@ function ViewportControls(props: {
         <FaPlus {...DECORATIVE_ICON_PROPS} size={15} />
       </button>
       <button
-        onClick={() => zoomOut()}
+        onPointerDown={(event) => runZoomOnPointerDown(event, zoomOut)}
+        onClick={(event) => runZoomOnNonPointerClick(event, zoomOut)}
         className={`react-flow__controls-zoomout ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
         aria-label="zoom out"
         disabled={props.minZoomReached}

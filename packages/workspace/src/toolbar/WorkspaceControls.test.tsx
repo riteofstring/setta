@@ -166,23 +166,52 @@ describe("WorkspaceControls", () => {
     expect(getButton("zoom out").disabled).toBe(true);
   });
 
-  it("zoom in scales the viewport by 1.2", async () => {
+  it("zooms on primary pointer-down without repeating on the following click", async () => {
     const scaleBy = vi.fn();
     const transitionObject = { id: "transition" };
+    const d3Selection = {
+      transition: () => ({ duration: () => transitionObject }),
+    } as unknown as NonNullable<typeof initialCanvasState.d3Selection>;
     await act(async () => {
       useReactFlow.setState({
-        d3Selection: {
-          transition: () => ({ duration: () => transitionObject }),
-        } as unknown as NonNullable<typeof initialCanvasState.d3Selection>,
+        d3Selection,
         d3Zoom: { scaleBy } as unknown as NonNullable<typeof initialCanvasState.d3Zoom>,
       });
     });
 
     await act(async () => {
-      getButton("zoom in").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      getButton("zoom in").dispatchEvent(
+        new MouseEvent("pointerdown", { bubbles: true, button: 0 }),
+      );
     });
 
     expect(scaleBy).toHaveBeenCalledWith(transitionObject, 1.2);
+
+    await act(async () => {
+      getButton("zoom in").dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+    });
+
+    expect(scaleBy).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps non-pointer click activation for keyboard and assistive technology", async () => {
+    const scaleBy = vi.fn();
+    const transitionObject = { id: "transition" };
+    const d3Selection = {
+      transition: () => ({ duration: () => transitionObject }),
+    } as unknown as NonNullable<typeof initialCanvasState.d3Selection>;
+    await act(async () => {
+      useReactFlow.setState({
+        d3Selection,
+        d3Zoom: { scaleBy } as unknown as NonNullable<typeof initialCanvasState.d3Zoom>,
+      });
+    });
+
+    await act(async () => {
+      getButton("zoom out").dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 0 }));
+    });
+
+    expect(scaleBy).toHaveBeenCalledWith(transitionObject, 1 / 1.2);
   });
 
   it("toggles snap to grid on the interaction options", async () => {
