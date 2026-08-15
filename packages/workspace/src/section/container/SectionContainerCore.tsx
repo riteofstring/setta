@@ -59,7 +59,7 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
       event.stopPropagation();
       openWorkspaceSectionMenu(
         sectionId,
-        "section",
+        "context-menu",
         getOwnerKeyboardMenuPoint(event.currentTarget),
         event.currentTarget,
       );
@@ -80,7 +80,7 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
     event.stopPropagation();
     openWorkspaceSectionMenu(
       sectionId,
-      "section",
+      "context-menu",
       { x: event.clientX, y: event.clientY },
       event.currentTarget,
     );

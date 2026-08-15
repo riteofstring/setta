@@ -3,6 +3,7 @@
 import { act, createRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
@@ -242,6 +243,7 @@ describe("WorkspaceInspector", () => {
     });
     host.remove();
     setWorkspaceDocumentChangeCallback(null);
+    registerWorkspaceCommands([]);
     useWorkspaceCapabilities.getState().reset();
     useItemSelectionMode.getState().reset();
     useSectionRefs.getState().reset();
@@ -783,6 +785,51 @@ describe("WorkspaceInspector", () => {
       host.querySelector('[aria-label="Workspace Inspector selection"]'),
     );
     expect(onChange).toHaveBeenCalledOnce();
+  });
+
+  it("offers one selected section the structural commands its menus offer", async () => {
+    await renderInspector(
+      createDocument(["group"], {
+        group: makeSection("group", { kind: "group", children: ["child"] }),
+        child: makeSection("child"),
+      }),
+    );
+
+    expect(getButton(host, "Ungroup").disabled).toBe(false);
+    expect(getButton(host, "Delete").disabled).toBe(false);
+    expect(getButton(host, "Group").disabled).toBe(true);
+    expect(host.textContent).toContain("Grouping needs at least two selected sections.");
+
+    await act(async () => {
+      getButton(host, "Delete").click();
+    });
+
+    expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
+    expect(host.textContent).toContain("Select A Section to Edit");
+  });
+
+  it("offers a host command registered for the Inspector surface", async () => {
+    const run = vi.fn();
+    registerWorkspaceCommands([
+      {
+        id: "host-inspect",
+        scope: "section",
+        surfaces: ["inspector"],
+        label: "Report section",
+        getStatusMessage: () => "Host command reported the section.",
+        run,
+      },
+    ]);
+    await renderInspector(createDocument(["alpha"]));
+
+    const hostAction = getButton(host, "Report section");
+    await act(async () => {
+      hostAction.click();
+    });
+
+    expect(run).toHaveBeenCalledOnce();
+    expect(run.mock.calls[0]?.[0]?.section.id).toBe("alpha");
+    expect(getInspectorStatus(host)).toBe("Host command reported the section.");
   });
 
   it("explains why a mixed group and leaf selection cannot be ungrouped", async () => {

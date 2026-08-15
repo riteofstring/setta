@@ -1,17 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getWorkspaceCreationCommands,
-  getWorkspaceMenuActions,
   registerWorkspaceCreationCommands,
-  registerWorkspaceMenuActions,
 } from "./workspaceMenuRegistry";
 
 afterEach(() => {
   registerWorkspaceCreationCommands([]);
-  registerWorkspaceMenuActions([]);
 });
 
-describe("workspace menu registries", () => {
+describe("workspace creation command registry", () => {
   it("normalizes and replaces creation commands without retaining the caller array", () => {
     const createSection = vi.fn();
     const commands = [
@@ -35,23 +32,7 @@ describe("workspace menu registries", () => {
     expect(getWorkspaceCreationCommands()).toEqual([]);
   });
 
-  it("partitions typed actions by scope and replaces the prior registration", () => {
-    const paneAction = vi.fn();
-    const itemAction = vi.fn();
-    registerWorkspaceMenuActions([
-      { id: "pane-report", scope: "pane", label: "Pane report", onSelect: paneAction },
-      { id: "item-report", scope: "item", label: "Item report", onSelect: itemAction },
-    ]);
-
-    expect(getWorkspaceMenuActions("pane").map((action) => action.id)).toEqual(["pane-report"]);
-    expect(getWorkspaceMenuActions("item").map((action) => action.id)).toEqual(["item-report"]);
-    expect(getWorkspaceMenuActions("section")).toEqual([]);
-
-    registerWorkspaceMenuActions([]);
-    expect(getWorkspaceMenuActions("pane")).toEqual([]);
-  });
-
-  it("rejects malformed and duplicate extension definitions specifically", () => {
+  it("rejects malformed and duplicate creation definitions specifically", () => {
     expect(() =>
       registerWorkspaceCreationCommands([
         { id: "bad id", label: "Bad", group: "Host", createSection: vi.fn() },
@@ -64,8 +45,8 @@ describe("workspace menu registries", () => {
       ]),
     ).toThrow(/duplicate id same/);
     expect(() =>
-      registerWorkspaceMenuActions([
-        { id: "empty-label", scope: "section", label: "  ", onSelect: vi.fn() },
+      registerWorkspaceCreationCommands([
+        { id: "empty-label", label: "  ", group: "Host", createSection: vi.fn() },
       ]),
     ).toThrow(/non-empty label/);
   });

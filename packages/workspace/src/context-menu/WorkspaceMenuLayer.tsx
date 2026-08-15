@@ -1,259 +1,64 @@
 import { useEffect } from "react";
 import { useReactFlow } from "../canvas/store";
-import { useItemDndState } from "../dnd/itemDndState";
 import {
-  useWorkspaceCapabilities,
-  type WorkspaceCapabilitiesState,
-} from "../document/capabilities";
-import { getSectionOrThrow, isGroupSection } from "../document/documentSelectors";
-import {
-  deleteSections,
-  groupSections,
-  setSectionsPositionLocked,
-} from "../document/sectionMutations";
-import { useWorkspaceDocument, type WorkspaceDocumentState } from "../document/stores";
-import type { WorkspaceSection } from "../document/types";
-import { canUngroupWorkspaceSections } from "../document/ungroupSections";
-import { deleteWorkspaceItems } from "../items/itemAuthoringActions";
-import { setGroupOverflowMode } from "../section/groupOverflowAction";
-import { ungroupSections } from "../section/ungroupAction";
-import { canGroupWorkspaceSections } from "../shell/workspaceInspectorModel";
+  useWorkspaceCommandEntries,
+  type WorkspaceCommandEntry,
+} from "../commands/workspaceCommandResolution";
+import type { WorkspaceCommandSurface } from "../commands/workspaceCommandTypes";
+import { useWorkspaceCapabilities } from "../document/capabilities";
 import { WorkspaceActionMenu, type WorkspaceMenuEntry } from "./WorkspaceMenuCore";
 import { WorkspacePaneMenu } from "./WorkspacePaneMenu";
-import { getWorkspaceCreationCommands, getWorkspaceMenuActions } from "./workspaceMenuRegistry";
+import { getWorkspaceCreationCommands } from "./workspaceMenuRegistry";
 import {
   closeWorkspaceMenu,
   useWorkspaceMenuState,
   type WorkspaceMenuInvocation,
 } from "./workspaceMenuState";
-import type {
-  WorkspaceMenuActionContext,
-  WorkspaceMenuActionDefinition,
-} from "./workspaceMenuTypes";
 
-function invokeHostAction(
-  action: WorkspaceMenuActionDefinition,
-  context: WorkspaceMenuActionContext,
-): void {
-  if (action.scope !== context.scope) {
-    throw new Error(
-      `Workspace menu action ${action.id} cannot receive ${context.scope} context for ${action.scope}.`,
-    );
-  }
-  switch (action.scope) {
-    case "pane":
-      action.onSelect(context as Extract<WorkspaceMenuActionContext, { scope: "pane" }>);
-      return;
-    case "section":
-      action.onSelect(context as Extract<WorkspaceMenuActionContext, { scope: "section" }>);
-      return;
-    case "item":
-      action.onSelect(context as Extract<WorkspaceMenuActionContext, { scope: "item" }>);
-      return;
-    case "outline":
-      action.onSelect(context as Extract<WorkspaceMenuActionContext, { scope: "outline" }>);
-  }
-}
-
-function isHostActionDisabled(
-  action: WorkspaceMenuActionDefinition,
-  context: WorkspaceMenuActionContext,
-): boolean {
-  if (!action.isDisabled) {
-    return false;
-  }
-  if (action.scope !== context.scope) {
-    throw new Error(
-      `Workspace menu action ${action.id} cannot test ${context.scope} context for ${action.scope}.`,
-    );
-  }
-  switch (action.scope) {
-    case "pane":
-      return action.isDisabled(context as Extract<WorkspaceMenuActionContext, { scope: "pane" }>);
-    case "section":
-      return action.isDisabled(
-        context as Extract<WorkspaceMenuActionContext, { scope: "section" }>,
-      );
-    case "item":
-      return action.isDisabled(context as Extract<WorkspaceMenuActionContext, { scope: "item" }>);
-    case "outline":
-      return action.isDisabled(
-        context as Extract<WorkspaceMenuActionContext, { scope: "outline" }>,
-      );
-  }
-}
-
-function getHostActionEntries(
-  context: WorkspaceMenuActionContext,
-): ReadonlyArray<WorkspaceMenuEntry> {
-  return getWorkspaceMenuActions(context.scope).map((action) => ({
-    id: `host-${action.scope}-${action.id}`,
-    label: action.label,
-    icon: action.icon,
-    disabled: isHostActionDisabled(action, context),
-    onSelect: () => {
-      closeWorkspaceMenu();
-      invokeHostAction(action, context);
-    },
-  }));
-}
-
-type SectionMenuInvocation = Extract<WorkspaceMenuInvocation, { kind: "section" }>;
-
-type SectionMenuResolution = {
-  capabilities: WorkspaceCapabilitiesState;
-  documentState: WorkspaceDocumentState;
-  invocation: SectionMenuInvocation;
-  section: WorkspaceSection;
-  sections: ReadonlyArray<WorkspaceSection>;
-};
-
-function getOverflowMenuEntry({
-  capabilities,
-  invocation,
-  section,
-}: SectionMenuResolution): WorkspaceMenuEntry | null {
-  if (!isGroupSection(section)) {
-    return null;
-  }
-  if (invocation.surface === "context-menu" && invocation.sectionIds.length !== 1) {
-    return null;
-  }
+// Menus render whatever the command registry offers for their surface: package commands first,
+// host commands in their own group, both invoked through the same execution path.
+function toMenuEntry(entry: WorkspaceCommandEntry): WorkspaceMenuEntry {
   return {
-    id: "workspace-group-overflow",
-    label: "Overflow Mode",
-    checked: section.overflowMode,
-    disabled: !capabilities.canEditLayout || section.positionAndSizeLocked,
+    id: entry.id,
+    label: entry.label,
+    ...(entry.icon ? { icon: entry.icon } : {}),
+    ...(entry.checked === null ? {} : { checked: entry.checked }),
+    ...(entry.disabledReason === null ? {} : { description: entry.disabledReason }),
+    disabled: entry.disabled,
     onSelect: () => {
       closeWorkspaceMenu();
-      setGroupOverflowMode(section.id, !section.overflowMode);
+      entry.run();
     },
   };
 }
 
-function getUngroupMenuEntry({
-  capabilities,
-  documentState,
-  invocation,
-  section,
-  sections,
-}: SectionMenuResolution): WorkspaceMenuEntry | null {
-  const applicable =
-    invocation.surface === "header" ? isGroupSection(section) : sections.some(isGroupSection);
-  if (!applicable) {
-    return null;
-  }
-  // Frozen main's header action belongs to the owning group even when that group is part of a
-  // larger selection. Context-menu actions continue to operate on the captured selection.
-  const targetSections = invocation.surface === "header" ? [section] : sections;
-  const targetSectionIds = invocation.surface === "header" ? [section.id] : invocation.sectionIds;
-  return {
-    id: "workspace-ungroup",
-    label: "Ungroup",
-    disabled:
-      !capabilities.canEditStructure || !canUngroupWorkspaceSections(documentState, targetSections),
-    onSelect: () => {
-      closeWorkspaceMenu();
-      ungroupSections(targetSectionIds);
-    },
-  };
-}
-
-function isWorkspaceMenuEntry(entry: WorkspaceMenuEntry | null): entry is WorkspaceMenuEntry {
-  return entry !== null;
-}
-
-function getGroupMenuEntries(resolution: SectionMenuResolution): Array<WorkspaceMenuEntry> {
-  return [getOverflowMenuEntry(resolution), getUngroupMenuEntry(resolution)].filter(
-    isWorkspaceMenuEntry,
-  );
-}
-
-function getContextMenuEntries(
-  resolution: SectionMenuResolution,
-  groupEntries: ReadonlyArray<WorkspaceMenuEntry>,
-): ReadonlyArray<WorkspaceMenuEntry> {
-  const { capabilities, documentState, invocation, sections } = resolution;
-  const allLocked = sections.every((section) => section.positionAndSizeLocked);
-  const canGroup = canGroupWorkspaceSections(documentState, sections);
-  return [
-    {
-      id: "workspace-group",
-      label: "Group",
-      disabled: !capabilities.canEditStructure || !canGroup,
-      onSelect: () => {
-        closeWorkspaceMenu();
-        useReactFlow.setState({ nodesSelectionDims: null });
-        groupSections(invocation.sectionIds, `group-${crypto.randomUUID()}`);
-      },
-    },
-    ...groupEntries,
-    {
-      id: "workspace-delete",
-      label: "Delete",
-      disabled: !capabilities.canEditStructure,
-      onSelect: () => {
-        closeWorkspaceMenu();
-        useReactFlow.setState({ nodesSelectionDims: null });
-        deleteSections(invocation.sectionIds);
-      },
-    },
-    {
-      id: "workspace-lock",
-      label: allLocked ? "Unlock Position & Size" : "Lock Position & Size",
-      disabled: !capabilities.canEditLayout,
-      onSelect: () => {
-        closeWorkspaceMenu();
-        setSectionsPositionLocked(invocation.sectionIds, !allLocked);
-      },
-    },
-  ];
-}
-
-function getPackageMenuEntries(
-  invocation: SectionMenuInvocation,
-  groupEntries: ReadonlyArray<WorkspaceMenuEntry>,
-  contextEntries: ReadonlyArray<WorkspaceMenuEntry>,
-): ReadonlyArray<WorkspaceMenuEntry> {
-  return invocation.surface === "header" ? groupEntries : contextEntries;
-}
-
-function getSectionMenuGroups(
-  packageEntries: ReadonlyArray<WorkspaceMenuEntry>,
-  hostEntries: ReadonlyArray<WorkspaceMenuEntry>,
+function getMenuGroups(
+  entries: ReadonlyArray<WorkspaceCommandEntry>,
 ): Array<{ entries: ReadonlyArray<WorkspaceMenuEntry> }> {
   const groups: Array<{ entries: ReadonlyArray<WorkspaceMenuEntry> }> = [];
-  if (packageEntries.length > 0) {
-    groups.push({ entries: packageEntries });
-  }
-  if (hostEntries.length > 0) {
-    groups.push({ entries: hostEntries });
+  for (const origin of ["package", "host"] as const) {
+    const originEntries = entries.filter((entry) => entry.origin === origin).map(toMenuEntry);
+    if (originEntries.length > 0) {
+      groups.push({ entries: originEntries });
+    }
   }
   return groups;
 }
 
-function getSectionMenuAriaLabel(context: SectionMenuInvocation["context"]): string {
-  return context.scope === "outline"
-    ? "Workspace Outline section actions"
-    : "Workspace section actions";
+type SectionMenuInvocation = Extract<WorkspaceMenuInvocation, { kind: "section" }>;
+
+function getSectionMenuAriaLabel(surface: SectionMenuInvocation["surface"]): string {
+  return surface === "outline" ? "Workspace Outline section actions" : "Workspace section actions";
 }
 
 function SectionActionMenu({ invocation }: { invocation: SectionMenuInvocation }) {
-  const documentState = useWorkspaceDocument((state) => state);
-  const capabilities = useWorkspaceCapabilities((state) => state);
-  const sections = invocation.sectionIds.map((id) => getSectionOrThrow(documentState, id));
-  const section = getSectionOrThrow(documentState, invocation.context.section.id);
-  const resolution = { capabilities, documentState, invocation, section, sections };
-  const groupEntries = getGroupMenuEntries(resolution);
-  const contextEntries = getContextMenuEntries(resolution, groupEntries);
-  const packageEntries = getPackageMenuEntries(invocation, groupEntries, contextEntries);
-  const hostEntries = getHostActionEntries(invocation.context);
+  const entries = useWorkspaceCommandEntries(invocation.surface, [invocation.context]);
   return (
     <WorkspaceActionMenu
-      ariaLabel={getSectionMenuAriaLabel(invocation.context)}
+      ariaLabel={getSectionMenuAriaLabel(invocation.surface)}
       clientPoint={invocation.clientPoint}
       direction={invocation.direction}
-      groups={getSectionMenuGroups(packageEntries, hostEntries)}
+      groups={getMenuGroups(entries)}
       initialFocus={invocation.initialFocus}
       invocationSequence={invocation.sequence}
       kind="section"
@@ -263,38 +68,38 @@ function SectionActionMenu({ invocation }: { invocation: SectionMenuInvocation }
 
 type ItemMenuInvocation = Extract<WorkspaceMenuInvocation, { kind: "item" }>;
 
+const ITEM_MENU_SURFACE: WorkspaceCommandSurface = "context-menu";
+
 function ItemActionMenu({ invocation }: { invocation: ItemMenuInvocation }) {
-  const documentState = useWorkspaceDocument((state) => state);
-  const canEditStructure = useWorkspaceCapabilities((state) => state.canEditStructure);
-  const itemDragActive = useItemDndState((state) => state.activeId !== null);
-  const sectionId = invocation.context.section.id;
-  const itemId = invocation.context.item.id;
-  const section = documentState.sections[sectionId];
-  const itemStillExists = Object.hasOwn(section?.itemTree?.items ?? {}, itemId);
-  const packageEntries: ReadonlyArray<WorkspaceMenuEntry> = [
-    {
-      id: "workspace-delete-item",
-      label: "Delete parameter",
-      disabled:
-        !canEditStructure ||
-        itemDragActive ||
-        section?.positionAndSizeLocked !== false ||
-        !itemStillExists,
-      onSelect: () => {
-        closeWorkspaceMenu();
-        deleteWorkspaceItems(sectionId, [itemId]);
-      },
-    },
-  ];
-  const hostEntries = getHostActionEntries(invocation.context);
+  const entries = useWorkspaceCommandEntries(ITEM_MENU_SURFACE, [invocation.context]);
   return (
     <WorkspaceActionMenu
       ariaLabel="Workspace item actions"
       clientPoint={invocation.clientPoint}
       direction={invocation.direction}
-      groups={getSectionMenuGroups(packageEntries, hostEntries)}
+      groups={getMenuGroups(entries)}
       invocationSequence={invocation.sequence}
       kind="item"
+    />
+  );
+}
+
+type PaneMenuInvocation = Extract<WorkspaceMenuInvocation, { kind: "pane" }>;
+
+function PaneActionMenu({
+  canEditStructure,
+  invocation,
+}: {
+  canEditStructure: boolean;
+  invocation: PaneMenuInvocation;
+}) {
+  const entries = useWorkspaceCommandEntries("context-menu", [invocation.context]);
+  return (
+    <WorkspacePaneMenu
+      actions={entries.map(toMenuEntry)}
+      canEditStructure={canEditStructure}
+      commands={getWorkspaceCreationCommands()}
+      invocation={invocation}
     />
   );
 }
@@ -321,10 +126,8 @@ export function WorkspaceMenuLayer() {
   }
   if (invocation.kind === "pane") {
     return (
-      <WorkspacePaneMenu
-        actions={getHostActionEntries(invocation.context)}
+      <PaneActionMenu
         canEditStructure={canEditStructure}
-        commands={getWorkspaceCreationCommands()}
         invocation={invocation}
         key={invocation.sequence}
       />

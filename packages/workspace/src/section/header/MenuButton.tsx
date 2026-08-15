@@ -1,13 +1,15 @@
 import { useRef } from "react";
+import { createLiveSectionCommandContext } from "../../commands/workspaceCommandContexts";
+import { hasApplicableWorkspaceCommands } from "../../commands/workspaceCommandResolution";
 import { openWorkspaceSectionHeaderMenu } from "../../context-menu/workspaceMenuInvocation";
 import { getOwnerKeyboardMenuPoint } from "../../context-menu/workspaceMenuOwnership";
-import { getWorkspaceMenuActions } from "../../context-menu/workspaceMenuRegistry";
 import {
   closeWorkspaceMenu,
   useWorkspaceMenuState,
   type WorkspaceMenuInitialFocus,
 } from "../../context-menu/workspaceMenuState";
-import { GROUP_SECTION_KIND } from "../../document/documentSelectors";
+import { isGroupSection } from "../../document/documentSelectors";
+import { useWorkspaceDocument } from "../../document/stores";
 import { HeaderIcon } from "./HeaderIcon";
 
 // Frozen main makes the group icon a menu trigger for overflow and ungroup. The package additionally
@@ -33,7 +35,9 @@ function ActionMenuButton({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuInvocation = useWorkspaceMenuState((state) => state.invocation);
   const isOpen = menuInvocation?.owner === triggerRef.current;
-  const label = sectionKind === GROUP_SECTION_KIND ? "Open group actions" : "Open section actions";
+  const label = isGroupSection({ kind: sectionKind })
+    ? "Open group actions"
+    : "Open section actions";
 
   function openMenu(initialFocus: WorkspaceMenuInitialFocus): void {
     const trigger = triggerRef.current;
@@ -84,8 +88,15 @@ export function MenuButton({ sectionId, sectionKind, hasSectionStyleTheme }: Men
     ? "nodrag flex select-none items-center justify-center rounded-full p-0.5 me-1 aspect-square font-semibold leading-none text-[color:var(--setta-section-style-muted-text)] outline-none motion-safe:transition-colors motion-safe:duration-150"
     : "nodrag flex select-none items-center justify-center rounded-full p-0.5 me-1 aspect-square font-semibold leading-none text-setta-700 outline-none motion-safe:transition-colors motion-safe:duration-150 dark:text-setta-200";
 
-  const hasActions =
-    sectionKind === GROUP_SECTION_KIND || getWorkspaceMenuActions("section").length > 0;
+  // The trigger asks the registry the same question the open menu answers: does this section have
+  // any applicable header command? Package applicability reads the live section, so the check
+  // costs one selector run per document change instead of a snapshot per paint.
+  const hasActions = useWorkspaceDocument((state) => {
+    const section = state.sections[sectionId];
+    return section
+      ? hasApplicableWorkspaceCommands("header", createLiveSectionCommandContext(section))
+      : false;
+  });
   if (hasActions) {
     return (
       <ActionMenuButton

@@ -11,20 +11,21 @@ export type {
 export type { PanOnScrollMode, SelectionMode } from "./canvas/types";
 export { focusWorkspaceSection } from "./canvas/viewportHelpers";
 export { WorkspaceCanvas } from "./canvas/WorkspaceCanvas";
-export {
-  registerWorkspaceCreationCommands,
-  registerWorkspaceMenuActions,
-} from "./context-menu/workspaceMenuRegistry";
+export { registerWorkspaceCommands } from "./commands/workspaceCommandRegistry";
+export type {
+  WorkspaceCommandContext,
+  WorkspaceCommandDefinition,
+  WorkspaceCommandIconProps,
+  WorkspaceCommandScope,
+  WorkspaceCommandSurface,
+  WorkspaceItemCommandContext,
+  WorkspacePaneCommandContext,
+  WorkspaceSectionCommandContext,
+} from "./commands/workspaceCommandTypes";
+export { registerWorkspaceCreationCommands } from "./context-menu/workspaceMenuRegistry";
 export type {
   WorkspaceCreationCommand,
   WorkspaceCreationContext,
-  WorkspaceItemMenuActionContext,
-  WorkspaceMenuActionContext,
-  WorkspaceMenuActionDefinition,
-  WorkspaceMenuIconProps,
-  WorkspaceOutlineMenuActionContext,
-  WorkspacePaneMenuActionContext,
-  WorkspaceSectionMenuActionContext,
 } from "./context-menu/workspaceMenuTypes";
 export { ColorValueControl } from "./controls/color/ColorValueControl";
 export type { ColorValueChoice, ColorValueControlProps } from "./controls/color/ColorValueControl";

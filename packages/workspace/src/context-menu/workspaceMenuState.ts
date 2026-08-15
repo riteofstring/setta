@@ -1,13 +1,12 @@
 import { createWithEqualityFn } from "zustand/traditional";
+import type {
+  WorkspaceItemCommandContext,
+  WorkspacePaneCommandContext,
+  WorkspaceSectionCommandContext,
+} from "../commands/workspaceCommandTypes";
 import { withResetFn } from "../state/storeUtils";
 import type { WorkspaceTextDirection } from "../styles/textDirection";
 import type { WorkspaceMenuClientPoint } from "./workspaceMenuGeometry";
-import type {
-  WorkspaceItemMenuActionContext,
-  WorkspaceOutlineMenuActionContext,
-  WorkspacePaneMenuActionContext,
-  WorkspaceSectionMenuActionContext,
-} from "./workspaceMenuTypes";
 
 type WorkspaceMenuInvocationBase = {
   clientPoint: WorkspaceMenuClientPoint;
@@ -18,23 +17,24 @@ type WorkspaceMenuInvocationBase = {
 
 export type WorkspaceMenuInitialFocus = "first" | "last";
 
-export type WorkspaceSectionMenuSurface = "context-menu" | "header";
+// The section menu opens on three command surfaces; the invocation records which one so the
+// command registry offers exactly that surface's set.
+export type WorkspaceSectionMenuSurface = "context-menu" | "header" | "outline";
 
 export type WorkspaceMenuInvocation =
   | (WorkspaceMenuInvocationBase & {
       kind: "pane";
-      context: WorkspacePaneMenuActionContext;
+      context: WorkspacePaneCommandContext;
     })
   | (WorkspaceMenuInvocationBase & {
       kind: "section";
-      context: WorkspaceSectionMenuActionContext | WorkspaceOutlineMenuActionContext;
+      context: WorkspaceSectionCommandContext;
       initialFocus: WorkspaceMenuInitialFocus;
-      sectionIds: ReadonlyArray<string>;
       surface: WorkspaceSectionMenuSurface;
     })
   | (WorkspaceMenuInvocationBase & {
       kind: "item";
-      context: WorkspaceItemMenuActionContext;
+      context: WorkspaceItemCommandContext;
     });
 
 type WorkspaceMenuInvocationInput = WorkspaceMenuInvocation extends infer Invocation

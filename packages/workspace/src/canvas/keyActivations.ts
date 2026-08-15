@@ -1,12 +1,12 @@
 import { useEffect } from "react";
+import { createSectionCommandContext } from "../commands/workspaceCommandContexts";
+import { runWorkspaceCommandById } from "../commands/workspaceCommandResolution";
 import { activateDndMovingFreeMode, activateDndSortingMode, deactivateDnd } from "../dnd/dndState";
 import { getActiveSectionIds, setActiveSectionIds } from "../document/activeSections";
-import { useWorkspaceCapabilities } from "../document/capabilities";
 import { getSectionHasSelectedItems } from "../document/documentSelectors";
 import { unselectAllItems } from "../document/itemSelection";
 import { activateItemSelect, deactivateItemSelect } from "../document/itemSelectionMode";
 import { useWorkspaceDocument } from "../document/stores";
-import { canUngroupWorkspaceSections } from "../document/ungroupSections";
 import { getSectionItemVisibility } from "../items/itemListRegistry";
 import {
   indentSelectedItems,
@@ -14,7 +14,6 @@ import {
   moveSelectedItemsUp,
   unindentSelectedItems,
 } from "../items/selectedItemMoves";
-import { ungroupSections } from "../section/ungroupAction";
 import {
   closeFrozenWorkspaceTooltip,
   copyWorkspaceTooltipPage,
@@ -455,6 +454,8 @@ function handleEscapeShortcut(event: KeyboardEvent, tracker: HoldChordTracker, m
   runEscapeAction(event);
 }
 
+const UNGROUP_COMMAND_ID = "workspace.ungroup-sections";
+
 function hasExactUngroupModifiers(event: KeyboardEvent, macOS: boolean): boolean {
   if (!event.shiftKey || event.altKey) {
     return false;
@@ -462,8 +463,9 @@ function hasExactUngroupModifiers(event: KeyboardEvent, macOS: boolean): boolean
   return macOS ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
 }
 
-// Main ships Shift+Mod+G for ungroup. The command owns the browser chord only while the complete
-// active selection can run it; unavailable and mixed selections retain their native behavior.
+// Main ships Shift+Mod+G for ungroup. The chord runs the same command every menu, the Inspector,
+// and the header offer, and it owns the browser chord only while that command accepts the active
+// selection; unavailable and mixed selections retain their native behavior.
 function handleUngroupShortcut(event: KeyboardEvent, tracker: HoldChordTracker, macOS: boolean) {
   if (
     event.code !== "KeyG" ||
@@ -473,21 +475,22 @@ function handleUngroupShortcut(event: KeyboardEvent, tracker: HoldChordTracker, 
   ) {
     return;
   }
-  const groupIds = getActiveSectionIds();
   const state = useWorkspaceDocument.getState();
-  const sections = groupIds.flatMap((sectionId) => {
+  const sections = getActiveSectionIds().flatMap((sectionId) => {
     const section = state.sections[sectionId];
     return section ? [section] : [];
   });
-  if (
-    sections.length !== groupIds.length ||
-    !useWorkspaceCapabilities.getState().canEditStructure ||
-    !canUngroupWorkspaceSections(state, sections)
-  ) {
+  const primarySection = sections[0];
+  if (!primarySection) {
     return;
   }
-  event.preventDefault();
-  ungroupSections(groupIds);
+  const result = runWorkspaceCommandById(
+    UNGROUP_COMMAND_ID,
+    createSectionCommandContext(primarySection, sections),
+  );
+  if (result.ran) {
+    event.preventDefault();
+  }
 }
 
 export function useCanvasKeyActivations() {

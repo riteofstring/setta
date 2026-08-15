@@ -13,6 +13,7 @@ import {
 } from "./paneMenuKeyboard";
 import {
   WorkspaceMenuCore,
+  WorkspaceMenuEntryDescriptions,
   WorkspaceMenuGroup,
   WorkspaceMenuItem,
   WorkspaceMenuLabel,
@@ -243,6 +244,7 @@ export function WorkspacePaneMenu({
           </WorkspaceMenuGroup>
         </>
       ) : null}
+      <WorkspaceMenuEntryDescriptions entries={actions} />
     </WorkspaceMenuCore>
   );
 }

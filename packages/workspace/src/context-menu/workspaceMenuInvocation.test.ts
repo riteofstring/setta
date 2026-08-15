@@ -2,6 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
+import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
@@ -12,10 +13,7 @@ import {
   openWorkspaceSectionHeaderMenu,
   openWorkspaceSectionMenu,
 } from "./workspaceMenuInvocation";
-import {
-  registerWorkspaceCreationCommands,
-  registerWorkspaceMenuActions,
-} from "./workspaceMenuRegistry";
+import { registerWorkspaceCreationCommands } from "./workspaceMenuRegistry";
 import { useWorkspaceMenuState } from "./workspaceMenuState";
 
 function createSection(id: string, item = false): WorkspaceSection {
@@ -52,7 +50,7 @@ function createSection(id: string, item = false): WorkspaceSection {
 
 function resetState(): void {
   registerWorkspaceCreationCommands([]);
-  registerWorkspaceMenuActions([]);
+  registerWorkspaceCommands([]);
   useWorkspaceMenuState.getState().reset();
   useWorkspaceDocument.getState().reset();
   useNodeInternals.getState().reset();
@@ -117,16 +115,15 @@ describe("workspace menu invocation", () => {
   });
 
   it("selects an unselected section and snapshots the resulting selection", () => {
-    openWorkspaceSectionMenu("bravo", "section", { x: 20, y: 30 }, owner);
+    openWorkspaceSectionMenu("bravo", "context-menu", { x: 20, y: 30 }, owner);
 
     expect(useActiveSections.getState().activeIds).toEqual(["bravo"]);
     const invocation = useWorkspaceMenuState.getState().invocation;
     expect(invocation).toMatchObject({
       kind: "section",
       initialFocus: "first",
-      sectionIds: ["bravo"],
       surface: "context-menu",
-      context: { scope: "section", section: { id: "bravo" } },
+      context: { scope: "section", section: { id: "bravo" }, selectedSections: [{ id: "bravo" }] },
     });
     expect(Object.isFrozen(invocation?.context)).toBe(true);
   });
@@ -138,8 +135,8 @@ describe("workspace menu invocation", () => {
     const invocation = useWorkspaceMenuState.getState().invocation;
     expect(invocation).toMatchObject({
       kind: "section",
-      sectionIds: ["alpha", "bravo"],
-      context: { scope: "outline", selectedSections: [{ id: "alpha" }, { id: "bravo" }] },
+      surface: "outline",
+      context: { scope: "section", selectedSections: [{ id: "alpha" }, { id: "bravo" }] },
     });
   });
 
@@ -149,9 +146,8 @@ describe("workspace menu invocation", () => {
     expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
       kind: "section",
       initialFocus: "last",
-      sectionIds: ["alpha"],
       surface: "header",
-      context: { scope: "section", section: { id: "alpha" } },
+      context: { scope: "section", section: { id: "alpha" }, selectedSections: [{ id: "alpha" }] },
     });
   });
 

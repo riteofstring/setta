@@ -94,7 +94,7 @@ describe("NodesSelection context menu", () => {
     expect(pointerEvent.defaultPrevented).toBe(true);
     expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
       kind: "section",
-      sectionIds: ["alpha", "bravo"],
+      surface: "context-menu",
       context: { scope: "section", selectedSections: [{ id: "alpha" }, { id: "bravo" }] },
     });
 

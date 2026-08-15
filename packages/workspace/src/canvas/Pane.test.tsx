@@ -3,10 +3,8 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  registerWorkspaceCreationCommands,
-  registerWorkspaceMenuActions,
-} from "../context-menu/workspaceMenuRegistry";
+import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
+import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenuRegistry";
 import { useWorkspaceMenuState } from "../context-menu/workspaceMenuState";
 import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import Pane from "./Pane";
@@ -27,7 +25,7 @@ function createRect(left: number, top: number, width: number, height: number): D
 
 function resetState(): void {
   registerWorkspaceCreationCommands([]);
-  registerWorkspaceMenuActions([]);
+  registerWorkspaceCommands([]);
   useWorkspaceMenuState.getState().reset();
   useWorkspaceDocument.getState().reset();
   useNodeInternals.getState().reset();

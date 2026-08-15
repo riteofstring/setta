@@ -4,6 +4,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
+import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
@@ -17,10 +18,7 @@ import {
   openWorkspaceSectionHeaderMenu,
   openWorkspaceSectionMenu,
 } from "./workspaceMenuInvocation";
-import {
-  registerWorkspaceCreationCommands,
-  registerWorkspaceMenuActions,
-} from "./workspaceMenuRegistry";
+import { registerWorkspaceCreationCommands } from "./workspaceMenuRegistry";
 import { useWorkspaceMenuState } from "./workspaceMenuState";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -63,7 +61,7 @@ function getMenuItems(): Array<HTMLElement> {
 
 function resetState(): void {
   registerWorkspaceCreationCommands([]);
-  registerWorkspaceMenuActions([]);
+  registerWorkspaceCommands([]);
   useWorkspaceMenuState.getState().reset();
   useWorkspaceCapabilities.getState().reset();
   useWorkspaceDocument.getState().reset();
@@ -233,8 +231,14 @@ describe("WorkspaceMenuLayer", () => {
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["existing"],
     });
-    registerWorkspaceMenuActions([
-      { id: "host-report", scope: "item", label: "Report item", onSelect: vi.fn() },
+    registerWorkspaceCommands([
+      {
+        id: "host-report",
+        scope: "item",
+        surfaces: ["context-menu"],
+        label: "Report item",
+        run: vi.fn(),
+      },
     ]);
     const onChange = vi.fn();
     setWorkspaceDocumentChangeCallback(onChange);
@@ -279,8 +283,14 @@ describe("WorkspaceMenuLayer", () => {
       activeIds: ["existing"],
     });
     const hostAction = vi.fn();
-    registerWorkspaceMenuActions([
-      { id: "host-report", scope: "item", label: "Report item", onSelect: hostAction },
+    registerWorkspaceCommands([
+      {
+        id: "host-report",
+        scope: "item",
+        surfaces: ["context-menu"],
+        label: "Report item",
+        run: hostAction,
+      },
     ]);
     const onChange = vi.fn();
     setWorkspaceDocumentChangeCallback(onChange);
@@ -306,7 +316,7 @@ describe("WorkspaceMenuLayer", () => {
 
   it("exposes capability-disabled structural actions through menuitem semantics", async () => {
     useWorkspaceCapabilities.setState({ canEditStructure: false, canEditLayout: false });
-    openWorkspaceSectionMenu("existing", "section", { x: 150, y: 100 }, owner);
+    openWorkspaceSectionMenu("existing", "context-menu", { x: 150, y: 100 }, owner);
     await act(async () => {
       root.render(<WorkspaceMenuLayer />);
     });
@@ -330,7 +340,7 @@ describe("WorkspaceMenuLayer", () => {
   it("dismisses a section menu without deleting valid multi-selection geometry", async () => {
     const selectionBounds = { x: 10, y: 20, width: 300, height: 120 };
     useReactFlow.setState({ nodesSelectionDims: selectionBounds });
-    openWorkspaceSectionMenu("existing", "section", { x: 150, y: 100 }, owner);
+    openWorkspaceSectionMenu("existing", "context-menu", { x: 150, y: 100 }, owner);
     await act(async () => {
       root.render(<WorkspaceMenuLayer />);
     });
@@ -362,7 +372,7 @@ describe("WorkspaceMenuLayer", () => {
     });
     const onChange = vi.fn();
     setWorkspaceDocumentChangeCallback(onChange);
-    openWorkspaceSectionMenu("existing", "section", { x: 150, y: 100 }, owner);
+    openWorkspaceSectionMenu("existing", "context-menu", { x: 150, y: 100 }, owner);
     await act(async () => {
       root.render(<WorkspaceMenuLayer />);
     });
@@ -405,19 +415,21 @@ describe("WorkspaceMenuLayer", () => {
       activeIds: ["group"],
     });
     const onHostAction = vi.fn();
-    registerWorkspaceMenuActions([
+    registerWorkspaceCommands([
       {
         id: "host-report",
         scope: "section",
+        surfaces: ["header"],
         label: "Report section",
-        onSelect: onHostAction,
+        run: onHostAction,
       },
       {
         id: "host-disabled",
         scope: "section",
+        surfaces: ["header"],
         label: "Unavailable host action",
-        isDisabled: () => true,
-        onSelect: vi.fn(),
+        getDisabledReason: () => "The host action is unavailable for this section.",
+        run: vi.fn(),
       },
     ]);
     const onChange = vi.fn();
@@ -551,7 +563,7 @@ describe("WorkspaceMenuLayer", () => {
     });
     const onChange = vi.fn();
     setWorkspaceDocumentChangeCallback(onChange);
-    openWorkspaceSectionMenu("group", "section", { x: 150, y: 100 }, owner);
+    openWorkspaceSectionMenu("group", "context-menu", { x: 150, y: 100 }, owner);
     await act(async () => {
       root.render(<WorkspaceMenuLayer />);
     });
@@ -593,7 +605,7 @@ describe("WorkspaceMenuLayer", () => {
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["group", "leaf"],
     });
-    openWorkspaceSectionMenu("group", "section", { x: 150, y: 100 }, owner);
+    openWorkspaceSectionMenu("group", "context-menu", { x: 150, y: 100 }, owner);
     await act(async () => {
       root.render(<WorkspaceMenuLayer />);
     });

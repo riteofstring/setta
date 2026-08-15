@@ -4,7 +4,7 @@ import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../../canvas/store";
-import { registerWorkspaceMenuActions } from "../../context-menu/workspaceMenuRegistry";
+import { registerWorkspaceCommands } from "../../commands/workspaceCommandRegistry";
 import { useWorkspaceMenuState } from "../../context-menu/workspaceMenuState";
 import type { MetaControlKind } from "../../controls/meta/metaControlTypes";
 import { useDndChildren } from "../../dnd/dndChildren";
@@ -188,7 +188,7 @@ describe("SectionContainer", () => {
   let root: Root;
 
   beforeEach(() => {
-    registerWorkspaceMenuActions([]);
+    registerWorkspaceCommands([]);
     registerSectionKinds({ leaf: { renderContent: renderSectionBody } });
     loadTestDocument();
     host = document.createElement("div");
@@ -202,7 +202,7 @@ describe("SectionContainer", () => {
     });
     host.remove();
     setWorkspaceDocumentChangeCallback(null);
-    registerWorkspaceMenuActions([]);
+    registerWorkspaceCommands([]);
     registerSectionKinds({});
     useWorkspaceDocument.getState().reset();
     useNodeInternals.getState().reset();
@@ -295,7 +295,6 @@ describe("SectionContainer", () => {
     expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
       kind: "section",
       context: { scope: "section", section: { id: "leaf" } },
-      sectionIds: ["leaf"],
     });
 
     useWorkspaceMenuState.getState().reset();
@@ -677,7 +676,6 @@ describe("SectionContainer", () => {
     expect(invocation).toMatchObject({
       kind: "section",
       initialFocus: "first",
-      sectionIds: ["group"],
       surface: "header",
       context: { scope: "section", section: { id: "group" } },
     });
@@ -686,12 +684,13 @@ describe("SectionContainer", () => {
   });
 
   it("promotes a registered kind icon only for compatible host header actions", async () => {
-    registerWorkspaceMenuActions([
+    registerWorkspaceCommands([
       {
         id: "host-report",
         scope: "section",
+        surfaces: ["header"],
         label: "Report section",
-        onSelect: vi.fn(),
+        run: vi.fn(),
       },
     ]);
     await mount("leaf");
@@ -723,7 +722,6 @@ describe("SectionContainer", () => {
     expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
       kind: "section",
       initialFocus: "last",
-      sectionIds: ["leaf"],
       surface: "header",
       context: { scope: "section", section: { id: "leaf" } },
     });

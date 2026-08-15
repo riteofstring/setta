@@ -274,7 +274,8 @@ describe("WorkspaceOutline", () => {
     expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
       kind: "section",
       clientPoint: { x: 140, y: 90 },
-      context: { scope: "outline", section: { id: "bravo" } },
+      surface: "outline",
+      context: { scope: "section", section: { id: "bravo" } },
     });
 
     useWorkspaceMenuState.getState().reset();
@@ -284,7 +285,8 @@ describe("WorkspaceOutline", () => {
     expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
       kind: "section",
       clientPoint: { x: 32, y: 50 },
-      context: { scope: "outline", section: { id: "alpha" } },
+      surface: "outline",
+      context: { scope: "section", section: { id: "alpha" } },
     });
   });
 

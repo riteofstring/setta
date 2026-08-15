@@ -1,4 +1,8 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import {
+  createItemCommandContext,
+  createSectionCommandContext,
+} from "../commands/workspaceCommandContexts";
 import { ItemNameEditor } from "../controls/name/ItemNameEditor";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { hasWorkspaceItemPresentation } from "../document/itemPresentation";
@@ -14,7 +18,7 @@ import {
 } from "../document/sectionKindRegistry";
 import type { WorkspaceItem, WorkspaceSection } from "../document/types";
 import { getItemHandlerRegistration } from "../items/itemHandlerRegistry";
-import { WorkspaceInspectorItemActions } from "./WorkspaceInspectorItemActions";
+import { WorkspaceInspectorCommandActions } from "./WorkspaceInspectorCommandActions";
 import { WorkspaceItemConfigurationEditor } from "./WorkspaceItemConfigurationEditor";
 import {
   createWorkspaceInspectorItemControl,
@@ -346,11 +350,14 @@ export function WorkspaceItemInspector(props: WorkspaceItemInspectorProps) {
       ) : (
         <UnsupportedCustomItem item={props.item} section={props.section} />
       )}
-      <WorkspaceInspectorItemActions
-        deleteMode="item"
-        itemId={props.item.id}
+      <WorkspaceInspectorCommandActions
+        contexts={[
+          createSectionCommandContext(props.section, [props.section]),
+          createItemCommandContext(props.section, props.item),
+        ]}
+        focusKey="item-authoring-actions"
         onStatusChange={props.onStatusChange}
-        section={props.section}
+        surface="inspector-parameters"
       />
     </>
   );

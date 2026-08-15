@@ -7,8 +7,8 @@ import {
   loadWorkspaceDocument,
   MetaControl,
   registerSectionKinds,
+  registerWorkspaceCommands,
   registerWorkspaceCreationCommands,
-  registerWorkspaceMenuActions,
   setGroupOverflowMode,
   setWorkspaceColorMode,
   setWorkspaceDocumentChangeCallback,
@@ -431,12 +431,13 @@ registerWorkspaceCreationCommands([
     createSection: createConsumerNote,
   },
 ]);
-registerWorkspaceMenuActions([
+registerWorkspaceCommands([
   {
     id: "consumer-pane-position",
     scope: "pane",
+    surfaces: ["context-menu"],
     label: "Report packed position",
-    onSelect: (context) =>
+    run: (context) =>
       publishConsumerMenuStatus(
         `Packed pane action at ${Math.round(context.workspacePosition.x)}, ${Math.round(context.workspacePosition.y)}.`,
       ),
@@ -444,8 +445,9 @@ registerWorkspaceMenuActions([
   {
     id: "consumer-section-selection",
     scope: "section",
+    surfaces: ["context-menu", "header", "inspector"],
     label: "Report packed selection",
-    onSelect: (context) =>
+    run: (context) =>
       publishConsumerMenuStatus(
         `Packed section action for ${context.section.name}; ${context.selectedSections.length} selected.`,
       ),
@@ -453,14 +455,16 @@ registerWorkspaceMenuActions([
   {
     id: "consumer-item-identity",
     scope: "item",
+    surfaces: ["context-menu"],
     label: "Report packed item",
-    onSelect: (context) => publishConsumerMenuStatus(`Packed item action for ${context.item.id}.`),
+    run: (context) => publishConsumerMenuStatus(`Packed item action for ${context.item.id}.`),
   },
   {
     id: "consumer-outline-selection",
-    scope: "outline",
+    scope: "section",
+    surfaces: ["outline"],
     label: "Report packed Outline row",
-    onSelect: (context) =>
+    run: (context) =>
       publishConsumerMenuStatus(`Packed Outline action for ${context.section.name}.`),
   },
 ]);

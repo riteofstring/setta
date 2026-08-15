@@ -8,20 +8,47 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import type { WorkspaceCommandIconProps } from "../commands/workspaceCommandTypes";
 import type { WorkspaceTextDirection } from "../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { placeWorkspaceMenu, type WorkspaceMenuClientPoint } from "./workspaceMenuGeometry";
 import { closeWorkspaceMenu } from "./workspaceMenuState";
-import type { WorkspaceMenuIconProps } from "./workspaceMenuTypes";
 
 export type WorkspaceMenuEntry = {
   id: string;
   label: string;
-  icon?: ComponentType<WorkspaceMenuIconProps>;
+  icon?: ComponentType<WorkspaceCommandIconProps>;
   checked?: boolean;
+  // Why a disabled entry refuses to run. Menus keep their accepted item text and expose the same
+  // explanation the Inspector prints, through the item's pointer title and accessible description.
+  description?: string;
   disabled: boolean;
   onSelect: () => void;
 };
+
+function getMenuEntryDescriptionId(entryId: string): string {
+  return `setta-workspace-menu-reason-${entryId}`;
+}
+
+export function WorkspaceMenuEntryDescriptions({
+  entries,
+}: {
+  entries: ReadonlyArray<WorkspaceMenuEntry>;
+}) {
+  const describedEntries = entries.filter((entry) => entry.description !== undefined);
+  if (describedEntries.length === 0) {
+    return null;
+  }
+  return (
+    <div className="sr-only">
+      {describedEntries.map((entry) => (
+        <span id={getMenuEntryDescriptionId(entry.id)} key={entry.id}>
+          {entry.description}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 type WorkspaceMenuCoreProps = {
   ariaLabel: string;
@@ -137,6 +164,14 @@ export function WorkspaceMenuItem({
     </>
   );
 
+  const descriptionProps =
+    entry.description === undefined
+      ? {}
+      : {
+          "aria-describedby": getMenuEntryDescriptionId(entry.id),
+          title: entry.description,
+        };
+
   if (entry.checked !== undefined) {
     return (
       <DropdownMenu.CheckboxItem
@@ -146,6 +181,7 @@ export function WorkspaceMenuItem({
         onSelect={entry.onSelect}
         ref={registerElement}
         textValue={entry.label}
+        {...descriptionProps}
       >
         {content}
       </DropdownMenu.CheckboxItem>
@@ -159,6 +195,7 @@ export function WorkspaceMenuItem({
       onSelect={entry.onSelect}
       ref={registerElement}
       textValue={entry.label}
+      {...descriptionProps}
     >
       {content}
     </DropdownMenu.Item>
@@ -239,6 +276,7 @@ export function WorkspaceActionMenu({
           </WorkspaceMenuGroup>
         </div>
       ))}
+      <WorkspaceMenuEntryDescriptions entries={entries} />
     </WorkspaceMenuCore>
   );
 }

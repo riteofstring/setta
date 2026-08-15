@@ -4,7 +4,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
-import { registerWorkspaceMenuActions } from "../context-menu/workspaceMenuRegistry";
+import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
 import { useWorkspaceMenuState } from "../context-menu/workspaceMenuState";
 import {
   replaceItemsWithTemp,
@@ -228,7 +228,7 @@ describe("WorkspaceItemList", () => {
     useItemSelectionMode.getState().reset();
     useItemDndState.getState().reset();
     useItemDndChildren.getState().reset();
-    registerWorkspaceMenuActions([]);
+    registerWorkspaceCommands([]);
     useWorkspaceMenuState.getState().reset();
     useWorkspaceTooltip.getState().reset();
     useReactFlow.setState({ ...initialCanvasState });
@@ -993,8 +993,14 @@ describe("WorkspaceItemList", () => {
   });
 
   it("opens package and registered item actions from pointer and keyboard invocation", async () => {
-    registerWorkspaceMenuActions([
-      { id: "host-item", scope: "item", label: "Host item", onSelect: vi.fn() },
+    registerWorkspaceCommands([
+      {
+        id: "host-item",
+        scope: "item",
+        surfaces: ["context-menu"],
+        label: "Host item",
+        run: vi.fn(),
+      },
     ]);
     await mount();
     let row = getRowByContent(host, "item-a");

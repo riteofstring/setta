@@ -246,7 +246,12 @@ checking, LSP services, or a second parameter value editor in the Inspector.
 
 ## Milestone C — workspace commands and toolbar extensions
 
-**Status: not actionable until Milestone B is developer-accepted and audited.**
+**Status: in progress. C1 repository work is complete: one typed command registry now owns the
+package's structural, parameter-authoring, and host actions, and the section context menu, section
+header menu, Outline row menu, item menu, Inspector action rows, and the ungroup shortcut all
+resolve and run through it. The package-only decisions and the deliberate behavior changes C1
+introduces are recorded in `docs/evidence/milestone-c/c1-command-registry.md` for the C4 gate. C2
+and C3 remain.**
 
 Make frequent workspace actions faster and consistent across every action surface.
 

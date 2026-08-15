@@ -11,6 +11,7 @@ import {
   type RefObject,
 } from "react";
 import { FiEdit3 } from "react-icons/fi";
+import { createSectionCommandContext } from "../commands/workspaceCommandContexts";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { isGroupSection } from "../document/documentSelectors";
 import {
@@ -18,31 +19,21 @@ import {
   getRegisteredSectionKindOrThrow,
 } from "../document/sectionKindRegistry";
 import {
-  deleteSections,
-  groupSections,
   setSectionName,
   setSectionsPositionLocked,
   setSectionStyleColor,
   toggleGroupOrientation,
   toggleMinimized,
 } from "../document/sectionMutations";
-import {
-  useActiveSections,
-  useNodeInternals,
-  useWorkspaceDocument,
-  type WorkspaceDocumentState,
-} from "../document/stores";
+import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { SectionSizeValue, WorkspaceSection } from "../document/types";
-import { canUngroupWorkspaceSections } from "../document/ungroupSections";
 import { setGroupOverflowMode } from "../section/groupOverflowAction";
 import { useSectionRefs } from "../section/sectionRefs";
 import { persistSectionSizeChange } from "../section/sectionSizes";
 import type { WorkspaceSectionTagColorPalette } from "../section/sectionTagColors";
-import { ungroupSections } from "../section/ungroupAction";
 import { SectionTagColorEditor } from "./SectionTagColorEditor";
-import { WorkspaceInspectorItemActions } from "./WorkspaceInspectorItemActions";
+import { WorkspaceInspectorCommandActions } from "./WorkspaceInspectorCommandActions";
 import {
-  canGroupWorkspaceSections,
   getWorkspaceInspectorLockState,
   getWorkspaceInspectorSelection,
   getWorkspaceInspectorSelectionKey,
@@ -376,120 +367,12 @@ function SectionContribution({ section }: { section: WorkspaceSection }) {
   );
 }
 
-function SectionUngroupAction({
-  documentState,
-  onStatusChange,
-  section,
-}: {
-  documentState: WorkspaceDocumentState;
-  onStatusChange: (message: string) => void;
-  section: WorkspaceSection;
-}) {
-  const canEditStructure = useWorkspaceCapabilities((state) => state.canEditStructure);
-  if (!isGroupSection(section)) {
-    return null;
-  }
-  const canUngroup = canUngroupWorkspaceSections(documentState, [section]);
-  return (
-    <div className="setta-workspace-inspector-actions" data-inspector-focus-key="section-actions">
-      <button
-        disabled={!canEditStructure || !canUngroup}
-        onClick={() => {
-          ungroupSections([section.id]);
-          onStatusChange("Group ungrouped.");
-        }}
-        type="button"
-      >
-        Ungroup
-      </button>
-    </div>
-  );
-}
-
-function SectionItemAuthoringActions({
-  onStatusChange,
-  section,
-}: {
-  onStatusChange: (message: string) => void;
-  section: WorkspaceSection;
-}) {
-  if (!section.itemTree) {
-    return null;
-  }
-  return (
-    <WorkspaceInspectorItemActions
-      deleteMode="last"
-      onStatusChange={onStatusChange}
-      section={section}
-    />
-  );
-}
-
-type MultipleUngroupState = {
-  available: boolean;
-  visible: boolean;
-};
-
-function getMultipleUngroupState(
-  documentState: WorkspaceDocumentState,
-  sections: ReadonlyArray<WorkspaceSection>,
-): MultipleUngroupState {
-  const visible = sections.some(isGroupSection);
-  return {
-    available: visible && canUngroupWorkspaceSections(documentState, sections),
-    visible,
-  };
-}
-
-function MultipleUngroupButton({
-  canEditStructure,
-  onStatusChange,
-  sectionIds,
-  sectionCount,
-  state,
-}: {
-  canEditStructure: boolean;
-  onStatusChange: (message: string) => void;
-  sectionIds: ReadonlyArray<string>;
-  sectionCount: number;
-  state: MultipleUngroupState;
-}) {
-  if (!state.visible) {
-    return null;
-  }
-  return (
-    <button
-      disabled={!canEditStructure || !state.available}
-      onClick={() => {
-        ungroupSections(sectionIds);
-        onStatusChange(`${sectionCount} groups ungrouped.`);
-      }}
-      type="button"
-    >
-      Ungroup
-    </button>
-  );
-}
-
-function MultipleUngroupHelp({ state }: { state: MultipleUngroupState }) {
-  if (!state.visible || state.available) {
-    return null;
-  }
-  return (
-    <p className="setta-workspace-inspector-help">
-      Ungrouping is unavailable because every selected section must be an unlocked group.
-    </p>
-  );
-}
-
 function SectionInspector({
-  documentState,
   focusRoot,
   onStatusChange,
   sectionTagColorPalette,
   section,
 }: {
-  documentState: WorkspaceDocumentState;
   focusRoot: () => void;
   onStatusChange: (message: string) => void;
   sectionTagColorPalette: WorkspaceSectionTagColorPalette;
@@ -608,12 +491,18 @@ function SectionInspector({
           </>
         ) : null}
       </div>
-      <SectionUngroupAction
-        documentState={documentState}
+      <WorkspaceInspectorCommandActions
+        contexts={[createSectionCommandContext(section, [section])]}
+        focusKey="section-actions"
         onStatusChange={onStatusChange}
-        section={section}
+        surface="inspector"
       />
-      <SectionItemAuthoringActions onStatusChange={onStatusChange} section={section} />
+      <WorkspaceInspectorCommandActions
+        contexts={[createSectionCommandContext(section, [section])]}
+        focusKey="item-authoring-actions"
+        onStatusChange={onStatusChange}
+        surface="inspector-parameters"
+      />
       <SectionSizeEditor onEscape={focusRoot} onStatusChange={onStatusChange} section={section} />
       <SectionContribution section={section} />
     </div>
@@ -621,19 +510,18 @@ function SectionInspector({
 }
 
 function MultipleSectionsInspector({
-  documentState,
   onStatusChange,
   sections,
 }: {
-  documentState: WorkspaceDocumentState;
   onStatusChange: (message: string) => void;
   sections: Array<WorkspaceSection>;
 }) {
-  const capabilities = useWorkspaceCapabilities((state) => state);
+  const canEditLayout = useWorkspaceCapabilities((state) => state.canEditLayout);
   const lockState = getWorkspaceInspectorLockState(sections);
-  const canGroup = canGroupWorkspaceSections(documentState, sections);
-  const ungroupState = getMultipleUngroupState(documentState, sections);
-  const sectionIds = sections.map((section) => section.id);
+  const primarySection = sections[0];
+  if (!primarySection) {
+    throw new Error("A multiple-section Inspector selection requires at least one section.");
+  }
   return (
     <div className="setta-workspace-inspector-editor" data-inspector-branch="multiple-sections">
       <div className="setta-workspace-inspector-section-heading">
@@ -646,12 +534,20 @@ function MultipleSectionsInspector({
           {lockState === "mixed" ? "Mixed" : lockState === "locked" ? "Locked" : "Unlocked"}
         </span>
       </div>
-      <div className="setta-workspace-inspector-actions">
+      <WorkspaceInspectorCommandActions
+        contexts={[createSectionCommandContext(primarySection, sections)]}
+        focusKey="section-actions"
+        onStatusChange={onStatusChange}
+        surface="inspector"
+      >
         <button
-          disabled={!capabilities.canEditLayout}
+          disabled={!canEditLayout}
           onClick={() => {
             const nextLocked = lockState !== "locked";
-            setSectionsPositionLocked(sectionIds, nextLocked);
+            setSectionsPositionLocked(
+              sections.map((section) => section.id),
+              nextLocked,
+            );
             onStatusChange(
               nextLocked
                 ? `${sections.length} sections locked.`
@@ -662,42 +558,7 @@ function MultipleSectionsInspector({
         >
           {lockState === "locked" ? "Unlock all" : "Lock all"}
         </button>
-        <button
-          disabled={!capabilities.canEditStructure || !canGroup}
-          onClick={() => {
-            const groupId = `group-${crypto.randomUUID()}`;
-            groupSections(sectionIds, groupId);
-            onStatusChange(`${sections.length} sections grouped.`);
-          }}
-          type="button"
-        >
-          Group
-        </button>
-        <MultipleUngroupButton
-          canEditStructure={capabilities.canEditStructure}
-          onStatusChange={onStatusChange}
-          sectionCount={sections.length}
-          sectionIds={sectionIds}
-          state={ungroupState}
-        />
-        <button
-          className="setta-workspace-inspector-danger-action"
-          disabled={!capabilities.canEditStructure}
-          onClick={() => {
-            deleteSections(sectionIds);
-            onStatusChange(`${sections.length} sections deleted.`);
-          }}
-          type="button"
-        >
-          Delete
-        </button>
-      </div>
-      {!canGroup ? (
-        <p className="setta-workspace-inspector-help">
-          Grouping is unavailable because these sections do not share one parent.
-        </p>
-      ) : null}
-      <MultipleUngroupHelp state={ungroupState} />
+      </WorkspaceInspectorCommandActions>
     </div>
   );
 }
@@ -724,23 +585,22 @@ function MultipleItemsInspector({
         <h3>{selection.itemCount} items selected</h3>
         <p>Select one item to edit its label, UI type, and configuration.</p>
       </div>
-      <WorkspaceInspectorItemActions
-        deleteMode="selected"
+      <WorkspaceInspectorCommandActions
+        contexts={[createSectionCommandContext(selection.section, [selection.section])]}
+        focusKey="item-authoring-actions"
         onStatusChange={onStatusChange}
-        section={selection.section}
+        surface="inspector-parameters"
       />
     </div>
   );
 }
 
 function InspectorBranch({
-  documentState,
   focusRoot,
   onStatusChange,
   selection,
   sectionTagColorPalette,
 }: {
-  documentState: WorkspaceDocumentState;
   focusRoot: () => void;
   onStatusChange: (message: string) => void;
   selection: WorkspaceInspectorSelection;
@@ -752,7 +612,6 @@ function InspectorBranch({
     case "section":
       return (
         <SectionInspector
-          documentState={documentState}
           focusRoot={focusRoot}
           onStatusChange={onStatusChange}
           sectionTagColorPalette={sectionTagColorPalette}
@@ -772,11 +631,7 @@ function InspectorBranch({
       return <MultipleItemsInspector onStatusChange={onStatusChange} selection={selection} />;
     case "multiple-sections":
       return (
-        <MultipleSectionsInspector
-          documentState={documentState}
-          onStatusChange={onStatusChange}
-          sections={selection.sections}
-        />
+        <MultipleSectionsInspector onStatusChange={onStatusChange} sections={selection.sections} />
       );
   }
 }
@@ -874,7 +729,6 @@ export function WorkspaceInspector({
         tabIndex={-1}
       >
         <InspectorBranch
-          documentState={documentState}
           focusRoot={focusRoot}
           onStatusChange={setStatus}
           selection={selection}
