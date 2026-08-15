@@ -1,69 +1,79 @@
-# Repository Guidelines — workspace extraction branch
+<!-- code-policy:managed:start -->
 
-This branch extracts Setta's workspace UI into a standalone TypeScript/React package. The single
-active plan is `docs/plans/setta-workspace-extraction-plan.md`; read it before making changes. The
-Setta application, its Go/Python backends, and its application tooling were removed from this branch
-by the hygiene preflight. Git history and `../setta-main` preserve them; do not restore application
-code here.
+## Shared engineering policy
 
-## Worktrees and sources of truth
+- The pinned `.code-policy` checkout owns shared enforcement. Do not edit files
+  inside the submodule from this repository; update the pinned policy commit
+  intentionally.
+- `.code-policy.json` owns this project's modules, dependency direction,
+  capabilities, project-specific commands, test suites, artifact targets, and
+  temporary exceptions. Shared conditional modules detect supported language,
+  framework, and dependency evidence automatically. Target configuration cannot
+  weaken the pinned shared baseline.
+- Never add backward compatibility, legacy support, migrations, or transitional
+  code unless the user explicitly asks for it.
+- Pin direct dependencies and the package manager exactly. Use frozen lockfiles
+  for normal setup; refresh them only during intentional dependency updates.
+- Keep one authoritative owner for each concept and generate cross-language or
+  downstream contract surfaces from it. Parse external data once at a boundary
+  and expose validated internal types.
+- Keep delivery and external adapters thin. Domain modules must not import UI,
+  HTTP, persistence, provider, or process details unless the checked-in
+  architecture contract explicitly allows it.
+- Declare separately owned repositories, directories, files, and services as
+  external inputs. Make resolution precedence and the resolved source visible;
+  validate compatibility, and never turn an unavailable integration into a
+  plausible empty result.
+- Validate an entire multi-resource mutation before writing and use one atomic
+  or transactional boundary. Prefer explicit typed failures over silent
+  fallbacks, broad catches, fake success, or keyword heuristics.
+- Every module has a quick focused boundary suite. Recommended adds applicable
+  quick and standard cross-module suites; full covers the complete declared
+  product surface. Tests assert observable behavior and use temporary state.
+- Mutation and acceptance-mutation suites are optional, separately authorized
+  hardening. When declared, they must run a real pinned engine and remain
+  supplemental. Checked-in Gherkin must be executable. Do not use no-op,
+  pass-with-no-tests, coverage-only, or tautological tests as proof.
+- Run exact suite or module tests as useful during implementation. Near task
+  completion, run `./check_policy.sh test --changed`; routine focused tests do
+  not need a separate permission prompt.
+- Before merging, run `./check_policy.sh test-levels --base <merge-target>`.
+  This read-only command renders a terminal-safe table and is always safe.
+  Unless broader verification is already authorized, present exactly the
+  listed recommended and full ordinary choices, including suite names and
+  costs, identify the planner's suggestion, and wait before running either
+  choice, `verify`, or `gate`.
+- A checked-in CI or lifecycle workflow may explicitly authorize
+  `./check_policy.sh merge-gate --base <trusted-base>`. This command chooses
+  only between the configured recommended merge profile and the complete full
+  gate; it accepts no file, module, suite, or quick-mode override. When it is
+  run, reproduce the emitted `MERGE POLICY LEVEL`, `MERGE POLICY BASE`, and
+  every `MERGE POLICY REASON` line verbatim in the user-facing result. Never
+  hide, soften, or infer a different level from those lines.
+- After the authorized ordinary set passes, request separate authorization for
+  impact-relevant supplemental mutation or risk suites. `test --all`, `verify`,
+  and `gate` deliberately exclude `test --supplemental`.
+- Vulnerability assessments, dependency-override governance, and general policy
+  exceptions are distinct. Each must be exact, visible, owned, justified, and
+  expiring. Do not add broad or silent ignores.
 
-- `../setta-main` is the frozen product reference: `main` at `043d3b2e9`. Run and inspect it only.
-  Never edit, pull, switch branches, install packages into, or commit from it. A changed reference
-  requires an explicit developer re-baseline.
-- This worktree (`workspace-extraction`) holds the package, playground, tooling, and evidence.
-- `../setta-workspace-integration` is a temporary integration host created only when Phase 2 needs
-  it, from the recorded reference commit.
-- `workspace-blank-slate` is a donor branch of individually proven algorithms, tests, and tooling.
-  Never merge the branch wholesale or import unrelated application code.
+<!-- code-policy:managed:end -->
 
-## Product authority and parity
+<!-- code-policy:project:start -->
 
-- The running `../setta-main` application outranks prose, plans, and any agent's interpretation of
-  "Setta-like."
-- Extract before refactoring; parity before genericity. Do not redesign controls, rename concepts,
-  modernize spacing, or substitute a generic design system during extraction.
-- No agent or test suite may approve visual quality. Every visual or interaction milestone requires
-  explicit developer acceptance of live side-by-side evidence.
-- Sections drag from any non-interactive part of their surface; visible controls stay as compact as
-  main while hit geometry stays large; selection never changes geometry. The plan's parity rules
-  are the full contract.
+## Setta workspace package
 
-## Code ownership and layout
+- This repository contains the standalone `@setta/workspace` TypeScript/React package and a
+  backend-free playground. It contains no application or backend implementation.
+- Package source lives in `packages/workspace/`; `apps/playground/` is the consumer;
+  package-focused tooling lives in `scripts/`; and accepted evidence lives in `docs/evidence/`.
+- Visual and interaction milestones use developer-accepted live evidence. Baselines are regression
+  locks for previously accepted behavior.
+- The distribution consists of compiled ESM, TypeScript declarations, source maps, and one scoped
+  stylesheet. React and React DOM are host-provided peers; consumers do not require Tailwind or
+  repository-specific configuration.
+- The public API excludes application and backend concepts, implementation stores, XYFlow and
+  dnd-kit internals, Tailwind names, and private selectors.
+- Publishing, public-repository creation, licensing, and the final package name remain undecided.
 
-- The package is authored in TypeScript/TSX under the working name `@setta/workspace` in
-  `packages/workspace/`; the backend-free consumer lives in `apps/playground/`; package-focused
-  tooling lives in `scripts/`; accepted evidence lives in `docs/evidence/`.
-- Ship compiled ESM, TypeScript declarations, source maps, and one compiled, scoped stylesheet.
-  Consumers must not need Tailwind, the package's build setup, or Setta configuration.
-- React and React DOM are host-provided peer dependencies with documented compatible ranges. All
-  other checked-in direct dependencies are exact-pinned; no floating ranges (`^`, `~`, `>=`, `*`,
-  `latest`) outside `peerDependencies`.
-- Do not expose Setta application stores, generated backend clients, backend concepts, XYFlow
-  internals, dnd-kit stores, Tailwind class names, or private selectors as public API.
-
-## Absolute prohibitions
-
-- No backward-compatibility code of any kind: no migrations, aliases, dual paths, shims,
-  transitional styles, legacy APIs, or unreachable states — in code or in plans.
-- No publishing, public repository creation, licensing, or final-naming decisions by
-  implementation.
-- No heuristic fallbacks or broad catch-all handling; fail loudly and specifically. Do not add
-  `try/catch` unless it handles a specific failure path.
-
-## Verification
-
-- `pnpm run quality` (changed files by default; `--staged`, `--all`, `--files <path>...`) is the
-  static gate for every reviewable source batch. `pnpm run supply-chain:check` runs on dependency
-  changes and phase gates only. `pnpm run consumer:check` (the packed unrelated-consumer proof
-  against `fixtures/packed-consumer`) runs at phase gates and on packaging changes. Thresholds, policy files, and exception rules are documented in
-  `docs/quality-and-supply-chain-tooling.md`; do not weaken a control to make a change pass.
-- Use the standalone pnpm from `~/Library/pnpm` (corepack is broken on this machine); the pinned
-  toolchain is pnpm 10.23.0 on Node 25.2.1.
-- Visual batches follow the plan's verification order: reproduce the main reference, implement the
-  smallest change, run focused checks, compare main and package live through Chrome DevTools at the
-  same viewport, appearance, zoom, and state, present side-by-side evidence, and refresh visual
-  baselines only after developer acceptance. Baselines are regression locks, never approval.
-- `scripts/chrome-devtools-mcp.sh` provides the worktree-scoped Chrome DevTools MCP server used by
-  `.codex/config.toml`; `scripts/automation/codex-loop/` holds the plan-implementation loop runner.
-- Stop and return to the developer at every plan stop condition instead of expanding scope.
+<!-- code-policy:project:end -->

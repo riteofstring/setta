@@ -1,0 +1,3 @@
+[submodule ".code-policy"]
+	path = .code-policy
+	url = git@github.com:JeffMusgrave/code-policy.git

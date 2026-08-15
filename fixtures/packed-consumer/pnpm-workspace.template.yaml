@@ -1,0 +1,15 @@
+# The materialized packed consumer uses the same strict pnpm controls as the repository.
+packages:
+  - "."
+
+saveExact: true
+strictPeerDependencies: true
+
+minimumReleaseAge: 10080
+minimumReleaseAgeStrict: true
+minimumReleaseAgeIgnoreMissingTime: false
+trustPolicy: no-downgrade
+trustLockfile: false
+blockExoticSubdeps: true
+
+onlyBuiltDependencies: []

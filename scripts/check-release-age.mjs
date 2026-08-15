@@ -8,26 +8,20 @@ const maxConcurrentRequests = 8;
 const lockfilePath = path.join(repositoryRoot, "pnpm-lock.yaml");
 
 function readPolicyDays() {
-  const policy = JSON.parse(
-    readFileSync(path.join(repositoryRoot, "supply-chain-policy.json"), "utf8"),
-  );
-  const days = policy.minimumReleaseAgeDays;
-  if (!Number.isInteger(days) || days < 0) {
-    throw new Error(
-      "supply-chain-policy.json: minimumReleaseAgeDays must be a non-negative integer",
-    );
+  const policy = JSON.parse(readFileSync(path.join(repositoryRoot, ".code-policy.json"), "utf8"));
+  const days = policy.supplyChain?.minimumReleaseAgeDays;
+  if (!Number.isInteger(days) || days < 7) {
+    throw new Error(".code-policy.json: supplyChain.minimumReleaseAgeDays must be at least 7");
   }
   return days;
 }
 
 function readExclusions() {
-  const exceptions = JSON.parse(
-    readFileSync(path.join(repositoryRoot, "supply-chain-exceptions.json"), "utf8"),
-  );
+  const policy = JSON.parse(readFileSync(path.join(repositoryRoot, ".code-policy.json"), "utf8"));
   return new Set(
-    (exceptions.minimumReleaseAge ?? []).map(
-      (exception) => `${exception.package}@${exception.version}`,
-    ),
+    (policy.exceptions ?? [])
+      .filter((exception) => exception.check === "supplyChain.releaseAge")
+      .map((exception) => exception.subject),
   );
 }
 

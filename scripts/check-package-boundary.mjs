@@ -108,6 +108,89 @@ function validateSourceImports() {
   });
 }
 
+function validateConsumerImports(packageRootRelative, manifestName = "package.json") {
+  const consumerRoot = path.join(repositoryRoot, packageRootRelative);
+  const consumerSourceRoot = path.join(consumerRoot, "src");
+  const consumerManifest = JSON.parse(readFileSync(path.join(consumerRoot, manifestName), "utf8"));
+  const runtimeNames = new Set([
+    ...Object.keys(consumerManifest.dependencies ?? {}),
+    ...Object.keys(consumerManifest.peerDependencies ?? {}),
+  ]);
+  const developmentNames = new Set(Object.keys(consumerManifest.devDependencies ?? {}));
+
+  return walkSourceFiles(consumerSourceRoot).flatMap((absolutePath) => {
+    const testFile = isTestFile(absolutePath);
+    const allowedNames = testFile ? new Set([...runtimeNames, ...developmentNames]) : runtimeNames;
+    return importSpecifiers(readFileSync(absolutePath, "utf8")).flatMap((specifier) => {
+      const relativePath = path.relative(repositoryRoot, absolutePath);
+      if (specifier.startsWith(".")) {
+        const resolvedPath = path.resolve(path.dirname(absolutePath), specifier);
+        return resolvedPath.startsWith(`${consumerSourceRoot}${path.sep}`)
+          ? []
+          : [`${relativePath}: relative import escapes ${packageRootRelative}/src: ${specifier}`];
+      }
+      if (testFile && specifier.startsWith("node:")) {
+        return [];
+      }
+      return allowedNames.has(bareSpecifierPackageName(specifier))
+        ? []
+        : [`${relativePath}: import is not declared by ${packageRootRelative}: ${specifier}`];
+    });
+  });
+}
+
+function walkToolingFiles(absoluteDirectory) {
+  return readdirSync(absoluteDirectory, { withFileTypes: true }).flatMap((entry) => {
+    const absolutePath = path.join(absoluteDirectory, entry.name);
+    if (entry.isDirectory()) {
+      return walkToolingFiles(absolutePath);
+    }
+    return entry.name.endsWith(".mjs") ? [absolutePath] : [];
+  });
+}
+
+function validateToolingImports() {
+  const scriptsRoot = path.join(repositoryRoot, "scripts");
+  const rootManifest = JSON.parse(readFileSync(path.join(repositoryRoot, "package.json"), "utf8"));
+  const allowedNames = new Set([
+    ...Object.keys(rootManifest.dependencies ?? {}),
+    ...Object.keys(rootManifest.devDependencies ?? {}),
+  ]);
+  const files = [...walkToolingFiles(scriptsRoot), path.join(repositoryRoot, "eslint.config.js")];
+
+  return files.flatMap((absolutePath) =>
+    importSpecifiers(readFileSync(absolutePath, "utf8")).flatMap((specifier) => {
+      const relativePath = path.relative(repositoryRoot, absolutePath);
+      if (specifier.startsWith("node:")) {
+        return [];
+      }
+      if (specifier.startsWith(".")) {
+        const resolvedPath = path.resolve(path.dirname(absolutePath), specifier);
+        return resolvedPath.startsWith(`${scriptsRoot}${path.sep}`)
+          ? []
+          : [`${relativePath}: relative tooling import escapes scripts/: ${specifier}`];
+      }
+      return allowedNames.has(bareSpecifierPackageName(specifier))
+        ? []
+        : [`${relativePath}: tooling import is not declared by the root package: ${specifier}`];
+    }),
+  );
+}
+
+function validateFixtureTemplate() {
+  const fixtureManifestPath = path.join(
+    repositoryRoot,
+    "fixtures/packed-consumer/package.template.json",
+  );
+  const fixtureManifest = JSON.parse(readFileSync(fixtureManifestPath, "utf8"));
+  const workspaceSpecifier = fixtureManifest.dependencies?.["@setta/workspace"];
+  return workspaceSpecifier === "file:__SETTA_WORKSPACE_TARBALL__"
+    ? []
+    : [
+        "fixtures/packed-consumer/package.template.json: @setta/workspace must use the packed-tarball placeholder",
+      ];
+}
+
 function validateTsconfigAliases() {
   return ["tsconfig.json", "tsconfig.build.json"].flatMap((name) => {
     const compilerOptions = JSON.parse(
@@ -207,6 +290,10 @@ const failures = [
   ...validateCompiledExports(),
   ...validateStylesheetExport(),
   ...validateSourceImports(),
+  ...validateConsumerImports("apps/playground"),
+  ...validateConsumerImports("fixtures/packed-consumer", "package.template.json"),
+  ...validateToolingImports(),
+  ...validateFixtureTemplate(),
   ...validateTsconfigAliases(),
   ...(checkBuilt ? validateBuiltArtifacts() : []),
 ];

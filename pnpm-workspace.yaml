@@ -1,6 +1,7 @@
 packages:
   - "packages/*"
   - "apps/*"
+  - "fixtures/packed-consumer"
 
 saveExact: true
 strictPeerDependencies: true

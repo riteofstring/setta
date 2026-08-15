@@ -21,6 +21,8 @@ import { repositoryRoot, run, runPnpm } from "./lib/process.mjs";
 // consumer for developer inspection (`pnpm run preview` inside the kept directory).
 
 const fixtureRoot = path.join(repositoryRoot, "fixtures/packed-consumer");
+const fixtureManifestTemplate = "package.template.json";
+const fixtureWorkspaceTemplate = "pnpm-workspace.template.yaml";
 const tarballPlaceholder = "file:__SETTA_WORKSPACE_TARBALL__";
 const allowedImportSpecifiers = new Set([
   "react",
@@ -47,7 +49,9 @@ function assertConsumerImportSurface() {
 }
 
 function assertFixtureManifest() {
-  const manifest = JSON.parse(readFileSync(path.join(fixtureRoot, "package.json"), "utf8"));
+  const manifest = JSON.parse(
+    readFileSync(path.join(fixtureRoot, fixtureManifestTemplate), "utf8"),
+  );
   if (manifest.dependencies?.["@setta/workspace"] !== tarballPlaceholder) {
     throw new Error(`The fixture must depend on @setta/workspace through ${tarballPlaceholder}.`);
   }
@@ -112,12 +116,21 @@ function assertTarballContents(tarballPath) {
 
 function materializeConsumer(consumerRoot, tarballPath) {
   cpSync(fixtureRoot, consumerRoot, { recursive: true });
+  rmSync(path.join(consumerRoot, "node_modules"), { force: true, recursive: true });
   const manifestPath = path.join(consumerRoot, "package.json");
-  const manifest = readFileSync(manifestPath, "utf8").replace(
+  const templatePath = path.join(consumerRoot, fixtureManifestTemplate);
+  const workspaceTemplatePath = path.join(consumerRoot, fixtureWorkspaceTemplate);
+  const manifest = readFileSync(templatePath, "utf8").replace(
     tarballPlaceholder,
     `file:${tarballPath}`,
   );
   writeFileSync(manifestPath, manifest);
+  rmSync(templatePath);
+  writeFileSync(
+    path.join(consumerRoot, "pnpm-workspace.yaml"),
+    readFileSync(workspaceTemplatePath, "utf8"),
+  );
+  rmSync(workspaceTemplatePath);
 }
 
 function assertBuiltConsumer(consumerRoot) {

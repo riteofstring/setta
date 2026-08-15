@@ -1,0 +1,188 @@
+{
+  "$schema": ".code-policy/schema/code-policy.schema.json",
+  "version": 2,
+  "project": {
+    "kind": "library",
+    "capabilities": ["frontend", "ui"]
+  },
+  "scope": {
+    "generated": ["docs/evidence/**/*.json", "docs/evidence/**/*.json.gz"]
+  },
+  "quality": {},
+  "portability": {},
+  "modules": [
+    {
+      "name": "workspace",
+      "paths": [
+        "packages/workspace/**",
+        "scripts/**",
+        "fixtures/**",
+        "check_policy.sh",
+        "eslint.config.js"
+      ]
+    },
+    {
+      "name": "playground",
+      "paths": ["apps/playground/**"],
+      "dependsOn": ["workspace"]
+    }
+  ],
+  "checks": [
+    {
+      "name": "package-boundaries",
+      "provides": ["architecture"],
+      "argv": ["node", "scripts/check-package-boundary.mjs"],
+      "modules": ["workspace", "playground"],
+      "runOn": ["check", "gate"],
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "workspace-build",
+      "provides": ["build"],
+      "argv": ["pnpm", "--filter", "@setta/workspace", "run", "build"],
+      "modules": ["workspace"],
+      "runOn": ["build"],
+      "timeoutSeconds": 900
+    },
+    {
+      "name": "playground-build",
+      "provides": ["build"],
+      "argv": ["pnpm", "--filter", "@setta/playground", "run", "build"],
+      "modules": ["playground"],
+      "runOn": ["build"],
+      "timeoutSeconds": 900
+    },
+    {
+      "name": "workspace-dependency-policy",
+      "provides": ["dependency-policy"],
+      "argv": ["node", "scripts/check-workspace-policy.mjs"],
+      "modules": ["workspace", "playground"],
+      "runOn": ["supply-chain"],
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "workspace-lock-sync",
+      "provides": ["lock-sync"],
+      "argv": ["node", "scripts/check-lockfile-sync.mjs"],
+      "modules": ["workspace", "playground"],
+      "runOn": ["supply-chain"],
+      "timeoutSeconds": 900
+    },
+    {
+      "name": "transitive-release-age",
+      "provides": ["release-age"],
+      "argv": ["node", "scripts/check-release-age.mjs"],
+      "modules": ["workspace", "playground"],
+      "runOn": ["supply-chain-online"],
+      "timeoutSeconds": 1800
+    },
+    {
+      "name": "dependency-license-policy",
+      "provides": ["security"],
+      "argv": ["node", "scripts/check-licenses.mjs"],
+      "modules": ["workspace", "playground"],
+      "runOn": ["security"],
+      "timeoutSeconds": 900
+    }
+  ],
+  "tests": {
+    "requiredKinds": ["component", "browser", "contract"],
+    "suites": [
+      {
+        "name": "workspace-unit",
+        "kind": "unit",
+        "scope": "module",
+        "modules": ["workspace"],
+        "argv": ["pnpm", "--filter", "@setta/workspace", "test"],
+        "timeoutSeconds": 900
+      },
+      {
+        "name": "playground-unit",
+        "kind": "unit",
+        "scope": "module",
+        "modules": ["playground"],
+        "argv": ["pnpm", "--filter", "@setta/playground", "test"],
+        "timeoutSeconds": 900
+      },
+      {
+        "name": "delivery-contract",
+        "kind": "contract",
+        "scope": "module",
+        "modules": ["workspace"],
+        "argv": ["node", "scripts/check-package-boundary.mjs"],
+        "timeoutSeconds": 300
+      },
+      {
+        "name": "repository-component",
+        "kind": "component",
+        "scope": "repository",
+        "cost": "standard",
+        "argv": ["node", "scripts/run-component-tests.mjs"],
+        "paths": ["packages/**", "apps/**"],
+        "runOn": ["recommended", "full"],
+        "timeoutSeconds": 1200
+      },
+      {
+        "name": "packed-consumer-contract",
+        "kind": "contract",
+        "scope": "repository",
+        "cost": "expensive",
+        "argv": ["pnpm", "run", "consumer:check"],
+        "runOn": ["full"],
+        "timeoutSeconds": 1800
+      },
+      {
+        "name": "workspace-browser-profile",
+        "kind": "browser",
+        "scope": "repository",
+        "cost": "expensive",
+        "argv": ["pnpm", "run", "performance:profile", "--", "--passes", "1"],
+        "runOn": ["full"],
+        "timeoutSeconds": 1800
+      }
+    ]
+  },
+  "supplyChain": {
+    "minimumReleaseAgeDays": 7,
+    "auditLevel": "moderate",
+    "allowedDependencyProtocols": ["workspace:", "file:"]
+  },
+  "exceptions": [
+    {
+      "id": "workspace-extraction-plan-length",
+      "check": "quality.fileLength",
+      "path": "docs/plans/setta-workspace-extraction-plan.md",
+      "subject": "3145",
+      "reason": "The single active extraction plan is intentionally comprehensive and documentation-only; split it without changing its authority before expiry.",
+      "owner": "workspace-extraction",
+      "expires": "2026-08-20"
+    },
+    {
+      "id": "zoom-pane-parity-owner-length",
+      "check": "quality.fileLength",
+      "path": "packages/workspace/src/canvas/ZoomPane.tsx",
+      "subject": "1077",
+      "reason": "This extracted interaction owner is protected by canvas unit, component, and browser checks; split it without changing frozen-reference behavior before expiry.",
+      "owner": "workspace-extraction",
+      "expires": "2026-08-20"
+    },
+    {
+      "id": "drop-type-parity-owner-length",
+      "check": "quality.fileLength",
+      "path": "packages/workspace/src/dnd/useDropType.ts",
+      "subject": "1097",
+      "reason": "This extracted drag-and-drop owner is protected by focused and browser interaction checks; split it without changing frozen-reference behavior before expiry.",
+      "owner": "workspace-extraction",
+      "expires": "2026-08-20"
+    },
+    {
+      "id": "workspace-parity-stylesheet-length",
+      "check": "quality.fileLength",
+      "path": "packages/workspace/src/styles/workspace.css",
+      "subject": "1980",
+      "reason": "The scoped parity stylesheet is protected by accepted visual evidence and browser checks; split it by surface without redesigning styles before expiry.",
+      "owner": "workspace-extraction",
+      "expires": "2026-08-20"
+    }
+  ]
+}

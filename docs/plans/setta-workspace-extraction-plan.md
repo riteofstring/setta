@@ -21,22 +21,16 @@ Preflight progress (2026-08-10):
 - Item 5: complete — obsolete plan documents deleted (`modular-workbench-oss-plan.md`; the
   greenfield `standalone-section-workbench-oss-plan.md` was deleted earlier). This is the single
   active extraction plan.
-- Items 6–8 (quality and supply-chain tooling contract): complete on 2026-08-10. The tooling was
-  inventoried and the package-relevant contract implemented in `scripts/*.mjs` with plain Node/pnpm
-  (no Go or Python runtime): `pnpm run quality` with changed/staged/all/
-  explicit-file modes runs the static gate (formatting, ESLint with source/test complexity plus
-  production `max-depth`/`max-params`, typecheck dispatch, dependency/boundary policy, Knip,
-  file-length ceilings ratified from frozen-reference evidence). The networked
-  `pnpm run supply-chain:check` gate covers frozen install, an isolated lockfile-sync check,
-  an independent transitive release-age audit, `pnpm audit` at moderate, the SPDX license
-  allowlist, and the dependency inventory. The seven-day release-age policy lives in
-  `supply-chain-policy.json` and
-  is mechanically checked against `pnpm-workspace.yaml`; `supply-chain-exceptions.json` starts
-  empty and every exception path demands owned, expiring metadata. Item 8's blocking
-  demonstrations (install-time and audited release age, lockfile drift, disallowed builds,
-  unowned/expired exceptions, vulnerabilities, licenses) ran against a clean frozen install and
-  are recorded in `docs/quality-and-supply-chain-tooling.md`. The preflight is complete; Phase 0
-  evidence capture remains supervised developer work.
+- Items 6–8 (quality and supply-chain tooling contract): complete on 2026-08-10 and consolidated
+  under pinned Code Policy on 2026-08-13. `check_policy.sh` now owns selection, formatting, lint,
+  TypeScript, complexity, dead-code, file-length, exact-dependency, direct release-age, lifecycle,
+  native audit, and OSV enforcement. The earlier parallel Node orchestrators and threshold files
+  were removed. Setta retains only package/public-import boundaries, strict pnpm trust settings,
+  frozen lock synchronization, transitive release-age auditing, SPDX license policy, packed-
+  consumer proof, and the real Chrome interaction profile. `.code-policy.json` is the single
+  minimum-release-age and exception authority. The original blocking demonstrations remain
+  historical evidence; current ownership is recorded in `docs/quality-and-supply-chain-tooling.md`.
+  The preflight is complete; Phase 0 evidence capture remains supervised developer work.
 
 Phase 0 progress (2026-08-10):
 
@@ -2150,26 +2144,20 @@ The preflight implements a deliberate hybrid of the two donors:
 
 #### Fast quality checks
 
-- Provide one root quality command whose default scope is tracked changes plus untracked files and
-  which also supports staged, all-files, and explicit-file modes.
-- Keep the normal changed-file gate static and deterministic: formatting, linting, TypeScript
-  checking, dependency/boundary policy, dead-code analysis, complexity, and file length. Tests,
-  builds, packing, browser checks, and networked security audits remain separate commands invoked by
-  the relevant phase gate.
-- Use the experimental branch's Prettier, type-aware TypeScript ESLint, React Hooks, and JSX
-  accessibility baseline. Add separate source/test cyclomatic-complexity thresholds
-  and production `max-depth` and `max-params` checks.
-- Configure Knip for the actual pnpm workspaces and explicit package, playground, test, and tooling
-  entry points. Do not silence findings with broad ignores or treat a report as an automatic deletion
-  order.
-- Enforce separately documented source and test file-length ceilings. Ratify them during preflight;
-  choose values from the package's measured source and test sizes.
-- Provide all-files complexity and file-length reports for hotspot discovery without weakening the
-  blocking thresholds.
+- Use the pinned `check_policy.sh` root entry point for changed, staged, all-files, and explicit-file
+  selection.
+- Keep the normal changed-file gate static and deterministic. Tests, builds, packing, browser checks,
+  and networked security audits remain in their declared profiles.
+- Let shared conditional modules own Prettier, type-aware ESLint, React Hooks, JSX accessibility,
+  TypeScript, Knip, production/test complexity, depth, and parameter budgets. Keep target config only
+  for parser, project-root, entry-point, and project-specific tightening facts.
+- Apply shared file-length policy directly. Any temporary exception for an extracted parity owner is
+  exact, owned, expiring, developer-approved, and removed by splitting the file without changing
+  behavior.
 
 #### Supply-chain and vulnerability checks
 
-- Keep a single checked-in seven-day release-age policy and mechanically verify that pnpm's
+- Keep the seven-day release-age value in `.code-policy.json` and mechanically verify that pnpm's
   install-time configuration matches it.
 - Retain the experimental branch's strict pnpm controls: exact direct pins, strict peer resolution,
   strict release age, failure on missing publication time, no trust downgrade, no blind lockfile
@@ -2179,11 +2167,9 @@ The preflight implements a deliberate hybrid of the two donors:
   on every source-only commit.
 - Verify lockfile/manifest synchronization in an isolated temporary directory with lifecycle scripts
   disabled, without rewriting the working tree.
-- Require exact versions in dependencies, development dependencies, and optional dependencies.
-  Permit only explicit workspace/local artifact specifiers and documented compatible ranges in
-  `peerDependencies`.
-- Run `pnpm audit` at `moderate` severity, retain the experimental branch's SPDX license allowlist and
-  dependency inventory, and fail closed on audit or metadata errors.
+- Let shared policy enforce exact versions, peer/dev compatibility, native `pnpm audit` at moderate,
+  and OSV lockfile scanning. Retain the target SPDX license allowlist and fail closed on metadata or
+  scanner errors.
 - Start with no vulnerability, release-age, patched-dependency, trust-policy, or build-script
   exceptions. Any later exception must identify the exact package/version or vulnerability, include
   rationale, owner, expiry, and removal condition, and receive developer approval. Raw pnpm/npm
