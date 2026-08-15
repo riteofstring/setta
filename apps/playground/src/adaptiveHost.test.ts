@@ -24,9 +24,13 @@ describe("standalone host adaptivity", () => {
     for (const stylesheet of [playgroundStyles, packedConsumerStyles]) {
       expect(stylesheet).toContain("@media (max-width: 60rem)");
       expect(stylesheet).toContain("flex-wrap: wrap");
-      expect(stylesheet).toContain("min-height: 2.75rem");
       expect(stylesheet).toContain("min-width: 0");
     }
+
+    expect(playgroundStyles).toContain("min-height: 3.25rem");
+    expect(playgroundStyles).toContain("height: 2.5rem");
+    expect(playgroundStyles).toContain(".playground-toolbar-label");
+    expect(packedConsumerStyles).toContain("min-height: 2.75rem");
   });
 
   it("keeps the 320px host shell compact without introducing page scrolling", () => {

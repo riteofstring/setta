@@ -33,6 +33,76 @@ function toggleDarkMode() {
   setWorkspaceColorMode(next ? "dark" : "light");
 }
 
+type PlaygroundIconProps = {
+  className?: string;
+};
+
+function AppearanceIcon({ className }: PlaygroundIconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 20 20">
+      <path d="M10 2.75v1.5M10 15.75v1.5M2.75 10h1.5M15.75 10h1.5M4.87 4.87l1.06 1.06M14.07 14.07l1.06 1.06M15.13 4.87l-1.06 1.06M5.93 14.07l-1.06 1.06" />
+      <circle cx="10" cy="10" r="3.25" />
+    </svg>
+  );
+}
+
+function ReloadIcon({ className }: PlaygroundIconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 20 20">
+      <path d="M15.75 7.25A6.25 6.25 0 1 0 16 11" />
+      <path d="M15.75 3.75v3.5h-3.5" />
+    </svg>
+  );
+}
+
+function SelectionIcon({ className }: PlaygroundIconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 20 20">
+      <path d="M4.25 6.5V4.25H6.5M13.5 4.25h2.25V6.5M15.75 13.5v2.25H13.5M6.5 15.75H4.25V13.5" />
+      <path d="m7.25 7.25 6 2.35-2.55 1.1-1.1 2.55-2.35-6Z" />
+    </svg>
+  );
+}
+
+function TuneIcon({ className }: PlaygroundIconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 20 20">
+      <path d="M3 5.25h8M14 5.25h3M3 10h3M9 10h8M3 14.75h8M14 14.75h3" />
+      <circle cx="12.5" cy="5.25" r="1.5" />
+      <circle cx="7.5" cy="10" r="1.5" />
+      <circle cx="12.5" cy="14.75" r="1.5" />
+    </svg>
+  );
+}
+
+function GuideIcon({ className }: PlaygroundIconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="7" />
+      <path d="M10 9v4M10 6.5v.25" />
+    </svg>
+  );
+}
+
+function ChevronIcon({ className }: PlaygroundIconProps) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 20 20">
+      <path d="m6.5 8 3.5 3.5L13.5 8" />
+    </svg>
+  );
+}
+
+function PlaygroundMark() {
+  return (
+    <span aria-hidden="true" className="playground-mark">
+      <span />
+      <span />
+      <span />
+      <span />
+    </span>
+  );
+}
+
 // The host side of the document-change callback: every package-initiated canonical commit
 // (selection, move, resize, rename, flag toggles, delete, layout, viewport) invokes the
 // callback with the serializable document; a host re-load never does. The count lives in its
@@ -43,11 +113,16 @@ function ItemSelectModeToggle() {
   const isSelectingItems = useItemSelectionMode((state) => state.isSelectingItems);
   return (
     <button
+      aria-pressed={isSelectingItems}
+      className="playground-toolbar-button"
+      title={isSelectingItems ? "Exit item selection" : "Select parameters"}
       type="button"
       onClick={() => (isSelectingItems ? deactivateItemSelect() : activateItemSelect())}
-      className="playground-action rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300"
     >
-      {isSelectingItems ? "Exit item select mode" : "Enter item select mode"}
+      <SelectionIcon className="playground-toolbar-icon" />
+      <span className="playground-toolbar-label">
+        {isSelectingItems ? "Selecting" : "Select items"}
+      </span>
     </button>
   );
 }
@@ -55,6 +130,7 @@ function ItemSelectModeToggle() {
 function GroupOverflowModeToggle() {
   return (
     <button
+      className="playground-menu-action"
       type="button"
       onClick={() => {
         const group = getWorkspaceDocument().sections["root-group"];
@@ -63,9 +139,9 @@ function GroupOverflowModeToggle() {
         }
         setGroupOverflowMode(group.id, !group.overflowMode);
       }}
-      className="playground-action rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300"
     >
-      Toggle root group overflow
+      <span>Root group overflow</span>
+      <span className="playground-menu-action-meta">Toggle</span>
     </button>
   );
 }
@@ -73,6 +149,7 @@ function GroupOverflowModeToggle() {
 function SectionTagColorToggle() {
   return (
     <button
+      className="playground-menu-action"
       type="button"
       onClick={() => {
         const section = getWorkspaceDocument().sections["idle-leaf"];
@@ -81,29 +158,33 @@ function SectionTagColorToggle() {
         }
         setSectionTagColor(section.id, section.tagColor === null ? "#0f766e" : null);
       }}
-      className="playground-action rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300"
     >
-      Toggle idle leaf color tag
+      <span>Idle leaf color tag</span>
+      <span className="playground-menu-action-meta">Toggle</span>
     </button>
   );
 }
 
 function HostParameterActions() {
-  const className =
-    "playground-action rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300";
   return (
-    <div className="flex min-w-0 flex-1 flex-wrap gap-1">
-      <button className={className} onClick={() => insertWorkspaceItem("item-panel")} type="button">
-        Host add parameter
+    <>
+      <button
+        className="playground-menu-action"
+        onClick={() => insertWorkspaceItem("item-panel")}
+        type="button"
+      >
+        <span>Add parameter</span>
+        <span className="playground-menu-action-meta">Host API</span>
       </button>
       <button
-        className={className}
+        className="playground-menu-action"
         onClick={() => deleteSelectedWorkspaceItems("item-panel")}
         type="button"
       >
-        Host delete selected
+        <span>Delete selected parameter</span>
+        <span className="playground-menu-action-meta">Host API</span>
       </button>
-    </div>
+    </>
   );
 }
 
@@ -116,22 +197,19 @@ function HostParameterDiagnosticActions({
   onShowInitial: () => void;
   onShowUpdated: () => void;
 }) {
-  const className =
-    "playground-action rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300";
   return (
-    <div
-      aria-label="Parameter diagnostics"
-      className="flex min-w-0 flex-1 flex-wrap gap-1"
-      role="group"
-    >
-      <button className={className} onClick={onShowInitial} type="button">
-        Show diagnostics
+    <div aria-label="Parameter diagnostics" role="group">
+      <button className="playground-menu-action" onClick={onShowInitial} type="button">
+        <span>Show sample diagnostics</span>
+        <span className="playground-menu-action-meta">3 severities</span>
       </button>
-      <button className={className} onClick={onShowUpdated} type="button">
-        Update diagnostics
+      <button className="playground-menu-action" onClick={onShowUpdated} type="button">
+        <span>Update diagnostics</span>
+        <span className="playground-menu-action-meta">Live state</span>
       </button>
-      <button className={className} onClick={onClear} type="button">
-        Clear diagnostics
+      <button className="playground-menu-action" onClick={onClear} type="button">
+        <span>Clear diagnostics</span>
+        <span className="playground-menu-action-meta">Reset</span>
       </button>
     </div>
   );
@@ -145,7 +223,133 @@ function DocumentChangeReadout() {
     });
     return () => setWorkspaceDocumentChangeCallback(null);
   }, []);
-  return <>{documentChangeCount}</>;
+  return (
+    <span
+      aria-label={`${documentChangeCount} document ${documentChangeCount === 1 ? "change" : "changes"} reported`}
+      className="playground-change-status"
+      role="status"
+    >
+      <span aria-hidden="true" className="playground-change-status-dot" />
+      <span className="playground-change-status-count">{documentChangeCount}</span>
+      <span aria-hidden="true" className="playground-change-status-label">
+        changes
+      </span>
+    </span>
+  );
+}
+
+function AppearanceToggle({ darkMode }: { darkMode: boolean }) {
+  return (
+    <button
+      className="playground-toolbar-button"
+      onClick={toggleDarkMode}
+      title={`Switch to ${darkMode ? "light" : "dark"} mode`}
+      type="button"
+    >
+      <AppearanceIcon className="playground-toolbar-icon" />
+      <span className="playground-toolbar-label">{darkMode ? "Light mode" : "Dark mode"}</span>
+    </button>
+  );
+}
+
+function ReloadDocumentButton() {
+  return (
+    <button
+      className="playground-toolbar-button"
+      onClick={() => loadWorkspaceDocument(playgroundDocument)}
+      title="Reload the playground document"
+      type="button"
+    >
+      <ReloadIcon className="playground-toolbar-icon" />
+      <span className="playground-toolbar-label">Reload</span>
+    </button>
+  );
+}
+
+function PlaygroundActionMenu({
+  onClearDiagnostics,
+  onShowDiagnostics,
+  onUpdateDiagnostics,
+}: {
+  onClearDiagnostics: () => void;
+  onShowDiagnostics: () => void;
+  onUpdateDiagnostics: () => void;
+}) {
+  return (
+    <details className="playground-menu" name="playground-toolbar-menu">
+      <summary className="playground-toolbar-button" title="Open test actions">
+        <TuneIcon className="playground-toolbar-icon" />
+        <span className="playground-toolbar-label">Test actions</span>
+        <ChevronIcon className="playground-toolbar-chevron" />
+      </summary>
+      <div className="playground-menu-panel playground-actions-panel">
+        <div className="playground-menu-heading">
+          <strong>Test actions</strong>
+          <span>Host-side acceptance fixtures</span>
+        </div>
+        <section className="playground-menu-group">
+          <h2>Sections</h2>
+          <GroupOverflowModeToggle />
+          <SectionTagColorToggle />
+        </section>
+        <section className="playground-menu-group">
+          <h2>Parameters</h2>
+          <HostParameterActions />
+        </section>
+        <section className="playground-menu-group">
+          <h2>Diagnostics</h2>
+          <HostParameterDiagnosticActions
+            onClear={onClearDiagnostics}
+            onShowInitial={onShowDiagnostics}
+            onShowUpdated={onUpdateDiagnostics}
+          />
+        </section>
+      </div>
+    </details>
+  );
+}
+
+function PlaygroundGuideMenu() {
+  return (
+    <details className="playground-menu" name="playground-toolbar-menu">
+      <summary className="playground-toolbar-button" title="Open playground guide">
+        <GuideIcon className="playground-toolbar-icon" />
+        <span className="playground-toolbar-label">Guide</span>
+        <ChevronIcon className="playground-toolbar-chevron" />
+      </summary>
+      <div className="playground-menu-panel playground-guide-panel">
+        <div className="playground-menu-heading">
+          <strong>Quick guide</strong>
+          <span>Useful gestures and shortcuts</span>
+        </div>
+        <dl className="playground-guide-list">
+          <div>
+            <dt>Canvas</dt>
+            <dd>Drag empty space to pan. Press F to fit the workspace.</dd>
+          </div>
+          <div>
+            <dt>Sections</dt>
+            <dd>Drag a surface to move it. Hold Alt while dragging to nest it.</dd>
+          </div>
+          <div>
+            <dt>Parameters</dt>
+            <dd>Use item selection, then Alt+Arrow to move or Tab to indent.</dd>
+          </div>
+          <div>
+            <dt>Menus</dt>
+            <dd>Right-click, or use Shift+F10 from the keyboard.</dd>
+          </div>
+          <div>
+            <dt>Control help</dt>
+            <dd>Hold Q while hovering a parameter control.</dd>
+          </div>
+        </dl>
+        <p className="playground-host-action-status">
+          <PlaygroundMenuActionReadout />
+        </p>
+      </div>
+    </details>
+  );
 }
 
 function HostNotesIcon({ className, ...iconProps }: WorkspaceShellTabIconProps) {
@@ -250,72 +454,30 @@ export function App() {
   }, [darkMode]);
 
   return (
-    <main className="playground-shell flex h-screen min-w-0 flex-col p-8">
-      <header className="playground-header mb-8 flex min-w-0 items-center gap-4">
-        <h1 className="text-sm font-semibold text-setta-600 dark:text-setta-300">
-          @setta/workspace shell preview
-        </h1>
-        <button
-          type="button"
-          onClick={toggleDarkMode}
-          className="playground-action rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300"
-        >
-          Switch to {darkMode ? "light" : "dark"} mode
-        </button>
-        <button
-          type="button"
-          onClick={() => loadWorkspaceDocument(playgroundDocument)}
-          className="playground-action rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300"
-        >
-          Reload document
-        </button>
-        <ItemSelectModeToggle />
-        <GroupOverflowModeToggle />
-        <SectionTagColorToggle />
-        <HostParameterActions />
-        <HostParameterDiagnosticActions
-          onClear={() => setItemDiagnostics({})}
-          onShowInitial={() => setItemDiagnostics(PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS)}
-          onShowUpdated={() => setItemDiagnostics(PLAYGROUND_UPDATED_ITEM_DIAGNOSTICS)}
-        />
-        <p className="playground-intro min-w-0 text-xs text-setta-500 dark:text-setta-400">
-          <DocumentChangeReadout /> document changes reported. Drag sections or the background,
-          scroll or pinch to pan and zoom, click to select, Cmd/Ctrl-click to multi-select,
-          Shift-drag to draw a selection. Sections resize from their bottom and right edges, and
-          their headers rename, lock, minimize, and delete. A group&apos;s leading header menu,
-          context menu, Inspector, Shift+Cmd/Ctrl+G shortcut, and playground host action all ungroup
-          through the same public operation. The header menu and Inspector also call the public
-          bounded-overflow operation; auto dimensions preserve the visible group size and bounded
-          children scroll without handing their wheel gesture to the canvas. Registered host section
-          actions appear after the package actions in compatible header menus. The Inspector and
-          playground host button share the public tag-color operation; the host adds a named teal
-          category to the captured default palette, and Reset returns the section to None. The item
-          panel&apos;s package toolbar, Inspector, context menu, and host buttons share the public
-          parameter insertion and deletion operations; the host factory supplies each new Python
-          code parameter&apos;s UUID and defaults. The package-owned parameter filter searches typed
-          labels without changing the document, retains hidden selection with an explicit notice,
-          and disables structural movement until cleared. Typed parameter help is serializable,
-          editable in the Inspector, and opens from an accessible row button without being clipped
-          by section overflow. Host diagnostics remain ephemeral while the package owns error,
-          warning, and information row treatments, accessible announcements, and a focus-safe
-          message disclosure. Group headers also flip their child flow between vertical and
-          horizontal. The toolbar zooms, fits, and toggles grid snapping; its minimap group hides
-          the pannable, click-to-center minimap or moves it between the bottom corners. The twelve
-          controls at the upper right use the headerless canvas presentation: edit text, calendar,
-          time, numeric, choice, password, color, and dropzone values inside each control, or drag
-          and resize from its remaining surface. Button and file actions stay in this backend-free
-          host. Hold Q while hovering a control for its tooltip. Hold Alt and drag to move sections
-          into, out of, and between groups; hold Cmd/Ctrl+Alt and drag to sort within a group. Hold
-          Cmd/Ctrl+Shift (or use the button) for item select mode: click the item panel&apos;s rows
-          to select them, drag rows to sort or re-parent them, then Alt+Arrow moves the selection,
-          Tab and Shift+Tab indent and unindent it, and Escape clears it. Reload restores the loaded
-          document and camera in place without counting as a change. The built-in Outline and
-          Inspector tabs project selection directly; host notes, status, and help remain registered
-          pane extensions. Right-click the canvas to create a host section, or open canvas, section,
-          item, and Outline menus with Shift+F10. <PlaygroundMenuActionReadout />
-        </p>
+    <main className="playground-shell">
+      <header className="playground-header">
+        <div className="playground-brand" translate="no">
+          <PlaygroundMark />
+          <div className="playground-brand-copy">
+            <span>@setta/workspace</span>
+            <h1>Workspace playground</h1>
+          </div>
+        </div>
+        <nav aria-label="Playground controls" className="playground-toolbar">
+          <DocumentChangeReadout />
+          <span aria-hidden="true" className="playground-toolbar-divider" />
+          <AppearanceToggle darkMode={darkMode} />
+          <ReloadDocumentButton />
+          <ItemSelectModeToggle />
+          <PlaygroundActionMenu
+            onClearDiagnostics={() => setItemDiagnostics({})}
+            onShowDiagnostics={() => setItemDiagnostics(PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS)}
+            onUpdateDiagnostics={() => setItemDiagnostics(PLAYGROUND_UPDATED_ITEM_DIAGNOSTICS)}
+          />
+          <PlaygroundGuideMenu />
+        </nav>
       </header>
-      <div className="playground-workspace flex min-h-0 min-w-0 flex-1">
+      <div className="playground-workspace">
         <PlaygroundItemDiagnosticsProvider diagnostics={itemDiagnostics}>
           <WorkspaceShell
             ariaLabel="Playground workspace"
