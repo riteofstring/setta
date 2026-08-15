@@ -3,11 +3,12 @@
 ## Purpose and status
 
 The standalone `@setta/workspace` extraction and its original UX are complete and
-developer-accepted. The remaining product work is three UX milestones:
+developer-accepted. The remaining product work is four UX milestones:
 
 - [x] Milestone A — structural section and group authoring.
 - [x] Milestone B — parameter authoring and feedback.
 - [ ] Milestone C — workspace commands and toolbar extensions.
+- [ ] Milestone D — built-in text and code sections.
 
 A milestone checkbox is complete only after its repository work, developer acceptance gate,
 accepted baseline, and phase audit are complete. While work is in progress, update the milestone's
@@ -38,7 +39,9 @@ After this plan, people using the workspace can:
 - visually categorize sections without relying on color as the only signal;
 - add, delete, find, understand, and troubleshoot parameters inside the workspace;
 - operate common workspace actions efficiently from consistent menus, keyboard shortcuts, and
-  toolbars; and
+  toolbars;
+- add readable prose, Markdown documentation, and editable source snippets without building a
+  custom section renderer; and
 - receive the same result no matter which action surface invokes an operation.
 
 These capabilities remain backend-free and useful to unrelated React hosts. They extend the
@@ -60,7 +63,13 @@ Inspect the running reference and the narrow source owners before implementing e
   names and descriptions;
 - `frontend/src/state/actions/keyActivations.ts` and the shortcut settings for workspace command
   behavior; and
-- `frontend/src/forks/xyflow/controls/Controls.tsx` for viewport-control composition.
+- `frontend/src/forks/xyflow/controls/Controls.tsx` for viewport-control composition;
+- `frontend/src/components/Section/Layouts/TextBlock.tsx` and
+  `frontend/src/components/Panes/UiEditor/MarkdownEditor/MarkdownEditor.tsx` for plain-text and
+  Markdown editing/rendering; and
+- `frontend/src/components/Section/Layouts/CodeArea.tsx` and
+  `frontend/src/components/Panes/UiEditor/SectionConfig/CodeAreaSettings.tsx` for the reusable code
+  editor behavior and settings boundary.
 
 Shared source files contain application-only behavior. Extract only the behavior named in this
 plan.
@@ -246,7 +255,8 @@ checking, LSP services, or a second parameter value editor in the Inspector.
 
 ## Milestone C — workspace commands and toolbar extensions
 
-**Status: in progress. C1 repository work is complete: one typed command registry now owns the
+**Status: developer-accepted on 2026-08-15; accepted-baseline recording and the post-acceptance
+milestone audit remain. C1 repository work is complete: one typed command registry now owns the
 package's structural, parameter-authoring, and host actions, and the section context menu, section
 header menu, Outline row menu, item menu, Inspector action rows, and the ungroup shortcut all
 resolve and run through it. C2's first batch is complete: one chord vocabulary, a public binding
@@ -270,9 +280,10 @@ command's label, pressed state, and refusal sentence. The phase audit over C1–
 defects: binding-conflict detection now answers for the platform the workspace runs on, where
 `Mod` and `Ctrl` are one key off macOS, and the playground now subscribes its host command state
 where it mounts the workspace, so a contributed toolbar control repaints when the host state behind
-it changes. The C4 developer acceptance gate is the milestone's remaining work. The package-only
+it changes. The developer completed the C4 live gate and accepted the result. The package-only
 decisions and the deliberate behavior changes every batch introduces are recorded in
-`docs/evidence/milestone-c/` for that gate.**
+`docs/evidence/milestone-c/`; the loop must now lock the accepted baseline and complete the audit
+before checking Milestone C or beginning Milestone D.**
 
 Make frequent workspace actions faster and consistent across every action surface.
 
@@ -340,6 +351,93 @@ whole-plan UX audit.
 Project search, file navigation, run commands, application menu state, an application-wide command
 palette, and a plugin runtime remain out of scope.
 
+## Milestone D — built-in text and code sections
+
+**Status: not started. Begin only after Milestone C's accepted baseline and audit are complete.**
+
+Add two optional, batteries-included content-section registrations. Hosts can register either,
+both, or neither alongside their own section kinds. Their document data and configuration are
+typed, serializable, validated at the package boundary, and mutated through the workspace's
+existing controlled-document path. They use the accepted section chrome, nesting, selection,
+locking, resize, overflow, Outline, Inspector, context-menu, quick-help, and command behavior.
+
+Implement the canonical new contracts directly. Do not add legacy data shapes, migrations,
+transitional readers or writers, compatibility paths, or fallback behavior.
+
+### D1. Text and Markdown section
+
+Add one built-in content section that can present either plain text or Markdown.
+
+- Provide explicit plain-text and Markdown formats plus edit and rendered display modes.
+- Use the package's CodeMirror foundation in edit mode. A locked or read-only section remains
+  selectable and scrollable but cannot mutate its text.
+- Preserve whitespace and wrapping for plain text. Render the reusable main-branch Markdown
+  surface, including headings, links, lists, tables, task lists, inline code, fenced code with
+  language-aware highlighting and copy, and math, without enabling raw HTML.
+- Expose narrow typed configuration for the initial format, display mode, font size, and allowed
+  formats. Hosts may omit the display-mode control or force one mode.
+- Keep content changes atomic and serializable, preserve selection and scroll where practical when
+  switching modes, and avoid editor remounts during unrelated workspace changes.
+- Match main's applicable typography, spacing, overflow, header icon, and edit/render control at
+  equivalent scale and appearance.
+
+Do not port docstring conversion, variants, project configuration, artifact creation, backend
+completion, or application persistence.
+
+### D2. Code Editor section
+
+Add one built-in CodeMirror section for source and configuration text.
+
+- Support the package's reusable language set: Python, Bash, JavaScript, TypeScript, JSON, YAML,
+  TOML, Markdown, and plain text.
+- Expose typed serializable options for language, line wrapping, line numbers, indentation width,
+  and read-only state. Locking also makes the editor read-only.
+- Keep editing controlled through one document mutation path while preserving cursor, selection,
+  undo history, scroll, and editor focus across unrelated workspace updates.
+- Give the editor ownership of text selection, editing keys, completion keys when explicitly
+  enabled by package configuration, and its own scrollable overflow. The surrounding section keeps
+  ownership of header drag, resize, workspace shortcuts outside the editor, and canvas gestures
+  that begin outside it.
+- Match main's applicable editor typography, syntax colors, gutters, active-line treatment,
+  overflow, and compact behavior in light and dark appearances.
+- Keep implicit autocomplete off. Any package-provided completion behavior must be explicitly
+  configured and deterministic; no host or backend completion protocol is part of this milestone.
+
+Do not add execution, run buttons, terminals, LSP, diagnostics, generated-code regions, file sync,
+project search, or backend calls.
+
+### D3. Public registration and composition
+
+Export stable kind IDs, typed data/configuration contracts, and registration helpers for both
+sections.
+
+- The helpers compose with host section registrations without hidden global state or reserved
+  application concepts.
+- Hosts can customize labels, icons, creation defaults, allowed languages or formats, and whether
+  each section appears in host creation UI.
+- Omission leaves the package bundle and workspace behavior coherent; documents containing an
+  unregistered kind continue to fail through the existing explicit unknown-kind contract.
+- Public exports do not expose workspace stores, private selectors, XYFlow internals, or main's
+  application section implementations.
+
+### D4. Milestone D acceptance gate
+
+Implement D1–D3 as reviewable batches, then present one live developer gate covering:
+
+- text and Markdown creation, editing, rendering, mode switching, locking, and reload;
+- representative headings, links, lists, tables, task lists, inline and fenced code, math, long
+  lines, and empty content;
+- every supported Code Editor language, wrapping, line numbers, indentation, read-only behavior,
+  cursor/selection retention, undo/redo, and reload;
+- section drag versus editor selection, nested and bounded-group overflow, wheel/pan ownership,
+  resize, Outline, Inspector, context menu, quick help, and keyboard shortcuts;
+- opt-in registration, host-customized defaults and choices, and omission of either built-in;
+- matched main-branch visual comparison for behavior main implements; and
+- light/dark appearance, RTL, 200% scale, coarse pointer, and a 320 px host.
+
+Only after explicit developer acceptance may the loop record baselines, complete the milestone
+audit, and request the final whole-plan UX audit.
+
 ## UX contracts for every milestone
 
 - Preserve the accepted Setta visual language; do not redesign controls or modernize spacing while
@@ -353,8 +451,9 @@ palette, and a plugin runtime remain out of scope.
 - Package-only behavior receives explicit design approval and is not mislabeled as main parity.
 - New built-in behavior is batteries-included, while host customization uses narrow typed public
   inputs.
-- No milestone adds aliases, dual behavior paths, compatibility shims, heuristic fallbacks, broad
-  catches, or backend/application concepts.
+- No milestone adds backward compatibility, legacy support, migrations, transitional code,
+  aliases, dual behavior paths, compatibility shims, heuristic fallbacks, broad catches, or
+  backend/application concepts.
 
 ## Loop execution and evidence
 
@@ -402,7 +501,7 @@ snapshots, or performance instrumentation.
 
 This plan is complete when:
 
-- Milestones A, B, and C are implemented in order;
+- Milestones A, B, C, and D are implemented in order;
 - each milestone has explicit developer visual and interaction acceptance;
 - approved outputs are baseline-locked only after acceptance;
 - the final audit confirms one consistent operation path across menus, Inspector, keyboard, and
