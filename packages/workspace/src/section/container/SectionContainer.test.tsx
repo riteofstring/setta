@@ -491,6 +491,36 @@ describe("SectionContainer", () => {
     );
   });
 
+  it("mounts package parameter authoring above item-tree host content", async () => {
+    registerSectionKinds({
+      leaf: {
+        renderContent: renderSectionBody,
+        createItem: () => ({ id: "created", children: [], data: { value: "host" } }),
+      },
+    });
+    loadTestDocument({
+      leaf: {
+        itemTree: {
+          rootId: "root",
+          items: { root: { id: "root", children: [] } },
+          selectedItemIds: [],
+        },
+      },
+    });
+    await mount("leaf");
+
+    const body = host.querySelector('[data-testid="section-body"]')?.parentElement;
+    expect(body?.className).toBe("section-full-no-title flex min-h-0 flex-col");
+    expect(body?.firstElementChild?.textContent).toContain("Parameters");
+    const add = host.querySelector<HTMLButtonElement>('[aria-label="Add parameter"]');
+    expect(add?.disabled).toBe(false);
+
+    await act(async () => add?.click());
+    expect(useWorkspaceDocument.getState().sections.leaf?.itemTree?.items.root?.children).toEqual([
+      "created",
+    ]);
+  });
+
   it("disables resize handles and squares the corners while locked", async () => {
     loadTestDocument({ leaf: { positionAndSizeLocked: true } });
     await mount("leaf");

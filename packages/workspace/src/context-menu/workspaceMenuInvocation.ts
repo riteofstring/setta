@@ -5,6 +5,7 @@ import { getSectionOrThrow } from "../document/documentSelectors";
 import { getItemOrThrow } from "../document/itemTree";
 import { useWorkspaceDocument } from "../document/stores";
 import type { Position, WorkspaceItem, WorkspaceSection } from "../document/types";
+import { cloneFrozenWorkspaceSnapshot } from "../document/workspaceSnapshot";
 import { getElementTextDirection } from "../styles/textDirection";
 import {
   clientPointToWorkspacePosition,
@@ -22,20 +23,6 @@ import type {
   WorkspacePaneMenuActionContext,
   WorkspaceSectionMenuActionContext,
 } from "./workspaceMenuTypes";
-
-function freezeSnapshot<T>(value: T): T {
-  if (value !== null && typeof value === "object") {
-    for (const nested of Object.values(value as Record<string, unknown>)) {
-      freezeSnapshot(nested);
-    }
-    Object.freeze(value);
-  }
-  return value;
-}
-
-function cloneFrozen<T>(value: T): T {
-  return freezeSnapshot(structuredClone(value));
-}
 
 function getWorkspacePosition(clientPoint: WorkspaceMenuClientPoint): Position {
   const { domNode, transform } = useReactFlow.getState();
@@ -78,7 +65,7 @@ export function openWorkspacePaneMenu(
   if (getWorkspaceCreationCommands().length === 0 && getWorkspaceMenuActions("pane").length === 0) {
     return false;
   }
-  const context = cloneFrozen<WorkspacePaneMenuActionContext>({
+  const context = cloneFrozenWorkspaceSnapshot<WorkspacePaneMenuActionContext>({
     scope: "pane",
     workspacePosition: getWorkspacePosition(clientPoint),
   });
@@ -112,12 +99,12 @@ function publishWorkspaceSectionMenu({
   const selection = getSelectedSectionContext(sectionId);
   const context =
     scope === "section"
-      ? cloneFrozen<WorkspaceSectionMenuActionContext>({
+      ? cloneFrozenWorkspaceSnapshot<WorkspaceSectionMenuActionContext>({
           scope,
           section: selection.section,
           selectedSections: selection.selectedSections,
         })
-      : cloneFrozen<WorkspaceOutlineMenuActionContext>({
+      : cloneFrozenWorkspaceSnapshot<WorkspaceOutlineMenuActionContext>({
           scope,
           section: selection.section,
           selectedSections: selection.selectedSections,
@@ -183,9 +170,6 @@ export function openWorkspaceItemMenu(
   clientPoint: WorkspaceMenuClientPoint,
   owner: HTMLElement,
 ): boolean {
-  if (getWorkspaceMenuActions("item").length === 0) {
-    return false;
-  }
   const state = useWorkspaceDocument.getState();
   const section = getSectionOrThrow(state, sectionId);
   const itemTree = section.itemTree;
@@ -193,7 +177,11 @@ export function openWorkspaceItemMenu(
     throw new Error(`Workspace item menu section ${sectionId} has no item tree.`);
   }
   const item: WorkspaceItem = getItemOrThrow(itemTree, itemId);
-  const context = cloneFrozen<WorkspaceItemMenuActionContext>({ scope: "item", section, item });
+  const context = cloneFrozenWorkspaceSnapshot<WorkspaceItemMenuActionContext>({
+    scope: "item",
+    section,
+    item,
+  });
   publishWorkspaceMenuInvocation({
     kind: "item",
     clientPoint,

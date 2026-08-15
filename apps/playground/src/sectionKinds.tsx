@@ -16,6 +16,7 @@ import {
   type MetaControlKind,
   type WorkspaceDropzoneItemControlConfiguration,
   type WorkspaceInspectorContributionContext,
+  type WorkspaceItem,
   type WorkspaceSection,
   type WorkspaceSectionData,
 } from "@setta/workspace";
@@ -38,6 +39,29 @@ function getLeafBody(section: WorkspaceSection): string {
 
 function LeafSectionBody({ section }: { section: WorkspaceSection }) {
   return <p className="text-xs text-setta-500 dark:text-setta-400">{getLeafBody(section)}</p>;
+}
+
+function createPlaygroundCodeItem(): WorkspaceItem {
+  const id = `item-${crypto.randomUUID()}`;
+  return {
+    id,
+    children: [],
+    presentation: {
+      label: "parameter",
+      control: {
+        kind: "code",
+        value: "",
+        configuration: {
+          autocomplete: "off",
+          disabled: false,
+          language: "python",
+          placeholder: null,
+          singleLine: false,
+          wrapLines: true,
+        },
+      },
+    },
+  };
 }
 
 function PlaygroundInspectorContribution({
@@ -647,9 +671,9 @@ export function registerPlaygroundSectionKinds(): void {
       defaultSize: { width: 200, height: 122 },
     },
     "item-list": {
+      createItem: createPlaygroundCodeItem,
       renderContent: (section) => <ItemListSectionBody section={section} />,
       renderInspector: (context) => <PlaygroundInspectorContribution context={context} />,
-      contentClassName: "flex min-h-0 flex-col",
       defaultSize: { width: 550, height: 350 },
     },
     "meta-control": {

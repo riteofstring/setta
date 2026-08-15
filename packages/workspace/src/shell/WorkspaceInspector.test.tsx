@@ -158,7 +158,28 @@ describe("WorkspaceInspector", () => {
     document.body.appendChild(host);
     root = createRoot(host);
     registerSectionKinds({
-      leaf: { renderContent: () => null },
+      leaf: {
+        renderContent: () => null,
+        createItem: () => ({
+          id: "created",
+          children: [],
+          presentation: {
+            label: "Created",
+            control: {
+              kind: "code",
+              value: "",
+              configuration: {
+                autocomplete: "off",
+                disabled: false,
+                language: "python",
+                placeholder: null,
+                singleLine: false,
+                wrapLines: true,
+              },
+            },
+          },
+        }),
+      },
       custom: {
         renderContent: () => null,
         renderInspector: (context) => <button type="button">Host {context.type} inspector</button>,
@@ -498,6 +519,60 @@ describe("WorkspaceInspector", () => {
       "Select one item to edit its label, UI type, and configuration.",
     );
     expect(host.querySelector('[aria-label="UI type"]')).toBeNull();
+    expect(getButton(host, "Add parameter").disabled).toBe(false);
+    expect(getButton(host, "Delete selected parameters").disabled).toBe(false);
+  });
+
+  it("deletes one selected parameter and preserves Inspector focus on the surviving branch", async () => {
+    const onChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onChange);
+    await renderInspector(
+      createDocument(["items"], {
+        items: makeItemSection({
+          kind: "slider",
+          value: "5",
+          configuration: { disabled: false, min: 0, max: 10, step: 1 },
+        }),
+      }),
+    );
+    const deleteParameter = getButton(host, "Delete parameter");
+    deleteParameter.focus();
+
+    await act(async () => deleteParameter.click());
+
+    const itemTree = useWorkspaceDocument.getState().sections.items?.itemTree;
+    expect(itemTree?.items.value).toBeUndefined();
+    expect(itemTree?.selectedItemIds).toEqual(["other"]);
+    expect(document.activeElement).toBe(getButton(host, "Add parameter"));
+    expect(onChange).toHaveBeenCalledOnce();
+  });
+
+  it("deletes a multi-selection and keeps the shared authoring actions focused", async () => {
+    const onChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onChange);
+    await renderInspector(
+      createDocument(["items"], {
+        items: makeItemSection(
+          {
+            kind: "slider",
+            value: "5",
+            configuration: { disabled: false, min: 0, max: 10, step: 1 },
+          },
+          ["value", "other"],
+        ),
+      }),
+    );
+    const deleteSelected = getButton(host, "Delete selected parameters");
+    deleteSelected.focus();
+
+    await act(async () => deleteSelected.click());
+
+    const itemTree = useWorkspaceDocument.getState().sections.items?.itemTree;
+    expect(itemTree?.items.root?.children).toEqual([]);
+    expect(itemTree?.selectedItemIds).toEqual([]);
+    expect(host.querySelector('[data-inspector-branch="section"]')).not.toBeNull();
+    expect(document.activeElement).toBe(getButton(host, "Add parameter"));
+    expect(onChange).toHaveBeenCalledOnce();
   });
 
   it("disables every multi-section action outside its owning capability", async () => {

@@ -6,15 +6,14 @@ import { maybeCompleteInitialFitView } from "../canvas/nodeInternalsActions";
 import { closeWorkspaceMenu } from "../context-menu/workspaceMenuState";
 import { getMetaControlDefaultSize } from "../controls/meta/metaControlTypes";
 import { resetDndSessionForLoadedDocument } from "../dnd/dndState";
-import { assertNoReservedItemDndTokens } from "../dnd/itemDndState";
 import { resetItemDragState } from "../items/itemDragHandlers";
 import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
 import { normalizeSectionTagColor } from "../section/sectionTagColors";
 import { runWithWorkspaceDocumentChangeNotificationsSuppressed } from "./documentChangeCallback";
 import { isGroupSection } from "./documentSelectors";
 import { assertValidSectionOverflowMode } from "./groupOverflow";
-import { assertWorkspaceItemPresentationBoundary } from "./itemPresentation";
 import { deactivateItemSelect } from "./itemSelectionMode";
+import { assertValidWorkspaceSectionItemTree } from "./itemTreeValidation";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
 import { getRegisteredSectionKindOrThrow } from "./sectionKindRegistry";
 import {
@@ -29,7 +28,6 @@ import type {
   WorkspaceDocumentInput,
   WorkspaceSection,
   WorkspaceSectionInput,
-  WorkspaceSectionItemTree,
 } from "./types";
 
 // The reference's `createSectionSize()` default: sections materialized without an explicit
@@ -120,89 +118,6 @@ function assertAcyclicParentChains(parentSectionMap: Record<string, string>) {
   }
 }
 
-// A section's item tree must be exactly one tree rooted at `rootId`: every child claim unique,
-// the root never claimed, and every item reachable from the root (which together also rule out
-// cycles). Selection can only name real non-root items — the root is a move target, not a row.
-function assertValidSectionItemTree(sectionId: string, itemTree: WorkspaceSectionItemTree) {
-  if (!(itemTree.rootId in itemTree.items)) {
-    throw new Error(`Section ${sectionId} item tree is missing its root item ${itemTree.rootId}.`);
-  }
-  if (itemTree.itemColumnWidth !== undefined && !Number.isFinite(itemTree.itemColumnWidth)) {
-    throw new Error(`Section ${sectionId} item column width must be finite.`);
-  }
-  assertValidItemChildClaims(sectionId, itemTree);
-  for (const item of Object.values(itemTree.items)) {
-    assertWorkspaceItemPresentationBoundary(sectionId, item, itemTree.rootId);
-  }
-  assertItemsReachableFromRoot(sectionId, itemTree);
-  assertValidItemSelection(sectionId, itemTree);
-}
-
-function assertValidItemChildClaims(sectionId: string, itemTree: WorkspaceSectionItemTree) {
-  const parentByChild: Record<string, string> = {};
-  for (const [itemId, item] of Object.entries(itemTree.items)) {
-    if (item.id !== itemId) {
-      throw new Error(
-        `Section ${sectionId} item record key ${itemId} does not match item id ${item.id}.`,
-      );
-    }
-    assertNoReservedItemDndTokens(itemId, `Section ${sectionId} item id`);
-    for (const childId of item.children) {
-      if (!(childId in itemTree.items)) {
-        throw new Error(`Section ${sectionId} item ${itemId} lists unknown child ${childId}.`);
-      }
-      if (childId === itemTree.rootId) {
-        throw new Error(`Section ${sectionId} item ${itemId} claims the root item as a child.`);
-      }
-      const existingParentId = parentByChild[childId];
-      if (existingParentId !== undefined) {
-        throw new Error(
-          `Section ${sectionId} item ${childId} is claimed by parents ${existingParentId} and ${itemId}.`,
-        );
-      }
-      parentByChild[childId] = itemId;
-    }
-  }
-}
-
-function assertItemsReachableFromRoot(sectionId: string, itemTree: WorkspaceSectionItemTree) {
-  const reachable = new Set<string>([itemTree.rootId]);
-  const queue = [itemTree.rootId];
-  let currentId = queue.pop();
-  while (currentId !== undefined) {
-    for (const childId of itemTree.items[currentId]?.children ?? []) {
-      if (!reachable.has(childId)) {
-        reachable.add(childId);
-        queue.push(childId);
-      }
-    }
-    currentId = queue.pop();
-  }
-  for (const itemId of Object.keys(itemTree.items)) {
-    if (!reachable.has(itemId)) {
-      throw new Error(
-        `Section ${sectionId} item ${itemId} is not reachable from root ${itemTree.rootId}.`,
-      );
-    }
-  }
-}
-
-function assertValidItemSelection(sectionId: string, itemTree: WorkspaceSectionItemTree) {
-  const selectedSet = new Set<string>();
-  for (const selectedId of itemTree.selectedItemIds) {
-    if (!(selectedId in itemTree.items)) {
-      throw new Error(`Section ${sectionId} selects unknown item ${selectedId}.`);
-    }
-    if (selectedId === itemTree.rootId) {
-      throw new Error(`Section ${sectionId} selects its root item ${itemTree.rootId}.`);
-    }
-    if (selectedSet.has(selectedId)) {
-      throw new Error(`Section ${sectionId} selects item ${selectedId} twice.`);
-    }
-    selectedSet.add(selectedId);
-  }
-}
-
 function assertValidSectionItemTrees(sections: Record<string, WorkspaceSection>) {
   for (const [sectionId, section] of Object.entries(sections)) {
     if (!section.itemTree) {
@@ -213,7 +128,7 @@ function assertValidSectionItemTrees(sections: Record<string, WorkspaceSection>)
     if (isGroupSection(section)) {
       throw new Error(`Section ${sectionId} is a group section and cannot carry an item tree.`);
     }
-    assertValidSectionItemTree(sectionId, section.itemTree);
+    assertValidWorkspaceSectionItemTree(sectionId, section.itemTree);
   }
 }
 

@@ -7,7 +7,6 @@ import {
   isWorkspaceMenuKeyboardEvent,
   shouldRetainNativeContextMenu,
 } from "../context-menu/workspaceMenuOwnership";
-import { getWorkspaceMenuActions } from "../context-menu/workspaceMenuRegistry";
 import { useSortable } from "../dnd/adapter";
 import { applyZoomToTransform, transformToString } from "../dnd/adapter/zoom";
 import { getItemDndId, isTempItem, useItemDndState } from "../dnd/itemDndState";
@@ -343,7 +342,6 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
   );
   const { handleItemClick, handleItemMouseDown, handleItemKeyDown, isSelectingItems } =
     useItemSelectionHandlers(sectionId, itemId);
-  const hasItemMenuActions = getWorkspaceMenuActions("item").length > 0;
   const visibleChildren = rowState.item.children.filter((childId) => visibleItemIds.has(childId));
   const renderChildren = useItemDndChildrenForParent(itemId, visibleChildren);
   const dndId = getItemDndId(itemId, listKey);
@@ -400,7 +398,6 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       onMouseDown={handleItemMouseDown}
       onKeyDown={handleItemKeyDown}
       sectionId={sectionId}
-      hasItemMenuActions={hasItemMenuActions}
       isSelectingItems={isSelectingItems}
       isSelected={rowState.isSelected}
       itemId={itemId}
@@ -422,7 +419,6 @@ function ItemRowShell({
   onMouseDown,
   onKeyDown,
   sectionId,
-  hasItemMenuActions,
   isSelectingItems,
   isSelected,
   itemId,
@@ -437,7 +433,6 @@ function ItemRowShell({
   onMouseDown: React.MouseEventHandler;
   onKeyDown: React.KeyboardEventHandler<HTMLDivElement>;
   sectionId: string;
-  hasItemMenuActions: boolean;
   isSelectingItems: boolean;
   isSelected: boolean;
   itemId: string;
@@ -445,6 +440,7 @@ function ItemRowShell({
 }) {
   function handleContextMenu(event: React.MouseEvent<HTMLDivElement>): void {
     if (shouldRetainNativeContextMenu(event.target, event.currentTarget)) {
+      event.stopPropagation();
       return;
     }
     if (
@@ -488,6 +484,7 @@ function ItemRowShell({
       className={`${rowClassName} focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2`}
       style={rowStyle}
       data-item-row="true"
+      data-workspace-item-id={itemId}
       onMouseDownCapture={onMouseDown}
       onClick={onClick}
       onContextMenu={handleContextMenu}
@@ -502,10 +499,7 @@ function ItemRowShell({
           : undefined
       }
       aria-keyshortcuts={
-        [
-          isSelectingItems ? "Enter Space" : null,
-          hasItemMenuActions ? "Shift+F10 ContextMenu" : null,
-        ]
+        [isSelectingItems ? "Enter Space" : null, "Shift+F10 ContextMenu"]
           .filter(Boolean)
           .join(" ") || undefined
       }

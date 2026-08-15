@@ -1,14 +1,16 @@
 /* @vitest-environment jsdom */
 
 import {
+  deleteSelectedWorkspaceItems,
   getWorkspaceDocument,
+  insertWorkspaceItem,
   loadWorkspaceDocument,
   setItemLabel,
   type WorkspaceSection,
 } from "@setta/workspace";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { playgroundDocument } from "./playgroundDocument";
 import { ItemListSectionBody, registerPlaygroundSectionKinds } from "./sectionKinds";
 
@@ -128,6 +130,7 @@ describe("the playground item renderer presentation contract", () => {
     });
     container.remove();
     observedResizeTargets.clear();
+    vi.restoreAllMocks();
   });
 
   it("renders typed rows without a host renderer", () => {
@@ -457,5 +460,52 @@ describe("the playground item renderer presentation contract", () => {
     const topLevelIds = itemTree.items[itemTree.rootId]?.children ?? [];
     expect(topLevelIds.length).toBeGreaterThanOrEqual(10);
     expect(itemTree.items["item-options"]?.children.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("supplies stable Python defaults through the public host item factory", () => {
+    vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue(
+      "00000000-0000-4000-8000-000000000123",
+    );
+
+    const insertedItems: Array<ReturnType<typeof insertWorkspaceItem>> = [];
+    act(() => {
+      insertedItems.push(insertWorkspaceItem("item-panel"));
+    });
+    const inserted = insertedItems[0];
+    if (!inserted) {
+      throw new Error("The playground item factory did not return its inserted item.");
+    }
+
+    expect(inserted).toEqual({
+      id: "item-00000000-0000-4000-8000-000000000123",
+      children: [],
+      presentation: {
+        label: "parameter",
+        control: {
+          kind: "code",
+          value: "",
+          configuration: {
+            autocomplete: "off",
+            disabled: false,
+            language: "python",
+            placeholder: null,
+            singleLine: false,
+            wrapLines: true,
+          },
+        },
+      },
+    });
+    expect(getWorkspaceDocument().sections["item-panel"]?.itemTree?.selectedItemIds).toEqual([
+      inserted.id,
+    ]);
+
+    let deletedItemIds: Array<string> = [];
+    act(() => {
+      deletedItemIds = deleteSelectedWorkspaceItems("item-panel");
+    });
+    expect(deletedItemIds).toEqual([inserted.id]);
+    const itemTree = getWorkspaceDocument().sections["item-panel"]?.itemTree;
+    expect(itemTree?.items[inserted.id]).toBeUndefined();
+    expect(itemTree?.selectedItemIds).toEqual(["item-rename"]);
   });
 });

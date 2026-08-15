@@ -2,6 +2,7 @@ import type { ComponentType, ReactNode } from "react";
 import type { MetaControlKind } from "../controls/meta/metaControlTypes";
 import { GROUP_SECTION_KIND } from "./documentSelectors";
 import type { SectionSize, WorkspaceItem, WorkspaceSection } from "./types";
+import { cloneFrozenWorkspaceSnapshot, type WorkspaceSnapshot } from "./workspaceSnapshot";
 
 // The registration half of the renderer seam: application-owned section kinds map to their
 // renderer and either ordinary header/default-size metadata or the direct-on-canvas presentation.
@@ -22,42 +23,31 @@ export type MetaControlSectionPresentation = {
   onEdit: (section: WorkspaceSection) => void;
 };
 
-type WorkspaceInspectorSnapshot<Value> =
-  Value extends ReadonlyArray<infer Entry>
-    ? ReadonlyArray<WorkspaceInspectorSnapshot<Entry>>
-    : Value extends object
-      ? { readonly [Key in keyof Value]: WorkspaceInspectorSnapshot<Value[Key]> }
-      : Value;
-
 export type WorkspaceInspectorContributionContext =
   | {
       type: "section";
-      section: WorkspaceInspectorSnapshot<WorkspaceSection>;
+      section: WorkspaceSnapshot<WorkspaceSection>;
     }
   | {
       type: "item";
-      section: WorkspaceInspectorSnapshot<WorkspaceSection>;
-      item: WorkspaceInspectorSnapshot<WorkspaceItem>;
+      section: WorkspaceSnapshot<WorkspaceSection>;
+      item: WorkspaceSnapshot<WorkspaceItem>;
     };
+
+export type WorkspaceItemFactoryContext = Readonly<{
+  section: WorkspaceSnapshot<WorkspaceSection>;
+}>;
+
+export type WorkspaceItemFactory = (context: WorkspaceItemFactoryContext) => WorkspaceItem;
 
 type WorkspaceInspectorContributionInput =
   | { type: "section"; section: WorkspaceSection }
   | { type: "item"; section: WorkspaceSection; item: WorkspaceItem };
 
-function freezeInspectorSnapshot<T>(value: T): T {
-  if (value !== null && typeof value === "object") {
-    for (const nested of Object.values(value as Record<string, unknown>)) {
-      freezeInspectorSnapshot(nested);
-    }
-    Object.freeze(value);
-  }
-  return value;
-}
-
 export function createWorkspaceInspectorContributionContext(
   context: WorkspaceInspectorContributionInput,
 ): WorkspaceInspectorContributionContext {
-  return freezeInspectorSnapshot(structuredClone(context)) as WorkspaceInspectorContributionContext;
+  return cloneFrozenWorkspaceSnapshot(context) as WorkspaceInspectorContributionContext;
 }
 
 type SectionKindBaseDefinition = {
@@ -83,6 +73,9 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         // Appended to the package-owned body-slot wrapper. This is for host presentation such as
         // padding or flex layout; the package continues to own the grid placement itself.
         contentClassName?: string;
+        // The host owns domain defaults and stable identity. The package calls this only for an
+        // explicit insertion request, then validates and places the returned complete item.
+        createItem?: WorkspaceItemFactory;
         presentation?: undefined;
       }
     | {
@@ -90,6 +83,7 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         // geometry; a competing registered default would make that contract ambiguous.
         defaultSize?: never;
         contentClassName?: never;
+        createItem?: never;
         presentation: MetaControlSectionPresentation;
       }
   );
@@ -117,6 +111,45 @@ function assertMetaControlPresentation(
   }
 }
 
+function assertOptionalSectionKindFunction(kind: string, role: string, value: unknown): void {
+  if (value !== undefined && typeof value !== "function") {
+    throw new Error(`Section kind ${kind} ${role} must be a function.`);
+  }
+}
+
+function assertMetaControlDefinition(kind: string, definition: SectionKindDefinition): void {
+  assertMetaControlPresentation(kind, definition.presentation);
+  if (definition.defaultSize !== undefined) {
+    throw new Error(
+      `Meta-control section kind ${kind} cannot register a defaultSize; ` +
+        "the package owns control-specific default geometry.",
+    );
+  }
+  if (definition.contentClassName !== undefined) {
+    throw new Error(
+      `Meta-control section kind ${kind} cannot register a contentClassName; ` +
+        "the package owns its full-area control placement.",
+    );
+  }
+  if (definition.createItem !== undefined) {
+    throw new Error(
+      `Meta-control section kind ${kind} cannot register createItem; ` +
+        "meta controls cannot carry item trees.",
+    );
+  }
+}
+
+function assertSectionKindDefinition(kind: string, definition: SectionKindDefinition): void {
+  if (typeof definition.renderContent !== "function") {
+    throw new Error(`Section kind ${kind} must provide renderContent.`);
+  }
+  assertOptionalSectionKindFunction(kind, "renderInspector", definition.renderInspector);
+  assertOptionalSectionKindFunction(kind, "createItem", definition.createItem);
+  if (definition.presentation !== undefined) {
+    assertMetaControlDefinition(kind, definition);
+  }
+}
+
 // Replaces the registered kind set. Hosts register every kind once, before loading or
 // rendering documents that use them.
 export function registerSectionKinds(kinds: Record<string, SectionKindDefinition>): void {
@@ -126,31 +159,7 @@ export function registerSectionKinds(kinds: Record<string, SectionKindDefinition
     );
   }
   for (const [kind, definition] of Object.entries(kinds)) {
-    if (typeof definition.renderContent !== "function") {
-      throw new Error(`Section kind ${kind} must provide renderContent.`);
-    }
-    if (
-      definition.renderInspector !== undefined &&
-      typeof definition.renderInspector !== "function"
-    ) {
-      throw new Error(`Section kind ${kind} renderInspector must be a function.`);
-    }
-    if (definition.presentation === undefined) {
-      continue;
-    }
-    assertMetaControlPresentation(kind, definition.presentation);
-    if (definition.defaultSize !== undefined) {
-      throw new Error(
-        `Meta-control section kind ${kind} cannot register a defaultSize; ` +
-          "the package owns control-specific default geometry.",
-      );
-    }
-    if (definition.contentClassName !== undefined) {
-      throw new Error(
-        `Meta-control section kind ${kind} cannot register a contentClassName; ` +
-          "the package owns its full-area control placement.",
-      );
-    }
+    assertSectionKindDefinition(kind, definition);
   }
   registeredSectionKinds = kinds;
 }
@@ -164,6 +173,19 @@ export function getRegisteredSectionKindOrThrow(kind: string): SectionKindDefini
     );
   }
   return definition;
+}
+
+export function getWorkspaceItemFactory(section: WorkspaceSection): WorkspaceItemFactory | null {
+  const definition = getRegisteredSectionKindOrThrow(section.kind);
+  return definition.presentation === undefined ? (definition.createItem ?? null) : null;
+}
+
+export function createWorkspaceItemFromFactory(section: WorkspaceSection): WorkspaceItem {
+  const factory = getWorkspaceItemFactory(section);
+  if (!factory) {
+    throw new Error(`Section kind ${section.kind} does not provide an item factory.`);
+  }
+  return factory(cloneFrozenWorkspaceSnapshot({ section }));
 }
 
 export function getMetaControlPresentation(

@@ -12,6 +12,7 @@ import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../do
 import type { WorkspaceSectionInput } from "../document/types";
 import { WorkspaceMenuLayer } from "./WorkspaceMenuLayer";
 import {
+  openWorkspaceItemMenu,
   openWorkspacePaneMenu,
   openWorkspaceSectionHeaderMenu,
   openWorkspaceSectionMenu,
@@ -209,6 +210,51 @@ describe("WorkspaceMenuLayer", () => {
       zIndex: 1,
     });
     expect(useActiveSections.getState().activeIds).toEqual(["created"]);
+    expect(useWorkspaceMenuState.getState().invocation).toBeNull();
+  });
+
+  it("deletes an item through the package action before separately grouped host actions", async () => {
+    loadWorkspaceDocument({
+      sections: {
+        existing: {
+          ...createSection("existing"),
+          itemTree: {
+            rootId: "root",
+            items: {
+              root: { id: "root", children: ["first", "second"] },
+              first: { id: "first", children: [], data: { value: 1 } },
+              second: { id: "second", children: [], data: { value: 2 } },
+            },
+            selectedItemIds: ["first"],
+          },
+        },
+      },
+      topLevelSections: { existing: { x: 0, y: 0, w: 200, h: 100, zIndex: 0 } },
+      viewport: { x: 0, y: 0, zoom: 1 },
+      activeIds: ["existing"],
+    });
+    registerWorkspaceMenuActions([
+      { id: "host-report", scope: "item", label: "Report item", onSelect: vi.fn() },
+    ]);
+    const onChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onChange);
+    expect(openWorkspaceItemMenu("existing", "first", { x: 150, y: 100 }, owner)).toBe(true);
+    await act(async () => {
+      root.render(<WorkspaceMenuLayer />);
+    });
+
+    const entries = getMenuItems();
+    expect(entries.map((entry) => entry.textContent)).toEqual(["Delete parameter", "Report item"]);
+    expect(document.body.querySelectorAll('[role="separator"]')).toHaveLength(1);
+
+    await act(async () => {
+      entries[0]?.click();
+    });
+
+    const itemTree = useWorkspaceDocument.getState().sections["existing"]?.itemTree;
+    expect(itemTree?.items["first"]).toBeUndefined();
+    expect(itemTree?.selectedItemIds).toEqual(["second"]);
+    expect(onChange).toHaveBeenCalledOnce();
     expect(useWorkspaceMenuState.getState().invocation).toBeNull();
   });
 

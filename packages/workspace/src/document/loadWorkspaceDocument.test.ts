@@ -22,6 +22,7 @@ import {
 } from "./stores";
 import type {
   WorkspaceDocumentInput,
+  WorkspaceItem,
   WorkspaceSection,
   WorkspaceSectionInput,
   WorkspaceSectionItemTree,
@@ -593,6 +594,30 @@ describe("loadWorkspaceDocument", () => {
         selectedItemIds: ["a", "a"],
       }),
     ).toThrowError(/selects item a twice/);
+    expect(() =>
+      load({
+        rootId: "item-root",
+        items: {
+          "item-root": { id: "item-root", children: ["a"] },
+          a: { id: "a", children: [], data: undefined } as unknown as WorkspaceItem,
+        },
+        selectedItemIds: [],
+      }),
+    ).toThrowError(/data must be omitted instead of undefined/);
+    expect(() =>
+      load({
+        rootId: "item-root",
+        items: {
+          "item-root": { id: "item-root", children: ["a"] },
+          a: {
+            id: "a",
+            children: [],
+            data: { value: () => "not serializable" },
+          } as unknown as WorkspaceItem,
+        },
+        selectedItemIds: [],
+      }),
+    ).toThrowError(/must contain only JSON values/);
     // Host item ids ride the dnd-id wire encoding verbatim, so the reserved tokens are
     // rejected at load instead of silently mis-decoding mid-drag.
     expect(() =>

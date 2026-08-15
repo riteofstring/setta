@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useReactFlow } from "../canvas/store";
+import { useItemDndState } from "../dnd/itemDndState";
 import {
   useWorkspaceCapabilities,
   type WorkspaceCapabilitiesState,
@@ -13,6 +14,7 @@ import {
 import { useWorkspaceDocument, type WorkspaceDocumentState } from "../document/stores";
 import type { WorkspaceSection } from "../document/types";
 import { canUngroupWorkspaceSections } from "../document/ungroupSections";
+import { deleteWorkspaceItems } from "../items/itemAuthoringActions";
 import { setGroupOverflowMode } from "../section/groupOverflowAction";
 import { ungroupSections } from "../section/ungroupAction";
 import { canGroupWorkspaceSections } from "../shell/workspaceInspectorModel";
@@ -259,6 +261,42 @@ function SectionActionMenu({ invocation }: { invocation: SectionMenuInvocation }
   );
 }
 
+type ItemMenuInvocation = Extract<WorkspaceMenuInvocation, { kind: "item" }>;
+
+function ItemActionMenu({ invocation }: { invocation: ItemMenuInvocation }) {
+  const documentState = useWorkspaceDocument((state) => state);
+  const canEditStructure = useWorkspaceCapabilities((state) => state.canEditStructure);
+  const itemDragActive = useItemDndState((state) => state.activeId !== null);
+  const sectionId = invocation.context.section.id;
+  const itemId = invocation.context.item.id;
+  const itemStillExists = Object.hasOwn(
+    documentState.sections[sectionId]?.itemTree?.items ?? {},
+    itemId,
+  );
+  const packageEntries: ReadonlyArray<WorkspaceMenuEntry> = [
+    {
+      id: "workspace-delete-item",
+      label: "Delete parameter",
+      disabled: !canEditStructure || itemDragActive || !itemStillExists,
+      onSelect: () => {
+        closeWorkspaceMenu();
+        deleteWorkspaceItems(sectionId, [itemId]);
+      },
+    },
+  ];
+  const hostEntries = getHostActionEntries(invocation.context);
+  return (
+    <WorkspaceActionMenu
+      ariaLabel="Workspace item actions"
+      clientPoint={invocation.clientPoint}
+      direction={invocation.direction}
+      groups={getSectionMenuGroups(packageEntries, hostEntries)}
+      invocationSequence={invocation.sequence}
+      kind="item"
+    />
+  );
+}
+
 export function WorkspaceMenuLayer() {
   const invocation = useWorkspaceMenuState((state) => state.invocation);
   const canEditStructure = useWorkspaceCapabilities((state) => state.canEditStructure);
@@ -293,15 +331,5 @@ export function WorkspaceMenuLayer() {
   if (invocation.kind === "section") {
     return <SectionActionMenu invocation={invocation} />;
   }
-  const hostEntries = getHostActionEntries(invocation.context);
-  return (
-    <WorkspaceActionMenu
-      ariaLabel="Workspace item actions"
-      clientPoint={invocation.clientPoint}
-      direction={invocation.direction}
-      groups={[{ entries: hostEntries }]}
-      invocationSequence={invocation.sequence}
-      kind="item"
-    />
-  );
+  return <ItemActionMenu invocation={invocation} />;
 }

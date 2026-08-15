@@ -37,6 +37,18 @@ describe("sectionKindRegistry", () => {
     ).toThrowError(/renderInspector must be a function/);
   });
 
+  it("retains only a callable ordinary item factory", () => {
+    const createItem = () => ({ id: "item", children: [] });
+    registerSectionKinds({ leaf: { renderContent: () => null, createItem } });
+    expect(getRegisteredSectionKindOrThrow("leaf").createItem).toBe(createItem);
+
+    expect(() =>
+      registerSectionKinds({
+        leaf: { renderContent: () => null, createItem: "bad" },
+      } as unknown as Record<string, SectionKindDefinition>),
+    ).toThrowError(/createItem must be a function/);
+  });
+
   it("throws for an unregistered kind, naming it", () => {
     registerSectionKinds({ leaf: makeDefinition() });
     expect(() => getRegisteredSectionKindOrThrow("mystery")).toThrowError(
@@ -113,6 +125,22 @@ describe("sectionKindRegistry", () => {
         } as unknown as SectionKindDefinition,
       }),
     ).toThrowError(/cannot register a contentClassName/);
+  });
+
+  it("rejects an item factory on package-owned meta placement", () => {
+    expect(() =>
+      registerSectionKinds({
+        meta: {
+          renderContent: () => null,
+          createItem: () => ({ id: "item", children: [] }),
+          presentation: {
+            type: "meta-control",
+            resolveControlKind: () => "button",
+            onEdit: () => {},
+          },
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(/cannot register createItem/);
   });
 
   it("rejects unknown presentation discriminants instead of treating them as ordinary", () => {

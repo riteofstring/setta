@@ -9,6 +9,7 @@ import {
 } from "../document/sectionKindRegistry";
 import type { WorkspaceItem, WorkspaceSection } from "../document/types";
 import { getItemHandlerRegistration } from "../items/itemHandlerRegistry";
+import { WorkspaceInspectorItemActions } from "./WorkspaceInspectorItemActions";
 import { WorkspaceItemConfigurationEditor } from "./WorkspaceItemConfigurationEditor";
 import {
   createWorkspaceInspectorItemControl,
@@ -223,12 +224,21 @@ function TypedItemInspector({
 }
 
 export function WorkspaceItemInspector(props: WorkspaceItemInspectorProps) {
-  if (!hasWorkspaceItemPresentation(props.item)) {
-    return <UnsupportedCustomItem item={props.item} section={props.section} />;
-  }
   return (
-    <ItemSelectionModeAffectsControlsContext.Provider value={false}>
-      <TypedItemInspector {...props} item={props.item} />
-    </ItemSelectionModeAffectsControlsContext.Provider>
+    <>
+      {hasWorkspaceItemPresentation(props.item) ? (
+        <ItemSelectionModeAffectsControlsContext.Provider value={false}>
+          <TypedItemInspector {...props} item={props.item} />
+        </ItemSelectionModeAffectsControlsContext.Provider>
+      ) : (
+        <UnsupportedCustomItem item={props.item} section={props.section} />
+      )}
+      <WorkspaceInspectorItemActions
+        deleteMode="item"
+        itemId={props.item.id}
+        onStatusChange={props.onStatusChange}
+        section={props.section}
+      />
+    </>
   );
 }

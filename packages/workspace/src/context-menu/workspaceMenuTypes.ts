@@ -5,18 +5,11 @@ import type {
   WorkspaceSection,
   WorkspaceSectionInput,
 } from "../document/types";
+import type { WorkspaceSnapshot } from "../document/workspaceSnapshot";
 
 export type WorkspaceMenuIconProps = {
   className?: string;
 };
-
-type WorkspaceMenuSnapshot<Value> = Value extends (...args: Array<never>) => unknown
-  ? Value
-  : Value extends ReadonlyArray<infer Entry>
-    ? ReadonlyArray<WorkspaceMenuSnapshot<Entry>>
-    : Value extends object
-      ? { readonly [Key in keyof Value]: WorkspaceMenuSnapshot<Value[Key]> }
-      : Value;
 
 export type WorkspaceCreationContext = Readonly<{
   workspacePosition: Readonly<Position>;
@@ -29,20 +22,20 @@ export type WorkspacePaneMenuActionContext = Readonly<{
 
 export type WorkspaceSectionMenuActionContext = Readonly<{
   scope: "section";
-  section: WorkspaceMenuSnapshot<WorkspaceSection>;
-  selectedSections: ReadonlyArray<WorkspaceMenuSnapshot<WorkspaceSection>>;
+  section: WorkspaceSnapshot<WorkspaceSection>;
+  selectedSections: ReadonlyArray<WorkspaceSnapshot<WorkspaceSection>>;
 }>;
 
 export type WorkspaceItemMenuActionContext = Readonly<{
   scope: "item";
-  section: WorkspaceMenuSnapshot<WorkspaceSection>;
-  item: WorkspaceMenuSnapshot<WorkspaceItem>;
+  section: WorkspaceSnapshot<WorkspaceSection>;
+  item: WorkspaceSnapshot<WorkspaceItem>;
 }>;
 
 export type WorkspaceOutlineMenuActionContext = Readonly<{
   scope: "outline";
-  section: WorkspaceMenuSnapshot<WorkspaceSection>;
-  selectedSections: ReadonlyArray<WorkspaceMenuSnapshot<WorkspaceSection>>;
+  section: WorkspaceSnapshot<WorkspaceSection>;
+  selectedSections: ReadonlyArray<WorkspaceSnapshot<WorkspaceSection>>;
 }>;
 
 export type WorkspaceMenuActionContext =

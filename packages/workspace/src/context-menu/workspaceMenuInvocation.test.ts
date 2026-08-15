@@ -155,16 +155,13 @@ describe("workspace menu invocation", () => {
     });
   });
 
-  it("keeps the native item path when no item action exists and snapshots when one does", () => {
-    expect(openWorkspaceItemMenu("alpha", "alpha-item", { x: 20, y: 30 }, owner)).toBe(false);
-    registerWorkspaceMenuActions([
-      { id: "item-report", scope: "item", label: "Report item", onSelect: vi.fn() },
-    ]);
-
+  it("always snapshots item context for the package delete action", () => {
     expect(openWorkspaceItemMenu("alpha", "alpha-item", { x: 20, y: 30 }, owner)).toBe(true);
-    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+    const invocation = useWorkspaceMenuState.getState().invocation;
+    expect(invocation).toMatchObject({
       kind: "item",
       context: { scope: "item", section: { id: "alpha" }, item: { id: "alpha-item" } },
     });
+    expect(Object.isFrozen(invocation?.context)).toBe(true);
   });
 });

@@ -381,6 +381,15 @@ host-owned configuration. The context is a deeply frozen snapshot that discrimin
 section from a selected custom item plus its owning section; it exposes no package store, live
 canonical object, or private selector.
 
+An ordinary kind whose sections carry an `itemTree` may register `createItem(context)`. The host
+returns one complete serializable item with a stable ID, empty `children`, and its domain defaults;
+`context.section` is a detached, deeply frozen snapshot. `insertWorkspaceItem`,
+`deleteWorkspaceItems`, `deleteLastWorkspaceItem`, and `deleteSelectedWorkspaceItems` are the
+canonical public operations used by the package toolbar, item menu, Inspector, and direct host
+actions. The package appends insertions at the item root, validates the complete next tree, updates
+selection and focus, and reports exactly one document change. A kind without a factory remains
+readable and deletable, while its Add parameter controls are disabled.
+
 A kind whose `presentation.type` is `"meta-control"` projects its opaque data to a package
 `MetaControlKind` and supplies the host callback for the outboard edit affordance. The package then
 owns the transparent headerless shell, drag/resize chrome, control minimums, and omitted-size
@@ -403,6 +412,28 @@ registerSectionKinds({
     icon: NoteIcon,
     defaultSize: { width: 240, height: 140 },
     contentClassName: "note-content",
+  },
+  parameters: {
+    renderContent: (section) => <ParameterRows section={section} />,
+    createItem: ({ section }) => ({
+      id: `${section.id}-${crypto.randomUUID()}`,
+      children: [],
+      presentation: {
+        label: "parameter",
+        control: {
+          kind: "code",
+          value: "",
+          configuration: {
+            autocomplete: "off",
+            disabled: false,
+            language: "python",
+            placeholder: null,
+            singleLine: false,
+            wrapLines: true,
+          },
+        },
+      },
+    }),
   },
 });
 ```

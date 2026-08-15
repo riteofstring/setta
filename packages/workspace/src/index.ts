@@ -126,6 +126,8 @@ export type {
   MetaControlSectionPresentation,
   SectionKindDefinition,
   WorkspaceInspectorContributionContext,
+  WorkspaceItemFactory,
+  WorkspaceItemFactoryContext,
 } from "./document/sectionKindRegistry";
 export { useWorkspaceAppearance } from "./document/stores";
 export type { WorkspaceAppearanceState, WorkspaceColorMode } from "./document/stores";
@@ -171,6 +173,12 @@ export {
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
 } from "./interaction";
+export {
+  deleteLastWorkspaceItem,
+  deleteSelectedWorkspaceItems,
+  deleteWorkspaceItems,
+  insertWorkspaceItem,
+} from "./items/itemAuthoringActions";
 export { registerItemHandlers } from "./items/itemHandlerRegistry";
 export type {
   WorkspaceDropzoneItemHandlerRegistration,

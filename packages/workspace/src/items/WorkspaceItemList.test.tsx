@@ -804,7 +804,7 @@ describe("WorkspaceItemList", () => {
     expect(row.tabIndex).toBe(0);
     expect(row.getAttribute("role")).toBe("group");
     expect(row.getAttribute("aria-label")).toBe("Selectable item item-a, not selected");
-    expect(row.getAttribute("aria-keyshortcuts")).toBe("Enter Space");
+    expect(row.getAttribute("aria-keyshortcuts")).toBe("Enter Space Shift+F10 ContextMenu");
     expect(row.getAttribute("aria-pressed")).toBeNull();
     expect(row.className).toContain("focus-visible:-outline-offset-2");
     row.focus();
@@ -826,13 +826,14 @@ describe("WorkspaceItemList", () => {
     );
   });
 
-  it("opens registered item actions from pointer and keyboard invocation", async () => {
+  it("opens package and registered item actions from pointer and keyboard invocation", async () => {
     registerWorkspaceMenuActions([
       { id: "host-item", scope: "item", label: "Host item", onSelect: vi.fn() },
     ]);
     await mount();
     let row = getRowByContent(host, "item-a");
     expect(row.getAttribute("aria-keyshortcuts")).toBe("Shift+F10 ContextMenu");
+    expect(row.dataset["workspaceItemId"]).toBe("item-a");
 
     const pointerEvent = new MouseEvent("contextmenu", {
       bubbles: true,
@@ -873,8 +874,19 @@ describe("WorkspaceItemList", () => {
     document.body.addEventListener("contextmenu", ancestorContextMenu);
 
     try {
-      await mount();
+      await mount({
+        renderItem: (context) =>
+          createElement(
+            "button",
+            { "data-testid": `row-${context.item.id}`, type: "button" },
+            context.item.id,
+          ),
+      });
       const row = getRowByContent(host, "item-a");
+      const nativeButton = row.querySelector("button");
+      if (!nativeButton) {
+        throw new Error("expected a native item control");
+      }
       const pointerEvent = new MouseEvent("contextmenu", {
         bubbles: true,
         cancelable: true,
@@ -883,7 +895,7 @@ describe("WorkspaceItemList", () => {
       });
 
       await act(async () => {
-        row.dispatchEvent(pointerEvent);
+        nativeButton.dispatchEvent(pointerEvent);
       });
 
       expect(pointerEvent.defaultPrevented).toBe(false);

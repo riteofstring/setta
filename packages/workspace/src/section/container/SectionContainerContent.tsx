@@ -3,6 +3,7 @@ import {
   type SectionKindDefinition,
 } from "../../document/sectionKindRegistry";
 import type { WorkspaceSection } from "../../document/types";
+import { WorkspaceItemAuthoringToolbar } from "../../items/WorkspaceItemAuthoringToolbar";
 import { SectionHeader } from "../header/SectionHeader";
 import { CustomResizable } from "../resize/CustomResizable";
 import { DEFAULT_SECTION_BG_COLOR } from "../sectionColors";
@@ -48,8 +49,14 @@ function renderRegisteredContent(definition: SectionKindDefinition, section: Wor
   if (definition.presentation?.type === "meta-control") {
     return definition.renderContent(section);
   }
+  const itemTreeClassName = section.itemTree ? " flex min-h-0 flex-col" : "";
   const bodySlotClassName = definition.contentClassName
-    ? `section-full-no-title ${definition.contentClassName}`
-    : "section-full-no-title";
-  return <div className={bodySlotClassName}>{definition.renderContent(section)}</div>;
+    ? `section-full-no-title${itemTreeClassName} ${definition.contentClassName}`
+    : `section-full-no-title${itemTreeClassName}`;
+  return (
+    <div className={bodySlotClassName}>
+      {section.itemTree ? <WorkspaceItemAuthoringToolbar sectionId={section.id} /> : null}
+      {definition.renderContent(section)}
+    </div>
+  );
 }

@@ -40,6 +40,7 @@ import { persistSectionSizeChange } from "../section/sectionSizes";
 import type { WorkspaceSectionTagColorPalette } from "../section/sectionTagColors";
 import { ungroupSections } from "../section/ungroupAction";
 import { SectionTagColorEditor } from "./SectionTagColorEditor";
+import { WorkspaceInspectorItemActions } from "./WorkspaceInspectorItemActions";
 import {
   canGroupWorkspaceSections,
   getWorkspaceInspectorLockState,
@@ -405,6 +406,25 @@ function SectionUngroupAction({
   );
 }
 
+function SectionItemAuthoringActions({
+  onStatusChange,
+  section,
+}: {
+  onStatusChange: (message: string) => void;
+  section: WorkspaceSection;
+}) {
+  if (!section.itemTree) {
+    return null;
+  }
+  return (
+    <WorkspaceInspectorItemActions
+      deleteMode="last"
+      onStatusChange={onStatusChange}
+      section={section}
+    />
+  );
+}
+
 type MultipleUngroupState = {
   available: boolean;
   visible: boolean;
@@ -593,6 +613,7 @@ function SectionInspector({
         onStatusChange={onStatusChange}
         section={section}
       />
+      <SectionItemAuthoringActions onStatusChange={onStatusChange} section={section} />
       <SectionSizeEditor onEscape={focusRoot} onStatusChange={onStatusChange} section={section} />
       <SectionContribution section={section} />
     </div>
@@ -691,14 +712,23 @@ function EmptyInspector() {
 }
 
 function MultipleItemsInspector({
+  onStatusChange,
   selection,
 }: {
+  onStatusChange: (message: string) => void;
   selection: Extract<WorkspaceInspectorSelection, { type: "multiple-items" }>;
 }) {
   return (
-    <div className="setta-workspace-inspector-unsupported" role="note">
-      <h3>{selection.itemCount} items selected</h3>
-      <p>Select one item to edit its label, UI type, and configuration.</p>
+    <div className="setta-workspace-inspector-editor" data-inspector-branch="multiple-items">
+      <div className="setta-workspace-inspector-unsupported" role="note">
+        <h3>{selection.itemCount} items selected</h3>
+        <p>Select one item to edit its label, UI type, and configuration.</p>
+      </div>
+      <WorkspaceInspectorItemActions
+        deleteMode="selected"
+        onStatusChange={onStatusChange}
+        section={selection.section}
+      />
     </div>
   );
 }
@@ -739,7 +769,7 @@ function InspectorBranch({
         />
       );
     case "multiple-items":
-      return <MultipleItemsInspector selection={selection} />;
+      return <MultipleItemsInspector onStatusChange={onStatusChange} selection={selection} />;
     case "multiple-sections":
       return (
         <MultipleSectionsInspector
