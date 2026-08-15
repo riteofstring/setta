@@ -33,8 +33,9 @@ transition paths are provided.
   exposing the section grid vocabulary.
 - `WorkspaceItemList` and `ItemDndContext` render item trees. Items with a typed `presentation`
   use the package's editable label and built-in control directly; a list needs `renderItem` only
-  for custom opaque items. `WorkspaceItemLabel` remains the grid-safe label helper for that custom
-  renderer extension.
+  for custom opaque items. Its optional `itemDiagnostics` registry supplies ephemeral host
+  validation keyed by stable item id. `WorkspaceItemLabel` remains the grid-safe label helper for
+  that custom renderer extension.
 
 Host application navigation and modal state stay outside the shell. Registered pane content may
 use its own application state, but receives no package store, XYFlow panel, dnd-kit store, Tailwind
@@ -381,6 +382,38 @@ item snapshot is complete. An active filter disables item drag-and-drop and stru
 retains canonical selection with an explicit hidden-selection notice, preserves the list's scroll
 position and surviving editor instances, and provides clear actions in both the search control and
 empty result.
+
+`WorkspaceItemList.itemDiagnostics` accepts one complete section-scoped registry of error, warning,
+and information messages. The package validates the entire replacement before rendering it,
+chooses the highest-severity row treatment, reserves space for a compact non-color status icon, and
+exposes every severity and message through an accessible description and portaled disclosure.
+Pointer disclosure preserves the active editor; keyboard focus stays on the native trigger; if a
+focused trigger is cleared asynchronously, focus moves to its stable row. A persistent polite live
+region announces additions, message or severity updates, and clearing without moving focus.
+An unknown id fails on first registration. If a canonical deletion removes a diagnosed item before
+the host's asynchronous state catches up, that previously valid entry stays dormant only while the
+host continues supplying it; clearing the entry also clears that temporary compatibility record.
+
+Diagnostics are host view input only. They do not enter `WorkspaceDocument`, receive automatic
+reload persistence, invoke the document-change callback, define validation rules, or start
+asynchronous work. A host replaces the React prop when its own validation state changes and owns
+any persistence:
+
+```tsx
+const itemDiagnostics = {
+  "retry-count": [
+    { severity: "error", message: "Choose a retry count from 0 through 5." },
+    { severity: "info", message: "Changes apply to the next request." },
+  ],
+} satisfies WorkspaceItemDiagnosticRegistry;
+
+<WorkspaceItemList
+  sectionId="request-options"
+  listKey="main"
+  topLevelItemIds={topLevelItemIds}
+  itemDiagnostics={itemDiagnostics}
+/>;
+```
 
 ## Section kind registration
 

@@ -17,9 +17,11 @@ import {
   type WorkspaceDropzoneItemControlConfiguration,
   type WorkspaceInspectorContributionContext,
   type WorkspaceItem,
+  type WorkspaceItemDiagnosticRegistry,
   type WorkspaceSection,
   type WorkspaceSectionData,
 } from "@setta/workspace";
+import { createContext, useContext, type ReactNode } from "react";
 // The host side of the registration seam: the package owns the shell, chrome, header, and
 // resize treatment; the playground registers its one leaf kind and renders the section body
 // from the kind's opaque data. No icon is registered, so headers keep the reference's
@@ -80,6 +82,64 @@ function PlaygroundInspectorContribution({
 // The item panel now mounts the package-owned typed row presentation directly. The host has no
 // control decoder or row renderer; only browser/server side effects for the dropzone cross the
 // explicit non-serializable handler registry.
+export const PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS = {
+  "item-alpha": [
+    {
+      severity: "error",
+      message: "Use 0.0005 or less for the stability profile.",
+    },
+  ],
+  "item-beta": [
+    {
+      severity: "warning",
+      message: "Use less than 0.995 to reduce stale updates.",
+    },
+  ],
+  "item-momentum": [
+    {
+      severity: "info",
+      message: "This value applies after the first update.",
+    },
+  ],
+} satisfies WorkspaceItemDiagnosticRegistry;
+
+export const PLAYGROUND_UPDATED_ITEM_DIAGNOSTICS = {
+  "item-alpha": [
+    {
+      severity: "warning",
+      message: "The host accepted this value but recommends 0.0005 or less.",
+    },
+  ],
+  "item-beta": [
+    {
+      severity: "error",
+      message: "Use less than 0.998 before running this profile.",
+    },
+    {
+      severity: "info",
+      message: "This diagnostic update remains outside the workspace document.",
+    },
+  ],
+} satisfies WorkspaceItemDiagnosticRegistry;
+
+const PlaygroundItemDiagnosticsContext = createContext<WorkspaceItemDiagnosticRegistry>(
+  PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS,
+);
+
+export function PlaygroundItemDiagnosticsProvider({
+  children,
+  diagnostics,
+}: {
+  children: ReactNode;
+  diagnostics: WorkspaceItemDiagnosticRegistry;
+}) {
+  return (
+    <PlaygroundItemDiagnosticsContext.Provider value={diagnostics}>
+      {children}
+    </PlaygroundItemDiagnosticsContext.Provider>
+  );
+}
+
 function isColorValueChoice(candidate: WorkspaceSectionData): candidate is ColorValueChoice {
   return (
     candidate !== null &&
@@ -250,6 +310,7 @@ function registerPlaygroundItemHandlers() {
 }
 
 export function ItemListSectionBody({ section }: { section: WorkspaceSection }) {
+  const itemDiagnostics = useContext(PlaygroundItemDiagnosticsContext);
   const itemTree = section.itemTree;
   if (!itemTree) {
     throw new Error(`Item panel section ${section.id} is missing its item tree.`);
@@ -260,6 +321,7 @@ export function ItemListSectionBody({ section }: { section: WorkspaceSection }) 
         sectionId={section.id}
         listKey="main"
         topLevelItemIds={itemTree.items[itemTree.rootId]?.children ?? []}
+        itemDiagnostics={itemDiagnostics}
       />
     </ItemDndContext>
   );

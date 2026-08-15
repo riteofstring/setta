@@ -182,6 +182,11 @@ export {
   deleteWorkspaceItems,
   insertWorkspaceItem,
 } from "./items/itemAuthoringActions";
+export type {
+  WorkspaceItemDiagnostic,
+  WorkspaceItemDiagnosticRegistry,
+  WorkspaceItemDiagnosticSeverity,
+} from "./items/itemDiagnostics";
 export { registerItemHandlers } from "./items/itemHandlerRegistry";
 export type {
   WorkspaceDropzoneItemHandlerRegistration,

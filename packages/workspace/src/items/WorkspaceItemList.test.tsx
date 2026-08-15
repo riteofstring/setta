@@ -371,6 +371,155 @@ describe("WorkspaceItemList", () => {
     expect(document.querySelector('[role="dialog"][aria-label="enabled help"]')).toBeNull();
   });
 
+  it("styles and describes every diagnostic severity without relying on color alone", async () => {
+    const onDocumentChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    await mount({
+      itemDiagnostics: {
+        "item-a": [
+          { severity: "info", message: "This value applies after setup." },
+          { severity: "warning", message: "Review this value before running." },
+          { severity: "error", message: "Choose a value below 10." },
+        ],
+        "item-group": [{ severity: "warning", message: "Review the nested values." }],
+        "item-c": [{ severity: "info", message: "This value is inherited." }],
+      },
+    });
+
+    const errorRow = getRowByContent(host, "item-a");
+    const warningRow = getRowByContent(host, "item-group");
+    const infoRow = getRowByContent(host, "item-c");
+    expect(errorRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("error");
+    expect(warningRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("warning");
+    expect(infoRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("info");
+    expect(errorRow.className).toContain("ring-red-600/50");
+    expect(warningRow.className).toContain("ring-amber-600/50");
+    expect(infoRow.className).toContain("ring-sky-600/50");
+    expect(errorRow.style.paddingInlineEnd).toBe("1.75rem");
+
+    const errorTrigger = getRequiredElement<HTMLButtonElement>(
+      errorRow,
+      '[data-setta-workspace-item-diagnostic-trigger="true"]',
+      "the error diagnostic trigger",
+    );
+    expect(errorTrigger.getAttribute("aria-label")).toBe(
+      "Show diagnostics for item-a: 1 error, 1 warning, and 1 information message",
+    );
+    expect(getAccessibleDescription(errorTrigger)).toBe(
+      "Information: This value applies after setup. " +
+        "Warning: Review this value before running. Error: Choose a value below 10.",
+    );
+    expect(errorTrigger.className).toContain("h-6 w-6");
+    expect(errorTrigger.className).toContain("setta-prevent-arrow-keys-moving-section");
+    expect(errorTrigger.dataset.tabNative).toBe("true");
+    expect(errorTrigger.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+
+    await act(async () => {
+      errorTrigger.click();
+    });
+    const diagnosticDialog = getRequiredElement<HTMLElement>(
+      document,
+      '[role="dialog"] [data-setta-workspace-item-diagnostic-message="error"]',
+      "the error diagnostic message",
+    ).closest<HTMLElement>('[role="dialog"]');
+    if (!diagnosticDialog) {
+      throw new Error("expected the portaled diagnostic dialog");
+    }
+    const titleId = diagnosticDialog.getAttribute("aria-labelledby");
+    expect(titleId ? document.getElementById(titleId)?.textContent : null).toBe(
+      "Diagnostics for item-a",
+    );
+    expect(
+      diagnosticDialog.querySelector('[data-setta-workspace-item-diagnostic-message="warning"]')
+        ?.textContent,
+    ).toContain("WarningReview this value before running.");
+    expect(
+      diagnosticDialog.querySelector('[data-setta-workspace-item-diagnostic-message="info"]')
+        ?.textContent,
+    ).toContain("InformationThis value applies after setup.");
+    expect(host.contains(diagnosticDialog)).toBe(false);
+    expect(onDocumentChange).not.toHaveBeenCalled();
+  });
+
+  it("announces diagnostic replacement and clearing while preserving editor and row focus", async () => {
+    loadTypedSwitchDocument();
+    const onDocumentChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onDocumentChange);
+    const typedProps = {
+      topLevelItemIds: ["item-switch"],
+      renderItem: undefined,
+    };
+    await mount({
+      ...typedProps,
+      itemDiagnostics: {
+        "item-switch": [{ severity: "info", message: "The host is checking this value." }],
+      },
+    });
+
+    const row = getRequiredElement<HTMLDivElement>(
+      host,
+      '[data-workspace-item-id="item-switch"]',
+      "the typed diagnostic row",
+    );
+    const nameEditor = getRequiredElement<HTMLElement>(
+      row,
+      "#ItemNameInput-panel-item-switch",
+      "the typed item name editor",
+    );
+    const infoTrigger = getRequiredElement<HTMLButtonElement>(
+      row,
+      '[data-setta-workspace-item-diagnostic-trigger="true"]',
+      "the information diagnostic trigger",
+    );
+    expect(
+      host.querySelector('[data-setta-workspace-item-diagnostic-announcer="true"]')?.textContent,
+    ).toContain("Information for enabled: The host is checking this value.");
+
+    await act(async () => {
+      nameEditor.focus();
+    });
+    const activeEditor = document.activeElement;
+    await act(async () => {
+      infoTrigger.dispatchEvent(
+        createPointerEvent("pointerdown", { bubbles: true, cancelable: true }),
+      );
+      infoTrigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(document.activeElement).toBe(activeEditor);
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+      "The host is checking this value.",
+    );
+
+    await mount({
+      ...typedProps,
+      itemDiagnostics: {
+        "item-switch": [{ severity: "error", message: "Turn this setting off to continue." }],
+      },
+    });
+    expect(document.activeElement).toBe(activeEditor);
+    expect(activeEditor ? row.contains(activeEditor) : false).toBe(true);
+    const errorTrigger = getRequiredElement<HTMLButtonElement>(
+      row,
+      '[data-setta-workspace-item-diagnostic-trigger="true"]',
+      "the updated error diagnostic trigger",
+    );
+    expect(errorTrigger.getAttribute("aria-label")).toBe("Show diagnostics for enabled: 1 error");
+    expect(
+      host.querySelector('[data-setta-workspace-item-diagnostic-announcer="true"]')?.textContent,
+    ).toContain("Error for enabled: Turn this setting off to continue.");
+
+    await act(async () => {
+      errorTrigger.focus();
+    });
+    await mount({ ...typedProps, itemDiagnostics: {} });
+    expect(document.activeElement).toBe(row);
+    expect(row.querySelector('[data-setta-workspace-item-diagnostic-trigger="true"]')).toBeNull();
+    expect(
+      host.querySelector('[data-setta-workspace-item-diagnostic-announcer="true"]')?.textContent,
+    ).toBe("Parameter diagnostics cleared.");
+    expect(onDocumentChange).not.toHaveBeenCalled();
+  });
+
   it("fails specifically when a custom row has no renderer", async () => {
     await expect(mount({ renderItem: undefined })).rejects.toThrowError(
       "Custom item panel/item-a requires a registered row renderer.",

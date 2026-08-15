@@ -178,6 +178,27 @@ describe("the playground item renderer presentation contract", () => {
     expect(getControlDescription(help)).toContain("Sets the initial learning rate");
   });
 
+  it("demonstrates host-owned ephemeral diagnostics through the public list registry", () => {
+    const errorRow = findRowByLabel(container, "alpha");
+    const warningRow = findRowByLabel(container, "beta");
+    const infoRow = findRowByLabel(container, "momentum");
+    expect(errorRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("error");
+    expect(warningRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("warning");
+    expect(infoRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("info");
+
+    const errorTrigger = errorRow.querySelector<HTMLButtonElement>(
+      '[data-setta-workspace-item-diagnostic-trigger="true"]',
+    );
+    if (!errorTrigger) {
+      throw new Error("The typed playground row is missing its diagnostic trigger.");
+    }
+    expect(errorTrigger.getAttribute("aria-label")).toBe("Show diagnostics for alpha: 1 error");
+    expect(getControlDescription(errorTrigger)).toBe(
+      "Error: Use 0.0005 or less for the stability profile.",
+    );
+    expect(JSON.stringify(getWorkspaceDocument())).not.toContain("stability profile");
+  });
+
   it("renders switch rows with the built-in switch and commits toggles to the document", () => {
     const switchRow = findRowByLabel(container, "enabled");
     const wrapper = switchRow.querySelector<HTMLElement>("div.section-value");

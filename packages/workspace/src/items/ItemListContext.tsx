@@ -12,6 +12,7 @@ import { SortableContext, verticalListSortingStrategy } from "../dnd/adapter";
 import { useItemDndChildren } from "../dnd/itemDndChildren";
 import { getItemDndId, isTempItem, useItemDndState, type ItemListKey } from "../dnd/itemDndState";
 import type { WorkspaceItem } from "../document/types";
+import type { WorkspaceItemDiagnosticRegistry } from "./itemDiagnostics";
 
 // The reference's app-level `ParamDndContext` (list context, `useParamDndChildrenForParent`,
 // and the `ParamDndProvider` sortable list). The package context additionally carries the
@@ -30,6 +31,7 @@ type ItemListContextValue = {
   sectionId: string;
   listKey: ItemListKey;
   visibleItemIds: ReadonlySet<string>;
+  itemDiagnostics: WorkspaceItemDiagnosticRegistry;
   renderItem?: (context: ItemRowRenderContext) => ReactNode;
   isGroupItem: (item: WorkspaceItem) => boolean;
   onColumnResizeStart: PointerEventHandler<HTMLButtonElement>;
@@ -80,6 +82,7 @@ export function ItemListProvider({
   sectionId,
   listKey,
   visibleItemIds,
+  itemDiagnostics,
   renderItem,
   isGroupItem,
   onColumnResizeStart,
@@ -97,6 +100,7 @@ export function ItemListProvider({
       sectionId,
       listKey,
       visibleItemIds,
+      itemDiagnostics,
       renderItem,
       isGroupItem,
       onColumnResizeStart,
@@ -110,6 +114,7 @@ export function ItemListProvider({
       isGroupItem,
       keyboardColumnResizeItemId,
       listKey,
+      itemDiagnostics,
       onColumnResizeClick,
       onColumnResizeDoubleClick,
       onColumnResizeKeyDown,

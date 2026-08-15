@@ -14,6 +14,7 @@ import {
   useItemSelectionMode,
   useWorkspaceAppearance,
   WorkspaceShell,
+  type WorkspaceItemDiagnosticRegistry,
   type WorkspaceSectionTagColorPalette,
   type WorkspaceShellTabDefinition,
   type WorkspaceShellTabIconProps,
@@ -21,6 +22,11 @@ import {
 import { useEffect, useState } from "react";
 import { PlaygroundMenuActionReadout } from "./menuExtensions";
 import { playgroundDocument } from "./playgroundDocument";
+import {
+  PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS,
+  PLAYGROUND_UPDATED_ITEM_DIAGNOSTICS,
+  PlaygroundItemDiagnosticsProvider,
+} from "./sectionKinds";
 
 function toggleDarkMode() {
   const next = !useWorkspaceAppearance.getState().darkMode;
@@ -96,6 +102,36 @@ function HostParameterActions() {
         type="button"
       >
         Host delete selected
+      </button>
+    </div>
+  );
+}
+
+function HostParameterDiagnosticActions({
+  onClear,
+  onShowInitial,
+  onShowUpdated,
+}: {
+  onClear: () => void;
+  onShowInitial: () => void;
+  onShowUpdated: () => void;
+}) {
+  const className =
+    "playground-action rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300";
+  return (
+    <div
+      aria-label="Parameter diagnostics"
+      className="flex min-w-0 flex-1 flex-wrap gap-1"
+      role="group"
+    >
+      <button className={className} onClick={onShowInitial} type="button">
+        Show diagnostics
+      </button>
+      <button className={className} onClick={onShowUpdated} type="button">
+        Update diagnostics
+      </button>
+      <button className={className} onClick={onClear} type="button">
+        Clear diagnostics
       </button>
     </div>
   );
@@ -203,6 +239,9 @@ const sectionTagColorPalette = [
 export function App() {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
   const [shellViewState, setShellViewState] = useState(() => createWorkspaceShellViewState());
+  const [itemDiagnostics, setItemDiagnostics] = useState<WorkspaceItemDiagnosticRegistry>(
+    PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS,
+  );
 
   // Package appearance is scoped to package roots. The playground mirrors the resolved mode only
   // for its own host chrome; real hosts can style their surrounding application independently.
@@ -234,6 +273,11 @@ export function App() {
         <GroupOverflowModeToggle />
         <SectionTagColorToggle />
         <HostParameterActions />
+        <HostParameterDiagnosticActions
+          onClear={() => setItemDiagnostics({})}
+          onShowInitial={() => setItemDiagnostics(PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS)}
+          onShowUpdated={() => setItemDiagnostics(PLAYGROUND_UPDATED_ITEM_DIAGNOSTICS)}
+        />
         <p className="playground-intro min-w-0 text-xs text-setta-500 dark:text-setta-400">
           <DocumentChangeReadout /> document changes reported. Drag sections or the background,
           scroll or pinch to pan and zoom, click to select, Cmd/Ctrl-click to multi-select,
@@ -252,7 +296,9 @@ export function App() {
           labels without changing the document, retains hidden selection with an explicit notice,
           and disables structural movement until cleared. Typed parameter help is serializable,
           editable in the Inspector, and opens from an accessible row button without being clipped
-          by section overflow. Group headers also flip their child flow between vertical and
+          by section overflow. Host diagnostics remain ephemeral while the package owns error,
+          warning, and information row treatments, accessible announcements, and a focus-safe
+          message disclosure. Group headers also flip their child flow between vertical and
           horizontal. The toolbar zooms, fits, and toggles grid snapping; its minimap group hides
           the pannable, click-to-center minimap or moves it between the bottom corners. The twelve
           controls at the upper right use the headerless canvas presentation: edit text, calendar,
@@ -270,14 +316,16 @@ export function App() {
         </p>
       </header>
       <div className="playground-workspace flex min-h-0 min-w-0 flex-1">
-        <WorkspaceShell
-          ariaLabel="Playground workspace"
-          leadingTabs={leadingTabs}
-          onViewStateChange={setShellViewState}
-          sectionTagColorPalette={sectionTagColorPalette}
-          trailingTabs={trailingTabs}
-          viewState={shellViewState}
-        />
+        <PlaygroundItemDiagnosticsProvider diagnostics={itemDiagnostics}>
+          <WorkspaceShell
+            ariaLabel="Playground workspace"
+            leadingTabs={leadingTabs}
+            onViewStateChange={setShellViewState}
+            sectionTagColorPalette={sectionTagColorPalette}
+            trailingTabs={trailingTabs}
+            viewState={shellViewState}
+          />
+        </PlaygroundItemDiagnosticsProvider>
       </div>
     </main>
   );

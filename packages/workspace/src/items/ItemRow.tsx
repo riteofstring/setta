@@ -1,5 +1,11 @@
 import _ from "lodash";
-import React, { useCallback, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import React, {
+  useCallback,
+  useRef,
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { useReactFlow } from "../canvas/store";
 import { openWorkspaceItemMenu } from "../context-menu/workspaceMenuInvocation";
 import {
@@ -24,6 +30,14 @@ import {
   useItemListContext,
   type ItemRowRenderContext,
 } from "./ItemListContext";
+import { WorkspaceItemDiagnostics } from "./WorkspaceItemDiagnostics";
+import {
+  getHighestWorkspaceItemDiagnosticSeverity,
+  getWorkspaceItemDiagnosticCountSummary,
+  getWorkspaceItemDiagnosticLabel,
+  getWorkspaceItemDiagnosticRowClassName,
+  type WorkspaceItemDiagnosticSeverity,
+} from "./itemDiagnostics";
 
 // The reference's `ParamSwitch`/`ParamContainer` row pair trimmed to the package seam: the
 // package owns the row interaction chrome — sortable wiring with zoom-scaled transforms, the
@@ -194,15 +208,29 @@ type ItemRowStyleProps = {
   hoverClassName: string;
   dndClassName: string;
   dndStyle: CSSProperties;
+  hasDiagnostics: boolean;
 };
 
-function buildLeafRowProps({ bg, hoverClassName, dndClassName, dndStyle }: ItemRowStyleProps) {
+function buildItemRowStyle(dndStyle: CSSProperties, hasDiagnostics: boolean): CSSProperties {
+  return {
+    ...dndStyle,
+    paddingInlineEnd: hasDiagnostics ? "1.75rem" : undefined,
+  };
+}
+
+function buildLeafRowProps({
+  bg,
+  hoverClassName,
+  dndClassName,
+  dndStyle,
+  hasDiagnostics,
+}: ItemRowStyleProps) {
   return {
     rowClassName: `section-key-value group/arg-group section-min-rows relative grid min-w-0 items-center rounded-sm px-[2px] ${hoverClassName} ${bg} ${dndClassName}`,
     rowStyle: {
       gridTemplateColumns: `minmax(min-content, ${ITEM_COLUMN_WIDTH}) 0.75rem minmax(0, 1fr)`,
       gridTemplateAreas: `"key center-gutter value"`,
-      ...dndStyle,
+      ...buildItemRowStyle(dndStyle, hasDiagnostics),
     },
   };
 }
@@ -212,12 +240,13 @@ function buildNestedRootRowProps({
   hoverClassName,
   dndClassName,
   dndStyle,
+  hasDiagnostics,
 }: ItemRowStyleProps) {
   return {
     rowClassName: `section-args-nested-key-value section-key-value group/arg-group section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] ${hoverClassName} ${bg} ${dndClassName}`,
     rowStyle: {
       gridTemplateColumns: `minmax(min-content, ${ITEM_COLUMN_WIDTH}) [c3] 0.75rem [c4] 1fr [c5]`,
-      ...dndStyle,
+      ...buildItemRowStyle(dndStyle, hasDiagnostics),
     },
   };
 }
@@ -227,13 +256,14 @@ function buildNestedChildRowProps({
   hoverClassName,
   dndClassName,
   dndStyle,
+  hasDiagnostics,
   isTopLevelWithPad,
 }: ItemRowStyleProps & { isTopLevelWithPad: boolean }) {
   return {
     rowClassName: `section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value relative grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${hoverClassName} ${bg} ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""} ${dndClassName}`,
     rowStyle: {
       gridTemplateColumns: `[c1] 0.75rem [c2] minmax(min-content, ${ITEM_COLUMN_WIDTH}) [c3] 0.75rem [c4] 1fr [c5]`,
-      ...dndStyle,
+      ...buildItemRowStyle(dndStyle, hasDiagnostics),
     },
   };
 }
@@ -322,8 +352,17 @@ function renderItemRowContent(
   return renderItem(context);
 }
 
+function getItemDiagnosticSummary(
+  diagnostics: Parameters<typeof getHighestWorkspaceItemDiagnosticSeverity>[0],
+): string | null {
+  if (diagnostics.length === 0) {
+    return null;
+  }
+  return getWorkspaceItemDiagnosticCountSummary(diagnostics);
+}
+
 function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
-  const { enabled, sectionId, listKey, visibleItemIds, renderItem, isGroupItem } =
+  const { enabled, sectionId, listKey, visibleItemIds, itemDiagnostics, renderItem, isGroupItem } =
     useItemListContext();
   const darkMode = useWorkspaceAppearance((x) => x.darkMode);
   const rowState = useWorkspaceDocument((x) => {
@@ -347,6 +386,10 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
   const dndId = getItemDndId(itemId, listKey);
   const hasNested = rowState.item.children.length > 0;
   const onlyChildId = rowState.item.children.length === 1 ? rowState.item.children[0] : null;
+  const diagnostics = itemDiagnostics[itemId] ?? [];
+  const highestDiagnosticSeverity = getHighestWorkspaceItemDiagnosticSeverity(diagnostics);
+  const diagnosticSummary = getItemDiagnosticSummary(diagnostics);
+  const rowRef = useRef<HTMLDivElement | null>(null);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: dndId,
     disabled: !enabled,
@@ -360,6 +403,13 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       onlyChildId,
     },
   });
+  const setRowRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      rowRef.current = element;
+      setNodeRef(element);
+    },
+    [setNodeRef],
+  );
 
   const renderContext = {
     sectionId,
@@ -376,13 +426,14 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
   const { rowClassName, rowStyle } = buildItemRowProps(
     layout,
     {
-      bg: resolveItemBackgroundClass({
+      bg: `${resolveItemBackgroundClass({
         hasSectionStyleTheme: hasSectionStyleTheme,
         isSelected: rowState.isSelected,
-      }),
+      })} ${getWorkspaceItemDiagnosticRowClassName(highestDiagnosticSeverity)}`,
       hoverClassName: getItemHoverClassName(hasSectionStyleTheme),
       dndClassName: isDragging ? "opacity-80" : "",
       dndStyle: createSortableStyle({ transform, transition, isDragging }),
+      hasDiagnostics: diagnostics.length > 0,
     },
     isTopLevelWithPad,
   );
@@ -393,7 +444,7 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       rowStyle={rowStyle}
       dndAttributes={omitRoleAttribute(attributes)}
       dndListeners={listeners ?? {}}
-      dndRef={setNodeRef}
+      dndRef={setRowRef}
       onClick={handleItemClick}
       onMouseDown={handleItemMouseDown}
       onKeyDown={handleItemKeyDown}
@@ -401,9 +452,16 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       isSelectingItems={isSelectingItems}
       isSelected={rowState.isSelected}
       itemId={itemId}
+      diagnosticSeverity={highestDiagnosticSeverity}
+      diagnosticSummary={diagnosticSummary}
     >
       {renderItemRowContent(renderContext, renderItem)}
       <ItemColumnResizeHandle itemId={itemId} />
+      <WorkspaceItemDiagnostics
+        diagnostics={diagnostics}
+        itemLabel={getWorkspaceItemDiagnosticLabel(rowState.item)}
+        rowRef={rowRef}
+      />
       {layout !== "leaf" && <ItemNestedChildren renderChildren={renderChildren} />}
     </ItemRowShell>
   );
@@ -422,13 +480,15 @@ function ItemRowShell({
   isSelectingItems,
   isSelected,
   itemId,
+  diagnosticSeverity,
+  diagnosticSummary,
   children,
 }: {
   rowClassName: string;
   rowStyle: CSSProperties;
   dndAttributes: Record<string, unknown>;
   dndListeners: Record<string, unknown>;
-  dndRef: (element: HTMLElement | null) => void;
+  dndRef: (element: HTMLDivElement | null) => void;
   onClick: React.MouseEventHandler;
   onMouseDown: React.MouseEventHandler;
   onKeyDown: React.KeyboardEventHandler<HTMLDivElement>;
@@ -436,6 +496,8 @@ function ItemRowShell({
   isSelectingItems: boolean;
   isSelected: boolean;
   itemId: string;
+  diagnosticSeverity: WorkspaceItemDiagnosticSeverity | null;
+  diagnosticSummary: string | null;
   children: ReactNode;
 }) {
   function handleContextMenu(event: React.MouseEvent<HTMLDivElement>): void {
@@ -484,6 +546,7 @@ function ItemRowShell({
       className={`${rowClassName} focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2`}
       style={rowStyle}
       data-item-row="true"
+      data-setta-workspace-item-diagnostic-severity={diagnosticSeverity ?? undefined}
       data-workspace-item-id={itemId}
       onMouseDownCapture={onMouseDown}
       onClick={onClick}
@@ -495,7 +558,9 @@ function ItemRowShell({
       role={isSelectingItems ? "group" : undefined}
       aria-label={
         isSelectingItems
-          ? `Selectable item ${itemId}, ${isSelected ? "selected" : "not selected"}`
+          ? `Selectable item ${itemId}, ${isSelected ? "selected" : "not selected"}${
+              diagnosticSummary ? `, ${diagnosticSummary}` : ""
+            }`
           : undefined
       }
       aria-keyshortcuts={

@@ -14,7 +14,12 @@ import {
   type ItemRowRenderContext,
 } from "./ItemListContext";
 import { ItemRow } from "./ItemRow";
+import { WorkspaceItemDiagnosticAnnouncer } from "./WorkspaceItemDiagnostics";
 import { useWorkspaceItemFilter } from "./WorkspaceItemFilterContext";
+import {
+  normalizeWorkspaceItemDiagnosticRegistry,
+  type WorkspaceItemDiagnosticRegistry,
+} from "./itemDiagnostics";
 import {
   isItemListViewRegistered,
   registerItemListView,
@@ -45,6 +50,10 @@ export type WorkspaceItemListProps = {
   // Group rows keep the reference's parent-row layout even when empty. The default is
   // structural for custom items; explicit typed groups always use their presentation kind.
   isGroupItem?: (item: WorkspaceItem) => boolean;
+  // Ephemeral host validation for this section, keyed by stable item id. Each replacement is
+  // validated as a complete registry and never enters or notifies the canonical document. A
+  // diagnosed id deleted before the host's next async render stays dormant until that replacement.
+  itemDiagnostics?: WorkspaceItemDiagnosticRegistry;
 };
 
 function collectReachableItemIds(
@@ -91,7 +100,41 @@ function useResolvedItemVisibility({
     }
     return new Set([...listVisibleSet].filter((itemId) => itemFilter.visibleItemIds.has(itemId)));
   }, [itemFilter?.filterActive, itemFilter?.visibleItemIds, listVisibleSet]);
-  return { filterActive: itemFilter?.filterActive ?? false, visibleSet };
+  return { filterActive: itemFilter?.filterActive ?? false, listVisibleSet, visibleSet };
+}
+
+function useNormalizedItemDiagnostics(
+  itemDiagnostics: WorkspaceItemDiagnosticRegistry | undefined,
+  sectionId: string,
+  itemTree: WorkspaceSectionItemTree,
+): WorkspaceItemDiagnosticRegistry {
+  const currentItemIds = useMemo(
+    () => new Set(Object.keys(itemTree.items).filter((itemId) => itemId !== itemTree.rootId)),
+    [itemTree],
+  );
+  const knownItemIdsRef = useRef<{ itemIds: ReadonlySet<string>; sectionId: string } | null>(null);
+  const compatibleItemIds = useMemo(() => {
+    const previouslyKnownItemIds =
+      itemDiagnostics !== undefined && knownItemIdsRef.current?.sectionId === sectionId
+        ? knownItemIdsRef.current.itemIds
+        : new Set<string>();
+    return new Set([...previouslyKnownItemIds, ...currentItemIds]);
+  }, [currentItemIds, itemDiagnostics, sectionId]);
+  const normalized = useMemo(
+    () => normalizeWorkspaceItemDiagnosticRegistry(itemDiagnostics, sectionId, compatibleItemIds),
+    [compatibleItemIds, itemDiagnostics, sectionId],
+  );
+
+  // A canonical deletion publishes before an asynchronous host can clear its diagnostic prop.
+  // Retain only current ids plus still-supplied, previously valid ids so that one expected state
+  // transition stays renderable without allowing an unknown id on first registration.
+  useLayoutEffect(() => {
+    knownItemIdsRef.current = {
+      itemIds: new Set([...currentItemIds, ...Object.keys(normalized)]),
+      sectionId,
+    };
+  }, [currentItemIds, normalized, sectionId]);
+  return normalized;
 }
 
 export function WorkspaceItemList({
@@ -101,16 +144,22 @@ export function WorkspaceItemList({
   visibleItemIds,
   renderItem,
   isGroupItem = defaultIsGroupItem,
+  itemDiagnostics,
 }: WorkspaceItemListProps) {
   const itemTree = useWorkspaceDocument((x) => getSectionItemTreeOrThrow(x, sectionId));
   const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
   const canEditStructure = useWorkspaceCapabilities((x) => x.canEditStructure);
-  const { filterActive, visibleSet } = useResolvedItemVisibility({
+  const { filterActive, listVisibleSet, visibleSet } = useResolvedItemVisibility({
     itemTree,
     topLevelItemIds,
     visibleItemIds,
   });
   const enabled = isSelectingItems && canEditStructure && !filterActive;
+  const normalizedItemDiagnostics = useNormalizedItemDiagnostics(
+    itemDiagnostics,
+    sectionId,
+    itemTree,
+  );
   const listOuterRef = useRef<HTMLDivElement | null>(null);
   const columnResizeHandlers = useItemColumnWidth(sectionId, listOuterRef);
   const treeView = useMemo(
@@ -144,6 +193,7 @@ export function WorkspaceItemList({
       sectionId={sectionId}
       listKey={listKey}
       visibleItemIds={visibleSet}
+      itemDiagnostics={normalizedItemDiagnostics}
       renderItem={renderItem}
       isGroupItem={isGroupItem}
       {...columnResizeHandlers}
@@ -151,6 +201,11 @@ export function WorkspaceItemList({
       rootId={treeView.rootId}
       flatItemIds={treeView.flat.map((row) => row.id)}
     >
+      <WorkspaceItemDiagnosticAnnouncer
+        diagnostics={normalizedItemDiagnostics}
+        itemIds={listVisibleSet}
+        itemTree={itemTree}
+      />
       <ItemListShell filterActive={filterActive} outerRef={listOuterRef}>
         <ItemListBody
           rootId={treeView.rootId}
