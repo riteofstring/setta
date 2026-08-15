@@ -13,7 +13,13 @@ import {
 import { FiEdit3 } from "react-icons/fi";
 import { TbListTree } from "react-icons/tb";
 import { WorkspaceCanvas } from "../canvas/WorkspaceCanvas";
+import { useReactFlow } from "../canvas/store";
 import { shiftWorkspaceMapForLeadingPane } from "../canvas/viewportHelpers";
+import {
+  areViewportInsetsEqual,
+  EMPTY_VIEWPORT_INSETS,
+  getPhysicalViewportInsets,
+} from "../canvas/viewportInsets";
 import { resolveSectionTagColorPalette } from "../section/sectionTagColors";
 import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
@@ -304,6 +310,7 @@ export function WorkspaceShell({
   const focusRequestRef = useRef<FocusRequest | null>(null);
   const previousViewStateRef = useRef(viewState);
   const previousLeadingTrueWidthRef = useRef(getWorkspaceShellPaneTrueWidth(viewState.leading));
+  const ownedViewportInsetsRef = useRef(EMPTY_VIEWPORT_INSETS);
   const tabRefs = useRef(new Map<string, HTMLButtonElement>());
   const panelRefs = useRef(new Map<WorkspaceShellPaneSide, HTMLDivElement>());
   viewStateRef.current = viewState;
@@ -365,6 +372,40 @@ export function WorkspaceShell({
   assertOutlineViewState(viewState);
   assertTabs("leading", combinedLeadingTabs, viewState.leading);
   assertTabs("trailing", combinedTrailingTabs, viewState.trailing);
+
+  const leadingViewportInset = getWorkspaceShellPaneTrueWidth(displayState.leading);
+  const trailingViewportInset = getWorkspaceShellPaneTrueWidth(displayState.trailing);
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) {
+      throw new Error("Workspace shell root did not mount before viewport inset synchronization.");
+    }
+    const direction = getComputedStyle(root).direction === "rtl" ? "rtl" : "ltr";
+    const nextInsets = getPhysicalViewportInsets({
+      direction,
+      leading: leadingViewportInset,
+      trailing: trailingViewportInset,
+    });
+    ownedViewportInsetsRef.current = nextInsets;
+    if (!areViewportInsetsEqual(useReactFlow.getState().viewportInsets, nextInsets)) {
+      useReactFlow.setState({ viewportInsets: nextInsets });
+    }
+  }, [leadingViewportInset, trailingViewportInset]);
+
+  useEffect(
+    () => () => {
+      if (
+        areViewportInsetsEqual(
+          useReactFlow.getState().viewportInsets,
+          ownedViewportInsetsRef.current,
+        )
+      ) {
+        useReactFlow.setState({ viewportInsets: EMPTY_VIEWPORT_INSETS });
+      }
+    },
+    [],
+  );
 
   function requireMeasuredWidth(): number {
     if (shellWidth <= 0) {

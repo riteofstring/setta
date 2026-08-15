@@ -22,8 +22,8 @@ import { useReactFlow } from "./store";
 import Viewport from "./Viewport";
 import { WorkspaceBackground } from "./WorkspaceBackground";
 
-// The reference UiPage's canvas wrapper (`relative h-full min-h-0 w-full min-w-0`): the minimap
-// panel positions against this non-scrolling div, beside the scroll shim rather than inside it.
+// The reference UiPage's full-size canvas wrapper (`relative h-full min-h-0 w-full min-w-0`): the
+// minimap positions against this non-scrolling div and offsets itself by the overlay pane insets.
 const outerWrapperStyle: CSSProperties = {
   position: "relative",
   height: "100%",

@@ -53,6 +53,9 @@ describe("ResponsiveMiniMap", () => {
   }
 
   it("renders the reference panel chrome at the bottom-left default", async () => {
+    useReactFlow.setState({
+      viewportInsets: { top: 0, right: 40, bottom: 0, left: 335 },
+    });
     await act(async () => {
       root.render(<ResponsiveMiniMap />);
     });
@@ -65,6 +68,7 @@ describe("ResponsiveMiniMap", () => {
     expect(panel.className).toContain("rounded-md");
     expect(panel.className).toContain("backdrop-blur-sm");
     expect(panel.className).toContain("shadow-md");
+    expect(panel.style.transform).toBe("translateX(335px)");
 
     const svg = panel.querySelector("svg");
     expect(svg?.getAttribute("width")).toBe("200");
@@ -80,6 +84,9 @@ describe("ResponsiveMiniMap", () => {
 
   it("flips to the bottom-right corner when the minimap side preference is right", async () => {
     useWorkspaceOptions.setState({ minimapSide: "right" });
+    useReactFlow.setState({
+      viewportInsets: { top: 0, right: 500, bottom: 0, left: 40 },
+    });
 
     await act(async () => {
       root.render(<ResponsiveMiniMap />);
@@ -89,6 +96,7 @@ describe("ResponsiveMiniMap", () => {
     expect(panel.classList.contains("bottom")).toBe(true);
     expect(panel.classList.contains("right")).toBe(true);
     expect(panel.classList.contains("left")).toBe(false);
+    expect(panel.style.transform).toBe("translateX(-500px)");
   });
 
   it("uses the dark mask colors in dark mode", async () => {

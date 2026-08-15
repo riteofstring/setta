@@ -182,11 +182,13 @@ describe("viewport zoom helpers", () => {
     expect(getCanZoomOut()).toBe(false);
   });
 
-  // The reference offsets the visible center by its Overview rail width; the package centers on
-  // the canvas wrapper alone (the shared seam adaptation).
-  it("setCenter centers the flow position on the canvas at the given zoom", () => {
+  it("setCenter centers the flow position in the area left visible by shell panes", () => {
     const { transform, durations, transitionObject } = setupZoomRuntime();
-    useReactFlow.setState({ width: 800, height: 600 });
+    useReactFlow.setState({
+      width: 800,
+      height: 600,
+      viewportInsets: { top: 0, right: 100, bottom: 0, left: 200 },
+    });
 
     setCenter(100, 50, { zoom: 2, duration: 120 });
 
@@ -194,7 +196,7 @@ describe("viewport zoom helpers", () => {
     const [target, applied] = getFirstTransformCall(transform);
     expect(target).toBe(transitionObject);
     expect(applied.k).toBe(2);
-    expect(applied.x).toBe(800 / 2 - 100 * 2);
+    expect(applied.x).toBe(200 + 500 / 2 - 100 * 2);
     expect(applied.y).toBe(600 / 2 - 50 * 2);
     expect(durations).toEqual([120]);
   });

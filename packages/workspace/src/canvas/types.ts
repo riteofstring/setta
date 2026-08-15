@@ -16,6 +16,13 @@ export interface Dimensions {
 
 export interface Rect extends Dimensions, Position {}
 
+export type ViewportInsets = {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+};
+
 export interface Box extends Position {
   x2: number;
   y2: number;
@@ -45,6 +52,7 @@ type SelectionRect = Rect & {
 export type ReactFlowStore = {
   width: number;
   height: number;
+  viewportInsets: ViewportInsets;
   transform: Transform;
   domNode: HTMLDivElement | null;
   paneDragging: boolean;

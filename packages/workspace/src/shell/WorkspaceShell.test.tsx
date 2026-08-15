@@ -3,6 +3,7 @@
 import { act, createRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { initialCanvasState, useReactFlow } from "../canvas/store";
 import { WorkspaceShell } from "./WorkspaceShell";
 import { createWorkspaceShellViewState } from "./workspaceShellLayout";
 import type {
@@ -151,6 +152,7 @@ describe("WorkspaceShell", () => {
   let onChange: Mock<(viewState: WorkspaceShellViewState) => void>;
 
   beforeEach(async () => {
+    useReactFlow.setState({ ...initialCanvasState });
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -169,6 +171,7 @@ describe("WorkspaceShell", () => {
     host.remove();
     observedResizeTargets.clear();
     shiftWorkspaceMapForLeadingPane.mockReset();
+    useReactFlow.setState({ ...initialCanvasState });
   });
 
   function getShell(): HTMLElement {
@@ -241,6 +244,12 @@ describe("WorkspaceShell", () => {
     expect(host.querySelector('[data-testid="workspace-canvas"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="workspace-controls"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="workspace-tooltip"]')).not.toBeNull();
+    expect(useReactFlow.getState().viewportInsets).toEqual({
+      top: 0,
+      right: 40,
+      bottom: 0,
+      left: 335,
+    });
 
     const leadingRegion = host.querySelector<HTMLElement>(
       '[data-workspace-shell-pane-region="leading"]',
@@ -257,6 +266,19 @@ describe("WorkspaceShell", () => {
     expect(panel.compareDocumentPosition(resizeHandle) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
+  });
+
+  it("updates the visible canvas insets when a pane closes", async () => {
+    await act(async () => {
+      getButton("Notes").click();
+    });
+
+    expect(useReactFlow.getState().viewportInsets).toEqual({
+      top: 0,
+      right: 40,
+      bottom: 0,
+      left: 40,
+    });
   });
 
   it("shows large-surface focus only when keyboard input moves focus", async () => {

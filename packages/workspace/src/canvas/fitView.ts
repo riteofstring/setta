@@ -5,6 +5,7 @@ import { getNodes } from "./nodeInternalsActions";
 import { useWorkspaceOptions } from "./options";
 import { useReactFlow } from "./store";
 import type { FitViewOptions, ReactFlowState } from "./types";
+import { getVisibleCanvasRect } from "./viewportInsets";
 
 type InternalFitViewOptions = {
   initial?: boolean;
@@ -13,6 +14,7 @@ type InternalFitViewOptions = {
 type FitViewRuntime = {
   width: number;
   height: number;
+  viewportInsets: ReactFlowState["viewportInsets"];
   d3Zoom: NonNullable<ReactFlowState["d3Zoom"]>;
   d3Selection: NonNullable<ReactFlowState["d3Selection"]>;
 };
@@ -20,7 +22,8 @@ type FitViewRuntime = {
 const DEFAULT_FIT_VIEW_PADDING = 0.1;
 
 function getFitViewRuntime(state: ReactFlowState, initial: boolean): FitViewRuntime | null {
-  const { width, height, d3Zoom, d3Selection, fitViewOnInitDone, fitViewOnInit } = state;
+  const { width, height, viewportInsets, d3Zoom, d3Selection, fitViewOnInitDone, fitViewOnInit } =
+    state;
 
   if (!d3Zoom || !d3Selection) {
     return null;
@@ -29,7 +32,12 @@ function getFitViewRuntime(state: ReactFlowState, initial: boolean): FitViewRunt
     return null;
   }
 
-  return { width, height, d3Zoom, d3Selection };
+  const visibleCanvas = getVisibleCanvasRect({ width, height }, viewportInsets);
+  if (visibleCanvas.width <= 0 || visibleCanvas.height <= 0) {
+    return null;
+  }
+
+  return { width, height, viewportInsets, d3Zoom, d3Selection };
 }
 
 function resolveFitViewZoomLimits(options: InternalFitViewOptions) {
@@ -92,7 +100,10 @@ export function fitView(options: InternalFitViewOptions = {}) {
     runtime.width,
     runtime.height,
     zoomLimits,
-    options.padding ?? DEFAULT_FIT_VIEW_PADDING,
+    {
+      padding: options.padding ?? DEFAULT_FIT_VIEW_PADDING,
+      viewportInsets: runtime.viewportInsets,
+    },
   );
 
   applyFitViewTransform(runtime, viewport, options.duration);

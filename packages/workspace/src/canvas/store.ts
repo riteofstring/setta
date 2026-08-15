@@ -4,6 +4,7 @@ import { createWithEqualityFn } from "zustand/traditional";
 import type { Position } from "../document/types";
 import { getActiveSectionsBounds } from "./graph";
 import type { CoordinateExtent, ReactFlowState, ReactFlowStore } from "./types";
+import { EMPTY_VIEWPORT_INSETS } from "./viewportInsets";
 
 export const infiniteExtent: CoordinateExtent = [
   [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY],
@@ -14,6 +15,7 @@ export const infiniteExtent: CoordinateExtent = [
 export const initialCanvasState: ReactFlowStore = {
   width: 0,
   height: 0,
+  viewportInsets: EMPTY_VIEWPORT_INSETS,
   transform: [0, 0, 1],
   d3Zoom: null,
   d3Selection: null,

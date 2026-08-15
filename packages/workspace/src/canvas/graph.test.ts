@@ -6,6 +6,7 @@ import { useSectionRefs } from "../section/sectionRefs";
 import {
   getActiveSectionsBounds,
   getNodesInside,
+  getPaneRect,
   getSectionRect,
   getViewportForBounds,
 } from "./graph";
@@ -289,5 +290,40 @@ describe("getViewportForBounds", () => {
         maxZoom: 2,
       }).zoom,
     ).toBe(0.5);
+  });
+
+  it("fits and centers bounds inside shell pane insets", () => {
+    const viewport = getViewportForBounds(
+      { x: 0, y: 0, width: 400, height: 100 },
+      800,
+      600,
+      { minZoom: 0.1, maxZoom: 10 },
+      {
+        padding: 0,
+        viewportInsets: { top: 0, right: 100, bottom: 0, left: 200 },
+      },
+    );
+
+    expect(viewport.zoom).toBe(1.25);
+    expect(viewport.x).toBe(200);
+    expect(viewport.y).toBe(237.5);
+  });
+});
+
+describe("getPaneRect", () => {
+  it("projects only the unobscured canvas area into flow coordinates", () => {
+    useReactFlow.setState({
+      width: 800,
+      height: 600,
+      transform: [100, 50, 2],
+      viewportInsets: { top: 0, right: 100, bottom: 0, left: 200 },
+    });
+
+    expect(getPaneRect(useReactFlow.getState())).toEqual({
+      x: 50,
+      y: -25,
+      width: 250,
+      height: 300,
+    });
   });
 });

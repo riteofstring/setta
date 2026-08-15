@@ -8,8 +8,9 @@ import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { Node, Viewport } from "../document/types";
 import { useSectionRefs } from "../section/sectionRefs";
 import { resolveWorkspaceMotionDuration } from "../styles/motion";
-import type { ReactFlowState, Rect, Transform } from "./types";
+import type { ReactFlowState, Rect, Transform, ViewportInsets } from "./types";
 import { boxToRect, clamp, getBoundsOfBoxes, getOverlappingArea, rectToBox } from "./utils";
+import { EMPTY_VIEWPORT_INSETS, getVisibleCanvasRect } from "./viewportInsets";
 import { screenToFlowPosition } from "./viewportPosition";
 
 export const getNodesBounds = (nodes: Array<Pick<Node, "position" | "width" | "height">>): Rect => {
@@ -106,26 +107,30 @@ export function getNodesInside(
   return visibleNodes;
 }
 
-// The visible pane in flow coordinates, from the reference's `utils/graph.ts`. Seam adaptation
-// shared with fit-view centering and edge auto-pan: the reference subtracts its Overview and
-// UI-editor rail widths, which are app chrome outside the package seam — the package pane is
-// the canvas wrapper alone.
+// The visible pane in flow coordinates, from the reference's `utils/graph.ts`. The shell overlays
+// its pane regions on the full-size canvas, so the store records their physical insets and every
+// viewport consumer shares the same unobscured rectangle.
 export function getPaneRect(s: ReactFlowState): Rect {
+  const visibleCanvas = getVisibleCanvasRect(s, s.viewportInsets);
   if (!s.domNode) {
     return {
-      x: -s.transform[0] / s.transform[2],
-      y: -s.transform[1] / s.transform[2],
-      width: s.width / s.transform[2],
-      height: s.height / s.transform[2],
+      x: (visibleCanvas.x - s.transform[0]) / s.transform[2],
+      y: (visibleCanvas.y - s.transform[1]) / s.transform[2],
+      width: visibleCanvas.width / s.transform[2],
+      height: visibleCanvas.height / s.transform[2],
     };
   }
 
   const bounds = s.domNode.getBoundingClientRect();
-  const visibleWidth = Math.max(bounds.width, 0);
-  const visibleHeight = Math.max(bounds.height, 0);
-  const topLeft = screenToFlowPosition({ x: bounds.left, y: bounds.top }, true);
+  const topLeft = screenToFlowPosition(
+    { x: bounds.left + visibleCanvas.x, y: bounds.top + visibleCanvas.y },
+    true,
+  );
   const bottomRight = screenToFlowPosition(
-    { x: bounds.left + visibleWidth, y: bounds.top + visibleHeight },
+    {
+      x: bounds.left + visibleCanvas.x + visibleCanvas.width,
+      y: bounds.top + visibleCanvas.y + visibleCanvas.height,
+    },
     true,
   );
 
@@ -142,15 +147,22 @@ export const getViewportForBounds = (
   width: number,
   height: number,
   zoomLimits: { minZoom: number; maxZoom: number },
-  padding = 0.1,
+  {
+    padding = 0.1,
+    viewportInsets = EMPTY_VIEWPORT_INSETS,
+  }: { padding?: number; viewportInsets?: ViewportInsets } = {},
 ): Viewport => {
-  const xZoom = width / (bounds.width * (1 + padding));
-  const yZoom = height / (bounds.height * (1 + padding));
+  const visibleCanvas = getVisibleCanvasRect({ width, height }, viewportInsets);
+  if (visibleCanvas.width <= 0 || visibleCanvas.height <= 0) {
+    throw new Error("Cannot fit bounds without a visible workspace canvas area.");
+  }
+  const xZoom = visibleCanvas.width / (bounds.width * (1 + padding));
+  const yZoom = visibleCanvas.height / (bounds.height * (1 + padding));
   const zoom = clamp(Math.min(xZoom, yZoom), zoomLimits.minZoom, zoomLimits.maxZoom);
   const boundsCenterX = bounds.x + bounds.width / 2;
   const boundsCenterY = bounds.y + bounds.height / 2;
-  const x = width / 2 - boundsCenterX * zoom;
-  const y = height / 2 - boundsCenterY * zoom;
+  const x = visibleCanvas.x + visibleCanvas.width / 2 - boundsCenterX * zoom;
+  const y = visibleCanvas.y + visibleCanvas.height / 2 - boundsCenterY * zoom;
 
   return { x, y, zoom };
 };

@@ -111,6 +111,19 @@ describe("fitView", () => {
     );
   });
 
+  it("fits nodes inside the canvas area left visible by shell panes", () => {
+    const { d3Selection, transform } = setupFitViewState({
+      viewportInsets: { top: 0, right: 100, bottom: 0, left: 200 },
+    });
+    setNodes([createNode({ id: "section-a", width: 400, height: 100 })]);
+
+    expect(fitView({ duration: 0, padding: 0 })).toBe(true);
+    expect(transform).toHaveBeenCalledWith(
+      d3Selection,
+      expect.objectContaining({ x: 200, y: 237.5, k: 1.25 }),
+    );
+  });
+
   it("applies a positive-duration fit immediately when reduced motion is requested", () => {
     vi.stubGlobal("window", {
       matchMedia: vi.fn(() => ({ matches: true })),

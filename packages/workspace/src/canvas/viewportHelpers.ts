@@ -8,6 +8,7 @@ import { useWorkspaceOptions } from "./options";
 import { getWorkspacePointerLocation } from "./pointerLocation";
 import { useReactFlow } from "./store";
 import type { ReactFlowState, Rect } from "./types";
+import { getVisibleCanvasRect } from "./viewportInsets";
 import { screenToFlowPosition } from "./viewportPosition";
 
 // The zoom commands from the reference's `hooks/useViewportHelper.ts`. `setCenter` returned with
@@ -79,16 +80,20 @@ function getZoomLimits(): { minZoom: number; maxZoom: number } {
   return { minZoom, maxZoom };
 }
 
-// Seam adaptation shared with fit-view centering and edge auto-pan: the reference offsets the
-// visible center by its Overview rail width, which is app chrome outside the package seam.
+// Center against the same unobscured canvas rectangle used by fit view, the minimap mask, focus
+// navigation, and edge auto-pan. Shell panes overlay the full canvas exactly as in frozen main.
 export function setCenter(x: number, y: number, options?: ZoomOptions) {
   const { d3Zoom, d3Selection } = getZoomRuntime();
-  const { width, height } = useReactFlow.getState();
+  const { width, height, viewportInsets } = useReactFlow.getState();
   const { maxZoom } = useWorkspaceOptions.getState();
+  const visibleCanvas = getVisibleCanvasRect({ width, height }, viewportInsets);
+  if (visibleCanvas.width <= 0 || visibleCanvas.height <= 0) {
+    throw new Error("Cannot center the workspace without a visible canvas area.");
+  }
 
   const nextZoom = typeof options?.zoom === "number" ? options.zoom : maxZoom;
-  const centerX = width / 2 - x * nextZoom;
-  const centerY = height / 2 - y * nextZoom;
+  const centerX = visibleCanvas.x + visibleCanvas.width / 2 - x * nextZoom;
+  const centerY = visibleCanvas.y + visibleCanvas.height / 2 - y * nextZoom;
   const transform = zoomIdentity.translate(centerX, centerY).scale(nextZoom);
 
   d3Zoom.transform(getZoomTarget(d3Selection, options?.duration), transform);
@@ -176,12 +181,18 @@ export function focusWorkspaceSection(sectionId: string): void {
     throw new Error(`Cannot focus workspace section ${sectionId} with empty canvas bounds.`);
   }
 
-  const { width, height } = useReactFlow.getState();
+  const { width, height, viewportInsets } = useReactFlow.getState();
   if (width <= 0 || height <= 0) {
     throw new Error("Cannot focus a workspace section before the canvas has measurable bounds.");
   }
   const { transitionDuration } = useWorkspaceOptions.getState();
-  const viewport = getViewportForBounds(rect, width, height, { minZoom: 0, maxZoom: 1 }, 0.1);
+  const viewport = getViewportForBounds(
+    rect,
+    width,
+    height,
+    { minZoom: 0, maxZoom: 1 },
+    { padding: 0.1, viewportInsets },
+  );
   setCenter(rect.x + rect.width / 2, rect.y + rect.height / 2, {
     zoom: viewport.zoom,
     duration: transitionDuration,
