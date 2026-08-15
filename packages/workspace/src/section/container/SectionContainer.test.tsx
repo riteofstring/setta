@@ -531,6 +531,7 @@ describe("SectionContainer", () => {
     expect(groupRoot.className).toContain("min-w-0");
 
     const scrollSurface = getRequiredElement(groupRoot, ".overflow-auto");
+    expect(scrollSurface.classList.contains("setta-workspace-bounded-group-scroll")).toBe(true);
     expect(scrollSurface.className).toContain(
       "mt-2 flex min-h-0 min-w-0 flex-1 flex-col overflow-auto",
     );

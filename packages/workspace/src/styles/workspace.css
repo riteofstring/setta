@@ -57,6 +57,13 @@
   grid-column: left-gutter / right-gutter;
 }
 
+/* A bounded group intentionally owns native scrolling on both axes. Contain overscroll at that
+ * explicit boundary so Chromium cannot turn the non-cancelable remainder of a trackpad sequence
+ * into browser-history navigation after the group reaches an edge. */
+.setta-workspace-bounded-group-scroll {
+  overscroll-behavior: contain;
+}
+
 /* The reference's stacking grid (root index.css): one cell whose children overlay each other.
  * The color control layers its eyedropper glyph over the native input with it, exactly as the
  * reference's params color path does. */

@@ -27,6 +27,12 @@ describe("workspace adaptive stylesheet contract", () => {
     expect(workspaceStyles).toContain(".react-flow__minimap > svg");
   });
 
+  it("contains bounded-group overscroll before Chromium can claim browser history", () => {
+    expect(workspaceStyles).toMatch(
+      /\.setta-workspace-bounded-group-scroll\s*\{[^}]*overscroll-behavior: contain/su,
+    );
+  });
+
   it("keeps shell motion bounded and maps pane chrome to logical edges", () => {
     expect(workspaceStyles).toContain('.setta-workspace-shell-pane[data-pane="leading"]');
     expect(workspaceStyles).toContain("inset-inline-start: 0");

@@ -6,12 +6,6 @@ export type {
   WorkspaceGridPattern,
   WorkspaceInteractionOptions,
 } from "./canvas/options";
-export { setWorkspacePanDiagnosticLogger } from "./canvas/panDiagnostics";
-export type {
-  WorkspacePanDiagnosticEvent,
-  WorkspacePanDiagnosticLogger,
-  WorkspacePanDiagnosticPhase,
-} from "./canvas/panDiagnostics";
 // These two string unions appear in WorkspaceInteractionOptions; riding the index keeps
 // consumers off deep canvas-internal import paths.
 export type { PanOnScrollMode, SelectionMode } from "./canvas/types";

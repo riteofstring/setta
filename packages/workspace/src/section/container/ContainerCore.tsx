@@ -213,7 +213,8 @@ function getContentClassName(overflowMode: boolean, isScrollable: boolean): stri
   if (!overflowMode) {
     return "z-10";
   }
-  const className = "z-10 mt-2 flex min-h-0 min-w-0 flex-1 flex-col overflow-auto";
+  const className =
+    "setta-workspace-bounded-group-scroll z-10 mt-2 flex min-h-0 min-w-0 flex-1 flex-col overflow-auto";
   return isScrollable ? `${className} ${NO_WHEEL_CLASS_NAME}` : className;
 }
 

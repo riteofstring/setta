@@ -13,11 +13,6 @@ import {
 import { getInitialCanvasViewport } from "./documentViewportSync";
 import { fitView } from "./fitView";
 import { useWorkspaceOptions } from "./options";
-import {
-  emitWorkspacePanDiagnostic,
-  isWorkspacePanDiagnosticsEnabled,
-  useWorkspacePanRawInputDiagnostics,
-} from "./panDiagnostics";
 import { infiniteExtent, useReactFlow } from "./store";
 import type { CoordinateExtent, PanOnScrollMode, ReactFlowState } from "./types";
 import { clamp, getWheelDelta, isMacOs } from "./utils";
@@ -128,9 +123,6 @@ const isPointerStartEvent = (eventType: string): boolean =>
 
 const isWheelEventType = (eventType: string): boolean => eventType === "wheel";
 
-const toDiagnosticSourceEvent = (event: ZoomSourceEvent | null): Event | null =>
-  event instanceof Event ? event : null;
-
 export function getViewportInteractionActiveValue({
   isPanScrolling,
   isWheelZooming,
@@ -169,7 +161,6 @@ export function resetViewportInteractionState({
     paneDragging: false,
     viewportInteractionActive: false,
   });
-  emitWorkspacePanDiagnostic({ phase: "interaction-reset" });
 }
 
 const wheelDelta = (event: WheelEvent) => {
@@ -195,14 +186,12 @@ function startWheelZoomBurst(interactionRefs: ViewportInteractionCleanupRefs) {
   }
   interactionRefs.isWheelZooming.current = true;
   syncViewportInteractionActive(interactionRefs);
-  emitWorkspacePanDiagnostic({ phase: "wheel-zoom-start" });
 }
 
 function scheduleWheelZoomBurstEnd(interactionRefs: ViewportInteractionCleanupRefs) {
   interactionRefs.wheelZoomTimeout.current = setTimeout(() => {
     interactionRefs.isWheelZooming.current = false;
     syncViewportInteractionActive(interactionRefs);
-    emitWorkspacePanDiagnostic({ phase: "wheel-zoom-end" });
   }, 180);
 }
 
@@ -212,7 +201,6 @@ function ensurePanScrollInteraction(interactionRefs: ViewportInteractionCleanupR
   }
   interactionRefs.isPanScrolling.current = true;
   syncViewportInteractionActive(interactionRefs);
-  emitWorkspacePanDiagnostic({ phase: "pan-scroll-start" });
 }
 
 function schedulePanScrollInteractionEnd(interactionRefs: ViewportInteractionCleanupRefs) {
@@ -220,7 +208,6 @@ function schedulePanScrollInteractionEnd(interactionRefs: ViewportInteractionCle
   interactionRefs.panScrollTimeout.current = setTimeout(() => {
     interactionRefs.isPanScrolling.current = false;
     syncViewportInteractionActive(interactionRefs);
-    emitWorkspacePanDiagnostic({ phase: "pan-scroll-end" });
   }, 150);
 }
 
@@ -311,11 +298,6 @@ function handlePinchZoomWheelEvent({
   const pinchDelta = wheelDelta(event);
   const nextZoom = currentZoom * Math.pow(2, pinchDelta);
   scaleTo(d3Selection, nextZoom, point, event);
-  emitWorkspacePanDiagnostic({
-    phase: "wheel-pinch",
-    sourceEvent: event,
-    details: { currentZoom, nextZoom, pinchDelta, point },
-  });
   scheduleWheelZoomBurstEnd(interactionRefs);
   return true;
 }
@@ -339,28 +321,10 @@ function createPanOnScrollWheelHandler({
       zoomActivationKeyPressed,
       zoomOnPinch,
     });
-    emitWorkspacePanDiagnostic({
-      phase: "wheel-disposition",
-      sourceEvent: event,
-      details: {
-        handler: "pan-on-scroll",
-        targetDisposition,
-        isMacOS,
-        isPanScrolling: interactionRefs.isPanScrolling.current,
-      },
-    });
     if (targetDisposition !== "canvas") {
       if (targetDisposition === "manual") {
         event.preventDefault();
       }
-      emitWorkspacePanDiagnostic({
-        phase: "wheel-skip",
-        sourceEvent: event,
-        details: {
-          handler: "pan-on-scroll",
-          targetDisposition,
-        },
-      });
       return;
     }
 
@@ -387,25 +351,13 @@ function createPanOnScrollWheelHandler({
       isMacOS,
       panOnScrollMode,
     });
-    const appliedDeltaX = -(deltaX / currentZoom) * panOnScrollSpeed;
-    const appliedDeltaY = -(deltaY / currentZoom) * panOnScrollSpeed;
-    translateBy(d3Selection, appliedDeltaX, appliedDeltaY, {
-      internal: true,
-    } as InternalWheelEvent);
+    translateBy(
+      d3Selection,
+      -(deltaX / currentZoom) * panOnScrollSpeed,
+      -(deltaY / currentZoom) * panOnScrollSpeed,
+      { internal: true } as InternalWheelEvent,
+    );
     ensurePanScrollInteraction(interactionRefs);
-    emitWorkspacePanDiagnostic({
-      phase: "wheel-pan",
-      sourceEvent: event,
-      details: {
-        currentZoom,
-        deltaX,
-        deltaY,
-        appliedDeltaX,
-        appliedDeltaY,
-        panOnScrollMode,
-        panOnScrollSpeed,
-      },
-    });
     schedulePanScrollInteractionEnd(interactionRefs);
   };
 }
@@ -424,38 +376,16 @@ function createDefaultWheelHandler({
       zoomActivationKeyPressed,
       zoomOnPinch,
     });
-    emitWorkspacePanDiagnostic({
-      phase: "wheel-disposition",
-      sourceEvent: event,
-      details: {
-        handler: "default",
-        targetDisposition,
-        isPanScrolling: false,
-      },
-    });
     if (targetDisposition !== "canvas") {
       if (targetDisposition === "manual") {
         event.preventDefault();
       }
-      emitWorkspacePanDiagnostic({
-        phase: "wheel-skip",
-        sourceEvent: event,
-        details: {
-          handler: "default",
-          targetDisposition,
-        },
-      });
       return;
     }
 
     event.preventDefault();
     startWheelZoomBurst(interactionRefs);
     d3ZoomHandler.call(this, event, data);
-    emitWorkspacePanDiagnostic({
-      phase: "wheel-zoom",
-      sourceEvent: event,
-      details: { handler: "default" },
-    });
     scheduleWheelZoomBurstEnd(interactionRefs);
   };
 }
@@ -729,141 +659,6 @@ export function shouldAllowZoomFilterEvent({
   );
 }
 
-function getZoomFilterDiagnosticDetails(
-  params: ZoomFilterParams,
-  allowed: boolean,
-): Readonly<Record<string, unknown>> {
-  const {
-    event,
-    panOnDrag,
-    panOnScroll,
-    userSelectionActive,
-    zoomActivationKeyPressed,
-    zoomOnDoubleClick,
-    zoomOnPinch,
-    zoomOnScroll,
-  } = params;
-  const eventButton = getEventButton(event);
-  const zoomScroll = Boolean(zoomActivationKeyPressed) || zoomOnScroll;
-
-  if (allowNodeMiddleClickPan({ event, eventButton, panOnDrag })) {
-    return {
-      allowed,
-      decisionReason: "node-middle-click-override",
-      blockers: [],
-      eventButton,
-      panOnDrag,
-      panOnScroll,
-      userSelectionActive,
-      zoomActivationKeyPressed,
-      zoomOnDoubleClick,
-      zoomOnPinch,
-      zoomOnScroll,
-    };
-  }
-
-  const blockers = [
-    ...getZoomFilterInteractionBlockers(params, zoomScroll, eventButton),
-    ...getZoomFilterTargetBlockers(params, zoomScroll),
-    ...getZoomFilterContractBlockers(event, eventButton, panOnDrag),
-  ];
-
-  return {
-    allowed,
-    decisionReason: allowed ? "allowed" : (blockers[0] ?? "blocked-by-d3-filter-contract"),
-    blockers,
-    eventButton,
-    panOnDrag,
-    panOnScroll,
-    userSelectionActive,
-    zoomActivationKeyPressed,
-    zoomOnDoubleClick,
-    zoomOnPinch,
-    zoomOnScroll,
-  };
-}
-
-function getZoomFilterInteractionBlockers(
-  params: ZoomFilterParams,
-  zoomScroll: boolean,
-  eventButton: number,
-): Array<string> {
-  const { event, panOnDrag, panOnScroll, userSelectionActive, zoomOnDoubleClick, zoomOnPinch } =
-    params;
-  const dnd = useDndState.getState();
-  const blockers: Array<string> = [];
-
-  if (
-    !hasEnabledViewportInteraction({
-      panOnDrag,
-      panOnScroll,
-      zoomOnDoubleClick,
-      zoomOnPinch,
-      zoomOnScroll: zoomScroll,
-    })
-  ) {
-    blockers.push("all-viewport-interactions-disabled");
-  }
-  if (userSelectionActive) {
-    blockers.push("user-selection-active");
-  }
-  if (!zoomOnDoubleClick && event.type === "dblclick") {
-    blockers.push("double-click-zoom-disabled");
-  }
-  if (blocksPointerStartWithoutPan({ event, eventButton, panOnDrag })) {
-    blockers.push("pointer-pan-disabled-for-button");
-  }
-  if (dnd.isSorting) {
-    blockers.push("dnd-sorting-active");
-  }
-  if (dnd.isMovingFree) {
-    blockers.push("dnd-free-move-active");
-  }
-  return blockers;
-}
-
-function getZoomFilterTargetBlockers(params: ZoomFilterParams, zoomScroll: boolean): Array<string> {
-  const { event, panOnScroll, zoomActivationKeyPressed, zoomOnPinch } = params;
-  const blockers: Array<string> = [];
-
-  if (blocksNoWheelTarget({ event, zoomActivationKeyPressed, zoomOnPinch })) {
-    blockers.push("no-wheel-target");
-  }
-  if (blocksNoPanTarget({ event, panOnScroll, zoomActivationKeyPressed })) {
-    blockers.push("no-pan-target");
-  }
-  if (shouldBlockCtrlWheelWithoutPinch({ event, zoomOnPinch })) {
-    blockers.push("pinch-zoom-disabled");
-  }
-  if (
-    shouldBlockWheelViewportGesture({
-      event,
-      panOnScroll,
-      pinchZoom: zoomOnPinch && event.ctrlKey,
-      zoomOnScroll: zoomScroll,
-    })
-  ) {
-    blockers.push("wheel-viewport-interaction-disabled");
-  }
-  return blockers;
-}
-
-function getZoomFilterContractBlockers(
-  event: ZoomFilterEvent,
-  eventButton: number,
-  panOnDrag: boolean | Array<number>,
-): Array<string> {
-  const blockers: Array<string> = [];
-
-  if (event.ctrlKey && !isWheelEventType(event.type)) {
-    blockers.push("ctrl-pointer-gesture");
-  }
-  if (!isAllowedViewportButton({ eventButton, panOnDrag })) {
-    blockers.push("unsupported-pointer-button");
-  }
-  return blockers;
-}
-
 function useViewportInteractionCleanup({
   isPanScrolling,
   isWheelZooming,
@@ -926,62 +721,37 @@ function useZoomWheelBehavior({
     const translateBy = d3Zoom.translateBy as unknown as TranslateByFn;
 
     if (panOnScroll && !zoomActivationKeyPressed && !userSelectionActive) {
-      const wheelHandler = createPanOnScrollWheelHandler({
-        d3Selection,
-        interactionRefs: wheelInteractionRefs,
-        panOnScrollMode,
-        panOnScrollSpeed,
-        scaleTo,
-        translateBy,
-        zoomActivationKeyPressed,
-        zoomOnPinch,
-      });
-      d3Selection.on("wheel.zoom", wheelHandler, { passive: false });
-      emitWorkspacePanDiagnostic({
-        phase: "wheel-handler-bind",
-        details: {
-          handler: "pan-on-scroll",
-          installed: d3Selection.on("wheel.zoom") === wheelHandler,
-        },
-      });
-      return () => {
-        emitWorkspacePanDiagnostic({
-          phase: "wheel-handler-cleanup",
-          details: {
-            handler: "pan-on-scroll",
-            stillInstalled: d3Selection.on("wheel.zoom") === wheelHandler,
-          },
-        });
-      };
+      d3Selection.on(
+        "wheel.zoom",
+        createPanOnScrollWheelHandler({
+          d3Selection,
+          interactionRefs: wheelInteractionRefs,
+          panOnScrollMode,
+          panOnScrollSpeed,
+          scaleTo,
+          translateBy,
+          zoomActivationKeyPressed,
+          zoomOnPinch,
+        }),
+        { passive: false },
+      );
+      return;
     }
 
     if (typeof d3ZoomHandler === "undefined") {
       return;
     }
 
-    const wheelHandler = createDefaultWheelHandler({
-      d3ZoomHandler,
-      interactionRefs: wheelInteractionRefs,
-      zoomActivationKeyPressed,
-      zoomOnPinch,
-    });
-    d3Selection.on("wheel.zoom", wheelHandler, { passive: false });
-    emitWorkspacePanDiagnostic({
-      phase: "wheel-handler-bind",
-      details: {
-        handler: "default",
-        installed: d3Selection.on("wheel.zoom") === wheelHandler,
-      },
-    });
-    return () => {
-      emitWorkspacePanDiagnostic({
-        phase: "wheel-handler-cleanup",
-        details: {
-          handler: "default",
-          stillInstalled: d3Selection.on("wheel.zoom") === wheelHandler,
-        },
-      });
-    };
+    d3Selection.on(
+      "wheel.zoom",
+      createDefaultWheelHandler({
+        d3ZoomHandler,
+        interactionRefs: wheelInteractionRefs,
+        zoomActivationKeyPressed,
+        zoomOnPinch,
+      }),
+      { passive: false },
+    );
   }, [
     d3Selection,
     d3Zoom,
@@ -1033,15 +803,6 @@ function useZoomLifecycleHandlers({
       if (sourceEvent.type === "mousedown") {
         useReactFlow.setState({ paneDragging: true });
       }
-      if (isWorkspacePanDiagnosticsEnabled()) {
-        emitWorkspacePanDiagnostic({
-          phase: "gesture-start",
-          sourceEvent: toDiagnosticSourceEvent(sourceEvent),
-          details: {
-            transform: [event.transform.x, event.transform.y, event.transform.k],
-          },
-        });
-      }
     });
   }, [d3Zoom, isPanScrolling, isWheelZooming, isZoomingOrPanning]);
 
@@ -1061,17 +822,6 @@ function useZoomLifecycleHandlers({
       useReactFlow.setState({
         transform: [event.transform.x, event.transform.y, event.transform.k],
       });
-      if (isWorkspacePanDiagnosticsEnabled()) {
-        const sourceEvent = event.sourceEvent as ZoomSourceEvent | null;
-        emitWorkspacePanDiagnostic({
-          phase: "gesture-move",
-          sourceEvent: toDiagnosticSourceEvent(sourceEvent),
-          details: {
-            internal: sourceEvent?.internal === true,
-            transform: [event.transform.x, event.transform.y, event.transform.k],
-          },
-        });
-      }
     });
   }, [d3Zoom, isZoomingOrPanning, userSelectionActive]);
 
@@ -1092,15 +842,6 @@ function useZoomLifecycleHandlers({
         isZoomingOrPanning,
       });
       useReactFlow.setState({ paneDragging: false });
-      if (isWorkspacePanDiagnosticsEnabled()) {
-        emitWorkspacePanDiagnostic({
-          phase: "gesture-end",
-          sourceEvent: toDiagnosticSourceEvent(sourceEvent),
-          details: {
-            transform: [event.transform.x, event.transform.y, event.transform.k],
-          },
-        });
-      }
     });
   }, [d3Zoom, isPanScrolling, isWheelZooming, isZoomingOrPanning]);
 }
@@ -1128,8 +869,8 @@ function useZoomFilterBinding({
     if (!d3Zoom) {
       return;
     }
-    d3Zoom.filter((event: ZoomFilterEvent) => {
-      const params: ZoomFilterParams = {
+    d3Zoom.filter((event: ZoomFilterEvent) =>
+      shouldAllowZoomFilterEvent({
         event,
         panOnDrag,
         panOnScroll,
@@ -1138,17 +879,8 @@ function useZoomFilterBinding({
         zoomOnDoubleClick,
         zoomOnPinch,
         zoomOnScroll,
-      };
-      const allowed = shouldAllowZoomFilterEvent(params);
-      if (isWorkspacePanDiagnosticsEnabled()) {
-        emitWorkspacePanDiagnostic({
-          phase: "filter",
-          sourceEvent: event,
-          details: getZoomFilterDiagnosticDetails(params, allowed),
-        });
-      }
-      return allowed;
-    });
+      }),
+    );
   }, [
     d3Zoom,
     panOnDrag,
@@ -1226,7 +958,6 @@ const ZoomPane = ({
     wheelZoomTimeout,
   };
   useZoomPaneInit(zoomPane);
-  useWorkspacePanRawInputDiagnostics(zoomPane);
   useViewportInteractionCleanup(interactionRefs);
   useZoomWheelBehavior({
     d3Selection,
