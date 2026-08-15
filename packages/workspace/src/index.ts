@@ -199,6 +199,16 @@ export { WorkspaceItemLabel } from "./items/WorkspaceItemLabel";
 export type { WorkspaceItemLabelProps } from "./items/WorkspaceItemLabel";
 export { WorkspaceItemList } from "./items/WorkspaceItemList";
 export type { WorkspaceItemListProps } from "./items/WorkspaceItemList";
+export {
+  getWorkspaceKeyBindingConflicts,
+  getWorkspaceKeyBindings,
+  registerWorkspaceKeyBindings,
+} from "./keybindings/workspaceKeyBindingRegistry";
+export type {
+  WorkspaceKeyBinding,
+  WorkspaceKeyBindingConflict,
+  WorkspaceKeyBindingDescriptor,
+} from "./keybindings/workspaceKeyBindingTypes";
 export { setGroupOverflowMode } from "./section/groupOverflowAction";
 export { DEFAULT_SECTION_TAG_COLOR_PALETTE } from "./section/sectionTagColors";
 export type {

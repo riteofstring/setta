@@ -1,19 +1,12 @@
 import { useEffect } from "react";
-import { createSectionCommandContext } from "../commands/workspaceCommandContexts";
-import { runWorkspaceCommandById } from "../commands/workspaceCommandResolution";
 import { activateDndMovingFreeMode, activateDndSortingMode, deactivateDnd } from "../dnd/dndState";
 import { getActiveSectionIds, setActiveSectionIds } from "../document/activeSections";
-import { getSectionHasSelectedItems } from "../document/documentSelectors";
 import { unselectAllItems } from "../document/itemSelection";
 import { activateItemSelect, deactivateItemSelect } from "../document/itemSelectionMode";
-import { useWorkspaceDocument } from "../document/stores";
-import { getSectionItemVisibility } from "../items/itemListRegistry";
-import {
-  indentSelectedItems,
-  moveSelectedItemsDown,
-  moveSelectedItemsUp,
-  unindentSelectedItems,
-} from "../items/selectedItemMoves";
+import { getIsEditableTarget } from "../keybindings/editableTarget";
+import { RESERVED_WORKSPACE_GESTURES } from "../keybindings/reservedWorkspaceGestures";
+import { matchesWorkspaceChord, type ParsedWorkspaceChord } from "../keybindings/workspaceChords";
+import { runWorkspaceKeyBindings } from "../keybindings/workspaceKeyBindingDispatch";
 import {
   closeFrozenWorkspaceTooltip,
   copyWorkspaceTooltipPage,
@@ -31,12 +24,12 @@ import { isMacOs } from "./utils";
 // selectionKeyCode = Shift, multiSelectionKeyCode = Mod, zoomActivationKeyCode = Mod,
 // panActivationKeyCode = Space, showTooltipShortcut = Q (bare keys ignored while typing in
 // editable targets), movingFreeShortcut = Alt (hold), sortingShortcut = Mod + Alt (hold),
-// paramSelect = Mod + Shift (hold; the package's item-select mode), paramMoveUp/Down =
-// Alt + ArrowUp/Down (repeat allowed), paramIndent/Unindent = Tab / Shift + Tab, and the
-// Escape handler that unselects params before it clears an in-section active selection. The
-// package owns the same activation-key state directly. A1 also restores main's ungroup command
-// (Shift+Mod+G) through the canonical package operation; the other command shortcuts (fit view
-// "F", zoom "="/"-", zoom to mouse "Z") stay application-side until the command milestone.
+// paramSelect = Mod + Shift (hold; the package's item-select mode), and the Escape handler that
+// unselects params before it clears an in-section active selection. These are the workspace's
+// reserved gestures: they activate and release with their keys instead of running an operation,
+// and `reservedWorkspaceGestures.ts` states their chords so a host binding cannot take them.
+// The one-shot operations the reference's engine also binds — group, ungroup, delete, and the
+// parameter moves — are configurable bindings dispatched by `runWorkspaceKeyBindings`.
 // tooltip auxiliary shortcuts = Q+F freeze, Q+ArrowLeft/ArrowRight page navigation, Q+C copy;
 // a focused frozen tooltip owns ArrowLeft/ArrowRight, C, and Escape. Product-only tooltip-to-
 // section commands stay in the application. The reference's shortcut engine matches the bare
@@ -118,29 +111,12 @@ function runTooltipShortcutWithoutRepeat(
   }
 }
 
-function getIsEditableTarget(event: KeyboardEvent): boolean {
-  const target = event.target;
-  return (
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement ||
-    (target instanceof HTMLElement && target.isContentEditable)
-  );
-}
-
 const modifierKeys = new Set(["Shift", "Meta", "Control", "Alt"]);
 
-// One engine-bound hold shortcut: the exact modifier state plus the exact non-modifier
-// pressed set that must match for the mode to hold.
-type HoldChord = {
-  mod: boolean;
-  alt: boolean;
-  shift: boolean;
-  keys: Array<string>;
-};
-
 type HoldMode = {
-  chord: HoldChord;
+  // One reserved gesture: the exact modifier state plus the exact non-modifier pressed set that
+  // must match for the mode to hold.
+  chord: ParsedWorkspaceChord;
   // The reference engine ignores its shift-only, mod-only, and no-modifier shortcut
   // patterns while typing in an input (`getIgnoreWhenInInputField`); the alt-parsed dnd
   // holds and the Mod+Shift item chord are not in that set and activate everywhere.
@@ -165,14 +141,14 @@ function createHoldChordTracker(macOS: boolean) {
 
   const modes: Array<HoldMode> = [
     {
-      chord: { mod: false, alt: true, shift: false, keys: [] },
+      chord: RESERVED_WORKSPACE_GESTURES.freeParameterDrag.chord,
       ignoreInInput: false,
       pressed: false,
       activate: activateDndMovingFreeMode,
       deactivate: deactivateDnd,
     },
     {
-      chord: { mod: true, alt: true, shift: false, keys: [] },
+      chord: RESERVED_WORKSPACE_GESTURES.sortingParameterDrag.chord,
       ignoreInInput: false,
       pressed: false,
       activate: activateDndSortingMode,
@@ -180,14 +156,14 @@ function createHoldChordTracker(macOS: boolean) {
     },
     // The reference's `paramSelect` shortcut "Mod + Shift": exactly Mod and Shift.
     {
-      chord: { mod: true, alt: false, shift: true, keys: [] },
+      chord: RESERVED_WORKSPACE_GESTURES.parameterSelection.chord,
       ignoreInInput: false,
       pressed: false,
       activate: activateItemSelect,
       deactivate: deactivateItemSelect,
     },
     {
-      chord: { mod: false, alt: false, shift: true, keys: [] },
+      chord: RESERVED_WORKSPACE_GESTURES.marqueeSelection.chord,
       ignoreInInput: true,
       pressed: false,
       activate: () => useReactFlow.setState({ selectionKeyPressed: true }),
@@ -196,7 +172,7 @@ function createHoldChordTracker(macOS: boolean) {
     // The reference registers multi-selection and zoom activation as two "Mod" shortcuts
     // with identical lifecycles; the package drives both states through one mode.
     {
-      chord: { mod: true, alt: false, shift: false, keys: [] },
+      chord: RESERVED_WORKSPACE_GESTURES.multiSelection.chord,
       ignoreInInput: true,
       pressed: false,
       activate: () =>
@@ -205,7 +181,7 @@ function createHoldChordTracker(macOS: boolean) {
         useReactFlow.setState({ multiSelectionActive: false, zoomActivationKeyPressed: false }),
     },
     {
-      chord: { mod: false, alt: false, shift: false, keys: ["Space"] },
+      chord: RESERVED_WORKSPACE_GESTURES.panActivation.chord,
       ignoreInInput: true,
       pressed: false,
       activate: () => useReactFlow.setState({ panActivationKeyPressed: true }),
@@ -215,18 +191,12 @@ function createHoldChordTracker(macOS: boolean) {
 
   // The reference engine's pressed-key equality (`isShortcutPressed` compares the whole
   // non-modifier pressed set against the shortcut's keys).
-  function heldKeysEqual(codes: Array<string>): boolean {
+  function heldKeysEqual(codes: ReadonlyArray<string>): boolean {
     return heldKeys.size === codes.length && codes.every((code) => heldKeys.has(code));
   }
 
-  function matchesChord(event: KeyboardEvent, chord: HoldChord): boolean {
-    if (event.shiftKey !== chord.shift || event.altKey !== chord.alt) {
-      return false;
-    }
-    if (!heldKeysEqual(chord.keys)) {
-      return false;
-    }
-    return macOS ? event.metaKey === chord.mod && !event.ctrlKey : event.ctrlKey === chord.mod;
+  function matchesChord(event: KeyboardEvent, chord: ParsedWorkspaceChord): boolean {
+    return matchesWorkspaceChord(event, chord, macOS, heldKeysEqual);
   }
 
   function releaseMode(mode: HoldMode) {
@@ -298,84 +268,6 @@ function createHoldChordTracker(macOS: boolean) {
 }
 
 type HoldChordTracker = ReturnType<typeof createHoldChordTracker>;
-
-const itemMoveActionsByCode: Record<string, () => boolean> = {
-  ArrowUp: moveSelectedItemsUp,
-  ArrowDown: moveSelectedItemsDown,
-};
-
-function hasExactAltModifiers(event: KeyboardEvent, macOS: boolean): boolean {
-  if (!event.altKey || event.shiftKey) {
-    return false;
-  }
-  return macOS ? !event.metaKey && !event.ctrlKey : !event.ctrlKey;
-}
-
-// The reference's paramMoveUp/Down shortcuts (Alt + ArrowUp / Alt + ArrowDown, repeat
-// allowed): the engine prevents the browser default whenever the chord matches, and the
-// action itself declines inside editable targets (`runParamShortcut`).
-function handleItemMoveShortcut(event: KeyboardEvent, tracker: HoldChordTracker, macOS: boolean) {
-  const action = itemMoveActionsByCode[event.code];
-  if (!action || !hasExactAltModifiers(event, macOS) || !tracker.heldKeysEqual([event.code])) {
-    return;
-  }
-  event.preventDefault();
-  if (!getIsEditableTarget(event)) {
-    action();
-  }
-}
-
-function hasTabChordModifiers(event: KeyboardEvent, macOS: boolean): boolean {
-  if (event.altKey) {
-    return false;
-  }
-  return macOS ? !event.metaKey && !event.ctrlKey : !event.ctrlKey;
-}
-
-function activeSectionHasSelectedItems(): boolean {
-  const activeId = getActiveSectionIds()[0];
-  if (!activeId) {
-    return false;
-  }
-  return getSectionHasSelectedItems(useWorkspaceDocument.getState(), activeId);
-}
-
-function activeSectionHasItemFilter(): boolean {
-  const activeId = getActiveSectionIds()[0];
-  return activeId ? (getSectionItemVisibility(activeId)?.filterActive ?? false) : false;
-}
-
-function matchesTabChord(event: KeyboardEvent, tracker: HoldChordTracker, macOS: boolean): boolean {
-  if (event.key !== "Tab" || event.repeat) {
-    return false;
-  }
-  return hasTabChordModifiers(event, macOS) && tracker.heldKeysEqual(["Tab"]);
-}
-
-// The reference's Tab handling (`handleTabKeyDown` with the shipped Tab / Shift + Tab
-// defaults): hosts opt a subtree out with [data-tab-native], and an active filter keeps native
-// navigation available because structural moves are suspended. Otherwise, while the active
-// section has selected items the keypress indents or unindents instead of reaching the browser.
-// The reference's fallback tab navigation is its app focus manager and stays application-side.
-function handleTabShortcut(event: KeyboardEvent, tracker: HoldChordTracker, macOS: boolean) {
-  if (!matchesTabChord(event, tracker, macOS)) {
-    return;
-  }
-  const target = event.target instanceof HTMLElement ? event.target : null;
-  if (
-    target?.closest("[data-tab-native]") ||
-    !activeSectionHasSelectedItems() ||
-    activeSectionHasItemFilter()
-  ) {
-    return;
-  }
-  if (event.shiftKey) {
-    unindentSelectedItems();
-  } else {
-    indentSelectedItems();
-  }
-  event.preventDefault();
-}
 
 function hasNoModifiers(event: KeyboardEvent, macOS: boolean): boolean {
   if (event.ctrlKey || event.shiftKey || event.altKey) {
@@ -454,45 +346,6 @@ function handleEscapeShortcut(event: KeyboardEvent, tracker: HoldChordTracker, m
   runEscapeAction(event);
 }
 
-const UNGROUP_COMMAND_ID = "workspace.ungroup-sections";
-
-function hasExactUngroupModifiers(event: KeyboardEvent, macOS: boolean): boolean {
-  if (!event.shiftKey || event.altKey) {
-    return false;
-  }
-  return macOS ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
-}
-
-// Main ships Shift+Mod+G for ungroup. The chord runs the same command every menu, the Inspector,
-// and the header offer, and it owns the browser chord only while that command accepts the active
-// selection; unavailable and mixed selections retain their native behavior.
-function handleUngroupShortcut(event: KeyboardEvent, tracker: HoldChordTracker, macOS: boolean) {
-  if (
-    event.code !== "KeyG" ||
-    event.repeat ||
-    !hasExactUngroupModifiers(event, macOS) ||
-    !tracker.heldKeysEqual(["KeyG"])
-  ) {
-    return;
-  }
-  const state = useWorkspaceDocument.getState();
-  const sections = getActiveSectionIds().flatMap((sectionId) => {
-    const section = state.sections[sectionId];
-    return section ? [section] : [];
-  });
-  const primarySection = sections[0];
-  if (!primarySection) {
-    return;
-  }
-  const result = runWorkspaceCommandById(
-    UNGROUP_COMMAND_ID,
-    createSectionCommandContext(primarySection, sections),
-  );
-  if (result.ran) {
-    event.preventDefault();
-  }
-}
-
 export function useCanvasKeyActivations() {
   useEffect(() => {
     const macOS = isMacOs();
@@ -529,9 +382,7 @@ export function useCanvasKeyActivations() {
     const onKeyDown = (event: KeyboardEvent) => {
       chordTracker.onKeyDown(event);
       handleTooltipKeyDown(event);
-      handleUngroupShortcut(event, chordTracker, macOS);
-      handleItemMoveShortcut(event, chordTracker, macOS);
-      handleTabShortcut(event, chordTracker, macOS);
+      runWorkspaceKeyBindings(event, macOS, chordTracker.heldKeysEqual);
       handleEscapeShortcut(event, chordTracker, macOS);
     };
 

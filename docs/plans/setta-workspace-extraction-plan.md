@@ -249,9 +249,13 @@ checking, LSP services, or a second parameter value editor in the Inspector.
 **Status: in progress. C1 repository work is complete: one typed command registry now owns the
 package's structural, parameter-authoring, and host actions, and the section context menu, section
 header menu, Outline row menu, item menu, Inspector action rows, and the ungroup shortcut all
-resolve and run through it. The package-only decisions and the deliberate behavior changes C1
-introduces are recorded in `docs/evidence/milestone-c/c1-command-registry.md` for the C4 gate. C2
-and C3 remain.**
+resolve and run through it. C2's first batch is complete: one chord vocabulary, a public binding
+registry with conflict detection and per-platform labels, and configurable bindings for grouping,
+ungrouping, deletion, locking, and the parameter moves, with the held interaction gestures reserved
+against them. C2's viewport, creation, selection, section-navigation, and pane-focus bindings need
+package operations that do not exist yet and land in the next C2 batch; C3 remains. The package-only
+decisions and the deliberate behavior changes both batches introduce are recorded in
+`docs/evidence/milestone-c/` for the C4 gate.**
 
 Make frequent workspace actions faster and consistent across every action surface.
 

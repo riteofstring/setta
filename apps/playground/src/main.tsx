@@ -3,7 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./index.css";
-import { registerPlaygroundMenuExtensions } from "./menuExtensions";
+import { registerPlaygroundKeyBindings, registerPlaygroundMenuExtensions } from "./menuExtensions";
 import { PerformanceProfileApp } from "./PerformanceProfileApp";
 import { performanceProfileDocument } from "./performanceProfileDocument";
 import { playgroundDocument } from "./playgroundDocument";
@@ -15,6 +15,7 @@ import { registerPlaygroundSectionKinds } from "./sectionKinds";
 setWorkspaceColorMode(document.documentElement.classList.contains("dark") ? "dark" : "light");
 registerPlaygroundSectionKinds();
 registerPlaygroundMenuExtensions();
+registerPlaygroundKeyBindings();
 const isPerformanceProfile = new URLSearchParams(window.location.search).has("performance-profile");
 loadWorkspaceDocument(isPerformanceProfile ? performanceProfileDocument : playgroundDocument);
 

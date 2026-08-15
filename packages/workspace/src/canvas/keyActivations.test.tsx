@@ -15,6 +15,7 @@ import {
   moveSelectedItemsUp,
   unindentSelectedItems,
 } from "../items/selectedItemMoves";
+import { registerWorkspaceKeyBindings } from "../keybindings/workspaceKeyBindingRegistry";
 import {
   getWorkspaceTooltipHandlers,
   useWorkspaceTooltip,
@@ -442,6 +443,89 @@ describe("useCanvasKeyActivations", () => {
 
     expect(event.defaultPrevented).toBe(false);
     expect(useWorkspaceDocument.getState().sections["group"]).toBeDefined();
+  });
+
+  describe("configurable command chords", () => {
+    afterEach(() => {
+      registerWorkspaceKeyBindings([]);
+    });
+
+    // A complete keypress: the tracker compares the whole pressed-key set, so a chord left held
+    // would exclude the next one.
+    async function dispatchChord(init: KeyboardEventInit & { target?: EventTarget }) {
+      const { target, ...eventInit } = init;
+      const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...eventInit });
+      await act(async () => {
+        (target ?? document).dispatchEvent(event);
+      });
+      await dispatchKey("keyup", eventInit.key ?? "", { code: eventInit.code, target });
+      return event;
+    }
+
+    it("groups the active selection on Mod+G", async () => {
+      loadUngroupDocument(["group", "leaf"]);
+
+      const event = await dispatchChord({ key: "g", code: "KeyG", ctrlKey: true });
+
+      expect(event.defaultPrevented).toBe(true);
+      const sections = useWorkspaceDocument.getState().sections;
+      const created = Object.values(sections).find(
+        (section) => section.kind === "group" && section.id !== "group",
+      );
+      expect(created?.children).toEqual(["group", "leaf"]);
+    });
+
+    it("leaves Mod+G to the browser when the selection cannot be grouped", async () => {
+      loadUngroupDocument(["leaf"]);
+
+      const event = await dispatchChord({ key: "g", code: "KeyG", ctrlKey: true });
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(Object.keys(useWorkspaceDocument.getState().sections).sort()).toEqual([
+        "child",
+        "group",
+        "leaf",
+      ]);
+    });
+
+    it("deletes the active selection on Backspace", async () => {
+      loadUngroupDocument(["leaf"]);
+
+      const event = await dispatchChord({ key: "Backspace", code: "Backspace" });
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(useWorkspaceDocument.getState().sections["leaf"]).toBeUndefined();
+    });
+
+    it("leaves Backspace to the caret while typing", async () => {
+      loadUngroupDocument(["leaf"]);
+      const input = document.createElement("input");
+      document.body.appendChild(input);
+
+      const event = await dispatchChord({ key: "Backspace", code: "Backspace", target: input });
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(useWorkspaceDocument.getState().sections["leaf"]).toBeDefined();
+      input.remove();
+    });
+
+    it("answers to the chord a host rebinds an operation to", async () => {
+      registerWorkspaceKeyBindings([{ id: "workspace.ungroup-sections", chord: "Mod + U" }]);
+      loadUngroupDocument();
+
+      const defaultChord = await dispatchChord({
+        key: "g",
+        code: "KeyG",
+        ctrlKey: true,
+        shiftKey: true,
+      });
+      expect(defaultChord.defaultPrevented).toBe(false);
+      expect(useWorkspaceDocument.getState().sections["group"]).toBeDefined();
+
+      const hostChord = await dispatchChord({ key: "u", code: "KeyU", ctrlKey: true });
+      expect(hostChord.defaultPrevented).toBe(true);
+      expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
+    });
   });
 
   it("activates the free-move mode while Alt is held alone", async () => {

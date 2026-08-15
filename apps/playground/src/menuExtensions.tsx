@@ -1,10 +1,14 @@
 import {
   GROUP_SECTION_KIND,
+  getWorkspaceKeyBindingConflicts,
+  getWorkspaceKeyBindings,
   registerWorkspaceCommands,
   registerWorkspaceCreationCommands,
+  registerWorkspaceKeyBindings,
   ungroupSections,
   type WorkspaceCommandIconProps,
   type WorkspaceCreationContext,
+  type WorkspaceKeyBinding,
   type WorkspaceSectionInput,
 } from "@setta/workspace";
 import { useSyncExternalStore } from "react";
@@ -142,6 +146,62 @@ export function registerPlaygroundMenuExtensions(): void {
         ),
     },
   ]);
+}
+
+// The package ships locking bindable but unbound, so the host chooses its own chords for it.
+const PLAYGROUND_KEY_BINDINGS: ReadonlyArray<WorkspaceKeyBinding> = [
+  { id: "workspace.lock-sections", chord: "Mod + Alt + L" },
+  { id: "workspace.unlock-sections", chord: "Mod + Alt + U" },
+];
+
+// A chord the package already gives to grouping, kept here so the acceptance run can see what a
+// host learns before it applies a rebinding.
+const CONFLICTING_KEY_BINDING: WorkspaceKeyBinding = {
+  id: "workspace.lock-sections",
+  chord: "Mod + G",
+};
+
+export function registerPlaygroundKeyBindings(): void {
+  registerWorkspaceKeyBindings(PLAYGROUND_KEY_BINDINGS);
+}
+
+export function PlaygroundShortcutList() {
+  return (
+    <dl className="playground-guide-list">
+      {getWorkspaceKeyBindings().map((binding) => (
+        <div key={binding.id}>
+          <dt>{binding.label}</dt>
+          <dd>{binding.chordLabel ?? "Unbound"}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+export function HostShortcutConflictAction() {
+  return (
+    <button
+      className="playground-menu-action"
+      onClick={() => {
+        const conflicts = getWorkspaceKeyBindingConflicts([
+          ...PLAYGROUND_KEY_BINDINGS.filter((binding) => binding.id !== CONFLICTING_KEY_BINDING.id),
+          CONFLICTING_KEY_BINDING,
+        ]);
+        publishMenuExtensionStatus(
+          conflicts
+            .map(
+              (conflict) =>
+                `${conflict.chordLabel} is already taken by ${conflict.reservedGesture ?? conflict.bindingIds.join(" and ")}.`,
+            )
+            .join(" ") || "That chord is free.",
+        );
+      }}
+      type="button"
+    >
+      <span>Check a conflicting shortcut</span>
+      <span className="playground-menu-action-meta">Lock on Mod+G</span>
+    </button>
+  );
 }
 
 export function PlaygroundMenuActionReadout() {

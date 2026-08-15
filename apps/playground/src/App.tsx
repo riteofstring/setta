@@ -17,7 +17,11 @@ import {
   type WorkspaceShellTabIconProps,
 } from "@setta/workspace";
 import { useEffect, useState } from "react";
-import { PlaygroundMenuActionReadout } from "./menuExtensions";
+import {
+  HostShortcutConflictAction,
+  PlaygroundMenuActionReadout,
+  PlaygroundShortcutList,
+} from "./menuExtensions";
 import { playgroundDocument } from "./playgroundDocument";
 import {
   PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS,
@@ -283,6 +287,10 @@ function PlaygroundActionMenu({
           <HostParameterActions />
         </section>
         <section className="playground-menu-group">
+          <h2>Shortcuts</h2>
+          <HostShortcutConflictAction />
+        </section>
+        <section className="playground-menu-group">
           <h2>Diagnostics</h2>
           <HostParameterDiagnosticActions
             onClear={onClearDiagnostics}
@@ -330,6 +338,11 @@ function PlaygroundGuideMenu() {
             <dd>Hold Q while hovering a parameter control.</dd>
           </div>
         </dl>
+        <div className="playground-menu-heading">
+          <strong>Workspace shortcuts</strong>
+          <span>Chords for this platform</span>
+        </div>
+        <PlaygroundShortcutList />
         <p className="playground-host-action-status">
           <PlaygroundMenuActionReadout />
         </p>

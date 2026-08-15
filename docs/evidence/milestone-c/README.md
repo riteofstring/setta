@@ -6,6 +6,7 @@ approval. The accepted baseline is recorded only after the Milestone C acceptanc
 the milestone-a and milestone-b bundles.
 
 - [C1 command registry](c1-command-registry.md)
+- [C2 key bindings](c2-key-bindings.md)
 
 ## Frozen reference
 

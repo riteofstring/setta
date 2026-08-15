@@ -9,6 +9,7 @@ import {
   registerSectionKinds,
   registerWorkspaceCommands,
   registerWorkspaceCreationCommands,
+  registerWorkspaceKeyBindings,
   setGroupOverflowMode,
   setWorkspaceColorMode,
   setWorkspaceDocumentChangeCallback,
@@ -468,6 +469,8 @@ registerWorkspaceCommands([
       publishConsumerMenuStatus(`Packed Outline action for ${context.section.name}.`),
   },
 ]);
+// The package ships locking bindable and unbound, so a consumer chooses its own chord for it.
+registerWorkspaceKeyBindings([{ id: "workspace.lock-sections", chord: "Mod + Alt + L" }]);
 loadWorkspaceDocument(consumerDocument);
 
 const rootElement = document.getElementById("root");
