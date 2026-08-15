@@ -1822,6 +1822,21 @@ Phase 4 progress (2026-08-11):
   acceptance. No package-output baseline or developer approval is claimed: matched dark/light,
   desktop, 200%, and 320 px evidence plus the specified interaction exercise must now be presented
   for explicit developer acceptance before those post-acceptance gates may run.
+- Workspace-shell combined gate rejected with actionable findings (2026-08-13): live developer
+  testing found that a real pointer double-click on the shared item-column divider did not restore
+  the 50/50 split even though the synthetic detail-two regression passed; the previously corrected
+  persistent wheel-panning failure recurred during the combined workflow; and changing an existing
+  parameter to the Switch UI type produced an unchecked switch whose track paint was effectively
+  absent, unlike the clearly legible pre-existing checked switch. These are gate failures, not
+  accepted differences. Reproduce the real browser event paths, identify and correct the shared
+  causes, add trusted regressions that would have failed for the observed behavior, and remove any
+  temporary diagnostics before presenting the gate again. The same review found the single-section
+  Inspector somewhat redundant but plausibly conventional; do not remove it without a separate
+  developer decision. Before re-presentation, compare the built-in Inspector's parameter UI-type
+  configuration against frozen main and port its backend-independent, serializable configuration
+  semantics and presentation where the current package surface is less considered. Do not import
+  application stores, backend behavior, compatibility paths, or unsupported parameter concepts.
+  No developer approval or package-output baseline is claimed.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
