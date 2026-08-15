@@ -428,6 +428,13 @@ built entry may import no `.css` specifier, and the compiled stylesheet must car
 surface, its scoped equation counters, its inlined faces, and the rendered Markdown surface's own
 compiled rules, with no dependency font path and no unscoped KaTeX rule.
 
+The phase audit over D1–D3 corrected one defect. The rendered Markdown surface's copy button
+reached `navigator.clipboard` unguarded and let a refused write escape its click handler, so a
+browser that ships no clipboard API, or one that denies the write, raised out of the press instead
+of leaving the button reporting that nothing was copied. It now takes the same explicit refusal the
+package's other copy affordance already takes, which is also the failure the reference handled and
+the extraction dropped.
+
 Only the D4 developer gate remains.**
 
 Add two optional, batteries-included content-section registrations. Hosts can register either,

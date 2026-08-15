@@ -96,6 +96,7 @@ describe("built-in text section", () => {
       root.unmount();
     });
     host.remove();
+    setClipboard(undefined);
     setWorkspaceDocumentChangeCallback(null);
     registerSectionKinds({});
     useWorkspaceDocument.getState().reset();
@@ -125,6 +126,15 @@ describe("built-in text section", () => {
 
   function getSectionData(): WorkspaceTextSectionData {
     return getWorkspaceDocument().sections[SECTION_ID]?.data as WorkspaceTextSectionData;
+  }
+
+  // jsdom implements no clipboard, so the copy affordance's two outcomes are driven from here.
+  function setClipboard(clipboard: { writeText: (value: string) => Promise<void> } | undefined) {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: clipboard,
+      writable: true,
+    });
   }
 
   function requireElement(selector: string): HTMLElement {
@@ -222,6 +232,37 @@ describe("built-in text section", () => {
     // The parser's trailing newline is not a blank line the reader authored.
     expect(codeBlock.querySelectorAll(".cm-line")).toHaveLength(1);
     expect(codeBlock.querySelector("button[aria-label='Copy code']")).not.toBeNull();
+  });
+
+  it("copies a fence, and reports nothing copied when the browser refuses", async () => {
+    const writeText = vi.fn<(value: string) => Promise<void>>(() => Promise.resolve());
+    setClipboard({ writeText });
+    await mount(
+      makeTextSection({
+        displayMode: "render",
+        format: "markdown",
+        text: "```python\nalpha = 1\n```\n",
+      }),
+    );
+    await act(async () => {
+      requireElement("button[aria-label='Copy code']").click();
+    });
+    expect(writeText).toHaveBeenCalledWith("alpha = 1");
+    expect(requireElement("button[aria-label='Code copied']")).not.toBeNull();
+
+    // A refused write and a browser with no clipboard both leave the affordance saying the copy
+    // did not happen, rather than raising out of the click.
+    writeText.mockImplementation(() => Promise.reject(new Error("denied")));
+    await act(async () => {
+      requireElement("button[aria-label='Code copied']").click();
+    });
+    expect(requireElement("button[aria-label='Copy code']")).not.toBeNull();
+
+    setClipboard(undefined);
+    await act(async () => {
+      requireElement("button[aria-label='Copy code']").click();
+    });
+    expect(requireElement("button[aria-label='Copy code']")).not.toBeNull();
   });
 
   it("keeps a paragraph that begins with inline code inline", async () => {

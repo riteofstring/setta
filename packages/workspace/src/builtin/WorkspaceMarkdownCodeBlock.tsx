@@ -37,8 +37,7 @@ function CopyCodeButton({ code }: { code: string }) {
     [],
   );
 
-  async function onCopy() {
-    await navigator.clipboard.writeText(code);
+  function showCopied() {
     setCopied(true);
     if (resetTimeoutRef.current !== null) {
       clearTimeout(resetTimeoutRef.current);
@@ -46,12 +45,25 @@ function CopyCodeButton({ code }: { code: string }) {
     resetTimeoutRef.current = setTimeout(() => setCopied(false), COPY_RESET_MS);
   }
 
+  // The same explicit refusal the package's other copy affordance takes: a browser without the
+  // API, or one that refuses the write, leaves the button reading "Copy code" rather than
+  // reporting a copy that never happened. The reference logs and swallows the rejection; the
+  // package has no console channel, so the un-copied label is the report.
+  function onCopy() {
+    if (!navigator.clipboard) {
+      return;
+    }
+    void navigator.clipboard.writeText(code).then(showCopied, () => {
+      setCopied(false);
+    });
+  }
+
   return (
     <button
       aria-label={copied ? "Code copied" : "Copy code"}
       className="nodrag absolute end-0 top-0.5 cursor-pointer rounded bg-transparent text-setta-300 opacity-0 transition-opacity duration-200 hover:text-setta-600 focus:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-blue-500 group-hover:opacity-100 dark:hover:text-white"
       data-setta-workspace-touch-target="compact"
-      onClick={() => void onCopy()}
+      onClick={onCopy}
       type="button"
     >
       {copied ? (
