@@ -155,10 +155,11 @@ or main's global settings store.
 
 ## Milestone B — parameter authoring and feedback
 
-**Status: B1–B4 repository work and the combined developer acceptance gate are complete. The
-developer accepted Milestone B on 2026-08-14 and subsequently accepted the requested
-pre-Milestone-C interaction corrections through commit `06cb64534`. Its accepted baseline and
-phase audit remain.**
+**Status: B1–B4 repository work, the combined developer acceptance gate, and the accepted-output
+baseline are complete. The developer accepted Milestone B on 2026-08-14 and subsequently accepted
+the requested pre-Milestone-C interaction corrections through commit `06cb64534`. The baseline is
+locked under `docs/evidence/milestone-b/`, including the post-acceptance filter scroll-restoration
+correction. The phase audit remains.**
 
 Make the existing batteries-included parameter controls structurally authorable. Do not rework the
 already accepted value editors, UI-type conversion, renaming, drag-and-drop, column resizing, or

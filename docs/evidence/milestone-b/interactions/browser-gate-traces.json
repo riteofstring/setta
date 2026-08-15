@@ -1,0 +1,87 @@
+{
+  "source": {
+    "acceptedCommit": "c92db75ec5eb4571d2ee1bcf56eeb394e9a89000",
+    "acceptedInteractionCorrectionCommit": "06cb64534ca87aba767bd599e448313eb0a5f349",
+    "captureDate": "2026-08-14",
+    "url": "http://127.0.0.1:4173/"
+  },
+  "authoring": {
+    "hostInsertion": {
+      "documentNotificationDelta": 1,
+      "factoryIdMatchesUuidPattern": true,
+      "appendedAfterItemId": "item-rename",
+      "selectedInsertedItem": true,
+      "focusStayedOnHostAction": true
+    },
+    "hostDeletion": {
+      "documentNotificationDelta": 1,
+      "insertedItemRemoved": true,
+      "survivingSelection": ["item-rename"],
+      "focusStayedOnHostAction": true
+    }
+  },
+  "filter": {
+    "query": "momentum",
+    "visibleItemIds": ["item-options", "item-momentum"],
+    "hiddenSelectionMessage": "1 selected parameter is hidden by this filter.",
+    "accessibleStatus": "1 matching parameter. 1 selected parameter is hidden by this filter.",
+    "documentNotificationDeltaAfterFocus": 0,
+    "scroll": {
+      "beforeFilter": 190,
+      "whileFiltered": 0,
+      "afterClear": 190
+    },
+    "clearRestoredFilterFocus": true
+  },
+  "quickInfo": {
+    "title": "alpha",
+    "frozen": true,
+    "focused": true,
+    "pageOne": "Error: Use 0.0005 or less for the stability profile.",
+    "pageTwo": "Sets the initial learning rate.\nUse a smaller value when updates become unstable.",
+    "copiedText": "Sets the initial learning rate.\nUse a smaller value when updates become unstable.",
+    "escapeClosedDialog": true
+  },
+  "diagnostics": {
+    "update": {
+      "documentNotificationDelta": 0,
+      "rows": [
+        {
+          "itemId": "item-alpha",
+          "severity": "warning"
+        },
+        {
+          "itemId": "item-beta",
+          "severity": "error"
+        }
+      ],
+      "announcement": "Parameter diagnostics updated. Warning for alpha: The host accepted this value but recommends 0.0005 or less. Error for beta: Use less than 0.998 before running this profile. 1 more message."
+    },
+    "clear": {
+      "documentNotificationDelta": 0,
+      "markerCount": 0,
+      "announcement": "Parameter diagnostics cleared."
+    },
+    "restore": {
+      "documentNotificationDelta": 0,
+      "severities": ["error", "warning", "info"]
+    }
+  },
+  "browserHealth": {
+    "finalUrl": "http://127.0.0.1:4173/",
+    "dialogPresent": false,
+    "warningOrErrorLogs": [],
+    "desktopPageOverflow": {
+      "horizontal": false,
+      "vertical": false
+    },
+    "compactPageOverflow": {
+      "horizontal": false,
+      "vertical": false
+    },
+    "effective200PercentPageOverflow": {
+      "horizontal": false,
+      "vertical": false
+    }
+  }
+}

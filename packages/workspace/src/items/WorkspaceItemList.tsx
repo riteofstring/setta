@@ -242,9 +242,9 @@ function ItemListShell({
       return;
     }
     const wasFilterActive = previousFilterActiveRef.current;
-    if (!wasFilterActive && filterActive) {
-      preservedScrollTopRef.current = node.scrollTop;
-    } else if (wasFilterActive && !filterActive) {
+    // Filtering can shrink the browser's scroll range before layout effects run. The scroll
+    // handler already owns the last unfiltered position, so only consume that snapshot here.
+    if (wasFilterActive && !filterActive) {
       node.scrollTop = preservedScrollTopRef.current;
     }
     previousFilterActiveRef.current = filterActive;

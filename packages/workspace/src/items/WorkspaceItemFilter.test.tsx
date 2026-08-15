@@ -255,7 +255,18 @@ describe("WorkspaceItemFilter", () => {
     if (!scrollArea) {
       throw new Error("The item list scroll area did not render.");
     }
-    scrollArea.scrollTop = 44;
+    const fullRowCount = scrollArea.querySelectorAll("[data-item-row]").length;
+    let browserScrollTop = 44;
+    const scrollAssignments: Array<number> = [];
+    Object.defineProperty(scrollArea, "scrollTop", {
+      configurable: true,
+      get: () =>
+        scrollArea.querySelectorAll("[data-item-row]").length < fullRowCount ? 0 : browserScrollTop,
+      set: (nextScrollTop: number) => {
+        browserScrollTop = nextScrollTop;
+        scrollAssignments.push(nextScrollTop);
+      },
+    });
     scrollArea.dispatchEvent(new Event("scroll", { bubbles: true }));
 
     await act(async () => setInputValue(input, "beta"));
@@ -265,7 +276,7 @@ describe("WorkspaceItemFilter", () => {
     await act(async () => setInputValue(input, "bet"));
     expect(host.querySelector('[aria-label="Worker editor"]')).toBe(survivingEditor);
     expect(host.querySelector(".overflow-y-scroll")).toBe(scrollArea);
-    expect(scrollArea.scrollTop).toBe(44);
+    expect(scrollArea.scrollTop).toBe(0);
 
     await act(async () => setInputValue(input, "no match"));
     expect(host.textContent).toContain("No parameters in this list match “no match”.");
@@ -283,6 +294,7 @@ describe("WorkspaceItemFilter", () => {
     expect(host.querySelector('[aria-label="Worker editor"]')).not.toBeNull();
     expect(host.querySelector(".overflow-y-scroll")).toBe(scrollArea);
     expect(scrollArea.scrollTop).toBe(44);
+    expect(scrollAssignments.at(-1)).toBe(44);
     expect(onDocumentChange).not.toHaveBeenCalled();
   });
 });
