@@ -54,6 +54,7 @@ const RUNTIME_EXPORTS = [
   "setSectionTagColor",
   "setWorkspaceDocumentChangeCallback",
   "setWorkspaceColorMode",
+  "setWorkspacePanDiagnosticLogger",
   "ungroupSections",
   "useItemSelectionMode",
   "useWorkspaceAppearance",
