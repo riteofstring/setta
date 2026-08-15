@@ -50,6 +50,7 @@ describe("WorkspaceTooltip", () => {
     host.remove();
     useWorkspaceTooltip.getState().reset();
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("stages and clears every page through the hover handlers", async () => {
@@ -276,6 +277,43 @@ describe("WorkspaceTooltip", () => {
     await act(async () => incrementWorkspaceTooltipPage());
     expect(getTooltipPortal()?.style.transform).toBe(positionBeforePaging);
     expect(getTooltipPortal()?.textContent).toContain("Second row help");
+  });
+
+  it("keeps a frozen resized or paged surface inside the viewport", async () => {
+    vi.stubGlobal("innerWidth", 1000);
+    vi.stubGlobal("innerHeight", 800);
+    await act(async () => {
+      getWorkspaceTooltipHandlers(
+        { content: "Short first page" },
+        { content: "A much taller second page" },
+      ).onMouseEnter({ currentTarget: host });
+      enableWorkspaceTooltip();
+    });
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 700, clientY: 500 }));
+    });
+    await act(async () => {
+      freezeWorkspaceTooltip();
+    });
+
+    const box = getTooltipPortal();
+    if (!box) {
+      throw new Error("Expected the frozen tooltip portal.");
+    }
+    box.getBoundingClientRect = () =>
+      ({ left: 710, right: 1010, top: 510, bottom: 610, width: 300, height: 100 }) as DOMRect;
+
+    await act(async () => incrementWorkspaceTooltipPage());
+    expect(box.style.transform).toBe("translate(692px, 510px)");
+    expect(box.style.maxWidth).toBe("calc(100vw - 16px)");
+    expect((box.firstElementChild as HTMLElement | null)?.style.maxWidth).toBe(
+      "calc(100vw - 16px)",
+    );
+
+    vi.stubGlobal("innerWidth", 500);
+    vi.stubGlobal("innerHeight", 300);
+    await act(async () => window.dispatchEvent(new Event("resize")));
+    expect(box.style.transform).toBe("translate(192px, 192px)");
   });
 
   it("preserves a locally rtl trigger direction on the separately mounted tooltip", async () => {

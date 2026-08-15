@@ -13,6 +13,7 @@ import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 const INITIAL_TOOLTIP_WIDTH_PX = 256;
 const MOUSE_OFFSET_PX = 10;
 const VIEWPORT_CLAMP_MARGIN_PX = 8;
+const TOOLTIP_VIEWPORT_MAX_WIDTH = `calc(100vw - ${VIEWPORT_CLAMP_MARGIN_PX * 2}px)`;
 const COPIED_INDICATOR_DURATION_MS = 2000;
 const TOOLTIP_SURFACE_SELECTOR = '[data-setta-workspace-tooltip-surface="true"]';
 
@@ -246,6 +247,7 @@ export function WorkspaceTooltip() {
   useCopiedIndicator(copied);
   useFrozenTooltipFocus(boxElement, isFrozen);
   useTooltipFollower({ anchor, boxElement, isEnabled, isFrozen, positionRef });
+  useTooltipViewportContainment({ boxElement, isEnabled, page, positionRef, tooltipWidth });
   const handleDragPointerDown = useFrozenTooltipDrag({
     boxElement,
     isFrozen,
@@ -273,6 +275,38 @@ export function WorkspaceTooltip() {
     />,
     document.body,
   );
+}
+
+function useTooltipViewportContainment({
+  boxElement,
+  isEnabled,
+  page,
+  positionRef,
+  tooltipWidth,
+}: {
+  boxElement: HTMLDivElement | null;
+  isEnabled: boolean;
+  page: WorkspaceTooltipPage | undefined;
+  positionRef: PositionRef;
+  tooltipWidth: number;
+}) {
+  useEffect(() => {
+    if (!isEnabled || !page || !boxElement) {
+      return;
+    }
+    const activeBox = boxElement;
+    function keepInsideViewport() {
+      setClampedTooltipPosition(
+        activeBox,
+        positionRef,
+        positionRef.current.x,
+        positionRef.current.y,
+      );
+    }
+    keepInsideViewport();
+    window.addEventListener("resize", keepInsideViewport, { passive: true });
+    return () => window.removeEventListener("resize", keepInsideViewport);
+  }, [boxElement, isEnabled, page, positionRef, tooltipWidth]);
 }
 
 function useCopiedIndicator(copied: boolean) {
@@ -454,7 +488,11 @@ function TooltipPortal({
       dir={direction}
       ref={boxRef}
       role={isFrozen ? "dialog" : "tooltip"}
-      style={{ transform: `translate(${position.x}px, ${position.y}px)`, width: tooltipWidth }}
+      style={{
+        maxWidth: TOOLTIP_VIEWPORT_MAX_WIDTH,
+        transform: `translate(${position.x}px, ${position.y}px)`,
+        width: tooltipWidth,
+      }}
       tabIndex={isFrozen ? 0 : -1}
     >
       {isFrozen ? (
@@ -469,6 +507,7 @@ function TooltipPortal({
             topLeft: false,
             topRight: false,
           }}
+          maxWidth={TOOLTIP_VIEWPORT_MAX_WIDTH}
           minWidth={INITIAL_TOOLTIP_WIDTH_PX}
           onResizeStop={(_event, _direction, _element, delta) => {
             setTooltipWidth((width) => Math.max(INITIAL_TOOLTIP_WIDTH_PX, width + delta.width));

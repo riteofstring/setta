@@ -1,4 +1,4 @@
-# Milestone B accepted-output baseline and post-acceptance scroll correction
+# Milestone B accepted-output baseline and post-acceptance corrections
 
 This bundle locks the parameter authoring and feedback output that the developer explicitly
 accepted on 2026-08-14. The acceptance and authorization to record the baseline are in the UX plan
@@ -14,6 +14,13 @@ visual approval.
   position authoritative when a short filter result makes the browser clamp the live `scrollTop`
   to zero. Clearing the filter restores the accepted position without remounting the list or
   notifying the host document.
+- Phase-audit correction: paged or resized frozen quick info is re-clamped after its dimensions
+  change and when the browser viewport changes. Resizing is capped to the viewport while the
+  accepted 256 px default geometry remains unchanged.
+- Phase-audit verification correction: the deterministic large-document profile now locks the
+  accepted full-canvas shell at 1446 x 602 px with 24 initially visible sections. The prior
+  1382 x 588 px / 20-section expectation predated the accepted pane-overlay and playground-chrome
+  corrections.
 - Frozen reference: `../setta-main` remained clean on `main` at
   `043d3b2e9c69caf99d1246f1408b3ad7194b7864`; it was neither modified nor relaunched for this
   post-acceptance package recording.
@@ -81,3 +88,6 @@ authoring, filter, quick-info, diagnostic, and browser-health results are in
   hidden selection, ephemeral filtering, corrected scroll restoration, multi-page freeze/copy,
   diagnostic update/clear announcements, desktop dark/light, compact 320 px, effective-200%
   reflow, URL stability, dialogs, page overflow, and warning/error console output.
+- Phase-audit quick-info containment regression: 1 file, 11 tests passed.
+- Phase-audit large-document browser profile: 1 render, pan, and drag pass completed with 256
+  mounted sections, stable 1446 x 602 px canvas geometry, and no browser issues or page scroll.

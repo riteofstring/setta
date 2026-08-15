@@ -29,8 +29,10 @@ import {
 import { repositoryRoot, run, runPnpm } from "./lib/process.mjs";
 
 const EXPECTED_SECTION_COUNT = 256;
-const EXPECTED_VISIBLE_SECTION_COUNT = 20;
-const EXPECTED_CANVAS_SIZE = { height: 588, width: 1382 };
+const EXPECTED_VISIBLE_SECTION_COUNT = 24;
+// Milestone B's accepted shell overlays both 32 px pane rails on the full canvas, and its
+// accepted playground chrome owns the remaining vertical space at this fixed profile viewport.
+const EXPECTED_CANVAS_SIZE = { height: 602, width: 1446 };
 const DRAG_TARGET_ID = "performance-drag-target";
 const PREVIEW_PORT = 4174;
 const PREVIEW_ORIGIN = `http://127.0.0.1:${String(PREVIEW_PORT)}`;

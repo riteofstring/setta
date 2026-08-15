@@ -6,7 +6,7 @@ The standalone `@setta/workspace` extraction and its original UX are complete an
 developer-accepted. The remaining product work is three UX milestones:
 
 - [x] Milestone A — structural section and group authoring.
-- [ ] Milestone B — parameter authoring and feedback.
+- [x] Milestone B — parameter authoring and feedback.
 - [ ] Milestone C — workspace commands and toolbar extensions.
 
 A milestone checkbox is complete only after its repository work, developer acceptance gate,
@@ -155,11 +155,12 @@ or main's global settings store.
 
 ## Milestone B — parameter authoring and feedback
 
-**Status: B1–B4 repository work, the combined developer acceptance gate, and the accepted-output
-baseline are complete. The developer accepted Milestone B on 2026-08-14 and subsequently accepted
-the requested pre-Milestone-C interaction corrections through commit `06cb64534`. The baseline is
-locked under `docs/evidence/milestone-b/`, including the post-acceptance filter scroll-restoration
-correction. The phase audit remains.**
+**Status: B1–B4 repository work, the combined developer acceptance gate, the accepted-output
+baseline, and the phase audit are complete. The developer accepted Milestone B on 2026-08-14 and
+subsequently accepted the requested pre-Milestone-C interaction corrections through commit
+`06cb64534`. The baseline is locked under `docs/evidence/milestone-b/`, including the
+post-acceptance filter scroll-restoration correction. The phase audit preserved the accepted
+quick-info geometry while adding viewport containment for page, resize, and window-size changes.**
 
 Make the existing batteries-included parameter controls structurally authorable. Do not rework the
 already accepted value editors, UI-type conversion, renaming, drag-and-drop, column resizing, or
