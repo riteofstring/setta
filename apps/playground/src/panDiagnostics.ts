@@ -4,7 +4,7 @@ import {
 } from "@setta/workspace";
 
 const MAX_RETAINED_EVENTS = 800;
-const STORAGE_KEY = "setta:pan-diagnostics:v2";
+const STORAGE_KEY = "setta:pan-diagnostics:v3";
 const CONSOLE_PREFIX = "[setta:pan]";
 const OUTPUT_ELEMENT_ID = "setta-pan-diagnostics";
 
@@ -22,7 +22,7 @@ declare global {
 }
 
 function readRetainedEvents(): Array<WorkspacePanDiagnosticEvent> {
-  const serialized = sessionStorage.getItem(STORAGE_KEY);
+  const serialized = localStorage.getItem(STORAGE_KEY);
   if (serialized === null) {
     return [];
   }
@@ -34,7 +34,7 @@ function readRetainedEvents(): Array<WorkspacePanDiagnosticEvent> {
 }
 
 function persistEvents(events: ReadonlyArray<WorkspacePanDiagnosticEvent>): void {
-  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
 }
 
 function createDiagnosticOutput(events: ReadonlyArray<WorkspacePanDiagnosticEvent>): HTMLElement {
@@ -55,7 +55,7 @@ export function installPlaygroundPanDiagnostics(): void {
     events,
     clear: () => {
       events.length = 0;
-      sessionStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(STORAGE_KEY);
       output.textContent = "[]";
     },
     json: () => JSON.stringify(events),
