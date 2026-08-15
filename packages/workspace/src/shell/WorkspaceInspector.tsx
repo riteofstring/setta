@@ -564,7 +564,7 @@ function MultipleItemsInspector({
   return (
     <div className="setta-workspace-inspector-unsupported" role="note">
       <h3>{selection.itemCount} items selected</h3>
-      <p>Select one item to edit its label, value, UI type, and configuration.</p>
+      <p>Select one item to edit its label, UI type, and configuration.</p>
     </div>
   );
 }

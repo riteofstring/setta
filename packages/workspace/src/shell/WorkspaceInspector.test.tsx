@@ -343,6 +343,9 @@ describe("WorkspaceInspector", () => {
     );
 
     expect(host.textContent).toContain("2 items selected");
+    expect(host.textContent).toContain(
+      "Select one item to edit its label, UI type, and configuration.",
+    );
     expect(host.querySelector('[aria-label="UI type"]')).toBeNull();
   });
 

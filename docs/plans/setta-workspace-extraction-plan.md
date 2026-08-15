@@ -1899,6 +1899,23 @@ Phase 4 progress (2026-08-11):
   supply-chain and packed-consumer gates were not duplicated. This completes the correction's
   implementation without claiming visual approval or refreshing baselines; the required
   implementation audit remains before re-presenting the same combined developer gate.
+- Workspace-shell Inspector value-row correction implementation audit complete (2026-08-13): the
+  bounded review treated commits `047aaa664` through `c68bfa5e4` as the coherent developer-feedback
+  and correction change; the immediately preceding rejected-gate correction already has its own
+  completed audit, so the review did not reopen the wider workspace-shell milestone. The audit
+  found and fixed one directly affected UX defect: the multiple-item branch still instructed
+  people to select one item to edit its value even though the canonical value editor now remains
+  exclusively on the canvas. The corrected instruction names only the retained label, UI-type,
+  and configuration surfaces, and the focused Inspector regression freezes it beside the absence
+  of the removed value row. Static inspection confirmed that the canvas still owns
+  `BuiltInItemValueControl`, the stale `item-value` focus key and private wrapper styles are gone,
+  selection-mode editing and focus fallback remain intact, and custom Inspector contributions and
+  public exports are unchanged. The focused Inspector suite passes all 9 tests, the package
+  production build and source/compiled boundary pass, and the explicit two-file static gate passes.
+  No dependency or packaging contract changed, so the plan-deferred supply-chain, packed-consumer,
+  full-suite, and browser phase gates were not run. Repository-actionable work for this correction
+  and its implementation audit is complete; the same combined developer gate remains required and
+  incomplete, with no visual approval or package-output baseline claimed.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
