@@ -1,0 +1,183 @@
+{
+  "sourceCommit": "00178a78d794423f210f59cc2303eae05bb95931",
+  "frozenReferenceCommit": "043d3b2e9c69caf99d1246f1408b3ad7194b7864",
+  "capture": {
+    "date": "2026-08-13",
+    "timezone": "America/Los_Angeles",
+    "devicePixelRatio": 1,
+    "rasterEncoding": "jpeg",
+    "productionUrl": "http://127.0.0.1:4173/"
+  },
+  "artifacts": {
+    "packages/workspace/dist/index.js": "7e7fe8910b6f29e70c2de5ea6f0cd07837c4772a60ce87cee841267d7be389d8",
+    "packages/workspace/dist/styles.css": "d4e343fc902466143057823c28f7383f92b501466122b71e20915cb20fd9f9a1",
+    "apps/playground/dist/index.html": "4f4a59f9c0fd9ec3d2ba22898f323b56daa2b71621c100a4328f0996b619f4aa",
+    "apps/playground/dist/assets/index-C1uG4VA1.css": "5fd552f1d473aa6b15f8911f5a77c331c631fd3042895ec62f9dbe83d1a378e4",
+    "apps/playground/dist/assets/index-CJ3-GGNk.js": "990499ed31f8a5f9c1f727d28ee3fcd0f262af907f50247a7aa98d4301da4e28"
+  },
+  "screenshots": [
+    {
+      "file": "screenshots/01-playground-outline-dark-1492x696.jpg",
+      "sha256": "617f461b70596a713be43186c406e1d019cb010cd86fe78819c0bc4bb6b43190",
+      "appearance": "dark",
+      "state": "outline",
+      "viewport": { "width": 1492, "height": 696 },
+      "page": {
+        "clientWidth": 1492,
+        "scrollWidth": 1492,
+        "clientHeight": 696,
+        "scrollHeight": 696
+      },
+      "shell": { "x": 32, "y": 208, "width": 1428, "height": 456 },
+      "leadingPaneRegion": { "x": 32, "y": 208, "width": 335, "height": 456 },
+      "center": { "x": 367, "y": 208, "width": 1053, "height": 456 },
+      "trailingPaneRegion": { "x": 1420, "y": 208, "width": 40, "height": 456 },
+      "minimap": { "x": 382, "y": 499, "width": 200, "height": 150 },
+      "outlineRowCount": 23,
+      "bodyBackgroundColor": "rgb(11, 14, 19)"
+    },
+    {
+      "file": "screenshots/02-playground-outline-light-1492x696.jpg",
+      "sha256": "bd632c17d65d3d034cbbfafb0fe153999f44866a7463d9277d3d1b92a9c93b08",
+      "appearance": "light",
+      "state": "outline",
+      "viewport": { "width": 1492, "height": 696 },
+      "page": {
+        "clientWidth": 1492,
+        "scrollWidth": 1492,
+        "clientHeight": 696,
+        "scrollHeight": 696
+      },
+      "shell": { "x": 32, "y": 208, "width": 1428, "height": 456 },
+      "leadingPaneRegion": { "x": 32, "y": 208, "width": 335, "height": 456 },
+      "center": { "x": 367, "y": 208, "width": 1053, "height": 456 },
+      "trailingPaneRegion": { "x": 1420, "y": 208, "width": 40, "height": 456 },
+      "minimap": { "x": 382, "y": 499, "width": 200, "height": 150 },
+      "outlineRowCount": 23,
+      "bodyBackgroundColor": "rgb(220, 225, 234)"
+    },
+    {
+      "file": "screenshots/03-selected-slider-inspector-dark-1492x696.jpg",
+      "sha256": "2a88522aeaab93610da2cdfdca60a7cc69ca18147cbe9135d4a031c30e2a40fb",
+      "appearance": "dark",
+      "state": "selected-slider-inspector",
+      "viewport": { "width": 1492, "height": 696 },
+      "page": {
+        "clientWidth": 1492,
+        "scrollWidth": 1492,
+        "clientHeight": 696,
+        "scrollHeight": 696
+      },
+      "leadingPaneRegion": { "x": 32, "y": 208, "width": 335, "height": 456 },
+      "center": { "x": 367, "y": 208, "width": 593, "height": 456 },
+      "trailingPaneRegion": { "x": 960, "y": 208, "width": 500, "height": 456 },
+      "inspectorPanel": { "x": 973, "y": 218, "width": 447, "height": 436 },
+      "itemPanel": { "x": 618.5, "y": 249, "width": 552, "height": 352 },
+      "selectedItemRow": { "x": 631.5, "y": 426, "width": 526, "height": 20 }
+    },
+    {
+      "file": "screenshots/04-selected-slider-inspector-light-1492x696.jpg",
+      "sha256": "24e863d3bb94036b36d77e2be754edeedb655b683bb1dbf9cdba7314c2b73e9e",
+      "appearance": "light",
+      "state": "selected-slider-inspector",
+      "viewport": { "width": 1492, "height": 696 },
+      "page": {
+        "clientWidth": 1492,
+        "scrollWidth": 1492,
+        "clientHeight": 696,
+        "scrollHeight": 696
+      },
+      "leadingPaneRegion": { "x": 32, "y": 208, "width": 335, "height": 456 },
+      "center": { "x": 367, "y": 208, "width": 593, "height": 456 },
+      "trailingPaneRegion": { "x": 960, "y": 208, "width": 500, "height": 456 },
+      "inspectorPanel": { "x": 973, "y": 218, "width": 447, "height": 436 },
+      "itemPanel": { "x": 618.5, "y": 249, "width": 552, "height": 352 },
+      "selectedItemRow": { "x": 631.5, "y": 426, "width": 526, "height": 20 }
+    },
+    {
+      "file": "screenshots/05-pane-menu-dark-1492x696.jpg",
+      "sha256": "114c1252779252c86d316882cd932682792bcc90ef7d4193c533111f03b01612",
+      "appearance": "dark",
+      "state": "pane-menu",
+      "viewport": { "width": 1492, "height": 696 },
+      "menu": { "x": 1190, "y": 300, "width": 160, "height": 194 },
+      "backgroundColor": "rgb(11, 14, 19)",
+      "borderColor": "rgba(86, 105, 143, 0.5)",
+      "borderRadius": "6px"
+    },
+    {
+      "file": "screenshots/06-pane-menu-light-1492x696.jpg",
+      "sha256": "fad8cf1c8ce1014da2d7712f8a806f683647acb784b41d454c382fa23f70bdd7",
+      "appearance": "light",
+      "state": "pane-menu",
+      "viewport": { "width": 1492, "height": 696 },
+      "menu": { "x": 1190, "y": 300, "width": 160, "height": 194 },
+      "backgroundColor": "rgb(255, 255, 255)",
+      "borderColor": "rgba(86, 105, 143, 0.5)",
+      "borderRadius": "6px"
+    },
+    {
+      "file": "screenshots/07-playground-dark-746x348-effective-200-percent.jpg",
+      "sha256": "daedffddf1b75f930db7d17c1c3ad3970e0c15744c51502f316dbb34ba299cb9",
+      "appearance": "dark",
+      "state": "effective-200-percent",
+      "viewport": { "width": 746, "height": 348 },
+      "page": { "clientWidth": 746, "scrollWidth": 746, "clientHeight": 348, "scrollHeight": 348 },
+      "scaleContext": "CSS viewport equivalent of the accepted 1492x696 reference at 200% page scale",
+      "shell": { "x": 16, "y": 188, "width": 714, "height": 144 },
+      "leadingPaneRegion": { "x": 16, "y": 188, "width": 335, "height": 144 },
+      "center": { "x": 351, "y": 188, "width": 339, "height": 144 },
+      "trailingPaneRegion": { "x": 690, "y": 188, "width": 40, "height": 144 }
+    },
+    {
+      "file": "screenshots/08-playground-outline-dark-320x696.jpg",
+      "sha256": "282f5b03b9c359c5ce4580124a51ccaeca7c24b61287e247cfd7b8be7ae920e4",
+      "appearance": "dark",
+      "state": "compact-outline",
+      "viewport": { "width": 320, "height": 696 },
+      "page": { "clientWidth": 320, "scrollWidth": 320, "clientHeight": 696, "scrollHeight": 696 },
+      "shell": { "x": 8, "y": 284, "width": 304, "height": 404 },
+      "leadingPaneRegion": { "x": 8, "y": 284, "width": 264, "height": 404 },
+      "center": { "x": 272, "y": 284, "width": 0, "height": 404 },
+      "trailingPaneRegion": { "x": 272, "y": 284, "width": 40, "height": 404 }
+    },
+    {
+      "file": "screenshots/09-playground-outline-light-320x696.jpg",
+      "sha256": "e618f02edeae28ee5c2446ecea455a64a353fa15a31d5cd53fb1153af30b8dcd",
+      "appearance": "light",
+      "state": "compact-outline",
+      "viewport": { "width": 320, "height": 696 },
+      "page": { "clientWidth": 320, "scrollWidth": 320, "clientHeight": 696, "scrollHeight": 696 },
+      "shell": { "x": 8, "y": 284, "width": 304, "height": 404 },
+      "leadingPaneRegion": { "x": 8, "y": 284, "width": 264, "height": 404 },
+      "center": { "x": 272, "y": 284, "width": 0, "height": 404 },
+      "trailingPaneRegion": { "x": 272, "y": 284, "width": 40, "height": 404 }
+    },
+    {
+      "file": "screenshots/10-playground-canvas-light-320x696.jpg",
+      "sha256": "1fa7a6bba86bfa4064491c4e59c379e06ddf7beb01c3afb5c5a8a544855d57ac",
+      "appearance": "light",
+      "state": "compact-canvas",
+      "viewport": { "width": 320, "height": 696 },
+      "page": { "clientWidth": 320, "scrollWidth": 320, "clientHeight": 696, "scrollHeight": 696 },
+      "shell": { "x": 8, "y": 284, "width": 304, "height": 404 },
+      "leadingPaneRegion": { "x": 8, "y": 284, "width": 40, "height": 404 },
+      "center": { "x": 48, "y": 284, "width": 224, "height": 404 },
+      "trailingPaneRegion": { "x": 272, "y": 284, "width": 40, "height": 404 },
+      "minimap": { "x": 63, "y": 527.5, "width": 194, "height": 145.5 }
+    },
+    {
+      "file": "screenshots/11-playground-inspector-light-320x696.jpg",
+      "sha256": "ca0969e907f76dfa59b7c36ae637dedb0dbae67188f48c4e36b16b3ae5352c65",
+      "appearance": "light",
+      "state": "compact-inspector",
+      "viewport": { "width": 320, "height": 696 },
+      "page": { "clientWidth": 320, "scrollWidth": 320, "clientHeight": 696, "scrollHeight": 696 },
+      "shell": { "x": 8, "y": 284, "width": 304, "height": 404 },
+      "leadingPaneRegion": { "x": 8, "y": 284, "width": 40, "height": 404 },
+      "center": { "x": 48, "y": 284, "width": 0, "height": 404 },
+      "trailingPaneRegion": { "x": 48, "y": 284, "width": 264, "height": 404 },
+      "inspectorPanel": { "x": 60, "y": 294, "width": 212, "height": 384 }
+    }
+  ]
+}

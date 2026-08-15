@@ -1923,6 +1923,29 @@ Phase 4 progress (2026-08-11):
   This authorizes the package-output baseline refresh and the plan-ordered final broad package,
   supply-chain, packed-consumer, and browser gates, followed by the final whole-plan audit. It does
   not authorize publishing, naming, licensing, or additional feature work.
+- Workspace-shell accepted-output baseline and available post-acceptance gates recorded
+  (2026-08-13): the approved package output is locked under
+  `docs/evidence/workspace-shell/accepted-output/` with fresh production desktop Outline,
+  selected-item Inspector, and pane-menu captures in dark/light appearance, an effective 200%
+  capture, compact 320 px Outline/canvas/Inspector captures, exact geometry/artifact/screenshot
+  hashes, and trusted interaction traces. The production browser gate exercised pane
+  open/close/keyboard-and-pointer resize/full-width, pane-tab and Outline roving focus, Outline
+  selection/focus, the non-duplicated Inspector plus UI-type conversion, the real divider
+  `dblclick`, searchable creation and multi-selection lock menus, full-surface section drag,
+  item-list and Rotary/pane wheel ownership, focus restoration, URL stability, page overflow,
+  dialogs, and console warning/error output. The package and playground production builds, source/
+  compiled boundary, complete package suite (109 files, 791 tests), and complete playground suite
+  (5 files, 29 tests) pass. The frozen reference remains clean at `043d3b2e9`.
+- Workspace-shell final supply-chain gate waiting on the mandatory release-age window
+  (2026-08-13): the authorized gate passed dependency policy, clean frozen install, lockfile
+  synchronization, and the independent seven-day audit for all 611 locked versions before the
+  vulnerability audit newly reported high-severity `GHSA-2v37-7h3g-55p8` through
+  `postcss -> nanoid@3.3.17`. The only patched 3.x release, `nanoid@3.3.18`, was published at
+  2026-08-07 16:41:05 UTC and was still younger than the repository's mandatory seven days at the
+  2026-08-14 02:00 UTC check. No exception, override, or policy weakening was added. This is a
+  transient verification failure, not a developer gate or a plan-level blocker; retry the focused
+  dependency update/audit after 2026-08-14 16:41:05 UTC, then run the final all-files static gate
+  and exact packed-consumer proof once on the stable tree before requesting the whole-plan audit.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
