@@ -1,0 +1,581 @@
+{
+  "source": {
+    "acceptanceRecordCommit": "a0e50eccf1b7e87cafd10b4f93cb7085653a40cf",
+    "acceptedSourceCommit": "a371f749bcfe708131db14b90d3e8795238c2217",
+    "phaseAuditCommit": "06bc14516ed8b99363a26a832455e84765f41b3d",
+    "frozenReferenceCommit": "043d3b2e9c69caf99d1246f1408b3ad7194b7864",
+    "captureDate": "2026-08-15",
+    "timezone": "America/Los_Angeles",
+    "url": "http://127.0.0.1:4173/"
+  },
+  "commandSurfaces": {
+    "operation": "Ungroup (workspace.ungroup-sections) over the playground's root-group",
+    "measurement": "each surface driven on its own freshly loaded page, quiesced before and after the invocation",
+    "resultingStructure": [
+      "idle-leaf@1",
+      "locked-leaf@1",
+      "styled-leaf@1",
+      "item-panel@1",
+      "meta-dropdown@1",
+      "meta-slider@1",
+      "meta-rotary@1",
+      "meta-switch@1",
+      "meta-text@1",
+      "meta-date@1",
+      "meta-time@1",
+      "meta-textarea@1",
+      "meta-password@1",
+      "meta-color@1",
+      "meta-button@1",
+      "meta-dropzone@1",
+      "nested-leaf@1",
+      "middle-group@1",
+      "inner-group@2",
+      "first-row-leaf@3",
+      "second-row-leaf@3",
+      "third-row-leaf@3"
+    ],
+    "distinctResultingStructures": 1,
+    "surfaces": {
+      "headerMenu": {
+        "selectionBeforeInvoke": ["root-group"],
+        "documentNotificationDelta": 1,
+        "selectionAfter": [],
+        "focusAfter": {
+          "tag": "DIV",
+          "label": "Nested leaf section",
+          "outlineItem": null,
+          "sectionId": "nested-leaf",
+          "scope": "canvas"
+        },
+        "structureMatchesHeaderMenu": true
+      },
+      "sectionContextMenu": {
+        "selectionBeforeInvoke": ["root-group"],
+        "documentNotificationDelta": 1,
+        "selectionAfter": [],
+        "focusAfter": {
+          "tag": "DIV",
+          "label": "Nested leaf section",
+          "outlineItem": null,
+          "sectionId": "nested-leaf",
+          "scope": "canvas"
+        },
+        "structureMatchesHeaderMenu": true
+      },
+      "outlineRowMenu": {
+        "selectionBeforeInvoke": ["root-group"],
+        "documentNotificationDelta": 1,
+        "selectionAfter": [],
+        "focusAfter": {
+          "tag": "DIV",
+          "label": null,
+          "outlineItem": "nested-leaf",
+          "sectionId": null,
+          "scope": "leading-pane"
+        },
+        "structureMatchesHeaderMenu": true
+      },
+      "inspector": {
+        "selectionBeforeInvoke": ["root-group"],
+        "documentNotificationDelta": 1,
+        "selectionAfter": [],
+        "focusAfter": {
+          "tag": "DIV",
+          "label": "Workspace Inspector selection",
+          "outlineItem": null,
+          "sectionId": null,
+          "scope": "trailing-pane"
+        },
+        "structureMatchesHeaderMenu": true
+      },
+      "keyboardChord": {
+        "selectionBeforeInvoke": ["root-group"],
+        "documentNotificationDelta": 1,
+        "selectionAfter": [],
+        "focusAfter": {
+          "tag": "DIV",
+          "label": "Nested leaf section",
+          "outlineItem": null,
+          "sectionId": "nested-leaf",
+          "scope": "canvas"
+        },
+        "structureMatchesHeaderMenu": true
+      }
+    }
+  },
+  "menus": {
+    "sectionHeaderMenu": [
+      {
+        "role": "menuitemcheckbox",
+        "label": "Overflow Mode",
+        "disabled": false,
+        "checked": "true",
+        "disabledReason": null
+      },
+      {
+        "role": "menuitem",
+        "label": "Ungroup",
+        "disabled": false,
+        "checked": null,
+        "disabledReason": null
+      },
+      {
+        "role": "menuitem",
+        "label": "Report selection",
+        "disabled": false,
+        "checked": null,
+        "disabledReason": null
+      },
+      {
+        "role": "menuitem",
+        "label": "Ungroup selection",
+        "disabled": false,
+        "checked": null,
+        "disabledReason": null
+      }
+    ],
+    "sectionContextMenu": [
+      {
+        "role": "menuitem",
+        "label": "Group",
+        "disabled": true,
+        "checked": null,
+        "disabledReason": "Grouping needs at least two selected sections."
+      },
+      {
+        "role": "menuitemcheckbox",
+        "label": "Overflow Mode",
+        "disabled": false,
+        "checked": "true",
+        "disabledReason": null
+      },
+      {
+        "role": "menuitem",
+        "label": "Ungroup",
+        "disabled": false,
+        "checked": null,
+        "disabledReason": null
+      },
+      {
+        "role": "menuitem",
+        "label": "Delete",
+        "disabled": false,
+        "checked": null,
+        "disabledReason": null
+      },
+      {
+        "role": "menuitem",
+        "label": "Lock Position & Size",
+        "disabled": false,
+        "checked": null,
+        "disabledReason": null
+      },
+      {
+        "role": "menuitem",
+        "label": "Report selection",
+        "disabled": false,
+        "checked": null,
+        "disabledReason": null
+      },
+      {
+        "role": "menuitem",
+        "label": "Ungroup selection",
+        "disabled": false,
+        "checked": null,
+        "disabledReason": null
+      }
+    ],
+    "outlineRowMenu": [
+      {
+        "role": "menuitem",
+        "label": "Group",
+        "disabled": true,
+        "checked": null,
+        "disabledReason": "Grouping needs at least two selected sections."
+      },
+      {
+        "role": "menuitemcheckbox",
+        "label": "Overflow Mode",
+        "disabled": false,
+        "checked": "true",
+        "disabledReason": null
+      },
+      {
+        "role": "menuitem",
+        "label": "Ungroup",
+        "disabled": false,
+        "checked": null,
+        "disabledReason": null
+      },
+      {
+        "role": "menuitem",
+        "label": "Delete",
+        "disabled": false,
+        "checked": null,
+        "disabledReason": null
+      },
+      {
+        "role": "menuitem",
+        "label": "Lock Position & Size",
+        "disabled": false,
+        "checked": null,
+        "disabledReason": null
+      },
+      {
+        "role": "menuitem",
+        "label": "Report Outline row",
+        "disabled": false,
+        "checked": null,
+        "disabledReason": null
+      }
+    ],
+    "paneMenu": [
+      {
+        "role": "menuitem",
+        "label": "Host note",
+        "disabled": false,
+        "checked": null,
+        "disabledReason": null
+      },
+      {
+        "role": "menuitem",
+        "label": "Position marker",
+        "disabled": false,
+        "checked": null,
+        "disabledReason": null
+      },
+      {
+        "role": "menuitem",
+        "label": "Report position",
+        "disabled": false,
+        "checked": null,
+        "disabledReason": null
+      },
+      {
+        "role": "menuitemcheckbox",
+        "label": "Highlight host controls",
+        "disabled": false,
+        "checked": "false",
+        "disabledReason": null
+      }
+    ],
+    "inspectorActions": [
+      {
+        "label": "Group",
+        "disabled": true,
+        "disabledReason": null
+      },
+      {
+        "label": "Ungroup",
+        "disabled": false,
+        "disabledReason": null
+      },
+      {
+        "label": "Delete",
+        "disabled": false,
+        "disabledReason": null
+      },
+      {
+        "label": "Ungroup selection",
+        "disabled": false,
+        "disabledReason": null
+      }
+    ]
+  },
+  "keyBindings": {
+    "chordLabels": [
+      {
+        "label": "Canvas",
+        "chord": "Drag empty space to pan. Press F to fit the workspace."
+      },
+      {
+        "label": "Sections",
+        "chord": "Drag a surface to move it. Hold Alt while dragging to nest it."
+      },
+      {
+        "label": "Parameters",
+        "chord": "Hold Cmd/Ctrl+Shift and click rows. Use Alt+Arrow to move or Tab to indent."
+      },
+      {
+        "label": "Menus",
+        "chord": "Right-click, or use Shift+F10 from the keyboard."
+      },
+      {
+        "label": "Toolbar",
+        "chord": "Host controls sit above and below the zoom group. The top one adds a note."
+      },
+      {
+        "label": "Control help",
+        "chord": "Hold Q while hovering a parameter control."
+      },
+      {
+        "label": "Group",
+        "chord": "⌘ + G"
+      },
+      {
+        "label": "Ungroup",
+        "chord": "⌘ + Shift + G"
+      },
+      {
+        "label": "Delete",
+        "chord": "Backspace"
+      },
+      {
+        "label": "Lock Position & Size",
+        "chord": "⌘ + Alt + L"
+      },
+      {
+        "label": "Unlock Position & Size",
+        "chord": "⌘ + Alt + U"
+      },
+      {
+        "label": "Select all",
+        "chord": "⌘ + A"
+      },
+      {
+        "label": "Select top-level non-group sections",
+        "chord": "⌘ + Shift + A"
+      },
+      {
+        "label": "Focus next section",
+        "chord": "Alt + J"
+      },
+      {
+        "label": "Focus previous section",
+        "chord": "Alt + K"
+      },
+      {
+        "label": "Move parameters up",
+        "chord": "Alt + ArrowUp"
+      },
+      {
+        "label": "Move parameters down",
+        "chord": "Alt + ArrowDown"
+      },
+      {
+        "label": "Indent parameters",
+        "chord": "Tab"
+      },
+      {
+        "label": "Unindent parameters",
+        "chord": "Shift + Tab"
+      },
+      {
+        "label": "Fit view",
+        "chord": "F"
+      },
+      {
+        "label": "Zoom in",
+        "chord": "Equal"
+      },
+      {
+        "label": "Zoom out",
+        "chord": "Minus"
+      },
+      {
+        "label": "Reset zoom",
+        "chord": "⌘ + Comma"
+      },
+      {
+        "label": "Zoom to pointer",
+        "chord": "Z"
+      },
+      {
+        "label": "Focus leading pane",
+        "chord": "Ctrl + Shift + 2"
+      },
+      {
+        "label": "Focus canvas",
+        "chord": "Ctrl + Shift + 3"
+      },
+      {
+        "label": "Focus trailing pane",
+        "chord": "Ctrl + Shift + 4"
+      },
+      {
+        "label": "Host note",
+        "chord": "N"
+      },
+      {
+        "label": "Position marker",
+        "chord": "G"
+      }
+    ],
+    "viewport": {
+      "note": "Read after the canvas-focus chord, which travels to the active section, so the first entry is that camera rather than the document's load camera. Zoom to pointer re-centres the pointer at the default zoom, which the reset had already restored.",
+      "afterCanvasFocusChord": {
+        "x": 405,
+        "y": 70,
+        "zoom": 1
+      },
+      "fitView": {
+        "x": 375.695,
+        "y": 254.17,
+        "zoom": 0.457766
+      },
+      "zoomIn": {
+        "x": 299.635,
+        "y": 226.704,
+        "zoom": 0.54932
+      },
+      "zoomOut": {
+        "x": 375.695,
+        "y": 254.17,
+        "zoom": 0.457766
+      },
+      "resetZoom": {
+        "x": -74.7832,
+        "y": 91.5,
+        "zoom": 1
+      },
+      "zoomToPointer": {
+        "x": -71.5,
+        "y": 166.5,
+        "zoom": 1
+      }
+    },
+    "selection": {
+      "selectAllCount": 23,
+      "selectAll": [
+        "idle-leaf",
+        "locked-leaf",
+        "styled-leaf",
+        "root-group",
+        "nested-leaf",
+        "middle-group",
+        "inner-group",
+        "first-row-leaf",
+        "second-row-leaf",
+        "third-row-leaf",
+        "item-panel",
+        "meta-dropdown",
+        "meta-slider",
+        "meta-rotary",
+        "meta-switch",
+        "meta-text",
+        "meta-date",
+        "meta-time",
+        "meta-textarea",
+        "meta-password",
+        "meta-color",
+        "meta-button",
+        "meta-dropzone"
+      ],
+      "selectTopLevel": [
+        "idle-leaf",
+        "locked-leaf",
+        "styled-leaf",
+        "item-panel",
+        "meta-dropdown",
+        "meta-slider",
+        "meta-rotary",
+        "meta-switch",
+        "meta-text",
+        "meta-date",
+        "meta-time",
+        "meta-textarea",
+        "meta-password",
+        "meta-color",
+        "meta-button",
+        "meta-dropzone"
+      ]
+    },
+    "sectionNavigation": {
+      "next": ["locked-leaf", "styled-leaf", "meta-dropdown"],
+      "previous": ["styled-leaf", "locked-leaf"]
+    },
+    "focusScopes": {
+      "leadingPane": "leading-pane",
+      "trailingPane": "trailing-pane",
+      "canvas": "canvas"
+    }
+  },
+  "creation": {
+    "note": "The change callback also fires once per animated viewport frame, so a creation whose section landed out of sight reports the insertion plus its travel frames.",
+    "chord": {
+      "chord": "N",
+      "rowDelta": 1,
+      "changeDelta": 16,
+      "viewportBefore": {
+        "x": 405,
+        "y": 70,
+        "zoom": 1
+      },
+      "viewportAfter": {
+        "x": 773.5,
+        "y": -406.5,
+        "zoom": 1
+      },
+      "created": [
+        {
+          "id": "playground-note-573d5924-7028-4b5c-83f7-9ff8cdd8d776",
+          "selected": true,
+          "text": "Host note"
+        }
+      ],
+      "createdBody": "Host noteHost note created from the keyboard."
+    },
+    "toolbarControl": {
+      "rowDelta": 1,
+      "changeDelta": 2,
+      "createdBody": [
+        "Host noteHost note created from the keyboard.",
+        "Host noteHost note created from the keyboard."
+      ]
+    }
+  },
+  "toolbarContributions": {
+    "hostToggle": {
+      "toolbarPressedBefore": "false",
+      "toolbarPressedAfter": "true",
+      "paneMenuChecked": "true",
+      "status": "Host control highlight on."
+    },
+    "refusingControl": {
+      "disabledBeforeAnyHostAction": true,
+      "nativeDisabled": false,
+      "refusalSentence": "There is no host action status to clear yet.",
+      "disabledOpacity": "0.4",
+      "enabledAfterHostAction": true,
+      "statusAfterClear": "No host menu action invoked.",
+      "disabledAgain": true
+    }
+  },
+  "keyBindingConflicts": {
+    "platform": {
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
+      "platform": "MacIntel"
+    },
+    "status": "⌘ + G is already taken by workspace.group-sections and workspace.lock-sections."
+  },
+  "editableTargets": {
+    "note": "Synthetic key events do not run Chrome's native macOS select-all editing command, so the caret's own selection is not asserted here; what is asserted is that the workspace select-all and creation chords never ran while the caret owned the keypress.",
+    "target": "parameter filter input in item-panel",
+    "isFilterInput": true,
+    "selectedText": "",
+    "workspaceSelection": 1,
+    "typedValue": "alphan",
+    "rowDeltaAfterCreationChord": 0,
+    "changeDeltaWhileTyping": 0
+  },
+  "browserHealth": {
+    "finalUrl": "http://127.0.0.1:4173/",
+    "dialogPresent": false,
+    "warningOrErrorLogs": [],
+    "pageOverflow": {
+      "desktop": {
+        "horizontal": false,
+        "vertical": false
+      },
+      "compact": {
+        "horizontal": false,
+        "vertical": false
+      },
+      "effective200Percent": {
+        "horizontal": false,
+        "vertical": false
+      }
+    }
+  }
+}

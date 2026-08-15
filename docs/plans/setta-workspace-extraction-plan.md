@@ -255,8 +255,8 @@ checking, LSP services, or a second parameter value editor in the Inspector.
 
 ## Milestone C — workspace commands and toolbar extensions
 
-**Status: developer-accepted on 2026-08-15; accepted-baseline recording and the post-acceptance
-milestone audit remain. C1 repository work is complete: one typed command registry now owns the
+**Status: developer-accepted on 2026-08-15; the accepted baseline is recorded and the
+post-acceptance milestone audit remains. C1 repository work is complete: one typed command registry now owns the
 package's structural, parameter-authoring, and host actions, and the section context menu, section
 header menu, Outline row menu, item menu, Inspector action rows, and the ungroup shortcut all
 resolve and run through it. C2's first batch is complete: one chord vocabulary, a public binding
@@ -280,10 +280,15 @@ command's label, pressed state, and refusal sentence. The phase audit over C1–
 defects: binding-conflict detection now answers for the platform the workspace runs on, where
 `Mod` and `Ctrl` are one key off macOS, and the playground now subscribes its host command state
 where it mounts the workspace, so a contributed toolbar control repaints when the host state behind
-it changes. The developer completed the C4 live gate and accepted the result. The package-only
-decisions and the deliberate behavior changes every batch introduces are recorded in
-`docs/evidence/milestone-c/`; the loop must now lock the accepted baseline and complete the audit
-before checking Milestone C or beginning Milestone D.**
+it changes. The developer completed the C4 live gate and accepted the result. The accepted
+baseline is now locked under `docs/evidence/milestone-c/` alongside the package-only design
+records: eight captures, the built-artifact and screenshot hashes, the toolbar and menu geometry,
+and browser traces proving that ungroup runs identically from its five action surfaces, that the
+chord labels and conflict reports answer for the running platform, that the viewport, selection,
+navigation, focus-scope, and creation bindings run the same operations as the toolbar, that a
+contributed control paints its command's pressed and refusing state, and that an editable target
+keeps its own chords. The loop must complete the post-acceptance milestone audit before checking
+Milestone C or beginning Milestone D.**
 
 Make frequent workspace actions faster and consistent across every action surface.
 
