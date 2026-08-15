@@ -1,7 +1,5 @@
 import {
-  activateItemSelect,
   createWorkspaceShellViewState,
-  deactivateItemSelect,
   DEFAULT_SECTION_TAG_COLOR_PALETTE,
   deleteSelectedWorkspaceItems,
   getWorkspaceDocument,
@@ -11,7 +9,6 @@ import {
   setSectionTagColor,
   setWorkspaceColorMode,
   setWorkspaceDocumentChangeCallback,
-  useItemSelectionMode,
   useWorkspaceAppearance,
   WorkspaceShell,
   type WorkspaceItemDiagnosticRegistry,
@@ -51,15 +48,6 @@ function ReloadIcon({ className }: PlaygroundIconProps) {
     <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 20 20">
       <path d="M15.75 7.25A6.25 6.25 0 1 0 16 11" />
       <path d="M15.75 3.75v3.5h-3.5" />
-    </svg>
-  );
-}
-
-function SelectionIcon({ className }: PlaygroundIconProps) {
-  return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 20 20">
-      <path d="M4.25 6.5V4.25H6.5M13.5 4.25h2.25V6.5M15.75 13.5v2.25H13.5M6.5 15.75H4.25V13.5" />
-      <path d="m7.25 7.25 6 2.35-2.55 1.1-1.1 2.55-2.35-6Z" />
     </svg>
   );
 }
@@ -107,26 +95,6 @@ function PlaygroundMark() {
 // (selection, move, resize, rename, flag toggles, delete, layout, viewport) invokes the
 // callback with the serializable document; a host re-load never does. The count lives in its
 // own component so per-frame viewport notifications re-render this readout, not the canvas.
-// The package holds item-select mode through its Mod+Shift chord; this button is the
-// host-driven alternative for pointer-only exploration.
-function ItemSelectModeToggle() {
-  const isSelectingItems = useItemSelectionMode((state) => state.isSelectingItems);
-  return (
-    <button
-      aria-pressed={isSelectingItems}
-      className="playground-toolbar-button"
-      title={isSelectingItems ? "Exit item selection" : "Select parameters"}
-      type="button"
-      onClick={() => (isSelectingItems ? deactivateItemSelect() : activateItemSelect())}
-    >
-      <SelectionIcon className="playground-toolbar-icon" />
-      <span className="playground-toolbar-label">
-        {isSelectingItems ? "Selecting" : "Select items"}
-      </span>
-    </button>
-  );
-}
-
 function GroupOverflowModeToggle() {
   return (
     <button
@@ -333,7 +301,7 @@ function PlaygroundGuideMenu() {
           </div>
           <div>
             <dt>Parameters</dt>
-            <dd>Use item selection, then Alt+Arrow to move or Tab to indent.</dd>
+            <dd>Hold Cmd/Ctrl+Shift and click rows. Use Alt+Arrow to move or Tab to indent.</dd>
           </div>
           <div>
             <dt>Menus</dt>
@@ -468,7 +436,6 @@ export function App() {
           <span aria-hidden="true" className="playground-toolbar-divider" />
           <AppearanceToggle darkMode={darkMode} />
           <ReloadDocumentButton />
-          <ItemSelectModeToggle />
           <PlaygroundActionMenu
             onClearDiagnostics={() => setItemDiagnostics({})}
             onShowDiagnostics={() => setItemDiagnostics(PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS)}
