@@ -404,10 +404,11 @@ Markdown tree (`pre` versus `code`) rather than through the reference's start-co
 which misreads a paragraph beginning with inline code; `jsx` and `tsx` fences highlight through the
 plain JavaScript and TypeScript packs because the package's language registry carries no JSX parser
 variant; and an out-of-range font size is rejected at the boundary rather than silently clamped.
-KaTeX's own stylesheet is imported from package source exactly as the reference imports it, because
-`rehype-katex` emits markup that stylesheet is required to lay out; it is the one stylesheet the
-package does not scope, it stays a dependency's file rather than a new distribution artifact, and a
-consumer's bundler resolves its fonts. Bring that import to the D4 gate as a distribution question.
+The D1 commit temporarily imports KaTeX's upstream stylesheet because `rehype-katex` requires its
+layout and font rules. D3 must replace that temporary state before the D4 gate: the published
+package still delivers one self-contained scoped stylesheet, its selectors do not style host
+content, and consumers do not import dependency CSS, resolve dependency fonts, or add bundler
+configuration.
 
 D3 remains, then the D4 developer gate.**
 
@@ -473,6 +474,8 @@ sections.
   each section appears in host creation UI.
 - Omission leaves the package bundle and workspace behavior coherent; documents containing an
   unregistered kind continue to fail through the existing explicit unknown-kind contract.
+- Fold every Markdown and KaTeX presentation rule into the package's one scoped stylesheet without
+  adding distribution artifacts or consumer setup.
 - Public exports do not expose workspace stores, private selectors, XYFlow internals, or main's
   application section implementations.
 
