@@ -8,6 +8,8 @@ import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import { focusAdjacentTopLevelSection } from "../focus/sectionNavigation";
+import { focusWorkspaceScope } from "../focus/workspaceFocusScopes";
 import { registerItemListView, resetItemListViews } from "../items/itemListRegistry";
 import {
   indentSelectedItems,
@@ -57,6 +59,16 @@ vi.mock("./viewportHelpers", async (importOriginal) => ({
   zoomIn: vi.fn(),
   zoomOut: vi.fn(),
   zoomToPointerLocation: vi.fn(() => true),
+}));
+
+// Focus movement needs mounted chrome, which `workspaceFocusScopes.test.tsx` and
+// `sectionNavigation.test.tsx` drive; here only the chord that reaches it is under test.
+vi.mock("../focus/sectionNavigation", () => ({
+  focusAdjacentTopLevelSection: vi.fn(() => true),
+}));
+vi.mock("../focus/workspaceFocusScopes", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../focus/workspaceFocusScopes")>()),
+  focusWorkspaceScope: vi.fn(() => true),
 }));
 
 // jsdom reports no Mac user agent; the macOS describe block flips this to exercise the
@@ -677,6 +689,75 @@ describe("useCanvasKeyActivations", () => {
 
       expect(event.defaultPrevented).toBe(true);
       expect(resetZoom).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("focus chords", () => {
+    it("walks the canvas sections on Alt+J and Alt+K", async () => {
+      const forwards = await dispatchChord({ key: "j", code: "KeyJ", altKey: true });
+      expect(forwards.defaultPrevented).toBe(true);
+      expect(focusAdjacentTopLevelSection).toHaveBeenCalledWith(1);
+
+      const backwards = await dispatchChord({ key: "k", code: "KeyK", altKey: true });
+      expect(backwards.defaultPrevented).toBe(true);
+      expect(focusAdjacentTopLevelSection).toHaveBeenCalledWith(-1);
+    });
+
+    it("hands Alt+J back to the browser when there is nowhere left to move", async () => {
+      vi.mocked(focusAdjacentTopLevelSection).mockReturnValueOnce(false);
+
+      const event = await dispatchChord({ key: "j", code: "KeyJ", altKey: true });
+
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it("focuses each pane and the canvas on the reference's Ctrl+Shift chords", async () => {
+      const leading = await dispatchChord({
+        key: "@",
+        code: "Digit2",
+        ctrlKey: true,
+        shiftKey: true,
+      });
+      expect(leading.defaultPrevented).toBe(true);
+      expect(focusWorkspaceScope).toHaveBeenCalledWith("leading-pane");
+
+      await dispatchChord({ key: "#", code: "Digit3", ctrlKey: true, shiftKey: true });
+      expect(focusWorkspaceScope).toHaveBeenCalledWith("canvas");
+
+      await dispatchChord({ key: "$", code: "Digit4", ctrlKey: true, shiftKey: true });
+      expect(focusWorkspaceScope).toHaveBeenCalledWith("trailing-pane");
+    });
+
+    // These chords are the way out of an editor, so — as in the reference, whose editing-chord
+    // rules do not claim them — they keep working while typing.
+    it("keeps the focus chords available while typing", async () => {
+      const input = document.createElement("input");
+      document.body.appendChild(input);
+
+      const event = await dispatchChord({
+        key: "#",
+        code: "Digit3",
+        ctrlKey: true,
+        shiftKey: true,
+        target: input,
+      });
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(focusWorkspaceScope).toHaveBeenCalledWith("canvas");
+      input.remove();
+    });
+
+    it("hands a pane chord back to the browser when that pane is not mounted", async () => {
+      vi.mocked(focusWorkspaceScope).mockReturnValueOnce(false);
+
+      const event = await dispatchChord({
+        key: "@",
+        code: "Digit2",
+        ctrlKey: true,
+        shiftKey: true,
+      });
+
+      expect(event.defaultPrevented).toBe(false);
     });
   });
 

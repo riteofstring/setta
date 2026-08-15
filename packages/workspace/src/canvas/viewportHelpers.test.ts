@@ -10,6 +10,7 @@ import {
   getCanZoomIn,
   getCanZoomOut,
   getIsZoomRuntimeReady,
+  movePaneToIncludeElement,
   resetZoom,
   setCenter,
   shiftWorkspaceMapForLeadingPane,
@@ -21,6 +22,7 @@ function setupZoomRuntime() {
   const scaleBy = vi.fn();
   const scaleTo = vi.fn();
   const transform = vi.fn();
+  const translateBy = vi.fn();
   const durations: Array<number> = [];
   const transitionObject = { id: "transition" };
   const d3Selection = {
@@ -31,13 +33,21 @@ function setupZoomRuntime() {
       },
     }),
   } as unknown as NonNullable<typeof initialCanvasState.d3Selection>;
-  const d3Zoom = { scaleBy, scaleTo, transform } as unknown as NonNullable<
+  const d3Zoom = { scaleBy, scaleTo, transform, translateBy } as unknown as NonNullable<
     typeof initialCanvasState.d3Zoom
   >;
 
   useReactFlow.setState({ ...initialCanvasState, d3Selection, d3Zoom });
 
-  return { d3Selection, scaleBy, scaleTo, transform, durations, transitionObject };
+  return {
+    d3Selection,
+    scaleBy,
+    scaleTo,
+    transform,
+    translateBy,
+    durations,
+    transitionObject,
+  };
 }
 
 describe("viewport zoom helpers", () => {
@@ -246,6 +256,36 @@ describe("viewport zoom helpers", () => {
     expect(applied.y).toBe(205);
     expect(durations).toEqual([50]);
     expect(useActiveSections.getState().activeIds).toEqual(["section-a", "section-b"]);
+  });
+
+  // The reference's `movePaneToIncludeElement`: keyboard focus travels the canvas only as far as
+  // it must, and keeps the focused element 100px clear of the pane edges.
+  function elementAt(x: number, y: number): HTMLElement {
+    return { getBoundingClientRect: () => ({ x, y }) } as unknown as HTMLElement;
+  }
+
+  it("moves the canvas by the shortest distance that brings a focused element into view", () => {
+    const { d3Selection, translateBy } = setupZoomRuntime();
+    useReactFlow.setState({ width: 800, height: 600 });
+
+    movePaneToIncludeElement(elementAt(1000, 300));
+
+    expect(translateBy).toHaveBeenCalledWith(d3Selection, -300, -0);
+  });
+
+  it("leaves the canvas alone for an element already inside the padded pane", () => {
+    const { translateBy } = setupZoomRuntime();
+    useReactFlow.setState({ width: 800, height: 600 });
+
+    movePaneToIncludeElement(elementAt(400, 300));
+
+    expect(translateBy).not.toHaveBeenCalled();
+  });
+
+  it("has nowhere to travel before the zoom pane initializes", () => {
+    useReactFlow.setState({ width: 800, height: 600 });
+
+    expect(() => movePaneToIncludeElement(elementAt(1000, 300))).not.toThrow();
   });
 
   it("fails specifically for unknown and unmounted focus targets", () => {

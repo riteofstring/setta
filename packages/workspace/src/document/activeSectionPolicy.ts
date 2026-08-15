@@ -26,6 +26,13 @@ type InputFocusContext = BaseContext & {
   sectionId: string;
 };
 
+// The reference's go-to intent: moving to a section without clicking it — the keyboard walking
+// the canvas — makes it the single active section and raises it.
+type GoToContext = BaseContext & {
+  interaction: "go-to";
+  sectionId: string;
+};
+
 // The reference declares separate param-select/param-unselect contexts with an unused
 // `hasSelectedParams` field; the toggle decision reads only the mode flag.
 type ItemToggleContext = BaseContext & {
@@ -39,6 +46,7 @@ export type ActiveSectionPolicyContext =
   | PaneClickContext
   | SelectionRectContext
   | InputFocusContext
+  | GoToContext
   | ItemToggleContext;
 
 export type ActiveSectionPolicyResult = {
@@ -126,6 +134,9 @@ export function resolveActiveSectionChange(
     }
     case "input-focus": {
       return createPolicyResult([context.sectionId], true, "input-focus:set-active");
+    }
+    case "go-to": {
+      return createPolicyResult([context.sectionId], true, "go-to:set-active");
     }
     case "item-select":
     case "item-unselect": {

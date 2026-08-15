@@ -59,7 +59,8 @@ conflict detection, per-platform labels, reserved gestures — is unchanged and 
 
 ## Remaining C2 work
 
-Section creation, next and previous top-level section, and pane/Outline focus need package
-operations that do not exist yet: an empty-space placement contract for creation, and a focus-scope
-seam for the two navigation groups. They land in the next C2 batch with their reference chords
-(`N`, `G`, `Alt + J`, `Alt + K`, and `Ctrl + Shift + 1`–`4`).
+Next and previous top-level section and pane/Outline focus landed in the next batch on a new
+focus-scope seam, and are recorded in
+[C2 focus scopes and section navigation](c2-focus-and-navigation-bindings.md). Section creation
+still needs an empty-space placement contract that does not exist yet; it lands with its reference
+chords (`N`, `G`, and `Ctrl + \``).

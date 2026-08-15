@@ -48,6 +48,18 @@ describe("workspace key bindings", () => {
     expect(getBinding("workspace.zoom-out").chord).toBe("Minus");
     expect(getBinding("workspace.reset-zoom").chord).toBe("Mod + Comma");
     expect(getBinding("workspace.zoom-to-pointer").chord).toBe("Z");
+    expect(getBinding("workspace.focus-next-section")).toMatchObject({
+      chord: "Alt + J",
+      label: "Focus next section",
+    });
+    expect(getBinding("workspace.focus-previous-section").chord).toBe("Alt + K");
+    expect(getBinding("workspace.focus-leading-pane").chord).toBe("Ctrl + Shift + 2");
+    expect(getBinding("workspace.focus-canvas").chord).toBe("Ctrl + Shift + 3");
+    expect(getBinding("workspace.focus-trailing-pane")).toMatchObject({
+      chord: "Ctrl + Shift + 4",
+      chordLabel: "Ctrl + Shift + 4",
+      label: "Focus trailing pane",
+    });
   });
 
   it("offers locking as a bindable operation the reference gives no chord", () => {

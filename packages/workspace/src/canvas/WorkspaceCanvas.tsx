@@ -8,6 +8,7 @@ import {
 } from "react";
 import { WorkspaceMenuLayer } from "../context-menu/WorkspaceMenuLayer";
 import { SectionDndContext } from "../dnd/SectionDndContext";
+import { useWorkspaceFocusScope } from "../focus/workspaceFocusScopes";
 import { ResponsiveMiniMap } from "../minimap/ResponsiveMiniMap";
 import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
@@ -52,6 +53,7 @@ export function WorkspaceCanvas() {
   const workspaceScopeClassName = useWorkspaceScopeClassName();
   const focusVisibilityRootRef = useRef<HTMLDivElement>(null);
   useWorkspaceFocusVisibility(focusVisibilityRootRef);
+  useWorkspaceFocusScope("canvas", ref);
   useCanvasKeyActivations();
   useWorkspacePointerLocation();
   useCanvasViewportDocumentSync();

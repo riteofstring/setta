@@ -1,12 +1,13 @@
 import { zoomIdentity } from "d3-zoom";
 import _ from "lodash";
 import { useWorkspaceDocument } from "../document/stores";
+import type { Position } from "../document/types";
 import { prefersReducedWorkspaceMotion } from "../styles/motion";
-import { getD3Transition, getSectionRect, getViewportForBounds } from "./graph";
+import { getD3Transition, getPaneRect, getSectionRect, getViewportForBounds } from "./graph";
 import { useWorkspaceOptions } from "./options";
 import { getWorkspacePointerLocation } from "./pointerLocation";
 import { useReactFlow } from "./store";
-import type { ReactFlowState } from "./types";
+import type { ReactFlowState, Rect } from "./types";
 import { screenToFlowPosition } from "./viewportPosition";
 
 // The zoom commands from the reference's `hooks/useViewportHelper.ts`. `setCenter` returned with
@@ -104,6 +105,44 @@ export function zoomToPointerLocation(): boolean {
   const { x, y } = screenToFlowPosition(pointer);
   setCenter(x, y, { zoom: defaultZoomLevel, duration: transitionDuration });
   return true;
+}
+
+// The reference's `getRectTranslation` (`utils/graph.ts`): how far a point sits outside the
+// padded pane on each axis, and nothing at all when it is already inside.
+function getAxisOverflow(value: number, minimum: number, maximum: number): number {
+  if (value < minimum) {
+    return value - minimum;
+  }
+  if (value > maximum) {
+    return value - maximum;
+  }
+  return 0;
+}
+
+function getPaneTranslationForPoint(point: Position, pane: Rect, padding: number): Position | null {
+  const x = getAxisOverflow(point.x, pane.x + padding, pane.x + pane.width - padding);
+  const y = getAxisOverflow(point.y, pane.y + padding, pane.y + pane.height - padding);
+  return x === 0 && y === 0 ? null : { x, y };
+}
+
+// The reference's `movePaneToIncludeElement`: bring a just-focused element into view with the
+// smallest possible move, keeping its 100px margin from the pane edges. Keyboard focus can reach
+// an element before the zoom pane initializes, where the canvas simply has nowhere to travel yet.
+export function movePaneToIncludeElement(element: HTMLElement): void {
+  if (!getIsZoomRuntimeReady()) {
+    return;
+  }
+  const { d3Zoom, d3Selection } = getZoomRuntime();
+  const rect = element.getBoundingClientRect();
+  const translation = getPaneTranslationForPoint(
+    screenToFlowPosition({ x: rect.x, y: rect.y }),
+    getPaneRect(useReactFlow.getState()),
+    100,
+  );
+  if (!translation) {
+    return;
+  }
+  d3Zoom.translateBy(d3Selection, -translation.x, -translation.y);
 }
 
 // Frozen main moves the map by the leading pane's true-width delta when its host setting is

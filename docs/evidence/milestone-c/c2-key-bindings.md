@@ -63,7 +63,8 @@ themselves are main's shipped defaults.
 
 Fit, reset and zoom, zoom to the pointer, and the two select-all operations landed in the next
 batch and are recorded in
-[C2 viewport and selection bindings](c2-viewport-and-selection-bindings.md). Section creation, next
-and previous top-level section, and pane/Outline focus still need package operations that do not
-exist yet; they land with their reference chords (`N`, `G`, `Alt + J`, `Alt + K`, and
-`Ctrl + Shift + 1`–`4`).
+[C2 viewport and selection bindings](c2-viewport-and-selection-bindings.md). Section navigation and
+pane/Outline focus landed in the batch after it and are recorded in
+[C2 focus scopes and section navigation](c2-focus-and-navigation-bindings.md). Section creation
+still needs a package operation that does not exist yet; it lands with its reference chords (`N`,
+`G`, and `Ctrl + \``).

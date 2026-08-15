@@ -11,9 +11,8 @@ import { setZIndices } from "../document/sectionZIndices";
 import { useWorkspaceDocument } from "../document/stores";
 import { useReactFlow } from "./store";
 
-// The reference controller also carries the app-only go-to intent and backend-sync options.
-// Its param-toggle intents carry a `hasSelectedParams` the policy never reads; the package
-// item toggles drop it.
+// The reference controller also carries backend-sync options. Its param-toggle intents carry a
+// `hasSelectedParams` the policy never reads; the package item toggles drop it.
 type SectionClickIntent = {
   interaction: "section-click";
   sectionId: string;
@@ -26,6 +25,13 @@ type SectionClickIntent = {
 // activating an editing control activates and raises its section.
 type InputFocusIntent = {
   interaction: "input-focus";
+  sectionId: string;
+};
+
+// The reference's go-to intent, which its Overview and its keyboard section navigation share:
+// the target becomes the single active section and is raised, without a pointer on it.
+type GoToIntent = {
+  interaction: "go-to";
   sectionId: string;
 };
 
@@ -44,7 +50,12 @@ type ItemToggleIntent = {
 };
 
 export type ActiveSectionIntent =
-  SectionClickIntent | InputFocusIntent | PaneClickIntent | SelectionRectIntent | ItemToggleIntent;
+  | SectionClickIntent
+  | InputFocusIntent
+  | GoToIntent
+  | PaneClickIntent
+  | SelectionRectIntent
+  | ItemToggleIntent;
 
 type ActiveSectionControllerResult = ActiveSectionPolicyResult & {
   activeIdsChanged: boolean;
@@ -72,6 +83,13 @@ function buildPolicyContext(
   if (intent.interaction === "input-focus") {
     return {
       interaction: "input-focus",
+      activeIds,
+      sectionId: intent.sectionId,
+    };
+  }
+  if (intent.interaction === "go-to") {
+    return {
+      interaction: "go-to",
       activeIds,
       sectionId: intent.sectionId,
     };
@@ -113,11 +131,14 @@ export function applyActiveSectionChange(
 
   setActiveSectionIds(decision.nextActiveIds);
 
-  if (
-    decision.updateZIndex &&
-    (intent.interaction === "section-click" || intent.interaction === "input-focus")
-  ) {
-    setZIndices([getHighestAncestor(intent.sectionId)]);
+  if (decision.updateZIndex) {
+    // A go-to targets a top-level section directly; a click or an input focus can land deep
+    // inside one, so the reference raises the whole stack those two belong to.
+    if (intent.interaction === "go-to") {
+      setZIndices([intent.sectionId]);
+    } else if (intent.interaction === "section-click" || intent.interaction === "input-focus") {
+      setZIndices([getHighestAncestor(intent.sectionId)]);
+    }
   }
 
   return { ...decision, activeIdsChanged };

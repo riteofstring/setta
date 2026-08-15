@@ -1,5 +1,6 @@
-import type { CSSProperties, KeyboardEvent, PointerEvent } from "react";
+import { useRef, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { RiExpandDiagonalLine } from "react-icons/ri";
+import { useWorkspaceFocusScope } from "../focus/workspaceFocusScopes";
 import {
   getWorkspaceShellPaneMaximumWidth,
   getWorkspaceShellPaneMinimumWidth,
@@ -238,12 +239,17 @@ function PaneSurface(props: WorkspaceShellPaneProps) {
   );
 }
 
+// The pane region — rail included — is the focus scope its chord targets, so a closed pane hands
+// focus to the tab that reopens it rather than to nothing.
 export function WorkspaceShellPane(props: WorkspaceShellPaneProps) {
+  const regionRef = useRef<HTMLElement>(null);
+  useWorkspaceFocusScope(props.pane === "leading" ? "leading-pane" : "trailing-pane", regionRef);
   return (
     <aside
       aria-label={`${props.pane === "leading" ? "Leading" : "Trailing"} workspace pane`}
       className="setta-workspace-shell-pane-region"
       data-workspace-shell-pane-region={props.pane}
+      ref={regionRef}
       style={props.regionStyle}
     >
       <PaneRail {...props} />

@@ -255,11 +255,13 @@ ungrouping, deletion, locking, and the parameter moves, with the held interactio
 against them. C2's second batch is complete: fit view, zoom in, zoom out, reset zoom, zoom to the
 pointer, select all, and select the top-level non-group sections are bindings over the same
 operations the accepted toolbar runs, and select-all now finishes the reference's unimplemented
-single-section branch over the rows a section is showing. C2's creation, section-navigation, and
-pane-focus bindings need an empty-space placement contract and a focus-scope seam that do not exist
-yet and land in the next C2 batch; C3 remains. The package-only decisions and the deliberate
-behavior changes every batch introduces are recorded in `docs/evidence/milestone-c/` for the C4
-gate.**
+single-section branch over the rows a section is showing. C2's third batch is complete: the
+package now has the reference's focus-scope seam for its two shell panes and its canvas, and next
+and previous top-level section, pane focus, and canvas focus are bindings over it, including the
+reference's canvas reading order, its `go-to` active-section intent, and its minimum-distance pane
+travel. C2's creation bindings need an empty-space placement contract that does not exist yet and
+land in the next C2 batch; C3 remains. The package-only decisions and the deliberate behavior
+changes every batch introduces are recorded in `docs/evidence/milestone-c/` for the C4 gate.**
 
 Make frequent workspace actions faster and consistent across every action surface.
 

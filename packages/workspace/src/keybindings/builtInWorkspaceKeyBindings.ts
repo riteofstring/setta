@@ -18,6 +18,8 @@ import {
   selectAllTopLevelNonGroupSections,
 } from "../document/selectAllActions";
 import { useWorkspaceDocument } from "../document/stores";
+import { focusAdjacentTopLevelSection } from "../focus/sectionNavigation";
+import { focusWorkspaceScope } from "../focus/workspaceFocusScopes";
 import { getSectionItemVisibility } from "../items/itemListRegistry";
 import {
   indentSelectedItems,
@@ -157,11 +159,14 @@ function createItemIndentBinding(
 }
 
 // Registration order is the order a host listing shortcuts sees them in: what the chord acts on
-// — sections, then the selection over them, then parameters, then the view. The reference ships
-// "Mod + G", "Shift + Mod + G", "Backspace", "Mod + A", "Mod + Shift + A", "Alt + ArrowUp",
-// "Alt + ArrowDown", "Tab", "Shift + Tab", "F", "Equal", "Minus", "Mod + Comma", and "Z" for
-// these operations. Locking has no reference shortcut, so it ships bindable and unbound rather
-// than with an invented chord.
+// — sections, then the selection over them, then the keyboard's place among them, then
+// parameters, then the view, then the surrounding panes. The reference ships "Mod + G",
+// "Shift + Mod + G", "Backspace", "Mod + A", "Mod + Shift + A", "Alt + J", "Alt + K",
+// "Alt + ArrowUp", "Alt + ArrowDown", "Tab", "Shift + Tab", "F", "Equal", "Minus",
+// "Mod + Comma", "Z", "Ctrl + Shift + 2", "Ctrl + Shift + 3", and "Ctrl + Shift + 4" for these
+// operations. Locking has no reference shortcut, so it ships bindable and unbound rather than
+// with an invented chord. The reference's remaining focus chord, "Ctrl + Shift + 1", belongs to
+// its application header, which the package does not have.
 export const builtInWorkspaceKeyBindings: ReadonlyArray<WorkspaceKeyBindingDefinition> =
   Object.freeze([
     createSectionCommandBinding("workspace.group-sections", "Mod + G"),
@@ -185,6 +190,20 @@ export const builtInWorkspaceKeyBindings: ReadonlyArray<WorkspaceKeyBindingDefin
         selectAllTopLevelNonGroupSections();
         return true;
       },
+    ),
+    createOperationBinding(
+      "workspace.focus-next-section",
+      "Focus next section",
+      "Alt + J",
+      false,
+      () => focusAdjacentTopLevelSection(1),
+    ),
+    createOperationBinding(
+      "workspace.focus-previous-section",
+      "Focus previous section",
+      "Alt + K",
+      false,
+      () => focusAdjacentTopLevelSection(-1),
     ),
     createItemMoveBinding(
       "workspace.move-items-up",
@@ -238,5 +257,26 @@ export const builtInWorkspaceKeyBindings: ReadonlyArray<WorkspaceKeyBindingDefin
       "Z",
       false,
       zoomToPointerLocation,
+    ),
+    createOperationBinding(
+      "workspace.focus-leading-pane",
+      "Focus leading pane",
+      "Ctrl + Shift + 2",
+      false,
+      () => focusWorkspaceScope("leading-pane"),
+    ),
+    createOperationBinding(
+      "workspace.focus-canvas",
+      "Focus canvas",
+      "Ctrl + Shift + 3",
+      false,
+      () => focusWorkspaceScope("canvas"),
+    ),
+    createOperationBinding(
+      "workspace.focus-trailing-pane",
+      "Focus trailing pane",
+      "Ctrl + Shift + 4",
+      false,
+      () => focusWorkspaceScope("trailing-pane"),
     ),
   ]);
