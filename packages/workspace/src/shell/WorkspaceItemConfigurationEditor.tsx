@@ -233,6 +233,17 @@ function validateOptionalPositiveInteger(value: string): string | null {
     : "Enter a positive integer or leave this field blank.";
 }
 
+function validateMaximumAttachments(value: string, attachmentCount: number): string | null {
+  const positiveIntegerError = validateOptionalPositiveInteger(value);
+  if (positiveIntegerError) {
+    return positiveIntegerError;
+  }
+  const maximum = parseOptionalPositiveInteger(value);
+  return maximum !== null && maximum < attachmentCount
+    ? `Maximum attachments cannot be lower than the current attachment count (${attachmentCount}).`
+    : null;
+}
+
 function DropzoneConfigurationEditor({
   control,
   disabled,
@@ -268,7 +279,7 @@ function DropzoneConfigurationEditor({
         }
         onEscape={onEscape}
         placeholder="No limit"
-        validate={validateOptionalPositiveInteger}
+        validate={(value) => validateMaximumAttachments(value, configuration.attachments.length)}
         value={policy.maxAttachments === null ? "" : String(policy.maxAttachments)}
       />
       <DraftNumberConfigurationRow

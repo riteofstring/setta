@@ -80,6 +80,24 @@ function FlatDropdownChoices({
         <span>Add Choices</span>
         <span aria-hidden="true">+</span>
       </ConfigurationActionButton>
+      {choices.length === 0 ? (
+        <ConfigurationActionButton
+          disabled={disabled}
+          label="Add choice group"
+          onClick={() =>
+            onCommit(
+              createConfigurationUpdate(control, {
+                ...control.configuration,
+                choices: [{ group: "Group 1", choices: [] }],
+              }),
+            )
+          }
+          onEscape={onEscape}
+        >
+          <span>Add Choice Group</span>
+          <span aria-hidden="true">+</span>
+        </ConfigurationActionButton>
+      ) : null}
       <div className="setta-workspace-inspector-config-list">
         {choices.map((choice, index) => (
           <div className="setta-workspace-inspector-config-list-item" key={index}>
@@ -142,6 +160,21 @@ function GroupedDropdownChoices({
     );
   return (
     <div className="setta-workspace-inspector-config-list">
+      <ConfigurationActionButton
+        disabled={disabled}
+        label="Add choice group"
+        onClick={() => {
+          const nextGroup = createUniqueLabel(
+            "Group",
+            new Set(choices.map((group) => group.group)),
+          );
+          commitGroups([...choices, { group: nextGroup, choices: [] }]);
+        }}
+        onEscape={onEscape}
+      >
+        <span>Add Choice Group</span>
+        <span aria-hidden="true">+</span>
+      </ConfigurationActionButton>
       {choices.map((group, groupIndex) => (
         <div className="setta-workspace-inspector-config-group" key={groupIndex}>
           <div className="setta-workspace-inspector-config-list-item">
@@ -285,6 +318,9 @@ export function DropdownConfigurationEditor(props: ConfigurationEditorProps<Drop
 
 function createNextColor(choices: Array<WorkspaceColorChoice>): string {
   const existing = new Set(choices.map((choice) => choice.color));
+  if (!existing.has("#ff0000")) {
+    return "#ff0000";
+  }
   for (let index = choices.length + 1; index <= 0xff_ffff; index += 1) {
     const colorNumber = Math.imul(index, 2_654_435_761) & 0xff_ffff;
     const color = `#${colorNumber.toString(16).padStart(6, "0")}`;

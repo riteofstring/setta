@@ -267,6 +267,10 @@ export function useItemColumnWidth(
           pendingClientX = null;
         }
         const finalWidth = widthRef.current.currentWidth;
+        if (finalWidth === startWidth) {
+          widthRef.current.isDragging = false;
+          return;
+        }
         if (widthRef.current.containerWidth) {
           widthRef.current.currentPercentage = (finalWidth / widthRef.current.containerWidth) * 100;
         }

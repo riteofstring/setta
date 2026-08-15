@@ -1858,6 +1858,24 @@ Phase 4 progress (2026-08-11):
   deferred until developer acceptance. This closes the rejected gate's repository-actionable
   corrections without claiming visual approval or refreshing package-output baselines; the required
   implementation audit precedes re-presentation of the same combined developer gate.
+- Workspace-shell rejected-gate correction implementation audit complete (2026-08-13): the scoped
+  review treated the rejection marker and its correction as one change without reopening the
+  already-audited workspace-shell implementation batches. It corrected no-op pointer releases that
+  published twice before a real divider `dblclick`, preserved non-Mac Shift-wheel remapping over the
+  vertical item scroller, and closed configuration-editor paths where Escape could recommit a
+  canceled draft, an attachment limit could throw instead of remaining locally invalid, or grouped
+  dropdown choices could not be created and extended. The first added color now also matches frozen
+  main's red default while retaining the package's required serializable description. Regressions
+  exercise the complete pointer click sequence, platform-aware wheel classification, synchronous
+  Escape focus restoration, cross-field Dropzone validation, grouped-choice creation, and the color
+  default. The intended focused Vitest invocation expanded through pnpm argument handling to the
+  complete package suite; all 109 files and 791 tests passed, so it was not duplicated. The package
+  production build and source/compiled boundary and changed-file quality also pass. No dependency,
+  public package export, or packed-consumer contract changed, so supply-chain and consumer checks
+  remain with the plan's deferred post-acceptance matrix. This completes the required repository
+  audit without claiming visual approval or refreshing baselines. The same combined developer gate
+  remains required and incomplete until the developer explicitly accepts the re-presented live
+  evidence; it is not waived or converted into a release gate.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

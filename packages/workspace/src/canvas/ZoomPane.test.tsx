@@ -8,6 +8,7 @@ import { useWorkspaceOptions } from "./options";
 import { initialCanvasState, useReactFlow } from "./store";
 import ZoomPane, {
   getViewportInteractionActiveValue,
+  isNativeVerticalWheelEvent,
   resetViewportInteractionState,
   resolvePanOnScrollDelta,
   shouldAllowZoomFilterEvent,
@@ -202,6 +203,14 @@ describe("shouldAllowZoomFilterEvent", () => {
 
     expect(shouldAllowZoomFilterEvent({ event: verticalEvent, ...options })).toBe(false);
     expect(shouldAllowZoomFilterEvent({ event: horizontalEvent, ...options })).toBe(true);
+  });
+
+  it("reserves non-mac Shift plus vertical wheel input for horizontal canvas panning", () => {
+    const target = appendTargetWithClass("setta-native-wheel-y");
+    const event = withEventTarget(new WheelEvent("wheel", { deltaY: 40, shiftKey: true }), target);
+
+    expect(isNativeVerticalWheelEvent(event, false)).toBe(false);
+    expect(isNativeVerticalWheelEvent(event, true)).toBe(true);
   });
 
   it("blocks pointer starts while the marquee selection is active", () => {

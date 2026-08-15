@@ -486,15 +486,38 @@ describe("WorkspaceItemList", () => {
     expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("324px");
     expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(267);
     expect(onDocumentChange).toHaveBeenCalledTimes(1);
+    onDocumentChange.mockClear();
 
     await act(async () => {
+      handle.dispatchEvent(
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 100,
+          detail: 1,
+          pointerId: 21,
+        }),
+      );
+      window.dispatchEvent(createPointerEvent("pointerup", { pointerId: 21 }));
+      handle.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+      handle.dispatchEvent(
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 100,
+          detail: 2,
+          pointerId: 22,
+        }),
+      );
+      window.dispatchEvent(createPointerEvent("pointerup", { pointerId: 22 }));
+      handle.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 2 }));
       handle.dispatchEvent(
         new MouseEvent("dblclick", { bubbles: true, cancelable: true, detail: 2 }),
       );
     });
     expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("312px");
     expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(312);
-    expect(onDocumentChange).toHaveBeenCalledTimes(2);
+    expect(onDocumentChange).toHaveBeenCalledOnce();
   });
 
   it("mirrors pointer and keyboard divider movement in rtl without changing column meaning", async () => {

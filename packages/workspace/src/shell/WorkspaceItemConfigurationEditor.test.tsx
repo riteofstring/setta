@@ -185,6 +185,44 @@ describe("WorkspaceItemConfigurationEditor", () => {
     expect(onChange).toHaveBeenCalledOnce();
   });
 
+  it("cancels dirty text and numeric drafts before Escape restores focus", async () => {
+    const focusTarget = document.createElement("button");
+    document.body.appendChild(focusTarget);
+    onEscape.mockImplementation(() => focusTarget.focus());
+
+    const textControl = createWorkspaceInspectorItemControl("text", "");
+    loadControl(textControl);
+    await renderEditor(textControl);
+    const placeholder = getLabeledControl<HTMLInputElement>(host, "Placeholder");
+    await act(async () => {
+      placeholder.focus();
+      setInputValue(placeholder, "Canceled placeholder");
+      placeholder.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+    });
+    expect(placeholder.value).toBe("");
+    expect(document.activeElement).toBe(focusTarget);
+    expect(onChange).not.toHaveBeenCalled();
+
+    const numericControl: ValueControl = {
+      kind: "slider",
+      value: "5",
+      configuration: { disabled: false, min: 0, max: 10, step: 1 },
+    };
+    loadControl(numericControl);
+    await renderEditor(numericControl);
+    const minimum = getLabeledControl<HTMLInputElement>(host, "min");
+    await act(async () => {
+      minimum.focus();
+      setInputValue(minimum, "4");
+      minimum.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+    });
+    expect(minimum.value).toBe("0");
+    expect(document.activeElement).toBe(focusTarget);
+    expect(onChange).not.toHaveBeenCalled();
+
+    focusTarget.remove();
+  });
+
   it("adds a valid dropdown choice without exposing JSON", async () => {
     const control = createWorkspaceInspectorItemControl("dropdown", "");
     loadControl(control);
@@ -198,6 +236,41 @@ describe("WorkspaceItemConfigurationEditor", () => {
     expect(getStoredControl().configuration).toMatchObject({ choices: ["Choice 1"] });
     expect(host.querySelector("textarea")).toBeNull();
     expect(onChange).toHaveBeenCalledOnce();
+  });
+
+  it("creates and extends grouped dropdown choices without JSON", async () => {
+    const control = createWorkspaceInspectorItemControl("dropdown", "");
+    loadControl(control);
+    await renderEditor(control);
+    const addGroup = host.querySelector<HTMLButtonElement>('button[aria-label="Add choice group"]');
+    if (!addGroup) {
+      throw new Error("Expected Add choice group.");
+    }
+    await act(async () => addGroup.click());
+    expect(getStoredControl().configuration).toMatchObject({
+      choices: [{ group: "Group 1", choices: [] }],
+    });
+
+    const groupedControl = getStoredControl();
+    if (groupedControl.kind !== "dropdown") {
+      throw new Error("Expected stored dropdown control.");
+    }
+    await renderEditor(groupedControl);
+    const addAnotherGroup = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Add choice group"]',
+    );
+    if (!addAnotherGroup) {
+      throw new Error("Expected grouped Add choice group.");
+    }
+    await act(async () => addAnotherGroup.click());
+    expect(getStoredControl().configuration).toMatchObject({
+      choices: [
+        { group: "Group 1", choices: [] },
+        { group: "Group 2", choices: [] },
+      ],
+    });
+    expect(host.querySelector("textarea")).toBeNull();
+    expect(onChange).toHaveBeenCalledTimes(2);
   });
 
   it("adds described colors and keeps null as the native-picker state", async () => {
@@ -217,7 +290,47 @@ describe("WorkspaceItemConfigurationEditor", () => {
       throw new Error("Expected stored color control.");
     }
     expect(stored.configuration.choices?.[0]?.description).toBe("Color 1");
-    expect(stored.configuration.choices?.[0]?.color).toMatch(/^#[0-9a-f]{6}$/u);
+    expect(stored.configuration.choices?.[0]?.color).toBe("#ff0000");
+  });
+
+  it("keeps an attachment maximum below the current count as a local invalid draft", async () => {
+    const control: ValueControl = {
+      kind: "dropzone",
+      value: "",
+      configuration: {
+        attachments: [
+          { id: "one", kind: "file", name: "one.txt", size: 10 },
+          { id: "two", kind: "text", name: "two.txt", size: null },
+        ],
+        disabled: false,
+        errorMessage: null,
+        pending: false,
+        placeholder: "Drop files here",
+        policy: {
+          allowedMimePrefixes: [],
+          maxAttachments: null,
+          maxFileBytes: 1_024,
+          maxTotalBytes: null,
+        },
+      },
+    };
+    loadControl(control);
+    await renderEditor(control);
+    const maximum = getLabeledControl<HTMLInputElement>(host, "Max attachments");
+    await act(async () => {
+      maximum.focus();
+      setInputValue(maximum, "1");
+      maximum.blur();
+    });
+
+    expect(maximum.getAttribute("aria-invalid")).toBe("true");
+    expect(host.textContent).toContain(
+      "Maximum attachments cannot be lower than the current attachment count (2).",
+    );
+    expect(getStoredControl().configuration).toMatchObject({
+      policy: { maxAttachments: null },
+    });
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("forces single-date selection when time is included", async () => {

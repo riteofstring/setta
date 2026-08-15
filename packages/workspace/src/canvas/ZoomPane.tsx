@@ -215,9 +215,10 @@ function isPinchZoomWheelEvent({ event, zoomOnPinch, isMacOS }: PinchZoomCheck):
   return event.ctrlKey && zoomOnPinch && isMacOS;
 }
 
-function isNativeVerticalWheelEvent(event: WheelEvent): boolean {
+export function isNativeVerticalWheelEvent(event: WheelEvent, isMacOS: boolean): boolean {
   return (
     isWrappedWithClass(event, NATIVE_VERTICAL_WHEEL_CLASS_NAME) &&
+    (isMacOS || !event.shiftKey) &&
     Math.abs(event.deltaY) >= Math.abs(event.deltaX)
   );
 }
@@ -265,7 +266,8 @@ function resolveWheelTargetDisposition({
   if (isPanScrolling) {
     return "canvas";
   }
-  return isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) || isNativeVerticalWheelEvent(event)
+  return isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) ||
+    isNativeVerticalWheelEvent(event, isMacOS)
     ? "native"
     : "canvas";
 }
@@ -439,7 +441,7 @@ function blocksNoWheelTarget({
   if (
     !isWrappedWithClass(event, NO_WHEEL_CLASS_NAME) &&
     !isWrappedWithClass(event, MANUAL_WHEEL_CLASS_NAME) &&
-    !(event instanceof WheelEvent && isNativeVerticalWheelEvent(event))
+    !(event instanceof WheelEvent && isNativeVerticalWheelEvent(event, isMacOs()))
   ) {
     return false;
   }

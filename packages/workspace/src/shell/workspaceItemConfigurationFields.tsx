@@ -1,6 +1,7 @@
 import {
   useEffect,
   useId,
+  useRef,
   useState,
   type ChangeEvent,
   type KeyboardEvent,
@@ -190,6 +191,7 @@ export function DraftTextConfigurationRow({
 }) {
   const [draft, setDraft] = useState(value);
   const [error, setError] = useState<string | null>(null);
+  const skipBlurRef = useRef(false);
 
   useEffect(() => {
     setDraft(value);
@@ -197,8 +199,12 @@ export function DraftTextConfigurationRow({
   }, [value]);
 
   function reset(): void {
+    skipBlurRef.current = true;
     setDraft(value);
     setError(null);
+    queueMicrotask(() => {
+      skipBlurRef.current = false;
+    });
   }
 
   function commit(): void {
@@ -221,7 +227,13 @@ export function DraftTextConfigurationRow({
         <input
           {...props}
           disabled={disabled}
-          onBlur={commit}
+          onBlur={() => {
+            if (skipBlurRef.current) {
+              skipBlurRef.current = false;
+              return;
+            }
+            commit();
+          }}
           onChange={(event) => {
             setDraft(event.currentTarget.value);
             setError(null);
@@ -271,6 +283,7 @@ export function DraftNumberConfigurationRow({
   const committedValue = String(value);
   const [draft, setDraft] = useState(committedValue);
   const [error, setError] = useState<string | null>(null);
+  const skipBlurRef = useRef(false);
 
   useEffect(() => {
     setDraft(committedValue);
@@ -278,8 +291,12 @@ export function DraftNumberConfigurationRow({
   }, [committedValue]);
 
   function reset(): void {
+    skipBlurRef.current = true;
     setDraft(committedValue);
     setError(null);
+    queueMicrotask(() => {
+      skipBlurRef.current = false;
+    });
   }
 
   function commit(): void {
@@ -310,7 +327,13 @@ export function DraftNumberConfigurationRow({
           inputMode="decimal"
           max={max}
           min={min}
-          onBlur={commit}
+          onBlur={() => {
+            if (skipBlurRef.current) {
+              skipBlurRef.current = false;
+              return;
+            }
+            commit();
+          }}
           onChange={(event: ChangeEvent<HTMLInputElement>) => {
             setDraft(event.currentTarget.value);
             setError(null);
