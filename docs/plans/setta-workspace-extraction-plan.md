@@ -435,6 +435,11 @@ of leaving the button reporting that nothing was copied. It now takes the same e
 package's other copy affordance already takes, which is also the failure the reference handled and
 the extraction dropped.
 
+The live D4 gate then exposed one cross-surface registration defect: the built-in data-driven icon
+components relied on a header-only context even though the same registered icon also renders in
+Outline. Section-kind icons now receive their section ID through one explicit public prop contract
+in every surface, and the Outline regression suite locks that contract.
+
 Only the D4 developer gate remains.**
 
 Add two optional, batteries-included content-section registrations. Hosts can register either,

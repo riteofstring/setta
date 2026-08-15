@@ -5,10 +5,10 @@ import { getSectionOrThrow } from "../document/documentSelectors";
 import type {
   SectionKindDefinition,
   WorkspaceInspectorContributionContext,
+  WorkspaceSectionKindIconProps,
 } from "../document/sectionKindRegistry";
 import { useWorkspaceDocument } from "../document/stores";
 import type { SectionSize, WorkspaceSection } from "../document/types";
-import { useSectionKindIconSectionId } from "../section/header/sectionKindIconContext";
 import {
   parseWorkspaceTextSectionData,
   WORKSPACE_TEXT_SECTION_DISPLAY_MODES,
@@ -39,7 +39,7 @@ const TEXT_SECTION_FORMAT_ICONS: Record<
 
 export type WorkspaceTextSectionRegistration = {
   // Replaces the format icon below with the host's own glyph.
-  icon?: ComponentType<{ className?: string }>;
+  icon?: ComponentType<WorkspaceSectionKindIconProps>;
   // Applied when a loaded text section omits its size.
   defaultSize?: SectionSize;
   // Narrows the formats this registration accepts. A document naming a format outside the list
@@ -54,8 +54,7 @@ export type WorkspaceTextSectionRegistration = {
   renderInspector?: (context: WorkspaceInspectorContributionContext) => ReactNode;
 };
 
-function TextSectionFormatIcon({ className }: { className?: string }) {
-  const sectionId = useSectionKindIconSectionId();
+function TextSectionFormatIcon({ className, sectionId }: WorkspaceSectionKindIconProps) {
   const format = useWorkspaceDocument((state) => {
     const section = getSectionOrThrow(state, sectionId);
     return parseWorkspaceTextSectionData(sectionId, section.data).format;

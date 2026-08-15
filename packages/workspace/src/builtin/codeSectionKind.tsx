@@ -14,10 +14,10 @@ import { getSectionOrThrow } from "../document/documentSelectors";
 import type {
   SectionKindDefinition,
   WorkspaceInspectorContributionContext,
+  WorkspaceSectionKindIconProps,
 } from "../document/sectionKindRegistry";
 import { useWorkspaceDocument } from "../document/stores";
 import type { SectionSize, WorkspaceSection } from "../document/types";
-import { useSectionKindIconSectionId } from "../section/header/sectionKindIconContext";
 import {
   parseWorkspaceCodeSectionData,
   WORKSPACE_CODE_SECTION_LANGUAGES,
@@ -51,7 +51,7 @@ const CODE_SECTION_LANGUAGE_ICONS: Record<
 
 export type WorkspaceCodeSectionRegistration = {
   // Replaces the language icon below with the host's own glyph.
-  icon?: ComponentType<{ className?: string }>;
+  icon?: ComponentType<WorkspaceSectionKindIconProps>;
   // Applied when a loaded code section omits its size.
   defaultSize?: SectionSize;
   // Narrows the languages this registration accepts. A document naming a language outside the
@@ -60,8 +60,7 @@ export type WorkspaceCodeSectionRegistration = {
   renderInspector?: (context: WorkspaceInspectorContributionContext) => ReactNode;
 };
 
-function CodeSectionLanguageIcon({ className }: { className?: string }) {
-  const sectionId = useSectionKindIconSectionId();
+function CodeSectionLanguageIcon({ className, sectionId }: WorkspaceSectionKindIconProps) {
   const language = useWorkspaceDocument((state) => {
     const section = getSectionOrThrow(state, sectionId);
     return parseWorkspaceCodeSectionData(sectionId, section.data).language;

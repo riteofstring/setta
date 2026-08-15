@@ -47,6 +47,11 @@ export type WorkspaceItemSearchContext = Readonly<{
 
 export type WorkspaceItemSearchableText = (context: WorkspaceItemSearchContext) => string;
 
+export type WorkspaceSectionKindIconProps = Readonly<{
+  className?: string;
+  sectionId: string;
+}>;
+
 type WorkspaceInspectorContributionInput =
   | { type: "section"; section: WorkspaceSection }
   | { type: "item"; section: WorkspaceSection; item: WorkspaceItem };
@@ -63,9 +68,11 @@ type SectionKindBaseDefinition = {
   // registered content is placed in the package-owned body slot, so renderers never need a
   // private section-grid class.
   renderContent: (section: WorkspaceSection) => ReactNode;
-  // Header icon component, rendered with the reference's icon treatment. Kinds without one
-  // render the reference's `gg-menu` fallback glyph.
-  icon?: ComponentType<{ className?: string }>;
+  // Section icon component, rendered with each package surface's icon treatment. The explicit
+  // section ID lets data-driven icons paint consistently in headers, Outline, and future section
+  // surfaces without relying on a surface-specific hidden context. Kinds without one render the
+  // reference's `gg-menu` fallback glyph.
+  icon?: ComponentType<WorkspaceSectionKindIconProps>;
   // Custom section data and custom item data stay opaque to the package. A kind may project
   // either selection into host-owned Inspector UI through this typed, deeply frozen snapshot.
   renderInspector?: (context: WorkspaceInspectorContributionContext) => ReactNode;

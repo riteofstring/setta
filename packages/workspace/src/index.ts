@@ -170,6 +170,7 @@ export type {
   WorkspaceItemFactoryContext,
   WorkspaceItemSearchContext,
   WorkspaceItemSearchableText,
+  WorkspaceSectionKindIconProps,
 } from "./document/sectionKindRegistry";
 export { useWorkspaceAppearance } from "./document/stores";
 export type { WorkspaceAppearanceState, WorkspaceColorMode } from "./document/stores";

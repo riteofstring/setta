@@ -39,7 +39,7 @@ function WorkspaceOutlineKindIcon({ section }: { section: WorkspaceSection }) {
     return <FaLayerGroup />;
   }
   const RegisteredIcon = getRegisteredSectionKindOrThrow(section.kind).icon;
-  return RegisteredIcon ? <RegisteredIcon /> : <i className="gg-menu" />;
+  return RegisteredIcon ? <RegisteredIcon sectionId={section.id} /> : <i className="gg-menu" />;
 }
 
 function WorkspaceOutlineDisclosure({

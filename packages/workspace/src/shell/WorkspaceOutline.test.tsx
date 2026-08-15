@@ -8,7 +8,10 @@ import { useWorkspaceMenuState } from "../context-menu/workspaceMenuState";
 import { getActiveSectionIds } from "../document/activeSections";
 import { GROUP_SECTION_KIND } from "../document/documentSelectors";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import {
+  registerSectionKinds,
+  type WorkspaceSectionKindIconProps,
+} from "../document/sectionKindRegistry";
 import { deleteSection, setSectionName } from "../document/sectionMutations";
 import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { Node, WorkspaceSection } from "../document/types";
@@ -23,8 +26,8 @@ vi.mock("../canvas/viewportHelpers", () => ({ focusWorkspaceSection }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-function LeafIcon() {
-  return <svg data-testid="leaf-icon" viewBox="0 0 12 12" />;
+function LeafIcon({ sectionId }: WorkspaceSectionKindIconProps) {
+  return <svg data-icon-section-id={sectionId} data-testid="leaf-icon" viewBox="0 0 12 12" />;
 }
 
 function createSection(
@@ -206,7 +209,11 @@ describe("WorkspaceOutline", () => {
     expect(getRow("bravo").textContent).toContain(
       "locked, minimized, style accent #3b82f6, color tag #ef4444",
     );
-    expect(getRow("bravo").querySelector('[data-testid="leaf-icon"]')).not.toBeNull();
+    expect(
+      getRow("bravo")
+        .querySelector('[data-testid="leaf-icon"]')
+        ?.getAttribute("data-icon-section-id"),
+    ).toBe("bravo");
   });
 
   it("filters fuzzy section names, reveals matching paths, and restores collapsed state", async () => {
