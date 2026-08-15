@@ -4,7 +4,6 @@ import {
 } from "../canvas/documentViewportSync";
 import { maybeCompleteInitialFitView } from "../canvas/nodeInternalsActions";
 import { closeWorkspaceMenu } from "../context-menu/workspaceMenuState";
-import { getMetaControlDefaultSize } from "../controls/meta/metaControlTypes";
 import { resetDndSessionForLoadedDocument } from "../dnd/dndState";
 import { resetItemDragState } from "../items/itemDragHandlers";
 import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
@@ -16,6 +15,7 @@ import { deactivateItemSelect } from "./itemSelectionMode";
 import { assertValidWorkspaceSectionItemTree } from "./itemTreeValidation";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
 import { getRegisteredSectionKindOrThrow } from "./sectionKindRegistry";
+import { resolveWorkspaceSectionSize } from "./sectionSize";
 import {
   runWithAtomicallyPublishedWorkspaceStores,
   useActiveSections,
@@ -23,40 +23,24 @@ import {
   useWorkspaceDocument,
   type WorkspaceDocumentState,
 } from "./stores";
-import type {
-  SectionSize,
-  WorkspaceDocumentInput,
-  WorkspaceSection,
-  WorkspaceSectionInput,
-} from "./types";
+import type { WorkspaceDocumentInput, WorkspaceSection, WorkspaceSectionInput } from "./types";
 
-// The reference's `createSectionSize()` default: sections materialized without an explicit
-// size are auto-sized in both dimensions.
-const DEFAULT_LOADED_SECTION_SIZE: SectionSize = { width: "auto", height: "auto" };
 const SECTION_STYLE_COLOR_PATTERN = /^#?[0-9a-f]{6}$/iu;
 
-// Every non-group kind must be registered before its documents load. An omitted ordinary size
-// resolves through its registered default; an omitted meta size resolves through the projected
-// package control policy — the load-time equivalent of the reference's generated constructors.
 function resolveLoadedSections(
   sections: Record<string, WorkspaceSectionInput>,
 ): Record<string, WorkspaceSection> {
   const resolved: Record<string, WorkspaceSection> = {};
   for (const [sectionId, section] of Object.entries(sections)) {
-    const definition = isGroupSection(section)
-      ? null
-      : getRegisteredSectionKindOrThrow(section.kind);
-    const metaControlDefaultSize = definition?.presentation
-      ? getMetaControlDefaultSize(definition.presentation.resolveControlKind(section))
-      : null;
+    // Every non-group kind must be registered before its documents load, whether or not the
+    // section carries its own size for the size resolution below to use.
+    if (!isGroupSection(section)) {
+      getRegisteredSectionKindOrThrow(section.kind);
+    }
     resolved[sectionId] = {
       ...section,
       tagColor: normalizeSectionTagColor(section.tagColor, `Section ${sectionId} tag color`),
-      size:
-        section.size ??
-        metaControlDefaultSize ??
-        definition?.defaultSize ??
-        DEFAULT_LOADED_SECTION_SIZE,
+      size: resolveWorkspaceSectionSize(section),
     };
   }
   return resolved;

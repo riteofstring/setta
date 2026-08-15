@@ -6,14 +6,14 @@ import {
 } from "../commands/workspaceCommandResolution";
 import type { WorkspaceCommandSurface } from "../commands/workspaceCommandTypes";
 import { useWorkspaceCapabilities } from "../document/capabilities";
+import { getWorkspaceCreationCommands } from "./creationCommandStore";
 import { WorkspaceActionMenu, type WorkspaceMenuEntry } from "./WorkspaceMenuCore";
-import { WorkspacePaneMenu } from "./WorkspacePaneMenu";
-import { getWorkspaceCreationCommands } from "./workspaceMenuRegistry";
 import {
   closeWorkspaceMenu,
   useWorkspaceMenuState,
   type WorkspaceMenuInvocation,
 } from "./workspaceMenuState";
+import { WorkspacePaneMenu } from "./WorkspacePaneMenu";
 
 // Menus render whatever the command registry offers for their surface: package commands first,
 // host commands in their own group, both invoked through the same execution path.

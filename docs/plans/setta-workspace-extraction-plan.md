@@ -259,9 +259,12 @@ single-section branch over the rows a section is showing. C2's third batch is co
 package now has the reference's focus-scope seam for its two shell panes and its canvas, and next
 and previous top-level section, pane focus, and canvas focus are bindings over it, including the
 reference's canvas reading order, its `go-to` active-section intent, and its minimum-distance pane
-travel. C2's creation bindings need an empty-space placement contract that does not exist yet and
-land in the next C2 batch; C3 remains. The package-only decisions and the deliberate behavior
-changes every batch introduces are recorded in `docs/evidence/milestone-c/` for the C4 gate.**
+travel. C2 is now complete: its fourth batch gives a host creation command its own conflict-checked
+chord in the same binding vocabulary, and ports the reference's backend empty-space search — prefer
+the visible pane, then beside it, then after the workspace — so a section created without a pointer
+lands in real empty space and the canvas travels to it when it had to land out of sight. C3
+remains. The package-only decisions and the deliberate behavior changes every batch introduces are
+recorded in `docs/evidence/milestone-c/` for the C4 gate.**
 
 Make frequent workspace actions faster and consistent across every action surface.
 

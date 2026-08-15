@@ -125,10 +125,13 @@ function makeNoteSection(id: string, name: string, text: string): WorkspaceSecti
 }
 
 function createConsumerNote(context: WorkspaceCreationContext): WorkspaceSectionInput {
+  const position = context.workspacePosition;
   return makeNoteSection(
     `consumer-note-${crypto.randomUUID()}`,
     "Created note",
-    `Created by the packed consumer at ${Math.round(context.workspacePosition.x)}, ${Math.round(context.workspacePosition.y)}.`,
+    position
+      ? `Created by the packed consumer at ${Math.round(position.x)}, ${Math.round(position.y)}.`
+      : "Created by the packed consumer from the keyboard.",
   );
 }
 
@@ -428,6 +431,7 @@ registerWorkspaceCreationCommands([
     id: "consumer-note",
     label: "Packed note",
     group: "Consumer",
+    chord: "N",
     icon: NoteIcon,
     createSection: createConsumerNote,
   },

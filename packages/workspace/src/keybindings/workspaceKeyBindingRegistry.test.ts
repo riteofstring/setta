@@ -1,12 +1,39 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenuRegistry";
+import type { WorkspaceSectionInput } from "../document/types";
 import {
   getResolvedWorkspaceKeyBindings,
   getWorkspaceKeyBindingConflicts,
   getWorkspaceKeyBindings,
   registerWorkspaceKeyBindings,
 } from "./workspaceKeyBindingRegistry";
+
+const creationSection: WorkspaceSectionInput = {
+  id: "created",
+  kind: "leaf",
+  name: "Created",
+  isMinimized: false,
+  positionAndSizeLocked: false,
+  isHorizontalOrientation: false,
+  styleColor: null,
+  overflowMode: false,
+  tagColor: null,
+  children: [],
+};
+
+function registerCreationCommand(chord: string | null) {
+  registerWorkspaceCreationCommands([
+    {
+      id: "host-note",
+      label: "Host note",
+      group: "Host",
+      chord,
+      createSection: () => creationSection,
+    },
+  ]);
+}
 
 // jsdom reports no Mac user agent; the label case flips this to read the macOS chord text.
 let mockIsMacOs = false;
@@ -27,6 +54,7 @@ describe("workspace key bindings", () => {
   afterEach(() => {
     mockIsMacOs = false;
     registerWorkspaceKeyBindings([]);
+    registerWorkspaceCreationCommands([]);
   });
 
   it("ships the reference's chords and takes each command's own label", () => {
@@ -174,6 +202,54 @@ describe("workspace key bindings", () => {
       suppressesBrowserDefault: false,
       yieldsToEditableTarget: true,
     });
+  });
+
+  // A host's creation catalog joins the same binding vocabulary: the reference gives each of its
+  // own creation actions a configurable shortcut, and the package's creation commands are the
+  // host's equivalent of those actions.
+  it("lists a creation command that carries a chord beside the package operations", () => {
+    registerCreationCommand("N");
+    expect(getBinding("host-note")).toMatchObject({
+      chord: "N",
+      chordLabel: "N",
+      label: "Host note",
+      origin: "default",
+    });
+  });
+
+  it("offers a creation command without a chord as an unbound operation", () => {
+    registerCreationCommand(null);
+    expect(getBinding("host-note")).toMatchObject({ chord: null, chordLabel: null });
+  });
+
+  it("refuses a creation chord a package operation already answers to", () => {
+    expect(() => registerCreationCommand("Mod + G")).toThrow(
+      /Ctrl \+ G is claimed by workspace.group-sections, host-note/u,
+    );
+    expect(getWorkspaceKeyBindings().some((binding) => binding.id === "host-note")).toBe(false);
+  });
+
+  it("rebinds and unbinds a creation command through the same host registration", () => {
+    registerCreationCommand("N");
+    registerWorkspaceKeyBindings([{ id: "host-note", chord: "Mod + Alt + N" }]);
+    expect(getBinding("host-note")).toMatchObject({
+      chord: "Mod + Alt + N",
+      origin: "host",
+    });
+    expect(getWorkspaceKeyBindingConflicts([{ id: "host-note", chord: "F" }])).toMatchObject([
+      { bindingIds: ["workspace.fit-view", "host-note"] },
+    ]);
+    registerWorkspaceKeyBindings([{ id: "host-note", chord: null }]);
+    expect(getBinding("host-note").chord).toBeNull();
+  });
+
+  it("fails when a replaced creation catalog drops a command the host rebound", () => {
+    registerCreationCommand("N");
+    registerWorkspaceKeyBindings([{ id: "host-note", chord: "Mod + Alt + N" }]);
+    expect(() => registerWorkspaceCreationCommands([])).toThrow(
+      /"host-note" is not a workspace operation/u,
+    );
+    expect(getBinding("host-note").chord).toBe("Mod + Alt + N");
   });
 
   // Select-all is the browser's and the caret's chord before it is the workspace's; adding Shift

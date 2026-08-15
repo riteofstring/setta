@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  getWorkspaceCreationCommands,
-  registerWorkspaceCreationCommands,
-} from "./workspaceMenuRegistry";
+import { getWorkspaceCreationCommands } from "./creationCommandStore";
+import { registerWorkspaceCreationCommands } from "./workspaceMenuRegistry";
 
 afterEach(() => {
   registerWorkspaceCreationCommands([]);
@@ -49,5 +47,27 @@ describe("workspace creation command registry", () => {
         { id: "empty-label", label: "  ", group: "Host", createSection: vi.fn() },
       ]),
     ).toThrow(/non-empty label/);
+  });
+
+  // A chord makes the command a key binding, so an unusable one is rejected where it is written
+  // rather than at the keypress that would never match it.
+  it("rejects an unusable creation chord", () => {
+    expect(() =>
+      registerWorkspaceCreationCommands([
+        { id: "blank-chord", label: "Blank", group: "Host", chord: "  ", createSection: vi.fn() },
+      ]),
+    ).toThrow(/chord must be a chord string or null/);
+    expect(() =>
+      registerWorkspaceCreationCommands([
+        {
+          id: "odd-chord",
+          label: "Odd",
+          group: "Host",
+          chord: "Mod + Grab",
+          createSection: vi.fn(),
+        },
+      ]),
+    ).toThrow(/unknown key grab/);
+    expect(getWorkspaceCreationCommands()).toEqual([]);
   });
 });

@@ -1,8 +1,11 @@
+import {
+  assertWorkspaceKeyBindingsForCreationCommands,
+  invalidateResolvedWorkspaceKeyBindings,
+} from "../keybindings/workspaceKeyBindingRegistry";
+import { setWorkspaceCreationCommands } from "./creationCommandStore";
 import type { WorkspaceCreationCommand } from "./workspaceMenuTypes";
 
 const CREATION_ID_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/u;
-
-let registeredCreationCommands: ReadonlyArray<WorkspaceCreationCommand> = [];
 
 function assertCreationId(id: string, ids: Set<string>): void {
   if (!CREATION_ID_PATTERN.test(id)) {
@@ -32,6 +35,15 @@ function assertCreationFunction(id: string, role: string, value: unknown, requir
   }
 }
 
+function assertCreationChord(id: string, chord: unknown): void {
+  if (chord === undefined || chord === null) {
+    return;
+  }
+  if (typeof chord !== "string" || chord.trim() === "") {
+    throw new Error(`Workspace creation command ${id} chord must be a chord string or null.`);
+  }
+}
+
 function validateCreationCommand(
   command: WorkspaceCreationCommand,
   ids: Set<string>,
@@ -39,6 +51,7 @@ function validateCreationCommand(
   assertCreationId(command.id, ids);
   assertCreationText(command.id, "label", command.label);
   assertCreationText(command.id, "group", command.group);
+  assertCreationChord(command.id, command.chord);
   if (command.icon !== undefined && typeof command.icon !== "function") {
     throw new Error(`Workspace creation command ${command.id} icon must be a component.`);
   }
@@ -49,6 +62,9 @@ function validateCreationCommand(
 
 // Like section-kind and item-handler registration, each call replaces the complete host-owned
 // set. Hosts register before mounting the canvas; the package owns the built-in structural items.
+// A creation command carrying a chord is also a key binding, so the whole binding set is
+// revalidated against the new catalog before it replaces the old one: a chord that would collide,
+// or a rebinding left naming a command this call removes, fails here rather than at the keypress.
 export function registerWorkspaceCreationCommands(
   commands: ReadonlyArray<WorkspaceCreationCommand>,
 ): void {
@@ -56,9 +72,8 @@ export function registerWorkspaceCreationCommands(
     throw new Error("Workspace creation commands must be an array.");
   }
   const ids = new Set<string>();
-  registeredCreationCommands = commands.map((command) => validateCreationCommand(command, ids));
-}
-
-export function getWorkspaceCreationCommands(): ReadonlyArray<WorkspaceCreationCommand> {
-  return registeredCreationCommands;
+  const validated = commands.map((command) => validateCreationCommand(command, ids));
+  assertWorkspaceKeyBindingsForCreationCommands(validated);
+  setWorkspaceCreationCommands(validated);
+  invalidateResolvedWorkspaceKeyBindings();
 }

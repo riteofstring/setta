@@ -78,12 +78,14 @@ export function WorkspacePaneMenu({
         disabled: !canEditStructure || (command.isDisabled?.(creationContext) ?? false),
         onSelect: () => {
           const section = command.createSection(creationContext);
-          insertWorkspaceSection(section, creationContext.workspacePosition);
+          // A pane request always carries the pointer's position; the package resolves a place
+          // only for the requests that have none.
+          insertWorkspaceSection(section, invocation.context.workspacePosition);
           useReactFlow.setState({ nodesSelectionDims: null });
           closeWorkspaceMenu();
         },
       })),
-    [canEditStructure, creationContext, filteredCommands],
+    [canEditStructure, creationContext, filteredCommands, invocation.context.workspacePosition],
   );
   const entriesByCommandId = useMemo(
     () => new Map(commandEntries.map((entry) => [entry.id.slice("create-".length), entry])),

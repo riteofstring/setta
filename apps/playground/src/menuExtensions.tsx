@@ -49,6 +49,13 @@ function PlaygroundCreationIcon({ className }: WorkspaceCommandIconProps) {
   );
 }
 
+// A pane-menu request carries the pointer's canvas position; a chord carries none, and the
+// package places the section in empty space after this factory returns.
+function describeCreationRequest(context: WorkspaceCreationContext): string {
+  const position = context.workspacePosition;
+  return position ? `at ${Math.round(position.x)}, ${Math.round(position.y)}` : "from the keyboard";
+}
+
 function createPlaygroundLeaf(
   context: WorkspaceCreationContext,
   variant: "note" | "marker",
@@ -60,7 +67,7 @@ function createPlaygroundLeaf(
     kind: "leaf",
     name: label,
     data: {
-      body: `${label} created at ${Math.round(context.workspacePosition.x)}, ${Math.round(context.workspacePosition.y)}.`,
+      body: `${label} created ${describeCreationRequest(context)}.`,
     },
     isMinimized: false,
     positionAndSizeLocked: false,
@@ -73,11 +80,13 @@ function createPlaygroundLeaf(
 }
 
 export function registerPlaygroundMenuExtensions(): void {
+  // The chords are the reference's own creation defaults, "N" and "G", over this host's catalog.
   registerWorkspaceCreationCommands([
     {
       id: "playground-note",
       label: "Host note",
       group: "Playground",
+      chord: "N",
       icon: PlaygroundCreationIcon,
       createSection: (context) => createPlaygroundLeaf(context, "note"),
     },
@@ -85,6 +94,7 @@ export function registerPlaygroundMenuExtensions(): void {
       id: "playground-marker",
       label: "Position marker",
       group: "Playground",
+      chord: "G",
       createSection: (context) => createPlaygroundLeaf(context, "marker"),
     },
   ]);

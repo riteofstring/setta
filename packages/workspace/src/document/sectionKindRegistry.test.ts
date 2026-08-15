@@ -94,21 +94,7 @@ describe("sectionKindRegistry", () => {
     registerSectionKinds({
       meta: { renderContent: () => null, presentation },
     });
-    expect(
-      getMetaControlPresentation({
-        id: "meta-text",
-        kind: "meta",
-        name: "Text",
-        size: { width: 200, height: 44 },
-        isMinimized: false,
-        positionAndSizeLocked: false,
-        isHorizontalOrientation: false,
-        styleColor: null,
-        overflowMode: false,
-        tagColor: null,
-        children: [],
-      }),
-    ).toBe(presentation);
+    expect(getMetaControlPresentation({ kind: "meta" })).toBe(presentation);
   });
 
   it("rejects a competing host default for package-owned meta geometry", () => {

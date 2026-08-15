@@ -241,7 +241,7 @@ export function getWorkspaceItemSearchableText(
 }
 
 export function getMetaControlPresentation(
-  section: WorkspaceSection,
+  section: Pick<WorkspaceSection, "kind">,
 ): MetaControlSectionPresentation | null {
   const presentation = getRegisteredSectionKindOrThrow(section.kind).presentation;
   if (presentation === undefined) {

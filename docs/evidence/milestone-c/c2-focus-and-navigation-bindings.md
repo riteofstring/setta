@@ -80,6 +80,6 @@ surfaces its own chrome owns:
 
 ## Remaining C2 work
 
-Section creation is the last C2 group. It needs an empty-space placement contract: frozen main
-resolves a new section's position on its backend from the saved layout and the visible viewport
-bounds, which is behavior the package has to own itself and record before implementing.
+Section creation is the last C2 group, and it landed in the next batch with the empty-space
+placement contract it needed:
+[C2 creation chords and empty-space placement](c2-creation-bindings.md).

@@ -107,7 +107,9 @@ describe("WorkspaceMenuLayer", () => {
         createSection: (context) => ({
           ...createSection("created"),
           data: {
-            body: `${context.workspacePosition.x},${context.workspacePosition.y}`,
+            body: context.workspacePosition
+              ? `${context.workspacePosition.x},${context.workspacePosition.y}`
+              : "no pointer",
           },
         }),
       },

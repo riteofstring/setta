@@ -12,11 +12,11 @@ import { getItemOrThrow } from "../document/itemTree";
 import { useWorkspaceDocument } from "../document/stores";
 import type { Position, WorkspaceSection } from "../document/types";
 import { getElementTextDirection } from "../styles/textDirection";
+import { getWorkspaceCreationCommands } from "./creationCommandStore";
 import {
   clientPointToWorkspacePosition,
   type WorkspaceMenuClientPoint,
 } from "./workspaceMenuGeometry";
-import { getWorkspaceCreationCommands } from "./workspaceMenuRegistry";
 import {
   publishWorkspaceMenuInvocation,
   type WorkspaceMenuInitialFocus,

@@ -3,6 +3,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenuRegistry";
 import { useDndState } from "../dnd/dndState";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
@@ -689,6 +690,68 @@ describe("useCanvasKeyActivations", () => {
 
       expect(event.defaultPrevented).toBe(true);
       expect(resetZoom).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("creation chords", () => {
+    afterEach(() => {
+      registerWorkspaceCreationCommands([]);
+    });
+
+    function registerNoteCommand() {
+      registerSectionKinds({ leaf: { renderContent: () => null } });
+      loadWorkspaceDocument({
+        sections: {},
+        topLevelSections: {},
+        viewport: { x: 0, y: 0, zoom: 1 },
+        activeIds: [],
+      });
+      useReactFlow.setState({ width: 800, height: 600 });
+      registerWorkspaceCreationCommands([
+        {
+          id: "host-note",
+          label: "Host note",
+          group: "Host",
+          chord: "N",
+          createSection: () => ({
+            id: "created",
+            kind: "leaf",
+            name: "Created",
+            size: { width: 240, height: 120 },
+            isMinimized: false,
+            positionAndSizeLocked: false,
+            isHorizontalOrientation: false,
+            styleColor: null,
+            overflowMode: false,
+            tagColor: null,
+            children: [],
+          }),
+        },
+      ]);
+    }
+
+    it("creates the host's section on the chord it registered", async () => {
+      registerNoteCommand();
+
+      const event = await dispatchChord({ key: "n", code: "KeyN" });
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(useWorkspaceDocument.getState().topLevelSections["created"]).toMatchObject({
+        x: 24,
+        y: 24,
+      });
+      expect(useActiveSections.getState().activeIds).toEqual(["created"]);
+    });
+
+    it("leaves the bare creation key to the caret while typing", async () => {
+      registerNoteCommand();
+      const input = document.createElement("input");
+      document.body.appendChild(input);
+
+      await dispatchChord({ key: "n", code: "KeyN", target: input });
+
+      expect(useWorkspaceDocument.getState().sections["created"]).toBeUndefined();
+      input.remove();
     });
   });
 
