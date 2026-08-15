@@ -25,6 +25,11 @@ import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { WorkspaceItem, WorkspaceSectionItemTree } from "../document/types";
+import {
+  disableWorkspaceTooltip,
+  enableWorkspaceTooltip,
+  useWorkspaceTooltip,
+} from "../tooltip/WorkspaceTooltip";
 import type { ItemRowRenderContext } from "./ItemListContext";
 import { resetItemListViews, resolveItemListView } from "./itemListRegistry";
 import { WorkspaceItemList } from "./WorkspaceItemList";
@@ -184,15 +189,6 @@ function getRequiredElement<ElementType extends Element>(
   return element;
 }
 
-function getAccessibleDescription(control: HTMLElement): string {
-  const descriptionId = control.getAttribute("aria-describedby");
-  const description = descriptionId ? document.getElementById(descriptionId) : null;
-  if (!description) {
-    throw new Error("expected the control's accessible description");
-  }
-  return description.textContent ?? "";
-}
-
 function createPointerEvent(
   type: string,
   init: MouseEventInit & { pointerId?: number; pointerType?: string } = {},
@@ -233,6 +229,7 @@ describe("WorkspaceItemList", () => {
     useItemDndChildren.getState().reset();
     registerWorkspaceMenuActions([]);
     useWorkspaceMenuState.getState().reset();
+    useWorkspaceTooltip.getState().reset();
     useReactFlow.setState({ ...initialCanvasState });
     observedResizeTargets.clear();
   });
@@ -320,56 +317,38 @@ describe("WorkspaceItemList", () => {
     ).toMatchObject({ kind: "switch", value: "false" });
   });
 
-  it("portals accessible typed-item help without stealing active editor focus", async () => {
+  it("stages typed-item help from the whole row for the held-Q quick-info surface", async () => {
     loadTypedSwitchDocument("Enable the optional retry path.");
     await mount({ topLevelItemIds: ["item-switch"], renderItem: undefined });
 
-    const helpTrigger = getRequiredElement<HTMLButtonElement>(
+    const row = getRequiredElement<HTMLDivElement>(
       host,
-      '[data-setta-workspace-item-help-trigger="true"]',
-      "the built-in item help trigger",
+      '[data-workspace-item-id="item-switch"]',
+      "the typed help row",
     );
-    expect(helpTrigger.getAttribute("aria-label")).toBe("Show help for enabled");
-    expect(helpTrigger.classList.contains("h-6")).toBe(true);
-    expect(helpTrigger.classList.contains("w-6")).toBe(true);
-    expect(helpTrigger.dataset.tabNative).toBe("true");
-    expect(getAccessibleDescription(helpTrigger)).toBe("Enable the optional retry path.");
-
-    host.dir = "rtl";
-    const nameEditor = getRequiredElement<HTMLElement>(
-      host,
-      "#ItemNameInput-panel-item-switch",
-      "the built-in item name editor",
-    );
+    expect(row.getAttribute("aria-keyshortcuts")).toContain("Q");
+    expect(row.querySelector('[data-setta-workspace-item-help-trigger="true"]')).toBeNull();
     await act(async () => {
-      nameEditor.focus();
+      row.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
     });
-    const activeEditor = document.activeElement;
-    expect(activeEditor?.getAttribute("role")).toBe("textbox");
+    expect(useWorkspaceTooltip.getState()).toMatchObject({
+      content: "Enable the optional retry path.",
+      title: "enabled",
+      tone: "default",
+    });
+
     await act(async () => {
-      helpTrigger.dispatchEvent(
-        createPointerEvent("pointerdown", { bubbles: true, cancelable: true }),
+      enableWorkspaceTooltip();
+    });
+    expect(useWorkspaceTooltip.getState().isEnabled).toBe(true);
+
+    await act(async () => {
+      disableWorkspaceTooltip();
+      row.dispatchEvent(
+        new MouseEvent("mouseout", { bubbles: true, relatedTarget: document.body }),
       );
-      helpTrigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
-
-    const helpContent = getRequiredElement<HTMLElement>(
-      document,
-      '[role="dialog"][aria-label="enabled help"]',
-      "the portaled item help dialog",
-    );
-    expect(helpContent.textContent).toBe("Enable the optional retry path.");
-    expect(helpContent.getAttribute("role")).toBe("dialog");
-    expect(helpContent.getAttribute("aria-label")).toBe("enabled help");
-    expect(helpContent.dir).toBe("rtl");
-    expect(host.contains(helpContent)).toBe(false);
-    expect(document.activeElement).toBe(activeEditor);
-    expect(helpTrigger.getAttribute("aria-expanded")).toBe("true");
-
-    await act(async () => {
-      helpTrigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    expect(document.querySelector('[role="dialog"][aria-label="enabled help"]')).toBeNull();
+    expect(useWorkspaceTooltip.getState()).toMatchObject({ isEnabled: false, content: null });
   });
 
   it("styles and describes every diagnostic severity without relying on color alone", async () => {
@@ -393,52 +372,31 @@ describe("WorkspaceItemList", () => {
     expect(errorRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("error");
     expect(warningRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("warning");
     expect(infoRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("info");
-    expect(errorRow.className).toContain("ring-red-600/50");
-    expect(warningRow.className).toContain("ring-amber-600/50");
-    expect(infoRow.className).toContain("ring-sky-600/50");
-    expect(errorRow.style.paddingInlineEnd).toBe("1.75rem");
+    expect(errorRow.className).toContain("bg-red-200");
+    expect(warningRow.className).toContain("bg-amber-100/60");
+    expect(infoRow.className).toContain("bg-sky-100/50");
+    expect(errorRow.className).not.toContain("ring-");
+    expect(errorRow.style.paddingInlineEnd).toBe("1.375rem");
 
-    const errorTrigger = getRequiredElement<HTMLButtonElement>(
+    const errorMarker = getRequiredElement<HTMLElement>(
       errorRow,
-      '[data-setta-workspace-item-diagnostic-trigger="true"]',
-      "the error diagnostic trigger",
+      '[data-setta-workspace-item-diagnostic-marker="true"]',
+      "the error diagnostic marker",
     );
-    expect(errorTrigger.getAttribute("aria-label")).toBe(
-      "Show diagnostics for item-a: 1 error, 1 warning, and 1 information message",
-    );
-    expect(getAccessibleDescription(errorTrigger)).toBe(
-      "Information: This value applies after setup. " +
-        "Warning: Review this value before running. Error: Choose a value below 10.",
-    );
-    expect(errorTrigger.className).toContain("h-6 w-6");
-    expect(errorTrigger.className).toContain("setta-prevent-arrow-keys-moving-section");
-    expect(errorTrigger.dataset.tabNative).toBe("true");
-    expect(errorTrigger.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    expect(errorMarker.className).toContain("h-[18px] w-[18px]");
+    expect(errorMarker.getAttribute("aria-hidden")).toBe("true");
+    expect(errorMarker.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    expect(
+      errorRow.querySelector('[data-setta-workspace-item-quick-info-description="true"]')
+        ?.textContent,
+    ).toContain("Error: Choose a value below 10.");
 
     await act(async () => {
-      errorTrigger.click();
+      errorRow.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
     });
-    const diagnosticDialog = getRequiredElement<HTMLElement>(
-      document,
-      '[role="dialog"] [data-setta-workspace-item-diagnostic-message="error"]',
-      "the error diagnostic message",
-    ).closest<HTMLElement>('[role="dialog"]');
-    if (!diagnosticDialog) {
-      throw new Error("expected the portaled diagnostic dialog");
-    }
-    const titleId = diagnosticDialog.getAttribute("aria-labelledby");
-    expect(titleId ? document.getElementById(titleId)?.textContent : null).toBe(
-      "Diagnostics for item-a",
-    );
-    expect(
-      diagnosticDialog.querySelector('[data-setta-workspace-item-diagnostic-message="warning"]')
-        ?.textContent,
-    ).toContain("WarningReview this value before running.");
-    expect(
-      diagnosticDialog.querySelector('[data-setta-workspace-item-diagnostic-message="info"]')
-        ?.textContent,
-    ).toContain("InformationThis value applies after setup.");
-    expect(host.contains(diagnosticDialog)).toBe(false);
+    expect(useWorkspaceTooltip.getState()).toMatchObject({ title: "item-a", tone: "error" });
+    expect(useWorkspaceTooltip.getState().content).toContain("Choose a value below 10.");
+    expect(useWorkspaceTooltip.getState().content).toContain("Review this value before running.");
     expect(onDocumentChange).not.toHaveBeenCalled();
   });
 
@@ -467,29 +425,18 @@ describe("WorkspaceItemList", () => {
       "#ItemNameInput-panel-item-switch",
       "the typed item name editor",
     );
-    const infoTrigger = getRequiredElement<HTMLButtonElement>(
+    const infoMarker = getRequiredElement<HTMLElement>(
       row,
-      '[data-setta-workspace-item-diagnostic-trigger="true"]',
-      "the information diagnostic trigger",
+      '[data-setta-workspace-item-diagnostic-marker="true"]',
+      "the information diagnostic marker",
     );
+    expect(infoMarker.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("info");
     expect(
       host.querySelector('[data-setta-workspace-item-diagnostic-announcer="true"]')?.textContent,
     ).toContain("Information for enabled: The host is checking this value.");
 
-    await act(async () => {
-      nameEditor.focus();
-    });
+    await act(async () => nameEditor.focus());
     const activeEditor = document.activeElement;
-    await act(async () => {
-      infoTrigger.dispatchEvent(
-        createPointerEvent("pointerdown", { bubbles: true, cancelable: true }),
-      );
-      infoTrigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    expect(document.activeElement).toBe(activeEditor);
-    expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
-      "The host is checking this value.",
-    );
 
     await mount({
       ...typedProps,
@@ -499,12 +446,12 @@ describe("WorkspaceItemList", () => {
     });
     expect(document.activeElement).toBe(activeEditor);
     expect(activeEditor ? row.contains(activeEditor) : false).toBe(true);
-    const errorTrigger = getRequiredElement<HTMLButtonElement>(
+    const errorMarker = getRequiredElement<HTMLElement>(
       row,
-      '[data-setta-workspace-item-diagnostic-trigger="true"]',
-      "the updated error diagnostic trigger",
+      '[data-setta-workspace-item-diagnostic-marker="true"]',
+      "the updated error diagnostic marker",
     );
-    expect(errorTrigger.getAttribute("aria-label")).toBe("Show diagnostics for enabled: 1 error");
+    expect(errorMarker.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("error");
     expect(
       host.querySelector('[data-setta-workspace-item-diagnostic-announcer="true"]')?.textContent,
     ).toContain("Error for enabled: Turn this setting off to continue.");
@@ -518,17 +465,16 @@ describe("WorkspaceItemList", () => {
         ],
       },
     });
-    expect(errorTrigger.getAttribute("aria-label")).toBe("Show diagnostics for enabled: 2 errors");
+    expect(
+      row.querySelector('[data-setta-workspace-item-quick-info-description="true"]')?.textContent,
+    ).toContain("Error: Turn this setting off to continue.");
     expect(
       host.querySelector('[data-setta-workspace-item-diagnostic-announcer="true"]')?.textContent,
     ).toContain("Parameter diagnostics updated.");
 
-    await act(async () => {
-      errorTrigger.focus();
-    });
     await mount({ ...typedProps, itemDiagnostics: {} });
-    expect(document.activeElement).toBe(row);
-    expect(row.querySelector('[data-setta-workspace-item-diagnostic-trigger="true"]')).toBeNull();
+    expect(document.activeElement).toBe(activeEditor);
+    expect(row.querySelector('[data-setta-workspace-item-diagnostic-marker="true"]')).toBeNull();
     expect(
       host.querySelector('[data-setta-workspace-item-diagnostic-announcer="true"]')?.textContent,
     ).toBe("Parameter diagnostics cleared.");

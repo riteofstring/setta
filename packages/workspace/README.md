@@ -352,9 +352,10 @@ malformed values at load and mutation boundaries. A structural root has neither 
 opaque data. A row cannot carry both a typed presentation and opaque `data`.
 
 The Inspector commits help text on blur or Cmd/Ctrl+Enter; Escape discards its current draft. A
-nonblank value adds a compact native button to the parameter row. Its Radix portal escapes nested
-section and bounded-group overflow, clamps and wraps at compact widths, preserves an active editor
-when opened by pointer, and exposes the same content through the button's accessible description.
+nonblank value stages the whole parameter row for Setta's held-Q quick-info surface. The surface
+follows the pointer, escapes nested section and bounded-group overflow, clamps and wraps at compact
+widths, and disappears on Q release. Item-select keyboard focus stages the same content, and an
+in-row screen-reader description keeps it available without opening the visual surface.
 
 Changing UI type directly uses `setItemPresentation` with the complete next control (kind, value,
 and configuration); callers outside the integrated Inspector still supply that complete value. The
@@ -386,10 +387,10 @@ empty result.
 `WorkspaceItemList.itemDiagnostics` accepts one complete section-scoped registry of error, warning,
 and information messages. The package validates the entire replacement before rendering it,
 chooses the highest-severity row treatment, reserves space for a compact non-color status icon, and
-exposes every severity and message through an accessible description and portaled disclosure.
-Pointer disclosure preserves the active editor; keyboard focus stays on the native trigger; if a
-focused trigger is cleared asynchronously, focus moves to its stable row. A persistent polite live
-region announces additions, message or severity updates, and clearing without moving focus.
+exposes every severity and message through the same held-Q quick-info surface and an in-row
+screen-reader description. Releasing Q removes the visual surface without changing selection or
+editor focus. A persistent polite live region announces additions, message or severity updates,
+and clearing without moving focus.
 An unknown id fails on first registration. If a canonical deletion removes a diagnosed item before
 the host's asynchronous state catches up, that previously valid entry stays dormant only while the
 host continues supplying it; clearing the entry also clears that temporary compatibility record.

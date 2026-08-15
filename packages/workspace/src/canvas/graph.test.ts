@@ -186,6 +186,30 @@ describe("getActiveSectionsBounds", () => {
     });
   });
 
+  it("does not let a selected descendant expand its selected ancestor's visible bounds", () => {
+    setCanvasDomNode();
+    useWorkspaceDocument.setState({
+      sections: {
+        group: {
+          ...createWorkspaceSection("group", ["nested"]),
+          overflowMode: true,
+          size: { width: 260, height: 220 },
+        },
+        nested: createWorkspaceSection("nested"),
+      },
+      parentSectionMap: { nested: "group" },
+    });
+    setActiveSectionIds(["group", "nested"]);
+    setNodes([createNode({ id: "group", position: { x: 100, y: 80 }, width: 260, height: 220 })]);
+    useSectionRefs.setState({
+      selfOnly: {
+        nested: createSectionRefElement({ x: 140, y: 340, width: 180, height: 100 }),
+      },
+    });
+
+    expect(getActiveSectionsBounds()).toEqual({ x: 100, y: 80, width: 260, height: 220 });
+  });
+
   it("returns a zero rect when no active section has measured geometry", () => {
     setActiveSectionIds(["section-a"]);
     setNodes([createNode({ id: "section-a", position: { x: 10, y: 20 }, width: 0, height: 0 })]);

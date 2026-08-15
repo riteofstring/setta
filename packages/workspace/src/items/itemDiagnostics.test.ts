@@ -49,9 +49,11 @@ describe("workspace item diagnostics", () => {
     expect(getWorkspaceItemDiagnosticCountSummary(normalized["item-a"] ?? [])).toBe(
       "1 error, 1 warning, and 1 information message",
     );
-    expect(getWorkspaceItemDiagnosticRowClassName("error")).toContain("ring-red-600/50");
-    expect(getWorkspaceItemDiagnosticRowClassName("warning")).toContain("ring-amber-600/50");
-    expect(getWorkspaceItemDiagnosticRowClassName("info")).toContain("ring-sky-600/50");
+    expect(getWorkspaceItemDiagnosticRowClassName("error")).toBe("bg-red-200 dark:bg-red-800/30");
+    expect(getWorkspaceItemDiagnosticRowClassName("warning")).toBe(
+      "bg-amber-100/60 dark:bg-amber-950/25",
+    );
+    expect(getWorkspaceItemDiagnosticRowClassName("info")).toBe("bg-sky-100/50 dark:bg-sky-950/20");
   });
 
   it("accepts a still-supplied diagnostic for a previously known deleted item", () => {

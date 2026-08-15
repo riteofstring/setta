@@ -1,11 +1,20 @@
-/* Chromium treats modifier-only keys as a request to expose :focus-visible on the element that
- * already owns focus. Large canvas and tree surfaces use the workspace's explicit input modality
- * instead, so Shift alone cannot paint a full-surface ring while genuine keyboard navigation can. */
+/* Chromium can expose :focus-visible on the element that already owns focus after an unrelated
+ * shortcut. Large canvas and tree surfaces use the workspace's focus-movement signal instead, so
+ * shortcuts cannot paint a full-surface ring while genuine keyboard navigation still can. */
 .setta-workspace .react-flow__pane:focus-visible {
   outline: none;
 }
 
 .setta-workspace-outline:focus-visible {
+  outline: none;
+}
+
+/* Frozen main explicitly suppresses the browser's second outline on the selection surface; the
+ * dotted blue selection boundary remains the visible selection cue. */
+.react-flow__nodesselection-rect:focus,
+.react-flow__nodesselection-rect:focus-visible,
+.react-flow__selection:focus,
+.react-flow__selection:focus-visible {
   outline: none;
 }
 

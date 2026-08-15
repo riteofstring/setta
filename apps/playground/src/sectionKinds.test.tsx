@@ -106,25 +106,6 @@ function findRowByLabel(container: HTMLElement, label: string): HTMLElement {
   return row;
 }
 
-function getItemHelpTrigger(row: HTMLElement): HTMLButtonElement {
-  const trigger = row.querySelector<HTMLButtonElement>(
-    '[data-setta-workspace-item-help-trigger="true"]',
-  );
-  if (!trigger) {
-    throw new Error("The typed playground row is missing its help trigger.");
-  }
-  return trigger;
-}
-
-function getControlDescription(control: HTMLElement): string {
-  const descriptionId = control.getAttribute("aria-describedby");
-  const description = descriptionId ? document.getElementById(descriptionId) : null;
-  if (!description) {
-    throw new Error("The control is missing its accessible description.");
-  }
-  return description.textContent ?? "";
-}
-
 describe("the playground item renderer presentation contract", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -173,9 +154,12 @@ describe("the playground item renderer presentation contract", () => {
   });
 
   it("demonstrates serialized parameter help through the public row surface", () => {
-    const help = getItemHelpTrigger(findRowByLabel(container, "alpha"));
-    expect(help.getAttribute("aria-label")).toBe("Show help for alpha");
-    expect(getControlDescription(help)).toContain("Sets the initial learning rate");
+    const row = findRowByLabel(container, "alpha");
+    expect(row.getAttribute("aria-keyshortcuts")).toContain("Q");
+    expect(
+      row.querySelector('[data-setta-workspace-item-quick-info-description="true"]')?.textContent,
+    ).toContain("Sets the initial learning rate");
+    expect(row.querySelector('[data-setta-workspace-item-help-trigger="true"]')).toBeNull();
   });
 
   it("demonstrates host-owned ephemeral diagnostics through the public list registry", () => {
@@ -186,16 +170,17 @@ describe("the playground item renderer presentation contract", () => {
     expect(warningRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("warning");
     expect(infoRow.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("info");
 
-    const errorTrigger = errorRow.querySelector<HTMLButtonElement>(
-      '[data-setta-workspace-item-diagnostic-trigger="true"]',
+    const errorMarker = errorRow.querySelector<HTMLElement>(
+      '[data-setta-workspace-item-diagnostic-marker="true"]',
     );
-    if (!errorTrigger) {
-      throw new Error("The typed playground row is missing its diagnostic trigger.");
+    if (!errorMarker) {
+      throw new Error("The typed playground row is missing its diagnostic marker.");
     }
-    expect(errorTrigger.getAttribute("aria-label")).toBe("Show diagnostics for alpha: 1 error");
-    expect(getControlDescription(errorTrigger)).toBe(
-      "Error: Use 0.0005 or less for the stability profile.",
-    );
+    expect(errorMarker.dataset.settaWorkspaceItemDiagnosticSeverity).toBe("error");
+    expect(
+      errorRow.querySelector('[data-setta-workspace-item-quick-info-description="true"]')
+        ?.textContent,
+    ).toContain("Error: Use 0.0005 or less for the stability profile.");
     expect(JSON.stringify(getWorkspaceDocument())).not.toContain("stability profile");
   });
 

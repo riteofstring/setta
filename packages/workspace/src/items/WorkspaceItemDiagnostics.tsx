@@ -1,21 +1,6 @@
-import {
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type RefObject,
-} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FiAlertCircle, FiAlertTriangle, FiInfo } from "react-icons/fi";
-import { ControlPopover } from "../controls/popover/ControlPopover";
 import type { WorkspaceSectionItemTree } from "../document/types";
-import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-  SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
-} from "../interaction";
-import { getElementTextDirection, type WorkspaceTextDirection } from "../styles/textDirection";
 import {
   getHighestWorkspaceItemDiagnosticSeverity,
   getWorkspaceItemDiagnosticCountSummary,
@@ -39,7 +24,11 @@ function getSeverityLabel(severity: WorkspaceItemDiagnosticSeverity): string {
 }
 
 function DiagnosticIcon({ severity }: { severity: WorkspaceItemDiagnosticSeverity }) {
-  const props = { "aria-hidden": true, className: "h-4 w-4 shrink-0", focusable: "false" } as const;
+  const props = {
+    "aria-hidden": true,
+    className: "h-3.5 w-3.5 shrink-0",
+    focusable: "false",
+  } as const;
   if (severity === "error") {
     return <FiAlertCircle {...props} />;
   }
@@ -51,12 +40,12 @@ function DiagnosticIcon({ severity }: { severity: WorkspaceItemDiagnosticSeverit
 
 function getSeverityClassName(severity: WorkspaceItemDiagnosticSeverity): string {
   if (severity === "error") {
-    return "border-red-300 text-red-700 dark:border-red-800 dark:text-red-300";
+    return "bg-red-500/80 text-white dark:bg-red-700/80";
   }
   if (severity === "warning") {
-    return "border-amber-300 text-amber-800 dark:border-amber-700 dark:text-amber-300";
+    return "bg-amber-400 text-amber-950 dark:bg-amber-500/80 dark:text-setta-950";
   }
-  return "border-sky-300 text-sky-700 dark:border-sky-800 dark:text-sky-300";
+  return "bg-sky-500/85 text-white dark:bg-sky-600/85";
 }
 
 function getAnnouncementEntryKey(entry: DiagnosticAnnouncementEntry): string {
@@ -152,122 +141,38 @@ export function WorkspaceItemDiagnosticAnnouncer({
   );
 }
 
-function getDiagnosticDescription(diagnostics: ReadonlyArray<WorkspaceItemDiagnostic>): string {
-  return diagnostics
+export function getWorkspaceItemDiagnosticTooltipContent(
+  diagnostics: ReadonlyArray<WorkspaceItemDiagnostic>,
+): string {
+  const severityOrder: Record<WorkspaceItemDiagnosticSeverity, number> = {
+    error: 0,
+    warning: 1,
+    info: 2,
+  };
+  return [...diagnostics]
+    .sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity])
     .map((diagnostic) => `${getSeverityLabel(diagnostic.severity)}: ${diagnostic.message}`)
-    .join(" ");
+    .join("\n\n");
 }
 
 export function WorkspaceItemDiagnostics({
   diagnostics,
-  itemLabel,
-  rowRef,
 }: {
   diagnostics: ReadonlyArray<WorkspaceItemDiagnostic>;
-  itemLabel: string;
-  rowRef: RefObject<HTMLDivElement | null>;
 }) {
-  const [displayedDiagnostics, setDisplayedDiagnostics] = useState(diagnostics);
-  const [open, setOpen] = useState(false);
-  const [direction, setDirection] = useState<WorkspaceTextDirection>("ltr");
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const instanceId = useId().replaceAll(":", "");
-  const descriptionId = `setta-item-diagnostics-description-${instanceId}`;
-  const titleId = `setta-item-diagnostics-title-${instanceId}`;
-  const incomingSignature = JSON.stringify(diagnostics);
-  const displayedSignature = JSON.stringify(displayedDiagnostics);
-
-  // Keep a focused trigger mounted for one layout phase when its last diagnostic clears. This
-  // lets the package move focus to the stable row before removing the ephemeral control.
-  useLayoutEffect(() => {
-    if (incomingSignature === displayedSignature) {
-      return;
-    }
-    if (diagnostics.length === 0) {
-      setOpen(false);
-      if (document.activeElement === triggerRef.current) {
-        rowRef.current?.focus({ preventScroll: true });
-      }
-    }
-    setDisplayedDiagnostics(diagnostics);
-  }, [diagnostics, displayedSignature, incomingSignature, rowRef]);
-
-  const displayedHighestSeverity = getHighestWorkspaceItemDiagnosticSeverity(displayedDiagnostics);
-  if (displayedDiagnostics.length === 0 || displayedHighestSeverity === null) {
+  const highestSeverity = getHighestWorkspaceItemDiagnosticSeverity(diagnostics);
+  if (diagnostics.length === 0 || highestSeverity === null) {
     return null;
   }
 
-  const resolvedLabel = itemLabel.trim() || "unnamed parameter";
-  const countSummary = getWorkspaceItemDiagnosticCountSummary(displayedDiagnostics);
-
-  function handleOpenChange(nextOpen: boolean): void {
-    if (nextOpen && triggerRef.current) {
-      setDirection(getElementTextDirection(triggerRef.current));
-    }
-    setOpen(nextOpen);
-  }
-
   return (
-    <>
-      <ControlPopover
-        contentClasses="z-[90] box-border max-h-[calc(100vh-1rem)] w-80 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-setta-200 bg-white p-3 text-sm leading-5 text-setta-700 shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-300"
-        contentProps={{
-          align: "end",
-          "aria-labelledby": titleId,
-          collisionPadding: 8,
-          onCloseAutoFocus: (event) => event.preventDefault(),
-          onOpenAutoFocus: (event) => event.preventDefault(),
-          side: "top",
-          sideOffset: 6,
-        }}
-        direction={direction}
-        onOpenChange={handleOpenChange}
-        open={open}
-        trigger={
-          <button
-            aria-describedby={descriptionId}
-            aria-label={`Show diagnostics for ${resolvedLabel}: ${countSummary}`}
-            className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION} absolute end-0.5 top-0 z-20 grid h-6 w-6 place-items-center rounded-full border bg-white/90 p-0 shadow-sm focus-visible:outline-2 focus-visible:outline-offset-1 dark:bg-setta-950/90 ${getSeverityClassName(displayedHighestSeverity)}`}
-            data-tab-native="true"
-            data-setta-workspace-item-diagnostic-severity={displayedHighestSeverity}
-            data-setta-workspace-item-diagnostic-trigger="true"
-            data-setta-workspace-touch-target="compact"
-            onClick={(event) => event.stopPropagation()}
-            onPointerDown={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-            }}
-            ref={triggerRef}
-            type="button"
-          >
-            <DiagnosticIcon severity={displayedHighestSeverity} />
-          </button>
-        }
-      >
-        <p className="mb-2 font-semibold text-setta-800 dark:text-setta-200" id={titleId}>
-          Diagnostics for {resolvedLabel}
-        </p>
-        <ul className="flex min-w-0 flex-col gap-2">
-          {displayedDiagnostics.map((diagnostic, index) => (
-            <li
-              className={`flex min-w-0 items-start gap-2 rounded-md border p-2 ${getSeverityClassName(diagnostic.severity)}`}
-              data-setta-workspace-item-diagnostic-message={diagnostic.severity}
-              key={`${diagnostic.severity}:${diagnostic.message}:${index}`}
-            >
-              <DiagnosticIcon severity={diagnostic.severity} />
-              <div className="min-w-0">
-                <p className="font-semibold">{getSeverityLabel(diagnostic.severity)}</p>
-                <p className="whitespace-pre-wrap break-words text-setta-700 dark:text-setta-300">
-                  {diagnostic.message}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </ControlPopover>
-      <span className="sr-only" id={descriptionId}>
-        {getDiagnosticDescription(displayedDiagnostics)}
-      </span>
-    </>
+    <span
+      aria-hidden="true"
+      className={`pointer-events-none absolute end-0.5 top-px z-20 grid h-[18px] w-[18px] place-items-center rounded-full ${getSeverityClassName(highestSeverity)}`}
+      data-setta-workspace-item-diagnostic-marker="true"
+      data-setta-workspace-item-diagnostic-severity={highestSeverity}
+    >
+      <DiagnosticIcon severity={highestSeverity} />
+    </span>
   );
 }

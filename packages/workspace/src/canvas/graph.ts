@@ -3,6 +3,7 @@ import type { Selection as D3Selection } from "d3-selection";
 // d3-transition dependency).
 import "d3-transition";
 import { getActiveSectionIds } from "../document/activeSections";
+import { getRootSelectedSectionIds } from "../document/sectionSelection";
 import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { Node, Viewport } from "../document/types";
 import { useSectionRefs } from "../section/sectionRefs";
@@ -37,8 +38,9 @@ export const getNodesBounds = (nodes: Array<Pick<Node, "position" | "width" | "h
 
 export function getActiveSectionsBounds(ignoreGrid = false) {
   const activeSectionIds = getActiveSectionIds();
+  const { rootIds } = getRootSelectedSectionIds(useWorkspaceDocument.getState(), activeSectionIds);
   return (
-    getSectionBounds(activeSectionIds, ignoreGrid) ?? {
+    getSectionBounds(rootIds, ignoreGrid) ?? {
       x: 0,
       y: 0,
       width: 0,

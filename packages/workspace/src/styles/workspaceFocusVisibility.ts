@@ -2,8 +2,6 @@ import { useEffect, type RefObject } from "react";
 
 const WORKSPACE_KEYBOARD_FOCUS_ATTRIBUTE = "data-workspace-keyboard-focus";
 
-const MODIFIER_ONLY_KEYS = new Set(["Alt", "Control", "Meta", "Shift"]);
-
 export function useWorkspaceFocusVisibility(rootRef: RefObject<HTMLElement | null>): void {
   useEffect(() => {
     const root = rootRef.current;
@@ -11,21 +9,34 @@ export function useWorkspaceFocusVisibility(rootRef: RefObject<HTMLElement | nul
       throw new Error("Workspace focus visibility root did not mount.");
     }
 
+    let keyboardFocusPending = false;
+
     const hideContainerFocus = (): void => {
+      keyboardFocusPending = false;
       root.removeAttribute(WORKSPACE_KEYBOARD_FOCUS_ATTRIBUTE);
     };
-    const handleKeyDown = (event: globalThis.KeyboardEvent): void => {
-      if (MODIFIER_ONLY_KEYS.has(event.key)) {
-        hideContainerFocus();
-        return;
+    const handleFocusIn = (event: FocusEvent): void => {
+      if (event.target instanceof Node && keyboardFocusPending && root.contains(event.target)) {
+        root.setAttribute(WORKSPACE_KEYBOARD_FOCUS_ATTRIBUTE, "true");
+      } else {
+        root.removeAttribute(WORKSPACE_KEYBOARD_FOCUS_ATTRIBUTE);
       }
-      root.setAttribute(WORKSPACE_KEYBOARD_FOCUS_ATTRIBUTE, "true");
+    };
+    const handleKeyDown = (): void => {
+      keyboardFocusPending = true;
+    };
+    const handleKeyUp = (): void => {
+      keyboardFocusPending = false;
     };
 
+    document.addEventListener("focusin", handleFocusIn, true);
     document.addEventListener("keydown", handleKeyDown, true);
+    document.addEventListener("keyup", handleKeyUp);
     document.addEventListener("pointerdown", hideContainerFocus, true);
     return () => {
+      document.removeEventListener("focusin", handleFocusIn, true);
       document.removeEventListener("keydown", handleKeyDown, true);
+      document.removeEventListener("keyup", handleKeyUp);
       document.removeEventListener("pointerdown", hideContainerFocus, true);
     };
   }, [rootRef]);

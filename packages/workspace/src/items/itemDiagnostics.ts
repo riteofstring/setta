@@ -162,13 +162,13 @@ export function getWorkspaceItemDiagnosticRowClassName(
   severity: WorkspaceItemDiagnosticSeverity | null,
 ): string {
   if (severity === "error") {
-    return "bg-red-100/80 ring-1 ring-inset ring-red-600/50 dark:bg-red-950/40 dark:ring-red-400/50";
+    return "bg-red-200 dark:bg-red-800/30";
   }
   if (severity === "warning") {
-    return "bg-amber-100/80 ring-1 ring-inset ring-amber-600/50 dark:bg-amber-950/40 dark:ring-amber-300/50";
+    return "bg-amber-100/60 dark:bg-amber-950/25";
   }
   if (severity === "info") {
-    return "bg-sky-100/80 ring-1 ring-inset ring-sky-600/50 dark:bg-sky-950/40 dark:ring-sky-300/50";
+    return "bg-sky-100/50 dark:bg-sky-950/20";
   }
   return "";
 }

@@ -1,7 +1,7 @@
 import _ from "lodash";
 import React, {
   useCallback,
-  useRef,
+  useId,
   type CSSProperties,
   type KeyboardEvent,
   type ReactNode,
@@ -23,6 +23,10 @@ import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { getItemOrThrow } from "../document/itemTree";
 import { useWorkspaceAppearance, useWorkspaceDocument } from "../document/stores";
 import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
+import {
+  getWorkspaceTooltipHandlers,
+  type WorkspaceTooltipTone,
+} from "../tooltip/WorkspaceTooltip";
 import { BuiltInItemRowContent } from "./BuiltInItemRowContent";
 import { ItemColumnResizeHandle } from "./ItemColumnResizeHandle";
 import {
@@ -30,7 +34,10 @@ import {
   useItemListContext,
   type ItemRowRenderContext,
 } from "./ItemListContext";
-import { WorkspaceItemDiagnostics } from "./WorkspaceItemDiagnostics";
+import {
+  getWorkspaceItemDiagnosticTooltipContent,
+  WorkspaceItemDiagnostics,
+} from "./WorkspaceItemDiagnostics";
 import {
   getHighestWorkspaceItemDiagnosticSeverity,
   getWorkspaceItemDiagnosticCountSummary,
@@ -214,7 +221,7 @@ type ItemRowStyleProps = {
 function buildItemRowStyle(dndStyle: CSSProperties, hasDiagnostics: boolean): CSSProperties {
   return {
     ...dndStyle,
-    paddingInlineEnd: hasDiagnostics ? "1.75rem" : undefined,
+    paddingInlineEnd: hasDiagnostics ? "1.375rem" : undefined,
   };
 }
 
@@ -361,6 +368,31 @@ function getItemDiagnosticSummary(
   return getWorkspaceItemDiagnosticCountSummary(diagnostics);
 }
 
+type ItemQuickInfo = {
+  content: string;
+  secondaryContent?: string;
+  title: string;
+  tone: WorkspaceTooltipTone;
+};
+
+function getItemQuickInfo(
+  item: Parameters<typeof getWorkspaceItemDiagnosticLabel>[0],
+  diagnostics: Parameters<typeof getHighestWorkspaceItemDiagnosticSeverity>[0],
+): ItemQuickInfo | null {
+  const helpText = hasWorkspaceItemPresentation(item) ? item.presentation.helpText?.trim() : null;
+  const diagnosticContent = getWorkspaceItemDiagnosticTooltipContent(diagnostics);
+  const content = diagnosticContent || helpText || "";
+  if (content === "") {
+    return null;
+  }
+  return {
+    content,
+    ...(diagnosticContent && helpText ? { secondaryContent: helpText } : {}),
+    title: getWorkspaceItemDiagnosticLabel(item),
+    tone: getHighestWorkspaceItemDiagnosticSeverity(diagnostics) ?? "default",
+  };
+}
+
 function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
   const { enabled, sectionId, listKey, visibleItemIds, itemDiagnostics, renderItem, isGroupItem } =
     useItemListContext();
@@ -389,7 +421,8 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
   const diagnostics = itemDiagnostics[itemId] ?? [];
   const highestDiagnosticSeverity = getHighestWorkspaceItemDiagnosticSeverity(diagnostics);
   const diagnosticSummary = getItemDiagnosticSummary(diagnostics);
-  const rowRef = useRef<HTMLDivElement | null>(null);
+  const quickInfo = getItemQuickInfo(rowState.item, diagnostics);
+  const quickInfoDescriptionId = `setta-item-quick-info-${useId().replaceAll(":", "")}`;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: dndId,
     disabled: !enabled,
@@ -403,14 +436,6 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       onlyChildId,
     },
   });
-  const setRowRef = useCallback(
-    (element: HTMLDivElement | null) => {
-      rowRef.current = element;
-      setNodeRef(element);
-    },
-    [setNodeRef],
-  );
-
   const renderContext = {
     sectionId,
     listKey,
@@ -444,7 +469,7 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       rowStyle={rowStyle}
       dndAttributes={omitRoleAttribute(attributes)}
       dndListeners={listeners ?? {}}
-      dndRef={setRowRef}
+      dndRef={setNodeRef}
       onClick={handleItemClick}
       onMouseDown={handleItemMouseDown}
       onKeyDown={handleItemKeyDown}
@@ -454,16 +479,117 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       itemId={itemId}
       diagnosticSeverity={highestDiagnosticSeverity}
       diagnosticSummary={diagnosticSummary}
+      quickInfo={quickInfo}
+      quickInfoDescriptionId={quickInfoDescriptionId}
     >
       {renderItemRowContent(renderContext, renderItem)}
       <ItemColumnResizeHandle itemId={itemId} />
-      <WorkspaceItemDiagnostics
-        diagnostics={diagnostics}
-        itemLabel={getWorkspaceItemDiagnosticLabel(rowState.item)}
-        rowRef={rowRef}
-      />
+      <WorkspaceItemDiagnostics diagnostics={diagnostics} />
       {layout !== "leaf" && <ItemNestedChildren renderChildren={renderChildren} />}
     </ItemRowShell>
+  );
+}
+
+function getItemQuickInfoHandlers(quickInfo: ItemQuickInfo | null) {
+  if (!quickInfo) {
+    return {};
+  }
+  return getWorkspaceTooltipHandlers({ ...quickInfo, stageOnFocus: true });
+}
+
+function getItemRowShortcuts(quickInfo: ItemQuickInfo | null, isSelectingItems: boolean): string {
+  const shortcuts = ["Shift+F10 ContextMenu"];
+  if (quickInfo) {
+    shortcuts.unshift("Q");
+  }
+  if (isSelectingItems) {
+    shortcuts.unshift("Enter Space");
+  }
+  return shortcuts.join(" ");
+}
+
+function getSelectableItemLabel({
+  diagnosticSummary,
+  isSelected,
+  isSelectingItems,
+  itemId,
+}: {
+  diagnosticSummary: string | null;
+  isSelected: boolean;
+  isSelectingItems: boolean;
+  itemId: string;
+}): string | undefined {
+  if (!isSelectingItems) {
+    return undefined;
+  }
+  const selectionLabel = isSelected ? "selected" : "not selected";
+  const diagnosticLabel = diagnosticSummary ? `, ${diagnosticSummary}` : "";
+  return `Selectable item ${itemId}, ${selectionLabel}${diagnosticLabel}`;
+}
+
+function getQuickInfoDescriptionId(
+  quickInfo: ItemQuickInfo | null,
+  isSelectingItems: boolean,
+  quickInfoDescriptionId: string,
+): string | undefined {
+  if (!quickInfo || !isSelectingItems) {
+    return undefined;
+  }
+  return quickInfoDescriptionId;
+}
+
+function getItemRowAccessibilityProps({
+  diagnosticSummary,
+  isSelected,
+  isSelectingItems,
+  itemId,
+  quickInfo,
+  quickInfoDescriptionId,
+}: {
+  diagnosticSummary: string | null;
+  isSelected: boolean;
+  isSelectingItems: boolean;
+  itemId: string;
+  quickInfo: ItemQuickInfo | null;
+  quickInfoDescriptionId: string;
+}): React.HTMLAttributes<HTMLDivElement> {
+  return {
+    "aria-describedby": getQuickInfoDescriptionId(
+      quickInfo,
+      isSelectingItems,
+      quickInfoDescriptionId,
+    ),
+    "aria-keyshortcuts": getItemRowShortcuts(quickInfo, isSelectingItems),
+    "aria-label": getSelectableItemLabel({
+      diagnosticSummary,
+      isSelected,
+      isSelectingItems,
+      itemId,
+    }),
+    role: isSelectingItems ? "group" : undefined,
+    tabIndex: isSelectingItems ? 0 : -1,
+  };
+}
+
+function ItemQuickInfoDescription({
+  descriptionId,
+  quickInfo,
+}: {
+  descriptionId: string;
+  quickInfo: ItemQuickInfo | null;
+}) {
+  if (!quickInfo) {
+    return null;
+  }
+  const secondaryContent = quickInfo.secondaryContent ? ` ${quickInfo.secondaryContent}` : "";
+  return (
+    <span
+      className="sr-only"
+      data-setta-workspace-item-quick-info-description="true"
+      id={descriptionId}
+    >
+      {`${quickInfo.title}: ${quickInfo.content}${secondaryContent}`}
+    </span>
   );
 }
 
@@ -482,6 +608,8 @@ function ItemRowShell({
   itemId,
   diagnosticSeverity,
   diagnosticSummary,
+  quickInfo,
+  quickInfoDescriptionId,
   children,
 }: {
   rowClassName: string;
@@ -498,8 +626,19 @@ function ItemRowShell({
   itemId: string;
   diagnosticSeverity: WorkspaceItemDiagnosticSeverity | null;
   diagnosticSummary: string | null;
+  quickInfo: ItemQuickInfo | null;
+  quickInfoDescriptionId: string;
   children: ReactNode;
 }) {
+  const quickInfoHandlers = getItemQuickInfoHandlers(quickInfo);
+  const accessibilityProps = getItemRowAccessibilityProps({
+    diagnosticSummary,
+    isSelected,
+    isSelectingItems,
+    itemId,
+    quickInfo,
+    quickInfoDescriptionId,
+  });
   function handleContextMenu(event: React.MouseEvent<HTMLDivElement>): void {
     if (shouldRetainNativeContextMenu(event.target, event.currentTarget)) {
       event.stopPropagation();
@@ -555,22 +694,15 @@ function ItemRowShell({
       ref={dndRef}
       {...(dndAttributes as React.HTMLAttributes<HTMLDivElement>)}
       {...(dndListeners as React.HTMLAttributes<HTMLDivElement>)}
-      role={isSelectingItems ? "group" : undefined}
-      aria-label={
-        isSelectingItems
-          ? `Selectable item ${itemId}, ${isSelected ? "selected" : "not selected"}${
-              diagnosticSummary ? `, ${diagnosticSummary}` : ""
-            }`
-          : undefined
-      }
-      aria-keyshortcuts={
-        [isSelectingItems ? "Enter Space" : null, "Shift+F10 ContextMenu"]
-          .filter(Boolean)
-          .join(" ") || undefined
-      }
-      tabIndex={isSelectingItems ? 0 : -1}
+      {...quickInfoHandlers}
+      aria-describedby={accessibilityProps["aria-describedby"]}
+      aria-keyshortcuts={accessibilityProps["aria-keyshortcuts"]}
+      aria-label={accessibilityProps["aria-label"]}
+      role={accessibilityProps.role}
+      tabIndex={accessibilityProps.tabIndex}
     >
       {children}
+      <ItemQuickInfoDescription descriptionId={quickInfoDescriptionId} quickInfo={quickInfo} />
     </div>
   );
 }

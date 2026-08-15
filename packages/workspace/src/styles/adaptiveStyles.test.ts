@@ -80,12 +80,18 @@ describe("workspace adaptive stylesheet contract", () => {
     );
   });
 
-  it("keeps modifier-only keys from exposing the full canvas focus surface", () => {
+  it("keeps unrelated shortcuts from exposing the full canvas focus surface", () => {
     expect(focusVisibilityStyles).toMatch(
       /\.setta-workspace \.react-flow__pane:focus-visible\s*\{[^}]*outline: none/su,
     );
     expect(focusVisibilityStyles).toContain(
       '[data-workspace-keyboard-focus="true"] .react-flow__pane:focus',
+    );
+  });
+
+  it("matches the reference selection surface without a second browser focus outline", () => {
+    expect(focusVisibilityStyles).toMatch(
+      /\.react-flow__nodesselection-rect:focus,[\s\S]*\.react-flow__selection:focus-visible\s*\{[^}]*outline: none/su,
     );
   });
 

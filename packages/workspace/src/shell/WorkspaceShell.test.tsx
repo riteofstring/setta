@@ -237,21 +237,27 @@ describe("WorkspaceShell", () => {
     expect(host.querySelector('[data-testid="workspace-tooltip"]')).not.toBeNull();
   });
 
-  it("shows large-surface focus only after a meaningful keyboard event", async () => {
+  it("shows large-surface focus only when keyboard input moves focus", async () => {
     const shell = getShell();
 
-    await act(async () => {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
-    });
-    expect(shell.getAttribute("data-workspace-keyboard-focus")).toBe("true");
+    for (const key of ["q", "a"]) {
+      await act(async () => {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key }));
+        document.dispatchEvent(new KeyboardEvent("keyup", { key }));
+      });
+      expect(shell.hasAttribute("data-workspace-keyboard-focus")).toBe(false);
+    }
 
     await act(async () => {
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "Shift" }));
+      document.dispatchEvent(new KeyboardEvent("keyup", { key: "Shift" }));
     });
     expect(shell.hasAttribute("data-workspace-keyboard-focus")).toBe(false);
 
     await act(async () => {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "F10", shiftKey: true }));
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
+      getButton("Notes").focus();
+      document.dispatchEvent(new KeyboardEvent("keyup", { key: "Tab" }));
     });
     expect(shell.getAttribute("data-workspace-keyboard-focus")).toBe("true");
 
