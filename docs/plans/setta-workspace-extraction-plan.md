@@ -1876,6 +1876,15 @@ Phase 4 progress (2026-08-11):
   audit without claiming visual approval or refreshing baselines. The same combined developer gate
   remains required and incomplete until the developer explicitly accepts the re-presented live
   evidence; it is not waived or converted into a release gate.
+- Workspace-shell Inspector gate feedback recorded (2026-08-13): the developer found the built-in
+  selected-item `Value` editor redundant with the canonical live value control already rendered in
+  the section on the canvas. Remove that row from the package-owned Inspector while retaining the
+  item label, ordinary UI-type selector, and type-specific configuration editors. Typed host
+  Inspector contributions remain available for hosts that deliberately want a different editing
+  surface. This explicit decision supersedes the earlier milestone wording that required the
+  built-in Inspector to edit an item's value. Re-run focused Inspector coverage and the required
+  implementation audit before re-presenting the same combined developer gate; no visual approval
+  or baseline refresh is claimed here.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
@@ -2745,9 +2754,10 @@ The right Inspector tab changes with canonical selection:
 - for one section, edit the package-owned name, style accent, lock/minimize state, resolved size and
   auto-size values, and group orientation; show kind as identity rather than pretending it can be
   changed safely;
-- for one selected typed item, edit its label and value, choose among the ordinary UI types, and
-  edit only that type's valid configuration (for example slider min/max/step, dropdown choices,
-  CodeMirror language/autocomplete policy, date/time mode and format, or color choices);
+- for one selected typed item, edit its label, choose among the ordinary UI types, and edit only
+  that type's valid configuration (for example slider min/max/step, dropdown choices, CodeMirror
+  language/autocomplete policy, date/time mode and format, or color choices). The canonical live
+  value control remains in the section on the canvas and is not duplicated in the Inspector;
 - for a custom registered kind or item, render a typed host inspector contribution if registered,
   otherwise show the package's explicit unsupported-custom-content state; and
 - for multiple selected sections, expose only capability-valid common actions: lock/unlock, delete,
