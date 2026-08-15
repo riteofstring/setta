@@ -9,6 +9,7 @@ import {
 import { WorkspaceMenuLayer } from "../context-menu/WorkspaceMenuLayer";
 import { SectionDndContext } from "../dnd/SectionDndContext";
 import { ResponsiveMiniMap } from "../minimap/ResponsiveMiniMap";
+import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { useCanvasViewportDocumentSync } from "./documentViewportSync";
 import FlowRenderer from "./FlowRenderer";
@@ -48,6 +49,8 @@ export function WorkspaceCanvas() {
   const [initialized, setInitialized] = useState(false);
   const wrapperDimensions = useWrapperDivDimensions(ref);
   const workspaceScopeClassName = useWorkspaceScopeClassName();
+  const focusVisibilityRootRef = useRef<HTMLDivElement>(null);
+  useWorkspaceFocusVisibility(focusVisibilityRootRef);
   useCanvasKeyActivations();
   useCanvasViewportDocumentSync();
 
@@ -68,6 +71,7 @@ export function WorkspaceCanvas() {
       className={workspaceScopeClassName}
       role="region"
       aria-label="Workspace canvas"
+      ref={focusVisibilityRootRef}
     >
       <div
         style={wrapperStyle}

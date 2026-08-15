@@ -15,6 +15,7 @@ import { TbListTree } from "react-icons/tb";
 import { WorkspaceCanvas } from "../canvas/WorkspaceCanvas";
 import { useReactFlow } from "../canvas/store";
 import { resolveSectionTagColorPalette } from "../section/sectionTagColors";
+import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { WorkspaceControls } from "../toolbar/WorkspaceControls";
 import { WorkspaceTooltip } from "../tooltip/WorkspaceTooltip";
@@ -290,6 +291,7 @@ export function WorkspaceShell({
   const rootRef = useRef<HTMLElement>(null);
   const centerRef = useRef<HTMLDivElement>(null);
   const instanceId = `workspace-shell-${useId().replaceAll(":", "")}`;
+  useWorkspaceFocusVisibility(rootRef);
   const [shellWidth, setShellWidth] = useState(0);
   const [liveViewState, setLiveViewState] = useState<WorkspaceShellViewState | null>(null);
   const resolvedSectionTagColorPalette = useMemo(

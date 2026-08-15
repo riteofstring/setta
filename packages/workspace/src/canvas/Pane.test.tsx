@@ -82,16 +82,6 @@ describe("Pane context-menu ownership", () => {
     return pane;
   }
 
-  async function renderPane(isSelecting: boolean): Promise<void> {
-    await act(async () => {
-      root.render(
-        <Pane isSelecting={isSelecting}>
-          <span data-testid="pane-child">Child</span>
-        </Pane>,
-      );
-    });
-  }
-
   it("opens only from the background pointer surface at the transformed coordinate", async () => {
     const pane = getPane();
     const pointerEvent = new MouseEvent("contextmenu", {
@@ -138,54 +128,5 @@ describe("Pane context-menu ownership", () => {
       clientPoint: { x: 408, y: 64 },
       direction: "rtl",
     });
-  });
-
-  it("keeps Shift invisible and clears a pending marquee when Shift releases before mouseup", async () => {
-    await renderPane(true);
-    let pane = getPane();
-
-    expect(host.querySelector(".react-flow__selection")).toBeNull();
-    await act(async () => {
-      pane.dispatchEvent(
-        new MouseEvent("mousedown", {
-          bubbles: true,
-          button: 0,
-          buttons: 1,
-          clientX: 140,
-          clientY: 90,
-        }),
-      );
-    });
-    expect(useReactFlow.getState().userSelectionRect).not.toBeNull();
-
-    await renderPane(false);
-    pane = getPane();
-    await act(async () => {
-      pane.dispatchEvent(
-        new MouseEvent("mouseup", {
-          bubbles: true,
-          button: 0,
-          buttons: 0,
-          clientX: 140,
-          clientY: 90,
-        }),
-      );
-    });
-    expect(useReactFlow.getState().userSelectionRect).toBeNull();
-
-    await renderPane(true);
-    pane = getPane();
-    await act(async () => {
-      pane.dispatchEvent(
-        new MouseEvent("mousemove", {
-          bubbles: true,
-          buttons: 0,
-          clientX: 600,
-          clientY: 500,
-        }),
-      );
-    });
-    expect(useReactFlow.getState().userSelectionActive).toBe(false);
-    expect(host.querySelector(".react-flow__selection")).toBeNull();
   });
 });

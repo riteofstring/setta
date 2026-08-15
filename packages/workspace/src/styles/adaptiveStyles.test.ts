@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const workspaceStyles = readFileSync(new URL("./workspace.css", import.meta.url), "utf8");
+const focusVisibilityStyles = readFileSync(
+  new URL("./workspaceFocusVisibility.css", import.meta.url),
+  "utf8",
+);
 
 describe("workspace adaptive stylesheet contract", () => {
   it("opts package motion in and neutralizes retained inline sortable motion", () => {
@@ -64,9 +68,24 @@ describe("workspace adaptive stylesheet contract", () => {
     expect(workspaceStyles).toContain(
       ".setta-workspace-outline-item:focus-visible .setta-workspace-outline-row",
     );
+    expect(focusVisibilityStyles).toMatch(
+      /\.setta-workspace-outline:focus-visible\s*\{[^}]*outline: none/su,
+    );
+    expect(focusVisibilityStyles).toContain(
+      '[data-workspace-keyboard-focus="true"] .setta-workspace-outline:focus',
+    );
     expect(workspaceStyles).toContain("@media (forced-colors: active)");
     expect(workspaceStyles).toMatch(
       /@media \(prefers-reduced-motion: no-preference\)[^{]*\{[^}]*\.setta-workspace-outline-disclosure svg/su,
+    );
+  });
+
+  it("keeps modifier-only keys from exposing the full canvas focus surface", () => {
+    expect(focusVisibilityStyles).toMatch(
+      /\.setta-workspace \.react-flow__pane:focus-visible\s*\{[^}]*outline: none/su,
+    );
+    expect(focusVisibilityStyles).toContain(
+      '[data-workspace-keyboard-focus="true"] .react-flow__pane:focus',
     );
   });
 

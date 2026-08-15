@@ -1,0 +1,16 @@
+/* Chromium treats modifier-only keys as a request to expose :focus-visible on the element that
+ * already owns focus. Large canvas and tree surfaces use the workspace's explicit input modality
+ * instead, so Shift alone cannot paint a full-surface ring while genuine keyboard navigation can. */
+.setta-workspace .react-flow__pane:focus-visible {
+  outline: none;
+}
+
+.setta-workspace-outline:focus-visible {
+  outline: none;
+}
+
+[data-workspace-keyboard-focus="true"] .react-flow__pane:focus,
+[data-workspace-keyboard-focus="true"] .setta-workspace-outline:focus {
+  outline: 2px solid rgb(37 99 235);
+  outline-offset: -2px;
+}

@@ -36,22 +36,13 @@ const wrapHandler = (
   };
 };
 
-const userSelectionActiveSelector = (state: ReactFlowState) => state.userSelectionActive;
-const pendingUserSelectionSelector = (state: ReactFlowState) => state.userSelectionRect !== null;
-
-function canMoveUserSelection(
-  isSelecting: boolean,
-  containerBounds: DOMRect | undefined,
-): containerBounds is DOMRect {
-  return isSelecting && containerBounds !== undefined;
-}
+const selector = (s: ReactFlowState) => s.userSelectionActive;
 
 const Pane = memo(({ isSelecting, children }: PaneProps) => {
   const container = useRef<HTMLDivElement | null>(null);
   const prevSelectedNodesCount = useRef<number>(0);
   const containerBounds = useRef<DOMRect | undefined>(undefined);
-  const userSelectionActive = useReactFlow(userSelectionActiveSelector);
-  const hasPendingUserSelection = useReactFlow(pendingUserSelectionSelector);
+  const userSelectionActive = useReactFlow(selector);
 
   const resetUserSelection = () => {
     useReactFlow.setState({
@@ -103,15 +94,7 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
 
   const onMouseMove = (event: ReactMouseEvent): void => {
     const { userSelectionRect, transform } = useReactFlow.getState();
-    const bounds = containerBounds.current;
-    if (!userSelectionRect) {
-      return;
-    }
-    if ((event.buttons & 1) === 0) {
-      resetUserSelection();
-      return;
-    }
-    if (!canMoveUserSelection(isSelecting, bounds)) {
+    if (!isSelecting || !containerBounds.current || !userSelectionRect) {
       return;
     }
 
@@ -120,7 +103,7 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
       nodesSelectionDims: null,
     });
 
-    const mousePos = getEventPosition(event, bounds);
+    const mousePos = getEventPosition(event, containerBounds.current);
     const startX = userSelectionRect.startX ?? 0;
     const startY = userSelectionRect.startY ?? 0;
 
@@ -202,7 +185,7 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
     event.stopPropagation();
   };
 
-  const hasActiveSelection = isSelecting || userSelectionActive || hasPendingUserSelection;
+  const hasActiveSelection = isSelecting || userSelectionActive;
 
   // The canvas pane owns background selection gestures and Escape without presenting itself as a
   // false button.

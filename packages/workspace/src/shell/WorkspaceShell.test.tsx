@@ -237,6 +237,30 @@ describe("WorkspaceShell", () => {
     expect(host.querySelector('[data-testid="workspace-tooltip"]')).not.toBeNull();
   });
 
+  it("shows large-surface focus only after a meaningful keyboard event", async () => {
+    const shell = getShell();
+
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
+    });
+    expect(shell.getAttribute("data-workspace-keyboard-focus")).toBe("true");
+
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Shift" }));
+    });
+    expect(shell.hasAttribute("data-workspace-keyboard-focus")).toBe(false);
+
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "F10", shiftKey: true }));
+    });
+    expect(shell.getAttribute("data-workspace-keyboard-focus")).toBe("true");
+
+    await act(async () => {
+      document.dispatchEvent(new MouseEvent("pointerdown"));
+    });
+    expect(shell.hasAttribute("data-workspace-keyboard-focus")).toBe(false);
+  });
+
   it("prepends the built-in Outline and focuses its empty tree when opened", async () => {
     await act(async () => {
       getButton("Outline").dispatchEvent(new MouseEvent("click", { bubbles: true }));
