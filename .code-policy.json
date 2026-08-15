@@ -149,15 +149,6 @@
   },
   "exceptions": [
     {
-      "id": "workspace-extraction-plan-length",
-      "check": "quality.fileLength",
-      "path": "docs/plans/setta-workspace-extraction-plan.md",
-      "subject": "3145",
-      "reason": "The single active extraction plan is intentionally comprehensive and documentation-only; split it without changing its authority before expiry.",
-      "owner": "workspace-extraction",
-      "expires": "2026-08-20"
-    },
-    {
       "id": "zoom-pane-parity-owner-length",
       "check": "quality.fileLength",
       "path": "packages/workspace/src/canvas/ZoomPane.tsx",
