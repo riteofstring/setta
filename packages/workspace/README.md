@@ -208,10 +208,11 @@ direct hosts. It accepts `null` to reset to none and canonicalizes a six-digit R
 one document write and one notification. It rejects unavailable layout capability, a locked or
 missing section, and malformed color input before writing. `DEFAULT_SECTION_TAG_COLOR_PALETTE`
 exports frozen main's Red, Orange, Yellow, Green, Cyan, Blue, Purple, and Slate categories. A
-`WorkspaceShell` host may replace the complete Inspector palette with non-empty, uniquely colored,
-named categories; the package validates and freezes that input, while reusable palette editing and
-persistence remain host-owned. A valid document color outside the current palette stays visible as
-an explicit Custom choice rather than silently selecting another category.
+`WorkspaceShell` host may replace the complete Inspector palette with uniquely colored, named
+categories, including an empty host-owned set; the package validates and freezes that input, while
+reusable palette editing and persistence remain host-owned. A valid document color outside the
+current palette stays visible as an explicit Custom choice rather than silently selecting another
+category.
 
 Custom interactive renderer content uses only the four exported interaction-boundary constants:
 `NO_DRAG_CLASS_NAME` prevents section/item drag activation and `NO_PAN_CLASS_NAME` preserves the

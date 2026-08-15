@@ -7,7 +7,7 @@
   },
   "capture": {
     "browserSurface": "connected Google Chrome",
-    "format": "png",
+    "format": "jpeg",
     "desktopViewport": {
       "width": 1512,
       "height": 861
@@ -22,43 +22,43 @@
     }
   },
   "screenshots": {
-    "01-accepted-structure-dark-1512x861.png": {
+    "01-accepted-structure-dark-1512x861.jpg": {
       "width": 1512,
       "height": 861,
       "bytes": 147788,
       "sha256": "b39ea9d34eb455f1b8ff3926f8098357bd76da4780c2e88024bf6c61cd310c64"
     },
-    "02-accepted-structure-light-1512x861.png": {
+    "02-accepted-structure-light-1512x861.jpg": {
       "width": 1512,
       "height": 861,
       "bytes": 154346,
       "sha256": "8f61768e579fb16158a2b7c3d96361d274d2bdacaccc94b1db40d566f4c910ab"
     },
-    "03-group-header-menu-dark-1512x861.png": {
+    "03-group-header-menu-dark-1512x861.jpg": {
       "width": 1512,
       "height": 861,
       "bytes": 149744,
       "sha256": "656bd164bb75732cbb45760f59119e7e329f6d697d1d3e81b5d3d2f4ad3fc829"
     },
-    "04-group-inspector-bounded-dark-1512x861.png": {
+    "04-group-inspector-bounded-dark-1512x861.jpg": {
       "width": 1512,
       "height": 861,
       "bytes": 147362,
       "sha256": "d60c216ca4df6498f76add37bdcee0290bd2ee3403bacb19904d7a7c71e5ddd0"
     },
-    "05-section-tag-color-editor-light-1512x861.png": {
+    "05-section-tag-color-editor-light-1512x861.jpg": {
       "width": 1512,
       "height": 861,
       "bytes": 151289,
       "sha256": "cd40a779005a82412e11a335b6e368dca02bb1e2237e538885ac159e002b5f8e"
     },
-    "06-compact-group-menu-dark-320x861.png": {
+    "06-compact-group-menu-dark-320x861.jpg": {
       "width": 320,
       "height": 861,
       "bytes": 32574,
       "sha256": "6c9c4330546269a9fc518f05e27020922ef783c90e88b794c7229c0ab2488ace"
     },
-    "07-accepted-structure-dark-756x431-effective-200-percent.png": {
+    "07-accepted-structure-dark-756x431-effective-200-percent.jpg": {
       "width": 756,
       "height": 431,
       "bytes": 40152,

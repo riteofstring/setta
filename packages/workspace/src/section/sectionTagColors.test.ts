@@ -35,8 +35,14 @@ describe("section tag colors", () => {
     expect(resolved.every(Object.isFrozen)).toBe(true);
   });
 
+  it("accepts an empty host-owned palette", () => {
+    const resolved = resolveSectionTagColorPalette([]);
+
+    expect(resolved).toEqual([]);
+    expect(Object.isFrozen(resolved)).toBe(true);
+  });
+
   it("rejects incomplete, ambiguous, or unpaintable host categories", () => {
-    expect(() => resolveSectionTagColorPalette([])).toThrow(/at least one category/);
     expect(() => resolveSectionTagColorPalette([{ color: "blue", description: "Blue" }])).toThrow(
       /six-digit hex color/,
     );

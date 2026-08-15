@@ -48,8 +48,8 @@ export function resolveSectionTagColorPalette(
   if (palette === undefined) {
     return DEFAULT_SECTION_TAG_COLOR_PALETTE;
   }
-  if (!Array.isArray(palette) || palette.length === 0) {
-    throw new Error("Workspace section tag color palette must contain at least one category.");
+  if (!Array.isArray(palette)) {
+    throw new Error("Workspace section tag color palette must be an array.");
   }
   const colors = new Set<string>();
   const resolved = palette.map((choice, index) => {

@@ -290,6 +290,23 @@ describe("WorkspaceInspector", () => {
     expect(host.textContent).toContain("Custom · #abcdef");
   });
 
+  it("represents a document color when the host palette is empty", async () => {
+    await renderInspector(
+      createDocument(["alpha"], {
+        alpha: makeSection("alpha", { name: "Alpha", tagColor: "#abcdef" }),
+      }),
+      [],
+    );
+
+    const colorTag = getLabeledControl<HTMLSelectElement>(host, "Color tag");
+    expect(colorTag.value).toBe("#abcdef");
+    expect(Array.from(colorTag.options).map((option) => option.textContent)).toEqual([
+      "None",
+      "Custom (#abcdef)",
+    ]);
+    expect(host.textContent).toContain("Custom · #abcdef");
+  });
+
   it("omits the canvas-owned value editor while keeping Inspector configuration editable", async () => {
     const onChange = vi.fn();
     setWorkspaceDocumentChangeCallback(onChange);

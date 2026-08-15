@@ -18,7 +18,7 @@ developer visual approval.
   post-acceptance package recording.
 - Built surface: fresh `@setta/workspace` and playground production builds served from
   `apps/playground/dist` at `http://127.0.0.1:4173/`.
-- Browser surface: connected Google Chrome with CSS-viewport-sized PNG captures.
+- Browser surface: connected Google Chrome with CSS-viewport-sized JPEG captures.
 - Capture date: 2026-08-14 in `America/Los_Angeles`.
 - Chrome reported no warning or error, dialog, or URL drift during the focused browser gate.
 
@@ -31,13 +31,13 @@ locks the same reflow boundary without claiming to repeat or replace the complet
 
 | File                                                                                                                                       | State                                                                                        |
 | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| [`01-accepted-structure-dark-1512x861.png`](screenshots/01-accepted-structure-dark-1512x861.png)                                           | Accepted nested structure and supplementary color tags in dark appearance                    |
-| [`02-accepted-structure-light-1512x861.png`](screenshots/02-accepted-structure-light-1512x861.png)                                         | The same accepted structure in light appearance                                              |
-| [`03-group-header-menu-dark-1512x861.png`](screenshots/03-group-header-menu-dark-1512x861.png)                                             | Root group header menu with package actions followed by compatible host actions              |
-| [`04-group-inspector-bounded-dark-1512x861.png`](screenshots/04-group-inspector-bounded-dark-1512x861.png)                                 | Selected root group Inspector with bounded overflow, ungroup, and size controls              |
-| [`05-section-tag-color-editor-light-1512x861.png`](screenshots/05-section-tag-color-editor-light-1512x861.png)                             | Selected leaf and host-extended color-tag editor in light appearance                         |
-| [`06-compact-group-menu-dark-320x861.png`](screenshots/06-compact-group-menu-dark-320x861.png)                                             | Compact 320 px host with the complete group menu kept inside the viewport                    |
-| [`07-accepted-structure-dark-756x431-effective-200-percent.png`](screenshots/07-accepted-structure-dark-756x431-effective-200-percent.png) | Dark responsive layout at the desktop surface's effective 200%-scale CSS viewport dimensions |
+| [`01-accepted-structure-dark-1512x861.jpg`](screenshots/01-accepted-structure-dark-1512x861.jpg)                                           | Accepted nested structure and supplementary color tags in dark appearance                    |
+| [`02-accepted-structure-light-1512x861.jpg`](screenshots/02-accepted-structure-light-1512x861.jpg)                                         | The same accepted structure in light appearance                                              |
+| [`03-group-header-menu-dark-1512x861.jpg`](screenshots/03-group-header-menu-dark-1512x861.jpg)                                             | Root group header menu with package actions followed by compatible host actions              |
+| [`04-group-inspector-bounded-dark-1512x861.jpg`](screenshots/04-group-inspector-bounded-dark-1512x861.jpg)                                 | Selected root group Inspector with bounded overflow, ungroup, and size controls              |
+| [`05-section-tag-color-editor-light-1512x861.jpg`](screenshots/05-section-tag-color-editor-light-1512x861.jpg)                             | Selected leaf and host-extended color-tag editor in light appearance                         |
+| [`06-compact-group-menu-dark-320x861.jpg`](screenshots/06-compact-group-menu-dark-320x861.jpg)                                             | Compact 320 px host with the complete group menu kept inside the viewport                    |
+| [`07-accepted-structure-dark-756x431-effective-200-percent.jpg`](screenshots/07-accepted-structure-dark-756x431-effective-200-percent.jpg) | Dark responsive layout at the desktop surface's effective 200%-scale CSS viewport dimensions |
 
 Exact screenshot hashes, built-artifact hashes, geometry, menu contents, palette contents, and
 overflow facts are in [`computed/package-baseline-metrics.json`](computed/package-baseline-metrics.json).

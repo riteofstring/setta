@@ -5,7 +5,7 @@
 The standalone `@setta/workspace` extraction and its original UX are complete and
 developer-accepted. The remaining product work is three UX milestones:
 
-- [ ] Milestone A — structural section and group authoring.
+- [x] Milestone A — structural section and group authoring.
 - [ ] Milestone B — parameter authoring and feedback.
 - [ ] Milestone C — workspace commands and toolbar extensions.
 
@@ -67,10 +67,10 @@ plan.
 
 ## Milestone A — structural section and group authoring
 
-**Status: A1–A4 repository work, the combined developer acceptance gate, and the accepted-output
-baseline are complete. The developer accepted Milestone A on 2026-08-14; the baseline is locked
-under `docs/evidence/milestone-a/`, including the post-acceptance atomic ungroup notification
-correction. The milestone audit remains.**
+**Status: A1–A4 repository work, the combined developer acceptance gate, the accepted-output
+baseline, and the phase audit are complete. The developer accepted Milestone A on 2026-08-14; the
+baseline is locked under `docs/evidence/milestone-a/`, including the post-acceptance atomic ungroup
+notification correction.**
 
 Complete the generic section and group operations already implied by the package document,
 Inspector, context menus, and action registry.
