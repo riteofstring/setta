@@ -17,6 +17,7 @@ type WorkspaceOutlineBranchProps = {
   effectiveFocusId: string | null;
   node: WorkspaceOutlineNode;
   onClick: (event: MouseEvent<HTMLDivElement>, sectionId: string) => void;
+  onContextMenu: (event: MouseEvent<HTMLDivElement>, sectionId: string) => void;
   onFocus: (sectionId: string) => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>, entry: WorkspaceOutlineEntry) => void;
   registerRow: (sectionId: string, element: HTMLDivElement | null) => void;
@@ -111,7 +112,9 @@ function WorkspaceOutlineRow(props: WorkspaceOutlineBranchProps & { isCollapsed:
       aria-setsize={node.setSize}
       className="setta-workspace-outline-item"
       data-workspace-outline-item={section.id}
+      aria-keyshortcuts="Enter Space Shift+F10 ContextMenu"
       onClick={(event) => props.onClick(event, section.id)}
+      onContextMenu={(event) => props.onContextMenu(event, section.id)}
       onFocus={() => props.onFocus(section.id)}
       onKeyDown={(event) => props.onKeyDown(event, node)}
       ref={(element) => props.registerRow(section.id, element)}

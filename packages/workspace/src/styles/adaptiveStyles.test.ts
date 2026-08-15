@@ -50,4 +50,18 @@ describe("workspace adaptive stylesheet contract", () => {
       /@media \(prefers-reduced-motion: no-preference\)[^{]*\{[^}]*\.setta-workspace-outline-disclosure svg/su,
     );
   });
+
+  it("keeps portaled menus compact, bounded, scoped, and keyboard-visible", () => {
+    expect(workspaceStyles).toMatch(
+      /\.setta-workspace-menu\s*\{[^}]*width: clamp\(5rem, 20vw, 10rem\)/su,
+    );
+    expect(workspaceStyles).toMatch(/\.setta-workspace-menu\s*\{[^}]*max-height: 40vh/su);
+    expect(workspaceStyles).toMatch(/\.setta-workspace-menu-item\s*\{[^}]*min-height: 24px/su);
+    expect(workspaceStyles).toMatch(
+      /\.setta-workspace-menu-item::before\s*\{[^}]*height: 20\.8px/su,
+    );
+    expect(workspaceStyles).toContain(".setta-workspace-menu-item:focus-visible");
+    expect(workspaceStyles).toContain("padding-inline: 20px 0");
+    expect(workspaceStyles).not.toMatch(/\.setta-workspace-menu[^}]*transition/su);
+  });
 });

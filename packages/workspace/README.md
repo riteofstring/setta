@@ -111,6 +111,56 @@ the owning section kind receives a read-only `WorkspaceInspectorContributionCont
 shows an explicit unsupported state. The Inspector owns inline validation, Escape restoration for
 its configuration fields, and a persistent polite mutation/selection status.
 
+## Context-menu extensions
+
+The canvas mounts package-owned pane, section, selection, item, and Outline menus. Register the
+complete host-owned command and action sets before mounting the canvas. Each registration call
+replaces its prior set, matching the package's other registries.
+
+```tsx
+registerWorkspaceCreationCommands([
+  {
+    id: "host-note",
+    label: "Note",
+    group: "Host",
+    createSection: ({ workspacePosition }) => ({
+      id: crypto.randomUUID(),
+      kind: "note",
+      name: "Note",
+      data: { text: `Created at ${workspacePosition.x}, ${workspacePosition.y}` },
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isHorizontalOrientation: false,
+      styleColor: null,
+      tagColor: null,
+      children: [],
+    }),
+  },
+]);
+
+registerWorkspaceMenuActions([
+  {
+    id: "host-section-details",
+    scope: "section",
+    label: "Show host details",
+    onSelect: ({ section, selectedSections }) =>
+      showHostDetails(
+        section.id,
+        selectedSections.map(({ id }) => id),
+      ),
+  },
+]);
+```
+
+Creation factories receive the invocation point already converted into workspace coordinates. The
+package validates the returned top-level section, resolves its registered default size, inserts and
+selects it through one atomic document commit, and reports one document change. Additional actions
+may target `pane`, `section`, `item`, or `outline`; callbacks receive a deeply frozen public snapshot
+and no package store or private selector. The package retains native context menus for inputs,
+editors, links, buttons, and explicit no-drag surfaces. Other menu owners support pointer,
+Context Menu key, and Shift+F10 invocation with viewport-edge placement, Escape dismissal, and
+focus restoration.
+
 Custom interactive renderer content uses only the four exported interaction-boundary constants:
 `NO_DRAG_CLASS_NAME` prevents section/item drag activation and `NO_PAN_CLASS_NAME` preserves the
 element's pointer interaction. `NO_WHEEL_CLASS_NAME` preserves browser-native wheel behavior such
@@ -124,6 +174,11 @@ React and React DOM are host-provided peers with the documented compatible range
 the frozen product reference runs `react 19.1.1`, and the package uses React 19 ref-as-prop
 components, so React 18 and below are not supported. All other runtime dependencies are
 exact-pinned under the repository dependency policy.
+
+The menu primitive is exact-pinned at `@radix-ui/react-dropdown-menu 2.1.15`. Frozen main uses
+`2.1.2`, but that release resolves `react-remove-scroll 2.6.0`, whose peer range excludes the
+package's React 19 host contract. The retained patch release preserves the same menu primitive while
+resolving the React-19-compatible `react-remove-scroll 2.7.2` graph.
 
 ## Appearance and semantic color
 

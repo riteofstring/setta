@@ -12,6 +12,7 @@ import {
   type WorkspaceShellTabIconProps,
 } from "@setta/workspace";
 import { useEffect, useState } from "react";
+import { PlaygroundMenuActionReadout } from "./menuExtensions";
 import { playgroundDocument } from "./playgroundDocument";
 
 function toggleDarkMode() {
@@ -180,7 +181,9 @@ export function App() {
           moves the selection, Tab and Shift+Tab indent and unindent it, and Escape clears it.
           Reload restores the loaded document and camera in place without counting as a change. The
           built-in Outline and Inspector tabs project selection directly; host notes, status, and
-          help remain registered pane extensions.
+          help remain registered pane extensions. Right-click the canvas to create a host section,
+          or open canvas, section, item, and Outline menus with Shift+F10.{" "}
+          <PlaygroundMenuActionReadout />
         </p>
       </header>
       <div className="playground-workspace flex min-h-0 min-w-0 flex-1">

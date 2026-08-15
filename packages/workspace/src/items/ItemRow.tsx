@@ -1,6 +1,13 @@
 import _ from "lodash";
 import React, { useCallback, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { useReactFlow } from "../canvas/store";
+import { openWorkspaceItemMenu } from "../context-menu/workspaceMenuInvocation";
+import {
+  getOwnerKeyboardMenuPoint,
+  isWorkspaceMenuKeyboardEvent,
+  shouldRetainNativeContextMenu,
+} from "../context-menu/workspaceMenuOwnership";
+import { getWorkspaceMenuActions } from "../context-menu/workspaceMenuRegistry";
 import { useSortable } from "../dnd/adapter";
 import { applyZoomToTransform, transformToString } from "../dnd/adapter/zoom";
 import { getItemDndId, isTempItem, useItemDndState } from "../dnd/itemDndState";
@@ -336,6 +343,7 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
   );
   const { handleItemClick, handleItemMouseDown, handleItemKeyDown, isSelectingItems } =
     useItemSelectionHandlers(sectionId, itemId);
+  const hasItemMenuActions = getWorkspaceMenuActions("item").length > 0;
   const visibleChildren = rowState.item.children.filter((childId) => visibleItemIds.has(childId));
   const renderChildren = useItemDndChildrenForParent(itemId, visibleChildren);
   const dndId = getItemDndId(itemId, listKey);
@@ -391,6 +399,8 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       onClick={handleItemClick}
       onMouseDown={handleItemMouseDown}
       onKeyDown={handleItemKeyDown}
+      sectionId={sectionId}
+      hasItemMenuActions={hasItemMenuActions}
       isSelectingItems={isSelectingItems}
       isSelected={rowState.isSelected}
       itemId={itemId}
@@ -411,6 +421,8 @@ function ItemRowShell({
   onClick,
   onMouseDown,
   onKeyDown,
+  sectionId,
+  hasItemMenuActions,
   isSelectingItems,
   isSelected,
   itemId,
@@ -424,11 +436,49 @@ function ItemRowShell({
   onClick: React.MouseEventHandler;
   onMouseDown: React.MouseEventHandler;
   onKeyDown: React.KeyboardEventHandler<HTMLDivElement>;
+  sectionId: string;
+  hasItemMenuActions: boolean;
   isSelectingItems: boolean;
   isSelected: boolean;
   itemId: string;
   children: ReactNode;
 }) {
+  function handleContextMenu(event: React.MouseEvent<HTMLDivElement>): void {
+    if (shouldRetainNativeContextMenu(event.target, event.currentTarget)) {
+      return;
+    }
+    if (
+      !openWorkspaceItemMenu(
+        sectionId,
+        itemId,
+        { x: event.clientX, y: event.clientY },
+        event.currentTarget,
+      )
+    ) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
+    if (
+      event.target === event.currentTarget &&
+      isWorkspaceMenuKeyboardEvent(event.nativeEvent) &&
+      openWorkspaceItemMenu(
+        sectionId,
+        itemId,
+        getOwnerKeyboardMenuPoint(event.currentTarget),
+        event.currentTarget,
+      )
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    onKeyDown(event);
+  }
+
   // The reference renders rows as role-less articles. Item-select mode exposes the package row
   // group to Tab and names its canonical selection state without flattening the host-rendered
   // controls or nested item descendants into an ARIA button.
@@ -439,7 +489,8 @@ function ItemRowShell({
       data-item-row="true"
       onMouseDownCapture={onMouseDown}
       onClick={onClick}
-      onKeyDown={onKeyDown}
+      onContextMenu={handleContextMenu}
+      onKeyDown={handleKeyDown}
       ref={dndRef}
       {...(dndAttributes as React.HTMLAttributes<HTMLDivElement>)}
       {...(dndListeners as React.HTMLAttributes<HTMLDivElement>)}
@@ -449,7 +500,14 @@ function ItemRowShell({
           ? `Selectable item ${itemId}, ${isSelected ? "selected" : "not selected"}`
           : undefined
       }
-      aria-keyshortcuts={isSelectingItems ? "Enter Space" : undefined}
+      aria-keyshortcuts={
+        [
+          isSelectingItems ? "Enter Space" : null,
+          hasItemMenuActions ? "Shift+F10 ContextMenu" : null,
+        ]
+          .filter(Boolean)
+          .join(" ") || undefined
+      }
       tabIndex={isSelectingItems ? 0 : -1}
     >
       {children}

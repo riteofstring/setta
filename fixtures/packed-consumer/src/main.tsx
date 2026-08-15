@@ -6,12 +6,15 @@ import {
   loadWorkspaceDocument,
   MetaControl,
   registerSectionKinds,
+  registerWorkspaceCreationCommands,
+  registerWorkspaceMenuActions,
   setWorkspaceColorMode,
   setWorkspaceDocumentChangeCallback,
   useWorkspaceAppearance,
   WorkspaceItemList,
   WorkspaceShell,
   type MetaControlDefinition,
+  type WorkspaceCreationContext,
   type WorkspaceDocumentInput,
   type WorkspaceSection,
   type WorkspaceSectionInput,
@@ -19,7 +22,7 @@ import {
   type WorkspaceShellTabIconProps,
 } from "@setta/workspace";
 import "@setta/workspace/styles.css";
-import { StrictMode, useEffect, useState } from "react";
+import { StrictMode, useEffect, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import "./consumer.css";
 
@@ -115,6 +118,14 @@ function makeNoteSection(id: string, name: string, text: string): WorkspaceSecti
     tagColor: null,
     children: [],
   };
+}
+
+function createConsumerNote(context: WorkspaceCreationContext): WorkspaceSectionInput {
+  return makeNoteSection(
+    `consumer-note-${crypto.randomUUID()}`,
+    "Created note",
+    `Created by the packed consumer at ${Math.round(context.workspacePosition.x)}, ${Math.round(context.workspacePosition.y)}.`,
+  );
 }
 
 const consumerDocument: WorkspaceDocumentInput = {
@@ -234,6 +245,34 @@ function DocumentChangeReadout() {
   return <>{documentChangeCount}</>;
 }
 
+let consumerMenuStatus = "No packed-consumer menu action invoked.";
+const consumerMenuListeners = new Set<() => void>();
+
+function publishConsumerMenuStatus(status: string): void {
+  consumerMenuStatus = status;
+  for (const listener of consumerMenuListeners) {
+    listener();
+  }
+}
+
+function subscribeConsumerMenuStatus(listener: () => void): () => void {
+  consumerMenuListeners.add(listener);
+  return () => consumerMenuListeners.delete(listener);
+}
+
+function getConsumerMenuStatus(): string {
+  return consumerMenuStatus;
+}
+
+function ConsumerMenuReadout() {
+  const status = useSyncExternalStore(
+    subscribeConsumerMenuStatus,
+    getConsumerMenuStatus,
+    getConsumerMenuStatus,
+  );
+  return <p aria-live="polite">{status}</p>;
+}
+
 function ConsumerNotesIcon({ className, ...iconProps }: WorkspaceShellTabIconProps) {
   return (
     <svg
@@ -314,6 +353,7 @@ function ConsumerApp() {
         <p>
           <DocumentChangeReadout /> document changes reported.
         </p>
+        <ConsumerMenuReadout />
       </header>
       <div className="consumer-workspace">
         <WorkspaceShell
@@ -361,6 +401,48 @@ registerSectionKinds({
     defaultSize: { width: 320, height: 160 },
   },
 });
+registerWorkspaceCreationCommands([
+  {
+    id: "consumer-note",
+    label: "Packed note",
+    group: "Consumer",
+    icon: NoteIcon,
+    createSection: createConsumerNote,
+  },
+]);
+registerWorkspaceMenuActions([
+  {
+    id: "consumer-pane-position",
+    scope: "pane",
+    label: "Report packed position",
+    onSelect: (context) =>
+      publishConsumerMenuStatus(
+        `Packed pane action at ${Math.round(context.workspacePosition.x)}, ${Math.round(context.workspacePosition.y)}.`,
+      ),
+  },
+  {
+    id: "consumer-section-selection",
+    scope: "section",
+    label: "Report packed selection",
+    onSelect: (context) =>
+      publishConsumerMenuStatus(
+        `Packed section action for ${context.section.name}; ${context.selectedSections.length} selected.`,
+      ),
+  },
+  {
+    id: "consumer-item-identity",
+    scope: "item",
+    label: "Report packed item",
+    onSelect: (context) => publishConsumerMenuStatus(`Packed item action for ${context.item.id}.`),
+  },
+  {
+    id: "consumer-outline-selection",
+    scope: "outline",
+    label: "Report packed Outline row",
+    onSelect: (context) =>
+      publishConsumerMenuStatus(`Packed Outline action for ${context.section.name}.`),
+  },
+]);
 loadWorkspaceDocument(consumerDocument);
 
 const rootElement = document.getElementById("root");

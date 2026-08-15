@@ -4,6 +4,7 @@ import { act, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
+import { useWorkspaceMenuState } from "../context-menu/workspaceMenuState";
 import { getActiveSectionIds } from "../document/activeSections";
 import { GROUP_SECTION_KIND } from "../document/documentSelectors";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
@@ -122,6 +123,7 @@ describe("WorkspaceOutline", () => {
     useNodeInternals.getState().reset();
     useItemSelectionMode.getState().reset();
     useReactFlow.setState({ ...initialCanvasState });
+    useWorkspaceMenuState.getState().reset();
     loadOutlineDocument();
     focusWorkspaceSection.mockReset();
     onChange.mockReset();
@@ -141,6 +143,7 @@ describe("WorkspaceOutline", () => {
     useActiveSections.getState().reset();
     useWorkspaceDocument.getState().reset();
     useNodeInternals.getState().reset();
+    useWorkspaceMenuState.getState().reset();
   });
 
   function getRow(sectionId: string): HTMLDivElement {
@@ -201,6 +204,35 @@ describe("WorkspaceOutline", () => {
     expect(getActiveSectionIds()).toEqual(["bravo", "echo"]);
     expect(getRow("bravo").getAttribute("aria-selected")).toBe("true");
     expect(getRow("echo").getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("opens Outline-scoped menus from pointer and Shift+F10", async () => {
+    const pointerEvent = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 140,
+      clientY: 90,
+    });
+    await act(async () => {
+      getRow("bravo").dispatchEvent(pointerEvent);
+    });
+    expect(pointerEvent.defaultPrevented).toBe(true);
+    expect(getActiveSectionIds()).toEqual(["bravo"]);
+    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+      kind: "section",
+      clientPoint: { x: 140, y: 90 },
+      context: { scope: "outline", section: { id: "bravo" } },
+    });
+
+    useWorkspaceMenuState.getState().reset();
+    getRow("alpha").getBoundingClientRect = () =>
+      ({ left: 20, right: 220, top: 40, width: 200, height: 20 }) as DOMRect;
+    await key("alpha", "F10", { shiftKey: true });
+    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+      kind: "section",
+      clientPoint: { x: 32, y: 50 },
+      context: { scope: "outline", section: { id: "alpha" } },
+    });
   });
 
   it("separates disclosure from selection and restores focus to the collapsing group", async () => {

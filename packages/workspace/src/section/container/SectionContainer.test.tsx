@@ -4,6 +4,7 @@ import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../../canvas/store";
+import { useWorkspaceMenuState } from "../../context-menu/workspaceMenuState";
 import type { MetaControlKind } from "../../controls/meta/metaControlTypes";
 import { useDndChildren } from "../../dnd/dndChildren";
 import { useDndState } from "../../dnd/dndState";
@@ -162,7 +163,7 @@ function getRequiredElement(root: ParentNode, selector: string): HTMLElement {
 function expectSectionGroupSemantics(element: HTMLElement, label: string) {
   expect(element.getAttribute("role")).toBe("group");
   expect(element.getAttribute("aria-label")).toBe(label);
-  expect(element.getAttribute("aria-keyshortcuts")).toBe("Enter Space");
+  expect(element.getAttribute("aria-keyshortcuts")).toBe("Enter Space Shift+F10 ContextMenu");
   expect(element.getAttribute("aria-pressed")).toBeNull();
 }
 
@@ -193,6 +194,7 @@ describe("SectionContainer", () => {
     useDndState.getState().reset();
     useDndChildren.getState().reset();
     useWorkspaceTooltip.getState().reset();
+    useWorkspaceMenuState.getState().reset();
     useReactFlow.setState({ ...initialCanvasState });
   });
 
@@ -241,6 +243,53 @@ describe("SectionContainer", () => {
     // The container registers both DOM refs for measurement fallbacks.
     expect(useSectionRefs.getState().selfOnly["leaf"]).toBeInstanceOf(HTMLElement);
     expect(useSectionRefs.getState().withNested["leaf"]).toBeInstanceOf(HTMLElement);
+  });
+
+  it("opens section menus from pointer or keyboard while retaining native control menus", async () => {
+    await mount("leaf");
+    const shell = getRequiredElement(host, '[data-section-id="leaf"]');
+
+    const pointerEvent = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 120,
+      clientY: 80,
+    });
+    await act(async () => {
+      shell.dispatchEvent(pointerEvent);
+    });
+    expect(pointerEvent.defaultPrevented).toBe(true);
+    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+      kind: "section",
+      context: { scope: "section", section: { id: "leaf" } },
+      sectionIds: ["leaf"],
+    });
+
+    useWorkspaceMenuState.getState().reset();
+    const lockButton = getRequiredElement(host, '[aria-label="Lock position and size"]');
+    const nativeEvent = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    await act(async () => {
+      lockButton.dispatchEvent(nativeEvent);
+    });
+    expect(nativeEvent.defaultPrevented).toBe(false);
+    expect(useWorkspaceMenuState.getState().invocation).toBeNull();
+
+    shell.getBoundingClientRect = () =>
+      ({ left: 20, right: 244, top: 40, width: 224, height: 96 }) as DOMRect;
+    await act(async () => {
+      shell.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "F10",
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+      kind: "section",
+      clientPoint: { x: 32, y: 64 },
+    });
   });
 
   it("renders package-owned meta chrome at the captured inner geometry", async () => {

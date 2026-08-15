@@ -1,7 +1,18 @@
 import _ from "lodash";
-import React, { type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import React, {
+  type CSSProperties,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { applyActiveSectionChange } from "../../canvas/activeSectionController";
 import { useShouldDisablePointerEvents } from "../../canvas/useShouldDisablePointerEvents";
+import { openWorkspaceSectionMenu } from "../../context-menu/workspaceMenuInvocation";
+import {
+  getOwnerKeyboardMenuPoint,
+  isWorkspaceMenuKeyboardEvent,
+  shouldRetainNativeContextMenu,
+} from "../../context-menu/workspaceMenuOwnership";
 import { useHasTempNested } from "../../dnd/useDndUtils";
 import { getSectionOrThrow, GROUP_SECTION_KIND } from "../../document/documentSelectors";
 import { useActiveSections, useWorkspaceDocument } from "../../document/stores";
@@ -108,12 +119,37 @@ function ContainerGroup({
   // The reference activates sections through its app-level shortcut engine; the package keeps
   // keyboard activation on the group itself for the repository's accessibility gate. The group
   // role leaves its title and header buttons exposed to assistive technology.
-  function onKeyDown(event: KeyboardEvent) {
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.target === event.currentTarget && isWorkspaceMenuKeyboardEvent(event.nativeEvent)) {
+      event.preventDefault();
+      event.stopPropagation();
+      openWorkspaceSectionMenu(
+        sectionId,
+        "section",
+        getOwnerKeyboardMenuPoint(event.currentTarget),
+        event.currentTarget,
+      );
+      return;
+    }
     if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
       event.preventDefault();
       event.stopPropagation();
       applyActiveSectionChange({ interaction: "section-click", sectionId });
     }
+  }
+
+  function onContextMenu(event: MouseEvent<HTMLDivElement>) {
+    if (shouldRetainNativeContextMenu(event.target, event.currentTarget)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    openWorkspaceSectionMenu(
+      sectionId,
+      "section",
+      { x: event.clientX, y: event.clientY },
+      event.currentTarget,
+    );
   }
 
   // This surface owns pointer and programmatic-focus activation without hiding its real controls.
@@ -123,10 +159,11 @@ function ContainerGroup({
       className={getGroupRootClassName(className)}
       {...commonProps}
       onClick={getOnSectionClick(sectionId)}
+      onContextMenu={onContextMenu}
       onKeyDown={onKeyDown}
       role="group"
       aria-label={`${section.name} group section${isActiveSection ? ", selected" : ""}`}
-      aria-keyshortcuts="Enter Space"
+      aria-keyshortcuts="Enter Space Shift+F10 ContextMenu"
       tabIndex={-1} // keeps section focusable for programmatic focus
       style={style}
     >

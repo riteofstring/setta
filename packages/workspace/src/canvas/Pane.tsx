@@ -5,6 +5,11 @@ import React, {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
+import { openWorkspacePaneMenu } from "../context-menu/workspaceMenuInvocation";
+import {
+  getOwnerKeyboardMenuPoint,
+  isWorkspaceMenuKeyboardEvent,
+} from "../context-menu/workspaceMenuOwnership";
 import { applyActiveSectionChange } from "./activeSectionController";
 import { getNodesInside } from "./graph";
 import { useWorkspaceOptions } from "./options";
@@ -154,10 +159,30 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
 
   // The reference clears the selection through an app-level Escape shortcut; the package keeps
   // the keyboard path on the pane itself.
-  const onKeyDown = (event: ReactKeyboardEvent) => {
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (
+      event.target === event.currentTarget &&
+      isWorkspaceMenuKeyboardEvent(event.nativeEvent) &&
+      openWorkspacePaneMenu(getOwnerKeyboardMenuPoint(event.currentTarget), event.currentTarget)
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     if (event.key === "Escape") {
       onClick();
     }
+  };
+
+  const onContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (event.target !== container.current) {
+      return;
+    }
+    if (!openWorkspacePaneMenu({ x: event.clientX, y: event.clientY }, event.currentTarget)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
   };
 
   const hasActiveSelection = isSelecting || userSelectionActive;
@@ -170,10 +195,11 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
       className="react-flow__pane"
       role="group"
       aria-label="Workspace canvas background"
-      aria-keyshortcuts="Escape"
+      aria-keyshortcuts="Escape Shift+F10 ContextMenu"
       tabIndex={-1}
       onClick={hasActiveSelection ? undefined : wrapHandler(onClick, container)}
       onKeyDown={onKeyDown}
+      onContextMenu={onContextMenu}
       onMouseDown={hasActiveSelection ? onMouseDown : undefined}
       onMouseMove={hasActiveSelection ? onMouseMove : undefined}
       onMouseUp={hasActiveSelection ? onMouseUp : undefined}

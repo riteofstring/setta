@@ -6,6 +6,7 @@ import {
   type RefObject,
   type UIEvent,
 } from "react";
+import { WorkspaceMenuLayer } from "../context-menu/WorkspaceMenuLayer";
 import { SectionDndContext } from "../dnd/SectionDndContext";
 import { ResponsiveMiniMap } from "../minimap/ResponsiveMiniMap";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
@@ -95,6 +96,7 @@ export function WorkspaceCanvas() {
         </div>
       </div>
       {showMinimap && <ResponsiveMiniMap />}
+      <WorkspaceMenuLayer />
     </div>
   );
 }

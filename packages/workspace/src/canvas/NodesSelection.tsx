@@ -1,6 +1,11 @@
 import cc from "classcat";
 import _ from "lodash";
 import React, { useEffect, useRef, type KeyboardEvent } from "react";
+import { openWorkspaceSelectionMenu } from "../context-menu/workspaceMenuInvocation";
+import {
+  getOwnerKeyboardMenuPoint,
+  isWorkspaceMenuKeyboardEvent,
+} from "../context-menu/workspaceMenuOwnership";
 import { useDndMode } from "../dnd/dndState";
 import { setSelectionDragHandle, setSelectionDragPrimaryId } from "../dnd/selectionDragHandle";
 import { useWorkspaceCapabilities } from "../document/capabilities";
@@ -52,6 +57,15 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
   });
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget && isWorkspaceMenuKeyboardEvent(event.nativeEvent)) {
+      event.preventDefault();
+      event.stopPropagation();
+      openWorkspaceSelectionMenu(
+        getOwnerKeyboardMenuPoint(event.currentTarget),
+        event.currentTarget,
+      );
+      return;
+    }
     if (canEditLayout && Object.prototype.hasOwnProperty.call(arrowKeyDiffs, event.key)) {
       event.preventDefault();
       event.stopPropagation();
@@ -86,9 +100,14 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
         ref={nodeRef}
         role="group"
         aria-label={`${activeIds.length} selected sections: ${activeNames.join(", ")}`}
-        aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"
+        aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Shift+F10 ContextMenu"
         aria-disabled={!canEditLayout}
         className="react-flow__nodesselection-rect"
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          openWorkspaceSelectionMenu({ x: event.clientX, y: event.clientY }, event.currentTarget);
+        }}
         onKeyDown={onKeyDown}
         style={{
           width,

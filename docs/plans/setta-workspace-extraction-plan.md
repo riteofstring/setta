@@ -1767,6 +1767,44 @@ Phase 4 progress (2026-08-11):
   dependency changed, so the supply-chain gate is not duplicated. This completes implementation
   batch 4; context-menu evidence and batch 5 are next, and no package-output baseline or developer
   visual approval is claimed before the combined milestone gate.
+- Workspace-shell context-menu batch and milestone repository work complete (2026-08-13): the
+  frozen `/settings` menu evidence now indexes ten original-pixel dark/light captures for all four
+  viewport-edge placements and the filtered state, with screenshot hashes, exact geometry/type/
+  paint metrics, pointer/filter/keyboard/creation traces, and an explicit source characterization
+  of the shared selection menu where the deterministic bridge could not produce its prerequisite
+  marquee. The canvas mounts one package-owned scoped Radix menu layer for standalone and shell
+  composition. Its public replace-all creation/action registries expose typed factories plus pane,
+  section, item, and Outline action contexts as deeply frozen snapshots. Pointer and Context Menu/
+  Shift+F10 ownership now spans the bare pane, direct sections, the multi-selection rectangle,
+  item rows, and Outline rows while inputs, editors, buttons, links, and explicit no-drag surfaces
+  retain their native menus. The pane menu ports the searchable grouped filter and post-navigation
+  edit rules, converts through the actual canvas rectangle and viewport, and validates/resolves/
+  inserts/selects the returned section through one atomic document notification. Section menus
+  reuse the existing capability gates and Group/Delete/Lock-or-Unlock mutation funnels, including
+  the mixed-lock target; Radix supplies semantic menu navigation while the package owns measured
+  edge placement, compact paint inside non-overlapping 24 px item targets, appearance scoping,
+  local RTL direction preservation, outside/Escape dismissal, and invocation-owner focus
+  restoration. The playground and packed
+  unrelated consumer demonstrate backend-free creation and all four host action scopes through
+  public exports only. The retained menu primitive is exact-pinned at
+  `@radix-ui/react-dropdown-menu 2.1.15`: frozen main's `2.1.2` resolves a
+  `react-remove-scroll 2.6.0` peer range that excludes React 19, while this patch resolves the
+  compatible `2.7.2` graph. The whole-milestone coherence pass found and updated every affected
+  shortcut/public-surface assumption, confirmed the menu layer composes with both shell and
+  standalone canvas ownership, and found no duplicate document, selection, capability, pan,
+  wheel, or drag state; a validated host document replacement also releases the outgoing immutable
+  menu snapshot without restoring focus into replaced content. Focused package coverage passes (16
+  files, 122 tests), as do changed-file
+  quality, package and playground production builds, the source/compiled boundary, the dependency
+  and supply-chain gate (611 locked versions), and the exact packed unrelated-consumer install/
+  typecheck/build. Live package checks at 1492 x 696 match the captured 160 px core geometry and
+  recorded light/dark palette, exercise filtering, creation, disabled structure actions, every
+  host action scope, Escape and outside dismissal, and focus return; the 320 x 696 check resolves a
+  128 px menu wholly inside the viewport with exactly 320 px document width and a fresh console
+  free of warnings/errors. This completes implementation batch 5 and all repository-actionable
+  work before the combined milestone developer gate. No package-output baseline or developer
+  visual/interaction approval is claimed; the committed milestone awaits the required Agent 2
+  audit before presentation to the developer.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

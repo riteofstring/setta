@@ -11,6 +11,12 @@ import {
 } from "react";
 import { applyActiveSectionChange } from "../canvas/activeSectionController";
 import { focusWorkspaceSection } from "../canvas/viewportHelpers";
+import { openWorkspaceSectionMenu } from "../context-menu/workspaceMenuInvocation";
+import {
+  getOwnerKeyboardMenuPoint,
+  isWorkspaceMenuKeyboardEvent,
+  shouldRetainNativeContextMenu,
+} from "../context-menu/workspaceMenuOwnership";
 import { isGroupSection } from "../document/documentSelectors";
 import {
   useActiveSections,
@@ -306,6 +312,26 @@ export function WorkspaceOutline({
     activateSection(sectionId, event.metaKey || event.ctrlKey);
   }
 
+  function openRowMenu(
+    owner: HTMLDivElement,
+    sectionId: string,
+    clientPoint: { x: number; y: number },
+  ): void {
+    if (lastPublishedFocusIdRef.current !== sectionId) {
+      publishViewState({ ...viewState, focusedSectionId: sectionId });
+    }
+    openWorkspaceSectionMenu(sectionId, "outline", clientPoint, owner);
+  }
+
+  function handleRowContextMenu(event: MouseEvent<HTMLDivElement>, sectionId: string): void {
+    if (shouldRetainNativeContextMenu(event.target, event.currentTarget)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    openRowMenu(event.currentTarget, sectionId, { x: event.clientX, y: event.clientY });
+  }
+
   function handleTypeahead(event: KeyboardEvent<HTMLDivElement>, sectionId: string): boolean {
     if (
       event.key.length !== 1 ||
@@ -404,6 +430,16 @@ export function WorkspaceOutline({
     event: KeyboardEvent<HTMLDivElement>,
     entry: WorkspaceOutlineEntry,
   ): void {
+    if (isWorkspaceMenuKeyboardEvent(event.nativeEvent)) {
+      event.preventDefault();
+      event.stopPropagation();
+      openRowMenu(
+        event.currentTarget,
+        entry.section.id,
+        getOwnerKeyboardMenuPoint(event.currentTarget),
+      );
+      return;
+    }
     if (handleLinearTreeKey(event, entry)) {
       return;
     }
@@ -453,6 +489,7 @@ export function WorkspaceOutline({
             key={node.section.id}
             node={node}
             onClick={handleRowClick}
+            onContextMenu={handleRowContextMenu}
             onFocus={handleRowFocus}
             onKeyDown={handleRowKeyDown}
             registerRow={registerRow}

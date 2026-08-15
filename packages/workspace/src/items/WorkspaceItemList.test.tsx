@@ -4,6 +4,8 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
+import { registerWorkspaceMenuActions } from "../context-menu/workspaceMenuRegistry";
+import { useWorkspaceMenuState } from "../context-menu/workspaceMenuState";
 import {
   replaceItemsWithTemp,
   updateItemChildren,
@@ -164,6 +166,8 @@ describe("WorkspaceItemList", () => {
     useItemSelectionMode.getState().reset();
     useItemDndState.getState().reset();
     useItemDndChildren.getState().reset();
+    registerWorkspaceMenuActions([]);
+    useWorkspaceMenuState.getState().reset();
     useReactFlow.setState({ ...initialCanvasState });
     observedResizeTargets.clear();
   });
@@ -797,6 +801,48 @@ describe("WorkspaceItemList", () => {
     expect(getRowByContent(host, "item-a").getAttribute("aria-label")).toBe(
       "Selectable item item-a, not selected",
     );
+  });
+
+  it("opens registered item actions from pointer and keyboard invocation", async () => {
+    registerWorkspaceMenuActions([
+      { id: "host-item", scope: "item", label: "Host item", onSelect: vi.fn() },
+    ]);
+    await mount();
+    let row = getRowByContent(host, "item-a");
+    expect(row.getAttribute("aria-keyshortcuts")).toBe("Shift+F10 ContextMenu");
+
+    const pointerEvent = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 60,
+      clientY: 80,
+    });
+    await act(async () => {
+      row.dispatchEvent(pointerEvent);
+    });
+    expect(pointerEvent.defaultPrevented).toBe(true);
+    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+      kind: "item",
+      context: { scope: "item", section: { id: "panel" }, item: { id: "item-a" } },
+    });
+
+    useWorkspaceMenuState.getState().reset();
+    row = getRowByContent(host, "item-a");
+    row.getBoundingClientRect = () =>
+      ({ left: 10, right: 210, top: 30, width: 200, height: 24 }) as DOMRect;
+    await act(async () => {
+      row.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ContextMenu",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+      kind: "item",
+      clientPoint: { x: 22, y: 42 },
+    });
   });
 
   it("renders the live projection with the temp placeholder during a drag", async () => {

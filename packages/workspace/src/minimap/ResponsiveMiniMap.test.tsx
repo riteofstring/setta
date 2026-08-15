@@ -111,7 +111,7 @@ describe("ResponsiveMiniMap", () => {
     expect(host.querySelector('[role="region"][aria-label="Workspace canvas"]')).not.toBeNull();
     const pane = host.querySelector<HTMLElement>(".react-flow__pane");
     expect(pane?.getAttribute("role")).toBe("group");
-    expect(pane?.getAttribute("aria-keyshortcuts")).toBe("Escape");
+    expect(pane?.getAttribute("aria-keyshortcuts")).toBe("Escape Shift+F10 ContextMenu");
     expect(host.querySelector('[data-testid="rf__minimap"]')).not.toBe(null);
 
     await act(async () => {

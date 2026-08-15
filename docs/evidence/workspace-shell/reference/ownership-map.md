@@ -174,9 +174,15 @@ Frozen main exact-pins `@radix-ui/react-dropdown-menu 2.1.2`,
 `react-icons 5.3.0` along this cone. The package already owns `re-resizable 6.10.3` (the documented
 React 19 peer-range move), `downshift 8.2.3`, `match-sorter 8.1.0`, and `react-icons 5.3.0`.
 
-No dependency has been added by this preflight. A future batch may add only the smallest retained
+No dependency was added by the preflight itself. Batch 5 may add only the smallest retained
 primitive its source actually imports, with an exact version admitted by the repository's strict
 peer and supply-chain policy; the reference version is not permission to bypass those controls.
+
+Batch 5 retains only `@radix-ui/react-dropdown-menu`, exact-pinned at `2.1.15`. Installing frozen
+main's `2.1.2` would resolve `react-remove-scroll 2.6.0`, whose declared peer range excludes the
+package's React 19 contract. `2.1.15` preserves the same Radix primitive and resolves
+`react-remove-scroll 2.7.2`, which admits React 19; the dependency and supply-chain gates decide its
+acceptance.
 
 ## 6. Preflight result
 
@@ -187,6 +193,7 @@ cuts are narrow and align with the amendment.
 The developer's explicit authorization of the workspace-shell amendment resolves the source-proven
 gaps: Outline tree interactions, selection-aware Inspector branches, and keyboard menu invocation
 are new package behavior governed by the milestone contracts and final combined acceptance gate.
-The remaining producible live captures are still required before their corresponding user-visible
-batch, but they do not block the first typed-item-schema batch. The source facts and capture routing
-are indexed in [`README.md`](README.md).
+The pane creation core is now live-captured in both appearances and at every viewport edge; the
+selection actions are characterized from the pinned source against that shared core, with the input-
+bridge limitation recorded rather than represented as a screenshot. The source facts and capture
+routing are indexed in [`README.md`](README.md).

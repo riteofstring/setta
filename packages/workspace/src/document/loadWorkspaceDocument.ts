@@ -3,6 +3,7 @@ import {
   armLoadedDocumentFitView,
 } from "../canvas/documentViewportSync";
 import { maybeCompleteInitialFitView } from "../canvas/nodeInternalsActions";
+import { closeWorkspaceMenu } from "../context-menu/workspaceMenuState";
 import { getMetaControlDefaultSize } from "../controls/meta/metaControlTypes";
 import { resetDndSessionForLoadedDocument } from "../dnd/dndState";
 import { assertNoReservedItemDndTokens } from "../dnd/itemDndState";
@@ -219,6 +220,17 @@ function assertKnownSectionIds(
   }
 }
 
+export function resolveAndValidateWorkspaceSections(
+  sectionInputs: Record<string, WorkspaceSectionInput>,
+): { sections: Record<string, WorkspaceSection>; parentSectionMap: Record<string, string> } {
+  const sections = resolveLoadedSections(sectionInputs);
+  assertValidSectionStyleColors(sections);
+  const parentSectionMap = buildParentSectionMap(sections);
+  assertAcyclicParentChains(parentSectionMap);
+  assertValidSectionItemTrees(sections);
+  return { sections, parentSectionMap };
+}
+
 // Replaces the canonical workspace state with a host-supplied document. The document, its
 // derived node geometry, and the selection publish atomically so no subscriber observes a
 // mixture of old and new state, and the whole load suppresses the document-change callback:
@@ -229,11 +241,7 @@ function assertKnownSectionIds(
 // and resets the drag-session bookkeeping, replacing the Phase 1 load-before-mount-only seam.
 // The funnel modules themselves stay canvas-free.
 export function loadWorkspaceDocument(document: WorkspaceDocumentInput): void {
-  const sections = resolveLoadedSections(document.sections);
-  assertValidSectionStyleColors(sections);
-  const parentSectionMap = buildParentSectionMap(sections);
-  assertAcyclicParentChains(parentSectionMap);
-  assertValidSectionItemTrees(sections);
+  const { sections, parentSectionMap } = resolveAndValidateWorkspaceSections(document.sections);
   assertKnownSectionIds(document, Object.keys(document.topLevelSections), "Top-level layout");
   assertKnownSectionIds(document, document.activeIds, "Active ids");
 
@@ -248,6 +256,9 @@ export function loadWorkspaceDocument(document: WorkspaceDocumentInput): void {
     useNodeInternals.getState().x,
   );
   const nextActiveSections = { activeIds: document.activeIds };
+  // A menu context is an immutable snapshot of the outgoing document. Release it only after the
+  // incoming document validates, and do not restore focus into the surface being replaced.
+  closeWorkspaceMenu(false);
   runWithWorkspaceDocumentChangeNotificationsSuppressed(() => {
     // Arming precedes the publication so the sync mirror fired by the flag flip lands in the
     // outgoing document state, leaving the loaded null viewport intact.

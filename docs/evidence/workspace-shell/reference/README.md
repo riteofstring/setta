@@ -1,12 +1,12 @@
 # Workspace-shell frozen-reference preflight
 
-Reference: `../setta-main` verified clean on `main` at
-`043d3b2e9c69caf99d1246f1408b3ad7194b7864` on 2026-08-12. This directory contains the
+Reference: `../setta-main` reverified clean on `main` at
+`043d3b2e9c69caf99d1246f1408b3ad7194b7864` on 2026-08-13. This directory contains the
 repository-actionable source/ownership preflight and the completed frozen-main pane/rail capture
 required before workspace-shell implementation batch 2, plus the completed Overview capture and
 accepted nested-row index required before batch 3, and the completed UI Editor capture required
-before batch 4. It is not package-output evidence or developer approval. The producible
-context-menu captures remain attached to batch 5.
+before batch 4, and the batch-5 workspace-menu capture and source characterization. It is not
+package-output evidence or developer approval.
 
 The supervised frozen reference service for this milestone is
 `http://127.0.0.1:3063/` (including `http://127.0.0.1:3063/settings`) with its backend on
@@ -30,8 +30,8 @@ being copied or relabelled:
 | [Nested dark](../../phase0/reference/screenshots/10-three-level-nesting-horizontal-group-dark.png) and [nested light](../../phase0/reference/screenshots/26-final-fixture-light-1440x900.png) | Recursive Overview rows, document-order nesting, compact row paint, and depth indentation in both appearances                                             | Disclosure, selected-row paint, ARIA tree semantics, or tree keyboard behavior                     |
 | [Phase 0 style metrics](../../phase0/reference/computed/reference-style-metrics.json)                                                                                                         | Previously accepted canvas, toolbar, minimap, section, and z-layer facts                                                                                  | Pane, rail, context-menu, Outline, and Inspector metrics required by this milestone                |
 
-No earlier capture shows an open right pane or a workspace context menu. The new pane/rail bundle
-below closes the former gap; context-menu evidence remains with batch 5.
+No earlier capture shows an open right pane or a workspace context menu. The new pane/rail and menu
+bundles below close those gaps without relabelling earlier evidence.
 
 ## Pane and rail capture complete
 
@@ -98,25 +98,51 @@ The frozen `gui` settings path was also inspected, but its UI configuration cras
 frozen-product limitation once. The stable `backend` section supplies the required ordinary
 Section/Params evidence, so the failure neither changes package behavior nor waives a gate.
 
+## Workspace menu capture complete
+
+The ten original-pixel JPEGs below capture the frozen pane creation menu at all four viewport
+corners in both appearances plus its focused filtered state. The browser session used a 1492 by 696
+CSS-pixel viewport at device-pixel ratio 1. Exact measured geometry, light/dark paint, overflow,
+filter, group-label, item, edge-flip, and screenshot-hash facts are in
+[`computed/context-menu-style-metrics.json`](computed/context-menu-style-metrics.json). Pointer,
+filter/Arrow/Enter/Escape, coordinate-conversion, creation, dismissal, and authority-boundary facts
+are in [`interactions/context-menu-trace.json`](interactions/context-menu-trace.json).
+
+| Files                                                                                                                                   | State                                       |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| [`25`](screenshots/25-pane-menu-top-leading-dark-1492x696.jpg), [`30`](screenshots/30-pane-menu-top-leading-light-1492x696.jpg)         | Top-leading invocation                      |
+| [`26`](screenshots/26-pane-menu-top-trailing-dark-1492x696.jpg), [`31`](screenshots/31-pane-menu-top-trailing-light-1492x696.jpg)       | Top-trailing invocation, flipped left       |
+| [`27`](screenshots/27-pane-menu-bottom-leading-dark-1492x696.jpg), [`32`](screenshots/32-pane-menu-bottom-leading-light-1492x696.jpg)   | Bottom-leading invocation, flipped above    |
+| [`28`](screenshots/28-pane-menu-bottom-trailing-dark-1492x696.jpg), [`33`](screenshots/33-pane-menu-bottom-trailing-light-1492x696.jpg) | Bottom-trailing invocation, flipped twice   |
+| [`29`](screenshots/29-pane-menu-filtered-dark-1492x696.jpg), [`34`](screenshots/34-pane-menu-filtered-light-1492x696.jpg)               | `Text Input` filter with active list option |
+
+The selection menu uses the same captured core and item atom. Its pinned source fixes the package-
+relevant action order, mixed-lock label, capability-disabled states, close behavior, and exclusions.
+The deterministic browser bridge could not maintain the reference shortcut engine's normalized
+`ShiftLeft` lifecycle while drawing the prerequisite selection rectangle, so this bundle contains
+no fabricated single/multi-selection screenshot. The computed metrics and interaction trace record
+that limitation and the exact pinned-source characterization. Batch 5 tests the package's directly
+focusable section/multi-selection and authorized keyboard paths rather than claiming a missing live
+reference image.
+
 ## Required live capture matrix
 
-The following states remain uncaptured. Rows marked **producible** have a frozen-main source path
-and must be captured by the supervised implementation loop before their corresponding user-visible
-batch. Rows marked **absent / authorized new behavior** cannot be produced by the frozen reference
-at the recorded commit; their source proof is the pre-implementation evidence, while the milestone
-contract and final combined developer gate govern their implementation.
+This matrix now indexes the completed reference inputs and the deliberately absent behaviors. Rows
+marked **absent / authorized new behavior** cannot be produced by the frozen reference at the
+recorded commit; their source proof is the pre-implementation evidence, while the milestone contract
+and final combined developer gate govern their implementation.
 
-| Surface                                                                         | Frozen-main status                   | Required evidence before implementation                                                                                                                                                      |
-| ------------------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pane creation menu at each viewport edge                                        | Producible by pointer                | Dark/light original-pixel captures; search, filtering, arrow/Enter/Escape trace; computed menu geometry, overflow, focus, and created workspace coordinate                                   |
-| Section and multi-selection menu                                                | Producible by pointer                | Single and mixed locked/unlocked selections, capability-disabled actions, labels, geometry, focus, and dismissal                                                                             |
-| Left/right rails and panes                                                      | **Captured for batch 2**             | Complete in the pane/rail bundle above: closed, open, resized, simultaneous, full-width, restored, viewport-normalized, narrow, focus, paint, seam, stacking, overflow, and transition facts |
-| Overview nested section listing                                                 | **Captured for batch 3**             | Complete through the accepted dark/light nested captures above plus fresh row metrics and the pointer/Space trace                                                                            |
-| Overview collapsed groups, selected-row treatment, and tree keyboard navigation | **Absent / authorized new behavior** | Frozen main has no disclosure state or control, no selected-section row state, no tree semantics, and no roving/arrow navigation to capture; implement the milestone's tree contract         |
-| UI Editor with no selection and exactly one selected section                    | **Captured for batch 4**             | Complete in the UI Editor bundle above: placeholder plus Section and Params configuration presentations in both appearances                                                                  |
-| Selection-aware UI Editor for exactly one selected item                         | **Absent / authorized new behavior** | Item selection is not an input to `UiEditor`; use its UI-control presentation as the visual seed and implement the milestone's selected-item contract                                        |
-| Selection-aware UI Editor for multiple selected sections                        | **Absent / authorized new behavior** | Multiple active sections produce the generic placeholder; implement only the common actions expressly named by the milestone                                                                 |
-| Menu-key/Shift+F10 context-menu opening                                         | **Absent / authorized new behavior** | Frozen main opens menus only from pointer `contextmenu`; implement the milestone's keyboard invocation and focus-restoration contract                                                        |
+| Surface                                                                         | Frozen-main status                                          | Required evidence before implementation                                                                                                                                                      |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pane creation menu at each viewport edge                                        | **Captured for batch 5**                                    | Complete in the menu bundle above: dark/light corners, filter, Arrow/Enter/Escape, geometry, overflow, focus, dismissal, and created workspace coordinate                                    |
+| Section and multi-selection menu                                                | **Core captured; actions source-characterized for batch 5** | Shared dark/light core/item paint is live; pinned source fixes Group/Delete/Lock labels, mixed-lock logic, capability-disabled states, selection-rect trigger, and dismissal                 |
+| Left/right rails and panes                                                      | **Captured for batch 2**                                    | Complete in the pane/rail bundle above: closed, open, resized, simultaneous, full-width, restored, viewport-normalized, narrow, focus, paint, seam, stacking, overflow, and transition facts |
+| Overview nested section listing                                                 | **Captured for batch 3**                                    | Complete through the accepted dark/light nested captures above plus fresh row metrics and the pointer/Space trace                                                                            |
+| Overview collapsed groups, selected-row treatment, and tree keyboard navigation | **Absent / authorized new behavior**                        | Frozen main has no disclosure state or control, no selected-section row state, no tree semantics, and no roving/arrow navigation to capture; implement the milestone's tree contract         |
+| UI Editor with no selection and exactly one selected section                    | **Captured for batch 4**                                    | Complete in the UI Editor bundle above: placeholder plus Section and Params configuration presentations in both appearances                                                                  |
+| Selection-aware UI Editor for exactly one selected item                         | **Absent / authorized new behavior**                        | Item selection is not an input to `UiEditor`; use its UI-control presentation as the visual seed and implement the milestone's selected-item contract                                        |
+| Selection-aware UI Editor for multiple selected sections                        | **Absent / authorized new behavior**                        | Multiple active sections produce the generic placeholder; implement only the common actions expressly named by the milestone                                                                 |
+| Menu-key/Shift+F10 context-menu opening                                         | **Absent / authorized new behavior**                        | Frozen main opens menus only from pointer `contextmenu`; implement the milestone's keyboard invocation and focus-restoration contract                                                        |
 
 ## Source-proven reference gaps
 
@@ -164,8 +190,8 @@ for the surrounding pane/menu behavior and presentation seeds that it actually i
 reference re-baseline is required, and the source-proven absent states must not be represented as
 matching-main captures.
 
-The pane/rail, Overview, and UI Editor captures are complete, so workspace-shell implementation
-batches 2 through 4 have their required reference inputs. The remaining producible dark/light menu
-states still require capture before batch 5. The existing frozen-main service and deterministic
-browser tooling may be used under root supervision; no intermediate developer approval is
-required. The combined milestone gate remains the sole developer visual/interaction approval.
+The pane/rail, Overview, UI Editor, and workspace-menu reference inputs are complete for their
+implementation batches. The menu bundle explicitly distinguishes live core/creation evidence from
+the pinned-source selection-action characterization and does not claim the authorized keyboard path
+exists in main. No intermediate developer approval is required. The combined milestone gate remains
+the sole developer visual/interaction approval.

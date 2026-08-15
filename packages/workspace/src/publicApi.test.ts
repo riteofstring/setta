@@ -41,6 +41,8 @@ const RUNTIME_EXPORTS = [
   "loadWorkspaceDocument",
   "registerSectionKinds",
   "registerItemHandlers",
+  "registerWorkspaceCreationCommands",
+  "registerWorkspaceMenuActions",
   "setItemData",
   "setItemControlConfiguration",
   "setItemLabel",

@@ -2,6 +2,10 @@ import type { ZoomTransform } from "d3-zoom";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
 import type { ReactFlowState } from "../canvas/types";
+import {
+  publishWorkspaceMenuInvocation,
+  useWorkspaceMenuState,
+} from "../context-menu/workspaceMenuState";
 import { setDndDisabled, useDndState } from "../dnd/dndState";
 import { updateItemChildren, useItemDndChildren } from "../dnd/itemDndChildren";
 import { setItemDndState, useItemDndState } from "../dnd/itemDndState";
@@ -66,6 +70,7 @@ function resetWorkspaceStores() {
   useItemDndChildren.getState().reset();
   useItemSelectionMode.getState().reset();
   useReactFlow.setState({ ...initialCanvasState });
+  useWorkspaceMenuState.getState().reset();
 }
 
 // A d3-zoom stand-in for the mounted-canvas re-load paths: it records applied transforms and
@@ -111,6 +116,30 @@ describe("loadWorkspaceDocument", () => {
       tempZIndex: 1,
       kind: "leaf",
     });
+  });
+
+  it("releases an outgoing menu snapshot after the incoming document validates", () => {
+    const owner = {} as HTMLElement;
+    publishWorkspaceMenuInvocation({
+      kind: "pane",
+      clientPoint: { x: 40, y: 60 },
+      direction: "ltr",
+      owner,
+      context: { scope: "pane", workspacePosition: { x: 40, y: 60 } },
+    });
+
+    expect(() =>
+      loadWorkspaceDocument(
+        makeDocument({
+          topLevelSections: { ghost: { x: 0, y: 0, w: 10, h: 10, zIndex: 0 } },
+        }),
+      ),
+    ).toThrow(/Top-level layout references unknown section ghost/);
+    expect(useWorkspaceMenuState.getState().invocation).not.toBeNull();
+
+    loadWorkspaceDocument(makeDocument());
+
+    expect(useWorkspaceMenuState.getState().invocation).toBeNull();
   });
 
   it("lets reads during publication observe the full next state atomically", () => {
