@@ -6,6 +6,7 @@ import {
 const MAX_RETAINED_EVENTS = 800;
 const STORAGE_KEY = "setta:pan-diagnostics:v2";
 const CONSOLE_PREFIX = "[setta:pan]";
+const OUTPUT_ELEMENT_ID = "setta-pan-diagnostics";
 
 type PlaygroundPanDiagnostics = {
   events: Array<WorkspacePanDiagnosticEvent>;
@@ -36,13 +37,26 @@ function persistEvents(events: ReadonlyArray<WorkspacePanDiagnosticEvent>): void
   sessionStorage.setItem(STORAGE_KEY, JSON.stringify(events));
 }
 
+function createDiagnosticOutput(events: ReadonlyArray<WorkspacePanDiagnosticEvent>): HTMLElement {
+  const output = document.createElement("script");
+  output.id = OUTPUT_ELEMENT_ID;
+  output.dataset.settaPanDiagnostics = "retained-events";
+  output.setAttribute("type", "application/json");
+  output.textContent = JSON.stringify(events);
+  document.head.appendChild(output);
+  return output;
+}
+
 export function installPlaygroundPanDiagnostics(): void {
   const events = readRetainedEvents();
+  document.getElementById(OUTPUT_ELEMENT_ID)?.remove();
+  const output = createDiagnosticOutput(events);
   window.__SETTA_PAN_DIAGNOSTICS__ = {
     events,
     clear: () => {
       events.length = 0;
       sessionStorage.removeItem(STORAGE_KEY);
+      output.textContent = "[]";
     },
     json: () => JSON.stringify(events),
     tail: (count = 100) => events.slice(-Math.max(0, Math.floor(count))),
@@ -54,6 +68,7 @@ export function installPlaygroundPanDiagnostics(): void {
     }
     events.push(event);
     persistEvents(events);
+    output.textContent = JSON.stringify(events);
     console.info(CONSOLE_PREFIX, JSON.stringify(event));
   });
 }

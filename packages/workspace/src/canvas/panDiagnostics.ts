@@ -17,6 +17,11 @@ export type WorkspacePanDiagnosticPhase =
   | "raw-pointer-cancel"
   | "raw-wheel-capture"
   | "raw-wheel-bubble"
+  | "window-blur"
+  | "window-focus"
+  | "page-hide"
+  | "page-show"
+  | "visibility-change"
   | "gesture-start"
   | "gesture-move"
   | "gesture-end"
@@ -79,6 +84,8 @@ type WorkspacePanDiagnosticTarget = {
   noWheel: boolean;
   manualWheel: boolean;
   nativeVerticalWheel: boolean;
+  insideWorkspace: boolean;
+  insideZoomRenderer: boolean;
 };
 
 type WorkspacePanDiagnosticState = {
@@ -103,6 +110,11 @@ type WorkspacePanDiagnosticState = {
   installedWheelHandlerIsOriginal: boolean;
   documentHasFocus: boolean;
   documentVisibilityState: DocumentVisibilityState;
+  canvasConnected: boolean;
+  canvasScrollLeft: number | null;
+  canvasScrollTop: number | null;
+  canvasScrollWidth: number | null;
+  canvasScrollHeight: number | null;
 };
 
 type EmitWorkspacePanDiagnosticParams = {
@@ -170,6 +182,7 @@ export function useWorkspacePanRawInputDiagnostics(
         phase,
         sourceEvent: event,
         details: {
+          insideZoomPane: isInsideZoomPane(event),
           pointerId: event.pointerId,
           pointerType: event.pointerType,
           isPrimary: event.isPrimary,
@@ -178,9 +191,6 @@ export function useWorkspacePanRawInputDiagnostics(
       });
     };
     const onPointerDown = (event: PointerEvent) => {
-      if (!isInsideZoomPane(event)) {
-        return;
-      }
       activePointerId = event.pointerId;
       emitPointer("raw-pointer-down", event);
     };
@@ -204,14 +214,41 @@ export function useWorkspacePanRawInputDiagnostics(
       activePointerId = null;
     };
     const onWheelCapture = (event: WheelEvent) => {
-      if (isInsideZoomPane(event)) {
-        emitWorkspacePanDiagnostic({ phase: "raw-wheel-capture", sourceEvent: event });
-      }
+      emitWorkspacePanDiagnostic({
+        phase: "raw-wheel-capture",
+        sourceEvent: event,
+        details: { insideZoomPane: isInsideZoomPane(event) },
+      });
     };
     const onWheelBubble = (event: WheelEvent) => {
-      if (isInsideZoomPane(event)) {
-        emitWorkspacePanDiagnostic({ phase: "raw-wheel-bubble", sourceEvent: event });
-      }
+      emitWorkspacePanDiagnostic({
+        phase: "raw-wheel-bubble",
+        sourceEvent: event,
+        details: { insideZoomPane: isInsideZoomPane(event) },
+      });
+    };
+    const onWindowBlur = (event: FocusEvent) => {
+      emitWorkspacePanDiagnostic({ phase: "window-blur", sourceEvent: event });
+    };
+    const onWindowFocus = (event: FocusEvent) => {
+      emitWorkspacePanDiagnostic({ phase: "window-focus", sourceEvent: event });
+    };
+    const onPageHide = (event: PageTransitionEvent) => {
+      emitWorkspacePanDiagnostic({
+        phase: "page-hide",
+        sourceEvent: event,
+        details: { persisted: event.persisted },
+      });
+    };
+    const onPageShow = (event: PageTransitionEvent) => {
+      emitWorkspacePanDiagnostic({
+        phase: "page-show",
+        sourceEvent: event,
+        details: { persisted: event.persisted },
+      });
+    };
+    const onVisibilityChange = (event: Event) => {
+      emitWorkspacePanDiagnostic({ phase: "visibility-change", sourceEvent: event });
     };
 
     window.addEventListener("pointerdown", onPointerDown, true);
@@ -220,6 +257,11 @@ export function useWorkspacePanRawInputDiagnostics(
     window.addEventListener("pointercancel", onPointerCancel, true);
     window.addEventListener("wheel", onWheelCapture, true);
     window.addEventListener("wheel", onWheelBubble);
+    window.addEventListener("blur", onWindowBlur);
+    window.addEventListener("focus", onWindowFocus);
+    window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       window.removeEventListener("pointerdown", onPointerDown, true);
       window.removeEventListener("pointermove", onPointerMove, true);
@@ -227,6 +269,11 @@ export function useWorkspacePanRawInputDiagnostics(
       window.removeEventListener("pointercancel", onPointerCancel, true);
       window.removeEventListener("wheel", onWheelCapture, true);
       window.removeEventListener("wheel", onWheelBubble);
+      window.removeEventListener("blur", onWindowBlur);
+      window.removeEventListener("focus", onWindowFocus);
+      window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [zoomPane]);
 }
@@ -278,6 +325,8 @@ function snapshotEventTarget(target: EventTarget | null): WorkspacePanDiagnostic
     noWheel: target.closest(`.${NO_WHEEL_CLASS_NAME}`) !== null,
     manualWheel: target.closest(`.${MANUAL_WHEEL_CLASS_NAME}`) !== null,
     nativeVerticalWheel: target.closest(`.${NATIVE_VERTICAL_WHEEL_CLASS_NAME}`) !== null,
+    insideWorkspace: target.closest(".setta-workspace") !== null,
+    insideZoomRenderer: target.closest(".react-flow__renderer") !== null,
   };
 }
 
@@ -286,6 +335,7 @@ function snapshotInteractionState(): WorkspacePanDiagnosticState {
   const dnd = useDndState.getState();
   const options = useWorkspaceOptions.getState();
   const installedWheelHandler = canvas.d3Selection?.on("wheel.zoom");
+  const canvasRoot = canvas.domNode;
   return {
     transform: [...canvas.transform],
     paneDragging: canvas.paneDragging,
@@ -309,6 +359,11 @@ function snapshotInteractionState(): WorkspacePanDiagnosticState {
       typeof installedWheelHandler === "function" && installedWheelHandler === canvas.d3ZoomHandler,
     documentHasFocus: document.hasFocus(),
     documentVisibilityState: document.visibilityState,
+    canvasConnected: canvasRoot?.isConnected ?? false,
+    canvasScrollLeft: canvasRoot?.scrollLeft ?? null,
+    canvasScrollTop: canvasRoot?.scrollTop ?? null,
+    canvasScrollWidth: canvasRoot?.scrollWidth ?? null,
+    canvasScrollHeight: canvasRoot?.scrollHeight ?? null,
   };
 }
 
