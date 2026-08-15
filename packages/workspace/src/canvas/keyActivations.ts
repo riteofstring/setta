@@ -15,7 +15,16 @@ import {
   unindentSelectedItems,
 } from "../items/selectedItemMoves";
 import { ungroupSections } from "../section/ungroupAction";
-import { disableWorkspaceTooltip, enableWorkspaceTooltip } from "../tooltip/WorkspaceTooltip";
+import {
+  closeFrozenWorkspaceTooltip,
+  copyWorkspaceTooltipPage,
+  decrementWorkspaceTooltipPage,
+  disableWorkspaceTooltip,
+  enableWorkspaceTooltip,
+  freezeWorkspaceTooltip,
+  getIsFrozenWorkspaceTooltipFocused,
+  incrementWorkspaceTooltipPage,
+} from "../tooltip/WorkspaceTooltip";
 import { useReactFlow } from "./store";
 import { isMacOs } from "./utils";
 
@@ -29,7 +38,10 @@ import { isMacOs } from "./utils";
 // package owns the same activation-key state directly. A1 also restores main's ungroup command
 // (Shift+Mod+G) through the canonical package operation; the other command shortcuts (fit view
 // "F", zoom "="/"-", zoom to mouse "Z") stay application-side until the command milestone.
-// The reference's shortcut engine matches the bare "Q" shortcut only with no modifiers held.
+// tooltip auxiliary shortcuts = Q+F freeze, Q+ArrowLeft/ArrowRight page navigation, Q+C copy;
+// a focused frozen tooltip owns ArrowLeft/ArrowRight, C, and Escape. Product-only tooltip-to-
+// section commands stay in the application. The reference's shortcut engine matches the bare
+// "Q" shortcut only with no modifiers held.
 function isBareTooltipKey(event: KeyboardEvent): boolean {
   return (
     (event.key === "q" || event.key === "Q") &&
@@ -38,6 +50,73 @@ function isBareTooltipKey(event: KeyboardEvent): boolean {
     !event.altKey &&
     !event.shiftKey
   );
+}
+
+function hasNoTooltipModifiers(event: KeyboardEvent): boolean {
+  return !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey;
+}
+
+function getTooltipShortcutKey(event: KeyboardEvent): string {
+  return event.key.length === 1 ? event.key.toLowerCase() : event.key;
+}
+
+function runTooltipAuxiliaryShortcut(event: KeyboardEvent): boolean {
+  const key = getTooltipShortcutKey(event);
+  if (key === "f") {
+    return freezeWorkspaceTooltip();
+  }
+  if (key === "ArrowRight") {
+    return incrementWorkspaceTooltipPage();
+  }
+  if (key === "ArrowLeft") {
+    return decrementWorkspaceTooltipPage();
+  }
+  if (key === "c") {
+    return copyWorkspaceTooltipPage();
+  }
+  return false;
+}
+
+function getIsTooltipAuxiliaryKey(event: KeyboardEvent): boolean {
+  const key = getTooltipShortcutKey(event);
+  return key === "f" || key === "ArrowRight" || key === "ArrowLeft" || key === "c";
+}
+
+function runFocusedFrozenTooltipShortcut(event: KeyboardEvent): boolean {
+  if (!getIsFrozenWorkspaceTooltipFocused()) {
+    return false;
+  }
+  const key = getTooltipShortcutKey(event);
+  if (key === "ArrowRight") {
+    return incrementWorkspaceTooltipPage();
+  }
+  if (key === "ArrowLeft") {
+    return decrementWorkspaceTooltipPage();
+  }
+  if (key === "c") {
+    return copyWorkspaceTooltipPage();
+  }
+  return false;
+}
+
+function getShouldActivateTooltip(event: KeyboardEvent): boolean {
+  return !event.repeat && !getIsEditableTarget(event);
+}
+
+function getIsTransientTooltipAuxiliaryChord(
+  event: KeyboardEvent,
+  tooltipPressed: boolean,
+): boolean {
+  return tooltipPressed && hasNoTooltipModifiers(event) && getIsTooltipAuxiliaryKey(event);
+}
+
+function runTooltipShortcutWithoutRepeat(
+  event: KeyboardEvent,
+  action: (shortcutEvent: KeyboardEvent) => boolean,
+) {
+  if (!event.repeat && action(event)) {
+    event.preventDefault();
+  }
 }
 
 function getIsEditableTarget(event: KeyboardEvent): boolean {
@@ -347,15 +426,13 @@ function clearActiveSectionSelectionIfNeeded(sectionNode: Element) {
   ensureDocumentFallbackFocus();
 }
 
-// The reference's Escape handler: item unselection consumes the keypress; otherwise, when the
-// event originated inside an active section node, the active selection clears and focus falls
-// back to the document. The reference's frozen-tooltip removal stays application-side, and the
-// pane keeps its own focused Escape deselect path from the canvas batch.
-function handleEscapeShortcut(event: KeyboardEvent, tracker: HoldChordTracker, macOS: boolean) {
-  if (event.key !== "Escape" || event.repeat) {
-    return;
-  }
-  if (!hasNoModifiers(event, macOS) || !tracker.heldKeysEqual(["Escape"])) {
+// The reference's Escape handler first removes a frozen tooltip. Otherwise item unselection
+// consumes the keypress; when the event originated inside an active section node, the active
+// selection clears and focus falls back to the document. The pane keeps its own focused Escape
+// deselect path from the canvas batch.
+function runEscapeAction(event: KeyboardEvent) {
+  if (closeFrozenWorkspaceTooltip()) {
+    event.preventDefault();
     return;
   }
   const sectionNode = getEventSectionNode(event);
@@ -366,6 +443,16 @@ function handleEscapeShortcut(event: KeyboardEvent, tracker: HoldChordTracker, m
     return;
   }
   clearActiveSectionSelectionIfNeeded(sectionNode);
+}
+
+function handleEscapeShortcut(event: KeyboardEvent, tracker: HoldChordTracker, macOS: boolean) {
+  if (event.key !== "Escape" || event.repeat) {
+    return;
+  }
+  if (!hasNoModifiers(event, macOS) || !tracker.heldKeysEqual(["Escape"])) {
+    return;
+  }
+  runEscapeAction(event);
 }
 
 function hasExactUngroupModifiers(event: KeyboardEvent, macOS: boolean): boolean {
@@ -407,9 +494,8 @@ export function useCanvasKeyActivations() {
   useEffect(() => {
     const macOS = isMacOs();
     const chordTracker = createHoldChordTracker(macOS);
-    // Mirrors the reference shortcut's `wasPressed`: the tooltip releases on any keydown that
-    // no longer matches the bare tooltip key (the reference compares the full pressed-key
-    // set), and an auto-repeat of the tooltip key never re-enables it.
+    // Mirrors the reference shortcut's `wasPressed`: Q remains held across its page/copy/freeze
+    // chords, releases when any unrelated key joins it, and an auto-repeat never re-enables it.
     let tooltipPressed = false;
 
     const disableTooltipIfPressed = () => {
@@ -419,16 +505,27 @@ export function useCanvasKeyActivations() {
       }
     };
 
-    const onKeyDown = (event: KeyboardEvent) => {
-      chordTracker.onKeyDown(event);
+    const handleTooltipKeyDown = (event: KeyboardEvent) => {
       if (isBareTooltipKey(event)) {
-        if (!event.repeat && !getIsEditableTarget(event)) {
+        if (getShouldActivateTooltip(event)) {
           tooltipPressed = true;
           enableWorkspaceTooltip();
         }
-      } else {
-        disableTooltipIfPressed();
+        return;
       }
+      if (getIsTransientTooltipAuxiliaryChord(event, tooltipPressed)) {
+        runTooltipShortcutWithoutRepeat(event, runTooltipAuxiliaryShortcut);
+        return;
+      }
+      disableTooltipIfPressed();
+      if (hasNoTooltipModifiers(event)) {
+        runTooltipShortcutWithoutRepeat(event, runFocusedFrozenTooltipShortcut);
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      chordTracker.onKeyDown(event);
+      handleTooltipKeyDown(event);
       handleUngroupShortcut(event, chordTracker, macOS);
       handleItemMoveShortcut(event, chordTracker, macOS);
       handleTabShortcut(event, chordTracker, macOS);

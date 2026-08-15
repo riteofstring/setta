@@ -15,7 +15,11 @@ import {
   moveSelectedItemsUp,
   unindentSelectedItems,
 } from "../items/selectedItemMoves";
-import { useWorkspaceTooltip } from "../tooltip/WorkspaceTooltip";
+import {
+  getWorkspaceTooltipHandlers,
+  useWorkspaceTooltip,
+  WorkspaceTooltip,
+} from "../tooltip/WorkspaceTooltip";
 import { useCanvasKeyActivations } from "./keyActivations";
 import { initialCanvasState, useReactFlow } from "./store";
 
@@ -40,7 +44,7 @@ vi.mock("./utils", async (importOriginal) => {
 
 function KeyActivationsHost() {
   useCanvasKeyActivations();
-  return null;
+  return <WorkspaceTooltip />;
 }
 
 function loadItemDocument(selectedItemIds: Array<string>, activeIds: Array<string> = ["panel"]) {
@@ -136,6 +140,10 @@ describe("useCanvasKeyActivations", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: vi.fn(() => Promise.resolve()) },
+    });
     useReactFlow.setState({ ...initialCanvasState });
     useWorkspaceTooltip.getState().reset();
     useDndState.getState().reset();
@@ -308,6 +316,90 @@ describe("useCanvasKeyActivations", () => {
       );
     });
     expect(useWorkspaceTooltip.getState().isEnabled).toBe(false);
+  });
+
+  it("keeps Q active across page and copy chords", async () => {
+    await act(async () => {
+      getWorkspaceTooltipHandlers(
+        { content: "First page" },
+        { content: "Second page" },
+      ).onMouseEnter({ currentTarget: host });
+    });
+
+    await dispatchKey("keydown", "q", { code: "KeyQ" });
+    await dispatchKey("keydown", "ArrowRight", { code: "ArrowRight" });
+    expect(useWorkspaceTooltip.getState()).toMatchObject({ isEnabled: true, pageIndex: 1 });
+
+    await dispatchKey("keyup", "ArrowRight", { code: "ArrowRight" });
+    await dispatchKey("keydown", "c", { code: "KeyC" });
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith("Second page");
+    expect(useWorkspaceTooltip.getState().isEnabled).toBe(true);
+
+    await dispatchKey("keyup", "q", { code: "KeyQ" });
+    expect(useWorkspaceTooltip.getState().isEnabled).toBe(false);
+  });
+
+  it("freezes with Q+F and keeps the tooltip open after Q is released", async () => {
+    await act(async () => {
+      getWorkspaceTooltipHandlers({ content: "Freeze this" }).onMouseEnter({
+        currentTarget: host,
+      });
+    });
+
+    await dispatchKey("keydown", "q", { code: "KeyQ" });
+    await dispatchKey("keydown", "f", { code: "KeyF" });
+    expect(useWorkspaceTooltip.getState()).toMatchObject({ isEnabled: true, isFrozen: true });
+
+    await dispatchKey("keyup", "f", { code: "KeyF" });
+    await dispatchKey("keyup", "q", { code: "KeyQ" });
+    expect(useWorkspaceTooltip.getState()).toMatchObject({ isEnabled: true, isFrozen: true });
+  });
+
+  it("gives a focused frozen tooltip page/copy keys and closes it with Escape", async () => {
+    await act(async () => {
+      getWorkspaceTooltipHandlers(
+        { content: "First frozen page" },
+        { content: "Second frozen page" },
+      ).onMouseEnter({ currentTarget: host });
+    });
+
+    await dispatchKey("keydown", "q", { code: "KeyQ" });
+    await dispatchKey("keydown", "f", { code: "KeyF" });
+    await dispatchKey("keyup", "f", { code: "KeyF" });
+    await dispatchKey("keyup", "q", { code: "KeyQ" });
+    expect(document.activeElement?.getAttribute("role")).toBe("dialog");
+
+    await dispatchKey("keydown", "ArrowRight", { code: "ArrowRight" });
+    expect(useWorkspaceTooltip.getState().pageIndex).toBe(1);
+    await dispatchKey("keyup", "ArrowRight", { code: "ArrowRight" });
+    await dispatchKey("keydown", "c", { code: "KeyC" });
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith("Second frozen page");
+
+    await dispatchKey("keyup", "c", { code: "KeyC" });
+    await dispatchKey("keydown", "Escape", { code: "Escape" });
+    expect(useWorkspaceTooltip.getState()).toMatchObject({ isEnabled: false, isFrozen: false });
+  });
+
+  it("leaves bare page and copy keys alone when focus is outside a frozen tooltip", async () => {
+    await act(async () => {
+      getWorkspaceTooltipHandlers(
+        { content: "First frozen page" },
+        { content: "Second frozen page" },
+      ).onMouseEnter({ currentTarget: host });
+    });
+    await dispatchKey("keydown", "q", { code: "KeyQ" });
+    await dispatchKey("keydown", "f", { code: "KeyF" });
+    await dispatchKey("keyup", "f", { code: "KeyF" });
+    await dispatchKey("keyup", "q", { code: "KeyQ" });
+    const outsideButton = document.createElement("button");
+    document.body.appendChild(outsideButton);
+    await act(async () => outsideButton.focus());
+
+    await dispatchKey("keydown", "ArrowRight", { code: "ArrowRight" });
+    await dispatchKey("keydown", "c", { code: "KeyC" });
+    expect(useWorkspaceTooltip.getState().pageIndex).toBe(0);
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
+    outsideButton.remove();
   });
 
   it("ungroups the complete active group selection on Shift+Mod+G", async () => {

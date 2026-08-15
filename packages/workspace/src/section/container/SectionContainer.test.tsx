@@ -863,12 +863,12 @@ describe("SectionContainer", () => {
     await act(async () => {
       title.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
     });
-    expect(useWorkspaceTooltip.getState().content).toBe("Leaf section");
+    expect(useWorkspaceTooltip.getState().pages[0]?.content).toBe("Leaf section");
 
     await act(async () => {
       title.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
     });
-    expect(useWorkspaceTooltip.getState().content).toBeNull();
+    expect(useWorkspaceTooltip.getState().pages).toEqual([]);
   });
 
   it("reverts the title on Escape", async () => {

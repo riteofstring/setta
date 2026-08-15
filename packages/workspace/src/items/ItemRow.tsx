@@ -25,7 +25,7 @@ import { useWorkspaceAppearance, useWorkspaceDocument } from "../document/stores
 import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
 import {
   getWorkspaceTooltipHandlers,
-  type WorkspaceTooltipTone,
+  type WorkspaceTooltipPage,
 } from "../tooltip/WorkspaceTooltip";
 import { BuiltInItemRowContent } from "./BuiltInItemRowContent";
 import { ItemColumnResizeHandle } from "./ItemColumnResizeHandle";
@@ -369,10 +369,8 @@ function getItemDiagnosticSummary(
 }
 
 type ItemQuickInfo = {
-  content: string;
-  secondaryContent?: string;
-  title: string;
-  tone: WorkspaceTooltipTone;
+  accessibleDescription: string;
+  pages: [WorkspaceTooltipPage, ...Array<WorkspaceTooltipPage>];
 };
 
 function getItemQuickInfo(
@@ -385,11 +383,17 @@ function getItemQuickInfo(
   if (content === "") {
     return null;
   }
+  const title = getWorkspaceItemDiagnosticLabel(item);
+  const tone = getHighestWorkspaceItemDiagnosticSeverity(diagnostics) ?? "default";
+  const pages: [WorkspaceTooltipPage, ...Array<WorkspaceTooltipPage>] = [{ content, title, tone }];
+  if (diagnosticContent && helpText) {
+    pages.push({ content: helpText, title });
+  }
   return {
-    content,
-    ...(diagnosticContent && helpText ? { secondaryContent: helpText } : {}),
-    title: getWorkspaceItemDiagnosticLabel(item),
-    tone: getHighestWorkspaceItemDiagnosticSeverity(diagnostics) ?? "default",
+    accessibleDescription: `${title}: ${[diagnosticContent, helpText]
+      .filter((value): value is string => Boolean(value))
+      .join(" ")}`,
+    pages,
   };
 }
 
@@ -494,7 +498,8 @@ function getItemQuickInfoHandlers(quickInfo: ItemQuickInfo | null) {
   if (!quickInfo) {
     return {};
   }
-  return getWorkspaceTooltipHandlers({ ...quickInfo, stageOnFocus: true });
+  const [firstPage, ...additionalPages] = quickInfo.pages;
+  return getWorkspaceTooltipHandlers({ ...firstPage, stageOnFocus: true }, ...additionalPages);
 }
 
 function getItemRowShortcuts(quickInfo: ItemQuickInfo | null, isSelectingItems: boolean): string {
@@ -581,14 +586,13 @@ function ItemQuickInfoDescription({
   if (!quickInfo) {
     return null;
   }
-  const secondaryContent = quickInfo.secondaryContent ? ` ${quickInfo.secondaryContent}` : "";
   return (
     <span
       className="sr-only"
       data-setta-workspace-item-quick-info-description="true"
       id={descriptionId}
     >
-      {`${quickInfo.title}: ${quickInfo.content}${secondaryContent}`}
+      {quickInfo.accessibleDescription}
     </span>
   );
 }

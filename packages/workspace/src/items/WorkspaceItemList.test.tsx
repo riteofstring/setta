@@ -333,9 +333,13 @@ describe("WorkspaceItemList", () => {
       row.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
     });
     expect(useWorkspaceTooltip.getState()).toMatchObject({
-      content: "Enable the optional retry path.",
-      title: "enabled",
-      tone: "default",
+      pages: [
+        {
+          content: "Enable the optional retry path.",
+          title: "enabled",
+          tone: "default",
+        },
+      ],
     });
 
     await act(async () => {
@@ -349,7 +353,7 @@ describe("WorkspaceItemList", () => {
         new MouseEvent("mouseout", { bubbles: true, relatedTarget: document.body }),
       );
     });
-    expect(useWorkspaceTooltip.getState()).toMatchObject({ isEnabled: false, content: null });
+    expect(useWorkspaceTooltip.getState()).toMatchObject({ isEnabled: false, pages: [] });
   });
 
   it("styles and describes every diagnostic severity without relying on color alone", async () => {
@@ -395,9 +399,14 @@ describe("WorkspaceItemList", () => {
     await act(async () => {
       errorRow.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
     });
-    expect(useWorkspaceTooltip.getState()).toMatchObject({ title: "item-a", tone: "error" });
-    expect(useWorkspaceTooltip.getState().content).toContain("Choose a value below 10.");
-    expect(useWorkspaceTooltip.getState().content).toContain("Review this value before running.");
+    expect(useWorkspaceTooltip.getState().pages[0]).toMatchObject({
+      title: "item-a",
+      tone: "error",
+    });
+    expect(useWorkspaceTooltip.getState().pages[0]?.content).toContain("Choose a value below 10.");
+    expect(useWorkspaceTooltip.getState().pages[0]?.content).toContain(
+      "Review this value before running.",
+    );
     expect(onDocumentChange).not.toHaveBeenCalled();
   });
 

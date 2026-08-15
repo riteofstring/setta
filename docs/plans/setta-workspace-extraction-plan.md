@@ -201,7 +201,8 @@ Extend typed item presentation with optional serializable help text and a compac
 - Render help in a package-owned surface that is not clipped by section overflow.
 - Support pointer, keyboard, and screen-reader access without stealing editor focus.
 - Keep the content legible at compact widths and 200% scale.
-- Do not extract main's multi-page/frozen tooltip conversion or backend completion plumbing.
+- Extract main's reusable multi-page, copy, and frozen quick-info lifecycle. Keep its
+  tooltip-to-section conversion and backend completion plumbing in the application.
 
 Help text lets users understand unfamiliar controls in context rather than consulting separate
 documentation.

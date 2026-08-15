@@ -41,6 +41,14 @@ Host application navigation and modal state stay outside the shell. Registered p
 use its own application state, but receives no package store, XYFlow panel, dnd-kit store, Tailwind
 utility, or package-private DOM selector as an extension API.
 
+### Quick info shortcuts
+
+Hover a package control or focus a parameter row with quick info, then hold `Q` to reveal it. While
+holding `Q`, use `ArrowLeft`/`ArrowRight` to change pages, `C` to copy the current page, or `F` to
+freeze the box. A frozen box receives focus, can be moved and widened, and remains open after `Q`
+is released; use `ArrowLeft`/`ArrowRight`, `C`, and `Escape` directly to navigate, copy, and close
+it. Creating application sections from tooltip text remains host application behavior.
+
 ## Controlled workspace shell
 
 The built-in `Outline` is always the first leading tab and the built-in `Inspector` is always the

@@ -2,11 +2,16 @@
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  closeFrozenWorkspaceTooltip,
+  copyWorkspaceTooltipPage,
+  decrementWorkspaceTooltipPage,
   disableWorkspaceTooltip,
   enableWorkspaceTooltip,
+  freezeWorkspaceTooltip,
   getWorkspaceTooltipHandlers,
+  incrementWorkspaceTooltipPage,
   useWorkspaceTooltip,
   WorkspaceTooltip,
 } from "./WorkspaceTooltip";
@@ -22,9 +27,14 @@ function getTooltipPortal(): HTMLDivElement | null {
 describe("WorkspaceTooltip", () => {
   let host: HTMLDivElement;
   let root: Root;
+  const writeText = vi.fn(() => Promise.resolve());
 
   beforeEach(async () => {
     useWorkspaceTooltip.getState().reset();
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -39,20 +49,27 @@ describe("WorkspaceTooltip", () => {
     });
     host.remove();
     useWorkspaceTooltip.getState().reset();
+    vi.clearAllMocks();
   });
 
-  it("stages and clears content through the hover handlers", () => {
-    const handlers = getWorkspaceTooltipHandlers({ content: "Zoom in" });
+  it("stages and clears every page through the hover handlers", async () => {
+    const handlers = getWorkspaceTooltipHandlers(
+      { content: "Zoom in" },
+      { content: "Use the wheel to zoom precisely.", title: "More" },
+    );
     const target = document.createElement("button");
 
-    handlers.onMouseEnter({ currentTarget: target });
-    expect(useWorkspaceTooltip.getState().content).toBe("Zoom in");
+    await act(async () => handlers.onMouseEnter({ currentTarget: target }));
+    expect(useWorkspaceTooltip.getState().pages).toEqual([
+      { content: "Zoom in" },
+      { content: "Use the wheel to zoom precisely.", title: "More" },
+    ]);
 
-    handlers.onMouseLeave();
-    expect(useWorkspaceTooltip.getState().content).toBe(null);
+    await act(async () => handlers.onMouseLeave());
+    expect(useWorkspaceTooltip.getState().pages).toEqual([]);
   });
 
-  it("stages keyboard quick info at the focused control and clears after focus leaves", () => {
+  it("stages keyboard quick info at the focused control and clears after focus leaves", async () => {
     const handlers = getWorkspaceTooltipHandlers({
       content: "Choose a value below 10.",
       secondaryContent: "Sets the stability profile.",
@@ -64,22 +81,24 @@ describe("WorkspaceTooltip", () => {
     target.getBoundingClientRect = () =>
       ({ left: 20, right: 140, top: 50, bottom: 80, width: 120, height: 30 }) as DOMRect;
 
-    handlers.onFocus({ currentTarget: target });
+    await act(async () => handlers.onFocus({ currentTarget: target }));
     expect(useWorkspaceTooltip.getState()).toMatchObject({
       anchor: { x: 150, y: 50 },
-      content: "Choose a value below 10.",
-      secondaryContent: "Sets the stability profile.",
-      title: "alpha",
-      tone: "error",
+      pages: [
+        {
+          content: "Choose a value below 10.",
+          secondaryContent: "Sets the stability profile.",
+          title: "alpha",
+          tone: "error",
+        },
+      ],
     });
 
-    handlers.onBlur({ currentTarget: target, relatedTarget: null });
+    await act(async () => handlers.onBlur({ currentTarget: target, relatedTarget: null }));
     expect(useWorkspaceTooltip.getState()).toMatchObject({
       anchor: null,
-      content: null,
-      secondaryContent: null,
-      title: null,
-      tone: "default",
+      pageIndex: 0,
+      pages: [],
     });
   });
 
@@ -94,7 +113,7 @@ describe("WorkspaceTooltip", () => {
     await act(async () => {
       enableWorkspaceTooltip();
     });
-    expect(getTooltipPortal()?.textContent).toBe("Fit view");
+    expect(getTooltipPortal()?.textContent).toContain("Fit view");
     expect(host.textContent).toBe("");
 
     await act(async () => {
@@ -114,12 +133,95 @@ describe("WorkspaceTooltip", () => {
       enableWorkspaceTooltip();
     });
 
-    const tooltip = getTooltipPortal()?.querySelector<HTMLElement>('[role="tooltip"]');
-    expect(tooltip?.dataset.settaWorkspaceTooltipTone).toBe("error");
-    expect(tooltip?.className).toContain("bg-red-50/95");
+    const tooltip = getTooltipPortal();
+    expect(tooltip?.dataset.settaWorkspaceTooltipTone).toBeUndefined();
+    expect(
+      tooltip?.querySelector('[data-setta-workspace-tooltip-tone="error"]')?.className,
+    ).toContain("bg-red-50/95");
     expect(tooltip?.textContent).toContain("alpha");
     expect(tooltip?.textContent).toContain("Choose a value below 10.");
     expect(tooltip?.textContent).toContain("Sets the stability profile.");
+    expect(tooltip?.textContent).toContain("Q + F");
+  });
+
+  it("cycles paged content in both directions with wraparound", async () => {
+    await act(async () => {
+      getWorkspaceTooltipHandlers(
+        { content: "First page", title: "One" },
+        { content: "Second page", title: "Two", tone: "info" },
+      ).onMouseEnter({ currentTarget: host });
+      enableWorkspaceTooltip();
+    });
+
+    expect(getTooltipPortal()?.textContent).toContain("First page");
+    await act(async () => {
+      incrementWorkspaceTooltipPage();
+    });
+    expect(getTooltipPortal()?.textContent).toContain("Second page");
+    expect(getTooltipPortal()?.textContent).toContain("Page 2 of 2");
+
+    await act(async () => {
+      incrementWorkspaceTooltipPage();
+      decrementWorkspaceTooltipPage();
+    });
+    expect(useWorkspaceTooltip.getState().pageIndex).toBe(1);
+  });
+
+  it("freezes in place, survives release and hover exit, then restores focus when closed", async () => {
+    const previousFocus = document.createElement("button");
+    document.body.appendChild(previousFocus);
+    previousFocus.focus();
+    const handlers = getWorkspaceTooltipHandlers({ content: "Pinned help", title: "alpha" });
+    await act(async () => {
+      handlers.onMouseEnter({ currentTarget: host });
+      enableWorkspaceTooltip();
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 100, clientY: 80 }));
+    });
+    const initialPosition = getTooltipPortal()?.style.transform;
+
+    await act(async () => {
+      expect(freezeWorkspaceTooltip()).toBe(true);
+    });
+    const frozenTooltip = getTooltipPortal();
+    expect(frozenTooltip?.getAttribute("role")).toBe("dialog");
+    expect(document.activeElement).toBe(frozenTooltip);
+
+    await act(async () => {
+      expect(freezeWorkspaceTooltip()).toBe(true);
+    });
+
+    await act(async () => {
+      handlers.onMouseLeave();
+      disableWorkspaceTooltip();
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 350, clientY: 220 }));
+    });
+    expect(getTooltipPortal()?.style.transform).toBe(initialPosition);
+    expect(getTooltipPortal()?.textContent).toContain("Pinned help");
+
+    await act(async () => {
+      expect(closeFrozenWorkspaceTooltip()).toBe(true);
+    });
+    expect(getTooltipPortal()).toBeNull();
+    expect(document.activeElement).toBe(previousFocus);
+    previousFocus.remove();
+  });
+
+  it("copies the current page and exposes a focused frozen copy control", async () => {
+    await act(async () => {
+      getWorkspaceTooltipHandlers({ content: "Copy this", title: "alpha" }).onMouseEnter({
+        currentTarget: host,
+      });
+      enableWorkspaceTooltip();
+      freezeWorkspaceTooltip();
+    });
+
+    await act(async () => {
+      expect(copyWorkspaceTooltipPage()).toBe(true);
+      await Promise.resolve();
+    });
+    expect(writeText).toHaveBeenCalledWith("Copy this");
+    expect(getTooltipPortal()?.querySelector('button[aria-label="Copied"]')).not.toBeNull();
+    expect(getTooltipPortal()?.textContent).toContain("Copied to clipboard");
   });
 
   it("portals to viewport coordinates and follows the pointer at a 10px offset", async () => {
