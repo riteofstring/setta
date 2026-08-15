@@ -287,16 +287,28 @@ function createGroupedDocumentState(
     (maximum, layout) => Math.max(maximum, layout.zIndex),
     -1,
   );
-  const topLevelSections = Object.fromEntries(
-    Object.entries(state.topLevelSections).filter(([sectionId]) => !selected.has(sectionId)),
-  );
-  topLevelSections[groupId] = {
+  const groupLayout = {
     x: Math.min(...layouts.map((layout) => layout.x)),
     y: Math.min(...layouts.map((layout) => layout.y)),
     w: null,
     h: null,
     zIndex: maxZIndex + 1,
   };
+  const topLevelSections: WorkspaceDocumentState["topLevelSections"] = {};
+  let insertedGroup = false;
+  for (const [sectionId, layout] of Object.entries(state.topLevelSections)) {
+    if (selected.has(sectionId)) {
+      if (!insertedGroup) {
+        topLevelSections[groupId] = groupLayout;
+        insertedGroup = true;
+      }
+      continue;
+    }
+    topLevelSections[sectionId] = layout;
+  }
+  if (!insertedGroup) {
+    throw new Error("Top-level grouping selection is missing from the document order.");
+  }
   delete parentSectionMap[groupId];
   return { ...state, sections, topLevelSections, parentSectionMap };
 }

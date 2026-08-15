@@ -1,5 +1,4 @@
 import { createWithEqualityFn } from "zustand/traditional";
-import { useReactFlow } from "../canvas/store";
 import { withResetFn } from "../state/storeUtils";
 import type { WorkspaceTextDirection } from "../styles/textDirection";
 import type { WorkspaceMenuClientPoint } from "./workspaceMenuGeometry";
@@ -61,9 +60,6 @@ export function closeWorkspaceMenu(restoreFocus = true): void {
     return;
   }
   useWorkspaceMenuState.setState({ invocation: null });
-  if (invocation.kind === "section") {
-    useReactFlow.setState({ nodesSelectionDims: null });
-  }
   if (restoreFocus && invocation.owner.isConnected) {
     invocation.owner.focus({ preventScroll: true });
   }

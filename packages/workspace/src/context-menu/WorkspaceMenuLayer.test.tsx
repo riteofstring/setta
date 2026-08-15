@@ -224,6 +224,26 @@ describe("WorkspaceMenuLayer", () => {
     expect(useWorkspaceMenuState.getState().invocation).toBeNull();
   });
 
+  it("dismisses a section menu without deleting valid multi-selection geometry", async () => {
+    const selectionBounds = { x: 10, y: 20, width: 300, height: 120 };
+    useReactFlow.setState({ nodesSelectionDims: selectionBounds });
+    openWorkspaceSectionMenu("existing", "section", { x: 150, y: 100 }, owner);
+    await act(async () => {
+      root.render(<WorkspaceMenuLayer />);
+    });
+
+    const focusedItem = document.body.querySelector<HTMLElement>('[role="menuitem"]');
+    await act(async () => {
+      focusedItem?.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Escape" }),
+      );
+    });
+
+    expect(useWorkspaceMenuState.getState().invocation).toBeNull();
+    expect(useReactFlow.getState().nodesSelectionDims).toEqual(selectionBounds);
+    expect(document.activeElement).toBe(owner);
+  });
+
   it("locks a mixed selection through one canonical structural action", async () => {
     loadWorkspaceDocument({
       sections: {

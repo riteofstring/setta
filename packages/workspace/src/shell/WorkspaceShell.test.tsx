@@ -331,7 +331,7 @@ describe("WorkspaceShell", () => {
     expect(getButton("Details").getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("renders pointer resize live and publishes one controlled commit on release", async () => {
+  it("renders pointer resize live and commits the final release sample once", async () => {
     const handle = getResizeHandle("leading");
     Object.defineProperties(handle, {
       hasPointerCapture: { value: () => true },
@@ -349,10 +349,10 @@ describe("WorkspaceShell", () => {
     expect(onChange).not.toHaveBeenCalled();
 
     await act(async () => {
-      handle.dispatchEvent(createPointerEvent("pointerup", { clientX: 150 }));
+      handle.dispatchEvent(createPointerEvent("pointerup", { clientX: 175 }));
     });
     expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange.mock.calls[0]?.[0].leading.width).toBe(385);
+    expect(onChange.mock.calls[0]?.[0].leading.width).toBe(410);
   });
 
   it("expands to the measured full width, closes the opposite pane, and restores width", async () => {

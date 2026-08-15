@@ -455,6 +455,7 @@ function ItemRowShell({
         event.currentTarget,
       )
     ) {
+      event.stopPropagation();
       return;
     }
     event.preventDefault();

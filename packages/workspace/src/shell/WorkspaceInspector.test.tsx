@@ -7,7 +7,10 @@ import { useWorkspaceCapabilities } from "../document/capabilities";
 import { setWorkspaceDocumentChangeCallback } from "../document/documentChangeCallback";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import {
+  registerSectionKinds,
+  type WorkspaceInspectorContributionContext,
+} from "../document/sectionKindRegistry";
 import { useWorkspaceDocument } from "../document/stores";
 import type {
   WorkspaceDocumentInput,
@@ -371,6 +374,17 @@ describe("WorkspaceInspector", () => {
   });
 
   it("renders a typed host contribution for custom section and item content", async () => {
+    const contexts: Array<WorkspaceInspectorContributionContext> = [];
+    registerSectionKinds({
+      leaf: { renderContent: () => null },
+      custom: {
+        renderContent: () => null,
+        renderInspector: (context) => {
+          contexts.push(context);
+          return <button type="button">Host {context.type} inspector</button>;
+        },
+      },
+    });
     await renderInspector(
       createDocument(["custom"], {
         custom: makeSection("custom", { kind: "custom", name: "Custom" }),
@@ -397,5 +411,19 @@ describe("WorkspaceInspector", () => {
     });
 
     expect(host.textContent).toContain("Host item inspector");
+    const sectionContext = contexts.find((context) => context.type === "section");
+    const itemContext = contexts.find((context) => context.type === "item");
+    expect(sectionContext && Object.isFrozen(sectionContext.section)).toBe(true);
+    expect(sectionContext && Object.isFrozen(sectionContext.section.children)).toBe(true);
+    expect(itemContext && Object.isFrozen(itemContext.item)).toBe(true);
+    expect(itemContext?.item.data && Object.isFrozen(itemContext.item.data)).toBe(true);
+    expect(() => {
+      if (itemContext?.item.data && !Array.isArray(itemContext.item.data)) {
+        (itemContext.item.data as Record<string, unknown>)["value"] = "mutated";
+      }
+    }).toThrow(TypeError);
+    expect(
+      useWorkspaceDocument.getState().sections["custom-items"]?.itemTree?.items["opaque"]?.data,
+    ).toEqual({ value: "host" });
   });
 });

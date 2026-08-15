@@ -22,16 +22,43 @@ export type MetaControlSectionPresentation = {
   onEdit: (section: WorkspaceSection) => void;
 };
 
+type WorkspaceInspectorSnapshot<Value> =
+  Value extends ReadonlyArray<infer Entry>
+    ? ReadonlyArray<WorkspaceInspectorSnapshot<Entry>>
+    : Value extends object
+      ? { readonly [Key in keyof Value]: WorkspaceInspectorSnapshot<Value[Key]> }
+      : Value;
+
 export type WorkspaceInspectorContributionContext =
   | {
       type: "section";
-      section: Readonly<WorkspaceSection>;
+      section: WorkspaceInspectorSnapshot<WorkspaceSection>;
     }
   | {
       type: "item";
-      section: Readonly<WorkspaceSection>;
-      item: Readonly<WorkspaceItem>;
+      section: WorkspaceInspectorSnapshot<WorkspaceSection>;
+      item: WorkspaceInspectorSnapshot<WorkspaceItem>;
     };
+
+type WorkspaceInspectorContributionInput =
+  | { type: "section"; section: WorkspaceSection }
+  | { type: "item"; section: WorkspaceSection; item: WorkspaceItem };
+
+function freezeInspectorSnapshot<T>(value: T): T {
+  if (value !== null && typeof value === "object") {
+    for (const nested of Object.values(value as Record<string, unknown>)) {
+      freezeInspectorSnapshot(nested);
+    }
+    Object.freeze(value);
+  }
+  return value;
+}
+
+export function createWorkspaceInspectorContributionContext(
+  context: WorkspaceInspectorContributionInput,
+): WorkspaceInspectorContributionContext {
+  return freezeInspectorSnapshot(structuredClone(context)) as WorkspaceInspectorContributionContext;
+}
 
 type SectionKindBaseDefinition = {
   // Rendered as the section body inside the package-owned shell, chrome, and header. The
@@ -43,7 +70,7 @@ type SectionKindBaseDefinition = {
   // render the reference's `gg-menu` fallback glyph.
   icon?: ComponentType<{ className?: string }>;
   // Custom section data and custom item data stay opaque to the package. A kind may project
-  // either selection into host-owned Inspector UI through this typed, read-only context.
+  // either selection into host-owned Inspector UI through this typed, deeply frozen snapshot.
   renderInspector?: (context: WorkspaceInspectorContributionContext) => ReactNode;
 };
 

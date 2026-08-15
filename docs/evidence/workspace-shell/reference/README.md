@@ -10,8 +10,11 @@ package-output evidence or developer approval.
 
 The supervised frozen reference service for this milestone is
 `http://127.0.0.1:3063/` (including `http://127.0.0.1:3063/settings`) with its backend on
-`http://127.0.0.1:8063/`. Ports `3000`, `5173`, and the package playground on `5174` are not this
-reference. Verify these recorded endpoints before treating a reference page as unavailable.
+`http://127.0.0.1:8063/`. In the current supervised session, ports `3000`, `5173`, and the package
+playground on `5174` are not this reference. The pane bundle predates the fixed-port relaunch, so
+its machine-readable provenance correctly retains the then-running frozen reference at
+`http://127.0.0.1:3000/settings`; later fresh captures use `3063`. Verify the current recorded
+endpoints before treating a reference page as unavailable.
 
 The detailed dependency cone, state-read classification, algorithm boundary, and package seam are
 in [`ownership-map.md`](ownership-map.md).

@@ -262,6 +262,17 @@ function getRegionStyle(width: number): CSSProperties {
   return { flexBasis: `${width}px`, width: `${width}px` };
 }
 
+function getPointerResizeState(session: ResizeSession, clientX: number): WorkspaceShellViewState {
+  const growthSign = (session.pane === "leading") !== (session.direction === "rtl") ? 1 : -1;
+  const requestedWidth = session.startWidth + (clientX - session.startClientX) * growthSign;
+  return resizeWorkspaceShellPane(
+    session.startState,
+    session.pane,
+    requestedWidth,
+    session.shellWidth,
+  );
+}
+
 export function WorkspaceShell({
   ariaLabel = "Workspace",
   className,
@@ -283,7 +294,6 @@ export function WorkspaceShell({
   const callbackRef = useRef(onViewStateChange);
   const measuredWidthRef = useRef<number | null>(null);
   const resizeSessionRef = useRef<ResizeSession | null>(null);
-  const liveViewStateRef = useRef<WorkspaceShellViewState | null>(null);
   const focusRequestRef = useRef<FocusRequest | null>(null);
   const previousViewStateRef = useRef(viewState);
   const previousCenterXRef = useRef<number | null>(null);
@@ -292,7 +302,6 @@ export function WorkspaceShell({
   const panelRefs = useRef(new Map<WorkspaceShellPaneSide, HTMLDivElement>());
   viewStateRef.current = viewState;
   callbackRef.current = onViewStateChange;
-  liveViewStateRef.current = liveViewState;
 
   const displayState = liveViewState ?? viewState;
 
@@ -556,16 +565,7 @@ export function WorkspaceShell({
     if (!session || session.pointerId !== event.pointerId) {
       return;
     }
-    const growthSign = (session.pane === "leading") !== (session.direction === "rtl") ? 1 : -1;
-    const requestedWidth = session.startWidth + (event.clientX - session.startClientX) * growthSign;
-    setLiveViewState(
-      resizeWorkspaceShellPane(
-        session.startState,
-        session.pane,
-        requestedWidth,
-        session.shellWidth,
-      ),
-    );
+    setLiveViewState(getPointerResizeState(session, event.clientX));
   }
 
   function finishResize(event: PointerEvent<HTMLDivElement>, commit: boolean): void {
@@ -576,11 +576,10 @@ export function WorkspaceShell({
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    const next = liveViewStateRef.current;
     resizeSessionRef.current = null;
     setLiveViewState(null);
-    if (commit && next) {
-      requestViewState(next);
+    if (commit) {
+      requestViewState(getPointerResizeState(session, event.clientX));
     }
   }
 

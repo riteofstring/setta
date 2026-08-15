@@ -106,6 +106,7 @@ function SectionActionMenu({
       disabled: !capabilities.canEditStructure || !canGroup,
       onSelect: () => {
         closeWorkspaceMenu();
+        useReactFlow.setState({ nodesSelectionDims: null });
         groupSections(invocation.sectionIds, `group-${crypto.randomUUID()}`);
       },
     },
@@ -115,6 +116,7 @@ function SectionActionMenu({
       disabled: !capabilities.canEditStructure,
       onSelect: () => {
         closeWorkspaceMenu();
+        useReactFlow.setState({ nodesSelectionDims: null });
         deleteSections(invocation.sectionIds);
       },
     },

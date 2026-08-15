@@ -3,7 +3,10 @@ import { useWorkspaceCapabilities } from "../document/capabilities";
 import { hasWorkspaceItemPresentation } from "../document/itemPresentation";
 import { setItemLabel, setItemPresentation } from "../document/itemPresentationMutations";
 import { ItemSelectionModeAffectsControlsContext } from "../document/itemSelectionMode";
-import { getRegisteredSectionKindOrThrow } from "../document/sectionKindRegistry";
+import {
+  createWorkspaceInspectorContributionContext,
+  getRegisteredSectionKindOrThrow,
+} from "../document/sectionKindRegistry";
 import type { WorkspaceItem, WorkspaceSection } from "../document/types";
 import { BuiltInItemValueControl } from "../items/BuiltInItemValueControl";
 import { getItemHandlerRegistration } from "../items/itemHandlerRegistry";
@@ -51,7 +54,7 @@ function UnsupportedCustomItem({
         className="setta-workspace-inspector-contribution"
         data-inspector-focus-key="custom-item"
       >
-        {contribution({ type: "item", section, item })}
+        {contribution(createWorkspaceInspectorContributionContext({ type: "item", section, item }))}
       </div>
     );
   }

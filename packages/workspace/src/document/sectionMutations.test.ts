@@ -172,6 +172,7 @@ describe("groupSections", () => {
       zIndex: 3,
     });
     expect(state.topLevelSections["leaf"]).toBeUndefined();
+    expect(Object.keys(state.topLevelSections)).toEqual(["created-group", "group"]);
     expect(state.parentSectionMap["leaf"]).toBe("created-group");
     expect(useActiveSections.getState().activeIds).toEqual(["created-group"]);
   });

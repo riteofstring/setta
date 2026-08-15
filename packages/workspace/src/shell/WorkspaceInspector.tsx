@@ -13,7 +13,10 @@ import {
 import { FiEdit3 } from "react-icons/fi";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { isGroupSection } from "../document/documentSelectors";
-import { getRegisteredSectionKindOrThrow } from "../document/sectionKindRegistry";
+import {
+  createWorkspaceInspectorContributionContext,
+  getRegisteredSectionKindOrThrow,
+} from "../document/sectionKindRegistry";
 import {
   deleteSections,
   groupSections,
@@ -354,7 +357,7 @@ function SectionContribution({ section }: { section: WorkspaceSection }) {
         className="setta-workspace-inspector-contribution"
         data-inspector-focus-key="custom-section"
       >
-        {contribution({ type: "section", section })}
+        {contribution(createWorkspaceInspectorContributionContext({ type: "section", section }))}
       </div>
     );
   }

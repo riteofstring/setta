@@ -1805,6 +1805,23 @@ Phase 4 progress (2026-08-11):
   work before the combined milestone developer gate. No package-output baseline or developer
   visual/interaction approval is claimed; the committed milestone awaits the required Agent 2
   audit before presentation to the developer.
+- Workspace-shell coherence audit complete; combined developer gate pending (2026-08-13): the
+  auditor reviewed `ea1577a06..81435762d` as the coherent authority-resolution-through-context-menu
+  milestone, expanding the requested minimum `82e7e47b6..81435762d` range only to the earlier
+  commits that implement the same milestone. Five behavior defects were corrected: top-level
+  grouping now replaces the first selected sibling instead of appending the group after later
+  siblings; pane resize publishes the final pointer-release sample instead of a potentially stale
+  rendered preview; ordinary section-menu dismissal preserves valid multi-selection geometry while
+  Group/Delete explicitly clear geometry they invalidate; typed Inspector contributions receive
+  deeply frozen clones rather than shallow-readonly live canonical objects; and an item with no
+  registered item action retains its native menu without leaking the event to the enclosing section
+  menu. The reference index now also distinguishes the pane bundle's valid historical port-3000
+  provenance from the current fixed-port service. The five directly affected package suites pass
+  (60 tests), as does changed-file quality; no dependency changed. The plan-ordered final broad
+  package, supply-chain, consumer, and browser gates are intentionally not run before developer
+  acceptance. No package-output baseline or developer approval is claimed: matched dark/light,
+  desktop, 200%, and 320 px evidence plus the specified interaction exercise must now be presented
+  for explicit developer acceptance before those post-acceptance gates may run.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

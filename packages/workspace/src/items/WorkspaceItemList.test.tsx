@@ -845,6 +845,32 @@ describe("WorkspaceItemList", () => {
     });
   });
 
+  it("retains the native item menu without leaking the event to its section", async () => {
+    const ancestorContextMenu = vi.fn();
+    document.body.addEventListener("contextmenu", ancestorContextMenu);
+
+    try {
+      await mount();
+      const row = getRowByContent(host, "item-a");
+      const pointerEvent = new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 60,
+        clientY: 80,
+      });
+
+      await act(async () => {
+        row.dispatchEvent(pointerEvent);
+      });
+
+      expect(pointerEvent.defaultPrevented).toBe(false);
+      expect(ancestorContextMenu).not.toHaveBeenCalled();
+      expect(useWorkspaceMenuState.getState().invocation).toBeNull();
+    } finally {
+      document.body.removeEventListener("contextmenu", ancestorContextMenu);
+    }
+  });
+
   it("renders the live projection with the temp placeholder during a drag", async () => {
     await mount();
 

@@ -322,8 +322,9 @@ default; emitted documents always carry resolved sizes). Groups are the one pack
 kind and cannot be registered. Sections may carry application-owned opaque serializable
 `data` (JSON values): the package round-trips it through the document and hands it to the
 kind's renderer without reading it. A kind may also register `renderInspector(context)` for
-host-owned configuration. The context discriminates a read-only selected section from a read-only
-selected custom item plus its owning section; it exposes no package store or private selector.
+host-owned configuration. The context is a deeply frozen snapshot that discriminates a selected
+section from a selected custom item plus its owning section; it exposes no package store, live
+canonical object, or private selector.
 
 A kind whose `presentation.type` is `"meta-control"` projects its opaque data to a package
 `MetaControlKind` and supplies the host callback for the outboard edit affordance. The package then
