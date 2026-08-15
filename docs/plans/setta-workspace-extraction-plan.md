@@ -1,200 +1,164 @@
-# Setta Workspace Remaining Implementation Plan
+# Setta Workspace UX Implementation Plan
 
-## Purpose and current state
+## Purpose and status
 
-The standalone `@setta/workspace` extraction is implemented and developer-accepted. The completed
-work includes the backend-free package and playground, recursive section and item movement, the
-Setta canvas and section chrome, built-in parameter controls and meta controls, column resizing,
-the workspace shell, Outline, Inspector, context menus, accessibility hardening, performance
-coverage, compiled delivery, and unrelated-consumer proof. Accepted evidence lives under
-`docs/evidence/`; Git history is the record of the completed implementation batches.
+The standalone `@setta/workspace` extraction and its original UX are complete and
+developer-accepted. The remaining product work is three UX milestones:
 
-This document now contains only work that remains. It deliberately omits the old preflight log,
-completed Phase 0–5 instructions, rejected iterations, and chronological status journal.
+- [ ] Milestone A — structural section and group authoring.
+- [ ] Milestone B — parameter authoring and feedback.
+- [ ] Milestone C — workspace commands and toolbar extensions.
 
-The remaining work has two categories:
+A milestone checkbox is complete only after its repository work, developer acceptance gate,
+accepted baseline, and phase audit are complete. While work is in progress, update the milestone's
+status sentence rather than checking it prematurely.
 
-1. close out the accepted extraction and replace temporary repository policy adapters; and
-2. implement three follow-on product milestones identified from the frozen Setta reference.
+Completed extraction history and accepted evidence live in Git and `docs/evidence/`; do not
+reimplement those phases. Security, shared-policy migration, file-length debt, packaging audits,
+and other non-UX closeout work live in
+`docs/plans/setta-workspace-technical-closeout-plan.md` and are outside this plan.
 
-The closeout and policy cutover are already authorized. Product milestones A–C require explicit
-developer authorization one milestone at a time. Authorizing one milestone does not authorize the
-next, and this plan does not authorize publishing, licensing, final naming, or application/backend
-features.
+This is the plan to pass to
+`scripts/automation/codex-loop/run-plan-implementation-loop.sh`. Launching the loop authorizes
+repository-actionable implementation in the earliest incomplete milestone. The loop must stop at
+the developer acceptance gate after each milestone. Only the developer can approve the result and
+allow the next milestone to begin.
 
-The product reference remains the clean `../setta-main` worktree at commit `043d3b2e9`. Use it only
-for read-only inspection and matched live evidence. A behavior that does not exist there is a new
-package decision and requires explicit developer approval rather than being described as parity.
+The frozen `../setta-main` worktree at commit `043d3b2e9` remains the authority for behavior it
+implements. Use it read-only. When a proposed reusable state does not exist in main, record that
+absence and obtain explicit developer approval for the package behavior instead of calling it
+parity.
 
-## Remaining work at a glance
+## UX outcome
 
-- [ ] Clear the `nanoid@3.3.17` vulnerability after its patched release satisfies the mandatory
-      release-age window.
-- [ ] Cut over from temporary local policy adapters to the new shared Code Policy capabilities.
-- [ ] Split the three remaining over-limit parity owners and remove their expiring exceptions.
-- [ ] Run the extraction closeout gates and final whole-extraction audit.
-- [ ] Milestone A: structural section and group authoring.
-- [ ] Milestone B: parameter authoring and feedback.
-- [ ] Milestone C: workspace commands and toolbar extensions.
-- [ ] Run a final coherence audit after every authorized follow-on milestone.
+After this plan, people using the workspace can:
 
-## 1. Extraction closeout
+- reorganize groups directly, constrain oversized groups, and discover section actions from the
+  section header;
+- visually categorize sections without relying on color as the only signal;
+- add, delete, find, understand, and troubleshoot parameters inside the workspace;
+- operate common workspace actions efficiently from consistent menus, keyboard shortcuts, and
+  toolbars; and
+- receive the same result no matter which action surface invokes an operation.
 
-### 1.1 Resolve the pending vulnerability without weakening policy
+These capabilities remain backend-free and useful to unrelated React hosts. They extend the
+existing opinionated Setta UX rather than turning the package into a generic node editor or design
+system.
 
-The final accepted-output gate is waiting on high-severity advisory
-`GHSA-2v37-7h3g-55p8`, currently introduced by `postcss -> nanoid@3.3.17`. The patched 3.x release,
-`nanoid@3.3.18`, was published at `2026-08-07 16:41:05 UTC` and becomes eligible under the
-repository's seven-day release-age policy after `2026-08-14 16:41:05 UTC`.
+## Reference anchors
 
-After that time:
+Inspect the running reference and the narrow source owners before implementing each behavior:
 
-1. refresh the lockfile through the normal dependency resolver so the transitive dependency is
-   `nanoid@3.3.18`;
-2. do not add an override, advisory ignore, release-age exception, trust downgrade, or broader
-   dependency update;
-3. run the offline and online supply-chain checks and confirm the lockfile remains frozen-install
-   reproducible;
-4. run the all-files static gate and exact packed-consumer proof on the stable tree; and
-5. record the successful closeout in accepted evidence.
+- `frontend/src/components/Section/Header/MenuButton/MenuButton.tsx`,
+  `ToggleGroupOverflowMode.tsx`, and `UngroupButton.tsx` for section-header actions, overflow, and
+  ungrouping;
+- `frontend/src/components/Panes/UiEditor/SectionConfig/SectionTagColorSettings.tsx` for section tag
+  colors;
+- `frontend/src/components/Section/SectionParts/KwargsControls.tsx` for parameter insertion,
+  deletion, and filtering;
+- `frontend/src/components/Panes/UiEditor/QuickInfoConfig/QuickInfoConfig.tsx` for parameter display
+  names and descriptions;
+- `frontend/src/state/actions/keyActivations.ts` and the shortcut settings for workspace command
+  behavior; and
+- `frontend/src/forks/xyflow/controls/Controls.tsx` for viewport-control composition.
 
-If a different dependency change becomes necessary, stop and present the exact graph and policy
-impact before expanding the update.
+Shared source files contain application-only behavior. Extract only the behavior named in this
+plan.
 
-### 1.2 Cut over to the completed shared Code Policy support
+## Milestone A — structural section and group authoring
 
-The current adoption intentionally retains several local providers because the pinned shared
-policy could not yet express their generic contracts. Once the separately implemented Code Policy
-work is reviewed and available:
+**Status: not started.**
 
-1. update the `.code-policy` pin intentionally;
-2. migrate `.code-policy.json` to the new shared declarations;
-3. prove each replacement against the current provider before deleting the provider;
-4. remove target-owned wrappers and workarounds whose complete behavior is now shared; and
-5. leave one enforcement owner for every check—never a permanent old/new dual path.
-
-Expected replacement candidates include generic portions of:
-
-- exact workspace dependency and package-manager policy;
-- frozen lockfile synchronization;
-- transitive release-age checks;
-- SPDX dependency-license checks;
-- standard component-suite orchestration;
-- generic package-boundary and packed-consumer contracts; and
-- fixture and ESLint workarounds made unnecessary by shared first-class support.
-
-Retain only Setta-specific assertions that shared policy cannot infer, including the package's
-compiled stylesheet contract, its exact public-import boundary, workspace-specific consumer
-expectations, and the real browser performance profile. If the new shared implementation does not
-fully cover an existing rule, retain that narrow rule and document the remaining gap instead of
-silently reducing enforcement.
-
-The cutover is complete only when strict policy diagnosis, all-file static checks, focused tests,
-the supply-chain gate, package builds, the packed consumer, and the browser profile all exercise
-the new ownership model successfully.
-
-### 1.3 Remove expiring file-length debt
-
-The extraction plan no longer needs a file-length exception after this rewrite. Three parity-owner
-exceptions still expire on `2026-08-20`:
-
-- `packages/workspace/src/canvas/ZoomPane.tsx`;
-- `packages/workspace/src/dnd/useDropType.ts`; and
-- `packages/workspace/src/styles/workspace.css`.
-
-Split each owner along existing responsibilities without changing observable behavior. Preserve
-event ownership and state lifecycles when splitting `ZoomPane.tsx`, collision and drop-intent
-semantics when splitting `useDropType.ts`, and selector order, specificity, scoping, and the single
-compiled CSS artifact when splitting `workspace.css`. Run focused behavior checks after each split
-and remove its exception in the same batch.
-
-Do not silently extend an exception. If a safe split cannot be completed before expiry, stop with
-the specific risk and request an explicit, short-lived renewal.
-
-### 1.4 Whole-extraction audit
-
-After sections 1.1–1.3 are green, audit the final repository as one package rather than replaying
-the old phase history. Confirm that:
-
-- the distribution contains compiled ESM, declarations, source maps, and one scoped stylesheet;
-- the package and packed unrelated consumer require neither Tailwind nor Setta configuration;
-- React and React DOM remain host-provided peers and other direct dependencies remain exact-pinned;
-- no application store, generated backend client, backend concept, private selector, Tailwind class
-  name, XYFlow internal, or dnd-kit store has entered the public API;
-- all canonical mutations validate before one atomic publication and one change notification;
-- drag, resize, pan, wheel, selection, nesting, and native browser gesture ownership still match
-  the accepted result; and
-- the frozen reference worktree remains unchanged at the recorded commit.
-
-Fix findings in narrow batches and rerun only the affected checks before the final authorized gate.
-
-## 2. Milestone A — structural section and group authoring
-
-This milestone completes generic section/group operations already implied by the package document,
-Inspector, context menus, and action registry. Characterize the applicable behavior in frozen main
-before each batch.
+Complete the generic section and group operations already implied by the package document,
+Inspector, context menus, and action registry.
 
 ### A1. Ungroup
 
 Add one canonical ungroup operation over validated group IDs.
 
-- Preserve child order, nested and top-level layout, selection, focus, and one-notification
-  publication.
-- Define the top-level placement from characterized behavior and an explicit document operation;
+- Preserve child order, nested and top-level placement, selection, focus, and a single document
+  change notification.
+- Determine top-level placement from characterized behavior and an explicit document operation;
   do not invent a positional heuristic.
 - Route header, context-menu, Inspector, command, and host invocations through the same operation.
 - Reject invalid, locked, missing, mixed-capability, or structurally impossible requests before
-  mutation.
+  changing the document.
+
+The operation should make regrouping and restructuring feel predictable even in deeply nested
+workspaces.
 
 ### A2. Bounded group overflow
 
 Add an explicit serializable group overflow mode matching main's auto-sized and bounded/scrollable
 states.
 
-- When changing an auto dimension to bounded, resolve the measured size through the package's
-  established inner/outer box model before the atomic document commit.
+- When changing an auto dimension to bounded, preserve the group's visible size through the
+  established inner/outer box model.
 - Preserve nested scrolling, item and section drop targets, wheel ownership, resize and reset,
   minimap bounds, and compact/narrow behavior.
-- Keep overflow state in the public document rather than a private DOM-derived shadow state.
+- Keep the mode in the public document so it reloads consistently.
+- Avoid scroll jumps when toggling the mode or editing children.
+
+This lets users keep large groups manageable without losing access to their contents or disrupting
+canvas navigation.
 
 ### A3. Functional section-header menu
 
-Make the section-header menu an action surface rather than a decorative icon when applicable
-actions exist.
+Make the section-header menu a real action surface whenever applicable actions exist.
 
-- Reuse the existing action registry and canonical mutation funnels; do not create a second action
+- Reuse the existing action registry and canonical operations; do not create a second action
   engine.
 - Start with group overflow and ungroup, then expose compatible package and host actions.
-- Preserve capability-disabled states, keyboard operation, focus restoration, portal appearance,
-  native-control context menus, full-surface section dragging, and compact hit geometry.
+- Preserve disabled states, keyboard operation, focus restoration, portal appearance,
+  native-control context menus, full-surface section dragging, and compact visible geometry.
 - Hide the menu when it has no applicable actions.
+- Keep the menu's icon, placement, and interaction treatment consistent with the accepted section
+  chrome.
+
+The menu makes common section actions discoverable without crowding every header with buttons.
 
 ### A4. Section tag-color editing
 
-Add the missing canonical tag-color mutation and a compact Inspector editor with reset-to-none.
+Add the missing canonical tag-color operation and a compact Inspector editor with reset-to-none.
 
 - Provide the captured default categories and accept an explicit host-supplied palette.
-- Keep editing and persistence of a reusable global palette host-owned.
-- Never use tag color as the only signal for state or meaning.
+- Keep reusable global-palette editing and persistence host-owned.
+- Never use tag color as the only indication of state or meaning.
+- Preserve readable contrast and the accepted section appearance in light and dark modes.
 
-### A5. Milestone A acceptance
+Tag colors give users a quick supplementary way to scan and organize a large workspace.
 
-Implement A1–A4 as separate reviewable batches, then perform one coherence audit. The playground
-and packed consumer must exercise every operation through public exports only. Present one combined
-developer gate covering header/context/Inspector parity, nested and top-level ungrouping, overflow
-scrolling and resizing, drag/pan/wheel ownership, keyboard and focus restoration, dark and light
-appearance, RTL, 200% scale, and a compact 320 px host. Record baselines only after acceptance.
+### A5. Milestone A acceptance gate
 
-Do not import variants, parameter visibility settings, artifact actions, backend ungroup routes, or
-main's global settings store because they share a source file with these operations.
+Implement A1–A4 as separate reviewable batches, then audit them as one interaction system. The
+playground must demonstrate every operation through public package APIs.
 
-## 3. Milestone B — parameter authoring and feedback
+Present one live developer gate covering:
 
-This milestone makes the existing batteries-included controls structurally authorable. It does not
-reimplement the already-complete value editors, UI-type conversion, renaming, drag-and-drop, column
-resizing, or meta controls.
+- nested and top-level ungrouping, including order, placement, selection, and focus;
+- overflow toggling, scrolling, resizing, reset, and reload;
+- header, context-menu, and Inspector action consistency;
+- section tag colors and reset behavior in light and dark modes;
+- section drag, item drag, pan, wheel, minimap, and native-browser gesture ownership;
+- keyboard and screen-reader operation;
+- RTL, 200% scale, coarse pointer, and a compact 320 px host; and
+- custom host actions and palettes through public APIs.
 
-### B1. Insert and delete items
+Only after explicit developer acceptance may the loop record baselines, complete the milestone
+audit, and proceed to Milestone B.
+
+Do not import variants, parameter visibility settings, artifact actions, backend ungroup routes,
+or main's global settings store.
+
+## Milestone B — parameter authoring and feedback
+
+**Status: not actionable until Milestone A is developer-accepted and audited.**
+
+Make the existing batteries-included parameter controls structurally authorable. Do not rework the
+already accepted value editors, UI-type conversion, renaming, drag-and-drop, column resizing, or
+meta controls unless the new behavior exposes a direct regression.
+
+### B1. Insert and delete parameters
 
 Add validated canonical insertion and deletion operations.
 
@@ -202,168 +166,207 @@ Add validated canonical insertion and deletion operations.
 - The package owns placement, validation, commit, selection/focus restoration, and one document
   change notification.
 - The package does not own domain defaults, Python parameter semantics, or host ID generation.
-- All package and host action surfaces call the same operations.
+- Every package and host action surface calls the same operations.
+- Deleting the selected item moves focus and selection to a predictable surviving target.
+
+This lets users construct a section's parameter surface without leaving the workspace.
 
 ### B2. Package-owned filtering
 
-Add compact per-section item search/filter view state.
+Add compact per-section parameter search and filtering.
 
 - Search built-in labels plus an explicit searchable-text contribution for custom items.
-- Never mutate `WorkspaceDocument` merely to filter the rendered view.
+- Filtering changes only view state and never mutates `WorkspaceDocument`.
 - Disable item drag-and-drop and structural keyboard movement while a filter is active.
-- Define and test what happens when the current selection becomes hidden.
-- Preserve scroll position and do not remount unaffected editors while the query changes.
+- Make the behavior of a selected but hidden item explicit and understandable.
+- Preserve section scroll position and avoid remounting unaffected editors as the query changes.
+- Provide a clear empty result and a quick way to clear the query.
+
+Filtering keeps long parameter sections usable without changing their saved order or contents.
 
 ### B3. Descriptions and help
 
 Extend typed item presentation with optional serializable help text and a compact Inspector editor.
 
-- Render help in a package-owned non-clipping surface.
+- Render help in a package-owned surface that is not clipped by section overflow.
 - Support pointer, keyboard, and screen-reader access without stealing editor focus.
-- Keep main's multi-page/frozen tooltip conversion and backend completion plumbing out of scope.
+- Keep the content legible at compact widths and 200% scale.
+- Do not extract main's multi-page/frozen tooltip conversion or backend completion plumbing.
+
+Help text lets users understand unfamiliar controls in context rather than consulting separate
+documentation.
 
 ### B4. Validation feedback
 
 Add an explicit host-supplied diagnostic registry keyed by stable item ID.
 
 - Support error, warning, and informational severities with messages.
-- Let the package own consistent row paint, accessible descriptions/status, reveal behavior, and
-  focus behavior.
-- Let hosts own validation, asynchronous work, and persistence.
+- Let the package own consistent row styling, accessible status and descriptions, reveal behavior,
+  and focus behavior.
+- Let hosts own validation rules, asynchronous work, and persistence.
 - Keep diagnostics ephemeral; they do not enter the canonical document.
+- Ensure color is not the only severity signal.
 
-### B5. Milestone B acceptance
+Diagnostics make problems visible next to the affected parameter while keeping domain validation
+outside the UI package.
 
-Implement insertion/deletion, filtering, then help/diagnostics as three reviewable batches. Each
-batch needs load and mutation validation, pointer/keyboard/focus coverage, item-DnD ownership tests,
-packed-consumer coverage, and matched live evidence. Present one combined developer gate before
-refreshing baselines.
+### B5. Milestone B acceptance gate
 
-Do not add pin/unpin semantics, edge-input conversion, callable state, backend routes, type checking,
-LSP services, or a second item value editor in the Inspector.
+Implement insertion/deletion, filtering, then help/diagnostics as three reviewable batches. Present
+one live developer gate covering:
 
-## 4. Milestone C — workspace commands and toolbar extensions
+- pointer and keyboard insertion/deletion, including invalid and locked states;
+- selection, focus, and scroll restoration;
+- filtering, hidden selection, empty results, and disabled structural movement;
+- non-clipping help in nested and bounded groups;
+- diagnostic severities, updates, clearing, and accessible announcements;
+- interaction with every accepted built-in parameter type and a custom renderer;
+- light/dark appearance, RTL, 200% scale, and compact sections; and
+- equivalent behavior in the playground through public package APIs.
 
-Unify existing package actions behind one public typed command surface.
+Only after explicit developer acceptance may the loop record baselines, complete the milestone
+audit, and proceed to Milestone C.
+
+Do not add pin/unpin semantics, edge-input conversion, callable state, backend routes, type
+checking, LSP services, or a second parameter value editor in the Inspector.
+
+## Milestone C — workspace commands and toolbar extensions
+
+**Status: not actionable until Milestone B is developer-accepted and audited.**
+
+Make frequent workspace actions faster and consistent across every action surface.
 
 ### C1. Command registry
 
-Evolve the existing action infrastructure into a replace-all registry with stable command IDs,
+Evolve the existing action infrastructure into one public typed command registry with stable IDs,
 labels, enabled-state evaluation, execution, and conflict validation over immutable public
 workspace contexts.
 
-- Context menus, header menus, Inspector actions, keyboard commands, and toolbar controls must call
-  the same command and mutation funnels.
-- Host registrations are explicit public inputs and replace atomically; no plugin runtime or
-  hidden global registration is introduced.
-- Unknown IDs, duplicate IDs, and invalid conflicts fail specifically at the boundary.
+- Context menus, header menus, Inspector actions, keyboard shortcuts, and toolbar controls call the
+  same commands and canonical operations.
+- Host registrations are explicit inputs and replace atomically; do not introduce hidden global
+  registration or a plugin runtime.
+- Unknown IDs, duplicate IDs, and invalid conflicts fail clearly at registration.
+- Disabled commands explain their state consistently to every action surface.
 
-### C2. Configurable key bindings
+A single command model prevents an action from behaving differently depending on where the user
+invokes it.
+
+### C2. Configurable keyboard shortcuts
 
 Add platform-aware bindings for existing package operations, including fit/reset/zoom, creation,
-group/ungroup, lock/delete, select all, next/previous top-level section, item
+group/ungroup, lock/delete, select all, next/previous top-level section, parameter
 move/indent/unindent, and pane/Outline focus.
 
 - Preserve exact-chord lifecycle, editable-target exclusions, browser-native shortcuts, macOS
   swallowed-key recovery, and one-owner gesture rules.
 - Detect binding conflicts before activation and expose enough information for hosts to explain
   them.
-- Do not intercept a browser or editor chord unless the active command deliberately owns it.
+- Do not intercept a browser or editor chord unless an active command deliberately owns it.
+- Keep keyboard and pointer results identical, including focus and announcements.
+
+Shortcuts make repetitive workspace editing faster without breaking text editors or browser
+navigation.
 
 ### C3. Host toolbar contributions
 
-Expose typed host toolbar contributions rendered beside the package viewport/minimap controls.
+Expose typed host toolbar contributions beside the package viewport and minimap controls.
 
 - Contributions reference public command IDs and receive public immutable state only.
-- Preserve responsive grouping, logical direction, keyboard order, hit targets, and accepted compact
-  paint.
+- Preserve responsive grouping, logical direction, keyboard order, hit targets, and accepted
+  compact paint.
+- Let hosts omit contributed controls entirely.
 - Do not expose XYFlow `Panel`, package stores, private selectors, or main's plugin runtime.
 
-### C4. Milestone C acceptance
+This gives consuming applications useful customization without forcing them to overlay private
+canvas internals or create visually inconsistent controls.
 
-Exercise every command from each applicable action surface and prove identical mutation, selection,
-focus, disabled-state, and error behavior. Capture frozen main's applicable shortcuts and control
-composition first, then present a combined pointer, keyboard, focus, RTL, 200% scale, and compact
-layout gate. Record baselines only after developer acceptance.
+### C4. Milestone C acceptance gate
 
-Project search, file navigation, run commands, application menu state, and an application-wide
-command palette remain out of scope.
+Exercise every command from each applicable action surface and prove identical mutation,
+selection, focus, disabled-state, and error behavior. Present one live developer gate covering:
 
-## Cross-cutting implementation constraints
+- default and host-defined commands;
+- binding conflicts and platform-specific shortcut labels;
+- editable controls, CodeMirror, native inputs, browser navigation, and swallowed-key recovery;
+- header, context-menu, Inspector, keyboard, and toolbar consistency;
+- optional host toolbar groups at desktop and compact widths;
+- keyboard order, screen-reader names, focus restoration, and disabled-state announcements; and
+- light/dark appearance, RTL, 200% scale, coarse pointer, and a 320 px host.
 
-Every remaining batch must preserve these contracts:
+Only after explicit developer acceptance may the loop record baselines and request the final
+whole-plan UX audit.
 
-- The package stays backend-free and authored in TypeScript/React under `packages/workspace/`.
-- Public state and extension points are typed, serializable where canonical, and independent of
-  Setta application models.
-- Canonical mutations validate the whole request before one atomic commit. No aliases, migrations,
-  dual paths, shims, heuristic fallbacks, broad catches, or unreachable compatibility states.
+Project search, file navigation, run commands, application menu state, an application-wide command
+palette, and a plugin runtime remain out of scope.
+
+## UX contracts for every milestone
+
+- Preserve the accepted Setta visual language; do not redesign controls or modernize spacing while
+  extracting behavior.
+- Sections continue to drag from any non-interactive part of their surface. Selection never changes
+  geometry.
+- Compact visible controls retain adequately sized hit targets.
 - Interaction ownership remains explicit across section drag, item drag, resize, pan, wheel,
-  browser navigation gestures, native controls, editors, menus, and panes.
-- Selection never changes geometry. Compact visible controls retain adequately sized hit targets.
-- Package-only behavior is designed explicitly and accepted as new behavior; it is not labeled
-  main parity.
-- The distribution remains compiled ESM plus declarations, source maps, and one scoped stylesheet.
-- Consumers need neither Tailwind nor repository-specific build configuration.
-- Direct dependencies stay exact-pinned except host peer ranges, and dependency changes pass the
-  release-age, trust, license, lock, and vulnerability policies.
+  browser-history gestures, native controls, editors, menus, and panes.
+- Canonical operations validate the entire request before one atomic change and one notification.
+- Package-only behavior receives explicit design approval and is not mislabeled as main parity.
+- New built-in behavior is batteries-included, while host customization uses narrow typed public
+  inputs.
+- No milestone adds aliases, dual behavior paths, compatibility shims, heuristic fallbacks, broad
+  catches, or backend/application concepts.
 
-## Verification and evidence
+## Loop execution and evidence
 
-For each user-visible or interaction batch:
+For each implementation batch:
 
-1. reproduce the applicable frozen-main state at a controlled viewport, appearance, zoom, and
-   document state;
-2. record when the proposed state is absent from main and obtain authority for the package design;
-3. implement the smallest coherent change and run its focused tests;
-4. run `./check_policy.sh check` and `./check_policy.sh test --changed` near batch completion;
-5. compare main and package live without stealing focus from the developer's unrelated work;
-6. present side-by-side evidence and obtain explicit developer acceptance;
-7. only then add or refresh regression baselines; and
-8. run the broader authorized policy, consumer, supply-chain, and browser checks once on the stable
-   milestone tree.
+1. reproduce and characterize the applicable frozen-main behavior;
+2. record any required package-only design decision before implementation;
+3. implement the smallest coherent vertical slice;
+4. add focused tests for observable pointer, keyboard, focus, document, and interaction behavior;
+5. run the repository's authorized changed-file checks;
+6. update the current milestone's status sentence in the same implementation commit, checking its
+   top-level box only after acceptance and audit; and
+7. continue until the milestone's repository work is ready for its developer gate.
 
-Before a merge, use `./check_policy.sh test-levels --base <trusted-base>` and follow the shared
-policy's authorization rules for recommended, full, gate, and supplemental suites. Visual
-baselines lock accepted output; they never approve previously unreviewed output.
+At each developer gate:
 
-Every milestone must cover, as applicable:
+1. compare the package and applicable main states at matched viewport, appearance, zoom, and data;
+2. present a short test checklist and side-by-side visual or interaction evidence;
+3. avoid repeatedly foregrounding Chrome while evidence is being prepared;
+4. stop the loop with `PLAN_IMPLEMENTATION_AWAITING_DEVELOPER_APPROVAL`;
+5. after explicit acceptance, record the approved baseline and run the authorized milestone audit;
+   and
+6. restart the loop to begin the next milestone.
 
-- deterministic unit and component behavior;
-- keyboard, screen-reader, focus restoration, and reduced-motion behavior;
-- dark/light appearance, RTL, 200% scale, coarse pointer, and 320 px host layout;
-- nested groups and top-level sections;
-- drag, resize, wheel, pan, and browser-history gesture ownership;
-- package build and public export boundaries;
-- the packed unrelated consumer; and
-- the production browser performance profile.
+Baselines protect accepted output; they never approve an unreviewed design. Agents and automated
+tests cannot waive a developer gate.
 
 ## Stop conditions
 
-Stop and return to the developer rather than broadening scope when:
+Stop and return to the developer instead of broadening scope when:
 
-- the frozen reference and proposed behavior materially disagree;
-- a required state does not exist in main and has not received explicit design authority;
-- parity would require application/backend state without a narrow public host seam;
-- an operation needs a positional, type, or capability heuristic instead of an explicit contract;
-- a dependency or fork change alters drag, resize, zoom, nesting, or gesture feel;
-- a visual or interaction milestone has not received developer acceptance;
-- a batch becomes too large to compare meaningfully;
-- a policy replacement would weaken or duplicate enforcement; or
-- automated checks pass while the live result is visibly or behaviorally wrong.
+- the frozen reference and proposed UX materially disagree;
+- a required state is absent from main and lacks explicit package-design authority;
+- the behavior requires application/backend state without a narrow public host seam;
+- placement, type, or capability would require a heuristic rather than an explicit contract;
+- a dependency or fork substitution would change drag, resize, zoom, nesting, or gesture feel;
+- a batch becomes too large for meaningful live comparison;
+- the implementation reaches a required developer acceptance gate; or
+- automated checks pass while the live result remains visibly or behaviorally wrong.
 
-Do not respond to a failed gate by adding unrelated features, broad fallbacks, more snapshots, or
-policy exceptions.
+Do not respond to a failed UX gate by adding unrelated features, broad fallbacks, abstractions,
+snapshots, or performance instrumentation.
 
-## Completion criteria
+## Definition of UX completion
 
 This plan is complete when:
 
-- the patched dependency clears release-age and vulnerability enforcement without an exception;
-- the shared Code Policy cutover has one owner per check and retains all Setta-specific contracts;
-- the three parity-owner file-length exceptions are removed;
-- the whole-extraction audit and authorized complete gate pass;
-- each explicitly authorized product milestone is implemented, developer-accepted, baseline-locked,
-  and audited; and
-- the package remains backend-free, publicly consumable, visually coherent with Setta, and free of
-  implicit publishing, licensing, naming, or compatibility decisions.
+- Milestones A, B, and C are implemented in order;
+- each milestone has explicit developer visual and interaction acceptance;
+- approved outputs are baseline-locked only after acceptance;
+- the final audit confirms one consistent operation path across menus, Inspector, keyboard, and
+  toolbars;
+- nested, compact, accessible, RTL, scaled, and gesture-ownership behavior remains coherent; and
+- no application/backend feature, publishing decision, or non-UX maintenance work was folded into
+  the implementation.
