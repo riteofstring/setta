@@ -231,6 +231,26 @@ describe("loadWorkspaceDocument", () => {
     );
   });
 
+  it("canonicalizes a valid tag color and rejects an invalid one before loading", () => {
+    loadWorkspaceDocument(
+      makeDocument({
+        sections: { leaf: makeSection("leaf", { tagColor: " A1B2C3 " }) },
+        topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
+      }),
+    );
+    expect(useWorkspaceDocument.getState().sections["leaf"]?.tagColor).toBe("#a1b2c3");
+
+    expect(() =>
+      loadWorkspaceDocument(
+        makeDocument({
+          sections: { leaf: makeSection("leaf", { tagColor: "blue" }) },
+          topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
+        }),
+      ),
+    ).toThrow(/Section leaf tag color must be a six-digit hex color/);
+    expect(useWorkspaceDocument.getState().sections["leaf"]?.tagColor).toBe("#a1b2c3");
+  });
+
   it("requires an explicit boolean overflow mode and confines it to groups", () => {
     const missingMode = {
       ...makeSection("leaf"),

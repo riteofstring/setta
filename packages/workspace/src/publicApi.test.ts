@@ -5,6 +5,7 @@ import * as workspace from "./index";
 // package-private stores, fork primitives, and DOM selectors from leaking through a broad export.
 const RUNTIME_EXPORTS = [
   "ColorValueControl",
+  "DEFAULT_SECTION_TAG_COLOR_PALETTE",
   "DEFAULT_META_CONTROL_SIZE",
   "DROPZONE_META_CONTROL_SIZE",
   "DateValueControl",
@@ -50,6 +51,7 @@ const RUNTIME_EXPORTS = [
   "setItemValue",
   "setGroupOverflowMode",
   "setSectionData",
+  "setSectionTagColor",
   "setWorkspaceDocumentChangeCallback",
   "setWorkspaceColorMode",
   "ungroupSections",

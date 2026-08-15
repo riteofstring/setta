@@ -37,8 +37,9 @@ import { canUngroupWorkspaceSections } from "../document/ungroupSections";
 import { setGroupOverflowMode } from "../section/groupOverflowAction";
 import { useSectionRefs } from "../section/sectionRefs";
 import { persistSectionSizeChange } from "../section/sectionSizes";
+import type { WorkspaceSectionTagColorPalette } from "../section/sectionTagColors";
 import { ungroupSections } from "../section/ungroupAction";
-import { WorkspaceItemInspector } from "./WorkspaceItemInspector";
+import { SectionTagColorEditor } from "./SectionTagColorEditor";
 import {
   canGroupWorkspaceSections,
   getWorkspaceInspectorLockState,
@@ -47,9 +48,11 @@ import {
   getWorkspaceInspectorSelectionStatus,
   type WorkspaceInspectorSelection,
 } from "./workspaceInspectorModel";
+import { WorkspaceItemInspector } from "./WorkspaceItemInspector";
 
 type WorkspaceInspectorProps = {
   initialFocusRef: RefObject<HTMLElement | null>;
+  sectionTagColorPalette: WorkspaceSectionTagColorPalette;
 };
 
 type CommitTextFieldProps = {
@@ -481,11 +484,13 @@ function SectionInspector({
   documentState,
   focusRoot,
   onStatusChange,
+  sectionTagColorPalette,
   section,
 }: {
   documentState: WorkspaceDocumentState;
   focusRoot: () => void;
   onStatusChange: (message: string) => void;
+  sectionTagColorPalette: WorkspaceSectionTagColorPalette;
   section: WorkspaceSection;
 }) {
   const capabilities = useWorkspaceCapabilities((state) => state);
@@ -529,6 +534,12 @@ function SectionInspector({
             : "Enter a six-digit hex color or leave this blank."
         }
         value={section.styleColor ?? ""}
+      />
+      <SectionTagColorEditor
+        onEscape={focusRoot}
+        onStatusChange={onStatusChange}
+        palette={sectionTagColorPalette}
+        section={section}
       />
       <div className="setta-workspace-inspector-toggle-grid">
         <button
@@ -715,11 +726,13 @@ function InspectorBranch({
   focusRoot,
   onStatusChange,
   selection,
+  sectionTagColorPalette,
 }: {
   documentState: WorkspaceDocumentState;
   focusRoot: () => void;
   onStatusChange: (message: string) => void;
   selection: WorkspaceInspectorSelection;
+  sectionTagColorPalette: WorkspaceSectionTagColorPalette;
 }) {
   switch (selection.type) {
     case "empty":
@@ -730,6 +743,7 @@ function InspectorBranch({
           documentState={documentState}
           focusRoot={focusRoot}
           onStatusChange={onStatusChange}
+          sectionTagColorPalette={sectionTagColorPalette}
           section={selection.section}
         />
       );
@@ -755,7 +769,10 @@ function InspectorBranch({
   }
 }
 
-export function WorkspaceInspector({ initialFocusRef }: WorkspaceInspectorProps) {
+export function WorkspaceInspector({
+  initialFocusRef,
+  sectionTagColorPalette,
+}: WorkspaceInspectorProps) {
   const documentState = useWorkspaceDocument((state) => state);
   const activeSectionIds = useActiveSections((state) => state.activeIds);
   const selection = useMemo(
@@ -849,6 +866,7 @@ export function WorkspaceInspector({ initialFocusRef }: WorkspaceInspectorProps)
           focusRoot={focusRoot}
           onStatusChange={setStatus}
           selection={selection}
+          sectionTagColorPalette={sectionTagColorPalette}
         />
       </div>
       <p

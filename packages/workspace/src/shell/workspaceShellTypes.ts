@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode, RefObject } from "react";
+import type { WorkspaceSectionTagColorPalette } from "../section/sectionTagColors";
 
 export type WorkspaceShellPane = "leading" | "trailing";
 
@@ -57,6 +58,9 @@ export type WorkspaceShellProps = {
   // the center's logical origin already shifts with that pane. The alternate mode explicitly
   // counter-pans the camera to preserve absolute screen position.
   leadingPaneCameraMode?: WorkspaceShellLeadingPaneCameraMode;
+  // Omit for frozen main's captured categories. A supplied palette replaces the complete editor
+  // choice set; category persistence and editing remain host-owned.
+  sectionTagColorPalette?: WorkspaceSectionTagColorPalette;
   ariaLabel?: string;
   className?: string;
 };

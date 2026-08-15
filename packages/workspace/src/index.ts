@@ -183,6 +183,12 @@ export type { WorkspaceItemLabelProps } from "./items/WorkspaceItemLabel";
 export { WorkspaceItemList } from "./items/WorkspaceItemList";
 export type { WorkspaceItemListProps } from "./items/WorkspaceItemList";
 export { setGroupOverflowMode } from "./section/groupOverflowAction";
+export { DEFAULT_SECTION_TAG_COLOR_PALETTE } from "./section/sectionTagColors";
+export type {
+  WorkspaceSectionTagColorChoice,
+  WorkspaceSectionTagColorPalette,
+} from "./section/sectionTagColors";
+export { setSectionTagColor } from "./section/tagColorAction";
 export { ungroupSections } from "./section/ungroupAction";
 export { WorkspaceShell } from "./shell/WorkspaceShell";
 export {

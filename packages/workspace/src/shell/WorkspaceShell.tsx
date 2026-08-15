@@ -14,6 +14,7 @@ import { FiEdit3 } from "react-icons/fi";
 import { TbListTree } from "react-icons/tb";
 import { WorkspaceCanvas } from "../canvas/WorkspaceCanvas";
 import { useReactFlow } from "../canvas/store";
+import { resolveSectionTagColorPalette } from "../section/sectionTagColors";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { WorkspaceControls } from "../toolbar/WorkspaceControls";
 import { WorkspaceTooltip } from "../tooltip/WorkspaceTooltip";
@@ -279,6 +280,7 @@ export function WorkspaceShell({
   leadingPaneCameraMode = "shift-with-pane",
   leadingTabs,
   onViewStateChange,
+  sectionTagColorPalette,
   trailingTabs,
   viewState,
 }: WorkspaceShellProps) {
@@ -290,6 +292,10 @@ export function WorkspaceShell({
   const instanceId = `workspace-shell-${useId().replaceAll(":", "")}`;
   const [shellWidth, setShellWidth] = useState(0);
   const [liveViewState, setLiveViewState] = useState<WorkspaceShellViewState | null>(null);
+  const resolvedSectionTagColorPalette = useMemo(
+    () => resolveSectionTagColorPalette(sectionTagColorPalette),
+    [sectionTagColorPalette],
+  );
   const viewStateRef = useRef(viewState);
   const callbackRef = useRef(onViewStateChange);
   const measuredWidthRef = useRef<number | null>(null);
@@ -343,9 +349,14 @@ export function WorkspaceShell({
       label: "Inspector",
       icon: FiEdit3,
       initialFocusRef: inspectorInitialFocusRef,
-      renderContent: () => <WorkspaceInspector initialFocusRef={inspectorInitialFocusRef} />,
+      renderContent: () => (
+        <WorkspaceInspector
+          initialFocusRef={inspectorInitialFocusRef}
+          sectionTagColorPalette={resolvedSectionTagColorPalette}
+        />
+      ),
     }),
-    [],
+    [resolvedSectionTagColorPalette],
   );
   const combinedTrailingTabs = useMemo(
     () => [inspectorTab, ...trailingTabs],

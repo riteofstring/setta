@@ -67,8 +67,8 @@ plan.
 
 ## Milestone A — structural section and group authoring
 
-**Status: A1–A3 repository work is complete; A4 section tag-color editing is next. Milestone A
-remains open until A1–A4 pass the combined developer acceptance gate and audit.**
+**Status: A1–A4 repository work is complete. Milestone A remains open until A1–A4 pass the
+combined developer acceptance gate and audit.**
 
 Complete the generic section and group operations already implied by the package document,
 Inspector, context menus, and action registry.

@@ -17,7 +17,8 @@ transition paths are provided.
 - `WorkspaceShell` is the package-owned integrated surface. It composes the canvas, controls,
   tooltip, logical leading/trailing rails, controlled panes, the built-in leading Outline, and the
   built-in trailing Inspector. Hosts register additional typed tabs with icons and content rendered
-  from public props only.
+  from public props only. Its optional `sectionTagColorPalette` is the complete host-supplied set of
+  named Inspector categories; omitting it uses the captured package defaults.
 - `createWorkspaceShellViewState` creates the initial serializable pane state. Hosts own that value
   and apply the shell's single `onViewStateChange` callback directly or persist it separately from
   `WorkspaceDocument`. The same value owns Outline disclosure and roving-focus state; canonical
@@ -67,6 +68,11 @@ const trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
   },
 ];
 
+const sectionTagColorPalette = [
+  ...DEFAULT_SECTION_TAG_COLOR_PALETTE,
+  { color: "#0f766e", description: "Host teal" },
+] satisfies WorkspaceSectionTagColorPalette;
+
 function HostWorkspace() {
   const [viewState, setViewState] = useState(() =>
     createWorkspaceShellViewState({
@@ -77,6 +83,7 @@ function HostWorkspace() {
   return (
     <WorkspaceShell
       leadingTabs={leadingTabs}
+      sectionTagColorPalette={sectionTagColorPalette}
       trailingTabs={trailingTabs}
       viewState={viewState}
       onViewStateChange={setViewState}
@@ -102,8 +109,9 @@ Hosts may call that command directly to fit a mounted section at no more than 10
 changes canonical selection.
 
 The Inspector projects canonical section and typed-item selection. Its empty state mirrors the
-frozen UI Editor; one section exposes package-owned identity, name, accent, lock/minimize,
-authored/resolved size, group orientation, bounded overflow, and ungroup actions; one typed item
+frozen UI Editor; one section exposes package-owned identity, name, style accent, named color tag,
+lock/minimize, authored/resolved size, group orientation, bounded overflow, and ungroup actions;
+one typed item
 exposes its editable label, ordinary UI type, and only that type's valid configuration. Its
 canonical live value control remains in the section on the canvas rather than being duplicated in
 the Inspector. Compact configuration rows commit each valid field or list action immediately;
@@ -193,6 +201,16 @@ nested drop targets and scroll position intact, and takes wheel ownership only w
 overflows. The group header, section/Outline context menus, Inspector, and direct hosts all call
 this operation. Disable bounded overflow before resetting either authored dimension to `"auto"`.
 
+`setSectionTagColor(sectionId, color)` is the one tag-color mutation used by the Inspector and
+direct hosts. It accepts `null` to reset to none and canonicalizes a six-digit RGB hex color before
+one document write and one notification. It rejects unavailable layout capability, a locked or
+missing section, and malformed color input before writing. `DEFAULT_SECTION_TAG_COLOR_PALETTE`
+exports frozen main's Red, Orange, Yellow, Green, Cyan, Blue, Purple, and Slate categories. A
+`WorkspaceShell` host may replace the complete Inspector palette with non-empty, uniquely colored,
+named categories; the package validates and freezes that input, while reusable palette editing and
+persistence remain host-owned. A valid document color outside the current palette stays visible as
+an explicit Custom choice rather than silently selecting another category.
+
 Custom interactive renderer content uses only the four exported interaction-boundary constants:
 `NO_DRAG_CLASS_NAME` prevents section/item drag activation and `NO_PAN_CLASS_NAME` preserves the
 element's pointer interaction. `NO_WHEEL_CLASS_NAME` preserves browser-native wheel behavior such
@@ -249,8 +267,10 @@ host content inside that section may consume the corresponding inherited custom 
 - `--setta-section-style-text`
 - `--setta-section-style-muted-text`
 
-The derived primary text/background pairing is kept at WCAG AA contrast. `tagColor` is a compact
-categorical marker only; hosts must not use it as the sole way to communicate state or meaning.
+The derived primary text/background pairing is kept at WCAG AA contrast. `tagColor` is a canonical
+six-digit RGB hex value or `null` and remains a compact categorical marker only. The Inspector
+pairs every swatch with its category name and color value; hosts must likewise not use the color as
+the sole way to communicate state or meaning.
 
 ## Motion, direction, coarse pointer, and host reflow
 
@@ -288,7 +308,7 @@ remounting `WorkspaceCanvas`.
 
 `setWorkspaceDocumentChangeCallback(callback)` registers the host notification for
 package-initiated canonical commits: selection, move, resize, rename, the header flag toggles,
-delete, drag-end layout writes, measurement writes, and viewport mirrors. Each commit invokes
+color-tag edits, delete, drag-end layout writes, measurement writes, and viewport mirrors. Each commit invokes
 the callback once with the full serializable document (`getWorkspaceDocument()` returns the
 same snapshot on demand). Notification cadence matches the reference's canonical writes — the
 reference debounces only its network transport, so viewport pans and measurement passes notify

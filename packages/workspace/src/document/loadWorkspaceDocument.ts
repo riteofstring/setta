@@ -9,6 +9,7 @@ import { resetDndSessionForLoadedDocument } from "../dnd/dndState";
 import { assertNoReservedItemDndTokens } from "../dnd/itemDndState";
 import { resetItemDragState } from "../items/itemDragHandlers";
 import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
+import { normalizeSectionTagColor } from "../section/sectionTagColors";
 import { runWithWorkspaceDocumentChangeNotificationsSuppressed } from "./documentChangeCallback";
 import { isGroupSection } from "./documentSelectors";
 import { assertValidSectionOverflowMode } from "./groupOverflow";
@@ -52,6 +53,7 @@ function resolveLoadedSections(
       : null;
     resolved[sectionId] = {
       ...section,
+      tagColor: normalizeSectionTagColor(section.tagColor, `Section ${sectionId} tag color`),
       size:
         section.size ??
         metaControlDefaultSize ??

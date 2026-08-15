@@ -266,7 +266,9 @@ function makeMetaControlSection(
 // meta-control fixture remains host-owned opaque section data by design.
 export const playgroundDocument: WorkspaceDocumentInput = {
   sections: {
-    "idle-leaf": makeLeafSection("idle-leaf", "Idle leaf"),
+    "idle-leaf": makeLeafSection("idle-leaf", "Idle leaf", {
+      tagColor: "#0f766e",
+    }),
     "locked-leaf": makeLeafSection("locked-leaf", "Locked leaf", {
       positionAndSizeLocked: true,
     }),
@@ -277,7 +279,9 @@ export const playgroundDocument: WorkspaceDocumentInput = {
       overflowMode: true,
       size: { width: 520, height: 360 },
     }),
-    "nested-leaf": makeLeafSection("nested-leaf", "Nested leaf"),
+    "nested-leaf": makeLeafSection("nested-leaf", "Nested leaf", {
+      tagColor: "#f97316",
+    }),
     "middle-group": makeGroupSection("middle-group", "Nested group", ["inner-group"]),
     "inner-group": makeGroupSection(
       "inner-group",

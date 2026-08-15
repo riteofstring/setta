@@ -2,14 +2,17 @@ import {
   activateItemSelect,
   createWorkspaceShellViewState,
   deactivateItemSelect,
+  DEFAULT_SECTION_TAG_COLOR_PALETTE,
   getWorkspaceDocument,
   loadWorkspaceDocument,
   setGroupOverflowMode,
+  setSectionTagColor,
   setWorkspaceColorMode,
   setWorkspaceDocumentChangeCallback,
   useItemSelectionMode,
   useWorkspaceAppearance,
   WorkspaceShell,
+  type WorkspaceSectionTagColorPalette,
   type WorkspaceShellTabDefinition,
   type WorkspaceShellTabIconProps,
 } from "@setta/workspace";
@@ -55,6 +58,24 @@ function GroupOverflowModeToggle() {
       className="playground-action rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300"
     >
       Toggle root group overflow
+    </button>
+  );
+}
+
+function SectionTagColorToggle() {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const section = getWorkspaceDocument().sections["idle-leaf"];
+        if (!section) {
+          throw new Error("The playground idle leaf is unavailable.");
+        }
+        setSectionTagColor(section.id, section.tagColor === null ? "#0f766e" : null);
+      }}
+      className="playground-action rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300"
+    >
+      Toggle idle leaf color tag
     </button>
   );
 }
@@ -153,6 +174,11 @@ const trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
   },
 ];
 
+const sectionTagColorPalette = [
+  ...DEFAULT_SECTION_TAG_COLOR_PALETTE,
+  { color: "#0f766e", description: "Host teal" },
+] satisfies WorkspaceSectionTagColorPalette;
+
 export function App() {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
   const [shellViewState, setShellViewState] = useState(() => createWorkspaceShellViewState());
@@ -185,6 +211,7 @@ export function App() {
         </button>
         <ItemSelectModeToggle />
         <GroupOverflowModeToggle />
+        <SectionTagColorToggle />
         <p className="playground-intro min-w-0 text-xs text-setta-500 dark:text-setta-400">
           <DocumentChangeReadout /> document changes reported. Drag sections or the background,
           scroll or pinch to pan and zoom, click to select, Cmd/Ctrl-click to multi-select,
@@ -194,11 +221,13 @@ export function App() {
           through the same public operation. The header menu and Inspector also call the public
           bounded-overflow operation; auto dimensions preserve the visible group size and bounded
           children scroll without handing their wheel gesture to the canvas. Registered host section
-          actions appear after the package actions in compatible header menus. Group headers also
-          flip their child flow between vertical and horizontal. The toolbar zooms, fits, and
-          toggles grid snapping; its minimap group hides the pannable, click-to-center minimap or
-          moves it between the bottom corners. The twelve controls at the upper right use the
-          headerless canvas presentation: edit text, calendar, time, numeric, choice, password,
+          actions appear after the package actions in compatible header menus. The Inspector and
+          playground host button share the public tag-color operation; the host adds a named teal
+          category to the captured default palette, and Reset returns the section to None. Group
+          headers also flip their child flow between vertical and horizontal. The toolbar zooms,
+          fits, and toggles grid snapping; its minimap group hides the pannable, click-to-center
+          minimap or moves it between the bottom corners. The twelve controls at the upper right use
+          the headerless canvas presentation: edit text, calendar, time, numeric, choice, password,
           color, and dropzone values inside each control, or drag and resize from its remaining
           surface. Button and file actions stay in this backend-free host. Hold Q while hovering a
           control for its tooltip. Hold Alt and drag to move sections into, out of, and between
@@ -217,6 +246,7 @@ export function App() {
           ariaLabel="Playground workspace"
           leadingTabs={leadingTabs}
           onViewStateChange={setShellViewState}
+          sectionTagColorPalette={sectionTagColorPalette}
           trailingTabs={trailingTabs}
           viewState={shellViewState}
         />

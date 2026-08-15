@@ -18,6 +18,10 @@ import type {
   WorkspaceSectionInput,
 } from "../document/types";
 import { useSectionRefs } from "../section/sectionRefs";
+import {
+  DEFAULT_SECTION_TAG_COLOR_PALETTE,
+  type WorkspaceSectionTagColorPalette,
+} from "../section/sectionTagColors";
 import { WorkspaceInspector } from "./WorkspaceInspector";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -175,11 +179,19 @@ describe("WorkspaceInspector", () => {
     vi.restoreAllMocks();
   });
 
-  async function renderInspector(document: WorkspaceDocumentInput) {
+  async function renderInspector(
+    document: WorkspaceDocumentInput,
+    sectionTagColorPalette: WorkspaceSectionTagColorPalette = DEFAULT_SECTION_TAG_COLOR_PALETTE,
+  ) {
     loadWorkspaceDocument(document);
     const initialFocusRef = createRef<HTMLElement>();
     await act(async () => {
-      root.render(<WorkspaceInspector initialFocusRef={initialFocusRef} />);
+      root.render(
+        <WorkspaceInspector
+          initialFocusRef={initialFocusRef}
+          sectionTagColorPalette={sectionTagColorPalette}
+        />,
+      );
     });
     return initialFocusRef;
   }
@@ -217,6 +229,65 @@ describe("WorkspaceInspector", () => {
       host.querySelector('[aria-label="Workspace Inspector selection"]'),
     );
     expect(accent.value).toBe("");
+  });
+
+  it("sets and resets a color tag from an explicit host palette with textual cues", async () => {
+    const onChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onChange);
+    await renderInspector(createDocument(["alpha"]), [
+      { color: "#123456", description: "Host slate" },
+      { color: "#0f766e", description: "Host teal" },
+    ]);
+    const colorTag = getLabeledControl<HTMLSelectElement>(host, "Color tag");
+
+    expect(Array.from(colorTag.options).map((option) => option.textContent)).toEqual([
+      "None",
+      "Host slate",
+      "Host teal",
+    ]);
+    expect(host.textContent).toContain("None · no tag color");
+    expect(colorTag.getAttribute("aria-describedby")).not.toBeNull();
+
+    await act(async () => {
+      colorTag.value = "#0f766e";
+      colorTag.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    expect(useWorkspaceDocument.getState().sections["alpha"]?.tagColor).toBe("#0f766e");
+    expect(host.textContent).toContain("Host teal · #0f766e");
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(host.querySelector(".setta-workspace-inspector-status")?.textContent).toContain(
+      "Section color tag set to Host teal (#0f766e)",
+    );
+
+    const reset = getButton(host, "Reset");
+    expect(reset.getAttribute("aria-label")).toBe("Reset color tag to none");
+    await act(async () => {
+      reset.click();
+    });
+
+    expect(useWorkspaceDocument.getState().sections["alpha"]?.tagColor).toBeNull();
+    expect(colorTag.value).toBe("");
+    expect(reset.disabled).toBe(true);
+    expect(onChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("represents a valid out-of-palette color explicitly instead of falling back", async () => {
+    await renderInspector(
+      createDocument(["alpha"], {
+        alpha: makeSection("alpha", { name: "Alpha", tagColor: "#abcdef" }),
+      }),
+      [{ color: "#123456", description: "Host slate" }],
+    );
+
+    const colorTag = getLabeledControl<HTMLSelectElement>(host, "Color tag");
+    expect(colorTag.value).toBe("#abcdef");
+    expect(Array.from(colorTag.options).map((option) => option.textContent)).toEqual([
+      "None",
+      "Custom (#abcdef)",
+      "Host slate",
+    ]);
+    expect(host.textContent).toContain("Custom · #abcdef");
   });
 
   it("omits the canvas-owned value editor while keeping Inspector configuration editable", async () => {
@@ -297,6 +368,8 @@ describe("WorkspaceInspector", () => {
     expect(getLabeledControl<HTMLInputElement>(host, "Width").disabled).toBe(true);
     expect(getLabeledControl<HTMLInputElement>(host, "Height").disabled).toBe(true);
     expect(getButton(host, "Apply size").disabled).toBe(true);
+    expect(getLabeledControl<HTMLSelectElement>(host, "Color tag").disabled).toBe(true);
+    expect(getButton(host, "Reset").disabled).toBe(true);
   });
 
   it("resizes bounded groups but rejects an auto reset until overflow is disabled", async () => {
