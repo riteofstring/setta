@@ -1946,6 +1946,12 @@ Phase 4 progress (2026-08-11):
   transient verification failure, not a developer gate or a plan-level blocker; retry the focused
   dependency update/audit after 2026-08-14 16:41:05 UTC, then run the final all-files static gate
   and exact packed-consumer proof once on the stable tree before requesting the whole-plan audit.
+- Post-extraction feature roadmap drafted (2026-08-13): at the developer's request, the frozen-main
+  audit findings are recorded in the follow-on roadmap below. The recommended first follow-on is
+  workspace authoring completeness; commands/toolbar extensibility follow, while generic
+  connections and built-in content renderers remain separate product decisions. This is a planning
+  amendment only. It does not authorize implementation, add work to the current extraction
+  closeout, or let the implementation loop pass the pending supply-chain and whole-plan gates.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
@@ -2882,6 +2888,150 @@ The developer must explicitly accept the combined visual and interaction result.
 the package-output baseline, run the final broad package/supply-chain/consumer/browser gates once,
 and request the final whole-plan audit. No agent or test suite may waive this gate.
 
+### Follow-on roadmap — workspace authoring completeness and optional expansion
+
+This roadmap records reusable frontend capabilities found in frozen main after the workspace-shell
+milestone. It lives in this document because repository policy permits only one active plan. It is
+not part of the extraction closeout and is not authorized for implementation. After the current
+whole-plan gate is complete, the developer must select and explicitly authorize one milestone at a
+time; the implementation loop must otherwise stop.
+
+The source anchors for the high-confidence reusable behavior are:
+
+- `frontend/src/components/Section/Header/MenuButton/MenuButton.tsx`,
+  `ToggleGroupOverflowMode.tsx`, and `UngroupButton.tsx` for header actions and group operations;
+- `frontend/src/components/Panes/UiEditor/SectionConfig/SectionTagColorSettings.tsx` for section tag
+  color selection;
+- `frontend/src/components/Section/SectionParts/KwargsControls.tsx` for parameter add/delete/filter
+  presentation and interaction ownership;
+- `frontend/src/components/Panes/UiEditor/QuickInfoConfig/QuickInfoConfig.tsx` for parameter display
+  names and descriptions;
+- `frontend/src/state/actions/keyActivations.ts` and the configured shortcuts settings for the
+  workspace-relevant command surface; and
+- `frontend/src/forks/xyflow/controls/Controls.tsx` for canvas-control composition beyond the
+  package's current fixed viewport/minimap groups.
+
+Frozen main remains authoritative for behavior it implements. When a proposed package state does
+not exist in main, record that absence and obtain explicit developer authority before implementing
+it, as the workspace-shell milestone did. Do not describe package-only behavior as parity.
+
+#### Recommended milestone A — structural authoring completeness
+
+Complete the generic section/group authoring operations already implied by the package's document,
+Inspector, context-menu, and action-registry surfaces:
+
+1. **Ungroup.** Add one canonical operation accepting validated group ids. Characterize frozen
+   main's result first, including nested and top-level groups, child order, selection, focus,
+   layout, and one-notification publication. Do not infer top-level placement with a heuristic.
+2. **Bounded group overflow.** Add an explicit serializable group overflow mode. Match main's
+   auto-sized versus bounded/scrollable behavior; when enabling overflow from an auto dimension,
+   resolve the measured size through the package's established inner/outer box model before the
+   atomic document commit. Verify nested scrolling, item/section drag targets, wheel ownership,
+   resize/reset, minimap bounds, and compact/narrow behavior.
+3. **Functional section-header menu.** Replace the decorative header icon only when applicable
+   actions exist. Reuse the existing package mutation funnels and action registry for package and
+   host actions rather than creating a second action engine. The first package actions are group
+   overflow and ungroup; capability-disabled, keyboard, focus-restoration, portal appearance, and
+   native-control context-menu behavior follow the accepted menu contracts.
+4. **Section tag-color editing.** Add the missing canonical tag-color mutation and a compact
+   Inspector editor with reset-to-none. The package may provide the captured default categories and
+   accept an explicit host-supplied palette; editing or persisting a reusable global palette remains
+   host-owned. Tag color continues to be a supplementary cue, never the only state signal.
+
+This milestone must not import variants, parameter visibility settings, artifact actions, backend
+ungroup routes, or main's global settings store merely because they share the same header or
+Inspector source files.
+
+Land the work as narrow batches in the order above, followed by one coherence audit. Before each
+user-visible batch, capture main's applicable dark/light, nested, keyboard, and interaction states.
+The unrelated playground and packed consumer must exercise every operation using public exports
+only. Present one combined developer gate covering header/context/Inspector parity, nested and
+top-level ungrouping, overflow scrolling and resizing, drag/pan/wheel ownership, focus restoration,
+200% scale, and a compact 320 px host. Record baselines only after explicit acceptance.
+
+#### Recommended milestone B — parameter authoring and feedback
+
+Make the existing batteries-included parameter controls structurally authorable rather than only
+editable after a host has constructed the item tree:
+
+1. **Insert and delete items.** Add validated canonical insertion and deletion funnels, including
+   selection/focus restoration and one document-change notification. A host-supplied item factory
+   returns the complete serializable item and stable id; the package owns placement and commit, not
+   domain defaults, Python parameter semantics, or id generation.
+2. **Package-owned filtering.** Add compact per-section item search/filter view state using built-in
+   labels and an explicit searchable-text contribution for custom items. Filtering never mutates
+   `WorkspaceDocument`; match main's rule that item drag-and-drop and structural keyboard movement
+   are disabled while a filter is active, and make hidden selection behavior explicit.
+3. **Descriptions and help.** Extend the typed presentation with optional serializable help text and
+   add its compact Inspector editor. Render help through a package-owned, non-clipping surface with
+   keyboard and screen-reader access. Do not extract main's multi-page/frozen tooltip conversion or
+   backend completion plumbing as part of this item.
+4. **Validation feedback.** Add an explicit host-supplied diagnostic registry keyed by stable item
+   id, with error/warning/info severity and messages. The package owns consistent row paint,
+   accessible descriptions/status, and focus behavior; hosts own validation, pending work, and
+   persistence. Diagnostics are ephemeral derived state and do not enter the canonical document.
+
+The first implementation should reproduce the reusable ARGS-toolbar, filter, Quick Info, and row
+error presentation from main without porting pin/unpin, edge-input conversion, callable state,
+backend add/delete routes, type checking, or LSP services. Pinning is a separate product decision
+because the current package has no canonical pinned-list semantics.
+
+Implement insertion/deletion first, filtering second, and help/diagnostics third. Each batch needs
+load/mutation validation, keyboard/pointer/focus coverage, item-DnD ownership tests, packed-consumer
+coverage, and matched live evidence. The developer accepts the complete milestone before any
+baseline refresh.
+
+#### Recommended milestone C — workspace commands and toolbar extensions
+
+Unify existing package actions behind a public, typed command surface:
+
+- add a replace-all command registry with stable ids, labels, enabled-state evaluation, execution,
+  and conflict validation over immutable public workspace contexts;
+- add configurable, platform-aware key bindings for existing package operations such as fit/reset/
+  zoom, creation, group/ungroup, lock/delete, select all, next/previous top-level section, item
+  move/indent/unindent, and pane/Outline focus;
+- preserve the package's exact-chord lifecycle, editable-target exclusions, browser-native
+  shortcuts, macOS swallowed-key recovery, and one-owner gesture rules;
+- optionally render a workspace-scoped command palette over the same registry, without importing
+  main's project search, file navigation, run commands, or application palette state; and
+- expose typed host toolbar contributions that render through public props and command ids beside
+  the package viewport/minimap groups. Do not expose the XYFlow Panel, package stores, private
+  selectors, or main's plugin runtime.
+
+Commands, context menus, header menus, and toolbar controls must call the same mutation/action
+funnels rather than implementing parallel semantics. Capture frozen main's applicable shortcut and
+control behavior before implementation, then present one developer gate across pointer, keyboard,
+focus, RTL, 200% scale, and compact layout states.
+
+#### Larger product decisions — separate amendments only
+
+The following capabilities are substantial enough that they must not be folded into milestones A–C:
+
+1. **Generic ports, edges, and connections.** Consider this only if the package is intended to be a
+   workflow/node editor in addition to a spatial workspace. A separate amendment must define a
+   backend-free connection document, port registration, hit testing, selection, keyboard behavior,
+   generic edge rendering, and host renderer seams. Main's argument, agentic, chat, and state-machine
+   edge models are evidence sources, not package domain types. This decision explicitly revisits the
+   current non-goal of building a universal node editor.
+2. **Backend-free built-in section renderers.** Text/Markdown, code, image/media, and possibly chart
+   or draw surfaces may provide useful defaults. First prove demand in an unrelated consumer and
+   decide whether they belong in core or a companion package. Do not copy all of main's layouts or
+   import terminals, browsers, spreadsheets, generated code, artifacts, execution, LSP, or backend
+   state through a seemingly generic renderer.
+
+#### Explicit exclusions from this roadmap
+
+Do not port Setta's application header or File/Edit menus, project routing/search, chat, Git, file
+browser, logs/notifications, plugin manager, project AI settings, saved variants/configurations,
+share/deploy flows, terminal/run controls, LSP/type-check services, or desktop window manager.
+Main's undo/redo and copy/paste-as-reference paths are backend history/reference operations and are
+not portable as-is; any future generic transaction history or clipboard protocol requires its own
+evidence and amendment.
+
+Completion of this roadmap is not part of the current extraction definition of success. A selected
+follow-on milestone gains its own evidence, implementation batches, explicit developer acceptance,
+baseline, broad gates, and audit; approval of one milestone does not authorize the next.
+
 ## Verification order
 
 For every visual or interaction batch:
@@ -2940,7 +3090,9 @@ This plan does not include:
 - Whether the public object term is “section” or “node.”
 - Which main fork modules remain package-owned after parity.
 - Whether the final source stays in this repository or moves later.
-- Which additional features follow parameter/item DnD.
+- Which follow-on roadmap milestone, if any, is selected after extraction closeout.
+- Whether generic ports/connections belong in this spatial workspace package.
+- Whether backend-free built-in section renderers belong in core or a companion package.
 - Publication, licensing, versioning, and release automation.
 
 ## Definition of success
