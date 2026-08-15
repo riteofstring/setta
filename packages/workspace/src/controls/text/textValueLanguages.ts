@@ -4,6 +4,7 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { python, pythonLanguage } from "@codemirror/lang-python";
 import { yaml, yamlLanguage } from "@codemirror/lang-yaml";
 import { StreamLanguage } from "@codemirror/language";
+import { shell as shellMode } from "@codemirror/legacy-modes/mode/shell";
 import { toml as tomlMode } from "@codemirror/legacy-modes/mode/toml";
 import type { Extension } from "@codemirror/state";
 import type { highlightTree } from "@lezer/highlight";
@@ -14,9 +15,17 @@ import type { highlightTree } from "@lezer/highlight";
 // language per control.
 
 const TOML_LANGUAGE = StreamLanguage.define(tomlMode);
+const SHELL_LANGUAGE = StreamLanguage.define(shellMode);
 
 export type TextValueLanguage =
   "python" | "typescript" | "javascript" | "json" | "yaml" | "toml" | "markdown";
+
+// The built-in code section's editor vocabulary. The reference declares `bash` in its code
+// language enum but registers no CodeMirror mode for it, so a bash code section renders
+// unhighlighted there. Package-only design decision: bash highlights through the legacy shell
+// stream mode from the already-pinned `@codemirror/legacy-modes`, the same package and shape
+// the reference already uses for TOML. Item value controls keep their own narrower vocabulary.
+export type WorkspaceEditorLanguage = TextValueLanguage | "bash";
 
 // Structural stand-in for the reference's `CodeMirrorParserLike`: the tree type rides
 // `highlightTree`'s own signature so the package declares no extra `@lezer` module.
@@ -29,7 +38,11 @@ type TextValueLanguageSupport = {
   getParser: () => TextValueParserLike;
 };
 
-const TEXT_VALUE_LANGUAGE_SUPPORT: Record<TextValueLanguage, TextValueLanguageSupport> = {
+const TEXT_VALUE_LANGUAGE_SUPPORT: Record<WorkspaceEditorLanguage, TextValueLanguageSupport> = {
+  bash: {
+    getExtensions: () => [SHELL_LANGUAGE],
+    getParser: () => SHELL_LANGUAGE.parser,
+  },
   python: {
     getExtensions: () => [python()],
     getParser: () => pythonLanguage.parser,
@@ -61,7 +74,7 @@ const TEXT_VALUE_LANGUAGE_SUPPORT: Record<TextValueLanguage, TextValueLanguageSu
 };
 
 function getTextValueLanguageSupport(
-  language: TextValueLanguage | null | undefined,
+  language: WorkspaceEditorLanguage | null | undefined,
 ): TextValueLanguageSupport | null {
   if (!language) {
     return null;
@@ -70,13 +83,13 @@ function getTextValueLanguageSupport(
 }
 
 export function getTextValueLanguageExtensions(
-  language: TextValueLanguage | null | undefined,
+  language: WorkspaceEditorLanguage | null | undefined,
 ): Array<Extension> {
   return getTextValueLanguageSupport(language)?.getExtensions() ?? [];
 }
 
 export function getTextValueLanguageParser(
-  language: TextValueLanguage | null | undefined,
+  language: WorkspaceEditorLanguage | null | undefined,
 ): TextValueParserLike | null {
   return getTextValueLanguageSupport(language)?.getParser() ?? null;
 }

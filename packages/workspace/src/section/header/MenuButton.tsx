@@ -78,7 +78,11 @@ function ActionMenuButton({
       title={label}
       type="button"
     >
-      <HeaderIcon sectionKind={sectionKind} hasSectionStyleTheme={hasSectionStyleTheme} />
+      <HeaderIcon
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        sectionId={sectionId}
+        sectionKind={sectionKind}
+      />
     </button>
   );
 }
@@ -110,7 +114,11 @@ export function MenuButton({ sectionId, sectionKind, hasSectionStyleTheme }: Men
 
   return (
     <div aria-hidden="true" className={unClickableIconWrapperClassName}>
-      <HeaderIcon sectionKind={sectionKind} hasSectionStyleTheme={hasSectionStyleTheme} />
+      <HeaderIcon
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        sectionId={sectionId}
+        sectionKind={sectionKind}
+      />
     </div>
   );
 }

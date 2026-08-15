@@ -1,6 +1,7 @@
 import { FaLayerGroup } from "react-icons/fa6";
 import { GROUP_SECTION_KIND } from "../../document/documentSelectors";
 import { getRegisteredSectionKindOrThrow } from "../../document/sectionKindRegistry";
+import { SectionKindIconProvider } from "./sectionKindIconContext";
 
 // The reference's `HeaderIcon` over the section-kind registry: the package-owned group icon,
 // the registered kind icon rendered with the reference's simple-icon treatment
@@ -15,11 +16,12 @@ const defaultGroupHeaderIconClassName =
   "[&_*]:!scale-120 text-setta-400 motion-safe:transition-colors group-hover/group-section:text-blue-600 dark:text-setta-500 dark:group-hover/group-section:text-[#0084ff]";
 
 type HeaderIconProps = {
+  sectionId: string;
   sectionKind: string;
   hasSectionStyleTheme: boolean;
 };
 
-export function HeaderIcon({ sectionKind, hasSectionStyleTheme }: HeaderIconProps) {
+export function HeaderIcon({ sectionId, sectionKind, hasSectionStyleTheme }: HeaderIconProps) {
   const themedIconClassName = hasSectionStyleTheme ? themedHeaderIconClassName : null;
 
   if (sectionKind === GROUP_SECTION_KIND) {
@@ -36,7 +38,11 @@ export function HeaderIcon({ sectionKind, hasSectionStyleTheme }: HeaderIconProp
 
   const RegisteredIcon = getRegisteredSectionKindOrThrow(sectionKind).icon;
   if (RegisteredIcon) {
-    return <RegisteredIcon className={themedIconClassName ?? defaultBlueHeaderIconClassName} />;
+    return (
+      <SectionKindIconProvider value={sectionId}>
+        <RegisteredIcon className={themedIconClassName ?? defaultBlueHeaderIconClassName} />
+      </SectionKindIconProvider>
+    );
   }
 
   return (

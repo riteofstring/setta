@@ -1,4 +1,6 @@
 import {
+  createWorkspaceCodeSection,
+  getWorkspaceCodeSectionData,
   getWorkspaceDocument,
   ItemDndContext,
   MetaControl,
@@ -6,6 +8,11 @@ import {
   registerSectionKinds,
   setItemControlConfiguration,
   setSectionData,
+  setWorkspaceCodeSectionData,
+  WORKSPACE_CODE_SECTION_KIND,
+  WORKSPACE_CODE_SECTION_LANGUAGES,
+  WORKSPACE_CODE_SECTION_MAXIMUM_INDENT_WIDTH,
+  WORKSPACE_CODE_SECTION_MINIMUM_INDENT_WIDTH,
   WorkspaceItemList,
   type ColorValueChoice,
   type DropzoneAcceptedResult,
@@ -14,6 +21,8 @@ import {
   type DropzoneRejection,
   type MetaControlDefinition,
   type MetaControlKind,
+  type WorkspaceCodeSectionData,
+  type WorkspaceCodeSectionLanguage,
   type WorkspaceDropzoneItemControlConfiguration,
   type WorkspaceInspectorContributionContext,
   type WorkspaceItem,
@@ -76,6 +85,98 @@ function PlaygroundInspectorContribution({
   return (
     <div className="playground-host-pane">
       <p>Host Inspector contribution for {identity || "unnamed content"}.</p>
+    </div>
+  );
+}
+
+// The package owns the code section's data contract and its editor; the host owns any UI that
+// authors those options. This contribution is that UI: it reads and writes the same typed data
+// the editor commits through, so every option is reachable without a package-invented settings
+// panel (frozen main's own code-area settings are entirely file-binding, which is application
+// state this package does not carry).
+function updatePlaygroundCodeSection(
+  sectionId: string,
+  update: (current: WorkspaceCodeSectionData) => WorkspaceCodeSectionData,
+) {
+  setWorkspaceCodeSectionData(sectionId, update(getWorkspaceCodeSectionData(sectionId)));
+}
+
+export function PlaygroundCodeSectionInspector({ sectionId }: { sectionId: string }) {
+  const data = getWorkspaceCodeSectionData(sectionId);
+  return (
+    <div className="playground-host-pane">
+      <label>
+        Language
+        <select
+          onChange={(event) =>
+            updatePlaygroundCodeSection(sectionId, (current) => ({
+              ...current,
+              language: event.target.value as WorkspaceCodeSectionLanguage,
+            }))
+          }
+          value={data.language}
+        >
+          {WORKSPACE_CODE_SECTION_LANGUAGES.map((language) => (
+            <option key={language} value={language}>
+              {language}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <input
+          checked={data.wrapLines}
+          onChange={(event) =>
+            updatePlaygroundCodeSection(sectionId, (current) => ({
+              ...current,
+              wrapLines: event.target.checked,
+            }))
+          }
+          type="checkbox"
+        />
+        Wrap lines
+      </label>
+      <label>
+        <input
+          checked={data.lineNumbers}
+          onChange={(event) =>
+            updatePlaygroundCodeSection(sectionId, (current) => ({
+              ...current,
+              lineNumbers: event.target.checked,
+            }))
+          }
+          type="checkbox"
+        />
+        Line numbers
+      </label>
+      <label>
+        Indent width
+        <input
+          max={WORKSPACE_CODE_SECTION_MAXIMUM_INDENT_WIDTH}
+          min={WORKSPACE_CODE_SECTION_MINIMUM_INDENT_WIDTH}
+          onChange={(event) =>
+            updatePlaygroundCodeSection(sectionId, (current) => ({
+              ...current,
+              indentWidth: Number(event.target.value),
+            }))
+          }
+          type="number"
+          value={data.indentWidth}
+        />
+      </label>
+      <label>
+        <input
+          checked={data.readOnly}
+          onChange={(event) =>
+            updatePlaygroundCodeSection(sectionId, (current) => ({
+              ...current,
+              readOnly: event.target.checked,
+            }))
+          }
+          type="checkbox"
+        />
+        Read only
+      </label>
     </div>
   );
 }
@@ -748,5 +849,14 @@ export function registerPlaygroundSectionKinds(): void {
         onEdit: (section) => commitPlaygroundMetaControlEditRequest(section.id),
       },
     },
+    // The built-in Code Editor section composes with this host's own kinds through the same
+    // registration call. Leaving it out would leave the workspace coherent; a document naming
+    // the kind would then fail through the package's unknown-kind contract.
+    [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection({
+      renderInspector: (context) =>
+        context.type === "section" ? (
+          <PlaygroundCodeSectionInspector sectionId={context.section.id} />
+        ) : null,
+    }),
   });
 }

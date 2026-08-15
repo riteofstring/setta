@@ -1,7 +1,9 @@
 import {
+  createWorkspaceCodeSectionData,
   DEFAULT_META_CONTROL_SIZE,
   DROPZONE_META_CONTROL_SIZE,
   TEXTAREA_META_CONTROL_SIZE,
+  WORKSPACE_CODE_SECTION_KIND,
   type WorkspaceDocumentInput,
   type WorkspaceItem,
   type WorkspaceItemControlPresentation,
@@ -462,6 +464,32 @@ export const playgroundDocument: WorkspaceDocumentInput = {
       showSectionTitle: false,
       editRequests: 0,
     }),
+    // The built-in Code Editor section. Its data is the package's own typed contract rather than
+    // opaque host data, so the fixture builds it from the package's creation defaults.
+    "code-editor": {
+      id: "code-editor",
+      kind: WORKSPACE_CODE_SECTION_KIND,
+      name: "train.py",
+      data: createWorkspaceCodeSectionData({
+        code: [
+          "import setta",
+          "",
+          "",
+          "def train(alpha: float = 0.001, beta: float = 0.99) -> None:",
+          '    """Run one training pass."""',
+          "    for step in range(10):",
+          "        print(step, alpha * beta)",
+          "",
+        ].join("\n"),
+      }),
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isHorizontalOrientation: false,
+      styleColor: null,
+      overflowMode: false,
+      tagColor: null,
+      children: [],
+    },
   },
   topLevelSections: {
     "idle-leaf": { x: 24, y: 24, w: 200, h: 122, zIndex: 0 },
@@ -557,6 +585,8 @@ export const playgroundDocument: WorkspaceDocumentInput = {
       h: DROPZONE_META_CONTROL_SIZE.height,
       zIndex: 16,
     },
+    // Frozen main's code section opens 500 wide at auto height.
+    "code-editor": { x: 2320, y: 24, w: 500, h: null, zIndex: 17 },
   },
   viewport: { x: 0, y: 0, zoom: 1 },
   activeIds: [],

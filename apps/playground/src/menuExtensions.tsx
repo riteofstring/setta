@@ -1,12 +1,14 @@
 import {
-  GROUP_SECTION_KIND,
+  createWorkspaceCodeSectionData,
   getWorkspaceKeyBindingConflicts,
   getWorkspaceKeyBindings,
+  GROUP_SECTION_KIND,
   registerWorkspaceCommands,
   registerWorkspaceCreationCommands,
   registerWorkspaceKeyBindings,
   registerWorkspaceToolbarContributions,
   ungroupSections,
+  WORKSPACE_CODE_SECTION_KIND,
   type WorkspaceCommandIconProps,
   type WorkspaceCreationContext,
   type WorkspaceKeyBinding,
@@ -139,6 +141,26 @@ function createPlaygroundLeaf(
   };
 }
 
+// Whether the built-in code section appears in a creation surface is the host's call: this one
+// lists it beside its own two kinds, on its own chord, built from the package's creation defaults.
+function createPlaygroundCodeSection(context: WorkspaceCreationContext): WorkspaceSectionInput {
+  return {
+    id: `playground-code-${crypto.randomUUID()}`,
+    kind: WORKSPACE_CODE_SECTION_KIND,
+    name: "Code editor",
+    data: createWorkspaceCodeSectionData({
+      code: `# Code editor created ${describeCreationRequest(context)}.\n`,
+    }),
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isHorizontalOrientation: false,
+    styleColor: null,
+    overflowMode: false,
+    tagColor: null,
+    children: [],
+  };
+}
+
 export function registerPlaygroundMenuExtensions(): void {
   // The chords are the reference's own creation defaults, "N" and "G", over this host's catalog.
   registerWorkspaceCreationCommands([
@@ -156,6 +178,13 @@ export function registerPlaygroundMenuExtensions(): void {
       group: "Playground",
       chord: "G",
       createSection: (context) => createPlaygroundLeaf(context, "marker"),
+    },
+    {
+      id: "playground-code-editor",
+      label: "Code editor",
+      group: "Playground",
+      chord: "C",
+      createSection: createPlaygroundCodeSection,
     },
   ]);
   registerWorkspaceCommands([

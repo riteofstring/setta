@@ -69,6 +69,11 @@ type SectionKindBaseDefinition = {
   // Custom section data and custom item data stay opaque to the package. A kind may project
   // either selection into host-owned Inspector UI through this typed, deeply frozen snapshot.
   renderInspector?: (context: WorkspaceInspectorContributionContext) => ReactNode;
+  // Runs once per section of this kind at load, before the document is published. A kind whose
+  // `data` has a real shape parses it here so a malformed document fails at the boundary instead
+  // of on first paint. The built-in content sections register their own; a kind without one keeps
+  // its data opaque to the package, exactly as before.
+  assertValidData?: (section: WorkspaceSection) => void;
 };
 
 export type SectionKindDefinition = SectionKindBaseDefinition &
@@ -161,6 +166,7 @@ function assertSectionKindDefinition(kind: string, definition: SectionKindDefini
     throw new Error(`Section kind ${kind} must provide renderContent.`);
   }
   assertOptionalSectionKindFunction(kind, "renderInspector", definition.renderInspector);
+  assertOptionalSectionKindFunction(kind, "assertValidData", definition.assertValidData);
   assertOptionalSectionKindFunction(kind, "createItem", definition.createItem);
   assertOptionalSectionKindFunction(
     kind,

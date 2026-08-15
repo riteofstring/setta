@@ -363,7 +363,25 @@ palette, and a plugin runtime remain out of scope.
 
 ## Milestone D — built-in text and code sections
 
-**Status: not started. Begin only after Milestone C's accepted baseline and audit are complete.**
+**Status: in progress. D2 is complete, and it comes first because it is where the package's
+section-scale CodeMirror foundation lands — the foundation D1's edit mode then reuses — and because
+it needs no new dependency, while D1's Markdown rendering does. The package now has one built-in
+Code Editor section: a reserved stable kind ID, a parsed serializable data contract (code,
+language, wrapping, line numbers, indentation width, read-only), a typed read/write pair over one
+document mutation path, and a registration helper a host composes with its own kinds, narrows to
+its own language list, and can leave out entirely. The editor is the reference's `CoreCodeArea`
+behind that seam: its focusable wrapper takes Enter into the editor and Escape back out, it owns
+its scroller and takes wheel ownership once it can scroll, it carries scroll across a resize
+gesture, locking or the read-only option makes it read-only, and a commit never replaces its own
+document, which is what keeps cursor, selection, undo history, scroll, and focus across unrelated
+workspace changes. Registered kinds gained an optional load-time data validator so a built-in
+section's document fails at the boundary rather than on first paint, and the header icon now paints
+the section's own language the way the reference's code header icon does. Package-only design
+decisions recorded in source: bash highlights through the already-pinned legacy shell stream mode
+(the reference declares bash but registers no mode for it), the authored line-number option owns
+the whole gutter column, the authored indentation width owns both inserted and rendered
+indentation, and the configuration has no completion state because the package ships no completion
+source. D1 and D3 remain, then the D4 developer gate.**
 
 Add two optional, batteries-included content-section registrations. Hosts can register either,
 both, or neither alongside their own section kinds. Their document data and configuration are

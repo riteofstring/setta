@@ -46,6 +46,17 @@ function resolveLoadedSections(
   return resolved;
 }
 
+// The registered-kind data boundary: a kind that owns a real `data` shape parses it here, once,
+// before the resolved sections reach the stores.
+function assertValidRegisteredSectionData(sections: Record<string, WorkspaceSection>) {
+  for (const section of Object.values(sections)) {
+    if (isGroupSection(section)) {
+      continue;
+    }
+    getRegisteredSectionKindOrThrow(section.kind).assertValidData?.(section);
+  }
+}
+
 function assertValidSectionStyleColors(sections: Record<string, WorkspaceSection>) {
   for (const [sectionId, section] of Object.entries(sections)) {
     const styleColor = section.styleColor;
@@ -132,6 +143,7 @@ export function resolveAndValidateWorkspaceSections(
   sectionInputs: Record<string, WorkspaceSectionInput>,
 ): { sections: Record<string, WorkspaceSection>; parentSectionMap: Record<string, string> } {
   const sections = resolveLoadedSections(sectionInputs);
+  assertValidRegisteredSectionData(sections);
   assertValidSectionStyleColors(sections);
   assertValidSectionOverflowModes(sections);
   const parentSectionMap = buildParentSectionMap(sections);

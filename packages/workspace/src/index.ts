@@ -1,5 +1,23 @@
 // Public package surface. Package-relative modules stay implementation details unless they are
 // re-exported here; consumers use this entry and the compiled stylesheet export only.
+export {
+  getWorkspaceCodeSectionData,
+  setWorkspaceCodeSectionData,
+} from "./builtin/codeSectionActions";
+export {
+  WORKSPACE_CODE_SECTION_DEFAULT_INDENT_WIDTH,
+  WORKSPACE_CODE_SECTION_KIND,
+  WORKSPACE_CODE_SECTION_LANGUAGES,
+  WORKSPACE_CODE_SECTION_MAXIMUM_INDENT_WIDTH,
+  WORKSPACE_CODE_SECTION_MINIMUM_INDENT_WIDTH,
+  createWorkspaceCodeSectionData,
+} from "./builtin/codeSectionData";
+export type {
+  WorkspaceCodeSectionData,
+  WorkspaceCodeSectionLanguage,
+} from "./builtin/codeSectionData";
+export { createWorkspaceCodeSection } from "./builtin/codeSectionKind";
+export type { WorkspaceCodeSectionRegistration } from "./builtin/codeSectionKind";
 export { useWorkspaceOptions } from "./canvas/options";
 export type {
   MiniMapSide,
