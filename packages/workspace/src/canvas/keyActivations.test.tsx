@@ -21,8 +21,17 @@ import {
   useWorkspaceTooltip,
   WorkspaceTooltip,
 } from "../tooltip/WorkspaceTooltip";
+import { onFitViewHandler } from "./fitView";
 import { useCanvasKeyActivations } from "./keyActivations";
 import { initialCanvasState, useReactFlow } from "./store";
+import {
+  getCanZoomIn,
+  getCanZoomOut,
+  resetZoom,
+  zoomIn,
+  zoomOut,
+  zoomToPointerLocation,
+} from "./viewportHelpers";
 
 // The keyboard dispatch cases freeze the chord matching; the actions themselves are frozen by
 // `selectedItemMoves.test.ts` against the real document store.
@@ -31,6 +40,23 @@ vi.mock("../items/selectedItemMoves", () => ({
   moveSelectedItemsDown: vi.fn(() => true),
   indentSelectedItems: vi.fn(() => true),
   unindentSelectedItems: vi.fn(() => true),
+}));
+
+// The viewport operations need a live zoom pane, which `viewportHelpers.test.ts` and
+// `pointerLocation.test.tsx` drive; here only the chord that reaches them is under test.
+vi.mock("./fitView", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./fitView")>()),
+  onFitViewHandler: vi.fn(() => true),
+}));
+vi.mock("./viewportHelpers", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./viewportHelpers")>()),
+  getCanZoomIn: vi.fn(() => true),
+  getCanZoomOut: vi.fn(() => true),
+  getIsZoomRuntimeReady: vi.fn(() => true),
+  resetZoom: vi.fn(),
+  zoomIn: vi.fn(),
+  zoomOut: vi.fn(),
+  zoomToPointerLocation: vi.fn(() => true),
 }));
 
 // jsdom reports no Mac user agent; the macOS describe block flips this to exercise the
@@ -445,22 +471,22 @@ describe("useCanvasKeyActivations", () => {
     expect(useWorkspaceDocument.getState().sections["group"]).toBeDefined();
   });
 
+  // A complete keypress: the tracker compares the whole pressed-key set, so a chord left held
+  // would exclude the next one.
+  async function dispatchChord(init: KeyboardEventInit & { target?: EventTarget }) {
+    const { target, ...eventInit } = init;
+    const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...eventInit });
+    await act(async () => {
+      (target ?? document).dispatchEvent(event);
+    });
+    await dispatchKey("keyup", eventInit.key ?? "", { code: eventInit.code, target });
+    return event;
+  }
+
   describe("configurable command chords", () => {
     afterEach(() => {
       registerWorkspaceKeyBindings([]);
     });
-
-    // A complete keypress: the tracker compares the whole pressed-key set, so a chord left held
-    // would exclude the next one.
-    async function dispatchChord(init: KeyboardEventInit & { target?: EventTarget }) {
-      const { target, ...eventInit } = init;
-      const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...eventInit });
-      await act(async () => {
-        (target ?? document).dispatchEvent(event);
-      });
-      await dispatchKey("keyup", eventInit.key ?? "", { code: eventInit.code, target });
-      return event;
-    }
 
     it("groups the active selection on Mod+G", async () => {
       loadUngroupDocument(["group", "leaf"]);
@@ -509,6 +535,67 @@ describe("useCanvasKeyActivations", () => {
       input.remove();
     });
 
+    it("selects every parameter the single active section shows on Mod+A", async () => {
+      loadItemDocument([], ["panel"]);
+      registerItemListView("panel", {
+        listKey: "main",
+        topLevelItemIds: ["item-a", "item-b"],
+        visibleItemIds: new Set(["item-a", "item-b"]),
+        filterActive: false,
+      });
+
+      const event = await dispatchChord({ key: "a", code: "KeyA", ctrlKey: true });
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.selectedItemIds).toEqual([
+        "item-a",
+        "item-b",
+      ]);
+    });
+
+    it("leaves Mod+A to the caret while typing", async () => {
+      loadItemDocument([], ["panel"]);
+      registerItemListView("panel", {
+        listKey: "main",
+        topLevelItemIds: ["item-a", "item-b"],
+        visibleItemIds: new Set(["item-a", "item-b"]),
+        filterActive: false,
+      });
+      const input = document.createElement("input");
+      document.body.appendChild(input);
+
+      const event = await dispatchChord({ key: "a", code: "KeyA", ctrlKey: true, target: input });
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.selectedItemIds).toEqual(
+        [],
+      );
+      input.remove();
+    });
+
+    it("selects every section on Mod+A without a single active section", async () => {
+      loadUngroupDocument([]);
+
+      const event = await dispatchChord({ key: "a", code: "KeyA", ctrlKey: true });
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(useActiveSections.getState().activeIds).toEqual(["group", "child", "leaf"]);
+    });
+
+    it("selects the top-level sections outside groups on Mod+Shift+A", async () => {
+      loadUngroupDocument(["group"]);
+
+      const event = await dispatchChord({
+        key: "a",
+        code: "KeyA",
+        ctrlKey: true,
+        shiftKey: true,
+      });
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(useActiveSections.getState().activeIds).toEqual(["leaf"]);
+    });
+
     it("answers to the chord a host rebinds an operation to", async () => {
       registerWorkspaceKeyBindings([{ id: "workspace.ungroup-sections", chord: "Mod + U" }]);
       loadUngroupDocument();
@@ -525,6 +612,71 @@ describe("useCanvasKeyActivations", () => {
       const hostChord = await dispatchChord({ key: "u", code: "KeyU", ctrlKey: true });
       expect(hostChord.defaultPrevented).toBe(true);
       expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
+    });
+  });
+
+  describe("viewport chords", () => {
+    it("fits the view on F and zooms to the pointer on Z", async () => {
+      await dispatchChord({ key: "f", code: "KeyF" });
+      expect(onFitViewHandler).toHaveBeenCalledTimes(1);
+
+      await dispatchChord({ key: "z", code: "KeyZ" });
+      expect(zoomToPointerLocation).toHaveBeenCalledTimes(1);
+    });
+
+    it("leaves the bare viewport keys to the caret while typing", async () => {
+      const input = document.createElement("input");
+      document.body.appendChild(input);
+
+      await dispatchChord({ key: "f", code: "KeyF", target: input });
+      await dispatchChord({ key: "z", code: "KeyZ", target: input });
+
+      expect(onFitViewHandler).not.toHaveBeenCalled();
+      expect(zoomToPointerLocation).not.toHaveBeenCalled();
+      input.remove();
+    });
+
+    // Q owns its auxiliary chords: quick info freezes and the view stays where it is.
+    it("freezes quick info on Q+F instead of fitting the view", async () => {
+      await act(async () => {
+        getWorkspaceTooltipHandlers({ content: "Freeze this" }).onMouseEnter({
+          currentTarget: host,
+        });
+      });
+      await dispatchKey("keydown", "q", { code: "KeyQ" });
+
+      await dispatchKey("keydown", "f", { code: "KeyF" });
+
+      expect(onFitViewHandler).not.toHaveBeenCalled();
+      expect(useWorkspaceTooltip.getState().isFrozen).toBe(true);
+    });
+
+    it("zooms in and out on Equal and Minus, and repeats while a key is held", async () => {
+      await dispatchKey("keydown", "=", { code: "Equal" });
+      await dispatchKey("keydown", "=", { code: "Equal", repeat: true });
+      expect(zoomIn).toHaveBeenCalledTimes(2);
+      await dispatchKey("keyup", "=", { code: "Equal" });
+
+      await dispatchKey("keydown", "-", { code: "Minus" });
+      expect(zoomOut).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not zoom past a limit the toolbar's button is disabled at", async () => {
+      vi.mocked(getCanZoomIn).mockReturnValueOnce(false);
+      vi.mocked(getCanZoomOut).mockReturnValueOnce(false);
+
+      await dispatchChord({ key: "=", code: "Equal" });
+      await dispatchChord({ key: "-", code: "Minus" });
+
+      expect(zoomIn).not.toHaveBeenCalled();
+      expect(zoomOut).not.toHaveBeenCalled();
+    });
+
+    it("resets the zoom on Mod+Comma", async () => {
+      const event = await dispatchChord({ key: ",", code: "Comma", ctrlKey: true });
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(resetZoom).toHaveBeenCalledTimes(1);
     });
   });
 

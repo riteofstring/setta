@@ -4,8 +4,10 @@ import { useWorkspaceDocument } from "../document/stores";
 import { prefersReducedWorkspaceMotion } from "../styles/motion";
 import { getD3Transition, getSectionRect, getViewportForBounds } from "./graph";
 import { useWorkspaceOptions } from "./options";
+import { getWorkspacePointerLocation } from "./pointerLocation";
 import { useReactFlow } from "./store";
 import type { ReactFlowState } from "./types";
+import { screenToFlowPosition } from "./viewportPosition";
 
 // The zoom commands from the reference's `hooks/useViewportHelper.ts`. `setCenter` returned with
 // the minimap batch that calls it; `setViewport` and the map-position helpers stayed behind with
@@ -53,6 +55,29 @@ export function resetZoom() {
   zoomTo(defaultZoomLevel, { duration: 100 });
 }
 
+// A keyboard chord can reach a viewport operation before the zoom pane initializes, where the
+// pointer surfaces that offer the same operations do not exist yet. The operation declines
+// instead of throwing, and the chord goes back to the browser.
+export function getIsZoomRuntimeReady(): boolean {
+  const { d3Zoom, d3Selection } = useReactFlow.getState();
+  return Boolean(d3Zoom && d3Selection);
+}
+
+// The toolbar disables its zoom buttons at the configured limits. The chords ask the same
+// question, so a keypress at a limit does exactly what pressing the disabled button does.
+export function getCanZoomIn(): boolean {
+  return getIsZoomRuntimeReady() && useReactFlow.getState().transform[2] < getZoomLimits().maxZoom;
+}
+
+export function getCanZoomOut(): boolean {
+  return getIsZoomRuntimeReady() && useReactFlow.getState().transform[2] > getZoomLimits().minZoom;
+}
+
+function getZoomLimits(): { minZoom: number; maxZoom: number } {
+  const { minZoom, maxZoom } = useWorkspaceOptions.getState();
+  return { minZoom, maxZoom };
+}
+
 // Seam adaptation shared with fit-view centering and edge auto-pan: the reference offsets the
 // visible center by its Overview rail width, which is app chrome outside the package seam.
 export function setCenter(x: number, y: number, options?: ZoomOptions) {
@@ -66,6 +91,19 @@ export function setCenter(x: number, y: number, options?: ZoomOptions) {
   const transform = zoomIdentity.translate(centerX, centerY).scale(nextZoom);
 
   d3Zoom.transform(getZoomTarget(d3Selection, options?.duration), transform);
+}
+
+// The reference's `zoomToMouseLocation`: re-center the canvas on the pointer at the default zoom
+// level, so a chord frames what the pointer is already over without touching selection.
+export function zoomToPointerLocation(): boolean {
+  const pointer = getWorkspacePointerLocation();
+  if (!pointer || !getIsZoomRuntimeReady()) {
+    return false;
+  }
+  const { defaultZoomLevel, transitionDuration } = useWorkspaceOptions.getState();
+  const { x, y } = screenToFlowPosition(pointer);
+  setCenter(x, y, { zoom: defaultZoomLevel, duration: transitionDuration });
+  return true;
 }
 
 // Frozen main moves the map by the leading pane's true-width delta when its host setting is

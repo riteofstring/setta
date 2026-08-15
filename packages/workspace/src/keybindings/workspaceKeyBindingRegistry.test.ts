@@ -41,6 +41,13 @@ describe("workspace key bindings", () => {
     expect(getBinding("workspace.move-items-up").chord).toBe("Alt + ArrowUp");
     expect(getBinding("workspace.indent-items").chord).toBe("Tab");
     expect(getBinding("workspace.unindent-items").chord).toBe("Shift + Tab");
+    expect(getBinding("workspace.select-all").chord).toBe("Mod + A");
+    expect(getBinding("workspace.select-top-level-sections").chord).toBe("Mod + Shift + A");
+    expect(getBinding("workspace.fit-view")).toMatchObject({ chord: "F", label: "Fit view" });
+    expect(getBinding("workspace.zoom-in").chord).toBe("Equal");
+    expect(getBinding("workspace.zoom-out").chord).toBe("Minus");
+    expect(getBinding("workspace.reset-zoom").chord).toBe("Mod + Comma");
+    expect(getBinding("workspace.zoom-to-pointer").chord).toBe("Z");
   });
 
   it("offers locking as a bindable operation the reference gives no chord", () => {
@@ -85,7 +92,7 @@ describe("workspace key bindings", () => {
 
   it("fails registration for an unknown operation, a repeated binding, or an unusable chord", () => {
     expect(() =>
-      registerWorkspaceKeyBindings([{ id: "workspace.zoom-in", chord: "Equal" }]),
+      registerWorkspaceKeyBindings([{ id: "workspace.run-code", chord: "Mod + Enter" }]),
     ).toThrow(/is not a workspace operation/u);
     expect(() =>
       registerWorkspaceKeyBindings([
@@ -155,5 +162,22 @@ describe("workspace key bindings", () => {
       suppressesBrowserDefault: false,
       yieldsToEditableTarget: true,
     });
+  });
+
+  // Select-all is the browser's and the caret's chord before it is the workspace's; adding Shift
+  // takes it back, which is what the reference's rules say about both chords.
+  it("hands Mod+A to a caret but keeps Mod+Shift+A on every platform", () => {
+    for (const macOS of [true, false]) {
+      const resolved = getResolvedWorkspaceKeyBindings(macOS);
+      expect(
+        resolved.find((binding) => binding.definition.id === "workspace.select-all"),
+      ).toMatchObject({ suppressesBrowserDefault: true, yieldsToEditableTarget: true });
+      expect(
+        resolved.find((binding) => binding.definition.id === "workspace.select-top-level-sections"),
+      ).toMatchObject({ suppressesBrowserDefault: true, yieldsToEditableTarget: false });
+      expect(
+        resolved.find((binding) => binding.definition.id === "workspace.fit-view"),
+      ).toMatchObject({ suppressesBrowserDefault: false, yieldsToEditableTarget: true });
+    }
   });
 });

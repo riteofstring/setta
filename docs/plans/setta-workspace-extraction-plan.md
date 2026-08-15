@@ -252,10 +252,14 @@ header menu, Outline row menu, item menu, Inspector action rows, and the ungroup
 resolve and run through it. C2's first batch is complete: one chord vocabulary, a public binding
 registry with conflict detection and per-platform labels, and configurable bindings for grouping,
 ungrouping, deletion, locking, and the parameter moves, with the held interaction gestures reserved
-against them. C2's viewport, creation, selection, section-navigation, and pane-focus bindings need
-package operations that do not exist yet and land in the next C2 batch; C3 remains. The package-only
-decisions and the deliberate behavior changes both batches introduce are recorded in
-`docs/evidence/milestone-c/` for the C4 gate.**
+against them. C2's second batch is complete: fit view, zoom in, zoom out, reset zoom, zoom to the
+pointer, select all, and select the top-level non-group sections are bindings over the same
+operations the accepted toolbar runs, and select-all now finishes the reference's unimplemented
+single-section branch over the rows a section is showing. C2's creation, section-navigation, and
+pane-focus bindings need an empty-space placement contract and a focus-scope seam that do not exist
+yet and land in the next C2 batch; C3 remains. The package-only decisions and the deliberate
+behavior changes every batch introduces are recorded in `docs/evidence/milestone-c/` for the C4
+gate.**
 
 Make frequent workspace actions faster and consistent across every action surface.
 

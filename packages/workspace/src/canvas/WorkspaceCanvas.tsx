@@ -16,6 +16,7 @@ import FlowRenderer from "./FlowRenderer";
 import { useCanvasKeyActivations } from "./keyActivations";
 import NodeRenderer from "./NodeRenderer";
 import { useWorkspaceOptions } from "./options";
+import { useWorkspacePointerLocation } from "./pointerLocation";
 import { useReactFlow } from "./store";
 import Viewport from "./Viewport";
 import { WorkspaceBackground } from "./WorkspaceBackground";
@@ -52,6 +53,7 @@ export function WorkspaceCanvas() {
   const focusVisibilityRootRef = useRef<HTMLDivElement>(null);
   useWorkspaceFocusVisibility(focusVisibilityRootRef);
   useCanvasKeyActivations();
+  useWorkspacePointerLocation();
   useCanvasViewportDocumentSync();
 
   useEffect(() => {

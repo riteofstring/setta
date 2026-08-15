@@ -61,7 +61,9 @@ themselves are main's shipped defaults.
 
 ## Remaining C2 work
 
-Fit, reset and zoom, section creation, select all, next and previous top-level section, and
-pane/Outline focus need package operations that do not exist yet. They land in the next C2 batch
-with their reference chords (`F`, `Mod + Comma`, `Equal`, `Minus`, `Z`, `N`, `G`, `Mod + A`,
-`Mod + Shift + A`, `Alt + J`, `Alt + K`, and `Ctrl + Shift + 1`–`4`).
+Fit, reset and zoom, zoom to the pointer, and the two select-all operations landed in the next
+batch and are recorded in
+[C2 viewport and selection bindings](c2-viewport-and-selection-bindings.md). Section creation, next
+and previous top-level section, and pane/Outline focus still need package operations that do not
+exist yet; they land with their reference chords (`N`, `G`, `Alt + J`, `Alt + K`, and
+`Ctrl + Shift + 1`–`4`).

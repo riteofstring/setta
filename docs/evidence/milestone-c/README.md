@@ -7,6 +7,7 @@ the milestone-a and milestone-b bundles.
 
 - [C1 command registry](c1-command-registry.md)
 - [C2 key bindings](c2-key-bindings.md)
+- [C2 viewport and selection bindings](c2-viewport-and-selection-bindings.md)
 
 ## Frozen reference
 

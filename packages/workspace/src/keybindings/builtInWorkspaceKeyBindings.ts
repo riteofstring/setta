@@ -1,8 +1,22 @@
+import { onFitViewHandler } from "../canvas/fitView";
+import {
+  getCanZoomIn,
+  getCanZoomOut,
+  getIsZoomRuntimeReady,
+  resetZoom,
+  zoomIn,
+  zoomOut,
+  zoomToPointerLocation,
+} from "../canvas/viewportHelpers";
 import { createSectionCommandContext } from "../commands/workspaceCommandContexts";
 import { getWorkspaceCommandOrThrow } from "../commands/workspaceCommandRegistry";
 import { runWorkspaceCommandById } from "../commands/workspaceCommandResolution";
 import { getActiveSectionIds } from "../document/activeSections";
 import { getSectionHasSelectedItems } from "../document/documentSelectors";
+import {
+  selectAllInWorkspace,
+  selectAllTopLevelNonGroupSections,
+} from "../document/selectAllActions";
 import { useWorkspaceDocument } from "../document/stores";
 import { getSectionItemVisibility } from "../items/itemListRegistry";
 import {
@@ -58,6 +72,26 @@ function createSectionCommandBinding(
     keepsChordWhenDeclined: false,
     getLabel: () => getWorkspaceCommandOrThrow(commandId).definition.label,
     run: () => runActiveSectionCommand(commandId),
+  });
+}
+
+// A binding for an operation the package owns directly rather than through a command: it decides
+// for itself whether it ran, and an operation that could not run leaves the chord to the browser
+// the same way an unavailable command does.
+function createOperationBinding(
+  id: string,
+  label: string,
+  defaultChord: string,
+  allowRepeat: boolean,
+  run: () => boolean,
+): WorkspaceKeyBindingDefinition {
+  return Object.freeze({
+    id,
+    defaultChord,
+    allowRepeat,
+    keepsChordWhenDeclined: false,
+    getLabel: () => label,
+    run,
   });
 }
 
@@ -122,10 +156,12 @@ function createItemIndentBinding(
   });
 }
 
-// Registration order is the order a host listing shortcuts sees them in. The reference ships
-// "Mod + G", "Shift + Mod + G", "Backspace", "Alt + ArrowUp", "Alt + ArrowDown", "Tab", and
-// "Shift + Tab" for these operations. Locking has no reference shortcut, so it ships bindable and
-// unbound rather than with an invented chord.
+// Registration order is the order a host listing shortcuts sees them in: what the chord acts on
+// — sections, then the selection over them, then parameters, then the view. The reference ships
+// "Mod + G", "Shift + Mod + G", "Backspace", "Mod + A", "Mod + Shift + A", "Alt + ArrowUp",
+// "Alt + ArrowDown", "Tab", "Shift + Tab", "F", "Equal", "Minus", "Mod + Comma", and "Z" for
+// these operations. Locking has no reference shortcut, so it ships bindable and unbound rather
+// than with an invented chord.
 export const builtInWorkspaceKeyBindings: ReadonlyArray<WorkspaceKeyBindingDefinition> =
   Object.freeze([
     createSectionCommandBinding("workspace.group-sections", "Mod + G"),
@@ -133,6 +169,23 @@ export const builtInWorkspaceKeyBindings: ReadonlyArray<WorkspaceKeyBindingDefin
     createSectionCommandBinding("workspace.delete-sections", "Backspace"),
     createSectionCommandBinding("workspace.lock-sections", null),
     createSectionCommandBinding("workspace.unlock-sections", null),
+    createOperationBinding(
+      "workspace.select-all",
+      "Select all",
+      "Mod + A",
+      false,
+      selectAllInWorkspace,
+    ),
+    createOperationBinding(
+      "workspace.select-top-level-sections",
+      "Select top-level non-group sections",
+      "Mod + Shift + A",
+      false,
+      () => {
+        selectAllTopLevelNonGroupSections();
+        return true;
+      },
+    ),
     createItemMoveBinding(
       "workspace.move-items-up",
       "Move parameters up",
@@ -156,5 +209,34 @@ export const builtInWorkspaceKeyBindings: ReadonlyArray<WorkspaceKeyBindingDefin
       "Unindent parameters",
       "Shift + Tab",
       unindentSelectedItems,
+    ),
+    createOperationBinding("workspace.fit-view", "Fit view", "F", false, onFitViewHandler),
+    createOperationBinding("workspace.zoom-in", "Zoom in", "Equal", true, () => {
+      if (!getCanZoomIn()) {
+        return false;
+      }
+      zoomIn();
+      return true;
+    }),
+    createOperationBinding("workspace.zoom-out", "Zoom out", "Minus", true, () => {
+      if (!getCanZoomOut()) {
+        return false;
+      }
+      zoomOut();
+      return true;
+    }),
+    createOperationBinding("workspace.reset-zoom", "Reset zoom", "Mod + Comma", false, () => {
+      if (!getIsZoomRuntimeReady()) {
+        return false;
+      }
+      resetZoom();
+      return true;
+    }),
+    createOperationBinding(
+      "workspace.zoom-to-pointer",
+      "Zoom to pointer",
+      "Z",
+      false,
+      zoomToPointerLocation,
     ),
   ]);

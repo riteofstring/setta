@@ -37,6 +37,36 @@ export function toggleItemSelected(sectionId: string, itemId: string) {
   });
 }
 
+// Replaces one section's item selection in a single canonical commit. `toggleItemSelected`
+// builds the same commit one row at a time; an operation that selects a whole set of rows at
+// once notifies the host once instead of once per row.
+export function setSelectedItems(sectionId: string, itemIds: Array<string>) {
+  const documentState = useWorkspaceDocument.getState();
+  const section = getSectionOrThrow(documentState, sectionId);
+  const itemTree = getSectionItemTreeOrThrow(documentState, sectionId);
+  for (const itemId of itemIds) {
+    getItemOrThrow(itemTree, itemId);
+    if (itemId === itemTree.rootId) {
+      throw new Error(`Cannot select the root item ${itemId} of section ${sectionId}.`);
+    }
+  }
+  if (areItemIdListsEqual(itemTree.selectedItemIds, itemIds)) {
+    return;
+  }
+  useWorkspaceDocument.setState({
+    sections: {
+      ...documentState.sections,
+      [sectionId]: { ...section, itemTree: { ...itemTree, selectedItemIds: itemIds } },
+    },
+  });
+  notifyWorkspaceDocumentChange();
+  applyActiveSectionChange({ interaction: "item-select", sectionId });
+}
+
+function areItemIdListsEqual(current: ReadonlyArray<string>, next: ReadonlyArray<string>): boolean {
+  return current.length === next.length && current.every((itemId, index) => itemId === next[index]);
+}
+
 // Clears item selection across every section in one canonical commit; answers whether anything
 // was selected so callers (the reference's escape handling) can consume the keypress.
 export function unselectAllItems(): boolean {

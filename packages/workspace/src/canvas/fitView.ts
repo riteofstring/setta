@@ -99,19 +99,23 @@ export function fitView(options: InternalFitViewOptions = {}) {
   return true;
 }
 
-export function onFitViewHandler() {
+// Answers whether the view was actually fitted, so the keyboard binding knows whether it
+// consumed the keypress. An already-fit canvas declines, which is what the toolbar's active
+// fit-view button does when it is pressed again.
+export function onFitViewHandler(): boolean {
   if (useReactFlow.getState().fitViewOnInit) {
-    return;
+    return false;
   }
   const duration = resolveWorkspaceMotionDuration(
     useWorkspaceOptions.getState().transitionDuration,
   );
-  fitView({ duration });
+  const fitted = fitView({ duration });
   // Hack to set fitViewOnInit after transform is done.
   // If it gets set before the transform is done, then the
   // canvas viewport document-sync subscription will get
   // triggered and it will reset to fitViewOnInit
   setTimeout(() => useReactFlow.setState({ fitViewOnInit: true }), duration + 10);
+  return fitted;
 }
 
 export function computeReadyToBeVisible(reactFlowState: ReactFlowState) {

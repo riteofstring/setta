@@ -7,6 +7,9 @@ import { useWorkspaceOptions } from "./options";
 import { initialCanvasState, useReactFlow } from "./store";
 import {
   focusWorkspaceSection,
+  getCanZoomIn,
+  getCanZoomOut,
+  getIsZoomRuntimeReady,
   resetZoom,
   setCenter,
   shiftWorkspaceMapForLeadingPane,
@@ -140,6 +143,33 @@ describe("viewport zoom helpers", () => {
 
   it("fails loud when zooming before the zoom pane initialized", () => {
     expect(() => resetZoom()).toThrowError("Cannot zoom before the zoom pane initialized.");
+  });
+
+  // The keyboard chords ask these before they zoom, because the toolbar's buttons are simply
+  // absent or disabled in the same situations.
+  it("reports the zoom runtime as unavailable until the zoom pane initializes", () => {
+    expect(getIsZoomRuntimeReady()).toBe(false);
+    expect(getCanZoomIn()).toBe(false);
+    expect(getCanZoomOut()).toBe(false);
+
+    setupZoomRuntime();
+
+    expect(getIsZoomRuntimeReady()).toBe(true);
+    expect(getCanZoomIn()).toBe(true);
+    expect(getCanZoomOut()).toBe(true);
+  });
+
+  it("reports each zoom direction as unavailable at its configured limit", () => {
+    setupZoomRuntime();
+    useWorkspaceOptions.setState({ minZoom: 0.5, maxZoom: 2 });
+
+    useReactFlow.setState({ transform: [0, 0, 2] });
+    expect(getCanZoomIn()).toBe(false);
+    expect(getCanZoomOut()).toBe(true);
+
+    useReactFlow.setState({ transform: [0, 0, 0.5] });
+    expect(getCanZoomIn()).toBe(true);
+    expect(getCanZoomOut()).toBe(false);
   });
 
   // The reference offsets the visible center by its Overview rail width; the package centers on
