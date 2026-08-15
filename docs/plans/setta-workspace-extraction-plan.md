@@ -67,8 +67,9 @@ plan.
 
 ## Milestone A — structural section and group authoring
 
-**Status: A1–A4 repository work is complete. Milestone A remains open until A1–A4 pass the
-combined developer acceptance gate and audit.**
+**Status: A1–A4 repository work and the combined developer acceptance gate are complete. The
+developer accepted Milestone A on 2026-08-14; accepted baseline recording and the milestone audit
+remain.**
 
 Complete the generic section and group operations already implied by the package document,
 Inspector, context menus, and action registry.
