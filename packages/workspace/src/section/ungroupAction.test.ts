@@ -25,6 +25,7 @@ function makeSection(
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
     styleColor: null,
+    overflowMode: false,
     tagColor: null,
     children,
   };

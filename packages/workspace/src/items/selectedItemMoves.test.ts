@@ -51,6 +51,7 @@ function makeSection(id: string, itemTree: WorkspaceSectionItemTree) {
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
     styleColor: null,
+    overflowMode: false,
     tagColor: null,
     children: [],
     itemTree,

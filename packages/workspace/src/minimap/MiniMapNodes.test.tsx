@@ -31,6 +31,7 @@ function createSection(overrides: Partial<WorkspaceSection> & { id: string }): W
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
     styleColor: null,
+    overflowMode: false,
     tagColor: null,
     children: [],
     ...overrides,

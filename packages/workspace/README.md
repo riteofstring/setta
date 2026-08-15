@@ -138,6 +138,7 @@ registerWorkspaceCreationCommands([
       positionAndSizeLocked: false,
       isHorizontalOrientation: false,
       styleColor: null,
+      overflowMode: false,
       tagColor: null,
       children: [],
     }),
@@ -174,6 +175,17 @@ changing the document. Nested children replace their group at the same parent po
 children retain the group origin and receive fresh frontmost stacking positions in child order.
 Surviving selection is preserved, focus moves predictably from a removed group, and the host
 receives exactly one document-change notification.
+
+`WorkspaceSection.overflowMode` is the explicit reload-stable group layout mode: `false` keeps the
+group intrinsic, while `true` requires and applies its positive numeric `size` as fixed border-box
+bounds and scrolls the existing child subtree inside them. Every canonical section carries the boolean and non-groups keep
+it `false`. A host calls `setGroupOverflowMode(groupId, enabled)`; enabling a group whose width or
+height is `"auto"` first promotes only those dimensions from the mounted outer group rectangle, so
+the visible size does not jump. Numeric bounds survive disabling and can be re-enabled without a
+remeasure. The operation validates layout capability, group identity, lock state, and required live
+measurement before one document write and one notification. The persistent child surface keeps
+nested drop targets and scroll position intact, and takes wheel ownership only when it actually
+overflows. Disable bounded overflow before resetting either authored dimension to `"auto"`.
 
 Custom interactive renderer content uses only the four exported interaction-boundary constants:
 `NO_DRAG_CLASS_NAME` prevents section/item drag activation and `NO_PAN_CLASS_NAME` preserves the

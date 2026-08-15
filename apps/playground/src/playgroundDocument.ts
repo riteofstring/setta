@@ -26,6 +26,7 @@ function makeLeafSection(
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
     styleColor: null,
+    overflowMode: false,
     tagColor: null,
     children: [],
     ...overrides,
@@ -209,8 +210,8 @@ const itemPanelTree: WorkspaceSectionItemTree = {
   selectedItemIds: [],
 };
 
-// Groups have no registered kind; without an explicit size they load at the reference's
-// auto/auto default.
+// Groups have no registered kind. Intrinsic groups omit size and load at auto/auto; the bounded
+// root fixture below supplies explicit reload-stable dimensions.
 function makeGroupSection(
   id: string,
   name: string,
@@ -225,6 +226,7 @@ function makeGroupSection(
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
     styleColor: null,
+    overflowMode: false,
     tagColor: null,
     children,
     ...overrides,
@@ -248,6 +250,7 @@ function makeMetaControlSection(
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
     styleColor: null,
+    overflowMode: false,
     tagColor: null,
     children: [],
     ...overrides,
@@ -270,7 +273,10 @@ export const playgroundDocument: WorkspaceDocumentInput = {
     "styled-leaf": makeLeafSection("styled-leaf", "Style-colored leaf", {
       styleColor: "#3b82f6",
     }),
-    "root-group": makeGroupSection("root-group", "Root group", ["nested-leaf", "middle-group"]),
+    "root-group": makeGroupSection("root-group", "Root group", ["nested-leaf", "middle-group"], {
+      overflowMode: true,
+      size: { width: 520, height: 360 },
+    }),
     "nested-leaf": makeLeafSection("nested-leaf", "Nested leaf"),
     "middle-group": makeGroupSection("middle-group", "Nested group", ["inner-group"]),
     "inner-group": makeGroupSection(
@@ -290,6 +296,7 @@ export const playgroundDocument: WorkspaceDocumentInput = {
       positionAndSizeLocked: false,
       isHorizontalOrientation: false,
       styleColor: null,
+      overflowMode: false,
       tagColor: null,
       children: [],
       itemTree: itemPanelTree,

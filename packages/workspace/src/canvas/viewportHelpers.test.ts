@@ -163,6 +163,7 @@ describe("viewport zoom helpers", () => {
       positionAndSizeLocked: false,
       isHorizontalOrientation: false,
       styleColor: null,
+      overflowMode: false,
       tagColor: null,
       children: [],
     };
@@ -212,6 +213,7 @@ describe("viewport zoom helpers", () => {
           positionAndSizeLocked: false,
           isHorizontalOrientation: false,
           styleColor: null,
+          overflowMode: false,
           tagColor: null,
           children: [],
         },

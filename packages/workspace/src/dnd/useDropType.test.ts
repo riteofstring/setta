@@ -31,6 +31,7 @@ function makeSection(spec: SectionSpec): WorkspaceSection {
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
     styleColor: null,
+    overflowMode: false,
     tagColor: null,
     children: spec.children ?? [],
   };

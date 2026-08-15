@@ -11,6 +11,7 @@ import { resetItemDragState } from "../items/itemDragHandlers";
 import { deriveSectionStyleTheme } from "../section/sectionStyleColors";
 import { runWithWorkspaceDocumentChangeNotificationsSuppressed } from "./documentChangeCallback";
 import { isGroupSection } from "./documentSelectors";
+import { assertValidSectionOverflowMode } from "./groupOverflow";
 import { assertWorkspaceItemPresentationBoundary } from "./itemPresentation";
 import { deactivateItemSelect } from "./itemSelectionMode";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
@@ -72,6 +73,12 @@ function assertValidSectionStyleColors(sections: Record<string, WorkspaceSection
     ) {
       throw new Error(`Section ${sectionId} has an unparseable style color ${styleColor}.`);
     }
+  }
+}
+
+function assertValidSectionOverflowModes(sections: Record<string, WorkspaceSection>) {
+  for (const [sectionId, section] of Object.entries(sections)) {
+    assertValidSectionOverflowMode(sectionId, section);
   }
 }
 
@@ -225,6 +232,7 @@ export function resolveAndValidateWorkspaceSections(
 ): { sections: Record<string, WorkspaceSection>; parentSectionMap: Record<string, string> } {
   const sections = resolveLoadedSections(sectionInputs);
   assertValidSectionStyleColors(sections);
+  assertValidSectionOverflowModes(sections);
   const parentSectionMap = buildParentSectionMap(sections);
   assertAcyclicParentChains(parentSectionMap);
   assertValidSectionItemTrees(sections);

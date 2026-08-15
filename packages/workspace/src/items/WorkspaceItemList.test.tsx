@@ -97,6 +97,7 @@ function loadTestDocument() {
         positionAndSizeLocked: false,
         isHorizontalOrientation: false,
         styleColor: null,
+        overflowMode: false,
         tagColor: null,
         children: [],
         itemTree: makeItemTree(),
@@ -251,6 +252,7 @@ describe("WorkspaceItemList", () => {
           positionAndSizeLocked: false,
           isHorizontalOrientation: false,
           styleColor: null,
+          overflowMode: false,
           tagColor: null,
           children: [],
           itemTree: {
@@ -623,6 +625,7 @@ describe("WorkspaceItemList", () => {
           positionAndSizeLocked: false,
           isHorizontalOrientation: false,
           styleColor: null,
+          overflowMode: false,
           tagColor: null,
           children: [],
           itemTree: {
@@ -710,6 +713,7 @@ describe("WorkspaceItemList", () => {
             positionAndSizeLocked: false,
             isHorizontalOrientation: false,
             styleColor,
+            overflowMode: false,
             tagColor: null,
             children: [],
             itemTree,

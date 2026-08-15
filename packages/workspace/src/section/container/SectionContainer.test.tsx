@@ -13,9 +13,11 @@ import { useWorkspaceCapabilities } from "../../document/capabilities";
 import { setWorkspaceDocumentChangeCallback } from "../../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../../document/sectionKindRegistry";
+import { setSectionName } from "../../document/sectionMutations";
 import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../../document/stores";
 import type { WorkspaceDocument, WorkspaceSection } from "../../document/types";
 import { useWorkspaceTooltip } from "../../tooltip/WorkspaceTooltip";
+import { setGroupOverflowMode } from "../groupOverflowAction";
 import { useSectionRefs } from "../sectionRefs";
 import { SectionContainer } from "./SectionContainer";
 
@@ -31,6 +33,7 @@ function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): Wor
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
     styleColor: null,
+    overflowMode: false,
     tagColor: null,
     children: [],
     ...overrides,
@@ -505,6 +508,70 @@ describe("SectionContainer", () => {
     // Groups never render a minimize control.
     const groupHeader = groupRoot.querySelector(".min-h-10");
     expect(groupHeader?.querySelector('[aria-label="Minimize section"]')).toBeNull();
+  });
+
+  it("bounds a group through one persistent scroll surface with native wheel ownership", async () => {
+    loadTestDocument({
+      group: {
+        overflowMode: true,
+        size: { width: 360, height: 220 },
+      },
+    });
+    await mount("group");
+
+    const groupRoot = getRequiredElement(host, ".group\\/group-section");
+    expect(groupRoot.dataset["groupOverflowMode"]).toBe("bounded");
+    expect(groupRoot.style.width).toBe("360px");
+    expect(groupRoot.style.height).toBe("220px");
+    expect(groupRoot.className).toContain("min-h-0");
+    expect(groupRoot.className).toContain("min-w-0");
+
+    const scrollSurface = getRequiredElement(groupRoot, ".overflow-auto");
+    expect(scrollSurface.className).toContain(
+      "mt-2 flex min-h-0 min-w-0 flex-1 flex-col overflow-auto",
+    );
+    expect(scrollSurface.querySelector('[data-sortable-section-id="nested"]')).not.toBeNull();
+    Object.defineProperties(scrollSurface, {
+      clientHeight: { value: 200 },
+      scrollHeight: { value: 420 },
+    });
+    await act(async () => {
+      scrollSurface.setAttribute("data-remeasure", "overflow");
+      await Promise.resolve();
+    });
+    expect(scrollSurface.classList.contains("nowheel")).toBe(true);
+
+    scrollSurface.scrollTop = 48;
+    await act(async () => setSectionName("nested", "Renamed nested section"));
+    expect(getRequiredElement(groupRoot, ".overflow-auto")).toBe(scrollSurface);
+    expect(scrollSurface.scrollTop).toBe(48);
+
+    await act(async () => setGroupOverflowMode("group", false));
+    expect(groupRoot.dataset["groupOverflowMode"]).toBe("auto");
+    expect(groupRoot.contains(scrollSurface)).toBe(true);
+    expect(scrollSurface.scrollTop).toBe(48);
+
+    await act(async () => setGroupOverflowMode("group", true));
+    expect(groupRoot.dataset["groupOverflowMode"]).toBe("bounded");
+    expect(getRequiredElement(groupRoot, ".overflow-auto")).toBe(scrollSurface);
+    expect(scrollSurface.scrollTop).toBe(48);
+  });
+
+  it("keeps intrinsic group layout free of bounded dimensions", async () => {
+    loadTestDocument({
+      group: {
+        overflowMode: false,
+        size: { width: 360, height: 220 },
+      },
+    });
+    await mount("group");
+
+    const groupRoot = getRequiredElement(host, ".group\\/group-section");
+    expect(groupRoot.dataset["groupOverflowMode"]).toBe("auto");
+    expect(groupRoot.style.width).toBe("");
+    expect(groupRoot.style.height).toBe("");
+    expect(groupRoot.querySelector(".overflow-auto")).toBeNull();
+    expect(groupRoot.querySelector('[data-sortable-section-id="nested"]')).not.toBeNull();
   });
 
   it("opens the shared section action menu from the group header icon", async () => {

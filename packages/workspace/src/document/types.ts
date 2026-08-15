@@ -210,6 +210,9 @@ export type WorkspaceSection = {
   kind: string;
   name: string;
   size: SectionSize;
+  // Frozen main's group-only overflow flag. Every canonical section carries the field so the
+  // public document has one explicit, reload-stable shape; non-group sections must keep it false.
+  overflowMode: boolean;
   isMinimized: boolean;
   positionAndSizeLocked: boolean;
   isHorizontalOrientation: boolean;

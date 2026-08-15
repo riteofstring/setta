@@ -48,6 +48,7 @@ const RUNTIME_EXPORTS = [
   "setItemLabel",
   "setItemPresentation",
   "setItemValue",
+  "setGroupOverflowMode",
   "setSectionData",
   "setWorkspaceDocumentChangeCallback",
   "setWorkspaceColorMode",

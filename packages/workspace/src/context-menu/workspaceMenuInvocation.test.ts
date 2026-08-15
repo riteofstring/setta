@@ -27,6 +27,7 @@ function createSection(id: string, item = false): WorkspaceSection {
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
     styleColor: null,
+    overflowMode: false,
     tagColor: null,
     children: [],
     ...(item

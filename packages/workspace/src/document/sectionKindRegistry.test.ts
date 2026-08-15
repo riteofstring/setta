@@ -76,6 +76,7 @@ describe("sectionKindRegistry", () => {
         positionAndSizeLocked: false,
         isHorizontalOrientation: false,
         styleColor: null,
+        overflowMode: false,
         tagColor: null,
         children: [],
       }),

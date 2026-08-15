@@ -80,6 +80,7 @@ describe("WorkspaceItemConfigurationEditor", () => {
           positionAndSizeLocked: false,
           isHorizontalOrientation: false,
           styleColor: null,
+          overflowMode: false,
           tagColor: null,
           children: [],
           itemTree: {

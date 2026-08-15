@@ -35,6 +35,7 @@ function makeSection(
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
     styleColor: null,
+    overflowMode: false,
     tagColor: null,
     children: [],
     ...overrides,
@@ -296,6 +297,50 @@ describe("WorkspaceInspector", () => {
     expect(getLabeledControl<HTMLInputElement>(host, "Width").disabled).toBe(true);
     expect(getLabeledControl<HTMLInputElement>(host, "Height").disabled).toBe(true);
     expect(getButton(host, "Apply size").disabled).toBe(true);
+  });
+
+  it("resizes bounded groups but rejects an auto reset until overflow is disabled", async () => {
+    const onChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onChange);
+    await renderInspector(
+      createDocument(["group"], {
+        group: makeSection("group", {
+          kind: "group",
+          name: "Bounded group",
+          overflowMode: true,
+          size: { width: 360, height: 220 },
+        }),
+      }),
+    );
+    const width = getLabeledControl<HTMLInputElement>(host, "Width");
+    const height = getLabeledControl<HTMLInputElement>(host, "Height");
+
+    await act(async () => {
+      setInputValue(width, "400");
+      setInputValue(height, "260");
+      getButton(host, "Apply size").click();
+    });
+
+    expect(useWorkspaceDocument.getState().sections["group"]?.size).toEqual({
+      width: 400,
+      height: 260,
+    });
+    expect(onChange).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      setInputValue(width, "auto");
+      getButton(host, "Apply size").click();
+    });
+
+    expect(width.getAttribute("aria-invalid")).toBe("true");
+    expect(host.textContent).toContain(
+      "width must be a positive number while group overflow is bounded",
+    );
+    expect(useWorkspaceDocument.getState().sections["group"]?.size).toEqual({
+      width: 400,
+      height: 260,
+    });
+    expect(onChange).toHaveBeenCalledOnce();
   });
 
   it("changes a typed item's UI type through one complete presentation mutation", async () => {

@@ -24,6 +24,7 @@ function makeStyledDocument(): WorkspaceDocumentState {
         positionAndSizeLocked: false,
         isHorizontalOrientation: false,
         styleColor: "#3b82f6",
+        overflowMode: false,
         tagColor: null,
         children: [],
       },

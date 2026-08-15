@@ -280,6 +280,24 @@ function SectionSizeEditor({
       focusSectionSizeField(event.currentTarget, parsed.error.field);
       return;
     }
+    if (section.overflowMode && parsed.width === "auto") {
+      const nextError = {
+        field: "width",
+        message: "width must be a positive number while group overflow is bounded.",
+      } as const;
+      setError(nextError);
+      focusSectionSizeField(event.currentTarget, nextError.field);
+      return;
+    }
+    if (section.overflowMode && parsed.height === "auto") {
+      const nextError = {
+        field: "height",
+        message: "height must be a positive number while group overflow is bounded.",
+      } as const;
+      setError(nextError);
+      focusSectionSizeField(event.currentTarget, nextError.field);
+      return;
+    }
     setError(null);
     persistSectionSizeChange(section.id, {
       width: parsed.width,

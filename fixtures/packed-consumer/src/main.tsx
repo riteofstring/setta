@@ -1,6 +1,7 @@
 import {
   createWorkspaceShellViewState,
   DEFAULT_META_CONTROL_SIZE,
+  getWorkspaceDocument,
   GROUP_SECTION_KIND,
   ItemDndContext,
   loadWorkspaceDocument,
@@ -8,6 +9,7 @@ import {
   registerSectionKinds,
   registerWorkspaceCreationCommands,
   registerWorkspaceMenuActions,
+  setGroupOverflowMode,
   setWorkspaceColorMode,
   setWorkspaceDocumentChangeCallback,
   useWorkspaceAppearance,
@@ -115,6 +117,7 @@ function makeNoteSection(id: string, name: string, text: string): WorkspaceSecti
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
     styleColor: null,
+    overflowMode: false,
     tagColor: null,
     children: [],
   };
@@ -143,8 +146,10 @@ const consumerDocument: WorkspaceDocumentInput = {
       positionAndSizeLocked: false,
       isHorizontalOrientation: false,
       styleColor: null,
+      overflowMode: true,
       tagColor: null,
       children: ["nested-note"],
+      size: { width: 280, height: 180 },
     },
     "nested-note": makeNoteSection("nested-note", "Nested note", "A nested note inside the group."),
     "packed-time": {
@@ -156,6 +161,7 @@ const consumerDocument: WorkspaceDocumentInput = {
       positionAndSizeLocked: false,
       isHorizontalOrientation: false,
       styleColor: null,
+      overflowMode: false,
       tagColor: null,
       children: [],
     },
@@ -167,6 +173,7 @@ const consumerDocument: WorkspaceDocumentInput = {
       positionAndSizeLocked: false,
       isHorizontalOrientation: false,
       styleColor: null,
+      overflowMode: false,
       tagColor: null,
       children: [],
       itemTree: {
@@ -349,6 +356,18 @@ function ConsumerApp() {
         <h1>Packed @setta/workspace consumer</h1>
         <button type="button" onClick={toggleDarkMode}>
           Switch to {darkMode ? "light" : "dark"} mode
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            const group = getWorkspaceDocument().sections["notes-group"];
+            if (!group) {
+              throw new Error("The packed notes group is unavailable.");
+            }
+            setGroupOverflowMode(group.id, !group.overflowMode);
+          }}
+        >
+          Toggle bounded notes group
         </button>
         <p>
           <DocumentChangeReadout /> document changes reported.

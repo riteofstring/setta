@@ -67,8 +67,8 @@ plan.
 
 ## Milestone A — structural section and group authoring
 
-**Status: A1 repository work is complete; A2 bounded group overflow is next. Milestone A remains
-open until A1–A4 pass the combined developer acceptance gate and audit.**
+**Status: A1–A2 repository work is complete; A3 functional section-header menu is next. Milestone A
+remains open until A1–A4 pass the combined developer acceptance gate and audit.**
 
 Complete the generic section and group operations already implied by the package document,
 Inspector, context menus, and action registry.

@@ -30,6 +30,7 @@ function createSection(id: string): WorkspaceSectionInput {
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
     styleColor: null,
+    overflowMode: false,
     tagColor: null,
     children: [],
   };

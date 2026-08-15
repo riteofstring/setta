@@ -139,6 +139,7 @@ function makeDocument(items: Record<string, WorkspaceItem>): WorkspaceDocumentIn
         positionAndSizeLocked: false,
         isHorizontalOrientation: false,
         styleColor: null,
+        overflowMode: false,
         tagColor: null,
         children: [],
         itemTree: {

@@ -37,6 +37,7 @@ function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): Wor
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
     styleColor: null,
+    overflowMode: false,
     tagColor: null,
     children: [],
     ...overrides,
@@ -228,6 +229,53 @@ describe("loadWorkspaceDocument", () => {
     expect(() => loadWorkspaceDocument(document)).toThrowError(
       /Section leaf has an unparseable style color 1g0000/,
     );
+  });
+
+  it("requires an explicit boolean overflow mode and confines it to groups", () => {
+    const missingMode = {
+      ...makeSection("leaf"),
+      overflowMode: undefined,
+    } as unknown as WorkspaceSection;
+    expect(() =>
+      loadWorkspaceDocument(
+        makeDocument({
+          sections: { leaf: missingMode as WorkspaceSection },
+          topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
+        }),
+      ),
+    ).toThrow(/Section leaf overflow mode must be a boolean/);
+
+    expect(() =>
+      loadWorkspaceDocument(
+        makeDocument({
+          sections: { leaf: makeSection("leaf", { overflowMode: true }) },
+          topLevelSections: { leaf: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },
+        }),
+      ),
+    ).toThrow(/Section leaf is not a group and cannot enable overflow mode/);
+
+    loadWorkspaceDocument(
+      makeDocument({
+        sections: { group: makeSection("group", { kind: "group", overflowMode: true }) },
+        topLevelSections: { group: { x: 0, y: 0, w: 320, h: 180, zIndex: 0 } },
+      }),
+    );
+    expect(getWorkspaceDocument().sections["group"]?.overflowMode).toBe(true);
+
+    expect(() =>
+      loadWorkspaceDocument(
+        makeDocument({
+          sections: {
+            group: makeSection("group", {
+              kind: "group",
+              overflowMode: true,
+              size: { width: "auto", height: 180 },
+            }),
+          },
+          topLevelSections: { group: { x: 0, y: 0, w: null, h: 180, zIndex: 0 } },
+        }),
+      ),
+    ).toThrow(/Bounded group group requires positive numeric width and height/);
   });
 
   it("rejects a child id that has no section record", () => {

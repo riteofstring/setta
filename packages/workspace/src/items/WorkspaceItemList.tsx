@@ -7,6 +7,7 @@ import { buildItemTreeView, getItemOrThrow } from "../document/itemTree";
 import { useWorkspaceDocument } from "../document/stores";
 import type { WorkspaceItem, WorkspaceSectionItemTree } from "../document/types";
 import { NATIVE_VERTICAL_WHEEL_CLASS_NAME } from "../interaction";
+import { useIsScrollable } from "../useIsScrollable";
 import {
   ItemListProvider,
   useItemDndChildrenForParent,
@@ -19,7 +20,6 @@ import {
   unregisterItemListView,
   updateItemListView,
 } from "./itemListRegistry";
-import { useIsScrollable } from "./useIsScrollable";
 import { useItemColumnWidth } from "./useItemColumnWidth";
 
 // The reference's `ParamDndList` as the registered item surface: the host mounts one list per

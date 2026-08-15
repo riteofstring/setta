@@ -18,6 +18,7 @@ function createSection(id: string, children: Array<string> = []): WorkspaceSecti
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
     styleColor: null,
+    overflowMode: false,
     tagColor: null,
     children,
   };

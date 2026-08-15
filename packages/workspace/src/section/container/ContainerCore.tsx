@@ -16,6 +16,8 @@ import {
 import { useHasTempNested } from "../../dnd/useDndUtils";
 import { getSectionOrThrow, GROUP_SECTION_KIND } from "../../document/documentSelectors";
 import { useActiveSections, useWorkspaceDocument } from "../../document/stores";
+import { NO_WHEEL_CLASS_NAME } from "../../interaction";
+import { useIsScrollable } from "../../useIsScrollable";
 import { ChangeOrientationButton } from "../header/ChangeOrientationButton";
 import { DeleteOrHideButton } from "../header/DeleteOrHideButton";
 import { LockPositionButton } from "../header/LockPositionButton";
@@ -32,7 +34,7 @@ export type SectionDragRef = (element: Element | null) => void;
 // its frame and selection outline on an absolutely positioned sibling layer, so selection never
 // shifts group layout. The section element merges three ref systems (positional registry, dnd
 // droppable, dnd draggable) and spreads the mode-gated drag listeners over its whole surface.
-// The reference's overflow mode and view-mode props left with their owning features.
+// Bounded overflow is restored here; the application-only view-mode props remain excluded.
 function ContainerComponent({
   isGroup,
   sectionId,
@@ -109,12 +111,16 @@ function ContainerGroup({
   const hasNested = useHasTempNested(sectionId);
   const section = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId));
   const positionAndSizeLocked = section.positionAndSizeLocked;
+  const overflowMode = section.overflowMode;
   const isActiveSection = useActiveSections((x) => x.activeIds.includes(sectionId));
   const disablePointerEvents = useShouldDisablePointerEvents();
+  const { ref: overflowRef, isScrollable } = useIsScrollable();
 
   const outlineColor = getOutlineColor({ isActiveSection });
   const pointerSelectClassName = getPointerSelectClassName(disablePointerEvents);
   const outlineClassName = getGroupOutlineClassName(positionAndSizeLocked, outlineColor);
+  const groupStyle = getGroupStyle(style, overflowMode, section.size);
+  const contentClassName = getContentClassName(overflowMode, isScrollable);
 
   // The reference activates sections through its app-level shortcut engine; the package keeps
   // keyboard activation on the group itself for the repository's accessibility gate. The group
@@ -156,7 +162,7 @@ function ContainerGroup({
   return (
     // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
-      className={getGroupRootClassName(className)}
+      className={getGroupRootClassName(overflowMode, className)}
       {...commonProps}
       onClick={getOnSectionClick(sectionId)}
       onContextMenu={onContextMenu}
@@ -165,11 +171,12 @@ function ContainerGroup({
       aria-label={`${section.name} group section${isActiveSection ? ", selected" : ""}`}
       aria-keyshortcuts="Enter Space Shift+F10 ContextMenu"
       tabIndex={-1} // keeps section focusable for programmatic focus
-      style={style}
+      style={groupStyle}
+      data-group-overflow-mode={overflowMode ? "bounded" : "auto"}
     >
       <div className={outlineClassName} />
       <GroupHeader sectionId={sectionId} pointerSelectClassName={pointerSelectClassName} />
-      <div className="z-10">
+      <div className={contentClassName} ref={overflowRef}>
         <EmptyGroupDropHint hasNested={hasNested} />
         {children}
       </div>
@@ -184,8 +191,34 @@ function getPointerSelectClassName(disablePointerEvents: boolean) {
   return disablePointerEvents ? "pointer-events-none select-none" : "";
 }
 
-function getGroupRootClassName(className: string | undefined) {
-  return `group/group-section flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-2 focus-visible:outline-none ${className ?? ""}`;
+function getGroupStyle(
+  style: CSSProperties | undefined,
+  overflowMode: boolean,
+  size: { width: string | number; height: string | number },
+): CSSProperties {
+  const groupStyle = { ...(style ?? {}) };
+  if (!overflowMode) {
+    return groupStyle;
+  }
+  if (size.width !== "auto") {
+    groupStyle.width = size.width;
+  }
+  if (size.height !== "auto") {
+    groupStyle.height = size.height;
+  }
+  return groupStyle;
+}
+
+function getContentClassName(overflowMode: boolean, isScrollable: boolean): string {
+  if (!overflowMode) {
+    return "z-10";
+  }
+  const className = "z-10 mt-2 flex min-h-0 min-w-0 flex-1 flex-col overflow-auto";
+  return isScrollable ? `${className} ${NO_WHEEL_CLASS_NAME}` : className;
+}
+
+function getGroupRootClassName(overflowMode: boolean, className: string | undefined) {
+  return `group/group-section flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-2 focus-visible:outline-none ${overflowMode ? "min-h-0 min-w-0" : ""} ${className ?? ""}`;
 }
 
 function getGroupOutlineClassName(positionAndSizeLocked: boolean, outlineColor: string) {

@@ -19,6 +19,7 @@ function makeSection(id: string, overrides: Partial<WorkspaceSection> = {}): Wor
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
     styleColor: null,
+    overflowMode: false,
     tagColor: null,
     children: [],
     ...overrides,

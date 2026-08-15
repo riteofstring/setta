@@ -182,6 +182,7 @@ export { WorkspaceItemLabel } from "./items/WorkspaceItemLabel";
 export type { WorkspaceItemLabelProps } from "./items/WorkspaceItemLabel";
 export { WorkspaceItemList } from "./items/WorkspaceItemList";
 export type { WorkspaceItemListProps } from "./items/WorkspaceItemList";
+export { setGroupOverflowMode } from "./section/groupOverflowAction";
 export { ungroupSections } from "./section/ungroupAction";
 export { WorkspaceShell } from "./shell/WorkspaceShell";
 export {

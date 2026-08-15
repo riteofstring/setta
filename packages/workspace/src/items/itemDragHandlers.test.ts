@@ -59,6 +59,7 @@ function loadTestDocument(selectedItemIds: Array<string> = []) {
         positionAndSizeLocked: false,
         isHorizontalOrientation: false,
         styleColor: null,
+        overflowMode: false,
         tagColor: null,
         children: [],
         itemTree: makeItemTree(

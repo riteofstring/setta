@@ -20,6 +20,7 @@ function createSection(id: string, overrides: Partial<WorkspaceSectionInput> = {
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,
     styleColor: null,
+    overflowMode: false,
     tagColor: null,
     children: [],
     ...overrides,

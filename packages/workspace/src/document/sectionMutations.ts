@@ -232,6 +232,7 @@ function createGroupSection(groupId: string, children: Array<string>): Workspace
     kind: GROUP_SECTION_KIND,
     name: "Group",
     size: { width: "auto", height: "auto" },
+    overflowMode: false,
     isMinimized: false,
     positionAndSizeLocked: false,
     isHorizontalOrientation: false,

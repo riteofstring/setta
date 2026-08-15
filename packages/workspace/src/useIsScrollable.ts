@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
-// The reference's `useIsScrollable` (state/hooks/sectionSizes.ts) without its `onMeasure`
-// option, which only feeds the reference's persisted param-area height measurements — an
-// application-side feature.
+// Frozen main's shared scrollability observer. Item lists and bounded groups keep the same DOM
+// element mounted while content changes, so scroll ownership can react without remounting or
+// losing the live scroll position.
 export function useIsScrollable() {
   const [isScrollableVertical, setIsScrollableVertical] = useState(false);
   const [isScrollableHorizontal, setIsScrollableHorizontal] = useState(false);
@@ -18,12 +18,8 @@ export function useIsScrollable() {
       }
     }
 
-    const resizeObserver = new ResizeObserver(() => {
-      checkScrollable();
-    });
-    const mutationObserver = new MutationObserver(() => {
-      checkScrollable();
-    });
+    const resizeObserver = new ResizeObserver(checkScrollable);
+    const mutationObserver = new MutationObserver(checkScrollable);
 
     resizeObserver.observe(elementRef.current);
     mutationObserver.observe(elementRef.current, {
