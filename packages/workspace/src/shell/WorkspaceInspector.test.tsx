@@ -383,6 +383,48 @@ describe("WorkspaceInspector", () => {
     expect(onChange).toHaveBeenCalledOnce();
   });
 
+  it("ungroups a selected group and restores Inspector focus to the resulting empty branch", async () => {
+    const onChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onChange);
+    await renderInspector(
+      createDocument(["group"], {
+        group: makeSection("group", {
+          kind: "group",
+          name: "Group",
+          children: ["child-a", "child-b"],
+        }),
+        "child-a": makeSection("child-a"),
+        "child-b": makeSection("child-b"),
+      }),
+    );
+    const ungroup = getButton(host, "Ungroup");
+    ungroup.focus();
+
+    await act(async () => {
+      ungroup.click();
+    });
+
+    expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
+    expect(useWorkspaceDocument.getState().parentSectionMap["child-a"]).toBeUndefined();
+    expect(host.textContent).toContain("Select A Section to Edit");
+    expect(document.activeElement).toBe(
+      host.querySelector('[aria-label="Workspace Inspector selection"]'),
+    );
+    expect(onChange).toHaveBeenCalledOnce();
+  });
+
+  it("explains why a mixed group and leaf selection cannot be ungrouped", async () => {
+    await renderInspector(
+      createDocument(["group", "alpha"], {
+        group: makeSection("group", { kind: "group", children: ["child"] }),
+        child: makeSection("child"),
+      }),
+    );
+
+    expect(getButton(host, "Ungroup").disabled).toBe(true);
+    expect(host.textContent).toContain("every selected section must be an unlocked group");
+  });
+
   it("renders a typed host contribution for custom section and item content", async () => {
     const contexts: Array<WorkspaceInspectorContributionContext> = [];
     registerSectionKinds({

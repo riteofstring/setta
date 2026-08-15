@@ -283,4 +283,72 @@ describe("WorkspaceMenuLayer", () => {
     expect(useWorkspaceDocument.getState().sections["locked"]?.positionAndSizeLocked).toBe(true);
     expect(onChange).toHaveBeenCalledOnce();
   });
+
+  it("ungroups a valid group selection through the canonical section action", async () => {
+    loadWorkspaceDocument({
+      sections: {
+        group: { ...createSection("group"), kind: "group", children: ["child"] },
+        child: createSection("child"),
+        sibling: createSection("sibling"),
+      },
+      topLevelSections: {
+        group: { x: 20, y: 30, w: null, h: null, zIndex: 0 },
+        sibling: { x: 300, y: 30, w: 200, h: 100, zIndex: 1 },
+      },
+      viewport: { x: 0, y: 0, zoom: 1 },
+      activeIds: ["group"],
+    });
+    const onChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onChange);
+    openWorkspaceSectionMenu("group", "section", { x: 150, y: 100 }, owner);
+    await act(async () => {
+      root.render(<WorkspaceMenuLayer />);
+    });
+
+    const entries = Array.from(document.body.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+    expect(entries.map((entry) => entry.textContent)).toEqual([
+      "Group",
+      "Ungroup",
+      "Delete",
+      "Lock Position & Size",
+    ]);
+    const ungroup = entries.find((entry) => entry.textContent === "Ungroup");
+    expect(ungroup?.hasAttribute("data-disabled")).toBe(false);
+
+    await act(async () => {
+      ungroup?.click();
+    });
+
+    expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
+    expect(useWorkspaceDocument.getState().topLevelSections["child"]).toMatchObject({
+      x: 20,
+      y: 30,
+    });
+    expect(onChange).toHaveBeenCalledOnce();
+  });
+
+  it("exposes but disables ungroup for a mixed group and leaf selection", async () => {
+    loadWorkspaceDocument({
+      sections: {
+        group: { ...createSection("group"), kind: "group", children: ["child"] },
+        child: createSection("child"),
+        leaf: createSection("leaf"),
+      },
+      topLevelSections: {
+        group: { x: 20, y: 30, w: null, h: null, zIndex: 0 },
+        leaf: { x: 300, y: 30, w: 200, h: 100, zIndex: 1 },
+      },
+      viewport: { x: 0, y: 0, zoom: 1 },
+      activeIds: ["group", "leaf"],
+    });
+    openWorkspaceSectionMenu("group", "section", { x: 150, y: 100 }, owner);
+    await act(async () => {
+      root.render(<WorkspaceMenuLayer />);
+    });
+
+    const ungroup = Array.from(
+      document.body.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+    ).find((entry) => entry.textContent === "Ungroup");
+    expect(ungroup?.getAttribute("aria-disabled")).toBe("true");
+  });
 });

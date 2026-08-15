@@ -1,16 +1,19 @@
 import { useEffect } from "react";
 import { activateDndMovingFreeMode, activateDndSortingMode, deactivateDnd } from "../dnd/dndState";
 import { getActiveSectionIds, setActiveSectionIds } from "../document/activeSections";
+import { useWorkspaceCapabilities } from "../document/capabilities";
 import { getSectionHasSelectedItems } from "../document/documentSelectors";
 import { unselectAllItems } from "../document/itemSelection";
 import { activateItemSelect, deactivateItemSelect } from "../document/itemSelectionMode";
 import { useWorkspaceDocument } from "../document/stores";
+import { canUngroupWorkspaceSections } from "../document/ungroupSections";
 import {
   indentSelectedItems,
   moveSelectedItemsDown,
   moveSelectedItemsUp,
   unindentSelectedItems,
 } from "../items/selectedItemMoves";
+import { ungroupSections } from "../section/ungroupAction";
 import { disableWorkspaceTooltip, enableWorkspaceTooltip } from "../tooltip/WorkspaceTooltip";
 import { useReactFlow } from "./store";
 import { isMacOs } from "./utils";
@@ -22,8 +25,9 @@ import { isMacOs } from "./utils";
 // paramSelect = Mod + Shift (hold; the package's item-select mode), paramMoveUp/Down =
 // Alt + ArrowUp/Down (repeat allowed), paramIndent/Unindent = Tab / Shift + Tab, and the
 // Escape handler that unselects params before it clears an in-section active selection. The
-// package owns the same activation-key state directly; the engine's command shortcuts (fit
-// view "F", zoom "="/"-", zoom to mouse "Z") stay application-side.
+// package owns the same activation-key state directly. A1 also restores main's ungroup command
+// (Shift+Mod+G) through the canonical package operation; the other command shortcuts (fit view
+// "F", zoom "="/"-", zoom to mouse "Z") stay application-side until the command milestone.
 // The reference's shortcut engine matches the bare "Q" shortcut only with no modifiers held.
 function isBareTooltipKey(event: KeyboardEvent): boolean {
   return (
@@ -74,9 +78,9 @@ type HoldMode = {
 // matches, and — like the reference engine — non-repeat keydown events are the only
 // activator: auto-repeat keydowns never activate a mode, so releasing Mod while still
 // holding Alt deactivates sorting without re-entering the free-move mode even where
-// modifier keys auto-repeat. The reference prunes stale pressed keys only on the first
-// keydown after a key'd Mod shortcut ran; the package owns no key'd Mod chords, so there is
-// no prune — swallowed macOS keyups are recovered by the Meta-keyup clear below.
+// modifier keys auto-repeat. Ungroup is a one-shot command rather than a hold mode, so its
+// KeyG participates in this exact pressed-key set without adding a mode; swallowed macOS
+// keyups are recovered by the Meta-keyup clear below.
 function createHoldChordTracker(macOS: boolean) {
   const heldKeys = new Set<string>();
 
@@ -353,6 +357,41 @@ function handleEscapeShortcut(event: KeyboardEvent, tracker: HoldChordTracker, m
   clearActiveSectionSelectionIfNeeded(sectionNode);
 }
 
+function hasExactUngroupModifiers(event: KeyboardEvent, macOS: boolean): boolean {
+  if (!event.shiftKey || event.altKey) {
+    return false;
+  }
+  return macOS ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+}
+
+// Main ships Shift+Mod+G for ungroup. The command owns the browser chord only while the complete
+// active selection can run it; unavailable and mixed selections retain their native behavior.
+function handleUngroupShortcut(event: KeyboardEvent, tracker: HoldChordTracker, macOS: boolean) {
+  if (
+    event.code !== "KeyG" ||
+    event.repeat ||
+    !hasExactUngroupModifiers(event, macOS) ||
+    !tracker.heldKeysEqual(["KeyG"])
+  ) {
+    return;
+  }
+  const groupIds = getActiveSectionIds();
+  const state = useWorkspaceDocument.getState();
+  const sections = groupIds.flatMap((sectionId) => {
+    const section = state.sections[sectionId];
+    return section ? [section] : [];
+  });
+  if (
+    sections.length !== groupIds.length ||
+    !useWorkspaceCapabilities.getState().canEditStructure ||
+    !canUngroupWorkspaceSections(state, sections)
+  ) {
+    return;
+  }
+  event.preventDefault();
+  ungroupSections(groupIds);
+}
+
 export function useCanvasKeyActivations() {
   useEffect(() => {
     const macOS = isMacOs();
@@ -379,6 +418,7 @@ export function useCanvasKeyActivations() {
       } else {
         disableTooltipIfPressed();
       }
+      handleUngroupShortcut(event, chordTracker, macOS);
       handleItemMoveShortcut(event, chordTracker, macOS);
       handleTabShortcut(event, chordTracker, macOS);
       handleEscapeShortcut(event, chordTracker, macOS);

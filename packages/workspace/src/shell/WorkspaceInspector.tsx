@@ -33,8 +33,10 @@ import {
   type WorkspaceDocumentState,
 } from "../document/stores";
 import type { SectionSizeValue, WorkspaceSection } from "../document/types";
+import { canUngroupWorkspaceSections } from "../document/ungroupSections";
 import { useSectionRefs } from "../section/sectionRefs";
 import { persistSectionSizeChange } from "../section/sectionSizes";
+import { ungroupSections } from "../section/ungroupAction";
 import { WorkspaceItemInspector } from "./WorkspaceItemInspector";
 import {
   canGroupWorkspaceSections,
@@ -369,11 +371,100 @@ function SectionContribution({ section }: { section: WorkspaceSection }) {
   );
 }
 
+function SectionUngroupAction({
+  documentState,
+  onStatusChange,
+  section,
+}: {
+  documentState: WorkspaceDocumentState;
+  onStatusChange: (message: string) => void;
+  section: WorkspaceSection;
+}) {
+  const canEditStructure = useWorkspaceCapabilities((state) => state.canEditStructure);
+  if (!isGroupSection(section)) {
+    return null;
+  }
+  const canUngroup = canUngroupWorkspaceSections(documentState, [section]);
+  return (
+    <div className="setta-workspace-inspector-actions" data-inspector-focus-key="section-actions">
+      <button
+        disabled={!canEditStructure || !canUngroup}
+        onClick={() => {
+          ungroupSections([section.id]);
+          onStatusChange("Group ungrouped.");
+        }}
+        type="button"
+      >
+        Ungroup
+      </button>
+    </div>
+  );
+}
+
+type MultipleUngroupState = {
+  available: boolean;
+  visible: boolean;
+};
+
+function getMultipleUngroupState(
+  documentState: WorkspaceDocumentState,
+  sections: ReadonlyArray<WorkspaceSection>,
+): MultipleUngroupState {
+  const visible = sections.some(isGroupSection);
+  return {
+    available: visible && canUngroupWorkspaceSections(documentState, sections),
+    visible,
+  };
+}
+
+function MultipleUngroupButton({
+  canEditStructure,
+  onStatusChange,
+  sectionIds,
+  sectionCount,
+  state,
+}: {
+  canEditStructure: boolean;
+  onStatusChange: (message: string) => void;
+  sectionIds: ReadonlyArray<string>;
+  sectionCount: number;
+  state: MultipleUngroupState;
+}) {
+  if (!state.visible) {
+    return null;
+  }
+  return (
+    <button
+      disabled={!canEditStructure || !state.available}
+      onClick={() => {
+        ungroupSections(sectionIds);
+        onStatusChange(`${sectionCount} groups ungrouped.`);
+      }}
+      type="button"
+    >
+      Ungroup
+    </button>
+  );
+}
+
+function MultipleUngroupHelp({ state }: { state: MultipleUngroupState }) {
+  if (!state.visible || state.available) {
+    return null;
+  }
+  return (
+    <p className="setta-workspace-inspector-help">
+      Ungrouping is unavailable because every selected section must be an unlocked group.
+    </p>
+  );
+}
+
 function SectionInspector({
+  documentState,
   focusRoot,
   onStatusChange,
   section,
 }: {
+  documentState: WorkspaceDocumentState;
   focusRoot: () => void;
   onStatusChange: (message: string) => void;
   section: WorkspaceSection;
@@ -468,6 +559,11 @@ function SectionInspector({
           </button>
         ) : null}
       </div>
+      <SectionUngroupAction
+        documentState={documentState}
+        onStatusChange={onStatusChange}
+        section={section}
+      />
       <SectionSizeEditor onEscape={focusRoot} onStatusChange={onStatusChange} section={section} />
       <SectionContribution section={section} />
     </div>
@@ -486,6 +582,7 @@ function MultipleSectionsInspector({
   const capabilities = useWorkspaceCapabilities((state) => state);
   const lockState = getWorkspaceInspectorLockState(sections);
   const canGroup = canGroupWorkspaceSections(documentState, sections);
+  const ungroupState = getMultipleUngroupState(documentState, sections);
   const sectionIds = sections.map((section) => section.id);
   return (
     <div className="setta-workspace-inspector-editor" data-inspector-branch="multiple-sections">
@@ -526,6 +623,13 @@ function MultipleSectionsInspector({
         >
           Group
         </button>
+        <MultipleUngroupButton
+          canEditStructure={capabilities.canEditStructure}
+          onStatusChange={onStatusChange}
+          sectionCount={sections.length}
+          sectionIds={sectionIds}
+          state={ungroupState}
+        />
         <button
           className="setta-workspace-inspector-danger-action"
           disabled={!capabilities.canEditStructure}
@@ -543,6 +647,7 @@ function MultipleSectionsInspector({
           Grouping is unavailable because these sections do not share one parent.
         </p>
       ) : null}
+      <MultipleUngroupHelp state={ungroupState} />
     </div>
   );
 }
@@ -586,6 +691,7 @@ function InspectorBranch({
     case "section":
       return (
         <SectionInspector
+          documentState={documentState}
           focusRoot={focusRoot}
           onStatusChange={onStatusChange}
           section={selection.section}

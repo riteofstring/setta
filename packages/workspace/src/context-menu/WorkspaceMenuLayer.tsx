@@ -1,13 +1,15 @@
 import { useEffect } from "react";
 import { useReactFlow } from "../canvas/store";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import { getSectionOrThrow } from "../document/documentSelectors";
+import { getSectionOrThrow, isGroupSection } from "../document/documentSelectors";
 import {
   deleteSections,
   groupSections,
   setSectionsPositionLocked,
 } from "../document/sectionMutations";
 import { useWorkspaceDocument } from "../document/stores";
+import { canUngroupWorkspaceSections } from "../document/ungroupSections";
+import { ungroupSections } from "../section/ungroupAction";
 import { canGroupWorkspaceSections } from "../shell/workspaceInspectorModel";
 import { WorkspaceActionMenu, type WorkspaceMenuEntry } from "./WorkspaceMenuCore";
 import { WorkspacePaneMenu } from "./WorkspacePaneMenu";
@@ -99,6 +101,8 @@ function SectionActionMenu({
   const sections = invocation.sectionIds.map((id) => getSectionOrThrow(documentState, id));
   const allLocked = sections.every((section) => section.positionAndSizeLocked);
   const canGroup = canGroupWorkspaceSections(documentState, sections);
+  const hasGroupSelection = sections.some(isGroupSection);
+  const canUngroup = canUngroupWorkspaceSections(documentState, sections);
   const packageEntries: ReadonlyArray<WorkspaceMenuEntry> = [
     {
       id: "workspace-group",
@@ -110,6 +114,19 @@ function SectionActionMenu({
         groupSections(invocation.sectionIds, `group-${crypto.randomUUID()}`);
       },
     },
+    ...(hasGroupSelection
+      ? [
+          {
+            id: "workspace-ungroup",
+            label: "Ungroup",
+            disabled: !capabilities.canEditStructure || !canUngroup,
+            onSelect: () => {
+              closeWorkspaceMenu();
+              ungroupSections(invocation.sectionIds);
+            },
+          },
+        ]
+      : []),
     {
       id: "workspace-delete",
       label: "Delete",

@@ -204,7 +204,11 @@ function GroupHeader({
 }) {
   return (
     <div className="z-10 flex min-h-10 w-full items-center">
-      <MenuButton sectionKind={GROUP_SECTION_KIND} hasSectionStyleTheme={false} />
+      <MenuButton
+        sectionId={sectionId}
+        sectionKind={GROUP_SECTION_KIND}
+        hasSectionStyleTheme={false}
+      />
       <div
         className={`${pointerSelectClassName} relative my-auto me-2 flex min-h-10 w-full items-center overflow-hidden`}
       >

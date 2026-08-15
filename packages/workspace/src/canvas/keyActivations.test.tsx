@@ -74,6 +74,56 @@ function loadItemDocument(selectedItemIds: Array<string>, activeIds: Array<strin
   });
 }
 
+function loadUngroupDocument(activeIds: Array<string> = ["group"]) {
+  registerSectionKinds({ leaf: { renderContent: () => null } });
+  loadWorkspaceDocument({
+    sections: {
+      group: {
+        id: "group",
+        kind: "group",
+        name: "Group",
+        size: { width: "auto", height: "auto" },
+        isMinimized: false,
+        positionAndSizeLocked: false,
+        isHorizontalOrientation: false,
+        styleColor: null,
+        tagColor: null,
+        children: ["child"],
+      },
+      child: {
+        id: "child",
+        kind: "leaf",
+        name: "Child",
+        size: { width: 200, height: 100 },
+        isMinimized: false,
+        positionAndSizeLocked: false,
+        isHorizontalOrientation: false,
+        styleColor: null,
+        tagColor: null,
+        children: [],
+      },
+      leaf: {
+        id: "leaf",
+        kind: "leaf",
+        name: "Leaf",
+        size: { width: 200, height: 100 },
+        isMinimized: false,
+        positionAndSizeLocked: false,
+        isHorizontalOrientation: false,
+        styleColor: null,
+        tagColor: null,
+        children: [],
+      },
+    },
+    topLevelSections: {
+      group: { x: 0, y: 0, w: null, h: null, zIndex: 0 },
+      leaf: { x: 300, y: 0, w: 200, h: 100, zIndex: 1 },
+    },
+    viewport: { x: 0, y: 0, zoom: 1 },
+    activeIds,
+  });
+}
+
 // jsdom reports no Mac user agent, so the mod key resolves to Control in these tests.
 describe("useCanvasKeyActivations", () => {
   let host: HTMLDivElement;
@@ -252,6 +302,48 @@ describe("useCanvasKeyActivations", () => {
       );
     });
     expect(useWorkspaceTooltip.getState().isEnabled).toBe(false);
+  });
+
+  it("ungroups the complete active group selection on Shift+Mod+G", async () => {
+    loadUngroupDocument();
+    const event = new KeyboardEvent("keydown", {
+      key: "g",
+      code: "KeyG",
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    await act(async () => {
+      document.dispatchEvent(event);
+    });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
+    expect(useWorkspaceDocument.getState().topLevelSections["child"]).toMatchObject({
+      x: 0,
+      y: 0,
+    });
+  });
+
+  it("leaves Shift+Mod+G to the browser for an unavailable mixed selection", async () => {
+    loadUngroupDocument(["group", "leaf"]);
+    const event = new KeyboardEvent("keydown", {
+      key: "g",
+      code: "KeyG",
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    await act(async () => {
+      document.dispatchEvent(event);
+    });
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(useWorkspaceDocument.getState().sections["group"]).toBeDefined();
   });
 
   it("activates the free-move mode while Alt is held alone", async () => {
@@ -634,6 +726,25 @@ describe("useCanvasKeyActivations", () => {
       });
       expect(useReactFlow.getState().multiSelectionActive).toBe(true);
       expect(useReactFlow.getState().zoomActivationKeyPressed).toBe(true);
+    });
+
+    it("runs the ungroup command with Meta and Shift", async () => {
+      loadUngroupDocument();
+      const event = new KeyboardEvent("keydown", {
+        key: "g",
+        code: "KeyG",
+        metaKey: true,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+
+      await act(async () => {
+        document.dispatchEvent(event);
+      });
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
     });
 
     it("releases the mod-gated activations on mouse movement without Meta held", async () => {

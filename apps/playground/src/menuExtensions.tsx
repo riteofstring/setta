@@ -1,6 +1,8 @@
 import {
+  GROUP_SECTION_KIND,
   registerWorkspaceCreationCommands,
   registerWorkspaceMenuActions,
+  ungroupSections,
   type WorkspaceCreationContext,
   type WorkspaceMenuIconProps,
   type WorkspaceSectionInput,
@@ -99,6 +101,20 @@ export function registerPlaygroundMenuExtensions(): void {
         publishMenuExtensionStatus(
           `Section action for ${context.section.name}; ${context.selectedSections.length} selected.`,
         ),
+    },
+    {
+      id: "playground-ungroup-selection",
+      scope: "section",
+      label: "Ungroup selection",
+      isDisabled: (context) =>
+        context.selectedSections.length === 0 ||
+        context.selectedSections.some(
+          (section) => section.kind !== GROUP_SECTION_KIND || section.positionAndSizeLocked,
+        ),
+      onSelect: (context) => {
+        ungroupSections(context.selectedSections.map((section) => section.id));
+        publishMenuExtensionStatus("Selection ungrouped through the host action.");
+      },
     },
     {
       id: "playground-item-identity",

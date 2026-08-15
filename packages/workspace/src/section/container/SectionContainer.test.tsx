@@ -507,6 +507,38 @@ describe("SectionContainer", () => {
     expect(groupHeader?.querySelector('[aria-label="Minimize section"]')).toBeNull();
   });
 
+  it("opens the shared section action menu from the group header icon", async () => {
+    await mount("group");
+
+    const trigger = getRequiredElement(host, '[aria-label="Open group actions"]');
+    expect(trigger.tagName).toBe("BUTTON");
+    expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
+    trigger.getBoundingClientRect = () =>
+      ({
+        left: 20,
+        top: 30,
+        right: 36,
+        bottom: 46,
+        width: 16,
+        height: 16,
+        x: 20,
+        y: 30,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    await act(async () => {
+      trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const invocation = useWorkspaceMenuState.getState().invocation;
+    expect(invocation).toMatchObject({
+      kind: "section",
+      sectionIds: ["group"],
+      context: { scope: "section", section: { id: "group" } },
+    });
+    expect(invocation?.owner).toBe(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  });
+
   it("shows the drop hint for an empty group", async () => {
     loadTestDocument({ group: { children: [] } });
     await mount("group");

@@ -36,7 +36,11 @@ export function SectionHeader({ sectionId, hasSectionStyleTheme }: SectionHeader
       className={sectionHeaderBaseClassName}
       style={getSectionHeaderStyle(hasSectionStyleTheme)}
     >
-      <MenuButton sectionKind={sectionKind} hasSectionStyleTheme={hasSectionStyleTheme} />
+      <MenuButton
+        sectionId={sectionId}
+        sectionKind={sectionKind}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
       <SectionTagColorIndicator tagColor={tagColor} />
       <SectionCardTitle sectionId={sectionId} hasSectionStyleTheme={hasSectionStyleTheme} />
       <div

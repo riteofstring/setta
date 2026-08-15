@@ -103,15 +103,16 @@ changes canonical selection.
 
 The Inspector projects canonical section and typed-item selection. Its empty state mirrors the
 frozen UI Editor; one section exposes package-owned identity, name, accent, lock/minimize,
-authored/resolved size, and group orientation; one typed item exposes its editable label, ordinary
-UI type, and only that type's valid configuration. Its canonical live value control remains in the
-section on the canvas rather than being duplicated in the Inspector. Compact configuration rows
-commit each valid field or list action immediately; invalid numeric/text drafts remain local until
-corrected or canceled with Escape. Dropdown and color choices use dedicated item editors rather
+authored/resolved size, group orientation, and ungroup action; one typed item exposes its editable
+label, ordinary UI type, and only that type's valid configuration. Its canonical live value control
+remains in the section on the canvas rather than being duplicated in the Inspector. Compact
+configuration rows commit each valid field or list action immediately; invalid numeric/text
+drafts remain local until corrected or canceled with Escape. Dropdown and color choices use
+dedicated item editors rather
 than JSON, and date/time options appear only when their selected mode uses them. Multiple sections
-expose only batch lock/unlock, group, and delete, including an explicit mixed lock state. Every
-mutation uses the existing document funnels and change callback. Custom section or item data is
-never decoded: the owning section kind receives a read-only
+expose only compatible batch lock/unlock, group, ungroup, and delete actions, including an explicit
+mixed lock state. Every mutation uses the existing document funnels and change callback. Custom
+section or item data is never decoded: the owning section kind receives a read-only
 `WorkspaceInspectorContributionContext`, or the pane shows an explicit unsupported state. The
 Inspector owns inline validation, Escape restoration for its configuration fields, and a persistent
 polite mutation/selection status.
@@ -165,6 +166,14 @@ and no package store or private selector. The package retains native context men
 editors, links, buttons, and explicit no-drag surfaces. Other menu owners support pointer,
 Context Menu key, and Shift+F10 invocation with viewport-edge placement, Escape dismissal, and
 focus restoration.
+
+Group header, section context-menu, Outline, Inspector, Shift+Cmd/Ctrl+G, and direct host
+invocations all call the public `ungroupSections(groupIds)` operation. It rejects an unavailable
+structure capability and any missing, locked, non-group, mixed, or inconsistent request before
+changing the document. Nested children replace their group at the same parent position. Top-level
+children retain the group origin and receive fresh frontmost stacking positions in child order.
+Surviving selection is preserved, focus moves predictably from a removed group, and the host
+receives exactly one document-change notification.
 
 Custom interactive renderer content uses only the four exported interaction-boundary constants:
 `NO_DRAG_CLASS_NAME` prevents section/item drag activation and `NO_PAN_CLASS_NAME` preserves the
