@@ -3,7 +3,6 @@ import {
   createContext,
   useContext,
   useMemo,
-  type KeyboardEventHandler,
   type MouseEventHandler,
   type PointerEventHandler,
   type ReactNode,
@@ -34,11 +33,8 @@ type ItemListContextValue = {
   itemDiagnostics: WorkspaceItemDiagnosticRegistry;
   renderItem?: (context: ItemRowRenderContext) => ReactNode;
   isGroupItem: (item: WorkspaceItem) => boolean;
-  onColumnResizeStart: PointerEventHandler<HTMLButtonElement>;
-  onColumnResizeKeyDown: KeyboardEventHandler<HTMLButtonElement>;
-  onColumnResizeClick: MouseEventHandler<HTMLButtonElement>;
-  onColumnResizeDoubleClick: MouseEventHandler<HTMLButtonElement>;
-  keyboardColumnResizeItemId: string | null;
+  onColumnResizeStart: PointerEventHandler<HTMLDivElement>;
+  onColumnResizeDoubleClick: MouseEventHandler<HTMLDivElement>;
 };
 
 const ItemListContext = createContext<ItemListContextValue | null>(null);
@@ -86,10 +82,7 @@ export function ItemListProvider({
   renderItem,
   isGroupItem,
   onColumnResizeStart,
-  onColumnResizeKeyDown,
-  onColumnResizeClick,
   onColumnResizeDoubleClick,
-  keyboardColumnResizeItemId,
   rootId,
   flatItemIds,
   children,
@@ -104,20 +97,14 @@ export function ItemListProvider({
       renderItem,
       isGroupItem,
       onColumnResizeStart,
-      onColumnResizeKeyDown,
-      onColumnResizeClick,
       onColumnResizeDoubleClick,
-      keyboardColumnResizeItemId,
     }),
     [
       enabled,
       isGroupItem,
-      keyboardColumnResizeItemId,
       listKey,
       itemDiagnostics,
-      onColumnResizeClick,
       onColumnResizeDoubleClick,
-      onColumnResizeKeyDown,
       onColumnResizeStart,
       renderItem,
       sectionId,

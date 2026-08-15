@@ -104,7 +104,7 @@ describe("ItemNameEditor", () => {
     for (const expectedClass of [
       "nopan",
       "nodrag",
-      "section-key",
+      "single-cell-child",
       "peer/nameinput",
       "cursor-text",
       "select-text",
@@ -114,8 +114,11 @@ describe("ItemNameEditor", () => {
     ]) {
       expect(dummy.classList.contains(expectedClass)).toBe(true);
     }
+    const stack = host.querySelector<HTMLElement>('[data-item-name-layer-stack="true"]');
+    expect(stack?.classList.contains("section-key")).toBe(true);
+    expect(stack?.classList.contains("single-cell-container")).toBe(true);
     expect(dummy.querySelector(".cm-line span")?.className).toMatch(/ͼ/);
-    const underline = host.querySelector<HTMLElement>("span.section-key");
+    const underline = stack?.querySelector<HTMLElement>("span.single-cell-child");
     expect(underline?.classList.contains("peer-focus-within/nameinput:border-blue-400")).toBe(true);
     expect(underline?.classList.contains("border-red-400")).toBe(false);
   });
@@ -123,11 +126,16 @@ describe("ItemNameEditor", () => {
   it("uses the reference spanning placement for names with children", async () => {
     await mount({ hasChildren: true });
     const dummy = getDummy();
-    expect(dummy.classList.contains("section-key-value")).toBe(true);
-    expect(dummy.classList.contains("grid-row-start-1")).toBe(true);
+    const stack = host.querySelector<HTMLElement>('[data-item-name-layer-stack="true"]');
+    expect(stack?.classList.contains("section-key-value")).toBe(true);
+    expect(stack?.classList.contains("grid-row-start-1")).toBe(true);
     expect(dummy.classList.contains("px-[2px]")).toBe(true);
-    const underline = host.querySelector<HTMLElement>("span.section-key-value");
+    const underline = stack?.querySelector<HTMLElement>("span.single-cell-child");
     expect(underline?.classList.contains("mx-[2px]")).toBe(true);
+
+    await activate();
+    expect(host.querySelector('[data-item-name-layer-stack="true"]')).toBe(stack);
+    expect(document.getElementById(LIVE_ID)?.parentElement).toBe(stack);
   });
 
   it("reports one proposed name per document change and rejects line breaks", async () => {
@@ -135,7 +143,10 @@ describe("ItemNameEditor", () => {
     await mount({ onNameChange });
     await activate();
     const view = getLiveView();
-    expect(document.getElementById(LIVE_ID)).not.toBeNull();
+    const liveWrapper = document.getElementById(LIVE_ID);
+    expect(liveWrapper).not.toBeNull();
+    expect(liveWrapper?.hasAttribute("tabindex")).toBe(false);
+    expect(view.contentDOM.tabIndex).toBe(-1);
     expect(useActiveSections.getState().activeIds).toEqual([SECTION_ID]);
     await act(async () => {
       view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: "renamed" } });
@@ -168,7 +179,9 @@ describe("ItemNameEditor", () => {
     for (const errorClass of ["text-red-500", "dark:text-red-300", "border-red-400"]) {
       expect(dummy.classList.contains(errorClass)).toBe(true);
     }
-    const underline = host.querySelector<HTMLElement>("span.section-key");
+    const underline = host.querySelector<HTMLElement>(
+      '[data-item-name-layer-stack="true"] > span.single-cell-child',
+    );
     expect(underline?.classList.contains("border-red-400")).toBe(true);
     const bubble = document.getElementById(ERROR_ID);
     if (!bubble) {

@@ -321,7 +321,6 @@ function LiveTextValueEditor({
       onChange={(nextValue) => onValueChange(nextValue)}
       onBlur={onBlur}
       indentWithTab={false} // the reference binds Tab in its app extensions; the package binds none
-      tabIndex={0} // keep focusable for tab navigation
     />
   );
 }

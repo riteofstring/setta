@@ -159,6 +159,7 @@ function makeDocument(items: Record<string, WorkspaceItem>): WorkspaceDocumentIn
 function makeSingleItemDocument(
   control: WorkspaceItemControlPresentation,
   helpText?: string,
+  labelEditable = true,
 ): WorkspaceDocumentInput {
   return makeDocument({
     root: { id: "root", children: ["item"] },
@@ -167,6 +168,7 @@ function makeSingleItemDocument(
       children: [],
       presentation: {
         label: "Item",
+        labelEditable,
         ...(helpText === undefined ? {} : { helpText }),
         control,
       },
@@ -218,6 +220,7 @@ describe("typed workspace item presentations", () => {
             children: [],
             presentation: {
               label: itemId,
+              labelEditable: true,
               ...(index === 1 ? { helpText: "Used to tune the plain-text input." } : {}),
               control,
             },
@@ -245,7 +248,7 @@ describe("typed workspace item presentations", () => {
             id: "item",
             children: [],
             data: { custom: true },
-            presentation: { label: "Item", control: textControl },
+            presentation: { label: "Item", labelEditable: true, control: textControl },
           },
         }),
       ),
@@ -258,7 +261,7 @@ describe("typed workspace item presentations", () => {
           root: {
             id: "root",
             children: [],
-            presentation: { label: "Root", control: { kind: "group" } },
+            presentation: { label: "Root", labelEditable: true, control: { kind: "group" } },
           },
         }),
       ),
@@ -280,6 +283,15 @@ describe("typed workspace item presentations", () => {
         makeSingleItemDocument(VALID_CONTROLS[1] as WorkspaceItemControlPresentation, 42 as never),
       ),
     ).toThrowError("Section panel item item presentation.helpText must be a string.");
+    expect(() =>
+      loadWorkspaceDocument(
+        makeSingleItemDocument(
+          VALID_CONTROLS[1] as WorkspaceItemControlPresentation,
+          undefined,
+          "yes" as never,
+        ),
+      ),
+    ).toThrowError("Section panel item item presentation.labelEditable must be a boolean.");
     expect(() =>
       loadWorkspaceDocument(
         makeSingleItemDocument({
@@ -438,6 +450,7 @@ describe("typed workspace item presentations", () => {
     expect(onDocumentChange).toHaveBeenCalledTimes(5);
     expect(getStoredItemPresentation()).toEqual({
       label: "Renamed",
+      labelEditable: true,
       helpText: "Runs before each retry.",
       control: { kind: "switch", value: "false", configuration: { disabled: false } },
     });
@@ -446,6 +459,7 @@ describe("typed workspace item presentations", () => {
     expect(onDocumentChange).toHaveBeenCalledTimes(6);
     expect(getStoredItemPresentation()).toEqual({
       label: "Renamed",
+      labelEditable: true,
       control: { kind: "switch", value: "false", configuration: { disabled: false } },
     });
   });
@@ -483,6 +497,22 @@ describe("typed workspace item presentations", () => {
     expect(() => setItemHelpText("panel", "item", 42 as never)).toThrowError(
       "Section panel item item help text must be a string or null.",
     );
+    expect(onDocumentChange).not.toHaveBeenCalled();
+  });
+
+  it("rejects label mutations for static built-in labels", () => {
+    const codeControl = VALID_CONTROLS[2];
+    if (!codeControl || codeControl.kind !== "code") {
+      throw new Error("The typed-item fixture lost its code control.");
+    }
+    loadWorkspaceDocument(makeSingleItemDocument(codeControl, undefined, false));
+    const onDocumentChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onDocumentChange);
+
+    expect(() => setItemLabel("panel", "item", "Renamed")).toThrowError(
+      "Section panel item item label is not editable.",
+    );
+    expect(getStoredItemPresentation().label).toBe("Item");
     expect(onDocumentChange).not.toHaveBeenCalled();
   });
 });

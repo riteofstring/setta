@@ -112,12 +112,18 @@ describe("WorkspaceItemAuthoringToolbar", () => {
     const onChange = vi.fn();
     setWorkspaceDocumentChangeCallback(onChange);
     await mount();
-    expect(host.textContent).toContain("Parameters");
-    expect(host.querySelector(".section-args")?.getAttribute("data-tab-native")).toBe("true");
+    expect(host.textContent).toContain("Args");
+    expect(host.textContent).not.toContain("Parameters");
+    const toolbar = host.querySelector<HTMLElement>(".section-args");
+    expect(toolbar?.getAttribute("data-tab-native")).toBe("true");
+    expect(toolbar?.className).toContain("flex-wrap");
+    expect(toolbar?.className).toContain("rounded-xl");
+    expect(toolbar?.firstElementChild?.className).toContain("gap-1");
     const removeLast = getButton(host, "Remove last parameter");
     const add = getButton(host, "Add parameter");
     const deleteSelected = getButton(host, "Delete selected parameters");
     expectCompactAuthoringButtons([removeLast, add, deleteSelected]);
+    expect(add.querySelector(".gg-math-plus")).not.toBeNull();
 
     await act(async () => add.click());
     expect(getPanelItemTree().items.root?.children).toEqual(["alpha", "beta", "created"]);

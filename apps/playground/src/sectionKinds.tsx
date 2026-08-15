@@ -50,6 +50,7 @@ function createPlaygroundCodeItem(): WorkspaceItem {
     children: [],
     presentation: {
       label: "parameter",
+      labelEditable: true,
       control: {
         kind: "code",
         value: "",

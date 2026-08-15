@@ -38,7 +38,11 @@ globalThis.ResizeObserver = TestResizeObserver as unknown as typeof ResizeObserv
 const LIST_KEY = "main";
 
 function makeGroupItem(id: string, label: string, children: Array<string> = []): WorkspaceItem {
-  return { id, children, presentation: { label, control: { kind: "group" } } };
+  return {
+    id,
+    children,
+    presentation: { label, labelEditable: true, control: { kind: "group" } },
+  };
 }
 
 function makeItemTree(selectedItemIds: Array<string> = []): WorkspaceSectionItemTree {
@@ -228,6 +232,21 @@ describe("WorkspaceItemFilter", () => {
     expect(useItemDndState.getState().activeId).toBeNull();
     expect(useWorkspaceDocument.getState().sections).toEqual(documentBeforeFilter);
     expect(onDocumentChange).not.toHaveBeenCalled();
+  });
+
+  it("retains the frozen-main compact filter chrome", async () => {
+    const input = await mount();
+    const toolbar = host.querySelector<HTMLElement>(".section-args");
+    const search = input.closest("search");
+
+    expect(input.placeholder).toBe("Filter");
+    expect(input.type).toBe("text");
+    expect(input.className).toContain("ps-3");
+    expect(input.className).toContain("setta-workspace-item-filter-input");
+    expect(input.className).not.toContain("outline-0");
+    expect(search?.className).toContain("flex-1");
+    expect(search?.querySelector(".gg-sort-az")).not.toBeNull();
+    expect(search?.parentElement).toBe(toolbar);
   });
 
   it("keeps the list, scroll, and unaffected editor mounted and clears empty results to focus", async () => {

@@ -4,6 +4,7 @@ import { hasWorkspaceItemPresentation } from "../document/itemPresentation";
 import { setItemLabel } from "../document/itemPresentationMutations";
 import { BuiltInItemValueControl } from "./BuiltInItemValueControl";
 import type { ItemRowRenderContext } from "./ItemListContext";
+import { WorkspaceItemLabel } from "./WorkspaceItemLabel";
 
 export function BuiltInItemRowContent({ context }: { context: ItemRowRenderContext }) {
   const canEditStructure = useWorkspaceCapabilities((state) => state.canEditStructure);
@@ -12,20 +13,30 @@ export function BuiltInItemRowContent({ context }: { context: ItemRowRenderConte
       `Custom item ${context.sectionId}/${context.item.id} requires a registered row renderer.`,
     );
   }
-  const { control, label } = context.item.presentation;
+  const { control, label, labelEditable } = context.item.presentation;
   const isGroup = control.kind === "group";
   return (
     <>
-      <BuiltInItemNameEditor
-        sectionId={context.sectionId}
-        itemId={context.item.id}
-        name={label}
-        language="python"
-        hasChildren={isGroup}
-        disabled={!canEditStructure}
-        onNameChange={(nextLabel) => setItemLabel(context.sectionId, context.item.id, nextLabel)}
-        reserveEndControlSpace={false}
-      />
+      {labelEditable ? (
+        <BuiltInItemNameEditor
+          sectionId={context.sectionId}
+          itemId={context.item.id}
+          name={label}
+          language="python"
+          hasChildren={isGroup}
+          disabled={!canEditStructure}
+          onNameChange={(nextLabel) => setItemLabel(context.sectionId, context.item.id, nextLabel)}
+          reserveEndControlSpace={false}
+        />
+      ) : (
+        <WorkspaceItemLabel
+          className="truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200"
+          data-workspace-static-item-label="true"
+          isGroup={isGroup}
+        >
+          {label}
+        </WorkspaceItemLabel>
+      )}
       {isGroup ? null : (
         <BuiltInItemValueControl
           sectionId={context.sectionId}

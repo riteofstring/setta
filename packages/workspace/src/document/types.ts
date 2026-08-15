@@ -172,6 +172,9 @@ export type WorkspaceItemControlConfiguration =
 
 export type WorkspaceItemPresentation = {
   label: string;
+  // Static labels mirror positional parameters in the product reference: they remain visible in
+  // the key column but do not add a keyboard stop or expose a rename mutation.
+  labelEditable: boolean;
   // Optional package-owned parameter help. The row renders this through an accessible portaled
   // disclosure so bounded section and group overflow cannot clip it.
   helpText?: string;

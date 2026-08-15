@@ -479,6 +479,7 @@ registerSectionKinds({
       children: [],
       presentation: {
         label: "parameter",
+        labelEditable: true,
         control: {
           kind: "code",
           value: "",
@@ -496,6 +497,10 @@ registerSectionKinds({
   },
 });
 ```
+
+Set `labelEditable` to `false` for a positional or otherwise fixed parameter name. The package
+then renders a static label, omits the rename editor from keyboard navigation, and rejects label
+mutations while leaving the value control editable.
 
 ## Consumption during extraction
 

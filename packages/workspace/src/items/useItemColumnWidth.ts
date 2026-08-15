@@ -2,7 +2,6 @@ import {
   useCallback,
   useEffect,
   useRef,
-  type KeyboardEventHandler,
   type MouseEventHandler,
   type PointerEventHandler,
   type RefObject,
@@ -33,10 +32,8 @@ type ItemColumnWidthState = {
 };
 
 type ItemColumnResizeHandlers = {
-  onColumnResizeStart: PointerEventHandler<HTMLButtonElement>;
-  onColumnResizeKeyDown: KeyboardEventHandler<HTMLButtonElement>;
-  onColumnResizeClick: MouseEventHandler<HTMLButtonElement>;
-  onColumnResizeDoubleClick: MouseEventHandler<HTMLButtonElement>;
+  onColumnResizeStart: PointerEventHandler<HTMLDivElement>;
+  onColumnResizeDoubleClick: MouseEventHandler<HTMLDivElement>;
 };
 
 function getStyleTarget(outer: HTMLDivElement, sectionId: string): HTMLElement {
@@ -194,7 +191,7 @@ export function useItemColumnWidth(
     setItemColumnWidth(sectionId, getItemColumnCssWidth(rawWidth));
   }, [outerRef, sectionId, setNewWidth]);
 
-  const onColumnResizeStart = useCallback<PointerEventHandler<HTMLButtonElement>>(
+  const onColumnResizeStart = useCallback<PointerEventHandler<HTMLDivElement>>(
     (event) => {
       event.preventDefault();
       const outer = outerRef.current;
@@ -286,42 +283,7 @@ export function useItemColumnWidth(
     [applyWidth, getBoundedWidth, outerRef, sectionId, setNewWidth],
   );
 
-  const onColumnResizeKeyDown = useCallback<KeyboardEventHandler<HTMLButtonElement>>(
-    (event) => {
-      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      const containerWidth = outerRef.current?.clientWidth ?? 0;
-      if (!containerWidth) {
-        return;
-      }
-      const currentWidth =
-        widthRef.current.currentWidth || getDefaultItemColumnWidth(containerWidth);
-      const direction =
-        (event.key === "ArrowLeft" ? -1 : 1) * getInlineDirectionSign(event.currentTarget);
-      const increment = event.shiftKey ? 1 : 10;
-      setNewWidth(containerWidth, currentWidth + direction * increment);
-      setItemColumnWidth(sectionId, getItemColumnCssWidth(widthRef.current.currentWidth));
-    },
-    [outerRef, sectionId, setNewWidth],
-  );
-
-  const onColumnResizeClick = useCallback<MouseEventHandler<HTMLButtonElement>>(
-    (event) => {
-      // Native keyboard activation emits a detail-zero click. Pointer clicks remain drag starts;
-      // Chrome reports their double activation through the dedicated `dblclick` event below.
-      if (event.detail === 0) {
-        event.preventDefault();
-        event.stopPropagation();
-        resetWidth();
-      }
-    },
-    [resetWidth],
-  );
-
-  const onColumnResizeDoubleClick = useCallback<MouseEventHandler<HTMLButtonElement>>(
+  const onColumnResizeDoubleClick = useCallback<MouseEventHandler<HTMLDivElement>>(
     (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -332,8 +294,6 @@ export function useItemColumnWidth(
 
   return {
     onColumnResizeStart,
-    onColumnResizeKeyDown,
-    onColumnResizeClick,
     onColumnResizeDoubleClick,
   };
 }

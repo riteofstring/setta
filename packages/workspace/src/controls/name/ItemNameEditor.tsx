@@ -68,6 +68,10 @@ function getLayoutClassName(hasChildren: boolean, layoutPadding: string): string
   return "section-key";
 }
 
+function getLayerStackClassName(hasChildren: boolean): string {
+  return `${getLayoutClassName(hasChildren, "")} single-cell-container min-w-0 self-end`;
+}
+
 function getErrorClassName(hasError: boolean): string {
   return hasError
     ? "text-red-500 dark:text-red-300 border-red-400 [&_*]:!text-red-500 dark:[&_*]:!text-red-300"
@@ -80,10 +84,10 @@ function getDummyClassName(
   hasError: boolean,
   reserveEndControlSpace: boolean,
 ): string {
-  const layoutClassName = getLayoutClassName(hasChildren, "px-[2px]");
+  const layoutPadding = hasChildren ? "px-[2px]" : "";
   const selectionClassName = isDisabled ? "" : "cursor-text select-text";
   const endControlClassName = reserveEndControlSpace ? "pe-7" : "";
-  return `${NO_PAN_CLASS_NAME} min-w-0 self-end placeholder:text-setta-300 dark:placeholder:text-setta-600 ${layoutClassName} ${NO_DRAG_CLASS_NAME} peer/nameinput ${selectionClassName} ${endControlClassName} break-words py-[.125rem] font-mono text-xs [tab-size:4] [word-break:break-word] dark:focus-visible:border-blue-400 ${getErrorClassName(hasError)}`;
+  return `${NO_PAN_CLASS_NAME} single-cell-child min-w-0 self-end placeholder:text-setta-300 dark:placeholder:text-setta-600 ${layoutPadding} ${NO_DRAG_CLASS_NAME} peer/nameinput ${selectionClassName} ${endControlClassName} break-words py-[.125rem] font-mono text-xs [tab-size:4] [word-break:break-word] dark:focus-visible:border-blue-400 ${getErrorClassName(hasError)}`;
 }
 
 function getLiveClassName(
@@ -91,15 +95,15 @@ function getLiveClassName(
   hasError: boolean,
   reserveEndControlSpace: boolean,
 ): string {
-  const layoutClassName = getLayoutClassName(hasChildren, "px-[2px]");
+  const layoutPadding = hasChildren ? "px-[2px]" : "";
   const endControlClassName = reserveEndControlSpace ? "pe-7" : "";
-  return `${NO_PAN_CLASS_NAME} ${NO_DRAG_CLASS_NAME} cursor-text self-end select-text [&_*]:!outline-0 [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs min-w-0 placeholder:text-setta-300 dark:placeholder:text-setta-600 py-[.125rem] ${layoutClassName} ${endControlClassName} peer/nameinput font-mono dark:focus-visible:border-blue-400 ${getErrorClassName(hasError)}`;
+  return `${NO_PAN_CLASS_NAME} ${NO_DRAG_CLASS_NAME} single-cell-child cursor-text self-end select-text [&_*]:!outline-0 [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs min-w-0 placeholder:text-setta-300 dark:placeholder:text-setta-600 py-[.125rem] ${layoutPadding} ${endControlClassName} peer/nameinput font-mono dark:focus-visible:border-blue-400 ${getErrorClassName(hasError)}`;
 }
 
 function getUnderlineClassName(hasChildren: boolean, hasError: boolean): string {
-  const layoutClassName = getLayoutClassName(hasChildren, "mx-[2px]");
+  const layoutMargin = hasChildren ? "mx-[2px]" : "";
   const errorClassName = hasError ? "border-red-400" : "";
-  return `${layoutClassName} border-box self-end border-b border-setta-200/50 peer-focus-within/nameinput:border-blue-400 dark:border-setta-600/30 ${errorClassName}`;
+  return `single-cell-child ${layoutMargin} border-box self-end border-b border-setta-200/50 peer-focus-within/nameinput:border-blue-400 dark:border-setta-600/30 ${errorClassName}`;
 }
 
 function getElementIds(sectionId: string, itemId: string) {
@@ -211,42 +215,44 @@ function ItemNameEditorCore({ reserveEndControlSpace, ...props }: ItemNameEditor
 
   return (
     <>
-      {!liveIsInitialized && (
-        <DummyCodeMirror
-          divId={dummyEditorId}
-          code={name}
-          onMouseDownCapture={localOnMouseDownCapture}
-          onFocus={onFocus}
-          className={getDummyClassName(hasChildren, isDisabled, hasError, reserveEndControlSpace)}
-          singleLine={true}
-          wrapLines={true}
-          theme={theme}
-          placeholder={placeholder}
-          language={language}
-          ariaLabel="Item name"
-          ariaDescribedBy={hasError ? errorId : undefined}
-          ariaInvalid={hasError}
-          ariaDisabled={isDisabled}
-        />
-      )}
-      {activationEvent && (
-        <LiveItemNameEditor
-          liveEditorId={liveEditorId}
-          name={name}
-          placeholder={placeholder}
-          language={language}
-          theme={theme}
-          initialEvent={activationEvent}
-          liveIsInitialized={liveIsInitialized}
-          setLiveIsInitialized={setLiveIsInitialized}
-          onNameChange={onNameChange}
-          onEscape={() => (onEscape ? onEscape() : focusSectionAfterEscape(sectionId))}
-          onBlur={localOnBlur}
-          className={getLiveClassName(hasChildren, hasError, reserveEndControlSpace)}
-          errorId={hasError ? errorId : undefined}
-        />
-      )}
-      <span className={getUnderlineClassName(hasChildren, hasError)} />
+      <div className={getLayerStackClassName(hasChildren)} data-item-name-layer-stack="true">
+        {!liveIsInitialized && (
+          <DummyCodeMirror
+            divId={dummyEditorId}
+            code={name}
+            onMouseDownCapture={localOnMouseDownCapture}
+            onFocus={onFocus}
+            className={getDummyClassName(hasChildren, isDisabled, hasError, reserveEndControlSpace)}
+            singleLine={true}
+            wrapLines={true}
+            theme={theme}
+            placeholder={placeholder}
+            language={language}
+            ariaLabel="Item name"
+            ariaDescribedBy={hasError ? errorId : undefined}
+            ariaInvalid={hasError}
+            ariaDisabled={isDisabled}
+          />
+        )}
+        {activationEvent && (
+          <LiveItemNameEditor
+            liveEditorId={liveEditorId}
+            name={name}
+            placeholder={placeholder}
+            language={language}
+            theme={theme}
+            initialEvent={activationEvent}
+            liveIsInitialized={liveIsInitialized}
+            setLiveIsInitialized={setLiveIsInitialized}
+            onNameChange={onNameChange}
+            onEscape={() => (onEscape ? onEscape() : focusSectionAfterEscape(sectionId))}
+            onBlur={localOnBlur}
+            className={getLiveClassName(hasChildren, hasError, reserveEndControlSpace)}
+            errorId={hasError ? errorId : undefined}
+          />
+        )}
+        <span className={getUnderlineClassName(hasChildren, hasError)} />
+      </div>
       <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {errorMessage}
       </span>
@@ -314,7 +320,6 @@ function LiveItemNameEditor({
       onChange={(nextName) => onNameChange(nextName)}
       onBlur={onBlur}
       indentWithTab={false}
-      tabIndex={0}
     />
   );
 }

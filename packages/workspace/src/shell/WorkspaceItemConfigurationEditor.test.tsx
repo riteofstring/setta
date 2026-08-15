@@ -90,7 +90,7 @@ describe("WorkspaceItemConfigurationEditor", () => {
               item: {
                 id: "item",
                 children: [],
-                presentation: { label: "Item", control },
+                presentation: { label: "Item", labelEditable: true, control },
               },
             },
             selectedItemIds: ["item"],

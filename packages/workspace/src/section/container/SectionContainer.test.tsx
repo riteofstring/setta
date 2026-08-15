@@ -529,13 +529,14 @@ describe("SectionContainer", () => {
     }
     const toolbar = getRequiredElement(body, ".section-args");
     expect(body.className).toBe("section-full-no-title flex min-h-0 flex-col");
-    expect(toolbar.textContent).toContain("Parameters");
+    expect(toolbar.textContent).toContain("Args");
     expect(toolbar.getAttribute("data-tab-native")).toBe("true");
+    expect(toolbar.className).toContain("--setta-section-style-border");
     expect(getRequiredElement(toolbar, "span").className).toContain(
       "text-[color:var(--setta-section-style-muted-text)]",
     );
     const filter = getRequiredElement(host, "#leaf-parameter-filter");
-    expect(filter.className).toContain("--setta-section-style-border");
+    expect(filter.className).toContain("--setta-section-style-outline");
     expect(filter.className).toContain(
       "placeholder:text-[color:var(--setta-section-style-muted-text)]",
     );

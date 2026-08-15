@@ -245,7 +245,7 @@ function TypedItemInspector({
   item: WorkspaceItem & { presentation: NonNullable<WorkspaceItem["presentation"]> };
 }) {
   const canEditStructure = useWorkspaceCapabilities((state) => state.canEditStructure);
-  const { control, helpText, label } = item.presentation;
+  const { control, helpText, label, labelEditable } = item.presentation;
 
   function changeControlKind(kind: WorkspaceInspectorItemControlKind): void {
     if (control.kind === kind) {
@@ -269,23 +269,33 @@ function TypedItemInspector({
         <h3>{label || item.id}</h3>
         <span>Item</span>
       </div>
-      <div className="setta-workspace-inspector-field" data-inspector-focus-key="item-label">
-        <span className="setta-workspace-inspector-label">Label</span>
-        <div className="setta-workspace-inspector-item-name">
-          <ItemNameEditor
-            disabled={!canEditStructure}
-            hasChildren={item.children.length > 0}
-            itemId={item.id}
-            name={label}
-            onNameChange={(nextLabel) => {
-              setItemLabel(section.id, item.id, nextLabel);
-              onStatusChange(`Item label changed to ${nextLabel || "blank"}.`);
-            }}
-            onEscape={onEscape}
-            sectionId={section.id}
-          />
+      {labelEditable ? (
+        <div className="setta-workspace-inspector-field" data-inspector-focus-key="item-label">
+          <span className="setta-workspace-inspector-label">Label</span>
+          <div className="setta-workspace-inspector-item-name">
+            <ItemNameEditor
+              disabled={!canEditStructure}
+              hasChildren={item.children.length > 0}
+              itemId={item.id}
+              name={label}
+              onNameChange={(nextLabel) => {
+                setItemLabel(section.id, item.id, nextLabel);
+                onStatusChange(`Item label changed to ${nextLabel || "blank"}.`);
+              }}
+              onEscape={onEscape}
+              sectionId={section.id}
+            />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div
+          className="setta-workspace-inspector-readonly-row"
+          data-inspector-focus-key="item-label"
+        >
+          <span>Label</span>
+          <span className="setta-workspace-inspector-readonly-value">{label}</span>
+        </div>
+      )}
       <ItemHelpTextField
         disabled={!canEditStructure}
         itemId={item.id}

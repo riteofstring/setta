@@ -39,25 +39,34 @@ function makeLeafSection(
 function makeBuiltInItem(
   id: string,
   label: string,
+  labelEditable: boolean,
   control: WorkspaceItemControlPresentation,
-  children: Array<string> = [],
-  helpText?: string,
+  options: { children?: Array<string>; helpText?: string } = {},
 ): WorkspaceItem {
+  const { children = [], helpText } = options;
   return {
     id,
     children,
     presentation: {
       label,
+      labelEditable,
       ...(helpText === undefined ? {} : { helpText }),
       control,
     },
   };
 }
 
-function makeCodeItem(id: string, label: string, value: string, helpText?: string): WorkspaceItem {
+function makeCodeItem(
+  id: string,
+  label: string,
+  labelEditable: boolean,
+  value: string,
+  helpText?: string,
+): WorkspaceItem {
   return makeBuiltInItem(
     id,
     label,
+    labelEditable,
     {
       kind: "code",
       value,
@@ -70,8 +79,7 @@ function makeCodeItem(id: string, label: string, value: string, helpText?: strin
         wrapLines: true,
       },
     },
-    [],
-    helpText,
+    { helpText },
   );
 }
 
@@ -109,40 +117,47 @@ const itemPanelTree: WorkspaceSectionItemTree = {
     "item-alpha": makeCodeItem(
       "item-alpha",
       "alpha",
+      true,
       "0.001",
       "Sets the initial learning rate.\nUse a smaller value when updates become unstable.",
     ),
-    "item-beta": makeCodeItem("item-beta", "beta", "0.999"),
-    "item-gamma": makeCodeItem("item-gamma", "gamma", "0.57721"),
-    "item-delta": makeCodeItem("item-delta", "delta", "4096"),
-    "item-epsilon": makeCodeItem("item-epsilon", "epsilon", "1e-8"),
-    "item-options": makeBuiltInItem("item-options", "options", { kind: "group" }, [
-      "item-momentum",
-      "item-decay",
-    ]),
+    "item-beta": makeCodeItem("item-beta", "beta", true, "0.999"),
+    "item-gamma": makeCodeItem("item-gamma", "gamma", true, "0.57721"),
+    "item-delta": makeCodeItem("item-delta", "delta", false, "4096"),
+    "item-epsilon": makeCodeItem("item-epsilon", "epsilon", true, "1e-8"),
+    "item-options": makeBuiltInItem(
+      "item-options",
+      "options",
+      true,
+      { kind: "group" },
+      {
+        children: ["item-momentum", "item-decay"],
+      },
+    ),
     "item-momentum": makeCodeItem(
       "item-momentum",
       "momentum",
+      true,
       "0.9",
       "Controls how strongly previous updates influence the next step.",
     ),
-    "item-decay": makeCodeItem("item-decay", "decay", "1e-4"),
-    "item-eta": makeCodeItem("item-eta", "eta", "0.25"),
-    "item-theta": makeCodeItem("item-theta", "theta", "1.618"),
-    "item-iota": makeCodeItem("item-iota", "iota", "0.05"),
-    "item-kappa": makeCodeItem("item-kappa", "kappa", "100"),
-    "item-lambda": makeCodeItem("item-lambda", "lambda", "0.0005"),
-    "item-slider": makeBuiltInItem("item-slider", "slider", {
+    "item-decay": makeCodeItem("item-decay", "decay", true, "1e-4"),
+    "item-eta": makeCodeItem("item-eta", "eta", true, "0.25"),
+    "item-theta": makeCodeItem("item-theta", "theta", true, "1.618"),
+    "item-iota": makeCodeItem("item-iota", "iota", false, "0.05"),
+    "item-kappa": makeCodeItem("item-kappa", "kappa", true, "100"),
+    "item-lambda": makeCodeItem("item-lambda", "lambda", true, "0.0005"),
+    "item-slider": makeBuiltInItem("item-slider", "slider", true, {
       kind: "slider",
       value: "0",
       configuration: { disabled: false, min: 0, max: 100, step: 1 },
     }),
-    "item-rotary": makeBuiltInItem("item-rotary", "rotary", {
+    "item-rotary": makeBuiltInItem("item-rotary", "rotary", true, {
       kind: "rotary",
       value: "0",
       configuration: { disabled: false, min: 0, max: 1, step: 0.1 },
     }),
-    "item-date": makeBuiltInItem("item-date", "date", {
+    "item-date": makeBuiltInItem("item-date", "date", true, {
       kind: "date",
       value: "2026-08-12",
       configuration: {
@@ -155,7 +170,7 @@ const itemPanelTree: WorkspaceSectionItemTree = {
         timeDisplayFormat: "twenty_four_hour",
       },
     }),
-    "item-time": makeBuiltInItem("item-time", "time", {
+    "item-time": makeBuiltInItem("item-time", "time", true, {
       kind: "time",
       value: "13:45",
       configuration: {
@@ -167,12 +182,12 @@ const itemPanelTree: WorkspaceSectionItemTree = {
         font: "monospace",
       },
     }),
-    "item-password": makeBuiltInItem("item-password", "password", {
+    "item-password": makeBuiltInItem("item-password", "password", true, {
       kind: "password",
       value: "",
       configuration: { disabled: false, placeholder: null, savedValuePending: false },
     }),
-    "item-textarea": makeBuiltInItem("item-textarea", "textarea", {
+    "item-textarea": makeBuiltInItem("item-textarea", "textarea", true, {
       kind: "textarea",
       value: "",
       configuration: {
@@ -182,7 +197,7 @@ const itemPanelTree: WorkspaceSectionItemTree = {
         placeholder: null,
       },
     }),
-    "item-dropzone": makeBuiltInItem("item-dropzone", "dropzone", {
+    "item-dropzone": makeBuiltInItem("item-dropzone", "dropzone", true, {
       kind: "dropzone",
       value: "",
       configuration: {
@@ -199,12 +214,12 @@ const itemPanelTree: WorkspaceSectionItemTree = {
         errorMessage: null,
       },
     }),
-    "item-enabled": makeBuiltInItem("item-enabled", "enabled", {
+    "item-enabled": makeBuiltInItem("item-enabled", "enabled", true, {
       kind: "switch",
       value: "true",
       configuration: { disabled: false },
     }),
-    "item-choice": makeBuiltInItem("item-choice", "choice", {
+    "item-choice": makeBuiltInItem("item-choice", "choice", true, {
       kind: "dropdown",
       value: "",
       configuration: {
@@ -213,7 +228,7 @@ const itemPanelTree: WorkspaceSectionItemTree = {
         placeholder: null,
       },
     }),
-    "item-accent": makeBuiltInItem("item-accent", "accent", {
+    "item-accent": makeBuiltInItem("item-accent", "accent", true, {
       kind: "color",
       value: "#22c55e",
       configuration: {
@@ -225,12 +240,12 @@ const itemPanelTree: WorkspaceSectionItemTree = {
         ],
       },
     }),
-    "item-tint": makeBuiltInItem("item-tint", "tint", {
+    "item-tint": makeBuiltInItem("item-tint", "tint", true, {
       kind: "color",
       value: "#afbacf",
       configuration: { disabled: false, choices: null },
     }),
-    "item-rename": makeCodeItem("item-rename", "rename_me", ""),
+    "item-rename": makeCodeItem("item-rename", "rename_me", true, ""),
   },
   selectedItemIds: [],
 };

@@ -62,6 +62,9 @@ export function setItemLabel(sectionId: string, itemId: string, label: string): 
     throw new Error(`Section ${sectionId} item ${itemId} label must be a string.`);
   }
   const { item } = getBuiltInItemState(sectionId, itemId);
+  if (!item.presentation.labelEditable) {
+    throw new Error(`Section ${sectionId} item ${itemId} label is not editable.`);
+  }
   commitItemPresentation(sectionId, itemId, { ...item.presentation, label });
 }
 

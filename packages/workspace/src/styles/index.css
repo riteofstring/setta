@@ -5,6 +5,7 @@
 
 @import "./scopedBase.css";
 @import "./workspace.css";
+@import "./itemToolbar.css";
 @import "./workspaceFocusVisibility.css";
 
 @tailwind base;

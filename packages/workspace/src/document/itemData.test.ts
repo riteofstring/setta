@@ -92,6 +92,7 @@ describe("setItemData", () => {
                 children: [],
                 presentation: {
                   label: "alpha",
+                  labelEditable: true,
                   control: { kind: "switch", value: "true", configuration: { disabled: false } },
                 },
               },

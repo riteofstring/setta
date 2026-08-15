@@ -114,7 +114,7 @@ function loadTestDocument() {
   });
 }
 
-function loadTypedSwitchDocument(helpText?: string) {
+function loadTypedSwitchDocument(helpText?: string, labelEditable = true) {
   loadWorkspaceDocument({
     sections: {
       panel: {
@@ -138,6 +138,7 @@ function loadTypedSwitchDocument(helpText?: string) {
               children: [],
               presentation: {
                 label: "enabled",
+                labelEditable,
                 ...(helpText === undefined ? {} : { helpText }),
                 control: {
                   kind: "switch",
@@ -500,9 +501,9 @@ describe("WorkspaceItemList", () => {
     expect(firstHandle.className).toContain("setta-prevent-section-active-css");
     expect(firstHandle.className).toContain("setta-prevent-arrow-keys-moving-section");
     expect(firstHandle.className).toContain("nopan nodrag");
-    expect(firstHandle.getAttribute("aria-label")).toBe("Resize item columns; activate to reset");
-    expect(firstHandle.tabIndex).toBe(0);
-    expect([...handles].slice(1).every((handle) => handle.tabIndex === -1)).toBe(true);
+    expect(firstHandle.tagName).toBe("DIV");
+    expect(firstHandle.hasAttribute("tabindex")).toBe(false);
+    expect([...handles].every((handle) => handle.tabIndex === -1)).toBe(true);
     expect(firstHandle.parentElement?.className).toContain(
       "section-center relative mx-auto h-[90%] w-0.5",
     );
@@ -512,6 +513,20 @@ describe("WorkspaceItemList", () => {
       useWorkspaceCapabilities.setState({ canEditLayout: false });
     });
     expect(host.querySelector('[data-item-column-resize-handle="true"]')).toBeNull();
+  });
+
+  it("renders static built-in labels without adding a name-editor tab stop", async () => {
+    loadTypedSwitchDocument(undefined, false);
+    await mount({ renderItem: undefined, topLevelItemIds: ["item-switch"] });
+
+    const staticLabel = host.querySelector<HTMLElement>(
+      '[data-workspace-static-item-label="true"]',
+    );
+    expect(staticLabel?.textContent).toBe("enabled");
+    expect(staticLabel?.hasAttribute("tabindex")).toBe(false);
+    expect(staticLabel?.hasAttribute("role")).toBe(false);
+    expect(document.getElementById("ItemNameInput-panel-item-switch")).toBeNull();
+    expect(host.querySelector('[aria-label="enabled value"]')).not.toBeNull();
   });
 
   it("drags at canvas scale and persists once", async () => {
@@ -662,10 +677,18 @@ describe("WorkspaceItemList", () => {
       throw new Error("expected the item-column surface");
     }
     act(() => resizeListOuter(listOuter, 550));
-    act(() => {
+    await act(async () => {
       handle.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }),
+        createPointerEvent("pointerdown", {
+          bubbles: true,
+          cancelable: true,
+          clientX: 100,
+          pointerId: 31,
+        }),
       );
+      window.dispatchEvent(createPointerEvent("pointermove", { clientX: 110, pointerId: 31 }));
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      window.dispatchEvent(createPointerEvent("pointerup", { pointerId: 31 }));
     });
     expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("267px");
     expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(267);
@@ -679,28 +702,6 @@ describe("WorkspaceItemList", () => {
 
     await act(async () => {
       handle.dispatchEvent(
-        createPointerEvent("pointerdown", {
-          bubbles: true,
-          cancelable: true,
-          clientX: 100,
-          detail: 1,
-          pointerId: 21,
-        }),
-      );
-      window.dispatchEvent(createPointerEvent("pointerup", { pointerId: 21 }));
-      handle.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
-      handle.dispatchEvent(
-        createPointerEvent("pointerdown", {
-          bubbles: true,
-          cancelable: true,
-          clientX: 100,
-          detail: 2,
-          pointerId: 22,
-        }),
-      );
-      window.dispatchEvent(createPointerEvent("pointerup", { pointerId: 22 }));
-      handle.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 2 }));
-      handle.dispatchEvent(
         new MouseEvent("dblclick", { bubbles: true, cancelable: true, detail: 2 }),
       );
     });
@@ -709,24 +710,17 @@ describe("WorkspaceItemList", () => {
     expect(onDocumentChange).toHaveBeenCalledOnce();
   });
 
-  it("mirrors pointer and keyboard divider movement in rtl without changing column meaning", async () => {
+  it("mirrors pointer divider movement in rtl without changing column meaning", async () => {
     await mount();
 
     const listOuter = getListOuter();
     const columnContainer = host.querySelector<HTMLElement>('[data-section-id="panel"]');
-    const handle = host.querySelector<HTMLButtonElement>('[data-item-column-resize-handle="true"]');
+    const handle = host.querySelector<HTMLElement>('[data-item-column-resize-handle="true"]');
     if (!columnContainer || !handle) {
       throw new Error("expected the rtl item-column surface");
     }
     columnContainer.dir = "rtl";
     act(() => resizeListOuter(listOuter, 550));
-
-    act(() => {
-      handle.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true, cancelable: true }),
-      );
-    });
-    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("267px");
 
     await act(async () => {
       handle.dispatchEvent(
@@ -747,47 +741,23 @@ describe("WorkspaceItemList", () => {
       );
       await new Promise((resolve) => requestAnimationFrame(resolve));
     });
-    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("287px");
+    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("277px");
 
     await act(async () => {
       window.dispatchEvent(createPointerEvent("pointerup", { pointerId: 9 }));
     });
-    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(287);
+    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(277);
   });
 
-  it("offers one keyboard path for the shared split without adding every row to tab order", async () => {
-    const onDocumentChange = vi.fn();
-    setWorkspaceDocumentChangeCallback(onDocumentChange);
+  it("keeps every repeated column divider out of the sequential focus order", async () => {
     await mount();
 
-    const listOuter = getListOuter();
-    const columnContainer = host.querySelector<HTMLElement>('[data-section-id="panel"]');
-    const handle = host.querySelector<HTMLButtonElement>(
-      '[data-item-column-resize-handle="true"][tabindex="0"]',
+    const handles = Array.from(
+      host.querySelectorAll<HTMLElement>('[data-item-column-resize-handle="true"]'),
     );
-    if (!columnContainer || !handle) {
-      throw new Error("expected the keyboard item-column surface");
-    }
-    act(() => resizeListOuter(listOuter, 550));
-    act(() => {
-      handle.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }),
-      );
-    });
-    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("267px");
-    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(267);
-    expect(onDocumentChange).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      activateItemSelect();
-    });
-    act(() => handle.click());
-    expect(columnContainer.style.getPropertyValue("--param-column-width")).toBe("257px");
-    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.itemColumnWidth).toBe(257);
-    expect(onDocumentChange).toHaveBeenCalledTimes(2);
-    expect(useWorkspaceDocument.getState().sections["panel"]?.itemTree?.selectedItemIds).toEqual(
-      [],
-    );
+    expect(handles).not.toHaveLength(0);
+    expect(handles.every((handle) => !handle.hasAttribute("tabindex"))).toBe(true);
+    expect(host.querySelector('[data-item-column-resize-handle="true"][tabindex="0"]')).toBeNull();
   });
 
   it("prunes invisible subtrees through the visible-set seam", async () => {

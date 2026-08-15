@@ -188,6 +188,7 @@ const consumerDocument: WorkspaceDocumentInput = {
             children: [],
             presentation: {
               label: "message",
+              labelEditable: true,
               control: {
                 kind: "text",
                 value: "Packed typed row",
@@ -206,6 +207,7 @@ const consumerDocument: WorkspaceDocumentInput = {
             children: [],
             presentation: {
               label: "enabled",
+              labelEditable: true,
               control: {
                 kind: "switch",
                 value: "true",

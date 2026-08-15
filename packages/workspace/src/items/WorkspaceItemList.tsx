@@ -197,7 +197,6 @@ export function WorkspaceItemList({
       renderItem={renderItem}
       isGroupItem={isGroupItem}
       {...columnResizeHandlers}
-      keyboardColumnResizeItemId={treeView.flat[0]?.id ?? null}
       rootId={treeView.rootId}
       flatItemIds={treeView.flat.map((row) => row.id)}
     >

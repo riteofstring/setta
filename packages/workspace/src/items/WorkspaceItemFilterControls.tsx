@@ -1,4 +1,4 @@
-import { FiSearch, FiX } from "react-icons/fi";
+import { FiX } from "react-icons/fi";
 import { useWorkspaceItemFilter } from "./WorkspaceItemFilterContext";
 
 function formatCount(count: number, singular: string, plural: string): string {
@@ -41,12 +41,12 @@ export function WorkspaceItemFilterControls({ sectionId }: { sectionId: string }
     "selected parameters are",
   )} hidden by this filter.`;
   const statusMessage = buildFilterStatusMessage(filter);
-  const mutedTextClassName = filter.hasSectionStyleTheme
+  const sortIconToneClassName = filter.hasSectionStyleTheme
     ? "text-[color:var(--setta-section-style-muted-text)]"
-    : "text-setta-500 dark:text-setta-400";
+    : "text-setta-300 dark:text-setta-600";
   const inputToneClassName = filter.hasSectionStyleTheme
-    ? "border-[color:var(--setta-section-style-border)] text-[color:var(--setta-section-style-text)] placeholder:text-[color:var(--setta-section-style-muted-text)] focus-visible:border-[color:var(--setta-section-style-outline)]"
-    : "border-setta-200 text-setta-700 placeholder:text-setta-400 focus-visible:border-blue-400 dark:border-setta-700 dark:text-setta-300 dark:placeholder:text-setta-500";
+    ? "text-[color:var(--setta-section-style-text)] placeholder:text-[color:var(--setta-section-style-muted-text)] focus-visible:border-[color:var(--setta-section-style-outline)]"
+    : "text-setta-700 placeholder:text-setta-400 focus-visible:border-blue-300 dark:text-setta-300";
   const clearToneClassName = filter.hasSectionStyleTheme
     ? "text-[color:var(--setta-section-style-muted-text)] hover:text-[color:var(--setta-section-style-outline)]"
     : "text-setta-500 hover:text-setta-700 dark:text-setta-400 dark:hover:text-setta-200";
@@ -56,15 +56,15 @@ export function WorkspaceItemFilterControls({ sectionId }: { sectionId: string }
 
   return (
     <>
-      <search className={`nodrag relative flex min-w-0 items-center pb-1 ${mutedTextClassName}`}>
+      <search className="nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center">
         <label className="sr-only" htmlFor={inputId}>
           Filter parameters
         </label>
-        <FiSearch aria-hidden={true} className="me-1 h-3 w-3 shrink-0" focusable="false" />
+        <i aria-hidden={true} className={`gg-sort-az -me-2 ${sortIconToneClassName}`} />
         <input
           aria-describedby={statusId}
           autoComplete="off"
-          className={`min-w-0 flex-1 appearance-none border-0 border-b border-solid bg-transparent px-0 py-1 text-xs outline-offset-1 focus-visible:outline-2 ${inputToneClassName}`}
+          className={`setta-workspace-item-filter-input min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 ps-3 text-xs [border-width:0_0_1px_0] ${inputToneClassName}`}
           id={inputId}
           onChange={(event) => filter.setQuery(event.currentTarget.value)}
           onKeyDown={(event) => {
@@ -72,10 +72,10 @@ export function WorkspaceItemFilterControls({ sectionId }: { sectionId: string }
               event.currentTarget.blur();
             }
           }}
-          placeholder="Name or keyword"
+          placeholder="Filter"
           ref={filter.filterInputRef}
           spellCheck={false}
-          type="search"
+          type="text"
           value={filter.query}
         />
         {filter.query.length > 0 ? (
@@ -93,7 +93,7 @@ export function WorkspaceItemFilterControls({ sectionId }: { sectionId: string }
       </search>
       {filter.hiddenSelectedItemCount > 0 ? (
         <p
-          className={`flex min-w-0 flex-wrap items-center gap-x-1 pb-1 text-[10px] leading-tight ${hiddenSelectionToneClassName}`}
+          className={`basis-full flex min-w-0 flex-wrap items-center gap-x-1 px-2 pb-1 text-[10px] leading-tight ${hiddenSelectionToneClassName}`}
         >
           <span>{hiddenSelectionMessage}</span>
           <button

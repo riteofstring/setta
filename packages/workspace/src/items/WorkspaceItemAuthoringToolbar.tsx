@@ -1,4 +1,3 @@
-import { FiPlus } from "react-icons/fi";
 import { useItemDndState } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { getSectionItemTreeOrThrow, getSectionOrThrow } from "../document/documentSelectors";
@@ -14,19 +13,23 @@ import { WorkspaceItemFilterControls } from "./WorkspaceItemFilterControls";
 
 function getItemAuthoringToneClasses(hasSectionStyleTheme: boolean): {
   button: string;
+  container: string;
   mutedText: string;
 } {
   if (hasSectionStyleTheme) {
     return {
       button:
         "text-[color:var(--setta-section-style-muted-text)] hover:text-[color:var(--setta-section-style-outline)] focus-visible:ring-[var(--setta-section-style-outline)]",
+      container:
+        "border-[color:var(--setta-section-style-border)] bg-[color:var(--setta-section-style-bg)]",
       mutedText: "text-[color:var(--setta-section-style-muted-text)]",
     };
   }
   return {
     button:
-      "text-setta-500 hover:text-setta-700 focus-visible:ring-blue-500/70 dark:text-setta-400 dark:hover:text-setta-200",
-    mutedText: "text-setta-500 dark:text-setta-400",
+      "text-setta-500 hover:text-blue-500 focus-visible:ring-blue-500/70 dark:hover:text-blue-500",
+    container: "border-white dark:border-setta-700",
+    mutedText: "text-setta-600/70 dark:text-setta-400/30",
   };
 }
 
@@ -61,12 +64,15 @@ export function WorkspaceItemAuthoringToolbar({ sectionId }: { sectionId: string
   const buttonClassName = `nodrag inline-flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${toneClasses.button}`;
 
   return (
-    <div className="section-args flex shrink-0 flex-col px-2 pt-1" data-tab-native="true">
-      <div className="flex min-h-[22px] items-center gap-0.5">
+    <div
+      className={`setta-workspace-item-toolbar section-args z-10 mt-1 flex min-w-0 shrink-0 flex-wrap overflow-hidden rounded-xl border-b border-solid px-1 pb-1 shadow-sm isolate ${toneClasses.container}`}
+      data-tab-native="true"
+    >
+      <div className="ms-1 flex items-center gap-1">
         <span
-          className={`me-1 text-[10px] font-bold uppercase tracking-tight ${toneClasses.mutedText}`}
+          className={`setta-workspace-item-toolbar-label my-auto ms-2 me-[.1rem] text-xs font-bold uppercase tracking-tighter ${toneClasses.mutedText}`}
         >
-          Parameters
+          Args
         </span>
         <button
           aria-label="Remove last parameter"
@@ -77,7 +83,7 @@ export function WorkspaceItemAuthoringToolbar({ sectionId }: { sectionId: string
           title="Remove last parameter"
           type="button"
         >
-          <i aria-hidden={true} className="gg-math-minus !scale-50" />
+          <i aria-hidden={true} className="gg-math-minus before:!start-0" />
         </button>
         <button
           aria-label="Add parameter"
@@ -88,7 +94,7 @@ export function WorkspaceItemAuthoringToolbar({ sectionId }: { sectionId: string
           title={state.canCreateItem ? "Add parameter" : "Add parameter unavailable"}
           type="button"
         >
-          <FiPlus aria-hidden={true} className="h-3 w-3" focusable="false" />
+          <i aria-hidden={true} className="gg-math-plus !scale-50" />
         </button>
         <button
           aria-label="Delete selected parameters"

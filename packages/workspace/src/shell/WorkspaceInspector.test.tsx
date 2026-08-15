@@ -50,6 +50,7 @@ function makeItemSection(
   control: WorkspaceItemControlPresentation,
   selectedItemIds: Array<string> = ["value"],
   helpText?: string,
+  labelEditable = true,
 ): WorkspaceSectionInput {
   return makeSection("items", {
     name: "Items",
@@ -62,6 +63,7 @@ function makeItemSection(
           children: [],
           presentation: {
             label: "Amount",
+            labelEditable,
             ...(helpText === undefined ? {} : { helpText }),
             control,
           },
@@ -71,6 +73,7 @@ function makeItemSection(
           children: [],
           presentation: {
             label: "Other",
+            labelEditable: true,
             control: {
               kind: "text",
               value: "other",
@@ -210,6 +213,7 @@ describe("WorkspaceInspector", () => {
           children: [],
           presentation: {
             label: "Created",
+            labelEditable: true,
             control: {
               kind: "code",
               value: "",
@@ -600,6 +604,29 @@ describe("WorkspaceInspector", () => {
       configuration: { disabled: false, min: 0, max: 1, step: 0.1 },
     });
     expect(onChange).toHaveBeenCalledOnce();
+  });
+
+  it("shows a static item label as read-only instead of exposing a rename editor", async () => {
+    await renderInspector(
+      createDocument(["items"], {
+        items: makeItemSection(
+          {
+            kind: "slider",
+            value: "5",
+            configuration: { disabled: false, min: 0, max: 10, step: 1 },
+          },
+          ["value"],
+          undefined,
+          false,
+        ),
+      }),
+    );
+
+    const labelRow = host.querySelector<HTMLElement>('[data-inspector-focus-key="item-label"]');
+    expect(labelRow?.textContent).toContain("Label");
+    expect(labelRow?.textContent).toContain("Amount");
+    expect(labelRow?.classList.contains("setta-workspace-inspector-readonly-row")).toBe(true);
+    expect(labelRow?.querySelector('[role="textbox"]')).toBeNull();
   });
 
   it("shows an explicit multiple-item branch without guessed common editors", async () => {

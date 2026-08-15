@@ -142,7 +142,7 @@ describe("the playground item renderer presentation contract", () => {
     if (!label || !valueEditor || !divider) {
       throw new Error("The leaf row is missing its label, value, or divider element.");
     }
-    expect(label.classList.contains("section-key")).toBe(true);
+    expect(label.parentElement?.classList.contains("section-key")).toBe(true);
     expect(label.classList.contains("font-mono")).toBe(true);
     expect(valueEditor.id).toBe("item-panel-item-alpha-ItemValueInput");
     expect(valueEditor.textContent).toBe("0.001");
@@ -414,13 +414,8 @@ describe("the playground item renderer presentation contract", () => {
       throw new Error("The rename row does not mount the editable name control.");
     }
     expect(dummy.textContent).toBe("rename_me");
-    for (const nameClass of [
-      "section-key",
-      "peer/nameinput",
-      "font-mono",
-      "text-xs",
-      "py-[.125rem]",
-    ]) {
+    expect(dummy.parentElement?.classList.contains("section-key")).toBe(true);
+    for (const nameClass of ["peer/nameinput", "font-mono", "text-xs", "py-[.125rem]"]) {
       expect(dummy.classList.contains(nameClass)).toBe(true);
     }
     expect(dummy.querySelector(".cm-line span")?.className).toMatch(/ͼ/);
@@ -438,9 +433,25 @@ describe("the playground item renderer presentation contract", () => {
     if (!groupLabel) {
       throw new Error("The group row does not render its built-in label.");
     }
-    expect(groupLabel.parentElement).toBe(groupRow);
-    expect(groupLabel.classList.contains("section-key-value")).toBe(true);
+    expect(groupLabel.parentElement?.parentElement).toBe(groupRow);
+    expect(groupLabel.parentElement?.classList.contains("section-key-value")).toBe(true);
     expect(groupLabel.getAttribute("aria-label")).toBe("Item name");
+  });
+
+  it("includes static-name fixtures without name-editor tab stops", () => {
+    for (const [itemId, label] of [
+      ["item-delta", "delta"],
+      ["item-iota", "iota"],
+    ] as const) {
+      const row = container.querySelector<HTMLElement>(`[data-workspace-item-id="${itemId}"]`);
+      const staticLabel = row?.querySelector<HTMLElement>(
+        '[data-workspace-static-item-label="true"]',
+      );
+      expect(staticLabel?.textContent).toBe(label);
+      expect(staticLabel?.hasAttribute("tabindex")).toBe(false);
+      expect(document.getElementById(`ItemNameInput-item-panel-${itemId}`)).toBeNull();
+      expect(row?.querySelector(`[aria-label="${label} value"]`)).not.toBeNull();
+    }
   });
 
   it("lets the package derive the default split from half the list area width", () => {
@@ -512,6 +523,7 @@ describe("the playground item renderer presentation contract", () => {
       children: [],
       presentation: {
         label: "parameter",
+        labelEditable: true,
         control: {
           kind: "code",
           value: "",

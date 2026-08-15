@@ -483,7 +483,7 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       quickInfoDescriptionId={quickInfoDescriptionId}
     >
       {renderItemRowContent(renderContext, renderItem)}
-      <ItemColumnResizeHandle itemId={itemId} />
+      <ItemColumnResizeHandle />
       <WorkspaceItemDiagnostics diagnostics={diagnostics} />
       {layout !== "leaf" && <ItemNestedChildren renderChildren={renderChildren} />}
     </ItemRowShell>

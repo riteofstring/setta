@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const workspaceStyles = readFileSync(new URL("./workspace.css", import.meta.url), "utf8");
+const itemToolbarStyles = readFileSync(new URL("./itemToolbar.css", import.meta.url), "utf8");
 const focusVisibilityStyles = readFileSync(
   new URL("./workspaceFocusVisibility.css", import.meta.url),
   "utf8",
@@ -92,6 +93,15 @@ describe("workspace adaptive stylesheet contract", () => {
   it("matches the reference selection surface without a second browser focus outline", () => {
     expect(focusVisibilityStyles).toMatch(
       /\.react-flow__nodesselection-rect:focus,[\s\S]*\.react-flow__selection:focus-visible\s*\{[^}]*outline: none/su,
+    );
+  });
+
+  it("uses the compact filter underline without Chromium's redundant rounded outline", () => {
+    expect(itemToolbarStyles).toMatch(
+      /\.setta-workspace-item-filter-input:focus-visible\s*\{[^}]*outline: none/su,
+    );
+    expect(itemToolbarStyles).toMatch(
+      /@media \(forced-colors: active\)[^{]*\{[^}]*\.setta-workspace-item-filter-input:focus-visible[^}]*outline: 1px solid Highlight/su,
     );
   });
 

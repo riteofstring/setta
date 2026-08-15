@@ -132,9 +132,13 @@ describe("TextValueEditor", () => {
   it("swaps to the live editor on primary mouse down and activates the section", async () => {
     await mount();
     await activate();
-    expect(document.getElementById(`CodeMirror-${SECTION_ID}-${ITEM_ID}`)).not.toBeNull();
-    expect(getLiveView().state.doc.toString()).toBe("0.001");
-    expect(getLiveView().contentDOM.getAttribute("aria-label")).toBe("Threshold value");
+    const liveWrapper = document.getElementById(`CodeMirror-${SECTION_ID}-${ITEM_ID}`);
+    const liveView = getLiveView();
+    expect(liveWrapper).not.toBeNull();
+    expect(liveWrapper?.hasAttribute("tabindex")).toBe(false);
+    expect(liveView.contentDOM.tabIndex).toBe(-1);
+    expect(liveView.state.doc.toString()).toBe("0.001");
+    expect(liveView.contentDOM.getAttribute("aria-label")).toBe("Threshold value");
     // The dummy layer leaves once the live editor initializes.
     expect(document.getElementById(DUMMY_ID)).toBeNull();
     // The input-focus intent made the owning section the single active section.

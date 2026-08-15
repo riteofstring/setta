@@ -4,7 +4,11 @@ import type { WorkspaceItem, WorkspaceSection } from "../document/types";
 import { filterWorkspaceSectionItems } from "./itemFiltering";
 
 function makeBuiltInItem(id: string, label: string, children: Array<string> = []): WorkspaceItem {
-  return { id, children, presentation: { label, control: { kind: "group" } } };
+  return {
+    id,
+    children,
+    presentation: { label, labelEditable: true, control: { kind: "group" } },
+  };
 }
 
 function makeSection(): WorkspaceSection {
