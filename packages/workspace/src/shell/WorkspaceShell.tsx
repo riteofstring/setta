@@ -21,6 +21,7 @@ import {
   getPhysicalViewportInsets,
 } from "../canvas/viewportInsets";
 import { resolveSectionTagColorPalette } from "../section/sectionTagColors";
+import { getElementTextDirection } from "../styles/textDirection";
 import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { WorkspaceControls } from "../toolbar/WorkspaceControls";
@@ -381,9 +382,8 @@ export function WorkspaceShell({
     if (!root) {
       throw new Error("Workspace shell root did not mount before viewport inset synchronization.");
     }
-    const direction = getComputedStyle(root).direction === "rtl" ? "rtl" : "ltr";
     const nextInsets = getPhysicalViewportInsets({
-      direction,
+      direction: getElementTextDirection(root),
       leading: leadingViewportInset,
       trailing: trailingViewportInset,
     });

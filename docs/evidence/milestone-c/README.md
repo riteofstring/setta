@@ -24,6 +24,12 @@ replace developer visual approval.
 - Capture date: 2026-08-15 in `America/Los_Angeles`.
 - Chrome reported no warning or error, no dialog, and no URL drift across the four browser sessions
   this recording used.
+- Capture 01 was re-recorded during the post-acceptance milestone audit, from the same accepted
+  build artifacts and the same browser and viewport. The first recording caught the minimap
+  mid-transition — the panel animates its 150 ms pane-inset translation on load, and the capture
+  landed at roughly half of it, showing the minimap still behind the Outline pane while captures
+  02–06 of the same surface show it settled. Wait for that transform to reach its inset before
+  capturing this workspace.
 
 The supervised developer gate remains the authority for the matched frozen-main comparison, actual
 browser 200% scale, screen-reader operation, RTL, coarse-pointer interaction, browser-native
@@ -109,6 +115,25 @@ binding, creation, contribution, conflict, and browser-health results are in
   refusal state, editable-target exclusion, desktop dark and light, compact 320 px, effective-200%
   reflow, URL stability, dialogs, page overflow, and warning or error console output.
 
+## Post-acceptance milestone audit
+
+The audit over the accepted milestone corrected two defects, both recorded in
+[C4 gate corrections](c4-gate-corrections.md):
+
+- A canvas its own panes covered completely refused to frame anything. At the compact 320 px host,
+  activating an Outline row raised `Cannot fit bounds without a visible workspace canvas area.`
+  before the section was selected or focused; the `Z` chord, a minimap click, and a keyboard
+  creation's travel raised it from `setCenter`. Production Chrome now activates an Outline row,
+  runs the chords, and creates and travels to a section at 320 px without an exception, and a
+  1512 px fit view still lands on the `x 375.695, y 254.17, zoom 0.457766` this bundle records.
+- Capture 01 held the minimap mid-transition rather than at its accepted position. It is
+  re-recorded from the same accepted artifacts, with the capture trap noted in Provenance.
+
+The measured results are in
+[`interactions/post-audit-checks.json`](interactions/post-audit-checks.json). The full ordinary
+test profile and both production builds pass on the corrected tree; builds from it no longer match
+the built-artifact hashes above, which stay the accepted commit's.
+
 ## Design records
 
 The package-only decisions and the deliberate behavior changes each Milestone C batch introduced:
@@ -119,6 +144,7 @@ The package-only decisions and the deliberate behavior changes each Milestone C 
 - [C2 focus scopes and section navigation](c2-focus-and-navigation-bindings.md)
 - [C2 creation chords and empty-space placement](c2-creation-bindings.md)
 - [C3 host toolbar contributions](c3-toolbar-contributions.md)
+- [C4 gate corrections: press activation and physical viewport insets](c4-gate-corrections.md)
 
 ### Frozen reference
 

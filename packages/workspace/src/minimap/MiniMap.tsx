@@ -27,8 +27,8 @@ import type { MiniMapNodesType, MiniMapProps } from "./types";
 // The fork's `minimap/MiniMap.tsx`. Cut at extraction with the surfaces the reference
 // application never reaches: the wheel-zoom handler behind `zoomable` (the app mounts the
 // minimap pannable-only), `inversePan`/`zoomStep`, and the `onNodeClick` node handler. The
-// pane rect and the click coordinate lost their Overview-rail offsets with the shared
-// canvas-wrapper seam adaptation.
+// mask and the click coordinate read the shell's physical pane insets through `getPaneRect`
+// and `setCenter`, where the reference reads its own Overview and UI-editor rail widths.
 const defaultWidth = 200;
 const defaultHeight = 150;
 const defaultMiniMapProps = {

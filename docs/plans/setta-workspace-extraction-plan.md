@@ -7,7 +7,7 @@ developer-accepted. The remaining product work is four UX milestones:
 
 - [x] Milestone A — structural section and group authoring.
 - [x] Milestone B — parameter authoring and feedback.
-- [ ] Milestone C — workspace commands and toolbar extensions.
+- [x] Milestone C — workspace commands and toolbar extensions.
 - [ ] Milestone D — built-in text and code sections.
 
 A milestone checkbox is complete only after its repository work, developer acceptance gate,
@@ -255,8 +255,9 @@ checking, LSP services, or a second parameter value editor in the Inspector.
 
 ## Milestone C — workspace commands and toolbar extensions
 
-**Status: developer-accepted on 2026-08-15; the accepted baseline is recorded and the
-post-acceptance milestone audit remains. C1 repository work is complete: one typed command registry now owns the
+**Status: complete. The developer accepted Milestone C on 2026-08-15, the accepted baseline is
+locked under `docs/evidence/milestone-c/`, and the post-acceptance milestone audit is closed. C1
+repository work is complete: one typed command registry now owns the
 package's structural, parameter-authoring, and host actions, and the section context menu, section
 header menu, Outline row menu, item menu, Inspector action rows, and the ungroup shortcut all
 resolve and run through it. C2's first batch is complete: one chord vocabulary, a public binding
@@ -281,14 +282,18 @@ defects: binding-conflict detection now answers for the platform the workspace r
 `Mod` and `Ctrl` are one key off macOS, and the playground now subscribes its host command state
 where it mounts the workspace, so a contributed toolbar control repaints when the host state behind
 it changes. The developer completed the C4 live gate and accepted the result. The accepted
-baseline is now locked under `docs/evidence/milestone-c/` alongside the package-only design
-records: eight captures, the built-artifact and screenshot hashes, the toolbar and menu geometry,
-and browser traces proving that ungroup runs identically from its five action surfaces, that the
-chord labels and conflict reports answer for the running platform, that the viewport, selection,
-navigation, focus-scope, and creation bindings run the same operations as the toolbar, that a
-contributed control paints its command's pressed and refusing state, and that an editable target
-keeps its own chords. The loop must complete the post-acceptance milestone audit before checking
-Milestone C or beginning Milestone D.**
+baseline records eight captures, the built-artifact and screenshot hashes, the toolbar and menu
+geometry, and browser traces proving that ungroup runs identically from its five action surfaces,
+that the chord labels and conflict reports answer for the running platform, that the viewport,
+selection, navigation, focus-scope, and creation bindings run the same operations as the toolbar,
+that a contributed control paints its command's pressed and refusing state, and that an editable
+target keeps its own chords. The post-acceptance audit corrected the two gate changes the earlier
+phase audit predates: a canvas its own panes cover completely now frames against itself instead of
+refusing — at a compact host that refusal reached an Outline row activation, the zoom-to-pointer
+chord, a minimap click, and a keyboard creation's travel — and the accepted desktop capture, which
+had caught the minimap mid-transition, is re-recorded. Both gate changes now carry the design
+record they were missing: the zoom controls' pressed activation is package behavior, and the
+physical viewport insets restore the reference's rail offsets at the package seam.**
 
 Make frequent workspace actions faster and consistent across every action surface.
 

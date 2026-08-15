@@ -88,7 +88,7 @@ export function setCenter(x: number, y: number, options?: ZoomOptions) {
   const { maxZoom } = useWorkspaceOptions.getState();
   const visibleCanvas = getVisibleCanvasRect({ width, height }, viewportInsets);
   if (visibleCanvas.width <= 0 || visibleCanvas.height <= 0) {
-    throw new Error("Cannot center the workspace without a visible canvas area.");
+    throw new Error("Cannot center the workspace before the canvas has measurable bounds.");
   }
 
   const nextZoom = typeof options?.zoom === "number" ? options.zoom : maxZoom;

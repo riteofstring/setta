@@ -268,6 +268,25 @@ describe("WorkspaceShell", () => {
     );
   });
 
+  // The insets are physical: an RTL host's leading pane covers the canvas from the right.
+  it("maps the pane insets onto the host's writing direction", async () => {
+    host.dir = "rtl";
+
+    await act(async () => {
+      getButton("Notes").click();
+    });
+    await act(async () => {
+      getButton("Notes").click();
+    });
+
+    expect(useReactFlow.getState().viewportInsets).toEqual({
+      top: 0,
+      right: 335,
+      bottom: 0,
+      left: 40,
+    });
+  });
+
   it("updates the visible canvas insets when a pane closes", async () => {
     await act(async () => {
       getButton("Notes").click();

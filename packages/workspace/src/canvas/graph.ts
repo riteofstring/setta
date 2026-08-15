@@ -154,7 +154,7 @@ export const getViewportForBounds = (
 ): Viewport => {
   const visibleCanvas = getVisibleCanvasRect({ width, height }, viewportInsets);
   if (visibleCanvas.width <= 0 || visibleCanvas.height <= 0) {
-    throw new Error("Cannot fit bounds without a visible workspace canvas area.");
+    throw new Error("Cannot fit bounds before the canvas has measurable bounds.");
   }
   const xZoom = visibleCanvas.width / (bounds.width * (1 + padding));
   const yZoom = visibleCanvas.height / (bounds.height * (1 + padding));

@@ -308,6 +308,23 @@ describe("getViewportForBounds", () => {
     expect(viewport.x).toBe(200);
     expect(viewport.y).toBe(237.5);
   });
+
+  it("fits bounds to the whole canvas when open panes cover it", () => {
+    const viewport = getViewportForBounds(
+      { x: 0, y: 0, width: 400, height: 100 },
+      320,
+      861,
+      { minZoom: 0.1, maxZoom: 10 },
+      {
+        padding: 0,
+        viewportInsets: { top: 0, right: 40, bottom: 0, left: 280 },
+      },
+    );
+
+    expect(viewport.zoom).toBe(0.8);
+    expect(viewport.x).toBe(0);
+    expect(viewport.y).toBe(390.5);
+  });
 });
 
 describe("getPaneRect", () => {

@@ -201,6 +201,23 @@ describe("viewport zoom helpers", () => {
     expect(durations).toEqual([120]);
   });
 
+  // A compact host's open pane spans the canvas between the rails: there is no unobscured area to
+  // center in, and the section still has to travel.
+  it("setCenter centers on the whole canvas when open panes cover it", () => {
+    const { transform } = setupZoomRuntime();
+    useReactFlow.setState({
+      width: 320,
+      height: 861,
+      viewportInsets: { top: 0, right: 40, bottom: 0, left: 280 },
+    });
+
+    setCenter(100, 50, { zoom: 2 });
+
+    const [, applied] = getFirstTransformCall(transform);
+    expect(applied.x).toBe(320 / 2 - 100 * 2);
+    expect(applied.y).toBe(861 / 2 - 50 * 2);
+  });
+
   it("setCenter defaults to the max zoom option", () => {
     const { transform } = setupZoomRuntime();
     useReactFlow.setState({ width: 800, height: 600 });
@@ -258,6 +275,53 @@ describe("viewport zoom helpers", () => {
     expect(applied.y).toBe(205);
     expect(durations).toEqual([50]);
     expect(useActiveSections.getState().activeIds).toEqual(["section-a", "section-b"]);
+  });
+
+  // Activating an Outline row is how a compact host reaches a section, and there its own pane
+  // covers the canvas. The travel runs against the whole canvas instead of failing.
+  it("focuses a section from a pane that covers the canvas", () => {
+    const { transform } = setupZoomRuntime();
+    useWorkspaceDocument.setState({
+      sections: {
+        "section-a": {
+          id: "section-a",
+          kind: "leaf",
+          name: "Section A",
+          size: { width: 200, height: 100 },
+          isMinimized: false,
+          positionAndSizeLocked: false,
+          isHorizontalOrientation: false,
+          styleColor: null,
+          overflowMode: false,
+          tagColor: null,
+          children: [],
+        },
+      },
+    });
+    useReactFlow.setState({
+      width: 320,
+      height: 861,
+      viewportInsets: { top: 0, right: 40, bottom: 0, left: 280 },
+      domNode: {
+        getBoundingClientRect: () => ({ x: 0, y: 0 }),
+      } as unknown as HTMLDivElement,
+    });
+    useSectionRefs.setState({
+      selfOnly: {
+        "section-a": {
+          clientWidth: 200,
+          clientHeight: 100,
+          getBoundingClientRect: () => ({ x: 100, y: 50 }),
+        } as unknown as HTMLElement,
+      },
+    });
+
+    expect(() => focusWorkspaceSection("section-a")).not.toThrow();
+
+    const [, applied] = getFirstTransformCall(transform);
+    expect(applied.k).toBe(1);
+    expect(applied.x).toBe(320 / 2 - 205);
+    expect(applied.y).toBe(861 / 2 - 95);
   });
 
   // The reference's `movePaneToIncludeElement`: keyboard focus travels the canvas only as far as
