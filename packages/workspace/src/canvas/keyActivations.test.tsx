@@ -8,6 +8,7 @@ import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import { registerItemListView, resetItemListViews } from "../items/itemListRegistry";
 import {
   indentSelectedItems,
   moveSelectedItemsDown,
@@ -159,6 +160,7 @@ describe("useCanvasKeyActivations", () => {
     useWorkspaceDocument.getState().reset();
     useNodeInternals.getState().reset();
     useActiveSections.getState().reset();
+    resetItemListViews();
   });
 
   async function dispatchKey(
@@ -899,6 +901,28 @@ describe("useCanvasKeyActivations", () => {
       });
       expect(vi.mocked(indentSelectedItems)).not.toHaveBeenCalled();
       container.remove();
+    });
+
+    it("leaves Tab navigation native while the active item list is filtered", async () => {
+      loadItemDocument(["item-a"]);
+      registerItemListView("panel", {
+        listKey: "main",
+        topLevelItemIds: ["item-a", "item-b"],
+        visibleItemIds: new Set(["item-a"]),
+        filterActive: true,
+      });
+      const tabPress = new KeyboardEvent("keydown", {
+        key: "Tab",
+        code: "Tab",
+        cancelable: true,
+      });
+
+      await act(async () => {
+        document.dispatchEvent(tabPress);
+      });
+
+      expect(vi.mocked(indentSelectedItems)).not.toHaveBeenCalled();
+      expect(tabPress.defaultPrevented).toBe(false);
     });
   });
 

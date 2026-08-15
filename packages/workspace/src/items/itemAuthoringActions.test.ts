@@ -161,6 +161,30 @@ describe("item authoring actions", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("rejects insertion and deletion while the section is locked", () => {
+    const onChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onChange);
+    useWorkspaceDocument.setState((state) => {
+      const panel = state.sections.panel;
+      if (!panel) {
+        throw new Error("Expected the panel section.");
+      }
+      return {
+        sections: {
+          ...state.sections,
+          panel: { ...panel, positionAndSizeLocked: true },
+        },
+      };
+    });
+    const before = getWorkspaceDocument();
+
+    expect(() => insertWorkspaceItem("panel")).toThrow("is locked");
+    expect(() => deleteWorkspaceItems("panel", ["alpha"])).toThrow("is locked");
+    expect(factoryContext).toBeNull();
+    expect(getWorkspaceDocument()).toEqual(before);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("validates all deletion ids before one write and one notification", () => {
     const onChange = vi.fn();
     setWorkspaceDocumentChangeCallback(onChange);

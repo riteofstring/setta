@@ -269,15 +269,17 @@ function ItemActionMenu({ invocation }: { invocation: ItemMenuInvocation }) {
   const itemDragActive = useItemDndState((state) => state.activeId !== null);
   const sectionId = invocation.context.section.id;
   const itemId = invocation.context.item.id;
-  const itemStillExists = Object.hasOwn(
-    documentState.sections[sectionId]?.itemTree?.items ?? {},
-    itemId,
-  );
+  const section = documentState.sections[sectionId];
+  const itemStillExists = Object.hasOwn(section?.itemTree?.items ?? {}, itemId);
   const packageEntries: ReadonlyArray<WorkspaceMenuEntry> = [
     {
       id: "workspace-delete-item",
       label: "Delete parameter",
-      disabled: !canEditStructure || itemDragActive || !itemStillExists,
+      disabled:
+        !canEditStructure ||
+        itemDragActive ||
+        section?.positionAndSizeLocked !== false ||
+        !itemStillExists,
       onSelect: () => {
         closeWorkspaceMenu();
         deleteWorkspaceItems(sectionId, [itemId]);

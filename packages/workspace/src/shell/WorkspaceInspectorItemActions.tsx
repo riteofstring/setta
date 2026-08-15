@@ -66,14 +66,26 @@ function getItemDeleteLabel(deleteMode: WorkspaceInspectorItemDeleteMode): strin
   }
 }
 
-function MissingItemFactoryHelp({ hasFactory }: { hasFactory: boolean }) {
-  if (hasFactory) {
-    return null;
-  }
+function ItemAuthoringHelp({
+  hasFactory,
+  sectionLocked,
+}: {
+  hasFactory: boolean;
+  sectionLocked: boolean;
+}) {
   return (
-    <p className="setta-workspace-inspector-help">
-      Adding parameters requires this section kind to register an item factory.
-    </p>
+    <>
+      {sectionLocked ? (
+        <p className="setta-workspace-inspector-help">
+          Unlock this section to add or delete parameters.
+        </p>
+      ) : null}
+      {!hasFactory ? (
+        <p className="setta-workspace-inspector-help">
+          This section does not support adding parameters.
+        </p>
+      ) : null}
+    </>
   );
 }
 
@@ -89,7 +101,7 @@ export function WorkspaceInspectorItemActions({
   if (!itemTree) {
     return null;
   }
-  const mutationDisabled = !canEditStructure || itemDragActive;
+  const mutationDisabled = !canEditStructure || itemDragActive || section.positionAndSizeLocked;
   const hasFactory = getWorkspaceItemFactory(section) !== null;
   const deleteDisabled = mutationDisabled || isItemDeleteUnavailable(deleteMode, itemTree, itemId);
 
@@ -123,7 +135,7 @@ export function WorkspaceInspectorItemActions({
           {getItemDeleteLabel(deleteMode)}
         </button>
       </div>
-      <MissingItemFactoryHelp hasFactory={hasFactory} />
+      <ItemAuthoringHelp hasFactory={hasFactory} sectionLocked={section.positionAndSizeLocked} />
     </>
   );
 }

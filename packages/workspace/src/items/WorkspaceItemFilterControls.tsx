@@ -41,10 +41,22 @@ export function WorkspaceItemFilterControls({ sectionId }: { sectionId: string }
     "selected parameters are",
   )} hidden by this filter.`;
   const statusMessage = buildFilterStatusMessage(filter);
+  const mutedTextClassName = filter.hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-muted-text)]"
+    : "text-setta-500 dark:text-setta-400";
+  const inputToneClassName = filter.hasSectionStyleTheme
+    ? "border-[color:var(--setta-section-style-border)] text-[color:var(--setta-section-style-text)] placeholder:text-[color:var(--setta-section-style-muted-text)] focus-visible:border-[color:var(--setta-section-style-outline)]"
+    : "border-setta-200 text-setta-700 placeholder:text-setta-400 focus-visible:border-blue-400 dark:border-setta-700 dark:text-setta-300 dark:placeholder:text-setta-500";
+  const clearToneClassName = filter.hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-muted-text)] hover:text-[color:var(--setta-section-style-outline)]"
+    : "text-setta-500 hover:text-setta-700 dark:text-setta-400 dark:hover:text-setta-200";
+  const hiddenSelectionToneClassName = filter.hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-text)]"
+    : "text-setta-600 dark:text-setta-300";
 
   return (
     <>
-      <search className="nodrag relative flex min-w-0 items-center pb-1 text-setta-500 dark:text-setta-400">
+      <search className={`nodrag relative flex min-w-0 items-center pb-1 ${mutedTextClassName}`}>
         <label className="sr-only" htmlFor={inputId}>
           Filter parameters
         </label>
@@ -52,7 +64,7 @@ export function WorkspaceItemFilterControls({ sectionId }: { sectionId: string }
         <input
           aria-describedby={statusId}
           autoComplete="off"
-          className="min-w-0 flex-1 appearance-none border-0 border-b border-solid border-setta-200 bg-transparent px-0 py-1 text-xs text-setta-700 outline-offset-1 placeholder:text-setta-400 focus-visible:border-blue-400 focus-visible:outline-2 dark:border-setta-700 dark:text-setta-300 dark:placeholder:text-setta-500"
+          className={`min-w-0 flex-1 appearance-none border-0 border-b border-solid bg-transparent px-0 py-1 text-xs outline-offset-1 focus-visible:outline-2 ${inputToneClassName}`}
           id={inputId}
           onChange={(event) => filter.setQuery(event.currentTarget.value)}
           onKeyDown={(event) => {
@@ -69,7 +81,7 @@ export function WorkspaceItemFilterControls({ sectionId }: { sectionId: string }
         {filter.query.length > 0 ? (
           <button
             aria-label="Clear parameter filter"
-            className="ms-1 inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-setta-500 focus-visible:outline-2 focus-visible:outline-offset-1 hover:text-setta-700 dark:text-setta-400 dark:hover:text-setta-200"
+            className={`ms-1 inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-1 ${clearToneClassName}`}
             data-setta-workspace-touch-target="compact"
             onClick={filter.clearAndFocus}
             title="Clear parameter filter"
@@ -80,7 +92,9 @@ export function WorkspaceItemFilterControls({ sectionId }: { sectionId: string }
         ) : null}
       </search>
       {filter.hiddenSelectedItemCount > 0 ? (
-        <p className="flex min-w-0 flex-wrap items-center gap-x-1 pb-1 text-[10px] leading-tight text-setta-600 dark:text-setta-300">
+        <p
+          className={`flex min-w-0 flex-wrap items-center gap-x-1 pb-1 text-[10px] leading-tight ${hiddenSelectionToneClassName}`}
+        >
           <span>{hiddenSelectionMessage}</span>
           <button
             className="min-h-6 rounded-sm px-1 font-medium underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-1"

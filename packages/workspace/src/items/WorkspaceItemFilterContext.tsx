@@ -16,6 +16,7 @@ type WorkspaceItemFilterContextValue = {
   clearAndFocus: () => void;
   filterActive: boolean;
   filterInputRef: RefObject<HTMLInputElement | null>;
+  hasSectionStyleTheme: boolean;
   hiddenSelectedItemCount: number;
   matchingItemCount: number;
   query: string;
@@ -27,9 +28,11 @@ const WorkspaceItemFilterContext = createContext<WorkspaceItemFilterContextValue
 
 export function WorkspaceItemFilterProvider({
   children,
+  hasSectionStyleTheme = false,
   sectionId,
 }: {
   children: ReactNode;
+  hasSectionStyleTheme?: boolean;
   sectionId: string;
 }) {
   const [query, setQuery] = useState("");
@@ -52,13 +55,14 @@ export function WorkspaceItemFilterProvider({
       clearAndFocus,
       filterActive: result.filterActive,
       filterInputRef,
+      hasSectionStyleTheme,
       hiddenSelectedItemCount,
       matchingItemCount: result.matchingItemIds.size,
       query,
       setQuery,
       visibleItemIds: result.visibleItemIds,
     }),
-    [clearAndFocus, hiddenSelectedItemCount, query, result],
+    [clearAndFocus, hasSectionStyleTheme, hiddenSelectedItemCount, query, result],
   );
 
   return (

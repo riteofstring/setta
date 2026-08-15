@@ -281,14 +281,23 @@ function ItemListBody({
   const itemFilter = useWorkspaceItemFilter();
 
   if (renderItemIds.length === 0 && itemFilter?.filterActive) {
+    const textToneClassName = itemFilter.hasSectionStyleTheme
+      ? "text-[color:var(--setta-section-style-muted-text)]"
+      : "text-setta-500 dark:text-setta-400";
+    const buttonToneClassName = itemFilter.hasSectionStyleTheme
+      ? "border-[color:var(--setta-section-style-border)] text-[color:var(--setta-section-style-text)]"
+      : "border-setta-200 text-setta-600 dark:border-setta-700 dark:text-setta-300";
     return (
-      <div className="col-span-full mx-2 flex min-w-0 flex-col items-center gap-2 py-4 text-center text-xs text-setta-500 dark:text-setta-400">
+      <div
+        className={`col-span-full mx-2 flex min-w-0 flex-col items-center gap-2 py-4 text-center text-xs ${textToneClassName}`}
+      >
         <p className="min-w-0 break-words">
           No parameters in this list match{" "}
           <span className="font-medium">“{itemFilter.query}”.</span>
         </p>
         <button
-          className="min-h-6 rounded-sm border border-setta-200 px-2 font-medium text-setta-600 focus-visible:outline-2 focus-visible:outline-offset-2 dark:border-setta-700 dark:text-setta-300"
+          className={`min-h-6 rounded-sm border px-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 ${buttonToneClassName}`}
+          data-tab-native="true"
           data-setta-workspace-touch-target="compact"
           onClick={itemFilter.clearAndFocus}
           type="button"

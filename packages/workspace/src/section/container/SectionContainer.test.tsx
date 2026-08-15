@@ -164,6 +164,18 @@ function getRequiredElement(root: ParentNode, selector: string): HTMLElement {
   return element;
 }
 
+function getLeafRootItemIds(): Array<string> {
+  const itemTree = useWorkspaceDocument.getState().sections.leaf?.itemTree;
+  if (!itemTree) {
+    throw new Error("Expected the leaf item tree.");
+  }
+  const rootItem = itemTree.items[itemTree.rootId];
+  if (!rootItem) {
+    throw new Error("Expected the leaf item root.");
+  }
+  return rootItem.children;
+}
+
 function expectSectionGroupSemantics(element: HTMLElement, label: string) {
   expect(element.getAttribute("role")).toBe("group");
   expect(element.getAttribute("aria-label")).toBe(label);
@@ -500,6 +512,7 @@ describe("SectionContainer", () => {
     });
     loadTestDocument({
       leaf: {
+        styleColor: "#3b82f6",
         itemTree: {
           rootId: "root",
           items: { root: { id: "root", children: [] } },
@@ -509,17 +522,29 @@ describe("SectionContainer", () => {
     });
     await mount("leaf");
 
-    const body = host.querySelector('[data-testid="section-body"]')?.parentElement;
-    expect(body?.className).toBe("section-full-no-title flex min-h-0 flex-col");
-    expect(body?.firstElementChild?.textContent).toContain("Parameters");
-    expect(host.querySelector("#leaf-parameter-filter")).not.toBeNull();
-    const add = host.querySelector<HTMLButtonElement>('[aria-label="Add parameter"]');
-    expect(add?.disabled).toBe(false);
+    const content = getRequiredElement(host, '[data-testid="section-body"]');
+    const body = content.parentElement;
+    if (!body) {
+      throw new Error("Expected the registered item-tree content slot.");
+    }
+    const toolbar = getRequiredElement(body, ".section-args");
+    expect(body.className).toBe("section-full-no-title flex min-h-0 flex-col");
+    expect(toolbar.textContent).toContain("Parameters");
+    expect(toolbar.getAttribute("data-tab-native")).toBe("true");
+    expect(getRequiredElement(toolbar, "span").className).toContain(
+      "text-[color:var(--setta-section-style-muted-text)]",
+    );
+    const filter = getRequiredElement(host, "#leaf-parameter-filter");
+    expect(filter.className).toContain("--setta-section-style-border");
+    expect(filter.className).toContain(
+      "placeholder:text-[color:var(--setta-section-style-muted-text)]",
+    );
+    const add = getRequiredElement(host, '[aria-label="Add parameter"]') as HTMLButtonElement;
+    expect(add.disabled).toBe(false);
+    expect(add.className).toContain("--setta-section-style-outline");
 
-    await act(async () => add?.click());
-    expect(useWorkspaceDocument.getState().sections.leaf?.itemTree?.items.root?.children).toEqual([
-      "created",
-    ]);
+    await act(async () => add.click());
+    expect(getLeafRootItemIds()).toEqual(["created"]);
   });
 
   it("disables resize handles and squares the corners while locked", async () => {

@@ -437,8 +437,10 @@ returns one complete serializable item with a stable ID, empty `children`, and i
 `deleteWorkspaceItems`, `deleteLastWorkspaceItem`, and `deleteSelectedWorkspaceItems` are the
 canonical public operations used by the package toolbar, item menu, Inspector, and direct host
 actions. The package appends insertions at the item root, validates the complete next tree, updates
-selection and focus, and reports exactly one document change. A kind without a factory remains
-readable and deletable, while its Add parameter controls are disabled.
+selection and focus, and reports exactly one document change. The operations reject unavailable
+structure capability, locked sections, and active item drags before invoking a factory or writing.
+A kind without a factory remains readable and deletable, while its Add parameter controls are
+disabled.
 
 That ordinary kind may also register `getItemSearchableText(context)` for custom opaque items.
 Built-in items always use their package-owned label, so the callback is invoked only for custom

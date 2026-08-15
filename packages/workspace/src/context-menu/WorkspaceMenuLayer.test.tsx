@@ -258,6 +258,52 @@ describe("WorkspaceMenuLayer", () => {
     expect(useWorkspaceMenuState.getState().invocation).toBeNull();
   });
 
+  it("keeps a locked section's item deletion visible but disabled", async () => {
+    loadWorkspaceDocument({
+      sections: {
+        existing: {
+          ...createSection("existing"),
+          positionAndSizeLocked: true,
+          itemTree: {
+            rootId: "root",
+            items: {
+              root: { id: "root", children: ["first"] },
+              first: { id: "first", children: [], data: { value: 1 } },
+            },
+            selectedItemIds: ["first"],
+          },
+        },
+      },
+      topLevelSections: { existing: { x: 0, y: 0, w: 200, h: 100, zIndex: 0 } },
+      viewport: { x: 0, y: 0, zoom: 1 },
+      activeIds: ["existing"],
+    });
+    const hostAction = vi.fn();
+    registerWorkspaceMenuActions([
+      { id: "host-report", scope: "item", label: "Report item", onSelect: hostAction },
+    ]);
+    const onChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onChange);
+    openWorkspaceItemMenu("existing", "first", { x: 150, y: 100 }, owner);
+    await act(async () => {
+      root.render(<WorkspaceMenuLayer />);
+    });
+
+    const entries = getMenuItems();
+    const deleteParameter = entries.find((entry) => entry.textContent === "Delete parameter");
+    const reportItem = entries.find((entry) => entry.textContent === "Report item");
+    expect(deleteParameter?.getAttribute("aria-disabled")).toBe("true");
+    expect(deleteParameter?.hasAttribute("data-disabled")).toBe(true);
+    expect(reportItem?.getAttribute("aria-disabled")).toBeNull();
+
+    await act(async () => {
+      deleteParameter?.click();
+    });
+    expect(useWorkspaceDocument.getState().sections.existing?.itemTree?.items.first).toBeDefined();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(hostAction).not.toHaveBeenCalled();
+  });
+
   it("exposes capability-disabled structural actions through menuitem semantics", async () => {
     useWorkspaceCapabilities.setState({ canEditStructure: false, canEditLayout: false });
     openWorkspaceSectionMenu("existing", "section", { x: 150, y: 100 }, owner);

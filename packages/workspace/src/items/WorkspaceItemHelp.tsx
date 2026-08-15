@@ -55,6 +55,7 @@ export function WorkspaceItemHelp({
             className={`${isGroup ? "section-key-value" : "section-key"} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} relative z-10 me-0.5 grid h-6 w-6 self-center justify-self-end place-items-center rounded-full border-0 bg-transparent p-0 text-setta-400 hover:bg-setta-200/60 hover:text-setta-700 focus-visible:outline-2 focus-visible:outline-offset-1 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-200`}
             data-setta-workspace-item-help-trigger="true"
             data-setta-workspace-touch-target="compact"
+            data-tab-native="true"
             onClick={(event) => event.stopPropagation()}
             onPointerDown={(event) => {
               event.preventDefault();

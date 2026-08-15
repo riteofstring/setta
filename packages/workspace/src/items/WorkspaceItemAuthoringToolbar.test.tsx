@@ -113,6 +113,7 @@ describe("WorkspaceItemAuthoringToolbar", () => {
     setWorkspaceDocumentChangeCallback(onChange);
     await mount();
     expect(host.textContent).toContain("Parameters");
+    expect(host.querySelector(".section-args")?.getAttribute("data-tab-native")).toBe("true");
     const removeLast = getButton(host, "Remove last parameter");
     const add = getButton(host, "Add parameter");
     const deleteSelected = getButton(host, "Delete selected parameters");
@@ -132,7 +133,7 @@ describe("WorkspaceItemAuthoringToolbar", () => {
     expect(onChange).toHaveBeenCalledTimes(3);
   });
 
-  it("exposes accurate disabled states for capability, drag, and a missing factory", async () => {
+  it("exposes accurate disabled states for capability, lock, drag, and a missing factory", async () => {
     await mount();
     await act(async () => {
       useWorkspaceCapabilities.setState({ canEditStructure: false });
@@ -141,6 +142,34 @@ describe("WorkspaceItemAuthoringToolbar", () => {
 
     await act(async () => {
       useWorkspaceCapabilities.setState({ canEditStructure: true });
+      useWorkspaceDocument.setState((state) => {
+        const panel = state.sections.panel;
+        if (!panel) {
+          throw new Error("Expected the panel section.");
+        }
+        return {
+          sections: {
+            ...state.sections,
+            panel: { ...panel, positionAndSizeLocked: true },
+          },
+        };
+      });
+    });
+    expect([...host.querySelectorAll("button")].every((button) => button.disabled)).toBe(true);
+
+    await act(async () => {
+      useWorkspaceDocument.setState((state) => {
+        const panel = state.sections.panel;
+        if (!panel) {
+          throw new Error("Expected the panel section.");
+        }
+        return {
+          sections: {
+            ...state.sections,
+            panel: { ...panel, positionAndSizeLocked: false },
+          },
+        };
+      });
       setItemDndState({ activeId: "alpha" });
     });
     expect([...host.querySelectorAll("button")].every((button) => button.disabled)).toBe(true);

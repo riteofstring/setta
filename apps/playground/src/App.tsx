@@ -92,7 +92,7 @@ function HostParameterActions() {
   const className =
     "playground-action rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300";
   return (
-    <div className="flex gap-1">
+    <div className="flex min-w-0 flex-1 flex-wrap gap-1">
       <button className={className} onClick={() => insertWorkspaceItem("item-panel")} type="button">
         Host add parameter
       </button>

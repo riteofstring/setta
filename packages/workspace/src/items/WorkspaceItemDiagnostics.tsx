@@ -26,6 +26,7 @@ import {
 } from "./itemDiagnostics";
 
 type DiagnosticAnnouncementEntry = WorkspaceItemDiagnostic & {
+  diagnosticOccurrence: number;
   itemId: string;
   itemLabel: string;
 };
@@ -59,7 +60,7 @@ function getSeverityClassName(severity: WorkspaceItemDiagnosticSeverity): string
 }
 
 function getAnnouncementEntryKey(entry: DiagnosticAnnouncementEntry): string {
-  return JSON.stringify([entry.itemId, entry.severity, entry.message]);
+  return JSON.stringify([entry.itemId, entry.severity, entry.message, entry.diagnosticOccurrence]);
 }
 
 function describeAnnouncementEntry(entry: DiagnosticAnnouncementEntry): string {
@@ -103,8 +104,12 @@ function collectAnnouncementEntries(
       continue;
     }
     const itemLabel = getWorkspaceItemDiagnosticLabel(item);
+    const occurrences = new Map<string, number>();
     for (const diagnostic of diagnostics[itemId] ?? []) {
-      entries.push({ ...diagnostic, itemId, itemLabel });
+      const occurrenceKey = JSON.stringify([diagnostic.severity, diagnostic.message]);
+      const diagnosticOccurrence = occurrences.get(occurrenceKey) ?? 0;
+      occurrences.set(occurrenceKey, diagnosticOccurrence + 1);
+      entries.push({ ...diagnostic, diagnosticOccurrence, itemId, itemLabel });
     }
   }
   return entries;

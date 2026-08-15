@@ -7,6 +7,7 @@ import { unselectAllItems } from "../document/itemSelection";
 import { activateItemSelect, deactivateItemSelect } from "../document/itemSelectionMode";
 import { useWorkspaceDocument } from "../document/stores";
 import { canUngroupWorkspaceSections } from "../document/ungroupSections";
+import { getSectionItemVisibility } from "../items/itemListRegistry";
 import {
   indentSelectedItems,
   moveSelectedItemsDown,
@@ -261,6 +262,11 @@ function activeSectionHasSelectedItems(): boolean {
   return getSectionHasSelectedItems(useWorkspaceDocument.getState(), activeId);
 }
 
+function activeSectionHasItemFilter(): boolean {
+  const activeId = getActiveSectionIds()[0];
+  return activeId ? (getSectionItemVisibility(activeId)?.filterActive ?? false) : false;
+}
+
 function matchesTabChord(event: KeyboardEvent, tracker: HoldChordTracker, macOS: boolean): boolean {
   if (event.key !== "Tab" || event.repeat) {
     return false;
@@ -269,15 +275,20 @@ function matchesTabChord(event: KeyboardEvent, tracker: HoldChordTracker, macOS:
 }
 
 // The reference's Tab handling (`handleTabKeyDown` with the shipped Tab / Shift + Tab
-// defaults): hosts opt a subtree out with [data-tab-native]; while the active section has
-// selected items the keypress indents or unindents instead of reaching the browser. The
-// reference's fallback tab navigation is its app focus manager and stays application-side.
+// defaults): hosts opt a subtree out with [data-tab-native], and an active filter keeps native
+// navigation available because structural moves are suspended. Otherwise, while the active
+// section has selected items the keypress indents or unindents instead of reaching the browser.
+// The reference's fallback tab navigation is its app focus manager and stays application-side.
 function handleTabShortcut(event: KeyboardEvent, tracker: HoldChordTracker, macOS: boolean) {
   if (!matchesTabChord(event, tracker, macOS)) {
     return;
   }
   const target = event.target instanceof HTMLElement ? event.target : null;
-  if (target?.closest("[data-tab-native]") || !activeSectionHasSelectedItems()) {
+  if (
+    target?.closest("[data-tab-native]") ||
+    !activeSectionHasSelectedItems() ||
+    activeSectionHasItemFilter()
+  ) {
     return;
   }
   if (event.shiftKey) {

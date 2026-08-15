@@ -486,7 +486,7 @@ describe("WorkspaceInspector", () => {
 
     await act(async () => {
       help.focus();
-      setInputValue(help, "");
+      setInputValue(help, "   ");
       help.dispatchEvent(
         new KeyboardEvent("keydown", {
           bubbles: true,
@@ -623,6 +623,23 @@ describe("WorkspaceInspector", () => {
     expect(host.querySelector('[aria-label="UI type"]')).toBeNull();
     expect(getButton(host, "Add parameter").disabled).toBe(false);
     expect(getButton(host, "Delete selected parameters").disabled).toBe(false);
+  });
+
+  it("disables parameter authoring and explains the locked section state", async () => {
+    const itemSection = makeItemSection({
+      kind: "slider",
+      value: "5",
+      configuration: { disabled: false, min: 0, max: 10, step: 1 },
+    });
+    await renderInspector(
+      createDocument(["items"], {
+        items: { ...itemSection, positionAndSizeLocked: true },
+      }),
+    );
+
+    expect(getButton(host, "Add parameter").disabled).toBe(true);
+    expect(getButton(host, "Delete parameter").disabled).toBe(true);
+    expect(host.textContent).toContain("Unlock this section to add or delete parameters.");
   });
 
   it("deletes one selected parameter and preserves Inspector focus on the surviving branch", async () => {

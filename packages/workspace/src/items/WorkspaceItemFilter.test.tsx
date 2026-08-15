@@ -256,6 +256,7 @@ describe("WorkspaceItemFilter", () => {
     if (!clearButton) {
       throw new Error("The empty filter state did not expose its clear action.");
     }
+    expect(clearButton.dataset.tabNative).toBe("true");
     await act(async () => clearButton.click());
 
     expect(document.activeElement).toBe(input);

@@ -332,6 +332,7 @@ describe("WorkspaceItemList", () => {
     expect(helpTrigger.getAttribute("aria-label")).toBe("Show help for enabled");
     expect(helpTrigger.classList.contains("h-6")).toBe(true);
     expect(helpTrigger.classList.contains("w-6")).toBe(true);
+    expect(helpTrigger.dataset.tabNative).toBe("true");
     expect(getAccessibleDescription(helpTrigger)).toBe("Enable the optional retry path.");
 
     host.dir = "rtl";
@@ -507,6 +508,20 @@ describe("WorkspaceItemList", () => {
     expect(
       host.querySelector('[data-setta-workspace-item-diagnostic-announcer="true"]')?.textContent,
     ).toContain("Error for enabled: Turn this setting off to continue.");
+
+    await mount({
+      ...typedProps,
+      itemDiagnostics: {
+        "item-switch": [
+          { severity: "error", message: "Turn this setting off to continue." },
+          { severity: "error", message: "Turn this setting off to continue." },
+        ],
+      },
+    });
+    expect(errorTrigger.getAttribute("aria-label")).toBe("Show diagnostics for enabled: 2 errors");
+    expect(
+      host.querySelector('[data-setta-workspace-item-diagnostic-announcer="true"]')?.textContent,
+    ).toContain("Parameter diagnostics updated.");
 
     await act(async () => {
       errorTrigger.focus();

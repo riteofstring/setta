@@ -179,7 +179,7 @@ function ItemHelpTextField({
     if (draft === canonicalValue) {
       return;
     }
-    const nextHelpText = draft.length === 0 ? null : draft;
+    const nextHelpText = draft.trim().length === 0 ? null : draft;
     setItemHelpText(sectionId, itemId, nextHelpText);
     const resolvedLabel = itemLabel.trim() || itemId;
     onStatusChange(

@@ -14,7 +14,7 @@ import {
   useNodeInternals,
   useWorkspaceDocument,
 } from "../document/stores";
-import type { WorkspaceItem, WorkspaceSectionItemTree } from "../document/types";
+import type { WorkspaceItem, WorkspaceSection, WorkspaceSectionItemTree } from "../document/types";
 import { useSectionRefs } from "../section/sectionRefs";
 
 type ItemAuthoringFocusPlan = { sectionId: string };
@@ -58,9 +58,12 @@ function restoreItemAuthoringFocus(
   });
 }
 
-function assertItemAuthoringAvailable(): void {
+function assertItemAuthoringAvailable(section: WorkspaceSection): void {
   if (!useWorkspaceCapabilities.getState().canEditStructure) {
     throw new Error("Item authoring requires permission to edit workspace structure.");
+  }
+  if (section.positionAndSizeLocked) {
+    throw new Error(`Section ${section.id} is locked and cannot author parameters.`);
   }
   if (useItemDndState.getState().activeId !== null) {
     throw new Error("Item authoring is unavailable while an item drag is active.");
@@ -96,11 +99,11 @@ function commitItemTree(
 }
 
 // The only insertion funnel used by package controls and direct host invocation. The factory
-// executes after capability/drag gates and before any canonical store publication.
+// executes after capability/lock/drag gates and before any canonical store publication.
 export function insertWorkspaceItem(sectionId: string): WorkspaceItem {
-  assertItemAuthoringAvailable();
   const documentState = useWorkspaceDocument.getState();
   const section = getSectionOrThrow(documentState, sectionId);
+  assertItemAuthoringAvailable(section);
   const itemTree = getSectionItemTreeOrThrow(documentState, sectionId);
   const item = createWorkspaceItemFromFactory(section);
   const prepared = prepareWorkspaceItemInsertion(sectionId, itemTree, item);
@@ -115,11 +118,13 @@ export function deleteWorkspaceItems(
   sectionId: string,
   itemIds: ReadonlyArray<string>,
 ): Array<string> {
-  const itemTree = getSectionItemTreeOrThrow(useWorkspaceDocument.getState(), sectionId);
+  const documentState = useWorkspaceDocument.getState();
+  const itemTree = getSectionItemTreeOrThrow(documentState, sectionId);
   if (itemIds.length === 0) {
     return [];
   }
-  assertItemAuthoringAvailable();
+  const section = getSectionOrThrow(documentState, sectionId);
+  assertItemAuthoringAvailable(section);
   const prepared = prepareWorkspaceItemDeletion(sectionId, itemTree, itemIds);
   const focusPlan = captureItemAuthoringFocusPlan(sectionId);
   commitItemTree(sectionId, prepared.itemTree, prepared.focusTargetId, focusPlan);

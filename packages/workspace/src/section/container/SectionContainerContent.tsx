@@ -41,12 +41,16 @@ export function SectionContainerContent({
       ) : (
         <SectionHeader sectionId={section.id} hasSectionStyleTheme={hasSectionStyleTheme} />
       )}
-      {!section.isMinimized && renderRegisteredContent(definition, section)}
+      {!section.isMinimized && renderRegisteredContent(definition, section, hasSectionStyleTheme)}
     </CustomResizable>
   );
 }
 
-function renderRegisteredContent(definition: SectionKindDefinition, section: WorkspaceSection) {
+function renderRegisteredContent(
+  definition: SectionKindDefinition,
+  section: WorkspaceSection,
+  hasSectionStyleTheme: boolean,
+) {
   if (definition.presentation?.type === "meta-control") {
     return definition.renderContent(section);
   }
@@ -58,7 +62,10 @@ function renderRegisteredContent(definition: SectionKindDefinition, section: Wor
   return (
     <div className={bodySlotClassName}>
       {section.itemTree ? (
-        <WorkspaceItemFilterProvider sectionId={section.id}>
+        <WorkspaceItemFilterProvider
+          hasSectionStyleTheme={hasSectionStyleTheme}
+          sectionId={section.id}
+        >
           <WorkspaceItemAuthoringToolbar sectionId={section.id} />
           {content}
         </WorkspaceItemFilterProvider>
