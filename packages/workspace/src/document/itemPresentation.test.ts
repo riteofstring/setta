@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setWorkspaceDocumentChangeCallback } from "./documentChangeCallback";
 import {
   setItemControlConfiguration,
+  setItemHelpText,
   setItemLabel,
   setItemPresentation,
   setItemValue,
@@ -155,10 +156,21 @@ function makeDocument(items: Record<string, WorkspaceItem>): WorkspaceDocumentIn
   };
 }
 
-function makeSingleItemDocument(control: WorkspaceItemControlPresentation): WorkspaceDocumentInput {
+function makeSingleItemDocument(
+  control: WorkspaceItemControlPresentation,
+  helpText?: string,
+): WorkspaceDocumentInput {
   return makeDocument({
     root: { id: "root", children: ["item"] },
-    item: { id: "item", children: [], presentation: { label: "Item", control } },
+    item: {
+      id: "item",
+      children: [],
+      presentation: {
+        label: "Item",
+        ...(helpText === undefined ? {} : { helpText }),
+        control,
+      },
+    },
   });
 }
 
@@ -199,7 +211,18 @@ describe("typed workspace item presentations", () => {
         if (!itemId) {
           throw new Error("The valid-control fixture lost an item id.");
         }
-        return [itemId, { id: itemId, children: [], presentation: { label: itemId, control } }];
+        return [
+          itemId,
+          {
+            id: itemId,
+            children: [],
+            presentation: {
+              label: itemId,
+              ...(index === 1 ? { helpText: "Used to tune the plain-text input." } : {}),
+              control,
+            },
+          },
+        ];
       }),
     );
     loadWorkspaceDocument(makeDocument({ root: { id: "root", children: itemIds }, ...items }));
@@ -252,6 +275,11 @@ describe("typed workspace item presentations", () => {
     expect(() =>
       loadWorkspaceDocument(makeSingleItemDocument({ kind: "mystery" } as never)),
     ).toThrowError("Section panel item item presentation.control names the unknown kind mystery.");
+    expect(() =>
+      loadWorkspaceDocument(
+        makeSingleItemDocument(VALID_CONTROLS[1] as WorkspaceItemControlPresentation, 42 as never),
+      ),
+    ).toThrowError("Section panel item item presentation.helpText must be a string.");
     expect(() =>
       loadWorkspaceDocument(
         makeSingleItemDocument({
@@ -361,7 +389,7 @@ describe("typed workspace item presentations", () => {
     );
   });
 
-  it("commits label, value, kind, and configuration through one notification each", () => {
+  it("commits label, help, value, kind, and configuration through one notification each", () => {
     const codeControl = VALID_CONTROLS[2];
     if (!codeControl || codeControl.kind !== "code") {
       throw new Error("The typed-item fixture lost its code control.");
@@ -377,8 +405,16 @@ describe("typed workspace item presentations", () => {
       control: { kind: "code" },
     });
 
-    setItemValue("panel", "item", "next()");
+    setItemHelpText("panel", "item", "Runs before each retry.");
     expect(onDocumentChange).toHaveBeenCalledTimes(2);
+    expect(getStoredItemPresentation()).toMatchObject({
+      label: "Renamed",
+      helpText: "Runs before each retry.",
+      control: { kind: "code" },
+    });
+
+    setItemValue("panel", "item", "next()");
+    expect(onDocumentChange).toHaveBeenCalledTimes(3);
     expect(getStoredItemPresentation().control).toMatchObject({ kind: "code", value: "next()" });
 
     setItemControlConfiguration("panel", "item", {
@@ -388,7 +424,7 @@ describe("typed workspace item presentations", () => {
         language: "typescript",
       },
     });
-    expect(onDocumentChange).toHaveBeenCalledTimes(3);
+    expect(onDocumentChange).toHaveBeenCalledTimes(4);
     expect(getStoredItemPresentation().control).toMatchObject({
       kind: "code",
       configuration: { language: "typescript" },
@@ -399,7 +435,15 @@ describe("typed workspace item presentations", () => {
       value: "false",
       configuration: { disabled: false },
     });
-    expect(onDocumentChange).toHaveBeenCalledTimes(4);
+    expect(onDocumentChange).toHaveBeenCalledTimes(5);
+    expect(getStoredItemPresentation()).toEqual({
+      label: "Renamed",
+      helpText: "Runs before each retry.",
+      control: { kind: "switch", value: "false", configuration: { disabled: false } },
+    });
+
+    setItemHelpText("panel", "item", null);
+    expect(onDocumentChange).toHaveBeenCalledTimes(6);
     expect(getStoredItemPresentation()).toEqual({
       label: "Renamed",
       control: { kind: "switch", value: "false", configuration: { disabled: false } },
@@ -435,6 +479,9 @@ describe("typed workspace item presentations", () => {
     ).toThrowError("Section panel item item is switch, not slider.");
     expect(() => setItemControlConfiguration("panel", "item", null as never)).toThrowError(
       "Section panel item item control-configuration mutation must be an object.",
+    );
+    expect(() => setItemHelpText("panel", "item", 42 as never)).toThrowError(
+      "Section panel item item help text must be a string or null.",
     );
     expect(onDocumentChange).not.toHaveBeenCalled();
   });

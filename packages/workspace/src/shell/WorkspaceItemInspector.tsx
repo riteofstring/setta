@@ -1,7 +1,12 @@
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { ItemNameEditor } from "../controls/name/ItemNameEditor";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { hasWorkspaceItemPresentation } from "../document/itemPresentation";
-import { setItemLabel, setItemPresentation } from "../document/itemPresentationMutations";
+import {
+  setItemHelpText,
+  setItemLabel,
+  setItemPresentation,
+} from "../document/itemPresentationMutations";
 import { ItemSelectionModeAffectsControlsContext } from "../document/itemSelectionMode";
 import {
   createWorkspaceInspectorContributionContext,
@@ -142,6 +147,95 @@ function ItemTypeField({
   );
 }
 
+function ItemHelpTextField({
+  disabled,
+  itemId,
+  itemLabel,
+  onEscape,
+  onStatusChange,
+  sectionId,
+  value,
+}: {
+  disabled: boolean;
+  itemId: string;
+  itemLabel: string;
+  onEscape: () => void;
+  onStatusChange: (message: string) => void;
+  sectionId: string;
+  value: string | undefined;
+}) {
+  const reactId = useId().replaceAll(":", "");
+  const inputId = `setta-inspector-item-help-${reactId}`;
+  const hintId = `${inputId}-hint`;
+  const canonicalValue = value ?? "";
+  const [draft, setDraft] = useState(canonicalValue);
+  const skipBlurRef = useRef(false);
+
+  useEffect(() => {
+    setDraft(canonicalValue);
+  }, [canonicalValue]);
+
+  function commit(): void {
+    if (draft === canonicalValue) {
+      return;
+    }
+    const nextHelpText = draft.length === 0 ? null : draft;
+    setItemHelpText(sectionId, itemId, nextHelpText);
+    const resolvedLabel = itemLabel.trim() || itemId;
+    onStatusChange(
+      nextHelpText === null
+        ? `Help text cleared for ${resolvedLabel}.`
+        : `Help text updated for ${resolvedLabel}.`,
+    );
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      event.stopPropagation();
+      commit();
+      return;
+    }
+    if (event.key !== "Escape") {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    skipBlurRef.current = true;
+    setDraft(canonicalValue);
+    onEscape();
+  }
+
+  return (
+    <div className="setta-workspace-inspector-field" data-inspector-focus-key="item-help-text">
+      <label className="setta-workspace-inspector-label" htmlFor={inputId}>
+        Help text
+      </label>
+      <textarea
+        aria-describedby={hintId}
+        className="setta-workspace-inspector-input"
+        disabled={disabled}
+        id={inputId}
+        onBlur={() => {
+          if (skipBlurRef.current) {
+            skipBlurRef.current = false;
+            return;
+          }
+          commit();
+        }}
+        onChange={(event) => setDraft(event.currentTarget.value)}
+        onKeyDown={handleKeyDown}
+        rows={3}
+        style={{ minHeight: 60 }}
+        value={draft}
+      />
+      <p className="setta-workspace-inspector-help" id={hintId}>
+        Shown from the parameter row. Leave blank to hide the help button.
+      </p>
+    </div>
+  );
+}
+
 function TypedItemInspector({
   item,
   onEscape,
@@ -151,7 +245,7 @@ function TypedItemInspector({
   item: WorkspaceItem & { presentation: NonNullable<WorkspaceItem["presentation"]> };
 }) {
   const canEditStructure = useWorkspaceCapabilities((state) => state.canEditStructure);
-  const { control, label } = item.presentation;
+  const { control, helpText, label } = item.presentation;
 
   function changeControlKind(kind: WorkspaceInspectorItemControlKind): void {
     if (control.kind === kind) {
@@ -192,6 +286,15 @@ function TypedItemInspector({
           />
         </div>
       </div>
+      <ItemHelpTextField
+        disabled={!canEditStructure}
+        itemId={item.id}
+        itemLabel={label}
+        onEscape={onEscape}
+        onStatusChange={onStatusChange}
+        sectionId={section.id}
+        value={helpText}
+      />
       {control.kind === "group" ? (
         <div className="setta-workspace-inspector-readonly-row">
           <span>UI type</span>

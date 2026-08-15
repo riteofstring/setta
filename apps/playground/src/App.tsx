@@ -250,22 +250,23 @@ export function App() {
           parameter insertion and deletion operations; the host factory supplies each new Python
           code parameter&apos;s UUID and defaults. The package-owned parameter filter searches typed
           labels without changing the document, retains hidden selection with an explicit notice,
-          and disables structural movement until cleared. Group headers also flip their child flow
-          between vertical and horizontal. The toolbar zooms, fits, and toggles grid snapping; its
-          minimap group hides the pannable, click-to-center minimap or moves it between the bottom
-          corners. The twelve controls at the upper right use the headerless canvas presentation:
-          edit text, calendar, time, numeric, choice, password, color, and dropzone values inside
-          each control, or drag and resize from its remaining surface. Button and file actions stay
-          in this backend-free host. Hold Q while hovering a control for its tooltip. Hold Alt and
-          drag to move sections into, out of, and between groups; hold Cmd/Ctrl+Alt and drag to sort
-          within a group. Hold Cmd/Ctrl+Shift (or use the button) for item select mode: click the
-          item panel&apos;s rows to select them, drag rows to sort or re-parent them, then Alt+Arrow
-          moves the selection, Tab and Shift+Tab indent and unindent it, and Escape clears it.
-          Reload restores the loaded document and camera in place without counting as a change. The
-          built-in Outline and Inspector tabs project selection directly; host notes, status, and
-          help remain registered pane extensions. Right-click the canvas to create a host section,
-          or open canvas, section, item, and Outline menus with Shift+F10.{" "}
-          <PlaygroundMenuActionReadout />
+          and disables structural movement until cleared. Typed parameter help is serializable,
+          editable in the Inspector, and opens from an accessible row button without being clipped
+          by section overflow. Group headers also flip their child flow between vertical and
+          horizontal. The toolbar zooms, fits, and toggles grid snapping; its minimap group hides
+          the pannable, click-to-center minimap or moves it between the bottom corners. The twelve
+          controls at the upper right use the headerless canvas presentation: edit text, calendar,
+          time, numeric, choice, password, color, and dropzone values inside each control, or drag
+          and resize from its remaining surface. Button and file actions stay in this backend-free
+          host. Hold Q while hovering a control for its tooltip. Hold Alt and drag to move sections
+          into, out of, and between groups; hold Cmd/Ctrl+Alt and drag to sort within a group. Hold
+          Cmd/Ctrl+Shift (or use the button) for item select mode: click the item panel&apos;s rows
+          to select them, drag rows to sort or re-parent them, then Alt+Arrow moves the selection,
+          Tab and Shift+Tab indent and unindent it, and Escape clears it. Reload restores the loaded
+          document and camera in place without counting as a change. The built-in Outline and
+          Inspector tabs project selection directly; host notes, status, and help remain registered
+          pane extensions. Right-click the canvas to create a host section, or open canvas, section,
+          item, and Outline menus with Shift+F10. <PlaygroundMenuActionReadout />
         </p>
       </header>
       <div className="playground-workspace flex min-h-0 min-w-0 flex-1">

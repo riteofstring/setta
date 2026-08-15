@@ -46,6 +46,10 @@ type ResolvedItemNameEditorProps = Omit<
   disabled: boolean;
 };
 
+type ItemNameEditorCoreProps = ResolvedItemNameEditorProps & {
+  reserveEndControlSpace: boolean;
+};
+
 function resolveItemNameEditorProps(props: ItemNameEditorProps): ResolvedItemNameEditorProps {
   return {
     ...props,
@@ -70,15 +74,26 @@ function getErrorClassName(hasError: boolean): string {
     : "";
 }
 
-function getDummyClassName(hasChildren: boolean, isDisabled: boolean, hasError: boolean): string {
+function getDummyClassName(
+  hasChildren: boolean,
+  isDisabled: boolean,
+  hasError: boolean,
+  reserveEndControlSpace: boolean,
+): string {
   const layoutClassName = getLayoutClassName(hasChildren, "px-[2px]");
   const selectionClassName = isDisabled ? "" : "cursor-text select-text";
-  return `${NO_PAN_CLASS_NAME} min-w-0 self-end placeholder:text-setta-300 dark:placeholder:text-setta-600 ${layoutClassName} ${NO_DRAG_CLASS_NAME} peer/nameinput ${selectionClassName} break-words py-[.125rem] font-mono text-xs [tab-size:4] [word-break:break-word] dark:focus-visible:border-blue-400 ${getErrorClassName(hasError)}`;
+  const endControlClassName = reserveEndControlSpace ? "pe-7" : "";
+  return `${NO_PAN_CLASS_NAME} min-w-0 self-end placeholder:text-setta-300 dark:placeholder:text-setta-600 ${layoutClassName} ${NO_DRAG_CLASS_NAME} peer/nameinput ${selectionClassName} ${endControlClassName} break-words py-[.125rem] font-mono text-xs [tab-size:4] [word-break:break-word] dark:focus-visible:border-blue-400 ${getErrorClassName(hasError)}`;
 }
 
-function getLiveClassName(hasChildren: boolean, hasError: boolean): string {
+function getLiveClassName(
+  hasChildren: boolean,
+  hasError: boolean,
+  reserveEndControlSpace: boolean,
+): string {
   const layoutClassName = getLayoutClassName(hasChildren, "px-[2px]");
-  return `${NO_PAN_CLASS_NAME} ${NO_DRAG_CLASS_NAME} cursor-text self-end select-text [&_*]:!outline-0 [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs min-w-0 placeholder:text-setta-300 dark:placeholder:text-setta-600 py-[.125rem] ${layoutClassName} peer/nameinput font-mono dark:focus-visible:border-blue-400 ${getErrorClassName(hasError)}`;
+  const endControlClassName = reserveEndControlSpace ? "pe-7" : "";
+  return `${NO_PAN_CLASS_NAME} ${NO_DRAG_CLASS_NAME} cursor-text self-end select-text [&_*]:!outline-0 [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs min-w-0 placeholder:text-setta-300 dark:placeholder:text-setta-600 py-[.125rem] ${layoutClassName} ${endControlClassName} peer/nameinput font-mono dark:focus-visible:border-blue-400 ${getErrorClassName(hasError)}`;
 }
 
 function getUnderlineClassName(hasChildren: boolean, hasError: boolean): string {
@@ -143,6 +158,26 @@ function useItemNameActivation({
 }
 
 export function ItemNameEditor(props: ItemNameEditorProps) {
+  return (
+    <ItemNameEditorCore {...resolveItemNameEditorProps(props)} reserveEndControlSpace={false} />
+  );
+}
+
+// Package-owned typed rows reserve their label's logical end for the B3 help disclosure without
+// adding that layout-only concern to the public ItemNameEditor props.
+export function BuiltInItemNameEditor(
+  props: ItemNameEditorProps & { reserveEndControlSpace: boolean },
+) {
+  const { reserveEndControlSpace, ...editorProps } = props;
+  return (
+    <ItemNameEditorCore
+      {...resolveItemNameEditorProps(editorProps)}
+      reserveEndControlSpace={reserveEndControlSpace}
+    />
+  );
+}
+
+function ItemNameEditorCore({ reserveEndControlSpace, ...props }: ItemNameEditorCoreProps) {
   const {
     sectionId,
     itemId,
@@ -155,7 +190,7 @@ export function ItemNameEditor(props: ItemNameEditorProps) {
     hasChildren,
     disabled,
     onEscape,
-  } = resolveItemNameEditorProps(props);
+  } = props;
   const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
   const hasError = errorMessage.length > 0;
@@ -182,7 +217,7 @@ export function ItemNameEditor(props: ItemNameEditorProps) {
           code={name}
           onMouseDownCapture={localOnMouseDownCapture}
           onFocus={onFocus}
-          className={getDummyClassName(hasChildren, isDisabled, hasError)}
+          className={getDummyClassName(hasChildren, isDisabled, hasError, reserveEndControlSpace)}
           singleLine={true}
           wrapLines={true}
           theme={theme}
@@ -207,7 +242,7 @@ export function ItemNameEditor(props: ItemNameEditorProps) {
           onNameChange={onNameChange}
           onEscape={() => (onEscape ? onEscape() : focusSectionAfterEscape(sectionId))}
           onBlur={localOnBlur}
-          className={getLiveClassName(hasChildren, hasError)}
+          className={getLiveClassName(hasChildren, hasError, reserveEndControlSpace)}
           errorId={hasError ? errorId : undefined}
         />
       )}

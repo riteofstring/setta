@@ -41,23 +41,38 @@ function makeBuiltInItem(
   label: string,
   control: WorkspaceItemControlPresentation,
   children: Array<string> = [],
+  helpText?: string,
 ): WorkspaceItem {
-  return { id, children, presentation: { label, control } };
+  return {
+    id,
+    children,
+    presentation: {
+      label,
+      ...(helpText === undefined ? {} : { helpText }),
+      control,
+    },
+  };
 }
 
-function makeCodeItem(id: string, label: string, value: string): WorkspaceItem {
-  return makeBuiltInItem(id, label, {
-    kind: "code",
-    value,
-    configuration: {
-      autocomplete: "off",
-      disabled: false,
-      language: "python",
-      placeholder: null,
-      singleLine: false,
-      wrapLines: true,
+function makeCodeItem(id: string, label: string, value: string, helpText?: string): WorkspaceItem {
+  return makeBuiltInItem(
+    id,
+    label,
+    {
+      kind: "code",
+      value,
+      configuration: {
+        autocomplete: "off",
+        disabled: false,
+        language: "python",
+        placeholder: null,
+        singleLine: false,
+        wrapLines: true,
+      },
     },
-  });
+    [],
+    helpText,
+  );
 }
 
 const itemPanelTree: WorkspaceSectionItemTree = {
@@ -91,7 +106,12 @@ const itemPanelTree: WorkspaceSectionItemTree = {
         "item-rename",
       ],
     },
-    "item-alpha": makeCodeItem("item-alpha", "alpha", "0.001"),
+    "item-alpha": makeCodeItem(
+      "item-alpha",
+      "alpha",
+      "0.001",
+      "Sets the initial learning rate.\nUse a smaller value when updates become unstable.",
+    ),
     "item-beta": makeCodeItem("item-beta", "beta", "0.999"),
     "item-gamma": makeCodeItem("item-gamma", "gamma", "0.57721"),
     "item-delta": makeCodeItem("item-delta", "delta", "4096"),
@@ -100,7 +120,12 @@ const itemPanelTree: WorkspaceSectionItemTree = {
       "item-momentum",
       "item-decay",
     ]),
-    "item-momentum": makeCodeItem("item-momentum", "momentum", "0.9"),
+    "item-momentum": makeCodeItem(
+      "item-momentum",
+      "momentum",
+      "0.9",
+      "Controls how strongly previous updates influence the next step.",
+    ),
     "item-decay": makeCodeItem("item-decay", "decay", "1e-4"),
     "item-eta": makeCodeItem("item-eta", "eta", "0.25"),
     "item-theta": makeCodeItem("item-theta", "theta", "1.618"),

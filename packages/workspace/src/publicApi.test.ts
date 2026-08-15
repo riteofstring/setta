@@ -50,6 +50,7 @@ const RUNTIME_EXPORTS = [
   "registerWorkspaceMenuActions",
   "setItemData",
   "setItemControlConfiguration",
+  "setItemHelpText",
   "setItemLabel",
   "setItemPresentation",
   "setItemValue",

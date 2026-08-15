@@ -49,6 +49,7 @@ function makeSection(
 function makeItemSection(
   control: WorkspaceItemControlPresentation,
   selectedItemIds: Array<string> = ["value"],
+  helpText?: string,
 ): WorkspaceSectionInput {
   return makeSection("items", {
     name: "Items",
@@ -59,7 +60,11 @@ function makeItemSection(
         value: {
           id: "value",
           children: [],
-          presentation: { label: "Amount", control },
+          presentation: {
+            label: "Amount",
+            ...(helpText === undefined ? {} : { helpText }),
+            control,
+          },
         },
         other: {
           id: "other",
@@ -147,6 +152,46 @@ function getButton(host: HTMLElement, text: string): HTMLButtonElement {
     throw new Error(`Expected Inspector button ${text}.`);
   }
   return button;
+}
+
+function createHelpItemDocument(helpText: string): WorkspaceDocumentInput {
+  return createDocument(["items"], {
+    items: makeItemSection(
+      {
+        kind: "switch",
+        value: "true",
+        configuration: { disabled: false },
+      },
+      ["value"],
+      helpText,
+    ),
+  });
+}
+
+function getStoredItemPresentation() {
+  const presentation =
+    useWorkspaceDocument.getState().sections.items?.itemTree?.items.value?.presentation;
+  if (!presentation) {
+    throw new Error("Expected the Inspector fixture's typed item presentation.");
+  }
+  return presentation;
+}
+
+function getInspectorStatus(host: HTMLElement): string {
+  const status = host.querySelector(".setta-workspace-inspector-status");
+  if (!status) {
+    throw new Error("Expected the Inspector status region.");
+  }
+  return status.textContent ?? "";
+}
+
+function getAccessibleDescription(control: HTMLElement): string {
+  const descriptionId = control.getAttribute("aria-describedby");
+  const description = descriptionId ? document.getElementById(descriptionId) : null;
+  if (!description) {
+    throw new Error("Expected the Inspector control's accessible description.");
+  }
+  return description.textContent ?? "";
 }
 
 describe("WorkspaceInspector", () => {
@@ -398,6 +443,63 @@ describe("WorkspaceInspector", () => {
     expect(host.querySelector(".setta-workspace-inspector-status")?.textContent).toContain(
       "slider configuration updated",
     );
+  });
+
+  it("commits serializable item help from the labeled Inspector field", async () => {
+    const onChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onChange);
+    await renderInspector(createHelpItemDocument("Controls whether retries are enabled."));
+    const help = getLabeledControl<HTMLTextAreaElement>(host, "Help text");
+    expect(help.value).toBe("Controls whether retries are enabled.");
+    expect(getAccessibleDescription(help)).toContain("Shown from the parameter row");
+
+    await act(async () => {
+      help.focus();
+      setInputValue(help, "Runs before each retry.\nUse a small value for tests.");
+      help.blur();
+    });
+
+    expect(getStoredItemPresentation().helpText).toBe(
+      "Runs before each retry.\nUse a small value for tests.",
+    );
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(getInspectorStatus(host)).toContain("Help text updated for Amount");
+  });
+
+  it("discards an escaped help draft and clears help with the textarea commit shortcut", async () => {
+    const onChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onChange);
+    await renderInspector(createHelpItemDocument("Keep this committed help."));
+    const help = getLabeledControl<HTMLTextAreaElement>(host, "Help text");
+
+    await act(async () => {
+      help.focus();
+      setInputValue(help, "Discard this draft");
+      help.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+    });
+
+    expect(document.activeElement).toBe(
+      host.querySelector('[aria-label="Workspace Inspector selection"]'),
+    );
+    expect(getStoredItemPresentation().helpText).toBe("Keep this committed help.");
+    expect(onChange).not.toHaveBeenCalled();
+
+    await act(async () => {
+      help.focus();
+      setInputValue(help, "");
+      help.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          ctrlKey: true,
+          key: "Enter",
+        }),
+      );
+    });
+
+    expect(Object.hasOwn(getStoredItemPresentation(), "helpText")).toBe(false);
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(getInspectorStatus(host)).toContain("Help text cleared for Amount");
   });
 
   it("keeps locked section sizing read-only until the section is unlocked", async () => {

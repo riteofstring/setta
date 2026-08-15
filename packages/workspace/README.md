@@ -325,7 +325,8 @@ custom item renderers through `setItemData(sectionId, itemId, data)`. Both repla
 payload, preserve package-owned structure, and issue one canonical document notification. A typed
 item rejects `setItemData`; its label, scalar value, complete control presentation, and typed
 configuration use `setItemLabel`, `setItemValue`, `setItemPresentation`, and
-`setItemControlConfiguration` respectively. Each accepted call publishes once.
+`setItemControlConfiguration` respectively. Optional help uses `setItemHelpText`; passing `null`
+removes the field. Each accepted call publishes once.
 
 Sections with a `WorkspaceSectionItemTree` also carry the package-owned item-column layout. An
 omitted `itemColumnWidth` derives the live half-width split; dragging any row's shared center
@@ -341,13 +342,18 @@ identical row targets stay pointer-accessible without adding one tab stop per ro
 ## Typed built-in items
 
 `WorkspaceItem.presentation` is the package-owned serializable row schema. It contains an editable
-`label` and a discriminated `control`: `group`, `text`, `code`, `textarea`, `switch`, `dropdown`,
-`color`, `slider`, `rotary`, `password`, `date`, `time`, or `dropzone`. Every non-group control
-carries a controlled string `value` and its exact validated configuration. Code/text configuration
-records the accepted autocomplete policy (`"off"`); numeric bounds, date/time modes, choices,
-colors, attachment metadata, and dropzone limits reject malformed values at load and mutation
-boundaries. A structural root has neither presentation nor opaque data. A row cannot carry both a
-typed presentation and opaque `data`.
+`label`, optional string `helpText`, and a discriminated `control`: `group`, `text`, `code`,
+`textarea`, `switch`, `dropdown`, `color`, `slider`, `rotary`, `password`, `date`, `time`, or
+`dropzone`. Every non-group control carries a controlled string `value` and its exact validated
+configuration. Code/text configuration records the accepted autocomplete policy (`"off"`);
+numeric bounds, date/time modes, choices, colors, attachment metadata, and dropzone limits reject
+malformed values at load and mutation boundaries. A structural root has neither presentation nor
+opaque data. A row cannot carry both a typed presentation and opaque `data`.
+
+The Inspector commits help text on blur or Cmd/Ctrl+Enter; Escape discards its current draft. A
+nonblank value adds a compact native button to the parameter row. Its Radix portal escapes nested
+section and bounded-group overflow, clamps and wraps at compact widths, preserves an active editor
+when opened by pointer, and exposes the same content through the button's accessible description.
 
 Changing UI type directly uses `setItemPresentation` with the complete next control (kind, value,
 and configuration); callers outside the integrated Inspector still supply that complete value. The

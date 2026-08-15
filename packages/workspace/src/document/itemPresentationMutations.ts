@@ -65,6 +65,20 @@ export function setItemLabel(sectionId: string, itemId: string, label: string): 
   commitItemPresentation(sectionId, itemId, { ...item.presentation, label });
 }
 
+export function setItemHelpText(sectionId: string, itemId: string, helpText: string | null): void {
+  if (helpText !== null && typeof helpText !== "string") {
+    throw new Error(`Section ${sectionId} item ${itemId} help text must be a string or null.`);
+  }
+  const { item } = getBuiltInItemState(sectionId, itemId);
+  if (helpText === null) {
+    const presentation = { ...item.presentation };
+    delete presentation.helpText;
+    commitItemPresentation(sectionId, itemId, presentation);
+    return;
+  }
+  commitItemPresentation(sectionId, itemId, { ...item.presentation, helpText });
+}
+
 export function setItemValue(sectionId: string, itemId: string, value: string): void {
   if (typeof value !== "string") {
     throw new Error(`Section ${sectionId} item ${itemId} value must be a string.`);

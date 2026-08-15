@@ -420,8 +420,11 @@ export function assertWorkspaceItemPresentation(
   owner: string,
 ): asserts presentation is WorkspaceItemPresentation {
   assertRecord(presentation, owner);
-  assertKnownFields(presentation, owner, ["control", "label"]);
+  assertKnownFields(presentation, owner, ["control", "helpText", "label"]);
   assertString(presentation["label"], `${owner}.label`);
+  if (Object.hasOwn(presentation, "helpText")) {
+    assertString(presentation["helpText"], `${owner}.helpText`);
+  }
   assertWorkspaceItemControlPresentation(presentation["control"], `${owner}.control`);
 }
 

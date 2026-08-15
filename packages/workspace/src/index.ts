@@ -109,6 +109,7 @@ export { GROUP_SECTION_KIND } from "./document/documentSelectors";
 export { setItemData } from "./document/itemData";
 export {
   setItemControlConfiguration,
+  setItemHelpText,
   setItemLabel,
   setItemPresentation,
   setItemValue,

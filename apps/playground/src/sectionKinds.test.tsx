@@ -106,6 +106,25 @@ function findRowByLabel(container: HTMLElement, label: string): HTMLElement {
   return row;
 }
 
+function getItemHelpTrigger(row: HTMLElement): HTMLButtonElement {
+  const trigger = row.querySelector<HTMLButtonElement>(
+    '[data-setta-workspace-item-help-trigger="true"]',
+  );
+  if (!trigger) {
+    throw new Error("The typed playground row is missing its help trigger.");
+  }
+  return trigger;
+}
+
+function getControlDescription(control: HTMLElement): string {
+  const descriptionId = control.getAttribute("aria-describedby");
+  const description = descriptionId ? document.getElementById(descriptionId) : null;
+  if (!description) {
+    throw new Error("The control is missing its accessible description.");
+  }
+  return description.textContent ?? "";
+}
+
 describe("the playground item renderer presentation contract", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -151,6 +170,12 @@ describe("the playground item renderer presentation contract", () => {
     }
     expect(valueEditor.querySelector(".cm-line span")?.className).toMatch(/ͼ/);
     expect(divider.className).toBe(REFERENCE_VALUE_DIVIDER_CLASS_NAME);
+  });
+
+  it("demonstrates serialized parameter help through the public row surface", () => {
+    const help = getItemHelpTrigger(findRowByLabel(container, "alpha"));
+    expect(help.getAttribute("aria-label")).toBe("Show help for alpha");
+    expect(getControlDescription(help)).toContain("Sets the initial learning rate");
   });
 
   it("renders switch rows with the built-in switch and commits toggles to the document", () => {

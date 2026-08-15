@@ -109,6 +109,49 @@ function loadTestDocument() {
   });
 }
 
+function loadTypedSwitchDocument(helpText?: string) {
+  loadWorkspaceDocument({
+    sections: {
+      panel: {
+        id: "panel",
+        kind: "leaf",
+        name: "panel",
+        size: { width: 280, height: 240 },
+        isMinimized: false,
+        positionAndSizeLocked: false,
+        isHorizontalOrientation: false,
+        styleColor: null,
+        overflowMode: false,
+        tagColor: null,
+        children: [],
+        itemTree: {
+          rootId: "item-root",
+          items: {
+            "item-root": { id: "item-root", children: ["item-switch"] },
+            "item-switch": {
+              id: "item-switch",
+              children: [],
+              presentation: {
+                label: "enabled",
+                ...(helpText === undefined ? {} : { helpText }),
+                control: {
+                  kind: "switch",
+                  value: "true",
+                  configuration: { disabled: false },
+                },
+              },
+            },
+          },
+          selectedItemIds: [],
+        },
+      },
+    },
+    topLevelSections: { panel: { x: 0, y: 0, w: 280, h: 240, zIndex: 0 } },
+    viewport: { x: 0, y: 0, zoom: 1 },
+    activeIds: [],
+  });
+}
+
 function isGroupItem(item: WorkspaceItem): boolean {
   const data = item.data;
   return (
@@ -127,6 +170,27 @@ function getRowByContent(host: HTMLElement, itemId: string): HTMLElement {
     throw new Error(`expected a rendered row for ${itemId}`);
   }
   return row;
+}
+
+function getRequiredElement<ElementType extends Element>(
+  root: ParentNode,
+  selector: string,
+  description: string,
+): ElementType {
+  const element = root.querySelector<ElementType>(selector);
+  if (!element) {
+    throw new Error(`expected ${description}`);
+  }
+  return element;
+}
+
+function getAccessibleDescription(control: HTMLElement): string {
+  const descriptionId = control.getAttribute("aria-describedby");
+  const description = descriptionId ? document.getElementById(descriptionId) : null;
+  if (!description) {
+    throw new Error("expected the control's accessible description");
+  }
+  return description.textContent ?? "";
 }
 
 function createPointerEvent(
@@ -241,45 +305,7 @@ describe("WorkspaceItemList", () => {
   });
 
   it("renders a typed built-in row without a host renderer and commits its value", async () => {
-    loadWorkspaceDocument({
-      sections: {
-        panel: {
-          id: "panel",
-          kind: "leaf",
-          name: "panel",
-          size: { width: 280, height: 240 },
-          isMinimized: false,
-          positionAndSizeLocked: false,
-          isHorizontalOrientation: false,
-          styleColor: null,
-          overflowMode: false,
-          tagColor: null,
-          children: [],
-          itemTree: {
-            rootId: "item-root",
-            items: {
-              "item-root": { id: "item-root", children: ["item-switch"] },
-              "item-switch": {
-                id: "item-switch",
-                children: [],
-                presentation: {
-                  label: "enabled",
-                  control: {
-                    kind: "switch",
-                    value: "true",
-                    configuration: { disabled: false },
-                  },
-                },
-              },
-            },
-            selectedItemIds: [],
-          },
-        },
-      },
-      topLevelSections: { panel: { x: 0, y: 0, w: 280, h: 240, zIndex: 0 } },
-      viewport: { x: 0, y: 0, zoom: 1 },
-      activeIds: [],
-    });
+    loadTypedSwitchDocument();
     await mount({ topLevelItemIds: ["item-switch"], renderItem: undefined });
 
     expect(document.getElementById("ItemNameInput-panel-item-switch")?.textContent).toBe("enabled");
@@ -292,6 +318,57 @@ describe("WorkspaceItemList", () => {
       useWorkspaceDocument.getState().sections.panel?.itemTree?.items["item-switch"]?.presentation
         ?.control,
     ).toMatchObject({ kind: "switch", value: "false" });
+  });
+
+  it("portals accessible typed-item help without stealing active editor focus", async () => {
+    loadTypedSwitchDocument("Enable the optional retry path.");
+    await mount({ topLevelItemIds: ["item-switch"], renderItem: undefined });
+
+    const helpTrigger = getRequiredElement<HTMLButtonElement>(
+      host,
+      '[data-setta-workspace-item-help-trigger="true"]',
+      "the built-in item help trigger",
+    );
+    expect(helpTrigger.getAttribute("aria-label")).toBe("Show help for enabled");
+    expect(helpTrigger.classList.contains("h-6")).toBe(true);
+    expect(helpTrigger.classList.contains("w-6")).toBe(true);
+    expect(getAccessibleDescription(helpTrigger)).toBe("Enable the optional retry path.");
+
+    host.dir = "rtl";
+    const nameEditor = getRequiredElement<HTMLElement>(
+      host,
+      "#ItemNameInput-panel-item-switch",
+      "the built-in item name editor",
+    );
+    await act(async () => {
+      nameEditor.focus();
+    });
+    const activeEditor = document.activeElement;
+    expect(activeEditor?.getAttribute("role")).toBe("textbox");
+    await act(async () => {
+      helpTrigger.dispatchEvent(
+        createPointerEvent("pointerdown", { bubbles: true, cancelable: true }),
+      );
+      helpTrigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const helpContent = getRequiredElement<HTMLElement>(
+      document,
+      '[role="dialog"][aria-label="enabled help"]',
+      "the portaled item help dialog",
+    );
+    expect(helpContent.textContent).toBe("Enable the optional retry path.");
+    expect(helpContent.getAttribute("role")).toBe("dialog");
+    expect(helpContent.getAttribute("aria-label")).toBe("enabled help");
+    expect(helpContent.dir).toBe("rtl");
+    expect(host.contains(helpContent)).toBe(false);
+    expect(document.activeElement).toBe(activeEditor);
+    expect(helpTrigger.getAttribute("aria-expanded")).toBe("true");
+
+    await act(async () => {
+      helpTrigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(document.querySelector('[role="dialog"][aria-label="enabled help"]')).toBeNull();
   });
 
   it("fails specifically when a custom row has no renderer", async () => {

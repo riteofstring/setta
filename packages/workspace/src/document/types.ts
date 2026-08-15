@@ -172,6 +172,9 @@ export type WorkspaceItemControlConfiguration =
 
 export type WorkspaceItemPresentation = {
   label: string;
+  // Optional package-owned parameter help. The row renders this through an accessible portaled
+  // disclosure so bounded section and group overflow cannot clip it.
+  helpText?: string;
   control: WorkspaceItemControlPresentation;
 };
 
