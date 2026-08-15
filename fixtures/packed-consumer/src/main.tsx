@@ -296,15 +296,9 @@ const consumerTrailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
   },
 ];
 
-const INITIAL_CONSUMER_TRAILING_TAB_ID = "consumer-details";
-
 function ConsumerApp() {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
-  const [shellViewState, setShellViewState] = useState(() =>
-    createWorkspaceShellViewState({
-      trailingTabId: INITIAL_CONSUMER_TRAILING_TAB_ID,
-    }),
-  );
+  const [shellViewState, setShellViewState] = useState(() => createWorkspaceShellViewState());
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -341,11 +335,17 @@ setWorkspaceColorMode(document.documentElement.classList.contains("dark") ? "dar
 registerSectionKinds({
   note: {
     renderContent: (section) => <NoteBody section={section} />,
+    renderInspector: (context) => (
+      <p className="consumer-host-pane">Packed host Inspector contribution for {context.type}.</p>
+    ),
     icon: NoteIcon,
     defaultSize: { width: 240, height: 140 },
   },
   "packed-time": {
     renderContent: (section) => <PackedTimeBody section={section} />,
+    renderInspector: (context) => (
+      <p className="consumer-host-pane">Packed host Inspector contribution for {context.type}.</p>
+    ),
     presentation: {
       type: "meta-control",
       resolveControlKind: () => "time",
@@ -354,6 +354,9 @@ registerSectionKinds({
   },
   "packed-items": {
     renderContent: (section) => <PackedItemsBody section={section} />,
+    renderInspector: (context) => (
+      <p className="consumer-host-pane">Packed host Inspector contribution for {context.type}.</p>
+    ),
     contentClassName: "consumer-packed-items",
     defaultSize: { width: 320, height: 160 },
   },

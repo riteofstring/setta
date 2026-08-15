@@ -1,5 +1,5 @@
 import * as Switch from "@radix-ui/react-switch";
-import { useItemSelectionMode } from "../../document/itemSelectionMode";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME } from "../../interaction";
 import { focusSectionAfterEscape } from "../sectionFocus";
 
@@ -45,7 +45,7 @@ function SwitchValueControlCore({
   disabled = false,
   outerClassName,
 }: SwitchValueControlProps & { outerClassName: string }) {
-  const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
+  const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
   return (
     <div className={outerClassName}>

@@ -1,5 +1,5 @@
 import { useRef, useState, type KeyboardEvent } from "react";
-import { useItemSelectionMode } from "../../document/itemSelectionMode";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME } from "../../interaction";
 import { getElementTextDirection, type WorkspaceTextDirection } from "../../styles/textDirection";
 import { ControlPopover } from "../popover/ControlPopover";
@@ -84,7 +84,7 @@ export function ColorValueControl({
   choices = [],
   disabled = false,
 }: ColorValueControlProps) {
-  const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
+  const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
   return (
     <div className={WRAPPER_CLASS_NAME}>

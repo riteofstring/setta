@@ -1,3 +1,4 @@
+import { createContext, useContext } from "react";
 import { createWithEqualityFn } from "zustand/traditional";
 import { withResetFn } from "../state/storeUtils";
 
@@ -15,6 +16,16 @@ export const useItemSelectionMode = createWithEqualityFn(
     isSelectingItems: false,
   })),
 );
+
+// Canvas rows suppress their editors while item-selection mode owns pointer input. The Inspector
+// renders the same accepted controls in a separate editing surface, so its subtree opts out without
+// changing the global mode or making multi-item selection unreachable.
+export const ItemSelectionModeAffectsControlsContext = createContext(true);
+
+export function useItemSelectionModeForControl(): boolean {
+  const affectsControls = useContext(ItemSelectionModeAffectsControlsContext);
+  return useItemSelectionMode((state) => affectsControls && state.isSelectingItems);
+}
 
 export function activateItemSelect() {
   useItemSelectionMode.setState({ isSelectingItems: true });

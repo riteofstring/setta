@@ -132,15 +132,9 @@ const trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
   },
 ];
 
-const INITIAL_TRAILING_TAB_ID = "host-status";
-
 export function App() {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
-  const [shellViewState, setShellViewState] = useState(() =>
-    createWorkspaceShellViewState({
-      trailingTabId: INITIAL_TRAILING_TAB_ID,
-    }),
-  );
+  const [shellViewState, setShellViewState] = useState(() => createWorkspaceShellViewState());
 
   // Package appearance is scoped to package roots. The playground mirrors the resolved mode only
   // for its own host chrome; real hosts can style their surrounding application independently.
@@ -184,7 +178,9 @@ export function App() {
           within a group. Hold Cmd/Ctrl+Shift (or use the button) for item select mode: click the
           item panel&apos;s rows to select them, drag rows to sort or re-parent them, then Alt+Arrow
           moves the selection, Tab and Shift+Tab indent and unindent it, and Escape clears it.
-          Reload restores the loaded document and camera in place without counting as a change.
+          Reload restores the loaded document and camera in place without counting as a change. The
+          built-in Outline and Inspector tabs project selection directly; host notes, status, and
+          help remain registered pane extensions.
         </p>
       </header>
       <div className="playground-workspace flex min-h-0 min-w-0 flex-1">

@@ -10,12 +10,14 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
+import { FiEdit3 } from "react-icons/fi";
 import { TbListTree } from "react-icons/tb";
 import { WorkspaceCanvas } from "../canvas/WorkspaceCanvas";
 import { useReactFlow } from "../canvas/store";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { WorkspaceControls } from "../toolbar/WorkspaceControls";
 import { WorkspaceTooltip } from "../tooltip/WorkspaceTooltip";
+import { WorkspaceInspector } from "./WorkspaceInspector";
 import { WorkspaceOutline } from "./WorkspaceOutline";
 import { WorkspaceShellPane } from "./WorkspaceShellPane";
 import {
@@ -27,6 +29,7 @@ import {
   selectWorkspaceShellTab,
   toggleWorkspaceShellPane,
   toggleWorkspaceShellPaneFullWidth,
+  WORKSPACE_INSPECTOR_TAB_ID,
   WORKSPACE_OUTLINE_TAB_ID,
 } from "./workspaceShellLayout";
 import type {
@@ -270,6 +273,7 @@ export function WorkspaceShell({
 }: WorkspaceShellProps) {
   const scopeClassName = useWorkspaceScopeClassName();
   const outlineInitialFocusRef = useRef<HTMLElement>(null);
+  const inspectorInitialFocusRef = useRef<HTMLElement>(null);
   const rootRef = useRef<HTMLElement>(null);
   const centerRef = useRef<HTMLDivElement>(null);
   const instanceId = `workspace-shell-${useId().replaceAll(":", "")}`;
@@ -324,9 +328,23 @@ export function WorkspaceShell({
     () => [outlineTab, ...leadingTabs],
     [leadingTabs, outlineTab],
   );
+  const inspectorTab = useMemo<WorkspaceShellTabDefinition>(
+    () => ({
+      id: WORKSPACE_INSPECTOR_TAB_ID,
+      label: "Inspector",
+      icon: FiEdit3,
+      initialFocusRef: inspectorInitialFocusRef,
+      renderContent: () => <WorkspaceInspector initialFocusRef={inspectorInitialFocusRef} />,
+    }),
+    [],
+  );
+  const combinedTrailingTabs = useMemo(
+    () => [inspectorTab, ...trailingTabs],
+    [inspectorTab, trailingTabs],
+  );
   assertOutlineViewState(viewState);
   assertTabs("leading", combinedLeadingTabs, viewState.leading);
-  assertTabs("trailing", trailingTabs, viewState.trailing);
+  assertTabs("trailing", combinedTrailingTabs, viewState.trailing);
 
   function requireMeasuredWidth(): number {
     if (shellWidth <= 0) {
@@ -365,7 +383,7 @@ export function WorkspaceShell({
   useLayoutEffect(() => {
     const previousState = previousViewStateRef.current;
     const focusRequest = focusRequestRef.current;
-    const tabs = { leadingTabs: combinedLeadingTabs, trailingTabs };
+    const tabs = { leadingTabs: combinedLeadingTabs, trailingTabs: combinedTrailingTabs };
     const focusRequestStatus = applyRequestedFocus(focusRequest, viewState, tabs, tabRefs.current);
     if (focusRequestStatus === "fulfilled") {
       focusRequestRef.current = null;
@@ -380,7 +398,7 @@ export function WorkspaceShell({
       }
     }
     previousViewStateRef.current = viewState;
-  }, [combinedLeadingTabs, trailingTabs, viewState]);
+  }, [combinedLeadingTabs, combinedTrailingTabs, viewState]);
 
   useLayoutEffect(() => {
     const center = centerRef.current;
@@ -418,7 +436,7 @@ export function WorkspaceShell({
     const next = selectWorkspaceShellTab(viewStateRef.current, pane, tabId, requireMeasuredWidth());
     const tab = getTab(pane, tabId, {
       leadingTabs: combinedLeadingTabs,
-      trailingTabs,
+      trailingTabs: combinedTrailingTabs,
     });
     requestViewState(next, {
       pane,
@@ -446,7 +464,10 @@ export function WorkspaceShell({
     pane: WorkspaceShellPaneSide,
     tabId: string,
   ): void {
-    const tabs = getTabs(pane, { leadingTabs: combinedLeadingTabs, trailingTabs });
+    const tabs = getTabs(pane, {
+      leadingTabs: combinedLeadingTabs,
+      trailingTabs: combinedTrailingTabs,
+    });
     const currentIndex = tabs.findIndex((tab) => tab.id === tabId);
     let nextIndex: number | null = null;
     if (event.key === "ArrowDown") {
@@ -608,7 +629,7 @@ export function WorkspaceShell({
         pane="trailing"
         paneState={displayState.trailing}
         regionStyle={getRegionStyle(getWorkspaceShellPaneTrueWidth(displayState.trailing))}
-        tabs={trailingTabs}
+        tabs={combinedTrailingTabs}
       />
       <div className="setta-workspace-shell-controls">
         <WorkspaceControls />

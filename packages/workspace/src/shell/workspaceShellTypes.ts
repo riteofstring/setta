@@ -49,8 +49,8 @@ export type WorkspaceShellLeadingPaneCameraMode = "shift-with-pane" | "preserve-
 export type WorkspaceShellProps = {
   viewState: WorkspaceShellViewState;
   onViewStateChange: (nextState: WorkspaceShellViewState) => void;
-  // Package tabs are composed before these host extensions. `outline` is reserved by the
-  // built-in leading tab and therefore fails the same duplicate-id validation as any collision.
+  // Package tabs are composed before these host extensions. `outline` and `inspector` are
+  // reserved by their built-in panes and fail the same duplicate-id validation as a host collision.
   leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
   trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
   // Frozen main's default setting shifts the map with the leading pane. In an integrated shell,

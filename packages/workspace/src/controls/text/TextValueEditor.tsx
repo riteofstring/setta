@@ -2,7 +2,7 @@ import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import { applyActiveSectionChange } from "../../canvas/activeSectionController";
-import { useItemSelectionMode } from "../../document/itemSelectionMode";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
 import { focusSectionAfterEscape } from "../sectionFocus";
 import { DummyCodeMirror } from "./DummyCodeMirror";
@@ -170,7 +170,7 @@ function TextValueEditorCore({
 }: TextValueEditorCoreProps) {
   const [activationEvent, setActivationEvent] = useState<TextValueActivationEvent | null>(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
-  const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
+  const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
   const theme = useTextValueTheme();
   const presentationConfig = getTextValuePresentationConfig(

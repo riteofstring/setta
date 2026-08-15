@@ -228,6 +228,7 @@ describe("WorkspaceShell", () => {
     expect(getButton("Notes").tabIndex).toBe(0);
     expect(getButton("Outline").tabIndex).toBe(-1);
     expect(getButton("Guide").tabIndex).toBe(-1);
+    expect(getButton("Inspector").tabIndex).toBe(-1);
     expect(host.querySelector('[role="tabpanel"] h2')?.textContent).toBe("Notes");
     expect(host.textContent).toContain("Notes content");
     expect(host.textContent).not.toContain("Details content");
@@ -246,6 +247,19 @@ describe("WorkspaceShell", () => {
     expect(tree?.tabIndex).toBe(0);
     expect(document.activeElement).toBe(tree);
     expect(getButton("Outline").getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("prepends the built-in Inspector and focuses its reference empty state", async () => {
+    await act(async () => {
+      getButton("Inspector").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const inspector = host.querySelector<HTMLElement>(
+      '[aria-label="Workspace Inspector selection"]',
+    );
+    expect(inspector?.textContent).toContain("Select A Section to Edit");
+    expect(document.activeElement).toBe(inspector);
+    expect(getButton("Inspector").getAttribute("aria-selected")).toBe("true");
   });
 
   it("opens a registered tab into its requested focus target and restores its rail tab on close", async () => {
@@ -284,8 +298,8 @@ describe("WorkspaceShell", () => {
         new KeyboardEvent("keydown", { bubbles: true, key: "Home" }),
       );
     });
-    expect(document.activeElement).toBe(getButton("Details"));
-    expect(host.textContent).toContain("Details content");
+    expect(document.activeElement).toBe(getButton("Inspector"));
+    expect(host.textContent).toContain("Select A Section to Edit");
   });
 
   it("resizes by keyboard in logical direction and exposes separator values", async () => {

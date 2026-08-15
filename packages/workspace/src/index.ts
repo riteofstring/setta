@@ -110,6 +110,7 @@ export { registerSectionKinds } from "./document/sectionKindRegistry";
 export type {
   MetaControlSectionPresentation,
   SectionKindDefinition,
+  WorkspaceInspectorContributionContext,
 } from "./document/sectionKindRegistry";
 export { useWorkspaceAppearance } from "./document/stores";
 export type { WorkspaceAppearanceState, WorkspaceColorMode } from "./document/stores";
@@ -168,6 +169,7 @@ export { WorkspaceItemList } from "./items/WorkspaceItemList";
 export type { WorkspaceItemListProps } from "./items/WorkspaceItemList";
 export { WorkspaceShell } from "./shell/WorkspaceShell";
 export {
+  WORKSPACE_INSPECTOR_TAB_ID,
   WORKSPACE_OUTLINE_TAB_ID,
   createWorkspaceShellViewState,
 } from "./shell/workspaceShellLayout";

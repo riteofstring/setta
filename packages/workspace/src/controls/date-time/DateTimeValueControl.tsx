@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { useItemSelectionMode } from "../../document/itemSelectionMode";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
 import { getElementTextDirection } from "../../styles/textDirection";
 import { focusSectionAfterEscape } from "../sectionFocus";
@@ -243,7 +243,7 @@ export function MetaDateValueControl(props: DateValueControlProps) {
 function DateValueControlCore(
   props: DateValueControlProps & { presentation: DateTimePresentation },
 ) {
-  const isSelectingItems = useItemSelectionMode((state) => state.isSelectingItems);
+  const isSelectingItems = useItemSelectionModeForControl();
   const config = resolveDateValueControlConfig(props);
   const isDisabled = config.disabled || isSelectingItems;
   assertDateConfig(config);
@@ -321,7 +321,7 @@ function TimeValueControlCore({
   disabled = false,
   presentation,
 }: TimeValueControlProps & { presentation: DateTimePresentation }) {
-  const isSelectingItems = useItemSelectionMode((state) => state.isSelectingItems);
+  const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
   assertTimeConfig({ controlMode, displayFormat, scale, font });
   const classes = getDateTimeClasses(presentation, isDisabled, isSelectingItems);

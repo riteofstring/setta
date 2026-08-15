@@ -148,9 +148,9 @@ describe("workspace shell layout", () => {
     );
   });
 
-  it("defaults the built-in leading tab to Outline", () => {
-    expect(
-      createWorkspaceShellViewState({ trailingTabId: "inspector" }).leading.selectedTabId,
-    ).toBe("outline");
+  it("defaults to the built-in Outline and Inspector tabs", () => {
+    const state = createWorkspaceShellViewState();
+    expect(state.leading.selectedTabId).toBe("outline");
+    expect(state.trailing.selectedTabId).toBe("inspector");
   });
 });

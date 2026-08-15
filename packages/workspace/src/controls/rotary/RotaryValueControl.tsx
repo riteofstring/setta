@@ -1,5 +1,5 @@
 import { useRef, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
-import { useItemSelectionMode } from "../../document/itemSelectionMode";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import {
   MANUAL_WHEEL_CLASS_NAME,
   NO_DRAG_CLASS_NAME,
@@ -50,7 +50,7 @@ export function RotaryValueControl({
 }: RotaryValueControlProps) {
   assertNumericControlConfig("RotaryValueControl", { min, max, step });
   const pointerIdRef = useRef<number | null>(null);
-  const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
+  const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
   const clampedValue = parseValue(value, min, max);
   const indicatorAngle = getAngleFromValue(clampedValue, min, max);

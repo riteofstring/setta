@@ -7,7 +7,7 @@ import {
   type RefObject,
 } from "react";
 import { FiUploadCloud } from "react-icons/fi";
-import { useItemSelectionMode } from "../../document/itemSelectionMode";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
@@ -226,7 +226,7 @@ export function DropzoneValueControl(props: DropzoneValueControlProps) {
   const resolvedProps = resolveDropzoneProps(props);
   assertDropzonePolicy(resolvedProps.policy);
   assertDropzoneAttachments(resolvedProps.attachments, resolvedProps.policy);
-  const isSelectingItems = useItemSelectionMode((state) => state.isSelectingItems);
+  const isSelectingItems = useItemSelectionModeForControl();
   return (
     <DropzoneValueControlView
       {...resolvedProps}

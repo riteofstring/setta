@@ -900,6 +900,385 @@ input.setta-workspace-native-color::-moz-focus-inner {
   overscroll-behavior: contain;
 }
 
+/* Built-in Inspector. The pane title, empty-state scale, 12/16 labels, 30 px configuration
+ * controls, colors, and spacing follow the frozen UI Editor capture. The selection-aware forms
+ * add explicit focus/error/status behavior and keep all validation chrome inside the pane. */
+.setta-workspace-inspector,
+.setta-workspace-inspector-branch {
+  min-width: 0;
+  min-height: 100%;
+}
+
+.setta-workspace-inspector {
+  color: rgb(43 54 74);
+  font-family:
+    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    "Noto Color Emoji";
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector {
+  color: rgb(182 192 211);
+}
+
+.setta-workspace-inspector-branch:focus-visible {
+  outline: 2px solid rgb(37 99 235);
+  outline-offset: -2px;
+}
+
+.setta-workspace-inspector-empty {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: rgb(86 105 143);
+  text-align: center;
+}
+
+.setta-workspace-inspector-empty svg {
+  width: 80px;
+  height: 80px;
+  color: rgb(182 192 211);
+  stroke-width: 1.25;
+}
+
+.setta-workspace-inspector-empty h3 {
+  margin: 0;
+  color: rgb(150 164 192);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 28px;
+  letter-spacing: 0.1em;
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-empty svg {
+  color: rgb(43 54 74);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-empty h3 {
+  color: rgb(65 80 108);
+}
+
+.setta-workspace-inspector-editor,
+.setta-workspace-inspector-unsupported {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 8px 24px;
+}
+
+.setta-workspace-inspector-section-heading {
+  display: flex;
+  min-width: 0;
+  min-height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-block-end: 1px solid rgb(182 192 211 / 55%);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-section-heading {
+  border-block-end-color: rgb(43 54 74 / 70%);
+}
+
+.setta-workspace-inspector-section-heading h3,
+.setta-workspace-inspector-unsupported h3,
+.setta-workspace-inspector-unsupported h4,
+.setta-workspace-inspector-config h4,
+.setta-workspace-inspector-size h4 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: rgb(65 80 108);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-section-heading h3,
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-unsupported h3,
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-unsupported h4,
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-config h4,
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-size h4 {
+  color: rgb(150 164 192);
+}
+
+.setta-workspace-inspector-section-heading > span {
+  flex: none;
+  color: rgb(100 116 139);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.setta-workspace-inspector-field,
+.setta-workspace-inspector-config,
+.setta-workspace-inspector-size {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setta-workspace-inspector-config,
+.setta-workspace-inspector-size,
+.setta-workspace-inspector-contribution {
+  padding-block-start: 12px;
+  border-block-start: 1px solid rgb(182 192 211 / 45%);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-config,
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-size,
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-contribution {
+  border-block-start-color: rgb(43 54 74 / 70%);
+}
+
+.setta-workspace-inspector-label,
+.setta-workspace-inspector-size label > span {
+  color: rgb(86 105 143);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.setta-workspace-inspector-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid rgb(182 192 211 / 70%);
+  border-radius: 4px;
+  background-color: rgb(255 255 255 / 55%);
+  color: rgb(43 54 74);
+  font: inherit;
+  line-height: 18px;
+}
+
+select.setta-workspace-inspector-input {
+  border-radius: 9999px;
+  padding-inline: 12px 30px;
+}
+
+textarea.setta-workspace-inspector-input {
+  min-height: 76px;
+  resize: vertical;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-input {
+  border-color: rgb(43 54 74 / 70%);
+  background-color: rgb(11 14 19);
+  color: rgb(182 192 211);
+}
+
+.setta-workspace-inspector-input:focus-visible,
+.setta-workspace-inspector button:focus-visible,
+.setta-workspace-inspector input[type="checkbox"]:focus-visible,
+.setta-workspace-inspector-item-name [tabindex]:focus-visible {
+  outline: 2px solid rgb(37 99 235);
+  outline-offset: 2px;
+}
+
+.setta-workspace-inspector-input[aria-invalid="true"] {
+  border-color: rgb(220 38 38);
+  outline-color: rgb(220 38 38);
+}
+
+.setta-workspace-inspector-help,
+.setta-workspace-inspector-error,
+.setta-workspace-inspector-unsupported p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.setta-workspace-inspector-help,
+.setta-workspace-inspector-unsupported p {
+  color: rgb(100 116 139);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-help,
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-unsupported p {
+  color: rgb(86 105 143);
+}
+
+.setta-workspace-inspector-error {
+  color: rgb(185 28 28);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-error {
+  color: rgb(252 165 165);
+}
+
+.setta-workspace-inspector-readonly-row {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: rgb(86 105 143);
+}
+
+.setta-workspace-inspector-readonly-value {
+  min-width: 0;
+  overflow: hidden;
+  color: rgb(43 54 74);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-readonly-value {
+  color: rgb(182 192 211);
+}
+
+.setta-workspace-inspector-checkbox {
+  display: flex;
+  min-height: 32px;
+  cursor: pointer;
+  align-items: center;
+  gap: 8px;
+  color: rgb(65 80 108);
+  touch-action: manipulation;
+}
+
+.setta-workspace-inspector-checkbox input {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  accent-color: rgb(37 99 235);
+}
+
+.setta-workspace-inspector-checkbox:has(input:disabled),
+.setta-workspace-inspector button:disabled,
+.setta-workspace-inspector-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.setta-workspace-inspector-toggle-grid,
+.setta-workspace-inspector-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.setta-workspace-inspector-toggle,
+.setta-workspace-inspector-actions button,
+.setta-workspace-inspector-primary-action {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid rgb(182 192 211 / 70%);
+  border-radius: 4px;
+  background-color: transparent;
+  color: rgb(65 80 108);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  touch-action: manipulation;
+}
+
+.setta-workspace-inspector-toggle[aria-pressed="true"],
+.setta-workspace-inspector-primary-action {
+  border-color: rgb(59 130 246 / 75%);
+  background-color: rgb(219 234 254);
+  color: rgb(30 64 175);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-toggle,
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-actions button,
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-primary-action {
+  border-color: rgb(43 54 74 / 70%);
+  color: rgb(150 164 192);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-toggle[aria-pressed="true"],
+.setta-workspace.setta-workspace-dark .setta-workspace-inspector-primary-action {
+  border-color: rgb(59 130 246);
+  background-color: rgb(30 58 138 / 65%);
+  color: rgb(239 246 255);
+}
+
+.setta-workspace-inspector-actions .setta-workspace-inspector-danger-action {
+  border-color: rgb(248 113 113 / 65%);
+  color: rgb(185 28 28);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-inspector-actions
+  .setta-workspace-inspector-danger-action {
+  border-color: rgb(127 29 29);
+  color: rgb(252 165 165);
+}
+
+.setta-workspace-inspector-size-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.setta-workspace-inspector-size-fields label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.setta-workspace-inspector-resolved-size {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  color: rgb(100 116 139);
+  font-size: 11px;
+}
+
+.setta-workspace-inspector-item-name,
+.setta-workspace-inspector-value {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.setta-workspace-inspector-item-name > *,
+.setta-workspace-inspector-item-name .section-key,
+.setta-workspace-inspector-item-name .section-key-value,
+.setta-workspace-inspector-value > *,
+.setta-workspace-inspector-value .section-value,
+.setta-workspace-inspector-value .section-lg-value {
+  width: 100%;
+  min-width: 0;
+  grid-column: 1;
+  grid-row: auto;
+}
+
+.setta-workspace-inspector-contribution {
+  min-width: 0;
+}
+
+@media (forced-colors: active) {
+  .setta-workspace-inspector-input,
+  .setta-workspace-inspector-toggle,
+  .setta-workspace-inspector-actions button,
+  .setta-workspace-inspector-primary-action {
+    border: 1px solid CanvasText;
+  }
+
+  .setta-workspace-inspector-input:focus-visible,
+  .setta-workspace-inspector button:focus-visible {
+    outline-color: Highlight;
+  }
+}
+
 /* Built-in Outline. The 12/16 type, 20 px painted row, 12 px depth step, tag dot, idle/hover
  * colors, and focused blue surface come from frozen main's Overview. Tree disclosure, registered
  * kind icons, selected-state paint, and the 24 px non-overlapping hit row implement the milestone's

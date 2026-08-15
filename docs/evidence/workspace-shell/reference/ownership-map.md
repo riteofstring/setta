@@ -96,6 +96,13 @@ pair and their shared pure negotiation rules are candidates for the shell.
 | API/project id, optimistic operations, settings persistence, preview stores       | UI/section config descendants                  | Persistence/backend state               | Exclude all transports and previews; one canonical package mutation notifies once                          |
 | Selected item ids                                                                 | **Not read by `UiEditor` or `UIConfig`**       | Developer-authorized package behavior   | The planned item Inspector is governed by the milestone contract and uses main only as a presentation seed |
 
+The completed dark/light UI Editor capture is indexed in
+[`README.md`](README.md#ui-editor-capture-complete), with exact reusable presentation facts in
+[`computed/inspector-style-metrics.json`](computed/inspector-style-metrics.json) and the selection
+path/authority boundary in [`interactions/inspector-trace.json`](interactions/inspector-trace.json).
+It confirms this classification: frozen main supplies no-selection, sole-section, and all-parameter
+states, while item and multi-section selection remain milestone-authorized package behavior.
+
 The first implementation batch replaces the playground-only decoder in
 `apps/playground/src/sectionKinds.tsx` and its `WorkspaceItem.data.control` fixtures directly. It
 must add no alias, legacy data decoder, migration, dual renderer, or fallback. Custom opaque items

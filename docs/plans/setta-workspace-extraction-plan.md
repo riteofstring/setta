@@ -1736,6 +1736,37 @@ Phase 4 progress (2026-08-11):
   verified by the supervising agent. This was not a developer gate. Inspector reference capture and
   batch 4 remain repository-actionable, and future capture iterations must use the recorded service
   endpoints rather than infer ports from unrelated processes.
+- Workspace-shell Inspector batch complete (2026-08-12): the frozen `/settings` UI Editor evidence
+  now indexes six original-pixel dark/light desktop captures for no selection, the stable `backend`
+  Section tab, and its Params configuration presentation, together with screenshot hashes, exact
+  pane/empty-state/label/control metrics, real-pointer state traces, and the executable-reference
+  versus authorized-selection boundary. The frozen `gui` configuration's existing
+  `ColorPickerInput.tsx` undefined-choices failure is recorded once; the stable section supplies the
+  required evidence without treating that product defect as package behavior or a waived gate.
+  `WorkspaceShell` now prepends the package-owned Inspector to trailing host tabs and defaults its
+  serializable trailing tab id accordingly. Its canonical selection model renders the captured
+  empty state; one-section identity, name, accent, lock/minimize, authored/resolved size, and group
+  orientation fields; one typed item's editable label/value, ordinary UI type, and exact
+  type-specific configuration; explicit multiple-item guidance; host contributions for read-only
+  custom section/item contexts; and capability-gated mixed/multi-section lock, group, and delete.
+  Inline validation, field Escape restoration, last-meaningful focus, and one persistent polite
+  selection/mutation status stay inside the pane. New canonical funnels normalize/reproject style
+  accents atomically and batch lock, subtree delete, and same-parent grouping through one host
+  notification; grouping preserves sibling order and atomically publishes document, nodes, and
+  selection. The integrated Inspector's reused controls opt out of canvas-row suppression locally,
+  so item-selection mode remains active and multi-selection reachable while Inspector label/value
+  editing stays enabled. The playground and packed unrelated consumer demonstrate the built-in tab
+  and typed host contributions through public exports only. Focused package Inspector/mutation/
+  registry/shell/control/RTL-style coverage passes (85 tests, plus 10 direct item-select control
+  regressions), as does focused playground coverage (20 tests), changed-file quality, package and
+  playground production builds, the source/compiled boundary, and the exact packed unrelated-
+  consumer install/typecheck/build. Live Chrome checks in dark/light at 1492 x 696 exercised
+  section accent/lock and locked-size behavior, typed-item UI-type and decimal-configuration edits
+  while item-select mode remained active, and mixed multi-section state; the light 320 x 696 host
+  retained the full Inspector workflow at exactly 320 px document width with no page overflow. No
+  dependency changed, so the supply-chain gate is not duplicated. This completes implementation
+  batch 4; context-menu evidence and batch 5 are next, and no package-output baseline or developer
+  visual approval is claimed before the combined milestone gate.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

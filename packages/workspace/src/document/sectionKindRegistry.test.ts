@@ -22,6 +22,21 @@ describe("sectionKindRegistry", () => {
     expect(getRegisteredSectionKindOrThrow("leaf")).toBe(leaf);
   });
 
+  it("retains a typed host Inspector contribution", () => {
+    const renderInspector = () => "Inspector content";
+    registerSectionKinds({ leaf: { renderContent: () => null, renderInspector } });
+
+    expect(getRegisteredSectionKindOrThrow("leaf").renderInspector).toBe(renderInspector);
+  });
+
+  it("rejects a malformed Inspector contribution", () => {
+    expect(() =>
+      registerSectionKinds({
+        leaf: { renderContent: () => null, renderInspector: "bad" },
+      } as unknown as Record<string, SectionKindDefinition>),
+    ).toThrowError(/renderInspector must be a function/);
+  });
+
   it("throws for an unregistered kind, naming it", () => {
     registerSectionKinds({ leaf: makeDefinition() });
     expect(() => getRegisteredSectionKindOrThrow("mystery")).toThrowError(

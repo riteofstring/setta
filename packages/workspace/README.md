@@ -15,8 +15,9 @@ transition paths are provided.
 ## Public composition surface
 
 - `WorkspaceShell` is the package-owned integrated surface. It composes the canvas, controls,
-  tooltip, logical leading/trailing rails, controlled panes, and the built-in leading Outline.
-  Hosts register additional typed tabs with icons and content rendered from public props only.
+  tooltip, logical leading/trailing rails, controlled panes, the built-in leading Outline, and the
+  built-in trailing Inspector. Hosts register additional typed tabs with icons and content rendered
+  from public props only.
 - `createWorkspaceShellViewState` creates the initial serializable pane state. Hosts own that value
   and apply the shell's single `onViewStateChange` callback directly or persist it separately from
   `WorkspaceDocument`. The same value owns Outline disclosure and roving-focus state; canonical
@@ -25,9 +26,10 @@ transition paths are provided.
   intentionally does not want the integrated shell. The canvas fills its host element; a
   standalone host owns the other surfaces' placement.
 - `registerSectionKinds` is the section extension point. Each kind supplies opaque-content
-  rendering, an optional icon, and an optional default size. Ordinary content is automatically
-  placed in the package-owned body slot; `contentClassName` adds host padding or layout to that
-  wrapper without exposing the section grid vocabulary.
+  rendering, an optional icon, an optional default size, and an optional typed Inspector
+  contribution for custom section or item content. Ordinary content is automatically placed in the
+  package-owned body slot; `contentClassName` adds host padding or layout to that wrapper without
+  exposing the section grid vocabulary.
 - `WorkspaceItemList` and `ItemDndContext` render item trees. Items with a typed `presentation`
   use the package's editable label and built-in control directly; a list needs `renderItem` only
   for custom opaque items. `WorkspaceItemLabel` remains the grid-safe label helper for that custom
@@ -39,12 +41,12 @@ utility, or package-private DOM selector as an extension API.
 
 ## Controlled workspace shell
 
-The built-in `Outline` is always the first leading tab; `WORKSPACE_OUTLINE_TAB_ID` is its reserved
-id. A host supplies zero or more additional leading tabs and one or more trailing tabs with unique
-stable ids, non-empty labels, decorative icon components, and render functions. The selected tab,
-visibility, current width, remembered non-full width, Outline disclosure, and Outline keyboard
-focus are controlled serializable view state, deliberately separate from the canonical workspace
-document.
+The built-in `Outline` is always the first leading tab and the built-in `Inspector` is always the
+first trailing tab; `WORKSPACE_OUTLINE_TAB_ID` and `WORKSPACE_INSPECTOR_TAB_ID` are their reserved
+ids. A host supplies zero or more additional tabs on either side with unique stable ids, non-empty
+labels, decorative icon components, and render functions. The selected tab, visibility, current
+width, remembered non-full width, Outline disclosure, and Outline keyboard focus are controlled
+serializable view state, deliberately separate from the canonical workspace document.
 
 ```tsx
 const leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
@@ -98,6 +100,16 @@ typeahead, and restores focus deterministically after document changes. Pointer 
 activation combine the canvas selection policy with the public `focusWorkspaceSection` command.
 Hosts may call that command directly to fit a mounted section at no more than 100% zoom; it never
 changes canonical selection.
+
+The Inspector projects canonical section and typed-item selection. Its empty state mirrors the
+frozen UI Editor; one section exposes package-owned identity, name, accent, lock/minimize,
+authored/resolved size, and group orientation; one typed item reuses the built-in label/value
+controls and exposes only the selected UI type's valid configuration. Multiple sections expose only
+batch lock/unlock, group, and delete, including an explicit mixed lock state. Every mutation uses
+the existing document funnels and change callback. Custom section or item data is never decoded:
+the owning section kind receives a read-only `WorkspaceInspectorContributionContext`, or the pane
+shows an explicit unsupported state. The Inspector owns inline validation, Escape restoration for
+its configuration fields, and a persistent polite mutation/selection status.
 
 Custom interactive renderer content uses only the four exported interaction-boundary constants:
 `NO_DRAG_CLASS_NAME` prevents section/item drag activation and `NO_PAN_CLASS_NAME` preserves the
@@ -227,10 +239,12 @@ colors, attachment metadata, and dropzone limits reject malformed values at load
 boundaries. A structural root has neither presentation nor opaque data. A row cannot carry both a
 typed presentation and opaque `data`.
 
-Changing UI type uses `setItemPresentation` with the complete next control (kind, value, and
-configuration); the package never guesses defaults while switching types. Configuration-only
-edits carry their current kind to `setItemControlConfiguration`, so a stale Inspector write fails
-instead of applying options to the wrong control.
+Changing UI type directly uses `setItemPresentation` with the complete next control (kind, value,
+and configuration); callers outside the integrated Inspector still supply that complete value. The
+Inspector applies its explicit valid default for the chosen ordinary type, preserving the previous
+value only where that type accepts it, and then exposes the full type-specific configuration for
+editing. Configuration-only edits carry their current kind to `setItemControlConfiguration`, so a
+stale Inspector write fails instead of applying options to the wrong control.
 
 Browser and host actions are intentionally not serializable. `registerItemHandlers([...])` replaces
 the explicit handler set keyed by section and stable item id; register it before mounting those
@@ -252,7 +266,9 @@ when a loaded section omits `size` (kinds without one load at the reference's au
 default; emitted documents always carry resolved sizes). Groups are the one package-owned
 kind and cannot be registered. Sections may carry application-owned opaque serializable
 `data` (JSON values): the package round-trips it through the document and hands it to the
-kind's renderer without reading it.
+kind's renderer without reading it. A kind may also register `renderInspector(context)` for
+host-owned configuration. The context discriminates a read-only selected section from a read-only
+selected custom item plus its owning section; it exposes no package store or private selector.
 
 A kind whose `presentation.type` is `"meta-control"` projects its opaque data to a package
 `MetaControlKind` and supplies the host callback for the outboard edit affordance. The package then

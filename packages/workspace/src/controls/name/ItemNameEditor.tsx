@@ -2,7 +2,7 @@ import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { useEffect, useState, type MouseEvent } from "react";
 import { applyActiveSectionChange } from "../../canvas/activeSectionController";
-import { useItemSelectionMode } from "../../document/itemSelectionMode";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
 import { focusSectionAfterEscape } from "../sectionFocus";
 import { DummyCodeMirror } from "../text/DummyCodeMirror";
@@ -32,6 +32,7 @@ export type ItemNameEditorProps = {
   language?: TextValueLanguage | null;
   hasChildren?: boolean;
   disabled?: boolean;
+  onEscape?: () => void;
 };
 
 type ResolvedItemNameEditorProps = Omit<
@@ -153,8 +154,9 @@ export function ItemNameEditor(props: ItemNameEditorProps) {
     language,
     hasChildren,
     disabled,
+    onEscape,
   } = resolveItemNameEditorProps(props);
-  const isSelectingItems = useItemSelectionMode((state) => state.isSelectingItems);
+  const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
   const hasError = errorMessage.length > 0;
   const theme = useTextValueTheme("green");
@@ -203,7 +205,7 @@ export function ItemNameEditor(props: ItemNameEditorProps) {
           liveIsInitialized={liveIsInitialized}
           setLiveIsInitialized={setLiveIsInitialized}
           onNameChange={onNameChange}
-          onEscape={() => focusSectionAfterEscape(sectionId)}
+          onEscape={() => (onEscape ? onEscape() : focusSectionAfterEscape(sectionId))}
           onBlur={localOnBlur}
           className={getLiveClassName(hasChildren, hasError)}
           errorId={hasError ? errorId : undefined}

@@ -4,9 +4,9 @@ Reference: `../setta-main` verified clean on `main` at
 `043d3b2e9c69caf99d1246f1408b3ad7194b7864` on 2026-08-12. This directory contains the
 repository-actionable source/ownership preflight and the completed frozen-main pane/rail capture
 required before workspace-shell implementation batch 2, plus the completed Overview capture and
-accepted nested-row index required before batch 3. It is not package-output evidence or developer
-approval. The producible Inspector and context-menu captures remain attached to their corresponding
-later batches.
+accepted nested-row index required before batch 3, and the completed UI Editor capture required
+before batch 4. It is not package-output evidence or developer approval. The producible
+context-menu captures remain attached to batch 5.
 
 The supervised frozen reference service for this milestone is
 `http://127.0.0.1:3063/` (including `http://127.0.0.1:3063/settings`) with its backend on
@@ -76,6 +76,28 @@ is the executable reference. Disclosure, selected-row presentation, ARIA tree se
 focus, Arrow/Home/End/typeahead behavior, registered kind icons, and locked/minimized cues are the
 milestone-authorized package additions documented below.
 
+## UI Editor capture complete
+
+The six original-pixel JPEGs below capture the frozen `/settings` UI Editor at the accepted desktop
+viewport in both appearances. They cover its reusable empty state, one selected section's Section
+configuration, and the same section's Params configuration presentation. Exact pane, title,
+empty-state, label, and control geometry/type/paint plus screenshot hashes are in
+[`computed/inspector-style-metrics.json`](computed/inspector-style-metrics.json). The real-pointer
+state path and the boundary between executable reference behavior and the milestone-authorized
+selection branches are in
+[`interactions/inspector-trace.json`](interactions/inspector-trace.json).
+
+| Files                                                                                                                   | State                                       |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| [`19`](screenshots/19-inspector-empty-dark-1492x696.jpg), [`22`](screenshots/22-inspector-empty-light-1492x696.jpg)     | No canonical section selection              |
+| [`20`](screenshots/20-inspector-section-dark-1492x696.jpg), [`23`](screenshots/23-inspector-section-light-1492x696.jpg) | One selected `backend` section, Section tab |
+| [`21`](screenshots/21-inspector-params-dark-1492x696.jpg), [`24`](screenshots/24-inspector-params-light-1492x696.jpg)   | One selected `backend` section, Params tab  |
+
+The frozen `gui` settings path was also inspected, but its UI configuration crashes in
+`ColorPickerInput.tsx` while mapping undefined `AvailableColors` choices. The trace records that
+frozen-product limitation once. The stable `backend` section supplies the required ordinary
+Section/Params evidence, so the failure neither changes package behavior nor waives a gate.
+
 ## Required live capture matrix
 
 The following states remain uncaptured. Rows marked **producible** have a frozen-main source path
@@ -91,7 +113,7 @@ contract and final combined developer gate govern their implementation.
 | Left/right rails and panes                                                      | **Captured for batch 2**             | Complete in the pane/rail bundle above: closed, open, resized, simultaneous, full-width, restored, viewport-normalized, narrow, focus, paint, seam, stacking, overflow, and transition facts |
 | Overview nested section listing                                                 | **Captured for batch 3**             | Complete through the accepted dark/light nested captures above plus fresh row metrics and the pointer/Space trace                                                                            |
 | Overview collapsed groups, selected-row treatment, and tree keyboard navigation | **Absent / authorized new behavior** | Frozen main has no disclosure state or control, no selected-section row state, no tree semantics, and no roving/arrow navigation to capture; implement the milestone's tree contract         |
-| UI Editor with no selection and exactly one selected section                    | Producible                           | Placeholder and ordinary section/UI configuration presentations in both appearances                                                                                                          |
+| UI Editor with no selection and exactly one selected section                    | **Captured for batch 4**             | Complete in the UI Editor bundle above: placeholder plus Section and Params configuration presentations in both appearances                                                                  |
 | Selection-aware UI Editor for exactly one selected item                         | **Absent / authorized new behavior** | Item selection is not an input to `UiEditor`; use its UI-control presentation as the visual seed and implement the milestone's selected-item contract                                        |
 | Selection-aware UI Editor for multiple selected sections                        | **Absent / authorized new behavior** | Multiple active sections produce the generic placeholder; implement only the common actions expressly named by the milestone                                                                 |
 | Menu-key/Shift+F10 context-menu opening                                         | **Absent / authorized new behavior** | Frozen main opens menus only from pointer `contextmenu`; implement the milestone's keyboard invocation and focus-restoration contract                                                        |
@@ -142,8 +164,8 @@ for the surrounding pane/menu behavior and presentation seeds that it actually i
 reference re-baseline is required, and the source-proven absent states must not be represented as
 matching-main captures.
 
-The pane/rail and Overview captures are complete, so workspace-shell implementation batches 2 and
-3 may proceed. The remaining producible dark/light Inspector and menu states still require capture
-before their corresponding batches. The existing frozen-main service and deterministic browser
-tooling may be used under root supervision; no intermediate developer approval is required. The
-combined milestone gate remains the sole developer visual/interaction approval.
+The pane/rail, Overview, and UI Editor captures are complete, so workspace-shell implementation
+batches 2 through 4 have their required reference inputs. The remaining producible dark/light menu
+states still require capture before batch 5. The existing frozen-main service and deterministic
+browser tooling may be used under root supervision; no intermediate developer approval is
+required. The combined milestone gate remains the sole developer visual/interaction approval.

@@ -1,6 +1,6 @@
 import * as Slider from "@radix-ui/react-slider";
 import { useEffect, useState } from "react";
-import { useItemSelectionMode } from "../../document/itemSelectionMode";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
@@ -124,7 +124,7 @@ function SliderValueControlCore({
   presentation,
 }: SliderValueControlProps & { presentation: SliderPresentation }) {
   assertNumericControlConfig("SliderValueControl", { min, max, step });
-  const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
+  const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
   const numericValue = parseSliderValue(value, min, max);
   const numericFieldCharacterCount = getNumericFieldCharacterCount(min, max, step);

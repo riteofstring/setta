@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
-import { useItemSelectionMode } from "../../document/itemSelectionMode";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
 import { handleSectionControlEscape } from "../sectionFocus";
 
@@ -66,7 +66,7 @@ export function PasswordValueControl({
   savedValueAction,
   disabled = false,
 }: PasswordValueControlProps) {
-  const isSelectingItems = useItemSelectionMode((state) => state.isSelectingItems);
+  const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
 
   return (
@@ -107,7 +107,7 @@ export function MetaPasswordValueControl({
   placeholder,
   disabled = false,
 }: Omit<PasswordValueControlProps, "itemId" | "savedValueAction"> & { controlId: string }) {
-  const isSelectingItems = useItemSelectionMode((state) => state.isSelectingItems);
+  const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
   return (
     <div className={META_WRAPPER_CLASS_NAME}>

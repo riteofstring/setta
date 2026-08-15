@@ -31,6 +31,7 @@ const RUNTIME_EXPORTS = [
   "WorkspaceItemList",
   "WorkspaceShell",
   "WorkspaceTooltip",
+  "WORKSPACE_INSPECTOR_TAB_ID",
   "WORKSPACE_OUTLINE_TAB_ID",
   "activateItemSelect",
   "createWorkspaceShellViewState",

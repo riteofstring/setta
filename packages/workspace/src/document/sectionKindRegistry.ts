@@ -1,7 +1,7 @@
 import type { ComponentType, ReactNode } from "react";
 import type { MetaControlKind } from "../controls/meta/metaControlTypes";
 import { GROUP_SECTION_KIND } from "./documentSelectors";
-import type { SectionSize, WorkspaceSection } from "./types";
+import type { SectionSize, WorkspaceItem, WorkspaceSection } from "./types";
 
 // The registration half of the renderer seam: application-owned section kinds map to their
 // renderer and either ordinary header/default-size metadata or the direct-on-canvas presentation.
@@ -22,6 +22,17 @@ export type MetaControlSectionPresentation = {
   onEdit: (section: WorkspaceSection) => void;
 };
 
+export type WorkspaceInspectorContributionContext =
+  | {
+      type: "section";
+      section: Readonly<WorkspaceSection>;
+    }
+  | {
+      type: "item";
+      section: Readonly<WorkspaceSection>;
+      item: Readonly<WorkspaceItem>;
+    };
+
 type SectionKindBaseDefinition = {
   // Rendered as the section body inside the package-owned shell, chrome, and header. The
   // section carries the kind's opaque `data`; the package never interprets it. Ordinary
@@ -31,6 +42,9 @@ type SectionKindBaseDefinition = {
   // Header icon component, rendered with the reference's icon treatment. Kinds without one
   // render the reference's `gg-menu` fallback glyph.
   icon?: ComponentType<{ className?: string }>;
+  // Custom section data and custom item data stay opaque to the package. A kind may project
+  // either selection into host-owned Inspector UI through this typed, read-only context.
+  renderInspector?: (context: WorkspaceInspectorContributionContext) => ReactNode;
 };
 
 export type SectionKindDefinition = SectionKindBaseDefinition &
@@ -87,6 +101,12 @@ export function registerSectionKinds(kinds: Record<string, SectionKindDefinition
   for (const [kind, definition] of Object.entries(kinds)) {
     if (typeof definition.renderContent !== "function") {
       throw new Error(`Section kind ${kind} must provide renderContent.`);
+    }
+    if (
+      definition.renderInspector !== undefined &&
+      typeof definition.renderInspector !== "function"
+    ) {
+      throw new Error(`Section kind ${kind} renderInspector must be a function.`);
     }
     if (definition.presentation === undefined) {
       continue;

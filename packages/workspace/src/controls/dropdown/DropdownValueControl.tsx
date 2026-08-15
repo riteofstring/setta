@@ -1,7 +1,7 @@
 import { memo, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi2";
-import { useItemSelectionMode } from "../../document/itemSelectionMode";
+import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "../../interaction";
 import { getElementTextDirection, type WorkspaceTextDirection } from "../../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
@@ -102,7 +102,7 @@ function DropdownValueControlCore({
   disabled = false,
   presentation,
 }: DropdownValueControlProps & { presentation: "item-row" | "meta-control" }) {
-  const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
+  const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
   const resolvedPlaceholder =
     placeholder ?? (presentation === "meta-control" ? "Choose" : "Search");

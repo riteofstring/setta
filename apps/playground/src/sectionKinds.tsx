@@ -15,6 +15,7 @@ import {
   type MetaControlDefinition,
   type MetaControlKind,
   type WorkspaceDropzoneItemControlConfiguration,
+  type WorkspaceInspectorContributionContext,
   type WorkspaceSection,
   type WorkspaceSectionData,
 } from "@setta/workspace";
@@ -37,6 +38,19 @@ function getLeafBody(section: WorkspaceSection): string {
 
 function LeafSectionBody({ section }: { section: WorkspaceSection }) {
   return <p className="text-xs text-setta-500 dark:text-setta-400">{getLeafBody(section)}</p>;
+}
+
+function PlaygroundInspectorContribution({
+  context,
+}: {
+  context: WorkspaceInspectorContributionContext;
+}) {
+  const identity = context.type === "section" ? context.section.name : context.item.id;
+  return (
+    <div className="playground-host-pane">
+      <p>Host Inspector contribution for {identity || "unnamed content"}.</p>
+    </div>
+  );
 }
 
 // The item panel now mounts the package-owned typed row presentation directly. The host has no
@@ -628,16 +642,19 @@ export function registerPlaygroundSectionKinds(): void {
   registerSectionKinds({
     leaf: {
       renderContent: (section) => <LeafSectionBody section={section} />,
+      renderInspector: (context) => <PlaygroundInspectorContribution context={context} />,
       contentClassName: "px-1",
       defaultSize: { width: 200, height: 122 },
     },
     "item-list": {
       renderContent: (section) => <ItemListSectionBody section={section} />,
+      renderInspector: (context) => <PlaygroundInspectorContribution context={context} />,
       contentClassName: "flex min-h-0 flex-col",
       defaultSize: { width: 550, height: 350 },
     },
     "meta-control": {
       renderContent: (section) => <MetaControlSectionBody section={section} />,
+      renderInspector: (context) => <PlaygroundInspectorContribution context={context} />,
       presentation: {
         type: "meta-control",
         resolveControlKind: getMetaControlKind,
