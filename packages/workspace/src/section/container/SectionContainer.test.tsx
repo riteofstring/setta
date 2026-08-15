@@ -252,6 +252,20 @@ describe("SectionContainer", () => {
     expect(useSectionRefs.getState().withNested["leaf"]).toBeInstanceOf(HTMLElement);
   });
 
+  it("does not rewrite every section shell when viewport interaction starts", async () => {
+    await mount("leaf");
+    const shell = getRequiredElement(host, '[data-section-id="leaf"]');
+    const restingStyle = shell.getAttribute("style");
+
+    await act(async () => {
+      useReactFlow.setState({ viewportInteractionActive: true });
+    });
+
+    expect(shell.getAttribute("style")).toBe(restingStyle);
+    expect(shell.style.willChange).toBe("");
+    expect(shell.style.transform).toBe("");
+  });
+
   it("opens section menus from pointer or keyboard while retaining native control menus", async () => {
     await mount("leaf");
     const shell = getRequiredElement(host, '[data-section-id="leaf"]');

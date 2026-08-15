@@ -709,6 +709,7 @@ function summarize(render, pan, drag) {
       medianTaskDurationMs: roundedMedian(drag.map(({ cdp }) => cdp.TaskDurationMs)),
     },
     pan: {
+      maxActivationFrameGapMs: Math.max(...pan.map(({ activation }) => activation.maxGapMs)),
       maxLongTaskMs: maxLongTask(pan),
       maxSustainedFrameGapMs: Math.max(...pan.map(({ sustained }) => sustained.maxGapMs)),
       medianScriptDurationMs: roundedMedian(pan.map(({ cdp }) => cdp.ScriptDurationMs)),

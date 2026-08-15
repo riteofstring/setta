@@ -123,6 +123,20 @@ const isPointerStartEvent = (eventType: string): boolean =>
 
 const isWheelEventType = (eventType: string): boolean => eventType === "wheel";
 
+const VIEWPORT_INTERACTION_ACTIVE_ATTRIBUTE = "data-viewport-interaction-active";
+
+function markViewportInteractionActive(active: boolean): void {
+  const canvas = useReactFlow.getState().domNode;
+  if (!canvas) {
+    return;
+  }
+  if (active) {
+    canvas.setAttribute(VIEWPORT_INTERACTION_ACTIVE_ATTRIBUTE, "true");
+    return;
+  }
+  canvas.removeAttribute(VIEWPORT_INTERACTION_ACTIVE_ATTRIBUTE);
+}
+
 export function getViewportInteractionActiveValue({
   isPanScrolling,
   isWheelZooming,
@@ -136,13 +150,15 @@ function syncViewportInteractionActive({
   isWheelZooming,
   isZoomingOrPanning,
 }: ViewportInteractionRefs) {
-  useReactFlow.setState({
-    viewportInteractionActive: getViewportInteractionActiveValue({
-      isPanScrolling: isPanScrolling.current,
-      isWheelZooming: isWheelZooming.current,
-      isZoomingOrPanning: isZoomingOrPanning.current,
-    }),
+  const active = getViewportInteractionActiveValue({
+    isPanScrolling: isPanScrolling.current,
+    isWheelZooming: isWheelZooming.current,
+    isZoomingOrPanning: isZoomingOrPanning.current,
   });
+  markViewportInteractionActive(active);
+  if (useReactFlow.getState().viewportInteractionActive !== active) {
+    useReactFlow.setState({ viewportInteractionActive: active });
+  }
 }
 
 export function resetViewportInteractionState({
@@ -157,6 +173,7 @@ export function resetViewportInteractionState({
   isZoomingOrPanning.current = false;
   clearTimeout(panScrollTimeout.current);
   clearTimeout(wheelZoomTimeout.current);
+  markViewportInteractionActive(false);
   useReactFlow.setState({
     paneDragging: false,
     viewportInteractionActive: false,
@@ -1025,6 +1042,7 @@ function useZoomPaneInit(zoomPane: RefObject<HTMLDivElement | null>) {
     // effects clean up after children), and the next mount's `getInitialCanvasViewport` resets
     // them from the document either way.
     return () => {
+      markViewportInteractionActive(false);
       useReactFlow.setState({
         d3Zoom: null,
         d3Selection: null,

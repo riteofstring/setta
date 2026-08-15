@@ -1,6 +1,5 @@
-import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
+import type { KeyboardEvent, MouseEvent } from "react";
 import { applyActiveSectionChange } from "../../canvas/activeSectionController";
-import { useViewportInteractionActive } from "../../canvas/useViewportInteractionActive";
 import { openWorkspaceSectionMenu } from "../../context-menu/workspaceMenuInvocation";
 import {
   getOwnerKeyboardMenuPoint,
@@ -23,16 +22,16 @@ import { SectionContainerContent } from "./SectionContainerContent";
 
 // The reference's `SectionContainerCore`: the leaf section shell. Selection is outline-only on
 // an absolutely positioned overlay, so neither selection nor border presence shifts layout, and
-// the shell hoists itself onto the compositor while the viewport is panning or zooming. The
-// edge-handle layers, AI/agentic highlights, and style-color previews remain excluded; the
-// direct-on-canvas milestone restores the reference's transparent shell branch. The reference
-// renders the shell as a `<section>`; the repository's accessibility gate forbids interactive
-// roles on sections, so the package renders a visually identical `<div>`.
+// the shell is prepared for compositor promotion by the canvas stylesheet before viewport motion.
+// Keeping that preparation at the canvas boundary avoids re-rendering every section on the first
+// pan frame. The edge-handle layers, AI/agentic highlights, and style-color previews remain
+// excluded; the direct-on-canvas milestone restores the reference's transparent shell branch. The
+// reference renders the shell as a `<section>`; the repository's accessibility gate forbids
+// interactive roles on sections, so the package renders a visually identical `<div>`.
 export function SectionContainerCore({ sectionId }: { sectionId: string }) {
   const section = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId));
   const isActiveSection = useActiveSections((x) => x.activeIds.includes(sectionId));
   const darkMode = useWorkspaceAppearance((x) => x.darkMode);
-  const viewportInteractionActive = useViewportInteractionActive();
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const isMetaControl = getMetaControlPresentation(section) !== null;
 
@@ -48,10 +47,7 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
     positionAndSizeLocked: section.positionAndSizeLocked,
     useMetaControlStyle: isMetaControl,
   });
-  const sectionShellStyle = getSectionShellStyle(
-    resolveSectionStyleVars(sectionStyleTheme),
-    viewportInteractionActive,
-  );
+  const sectionShellStyle = resolveSectionStyleVars(sectionStyleTheme);
 
   // The reference activates sections through its app-level shortcut engine; the package keeps
   // keyboard activation on the shell itself for the repository's accessibility gate. A group
@@ -111,20 +107,4 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
       <SectionContainerContent section={section} hasSectionStyleTheme={hasSectionStyleTheme} />
     </div>
   );
-}
-
-function getSectionShellStyle(
-  sectionStyleVars: CSSProperties | undefined,
-  viewportInteractionActive: boolean,
-): CSSProperties | undefined {
-  if (!viewportInteractionActive) {
-    return sectionStyleVars;
-  }
-  return {
-    ...sectionStyleVars,
-    willChange: "transform",
-    transform: "translateZ(0)",
-    backfaceVisibility: "hidden",
-    isolation: "isolate",
-  } satisfies CSSProperties;
 }

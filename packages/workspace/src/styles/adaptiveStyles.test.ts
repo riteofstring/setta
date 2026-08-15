@@ -33,6 +33,19 @@ describe("workspace adaptive stylesheet contract", () => {
     );
   });
 
+  it("prepares section compositor layers before pan starts without a per-section state fanout", () => {
+    expect(workspaceStyles).toContain(".setta-workspace.react-flow:hover [data-section-id]");
+    expect(workspaceStyles).toContain(
+      '.setta-workspace.react-flow[data-viewport-interaction-active="true"] [data-section-id]',
+    );
+    expect(workspaceStyles).toMatch(
+      /\.setta-workspace\.react-flow:hover \[data-section-id\][^{]*\{[^}]*will-change: transform[^}]*transform: translateZ\(0\)[^}]*backface-visibility: hidden[^}]*isolation: isolate/su,
+    );
+    expect(workspaceStyles).toMatch(
+      /@media \(hover: none\)[^{]*\{[^}]*\.setta-workspace\.react-flow \[data-section-id\]/su,
+    );
+  });
+
   it("keeps shell motion bounded and maps pane chrome to logical edges", () => {
     expect(workspaceStyles).toContain('.setta-workspace-shell-pane[data-pane="leading"]');
     expect(workspaceStyles).toContain("inset-inline-start: 0");

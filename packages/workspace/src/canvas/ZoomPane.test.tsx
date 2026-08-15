@@ -275,7 +275,10 @@ describe("getViewportInteractionActiveValue", () => {
   it("clears gesture flags during teardown", () => {
     const panScrollTimeout = { current: setTimeout(() => undefined, 1000) };
     const wheelZoomTimeout = { current: setTimeout(() => undefined, 1000) };
+    const canvas = document.createElement("div");
+    canvas.setAttribute("data-viewport-interaction-active", "true");
     useReactFlow.setState({
+      domNode: canvas,
       paneDragging: true,
       viewportInteractionActive: true,
     });
@@ -290,6 +293,7 @@ describe("getViewportInteractionActiveValue", () => {
 
     expect(useReactFlow.getState().viewportInteractionActive).toBe(false);
     expect(useReactFlow.getState().paneDragging).toBe(false);
+    expect(canvas.hasAttribute("data-viewport-interaction-active")).toBe(false);
   });
 
   it("distinguishes native wheel areas from manually consumed controls", async () => {
@@ -313,6 +317,7 @@ describe("getViewportInteractionActiveValue", () => {
       });
       expect(useReactFlow.getState().transform).toEqual([-10, 0, 1]);
       expect(useReactFlow.getState().viewportInteractionActive).toBe(true);
+      expect(renderer.parentElement?.getAttribute("data-viewport-interaction-active")).toBe("true");
 
       target.classList.add("setta-manual-wheel");
       let manualEvent: WheelEvent | undefined;
@@ -333,6 +338,7 @@ describe("getViewportInteractionActiveValue", () => {
         vi.advanceTimersByTime(150);
       });
       expect(useReactFlow.getState().viewportInteractionActive).toBe(false);
+      expect(renderer.parentElement?.hasAttribute("data-viewport-interaction-active")).toBe(false);
       target.classList.add("nowheel");
       let blockedEvent: WheelEvent | undefined;
       await act(async () => {
