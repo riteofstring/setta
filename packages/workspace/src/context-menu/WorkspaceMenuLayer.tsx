@@ -141,14 +141,18 @@ function getUngroupMenuEntry({
   if (!applicable) {
     return null;
   }
+  // Frozen main's header action belongs to the owning group even when that group is part of a
+  // larger selection. Context-menu actions continue to operate on the captured selection.
+  const targetSections = invocation.surface === "header" ? [section] : sections;
+  const targetSectionIds = invocation.surface === "header" ? [section.id] : invocation.sectionIds;
   return {
     id: "workspace-ungroup",
     label: "Ungroup",
     disabled:
-      !capabilities.canEditStructure || !canUngroupWorkspaceSections(documentState, sections),
+      !capabilities.canEditStructure || !canUngroupWorkspaceSections(documentState, targetSections),
     onSelect: () => {
       closeWorkspaceMenu();
-      ungroupSections(invocation.sectionIds);
+      ungroupSections(targetSectionIds);
     },
   };
 }

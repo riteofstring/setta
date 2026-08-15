@@ -405,6 +405,44 @@ describe("WorkspaceMenuLayer", () => {
     ).toBe(true);
   });
 
+  it("targets the owning group when header ungroup opens from a mixed selection", async () => {
+    loadWorkspaceDocument({
+      sections: {
+        group: { ...createSection("group"), kind: "group", children: ["child"] },
+        child: createSection("child"),
+        leaf: createSection("leaf"),
+      },
+      topLevelSections: {
+        group: { x: 20, y: 30, w: null, h: null, zIndex: 0 },
+        leaf: { x: 300, y: 30, w: 200, h: 100, zIndex: 1 },
+      },
+      viewport: { x: 0, y: 0, zoom: 1 },
+      activeIds: ["group", "leaf"],
+    });
+    const onChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onChange);
+    openWorkspaceSectionHeaderMenu("group", { x: 150, y: 100 }, owner);
+    await act(async () => {
+      root.render(<WorkspaceMenuLayer />);
+    });
+
+    const ungroup = getMenuItems().find((entry) => entry.textContent === "Ungroup");
+    expect(ungroup?.hasAttribute("data-disabled")).toBe(false);
+
+    await act(async () => {
+      ungroup?.click();
+    });
+
+    expect(useWorkspaceDocument.getState().sections["group"]).toBeUndefined();
+    expect(useWorkspaceDocument.getState().sections["leaf"]).toBeDefined();
+    expect(useWorkspaceDocument.getState().topLevelSections["child"]).toMatchObject({
+      x: 20,
+      y: 30,
+    });
+    expect(useActiveSections.getState().activeIds).toEqual(["leaf"]);
+    expect(onChange).toHaveBeenCalledOnce();
+  });
+
   it("ungroups a valid group selection through the canonical section action", async () => {
     loadWorkspaceDocument({
       sections: {

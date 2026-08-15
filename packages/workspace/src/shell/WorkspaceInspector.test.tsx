@@ -372,7 +372,7 @@ describe("WorkspaceInspector", () => {
     expect(getButton(host, "Reset").disabled).toBe(true);
   });
 
-  it("resizes bounded groups but rejects an auto reset until overflow is disabled", async () => {
+  it("resizes and resets group dimensions without disabling overflow", async () => {
     const onChange = vi.fn();
     setWorkspaceDocumentChangeCallback(onChange);
     await renderInspector(
@@ -404,18 +404,22 @@ describe("WorkspaceInspector", () => {
 
     await act(async () => {
       setInputValue(width, "auto");
+      setInputValue(height, "auto");
       getButton(host, "Apply size").click();
     });
 
-    expect(width.getAttribute("aria-invalid")).toBe("true");
-    expect(host.textContent).toContain(
-      "width must be a positive number while group overflow is bounded",
-    );
+    expect(width.hasAttribute("aria-invalid")).toBe(false);
+    expect(height.hasAttribute("aria-invalid")).toBe(false);
     expect(useWorkspaceDocument.getState().sections["group"]?.size).toEqual({
-      width: 400,
-      height: 260,
+      width: "auto",
+      height: "auto",
     });
-    expect(onChange).toHaveBeenCalledOnce();
+    expect(useWorkspaceDocument.getState().sections["group"]?.overflowMode).toBe(true);
+    expect(overflow.getAttribute("aria-pressed")).toBe("true");
+    expect(host.querySelector(".setta-workspace-inspector-status")?.textContent).toContain(
+      "Section size updated to auto by auto",
+    );
+    expect(onChange).toHaveBeenCalledTimes(2);
 
     await act(async () => {
       overflow.click();
@@ -425,16 +429,6 @@ describe("WorkspaceInspector", () => {
     expect(host.querySelector(".setta-workspace-inspector-status")?.textContent).toContain(
       "Bounded overflow disabled",
     );
-
-    await act(async () => {
-      setInputValue(width, "auto");
-      setInputValue(height, "auto");
-      getButton(host, "Apply size").click();
-    });
-    expect(useWorkspaceDocument.getState().sections["group"]?.size).toEqual({
-      width: "auto",
-      height: "auto",
-    });
     expect(onChange).toHaveBeenCalledTimes(3);
   });
 

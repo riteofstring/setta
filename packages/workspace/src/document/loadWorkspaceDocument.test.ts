@@ -251,7 +251,7 @@ describe("loadWorkspaceDocument", () => {
     expect(useWorkspaceDocument.getState().sections["leaf"]?.tagColor).toBe("#a1b2c3");
   });
 
-  it("requires an explicit boolean overflow mode and confines it to groups", () => {
+  it("validates explicit overflow modes while preserving intrinsic group dimensions", () => {
     const missingMode = {
       ...makeSection("leaf"),
       overflowMode: undefined,
@@ -282,6 +282,23 @@ describe("loadWorkspaceDocument", () => {
     );
     expect(getWorkspaceDocument().sections["group"]?.overflowMode).toBe(true);
 
+    loadWorkspaceDocument(
+      makeDocument({
+        sections: {
+          group: makeSection("group", {
+            kind: "group",
+            overflowMode: true,
+            size: { width: "auto", height: "auto" },
+          }),
+        },
+        topLevelSections: { group: { x: 0, y: 0, w: null, h: null, zIndex: 0 } },
+      }),
+    );
+    expect(getWorkspaceDocument().sections["group"]?.size).toEqual({
+      width: "auto",
+      height: "auto",
+    });
+
     expect(() =>
       loadWorkspaceDocument(
         makeDocument({
@@ -289,13 +306,13 @@ describe("loadWorkspaceDocument", () => {
             group: makeSection("group", {
               kind: "group",
               overflowMode: true,
-              size: { width: "auto", height: 180 },
+              size: { width: -1, height: 180 },
             }),
           },
-          topLevelSections: { group: { x: 0, y: 0, w: null, h: 180, zIndex: 0 } },
+          topLevelSections: { group: { x: 0, y: 0, w: -1, h: 180, zIndex: 0 } },
         }),
       ),
-    ).toThrow(/Bounded group group requires positive numeric width and height/);
+    ).toThrow(/Group group overflow dimensions must be auto or positive finite numbers/);
   });
 
   it("rejects a child id that has no section record", () => {
