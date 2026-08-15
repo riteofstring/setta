@@ -1916,6 +1916,13 @@ Phase 4 progress (2026-08-11):
   full-suite, and browser phase gates were not run. Repository-actionable work for this correction
   and its implementation audit is complete; the same combined developer gate remains required and
   incomplete, with no visual approval or package-output baseline claimed.
+- Workspace-shell combined developer gate accepted (2026-08-13): after live testing the corrected
+  divider reset, wheel-panning ownership, switch paint, parameter UI-type configuration, pane and
+  selection workflows, and the final non-duplicated selected-item Inspector, the developer
+  confirmed that everything works and accepted the re-presented combined visual/interaction result.
+  This authorizes the package-output baseline refresh and the plan-ordered final broad package,
+  supply-chain, packed-consumer, and browser gates, followed by the final whole-plan audit. It does
+  not authorize publishing, naming, licensing, or additional feature work.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`
