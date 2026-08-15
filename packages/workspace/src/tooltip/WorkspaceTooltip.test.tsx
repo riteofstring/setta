@@ -243,6 +243,41 @@ describe("WorkspaceTooltip", () => {
     expect(box ? host.contains(box) : true).toBe(false);
   });
 
+  it("keeps following the pointer after the staged row changes before paging", async () => {
+    const firstHandlers = getWorkspaceTooltipHandlers(
+      { content: "First row diagnostic" },
+      { content: "First row help" },
+    );
+    const secondHandlers = getWorkspaceTooltipHandlers(
+      { content: "Second row diagnostic" },
+      { content: "Second row help" },
+    );
+
+    await act(async () => {
+      firstHandlers.onMouseEnter({ currentTarget: host });
+      enableWorkspaceTooltip();
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 100, clientY: 80 }));
+    });
+    expect(getTooltipPortal()?.style.transform).toBe("translate(110px, 90px)");
+
+    await act(async () => firstHandlers.onMouseLeave());
+    expect(getTooltipPortal()).toBeNull();
+
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 200, clientY: 120 }));
+      secondHandlers.onMouseEnter({ currentTarget: host });
+    });
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent("mousemove", { clientX: 300, clientY: 200 }));
+    });
+    const positionBeforePaging = getTooltipPortal()?.style.transform;
+    expect(positionBeforePaging).toBe("translate(310px, 210px)");
+
+    await act(async () => incrementWorkspaceTooltipPage());
+    expect(getTooltipPortal()?.style.transform).toBe(positionBeforePaging);
+    expect(getTooltipPortal()?.textContent).toContain("Second row help");
+  });
+
   it("preserves a locally rtl trigger direction on the separately mounted tooltip", async () => {
     const target = document.createElement("button");
     target.dir = "rtl";

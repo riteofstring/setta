@@ -239,15 +239,15 @@ export function WorkspaceTooltip() {
   const { anchor, copied, direction, isEnabled, isFrozen, pageIndex, pages } =
     useWorkspaceTooltip();
   const page = pages[pageIndex];
-  const boxRef = useRef<HTMLDivElement>(null);
+  const [boxElement, setBoxElement] = useState<HTMLDivElement | null>(null);
   const positionRef = useRef({ x: 0, y: 0 });
   const [tooltipWidth, setTooltipWidth] = useState(INITIAL_TOOLTIP_WIDTH_PX);
   useTrackMouseLocation();
   useCopiedIndicator(copied);
-  useFrozenTooltipFocus(boxRef, isFrozen);
-  useTooltipFollower({ anchor, boxRef, isEnabled, isFrozen, positionRef });
+  useFrozenTooltipFocus(boxElement, isFrozen);
+  useTooltipFollower({ anchor, boxElement, isEnabled, isFrozen, positionRef });
   const handleDragPointerDown = useFrozenTooltipDrag({
-    boxRef,
+    boxElement,
     isFrozen,
     positionRef,
   });
@@ -258,7 +258,7 @@ export function WorkspaceTooltip() {
 
   return createPortal(
     <TooltipPortal
-      boxRef={boxRef}
+      boxRef={setBoxElement}
       copied={copied}
       direction={direction}
       handleDragPointerDown={handleDragPointerDown}
@@ -287,12 +287,12 @@ function useCopiedIndicator(copied: boolean) {
   }, [copied]);
 }
 
-function useFrozenTooltipFocus(boxRef: React.RefObject<HTMLDivElement | null>, isFrozen: boolean) {
+function useFrozenTooltipFocus(boxElement: HTMLDivElement | null, isFrozen: boolean) {
   useEffect(() => {
     if (isFrozen) {
-      boxRef.current?.focus({ preventScroll: true });
+      boxElement?.focus({ preventScroll: true });
     }
-  }, [boxRef, isFrozen]);
+  }, [boxElement, isFrozen]);
 }
 
 type PositionRef = React.RefObject<{ x: number; y: number }>;
@@ -322,23 +322,22 @@ function setClampedTooltipPosition(
 
 function useTooltipFollower({
   anchor,
-  boxRef,
+  boxElement,
   isEnabled,
   isFrozen,
   positionRef,
 }: {
   anchor: WorkspaceTooltipAnchor | null;
-  boxRef: React.RefObject<HTMLDivElement | null>;
+  boxElement: HTMLDivElement | null;
   isEnabled: boolean;
   isFrozen: boolean;
   positionRef: PositionRef;
 }) {
   useEffect(() => {
-    const box = boxRef.current;
-    if (!isEnabled || isFrozen || !box) {
+    if (!isEnabled || isFrozen || !boxElement) {
       return;
     }
-    const activeBox: HTMLDivElement = box;
+    const activeBox = boxElement;
     if (anchor) {
       setClampedTooltipPosition(activeBox, positionRef, anchor.x, anchor.y);
       return;
@@ -359,26 +358,25 @@ function useTooltipFollower({
     }
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
     return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, [anchor, boxRef, isEnabled, isFrozen, positionRef]);
+  }, [anchor, boxElement, isEnabled, isFrozen, positionRef]);
 }
 
 function useFrozenTooltipDrag({
-  boxRef,
+  boxElement,
   isFrozen,
   positionRef,
 }: {
-  boxRef: React.RefObject<HTMLDivElement | null>;
+  boxElement: HTMLDivElement | null;
   isFrozen: boolean;
   positionRef: PositionRef;
 }) {
   const [activeCleanup, setActiveCleanup] = useState<(() => void) | null>(null);
   useEffect(() => activeCleanup ?? undefined, [activeCleanup]);
   return (event: ReactPointerEvent<HTMLDivElement>) => {
-    const box = boxRef.current;
-    if (!isFrozen || !box) {
+    if (!isFrozen || !boxElement) {
       return;
     }
-    const activeBox: HTMLDivElement = box;
+    const activeBox = boxElement;
     event.preventDefault();
     const rect = activeBox.getBoundingClientRect();
     const offset = { x: event.clientX - rect.left, y: event.clientY - rect.top };
@@ -408,7 +406,7 @@ function useFrozenTooltipDrag({
 }
 
 type TooltipPortalProps = {
-  boxRef: React.RefObject<HTMLDivElement | null>;
+  boxRef: (element: HTMLDivElement | null) => void;
   copied: boolean;
   direction: WorkspaceTextDirection;
   handleDragPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
