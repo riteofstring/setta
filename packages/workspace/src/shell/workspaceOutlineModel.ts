@@ -1,3 +1,4 @@
+import { matchSorter } from "match-sorter";
 import {
   getSectionOrThrow,
   getTopLevelSectionIdsForDisplay,
@@ -40,6 +41,46 @@ export function createWorkspaceOutlineTree(
   state: WorkspaceDocumentState,
 ): Array<WorkspaceOutlineNode> {
   return createNodes(state, getTopLevelSectionIdsForDisplay(state), null, 0);
+}
+
+export function filterWorkspaceOutlineTree(
+  tree: ReadonlyArray<WorkspaceOutlineNode>,
+  query: string,
+): Array<WorkspaceOutlineNode> {
+  const normalizedQuery = query.trim();
+  if (normalizedQuery === "") {
+    return [...tree];
+  }
+
+  const candidates: Array<WorkspaceOutlineNode> = [];
+  function collect(nodes: ReadonlyArray<WorkspaceOutlineNode>): void {
+    for (const node of nodes) {
+      candidates.push(node);
+      collect(node.children);
+    }
+  }
+  collect(tree);
+
+  const matchingIds = new Set(
+    matchSorter(candidates, normalizedQuery, { keys: [(node) => node.section.name] }).map(
+      (node) => node.section.id,
+    ),
+  );
+
+  function retainMatchingPaths(
+    nodes: ReadonlyArray<WorkspaceOutlineNode>,
+  ): Array<WorkspaceOutlineNode> {
+    const retained: Array<WorkspaceOutlineNode> = [];
+    for (const node of nodes) {
+      const children = retainMatchingPaths(node.children);
+      if (matchingIds.has(node.section.id) || children.length > 0) {
+        retained.push({ ...node, children });
+      }
+    }
+    return retained;
+  }
+
+  return retainMatchingPaths(tree);
 }
 
 export function getWorkspaceOutlineVisibleEntries(

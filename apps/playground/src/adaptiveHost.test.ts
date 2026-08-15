@@ -36,7 +36,8 @@ describe("standalone host adaptivity", () => {
   it("keeps the 320px host shell compact without introducing page scrolling", () => {
     expect(playgroundStyles).toContain("@media (max-width: 40rem)");
     expect(playgroundStyles).toContain("overflow: hidden");
-    expect(playgroundStyles).toContain("padding: 0.5rem");
+    expect(playgroundStyles).toContain("padding: 0.5rem 0 0");
+    expect(playgroundStyles).toContain("margin-inline: 0.5rem");
     expect(packedConsumerStyles).toContain("@media (max-width: 40rem)");
     expect(packedConsumerStyles).toContain("overflow: hidden");
     expect(packedConsumerStyles).toContain("padding: 0.5rem");

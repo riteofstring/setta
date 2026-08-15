@@ -7,6 +7,10 @@ const focusVisibilityStyles = readFileSync(
   new URL("./workspaceFocusVisibility.css", import.meta.url),
   "utf8",
 );
+const interactionPolicyStyles = readFileSync(
+  new URL("./workspaceInteractionPolicy.css", import.meta.url),
+  "utf8",
+);
 
 describe("workspace adaptive stylesheet contract", () => {
   it("opts package motion in and neutralizes retained inline sortable motion", () => {
@@ -36,6 +40,12 @@ describe("workspace adaptive stylesheet contract", () => {
     expect(workspaceStyles).toMatch(
       /\.setta-workspace-bounded-group-scroll\s*\{[^}]*overscroll-behavior: contain/su,
     );
+    expect(interactionPolicyStyles).toMatch(
+      /\.setta-workspace-bounded-group-scroll[\s\S]*\[data-workspace-contained-selection-outline="true"\][^{]*\{[^}]*box-shadow: inset 0 0 0 4px/su,
+    );
+    expect(interactionPolicyStyles).toMatch(
+      /\[data-section-active="true"\]:has\(> \[data-workspace-contained-selection-outline="true"\]\)[^{]*\{[^}]*outline-color: transparent/su,
+    );
   });
 
   it("prepares section compositor layers before pan starts without a per-section state fanout", () => {
@@ -60,6 +70,12 @@ describe("workspace adaptive stylesheet contract", () => {
     expect(workspaceStyles).not.toContain("transition: all");
     expect(workspaceStyles).toMatch(/\.setta-workspace-shell-resize-handle\s*\{[^}]*width: 10px/su);
     expect(workspaceStyles).not.toContain(".setta-workspace-shell-resize-handle::before");
+    expect(interactionPolicyStyles).toMatch(
+      /\.setta-workspace-shell-pane-region\s*\{[^}]*position: absolute/su,
+    );
+    expect(interactionPolicyStyles).toMatch(
+      /\.setta-workspace-shell-center\s*\{[^}]*width: 100%;[^}]*height: 100%/su,
+    );
   });
 
   it("keeps Outline paint compact inside logical, visible-focus tree geometry", () => {
@@ -82,11 +98,29 @@ describe("workspace adaptive stylesheet contract", () => {
   });
 
   it("keeps unrelated shortcuts from exposing the full canvas focus surface", () => {
+    expect(focusVisibilityStyles).toContain(
+      '.setta-workspace:not([data-workspace-keyboard-focus="true"]) :focus',
+    );
     expect(focusVisibilityStyles).toMatch(
       /\.setta-workspace \.react-flow__pane:focus-visible\s*\{[^}]*outline: none/su,
     );
     expect(focusVisibilityStyles).toContain(
       '[data-workspace-keyboard-focus="true"] .react-flow__pane:focus',
+    );
+  });
+
+  it("gates large shell and minimap focus paint on actual keyboard focus movement", () => {
+    expect(interactionPolicyStyles).toMatch(
+      /\.react-flow__minimap svg:focus,[^{]*\{[^}]*outline: none/su,
+    );
+    expect(interactionPolicyStyles).toMatch(
+      /\[data-workspace-keyboard-focus="true"\] \.react-flow__minimap svg:focus\s*\{[^}]*outline: 2px solid/su,
+    );
+    expect(interactionPolicyStyles).toMatch(
+      /\.setta-workspace-shell-resize-handle:focus[^}]*\{[^}]*outline: none/su,
+    );
+    expect(interactionPolicyStyles).toMatch(
+      /\[data-workspace-keyboard-focus="true"\] \.setta-workspace-shell-resize-handle:focus::after\s*\{[^}]*background-color: rgb\(59 130 246\)/su,
     );
   });
 

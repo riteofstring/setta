@@ -157,6 +157,26 @@ describe("WorkspaceOutline", () => {
     return row;
   }
 
+  function getFilterInput(): HTMLInputElement {
+    const input = host.querySelector<HTMLInputElement>(".setta-workspace-outline-filter-input");
+    if (!input) {
+      throw new Error("Expected the Outline filter input.");
+    }
+    return input;
+  }
+
+  async function filterOutline(value: string): Promise<void> {
+    await act(async () => {
+      const input = getFilterInput();
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      if (!valueSetter) {
+        throw new Error("Expected the native input value setter.");
+      }
+      valueSetter.call(input, value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
+
   async function key(sectionId: string, keyValue: string, init?: KeyboardEventInit) {
     await act(async () => {
       getRow(sectionId).dispatchEvent(
@@ -187,6 +207,38 @@ describe("WorkspaceOutline", () => {
       "locked, minimized, style accent #3b82f6, color tag #ef4444",
     );
     expect(getRow("bravo").querySelector('[data-testid="leaf-icon"]')).not.toBeNull();
+  });
+
+  it("filters fuzzy section names, reveals matching paths, and restores collapsed state", async () => {
+    const filter = getFilterInput();
+    const tree = host.querySelector<HTMLElement>('[role="tree"][aria-label="Workspace outline"]');
+    expect(filter.getAttribute("aria-controls")).toBe(tree?.id);
+    expect(filter.placeholder).toBe("Filter");
+    expect(filter.compareDocumentPosition(getRow("alpha")) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+
+    const disclosure = getRow("alpha").querySelector<HTMLElement>(
+      "[data-workspace-outline-disclosure]",
+    );
+    await act(async () => {
+      disclosure?.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
+    });
+    expect(host.querySelector('[data-workspace-outline-item="bravo"]')).toBeNull();
+
+    await filterOutline("brv");
+    expect(getRow("alpha").getAttribute("aria-expanded")).toBe("true");
+    expect(getRow("bravo").textContent).toContain("Bravo");
+    expect(host.querySelector('[data-workspace-outline-item="charlie"]')).toBeNull();
+    expect(host.querySelector('[data-workspace-outline-item="echo"]')).toBeNull();
+    expect(getRow("alpha").querySelector("[data-workspace-outline-disclosure]")).toBeNull();
+
+    await filterOutline("no such section");
+    expect(tree?.textContent).toContain("No matching sections");
+
+    await filterOutline("");
+    expect(host.querySelector('[data-workspace-outline-item="bravo"]')).toBeNull();
+    expect(getRow("alpha").getAttribute("aria-expanded")).toBe("false");
   });
 
   it("focuses and routes plain or modified pointer selection through the shared policy", async () => {

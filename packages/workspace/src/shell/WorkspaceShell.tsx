@@ -13,7 +13,7 @@ import {
 import { FiEdit3 } from "react-icons/fi";
 import { TbListTree } from "react-icons/tb";
 import { WorkspaceCanvas } from "../canvas/WorkspaceCanvas";
-import { useReactFlow } from "../canvas/store";
+import { shiftWorkspaceMapForLeadingPane } from "../canvas/viewportHelpers";
 import { resolveSectionTagColorPalette } from "../section/sectionTagColors";
 import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
@@ -261,7 +261,7 @@ function getKeyboardResizeWidth(
 }
 
 function getRegionStyle(width: number): CSSProperties {
-  return { flexBasis: `${width}px`, width: `${width}px` };
+  return { width: `${width}px` };
 }
 
 function getPointerResizeState(session: ResizeSession, clientX: number): WorkspaceShellViewState {
@@ -278,7 +278,7 @@ function getPointerResizeState(session: ResizeSession, clientX: number): Workspa
 export function WorkspaceShell({
   ariaLabel = "Workspace",
   className,
-  leadingPaneCameraMode = "shift-with-pane",
+  leadingPaneShiftsCanvas = true,
   leadingTabs,
   onViewStateChange,
   sectionTagColorPalette,
@@ -289,7 +289,6 @@ export function WorkspaceShell({
   const outlineInitialFocusRef = useRef<HTMLElement>(null);
   const inspectorInitialFocusRef = useRef<HTMLElement>(null);
   const rootRef = useRef<HTMLElement>(null);
-  const centerRef = useRef<HTMLDivElement>(null);
   const instanceId = `workspace-shell-${useId().replaceAll(":", "")}`;
   useWorkspaceFocusVisibility(rootRef);
   const [shellWidth, setShellWidth] = useState(0);
@@ -304,7 +303,6 @@ export function WorkspaceShell({
   const resizeSessionRef = useRef<ResizeSession | null>(null);
   const focusRequestRef = useRef<FocusRequest | null>(null);
   const previousViewStateRef = useRef(viewState);
-  const previousCenterXRef = useRef<number | null>(null);
   const previousLeadingTrueWidthRef = useRef(getWorkspaceShellPaneTrueWidth(viewState.leading));
   const tabRefs = useRef(new Map<string, HTMLButtonElement>());
   const panelRefs = useRef(new Map<WorkspaceShellPaneSide, HTMLDivElement>());
@@ -423,23 +421,13 @@ export function WorkspaceShell({
   }, [combinedLeadingTabs, combinedTrailingTabs, viewState]);
 
   useLayoutEffect(() => {
-    const center = centerRef.current;
-    if (!center) {
-      return;
-    }
-    const nextCenterX = center.getBoundingClientRect().x;
-    const previousCenterX = previousCenterXRef.current;
     const nextLeadingTrueWidth = getWorkspaceShellPaneTrueWidth(viewState.leading);
-    if (
-      leadingPaneCameraMode === "preserve-screen-position" &&
-      previousCenterX !== null &&
-      previousLeadingTrueWidthRef.current !== nextLeadingTrueWidth
-    ) {
-      useReactFlow.getState().panBy({ x: previousCenterX - nextCenterX, y: 0 });
+    const widthDiff = nextLeadingTrueWidth - previousLeadingTrueWidthRef.current;
+    if (leadingPaneShiftsCanvas && widthDiff !== 0) {
+      shiftWorkspaceMapForLeadingPane(widthDiff);
     }
-    previousCenterXRef.current = nextCenterX;
     previousLeadingTrueWidthRef.current = nextLeadingTrueWidth;
-  }, [leadingPaneCameraMode, viewState.leading]);
+  }, [leadingPaneShiftsCanvas, viewState.leading]);
 
   function registerTab(
     pane: WorkspaceShellPaneSide,
@@ -633,7 +621,7 @@ export function WorkspaceShell({
         regionStyle={getRegionStyle(getWorkspaceShellPaneTrueWidth(displayState.leading))}
         tabs={combinedLeadingTabs}
       />
-      <div className="setta-workspace-shell-center" ref={centerRef}>
+      <div className="setta-workspace-shell-center">
         <WorkspaceCanvas />
       </div>
       <WorkspaceShellPane

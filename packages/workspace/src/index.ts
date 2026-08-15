@@ -213,7 +213,6 @@ export {
   createWorkspaceShellViewState,
 } from "./shell/workspaceShellLayout";
 export type {
-  WorkspaceShellLeadingPaneCameraMode,
   WorkspaceShellOutlineViewState,
   WorkspaceShellPane,
   WorkspaceShellPaneViewState,

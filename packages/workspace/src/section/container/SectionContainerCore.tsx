@@ -105,6 +105,13 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
       style={sectionShellStyle}
     >
       <SectionContainerContent section={section} hasSectionStyleTheme={hasSectionStyleTheme} />
+      <div
+        aria-hidden="true"
+        className="setta-workspace-contained-selection-outline pointer-events-none absolute inset-0 z-[160]"
+        data-section-active={isActiveSection ? "true" : "false"}
+        data-section-id={sectionId}
+        data-workspace-contained-selection-outline="true"
+      />
     </div>
   );
 }

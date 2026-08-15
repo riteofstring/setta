@@ -68,6 +68,21 @@ export function setCenter(x: number, y: number, options?: ZoomOptions) {
   d3Zoom.transform(getZoomTarget(d3Selection, options?.duration), transform);
 }
 
+// Frozen main moves the map by the leading pane's true-width delta when its host setting is
+// enabled. The pane itself uses a 150ms CSS transform; the map follows through main's 100ms d3
+// viewport transition so section positions remain visually continuous while the pane opens.
+export function shiftWorkspaceMapForLeadingPane(widthDiff: number): void {
+  if (widthDiff === 0) {
+    return;
+  }
+  const { d3Zoom, d3Selection } = getZoomRuntime();
+  const {
+    transform: [x, y, zoom],
+  } = useReactFlow.getState();
+  const nextTransform = zoomIdentity.translate(x + widthDiff, y).scale(zoom);
+  d3Zoom.transform(getZoomTarget(d3Selection, 100), nextTransform);
+}
+
 // The public counterpart of frozen main's Overview `goToSection`: fit one mounted section into
 // the actual canvas center, cap ordinary focus at 100%, and leave canonical selection untouched.
 export function focusWorkspaceSection(sectionId: string): void {

@@ -235,11 +235,15 @@ function ReloadDocumentButton() {
 }
 
 function PlaygroundActionMenu({
+  leadingPaneShiftsCanvas,
   onClearDiagnostics,
+  onToggleLeadingPaneShift,
   onShowDiagnostics,
   onUpdateDiagnostics,
 }: {
+  leadingPaneShiftsCanvas: boolean;
   onClearDiagnostics: () => void;
+  onToggleLeadingPaneShift: () => void;
   onShowDiagnostics: () => void;
   onUpdateDiagnostics: () => void;
 }) {
@@ -259,6 +263,20 @@ function PlaygroundActionMenu({
           <h2>Sections</h2>
           <GroupOverflowModeToggle />
           <SectionTagColorToggle />
+        </section>
+        <section className="playground-menu-group">
+          <h2>Shell</h2>
+          <button
+            aria-pressed={leadingPaneShiftsCanvas}
+            className="playground-menu-action"
+            onClick={onToggleLeadingPaneShift}
+            type="button"
+          >
+            <span>Leading pane shifts canvas</span>
+            <span className="playground-menu-action-meta">
+              {leadingPaneShiftsCanvas ? "On" : "Off"}
+            </span>
+          </button>
         </section>
         <section className="playground-menu-group">
           <h2>Parameters</h2>
@@ -411,6 +429,7 @@ const sectionTagColorPalette = [
 export function App() {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
   const [shellViewState, setShellViewState] = useState(() => createWorkspaceShellViewState());
+  const [leadingPaneShiftsCanvas, setLeadingPaneShiftsCanvas] = useState(true);
   const [itemDiagnostics, setItemDiagnostics] = useState<WorkspaceItemDiagnosticRegistry>(
     PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS,
   );
@@ -437,7 +456,9 @@ export function App() {
           <AppearanceToggle darkMode={darkMode} />
           <ReloadDocumentButton />
           <PlaygroundActionMenu
+            leadingPaneShiftsCanvas={leadingPaneShiftsCanvas}
             onClearDiagnostics={() => setItemDiagnostics({})}
+            onToggleLeadingPaneShift={() => setLeadingPaneShiftsCanvas((enabled) => !enabled)}
             onShowDiagnostics={() => setItemDiagnostics(PLAYGROUND_INITIAL_ITEM_DIAGNOSTICS)}
             onUpdateDiagnostics={() => setItemDiagnostics(PLAYGROUND_UPDATED_ITEM_DIAGNOSTICS)}
           />
@@ -448,6 +469,7 @@ export function App() {
         <PlaygroundItemDiagnosticsProvider diagnostics={itemDiagnostics}>
           <WorkspaceShell
             ariaLabel="Playground workspace"
+            leadingPaneShiftsCanvas={leadingPaneShiftsCanvas}
             leadingTabs={leadingTabs}
             onViewStateChange={setShellViewState}
             sectionTagColorPalette={sectionTagColorPalette}

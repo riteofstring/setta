@@ -151,10 +151,12 @@ and final combined developer gate govern their implementation.
 
 ### Overview is not the planned Outline
 
-Frozen main's `ProjectOverview.tsx` recursively flattens visible sections into records containing
-only `id`, `name`, `depth`, `tagColor`, and an application AI-working flag. `SectionListItems.tsx`
-then renders every record as an independent `li` with `tabIndex={0}`, a physical
-`marginLeft: 0.75rem * depth`, pointer activation, and Space activation.
+Frozen main's `ProjectOverview.tsx` filters by section name and recursively flattens visible
+sections into records containing only `id`, `name`, `depth`, `tagColor`, and an application
+AI-working flag. `SectionListItems.tsx` then renders every record as an independent `li` with
+`tabIndex={0}`, a physical `marginLeft: 0.75rem * depth`, pointer activation, and Space activation.
+The package retains the compact name filter while projecting matches through its accessible tree
+and preserving matching ancestor paths.
 
 There is no group disclosure field, local expansion state, disclosure button, `tree`/`treeitem`
 role, `aria-expanded`, roving tab stop, arrow/Home/End/typeahead handler, selected-section input, or

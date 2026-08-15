@@ -974,5 +974,30 @@ describe("SectionContainer", () => {
     expect(shell?.getAttribute("aria-label")).toBe("Leaf section section, selected");
     expect(shell?.getAttribute("aria-pressed")).toBeNull();
     expect(shell?.className).toContain("z-[150]");
+    expect(
+      shell
+        ?.querySelector('[data-workspace-contained-selection-outline="true"]')
+        ?.getAttribute("data-section-active"),
+    ).toBe("true");
+  });
+
+  it("marks the group selection paint for bounded-scroll clipping", async () => {
+    await mount("group");
+
+    const outline = host.querySelector('[data-workspace-group-selection-outline="true"]');
+    expect(outline?.getAttribute("data-section-active")).toBe("false");
+
+    await act(async () => {
+      useActiveSections.setState({ activeIds: ["group"] });
+    });
+
+    expect(outline?.getAttribute("data-section-active")).toBe("true");
+    expect(
+      host
+        .querySelector(
+          '[data-workspace-contained-selection-outline="true"][data-section-id="group"]',
+        )
+        ?.getAttribute("data-section-active"),
+    ).toBe("true");
   });
 });

@@ -135,7 +135,7 @@ function getPaneMeasurements(
 
 /* The ARIA Window Splitter pattern makes its separator focusable and interactive by design. */
 /* eslint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */
-function VisiblePaneSurface({
+function PaneSurfaceContent({
   fullWidth,
   maximumWidth,
   minimumWidth,
@@ -154,20 +154,22 @@ function VisiblePaneSurface({
 
   return (
     <>
-      <button
-        aria-label={
-          fullWidth
-            ? `Restore ${selectedTab.label} pane width`
-            : `Expand ${selectedTab.label} pane to full width`
-        }
-        className="setta-workspace-shell-full-width-button"
-        data-workspace-shell-full-width={pane}
-        onClick={() => props.onToggleFullWidth(pane)}
-        title={fullWidth ? "Restore width" : "Full width"}
-        type="button"
-      >
-        <RiExpandDiagonalLine aria-hidden={true} focusable="false" size={13} />
-      </button>
+      {paneState.visible ? (
+        <button
+          aria-label={
+            fullWidth
+              ? `Restore ${selectedTab.label} pane width`
+              : `Expand ${selectedTab.label} pane to full width`
+          }
+          className="setta-workspace-shell-full-width-button"
+          data-workspace-shell-full-width={pane}
+          onClick={() => props.onToggleFullWidth(pane)}
+          title={fullWidth ? "Restore width" : "Full width"}
+          type="button"
+        >
+          <RiExpandDiagonalLine aria-hidden={true} focusable="false" size={13} />
+        </button>
+      ) : null}
       <div
         aria-labelledby={tabId}
         className="setta-workspace-shell-panel"
@@ -186,22 +188,24 @@ function VisiblePaneSurface({
           })}
         </div>
       </div>
-      <div
-        aria-label={`Resize ${selectedTab.label} pane`}
-        aria-orientation="vertical"
-        aria-valuemax={maximumWidth}
-        aria-valuemin={minimumWidth}
-        aria-valuenow={paneState.width}
-        className="setta-workspace-shell-resize-handle"
-        data-workspace-shell-resize={pane}
-        onKeyDown={(event) => props.onResizeKeyDown(event, pane)}
-        onPointerCancel={props.onResizePointerCancel}
-        onPointerDown={(event) => props.onResizePointerDown(event, pane)}
-        onPointerMove={props.onResizePointerMove}
-        onPointerUp={props.onResizePointerUp}
-        role="separator"
-        tabIndex={0}
-      />
+      {paneState.visible ? (
+        <div
+          aria-label={`Resize ${selectedTab.label} pane`}
+          aria-orientation="vertical"
+          aria-valuemax={maximumWidth}
+          aria-valuemin={minimumWidth}
+          aria-valuenow={paneState.width}
+          className="setta-workspace-shell-resize-handle"
+          data-workspace-shell-resize={pane}
+          onKeyDown={(event) => props.onResizeKeyDown(event, pane)}
+          onPointerCancel={props.onResizePointerCancel}
+          onPointerDown={(event) => props.onResizePointerDown(event, pane)}
+          onPointerMove={props.onResizePointerMove}
+          onPointerUp={props.onResizePointerUp}
+          role="separator"
+          tabIndex={0}
+        />
+      ) : null}
     </>
   );
 }
@@ -229,9 +233,7 @@ function PaneSurface(props: WorkspaceShellPaneProps) {
       inert={!paneState.visible}
       style={paneStyle}
     >
-      {paneState.visible ? (
-        <VisiblePaneSurface {...measurements} props={props} selectedTab={selectedTab} />
-      ) : null}
+      <PaneSurfaceContent {...measurements} props={props} selectedTab={selectedTab} />
     </div>
   );
 }
@@ -244,8 +246,8 @@ export function WorkspaceShellPane(props: WorkspaceShellPaneProps) {
       data-workspace-shell-pane-region={props.pane}
       style={props.regionStyle}
     >
-      <PaneSurface {...props} />
       <PaneRail {...props} />
+      <PaneSurface {...props} />
     </aside>
   );
 }

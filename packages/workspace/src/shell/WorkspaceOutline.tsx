@@ -1,9 +1,11 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   type FocusEvent,
   type KeyboardEvent,
   type MouseEvent,
@@ -26,6 +28,7 @@ import {
 import { WorkspaceOutlineBranch } from "./WorkspaceOutlineRow";
 import {
   createWorkspaceOutlineTree,
+  filterWorkspaceOutlineTree,
   findWorkspaceOutlineTypeaheadMatch,
   getValidWorkspaceOutlineCollapsedGroupIds,
   getWorkspaceOutlineVisibleEntries,
@@ -145,11 +148,24 @@ export function WorkspaceOutline({
 }: WorkspaceOutlineProps) {
   const documentState = useWorkspaceDocument((state) => state);
   const activeSectionIds = useActiveSections((state) => state.activeIds);
+  const [filterQuery, setFilterQuery] = useState("");
+  const filterInputId = useId();
+  const treeId = useId();
+  const filterInputRef = useRef<HTMLInputElement>(null);
   const activeSectionIdSet = useMemo(() => new Set(activeSectionIds), [activeSectionIds]);
   const tree = useMemo(() => createWorkspaceOutlineTree(documentState), [documentState]);
+  const filterActive = filterQuery.trim() !== "";
+  const projectedTree = useMemo(
+    () => filterWorkspaceOutlineTree(tree, filterQuery),
+    [filterQuery, tree],
+  );
+  const projectedCollapsedGroupIds = useMemo(
+    () => (filterActive ? [] : viewState.collapsedGroupIds),
+    [filterActive, viewState.collapsedGroupIds],
+  );
   const visibleEntries = useMemo(
-    () => getWorkspaceOutlineVisibleEntries(tree, viewState.collapsedGroupIds),
-    [tree, viewState.collapsedGroupIds],
+    () => getWorkspaceOutlineVisibleEntries(projectedTree, projectedCollapsedGroupIds),
+    [projectedCollapsedGroupIds, projectedTree],
   );
   const validCollapsedGroupIds = useMemo(
     () => getValidWorkspaceOutlineCollapsedGroupIds(documentState, viewState.collapsedGroupIds),
@@ -171,8 +187,8 @@ export function WorkspaceOutline({
   );
   const effectiveFocusId = resolvedFocusId;
   const collapsedGroupIds = useMemo(
-    () => new Set(viewState.collapsedGroupIds),
-    [viewState.collapsedGroupIds],
+    () => new Set(projectedCollapsedGroupIds),
+    [projectedCollapsedGroupIds],
   );
 
   const publishViewState = useCallback(
@@ -222,11 +238,10 @@ export function WorkspaceOutline({
       programmaticFocusIdRef.current = null;
     }
 
-    initialFocusRef.current = requireFocusTarget(
-      update.nextFocusId,
-      treeRef.current,
-      rowRefs.current,
-    );
+    if (!filterInputRef.current) {
+      throw new Error("Cannot register workspace Outline focus before its filter mounted.");
+    }
+    initialFocusRef.current = filterInputRef.current;
     previousEntriesRef.current = visibleEntries;
     lastPublishedFocusIdRef.current = update.publishedFocusId;
   }, [
@@ -385,6 +400,15 @@ export function WorkspaceOutline({
     if (!isGroupSection(entry.section)) {
       return true;
     }
+    if (filterActive) {
+      const firstVisibleChild = visibleEntries.find(
+        (candidate) => candidate.parentSectionId === entry.section.id,
+      );
+      if (firstVisibleChild) {
+        focusRow(firstVisibleChild.section.id);
+      }
+      return true;
+    }
     if (collapsedGroupIds.has(entry.section.id)) {
       toggleGroup(entry.section.id);
       return true;
@@ -404,7 +428,11 @@ export function WorkspaceOutline({
       return false;
     }
     event.preventDefault();
-    if (isGroupSection(entry.section) && !collapsedGroupIds.has(entry.section.id)) {
+    if (
+      !filterActive &&
+      isGroupSection(entry.section) &&
+      !collapsedGroupIds.has(entry.section.id)
+    ) {
       toggleGroup(entry.section.id);
       return true;
     }
@@ -466,36 +494,64 @@ export function WorkspaceOutline({
   }
 
   return (
-    <div
-      aria-label="Workspace outline"
-      aria-multiselectable="true"
-      className="setta-workspace-outline"
-      onBlurCapture={handleTreeBlur}
-      onFocusCapture={() => {
-        treeOwnsFocusRef.current = true;
-      }}
-      ref={treeRef}
-      role="tree"
-      tabIndex={visibleEntries.length === 0 ? 0 : -1}
-    >
-      {visibleEntries.length === 0 ? (
-        <p className="setta-workspace-outline-empty">No sections</p>
-      ) : (
-        tree.map((node) => (
-          <WorkspaceOutlineBranch
-            activeSectionIds={activeSectionIdSet}
-            collapsedGroupIds={collapsedGroupIds}
-            effectiveFocusId={effectiveFocusId}
-            key={node.section.id}
-            node={node}
-            onClick={handleRowClick}
-            onContextMenu={handleRowContextMenu}
-            onFocus={handleRowFocus}
-            onKeyDown={handleRowKeyDown}
-            registerRow={registerRow}
-          />
-        ))
-      )}
+    <div className="setta-workspace-outline-surface">
+      <search className="setta-workspace-outline-search">
+        <label className="sr-only" htmlFor={filterInputId}>
+          Filter sections
+        </label>
+        <i aria-hidden="true" className="gg-sort-az setta-workspace-outline-filter-icon" />
+        <input
+          aria-controls={treeId}
+          autoComplete="off"
+          className="setta-workspace-outline-filter-input"
+          id={filterInputId}
+          onChange={(event) => setFilterQuery(event.currentTarget.value)}
+          placeholder="Filter"
+          ref={filterInputRef}
+          spellCheck={false}
+          type="search"
+          value={filterQuery}
+        />
+        <span aria-live="polite" className="sr-only">
+          {filterActive ? `${visibleEntries.length} matching sections` : ""}
+        </span>
+      </search>
+      <div
+        aria-label="Workspace outline"
+        aria-multiselectable="true"
+        className="setta-workspace-outline"
+        data-filter-active={filterActive ? "true" : "false"}
+        id={treeId}
+        onBlurCapture={handleTreeBlur}
+        onFocusCapture={() => {
+          treeOwnsFocusRef.current = true;
+        }}
+        ref={treeRef}
+        role="tree"
+        tabIndex={visibleEntries.length === 0 ? 0 : -1}
+      >
+        {visibleEntries.length === 0 ? (
+          <p className="setta-workspace-outline-empty">
+            {filterActive ? "No matching sections" : "No sections"}
+          </p>
+        ) : (
+          projectedTree.map((node) => (
+            <WorkspaceOutlineBranch
+              activeSectionIds={activeSectionIdSet}
+              collapsedGroupIds={collapsedGroupIds}
+              effectiveFocusId={effectiveFocusId}
+              filterActive={filterActive}
+              key={node.section.id}
+              node={node}
+              onClick={handleRowClick}
+              onContextMenu={handleRowContextMenu}
+              onFocus={handleRowFocus}
+              onKeyDown={handleRowKeyDown}
+              registerRow={registerRow}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 }

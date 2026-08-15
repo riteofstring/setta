@@ -174,12 +174,23 @@ function ContainerGroup({
       style={groupStyle}
       data-group-overflow-mode={overflowMode ? "bounded" : "auto"}
     >
-      <div className={outlineClassName} />
+      <div
+        className={outlineClassName}
+        data-section-active={isActiveSection ? "true" : "false"}
+        data-workspace-group-selection-outline="true"
+      />
       <GroupHeader sectionId={sectionId} pointerSelectClassName={pointerSelectClassName} />
       <div className={contentClassName} ref={overflowRef}>
         <EmptyGroupDropHint hasNested={hasNested} />
         {children}
       </div>
+      <div
+        aria-hidden="true"
+        className={`setta-workspace-contained-selection-outline pointer-events-none absolute inset-0 z-[160] ${positionAndSizeLocked ? "rounded-sm" : "rounded-3xl"}`}
+        data-section-active={isActiveSection ? "true" : "false"}
+        data-section-id={sectionId}
+        data-workspace-contained-selection-outline="true"
+      />
     </div>
   );
 }
@@ -219,7 +230,7 @@ function getContentClassName(overflowMode: boolean, isScrollable: boolean): stri
 }
 
 function getGroupRootClassName(overflowMode: boolean, className: string | undefined) {
-  return `group/group-section flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-2 focus-visible:outline-none ${overflowMode ? "min-h-0 min-w-0" : ""} ${className ?? ""}`;
+  return `group/group-section relative flex min-w-[250px] flex-col items-stretch px-6 pb-6 pt-2 focus-visible:outline-none ${overflowMode ? "min-h-0 min-w-0" : ""} ${className ?? ""}`;
 }
 
 function getGroupOutlineClassName(positionAndSizeLocked: boolean, outlineColor: string) {

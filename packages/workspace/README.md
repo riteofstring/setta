@@ -97,9 +97,9 @@ The shell observes its own host box rather than the global window. It applies th
 clamps, paired-pane negotiation, full-width memory, and viewport resize normalization at embedded
 and compact sizes. Rail tabs use one roving tab stop with Arrow Up/Down and Home/End; resize
 separators support pointer dragging plus Arrow Left/Right and Home/End. Set
-`leadingPaneCameraMode="preserve-screen-position"` to counter-pan when the leading pane changes
-width; the default `"shift-with-pane"` leaves the canvas camera unchanged as its actual center box
-moves.
+`leadingPaneShiftsCanvas={false}` to leave the canvas camera unchanged beneath the leading overlay
+pane. The default `true` mirrors frozen main: leading-pane width changes shift the map by the same
+delta through its 100ms viewport transition. Trailing-pane changes never move the camera.
 
 The Outline projects top-level sections and recursive group children in document order. It uses
 the registered section-kind icons, announces selection and disclosure independently, supports one

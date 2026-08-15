@@ -6,19 +6,20 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 import { WorkspaceShell } from "./WorkspaceShell";
 import { createWorkspaceShellViewState } from "./workspaceShellLayout";
 import type {
-  WorkspaceShellLeadingPaneCameraMode,
   WorkspaceShellTabDefinition,
   WorkspaceShellTabIconProps,
   WorkspaceShellViewState,
 } from "./workspaceShellTypes";
 
-const { panBy } = vi.hoisted(() => ({ panBy: vi.fn() }));
+const { shiftWorkspaceMapForLeadingPane } = vi.hoisted(() => ({
+  shiftWorkspaceMapForLeadingPane: vi.fn(),
+}));
 
 vi.mock("../canvas/WorkspaceCanvas", () => ({
   WorkspaceCanvas: () => <div data-testid="workspace-canvas" />,
 }));
-vi.mock("../canvas/store", () => ({
-  useReactFlow: { getState: () => ({ panBy }) },
+vi.mock("../canvas/viewportHelpers", () => ({
+  shiftWorkspaceMapForLeadingPane,
 }));
 vi.mock("../toolbar/WorkspaceControls", () => ({
   WorkspaceControls: () => <div data-testid="workspace-controls" />,
@@ -108,10 +109,10 @@ const INITIAL_LEADING_TAB_ID = "notes";
 const INITIAL_TRAILING_TAB_ID = "details";
 
 function Harness({
-  cameraMode = "shift-with-pane",
+  leadingPaneShiftsCanvas = true,
   onChange,
 }: {
-  cameraMode?: WorkspaceShellLeadingPaneCameraMode;
+  leadingPaneShiftsCanvas?: boolean;
   onChange: (viewState: WorkspaceShellViewState) => void;
 }) {
   const [viewState, setViewState] = useState(() =>
@@ -123,7 +124,7 @@ function Harness({
   return (
     <WorkspaceShell
       ariaLabel="Test workspace"
-      leadingPaneCameraMode={cameraMode}
+      leadingPaneShiftsCanvas={leadingPaneShiftsCanvas}
       leadingTabs={leadingTabs}
       onViewStateChange={(nextState) => {
         onChange(nextState);
@@ -167,7 +168,7 @@ describe("WorkspaceShell", () => {
     });
     host.remove();
     observedResizeTargets.clear();
-    panBy.mockReset();
+    shiftWorkspaceMapForLeadingPane.mockReset();
   });
 
   function getShell(): HTMLElement {
@@ -231,10 +232,31 @@ describe("WorkspaceShell", () => {
     expect(getButton("Inspector").tabIndex).toBe(-1);
     expect(host.querySelector('[role="tabpanel"] h2')?.textContent).toBe("Notes");
     expect(host.textContent).toContain("Notes content");
-    expect(host.textContent).not.toContain("Details content");
+    expect(host.textContent).toContain("Details content");
+    expect(
+      host
+        .querySelector('[data-workspace-shell-pane-region="trailing"] .setta-workspace-shell-pane')
+        ?.getAttribute("aria-hidden"),
+    ).toBe("true");
     expect(host.querySelector('[data-testid="workspace-canvas"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="workspace-controls"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="workspace-tooltip"]')).not.toBeNull();
+
+    const leadingRegion = host.querySelector<HTMLElement>(
+      '[data-workspace-shell-pane-region="leading"]',
+    );
+    const rail = leadingRegion?.querySelector('[data-workspace-shell-rail="leading"]');
+    const panel = leadingRegion?.querySelector('[data-workspace-shell-panel="leading"]');
+    const resizeHandle = leadingRegion?.querySelector('[data-workspace-shell-resize="leading"]');
+    if (!rail || !panel || !resizeHandle) {
+      throw new Error("Expected the leading rail, panel, and resize handle.");
+    }
+    expect(rail.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(panel.compareDocumentPosition(resizeHandle) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 
   it("shows large-surface focus only when keyboard input moves focus", async () => {
@@ -267,15 +289,16 @@ describe("WorkspaceShell", () => {
     expect(shell.hasAttribute("data-workspace-keyboard-focus")).toBe(false);
   });
 
-  it("prepends the built-in Outline and focuses its empty tree when opened", async () => {
+  it("prepends the built-in Outline and focuses its filter when opened", async () => {
     await act(async () => {
       getButton("Outline").dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     const tree = host.querySelector<HTMLElement>('[role="tree"][aria-label="Workspace outline"]');
+    const filter = host.querySelector<HTMLInputElement>(".setta-workspace-outline-filter-input");
     expect(tree?.textContent).toContain("No sections");
     expect(tree?.tabIndex).toBe(0);
-    expect(document.activeElement).toBe(tree);
+    expect(document.activeElement).toBe(filter);
     expect(getButton("Outline").getAttribute("aria-selected")).toBe("true");
   });
 
@@ -308,7 +331,12 @@ describe("WorkspaceShell", () => {
 
     expect(document.activeElement).toBe(getButton("Guide"));
     expect(getButton("Guide").getAttribute("aria-expanded")).toBe("false");
-    expect(host.querySelector('[role="tabpanel"]')).toBeNull();
+    expect(
+      host
+        .querySelector('[data-workspace-shell-pane-region="leading"] .setta-workspace-shell-pane')
+        ?.getAttribute("aria-hidden"),
+    ).toBe("true");
+    expect(host.textContent).toContain("Close guide");
   });
 
   it("uses a roving tab stop with Arrow and Home or End navigation", async () => {
@@ -407,28 +435,33 @@ describe("WorkspaceShell", () => {
     expect(getResizeHandle("leading").getAttribute("aria-valuenow")).toBe("300");
   });
 
-  it("counter-pans only when preserve-screen-position explicitly shifts the center", async () => {
-    const center = host.querySelector<HTMLElement>(".setta-workspace-shell-center");
-    const leadingRegion = host.querySelector<HTMLElement>(
-      '[data-workspace-shell-pane-region="leading"]',
-    );
-    if (!center || !leadingRegion) {
-      throw new Error("Expected shell center geometry.");
-    }
-    center.getBoundingClientRect = () => {
-      const x = Number.parseFloat(leadingRegion.style.width);
-      return new DOMRect(x, 0, 800 - x, 600);
-    };
-
+  it("shifts the map by the leading pane true-width delta by default", async () => {
     await act(async () => {
-      root.render(<Harness cameraMode="preserve-screen-position" onChange={onChange} />);
+      getButton("Notes").dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
-    panBy.mockClear();
+    expect(shiftWorkspaceMapForLeadingPane).toHaveBeenCalledOnce();
+    expect(shiftWorkspaceMapForLeadingPane).toHaveBeenLastCalledWith(-295);
 
     await act(async () => {
       getButton("Notes").dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
-    expect(panBy).toHaveBeenCalledOnce();
-    expect(panBy).toHaveBeenCalledWith({ x: 295, y: 0 });
+    expect(shiftWorkspaceMapForLeadingPane).toHaveBeenCalledTimes(2);
+    expect(shiftWorkspaceMapForLeadingPane).toHaveBeenLastCalledWith(295);
+  });
+
+  it("lets hosts disable leading-pane map shifts and never shifts for the trailing pane", async () => {
+    await act(async () => {
+      root.render(<Harness leadingPaneShiftsCanvas={false} onChange={onChange} />);
+    });
+    shiftWorkspaceMapForLeadingPane.mockClear();
+
+    await act(async () => {
+      getButton("Notes").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await act(async () => {
+      getButton("Details").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(shiftWorkspaceMapForLeadingPane).not.toHaveBeenCalled();
   });
 });

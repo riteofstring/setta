@@ -5,7 +5,14 @@ import type { WorkspaceSection } from "../document/types";
 import { useSectionRefs } from "../section/sectionRefs";
 import { useWorkspaceOptions } from "./options";
 import { initialCanvasState, useReactFlow } from "./store";
-import { focusWorkspaceSection, resetZoom, setCenter, zoomIn, zoomOut } from "./viewportHelpers";
+import {
+  focusWorkspaceSection,
+  resetZoom,
+  setCenter,
+  shiftWorkspaceMapForLeadingPane,
+  zoomIn,
+  zoomOut,
+} from "./viewportHelpers";
 
 function setupZoomRuntime() {
   const scaleBy = vi.fn();
@@ -87,6 +94,19 @@ describe("viewport zoom helpers", () => {
     resetZoom();
 
     expect(scaleTo).toHaveBeenCalledWith(transitionObject, 1.5);
+    expect(durations).toEqual([100]);
+  });
+
+  it("matches frozen main's 100ms leading-pane map shift", () => {
+    const { transform, durations, transitionObject } = setupZoomRuntime();
+    useReactFlow.setState({ transform: [15, 25, 1.5] });
+
+    shiftWorkspaceMapForLeadingPane(295);
+
+    expect(transform).toHaveBeenCalledWith(
+      transitionObject,
+      expect.objectContaining({ x: 310, y: 25, k: 1.5 }),
+    );
     expect(durations).toEqual([100]);
   });
 

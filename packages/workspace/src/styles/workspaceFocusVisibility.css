@@ -1,6 +1,11 @@
-/* Chromium can expose :focus-visible on the element that already owns focus after an unrelated
- * shortcut. Large canvas and tree surfaces use the workspace's focus-movement signal instead, so
- * shortcuts cannot paint a full-surface ring while genuine keyboard navigation still can. */
+/* Chromium can expose :focus-visible on an element that already owned pointer focus after an
+ * unrelated shortcut. Package focus paint is therefore gated by actual keyboard focus movement,
+ * not the browser heuristic alone. Tab/Shift+Tab set the marker before focus moves; pointer input
+ * and shortcuts that leave focus in place do not. */
+.setta-workspace:not([data-workspace-keyboard-focus="true"]) :focus {
+  outline: none;
+}
+
 .setta-workspace .react-flow__pane:focus-visible {
   outline: none;
 }

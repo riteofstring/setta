@@ -4,6 +4,7 @@ import type { WorkspaceDocumentState } from "../document/stores";
 import type { WorkspaceSection } from "../document/types";
 import {
   createWorkspaceOutlineTree,
+  filterWorkspaceOutlineTree,
   findWorkspaceOutlineTypeaheadMatch,
   getValidWorkspaceOutlineCollapsedGroupIds,
   getWorkspaceOutlineVisibleEntries,
@@ -82,6 +83,23 @@ describe("workspace Outline model", () => {
       getWorkspaceOutlineVisibleEntries(tree, ["group-charlie"]).map((entry) => entry.section.id),
     ).toEqual(["alpha", "bravo", "group-charlie", "echo"]);
     expect(tree[0]?.children[1]?.children[0]?.section.id).toBe("delta");
+  });
+
+  it("fuzzy-filters names while retaining canonical ancestor paths", () => {
+    const tree = createWorkspaceOutlineTree(createDocument());
+    const filtered = filterWorkspaceOutlineTree(tree, "dlt");
+
+    expect(
+      getWorkspaceOutlineVisibleEntries(filtered, []).map((entry) => entry.section.id),
+    ).toEqual(["alpha", "group-charlie", "delta"]);
+    expect(getWorkspaceOutlineVisibleEntries(tree, []).map((entry) => entry.section.id)).toEqual([
+      "alpha",
+      "bravo",
+      "group-charlie",
+      "delta",
+      "echo",
+    ]);
+    expect(filterWorkspaceOutlineTree(tree, "missing")).toEqual([]);
   });
 
   it("restores hidden focus to its visible ancestor and deleted focus to the same row position", () => {

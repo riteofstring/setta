@@ -1,0 +1,174 @@
+/* Interaction corrections and post-extraction Outline additions live outside the retained
+ * reference stylesheet. Keeping them here makes focus modality, clipped selection paint, and the
+ * package-owned Outline filter one reviewable policy layer. */
+
+/* Bounded groups are clipping scrollports. Their selected descendants therefore suppress the
+ * clipped outer outline and paint the same four-pixel geometry on an overlay above their content.
+ * Top-level and auto-sized sections keep the accepted outward outline geometry. */
+.setta-workspace-bounded-group-scroll > [data-workspace-contained-selection-outline="true"] {
+  display: none;
+}
+
+.setta-workspace-bounded-group-scroll
+  [data-workspace-group-selection-outline="true"][data-section-active="true"],
+.setta-workspace-bounded-group-scroll
+  [data-section-active="true"]:has(> [data-workspace-contained-selection-outline="true"]) {
+  outline-color: transparent;
+}
+
+.setta-workspace-bounded-group-scroll
+  [data-section-active="true"]
+  > [data-workspace-contained-selection-outline="true"][data-section-active="true"] {
+  display: block;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 4px var(--setta-section-style-outline, rgb(37 99 235));
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-bounded-group-scroll
+  [data-section-active="true"]
+  > [data-workspace-contained-selection-outline="true"][data-section-active="true"] {
+  box-shadow: inset 0 0 0 4px var(--setta-section-style-outline, rgb(29 78 216));
+}
+
+/* Frozen main overlays both panes on one full-size canvas. The complete pane surface—including
+ * its mounted content—owns the transform, so chrome and content travel as one layer. */
+.setta-workspace-shell-pane-region {
+  position: absolute;
+  inset-block: 0;
+}
+
+.setta-workspace-shell-pane-region[data-workspace-shell-pane-region="leading"] {
+  inset-inline-start: 0;
+}
+
+.setta-workspace-shell-pane-region[data-workspace-shell-pane-region="trailing"] {
+  inset-inline-end: 0;
+}
+
+.setta-workspace-shell-center {
+  width: 100%;
+  height: 100%;
+  flex: 1 1 100%;
+}
+
+/* Pointer focus never paints a large surface boundary. Keyboard focus movement opts the same
+ * surfaces into a deliberate ring through data-workspace-keyboard-focus. */
+.react-flow__minimap svg:focus,
+.setta-workspace-shell-tab:focus,
+.setta-workspace-shell-full-width-button:focus,
+.setta-workspace-shell-resize-handle:focus {
+  outline: none;
+}
+
+[data-workspace-keyboard-focus="true"] .react-flow__minimap svg:focus {
+  outline: 2px solid rgb(37 99 235);
+  outline-offset: -2px;
+}
+
+[data-workspace-keyboard-focus="true"] .setta-workspace-shell-tab:focus,
+[data-workspace-keyboard-focus="true"] .setta-workspace-shell-full-width-button:focus {
+  outline: 2px solid;
+  outline-offset: 2px;
+}
+
+.setta-workspace-shell-resize-handle::after {
+  position: absolute;
+  inset-block: 8px;
+  inset-inline-start: 4px;
+  width: 2px;
+  border-radius: 999px;
+  background-color: transparent;
+  content: "";
+  pointer-events: none;
+}
+
+.setta-workspace-shell-resize-handle:focus,
+.setta-workspace-shell-resize-handle:focus-visible {
+  background-color: transparent;
+}
+
+[data-workspace-keyboard-focus="true"] .setta-workspace-shell-resize-handle:focus::after {
+  background-color: rgb(59 130 246);
+}
+
+/* Frozen main's compact Overview filter presentation, wrapped around the package's accepted tree
+ * projection. The search stays fixed while the tree owns the pane's remaining scroll area. */
+.setta-workspace-outline-surface {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.setta-workspace-outline-search {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: none;
+  align-items: center;
+  margin-inline: 2px;
+  padding-block: 0 10px;
+  color: rgb(86 105 143);
+}
+
+.setta-workspace-outline-filter-icon {
+  position: absolute;
+  inset-inline-start: 4px;
+  transform: scale(0.75);
+  pointer-events: none;
+}
+
+.setta-workspace-outline-filter-input {
+  width: 100%;
+  min-width: 0;
+  cursor: text;
+  overflow: hidden;
+  border-width: 0 0 1px;
+  border-style: solid;
+  border-color: rgb(182 192 211);
+  background: transparent;
+  padding-block: 4px;
+  padding-inline: 20px 2px;
+  color: rgb(43 54 74);
+  font-size: 14px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  user-select: text;
+}
+
+.setta-workspace-outline-filter-input::placeholder {
+  color: rgb(148 163 184);
+}
+
+.setta-workspace-outline-filter-input:focus-visible {
+  border-color: rgb(147 197 253);
+  outline: none;
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-outline-filter-input {
+  border-color: rgb(43 54 74);
+  color: rgb(182 192 211);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-outline-filter-input::placeholder {
+  color: rgb(65 80 108);
+}
+
+.setta-workspace-outline-surface > .setta-workspace-outline {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+@media (forced-colors: active) {
+  .setta-workspace-outline-filter-input:focus-visible {
+    border-color: Highlight;
+  }
+
+  [data-workspace-keyboard-focus="true"] .setta-workspace-shell-resize-handle:focus::after {
+    background-color: Highlight;
+  }
+}

@@ -45,8 +45,6 @@ export type WorkspaceShellTabDefinition = {
   initialFocusRef?: RefObject<HTMLElement | null>;
 };
 
-export type WorkspaceShellLeadingPaneCameraMode = "shift-with-pane" | "preserve-screen-position";
-
 export type WorkspaceShellProps = {
   viewState: WorkspaceShellViewState;
   onViewStateChange: (nextState: WorkspaceShellViewState) => void;
@@ -54,10 +52,10 @@ export type WorkspaceShellProps = {
   // reserved by their built-in panes and fail the same duplicate-id validation as a host collision.
   leadingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
   trailingTabs: ReadonlyArray<WorkspaceShellTabDefinition>;
-  // Frozen main's default setting shifts the map with the leading pane. In an integrated shell,
-  // the center's logical origin already shifts with that pane. The alternate mode explicitly
-  // counter-pans the camera to preserve absolute screen position.
-  leadingPaneCameraMode?: WorkspaceShellLeadingPaneCameraMode;
+  // Mirrors frozen main's `leftSidePaneShiftsMap` setting. Enabled by default: opening, closing,
+  // or resizing the leading pane shifts the map by the pane's true-width delta. Disable it to
+  // leave the canvas camera unchanged beneath the overlay pane.
+  leadingPaneShiftsCanvas?: boolean;
   // Omit for frozen main's captured categories. A supplied palette replaces the complete editor
   // choice set; category persistence and editing remain host-owned.
   sectionTagColorPalette?: WorkspaceSectionTagColorPalette;

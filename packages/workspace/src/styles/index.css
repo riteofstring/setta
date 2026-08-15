@@ -7,6 +7,7 @@
 @import "./workspace.css";
 @import "./itemToolbar.css";
 @import "./workspaceFocusVisibility.css";
+@import "./workspaceInteractionPolicy.css";
 
 @tailwind base;
 @tailwind components;

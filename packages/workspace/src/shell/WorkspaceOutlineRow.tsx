@@ -15,6 +15,7 @@ type WorkspaceOutlineBranchProps = {
   activeSectionIds: ReadonlySet<string>;
   collapsedGroupIds: ReadonlySet<string>;
   effectiveFocusId: string | null;
+  filterActive: boolean;
   node: WorkspaceOutlineNode;
   onClick: (event: MouseEvent<HTMLDivElement>, sectionId: string) => void;
   onContextMenu: (event: MouseEvent<HTMLDivElement>, sectionId: string) => void;
@@ -42,9 +43,11 @@ function WorkspaceOutlineKindIcon({ section }: { section: WorkspaceSection }) {
 }
 
 function WorkspaceOutlineDisclosure({
+  filterActive,
   isCollapsed,
   section,
 }: {
+  filterActive: boolean;
   isCollapsed: boolean;
   section: WorkspaceSection;
 }) {
@@ -54,7 +57,7 @@ function WorkspaceOutlineDisclosure({
       aria-hidden="true"
       className="setta-workspace-outline-disclosure"
       data-expanded={group && !isCollapsed ? "true" : "false"}
-      data-workspace-outline-disclosure={group ? "true" : undefined}
+      data-workspace-outline-disclosure={group && !filterActive ? "true" : undefined}
     >
       {group ? <RiArrowRightSLine focusable="false" /> : null}
     </span>
@@ -123,7 +126,11 @@ function WorkspaceOutlineRow(props: WorkspaceOutlineBranchProps & { isCollapsed:
       tabIndex={props.effectiveFocusId === section.id ? 0 : -1}
     >
       <div className="setta-workspace-outline-row">
-        <WorkspaceOutlineDisclosure isCollapsed={props.isCollapsed} section={section} />
+        <WorkspaceOutlineDisclosure
+          filterActive={props.filterActive}
+          isCollapsed={props.isCollapsed}
+          section={section}
+        />
         <span aria-hidden="true" className="setta-workspace-outline-kind-icon">
           <WorkspaceOutlineKindIcon section={section} />
         </span>

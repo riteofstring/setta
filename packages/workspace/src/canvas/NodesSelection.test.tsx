@@ -115,4 +115,14 @@ describe("NodesSelection context menu", () => {
       clientPoint: { x: 22, y: 64 },
     });
   });
+
+  it("removes the multi-selection bounds layer when only one section remains selected", async () => {
+    await act(async () => {
+      useActiveSections.setState({ activeIds: ["alpha"] });
+      useReactFlow.getState().setNodesSelection(1);
+    });
+
+    expect(useReactFlow.getState().nodesSelectionDims).toBeNull();
+    expect(host.querySelector(".react-flow__nodesselection-rect")).toBeNull();
+  });
 });
