@@ -13,6 +13,22 @@
   padding: 4px;
 }
 
+/* A group paints its outline on a child layer, so the group's transient press state must drive
+ * that layer. The browser also marks every ancestor of the pressed target active; exclude an
+ * active descendant section or group so only the deepest pressed section receives feedback.
+ * Keep selected groups blue and suppress the press color for header controls. */
+[data-group-overflow-mode]:active:not(
+    :has(
+      button:active,
+      :active.setta-prevent-section-active-css,
+      [data-group-overflow-mode]:active,
+      [data-section-id]:active
+    )
+  )
+  > [data-workspace-group-selection-outline="true"][data-section-active="false"] {
+  outline-color: rgb(103 232 249);
+}
+
 /* Frozen main overlays both panes on one full-size canvas. The complete pane surface—including
  * its mounted content—owns the transform, so chrome and content travel as one layer. */
 .setta-workspace-shell-pane-region {

@@ -49,6 +49,12 @@ describe("workspace adaptive stylesheet contract", () => {
     expect(interactionPolicyStyles).not.toContain("inset 0 0 0 4px");
   });
 
+  it("drives press feedback from only the deepest inactive group shell", () => {
+    expect(interactionPolicyStyles).toMatch(
+      /\[data-group-overflow-mode\]:active:not\([^)]*:has\([^)]*button:active,[^)]*:active\.setta-prevent-section-active-css,[^)]*\[data-group-overflow-mode\]:active,[^)]*\[data-section-id\]:active[^)]*\)[^)]*\)\s*> \[data-workspace-group-selection-outline="true"\]\[data-section-active="false"\]\s*\{[^}]*outline-color: rgb\(103 232 249\)/su,
+    );
+  });
+
   it("prepares section compositor layers before pan starts without a per-section state fanout", () => {
     expect(workspaceStyles).toContain(".setta-workspace.react-flow:hover [data-section-id]");
     expect(workspaceStyles).toContain(
