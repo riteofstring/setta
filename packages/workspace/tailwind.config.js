@@ -1,4 +1,5 @@
 import containerQueries from "@tailwindcss/container-queries";
+import typography from "@tailwindcss/typography";
 import workspacePreset from "./tailwind-preset.mjs";
 
 // Compiles the package-owned stylesheet from package source alone. Preflight stays off because
@@ -14,5 +15,8 @@ export default {
   content: ["./src/**/*.{ts,tsx}"],
   corePlugins: { preflight: false },
   experimental: { optimizeUniversalDefaults: true },
-  plugins: [containerQueries],
+  // The built-in Text section renders Markdown through the same typography plugin the reference
+  // uses, compiled under a package-owned class name so the shipped stylesheet cannot redefine a
+  // host's own `prose` classes.
+  plugins: [containerQueries, typography({ className: "setta-prose" })],
 };

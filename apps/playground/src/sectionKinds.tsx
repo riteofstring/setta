@@ -1,7 +1,9 @@
 import {
   createWorkspaceCodeSection,
+  createWorkspaceTextSection,
   getWorkspaceCodeSectionData,
   getWorkspaceDocument,
+  getWorkspaceTextSectionData,
   ItemDndContext,
   MetaControl,
   registerItemHandlers,
@@ -9,10 +11,15 @@ import {
   setItemControlConfiguration,
   setSectionData,
   setWorkspaceCodeSectionData,
+  setWorkspaceTextSectionData,
   WORKSPACE_CODE_SECTION_KIND,
   WORKSPACE_CODE_SECTION_LANGUAGES,
   WORKSPACE_CODE_SECTION_MAXIMUM_INDENT_WIDTH,
   WORKSPACE_CODE_SECTION_MINIMUM_INDENT_WIDTH,
+  WORKSPACE_TEXT_SECTION_FORMATS,
+  WORKSPACE_TEXT_SECTION_KIND,
+  WORKSPACE_TEXT_SECTION_MAXIMUM_FONT_SIZE,
+  WORKSPACE_TEXT_SECTION_MINIMUM_FONT_SIZE,
   WorkspaceItemList,
   type ColorValueChoice,
   type DropzoneAcceptedResult,
@@ -29,6 +36,8 @@ import {
   type WorkspaceItemDiagnosticRegistry,
   type WorkspaceSection,
   type WorkspaceSectionData,
+  type WorkspaceTextSectionData,
+  type WorkspaceTextSectionFormat,
 } from "@setta/workspace";
 import { createContext, useContext, type ReactNode } from "react";
 // The host side of the registration seam: the package owns the shell, chrome, header, and
@@ -169,6 +178,69 @@ export function PlaygroundCodeSectionInspector({ sectionId }: { sectionId: strin
           checked={data.readOnly}
           onChange={(event) =>
             updatePlaygroundCodeSection(sectionId, (current) => ({
+              ...current,
+              readOnly: event.target.checked,
+            }))
+          }
+          type="checkbox"
+        />
+        Read only
+      </label>
+    </div>
+  );
+}
+
+// The text section's options are host UI over the same typed data the editor and the header
+// control commit through, so no option needs a package-invented settings panel.
+function updatePlaygroundTextSection(
+  sectionId: string,
+  update: (current: WorkspaceTextSectionData) => WorkspaceTextSectionData,
+) {
+  setWorkspaceTextSectionData(sectionId, update(getWorkspaceTextSectionData(sectionId)));
+}
+
+export function PlaygroundTextSectionInspector({ sectionId }: { sectionId: string }) {
+  const data = getWorkspaceTextSectionData(sectionId);
+  return (
+    <div className="playground-host-pane">
+      <label>
+        Format
+        <select
+          onChange={(event) =>
+            updatePlaygroundTextSection(sectionId, (current) => ({
+              ...current,
+              format: event.target.value as WorkspaceTextSectionFormat,
+            }))
+          }
+          value={data.format}
+        >
+          {WORKSPACE_TEXT_SECTION_FORMATS.map((format) => (
+            <option key={format} value={format}>
+              {format}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Font size
+        <input
+          max={WORKSPACE_TEXT_SECTION_MAXIMUM_FONT_SIZE}
+          min={WORKSPACE_TEXT_SECTION_MINIMUM_FONT_SIZE}
+          onChange={(event) =>
+            updatePlaygroundTextSection(sectionId, (current) => ({
+              ...current,
+              fontSizePx: Number(event.target.value),
+            }))
+          }
+          type="number"
+          value={data.fontSizePx}
+        />
+      </label>
+      <label>
+        <input
+          checked={data.readOnly}
+          onChange={(event) =>
+            updatePlaygroundTextSection(sectionId, (current) => ({
               ...current,
               readOnly: event.target.checked,
             }))
@@ -856,6 +928,14 @@ export function registerPlaygroundSectionKinds(): void {
       renderInspector: (context) =>
         context.type === "section" ? (
           <PlaygroundCodeSectionInspector sectionId={context.section.id} />
+        ) : null,
+    }),
+    // The built-in Text section registers the same way, and this host keeps both formats, both
+    // display modes, and the package's header control.
+    [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({
+      renderInspector: (context) =>
+        context.type === "section" ? (
+          <PlaygroundTextSectionInspector sectionId={context.section.id} />
         ) : null,
     }),
   });

@@ -8,7 +8,8 @@ import { NO_WHEEL_CLASS_NAME } from "../interaction";
 import { useResizeEvent } from "../section/resize/resizeEvents";
 import { useSectionMinMaxDims } from "../section/resize/sizingPolicy";
 
-// The reference's `useCodeAreaHeight`, minus the application bookkeeping that has no package
+// The reference's `useCodeAreaHeight`, which its code area and its in-section Markdown editor
+// both call, minus the application bookkeeping that has no package
 // equivalent: its initialized/displayed code-area counters, its `requestUpdateNodeDimensions`
 // signal, and its `tempSavedSize` restoration all serve the reference's deferred node-dimension
 // measurement. What is left is the behavior the editor itself needs — the height ceiling, the
@@ -19,7 +20,7 @@ import { useSectionMinMaxDims } from "../section/resize/sizingPolicy";
 // The reference's header allowance: the editor's ceiling is the section box minus its header.
 const SECTION_HEADER_ALLOWANCE_PX = 30;
 
-export type CodeSectionEditorHeight = {
+export type SectionEditorHeight = {
   wrapperRef: RefObject<HTMLElement | null>;
   handleCreateEditor: (view: EditorView) => void;
   maxHeight: string | undefined;
@@ -27,7 +28,7 @@ export type CodeSectionEditorHeight = {
   wheelClassName: string;
 };
 
-export function useCodeSectionEditorHeight(sectionId: string): CodeSectionEditorHeight {
+export function useSectionEditorHeight(sectionId: string): SectionEditorHeight {
   const height = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId).size.height);
   const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
   const { maxHeight: sectionMaxHeight } = useSectionMinMaxDims(sectionId);

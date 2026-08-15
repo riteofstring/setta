@@ -91,6 +91,10 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         // Custom opaque items have no package-owned label. Their owning kind may contribute one
         // search string from frozen public snapshots without putting derived text in the document.
         getItemSearchableText?: WorkspaceItemSearchableText;
+        // Placed in the header's trailing control group, ahead of the container controls (lock,
+        // minimize, delete) — the reference's own slot for its per-type header controls. The
+        // built-in Text section's edit/render toggle is the package's one use of it.
+        renderHeaderControls?: (section: WorkspaceSection) => ReactNode;
         presentation?: undefined;
       }
     | {
@@ -100,6 +104,7 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         contentClassName?: never;
         createItem?: never;
         getItemSearchableText?: never;
+        renderHeaderControls?: never;
         presentation: MetaControlSectionPresentation;
       }
   );
@@ -159,6 +164,12 @@ function assertMetaControlDefinition(kind: string, definition: SectionKindDefini
         "meta controls cannot carry item trees.",
     );
   }
+  if (definition.renderHeaderControls !== undefined) {
+    throw new Error(
+      `Meta-control section kind ${kind} cannot register renderHeaderControls; ` +
+        "its package-owned chrome has no section header.",
+    );
+  }
 }
 
 function assertSectionKindDefinition(kind: string, definition: SectionKindDefinition): void {
@@ -168,6 +179,7 @@ function assertSectionKindDefinition(kind: string, definition: SectionKindDefini
   assertOptionalSectionKindFunction(kind, "renderInspector", definition.renderInspector);
   assertOptionalSectionKindFunction(kind, "assertValidData", definition.assertValidData);
   assertOptionalSectionKindFunction(kind, "createItem", definition.createItem);
+  assertOptionalSectionKindFunction(kind, "renderHeaderControls", definition.renderHeaderControls);
   assertOptionalSectionKindFunction(
     kind,
     "getItemSearchableText",
@@ -201,6 +213,17 @@ export function getRegisteredSectionKindOrThrow(kind: string): SectionKindDefini
     );
   }
   return definition;
+}
+
+// Groups are package-owned and register nothing, so they contribute no header controls.
+export function getSectionKindHeaderControls(
+  kind: string,
+): ((section: WorkspaceSection) => ReactNode) | null {
+  if (kind === GROUP_SECTION_KIND) {
+    return null;
+  }
+  const definition = getRegisteredSectionKindOrThrow(kind);
+  return definition.presentation === undefined ? (definition.renderHeaderControls ?? null) : null;
 }
 
 export function getWorkspaceItemFactory(section: WorkspaceSection): WorkspaceItemFactory | null {

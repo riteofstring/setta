@@ -1,24 +1,14 @@
-import { RangeSetBuilder, Text } from "@codemirror/state";
-import { Decoration } from "@codemirror/view";
-import { highlightTree } from "@lezer/highlight";
-import type { CSSProperties, FocusEventHandler, MouseEventHandler, ReactNode } from "react";
-import {
-  getTextValueLanguageParser,
-  type TextValueLanguage,
-  type TextValueParserLike,
-} from "./textValueLanguages";
-import {
-  getThemeHighlightStyle,
-  getThemeScopeClassName,
-  type TextValueTheme,
-} from "./textValueTheme";
+import type { CSSProperties, FocusEventHandler, MouseEventHandler } from "react";
+import { buildHighlightedCodeLines, buildPlainCodeLines } from "./highlightedCodeLines";
+import { type TextValueLanguage } from "./textValueLanguages";
+import { getThemeScopeClassName, type TextValueTheme } from "./textValueTheme";
 
 // The reference's `DummyCodeMirror` idle layer, trimmed of its file-path/JSX variants: a
 // server-render-style highlight of the committed value (or its placeholder form) that stands
-// in for the live editor until activation. The role is the one the live editor's content
-// element advertises; the reference renders role-less nodes, but this repository's
-// accessibility gate requires the interactive role on the focusable layer.
-// https://discuss.codemirror.net/t/server-side-rendering-for-read-only-codeblocks-in-cm6/4053
+// in for the live editor until activation. The highlight itself lives in
+// `highlightedCodeLines`, which the Text section's fenced Markdown blocks share. The role is the
+// one the live editor's content element advertises; the reference renders role-less nodes, but
+// this repository's accessibility gate requires the interactive role on the focusable layer.
 
 const lineWrapStyle: CSSProperties = {
   whiteSpace: "break-spaces",
@@ -139,55 +129,6 @@ function PlaceholderCode({
   );
 }
 
-function buildDecorationRangeSet(code: string, theme: TextValueTheme, parser: TextValueParserLike) {
-  const tree = parser.parse(code);
-  const highlightStyle = getThemeHighlightStyle(theme);
-  const markCache: Record<string, Decoration> = {};
-  const builder = new RangeSetBuilder<Decoration>();
-  highlightTree(tree, highlightStyle, (from, to, style) => {
-    builder.add(
-      from,
-      to,
-      markCache[style] || (markCache[style] = Decoration.mark({ class: style })),
-    );
-  });
-  // just the decorations NOT the code itself
-  return builder.finish();
-}
-
-type DecorationCursor = ReturnType<ReturnType<typeof buildDecorationRangeSet>["iter"]>;
-
-function buildLineNodes(
-  text: Text,
-  lineNumber: number,
-  cursor: DecorationCursor,
-): Array<ReactNode> {
-  const line = text.line(lineNumber);
-  let isJustLineBreak = true;
-  let pos = line.from;
-  const currLineDivs: Array<ReactNode> = [];
-
-  while (cursor.value && cursor.from < line.to) {
-    isJustLineBreak = false;
-    if (cursor.from > pos) {
-      currLineDivs.push(text.sliceString(pos, cursor.from));
-    }
-    const spanClassName: string = cursor.value.spec.class;
-    currLineDivs.push(
-      <span key={`line-${lineNumber}-${cursor.from}`} className={spanClassName}>
-        {text.sliceString(cursor.from, Math.min(line.to, cursor.to))}
-      </span>,
-    );
-    pos = cursor.to;
-    cursor.next();
-  }
-  currLineDivs.push(text.sliceString(pos, line.to));
-  if (isJustLineBreak) {
-    currLineDivs.push(<br key={`br-${lineNumber}`} />);
-  }
-  return currLineDivs;
-}
-
 function HighlightedCode({
   divId,
   code,
@@ -208,8 +149,9 @@ function HighlightedCode({
   language: TextValueLanguage | null | undefined;
   style: CSSProperties;
 }) {
-  const parser = getTextValueLanguageParser(language);
-  if (!parser) {
+  const highlightedLines = buildHighlightedCodeLines(code, theme, language);
+
+  if (!highlightedLines) {
     return (
       <div
         id={divId}
@@ -225,25 +167,8 @@ function HighlightedCode({
         aria-disabled={ariaDisabled || undefined}
         aria-multiline={ariaMultiline}
       >
-        {code.split("\n").map((line, index) => (
-          <div key={`line-${index + 1}`} className="cm-line">
-            {line || <br />}
-          </div>
-        ))}
+        {buildPlainCodeLines(code)}
       </div>
-    );
-  }
-
-  const decorationRangeSet = buildDecorationRangeSet(code, theme, parser);
-  // just the code content. MUST be array of lines
-  const text = Text.of(code.split("\n"));
-  const cursor = decorationRangeSet.iter();
-  const outputDivs: Array<ReactNode> = [];
-  for (let i = 1; i <= text.lines; i++) {
-    outputDivs.push(
-      <div key={`line-${i}`} className="cm-line">
-        {buildLineNodes(text, i, cursor)}
-      </div>,
     );
   }
 
@@ -262,7 +187,7 @@ function HighlightedCode({
       aria-disabled={ariaDisabled || undefined}
       aria-multiline={ariaMultiline}
     >
-      {outputDivs}
+      {highlightedLines}
     </div>
   );
 }

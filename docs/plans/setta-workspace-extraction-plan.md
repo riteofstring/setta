@@ -363,7 +363,7 @@ palette, and a plugin runtime remain out of scope.
 
 ## Milestone D — built-in text and code sections
 
-**Status: in progress. D2 is complete, and it comes first because it is where the package's
+**Status: in progress. D2 and D1 are complete. D2 came first because it is where the package's
 section-scale CodeMirror foundation lands — the foundation D1's edit mode then reuses — and because
 it needs no new dependency, while D1's Markdown rendering does. The package now has one built-in
 Code Editor section: a reserved stable kind ID, a parsed serializable data contract (code,
@@ -381,7 +381,35 @@ decisions recorded in source: bash highlights through the already-pinned legacy 
 (the reference declares bash but registers no mode for it), the authored line-number option owns
 the whole gutter column, the authored indentation width owns both inserted and rendered
 indentation, and the configuration has no completion state because the package ships no completion
-source. D1 and D3 remain, then the D4 developer gate.**
+source.
+
+D1 added the second built-in section on that foundation: one Text section carrying explicit
+plain-text and Markdown formats and edit and rendered display modes, over a parsed serializable
+contract (text, format, display mode, font size, read-only) and the same typed read/write pair. Its
+edit mode is now literally the Code Editor's editor — the shared wrapper, height ceiling, wheel
+ownership, scroll hand-off, and Enter/Escape focus path moved into one owner both sections mount,
+wrapping its lines and indenting by four the way the reference's in-section Markdown editor does.
+Its rendered mode is the reference's own surface: GitHub-flavored Markdown with tables, task lists,
+links, inline code, fenced code with language-aware highlighting and a copy button, and KaTeX math,
+with raw HTML never parsed, or a wrapping `pre` that preserves authored whitespace for plain text.
+One authored font size drives the reference's whole rendered type scale. Registered kinds gained a
+header-control slot in the reference's own position — ahead of lock, minimize, and delete — and the
+Text section's edit/render toggle is its one use; a registration can leave the control out, force a
+single display mode, or narrow the formats, and the header icon paints the section's own format.
+
+Package-only design decisions for D1, recorded in source: the rendered surface compiles the
+Tailwind typography plugin under a package-owned `setta-prose` class name so the shipped stylesheet
+cannot redefine a host's own `prose` classes; fenced and inline code are told apart from the
+Markdown tree (`pre` versus `code`) rather than through the reference's start-column heuristic,
+which misreads a paragraph beginning with inline code; `jsx` and `tsx` fences highlight through the
+plain JavaScript and TypeScript packs because the package's language registry carries no JSX parser
+variant; and an out-of-range font size is rejected at the boundary rather than silently clamped.
+KaTeX's own stylesheet is imported from package source exactly as the reference imports it, because
+`rehype-katex` emits markup that stylesheet is required to lay out; it is the one stylesheet the
+package does not scope, it stays a dependency's file rather than a new distribution artifact, and a
+consumer's bundler resolves its fonts. Bring that import to the D4 gate as a distribution question.
+
+D3 remains, then the D4 developer gate.**
 
 Add two optional, batteries-included content-section registrations. Hosts can register either,
 both, or neither alongside their own section kinds. Their document data and configuration are

@@ -1,5 +1,6 @@
 import {
   createWorkspaceCodeSectionData,
+  createWorkspaceTextSectionData,
   getWorkspaceKeyBindingConflicts,
   getWorkspaceKeyBindings,
   GROUP_SECTION_KIND,
@@ -9,6 +10,7 @@ import {
   registerWorkspaceToolbarContributions,
   ungroupSections,
   WORKSPACE_CODE_SECTION_KIND,
+  WORKSPACE_TEXT_SECTION_KIND,
   type WorkspaceCommandIconProps,
   type WorkspaceCreationContext,
   type WorkspaceKeyBinding,
@@ -161,6 +163,27 @@ function createPlaygroundCodeSection(context: WorkspaceCreationContext): Workspa
   };
 }
 
+// The built-in Text section joins the same catalog, created in the format this host wants and in
+// the reference's Edit-first display mode.
+function createPlaygroundTextSection(context: WorkspaceCreationContext): WorkspaceSectionInput {
+  return {
+    id: `playground-text-${crypto.randomUUID()}`,
+    kind: WORKSPACE_TEXT_SECTION_KIND,
+    name: "Notes",
+    data: createWorkspaceTextSectionData({
+      format: "markdown",
+      text: `# Notes\n\nCreated ${describeCreationRequest(context)}.\n`,
+    }),
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isHorizontalOrientation: false,
+    styleColor: null,
+    overflowMode: false,
+    tagColor: null,
+    children: [],
+  };
+}
+
 export function registerPlaygroundMenuExtensions(): void {
   // The chords are the reference's own creation defaults, "N" and "G", over this host's catalog.
   registerWorkspaceCreationCommands([
@@ -185,6 +208,13 @@ export function registerPlaygroundMenuExtensions(): void {
       group: "Playground",
       chord: "C",
       createSection: createPlaygroundCodeSection,
+    },
+    {
+      id: "playground-text-section",
+      label: "Notes",
+      group: "Playground",
+      chord: "T",
+      createSection: createPlaygroundTextSection,
     },
   ]);
   registerWorkspaceCommands([

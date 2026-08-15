@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { getSectionOrThrow } from "../../document/documentSelectors";
+import { getSectionKindHeaderControls } from "../../document/sectionKindRegistry";
 import { useActiveSections, useWorkspaceDocument } from "../../document/stores";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
 import { LockPositionButton } from "./LockPositionButton";
@@ -47,12 +48,33 @@ export function SectionHeader({ sectionId, hasSectionStyleTheme }: SectionHeader
         className="z-10 ms-auto flex items-center"
         data-setta-workspace-compact-control-group="true"
       >
+        <SectionKindHeaderControls sectionId={sectionId} sectionKind={sectionKind} />
         <LockPositionButton sectionId={sectionId} hasSectionStyleTheme={hasSectionStyleTheme} />
         <MinimizeButton sectionId={sectionId} hasSectionStyleTheme={hasSectionStyleTheme} />
         <DeleteOrHideButton sectionId={sectionId} hasSectionStyleTheme={hasSectionStyleTheme} />
       </div>
     </header>
   );
+}
+
+// The reference's `SectionTypeControls` slot: a registered kind places its own compact header
+// controls ahead of the container controls. The subscription resolves to null for every kind that
+// registers none, so a header without contributed controls never re-renders for its section.
+function SectionKindHeaderControls({
+  sectionId,
+  sectionKind,
+}: {
+  sectionId: string;
+  sectionKind: string;
+}) {
+  const renderHeaderControls = getSectionKindHeaderControls(sectionKind);
+  const section = useWorkspaceDocument((x) =>
+    renderHeaderControls ? getSectionOrThrow(x, sectionId) : null,
+  );
+  if (!renderHeaderControls || !section) {
+    return null;
+  }
+  return <>{renderHeaderControls(section)}</>;
 }
 
 function getSectionHeaderStyle(hasSectionStyleTheme: boolean): CSSProperties | undefined {

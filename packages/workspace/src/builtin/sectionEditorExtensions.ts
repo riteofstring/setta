@@ -1,17 +1,18 @@
 import { indentUnit } from "@codemirror/language";
 import { EditorState, Prec, type Extension } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { getTextValueLanguageExtensions } from "../controls/text/textValueLanguages";
 import {
-  getWorkspaceCodeSectionEditorLanguage,
-  type WorkspaceCodeSectionData,
-} from "./codeSectionData";
+  getTextValueLanguageExtensions,
+  type WorkspaceEditorLanguage,
+} from "../controls/text/textValueLanguages";
 
-// The reference's `getExtensions` at the shape its code area reaches, minus every application
-// service: no LSP completion source or `completionKeymap`, no tooltip parent, no app undo/redo
-// shortcut overrides, and no tab-scope focus navigation. What remains is the reference's gutter
-// border removal, its line wrapping, its language pack, its read-only state, and its Escape
-// binding, plus the authored indentation width this package's contract adds.
+// The reference's `getExtensions` at the shape its section-scale editors reach, minus every
+// application service: no LSP completion source or `completionKeymap`, no tooltip parent, no app
+// undo/redo shortcut overrides, and no tab-scope focus navigation. What remains is the reference's
+// gutter border removal, its line wrapping, its language pack, its read-only state, and its Escape
+// binding, plus the authored indentation width this package's contract adds. Both built-in
+// content sections compile their editor from here, so the Code Editor and the Text section's edit
+// mode cannot drift apart.
 
 // The reference's `CODEMIRROR_GUTTER_LAYOUT_FIX`.
 const GUTTER_LAYOUT_FIX = EditorView.baseTheme({
@@ -20,28 +21,28 @@ const GUTTER_LAYOUT_FIX = EditorView.baseTheme({
   "&dark .cm-gutters": { borderRight: "0" },
 });
 
-export type CodeSectionExtensionsOptions = Pick<
-  WorkspaceCodeSectionData,
-  "language" | "wrapLines" | "indentWidth"
-> & {
+export type SectionEditorExtensionsOptions = {
+  // Plain text is the absence of a language pack rather than a mode of its own, exactly as the
+  // reference's `getExtensions` resolves a null language to no support.
+  language: WorkspaceEditorLanguage | null;
+  wrapLines: boolean;
+  indentWidth: number;
   isReadOnly: boolean;
   onEscape: () => void;
 };
 
-export function getCodeSectionExtensions({
+export function getSectionEditorExtensions({
   language,
   wrapLines,
   indentWidth,
   isReadOnly,
   onEscape,
-}: CodeSectionExtensionsOptions): Array<Extension> {
+}: SectionEditorExtensionsOptions): Array<Extension> {
   const extensions: Array<Extension> = [GUTTER_LAYOUT_FIX];
   if (wrapLines) {
     extensions.push(EditorView.lineWrapping);
   }
-  extensions.push(
-    ...getTextValueLanguageExtensions(getWorkspaceCodeSectionEditorLanguage(language)),
-  );
+  extensions.push(...getTextValueLanguageExtensions(language));
   // One owner for the authored width: the reference reaches `indentUnit` through its
   // `basicSetup.tabSize` option, which leaves a literal tab rendering at CodeMirror's own
   // default. Setting both here keeps inserted and existing indentation the same width.
@@ -74,9 +75,7 @@ export function getCodeSectionExtensions({
 // non-Python code areas inherit exactly that implicit source. This milestone keeps implicit
 // completion off; the package ships no completion source, so there is no enabled state to
 // configure and no completion key for the editor to own.
-export function getCodeSectionBasicSetup({
-  lineNumbers,
-}: Pick<WorkspaceCodeSectionData, "lineNumbers">) {
+export function getSectionEditorBasicSetup({ lineNumbers }: { lineNumbers: boolean }) {
   return {
     autocompletion: false,
     // Package-only design decision: the reference always shows both gutters, so the authored

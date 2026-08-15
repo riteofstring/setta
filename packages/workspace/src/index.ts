@@ -18,6 +18,26 @@ export type {
 } from "./builtin/codeSectionData";
 export { createWorkspaceCodeSection } from "./builtin/codeSectionKind";
 export type { WorkspaceCodeSectionRegistration } from "./builtin/codeSectionKind";
+export {
+  getWorkspaceTextSectionData,
+  setWorkspaceTextSectionData,
+} from "./builtin/textSectionActions";
+export {
+  WORKSPACE_TEXT_SECTION_DEFAULT_FONT_SIZE,
+  WORKSPACE_TEXT_SECTION_DISPLAY_MODES,
+  WORKSPACE_TEXT_SECTION_FORMATS,
+  WORKSPACE_TEXT_SECTION_KIND,
+  WORKSPACE_TEXT_SECTION_MAXIMUM_FONT_SIZE,
+  WORKSPACE_TEXT_SECTION_MINIMUM_FONT_SIZE,
+  createWorkspaceTextSectionData,
+} from "./builtin/textSectionData";
+export type {
+  WorkspaceTextSectionData,
+  WorkspaceTextSectionDisplayMode,
+  WorkspaceTextSectionFormat,
+} from "./builtin/textSectionData";
+export { createWorkspaceTextSection } from "./builtin/textSectionKind";
+export type { WorkspaceTextSectionRegistration } from "./builtin/textSectionKind";
 export { useWorkspaceOptions } from "./canvas/options";
 export type {
   MiniMapSide,

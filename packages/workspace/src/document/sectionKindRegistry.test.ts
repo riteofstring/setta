@@ -161,6 +161,33 @@ describe("sectionKindRegistry", () => {
     ).toThrowError(/cannot register getItemSearchableText/);
   });
 
+  it("rejects header controls on package-owned meta placement", () => {
+    expect(() =>
+      registerSectionKinds({
+        meta: {
+          renderContent: () => null,
+          renderHeaderControls: () => null,
+          presentation: {
+            type: "meta-control",
+            resolveControlKind: () => "button",
+            onEdit: () => {},
+          },
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(/cannot register renderHeaderControls/);
+  });
+
+  it("rejects a non-function header control renderer", () => {
+    expect(() =>
+      registerSectionKinds({
+        leaf: {
+          renderContent: () => null,
+          renderHeaderControls: "controls",
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(/renderHeaderControls must be a function/);
+  });
+
   it("rejects unknown presentation discriminants instead of treating them as ordinary", () => {
     expect(() =>
       registerSectionKinds({

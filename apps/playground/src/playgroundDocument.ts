@@ -1,15 +1,18 @@
 import {
   createWorkspaceCodeSectionData,
+  createWorkspaceTextSectionData,
   DEFAULT_META_CONTROL_SIZE,
   DROPZONE_META_CONTROL_SIZE,
   TEXTAREA_META_CONTROL_SIZE,
   WORKSPACE_CODE_SECTION_KIND,
+  WORKSPACE_TEXT_SECTION_KIND,
   type WorkspaceDocumentInput,
   type WorkspaceItem,
   type WorkspaceItemControlPresentation,
   type WorkspaceSectionData,
   type WorkspaceSectionInput,
   type WorkspaceSectionItemTree,
+  type WorkspaceTextSectionData,
 } from "@setta/workspace";
 
 function makeLeafSection(
@@ -32,6 +35,66 @@ function makeLeafSection(
     tagColor: null,
     children: [],
     ...overrides,
+  };
+}
+
+// One body of Markdown covering everything the rendered surface owns: heading levels, links,
+// ordered and unordered lists, a task list, a table, inline and fenced code, math, a long line,
+// and a blockquote.
+const PLAYGROUND_MARKDOWN = [
+  "# Release notes",
+  "",
+  "## Highlights",
+  "",
+  "The workspace now ships a **text section** with an [editor](https://example.com) and a",
+  "rendered surface. Long prose lines wrap inside the section rather than scrolling sideways,",
+  "which keeps a narrow section readable at any width.",
+  "",
+  "### Checklist",
+  "",
+  "- [x] Plain text and Markdown",
+  "- [ ] Host-supplied defaults",
+  "",
+  "1. Author the text",
+  "2. Render it with `Render Markdown`",
+  "",
+  "| Format   | Editor   | Rendered |",
+  "| -------- | -------- | -------- |",
+  "| Markdown | CodeMirror | prose  |",
+  "| Plain    | CodeMirror | pre    |",
+  "",
+  "> Locking a section leaves it readable and scrollable.",
+  "",
+  "The scale factor is $E = mc^2$, applied per section.",
+  "",
+  "```python",
+  "def render(text: str) -> None:",
+  "    print(text)",
+  "```",
+  "",
+].join("\n");
+
+function makeTextSection(
+  id: string,
+  name: string,
+  data: Partial<WorkspaceTextSectionData>,
+): WorkspaceSectionInput {
+  return {
+    id,
+    kind: WORKSPACE_TEXT_SECTION_KIND,
+    name,
+    data: createWorkspaceTextSectionData({
+      format: "markdown",
+      text: PLAYGROUND_MARKDOWN,
+      ...data,
+    }),
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isHorizontalOrientation: false,
+    styleColor: null,
+    overflowMode: false,
+    tagColor: null,
+    children: [],
   };
 }
 
@@ -490,6 +553,14 @@ export const playgroundDocument: WorkspaceDocumentInput = {
       tagColor: null,
       children: [],
     },
+    // The built-in Text section, in both of its display modes over one body of Markdown that
+    // exercises every element the rendered surface owns.
+    "text-rendered": makeTextSection("text-rendered", "Release notes", {
+      displayMode: "render",
+    }),
+    "text-source": makeTextSection("text-source", "Release notes source", {
+      displayMode: "edit",
+    }),
   },
   topLevelSections: {
     "idle-leaf": { x: 24, y: 24, w: 200, h: 122, zIndex: 0 },
@@ -587,6 +658,10 @@ export const playgroundDocument: WorkspaceDocumentInput = {
     },
     // Frozen main's code section opens 500 wide at auto height.
     "code-editor": { x: 2320, y: 24, w: 500, h: null, zIndex: 17 },
+    // Frozen main's text block opens 500 x 150. Both text fixtures carry the same content so a
+    // gate can compare the rendered surface against its own source side by side.
+    "text-rendered": { x: 2320, y: 420, w: 500, h: 260, zIndex: 18 },
+    "text-source": { x: 2860, y: 420, w: 500, h: 260, zIndex: 19 },
   },
   viewport: { x: 0, y: 0, zoom: 1 },
   activeIds: [],
