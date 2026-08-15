@@ -19,7 +19,12 @@ themselves are main's shipped defaults.
   host can keep that chord for itself.
 - **Conflicts are found before activation.** `getWorkspaceKeyBindingConflicts` answers for a
   candidate set without registering it, and registration throws with the same information. Two
-  bindings on one chord conflict, and so does a chord a held gesture owns.
+  bindings on one chord conflict, and so does a chord a held gesture owns. A conflict is decided
+  for the platform the workspace is running on, because that is what decides whether one keypress
+  can reach both bindings: off macOS `Mod` _is_ Control, so `Mod + G` and `Ctrl + G` are the same
+  keypress there and collide, while on macOS they are different keys and both stay reachable. The
+  package ships its three focus chords on `Ctrl` and everything else on `Mod`, so this is the case
+  a host meets when it rebinds one of them.
 - **Labels are per platform.** Each binding reports its operation's own label and the chord written
   for the platform it is read on, so a host lists shortcuts without repeating them.
 

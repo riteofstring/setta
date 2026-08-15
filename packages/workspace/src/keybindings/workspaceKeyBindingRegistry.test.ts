@@ -161,6 +161,30 @@ describe("workspace key bindings", () => {
     expect(getBinding("workspace.lock-sections").chord).toBeNull();
   });
 
+  // The package ships its focus chords on "Ctrl" and everything else on "Mod", so off macOS a host
+  // chord written the other way round is the same keypress and has to be refused there — while on
+  // macOS the two are different keys and both bindings stay reachable.
+  it("collides Mod with Ctrl only on the platform where they are one key", () => {
+    const candidate = [{ id: "workspace.lock-sections", chord: "Ctrl + G" }];
+    expect(getWorkspaceKeyBindingConflicts(candidate)).toEqual([
+      {
+        chord: "Mod + G",
+        chordLabel: "Ctrl + G",
+        bindingIds: ["workspace.group-sections", "workspace.lock-sections"],
+        reservedGesture: null,
+      },
+    ]);
+    expect(() => registerWorkspaceKeyBindings(candidate)).toThrow(
+      /Ctrl \+ G is claimed by workspace.group-sections, workspace.lock-sections/u,
+    );
+
+    mockIsMacOs = true;
+    expect(getWorkspaceKeyBindingConflicts(candidate)).toEqual([]);
+    registerWorkspaceKeyBindings(candidate);
+    expect(getBinding("workspace.lock-sections").chordLabel).toBe("Ctrl + G");
+    expect(getBinding("workspace.group-sections").chordLabel).toBe("⌘ + G");
+  });
+
   it("refuses a chord a held interaction gesture already owns", () => {
     const candidate = [{ id: "workspace.lock-sections", chord: "Mod + Shift" }];
     expect(getWorkspaceKeyBindingConflicts(candidate)).toEqual([

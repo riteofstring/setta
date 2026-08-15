@@ -22,12 +22,19 @@ describe("workspace chords", () => {
       alt: false,
       keys: ["KeyG"],
     });
-    expect(getWorkspaceChordSignature(parseWorkspaceChord("mod+shift+g"))).toBe(
-      getWorkspaceChordSignature(parseWorkspaceChord("Shift + Mod + G")),
+    expect(getWorkspaceChordSignature(parseWorkspaceChord("mod+shift+g"), false)).toBe(
+      getWorkspaceChordSignature(parseWorkspaceChord("Shift + Mod + G"), false),
     );
-    expect(getWorkspaceChordSignature(parseWorkspaceChord("Mod + Comma"))).toBe(
-      getWorkspaceChordSignature(parseWorkspaceChord("Mod + ,")),
+    expect(getWorkspaceChordSignature(parseWorkspaceChord("Mod + Comma"), false)).toBe(
+      getWorkspaceChordSignature(parseWorkspaceChord("Mod + ,"), false),
     );
+  });
+
+  it("signs Mod and Ctrl as one chord only where they are one key", () => {
+    const mod = parseWorkspaceChord("Mod + G");
+    const ctrl = parseWorkspaceChord("Ctrl + G");
+    expect(getWorkspaceChordSignature(mod, false)).toBe(getWorkspaceChordSignature(ctrl, false));
+    expect(getWorkspaceChordSignature(mod, true)).not.toBe(getWorkspaceChordSignature(ctrl, true));
   });
 
   it("parses the named keys the reference's shortcuts use", () => {

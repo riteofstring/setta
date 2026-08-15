@@ -119,8 +119,17 @@ export function parseWorkspaceChord(chord: string): ParsedWorkspaceChord {
   return Object.freeze({ ...modifiers, keys: Object.freeze([...keys].sort()) });
 }
 
-export function getWorkspaceChordSignature(chord: ParsedWorkspaceChord): string {
-  const modifiers = [chord.mod, chord.ctrl, chord.shift, chord.alt]
+// Two chords collide when one keypress can match both, which depends on the platform: off macOS
+// "Mod" is Control, so "Mod + G" and "Ctrl + G" are the same keypress there and share a signature;
+// on macOS they are different keys and keep their own. `matchesWorkspaceChord` folds them the same
+// way, so conflict detection answers for the platform the dispatcher will run on.
+export function getWorkspaceChordSignature(chord: ParsedWorkspaceChord, macOS: boolean): string {
+  const modifiers = [
+    macOS && chord.mod,
+    macOS ? chord.ctrl : chord.ctrl || chord.mod,
+    chord.shift,
+    chord.alt,
+  ]
     .map((held) => (held ? "1" : "0"))
     .join("");
   return `${modifiers}:${chord.keys.join(",")}`;

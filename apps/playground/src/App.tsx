@@ -21,6 +21,7 @@ import {
   HostShortcutConflictAction,
   PlaygroundMenuActionReadout,
   PlaygroundShortcutList,
+  usePlaygroundHostCommandState,
 } from "./menuExtensions";
 import { playgroundDocument } from "./playgroundDocument";
 import {
@@ -445,6 +446,9 @@ const sectionTagColorPalette = [
 
 export function App() {
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
+  // The host commands this playground contributes to the toolbar read host state, so the workspace
+  // repaints with the tree it is mounted in whenever that state changes.
+  usePlaygroundHostCommandState();
   const [shellViewState, setShellViewState] = useState(() => createWorkspaceShellViewState());
   const [leadingPaneShiftsCanvas, setLeadingPaneShiftsCanvas] = useState(true);
   const [itemDiagnostics, setItemDiagnostics] = useState<WorkspaceItemDiagnosticRegistry>(

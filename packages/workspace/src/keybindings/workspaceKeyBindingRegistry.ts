@@ -122,20 +122,22 @@ function toConflict(
   });
 }
 
-// A conflict is decided from the parsed chord, so two spellings of one chord collide and a chord
-// that a held interaction gesture already owns collides with that gesture.
+// A conflict is decided from the parsed chord on the platform the workspace is running on, so two
+// spellings of one chord collide — including "Mod" and "Ctrl" wherever they are the same key — and
+// a chord that a held interaction gesture already owns collides with that gesture.
 function findChordConflicts(
   assignments: ReadonlyArray<ChordAssignment>,
 ): ReadonlyArray<WorkspaceKeyBindingConflict> {
+  const macOS = isMacOs();
   const reservedNamesBySignature = new Map(
     listReservedWorkspaceGestures().map((gesture) => [
-      getWorkspaceChordSignature(gesture.chord),
+      getWorkspaceChordSignature(gesture.chord, macOS),
       gesture.name,
     ]),
   );
   const assignmentsBySignature = new Map<string, Array<ChordAssignment>>();
   for (const assignment of assignments) {
-    const signature = getWorkspaceChordSignature(assignment.parsed);
+    const signature = getWorkspaceChordSignature(assignment.parsed, macOS);
     const existing = assignmentsBySignature.get(signature);
     if (existing) {
       existing.push(assignment);

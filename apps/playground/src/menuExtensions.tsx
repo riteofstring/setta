@@ -18,9 +18,13 @@ const INITIAL_MENU_EXTENSION_STATUS = "No host menu action invoked.";
 
 let menuExtensionStatus = INITIAL_MENU_EXTENSION_STATUS;
 let toolbarHighlightEnabled = false;
+// Every host command reads one of these two values, so one version stands for "the state behind
+// this host's commands changed".
+let hostCommandStateVersion = 0;
 const menuExtensionListeners = new Set<() => void>();
 
-function notifyMenuExtensionListeners(): void {
+function publishHostCommandState(): void {
+  hostCommandStateVersion += 1;
   for (const listener of menuExtensionListeners) {
     listener();
   }
@@ -28,7 +32,7 @@ function notifyMenuExtensionListeners(): void {
 
 function publishMenuExtensionStatus(status: string): void {
   menuExtensionStatus = status;
-  notifyMenuExtensionListeners();
+  publishHostCommandState();
 }
 
 function subscribeMenuExtensionStatus(listener: () => void): () => void {
@@ -38,6 +42,22 @@ function subscribeMenuExtensionStatus(listener: () => void): () => void {
 
 function getMenuExtensionStatus(): string {
   return menuExtensionStatus;
+}
+
+function getHostCommandStateVersion(): number {
+  return hostCommandStateVersion;
+}
+
+// A contributed toolbar control paints host-owned command state, so the host re-renders the tree
+// the workspace is in when that state changes — the same thing this host does for its own chrome.
+// Subscribed where the workspace is mounted rather than inside the readout, which is a leaf beside
+// it and would repaint only itself.
+export function usePlaygroundHostCommandState(): void {
+  useSyncExternalStore(
+    subscribeMenuExtensionStatus,
+    getHostCommandStateVersion,
+    getHostCommandStateVersion,
+  );
 }
 
 function PlaygroundHighlightIcon({ className }: WorkspaceCommandIconProps) {

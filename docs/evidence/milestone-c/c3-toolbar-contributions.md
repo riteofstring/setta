@@ -90,9 +90,12 @@ canvas controls at three placements from its plugin runtime (`Project` before th
   is also in the pane menu, where it paints as a checked item; the clear action refuses with its
   sentence until a host action has published a status. The packed-consumer fixture contributes the
   packed note creation control, so the public entry is exercised from the tarball too.
-- A host toggle repaints when the host's own state change re-renders the workspace, which is what
-  the playground's readout subscription already does. A host that mutates command state outside
-  React will not see the control repaint until something else re-renders it.
+- A host toggle repaints when the host's own state change re-renders the tree the workspace is
+  mounted in. The playground subscribes to its host command state where it renders the workspace,
+  so its toggle presses and its clear action stops refusing as soon as either is used; its status
+  readout is a leaf beside the workspace and repainting that alone would not repaint the toolbar.
+  A host that mutates command state outside React will not see the control repaint until something
+  else re-renders it.
 - The toolbar column still clips rather than scrolls when it outgrows the canvas, exactly as the
   reference's does. A host contributing many controls into a short canvas loses the bottom of the
   column.

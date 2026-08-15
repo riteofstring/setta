@@ -266,9 +266,13 @@ lands in real empty space and the canvas travels to it when it had to land out o
 complete: a host places typed contributions in the toolbar around the package's own viewport and
 minimap groups, each naming a pane command or a creation command, and the package paints them as
 toolbar controls carrying the reference's contributed-group rule and disabled opacity with the
-command's label, pressed state, and refusal sentence. The C4 developer acceptance gate is the
-milestone's remaining work. The package-only decisions and the deliberate behavior changes every
-batch introduces are recorded in `docs/evidence/milestone-c/` for that gate.**
+command's label, pressed state, and refusal sentence. The phase audit over C1–C3 corrected two
+defects: binding-conflict detection now answers for the platform the workspace runs on, where
+`Mod` and `Ctrl` are one key off macOS, and the playground now subscribes its host command state
+where it mounts the workspace, so a contributed toolbar control repaints when the host state behind
+it changes. The C4 developer acceptance gate is the milestone's remaining work. The package-only
+decisions and the deliberate behavior changes every batch introduces are recorded in
+`docs/evidence/milestone-c/` for that gate.**
 
 Make frequent workspace actions faster and consistent across every action surface.
 
