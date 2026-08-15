@@ -314,6 +314,8 @@ describe("WorkspaceInspector", () => {
     );
     const width = getLabeledControl<HTMLInputElement>(host, "Width");
     const height = getLabeledControl<HTMLInputElement>(host, "Height");
+    const overflow = getButton(host, "Bounded overflow");
+    expect(overflow.getAttribute("aria-pressed")).toBe("true");
 
     await act(async () => {
       setInputValue(width, "400");
@@ -341,6 +343,26 @@ describe("WorkspaceInspector", () => {
       height: 260,
     });
     expect(onChange).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      overflow.click();
+    });
+    expect(useWorkspaceDocument.getState().sections["group"]?.overflowMode).toBe(false);
+    expect(overflow.getAttribute("aria-pressed")).toBe("false");
+    expect(host.querySelector(".setta-workspace-inspector-status")?.textContent).toContain(
+      "Bounded overflow disabled",
+    );
+
+    await act(async () => {
+      setInputValue(width, "auto");
+      setInputValue(height, "auto");
+      getButton(host, "Apply size").click();
+    });
+    expect(useWorkspaceDocument.getState().sections["group"]?.size).toEqual({
+      width: "auto",
+      height: "auto",
+    });
+    expect(onChange).toHaveBeenCalledTimes(3);
   });
 
   it("changes a typed item's UI type through one complete presentation mutation", async () => {

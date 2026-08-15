@@ -11,7 +11,11 @@ import { registerSectionKinds } from "../document/sectionKindRegistry";
 import { useActiveSections, useNodeInternals, useWorkspaceDocument } from "../document/stores";
 import type { WorkspaceSectionInput } from "../document/types";
 import { WorkspaceMenuLayer } from "./WorkspaceMenuLayer";
-import { openWorkspacePaneMenu, openWorkspaceSectionMenu } from "./workspaceMenuInvocation";
+import {
+  openWorkspacePaneMenu,
+  openWorkspaceSectionHeaderMenu,
+  openWorkspaceSectionMenu,
+} from "./workspaceMenuInvocation";
 import {
   registerWorkspaceCreationCommands,
   registerWorkspaceMenuActions,
@@ -48,6 +52,12 @@ function createRect(left: number, top: number, width: number, height: number): D
     y: top,
     toJSON: () => ({}),
   } as DOMRect;
+}
+
+function getMenuItems(): Array<HTMLElement> {
+  return Array.from(
+    document.body.querySelectorAll<HTMLElement>('[role="menuitem"], [role="menuitemcheckbox"]'),
+  );
 }
 
 function resetState(): void {
@@ -209,7 +219,7 @@ describe("WorkspaceMenuLayer", () => {
       root.render(<WorkspaceMenuLayer />);
     });
 
-    const entries = Array.from(document.body.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+    const entries = getMenuItems();
     expect(entries.map((entry) => entry.textContent)).toEqual([
       "Group",
       "Delete",
@@ -268,7 +278,7 @@ describe("WorkspaceMenuLayer", () => {
     const lockItem = document.body.querySelector<HTMLElement>(
       '[role="menuitem"]:not([data-disabled])',
     );
-    const entries = Array.from(document.body.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+    const entries = getMenuItems();
     expect(entries.map((entry) => entry.textContent)).toEqual([
       "Group",
       "Delete",
@@ -283,6 +293,116 @@ describe("WorkspaceMenuLayer", () => {
     expect(useWorkspaceDocument.getState().sections["existing"]?.positionAndSizeLocked).toBe(true);
     expect(useWorkspaceDocument.getState().sections["locked"]?.positionAndSizeLocked).toBe(true);
     expect(onChange).toHaveBeenCalledOnce();
+  });
+
+  it("renders the focused group-header action set and toggles canonical overflow", async () => {
+    loadWorkspaceDocument({
+      sections: {
+        group: {
+          ...createSection("group"),
+          kind: "group",
+          size: { width: 320, height: 180 },
+          children: ["child"],
+        },
+        child: createSection("child"),
+      },
+      topLevelSections: {
+        group: { x: 20, y: 30, w: 320, h: 180, zIndex: 0 },
+      },
+      viewport: { x: 0, y: 0, zoom: 1 },
+      activeIds: ["group"],
+    });
+    const onHostAction = vi.fn();
+    registerWorkspaceMenuActions([
+      {
+        id: "host-report",
+        scope: "section",
+        label: "Report section",
+        onSelect: onHostAction,
+      },
+      {
+        id: "host-disabled",
+        scope: "section",
+        label: "Unavailable host action",
+        isDisabled: () => true,
+        onSelect: vi.fn(),
+      },
+    ]);
+    const onChange = vi.fn();
+    setWorkspaceDocumentChangeCallback(onChange);
+    openWorkspaceSectionHeaderMenu("group", { x: 150, y: 100 }, owner, "last");
+    await act(async () => {
+      root.render(<WorkspaceMenuLayer />);
+    });
+
+    const entries = getMenuItems();
+    expect(entries.map((entry) => entry.textContent)).toEqual([
+      "Overflow Mode",
+      "Ungroup",
+      "Report section",
+      "Unavailable host action",
+    ]);
+    const overflow = entries[0];
+    const hostAction = entries[2];
+    const disabledHostAction = entries[3];
+    expect(overflow?.getAttribute("role")).toBe("menuitemcheckbox");
+    expect(overflow?.getAttribute("aria-checked")).toBe("false");
+    expect(disabledHostAction?.getAttribute("aria-disabled")).toBe("true");
+    expect(document.activeElement).toBe(hostAction);
+
+    await act(async () => {
+      hostAction?.click();
+    });
+
+    expect(onHostAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: "section",
+        section: expect.objectContaining({ id: "group" }),
+      }),
+    );
+    expect(Object.isFrozen(onHostAction.mock.calls[0]?.[0])).toBe(true);
+    expect(useWorkspaceMenuState.getState().invocation).toBeNull();
+    expect(document.activeElement).toBe(owner);
+
+    await act(async () => {
+      openWorkspaceSectionHeaderMenu("group", { x: 150, y: 100 }, owner);
+    });
+    const reopenedOverflow = document.body.querySelector<HTMLElement>('[role="menuitemcheckbox"]');
+    await act(async () => {
+      reopenedOverflow?.click();
+    });
+
+    expect(useWorkspaceDocument.getState().sections["group"]?.overflowMode).toBe(true);
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(useWorkspaceMenuState.getState().invocation).toBeNull();
+    expect(document.activeElement).toBe(owner);
+
+    await act(async () => {
+      openWorkspaceSectionHeaderMenu("group", { x: 150, y: 100 }, owner);
+    });
+    const checkedOverflow = document.body.querySelector<HTMLElement>('[role="menuitemcheckbox"]');
+    expect(checkedOverflow?.getAttribute("aria-checked")).toBe("true");
+    expect(checkedOverflow?.querySelector('[data-state="checked"] svg')).not.toBeNull();
+
+    await act(async () => {
+      useWorkspaceDocument.setState((state) => {
+        const group = state.sections["group"];
+        if (!group) {
+          throw new Error("Expected the header-menu group to remain loaded.");
+        }
+        return {
+          sections: {
+            ...state.sections,
+            group: { ...group, positionAndSizeLocked: true },
+          },
+        };
+      });
+    });
+    expect(
+      getMenuItems()
+        .slice(0, 2)
+        .every((entry) => entry.getAttribute("aria-disabled") === "true"),
+    ).toBe(true);
   });
 
   it("ungroups a valid group selection through the canonical section action", async () => {
@@ -306,9 +426,10 @@ describe("WorkspaceMenuLayer", () => {
       root.render(<WorkspaceMenuLayer />);
     });
 
-    const entries = Array.from(document.body.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+    const entries = getMenuItems();
     expect(entries.map((entry) => entry.textContent)).toEqual([
       "Group",
+      "Overflow Mode",
       "Ungroup",
       "Delete",
       "Lock Position & Size",
@@ -347,9 +468,14 @@ describe("WorkspaceMenuLayer", () => {
       root.render(<WorkspaceMenuLayer />);
     });
 
-    const ungroup = Array.from(
-      document.body.querySelectorAll<HTMLElement>('[role="menuitem"]'),
-    ).find((entry) => entry.textContent === "Ungroup");
+    const entries = getMenuItems();
+    expect(entries.map((entry) => entry.textContent)).toEqual([
+      "Group",
+      "Ungroup",
+      "Delete",
+      "Lock Position & Size",
+    ]);
+    const ungroup = entries.find((entry) => entry.textContent === "Ungroup");
     expect(ungroup?.getAttribute("aria-disabled")).toBe("true");
   });
 });

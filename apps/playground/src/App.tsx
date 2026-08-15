@@ -189,26 +189,27 @@ export function App() {
           <DocumentChangeReadout /> document changes reported. Drag sections or the background,
           scroll or pinch to pan and zoom, click to select, Cmd/Ctrl-click to multi-select,
           Shift-drag to draw a selection. Sections resize from their bottom and right edges, and
-          their headers rename, lock, minimize, and delete. A group&apos;s leading header action,
+          their headers rename, lock, minimize, and delete. A group&apos;s leading header menu,
           context menu, Inspector, Shift+Cmd/Ctrl+G shortcut, and playground host action all ungroup
-          through the same public operation. Group headers also flip their child flow between
-          vertical and horizontal. The host overflow button calls the public bounded-group
-          operation; auto dimensions preserve the visible group size and bounded children scroll
-          without handing their wheel gesture to the canvas. The toolbar zooms, fits, and toggles
-          grid snapping; its minimap group hides the pannable, click-to-center minimap or moves it
-          between the bottom corners. The twelve controls at the upper right use the headerless
-          canvas presentation: edit text, calendar, time, numeric, choice, password, color, and
-          dropzone values inside each control, or drag and resize from its remaining surface. Button
-          and file actions stay in this backend-free host. Hold Q while hovering a control for its
-          tooltip. Hold Alt and drag to move sections into, out of, and between groups; hold
-          Cmd/Ctrl+Alt and drag to sort within a group. Hold Cmd/Ctrl+Shift (or use the button) for
-          item select mode: click the item panel&apos;s rows to select them, drag rows to sort or
-          re-parent them, then Alt+Arrow moves the selection, Tab and Shift+Tab indent and unindent
-          it, and Escape clears it. Reload restores the loaded document and camera in place without
-          counting as a change. The built-in Outline and Inspector tabs project selection directly;
-          host notes, status, and help remain registered pane extensions. Right-click the canvas to
-          create a host section, or open canvas, section, item, and Outline menus with Shift+F10.{" "}
-          <PlaygroundMenuActionReadout />
+          through the same public operation. The header menu and Inspector also call the public
+          bounded-overflow operation; auto dimensions preserve the visible group size and bounded
+          children scroll without handing their wheel gesture to the canvas. Registered host section
+          actions appear after the package actions in compatible header menus. Group headers also
+          flip their child flow between vertical and horizontal. The toolbar zooms, fits, and
+          toggles grid snapping; its minimap group hides the pannable, click-to-center minimap or
+          moves it between the bottom corners. The twelve controls at the upper right use the
+          headerless canvas presentation: edit text, calendar, time, numeric, choice, password,
+          color, and dropzone values inside each control, or drag and resize from its remaining
+          surface. Button and file actions stay in this backend-free host. Hold Q while hovering a
+          control for its tooltip. Hold Alt and drag to move sections into, out of, and between
+          groups; hold Cmd/Ctrl+Alt and drag to sort within a group. Hold Cmd/Ctrl+Shift (or use the
+          button) for item select mode: click the item panel&apos;s rows to select them, drag rows
+          to sort or re-parent them, then Alt+Arrow moves the selection, Tab and Shift+Tab indent
+          and unindent it, and Escape clears it. Reload restores the loaded document and camera in
+          place without counting as a change. The built-in Outline and Inspector tabs project
+          selection directly; host notes, status, and help remain registered pane extensions.
+          Right-click the canvas to create a host section, or open canvas, section, item, and
+          Outline menus with Shift+F10. <PlaygroundMenuActionReadout />
         </p>
       </header>
       <div className="playground-workspace flex min-h-0 min-w-0 flex-1">

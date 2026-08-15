@@ -103,15 +103,15 @@ changes canonical selection.
 
 The Inspector projects canonical section and typed-item selection. Its empty state mirrors the
 frozen UI Editor; one section exposes package-owned identity, name, accent, lock/minimize,
-authored/resolved size, group orientation, and ungroup action; one typed item exposes its editable
-label, ordinary UI type, and only that type's valid configuration. Its canonical live value control
-remains in the section on the canvas rather than being duplicated in the Inspector. Compact
-configuration rows commit each valid field or list action immediately; invalid numeric/text
-drafts remain local until corrected or canceled with Escape. Dropdown and color choices use
-dedicated item editors rather
-than JSON, and date/time options appear only when their selected mode uses them. Multiple sections
-expose only compatible batch lock/unlock, group, ungroup, and delete actions, including an explicit
-mixed lock state. Every mutation uses the existing document funnels and change callback. Custom
+authored/resolved size, group orientation, bounded overflow, and ungroup actions; one typed item
+exposes its editable label, ordinary UI type, and only that type's valid configuration. Its
+canonical live value control remains in the section on the canvas rather than being duplicated in
+the Inspector. Compact configuration rows commit each valid field or list action immediately;
+invalid numeric/text drafts remain local until corrected or canceled with Escape. Dropdown and
+color choices use dedicated item editors rather than JSON, and date/time options appear only when
+their selected mode uses them. Multiple sections expose only compatible batch lock/unlock, group,
+ungroup, and delete actions, including an explicit mixed lock state. Every mutation uses the
+existing document funnels and change callback. Custom
 section or item data is never decoded: the owning section kind receives a read-only
 `WorkspaceInspectorContributionContext`, or the pane shows an explicit unsupported state. The
 Inspector owns inline validation, Escape restoration for its configuration fields, and a persistent
@@ -163,10 +163,14 @@ Creation factories receive the invocation point already converted into workspace
 package validates the returned top-level section, resolves its registered default size, inserts and
 selects it through one atomic document commit, and reports one document change. Additional actions
 may target `pane`, `section`, `item`, or `outline`; callbacks receive a deeply frozen public snapshot
-and no package store or private selector. The package retains native context menus for inputs,
-editors, links, buttons, and explicit no-drag surfaces. Other menu owners support pointer,
-Context Menu key, and Shift+F10 invocation with viewport-edge placement, Escape dismissal, and
-focus restoration.
+and no package store or private selector. A section-scoped action also makes ordinary section
+header icons into menu buttons; kinds without package or host header actions keep their decorative
+icon. Group header menus begin with the package-owned checked overflow mode and ungroup actions,
+followed by section-scoped host actions. The package retains native context menus for inputs,
+editors, links, buttons, and explicit no-drag surfaces. Other menu owners support pointer, Context
+Menu key, and Shift+F10 invocation with viewport-edge placement, Escape dismissal, and focus
+restoration. Header menu buttons additionally support Arrow Down/Up to open at the first or last
+enabled item.
 
 Group header, section context-menu, Outline, Inspector, Shift+Cmd/Ctrl+G, and direct host
 invocations all call the public `ungroupSections(groupIds)` operation. It rejects an unavailable
@@ -178,14 +182,16 @@ receives exactly one document-change notification.
 
 `WorkspaceSection.overflowMode` is the explicit reload-stable group layout mode: `false` keeps the
 group intrinsic, while `true` requires and applies its positive numeric `size` as fixed border-box
-bounds and scrolls the existing child subtree inside them. Every canonical section carries the boolean and non-groups keep
-it `false`. A host calls `setGroupOverflowMode(groupId, enabled)`; enabling a group whose width or
-height is `"auto"` first promotes only those dimensions from the mounted outer group rectangle, so
-the visible size does not jump. Numeric bounds survive disabling and can be re-enabled without a
-remeasure. The operation validates layout capability, group identity, lock state, and required live
+bounds and scrolls the existing child subtree inside them. Every canonical section carries the
+boolean, and non-groups keep it `false`. A host calls `setGroupOverflowMode(groupId, enabled)`;
+enabling a group whose width or height is `"auto"` first promotes only those dimensions from the
+mounted outer group rectangle, so the visible size does not jump. Numeric bounds survive disabling
+and can be re-enabled without a remeasure. The operation validates layout capability, group
+identity, lock state, and required live
 measurement before one document write and one notification. The persistent child surface keeps
 nested drop targets and scroll position intact, and takes wheel ownership only when it actually
-overflows. Disable bounded overflow before resetting either authored dimension to `"auto"`.
+overflows. The group header, section/Outline context menus, Inspector, and direct hosts all call
+this operation. Disable bounded overflow before resetting either authored dimension to `"auto"`.
 
 Custom interactive renderer content uses only the four exported interaction-boundary constants:
 `NO_DRAG_CLASS_NAME` prevents section/item drag activation and `NO_PAN_CLASS_NAME` preserves the

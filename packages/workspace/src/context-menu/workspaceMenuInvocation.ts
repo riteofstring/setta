@@ -11,7 +11,11 @@ import {
   type WorkspaceMenuClientPoint,
 } from "./workspaceMenuGeometry";
 import { getWorkspaceCreationCommands, getWorkspaceMenuActions } from "./workspaceMenuRegistry";
-import { publishWorkspaceMenuInvocation } from "./workspaceMenuState";
+import {
+  publishWorkspaceMenuInvocation,
+  type WorkspaceMenuInitialFocus,
+  type WorkspaceSectionMenuSurface,
+} from "./workspaceMenuState";
 import type {
   WorkspaceItemMenuActionContext,
   WorkspaceOutlineMenuActionContext,
@@ -88,12 +92,23 @@ export function openWorkspacePaneMenu(
   return true;
 }
 
-export function openWorkspaceSectionMenu(
-  sectionId: string,
-  scope: "outline" | "section",
-  clientPoint: WorkspaceMenuClientPoint,
-  owner: HTMLElement,
-): void {
+type WorkspaceSectionMenuInput = {
+  sectionId: string;
+  scope: "outline" | "section";
+  clientPoint: WorkspaceMenuClientPoint;
+  owner: HTMLElement;
+  surface: WorkspaceSectionMenuSurface;
+  initialFocus: WorkspaceMenuInitialFocus;
+};
+
+function publishWorkspaceSectionMenu({
+  sectionId,
+  scope,
+  clientPoint,
+  owner,
+  surface,
+  initialFocus,
+}: WorkspaceSectionMenuInput): void {
   const selection = getSelectedSectionContext(sectionId);
   const context =
     scope === "section"
@@ -113,7 +128,41 @@ export function openWorkspaceSectionMenu(
     direction: getElementTextDirection(owner),
     owner,
     context,
+    initialFocus,
     sectionIds: Object.freeze([...selection.sectionIds]),
+    surface,
+  });
+}
+
+export function openWorkspaceSectionMenu(
+  sectionId: string,
+  scope: "outline" | "section",
+  clientPoint: WorkspaceMenuClientPoint,
+  owner: HTMLElement,
+): void {
+  publishWorkspaceSectionMenu({
+    sectionId,
+    scope,
+    clientPoint,
+    owner,
+    surface: "context-menu",
+    initialFocus: "first",
+  });
+}
+
+export function openWorkspaceSectionHeaderMenu(
+  sectionId: string,
+  clientPoint: WorkspaceMenuClientPoint,
+  owner: HTMLElement,
+  initialFocus: WorkspaceMenuInitialFocus = "first",
+): void {
+  publishWorkspaceSectionMenu({
+    sectionId,
+    scope: "section",
+    clientPoint,
+    owner,
+    surface: "header",
+    initialFocus,
   });
 }
 

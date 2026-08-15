@@ -16,6 +16,10 @@ type WorkspaceMenuInvocationBase = {
   sequence: number;
 };
 
+export type WorkspaceMenuInitialFocus = "first" | "last";
+
+export type WorkspaceSectionMenuSurface = "context-menu" | "header";
+
 export type WorkspaceMenuInvocation =
   | (WorkspaceMenuInvocationBase & {
       kind: "pane";
@@ -24,7 +28,9 @@ export type WorkspaceMenuInvocation =
   | (WorkspaceMenuInvocationBase & {
       kind: "section";
       context: WorkspaceSectionMenuActionContext | WorkspaceOutlineMenuActionContext;
+      initialFocus: WorkspaceMenuInitialFocus;
       sectionIds: ReadonlyArray<string>;
+      surface: WorkspaceSectionMenuSurface;
     })
   | (WorkspaceMenuInvocationBase & {
       kind: "item";

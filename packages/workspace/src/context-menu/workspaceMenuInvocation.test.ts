@@ -9,6 +9,7 @@ import type { WorkspaceSection } from "../document/types";
 import {
   openWorkspaceItemMenu,
   openWorkspacePaneMenu,
+  openWorkspaceSectionHeaderMenu,
   openWorkspaceSectionMenu,
 } from "./workspaceMenuInvocation";
 import {
@@ -122,7 +123,9 @@ describe("workspace menu invocation", () => {
     const invocation = useWorkspaceMenuState.getState().invocation;
     expect(invocation).toMatchObject({
       kind: "section",
+      initialFocus: "first",
       sectionIds: ["bravo"],
+      surface: "context-menu",
       context: { scope: "section", section: { id: "bravo" } },
     });
     expect(Object.isFrozen(invocation?.context)).toBe(true);
@@ -137,6 +140,18 @@ describe("workspace menu invocation", () => {
       kind: "section",
       sectionIds: ["alpha", "bravo"],
       context: { scope: "outline", selectedSections: [{ id: "alpha" }, { id: "bravo" }] },
+    });
+  });
+
+  it("marks header invocations and preserves their requested initial focus", () => {
+    openWorkspaceSectionHeaderMenu("alpha", { x: 20, y: 30 }, owner, "last");
+
+    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+      kind: "section",
+      initialFocus: "last",
+      sectionIds: ["alpha"],
+      surface: "header",
+      context: { scope: "section", section: { id: "alpha" } },
     });
   });
 

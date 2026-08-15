@@ -4,6 +4,7 @@ import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../../canvas/store";
+import { registerWorkspaceMenuActions } from "../../context-menu/workspaceMenuRegistry";
 import { useWorkspaceMenuState } from "../../context-menu/workspaceMenuState";
 import type { MetaControlKind } from "../../controls/meta/metaControlTypes";
 import { useDndChildren } from "../../dnd/dndChildren";
@@ -175,6 +176,7 @@ describe("SectionContainer", () => {
   let root: Root;
 
   beforeEach(() => {
+    registerWorkspaceMenuActions([]);
     registerSectionKinds({ leaf: { renderContent: renderSectionBody } });
     loadTestDocument();
     host = document.createElement("div");
@@ -188,6 +190,7 @@ describe("SectionContainer", () => {
     });
     host.remove();
     setWorkspaceDocumentChangeCallback(null);
+    registerWorkspaceMenuActions([]);
     registerSectionKinds({});
     useWorkspaceDocument.getState().reset();
     useNodeInternals.getState().reset();
@@ -221,6 +224,7 @@ describe("SectionContainer", () => {
     expect(shell.className).toContain("rounded-lg");
 
     expect(host.querySelector("i.gg-menu")).not.toBeNull();
+    expect(host.querySelector('[aria-label="Open section actions"]')).toBeNull();
     expect(host.querySelector('[aria-label="Lock position and size"]')).not.toBeNull();
     expect(host.querySelector('[aria-label="Minimize section"]')).not.toBeNull();
     expect(host.querySelector('[aria-label="Delete section"]')).not.toBeNull();
@@ -580,6 +584,8 @@ describe("SectionContainer", () => {
     const trigger = getRequiredElement(host, '[aria-label="Open group actions"]');
     expect(trigger.tagName).toBe("BUTTON");
     expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
+    expect(trigger.getAttribute("data-setta-workspace-touch-target")).toBe("compact");
+    expect(trigger.classList.contains("nodrag")).toBe(true);
     trigger.getBoundingClientRect = () =>
       ({
         left: 20,
@@ -599,11 +605,64 @@ describe("SectionContainer", () => {
     const invocation = useWorkspaceMenuState.getState().invocation;
     expect(invocation).toMatchObject({
       kind: "section",
+      initialFocus: "first",
       sectionIds: ["group"],
+      surface: "header",
       context: { scope: "section", section: { id: "group" } },
     });
     expect(invocation?.owner).toBe(trigger);
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("promotes a registered kind icon only for compatible host header actions", async () => {
+    registerWorkspaceMenuActions([
+      {
+        id: "host-report",
+        scope: "section",
+        label: "Report section",
+        onSelect: vi.fn(),
+      },
+    ]);
+    await mount("leaf");
+
+    const trigger = getRequiredElement(host, '[aria-label="Open section actions"]');
+    expect(trigger.tagName).toBe("BUTTON");
+    expect(trigger.querySelector("i.gg-menu")).not.toBeNull();
+    expect(trigger.getAttribute("data-setta-workspace-touch-target")).toBe("compact");
+    expect(trigger.classList.contains("nodrag")).toBe(true);
+    trigger.getBoundingClientRect = () =>
+      ({
+        left: 20,
+        top: 30,
+        right: 36,
+        bottom: 46,
+        width: 16,
+        height: 16,
+        x: 20,
+        y: 30,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    await act(async () => {
+      trigger.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "ArrowUp" }),
+      );
+    });
+
+    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+      kind: "section",
+      initialFocus: "last",
+      sectionIds: ["leaf"],
+      surface: "header",
+      context: { scope: "section", section: { id: "leaf" } },
+    });
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+
+    await act(async () => {
+      trigger.click();
+    });
+    expect(useWorkspaceMenuState.getState().invocation).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 
   it("shows the drop hint for an empty group", async () => {

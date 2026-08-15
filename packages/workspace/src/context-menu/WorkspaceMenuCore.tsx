@@ -18,6 +18,7 @@ export type WorkspaceMenuEntry = {
   id: string;
   label: string;
   icon?: ComponentType<WorkspaceMenuIconProps>;
+  checked?: boolean;
   disabled: boolean;
   onSelect: () => void;
 };
@@ -108,6 +109,49 @@ export function WorkspaceMenuItem({
   registerElement: (element: HTMLDivElement | null) => void;
 }) {
   const Icon = entry.icon;
+  const content = (
+    <>
+      {Icon ? (
+        <span aria-hidden="true" className="setta-workspace-menu-item-icon">
+          <Icon />
+        </span>
+      ) : null}
+      <span>{entry.label}</span>
+      {entry.checked === undefined ? null : (
+        <DropdownMenu.ItemIndicator className="ms-auto inline-flex h-3.5 w-3.5 items-center justify-center">
+          <svg
+            aria-hidden="true"
+            className="h-3 w-3"
+            fill="none"
+            focusable="false"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            viewBox="0 0 16 16"
+          >
+            <path d="m3.5 8 3 3 6-6" />
+          </svg>
+        </DropdownMenu.ItemIndicator>
+      )}
+    </>
+  );
+
+  if (entry.checked !== undefined) {
+    return (
+      <DropdownMenu.CheckboxItem
+        checked={entry.checked}
+        className="setta-workspace-menu-item"
+        disabled={entry.disabled}
+        onSelect={entry.onSelect}
+        ref={registerElement}
+        textValue={entry.label}
+      >
+        {content}
+      </DropdownMenu.CheckboxItem>
+    );
+  }
+
   return (
     <DropdownMenu.Item
       className="setta-workspace-menu-item"
@@ -116,12 +160,7 @@ export function WorkspaceMenuItem({
       ref={registerElement}
       textValue={entry.label}
     >
-      {Icon ? (
-        <span aria-hidden="true" className="setta-workspace-menu-item-icon">
-          <Icon />
-        </span>
-      ) : null}
-      <span>{entry.label}</span>
+      {content}
     </DropdownMenu.Item>
   );
 }
@@ -143,6 +182,7 @@ export function WorkspaceActionMenu({
   clientPoint,
   direction,
   groups,
+  initialFocus = "first",
   invocationSequence,
   kind,
 }: {
@@ -153,17 +193,18 @@ export function WorkspaceActionMenu({
     label?: string;
     entries: ReadonlyArray<WorkspaceMenuEntry>;
   }>;
+  initialFocus?: "first" | "last";
   invocationSequence: number;
   kind: "item" | "section";
 }) {
   const itemElementsRef = useRef(new Map<string, HTMLDivElement>());
   const entries = groups.flatMap((group) => group.entries);
 
-  function focusFirstEnabledItem(): void {
-    const entry = entries.find((candidate) => !candidate.disabled);
+  function focusInitialItem(): void {
+    const candidates = initialFocus === "last" ? [...entries].reverse() : entries;
+    const entry = candidates.find((candidate) => !candidate.disabled) ?? candidates[0];
     if (!entry) {
-      contentFallbackFocus(itemElementsRef.current);
-      return;
+      throw new Error("Workspace action menu requires at least one entry.");
     }
     itemElementsRef.current.get(entry.id)?.focus({ preventScroll: true });
   }
@@ -173,7 +214,7 @@ export function WorkspaceActionMenu({
       ariaLabel={ariaLabel}
       clientPoint={clientPoint}
       direction={direction}
-      initialFocus={focusFirstEnabledItem}
+      initialFocus={focusInitialItem}
       invocationSequence={invocationSequence}
       kind={kind}
     >
@@ -200,8 +241,4 @@ export function WorkspaceActionMenu({
       ))}
     </WorkspaceMenuCore>
   );
-}
-
-function contentFallbackFocus(elements: ReadonlyMap<string, HTMLDivElement>): void {
-  elements.values().next().value?.focus({ preventScroll: true });
 }

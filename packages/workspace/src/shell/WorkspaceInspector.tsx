@@ -34,6 +34,7 @@ import {
 } from "../document/stores";
 import type { SectionSizeValue, WorkspaceSection } from "../document/types";
 import { canUngroupWorkspaceSections } from "../document/ungroupSections";
+import { setGroupOverflowMode } from "../section/groupOverflowAction";
 import { useSectionRefs } from "../section/sectionRefs";
 import { persistSectionSizeChange } from "../section/sectionSizes";
 import { ungroupSections } from "../section/ungroupAction";
@@ -559,22 +560,39 @@ function SectionInspector({
           {section.isMinimized ? "Minimized" : "Expanded"}
         </button>
         {isGroupSection(section) ? (
-          <button
-            aria-pressed={section.isHorizontalOrientation}
-            className="setta-workspace-inspector-toggle"
-            disabled={!capabilities.canEditLayout}
-            onClick={() => {
-              toggleGroupOrientation(section.id);
-              onStatusChange(
-                section.isHorizontalOrientation
-                  ? "Group children now stack vertically."
-                  : "Group children now flow horizontally.",
-              );
-            }}
-            type="button"
-          >
-            {section.isHorizontalOrientation ? "Horizontal" : "Vertical"}
-          </button>
+          <>
+            <button
+              aria-pressed={section.isHorizontalOrientation}
+              className="setta-workspace-inspector-toggle"
+              disabled={!capabilities.canEditLayout}
+              onClick={() => {
+                toggleGroupOrientation(section.id);
+                onStatusChange(
+                  section.isHorizontalOrientation
+                    ? "Group children now stack vertically."
+                    : "Group children now flow horizontally.",
+                );
+              }}
+              type="button"
+            >
+              {section.isHorizontalOrientation ? "Horizontal" : "Vertical"}
+            </button>
+            <button
+              aria-pressed={section.overflowMode}
+              className="setta-workspace-inspector-toggle"
+              disabled={!capabilities.canEditLayout || section.positionAndSizeLocked}
+              onClick={() => {
+                const nextOverflowMode = !section.overflowMode;
+                setGroupOverflowMode(section.id, nextOverflowMode);
+                onStatusChange(
+                  nextOverflowMode ? "Bounded overflow enabled." : "Bounded overflow disabled.",
+                );
+              }}
+              type="button"
+            >
+              Bounded overflow
+            </button>
+          </>
         ) : null}
       </div>
       <SectionUngroupAction
