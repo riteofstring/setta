@@ -155,8 +155,9 @@ or main's global settings store.
 
 ## Milestone B — parameter authoring and feedback
 
-**Status: B1 insertion/deletion repository work is complete; B2 package-owned filtering is next.
-Milestone B remains open until B1–B4 pass the combined developer acceptance gate and audit.**
+**Status: B1 insertion/deletion and B2 package-owned filtering repository work are complete; B3
+descriptions and help is next. Milestone B remains open until B1–B4 pass the combined developer
+acceptance gate and audit.**
 
 Make the existing batteries-included parameter controls structurally authorable. Do not rework the
 already accepted value editors, UI-type conversion, renaming, drag-and-drop, column resizing, or
@@ -178,6 +179,11 @@ This lets users construct a section's parameter surface without leaving the work
 ### B2. Package-owned filtering
 
 Add compact per-section parameter search and filtering.
+
+Package-only design decision authorized by this plan: the query is mounted per-section view state,
+not document state. Built-in items search their serializable labels; a custom item is searchable
+only through its owning section kind's explicit callback over frozen public section and item
+snapshots. Filtering retains canonical selection and explains selected items hidden by the query.
 
 - Search built-in labels plus an explicit searchable-text contribution for custom items.
 - Filtering changes only view state and never mutates `WorkspaceDocument`.

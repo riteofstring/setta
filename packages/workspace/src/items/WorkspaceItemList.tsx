@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
 import type { ItemListKey } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { getSectionItemTreeOrThrow } from "../document/documentSelectors";
@@ -14,6 +14,7 @@ import {
   type ItemRowRenderContext,
 } from "./ItemListContext";
 import { ItemRow } from "./ItemRow";
+import { useWorkspaceItemFilter } from "./WorkspaceItemFilterContext";
 import {
   isItemListViewRegistered,
   registerItemListView,
@@ -24,23 +25,20 @@ import { useItemColumnWidth } from "./useItemColumnWidth";
 
 // The reference's `ParamDndList` as the registered item surface: the host mounts one list per
 // item area (the reference hard-codes its pinned/unpinned areas), names it with a list key,
-// supplies list membership and the visible set (the filtered-list seam), and optionally renders
+// supplies list membership and its visible set, and optionally renders
 // custom rows. Typed rows need no renderer. The mounted list registers its live view for drag-start
-// resolution. List enablement
-// follows the reference: item-select mode, the edit-structure capability, and no active
-// filter.
+// resolution. The package-owned per-section filter intersects that membership while preserving
+// the list and surviving row identities. List enablement follows the reference: item-select mode,
+// the edit-structure capability, and no active filter.
 
 export type WorkspaceItemListProps = {
   sectionId: string;
   listKey: ItemListKey;
   // The list's top-level rows, in order. Every id must be a child of the item tree's root.
   topLevelItemIds: Array<string>;
-  // The filtered-list seam (the reference's shown-param paths): an omitted set shows every
-  // item reachable from the top-level rows; an invisible item prunes its whole subtree.
+  // The list-membership seam (the reference's pinned/unpinned shown-param paths): an omitted set
+  // includes every item reachable from the top-level rows; an excluded item prunes its subtree.
   visibleItemIds?: Array<string>;
-  // The reference disables param dnd while its param filter is active; hosts report the
-  // equivalent for their own filtering.
-  filterActive?: boolean;
   // Omit for a list made entirely of package-owned typed presentations. A custom opaque row
   // fails specifically at render time when this extension renderer is absent.
   renderItem?: (context: ItemRowRenderContext) => ReactNode;
@@ -72,27 +70,49 @@ function defaultIsGroupItem(item: WorkspaceItem): boolean {
   return item.children.length > 0;
 }
 
+function useResolvedItemVisibility({
+  itemTree,
+  topLevelItemIds,
+  visibleItemIds,
+}: {
+  itemTree: WorkspaceSectionItemTree;
+  topLevelItemIds: Array<string>;
+  visibleItemIds: Array<string> | undefined;
+}) {
+  const itemFilter = useWorkspaceItemFilter();
+  const listVisibleSet = useMemo(
+    () =>
+      visibleItemIds ? new Set(visibleItemIds) : collectReachableItemIds(itemTree, topLevelItemIds),
+    [itemTree, topLevelItemIds, visibleItemIds],
+  );
+  const visibleSet = useMemo(() => {
+    if (!itemFilter?.filterActive) {
+      return listVisibleSet;
+    }
+    return new Set([...listVisibleSet].filter((itemId) => itemFilter.visibleItemIds.has(itemId)));
+  }, [itemFilter?.filterActive, itemFilter?.visibleItemIds, listVisibleSet]);
+  return { filterActive: itemFilter?.filterActive ?? false, visibleSet };
+}
+
 export function WorkspaceItemList({
   sectionId,
   listKey,
   topLevelItemIds,
   visibleItemIds,
-  filterActive = false,
   renderItem,
   isGroupItem = defaultIsGroupItem,
 }: WorkspaceItemListProps) {
   const itemTree = useWorkspaceDocument((x) => getSectionItemTreeOrThrow(x, sectionId));
   const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
   const canEditStructure = useWorkspaceCapabilities((x) => x.canEditStructure);
+  const { filterActive, visibleSet } = useResolvedItemVisibility({
+    itemTree,
+    topLevelItemIds,
+    visibleItemIds,
+  });
   const enabled = isSelectingItems && canEditStructure && !filterActive;
   const listOuterRef = useRef<HTMLDivElement | null>(null);
   const columnResizeHandlers = useItemColumnWidth(sectionId, listOuterRef);
-
-  const visibleSet = useMemo(
-    () =>
-      visibleItemIds ? new Set(visibleItemIds) : collectReachableItemIds(itemTree, topLevelItemIds),
-    [itemTree, topLevelItemIds, visibleItemIds],
-  );
   const treeView = useMemo(
     () => buildItemTreeView(itemTree, topLevelItemIds, visibleSet),
     [itemTree, topLevelItemIds, visibleSet],
@@ -131,7 +151,7 @@ export function WorkspaceItemList({
       rootId={treeView.rootId}
       flatItemIds={treeView.flat.map((row) => row.id)}
     >
-      <ItemListShell outerRef={listOuterRef}>
+      <ItemListShell filterActive={filterActive} outerRef={listOuterRef}>
         <ItemListBody
           rootId={treeView.rootId}
           topLevelRowIds={treeView.visibleChildrenByParent[treeView.rootId] ?? []}
@@ -151,18 +171,42 @@ export function WorkspaceItemList({
 // flip the winner across the package boundary.
 function ItemListShell({
   children,
+  filterActive,
   outerRef,
 }: {
   children: ReactNode;
+  filterActive: boolean;
   outerRef: RefObject<HTMLDivElement | null>;
 }) {
   const { ref, isScrollable } = useIsScrollable();
+  const preservedScrollTopRef = useRef(0);
+  const previousFilterActiveRef = useRef(filterActive);
+
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) {
+      return;
+    }
+    const wasFilterActive = previousFilterActiveRef.current;
+    if (!wasFilterActive && filterActive) {
+      preservedScrollTopRef.current = node.scrollTop;
+    } else if (wasFilterActive && !filterActive) {
+      node.scrollTop = preservedScrollTopRef.current;
+    }
+    previousFilterActiveRef.current = filterActive;
+  }, [filterActive, ref]);
+
   return (
     <div ref={outerRef} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div
         className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pe-1.5 ${
           isScrollable ? NATIVE_VERTICAL_WHEEL_CLASS_NAME : ""
         }`}
+        onScroll={(event) => {
+          if (!filterActive) {
+            preservedScrollTopRef.current = event.currentTarget.scrollTop;
+          }
+        }}
         ref={ref}
       >
         {children}
@@ -179,6 +223,26 @@ function ItemListBody({
   topLevelRowIds: Array<string>;
 }) {
   const renderItemIds = useItemDndChildrenForParent(rootId, topLevelRowIds);
+  const itemFilter = useWorkspaceItemFilter();
+
+  if (renderItemIds.length === 0 && itemFilter?.filterActive) {
+    return (
+      <div className="col-span-full mx-2 flex min-w-0 flex-col items-center gap-2 py-4 text-center text-xs text-setta-500 dark:text-setta-400">
+        <p className="min-w-0 break-words">
+          No parameters in this list match{" "}
+          <span className="font-medium">“{itemFilter.query}”.</span>
+        </p>
+        <button
+          className="min-h-6 rounded-sm border border-setta-200 px-2 font-medium text-setta-600 focus-visible:outline-2 focus-visible:outline-offset-2 dark:border-setta-700 dark:text-setta-300"
+          data-setta-workspace-touch-target="compact"
+          onClick={itemFilter.clearAndFocus}
+          type="button"
+        >
+          Clear filter
+        </button>
+      </div>
+    );
+  }
 
   return renderItemIds.map((itemId, index) => (
     <ItemRow key={itemId} itemId={itemId} isTopLevelWithPad={index > 0} />

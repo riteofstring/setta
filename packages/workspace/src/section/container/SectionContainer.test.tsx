@@ -512,6 +512,7 @@ describe("SectionContainer", () => {
     const body = host.querySelector('[data-testid="section-body"]')?.parentElement;
     expect(body?.className).toBe("section-full-no-title flex min-h-0 flex-col");
     expect(body?.firstElementChild?.textContent).toContain("Parameters");
+    expect(host.querySelector("#leaf-parameter-filter")).not.toBeNull();
     const add = host.querySelector<HTMLButtonElement>('[aria-label="Add parameter"]');
     expect(add?.disabled).toBe(false);
 

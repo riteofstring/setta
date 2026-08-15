@@ -10,11 +10,11 @@ import { assertNoReservedItemDndTokens, type ItemListKey } from "../dnd/itemDndS
 export type RegisteredItemListView = {
   listKey: ItemListKey;
   topLevelItemIds: Array<string>;
-  // The filtered-list seam: the reference's `requiredParamIdsToPaths` keys. Drag start
-  // requires the active item to be visible in the resolved view.
+  // The resolved list membership after package filtering: the reference's
+  // `requiredParamIdsToPaths` keys. Drag start requires the active item to be visible.
   visibleItemIds: ReadonlySet<string>;
-  // The reference disables param dnd while a param filter is active; the host reports the
-  // equivalent through its list view.
+  // The reference disables param dnd while a param filter is active. The package filter owner
+  // publishes that answer through each live list view.
   filterActive: boolean;
 };
 

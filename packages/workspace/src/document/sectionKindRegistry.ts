@@ -40,6 +40,13 @@ export type WorkspaceItemFactoryContext = Readonly<{
 
 export type WorkspaceItemFactory = (context: WorkspaceItemFactoryContext) => WorkspaceItem;
 
+export type WorkspaceItemSearchContext = Readonly<{
+  section: WorkspaceSnapshot<Pick<WorkspaceSection, "id" | "kind" | "name" | "data">>;
+  item: WorkspaceSnapshot<WorkspaceItem>;
+}>;
+
+export type WorkspaceItemSearchableText = (context: WorkspaceItemSearchContext) => string;
+
 type WorkspaceInspectorContributionInput =
   | { type: "section"; section: WorkspaceSection }
   | { type: "item"; section: WorkspaceSection; item: WorkspaceItem };
@@ -76,6 +83,9 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         // The host owns domain defaults and stable identity. The package calls this only for an
         // explicit insertion request, then validates and places the returned complete item.
         createItem?: WorkspaceItemFactory;
+        // Custom opaque items have no package-owned label. Their owning kind may contribute one
+        // search string from frozen public snapshots without putting derived text in the document.
+        getItemSearchableText?: WorkspaceItemSearchableText;
         presentation?: undefined;
       }
     | {
@@ -84,6 +94,7 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         defaultSize?: never;
         contentClassName?: never;
         createItem?: never;
+        getItemSearchableText?: never;
         presentation: MetaControlSectionPresentation;
       }
   );
@@ -137,6 +148,12 @@ function assertMetaControlDefinition(kind: string, definition: SectionKindDefini
         "meta controls cannot carry item trees.",
     );
   }
+  if (definition.getItemSearchableText !== undefined) {
+    throw new Error(
+      `Meta-control section kind ${kind} cannot register getItemSearchableText; ` +
+        "meta controls cannot carry item trees.",
+    );
+  }
 }
 
 function assertSectionKindDefinition(kind: string, definition: SectionKindDefinition): void {
@@ -145,6 +162,11 @@ function assertSectionKindDefinition(kind: string, definition: SectionKindDefini
   }
   assertOptionalSectionKindFunction(kind, "renderInspector", definition.renderInspector);
   assertOptionalSectionKindFunction(kind, "createItem", definition.createItem);
+  assertOptionalSectionKindFunction(
+    kind,
+    "getItemSearchableText",
+    definition.getItemSearchableText,
+  );
   if (definition.presentation !== undefined) {
     assertMetaControlDefinition(kind, definition);
   }
@@ -186,6 +208,36 @@ export function createWorkspaceItemFromFactory(section: WorkspaceSection): Works
     throw new Error(`Section kind ${section.kind} does not provide an item factory.`);
   }
   return factory(cloneFrozenWorkspaceSnapshot({ section }));
+}
+
+export function getWorkspaceItemSearchableText(
+  section: WorkspaceSection,
+  item: WorkspaceItem,
+): string {
+  if (item.presentation) {
+    return item.presentation.label;
+  }
+  const definition = getRegisteredSectionKindOrThrow(section.kind);
+  const getSearchableText =
+    definition.presentation === undefined ? definition.getItemSearchableText : undefined;
+  if (!getSearchableText) {
+    return "";
+  }
+  const searchSection = {
+    id: section.id,
+    kind: section.kind,
+    name: section.name,
+    data: section.data,
+  };
+  const searchableText = getSearchableText(
+    cloneFrozenWorkspaceSnapshot({ section: searchSection, item }) as WorkspaceItemSearchContext,
+  );
+  if (typeof searchableText !== "string") {
+    throw new Error(
+      `Section kind ${section.kind} returned non-string searchable text for item ${item.id}.`,
+    );
+  }
+  return searchableText;
 }
 
 export function getMetaControlPresentation(

@@ -128,6 +128,8 @@ export type {
   WorkspaceInspectorContributionContext,
   WorkspaceItemFactory,
   WorkspaceItemFactoryContext,
+  WorkspaceItemSearchContext,
+  WorkspaceItemSearchableText,
 } from "./document/sectionKindRegistry";
 export { useWorkspaceAppearance } from "./document/stores";
 export type { WorkspaceAppearanceState, WorkspaceColorMode } from "./document/stores";

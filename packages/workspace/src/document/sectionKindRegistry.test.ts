@@ -49,6 +49,22 @@ describe("sectionKindRegistry", () => {
     ).toThrowError(/createItem must be a function/);
   });
 
+  it("retains only a callable custom-item searchable-text contribution", () => {
+    const getItemSearchableText = () => "search terms";
+    registerSectionKinds({
+      leaf: { renderContent: () => null, getItemSearchableText },
+    });
+    expect(getRegisteredSectionKindOrThrow("leaf").getItemSearchableText).toBe(
+      getItemSearchableText,
+    );
+
+    expect(() =>
+      registerSectionKinds({
+        leaf: { renderContent: () => null, getItemSearchableText: "bad" },
+      } as unknown as Record<string, SectionKindDefinition>),
+    ).toThrowError(/getItemSearchableText must be a function/);
+  });
+
   it("throws for an unregistered kind, naming it", () => {
     registerSectionKinds({ leaf: makeDefinition() });
     expect(() => getRegisteredSectionKindOrThrow("mystery")).toThrowError(
@@ -141,6 +157,22 @@ describe("sectionKindRegistry", () => {
         } as unknown as SectionKindDefinition,
       }),
     ).toThrowError(/cannot register createItem/);
+  });
+
+  it("rejects custom-item searchable text on package-owned meta placement", () => {
+    expect(() =>
+      registerSectionKinds({
+        meta: {
+          renderContent: () => null,
+          getItemSearchableText: () => "search terms",
+          presentation: {
+            type: "meta-control",
+            resolveControlKind: () => "button",
+            onEdit: () => {},
+          },
+        } as unknown as SectionKindDefinition,
+      }),
+    ).toThrowError(/cannot register getItemSearchableText/);
   });
 
   it("rejects unknown presentation discriminants instead of treating them as ordinary", () => {

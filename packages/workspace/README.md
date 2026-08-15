@@ -365,6 +365,17 @@ serializable configuration. Scalar controls and labels need no handler registrat
 remain valid through `data` plus `WorkspaceItemList.renderItem`, and missing custom renderers fail
 specifically.
 
+Every item-tree section receives a compact package-owned parameter filter. Its query is local view
+state and never mutates or notifies the canonical document. Fuzzy matching uses built-in
+`presentation.label` values and preserves document order while revealing a matching item's ancestor
+path. Custom opaque items participate only when their owning section kind registers
+`getItemSearchableText({ section, item })`; both snapshots are deeply frozen, and the callback must
+return one string. The narrow section snapshot contains its id, kind, name, and opaque data; the
+item snapshot is complete. An active filter disables item drag-and-drop and structural keyboard moves,
+retains canonical selection with an explicit hidden-selection notice, preserves the list's scroll
+position and surviving editor instances, and provides clear actions in both the search control and
+empty result.
+
 ## Section kind registration
 
 `registerSectionKinds(kinds)` replaces the registered application kind set; hosts register
@@ -389,6 +400,11 @@ canonical public operations used by the package toolbar, item menu, Inspector, a
 actions. The package appends insertions at the item root, validates the complete next tree, updates
 selection and focus, and reports exactly one document change. A kind without a factory remains
 readable and deletable, while its Add parameter controls are disabled.
+
+That ordinary kind may also register `getItemSearchableText(context)` for custom opaque items.
+Built-in items always use their package-owned label, so the callback is invoked only for custom
+rows while a nonblank filter is active. It receives the same kind of detached, deeply frozen public
+section and item snapshots as the other host contribution seams.
 
 A kind whose `presentation.type` is `"meta-control"` projects its opaque data to a package
 `MetaControlKind` and supplies the host callback for the outboard edit affordance. The package then
@@ -415,6 +431,7 @@ registerSectionKinds({
   },
   parameters: {
     renderContent: (section) => <ParameterRows section={section} />,
+    getItemSearchableText: ({ item }) => readCustomSearchText(item.data),
     createItem: ({ section }) => ({
       id: `${section.id}-${crypto.randomUUID()}`,
       children: [],

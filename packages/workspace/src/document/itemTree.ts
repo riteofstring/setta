@@ -43,9 +43,10 @@ export function buildItemParentMap(
   return parentById;
 }
 
-// The visible tree view a list renders and the move logic reasons over. Visibility is the
-// host's filtered-list seam (the reference's `requiredParamIdsToPaths` keys): an invisible
-// item prunes its whole subtree, while `parentById` always covers the full canonical tree.
+// The visible tree view a list renders and the move logic reasons over. Visibility combines the
+// list's host-supplied membership with the package-owned filter (the reference's
+// `requiredParamIdsToPaths` keys): an invisible item prunes its whole subtree, while `parentById`
+// always covers the full canonical tree.
 export function buildItemTreeView(
   itemTree: WorkspaceSectionItemTree,
   topLevelItemIds: Array<string>,

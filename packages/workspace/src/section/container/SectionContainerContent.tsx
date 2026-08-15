@@ -4,6 +4,7 @@ import {
 } from "../../document/sectionKindRegistry";
 import type { WorkspaceSection } from "../../document/types";
 import { WorkspaceItemAuthoringToolbar } from "../../items/WorkspaceItemAuthoringToolbar";
+import { WorkspaceItemFilterProvider } from "../../items/WorkspaceItemFilterContext";
 import { SectionHeader } from "../header/SectionHeader";
 import { CustomResizable } from "../resize/CustomResizable";
 import { DEFAULT_SECTION_BG_COLOR } from "../sectionColors";
@@ -53,10 +54,17 @@ function renderRegisteredContent(definition: SectionKindDefinition, section: Wor
   const bodySlotClassName = definition.contentClassName
     ? `section-full-no-title${itemTreeClassName} ${definition.contentClassName}`
     : `section-full-no-title${itemTreeClassName}`;
+  const content = definition.renderContent(section);
   return (
     <div className={bodySlotClassName}>
-      {section.itemTree ? <WorkspaceItemAuthoringToolbar sectionId={section.id} /> : null}
-      {definition.renderContent(section)}
+      {section.itemTree ? (
+        <WorkspaceItemFilterProvider sectionId={section.id}>
+          <WorkspaceItemAuthoringToolbar sectionId={section.id} />
+          {content}
+        </WorkspaceItemFilterProvider>
+      ) : (
+        content
+      )}
     </div>
   );
 }
