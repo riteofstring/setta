@@ -603,9 +603,8 @@ describe("SectionContainer", () => {
 
     const scrollSurface = getRequiredElement(groupRoot, ".overflow-auto");
     expect(scrollSurface.classList.contains("setta-workspace-bounded-group-scroll")).toBe(true);
-    expect(scrollSurface.className).toContain(
-      "mt-2 flex min-h-0 min-w-0 flex-1 flex-col overflow-auto",
-    );
+    expect(scrollSurface.className).toContain("flex min-h-0 min-w-0 flex-1 flex-col overflow-auto");
+    expect(scrollSurface.classList.contains("mt-2")).toBe(false);
     expect(scrollSurface.querySelector('[data-sortable-section-id="nested"]')).not.toBeNull();
     Object.defineProperties(scrollSurface, {
       clientHeight: { value: 200 },
@@ -974,14 +973,10 @@ describe("SectionContainer", () => {
     expect(shell?.getAttribute("aria-label")).toBe("Leaf section section, selected");
     expect(shell?.getAttribute("aria-pressed")).toBeNull();
     expect(shell?.className).toContain("z-[150]");
-    expect(
-      shell
-        ?.querySelector('[data-workspace-contained-selection-outline="true"]')
-        ?.getAttribute("data-section-active"),
-    ).toBe("true");
+    expect(shell?.querySelector('[data-workspace-contained-selection-outline="true"]')).toBeNull();
   });
 
-  it("marks the group selection paint for bounded-scroll clipping", async () => {
+  it("keeps group selection on the reference outline without a contained overlay", async () => {
     await mount("group");
 
     const outline = host.querySelector('[data-workspace-group-selection-outline="true"]');
@@ -992,12 +987,6 @@ describe("SectionContainer", () => {
     });
 
     expect(outline?.getAttribute("data-section-active")).toBe("true");
-    expect(
-      host
-        .querySelector(
-          '[data-workspace-contained-selection-outline="true"][data-section-id="group"]',
-        )
-        ?.getAttribute("data-section-active"),
-    ).toBe("true");
+    expect(host.querySelector('[data-workspace-contained-selection-outline="true"]')).toBeNull();
   });
 });

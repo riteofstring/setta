@@ -1,11 +1,6 @@
-/* Chromium can expose :focus-visible on an element that already owned pointer focus after an
- * unrelated shortcut. Package focus paint is therefore gated by actual keyboard focus movement,
- * not the browser heuristic alone. Tab/Shift+Tab set the marker before focus moves; pointer input
- * and shortcuts that leave focus in place do not. */
-.setta-workspace:not([data-workspace-keyboard-focus="true"]) :focus {
-  outline: none;
-}
-
+/* Chromium can expose :focus-visible on a large surface that already owned pointer focus after an
+ * unrelated shortcut. Suppress only those known browser-owned surface rings: section outlines
+ * are package-owned selection paint and must remain visible when the selected section has focus. */
 .setta-workspace .react-flow__pane:focus-visible {
   outline: none;
 }

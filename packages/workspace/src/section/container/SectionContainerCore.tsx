@@ -20,9 +20,10 @@ import { deriveSectionStyleTheme } from "../sectionStyleColors";
 import { resolveSectionStyleVars } from "../sectionStyleVars";
 import { SectionContainerContent } from "./SectionContainerContent";
 
-// The reference's `SectionContainerCore`: the leaf section shell. Selection is outline-only on
-// an absolutely positioned overlay, so neither selection nor border presence shifts layout, and
-// the shell is prepared for compositor promotion by the canvas stylesheet before viewport motion.
+// The reference's `SectionContainerCore`: the leaf section shell. Selection remains the
+// reference's outward outline in every nesting state; bounded scrollports provide compensated
+// paint clearance so they do not clip it. The shell is prepared for compositor promotion by the
+// canvas stylesheet before viewport motion.
 // Keeping that preparation at the canvas boundary avoids re-rendering every section on the first
 // pan frame. The edge-handle layers, AI/agentic highlights, and style-color previews remain
 // excluded; the direct-on-canvas milestone restores the reference's transparent shell branch. The
@@ -105,13 +106,6 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
       style={sectionShellStyle}
     >
       <SectionContainerContent section={section} hasSectionStyleTheme={hasSectionStyleTheme} />
-      <div
-        aria-hidden="true"
-        className="setta-workspace-contained-selection-outline pointer-events-none absolute inset-0 z-[160]"
-        data-section-active={isActiveSection ? "true" : "false"}
-        data-section-id={sectionId}
-        data-workspace-contained-selection-outline="true"
-      />
     </div>
   );
 }

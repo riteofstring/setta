@@ -184,13 +184,6 @@ function ContainerGroup({
         <EmptyGroupDropHint hasNested={hasNested} />
         {children}
       </div>
-      <div
-        aria-hidden="true"
-        className={`setta-workspace-contained-selection-outline pointer-events-none absolute inset-0 z-[160] ${positionAndSizeLocked ? "rounded-sm" : "rounded-3xl"}`}
-        data-section-active={isActiveSection ? "true" : "false"}
-        data-section-id={sectionId}
-        data-workspace-contained-selection-outline="true"
-      />
     </div>
   );
 }
@@ -225,7 +218,7 @@ function getContentClassName(overflowMode: boolean, isScrollable: boolean): stri
     return "z-10";
   }
   const className =
-    "setta-workspace-bounded-group-scroll z-10 mt-2 flex min-h-0 min-w-0 flex-1 flex-col overflow-auto";
+    "setta-workspace-bounded-group-scroll z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-auto";
   return isScrollable ? `${className} ${NO_WHEEL_CLASS_NAME}` : className;
 }
 

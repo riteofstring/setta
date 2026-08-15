@@ -40,12 +40,13 @@ describe("workspace adaptive stylesheet contract", () => {
     expect(workspaceStyles).toMatch(
       /\.setta-workspace-bounded-group-scroll\s*\{[^}]*overscroll-behavior: contain/su,
     );
+  });
+
+  it("preserves outward selection paint inside bounded group scrollports", () => {
     expect(interactionPolicyStyles).toMatch(
-      /\.setta-workspace-bounded-group-scroll[\s\S]*\[data-workspace-contained-selection-outline="true"\][^{]*\{[^}]*box-shadow: inset 0 0 0 4px/su,
+      /\.setta-workspace-bounded-group-scroll\s*\{[^}]*margin-block-start: 4px;[^}]*margin-block-end: -4px;[^}]*margin-inline: -4px;[^}]*padding: 4px;/su,
     );
-    expect(interactionPolicyStyles).toMatch(
-      /\[data-section-active="true"\]:has\(> \[data-workspace-contained-selection-outline="true"\]\)[^{]*\{[^}]*outline-color: transparent/su,
-    );
+    expect(interactionPolicyStyles).not.toContain("inset 0 0 0 4px");
   });
 
   it("prepares section compositor layers before pan starts without a per-section state fanout", () => {
@@ -97,8 +98,8 @@ describe("workspace adaptive stylesheet contract", () => {
     );
   });
 
-  it("keeps unrelated shortcuts from exposing the full canvas focus surface", () => {
-    expect(focusVisibilityStyles).toContain(
+  it("keeps shortcut focus suppression scoped away from section selection paint", () => {
+    expect(focusVisibilityStyles).not.toContain(
       '.setta-workspace:not([data-workspace-keyboard-focus="true"]) :focus',
     );
     expect(focusVisibilityStyles).toMatch(

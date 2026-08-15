@@ -1,34 +1,16 @@
 /* Interaction corrections and post-extraction Outline additions live outside the retained
- * reference stylesheet. Keeping them here makes focus modality, clipped selection paint, and the
- * package-owned Outline filter one reviewable policy layer. */
+ * reference stylesheet. Keeping them here makes focus modality, selection-paint clearance, and
+ * the package-owned Outline filter one reviewable policy layer. */
 
-/* Bounded groups are clipping scrollports. Their selected descendants therefore suppress the
- * clipped outer outline and paint the same four-pixel geometry on an overlay above their content.
- * Top-level and auto-sized sections keep the accepted outward outline geometry. */
-.setta-workspace-bounded-group-scroll > [data-workspace-contained-selection-outline="true"] {
-  display: none;
-}
-
-.setta-workspace-bounded-group-scroll
-  [data-workspace-group-selection-outline="true"][data-section-active="true"],
-.setta-workspace-bounded-group-scroll
-  [data-section-active="true"]:has(> [data-workspace-contained-selection-outline="true"]) {
-  outline-color: transparent;
-}
-
-.setta-workspace-bounded-group-scroll
-  [data-section-active="true"]
-  > [data-workspace-contained-selection-outline="true"][data-section-active="true"] {
-  display: block;
-  border-radius: inherit;
-  box-shadow: inset 0 0 0 4px var(--setta-section-style-outline, rgb(37 99 235));
-}
-
-.setta-workspace.setta-workspace-dark
-  .setta-workspace-bounded-group-scroll
-  [data-section-active="true"]
-  > [data-workspace-contained-selection-outline="true"][data-section-active="true"] {
-  box-shadow: inset 0 0 0 4px var(--setta-section-style-outline, rgb(29 78 216));
+/* A bounded group's native scrollport otherwise clips the reference's four-pixel outward section
+ * outlines at its edges. Expand the scrollport by exactly that paint width, then restore the same
+ * content edge with equal padding. Child coordinates and dimensions stay unchanged while selected
+ * and pressed outlines retain the top-level geometry. */
+.setta-workspace-bounded-group-scroll {
+  margin-block-start: 4px;
+  margin-block-end: -4px;
+  margin-inline: -4px;
+  padding: 4px;
 }
 
 /* Frozen main overlays both panes on one full-size canvas. The complete pane surface—including
