@@ -18,8 +18,8 @@ export const useItemSelectionMode = createWithEqualityFn(
 );
 
 // Canvas rows suppress their editors while item-selection mode owns pointer input. The Inspector
-// renders the same accepted controls in a separate editing surface, so its subtree opts out without
-// changing the global mode or making multi-item selection unreachable.
+// renders the editable item label in a separate configuration surface, so its subtree opts out
+// without changing the global mode or making multi-item selection unreachable.
 export const ItemSelectionModeAffectsControlsContext = createContext(true);
 
 export function useItemSelectionModeForControl(): boolean {

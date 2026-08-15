@@ -218,7 +218,7 @@ describe("WorkspaceInspector", () => {
     expect(accent.value).toBe("");
   });
 
-  it("commits typed numeric fields directly and rejects an invalid range", async () => {
+  it("omits the canvas-owned value editor while keeping Inspector configuration editable", async () => {
     const onChange = vi.fn();
     setWorkspaceDocumentChangeCallback(onChange);
     useItemSelectionMode.setState({ isSelectingItems: true });
@@ -235,10 +235,12 @@ describe("WorkspaceInspector", () => {
     const maximum = getLabeledControl<HTMLInputElement>(host, "max");
     const step = getLabeledControl<HTMLInputElement>(host, "step");
     expect(step.step).toBe("any");
-    const liveValue = host.querySelector<HTMLInputElement>(
-      '[aria-label="Amount value numeric value"]',
+    expect(host.querySelector('[data-inspector-focus-key="item-value"]')).toBeNull();
+    expect(host.querySelector('[aria-label="Amount value numeric value"]')).toBeNull();
+    expect(host.querySelector('[aria-label="Item name"]')?.hasAttribute("aria-disabled")).toBe(
+      false,
     );
-    expect(liveValue?.disabled).toBe(false);
+    expect(getLabeledControl<HTMLSelectElement>(host, "UI type").disabled).toBe(false);
 
     await act(async () => {
       minimum.focus();

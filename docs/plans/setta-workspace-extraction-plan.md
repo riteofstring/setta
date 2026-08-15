@@ -1885,6 +1885,20 @@ Phase 4 progress (2026-08-11):
   built-in Inspector to edit an item's value. Re-run focused Inspector coverage and the required
   implementation audit before re-presenting the same combined developer gate; no visual approval
   or baseline refresh is claimed here.
+- Workspace-shell Inspector value-row correction implementation complete (2026-08-13): the
+  package-owned selected-item Inspector no longer mounts a second `BuiltInItemValueControl` or
+  exposes an `item-value` focus row. The canonical live value control remains unchanged in the
+  canvas row, while the Inspector retains its editable label, ordinary UI-type selector, and exact
+  type-specific configuration editor; custom typed host Inspector contributions remain unchanged.
+  The item-selection-mode override remains scoped around the Inspector because the retained label
+  editor must stay available without ending multi-item selection, and the removed value wrapper's
+  private CSS was deleted rather than left as an unreachable path. The README and focused Inspector
+  regression now freeze the non-duplicated contract. The directly affected Inspector suite passes
+  all 9 tests, the package production build and source/compiled boundary pass, and the changed-file
+  static gate passes. No dependency, public export, or packaging contract changed, so the deferred
+  supply-chain and packed-consumer gates were not duplicated. This completes the correction's
+  implementation without claiming visual approval or refreshing baselines; the required
+  implementation audit remains before re-presenting the same combined developer gate.
 
 - Extraction branch: `workspace-extraction`
 - Extraction base: `main` at `043d3b2e9`

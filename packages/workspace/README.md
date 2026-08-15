@@ -103,8 +103,9 @@ changes canonical selection.
 
 The Inspector projects canonical section and typed-item selection. Its empty state mirrors the
 frozen UI Editor; one section exposes package-owned identity, name, accent, lock/minimize,
-authored/resolved size, and group orientation; one typed item reuses the built-in label/value
-controls and exposes only the selected UI type's valid configuration. Compact configuration rows
+authored/resolved size, and group orientation; one typed item exposes its editable label, ordinary
+UI type, and only that type's valid configuration. Its canonical live value control remains in the
+section on the canvas rather than being duplicated in the Inspector. Compact configuration rows
 commit each valid field or list action immediately; invalid numeric/text drafts remain local until
 corrected or canceled with Escape. Dropdown and color choices use dedicated item editors rather
 than JSON, and date/time options appear only when their selected mode uses them. Multiple sections

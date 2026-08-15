@@ -1439,8 +1439,7 @@ input[type="range"].setta-workspace-inspector-config-input {
   font-size: 11px;
 }
 
-.setta-workspace-inspector-item-name,
-.setta-workspace-inspector-value {
+.setta-workspace-inspector-item-name {
   display: grid;
   min-width: 0;
   grid-template-columns: minmax(0, 1fr);
@@ -1448,10 +1447,7 @@ input[type="range"].setta-workspace-inspector-config-input {
 
 .setta-workspace-inspector-item-name > *,
 .setta-workspace-inspector-item-name .section-key,
-.setta-workspace-inspector-item-name .section-key-value,
-.setta-workspace-inspector-value > *,
-.setta-workspace-inspector-value .section-value,
-.setta-workspace-inspector-value .section-lg-value {
+.setta-workspace-inspector-item-name .section-key-value {
   width: 100%;
   min-width: 0;
   grid-column: 1;

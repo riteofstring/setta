@@ -8,7 +8,6 @@ import {
   getRegisteredSectionKindOrThrow,
 } from "../document/sectionKindRegistry";
 import type { WorkspaceItem, WorkspaceSection } from "../document/types";
-import { BuiltInItemValueControl } from "../items/BuiltInItemValueControl";
 import { getItemHandlerRegistration } from "../items/itemHandlerRegistry";
 import { WorkspaceItemConfigurationEditor } from "./WorkspaceItemConfigurationEditor";
 import {
@@ -207,17 +206,6 @@ function TypedItemInspector({
             onEscape={onEscape}
             sectionId={section.id}
           />
-          <div className="setta-workspace-inspector-field" data-inspector-focus-key="item-value">
-            <span className="setta-workspace-inspector-label">Value</span>
-            <div className="setta-workspace-inspector-value">
-              <BuiltInItemValueControl
-                control={control}
-                itemId={item.id}
-                label={label || item.id}
-                sectionId={section.id}
-              />
-            </div>
-          </div>
           <div data-inspector-focus-key="item-configuration">
             <WorkspaceItemConfigurationEditor
               control={control}
