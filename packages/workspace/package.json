@@ -18,7 +18,7 @@
     "tailwind-preset.mjs"
   ],
   "scripts": {
-    "build": "vite build && tsc -p tsconfig.build.json && tailwindcss -c tailwind.config.js -i src/styles/index.css -o dist/styles.css && node ../../scripts/check-package-boundary.mjs --built",
+    "build": "vite build && tsc -p tsconfig.build.json && tailwindcss -c tailwind.config.js -i src/styles/index.css -o dist/styles.css && node ../../scripts/compile-katex-styles.mjs && node ../../scripts/check-package-boundary.mjs --built",
     "test": "vitest run"
   },
   "dependencies": {

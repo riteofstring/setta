@@ -363,9 +363,9 @@ palette, and a plugin runtime remain out of scope.
 
 ## Milestone D — built-in text and code sections
 
-**Status: in progress. D2 and D1 are complete. D2 came first because it is where the package's
-section-scale CodeMirror foundation lands — the foundation D1's edit mode then reuses — and because
-it needs no new dependency, while D1's Markdown rendering does. The package now has one built-in
+**Status: in progress. D1, D2, and D3 are complete; the D4 developer gate remains. D2 came first
+because it is where the package's section-scale CodeMirror foundation lands — the foundation D1's
+edit mode then reuses — and because it needs no new dependency, while D1's Markdown rendering does. The package now has one built-in
 Code Editor section: a reserved stable kind ID, a parsed serializable data contract (code,
 language, wrapping, line numbers, indentation width, read-only), a typed read/write pair over one
 document mutation path, and a registration helper a host composes with its own kinds, narrows to
@@ -404,13 +404,31 @@ Markdown tree (`pre` versus `code`) rather than through the reference's start-co
 which misreads a paragraph beginning with inline code; `jsx` and `tsx` fences highlight through the
 plain JavaScript and TypeScript packs because the package's language registry carries no JSX parser
 variant; and an out-of-range font size is rejected at the boundary rather than silently clamped.
-The D1 commit temporarily imports KaTeX's upstream stylesheet because `rehype-katex` requires its
-layout and font rules. D3 must replace that temporary state before the D4 gate: the published
-package still delivers one self-contained scoped stylesheet, its selectors do not style host
-content, and consumers do not import dependency CSS, resolve dependency fonts, or add bundler
-configuration.
 
-D3 remains, then the D4 developer gate.**
+D3 is complete. Its registration and composition half arrived with D2 and D1 — stable reserved kind
+IDs, typed data contracts parsed at the boundary, helpers that compose into the host's own
+`registerSectionKinds` call and can be left out, host-owned labels and creation defaults, narrowed
+languages, formats, and display modes, and the unknown-kind failure a document naming an
+unregistered built-in still takes — and the package README now documents that seam as one public
+surface, including the load-time data validator and header-control slot the built-ins introduced.
+Its remaining half replaced D1's temporary dependency stylesheet import: the build now folds
+KaTeX's presentation rules into the package's one compiled stylesheet, every rule scoped to the
+workspace surface and every face inlined as woff2, so the built entry imports no CSS at all, a
+consumer resolves no dependency stylesheet or font and adds no bundler configuration, and a host
+that registers neither built-in receives a coherent bundle instead of one that always carried
+KaTeX's stylesheet and its twenty font files. Package-only design decisions recorded in source:
+KaTeX's one host-wide rule resets its equation counters on `body`, which scoped becomes the
+workspace root, so equation numbering restarts per workspace; only the woff2 source of each face
+survives, because carrying the woff and truetype encodings KaTeX also declares would triple the
+folded stylesheet for formats no browser this package supports would choose, and the surviving
+faces cost the shipped stylesheet about 375 KB; and `katex` stays a declared dependency although no
+package source imports it any more, so the folded rules are the pinned copy installed beside the
+`rehype-katex` that renders the markup they lay out. The delivery contract locks the result: the
+built entry may import no `.css` specifier, and the compiled stylesheet must carry the scoped math
+surface, its scoped equation counters, its inlined faces, and the rendered Markdown surface's own
+compiled rules, with no dependency font path and no unscoped KaTeX rule.
+
+Only the D4 developer gate remains.**
 
 Add two optional, batteries-included content-section registrations. Hosts can register either,
 both, or neither alongside their own section kinds. Their document data and configuration are

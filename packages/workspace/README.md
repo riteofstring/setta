@@ -31,6 +31,9 @@ transition paths are provided.
   contribution for custom section or item content. Ordinary content is automatically placed in the
   package-owned body slot; `contentClassName` adds host padding or layout to that wrapper without
   exposing the section grid vocabulary.
+- `createWorkspaceTextSection` and `createWorkspaceCodeSection` are two optional batteries-included
+  content sections a host composes into that same registration call, or leaves out entirely. They
+  bring their own typed document contracts, editors, and rendered Markdown surface.
 - `WorkspaceItemList` and `ItemDndContext` render item trees. Items with a typed `presentation`
   use the package's editable label and built-in control directly; a list needs `renderItem` only
   for custom opaque items. Its optional `itemDiagnostics` registry supplies ephemeral host
@@ -456,6 +459,12 @@ Built-in items always use their package-owned label, so the callback is invoked 
 rows while a nonblank filter is active. It receives the same kind of detached, deeply frozen public
 section and item snapshots as the other host contribution seams.
 
+A kind whose `data` has a real shape may register `assertValidData(section)`. The package runs it
+once per section of that kind at load, before the document is published, so a malformed document
+fails at the boundary instead of on first paint. An ordinary kind may also register
+`renderHeaderControls(section)`, placed in the header's trailing control group ahead of lock,
+minimize, and delete. A meta-control kind renders no section header and cannot register one.
+
 A kind whose `presentation.type` is `"meta-control"` projects its opaque data to a package
 `MetaControlKind` and supplies the host callback for the outboard edit affordance. The package then
 owns the transparent headerless shell, drag/resize chrome, control minimums, and omitted-size
@@ -510,16 +519,83 @@ Set `labelEditable` to `false` for a positional or otherwise fixed parameter nam
 then renders a static label, omits the rename editor from keyboard navigation, and rejects label
 mutations while leaving the value control editable.
 
+## Built-in content sections
+
+Two content sections ship with the package. They are opt-in: `createWorkspaceTextSection()` and
+`createWorkspaceCodeSection()` each return an ordinary `SectionKindDefinition`, registered under
+the package-reserved kind IDs `WORKSPACE_TEXT_SECTION_KIND` and `WORKSPACE_CODE_SECTION_KIND` in
+the same `registerSectionKinds` call a host makes for its own kinds. Nothing registers itself, and
+a host may register either, both, or neither. Leaving one out is a supported composition: the rest
+of the workspace is unaffected, and a document naming the unregistered kind fails through the
+package's existing unknown-kind contract rather than rendering a placeholder.
+
+Their `data` is package-owned rather than opaque. `createWorkspaceTextSectionData` and
+`createWorkspaceCodeSectionData` build a complete serializable value from partial creation
+defaults, `getWorkspaceTextSectionData`/`getWorkspaceCodeSectionData` read one back as a validated
+type, and `setWorkspaceTextSectionData`/`setWorkspaceCodeSectionData` write one through the same
+controlled document path and single change notification as every other canonical operation. Both
+contracts are parsed at load and rejected there when malformed or outside what the registration
+allows.
+
+The Text section carries `text`, `format` (`plaintext` or `markdown`), `displayMode` (`edit` or
+`render`), `fontSizePx`, and `readOnly`. Its edit mode is the package's CodeMirror editor; its
+rendered mode is GitHub-flavored Markdown with tables, task lists, inline code, fenced code with
+language-aware highlighting and a copy button, and KaTeX math, with raw HTML never parsed, or a
+whitespace-preserving block for plain text. The Code Editor section carries `code`, `language`,
+`wrapLines`, `lineNumbers`, `indentWidth`, and `readOnly` over the package's language set: Python,
+Bash, JavaScript, TypeScript, JSON, YAML, TOML, Markdown, and plain text. Locking a section, like
+its `readOnly` field, makes its editor read-only while it stays selectable and scrollable.
+
+Registration options are how a host customizes them:
+
+```tsx
+registerSectionKinds({
+  ...hostKinds,
+  [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection({
+    icon: NotesIcon,
+    defaultSize: { width: 420, height: 200 },
+    formats: ["markdown"],
+    displayModes: ["render"],
+    renderInspector: (context) => <TextSectionSettings context={context} />,
+  }),
+  [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection({
+    languages: ["python", "json"],
+    renderInspector: (context) => <CodeSectionSettings context={context} />,
+  }),
+});
+```
+
+`icon` replaces the header glyph the section otherwise paints from its own format or language, and
+`defaultSize` applies when a loaded section omits its size. `formats`, `displayModes`, and
+`languages` narrow what the registration accepts: a document, or a later typed write, naming a
+choice outside the list fails explicitly. A single-mode `displayModes` list forces that mode and
+leaves the header's edit/render control out; `showDisplayModeControl: false` leaves the control out
+while both modes stay authorable, for a host that drives the mode from its own UI. Labels and the
+creation surface stay host-owned: sections carry the `name` the host gives them, and whether either
+built-in appears in a creation menu is decided by the host's own `registerWorkspaceCreationCommands`
+catalog, which builds the section with these creation defaults.
+
+Their presentation ships in the one compiled stylesheet. The rendered Markdown surface compiles
+from the Tailwind typography plugin under the package-owned `setta-prose` class name, and KaTeX's
+own presentation rules are folded into the same sheet, scoped to the workspace surface and carrying
+their faces inline. Consumers import no dependency CSS, resolve no dependency fonts, and add no
+bundler configuration for either section.
+
 ## Consumption during extraction
 
 Consumers install the compiled package: the `exports` map serves ESM with a source map
 (`dist/index.js`), TypeScript declarations (`dist/types/`), and the compiled scoped stylesheet
 (`@setta/workspace/styles.css`). `pnpm --filter @setta/workspace build` produces `dist/` —
 `vite build` bundles the runtime with every dependency external, `tsc -p tsconfig.build.json`
-emits declarations, the Tailwind CLI compiles the stylesheet from package source alone, and
-`scripts/check-package-boundary.mjs --built` verifies the artifact imports and stylesheet
-scoping. The quality gate typechecks the playground against the built declarations, so build
-before running it on a fresh tree.
+emits declarations, the Tailwind CLI compiles the stylesheet from package source alone,
+`scripts/compile-katex-styles.mjs` folds KaTeX's presentation rules into that stylesheet scoped
+and with its faces inlined, and `scripts/check-package-boundary.mjs --built` verifies the artifact
+imports and stylesheet scoping. The quality gate typechecks the playground against the built
+declarations, so build before running it on a fresh tree.
+
+The compiled stylesheet is the package's only stylesheet: the built entry imports no dependency
+CSS, so a consumer never resolves one, never resolves a dependency font, and a host that registers
+neither built-in content section still receives a coherent bundle.
 
 The stylesheet ships without global Tailwind Preflight: every rule is class-scoped, and the
 Preflight subset the package's own elements rely on is scoped under the `setta-workspace`

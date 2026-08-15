@@ -1,4 +1,3 @@
-import "katex/dist/katex.min.css";
 import type { HTMLAttributes } from "react";
 import Markdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
@@ -10,9 +9,10 @@ import { WorkspaceMarkdownCodeBlock } from "./WorkspaceMarkdownCodeBlock";
 // strikethrough, autolinks) plus math through KaTeX, with raw HTML left disabled because
 // react-markdown parses none unless a host adds `rehype-raw`, which this package never does.
 //
-// KaTeX's own stylesheet ships with the dependency and is imported the same way the reference
-// imports it, because `rehype-katex` renders markup that stylesheet is required to lay out. It
-// is the one stylesheet the package does not scope, and it is the dependency's own.
+// `rehype-katex` renders markup KaTeX's own stylesheet is required to lay out. The reference
+// imports that stylesheet from the component; this package folds it, scoped and with its faces
+// inlined, into the one compiled stylesheet it ships (scripts/compile-katex-styles.mjs), so this
+// module imports no CSS and a consumer resolves no dependency stylesheet or font.
 //
 // Package-only design decision: the Tailwind typography plugin is compiled under the package's
 // own `setta-prose` class name rather than the plugin's default `prose`, so the compiled

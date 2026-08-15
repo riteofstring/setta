@@ -1,7 +1,12 @@
 /* Build input for the compiled package stylesheet (dist/styles.css). The imports are inlined
  * ahead of the Tailwind layers, preserving the Phase 1 compile order in which the playground's
  * Tailwind entry imported workspace.css before its own directives. scopedBase.css carries the
- * package-scoped Preflight subset because the compiled sheet ships without global Preflight. */
+ * package-scoped Preflight subset because the compiled sheet ships without global Preflight.
+ *
+ * One more section reaches the compiled sheet after this input: the built-in Text section's math
+ * needs KaTeX's own presentation rules, which the build folds in scoped and with its faces
+ * inlined (scripts/compile-katex-styles.mjs), after these layers so KaTeX's layout outranks the
+ * typography the rendered Markdown surface puts around it. */
 
 @import "./scopedBase.css";
 @import "./workspace.css";

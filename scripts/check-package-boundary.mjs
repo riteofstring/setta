@@ -213,6 +213,12 @@ function validateBuiltEntry() {
     if (specifier.startsWith(".") || specifier.startsWith("/")) {
       return [`dist/index.js: bundled output must not import by path: ${specifier}`];
     }
+    // The package delivers one stylesheet. A dependency's CSS reaching the entry would make
+    // every consumer resolve that stylesheet and its fonts, and would ship it even to a host
+    // that registers neither built-in content section.
+    if (specifier.endsWith(".css")) {
+      return [`dist/index.js: bundled output must not import dependency CSS: ${specifier}`];
+    }
     return runtimeDependencyNames.has(bareSpecifierPackageName(specifier))
       ? []
       : [`dist/index.js: import is not a declared runtime dependency or peer: ${specifier}`];
@@ -271,6 +277,27 @@ function validateBuiltStylesheet() {
     ["@media (pointer: coarse)", "coarse-pointer hit-area query"],
     ['[data-setta-workspace-touch-target="compact"]::after', "compact hit-area rule"],
     ["width: min(200px, max(0px, calc(100% - 30px)))", "narrow minimap clamp"],
+    // The built-in Text section's rendered surface. Its Markdown presentation compiles from the
+    // typography plugin under the package's own class name, and only the class tokens live in
+    // source, so the shipped rules are the only proof a consumer receives them.
+    [
+      '.setta-prose :where(table):not(:where([class~="not-setta-prose"] *))',
+      "rendered Markdown table rule",
+    ],
+    [
+      "setta-prose-invert:where(.setta-workspace.setta-workspace-dark",
+      "package-scoped rendered Markdown dark variant",
+    ],
+    [
+      String.raw`.setta-prose-h1\:text-\[length\:var\(--setta-workspace-text-h1-size\)\]`,
+      "authored Markdown type scale",
+    ],
+    // KaTeX's presentation is folded in by scripts/compile-katex-styles.mjs rather than imported
+    // by consumers: scoped to the workspace surface, including the equation counters KaTeX resets
+    // on `body`, and carrying its faces inline so no consumer resolves a dependency font.
+    [".setta-workspace .katex{", "scoped math surface"],
+    [".setta-workspace{counter-reset:katexEqnNo", "scoped math equation counters"],
+    ["src:url(data:font/woff2;base64,", "inlined math font faces"],
   ];
   return [
     ...(contents.includes("@tailwind")
@@ -278,6 +305,12 @@ function validateBuiltStylesheet() {
       : []),
     ...(/^(?:\*|html\b|body\b|:root\b)/mu.test(contents)
       ? ["dist/styles.css: contains a host-wide selector; rules must stay package-scoped"]
+      : []),
+    ...(contents.includes("url(fonts/")
+      ? ["dist/styles.css: references a dependency font path; faces must ship inline"]
+      : []),
+    ...(/^\.katex/mu.test(contents)
+      ? ["dist/styles.css: contains an unscoped KaTeX rule; folded rules must stay package-scoped"]
       : []),
     ...requiredMarkers.flatMap(([marker, label]) =>
       contents.includes(marker) ? [] : [`dist/styles.css: missing the ${label}: ${marker}`],
