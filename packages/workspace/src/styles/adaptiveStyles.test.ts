@@ -73,8 +73,8 @@ describe("workspace adaptive stylesheet contract", () => {
     expect(workspaceStyles).toContain(
       ".setta-workspace.react-flow:hover [data-section-id]",
     );
-    expect(workspaceStyles).toContain(
-      '.setta-workspace.react-flow[data-viewport-interaction-active="true"] [data-section-id]',
+    expect(workspaceStyles).toMatch(
+      /\.setta-workspace\.react-flow\[data-viewport-interaction-active="true"\]\s+\[data-section-id\]/u,
     );
     expect(workspaceStyles).toMatch(
       /\.setta-workspace\.react-flow:hover \[data-section-id\][^{]*\{[^}]*will-change: transform[^}]*transform: translateZ\(0\)[^}]*backface-visibility: hidden[^}]*isolation: isolate/su,
@@ -90,7 +90,9 @@ describe("workspace adaptive stylesheet contract", () => {
     );
     expect(workspaceStyles).toContain("inset-inline-start: 0");
     expect(workspaceStyles).toContain("inset-inline-end: 0");
-    expect(workspaceStyles).toContain(':dir(rtl)[data-visible="false"]');
+    expect(workspaceStyles).toMatch(
+      /:dir\(\s*rtl\s*\)\[data-visible="false"\]/u,
+    );
     expect(workspaceStyles).toContain("transition-property: transform");
     expect(workspaceStyles).not.toContain("transition: all");
     expect(workspaceStyles).toMatch(
@@ -155,7 +157,7 @@ describe("workspace adaptive stylesheet contract", () => {
       /\.setta-workspace-shell-resize-handle:focus[^}]*\{[^}]*outline: none/su,
     );
     expect(interactionPolicyStyles).toMatch(
-      /\[data-workspace-keyboard-focus="true"\] \.setta-workspace-shell-resize-handle:focus::after\s*\{[^}]*background-color: rgb\(59 130 246\)/su,
+      /\[data-workspace-keyboard-focus="true"\]\s+\.setta-workspace-shell-resize-handle:focus::after\s*\{[^}]*background-color: rgb\(59 130 246\)/su,
     );
   });
 
