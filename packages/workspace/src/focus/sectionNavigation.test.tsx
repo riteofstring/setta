@@ -1,12 +1,21 @@
 /* @vitest-environment jsdom */
-import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
-import { createWorkspaceTestHost, type WorkspaceTestHost, WorkspaceTestProvider } from "../../test/workspaceTestHost";
+import {
+  afterEach as afterEachWorkspaceTestHost,
+  beforeEach as beforeEachWorkspaceTestHost,
+} from "vitest";
+import {
+  createWorkspaceTestHost,
+  type WorkspaceTestHost,
+  WorkspaceTestProvider,
+} from "../../test/workspaceTestHost";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
   testWorkspace = createWorkspaceTestHost();
 });
-
+afterEachWorkspaceTestHost(() => {
+  testWorkspace.host.dispose();
+});
 
 import { act, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";

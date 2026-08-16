@@ -1,9 +1,18 @@
-import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
-import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../../test/workspaceTestHost";
+import {
+  afterEach as afterEachWorkspaceTestHost,
+  beforeEach as beforeEachWorkspaceTestHost,
+} from "vitest";
+import {
+  createWorkspaceTestHost,
+  type WorkspaceTestHost,
+} from "../../../test/workspaceTestHost";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
   testWorkspace = createWorkspaceTestHost();
+});
+afterEachWorkspaceTestHost(() => {
+  testWorkspace.host.dispose();
 });
 
 import { describe, expect, it } from "vitest";

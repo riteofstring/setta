@@ -1,6 +1,9 @@
 /* @vitest-environment jsdom */
 
-import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
+import {
+  afterEach as afterEachWorkspaceTestHost,
+  beforeEach as beforeEachWorkspaceTestHost,
+} from "vitest";
 import {
   createWorkspaceTestHost,
   type WorkspaceTestHost,
@@ -25,6 +28,9 @@ import { DndSlot } from "./DndSlot";
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
   testWorkspace = createWorkspaceTestHost();
+});
+afterEachWorkspaceTestHost(() => {
+  testWorkspace.host.dispose();
 });
 
 describe("DndSlot", () => {

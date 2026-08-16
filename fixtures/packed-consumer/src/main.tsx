@@ -1,10 +1,9 @@
 import {
+  createWorkspaceHost,
   createWorkspaceShellViewState,
   DEFAULT_META_CONTROL_SIZE,
-  getWorkspaceDocument,
   GROUP_SECTION_KIND,
   ItemDndContext,
-  loadWorkspaceDocument,
   MetaControl,
   registerSectionKinds,
   registerWorkspaceCommands,
@@ -13,9 +12,10 @@ import {
   registerWorkspaceToolbarContributions,
   setGroupOverflowMode,
   setWorkspaceColorMode,
-  setWorkspaceDocumentChangeCallback,
   useWorkspaceAppearance,
+  useWorkspaceHost,
   WorkspaceItemList,
+  WorkspaceProvider,
   WorkspaceShell,
   type MetaControlDefinition,
   type WorkspaceCreationContext,
@@ -263,21 +263,16 @@ const consumerDocument: WorkspaceDocumentInput = {
   activeIds: [],
 };
 
-function toggleDarkMode() {
-  const next = !useWorkspaceAppearance.getState().darkMode;
-  setWorkspaceColorMode(next ? "dark" : "light");
-}
-
 // The host side of the document-change callback: every package-initiated canonical commit
 // reports the serializable document once; the initial load never does.
 function DocumentChangeReadout() {
+  const workspaceHost = useWorkspaceHost();
   const [documentChangeCount, setDocumentChangeCount] = useState(0);
   useEffect(() => {
-    setWorkspaceDocumentChangeCallback(() => {
+    return workspaceHost.subscribe(() => {
       setDocumentChangeCount((count) => count + 1);
     });
-    return () => setWorkspaceDocumentChangeCallback(null);
-  }, []);
+  }, [workspaceHost]);
   return <>{documentChangeCount}</>;
 }
 
@@ -384,6 +379,7 @@ const consumerTrailingTabs: ReadonlyArray<WorkspaceShellTabDefinition> = [
 ];
 
 function ConsumerApp() {
+  const workspaceHost = useWorkspaceHost();
   const darkMode = useWorkspaceAppearance((state) => state.darkMode);
   const [shellViewState, setShellViewState] = useState(() =>
     createWorkspaceShellViewState(),
@@ -397,17 +393,26 @@ function ConsumerApp() {
     <main className="consumer-shell">
       <header className="consumer-header">
         <h1>Packed @setta/workspace consumer</h1>
-        <button type="button" onClick={toggleDarkMode}>
+        <button
+          type="button"
+          onClick={() =>
+            setWorkspaceColorMode(workspaceHost, darkMode ? "light" : "dark")
+          }
+        >
           Switch to {darkMode ? "light" : "dark"} mode
         </button>
         <button
           type="button"
           onClick={() => {
-            const group = getWorkspaceDocument().sections["notes-group"];
+            const group = workspaceHost.getSnapshot().sections["notes-group"];
             if (!group) {
               throw new Error("The packed notes group is unavailable.");
             }
-            setGroupOverflowMode(group.id, !group.overflowMode);
+            setGroupOverflowMode(
+              workspaceHost,
+              group.id,
+              !group.overflowMode,
+            );
           }}
         >
           Toggle bounded notes group
@@ -433,10 +438,12 @@ function ConsumerApp() {
 // Kind registration precedes the load because loading validates section kinds against the
 // registry, and the appearance store must reflect the boot appearance before node
 // projection derives backgrounds from it.
+const workspaceHost = createWorkspaceHost();
 setWorkspaceColorMode(
+  workspaceHost,
   document.documentElement.classList.contains("dark") ? "dark" : "light",
 );
-registerSectionKinds({
+registerSectionKinds(workspaceHost, {
   note: {
     renderContent: (section) => <NoteBody section={section} />,
     renderInspector: (context) => (
@@ -471,7 +478,7 @@ registerSectionKinds({
     defaultSize: { width: 320, height: 160 },
   },
 });
-registerWorkspaceCreationCommands([
+registerWorkspaceCreationCommands(workspaceHost, [
   {
     id: "consumer-note",
     label: "Packed note",
@@ -481,7 +488,7 @@ registerWorkspaceCreationCommands([
     createSection: createConsumerNote,
   },
 ]);
-registerWorkspaceCommands([
+registerWorkspaceCommands(workspaceHost, [
   {
     id: "consumer-pane-position",
     scope: "pane",
@@ -526,11 +533,11 @@ registerWorkspaceCommands([
   },
 ]);
 // The package ships locking bindable and unbound, so a consumer chooses its own chord for it.
-registerWorkspaceKeyBindings([
+registerWorkspaceKeyBindings(workspaceHost, [
   { id: "workspace.lock-sections", chord: "Mod + Alt + L" },
 ]);
 // One contributed toolbar control over the creation command the pane menu already offers.
-registerWorkspaceToolbarContributions([
+registerWorkspaceToolbarContributions(workspaceHost, [
   {
     kind: "creation",
     commandId: "consumer-note",
@@ -539,7 +546,7 @@ registerWorkspaceToolbarContributions([
     description: "Add a packed note in empty space",
   },
 ]);
-loadWorkspaceDocument(consumerDocument);
+workspaceHost.loadDocument(consumerDocument);
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
@@ -548,6 +555,8 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <ConsumerApp />
+    <WorkspaceProvider host={workspaceHost}>
+      <ConsumerApp />
+    </WorkspaceProvider>
   </StrictMode>,
 );
