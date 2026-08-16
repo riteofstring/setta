@@ -15,7 +15,6 @@
       "scripts/check-workspace-policy.mjs",
       "scripts/compile-katex-styles.mjs",
       "scripts/profile-workspace-performance.mjs",
-      "scripts/run-component-tests.mjs",
       "scripts/verify-packed-consumer.mjs"
     ],
     "development": [
@@ -114,12 +113,22 @@
         "timeoutSeconds": 300
       },
       {
-        "name": "repository-component",
+        "name": "workspace-component",
         "kind": "component",
-        "scope": "repository",
+        "scope": "module",
         "cost": "standard",
-        "argv": ["node", "scripts/run-component-tests.mjs"],
-        "paths": ["packages/**", "apps/**"],
+        "modules": ["workspace"],
+        "argv": ["pnpm", "--filter", "@setta/workspace", "test"],
+        "runOn": ["recommended", "full"],
+        "timeoutSeconds": 1200
+      },
+      {
+        "name": "playground-component",
+        "kind": "component",
+        "scope": "module",
+        "cost": "standard",
+        "modules": ["playground"],
+        "argv": ["pnpm", "--filter", "@setta/playground", "test"],
         "runOn": ["recommended", "full"],
         "timeoutSeconds": 1200
       },
@@ -146,7 +155,7 @@
   "supplyChain": {
     "minimumReleaseAgeDays": 30,
     "auditLevel": "low",
-    "allowedDependencyProtocols": ["workspace:", "file:"],
+    "allowedDependencyProtocols": ["workspace:"],
     "allowedLicenses": [
       "0BSD",
       "Apache-2.0",

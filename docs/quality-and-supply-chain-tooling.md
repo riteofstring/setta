@@ -40,8 +40,8 @@ The remaining local commands enforce Setta contracts the shared engine cannot in
   compiled style markers.
 - `scripts/check-workspace-policy.mjs` keeps every package private while publication is undecided,
   forbids premature publication metadata, and locks the repository's Node and pnpm versions.
-- `scripts/run-component-tests.mjs` runs the complete workspace and playground component matrix as
-  repository-scoped evidence. Each module also has a smaller focused boundary test.
+- Code Policy declares the complete workspace and playground component matrices directly as
+  module-scoped suites. Each module also has a smaller focused boundary test.
 - `scripts/verify-packed-consumer.mjs` builds and packs the workspace, installs it into a temporary
   unrelated consumer, and builds that consumer from public exports only.
 - `scripts/profile-workspace-performance.mjs` builds the production surfaces and drives the
