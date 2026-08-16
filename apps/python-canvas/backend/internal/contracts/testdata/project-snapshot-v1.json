@@ -18,8 +18,8 @@
   ],
   "parameters": [],
   "generatedCode": {
-    "code": "import math\n\nstate = SettaState()",
-    "body": "",
+    "code": "import math\n\nclass SettaState:\n    def __init__(state):\n        pass\n\nstate = SettaState()",
+    "body": "class SettaState:\n    def __init__(state):\n        pass",
     "sourceRanges": []
   },
   "diagnostics": [],

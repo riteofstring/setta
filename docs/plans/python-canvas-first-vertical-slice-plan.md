@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-**Status: Phases A and B are complete and Phase C is next.**
+**Status: Phases A through C are complete and Phase D is next.**
 
 This is the bounded implementation plan for the first useful Python Canvas consumer of
 `@setta/workspace`. It replaces the previous contents of this document, which described a fixed
@@ -441,7 +441,7 @@ surface was introduced.
 
 ### Phase C — Go project and automatic codegen core
 
-- [ ] Project and automatic codegen core complete
+- [x] Project and automatic codegen core complete
 
 Implement the one-section project state, callable and parameter mutations with fake signature input
 at the focused boundary, minimal dependency graph, renderer, source-range map, temporary generated
@@ -450,6 +450,19 @@ file, and golden output.
 **Boundary:** focused Go tests prove automatic reconciliation, positional-only rendering,
 determinism, exact source ranges, failed-mutation atomicity, and the final expected file. There is no
 generation endpoint or frontend renderer.
+
+**Implementation evidence (2026-08-17):** the Go-owned `project.Store` serializes cloned callable
+and parameter candidates through a narrow fakeable signature boundary, materializes the complete
+candidate before committing its next revision, and preserves the prior state and file on every
+focused failure path. The isolated `codegen` package exports the one Callable/CodeParam dependency
+ordering, deterministic `SettaState` renderer, and byte source ranges; a blank fresh expression
+does not emit an invalid assignment. `GeneratedFile` owns a temporary `setta_gen.py` workspace and
+uses same-directory replacement. Focused Go tests cover automatic reconciliation, positional-only
+rendering, deterministic output, exact ranges, unsupported signatures, failed mutation atomicity,
+the final expected file, and cleanup. `go test ./...` and generated-contract drift checking passed.
+The authorized repository profiles were attempted: their Go and contract-drift suites passed, while
+the JavaScript suites could not start because the disposable worktree had no dependencies and its
+frozen pnpm install could not resolve the package registry in this environment.
 
 ### Phase D — real Basedpyright integration
 
