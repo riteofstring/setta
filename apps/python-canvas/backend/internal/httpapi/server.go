@@ -39,6 +39,38 @@ type ProjectService interface {
 	) (contracts.ProjectSnapshotV1, error)
 }
 
+type commitCallablePayload struct {
+	ProjectID          string  `json:"projectId"`
+	SectionID          string  `json:"sectionId"`
+	AuthoredExpression *string `json:"authoredExpression"`
+}
+
+func (payload commitCallablePayload) toContract() (contracts.CommitCallableRequestV1, bool) {
+	if payload.AuthoredExpression == nil {
+		return contracts.CommitCallableRequestV1{}, false
+	}
+	return contracts.CommitCallableRequestV1{
+		ProjectID:          payload.ProjectID,
+		SectionID:          payload.SectionID,
+		AuthoredExpression: *payload.AuthoredExpression,
+	}, true
+}
+
+type setParameterExpressionPayload struct {
+	ProjectID          string  `json:"projectId"`
+	AuthoredExpression *string `json:"authoredExpression"`
+}
+
+func (payload setParameterExpressionPayload) toContract() (contracts.SetParameterExpressionRequestV1, bool) {
+	if payload.AuthoredExpression == nil {
+		return contracts.SetParameterExpressionRequestV1{}, false
+	}
+	return contracts.SetParameterExpressionRequestV1{
+		ProjectID:          payload.ProjectID,
+		AuthoredExpression: *payload.AuthoredExpression,
+	}, true
+}
+
 // NewHandler creates the three V1 routes after validating the current
 // canonical snapshot. Every successful mutation returns the same snapshot
 // shape, so the frontend has one source of truth after each request.
@@ -84,11 +116,12 @@ func handleCallable(response http.ResponseWriter, request *http.Request, service
 	if !rejectQuery(response, request) {
 		return
 	}
-	var body contracts.CommitCallableRequestV1
-	if !decodeJSONBody(response, request, &body) {
+	var payload commitCallablePayload
+	if !decodeJSONBody(response, request, &payload) {
 		return
 	}
-	if err := body.Validate(); err != nil {
+	body, hasAuthoredExpression := payload.toContract()
+	if !hasAuthoredExpression || body.Validate() != nil {
 		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "callable request is invalid")
 		return
 	}
@@ -117,11 +150,12 @@ func handleParameter(
 	if !rejectQuery(response, request) {
 		return
 	}
-	var body contracts.SetParameterExpressionRequestV1
-	if !decodeJSONBody(response, request, &body) {
+	var payload setParameterExpressionPayload
+	if !decodeJSONBody(response, request, &payload) {
 		return
 	}
-	if err := body.Validate(); err != nil {
+	body, hasAuthoredExpression := payload.toContract()
+	if !hasAuthoredExpression || body.Validate() != nil {
 		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "parameter request is invalid")
 		return
 	}

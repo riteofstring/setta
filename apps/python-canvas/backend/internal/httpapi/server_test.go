@@ -99,6 +99,93 @@ func TestCallableEndpointStrictlyDecodesAndPropagatesRequestContext(t *testing.T
 	}
 }
 
+func TestMutationEndpointsRequireAuthoredExpression(t *testing.T) {
+	tests := []struct {
+		name   string
+		target string
+		body   string
+	}{
+		{
+			name:   "callable",
+			target: contracts.ProjectCallablePathV1,
+			body:   `{"projectId":"project:python-canvas","sectionId":"callable:square-root"}`,
+		},
+		{
+			name:   "parameter",
+			target: contracts.ProjectParameterPathV1 + "parameter:square-root:1",
+			body:   `{"projectId":"project:python-canvas"}`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			service := newStubService()
+			mutationCalled := false
+			service.commitCallable = func(context.Context, string, string, string) (contracts.ProjectSnapshotV1, error) {
+				mutationCalled = true
+				return service.snapshot, nil
+			}
+			service.setParameterExpression = func(context.Context, string, string, string) (contracts.ProjectSnapshotV1, error) {
+				mutationCalled = true
+				return service.snapshot, nil
+			}
+			handler := newHandlerForTest(t, service)
+
+			request := httptest.NewRequest(http.MethodPost, test.target, strings.NewReader(test.body))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+
+			assertResponse(t, response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "")
+			if mutationCalled {
+				t.Fatal("mutation service was invoked for a request without authoredExpression")
+			}
+		})
+	}
+}
+
+func TestParameterEndpointPropagatesExplicitEmptyAuthoredExpression(t *testing.T) {
+	service := newStubService()
+	var receivedProjectID, receivedParameterID, receivedExpression string
+	mutationCalled := false
+	service.setParameterExpression = func(
+		_ context.Context,
+		projectID string,
+		parameterID string,
+		expression string,
+	) (contracts.ProjectSnapshotV1, error) {
+		mutationCalled = true
+		receivedProjectID = projectID
+		receivedParameterID = parameterID
+		receivedExpression = expression
+		return service.snapshot, nil
+	}
+	handler := newHandlerForTest(t, service)
+
+	parameterID := "parameter:square-root:1"
+	request := httptest.NewRequest(
+		http.MethodPost,
+		contracts.ProjectParameterPathV1+parameterID,
+		strings.NewReader(`{"projectId":"project:python-canvas","authoredExpression":""}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	assertResponse(t, response, http.StatusOK, "", "")
+	if !mutationCalled {
+		t.Fatal("parameter mutation service was not invoked")
+	}
+	if receivedProjectID != "project:python-canvas" || receivedParameterID != parameterID || receivedExpression != "" {
+		t.Fatalf(
+			"parameter mutation = projectID %q, parameterID %q, expression %q",
+			receivedProjectID,
+			receivedParameterID,
+			receivedExpression,
+		)
+	}
+}
+
 func TestMutationRoutesRejectMalformedBodiesAndMapTypedFailures(t *testing.T) {
 	service := newStubService()
 	service.commitCallable = func(context.Context, string, string, string) (contracts.ProjectSnapshotV1, error) {
