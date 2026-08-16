@@ -98,15 +98,15 @@ describe("public package API", () => {
   it("exposes the text editor commit callback through the public root", () => {
     const onCommit = (value: string) => value;
     const props = {
-      ariaLabel: "Callable",
-      itemId: "callable-name",
+      ariaLabel: "Name",
+      itemId: "item-1",
       onCommit,
       onValueChange: () => {},
-      sectionId: "callable-section",
+      sectionId: "section-1",
       singleLine: true,
-      value: "math.sqrt",
+      value: "draft",
     } satisfies ComponentProps<typeof workspace.TextValueEditor>;
 
-    expect(props.onCommit("math.sqrt")).toBe("math.sqrt");
+    expect(props.onCommit("draft")).toBe("draft");
   });
 });
