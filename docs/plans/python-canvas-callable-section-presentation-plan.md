@@ -2,21 +2,18 @@
 
 ## Purpose and status
 
-**Status: Phase A's structural cutover is complete, including its audit corrections. Phase B
-remains open. The developer rejected source candidate
-`666af132be38edf4186e80ad7cf4788c32ff9fd0` and its evidence commit
-`7abd2332d18fa89aef3b5b550e75737dd0e163a1` on 2026-08-19. Candidate
-`2679b147443f67400e219e4189098fb6008a3008` now models and paints only the canonical generated
-body and observes it through the package's documented public marks, but it is not an accepted
-visual candidate. Supervisor comparison with donor source found that the candidate's self-authored
-4px field-to-toolbar allowance contradicts main's explicit Callable `mt-0 pb-0` toolbar
-composition. That zero-gap compact toolbar is now implemented and measured live, and the audit
-conflict it introduced — the item area reading its content-agnostic leading slot to select that
-spacing — is resolved by keying the composition to the declared renderer instead. The eight
-complete-section and generated-reader captures are rerun from that corrected candidate. Six are
-byte-identical; the two focused crops differ only by sub-perceptual one-channel rasterization in the
-leading header glyph, while their field bands are byte-identical. Supervisor inspection, developer
-visual acceptance, and this phase's closing `test --changed` and `test-levels` steps remain open.**
+**Status: Phase A's structural cutover is complete, including its audit corrections. Phase B is
+reopened after developer rejection of candidate `838ad70b9116e0e9bb54993836cd4a38401f4773`
+and its evidence commit `668412c1a92e5f82d119587bf8348c51cdd4a700` on 2026-08-19. The
+captured post-setup field and generated-reader states matched a narrow set of donor metrics, but the
+actual application startup and callable workflow did not match main: `math.sqrt` was a placeholder
+rather than committed state, completion required an extra Enter before commit, parameter rows
+exposed raw analyzer metadata and an invented value placeholder, and persistent per-section
+compositor promotion made settled zoomed content visibly blurry. Those are blocking product
+defects. For every behavior included in this callable workflow, current main is the authoritative
+reference. Prior plan prose, tests, captures, or implementation choices that contradict main must
+be replaced rather than preserved. Supervisor visual inspection, developer visual acceptance, and
+this phase's closing verification remain open.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
 Basedpyright, transport, or project semantics into `@setta/workspace`. The completed
@@ -42,8 +39,10 @@ did not cover:
   CodeMirror content exposes a tall black focus/caret line instead of the donor's blue generated
   region and non-editing interaction.
 
-This is not a request for complete main-branch parity. It is one observed consumer-driven correction
-to the reusable workspace presentation boundary, followed by one direct Python Canvas cutover.
+This is not a request to port every main-branch feature. It is a requirement that the callable
+workflow included in this slice match main's behavior and craft. Narrow scope limits which
+workflows exist; it does not authorize simplified, invented, or lower-quality behavior inside a
+workflow that does exist.
 
 ## Fixed product and ownership decisions
 
@@ -60,7 +59,11 @@ to the reusable workspace presentation boundary, followed by one direct Python C
    Add, Remove, or Delete controls that can never succeed. Filtering may remain available.
 6. Main is a visual and interaction donor, not a source module to import. Do not restore its global
    project store, OpenAPI wiring, share state, tool-preview state, measurement state, or LSP hooks.
-7. No Go, HTTP, generated-contract, LSP, code-generation, or dependency change is expected.
+7. A narrow Go bootstrap change is expected so the shipped Square Root example starts from a real
+   canonical `math.sqrt` commit and its real provider-derived parameter. It must use the existing
+   store/provider transaction path rather than frontend fixtures or duplicated signature data. No
+   HTTP shape, generated contract, code-generation algorithm, LSP provider, or dependency change
+   is expected.
 8. Make one direct public cutover. Do not add aliases, deprecated props, old/new rendering paths,
    adapters, migrations, feature flags, compatibility modes, or transitional code.
 9. The visual donor is current main commit `043d3b2e9c69caf99d1246f1408b3ad7194b7864`, not a
@@ -99,6 +102,13 @@ to the reusable workspace presentation boundary, followed by one direct Python C
     item-toolbar, section-editor, and generated-line hooks together with accessible roles, ordinary
     HTML landmarks, app-owned content, and bounding geometry. Do not add public document-line or
     section-header hooks merely to make a capture script convenient.
+17. When this plan and main disagree about an included interaction, main wins. The mandatory source
+    reading for this correction is main's `CallableArea.tsx`, `Search.tsx`, `ParamTextLabel.tsx`,
+    text-parameter branch in `ParamUI.tsx`, and CodeMirror `TextInputCodeMirror.tsx`,
+    `getExtensions.ts`, `getOnCreateEditor.ts`, and `useCodeMirrorStyle.ts`. Do not infer their
+    behavior from the rejected Python Canvas tests.
+18. Do not add backward compatibility, legacy support, migrations, feature flags, dual paths,
+    deprecated props, or transitional code. Replace the rejected behavior directly.
 
 ## Acceptance experience
 
@@ -135,17 +145,32 @@ Starting from `./scripts/run-python-canvas.sh`, the live app must demonstrate th
    copyable but non-editable in this V1 slice, receives no text caret, reveals no inner black
    outline, and does not change paint when clicked.
 
-The existing product walkthrough must remain unchanged:
+The corrected product walkthrough starts at the raw page load, before a test performs any setup
+mutation:
 
-1. Type `math.sq` in the leading field.
-2. Select the accessible `sqrt` completion; selection changes only the local draft.
-3. Press Enter again to commit `math.sqrt`.
-4. Observe the real Basedpyright-derived `x` parameter.
+1. The Square Root field contains the real committed value `math.sqrt`; it is not empty and does
+   not obtain those bytes from a placeholder. The real Basedpyright-derived `x` parameter and the
+   corresponding generated call are already present.
+2. Clicking the field preserves its exact text, syntax colors, font metrics, and box geometry. It
+   adds only main's focus border and ordinary caret. It must not add an inner horizontal rule,
+   stretch the caret, or repaint the text.
+3. Replace the draft with `math.sq`. As in main, Tab may accept the accessible `sqrt` completion
+   without committing. One subsequent unmodified Enter commits `math.sqrt`; an active completion
+   popup must not consume that commit Enter. Escape before commit restores the canonical value.
+4. The parameter row displays the same product information as main: the visible label is `x`.
+   Passing style and analyzer spelling such as `positional only` and `_SupportsFloatOrIndex` do not
+   appear in the row. Because `math.sqrt` has no default, its empty value editor has no invented
+   `Python expression` placeholder.
 5. Enter `missing_value`, observe its range-mapped diagnostic and regenerated Python, then enter
    `3` and observe the diagnostic clear.
+6. At a supported enlarged canvas zoom, wait for the gesture to settle. Text, icons, and borders
+   must be as crisp as the same main-branch scene. An idle or merely hovered section must not retain
+   the package-only `will-change: transform`, `translateZ(0)`, hidden backface, or isolated
+   compositor layer that main does not apply.
 
-At every stage, Generated Python's bytes and all Go-owned canonical behavior remain those already
-accepted. This plan changes only its generic workspace presentation and non-editing interaction.
+At every stage, Generated Python's rendering algorithm, HTTP contract, and LSP ownership remain
+those already accepted. This correction changes the demo's canonical startup commit, the callable
+and parameter interaction/presentation, and the workspace's settled compositing behavior.
 
 ## Main donor boundary
 
@@ -1254,6 +1279,65 @@ What remains in this phase: supervisor confirmation that the eight images remain
 at full resolution, and developer visual acceptance with its accepted-candidate record; then this
 phase's closing `test --changed --base <trusted-base>` and `test-levels --base <trusted-base>`
 steps against the accepted candidate.
+
+**Developer-rejected workflow record and required main-parity correction.** The developer exercised
+the application from a raw launch rather than the capture harness's prepared state and found that
+the harness had certified the wrong experience. The backend booted an empty callable, the UI
+painted `math.sqrt` as placeholder copy, and the capture script silently committed the sample
+before recording it. With completion active, the package deliberately gave the first Enter to
+completion and the second to commit even though main's callable search gives its commit binding
+precedence. The resulting parameter row then displayed raw passing-style and Basedpyright type
+spelling plus an invented `Python expression` placeholder, none of which main's parameter row
+shows. At enlarged settled zoom, all section content was blurred by package-only persistent leaf
+layer promotion applied on ordinary hover. These are failures in the shipped workflow, not evidence
+gaps and not polish follow-ups.
+
+Implement this as one bounded Phase B correction. Before editing, read the current main donor files
+listed in decision 17 and write a concise mapping in the implementation report from each donor
+behavior to its workspace or Python Canvas owner. Do not copy main's global stores or transport
+adapters, and do not invent a new general framework. Make only the following direct replacements:
+
+- Bootstrap the Square Root demo through the existing Go store/provider commit path before the HTTP
+  service becomes available. The first GET must already return canonical `math.sqrt`, the real `x`
+  parameter, and matching generated Python. Do not hard-code a frontend value, parameter, signature,
+  diagnostic, or generated source.
+- Remove `math.sqrt` as callable placeholder copy. The field renders the canonical committed value.
+  Its local draft remains separate only for main's ordinary edit/revert behavior.
+- Make the section-field commit key behavior match main: Tab can accept completion without commit;
+  one unmodified Enter commits the current draft even when completion UI is active; Escape abandons
+  the uncommitted draft and restores the canonical value. Delete tests that require two Enter
+  presses and replace them with tests that fail if that behavior returns. Do not change ordinary
+  item-row completion behavior unless main requires it.
+- Render the parameter row like main's ordinary text parameter: visible name only, normal value
+  editor, and the actual default as placeholder only when a default exists. Keep passing style and
+  type annotation in the canonical backend contract for code generation and diagnostics, but do
+  not expose them as permanent row copy. Remove the invented generic value placeholder.
+- Remove the package-only persistent per-section compositor promotion on hover and on hoverless
+  idle canvases. A narrowly transient interaction marker may remain only if it is cleared after the
+  gesture and settled screenshots are crisp; do not replace it with another permanent GPU layer.
+- Diagnose and remove the inner horizontal line visible in the focused callable field at enlarged
+  zoom. Compare the live CodeMirror DOM and computed styles to main rather than adding a cosmetic
+  cover. The pill border and ordinary text caret are the only focused lines.
+
+Keep the corrected generated-document region behavior already implemented. Do not reopen unrelated
+workspace APIs, arbitrary signature support, structural parameter authoring, MCP/CLI work, or edge
+case audits. Do not preserve rejected behavior for old callers.
+
+The browser proof must exercise the product the way the developer did. Start the production Go
+service and production frontend from fresh processes and assert the raw first render before any
+test mutation: actual `math.sqrt`, present `x`, no callable placeholder substitution, no raw
+signature metadata, no invented parameter placeholder, and correct generated Python. Then exercise
+click, draft, Tab completion, one-Enter commit, Escape revert, parameter diagnostic/clear, and
+generated reader selection. Capture complete light and dark cards at raw startup, focused at 1x,
+and idle/focused after enlarged canvas zoom has settled. Record computed field geometry/type and the
+settled section's compositor properties. Captures are working evidence for supervisor inspection;
+they cannot declare visual acceptance.
+
+Run focused tests while implementing, then the already authorized recommended ordinary profile.
+The correction is complete only after a fresh read-only Claude Opus review finds no repository or
+requested-outcome issue, the supervisor inspects the raw-startup and settled-zoom captures at full
+resolution, the live workflow matches main, and the developer receives the corrected application
+for visual acceptance.
 
 ## Stop conditions
 
