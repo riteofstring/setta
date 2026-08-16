@@ -34,7 +34,7 @@ type TextValueExtensionsOptions = {
 };
 
 function isComposing(event: KeyboardEvent, view: EditorView) {
-  return event.isComposing || event.keyCode === 229 || view.composing;
+  return event.isComposing || view.composing;
 }
 
 function hasModifier(event: KeyboardEvent) {
@@ -52,10 +52,7 @@ function getEnterCommit(
     singleLine,
     onCommit,
     isDisabled,
-  }: Pick<
-    TextValueExtensionsOptions,
-    "singleLine" | "onCommit" | "isDisabled"
-  >,
+  }: Pick<TextValueExtensionsOptions, "singleLine" | "onCommit" | "isDisabled">,
 ) {
   if (!singleLine || !onCommit || isDisabled?.()) {
     return undefined;
