@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-**Status: approved for autonomous implementation; all phases are pending.**
+**Status: Phases A and B are complete; Phase C closeout is pending.**
 
 This plan adds only the first narrow callable-name completion slice to the existing Python Canvas
 application. It is deliberately a completion of the accepted first vertical slice, not a restart of
@@ -356,7 +356,7 @@ during initialization and proves a later completion still uses the shared sessio
 
 ### Phase B — atomic workspace consumer cutover
 
-- [ ] Generic workspace seam and callable-only consumer cutover implemented; awaiting corrected browser acceptance
+- [x] Generic workspace seam and callable-only consumer cutover complete
 
 Perform the dependency governance and the consumer-facing implementation as one atomic public
 cutover:
@@ -408,7 +408,7 @@ visible-error assertions; keyboard popup precedence and cancellation assertions;
 browser output; and the README wording update. Include the fact that no completion selection
 mutated canonical project state.
 
-**Recorded implementation evidence (2026-08-18; corrected browser acceptance pending):** Added the exact direct
+**Recorded implementation evidence (2026-08-18; browser acceptance complete):** Added the exact direct
 workspace dependency `@codemirror/autocomplete@6.20.3`. The candidate lockfile generated with
 `pnpm install --lockfile-only --ignore-scripts` changed only the workspace importer (the package
 specifier and resolved version); it introduced no new transitive resolution. With trusted base
@@ -427,11 +427,14 @@ contract:check` passed. The focused tests cover popup Enter/Escape precedence, I
 cancellation and stale results, no Tab binding, strict HTTP/parser behavior, blank draft
 suppression, UTF-16 replacement, abort/error/empty handling, and callable-only attachment.
 
-Outside the writer sandbox, the supervisor-owned browser walkthrough reached an active accessible
-`sqrt` option, but an immediate Enter left the draft as `math.sq`. This exposed CodeMirror's default
-interaction delay. The narrow adapter correction is awaiting a fresh supervisor-owned browser rerun;
-do not treat the required real Basedpyright/browser proof as passed. This Phase B marker remains
-unchecked until that corrected acceptance evidence is recorded.
+The immediate-Enter correction in `934480d79` passed the exact workspace editor test (16 tests),
+the public API test (2 tests), the workspace build, and `code-policy test --changed --base
+65c073c7f`. Outside the writer sandbox, the supervisor then ran `pnpm --filter
+@setta/python-canvas run browser:test`; it completed with `Python Canvas browser vertical slice
+passed.` The production walkthrough used the real service and pinned Basedpyright, reached the
+accessible `sqrt` option, proved the first immediate Enter changed only the local draft while the
+canonical snapshot remained unchanged, and used the second Enter for the existing commit,
+parameter, generated-code, and diagnostics flow.
 
 **Avoid rabbit holes:** do not add completion resolve, docs, snippets, Tab, hover, caching,
 ranking, parameter completion, alternate editor services, or broad frontend redesign while making
