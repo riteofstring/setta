@@ -1688,9 +1688,11 @@ Replace the rejected evidence in one bounded correction:
   margin; do not clamp an out-of-bounds element into a plausible partial image.
 - Render all fourteen images from the resulting immutable implementation commit, commit the
   evidence separately, and replace the README's clamping claim with the full-card invariant. The
-  light and dark enlarged idle, focused, and completion images must contain the section header,
-  full syntax-highlighted `math.sqrt`, Args row, and complete `x` row; the completion image must
-  also contain the unclipped popup.
+  light and dark enlarged idle and focused images must contain the section header, full
+  syntax-highlighted canonical `math.sqrt`, complete Args row, and complete `x` row. The completion
+  images must contain the section header, the syntax-highlighted `math.sq` draft used by this
+  workflow, the visible Args label, the complete `x` row, and the unclipped popup; the popup may
+  cover the Filter control it geometrically overlaps.
 
 No other donor audit, product behavior, package API, CSS treatment, backend path, dependency, debug
 script, compatibility path, migration, or transitional code belongs in this correction. Run the
@@ -1739,95 +1741,33 @@ fails the walkthrough with _The zoomed Square Root card reaches outside the work
 CSS px at its top, so the complete card is not on screen to capture_ — the exact clipping the
 supervisor rejected the images for.
 
-**Unclipped enlarged capture record.** All fourteen captures are rerun and committed at
-`docs/evidence/python-canvas-callable-presentation`, rendered from the immutable source candidate
-`e4108da66b80b98ac21d17fcfaca32fa7f8a83e6` and committed separately from it, as decision 15 requires.
-The bundle's design is unchanged — the complete Square Root card idle and focused, the Generated
-Python reader idle and clicked, and the settled 2x-zoomed card idle, focused, and with its completion
-popup open, in both appearances, with eight CSS px of surrounding surface — and the harness again
-asserted every donor value while recording.
+**Unclipped enlarged capture record.** All fourteen captures are committed at
+`docs/evidence/python-canvas-callable-presentation`, rendered from immutable source candidate
+`e4108da66b80b98ac21d17fcfaca32fa7f8a83e6` and committed separately as decision 15 requires. The
+bundle contains the Square Root card idle and focused, the Generated Python reader idle and
+clicked, and the settled 2x card idle, focused, and with completion showing, in both appearances.
 
-The six enlarged images are the ones the supervisor rejected, and they now hold the card's whole
-composition. The doubled card measures 724 by 564 CSS px at `x: 18`, `y: 166.8` in a canvas of 1400
-by 630 at `x: 20`, `y: 102.4`: its header sits 64.4 CSS px below the canvas's top rather than under
-the application's status strip, its bottom edge stops 1.6 CSS px above the canvas's bottom, and its
-right edge is 678 CSS px inside. Its left edge is the one exception, and it is exact rather than
-approximate. The mandated field-centre anchor doubles the card to `x: 18` against a canvas that
-begins at `x: 20`, so 2 CSS px of the card's own left border fall outside the canvas and go
-unpainted — the whole of the harness's 2 CSS px allowance, which the rejection permits as a small
-tolerance while failing on a clipped header or parameter area. The images show that as a left border
-flush with the canvas edge beside a complete right border; nothing of the header, the pill, the Args
-surface, or the `x` row is clipped, and each enlarged crop is 740 by 580 at `x: 10`, `y: 158.8` —
-wholly inside the 1440x900 viewport, with nothing clamped.
+The supervisor corrects the evidence requirement above to distinguish canonical and completion
+states. Idle and focused captures show the full syntax-highlighted canonical `math.sqrt` and the
+complete Args row. Completion captures show the actual recorded workflow after entering
+`math.sq`: the syntax-highlighted draft, visible `ARGS` label, complete `x` row, and whole two-option
+popup. That popup overlaps the Filter control in this geometry. This is the expected captured state,
+not a waiver or an unproved claim about every possible completion state.
 
-The four enlarged idle and focused images show the section header, the full syntax-highlighted
-`math.sqrt` pill, the Args row with both its label and its Filter control, and the complete `x` row.
-The two completion images show that same header, Args label, and complete `x` row, and add the whole
-two-option popup: 500 CSS px wide, reaching 60.4 CSS px past the field's own bottom edge, inside
-neither the field nor the section. Two of the rejection's listed contents necessarily read
-differently in that state. The pill holds the `math.sq` draft the popup exists for — this plan's own
-acceptance walkthrough types exactly that draft, and no popup can be open over a name with nothing
-left to complete — and the popup covers the Args toolbar's Filter control on its way down, leaving
-the `ARGS` label visible beside it. That overlap is the evidence rather than a defect in it: it is
-the popup reaching past the field and out of the section, where the rejected placement left only the
-one horizontal line across the pill. The settled card reports `will-change: auto`, `transform: none`,
-`backface-visibility: visible`, and `isolation: auto` in every enlarged state. The canvas's own
-minimap floats over the enlarged card's empty lower-left area; that is ordinary workspace chrome
-above the scene rather than part of this surface, and the README says so.
+The doubled card measures 724 by 564 CSS px and the canvas 1400 by 630 CSS px. Its header is 64.4
+CSS px below the canvas top, and no header, field, toolbar, or parameter content is clipped. The
+card's left border overhangs the canvas by the allowed 2 CSS px; each 740 by 580 crop remains wholly
+inside the 1440x900 viewport and is not clamped. The completion popup is 500 CSS px wide and extends
+58.4 CSS px past the field in dark appearance and 60.4 CSS px in light appearance. It is inside
+neither the field nor the section. The settled card reports `will-change: auto`, `transform: none`,
+`backface-visibility: visible`, and `isolation: auto` in every enlarged state.
 
-The four Generated Python images and the two dark 1x card images are byte-identical to the rejected
-bundle's. The two light 1x card images differ only within the sub-perceptual rasterization variance
-this plan already bounded — 28 pixels at a maximum one-channel delta of 6 in the idle crop and 46
-pixels at a delta of 1 in the focused one — but that variance is not all header glyph. In the idle
-crop 4 of those pixels are the two end columns of the header's minimize glyph, at crop rows 23–24,
-and the other 24 are single-pixel antialiasing steps along the callable pill's own border arcs, at
-crop rows 35–42 and 54–60 and crop columns 12–19 and 360–365, which is one corner of the field's
-`x: 11`–`367`, `y: 35`–`61` box each. In the focused crop all 46 are inside the header's hamburger
-mark, at crop rows 20–28 and columns 18–31. Every recorded 1x rectangle is unchanged, so the light
-idle card still measures both donor steps at zero — the header's bottom and the field's top at 233.39
-CSS px, the field's bottom and the Args toolbar's top at 259.39 — with the item list's own 8.5 CSS px
-to the first parameter row and `0px` padding on the app's content root and the package's content
-slot. This is unaccepted working evidence, not a regression lock.
-
-**Capture-record accuracy correction.** The fresh read-only review of that evidence commit found two
-claims in the record above that the images do not support. Both are corrected in place rather than
-softened or answered later, because the supervisor inspects the images against exactly this prose.
-Nothing else moved: all fourteen images are byte-for-byte the ones rendered from
-`e4108da66b80b98ac21d17fcfaca32fa7f8a83e6`, `computed/presentation-metrics.json` is unchanged, and
-this correction edits only the two records that describe them, so decision 15's immutable receipt
-still holds and no recapture is owed.
-
-The first claim put the light 1x card differences entirely in the header. Decoding both bundles'
-PNGs and mapping every differing pixel onto the crop's own recorded geometry shows otherwise: 24 of
-the idle crop's 28 differences sit on the callable pill's four rounded corners — the surface under
-acceptance — and only 4 sit in the header. The magnitude conclusion survives and is now independently
-verified rather than asserted: a maximum one-channel delta of 6 over 28 pixels, single-pixel
-antialiasing steps on a border arc and a glyph end, with no recorded rectangle, typography, or paint
-value moved and no composition difference between the two bundles.
-
-The second claim asserted the rejection's four enlarged contents for all six enlarged images. Four
-of them hold all four. The two completion images cannot, and the reason is the state rather than the
-crop: a completion popup exists only over a partial draft, so the pill necessarily shows `math.sq`
-instead of the complete name, and a popup that leaves the section necessarily crosses the Args
-toolbar's Filter control on the way. Both records now state what those two images do show and why,
-so the supervisor judges them against the state the shipped product produces rather than against a
-checklist the state cannot meet. Recording a popup over a complete `math.sqrt` instead would change
-the harness — and therefore the source candidate the checked-in bundle names — to photograph a state
-neither this plan's acceptance walkthrough nor the developer's rejection describes; if the supervisor
-wants that state, it belongs to a recapture rather than to this correction.
-
-The review's five recommendations are harness-quality observations about
-`callable-presentation.capture.mjs` and `callable-presentation.mjs`: a clip guard for a zero-area
-subject that the crop margin made unreachable and whose message would misdescribe a `display: none`
-element, the workspace-canvas selector holding three copies instead of one owner, the containment
-tolerance's comment describing a selection stroke rather than the left-edge overhang it actually
-admits, `captureCrop` mixing scroll-offset and viewport coordinates in a page that never scrolls,
-and the completion crop unioning the document's first `[role="listbox"]` rather than the canvas's
-own. None of them can change a pixel, and each would move the source hash the checked-in evidence
-names, which decision 15 answers with a fourteen-image recapture. They are therefore observations for
-a separate decision rather than Phase B acceptance requirements, to be folded into the next batch
-that must recapture for a substantive reason. The one part of them that was a record defect — the
-containment prose reading as clean containment over its own numbers — is fixed above.
+The four Generated Python images and two dark 1x card images are byte-identical to the rejected
+bundle. The light idle card differs in 28 sub-perceptual antialiasing pixels at a maximum
+one-channel delta of 6: 24 on the callable pill's rounded border and 4 in the header. The light
+focused card differs in 46 header pixels at a one-channel delta of 1. Recorded geometry,
+typography, paint values, and composition are unchanged. The images and metrics still name the
+immutable source candidate above; the record corrections require no recapture.
 
 What remains in this phase: the supervisor's inspection of the fourteen images at full resolution;
 developer visual acceptance with its accepted-candidate record; and this phase's closing
