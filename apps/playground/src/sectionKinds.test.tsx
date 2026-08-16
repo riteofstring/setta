@@ -800,9 +800,9 @@ describe("the playground's declared item-area presentation", () => {
   it("selects the full authoring toolbar for its editable item section", () => {
     const toolbar = getItemToolbar();
     expect(toolbar.dataset.workspaceItemToolbar).toBe("authoring-and-filter");
-    expect(
-      toolbar.querySelector(".setta-workspace-item-toolbar-label")?.textContent,
-    ).toBe("Args");
+    // The mode attribute is the only public toolbar hook, so read the Args label from the
+    // rendered text rather than from the package's private label class.
+    expect(toolbar.textContent).toContain("Args");
     // The host's registered item factory and the loaded items keep both structural actions
     // operable; the loaded document selects nothing, so only the selection action is disabled.
     expect(getToolbarButton("Remove last parameter").disabled).toBe(false);

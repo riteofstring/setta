@@ -384,8 +384,13 @@ set needs — the declared mode selects the toolbar and nothing else, so structu
 registered factory, and the canonical operations the item menu, Inspector, and direct host actions
 call behave the same in every mode. `SectionContainerContent` is the sole runtime reader of
 `itemArea.toolbar`, so that limit states the package's actual behavior rather than an aspiration.
-Phase B's context-menu bullet below still decides whether that surface stays as it is, and any
-change there updates this paragraph rather than contradicting it.
+
+That documented hook also has to hold in the checked-in consumer. The playground's toolbar-mode
+proof read the Args label through the package-private `.setta-workspace-item-toolbar-label` class,
+so the one consumer this repository ships depended on exactly the toolbar structure the README now
+declares non-public. It reads the declared mode from `data-workspace-item-toolbar` and the label
+from the toolbar's rendered text instead, which proves the same Args surface without that class;
+the class no longer appears outside the package's own component and stylesheet.
 
 The same audit's accessibility recommendation is applied: `.python-canvas-pending-mark` conveyed
 ordinary pending state through `background` alone on an `aria-hidden` dot, so forced colours could
@@ -393,20 +398,25 @@ erase the only sighted cue while the live region stayed screen-reader-only. The 
 from the forced palette exactly as the package restores its own authored surfaces, proved by a
 `CallableSection` stylesheet assertion that fails when the block is removed.
 
-Two audit recommendations are deliberately not code changes here. The item row's context menu still
-offers `deleteItemCommand` because Python Canvas never lowers `canEditStructure`, which also gates
-section-title editing; that surface is outside this phase's declared Args-surface scope, so the
-Phase B acceptance bullet below now names the context menu explicitly and that walkthrough decides
-it rather than a silent capability change. The section-field surface keeps its own
+Two audit recommendations are deliberately not code changes here, and neither becomes a Phase B
+acceptance requirement. The item row's context menu still offers `Delete parameter`, because Python
+Canvas never lowers `canEditStructure` and that capability also gates section-title editing. That
+menu is the package's ordinary item menu rather than the Args surface fixed decision 5 and the
+Python Canvas cutover bound this correction to, and changing it would need either a new package
+capability seam or the frontend-only structure state this plan's stop conditions refuse. It is
+therefore an observation for a separate decision, and Phase B's acceptance bullet stays scoped to
+the filter-only toolbar it already names. The section-field surface keeps its own
 `margin-block-start`, because the package owns the surface it renders directly under section chrome
 while the app's grid gap spaces only the app's own status and error rows; Phase B's live visual
 acceptance judges that spacing deliberately.
 
 Verification for this correction: the `code-policy` CLI is still not installed in this task
 worktree, so the declared suite commands ran directly. The Python Canvas frontend suite passes (35
-tests) and its TypeScript project is clean. Both workspace changes are README prose; the package
-suite was re-run over the completing hunk and passes (1157 tests across 140 files), and the
-`itemArea.toolbar` reader claim was confirmed by inspecting every runtime reference to it.
+tests) and its TypeScript project is clean. The playground's declared focused suite passes, its
+component suite passes over the corrected consumer proof (43 tests across eight files), and its
+TypeScript project is clean. Both workspace changes are README prose; the package suite was re-run
+over the completing hunk and passes (1157 tests across 140 files), and the `itemArea.toolbar` reader
+claim was confirmed by inspecting every runtime reference to it.
 
 ### Phase B — production interaction, live visual acceptance, and closeout
 
@@ -417,8 +427,7 @@ browser walkthrough. Extend only the assertions needed to prove this presentatio
 
 - the callable editor precedes the Args toolbar in rendered and keyboard order;
 - the idle section has no large provider-status paragraph;
-- no Add, Remove, or Delete parameter controls are exposed in filter-only mode, including the
-  parameter row's context menu;
+- no Add, Remove, or Delete parameter controls are exposed by the filter-only toolbar;
 - the Args filter remains operable;
 - the accessible callable name, `math.sq` completion selection, second-Enter commit, `x` parameter,
   generated Python, diagnostic, and diagnostic-clear behavior remain intact; and
