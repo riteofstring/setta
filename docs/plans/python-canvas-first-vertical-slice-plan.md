@@ -5,119 +5,117 @@
 **Status: proposed; not yet authorized for implementation.**
 
 This is the bounded implementation plan for the first useful Python Canvas consumer of
-`@setta/workspace`. It starts from the completed instance-scoped workspace-host cutover and tests
-the most important product assumption before adding more reusable infrastructure:
+`@setta/workspace`. It replaces the previous contents of this document, which described a fixed
+`textwrap.shorten` form and an explicit **Generate Python** action. Those choices did not match the
+Python code-generation workflow on main.
 
-> Can an application compose the existing public workspace UI with a small Go service to turn
-> authored section values into deterministic Python?
+The behavior reference is the clean `../setta-main` worktree at commit `043d3b2e9`. Main establishes
+the product model this slice must preserve:
 
-The answer should be demonstrated with one real end-to-end path: edit the arguments of one
-supported Python call on the canvas, choose **Generate Python**, and see the Go-generated source in
-a read-only workspace code section.
+- a project has a Python codegen target with a prefix and suffix;
+- a Callable section contains a user-authored Python callable expression;
+- the Go backend asks a Python language server for the callable signature and creates its parameter
+  rows;
+- every accepted callable or parameter mutation automatically reconciles generated Python;
+- Go exports the project's semantic section state into a dependency graph and renders a
+  `SettaState` module;
+- the generated body is reflected in a singleton generated-code section and the complete file is
+  materialized for the language server; and
+- generated diagnostics are mapped back to the section or parameter that produced the affected
+  source range.
 
-This plan replaces the first implementation milestone described in
-`docs/plans/python-canvas-monorepo-plan.md`. That broader document remains a roadmap and research
-record, not an executable checklist. In particular, this slice does not require the deferred
-workspace transaction core, ports and edges, schemas for workspace internals, or semantic editor
-services.
+The first slice should prove that model through the reusable workspace UI without restoring the
+rest of the main application.
 
-## Outcome
+## Fixed product decisions
 
-A clean checkout can start a private `apps/python-canvas` frontend and Go backend. The initial
-workspace contains:
+1. There is no **Generate Python** command, toolbar button, or `/generate` endpoint. Generated code
+   is derived automatically from each accepted backend mutation.
+2. There is no fixed callable catalog. The acceptance walkthrough uses `math.sqrt`, but the
+   committed callable is a user-authored, dot-separated Python name resolved by the language
+   server.
+3. Go owns the canonical Python Canvas project state, signature-derived parameter metadata,
+   dependency graph, generated code, generated source ranges, and transport contracts.
+4. `@setta/workspace` owns generic layout, interaction, section chrome, item controls, diagnostics
+   presentation, and the built-in code editor. The Python Canvas frontend projects canonical Go
+   state into those public primitives.
+5. The frontend may hold an uncommitted callable draft and transient control edits. It does not
+   render Python or define a second semantic project model.
+6. The backend starts exactly one pinned Basedpyright language-server process. Do not introduce an
+   LSP plugin system, server selection, or fallback server in this slice.
+7. The project is in memory. The generated `setta_gen.py` under a backend-owned temporary workspace
+   is a derived LSP artifact, not a persisted Python Canvas project file.
+8. The generated-code section displays the complete prefix, generated body, and suffix as read-only
+   text. Editing prefix/suffix and mixed editable/read-only editor regions are deferred.
+9. Version 1 begins here. Unsupported contract versions fail explicitly; there are no legacy
+   readers, migrations, aliases, or transitional endpoints.
 
-- one application-owned **Python Call** section for `textwrap.shorten`;
-- editable item rows for `text`, `width`, and `placeholder`;
-- one package-owned, read-only Python code section; and
-- one host-registered **Generate Python** toolbar command.
+## Acceptance walkthrough
 
-After changing an argument and invoking the command, the frontend projects only the Python call
-data from the current workspace snapshot, sends a version-1 generation request to the Go service,
-and places the successful result in the code section. Invalid input or an unavailable backend is a
-visible failure and never becomes an empty successful result.
+The one product walkthrough is:
 
-The slice is complete when that behavior works through production application boundaries and all
-workspace imports come from the package's public root export.
+1. Start the Go service, its pinned Basedpyright process, and the Vite frontend.
+2. Open Python Canvas and observe one empty **Callable** section named **Square Root** and one
+   read-only **Generated Python** section.
+3. Enter `math.sqrt` in the Callable field and press Enter.
+4. Observe a bounded pending state while Go asks Basedpyright for signature help against a generated
+   Python snapshot containing the configured `import math` prefix.
+5. Observe one parameter row named `x`. Its backend-owned metadata records that it is positional
+   only; the frontend does not infer that from its label.
+6. Observe the Generated Python section update automatically to contain `math.sqrt`. Do not invoke a
+   separate generation action.
+7. Enter `missing_value` as the Python expression for `x` and wait for that mutation to settle.
+8. Observe the generated source update with `missing_value` and a real Basedpyright undefined-name
+   diagnostic mapped to the `x` row by its generated source range.
+9. Replace the expression with `3` and wait for the mutation to settle.
+10. Observe the generated source update automatically and the `x` diagnostic clear.
 
-## Fixed decisions
+The final generated file is byte-stable and follows main's shape:
 
-1. Add one private application at `apps/python-canvas`. Its frontend is a pnpm workspace package;
-   its backend is a nested Go module. Do not add a root Go module or `go.work`.
-2. Keep `packages/workspace` and `apps/playground` unchanged unless the consumer proves one exact
-   public seam is missing. A discovered gap requires a separate, narrowly justified workspace
-   change; it is not permission to resume the generalization roadmap.
-3. Use the existing `WorkspaceHost`, `WorkspaceProvider`, `WorkspaceShell`, section-kind registry,
-   item controls, commands, toolbar contributions, and built-in code section.
-4. Go owns Python generation rules and the generation HTTP contract. The frontend owns the
-   projection from a workspace snapshot into that contract. The backend never receives or decodes
-   the complete workspace document.
-5. Support exactly one callable catalog entry in this slice: `stdlib.textwrap.shorten`. Do not add a
-   generic plugin system, arbitrary Python expressions, or dormant variants for future callables.
-6. Generation is explicit. Editing the workspace does not start background requests, debounce
-   changes, or continuously synchronize a backend model.
-7. The first slice is in-memory. It does not define or persist a Python Canvas project file.
-8. Development runs the frontend and loopback-bound Go service as separate processes. Embedding or
-   packaging frontend assets into the Go binary is a later delivery decision.
-9. Version 1 begins here. Unsupported versions fail explicitly; there are no legacy readers,
-   migrations, aliases, or transitional endpoints.
+```python
+import math
+
+class SettaState:
+    def __init__(state):
+        state.Square_Root__x = 3
+        state.Square_Root = math.sqrt(state.Square_Root__x)
+
+state = SettaState()
+```
+
+The exact Basedpyright wording is not a product contract. The diagnostic must have a stable source
+and severity and must be associated with `x` through the renderer's source-range map rather than by
+matching words in the message.
 
 ## Explicit non-goals
 
 Do not use this plan to add:
 
 - MCP, a user-facing CLI, or headless command parity;
-- the deferred `@setta/workspace/core` snapshot/transaction engine;
-- ports, edges, connection gestures, or a multi-section dependency graph;
-- source-root discovery, filesystem watching, callable reconciliation, or source identity;
-- an LSP process, completion, hover, signatures, or diagnostic mapping;
-- Python execution, interpreter discovery, terminals, PTYs, run history, or cancellation;
-- project save/load, databases, authentication, collaboration, or optimistic synchronization;
-- semantic source maps beyond stable section/item identifiers in generation failures;
-- a second callable, collection-value system, arbitrary expression escape hatch, or plugin ABI;
+- a Generate Python button, command registry contribution, or standalone generation endpoint;
+- source-root configuration, source discovery, Watch Code, filesystem watching, or callable
+  reconciliation after source changes;
+- Python execution, interpreter selection, terminals, PTYs, run history, or cancellation;
+- a persisted project format, save/load, databases, authentication, collaboration, websockets,
+  server-sent events, or polling;
+- ports, edges, connection gestures, Dict/value sections, or multiple callable sections;
+- variants, section policies, code-object value policies, metadata generation, rename refactoring,
+  or generated-output export;
+- frontend completion menus, hover, documentation popovers, prefix/suffix completion, or general
+  semantic-editor services;
+- arbitrary callable expressions, arbitrary statement insertion, additional parameter-control
+  kinds, or a callable/plugin catalog;
 - a public package, final naming, licensing, desktop packaging, deployment, or release artifacts;
-- copied application stores or wholesale ports from `setta-main`; or
-- general workspace cleanup, parity auditing, file-length work, or speculative edge-case review.
+- the deferred `@setta/workspace/core` transaction engine or any other phase of the broad workspace
+  generalization roadmap; or
+- wholesale copying of `setta-main`, unrelated parity auditing, or speculative edge-case work.
 
-The frozen main application may explain intended Python rendering behavior, but implementation must
-port only the small rules named here. It must not import that repository or reproduce its project
-aggregate.
-
-## Acceptance walkthrough
-
-The single product walkthrough is:
-
-1. Start the Go service on a loopback address and start the Vite frontend with its development
-   proxy targeting that service.
-2. Open Python Canvas and observe one Python Call section and one Generated Python section.
-3. Change `width` from its initial integer value to another valid integer through the public
-   workspace item control.
-4. Invoke **Generate Python** from the workspace toolbar.
-5. Observe a pending status while exactly one request is active.
-6. Observe deterministic Python in the read-only code section, including the edited width.
-7. Enter an invalid integer and invoke generation again.
-8. Observe an issue targeted to the `width` item. Keep the last successful source visible; do not
-   replace it with empty or partial output.
-9. Stop the backend and invoke generation once more. Report the backend as unavailable without
-   changing the last successful output.
-
-The expected successful source is formatted from one fixed callable definition, for example:
-
-```python
-from textwrap import shorten
-
-shortened_text = shorten(
-    text="A deliberately long greeting for the first Python Canvas slice.",
-    width=32,
-    placeholder="...",
-)
-```
-
-The exact initial values may be adjusted before implementation, but the callable, fields, stable
-ordering, and output style are fixed for this plan.
+Concrete correctness and security cases within the declared callable, parameter, renderer, LSP,
+and transport boundaries remain in scope.
 
 ## Repository shape
 
-Keep the new application small:
+Add one private application with a pnpm frontend and a nested Go module:
 
 ```text
 apps/python-canvas/
@@ -126,45 +124,46 @@ apps/python-canvas/
 ├── tsconfig.json
 ├── vite.config.ts
 ├── vitest.config.ts
-├── frontend/
+├── src/
 │   ├── main.tsx
 │   ├── app/
 │   │   ├── PythonCanvasApp.tsx
-│   │   └── initialWorkspaceDocument.ts
-│   ├── generation/
-│   │   ├── generationClient.ts
-│   │   ├── generationController.ts
-│   │   └── projectGenerationRequest.ts
-│   ├── generated/
-│   │   └── generationContract.ts
+│   │   └── workspaceProjection.ts
+│   ├── backend/
+│   │   ├── client.ts
+│   │   └── generatedContract.ts
 │   └── sections/
-│       └── pythonCallSection.tsx
+│       └── CallableSection.tsx
 └── backend/
     ├── go.mod
     ├── cmd/python-canvas/main.go
     └── internal/
+        ├── codegen/
         ├── contracts/
-        ├── generation/
-        └── httpapi/
+        ├── httpapi/
+        ├── lsp/
+        └── project/
 ```
 
-Exact test filenames and small helper files may follow their owning code. Do not create additional
-packages, Go modules, `domain`, `application`, `adapters`, `ports`, or `shared` directories until a
-second responsibility actually needs them.
+Tests live beside their owners. Do not add a root Go module, `go.work`, or speculative `domain`,
+`application`, `ports`, `adapters`, `shared`, `plugins`, or `runtime` packages.
 
-The frontend package declares `"@setta/workspace": "workspace:*"` and exact versions for direct
-dependencies. The Go module should use only the standard library for this slice unless a specific
-need survives dependency review.
+The frontend declares `"@setta/workspace": "workspace:*"` and pins every direct dependency. The
+Basedpyright distribution is an exact app dependency and its language-server executable is resolved
+from that installation. Do not search arbitrary `PATH` entries or silently fall back to a globally
+installed server.
 
 ## Ownership and dependency direction
 
-| Concept                                                       | Authoritative owner                    | Consumer form                                     |
-| ------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------- |
-| Generic workspace document, layout, controls, and interaction | `@setta/workspace`                     | Public React and TypeScript exports               |
-| Meaning of the Python Call section in the browser             | Python Canvas frontend section adapter | Validated projection from the host snapshot       |
-| Generation request/result wire contract                       | Python Canvas Go `contracts` package   | Deterministically generated TypeScript projection |
-| Supported callable catalog and Python rendering rules         | Python Canvas Go `generation` package  | HTTP generation result                            |
-| Pending, success, unavailable, and issue presentation         | Python Canvas frontend controller      | App status plus the built-in code section         |
+| Concept                                                  | Authoritative owner                   | Consumer form                                       |
+| -------------------------------------------------------- | ------------------------------------- | --------------------------------------------------- |
+| Canvas document, layout, controls, and interaction       | `@setta/workspace`                    | Public React and TypeScript exports                 |
+| Python project semantics and revision                    | Go `project` package                  | Versioned canonical snapshot                        |
+| Callable signature and parameter metadata                | Go LSP adapter plus `project` package | Canonical parameter projection                      |
+| Dependency ordering, Python rendering, and source ranges | Go `codegen` package                  | Generated body, full code, and range map            |
+| HTTP request and response shapes                         | Go `contracts` package                | Deterministically generated TypeScript types        |
+| Callable-section rendering and backend projection        | Python Canvas frontend                | Public workspace registrations and mutations        |
+| LSP process and protocol details                         | Go `lsp` package                      | Normalized signature, diagnostic, and status values |
 
 Dependency direction is:
 
@@ -172,308 +171,370 @@ Dependency direction is:
 @setta/workspace
         ^
         |
-Python Canvas frontend --> generated Go-owned transport types
+Python Canvas frontend --> generated Go-owned contracts
         |
         v
-thin HTTP client --> Go HTTP adapter --> Go generation core
+thin HTTP client --> Go HTTP boundary --> Go project mutation
+                                             |
+                         +-------------------+-------------------+
+                         v                                       v
+                   Go codegen core                         Go LSP adapter
 ```
 
-The Go backend does not import, execute, or reimplement workspace internals. The frontend does not
-render Python itself. Generated TypeScript transport types contain data shapes only and import
-nothing from either runtime.
+The Go backend does not import or reimplement workspace layout and interaction internals. The
+frontend does not maintain a parallel dependency graph, parse LSP messages, or render Python.
 
-## Workspace composition
+## Minimal Go-owned project state
 
-### Host setup
+The backend owns one in-memory version-1 project containing only:
 
-The frontend creates exactly one host for the mounted application and performs setup in this order:
+- a stable project ID and monotonically increasing revision;
+- a Python target with `genCodePrefix = "import math"` and
+  `genCodeSuffix = "state = SettaState()"`;
+- one Callable section with a stable ID, name, committed callable expression, and ordered parameter
+  IDs;
+- zero or one signature-derived `CodeParam` record for this acceptance slice, including stable ID,
+  name, passing style, type annotation, default value, and authored expression;
+- the complete generated code, generated body, and renderer-owned source ranges; and
+- ephemeral normalized diagnostics and LSP availability state.
 
-1. create the host;
-2. register the Python Call kind and the package's built-in code kind;
-3. register the generation command and toolbar contribution;
-4. load the initial document; and
-5. mount `WorkspaceProvider` and `WorkspaceShell`.
+Revision tags canonical responses and LSP work so the frontend cannot apply an older result over a
+newer snapshot. It is not a reusable workspace transaction protocol. Only one mutation is active in
+the first frontend, so this plan does not add optimistic concurrency, inverses, or undo/redo.
 
-Dispose the host on application teardown. Keep `WorkspaceShellViewState` controlled in the app and
-separate from the workspace document.
+The generated code and source ranges are derived from the semantic records. They may be present in
+the response for efficient rendering, but they are never independently mutable inputs.
 
-### Python Call section
+This slice accepts only a signature containing exactly one supported positional parameter. A
+resolved signature outside that boundary fails with a typed unsupported-signature result; the
+backend does not silently omit parameters or invent controls.
 
-Use one application-owned kind ID and one strictly parsed data shape, such as:
+## Mutation and automatic reconciliation
 
-```ts
-type PythonCallSectionDataV1 = {
-  version: 1;
-  callableId: "stdlib.textwrap.shorten";
-};
-```
+Expose semantic mutations, not a generation request.
 
-The section's item tree contains stable items for `text`, `width`, and `placeholder`. Each item uses
-the package's single-line text presentation so the user can author a value and receive a precise
-generation-time error for malformed input. Application-owned item data identifies the argument
-name and literal kind; labels are presentation rather than parser keys. Render the rows through
-`WorkspaceItemList`.
+### Commit callable
 
-The kind registration supplies `assertValidData`, a default size, and the section renderer. It does
-not query private DOM nodes, reconstruct package rows, or deep-import package modules.
+The callable mutation accepts the project ID, section ID, and authored callable name. It must:
 
-The item IDs, application-owned item data, control values, and order form the frontend projection
-contract. The backend still validates every request; frontend validation exists to produce a
-precise local issue rather than to replace the trust boundary.
+1. trim and validate a non-empty dot-separated sequence of Python identifiers;
+2. clone the current semantic state;
+3. build a temporary generated snapshot with the candidate callable in the exact current prefix,
+   body, and suffix context;
+4. ask Basedpyright for signature help at the candidate call position;
+5. fail visibly without changing canonical state if no matching signature is available;
+6. require exactly one supported positional parameter and normalize its name, passing style, type,
+   and default into Go-owned metadata;
+7. render the complete candidate project and source ranges;
+8. atomically replace the derived generated file; and
+9. commit the candidate state once and increment its revision.
 
-Map backend issues with an `itemId` into the package's existing item-diagnostic registry passed to
-`WorkspaceItemList`. Keep request-wide and unavailable status in app UI outside the document. Do
-not persist either form or generalize the package diagnostic model for this slice.
+Recommitting the same callable is idempotent. Committing a different supported callable atomically
+replaces the old signature metadata with a fresh parameter record; it does not preserve the
+abandoned parameter value. General parameter-identity reconciliation across signatures is outside
+this slice.
 
-### Generated Python section
+### Set parameter expression
 
-Register `WORKSPACE_CODE_SECTION_KIND` through `createWorkspaceCodeSection`. The initial document
-contains one section using `createWorkspaceCodeSectionData` with Python, line numbers, and
-`readOnly: true`.
+The parameter mutation accepts the project ID, parameter ID, and authored expression string. It
+must:
 
-On success, update that section only through the public code-section mutation API. On failure,
-leave its previous code unchanged. Do not put request state, backend errors, or generation history
-inside the code-section document data.
+1. resolve the exact canonical parameter and reject unknown IDs;
+2. enforce only boundary constraints such as maximum size and forbidden transport values;
+3. store the string as a Python expression rather than coercing it into a JavaScript or Go literal;
+4. render a complete candidate graph, generated file, and source-range map;
+5. atomically replace the derived generated file and commit the candidate state once;
+6. synchronize that exact file revision with Basedpyright;
+7. await the corresponding diagnostic publication for a bounded interval; and
+8. return the latest canonical snapshot with mapped diagnostics or an explicit LSP status.
 
-### Generation command
+`missing_value` is therefore rendered and diagnosed; it is not rejected as a malformed string. This
+matches main's expression-oriented parameter model and keeps Python semantics with the Python
+tooling.
 
-Register one pane command, `python-canvas.generate`, for the toolbar surface and contribute it with
-`registerWorkspaceToolbarContributions`. Its controller:
+Mutations are serialized. Validation and rendering happen against a clone before the canonical
+state changes. A failed signature request, validation, render, or generated-file write leaves the
+previous canonical state and file intact. An LSP timeout after a successful commit is reported as
+an unavailable or pending diagnostic status, not as an empty successful diagnostic result.
 
-1. reads one immutable host snapshot;
-2. validates and projects the Python Call section and its items;
-3. records a monotonically increasing in-memory request token;
-4. sends one request;
-5. ignores a response whose token is no longer current or whose projected inputs changed; and
-6. applies only the latest matching success or visible failure.
+## Go code generation
 
-Only one request may be active. A second invocation reports that generation is already pending.
-This is local stale-response protection, not a general transaction or reconciliation system.
+Port and prune only the main-branch concepts needed for one Callable and one CodeParam:
 
-## Version-1 generation contract
+- export the canonical Callable section and its ordered parameter dependency;
+- sanitize the section and parameter names into stable Python paths;
+- render a parameter assignment before the callable that depends on it;
+- honor the LSP-derived positional-only passing style;
+- render the `SettaState` wrapper with fixed indentation and separators;
+- combine the target prefix, generated body, and suffix deterministically;
+- record byte offsets for each emitted callable and parameter value; and
+- produce byte-identical output and ranges for identical canonical state.
 
-The Go `contracts` package owns the request, success, and failure structures. Generate the frontend
-projection deterministically and check it in. A drift check regenerates into a temporary directory
-and compares bytes; neither side hand-maintains a second copy.
+Do not port the main project aggregate, other section exporters, representation policies, password
+or file helpers, metadata renderer, rename logic, edges, listener modes, or execution behavior.
 
-The request contains only:
+The renderer accepts validated semantic records and returns one immutable result. It has no HTTP,
+React, filesystem, process, or LSP imports. The materialization caller writes the complete result to
+the backend-owned temporary workspace with same-filesystem atomic replacement.
 
-- `version`, exactly `1`;
-- the stable workspace `sectionId` for issue mapping;
-- `callableId`, exactly `stdlib.textwrap.shorten` for this slice;
-- an ordered, non-empty argument list containing stable `itemId`, argument `name`, literal `kind`,
-  and authored string `value`.
+## Backend LSP boundary
 
-Literal kinds are limited to `string` and `integer`. A string value is data to escape, never Python
-source. An integer is a canonical base-10 value within an explicitly tested range. Reject duplicate
-argument names or item IDs, unknown/missing arguments, reordered required arguments, unsupported
-kinds, malformed identifiers, unexpected fields, and trailing JSON.
+Use a real, pinned Basedpyright language server for both required capabilities:
 
-A success contains version `1` and complete generated code. A failure contains version `1`, a
-stable failure code, and one or more issues with `sectionId`, optional `itemId`, field, and message.
-Use HTTP status to distinguish malformed input, unsupported version, semantic validation failure,
-method/content-type errors, oversized input, and internal failure. The frontend must not infer
-failure type from message text.
+1. signature help for the committed callable; and
+2. diagnostics for the canonical generated file.
 
-Do not include a workspace snapshot, revision, operation, edge, source location, interpreter path,
-or execution result in this contract.
+The Go adapter owns process startup, JSON-RPC framing, initialization, document versions, bounded
+request waits, shutdown, and stderr capture. It exposes normalized application methods and never
+leaks LSP wire structures into `project`, `codegen`, HTTP, or frontend contracts.
 
-## Go generation core
+Signature help uses a temporary sibling snapshot in the generated file's import context. Always
+send the matching close notification and remove the snapshot on success, failure, or cancellation.
 
-The pure `generation` package accepts a fully validated version-1 request and returns source or a
-typed error. It has no HTTP, filesystem, environment, process, UI, or persistence imports.
+Diagnostics use the canonical temporary `setta_gen.py`. Convert LSP UTF-16 positions at the adapter
+boundary and bind each publication to the generated revision it observed. Map a diagnostic to a
+parameter only when its range intersects that parameter's renderer-owned value span. Diagnostics
+outside known spans remain generated-code diagnostics. Do not inspect message keywords to invent a
+target.
 
-Required behavior:
-
-- Resolve the one supported callable from an explicit catalog rather than interpolating module or
-  symbol names supplied by the browser.
-- Keep the module, symbol, result name, required argument names, literal kinds, and argument order
-  in that catalog. The browser supplies none of the emitted identifiers.
-- Preserve catalog-defined argument order; never depend on Go map iteration.
-- Render named arguments with four-space continuation indentation and a trailing comma.
-- Encode strings with a dedicated Python literal function covering quotes, backslashes, newlines,
-  control characters, and Unicode. Never concatenate an authored value as raw Python.
-- Parse and render integers canonically. Reject overflow and non-canonical or non-integer input.
-- Validate the result identifier and all emitted identifiers against Python identifier and keyword
-  rules.
-- Build the complete output in memory and return it once. There is no partial output on failure.
-- Produce byte-identical output for byte-identical requests.
-
-Focused golden tests cover the accepted walkthrough plus escaping, invalid values, duplicate or
-missing arguments, unsupported versions/callables/kinds, deterministic repetition, and the absence
-of partial output. Keep this matrix bounded to the declared rules; do not audit the Python grammar
-or invent future literal types.
+An unavailable server, startup failure, timeout, malformed response, or version mismatch is visible
+and typed. Do not return a plausible empty signature or diagnostic list.
 
 ## HTTP boundary
 
-Expose one endpoint, `POST /api/v1/generate`, from a standard-library Go server. The adapter must:
+Expose only the three application operations needed by the walkthrough:
 
-- bind to loopback by default;
-- accept only the expected method and JSON content type;
-- set a small explicit request-body limit;
-- decode once, reject unknown fields and trailing values, and validate the complete request;
-- pass request cancellation into the handler boundary even though generation is synchronous;
-- return JSON with explicit content type and stable status/failure codes;
-- avoid broad recovery that converts programmer errors into plausible generation failures; and
-- log bounded operational context without logging authored values or generated source.
+- `GET /api/v1/project` returns the canonical initial or current snapshot;
+- `POST /api/v1/project/callable` commits the Callable expression; and
+- `POST /api/v1/project/parameters/{parameterId}` sets one authored expression.
 
-Use the Vite development proxy so the browser calls a same-origin `/api/v1/generate` path. Do not
-add permissive CORS, authentication placeholders, a websocket, polling, or an event stream.
+The Go `contracts` package owns all request, success, failure, snapshot, parameter, generated-code,
+diagnostic, and status structures. Generate the TypeScript projection deterministically and check
+it in. A drift check regenerates to temporary output and compares bytes.
 
-The delivery binary only wires configuration, logging, the handler, and graceful shutdown. It is
-not a general CLI: it exposes no product subcommands, project operations, or headless generation
-surface.
+The server binds to loopback, accepts strict JSON, rejects unknown fields and trailing values,
+enforces small body limits, propagates cancellation, and returns stable typed failure codes. Use the
+Vite development proxy for same-origin browser calls. Do not add CORS, authentication placeholders,
+websockets, server-sent events, or polling.
+
+The server binary is delivery wiring, not a product CLI. It has no subcommands or headless project
+operations.
+
+## Frontend workspace composition
+
+Create one `WorkspaceHost` for the mounted app and dispose it on teardown. Register:
+
+- one application-owned Callable section kind;
+- the built-in workspace code-section kind; and
+- no generation command or toolbar contribution.
+
+Load a document containing the projected Callable section and the read-only Generated Python
+section. Keep shell view state controlled in the app.
+
+The Callable section renders:
+
+- one single-line, Python-highlighted callable editor at the top;
+- a bounded pending or unavailable status owned by the app; and
+- a `WorkspaceItemList` containing the canonical signature-derived parameter items.
+
+Each parameter item carries its stable backend parameter ID in application-owned item data. Its
+presentation uses the package's Python code control with autocomplete off. Parameter names,
+passing styles, annotations, and IDs come from the backend response; labels are not parser keys.
+
+The frontend keeps the callable editor's uncommitted text local until Enter. Parameter item changes
+are debounced and serialized through the parameter mutation. While a mutation is active, disable
+the affected authored controls instead of introducing optimistic rebase logic.
+
+On each canonical response, the projection adapter uses public workspace mutations to reconcile
+the Callable section items, update the built-in code section, and replace the item-diagnostic
+registry. Mark backend-applied projection work so it cannot be mistaken for a new authored
+mutation. Never reload the entire host for an ordinary response, deep-import a package store, query
+private DOM selectors, or derive Python output in React.
+
+## One consumer-driven `@setta/workspace` change
+
+The public `TextValueEditor` currently reports document changes but deliberately has no Enter
+commit seam. Add one narrow, backend-neutral optional callback:
+
+```ts
+onCommit?: (value: string) => void;
+```
+
+For a single-line editor, unmodified Enter invokes `onCommit` with the current value without adding
+a newline. It must not fire while disabled or during IME composition. Add the prop directly to the
+sole public editor contract and update its owners in place. Do not add an alias, deprecated prop,
+adapter component, or second editor path.
+
+Use that public editor for the app-owned callable field. Do not add LSP types, URLs, completion
+providers, loading state, diagnostics, CodeMirror extensions, generated regions, or Python concepts
+to the workspace package. The app owns the pending indicator and calls its backend on commit.
+
+The existing built-in read-only code section and `WorkspaceItemList` diagnostic registry are
+sufficient for the remaining slice. If implementation disproves that statement, stop and document
+the exact missing public seam before changing the package.
 
 ## Code Policy bootstrap
 
-The current trusted configuration owns only `workspace` and `playground`. Candidate configuration
-cannot widen a Code Policy task session, and `.code-policy.json` is protected control-plane state.
-Therefore the new app requires one explicit, separately reviewed bootstrap before the ordinary plan
-loop begins.
+The current trusted configuration owns `workspace` and `playground`, not the new app. Candidate
+configuration cannot widen its own task-session scope, and `.code-policy.json` is protected
+control-plane state. The app therefore needs an explicit, separately reviewed bootstrap before its
+ordinary implementation sessions.
 
 That bootstrap should:
 
-1. add the minimal compilable app roots and meaningful boundary tests;
-2. change the project kind from library to application and add only the `backend`, `frontend`, and
-   `ui` capabilities actually present;
-3. add non-overlapping `python-canvas-backend` and `python-canvas-frontend` modules, with only the
+1. change the project kind from library to application and add only the `backend`, `frontend`, and
+   `ui` capabilities now present;
+2. add non-overlapping `python-canvas-backend` and `python-canvas-frontend` modules, with only the
    frontend depending on `workspace`;
-4. add quick focused suites for both modules, Go and frontend build checks, and one generated-
-   contract drift check;
-5. add the smallest real app integration/contract suite required for the new backend capability,
-   without treating the existing playground or packed consumer as proof of the new backend;
-6. declare generated frontend contract output in `.code-policy.json`;
-7. keep the existing workspace/playground ownership and suites intact; and
-8. run `agents check` rather than editing the release-owned `AGENTS.md`.
+3. declare the checked-in generated TypeScript contract and any generated artifact command;
+4. add quick focused suites for both modules, Go and frontend production builds, contract drift,
+   and the smallest real Go/TypeScript boundary suite;
+5. declare the pinned Basedpyright executable as a resolved app dependency rather than an
+   undeclared external input;
+6. preserve all existing workspace and playground ownership and suites; and
+7. run `agents check` rather than editing the release-owned `AGENTS.md`.
 
-The bootstrap tests must exercise real boundaries; no placeholder, pass-with-no-tests, or
-scaffold-only command is acceptable. Because it changes protected configuration, obtain the
-required owner review and commit it as one deliberate control-plane/bootstrap change. That accepted
-commit becomes the trusted base for subsequent task sessions and plan-loop phases.
+The bootstrap tests must exercise real boundaries; no placeholder or pass-with-no-tests command is
+acceptable. Obtain required owner review for `.code-policy.json`. The accepted bootstrap commit is
+the trusted base for subsequent app task sessions.
 
 Before changing `apps/python-canvas/package.json` or `pnpm-lock.yaml`, generate the candidate
 lockfile without lifecycle scripts and run `code-policy dependency-review --base <merge-target>`.
-Install only after the candidate graph is accepted. Pin every direct dependency and keep the root
-package-manager version unchanged unless a separate dependency decision authorizes otherwise.
+Review the complete Basedpyright and frontend dependency change before installation.
 
 ## Implementation phases
 
-### Phase A — reviewed app and policy bootstrap
+### Phase A — callable-editor commit seam
 
-Perform the explicit bootstrap above. Keep the initial code to the smallest real contracts needed
-for the configured focused suites: the version-1 transport structs and deterministic TypeScript
-projection, strict request decoding on the backend, and creation, registration, loading, and
-disposal of the initial workspace on the frontend.
+Add the optional `TextValueEditor.onCommit` contract, focused keyboard/IME/disabled tests, public
+export proof, and a small playground or fixture demonstration if needed to prove consumption.
 
-**Boundary:** `doctor --strict`, static checks, both new quick suites, the app integration/contract
-suite, contract drift, and both build checks pass from the new trusted base. The app modules are
-then available for ordinary scoped work.
+**Boundary:** package-focused tests, public API checks, package build, and the existing playground
+consumer remain green. No Python Canvas or LSP vocabulary enters the package.
 
-### Phase B — Go contract, generator, and HTTP endpoint
+### Phase B — reviewed app and policy bootstrap
 
-Complete contract validation and implement the one-callable catalog, pure renderer, typed failures,
-handler, and loopback service while keeping the generated TypeScript projection current. Keep
-transport and generation packages separate without adding speculative layers.
+Add the minimal private frontend and Go roots, generated transport types, initial canonical snapshot,
+strict HTTP decoding, frontend host lifecycle, and the protected Code Policy declarations above.
 
-**Boundary:** focused Go tests prove all declared rendering and boundary rules. The real service
-accepts the walkthrough fixture and returns the exact expected source. No frontend behavior is
-required yet.
+**Boundary:** `doctor --strict`, both quick suites, contract drift, the cross-language boundary
+fixture, and both production builds pass from the new trusted base.
 
-### Phase C — workspace frontend and generation controller
+### Phase C — Go project and automatic codegen core
 
-Implement the initial document, Python Call registration, public item-list composition, read-only
-code section, controlled shell, generated client, command, toolbar contribution, pending/error
-status, and stale-response protection.
+Implement the one-section project state, callable and parameter mutations with fake signature input
+at the focused boundary, minimal dependency graph, renderer, source-range map, temporary generated
+file, and golden output.
 
-Use a fake HTTP adapter for focused component tests and production generated transport types for all
-requests and responses.
+**Boundary:** focused Go tests prove automatic reconciliation, positional-only rendering,
+determinism, exact source ranges, failed-mutation atomicity, and the final expected file. There is no
+generation endpoint or frontend renderer.
 
-**Boundary:** frontend tests edit the public workspace control, invoke the registered command, and
-prove matching success, validation failure, unavailable backend, and stale response behavior without
-deep imports or private selectors.
+### Phase D — real Basedpyright integration
 
-### Phase D — real vertical-slice acceptance and closeout
+Implement the bounded LSP process/session, signature snapshot, parameter normalization, canonical
+document synchronization, diagnostic waiting, UTF-16 conversion, source-range mapping, and explicit
+provider status.
 
-Connect the real frontend to the real Go service through the development proxy. Add one
-browser acceptance that performs the exact walkthrough using accessible roles and labels. Reuse the
-repository's existing headless Chrome/CDP support if it meets the need; adding a browser dependency
-requires normal dependency review.
+Use fakes only for focused protocol failures. Add one integration test against the real pinned
+Basedpyright executable for `math.sqrt`, `missing_value`, and `3`.
+
+**Boundary:** the real server produces the `x` parameter, maps the undefined-name diagnostic to its
+stable parameter ID, and clears it on the next exact generated revision without leaked temporary
+files or processes.
+
+### Phase E — frontend projection and browser acceptance
+
+Implement the Callable registration, public commit editor, parameter projection, serialized
+mutation controller, pending/unavailable status, read-only generated code section, and diagnostic
+registry adapter. Connect it to the real Go service through the Vite proxy.
+
+Add one browser acceptance covering the exact walkthrough using accessible roles and labels. Reuse
+the repository's headless Chrome/CDP support if sufficient; any new browser dependency requires
+normal dependency review.
+
+**Boundary:** the complete walkthrough passes against production frontend code, the real Go
+service, and real Basedpyright. All imports come from the `@setta/workspace` public root.
+
+### Phase F — verification closeout
 
 Register the completed browser suite in `.code-policy.json` through a separate reviewed
-control-plane closeout; do not let the implementation loop edit its own active verification scope.
-Run `doctor --strict` again after that registration.
+control-plane closeout so the implementation loop never widens its own active verification scope.
+Run `doctor --strict` after registration and document local startup plus every deferred capability
+in the app README.
 
-Document local startup and the intentionally deferred capabilities in the app README. Update the
-broad monorepo roadmap only to point to accepted evidence; do not mark its deferred platform phases
-complete.
-
-**Boundary:** the complete acceptance walkthrough passes against real processes, both production
-builds pass, the generated contract is current, and an unrelated workspace package consumer remains
-green.
+**Boundary:** focused, integration, browser, generated-contract, and production-build evidence is
+owned by the declared modules and selectable through Code Policy.
 
 ## Verification
 
-During implementation, run focused checks at their owning boundary:
+During implementation, run focused checks at their owning boundaries:
 
-- Go contract, generator, and HTTP package tests from `apps/python-canvas/backend`;
-- frontend projection, section, controller, and app component tests;
-- generated-contract drift comparison;
+- workspace commit-seam component and public API tests;
+- Go project, renderer, materialization, and HTTP tests;
+- Go LSP framing, signature parsing, versioning, cleanup, and diagnostic-mapping tests;
+- one real pinned-Basedpyright integration suite;
+- frontend projection and interaction tests;
+- deterministic generated-contract comparison;
 - frontend and Go production builds; and
 - the one real browser vertical-slice suite.
 
 Near each task's completion, run `code-policy test --changed --base <merge-target>`. After bootstrap
-or any later module/check change, run `code-policy doctor --strict` and the relevant static policy
-selection.
+or any later policy change, run `code-policy doctor --strict` and the relevant static checks.
 
 Before merging, run `code-policy test-levels --base <merge-target>` and present exactly its
-recommended and full ordinary choices. Do not run a broader ordinary choice, `verify`, `gate`, or
+recommended and full ordinary choices. Do not run a broader ordinary choice, `verify`, `gate`, or a
 supplemental suite without the authorization required by the checked-in policy.
 
-## Audit boundary
+## Review boundary
 
 Reviewers should inspect only:
 
-- public-package consumption and host lifecycle;
-- the declared Python Call projection;
-- strict request parsing and typed errors;
-- safe literal encoding and deterministic output;
-- success, validation, unavailable, and stale-response UI behavior;
-- module direction and generated-contract ownership; and
+- the generic callable-editor commit seam;
+- Go ownership of semantic project state and automatic reconciliation;
+- deterministic one-Callable dependency ordering and rendering;
+- real Basedpyright lifecycle, signature normalization, version binding, and cleanup;
+- range-based diagnostic mapping without message heuristics;
+- public workspace composition and backend projection;
+- strict generated transport ownership; and
 - the exact acceptance walkthrough.
 
-Do not expand review into general Python code generation, complete Python syntax support, graph
-algorithms, LSP behavior, persistence, execution security, deployment, application-wide UX parity,
-or unchanged workspace internals. Concrete regressions in changed code remain in scope.
+Do not expand review into source discovery, execution, persistence, ports/edges, general Python
+syntax analysis, multiple callables, alternate language servers, complete main-branch parity, or
+unchanged workspace internals. Concrete regressions in changed code remain in scope.
 
 ## Stop conditions
 
 Stop and request a new decision if:
 
-- the slice cannot be built entirely through public `@setta/workspace` exports;
-- meaningful generation requires ports, edges, the transaction core, or changes to generic
-  workspace document semantics;
-- the backend would need the complete workspace document or a copy of workspace mutation logic;
-- frontend and Go contract projections cannot have one deterministic owner without substantial
-  new tooling;
-- safe rendering requires accepting arbitrary Python expressions from the browser;
+- a real pinned Basedpyright cannot reliably resolve `math.sqrt` in the generated snapshot;
+- callable or parameter behavior cannot be implemented through public workspace exports plus the
+  single proposed `onCommit` seam;
+- diagnostic targeting would require parsing provider message text rather than using generated
+  ranges;
+- meaningful codegen requires another section type, ports/edges, the shared transaction core, or
+  the complete main project aggregate;
+- the backend would need arbitrary Python statements or execution to pass the walkthrough;
+- the Basedpyright or frontend dependency graph does not pass dependency review;
 - Code Policy cannot express the app modules and real suites without weakening the locked baseline;
-- a new dependency is necessary but does not pass dependency review; or
-- implementation starts adding source discovery, LSP, execution, project persistence, CLI, MCP, or
-  another callable to make the first walkthrough pass.
+  or
+- implementation begins adding source watching, persistence, completion UI, execution, CLI, MCP,
+  metadata, variants, or a second callable to make the first walkthrough pass.
 
 ## Completion criteria and next decision
 
 This plan is complete only when:
 
-- the real browser walkthrough passes against the real Go service;
-- generated Python is deterministic, safely encoded, and shown through the package code section;
-- validation and backend unavailability are visible and preserve the last successful output;
-- the app uses one disposed host and only public workspace APIs;
-- Go and frontend contracts have one authoritative owner and a passing drift check;
-- focused, integration, build, and authorized ordinary policy evidence pass; and
+- committing `math.sqrt` through the public Callable section produces the LSP-derived `x` row;
+- callable and parameter mutations automatically regenerate the Go-owned `SettaState` output;
+- a real undefined-name diagnostic maps to `x` by generated range and clears after entering `3`;
+- the generated file is deterministic, temporary, synchronized with Basedpyright, and cleaned up;
+- the frontend applies canonical Go responses through public workspace APIs only;
+- the one host and all LSP/process resources are disposed cleanly;
+- focused, integration, browser, generated-contract, build, and authorized policy evidence pass; and
 - no deferred capability or compatibility surface has been added.
 
-After acceptance, use observed consumer pressure—not this roadmap—to choose the next plan. Likely
-questions are whether users first need multiple connected calls, source discovery, or execution.
-Only a demonstrated need for atomic cross-surface mutations should reopen the headless transaction
-core. Only a demonstrated need for visual data flow should authorize ports and edges.
+After acceptance, use observed consumer pressure to choose the next plan. Likely candidates are
+frontend callable completion, editable prefix/suffix regions, a second section/value dependency, or
+source discovery. Do not infer that CLI, MCP, execution, persistence, ports/edges, or the complete
+workspace generalization roadmap comes next.
