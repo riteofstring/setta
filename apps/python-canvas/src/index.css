@@ -96,6 +96,14 @@ body {
   background: #4c5a73;
 }
 
+/* The dot is the only ordinary visible pending cue, and forced colours repaint its background, so
+ * restore it from the forced palette the way the package restores its own authored surfaces. */
+@media (forced-colors: active) {
+  .python-canvas-pending-mark {
+    background: CanvasText;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .python-canvas-pending-mark {
     animation: python-canvas-pending-pulse 1.2s ease-in-out infinite;

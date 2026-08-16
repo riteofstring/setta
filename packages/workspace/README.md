@@ -388,16 +388,18 @@ serializable configuration. Scalar controls and labels need no handler registrat
 remain valid through `data` plus `WorkspaceItemList.renderItem`, and missing custom renderers fail
 specifically.
 
-Every item-tree section receives a compact package-owned parameter filter. Its query is local view
-state and never mutates or notifies the canonical document. Fuzzy matching uses built-in
-`presentation.label` values and preserves document order while revealing a matching item's ancestor
-path. Custom opaque items participate only when their owning section kind registers
-`getItemSearchableText({ section, item })`; both snapshots are deeply frozen, and the callback must
-return one string. The narrow section snapshot contains its id, kind, name, and opaque data; the
-item snapshot is complete. An active filter disables item drag-and-drop and structural keyboard moves,
-retains canonical selection with an explicit hidden-selection notice, preserves the list's scroll
-position and surviving editor instances, and provides clear actions in both the search control and
-empty result.
+An item-tree section's parameter filter follows the item-area toolbar mode its kind declares at
+registration: both toolbar-rendering modes present the same compact package-owned filter, while
+`hidden` presents none and leaves that list in its ordinary unfiltered context. Where the filter
+renders, its query is local view state and never mutates or notifies the canonical document. Fuzzy
+matching uses built-in `presentation.label` values and preserves document order while revealing a
+matching item's ancestor path. Custom opaque items participate only when their owning section kind
+registers `getItemSearchableText({ section, item })`; both snapshots are deeply frozen, and the
+callback must return one string. The narrow section snapshot contains its id, kind, name, and
+opaque data; the item snapshot is complete. An active filter disables item drag-and-drop and
+structural keyboard moves, retains canonical selection with an explicit hidden-selection notice,
+preserves the list's scroll position and surviving editor instances, and provides clear actions in
+both the search control and empty result.
 
 `WorkspaceItemList.itemDiagnostics` accepts one complete section-scoped registry of error, warning,
 and information messages. The package validates the entire replacement before rendering it,
@@ -461,10 +463,13 @@ when present, the toolbar selected by the declared mode, then `renderContent(sec
 package-owned item-filter provider wraps all three regions. `authoring-and-filter` keeps the full
 Args toolbar; `filter-only` renders the same Args/filter surface without the Add, Remove, and
 Delete actions; `hidden` renders no toolbar while the item list keeps its ordinary unfiltered
-context. The mode is never inferred from a missing item factory, a locked section, an item count,
-or application data — a section that carries items whose kind declares no item area fails at load
-and at render, and a meta-control kind cannot declare one. The leading slot is content-agnostic:
-the package places it and never interprets what it renders.
+context, so the parameter filter described above is present in exactly the two rendering modes. A
+rendered toolbar carries `data-workspace-item-toolbar` with its declared mode: that attribute is
+the one documented hook for observing the selected mode, and no other toolbar structure is public.
+The mode is never inferred from a missing item factory, a locked section, an item count, or
+application data — a section that carries items whose kind declares no item area fails at load and
+at render, and a meta-control kind cannot declare one. The leading slot is content-agnostic: the
+package places it and never interprets what it renders.
 
 An ordinary kind whose sections carry an `itemTree` may also register `createItem(context)`. The host
 returns one complete serializable item with a stable ID, empty `children`, and its domain defaults;

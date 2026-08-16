@@ -364,6 +364,37 @@ the declared suite commands ran directly. The workspace (1157 tests), playground
 Canvas frontend (34) suites pass, the workspace, playground, and Python Canvas TypeScript projects
 are clean, and the packaged boundary check passes over both source and built artifacts.
 
+**Phase A third audit-correction record.** The third independent audit found one repository-contract
+defect: `packages/workspace/README.md` asserted both that every item-tree section receives the
+package-owned parameter filter and that a registered `hidden` mode renders no toolbar, so the
+package's own contract document contradicted itself and a host could register `hidden` expecting to
+keep a filter surface it never gets. The mode set stays as this plan fixes it, so the filter
+paragraph now states that an item-tree section's filter follows the item-area toolbar mode its kind
+declares, that both toolbar-rendering modes present the same filter, and that `hidden` presents none
+and leaves that list unfiltered; every unconditional behavior below it now reads as the behavior of
+a rendered filter. The item-area paragraph carries the reciprocal sentence and documents
+`data-workspace-item-toolbar` as the one public hook for observing the selected mode, which was
+previously untracked DOM surface that only tests read.
+
+The same audit's accessibility recommendation is applied: `.python-canvas-pending-mark` conveyed
+ordinary pending state through `background` alone on an `aria-hidden` dot, so forced colours could
+erase the only sighted cue while the live region stayed screen-reader-only. The app now restores it
+from the forced palette exactly as the package restores its own authored surfaces, proved by a
+`CallableSection` stylesheet assertion that fails when the block is removed.
+
+Two audit recommendations are deliberately not code changes here. The item row's context menu still
+offers `deleteItemCommand` because Python Canvas never lowers `canEditStructure`, which also gates
+section-title editing; that surface is outside this phase's declared Args-surface scope, so the
+Phase B acceptance bullet below now names the context menu explicitly and that walkthrough decides
+it rather than a silent capability change. The section-field surface keeps its own
+`margin-block-start`, because the package owns the surface it renders directly under section chrome
+while the app's grid gap spaces only the app's own status and error rows; Phase B's live visual
+acceptance judges that spacing deliberately.
+
+Verification for this correction: the `code-policy` CLI is still not installed in this task
+worktree, so the declared suite commands ran directly. The Python Canvas frontend suite passes (35
+tests) and its TypeScript project is clean. The workspace change is README prose only.
+
 ### Phase B — production interaction, live visual acceptance, and closeout
 
 - [ ] Production acceptance and closeout complete
@@ -373,7 +404,8 @@ browser walkthrough. Extend only the assertions needed to prove this presentatio
 
 - the callable editor precedes the Args toolbar in rendered and keyboard order;
 - the idle section has no large provider-status paragraph;
-- no Add, Remove, or Delete parameter controls are exposed in filter-only mode;
+- no Add, Remove, or Delete parameter controls are exposed in filter-only mode, including the
+  parameter row's context menu;
 - the Args filter remains operable;
 - the accessible callable name, `math.sq` completion selection, second-Enter commit, `x` parameter,
   generated Python, diagnostic, and diagnostic-clear behavior remain intact; and

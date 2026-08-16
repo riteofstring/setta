@@ -1,4 +1,7 @@
 /* @vitest-environment jsdom */
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -37,6 +40,13 @@ import {
   parameterItemSearchableText,
   type CallableSectionData,
 } from "./CallableSection";
+
+// Vite rewrites `new URL(..., import.meta.url)` into an asset URL, so resolve this suite's own
+// location first and read the app stylesheet from the filesystem.
+const appStyles = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "../index.css"),
+  "utf8",
+);
 
 let container: HTMLDivElement | undefined;
 let root: Root | undefined;
@@ -85,6 +95,12 @@ describe("CallableSection", () => {
     );
     expect(status?.className).toBe("python-canvas-visually-hidden");
     expect(container?.querySelector("[role='alert']")).toBeNull();
+  });
+
+  it("keeps the ordinary pending cue visible once forced colours repaint it", () => {
+    expect(appStyles).toMatch(
+      /@media \(forced-colors: active\)[^}]*\.python-canvas-pending-mark[^}]*background: CanvasText/su,
+    );
   });
 
   it("keeps mutation and completion failures distinct, visible, and accessible", () => {
