@@ -98,6 +98,14 @@ invariants. They should not expand a phase into a general security, accessibilit
 dependency, style, or historical-parity audit. Concrete regressions in changed behavior remain in
 scope; hypothetical features and unrelated pre-existing findings do not.
 
+The current checked-in branch is the sole implementation authority for this plan. Agents must not
+run `git log`, `git blame`, `git show` on older commits, search other branches or refs, inspect a
+`main` branch, inspect `../setta-main`, or use historical product code to look for an implementation
+pattern. Bounded searches inside the current `packages/workspace`, `apps/playground`, `scripts`, and
+`fixtures` trees are sufficient. When current code leaves a minor implementation choice open, choose
+the smallest direct design consistent with the fixed decisions above rather than performing
+historical research.
+
 If an implementation needs a new direct dependency, control-plane change, live external probe, or
 one of the excluded product decisions, return `PLAN_IMPLEMENTATION_BLOCKED` with the smallest
 specific reason instead of widening the plan.
@@ -134,6 +142,9 @@ Replace process-wide runtime ownership with one explicit host per mounted worksp
 
 - Add `createWorkspaceHost` (or an equivalently clear factory), a public `WorkspaceHost` contract,
   and `WorkspaceProvider`/`useWorkspaceHost` React bindings.
+- Use the already installed Zustand vanilla store capability for per-host store instances and a
+  required React context for selector hooks. Non-React actions receive the host/runtime explicitly or
+  become host methods; they must not recover an implicit "current" host from module state.
 - Move canonical document state, derived node state, active selection, appearance, capabilities,
   interaction options, menus, tooltips, drag state, resize state, focus state, mounted item-list views,
   and other mutable workspace runtime state behind the host instance.
@@ -150,6 +161,16 @@ Replace process-wide runtime ownership with one explicit host per mounted worksp
   store or registry. Do not keep a hidden default host for compatibility.
 - Migrate the playground startup and registrations to construct exactly one host and mount the shell
   beneath its provider.
+
+The bounded mutable-owner inventory for this phase is the current-tree store factories in
+`document/`, `canvas/`, `dnd/`, `context-menu/`, `section/`, and `tooltip/`; the section-kind,
+item-handler, mounted-item-list, command, creation-command, key-binding, and toolbar registries; the
+document notification owner; and the appearance media-query listener. A current-tree `rg` search for
+store construction, mutable registries, and document notifications may confirm that list. Do not
+expand it through Git history or other branches.
+
+Land each replaced owner and all of its callers as one coherent ownership cutover. A batch must not
+leave both global and instance APIs available, even temporarily at a committed boundary.
 
 ### Focused proof
 
