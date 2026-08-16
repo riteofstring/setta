@@ -2,9 +2,11 @@
 
 ## Purpose and status
 
-**Status: Phase A is complete, including its audit corrections. Phase B is under way: the browser
-walkthrough asserts this correction and passes live against the production build, real Go service,
-and pinned Basedpyright. Developer visual acceptance is open.**
+**Status: Phase A's structural cutover is complete, including its audit corrections. The Phase B
+candidate at `1217367302fe4d3213f01d9064dff0ce2eefce37` passed its automated walkthrough but was
+rejected in developer visual review on 2026-08-19. Phase B is reopened for a bounded visual
+correction: exact Callable field state parity and the Generated Python section's generic
+generated-output presentation.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
 Basedpyright, transport, or project semantics into `@setta/workspace`. The completed
@@ -20,6 +22,15 @@ acceptable rendering of the main-branch donor:
 - the app uses the public parameter-row `TextValueEditor` presentation as a standalone field;
 - backend-derived parameters expose permanently disabled structural authoring controls; and
 - a full-width Basedpyright sentence visually dominates the section in its normal idle state.
+
+The first Phase B handoff exposed two further presentation defects that automated behavior checks
+did not cover:
+
+- the Callable surface does not match the current main donor, and its dimensions and typography
+  change when the idle layer swaps to the live editor; and
+- Generated Python is painted as an ordinary read-only editor. Clicking its still-editable
+  CodeMirror content exposes a tall black focus/caret line instead of the donor's blue generated
+  region and non-editing interaction.
 
 This is not a request for complete main-branch parity. It is one observed consumer-driven correction
 to the reusable workspace presentation boundary, followed by one direct Python Canvas cutover.
@@ -42,8 +53,24 @@ to the reusable workspace presentation boundary, followed by one direct Python C
 7. No Go, HTTP, generated-contract, LSP, code-generation, or dependency change is expected.
 8. Make one direct public cutover. Do not add aliases, deprecated props, old/new rendering paths,
    adapters, migrations, feature flags, compatibility modes, or transitional code.
-9. Visual completion requires developer-accepted live evidence. Automated screenshots may lock an
-   already accepted result; they do not decide whether the new presentation is acceptable.
+9. The visual donor is current main commit `043d3b2e9c69caf99d1246f1408b3ad7194b7864`, not a
+   remembered approximation. Its exact checked-in captures include
+   `docs/evidence/phase0/reference/screenshots/27-root-callable-selected-with-params-light.png`,
+   `25-root-callable-selected-with-params-dark.png`,
+   `26-final-fixture-light-1440x900.png`, and
+   `01-full-workspace-dark-1440x900.png`. Its source-level visual contracts are
+   `frontend/src/components/Section/SectionParts/Search.tsx` and
+   `frontend/src/components/Section/Layouts/CodeArea.tsx` in the clean `setta-main` worktree.
+10. `@setta/workspace` owns a generic generated-output presentation for its built-in Code section.
+    Python Canvas selects that presentation but does not recreate it with app CSS or private
+    selectors. This is presentation vocabulary, not a Python/code-generation backend concept.
+11. Replace the built-in Code section's public `readOnly` boolean directly with one required closed
+    mode. Do not retain the boolean, infer a mode, accept both shapes, or add an adapter.
+12. Headless Chrome must capture the exact idle, focused/clicked, light, and dark states and record
+    computed geometry and typography before developer review. The supervisor inspects those images;
+    behavior-only browser success is not visual acceptance.
+13. Visual completion still requires developer-accepted live evidence. An automated threshold can
+    reject a regression, but it cannot declare a new result aesthetically accepted.
 
 ## Acceptance experience
 
@@ -53,7 +80,11 @@ Starting from `./scripts/run-python-canvas.sh`, the live app must demonstrate th
 1. The package-owned section header and chrome.
 2. A compact, full-width, single-line callable editor matching the main donor's visual hierarchy.
    Its accessible name remains **Callable expression**, but no redundant large visible label is
-   required.
+   required. In both light and dark appearance it is the donor's 16px-radius pill with 4px block
+   padding, 10px inline padding, 2px inline margin, 12px monospace type, and donor border/background
+   colors. Moving from idle to focused/live changes the focus border color only: the outer rectangle
+   differs by at most 1 CSS px and computed `font-family`, `font-size`, `font-weight`, and
+   `line-height` are identical.
 3. Any normal pending state appears as a compact application-owned adornment associated with the
    editor. A genuine completion or mutation failure remains visible and accessible without turning
    ordinary idle state into a paragraph of infrastructure text.
@@ -61,6 +92,10 @@ Starting from `./scripts/run-python-canvas.sh`, the live app must demonstrate th
    filter behavior, but no unavailable structural authoring actions.
 5. Signature-derived parameter rows follow the toolbar and retain workspace-owned item layout,
    filtering, selection, column sizing, diagnostics, and text-control interaction.
+6. The **Generated Python** section presents its entire body as generated output: a light/dark blue
+   region with the donor's leading rail and compact **GENERATED READ-ONLY** badge. It is selectable
+   and copyable, but its text surface is not editable, does not receive a text caret, and does not
+   reveal an inner black outline or change paint when clicked.
 
 The existing product walkthrough must remain unchanged:
 
@@ -71,8 +106,8 @@ The existing product walkthrough must remain unchanged:
 5. Enter `missing_value`, observe its range-mapped diagnostic and regenerated Python, then enter
    `3` and observe the diagnostic clear.
 
-At every stage, the Generated Python section and Go-owned canonical behavior remain those already
-accepted. This plan changes presentation and composition only.
+At every stage, Generated Python's bytes and all Go-owned canonical behavior remain those already
+accepted. This plan changes only its generic workspace presentation and non-editing interaction.
 
 ## Main donor boundary
 
@@ -92,6 +127,20 @@ that do not exist in the first Python Canvas slice.
 Reuse the composition and craft, not those dependencies. The new package surface must remain useful
 to a non-Python consumer that has an item tree and wants an arbitrary leading control.
 
+Main's `SectionSearch` establishes the exact Callable field paint. Its idle and live layers use the
+same rounded geometry, spacing, `font-mono text-xs` metrics, light/dark background, and line padding;
+the live layer changes the border to the donor's blue focus color. Port that owned surface faithfully
+into scoped package CSS. Do not translate it into nearby eight-pixel radii, translucent backgrounds,
+different borders, or editor-default type.
+
+Main's `GEN_CODE_READONLY_THEME` establishes the generated-output language: blue-tinted light/dark
+background, three-pixel leading rail, rounded region ends, compact uppercase generated/read-only
+label, and explicit selection paint. The main implementation surrounds editable prefix and suffix
+with one protected generated range. Python Canvas currently has no prefix or suffix, so its whole
+Code section uses the generic generated-output mode. Do not add fake prefix/suffix editors,
+placeholders such as **Add imports here**, mixed-region transactions, or code-generation semantics
+to the package in this slice.
+
 ## Ownership and dependency direction
 
 | Concept                                                 | Authoritative owner    | Consumer form                                             |
@@ -102,6 +151,8 @@ to a non-Python consumer that has an item tree and wants an arbitrary leading co
 | Callable draft, completion, commit, and provider status | Python Canvas frontend | Props and application-owned adornment                     |
 | Callable/parameter semantic state and diagnostics       | Go backend             | Existing canonical V1 snapshot                            |
 | Parameter row structure and interaction                 | `@setta/workspace`     | Existing `WorkspaceItemList` and public controls          |
+| Editable/read-only/generated Code section presentation  | `@setta/workspace`     | Required closed built-in Code section mode                |
+| Generated Python source bytes                           | Go backend             | Existing canonical generated-code field                   |
 
 The dependency direction remains:
 
@@ -195,6 +246,13 @@ As part of the same direct cutover:
 - preserve the accepted commit, completion-popup precedence, cancellation, IME, Escape, disabled,
   syntax-highlight, and controlled-value behavior exactly.
 
+For `section-field`, port the main donor's concrete surface instead of approximating it. One shared
+wrapper owns all box geometry; the idle highlighted layer and live CodeMirror layer must inherit the
+same font shorthand and line box through every relevant CodeMirror descendant. Activation must not
+change width, height, padding, font, baseline, or wrapping. Broad application `:focus-visible`
+rules must not leak through the package surface. Retain a clear package-owned focus indicator,
+including forced-colors behavior, without adding a second outline inside the pill.
+
 Do not expose package-private selectors or a general `className` escape hatch so the app can restyle
 CodeMirror internals. The scoped package stylesheet owns the section-field surface. The app may style
 only its own adornment and application error content.
@@ -202,6 +260,35 @@ only its own adornment and application error content.
 The public types remain React- and editor-domain types. No CodeMirror class, extension, state,
 view, LSP request, network client, Python language contract, or application status enum crosses the
 package root.
+
+### Built-in Code section mode cutover
+
+Replace `WorkspaceCodeSectionData.readOnly` with one required discriminant:
+
+```ts
+type WorkspaceCodeSectionMode =
+  | "editable"
+  | "read-only"
+  | "generated-output";
+```
+
+`editable` retains the ordinary authored editor. `read-only` retains ordinary Code-section paint
+but is non-editable. `generated-output` is also non-editable and selects the donor-derived generated
+region paint. A section position/size lock still prevents editing, but does not falsely turn an
+ordinary editor into generated output. Update constructors, parsing, actions, tests, README,
+playground fixtures, packed-consumer fixtures, and Python Canvas in one direct cutover; reject the
+old `readOnly` document field at the existing data boundary.
+
+Both non-editable modes use CodeMirror's read-only state and non-editable view contract rather than
+leaving a focusable `contenteditable` element that merely rejects transactions. Text remains
+selectable and copyable. The section wrapper keeps a coherent keyboard/focus target and accessible
+read-only naming, while Enter does not send focus into a nonexistent editing surface. The generated
+mode must never show a caret, inner focus outline, active-line paint, or editable cursor.
+
+The generated visuals belong to package source and its scoped stylesheet/theme. Expose only the
+closed mode and stable public observation needed by consumers/tests; do not export CodeMirror
+extensions, decoration classes, or package-private selectors and do not add an app `className`
+escape hatch.
 
 ## Python Canvas direct cutover
 
@@ -221,6 +308,10 @@ the new package presentation:
 - register application-owned searchable text from the canonical parameter name and displayed
   metadata so the retained filter operates on what the row actually shows; and
 - keep parameter items on the `item-row` editor presentation with completion disabled.
+- project Generated Python through the built-in Code section's required `generated-output` mode;
+  remove the former `readOnly: true` projection rather than accepting both document shapes; and
+- remove or narrow any broad app focus rule that paints inside package-owned editors, while
+  retaining explicit accessible focus treatment on application-owned controls.
 
 The app must not reproduce the package's toolbar, filter, item rows, CodeMirror wrapper, focus
 behavior, or section chrome. App CSS may arrange its own status/error content but must not select
@@ -237,6 +328,8 @@ Do not use this work to add:
   backend adapter;
 - callable catalogs, arbitrary expressions, multiple callables, parameter add/remove/delete
   mutations, parameter completion, hover, documentation, or completion resolve;
+- editable generated-code prefix/suffix regions, an imports placeholder, mixed-region mutation
+  filters, or a general protected-range editor;
 - changes to Go state, HTTP routes, generated TypeScript contracts, code generation, Basedpyright,
   diagnostics mapping, or the wrapper script;
 - ports, edges, handles, variants, source discovery, execution, persistence, CLI, MCP, Watch Code,
@@ -424,21 +517,44 @@ claim was confirmed by inspecting every runtime reference to it.
 
 - [ ] Production acceptance and closeout complete
 
-Run the production frontend, real Go service, and pinned Basedpyright through the established
-browser walkthrough. Extend only the assertions needed to prove this presentation correction:
+First correct the developer-rejected candidate without reopening Phase A's accepted composition:
+
+1. Port the exact donor field geometry, light/dark paint, and typography into the package-owned
+   `section-field` surface. Eliminate the idle/live size and font change.
+2. Cut the built-in Code section directly from `readOnly` to the required closed mode and implement
+   the generic `generated-output` paint and non-editing behavior.
+3. Select `generated-output` in Python Canvas and remove the old boolean projection and any leaking
+   broad app focus outline.
+4. Update focused package, packed-boundary, playground, and Python Canvas tests. Do not preserve old
+   fixtures or parsing behavior for compatibility.
+
+Then run the production frontend, real Go service, and pinned Basedpyright through the established
+headless-Chrome walkthrough. Extend only the assertions and evidence needed to prove this bounded
+presentation correction:
 
 - the callable editor precedes the Args toolbar in rendered and keyboard order;
 - the idle section has no large provider-status paragraph;
 - no Add, Remove, or Delete parameter controls are exposed by the filter-only toolbar;
 - the Args filter remains operable;
+- the Callable idle and focused states have stable geometry and identical computed typography;
+- light and dark captures show donor-equivalent Callable borders, backgrounds, radius, and spacing;
+- Generated Python exposes the generic generated-output mode, blue rail/region/badge, non-editable
+  semantics, selectable text, and no inner caret/outline before or after a real pointer click;
 - the accessible callable name, `math.sq` completion selection, second-Enter commit, `x` parameter,
   generated Python, diagnostic, and diagnostic-clear behavior remain intact; and
 - one Ctrl-C still cleans up the app processes through the existing wrapper.
 
-Present the live section to the developer for visual acceptance. Record the accepted candidate
-commit and concise observation in this plan. Only after acceptance may an existing visual baseline
-be updated or a new regression lock be checked in. If the developer rejects the composition, fix
-the declared Callable surface and repeat the live evidence; do not broaden the package API to polish
+Use a fixed 1440x900 CSS-pixel viewport at device scale 1 and capture deterministic component crops
+for Callable idle/focused and Generated Python idle/clicked in both appearances. Record computed
+rectangles, font properties, border/radius/background values, editability, active element, and
+outline/caret-relevant values in machine-readable evidence bound to the exact candidate commit.
+Compare component crops—not unrelated full-app pixels—to the exact main-reference images and source
+tokens above, with any small antialiasing tolerance stated. The supervisor must open and inspect
+every resulting image before presenting the live section to the developer.
+
+Record the accepted candidate commit and concise developer observation in this plan. Only after
+acceptance may the captures become an accepted regression lock. If the developer rejects them,
+correct these two surfaces and repeat the same states; do not broaden the package API or polish
 unrelated screens.
 
 Near completion, run `code-policy test --changed --base <trusted-base>` in the one caller-scoped task
@@ -454,7 +570,10 @@ it into this presentation plan.
 presentations. Do not audit unrelated sections, all responsive widths, every CodeMirror state,
 historical main parity, or speculative toolbar combinations.
 
-**Phase B automated-walkthrough record.** The established production browser walkthrough now proves
+**Rejected Phase B candidate record.** Candidate
+`1217367302fe4d3213f01d9064dff0ce2eefce37` established the following behavior evidence, but it is
+not visually accepted and does not complete this phase. The established production browser
+walkthrough proves
 the idle callable editor precedes the `filter-only` Args toolbar and parameter list, the idle section
 has no provider prose or alert, and the toolbar exposes none of its structural parameter actions.
 It reads only the section's accessible group, the documented toolbar-mode hook, the Args filter's
@@ -476,7 +595,7 @@ order assertion continues, and it exercises the traversal this assertion is abou
 focus call no keyboard user makes. Two consecutive production walkthroughs pass with that path, so
 neither a product activation change nor a test-only retry is needed.
 
-The suite passes twice in a row against the production build, the real Go service built from the
+The suite passed twice in a row against the production build, the real Go service built from the
 pinned toolchain this repository's locked Code Policy release carries, pinned Basedpyright, and
 headless Chrome — and the base commit's assertion still fails there, so the fix is proved by the
 suite it repairs. The wrapper separately reaches its backend-ready and Vite-ready states, then one
@@ -487,9 +606,14 @@ That evidence also withdraws the earlier claim that this task worktree could not
 locked release carries the Go toolchain the wrapper already resolves outside `PATH`, and only the
 `code-policy` CLI itself is missing here. Because that CLI is missing, the declared suite commands
 ran directly, with the locked release's pinned Go on `PATH` for the ones that invoke `go`; the
-changed walkthrough's own module suite passes with them (35 Python Canvas frontend tests). Developer
-visual acceptance, the accepted-candidate record, and this phase's closing `test --changed` and
-`test-levels` steps remain open.
+changed walkthrough's own module suite passed with them (35 Python Canvas frontend tests).
+
+Developer review then found the Callable activation geometry/type change, missing generated-output
+paint, and black inner focus/caret line described above. The former assertion that Generated Python
+should accept focus on its textbox is therefore withdrawn: it encoded the defect. Replace it with
+the non-editable/selectable/copyable and click-state proof in this reopened phase. Developer visual
+acceptance, the accepted-candidate record, corrective screenshots/metrics, and this phase's closing
+`test --changed` and `test-levels` steps remain open.
 
 ## Stop conditions
 
@@ -505,10 +629,14 @@ Stop and request a scope decision if:
 - the correction expands beyond the closed leading-content and toolbar-mode seams into a general
   layout/plugin framework;
 - the real completion, commit, parameter, code-generation, or diagnostics walkthrough regresses;
-- live developer evidence rejects the result and fixing it would materially change the agreed
-  generic boundary; or
+- matching the whole-output donor requires public mixed generated/editable ranges, prefix/suffix
+  application state, or Python/code-generation vocabulary in the package;
+- live developer evidence rejects the corrected states and fixing them would materially change the
+  agreed generic boundary; or
 - Code Policy cannot own or verify the exact files without a protected configuration change.
 
-The plan is complete when both phase markers are checked, the direct public cutover contains no
-legacy or transitional surface, the established production walkthrough remains green, and the
-developer accepts live evidence showing the compact callable editor above the filter-only Args area.
+The plan is complete when both phase markers are checked, the direct public cutovers contain no
+legacy or transitional surface, the established production walkthrough remains green, headless
+evidence proves the exact idle/focused/clicked states, the supervisor has inspected the captures,
+and the developer accepts the donor-matched Callable field and generated-output section above the
+unchanged filter-only Args area.
