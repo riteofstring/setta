@@ -94,6 +94,34 @@ func TestBasedpyrightProviderCleansCompletionSnapshotAfterFailureAndCancellation
 	}
 }
 
+func TestBasedpyrightProviderRejectsMalformedCompletionItems(t *testing.T) {
+	for _, testCase := range []struct {
+		name    string
+		outcome fakeCompletionOutcome
+	}{
+		{name: "missing items", outcome: fakeCompletionMissingItems},
+		{name: "null items", outcome: fakeCompletionNullItems},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			provider, writer, workspaceRoot := newCompletionProviderForTest(t, testCase.outcome)
+			_, err := provider.CompleteCallable(
+				context.Background(),
+				completionRequest("import math", "math.sq", 7),
+			)
+			if !errors.Is(err, ErrMalformedCompletionResult) {
+				t.Fatalf("CompleteCallable() error = %v, want malformed completion result", err)
+			}
+			requireCompletionSnapshotLifecycle(
+				t,
+				writer,
+				workspaceRoot,
+				"import math"+completionSnapshotSeparator+"math.sq",
+				Position{Line: 2, Character: 7},
+			)
+		})
+	}
+}
+
 func completionRequest(canonicalCode string, authoredExpression string, cursorOffsetUTF16 int) project.CallableCompletionRequest {
 	return project.CallableCompletionRequest{
 		ProjectID:          "project:python-canvas",
@@ -154,9 +182,11 @@ func requireCompletionSnapshotLifecycle(
 type fakeCompletionOutcome string
 
 const (
-	fakeCompletionSuccess fakeCompletionOutcome = "success"
-	fakeCompletionFailure fakeCompletionOutcome = "failure"
-	fakeCompletionWait    fakeCompletionOutcome = "wait"
+	fakeCompletionSuccess      fakeCompletionOutcome = "success"
+	fakeCompletionFailure      fakeCompletionOutcome = "failure"
+	fakeCompletionWait         fakeCompletionOutcome = "wait"
+	fakeCompletionMissingItems fakeCompletionOutcome = "missing items"
+	fakeCompletionNullItems    fakeCompletionOutcome = "null items"
 )
 
 func newCompletionProviderForTest(
@@ -171,6 +201,7 @@ func newCompletionProviderForTest(
 	session := &Session{
 		options:          SessionOptions{RequestTimeout: time.Second},
 		started:          true,
+		initialized:      true,
 		stdin:            writer,
 		pending:          make(map[string]chan rpcEnvelope),
 		documentVersions: make(map[string]int),
@@ -278,6 +309,16 @@ func (writer *recordingLSPWriter) respond(message rpcEnvelope) {
 			writer.session.dispatch(rpcEnvelope{
 				ID:    message.ID,
 				Error: &rpcError{Code: -32001, Message: "completion unavailable"},
+			})
+		case fakeCompletionMissingItems:
+			writer.session.dispatch(rpcEnvelope{
+				ID:     message.ID,
+				Result: json.RawMessage(`{}`),
+			})
+		case fakeCompletionNullItems:
+			writer.session.dispatch(rpcEnvelope{
+				ID:     message.ID,
+				Result: json.RawMessage(`{"items":null}`),
 			})
 		}
 	case "shutdown":

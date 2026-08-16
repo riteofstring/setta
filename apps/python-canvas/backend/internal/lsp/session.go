@@ -24,11 +24,12 @@ const (
 )
 
 var (
-	ErrSessionCommandRequired = errors.New("lsp: command is required")
-	ErrSessionClosed          = errors.New("lsp: session is closed")
-	ErrSessionNotStarted      = errors.New("lsp: session is not started")
-	ErrRequestTimedOut        = errors.New("lsp: request timed out")
-	ErrSessionStreamFailed    = errors.New("lsp: session stream failed")
+	ErrSessionCommandRequired    = errors.New("lsp: command is required")
+	ErrSessionClosed             = errors.New("lsp: session is closed")
+	ErrSessionNotStarted         = errors.New("lsp: session is not started")
+	ErrRequestTimedOut           = errors.New("lsp: request timed out")
+	ErrSessionStreamFailed       = errors.New("lsp: session stream failed")
+	ErrMalformedCompletionResult = errors.New("lsp: malformed completion result")
 )
 
 type SessionOptions struct {
@@ -99,11 +100,15 @@ type Session struct {
 	mu      sync.Mutex
 	writeMu sync.Mutex
 
-	started bool
-	closing bool
-	closed  bool
-	cmd     *exec.Cmd
-	stdin   io.WriteCloser
+	started     bool
+	starting    bool
+	initialized bool
+	closing     bool
+	closed      bool
+	startDone   chan struct{}
+	startErr    error
+	cmd         *exec.Cmd
+	stdin       io.WriteCloser
 
 	readerDone chan struct{}
 	stderrDone chan struct{}
@@ -137,9 +142,16 @@ func NewSession(options SessionOptions) (*Session, error) {
 	}, nil
 }
 
+// Start initializes the shared server independently from the request that
+// happened to trigger startup. A canceled request must not close a session
+// that later requests can use.
 func (session *Session) Start(ctx context.Context) error {
 	if session == nil {
 		return ErrSessionClosed
+	}
+	ctx = requestContext(ctx)
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 
 	session.mu.Lock()
@@ -152,21 +164,70 @@ func (session *Session) Start(ctx context.Context) error {
 		session.mu.Unlock()
 		return failure
 	}
-	if session.started {
+	if session.initialized {
 		session.mu.Unlock()
 		return nil
+	}
+	if session.starting {
+		startDone := session.startDone
+		session.mu.Unlock()
+		return session.awaitInitialization(ctx, startDone)
+	}
+	if session.started {
+		session.mu.Unlock()
+		return ErrSessionClosed
 	}
 	if err := session.startProcessLocked(); err != nil {
 		session.mu.Unlock()
 		return err
 	}
+	session.starting = true
+	session.startDone = make(chan struct{})
+	session.startErr = nil
+	startDone := session.startDone
 	session.mu.Unlock()
 
-	if err := session.initialize(ctx); err != nil {
+	go session.initializeStartedProcess()
+	return session.awaitInitialization(ctx, startDone)
+}
+
+func (session *Session) initializeStartedProcess() {
+	err := session.initialize(context.Background())
+	if err != nil {
 		_ = session.Close()
-		return err
 	}
-	return nil
+
+	session.mu.Lock()
+	if err == nil && session.isClosingOrClosedLocked() {
+		err = ErrSessionClosed
+	}
+	session.starting = false
+	session.initialized = err == nil
+	session.startErr = err
+	startDone := session.startDone
+	session.mu.Unlock()
+	close(startDone)
+}
+
+func (session *Session) awaitInitialization(ctx context.Context, startDone <-chan struct{}) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-startDone:
+	}
+
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	if session.initialized && !session.isClosingOrClosedLocked() {
+		return nil
+	}
+	if session.startErr != nil {
+		return session.startErr
+	}
+	if session.terminalErr != nil {
+		return session.terminalErr
+	}
+	return ErrSessionClosed
 }
 
 func (session *Session) startProcessLocked() error {
@@ -410,6 +471,9 @@ func (session *Session) Completion(ctx context.Context, path string, position Po
 	}, &result, false)
 	if err != nil {
 		return CompletionResult{}, err
+	}
+	if result.Items == nil {
+		return CompletionResult{}, fmt.Errorf("%w: items array is required", ErrMalformedCompletionResult)
 	}
 	return result, nil
 }

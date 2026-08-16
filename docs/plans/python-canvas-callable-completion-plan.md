@@ -340,7 +340,8 @@ a new evidence subsystem.
 cleanup. Do not audit every LSP completion union, build resolve support, or expand diagnostics while
 proving this phase.
 
-**Recorded evidence (2026-08-18):** `code-policy test --module python-canvas-backend` passed
+**Recorded evidence (2026-08-18; audit correction verified):** `go test ./internal/lsp` and
+`code-policy test --module python-canvas-backend` passed
 (`python-canvas-backend-focused`; Go packages including `internal/project` and `internal/lsp`).
 `TestPinnedBasedpyrightCompletesCallableNameInCanonicalMathContext` started the pinned
 Basedpyright executable, asserted the captured `import math` canonical context, and found `sqrt`
@@ -348,7 +349,10 @@ for `math.sq` without changing the snapshot or canonical generated file. Project
 IDs, bounded single-line drafts, UTF-16 surrogate boundaries, provider failure, no mutation, and
 store-lock release before the provider wait. LSP proofs cover Unicode full-document positioning,
 normalization, and `didOpen`/completion/`didClose` plus temporary-file cleanup on success, provider
-failure, and caller cancellation.
+failure, and caller cancellation. `TestBasedpyrightProviderRejectsMalformedCompletionItems` rejects
+both `{}` and `{"items":null}` with a typed malformed-result failure instead of an empty success;
+`TestSessionCancellationDuringInitializationDoesNotCloseSharedSession` cancels the first completion
+during initialization and proves a later completion still uses the shared session successfully.
 
 ### Phase B — atomic workspace consumer cutover
 
