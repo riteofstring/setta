@@ -20,7 +20,11 @@ const productionTimeoutMs = 30_000;
 const callableSectionSelector =
   '[role="group"][aria-label^="Square Root section"]';
 const itemToolbarSelector = "[data-workspace-item-toolbar]";
+const sectionFieldSelector = "[data-workspace-section-field]";
 const callableContentSelector = ".python-canvas-callable-section";
+// The activation swap may move the field's own box by less than a device pixel of rounding, but
+// not by a layout step.
+const fieldGeometryToleranceCssPx = 1;
 
 function run(command, arguments_, options = {}) {
   const result = spawnSync(command, arguments_, {
@@ -314,6 +318,56 @@ async function pressTab(client) {
   await client.send("Input.dispatchKeyEvent", { ...params, type: "keyUp" });
 }
 
+async function pressEscape(client) {
+  const params = {
+    code: "Escape",
+    key: "Escape",
+    nativeVirtualKeyCode: 27,
+    windowsVirtualKeyCode: 27,
+  };
+  await client.send("Input.dispatchKeyEvent", { ...params, type: "keyDown" });
+  await client.send("Input.dispatchKeyEvent", { ...params, type: "keyUp" });
+}
+
+// A real pointer press on the element's centre. Synthetic focus does not reproduce what a person
+// does to a field or a generated region, and the states this walkthrough judges are exactly the
+// ones a click produces.
+async function clickElementCenter(client, selector, description) {
+  const point = await evaluate(
+    client,
+    `(() => {
+      const element = document.querySelector(${JSON.stringify(selector)});
+      if (!(element instanceof HTMLElement)) {
+        return null;
+      }
+      const rect = element.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        return null;
+      }
+      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    })()`,
+  );
+  if (point === null) {
+    throw new Error(`${description} was not visible to a real pointer click.`);
+  }
+  const params = {
+    button: "left",
+    clickCount: 1,
+    x: point.x,
+    y: point.y,
+  };
+  await client.send("Input.dispatchMouseEvent", {
+    ...params,
+    buttons: 1,
+    type: "mousePressed",
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    ...params,
+    buttons: 0,
+    type: "mouseReleased",
+  });
+}
+
 async function selectAll(client) {
   const isMac = process.platform === "darwin";
   const modifier = isMac ? 4 : 2;
@@ -459,10 +513,15 @@ function assertNoStructuralParameterControls(names) {
   }
 }
 
-// Rendered order alone would not prove the section reads correctly by keyboard. Start from the last
-// ordinary focus target before the callable field, enter the field with a real Tab key, and prove
-// its keyboard activation mounts the live editor before the next Tab reaches the Args filter.
-async function assertCallableEditorLeadsKeyboardOrder(client, callableLabel) {
+function idleCallableSelector(callableLabel) {
+  return `${textBoxSelector(callableLabel)}:not([contenteditable="true"])`;
+}
+
+function liveCallableSelector(callableLabel) {
+  return `${textBoxSelector(callableLabel)}[contenteditable="true"]`;
+}
+
+async function waitForEnabledCallableField(client, callableLabel) {
   await waitFor(
     client,
     "enabled callable editor after initial provider work",
@@ -471,6 +530,157 @@ async function assertCallableEditorLeadsKeyboardOrder(client, callableLabel) {
       return control instanceof HTMLElement && control.getAttribute("aria-disabled") !== "true";
     })()`,
   );
+}
+
+// The field's own box and the text layer inside it, read through the package's documented
+// section-field hook and this control's accessible name. Nothing here selects a package class.
+function callableFieldStateScript(textSelector) {
+  return `(() => {
+    const field = document.querySelector(${JSON.stringify(sectionFieldSelector)});
+    const text = document.querySelector(${JSON.stringify(textSelector)});
+    if (!(field instanceof HTMLElement) || !(text instanceof HTMLElement)) {
+      return null;
+    }
+    const rect = field.getBoundingClientRect();
+    const fieldStyle = window.getComputedStyle(field);
+    const textStyle = window.getComputedStyle(text);
+    return {
+      box: { height: rect.height, width: rect.width, x: rect.x, y: rect.y },
+      surface: {
+        backgroundColor: fieldStyle.backgroundColor,
+        borderRadius: fieldStyle.borderTopLeftRadius,
+        borderWidth: fieldStyle.borderTopWidth,
+        marginInline: fieldStyle.marginLeft + " " + fieldStyle.marginRight,
+        padding: fieldStyle.paddingTop + " " + fieldStyle.paddingRight + " " +
+          fieldStyle.paddingBottom + " " + fieldStyle.paddingLeft,
+      },
+      borderColor: fieldStyle.borderTopColor,
+      type: {
+        color: textStyle.color,
+        fontFamily: textStyle.fontFamily,
+        fontSize: textStyle.fontSize,
+        fontWeight: textStyle.fontWeight,
+        lineHeight: textStyle.lineHeight,
+      },
+    };
+  })()`;
+}
+
+// An empty field shows its own muted placeholder layer against CodeMirror's placeholder, so text
+// colour is compared only in the committed-value pass, where both layers render the same value.
+const fieldTypeProperties = [
+  "fontFamily",
+  "fontSize",
+  "fontWeight",
+  "lineHeight",
+];
+const fieldValueTypeProperties = [...fieldTypeProperties, "color"];
+
+// The developer rejected the previous candidate because clicking the callable field changed its
+// dimensions and its type. Measure the donor pill idle, click it, and require that the same
+// surface comes back with only its border colour changed.
+async function assertCallableFieldActivationParity(
+  client,
+  callableLabel,
+  typeProperties,
+) {
+  await waitForEnabledCallableField(client, callableLabel);
+  const idle = await evaluate(
+    client,
+    callableFieldStateScript(idleCallableSelector(callableLabel)),
+  );
+  if (idle === null) {
+    throw new Error("The idle callable field did not render its surface.");
+  }
+  assertDonorCallableFieldSurface(idle);
+
+  await clickElementCenter(
+    client,
+    idleCallableSelector(callableLabel),
+    "The idle callable field",
+  );
+  await waitFor(
+    client,
+    "the clicked callable field mounting and focusing its live editor",
+    `(() => {
+      const live = document.querySelector(${JSON.stringify(liveCallableSelector(callableLabel))});
+      return live instanceof HTMLElement && document.activeElement === live;
+    })()`,
+  );
+  const live = await evaluate(
+    client,
+    callableFieldStateScript(liveCallableSelector(callableLabel)),
+  );
+  if (live === null) {
+    throw new Error("The live callable field did not render its surface.");
+  }
+  assertCallableFieldParity(idle, live, typeProperties);
+
+  await pressEscape(client);
+  await waitFor(
+    client,
+    "the callable field returning to its idle layer",
+    `document.querySelector(${JSON.stringify(liveCallableSelector(callableLabel))}) === null`,
+  );
+}
+
+function assertDonorCallableFieldSurface(state) {
+  const donorSurface = {
+    backgroundColor: "rgb(255, 255, 255)",
+    borderRadius: "16px",
+    borderWidth: "1px",
+    marginInline: "2px 2px",
+    padding: "4px 10px 4px 10px",
+  };
+  for (const [property, expected] of Object.entries(donorSurface)) {
+    if (state.surface[property] !== expected) {
+      throw new Error(
+        `The idle callable field rendered ${property} ${JSON.stringify(state.surface[property])} instead of the donor's ${JSON.stringify(expected)}.`,
+      );
+    }
+  }
+}
+
+function assertCallableFieldParity(idle, live, typeProperties) {
+  for (const [property, idleValue] of Object.entries(idle.box)) {
+    const drift = Math.abs(idleValue - live.box[property]);
+    if (drift > fieldGeometryToleranceCssPx) {
+      throw new Error(
+        `Activating the callable field moved its ${property} by ${String(drift)} CSS px.`,
+      );
+    }
+  }
+  for (const property of typeProperties) {
+    if (live.type[property] !== idle.type[property]) {
+      throw new Error(
+        `Activating the callable field changed ${property} from ${JSON.stringify(idle.type[property])} to ${JSON.stringify(live.type[property])}.`,
+      );
+    }
+  }
+  for (const [property, idleValue] of Object.entries(idle.surface)) {
+    if (live.surface[property] !== idleValue) {
+      throw new Error(
+        `Activating the callable field changed ${property} from ${JSON.stringify(idleValue)} to ${JSON.stringify(live.surface[property])}.`,
+      );
+    }
+  }
+  if (live.borderColor !== "rgb(59, 130, 246)") {
+    throw new Error(
+      `The focused callable field rendered the border colour ${JSON.stringify(live.borderColor)} instead of the donor's focus blue.`,
+    );
+  }
+  if (idle.borderColor === live.borderColor) {
+    throw new Error(
+      "The callable field's border colour did not change when it took focus.",
+    );
+  }
+}
+
+// Rendered order alone would not prove the section reads correctly by keyboard. Start from the last
+// ordinary focus target before the callable field, enter the field with a real Tab key, and prove
+// its keyboard activation mounts the live editor before the next Tab reaches the Args filter.
+async function assertCallableEditorLeadsKeyboardOrder(client, callableLabel) {
+  await waitForEnabledCallableField(client, callableLabel);
   const precedingControlFocused = await evaluate(
     client,
     `(() => {
@@ -613,6 +823,11 @@ async function runWalkthrough(client, backendOrigin) {
   );
 
   await assertCallableFirstComposition(client, callableLabel);
+  await assertCallableFieldActivationParity(
+    client,
+    callableLabel,
+    fieldTypeProperties,
+  );
   await assertCallableEditorLeadsKeyboardOrder(client, callableLabel);
 
   const generatedEditor = await evaluate(
@@ -746,6 +961,13 @@ async function runWalkthrough(client, backendOrigin) {
   );
 
   await assertArgsFilterRemainsOperable(client, parameterLabel);
+  // The committed callable is the state the section spends its life in, so repeat the parity pass
+  // over the real value, where both layers render the same highlighted text.
+  await assertCallableFieldActivationParity(
+    client,
+    callableLabel,
+    fieldValueTypeProperties,
+  );
 }
 
 function assertCompletionDidNotMutateCanonicalProject(before, after) {

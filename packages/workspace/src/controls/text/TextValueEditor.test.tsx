@@ -680,6 +680,11 @@ describe("TextValueEditor section-field presentation", () => {
     );
     expect(field).not.toBeNull();
     expect(field?.dataset["disabled"]).toBe("false");
+    // The one public hook for the surface: consumers and captures observe the field here rather
+    // than through the private class its stylesheet paints.
+    expect(host.querySelector("[data-workspace-section-field='true']")).toBe(
+      field,
+    );
     expect(field?.classList.contains("nodrag")).toBe(true);
     expect(field?.classList.contains("nopan")).toBe(true);
     // No underlined value-column divider and no item-row placement classes at this placement.
@@ -709,6 +714,34 @@ describe("TextValueEditor section-field presentation", () => {
     const view = getFieldView();
     expect(view.state.doc.toString()).toBe("math.sq");
     expect(onValueChange).not.toHaveBeenCalled();
+  });
+
+  // Main's field carries its box and its type on each stacked layer, so activating it changes both.
+  // Here the wrapper owns the box and both layers carry the one class that owns the type, which is
+  // what keeps the swap invisible.
+  it("swaps the idle layer for a live editor on the same type owner", async () => {
+    await mountField();
+    const dummy = getFieldDummy();
+    expect(
+      dummy.classList.contains("setta-workspace-section-field-editor"),
+    ).toBe(true);
+    expect(
+      dummy.classList.contains("setta-workspace-section-field-editor-live"),
+    ).toBe(false);
+
+    await activateField();
+    const live = host.querySelector<HTMLElement>(
+      ".setta-workspace-section-field-editor-live",
+    );
+    expect(
+      live?.classList.contains("setta-workspace-section-field-editor"),
+    ).toBe(true);
+    expect(live?.querySelector(".cm-editor")).not.toBeNull();
+    // The box stays on the wrapper both layers sit inside, never on a layer.
+    const field = host.querySelector<HTMLElement>(
+      ".setta-workspace-section-field",
+    );
+    expect(field?.contains(live ?? null)).toBe(true);
   });
 
   it("omits the adornment gutter entirely when the caller supplies none", async () => {

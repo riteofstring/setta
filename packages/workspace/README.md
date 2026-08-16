@@ -471,6 +471,15 @@ application data — a section that carries items whose kind declares no item ar
 at render, and a meta-control kind cannot declare one. The leading slot is content-agnostic: the
 package places it and never interprets what it renders.
 
+A `TextValueEditor` states which of its two placements it means: `item-row` for a parameter control,
+or `section-field` for the compact field a section renders in that leading slot. The package owns
+the section field's whole surface — the reference's rounded box, its 12px monospace type, its focus
+border, and the layout gutter for one optional caller-owned end adornment, whose content and ARIA
+stay with the caller. Both editor layers share that one box and type owner, so activating the field
+changes only its border colour. The rendered field carries `data-workspace-section-field`: that
+attribute is the one documented hook for observing or capturing the surface, and no field class,
+inner structure, or CodeMirror internal is public.
+
 An ordinary kind whose sections carry an `itemTree` may also register `createItem(context)`. The host
 returns one complete serializable item with a stable ID, empty `children`, and its domain defaults;
 `context.section` is a detached, deeply frozen snapshot. `insertWorkspaceItem`,

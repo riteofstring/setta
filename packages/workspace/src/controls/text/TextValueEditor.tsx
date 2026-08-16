@@ -111,9 +111,10 @@ function getDividerClassName(isSelectingItems: boolean) {
   return `section-value self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingItems ? "peer-focus-within/textinput:border-blue-400" : ""}`;
 }
 
-// The compact section-field surface: one rounded, full-width field whose padding, focus
-// treatment, disabled paint, and adornment gutter live in the scoped package stylesheet rather
-// than in caller-supplied class strings.
+// The compact section-field surface: one rounded, full-width field whose box geometry, type,
+// focus treatment, and adornment gutter live in the scoped package stylesheet rather than in
+// caller-supplied class strings. The wrapper owns the box and the shared editor class owns the
+// type, so the idle and live layers paint the same field.
 const SECTION_FIELD_WRAPPER_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} setta-workspace-section-field`;
 const SECTION_FIELD_DUMMY_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} setta-workspace-section-field-editor`;
 const SECTION_FIELD_REAL_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} setta-workspace-section-field-editor setta-workspace-section-field-editor-live`;
@@ -188,8 +189,15 @@ function wrapTextValueEditorLayers({
   if (presentation !== "section-field") {
     return <div className={config.wrapperClassName}>{editorLayers}</div>;
   }
+  // `data-workspace-section-field` is the one public hook for observing this surface. The package
+  // owns its class names, so a consumer proving the field's geometry or capturing its states reads
+  // this attribute instead of the private class the stylesheet paints.
   return (
-    <div className={config.wrapperClassName} data-disabled={isDisabled}>
+    <div
+      className={config.wrapperClassName}
+      data-disabled={isDisabled}
+      data-workspace-section-field="true"
+    >
       <div className="setta-workspace-section-field-input">{editorLayers}</div>
       {endAdornment === undefined || endAdornment === null ? null : (
         <div className="setta-workspace-section-field-adornment">

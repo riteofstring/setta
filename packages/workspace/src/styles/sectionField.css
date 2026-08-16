@@ -1,8 +1,15 @@
 /* The section-field text presentation: one compact, full-width rounded surface a section renders
- * above its item toolbar, matching frozen main's callable-first field weight rather than the
- * parameter row's underlined value column. The package owns the surface, focus treatment,
- * padding, disabled paint, and the layout gutter reserved for a caller-owned end adornment; the
- * caller owns only what it renders inside that gutter. */
+ * above its item toolbar. It is frozen main's callable field (`SectionSearch`): a 16px-radius
+ * pill with a one-pixel border, 4px block and 10px inline padding, 2px inline margin, and
+ * 12px/16px monospace type over main's white/`setta-950` field colours. The package owns the box,
+ * the type, the focus treatment, and the layout gutter reserved for a caller-owned end adornment;
+ * the caller owns only what it renders inside that gutter.
+ *
+ * Main paints that box on both of its stacked layers and leaves its live layer on CodeMirror's own
+ * generic font and 1.4 line box, so activating main's field changes its type and its height. Here
+ * one wrapper owns the box and one class owns the type for both layers, and the live layer's
+ * CodeMirror descendants inherit that same font shorthand and line box. Activation therefore
+ * changes the border colour and nothing else. */
 
 .setta-workspace-section-field {
   display: flex;
@@ -11,19 +18,26 @@
   gap: 6px;
   box-sizing: border-box;
   margin-block-start: 4px;
-  padding: 3px 8px;
-  border: 1px solid rgb(182 192 211 / 70%);
-  border-radius: 8px;
-  background-color: rgb(255 255 255 / 55%);
+  margin-inline: 2px;
+  padding: 4px 10px;
+  border: 1px solid hsl(219 24% 89%);
+  border-radius: 16px;
+  background-color: rgb(255 255 255);
 }
 
 .setta-workspace.setta-workspace-dark .setta-workspace-section-field {
-  border-color: rgb(43 54 74 / 70%);
-  background-color: rgb(11 14 19);
+  border-color: hsl(220 26% 14%);
+  background-color: hsl(220 25% 3%);
 }
 
+/* Main's live layer swaps the idle border colour for its focus blue and changes nothing else. */
 .setta-workspace-section-field:focus-within {
-  border-color: rgb(96 165 250);
+  border-color: rgb(59 130 246);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-section-field:focus-within {
+  border-color: rgb(96 165 250 / 50%);
 }
 
 /* The surface signals focus through its border colour alone, and the live editor below suppresses
@@ -36,15 +50,6 @@
   }
 }
 
-.setta-workspace-section-field[data-disabled="true"] {
-  background-color: rgb(226 232 240 / 45%);
-}
-
-.setta-workspace.setta-workspace-dark
-  .setta-workspace-section-field[data-disabled="true"] {
-  background-color: rgb(26 33 45 / 60%);
-}
-
 /* The two editor layers stack in the same cell so the idle highlighted layer and the live
  * CodeMirror layer occupy identical geometry through the activation swap. */
 .setta-workspace-section-field-input {
@@ -55,22 +60,29 @@
   grid-template-rows: 1fr;
 }
 
+/* One type owner for both layers: main's `font-mono text-xs` metrics over the value editor
+ * theme's own foreground, so neither the font nor the text colour moves on activation. The
+ * disabled state stays interaction-only, as it does in main and in the package's item-row
+ * control; it must not repaint an ordinary pending field. */
 .setta-workspace-section-field-editor {
   min-width: 0;
   grid-column: 1 / 2;
   grid-row: 1 / 2;
   overflow: hidden;
-  color: rgb(43 54 74);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: rgb(36 41 46);
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
   font-size: 12px;
-  line-height: 20px;
+  font-weight: 400;
+  line-height: 16px;
   tab-size: 4;
   overflow-wrap: break-word;
   word-break: break-word;
 }
 
 .setta-workspace.setta-workspace-dark .setta-workspace-section-field-editor {
-  color: rgb(182 192 211);
+  color: rgb(201 209 217);
 }
 
 .setta-workspace-section-field[data-disabled="false"]
@@ -79,13 +91,20 @@
   user-select: text;
 }
 
+/* CodeMirror's own base theme sets a generic monospace family and a 1.4 line box on the scroller
+ * and pads the content and line boxes. Hand every layer of the live editor back to the field's
+ * shared type and let the wrapper own all padding, so the live layer's line box is exactly the
+ * idle layer's. */
+.setta-workspace-section-field-editor-live .cm-editor,
+.setta-workspace-section-field-editor-live .cm-scroller,
 .setta-workspace-section-field-editor-live .cm-content,
 .setta-workspace-section-field-editor-live .cm-line {
-  padding-inline: 0;
+  font: inherit;
 }
 
-.setta-workspace-section-field-editor-live .cm-content {
-  padding-block: 0;
+.setta-workspace-section-field-editor-live .cm-content,
+.setta-workspace-section-field-editor-live .cm-line {
+  padding: 0;
 }
 
 .setta-workspace-section-field-editor-live * {

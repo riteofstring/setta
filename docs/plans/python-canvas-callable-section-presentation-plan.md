@@ -615,6 +615,52 @@ the non-editable/selectable/copyable and click-state proof in this reopened phas
 acceptance, the accepted-candidate record, corrective screenshots/metrics, and this phase's closing
 `test --changed` and `test-levels` steps remain open.
 
+**Callable-field correction record.** The first of this phase's four corrections is implemented: the
+package-owned `section-field` surface carries frozen main's callable field instead of an
+approximation of it. `styles/sectionField.css` is the one box owner — 16px radius, a one-pixel
+border, 4px block and 10px inline padding, 2px inline margin, white/`setta-950` backgrounds, and
+`setta-100`/`setta-800` borders — and the one type owner for both layers, at `ui-monospace` 12px
+over a 16px line box, weight 400, tab size 4. Main leaves its live layer on CodeMirror's own generic
+`monospace` and 1.4 line box and patches the difference with a three-pixel line offset; here the
+live layer's `.cm-editor`, `.cm-scroller`, `.cm-content`, and `.cm-line` take `font: inherit` and
+drop CodeMirror's own padding, so activation changes the border colour to main's focus blue and
+nothing else. Two deliberate consequences: the idle layer now paints the value editor theme's own
+foreground, so a committed callable does not repaint when it activates, and the disabled state no
+longer repaints the surface at all. Disabled is interaction-only here, as it is in main and in the
+package's item-row control, so an ordinary pending callable no longer flips the field's background.
+
+The field wrapper carries `data-workspace-section-field`, documented in the package README as the
+one public hook for observing or capturing this surface. The production walkthrough and this phase's
+remaining capture evidence both need the field's own rectangle, and a consumer proof in this
+repository may not select a package-private class.
+
+Proofs: `styles/sectionField.test.ts` pins the donor box, the light and dark paint, the
+focus-changes-only-the-border rule, and the single type owner, and fails on a second box owner or
+any live-only font declaration. A section-field component case proves both layers carry that one
+type owner across the activation swap and that the field exposes the documented hook. In the
+production walkthrough a real pointer click on the idle field proves the donor surface values, box
+drift within one CSS pixel, and identical computed font family, size, weight, and line height, with
+the focused border at main's blue; the same pass repeats over the committed `math.sqrt` value, where
+it also compares text colour. An empty field's placeholder layer carries its own muted colour in
+both states, so colour belongs to that value pass rather than to the placeholder one.
+
+Verification for this correction: the `code-policy` CLI is still not installed in this task
+worktree, so the declared suite commands ran directly. The workspace suite passes (1164 tests across
+141 files) alongside its declared public-API focused suite, the playground suite passes (43 tests),
+the Python Canvas frontend suite passes (35 tests), the workspace, playground, and Python Canvas
+TypeScript projects are clean, and the packaged boundary check passes over source and built
+artifacts. The production browser walkthrough — production build, the real Go service built from
+the locked release's pinned toolchain, pinned Basedpyright, and headless Chrome at 1440x900 and
+device scale 1 — passed twice in a row. Two negative controls bind the new assertion to this fix: against the
+previous stylesheet it fails on the translucent idle background, and with only the live layer's
+`font: inherit` removed it fails with that layer falling back to CodeMirror's generic `monospace`.
+
+The rest of this phase stays open: the built-in Code section's `readOnly`-to-mode cutover and its
+generated-output presentation, the Python Canvas selection of that mode with its broad app focus
+rule, the light and dark capture evidence with machine-readable metrics, the supervisor's inspection
+of those images, developer visual acceptance, and this phase's closing `test --changed` and
+`test-levels` steps.
+
 ## Stop conditions
 
 Stop and request a scope decision if:
