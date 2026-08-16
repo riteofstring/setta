@@ -11,32 +11,17 @@ existing callable flow.
 
 ## Run locally
 
-Install the locked workspace dependencies from the repository root:
+From the repository root, run the local-development wrapper:
 
 ```sh
-pnpm install --frozen-lockfile
-pnpm --filter @setta/workspace run build
+./scripts/run-python-canvas.sh
 ```
 
-Start the loopback-only Go service from one terminal:
-
-```sh
-go -C apps/python-canvas/backend run ./cmd/python-canvas
-```
-
-It listens on `127.0.0.1:8080`, materializes its temporary generated file, and
-starts the app's pinned `basedpyright` dependency. No globally installed
-language server is used.
-
-Start Vite from a second terminal:
-
-```sh
-pnpm --filter @setta/python-canvas dev
-```
-
-Open the URL Vite prints (normally `http://127.0.0.1:5173`). Its `/api` proxy
-targets `http://127.0.0.1:8080` by default. Use Ctrl-C in both terminals to
-shut down the service, language server, temporary generated file, and Vite.
+The wrapper installs the frozen dependencies, builds `@setta/workspace`, starts
+the loopback-only Go service and its pinned `basedpyright`, waits for the
+backend to become ready, and then starts Vite. Open the URL Vite prints
+(normally `http://127.0.0.1:5173`). One Ctrl-C shuts down the service, language
+server, temporary generated file, and Vite.
 
 To exercise the checked-in walkthrough against the production frontend, real
 Go service, and pinned language server, run:
