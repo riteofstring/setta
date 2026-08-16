@@ -226,6 +226,16 @@
         "timeoutSeconds": 300
       },
       {
+        "name": "python-canvas-browser",
+        "kind": "browser",
+        "scope": "repository",
+        "cost": "standard",
+        "paths": ["apps/python-canvas/**"],
+        "argv": ["pnpm", "--filter", "@setta/python-canvas", "run", "browser:test"],
+        "runOn": ["recommended", "full"],
+        "timeoutSeconds": 300
+      },
+      {
         "name": "packed-consumer-contract",
         "kind": "contract",
         "scope": "repository",
