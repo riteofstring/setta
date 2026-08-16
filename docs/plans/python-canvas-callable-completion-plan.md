@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-**Status: Phases A and B are complete; Phase C closeout is pending.**
+**Status: All phases are complete; ready for final audit.**
 
 This plan adds only the first narrow callable-name completion slice to the existing Python Canvas
 application. It is deliberately a completion of the accepted first vertical slice, not a restart of
@@ -442,7 +442,7 @@ the one `math.sq` flow work.
 
 ### Phase C — final contract, documentation, and Code Policy closeout
 
-- [ ] Contract/docs audit and authorized Code Policy verification complete
+- [x] Contract/docs audit and authorized Code Policy verification complete
 
 Audit the completed vertical slice and record concise evidence in this plan:
 
@@ -471,6 +471,36 @@ required checks without a protected configuration change, stop rather than widen
 `doctor --strict`, contract-drift, and selected build results; the browser walkthrough result; the
 real Basedpyright integration result; and a one-line scope audit confirming only the intended
 completion route and seam were added.
+
+**Recorded closeout evidence (2026-08-18):** Against trusted base
+`13721b4dd881caf649aa21cadf2c12785dcae6f3`, the contract/docs audit confirmed that the generated
+TypeScript projection matches the Go completion request/response contract, the runtime parser
+accepts only that closed shape, and the only completion route is the read-only
+`POST /api/v1/project/callable/completions`. The project query captures immutable canonical state
+before provider work; only the Callable editor receives the generic provider, parameter editors do
+not, and the workspace root exposes only generic completion request/option/result/provider types
+without CodeMirror, LSP, Python, network, or application-error leakage. The historical first-slice
+plan is unchanged, and the README documents only callable-name completion while retaining all
+remaining deferrals. The Phase B browser proof records the no-mutation canonical snapshot comparison
+after selection and the second-Enter existing commit flow.
+
+`code-policy doctor --strict` passed. After frozen scriptless
+`pnpm install --frozen-lockfile --ignore-scripts` and a passing workspace production build and
+package-boundary check, `code-policy test --changed --base
+13721b4dd881caf649aa21cadf2c12785dcae6f3` passed all four focused suites:
+`workspace-focused`, `playground-focused`, `python-canvas-backend-focused`, and
+`python-canvas-frontend-focused`. `code-policy test-levels --base
+13721b4dd881caf649aa21cadf2c12785dcae6f3` passed and reported focused (4 quick suites), recommended
+(9 suites: `workspace-focused`, `playground-focused`, `python-canvas-backend-focused`,
+`python-canvas-frontend-focused`, `workspace-component`, `playground-component`,
+`python-canvas-contract-drift`, `python-canvas-cross-language-boundary`, and
+`python-canvas-browser`), suggested full (those 9 plus `packed-consumer-contract` and
+`workspace-browser-profile`), and no supplemental suites. The authorized recommended profile was
+run by the supervisor outside the model sandbox: `code-policy test --recommended --base
+13721b4dd881caf649aa21cadf2c12785dcae6f3` exited 0 with `NOTE ran 9 test suites` and
+`PASS policy completed without findings`. That run included contract drift, cross-language runtime
+contracts, workspace/playground components, the real `python-canvas-browser` walkthrough, and the
+pinned Basedpyright completion integration in `python-canvas-backend-focused`.
 
 **Avoid rabbit holes:** close the declared contract and proof. Do not turn the audit into a review
 of unrelated workspace internals, main parity, source discovery, persistence, execution, or a
