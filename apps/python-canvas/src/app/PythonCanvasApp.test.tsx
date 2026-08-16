@@ -138,12 +138,14 @@ describe("PythonCanvasApp", () => {
     expect(host.dispose).toHaveBeenCalledTimes(1);
   });
 
-  it("registers the callable editor as leading content above a filter-only Args toolbar", () => {
+  it("registers the callable editor as leading content above the authoring Args toolbar", () => {
     const host = createHostStub();
     registerPythonCanvasSectionKinds(host as unknown as WorkspaceHost);
 
     const callable = registeredCallableKind();
-    expect(callable.itemArea.toolbar).toBe("filter-only");
+    // The toolbar's Add, Remove Last, and Delete Selected all reach the canonical
+    // parameter-list mutation, so this section takes the ordinary authoring mode.
+    expect(callable.itemArea.toolbar).toBe("authoring-and-filter");
     // What the registered slot renders, not which component expression produced it: the compact
     // callable field keeps its section-field placement and accessible name through any wrapper.
     const leading = renderLeadingContent(
@@ -164,13 +166,34 @@ describe("PythonCanvasApp", () => {
             authoredExpression: "3",
             default: null,
             disabled: false,
-            kind: "parameter",
             name: "x",
-            parameterId: "parameter:square-root:1",
+            nameEditable: false,
           },
         },
       }),
     ).toBe("x");
+  });
+
+  // The package's Add parameter action asks this factory for the record it inserts, and the ID it
+  // proposes here is the parameter ID the store adopts.
+  it("creates one complete blank app-authored parameter with a stable ID", () => {
+    const host = createHostStub();
+    host.getSnapshot.mockReturnValue({ sections: {} });
+    registerPythonCanvasSectionKinds(host as unknown as WorkspaceHost);
+
+    const created = registeredCallableKind().createItem({});
+    const repeated = registeredCallableKind().createItem({});
+
+    expect(created.children).toEqual([]);
+    expect(created.data).toEqual({
+      authoredExpression: "",
+      default: null,
+      disabled: false,
+      name: "",
+      nameEditable: true,
+    });
+    expect(created.id).toMatch(/^parameter:authored:.+/u);
+    expect(repeated.id).not.toBe(created.id);
   });
 
   // Main's callable search keeps its draft only until the field is left: Escape drops it for the
@@ -283,6 +306,11 @@ function createDeferred<T>() {
 }
 
 type CallableKindRegistration = {
+  createItem: (context: unknown) => {
+    children: Array<string>;
+    data: unknown;
+    id: string;
+  };
   getItemSearchableText: (context: unknown) => string;
   itemArea: {
     renderLeadingContent: (section: unknown) => ReactNode;
@@ -291,15 +319,16 @@ type CallableKindRegistration = {
 };
 
 function registeredCallableKind(): CallableKindRegistration {
-  const kinds = mocks.registerSectionKinds.mock.calls[0]?.[1] as
+  const kinds = mocks.registerSectionKinds.mock.calls.at(-1)?.[1] as
     Record<string, Partial<CallableKindRegistration>> | undefined;
   const callable = kinds?.["python-canvas.callable"];
   if (
     callable?.itemArea?.renderLeadingContent === undefined ||
-    callable.getItemSearchableText === undefined
+    callable.getItemSearchableText === undefined ||
+    callable.createItem === undefined
   ) {
     throw new Error(
-      "The callable kind registers no item area with leading content.",
+      "The callable kind registers no item area with leading content and a factory.",
     );
   }
   return callable as CallableKindRegistration;
@@ -323,6 +352,7 @@ function renderLeadingContent(node: ReactNode): HTMLDivElement {
           onCallableDraftChange: vi.fn(),
           onCallableRevert: vi.fn(),
           onParameterExpressionChange: vi.fn(),
+          onParameterNameChange: vi.fn(),
           pendingDescription: null,
         }}
       >

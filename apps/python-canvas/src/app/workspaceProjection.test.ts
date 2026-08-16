@@ -4,6 +4,8 @@ import projectSnapshotFixture from "../../backend/internal/contracts/testdata/pr
 import {
   WORKSPACE_CODE_SECTION_KIND,
   createWorkspaceHost,
+  deleteWorkspaceItems,
+  type WorkspaceHost,
 } from "@setta/workspace";
 import { describe, expect, it, vi } from "vitest";
 
@@ -12,14 +14,12 @@ import { CALLABLE_SECTION_ID } from "../sections/CallableSection";
 import {
   CALLABLE_SECTION_KIND,
   GENERATED_PYTHON_SECTION_ID,
+  applyProjectSnapshotKeepingParameterList,
   applyProjectSnapshotToWorkspace,
   projectWorkspaceDocument,
+  readCallableParameterItems,
 } from "./workspaceProjection";
-import {
-  PARAMETER_ITEM_ID,
-  readCallableSectionData,
-  readParameterItemData,
-} from "../sections/CallableSection";
+import { readCallableSectionData } from "../sections/CallableSection";
 import { parseProjectSnapshotV1 } from "../backend/runtimeContract";
 
 describe("Python Canvas workspace projection", () => {
@@ -37,7 +37,9 @@ describe("Python Canvas workspace projection", () => {
       id: CALLABLE_SECTION_ID,
       kind: CALLABLE_SECTION_KIND,
       name: snapshot.callables[0].name,
-      positionAndSizeLocked: true,
+      // Parameter authoring is a structural item mutation the package refuses on a
+      // locked section, so this card is an ordinary movable one.
+      positionAndSizeLocked: false,
     });
     expect(readCallableSectionData(callable?.data)).toMatchObject({
       callable: {
@@ -45,12 +47,15 @@ describe("Python Canvas workspace projection", () => {
         id: snapshot.callables[0].id,
         name: snapshot.callables[0].name,
       },
-      hasParameter: false,
-      parameterDiagnostics: [],
+      parameterDiagnostics: {},
     });
-    expect(
-      readParameterItemData(callable?.itemTree?.items[PARAMETER_ITEM_ID]?.data),
-    ).toEqual({ kind: "empty" });
+    // An uncommitted callable has no parameters, so its list has no rows.
+    expect(callable?.itemTree?.items).toEqual({
+      "python-canvas:callable:parameter-root": {
+        id: "python-canvas:callable:parameter-root",
+        children: [],
+      },
+    });
     expect(generatedPython).toMatchObject({
       id: GENERATED_PYTHON_SECTION_ID,
       kind: WORKSPACE_CODE_SECTION_KIND,
@@ -74,6 +79,37 @@ describe("Python Canvas workspace projection", () => {
     expect(projectWorkspaceDocument(snapshot)).toEqual(document);
   });
 
+  it("projects the canonical parameter list as the item tree in canonical order", () => {
+    const snapshot = snapshotWithParameters([
+      providerParameter("missing_value"),
+      authoredParameter("scale", "2"),
+    ]);
+    const callable =
+      projectWorkspaceDocument(snapshot).sections[CALLABLE_SECTION_ID];
+
+    // The item IDs are the canonical parameter IDs, in the canonical order.
+    expect(
+      callable?.itemTree?.items["python-canvas:callable:parameter-root"]
+        ?.children,
+    ).toEqual(["parameter:square-root:provider", "parameter:authored:scale"]);
+    expect(callable?.itemTree?.items["parameter:authored:scale"]?.data).toEqual(
+      {
+        authoredExpression: "2",
+        default: null,
+        disabled: false,
+        name: "scale",
+        nameEditable: true,
+      },
+    );
+    expect(
+      readCallableSectionData(callable?.data).parameterDiagnostics,
+    ).toEqual({
+      "parameter:square-root:provider": [
+        { message: 'Name "missing_value" is not defined', severity: "error" },
+      ],
+    });
+  });
+
   it("refuses generated Python that does not compose its canonical parts", () => {
     const snapshot = parseProjectSnapshotV1(projectSnapshotFixture);
     expect(() =>
@@ -84,39 +120,50 @@ describe("Python Canvas workspace projection", () => {
     ).toThrow(/does not compose its canonical prefix, body, and suffix/u);
   });
 
+  it("refuses a response whose callable does not carry its own parameters", () => {
+    const snapshot = snapshotWithParameters([providerParameter("3")]);
+    expect(() =>
+      projectWorkspaceDocument({
+        ...snapshot,
+        callables: [{ ...snapshot.callables[0], parameterIds: [] }],
+      }),
+    ).toThrow(/parameters its callable does not carry/u);
+  });
+
   it("reconciles a canonical response through public mutations without reloading the host", () => {
-    const initial = parseProjectSnapshotV1(projectSnapshotFixture);
-    const next = snapshotWithMappedDiagnostic();
-    const host = createWorkspaceHost();
+    const initial = snapshotWithParameters([providerParameter("")]);
+    const next = snapshotWithParameters([providerParameter("missing_value")]);
+    const host = createHostForTest(initial);
     const loadDocument = vi.spyOn(host, "loadDocument");
-    registerPythonCanvasSectionKinds(host);
-    host.loadDocument(projectWorkspaceDocument(initial));
 
     applyProjectSnapshotToWorkspace(host, next);
 
-    expect(loadDocument).toHaveBeenCalledTimes(1);
+    expect(loadDocument).not.toHaveBeenCalled();
     const callable = host.getSnapshot().sections[CALLABLE_SECTION_ID];
     expect(readCallableSectionData(callable?.data)).toMatchObject({
       callable: {
         authoredExpression: "math.sqrt",
         id: "callable:square-root",
       },
-      hasParameter: true,
-      parameterDiagnostics: [
-        { message: 'Name "missing_value" is not defined', severity: "error" },
-      ],
+      parameterDiagnostics: {
+        "parameter:square-root:provider": [
+          { message: 'Name "missing_value" is not defined', severity: "error" },
+        ],
+      },
       providerStatus: { state: "ready", status: "available" },
     });
-    expect(
-      readParameterItemData(callable?.itemTree?.items[PARAMETER_ITEM_ID]?.data),
-    ).toEqual({
-      authoredExpression: "missing_value",
-      default: null,
-      disabled: false,
-      kind: "parameter",
-      name: "x",
-      parameterId: "parameter:square-root:1",
-    });
+    expect(readCallableParameterItems(host.getSnapshot())).toEqual([
+      {
+        data: {
+          authoredExpression: "missing_value",
+          default: null,
+          disabled: false,
+          name: "x",
+          nameEditable: false,
+        },
+        id: "parameter:square-root:provider",
+      },
+    ]);
     expect(
       host.getSnapshot().sections[GENERATED_PYTHON_SECTION_ID]?.data,
     ).toMatchObject({
@@ -127,6 +174,69 @@ describe("Python Canvas workspace projection", () => {
         to: next.generatedCode.code.length - next.pythonTarget.suffix.length,
       },
     });
+
+    host.dispose();
+  });
+
+  // A commit resolves a new signature, and a rejected proposal has to be put back: both arrive as
+  // a canonical list this document does not hold, and both are rebuilt through the package's own
+  // insertion and deletion funnels rather than by reloading the document.
+  it("rebuilds the item tree when a canonical response reshapes the parameter list", () => {
+    const initial = snapshotWithParameters([
+      providerParameter(""),
+      authoredParameter("scale", "2"),
+    ]);
+    const next = snapshotWithParameters([
+      authoredParameter("offset", "1"),
+      providerParameter("3"),
+    ]);
+    const host = createHostForTest(initial);
+    const loadDocument = vi.spyOn(host, "loadDocument");
+
+    applyProjectSnapshotToWorkspace(host, next);
+
+    expect(loadDocument).not.toHaveBeenCalled();
+    expect(
+      readCallableParameterItems(host.getSnapshot()).map((item) => [
+        item.id,
+        item.data.name,
+      ]),
+    ).toEqual([
+      ["parameter:authored:offset", "offset"],
+      ["parameter:square-root:provider", "x"],
+    ]);
+
+    host.dispose();
+  });
+
+  // A structural action runs in the package the moment it is clicked, so a response can arrive
+  // for a list the document has already moved past. Rebuilding the canonical list over it would
+  // throw away what the person last asked for, which is the defect the production walkthrough's
+  // bulk deletion caught.
+  it("leaves a document that moved past the response holding its own parameter list", () => {
+    const initial = snapshotWithParameters([
+      providerParameter(""),
+      authoredParameter("scale", "2"),
+    ]);
+    const answered = snapshotWithParameters([
+      providerParameter("3"),
+      authoredParameter("scale", "2"),
+    ]);
+    const host = createHostForTest(initial);
+    // The person deleted the authored row while the proposal above was in flight.
+    deleteWorkspaceItems(host, CALLABLE_SECTION_ID, [
+      "parameter:authored:scale",
+    ]);
+
+    applyProjectSnapshotKeepingParameterList(host, answered);
+
+    expect(
+      readCallableParameterItems(host.getSnapshot()).map((item) => [
+        item.id,
+        item.data.authoredExpression,
+      ]),
+      // The deleted row stays deleted, and the surviving row still takes the project's own value.
+    ).toEqual([["parameter:square-root:provider", "3"]]);
 
     host.dispose();
   });
@@ -158,16 +268,69 @@ describe("Python Canvas workspace projection", () => {
   });
 });
 
-function snapshotWithMappedDiagnostic() {
-  const code = `import math
+function createHostForTest(
+  snapshot: ReturnType<typeof parseProjectSnapshotV1>,
+): WorkspaceHost {
+  const host = createWorkspaceHost();
+  registerPythonCanvasSectionKinds(host);
+  host.loadDocument(projectWorkspaceDocument(snapshot));
+  return host;
+}
 
-class SettaState:
-    def __init__(state):
-        state.Square_Root__x = missing_value
-        state.Square_Root = math.sqrt(state.Square_Root__x)
+function providerParameter(authoredExpression: string) {
+  return {
+    authoredExpression,
+    default: null,
+    id: "parameter:square-root:provider",
+    name: "x",
+    nameEditable: false,
+    passingStyle: "positional_only",
+    typeAnnotation: "float",
+  };
+}
 
-state = SettaState()`;
-  const parameterStart = code.indexOf("missing_value");
+function authoredParameter(name: string, authoredExpression: string) {
+  return {
+    authoredExpression,
+    default: null,
+    id: `parameter:authored:${name}`,
+    name,
+    nameEditable: true,
+    passingStyle: "positional_or_keyword",
+    typeAnnotation: "",
+  };
+}
+
+// One committed `math.sqrt` project holding exactly the given ordered parameter list, with the
+// generated document and diagnostic ranges the Go renderer would produce for it.
+function snapshotWithParameters(
+  parameters: Array<ReturnType<typeof providerParameter>>,
+): ReturnType<typeof parseProjectSnapshotV1> {
+  const assignments = parameters
+    .filter((parameter) => parameter.authoredExpression !== "")
+    .map(
+      (parameter) =>
+        `        state.Square_Root__${parameter.name} = ${parameter.authoredExpression}`,
+    );
+  const callArguments = parameters
+    .filter((parameter) => parameter.authoredExpression !== "")
+    .map((parameter) =>
+      parameter.nameEditable
+        ? `${parameter.name}=state.Square_Root__${parameter.name}`
+        : `state.Square_Root__${parameter.name}`,
+    );
+  const body = [
+    "class SettaState:",
+    "    def __init__(state):",
+    ...assignments,
+    `        state.Square_Root = math.sqrt(${callArguments.join(", ")})`,
+  ].join("\n");
+  const code = `import math\n\n${body}\n\nstate = SettaState()`;
+  const diagnosed = parameters.find(
+    (parameter) => parameter.authoredExpression === "missing_value",
+  );
+  const diagnosedStart = code.indexOf("missing_value");
+
   return parseProjectSnapshotV1({
     version: "v1",
     project: { id: "project:python-canvas", revision: 3 },
@@ -180,41 +343,35 @@ state = SettaState()`;
         authoredExpression: "math.sqrt",
         id: "callable:square-root",
         name: "Square Root",
-        parameterIds: ["parameter:square-root:1"],
+        parameterIds: parameters.map((parameter) => parameter.id),
       },
     ],
-    parameters: [
-      {
-        authoredExpression: "missing_value",
-        default: null,
-        id: "parameter:square-root:1",
-        name: "x",
-        passingStyle: "positional_only",
-        typeAnnotation: "float",
-      },
-    ],
+    parameters,
     generatedCode: {
-      body: code.slice(
-        "import math\n\n".length,
-        -"\n\nstate = SettaState()".length,
-      ),
+      body,
       code,
-      sourceRanges: [
-        {
-          end: parameterStart + "missing_value".length,
-          start: parameterStart,
-          targetId: "parameter:square-root:1",
-        },
-      ],
+      sourceRanges:
+        diagnosed === undefined
+          ? []
+          : [
+              {
+                end: diagnosedStart + "missing_value".length,
+                start: diagnosedStart,
+                targetId: diagnosed.id,
+              },
+            ],
     },
-    diagnostics: [
-      {
-        id: "diagnostic:parameter:square-root:1:1",
-        message: 'Name "missing_value" is not defined',
-        severity: "error",
-        targetId: "parameter:square-root:1",
-      },
-    ],
+    diagnostics:
+      diagnosed === undefined
+        ? []
+        : [
+            {
+              id: `diagnostic:${diagnosed.id}:1`,
+              message: 'Name "missing_value" is not defined',
+              severity: "error",
+              targetId: diagnosed.id,
+            },
+          ],
     providerStatus: {
       provider: "basedpyright",
       state: "ready",

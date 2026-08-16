@@ -22,20 +22,29 @@ const (
 	pythonPrefix           = "import math"
 	pythonSuffix           = "state = SettaState()"
 
+	// This slice's callable has exactly one provider-derived parameter, so that record
+	// is one stable slot rather than a fresh ordinal per commit. Recommitting a callable
+	// replaces what the slot holds; it does not make the row a different row.
+	squareRootProviderParameterID = "parameter:square-root:provider"
+
 	// The expression the shipped Square Root example demonstrates. It is committed
 	// through the ordinary provider-backed path at startup, so nothing downstream
 	// has to invent it.
 	squareRootCallableExpression = "math.sqrt"
 
 	maxAuthoredExpressionBytes = 16 * 1024
+	maxParameterNameBytes      = 256
+	maxParameterIDBytes        = 256
 )
 
 var (
 	ErrProjectNotFound             = errors.New("project: project not found")
 	ErrCallableSectionNotFound     = errors.New("project: callable section not found")
-	ErrParameterNotFound           = errors.New("project: parameter not found")
 	ErrCallableExpressionInvalid   = errors.New("project: callable expression is invalid")
 	ErrParameterExpressionInvalid  = errors.New("project: parameter expression is invalid")
+	ErrParameterNameInvalid        = errors.New("project: parameter name is invalid")
+	ErrParameterListInvalid        = errors.New("project: proposed parameter list is invalid")
+	ErrProjectRevisionStale        = errors.New("project: project revision is stale")
 	ErrLSPProviderRequired         = errors.New("project: LSP provider is required")
 	ErrProviderUnavailable         = errors.New("project: LSP provider is unavailable")
 	ErrUnsupportedSignature        = errors.New("project: callable signature is unsupported")
@@ -94,29 +103,42 @@ type Store struct {
 }
 
 type canonicalState struct {
-	revision             int
-	callable             callableState
-	parameter            *parameterState
-	nextParameterOrdinal int
-	rendered             codegen.Result
-	diagnostics          []contracts.DiagnosticV1
-	providerStatus       contracts.ProviderStatusV1
+	revision int
+	callable callableState
+	// The callable's complete ordered parameter list. Order is meaning here: it is
+	// the order the module renders and the order the section shows.
+	parameters     []parameterState
+	rendered       codegen.Result
+	diagnostics    []contracts.DiagnosticV1
+	providerStatus contracts.ProviderStatusV1
 }
 
 type callableState struct {
-	ID           string
-	Name         string
-	Expression   string
-	ParameterIDs []string
+	ID         string
+	Name       string
+	Expression string
 }
 
 type parameterState struct {
-	ID             string
-	Name           string
+	ID   string
+	Name string
+	// A provider-derived record's name belongs to the resolved signature, so only an
+	// app-authored record may be renamed. The snapshot says so explicitly rather than
+	// leaving the frontend to infer it from an ID, a blank name, or a list position.
+	NameEditable   bool
 	PassingStyle   codegen.ParameterPassingStyle
 	TypeAnnotation string
 	Default        *string
 	Expression     string
+}
+
+// ParameterProposal is one complete record in a proposed parameter list. A
+// retained ID keeps its backend-owned metadata; an unknown ID creates a new
+// app-authored record.
+type ParameterProposal struct {
+	ID                 string
+	Name               string
+	AuthoredExpression string
 }
 
 // NewStoreWithProvider creates a store that owns one real LSP provider for
@@ -234,14 +256,19 @@ func (store *Store) CommitCallable(
 	return snapshot, nil
 }
 
-// SetParameterExpression stores the authored Python expression without
-// coercion, renders the complete candidate, and commits it only after its
-// generated file is replaced.
-func (store *Store) SetParameterExpression(
+// SetCallableParameters replaces the callable's complete ordered parameter list
+// in one transaction: reorderings, renames, value edits, insertions, and
+// deletions all arrive as the whole proposed candidate bound to the revision the
+// client last saw. The store validates the entire request, preserves
+// backend-owned metadata for retained records, renders the whole module,
+// materializes it, synchronizes diagnostics, and only then publishes one new
+// revision.
+func (store *Store) SetCallableParameters(
 	ctx context.Context,
 	projectID string,
-	parameterID string,
-	expression string,
+	callableID string,
+	expectedRevision int,
+	proposals []ParameterProposal,
 ) (contracts.ProjectSnapshotV1, error) {
 	if store == nil {
 		return contracts.ProjectSnapshotV1{}, ErrStoreClosed
@@ -252,19 +279,23 @@ func (store *Store) SetParameterExpression(
 
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	if err := ctx.Err(); err != nil {
+	parameters, err := store.resolveProposedParametersLocked(
+		ctx,
+		projectID,
+		callableID,
+		expectedRevision,
+		proposals,
+	)
+	if err != nil {
 		return contracts.ProjectSnapshotV1{}, err
 	}
-	if err := store.validateSetParameterExpressionLocked(projectID, parameterID, expression); err != nil {
-		return contracts.ProjectSnapshotV1{}, err
-	}
-	if expression == store.state.parameter.Expression {
+	if sameParameterList(store.state.parameters, parameters) {
 		return store.state.snapshot(), nil
 	}
 
 	candidate := cloneState(store.state)
 	candidate.revision++
-	candidate.parameter.Expression = expression
+	candidate.parameters = parameters
 	if err := renderState(&candidate); err != nil {
 		return contracts.ProjectSnapshotV1{}, err
 	}
@@ -283,17 +314,133 @@ func (store *Store) SetParameterExpression(
 	return snapshot, nil
 }
 
-func (store *Store) validateSetParameterExpressionLocked(projectID string, parameterID string, expression string) error {
+// The whole request is judged before any of it is applied: the store's own liveness,
+// the project and callable it names, the revision it was bound to, and every proposed
+// record.
+func (store *Store) resolveProposedParametersLocked(
+	ctx context.Context,
+	projectID string,
+	callableID string,
+	expectedRevision int,
+	proposals []ParameterProposal,
+) ([]parameterState, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if store.closed {
-		return ErrStoreClosed
+		return nil, ErrStoreClosed
 	}
-	if projectID != initialProjectID {
-		return fmt.Errorf("%w: %q", ErrProjectNotFound, projectID)
+	if err := validateProjectAndSection(projectID, callableID); err != nil {
+		return nil, err
 	}
-	if store.state.parameter == nil || parameterID != store.state.parameter.ID {
-		return fmt.Errorf("%w: %q", ErrParameterNotFound, parameterID)
+	if expectedRevision != store.state.revision {
+		return nil, fmt.Errorf(
+			"%w: canonical revision is %d, request expected %d",
+			ErrProjectRevisionStale,
+			store.state.revision,
+			expectedRevision,
+		)
 	}
-	return validateParameterExpression(expression)
+	return buildProposedParameters(store.state, proposals)
+}
+
+func buildProposedParameters(state canonicalState, proposals []ParameterProposal) ([]parameterState, error) {
+	retained := make(map[string]parameterState, len(state.parameters))
+	for _, parameter := range state.parameters {
+		retained[parameter.ID] = parameter
+	}
+
+	proposed := make([]string, 0, len(proposals))
+	parameters := make([]parameterState, 0, len(proposals))
+	for index, proposal := range proposals {
+		if err := validateProposedParameterID(index, proposal.ID, state.callable.ID, proposed); err != nil {
+			return nil, err
+		}
+		proposed = append(proposed, proposal.ID)
+		parameter, isRetained := retained[proposal.ID]
+		if !isRetained {
+			parameter = newAuthoredParameter(proposal.ID)
+		}
+		if err := applyParameterProposal(&parameter, proposal, index); err != nil {
+			return nil, err
+		}
+		parameters = append(parameters, parameter)
+	}
+	return parameters, nil
+}
+
+// A new authored record takes the backend's own defaults: main's ordinary kwarg
+// passing style, no fabricated type or default, and an editable name.
+func newAuthoredParameter(id string) parameterState {
+	return parameterState{
+		ID:           id,
+		NameEditable: true,
+		PassingStyle: codegen.ParameterPassingStylePositionalOrKeyword,
+	}
+}
+
+func applyParameterProposal(parameter *parameterState, proposal ParameterProposal, index int) error {
+	name := strings.TrimSpace(proposal.Name)
+	if !parameter.NameEditable && name != parameter.Name {
+		return fmt.Errorf(
+			"%w: parameter %d name %q is owned by the resolved signature",
+			ErrParameterListInvalid,
+			index,
+			name,
+		)
+	}
+	if err := validateParameterName(name); err != nil {
+		return err
+	}
+	if err := validateParameterExpression(proposal.AuthoredExpression); err != nil {
+		return err
+	}
+	parameter.Name = name
+	parameter.Expression = proposal.AuthoredExpression
+	return nil
+}
+
+func validateProposedParameterID(index int, id string, callableID string, proposed []string) error {
+	if id == "" || id != strings.TrimSpace(id) || len(id) > maxParameterIDBytes {
+		return fmt.Errorf("%w: parameter %d has an unusable ID", ErrParameterListInvalid, index)
+	}
+	if id == callableID || id == initialProjectID {
+		return fmt.Errorf("%w: parameter %d ID collides with an existing target", ErrParameterListInvalid, index)
+	}
+	for _, seen := range proposed {
+		if seen == id {
+			return fmt.Errorf("%w: parameter %d repeats ID %q", ErrParameterListInvalid, index, id)
+		}
+	}
+	return nil
+}
+
+// An authored record may be blank while it is being written, exactly as main's
+// new kwarg is. A name that is present has to be usable as a Python keyword
+// argument.
+func validateParameterName(name string) error {
+	if name == "" {
+		return nil
+	}
+	if len(name) > maxParameterNameBytes || !isPythonIdentifier(name) || codegen.IsPythonKeyword(name) {
+		return fmt.Errorf("%w: %q", ErrParameterNameInvalid, name)
+	}
+	return nil
+}
+
+func sameParameterList(current []parameterState, proposed []parameterState) bool {
+	if len(current) != len(proposed) {
+		return false
+	}
+	for index, parameter := range current {
+		candidate := proposed[index]
+		if parameter.ID != candidate.ID ||
+			parameter.Name != candidate.Name ||
+			parameter.Expression != candidate.Expression {
+			return false
+		}
+	}
+	return true
 }
 
 // Close removes the temporary generated-file workspace and prevents further
@@ -324,14 +471,13 @@ func newInitialState() (canonicalState, error) {
 	state := canonicalState{
 		revision: initialProjectRevision,
 		callable: callableState{
-			ID:           squareRootCallableID,
-			Name:         squareRootCallableName,
-			Expression:   "",
-			ParameterIDs: []string{},
+			ID:         squareRootCallableID,
+			Name:       squareRootCallableName,
+			Expression: "",
 		},
-		nextParameterOrdinal: 1,
-		diagnostics:          []contracts.DiagnosticV1{},
-		providerStatus:       initialProviderStatus(),
+		parameters:     []parameterState{},
+		diagnostics:    []contracts.DiagnosticV1{},
+		providerStatus: initialProviderStatus(),
 	}
 	if err := renderState(&state); err != nil {
 		return canonicalState{}, err
@@ -374,17 +520,17 @@ func buildCallableCommitCandidate(
 	candidate := cloneState(state)
 	candidate.revision++
 	candidate.callable.Expression = expression
-	parameterID := fmt.Sprintf("parameter:square-root:%d", candidate.nextParameterOrdinal)
-	candidate.nextParameterOrdinal++
-	candidate.callable.ParameterIDs = []string{parameterID}
-	candidate.parameter = &parameterState{
-		ID:             parameterID,
+	// Committing a callable replaces the whole list from the newly resolved
+	// signature, so a provider-derived record arrives with a name this store owns.
+	candidate.parameters = []parameterState{{
+		ID:             squareRootProviderParameterID,
 		Name:           resolvedParameter.Name,
+		NameEditable:   false,
 		PassingStyle:   resolvedParameter.PassingStyle,
 		TypeAnnotation: resolvedParameter.TypeAnnotation,
 		Default:        copyStringPointer(resolvedParameter.Default),
 		Expression:     "",
-	}
+	}}
 	if err := renderState(&candidate); err != nil {
 		return canonicalState{}, err
 	}
@@ -397,8 +543,7 @@ func buildCallableCommitCandidate(
 func buildSignatureRequest(state canonicalState, expression string) (SignatureRequest, error) {
 	candidate := cloneState(state)
 	candidate.callable.Expression = expression
-	candidate.callable.ParameterIDs = []string{}
-	candidate.parameter = nil
+	candidate.parameters = []parameterState{}
 	if err := renderState(&candidate); err != nil {
 		return SignatureRequest{}, fmt.Errorf("render signature snapshot: %w", err)
 	}
@@ -488,13 +633,21 @@ func renderState(state *canonicalState) error {
 	if state == nil {
 		return errors.New("project: missing canonical state")
 	}
-	parameters := []codegen.Parameter{}
-	if state.parameter != nil {
+	// An authored record with no name yet is not part of the rendered call, exactly
+	// as main omits an incomplete kwarg. It stays canonical state so the row a
+	// person is filling in survives the round trip.
+	parameters := make([]codegen.Parameter, 0, len(state.parameters))
+	renderedParameterIDs := make([]string, 0, len(state.parameters))
+	for _, parameter := range state.parameters {
+		if parameter.Name == "" {
+			continue
+		}
+		renderedParameterIDs = append(renderedParameterIDs, parameter.ID)
 		parameters = append(parameters, codegen.Parameter{
-			ID:           state.parameter.ID,
-			Name:         state.parameter.Name,
-			PassingStyle: state.parameter.PassingStyle,
-			Expression:   state.parameter.Expression,
+			ID:           parameter.ID,
+			Name:         parameter.Name,
+			PassingStyle: parameter.PassingStyle,
+			Expression:   parameter.Expression,
 		})
 	}
 	rendered, err := codegen.Render(codegen.Input{
@@ -504,7 +657,7 @@ func renderState(state *canonicalState) error {
 			ID:           state.callable.ID,
 			Name:         state.callable.Name,
 			Expression:   state.callable.Expression,
-			ParameterIDs: append([]string(nil), state.callable.ParameterIDs...),
+			ParameterIDs: renderedParameterIDs,
 		},
 		Parameters: parameters,
 	})
@@ -524,16 +677,18 @@ func (state canonicalState) validatedSnapshot() (contracts.ProjectSnapshotV1, er
 }
 
 func (state canonicalState) snapshot() contracts.ProjectSnapshotV1 {
-	parameterIDs := append([]string{}, state.callable.ParameterIDs...)
-	parameters := []contracts.ParameterV1{}
-	if state.parameter != nil {
+	parameterIDs := make([]string, 0, len(state.parameters))
+	parameters := make([]contracts.ParameterV1, 0, len(state.parameters))
+	for _, parameter := range state.parameters {
+		parameterIDs = append(parameterIDs, parameter.ID)
 		parameters = append(parameters, contracts.ParameterV1{
-			ID:                 state.parameter.ID,
-			Name:               state.parameter.Name,
-			PassingStyle:       contracts.ParameterPassingStyleV1(state.parameter.PassingStyle),
-			TypeAnnotation:     state.parameter.TypeAnnotation,
-			Default:            copyStringPointer(state.parameter.Default),
-			AuthoredExpression: state.parameter.Expression,
+			ID:                 parameter.ID,
+			Name:               parameter.Name,
+			NameEditable:       parameter.NameEditable,
+			PassingStyle:       contracts.ParameterPassingStyleV1(parameter.PassingStyle),
+			TypeAnnotation:     parameter.TypeAnnotation,
+			Default:            copyStringPointer(parameter.Default),
+			AuthoredExpression: parameter.Expression,
 		})
 	}
 	ranges := make([]contracts.GeneratedSourceRangeV1, 0, len(state.rendered.SourceRanges))
@@ -574,11 +729,10 @@ func (state canonicalState) snapshot() contracts.ProjectSnapshotV1 {
 
 func cloneState(state canonicalState) canonicalState {
 	clone := state
-	clone.callable.ParameterIDs = append([]string(nil), state.callable.ParameterIDs...)
-	if state.parameter != nil {
-		parameter := *state.parameter
-		parameter.Default = copyStringPointer(state.parameter.Default)
-		clone.parameter = &parameter
+	clone.parameters = make([]parameterState, 0, len(state.parameters))
+	for _, parameter := range state.parameters {
+		parameter.Default = copyStringPointer(parameter.Default)
+		clone.parameters = append(clone.parameters, parameter)
 	}
 	clone.rendered.SourceRanges = append([]codegen.SourceRange(nil), state.rendered.SourceRanges...)
 	clone.diagnostics = append([]contracts.DiagnosticV1{}, state.diagnostics...)

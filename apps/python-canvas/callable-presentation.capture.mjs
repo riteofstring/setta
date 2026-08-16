@@ -31,7 +31,6 @@ import {
   assertNonEditingGeneratedText,
   assertSettledCardIsInsideCanvas,
   assertSettledSectionIsNotPromoted,
-  callableCompletionPopupScript,
   callableCompletionPopupSelector,
   callableFieldStateScript,
   callableSectionSelector,
@@ -45,6 +44,7 @@ import {
   generatedDocumentStateScript,
   idleCallableSelector,
   liveCallableSelector,
+  readPlacedCallableCompletionPopup,
   readSettledSectionState,
   settledSectionCompositing,
   waitForCallableCompletion,
@@ -323,10 +323,9 @@ async function captureZoomedStates(client, previewOrigin, appearance) {
   await insertText(client, completionDraft);
   await waitForCallableDraft(client, callableLabel, completionDraft);
   await waitForCallableCompletion(client, completionLabel);
-  const popup = await readSurfaceState(
+  const popup = await readPlacedCallableCompletionPopup(
     client,
-    callableCompletionPopupScript,
-    `The ${appearance} zoomed completion popup`,
+    `The ${appearance} zoomed`,
   );
   assertCompletionPopupEscapesTheSection(`The ${appearance} zoomed`, popup);
   // The popup is joined to the card here, because this image has to show the whole list the

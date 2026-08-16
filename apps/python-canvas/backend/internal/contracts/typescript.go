@@ -11,7 +11,7 @@ export const PROJECT_SNAPSHOT_VERSION_V1 = %q as const;
 export const PROJECT_PATH_V1 = %q as const;
 export const PROJECT_CALLABLE_PATH_V1 = %q as const;
 export const PROJECT_CALLABLE_COMPLETIONS_PATH_V1 = %q as const;
-export const PROJECT_PARAMETER_PATH_V1 = %q as const;
+export const PROJECT_PARAMETERS_PATH_V1 = %q as const;
 
 export const PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1 = %q as const;
 export const PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1 = %q as const;
@@ -59,6 +59,8 @@ export type APIErrorCodeV1 =
   | %q
   | %q
   | %q
+  | %q
+  | %q
   | %q;
 
 export interface ProjectSnapshotV1 {
@@ -92,6 +94,7 @@ export interface CallableV1 {
 export interface ParameterV1 {
   id: string;
   name: string;
+  nameEditable: boolean;
   passingStyle: ParameterPassingStyleV1;
   typeAnnotation: string;
   default: string | null;
@@ -145,9 +148,17 @@ export interface CallableCompletionResponseV1 {
   items: CallableCompletionItemV1[];
 }
 
-export interface SetParameterExpressionRequestV1 {
-  projectId: string;
+export interface ParameterProposalV1 {
+  id: string;
+  name: string;
   authoredExpression: string;
+}
+
+export interface SetCallableParametersRequestV1 {
+  projectId: string;
+  callableId: string;
+  expectedRevision: number;
+  parameters: ParameterProposalV1[];
 }
 
 export interface APIErrorV1 {
@@ -163,7 +174,7 @@ export interface ErrorResponseV1 {
 		ProjectPathV1,
 		ProjectCallablePathV1,
 		ProjectCallableCompletionsPathV1,
-		ProjectParameterPathV1,
+		ProjectParametersPathV1,
 		ParameterPassingStylePositionalOnlyV1,
 		ParameterPassingStylePositionalOrKeywordV1,
 		ParameterPassingStyleKeywordOnlyV1,
@@ -184,6 +195,8 @@ export interface ErrorResponseV1 {
 		APIErrorCodeNotFoundV1,
 		APIErrorCodeInvalidCallableV1,
 		APIErrorCodeInvalidParameterExpressionV1,
+		APIErrorCodeInvalidParameterNameV1,
+		APIErrorCodeRevisionConflictV1,
 		APIErrorCodeUnsupportedSignatureV1,
 		APIErrorCodeProviderUnavailableV1,
 		APIErrorCodeInternalV1,

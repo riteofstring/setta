@@ -4,7 +4,7 @@ export const PROJECT_SNAPSHOT_VERSION_V1 = "v1" as const;
 export const PROJECT_PATH_V1 = "/api/v1/project" as const;
 export const PROJECT_CALLABLE_PATH_V1 = "/api/v1/project/callable" as const;
 export const PROJECT_CALLABLE_COMPLETIONS_PATH_V1 = "/api/v1/project/callable/completions" as const;
-export const PROJECT_PARAMETER_PATH_V1 = "/api/v1/project/parameters/" as const;
+export const PROJECT_PARAMETERS_PATH_V1 = "/api/v1/project/parameters" as const;
 
 export const PARAMETER_PASSING_STYLE_POSITIONAL_ONLY_V1 = "positional_only" as const;
 export const PARAMETER_PASSING_STYLE_POSITIONAL_OR_KEYWORD_V1 = "positional_or_keyword" as const;
@@ -50,6 +50,8 @@ export type APIErrorCodeV1 =
   | "not_found"
   | "invalid_callable"
   | "invalid_parameter_expression"
+  | "invalid_parameter_name"
+  | "revision_conflict"
   | "unsupported_signature"
   | "provider_unavailable"
   | "internal";
@@ -85,6 +87,7 @@ export interface CallableV1 {
 export interface ParameterV1 {
   id: string;
   name: string;
+  nameEditable: boolean;
   passingStyle: ParameterPassingStyleV1;
   typeAnnotation: string;
   default: string | null;
@@ -138,9 +141,17 @@ export interface CallableCompletionResponseV1 {
   items: CallableCompletionItemV1[];
 }
 
-export interface SetParameterExpressionRequestV1 {
-  projectId: string;
+export interface ParameterProposalV1 {
+  id: string;
+  name: string;
   authoredExpression: string;
+}
+
+export interface SetCallableParametersRequestV1 {
+  projectId: string;
+  callableId: string;
+  expectedRevision: number;
+  parameters: ParameterProposalV1[];
 }
 
 export interface APIErrorV1 {

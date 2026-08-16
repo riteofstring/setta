@@ -1976,6 +1976,95 @@ What this leaves in this phase, unchanged except for the shortcut half: Python C
 semantics with the canonical Python-target mutation, and then the recapture, read-only review,
 supervisor inspection, developer acceptance, and closing Code Policy steps.
 
+**Canonical parameter-list mutation record.** This phase's fifth correction is implemented for the
+parameter list, and the app half of its fourth correction travels with it. The protected-range
+semantics and the canonical Python-target mutation remain open: the target mutation has no reachable
+caller until the generated document accepts an outer edit, so it belongs to that batch rather than
+to this one.
+
+The Go store no longer holds one fixed parameter pointer. `canonicalState` carries the callable's
+complete ordered `[]parameterState`, the callable's own `ParameterIDs` and the
+`nextParameterOrdinal` counter are gone, and a provider-derived record takes one stable slot ID, so
+recommitting a callable replaces what that slot holds rather than making the row a different row. A
+`ParameterV1` now says `nameEditable` outright, because only the app's own records may be renamed
+and the client may not infer that from an ID, a blank name, or a list position. The narrow
+`/api/v1/project/parameters/{id}` route is replaced — not supplemented — by `SetCallableParameters`
+on `/api/v1/project/parameters`: one revision-bound request carrying the whole proposed list, so a
+reorder, rename, value edit, insertion and deletion are the same transaction. The store validates
+the entire candidate before any of it applies, keeps backend-owned metadata for a retained ID,
+creates a new record's defaults for an unknown one, and refuses a stale revision with
+`revision_conflict`. A blank authored name is legal at both boundaries, exactly as main's new kwarg
+is, and the renderer omits an unnamed record from the generated call while the store keeps it, so
+the row a person is filling in survives the round trip.
+
+Python Canvas cuts over in the same batch. The workspace item tree **is** the canonical parameter
+list — same IDs, same order — so `authoring-and-filter` gives the section main's real Add, Remove
+Last, and Delete Selected, and the app's subscription proposes whatever list the package's own
+funnels leave in the document. The card is no longer position-locked, because the package refuses
+structural item authoring on a locked section. An authored row renders the package's own
+`ItemNameEditor`; a signature-derived row keeps its static label. Ordinary edits write only item
+data; a response that reshapes the list — a new signature, or a restore after a rejected proposal —
+is rebuilt through the package's insertion and deletion funnels rather than by reloading the host.
+
+Three defects were found by running the production walkthrough rather than by reading the diff, and
+all three are fixed at their cause.
+
+The first is a product defect this batch introduced. A structural action runs inside the package the
+moment it is clicked, so a response could arrive for a list the document had already moved past, and
+the reconcile then rebuilt the canonical list over it — a row added or deleted while Basedpyright
+was checking simply vanished. `applyProjectSnapshotKeepingParameterList` is the answer: when the
+document no longer holds the list a proposal was made from, the project's own data lands on the rows
+that survive, the list itself is left alone, and the newer list is proposed in turn. The bulk
+deletion in the walkthrough failed intermittently on exactly this, and a focused projection case now
+pins it beside the existing rebuild case that proves the ordinary path still reconciles.
+
+The second is in the shared browser harness. CodeMirror mounts a completion tooltip parked far above
+the document and positions it on its next measure pass, so an offered completion is not evidence
+that the popup has a place yet; at 2x zoom the park reads as a popup 19,998 CSS px above the field.
+`readPlacedCallableCompletionPopup` waits for the popup to leave the park before the placement is
+judged, and both the walkthrough and the capture harness read through it. A popup a section crops is
+placed and then clipped, so it never parks, and this wait cannot hide the defect the assertion is
+about.
+
+The third is in this batch's own new assertion. `[aria-label$="selected"]` also matches
+`not selected`, and the companion clause required no row in the document to be unselected, which the
+signature-derived row can never satisfy. The claim is now read where the package states it — each
+selectable row's own accessible name — as exactly two selected authored rows beside one unselected
+provider row. The gesture also had to learn what the package does: inserting a row makes it the
+section's selection, so the chord reaches the rows that still report themselves unselected, and it
+fails rather than passing vacuously if there are none.
+
+Two file extractions are forced by `quality.fileLength` and are behaviour-preserving. The
+walkthrough reached 1089 lines against the shared 1000-line limit, so the argument-authoring proofs
+moved to `browser-parameters.mjs` beside the existing `browser-page.mjs` and `browser-processes.mjs`,
+leaving the walkthrough at 897. `.code-policy.json` is untouched. `parseApiErrorCode` was pushed
+past `quality.complexity` by the two new codes and now decides membership from one declared list
+instead of one branch per code, and `SetCallableParameters` was pushed past `quality.goComplexity`
+and now judges the whole request through `resolveProposedParametersLocked`, the same shape
+`CommitCallable` already uses.
+
+Verification for this batch: `code-policy check` over the worktree reports only the
+`quality.deadCode` finding on `apps/python-canvas/vitest.setup.ts` this plan already reports, over a
+file this batch does not touch; the `quality.complexity`, `quality.goComplexity`, and
+`quality.format` findings on files this batch edits were fixed rather than reported.
+`code-policy test --changed --base 1c5d84bbb` passes, `test-levels` reports a five-suite recommended
+and an eleven-suite full ordinary choice, and the authorized
+`code-policy test --recommended --base 1c5d84bbb` passes all five: the Python Canvas backend focused
+suite, the frontend focused suite (50 tests), contract drift, the cross-language boundary (10), and
+the production browser walkthrough against the production builds, the real Go service, pinned
+Basedpyright, and headless Chrome at 1440x900 device scale 1. The walkthrough passed three
+consecutive times after the in-flight fix, and the Python Canvas TypeScript project is clean. Two
+negative controls bind this batch: restoring the `filter-only` toolbar fails the walkthrough with
+_The Args toolbar rendered in "filter-only" instead of authoring-and-filter_, and restoring the
+section's position lock fails it with _Tab from the callable editor reached "Filter parameters"
+instead of the Args toolbar's Remove last parameter_ — the package withholds every structural
+control from a locked card.
+
+What remains in this phase: the generated document's protected-range semantics with the canonical
+Python-target mutation; then the recapture from an immutable source candidate, the read-only review,
+the supervisor's inspection, developer visual acceptance with its accepted-candidate record, and the
+closing `test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps.
+
 ## Stop conditions
 
 Stop and request a scope decision if:

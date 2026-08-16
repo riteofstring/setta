@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
   PROJECT_CALLABLE_PATH_V1,
-  PROJECT_PARAMETER_PATH_V1,
+  PROJECT_PARAMETERS_PATH_V1,
   PROJECT_PATH_V1,
 } from "./generatedContract";
 import {
@@ -12,7 +12,7 @@ import {
   commitCallable,
   completeCallable,
   fetchProjectSnapshot,
-  setParameterExpression,
+  setCallableParameters,
 } from "./client";
 
 describe("Python Canvas project client", () => {
@@ -58,26 +58,33 @@ describe("Python Canvas project client", () => {
     });
   });
 
-  it("sets the exact stable parameter ID through the generated V1 route", async () => {
+  it("sends the complete revision-bound parameter list through the generated V1 route", async () => {
     const response = createJsonResponse(projectSnapshotFixture);
     const fetchImplementation = vi.fn().mockResolvedValue(response);
+    const request = {
+      callableId: "callable:square-root",
+      expectedRevision: 2,
+      parameters: [
+        {
+          authoredExpression: "3",
+          id: "parameter:square-root:provider",
+          name: "x",
+        },
+        {
+          authoredExpression: "2",
+          id: "parameter:authored:1",
+          name: "scale",
+        },
+      ],
+      projectId: "project:python-canvas",
+    };
 
-    await setParameterExpression(
-      {
-        authoredExpression: "3",
-        parameterId: "parameter:square-root:1",
-        projectId: "project:python-canvas",
-      },
-      fetchImplementation as typeof fetch,
-    );
+    await setCallableParameters(request, fetchImplementation as typeof fetch);
 
     expect(fetchImplementation).toHaveBeenCalledWith(
-      `${PROJECT_PARAMETER_PATH_V1}parameter:square-root:1`,
+      PROJECT_PARAMETERS_PATH_V1,
       {
-        body: JSON.stringify({
-          authoredExpression: "3",
-          projectId: "project:python-canvas",
-        }),
+        body: JSON.stringify(request),
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
@@ -179,21 +186,42 @@ describe("Python Canvas project client", () => {
     } satisfies Partial<ProjectClientError>);
   });
 
-  it("rejects unsafe parameter IDs before issuing a request", async () => {
-    const fetchImplementation = vi.fn();
+  // A parameter ID now travels in the request body rather than in the route, so the route needs no
+  // injection guard. What the caller does need is the store's typed conflict.
+  it("surfaces a stale revision as its typed conflict code", async () => {
+    const response = createJsonResponse(
+      {
+        error: {
+          code: "revision_conflict",
+          message: "the project changed since this revision",
+        },
+      },
+      false,
+      409,
+    );
+    const fetchImplementation = vi.fn().mockResolvedValue(response);
 
     await expect(
-      setParameterExpression(
+      setCallableParameters(
         {
-          authoredExpression: "3",
-          parameterId: "parameter/other",
+          callableId: "callable:square-root",
+          expectedRevision: 2,
+          parameters: [
+            {
+              authoredExpression: "3",
+              id: "parameter:square-root:provider",
+              name: "x",
+            },
+          ],
           projectId: "project:python-canvas",
         },
         fetchImplementation as typeof fetch,
       ),
-    ).rejects.toMatchObject({ kind: "invalid_response" });
-
-    expect(fetchImplementation).not.toHaveBeenCalled();
+    ).rejects.toMatchObject({
+      code: "revision_conflict",
+      kind: "http",
+      status: 409,
+    } satisfies Partial<ProjectClientError>);
   });
 });
 

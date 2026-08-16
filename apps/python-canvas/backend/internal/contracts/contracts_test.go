@@ -184,6 +184,71 @@ func TestCallableCompletionV1ContractsValidateOnlyTheDeclaredRequestAndResponseF
 	}
 }
 
+func TestProjectSnapshotV1AcceptsAnUnnamedAuthoredParameterButNotAPaddedName(t *testing.T) {
+	// A record whose name has not been written yet is ordinary canonical state: the
+	// renderer omits it until it has one.
+	snapshot := validSnapshotForTest()
+	snapshot.Callables[0].AuthoredExpression = "math.sqrt"
+	snapshot.Callables[0].ParameterIDs = []string{"parameter:authored:1"}
+	snapshot.Parameters = []ParameterV1{{
+		ID:           "parameter:authored:1",
+		Name:         "",
+		NameEditable: true,
+		PassingStyle: ParameterPassingStylePositionalOrKeywordV1,
+	}}
+	if err := snapshot.Validate(); err != nil {
+		t.Fatalf("Validate() error = %v for a blank authored parameter name", err)
+	}
+
+	snapshot.Parameters[0].Name = " scale "
+	err := snapshot.Validate()
+	var validationError ValidationError
+	if !errors.As(err, &validationError) ||
+		validationError.Field != "parameters[0].name" ||
+		validationError.Problem != "must not include surrounding whitespace" {
+		t.Fatalf("Validate() error = %#v, want a padded-name failure", err)
+	}
+}
+
+func TestSetCallableParametersRequestV1ValidatesItsCompleteCandidate(t *testing.T) {
+	request := SetCallableParametersRequestV1{
+		ProjectID:        "project:test",
+		CallableID:       "callable:square-root",
+		ExpectedRevision: 2,
+		Parameters: []ParameterProposalV1{
+			{ID: "parameter:square-root:1", Name: "x", AuthoredExpression: "3"},
+			{ID: "parameter:authored:1", Name: "", AuthoredExpression: ""},
+		},
+	}
+	if err := request.Validate(); err != nil {
+		t.Fatalf("SetCallableParametersRequestV1.Validate() error = %v", err)
+	}
+
+	for _, test := range []struct {
+		name    string
+		request SetCallableParametersRequestV1
+	}{
+		{name: "missing callable", request: SetCallableParametersRequestV1{ProjectID: "project:test", ExpectedRevision: 2, Parameters: []ParameterProposalV1{}}},
+		{name: "unbound revision", request: SetCallableParametersRequestV1{ProjectID: "project:test", CallableID: "callable:square-root", Parameters: []ParameterProposalV1{}}},
+		{name: "absent list", request: SetCallableParametersRequestV1{ProjectID: "project:test", CallableID: "callable:square-root", ExpectedRevision: 2}},
+		{
+			name: "blank record id",
+			request: SetCallableParametersRequestV1{
+				ProjectID:        "project:test",
+				CallableID:       "callable:square-root",
+				ExpectedRevision: 2,
+				Parameters:       []ParameterProposalV1{{ID: " ", Name: "x"}},
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.request.Validate(); err == nil {
+				t.Fatalf("SetCallableParametersRequestV1.Validate() error = nil for %s", test.name)
+			}
+		})
+	}
+}
+
 func validSnapshotForTest() ProjectSnapshotV1 {
 	return ProjectSnapshotV1{
 		Version: ProjectSnapshotVersionV1,

@@ -8,11 +8,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   editorProps: [] as Array<Record<string, unknown>>,
+  nameEditorProps: [] as Array<Record<string, unknown>>,
   // The row the mocked item list renders. Every `render` call sets it.
   parameterItem: { data: undefined as unknown, id: "" },
 }));
 
 vi.mock("@setta/workspace", () => ({
+  // The package's own name editor, which an app-authored parameter renames through.
+  ItemNameEditor: (props: Record<string, unknown>) => {
+    mocks.nameEditorProps.push(props);
+    return <div data-name-editor={String(props.itemId)} />;
+  },
   TextValueEditor: (props: Record<string, unknown>) => {
     mocks.editorProps.push(props);
     return (
@@ -63,6 +69,7 @@ let root: Root | undefined;
 
 afterEach(() => {
   mocks.editorProps.length = 0;
+  mocks.nameEditorProps.length = 0;
   act(() => {
     root?.unmount();
   });
@@ -84,7 +91,7 @@ describe("CallableSection", () => {
     expect(callable.completionProvider).toBe(completionProvider);
     // Parameter rows keep the package's item-row control and take no completions.
     expect(parameter.presentation).toBe("item-row");
-    expect(parameter.controlId).toBe("python-canvas:callable:parameter");
+    expect(parameter.controlId).toBe("parameter:square-root:provider");
     expect(parameter.completionProvider).toBeUndefined();
     // No redundant visible label, and no idle sentence about the provider.
     expect(container?.textContent).not.toContain("Basedpyright");
@@ -187,7 +194,44 @@ describe("CallableSection", () => {
     expect(parameterItemSearchableText(parameterItemWithDefault())).toBe(
       "tolerance",
     );
-    expect(parameterItemSearchableText({ data: { kind: "empty" } })).toBe("");
+    // A row nobody has named yet matches nothing, which is what it shows.
+    expect(parameterItemSearchableText(authoredParameterItem(""))).toBe("");
+  });
+
+  it("renames an app-authored parameter through the package's own name editor", () => {
+    const onParameterNameChange = vi.fn();
+    render(
+      { onParameterNameChange },
+      callableData(),
+      authoredParameterItem(""),
+    );
+
+    // A provider-derived row keeps main's static label; an authored one gets the editor.
+    expect(
+      container?.querySelector(".python-canvas-parameter-label"),
+    ).toBeNull();
+    const nameEditor = mocks.nameEditorProps[0];
+    expect(nameEditor?.itemId).toBe("parameter:authored:1");
+    expect(nameEditor?.name).toBe("");
+    expect(nameEditor?.language).toBe("python");
+    (nameEditor?.onNameChange as (name: string) => void)("scale");
+    expect(onParameterNameChange).toHaveBeenCalledWith(
+      "parameter:authored:1",
+      "scale",
+    );
+    // Until it has a name, its value editor still needs an accessible one.
+    expect(renderedEditor("Unnamed parameter expression").controlId).toBe(
+      "parameter:authored:1",
+    );
+  });
+
+  it("keeps a provider-derived name out of the app's reach", () => {
+    render({}, callableData(), parameterItem());
+
+    expect(mocks.nameEditorProps).toEqual([]);
+    expect(
+      container?.querySelector(".python-canvas-parameter-label")?.textContent,
+    ).toBe("x");
   });
 
   it("renders main's ordinary text parameter rather than analyzer metadata", () => {
@@ -250,12 +294,13 @@ function render(
           onCallableDraftChange: vi.fn(),
           onCallableRevert: vi.fn(),
           onParameterExpressionChange: vi.fn(),
+          onParameterNameChange: vi.fn(),
           pendingDescription: null,
           ...overrides,
         }}
       >
         <CallableExpressionField />
-        <CallableSection data={data} />
+        <CallableSection data={data} parameterItemIds={[item.id]} />
       </PythonCanvasMutationContext.Provider>,
     );
   });
@@ -271,18 +316,18 @@ function renderedEditor(ariaLabel: string): Record<string, unknown> {
   return props;
 }
 
-// The real `math.sqrt` parameter: a positional `x` with no default.
+// The real `math.sqrt` parameter: a positional `x` with no default, whose name belongs to the
+// resolved signature.
 function parameterItem(): { data: unknown; id: string } {
   return {
     data: {
       authoredExpression: "",
       default: null,
       disabled: false,
-      kind: "parameter",
       name: "x",
-      parameterId: "parameter:square-root:1",
+      nameEditable: false,
     },
-    id: "python-canvas:callable:parameter",
+    id: "parameter:square-root:provider",
   };
 }
 
@@ -292,11 +337,24 @@ function parameterItemWithDefault(): { data: unknown; id: string } {
       authoredExpression: "",
       default: "1.0",
       disabled: false,
-      kind: "parameter",
       name: "tolerance",
-      parameterId: "parameter:square-root:2",
+      nameEditable: false,
     },
-    id: "python-canvas:callable:parameter",
+    id: "parameter:square-root:2",
+  };
+}
+
+// One app-authored record, which the store lets stay blank while someone writes it.
+function authoredParameterItem(name: string): { data: unknown; id: string } {
+  return {
+    data: {
+      authoredExpression: "",
+      default: null,
+      disabled: false,
+      name,
+      nameEditable: true,
+    },
+    id: "parameter:authored:1",
   };
 }
 
@@ -313,8 +371,7 @@ function callableData(
       id: "callable:square-root",
       name: "Square Root",
     },
-    hasParameter: true,
-    parameterDiagnostics: [],
+    parameterDiagnostics: {},
     providerStatus,
   };
 }

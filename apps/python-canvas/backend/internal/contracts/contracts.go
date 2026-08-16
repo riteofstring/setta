@@ -11,7 +11,7 @@ const (
 	ProjectPathV1                    = "/api/v1/project"
 	ProjectCallablePathV1            = "/api/v1/project/callable"
 	ProjectCallableCompletionsPathV1 = "/api/v1/project/callable/completions"
-	ProjectParameterPathV1           = "/api/v1/project/parameters/"
+	ProjectParametersPathV1          = "/api/v1/project/parameters"
 )
 
 // ProjectSnapshotV1 is the complete, normalized project document returned by
@@ -55,8 +55,11 @@ const (
 )
 
 type ParameterV1 struct {
-	ID                 string                  `json:"id"`
-	Name               string                  `json:"name"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// Whether this record's name belongs to the app rather than to the resolved
+	// signature. The client never infers renameability from anything else.
+	NameEditable       bool                    `json:"nameEditable"`
 	PassingStyle       ParameterPassingStyleV1 `json:"passingStyle"`
 	TypeAnnotation     string                  `json:"typeAnnotation"`
 	Default            *string                 `json:"default"`
@@ -178,16 +181,44 @@ func (response CallableCompletionResponseV1) Validate() error {
 	return nil
 }
 
-// SetParameterExpressionRequestV1 carries one authored Python expression.
-// The parameter ID remains in the exact route path so it cannot disagree with
-// a second body field.
-type SetParameterExpressionRequestV1 struct {
-	ProjectID          string `json:"projectId"`
+// ParameterProposalV1 is one record in a proposed parameter list. Backend-owned
+// metadata never crosses this boundary: the store keeps it for a retained ID and
+// creates it for a new one.
+type ParameterProposalV1 struct {
+	ID                 string `json:"id"`
+	Name               string `json:"name"`
 	AuthoredExpression string `json:"authoredExpression"`
 }
 
-func (request SetParameterExpressionRequestV1) Validate() error {
-	return requireRequestID("projectId", request.ProjectID)
+// SetCallableParametersRequestV1 carries one callable's complete proposed
+// parameter list, bound to the revision the client last saw. Reordering,
+// renaming, editing, adding, and deleting are all this one request.
+type SetCallableParametersRequestV1 struct {
+	ProjectID        string                `json:"projectId"`
+	CallableID       string                `json:"callableId"`
+	ExpectedRevision int                   `json:"expectedRevision"`
+	Parameters       []ParameterProposalV1 `json:"parameters"`
+}
+
+func (request SetCallableParametersRequestV1) Validate() error {
+	if err := requireRequestID("projectId", request.ProjectID); err != nil {
+		return err
+	}
+	if err := requireRequestID("callableId", request.CallableID); err != nil {
+		return err
+	}
+	if request.ExpectedRevision < 1 {
+		return ValidationError{Field: "expectedRevision", Problem: "must be at least 1"}
+	}
+	if request.Parameters == nil {
+		return ValidationError{Field: "parameters", Problem: "must be an array"}
+	}
+	for index, parameter := range request.Parameters {
+		if err := requireRequestID(fmt.Sprintf("parameters[%d].id", index), parameter.ID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type APIErrorCodeV1 string
@@ -198,6 +229,8 @@ const (
 	APIErrorCodeNotFoundV1                   APIErrorCodeV1 = "not_found"
 	APIErrorCodeInvalidCallableV1            APIErrorCodeV1 = "invalid_callable"
 	APIErrorCodeInvalidParameterExpressionV1 APIErrorCodeV1 = "invalid_parameter_expression"
+	APIErrorCodeInvalidParameterNameV1       APIErrorCodeV1 = "invalid_parameter_name"
+	APIErrorCodeRevisionConflictV1           APIErrorCodeV1 = "revision_conflict"
 	APIErrorCodeUnsupportedSignatureV1       APIErrorCodeV1 = "unsupported_signature"
 	APIErrorCodeProviderUnavailableV1        APIErrorCodeV1 = "provider_unavailable"
 	APIErrorCodeInternalV1                   APIErrorCodeV1 = "internal"
@@ -309,8 +342,10 @@ func validateParameters(parameters []ParameterV1, targetIDs map[string]struct{},
 		if _, exists := targetIDs[parameter.ID]; exists {
 			return ValidationError{Field: field + ".id", Problem: "must be unique"}
 		}
-		if strings.TrimSpace(parameter.Name) == "" {
-			return ValidationError{Field: field + ".name", Problem: "must not be empty"}
+		// A blank name is a record still being authored, which the renderer omits.
+		// Surrounding whitespace is not a name a client can have meant.
+		if parameter.Name != strings.TrimSpace(parameter.Name) {
+			return ValidationError{Field: field + ".name", Problem: "must not include surrounding whitespace"}
 		}
 		if !isPassingStyleV1(parameter.PassingStyle) {
 			return ValidationError{Field: field + ".passingStyle", Problem: "is not supported by V1"}

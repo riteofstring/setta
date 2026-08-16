@@ -381,7 +381,7 @@ const settledSectionStateScript = `(() => {
 // The open completion popup, the field it belongs to, and the section that used to crop it. The
 // popup is found by its own accessible role, and the page's own hit testing says what a person can
 // actually see of it: a popup clipped back inside the pill has nothing under these two points.
-export const callableCompletionPopupScript = `(() => {
+const callableCompletionPopupScript = `(() => {
   const section = document.querySelector(${JSON.stringify(callableSectionSelector)});
   const field = document.querySelector(${JSON.stringify(sectionFieldSelector)});
   const popup = document.querySelector(${JSON.stringify(callableCompletionPopupSelector)});
@@ -416,6 +416,22 @@ export const callableCompletionPopupScript = `(() => {
     optionCount: popup.querySelectorAll('[role="option"]').length,
   };
 })()`;
+
+// CodeMirror mounts a completion tooltip parked far above the document and gives it its real
+// position on the next measure pass, so the popup's options exist before its box means anything.
+// The offered completion is therefore not enough to read placement by; this waits for the popup to
+// leave the park. A popup a section crops is placed and then clipped, so it never parks here and
+// this wait cannot hide the defect the assertion is about.
+export async function readPlacedCallableCompletionPopup(client, stage) {
+  return waitFor(
+    client,
+    `${stage} completion popup taking its place beside the callable field`,
+    `(() => {
+      const state = ${callableCompletionPopupScript};
+      return state === null || state.popup.bottom <= 0 ? null : state;
+    })()`,
+  );
+}
 
 // The complete Square Root card: the developer rejected a candidate whose field crops looked
 // right while the card around them did not, so the composition is measured as one stack — the

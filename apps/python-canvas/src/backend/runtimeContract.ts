@@ -172,6 +172,7 @@ function parseParameters(value: unknown): ParameterV1[] {
     const record = readClosedRecord(entry, field, [
       "id",
       "name",
+      "nameEditable",
       "passingStyle",
       "typeAnnotation",
       "default",
@@ -180,6 +181,7 @@ function parseParameters(value: unknown): ParameterV1[] {
     return {
       id: readString(record.id, `${field}.id`),
       name: readString(record.name, `${field}.name`),
+      nameEditable: readBoolean(record.nameEditable, `${field}.nameEditable`),
       passingStyle: parsePassingStyle(
         record.passingStyle,
         `${field}.passingStyle`,
@@ -362,21 +364,28 @@ function parseDiagnosticSeverity(
   }
 }
 
+// Every code the generated union carries, listed once. This reader decides membership rather than
+// mapping each code to its own behavior, so the codes belong in a list rather than in branches.
+const API_ERROR_CODES_V1: ReadonlyArray<APIErrorCodeV1> = [
+  "invalid_request",
+  "method_not_allowed",
+  "not_found",
+  "invalid_callable",
+  "invalid_parameter_expression",
+  "invalid_parameter_name",
+  "revision_conflict",
+  "unsupported_signature",
+  "provider_unavailable",
+  "internal",
+];
+
 function parseApiErrorCode(value: unknown): APIErrorCodeV1 {
   const code = readString(value, "error response.error.code");
-  switch (code) {
-    case "invalid_request":
-    case "method_not_allowed":
-    case "not_found":
-    case "invalid_callable":
-    case "invalid_parameter_expression":
-    case "unsupported_signature":
-    case "provider_unavailable":
-    case "internal":
-      return code;
-    default:
-      fail("error response.error.code", "is not supported by V1");
+  const supported = API_ERROR_CODES_V1.find((candidate) => candidate === code);
+  if (supported === undefined) {
+    fail("error response.error.code", "is not supported by V1");
   }
+  return supported;
 }
 
 function validateSnapshotRelationships(snapshot: ProjectSnapshotV1): void {
@@ -418,7 +427,11 @@ function validateParameters(
     if (targetIds.has(parameter.id)) {
       fail(`${field}.id`, "must be unique");
     }
-    requireNonBlank(`${field}.name`, parameter.name);
+    // An app-authored record may still be unnamed, which the backend renders as no
+    // parameter at all. Surrounding whitespace is not a name anyone meant.
+    if (parameter.name !== parameter.name.trim()) {
+      fail(`${field}.name`, "must not include surrounding whitespace");
+    }
     targetIds.add(parameter.id);
     parameterIds.add(parameter.id);
   }
@@ -582,6 +595,13 @@ function readStringOrNull(value: unknown, field: string): string | null {
     return null;
   }
   return readString(value, field);
+}
+
+function readBoolean(value: unknown, field: string): boolean {
+  if (typeof value !== "boolean") {
+    fail(field, "must be a boolean");
+  }
+  return value;
 }
 
 function readInteger(value: unknown, field: string): number {

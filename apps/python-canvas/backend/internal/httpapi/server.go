@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/setta/python-canvas/backend/internal/contracts"
@@ -38,11 +37,12 @@ type ProjectService interface {
 		string,
 		int,
 	) ([]project.CallableCompletionItem, error)
-	SetParameterExpression(
+	SetCallableParameters(
 		context.Context,
 		string,
 		string,
-		string,
+		int,
+		[]project.ParameterProposal,
 	) (contracts.ProjectSnapshotV1, error)
 }
 
@@ -82,18 +82,39 @@ func (payload commitCallablePayload) toContract() (contracts.CommitCallableReque
 	}, true
 }
 
-type setParameterExpressionPayload struct {
-	ProjectID          string  `json:"projectId"`
+type parameterProposalPayload struct {
+	ID                 string  `json:"id"`
+	Name               *string `json:"name"`
 	AuthoredExpression *string `json:"authoredExpression"`
 }
 
-func (payload setParameterExpressionPayload) toContract() (contracts.SetParameterExpressionRequestV1, bool) {
-	if payload.AuthoredExpression == nil {
-		return contracts.SetParameterExpressionRequestV1{}, false
+type setCallableParametersPayload struct {
+	ProjectID        string                      `json:"projectId"`
+	CallableID       string                      `json:"callableId"`
+	ExpectedRevision *int                        `json:"expectedRevision"`
+	Parameters       *[]parameterProposalPayload `json:"parameters"`
+}
+
+func (payload setCallableParametersPayload) toContract() (contracts.SetCallableParametersRequestV1, bool) {
+	if payload.ExpectedRevision == nil || payload.Parameters == nil {
+		return contracts.SetCallableParametersRequestV1{}, false
 	}
-	return contracts.SetParameterExpressionRequestV1{
-		ProjectID:          payload.ProjectID,
-		AuthoredExpression: *payload.AuthoredExpression,
+	parameters := make([]contracts.ParameterProposalV1, 0, len(*payload.Parameters))
+	for _, parameter := range *payload.Parameters {
+		if parameter.Name == nil || parameter.AuthoredExpression == nil {
+			return contracts.SetCallableParametersRequestV1{}, false
+		}
+		parameters = append(parameters, contracts.ParameterProposalV1{
+			ID:                 parameter.ID,
+			Name:               *parameter.Name,
+			AuthoredExpression: *parameter.AuthoredExpression,
+		})
+	}
+	return contracts.SetCallableParametersRequestV1{
+		ProjectID:        payload.ProjectID,
+		CallableID:       payload.CallableID,
+		ExpectedRevision: *payload.ExpectedRevision,
+		Parameters:       parameters,
 	}, true
 }
 
@@ -116,13 +137,10 @@ func NewHandler(service ProjectService) (http.Handler, error) {
 			handleCallable(response, request, service)
 		case isExactPath(request, contracts.ProjectCallableCompletionsPathV1):
 			handleCallableCompletions(response, request, service)
+		case isExactPath(request, contracts.ProjectParametersPathV1):
+			handleParameters(response, request, service)
 		default:
-			parameterID, matchesParameterPath := parameterIDFromRequestPath(request)
-			if !matchesParameterPath {
-				writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV1, "route not found")
-				return
-			}
-			handleParameter(response, request, service, parameterID)
+			writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV1, "route not found")
 		}
 	}), nil
 }
@@ -209,11 +227,12 @@ func handleCallable(response http.ResponseWriter, request *http.Request, service
 	writeJSON(response, http.StatusOK, snapshot)
 }
 
-func handleParameter(
+// One route owns the callable's whole parameter list, so a reorder, rename,
+// value edit, insertion, and deletion all arrive as the same complete candidate.
+func handleParameters(
 	response http.ResponseWriter,
 	request *http.Request,
 	service ProjectService,
-	parameterID string,
 ) {
 	if !requireMethod(response, request, http.MethodPost) {
 		return
@@ -221,20 +240,29 @@ func handleParameter(
 	if !rejectQuery(response, request) {
 		return
 	}
-	var payload setParameterExpressionPayload
+	var payload setCallableParametersPayload
 	if !decodeJSONBody(response, request, &payload) {
 		return
 	}
-	body, hasAuthoredExpression := payload.toContract()
-	if !hasAuthoredExpression || body.Validate() != nil {
-		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "parameter request is invalid")
+	body, complete := payload.toContract()
+	if !complete || body.Validate() != nil {
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "parameter list request is invalid")
 		return
 	}
-	snapshot, err := service.SetParameterExpression(
+	proposals := make([]project.ParameterProposal, 0, len(body.Parameters))
+	for _, parameter := range body.Parameters {
+		proposals = append(proposals, project.ParameterProposal{
+			ID:                 parameter.ID,
+			Name:               parameter.Name,
+			AuthoredExpression: parameter.AuthoredExpression,
+		})
+	}
+	snapshot, err := service.SetCallableParameters(
 		request.Context(),
 		body.ProjectID,
-		parameterID,
-		body.AuthoredExpression,
+		body.CallableID,
+		body.ExpectedRevision,
+		proposals,
 	)
 	if err != nil {
 		writeMutationError(response, err)
@@ -276,13 +304,18 @@ func rejectRequestBody(response http.ResponseWriter, request *http.Request) bool
 func writeMutationError(response http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, project.ErrProjectNotFound),
-		errors.Is(err, project.ErrCallableSectionNotFound),
-		errors.Is(err, project.ErrParameterNotFound):
+		errors.Is(err, project.ErrCallableSectionNotFound):
 		writeError(response, http.StatusNotFound, contracts.APIErrorCodeNotFoundV1, "the requested project resource does not exist")
 	case errors.Is(err, project.ErrCallableExpressionInvalid):
 		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeInvalidCallableV1, "callable expression is invalid")
 	case errors.Is(err, project.ErrParameterExpressionInvalid):
 		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeInvalidParameterExpressionV1, "parameter expression is invalid")
+	case errors.Is(err, project.ErrParameterNameInvalid):
+		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeInvalidParameterNameV1, "parameter name is invalid")
+	case errors.Is(err, project.ErrParameterListInvalid):
+		writeError(response, http.StatusBadRequest, contracts.APIErrorCodeInvalidRequestV1, "parameter list request is invalid")
+	case errors.Is(err, project.ErrProjectRevisionStale):
+		writeError(response, http.StatusConflict, contracts.APIErrorCodeRevisionConflictV1, "the project changed since this revision")
 	case errors.Is(err, project.ErrUnsupportedSignature):
 		writeError(response, http.StatusUnprocessableEntity, contracts.APIErrorCodeUnsupportedSignatureV1, "callable signature is not supported")
 	case errors.Is(err, project.ErrLSPProviderRequired),
@@ -318,20 +351,6 @@ func isExactPath(request *http.Request, path string) bool {
 	return request.URL.Path == path &&
 		request.URL.RawPath == "" &&
 		request.URL.EscapedPath() == path
-}
-
-func parameterIDFromRequestPath(request *http.Request) (string, bool) {
-	if request.URL.RawPath != "" || request.URL.EscapedPath() != request.URL.Path {
-		return "", false
-	}
-	if !strings.HasPrefix(request.URL.Path, contracts.ProjectParameterPathV1) {
-		return "", false
-	}
-	parameterID := strings.TrimPrefix(request.URL.Path, contracts.ProjectParameterPathV1)
-	if parameterID == "" || strings.Contains(parameterID, "/") {
-		return "", false
-	}
-	return parameterID, true
 }
 
 // ListenLoopback binds only the IPv4 loopback interface.

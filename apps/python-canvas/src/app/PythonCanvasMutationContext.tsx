@@ -13,6 +13,9 @@ export type PythonCanvasMutationContextValue = {
   // committed expression, as main's callable search does.
   onCallableRevert: () => void;
   onParameterExpressionChange: (parameterId: string, value: string) => void;
+  // Renaming an app-authored parameter is the same proposal as editing its value: the app writes
+  // the workspace document and sends the whole list.
+  onParameterNameChange: (parameterId: string, name: string) => void;
 };
 
 export const PythonCanvasMutationContext =

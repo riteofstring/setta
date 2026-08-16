@@ -69,9 +69,15 @@ func TestPinnedBasedpyrightResolvesAndClearsMappedParameterDiagnostic(t *testing
 	}
 	requireReadyBasedpyrightStatus(t, callableSnapshot.ProviderStatus)
 
-	missingSnapshot, err := store.SetParameterExpression(ctx, initial.Project.ID, parameter.ID, "missing_value")
+	missingSnapshot, err := store.SetCallableParameters(
+		ctx,
+		initial.Project.ID,
+		initial.Callables[0].ID,
+		callableSnapshot.Project.Revision,
+		[]project.ParameterProposal{{ID: parameter.ID, Name: parameter.Name, AuthoredExpression: "missing_value"}},
+	)
 	if err != nil {
-		t.Fatalf("SetParameterExpression(missing_value) error = %v", err)
+		t.Fatalf("SetCallableParameters(missing_value) error = %v", err)
 	}
 	if missingSnapshot.Project.Revision != 3 {
 		t.Fatalf("missing_value revision = %d, want 3", missingSnapshot.Project.Revision)
@@ -81,9 +87,15 @@ func TestPinnedBasedpyrightResolvesAndClearsMappedParameterDiagnostic(t *testing
 		t.Fatalf("missing_value diagnostics = %#v, want an error for %q", missingSnapshot.Diagnostics, parameter.ID)
 	}
 
-	clearedSnapshot, err := store.SetParameterExpression(ctx, initial.Project.ID, parameter.ID, "3")
+	clearedSnapshot, err := store.SetCallableParameters(
+		ctx,
+		initial.Project.ID,
+		initial.Callables[0].ID,
+		missingSnapshot.Project.Revision,
+		[]project.ParameterProposal{{ID: parameter.ID, Name: parameter.Name, AuthoredExpression: "3"}},
+	)
 	if err != nil {
-		t.Fatalf("SetParameterExpression(3) error = %v", err)
+		t.Fatalf("SetCallableParameters(3) error = %v", err)
 	}
 	if clearedSnapshot.Project.Revision != 4 {
 		t.Fatalf("3 revision = %d, want 4", clearedSnapshot.Project.Revision)

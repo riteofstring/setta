@@ -45,10 +45,9 @@ func TestStoreCommitsWithExplicitProviderStatusWhenDiagnosticsArePendingOrUnavai
 	}
 
 	provider.syncErr = errors.New("server exited")
-	parameterID := pendingSnapshot.Parameters[0].ID
-	unavailableSnapshot, err := store.SetParameterExpression(context.Background(), initial.Project.ID, parameterID, "missing_value")
+	unavailableSnapshot, err := setParameterExpression(store, pendingSnapshot, "missing_value")
 	if err != nil {
-		t.Fatalf("SetParameterExpression() error = %v", err)
+		t.Fatalf("SetCallableParameters() error = %v", err)
 	}
 	if unavailableSnapshot.ProviderStatus.Status != contracts.ProviderAvailabilityUnavailableV1 ||
 		unavailableSnapshot.ProviderStatus.State != contracts.ProviderLifecycleStateFailedV1 {
@@ -68,7 +67,7 @@ func TestMapProviderDiagnosticsUsesRangesRatherThanProviderMessageWords(t *testi
 	callableStart := strings.Index(code, "math.sqrt")
 	diagnostics := mapProviderDiagnostics(code, []codegen.SourceRange{
 		{TargetID: "callable:square-root", Start: callableStart, End: callableStart + len("math.sqrt")},
-		{TargetID: "parameter:square-root:1", Start: parameterStart, End: parameterStart + len("missing_value")},
+		{TargetID: "parameter:square-root:provider", Start: parameterStart, End: parameterStart + len("missing_value")},
 	}, []ProviderDiagnostic{
 		{
 			Start:    parameterStart,
@@ -86,7 +85,7 @@ func TestMapProviderDiagnosticsUsesRangesRatherThanProviderMessageWords(t *testi
 	if len(diagnostics) != 1 {
 		t.Fatalf("mapped diagnostics = %#v", diagnostics)
 	}
-	if diagnostics[0].TargetID != "parameter:square-root:1" {
+	if diagnostics[0].TargetID != "parameter:square-root:provider" {
 		t.Fatalf("diagnostic target = %#v", diagnostics[0])
 	}
 }
@@ -95,7 +94,7 @@ func TestMapProviderDiagnosticsKeepsSameRangeDifferentSeverityIDsDistinct(t *tes
 	code := "state.value = missing_value"
 	start := strings.Index(code, "missing_value")
 	diagnostics := mapProviderDiagnostics(code, []codegen.SourceRange{{
-		TargetID: "parameter:square-root:1",
+		TargetID: "parameter:square-root:provider",
 		Start:    start,
 		End:      start + len("missing_value"),
 	}}, []ProviderDiagnostic{

@@ -1,14 +1,14 @@
 import {
   PROJECT_CALLABLE_COMPLETIONS_PATH_V1,
   PROJECT_CALLABLE_PATH_V1,
-  PROJECT_PARAMETER_PATH_V1,
+  PROJECT_PARAMETERS_PATH_V1,
   PROJECT_PATH_V1,
   type APIErrorCodeV1,
   type CallableCompletionRequestV1,
   type CallableCompletionResponseV1,
   type CommitCallableRequestV1,
   type ProjectSnapshotV1,
-  type SetParameterExpressionRequestV1,
+  type SetCallableParametersRequestV1,
 } from "./generatedContract";
 import {
   ProjectSnapshotValidationError,
@@ -32,10 +32,6 @@ export class ProjectClientError extends Error {
     super(message);
   }
 }
-
-type SetParameterExpressionInput = SetParameterExpressionRequestV1 & {
-  parameterId: string;
-};
 
 export async function fetchProjectSnapshot(
   fetchImplementation: typeof fetch = fetch,
@@ -70,14 +66,15 @@ export async function completeCallable(
   );
 }
 
-export async function setParameterExpression(
-  request: SetParameterExpressionInput,
+// One request carries the callable's complete proposed parameter list, so an
+// added, renamed, revalued, reordered, or deleted record is the same round trip.
+export async function setCallableParameters(
+  request: SetCallableParametersRequestV1,
   fetchImplementation: typeof fetch = fetch,
 ): Promise<ProjectSnapshotV1> {
-  const { parameterId, ...body } = request;
   return requestProjectSnapshot(
-    parameterExpressionPath(parameterId),
-    jsonPost(body),
+    PROJECT_PARAMETERS_PATH_V1,
+    jsonPost(request),
     fetchImplementation,
   );
 }
@@ -95,16 +92,6 @@ function jsonPost(body: object, signal?: AbortSignal): RequestInit {
     request.signal = signal;
   }
   return request;
-}
-
-function parameterExpressionPath(parameterId: string): string {
-  if (!/^[A-Za-z0-9:_-]+$/u.test(parameterId)) {
-    throw new ProjectClientError(
-      "invalid_response",
-      "Project endpoint returned an unsafe parameter ID.",
-    );
-  }
-  return `${PROJECT_PARAMETER_PATH_V1}${parameterId}`;
 }
 
 async function requestProjectSnapshot(

@@ -236,32 +236,93 @@ export async function clickElementCenter(client, selector, description) {
 }
 
 export async function selectAll(client) {
+  await pressPlatformModifierKey(client, {
+    code: "KeyA",
+    key: "a",
+    keyCode: 65,
+  });
+}
+
+// The platform chord the workspace's `Mod + K` binding resolves to, pressed as a real keyboard
+// event so the package's own dispatcher decides what it means.
+export async function pressModifierK(client) {
+  await pressPlatformModifierKey(client, {
+    code: "KeyK",
+    key: "k",
+    keyCode: 75,
+  });
+}
+
+async function pressPlatformModifierKey(client, { code, key, keyCode }) {
   const isMac = process.platform === "darwin";
-  const modifier = isMac ? 4 : 2;
+  const modifiers = isMac ? 4 : 2;
   const modifierKey = isMac ? "Meta" : "Control";
   await client.send("Input.dispatchKeyEvent", {
     code: modifierKey,
     key: modifierKey,
     type: "keyDown",
   });
-  await client.send("Input.dispatchKeyEvent", {
-    code: "KeyA",
-    key: "a",
-    modifiers: modifier,
-    type: "keyDown",
-    windowsVirtualKeyCode: 65,
-  });
-  await client.send("Input.dispatchKeyEvent", {
-    code: "KeyA",
-    key: "a",
-    modifiers: modifier,
-    type: "keyUp",
-    windowsVirtualKeyCode: 65,
-  });
+  for (const type of ["keyDown", "keyUp"]) {
+    await client.send("Input.dispatchKeyEvent", {
+      code,
+      key,
+      modifiers,
+      type,
+      windowsVirtualKeyCode: keyCode,
+    });
+  }
   await client.send("Input.dispatchKeyEvent", {
     code: modifierKey,
     key: modifierKey,
     type: "keyUp",
+  });
+}
+
+// The canvas's own item-selection gesture, the reference's held `Mod + Shift`. Rows only toggle
+// while it is held, so a bulk delete has to hold it exactly as a person does.
+export async function holdItemSelectionChord(client) {
+  const isMac = process.platform === "darwin";
+  await client.send("Input.dispatchKeyEvent", {
+    code: isMac ? "MetaLeft" : "ControlLeft",
+    key: isMac ? "Meta" : "Control",
+    modifiers: isMac ? 4 : 2,
+    type: "rawKeyDown",
+  });
+  await client.send("Input.dispatchKeyEvent", {
+    code: "ShiftLeft",
+    key: "Shift",
+    modifiers: (isMac ? 4 : 2) | 8,
+    type: "rawKeyDown",
+  });
+}
+
+export async function releaseItemSelectionChord(client) {
+  const isMac = process.platform === "darwin";
+  await client.send("Input.dispatchKeyEvent", {
+    code: "ShiftLeft",
+    key: "Shift",
+    modifiers: isMac ? 4 : 2,
+    type: "keyUp",
+  });
+  await client.send("Input.dispatchKeyEvent", {
+    code: isMac ? "MetaLeft" : "ControlLeft",
+    key: isMac ? "Meta" : "Control",
+    type: "keyUp",
+  });
+}
+
+// A real pointer press at an exact page point, for rows a selector alone cannot single out.
+export async function clickPoint(client, point) {
+  const params = { button: "left", clickCount: 1, x: point.x, y: point.y };
+  await client.send("Input.dispatchMouseEvent", {
+    ...params,
+    buttons: 1,
+    type: "mousePressed",
+  });
+  await client.send("Input.dispatchMouseEvent", {
+    ...params,
+    buttons: 0,
+    type: "mouseReleased",
   });
 }
 

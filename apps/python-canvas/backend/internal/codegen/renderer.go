@@ -80,17 +80,23 @@ func renderBody(graph dependencyGraph) (string, []SourceRange, int) {
 	return body.String(), ranges, callableCallOffset
 }
 
+// Positional arguments keep their list order and precede every keyword
+// argument, because Python has no other legal arrangement. A parameter list that
+// puts a keyword-passed record ahead of a positional-only one is an ordinary
+// authoring state, not a reason to render a syntax error.
 func renderCallArguments(parameters []dependencyNode) string {
-	arguments := make([]string, 0, len(parameters))
+	positional := make([]string, 0, len(parameters))
+	keyword := make([]string, 0, len(parameters))
 	for _, parameter := range parameters {
 		if parameter.expression == "" {
 			continue
 		}
 		value := "state." + parameter.path
 		if parameter.passingStyle == ParameterPassingStylePositionalOrKeyword {
-			value = parameter.name + "=" + value
+			keyword = append(keyword, parameter.name+"="+value)
+			continue
 		}
-		arguments = append(arguments, value)
+		positional = append(positional, value)
 	}
-	return strings.Join(arguments, ", ")
+	return strings.Join(append(positional, keyword...), ", ")
 }

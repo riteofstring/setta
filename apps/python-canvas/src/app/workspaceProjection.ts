@@ -1,11 +1,16 @@
 import {
   WORKSPACE_CODE_SECTION_KIND,
   createWorkspaceCodeSectionData,
+  deleteWorkspaceItems,
+  insertWorkspaceItem,
   setItemData,
   setSectionData,
   setWorkspaceCodeSectionData,
+  type WorkspaceDocument,
   type WorkspaceDocumentInput,
   type WorkspaceHost,
+  type WorkspaceItem,
+  type WorkspaceSection,
 } from "@setta/workspace";
 
 import {
@@ -16,7 +21,6 @@ import {
 } from "../backend/generatedContract";
 import {
   CALLABLE_SECTION_ID,
-  PARAMETER_ITEM_ID,
   PARAMETER_ITEM_ROOT_ID,
   type CallableSectionData,
   type ParameterItemData,
@@ -45,7 +49,9 @@ export function projectWorkspaceDocument(
         size: CALLABLE_SECTION_SIZE,
         overflowMode: false,
         isMinimized: false,
-        positionAndSizeLocked: true,
+        // Parameter authoring is a structural item mutation, which the package
+        // refuses on a locked section, so this card is an ordinary movable one.
+        positionAndSizeLocked: false,
         isHorizontalOrientation: false,
         styleColor: null,
         tagColor: null,
@@ -53,17 +59,7 @@ export function projectWorkspaceDocument(
         data: projectCallableSectionData(snapshot),
         itemTree: {
           rootId: PARAMETER_ITEM_ROOT_ID,
-          items: {
-            [PARAMETER_ITEM_ROOT_ID]: {
-              id: PARAMETER_ITEM_ROOT_ID,
-              children: [PARAMETER_ITEM_ID],
-            },
-            [PARAMETER_ITEM_ID]: {
-              id: PARAMETER_ITEM_ID,
-              children: [],
-              data: projectParameterItemData(snapshot),
-            },
-          },
+          items: projectParameterItems(snapshot),
           selectedItemIds: [],
         },
       },
@@ -103,10 +99,10 @@ export function projectWorkspaceDocument(
   };
 }
 
-// Applies one canonical Go response through the workspace public mutation
-// seams. The stable parameter slot is only a rendering vessel for this fixed
-// one-parameter slice; its application-owned data carries the backend ID and
-// never becomes a second semantic project model.
+// Applies one canonical Go response through the workspace public mutation seams. The item tree is
+// the canonical parameter list: same IDs, same order. Ordinary edits leave the structure alone, so
+// only item data is written; a response that reshapes the list — a fresh signature, or a restore
+// after a rejected proposal — is rebuilt through the package's own insertion and deletion funnels.
 export function applyProjectSnapshotToWorkspace(
   host: WorkspaceHost,
   snapshot: ProjectSnapshotV1,
@@ -116,12 +112,7 @@ export function applyProjectSnapshotToWorkspace(
     CALLABLE_SECTION_ID,
     projectCallableSectionData(snapshot),
   );
-  setItemData(
-    host,
-    CALLABLE_SECTION_ID,
-    PARAMETER_ITEM_ID,
-    projectParameterItemData(snapshot),
-  );
+  reconcileParameterItems(host, snapshot);
   setWorkspaceCodeSectionData(
     host,
     GENERATED_PYTHON_SECTION_ID,
@@ -129,18 +120,49 @@ export function applyProjectSnapshotToWorkspace(
   );
 }
 
-export function setParameterItemDisabled(
+// The response to a proposal the person has already moved past. A structural edit lands the moment
+// the package's own action runs, which can be while a proposal is in flight, and the document is
+// what they last asked for — so this writes everything the project owns except the parameter list
+// itself, and the controller proposes the newer list rather than rebuilding the older one over it.
+export function applyProjectSnapshotKeepingParameterList(
+  host: WorkspaceHost,
+  snapshot: ProjectSnapshotV1,
+): void {
+  setSectionData(
+    host,
+    CALLABLE_SECTION_ID,
+    projectCallableSectionData(snapshot),
+  );
+  const documentIds = new Set(readParameterItemIds(host));
+  for (const parameter of getCallableParameters(snapshot)) {
+    if (documentIds.has(parameter.id)) {
+      setItemData(
+        host,
+        CALLABLE_SECTION_ID,
+        parameter.id,
+        projectParameterItemData(parameter),
+      );
+    }
+  }
+  setWorkspaceCodeSectionData(
+    host,
+    GENERATED_PYTHON_SECTION_ID,
+    projectGeneratedCodeData(snapshot),
+  );
+}
+
+export function setParameterItemsDisabled(
   host: WorkspaceHost,
   disabled: boolean,
 ): void {
-  const data = readCurrentParameterItemData(host);
-  if (data.kind === "empty" || data.disabled === disabled) {
-    return;
+  for (const item of readCallableParameterItems(host.getSnapshot())) {
+    if (item.data.disabled !== disabled) {
+      setItemData(host, CALLABLE_SECTION_ID, item.id, {
+        ...item.data,
+        disabled,
+      });
+    }
   }
-  setItemData(host, CALLABLE_SECTION_ID, PARAMETER_ITEM_ID, {
-    ...data,
-    disabled,
-  });
 }
 
 export function setParameterItemExpression(
@@ -148,37 +170,199 @@ export function setParameterItemExpression(
   parameterID: string,
   authoredExpression: string,
 ): void {
-  const data = readCurrentParameterItemData(host);
-  if (data.kind === "empty" || data.parameterId !== parameterID) {
-    return;
+  updateParameterItem(host, parameterID, (data) =>
+    data.authoredExpression === authoredExpression
+      ? null
+      : { ...data, authoredExpression },
+  );
+}
+
+export function setParameterItemName(
+  host: WorkspaceHost,
+  parameterID: string,
+  name: string,
+): void {
+  updateParameterItem(host, parameterID, (data) =>
+    data.name === name ? null : { ...data, name },
+  );
+}
+
+// The one blank app-authored record the package's Add parameter action inserts, or the exact
+// canonical record a reprojection is putting back. Its ID is the parameter ID the store will
+// adopt, proposed once here.
+export function createCallableParameterItem(
+  host: WorkspaceHost,
+): WorkspaceItem {
+  const queued = projectedItemQueues.get(host)?.shift();
+  if (queued !== undefined) {
+    return queued;
   }
-  if (data.authoredExpression === authoredExpression) {
-    return;
+  return {
+    id: `parameter:authored:${crypto.randomUUID()}`,
+    children: [],
+    data: {
+      authoredExpression: "",
+      default: null,
+      disabled: false,
+      name: "",
+      nameEditable: true,
+    } satisfies ParameterItemData,
+  };
+}
+
+export function readCallableParameterItemIds(
+  section: WorkspaceSection,
+): Array<string> {
+  const itemTree = section.itemTree;
+  if (itemTree === undefined) {
+    throw new Error("The Python Canvas callable section has no item tree.");
   }
-  setItemData(host, CALLABLE_SECTION_ID, PARAMETER_ITEM_ID, {
-    ...data,
-    authoredExpression,
+  return [...(itemTree.items[itemTree.rootId]?.children ?? [])];
+}
+
+// The callable's rows in document order, which is what a proposal to the store is made of.
+export function readCallableParameterItems(
+  document: WorkspaceDocument,
+): Array<{ data: ParameterItemData; id: string }> {
+  const section = document.sections[CALLABLE_SECTION_ID];
+  if (section === undefined) {
+    throw new Error(
+      "Python Canvas projection is missing its callable section.",
+    );
+  }
+  const itemTree = section.itemTree;
+  if (itemTree === undefined) {
+    throw new Error("The Python Canvas callable section has no item tree.");
+  }
+  return readCallableParameterItemIds(section).map((itemId) => {
+    const item = itemTree.items[itemId];
+    if (item === undefined) {
+      throw new Error(`Python Canvas parameter item ${itemId} is missing.`);
+    }
+    return { data: readParameterItemData(item.data), id: itemId };
   });
+}
+
+// A reprojection hands the factory the exact records it wants back, because the workspace item ID
+// is the canonical parameter ID and only the registered factory may propose one.
+const projectedItemQueues = new WeakMap<WorkspaceHost, Array<WorkspaceItem>>();
+
+function reconcileParameterItems(
+  host: WorkspaceHost,
+  snapshot: ProjectSnapshotV1,
+): void {
+  const canonical = getCallableParameters(snapshot);
+  const canonicalIds = canonical.map((parameter) => parameter.id);
+  let documentIds = readParameterItemIds(host);
+
+  // Records the project dropped go first, in one atomic deletion.
+  const stale = documentIds.filter((itemId) => !canonicalIds.includes(itemId));
+  if (stale.length > 0) {
+    deleteWorkspaceItems(host, CALLABLE_SECTION_ID, stale);
+    documentIds = readParameterItemIds(host);
+  }
+  // Records the project holds that this document does not: a rejected deletion put back.
+  const missing = canonical.filter(
+    (parameter) => !documentIds.includes(parameter.id),
+  );
+  if (missing.length > 0) {
+    insertProjectedItems(host, missing);
+    documentIds = readParameterItemIds(host);
+  }
+  // Only a rejected reorder can leave retained rows in an order the project does not hold, and
+  // appending cannot fix an order, so that one case rebuilds the list from canonical.
+  if (!sameOrder(documentIds, canonicalIds)) {
+    deleteWorkspaceItems(host, CALLABLE_SECTION_ID, documentIds);
+    insertProjectedItems(host, canonical);
+  }
+
+  for (const parameter of canonical) {
+    setItemData(
+      host,
+      CALLABLE_SECTION_ID,
+      parameter.id,
+      projectParameterItemData(parameter),
+    );
+  }
+}
+
+// The package owns insertion placement and asks the registered factory for each item, so a
+// reprojection queues the exact canonical records it needs put back.
+function insertProjectedItems(
+  host: WorkspaceHost,
+  parameters: Array<ParameterV1>,
+): void {
+  projectedItemQueues.set(
+    host,
+    parameters.map((parameter) => ({
+      id: parameter.id,
+      children: [],
+      data: projectParameterItemData(parameter),
+    })),
+  );
+  try {
+    for (const _parameter of parameters) {
+      insertWorkspaceItem(host, CALLABLE_SECTION_ID);
+    }
+  } finally {
+    projectedItemQueues.delete(host);
+  }
+}
+
+function readParameterItemIds(host: WorkspaceHost): Array<string> {
+  return readCallableParameterItems(host.getSnapshot()).map((item) => item.id);
+}
+
+function updateParameterItem(
+  host: WorkspaceHost,
+  parameterID: string,
+  next: (data: ParameterItemData) => ParameterItemData | null,
+): void {
+  const current = readCallableParameterItems(host.getSnapshot()).find(
+    (item) => item.id === parameterID,
+  );
+  if (current === undefined) {
+    return;
+  }
+  const data = next(current.data);
+  if (data === null) {
+    return;
+  }
+  setItemData(host, CALLABLE_SECTION_ID, parameterID, data);
+}
+
+function sameOrder(left: Array<string>, right: Array<string>): boolean {
+  return (
+    left.length === right.length &&
+    left.every((id, index) => id === right[index])
+  );
 }
 
 function projectCallableSectionData(
   snapshot: ProjectSnapshotV1,
 ): CallableSectionData {
   const callable = getCallable(snapshot);
-  const parameter = getCallableParameter(snapshot);
+  const parameterIds = new Set(
+    getCallableParameters(snapshot).map((parameter) => parameter.id),
+  );
+  const parameterDiagnostics: CallableSectionData["parameterDiagnostics"] = {};
+  for (const diagnostic of snapshot.diagnostics) {
+    if (!parameterIds.has(diagnostic.targetId)) {
+      continue;
+    }
+    const projected = projectParameterDiagnostic(diagnostic);
+    parameterDiagnostics[diagnostic.targetId] = [
+      ...(parameterDiagnostics[diagnostic.targetId] ?? []),
+      projected,
+    ];
+  }
   return {
     callable: {
       authoredExpression: callable.authoredExpression,
       id: callable.id,
       name: callable.name,
     },
-    hasParameter: parameter !== null,
-    parameterDiagnostics:
-      parameter === null
-        ? []
-        : snapshot.diagnostics
-            .filter((diagnostic) => diagnostic.targetId === parameter.id)
-            .map(projectParameterDiagnostic),
+    parameterDiagnostics,
     providerStatus: {
       provider: snapshot.providerStatus.provider,
       status: snapshot.providerStatus.status,
@@ -187,34 +371,37 @@ function projectCallableSectionData(
   };
 }
 
-function readCurrentParameterItemData(host: WorkspaceHost): ParameterItemData {
-  const item =
-    host.getSnapshot().sections[CALLABLE_SECTION_ID]?.itemTree?.items[
-      PARAMETER_ITEM_ID
-    ];
-  if (item === undefined) {
-    throw new Error("Python Canvas projection is missing its parameter item.");
+function projectParameterItems(
+  snapshot: ProjectSnapshotV1,
+): Record<string, WorkspaceItem> {
+  const parameters = getCallableParameters(snapshot);
+  const items: Record<string, WorkspaceItem> = {
+    [PARAMETER_ITEM_ROOT_ID]: {
+      id: PARAMETER_ITEM_ROOT_ID,
+      children: parameters.map((parameter) => parameter.id),
+    },
+  };
+  for (const parameter of parameters) {
+    items[parameter.id] = {
+      id: parameter.id,
+      children: [],
+      data: projectParameterItemData(parameter),
+    };
   }
-  return readParameterItemData(item.data);
+  return items;
 }
 
-function projectParameterItemData(
-  snapshot: ProjectSnapshotV1,
-): ParameterItemData {
-  const parameter = getCallableParameter(snapshot);
-  if (parameter === null) {
-    return { kind: "empty" };
-  }
-  // The row is main's ordinary text parameter, so it is projected the name, the authored value, and
-  // the real default. The canonical passing style and type annotation stay where code generation
-  // and diagnostics read them rather than becoming permanent row copy.
+function projectParameterItemData(parameter: ParameterV1): ParameterItemData {
+  // The row is main's ordinary text parameter, so it is projected the name, whether that name is
+  // the app's to write, the authored value, and the real default. The canonical passing style and
+  // type annotation stay where code generation and diagnostics read them rather than becoming
+  // permanent row copy.
   return {
     authoredExpression: parameter.authoredExpression,
     default: parameter.default,
     disabled: false,
-    kind: "parameter",
     name: parameter.name,
-    parameterId: parameter.id,
+    nameEditable: parameter.nameEditable,
   };
 }
 
@@ -253,28 +440,28 @@ function getCallable(snapshot: ProjectSnapshotV1) {
   return callable;
 }
 
-function getCallableParameter(snapshot: ProjectSnapshotV1): ParameterV1 | null {
+// The callable's ordered parameter list, resolved against the snapshot's own records so a
+// malformed response fails here rather than rendering a row with no meaning behind it.
+function getCallableParameters(
+  snapshot: ProjectSnapshotV1,
+): Array<ParameterV1> {
   const callable = getCallable(snapshot);
-  if (callable.parameterIds.length === 0) {
-    if (snapshot.parameters.length !== 0) {
+  if (callable.parameterIds.length !== snapshot.parameters.length) {
+    throw new Error(
+      "Project snapshot has parameters its callable does not carry.",
+    );
+  }
+  return callable.parameterIds.map((parameterId) => {
+    const parameter = snapshot.parameters.find(
+      (candidate) => candidate.id === parameterId,
+    );
+    if (parameter === undefined) {
       throw new Error(
-        "Project snapshot has parameters without a callable dependency.",
+        `Project snapshot callable parameter ${parameterId} has no parameter record.`,
       );
     }
-    return null;
-  }
-  if (callable.parameterIds.length !== 1 || snapshot.parameters.length !== 1) {
-    throw new Error(
-      "Project snapshot exceeds the one-parameter Python Canvas boundary.",
-    );
-  }
-  const parameter = snapshot.parameters[0];
-  if (parameter === undefined || parameter.id !== callable.parameterIds[0]) {
-    throw new Error(
-      "Project snapshot callable parameter does not match its parameter record.",
-    );
-  }
-  return parameter;
+    return parameter;
+  });
 }
 
 function projectParameterDiagnostic(diagnostic: DiagnosticV1) {

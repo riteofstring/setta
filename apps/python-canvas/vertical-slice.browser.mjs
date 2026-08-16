@@ -1,6 +1,11 @@
 import { setTimeout as delay } from "node:timers/promises";
 
 import {
+  assertAuthoredParameterAuthoring,
+  assertStructuralParameterControls,
+  firstStructuralControlName,
+} from "./browser-parameters.mjs";
+import {
   fetchCanonicalSnapshot,
   runAgainstProductionApp,
 } from "./browser-processes.mjs";
@@ -14,6 +19,7 @@ import {
   navigate,
   pressEnter,
   pressEscape,
+  pressModifierK,
   pressTab,
   selectAll,
   setEmulatedAppearance,
@@ -31,7 +37,6 @@ import {
   assertNonEditingGeneratedText,
   assertSettledCardIsInsideCanvas,
   assertSettledSectionIsNotPromoted,
-  callableCompletionPopupScript,
   callableFieldStateScript,
   callableSectionSelector,
   callableSectionStateScript,
@@ -43,6 +48,7 @@ import {
   idleCallableSelector,
   itemToolbarSelector,
   liveCallableSelector,
+  readPlacedCallableCompletionPopup,
   readSettledSectionState,
   replaceCallableDraft,
   waitForCallableCompletion,
@@ -95,6 +101,11 @@ function withFilterControls(body) {
 // The analyzer vocabulary main's ordinary parameter row never shows. The rejected candidate printed
 // the passing style and Basedpyright's own type spelling under the parameter name.
 const analyzerRowSpellings = ["positional", "keyword only", "_SupportsFloat"];
+
+// The chord this platform's reader sees for the built-in item-filter binding, and the keys that
+// produce it. The package resolves the label from its own binding registry; this walkthrough runs
+// on Linux and macOS CI alike, so it asks the platform the same question the package does.
+const filterChord = process.platform === "darwin" ? "⌘ + K" : "Ctrl + K";
 
 // What the Go service has already committed by the time it answers its first request: the shipped
 // callable, its one provider-derived parameter, and the call they generate.
@@ -236,8 +247,8 @@ function toolbarButtonNamesScript(toolbarExpression) {
 }
 
 // The corrected composition: the callable editor leads the section, the Args toolbar follows it in
-// the filter-only mode, the parameter list follows the toolbar, and an ordinary idle section says
-// nothing about the provider.
+// the ordinary authoring mode, the parameter list follows the toolbar, and an ordinary idle section
+// says nothing about the provider.
 async function assertCallableFirstComposition(client, callableLabel) {
   const composition = await evaluate(
     client,
@@ -276,32 +287,18 @@ async function assertCallableFirstComposition(client, callableLabel) {
       "The Square Root section must render the callable editor, then the Args toolbar, then the parameter list.",
     );
   }
-  if (composition.toolbarMode !== "filter-only") {
+  if (composition.toolbarMode !== "authoring-and-filter") {
     throw new Error(
-      `The Args toolbar rendered in ${JSON.stringify(composition.toolbarMode)} instead of filter-only.`,
+      `The Args toolbar rendered in ${JSON.stringify(composition.toolbarMode)} instead of authoring-and-filter.`,
     );
   }
   if (!composition.toolbarText.includes("Args")) {
-    throw new Error("The filter-only toolbar no longer labels the Args area.");
+    throw new Error("The Args toolbar no longer labels the Args area.");
   }
-  assertNoStructuralParameterControls(composition.toolbarButtonNames);
+  assertStructuralParameterControls(composition.toolbarButtonNames);
   if (composition.mentionsProvider || composition.alertCount > 0) {
     throw new Error(
       "The idle Square Root section still renders provider-status prose.",
-    );
-  }
-}
-
-function assertNoStructuralParameterControls(names) {
-  const structuralNames = new Set([
-    "Add parameter",
-    "Remove last parameter",
-    "Delete selected parameters",
-  ]);
-  const unexpected = names.filter((name) => structuralNames.has(name));
-  if (unexpected.length > 0) {
-    throw new Error(
-      `The filter-only Args toolbar exposed unavailable controls: ${unexpected.join(", ")}.`,
     );
   }
 }
@@ -415,12 +412,7 @@ async function assertSettledZoomPresentation(client, callableLabel) {
   // is opened at that same enlarged zoom and measured against the field it belongs to.
   await replaceCallableDraft(client, callableLabel, otherCallable.draft);
   await waitForCallableCompletion(client, otherCallable.completion);
-  const popup = await evaluate(client, callableCompletionPopupScript);
-  if (popup === null) {
-    throw new Error(
-      "The zoomed callable field opened no completion popup to place.",
-    );
-  }
+  const popup = await readPlacedCallableCompletionPopup(client, "The zoomed");
   assertCompletionPopupEscapesTheSection("The zoomed", popup);
 
   // The popup takes the first Escape, the draft goes back to the canonical value on the second,
@@ -502,11 +494,61 @@ async function assertCallableEditorLeadsKeyboardOrder(client, callableLabel) {
       };
     })()`,
   );
-  if (focused.name !== "Filter parameters") {
+  // The authoring toolbar opens with its own actions, so the control after the field is the
+  // toolbar's first one rather than its filter. What this proves is that the field leads the
+  // section by keyboard, not which toolbar control comes first inside the package's own surface.
+  if (focused.name !== firstStructuralControlName) {
     throw new Error(
-      `Tab from the callable editor reached ${JSON.stringify(focused.name)} instead of the Args filter.`,
+      `Tab from the callable editor reached ${JSON.stringify(focused.name)} instead of the Args toolbar's ${firstStructuralControlName}.`,
     );
   }
+}
+
+// The filter advertises the workspace binding that focuses it, and that exact chord does. The
+// label comes from the package's own binding registry, so the app spells no shortcut of its own.
+// The chord is pressed from inside the card, which is where a person is when they reach for it.
+async function assertArgsFilterAdvertisesAndAnswersItsBinding(
+  client,
+  callableLabel,
+) {
+  // Entering the field is what puts a person inside the card, and it waits for that entry to
+  // settle so the chord's own focus move is the last one this step makes.
+  await enterCallableField(client, callableLabel);
+  const idle = await evaluate(
+    client,
+    withFilterControls(`
+      return {
+        alreadyFocused: document.activeElement === controls.input,
+        name: controls.input.labels?.[0]?.textContent?.trim(),
+        placeholder: controls.input.placeholder,
+      };
+    `),
+  );
+  if (idle === null) {
+    throw new Error("The Args toolbar rendered no parameter filter.");
+  }
+  if (idle.alreadyFocused) {
+    throw new Error(
+      "The Args filter already held focus, so this cannot prove the binding moved it.",
+    );
+  }
+  if (idle.placeholder !== filterChord) {
+    throw new Error(
+      `The active section's empty filter showed ${JSON.stringify(idle.placeholder)} instead of ${JSON.stringify(filterChord)}.`,
+    );
+  }
+  if (idle.name !== "Filter parameters") {
+    throw new Error(
+      `The advertised shortcut replaced the filter's accessible name with ${JSON.stringify(idle.name)}.`,
+    );
+  }
+
+  await pressModifierK(client);
+  await waitFor(
+    client,
+    `the ${filterChord} binding focusing the Args filter`,
+    withFilterControls("return document.activeElement === controls.input;"),
+  );
 }
 
 // The retained filter still has to work, and it filters on the text the app projects for its own
@@ -521,7 +563,7 @@ async function assertArgsFilterRemainsOperable(client, parameterLabel) {
   );
   if (focused !== true) {
     throw new Error(
-      "The filter-only Args toolbar did not expose a focusable parameter filter.",
+      "The Args toolbar did not expose a focusable parameter filter.",
     );
   }
   await insertText(client, "zzz");
@@ -543,7 +585,7 @@ async function assertArgsFilterRemainsOperable(client, parameterLabel) {
   if (names === null) {
     throw new Error("The Args toolbar disappeared while filtering.");
   }
-  assertNoStructuralParameterControls(names);
+  assertStructuralParameterControls(names);
   const cleared = await evaluate(
     client,
     `(() => {
@@ -795,7 +837,10 @@ async function runWalkthrough(client, backendOrigin, previewOrigin) {
   }
   assertDonorSectionComposition(cardComposition, walkthroughAppearance);
 
+  await assertArgsFilterAdvertisesAndAnswersItsBinding(client, callableLabel);
   await assertArgsFilterRemainsOperable(client, parameterLabel);
+  // Real argument authoring, which the rejected filter-only candidate did not offer at all.
+  await assertAuthoredParameterAuthoring(client, backendOrigin, generatedLabel);
   // The field has to keep the donor surface after a real edit round trip, not only on first paint.
   await assertCallableFieldActivationParity(client, callableLabel);
 }

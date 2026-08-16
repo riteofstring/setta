@@ -19,12 +19,24 @@ showing even while the completion popup is open, and `Escape` — after the popu
 has taken its own first `Escape` — abandons the draft for the committed value.
 
 Inside the Callable section, the compact callable editor is the workspace's
-leading item-area content, so it precedes the Args toolbar and the
-signature-derived parameter rows. This slice has no parameter-structure
-mutations, so that toolbar is declared `filter-only`: it keeps the Args label
-and the filter, and exposes no Add, Remove, or Delete action. Ordinary pending
-state reads as a compact adornment on the editor plus a live region; only
-genuine completion, mutation, and provider failures claim a visible block.
+leading item-area content, so it precedes the Args toolbar and the parameter
+rows. That toolbar is the workspace's ordinary `authoring-and-filter` one: Add
+parameter, Remove last parameter, and Delete selected parameters all author real
+arguments, and the filter advertises the workspace binding that focuses it
+(`Mod + K` by default, shown as `⌘ + K` on macOS). Ordinary pending state reads
+as a compact adornment on the editor plus a live region; only genuine
+completion, mutation, and provider failures claim a visible block.
+
+Every parameter change — a value edit, a rename, an Add, a Remove Last, a
+Delete Selected, or a drag reorder — reaches Go as one complete ordered
+parameter list bound to the revision the app last saw. The store validates the
+whole candidate, keeps the metadata it owns for a retained record, creates a new
+record's defaults, renders the module, and publishes one revision; a rejected
+proposal leaves the project untouched and the app puts the canonical list back.
+A parameter derived from the resolved signature keeps that signature's name, so
+only an app-authored row offers the rename editor; an authored row may sit blank
+while someone writes it, and it joins the generated call once it has both a
+valid name and a value.
 
 ## Run locally
 
@@ -61,7 +73,12 @@ committing it, one `Enter` commits `math.floor`, and one more commits
 `math.sqrt` back over an open popup. It then enters `missing_value` for `x` and
 replaces it with `3`. Each accepted mutation automatically updates the read-only
 generated Python; the undefined-name diagnostic is mapped to `x` by the
-generated source range and clears after the final expression.
+generated source range and clears after the final expression. Finally it presses
+the resolved filter chord to focus the Args filter, then authors arguments
+through the toolbar: Add creates a blank record, naming it `scale` and valuing
+it `2` puts its keyword argument in the generated call, Remove Last takes it
+away, and two rows selected with the canvas's held selection gesture leave
+together in one new revision.
 
 ## Deliberately deferred
 

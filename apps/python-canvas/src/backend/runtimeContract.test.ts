@@ -141,6 +141,45 @@ describe("parseProjectSnapshotV1", () => {
     ).toThrow(ProjectSnapshotValidationError);
   });
 
+  // A parameter record says explicitly whether its name is the app's to write, and an authored
+  // record may still be unnamed. Everything else about the record stays closed.
+  it("parses a parameter record's declared name ownership and blank authored name", () => {
+    const [callable] = projectSnapshotFixture.callables;
+    if (callable === undefined) {
+      throw new Error("The Go fixture must contain a callable.");
+    }
+    const parameter = {
+      authoredExpression: "",
+      default: null,
+      id: "parameter:authored:1",
+      name: "",
+      nameEditable: true,
+      passingStyle: "positional_or_keyword",
+      typeAnnotation: "",
+    };
+    const withParameter = {
+      ...projectSnapshotFixture,
+      callables: [{ ...callable, parameterIds: [parameter.id] }],
+      parameters: [parameter],
+    };
+
+    expect(parseProjectSnapshotV1(withParameter).parameters[0]).toEqual(
+      parameter,
+    );
+
+    const { nameEditable: _declared, ...withoutNameOwnership } = parameter;
+    for (const invalid of [
+      { ...parameter, nameEditable: "yes" },
+      { ...parameter, name: " scale " },
+      { ...parameter, extra: true },
+      withoutNameOwnership,
+    ]) {
+      expect(() =>
+        parseProjectSnapshotV1({ ...withParameter, parameters: [invalid] }),
+      ).toThrow(ProjectSnapshotValidationError);
+    }
+  });
+
   it("requires exactly one callable at the unknown JSON boundary", () => {
     const [callable] = projectSnapshotFixture.callables;
     if (callable === undefined) {
