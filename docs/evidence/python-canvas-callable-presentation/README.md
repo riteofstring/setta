@@ -27,8 +27,12 @@ product's own gesture:
 
 Each image is a component crop with eight CSS px of surrounding surface, not a full-app screenshot,
 and each carries its own clip rectangle, SHA-256, computed geometry, and computed typography or
-paint in the metrics file beside the donor values it was asserted against. The zoomed crops are
-clamped to the viewport, because a card the gesture has doubled no longer fits inside it.
+paint in the metrics file beside the donor values it was asserted against. Every crop holds its whole
+subject: the harness never clamps a crop to the viewport, and it fails rather than record a partial
+image of something that does not fit. An earlier bundle's enlarged cards were clamped that way, so
+their headers were missing; the gesture is now anchored on the callable field, which keeps the
+doubled card inside the canvas, and each appearance's enlarged sequence starts from a fresh page
+load of the shipped `math.sqrt` scene.
 
 ## What the images have to show
 
@@ -60,8 +64,12 @@ enlarged zoom they were found at. The scene is exactly doubled and settled, with
 on the card, and the card carries no compositor layer of its own — `will-change: auto`,
 `transform: none`, `backface-visibility: visible`, `isolation: auto` — so its text, icons, and
 borders are rasterized at the size they are displayed at rather than scaled from the layer a gesture
-left behind. Judge them for crispness against the same scene in main. In the completion crop the
-popup is the whole list, parented to the canvas rather than to the section: it reaches roughly 60
+left behind. Judge them for crispness against the same scene in main. Each of the six enlarged images
+holds the complete card: the section header, the full syntax-highlighted `math.sqrt` pill, the Args
+row, and the whole `x` parameter row. The doubled card measures 724 by 564 CSS px inside a canvas of
+1400 by 630, and the canvas's own minimap overlays the card's empty lower-left area — that is
+ordinary workspace chrome floating above the scene, not part of this surface. In the completion crop
+the popup is the whole list, parented to the canvas rather than to the section: it reaches roughly 60
 CSS px past the field's own bottom edge, is not inside the field or the section, and is what the
 page hit-tests at both of the points recorded in the metrics. The single horizontal line that used
 to cross the focused pill was all that survived of that popup when the section clipped it.

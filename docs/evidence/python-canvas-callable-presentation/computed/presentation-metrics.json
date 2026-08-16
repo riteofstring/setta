@@ -5,10 +5,10 @@
       "dark"
     ],
     "browser": "Chrome/152.0.7977.42",
-    "capturedAt": "2026-08-20T00:23:00.376Z",
+    "capturedAt": "2026-08-20T01:42:44.607Z",
     "committedCallable": "math.sqrt",
     "cropMarginCssPx": 8,
-    "sourceCommit": "682e30b648e5e6237fe4d4ab3ae3fc08b99cb195",
+    "sourceCommit": "e4108da66b80b98ac21d17fcfaca32fa7f8a83e6",
     "surface": "Production @setta/workspace and Python Canvas builds served by vite preview, the real Go service, and its pinned Basedpyright.",
     "viewport": {
       "deviceScaleFactor": 1,
@@ -133,7 +133,7 @@
         }
       },
       "screenshot": "screenshots/01-callable-section-idle-light-1440x900.png",
-      "screenshotSha256": "e24e8d459d3af08dce4f06872c9c7aa68e5008e9720980f6ba79cb81e9d3093d",
+      "screenshotSha256": "f462fe6a304c08bc3d444d89f914e79c0914a01e3374990563ba45a0d32fb07b",
       "state": "idle",
       "surface": "callable-section"
     },
@@ -241,7 +241,7 @@
         }
       },
       "screenshot": "screenshots/02-callable-section-focused-light-1440x900.png",
-      "screenshotSha256": "1b666bcd2111e7594d369e095a64729177a716e75b93021bcb4094ace0074643",
+      "screenshotSha256": "51725627e26228e6d043c3f792d4feb2073527db1b09440f7fe400d9a9830c0b",
       "state": "focused",
       "surface": "callable-section"
     },
@@ -417,7 +417,7 @@
         "height": 580,
         "width": 740,
         "x": 10,
-        "y": 57.78125,
+        "y": 158.78125,
         "marginCssPx": 8
       },
       "donor": {
@@ -446,7 +446,7 @@
             "height": 52,
             "width": 712,
             "x": 24,
-            "y": 119.78125
+            "y": 220.78125
           },
           "surface": {
             "backgroundColor": "rgb(255, 255, 255)",
@@ -472,7 +472,13 @@
             "height": 564,
             "width": 724,
             "x": 18,
-            "y": 65.78125
+            "y": 166.78125
+          },
+          "canvas": {
+            "bottom": 732.390625,
+            "left": 20,
+            "right": 1420,
+            "top": 102.390625
           },
           "compositing": {
             "backfaceVisibility": "visible",
@@ -484,7 +490,7 @@
         }
       },
       "screenshot": "screenshots/05-zoomed-callable-section-zoomed-idle-light-1440x900.png",
-      "screenshotSha256": "91e7273f7a63b5177842a9796b1e6d9502ac9d35aeadf5dbdee3a372558a406b",
+      "screenshotSha256": "f0de721f13bec62798a9c9ed5e4be8c7dea14563457d89be34786ec8f5591720",
       "state": "zoomed-idle",
       "surface": "zoomed-callable-section"
     },
@@ -494,7 +500,7 @@
         "height": 580,
         "width": 740,
         "x": 10,
-        "y": 57.78125,
+        "y": 158.78125,
         "marginCssPx": 8
       },
       "donor": {
@@ -523,7 +529,7 @@
             "height": 52,
             "width": 712,
             "x": 24,
-            "y": 119.78125
+            "y": 220.78125
           },
           "surface": {
             "backgroundColor": "rgb(255, 255, 255)",
@@ -549,7 +555,13 @@
             "height": 564,
             "width": 724,
             "x": 18,
-            "y": 65.78125
+            "y": 166.78125
+          },
+          "canvas": {
+            "bottom": 732.390625,
+            "left": 20,
+            "right": 1420,
+            "top": 102.390625
           },
           "compositing": {
             "backfaceVisibility": "visible",
@@ -561,7 +573,7 @@
         }
       },
       "screenshot": "screenshots/06-zoomed-callable-section-zoomed-focused-light-1440x900.png",
-      "screenshotSha256": "d83e73a1da91f8c4e3c2a43c6ffdddf487010b82ac063147381c6748c24a1e71",
+      "screenshotSha256": "2c19e298121cd9217d32217d47d5baf1d40a997413fc00d51f73dab99c6c8b1b",
       "state": "zoomed-focused",
       "surface": "zoomed-callable-section"
     },
@@ -571,7 +583,7 @@
         "height": 580,
         "width": 740,
         "x": 10,
-        "y": 57.78125,
+        "y": 158.78125,
         "marginCssPx": 8
       },
       "donor": {
@@ -597,14 +609,14 @@
       "observed": {
         "popup": {
           "field": {
-            "bottom": 171.78125,
+            "bottom": 272.78125,
             "height": 52,
-            "top": 119.78125
+            "top": 220.78125
           },
           "popup": {
-            "bottom": 232.15625,
+            "bottom": 333.15625,
             "height": 70.375,
-            "top": 161.78125,
+            "top": 262.78125,
             "width": 500
           },
           "fieldContainsPopup": false,
@@ -618,7 +630,13 @@
             "height": 564,
             "width": 724,
             "x": 18,
-            "y": 65.78125
+            "y": 166.78125
+          },
+          "canvas": {
+            "bottom": 732.390625,
+            "left": 20,
+            "right": 1420,
+            "top": 102.390625
           },
           "compositing": {
             "backfaceVisibility": "visible",
@@ -630,7 +648,7 @@
         }
       },
       "screenshot": "screenshots/07-zoomed-callable-section-zoomed-completion-light-1440x900.png",
-      "screenshotSha256": "bd18c3c4c17eec33d5a331cbf19898a1c1530512123ce4343979d201628b48a1",
+      "screenshotSha256": "0fa01f94f60c46c6d9dd265edd1c1330cb8fcfd50f50e5eea31fa098c65b3923",
       "state": "zoomed-completion",
       "surface": "zoomed-callable-section"
     },
@@ -1022,7 +1040,7 @@
         "height": 580,
         "width": 740,
         "x": 10,
-        "y": 57.78125,
+        "y": 158.78125,
         "marginCssPx": 8
       },
       "donor": {
@@ -1051,7 +1069,7 @@
             "height": 52,
             "width": 712,
             "x": 24,
-            "y": 119.78125
+            "y": 220.78125
           },
           "surface": {
             "backgroundColor": "rgb(6, 7, 10)",
@@ -1077,7 +1095,13 @@
             "height": 564,
             "width": 724,
             "x": 18,
-            "y": 65.78125
+            "y": 166.78125
+          },
+          "canvas": {
+            "bottom": 732.390625,
+            "left": 20,
+            "right": 1420,
+            "top": 102.390625
           },
           "compositing": {
             "backfaceVisibility": "visible",
@@ -1089,7 +1113,7 @@
         }
       },
       "screenshot": "screenshots/12-zoomed-callable-section-zoomed-idle-dark-1440x900.png",
-      "screenshotSha256": "fc49d098add3ff6cd3ef76ee6d29180e487a836f1af44c8e68b33d449514754b",
+      "screenshotSha256": "f4db2d36114d1402ea75000717ad8ddbfee35d9b4eb79526cbbb4891fe825ece",
       "state": "zoomed-idle",
       "surface": "zoomed-callable-section"
     },
@@ -1099,7 +1123,7 @@
         "height": 580,
         "width": 740,
         "x": 10,
-        "y": 57.78125,
+        "y": 158.78125,
         "marginCssPx": 8
       },
       "donor": {
@@ -1128,7 +1152,7 @@
             "height": 52,
             "width": 712,
             "x": 24,
-            "y": 119.78125
+            "y": 220.78125
           },
           "surface": {
             "backgroundColor": "rgb(6, 7, 10)",
@@ -1154,7 +1178,13 @@
             "height": 564,
             "width": 724,
             "x": 18,
-            "y": 65.78125
+            "y": 166.78125
+          },
+          "canvas": {
+            "bottom": 732.390625,
+            "left": 20,
+            "right": 1420,
+            "top": 102.390625
           },
           "compositing": {
             "backfaceVisibility": "visible",
@@ -1166,7 +1196,7 @@
         }
       },
       "screenshot": "screenshots/13-zoomed-callable-section-zoomed-focused-dark-1440x900.png",
-      "screenshotSha256": "02f7cbde4c7b2305231ca05648848de9d075ccf17e6270398702f7a72ad837eb",
+      "screenshotSha256": "d8a1e58a081463e64f295dcebbc2907cf86ac45b0269a2377d9b84985d74fd9f",
       "state": "zoomed-focused",
       "surface": "zoomed-callable-section"
     },
@@ -1176,7 +1206,7 @@
         "height": 580,
         "width": 740,
         "x": 10,
-        "y": 57.78125,
+        "y": 158.78125,
         "marginCssPx": 8
       },
       "donor": {
@@ -1202,14 +1232,14 @@
       "observed": {
         "popup": {
           "field": {
-            "bottom": 171.78125,
+            "bottom": 272.78125,
             "height": 52,
-            "top": 119.78125
+            "top": 220.78125
           },
           "popup": {
-            "bottom": 230.15625,
+            "bottom": 331.15625,
             "height": 70.375,
-            "top": 159.78125,
+            "top": 260.78125,
             "width": 500
           },
           "fieldContainsPopup": false,
@@ -1223,7 +1253,13 @@
             "height": 564,
             "width": 724,
             "x": 18,
-            "y": 65.78125
+            "y": 166.78125
+          },
+          "canvas": {
+            "bottom": 732.390625,
+            "left": 20,
+            "right": 1420,
+            "top": 102.390625
           },
           "compositing": {
             "backfaceVisibility": "visible",
@@ -1235,7 +1271,7 @@
         }
       },
       "screenshot": "screenshots/14-zoomed-callable-section-zoomed-completion-dark-1440x900.png",
-      "screenshotSha256": "c1826eba8bae364a8ff4d22ef0df46ec0ed9dbd63eb777401b0021dae428eb02",
+      "screenshotSha256": "6d0bbf26b963e517368a0d0d80dd7dc4952e31921463a6d9da5700682cc08549",
       "state": "zoomed-completion",
       "surface": "zoomed-callable-section"
     }

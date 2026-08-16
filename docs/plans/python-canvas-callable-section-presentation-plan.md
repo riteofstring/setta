@@ -1739,12 +1739,41 @@ fails the walkthrough with _The zoomed Square Root card reaches outside the work
 CSS px at its top, so the complete card is not on screen to capture_ — the exact clipping the
 supervisor rejected the images for.
 
-What remains in this phase: the recapture rendered from this batch's immutable source candidate and
-committed separately as decision 15 requires, replacing the rejected bundle and its clamping claim;
-the fresh read-only review; the supervisor's inspection of the replacement fourteen images at full
-resolution; developer visual acceptance with its accepted-candidate record; and this phase's closing
-`test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps against the
-accepted candidate.
+**Unclipped enlarged capture record.** All fourteen captures are rerun and committed at
+`docs/evidence/python-canvas-callable-presentation`, rendered from the immutable source candidate
+`e4108da66b80b98ac21d17fcfaca32fa7f8a83e6` and committed separately from it, as decision 15 requires.
+The bundle's design is unchanged — the complete Square Root card idle and focused, the Generated
+Python reader idle and clicked, and the settled 2x-zoomed card idle, focused, and with its completion
+popup open, in both appearances, with eight CSS px of surrounding surface — and the harness again
+asserted every donor value while recording.
+
+The six enlarged images are the ones the supervisor rejected, and they now hold the complete card.
+The doubled card measures 724 by 564 CSS px at `x: 18`, `y: 166.8` inside a canvas of 1400 by 630 at
+`x: 20`, `y: 102.4`, so the header is inside the canvas rather than under the application's status
+strip, and each enlarged crop is 740 by 580 at `x: 10`, `y: 158.8` — wholly inside the 1440x900
+viewport, with nothing clamped. Every enlarged image shows the section header, the full
+syntax-highlighted `math.sqrt` pill, the Args row, and the complete `x` row; the two completion
+images additionally show the whole two-option popup, 500 CSS px wide and reaching 60.4 CSS px past
+the field's own bottom edge, inside neither the field nor the section. The settled card reports
+`will-change: auto`, `transform: none`, `backface-visibility: visible`, and `isolation: auto` in
+every enlarged state. The canvas's own minimap floats over the enlarged card's empty lower-left area;
+that is ordinary workspace chrome above the scene rather than part of this surface, and the README
+says so.
+
+The four Generated Python images and the two dark 1x card images are byte-identical to the rejected
+bundle's. The two light 1x card images differ only within the sub-perceptual header-glyph
+rasterization variance this plan already bounded: 28 pixels at a maximum one-channel delta of 6 in
+the idle crop and 46 pixels at a delta of 1 in the focused one, all inside the header's own glyph
+rows. Every recorded 1x rectangle is unchanged, so the light idle card still measures both donor
+steps at zero — the header's bottom and the field's top at 233.39 CSS px, the field's bottom and the
+Args toolbar's top at 259.39 — with the item list's own 8.5 CSS px to the first parameter row and
+`0px` padding on the app's content root and the package's content slot. This is unaccepted working
+evidence, not a regression lock.
+
+What remains in this phase: the fresh read-only review; the supervisor's inspection of the
+replacement fourteen images at full resolution; developer visual acceptance with its
+accepted-candidate record; and this phase's closing `test --changed --base <trusted-base>` and
+`test-levels --base <trusted-base>` steps against the accepted candidate.
 
 ## Stop conditions
 
