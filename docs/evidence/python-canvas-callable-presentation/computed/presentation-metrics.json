@@ -1,0 +1,522 @@
+{
+  "capture": {
+    "appearances": [
+      "light",
+      "dark"
+    ],
+    "browser": "Chrome/152.0.7977.42",
+    "capturedAt": "2026-08-19T15:46:37.478Z",
+    "committedCallable": "math.sqrt",
+    "committedParameter": "3",
+    "cropMarginCssPx": 8,
+    "sourceCommit": "666af132be38edf4186e80ad7cf4788c32ff9fd0",
+    "surface": "Production @setta/workspace and Python Canvas builds served by vite preview, the real Go service, and its pinned Basedpyright.",
+    "viewport": {
+      "deviceScaleFactor": 1,
+      "height": 900,
+      "width": 1440
+    }
+  },
+  "comparison": {
+    "donorReferenceImages": [
+      "docs/evidence/phase0/reference/screenshots/27-root-callable-selected-with-params-light.png",
+      "docs/evidence/phase0/reference/screenshots/25-root-callable-selected-with-params-dark.png"
+    ],
+    "donorSources": [
+      "frontend/src/components/Section/SectionParts/Search.tsx",
+      "frontend/src/components/Section/Layouts/CodeArea.tsx"
+    ],
+    "geometryToleranceCssPx": 1,
+    "pixelDiffTolerance": null
+  },
+  "captures": [
+    {
+      "appearance": "light",
+      "crop": {
+        "height": 42,
+        "width": 344,
+        "x": 208,
+        "y": 243.390625,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "borderColor": "rgb(220, 225, 234)",
+        "focusBorderColor": "rgb(59, 130, 246)",
+        "surface": {
+          "backgroundColor": "rgb(255, 255, 255)",
+          "borderRadius": "16px",
+          "borderWidth": "1px",
+          "marginInline": "2px 2px",
+          "padding": "4px 10px 4px 10px"
+        }
+      },
+      "id": "01-callable-field-idle-light",
+      "observed": {
+        "box": {
+          "height": 26,
+          "width": 328,
+          "x": 216,
+          "y": 251.390625
+        },
+        "surface": {
+          "backgroundColor": "rgb(255, 255, 255)",
+          "borderRadius": "16px",
+          "borderWidth": "1px",
+          "marginInline": "2px 2px",
+          "padding": "4px 10px 4px 10px"
+        },
+        "borderColor": "rgb(220, 225, 234)",
+        "isActiveElement": false,
+        "contentEditable": null,
+        "value": "math.sqrt",
+        "type": {
+          "color": "rgb(36, 41, 46)",
+          "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+          "fontSize": "12px",
+          "fontWeight": "400",
+          "lineHeight": "16px"
+        }
+      },
+      "screenshot": "screenshots/01-callable-field-idle-light-1440x900.png",
+      "screenshotSha256": "7ff41905ee8895b36dfb73d329e6542ed67b910dee29ad720fa89dd47ddbb6f9",
+      "state": "idle",
+      "surface": "callable-field"
+    },
+    {
+      "appearance": "light",
+      "crop": {
+        "height": 42,
+        "width": 344,
+        "x": 208,
+        "y": 243.390625,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "borderColor": "rgb(220, 225, 234)",
+        "focusBorderColor": "rgb(59, 130, 246)",
+        "surface": {
+          "backgroundColor": "rgb(255, 255, 255)",
+          "borderRadius": "16px",
+          "borderWidth": "1px",
+          "marginInline": "2px 2px",
+          "padding": "4px 10px 4px 10px"
+        }
+      },
+      "id": "02-callable-field-focused-light",
+      "observed": {
+        "box": {
+          "height": 26,
+          "width": 328,
+          "x": 216,
+          "y": 251.390625
+        },
+        "surface": {
+          "backgroundColor": "rgb(255, 255, 255)",
+          "borderRadius": "16px",
+          "borderWidth": "1px",
+          "marginInline": "2px 2px",
+          "padding": "4px 10px 4px 10px"
+        },
+        "borderColor": "rgb(59, 130, 246)",
+        "isActiveElement": true,
+        "contentEditable": "true",
+        "value": "math.sqrt",
+        "type": {
+          "color": "rgb(36, 41, 46)",
+          "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+          "fontSize": "12px",
+          "fontWeight": "400",
+          "lineHeight": "16px"
+        }
+      },
+      "screenshot": "screenshots/02-callable-field-focused-light-1440x900.png",
+      "screenshotSha256": "165df8a1186682febacd14356bbbbd5fc108abac0c29672653f5e7d5950f3dc4",
+      "state": "focused",
+      "surface": "callable-field"
+    },
+    {
+      "appearance": "light",
+      "crop": {
+        "height": 406,
+        "width": 656,
+        "x": 592,
+        "y": 225.390625,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "badge": {
+          "backgroundColor": "rgb(37, 99, 235)",
+          "content": "\"Generated read-only\"",
+          "textTransform": "uppercase"
+        },
+        "region": {
+          "backgroundImage": "linear-gradient(90deg, rgb(96, 165, 250) 0px, rgb(96, 165, 250) 3px, rgb(219, 234, 254) 3px)",
+          "borderRadius": "6px"
+        }
+      },
+      "id": "03-generated-output-idle-light",
+      "observed": {
+        "box": {
+          "height": 390,
+          "width": 640,
+          "x": 600,
+          "y": 233.390625
+        },
+        "block": {
+          "bottom": 390.890625,
+          "lineCount": 8,
+          "top": 245.390625,
+          "width": 610.171875
+        },
+        "wrapper": {
+          "backgroundImage": "none"
+        },
+        "region": {
+          "backgroundImage": "linear-gradient(90deg, rgb(96, 165, 250) 0px, rgb(96, 165, 250) 3px, rgb(219, 234, 254) 3px)",
+          "borderRadius": "6px"
+        },
+        "placement": {
+          "badgeInlineStart": "305.078px",
+          "badgeInsetBlockStart": "-2px",
+          "badgeTransform": "matrix(1, 0, 0, 1, -50.7578, -6.19531)",
+          "regionInlineEnd": "4px",
+          "regionInlineStart": "0px",
+          "regionInsetBlockStart": "-2px"
+        },
+        "badge": {
+          "backgroundColor": "rgb(37, 99, 235)",
+          "content": "\"Generated read-only\"",
+          "textTransform": "uppercase"
+        },
+        "text": {
+          "contentEditable": "false",
+          "isActiveElement": false,
+          "outlineStyle": "none",
+          "outlineWidth": "0px",
+          "readOnly": "true",
+          "source": "import mathclass SettaState:    def __init__(state):        state.Square_Root__x = 3        state.Square_Root = math.sqrt(state.Square_Root__x)state = SettaState()"
+        },
+        "hasCaretLayer": false,
+        "hasActiveLine": false
+      },
+      "screenshot": "screenshots/03-generated-output-idle-light-1440x900.png",
+      "screenshotSha256": "ccc0e1e2f5a8debf39dafb0cbf1d708095bdf53ead79f58b2ba664fb003b3522",
+      "state": "idle",
+      "surface": "generated-output"
+    },
+    {
+      "appearance": "light",
+      "crop": {
+        "height": 406,
+        "width": 656,
+        "x": 592,
+        "y": 225.390625,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "badge": {
+          "backgroundColor": "rgb(37, 99, 235)",
+          "content": "\"Generated read-only\"",
+          "textTransform": "uppercase"
+        },
+        "region": {
+          "backgroundImage": "linear-gradient(90deg, rgb(96, 165, 250) 0px, rgb(96, 165, 250) 3px, rgb(219, 234, 254) 3px)",
+          "borderRadius": "6px"
+        }
+      },
+      "id": "04-generated-output-clicked-light",
+      "observed": {
+        "box": {
+          "height": 390,
+          "width": 640,
+          "x": 600,
+          "y": 233.390625
+        },
+        "block": {
+          "bottom": 390.890625,
+          "lineCount": 8,
+          "top": 245.390625,
+          "width": 610.171875
+        },
+        "wrapper": {
+          "backgroundImage": "none"
+        },
+        "region": {
+          "backgroundImage": "linear-gradient(90deg, rgb(96, 165, 250) 0px, rgb(96, 165, 250) 3px, rgb(219, 234, 254) 3px)",
+          "borderRadius": "6px"
+        },
+        "placement": {
+          "badgeInlineStart": "305.078px",
+          "badgeInsetBlockStart": "-2px",
+          "badgeTransform": "matrix(1, 0, 0, 1, -50.7578, -6.19531)",
+          "regionInlineEnd": "4px",
+          "regionInlineStart": "0px",
+          "regionInsetBlockStart": "-2px"
+        },
+        "badge": {
+          "backgroundColor": "rgb(37, 99, 235)",
+          "content": "\"Generated read-only\"",
+          "textTransform": "uppercase"
+        },
+        "text": {
+          "contentEditable": "false",
+          "isActiveElement": false,
+          "outlineStyle": "none",
+          "outlineWidth": "0px",
+          "readOnly": "true",
+          "source": "import mathclass SettaState:    def __init__(state):        state.Square_Root__x = 3        state.Square_Root = math.sqrt(state.Square_Root__x)state = SettaState()"
+        },
+        "hasCaretLayer": false,
+        "hasActiveLine": false
+      },
+      "screenshot": "screenshots/04-generated-output-clicked-light-1440x900.png",
+      "screenshotSha256": "48a54ac7f082203a83d0a76eb473edc45243c34a2a9cf967d56b09a7a2f7f651",
+      "state": "clicked",
+      "surface": "generated-output"
+    },
+    {
+      "appearance": "dark",
+      "crop": {
+        "height": 42,
+        "width": 344,
+        "x": 208,
+        "y": 243.390625,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "borderColor": "rgb(26, 33, 45)",
+        "focusBorderColor": "rgba(96, 165, 250, 0.498)",
+        "surface": {
+          "backgroundColor": "rgb(6, 7, 10)",
+          "borderRadius": "16px",
+          "borderWidth": "1px",
+          "marginInline": "2px 2px",
+          "padding": "4px 10px 4px 10px"
+        }
+      },
+      "id": "05-callable-field-idle-dark",
+      "observed": {
+        "box": {
+          "height": 26,
+          "width": 328,
+          "x": 216,
+          "y": 251.390625
+        },
+        "surface": {
+          "backgroundColor": "rgb(6, 7, 10)",
+          "borderRadius": "16px",
+          "borderWidth": "1px",
+          "marginInline": "2px 2px",
+          "padding": "4px 10px 4px 10px"
+        },
+        "borderColor": "rgb(26, 33, 45)",
+        "isActiveElement": false,
+        "contentEditable": null,
+        "value": "math.sqrt",
+        "type": {
+          "color": "rgb(201, 209, 217)",
+          "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+          "fontSize": "12px",
+          "fontWeight": "400",
+          "lineHeight": "16px"
+        }
+      },
+      "screenshot": "screenshots/05-callable-field-idle-dark-1440x900.png",
+      "screenshotSha256": "d78868a89683096b51cb0e6e9c0c46835e85a10b57815700f3a492fa8a9185e2",
+      "state": "idle",
+      "surface": "callable-field"
+    },
+    {
+      "appearance": "dark",
+      "crop": {
+        "height": 42,
+        "width": 344,
+        "x": 208,
+        "y": 243.390625,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "borderColor": "rgb(26, 33, 45)",
+        "focusBorderColor": "rgba(96, 165, 250, 0.498)",
+        "surface": {
+          "backgroundColor": "rgb(6, 7, 10)",
+          "borderRadius": "16px",
+          "borderWidth": "1px",
+          "marginInline": "2px 2px",
+          "padding": "4px 10px 4px 10px"
+        }
+      },
+      "id": "06-callable-field-focused-dark",
+      "observed": {
+        "box": {
+          "height": 26,
+          "width": 328,
+          "x": 216,
+          "y": 251.390625
+        },
+        "surface": {
+          "backgroundColor": "rgb(6, 7, 10)",
+          "borderRadius": "16px",
+          "borderWidth": "1px",
+          "marginInline": "2px 2px",
+          "padding": "4px 10px 4px 10px"
+        },
+        "borderColor": "rgba(96, 165, 250, 0.498)",
+        "isActiveElement": true,
+        "contentEditable": "true",
+        "value": "math.sqrt",
+        "type": {
+          "color": "rgb(201, 209, 217)",
+          "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+          "fontSize": "12px",
+          "fontWeight": "400",
+          "lineHeight": "16px"
+        }
+      },
+      "screenshot": "screenshots/06-callable-field-focused-dark-1440x900.png",
+      "screenshotSha256": "3b89fe42d94ecf41fad50b47328b324d659a2ed2ac02056259d785248ffefd3b",
+      "state": "focused",
+      "surface": "callable-field"
+    },
+    {
+      "appearance": "dark",
+      "crop": {
+        "height": 406,
+        "width": 656,
+        "x": 592,
+        "y": 225.390625,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "badge": {
+          "backgroundColor": "rgb(30, 64, 175)",
+          "content": "\"Generated read-only\"",
+          "textTransform": "uppercase"
+        },
+        "region": {
+          "backgroundImage": "linear-gradient(90deg, rgb(37, 99, 235) 0px, rgb(37, 99, 235) 3px, rgb(23, 37, 84) 3px)",
+          "borderRadius": "6px"
+        }
+      },
+      "id": "07-generated-output-idle-dark",
+      "observed": {
+        "box": {
+          "height": 390,
+          "width": 640,
+          "x": 600,
+          "y": 233.390625
+        },
+        "block": {
+          "bottom": 390.890625,
+          "lineCount": 8,
+          "top": 245.390625,
+          "width": 610.171875
+        },
+        "wrapper": {
+          "backgroundImage": "none"
+        },
+        "region": {
+          "backgroundImage": "linear-gradient(90deg, rgb(37, 99, 235) 0px, rgb(37, 99, 235) 3px, rgb(23, 37, 84) 3px)",
+          "borderRadius": "6px"
+        },
+        "placement": {
+          "badgeInlineStart": "305.078px",
+          "badgeInsetBlockStart": "-2px",
+          "badgeTransform": "matrix(1, 0, 0, 1, -50.7578, -6.19531)",
+          "regionInlineEnd": "4px",
+          "regionInlineStart": "0px",
+          "regionInsetBlockStart": "-2px"
+        },
+        "badge": {
+          "backgroundColor": "rgb(30, 64, 175)",
+          "content": "\"Generated read-only\"",
+          "textTransform": "uppercase"
+        },
+        "text": {
+          "contentEditable": "false",
+          "isActiveElement": false,
+          "outlineStyle": "none",
+          "outlineWidth": "0px",
+          "readOnly": "true",
+          "source": "import mathclass SettaState:    def __init__(state):        state.Square_Root__x = 3        state.Square_Root = math.sqrt(state.Square_Root__x)state = SettaState()"
+        },
+        "hasCaretLayer": false,
+        "hasActiveLine": false
+      },
+      "screenshot": "screenshots/07-generated-output-idle-dark-1440x900.png",
+      "screenshotSha256": "9db6c8893a5d61bc2e2e77f93928ac5738c1613535364d169194f06aae50c4f1",
+      "state": "idle",
+      "surface": "generated-output"
+    },
+    {
+      "appearance": "dark",
+      "crop": {
+        "height": 406,
+        "width": 656,
+        "x": 592,
+        "y": 225.390625,
+        "marginCssPx": 8
+      },
+      "donor": {
+        "badge": {
+          "backgroundColor": "rgb(30, 64, 175)",
+          "content": "\"Generated read-only\"",
+          "textTransform": "uppercase"
+        },
+        "region": {
+          "backgroundImage": "linear-gradient(90deg, rgb(37, 99, 235) 0px, rgb(37, 99, 235) 3px, rgb(23, 37, 84) 3px)",
+          "borderRadius": "6px"
+        }
+      },
+      "id": "08-generated-output-clicked-dark",
+      "observed": {
+        "box": {
+          "height": 390,
+          "width": 640,
+          "x": 600,
+          "y": 233.390625
+        },
+        "block": {
+          "bottom": 390.890625,
+          "lineCount": 8,
+          "top": 245.390625,
+          "width": 610.171875
+        },
+        "wrapper": {
+          "backgroundImage": "none"
+        },
+        "region": {
+          "backgroundImage": "linear-gradient(90deg, rgb(37, 99, 235) 0px, rgb(37, 99, 235) 3px, rgb(23, 37, 84) 3px)",
+          "borderRadius": "6px"
+        },
+        "placement": {
+          "badgeInlineStart": "305.078px",
+          "badgeInsetBlockStart": "-2px",
+          "badgeTransform": "matrix(1, 0, 0, 1, -50.7578, -6.19531)",
+          "regionInlineEnd": "4px",
+          "regionInlineStart": "0px",
+          "regionInsetBlockStart": "-2px"
+        },
+        "badge": {
+          "backgroundColor": "rgb(30, 64, 175)",
+          "content": "\"Generated read-only\"",
+          "textTransform": "uppercase"
+        },
+        "text": {
+          "contentEditable": "false",
+          "isActiveElement": false,
+          "outlineStyle": "none",
+          "outlineWidth": "0px",
+          "readOnly": "true",
+          "source": "import mathclass SettaState:    def __init__(state):        state.Square_Root__x = 3        state.Square_Root = math.sqrt(state.Square_Root__x)state = SettaState()"
+        },
+        "hasCaretLayer": false,
+        "hasActiveLine": false
+      },
+      "screenshot": "screenshots/08-generated-output-clicked-dark-1440x900.png",
+      "screenshotSha256": "0202b4c20fb4c9106f2b8872a1e2d6649f0145ae2a0f617302edb6c22cfb7322",
+      "state": "clicked",
+      "surface": "generated-output"
+    }
+  ]
+}

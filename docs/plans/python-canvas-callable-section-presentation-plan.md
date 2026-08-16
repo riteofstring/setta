@@ -8,8 +8,10 @@ candidate at `1217367302fe4d3213f01d9064dff0ce2eefce37` was rejected in develope
 rejected in supervisor visual review for filling the section's unused height and moving the badge
 away from the donor composition. All four of Phase B's corrections are now implemented: the
 generated region is painted on the rendered document lines, so the block hugs the code and its
-badge is centred on the block's upper boundary. Phase B remains open for capture evidence,
-supervisor inspection, developer visual acceptance, and its closing test steps.**
+badge is centred on the block's upper boundary. The corrected candidate is
+`666af132be38edf4186e80ad7cf4788c32ff9fd0` and its eight captures are committed at
+`docs/evidence/python-canvas-callable-presentation`. Phase B remains open for supervisor
+inspection, developer visual acceptance, and its closing test steps.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
 Basedpyright, transport, or project semantics into `@setta/workspace`. The completed
@@ -804,12 +806,32 @@ are deleting a live vitest setup file or editing protected `.code-policy.json` s
 reported rather than folded into this presentation plan. The workspace suite passes (1176 tests
 across 142 files), as do the playground suite (43), the Python Canvas frontend suite (37), and the
 production browser walkthrough against the production builds, the real Go service, pinned
-Basedpyright, and headless Chrome at 1440x900 device scale 1.
+Basedpyright, and headless Chrome at 1440x900 device scale 1. All nine ordinary recommended suites
+pass over this candidate. One negative control binds the walkthrough to this fix: restoring the
+rejected wrapper fill fails it on the editor wrapper painting a region its document lines own.
 
-What remains in this phase: rerun all eight captures and commit their evidence against the
-immutable source candidate; obtain supervisor inspection and developer visual acceptance with its
-accepted-candidate record; then run this phase's closing `test --changed --base <trusted-base>` and
-`test-levels --base <trusted-base>` steps.
+**Capture record.** All eight captures are rerun and committed at
+`docs/evidence/python-canvas-callable-presentation`, rendered from the immutable source candidate
+`666af132be38edf4186e80ad7cf4788c32ff9fd0` and committed separately from it, as decision 15
+requires. The bundle holds the Callable field idle and focused and Generated Python idle and
+clicked, in light and dark appearance, as component crops with eight CSS px of surrounding surface,
+plus `computed/presentation-metrics.json` with each crop's clip rectangle, SHA-256, computed
+geometry, and computed typography or paint beside the donor values it was asserted against, and a
+hand-written README stating what the images have to show. The capture asserts every donor value
+while it records, so it cannot file a capture of a drifted surface, and it names the source commit
+it rendered.
+
+In the light idle generated capture the eight-line block ends 232 CSS px above the fixed 390px
+section's own bottom, the wrapper's own `background-image` is `none`, the region carries the
+donor's gradient and 6px radius, and the badge's origin is the block's top edge with a
+two-dimensional negative translation that centres it there, 3 CSS px from the block's centre. The
+clicked captures repeat those values with no caret layer, no active line, and no inner outline; the
+section-selection chrome visible around them is ordinary workspace behaviour rather than part of
+this surface. This is unaccepted working evidence, not a regression lock.
+
+What remains in this phase: supervisor inspection of those eight images and developer visual
+acceptance with its accepted-candidate record; then this phase's closing
+`test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps.
 
 ## Stop conditions
 
