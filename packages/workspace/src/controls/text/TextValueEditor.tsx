@@ -63,6 +63,11 @@ type TextValueEditorCoreProps = Omit<TextValueEditorProps, "itemId"> & {
   metaMinimumHeight?: boolean;
 };
 
+type MetaTextValueEditorProps = Omit<
+  TextValueEditorCoreProps,
+  "completionProvider" | "presentation"
+>;
+
 // The reference `ParamUI` class strings for the text control, minus its backend error branch.
 function getItemRowDummyClassName(isDisabled: boolean) {
   return `${NO_PAN_CLASS_NAME} section-value self-end peer/textinput ${NO_DRAG_CLASS_NAME} ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`;
@@ -160,9 +165,8 @@ export function MetaTextValueEditor({
   singleLine = false,
   wrapLines,
   disabled = false,
-  completionProvider,
   metaMinimumHeight = false,
-}: Omit<TextValueEditorCoreProps, "presentation">) {
+}: MetaTextValueEditorProps) {
   return (
     <TextValueEditorCore
       ariaLabel={ariaLabel}
@@ -176,7 +180,6 @@ export function MetaTextValueEditor({
       singleLine={singleLine}
       wrapLines={wrapLines}
       disabled={disabled}
-      completionProvider={completionProvider}
       metaMinimumHeight={metaMinimumHeight}
       presentation="meta-control"
     />

@@ -356,7 +356,7 @@ during initialization and proves a later completion still uses the shared sessio
 
 ### Phase B — atomic workspace consumer cutover
 
-- [ ] Generic workspace seam and callable-only consumer cutover complete
+- [ ] Generic workspace seam and callable-only consumer cutover implemented; awaiting corrected browser acceptance
 
 Perform the dependency governance and the consumer-facing implementation as one atomic public
 cutover:
@@ -408,13 +408,14 @@ visible-error assertions; keyboard popup precedence and cancellation assertions;
 browser output; and the README wording update. Include the fact that no completion selection
 mutated canonical project state.
 
-**Recorded implementation evidence (2026-08-18; browser proof blocked):** Added the exact direct
+**Recorded implementation evidence (2026-08-18; corrected browser acceptance pending):** Added the exact direct
 workspace dependency `@codemirror/autocomplete@6.20.3`. The candidate lockfile generated with
 `pnpm install --lockfile-only --ignore-scripts` changed only the workspace importer (the package
 specifier and resolved version); it introduced no new transitive resolution. With trusted base
 `13721b4dd881caf649aa21cadf2c12785dcae6f3`, `code-policy dependency-review --base
 13721b4dd881caf649aa21cadf2c12785dcae6f3` completed successfully with no reported direct,
-transitive, native-audit, OSV, or release-age finding. `pnpm install --frozen-lockfile
+transitive, native-audit, or OSV finding and one nonblocking release-age warning:
+`@codemirror/autocomplete@6.20.3`, released 2026-06-03, was under 90 days old. `pnpm install --frozen-lockfile
 --ignore-scripts` then completed successfully.
 
 The generic public completion seam, exact V1 route/projection, callable-only UTF-16 provider,
@@ -426,12 +427,11 @@ contract:check` passed. The focused tests cover popup Enter/Escape precedence, I
 cancellation and stale results, no Tab binding, strict HTTP/parser behavior, blank draft
 suppression, UTF-16 replacement, abort/error/empty handling, and callable-only attachment.
 
-The required production browser command, `pnpm --filter @setta/python-canvas run browser:test`,
-was attempted but could not start its local service: `listen EPERM: operation not permitted
-127.0.0.1` while reserving the loopback port. It therefore could not produce the required real
-Basedpyright/browser proof that first Enter changes only the draft and canonical state remains
-unchanged. This Phase B marker remains unchecked until that required evidence can run in an
-environment permitted to listen on loopback.
+Outside the writer sandbox, the supervisor-owned browser walkthrough reached an active accessible
+`sqrt` option, but an immediate Enter left the draft as `math.sq`. This exposed CodeMirror's default
+interaction delay. The narrow adapter correction is awaiting a fresh supervisor-owned browser rerun;
+do not treat the required real Basedpyright/browser proof as passed. This Phase B marker remains
+unchecked until that corrected acceptance evidence is recorded.
 
 **Avoid rabbit holes:** do not add completion resolve, docs, snippets, Tab, hover, caching,
 ranking, parameter completion, alternate editor services, or broad frontend redesign while making

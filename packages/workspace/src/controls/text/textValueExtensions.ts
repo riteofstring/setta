@@ -108,6 +108,7 @@ export function getTextValueExtensions({
     extensions.push(
       autocompletion({
         defaultKeymap: false,
+        interactionDelay: 0,
         override: [
           completionSource(
             completionProvider,
@@ -263,9 +264,6 @@ function completionSource(
         return null;
       }
       return completionResultForEditor(result, context);
-    } catch {
-      // App providers own failure presentation. The shared adapter simply leaves the popup empty.
-      return null;
     } finally {
       requests.clear(controller);
     }

@@ -301,7 +301,7 @@ describe("TextValueEditor", () => {
     expect(view.state.doc.toString()).toBe("0.001");
   });
 
-  it("gives an active completion popup Enter and Escape precedence before normal editor actions", async () => {
+  it("gives an active completion popup immediate Enter and Escape precedence before normal editor actions", async () => {
     const onCommit = vi.fn();
     const provider = vi.fn().mockResolvedValue({
       from: 5,
@@ -356,7 +356,6 @@ describe("TextValueEditor", () => {
     expect(view.state.doc.toString()).toBe("math.sq");
     expect(onCommit).not.toHaveBeenCalled();
     expect(completionStatus(view.state)).toBe("active");
-    await pauseForCompletionInteraction();
     const firstEnter = new KeyboardEvent("keydown", {
       bubbles: true,
       cancelable: true,
@@ -580,10 +579,6 @@ describe("TextValueEditor", () => {
     expect(host.querySelector(".cm-editor")).toBeNull();
   });
 });
-
-async function pauseForCompletionInteraction(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 80));
-}
 
 async function waitFor(
   condition: () => boolean,
