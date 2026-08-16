@@ -1,0 +1,92 @@
+/* The section-field text presentation: one compact, full-width rounded surface a section renders
+ * above its item toolbar, matching frozen main's callable-first field weight rather than the
+ * parameter row's underlined value column. The package owns the surface, focus treatment,
+ * padding, disabled paint, and the layout gutter reserved for a caller-owned end adornment; the
+ * caller owns only what it renders inside that gutter. */
+
+.setta-workspace-section-field {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  margin-block-start: 4px;
+  padding: 3px 8px;
+  border: 1px solid rgb(182 192 211 / 70%);
+  border-radius: 8px;
+  background-color: rgb(255 255 255 / 55%);
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-section-field {
+  border-color: rgb(43 54 74 / 70%);
+  background-color: rgb(11 14 19);
+}
+
+.setta-workspace-section-field:focus-within {
+  border-color: rgb(96 165 250);
+}
+
+.setta-workspace-section-field[data-disabled="true"] {
+  background-color: rgb(226 232 240 / 45%);
+}
+
+.setta-workspace.setta-workspace-dark
+  .setta-workspace-section-field[data-disabled="true"] {
+  background-color: rgb(26 33 45 / 60%);
+}
+
+/* The two editor layers stack in the same cell so the idle highlighted layer and the live
+ * CodeMirror layer occupy identical geometry through the activation swap. */
+.setta-workspace-section-field-input {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 auto;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+.setta-workspace-section-field-editor {
+  min-width: 0;
+  grid-column: 1 / 2;
+  grid-row: 1 / 2;
+  overflow: hidden;
+  color: rgb(43 54 74);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 20px;
+  tab-size: 4;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.setta-workspace.setta-workspace-dark .setta-workspace-section-field-editor {
+  color: rgb(182 192 211);
+}
+
+.setta-workspace-section-field[data-disabled="false"]
+  .setta-workspace-section-field-editor {
+  cursor: text;
+  user-select: text;
+}
+
+.setta-workspace-section-field-editor-live .cm-content,
+.setta-workspace-section-field-editor-live .cm-line {
+  padding-inline: 0;
+}
+
+.setta-workspace-section-field-editor-live .cm-content {
+  padding-block: 0;
+}
+
+.setta-workspace-section-field-editor-live * {
+  outline: 0;
+}
+
+.setta-workspace-section-field-adornment {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 14px;
+  min-block-size: 14px;
+}

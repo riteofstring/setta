@@ -62,6 +62,26 @@ export type WorkspaceSectionKindIconProps = Readonly<{
   sectionId: string;
 }>;
 
+// The item toolbar is package-owned, so a kind that carries items declares which of its exact
+// behaviors it wants instead of leaving the package to infer one from a missing item factory,
+// a locked section, an empty tree, or application data.
+export const WORKSPACE_ITEM_TOOLBAR_MODES = [
+  "authoring-and-filter",
+  "filter-only",
+  "hidden",
+] as const;
+
+export type WorkspaceItemToolbarMode =
+  (typeof WORKSPACE_ITEM_TOOLBAR_MODES)[number];
+
+// The one generic item-area contract: an application-owned leading control above the package's
+// item toolbar and registered item content. The slot is deliberately content-agnostic — the
+// package never learns what the leading control edits.
+export type WorkspaceItemAreaPresentation = Readonly<{
+  renderLeadingContent?: (section: WorkspaceSection) => ReactNode;
+  toolbar: WorkspaceItemToolbarMode;
+}>;
+
 type WorkspaceInspectorContributionInput =
   | { type: "section"; section: WorkspaceSection }
   | { type: "item"; section: WorkspaceSection; item: WorkspaceItem };
@@ -112,6 +132,9 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         // Custom opaque items have no package-owned label. Their owning kind may contribute one
         // search string from frozen public snapshots without putting derived text in the document.
         getItemSearchableText?: WorkspaceItemSearchableText;
+        // Required of every kind whose documents carry an item tree. The package renders leading
+        // content, the declared toolbar, and registered content in that fixed order.
+        itemArea?: WorkspaceItemAreaPresentation;
         // Placed in the header's trailing control group, ahead of the container controls (lock,
         // minimize, delete) — the reference's own slot for its per-type header controls. The
         // built-in Text section's edit/render toggle is the package's one use of it.
@@ -125,6 +148,7 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
         contentClassName?: never;
         createItem?: never;
         getItemSearchableText?: never;
+        itemArea?: never;
         renderHeaderControls?: never;
         presentation: MetaControlSectionPresentation;
       }
@@ -176,11 +200,39 @@ function assertOptionalSectionKindFunction(
   }
 }
 
+function assertItemAreaPresentation(
+  kind: string,
+  itemArea: WorkspaceItemAreaPresentation,
+): void {
+  if (itemArea === null || typeof itemArea !== "object") {
+    throw new Error(
+      `Section kind ${kind} has a malformed item-area presentation.`,
+    );
+  }
+  if (!WORKSPACE_ITEM_TOOLBAR_MODES.includes(itemArea.toolbar)) {
+    throw new Error(
+      `Section kind ${kind} declares the unknown item toolbar mode ` +
+        `${String(itemArea.toolbar)}.`,
+    );
+  }
+  assertOptionalSectionKindFunction(
+    kind,
+    "renderLeadingContent",
+    itemArea.renderLeadingContent,
+  );
+}
+
 function assertMetaControlDefinition(
   kind: string,
   definition: SectionKindDefinition,
 ): void {
   assertMetaControlPresentation(kind, definition.presentation);
+  if (definition.itemArea !== undefined) {
+    throw new Error(
+      `Meta-control section kind ${kind} cannot register an item-area presentation; ` +
+        "meta controls cannot carry item trees.",
+    );
+  }
   if (definition.defaultSize !== undefined) {
     throw new Error(
       `Meta-control section kind ${kind} cannot register a defaultSize; ` +
@@ -243,6 +295,10 @@ function assertSectionKindDefinition(
   );
   if (definition.presentation !== undefined) {
     assertMetaControlDefinition(kind, definition);
+    return;
+  }
+  if (definition.itemArea !== undefined) {
+    assertItemAreaPresentation(kind, definition.itemArea);
   }
 }
 
@@ -289,6 +345,24 @@ export function getSectionKindHeaderControls(
   return definition.presentation === undefined
     ? (definition.renderHeaderControls ?? null)
     : null;
+}
+
+// Every section that carries items renders one coherent package-owned item area, so the
+// declaration is required rather than defaulted. Loading and rendering both resolve it here.
+export function getWorkspaceItemAreaPresentationOrThrow(
+  host: WorkspaceHost,
+  section: Pick<WorkspaceSection, "id" | "kind">,
+): WorkspaceItemAreaPresentation {
+  const definition = getRegisteredSectionKindOrThrow(host, section.kind);
+  const itemArea =
+    definition.presentation === undefined ? definition.itemArea : undefined;
+  if (!itemArea) {
+    throw new Error(
+      `Section ${section.id} carries an item tree, but section kind ${section.kind} does not ` +
+        "declare an item-area presentation. Register one with an explicit toolbar mode.",
+    );
+  }
+  return itemArea;
 }
 
 export function getWorkspaceItemFactory(

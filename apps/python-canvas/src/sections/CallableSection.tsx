@@ -27,8 +27,10 @@ import {
 
 import { usePythonCanvasMutationContext } from "../app/PythonCanvasMutationContext";
 
+export const CALLABLE_SECTION_ID = "python-canvas:callable" as const;
 export const PARAMETER_ITEM_ROOT_ID = "python-canvas:callable:parameter-root";
 export const PARAMETER_ITEM_ID = "python-canvas:callable:parameter";
+const CALLABLE_EXPRESSION_CONTROL_ID = "callable-expression";
 const PARAMETER_LIST_KEY = "python-canvas-callable-parameters";
 
 export type CallableSectionData = {
@@ -141,33 +143,38 @@ export function readParameterItemData(value: unknown): ParameterItemData {
   };
 }
 
-export function CallableSection({ data }: { data: CallableSectionData }) {
+// The section's leading control, placed by the package above its Args toolbar. The compact field
+// replaces the previous large label and the idle paragraph about what Basedpyright does after a
+// commit; ordinary pending state is a small adornment plus an app-owned live region, and only
+// genuine failures still claim a visible block.
+export function CallableExpressionField() {
   const mutation = usePythonCanvasMutationContext();
-  const itemDiagnostics = parameterDiagnosticRegistry(data);
   const pending = mutation.pendingDescription !== null;
 
   return (
-    <div className="python-canvas-callable-section">
-      <div className="python-canvas-callable-editor">
-        <p className="python-canvas-field-label">Callable expression</p>
-        <TextValueEditor
-          ariaLabel="Callable expression"
-          completionProvider={mutation.callableCompletionProvider}
-          disabled={pending}
-          itemId="python-canvas:callable:expression"
-          language="python"
-          onCommit={mutation.onCallableCommit}
-          onValueChange={mutation.onCallableDraftChange}
-          placeholder="math.sqrt"
-          sectionId="python-canvas:callable"
-          singleLine
-          value={mutation.callableDraft}
-          wrapLines={false}
-        />
-      </div>
-      <p className="python-canvas-provider-status" role="status">
-        {mutation.pendingDescription ??
-          providerStatusMessage(data.providerStatus)}
+    <div className="python-canvas-callable-field">
+      <TextValueEditor
+        ariaLabel="Callable expression"
+        completionProvider={mutation.callableCompletionProvider}
+        controlId={CALLABLE_EXPRESSION_CONTROL_ID}
+        disabled={pending}
+        endAdornment={
+          pending ? (
+            <span aria-hidden={true} className="python-canvas-pending-mark" />
+          ) : null
+        }
+        language="python"
+        onCommit={mutation.onCallableCommit}
+        onValueChange={mutation.onCallableDraftChange}
+        placeholder="math.sqrt"
+        presentation="section-field"
+        sectionId={CALLABLE_SECTION_ID}
+        singleLine
+        value={mutation.callableDraft}
+        wrapLines={false}
+      />
+      <p className="python-canvas-visually-hidden" role="status">
+        {mutation.pendingDescription ?? ""}
       </p>
       {mutation.mutationError === null ? null : (
         <p className="python-canvas-mutation-error" role="alert">
@@ -179,16 +186,43 @@ export function CallableSection({ data }: { data: CallableSectionData }) {
           {mutation.completionError}
         </p>
       )}
+    </div>
+  );
+}
+
+export function CallableSection({ data }: { data: CallableSectionData }) {
+  const itemDiagnostics = parameterDiagnosticRegistry(data);
+  const providerFailure = providerFailureMessage(data.providerStatus);
+
+  return (
+    <div className="python-canvas-callable-section">
+      {providerFailure === null ? null : (
+        <p className="python-canvas-provider-error" role="alert">
+          {providerFailure}
+        </p>
+      )}
       <WorkspaceItemList
         itemDiagnostics={itemDiagnostics}
         listKey={PARAMETER_LIST_KEY}
         renderItem={(context) => <ParameterItemRow context={context} />}
-        sectionId="python-canvas:callable"
+        sectionId={CALLABLE_SECTION_ID}
         topLevelItemIds={[PARAMETER_ITEM_ID]}
         visibleItemIds={data.hasParameter ? [PARAMETER_ITEM_ID] : []}
       />
     </div>
   );
+}
+
+// The retained filter is package-owned but these rows are application-opaque, so the app projects
+// exactly the text the row shows.
+export function parameterItemSearchableText(item: {
+  data?: unknown;
+}): string {
+  const data = readParameterItemData(item.data);
+  if (data.kind === "empty") {
+    return "";
+  }
+  return `${data.name} ${parameterMetadata(data)}`;
 }
 
 function ParameterItemRow({ context }: { context: ItemRowRenderContext }) {
@@ -209,9 +243,10 @@ function ParameterItemRow({ context }: { context: ItemRowRenderContext }) {
       </WorkspaceItemLabel>
       <TextValueEditor
         ariaLabel={`${data.name} expression`}
+        controlId={context.item.id}
         disabled={data.disabled || mutation.pendingDescription !== null}
-        itemId={context.item.id}
         language="python"
+        presentation="item-row"
         onValueChange={(value) =>
           mutation.onParameterExpressionChange(data.parameterId, value)
         }
@@ -234,19 +269,16 @@ function parameterDiagnosticRegistry(
   return { [PARAMETER_ITEM_ID]: data.parameterDiagnostics };
 }
 
-function providerStatusMessage(
+// Only a genuine provider failure claims a visible block. Not-started, pending, and ready are
+// ordinary states; describing them turned the idle section into a paragraph of infrastructure
+// text, and pending already reads through the editor's adornment and live region.
+function providerFailureMessage(
   status: CallableSectionData["providerStatus"],
-): string {
-  if (status.state === PROVIDER_LIFECYCLE_STATE_READY_V1) {
-    return "Basedpyright is ready.";
-  }
-  if (status.state === PROVIDER_LIFECYCLE_STATE_PENDING_V1) {
-    return "Basedpyright is checking generated Python.";
-  }
+): string | null {
   if (status.state === PROVIDER_LIFECYCLE_STATE_FAILED_V1) {
     return "Basedpyright is unavailable. Try the change again when it is ready.";
   }
-  return "Basedpyright will check the callable after you commit it.";
+  return null;
 }
 
 function parameterMetadata(

@@ -41,11 +41,22 @@ import { getWorkspaceHostDomId } from "../../workspaceHostInternals";
 // plumbing stay application-side. The control disables from the host flag and, package-wide,
 // while item-select mode is active — the reference's interaction-first disabled contract with
 // no blanket opacity treatment.
+//
+// One editor core serves every placement. The public presentations are the parameter row and
+// the compact section field a section renders above its item toolbar (the reference's own
+// callable-first composition); the meta-control placement stays a package-internal seam. The
+// lifecycle, controlled-value path, completion adapter, keymap, activation model, and theme are
+// shared — presentations differ only in their surrounding surface.
 
-export type TextValueEditorProps = {
+// The two supported public placements. `item-row` is the parameter-row control; `section-field`
+// is the compact full-width field a section renders above its item toolbar. Callers state which
+// one they mean; the package never guesses from an identifier or DOM position.
+export type TextValueEditorPresentation = "item-row" | "section-field";
+
+type TextValueEditorBaseProps = {
   ariaLabel: string;
   sectionId: string;
-  itemId: string;
+  controlId: string;
   value: string;
   onValueChange: (nextValue: string) => void;
   onCommit?: (value: string) => void;
@@ -57,15 +68,27 @@ export type TextValueEditorProps = {
   completionProvider?: TextValueCompletionProvider;
 };
 
-type TextValueEditorCoreProps = Omit<TextValueEditorProps, "itemId"> & {
-  controlId: string;
-  presentation: "item-row" | "meta-control";
+export type TextValueEditorProps =
+  | (TextValueEditorBaseProps & {
+      presentation: "item-row";
+      endAdornment?: never;
+    })
+  | (TextValueEditorBaseProps & {
+      presentation: "section-field";
+      // The package owns the adornment's layout space inside the field surface; the caller owns
+      // its content, semantics, and ARIA. It is never editor value and takes no keyboard behavior.
+      endAdornment?: ReactNode;
+    });
+
+type TextValueEditorCoreProps = TextValueEditorBaseProps & {
+  presentation: TextValueEditorPresentation | "meta-control";
+  endAdornment?: ReactNode;
   metaMinimumHeight?: boolean;
 };
 
 type MetaTextValueEditorProps = Omit<
   TextValueEditorCoreProps,
-  "completionProvider" | "presentation"
+  "completionProvider" | "endAdornment" | "presentation"
 >;
 
 // The reference `ParamUI` class strings for the text control, minus its backend error branch.
@@ -87,6 +110,13 @@ const META_CONTROL_REAL_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}
 function getDividerClassName(isSelectingItems: boolean) {
   return `section-value self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingItems ? "peer-focus-within/textinput:border-blue-400" : ""}`;
 }
+
+// The compact section-field surface: one rounded, full-width field whose padding, focus
+// treatment, disabled paint, and adornment gutter live in the scoped package stylesheet rather
+// than in caller-supplied class strings.
+const SECTION_FIELD_WRAPPER_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} setta-workspace-section-field`;
+const SECTION_FIELD_DUMMY_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} setta-workspace-section-field-editor`;
+const SECTION_FIELD_REAL_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} setta-workspace-section-field-editor setta-workspace-section-field-editor-live`;
 
 type TextValuePresentationConfig = {
   dummyClassName: string;
@@ -111,6 +141,15 @@ function getTextValuePresentationConfig(
       wrapperClassName: META_CONTROL_WRAPPER_CLASS_NAME,
     };
   }
+  if (presentation === "section-field") {
+    return {
+      dummyClassName: SECTION_FIELD_DUMMY_CLASS_NAME,
+      realClassName: SECTION_FIELD_REAL_CLASS_NAME,
+      dummyIdSuffix: "SectionField",
+      showDivider: false,
+      wrapperClassName: SECTION_FIELD_WRAPPER_CLASS_NAME,
+    };
+  }
   return {
     dummyClassName: getItemRowDummyClassName(isDisabled),
     realClassName: ITEM_ROW_REAL_CLASS_NAME,
@@ -130,24 +169,39 @@ function renderTextValueDivider(
   return <span className={getDividerClassName(isSelectingItems)} />;
 }
 
-function wrapTextValueEditorLayers(
-  config: TextValuePresentationConfig,
-  editorLayers: ReactNode,
-): ReactNode {
+function wrapTextValueEditorLayers({
+  config,
+  editorLayers,
+  endAdornment,
+  isDisabled,
+  presentation,
+}: {
+  config: TextValuePresentationConfig;
+  editorLayers: ReactNode;
+  endAdornment: ReactNode;
+  isDisabled: boolean;
+  presentation: TextValueEditorCoreProps["presentation"];
+}): ReactNode {
   if (!config.wrapperClassName) {
     return editorLayers;
   }
-  return <div className={config.wrapperClassName}>{editorLayers}</div>;
+  if (presentation !== "section-field") {
+    return <div className={config.wrapperClassName}>{editorLayers}</div>;
+  }
+  return (
+    <div className={config.wrapperClassName} data-disabled={isDisabled}>
+      <div className="setta-workspace-section-field-input">{editorLayers}</div>
+      {endAdornment === undefined || endAdornment === null ? null : (
+        <div className="setta-workspace-section-field-adornment">
+          {endAdornment}
+        </div>
+      )}
+    </div>
+  );
 }
 
-export function TextValueEditor({ itemId, ...props }: TextValueEditorProps) {
-  return (
-    <TextValueEditorCore
-      {...props}
-      controlId={itemId}
-      presentation="item-row"
-    />
-  );
+export function TextValueEditor(props: TextValueEditorProps) {
+  return <TextValueEditorCore {...props} />;
 }
 
 // Package-internal composition seam for the direct-on-canvas text control. The public item-row
@@ -199,6 +253,7 @@ function TextValueEditorCore({
   wrapLines,
   disabled = false,
   completionProvider,
+  endAdornment,
   presentation,
   metaMinimumHeight = false,
 }: TextValueEditorCoreProps) {
@@ -297,7 +352,13 @@ function TextValueEditorCore({
       {renderTextValueDivider(presentationConfig, isSelectingItems)}
     </>
   );
-  return wrapTextValueEditorLayers(presentationConfig, editorLayers);
+  return wrapTextValueEditorLayers({
+    config: presentationConfig,
+    editorLayers,
+    endAdornment,
+    isDisabled,
+    presentation,
+  });
 }
 
 function LiveTextValueEditor({

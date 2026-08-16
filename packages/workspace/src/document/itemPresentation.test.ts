@@ -221,7 +221,10 @@ function getStoredItemPresentation() {
 describe("typed workspace item presentations", () => {
   beforeEach(() => {
     registerSectionKinds(testWorkspace.host, {
-      leaf: { renderContent: () => null },
+      leaf: {
+      renderContent: () => null,
+      itemArea: { toolbar: "authoring-and-filter" },
+    },
     });
   });
 

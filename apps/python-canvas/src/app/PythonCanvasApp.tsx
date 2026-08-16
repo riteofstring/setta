@@ -19,14 +19,16 @@ import {
 } from "../backend/client";
 import type { ProjectSnapshotV1 } from "../backend/generatedContract";
 import {
+  CALLABLE_SECTION_ID,
   PARAMETER_ITEM_ID,
+  CallableExpressionField,
   CallableSection,
+  parameterItemSearchableText,
   readCallableSectionData,
   readParameterItemData,
 } from "../sections/CallableSection";
 import { createCallableCompletionProvider } from "../sections/callableCompletion";
 import {
-  CALLABLE_SECTION_ID,
   CALLABLE_SECTION_KIND,
   CALLABLE_SECTION_SIZE,
   GENERATED_PYTHON_SECTION_SIZE,
@@ -66,6 +68,15 @@ export function registerPythonCanvasSectionKinds(host: WorkspaceHost): void {
       assertValidData: (section) => {
         readCallableSectionData(section.data);
       },
+      // The callable editor is this section's primary control, so it is the package's leading
+      // item-area content. This slice has no parameter-structure mutations, so the toolbar keeps
+      // its Args label and filter without exposing add/remove/delete actions that cannot succeed.
+      itemArea: {
+        renderLeadingContent: () => <CallableExpressionField />,
+        toolbar: "filter-only",
+      },
+      getItemSearchableText: (context) =>
+        parameterItemSearchableText(context.item),
       renderContent: (section) => (
         <CallableSection data={readCallableSectionData(section.data)} />
       ),

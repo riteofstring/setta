@@ -17,7 +17,10 @@ import { assertValidSectionOverflowMode } from "./groupOverflow";
 import { deactivateItemSelect } from "./itemSelectionMode";
 import { assertValidWorkspaceSectionItemTree } from "./itemTreeValidation";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
-import { getRegisteredSectionKindOrThrow } from "./sectionKindRegistry";
+import {
+  getRegisteredSectionKindOrThrow,
+  getWorkspaceItemAreaPresentationOrThrow,
+} from "./sectionKindRegistry";
 import { resolveWorkspaceSectionSize } from "./sectionSize";
 import {
   getActiveSectionsStore,
@@ -141,6 +144,7 @@ function assertAcyclicParentChains(parentSectionMap: Record<string, string>) {
 }
 
 function assertValidSectionItemTrees(
+  host: WorkspaceHost,
   sections: Record<string, WorkspaceSection>,
 ) {
   for (const [sectionId, section] of Object.entries(sections)) {
@@ -154,6 +158,9 @@ function assertValidSectionItemTrees(
         `Section ${sectionId} is a group section and cannot carry an item tree.`,
       );
     }
+    // The item area is package-owned composition, so its declaration is part of the document
+    // boundary: a kind that carries items without one fails here, not on first paint.
+    getWorkspaceItemAreaPresentationOrThrow(host, section);
     assertValidWorkspaceSectionItemTree(sectionId, section.itemTree);
   }
 }
@@ -183,7 +190,7 @@ export function resolveAndValidateWorkspaceSections(
   assertValidSectionOverflowModes(sections);
   const parentSectionMap = buildParentSectionMap(sections);
   assertAcyclicParentChains(parentSectionMap);
-  assertValidSectionItemTrees(sections);
+  assertValidSectionItemTrees(host, sections);
   return { sections, parentSectionMap };
 }
 

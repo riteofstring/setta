@@ -447,7 +447,26 @@ host-owned configuration. The context is a deeply frozen snapshot that discrimin
 section from a selected custom item plus its owning section; it exposes no package store, live
 canonical object, or private selector.
 
-An ordinary kind whose sections carry an `itemTree` may register `createItem(context)`. The host
+An ordinary kind whose sections carry an `itemTree` must declare its item-area presentation:
+
+```ts
+itemArea: {
+  renderLeadingContent?: (section) => ReactNode,
+  toolbar: "authoring-and-filter" | "filter-only" | "hidden",
+}
+```
+
+The package renders one coherent item area in this exact order: `renderLeadingContent(section)`
+when present, the toolbar selected by the declared mode, then `renderContent(section)`. One
+package-owned item-filter provider wraps all three regions. `authoring-and-filter` keeps the full
+Args toolbar; `filter-only` renders the same Args/filter surface without the Add, Remove, and
+Delete actions; `hidden` renders no toolbar while the item list keeps its ordinary unfiltered
+context. The mode is never inferred from a missing item factory, a locked section, an item count,
+or application data — a section that carries items whose kind declares no item area fails at load
+and at render, and a meta-control kind cannot declare one. The leading slot is content-agnostic:
+the package places it and never interprets what it renders.
+
+An ordinary kind whose sections carry an `itemTree` may also register `createItem(context)`. The host
 returns one complete serializable item with a stable ID, empty `children`, and its domain defaults;
 `context.section` is a detached, deeply frozen snapshot. `insertWorkspaceItem`,
 `deleteWorkspaceItems`, `deleteLastWorkspaceItem`, and `deleteSelectedWorkspaceItems` are the
@@ -494,6 +513,7 @@ registerSectionKinds({
   },
   parameters: {
     renderContent: (section) => <ParameterRows section={section} />,
+    itemArea: { toolbar: "authoring-and-filter" },
     getItemSearchableText: ({ item }) => readCustomSearchText(item.data),
     createItem: ({ section }) => ({
       id: `${section.id}-${crypto.randomUUID()}`,

@@ -15,6 +15,7 @@ import {
   type ProjectSnapshotV1,
 } from "../backend/generatedContract";
 import {
+  CALLABLE_SECTION_ID,
   PARAMETER_ITEM_ID,
   PARAMETER_ITEM_ROOT_ID,
   type CallableSectionData,
@@ -23,7 +24,6 @@ import {
 } from "../sections/CallableSection";
 
 export const CALLABLE_SECTION_KIND = "python-canvas.callable" as const;
-export const CALLABLE_SECTION_ID = "python-canvas:callable" as const;
 export const GENERATED_PYTHON_SECTION_ID =
   "python-canvas:generated-python" as const;
 

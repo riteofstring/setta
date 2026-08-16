@@ -120,7 +120,10 @@ function makeItemTree(): WorkspaceSectionItemTree {
 
 function loadTestDocument() {
   registerSectionKinds(testWorkspace.host, {
-    leaf: { renderContent: () => null },
+    leaf: {
+      renderContent: () => null,
+      itemArea: { toolbar: "authoring-and-filter" },
+    },
   });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {

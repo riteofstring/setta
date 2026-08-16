@@ -9,6 +9,14 @@ The callable editor supports narrow callable-name completion: type `math.sq`,
 select `sqrt`, then press Enter again to commit `math.sqrt` through the
 existing callable flow.
 
+Inside the Callable section, the compact callable editor is the workspace's
+leading item-area content, so it precedes the Args toolbar and the
+signature-derived parameter rows. This slice has no parameter-structure
+mutations, so that toolbar is declared `filter-only`: it keeps the Args label
+and the filter, and exposes no Add, Remove, or Delete action. Ordinary pending
+state reads as a compact adornment on the editor plus a live region; only
+genuine completion, mutation, and provider failures claim a visible block.
+
 ## Run locally
 
 From the repository root, run the local-development wrapper:

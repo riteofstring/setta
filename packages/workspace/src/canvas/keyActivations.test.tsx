@@ -24,7 +24,10 @@ import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenu
 import { useDndState } from "../dnd/dndState";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
-import { registerSectionKinds } from "../document/sectionKindRegistry";
+import {
+  registerSectionKinds,
+  type SectionKindDefinition,
+} from "../document/sectionKindRegistry";
 import {
   useActiveSections,
   useNodeInternals,
@@ -109,6 +112,13 @@ vi.mock("./utils", async (importOriginal) => {
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+// Every section this file loads carries an item tree, so its one registered kind declares the
+// package's ordinary editable item area.
+const LEAF_KIND: SectionKindDefinition = {
+  renderContent: () => null,
+  itemArea: { toolbar: "authoring-and-filter" },
+};
+
 function KeyActivationsHost() {
   useCanvasKeyActivations();
   return <WorkspaceTooltip />;
@@ -118,9 +128,7 @@ function loadItemDocument(
   selectedItemIds: Array<string>,
   activeIds: Array<string> = ["panel"],
 ) {
-  registerSectionKinds(testWorkspace.host, {
-    leaf: { renderContent: () => null },
-  });
+  registerSectionKinds(testWorkspace.host, { leaf: LEAF_KIND });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: {
@@ -153,9 +161,7 @@ function loadItemDocument(
 }
 
 function loadUngroupDocument(activeIds: Array<string> = ["group"]) {
-  registerSectionKinds(testWorkspace.host, {
-    leaf: { renderContent: () => null },
-  });
+  registerSectionKinds(testWorkspace.host, { leaf: LEAF_KIND });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       group: {
@@ -851,9 +857,7 @@ describe("useCanvasKeyActivations", () => {
     });
 
     function registerNoteCommand() {
-      registerSectionKinds(testWorkspace.host, {
-        leaf: { renderContent: () => null },
-      });
+      registerSectionKinds(testWorkspace.host, { leaf: LEAF_KIND });
       loadWorkspaceDocument(testWorkspace.host, {
         sections: {},
         topLevelSections: {},

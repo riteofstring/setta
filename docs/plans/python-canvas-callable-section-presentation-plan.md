@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-**Status: proposed; not yet approved for implementation.**
+**Status: Phase A is complete; Phase B is next.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
 Basedpyright, transport, or project semantics into `@setta/workspace`. The completed
@@ -246,7 +246,7 @@ edge case.
 
 ### Phase A — atomic generic presentation and Callable cutover
 
-- [ ] Atomic presentation cutover complete
+- [x] Atomic presentation cutover complete
 
 Implement one coherent public cutover across the package and its checked-in consumers:
 
@@ -291,6 +291,22 @@ partially converted public API.
 **Avoid rabbit holes:** implement the two observed generic seams and the one consumer. Do not add a
 slot system, toolbar plugin API, arbitrary adornment positions, new editor services, backend work,
 or inspect unrelated main UI while closing this phase.
+
+**Implementation record.** `SectionKindDefinition.itemArea` carries the closed
+`{ renderLeadingContent?, toolbar }` presentation with `WorkspaceItemToolbarMode`; registration
+rejects it on meta-control presentation, rejects unknown modes and a non-function leading
+renderer, and both document load and the section container reject an item-carrying section whose
+kind declares none. `WorkspaceItemAuthoringToolbar` became `WorkspaceItemToolbar`, keeping one
+filter surface and one mutation implementation while `filter-only` drops the structural actions
+and `hidden` renders no toolbar. `TextValueEditor` now takes generic `controlId` plus an explicit
+`item-row`/`section-field` presentation over the sole editor core, with the optional end adornment
+typed onto `section-field` alone and its surface owned by `styles/sectionField.css`. The
+playground, packed-consumer fixture, and Python Canvas were cut over directly: the Callable kind
+declares `filter-only` with the compact editor as leading content, projects parameter searchable
+text, and drops the large label and idle provider sentence for an adornment, a live region, and
+failure-only blocks. Known pre-existing red: `quality.fileLength` on
+`apps/playground/src/sectionKinds.tsx` and `packages/workspace/src/canvas/keyActivations.test.tsx`
+(both already over their limits at the trusted base).
 
 ### Phase B — production interaction, live visual acceptance, and closeout
 

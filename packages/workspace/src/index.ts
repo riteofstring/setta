@@ -142,7 +142,10 @@ export type { SliderValueControlProps } from "./controls/slider/SliderValueContr
 export { SwitchValueControl } from "./controls/switch/SwitchValueControl";
 export type { SwitchValueControlProps } from "./controls/switch/SwitchValueControl";
 export { TextValueEditor } from "./controls/text/TextValueEditor";
-export type { TextValueEditorProps } from "./controls/text/TextValueEditor";
+export type {
+  TextValueEditorPresentation,
+  TextValueEditorProps,
+} from "./controls/text/TextValueEditor";
 export type {
   TextValueCompletionOption,
   TextValueCompletionProvider,
@@ -176,10 +179,12 @@ export type {
   MetaControlSectionPresentation,
   SectionKindDefinition,
   WorkspaceInspectorContributionContext,
+  WorkspaceItemAreaPresentation,
   WorkspaceItemFactory,
   WorkspaceItemFactoryContext,
   WorkspaceItemSearchContext,
   WorkspaceItemSearchableText,
+  WorkspaceItemToolbarMode,
   WorkspaceSectionKindIconProps,
 } from "./document/sectionKindRegistry";
 export { useWorkspaceAppearance } from "./document/stores";

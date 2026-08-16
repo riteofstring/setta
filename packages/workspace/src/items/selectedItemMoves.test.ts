@@ -93,7 +93,10 @@ function loadPanel(
   } = {},
 ) {
   registerSectionKinds(testWorkspace.host, {
-    leaf: { renderContent: () => null },
+    leaf: {
+      renderContent: () => null,
+      itemArea: { toolbar: "authoring-and-filter" },
+    },
   });
   const itemTree = makeItemTree(childrenById, selectedItemIds);
   loadWorkspaceDocument(testWorkspace.host, {
@@ -242,7 +245,10 @@ describe("selected item move gating", () => {
 
   it("prefers the active section over document order when both hold selections", () => {
     registerSectionKinds(testWorkspace.host, {
-      leaf: { renderContent: () => null },
+      leaf: {
+      renderContent: () => null,
+      itemArea: { toolbar: "authoring-and-filter" },
+    },
     });
     const firstTree = makeItemTree({ "item-root": ["item-a", "item-b"] }, [
       "item-a",

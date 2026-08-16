@@ -106,9 +106,10 @@ describe("public package API", () => {
     const props = {
       ariaLabel: "Name",
       completionProvider,
-      itemId: "item-1",
+      controlId: "item-1",
       onCommit,
       onValueChange: () => {},
+      presentation: "item-row",
       sectionId: "section-1",
       singleLine: true,
       value: "draft",
@@ -123,5 +124,51 @@ describe("public package API", () => {
         value: "draft",
       }),
     ).resolves.toEqual({ from: 5, options: [{ label: "choice" }] });
+  });
+
+  it("types the section-field placement with its own optional end adornment", () => {
+    const presentation: workspace.TextValueEditorPresentation = "section-field";
+    const props = {
+      ariaLabel: "Expression",
+      controlId: "expression",
+      endAdornment: null,
+      onValueChange: () => {},
+      presentation,
+      sectionId: "section-1",
+      singleLine: true,
+      value: "draft",
+    } satisfies ComponentProps<typeof workspace.TextValueEditor>;
+
+    expect(props.presentation).toBe("section-field");
+    // The adornment belongs to the section-field placement alone.
+    const itemRow: ComponentProps<typeof workspace.TextValueEditor> = {
+      ariaLabel: "Expression",
+      controlId: "expression",
+      onValueChange: () => {},
+      presentation: "item-row",
+      sectionId: "section-1",
+      value: "draft",
+    };
+    // @ts-expect-error the item-row placement has no adornment slot.
+    itemRow.endAdornment = null;
+  });
+
+  it("keeps the item-area presentation generic and content-agnostic", () => {
+    const itemArea = {
+      renderLeadingContent: () => null,
+      toolbar: "filter-only",
+    } satisfies workspace.WorkspaceItemAreaPresentation;
+    const definition = {
+      itemArea,
+      renderContent: () => null,
+    } satisfies workspace.SectionKindDefinition;
+    const modes: Array<workspace.WorkspaceItemToolbarMode> = [
+      "authoring-and-filter",
+      "filter-only",
+      "hidden",
+    ];
+
+    expect(definition.itemArea.toolbar).toBe("filter-only");
+    expect(modes).toHaveLength(3);
   });
 });

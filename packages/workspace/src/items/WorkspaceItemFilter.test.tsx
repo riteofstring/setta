@@ -47,7 +47,7 @@ import { handleItemDragStart, resetItemDragState } from "./itemDragHandlers";
 import type { ItemRowRenderContext } from "./ItemListContext";
 import { resetItemListViews, resolveItemListView } from "./itemListRegistry";
 import { moveSelectedItemsDown } from "./selectedItemMoves";
-import { WorkspaceItemAuthoringToolbar } from "./WorkspaceItemAuthoringToolbar";
+import { WorkspaceItemToolbar } from "./WorkspaceItemToolbar";
 import { WorkspaceItemFilterProvider } from "./WorkspaceItemFilterContext";
 import { WorkspaceItemList } from "./WorkspaceItemList";
 
@@ -126,6 +126,7 @@ function registerTestKind() {
       renderContent: () => null,
       getItemSearchableText: ({ item }) =>
         getCustomItemText(item, "searchableText"),
+      itemArea: { toolbar: "authoring-and-filter" },
     },
   });
 }
@@ -241,7 +242,10 @@ describe("WorkspaceItemFilter", () => {
         <WorkspaceTestProvider workspace={testWorkspace}>
           {
             <WorkspaceItemFilterProvider sectionId="panel">
-              <WorkspaceItemAuthoringToolbar sectionId="panel" />
+              <WorkspaceItemToolbar
+                mode="authoring-and-filter"
+                sectionId="panel"
+              />
               <ItemDndContext>
                 <WorkspaceItemList
                   sectionId="panel"

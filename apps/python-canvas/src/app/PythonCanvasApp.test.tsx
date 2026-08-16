@@ -28,7 +28,12 @@ vi.mock("@setta/workspace", () => ({
   registerSectionKinds: mocks.registerSectionKinds,
 }));
 
-import { PythonCanvasApp } from "./PythonCanvasApp";
+import type { WorkspaceHost } from "@setta/workspace";
+import { CallableExpressionField } from "../sections/CallableSection";
+import {
+  PythonCanvasApp,
+  registerPythonCanvasSectionKinds,
+} from "./PythonCanvasApp";
 
 type HostStub = {
   dispose: ReturnType<typeof vi.fn>;
@@ -102,6 +107,44 @@ describe("PythonCanvasApp", () => {
     unmountApp();
 
     expect(host.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("registers the callable editor as leading content above a filter-only Args toolbar", () => {
+    const host = createHostStub();
+    registerPythonCanvasSectionKinds(host as unknown as WorkspaceHost);
+
+    const kinds = mocks.registerSectionKinds.mock.calls[0]?.[1] as Record<
+      string,
+      {
+        getItemSearchableText?: (context: unknown) => string;
+        itemArea?: {
+          renderLeadingContent?: (section: unknown) => ReactNode;
+          toolbar?: string;
+        };
+      }
+    >;
+    const callable = kinds["python-canvas.callable"];
+    expect(callable?.itemArea?.toolbar).toBe("filter-only");
+    expect(callable?.itemArea?.renderLeadingContent?.({})).toEqual(
+      <CallableExpressionField />,
+    );
+    // The retained filter searches the text the row actually shows.
+    expect(
+      callable?.getItemSearchableText?.({
+        item: {
+          data: {
+            authoredExpression: "3",
+            default: null,
+            disabled: false,
+            kind: "parameter",
+            name: "x",
+            parameterId: "parameter:square-root:1",
+            passingStyle: "positional_only",
+            typeAnnotation: "float",
+          },
+        },
+      }),
+    ).toBe("x positional only · float");
   });
 
   it("replaces a failed load with an alert and disposes the unused host", async () => {

@@ -31,6 +31,7 @@ import {
   type WorkspaceCodeSectionData,
   type WorkspaceCodeSectionLanguage,
   type WorkspaceDropzoneItemControlConfiguration,
+  type SectionKindDefinition,
   type WorkspaceInspectorContributionContext,
   type WorkspaceItem,
   type WorkspaceItemDiagnosticRegistry,
@@ -1075,7 +1076,15 @@ export function MetaControlSectionBody({
 // outer measurement from the Phase 4 gate.
 export function registerPlaygroundSectionKinds(host: WorkspaceHost): void {
   registerPlaygroundItemHandlers(host);
-  registerSectionKinds(host, {
+  registerSectionKinds(host, createPlaygroundSectionKinds(host));
+}
+
+// Exported so this host's own registration decisions — including which item-area presentation
+// each kind declares — stay inspectable without reaching into package registry state.
+export function createPlaygroundSectionKinds(
+  host: WorkspaceHost,
+): Record<string, SectionKindDefinition> {
+  return {
     leaf: {
       renderContent: (section) => <LeafSectionBody section={section} />,
       renderInspector: (context) => (
@@ -1086,6 +1095,9 @@ export function registerPlaygroundSectionKinds(host: WorkspaceHost): void {
     },
     "item-list": {
       createItem: createPlaygroundCodeItem,
+      // This host's item panel is structurally editable, so it declares the full toolbar. The
+      // declaration is explicit: the package never infers a mode from the item factory above.
+      itemArea: { toolbar: "authoring-and-filter" },
       renderContent: (section) => <ItemListSectionBody section={section} />,
       renderInspector: (context) => (
         <PlaygroundInspectorContribution context={context} />
@@ -1121,5 +1133,5 @@ export function registerPlaygroundSectionKinds(host: WorkspaceHost): void {
           <PlaygroundTextSectionInspector sectionId={context.section.id} />
         ) : null,
     }),
-  });
+  };
 }

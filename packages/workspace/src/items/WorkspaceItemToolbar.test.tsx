@@ -30,7 +30,8 @@ import {
   useWorkspaceDocument,
 } from "../document/stores";
 import type { WorkspaceSectionItemTree } from "../document/types";
-import { WorkspaceItemAuthoringToolbar } from "./WorkspaceItemAuthoringToolbar";
+import { WorkspaceItemFilterProvider } from "./WorkspaceItemFilterContext";
+import { WorkspaceItemToolbar } from "./WorkspaceItemToolbar";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -101,7 +102,7 @@ function expectCompactAuthoringButtons(
   }
 }
 
-describe("WorkspaceItemAuthoringToolbar", () => {
+describe("WorkspaceItemToolbar", () => {
   let host: HTMLDivElement;
   let root: Root;
 
@@ -109,6 +110,7 @@ describe("WorkspaceItemAuthoringToolbar", () => {
     registerSectionKinds(testWorkspace.host, {
       items: {
         renderContent: () => null,
+        itemArea: { toolbar: "authoring-and-filter" },
         createItem: () => ({
           id: "created",
           children: [],
@@ -133,11 +135,18 @@ describe("WorkspaceItemAuthoringToolbar", () => {
     testWorkspace.activeSections.getState().reset();
   });
 
-  async function mount(): Promise<void> {
+  async function mount(
+    mode: "authoring-and-filter" | "filter-only" = "authoring-and-filter",
+  ): Promise<void> {
     await act(async () =>
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<WorkspaceItemAuthoringToolbar sectionId="panel" />}
+          <WorkspaceItemFilterProvider
+            hasSectionStyleTheme={false}
+            sectionId="panel"
+          >
+            <WorkspaceItemToolbar mode={mode} sectionId="panel" />
+          </WorkspaceItemFilterProvider>
         </WorkspaceTestProvider>,
       ),
     );
@@ -231,11 +240,36 @@ describe("WorkspaceItemAuthoringToolbar", () => {
     root = createRoot(host);
     testWorkspace.itemDndState.getState().reset();
     registerSectionKinds(testWorkspace.host, {
-      items: { renderContent: () => null },
+      items: {
+        renderContent: () => null,
+        itemArea: { toolbar: "authoring-and-filter" },
+      },
     });
     await mount();
     expect(getButton(host, "Add parameter").disabled).toBe(true);
     expect(getButton(host, "Remove last parameter").disabled).toBe(false);
     expect(getButton(host, "Delete selected parameters").disabled).toBe(false);
+  });
+
+  it("renders the Args label and filter without structural actions in filter-only mode", async () => {
+    await mount("filter-only");
+    const toolbar = host.querySelector<HTMLElement>(".section-args");
+    expect(toolbar?.dataset["workspaceItemToolbar"]).toBe("filter-only");
+    expect(host.textContent).toContain("Args");
+    // No structural mutation control is exposed — not even a disabled one.
+    for (const label of [
+      "Add parameter",
+      "Remove last parameter",
+      "Delete selected parameters",
+    ]) {
+      expect(host.querySelector(`button[aria-label="${label}"]`)).toBeNull();
+    }
+    // The retained filter surface is the same one the full mode renders.
+    expect(
+      host.querySelector<HTMLInputElement>(
+        "input.setta-workspace-item-filter-input",
+      )?.placeholder,
+    ).toBe("Filter");
+    expect(host.querySelector("label")?.textContent).toBe("Filter parameters");
   });
 });

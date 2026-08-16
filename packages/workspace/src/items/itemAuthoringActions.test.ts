@@ -111,6 +111,7 @@ describe("item authoring actions", () => {
     registerSectionKinds(testWorkspace.host, {
       items: {
         renderContent: () => null,
+        itemArea: { toolbar: "authoring-and-filter" },
         createItem: (context) => {
           factoryContext = context;
           return factoryItem;

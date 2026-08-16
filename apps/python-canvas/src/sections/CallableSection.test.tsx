@@ -10,7 +10,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@setta/workspace", () => ({
   TextValueEditor: (props: Record<string, unknown>) => {
     mocks.editorProps.push(props);
-    return <div data-editor={String(props.ariaLabel)} />;
+    return (
+      <div data-editor={String(props.ariaLabel)}>
+        {props.endAdornment as ReactNode}
+      </div>
+    );
   },
   WorkspaceItemLabel: ({ children }: { children?: ReactNode }) => (
     <>{children}</>
@@ -21,25 +25,18 @@ vi.mock("@setta/workspace", () => ({
     renderItem: (context: unknown) => ReactNode;
   }) =>
     renderItem({
-      item: {
-        data: {
-          authoredExpression: "",
-          default: null,
-          disabled: false,
-          kind: "parameter",
-          name: "x",
-          parameterId: "parameter:square-root:1",
-          passingStyle: "positional_only",
-          typeAnnotation: "",
-        },
-        id: "python-canvas:callable:parameter",
-      },
+      item: parameterItem(),
       sectionId: "python-canvas:callable",
     }),
 }));
 
 import { PythonCanvasMutationContext } from "../app/PythonCanvasMutationContext";
-import { CallableSection, type CallableSectionData } from "./CallableSection";
+import {
+  CallableExpressionField,
+  CallableSection,
+  parameterItemSearchableText,
+  type CallableSectionData,
+} from "./CallableSection";
 
 let container: HTMLDivElement | undefined;
 let root: Root | undefined;
@@ -55,45 +52,157 @@ afterEach(() => {
 });
 
 describe("CallableSection", () => {
-  it("attaches completions only to the callable editor and visibly separates completion errors", () => {
+  it("renders the callable editor as a compact section field with callable-only completion", () => {
     const completionProvider = vi.fn();
-    const error = "Unable to load callable completions. Try again.";
-    container = document.createElement("div");
-    document.body.append(container);
-    root = createRoot(container);
+    render({ callableCompletionProvider: completionProvider });
 
-    act(() => {
-      root?.render(
-        <PythonCanvasMutationContext.Provider
-          value={{
-            callableCompletionProvider: completionProvider,
-            callableDraft: "math.sq",
-            completionError: error,
-            mutationError: null,
-            onCallableCommit: vi.fn(),
-            onCallableDraftChange: vi.fn(),
-            onParameterExpressionChange: vi.fn(),
-            pendingDescription: null,
-          }}
-        >
-          <CallableSection data={callableData()} />
-        </PythonCanvasMutationContext.Provider>,
-      );
+    const callable = findEditor("Callable expression");
+    const parameter = findEditor("x expression");
+    expect(callable?.presentation).toBe("section-field");
+    expect(callable?.controlId).toBe("callable-expression");
+    expect(callable?.singleLine).toBe(true);
+    expect(callable?.completionProvider).toBe(completionProvider);
+    // Parameter rows keep the package's item-row control and take no completions.
+    expect(parameter?.presentation).toBe("item-row");
+    expect(parameter?.controlId).toBe("python-canvas:callable:parameter");
+    expect(parameter?.completionProvider).toBeUndefined();
+    // No redundant visible label, and no idle sentence about the provider.
+    expect(container?.textContent).not.toContain("Basedpyright");
+    expect(container?.querySelector("[role='alert']")).toBeNull();
+  });
+
+  it("shows ordinary pending state as a compact adornment plus an app-owned live region", () => {
+    render({ pendingDescription: "Checking the callable with Basedpyright." });
+
+    const callable = findEditor("Callable expression");
+    expect(callable?.disabled).toBe(true);
+    const adornment = container?.querySelector(".python-canvas-pending-mark");
+    expect(adornment?.getAttribute("aria-hidden")).toBe("true");
+    expect(adornment?.textContent).toBe("");
+    const status = container?.querySelector("[role='status']");
+    expect(status?.textContent).toBe(
+      "Checking the callable with Basedpyright.",
+    );
+    expect(status?.className).toBe("python-canvas-visually-hidden");
+    expect(container?.querySelector("[role='alert']")).toBeNull();
+  });
+
+  it("keeps mutation and completion failures distinct, visible, and accessible", () => {
+    render({
+      completionError: "Unable to load callable completions. Try again.",
+      mutationError: "Unable to update callable. Try again.",
     });
 
-    const callable = mocks.editorProps.find(
-      (props) => props.ariaLabel === "Callable expression",
+    const alerts = [...(container?.querySelectorAll("[role='alert']") ?? [])];
+    expect(alerts.map((alert) => alert.className)).toEqual([
+      "python-canvas-mutation-error",
+      "python-canvas-completion-error",
+    ]);
+    expect(alerts[0]?.textContent).toBe(
+      "Unable to update callable. Try again.",
     );
-    const parameter = mocks.editorProps.find(
-      (props) => props.ariaLabel === "x expression",
+    expect(alerts[1]?.textContent).toBe(
+      "Unable to load callable completions. Try again.",
     );
-    expect(callable?.completionProvider).toBe(completionProvider);
-    expect(parameter?.completionProvider).toBeUndefined();
-    expect(container.querySelector("[role='alert']")?.textContent).toBe(error);
+  });
+
+  it("still surfaces a genuine provider failure in the section body", () => {
+    render(
+      {},
+      callableData({
+        provider: "basedpyright",
+        state: "failed",
+        status: "unavailable",
+      }),
+    );
+
+    expect(
+      container?.querySelector(".python-canvas-provider-error")?.textContent,
+    ).toBe(
+      "Basedpyright is unavailable. Try the change again when it is ready.",
+    );
+  });
+
+  it("projects the row's own name and metadata as the filter's searchable text", () => {
+    expect(parameterItemSearchableText(parameterItem())).toBe(
+      "x positional only",
+    );
+    expect(
+      parameterItemSearchableText({
+        data: {
+          authoredExpression: "3",
+          default: "1.0",
+          disabled: false,
+          kind: "parameter",
+          name: "tolerance",
+          parameterId: "parameter:square-root:2",
+          passingStyle: "keyword_only",
+          typeAnnotation: "float",
+        },
+      }),
+    ).toBe("tolerance keyword only · float · default 1.0");
+    expect(parameterItemSearchableText({ data: { kind: "empty" } })).toBe("");
   });
 });
 
-function callableData(): CallableSectionData {
+function render(
+  overrides: Partial<
+    React.ComponentProps<typeof PythonCanvasMutationContext.Provider>["value"]
+  > = {},
+  data: CallableSectionData = callableData(),
+) {
+  container = document.createElement("div");
+  document.body.append(container);
+  root = createRoot(container);
+  act(() => {
+    root?.render(
+      <PythonCanvasMutationContext.Provider
+        value={{
+          callableCompletionProvider: undefined,
+          callableDraft: "math.sq",
+          completionError: null,
+          mutationError: null,
+          onCallableCommit: vi.fn(),
+          onCallableDraftChange: vi.fn(),
+          onParameterExpressionChange: vi.fn(),
+          pendingDescription: null,
+          ...overrides,
+        }}
+      >
+        <CallableExpressionField />
+        <CallableSection data={data} />
+      </PythonCanvasMutationContext.Provider>,
+    );
+  });
+}
+
+function findEditor(ariaLabel: string): Record<string, unknown> | undefined {
+  return mocks.editorProps.find((props) => props.ariaLabel === ariaLabel);
+}
+
+function parameterItem(): { data: unknown; id: string } {
+  return {
+    data: {
+      authoredExpression: "",
+      default: null,
+      disabled: false,
+      kind: "parameter",
+      name: "x",
+      parameterId: "parameter:square-root:1",
+      passingStyle: "positional_only",
+      typeAnnotation: "",
+    },
+    id: "python-canvas:callable:parameter",
+  };
+}
+
+function callableData(
+  providerStatus: CallableSectionData["providerStatus"] = {
+    provider: "basedpyright",
+    state: "ready",
+    status: "available",
+  },
+): CallableSectionData {
   return {
     callable: {
       authoredExpression: "",
@@ -102,10 +211,6 @@ function callableData(): CallableSectionData {
     },
     hasParameter: true,
     parameterDiagnostics: [],
-    providerStatus: {
-      provider: "basedpyright",
-      state: "ready",
-      status: "available",
-    },
+    providerStatus,
   };
 }

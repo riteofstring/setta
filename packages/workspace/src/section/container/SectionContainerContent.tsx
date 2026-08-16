@@ -1,14 +1,17 @@
+import type { ReactNode } from "react";
 import {
   getRegisteredSectionKindOrThrow,
+  getWorkspaceItemAreaPresentationOrThrow,
   type SectionKindDefinition,
 } from "../../document/sectionKindRegistry";
 import type { WorkspaceSection } from "../../document/types";
-import { WorkspaceItemAuthoringToolbar } from "../../items/WorkspaceItemAuthoringToolbar";
+import { WorkspaceItemToolbar } from "../../items/WorkspaceItemToolbar";
 import { WorkspaceItemFilterProvider } from "../../items/WorkspaceItemFilterContext";
 import { SectionHeader } from "../header/SectionHeader";
 import { CustomResizable } from "../resize/CustomResizable";
 import { DEFAULT_SECTION_BG_COLOR } from "../sectionColors";
 import { MetaControlChrome } from "./MetaControlChrome";
+import type { WorkspaceHost } from "../../workspaceHost";
 import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The reference's `SectionContainerCoreResizabe`, cut at the renderer seam: application area
@@ -52,12 +55,18 @@ export function SectionContainerContent({
         />
       )}
       {!section.isMinimized &&
-        renderRegisteredContent(definition, section, hasSectionStyleTheme)}
+        renderRegisteredContent(
+          host,
+          definition,
+          section,
+          hasSectionStyleTheme,
+        )}
     </CustomResizable>
   );
 }
 
 function renderRegisteredContent(
+  host: WorkspaceHost,
   definition: SectionKindDefinition,
   section: WorkspaceSection,
   hasSectionStyleTheme: boolean,
@@ -72,17 +81,32 @@ function renderRegisteredContent(
   const content = definition.renderContent(section);
   return (
     <div className={bodySlotClassName}>
-      {section.itemTree ? (
-        <WorkspaceItemFilterProvider
-          hasSectionStyleTheme={hasSectionStyleTheme}
-          sectionId={section.id}
-        >
-          <WorkspaceItemAuthoringToolbar sectionId={section.id} />
-          {content}
-        </WorkspaceItemFilterProvider>
-      ) : (
-        content
-      )}
+      {section.itemTree
+        ? renderItemArea(host, section, content, hasSectionStyleTheme)
+        : content}
     </div>
+  );
+}
+
+// The one public item-area order: application leading content, the declared toolbar, then the
+// registered item content — all inside the single package-owned item-filter provider.
+function renderItemArea(
+  host: WorkspaceHost,
+  section: WorkspaceSection,
+  content: ReactNode,
+  hasSectionStyleTheme: boolean,
+) {
+  const itemArea = getWorkspaceItemAreaPresentationOrThrow(host, section);
+  return (
+    <WorkspaceItemFilterProvider
+      hasSectionStyleTheme={hasSectionStyleTheme}
+      sectionId={section.id}
+    >
+      {itemArea.renderLeadingContent?.(section)}
+      {itemArea.toolbar === "hidden" ? null : (
+        <WorkspaceItemToolbar mode={itemArea.toolbar} sectionId={section.id} />
+      )}
+      {content}
+    </WorkspaceItemFilterProvider>
   );
 }

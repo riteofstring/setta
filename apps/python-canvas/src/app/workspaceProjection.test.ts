@@ -8,8 +8,8 @@ import {
 import { describe, expect, it, vi } from "vitest";
 
 import { registerPythonCanvasSectionKinds } from "./PythonCanvasApp";
+import { CALLABLE_SECTION_ID } from "../sections/CallableSection";
 import {
-  CALLABLE_SECTION_ID,
   CALLABLE_SECTION_KIND,
   GENERATED_PYTHON_SECTION_ID,
   applyProjectSnapshotToWorkspace,
