@@ -476,7 +476,10 @@ or `section-field` for the compact field a section renders in that leading slot.
 the section field's whole surface — the reference's rounded box, its 12px monospace type, its focus
 border, and the layout gutter for one optional caller-owned end adornment, whose content and ARIA
 stay with the caller. Both editor layers share that one box and type owner, so activating the field
-changes only its border colour. The rendered field carries `data-workspace-section-field`: that
+changes only its border colour. The field owns no block margin, so it begins at the section
+header's own boundary and the item toolbar begins at the field's, exactly as the reference
+composes them; a host that wants space around it gives that space to its own content. The rendered
+field carries `data-workspace-section-field`: that
 attribute is the one documented hook for observing or capturing the surface, and no field class,
 inner structure, or CodeMirror internal is public.
 
@@ -585,21 +588,28 @@ language-aware highlighting and a copy button, and KaTeX math, with raw HTML nev
 whitespace-preserving block for plain text. The Code Editor section carries `code`, `language`,
 `wrapLines`, `lineNumbers`, `indentWidth`, and a required `mode` over the package's language set:
 Python, Bash, JavaScript, TypeScript, JSON, YAML, TOML, Markdown, and plain text. `mode` is one of
-`editable`, `read-only`, or `generated-output`. Both non-editable modes keep the text selectable,
+`editable`, `read-only`, or `generated-document`. Both non-editable modes keep the text selectable,
 copyable, and scrollable, and stop being editing surfaces rather than leaving a caret in one that
 refuses every keystroke: the wrapper stays the section's focus target, says it is read-only in its
-accessible name, and Enter no longer reaches into an editor. `generated-output` additionally paints
-every rendered document line as machine-written output — the reference's blue region, its leading
-rail, and its compact uppercase generated/read-only badge centred on the block's upper boundary —
-and never shows a caret, an inner focus outline, active-line paint, or any repaint under a pointer
-press. The block hugs the code, so a section taller than its generated document leaves the unused
-height on the ordinary Code-section surface. Locking a section makes an `editable` section
-read-only; it never turns one into generated output. Both sections share that editor, so a
-read-only or locked Text section is non-editable the same way. The rendered surface carries
+accessible name, and Enter no longer reaches into an editor. A `generated-document` section also
+carries `generatedRegion`, one `{ from, to }` range of UTF-16 CodeMirror offsets into its own
+`code`; the package never infers it from the text, and a missing, empty, reversed, fractional, or
+out-of-document range — like a region declared on an ordinary mode, or a generated document that
+declares none — is rejected at the same data boundary. Only the lines that range covers are
+painted as machine-written output, with the reference's blue region, its leading rail, and its
+compact uppercase generated/read-only badge centred on the block's upper boundary; the surface
+never shows a caret, an inner focus outline, active-line paint, or any repaint under a pointer
+press. Declare the range the way the reference's own protected range runs — from the end of the
+text before it to the start of the text after it — because those two boundary lines carry a lip of
+the block rather than a full band. Text outside the range keeps ordinary read-only paint, and so
+does a section taller than its document. Locking a section makes an `editable` section read-only;
+it never turns one into a generated document. Both sections share that editor, so a read-only or
+locked Text section is non-editable the same way. The rendered surface carries
 `data-workspace-section-editor` with the presentation it resolved to, and each line of a generated
 block carries `data-workspace-generated-line` with its position in that block (`start`, `middle`,
-`end`, or `only` for a one-line document): those two attributes are the documented hooks for
-observing or capturing it, and no editor class, inner structure, or CodeMirror internal is public.
+`end`, or `only` when the region begins and ends on one line): those two attributes are the
+documented hooks for observing or capturing it, and no editor class, inner structure, or CodeMirror
+internal is public.
 
 Registration options are how a host customizes them:
 

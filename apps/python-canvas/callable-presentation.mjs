@@ -7,27 +7,49 @@ import {
 } from "./browser-page.mjs";
 
 // The two package-owned surfaces this presentation correction is about: the section-field callable
-// editor and the generated-output Code section. This module owns the donor values each one must
-// paint in each appearance, the page-side reads that observe them, and the callable commit that
-// puts the section into its ordinary committed state. The production walkthrough proves them in the
-// appearance it runs in and the capture harness records both, so a donor value has one owner.
+// editor inside its complete section card, and the generated-document Code section. This module
+// owns the donor values each one must paint in each appearance, the page-side reads that observe
+// them, and the callable commit that puts the section into its ordinary committed state. The
+// production walkthrough proves them in the appearance it runs in and the capture harness records
+// both, so a donor value has one owner.
 //
-// Every selector here is an accessible name or a documented package hook.
+// Every selector here is an accessible name, a documented package hook, an HTML landmark, or this
+// app's own content.
 
-export const sectionFieldSelector = "[data-workspace-section-field]";
-export const generatedOutputSelector =
-  '[data-workspace-section-editor="generated-output"]';
-// The block's own ends, through the package's documented per-line hook. A one-line generated
-// document is both ends at once.
+const sectionFieldSelector = "[data-workspace-section-field]";
+export const callableSectionSelector =
+  '[role="group"][aria-label^="Square Root section"]';
+export const itemToolbarSelector = "[data-workspace-item-toolbar]";
+// The card's own header landmark, and the app's own first parameter label below the toolbar.
+const sectionHeaderSelector = `${callableSectionSelector} header`;
+const firstParameterSelector = ".python-canvas-parameter-label";
+export const generatedDocumentSelector =
+  '[data-workspace-section-editor="generated-document"]';
+// The block's own ends, through the package's documented per-line hook. A region that begins and
+// ends on one line is both ends at once.
 const generatedBlockStartSelector =
   '[data-workspace-generated-line="start"], [data-workspace-generated-line="only"]';
 const generatedBlockEndSelector =
   '[data-workspace-generated-line="end"], [data-workspace-generated-line="only"]';
 
-// The section is fixed at 390 CSS px and its generated document is eight short lines, so a block
+// The section is fixed at 390 CSS px and its generated document is seven short lines, so a block
 // that hugs the code leaves most of the section unpainted. The rejected candidate painted all of
 // it, and this is the margin that tells the two apart without pinning the document's own length.
 const unpaintedSectionHeightCssPx = 100;
+
+// Main's card is a continuous header → field → Args → parameters stack. The package's own grid,
+// toolbar, and item list supply the only steps in it, so these are the whole composition's spacing
+// budget: the field begins at the header's boundary, the Args surface begins at the field's, the
+// item list keeps the package's own step below the toolbar, and the field spans the card with
+// nothing but its own 2px inline margin. The rejected candidate added this app's 14px content
+// padding and an invented 4px block gap on top of every one of them.
+export const donorSectionComposition = {
+  fieldToToolbarCssPx: 4,
+  headerToFieldCssPx: 0,
+  sectionToFieldInlineCssPx: 2,
+  toolbarToFirstParameterCssPx: 8,
+};
+const compositionToleranceCssPx = 1;
 
 // The activation swap may move the field's own box by less than a device pixel of rounding, but
 // not by a layout step.
@@ -74,10 +96,10 @@ export const donorCallableField = {
 };
 
 // Frozen main's `GEN_CODE_READONLY_THEME`: the blue-tinted region behind a three-pixel leading
-// rail, six-pixel rounded ends, and the compact uppercase badge — painted per rendered line, so
-// these are the block's own values rather than the editor wrapper's. Chromium expands the rail's
-// double-position stop into its two computed stops.
-export const donorGeneratedOutput = {
+// rail, six-pixel rounded ends, and the compact uppercase badge — painted on the lines the
+// declared region covers, so these are the block's own values rather than the editor wrapper's.
+// Chromium expands the rail's double-position stop into its two computed stops.
+export const donorGeneratedDocument = {
   dark: {
     badge: {
       backgroundColor: "rgb(30, 64, 175)",
@@ -186,11 +208,11 @@ export function callableFieldStateScript(textSelector) {
   })()`;
 }
 
-// The generated surface, the block painted on its lines, its badge, and the text layer inside it,
-// read through the package's documented section-editor and generated-line hooks. Nothing here
-// selects a package class.
-export const generatedOutputStateScript = `(() => {
-  const surface = document.querySelector(${JSON.stringify(generatedOutputSelector)});
+// The generated surface, the block painted on the lines its region covers, its badge, the
+// authored lines outside it, and the text layer inside it, read through the package's documented
+// section-editor and generated-line hooks. Nothing here selects a package class.
+export const generatedDocumentStateScript = `(() => {
+  const surface = document.querySelector(${JSON.stringify(generatedDocumentSelector)});
   const text = surface?.querySelector('[role="textbox"]');
   const blockStart = surface?.querySelector(${JSON.stringify(generatedBlockStartSelector)});
   const blockEnd = [...(surface?.querySelectorAll(${JSON.stringify(generatedBlockEndSelector)}) ?? [])].pop();
@@ -202,6 +224,12 @@ export const generatedOutputStateScript = `(() => {
   ) {
     return null;
   }
+  const documentLines = [...surface.querySelectorAll(".cm-line")];
+  const firstLine = documentLines[0];
+  const lastLine = documentLines[documentLines.length - 1];
+  if (!(firstLine instanceof HTMLElement) || !(lastLine instanceof HTMLElement)) {
+    return null;
+  }
   const rect = surface.getBoundingClientRect();
   const startRect = blockStart.getBoundingClientRect();
   const endRect = blockEnd.getBoundingClientRect();
@@ -209,15 +237,38 @@ export const generatedOutputStateScript = `(() => {
   const regionStyle = window.getComputedStyle(blockStart, "::before");
   const badgeStyle = window.getComputedStyle(blockStart, "::after");
   const textStyle = window.getComputedStyle(text);
+  const readLine = (line) => {
+    const lineRect = line.getBoundingClientRect();
+    return {
+      mark: line.getAttribute("data-workspace-generated-line"),
+      // The authored lines outside the region carry no region of their own, which is the whole
+      // difference between this and the rejected whole-document paint.
+      regionBackgroundImage: window.getComputedStyle(line, "::before").backgroundImage,
+      rect: {
+        height: lineRect.height,
+        width: lineRect.width,
+        x: lineRect.x,
+        y: lineRect.y,
+      },
+      text: line.textContent,
+    };
+  };
   return {
     box: { height: rect.height, width: rect.width, x: rect.x, y: rect.y },
-    // The generated block itself: it starts on the document's first line and ends on its last.
+    // The generated block itself: it starts on the first line its region covers and ends on the
+    // last, which for this document are the two blank separators around the generated body.
     block: {
       bottom: endRect.bottom,
       lineCount: surface.querySelectorAll("[data-workspace-generated-line]").length,
+      marks: documentLines.map((line) => line.getAttribute("data-workspace-generated-line")),
       top: startRect.top,
       width: startRect.width,
     },
+    // The prefix and suffix the Go response owns: the reader shows them, the region does not
+    // claim them.
+    documentLineCount: documentLines.length,
+    prefixLine: readLine(firstLine),
+    suffixLine: readLine(lastLine),
     // The editor wrapper the rejected candidate painted instead of the lines.
     wrapper: { backgroundImage: surfaceStyle.backgroundImage },
     region: {
@@ -252,6 +303,100 @@ export const generatedOutputStateScript = `(() => {
     hasActiveLine: surface.querySelector(".cm-activeLine") !== null,
   };
 })()`;
+
+// The complete Square Root card: the developer rejected a candidate whose field crops looked
+// right while the card around them did not, so the composition is measured as one stack — the
+// section's own box, its header, the field, the Args toolbar, and the first parameter row.
+export const callableSectionStateScript = `(() => {
+  const section = document.querySelector(${JSON.stringify(callableSectionSelector)});
+  const header = document.querySelector(${JSON.stringify(sectionHeaderSelector)});
+  const field = document.querySelector(${JSON.stringify(sectionFieldSelector)});
+  const toolbar = document.querySelector(${JSON.stringify(itemToolbarSelector)});
+  const firstParameter = document.querySelector(${JSON.stringify(firstParameterSelector)});
+  if (
+    !(section instanceof HTMLElement) ||
+    !(header instanceof HTMLElement) ||
+    !(field instanceof HTMLElement) ||
+    !(toolbar instanceof HTMLElement) ||
+    !(firstParameter instanceof HTMLElement)
+  ) {
+    return null;
+  }
+  const readBox = (element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      bottom: rect.bottom,
+      height: rect.height,
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      width: rect.width,
+    };
+  };
+  return {
+    field: readBox(field),
+    firstParameter: readBox(firstParameter),
+    header: readBox(header),
+    section: readBox(section),
+    toolbar: readBox(toolbar),
+    // The app-owned content root around the package's item list. Its padding is what pushed the
+    // whole stack away from the card.
+    contentPadding: (() => {
+      const content = document.querySelector(".python-canvas-callable-section");
+      if (!(content instanceof HTMLElement)) {
+        return null;
+      }
+      const style = window.getComputedStyle(content);
+      const parentStyle = window.getComputedStyle(content.parentElement ?? content);
+      return {
+        content: style.padding,
+        slot: parentStyle.padding,
+      };
+    })(),
+  };
+})()`;
+
+// Main's accepted card is continuous: the field sits at the header's boundary with its own narrow
+// inline inset, and the Args surface starts at the field's. Every step below belongs to the
+// package; an app padding or gap shows up as one of them growing.
+export function assertDonorSectionComposition(state, appearance) {
+  const measured = {
+    fieldToToolbarCssPx: state.toolbar.top - state.field.bottom,
+    headerToFieldCssPx: state.field.top - state.header.bottom,
+    sectionToFieldInlineCssPx: state.field.left - state.section.left,
+    toolbarToFirstParameterCssPx:
+      state.firstParameter.top - state.toolbar.bottom,
+  };
+  for (const [step, expected] of Object.entries(donorSectionComposition)) {
+    const drift = Math.abs(measured[step] - expected);
+    if (!Number.isFinite(drift) || drift > compositionToleranceCssPx) {
+      throw new Error(
+        `The ${appearance} Square Root card measured ${step} at ${String(Math.round(measured[step]))} CSS px instead of the donor's ${String(expected)}.`,
+      );
+    }
+  }
+  // The field's two inline edges are symmetric, so a one-sided app inset cannot hide behind the
+  // leading measurement above.
+  const trailingInset = state.section.right - state.field.right;
+  if (
+    Math.abs(
+      trailingInset - donorSectionComposition.sectionToFieldInlineCssPx,
+    ) > compositionToleranceCssPx
+  ) {
+    throw new Error(
+      `The ${appearance} Square Root card inset its callable field ${String(Math.round(trailingInset))} CSS px from its trailing edge.`,
+    );
+  }
+  if (
+    state.contentPadding === null ||
+    state.contentPadding.content !== "0px" ||
+    state.contentPadding.slot !== "0px"
+  ) {
+    throw new Error(
+      `The ${appearance} Square Root card pads its package-owned content with ${JSON.stringify(state.contentPadding)}.`,
+    );
+  }
+}
 
 export function assertDonorCallableFieldSurface(state, appearance) {
   const donor = donorAppearance(donorCallableField, appearance);
@@ -311,7 +456,7 @@ export function assertCallableFieldParity(
 }
 
 export function assertDonorGeneratedRegion(state, appearance) {
-  const donor = donorAppearance(donorGeneratedOutput, appearance);
+  const donor = donorAppearance(donorGeneratedDocument, appearance);
   for (const [property, expected] of Object.entries(donor.region)) {
     if (state.region[property] !== expected) {
       throw new Error(
@@ -376,15 +521,55 @@ export function assertGeneratedBlockHugsCode(stage, state) {
       `${stage} generated Python painted its editor wrapper ${JSON.stringify(state.wrapper.backgroundImage)} instead of its document lines.`,
     );
   }
-  if (state.block.lineCount < 2) {
+  if (state.block.lineCount !== state.documentLineCount - 2) {
     throw new Error(
-      `${stage} generated Python marked ${String(state.block.lineCount)} generated lines, so its block is not the whole document.`,
+      `${stage} generated Python marked ${String(state.block.lineCount)} of its ${String(state.documentLineCount)} document lines, so its block is not the region between the target's prefix and suffix.`,
     );
   }
   const unpainted = state.box.y + state.box.height - state.block.bottom;
   if (unpainted < unpaintedSectionHeightCssPx) {
     throw new Error(
       `${stage} generated block ended ${String(Math.round(unpainted))} CSS px above the section's own bottom, so it is filling height its document does not occupy.`,
+    );
+  }
+}
+
+// The developer rejected a candidate that painted `import math` and `state = SettaState()` as
+// generated output. Only the body between the target's prefix and suffix is generated, so the
+// block runs from the blank separator above it to the blank separator below it and the two
+// authored lines keep the ordinary Code-section surface.
+export function assertGeneratedRegionBoundsItsBody(stage, state) {
+  const { marks } = state.block;
+  const expected = marks.map((_mark, index) => {
+    if (index === 0 || index === marks.length - 1) {
+      return null;
+    }
+    if (index === 1) {
+      return "start";
+    }
+    return index === marks.length - 2 ? "end" : "middle";
+  });
+  if (JSON.stringify(marks) !== JSON.stringify(expected)) {
+    throw new Error(
+      `${stage} generated Python marked its document lines ${JSON.stringify(marks)} instead of ${JSON.stringify(expected)}.`,
+    );
+  }
+  for (const [edge, line] of [
+    ["prefix", state.prefixLine],
+    ["suffix", state.suffixLine],
+  ]) {
+    if (line.regionBackgroundImage !== "none") {
+      throw new Error(
+        `${stage} generated Python painted its authored ${edge} line ${JSON.stringify(line.text)} with ${JSON.stringify(line.regionBackgroundImage)}.`,
+      );
+    }
+  }
+  if (
+    !state.prefixLine.text?.includes("import math") ||
+    !state.suffixLine.text?.includes("state = SettaState()")
+  ) {
+    throw new Error(
+      `${stage} generated Python is not the canonical document: it reads ${JSON.stringify(state.prefixLine.text)} and ${JSON.stringify(state.suffixLine.text)} outside its region.`,
     );
   }
 }

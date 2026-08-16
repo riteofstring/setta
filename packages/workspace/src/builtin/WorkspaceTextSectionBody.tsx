@@ -23,6 +23,10 @@ import {
   buildWorkspaceTextTypographyScale,
   getWorkspaceTextTypographyStyle,
 } from "./textSectionTypography";
+import {
+  EDITABLE_SECTION_EDITOR_PRESENTATION,
+  READ_ONLY_SECTION_EDITOR_PRESENTATION,
+} from "./sectionEditorExtensions";
 import { WorkspaceMarkdown } from "./WorkspaceMarkdown";
 import { WorkspaceSectionEditor } from "./WorkspaceSectionEditor";
 
@@ -108,7 +112,9 @@ function TextSectionEditor({
   // Locking a section locks its content too, so a locked text section reads and scrolls but
   // cannot be edited.
   const isReadOnly = data.readOnly || section.positionAndSizeLocked;
-  const presentation = isReadOnly ? "read-only" : "editable";
+  const presentation = isReadOnly
+    ? READ_ONLY_SECTION_EDITOR_PRESENTATION
+    : EDITABLE_SECTION_EDITOR_PRESENTATION;
 
   const onChange = useCallback(
     (nextText: string) => {

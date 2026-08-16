@@ -217,16 +217,30 @@ function projectParameterItemData(
   };
 }
 
+// The Go response already separates the target's prefix and suffix from the generated body, so the
+// reader shows the same authority boundary the backend owns: only the body is generated. This
+// asserts the combined bytes rather than trusting the parts, and then declares the range from the
+// end of the prefix to the start of the suffix, which is the donor's own separator-bounded range.
+// It is a frontend projection over an already canonical response, not a second code-generation
+// model.
 function projectGeneratedCodeData(snapshot: ProjectSnapshotV1) {
+  const { prefix, suffix } = snapshot.pythonTarget;
+  const { body, code } = snapshot.generatedCode;
+  if (`${prefix}\n\n${body}\n\n${suffix}` !== code) {
+    throw new Error(
+      "Generated Python does not compose its canonical prefix, body, and suffix.",
+    );
+  }
   return createWorkspaceCodeSectionData({
-    code: snapshot.generatedCode.code,
+    code,
+    generatedRegion: { from: prefix.length, to: code.length - suffix.length },
     language: "python",
     wrapLines: true,
     lineNumbers: true,
     indentWidth: 4,
-    // The whole section is Go-owned generated Python, so it selects the package's generic
-    // generated-output presentation instead of an ordinary editor the reader cannot author.
-    mode: "generated-output",
+    // The section is a reader over Go-owned Python, so it selects the package's generic
+    // generated-document presentation instead of an ordinary editor nobody can author.
+    mode: "generated-document",
   });
 }
 
@@ -238,22 +252,26 @@ function getCallable(snapshot: ProjectSnapshotV1) {
   return callable;
 }
 
-function getCallableParameter(
-  snapshot: ProjectSnapshotV1,
-): ParameterV1 | null {
+function getCallableParameter(snapshot: ProjectSnapshotV1): ParameterV1 | null {
   const callable = getCallable(snapshot);
   if (callable.parameterIds.length === 0) {
     if (snapshot.parameters.length !== 0) {
-      throw new Error("Project snapshot has parameters without a callable dependency.");
+      throw new Error(
+        "Project snapshot has parameters without a callable dependency.",
+      );
     }
     return null;
   }
   if (callable.parameterIds.length !== 1 || snapshot.parameters.length !== 1) {
-    throw new Error("Project snapshot exceeds the one-parameter Python Canvas boundary.");
+    throw new Error(
+      "Project snapshot exceeds the one-parameter Python Canvas boundary.",
+    );
   }
   const parameter = snapshot.parameters[0];
   if (parameter === undefined || parameter.id !== callable.parameterIds[0]) {
-    throw new Error("Project snapshot callable parameter does not match its parameter record.");
+    throw new Error(
+      "Project snapshot callable parameter does not match its parameter record.",
+    );
   }
   return parameter;
 }

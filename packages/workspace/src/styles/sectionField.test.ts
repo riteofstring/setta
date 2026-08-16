@@ -67,6 +67,17 @@ describe("section-field surface contract", () => {
     expect(wrapper.declarations.get("border-radius")).toBe("16px");
     expect(wrapper.declarations.get("padding")).toBe("4px 10px");
     expect(wrapper.declarations.get("margin-inline")).toBe("2px");
+    // Main's field begins at the section header's boundary and its Args surface begins at the
+    // field's, so no rule here may open a block gap around the section's primary control.
+    expect(
+      rules.filter((rule) =>
+        [...rule.declarations.keys()].some((property) =>
+          /^margin(-block|-block-start|-block-end|-top|-bottom)?$/u.test(
+            property,
+          ),
+        ),
+      ),
+    ).toStrictEqual([]);
     expect(wrapper.declarations.get("border")).toBe(
       "1px solid hsl(219 24% 89%)",
     );

@@ -10,6 +10,7 @@ import {
   getTextValueLanguageExtensions,
   type WorkspaceEditorLanguage,
 } from "../controls/text/textValueLanguages";
+import type { WorkspaceGeneratedRegion } from "./codeSectionData";
 
 // The reference's `getExtensions` at the shape its section-scale editors reach, minus every
 // application service: no LSP completion source or `completionKeymap`, no tooltip parent, no app
@@ -27,60 +28,88 @@ const GUTTER_LAYOUT_FIX = EditorView.baseTheme({
 });
 
 // The three presentations a section-scale editor supports. `editable` is the reference's own code
-// area; the other two are non-editable, and `generated-output` additionally paints the section as
-// machine-written output.
+// area; the other two are non-editable, and `generated-document` additionally paints one declared
+// region of the document as machine-written output. The region travels with the presentation that
+// paints it, so no caller can select generated paint without saying where it goes.
 export type WorkspaceSectionEditorPresentation =
-  "editable" | "read-only" | "generated-output";
+  | { mode: "editable" }
+  | { mode: "read-only" }
+  | { mode: "generated-document"; region: WorkspaceGeneratedRegion };
 
-export function isEditableSectionEditorPresentation(
-  presentation: WorkspaceSectionEditorPresentation,
-): boolean {
-  return presentation === "editable";
-}
+export const EDITABLE_SECTION_EDITOR_PRESENTATION: WorkspaceSectionEditorPresentation =
+  { mode: "editable" };
+export const READ_ONLY_SECTION_EDITOR_PRESENTATION: WorkspaceSectionEditorPresentation =
+  { mode: "read-only" };
 
-// The reference's `getGenReadOnlyLineDecorations`: it marks every line of its protected range, and
-// marks that range's first and last line so the region can round its ends and hang its badge off
-// the block's upper boundary. The reference's range is one part of an otherwise editable document;
-// here the whole document is generated, so the same marks run from the document's first rendered
-// line to its last. Painting the editor's wrapper instead would fill the section's unused height
-// with generated colour and move the badge off the block, which is the presentation this replaces.
+// The reference's `getGenReadOnlyLineDecorations`: it marks every line its protected range covers,
+// and marks that range's first and last line so the region can round its ends and hang its badge
+// off the block's upper boundary. The range runs from the end of the text before it to the start
+// of the text after it, so those two boundary lines carry the partial geometry while the lines
+// that only touch the range at a boundary keep ordinary read-only paint.
 //
 // This attribute is the package's public hook for observing or capturing the generated block. The
 // scoped stylesheet paints from it too, so the block's position vocabulary has one owner.
 const GENERATED_LINE_ATTRIBUTE = "data-workspace-generated-line";
 
-function getGeneratedLinePosition(lineNumber: number, lineCount: number) {
+function getGeneratedLinePosition(index: number, lineCount: number) {
   if (lineCount === 1) {
     return "only";
   }
-  if (lineNumber === 1) {
+  if (index === 0) {
     return "start";
   }
-  return lineNumber === lineCount ? "end" : "middle";
+  return index === lineCount - 1 ? "end" : "middle";
 }
 
-function getGeneratedLineDecorations(doc: Text): DecorationSet {
+function getGeneratedBlockLines(doc: Text, region: WorkspaceGeneratedRegion) {
+  // The region is validated against the same string the document renders. It is still clamped
+  // here because a host that regenerates code and region together reaches CodeMirror as a
+  // document update and a reconfiguration, and one arrives first.
+  const from = Math.min(region.from, doc.length);
+  const to = Math.min(region.to, doc.length);
+  const lines = [];
+  for (
+    let number = doc.lineAt(from).number;
+    number <= doc.lineAt(to).number;
+    number += 1
+  ) {
+    const line = doc.line(number);
+    // A line joins the block when the region covers part of it or spans across it. The line the
+    // region starts at the end of, and the line it ends at the start of, are the surrounding
+    // text and stay on the ordinary surface.
+    if (line.to > from && line.from < to) {
+      lines.push(line);
+    }
+  }
+  return lines;
+}
+
+function getGeneratedLineDecorations(
+  doc: Text,
+  region: WorkspaceGeneratedRegion,
+): DecorationSet {
+  const lines = getGeneratedBlockLines(doc, region);
   return Decoration.set(
-    Array.from({ length: doc.lines }, (_unused, index) => {
-      const lineNumber = index + 1;
-      return Decoration.line({
+    lines.map((line, index) =>
+      Decoration.line({
         attributes: {
           [GENERATED_LINE_ATTRIBUTE]: getGeneratedLinePosition(
-            lineNumber,
-            doc.lines,
+            index,
+            lines.length,
           ),
         },
-      }).range(doc.line(lineNumber).from);
-    }),
+      }).range(line.from),
+    ),
   );
 }
 
-// The document is the only input, and a generated section's document is replaced wholesale when
-// its host regenerates it, so the marks are recomputed exactly then.
-const GENERATED_OUTPUT_LINES = EditorView.decorations.compute(
-  ["doc"],
-  (state) => getGeneratedLineDecorations(state.doc),
-);
+// The document and the declared region are the only inputs, and a generated section's document is
+// replaced wholesale when its host regenerates it, so the marks are recomputed exactly then.
+function getGeneratedLineExtension(region: WorkspaceGeneratedRegion) {
+  return EditorView.decorations.compute(["doc"], (state) =>
+    getGeneratedLineDecorations(state.doc, region),
+  );
+}
 
 type SectionEditorExtensionsOptions = {
   // Plain text is the absence of a language pack rather than a mode of its own, exactly as the
@@ -114,14 +143,14 @@ export function getSectionEditorExtensions({
   // A non-editable section is non-editable in the view as well as in the state. Read-only state
   // alone leaves a focusable `contenteditable` element that only refuses transactions, which is
   // how the rejected candidate showed a caret in a surface nobody can author.
-  if (!isEditableSectionEditorPresentation(presentation)) {
+  if (presentation.mode !== "editable") {
     extensions.push(
       EditorState.readOnly.of(true),
       EditorView.editable.of(false),
     );
   }
-  if (presentation === "generated-output") {
-    extensions.push(GENERATED_OUTPUT_LINES);
+  if (presentation.mode === "generated-document") {
+    extensions.push(getGeneratedLineExtension(presentation.region));
   }
   // The editor owns Escape ahead of the workspace's own chords: the reference's code area
   // returns focus to its wrapper, and letting the same keypress continue would clear the
@@ -155,7 +184,7 @@ export function getSectionEditorBasicSetup({
   lineNumbers: boolean;
   presentation: WorkspaceSectionEditorPresentation;
 }) {
-  const isEditable = isEditableSectionEditorPresentation(presentation);
+  const isEditable = presentation.mode === "editable";
   return {
     autocompletion: false,
     // CodeMirror draws its own selection over a hidden native one, and it only draws the
@@ -166,10 +195,10 @@ export function getSectionEditorBasicSetup({
     // line-number option owns the section's whole gutter column rather than leaving a fold
     // rail behind with nothing beside it.
     foldGutter: lineNumbers,
-    // Generated output has no cursor to follow, so the active-line paint would only mark a
+    // A generated document has no cursor to follow, so the active-line paint would only mark a
     // line the reader never placed. Ordinary read-only paint is unchanged.
-    highlightActiveLine: presentation !== "generated-output",
-    highlightActiveLineGutter: presentation !== "generated-output",
+    highlightActiveLine: presentation.mode !== "generated-document",
+    highlightActiveLineGutter: presentation.mode !== "generated-document",
     lineNumbers,
   } as const;
 }

@@ -9,7 +9,11 @@
  * generic font and 1.4 line box, so activating main's field changes its type and its height. Here
  * one wrapper owns the box and one class owns the type for both layers, and the live layer's
  * CodeMirror descendants inherit that same font shorthand and line box. Activation therefore
- * changes the border colour and nothing else. */
+ * changes the border colour and nothing else.
+ *
+ * The field owns no block margin. Main's field begins at the section header's own boundary and its
+ * Args surface begins at the field's, and a gap invented here separates the section's primary
+ * control from the chrome it belongs to. */
 
 .setta-workspace-section-field {
   display: flex;
@@ -17,7 +21,6 @@
   align-items: center;
   gap: 6px;
   box-sizing: border-box;
-  margin-block-start: 4px;
   margin-inline: 2px;
   padding: 4px 10px;
   border: 1px solid hsl(219 24% 89%);

@@ -5,11 +5,45 @@ import {
   parseWorkspaceCodeSectionData,
   WORKSPACE_CODE_SECTION_LANGUAGES,
   WORKSPACE_CODE_SECTION_MODES,
+  type WorkspaceCodeSectionMode,
 } from "./codeSectionData";
+import type { WorkspaceSectionData } from "../document/types";
 
 // The built-in code section's data is package-owned, so it is a parsed contract rather than
-// opaque host data: every field is required, unknown fields are a typed failure, and a
-// registration that narrows its languages narrows what the document may say.
+// opaque host data: every field is required, unknown fields are a typed failure, a registration
+// that narrows its languages narrows what the document may say, and the one generated region
+// belongs to the one mode that paints it.
+
+// A generated document the way a host composes one: text before the region, the generated body,
+// and text after it, with the region declared from the end of the first to the start of the last.
+const GENERATED_PREFIX = "import math";
+const GENERATED_SUFFIX = "state = value";
+const GENERATED_CODE = `${GENERATED_PREFIX}\n\nvalue = math.sqrt(3)\n\n${GENERATED_SUFFIX}`;
+const GENERATED_REGION = {
+  from: GENERATED_PREFIX.length,
+  to: GENERATED_CODE.length - GENERATED_SUFFIX.length,
+};
+
+function makeModeData(mode: WorkspaceCodeSectionMode) {
+  return mode === "generated-document"
+    ? createWorkspaceCodeSectionData({
+        code: GENERATED_CODE,
+        generatedRegion: GENERATED_REGION,
+        mode,
+      })
+    : createWorkspaceCodeSectionData({ mode });
+}
+
+function makeGeneratedData(generatedRegion: WorkspaceSectionData | undefined): {
+  [key: string]: WorkspaceSectionData;
+} {
+  return {
+    ...createWorkspaceCodeSectionData({ code: GENERATED_CODE }),
+    // A document that names the field without a value is as malformed as one that omits it.
+    ...(generatedRegion === undefined ? {} : { generatedRegion }),
+    mode: "generated-document",
+  };
+}
 
 describe("code section data", () => {
   it("creates the reference's code section defaults", () => {
@@ -25,26 +59,73 @@ describe("code section data", () => {
 
   it("accepts every declared mode and rejects anything else", () => {
     for (const mode of WORKSPACE_CODE_SECTION_MODES) {
-      const data = createWorkspaceCodeSectionData({ mode });
-      expect(parseWorkspaceCodeSectionData("code", data).mode).toBe(mode);
+      const data = makeModeData(mode);
+      expect(parseWorkspaceCodeSectionData("code", data)).toEqual(data);
     }
     const { mode: _mode, ...withoutMode } = createWorkspaceCodeSectionData();
     for (const data of [
       withoutMode,
       { ...withoutMode, mode: true },
       { ...withoutMode, mode: "generated" },
+      // The whole-document shape this region replaced is gone rather than accepted beside it.
+      { ...withoutMode, mode: "generated-output" },
     ]) {
       expect(() => parseWorkspaceCodeSectionData("code", data)).toThrow(
-        /one of the modes editable, read-only, generated-output/u,
+        /one of the modes editable, read-only, generated-document/u,
+      );
+    }
+  });
+
+  it("requires one region inside the document it paints", () => {
+    const document = makeGeneratedData(GENERATED_REGION);
+    expect(parseWorkspaceCodeSectionData("code", document)).toEqual(document);
+
+    const requirement = new RegExp(
+      `generated region of integer from/to offsets where 0 <= from < to <= ${String(GENERATED_CODE.length)}`,
+      "u",
+    );
+    const malformedRegions: ReadonlyArray<WorkspaceSectionData | undefined> = [
+      undefined,
+      null,
+      "0-4",
+      // Empty, reversed, fractional, negative, and past the end of the document.
+      { from: 4, to: 4 },
+      { from: 9, to: 4 },
+      { from: 0.5, to: 4 },
+      { from: -1, to: 4 },
+      { from: 0, to: GENERATED_CODE.length + 1 },
+      { from: 0 },
+    ];
+    for (const region of malformedRegions) {
+      expect(() =>
+        parseWorkspaceCodeSectionData("code", makeGeneratedData(region)),
+      ).toThrow(requirement);
+    }
+    expect(() =>
+      parseWorkspaceCodeSectionData(
+        "code",
+        makeGeneratedData({ from: 0, length: 4, to: 4 }),
+      ),
+    ).toThrow(/generated region carries the unknown field length/u);
+  });
+
+  it("rejects a region on a mode that does not paint one", () => {
+    for (const mode of ["editable", "read-only"]) {
+      expect(() =>
+        parseWorkspaceCodeSectionData("code", {
+          ...makeGeneratedData(GENERATED_REGION),
+          mode,
+        }),
+      ).toThrow(
+        new RegExp(`carries a generated region on its ${mode} mode`, "u"),
       );
     }
   });
 
   it("rejects the boolean this mode replaced", () => {
-    const { mode: _mode, ...withoutMode } = createWorkspaceCodeSectionData();
     expect(() =>
       parseWorkspaceCodeSectionData("code", {
-        ...withoutMode,
+        ...createWorkspaceCodeSectionData(),
         readOnly: true,
       }),
     ).toThrow(/unknown field readOnly/u);

@@ -10,7 +10,6 @@ import {
 import {
   getSectionEditorBasicSetup,
   getSectionEditorExtensions,
-  isEditableSectionEditorPresentation,
   type WorkspaceSectionEditorPresentation,
 } from "./sectionEditorExtensions";
 import { useSectionEditorHeight } from "./useSectionEditorHeight";
@@ -35,10 +34,10 @@ const WRAPPER_BASE_CLASS_NAME = `${NO_PAN_CLASS_NAME} ${NO_DRAG_CLASS_NAME} ${SE
 // presentations.
 const ORDINARY_PRESENTATION_CLASS_NAME = `rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent`;
 
-// Generated output must not repaint when a pointer lands in it, so it drops that focus fill and
-// hands its whole surface — region, rail, badge, and keyboard-only focus cue — to the package's
-// scoped stylesheet.
-const GENERATED_OUTPUT_CLASS_NAME = "setta-workspace-generated-output";
+// A generated document must not repaint when a pointer lands in it, so it drops that focus fill
+// and hands its whole surface — region, rail, badge, and keyboard-only focus cue — to the
+// package's scoped stylesheet.
+const GENERATED_DOCUMENT_CLASS_NAME = "setta-workspace-generated-document";
 
 type WorkspaceSectionEditorProps = {
   ariaLabel: string;
@@ -65,8 +64,8 @@ export function WorkspaceSectionEditor({
   presentation,
   onChange,
 }: WorkspaceSectionEditorProps) {
-  const isEditable = isEditableSectionEditorPresentation(presentation);
-  const isGeneratedOutput = presentation === "generated-output";
+  const isEditable = presentation.mode === "editable";
+  const isGeneratedDocument = presentation.mode === "generated-document";
   const theme = useTextValueTheme();
   const {
     editorHeight,
@@ -128,8 +127,8 @@ export function WorkspaceSectionEditor({
     <article
       aria-keyshortcuts={isEditable ? "Enter Escape" : undefined}
       aria-label={ariaLabel}
-      className={`${WRAPPER_BASE_CLASS_NAME} ${isGeneratedOutput ? GENERATED_OUTPUT_CLASS_NAME : ORDINARY_PRESENTATION_CLASS_NAME} ${overflowClassName} ${wheelClassName}`}
-      data-workspace-section-editor={presentation}
+      className={`${WRAPPER_BASE_CLASS_NAME} ${isGeneratedDocument ? GENERATED_DOCUMENT_CLASS_NAME : ORDINARY_PRESENTATION_CLASS_NAME} ${overflowClassName} ${wheelClassName}`}
+      data-workspace-section-editor={presentation.mode}
       onKeyDown={onWrapperKeyDown}
       ref={wrapperRef}
       tabIndex={0}

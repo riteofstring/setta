@@ -1,19 +1,20 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-// The generated-output surface is the second place a package-owned control has to carry frozen
+// The generated-document surface is the second place a package-owned control has to carry frozen
 // main's paint exactly, and its accepted defects were that generated Python looked like an ordinary
-// editor and then that its region filled the section's unused height with a corner badge. These
-// cases pin main's line-scoped region, rail, rounded ends, centred badge, and selection paint in
-// both appearances; that the wrapper paints no region of its own; and the invariant that keeps a
+// editor, then that its region filled the section's unused height with a corner badge, and then
+// that the region covered authored text it does not own. These cases pin main's line-scoped region,
+// rail, rounded ends, partial boundary lips, centred badge, and selection paint in both
+// appearances; that the wrapper paints no region of its own; and the invariant that keeps a
 // pointer press from repainting the surface: no focus fill, only a keyboard-visible cue.
 
-const generatedOutputStyles = readFileSync(
-  new URL("./generatedOutput.css", import.meta.url),
+const generatedDocumentStyles = readFileSync(
+  new URL("./generatedDocument.css", import.meta.url),
   "utf8",
 );
 
-const SURFACE = ".setta-workspace-generated-output";
+const SURFACE = ".setta-workspace-generated-document";
 const DARK = ".setta-workspace.setta-workspace-dark";
 const LINE = `${SURFACE} [data-workspace-generated-line]`;
 const START = `${SURFACE} [data-workspace-generated-line="start"]`;
@@ -54,18 +55,20 @@ function parseRules(css: string): Array<StyleRule> {
   );
 }
 
-const rules = parseRules(generatedOutputStyles);
+const rules = parseRules(generatedDocumentStyles);
 
 function ruleFor(selector: string): StyleRule {
   const normalized = selector.replaceAll(/\s+/gu, " ");
   const rule = rules.find((candidate) => candidate.selector === normalized);
   if (!rule) {
-    throw new Error(`The generated-output stylesheet declares no ${selector}.`);
+    throw new Error(
+      `The generated-document stylesheet declares no ${selector}.`,
+    );
   }
   return rule;
 }
 
-describe("generated-output surface contract", () => {
+describe("generated-document surface contract", () => {
   it("paints main's blue region behind its three-pixel rail in both appearances", () => {
     const light = ruleFor(SURFACE);
     expect(light.declarations.get("--setta-workspace-generated-region")).toBe(
@@ -129,6 +132,38 @@ describe("generated-output surface contract", () => {
     );
   });
 
+  it("shows only the block's lip on the two lines its region bounds", () => {
+    // Main's range runs from the end of the text above it to the start of the text below, so its
+    // first and last lines are the blank separators and each shows a lip rather than a full band.
+    // The rejected candidate painted every line of the document, including the authored ones.
+    expect(ruleFor(`${START}::before`).declarations).toEqual(
+      new Map([
+        ["inset-block-start", "var(--setta-workspace-generated-boundary)"],
+      ]),
+    );
+    expect(ruleFor(`${END}::before`).declarations).toEqual(
+      new Map([
+        ["inset-block-end", "var(--setta-workspace-generated-boundary)"],
+      ]),
+    );
+    expect(
+      ruleFor(SURFACE).declarations.get("--setta-workspace-generated-boundary"),
+    ).toBe("80%");
+    // A block that begins and ends on one line has no separator to show, so it keeps the whole
+    // line box: neither lip may reach it.
+    expect(
+      rules.filter(
+        (rule) =>
+          rule.selector.includes(ONLY) &&
+          ["inset-block-start", "inset-block-end"].some((property) =>
+            rule.declarations
+              .get(property)
+              ?.includes("--setta-workspace-generated-boundary"),
+          ),
+      ),
+    ).toStrictEqual([]);
+  });
+
   it("carries main's compact uppercase generated/read-only badge over the block's top edge", () => {
     const badge = ruleFor(`${START}::after, ${ONLY}::after`);
     expect(badge.declarations.get("content")).toBe('"Generated read-only"');
@@ -142,17 +177,21 @@ describe("generated-output surface contract", () => {
     expect(badge.declarations.get("color")).toBe(
       "var(--setta-workspace-generated-badge-text)",
     );
-    // Centred on the block's upper boundary rather than pinned to a corner of the wrapper.
+    // Centred on the block's upper boundary rather than pinned to a corner of the wrapper. That
+    // boundary is the lip on the block's first line, which is where main reserves the badge's
+    // room with the blank separator above its range; the editor needs no padding of its own and
+    // the document's bytes are untouched.
     expect(badge.declarations.get("inset-inline-start")).toBe("50%");
-    expect(badge.declarations.get("inset-block-start")).toBe(
-      "calc(-1 * var(--setta-workspace-generated-overlap))",
-    );
     expect(badge.declarations.get("transform")).toBe("translate(-50%, -50%)");
-    // Main reserves that space with the blank line above its generated range; a whole generated
-    // document has none, so the editor's own top padding reserves it without changing the bytes.
     expect(
-      ruleFor(`${SURFACE} .cm-content`).declarations.get("padding-block-start"),
-    ).toBe("12px");
+      ruleFor(`${START}::after`).declarations.get("inset-block-start"),
+    ).toBe("var(--setta-workspace-generated-boundary)");
+    expect(
+      ruleFor(`${ONLY}::after`).declarations.get("inset-block-start"),
+    ).toBe("calc(-1 * var(--setta-workspace-generated-overlap))");
+    expect(
+      rules.some((rule) => rule.selector === `${SURFACE} .cm-content`),
+    ).toBe(false);
     // The badge is decoration over the reader's text, never a pointer target.
     expect(badge.declarations.get("pointer-events")).toBe("none");
     expect(
@@ -187,13 +226,13 @@ describe("generated-output surface contract", () => {
   });
 
   it("restores the region, rail, and badge once forced colours drop them", () => {
-    expect(generatedOutputStyles).toMatch(
+    expect(generatedDocumentStyles).toMatch(
       /@media \(forced-colors: active\)[\s\S]*border-inline-start: 3px solid CanvasText/u,
     );
-    expect(generatedOutputStyles).toMatch(
+    expect(generatedDocumentStyles).toMatch(
       /@media \(forced-colors: active\)[\s\S]*::after\s*\{[^}]*border: 1px solid CanvasText/u,
     );
-    expect(generatedOutputStyles).toMatch(
+    expect(generatedDocumentStyles).toMatch(
       /@media \(forced-colors: active\)[\s\S]*:focus-visible\s*\{[^}]*outline-color: Highlight/u,
     );
   });

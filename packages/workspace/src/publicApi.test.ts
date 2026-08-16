@@ -179,8 +179,14 @@ describe("public package API", () => {
   });
 
   it("closes the built-in Code section on one required presentation mode", () => {
+    const generatedRegion = {
+      from: 1,
+      to: 3,
+    } satisfies workspace.WorkspaceGeneratedRegion;
     const generated = workspace.createWorkspaceCodeSectionData({
-      mode: "generated-output",
+      code: "a\nb\nc",
+      generatedRegion,
+      mode: "generated-document",
     });
     // Keyed by every public mode: adding, removing, or renaming one fails this exhaustiveness
     // proof at compile time.
@@ -189,7 +195,7 @@ describe("public package API", () => {
       "read-only": workspace.createWorkspaceCodeSectionData({
         mode: "read-only",
       }),
-      "generated-output": generated,
+      "generated-document": generated,
     } satisfies Record<
       workspace.WorkspaceCodeSectionMode,
       workspace.WorkspaceCodeSectionData
@@ -199,8 +205,14 @@ describe("public package API", () => {
     expect([...workspace.WORKSPACE_CODE_SECTION_MODES].sort()).toStrictEqual(
       Object.keys(dataByMode).sort(),
     );
-    // The boolean this mode replaces is gone from the contract, not accepted beside it.
-    // @ts-expect-error the code section no longer carries a readOnly field.
-    expect(generated.readOnly).toBeUndefined();
+    // The region belongs to the one mode that paints it, and the whole-document shape it
+    // replaces is gone from the contract rather than accepted beside it.
+    expect(dataByMode["read-only"]).not.toHaveProperty("generatedRegion");
+    const ordinary = {
+      mode: "read-only",
+      // @ts-expect-error an ordinary mode cannot declare a generated region.
+      generatedRegion,
+    } satisfies workspace.WorkspaceCodeSectionDataOverrides;
+    expect(ordinary.mode).toBe("read-only");
   });
 });

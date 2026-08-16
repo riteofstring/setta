@@ -65,7 +65,6 @@ export function registerPythonCanvasSectionKinds(host: WorkspaceHost): void {
   registerSectionKinds(host, {
     [CALLABLE_SECTION_KIND]: {
       defaultSize: CALLABLE_SECTION_SIZE,
-      contentClassName: "python-canvas-callable-section-content",
       assertValidData: (section) => {
         readCallableSectionData(section.data);
       },

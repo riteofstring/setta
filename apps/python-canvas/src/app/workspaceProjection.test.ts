@@ -49,9 +49,7 @@ describe("Python Canvas workspace projection", () => {
       parameterDiagnostics: [],
     });
     expect(
-      readParameterItemData(
-        callable?.itemTree?.items[PARAMETER_ITEM_ID]?.data,
-      ),
+      readParameterItemData(callable?.itemTree?.items[PARAMETER_ITEM_ID]?.data),
     ).toEqual({ kind: "empty" });
     expect(generatedPython).toMatchObject({
       id: GENERATED_PYTHON_SECTION_ID,
@@ -61,10 +59,29 @@ describe("Python Canvas workspace projection", () => {
       data: {
         code: snapshot.generatedCode.code,
         language: "python",
-        mode: "generated-output",
+        mode: "generated-document",
+        // Only the Go-owned body is generated: the region runs from the end of the target's
+        // prefix to the start of its suffix, so `import math` and `state = SettaState()` stay on
+        // the ordinary read-only surface.
+        generatedRegion: {
+          from: snapshot.pythonTarget.prefix.length,
+          to:
+            snapshot.generatedCode.code.length -
+            snapshot.pythonTarget.suffix.length,
+        },
       },
     });
     expect(projectWorkspaceDocument(snapshot)).toEqual(document);
+  });
+
+  it("refuses generated Python that does not compose its canonical parts", () => {
+    const snapshot = parseProjectSnapshotV1(projectSnapshotFixture);
+    expect(() =>
+      projectWorkspaceDocument({
+        ...snapshot,
+        pythonTarget: { ...snapshot.pythonTarget, suffix: "state = None" },
+      }),
+    ).toThrow(/does not compose its canonical prefix, body, and suffix/u);
   });
 
   it("reconciles a canonical response through public mutations without reloading the host", () => {
@@ -91,9 +108,7 @@ describe("Python Canvas workspace projection", () => {
       providerStatus: { state: "ready", status: "available" },
     });
     expect(
-      readParameterItemData(
-        callable?.itemTree?.items[PARAMETER_ITEM_ID]?.data,
-      ),
+      readParameterItemData(callable?.itemTree?.items[PARAMETER_ITEM_ID]?.data),
     ).toMatchObject({
       authoredExpression: "missing_value",
       kind: "parameter",
@@ -105,7 +120,11 @@ describe("Python Canvas workspace projection", () => {
       host.getSnapshot().sections[GENERATED_PYTHON_SECTION_ID]?.data,
     ).toMatchObject({
       code: next.generatedCode.code,
-      mode: "generated-output",
+      mode: "generated-document",
+      generatedRegion: {
+        from: next.pythonTarget.prefix.length,
+        to: next.generatedCode.code.length - next.pythonTarget.suffix.length,
+      },
     });
 
     host.dispose();
@@ -174,7 +193,10 @@ state = SettaState()`;
       },
     ],
     generatedCode: {
-      body: code.slice("import math\n\n".length, -"\n\nstate = SettaState()".length),
+      body: code.slice(
+        "import math\n\n".length,
+        -"\n\nstate = SettaState()".length,
+      ),
       code,
       sourceRanges: [
         {

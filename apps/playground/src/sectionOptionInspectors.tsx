@@ -14,6 +14,7 @@ import {
   type WorkspaceCodeSectionData,
   type WorkspaceCodeSectionLanguage,
   type WorkspaceCodeSectionMode,
+  type WorkspaceGeneratedRegion,
   type WorkspaceHost,
   type WorkspaceTextSectionData,
   type WorkspaceTextSectionFormat,
@@ -38,6 +39,58 @@ function updatePlaygroundCodeSection(
     sectionId,
     update(getWorkspaceCodeSectionData(host, sectionId)),
   );
+}
+
+// Only the generated mode carries a region, so switching modes adds or drops it rather than
+// leaving a field the new mode may not have. A host that has no region in mind gets the same
+// separator-bounded range the package's paint is built for: from the end of the first line to the
+// start of the last, which leaves the surrounding text on the ordinary read-only surface.
+function withPlaygroundCodeMode(
+  current: WorkspaceCodeSectionData,
+  mode: WorkspaceCodeSectionMode,
+): WorkspaceCodeSectionData {
+  const { code, indentWidth, language, lineNumbers, wrapLines } = current;
+  const common = { code, indentWidth, language, lineNumbers, wrapLines };
+  if (mode !== "generated-document") {
+    return { ...common, mode };
+  }
+  return {
+    ...common,
+    generatedRegion:
+      current.mode === "generated-document"
+        ? current.generatedRegion
+        : defaultPlaygroundGeneratedRegion(code),
+    mode,
+  };
+}
+
+function defaultPlaygroundGeneratedRegion(
+  code: string,
+): WorkspaceGeneratedRegion {
+  const firstBreak = code.indexOf("\n");
+  const lastBreak = code.lastIndexOf("\n");
+  return firstBreak === -1 || lastBreak <= firstBreak
+    ? { from: 0, to: code.length }
+    : { from: firstBreak, to: lastBreak + 1 };
+}
+
+// The offsets stay inside the document and keep the region non-empty, because the package rejects
+// anything else at its data boundary and an Inspector must not be able to author a section that
+// fails to load.
+function withPlaygroundGeneratedRegion(
+  current: WorkspaceCodeSectionData,
+  edge: "from" | "to",
+  value: number,
+): WorkspaceCodeSectionData {
+  if (current.mode !== "generated-document" || !Number.isInteger(value)) {
+    return current;
+  }
+  const { from, to } = current.generatedRegion;
+  const generatedRegion =
+    edge === "from"
+      ? { from: Math.min(Math.max(value, 0), to - 1), to }
+      : { from, to: Math.min(Math.max(value, from + 1), current.code.length) };
+  return { ...current, generatedRegion };
 }
 
 export function PlaygroundCodeSectionInspector({
@@ -119,20 +172,51 @@ export function PlaygroundCodeSectionInspector({
           <select
             className="playground-section-option-control"
             onChange={(event) =>
-              updatePlaygroundCodeSection(host, sectionId, (current) => ({
-                ...current,
-                mode: event.target.value as WorkspaceCodeSectionMode,
-              }))
+              updatePlaygroundCodeSection(host, sectionId, (current) =>
+                withPlaygroundCodeMode(
+                  current,
+                  event.target.value as WorkspaceCodeSectionMode,
+                ),
+              )
             }
             value={data.mode}
           >
             {WORKSPACE_CODE_SECTION_MODES.map((mode) => (
-              <option key={mode} value={mode}>
+              <option
+                // A generated document has to have generated content, so an empty document
+                // cannot declare one.
+                disabled={mode === "generated-document" && data.code === ""}
+                key={mode}
+                value={mode}
+              >
                 {mode}
               </option>
             ))}
           </select>
         </label>
+        {data.mode === "generated-document"
+          ? (["from", "to"] as const).map((edge) => (
+              <label className="playground-section-option-row" key={edge}>
+                <span>Generated {edge}</span>
+                <input
+                  className="playground-section-option-control playground-section-option-number"
+                  max={data.code.length}
+                  min={0}
+                  onChange={(event) =>
+                    updatePlaygroundCodeSection(host, sectionId, (current) =>
+                      withPlaygroundGeneratedRegion(
+                        current,
+                        edge,
+                        Number(event.target.value),
+                      ),
+                    )
+                  }
+                  type="number"
+                  value={data.generatedRegion[edge]}
+                />
+              </label>
+            ))
+          : null}
       </fieldset>
     </div>
   );

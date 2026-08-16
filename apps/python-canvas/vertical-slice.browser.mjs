@@ -24,15 +24,20 @@ import {
   assertCallableFieldParity,
   assertDonorCallableFieldSurface,
   assertDonorGeneratedRegion,
+  assertDonorSectionComposition,
   assertGeneratedBlockHugsCode,
+  assertGeneratedRegionBoundsItsBody,
   assertNonEditingGeneratedText,
   callableFieldStateScript,
+  callableSectionSelector,
+  callableSectionStateScript,
   enterCallableField,
   fieldTypeProperties,
   fieldValueTypeProperties,
-  generatedOutputSelector,
-  generatedOutputStateScript,
+  generatedDocumentSelector,
+  generatedDocumentStateScript,
   idleCallableSelector,
+  itemToolbarSelector,
   liveCallableSelector,
   selectSqrtCompletion,
   waitForEnabledCallableField,
@@ -40,9 +45,6 @@ import {
 
 // The Callable section is observed through public surfaces only: its accessible section group,
 // the package's one documented toolbar hook, and this app's own content root.
-const callableSectionSelector =
-  '[role="group"][aria-label^="Square Root section"]';
-const itemToolbarSelector = "[data-workspace-item-toolbar]";
 const callableContentSelector = ".python-canvas-callable-section";
 // The application follows the reader's system appearance, so this walkthrough pins the one it
 // asserts donor values for. The capture harness records both.
@@ -194,30 +196,34 @@ async function assertCallableFieldActivationParity(
 }
 
 // The developer rejected one candidate because Generated Python was painted as an ordinary editor
-// whose still-editable content exposed a black caret line on click, and the supervisor rejected the
-// next because its region filled the section's unused height with a corner badge. Measure the
-// generated block idle, click it with a real pointer, and require the same non-editing surface.
-async function assertGeneratedOutputPresentation(client, generatedLabel) {
-  const idle = await evaluate(client, generatedOutputStateScript);
+// whose still-editable content exposed a black caret line on click, the supervisor rejected the
+// next because its region filled the section's unused height with a corner badge, and the
+// developer rejected the third because the region claimed the target's authored prefix and suffix.
+// Measure the generated block idle, click it with a real pointer, and require the same
+// region-bounded, non-editing surface.
+async function assertGeneratedDocumentPresentation(client, generatedLabel) {
+  const idle = await evaluate(client, generatedDocumentStateScript);
   if (idle === null) {
     throw new Error(
-      `${generatedLabel} did not render the package's generated-output surface.`,
+      `${generatedLabel} did not render the package's generated-document surface.`,
     );
   }
   assertDonorGeneratedRegion(idle, walkthroughAppearance);
   assertGeneratedBlockHugsCode("The idle", idle);
+  assertGeneratedRegionBoundsItsBody("The idle", idle);
   assertNonEditingGeneratedText("The idle", idle);
 
   await clickElementCenter(
     client,
-    generatedOutputSelector,
+    generatedDocumentSelector,
     "The generated Python region",
   );
-  const clicked = await evaluate(client, generatedOutputStateScript);
+  const clicked = await evaluate(client, generatedDocumentStateScript);
   if (clicked === null) {
     throw new Error("The clicked generated Python region lost its surface.");
   }
   assertGeneratedBlockHugsCode("The clicked", clicked);
+  assertGeneratedRegionBoundsItsBody("The clicked", clicked);
   assertNonEditingGeneratedText("The clicked", clicked);
   for (const [property, idleValue] of Object.entries(idle.region)) {
     if (clicked.region[property] !== idleValue) {
@@ -229,7 +235,7 @@ async function assertGeneratedOutputPresentation(client, generatedLabel) {
 
   await dragSelectElement(
     client,
-    `${generatedOutputSelector} [role="textbox"]`,
+    `${generatedDocumentSelector} [role="textbox"]`,
     "The generated Python text",
   );
   const selected = await evaluate(
@@ -398,7 +404,7 @@ async function runWalkthrough(client, backendOrigin) {
   );
   await assertCallableEditorLeadsKeyboardOrder(client, callableLabel);
 
-  const generatedSource = await assertGeneratedOutputPresentation(
+  const generatedSource = await assertGeneratedDocumentPresentation(
     client,
     generatedLabel,
   );
@@ -491,6 +497,17 @@ async function runWalkthrough(client, backendOrigin) {
         generated?.textContent?.includes("missing_value") === false && cleared;
     })()`,
   );
+
+  // The developer rejected a candidate whose callable field measured correctly while the card
+  // around it did not, so the complete committed card is measured as one stack here — the state
+  // main's own reference capture shows.
+  const cardComposition = await evaluate(client, callableSectionStateScript);
+  if (cardComposition === null) {
+    throw new Error(
+      "The Square Root card did not render its complete header, field, toolbar, and parameter stack.",
+    );
+  }
+  assertDonorSectionComposition(cardComposition, walkthroughAppearance);
 
   await assertArgsFilterRemainsOperable(client, parameterLabel);
   // The committed callable is the state the section spends its life in, so repeat the parity pass

@@ -18,8 +18,10 @@ export {
 } from "./builtin/codeSectionData";
 export type {
   WorkspaceCodeSectionData,
+  WorkspaceCodeSectionDataOverrides,
   WorkspaceCodeSectionLanguage,
   WorkspaceCodeSectionMode,
+  WorkspaceGeneratedRegion,
 } from "./builtin/codeSectionData";
 export { createWorkspaceCodeSection } from "./builtin/codeSectionKind";
 export type { WorkspaceCodeSectionRegistration } from "./builtin/codeSectionKind";

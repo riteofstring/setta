@@ -13,8 +13,8 @@ const sectionFieldStyles = readFileSync(
   new URL("./sectionField.css", import.meta.url),
   "utf8",
 );
-const generatedOutputStyles = readFileSync(
-  new URL("./generatedOutput.css", import.meta.url),
+const generatedDocumentStyles = readFileSync(
+  new URL("./generatedDocument.css", import.meta.url),
   "utf8",
 );
 const focusVisibilityStyles = readFileSync(
@@ -193,12 +193,12 @@ describe("workspace adaptive stylesheet contract", () => {
     );
   });
 
-  it("keeps generated output legible once forced colours drop its region", () => {
-    expect(generatedOutputStyles).toMatch(
-      /@media \(forced-colors: active\)[^{]*\{[^}]*\.setta-workspace-generated-output[^}]*border-inline-start: 3px solid CanvasText/su,
+  it("keeps a generated document legible once forced colours drop its region", () => {
+    expect(generatedDocumentStyles).toMatch(
+      /@media \(forced-colors: active\)[^{]*\{[^}]*\.setta-workspace-generated-document[^}]*border-inline-start: 3px solid CanvasText/su,
     );
     // The badge's fill carries its only contrast, so it needs an authored edge as well.
-    expect(generatedOutputStyles).toMatch(
+    expect(generatedDocumentStyles).toMatch(
       /@media \(forced-colors: active\)[\s\S]*::after\s*\{[^}]*border: 1px solid CanvasText/u,
     );
   });

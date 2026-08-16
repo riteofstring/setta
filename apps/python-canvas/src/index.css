@@ -75,10 +75,10 @@ body {
   block-size: min(70dvh, 48rem);
 }
 
-.python-canvas-callable-section-content {
-  padding: 0.875rem;
-}
-
+/* The package owns the section's own insets: main's callable field begins at the header boundary
+ * and its Args surface begins at the field's, so an app padding or gap around package-owned
+ * content would push the section's primary control away from the chrome it belongs to. This grid
+ * spaces only the app's own error rows against the package's item list below them. */
 .python-canvas-callable-section {
   display: grid;
   gap: 0.625rem;

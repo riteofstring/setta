@@ -43,6 +43,7 @@ import {
   createWorkspaceCodeSectionData,
   WORKSPACE_CODE_SECTION_KIND,
   type WorkspaceCodeSectionData,
+  type WorkspaceCodeSectionDataOverrides,
 } from "./codeSectionData";
 import { createWorkspaceCodeSection } from "./codeSectionKind";
 
@@ -102,8 +103,33 @@ function getGeneratedLineMarks(view: EditorView): Array<string | null> {
   );
 }
 
+// A generated document the way a host composes one: authored text, the generated body between two
+// blank separators, and authored text again. The declared region runs from the end of the first to
+// the start of the last, so the separators are the block's boundary lines and the text outside it
+// keeps ordinary read-only paint.
+const GENERATED_PREFIX = "import math";
+const GENERATED_SUFFIX = "state = value";
+const GENERATED_CODE = `${GENERATED_PREFIX}\n\nvalue = math.sqrt(3)\n\n${GENERATED_SUFFIX}`;
+
+function makeGeneratedSection(
+  code = GENERATED_CODE,
+  overrides: Partial<WorkspaceSectionInput> = {},
+): WorkspaceSectionInput {
+  return makeCodeSection(
+    {
+      code,
+      generatedRegion: {
+        from: GENERATED_PREFIX.length,
+        to: code.length - GENERATED_SUFFIX.length,
+      },
+      mode: "generated-document",
+    },
+    overrides,
+  );
+}
+
 function makeCodeSection(
-  data: Partial<WorkspaceCodeSectionData> = {},
+  data: WorkspaceCodeSectionDataOverrides = {},
   overrides: Partial<WorkspaceSectionInput> = {},
 ): WorkspaceSectionInput {
   return {
@@ -365,41 +391,34 @@ describe("built-in code section body", () => {
     expect(wrapper.getAttribute("data-workspace-section-editor")).toBe(
       "read-only",
     );
-    // Nothing about it is generated output.
-    expect(wrapper.classList.contains("setta-workspace-generated-output")).toBe(
-      false,
-    );
+    // Nothing about it is a generated document.
+    expect(
+      wrapper.classList.contains("setta-workspace-generated-document"),
+    ).toBe(false);
     expect(getGeneratedLineMarks(view)).toStrictEqual([null, null, null]);
   });
 
-  it("presents a generated section as read-only output rather than an editor", async () => {
-    await mount(makeCodeSection({ mode: "generated-output" }));
+  it("presents a generated document as a reader rather than an editor", async () => {
+    await mount(makeGeneratedSection());
     const view = getView();
     expect(view.state.readOnly).toBe(true);
     expect(view.contentDOM.getAttribute("contenteditable")).toBe("false");
     const wrapper = getWrapper();
     expect(wrapper.getAttribute("data-workspace-section-editor")).toBe(
-      "generated-output",
+      "generated-document",
     );
-    expect(wrapper.classList.contains("setta-workspace-generated-output")).toBe(
-      true,
-    );
+    expect(
+      wrapper.classList.contains("setta-workspace-generated-document"),
+    ).toBe(true);
     expect(wrapper.getAttribute("aria-label")).toBe(
       "train.py generated code, read-only",
     );
-    // The rejected candidate painted a caret and an active line over generated output, and it
+    // The rejected candidate painted a caret and an active line over the generated text, and it
     // kept the reference's focus fill under a pointer press.
     expect(view.dom.querySelector(".cm-activeLine")).toBeNull();
     expect(wrapper.className).not.toContain("focus:bg-blue-200/70");
-    // The second rejected candidate painted the flex-filling wrapper, so the region became an
-    // empty panel below the code. The generated block belongs to the rendered document lines.
-    expect(getGeneratedLineMarks(view)).toStrictEqual([
-      "start",
-      "middle",
-      "end",
-    ]);
     // Its text is still there to select and copy.
-    expect(view.dom.textContent).toContain("alpha = 1");
+    expect(view.dom.textContent).toContain(GENERATED_PREFIX);
     // Enter has no editing surface to reach, so it stays on the section's own focus target and
     // the wrapper stops advertising a shortcut that does nothing.
     expect(wrapper.getAttribute("aria-keyshortcuts")).toBeNull();
@@ -412,33 +431,54 @@ describe("built-in code section body", () => {
     expect(document.activeElement).toBe(wrapper);
   });
 
-  it("marks the whole generated block when the host regenerates its document", async () => {
-    // The reference's range always spans at least three lines, so its start and end marks are
-    // never the same line. A whole generated document can be one line, and it can grow.
-    await mount(
-      makeCodeSection({ code: "state = None\n", mode: "generated-output" }),
-    );
-    expect(getGeneratedLineMarks(getView())).toStrictEqual(["start", "end"]);
-
-    await remount(
-      makeCodeSection({ code: "state = None", mode: "generated-output" }),
-    );
-    expect(getGeneratedLineMarks(getView())).toStrictEqual(["only"]);
-
-    await act(async () => {
-      setWorkspaceCodeSectionData(testWorkspace.host, SECTION_ID, {
-        ...getSectionData(),
-        code: "import math\n\nstate = math.sqrt(3)",
-      });
-    });
+  it("paints only the lines the declared region covers", async () => {
+    // The rejected candidate treated the whole document as generated, so the authored `import`
+    // and `state` lines were painted as machine-written output. The region's own boundary lines
+    // are the blank separators, and the text outside it keeps the ordinary surface.
+    await mount(makeGeneratedSection());
     expect(getGeneratedLineMarks(getView())).toStrictEqual([
+      null,
       "start",
       "middle",
       "end",
+      null,
     ]);
+
+    // The block follows the host's regeneration: a longer body without leaving its boundaries.
+    await act(async () => {
+      const code = `${GENERATED_PREFIX}\n\nvalue = math.sqrt(3)\nscaled = value * 2\n\n${GENERATED_SUFFIX}`;
+      setWorkspaceCodeSectionData(testWorkspace.host, SECTION_ID, {
+        ...getSectionData(),
+        code,
+        generatedRegion: {
+          from: GENERATED_PREFIX.length,
+          to: code.length - GENERATED_SUFFIX.length,
+        },
+        mode: "generated-document",
+      });
+    });
+    expect(getGeneratedLineMarks(getView())).toStrictEqual([
+      null,
+      "start",
+      "middle",
+      "middle",
+      "end",
+      null,
+    ]);
+
+    // A region inside one line is both ends at once, which the reference's separator-bounded
+    // range never has to answer for.
+    await remount(
+      makeCodeSection({
+        code: "value = 3",
+        generatedRegion: { from: 8, to: 9 },
+        mode: "generated-document",
+      }),
+    );
+    expect(getGeneratedLineMarks(getView())).toStrictEqual(["only"]);
   });
 
-  it("makes a locked section read-only without turning it into generated output", async () => {
+  it("makes a locked section read-only without turning it into a generated document", async () => {
     await mount(makeCodeSection({}, { positionAndSizeLocked: true }));
     expect(getView().state.readOnly).toBe(true);
     expect(getWrapper().getAttribute("data-workspace-section-editor")).toBe(
@@ -446,13 +486,10 @@ describe("built-in code section body", () => {
     );
 
     await remount(
-      makeCodeSection(
-        { mode: "generated-output" },
-        { positionAndSizeLocked: true },
-      ),
+      makeGeneratedSection(GENERATED_CODE, { positionAndSizeLocked: true }),
     );
     expect(getWrapper().getAttribute("data-workspace-section-editor")).toBe(
-      "generated-output",
+      "generated-document",
     );
   });
 

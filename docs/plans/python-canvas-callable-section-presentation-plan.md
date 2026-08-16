@@ -6,12 +6,14 @@
 remains open. The developer rejected source candidate
 `666af132be38edf4186e80ad7cf4788c32ff9fd0` and its evidence commit
 `7abd2332d18fa89aef3b5b550e75737dd0e163a1` on 2026-08-19. The complete Callable section still
-has materially different outer padding and vertical adjacency from main, which the component-only
-field crops failed to reveal. Generated Python also incorrectly treats the prefix, generated body,
+had materially different outer padding and vertical adjacency from main, which the component-only
+field crops failed to reveal. Generated Python also incorrectly treated the prefix, generated body,
 and suffix as one generated block; for the shown canonical document only body lines 3–5 are
-generated content. The next candidate must correct both defects, replace the rejected evidence,
-pass independent review and ordinary verification again, and receive developer visual acceptance
-before Phase B closes.**
+generated content. Both defects are corrected in the source candidate recorded below, and the
+capture harness now records complete section crops. The rejected evidence bundle is still checked
+in and must be replaced by a capture rendered from the corrected candidate; that capture, the
+supervisor's inspection of it, developer visual acceptance, and this phase's closing
+`test --changed` and `test-levels` steps remain open.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
 Basedpyright, transport, or project semantics into `@setta/workspace`. The completed
@@ -912,6 +914,72 @@ prefix and suffix data even though it intentionally lacks prefix/suffix editing.
 implementation directly removes the rejected mode and evidence. It must not preserve either as a
 legacy path, and it must not expand this correction into backend editing or an arbitrary protected-
 range editor.
+
+**Complete-composition and generated-region correction record.** Both rejected defects are fixed in
+one cutover, and no legacy shape survives either of them.
+
+The composition is now the package's own. Python Canvas's `.python-canvas-callable-section-content`
+padding and the `contentClassName` that mounted it are gone, and the package's `section-field`
+surface no longer carries a `margin-block-start`, so the complete card is the continuous stack main
+shows: measured live at 1440x900, the field begins exactly at the header's boundary, the Args
+surface begins 4 CSS px below the field, the first parameter row follows the toolbar by the item
+list's own 8 CSS px, and the field is inset from both card edges by nothing but its own 2px margin.
+The app's remaining grid gap spaces only its own error rows, which is stated where it is declared.
+
+`generated-output` is replaced outright by `generated-document` plus one required
+`WorkspaceGeneratedRegion`. The public `WorkspaceCodeSectionData` is now a discriminated union, so a
+region cannot ride an ordinary mode and a generated document cannot omit one; the parser reads the
+mode first, admits `generatedRegion` only for that mode, and rejects a missing, malformed, empty,
+reversed, fractional, negative, out-of-document, or extra-field range at the same boundary. The
+decorations follow: a line joins the block when the region covers part of it or spans across it, so
+the line the region starts at the end of and the line it ends at the start of stay on the ordinary
+surface. `styles/generatedDocument.css` paints from those marks — the region and rail on the covered
+lines, the donor's 80% lip on the block's first and last line, and the badge centred on that lip.
+Main's separator line above its range is what reserves the badge's room, so the editor's own
+`padding-block-start` departure from the previous candidate is gone and the literal transcription is
+restored; a block that begins and ends on one line keeps the whole line box, which the reference's
+separator-bounded range never has to answer for.
+
+Python Canvas projects that region from data it already had: it asserts
+`prefix + "\n\n" + body + "\n\n" + suffix === generatedCode.code` and declares the range from the end
+of the prefix to the start of the suffix. In the canonical seven-line document that paints body
+lines 3–5 with the blank separators as boundaries, leaving `import math` and `state = SettaState()`
+unpainted. No backend, route, generated contract, or local prefix/suffix state changed.
+
+The evidence design is corrected with the source. The capture harness crops the **complete Square
+Root card** rather than the field, and records the section, header, field, toolbar, and first-row
+rectangles beside the donor composition it asserts while recording; the generated captures record
+each document line's mark, its rect, and the authored prefix and suffix lines' own paint. The
+production walkthrough gained the same two proofs: one complete-card composition assertion in the
+committed state, and one that the block is exactly the region between the target's prefix and
+suffix with those two authored lines unpainted.
+
+The playground authors the new shape from its own Inspector: selecting `generated-document` seeds a
+separator-bounded range and reveals two clamped offset controls, switching away drops the region
+rather than leaving a field the new mode may not carry, and an empty document cannot select the mode
+at all because a generated document must have generated content.
+
+Verification for this correction: the locked release's `code-policy` binary ran `check` over the
+worktree. Its findings are `quality.deadCode` on `apps/python-canvas/vitest.setup.ts`,
+`quality.goComplexity` on `apps/python-canvas/backend/internal/contracts/generate.go`, and
+`quality.format` on `.code-policy.json`, `apps/python-canvas/vite.config.ts`,
+`apps/python-canvas/src/sections/CallableSection.tsx`,
+`docs/plans/python-canvas-callable-completion-plan.md`, and
+`packages/workspace/src/section/container/SectionContainer.test.tsx`. Every one of them reproduces
+on the trusted base over files this correction does not touch, and `.code-policy.json` is untouched;
+they are reported rather than folded into this presentation plan. The workspace suite passes (1179
+tests across 142 files), as do the playground suite (43), the Python Canvas frontend suite (38), and
+the production browser walkthrough against the production builds, the real Go service, pinned
+Basedpyright, and headless Chrome at 1440x900 device scale 1, which passed three times. The
+workspace, playground, and Python Canvas TypeScript projects are clean and the packaged boundary
+check passes over source and built artifacts. Two negative controls bind the walkthrough to this
+fix: restoring the app's 14px content padding fails it on a 14 CSS px header-to-field step, and
+declaring the whole document generated fails it on marking 7 of 7 document lines.
+
+What remains in this phase: a capture rendered from this corrected source candidate, replacing the
+rejected bundle at `docs/evidence/python-canvas-callable-presentation`; supervisor inspection of
+those images; developer visual acceptance with its accepted-candidate record; and this phase's
+closing `test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps.
 
 ## Stop conditions
 

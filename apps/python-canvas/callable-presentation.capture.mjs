@@ -25,18 +25,22 @@ import {
   assertCallableFieldParity,
   assertDonorCallableFieldSurface,
   assertDonorGeneratedRegion,
+  assertDonorSectionComposition,
   assertGeneratedBlockHugsCode,
+  assertGeneratedRegionBoundsItsBody,
   assertNonEditingGeneratedText,
   callableFieldStateScript,
+  callableSectionSelector,
+  callableSectionStateScript,
   donorCallableField,
-  donorGeneratedOutput,
+  donorGeneratedDocument,
+  donorSectionComposition,
   enterCallableField,
   fieldValueTypeProperties,
-  generatedOutputSelector,
-  generatedOutputStateScript,
+  generatedDocumentSelector,
+  generatedDocumentStateScript,
   idleCallableSelector,
   liveCallableSelector,
-  sectionFieldSelector,
   selectSqrtCompletion,
   waitForEnabledCallableField,
 } from "./callable-presentation.mjs";
@@ -44,9 +48,14 @@ import {
 // The visual-acceptance capture: it drives the same production surface as the vertical-slice
 // walkthrough, puts the Square Root section into its ordinary committed state, and records the
 // four states this presentation correction is judged on — Callable idle and focused, Generated
-// Python idle and clicked — in both appearances, as component crops plus machine-readable geometry
-// and typography. It asserts the donor values while it records, so it can never file a capture of
-// a surface that has drifted, but a passing run is evidence for review rather than acceptance.
+// Python idle and clicked — in both appearances, as complete section crops plus machine-readable
+// geometry and typography. It asserts the donor values while it records, so it can never file a
+// capture of a surface that has drifted, but a passing run is evidence for review rather than
+// acceptance.
+//
+// The crops are whole cards. The developer rejected the previous bundle because its component
+// crops of the callable field hid the composition around them: the card's own padding, the gap
+// above the field, and the Args surface below it are exactly what the images have to show.
 
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
 const evidenceRoot = path.resolve(
@@ -154,6 +163,8 @@ async function readSurfaceState(client, script, description) {
   return state;
 }
 
+// The complete Square Root card in both states, with the card's own composition measured beside
+// the field's surface so a field crop can never again stand in for the card around it.
 async function captureCallableStates(client, appearance) {
   const idle = await readSurfaceState(
     client,
@@ -161,10 +172,16 @@ async function captureCallableStates(client, appearance) {
     `The idle ${appearance} callable field`,
   );
   assertDonorCallableFieldSurface(idle, appearance);
+  const composition = await readSurfaceState(
+    client,
+    callableSectionStateScript,
+    `The ${appearance} Square Root card`,
+  );
+  assertDonorSectionComposition(composition, appearance);
   const idleCrop = await captureCrop(
     client,
-    sectionFieldSelector,
-    `The idle ${appearance} callable field`,
+    callableSectionSelector,
+    `The idle ${appearance} Square Root card`,
   );
 
   await enterCallableField(client, callableLabel);
@@ -180,10 +197,16 @@ async function captureCallableStates(client, appearance) {
     fieldValueTypeProperties,
     appearance,
   );
+  const focusedComposition = await readSurfaceState(
+    client,
+    callableSectionStateScript,
+    `The focused ${appearance} Square Root card`,
+  );
+  assertDonorSectionComposition(focusedComposition, appearance);
   const focusedCrop = await captureCrop(
     client,
-    sectionFieldSelector,
-    `The focused ${appearance} callable field`,
+    callableSectionSelector,
+    `The focused ${appearance} Square Root card`,
   );
 
   await pressEscape(client);
@@ -194,42 +217,52 @@ async function captureCallableStates(client, appearance) {
   );
 
   return [
-    { crop: idleCrop, observed: idle, state: "idle" },
-    { crop: focusedCrop, observed: focused, state: "focused" },
+    {
+      crop: idleCrop,
+      observed: { composition, field: idle },
+      state: "idle",
+    },
+    {
+      crop: focusedCrop,
+      observed: { composition: focusedComposition, field: focused },
+      state: "focused",
+    },
   ];
 }
 
 async function captureGeneratedStates(client, appearance) {
   const idle = await readSurfaceState(
     client,
-    generatedOutputStateScript,
+    generatedDocumentStateScript,
     `The idle ${appearance} generated Python region`,
   );
   assertDonorGeneratedRegion(idle, appearance);
   assertGeneratedBlockHugsCode(`The idle ${appearance}`, idle);
+  assertGeneratedRegionBoundsItsBody(`The idle ${appearance}`, idle);
   assertNonEditingGeneratedText(`The idle ${appearance}`, idle);
   const idleCrop = await captureCrop(
     client,
-    generatedOutputSelector,
+    generatedDocumentSelector,
     `The idle ${appearance} generated Python region`,
   );
 
   await clickElementCenter(
     client,
-    generatedOutputSelector,
+    generatedDocumentSelector,
     `The ${appearance} generated Python region`,
   );
   const clicked = await readSurfaceState(
     client,
-    generatedOutputStateScript,
+    generatedDocumentStateScript,
     `The clicked ${appearance} generated Python region`,
   );
   assertDonorGeneratedRegion(clicked, appearance);
   assertGeneratedBlockHugsCode(`The clicked ${appearance}`, clicked);
+  assertGeneratedRegionBoundsItsBody(`The clicked ${appearance}`, clicked);
   assertNonEditingGeneratedText(`The clicked ${appearance}`, clicked);
   const clickedCrop = await captureCrop(
     client,
-    generatedOutputSelector,
+    generatedDocumentSelector,
     `The clicked ${appearance} generated Python region`,
   );
 
@@ -248,9 +281,12 @@ function writeCapture(records, surface, appearance, entry) {
     appearance,
     crop: { ...entry.crop.clip, marginCssPx: cropMarginCssPx },
     donor:
-      surface === "callable-field"
-        ? donorCallableField[appearance]
-        : donorGeneratedOutput[appearance],
+      surface === "callable-section"
+        ? {
+            composition: donorSectionComposition,
+            field: donorCallableField[appearance],
+          }
+        : donorGeneratedDocument[appearance],
     id,
     observed: entry.observed,
     screenshot: `screenshots/${file}`,
@@ -277,10 +313,10 @@ async function capture(client, previewOrigin) {
     const callable = await captureCallableStates(client, appearance);
     const generated = await captureGeneratedStates(client, appearance);
     for (const entry of callable) {
-      writeCapture(records, "callable-field", appearance, entry);
+      writeCapture(records, "callable-section", appearance, entry);
     }
     for (const entry of generated) {
-      writeCapture(records, "generated-output", appearance, entry);
+      writeCapture(records, "generated-document", appearance, entry);
     }
   }
   return records;
