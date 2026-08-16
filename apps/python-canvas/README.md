@@ -12,6 +12,7 @@ Install the locked workspace dependencies from the repository root:
 
 ```sh
 pnpm install --frozen-lockfile
+pnpm --filter @setta/workspace run build
 ```
 
 Start the loopback-only Go service from one terminal:
