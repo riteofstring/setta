@@ -17,10 +17,11 @@ import {
   selectAllInWorkspace,
   selectAllTopLevelNonGroupSections,
 } from "../document/selectAllActions";
-import { useWorkspaceDocument } from "../document/stores";
+import { getWorkspaceDocumentStore } from "../document/stores";
 import { focusAdjacentTopLevelSection } from "../focus/sectionNavigation";
 import { focusWorkspaceScope } from "../focus/workspaceFocusScopes";
 import { getSectionItemVisibility } from "../items/itemListRegistry";
+import type { WorkspaceHost } from "../workspaceHost";
 import {
   indentSelectedItems,
   moveSelectedItemsDown,
@@ -49,9 +50,9 @@ export type WorkspaceKeyBindingDefinition = Readonly<{
 // A chord targets the active section selection, the same selection the section context menu and
 // the Inspector act on, and runs the command itself so the keyboard result cannot drift from the
 // pointer result.
-function runActiveSectionCommand(commandId: string): boolean {
-  const state = useWorkspaceDocument.getState();
-  const sections = getActiveSectionIds().flatMap((sectionId) => {
+function runActiveSectionCommand(host: WorkspaceHost, commandId: string): boolean {
+  const state = getWorkspaceDocumentStore(host).getState();
+  const sections = getActiveSectionIds(host).flatMap((sectionId) => {
     const section = state.sections[sectionId];
     return section ? [section] : [];
   });
@@ -61,11 +62,12 @@ function runActiveSectionCommand(commandId: string): boolean {
   }
   return runWorkspaceCommandById(
     commandId,
-    createSectionCommandContext(primarySection, sections),
+    createSectionCommandContext(host, primarySection, sections),
   ).ran;
 }
 
 function createSectionCommandBinding(
+  host: WorkspaceHost,
   commandId: string,
   defaultChord: string | null,
 ): WorkspaceKeyBindingDefinition {
@@ -74,8 +76,8 @@ function createSectionCommandBinding(
     defaultChord,
     allowRepeat: false,
     keepsChordWhenDeclined: false,
-    getLabel: () => getWorkspaceCommandOrThrow(commandId).definition.label,
-    run: () => runActiveSectionCommand(commandId),
+    getLabel: () => getWorkspaceCommandOrThrow(host, commandId).definition.label,
+    run: () => runActiveSectionCommand(host, commandId),
   });
 }
 
@@ -115,18 +117,18 @@ function createItemMoveBinding(
   });
 }
 
-function activeSectionHasSelectedItems(): boolean {
-  const activeId = getActiveSectionIds()[0];
+function activeSectionHasSelectedItems(host: WorkspaceHost): boolean {
+  const activeId = getActiveSectionIds(host)[0];
   if (!activeId) {
     return false;
   }
-  return getSectionHasSelectedItems(useWorkspaceDocument.getState(), activeId);
+  return getSectionHasSelectedItems(getWorkspaceDocumentStore(host).getState(), activeId);
 }
 
-function activeSectionHasItemFilter(): boolean {
-  const activeId = getActiveSectionIds()[0];
+function activeSectionHasItemFilter(host: WorkspaceHost): boolean {
+  const activeId = getActiveSectionIds(host)[0];
   return activeId
-    ? (getSectionItemVisibility(activeId)?.filterActive ?? false)
+    ? (getSectionItemVisibility(host, activeId)?.filterActive ?? false)
     : false;
 }
 
@@ -136,6 +138,7 @@ function activeSectionHasItemFilter(): boolean {
 // restructures instead of reaching the browser. The guards travel with the operation, so a host
 // that moves indentation onto another chord keeps them.
 function createItemIndentBinding(
+  host: WorkspaceHost,
   id: string,
   label: string,
   defaultChord: string,
@@ -151,8 +154,8 @@ function createItemIndentBinding(
       const target = event.target instanceof HTMLElement ? event.target : null;
       if (
         target?.closest("[data-tab-native]") ||
-        !activeSectionHasSelectedItems() ||
-        activeSectionHasItemFilter()
+        !activeSectionHasSelectedItems(host) ||
+        activeSectionHasItemFilter(host)
       ) {
         return false;
       }
@@ -171,22 +174,25 @@ function createItemIndentBinding(
 // operations. Locking has no reference shortcut, so it ships bindable and unbound rather than
 // with an invented chord. The reference's remaining focus chord, "Ctrl + Shift + 1", belongs to
 // its application header, which the package does not have.
-export const builtInWorkspaceKeyBindings: ReadonlyArray<WorkspaceKeyBindingDefinition> =
-  Object.freeze([
-    createSectionCommandBinding("workspace.group-sections", "Mod + G"),
+export function listBuiltInWorkspaceKeyBindings(
+  host: WorkspaceHost,
+): ReadonlyArray<WorkspaceKeyBindingDefinition> {
+  return Object.freeze([
+    createSectionCommandBinding(host, "workspace.group-sections", "Mod + G"),
     createSectionCommandBinding(
+      host,
       "workspace.ungroup-sections",
       "Shift + Mod + G",
     ),
-    createSectionCommandBinding("workspace.delete-sections", "Backspace"),
-    createSectionCommandBinding("workspace.lock-sections", null),
-    createSectionCommandBinding("workspace.unlock-sections", null),
+    createSectionCommandBinding(host, "workspace.delete-sections", "Backspace"),
+    createSectionCommandBinding(host, "workspace.lock-sections", null),
+    createSectionCommandBinding(host, "workspace.unlock-sections", null),
     createOperationBinding(
       "workspace.select-all",
       "Select all",
       "Mod + A",
       false,
-      selectAllInWorkspace,
+      () => selectAllInWorkspace(host),
     ),
     createOperationBinding(
       "workspace.select-top-level-sections",
@@ -194,7 +200,7 @@ export const builtInWorkspaceKeyBindings: ReadonlyArray<WorkspaceKeyBindingDefin
       "Mod + Shift + A",
       false,
       () => {
-        selectAllTopLevelNonGroupSections();
+        selectAllTopLevelNonGroupSections(host);
         return true;
       },
     ),
@@ -203,45 +209,47 @@ export const builtInWorkspaceKeyBindings: ReadonlyArray<WorkspaceKeyBindingDefin
       "Focus next section",
       "Alt + J",
       false,
-      () => focusAdjacentTopLevelSection(1),
+      () => focusAdjacentTopLevelSection(host, 1),
     ),
     createOperationBinding(
       "workspace.focus-previous-section",
       "Focus previous section",
       "Alt + K",
       false,
-      () => focusAdjacentTopLevelSection(-1),
+      () => focusAdjacentTopLevelSection(host, -1),
     ),
     createItemMoveBinding(
       "workspace.move-items-up",
       "Move parameters up",
       "Alt + ArrowUp",
-      moveSelectedItemsUp,
+      () => moveSelectedItemsUp(host),
     ),
     createItemMoveBinding(
       "workspace.move-items-down",
       "Move parameters down",
       "Alt + ArrowDown",
-      moveSelectedItemsDown,
+      () => moveSelectedItemsDown(host),
     ),
     createItemIndentBinding(
+      host,
       "workspace.indent-items",
       "Indent parameters",
       "Tab",
-      indentSelectedItems,
+      () => indentSelectedItems(host),
     ),
     createItemIndentBinding(
+      host,
       "workspace.unindent-items",
       "Unindent parameters",
       "Shift + Tab",
-      unindentSelectedItems,
+      () => unindentSelectedItems(host),
     ),
     createOperationBinding(
       "workspace.fit-view",
       "Fit view",
       "F",
       false,
-      onFitViewHandler,
+      () => onFitViewHandler(host),
     ),
     createOperationBinding(
       "workspace.zoom-in",
@@ -249,10 +257,10 @@ export const builtInWorkspaceKeyBindings: ReadonlyArray<WorkspaceKeyBindingDefin
       "Equal",
       true,
       () => {
-        if (!getCanZoomIn()) {
+        if (!getCanZoomIn(host)) {
           return false;
         }
-        zoomIn();
+        zoomIn(host);
         return true;
       },
     ),
@@ -262,10 +270,10 @@ export const builtInWorkspaceKeyBindings: ReadonlyArray<WorkspaceKeyBindingDefin
       "Minus",
       true,
       () => {
-        if (!getCanZoomOut()) {
+        if (!getCanZoomOut(host)) {
           return false;
         }
-        zoomOut();
+        zoomOut(host);
         return true;
       },
     ),
@@ -275,10 +283,10 @@ export const builtInWorkspaceKeyBindings: ReadonlyArray<WorkspaceKeyBindingDefin
       "Mod + Comma",
       false,
       () => {
-        if (!getIsZoomRuntimeReady()) {
+        if (!getIsZoomRuntimeReady(host)) {
           return false;
         }
-        resetZoom();
+        resetZoom(host);
         return true;
       },
     ),
@@ -287,27 +295,28 @@ export const builtInWorkspaceKeyBindings: ReadonlyArray<WorkspaceKeyBindingDefin
       "Zoom to pointer",
       "Z",
       false,
-      zoomToPointerLocation,
+      () => zoomToPointerLocation(host),
     ),
     createOperationBinding(
       "workspace.focus-leading-pane",
       "Focus leading pane",
       "Ctrl + Shift + 2",
       false,
-      () => focusWorkspaceScope("leading-pane"),
+      () => focusWorkspaceScope(host, "leading-pane"),
     ),
     createOperationBinding(
       "workspace.focus-canvas",
       "Focus canvas",
       "Ctrl + Shift + 3",
       false,
-      () => focusWorkspaceScope("canvas"),
+      () => focusWorkspaceScope(host, "canvas"),
     ),
     createOperationBinding(
       "workspace.focus-trailing-pane",
       "Focus trailing pane",
       "Ctrl + Shift + 4",
       false,
-      () => focusWorkspaceScope("trailing-pane"),
+      () => focusWorkspaceScope(host, "trailing-pane"),
     ),
   ]);
+}

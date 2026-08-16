@@ -14,6 +14,7 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "../../interaction";
 import { handleSectionControlEscape } from "../sectionFocus";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 import {
   assertDropzoneAttachments,
   assertDropzonePolicy,
@@ -374,6 +375,7 @@ function DropzoneActionRow({
   onServerFilePickerRequest: DropzoneValueControlProps["onServerFilePickerRequest"];
   viewState: DropzoneViewState;
 }) {
+  const host = useWorkspaceHost();
   const errorDescriptionId = viewState.hasError ? viewState.errorId : undefined;
   return (
     <div className={CONTROLS_ROW_CLASS_NAME}>
@@ -382,7 +384,7 @@ function DropzoneActionRow({
         type="button"
         className={CONTROL_BUTTON_CLASS_NAME}
         onClick={() => fileInputRef.current?.click()}
-        onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
+        onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
         disabled={viewState.actionsBlocked}
         aria-describedby={errorDescriptionId}
       >
@@ -397,7 +399,7 @@ function DropzoneActionRow({
               remainingSlots: viewState.remainingSlots,
             })
           }
-          onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
+          onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
           disabled={viewState.actionsBlocked}
           aria-describedby={errorDescriptionId}
         >
@@ -451,6 +453,7 @@ function DropzoneAttachmentList({
   fallbackFocusRef: RefObject<HTMLButtonElement | null>;
   onAttachmentRemove: DropzoneValueControlProps["onAttachmentRemove"];
 }) {
+  const host = useWorkspaceHost();
   const removalRequest = useRef<{ attachmentId: string; index: number } | null>(
     null,
   );
@@ -517,7 +520,7 @@ function DropzoneAttachmentList({
                 onAttachmentRemove(attachment.id);
               }}
               onKeyDown={(event) =>
-                handleSectionControlEscape(event, sectionId)
+                handleSectionControlEscape(host, event, sectionId)
               }
               disabled={disabled}
             >

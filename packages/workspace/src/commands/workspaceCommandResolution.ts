@@ -91,7 +91,7 @@ export function runWorkspaceCommandById(
   id: string,
   context: WorkspaceCommandContext,
 ): WorkspaceCommandResult {
-  return runWorkspaceCommand(getWorkspaceCommandOrThrow(id), context);
+  return runWorkspaceCommand(getWorkspaceCommandOrThrow(context.host, id), context);
 }
 
 function toWorkspaceCommandEntry(
@@ -119,7 +119,7 @@ export function resolveWorkspaceCommandEntry(
   id: string,
   context: WorkspaceCommandContext,
 ): WorkspaceCommandEntry {
-  const command = getWorkspaceCommandOrThrow(id);
+  const command = getWorkspaceCommandOrThrow(context.host, id);
   assertCommandScope(command, context);
   return toWorkspaceCommandEntry(command, context);
 }
@@ -128,7 +128,7 @@ export function resolveWorkspaceCommandEntries(
   surface: WorkspaceCommandSurface,
   context: WorkspaceCommandContext,
 ): ReadonlyArray<WorkspaceCommandEntry> {
-  return getWorkspaceCommands(context.scope, surface)
+  return getWorkspaceCommands(context.host, context.scope, surface)
     .filter((command) => isCommandApplicable(command, context))
     .map((command) => toWorkspaceCommandEntry(command, context));
 }
@@ -137,7 +137,7 @@ export function hasApplicableWorkspaceCommands(
   surface: WorkspaceCommandSurface,
   context: WorkspaceCommandContext,
 ): boolean {
-  return getWorkspaceCommands(context.scope, surface).some(
+  return getWorkspaceCommands(context.host, context.scope, surface).some(
     (command) =>
       command.origin === "host" || isCommandApplicable(command, context),
   );

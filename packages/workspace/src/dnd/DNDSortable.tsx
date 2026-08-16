@@ -9,6 +9,7 @@ import {
 import { useDndState } from "./dndState";
 import { useDisableSortable } from "./useDndUtils";
 import { getDndParentId } from "./useDropType";
+import { useWorkspaceHost } from "../workspaceHostContext";
 
 export function DNDSortable({
   sectionId,
@@ -19,6 +20,7 @@ export function DNDSortable({
   items: Array<string>;
   children: ReactNode;
 }) {
+  const host = useWorkspaceHost();
   const disabled = useDisableSortable(sectionId);
   const idForDeterminingStrategy = useDndState((x) =>
     x.isSorting ? x.activeId : x.overId,
@@ -29,6 +31,7 @@ export function DNDSortable({
       id={sectionId}
       items={items}
       strategy={getSortingStrategy(
+        host,
         disabled,
         idForDeterminingStrategy,
         sectionId,
@@ -48,6 +51,7 @@ function DisabledSortingStrategy(): [
 }
 
 function getSortingStrategy(
+  host: ReturnType<typeof useWorkspaceHost>,
   disabled: Disabled,
   idForDeterminingStrategy: string | null,
   containerId: string,
@@ -57,10 +61,10 @@ function getSortingStrategy(
   }
 
   const parentId = idForDeterminingStrategy
-    ? getDndParentId(idForDeterminingStrategy)
+    ? getDndParentId(host, idForDeterminingStrategy)
     : null;
   const resolvedParentId = parentId ?? containerId;
-  return getSectionIsHorizontalOrientation(resolvedParentId)
+  return getSectionIsHorizontalOrientation(host, resolvedParentId)
     ? horizontalListSortingStrategy
     : verticalListSortingStrategy;
 }

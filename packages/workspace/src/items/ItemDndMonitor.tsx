@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useDndMonitor } from "../dnd/adapter";
 import { useItemDndState } from "../dnd/itemDndState";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import {
   deferItemDragReset,
   handleItemDragCancel,
@@ -19,6 +20,7 @@ import {
 // and completes the deferred reset once the drag operation returns to idle.
 
 export function ItemDndMonitor() {
+  const host = useWorkspaceHost();
   const manager = useDragDropManager();
   const pendingReset = useItemDndState((state) => state.pendingReset);
   const isSelectingItems = useItemSelectionMode(
@@ -50,22 +52,22 @@ export function ItemDndMonitor() {
       return;
     }
     manager.actions.stop({ canceled: true });
-    deferItemDragReset();
-  }, [isDragging, isInitializing, isSelectingItems, manager]);
+    deferItemDragReset(host);
+  }, [host, isDragging, isInitializing, isSelectingItems, manager]);
 
   useEffect(() => {
     if (!pendingReset || !isIdle) {
       return;
     }
-    resetItemDragState();
-  }, [isIdle, pendingReset]);
+    resetItemDragState(host);
+  }, [host, isIdle, pendingReset]);
 
   useDndMonitor({
-    onDragStart: (event) => handleItemDragStart(event, manager),
-    onDragMove: handleItemDragMove,
-    onDragOver: handleItemDragOver,
-    onDragEnd: handleItemDragEnd,
-    onDragCancel: handleItemDragCancel,
+    onDragStart: (event) => handleItemDragStart(host, event, manager),
+    onDragMove: (event) => handleItemDragMove(host, event),
+    onDragOver: (event) => handleItemDragOver(host, event),
+    onDragEnd: () => handleItemDragEnd(host),
+    onDragCancel: () => handleItemDragCancel(host),
   });
 
   return null;

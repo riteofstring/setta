@@ -36,6 +36,7 @@ import {
   type WorkspaceOutlineEntry,
 } from "./workspaceOutlineModel";
 import type { WorkspaceShellOutlineViewState } from "./workspaceShellTypes";
+import { useWorkspaceHost } from "../workspaceHostContext";
 
 const TYPEAHEAD_RESET_MS = 700;
 const OUTLINE_ACTIVATION_KEYS = new Set(["Enter", " "]);
@@ -178,6 +179,7 @@ export function WorkspaceOutline({
   onViewStateChange,
   viewState,
 }: WorkspaceOutlineProps) {
+  const host = useWorkspaceHost();
   const documentState = useWorkspaceDocument((state) => state);
   const activeSectionIds = useActiveSections((state) => state.activeIds);
   const [filterQuery, setFilterQuery] = useState("");
@@ -371,8 +373,8 @@ export function WorkspaceOutline({
     sectionId: string,
     multiSelectionActive: boolean,
   ): void {
-    focusWorkspaceSection(sectionId);
-    applyActiveSectionChange({
+    focusWorkspaceSection(host, sectionId);
+    applyActiveSectionChange(host, {
       interaction: "section-click",
       sectionId,
       multiSelectionActive,
@@ -408,7 +410,7 @@ export function WorkspaceOutline({
     if (lastPublishedFocusIdRef.current !== sectionId) {
       publishViewState({ ...viewState, focusedSectionId: sectionId });
     }
-    openWorkspaceSectionMenu(sectionId, "outline", clientPoint, owner);
+    openWorkspaceSectionMenu(host, sectionId, "outline", clientPoint, owner);
   }
 
   function handleRowContextMenu(

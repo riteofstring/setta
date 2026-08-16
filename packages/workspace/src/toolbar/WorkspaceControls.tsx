@@ -35,6 +35,7 @@ import {
   TOGGLE_CONTROL_CLASS_NAME,
 } from "./workspaceControlStyles";
 import { WorkspaceToolbarGroup } from "./WorkspaceToolbarGroup";
+import { useWorkspaceHost } from "../workspaceHostContext";
 
 // The reference's viewport toolbar (`forks/xyflow/controls/Controls.tsx`) at the slice form the
 // seam proposal fixes: the viewport and minimap groups, with the host controls contributed around
@@ -69,50 +70,51 @@ function ViewportControls(props: {
   minZoomReached: boolean;
   snapToGrid: boolean;
 }) {
+  const host = useWorkspaceHost();
   return (
     <>
       <button
-        onPointerDown={(event) => runZoomOnPointerDown(event, zoomIn)}
-        onClick={(event) => runZoomOnNonPointerClick(event, zoomIn)}
+        onPointerDown={(event) => runZoomOnPointerDown(event, () => zoomIn(host))}
+        onClick={(event) => runZoomOnNonPointerClick(event, () => zoomIn(host))}
         className={`react-flow__controls-zoomin ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
         aria-label="zoom in"
         disabled={props.maxZoomReached}
         type="button"
         {...COMPACT_TOUCH_TARGET_PROPS}
-        {...getWorkspaceTooltipHandlers({ content: "Zoom in" })}
+        {...getWorkspaceTooltipHandlers(host, { content: "Zoom in" })}
       >
         <FaPlus {...DECORATIVE_ICON_PROPS} size={15} />
       </button>
       <button
-        onPointerDown={(event) => runZoomOnPointerDown(event, zoomOut)}
-        onClick={(event) => runZoomOnNonPointerClick(event, zoomOut)}
+        onPointerDown={(event) => runZoomOnPointerDown(event, () => zoomOut(host))}
+        onClick={(event) => runZoomOnNonPointerClick(event, () => zoomOut(host))}
         className={`react-flow__controls-zoomout ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
         aria-label="zoom out"
         disabled={props.minZoomReached}
         type="button"
         {...COMPACT_TOUCH_TARGET_PROPS}
-        {...getWorkspaceTooltipHandlers({ content: "Zoom out" })}
+        {...getWorkspaceTooltipHandlers(host, { content: "Zoom out" })}
       >
         <FaMinus {...DECORATIVE_ICON_PROPS} size={15} />
       </button>
       <button
         className={`react-flow__controls-fitview ${TOGGLE_CONTROL_CLASS_NAME} ${props.fitViewOnInit ? ACTIVE_CONTROL_CLASS_NAME : INACTIVE_CONTROL_CLASS_NAME}`}
-        onClick={onFitViewHandler}
+        onClick={() => onFitViewHandler(host)}
         aria-label="fit view"
         type="button"
         {...COMPACT_TOUCH_TARGET_PROPS}
-        {...getWorkspaceTooltipHandlers({ content: "Fit view" })}
+        {...getWorkspaceTooltipHandlers(host, { content: "Fit view" })}
       >
         <TbArrowAutofitWidth {...DECORATIVE_ICON_PROPS} size={15} />
       </button>
       <button
-        onClick={toggleSnapToGrid}
+        onClick={() => toggleSnapToGrid(host)}
         className={getToggleControlClassName(props.snapToGrid)}
         aria-label="toggle snap to grid"
         aria-pressed={props.snapToGrid}
         type="button"
         {...COMPACT_TOUCH_TARGET_PROPS}
-        {...getWorkspaceTooltipHandlers({
+        {...getWorkspaceTooltipHandlers(host, {
           content: props.snapToGrid
             ? "Disable snap to grid"
             : "Enable snap to grid",
@@ -122,11 +124,11 @@ function ViewportControls(props: {
       </button>
       <button
         className={`react-flow__controls-button ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
-        onClick={resetZoom}
+        onClick={() => resetZoom(host)}
         aria-label="reset zoom"
         type="button"
         {...COMPACT_TOUCH_TARGET_PROPS}
-        {...getWorkspaceTooltipHandlers({ content: "Reset zoom" })}
+        {...getWorkspaceTooltipHandlers(host, { content: "Reset zoom" })}
       >
         <TbZoomReset {...DECORATIVE_ICON_PROPS} size={15} />
       </button>
@@ -138,6 +140,7 @@ function MiniMapControls(props: {
   minimapSide: MiniMapSide;
   showMinimap: boolean;
 }) {
+  const host = useWorkspaceHost();
   const moveMinimapLabel =
     props.minimapSide === "left"
       ? "move minimap to right"
@@ -150,26 +153,26 @@ function MiniMapControls(props: {
   return (
     <>
       <button
-        onClick={toggleMiniMap}
+        onClick={() => toggleMiniMap(host)}
         className={getToggleControlClassName(props.showMinimap)}
         aria-label="toggle minimap"
         aria-pressed={props.showMinimap}
         type="button"
         {...COMPACT_TOUCH_TARGET_PROPS}
-        {...getWorkspaceTooltipHandlers({
+        {...getWorkspaceTooltipHandlers(host, {
           content: props.showMinimap ? "Hide minimap" : "Show minimap",
         })}
       >
         <IoMapOutline {...DECORATIVE_ICON_PROPS} size={15} />
       </button>
       <button
-        onClick={toggleMiniMapSide}
+        onClick={() => toggleMiniMapSide(host)}
         className={`${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
         aria-label={moveMinimapLabel}
         data-testid="rf__toggle-minimap-side"
         type="button"
         {...COMPACT_TOUCH_TARGET_PROPS}
-        {...getWorkspaceTooltipHandlers({
+        {...getWorkspaceTooltipHandlers(host, {
           content: moveMinimapContent,
         })}
       >

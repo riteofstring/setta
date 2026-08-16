@@ -10,6 +10,7 @@ import {
 } from "../../context-menu/workspaceMenuState";
 import { isGroupSection } from "../../document/documentSelectors";
 import { useWorkspaceDocument } from "../../document/stores";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 import { HeaderIcon } from "./HeaderIcon";
 
 // Frozen main makes the group icon a menu trigger for overflow and ungroup. The package additionally
@@ -32,6 +33,7 @@ function ActionMenuButton({
   sectionId: string;
   sectionKind: string;
 }) {
+  const host = useWorkspaceHost();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuInvocation = useWorkspaceMenuState((state) => state.invocation);
   const isOpen = menuInvocation?.owner === triggerRef.current;
@@ -45,6 +47,7 @@ function ActionMenuButton({
       throw new Error(`Section action trigger ${sectionId} is not mounted.`);
     }
     openWorkspaceSectionHeaderMenu(
+      host,
       sectionId,
       getOwnerKeyboardMenuPoint(trigger),
       trigger,
@@ -61,7 +64,7 @@ function ActionMenuButton({
       data-setta-workspace-touch-target="compact"
       onClick={() => {
         if (isOpen) {
-          closeWorkspaceMenu();
+          closeWorkspaceMenu(host);
           return;
         }
         openMenu("first");
@@ -92,6 +95,7 @@ export function MenuButton({
   sectionKind,
   hasSectionStyleTheme,
 }: MenuButtonProps) {
+  const host = useWorkspaceHost();
   const unClickableIconWrapperClassName = hasSectionStyleTheme
     ? "nodrag flex select-none items-center justify-center rounded-full p-0.5 me-1 aspect-square font-semibold leading-none text-[color:var(--setta-section-style-muted-text)] outline-none motion-safe:transition-colors motion-safe:duration-150"
     : "nodrag flex select-none items-center justify-center rounded-full p-0.5 me-1 aspect-square font-semibold leading-none text-setta-700 outline-none motion-safe:transition-colors motion-safe:duration-150 dark:text-setta-200";
@@ -104,7 +108,7 @@ export function MenuButton({
     return section
       ? hasApplicableWorkspaceCommands(
           "header",
-          createLiveSectionCommandContext(section),
+          createLiveSectionCommandContext(host, section),
         )
       : false;
   });

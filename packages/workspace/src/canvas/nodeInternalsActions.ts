@@ -1,8 +1,12 @@
 import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
-import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  getNodeInternalsStore,
+  getWorkspaceDocumentStore,
+} from "../document/stores";
 import type { Node, TopLevelSectionLayout } from "../document/types";
+import type { WorkspaceHost } from "../workspaceHost";
 import { fitView } from "./fitView";
-import { useReactFlow } from "./store";
+import { getReactFlowStore } from "./store";
 import type { NodeDragItem } from "./types";
 import { getDimensions } from "./utils";
 
@@ -33,12 +37,16 @@ function topLevelLayoutsEqual(
   });
 }
 
-export function getNodes(): Array<Node> {
-  return Array.from(useNodeInternals.getState().x.values());
+export function getNodes(host: WorkspaceHost): Array<Node> {
+  return Array.from(getNodeInternalsStore(host).getState().x.values());
 }
 
-export function updateNodePositions(nodeDragItems: Array<NodeDragItem>) {
-  const currentNodes = useNodeInternals.getState().x;
+export function updateNodePositions(
+  host: WorkspaceHost,
+  nodeDragItems: Array<NodeDragItem>,
+) {
+  const nodeStore = getNodeInternalsStore(host);
+  const currentNodes = nodeStore.getState().x;
   const newNodes = new Map(currentNodes);
   for (const item of nodeDragItems) {
     const node = currentNodes.get(item.id);
@@ -49,11 +57,15 @@ export function updateNodePositions(nodeDragItems: Array<NodeDragItem>) {
     // changed. The drag loop replaces (rather than mutates) this object on its next frame.
     newNodes.set(item.id, { ...node, position: item.position });
   }
-  useNodeInternals.setState({ x: newNodes });
+  nodeStore.setState({ x: newNodes });
 }
 
-export function raiseTempZIndex(items: Array<{ id: string }>) {
-  const currentNodes = useNodeInternals.getState().x;
+export function raiseTempZIndex(
+  host: WorkspaceHost,
+  items: Array<{ id: string }>,
+) {
+  const nodeStore = getNodeInternalsStore(host);
+  const currentNodes = nodeStore.getState().x;
   const raisedIds = new Set(items.map(({ id }) => id));
   for (const id of raisedIds) {
     if (!currentNodes.has(id)) {
@@ -67,20 +79,21 @@ export function raiseTempZIndex(items: Array<{ id: string }>) {
       newNodes.set(id, { ...node, tempZIndex });
     }
   }
-  useNodeInternals.setState({ x: newNodes });
+  nodeStore.setState({ x: newNodes });
 }
 
 // The reference funnels this through `debounced_route_set_top_level_section_layout`, which
 // mirrors node geometry into the canonical config immediately and debounces only the backend
-// send. The package keeps the immediate canonical mirror and notifies the host through the
-// document-change callback (host-side debouncing is transport policy). Like the reference
+// send. The package keeps the immediate canonical mirror and publishes through the host's
+// subscriptions (host-side debouncing is transport policy). Like the reference
 // funnel, the layout dict is wholesale-replaced from entries filtered to parent-less sections,
 // so a section that currently has a parent loses its stale top-level entry at the first layout
 // write, and node geometry is written verbatim (a null measurement clears the stored size back
 // to auto).
-export function commitTopLevelLayoutToDocument() {
-  const documentState = useWorkspaceDocument.getState();
-  const nodeInternals = useNodeInternals.getState().x;
+export function commitTopLevelLayoutToDocument(host: WorkspaceHost) {
+  const documentStore = getWorkspaceDocumentStore(host);
+  const documentState = documentStore.getState();
+  const nodeInternals = getNodeInternalsStore(host).getState().x;
   const isTopLevel = (sectionId: string) =>
     (documentState.parentSectionMap[sectionId] ?? null) === null;
 
@@ -107,18 +120,20 @@ export function commitTopLevelLayoutToDocument() {
   if (topLevelLayoutsEqual(documentState.topLevelSections, nextLayouts)) {
     return;
   }
-  useWorkspaceDocument.setState({ topLevelSections: nextLayouts });
-  notifyWorkspaceDocumentChange();
+  documentStore.setState({ topLevelSections: nextLayouts });
+  notifyWorkspaceDocumentChange(host);
 }
 
 export function updateNodeDimensionsFromResizeObserver(
+  host: WorkspaceHost,
   entries: Array<ResizeObserverEntry>,
 ) {
-  if (!hasViewportNode()) {
+  if (!hasViewportNode(host)) {
     return;
   }
 
-  const currentNodes = useNodeInternals.getState().x;
+  const nodeStore = getNodeInternalsStore(host);
+  const currentNodes = nodeStore.getState().x;
   const newNodes = new Map(currentNodes);
   let dimensionsChanged = false;
   for (const entry of entries) {
@@ -126,14 +141,14 @@ export function updateNodeDimensionsFromResizeObserver(
       applyNodeDimensionUpdate(newNodes, entry) || dimensionsChanged;
   }
   if (dimensionsChanged) {
-    useNodeInternals.setState({ x: newNodes });
+    nodeStore.setState({ x: newNodes });
   }
-  commitTopLevelLayoutToDocument();
-  maybeCompleteInitialFitView();
+  commitTopLevelLayoutToDocument(host);
+  maybeCompleteInitialFitView(host);
 }
 
-function hasViewportNode() {
-  return !!useReactFlow
+function hasViewportNode(host: WorkspaceHost) {
+  return !!getReactFlowStore(host)
     .getState()
     .domNode?.querySelector(".react-flow__viewport");
 }
@@ -173,14 +188,14 @@ function applyNodeDimensionUpdate(
 // Also called by the load orchestrator after a mounted re-load arms fit-on-init: surviving
 // sections keep their measurements, so the armed fit may be completable without waiting for a
 // ResizeObserver pass.
-export function maybeCompleteInitialFitView() {
+export function maybeCompleteInitialFitView(host: WorkspaceHost) {
   const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions } =
-    useReactFlow.getState();
+    getReactFlowStore(host).getState();
   if (!fitViewOnInit || fitViewOnInitDone) {
     return;
   }
-  useReactFlow.setState({
-    fitViewOnInitDone: fitView({
+  getReactFlowStore(host).setState({
+    fitViewOnInitDone: fitView(host, {
       initial: true,
       ...fitViewOnInitOptions,
     }),

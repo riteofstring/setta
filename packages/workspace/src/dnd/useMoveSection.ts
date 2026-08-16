@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { useReactFlow } from "../canvas/store";
+import { getReactFlowStore } from "../canvas/store";
 import { screenToFlowPosition } from "../canvas/viewportPosition";
 import { getActiveSectionIds } from "../document/activeSections";
 import { getSectionChildren } from "../document/documentSelectors";
@@ -9,13 +9,16 @@ import {
   isDescendantOfSectionSelection,
 } from "../document/sectionSelection";
 import {
-  useWorkspaceDocument,
+  getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
 } from "../document/stores";
+import { useWorkspaceHost } from "../workspaceHostContext";
+import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost";
 import type { DragEndEvent } from "./adapter";
-import { manualDndChildrenReset, useDndChildren } from "./dndChildren";
+import { getDndChildrenStore, manualDndChildrenReset } from "./dndChildren";
 import { getDndSectionId } from "./dndIds";
-import { forceDeactivateDnd, useDndState } from "./dndState";
+import { forceDeactivateDnd, getDndStateStore } from "./dndState";
 import { getSortingOverState } from "./sortingOverState";
 import { getOverId } from "./useDropType";
 import { planFreeMove, planSortingMove } from "./useMoveSectionPlans";
@@ -23,35 +26,35 @@ import { planFreeMove, planSortingMove } from "./useMoveSectionPlans";
 // The reference's drag-end commit (`useMoveSection.ts`): one canonical document change per
 // gesture through the package move funnel instead of `moveSectionsWithBackend`.
 
-function onSortEnd({
+function onSortEnd(host: WorkspaceHost, {
   active,
   over,
   collisions,
 }: Pick<DragEndEvent, "active" | "over" | "collisions">) {
-  const plan = resolveSortPlan({ active, over, collisions });
+  const plan = resolveSortPlan(host, { active, over, collisions });
   if (!plan) {
-    manualDndChildrenReset();
+    manualDndChildrenReset(host);
     return;
   }
 
-  moveSections(plan);
-  manualDndChildrenReset();
+  moveSections(host, plan);
+  manualDndChildrenReset(host);
 }
 
-function onFreeMoveEnd({
+function onFreeMoveEnd(host: WorkspaceHost, {
   active,
   over,
   collisions,
   delta,
 }: Pick<DragEndEvent, "active" | "over" | "collisions" | "delta">) {
-  const state = useWorkspaceDocument.getState();
-  const dndChildrenState = useDndChildren.getState();
-  const dndState = useDndState.getState();
+  const state = getWorkspaceDocumentStore(host).getState();
+  const dndChildrenState = getDndChildrenStore(host).getState();
+  const dndState = getDndStateStore(host).getState();
   const activeId = String(active.id);
-  const draggingIds = resolveDraggingIds(activeId);
+  const draggingIds = resolveDraggingIds(host, activeId);
   const draggingSet = new Set(draggingIds);
   const dndSectionId = getDndSectionId(activeId);
-  const resolvedOverId = getOverId(over, collisions);
+  const resolvedOverId = getOverId(host, over, collisions);
   const overId = resolvedOverId ? String(resolvedOverId) : null;
   const sharedParentId = getSharedParentId(state, draggingIds);
   const plan = planFreeMove({
@@ -73,19 +76,20 @@ function onFreeMoveEnd({
         : null,
     sharedParentId: sharedParentId ?? null,
     topLevelSections: state.topLevelSections,
-    toFlowPosition: screenToFlowPosition,
+    toFlowPosition: (position) => screenToFlowPosition(host, position),
   });
   if (!plan) {
-    manualDndChildrenReset();
+    manualDndChildrenReset(host);
     return;
   }
 
-  moveSections(plan);
-  manualDndChildrenReset();
-  scheduleSelectionBoundsUpdate();
+  moveSections(host, plan);
+  manualDndChildrenReset(host);
+  scheduleSelectionBoundsUpdate(host);
 }
 
 export function useOnDragEnd() {
+  const host = useWorkspaceHost();
   const dummyRef = useRef<HTMLDivElement>(null);
 
   function onDragEnd({
@@ -96,26 +100,26 @@ export function useOnDragEnd() {
     delta,
   }: DragEndEvent) {
     if (canceled) {
-      forceDeactivateDnd();
+      forceDeactivateDnd(host);
       return;
     }
 
-    if (useDndState.getState().isSorting) {
-      onSortEnd({ active, over, collisions });
-    } else if (useDndState.getState().isMovingFree) {
-      onFreeMoveEnd({
+    if (getDndStateStore(host).getState().isSorting) {
+      onSortEnd(host, { active, over, collisions });
+    } else if (getDndStateStore(host).getState().isMovingFree) {
+      onFreeMoveEnd(host, {
         active,
         over,
         collisions,
         delta,
       });
     } else {
-      manualDndChildrenReset();
+      manualDndChildrenReset(host);
     }
     // don't reset isMovingFree or isSorting
-    useDndState.getState().reset((api) => {
+    getDndStateStore(host).getState().reset((api) => {
       const dndState = api.getState() as ReturnType<
-        typeof useDndState.getState
+        ReturnType<typeof getDndStateStore>["getState"]
       >;
       return {
         isMovingFree: dndState.isMovingFree,
@@ -129,15 +133,15 @@ export function useOnDragEnd() {
   return { dummyRef, onDragEnd };
 }
 
-function resolveDraggingIds(activeId: string): Array<string> {
-  const draggingIds = useDndState.getState().draggingIds;
+function resolveDraggingIds(host: WorkspaceHost, activeId: string): Array<string> {
+  const draggingIds = getDndStateStore(host).getState().draggingIds;
   if (draggingIds.length > 0) {
     return draggingIds;
   }
   return [activeId];
 }
 
-function resolveSortPlan({
+function resolveSortPlan(host: WorkspaceHost, {
   active,
   over,
   collisions,
@@ -147,10 +151,10 @@ function resolveSortPlan({
     return null;
   }
 
-  const state = useWorkspaceDocument.getState();
+  const state = getWorkspaceDocumentStore(host).getState();
   const activeId = String(active.id);
   return planSortingMove(
-    buildSortingMovePlanInput({
+    buildSortingMovePlanInput(host, {
       activeId,
       collisions,
       over,
@@ -168,7 +172,7 @@ function resolveSortableParentId(
   return activeData?.sortable?.containerId ?? null;
 }
 
-function buildSortingMovePlanInput({
+function buildSortingMovePlanInput(host: WorkspaceHost, {
   activeId,
   collisions,
   over,
@@ -181,7 +185,7 @@ function buildSortingMovePlanInput({
   parentId: string;
   state: WorkspaceDocumentState;
 }) {
-  const draggingIds = resolveDraggingIds(activeId);
+  const draggingIds = resolveDraggingIds(host, activeId);
   const draggingSet = new Set(draggingIds);
 
   return {
@@ -189,7 +193,7 @@ function buildSortingMovePlanInput({
     collisions,
     draggingIds,
     draggingSet,
-    ...resolveSortingFallback(parentId),
+    ...resolveSortingFallback(host, parentId),
     isInvalidTarget: isDescendantOfSectionSelection(
       state,
       parentId,
@@ -200,20 +204,41 @@ function buildSortingMovePlanInput({
   };
 }
 
-function resolveSortingFallback(parentId: string) {
-  const sortingOverState = getSortingOverState(parentId);
+function resolveSortingFallback(host: WorkspaceHost, parentId: string) {
+  const sortingOverState = getSortingOverState(host, parentId);
   return {
     fallbackOverId: sortingOverState?.overId ?? null,
     fallbackPastHalfway: sortingOverState?.pastHalfway ?? null,
   };
 }
 
-function scheduleSelectionBoundsUpdate() {
-  const activeIds = getActiveSectionIds();
+const selectionFramesByHost = new WeakMap<WorkspaceHost, Set<number>>();
+
+function getSelectionFrames(host: WorkspaceHost): Set<number> {
+  const existing = selectionFramesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const frames = new Set<number>();
+  selectionFramesByHost.set(host, frames);
+  registerWorkspaceHostCleanup(host, () => {
+    for (const frame of frames) {
+      cancelAnimationFrame(frame);
+    }
+    selectionFramesByHost.delete(host);
+  });
+  return frames;
+}
+
+function scheduleSelectionBoundsUpdate(host: WorkspaceHost) {
+  const activeIds = getActiveSectionIds(host);
   if (activeIds.length === 0) {
     return;
   }
-  requestAnimationFrame(() => {
-    useReactFlow.getState().setNodesSelection(activeIds.length, true);
+  const frames = getSelectionFrames(host);
+  const frame = requestAnimationFrame(() => {
+    frames.delete(frame);
+    getReactFlowStore(host).getState().setNodesSelection(activeIds.length, true);
   });
+  frames.add(frame);
 }

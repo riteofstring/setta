@@ -5,6 +5,7 @@ import type {
   WorkspaceSection,
   WorkspaceSectionItemTree,
 } from "../document/types";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // Frozen main's `GetParamSwitch` filter in item terms. It fuzzy-matches display names, keeps
 // canonical row order, and includes every ancestor on a matching item's path. The package uses
@@ -50,6 +51,7 @@ function includeMatchingPaths(
 }
 
 export function filterWorkspaceSectionItems(
+  host: WorkspaceHost,
   section: WorkspaceSection,
   query: string,
 ): WorkspaceItemFilterResult {
@@ -71,6 +73,7 @@ export function filterWorkspaceSectionItems(
   const candidates = itemIds.map((itemId) => ({
     itemId,
     searchableText: getWorkspaceItemSearchableText(
+      host,
       section,
       getItemOrThrow(itemTree, itemId),
     ),

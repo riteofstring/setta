@@ -6,6 +6,7 @@ import {
 import { useWorkspaceCapabilities } from "../../document/capabilities";
 import { deleteSection } from "../../document/sectionMutations";
 import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The reference's `DeleteOrHideButton`. The hide/show variants belong to view modes, which
 // stayed application-side, so the slice always renders the reference's delete variant
@@ -53,6 +54,7 @@ export function DeleteOrHideButton({
   hasSectionStyleTheme = false,
   size,
 }: DeleteOrHideButtonProps) {
+  const host = useWorkspaceHost();
   const canEditStructure = useWorkspaceCapabilities((x) => x.canEditStructure);
   const label = "Delete section";
 
@@ -62,11 +64,11 @@ export function DeleteOrHideButton({
     }
     const shouldRestoreFocus = document.activeElement === event.currentTarget;
     const focusTarget = shouldRestoreFocus
-      ? captureSectionRemovalFocusTarget(sectionId)
+      ? captureSectionRemovalFocusTarget(host, sectionId)
       : null;
-    deleteSection(sectionId);
+    deleteSection(host, sectionId);
     if (shouldRestoreFocus) {
-      restoreFocusAfterSectionRemoval(focusTarget);
+      restoreFocusAfterSectionRemoval(host, focusTarget);
     }
   }
 
@@ -83,7 +85,7 @@ export function DeleteOrHideButton({
       title={label}
       type="button"
       data-setta-workspace-touch-target="compact"
-      {...getWorkspaceTooltipHandlers({ content: label })}
+      {...getWorkspaceTooltipHandlers(host, { content: label })}
     >
       <i aria-hidden="true" className="gg-close" />
     </button>

@@ -1,6 +1,7 @@
 import type { Position } from "../document/types";
-import { useWorkspaceOptions } from "./options";
-import { useReactFlow } from "./store";
+import type { WorkspaceHost } from "../workspaceHost";
+import { getWorkspaceOptionsStore } from "./options";
+import { getReactFlowStore } from "./store";
 import type { Transform } from "./types";
 
 // The reference's `pointToRendererPoint`/`screenToFlowPosition` pair from the fork's viewport
@@ -29,11 +30,12 @@ const pointToRendererPoint = (
 };
 
 export function screenToFlowPosition(
+  host: WorkspaceHost,
   position: Position,
   ignoreGrid = false,
 ): Position {
-  const { transform, domNode } = useReactFlow.getState();
-  const { snapGrid, snapToGrid } = useWorkspaceOptions.getState();
+  const { transform, domNode } = getReactFlowStore(host).getState();
+  const { snapGrid, snapToGrid } = getWorkspaceOptionsStore(host).getState();
 
   if (!domNode) {
     return position;

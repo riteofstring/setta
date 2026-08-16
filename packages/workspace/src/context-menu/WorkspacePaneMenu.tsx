@@ -1,8 +1,9 @@
 import { matchSorter } from "match-sorter";
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { TbSortAZ } from "react-icons/tb";
-import { useReactFlow } from "../canvas/store";
+import { getReactFlowStore } from "../canvas/store";
 import { insertWorkspaceSection } from "../document/insertWorkspaceSection";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import {
   getFilterEditingKey,
   getFilterInputState,
@@ -63,6 +64,7 @@ export function WorkspacePaneMenu({
   commands: ReadonlyArray<WorkspaceCreationCommand>;
   invocation: PaneInvocation;
 }) {
+  const host = useWorkspaceHost();
   const [query, setQuery] = useState("");
   const filterRef = useRef<HTMLInputElement>(null);
   const itemElementsRef = useRef(new Map<string, HTMLDivElement>());
@@ -87,15 +89,16 @@ export function WorkspacePaneMenu({
           const section = command.createSection(creationContext);
           // A pane request always carries the pointer's position; the package resolves a place
           // only for the requests that have none.
-          insertWorkspaceSection(section, invocation.workspacePosition);
-          useReactFlow.setState({ nodesSelectionDims: null });
-          closeWorkspaceMenu();
+          insertWorkspaceSection(host, section, invocation.workspacePosition);
+          getReactFlowStore(host).setState({ nodesSelectionDims: null });
+          closeWorkspaceMenu(host);
         },
       })),
     [
       canEditStructure,
       creationContext,
       filteredCommands,
+      host,
       invocation.workspacePosition,
     ],
   );
@@ -160,7 +163,7 @@ export function WorkspacePaneMenu({
     if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
-      closeWorkspaceMenu();
+      closeWorkspaceMenu(host);
       return;
     }
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {

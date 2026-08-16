@@ -10,6 +10,7 @@ import type {
 } from "./metaControlDefinitions";
 import { MetaControlTitleStack } from "./MetaControlTitleStack";
 import { assertMetaControlKind } from "./metaControlTypes";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 import { MetaValueControl } from "./MetaValueControl";
 
 export type {
@@ -106,6 +107,7 @@ function ButtonControl({
   showSectionTitle: boolean;
   control: ButtonMetaControl;
 }) {
+  const host = useWorkspaceHost();
   const isSelectingItems = useItemSelectionMode(
     (state) => state.isSelectingItems,
   );
@@ -125,7 +127,7 @@ function ButtonControl({
           onClick={control.onAction}
           disabled={isDisabled}
           aria-busy={control.pending || undefined}
-          onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
+          onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
           data-meta-control-kind="button"
         >
           {control.label}

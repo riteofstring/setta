@@ -5,12 +5,14 @@ import { setItemLabel } from "../document/itemPresentationMutations";
 import { BuiltInItemValueControl } from "./BuiltInItemValueControl";
 import type { ItemRowRenderContext } from "./ItemListContext";
 import { WorkspaceItemLabel } from "./WorkspaceItemLabel";
+import { useWorkspaceHost } from "../workspaceHostContext";
 
 export function BuiltInItemRowContent({
   context,
 }: {
   context: ItemRowRenderContext;
 }) {
+  const host = useWorkspaceHost();
   const canEditStructure = useWorkspaceCapabilities(
     (state) => state.canEditStructure,
   );
@@ -32,7 +34,7 @@ export function BuiltInItemRowContent({
           hasChildren={isGroup}
           disabled={!canEditStructure}
           onNameChange={(nextLabel) =>
-            setItemLabel(context.sectionId, context.item.id, nextLabel)
+            setItemLabel(host, context.sectionId, context.item.id, nextLabel)
           }
           reserveEndControlSpace={false}
         />

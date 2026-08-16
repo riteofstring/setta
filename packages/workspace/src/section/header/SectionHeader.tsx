@@ -7,6 +7,7 @@ import { LockPositionButton } from "./LockPositionButton";
 import { MenuButton } from "./MenuButton";
 import { MinimizeButton } from "./MinimizeButton";
 import { SectionTitle, type SectionTitleClassNames } from "./SectionTitle";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The reference's `SectionHeader`, trimmed to the slice-reachable groups: the leading icon,
 // tag-color indicator, and editable title, then the container controls (lock, minimize,
@@ -90,7 +91,8 @@ function SectionKindHeaderControls({
   sectionId: string;
   sectionKind: string;
 }) {
-  const renderHeaderControls = getSectionKindHeaderControls(sectionKind);
+  const host = useWorkspaceHost();
+  const renderHeaderControls = getSectionKindHeaderControls(host, sectionKind);
   const section = useWorkspaceDocument((x) =>
     renderHeaderControls ? getSectionOrThrow(x, sectionId) : null,
   );

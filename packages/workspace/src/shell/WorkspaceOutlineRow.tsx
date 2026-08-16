@@ -11,6 +11,7 @@ import type {
   WorkspaceOutlineEntry,
   WorkspaceOutlineNode,
 } from "./workspaceOutlineModel";
+import { useWorkspaceHost } from "../workspaceHostContext";
 
 type OutlineRowStyle = CSSProperties & {
   "--setta-workspace-outline-depth": string;
@@ -44,10 +45,11 @@ function getSectionStateDescription(section: WorkspaceSection): string {
 }
 
 function WorkspaceOutlineKindIcon({ section }: { section: WorkspaceSection }) {
+  const host = useWorkspaceHost();
   if (section.kind === GROUP_SECTION_KIND) {
     return <FaLayerGroup />;
   }
-  const RegisteredIcon = getRegisteredSectionKindOrThrow(section.kind).icon;
+  const RegisteredIcon = getRegisteredSectionKindOrThrow(host, section.kind).icon;
   return RegisteredIcon ? (
     <RegisteredIcon sectionId={section.id} />
   ) : (

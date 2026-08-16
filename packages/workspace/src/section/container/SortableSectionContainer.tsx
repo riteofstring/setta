@@ -13,6 +13,7 @@ import { DRAG_PREVIEW_Z_INDEX, DROP_TARGET_Z_INDEX } from "../../dnd/layers";
 import { useDndProps } from "../../dnd/useDndUtils";
 import type { SectionDragListeners } from "./ContainerCore";
 import { SectionContainer } from "./SectionContainer";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The reference's `SortableSectionContainer.tsx` minus the edge-handle position updates, which
 // left with the excluded edge features. The reference's layout-variant class names collapse to
@@ -127,8 +128,10 @@ function SortableCoreComponent({
   applyTransform: boolean;
   isDragging: boolean;
 }) {
+  const host = useWorkspaceHost();
   const overIsSelf = useDndState((x) => x.overId === sectionId);
   const scaledTransform = applyZoomToTransform(
+    host,
     applyTransform ? transform : null,
   );
 

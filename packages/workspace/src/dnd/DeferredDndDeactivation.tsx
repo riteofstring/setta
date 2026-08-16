@@ -2,8 +2,10 @@ import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import { useEffect } from "react";
 import { forceDeactivateDnd, useDndState } from "./dndState";
+import { useWorkspaceHost } from "../workspaceHostContext";
 
 export function DeferredDndDeactivation() {
+  const host = useWorkspaceHost();
   const manager = useDragDropManager();
   const pendingDeactivation = useDndState((state) => state.pendingDeactivation);
   const isDragging = useComputed(
@@ -26,14 +28,14 @@ export function DeferredDndDeactivation() {
 
     if (isDragging || isInitializing) {
       manager.actions.stop({ canceled: true });
-      forceDeactivateDnd();
+      forceDeactivateDnd(host);
       return;
     }
 
     if (isIdle) {
-      forceDeactivateDnd();
+      forceDeactivateDnd(host);
     }
-  }, [isDragging, isIdle, isInitializing, manager, pendingDeactivation]);
+  }, [host, isDragging, isIdle, isInitializing, manager, pendingDeactivation]);
 
   return null;
 }

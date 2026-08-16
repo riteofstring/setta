@@ -1,6 +1,9 @@
 import { useEffect, type RefObject } from "react";
 import { movePaneToIncludeElement } from "../canvas/viewportHelpers";
-import { useSectionRefs } from "../section/sectionRefs";
+import { getSectionRefsStore } from "../section/sectionRefs";
+import { useWorkspaceHost } from "../workspaceHostContext";
+import type { WorkspaceHost } from "../workspaceHost";
+import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
 import { getOrderedTopLevelSectionIds } from "./topLevelSectionOrder";
 
 // The reference's focus-scope registry (`utils/focusManager.ts`), narrowed to the surfaces the
@@ -22,8 +25,36 @@ const WORKSPACE_FOCUS_SCOPE_ATTRIBUTE = "data-workspace-focus-scope";
 const FOCUSABLE_SELECTOR =
   'button, [href], input, select, textarea, [contenteditable="true"], [tabindex]:not([tabindex="-1"])';
 
-const scopeRoots = new Map<WorkspaceFocusScopeId, HTMLElement>();
-const lastFocusedByScope = new Map<WorkspaceFocusScopeId, HTMLElement>();
+type FocusScopeState = {
+  lastFocusedByScope: Map<WorkspaceFocusScopeId, HTMLElement>;
+  listener: ((event: FocusEvent) => void) | null;
+  scopeRoots: Map<WorkspaceFocusScopeId, HTMLElement>;
+};
+
+const statesByHost = new WeakMap<WorkspaceHost, FocusScopeState>();
+
+function getFocusScopeState(host: WorkspaceHost): FocusScopeState {
+  const existing = statesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const state: FocusScopeState = {
+    lastFocusedByScope: new Map(),
+    listener: null,
+    scopeRoots: new Map(),
+  };
+  statesByHost.set(host, state);
+  registerWorkspaceHostCleanup(host, () => {
+    if (state.listener) {
+      document.removeEventListener("focusin", state.listener, true);
+    }
+    state.lastFocusedByScope.clear();
+    state.scopeRoots.clear();
+    state.listener = null;
+    statesByHost.delete(host);
+  });
+  return state;
+}
 
 function isWorkspaceFocusScopeId(
   value: string,
@@ -61,9 +92,12 @@ export function getWorkspaceFocusableElements(
 // The reference's `getCanvasFocusableElements`: the canvas offers the controls of its top-level
 // sections in layout reading order rather than in DOM order, which follows the stacking order.
 // A canvas with no mounted sections falls back to whatever the wrapper itself contains.
-function getCanvasFocusableElements(root: HTMLElement): Array<HTMLElement> {
-  const sectionRoots = useSectionRefs.getState().withNested;
-  const sectionFocusables = getOrderedTopLevelSectionIds().flatMap(
+function getCanvasFocusableElements(
+  host: WorkspaceHost,
+  root: HTMLElement,
+): Array<HTMLElement> {
+  const sectionRoots = getSectionRefsStore(host).getState().withNested;
+  const sectionFocusables = getOrderedTopLevelSectionIds(host).flatMap(
     (sectionId) => {
       const sectionRoot = sectionRoots[sectionId];
       return sectionRoot ? getWorkspaceFocusableElements(sectionRoot) : [];
@@ -75,22 +109,25 @@ function getCanvasFocusableElements(root: HTMLElement): Array<HTMLElement> {
 }
 
 function getWorkspaceFocusScopeElements(
+  host: WorkspaceHost,
   scopeId: WorkspaceFocusScopeId,
 ): Array<HTMLElement> {
-  const root = scopeRoots.get(scopeId);
+  const root = getFocusScopeState(host).scopeRoots.get(scopeId);
   if (!root) {
     return [];
   }
   return scopeId === "canvas"
-    ? getCanvasFocusableElements(root)
+    ? getCanvasFocusableElements(host, root)
     : getWorkspaceFocusableElements(root);
 }
 
 function getStoredFocusableElement(
+  host: WorkspaceHost,
   scopeId: WorkspaceFocusScopeId,
   root: HTMLElement,
 ): HTMLElement | null {
-  const stored = lastFocusedByScope.get(scopeId);
+  const state = getFocusScopeState(host);
+  const stored = state.lastFocusedByScope.get(scopeId);
   if (!stored) {
     return null;
   }
@@ -101,7 +138,7 @@ function getStoredFocusableElement(
     !root.contains(stored) ||
     !isWorkspaceFocusable(stored)
   ) {
-    lastFocusedByScope.delete(scopeId);
+    state.lastFocusedByScope.delete(scopeId);
     return null;
   }
   return stored;
@@ -116,7 +153,7 @@ export function getWorkspaceFocusScopeId(
   return scopeId !== null && isWorkspaceFocusScopeId(scopeId) ? scopeId : null;
 }
 
-function handleFocusIn(event: FocusEvent): void {
+function handleFocusIn(host: WorkspaceHost, event: FocusEvent): void {
   const target = event.target instanceof HTMLElement ? event.target : null;
   if (!target) {
     return;
@@ -125,19 +162,22 @@ function handleFocusIn(event: FocusEvent): void {
   if (!scopeId || !isWorkspaceFocusable(target)) {
     return;
   }
-  lastFocusedByScope.set(scopeId, target);
+  getFocusScopeState(host).lastFocusedByScope.set(scopeId, target);
 }
 
 // Focus the scope's remembered element, or its first offered control. A scope that is not
 // mounted, or that has nothing to focus, declines so its chord goes back to the browser.
-export function focusWorkspaceScope(scopeId: WorkspaceFocusScopeId): boolean {
-  const root = scopeRoots.get(scopeId);
+export function focusWorkspaceScope(
+  host: WorkspaceHost,
+  scopeId: WorkspaceFocusScopeId,
+): boolean {
+  const root = getFocusScopeState(host).scopeRoots.get(scopeId);
   if (!root) {
     return false;
   }
   const element =
-    getStoredFocusableElement(scopeId, root) ??
-    getWorkspaceFocusScopeElements(scopeId)[0] ??
+    getStoredFocusableElement(host, scopeId, root) ??
+    getWorkspaceFocusScopeElements(host, scopeId)[0] ??
     null;
   if (!element) {
     return false;
@@ -145,7 +185,7 @@ export function focusWorkspaceScope(scopeId: WorkspaceFocusScopeId): boolean {
   element.focus({ preventScroll: true });
   // The reference travels the canvas to the element it focused; the panes do not move.
   if (scopeId === "canvas") {
-    movePaneToIncludeElement(element);
+    movePaneToIncludeElement(host, element);
   }
   return true;
 }
@@ -157,28 +197,32 @@ export function useWorkspaceFocusScope(
   scopeId: WorkspaceFocusScopeId,
   rootRef: RefObject<HTMLElement | null>,
 ): void {
+  const host = useWorkspaceHost();
   useEffect(() => {
+    const state = getFocusScopeState(host);
     const root = rootRef.current;
     if (!root) {
       throw new Error(`Workspace focus scope ${scopeId} root did not mount.`);
     }
-    if (scopeRoots.has(scopeId)) {
+    if (state.scopeRoots.has(scopeId)) {
       throw new Error(
         `Workspace focus scope ${scopeId} is already registered.`,
       );
     }
     root.setAttribute(WORKSPACE_FOCUS_SCOPE_ATTRIBUTE, scopeId);
-    scopeRoots.set(scopeId, root);
-    if (scopeRoots.size === 1) {
-      document.addEventListener("focusin", handleFocusIn, true);
+    state.scopeRoots.set(scopeId, root);
+    if (state.scopeRoots.size === 1) {
+      state.listener = (event) => handleFocusIn(host, event);
+      document.addEventListener("focusin", state.listener, true);
     }
     return () => {
       root.removeAttribute(WORKSPACE_FOCUS_SCOPE_ATTRIBUTE);
-      scopeRoots.delete(scopeId);
-      lastFocusedByScope.delete(scopeId);
-      if (scopeRoots.size === 0) {
-        document.removeEventListener("focusin", handleFocusIn, true);
+      state.scopeRoots.delete(scopeId);
+      state.lastFocusedByScope.delete(scopeId);
+      if (state.scopeRoots.size === 0 && state.listener) {
+        document.removeEventListener("focusin", state.listener, true);
+        state.listener = null;
       }
     };
-  }, [rootRef, scopeId]);
+  }, [host, rootRef, scopeId]);
 }

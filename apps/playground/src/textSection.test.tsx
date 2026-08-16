@@ -1,14 +1,15 @@
 /* @vitest-environment jsdom */
 
 import {
-  getWorkspaceDocument,
+  createWorkspaceHost,
   getWorkspaceTextSectionData,
-  loadWorkspaceDocument,
   WORKSPACE_TEXT_SECTION_KIND,
+  WorkspaceProvider,
+  type WorkspaceHost,
 } from "@setta/workspace";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { playgroundDocument } from "./playgroundDocument";
 import {
   PlaygroundTextSectionInspector,
@@ -43,13 +44,12 @@ function setNativeInputValue(input: HTMLInputElement, value: string) {
 describe("the playground's built-in text section", () => {
   let container: HTMLDivElement;
   let root: Root;
-
-  beforeAll(() => {
-    registerPlaygroundSectionKinds();
-  });
+  let workspaceHost: WorkspaceHost;
 
   beforeEach(() => {
-    loadWorkspaceDocument(playgroundDocument);
+    workspaceHost = createWorkspaceHost();
+    registerPlaygroundSectionKinds(workspaceHost);
+    workspaceHost.loadDocument(playgroundDocument);
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -60,35 +60,40 @@ describe("the playground's built-in text section", () => {
       root.unmount();
     });
     container.remove();
+    workspaceHost.dispose();
   });
 
   it("composes both display modes with the host's own registered kinds", () => {
     for (const sectionId of [RENDERED_SECTION_ID, SOURCE_SECTION_ID]) {
-      expect(getWorkspaceDocument().sections[sectionId]?.kind).toBe(
+      expect(workspaceHost.getSnapshot().sections[sectionId]?.kind).toBe(
         WORKSPACE_TEXT_SECTION_KIND,
       );
     }
-    expect(getWorkspaceTextSectionData(RENDERED_SECTION_ID)).toMatchObject({
+    expect(getWorkspaceTextSectionData(workspaceHost, RENDERED_SECTION_ID)).toMatchObject({
       format: "markdown",
       displayMode: "render",
       fontSizePx: 14,
       readOnly: false,
     });
-    expect(getWorkspaceTextSectionData(SOURCE_SECTION_ID).displayMode).toBe(
+    expect(getWorkspaceTextSectionData(workspaceHost, SOURCE_SECTION_ID).displayMode).toBe(
       "edit",
     );
     // Both fixtures carry the same source, so the gate can compare the two surfaces directly.
-    expect(getWorkspaceTextSectionData(RENDERED_SECTION_ID).text).toBe(
-      getWorkspaceTextSectionData(SOURCE_SECTION_ID).text,
+    expect(getWorkspaceTextSectionData(workspaceHost, RENDERED_SECTION_ID).text).toBe(
+      getWorkspaceTextSectionData(workspaceHost, SOURCE_SECTION_ID).text,
     );
   });
 
   it("authors every typed option from host Inspector UI", () => {
     act(() => {
       root.render(
-        createElement(PlaygroundTextSectionInspector, {
-          sectionId: RENDERED_SECTION_ID,
-        }),
+        createElement(
+          WorkspaceProvider,
+          { host: workspaceHost },
+          createElement(PlaygroundTextSectionInspector, {
+            sectionId: RENDERED_SECTION_ID,
+          }),
+        ),
       );
     });
     const format = container.querySelector<HTMLSelectElement>("select");
@@ -127,7 +132,7 @@ describe("the playground's built-in text section", () => {
       fontSizePx.dispatchEvent(new Event("input", { bubbles: true }));
     });
 
-    expect(getWorkspaceTextSectionData(RENDERED_SECTION_ID)).toMatchObject({
+    expect(getWorkspaceTextSectionData(workspaceHost, RENDERED_SECTION_ID)).toMatchObject({
       format: "plaintext",
       readOnly: true,
       fontSizePx: 20,
@@ -135,7 +140,7 @@ describe("the playground's built-in text section", () => {
   });
 
   it("refuses a typed read outside the built-in kind", () => {
-    expect(() => getWorkspaceTextSectionData("code-editor")).toThrow(
+    expect(() => getWorkspaceTextSectionData(workspaceHost, "code-editor")).toThrow(
       /is a setta\.code section, not a text section/u,
     );
   });

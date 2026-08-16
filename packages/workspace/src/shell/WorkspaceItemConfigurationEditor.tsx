@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { setItemControlConfiguration } from "../document/itemPresentationMutations";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import type {
   WorkspaceItemControlConfiguration,
   WorkspaceItemTextLanguage,
@@ -478,13 +479,14 @@ export function WorkspaceItemConfigurationEditor({
   onStatusChange,
   sectionId,
 }: WorkspaceItemConfigurationEditorProps) {
+  const host = useWorkspaceHost();
   function commitUpdate(update: WorkspaceItemControlConfiguration): void {
     if (update.kind !== control.kind) {
       throw new Error(
         `Inspector ${control.kind} configuration received a ${String(update.kind)} update.`,
       );
     }
-    setItemControlConfiguration(sectionId, itemId, update);
+    setItemControlConfiguration(host, sectionId, itemId, update);
     onStatusChange(`${control.kind} configuration updated.`);
   }
 

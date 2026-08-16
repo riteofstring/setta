@@ -1,7 +1,9 @@
 import type { DragDropManager, Draggable, Droppable } from "@dnd-kit/dom";
 import type { Coordinates, Rectangle } from "@dnd-kit/geometry";
+import type { WorkspaceHost } from "../../workspaceHost";
+import { getDndChildrenStore } from "../dndChildren";
 import { getItemDndParentByChild } from "../itemDndChildren";
-import { useItemDndState, type ItemListKey } from "../itemDndState";
+import { getItemDndStateStore, type ItemListKey } from "../itemDndState";
 import { promoteBestCollision } from "./collisionCompare";
 import { coerceClientRect, rectFromBoundingRect } from "./rect";
 import type {
@@ -38,6 +40,7 @@ type LayoutRectSource = {
 };
 
 export function mapDragStartEvent(
+  host: WorkspaceHost,
   event: {
     operation: DragStartOperation;
   },
@@ -55,6 +58,7 @@ export function mapDragStartEvent(
 }
 
 export function mapDragEvent(
+  host: WorkspaceHost,
   event: { operation: DragOperation },
   manager: DragDropManager,
   canceled?: boolean,
@@ -64,7 +68,7 @@ export function mapDragEvent(
     return null;
   }
 
-  const collisions = getCollisions(manager, active);
+  const collisions = getCollisions(host, manager, active);
   return {
     activatorEvent: event.operation.activatorEvent ?? null,
     active,
@@ -76,6 +80,7 @@ export function mapDragEvent(
 }
 
 function getCollisions(
+  host: WorkspaceHost,
   manager: DragDropManager,
   active: Draggable,
 ): SettaCollision[] {
@@ -86,20 +91,22 @@ function getCollisions(
 
   return promoteBestCollision(
     collisions as SettaCollision[],
-    getItemCollisionParentByChild(active),
+    getItemCollisionParentByChild(host, active) ??
+      getDndChildrenStore(host).getState().y,
   );
 }
 
 // Item drags promote collisions through the item children projection (keyed by list-scoped dnd
 // ids) instead of the section dnd children default.
-function getItemCollisionParentByChild(active: Draggable) {
+function getItemCollisionParentByChild(host: WorkspaceHost, active: Draggable) {
   const activeData = getActiveDragData(active);
   if (activeData?.type !== "item") {
     return undefined;
   }
 
-  const listKey = activeData.listKey ?? useItemDndState.getState().listKey;
-  return getItemDndParentByChild(listKey ?? null);
+  const listKey =
+    activeData.listKey ?? getItemDndStateStore(host).getState().listKey;
+  return getItemDndParentByChild(host, listKey ?? null);
 }
 
 function getActiveDragData(active: Draggable): ActiveDragData | null {

@@ -20,12 +20,13 @@ import {
   useTextValueTheme,
   type TextValueTheme,
 } from "./textValueTheme";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The item-controls milestone's text value editor: the reference's two-layer
 // `TextInputCodeMirror` at the `ParamUI` text presentation, behind the package's controlled
 // string seam. The idle layer is the highlighted dummy; a primary mouse-down capture or a
 // keyboard focus swaps in the live CodeMirror editor, every document change reports once
-// through the change callback, and Escape returns focus to the owning section. Backend editor
+// through the host subscription, and Escape returns focus to the owning section. Backend editor
 // services (completion, diagnostics, the waiting spinner) and the reference's error-message
 // plumbing stay application-side. The control disables from the host flag and, package-wide,
 // while item-select mode is active — the reference's interaction-first disabled contract with
@@ -180,6 +181,7 @@ function TextValueEditorCore({
   presentation,
   metaMinimumHeight = false,
 }: TextValueEditorCoreProps) {
+  const host = useWorkspaceHost();
   const [activationEvent, setActivationEvent] =
     useState<TextValueActivationEvent | null>(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
@@ -216,7 +218,7 @@ function TextValueEditorCore({
       // Only the activating coordinates survive into state; the reference stores the event
       // object and reads the same two fields.
       setActivationEvent({ clientX: event.clientX, clientY: event.clientY });
-      applyActiveSectionChange({ interaction: "input-focus", sectionId });
+      applyActiveSectionChange(host, { interaction: "input-focus", sectionId });
     }
   }
 
@@ -264,7 +266,7 @@ function TextValueEditorCore({
           realIsInitialized={realIsInitialized}
           setRealIsInitialized={setRealIsInitialized}
           onValueChange={onValueChange}
-          onEscape={() => focusSectionAfterEscape(sectionId)}
+          onEscape={() => focusSectionAfterEscape(host, sectionId)}
           onBlur={localOnBlur}
         />
       )}
@@ -309,12 +311,14 @@ function LiveTextValueEditor({
   onEscape: () => void;
   onBlur: () => void;
 }) {
+  const host = useWorkspaceHost();
   const editorId = `CodeMirror-${sectionId}-${controlId}`;
   const extensions = [
     ...getTextValueExtensions({ language, singleLine, wrapLines, onEscape }),
     EditorView.contentAttributes.of({ "aria-label": ariaLabel }),
   ];
   const onCreateEditor = getOnCreateEditor({
+    host,
     initialEvent,
     setRealIsInitialized,
     editorId,

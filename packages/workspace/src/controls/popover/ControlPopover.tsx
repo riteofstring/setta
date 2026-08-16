@@ -1,8 +1,9 @@
 import * as Popover from "@radix-ui/react-popover";
 import { useEffect } from "react";
-import { useReactFlow } from "../../canvas/store";
+import { getReactFlowStore } from "../../canvas/store";
 import type { WorkspaceTextDirection } from "../../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../../styles/workspaceScope";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The reference's `StandardPopover` atom trimmed to the built-in controls' usage: a controlled
 // Radix popover portaled to the document body with the reference's default arrow paint. The
@@ -18,6 +19,7 @@ const ARROW_CLASS_NAME =
 // need an explicit reposition signal to stay attached. One frame-coalesced synthetic
 // scroll/resize pair per transform change, exactly as the reference dispatches it.
 function useRepositionOnCanvasTransform(open: boolean) {
+  const host = useWorkspaceHost();
   useEffect(() => {
     if (!open) {
       return;
@@ -34,7 +36,7 @@ function useRepositionOnCanvasTransform(open: boolean) {
       });
     };
     scheduleReposition();
-    const unsubscribe = useReactFlow.subscribe(
+    const unsubscribe = getReactFlowStore(host).subscribe(
       (state) => state.transform,
       () => scheduleReposition(),
     );
@@ -44,7 +46,7 @@ function useRepositionOnCanvasTransform(open: boolean) {
         window.cancelAnimationFrame(rafId);
       }
     };
-  }, [open]);
+  }, [host, open]);
 }
 
 export function ControlPopover({

@@ -1,6 +1,6 @@
-import { useReactFlow } from "../canvas/store";
-import { useItemDndState } from "../dnd/itemDndState";
-import { useWorkspaceCapabilities } from "../document/capabilities";
+import { getReactFlowStore } from "../canvas/store";
+import { getItemDndStateStore } from "../dnd/itemDndState";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import { isGroupSection } from "../document/documentSelectors";
 import { getWorkspaceItemFactory } from "../document/sectionKindRegistry";
 import {
@@ -9,7 +9,7 @@ import {
   setSectionsPositionLocked,
 } from "../document/sectionMutations";
 import {
-  useWorkspaceDocument,
+  getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
 } from "../document/stores";
 import type {
@@ -55,7 +55,7 @@ type LiveSectionTargets = {
 function getLiveSectionTargets(
   context: WorkspaceSectionCommandContext,
 ): LiveSectionTargets {
-  const state = useWorkspaceDocument.getState();
+  const state = getWorkspaceDocumentStore(context.host).getState();
   const sections = context.selectedSections.flatMap((selected) => {
     const section = state.sections[selected.id];
     return section ? [section] : [];
@@ -71,17 +71,21 @@ function getLiveSectionTargets(
 function getLiveItemSection(
   context: WorkspaceItemCommandContext,
 ): WorkspaceSection | null {
-  return useWorkspaceDocument.getState().sections[context.section.id] ?? null;
+  return (
+    getWorkspaceDocumentStore(context.host).getState().sections[
+      context.section.id
+    ] ?? null
+  );
 }
 
-function getStructureReason(): string | null {
-  return useWorkspaceCapabilities.getState().canEditStructure
+function getStructureReason(host: WorkspaceSectionCommandContext["host"]): string | null {
+  return getWorkspaceCapabilitiesStore(host).getState().canEditStructure
     ? null
     : STRUCTURE_REASON;
 }
 
-function getLayoutReason(): string | null {
-  return useWorkspaceCapabilities.getState().canEditLayout
+function getLayoutReason(host: WorkspaceSectionCommandContext["host"]): string | null {
+  return getWorkspaceCapabilitiesStore(host).getState().canEditLayout
     ? null
     : LAYOUT_REASON;
 }
@@ -107,16 +111,17 @@ function formatSectionCount(count: number, noun: string): string {
 // Item authoring shares one precondition set: the host allows structural edits, no parameter drag
 // is in flight, and the owning section is unlocked.
 function getItemAuthoringReason(
+  host: WorkspaceSectionCommandContext["host"],
   section: WorkspaceSection | null,
 ): string | null {
-  const structureReason = getStructureReason();
+  const structureReason = getStructureReason(host);
   if (structureReason) {
     return structureReason;
   }
   if (!section) {
     return MISSING_SECTION_REASON;
   }
-  if (useItemDndState.getState().activeId !== null) {
+  if (getItemDndStateStore(host).getState().activeId !== null) {
     return ITEM_DRAG_REASON;
   }
   return section.positionAndSizeLocked ? SECTION_LOCKED_REASON : null;
@@ -149,7 +154,7 @@ const groupSectionsCommand: WorkspacePackageCommandDefinition = {
   surfaces: ["context-menu", "inspector", "outline"],
   label: "Group",
   getDisabledReason: (context) => {
-    const structureReason = getStructureReason();
+    const structureReason = getStructureReason(context.host);
     if (structureReason) {
       return structureReason;
     }
@@ -167,8 +172,9 @@ const groupSectionsCommand: WorkspacePackageCommandDefinition = {
   getStatusMessage: (context) =>
     `${formatSectionCount(context.selectedSections.length, "section")} grouped.`,
   run: (context) => {
-    useReactFlow.setState({ nodesSelectionDims: null });
+    getReactFlowStore(context.host).setState({ nodesSelectionDims: null });
     groupSections(
+      context.host,
       getSelectedSectionIds(context),
       `group-${crypto.randomUUID()}`,
     );
@@ -193,7 +199,7 @@ const toggleGroupOverflowCommand: WorkspacePackageCommandDefinition = {
   isChecked: (context) =>
     getLiveSectionTargets(context).section?.overflowMode ?? false,
   getDisabledReason: (context) => {
-    const layoutReason = getLayoutReason();
+    const layoutReason = getLayoutReason(context.host);
     if (layoutReason) {
       return layoutReason;
     }
@@ -212,7 +218,7 @@ const toggleGroupOverflowCommand: WorkspacePackageCommandDefinition = {
         `Cannot change overflow mode for missing section ${context.section.id}.`,
       );
     }
-    setGroupOverflowMode(section.id, !section.overflowMode);
+    setGroupOverflowMode(context.host, section.id, !section.overflowMode);
   },
 };
 
@@ -224,7 +230,7 @@ const ungroupSectionsCommand: WorkspacePackageCommandDefinition = {
   isApplicable: (context) =>
     getLiveSectionTargets(context).sections.some(isGroupSection),
   getDisabledReason: (context) => {
-    const structureReason = getStructureReason();
+    const structureReason = getStructureReason(context.host);
     if (structureReason) {
       return structureReason;
     }
@@ -238,7 +244,7 @@ const ungroupSectionsCommand: WorkspacePackageCommandDefinition = {
     context.selectedSections.length === 1
       ? "Group ungrouped."
       : `${context.selectedSections.length} groups ungrouped.`,
-  run: (context) => ungroupSections(getSelectedSectionIds(context)),
+  run: (context) => ungroupSections(context.host, getSelectedSectionIds(context)),
 };
 
 const deleteSectionsCommand: WorkspacePackageCommandDefinition = {
@@ -248,7 +254,7 @@ const deleteSectionsCommand: WorkspacePackageCommandDefinition = {
   surfaces: ["context-menu", "inspector", "outline"],
   label: "Delete",
   getDisabledReason: (context) => {
-    const structureReason = getStructureReason();
+    const structureReason = getStructureReason(context.host);
     if (structureReason) {
       return structureReason;
     }
@@ -259,8 +265,8 @@ const deleteSectionsCommand: WorkspacePackageCommandDefinition = {
   getStatusMessage: (context) =>
     `${formatSectionCount(context.selectedSections.length, "section")} deleted.`,
   run: (context) => {
-    useReactFlow.setState({ nodesSelectionDims: null });
-    deleteSections(getSelectedSectionIds(context));
+    getReactFlowStore(context.host).setState({ nodesSelectionDims: null });
+    deleteSections(context.host, getSelectedSectionIds(context));
   },
 };
 
@@ -273,11 +279,11 @@ const lockSectionsCommand: WorkspacePackageCommandDefinition = {
   label: "Lock Position & Size",
   isApplicable: (context) =>
     !areAllSectionsLocked(getLiveSectionTargets(context)),
-  getDisabledReason: () => getLayoutReason(),
+  getDisabledReason: (context) => getLayoutReason(context.host),
   getStatusMessage: (context) =>
     `${formatSectionCount(context.selectedSections.length, "section")} locked.`,
   run: (context) =>
-    setSectionsPositionLocked(getSelectedSectionIds(context), true),
+    setSectionsPositionLocked(context.host, getSelectedSectionIds(context), true),
 };
 
 const unlockSectionsCommand: WorkspacePackageCommandDefinition = {
@@ -287,11 +293,11 @@ const unlockSectionsCommand: WorkspacePackageCommandDefinition = {
   label: "Unlock Position & Size",
   isApplicable: (context) =>
     areAllSectionsLocked(getLiveSectionTargets(context)),
-  getDisabledReason: () => getLayoutReason(),
+  getDisabledReason: (context) => getLayoutReason(context.host),
   getStatusMessage: (context) =>
     `${formatSectionCount(context.selectedSections.length, "section")} unlocked.`,
   run: (context) =>
-    setSectionsPositionLocked(getSelectedSectionIds(context), false),
+    setSectionsPositionLocked(context.host, getSelectedSectionIds(context), false),
 };
 
 const insertItemCommand: WorkspacePackageCommandDefinition = {
@@ -302,17 +308,17 @@ const insertItemCommand: WorkspacePackageCommandDefinition = {
   isApplicable: hasSectionItemTree,
   getDisabledReason: (context) => {
     const { section } = getLiveSectionTargets(context);
-    const authoringReason = getItemAuthoringReason(section);
+    const authoringReason = getItemAuthoringReason(context.host, section);
     if (authoringReason) {
       return authoringReason;
     }
-    return section && getWorkspaceItemFactory(section)
+    return section && getWorkspaceItemFactory(context.host, section)
       ? null
       : "This section does not support adding parameters.";
   },
   getStatusMessage: () => "Parameter added.",
   run: (context) => {
-    insertWorkspaceItem(context.section.id);
+    insertWorkspaceItem(context.host, context.section.id);
   },
 };
 
@@ -326,7 +332,7 @@ const deleteLastItemCommand: WorkspacePackageCommandDefinition = {
     hasSectionItemTree(context) && getSelectedItemCount(context) === 0,
   getDisabledReason: (context) => {
     const { section } = getLiveSectionTargets(context);
-    const authoringReason = getItemAuthoringReason(section);
+    const authoringReason = getItemAuthoringReason(context.host, section);
     if (authoringReason) {
       return authoringReason;
     }
@@ -337,7 +343,7 @@ const deleteLastItemCommand: WorkspacePackageCommandDefinition = {
   },
   getStatusMessage: () => "1 parameter deleted.",
   run: (context) => {
-    deleteLastWorkspaceItem(context.section.id);
+    deleteLastWorkspaceItem(context.host, context.section.id);
   },
 };
 
@@ -350,11 +356,11 @@ const deleteSelectedItemsCommand: WorkspacePackageCommandDefinition = {
   isApplicable: (context) =>
     hasSectionItemTree(context) && getSelectedItemCount(context) > 1,
   getDisabledReason: (context) =>
-    getItemAuthoringReason(getLiveSectionTargets(context).section),
+    getItemAuthoringReason(context.host, getLiveSectionTargets(context).section),
   getStatusMessage: (context) =>
     `${getSelectedItemCount(context)} parameters deleted.`,
   run: (context) => {
-    deleteSelectedWorkspaceItems(context.section.id);
+    deleteSelectedWorkspaceItems(context.host, context.section.id);
   },
 };
 
@@ -366,7 +372,7 @@ const deleteItemCommand: WorkspacePackageCommandDefinition = {
   label: "Delete parameter",
   getDisabledReason: (context) => {
     const section = getLiveItemSection(context);
-    const authoringReason = getItemAuthoringReason(section);
+    const authoringReason = getItemAuthoringReason(context.host, section);
     if (authoringReason) {
       return authoringReason;
     }
@@ -376,7 +382,7 @@ const deleteItemCommand: WorkspacePackageCommandDefinition = {
   },
   getStatusMessage: () => "1 parameter deleted.",
   run: (context) => {
-    deleteWorkspaceItems(context.section.id, [context.item.id]);
+    deleteWorkspaceItems(context.host, context.section.id, [context.item.id]);
   },
 };
 

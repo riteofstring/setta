@@ -4,10 +4,14 @@ import type { Selection as D3Selection } from "d3-selection";
 import "d3-transition";
 import { getActiveSectionIds } from "../document/activeSections";
 import { getRootSelectedSectionIds } from "../document/sectionSelection";
-import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  getNodeInternalsStore,
+  getWorkspaceDocumentStore,
+} from "../document/stores";
 import type { Node, Viewport } from "../document/types";
-import { useSectionRefs } from "../section/sectionRefs";
+import { getSectionRefsStore } from "../section/sectionRefs";
 import { resolveWorkspaceMotionDuration } from "../styles/motion";
+import type { WorkspaceHost } from "../workspaceHost";
 import type { ReactFlowState, Rect, Transform, ViewportInsets } from "./types";
 import {
   boxToRect,
@@ -45,14 +49,17 @@ export const getNodesBounds = (
   return boxToRect(box);
 };
 
-export function getActiveSectionsBounds(ignoreGrid = false) {
-  const activeSectionIds = getActiveSectionIds();
+export function getActiveSectionsBounds(
+  host: WorkspaceHost,
+  ignoreGrid = false,
+) {
+  const activeSectionIds = getActiveSectionIds(host);
   const { rootIds } = getRootSelectedSectionIds(
-    useWorkspaceDocument.getState(),
+    getWorkspaceDocumentStore(host).getState(),
     activeSectionIds,
   );
   return (
-    getSectionBounds(rootIds, ignoreGrid) ?? {
+    getSectionBounds(host, rootIds, ignoreGrid) ?? {
       x: 0,
       y: 0,
       width: 0,
@@ -64,23 +71,25 @@ export function getActiveSectionsBounds(ignoreGrid = false) {
 // Measures a section through its registered DOM ref: the fallback for nested sections and
 // nodes that have not been measured yet.
 export function getSectionRect(
+  host: WorkspaceHost,
   sectionId: string,
   ignoreGrid = false,
 ): Rect | null {
   const ref =
-    useSectionRefs.getState().selfOnly[sectionId] ??
-    useSectionRefs.getState().withNested[sectionId];
+    getSectionRefsStore(host).getState().selfOnly[sectionId] ??
+    getSectionRefsStore(host).getState().withNested[sectionId];
   if (!ref) {
     return null;
   }
 
   const { clientWidth: width, clientHeight: height } = ref;
   const { x: _x, y: _y } = ref.getBoundingClientRect();
-  const { x, y } = screenToFlowPosition({ x: _x, y: _y }, ignoreGrid);
+  const { x, y } = screenToFlowPosition(host, { x: _x, y: _y }, ignoreGrid);
   return { x, y, width, height };
 }
 
 export function getNodesInside(
+  host: WorkspaceHost,
   rect: Rect,
   [tx, ty, tScale]: Transform = [0, 0, 1],
   partially = false,
@@ -93,13 +102,13 @@ export function getNodesInside(
   };
 
   const visibleNodes = [];
-  const nodeInternals = useNodeInternals.getState().x;
+  const nodeInternals = getNodeInternalsStore(host).getState().x;
   const handledSectionIds = new Set<string>();
 
   for (const node of nodeInternals.values()) {
     const isVisible = hasMeasuredNodeBounds(node)
       ? isNodeOverlappingWithRect(node, rectToLookInside, partially)
-      : isSectionOverlappingWithRect(node.id, rectToLookInside, partially);
+      : isSectionOverlappingWithRect(host, node.id, rectToLookInside, partially);
 
     if (isVisible) {
       visibleNodes.push(node.id);
@@ -110,12 +119,14 @@ export function getNodesInside(
   // Nested sections have no node-internals entry; measure them through their registered DOM
   // refs so a marquee can select them, as the reference does with its project sections sweep.
   for (const sectionId of Object.keys(
-    useWorkspaceDocument.getState().sections,
+    getWorkspaceDocumentStore(host).getState().sections,
   )) {
     if (handledSectionIds.has(sectionId)) {
       continue;
     }
-    if (isSectionOverlappingWithRect(sectionId, rectToLookInside, partially)) {
+    if (
+      isSectionOverlappingWithRect(host, sectionId, rectToLookInside, partially)
+    ) {
       visibleNodes.push(sectionId);
     }
   }
@@ -126,7 +137,7 @@ export function getNodesInside(
 // The visible pane in flow coordinates, from the reference's `utils/graph.ts`. The shell overlays
 // its pane regions on the full-size canvas, so the store records their physical insets and every
 // viewport consumer shares the same unobscured rectangle.
-export function getPaneRect(s: ReactFlowState): Rect {
+export function getPaneRect(host: WorkspaceHost, s: ReactFlowState): Rect {
   const visibleCanvas = getVisibleCanvasRect(s, s.viewportInsets);
   if (!s.domNode) {
     return {
@@ -139,10 +150,12 @@ export function getPaneRect(s: ReactFlowState): Rect {
 
   const bounds = s.domNode.getBoundingClientRect();
   const topLeft = screenToFlowPosition(
+    host,
     { x: bounds.left + visibleCanvas.x, y: bounds.top + visibleCanvas.y },
     true,
   );
   const bottomRight = screenToFlowPosition(
+    host,
     {
       x: bounds.left + visibleCanvas.x + visibleCanvas.width,
       y: bounds.top + visibleCanvas.y + visibleCanvas.height,
@@ -199,10 +212,11 @@ export const getD3Transition = (
 };
 
 function getSectionBounds(
+  host: WorkspaceHost,
   sectionIds: Array<string>,
   ignoreGrid = false,
 ): Rect | null {
-  const nodeInternals = useNodeInternals.getState().x;
+  const nodeInternals = getNodeInternalsStore(host).getState().x;
   const sections = sectionIds.flatMap((sectionId) => {
     const node = nodeInternals.get(sectionId);
     if (node && hasPositiveRectBounds(node.width, node.height)) {
@@ -215,7 +229,7 @@ function getSectionBounds(
       ];
     }
 
-    const rect = getSectionRect(sectionId, ignoreGrid);
+    const rect = getSectionRect(host, sectionId, ignoreGrid);
     if (!rect || !hasPositiveRectBounds(rect.width, rect.height)) {
       return [];
     }
@@ -236,11 +250,12 @@ function getSectionBounds(
 }
 
 function isSectionOverlappingWithRect(
+  host: WorkspaceHost,
   sectionId: string,
   otherRect: Rect,
   partially: boolean,
 ) {
-  const rect = getSectionRect(sectionId, true);
+  const rect = getSectionRect(host, sectionId, true);
   if (!rect) {
     return false;
   }

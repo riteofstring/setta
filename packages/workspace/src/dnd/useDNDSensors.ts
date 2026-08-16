@@ -5,12 +5,17 @@ import {
 } from "@dnd-kit/dom";
 import { useMemo } from "react";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import { useItemSelectionMode } from "../document/itemSelectionMode";
-import { NO_DRAG_CLASS_NAME } from "../interaction";
-import { useDndState } from "./dndState";
 import {
-  selectionDragHandle,
-  selectionDragPrimaryId,
+  getItemSelectionModeStore,
+  useItemSelectionMode,
+} from "../document/itemSelectionMode";
+import { NO_DRAG_CLASS_NAME } from "../interaction";
+import { useWorkspaceHost } from "../workspaceHostContext";
+import type { WorkspaceHost } from "../workspaceHost";
+import { getDndStateStore } from "./dndState";
+import {
+  getSelectionDragHandle,
+  getSelectionDragPrimaryId,
 } from "./selectionDragHandle";
 
 // Both halves of the reference's `useDNDSensors.ts`: section drags have no distance
@@ -45,8 +50,12 @@ function eventTargetsNoDragElement(event: Event): boolean {
   return target.closest(`.${NO_DRAG_CLASS_NAME}`) !== null;
 }
 
-function preventSectionActivation(event: Event, source: DndSource): boolean {
-  const { isSorting, isMovingFree } = useDndState.getState();
+function preventSectionActivation(
+  host: WorkspaceHost,
+  event: Event,
+  source: DndSource,
+): boolean {
+  const { isSorting, isMovingFree } = getDndStateStore(host).getState();
   const isTopLevel = getIsTopLevel(source);
   if (isMovingFree) {
     return false;
@@ -64,6 +73,7 @@ function preventSectionActivation(event: Event, source: DndSource): boolean {
 }
 
 export function useSectionDndSensors() {
+  const host = useWorkspaceHost();
   const canEditLayout = useWorkspaceCapabilities((x) => x.canEditLayout);
   return useMemo(() => {
     if (!canEditLayout) {
@@ -73,8 +83,8 @@ export function useSectionDndSensors() {
     const pointerSensor = PointerSensor.configure({
       activatorElements: (source: DndSource) => {
         const baseTarget = source.handle ?? source.element;
-        const handleElement = selectionDragHandle.value;
-        const primaryId = selectionDragPrimaryId.value;
+        const handleElement = getSelectionDragHandle(host).value;
+        const primaryId = getSelectionDragPrimaryId(host).value;
         if (
           handleElement &&
           primaryId &&
@@ -84,25 +94,32 @@ export function useSectionDndSensors() {
         }
         return [baseTarget];
       },
-      preventActivation: preventSectionActivation,
+      preventActivation: (event, source) =>
+        preventSectionActivation(host, event, source as DndSource),
     });
 
     const keyboardSensor = KeyboardSensor.configure({
-      preventActivation: preventSectionActivation,
+      preventActivation: (event, source) =>
+        preventSectionActivation(host, event, source as DndSource),
     });
 
     return [pointerSensor, keyboardSensor];
-  }, [canEditLayout]);
+  }, [canEditLayout, host]);
 }
 
-function preventItemActivation(_event: Event, source: DndSource): boolean {
+function preventItemActivation(
+  host: WorkspaceHost,
+  _event: Event,
+  source: DndSource,
+): boolean {
   if (getDragType(source) !== "item") {
     return true;
   }
-  return !useItemSelectionMode.getState().isSelectingItems;
+  return !getItemSelectionModeStore(host).getState().isSelectingItems;
 }
 
 export function useItemDndSensors() {
+  const host = useWorkspaceHost();
   const canEditStructure = useWorkspaceCapabilities((x) => x.canEditStructure);
   const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
   return useMemo(() => {
@@ -123,13 +140,15 @@ export function useItemDndSensors() {
           }),
         ];
       },
-      preventActivation: preventItemActivation,
+      preventActivation: (event, source) =>
+        preventItemActivation(host, event, source as DndSource),
     });
 
     const keyboardSensor = KeyboardSensor.configure({
-      preventActivation: preventItemActivation,
+      preventActivation: (event, source) =>
+        preventItemActivation(host, event, source as DndSource),
     });
 
     return [pointerSensor, keyboardSensor];
-  }, [canEditStructure, isSelectingItems]);
+  }, [canEditStructure, host, isSelectingItems]);
 }

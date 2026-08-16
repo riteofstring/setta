@@ -5,10 +5,11 @@ import {
 } from "../document/documentSelectors";
 import { assertValidSectionOverflowMode } from "../document/groupOverflow";
 import {
-  useWorkspaceDocument,
+  getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
 } from "../document/stores";
 import type { SectionSize, WorkspaceSection } from "../document/types";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // The reference's resize commit funnel (`state/actions/sections/sectionSizes.ts` +
 // `persistSectionSizeChange` in CustomResizable), minus the embedded attached-terminal branch
@@ -155,12 +156,14 @@ export function setSelfParentSiblingChildrenWidths(
 }
 
 // The single resize persistence funnel. The reference pairs the canonical write with a
-// `setSectionSizes` backend route; the document-change callback notifies the host instead.
+// `setSectionSizes` backend route; the host publishes its updated snapshot instead.
 export function persistSectionSizeChange(
+  host: WorkspaceHost,
   sectionId: string,
   nextSize: Partial<SectionSize>,
 ) {
-  const state = useWorkspaceDocument.getState();
+  const documentStore = getWorkspaceDocumentStore(host);
+  const state = documentStore.getState();
   const { sections, updatedSectionSizes } = setSelfParentSiblingChildrenWidths(
     state,
     sectionId,
@@ -173,6 +176,6 @@ export function persistSectionSizeChange(
     }
     assertValidSectionOverflowMode(updatedSectionId, section);
   }
-  useWorkspaceDocument.setState({ sections });
-  notifyWorkspaceDocumentChange();
+  documentStore.setState({ sections });
+  notifyWorkspaceDocumentChange(host);
 }

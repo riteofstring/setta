@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
 import {
   getWorkspaceCommands,
   registerWorkspaceCommands,
@@ -52,16 +53,18 @@ function contribution(
 }
 
 describe("workspace toolbar contributions", () => {
-  afterEach(() => {
-    registerWorkspaceToolbarContributions([]);
-    registerWorkspaceCommands([]);
-    registerWorkspaceCreationCommands([]);
+  let host: WorkspaceHost;
+
+  beforeEach(() => {
+    host = createWorkspaceHost();
   });
 
+  afterEach(() => host.dispose());
+
   it("registers contributions over both command vocabularies and replaces the whole set", () => {
-    registerWorkspaceCommands([toolbarCommand]);
-    registerWorkspaceCreationCommands([creationCommand]);
-    registerWorkspaceToolbarContributions([
+    registerWorkspaceCommands(host, [toolbarCommand]);
+    registerWorkspaceCreationCommands(host, [creationCommand]);
+    registerWorkspaceToolbarContributions(host, [
       contribution({
         kind: "creation",
         commandId: creationCommand.id,
@@ -70,19 +73,19 @@ describe("workspace toolbar contributions", () => {
       contribution({ description: " Report the workspace " }),
     ]);
 
-    expect(getWorkspaceToolbarContributions("before-viewport")).toHaveLength(1);
-    expect(getWorkspaceToolbarContributions("before-minimap")).toEqual([
+    expect(getWorkspaceToolbarContributions(host, "before-viewport")).toHaveLength(1);
+    expect(getWorkspaceToolbarContributions(host, "before-minimap")).toEqual([
       expect.objectContaining({
         commandId: toolbarCommand.id,
         description: "Report the workspace",
       }),
     ]);
 
-    registerWorkspaceToolbarContributions([
+    registerWorkspaceToolbarContributions(host, [
       contribution({ placement: "before-viewport" }),
     ]);
 
-    expect(getWorkspaceToolbarContributions()).toEqual([
+    expect(getWorkspaceToolbarContributions(host)).toEqual([
       expect.objectContaining({
         commandId: toolbarCommand.id,
         placement: "before-viewport",
@@ -91,34 +94,34 @@ describe("workspace toolbar contributions", () => {
   });
 
   it("rejects a contribution the command vocabularies cannot answer", () => {
-    registerWorkspaceCommands([toolbarCommand, paneMenuCommand]);
+    registerWorkspaceCommands(host, [toolbarCommand, paneMenuCommand]);
 
     expect(() =>
-      registerWorkspaceToolbarContributions([
+      registerWorkspaceToolbarContributions(host, [
         contribution({ commandId: "missing" }),
       ]),
     ).toThrow(/names unregistered command missing/);
     expect(() =>
-      registerWorkspaceToolbarContributions([
+      registerWorkspaceToolbarContributions(host, [
         contribution({ commandId: paneMenuCommand.id }),
       ]),
     ).toThrow(/does not offer the toolbar surface/);
     expect(() =>
-      registerWorkspaceToolbarContributions([
+      registerWorkspaceToolbarContributions(host, [
         contribution({ kind: "creation", commandId: creationCommand.id }),
       ]),
     ).toThrow(/names unregistered creation command host-note/);
-    expect(getWorkspaceToolbarContributions()).toEqual([]);
+    expect(getWorkspaceToolbarContributions(host)).toEqual([]);
   });
 
   it("rejects a repeated command, an unknown placement, a missing icon, and blank description", () => {
-    registerWorkspaceCommands([toolbarCommand]);
+    registerWorkspaceCommands(host, [toolbarCommand]);
 
     expect(() =>
-      registerWorkspaceToolbarContributions([contribution(), contribution()]),
+      registerWorkspaceToolbarContributions(host, [contribution(), contribution()]),
     ).toThrow(/lists command host-toolbar-action twice/);
     expect(() =>
-      registerWorkspaceToolbarContributions([
+      registerWorkspaceToolbarContributions(host, [
         contribution({
           placement:
             "beside-canvas" as WorkspaceToolbarContribution["placement"],
@@ -126,19 +129,19 @@ describe("workspace toolbar contributions", () => {
       ]),
     ).toThrow(/unknown placement/);
     expect(() =>
-      registerWorkspaceToolbarContributions([
+      registerWorkspaceToolbarContributions(host, [
         contribution({
           icon: undefined as unknown as WorkspaceToolbarContribution["icon"],
         }),
       ]),
     ).toThrow(/requires an icon component/);
     expect(() =>
-      registerWorkspaceToolbarContributions([
+      registerWorkspaceToolbarContributions(host, [
         contribution({ description: "  " }),
       ]),
     ).toThrow(/description must be non-empty text/);
     expect(() =>
-      registerWorkspaceToolbarContributions([
+      registerWorkspaceToolbarContributions(host, [
         contribution({
           kind: "action" as WorkspaceToolbarContribution["kind"],
         }),
@@ -148,7 +151,7 @@ describe("workspace toolbar contributions", () => {
 
   it("keeps a section command off the toolbar surface", () => {
     expect(() =>
-      registerWorkspaceCommands([
+      registerWorkspaceCommands(host, [
         {
           ...toolbarCommand,
           scope: "section",
@@ -159,32 +162,32 @@ describe("workspace toolbar contributions", () => {
   });
 
   it("refuses a command registration that would strand a contributed control", () => {
-    registerWorkspaceCommands([toolbarCommand]);
-    registerWorkspaceToolbarContributions([contribution()]);
+    registerWorkspaceCommands(host, [toolbarCommand]);
+    registerWorkspaceToolbarContributions(host, [contribution()]);
 
-    expect(() => registerWorkspaceCommands([paneMenuCommand])).toThrow(
+    expect(() => registerWorkspaceCommands(host, [paneMenuCommand])).toThrow(
       /names unregistered command host-toolbar-action/,
     );
     expect(() =>
-      registerWorkspaceCommands([
+      registerWorkspaceCommands(host, [
         { ...toolbarCommand, surfaces: ["context-menu"] },
       ]),
     ).toThrow(/does not offer the toolbar surface/);
     // The refused registration never took effect, so the contributed command is still offered.
     expect(
-      getWorkspaceCommands("pane", "toolbar").map(
+      getWorkspaceCommands(host, "pane", "toolbar").map(
         (command) => command.definition.id,
       ),
     ).toEqual([toolbarCommand.id]);
   });
 
   it("refuses a creation registration that would strand a contributed control", () => {
-    registerWorkspaceCreationCommands([creationCommand]);
-    registerWorkspaceToolbarContributions([
+    registerWorkspaceCreationCommands(host, [creationCommand]);
+    registerWorkspaceToolbarContributions(host, [
       contribution({ kind: "creation", commandId: creationCommand.id }),
     ]);
 
-    expect(() => registerWorkspaceCreationCommands([])).toThrow(
+    expect(() => registerWorkspaceCreationCommands(host, [])).toThrow(
       /names unregistered creation command host-note/,
     );
   });
@@ -192,6 +195,7 @@ describe("workspace toolbar contributions", () => {
   it("requires an array", () => {
     expect(() =>
       registerWorkspaceToolbarContributions(
+        host,
         undefined as unknown as ReadonlyArray<WorkspaceToolbarContribution>,
       ),
     ).toThrow(/must be an array/);
@@ -199,8 +203,8 @@ describe("workspace toolbar contributions", () => {
 
   it("does not run host command code to decide the toolbar's contents", () => {
     const getDisabledReason = vi.fn(() => null);
-    registerWorkspaceCommands([{ ...toolbarCommand, getDisabledReason }]);
-    registerWorkspaceToolbarContributions([contribution()]);
+    registerWorkspaceCommands(host, [{ ...toolbarCommand, getDisabledReason }]);
+    registerWorkspaceToolbarContributions(host, [contribution()]);
 
     expect(getDisabledReason).not.toHaveBeenCalled();
   });

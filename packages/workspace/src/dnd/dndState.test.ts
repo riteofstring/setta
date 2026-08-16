@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { useWorkspaceDocument } from "../document/stores";
-import { useDndChildren } from "./dndChildren";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { getWorkspaceDocumentStore } from "../document/stores";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
+import { getDndChildrenStore } from "./dndChildren";
 import { getDndSectionId, isTempSection } from "./dndIds";
 import {
   activateDndMovingFreeMode,
@@ -10,14 +11,21 @@ import {
   setActiveDnd,
   setDndDisabled,
   setDndTime,
-  useDndState,
+  getDndStateStore,
 } from "./dndState";
 
 describe("dndState", () => {
+  let host: WorkspaceHost;
+
   beforeEach(() => {
-    useDndState.getState().reset();
-    useDndChildren.getState().reset();
-    useWorkspaceDocument.getState().reset();
+    host = createWorkspaceHost();
+    getDndStateStore(host).getState().reset();
+    getDndChildrenStore(host).getState().reset();
+    getWorkspaceDocumentStore(host).getState().reset();
+  });
+
+  afterEach(() => {
+    host.dispose();
   });
 
   it("encodes and detects temporary dnd section ids", () => {
@@ -30,7 +38,7 @@ describe("dndState", () => {
 
   it("tracks active drag metadata", () => {
     // Validates drag start state fields are persisted in the shared store.
-    setActiveDnd("section-1", true, 300, 180, {
+    setActiveDnd(host, "section-1", true, 300, 180, {
       top: 10,
       left: 20,
       right: 320,
@@ -39,7 +47,7 @@ describe("dndState", () => {
       height: 180,
     });
 
-    const state = useDndState.getState();
+    const state = getDndStateStore(host).getState();
     expect(state.activeId).toBe("section-1");
     expect(state.activeIsTopLevel).toBe(true);
     expect(state.width).toBe(300);
@@ -49,13 +57,13 @@ describe("dndState", () => {
 
   it("switches between sorting and free-move modes", () => {
     // Validates mode toggles are mutually exclusive and clear pending deactivation.
-    activateDndSortingMode();
-    let state = useDndState.getState();
+    activateDndSortingMode(host);
+    let state = getDndStateStore(host).getState();
     expect(state.isSorting).toBe(true);
     expect(state.isMovingFree).toBe(false);
 
-    activateDndMovingFreeMode();
-    state = useDndState.getState();
+    activateDndMovingFreeMode(host);
+    state = getDndStateStore(host).getState();
     expect(state.isSorting).toBe(false);
     expect(state.isMovingFree).toBe(true);
     expect(state.pendingDeactivation).toBe(false);
@@ -63,18 +71,18 @@ describe("dndState", () => {
 
   it("marks pending deactivation only while a drag mode is active", () => {
     // Validates idle deactivation is ignored and active mode deactivation is queued.
-    deactivateDnd();
-    expect(useDndState.getState().pendingDeactivation).toBe(false);
+    deactivateDnd(host);
+    expect(getDndStateStore(host).getState().pendingDeactivation).toBe(false);
 
-    activateDndMovingFreeMode();
-    deactivateDnd();
-    expect(useDndState.getState().pendingDeactivation).toBe(true);
+    activateDndMovingFreeMode(host);
+    deactivateDnd(host);
+    expect(getDndStateStore(host).getState().pendingDeactivation).toBe(true);
   });
 
   it("resets drag state while preserving disabled map", () => {
     // Validates hard reset keeps section-specific disabled settings.
-    setDndDisabled("section-1", { draggable: true, droppable: false });
-    setActiveDnd("section-1", false, 200, 120, {
+    setDndDisabled(host, "section-1", { draggable: true, droppable: false });
+    setActiveDnd(host, "section-1", false, 200, 120, {
       top: 0,
       left: 0,
       right: 200,
@@ -82,11 +90,11 @@ describe("dndState", () => {
       width: 200,
       height: 120,
     });
-    activateDndSortingMode();
+    activateDndSortingMode(host);
 
-    forceDeactivateDnd();
+    forceDeactivateDnd(host);
 
-    const state = useDndState.getState();
+    const state = getDndStateStore(host).getState();
     expect(state.activeId).toBeNull();
     expect(state.isSorting).toBe(false);
     expect(state.isMovingFree).toBe(false);
@@ -98,8 +106,8 @@ describe("dndState", () => {
 
   it("stores drag timestamps per section id", () => {
     // Validates drag timestamp bookkeeping for hover throttling checks.
-    setDndTime("section-1");
-    const time = useDndState.getState().times["section-1"];
+    setDndTime(host, "section-1");
+    const time = getDndStateStore(host).getState().times["section-1"];
     expect(typeof time).toBe("number");
   });
 });

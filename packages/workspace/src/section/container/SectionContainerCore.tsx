@@ -13,6 +13,7 @@ import {
   useWorkspaceAppearance,
   useWorkspaceDocument,
 } from "../../document/stores";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 import { getSectionContainerShellClassName } from "../sectionChrome";
 import { getOnSectionClick } from "../sectionClick";
 import { useSectionRefAndInit } from "../sectionRefs";
@@ -30,13 +31,14 @@ import { SectionContainerContent } from "./SectionContainerContent";
 // reference renders the shell as a `<section>`; the repository's accessibility gate forbids
 // interactive roles on sections, so the package renders a visually identical `<div>`.
 export function SectionContainerCore({ sectionId }: { sectionId: string }) {
+  const host = useWorkspaceHost();
   const section = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId));
   const isActiveSection = useActiveSections((x) =>
     x.activeIds.includes(sectionId),
   );
   const darkMode = useWorkspaceAppearance((x) => x.darkMode);
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
-  const isMetaControl = getMetaControlPresentation(section) !== null;
+  const isMetaControl = getMetaControlPresentation(host, section) !== null;
 
   // Frozen main suppresses authored section-style colors for the transparent meta presentation.
   const sectionStyleTheme =
@@ -63,6 +65,7 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
       event.preventDefault();
       event.stopPropagation();
       openWorkspaceSectionMenu(
+        host,
         sectionId,
         "context-menu",
         getOwnerKeyboardMenuPoint(event.currentTarget),
@@ -76,7 +79,7 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
     ) {
       event.preventDefault();
       event.stopPropagation();
-      applyActiveSectionChange({ interaction: "section-click", sectionId });
+      applyActiveSectionChange(host, { interaction: "section-click", sectionId });
     }
   }
 
@@ -87,6 +90,7 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
     event.preventDefault();
     event.stopPropagation();
     openWorkspaceSectionMenu(
+      host,
       sectionId,
       "context-menu",
       { x: event.clientX, y: event.clientY },
@@ -98,7 +102,7 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
   return (
     <div
       className={`${sectionShellClassName} ${isActiveSection ? "z-[150]" : "z-10"}`}
-      onClick={getOnSectionClick(sectionId)}
+      onClick={getOnSectionClick(host, sectionId)}
       onContextMenu={onContextMenu}
       onKeyDown={onKeyDown}
       role="group"

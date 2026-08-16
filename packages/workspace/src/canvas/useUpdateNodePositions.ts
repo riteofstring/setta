@@ -1,21 +1,22 @@
 import { getActiveSectionIds } from "../document/activeSections";
-import { useWorkspaceCapabilities } from "../document/capabilities";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
+import type { WorkspaceHost } from "../workspaceHost";
 import { getNodes, updateNodePositions } from "./nodeInternalsActions";
-import { useWorkspaceOptions } from "./options";
-import { useReactFlow } from "./store";
+import { getWorkspaceOptionsStore } from "./options";
+import { getReactFlowStore } from "./store";
 
-export const updatePositions = (params: {
+export const updatePositions = (host: WorkspaceHost, params: {
   x: number;
   y: number;
   isShiftPressed: boolean;
 }) => {
-  if (!useWorkspaceCapabilities.getState().canEditLayout) {
+  if (!getWorkspaceCapabilitiesStore(host).getState().canEditLayout) {
     return;
   }
-  const { nodesSelectionDims, shiftNodesSelection } = useReactFlow.getState();
-  const { snapGrid, snapToGrid } = useWorkspaceOptions.getState();
-  const activeSectionIds = getActiveSectionIds();
-  const selectedNodes = getNodes().filter((n) =>
+  const { nodesSelectionDims, shiftNodesSelection } = getReactFlowStore(host).getState();
+  const { snapGrid, snapToGrid } = getWorkspaceOptionsStore(host).getState();
+  const activeSectionIds = getActiveSectionIds(host);
+  const selectedNodes = getNodes(host).filter((n) =>
     activeSectionIds.includes(n.id),
   );
   // by default a node moves 5px on each key press, or 20px if shift is pressed
@@ -47,7 +48,7 @@ export const updatePositions = (params: {
     };
   });
 
-  updateNodePositions(nodeUpdates);
+  updateNodePositions(host, nodeUpdates);
   if (nodesSelectionDims) {
     shiftNodesSelection({ x: positionDiffX, y: positionDiffY });
   }

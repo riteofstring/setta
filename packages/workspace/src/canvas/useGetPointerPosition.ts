@@ -1,11 +1,13 @@
 import { useCallback } from "react";
-import { useReactFlow } from "./store";
+import { useWorkspaceHost } from "../workspaceHostContext";
+import { getReactFlowStore } from "./store";
 import type { UseDragEvent } from "./types";
 
 function useGetPointerPosition() {
+  const host = useWorkspaceHost();
   // returns the pointer position projected to the canvas coordinate system
   const getPointerPosition = useCallback(({ sourceEvent }: UseDragEvent) => {
-    const { transform } = useReactFlow.getState();
+    const { transform } = getReactFlowStore(host).getState();
     const x = sourceEvent.touches
       ? sourceEvent.touches[0].clientX
       : sourceEvent.clientX;
@@ -23,7 +25,7 @@ function useGetPointerPosition() {
       ySnapped: pointerPos.y,
       ...pointerPos,
     };
-  }, []);
+  }, [host]);
 
   return getPointerPosition;
 }

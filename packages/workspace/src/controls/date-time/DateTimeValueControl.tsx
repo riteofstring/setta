@@ -10,6 +10,7 @@ import { useItemSelectionModeForControl } from "../../document/itemSelectionMode
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
 import { getElementTextDirection } from "../../styles/textDirection";
 import { focusSectionAfterEscape } from "../sectionFocus";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 import {
   buildCalendarMonthGrid,
   parseIsoDate,
@@ -317,6 +318,7 @@ export function MetaDateValueControl(props: DateValueControlProps) {
 function DateValueControlCore(
   props: DateValueControlProps & { presentation: DateTimePresentation },
 ) {
+  const host = useWorkspaceHost();
   const isSelectingItems = useItemSelectionModeForControl();
   const config = resolveDateValueControlConfig(props);
   const isDisabled = config.disabled || isSelectingItems;
@@ -326,7 +328,7 @@ function DateValueControlCore(
     isDisabled,
     isSelectingItems,
   );
-  const onEscape = () => focusSectionAfterEscape(props.sectionId);
+  const onEscape = () => focusSectionAfterEscape(host, props.sectionId);
 
   if (config.controlMode === "calendar") {
     return wrapDateTimePresentation(
@@ -399,6 +401,7 @@ function TimeValueControlCore({
   disabled = false,
   presentation,
 }: TimeValueControlProps & { presentation: DateTimePresentation }) {
+  const host = useWorkspaceHost();
   const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
   assertTimeConfig({ controlMode, displayFormat, scale, font });
@@ -430,7 +433,7 @@ function TimeValueControlCore({
       ariaLabel={ariaLabel}
       value={value}
       onChange={onValueChange}
-      onEscape={() => focusSectionAfterEscape(sectionId)}
+      onEscape={() => focusSectionAfterEscape(host, sectionId)}
       isDisabled={isDisabled}
       dateDisplayFormat="iso"
       classes={classes}

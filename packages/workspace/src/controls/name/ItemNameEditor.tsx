@@ -21,6 +21,7 @@ import {
   type TextValueTheme,
 } from "../text/textValueTheme";
 import { ItemNameErrorBubble } from "./ItemNameErrorBubble";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The item-controls milestone's editable label: the reference `ParamNameInput` at its kwarg
 // presentation, behind a controlled proposed-name seam. The package owns only the two-layer
@@ -137,6 +138,7 @@ function useItemNameActivation({
   isDisabled: boolean;
   onBlur: (() => void) | undefined;
 }) {
+  const host = useWorkspaceHost();
   const [activationEvent, setActivationEvent] =
     useState<TextValueActivationEvent | null>(null);
   const [liveIsInitialized, setLiveIsInitialized] = useState(false);
@@ -156,7 +158,7 @@ function useItemNameActivation({
     }
     if (event.button === 0) {
       setActivationEvent({ clientX: event.clientX, clientY: event.clientY });
-      applyActiveSectionChange({ interaction: "input-focus", sectionId });
+      applyActiveSectionChange(host, { interaction: "input-focus", sectionId });
     }
   }
 
@@ -203,6 +205,7 @@ function ItemNameEditorCore({
   reserveEndControlSpace,
   ...props
 }: ItemNameEditorCoreProps) {
+  const host = useWorkspaceHost();
   const {
     sectionId,
     itemId,
@@ -278,7 +281,7 @@ function ItemNameEditorCore({
             setLiveIsInitialized={setLiveIsInitialized}
             onNameChange={onNameChange}
             onEscape={() =>
-              onEscape ? onEscape() : focusSectionAfterEscape(sectionId)
+              onEscape ? onEscape() : focusSectionAfterEscape(host, sectionId)
             }
             onBlur={localOnBlur}
             className={getLiveClassName(
@@ -339,6 +342,7 @@ function LiveItemNameEditor({
   className: string;
   errorId: string | undefined;
 }) {
+  const host = useWorkspaceHost();
   const extensions = [
     ...getTextValueExtensions({
       language,
@@ -349,6 +353,7 @@ function LiveItemNameEditor({
     getCodeMirrorContentAttributes(errorId),
   ];
   const onCreateEditor = getOnCreateEditor({
+    host,
     initialEvent,
     setRealIsInitialized: setLiveIsInitialized,
     editorId: liveEditorId,

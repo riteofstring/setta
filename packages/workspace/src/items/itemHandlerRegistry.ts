@@ -3,6 +3,7 @@ import type {
   DropzoneRejection,
   DropzoneServerPickerRequest,
 } from "../controls/dropzone/dropzoneTypes";
+import type { WorkspaceHost } from "../workspaceHost";
 
 type WorkspaceItemHandlerRegistrationBase = {
   sectionId: string;
@@ -28,7 +29,22 @@ export type WorkspaceItemHandlerRegistration =
   | WorkspaceDropzoneItemHandlerRegistration
   | WorkspacePasswordItemHandlerRegistration;
 
-const registrations = new Map<string, WorkspaceItemHandlerRegistration>();
+const registrationsByHost = new WeakMap<
+  WorkspaceHost,
+  Map<string, WorkspaceItemHandlerRegistration>
+>();
+
+function getRegistrations(
+  host: WorkspaceHost,
+): Map<string, WorkspaceItemHandlerRegistration> {
+  const existing = registrationsByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const registrations = new Map<string, WorkspaceItemHandlerRegistration>();
+  registrationsByHost.set(host, registrations);
+  return registrations;
+}
 type UnknownRecord = Record<string, unknown>;
 
 function getRegistrationKey(sectionId: string, itemId: string): string {
@@ -138,6 +154,7 @@ function assertRegistration(
 // browser Files, host persistence, server pickers, attachment removal, and saved-secret actions
 // cross this explicit function registry keyed by the stable section/item identity.
 export function registerItemHandlers(
+  host: WorkspaceHost,
   nextRegistrations: ReadonlyArray<WorkspaceItemHandlerRegistration>,
 ): void {
   if (!Array.isArray(nextRegistrations)) {
@@ -154,6 +171,7 @@ export function registerItemHandlers(
     }
     next.set(key, registration);
   }
+  const registrations = getRegistrations(host);
   registrations.clear();
   for (const [key, registration] of next) {
     registrations.set(key, registration);
@@ -161,8 +179,9 @@ export function registerItemHandlers(
 }
 
 export function getItemHandlerRegistration(
+  host: WorkspaceHost,
   sectionId: string,
   itemId: string,
 ): WorkspaceItemHandlerRegistration | null {
-  return registrations.get(getRegistrationKey(sectionId, itemId)) ?? null;
+  return getRegistrations(host).get(getRegistrationKey(sectionId, itemId)) ?? null;
 }

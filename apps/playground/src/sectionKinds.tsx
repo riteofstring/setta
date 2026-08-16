@@ -2,7 +2,6 @@ import {
   createWorkspaceCodeSection,
   createWorkspaceTextSection,
   getWorkspaceCodeSectionData,
-  getWorkspaceDocument,
   getWorkspaceTextSectionData,
   ItemDndContext,
   MetaControl,
@@ -12,6 +11,7 @@ import {
   setSectionData,
   setWorkspaceCodeSectionData,
   setWorkspaceTextSectionData,
+  useWorkspaceHost,
   WORKSPACE_CODE_SECTION_KIND,
   WORKSPACE_CODE_SECTION_LANGUAGES,
   WORKSPACE_CODE_SECTION_MAXIMUM_INDENT_WIDTH,
@@ -34,6 +34,7 @@ import {
   type WorkspaceInspectorContributionContext,
   type WorkspaceItem,
   type WorkspaceItemDiagnosticRegistry,
+  type WorkspaceHost,
   type WorkspaceSection,
   type WorkspaceSectionData,
   type WorkspaceTextSectionData,
@@ -109,12 +110,14 @@ function PlaygroundInspectorContribution({
 // panel (frozen main's own code-area settings are entirely file-binding, which is application
 // state this package does not carry).
 function updatePlaygroundCodeSection(
+  host: WorkspaceHost,
   sectionId: string,
   update: (current: WorkspaceCodeSectionData) => WorkspaceCodeSectionData,
 ) {
   setWorkspaceCodeSectionData(
+    host,
     sectionId,
-    update(getWorkspaceCodeSectionData(sectionId)),
+    update(getWorkspaceCodeSectionData(host, sectionId)),
   );
 }
 
@@ -123,7 +126,8 @@ export function PlaygroundCodeSectionInspector({
 }: {
   sectionId: string;
 }) {
-  const data = getWorkspaceCodeSectionData(sectionId);
+  const host = useWorkspaceHost();
+  const data = getWorkspaceCodeSectionData(host, sectionId);
   return (
     <div className="playground-host-pane">
       <fieldset className="playground-section-options">
@@ -133,7 +137,7 @@ export function PlaygroundCodeSectionInspector({
           <select
             className="playground-section-option-control"
             onChange={(event) =>
-              updatePlaygroundCodeSection(sectionId, (current) => ({
+              updatePlaygroundCodeSection(host, sectionId, (current) => ({
                 ...current,
                 language: event.target.value as WorkspaceCodeSectionLanguage,
               }))
@@ -153,7 +157,7 @@ export function PlaygroundCodeSectionInspector({
             checked={data.wrapLines}
             className="playground-section-option-switch"
             onChange={(event) =>
-              updatePlaygroundCodeSection(sectionId, (current) => ({
+              updatePlaygroundCodeSection(host, sectionId, (current) => ({
                 ...current,
                 wrapLines: event.target.checked,
               }))
@@ -167,7 +171,7 @@ export function PlaygroundCodeSectionInspector({
             checked={data.lineNumbers}
             className="playground-section-option-switch"
             onChange={(event) =>
-              updatePlaygroundCodeSection(sectionId, (current) => ({
+              updatePlaygroundCodeSection(host, sectionId, (current) => ({
                 ...current,
                 lineNumbers: event.target.checked,
               }))
@@ -182,7 +186,7 @@ export function PlaygroundCodeSectionInspector({
             max={WORKSPACE_CODE_SECTION_MAXIMUM_INDENT_WIDTH}
             min={WORKSPACE_CODE_SECTION_MINIMUM_INDENT_WIDTH}
             onChange={(event) =>
-              updatePlaygroundCodeSection(sectionId, (current) => ({
+              updatePlaygroundCodeSection(host, sectionId, (current) => ({
                 ...current,
                 indentWidth: Number(event.target.value),
               }))
@@ -197,7 +201,7 @@ export function PlaygroundCodeSectionInspector({
             checked={data.readOnly}
             className="playground-section-option-switch"
             onChange={(event) =>
-              updatePlaygroundCodeSection(sectionId, (current) => ({
+              updatePlaygroundCodeSection(host, sectionId, (current) => ({
                 ...current,
                 readOnly: event.target.checked,
               }))
@@ -213,12 +217,14 @@ export function PlaygroundCodeSectionInspector({
 // The text section's options are host UI over the same typed data the editor and the header
 // control commit through, so no option needs a package-invented settings panel.
 function updatePlaygroundTextSection(
+  host: WorkspaceHost,
   sectionId: string,
   update: (current: WorkspaceTextSectionData) => WorkspaceTextSectionData,
 ) {
   setWorkspaceTextSectionData(
+    host,
     sectionId,
-    update(getWorkspaceTextSectionData(sectionId)),
+    update(getWorkspaceTextSectionData(host, sectionId)),
   );
 }
 
@@ -227,7 +233,8 @@ export function PlaygroundTextSectionInspector({
 }: {
   sectionId: string;
 }) {
-  const data = getWorkspaceTextSectionData(sectionId);
+  const host = useWorkspaceHost();
+  const data = getWorkspaceTextSectionData(host, sectionId);
   return (
     <div className="playground-host-pane">
       <fieldset className="playground-section-options">
@@ -237,7 +244,7 @@ export function PlaygroundTextSectionInspector({
           <select
             className="playground-section-option-control"
             onChange={(event) =>
-              updatePlaygroundTextSection(sectionId, (current) => ({
+              updatePlaygroundTextSection(host, sectionId, (current) => ({
                 ...current,
                 format: event.target.value as WorkspaceTextSectionFormat,
               }))
@@ -258,7 +265,7 @@ export function PlaygroundTextSectionInspector({
             max={WORKSPACE_TEXT_SECTION_MAXIMUM_FONT_SIZE}
             min={WORKSPACE_TEXT_SECTION_MINIMUM_FONT_SIZE}
             onChange={(event) =>
-              updatePlaygroundTextSection(sectionId, (current) => ({
+              updatePlaygroundTextSection(host, sectionId, (current) => ({
                 ...current,
                 fontSizePx: Number(event.target.value),
               }))
@@ -273,7 +280,7 @@ export function PlaygroundTextSectionInspector({
             checked={data.readOnly}
             className="playground-section-option-switch"
             onChange={(event) =>
-              updatePlaygroundTextSection(sectionId, (current) => ({
+              updatePlaygroundTextSection(host, sectionId, (current) => ({
                 ...current,
                 readOnly: event.target.checked,
               }))
@@ -453,9 +460,11 @@ function describeDropzoneRejection(rejection: DropzoneRejection): string {
   return "The drop exceeds the total size limit.";
 }
 
-function getItemDropzoneConfiguration(): WorkspaceDropzoneItemControlConfiguration {
+function getItemDropzoneConfiguration(
+  host: WorkspaceHost,
+): WorkspaceDropzoneItemControlConfiguration {
   const item =
-    getWorkspaceDocument().sections["item-panel"]?.itemTree?.items[
+    host.getSnapshot().sections["item-panel"]?.itemTree?.items[
       "item-dropzone"
     ];
   const control = item?.presentation?.control;
@@ -468,24 +477,25 @@ function getItemDropzoneConfiguration(): WorkspaceDropzoneItemControlConfigurati
 }
 
 function updateItemDropzoneConfiguration(
+  host: WorkspaceHost,
   update: (
     current: WorkspaceDropzoneItemControlConfiguration,
   ) => WorkspaceDropzoneItemControlConfiguration,
 ) {
-  setItemControlConfiguration("item-panel", "item-dropzone", {
+  setItemControlConfiguration(host, "item-panel", "item-dropzone", {
     kind: "dropzone",
-    configuration: update(getItemDropzoneConfiguration()),
+    configuration: update(getItemDropzoneConfiguration(host)),
   });
 }
 
-function registerPlaygroundItemHandlers() {
-  registerItemHandlers([
+function registerPlaygroundItemHandlers(host: WorkspaceHost) {
+  registerItemHandlers(host, [
     {
       sectionId: "item-panel",
       itemId: "item-dropzone",
       kind: "dropzone",
       onAccepted: (result) =>
-        updateItemDropzoneConfiguration((current) => ({
+        updateItemDropzoneConfiguration(host, (current) => ({
           ...current,
           attachments: [
             ...current.attachments,
@@ -499,14 +509,14 @@ function registerPlaygroundItemHandlers() {
       onRejected: (rejections) => {
         const firstRejection = rejections[0];
         if (firstRejection) {
-          updateItemDropzoneConfiguration((current) => ({
+          updateItemDropzoneConfiguration(host, (current) => ({
             ...current,
             errorMessage: describeDropzoneRejection(firstRejection),
           }));
         }
       },
       onServerFilePickerRequest: () =>
-        updateItemDropzoneConfiguration((current) => ({
+        updateItemDropzoneConfiguration(host, (current) => ({
           ...current,
           attachments: [
             ...current.attachments,
@@ -520,7 +530,7 @@ function registerPlaygroundItemHandlers() {
           errorMessage: null,
         })),
       onAttachmentRemove: (attachmentId) =>
-        updateItemDropzoneConfiguration((current) => ({
+        updateItemDropzoneConfiguration(host, (current) => ({
           ...current,
           attachments: current.attachments.filter(
             (attachment) => attachment.id !== attachmentId,
@@ -686,22 +696,26 @@ function getMetaControlOption<const Option extends string>(
 }
 
 function updateMetaControlData(
+  host: WorkspaceHost,
   sectionId: string,
   update: (current: { [key: string]: WorkspaceSectionData }) => {
     [key: string]: WorkspaceSectionData;
   },
 ) {
-  const section = getWorkspaceDocument().sections[sectionId];
+  const section = host.getSnapshot().sections[sectionId];
   if (!section) {
     throw new Error(`Unknown meta control section ${sectionId}.`);
   }
-  setSectionData(sectionId, update(getMetaControlDataRecord(section)));
+  setSectionData(host, sectionId, update(getMetaControlDataRecord(section)));
 }
 
 // Exported for the focused host-seam regression. The package reports an edit request; this
 // unrelated host decides how that request changes its opaque section data.
-export function commitPlaygroundMetaControlEditRequest(sectionId: string) {
-  updateMetaControlData(sectionId, (current) => {
+export function commitPlaygroundMetaControlEditRequest(
+  host: WorkspaceHost,
+  sectionId: string,
+) {
+  updateMetaControlData(host, sectionId, (current) => {
     const editRequests = current["editRequests"];
     if (typeof editRequests !== "number") {
       throw new Error(
@@ -713,11 +727,12 @@ export function commitPlaygroundMetaControlEditRequest(sectionId: string) {
 }
 
 export function commitPlaygroundMetaControlValue(
+  host: WorkspaceHost,
   sectionId: string,
   expectedKind: Exclude<MetaControlKind, "button" | "dropzone">,
   value: string,
 ) {
-  updateMetaControlData(sectionId, (current) => {
+  updateMetaControlData(host, sectionId, (current) => {
     if (current["control"] !== expectedKind) {
       throw new Error(
         `Meta control section ${sectionId} is not a ${expectedKind} control.`,
@@ -773,10 +788,11 @@ function getMetaDropzonePolicy(section: WorkspaceSection): DropzonePolicy {
 }
 
 function commitMetaDropzoneAccepted(
+  host: WorkspaceHost,
   section: WorkspaceSection,
   result: DropzoneAcceptedResult,
 ) {
-  updateMetaControlData(section.id, (current) => ({
+  updateMetaControlData(host, section.id, (current) => ({
     ...current,
     attachments: [
       ...getMetaDropzoneAttachmentsFromData(section.id, current),
@@ -787,6 +803,7 @@ function commitMetaDropzoneAccepted(
 }
 
 function buildButtonOrTextMetaControl(
+  host: WorkspaceHost,
   section: WorkspaceSection,
   kind: MetaControlKind,
 ): MetaControlDefinition | null {
@@ -797,7 +814,7 @@ function buildButtonOrTextMetaControl(
       disabled: getMetaControlBoolean(section, "disabled"),
       pending: getMetaControlBoolean(section, "pending"),
       onAction: () =>
-        updateMetaControlData(section.id, (current) => {
+        updateMetaControlData(host, section.id, (current) => {
           const actionCount = current["actionCount"];
           if (typeof actionCount !== "number") {
             throw new Error(
@@ -817,13 +834,14 @@ function buildButtonOrTextMetaControl(
       language: "python",
       disabled: getMetaControlBoolean(section, "disabled"),
       onValueChange: (value) =>
-        commitPlaygroundMetaControlValue(section.id, kind, value),
+        commitPlaygroundMetaControlValue(host, section.id, kind, value),
     };
   }
   return null;
 }
 
 function buildNumericMetaControl(
+  host: WorkspaceHost,
   section: WorkspaceSection,
   kind: MetaControlKind,
 ): MetaControlDefinition | null {
@@ -839,11 +857,12 @@ function buildNumericMetaControl(
     step: getMetaControlNumber(section, "step"),
     disabled: getMetaControlBoolean(section, "disabled"),
     onValueChange: (value) =>
-      commitPlaygroundMetaControlValue(section.id, kind, value),
+      commitPlaygroundMetaControlValue(host, section.id, kind, value),
   };
 }
 
 function buildChoiceMetaControl(
+  host: WorkspaceHost,
   section: WorkspaceSection,
   kind: MetaControlKind,
 ): MetaControlDefinition | null {
@@ -855,7 +874,7 @@ function buildChoiceMetaControl(
     value: getMetaControlString(section, "value"),
     disabled: getMetaControlBoolean(section, "disabled"),
     onValueChange: (value: string) =>
-      commitPlaygroundMetaControlValue(section.id, kind, value),
+      commitPlaygroundMetaControlValue(host, section.id, kind, value),
   };
   if (kind === "switch") {
     return { kind, ...shared, label: getMetaControlString(section, "label") };
@@ -876,6 +895,7 @@ function buildChoiceMetaControl(
 }
 
 function buildDateTimeMetaControl(
+  host: WorkspaceHost,
   section: WorkspaceSection,
   kind: MetaControlKind,
 ): MetaControlDefinition | null {
@@ -915,7 +935,7 @@ function buildDateTimeMetaControl(
         "twelve_hour",
       ]),
       onValueChange: (value) =>
-        commitPlaygroundMetaControlValue(section.id, kind, value),
+        commitPlaygroundMetaControlValue(host, section.id, kind, value),
     };
   }
   return {
@@ -937,11 +957,12 @@ function buildDateTimeMetaControl(
       "system",
     ]),
     onValueChange: (value) =>
-      commitPlaygroundMetaControlValue(section.id, kind, value),
+      commitPlaygroundMetaControlValue(host, section.id, kind, value),
   };
 }
 
 function buildPasswordOrDropzoneMetaControl(
+  host: WorkspaceHost,
   section: WorkspaceSection,
   kind: MetaControlKind,
 ): MetaControlDefinition | null {
@@ -953,7 +974,7 @@ function buildPasswordOrDropzoneMetaControl(
       value: getMetaControlString(section, "value"),
       disabled: getMetaControlBoolean(section, "disabled"),
       onValueChange: (value) =>
-        commitPlaygroundMetaControlValue(section.id, kind, value),
+        commitPlaygroundMetaControlValue(host, section.id, kind, value),
     };
   }
   if (kind !== "dropzone") {
@@ -974,11 +995,11 @@ function buildPasswordOrDropzoneMetaControl(
     pending: getMetaControlBoolean(section, "pending"),
     errorMessage: getMetaControlString(section, "errorMessage") || undefined,
     disabled: getMetaControlBoolean(section, "disabled"),
-    onAccepted: (result) => commitMetaDropzoneAccepted(section, result),
+    onAccepted: (result) => commitMetaDropzoneAccepted(host, section, result),
     onRejected: (rejections) => {
       const firstRejection = rejections[0];
       if (firstRejection) {
-        updateMetaControlData(section.id, (current) => ({
+        updateMetaControlData(host, section.id, (current) => ({
           ...current,
           errorMessage: describeDropzoneRejection(firstRejection),
         }));
@@ -986,7 +1007,7 @@ function buildPasswordOrDropzoneMetaControl(
     },
     onServerFilePickerRequest: serverPicker
       ? () =>
-          updateMetaControlData(section.id, (current) => ({
+          updateMetaControlData(host, section.id, (current) => ({
             ...current,
             attachments: [
               ...getMetaDropzoneAttachmentsFromData(section.id, current),
@@ -1001,7 +1022,7 @@ function buildPasswordOrDropzoneMetaControl(
           }))
       : undefined,
     onAttachmentRemove: (attachmentId) =>
-      updateMetaControlData(section.id, (current) => ({
+      updateMetaControlData(host, section.id, (current) => ({
         ...current,
         attachments: getMetaDropzoneAttachmentsFromData(
           section.id,
@@ -1013,15 +1034,16 @@ function buildPasswordOrDropzoneMetaControl(
 }
 
 function getPlaygroundMetaControl(
+  host: WorkspaceHost,
   section: WorkspaceSection,
 ): MetaControlDefinition {
   const kind = getMetaControlKind(section);
   const control =
-    buildButtonOrTextMetaControl(section, kind) ??
-    buildNumericMetaControl(section, kind) ??
-    buildChoiceMetaControl(section, kind) ??
-    buildDateTimeMetaControl(section, kind) ??
-    buildPasswordOrDropzoneMetaControl(section, kind);
+    buildButtonOrTextMetaControl(host, section, kind) ??
+    buildNumericMetaControl(host, section, kind) ??
+    buildChoiceMetaControl(host, section, kind) ??
+    buildDateTimeMetaControl(host, section, kind) ??
+    buildPasswordOrDropzoneMetaControl(host, section, kind);
   if (!control) {
     throw new Error(
       `Meta control section ${section.id} has no adapter for ${kind}.`,
@@ -1037,12 +1059,13 @@ export function MetaControlSectionBody({
 }: {
   section: WorkspaceSection;
 }) {
+  const host = useWorkspaceHost();
   return (
     <MetaControl
       sectionId={section.id}
       sectionName={section.name}
       showSectionTitle={getMetaControlBoolean(section, "showSectionTitle")}
-      control={getPlaygroundMetaControl(section)}
+      control={getPlaygroundMetaControl(host, section)}
     />
   );
 }
@@ -1052,9 +1075,9 @@ export function MetaControlSectionBody({
 // a 1 px border on every side. The leaf's 200 x 122 renders the accepted 202 x 124 outer
 // geometry, and the item panel's 550 x 350 renders the recorded 552 x 352 `/settings` Dict
 // outer measurement from the Phase 4 gate.
-export function registerPlaygroundSectionKinds(): void {
-  registerPlaygroundItemHandlers();
-  registerSectionKinds({
+export function registerPlaygroundSectionKinds(host: WorkspaceHost): void {
+  registerPlaygroundItemHandlers(host);
+  registerSectionKinds(host, {
     leaf: {
       renderContent: (section) => <LeafSectionBody section={section} />,
       renderInspector: (context) => (
@@ -1079,7 +1102,8 @@ export function registerPlaygroundSectionKinds(): void {
       presentation: {
         type: "meta-control",
         resolveControlKind: getMetaControlKind,
-        onEdit: (section) => commitPlaygroundMetaControlEditRequest(section.id),
+        onEdit: (section) =>
+          commitPlaygroundMetaControlEditRequest(host, section.id),
       },
     },
     // The built-in Code Editor section composes with this host's own kinds through the same

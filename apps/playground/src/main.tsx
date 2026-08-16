@@ -1,4 +1,8 @@
-import { loadWorkspaceDocument, setWorkspaceColorMode } from "@setta/workspace";
+import {
+  createWorkspaceHost,
+  setWorkspaceColorMode,
+  WorkspaceProvider,
+} from "@setta/workspace";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
@@ -15,16 +19,18 @@ import { registerPlaygroundSectionKinds } from "./sectionKinds";
 // The appearance store must reflect the boot dark-mode class before the document loads,
 // because node projection derives style-color backgrounds from it. Kind registration also
 // precedes the load: loading validates section kinds against the registry.
+const workspaceHost = createWorkspaceHost();
 setWorkspaceColorMode(
+  workspaceHost,
   document.documentElement.classList.contains("dark") ? "dark" : "light",
 );
-registerPlaygroundSectionKinds();
-registerPlaygroundMenuExtensions();
-registerPlaygroundKeyBindings();
+registerPlaygroundSectionKinds(workspaceHost);
+registerPlaygroundMenuExtensions(workspaceHost);
+registerPlaygroundKeyBindings(workspaceHost);
 const isPerformanceProfile = new URLSearchParams(window.location.search).has(
   "performance-profile",
 );
-loadWorkspaceDocument(
+workspaceHost.loadDocument(
   isPerformanceProfile ? performanceProfileDocument : playgroundDocument,
 );
 
@@ -35,6 +41,8 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    {isPerformanceProfile ? <PerformanceProfileApp /> : <App />}
+    <WorkspaceProvider host={workspaceHost}>
+      {isPerformanceProfile ? <PerformanceProfileApp /> : <App />}
+    </WorkspaceProvider>
   </StrictMode>,
 );

@@ -1,13 +1,14 @@
 import _ from "lodash";
 import { useEffect, useMemo, type ReactNode } from "react";
-import { useWorkspaceDocument } from "../document/stores";
+import { getWorkspaceDocumentStore } from "../document/stores";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import { DragDropProvider } from "./adapter";
 import { createCollisionTracker } from "./adapter/collision";
 import { DeferredDndDeactivation } from "./DeferredDndDeactivation";
 import {
   getDisplayedSectionIdToChildren,
+  getDndChildrenStore,
   updateDndChildren,
-  useDndChildren,
 } from "./dndChildren";
 import { useDndMode } from "./dndState";
 import { DragOperationShapeSync } from "./DragOperationShapeSync";
@@ -21,23 +22,25 @@ import { useOnDragEnd as useOnDragEndMoveSection } from "./useMoveSection";
 // subscription (`state/subscriptions.ts`); the package owns the same lifecycle here, scoped to
 // the mounted dnd context.
 function useDndChildrenDocumentSync() {
+  const host = useWorkspaceHost();
   useEffect(() => {
     let lastChildren = getDisplayedSectionIdToChildren(
-      useWorkspaceDocument.getState(),
+      getWorkspaceDocumentStore(host).getState(),
     );
-    updateDndChildren(lastChildren);
-    return useWorkspaceDocument.subscribe((state) => {
+    updateDndChildren(host, lastChildren);
+    return getWorkspaceDocumentStore(host).subscribe((state) => {
       const nextChildren = getDisplayedSectionIdToChildren(state);
       if (_.isEqual(nextChildren, lastChildren)) {
         return;
       }
       lastChildren = nextChildren;
-      updateDndChildren(nextChildren);
+      updateDndChildren(host, nextChildren);
     });
-  }, []);
+  }, [host]);
 }
 
 export function SectionDndContext({ children }: { children: ReactNode }) {
+  const host = useWorkspaceHost();
   const { dummyRef, onDragEnd } = useOnDragEndMoveSection();
   const onDragMove = useOnDragMove();
   const onDragOver = useOnDragOver();
@@ -48,10 +51,11 @@ export function SectionDndContext({ children }: { children: ReactNode }) {
   const collisionTracker = useMemo(
     () =>
       createCollisionTracker({
+        host,
         mode: "section",
-        getParentByChild: () => useDndChildren.getState().y,
+        getParentByChild: () => getDndChildrenStore(host).getState().y,
       }),
-    [],
+    [host],
   );
   const dndContext = useMemo(
     () => ({
@@ -64,7 +68,7 @@ export function SectionDndContext({ children }: { children: ReactNode }) {
   return (
     <DragDropProvider
       sensors={sensors}
-      onDragStart={onDragStart}
+      onDragStart={(event) => onDragStart(host, event)}
       onDragMove={onDragMove}
       onDragEnd={onDragEnd}
       onDragCancel={onDragEnd}

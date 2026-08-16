@@ -7,10 +7,12 @@ import { useReactFlow } from "./store";
 import { containerStyle } from "./styles";
 import type { ReactFlowState } from "./types";
 import { NodeWrapper } from "./wrapNode";
+import { useWorkspaceHost } from "../workspaceHostContext";
 
 const selector = (s: ReactFlowState) => s.panActivationKeyPressed;
 
 const NodeRenderer = () => {
+  const host = useWorkspaceHost();
   const panActivationKeyPressed = useReactFlow(selector);
   // The getNodes selector has to use the "shallow" comparison
   // and not _.isEqual, otherwise it only re-renders every other update,
@@ -27,14 +29,14 @@ const NodeRenderer = () => {
 
     const observer = new ResizeObserver(
       (entries: Array<ResizeObserverEntry>) => {
-        updateNodeDimensionsFromResizeObserver(entries);
+        updateNodeDimensionsFromResizeObserver(host, entries);
       },
     );
 
     resizeObserverRef.current = observer;
 
     return observer;
-  }, []);
+  }, [host]);
 
   useEffect(() => {
     return () => {

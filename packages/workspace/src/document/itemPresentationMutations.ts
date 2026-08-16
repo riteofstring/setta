@@ -10,15 +10,20 @@ import {
   hasWorkspaceItemPresentation,
 } from "./itemPresentation";
 import { getItemOrThrow } from "./itemTree";
-import { useWorkspaceDocument } from "./stores";
+import { getWorkspaceDocumentStore } from "./stores";
 import type {
   WorkspaceItemControlConfiguration,
   WorkspaceItemControlPresentation,
   WorkspaceItemPresentation,
 } from "./types";
+import type { WorkspaceHost } from "../workspaceHost";
 
-function getBuiltInItemState(sectionId: string, itemId: string) {
-  const documentState = useWorkspaceDocument.getState();
+function getBuiltInItemState(
+  host: WorkspaceHost,
+  sectionId: string,
+  itemId: string,
+) {
+  const documentState = getWorkspaceDocumentStore(host).getState();
   const section = getSectionOrThrow(documentState, sectionId);
   const itemTree = getSectionItemTreeOrThrow(documentState, sectionId);
   const item = getItemOrThrow(itemTree, itemId);
@@ -31,6 +36,7 @@ function getBuiltInItemState(sectionId: string, itemId: string) {
 }
 
 function commitItemPresentation(
+  host: WorkspaceHost,
   sectionId: string,
   itemId: string,
   presentation: WorkspaceItemPresentation,
@@ -40,10 +46,11 @@ function commitItemPresentation(
     `Section ${sectionId} item ${itemId} presentation mutation`,
   );
   const { documentState, section, itemTree, item } = getBuiltInItemState(
+    host,
     sectionId,
     itemId,
   );
-  useWorkspaceDocument.setState({
+  getWorkspaceDocumentStore(host).setState({
     sections: {
       ...documentState.sections,
       [sectionId]: {
@@ -58,7 +65,7 @@ function commitItemPresentation(
       },
     },
   });
-  notifyWorkspaceDocumentChange();
+  notifyWorkspaceDocumentChange(host);
 }
 
 // Each typed-item edit has one canonical replacement and one document notification. Label and
@@ -66,6 +73,7 @@ function commitItemPresentation(
 // configuration updates carry their kind so a stale Inspector cannot write options onto another
 // control after selection changes.
 export function setItemLabel(
+  host: WorkspaceHost,
   sectionId: string,
   itemId: string,
   label: string,
@@ -75,16 +83,17 @@ export function setItemLabel(
       `Section ${sectionId} item ${itemId} label must be a string.`,
     );
   }
-  const { item } = getBuiltInItemState(sectionId, itemId);
+  const { item } = getBuiltInItemState(host, sectionId, itemId);
   if (!item.presentation.labelEditable) {
     throw new Error(
       `Section ${sectionId} item ${itemId} label is not editable.`,
     );
   }
-  commitItemPresentation(sectionId, itemId, { ...item.presentation, label });
+  commitItemPresentation(host, sectionId, itemId, { ...item.presentation, label });
 }
 
 export function setItemHelpText(
+  host: WorkspaceHost,
   sectionId: string,
   itemId: string,
   helpText: string | null,
@@ -94,17 +103,18 @@ export function setItemHelpText(
       `Section ${sectionId} item ${itemId} help text must be a string or null.`,
     );
   }
-  const { item } = getBuiltInItemState(sectionId, itemId);
+  const { item } = getBuiltInItemState(host, sectionId, itemId);
   if (helpText === null) {
     const presentation = { ...item.presentation };
     delete presentation.helpText;
-    commitItemPresentation(sectionId, itemId, presentation);
+    commitItemPresentation(host, sectionId, itemId, presentation);
     return;
   }
-  commitItemPresentation(sectionId, itemId, { ...item.presentation, helpText });
+  commitItemPresentation(host, sectionId, itemId, { ...item.presentation, helpText });
 }
 
 export function setItemValue(
+  host: WorkspaceHost,
   sectionId: string,
   itemId: string,
   value: string,
@@ -114,19 +124,20 @@ export function setItemValue(
       `Section ${sectionId} item ${itemId} value must be a string.`,
     );
   }
-  const { item } = getBuiltInItemState(sectionId, itemId);
+  const { item } = getBuiltInItemState(host, sectionId, itemId);
   if (item.presentation.control.kind === "group") {
     throw new Error(
       `Section ${sectionId} item ${itemId} is a group and has no controlled value.`,
     );
   }
-  commitItemPresentation(sectionId, itemId, {
+  commitItemPresentation(host, sectionId, itemId, {
     ...item.presentation,
     control: { ...item.presentation.control, value },
   });
 }
 
 export function setItemPresentation(
+  host: WorkspaceHost,
   sectionId: string,
   itemId: string,
   control: WorkspaceItemControlPresentation,
@@ -135,11 +146,12 @@ export function setItemPresentation(
     control,
     `Section ${sectionId} item ${itemId} control mutation`,
   );
-  const { item } = getBuiltInItemState(sectionId, itemId);
-  commitItemPresentation(sectionId, itemId, { ...item.presentation, control });
+  const { item } = getBuiltInItemState(host, sectionId, itemId);
+  commitItemPresentation(host, sectionId, itemId, { ...item.presentation, control });
 }
 
 export function setItemControlConfiguration(
+  host: WorkspaceHost,
   sectionId: string,
   itemId: string,
   update: WorkspaceItemControlConfiguration,
@@ -148,7 +160,7 @@ export function setItemControlConfiguration(
     update,
     `Section ${sectionId} item ${itemId} control-configuration mutation`,
   );
-  const { item } = getBuiltInItemState(sectionId, itemId);
+  const { item } = getBuiltInItemState(host, sectionId, itemId);
   const currentControl = item.presentation.control;
   if (currentControl.kind === "group") {
     throw new Error(
@@ -168,7 +180,7 @@ export function setItemControlConfiguration(
     nextControl,
     `Section ${sectionId} item ${itemId} control-configuration mutation`,
   );
-  commitItemPresentation(sectionId, itemId, {
+  commitItemPresentation(host, sectionId, itemId, {
     ...item.presentation,
     control: nextControl,
   });

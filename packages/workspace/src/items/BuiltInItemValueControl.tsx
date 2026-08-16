@@ -13,6 +13,8 @@ import { TextValueEditor } from "../controls/text/TextValueEditor";
 import { setItemValue } from "../document/itemPresentationMutations";
 import type { WorkspaceItemControlPresentation } from "../document/types";
 import { getItemHandlerRegistration } from "./itemHandlerRegistry";
+import { useWorkspaceHost } from "../workspaceHostContext";
+import type { WorkspaceHost } from "../workspaceHost";
 
 type ValueControl = Exclude<
   WorkspaceItemControlPresentation,
@@ -27,6 +29,7 @@ type BuiltInItemValueControlProps = {
 };
 
 type ControlRendererProps = BuiltInItemValueControlProps & {
+  host: WorkspaceHost;
   ariaLabel: string;
   onValueChange: (nextValue: string) => void;
 };
@@ -192,6 +195,7 @@ function renderPasswordControl(props: ControlRendererProps) {
     return null;
   }
   const registration = getItemHandlerRegistration(
+    props.host,
     props.sectionId,
     props.itemId,
   );
@@ -225,6 +229,7 @@ function renderDropzoneControl(props: ControlRendererProps) {
     return null;
   }
   const registration = getItemHandlerRegistration(
+    props.host,
     props.sectionId,
     props.itemId,
   );
@@ -254,11 +259,13 @@ function renderDropzoneControl(props: ControlRendererProps) {
 }
 
 export function BuiltInItemValueControl(props: BuiltInItemValueControlProps) {
+  const host = useWorkspaceHost();
   const rendererProps = {
     ...props,
+    host,
     ariaLabel: `${props.label} value`,
     onValueChange: (nextValue: string) =>
-      setItemValue(props.sectionId, props.itemId, nextValue),
+      setItemValue(host, props.sectionId, props.itemId, nextValue),
   };
   const control =
     renderTextControl(rendererProps) ??

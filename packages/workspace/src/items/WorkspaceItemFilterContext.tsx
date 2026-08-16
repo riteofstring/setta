@@ -11,6 +11,7 @@ import {
 import { getSectionOrThrow } from "../document/documentSelectors";
 import { useWorkspaceDocument } from "../document/stores";
 import { filterWorkspaceSectionItems } from "./itemFiltering";
+import { useWorkspaceHost } from "../workspaceHostContext";
 
 type WorkspaceItemFilterContextValue = {
   clearAndFocus: () => void;
@@ -36,14 +37,15 @@ export function WorkspaceItemFilterProvider({
   hasSectionStyleTheme?: boolean;
   sectionId: string;
 }) {
+  const host = useWorkspaceHost();
   const [query, setQuery] = useState("");
   const filterInputRef = useRef<HTMLInputElement | null>(null);
   const section = useWorkspaceDocument((state) =>
     getSectionOrThrow(state, sectionId),
   );
   const result = useMemo(
-    () => filterWorkspaceSectionItems(section, query),
-    [query, section],
+    () => filterWorkspaceSectionItems(host, section, query),
+    [host, query, section],
   );
   const itemTree = section.itemTree;
   if (!itemTree) {

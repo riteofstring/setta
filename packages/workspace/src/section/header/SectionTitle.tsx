@@ -5,6 +5,7 @@ import { useWorkspaceDocument } from "../../document/stores";
 import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip";
 import { Editable } from "./Editable";
 import { useEditableOnSubmit } from "./useEditableOnSubmit";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The reference's `SectionTitle`, trimmed to the slice: renaming is gated by
 // `canEditStructure`; the fixed presentation renders when editing is not allowed. The
@@ -23,6 +24,7 @@ type SectionTitleProps = {
 };
 
 export function SectionTitle({ sectionId, titleProps }: SectionTitleProps) {
+  const host = useWorkspaceHost();
   const sectionName = useWorkspaceDocument(
     (x) => getSectionOrThrow(x, sectionId).name,
   );
@@ -42,7 +44,7 @@ export function SectionTitle({ sectionId, titleProps }: SectionTitleProps) {
   return (
     <h2
       className={titleProps.fixed}
-      {...getWorkspaceTooltipHandlers({ content: sectionName })}
+      {...getWorkspaceTooltipHandlers(host, { content: sectionName })}
     >
       {sectionName}
     </h2>
@@ -58,10 +60,11 @@ function EditableTitle({
   sectionName: string;
   titleProps: SectionTitleClassNames;
 }) {
+  const host = useWorkspaceHost();
   const normalizeName = (value: string) => value.trim();
   const editable = useEditableOnSubmit(
     sectionName,
-    (name) => setSectionName(sectionId, name),
+    (name) => setSectionName(host, sectionId, name),
     () => true,
     normalizeName,
   );
@@ -77,7 +80,7 @@ function EditableTitle({
         restoreFocusAfterKeyboardSubmit={
           editable.restoreFocusAfterKeyboardSubmit
         }
-        {...getWorkspaceTooltipHandlers({ content: sectionName })}
+        {...getWorkspaceTooltipHandlers(host, { content: sectionName })}
       />
     </div>
   );

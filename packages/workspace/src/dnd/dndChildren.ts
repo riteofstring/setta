@@ -1,14 +1,17 @@
-import { createWithEqualityFn } from "zustand/traditional";
+import { createStore } from "zustand/vanilla";
 import { insertIntoArray } from "../document/arrayUtils";
 import {
   getSectionOrThrow,
   getTopLevelSectionIdsForDisplay,
 } from "../document/documentSelectors";
 import {
-  useWorkspaceDocument,
+  getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
 } from "../document/stores";
 import { withResetFn } from "../state/storeUtils";
+import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
+import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost";
 import { getDndSectionId, isTempSection } from "./dndIds";
 
 // The reference's dnd children store (`dndChildren.ts`): the live parent→children projection
@@ -20,20 +23,50 @@ type ZustandDndChildren = {
   y: Record<string, string>;
 };
 
-export const useDndChildren = createWithEqualityFn(
-  withResetFn<ZustandDndChildren>(() => ({
+function createDndChildrenStore() {
+  return createStore(
+    withResetFn<ZustandDndChildren>(() => ({
     x: {}, // parent id to list of children
     y: {}, // child id to parent id
-  })),
-);
+    })),
+  );
+}
+
+const storesByHost = new WeakMap<
+  WorkspaceHost,
+  ReturnType<typeof createDndChildrenStore>
+>();
+
+export function getDndChildrenStore(host: WorkspaceHost) {
+  assertWorkspaceHostActive(host);
+  const existing = storesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const store = createDndChildrenStore();
+  storesByHost.set(host, store);
+  return store;
+}
+
+export function useDndChildren<T>(
+  selector: (state: ZustandDndChildren) => T,
+  equalityFn?: (left: T, right: T) => boolean,
+): T {
+  return useWorkspaceStore(
+    getDndChildrenStore(useWorkspaceHost()),
+    selector,
+    equalityFn,
+  );
+}
 
 export function addDndChild(
+  host: WorkspaceHost,
   oldParentId: string | null,
   newParentId: string,
   childId: string,
   index: number,
 ) {
-  useDndChildren.setState((state) => {
+  getDndChildrenStore(host).setState((state) => {
     const x = { ...state.x };
     if (oldParentId) {
       x[oldParentId] = (x[oldParentId] ?? []).filter((id) => id !== childId);
@@ -46,8 +79,8 @@ export function addDndChild(
   });
 }
 
-export function removeDndChild(childId: string) {
-  useDndChildren.setState((state) => {
+export function removeDndChild(host: WorkspaceHost, childId: string) {
+  getDndChildrenStore(host).setState((state) => {
     const oldParentId = state.y[childId];
     if (!oldParentId) {
       return state;
@@ -105,10 +138,11 @@ function resolveTempInsertion(
 }
 
 export function replaceDndSectionsWithTemp(
+  host: WorkspaceHost,
   activeId: string,
   sectionIds: Array<string>,
 ) {
-  useDndChildren.setState((state) => {
+  getDndChildrenStore(host).setState((state) => {
     const firstSectionId = sectionIds[0];
     if (firstSectionId === undefined) {
       return state;
@@ -139,6 +173,7 @@ export function replaceDndSectionsWithTemp(
 }
 
 export function updateDndChildren(
+  host: WorkspaceHost,
   sectionIdsToChildren: Record<string, Array<string>>,
 ) {
   const y: Record<string, string> = {};
@@ -147,7 +182,7 @@ export function updateDndChildren(
       y[childId] = id;
     }
   }
-  useDndChildren.setState({ x: sectionIdsToChildren, y });
+  getDndChildrenStore(host).setState({ x: sectionIdsToChildren, y });
 }
 
 // The reference builds this projection in `getDisplayedSectionIdToChildren`
@@ -171,8 +206,11 @@ export function getDisplayedSectionIdToChildren(
 
 // The reference's `manualDndChildrenReset`: resync the projection from the canonical document
 // after a drag settles.
-export function manualDndChildrenReset() {
+export function manualDndChildrenReset(host: WorkspaceHost) {
   updateDndChildren(
-    getDisplayedSectionIdToChildren(useWorkspaceDocument.getState()),
+    host,
+    getDisplayedSectionIdToChildren(
+      getWorkspaceDocumentStore(host).getState(),
+    ),
   );
 }

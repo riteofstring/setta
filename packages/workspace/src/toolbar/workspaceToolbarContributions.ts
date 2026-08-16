@@ -6,6 +6,7 @@ import type {
   WorkspaceToolbarContribution,
   WorkspaceToolbarPlacement,
 } from "./workspaceToolbarTypes";
+import type { WorkspaceHost } from "../workspaceHost";
 
 const TOOLBAR_SURFACE: WorkspaceCommandSurface = "toolbar";
 const TOOLBAR_SCOPE: WorkspaceCommandScope = "pane";
@@ -21,7 +22,10 @@ const KINDS: ReadonlyArray<WorkspaceToolbarContribution["kind"]> = [
 // The registered contributions on their own, so the toolbar that paints them, the registration
 // that validates them, and the two command registries that must not strand them can all reach the
 // set without any of them owning another. `workspaceToolbarRegistry.ts` owns the public entry.
-let registeredContributions: ReadonlyArray<WorkspaceToolbarContribution> = [];
+const contributionsByHost = new WeakMap<
+  WorkspaceHost,
+  ReadonlyArray<WorkspaceToolbarContribution>
+>();
 
 type WorkspaceToolbarCommandSummary = {
   id: string;
@@ -145,8 +149,10 @@ export function assertWorkspaceToolbarContributions(
 }
 
 export function getWorkspaceToolbarContributions(
+  host: WorkspaceHost,
   placement?: WorkspaceToolbarPlacement,
 ): ReadonlyArray<WorkspaceToolbarContribution> {
+  const registeredContributions = contributionsByHost.get(host) ?? [];
   if (placement === undefined) {
     return registeredContributions;
   }
@@ -156,7 +162,8 @@ export function getWorkspaceToolbarContributions(
 }
 
 export function setWorkspaceToolbarContributions(
+  host: WorkspaceHost,
   contributions: ReadonlyArray<WorkspaceToolbarContribution>,
 ): void {
-  registeredContributions = contributions;
+  contributionsByHost.set(host, contributions);
 }

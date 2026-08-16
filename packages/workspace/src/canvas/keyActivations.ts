@@ -30,7 +30,9 @@ import {
   getIsFrozenWorkspaceTooltipFocused,
   incrementWorkspaceTooltipPage,
 } from "../tooltip/WorkspaceTooltip";
-import { useReactFlow } from "./store";
+import { getReactFlowStore } from "./store";
+import { useWorkspaceHost } from "../workspaceHostContext";
+import type { WorkspaceHost } from "../workspaceHost";
 import { isMacOs } from "./utils";
 
 // The reference binds these through its app shortcut engine with the shipped defaults:
@@ -65,19 +67,22 @@ function getTooltipShortcutKey(event: KeyboardEvent): string {
   return event.key.length === 1 ? event.key.toLowerCase() : event.key;
 }
 
-function runTooltipAuxiliaryShortcut(event: KeyboardEvent): boolean {
+function runTooltipAuxiliaryShortcut(
+  host: WorkspaceHost,
+  event: KeyboardEvent,
+): boolean {
   const key = getTooltipShortcutKey(event);
   if (key === "f") {
-    return freezeWorkspaceTooltip();
+    return freezeWorkspaceTooltip(host);
   }
   if (key === "ArrowRight") {
-    return incrementWorkspaceTooltipPage();
+    return incrementWorkspaceTooltipPage(host);
   }
   if (key === "ArrowLeft") {
-    return decrementWorkspaceTooltipPage();
+    return decrementWorkspaceTooltipPage(host);
   }
   if (key === "c") {
-    return copyWorkspaceTooltipPage();
+    return copyWorkspaceTooltipPage(host);
   }
   return false;
 }
@@ -89,19 +94,22 @@ function getIsTooltipAuxiliaryKey(event: KeyboardEvent): boolean {
   );
 }
 
-function runFocusedFrozenTooltipShortcut(event: KeyboardEvent): boolean {
-  if (!getIsFrozenWorkspaceTooltipFocused()) {
+function runFocusedFrozenTooltipShortcut(
+  host: WorkspaceHost,
+  event: KeyboardEvent,
+): boolean {
+  if (!getIsFrozenWorkspaceTooltipFocused(host)) {
     return false;
   }
   const key = getTooltipShortcutKey(event);
   if (key === "ArrowRight") {
-    return incrementWorkspaceTooltipPage();
+    return incrementWorkspaceTooltipPage(host);
   }
   if (key === "ArrowLeft") {
-    return decrementWorkspaceTooltipPage();
+    return decrementWorkspaceTooltipPage(host);
   }
   if (key === "c") {
-    return copyWorkspaceTooltipPage();
+    return copyWorkspaceTooltipPage(host);
   }
   return false;
 }
@@ -155,7 +163,7 @@ type HoldMode = {
 // modifier keys auto-repeat. Ungroup is a one-shot command rather than a hold mode, so its
 // KeyG participates in this exact pressed-key set without adding a mode; swallowed macOS
 // keyups are recovered by the Meta-keyup clear below.
-function createHoldChordTracker(macOS: boolean) {
+function createHoldChordTracker(host: WorkspaceHost, macOS: boolean) {
   const heldKeys = new Set<string>();
 
   const modes: Array<HoldMode> = [
@@ -163,30 +171,32 @@ function createHoldChordTracker(macOS: boolean) {
       chord: RESERVED_WORKSPACE_GESTURES.freeParameterDrag.chord,
       ignoreInInput: false,
       pressed: false,
-      activate: activateDndMovingFreeMode,
-      deactivate: deactivateDnd,
+      activate: () => activateDndMovingFreeMode(host),
+      deactivate: () => deactivateDnd(host),
     },
     {
       chord: RESERVED_WORKSPACE_GESTURES.sortingParameterDrag.chord,
       ignoreInInput: false,
       pressed: false,
-      activate: activateDndSortingMode,
-      deactivate: deactivateDnd,
+      activate: () => activateDndSortingMode(host),
+      deactivate: () => deactivateDnd(host),
     },
     // The reference's `paramSelect` shortcut "Mod + Shift": exactly Mod and Shift.
     {
       chord: RESERVED_WORKSPACE_GESTURES.parameterSelection.chord,
       ignoreInInput: false,
       pressed: false,
-      activate: activateItemSelect,
-      deactivate: deactivateItemSelect,
+      activate: () => activateItemSelect(host),
+      deactivate: () => deactivateItemSelect(host),
     },
     {
       chord: RESERVED_WORKSPACE_GESTURES.marqueeSelection.chord,
       ignoreInInput: true,
       pressed: false,
-      activate: () => useReactFlow.setState({ selectionKeyPressed: true }),
-      deactivate: () => useReactFlow.setState({ selectionKeyPressed: false }),
+      activate: () =>
+        getReactFlowStore(host).setState({ selectionKeyPressed: true }),
+      deactivate: () =>
+        getReactFlowStore(host).setState({ selectionKeyPressed: false }),
     },
     // The reference registers multi-selection and zoom activation as two "Mod" shortcuts
     // with identical lifecycles; the package drives both states through one mode.
@@ -195,12 +205,12 @@ function createHoldChordTracker(macOS: boolean) {
       ignoreInInput: true,
       pressed: false,
       activate: () =>
-        useReactFlow.setState({
+        getReactFlowStore(host).setState({
           multiSelectionActive: true,
           zoomActivationKeyPressed: true,
         }),
       deactivate: () =>
-        useReactFlow.setState({
+        getReactFlowStore(host).setState({
           multiSelectionActive: false,
           zoomActivationKeyPressed: false,
         }),
@@ -209,9 +219,10 @@ function createHoldChordTracker(macOS: boolean) {
       chord: RESERVED_WORKSPACE_GESTURES.panActivation.chord,
       ignoreInInput: true,
       pressed: false,
-      activate: () => useReactFlow.setState({ panActivationKeyPressed: true }),
+      activate: () =>
+        getReactFlowStore(host).setState({ panActivationKeyPressed: true }),
       deactivate: () =>
-        useReactFlow.setState({ panActivationKeyPressed: false }),
+        getReactFlowStore(host).setState({ panActivationKeyPressed: false }),
     },
   ];
 
@@ -349,12 +360,15 @@ function ensureDocumentFallbackFocus() {
   document.documentElement.focus({ preventScroll: true });
 }
 
-function clearActiveSectionSelectionIfNeeded(sectionNode: Element) {
+function clearActiveSectionSelectionIfNeeded(
+  host: WorkspaceHost,
+  sectionNode: Element,
+) {
   const sectionId = sectionNode.getAttribute("data-id");
-  if (!sectionId || !getActiveSectionIds().includes(sectionId)) {
+  if (!sectionId || !getActiveSectionIds(host).includes(sectionId)) {
     return;
   }
-  setActiveSectionIds([]);
+  setActiveSectionIds(host, []);
   blurDocumentActiveElement();
   ensureDocumentFallbackFocus();
 }
@@ -363,8 +377,8 @@ function clearActiveSectionSelectionIfNeeded(sectionNode: Element) {
 // consumes the keypress; when the event originated inside an active section node, the active
 // selection clears and focus falls back to the document. The pane keeps its own focused Escape
 // deselect path from the canvas batch.
-function runEscapeAction(event: KeyboardEvent) {
-  if (closeFrozenWorkspaceTooltip()) {
+function runEscapeAction(host: WorkspaceHost, event: KeyboardEvent) {
+  if (closeFrozenWorkspaceTooltip(host)) {
     event.preventDefault();
     return;
   }
@@ -372,13 +386,14 @@ function runEscapeAction(event: KeyboardEvent) {
   if (getIsEditableTarget(event) && !sectionNode) {
     return;
   }
-  if (unselectAllItems() || !sectionNode) {
+  if (unselectAllItems(host) || !sectionNode) {
     return;
   }
-  clearActiveSectionSelectionIfNeeded(sectionNode);
+  clearActiveSectionSelectionIfNeeded(host, sectionNode);
 }
 
 function handleEscapeShortcut(
+  host: WorkspaceHost,
   event: KeyboardEvent,
   tracker: HoldChordTracker,
   macOS: boolean,
@@ -389,13 +404,14 @@ function handleEscapeShortcut(
   if (!hasNoModifiers(event, macOS) || !tracker.heldKeysEqual(["Escape"])) {
     return;
   }
-  runEscapeAction(event);
+  runEscapeAction(host, event);
 }
 
 export function useCanvasKeyActivations() {
+  const host = useWorkspaceHost();
   useEffect(() => {
     const macOS = isMacOs();
-    const chordTracker = createHoldChordTracker(macOS);
+    const chordTracker = createHoldChordTracker(host, macOS);
     // Mirrors the reference shortcut's `wasPressed`: Q remains held across its page/copy/freeze
     // chords, releases when any unrelated key joins it, and an auto-repeat never re-enables it.
     let tooltipPressed = false;
@@ -403,7 +419,7 @@ export function useCanvasKeyActivations() {
     const disableTooltipIfPressed = () => {
       if (tooltipPressed) {
         tooltipPressed = false;
-        disableWorkspaceTooltip();
+        disableWorkspaceTooltip(host);
       }
     };
 
@@ -411,25 +427,29 @@ export function useCanvasKeyActivations() {
       if (isBareTooltipKey(event)) {
         if (getShouldActivateTooltip(event)) {
           tooltipPressed = true;
-          enableWorkspaceTooltip();
+          enableWorkspaceTooltip(host);
         }
         return;
       }
       if (getIsTransientTooltipAuxiliaryChord(event, tooltipPressed)) {
-        runTooltipShortcutWithoutRepeat(event, runTooltipAuxiliaryShortcut);
+        runTooltipShortcutWithoutRepeat(event, (shortcutEvent) =>
+          runTooltipAuxiliaryShortcut(host, shortcutEvent),
+        );
         return;
       }
       disableTooltipIfPressed();
       if (hasNoTooltipModifiers(event)) {
-        runTooltipShortcutWithoutRepeat(event, runFocusedFrozenTooltipShortcut);
+        runTooltipShortcutWithoutRepeat(event, (shortcutEvent) =>
+          runFocusedFrozenTooltipShortcut(host, shortcutEvent),
+        );
       }
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
       chordTracker.onKeyDown(event);
       handleTooltipKeyDown(event);
-      runWorkspaceKeyBindings(event, macOS, chordTracker.heldKeysEqual);
-      handleEscapeShortcut(event, chordTracker, macOS);
+      runWorkspaceKeyBindings(host, event, macOS, chordTracker.heldKeysEqual);
+      handleEscapeShortcut(host, event, chordTracker, macOS);
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
@@ -465,5 +485,5 @@ export function useCanvasKeyActivations() {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("blur", onWindowBlur);
     };
-  }, []);
+  }, [host]);
 }

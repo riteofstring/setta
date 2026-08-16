@@ -4,6 +4,7 @@ import {
   getResolvedWorkspaceKeyBindings,
   type ResolvedWorkspaceKeyBinding,
 } from "./workspaceKeyBindingRegistry";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // One keydown pass over the bound workspace operations. Registration guarantees at most one
 // binding answers to a chord, so the first match decides the keypress:
@@ -29,11 +30,12 @@ function runMatchedBinding(
 }
 
 export function runWorkspaceKeyBindings(
+  host: WorkspaceHost,
   event: KeyboardEvent,
   macOS: boolean,
   heldKeysEqual: (codes: ReadonlyArray<string>) => boolean,
 ): void {
-  for (const binding of getResolvedWorkspaceKeyBindings(macOS)) {
+  for (const binding of getResolvedWorkspaceKeyBindings(host, macOS)) {
     if (!matchesWorkspaceChord(event, binding.chord, macOS, heldKeysEqual)) {
       continue;
     }

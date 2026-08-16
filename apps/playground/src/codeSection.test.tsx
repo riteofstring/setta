@@ -1,14 +1,15 @@
 /* @vitest-environment jsdom */
 
 import {
+  createWorkspaceHost,
   getWorkspaceCodeSectionData,
-  getWorkspaceDocument,
-  loadWorkspaceDocument,
   WORKSPACE_CODE_SECTION_KIND,
+  WorkspaceProvider,
+  type WorkspaceHost,
 } from "@setta/workspace";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { playgroundDocument } from "./playgroundDocument";
 import {
   PlaygroundCodeSectionInspector,
@@ -42,13 +43,12 @@ function setNativeInputValue(input: HTMLInputElement, value: string) {
 describe("the playground's built-in code section", () => {
   let container: HTMLDivElement;
   let root: Root;
-
-  beforeAll(() => {
-    registerPlaygroundSectionKinds();
-  });
+  let workspaceHost: WorkspaceHost;
 
   beforeEach(() => {
-    loadWorkspaceDocument(playgroundDocument);
+    workspaceHost = createWorkspaceHost();
+    registerPlaygroundSectionKinds(workspaceHost);
+    workspaceHost.loadDocument(playgroundDocument);
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -59,19 +59,20 @@ describe("the playground's built-in code section", () => {
       root.unmount();
     });
     container.remove();
+    workspaceHost.dispose();
   });
 
   it("composes with the host's own registered kinds", () => {
-    const section = getWorkspaceDocument().sections[SECTION_ID];
+    const section = workspaceHost.getSnapshot().sections[SECTION_ID];
     expect(section?.kind).toBe(WORKSPACE_CODE_SECTION_KIND);
-    expect(getWorkspaceCodeSectionData(SECTION_ID)).toMatchObject({
+    expect(getWorkspaceCodeSectionData(workspaceHost, SECTION_ID)).toMatchObject({
       language: "python",
       lineNumbers: true,
       indentWidth: 4,
       readOnly: false,
       wrapLines: false,
     });
-    expect(getWorkspaceCodeSectionData(SECTION_ID).code).toContain(
+    expect(getWorkspaceCodeSectionData(workspaceHost, SECTION_ID).code).toContain(
       "def train(",
     );
   });
@@ -79,9 +80,13 @@ describe("the playground's built-in code section", () => {
   it("authors every typed option from host Inspector UI", () => {
     act(() => {
       root.render(
-        createElement(PlaygroundCodeSectionInspector, {
-          sectionId: SECTION_ID,
-        }),
+        createElement(
+          WorkspaceProvider,
+          { host: workspaceHost },
+          createElement(PlaygroundCodeSectionInspector, {
+            sectionId: SECTION_ID,
+          }),
+        ),
       );
     });
     const language = container.querySelector<HTMLSelectElement>("select");
@@ -124,7 +129,7 @@ describe("the playground's built-in code section", () => {
       indentWidth.dispatchEvent(new Event("input", { bubbles: true }));
     });
 
-    expect(getWorkspaceCodeSectionData(SECTION_ID)).toMatchObject({
+    expect(getWorkspaceCodeSectionData(workspaceHost, SECTION_ID)).toMatchObject({
       language: "yaml",
       wrapLines: true,
       lineNumbers: false,
@@ -133,7 +138,7 @@ describe("the playground's built-in code section", () => {
   });
 
   it("refuses a typed write that leaves the contract", () => {
-    expect(() => getWorkspaceCodeSectionData("item-panel")).toThrow(
+    expect(() => getWorkspaceCodeSectionData(workspaceHost, "item-panel")).toThrow(
       /is a item-list section, not a code section/u,
     );
   });

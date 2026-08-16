@@ -2,7 +2,7 @@ import { isMacOs } from "../canvas/utils";
 import { getWorkspaceCreationCommands } from "../context-menu/creationCommandStore";
 import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes";
 import {
-  builtInWorkspaceKeyBindings,
+  listBuiltInWorkspaceKeyBindings,
   type WorkspaceKeyBindingDefinition,
 } from "./builtInWorkspaceKeyBindings";
 import { createWorkspaceCreationKeyBinding } from "./creationKeyBindings";
@@ -22,6 +22,7 @@ import type {
   WorkspaceKeyBindingConflict,
   WorkspaceKeyBindingDescriptor,
 } from "./workspaceKeyBindingTypes";
+import type { WorkspaceHost } from "../workspaceHost";
 
 type ChordAssignment = {
   chord: string;
@@ -40,22 +41,40 @@ export type ResolvedWorkspaceKeyBinding = Readonly<{
 // The package's own operations plus every registered creation command that carries a chord: one
 // binding vocabulary, so a host lists, rebinds, and conflict-checks both through one registry.
 function listWorkspaceKeyBindingDefinitions(
-  creationCommands: ReadonlyArray<WorkspaceCreationCommand> = getWorkspaceCreationCommands(),
+  host: WorkspaceHost,
+  creationCommands: ReadonlyArray<WorkspaceCreationCommand> = getWorkspaceCreationCommands(
+    host,
+  ),
 ): Array<WorkspaceKeyBindingDefinition> {
   return [
-    ...builtInWorkspaceKeyBindings,
-    ...creationCommands.map(createWorkspaceCreationKeyBinding),
+    ...listBuiltInWorkspaceKeyBindings(host),
+    ...creationCommands.map((command) =>
+      createWorkspaceCreationKeyBinding(host, command),
+    ),
   ];
 }
 
 // Like command, section-kind, and item-handler registration, each call replaces the complete
 // host-owned set. A binding a host does not name keeps its default chord.
-let hostChords: ReadonlyMap<string, string | null> = new Map();
+type WorkspaceKeyBindingRegistryState = {
+  hostChords: ReadonlyMap<string, string | null>;
+  resolvedByPlatform: Map<boolean, ReadonlyArray<ResolvedWorkspaceKeyBinding>>;
+};
 
-const resolvedByPlatform = new Map<
-  boolean,
-  ReadonlyArray<ResolvedWorkspaceKeyBinding>
->();
+const statesByHost = new WeakMap<WorkspaceHost, WorkspaceKeyBindingRegistryState>();
+
+function getRegistryState(host: WorkspaceHost): WorkspaceKeyBindingRegistryState {
+  const existing = statesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const state: WorkspaceKeyBindingRegistryState = {
+    hostChords: new Map(),
+    resolvedByPlatform: new Map(),
+  };
+  statesByHost.set(host, state);
+  return state;
+}
 
 function assertKnownBindingId(
   id: string,
@@ -186,45 +205,53 @@ function assertNoChordConflicts(
 // What a candidate set of host bindings would collide with, without registering it, so a host can
 // explain a conflict to the person choosing the chord instead of catching a failure.
 export function getWorkspaceKeyBindingConflicts(
+  host: WorkspaceHost,
   bindings: ReadonlyArray<WorkspaceKeyBinding>,
 ): ReadonlyArray<WorkspaceKeyBindingConflict> {
-  const definitions = listWorkspaceKeyBindingDefinitions();
+  const definitions = listWorkspaceKeyBindingDefinitions(host);
   return findChordConflicts(
     buildChordAssignments(buildHostChords(bindings, definitions), definitions),
   );
 }
 
 export function registerWorkspaceKeyBindings(
+  host: WorkspaceHost,
   bindings: ReadonlyArray<WorkspaceKeyBinding>,
 ): void {
-  const definitions = listWorkspaceKeyBindingDefinitions();
+  const definitions = listWorkspaceKeyBindingDefinitions(host);
   const chords = buildHostChords(bindings, definitions);
   assertNoChordConflicts(buildChordAssignments(chords, definitions));
-  hostChords = chords;
-  resolvedByPlatform.clear();
+  const state = getRegistryState(host);
+  state.hostChords = chords;
+  state.resolvedByPlatform.clear();
 }
 
 // Registering creation commands changes the binding set, so the chords a host already registered
 // are checked against the incoming catalog before it takes effect.
 export function assertWorkspaceKeyBindingsForCreationCommands(
+  host: WorkspaceHost,
   creationCommands: ReadonlyArray<WorkspaceCreationCommand>,
 ): void {
-  const definitions = listWorkspaceKeyBindingDefinitions(creationCommands);
-  for (const id of hostChords.keys()) {
+  const state = getRegistryState(host);
+  const definitions = listWorkspaceKeyBindingDefinitions(host, creationCommands);
+  for (const id of state.hostChords.keys()) {
     assertKnownBindingId(id, definitions);
   }
-  assertNoChordConflicts(buildChordAssignments(hostChords, definitions));
+  assertNoChordConflicts(buildChordAssignments(state.hostChords, definitions));
 }
 
-export function invalidateResolvedWorkspaceKeyBindings(): void {
-  resolvedByPlatform.clear();
+export function invalidateResolvedWorkspaceKeyBindings(host: WorkspaceHost): void {
+  getRegistryState(host).resolvedByPlatform.clear();
 }
 
-export function getWorkspaceKeyBindings(): ReadonlyArray<WorkspaceKeyBindingDescriptor> {
+export function getWorkspaceKeyBindings(
+  host: WorkspaceHost,
+): ReadonlyArray<WorkspaceKeyBindingDescriptor> {
   const macOS = isMacOs();
-  const definitions = listWorkspaceKeyBindingDefinitions();
+  const state = getRegistryState(host);
+  const definitions = listWorkspaceKeyBindingDefinitions(host);
   const assignmentsById = new Map(
-    buildChordAssignments(hostChords, definitions).map((assignment) => [
+    buildChordAssignments(state.hostChords, definitions).map((assignment) => [
       assignment.definition.id,
       assignment,
     ]),
@@ -241,7 +268,7 @@ export function getWorkspaceKeyBindings(): ReadonlyArray<WorkspaceKeyBindingDesc
           : null,
         origin:
           assignment?.origin ??
-          (hostChords.has(definition.id) ? "host" : "default"),
+          (state.hostChords.has(definition.id) ? "host" : "default"),
       });
     }),
   );
@@ -250,14 +277,19 @@ export function getWorkspaceKeyBindings(): ReadonlyArray<WorkspaceKeyBindingDesc
 // The chord rules depend on the platform, so the dispatcher resolves against the platform it is
 // listening on and the result is reused until the host rebinds something.
 export function getResolvedWorkspaceKeyBindings(
+  host: WorkspaceHost,
   macOS: boolean,
 ): ReadonlyArray<ResolvedWorkspaceKeyBinding> {
-  const cached = resolvedByPlatform.get(macOS);
+  const state = getRegistryState(host);
+  const cached = state.resolvedByPlatform.get(macOS);
   if (cached) {
     return cached;
   }
   const resolved = Object.freeze(
-    buildChordAssignments(hostChords, listWorkspaceKeyBindingDefinitions()).map(
+    buildChordAssignments(
+      state.hostChords,
+      listWorkspaceKeyBindingDefinitions(host),
+    ).map(
       (assignment) =>
         Object.freeze({
           chord: assignment.parsed,
@@ -272,6 +304,6 @@ export function getResolvedWorkspaceKeyBindings(
         }),
     ),
   );
-  resolvedByPlatform.set(macOS, resolved);
+  state.resolvedByPlatform.set(macOS, resolved);
   return resolved;
 }

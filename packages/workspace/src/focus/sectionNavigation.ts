@@ -1,8 +1,9 @@
 import { applyActiveSectionChange } from "../canvas/activeSectionController";
 import { movePaneToIncludeElement } from "../canvas/viewportHelpers";
 import { isGroupSection } from "../document/documentSelectors";
-import { useWorkspaceDocument } from "../document/stores";
-import { useSectionRefs } from "../section/sectionRefs";
+import { getWorkspaceDocumentStore } from "../document/stores";
+import { getSectionRefsStore } from "../section/sectionRefs";
+import type { WorkspaceHost } from "../workspaceHost";
 import { getOrderedTopLevelSectionIds } from "./topLevelSectionOrder";
 import {
   getWorkspaceFocusableElements,
@@ -51,12 +52,15 @@ function getAdjacentTopLevelSectionId(
 
 // A group is focused as a whole; a leaf hands focus to its first control, and falls back to its
 // own container when it has none.
-function resolveSectionFocusTarget(sectionId: string): HTMLElement | null {
-  const section = useWorkspaceDocument.getState().sections[sectionId];
+function resolveSectionFocusTarget(
+  host: WorkspaceHost,
+  sectionId: string,
+): HTMLElement | null {
+  const section = getWorkspaceDocumentStore(host).getState().sections[sectionId];
   if (!section) {
     throw new Error(`Cannot focus unknown workspace section ${sectionId}.`);
   }
-  const refs = useSectionRefs.getState();
+  const refs = getSectionRefsStore(host).getState();
   const container = refs.withNested[sectionId] ?? null;
   if (isGroupSection(section)) {
     return container;
@@ -68,20 +72,23 @@ function resolveSectionFocusTarget(sectionId: string): HTMLElement | null {
   return firstControl ?? container;
 }
 
-export function focusAdjacentTopLevelSection(direction: 1 | -1): boolean {
-  const orderedSectionIds = getOrderedTopLevelSectionIds();
+export function focusAdjacentTopLevelSection(
+  host: WorkspaceHost,
+  direction: 1 | -1,
+): boolean {
+  const orderedSectionIds = getOrderedTopLevelSectionIds(host);
   const targetId = getAdjacentTopLevelSectionId(orderedSectionIds, direction);
   if (targetId === null) {
     return false;
   }
   // An unmounted target is resolved before anything changes, so a declined move leaves the
   // active selection exactly as it was.
-  const target = resolveSectionFocusTarget(targetId);
+  const target = resolveSectionFocusTarget(host, targetId);
   if (!target) {
     return false;
   }
-  applyActiveSectionChange({ interaction: "go-to", sectionId: targetId });
+  applyActiveSectionChange(host, { interaction: "go-to", sectionId: targetId });
   target.focus({ preventScroll: true });
-  movePaneToIncludeElement(target);
+  movePaneToIncludeElement(host, target);
   return true;
 }

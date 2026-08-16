@@ -1,4 +1,4 @@
-import { createWithEqualityFn } from "zustand/traditional";
+import { createStore } from "zustand/vanilla";
 import type {
   WorkspaceItemCommandContext,
   WorkspacePaneCommandContext,
@@ -6,6 +6,9 @@ import type {
 } from "../commands/workspaceCommandTypes";
 import type { Position } from "../document/types";
 import { withResetFn } from "../state/storeUtils";
+import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
+import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost";
 import type { WorkspaceTextDirection } from "../styles/textDirection";
 import type { WorkspaceMenuClientPoint } from "./workspaceMenuGeometry";
 
@@ -53,30 +56,66 @@ type WorkspaceMenuState = {
   invocation: WorkspaceMenuInvocation | null;
 };
 
-export const useWorkspaceMenuState = createWithEqualityFn(
-  withResetFn<WorkspaceMenuState>(() => ({ invocation: null })),
-);
+type WorkspaceMenuStoreState = {
+  nextSequence: number;
+  store: ReturnType<typeof createWorkspaceMenuStateStore>;
+};
 
-let nextWorkspaceMenuSequence = 1;
-
-export function publishWorkspaceMenuInvocation(
-  invocation: WorkspaceMenuInvocationInput,
-): void {
-  useWorkspaceMenuState.setState({
-    invocation: {
-      ...invocation,
-      sequence: nextWorkspaceMenuSequence,
-    } as WorkspaceMenuInvocation,
-  });
-  nextWorkspaceMenuSequence += 1;
+function createWorkspaceMenuStateStore() {
+  return createStore(withResetFn<WorkspaceMenuState>(() => ({ invocation: null })));
 }
 
-export function closeWorkspaceMenu(restoreFocus = true): void {
-  const invocation = useWorkspaceMenuState.getState().invocation;
+const storesByHost = new WeakMap<WorkspaceHost, WorkspaceMenuStoreState>();
+
+function getWorkspaceMenuStoreState(host: WorkspaceHost): WorkspaceMenuStoreState {
+  assertWorkspaceHostActive(host);
+  const existing = storesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const state = { nextSequence: 1, store: createWorkspaceMenuStateStore() };
+  storesByHost.set(host, state);
+  return state;
+}
+
+export function getWorkspaceMenuStateStore(host: WorkspaceHost) {
+  return getWorkspaceMenuStoreState(host).store;
+}
+
+export function useWorkspaceMenuState<T>(
+  selector: (state: WorkspaceMenuState) => T,
+  equalityFn?: (left: T, right: T) => boolean,
+): T {
+  return useWorkspaceStore(
+    getWorkspaceMenuStateStore(useWorkspaceHost()),
+    selector,
+    equalityFn,
+  );
+}
+
+export function publishWorkspaceMenuInvocation(
+  host: WorkspaceHost,
+  invocation: WorkspaceMenuInvocationInput,
+): void {
+  const state = getWorkspaceMenuStoreState(host);
+  state.store.setState({
+    invocation: {
+      ...invocation,
+      sequence: state.nextSequence,
+    } as WorkspaceMenuInvocation,
+  });
+  state.nextSequence += 1;
+}
+
+export function closeWorkspaceMenu(
+  host: WorkspaceHost,
+  restoreFocus = true,
+): void {
+  const invocation = getWorkspaceMenuStateStore(host).getState().invocation;
   if (!invocation) {
     return;
   }
-  useWorkspaceMenuState.setState({ invocation: null });
+  getWorkspaceMenuStateStore(host).setState({ invocation: null });
   if (restoreFocus && invocation.owner.isConnected) {
     invocation.owner.focus({ preventScroll: true });
   }

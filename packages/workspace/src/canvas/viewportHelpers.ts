@@ -1,17 +1,19 @@
 import { zoomIdentity } from "d3-zoom";
 import _ from "lodash";
-import { useWorkspaceDocument } from "../document/stores";
+import { getWorkspaceDocumentStore } from "../document/stores";
 import type { Position } from "../document/types";
 import { prefersReducedWorkspaceMotion } from "../styles/motion";
+import type { WorkspaceHost } from "../workspaceHost";
+import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
 import {
   getD3Transition,
   getPaneRect,
   getSectionRect,
   getViewportForBounds,
 } from "./graph";
-import { useWorkspaceOptions } from "./options";
+import { getWorkspaceOptionsStore } from "./options";
 import { getWorkspacePointerLocation } from "./pointerLocation";
-import { useReactFlow } from "./store";
+import { getReactFlowStore } from "./store";
 import type { ReactFlowState, Rect } from "./types";
 import { getVisibleCanvasRect } from "./viewportInsets";
 import { screenToFlowPosition } from "./viewportPosition";
@@ -27,8 +29,8 @@ type ZoomOptions = TransitionOptions & {
   zoom?: number;
 };
 
-function getZoomRuntime() {
-  const { d3Zoom, d3Selection } = useReactFlow.getState();
+function getZoomRuntime(host: WorkspaceHost) {
+  const { d3Zoom, d3Selection } = getReactFlowStore(host).getState();
   if (!d3Zoom || !d3Selection) {
     throw new Error("Cannot zoom before the zoom pane initialized.");
   }
@@ -45,61 +47,99 @@ function getZoomTarget(
   return getD3Transition(selection, duration ?? 0);
 }
 
-export const zoomIn = _.throttle((options?: TransitionOptions) => {
-  const { d3Zoom, d3Selection } = getZoomRuntime();
-  d3Zoom.scaleBy(getZoomTarget(d3Selection, options?.duration), 1.2);
-}, 50);
+type ZoomThrottleState = {
+  zoomIn: ReturnType<typeof _.throttle>;
+  zoomOut: ReturnType<typeof _.throttle>;
+};
 
-export const zoomOut = _.throttle((options?: TransitionOptions) => {
-  const { d3Zoom, d3Selection } = getZoomRuntime();
-  d3Zoom.scaleBy(getZoomTarget(d3Selection, options?.duration), 1 / 1.2);
-}, 50);
+const throttleStatesByHost = new WeakMap<WorkspaceHost, ZoomThrottleState>();
 
-function zoomTo(zoomLevel: number, options?: TransitionOptions) {
-  const { d3Zoom, d3Selection } = getZoomRuntime();
+function getZoomThrottleState(host: WorkspaceHost): ZoomThrottleState {
+  const existing = throttleStatesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const state = {
+    zoomIn: _.throttle((options?: TransitionOptions) => {
+      const { d3Zoom, d3Selection } = getZoomRuntime(host);
+      d3Zoom.scaleBy(getZoomTarget(d3Selection, options?.duration), 1.2);
+    }, 50),
+    zoomOut: _.throttle((options?: TransitionOptions) => {
+      const { d3Zoom, d3Selection } = getZoomRuntime(host);
+      d3Zoom.scaleBy(getZoomTarget(d3Selection, options?.duration), 1 / 1.2);
+    }, 50),
+  };
+  throttleStatesByHost.set(host, state);
+  registerWorkspaceHostCleanup(host, () => {
+    state.zoomIn.cancel();
+    state.zoomOut.cancel();
+    throttleStatesByHost.delete(host);
+  });
+  return state;
+}
+
+export function zoomIn(host: WorkspaceHost, options?: TransitionOptions): void {
+  getZoomThrottleState(host).zoomIn(options);
+}
+
+export function zoomOut(host: WorkspaceHost, options?: TransitionOptions): void {
+  getZoomThrottleState(host).zoomOut(options);
+}
+
+function zoomTo(
+  host: WorkspaceHost,
+  zoomLevel: number,
+  options?: TransitionOptions,
+) {
+  const { d3Zoom, d3Selection } = getZoomRuntime(host);
   d3Zoom.scaleTo(getZoomTarget(d3Selection, options?.duration), zoomLevel);
 }
 
-export function resetZoom() {
-  const { defaultZoomLevel } = useWorkspaceOptions.getState();
-  zoomTo(defaultZoomLevel, { duration: 100 });
+export function resetZoom(host: WorkspaceHost) {
+  const { defaultZoomLevel } = getWorkspaceOptionsStore(host).getState();
+  zoomTo(host, defaultZoomLevel, { duration: 100 });
 }
 
 // A keyboard chord can reach a viewport operation before the zoom pane initializes, where the
 // pointer surfaces that offer the same operations do not exist yet. The operation declines
 // instead of throwing, and the chord goes back to the browser.
-export function getIsZoomRuntimeReady(): boolean {
-  const { d3Zoom, d3Selection } = useReactFlow.getState();
+export function getIsZoomRuntimeReady(host: WorkspaceHost): boolean {
+  const { d3Zoom, d3Selection } = getReactFlowStore(host).getState();
   return Boolean(d3Zoom && d3Selection);
 }
 
 // The toolbar disables its zoom buttons at the configured limits. The chords ask the same
 // question, so a keypress at a limit does exactly what pressing the disabled button does.
-export function getCanZoomIn(): boolean {
+export function getCanZoomIn(host: WorkspaceHost): boolean {
   return (
-    getIsZoomRuntimeReady() &&
-    useReactFlow.getState().transform[2] < getZoomLimits().maxZoom
+    getIsZoomRuntimeReady(host) &&
+    getReactFlowStore(host).getState().transform[2] < getZoomLimits(host).maxZoom
   );
 }
 
-export function getCanZoomOut(): boolean {
+export function getCanZoomOut(host: WorkspaceHost): boolean {
   return (
-    getIsZoomRuntimeReady() &&
-    useReactFlow.getState().transform[2] > getZoomLimits().minZoom
+    getIsZoomRuntimeReady(host) &&
+    getReactFlowStore(host).getState().transform[2] > getZoomLimits(host).minZoom
   );
 }
 
-function getZoomLimits(): { minZoom: number; maxZoom: number } {
-  const { minZoom, maxZoom } = useWorkspaceOptions.getState();
+function getZoomLimits(host: WorkspaceHost): { minZoom: number; maxZoom: number } {
+  const { minZoom, maxZoom } = getWorkspaceOptionsStore(host).getState();
   return { minZoom, maxZoom };
 }
 
 // Center against the same unobscured canvas rectangle used by fit view, the minimap mask, focus
 // navigation, and edge auto-pan. Shell panes overlay the full canvas exactly as in frozen main.
-export function setCenter(x: number, y: number, options?: ZoomOptions) {
-  const { d3Zoom, d3Selection } = getZoomRuntime();
-  const { width, height, viewportInsets } = useReactFlow.getState();
-  const { maxZoom } = useWorkspaceOptions.getState();
+export function setCenter(
+  host: WorkspaceHost,
+  x: number,
+  y: number,
+  options?: ZoomOptions,
+) {
+  const { d3Zoom, d3Selection } = getZoomRuntime(host);
+  const { width, height, viewportInsets } = getReactFlowStore(host).getState();
+  const { maxZoom } = getWorkspaceOptionsStore(host).getState();
   const visibleCanvas = getVisibleCanvasRect({ width, height }, viewportInsets);
   if (visibleCanvas.width <= 0 || visibleCanvas.height <= 0) {
     throw new Error(
@@ -117,15 +157,15 @@ export function setCenter(x: number, y: number, options?: ZoomOptions) {
 
 // The reference's `zoomToMouseLocation`: re-center the canvas on the pointer at the default zoom
 // level, so a chord frames what the pointer is already over without touching selection.
-export function zoomToPointerLocation(): boolean {
-  const pointer = getWorkspacePointerLocation();
-  if (!pointer || !getIsZoomRuntimeReady()) {
+export function zoomToPointerLocation(host: WorkspaceHost): boolean {
+  const pointer = getWorkspacePointerLocation(host);
+  if (!pointer || !getIsZoomRuntimeReady(host)) {
     return false;
   }
   const { defaultZoomLevel, transitionDuration } =
-    useWorkspaceOptions.getState();
-  const { x, y } = screenToFlowPosition(pointer);
-  setCenter(x, y, { zoom: defaultZoomLevel, duration: transitionDuration });
+    getWorkspaceOptionsStore(host).getState();
+  const { x, y } = screenToFlowPosition(host, pointer);
+  setCenter(host, x, y, { zoom: defaultZoomLevel, duration: transitionDuration });
   return true;
 }
 
@@ -166,15 +206,18 @@ function getPaneTranslationForPoint(
 // The reference's `movePaneToIncludeElement`: bring a just-focused element into view with the
 // smallest possible move, keeping its 100px margin from the pane edges. Keyboard focus can reach
 // an element before the zoom pane initializes, where the canvas simply has nowhere to travel yet.
-export function movePaneToIncludeElement(element: HTMLElement): void {
-  if (!getIsZoomRuntimeReady()) {
+export function movePaneToIncludeElement(
+  host: WorkspaceHost,
+  element: HTMLElement,
+): void {
+  if (!getIsZoomRuntimeReady(host)) {
     return;
   }
-  const { d3Zoom, d3Selection } = getZoomRuntime();
+  const { d3Zoom, d3Selection } = getZoomRuntime(host);
   const rect = element.getBoundingClientRect();
   const translation = getPaneTranslationForPoint(
-    screenToFlowPosition({ x: rect.x, y: rect.y }),
-    getPaneRect(useReactFlow.getState()),
+    screenToFlowPosition(host, { x: rect.x, y: rect.y }),
+    getPaneRect(host, getReactFlowStore(host).getState()),
     100,
   );
   if (!translation) {
@@ -186,25 +229,28 @@ export function movePaneToIncludeElement(element: HTMLElement): void {
 // Frozen main moves the map by the leading pane's true-width delta when its host setting is
 // enabled. The pane itself uses a 150ms CSS transform; the map follows through main's 100ms d3
 // viewport transition so section positions remain visually continuous while the pane opens.
-export function shiftWorkspaceMapForLeadingPane(widthDiff: number): void {
+export function shiftWorkspaceMapForLeadingPane(
+  host: WorkspaceHost,
+  widthDiff: number,
+): void {
   if (widthDiff === 0) {
     return;
   }
-  const { d3Zoom, d3Selection } = getZoomRuntime();
+  const { d3Zoom, d3Selection } = getZoomRuntime(host);
   const {
     transform: [x, y, zoom],
-  } = useReactFlow.getState();
+  } = getReactFlowStore(host).getState();
   const nextTransform = zoomIdentity.translate(x + widthDiff, y).scale(zoom);
   d3Zoom.transform(getZoomTarget(d3Selection, 100), nextTransform);
 }
 
 // The public counterpart of frozen main's Overview `goToSection`: fit one mounted section into
 // the actual canvas center, cap ordinary focus at 100%, and leave canonical selection untouched.
-export function focusWorkspaceSection(sectionId: string): void {
-  if (!useWorkspaceDocument.getState().sections[sectionId]) {
+export function focusWorkspaceSection(host: WorkspaceHost, sectionId: string): void {
+  if (!getWorkspaceDocumentStore(host).getState().sections[sectionId]) {
     throw new Error(`Cannot focus unknown workspace section ${sectionId}.`);
   }
-  const rect = getSectionRect(sectionId);
+  const rect = getSectionRect(host, sectionId);
   if (!rect) {
     throw new Error(
       `Cannot focus workspace section ${sectionId} before its canvas element mounted.`,
@@ -216,13 +262,13 @@ export function focusWorkspaceSection(sectionId: string): void {
     );
   }
 
-  const { width, height, viewportInsets } = useReactFlow.getState();
+  const { width, height, viewportInsets } = getReactFlowStore(host).getState();
   if (width <= 0 || height <= 0) {
     throw new Error(
       "Cannot focus a workspace section before the canvas has measurable bounds.",
     );
   }
-  const { transitionDuration } = useWorkspaceOptions.getState();
+  const { transitionDuration } = getWorkspaceOptionsStore(host).getState();
   const viewport = getViewportForBounds(
     rect,
     width,
@@ -230,7 +276,7 @@ export function focusWorkspaceSection(sectionId: string): void {
     { minZoom: 0, maxZoom: 1 },
     { padding: 0.1, viewportInsets },
   );
-  setCenter(rect.x + rect.width / 2, rect.y + rect.height / 2, {
+  setCenter(host, rect.x + rect.width / 2, rect.y + rect.height / 2, {
     zoom: viewport.zoom,
     duration: transitionDuration,
   });

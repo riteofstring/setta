@@ -12,6 +12,7 @@ import {
   clampNumericValue,
 } from "../numeric/numericControlConfig";
 import { handleSectionControlEscape } from "../sectionFocus";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The remaining-controls milestone's slider: the reference `SliderInput` at the ordinary
 // `ParamUI` row presentation. Radix owns pointer and keyboard stepping; the adjacent numeric
@@ -137,6 +138,7 @@ function SliderValueControlCore({
   disabled = false,
   presentation,
 }: SliderValueControlProps & { presentation: SliderPresentation }) {
+  const host = useWorkspaceHost();
   assertNumericControlConfig("SliderValueControl", { min, max, step });
   const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
@@ -180,7 +182,7 @@ function SliderValueControlCore({
         <Slider.Thumb
           aria-label={ariaLabel}
           className={classes.thumbClassName}
-          onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
+          onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
         />
       </Slider.Root>
       <SliderNumericField
@@ -222,6 +224,7 @@ function SliderNumericField({
   className: string;
   characterCount: number;
 }) {
+  const host = useWorkspaceHost();
   const [temporaryValue, setTemporaryValue] = useState(value);
 
   useEffect(() => {
@@ -248,7 +251,7 @@ function SliderNumericField({
         onValueChange(clamped);
         onValueCommit(clamped);
       }}
-      onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
+      onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
     />
   );
 }

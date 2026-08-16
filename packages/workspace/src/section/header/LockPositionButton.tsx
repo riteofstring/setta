@@ -7,6 +7,7 @@ import {
 import { togglePositionLock } from "../../document/sectionMutations";
 import { useWorkspaceDocument } from "../../document/stores";
 import { getWorkspaceTooltipHandlers } from "../../tooltip/WorkspaceTooltip";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The reference's `LockPositionButton`: css.gg lock glyphs, orange locked tone, `canEditLayout`
 // gate, and both the native `title` and the seam-8 tooltip handlers.
@@ -111,6 +112,7 @@ export function LockPositionButton({
   sectionId,
   hasSectionStyleTheme = false,
 }: LockPositionButtonProps) {
+  const host = useWorkspaceHost();
   const { isGroup, positionAndSizeLocked } = useWorkspaceDocument((x) => {
     const section = getSectionOrThrow(x, sectionId);
     return {
@@ -134,7 +136,7 @@ export function LockPositionButton({
     if (!canEditLayout) {
       return;
     }
-    togglePositionLock(sectionId);
+    togglePositionLock(host, sectionId);
   }
 
   return (
@@ -146,7 +148,7 @@ export function LockPositionButton({
       title={label}
       type="button"
       data-setta-workspace-touch-target="compact"
-      {...getWorkspaceTooltipHandlers({ content: label })}
+      {...getWorkspaceTooltipHandlers(host, { content: label })}
     >
       <i aria-hidden="true" className={iconClassName} />
     </button>

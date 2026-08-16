@@ -1,5 +1,8 @@
-import { createWithEqualityFn } from "zustand/traditional";
+import { createStore } from "zustand/vanilla";
 import { withResetFn } from "../state/storeUtils";
+import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
+import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // The reference's param dnd bookkeeping store (`paramDndState.ts`), written in the package store
 // style (plain setState instead of the reference's immer middleware; identical observable state).
@@ -30,8 +33,9 @@ type ItemDndState = {
   placeholderHeight: number | null;
 };
 
-export const useItemDndState = createWithEqualityFn(
-  withResetFn<ItemDndState>(() => ({
+function createItemDndStateStore() {
+  return createStore(
+    withResetFn<ItemDndState>(() => ({
     activeId: null,
     sectionId: null,
     listKey: null,
@@ -43,15 +47,46 @@ export const useItemDndState = createWithEqualityFn(
     activeRect: null,
     placeholderWidth: null,
     placeholderHeight: null,
-  })),
-);
-
-export function setItemDndState(nextState: Partial<ItemDndState>) {
-  useItemDndState.setState(nextState);
+    })),
+  );
 }
 
-export function resetItemDndState() {
-  useItemDndState.getState().reset();
+const storesByHost = new WeakMap<
+  WorkspaceHost,
+  ReturnType<typeof createItemDndStateStore>
+>();
+
+export function getItemDndStateStore(host: WorkspaceHost) {
+  assertWorkspaceHostActive(host);
+  const existing = storesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const store = createItemDndStateStore();
+  storesByHost.set(host, store);
+  return store;
+}
+
+export function useItemDndState<T>(
+  selector: (state: ItemDndState) => T,
+  equalityFn?: (left: T, right: T) => boolean,
+): T {
+  return useWorkspaceStore(
+    getItemDndStateStore(useWorkspaceHost()),
+    selector,
+    equalityFn,
+  );
+}
+
+export function setItemDndState(
+  host: WorkspaceHost,
+  nextState: Partial<ItemDndState>,
+) {
+  getItemDndStateStore(host).setState(nextState);
+}
+
+export function resetItemDndState(host: WorkspaceHost) {
+  getItemDndStateStore(host).getState().reset();
 }
 
 const ITEM_DND_LIST_KEY_SEPARATOR = "::settaParamList::";

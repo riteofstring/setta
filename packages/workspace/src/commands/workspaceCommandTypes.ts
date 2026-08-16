@@ -5,6 +5,7 @@ import type {
   WorkspaceSection,
 } from "../document/types";
 import type { WorkspaceSnapshot } from "../document/workspaceSnapshot";
+import type { WorkspaceHost } from "../workspaceHost";
 
 export type WorkspaceCommandIconProps = {
   className?: string;
@@ -24,6 +25,7 @@ export type WorkspaceCommandSurface =
   | "toolbar";
 
 export type WorkspacePaneCommandContext = Readonly<{
+  host: WorkspaceHost;
   scope: "pane";
   // Where on the canvas the command was asked for, and null when the request carried no pointer.
   // A pane menu opens at a point; a toolbar control acts on the workspace from a fixed place that
@@ -32,12 +34,14 @@ export type WorkspacePaneCommandContext = Readonly<{
 }>;
 
 export type WorkspaceSectionCommandContext = Readonly<{
+  host: WorkspaceHost;
   scope: "section";
   section: WorkspaceSnapshot<WorkspaceSection>;
   selectedSections: ReadonlyArray<WorkspaceSnapshot<WorkspaceSection>>;
 }>;
 
 export type WorkspaceItemCommandContext = Readonly<{
+  host: WorkspaceHost;
   scope: "item";
   section: WorkspaceSnapshot<WorkspaceSection>;
   item: WorkspaceSnapshot<WorkspaceItem>;

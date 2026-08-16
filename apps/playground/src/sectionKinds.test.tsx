@@ -1,18 +1,18 @@
 /* @vitest-environment jsdom */
 
 import {
+  createWorkspaceHost,
   deleteSelectedWorkspaceItems,
-  getWorkspaceDocument,
   insertWorkspaceItem,
-  loadWorkspaceDocument,
   setItemLabel,
+  WorkspaceProvider,
+  type WorkspaceHost,
   type WorkspaceSection,
 } from "@setta/workspace";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
   afterEach,
-  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -77,6 +77,8 @@ class CapturingResizeObserver {
 globalThis.ResizeObserver =
   CapturingResizeObserver as unknown as typeof ResizeObserver;
 
+let workspaceHost: WorkspaceHost;
+
 function getItemPanelSection(): WorkspaceSection {
   const input = playgroundDocument.sections["item-panel"];
   if (!input) {
@@ -86,19 +88,19 @@ function getItemPanelSection(): WorkspaceSection {
 }
 
 function getDocumentItemValue(itemId: string): string | undefined {
-  const itemTree = getWorkspaceDocument().sections["item-panel"]?.itemTree;
+  const itemTree = workspaceHost.getSnapshot().sections["item-panel"]?.itemTree;
   const control = itemTree?.items[itemId]?.presentation?.control;
   return control && control.kind !== "group" ? control.value : undefined;
 }
 
 function getDocumentItemLabel(itemId: string): string | undefined {
-  return getWorkspaceDocument().sections["item-panel"]?.itemTree?.items[itemId]
+  return workspaceHost.getSnapshot().sections["item-panel"]?.itemTree?.items[itemId]
     ?.presentation?.label;
 }
 
 function getDocumentDropzoneAttachmentNames(): Array<string> {
   const control =
-    getWorkspaceDocument().sections["item-panel"]?.itemTree?.items[
+    workspaceHost.getSnapshot().sections["item-panel"]?.itemTree?.items[
       "item-dropzone"
     ]?.presentation?.control;
   if (!control || control.kind !== "dropzone") {
@@ -109,7 +111,7 @@ function getDocumentDropzoneAttachmentNames(): Array<string> {
 
 function findRowByLabel(container: HTMLElement, label: string): HTMLElement {
   const items =
-    getWorkspaceDocument().sections["item-panel"]?.itemTree?.items ?? {};
+    workspaceHost.getSnapshot().sections["item-panel"]?.itemTree?.items ?? {};
   const itemId = Object.values(items).find(
     (item) => item.presentation?.label === label,
   )?.id;
@@ -128,18 +130,20 @@ describe("the playground item renderer presentation contract", () => {
   let container: HTMLDivElement;
   let root: Root;
 
-  beforeAll(() => {
-    registerPlaygroundSectionKinds();
-  });
-
   beforeEach(() => {
-    loadWorkspaceDocument(playgroundDocument);
+    workspaceHost = createWorkspaceHost();
+    registerPlaygroundSectionKinds(workspaceHost);
+    workspaceHost.loadDocument(playgroundDocument);
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
     act(() => {
       root.render(
-        createElement(ItemListSectionBody, { section: getItemPanelSection() }),
+        createElement(
+          WorkspaceProvider,
+          { host: workspaceHost },
+          createElement(ItemListSectionBody, { section: getItemPanelSection() }),
+        ),
       );
     });
   });
@@ -151,6 +155,7 @@ describe("the playground item renderer presentation contract", () => {
     container.remove();
     observedResizeTargets.clear();
     vi.restoreAllMocks();
+    workspaceHost.dispose();
   });
 
   it("renders typed rows without a host renderer", () => {
@@ -217,7 +222,7 @@ describe("the playground item renderer presentation contract", () => {
         '[data-setta-workspace-item-quick-info-description="true"]',
       )?.textContent,
     ).toContain("Error: Use 0.0005 or less for the stability profile.");
-    expect(JSON.stringify(getWorkspaceDocument())).not.toContain(
+    expect(JSON.stringify(workspaceHost.getSnapshot())).not.toContain(
       "stability profile",
     );
   });
@@ -529,7 +534,7 @@ describe("the playground item renderer presentation contract", () => {
     }
     expect(dummy.querySelector(".cm-line span")?.className).toMatch(/ͼ/);
 
-    act(() => setItemLabel("item-panel", "item-rename", "renamed"));
+    act(() => setItemLabel(workspaceHost, "item-panel", "item-rename", "renamed"));
     expect(getDocumentItemLabel("item-rename")).toBe("renamed");
     expect(
       document.getElementById("ItemNameInput-item-panel-item-rename")
@@ -643,7 +648,7 @@ describe("the playground item renderer presentation contract", () => {
 
     const insertedItems: Array<ReturnType<typeof insertWorkspaceItem>> = [];
     act(() => {
-      insertedItems.push(insertWorkspaceItem("item-panel"));
+      insertedItems.push(insertWorkspaceItem(workspaceHost, "item-panel"));
     });
     const inserted = insertedItems[0];
     if (!inserted) {
@@ -673,15 +678,15 @@ describe("the playground item renderer presentation contract", () => {
       },
     });
     expect(
-      getWorkspaceDocument().sections["item-panel"]?.itemTree?.selectedItemIds,
+      workspaceHost.getSnapshot().sections["item-panel"]?.itemTree?.selectedItemIds,
     ).toEqual([inserted.id]);
 
     let deletedItemIds: Array<string> = [];
     act(() => {
-      deletedItemIds = deleteSelectedWorkspaceItems("item-panel");
+      deletedItemIds = deleteSelectedWorkspaceItems(workspaceHost, "item-panel");
     });
     expect(deletedItemIds).toEqual([inserted.id]);
-    const itemTree = getWorkspaceDocument().sections["item-panel"]?.itemTree;
+    const itemTree = workspaceHost.getSnapshot().sections["item-panel"]?.itemTree;
     expect(itemTree?.items[inserted.id]).toBeUndefined();
     expect(itemTree?.selectedItemIds).toEqual(["item-rename"]);
   });

@@ -1,4 +1,4 @@
-import { useReactFlow } from "../canvas/store";
+import { getReactFlowStore } from "../canvas/store";
 import { getActiveSectionIds } from "../document/activeSections";
 import {
   getSectionChildren,
@@ -13,10 +13,16 @@ import {
   orderSectionIdsByParent,
 } from "../document/sectionSelection";
 import {
-  useWorkspaceDocument,
+  getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
 } from "../document/stores";
-import { useSectionRefs } from "../section/sectionRefs";
+import { getSectionRefsStore } from "../section/sectionRefs";
+import { useWorkspaceHost } from "../workspaceHostContext";
+import {
+  assertWorkspaceHostActive,
+  registerWorkspaceHostCleanup,
+} from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
 import { resolveOverCollisionId } from "./adapter/collisionCompare";
@@ -25,10 +31,15 @@ import {
   manualDndChildrenReset,
   removeDndChild,
   replaceDndSectionsWithTemp,
-  useDndChildren,
+  getDndChildrenStore,
 } from "./dndChildren";
 import { getDndSectionId } from "./dndIds";
-import { setActiveDnd, setDndTime, useDndState } from "./dndState";
+import {
+  getDndStateStore,
+  setActiveDnd,
+  setDndTime,
+  useDndState,
+} from "./dndState";
 import { BehaviorDropTypeEnum } from "./dropTypes";
 import { resetSortingOverState } from "./sortingOverState";
 
@@ -39,13 +50,46 @@ import { resetSortingOverState } from "./sortingOverState";
 // notification left with the app notification system (the fallback behavior is identical:
 // only the active section drags).
 
-let lastPastHalfwayByOverId: Record<string, boolean> = {};
-let lastResolvedOverId: string | number | null = null;
-let lastResolvedPastHalfway: boolean | null = null;
-let lastResolvedTriggerDistCondition: boolean | null = null;
+type DropTypeRuntime = {
+  lastPastHalfwayByOverId: Record<string, boolean>;
+  lastResolvedOverId: string | number | null;
+  lastResolvedPastHalfway: boolean | null;
+  lastResolvedTriggerDistCondition: boolean | null;
+  tempReplacementFrames: Set<number>;
+};
 
-type DndStoreState = ReturnType<typeof useDndState.getState>;
-type DndChildrenState = ReturnType<typeof useDndChildren.getState>;
+const runtimesByHost = new WeakMap<WorkspaceHost, DropTypeRuntime>();
+
+function getDropTypeRuntime(host: WorkspaceHost): DropTypeRuntime {
+  assertWorkspaceHostActive(host);
+  const existing = runtimesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const runtime: DropTypeRuntime = {
+    lastPastHalfwayByOverId: {},
+    lastResolvedOverId: null,
+    lastResolvedPastHalfway: null,
+    lastResolvedTriggerDistCondition: null,
+    tempReplacementFrames: new Set(),
+  };
+  runtimesByHost.set(host, runtime);
+  registerWorkspaceHostCleanup(host, () => {
+    for (const frame of runtime.tempReplacementFrames) {
+      cancelAnimationFrame(frame);
+    }
+    runtime.tempReplacementFrames.clear();
+    runtimesByHost.delete(host);
+  });
+  return runtime;
+}
+
+type DndStoreState = ReturnType<
+  ReturnType<typeof getDndStateStore>["getState"]
+>;
+type DndChildrenState = ReturnType<
+  ReturnType<typeof getDndChildrenStore>["getState"]
+>;
 type Collisions = DragOverEvent["collisions"];
 type ResolvedOverSnapshot = {
   overId: string | number | null;
@@ -100,61 +144,69 @@ function getCollisionTriggerDistCondition(
   return Boolean(fallback);
 }
 
-function resetLastPastHalfwayByOverId() {
-  lastPastHalfwayByOverId = {};
+function resetLastPastHalfwayByOverId(host: WorkspaceHost) {
+  getDropTypeRuntime(host).lastPastHalfwayByOverId = {};
 }
 
-function resetLastResolvedOverState() {
-  lastResolvedOverId = null;
-  lastResolvedPastHalfway = null;
-  lastResolvedTriggerDistCondition = null;
+function resetLastResolvedOverState(host: WorkspaceHost) {
+  const runtime = getDropTypeRuntime(host);
+  runtime.lastResolvedOverId = null;
+  runtime.lastResolvedPastHalfway = null;
+  runtime.lastResolvedTriggerDistCondition = null;
 }
 
-export function onDragStart({ active, activeRect }: DragStartEvent) {
-  resetLastPastHalfwayByOverId();
-  resetLastResolvedOverState();
-  resetSortingOverState();
+export function onDragStart(
+  host: WorkspaceHost,
+  { active, activeRect }: DragStartEvent,
+) {
+  resetLastPastHalfwayByOverId(host);
+  resetLastResolvedOverState(host);
+  resetSortingOverState(host);
   const activeData = active.data?.current as
     { isTopLevel?: boolean } | undefined;
   if (!activeData) {
     return;
   }
   const activeId = String(active.id);
-  const dndState = useDndState.getState();
+  const dndState = getDndStateStore(host).getState();
   const { selection, normalizedWidth, normalizedHeight } =
-    resolveDragStartLayout(activeId, activeRect ?? null);
+    resolveDragStartLayout(host, activeId, activeRect ?? null);
   setActiveDnd(
+    host,
     activeId,
     Boolean(activeData.isTopLevel),
     normalizedWidth,
     normalizedHeight,
     activeRect,
   );
-  useDndState.setState({
+  getDndStateStore(host).setState({
     draggingIds: selection.draggingIds,
     draggingRectsById: selection.draggingRectsById,
   });
-  scheduleTempReplacement(activeId, selection.draggingIds, dndState);
+  scheduleTempReplacement(host, activeId, selection.draggingIds, dndState);
 }
 
 export function useOnDragMove() {
+  const host = useWorkspaceHost();
   const isMovingFree = useDndState((x) => x.isMovingFree);
   if (isMovingFree) {
-    return onDragMove;
+    return (event: DragMoveEvent) => onDragMove(host, event);
   }
   return () => {};
 }
 
-function onDragMove({ active, collisions, over }: DragMoveEvent) {
-  const dndState = useDndState.getState();
-  const update = resolveDragMoveUpdate({ collisions, over, dndState });
+function onDragMove(host: WorkspaceHost, { active, collisions, over }: DragMoveEvent) {
+  const dndState = getDndStateStore(host).getState();
+  const update = resolveDragMoveUpdate(host, { collisions, over, dndState });
 
   if (update.triggerDistChanged) {
-    useDndState.setState({ triggerDistCondition: update.triggerDistCondition });
+    getDndStateStore(host).setState({
+      triggerDistCondition: update.triggerDistCondition,
+    });
   }
 
   if (shouldRunDragOverFromMove(update)) {
-    onDragOver({
+    onDragOver(host, {
       active,
       over: update.overCandidate,
       collisions,
@@ -162,18 +214,19 @@ function onDragMove({ active, collisions, over }: DragMoveEvent) {
     });
   }
 
-  cachePastHalfway(update.resolvedOverIdKey, update.pastHalfway);
+  cachePastHalfway(host, update.resolvedOverIdKey, update.pastHalfway);
 }
 
 export function useOnDragOver() {
+  const host = useWorkspaceHost();
   const isMovingFree = useDndState((x) => x.isMovingFree);
   if (isMovingFree) {
-    return onDragOver;
+    return (event: DragOverEvent) => onDragOver(host, event);
   }
   return () => {};
 }
 
-function onDragOver({
+function onDragOver(host: WorkspaceHost, {
   active,
   over,
   collisions,
@@ -187,13 +240,13 @@ function onDragOver({
   }
 
   const activeId = String(active.id);
-  const dndState = useDndState.getState();
-  const dndChildrenState = useDndChildren.getState();
+  const dndState = getDndStateStore(host).getState();
+  const dndChildrenState = getDndChildrenStore(host).getState();
   const dndSectionId = getDndSectionId(activeId);
-  const oldParentId = getDndParentId(dndSectionId) ?? null;
+  const oldParentId = getDndParentId(host, dndSectionId) ?? null;
 
   if (
-    handleEmptyDragOverCollisions(collisions, {
+    handleEmptyDragOverCollisions(host, collisions, {
       dndState,
       dndSectionId,
     })
@@ -201,12 +254,12 @@ function onDragOver({
     return;
   }
 
-  const snapshot = resolveDragOverSnapshot(over, collisions, dndState);
-  if (!updateResolvedOverState(snapshot)) {
+  const snapshot = resolveDragOverSnapshot(host, over, collisions, dndState);
+  if (!updateResolvedOverState(host, snapshot)) {
     return;
   }
 
-  const leftDistOutcome = resolveLeftDistOutcome({
+  const leftDistOutcome = resolveLeftDistOutcome(host, {
     activeId,
     over,
     dndChildrenState,
@@ -223,32 +276,35 @@ function onDragOver({
   if (
     shouldThrottleRecentOver(calledFromOnDragMove, snapshot.overId, dndState)
   ) {
-    setNullBehavior(snapshot.overId);
+    setNullBehavior(host, snapshot.overId);
     return;
   }
 
-  recordOverTime(snapshot.overId);
+  recordOverTime(host, snapshot.overId);
 
-  if (handleNullOrSelfOver(snapshot.overId, dndSectionId)) {
+  if (handleNullOrSelfOver(host, snapshot.overId, dndSectionId)) {
     return;
   }
 
-  maybeMoveToNewParent({
+  maybeMoveToNewParent(host, {
     activeId,
     over,
     dndSectionId,
     oldParentId,
-    newParentId: resolveOverNewParentId(snapshot.overId),
+    newParentId: resolveOverNewParentId(host, snapshot.overId),
     dndChildrenState,
     collisions,
   });
 }
 
-function resolveOverNewParentId(overId: string | number | null): string {
-  return getDndParentId(String(overId)) ?? String(overId);
+function resolveOverNewParentId(
+  host: WorkspaceHost,
+  overId: string | number | null,
+): string {
+  return getDndParentId(host, String(overId)) ?? String(overId);
 }
 
-function maybeMoveToNewParent({
+function maybeMoveToNewParent(host: WorkspaceHost, {
   activeId,
   over,
   dndSectionId,
@@ -257,7 +313,7 @@ function maybeMoveToNewParent({
   dndChildrenState,
   collisions,
 }: ParentMoveArgs) {
-  const context = resolveParentMoveContext({
+  const context = resolveParentMoveContext(host, {
     activeId,
     over,
     dndSectionId,
@@ -268,25 +324,25 @@ function maybeMoveToNewParent({
   });
 
   if (shouldRejectParentExitHover(context)) {
-    setNullBehavior(context.overId);
+    setNullBehavior(host, context.overId);
     return;
   }
-  if (!allowParentDrop(context)) {
+  if (!allowParentDrop(host, context)) {
     return;
   }
-  if (restoreOnlyChildToParent(context)) {
+  if (restoreOnlyChildToParent(host, context)) {
     return;
   }
   if (shouldSuppressContainerHover(context)) {
-    removeDndChild(context.dndSectionId);
+    removeDndChild(host, context.dndSectionId);
     return;
   }
 
-  moveTempSectionToParent(context);
-  setNullBehavior(context.overId);
+  moveTempSectionToParent(host, context);
+  setNullBehavior(host, context.overId);
 }
 
-function leftDistBehavior({
+function leftDistBehavior(host: WorkspaceHost, {
   activeId,
   over,
   dndChildrenState,
@@ -294,19 +350,19 @@ function leftDistBehavior({
   dndSectionId,
   collisions,
 }: Omit<ParentMoveArgs, "newParentId">): boolean {
-  const overId = getOverId(over, collisions);
+  const overId = getOverId(host, over, collisions);
   const overIdKey = normalizeOverId(overId);
   if (!overIdKey || overIdKey === dndSectionId) {
     return true;
   }
 
-  const behaviorDropType = getBehaviorDropType(activeId, overIdKey);
+  const behaviorDropType = getBehaviorDropType(host, activeId, overIdKey);
   if (behaviorDropType === BehaviorDropTypeEnum.INVALID) {
-    setNullBehavior(overId);
+    setNullBehavior(host, overId);
     return false;
   }
 
-  maybeMoveToNewParent({
+  maybeMoveToNewParent(host, {
     activeId,
     over,
     dndSectionId,
@@ -319,12 +375,13 @@ function leftDistBehavior({
 }
 
 function resolveDragStartLayout(
+  host: WorkspaceHost,
   activeId: string,
   activeRect: DragStartEvent["activeRect"] | null,
 ) {
-  const selection = resolveSectionDragSelection(activeId, activeRect);
-  const safeZoom = resolveSafeZoom();
-  const placeholderSize = resolveSectionPlaceholderSize({
+  const selection = resolveSectionDragSelection(host, activeId, activeRect);
+  const safeZoom = resolveSafeZoom(host);
+  const placeholderSize = resolveSectionPlaceholderSize(host, {
     draggingIds: selection.draggingIds,
     rectsById: selection.rectsById,
     zoom: safeZoom,
@@ -339,12 +396,13 @@ function resolveDragStartLayout(
   };
 }
 
-function resolveSafeZoom() {
-  const zoom = useReactFlow.getState().transform[2];
+function resolveSafeZoom(host: WorkspaceHost) {
+  const zoom = getReactFlowStore(host).getState().transform[2];
   return zoom > 0 ? zoom : 1;
 }
 
 function scheduleTempReplacement(
+  host: WorkspaceHost,
   activeId: string,
   draggingIds: Array<string>,
   dndState: DndStoreState,
@@ -353,32 +411,35 @@ function scheduleTempReplacement(
     return;
   }
 
-  manualDndChildrenReset();
-  requestAnimationFrame(() => {
-    if (!shouldReplaceDndSectionsWithTemp(activeId)) {
+  manualDndChildrenReset(host);
+  const runtime = getDropTypeRuntime(host);
+  const frame = requestAnimationFrame(() => {
+    runtime.tempReplacementFrames.delete(frame);
+    if (!shouldReplaceDndSectionsWithTemp(host, activeId)) {
       return;
     }
-    replaceDndSectionsWithTemp(activeId, draggingIds);
+    replaceDndSectionsWithTemp(host, activeId, draggingIds);
   });
+  runtime.tempReplacementFrames.add(frame);
 }
 
-function shouldReplaceDndSectionsWithTemp(activeId: string) {
-  const latestState = useDndState.getState();
+function shouldReplaceDndSectionsWithTemp(host: WorkspaceHost, activeId: string) {
+  const latestState = getDndStateStore(host).getState();
   return (
     (latestState.isMovingFree || latestState.isSorting) &&
     latestState.activeId === activeId
   );
 }
 
-function resolveDragMoveUpdate({
+function resolveDragMoveUpdate(host: WorkspaceHost, {
   collisions,
   over,
   dndState,
 }: Pick<DragMoveEvent, "collisions" | "over"> & {
   dndState: DndStoreState;
 }) {
-  const resolvedTarget = resolveDragMoveTarget(collisions, over);
-  const changeState = resolveDragMoveChangeState(resolvedTarget, dndState);
+  const resolvedTarget = resolveDragMoveTarget(host, collisions, over);
+  const changeState = resolveDragMoveChangeState(host, resolvedTarget, dndState);
 
   return {
     overCandidate: resolvedTarget.overCandidate,
@@ -390,26 +451,28 @@ function resolveDragMoveUpdate({
 }
 
 function resolveDragMoveTarget(
+  host: WorkspaceHost,
   collisions: DragMoveEvent["collisions"],
   over: DragMoveEvent["over"],
 ) {
   const overCandidate = collisions?.[0] ?? over;
-  const resolvedOverId = getOverId(overCandidate, collisions);
+  const resolvedOverId = getOverId(host, overCandidate, collisions);
   return {
     overCandidate,
     overCandidateId: overCandidate ? String(overCandidate.id) : null,
     resolvedOverIdKey: normalizeOverId(resolvedOverId),
-    pastHalfway: getOverCollisionPastHalfway(resolvedOverId, collisions),
+    pastHalfway: getOverCollisionPastHalfway(host, resolvedOverId, collisions),
     triggerDistCondition:
       getCollisionTriggerDistCondition(resolvedOverId, collisions) ?? false,
   };
 }
 
 function resolveDragMoveChangeState(
+  host: WorkspaceHost,
   resolvedTarget: ReturnType<typeof resolveDragMoveTarget>,
   dndState: DndStoreState,
 ) {
-  const lastPastHalfway = getCachedPastHalfway(
+  const lastPastHalfway = getCachedPastHalfway(host,
     resolvedTarget.resolvedOverIdKey,
   );
   const triggerDistChanged =
@@ -482,7 +545,8 @@ function normalizeOverId(overId: string | number | null) {
   return overId === null ? null : String(overId);
 }
 
-function getCachedPastHalfway(overIdKey: string | null) {
+function getCachedPastHalfway(host: WorkspaceHost, overIdKey: string | null) {
+  const { lastPastHalfwayByOverId } = getDropTypeRuntime(host);
   if (
     overIdKey === null ||
     !Object.prototype.hasOwnProperty.call(lastPastHalfwayByOverId, overIdKey)
@@ -493,16 +557,18 @@ function getCachedPastHalfway(overIdKey: string | null) {
 }
 
 function cachePastHalfway(
+  host: WorkspaceHost,
   overIdKey: string | null,
   pastHalfway: boolean | null,
 ) {
   if (overIdKey === null || pastHalfway === null) {
     return;
   }
-  lastPastHalfwayByOverId[overIdKey] = pastHalfway;
+  getDropTypeRuntime(host).lastPastHalfwayByOverId[overIdKey] = pastHalfway;
 }
 
 function handleEmptyDragOverCollisions(
+  host: WorkspaceHost,
   collisions: NonNullable<Collisions>,
   {
     dndState,
@@ -515,59 +581,63 @@ function handleEmptyDragOverCollisions(
   if (collisions.length > 0) {
     return false;
   }
-  if (!isResolvedOverStateIdle(dndState)) {
-    lastResolvedOverId = null;
-    lastResolvedPastHalfway = null;
-    lastResolvedTriggerDistCondition = dndState.triggerDistCondition;
-    removeDndChild(dndSectionId);
-    setNullBehavior(null);
+  if (!isResolvedOverStateIdle(host, dndState)) {
+    const runtime = getDropTypeRuntime(host);
+    runtime.lastResolvedOverId = null;
+    runtime.lastResolvedPastHalfway = null;
+    runtime.lastResolvedTriggerDistCondition = dndState.triggerDistCondition;
+    removeDndChild(host, dndSectionId);
+    setNullBehavior(host, null);
   }
   return true;
 }
 
-function isResolvedOverStateIdle(dndState: DndStoreState) {
+function isResolvedOverStateIdle(host: WorkspaceHost, dndState: DndStoreState) {
+  const runtime = getDropTypeRuntime(host);
   return (
-    lastResolvedOverId === null &&
-    lastResolvedPastHalfway === null &&
-    lastResolvedTriggerDistCondition === dndState.triggerDistCondition &&
+    runtime.lastResolvedOverId === null &&
+    runtime.lastResolvedPastHalfway === null &&
+    runtime.lastResolvedTriggerDistCondition === dndState.triggerDistCondition &&
     dndState.overId === null &&
     dndState.behaviorDropType === null
   );
 }
 
 function resolveDragOverSnapshot(
+  host: WorkspaceHost,
   over: { id: string | number } | null,
   collisions: Collisions,
   dndState: DndStoreState,
 ): ResolvedOverSnapshot {
-  const overId = getOverId(over, collisions);
+  const overId = getOverId(host, over, collisions);
   return {
     overId,
-    pastHalfway: getOverCollisionPastHalfway(overId, collisions),
+    pastHalfway: getOverCollisionPastHalfway(host, overId, collisions),
     triggerDistCondition: dndState.triggerDistCondition,
   };
 }
 
-function updateResolvedOverState({
+function updateResolvedOverState(host: WorkspaceHost, {
   overId,
   pastHalfway,
   triggerDistCondition,
 }: ResolvedOverSnapshot) {
+  const runtime = getDropTypeRuntime(host);
   if (
-    overId === lastResolvedOverId &&
-    pastHalfway === lastResolvedPastHalfway &&
-    triggerDistCondition === lastResolvedTriggerDistCondition
+    overId === runtime.lastResolvedOverId &&
+    pastHalfway === runtime.lastResolvedPastHalfway &&
+    triggerDistCondition === runtime.lastResolvedTriggerDistCondition
   ) {
     return false;
   }
 
-  lastResolvedOverId = overId;
-  lastResolvedPastHalfway = pastHalfway;
-  lastResolvedTriggerDistCondition = triggerDistCondition;
+  runtime.lastResolvedOverId = overId;
+  runtime.lastResolvedPastHalfway = pastHalfway;
+  runtime.lastResolvedTriggerDistCondition = triggerDistCondition;
   return true;
 }
 
-function resolveLeftDistOutcome({
+function resolveLeftDistOutcome(host: WorkspaceHost, {
   activeId,
   over,
   dndChildrenState,
@@ -584,7 +654,7 @@ function resolveLeftDistOutcome({
     return "continue";
   }
   if (calledFromOnDragMove) {
-    return leftDistBehavior({
+    return leftDistBehavior(host, {
       activeId,
       over,
       dndChildrenState,
@@ -595,7 +665,7 @@ function resolveLeftDistOutcome({
       ? "handled"
       : "ignored";
   }
-  return leftDistBehavior({
+  return leftDistBehavior(host, {
     activeId,
     over,
     dndChildrenState,
@@ -607,9 +677,9 @@ function resolveLeftDistOutcome({
     : "continue";
 }
 
-function recordOverTime(overId: string | number | null) {
+function recordOverTime(host: WorkspaceHost, overId: string | number | null) {
   if (overId !== null) {
-    setDndTime(overId);
+    setDndTime(host, overId);
   }
 }
 
@@ -626,22 +696,23 @@ function shouldThrottleRecentOver(
 }
 
 function handleNullOrSelfOver(
+  host: WorkspaceHost,
   overId: string | number | null,
   dndSectionId: string,
 ) {
   if (overId === null) {
-    removeDndChild(dndSectionId);
-    setNullBehavior(null);
+    removeDndChild(host, dndSectionId);
+    setNullBehavior(host, null);
     return true;
   }
   if (dndSectionId !== overId) {
     return false;
   }
-  setNullBehavior(overId);
+  setNullBehavior(host, overId);
   return true;
 }
 
-function resolveParentMoveContext({
+function resolveParentMoveContext(host: WorkspaceHost, {
   activeId,
   over,
   dndSectionId,
@@ -650,7 +721,7 @@ function resolveParentMoveContext({
   dndChildrenState,
   collisions,
 }: ParentMoveArgs): ParentMoveContext {
-  const overId = getOverId(over, collisions);
+  const overId = getOverId(host, over, collisions);
   const newParentChildren = dndChildrenState.x[newParentId] ?? [];
   return {
     activeId,
@@ -661,10 +732,10 @@ function resolveParentMoveContext({
     overIdKey: normalizeOverId(overId),
     newParentChildren,
     newParentNumChildren: getSectionChildren(
-      useWorkspaceDocument.getState(),
+      getWorkspaceDocumentStore(host).getState(),
       newParentId,
     ).length,
-    pastHalfway: getOverCollisionPastHalfway(overId, collisions) ?? false,
+    pastHalfway: getOverCollisionPastHalfway(host, overId, collisions) ?? false,
     tempInNewParent: newParentChildren.includes(dndSectionId),
   };
 }
@@ -682,23 +753,26 @@ function shouldRejectParentExitHover({
   );
 }
 
-function allowParentDrop({
+function allowParentDrop(host: WorkspaceHost, {
   activeId,
   dndSectionId,
   newParentId,
   overId,
 }: ParentMoveContext) {
-  const behaviorDropType = getBehaviorDropType(activeId, newParentId);
+  const behaviorDropType = getBehaviorDropType(host, activeId, newParentId);
   if (behaviorDropType !== BehaviorDropTypeEnum.INVALID) {
     return true;
   }
 
-  removeDndChild(dndSectionId);
-  useDndState.setState({ behaviorDropType, overId: normalizeOverId(overId) });
+  removeDndChild(host, dndSectionId);
+  getDndStateStore(host).setState({
+    behaviorDropType,
+    overId: normalizeOverId(overId),
+  });
   return false;
 }
 
-function restoreOnlyChildToParent({
+function restoreOnlyChildToParent(host: WorkspaceHost, {
   activeId,
   oldParentId,
   newParentId,
@@ -707,12 +781,12 @@ function restoreOnlyChildToParent({
 }: ParentMoveContext) {
   if (
     newParentNumChildren !== 1 ||
-    (useWorkspaceDocument.getState().parentSectionMap[activeId] ?? null) !==
+    (getWorkspaceDocumentStore(host).getState().parentSectionMap[activeId] ?? null) !==
       newParentId
   ) {
     return false;
   }
-  addDndChild(oldParentId, newParentId, dndSectionId, 0);
+  addDndChild(host, oldParentId, newParentId, dndSectionId, 0);
   return true;
 }
 
@@ -730,13 +804,14 @@ function shouldSuppressContainerHover({
   );
 }
 
-function moveTempSectionToParent(context: ParentMoveContext) {
+function moveTempSectionToParent(host: WorkspaceHost, context: ParentMoveContext) {
   const overIndex =
     context.overIdKey === null
       ? -1
       : context.newParentChildren.indexOf(context.overIdKey);
   if (context.newParentId !== context.oldParentId) {
     addDndChild(
+      host,
       context.oldParentId,
       context.newParentId,
       context.dndSectionId,
@@ -744,7 +819,7 @@ function moveTempSectionToParent(context: ParentMoveContext) {
     );
     return;
   }
-  maybeReorderWithinParent(context, overIndex);
+  maybeReorderWithinParent(host, context, overIndex);
 }
 
 function resolveParentInsertionIndex(
@@ -773,6 +848,7 @@ function shouldInsertAtParentBoundary({
 }
 
 function maybeReorderWithinParent(
+  host: WorkspaceHost,
   {
     oldParentId,
     newParentId,
@@ -795,13 +871,13 @@ function maybeReorderWithinParent(
     newParentChildren.length,
   );
   if (nextIndex !== activeIndex) {
-    addDndChild(oldParentId, newParentId, dndSectionId, nextIndex);
+    addDndChild(host, oldParentId, newParentId, dndSectionId, nextIndex);
   }
 }
 
-function setNullBehavior(overId: string | number | null) {
+function setNullBehavior(host: WorkspaceHost, overId: string | number | null) {
   const normalizedOverId = normalizeOverId(overId);
-  const dndState = useDndState.getState();
+  const dndState = getDndStateStore(host).getState();
   if (
     dndState.behaviorDropType === null &&
     dndState.overId === normalizedOverId
@@ -809,7 +885,7 @@ function setNullBehavior(overId: string | number | null) {
     return;
   }
 
-  useDndState.setState({
+  getDndStateStore(host).setState({
     behaviorDropType: null,
     overId: normalizedOverId,
   });
@@ -819,13 +895,17 @@ function getTimeDiff(state: DndStoreState, sectionId: string | number) {
   return Date.now() - (state.times[sectionId] ?? 0);
 }
 
-export function getDndParentId(dndSectionId: string) {
-  return useDndChildren.getState().y[dndSectionId];
+export function getDndParentId(host: WorkspaceHost, dndSectionId: string) {
+  return getDndChildrenStore(host).getState().y[dndSectionId];
 }
 
-export function getBehaviorDropType(activeId: string, newParentId: string) {
-  const state = useWorkspaceDocument.getState();
-  const selectedIds = getSelectedDragIds(activeId);
+export function getBehaviorDropType(
+  host: WorkspaceHost,
+  activeId: string,
+  newParentId: string,
+) {
+  const state = getWorkspaceDocumentStore(host).getState();
+  const selectedIds = getSelectedDragIds(host, activeId);
 
   if (!isGroupSection(getSectionOrThrow(state, newParentId))) {
     return BehaviorDropTypeEnum.INVALID;
@@ -839,20 +919,26 @@ export function getBehaviorDropType(activeId: string, newParentId: string) {
   return null;
 }
 
-function getSelectedDragIds(activeId: string) {
-  const draggingIds = useDndState.getState().draggingIds;
+function getSelectedDragIds(host: WorkspaceHost, activeId: string) {
+  const draggingIds = getDndStateStore(host).getState().draggingIds;
   return draggingIds.length > 0 ? draggingIds : [String(activeId)];
 }
 
 export function getOverId(
+  host: WorkspaceHost,
   over: { id: string | number } | null,
   collisions: DragOverEvent["collisions"] | null,
 ) {
   const fallbackId = over ? over.id : null;
-  return resolveOverCollisionId(collisions, fallbackId);
+  return resolveOverCollisionId(
+    collisions,
+    fallbackId,
+    getDndChildrenStore(host).getState().y,
+  );
 }
 
 function getOverCollisionPastHalfway(
+  host: WorkspaceHost,
   overId: string | number | null,
   collisions: DragOverEvent["collisions"] | null,
 ): boolean | null {
@@ -866,7 +952,7 @@ function getOverCollisionPastHalfway(
       return Boolean(matching.pastHalfway);
     }
 
-    return getCachedPastHalfway(String(overId));
+    return getCachedPastHalfway(host, String(overId));
   }
 
   const overCollision = collisions[0];
@@ -899,7 +985,7 @@ type PlaceholderSizeInput = {
 
 type SectionOrientation = "horizontal" | "vertical";
 
-function resolveSectionPlaceholderSize({
+function resolveSectionPlaceholderSize(host: WorkspaceHost, {
   draggingIds,
   rectsById,
   zoom,
@@ -908,8 +994,9 @@ function resolveSectionPlaceholderSize({
     return null;
   }
 
-  const state = useWorkspaceDocument.getState();
+  const state = getWorkspaceDocumentStore(host).getState();
   const { indexById, orientation } = resolvePlaceholderLayout(
+    host,
     state,
     draggingIds,
   );
@@ -924,6 +1011,7 @@ function resolveSectionPlaceholderSize({
 }
 
 function resolvePlaceholderLayout(
+  host: WorkspaceHost,
   state: WorkspaceDocumentState,
   draggingIds: Array<string>,
 ) {
@@ -931,7 +1019,7 @@ function resolvePlaceholderLayout(
   const children = parentId ? getSectionChildren(state, parentId) : null;
   return {
     indexById: children ? buildChildIndexMap(children) : null,
-    orientation: resolveParentOrientation(parentId),
+    orientation: resolveParentOrientation(host, parentId),
   };
 }
 
@@ -967,17 +1055,20 @@ function scalePlaceholderSize(
   };
 }
 
-function resolveParentOrientation(parentId: string | null): SectionOrientation {
+function resolveParentOrientation(
+  host: WorkspaceHost,
+  parentId: string | null,
+): SectionOrientation {
   if (!parentId) {
     return "vertical";
   }
-  if (getSectionIsHorizontalOrientation(parentId)) {
+  if (getSectionIsHorizontalOrientation(host, parentId)) {
     return "horizontal";
   }
   return "vertical";
 }
 
-function collectSectionRects({
+function collectSectionRects(host: WorkspaceHost, {
   activeId,
   activeRect,
   draggingIds,
@@ -986,7 +1077,7 @@ function collectSectionRects({
   activeRect: DragStartEvent["activeRect"] | null;
   draggingIds: Array<string>;
 }): Record<string, DragRect> | null {
-  const refs = useSectionRefs.getState();
+  const refs = getSectionRefsStore(host).getState();
   const rectsById: Record<string, DragRect> = {};
 
   for (const sectionId of draggingIds) {
@@ -1127,6 +1218,7 @@ function resolveAdjacentGap({
 }
 
 function resolveSectionDragSelection(
+  host: WorkspaceHost,
   activeId: string,
   activeRect: DragStartEvent["activeRect"] | null,
 ): {
@@ -1134,20 +1226,20 @@ function resolveSectionDragSelection(
   rectsById: Record<string, DragRect> | null;
   draggingRectsById: Record<string, DragRect> | null;
 } {
-  const state = useWorkspaceDocument.getState();
-  const activeIds = getActiveSectionIds();
+  const state = getWorkspaceDocumentStore(host).getState();
+  const activeIds = getActiveSectionIds(host);
   if (!activeIds.includes(activeId)) {
-    return buildSectionSelection([activeId], activeId, activeRect);
+    return buildSectionSelection(host, [activeId], activeId, activeRect);
   }
 
   const { rootIds } = getRootSelectedSectionIds(state, activeIds);
   if (rootIds.length === 0) {
-    return buildSectionSelection([activeId], activeId, activeRect);
+    return buildSectionSelection(host, [activeId], activeId, activeRect);
   }
 
   const sharedParentId = getSharedParentId(state, rootIds);
   if (rootIds.length > 1 && sharedParentId === undefined) {
-    return buildSectionSelection([activeId], activeId, activeRect);
+    return buildSectionSelection(host, [activeId], activeId, activeRect);
   }
 
   const orderedIds = orderSectionIdsByParent(
@@ -1155,10 +1247,11 @@ function resolveSectionDragSelection(
     sharedParentId ?? null,
     rootIds,
   );
-  return buildSectionSelection(orderedIds, activeId, activeRect);
+  return buildSectionSelection(host, orderedIds, activeId, activeRect);
 }
 
 function buildSectionSelection(
+  host: WorkspaceHost,
   draggingIds: Array<string>,
   activeId: string,
   activeRect: DragStartEvent["activeRect"] | null,
@@ -1167,7 +1260,7 @@ function buildSectionSelection(
   rectsById: Record<string, DragRect> | null;
   draggingRectsById: Record<string, DragRect> | null;
 } {
-  const rectsById = collectSectionRects({
+  const rectsById = collectSectionRects(host, {
     activeId,
     activeRect,
     draggingIds,
@@ -1175,14 +1268,15 @@ function buildSectionSelection(
   return {
     draggingIds,
     rectsById,
-    draggingRectsById: resolveDraggingRectsForSelection(rectsById),
+    draggingRectsById: resolveDraggingRectsForSelection(host, rectsById),
   };
 }
 
 function resolveDraggingRectsForSelection(
+  host: WorkspaceHost,
   rectsById: Record<string, DragRect> | null,
 ): Record<string, DragRect> | null {
-  const dndState = useDndState.getState();
+  const dndState = getDndStateStore(host).getState();
   if (!dndState.isMovingFree || !rectsById) {
     return null;
   }

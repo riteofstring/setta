@@ -1,0 +1,50 @@
+import type { WorkspaceHost } from "./workspaceHost";
+
+type WorkspaceHostInternals = {
+  cleanup: Set<() => void>;
+  disposed: boolean;
+};
+
+const internalsByHost = new WeakMap<WorkspaceHost, WorkspaceHostInternals>();
+
+export function initializeWorkspaceHost(host: WorkspaceHost): void {
+  internalsByHost.set(host, { cleanup: new Set(), disposed: false });
+}
+
+export function assertWorkspaceHostActive(host: WorkspaceHost): void {
+  const internals = internalsByHost.get(host);
+  if (!internals) {
+    throw new Error(
+      "This workspace host was not created by createWorkspaceHost.",
+    );
+  }
+  if (internals.disposed) {
+    throw new Error("This workspace host has already been disposed.");
+  }
+}
+
+export function registerWorkspaceHostCleanup(
+  host: WorkspaceHost,
+  cleanup: () => void,
+): () => void {
+  assertWorkspaceHostActive(host);
+  const internals = internalsByHost.get(host);
+  if (!internals) {
+    throw new Error("This workspace host has no lifecycle state.");
+  }
+  internals.cleanup.add(cleanup);
+  return () => internals.cleanup.delete(cleanup);
+}
+
+export function disposeWorkspaceHost(host: WorkspaceHost): void {
+  const internals = internalsByHost.get(host);
+  if (!internals || internals.disposed) {
+    return;
+  }
+  internals.disposed = true;
+  const cleanups = [...internals.cleanup];
+  internals.cleanup.clear();
+  for (const cleanup of cleanups.reverse()) {
+    cleanup();
+  }
+}

@@ -1,5 +1,8 @@
 // Public package surface. Package-relative modules stay implementation details unless they are
 // re-exported here; consumers use this entry and the compiled stylesheet export only.
+export { createWorkspaceHost } from "./workspaceHost";
+export type { WorkspaceHost } from "./workspaceHost";
+export { WorkspaceProvider, useWorkspaceHost } from "./workspaceHostContext";
 export {
   getWorkspaceCodeSectionData,
   setWorkspaceCodeSectionData,
@@ -145,11 +148,7 @@ export { ItemDndContext } from "./dnd/ItemDndContext";
 export { setWorkspaceColorMode } from "./document/appearance";
 export { useWorkspaceCapabilities } from "./document/capabilities";
 export type { WorkspaceCapabilitiesState } from "./document/capabilities";
-export {
-  getWorkspaceDocument,
-  setWorkspaceDocumentChangeCallback,
-} from "./document/documentChangeCallback";
-export type { WorkspaceDocumentChangeCallback } from "./document/documentChangeCallback";
+export type { WorkspaceDocumentSubscription } from "./document/documentChangeCallback";
 export { GROUP_SECTION_KIND } from "./document/documentSelectors";
 export { setItemData } from "./document/itemData";
 export {
@@ -165,7 +164,6 @@ export {
   useItemSelectionMode,
 } from "./document/itemSelectionMode";
 export type { ItemSelectionModeState } from "./document/itemSelectionMode";
-export { loadWorkspaceDocument } from "./document/loadWorkspaceDocument";
 export { setSectionData } from "./document/sectionData";
 export { registerSectionKinds } from "./document/sectionKindRegistry";
 export type {

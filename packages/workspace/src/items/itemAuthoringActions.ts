@@ -1,5 +1,5 @@
-import { useItemDndState } from "../dnd/itemDndState";
-import { useWorkspaceCapabilities } from "../document/capabilities";
+import { getItemDndStateStore } from "../dnd/itemDndState";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
 import {
   getSectionItemTreeOrThrow,
@@ -13,20 +13,22 @@ import { getItemOrThrow } from "../document/itemTree";
 import { createWorkspaceItemFromFactory } from "../document/sectionKindRegistry";
 import {
   runWithAtomicallyPublishedWorkspaceStores,
-  useActiveSections,
-  useNodeInternals,
-  useWorkspaceDocument,
+  getActiveSectionsStore,
+  getNodeInternalsStore,
+  getWorkspaceDocumentStore,
 } from "../document/stores";
 import type {
   WorkspaceItem,
   WorkspaceSection,
   WorkspaceSectionItemTree,
 } from "../document/types";
-import { useSectionRefs } from "../section/sectionRefs";
+import { getSectionRefsStore } from "../section/sectionRefs";
+import type { WorkspaceHost } from "../workspaceHost";
 
 type ItemAuthoringFocusPlan = { sectionId: string };
 
 function captureItemAuthoringFocusPlan(
+  host: WorkspaceHost,
   sectionId: string,
 ): ItemAuthoringFocusPlan | null {
   if (
@@ -35,7 +37,7 @@ function captureItemAuthoringFocusPlan(
   ) {
     return null;
   }
-  const refs = useSectionRefs.getState();
+  const refs = getSectionRefsStore(host).getState();
   const section = refs.selfOnly[sectionId] ?? refs.withNested[sectionId];
   return section?.contains(document.activeElement) ? { sectionId } : null;
 }
@@ -52,6 +54,7 @@ function getItemRowFocusTarget(
 }
 
 function restoreItemAuthoringFocus(
+  host: WorkspaceHost,
   plan: ItemAuthoringFocusPlan | null,
   itemId: string | null,
 ): void {
@@ -59,7 +62,7 @@ function restoreItemAuthoringFocus(
     return;
   }
   requestAnimationFrame(() => {
-    const refs = useSectionRefs.getState();
+    const refs = getSectionRefsStore(host).getState();
     const section =
       refs.selfOnly[plan.sectionId] ?? refs.withNested[plan.sectionId];
     if (!section) {
@@ -76,8 +79,11 @@ function restoreItemAuthoringFocus(
   });
 }
 
-function assertItemAuthoringAvailable(section: WorkspaceSection): void {
-  if (!useWorkspaceCapabilities.getState().canEditStructure) {
+function assertItemAuthoringAvailable(
+  host: WorkspaceHost,
+  section: WorkspaceSection,
+): void {
+  if (!getWorkspaceCapabilitiesStore(host).getState().canEditStructure) {
     throw new Error(
       "Item authoring requires permission to edit workspace structure.",
     );
@@ -87,7 +93,7 @@ function assertItemAuthoringAvailable(section: WorkspaceSection): void {
       `Section ${section.id} is locked and cannot author parameters.`,
     );
   }
-  if (useItemDndState.getState().activeId !== null) {
+  if (getItemDndStateStore(host).getState().activeId !== null) {
     throw new Error(
       "Item authoring is unavailable while an item drag is active.",
     );
@@ -95,12 +101,15 @@ function assertItemAuthoringAvailable(section: WorkspaceSection): void {
 }
 
 function commitItemTree(
+  host: WorkspaceHost,
   sectionId: string,
   itemTree: WorkspaceSectionItemTree,
   focusTargetId: string | null,
   focusPlan: ItemAuthoringFocusPlan | null,
 ): void {
-  const currentDocument = useWorkspaceDocument.getState();
+  const documentStore = getWorkspaceDocumentStore(host);
+  const activeSectionsStore = getActiveSectionsStore(host);
+  const currentDocument = documentStore.getState();
   const section = getSectionOrThrow(currentDocument, sectionId);
   const nextDocument = {
     ...currentDocument,
@@ -109,30 +118,35 @@ function commitItemTree(
       [sectionId]: { ...section, itemTree },
     },
   };
-  const nodeInternals = useNodeInternals.getState();
+  const nodeInternals = getNodeInternalsStore(host).getState();
   const activeSections = { activeIds: [sectionId] };
   runWithAtomicallyPublishedWorkspaceStores(
+    host,
     { document: nextDocument, nodeInternals, activeSections },
     () => {
-      useWorkspaceDocument.setState(nextDocument);
-      useActiveSections.setState(activeSections);
+      documentStore.setState(nextDocument);
+      activeSectionsStore.setState(activeSections);
     },
   );
-  notifyWorkspaceDocumentChange();
-  restoreItemAuthoringFocus(focusPlan, focusTargetId);
+  notifyWorkspaceDocumentChange(host);
+  restoreItemAuthoringFocus(host, focusPlan, focusTargetId);
 }
 
 // The only insertion funnel used by package controls and direct host invocation. The factory
 // executes after capability/lock/drag gates and before any canonical store publication.
-export function insertWorkspaceItem(sectionId: string): WorkspaceItem {
-  const documentState = useWorkspaceDocument.getState();
+export function insertWorkspaceItem(
+  host: WorkspaceHost,
+  sectionId: string,
+): WorkspaceItem {
+  const documentState = getWorkspaceDocumentStore(host).getState();
   const section = getSectionOrThrow(documentState, sectionId);
-  assertItemAuthoringAvailable(section);
+  assertItemAuthoringAvailable(host, section);
   const itemTree = getSectionItemTreeOrThrow(documentState, sectionId);
-  const item = createWorkspaceItemFromFactory(section);
+  const item = createWorkspaceItemFromFactory(host, section);
   const prepared = prepareWorkspaceItemInsertion(sectionId, itemTree, item);
-  const focusPlan = captureItemAuthoringFocusPlan(sectionId);
+  const focusPlan = captureItemAuthoringFocusPlan(host, sectionId);
   commitItemTree(
+    host,
     sectionId,
     prepared.itemTree,
     prepared.focusTargetId,
@@ -146,19 +160,21 @@ export function insertWorkspaceItem(sectionId: string): WorkspaceItem {
 // All deletion surfaces validate the complete request before one atomic publication and one
 // host notification. An empty request is a true no-op.
 export function deleteWorkspaceItems(
+  host: WorkspaceHost,
   sectionId: string,
   itemIds: ReadonlyArray<string>,
 ): Array<string> {
-  const documentState = useWorkspaceDocument.getState();
+  const documentState = getWorkspaceDocumentStore(host).getState();
   const itemTree = getSectionItemTreeOrThrow(documentState, sectionId);
   if (itemIds.length === 0) {
     return [];
   }
   const section = getSectionOrThrow(documentState, sectionId);
-  assertItemAuthoringAvailable(section);
+  assertItemAuthoringAvailable(host, section);
   const prepared = prepareWorkspaceItemDeletion(sectionId, itemTree, itemIds);
-  const focusPlan = captureItemAuthoringFocusPlan(sectionId);
+  const focusPlan = captureItemAuthoringFocusPlan(host, sectionId);
   commitItemTree(
+    host,
     sectionId,
     prepared.itemTree,
     prepared.focusTargetId,
@@ -167,22 +183,28 @@ export function deleteWorkspaceItems(
   return prepared.deletedItemIds;
 }
 
-export function deleteLastWorkspaceItem(sectionId: string): Array<string> {
+export function deleteLastWorkspaceItem(
+  host: WorkspaceHost,
+  sectionId: string,
+): Array<string> {
   const itemTree = getSectionItemTreeOrThrow(
-    useWorkspaceDocument.getState(),
+    getWorkspaceDocumentStore(host).getState(),
     sectionId,
   );
   const lastItemId = itemTree.items[itemTree.rootId]?.children.at(-1);
   if (!lastItemId) {
     throw new Error(`Section ${sectionId} has no top-level item to remove.`);
   }
-  return deleteWorkspaceItems(sectionId, [lastItemId]);
+  return deleteWorkspaceItems(host, sectionId, [lastItemId]);
 }
 
-export function deleteSelectedWorkspaceItems(sectionId: string): Array<string> {
+export function deleteSelectedWorkspaceItems(
+  host: WorkspaceHost,
+  sectionId: string,
+): Array<string> {
   const itemTree = getSectionItemTreeOrThrow(
-    useWorkspaceDocument.getState(),
+    getWorkspaceDocumentStore(host).getState(),
     sectionId,
   );
-  return deleteWorkspaceItems(sectionId, itemTree.selectedItemIds);
+  return deleteWorkspaceItems(host, sectionId, itemTree.selectedItemIds);
 }

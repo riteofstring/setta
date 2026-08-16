@@ -10,6 +10,7 @@ import {
 } from "../toolbar/workspaceToolbarContributions";
 import { setWorkspaceCreationCommands } from "./creationCommandStore";
 import type { WorkspaceCreationCommand } from "./workspaceMenuTypes";
+import type { WorkspaceHost } from "../workspaceHost";
 
 const CREATION_ID_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/u;
 
@@ -100,6 +101,7 @@ function validateCreationCommand(
 // left naming a command this call removes, or a contribution left naming one, fails here rather
 // than at the keypress or on the toolbar.
 export function registerWorkspaceCreationCommands(
+  host: WorkspaceHost,
   commands: ReadonlyArray<WorkspaceCreationCommand>,
 ): void {
   if (!Array.isArray(commands)) {
@@ -109,14 +111,14 @@ export function registerWorkspaceCreationCommands(
   const validated = commands.map((command) =>
     validateCreationCommand(command, ids),
   );
-  assertWorkspaceKeyBindingsForCreationCommands(validated);
+  assertWorkspaceKeyBindingsForCreationCommands(host, validated);
   assertWorkspaceToolbarContributions(
-    getWorkspaceToolbarContributions(),
+    getWorkspaceToolbarContributions(host),
     createWorkspaceToolbarCommandCatalog(
-      listWorkspaceCommands().map((command) => command.definition),
+      listWorkspaceCommands(host).map((command) => command.definition),
       validated,
     ),
   );
-  setWorkspaceCreationCommands(validated);
-  invalidateResolvedWorkspaceKeyBindings();
+  setWorkspaceCreationCommands(host, validated);
+  invalidateResolvedWorkspaceKeyBindings(host);
 }

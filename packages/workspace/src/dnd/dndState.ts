@@ -1,6 +1,9 @@
 import _ from "lodash";
-import { createWithEqualityFn } from "zustand/traditional";
+import { createStore } from "zustand/vanilla";
 import { withResetFn } from "../state/storeUtils";
+import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
+import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost";
 import type { Disabled } from "./adapter";
 import { manualDndChildrenReset } from "./dndChildren";
 import type { BehaviorDropType } from "./dropTypes";
@@ -37,8 +40,9 @@ type ZustandDndState = {
   times: Record<string, number>;
 };
 
-export const useDndState = createWithEqualityFn(
-  withResetFn<ZustandDndState>(() => ({
+function createDndStateStore() {
+  return createStore(
+    withResetFn<ZustandDndState>(() => ({
     activeId: null,
     activeIsTopLevel: false,
     overId: null,
@@ -54,17 +58,46 @@ export const useDndState = createWithEqualityFn(
     height: null,
     behaviorDropType: null,
     times: {},
-  })),
-);
+    })),
+  );
+}
+
+const storesByHost = new WeakMap<
+  WorkspaceHost,
+  ReturnType<typeof createDndStateStore>
+>();
+
+export function getDndStateStore(host: WorkspaceHost) {
+  assertWorkspaceHostActive(host);
+  const existing = storesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const store = createDndStateStore();
+  storesByHost.set(host, store);
+  return store;
+}
+
+export function useDndState<T>(
+  selector: (state: ZustandDndState) => T,
+  equalityFn?: (left: T, right: T) => boolean,
+): T {
+  return useWorkspaceStore(
+    getDndStateStore(useWorkspaceHost()),
+    selector,
+    equalityFn,
+  );
+}
 
 export function setActiveDnd(
+  host: WorkspaceHost,
   id: string,
   isTopLevel: boolean,
   width: number,
   height: number,
   activeRect: ZustandDndState["activeRect"],
 ) {
-  useDndState.setState({
+  getDndStateStore(host).setState({
     activeId: id,
     activeIsTopLevel: isTopLevel,
     activeRect,
@@ -73,40 +106,40 @@ export function setActiveDnd(
   });
 }
 
-export function activateDndSortingMode() {
-  useDndState.setState({
+export function activateDndSortingMode(host: WorkspaceHost) {
+  getDndStateStore(host).setState({
     isSorting: true,
     isMovingFree: false,
     pendingDeactivation: false,
   });
 }
 
-export function activateDndMovingFreeMode() {
-  useDndState.setState({
+export function activateDndMovingFreeMode(host: WorkspaceHost) {
+  getDndStateStore(host).setState({
     isSorting: false,
     isMovingFree: true,
     pendingDeactivation: false,
   });
 }
 
-function resetDndState() {
-  useDndState.getState().reset((api) => ({
+function resetDndState(host: WorkspaceHost) {
+  getDndStateStore(host).getState().reset((api) => ({
     disabled: (api.getState() as ZustandDndState).disabled,
   }));
-  manualDndChildrenReset();
+  manualDndChildrenReset(host);
 }
 
-export function deactivateDnd() {
-  const { isMovingFree, isSorting } = useDndState.getState();
+export function deactivateDnd(host: WorkspaceHost) {
+  const { isMovingFree, isSorting } = getDndStateStore(host).getState();
   if (!isMovingFree && !isSorting) {
     return;
   }
 
-  useDndState.setState({ pendingDeactivation: true });
+  getDndStateStore(host).setState({ pendingDeactivation: true });
 }
 
-export function forceDeactivateDnd() {
-  resetDndState();
+export function forceDeactivateDnd(host: WorkspaceHost) {
+  resetDndState(host);
 }
 
 // The load half of the reference's project-switch reset registry: a document load force-ends any
@@ -115,24 +148,29 @@ export function forceDeactivateDnd() {
 // effects do not re-run — while entries for removed sections would otherwise linger forever.
 // Runs after the document publication so the children resync reads the loaded document.
 export function resetDndSessionForLoadedDocument(
+  host: WorkspaceHost,
   sectionIds: ReadonlySet<string>,
 ) {
-  resetDndState();
-  useDndState.setState((state) => ({
+  resetDndState(host);
+  getDndStateStore(host).setState((state) => ({
     disabled: Object.fromEntries(
       Object.entries(state.disabled).filter(([id]) => sectionIds.has(id)),
     ),
   }));
 }
 
-export function setDndDisabled(sectionId: string, disabled: Disabled) {
-  useDndState.setState((state) => ({
+export function setDndDisabled(
+  host: WorkspaceHost,
+  sectionId: string,
+  disabled: Disabled,
+) {
+  getDndStateStore(host).setState((state) => ({
     disabled: { ...state.disabled, [sectionId]: disabled },
   }));
 }
 
-export function setDndTime(sectionId: string | number) {
-  useDndState.setState((state) => ({
+export function setDndTime(host: WorkspaceHost, sectionId: string | number) {
+  getDndStateStore(host).setState((state) => ({
     times: { ...state.times, [sectionId]: Date.now() },
   }));
 }

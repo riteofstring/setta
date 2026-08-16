@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { persistSectionSizeChange } from "../section/sectionSizes";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
 import { setActiveSectionIds } from "./activeSections";
 import {
   getWorkspaceDocument,
   notifyWorkspaceDocumentChange,
   runWithWorkspaceDocumentChangeNotificationsSuppressed,
-  setWorkspaceDocumentChangeCallback,
 } from "./documentChangeCallback";
 import { loadWorkspaceDocument } from "./loadWorkspaceDocument";
 import { moveSections } from "./moveSections";
@@ -18,9 +18,9 @@ import {
   togglePositionLock,
 } from "./sectionMutations";
 import {
-  useActiveSections,
-  useNodeInternals,
-  useWorkspaceDocument,
+  getActiveSectionsStore,
+  getNodeInternalsStore,
+  getWorkspaceDocumentStore,
 } from "./stores";
 import type { WorkspaceDocument, WorkspaceSection } from "./types";
 
@@ -61,63 +61,67 @@ function makeDocument(): WorkspaceDocument {
 }
 
 let reported: Array<WorkspaceDocument>;
+let host: WorkspaceHost;
+let unsubscribe: () => void;
 
 beforeEach(() => {
-  registerSectionKinds({ leaf: { renderContent: () => null } });
-  loadWorkspaceDocument(makeDocument());
+  host = createWorkspaceHost();
+  registerSectionKinds(host, { leaf: { renderContent: () => null } });
+  host.loadDocument(makeDocument());
   reported = [];
-  setWorkspaceDocumentChangeCallback((document) => {
+  unsubscribe = host.subscribe((document) => {
     reported.push(document);
   });
 });
 
 afterEach(() => {
-  setWorkspaceDocumentChangeCallback(null);
+  unsubscribe();
+  host.dispose();
 });
 
-describe("getWorkspaceDocument", () => {
-  it("returns a serializable snapshot that round-trips through loadWorkspaceDocument", () => {
-    setSectionName("leaf", "Renamed leaf");
-    const snapshot = getWorkspaceDocument();
+describe("WorkspaceHost getSnapshot", () => {
+  it("returns a serializable snapshot that round-trips through loadDocument", () => {
+    setSectionName(host, "leaf", "Renamed leaf");
+    const snapshot = host.getSnapshot();
 
-    loadWorkspaceDocument(makeDocument());
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.name).toBe("leaf");
+    host.loadDocument(makeDocument());
+    expect(getWorkspaceDocumentStore(host).getState().sections["leaf"]?.name).toBe("leaf");
 
-    loadWorkspaceDocument(snapshot);
-    expect(useWorkspaceDocument.getState().sections["leaf"]?.name).toBe(
+    host.loadDocument(snapshot);
+    expect(getWorkspaceDocumentStore(host).getState().sections["leaf"]?.name).toBe(
       "Renamed leaf",
     );
-    expect(useActiveSections.getState().activeIds).toEqual(["nested"]);
+    expect(getActiveSectionsStore(host).getState().activeIds).toEqual(["nested"]);
   });
 });
 
 describe("document-change notification", () => {
   it("notifies once per per-flag mutation funnel with the committed document", () => {
-    setSectionName("leaf", "Renamed leaf");
+    setSectionName(host, "leaf", "Renamed leaf");
     expect(reported).toHaveLength(1);
     expect(reported[0]?.sections["leaf"]?.name).toBe("Renamed leaf");
 
-    togglePositionLock("leaf");
-    toggleMinimized("leaf");
-    toggleGroupOrientation("group");
+    togglePositionLock(host, "leaf");
+    toggleMinimized(host, "leaf");
+    toggleGroupOrientation(host, "group");
     expect(reported).toHaveLength(4);
     expect(reported[3]?.sections["group"]?.isHorizontalOrientation).toBe(true);
   });
 
   it("does not notify when the orientation funnel refuses a non-group", () => {
-    toggleGroupOrientation("leaf");
+    toggleGroupOrientation(host, "leaf");
     expect(reported).toHaveLength(0);
   });
 
   it("notifies once for a delete commit, including its selection removal", () => {
-    deleteSection("group");
+    deleteSection(host, "group");
     expect(reported).toHaveLength(1);
     expect(reported[0]?.sections["group"]).toBeUndefined();
     expect(reported[0]?.activeIds).toEqual([]);
   });
 
   it("notifies once per move commit and not for an empty move", () => {
-    moveSections({
+    moveSections(host, {
       sectionIds: ["leaf"],
       newParentId: "group",
       newIndex: 0,
@@ -129,7 +133,7 @@ describe("document-change notification", () => {
       "nested",
     ]);
 
-    moveSections({
+    moveSections(host, {
       sectionIds: [],
       newParentId: null,
       newIndex: null,
@@ -139,7 +143,7 @@ describe("document-change notification", () => {
   });
 
   it("notifies once per resize commit", () => {
-    persistSectionSizeChange("leaf", { width: 240 });
+    persistSectionSizeChange(host, "leaf", { width: 240 });
     expect(reported).toHaveLength(1);
     expect(reported[0]?.sections["leaf"]?.size).toEqual({
       width: 240,
@@ -148,40 +152,42 @@ describe("document-change notification", () => {
   });
 
   it("notifies selection commits and skips unchanged selections", () => {
-    setActiveSectionIds(["leaf"]);
+    setActiveSectionIds(host, ["leaf"]);
     expect(reported).toHaveLength(1);
     expect(reported[0]?.activeIds).toEqual(["leaf"]);
 
-    setActiveSectionIds(["leaf"]);
+    setActiveSectionIds(host, ["leaf"]);
     expect(reported).toHaveLength(1);
   });
 
-  it("does not notify for a host-initiated load", () => {
-    loadWorkspaceDocument(makeDocument());
-    expect(reported).toHaveLength(0);
+  it("publishes one completed snapshot for a host-initiated load", () => {
+    host.loadDocument(makeDocument());
+    expect(reported).toHaveLength(1);
+    expect(reported[0]?.sections["leaf"]?.name).toBe("leaf");
   });
 
   it("suppresses notifications inside an explicit suppression scope", () => {
-    runWithWorkspaceDocumentChangeNotificationsSuppressed(() => {
-      setSectionName("leaf", "Silent rename");
+    runWithWorkspaceDocumentChangeNotificationsSuppressed(host, () => {
+      setSectionName(host, "leaf", "Silent rename");
     });
     expect(reported).toHaveLength(0);
 
-    setSectionName("leaf", "Loud rename");
+    setSectionName(host, "leaf", "Loud rename");
     expect(reported).toHaveLength(1);
   });
 
-  it("stops notifying after the callback is cleared", () => {
-    setWorkspaceDocumentChangeCallback(null);
-    setSectionName("leaf", "Renamed leaf");
+  it("stops notifying after a host subscription is removed", () => {
+    unsubscribe();
+    setSectionName(host, "leaf", "Renamed leaf");
     expect(reported).toHaveLength(0);
   });
 
-  it("throws when the callback mutates the workspace synchronously", () => {
-    setWorkspaceDocumentChangeCallback(() => {
-      setActiveSectionIds(["leaf"]);
+  it("throws when a subscription mutates the workspace synchronously", () => {
+    unsubscribe();
+    host.subscribe(() => {
+      setActiveSectionIds(host, ["leaf"]);
     });
-    expect(() => setSectionName("leaf", "Renamed leaf")).toThrowError(
+    expect(() => setSectionName(host, "leaf", "Renamed leaf")).toThrowError(
       /mutated the workspace synchronously/,
     );
   });
@@ -192,13 +198,13 @@ describe("document-change notification", () => {
     const observedDuringPublication: { current: WorkspaceDocument | null } = {
       current: null,
     };
-    const unsubscribe = useNodeInternals.subscribe(() => {
-      observedDuringPublication.current = getWorkspaceDocument();
+    const unsubscribeNodeStore = getNodeInternalsStore(host).subscribe(() => {
+      observedDuringPublication.current = getWorkspaceDocument(host);
     });
     try {
-      deleteSection("leaf");
+      deleteSection(host, "leaf");
     } finally {
-      unsubscribe();
+      unsubscribeNodeStore();
     }
     const observed = observedDuringPublication.current;
     if (observed === null) {
@@ -211,8 +217,8 @@ describe("document-change notification", () => {
 });
 
 describe("notifyWorkspaceDocumentChange", () => {
-  it("is inert without a registered callback", () => {
-    setWorkspaceDocumentChangeCallback(null);
-    expect(() => notifyWorkspaceDocumentChange()).not.toThrow();
+  it("is inert without a host subscription", () => {
+    unsubscribe();
+    expect(() => notifyWorkspaceDocumentChange(host)).not.toThrow();
   });
 });

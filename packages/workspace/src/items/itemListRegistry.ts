@@ -2,6 +2,7 @@ import {
   assertNoReservedItemDndTokens,
   type ItemListKey,
 } from "../dnd/itemDndState";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // The registered-list-view half of the Phase 4 item surface. The reference resolves a drag's
 // list view from application state (`getParamListView` over its hard-coded pinned/unpinned
@@ -21,40 +22,56 @@ export type RegisteredItemListView = {
   filterActive: boolean;
 };
 
-const registeredListViewsBySection = new Map<
-  string,
-  Map<ItemListKey, RegisteredItemListView>
+const registeredListViewsByHost = new WeakMap<
+  WorkspaceHost,
+  Map<string, Map<ItemListKey, RegisteredItemListView>>
 >();
 
+function getRegisteredListViewsBySection(
+  host: WorkspaceHost,
+): Map<string, Map<ItemListKey, RegisteredItemListView>> {
+  const existing = registeredListViewsByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const views = new Map<string, Map<ItemListKey, RegisteredItemListView>>();
+  registeredListViewsByHost.set(host, views);
+  return views;
+}
+
 export function registerItemListView(
+  host: WorkspaceHost,
   sectionId: string,
   view: RegisteredItemListView,
 ): void {
   assertNoReservedItemDndTokens(view.listKey, "item list key");
-  const views = registeredListViewsBySection.get(sectionId) ?? new Map();
+  const viewsBySection = getRegisteredListViewsBySection(host);
+  const views = viewsBySection.get(sectionId) ?? new Map();
   if (views.has(view.listKey)) {
     throw new Error(
       `item list key "${view.listKey}" is already registered for section "${sectionId}"`,
     );
   }
   views.set(view.listKey, view);
-  registeredListViewsBySection.set(sectionId, views);
+  viewsBySection.set(sectionId, views);
 }
 
 export function isItemListViewRegistered(
+  host: WorkspaceHost,
   sectionId: string,
   listKey: ItemListKey,
 ): boolean {
-  return registeredListViewsBySection.get(sectionId)?.has(listKey) ?? false;
+  return getRegisteredListViewsBySection(host).get(sectionId)?.has(listKey) ?? false;
 }
 
 // Replaces a live registration in place: `Map.set` on an existing key keeps the section's
 // mount order, so a re-rendering list never migrates to the end of the resolution fallback.
 export function updateItemListView(
+  host: WorkspaceHost,
   sectionId: string,
   view: RegisteredItemListView,
 ): void {
-  const views = registeredListViewsBySection.get(sectionId);
+  const views = getRegisteredListViewsBySection(host).get(sectionId);
   if (!views?.has(view.listKey)) {
     throw new Error(
       `item list key "${view.listKey}" is not registered for section "${sectionId}"`,
@@ -64,25 +81,28 @@ export function updateItemListView(
 }
 
 export function unregisterItemListView(
+  host: WorkspaceHost,
   sectionId: string,
   listKey: ItemListKey,
 ): void {
-  const views = registeredListViewsBySection.get(sectionId);
+  const viewsBySection = getRegisteredListViewsBySection(host);
+  const views = viewsBySection.get(sectionId);
   if (!views) {
     return;
   }
   views.delete(listKey);
   if (views.size === 0) {
-    registeredListViewsBySection.delete(sectionId);
+    viewsBySection.delete(sectionId);
   }
 }
 
 export function resolveItemListView(
+  host: WorkspaceHost,
   sectionId: string,
   activeItemId: string,
   listKey: ItemListKey | null,
 ): RegisteredItemListView | null {
-  const views = registeredListViewsBySection.get(sectionId);
+  const views = getRegisteredListViewsBySection(host).get(sectionId);
   if (!views) {
     return null;
   }
@@ -110,9 +130,10 @@ type SectionItemVisibility = {
 };
 
 export function getSectionItemVisibility(
+  host: WorkspaceHost,
   sectionId: string,
 ): SectionItemVisibility | null {
-  const views = registeredListViewsBySection.get(sectionId);
+  const views = getRegisteredListViewsBySection(host).get(sectionId);
   if (!views) {
     return null;
   }
@@ -127,6 +148,6 @@ export function getSectionItemVisibility(
   return { visibleItemIds, filterActive };
 }
 
-export function resetItemListViews(): void {
-  registeredListViewsBySection.clear();
+export function resetItemListViews(host: WorkspaceHost): void {
+  getRegisteredListViewsBySection(host).clear();
 }

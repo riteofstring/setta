@@ -13,6 +13,7 @@ import {
 } from "./itemAuthoringActions";
 import { useWorkspaceItemFilter } from "./WorkspaceItemFilterContext";
 import { WorkspaceItemFilterControls } from "./WorkspaceItemFilterControls";
+import { useWorkspaceHost } from "../workspaceHostContext";
 
 function getItemAuthoringToneClasses(hasSectionStyleTheme: boolean): {
   button: string;
@@ -49,6 +50,7 @@ export function WorkspaceItemAuthoringToolbar({
 }: {
   sectionId: string;
 }) {
+  const host = useWorkspaceHost();
   const canEditStructure = useWorkspaceCapabilities(
     (state) => state.canEditStructure,
   );
@@ -59,7 +61,7 @@ export function WorkspaceItemAuthoringToolbar({
     const section = getSectionOrThrow(documentState, sectionId);
     const itemTree = getSectionItemTreeOrThrow(documentState, sectionId);
     return {
-      canCreateItem: getWorkspaceItemFactory(section) !== null,
+      canCreateItem: getWorkspaceItemFactory(host, section) !== null,
       hasSelectedItems: itemTree.selectedItemIds.length > 0,
       hasTopLevelItems:
         (itemTree.items[itemTree.rootId]?.children.length ?? 0) > 0,
@@ -90,7 +92,7 @@ export function WorkspaceItemAuthoringToolbar({
           className={buttonClassName}
           data-setta-workspace-touch-target="compact"
           disabled={mutationDisabled || !state.hasTopLevelItems}
-          onClick={() => deleteLastWorkspaceItem(sectionId)}
+          onClick={() => deleteLastWorkspaceItem(host, sectionId)}
           title="Remove last parameter"
           type="button"
         >
@@ -101,7 +103,7 @@ export function WorkspaceItemAuthoringToolbar({
           className={buttonClassName}
           data-setta-workspace-touch-target="compact"
           disabled={mutationDisabled || !state.canCreateItem}
-          onClick={() => insertWorkspaceItem(sectionId)}
+          onClick={() => insertWorkspaceItem(host, sectionId)}
           title={
             state.canCreateItem ? "Add parameter" : "Add parameter unavailable"
           }
@@ -114,7 +116,7 @@ export function WorkspaceItemAuthoringToolbar({
           className={buttonClassName}
           data-setta-workspace-touch-target="compact"
           disabled={mutationDisabled || !state.hasSelectedItems}
-          onClick={() => deleteSelectedWorkspaceItems(sectionId)}
+          onClick={() => deleteSelectedWorkspaceItems(host, sectionId)}
           title="Delete selected parameters"
           type="button"
         >

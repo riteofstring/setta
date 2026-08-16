@@ -1,11 +1,12 @@
 /* @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
 import { setWorkspaceColorMode } from "./appearance";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
 import {
-  useNodeInternals,
-  useWorkspaceAppearance,
-  useWorkspaceDocument,
+  getNodeInternalsStore,
+  getWorkspaceAppearanceStore,
+  getWorkspaceDocumentStore,
   type WorkspaceColorMode,
   type WorkspaceDocumentState,
 } from "./stores";
@@ -38,11 +39,11 @@ function makeStyledDocument(): WorkspaceDocumentState {
   };
 }
 
-function seedStyledNode() {
+function seedStyledNode(host: WorkspaceHost) {
   const documentState = makeStyledDocument();
-  useWorkspaceDocument.setState(documentState);
-  useNodeInternals.setState({
-    x: createNodesMapFromDocumentChildren(documentState, new Map()),
+  getWorkspaceDocumentStore(host).setState(documentState);
+  getNodeInternalsStore(host).setState({
+    x: createNodesMapFromDocumentChildren(host, documentState, new Map()),
   });
 }
 
@@ -93,18 +94,18 @@ function restoreMatchMedia() {
   Reflect.deleteProperty(window, "matchMedia");
 }
 
+let host: WorkspaceHost;
+
 afterEach(() => {
-  setWorkspaceColorMode("light");
-  useWorkspaceAppearance.getState().reset();
-  useWorkspaceDocument.getState().reset();
-  useNodeInternals.getState().reset();
+  host.dispose();
   restoreMatchMedia();
 });
 
 describe("setWorkspaceColorMode", () => {
   it("resolves explicit modes and reprojects styled node backgrounds", () => {
-    seedStyledNode();
-    const projectedNode = useNodeInternals.getState().x.get("leaf");
+    host = createWorkspaceHost();
+    seedStyledNode(host);
+    const projectedNode = getNodeInternalsStore(host).getState().x.get("leaf");
     if (!projectedNode) {
       throw new Error("The styled test node was not projected.");
     }
@@ -116,18 +117,18 @@ describe("setWorkspaceColorMode", () => {
       height: 127,
       tempZIndex: 1000,
     };
-    useNodeInternals.setState({ x: new Map([["leaf", liveNode]]) });
+    getNodeInternalsStore(host).setState({ x: new Map([["leaf", liveNode]]) });
 
     expect(liveNode.style).toEqual({
       background: "#e7f0fe",
     });
 
-    setWorkspaceColorMode("dark");
-    expect(useWorkspaceAppearance.getState()).toMatchObject({
+    setWorkspaceColorMode(host, "dark");
+    expect(getWorkspaceAppearanceStore(host).getState()).toMatchObject({
       colorMode: "dark",
       darkMode: true,
     });
-    const darkNode = useNodeInternals.getState().x.get("leaf");
+    const darkNode = getNodeInternalsStore(host).getState().x.get("leaf");
     expect(darkNode?.style).toEqual({
       background: "#0b172c",
     });
@@ -139,71 +140,75 @@ describe("setWorkspaceColorMode", () => {
     });
     expect(darkNode?.position).toBe(livePosition);
 
-    setWorkspaceColorMode("light");
-    expect(useWorkspaceAppearance.getState()).toMatchObject({
+    setWorkspaceColorMode(host, "light");
+    expect(getWorkspaceAppearanceStore(host).getState()).toMatchObject({
       colorMode: "light",
       darkMode: false,
     });
   });
 
   it("tracks system preference changes until an explicit mode replaces them", () => {
+    host = createWorkspaceHost();
     const media = installMatchMedia(false);
 
-    setWorkspaceColorMode("system");
+    setWorkspaceColorMode(host, "system");
     expect(media.matchMedia).toHaveBeenCalledWith(
       "(prefers-color-scheme: dark)",
     );
     expect(media.listenerCount()).toBe(1);
-    expect(useWorkspaceAppearance.getState()).toMatchObject({
+    expect(getWorkspaceAppearanceStore(host).getState()).toMatchObject({
       colorMode: "system",
       darkMode: false,
     });
 
     media.emit(true);
-    expect(useWorkspaceAppearance.getState().darkMode).toBe(true);
+    expect(getWorkspaceAppearanceStore(host).getState().darkMode).toBe(true);
 
-    setWorkspaceColorMode("light");
+    setWorkspaceColorMode(host, "light");
     expect(media.listenerCount()).toBe(0);
     media.emit(true);
-    expect(useWorkspaceAppearance.getState().darkMode).toBe(false);
+    expect(getWorkspaceAppearanceStore(host).getState().darkMode).toBe(false);
   });
 
   it("fails specifically when system mode has no browser media-query API", () => {
-    setWorkspaceColorMode("dark");
+    host = createWorkspaceHost();
+    setWorkspaceColorMode(host, "dark");
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       value: undefined,
     });
-    expect(() => setWorkspaceColorMode("system")).toThrowError(
+    expect(() => setWorkspaceColorMode(host, "system")).toThrowError(
       /requires window\.matchMedia/,
     );
-    expect(useWorkspaceAppearance.getState()).toMatchObject({
+    expect(getWorkspaceAppearanceStore(host).getState()).toMatchObject({
       colorMode: "dark",
       darkMode: true,
     });
   });
 
   it("fails specifically when media-query change events are unavailable", () => {
-    setWorkspaceColorMode("dark");
+    host = createWorkspaceHost();
+    setWorkspaceColorMode(host, "dark");
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       value: () => ({ matches: false }),
     });
-    expect(() => setWorkspaceColorMode("system")).toThrowError(
+    expect(() => setWorkspaceColorMode(host, "system")).toThrowError(
       /change-event support/,
     );
-    expect(useWorkspaceAppearance.getState()).toMatchObject({
+    expect(getWorkspaceAppearanceStore(host).getState()).toMatchObject({
       colorMode: "dark",
       darkMode: true,
     });
   });
 
   it("rejects unknown JavaScript inputs without disturbing the current mode", () => {
-    setWorkspaceColorMode("dark");
+    host = createWorkspaceHost();
+    setWorkspaceColorMode(host, "dark");
     expect(() =>
-      setWorkspaceColorMode("sepia" as WorkspaceColorMode),
+      setWorkspaceColorMode(host, "sepia" as WorkspaceColorMode),
     ).toThrowError(/Unknown workspace color mode: sepia/);
-    expect(useWorkspaceAppearance.getState()).toMatchObject({
+    expect(getWorkspaceAppearanceStore(host).getState()).toMatchObject({
       colorMode: "dark",
       darkMode: true,
     });

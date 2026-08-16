@@ -1,7 +1,10 @@
 import { zoomIdentity } from "d3-zoom";
 import { subscribeWithSelector } from "zustand/middleware";
-import { createWithEqualityFn } from "zustand/traditional";
+import { createStore } from "zustand/vanilla";
 import type { Position } from "../document/types";
+import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
+import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost";
 import { getActiveSectionsBounds } from "./graph";
 import type { CoordinateExtent, ReactFlowState, ReactFlowStore } from "./types";
 import { EMPTY_VIEWPORT_INSETS } from "./viewportInsets";
@@ -38,13 +41,16 @@ export const initialCanvasState: ReactFlowStore = {
   autoPanOnNodeDrag: true,
 };
 
-export const useReactFlow = createWithEqualityFn<ReactFlowState>()(
-  subscribeWithSelector((set, get) => ({
+function createReactFlowStore(host: WorkspaceHost) {
+  return createStore<ReactFlowState>()(
+    subscribeWithSelector((set, get) => ({
     ...initialCanvasState,
     setNodesSelection: (selectedNodesCount, ignoreGrid = false) => {
       set({
         nodesSelectionDims:
-          selectedNodesCount > 1 ? getActiveSectionsBounds(ignoreGrid) : null,
+          selectedNodesCount > 1
+            ? getActiveSectionsBounds(host, ignoreGrid)
+            : null,
       });
     },
     shiftNodesSelection: (delta) => {
@@ -94,5 +100,33 @@ export const useReactFlow = createWithEqualityFn<ReactFlowState>()(
 
       return transformChanged;
     },
-  })),
-);
+    })),
+  );
+}
+
+const storesByHost = new WeakMap<
+  WorkspaceHost,
+  ReturnType<typeof createReactFlowStore>
+>();
+
+export function getReactFlowStore(host: WorkspaceHost) {
+  assertWorkspaceHostActive(host);
+  const existing = storesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const store = createReactFlowStore(host);
+  storesByHost.set(host, store);
+  return store;
+}
+
+export function useReactFlow<T>(
+  selector: (state: ReactFlowState) => T,
+  equalityFn?: (left: T, right: T) => boolean,
+): T {
+  return useWorkspaceStore(
+    getReactFlowStore(useWorkspaceHost()),
+    selector,
+    equalityFn,
+  );
+}

@@ -20,6 +20,7 @@ import {
 } from "../../document/documentSelectors";
 import { useActiveSections, useWorkspaceDocument } from "../../document/stores";
 import { NO_WHEEL_CLASS_NAME } from "../../interaction";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 import { useIsScrollable } from "../../useIsScrollable";
 import { ChangeOrientationButton } from "../header/ChangeOrientationButton";
 import { DeleteOrHideButton } from "../header/DeleteOrHideButton";
@@ -57,6 +58,7 @@ function ContainerComponent({
   trueDragListeners?: SectionDragListeners;
   children: ReactNode;
 }) {
+  const host = useWorkspaceHost();
   const refForPosition = useSectionRefAndInit(sectionId, "withNested");
 
   function totalRef(element: HTMLDivElement | null) {
@@ -111,6 +113,7 @@ function ContainerGroup({
   style?: CSSProperties;
   children: ReactNode;
 }) {
+  const host = useWorkspaceHost();
   const hasNested = useHasTempNested(sectionId);
   const section = useWorkspaceDocument((x) => getSectionOrThrow(x, sectionId));
   const positionAndSizeLocked = section.positionAndSizeLocked;
@@ -142,6 +145,7 @@ function ContainerGroup({
       event.preventDefault();
       event.stopPropagation();
       openWorkspaceSectionMenu(
+        host,
         sectionId,
         "context-menu",
         getOwnerKeyboardMenuPoint(event.currentTarget),
@@ -155,7 +159,7 @@ function ContainerGroup({
     ) {
       event.preventDefault();
       event.stopPropagation();
-      applyActiveSectionChange({ interaction: "section-click", sectionId });
+      applyActiveSectionChange(host, { interaction: "section-click", sectionId });
     }
   }
 
@@ -166,6 +170,7 @@ function ContainerGroup({
     event.preventDefault();
     event.stopPropagation();
     openWorkspaceSectionMenu(
+      host,
       sectionId,
       "context-menu",
       { x: event.clientX, y: event.clientY },
@@ -178,7 +183,7 @@ function ContainerGroup({
     <div
       className={getGroupRootClassName(overflowMode, className)}
       {...commonProps}
-      onClick={getOnSectionClick(sectionId)}
+      onClick={getOnSectionClick(host, sectionId)}
       onContextMenu={onContextMenu}
       onKeyDown={onKeyDown}
       role="group"

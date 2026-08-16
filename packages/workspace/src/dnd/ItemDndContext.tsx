@@ -1,6 +1,8 @@
 import { useMemo, type ReactNode } from "react";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
+import { useWorkspaceHost } from "../workspaceHostContext";
+import type { WorkspaceHost } from "../workspaceHost";
 import { ItemDndMonitor } from "../items/ItemDndMonitor";
 import { filterCollisionsForListKey } from "../items/itemDndMonitorUtils";
 import { ItemDragOverlay } from "../items/ItemDragOverlay";
@@ -11,8 +13,8 @@ import {
 } from "./adapter/collision";
 import type { SettaCollision } from "./adapter/types";
 import { DragOperationShapeSync } from "./DragOperationShapeSync";
-import { useItemDndChildren } from "./itemDndChildren";
-import { useItemDndState } from "./itemDndState";
+import { getItemDndChildrenStore } from "./itemDndChildren";
+import { getItemDndStateStore, useItemDndState } from "./itemDndState";
 import { useItemDndSensors } from "./useDNDSensors";
 
 // The reference's fork-level `ParamDndContext`: the per-section nested drag provider that owns
@@ -21,6 +23,7 @@ import { useItemDndSensors } from "./useDNDSensors";
 // resolving. Hosts mount one around a section's item lists.
 
 export function ItemDndContext({ children }: { children: ReactNode }) {
+  const host = useWorkspaceHost();
   const canEditStructure = useWorkspaceCapabilities(
     (state) => state.canEditStructure,
   );
@@ -34,8 +37,8 @@ export function ItemDndContext({ children }: { children: ReactNode }) {
   const shouldRenderHelpers = itemDndEnabled || itemDndActive;
   const sensors = useItemDndSensors();
   const collisionTracker = useMemo<CollisionTracker>(
-    () => createItemCollisionTracker(),
-    [],
+    () => createItemCollisionTracker(host),
+    [host],
   );
   const dndContext = useMemo(
     () => ({
@@ -63,15 +66,16 @@ export function ItemDndContext({ children }: { children: ReactNode }) {
   );
 }
 
-function createItemCollisionTracker(): CollisionTracker {
+function createItemCollisionTracker(host: WorkspaceHost): CollisionTracker {
   const baseTracker = createCollisionTracker({
+    host,
     mode: "item",
-    getParentByChild: () => useItemDndChildren.getState().y,
+    getParentByChild: () => getItemDndChildrenStore(host).getState().y,
   });
   return {
     ...baseTracker,
     update: (collisions: Array<SettaCollision> | null) => {
-      const listKey = useItemDndState.getState().listKey;
+      const listKey = getItemDndStateStore(host).getState().listKey;
       if (!listKey || !collisions || collisions.length === 0) {
         baseTracker.update(collisions);
         return;

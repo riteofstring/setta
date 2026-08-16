@@ -2,6 +2,7 @@ import * as Switch from "@radix-ui/react-switch";
 import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME } from "../../interaction";
 import { focusSectionAfterEscape } from "../sectionFocus";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The item-controls milestone's boolean switch: the reference `SwitchInput` at the `ParamUI`
 // switch presentation — the recorded 10 px Radix track and thumb inside 3.2 px padding at full
@@ -93,6 +94,7 @@ function SwitchValueControlCore({
   disabled = false,
   outerClassName,
 }: SwitchValueControlProps & { outerClassName: string }) {
+  const host = useWorkspaceHost();
   const isSelectingItems = useItemSelectionModeForControl();
   const isDisabled = disabled || isSelectingItems;
   return (
@@ -112,7 +114,7 @@ function SwitchValueControlCore({
           if (e.code === "Escape") {
             // have to stop propagation to prevent section from becoming unselected
             e.stopPropagation();
-            focusSectionAfterEscape(sectionId);
+            focusSectionAfterEscape(host, sectionId);
           }
         }}
       >

@@ -9,6 +9,7 @@ import { SectionHeader } from "../header/SectionHeader";
 import { CustomResizable } from "../resize/CustomResizable";
 import { DEFAULT_SECTION_BG_COLOR } from "../sectionColors";
 import { MetaControlChrome } from "./MetaControlChrome";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The reference's `SectionContainerCoreResizabe`, cut at the renderer seam: application area
 // renderers, chat windowing, and section-window placeholders are replaced by registered content.
@@ -23,7 +24,8 @@ export function SectionContainerContent({
   section,
   hasSectionStyleTheme,
 }: SectionContainerContentProps) {
-  const definition = getRegisteredSectionKindOrThrow(section.kind);
+  const host = useWorkspaceHost();
+  const definition = getRegisteredSectionKindOrThrow(host, section.kind);
   const metaControlPresentation =
     definition.presentation?.type === "meta-control"
       ? definition.presentation

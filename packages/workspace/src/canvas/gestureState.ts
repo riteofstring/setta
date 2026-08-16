@@ -1,5 +1,8 @@
-import { createWithEqualityFn } from "zustand/traditional";
+import { createStore } from "zustand/vanilla";
 import { withResetFn } from "../state/storeUtils";
+import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
+import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // The reference tracks this on its app-wide `useMisc` store; it suppresses section click
 // activation while a section drag (and, in later batches, a resize) is in progress.
@@ -7,8 +10,37 @@ type CanvasGestureState = {
   mouseDownDraggingSection: boolean;
 };
 
-export const useCanvasGestures = createWithEqualityFn(
-  withResetFn<CanvasGestureState>(() => ({
-    mouseDownDraggingSection: false,
-  })),
-);
+function createCanvasGesturesStore() {
+  return createStore(
+    withResetFn<CanvasGestureState>(() => ({
+      mouseDownDraggingSection: false,
+    })),
+  );
+}
+
+const storesByHost = new WeakMap<
+  WorkspaceHost,
+  ReturnType<typeof createCanvasGesturesStore>
+>();
+
+export function getCanvasGesturesStore(host: WorkspaceHost) {
+  assertWorkspaceHostActive(host);
+  const existing = storesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const store = createCanvasGesturesStore();
+  storesByHost.set(host, store);
+  return store;
+}
+
+export function useCanvasGestures<T>(
+  selector: (state: CanvasGestureState) => T,
+  equalityFn?: (left: T, right: T) => boolean,
+): T {
+  return useWorkspaceStore(
+    getCanvasGesturesStore(useWorkspaceHost()),
+    selector,
+    equalityFn,
+  );
+}

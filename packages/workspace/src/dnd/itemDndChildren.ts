@@ -1,6 +1,9 @@
-import { createWithEqualityFn } from "zustand/traditional";
+import { createStore } from "zustand/vanilla";
 import { insertIntoArray } from "../document/arrayUtils";
 import { withResetFn } from "../state/storeUtils";
+import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
+import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost";
 import {
   getItemDndId,
   getTempItemDndId,
@@ -25,12 +28,41 @@ type TempItemReplacementContext = {
   itemSet: Set<string>;
 };
 
-export const useItemDndChildren = createWithEqualityFn(
-  withResetFn<ItemDndChildrenState>(() => ({
+function createItemDndChildrenStore() {
+  return createStore(
+    withResetFn<ItemDndChildrenState>(() => ({
     x: {}, // parent id to list of children
     y: {}, // child id to parent id
-  })),
-);
+    })),
+  );
+}
+
+const storesByHost = new WeakMap<
+  WorkspaceHost,
+  ReturnType<typeof createItemDndChildrenStore>
+>();
+
+export function getItemDndChildrenStore(host: WorkspaceHost) {
+  assertWorkspaceHostActive(host);
+  const existing = storesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const store = createItemDndChildrenStore();
+  storesByHost.set(host, store);
+  return store;
+}
+
+export function useItemDndChildren<T>(
+  selector: (state: ItemDndChildrenState) => T,
+  equalityFn?: (left: T, right: T) => boolean,
+): T {
+  return useWorkspaceStore(
+    getItemDndChildrenStore(useWorkspaceHost()),
+    selector,
+    equalityFn,
+  );
+}
 
 function getTempItemReplacementContext(
   state: ItemDndChildrenState,
@@ -89,12 +121,13 @@ function findFirstItemIndex(children: Array<string>, itemSet: Set<string>) {
 }
 
 export function addItemChild(
+  host: WorkspaceHost,
   oldParentId: string | null,
   newParentId: string,
   childId: string,
   index: number,
 ) {
-  useItemDndChildren.setState((state) => {
+  getItemDndChildrenStore(host).setState((state) => {
     const x = { ...state.x };
     if (oldParentId) {
       x[oldParentId] = (x[oldParentId] ?? []).filter((id) => id !== childId);
@@ -108,11 +141,12 @@ export function addItemChild(
 }
 
 export function replaceItemsWithTemp(
+  host: WorkspaceHost,
   activeId: string,
   listKey: ItemListKey | null,
   itemIds: Array<string>,
 ) {
-  useItemDndChildren.setState((state) => {
+  getItemDndChildrenStore(host).setState((state) => {
     const context = getTempItemReplacementContext(
       state,
       activeId,
@@ -144,6 +178,7 @@ export function replaceItemsWithTemp(
 }
 
 export function updateItemChildren(
+  host: WorkspaceHost,
   itemIdsToChildren: Record<string, Array<string>>,
 ) {
   const y: Record<string, string> = {};
@@ -152,21 +187,22 @@ export function updateItemChildren(
       y[childId] = id;
     }
   }
-  useItemDndChildren.setState({ x: itemIdsToChildren, y });
+  getItemDndChildrenStore(host).setState({ x: itemIdsToChildren, y });
 }
 
-export function resetItemDndChildren() {
-  useItemDndChildren.getState().reset();
+export function resetItemDndChildren(host: WorkspaceHost) {
+  getItemDndChildrenStore(host).getState().reset();
 }
 
-export function getItemDndParentId(itemId: string) {
-  return useItemDndChildren.getState().y[itemId];
+export function getItemDndParentId(host: WorkspaceHost, itemId: string) {
+  return getItemDndChildrenStore(host).getState().y[itemId];
 }
 
 export function getItemDndParentByChild(
+  host: WorkspaceHost,
   listKey: ItemListKey | null,
 ): Record<string, string | null> {
-  const base = useItemDndChildren.getState().y;
+  const base = getItemDndChildrenStore(host).getState().y;
   if (!listKey) {
     return base;
   }

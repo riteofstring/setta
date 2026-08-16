@@ -3,8 +3,8 @@ import type { DragDropManager } from "@dnd-kit/dom";
 import { Accessibility, AutoScroller, defaultPreset } from "@dnd-kit/dom";
 import { DragDropProvider as DndKitProvider } from "@dnd-kit/react";
 import { useMemo, type PropsWithChildren } from "react";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 import type { CollisionTracker } from "./collision";
-import { defaultCollisionTracker } from "./collision";
 import { DndProviderContext } from "./DndProviderContext";
 import { mapDragEvent, mapDragStartEvent } from "./dragEventMapping";
 import type {
@@ -21,7 +21,7 @@ import type {
 type Props = PropsWithChildren<{
   sensors?: Sensors<DragDropManager>;
   modifiers?: Modifiers<DragDropManager>;
-  collisionTracker?: CollisionTracker;
+  collisionTracker: CollisionTracker;
   dndContext: {
     isSorting: boolean;
     isMovingFree: boolean;
@@ -53,7 +53,8 @@ export function DragDropProvider({
   onDragEnd,
   onDragCancel,
 }: Props) {
-  const tracker = collisionTracker ?? defaultCollisionTracker;
+  const host = useWorkspaceHost();
+  const tracker = collisionTracker;
   const contextValue = useMemo(
     () => ({
       isSorting: dndContext.isSorting,
@@ -79,7 +80,7 @@ export function DragDropProvider({
           tracker.update(event.collisions as SettaCollision[] | null);
         }}
         onDragStart={(event, manager) => {
-          const mapped = mapDragStartEvent(event, manager);
+          const mapped = mapDragStartEvent(host, event, manager);
           if (!mapped) {
             return;
           }
@@ -87,7 +88,7 @@ export function DragDropProvider({
           onDragStart?.(mapped);
         }}
         onDragMove={(event, manager) => {
-          const mapped = mapDragEvent(event, manager);
+          const mapped = mapDragEvent(host, event, manager);
           if (!mapped) {
             return;
           }
@@ -95,7 +96,7 @@ export function DragDropProvider({
           onDragMove?.(mapped);
         }}
         onDragOver={(event, manager) => {
-          const mapped = mapDragEvent(event, manager);
+          const mapped = mapDragEvent(host, event, manager);
           if (!mapped) {
             return;
           }
@@ -108,7 +109,7 @@ export function DragDropProvider({
             control.abort();
           }
 
-          const mapped = mapDragEvent(event, manager, event.canceled);
+          const mapped = mapDragEvent(host, event, manager, event.canceled);
           if (!mapped) {
             tracker.reset();
             return;

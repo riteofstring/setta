@@ -5,12 +5,12 @@ import {
 } from "@dnd-kit/abstract";
 import type { Draggable } from "@dnd-kit/dom";
 import { Rectangle, type Coordinates, type Shape } from "@dnd-kit/geometry";
-import { useReactFlow } from "../../canvas/store";
+import { getReactFlowStore } from "../../canvas/store";
 import { getSectionIsHorizontalOrientation } from "../../document/documentSelectors";
-import { useWorkspaceDocument } from "../../document/stores";
-import { useDndChildren } from "../dndChildren";
+import { getWorkspaceDocumentStore } from "../../document/stores";
+import type { WorkspaceHost } from "../../workspaceHost";
 import { isTempSection } from "../dndIds";
-import { useDndState } from "../dndState";
+import { getDndStateStore } from "../dndState";
 import { isTempItem } from "../itemDndState";
 import { resolveOverCollision } from "./collisionCompare";
 import type { ClientRect, SettaCollision } from "./types";
@@ -46,6 +46,7 @@ export type CollisionTracker = {
 };
 
 type CollisionTrackerOptions = {
+  host: WorkspaceHost;
   mode: CollisionMode;
   getParentByChild: () => ParentByChildMap;
 };
@@ -90,6 +91,7 @@ type SortingCollisionContext = SharedDetectorContext & {
 type PastHalfwayReference = "directional-edge" | "pointer";
 
 export function createCollisionTracker({
+  host,
   mode,
   getParentByChild,
 }: CollisionTrackerOptions): CollisionTracker {
@@ -114,7 +116,7 @@ export function createCollisionTracker({
       return null;
     }
 
-    const draggingIds = useDndState.getState().draggingIds;
+    const draggingIds = getDndStateStore(host).getState().draggingIds;
     const droppableId = String(droppable.id);
     if (shouldIgnoreDroppable({ mode, droppableId, draggingIds })) {
       return null;
@@ -182,7 +184,7 @@ export function createCollisionTracker({
     const { active, activeRect, droppable, droppableData, droppableRect } =
       context;
     const containerId = droppableData?.sortable?.containerId;
-    const containerIsHorizontal = getContainerIsHorizontal({
+    const containerIsHorizontal = getContainerIsHorizontal(host, {
       mode,
       containerId,
       activeData: context.activeData,
@@ -225,7 +227,7 @@ export function createCollisionTracker({
         intersectionRatio: baseRatio,
       },
       pastHalfway,
-      triggerDistCondition: getTriggerDistCondition({
+      triggerDistCondition: getTriggerDistCondition(host, {
         activeId: String(active.id),
         droppableData,
         triggerDist,
@@ -239,7 +241,7 @@ export function createCollisionTracker({
     context: SortingCollisionContext,
   ): SettaCollision | null {
     const { activeRect, droppable, droppableRect } = context;
-    const containerIsHorizontal = getContainerIsHorizontal({
+    const containerIsHorizontal = getContainerIsHorizontal(host, {
       mode,
       containerId: context.containerId,
       activeData: context.activeData,
@@ -345,11 +347,6 @@ function getPastHalfwayReference(
     : "pointer";
 }
 
-export const defaultCollisionTracker = createCollisionTracker({
-  mode: "section",
-  getParentByChild: () => useDndChildren.getState().y,
-});
-
 function toClientRect(rect: Rectangle["boundingRectangle"]): ClientRect {
   return {
     top: rect.top,
@@ -423,7 +420,7 @@ function getResolvedIntersectionRatio({
   return Number((verticalOverlap * activeRect.width).toFixed(4));
 }
 
-function getContainerIsHorizontal({
+function getContainerIsHorizontal(host: WorkspaceHost, {
   mode,
   containerId,
   activeData,
@@ -450,11 +447,11 @@ function getContainerIsHorizontal({
     return false;
   }
 
-  const sections = useWorkspaceDocument.getState().sections;
+  const sections = getWorkspaceDocumentStore(host).getState().sections;
   if (!(containerId in sections)) {
     return false;
   }
-  return getSectionIsHorizontalOrientation(containerId);
+  return getSectionIsHorizontalOrientation(host, containerId);
 }
 
 function getIntersectionRatio(entry: ClientRect, target: ClientRect): number {
@@ -536,7 +533,7 @@ function getBoostedIntersectionRatio({
     : intersectionRatio;
 }
 
-function getTriggerDistCondition({
+function getTriggerDistCondition(host: WorkspaceHost, {
   activeId,
   droppableData,
   triggerDist,
@@ -561,7 +558,7 @@ function getTriggerDistCondition({
     return false;
   }
 
-  const zoom = useReactFlow.getState().transform[2];
+  const zoom = getReactFlowStore(host).getState().transform[2];
   const threshold = mode === "item" ? 30 : containerIsHorizontal ? 20 : 100;
 
   return triggerDist > threshold * zoom;

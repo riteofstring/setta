@@ -1,6 +1,6 @@
 import { getActiveSectionIds } from "../document/activeSections";
 import { insertIntoArray } from "../document/arrayUtils";
-import { useWorkspaceCapabilities } from "../document/capabilities";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import {
   getSectionHasSelectedItems,
   getSectionItemTreeOrThrow,
@@ -19,9 +19,10 @@ import {
   commitSectionItemTree,
   type ItemTreeMove,
 } from "../document/moveItems";
-import { useWorkspaceDocument } from "../document/stores";
+import { getWorkspaceDocumentStore } from "../document/stores";
 import type { WorkspaceSectionItemTree } from "../document/types";
 import { getSectionItemVisibility } from "./itemListRegistry";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // The reference's keyboard param movement (`moveSelectedParamsUp/Down`, `indentSelectedParams`,
 // `unindentSelectedParams` in `state/actions/params/moveParams.ts`) in item terms. The offset
@@ -32,8 +33,8 @@ import { getSectionItemVisibility } from "./itemListRegistry";
 // each per-parent run to just after its parent. The reference's leaf→`NestedParam` promotion on
 // indent and its empty-parent type restore on unindent are structural no-ops here — every item
 // carries `children`; presentation changes remain independent of structural movement.
-// App-only branches dropped: the backend routes (the document-change callback notifies the host
-// once per applied action), the deployment-mode guard (the `canEditStructure` capability), and
+// App-only branches dropped: the backend routes (the host publishes one snapshot per applied
+// action), the deployment-mode guard (the `canEditStructure` capability), and
 // the filter/hidden/multi-parent toasts (the disabled fallbacks they narrate are unchanged).
 // Visibility and the active-filter answer come from the registered list views, like drag start.
 
@@ -67,16 +68,19 @@ type ItemParentMoveGroup = {
   itemIds: Array<string>;
 };
 
-export function moveSelectedItemsUp(): boolean {
-  return moveSelectedItemsByOffset(-1);
+export function moveSelectedItemsUp(host: WorkspaceHost): boolean {
+  return moveSelectedItemsByOffset(host, -1);
 }
 
-export function moveSelectedItemsDown(): boolean {
-  return moveSelectedItemsByOffset(1);
+export function moveSelectedItemsDown(host: WorkspaceHost): boolean {
+  return moveSelectedItemsByOffset(host, 1);
 }
 
-function moveSelectedItemsByOffset(direction: -1 | 1): boolean {
-  const context = getItemMovementContext();
+function moveSelectedItemsByOffset(
+  host: WorkspaceHost,
+  direction: -1 | 1,
+): boolean {
+  const context = getItemMovementContext(host);
   if (!context) {
     return false;
   }
@@ -111,6 +115,7 @@ function moveSelectedItemsByOffset(direction: -1 | 1): boolean {
     return false;
   }
   commitSectionItemTree(
+    host,
     context.sectionId,
     moves.reduce(
       (tree, move) => applyItemMoveToTree(tree, move),
@@ -120,8 +125,8 @@ function moveSelectedItemsByOffset(direction: -1 | 1): boolean {
   return true;
 }
 
-export function indentSelectedItems(): boolean {
-  const context = getItemMovementContext();
+export function indentSelectedItems(host: WorkspaceHost): boolean {
+  const context = getItemMovementContext(host);
   if (!context) {
     return false;
   }
@@ -136,12 +141,12 @@ export function indentSelectedItems(): boolean {
   for (const group of groups) {
     tree = indentItemGroup(tree, context.sharedParent, group, selectedSet);
   }
-  commitSectionItemTree(context.sectionId, tree);
+  commitSectionItemTree(host, context.sectionId, tree);
   return true;
 }
 
-export function unindentSelectedItems(): boolean {
-  const base = getItemSelectionBase();
+export function unindentSelectedItems(host: WorkspaceHost): boolean {
+  const base = getItemSelectionBase(host);
   if (!base) {
     return false;
   }
@@ -152,24 +157,24 @@ export function unindentSelectedItems(): boolean {
   )) {
     tree = unindentItemParentGroup(tree, base.parentById, group);
   }
-  commitSectionItemTree(base.sectionId, tree);
+  commitSectionItemTree(host, base.sectionId, tree);
   return true;
 }
 
-function getItemSelectionBase(): ItemSelectionBase | null {
-  if (!useWorkspaceCapabilities.getState().canEditStructure) {
+function getItemSelectionBase(host: WorkspaceHost): ItemSelectionBase | null {
+  if (!getWorkspaceCapabilitiesStore(host).getState().canEditStructure) {
     return null;
   }
-  const sectionId = resolveSectionWithSelectedItems();
+  const sectionId = resolveSectionWithSelectedItems(host);
   if (!sectionId) {
     return null;
   }
-  const visibility = getSectionItemVisibility(sectionId);
+  const visibility = getSectionItemVisibility(host, sectionId);
   if (!visibility || visibility.filterActive) {
     return null;
   }
   const itemTree = getSectionItemTreeOrThrow(
-    useWorkspaceDocument.getState(),
+    getWorkspaceDocumentStore(host).getState(),
     sectionId,
   );
   const parentById = buildItemParentMap(itemTree);
@@ -189,8 +194,8 @@ function getItemSelectionBase(): ItemSelectionBase | null {
   };
 }
 
-function getItemMovementContext(): ItemMovementContext | null {
-  const base = getItemSelectionBase();
+function getItemMovementContext(host: WorkspaceHost): ItemMovementContext | null {
+  const base = getItemSelectionBase(host);
   if (!base) {
     return null;
   }
@@ -216,9 +221,9 @@ function getItemMovementContext(): ItemMovementContext | null {
   };
 }
 
-function resolveSectionWithSelectedItems(): string | null {
-  const state = useWorkspaceDocument.getState();
-  const activeId = getActiveSectionIds()[0] ?? null;
+function resolveSectionWithSelectedItems(host: WorkspaceHost): string | null {
+  const state = getWorkspaceDocumentStore(host).getState();
+  const activeId = getActiveSectionIds(host)[0] ?? null;
   if (activeId && getSectionHasSelectedItems(state, activeId)) {
     return activeId;
   }

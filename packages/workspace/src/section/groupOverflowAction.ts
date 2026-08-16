@@ -1,13 +1,14 @@
-import { useWorkspaceCapabilities } from "../document/capabilities";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
 import {
   getSectionOrThrow,
   isGroupSection,
 } from "../document/documentSelectors";
 import { assertValidSectionOverflowMode } from "../document/groupOverflow";
-import { useWorkspaceDocument } from "../document/stores";
+import { getWorkspaceDocumentStore } from "../document/stores";
 import type { SectionSize } from "../document/types";
-import { useSectionRefs } from "./sectionRefs";
+import { getSectionRefsStore } from "./sectionRefs";
+import type { WorkspaceHost } from "../workspaceHost";
 
 type MeasuredGroupSize = Pick<DOMRect, "height" | "width">;
 
@@ -67,6 +68,7 @@ function assertGroupCanChangeOverflow(
 }
 
 function measureAutoGroupSize(
+  host: WorkspaceHost,
   sectionId: string,
   size: SectionSize,
 ): MeasuredGroupSize | null {
@@ -74,12 +76,13 @@ function measureAutoGroupSize(
     return null;
   }
   return (
-    useSectionRefs.getState().withNested[sectionId]?.getBoundingClientRect() ??
+    getSectionRefsStore(host).getState().withNested[sectionId]?.getBoundingClientRect() ??
     null
   );
 }
 
 function getNextGroupSize(
+  host: WorkspaceHost,
   sectionId: string,
   size: SectionSize,
   overflowMode: boolean,
@@ -91,7 +94,7 @@ function getNextGroupSize(
     getBoundedGroupSize(
       sectionId,
       size,
-      measureAutoGroupSize(sectionId, size),
+      measureAutoGroupSize(host, sectionId, size),
     ) ?? size
   );
 }
@@ -100,18 +103,20 @@ function getNextGroupSize(
 // mode-and-size write, and the single host notification. A3 routes the package action surfaces
 // through this same operation.
 export function setGroupOverflowMode(
+  host: WorkspaceHost,
   sectionId: string,
   overflowMode: boolean,
 ): void {
   if (typeof overflowMode !== "boolean") {
     throw new Error("Group overflow mode must be a boolean.");
   }
-  if (!useWorkspaceCapabilities.getState().canEditLayout) {
+  if (!getWorkspaceCapabilitiesStore(host).getState().canEditLayout) {
     throw new Error(
       "Changing group overflow requires permission to edit workspace layout.",
     );
   }
-  const documentState = useWorkspaceDocument.getState();
+  const documentStore = getWorkspaceDocumentStore(host);
+  const documentState = documentStore.getState();
   const section = getSectionOrThrow(documentState, sectionId);
   assertGroupCanChangeOverflow(sectionId, section);
   if (section.overflowMode === overflowMode) {
@@ -121,14 +126,14 @@ export function setGroupOverflowMode(
   const nextSection = {
     ...section,
     overflowMode,
-    size: getNextGroupSize(sectionId, section.size, overflowMode),
+    size: getNextGroupSize(host, sectionId, section.size, overflowMode),
   };
   assertValidSectionOverflowMode(sectionId, nextSection);
-  useWorkspaceDocument.setState({
+  documentStore.setState({
     sections: {
       ...documentState.sections,
       [sectionId]: nextSection,
     },
   });
-  notifyWorkspaceDocumentChange();
+  notifyWorkspaceDocumentChange(host);
 }

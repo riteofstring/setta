@@ -33,6 +33,8 @@ import {
   getWorkspaceTooltipHandlers,
   type WorkspaceTooltipPage,
 } from "../tooltip/WorkspaceTooltip";
+import { useWorkspaceHost } from "../workspaceHostContext";
+import type { WorkspaceHost } from "../workspaceHost";
 import { BuiltInItemRowContent } from "./BuiltInItemRowContent";
 import { ItemColumnResizeHandle } from "./ItemColumnResizeHandle";
 import {
@@ -114,7 +116,7 @@ function useTempItemPlaceholderStyle() {
   };
 }
 
-function createSortableStyle({
+function createSortableStyle(host: WorkspaceHost, {
   transform,
   transition,
   isDragging,
@@ -128,7 +130,7 @@ function createSortableStyle({
   width?: number;
 }): CSSProperties {
   return {
-    transform: transformToString(applyZoomToTransform(transform)),
+    transform: transformToString(applyZoomToTransform(host, transform)),
     transition,
     zIndex: isDragging ? 1000 : undefined,
     height,
@@ -137,6 +139,7 @@ function createSortableStyle({
 }
 
 function TempItemRow({ itemId }: { itemId: string }) {
+  const host = useWorkspaceHost();
   const { enabled, sectionId, listKey } = useItemListContext();
   const { height, width } = useTempItemPlaceholderStyle();
   const {
@@ -159,7 +162,7 @@ function TempItemRow({ itemId }: { itemId: string }) {
       onlyChildId: null,
     },
   });
-  const dndStyle = createSortableStyle({
+  const dndStyle = createSortableStyle(host, {
     transform,
     transition,
     isDragging,
@@ -306,6 +309,7 @@ function buildItemRowProps(
 }
 
 function useItemSelectionHandlers(sectionId: string, itemId: string) {
+  const host = useWorkspaceHost();
   const isSelectingItems = useItemSelectionMode((x) => x.isSelectingItems);
   const handleItemMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -323,9 +327,9 @@ function useItemSelectionHandlers(sectionId: string, itemId: string) {
         return;
       }
       e.stopPropagation();
-      toggleItemSelected(sectionId, itemId);
+      toggleItemSelected(host, sectionId, itemId);
     },
-    [isSelectingItems, sectionId, itemId],
+    [host, isSelectingItems, sectionId, itemId],
   );
   // The reference toggles selection through its app-level pointer path only; the package adds
   // the keyboard equivalent on the row for the repository's accessibility gate.
@@ -339,9 +343,9 @@ function useItemSelectionHandlers(sectionId: string, itemId: string) {
       }
       e.preventDefault();
       e.stopPropagation();
-      toggleItemSelected(sectionId, itemId);
+      toggleItemSelected(host, sectionId, itemId);
     },
-    [isSelectingItems, sectionId, itemId],
+    [host, isSelectingItems, sectionId, itemId],
   );
 
   return {
@@ -429,6 +433,7 @@ function getItemQuickInfo(
 }
 
 function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
+  const host = useWorkspaceHost();
   const {
     enabled,
     sectionId,
@@ -515,7 +520,7 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       })} ${getWorkspaceItemDiagnosticRowClassName(highestDiagnosticSeverity)}`,
       hoverClassName: getItemHoverClassName(hasSectionStyleTheme),
       dndClassName: isDragging ? "opacity-80" : "",
-      dndStyle: createSortableStyle({ transform, transition, isDragging }),
+      dndStyle: createSortableStyle(host, { transform, transition, isDragging }),
       hasDiagnostics: diagnostics.length > 0,
     },
     isTopLevelWithPad,
@@ -550,12 +555,16 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
   );
 }
 
-function getItemQuickInfoHandlers(quickInfo: ItemQuickInfo | null) {
+function getItemQuickInfoHandlers(
+  host: WorkspaceHost,
+  quickInfo: ItemQuickInfo | null,
+) {
   if (!quickInfo) {
     return {};
   }
   const [firstPage, ...additionalPages] = quickInfo.pages;
   return getWorkspaceTooltipHandlers(
+    host,
     { ...firstPage, stageOnFocus: true },
     ...additionalPages,
   );
@@ -696,7 +705,8 @@ function ItemRowShell({
   quickInfoDescriptionId: string;
   children: ReactNode;
 }) {
-  const quickInfoHandlers = getItemQuickInfoHandlers(quickInfo);
+  const host = useWorkspaceHost();
+  const quickInfoHandlers = getItemQuickInfoHandlers(host, quickInfo);
   const accessibilityProps = getItemRowAccessibilityProps({
     diagnosticSummary,
     isSelected,
@@ -712,6 +722,7 @@ function ItemRowShell({
     }
     if (
       !openWorkspaceItemMenu(
+        host,
         sectionId,
         itemId,
         { x: event.clientX, y: event.clientY },
@@ -730,6 +741,7 @@ function ItemRowShell({
       event.target === event.currentTarget &&
       isWorkspaceMenuKeyboardEvent(event.nativeEvent) &&
       openWorkspaceItemMenu(
+        host,
         sectionId,
         itemId,
         getOwnerKeyboardMenuPoint(event.currentTarget),

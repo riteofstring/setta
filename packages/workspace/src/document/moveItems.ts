@@ -9,13 +9,14 @@ import {
   getItemOrThrow,
   isDescendantOfItemSelection,
 } from "./itemTree";
-import { useWorkspaceDocument } from "./stores";
+import { getWorkspaceDocumentStore } from "./stores";
 import type { WorkspaceItem, WorkspaceSectionItemTree } from "./types";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // The reference's canonical param move (`applyParamMove`/`moveParamsWithBackend`,
 // `state/actions/params/moveParams.ts`) minus the app-only branches: the optimistic-op plumbing
-// and backend route stay application-side (the document-change callback notifies the host
-// instead), and the pinned/unpinned shown-order cache sync (`syncShownParamTopLevelOrder`) left
+// and backend route stay application-side (the host publishes a snapshot instead), and the
+// pinned/unpinned shown-order cache sync (`syncShownParamTopLevelOrder`) left
 // with the app — the package derives list membership from the canonical children live. Where
 // the reference's monitor and backend keep cyclic drops out of the canonical structure, the
 // package funnel is the last line and fails loudly instead. An aborted move (detached items,
@@ -35,20 +36,19 @@ type PreparedItemMove = {
   remainingOldChildren: Array<string>;
 };
 
-export function moveItems({
-  sectionId,
-  itemIds,
-  newParentId,
-  newIndex,
-}: MoveItemsInput) {
+export function moveItems(
+  host: WorkspaceHost,
+  { sectionId, itemIds, newParentId, newIndex }: MoveItemsInput,
+) {
   if (itemIds.length === 0) {
     return;
   }
   const itemTree = getSectionItemTreeOrThrow(
-    useWorkspaceDocument.getState(),
+    getWorkspaceDocumentStore(host).getState(),
     sectionId,
   );
   commitSectionItemTree(
+    host,
     sectionId,
     applyItemMoveToTree(itemTree, { itemIds, newParentId, newIndex }),
   );
@@ -58,21 +58,23 @@ export function moveItems({
 // folded together — the reference's keyboard actions apply a whole group-move batch through a
 // single optimistic dispatch. An unchanged tree commits and notifies nothing.
 export function commitSectionItemTree(
+  host: WorkspaceHost,
   sectionId: string,
   nextItemTree: WorkspaceSectionItemTree,
 ) {
-  const documentState = useWorkspaceDocument.getState();
+  const documentStore = getWorkspaceDocumentStore(host);
+  const documentState = documentStore.getState();
   const section = getSectionOrThrow(documentState, sectionId);
   if (getSectionItemTreeOrThrow(documentState, sectionId) === nextItemTree) {
     return;
   }
-  useWorkspaceDocument.setState({
+  documentStore.setState({
     sections: {
       ...documentState.sections,
       [sectionId]: { ...section, itemTree: nextItemTree },
     },
   });
-  notifyWorkspaceDocumentChange();
+  notifyWorkspaceDocumentChange(host);
 }
 
 export function applyItemMoveToTree(

@@ -1,10 +1,11 @@
-import { useReactFlow } from "../canvas/store";
+import { getReactFlowStore } from "../canvas/store";
 import { getTopLevelSectionIdsForDisplay } from "../document/documentSelectors";
 import {
-  useWorkspaceDocument,
+  getWorkspaceDocumentStore,
   type WorkspaceDocumentState,
 } from "../document/stores";
-import { useSectionRefs } from "../section/sectionRefs";
+import { getSectionRefsStore } from "../section/sectionRefs";
+import type { WorkspaceHost } from "../workspaceHost";
 
 type SectionControlKeyboardEvent = {
   key: string;
@@ -16,8 +17,8 @@ type SectionControlKeyboardEvent = {
 // canvas focus/fit helpers are a deferred capability. Every built-in control routes its Escape
 // here: moving focus to the section container blurs the live control, which restores the idle
 // presentation without unselecting the section.
-export function focusSectionAfterEscape(sectionId: string) {
-  const sectionRef = getSectionFocusElement(sectionId);
+export function focusSectionAfterEscape(host: WorkspaceHost, sectionId: string) {
+  const sectionRef = getSectionFocusElement(host, sectionId);
   if (!sectionRef) {
     return;
   }
@@ -25,9 +26,10 @@ export function focusSectionAfterEscape(sectionId: string) {
 }
 
 function getSectionFocusElement(
+  host: WorkspaceHost,
   sectionId: string,
 ): HTMLElement | null | undefined {
-  const refs = useSectionRefs.getState();
+  const refs = getSectionRefsStore(host).getState();
   // Leaves expose their named section group through selfOnly; groups have only the named outer
   // container. Both are stable programmatic focus targets without adding a Tab stop.
   return refs.selfOnly[sectionId] ?? refs.withNested[sectionId];
@@ -37,6 +39,7 @@ function getSectionFocusElement(
 // document-level canvas shortcut, which would immediately clear the section selection and blur
 // the focus target this helper just restored.
 export function handleSectionControlEscape(
+  host: WorkspaceHost,
   event: SectionControlKeyboardEvent,
   sectionId: string,
 ): boolean {
@@ -44,7 +47,7 @@ export function handleSectionControlEscape(
     return false;
   }
   event.stopPropagation();
-  focusSectionAfterEscape(sectionId);
+  focusSectionAfterEscape(host, sectionId);
   return true;
 }
 
@@ -80,11 +83,12 @@ export function resolveSectionFocusAfterRemoval(
 }
 
 export function restoreFocusAfterSectionRemoval(
+  host: WorkspaceHost,
   targetSectionId: string | null,
 ): void {
   requestAnimationFrame(() => {
     if (targetSectionId) {
-      const section = getSectionFocusElement(targetSectionId);
+      const section = getSectionFocusElement(host, targetSectionId);
       if (!section) {
         throw new Error(
           `Cannot restore focus to unmounted section ${targetSectionId}.`,
@@ -93,7 +97,7 @@ export function restoreFocusAfterSectionRemoval(
       section.focus({ preventScroll: true });
       return;
     }
-    const pane = useReactFlow
+    const pane = getReactFlowStore(host)
       .getState()
       .domNode?.querySelector<HTMLElement>(".react-flow__pane");
     if (!pane) {
@@ -106,10 +110,11 @@ export function restoreFocusAfterSectionRemoval(
 }
 
 export function captureSectionRemovalFocusTarget(
+  host: WorkspaceHost,
   sectionId: string,
 ): string | null {
   return resolveSectionFocusAfterRemoval(
-    useWorkspaceDocument.getState(),
+    getWorkspaceDocumentStore(host).getState(),
     sectionId,
   );
 }

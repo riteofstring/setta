@@ -3,7 +3,7 @@ import { pointer, select, type Selection as D3Selection } from "d3-selection";
 import { zoom, zoomIdentity, type D3ZoomEvent } from "d3-zoom";
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { shallow } from "zustand/shallow";
-import { useDndState } from "../dnd/dndState";
+import { getDndStateStore } from "../dnd/dndState";
 import {
   MANUAL_WHEEL_CLASS_NAME,
   NATIVE_VERTICAL_WHEEL_CLASS_NAME,
@@ -12,8 +12,10 @@ import {
 } from "../interaction";
 import { getInitialCanvasViewport } from "./documentViewportSync";
 import { fitView } from "./fitView";
-import { useWorkspaceOptions } from "./options";
-import { infiniteExtent, useReactFlow } from "./store";
+import { getWorkspaceOptionsStore, useWorkspaceOptions } from "./options";
+import { infiniteExtent, getReactFlowStore, useReactFlow } from "./store";
+import { useWorkspaceHost } from "../workspaceHostContext";
+import type { WorkspaceHost } from "../workspaceHost";
 import type {
   CoordinateExtent,
   PanOnScrollMode,
@@ -57,6 +59,7 @@ type ViewportInteractionFlags = {
 };
 
 type ViewportInteractionRefs = {
+  host: WorkspaceHost;
   isPanScrolling: { current: boolean };
   isWheelZooming: { current: boolean };
   isZoomingOrPanning: { current: boolean };
@@ -100,6 +103,7 @@ type DefaultWheelHandlerParams = {
 
 type ZoomFilterParams = {
   event: ZoomFilterEvent;
+  host: WorkspaceHost;
   panOnDrag: boolean | Array<number>;
   panOnScroll: boolean;
   userSelectionActive: boolean;
@@ -131,8 +135,8 @@ const isWheelEventType = (eventType: string): boolean => eventType === "wheel";
 const VIEWPORT_INTERACTION_ACTIVE_ATTRIBUTE =
   "data-viewport-interaction-active";
 
-function markViewportInteractionActive(active: boolean): void {
-  const canvas = useReactFlow.getState().domNode;
+function markViewportInteractionActive(host: WorkspaceHost, active: boolean): void {
+  const canvas = getReactFlowStore(host).getState().domNode;
   if (!canvas) {
     return;
   }
@@ -152,6 +156,7 @@ export function getViewportInteractionActiveValue({
 }
 
 function syncViewportInteractionActive({
+  host,
   isPanScrolling,
   isWheelZooming,
   isZoomingOrPanning,
@@ -161,13 +166,14 @@ function syncViewportInteractionActive({
     isWheelZooming: isWheelZooming.current,
     isZoomingOrPanning: isZoomingOrPanning.current,
   });
-  markViewportInteractionActive(active);
-  if (useReactFlow.getState().viewportInteractionActive !== active) {
-    useReactFlow.setState({ viewportInteractionActive: active });
+  markViewportInteractionActive(host, active);
+  if (getReactFlowStore(host).getState().viewportInteractionActive !== active) {
+    getReactFlowStore(host).setState({ viewportInteractionActive: active });
   }
 }
 
 export function resetViewportInteractionState({
+  host,
   isPanScrolling,
   isWheelZooming,
   isZoomingOrPanning,
@@ -179,8 +185,8 @@ export function resetViewportInteractionState({
   isZoomingOrPanning.current = false;
   clearTimeout(panScrollTimeout.current);
   clearTimeout(wheelZoomTimeout.current);
-  markViewportInteractionActive(false);
-  useReactFlow.setState({
+  markViewportInteractionActive(host, false);
+  getReactFlowStore(host).setState({
     paneDragging: false,
     viewportInteractionActive: false,
   });
@@ -548,6 +554,7 @@ function blocksPointerStartWithoutPan({
 function shouldBlockZoomFilterByInteractionState({
   event,
   eventButton,
+  host,
   panOnDrag,
   panOnScroll,
   userSelectionActive,
@@ -557,6 +564,7 @@ function shouldBlockZoomFilterByInteractionState({
 }: {
   event: ZoomFilterEvent;
   eventButton: number;
+  host: WorkspaceHost;
   panOnDrag: boolean | Array<number>;
   panOnScroll: boolean;
   userSelectionActive: boolean;
@@ -587,7 +595,7 @@ function shouldBlockZoomFilterByInteractionState({
 
   // The zoom pane suspends panning while a dnd mode is held; the two interaction engines
   // coexist by giving the held mode's gesture one owner.
-  const { isSorting, isMovingFree } = useDndState.getState();
+  const { isSorting, isMovingFree } = getDndStateStore(host).getState();
   return isSorting || isMovingFree;
 }
 
@@ -669,6 +677,7 @@ function isAllowedViewportButton({
 
 export function shouldAllowZoomFilterEvent({
   event,
+  host,
   panOnDrag,
   panOnScroll,
   userSelectionActive,
@@ -686,6 +695,7 @@ export function shouldAllowZoomFilterEvent({
     shouldBlockZoomFilterByInteractionState({
       event,
       eventButton,
+      host,
       panOnDrag,
       panOnScroll,
       userSelectionActive,
@@ -714,6 +724,7 @@ export function shouldAllowZoomFilterEvent({
 }
 
 function useViewportInteractionCleanup({
+  host,
   isPanScrolling,
   isWheelZooming,
   isZoomingOrPanning,
@@ -723,6 +734,7 @@ function useViewportInteractionCleanup({
   useEffect(() => {
     return () => {
       resetViewportInteractionState({
+        host,
         isPanScrolling,
         isWheelZooming,
         isZoomingOrPanning,
@@ -731,6 +743,7 @@ function useViewportInteractionCleanup({
       });
     };
   }, [
+    host,
     isPanScrolling,
     isWheelZooming,
     isZoomingOrPanning,
@@ -763,6 +776,7 @@ function useZoomWheelBehavior({
   zoomOnPinch: boolean;
 }) {
   const {
+    host,
     isPanScrolling,
     isWheelZooming,
     isZoomingOrPanning,
@@ -776,6 +790,7 @@ function useZoomWheelBehavior({
     }
 
     const wheelInteractionRefs: ViewportInteractionCleanupRefs = {
+      host,
       isPanScrolling,
       isWheelZooming,
       isZoomingOrPanning,
@@ -837,12 +852,14 @@ function useZoomWheelBehavior({
 
 function useZoomLifecycleHandlers({
   d3Zoom,
+  host,
   isPanScrolling,
   isWheelZooming,
   isZoomingOrPanning,
   userSelectionActive,
 }: {
   d3Zoom: ReactFlowState["d3Zoom"];
+  host: WorkspaceHost;
   isPanScrolling: ViewportInteractionRefs["isPanScrolling"];
   isWheelZooming: ViewportInteractionRefs["isWheelZooming"];
   isZoomingOrPanning: ViewportInteractionRefs["isZoomingOrPanning"];
@@ -860,16 +877,17 @@ function useZoomLifecycleHandlers({
       }
       isZoomingOrPanning.current = true;
       syncViewportInteractionActive({
+        host,
         isPanScrolling,
         isWheelZooming,
         isZoomingOrPanning,
       });
 
       if (sourceEvent.type === "mousedown") {
-        useReactFlow.setState({ paneDragging: true });
+        getReactFlowStore(host).setState({ paneDragging: true });
       }
     });
-  }, [d3Zoom, isPanScrolling, isWheelZooming, isZoomingOrPanning]);
+  }, [d3Zoom, host, isPanScrolling, isWheelZooming, isZoomingOrPanning]);
 
   useEffect(() => {
     if (!d3Zoom) {
@@ -884,11 +902,11 @@ function useZoomLifecycleHandlers({
     }
 
     d3Zoom.on("zoom", (event: D3ZoomEvent<HTMLDivElement, unknown>) => {
-      useReactFlow.setState({
+      getReactFlowStore(host).setState({
         transform: [event.transform.x, event.transform.y, event.transform.k],
       });
     });
-  }, [d3Zoom, isZoomingOrPanning, userSelectionActive]);
+  }, [d3Zoom, host, isZoomingOrPanning, userSelectionActive]);
 
   useEffect(() => {
     if (!d3Zoom) {
@@ -902,17 +920,19 @@ function useZoomLifecycleHandlers({
       }
       isZoomingOrPanning.current = false;
       syncViewportInteractionActive({
+        host,
         isPanScrolling,
         isWheelZooming,
         isZoomingOrPanning,
       });
-      useReactFlow.setState({ paneDragging: false });
+      getReactFlowStore(host).setState({ paneDragging: false });
     });
-  }, [d3Zoom, isPanScrolling, isWheelZooming, isZoomingOrPanning]);
+  }, [d3Zoom, host, isPanScrolling, isWheelZooming, isZoomingOrPanning]);
 }
 
 function useZoomFilterBinding({
   d3Zoom,
+  host,
   panOnDrag,
   panOnScroll,
   userSelectionActive,
@@ -922,6 +942,7 @@ function useZoomFilterBinding({
   zoomOnScroll,
 }: {
   d3Zoom: ReactFlowState["d3Zoom"];
+  host: WorkspaceHost;
   panOnDrag: boolean | Array<number>;
   panOnScroll: boolean;
   userSelectionActive: boolean;
@@ -937,6 +958,7 @@ function useZoomFilterBinding({
     d3Zoom.filter((event: ZoomFilterEvent) =>
       shouldAllowZoomFilterEvent({
         event,
+        host,
         panOnDrag,
         panOnScroll,
         userSelectionActive,
@@ -948,6 +970,7 @@ function useZoomFilterBinding({
     );
   }, [
     d3Zoom,
+    host,
     panOnDrag,
     panOnScroll,
     userSelectionActive,
@@ -961,12 +984,14 @@ function useZoomFilterBinding({
 function useFitViewInitialization({
   d3Selection,
   d3Zoom,
+  host,
   fitViewOnInit,
   fitViewOnInitDone,
   fitViewOnInitOptions,
 }: {
   d3Selection: ReactFlowState["d3Selection"];
   d3Zoom: ReactFlowState["d3Zoom"];
+  host: WorkspaceHost;
   fitViewOnInit: boolean;
   fitViewOnInitDone: boolean;
   fitViewOnInitOptions: ReactFlowState["fitViewOnInitOptions"];
@@ -975,12 +1000,12 @@ function useFitViewInitialization({
     if (!d3Zoom || !d3Selection || !fitViewOnInit || fitViewOnInitDone) {
       return;
     }
-    const didCompleteInitialFit = fitView({
+    const didCompleteInitialFit = fitView(host, {
       initial: true,
       ...fitViewOnInitOptions,
     });
     if (didCompleteInitialFit) {
-      useReactFlow.setState({
+      getReactFlowStore(host).setState({
         fitViewOnInit: false,
         fitViewOnInitDone: true,
       });
@@ -988,6 +1013,7 @@ function useFitViewInitialization({
   }, [
     d3Selection,
     d3Zoom,
+    host,
     fitViewOnInit,
     fitViewOnInitDone,
     fitViewOnInitOptions,
@@ -1006,6 +1032,7 @@ const ZoomPane = ({
   children,
   wrapperDimensions,
 }: ZoomPaneProps) => {
+  const host = useWorkspaceHost();
   const isZoomingOrPanning = useRef(false);
   const zoomPane = useRef<HTMLDivElement>(null);
   const {
@@ -1022,13 +1049,14 @@ const ZoomPane = ({
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const wheelZoomTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const interactionRefs: ViewportInteractionCleanupRefs = {
+    host,
     isPanScrolling,
     isWheelZooming,
     isZoomingOrPanning,
     panScrollTimeout,
     wheelZoomTimeout,
   };
-  useZoomPaneInit(zoomPane);
+  useZoomPaneInit(host, zoomPane);
   useViewportInteractionCleanup(interactionRefs);
   useZoomWheelBehavior({
     d3Selection,
@@ -1044,6 +1072,7 @@ const ZoomPane = ({
   });
   useZoomLifecycleHandlers({
     d3Zoom,
+    host,
     isPanScrolling,
     isWheelZooming,
     isZoomingOrPanning,
@@ -1051,6 +1080,7 @@ const ZoomPane = ({
   });
   useZoomFilterBinding({
     d3Zoom,
+    host,
     panOnDrag,
     panOnScroll,
     userSelectionActive,
@@ -1062,6 +1092,7 @@ const ZoomPane = ({
   useFitViewInitialization({
     d3Selection,
     d3Zoom,
+    host,
     fitViewOnInit,
     fitViewOnInitDone,
     fitViewOnInitOptions,
@@ -1086,9 +1117,12 @@ const ZoomPane = ({
 
 export default ZoomPane;
 
-function useZoomPaneInit(zoomPane: RefObject<HTMLDivElement | null>) {
+function useZoomPaneInit(
+  host: WorkspaceHost,
+  zoomPane: RefObject<HTMLDivElement | null>,
+) {
   useEffect(() => {
-    zoomPaneInit(zoomPane);
+    zoomPaneInit(host, zoomPane);
     // The reference swaps whole keyed project surfaces, so it never observes a canvas store that
     // outlives its zoom pane. The package canvas store does outlive an unmounted canvas, and the
     // load orchestrator treats live d3 handles as "canvas mounted" — so an unmount must clear
@@ -1096,23 +1130,26 @@ function useZoomPaneInit(zoomPane: RefObject<HTMLDivElement | null>) {
     // effects clean up after children), and the next mount's `getInitialCanvasViewport` resets
     // them from the document either way.
     return () => {
-      markViewportInteractionActive(false);
-      useReactFlow.setState({
+      markViewportInteractionActive(host, false);
+      getReactFlowStore(host).setState({
         d3Zoom: null,
         d3Selection: null,
         d3ZoomHandler: undefined,
         domNode: null,
       });
     };
-  }, [zoomPane]);
+  }, [host, zoomPane]);
 }
 
-function zoomPaneInit(zoomPane: RefObject<HTMLDivElement | null>) {
+function zoomPaneInit(
+  host: WorkspaceHost,
+  zoomPane: RefObject<HTMLDivElement | null>,
+) {
   if (zoomPane.current) {
-    const initialViewport = getInitialCanvasViewport();
+    const initialViewport = getInitialCanvasViewport(host);
     const translateExtent = infiniteExtent;
     const bbox = zoomPane.current.getBoundingClientRect();
-    const { minZoom, maxZoom } = useWorkspaceOptions.getState();
+    const { minZoom, maxZoom } = getWorkspaceOptionsStore(host).getState();
     // .interpolate(interpolate) makes the interpolations linear instead of curved
     const d3ZoomInstance = zoom()
       .interpolate(interpolate)
@@ -1139,7 +1176,7 @@ function zoomPaneInit(zoomPane: RefObject<HTMLDivElement | null>) {
       "wheel.zoom",
     ) as ReactFlowState["d3ZoomHandler"];
 
-    useReactFlow.setState({
+    getReactFlowStore(host).setState({
       d3Zoom: d3ZoomInstance,
       d3Selection: selection,
       d3ZoomHandler,

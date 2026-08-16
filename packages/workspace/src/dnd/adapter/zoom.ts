@@ -1,18 +1,20 @@
-import { useReactFlow } from "../../canvas/store";
+import { getReactFlowStore } from "../../canvas/store";
+import type { WorkspaceHost } from "../../workspaceHost";
 import type { Transform } from "./types";
 
-function getZoomScale(): number {
-  return useReactFlow.getState().transform[2];
+function getZoomScale(host: WorkspaceHost): number {
+  return getReactFlowStore(host).getState().transform[2];
 }
 
 export function applyZoomToTransform(
+  host: WorkspaceHost,
   transform: Transform | null,
 ): Transform | null {
   if (!transform) {
     return null;
   }
 
-  const zoom = getZoomScale();
+  const zoom = getZoomScale(host);
   return {
     ...transform,
     x: transform.x / zoom,

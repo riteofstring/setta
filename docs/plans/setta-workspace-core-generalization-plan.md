@@ -134,7 +134,7 @@ it does not implement that application's transport or acknowledgement policy.
 
 ## Phase 1 — instance-scoped workspace host
 
-**Status: not started.**
+**Status: implementation complete; awaiting independent Phase 1 review.**
 
 Replace process-wide runtime ownership with one explicit host per mounted workspace.
 

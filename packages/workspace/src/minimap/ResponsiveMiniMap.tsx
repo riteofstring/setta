@@ -1,7 +1,8 @@
 import { useWorkspaceOptions } from "../canvas/options";
-import { useReactFlow } from "../canvas/store";
+import { getReactFlowStore, useReactFlow } from "../canvas/store";
 import { setCenter } from "../canvas/viewportHelpers";
 import { useWorkspaceAppearance } from "../document/stores";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import MiniMap from "./MiniMap";
 
 // The reference's `components/Pages/Project/ResponsiveMiniMap.tsx`: `minimapSide` flips the panel
@@ -9,13 +10,16 @@ import MiniMap from "./MiniMap";
 // The reference node color branches for legacy xyflow "input"/"output"/"default" node types are
 // unreachable (no Setta section carries those types) and were cut at extraction.
 export function ResponsiveMiniMap() {
+  const host = useWorkspaceHost();
   const darkMode = useWorkspaceAppearance((x) => x.darkMode);
   const minimapSide = useWorkspaceOptions((x) => x.minimapSide);
   const viewportInsets = useReactFlow((x) => x.viewportInsets);
   const minimapInset =
     minimapSide === "right" ? viewportInsets.right : viewportInsets.left;
   const navigate = ({ x, y }: { x: number; y: number }) => {
-    setCenter(x, y, { zoom: useReactFlow.getState().transform[2] });
+    setCenter(host, x, y, {
+      zoom: getReactFlowStore(host).getState().transform[2],
+    });
   };
 
   return (

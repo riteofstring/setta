@@ -9,49 +9,59 @@ import {
   reprojectNodeStylesForAppearance,
 } from "./nodeProjection";
 import {
+  getActiveSectionsStore,
+  getNodeInternalsStore,
+  getWorkspaceDocumentStore,
   runWithAtomicallyPublishedWorkspaceStores,
-  useActiveSections,
-  useNodeInternals,
-  useWorkspaceDocument,
   type WorkspaceDocumentState,
 } from "./stores";
 import type { WorkspaceSection } from "./types";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // The reference's per-flag commit funnels (optimistic impl write + one backend route each:
 // `setSectionName`, `togglePositionLocks`, `toggleMinimized`, `toggleGroupOrientation`,
 // `deleteSections`). The package applies the same canonical writes directly and notifies the
-// host once per funnel through the document-change callback.
+// host once per funnel through its document subscriptions.
 
 function setSectionValues(
+  host: WorkspaceHost,
   sectionId: string,
   values: Partial<WorkspaceSection>,
 ) {
-  useWorkspaceDocument.setState((state) => {
+  getWorkspaceDocumentStore(host).setState((state) => {
     const section = getSectionOrThrow(state, sectionId);
     return {
       sections: { ...state.sections, [sectionId]: { ...section, ...values } },
     };
   });
-  notifyWorkspaceDocumentChange();
+  notifyWorkspaceDocumentChange(host);
 }
 
-function getUniqueSectionIds(sectionIds: ReadonlyArray<string>): Array<string> {
+function getUniqueSectionIds(
+  host: WorkspaceHost,
+  sectionIds: ReadonlyArray<string>,
+): Array<string> {
   const uniqueIds = [...new Set(sectionIds)];
   if (uniqueIds.length === 0) {
     throw new Error("A section mutation requires at least one section id.");
   }
-  const state = useWorkspaceDocument.getState();
+  const state = getWorkspaceDocumentStore(host).getState();
   for (const sectionId of uniqueIds) {
     getSectionOrThrow(state, sectionId);
   }
   return uniqueIds;
 }
 
-export function setSectionName(sectionId: string, name: string) {
-  setSectionValues(sectionId, { name });
+export function setSectionName(
+  host: WorkspaceHost,
+  sectionId: string,
+  name: string,
+) {
+  setSectionValues(host, sectionId, { name });
 }
 
 export function setSectionStyleColor(
+  host: WorkspaceHost,
   sectionId: string,
   styleColor: string | null,
 ): void {
@@ -66,7 +76,7 @@ export function setSectionStyleColor(
     normalized === null
       ? null
       : `#${normalized.replace(/^#/u, "").toLowerCase()}`;
-  const documentState = useWorkspaceDocument.getState();
+  const documentState = getWorkspaceDocumentStore(host).getState();
   const section = getSectionOrThrow(documentState, sectionId);
   const nextDocumentState = {
     ...documentState,
@@ -76,30 +86,33 @@ export function setSectionStyleColor(
     },
   };
   const nextNodes = reprojectNodeStylesForAppearance(
+    host,
     nextDocumentState,
-    useNodeInternals.getState().x,
+    getNodeInternalsStore(host).getState().x,
   );
-  const activeSections = useActiveSections.getState();
+  const activeSections = getActiveSectionsStore(host).getState();
   runWithAtomicallyPublishedWorkspaceStores(
+    host,
     {
       document: nextDocumentState,
       nodeInternals: { x: nextNodes },
       activeSections,
     },
     () => {
-      useNodeInternals.setState({ x: nextNodes });
-      useWorkspaceDocument.setState(nextDocumentState);
+      getNodeInternalsStore(host).setState({ x: nextNodes });
+      getWorkspaceDocumentStore(host).setState(nextDocumentState);
     },
   );
-  notifyWorkspaceDocumentChange();
+  notifyWorkspaceDocumentChange(host);
 }
 
 export function setSectionsPositionLocked(
+  host: WorkspaceHost,
   sectionIds: ReadonlyArray<string>,
   positionAndSizeLocked: boolean,
 ): void {
-  const uniqueIds = getUniqueSectionIds(sectionIds);
-  useWorkspaceDocument.setState((state) => {
+  const uniqueIds = getUniqueSectionIds(host, sectionIds);
+  getWorkspaceDocumentStore(host).setState((state) => {
     const sections = { ...state.sections };
     for (const sectionId of uniqueIds) {
       const section = getSectionOrThrow(state, sectionId);
@@ -107,26 +120,35 @@ export function setSectionsPositionLocked(
     }
     return { sections };
   });
-  notifyWorkspaceDocumentChange();
+  notifyWorkspaceDocumentChange(host);
 }
 
-export function togglePositionLock(sectionId: string) {
-  const section = getSectionOrThrow(useWorkspaceDocument.getState(), sectionId);
-  setSectionsPositionLocked([sectionId], !section.positionAndSizeLocked);
+export function togglePositionLock(host: WorkspaceHost, sectionId: string) {
+  const section = getSectionOrThrow(
+    getWorkspaceDocumentStore(host).getState(),
+    sectionId,
+  );
+  setSectionsPositionLocked(host, [sectionId], !section.positionAndSizeLocked);
 }
 
-export function toggleMinimized(sectionId: string) {
-  const section = getSectionOrThrow(useWorkspaceDocument.getState(), sectionId);
-  setSectionValues(sectionId, { isMinimized: !section.isMinimized });
+export function toggleMinimized(host: WorkspaceHost, sectionId: string) {
+  const section = getSectionOrThrow(
+    getWorkspaceDocumentStore(host).getState(),
+    sectionId,
+  );
+  setSectionValues(host, sectionId, { isMinimized: !section.isMinimized });
 }
 
-export function toggleGroupOrientation(sectionId: string) {
-  const section = getSectionOrThrow(useWorkspaceDocument.getState(), sectionId);
+export function toggleGroupOrientation(host: WorkspaceHost, sectionId: string) {
+  const section = getSectionOrThrow(
+    getWorkspaceDocumentStore(host).getState(),
+    sectionId,
+  );
   // The reference funnel refuses to write orientation onto anything but a group.
   if (!isGroupSection(section)) {
     return;
   }
-  setSectionValues(sectionId, {
+  setSectionValues(host, sectionId, {
     isHorizontalOrientation: !section.isHorizontalOrientation,
   });
 }
@@ -151,14 +173,17 @@ function collectSectionSubtreeIds(
 // the subtree leaves the section records, top-level layouts, parent map, and selection, and the
 // deleted section leaves its parent's children. The document, derived node geometry, and
 // selection publish atomically, like every other canonical replacement.
-export function deleteSection(sectionId: string) {
-  deleteSections([sectionId]);
+export function deleteSection(host: WorkspaceHost, sectionId: string) {
+  deleteSections(host, [sectionId]);
 }
 
-export function deleteSections(sectionIds: ReadonlyArray<string>): void {
-  const documentState = useWorkspaceDocument.getState();
+export function deleteSections(
+  host: WorkspaceHost,
+  sectionIds: ReadonlyArray<string>,
+): void {
+  const documentState = getWorkspaceDocumentStore(host).getState();
   const deletedIds = new Set<string>();
-  for (const sectionId of getUniqueSectionIds(sectionIds)) {
+  for (const sectionId of getUniqueSectionIds(host, sectionIds)) {
     for (const deletedId of collectSectionSubtreeIds(
       documentState,
       sectionId,
@@ -200,27 +225,29 @@ export function deleteSections(sectionIds: ReadonlyArray<string>): void {
     parentSectionMap,
   };
   const nextNodesMap = createNodesMapFromDocumentChildren(
+    host,
     nextDocumentState,
-    useNodeInternals.getState().x,
+    getNodeInternalsStore(host).getState().x,
   );
   const nextActiveSections = {
-    activeIds: useActiveSections
+    activeIds: getActiveSectionsStore(host)
       .getState()
       .activeIds.filter((id) => !deletedIds.has(id)),
   };
   runWithAtomicallyPublishedWorkspaceStores(
+    host,
     {
       document: nextDocumentState,
       nodeInternals: { x: nextNodesMap },
       activeSections: nextActiveSections,
     },
     () => {
-      useNodeInternals.setState({ x: nextNodesMap });
-      useWorkspaceDocument.setState(nextDocumentState);
-      useActiveSections.setState(nextActiveSections);
+      getNodeInternalsStore(host).setState({ x: nextNodesMap });
+      getWorkspaceDocumentStore(host).setState(nextDocumentState);
+      getActiveSectionsStore(host).setState(nextActiveSections);
     },
   );
-  notifyWorkspaceDocumentChange();
+  notifyWorkspaceDocumentChange(host);
 }
 
 function getGroupingParentId(
@@ -366,38 +393,41 @@ function createGroupedDocumentState(
 }
 
 export function groupSections(
+  host: WorkspaceHost,
   sectionIds: ReadonlyArray<string>,
   groupId: string,
 ): void {
-  const uniqueIds = getUniqueSectionIds(sectionIds);
+  const uniqueIds = getUniqueSectionIds(host, sectionIds);
   if (uniqueIds.length < 2) {
     throw new Error("Grouping requires at least two distinct sections.");
   }
   if (typeof groupId !== "string" || groupId.trim() === "") {
     throw new Error("A new group requires a nonblank section id.");
   }
-  const documentState = useWorkspaceDocument.getState();
+  const documentState = getWorkspaceDocumentStore(host).getState();
   const nextDocumentState = createGroupedDocumentState(
     documentState,
     uniqueIds,
     groupId.trim(),
   );
   const nextNodesMap = createNodesMapFromDocumentChildren(
+    host,
     nextDocumentState,
-    useNodeInternals.getState().x,
+    getNodeInternalsStore(host).getState().x,
   );
   const nextActiveSections = { activeIds: [groupId.trim()] };
   runWithAtomicallyPublishedWorkspaceStores(
+    host,
     {
       document: nextDocumentState,
       nodeInternals: { x: nextNodesMap },
       activeSections: nextActiveSections,
     },
     () => {
-      useNodeInternals.setState({ x: nextNodesMap });
-      useWorkspaceDocument.setState(nextDocumentState);
-      useActiveSections.setState(nextActiveSections);
+      getNodeInternalsStore(host).setState({ x: nextNodesMap });
+      getWorkspaceDocumentStore(host).setState(nextDocumentState);
+      getActiveSectionsStore(host).setState(nextActiveSections);
     },
   );
-  notifyWorkspaceDocumentChange();
+  notifyWorkspaceDocumentChange(host);
 }

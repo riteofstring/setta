@@ -8,6 +8,7 @@ import { getSectionOrThrow } from "../../document/documentSelectors";
 import { getMetaControlPresentation } from "../../document/sectionKindRegistry";
 import { useWorkspaceDocument } from "../../document/stores";
 import { useResizeEvent } from "./resizeEvents";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The reference's section sizing policy (`useSettings.sectionSizingPolicy`), trimmed to the
 // slice-reachable branches of `useSectionMinMaxDims`. The values are the shipped defaults from
@@ -82,10 +83,11 @@ export function getSectionMinMaxDims({
 }
 
 export function useSectionMinMaxDims(sectionId: string): SectionMinMaxDims {
+  const host = useWorkspaceHost();
   const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
   return useWorkspaceDocument((x) => {
     const section = getSectionOrThrow(x, sectionId);
-    const metaControlPresentation = getMetaControlPresentation(section);
+    const metaControlPresentation = getMetaControlPresentation(host, section);
     const controlKind = metaControlPresentation?.resolveControlKind(section);
     const minimumSize = controlKind
       ? getMetaControlMinimumSize(controlKind)

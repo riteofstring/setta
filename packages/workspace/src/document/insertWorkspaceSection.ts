@@ -2,12 +2,13 @@ import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
 import { resolveAndValidateWorkspaceSections } from "./loadWorkspaceDocument";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
 import {
+  getActiveSectionsStore,
+  getNodeInternalsStore,
+  getWorkspaceDocumentStore,
   runWithAtomicallyPublishedWorkspaceStores,
-  useActiveSections,
-  useNodeInternals,
-  useWorkspaceDocument,
 } from "./stores";
 import type { Position, WorkspaceSectionInput } from "./types";
+import type { WorkspaceHost } from "../workspaceHost";
 
 function assertFinitePosition(position: Position): void {
   if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) {
@@ -16,6 +17,7 @@ function assertFinitePosition(position: Position): void {
 }
 
 export function insertWorkspaceSection(
+  host: WorkspaceHost,
   sectionInput: WorkspaceSectionInput,
   position: Position,
 ): void {
@@ -35,11 +37,11 @@ export function insertWorkspaceSection(
     );
   }
 
-  const current = useWorkspaceDocument.getState();
+  const current = getWorkspaceDocumentStore(host).getState();
   if (current.sections[sectionId]) {
     throw new Error(`Cannot create duplicate workspace section ${sectionId}.`);
   }
-  const validated = resolveAndValidateWorkspaceSections({
+  const validated = resolveAndValidateWorkspaceSections(host, {
     ...current.sections,
     [sectionId]: sectionInput,
   });
@@ -67,21 +69,23 @@ export function insertWorkspaceSection(
     parentSectionMap: validated.parentSectionMap,
   };
   const nextNodes = createNodesMapFromDocumentChildren(
+    host,
     nextDocument,
-    useNodeInternals.getState().x,
+    getNodeInternalsStore(host).getState().x,
   );
   const nextActiveSections = { activeIds: [sectionId] };
   runWithAtomicallyPublishedWorkspaceStores(
+    host,
     {
       document: nextDocument,
       nodeInternals: { x: nextNodes },
       activeSections: nextActiveSections,
     },
     () => {
-      useNodeInternals.setState({ x: nextNodes });
-      useWorkspaceDocument.setState(nextDocument);
-      useActiveSections.setState(nextActiveSections);
+      getNodeInternalsStore(host).setState({ x: nextNodes });
+      getWorkspaceDocumentStore(host).setState(nextDocument);
+      getActiveSectionsStore(host).setState(nextActiveSections);
     },
   );
-  notifyWorkspaceDocumentChange();
+  notifyWorkspaceDocumentChange(host);
 }

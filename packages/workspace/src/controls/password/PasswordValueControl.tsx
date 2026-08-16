@@ -3,6 +3,7 @@ import { BiHide, BiShow } from "react-icons/bi";
 import { useItemSelectionModeForControl } from "../../document/itemSelectionMode";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "../../interaction";
 import { handleSectionControlEscape } from "../sectionFocus";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The remaining-controls milestone's password control: the frozen `PasswordInput` and its
 // ordinary-row `ParamUI` wrapper behind the package's controlled string seam. The package owns
@@ -150,6 +151,7 @@ function PasswordInput({
   inputClassName: string;
   wrapperClassName: string;
 }) {
+  const host = useWorkspaceHost();
   const [showPassword, setShowPassword] = useState(false);
   return (
     <div className={wrapperClassName}>
@@ -162,7 +164,7 @@ function PasswordInput({
         disabled={disabled}
         type={showPassword ? "text" : "password"}
         placeholder={placeholder}
-        onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
+        onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
       />
       <button
         type="button"
@@ -170,7 +172,7 @@ function PasswordInput({
         aria-label={showPassword ? "Hide password" : "Show password"}
         className={getToggleClassName(disabled)}
         disabled={disabled}
-        onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
+        onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
         data-setta-workspace-touch-target="compact"
       >
         {showPassword ? (
@@ -192,6 +194,7 @@ function SavedValueRevealButton({
   disabled: boolean;
   sectionId: string;
 }) {
+  const host = useWorkspaceHost();
   const isDisabled = disabled || action.pending;
   return (
     <button
@@ -202,7 +205,7 @@ function SavedValueRevealButton({
       aria-busy={action.pending}
       aria-label="Reveal saved password"
       title="Reveal saved password"
-      onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
+      onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
       data-setta-workspace-touch-target="compact"
     >
       {action.pending ? "Revealing..." : "Reveal"}

@@ -1,16 +1,16 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { initialCanvasState, useReactFlow } from "../canvas/store";
+import { getReactFlowStore, initialCanvasState } from "../canvas/store";
 import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
-import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import {
-  useActiveSections,
-  useNodeInternals,
-  useWorkspaceDocument,
+  getActiveSectionsStore,
+  getNodeInternalsStore,
+  getWorkspaceDocumentStore,
 } from "../document/stores";
 import type { WorkspaceSection } from "../document/types";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
 import {
   openWorkspaceItemMenu,
   openWorkspacePaneMenu,
@@ -18,7 +18,7 @@ import {
   openWorkspaceSectionMenu,
 } from "./workspaceMenuInvocation";
 import { registerWorkspaceCreationCommands } from "./workspaceMenuRegistry";
-import { useWorkspaceMenuState } from "./workspaceMenuState";
+import { getWorkspaceMenuStateStore } from "./workspaceMenuState";
 
 function createSection(id: string, item = false): WorkspaceSection {
   return {
@@ -52,24 +52,26 @@ function createSection(id: string, item = false): WorkspaceSection {
   };
 }
 
-function resetState(): void {
-  registerWorkspaceCreationCommands([]);
-  registerWorkspaceCommands([]);
-  useWorkspaceMenuState.getState().reset();
-  useWorkspaceDocument.getState().reset();
-  useNodeInternals.getState().reset();
-  useActiveSections.getState().reset();
-  useReactFlow.setState({ ...initialCanvasState });
+function resetState(host: WorkspaceHost): void {
+  registerWorkspaceCreationCommands(host, []);
+  registerWorkspaceCommands(host, []);
+  getWorkspaceMenuStateStore(host).getState().reset();
+  getWorkspaceDocumentStore(host).getState().reset();
+  getNodeInternalsStore(host).getState().reset();
+  getActiveSectionsStore(host).getState().reset();
+  getReactFlowStore(host).setState({ ...initialCanvasState });
 }
 
 describe("workspace menu invocation", () => {
+  let host: WorkspaceHost;
   let canvas: HTMLDivElement;
   let owner: HTMLDivElement;
 
   beforeEach(() => {
-    resetState();
-    registerSectionKinds({ leaf: { renderContent: () => null } });
-    loadWorkspaceDocument({
+    host = createWorkspaceHost();
+    resetState(host);
+    registerSectionKinds(host, { leaf: { renderContent: () => null } });
+    host.loadDocument({
       sections: {
         alpha: createSection("alpha", true),
         bravo: createSection("bravo"),
@@ -93,19 +95,21 @@ describe("workspace menu invocation", () => {
       }) as DOMRect;
     owner = document.createElement("div");
     document.body.append(canvas, owner);
-    useReactFlow.setState({ domNode: canvas, transform: [-200, 100, 2] });
+    getReactFlowStore(host).setState({
+      domNode: canvas,
+      transform: [-200, 100, 2],
+    });
   });
 
   afterEach(() => {
     canvas.remove();
     owner.remove();
-    registerSectionKinds({});
-    resetState();
+    host.dispose();
   });
 
   it("publishes a frozen pane context in workspace coordinates only when extensions exist", () => {
-    expect(openWorkspacePaneMenu({ x: 500, y: 300 }, owner)).toBe(false);
-    registerWorkspaceCreationCommands([
+    expect(openWorkspacePaneMenu(host, { x: 500, y: 300 }, owner)).toBe(false);
+    registerWorkspaceCreationCommands(host, [
       {
         id: "note",
         label: "Note",
@@ -114,8 +118,8 @@ describe("workspace menu invocation", () => {
       },
     ]);
 
-    expect(openWorkspacePaneMenu({ x: 500, y: 300 }, owner)).toBe(true);
-    const invocation = useWorkspaceMenuState.getState().invocation;
+    expect(openWorkspacePaneMenu(host, { x: 500, y: 300 }, owner)).toBe(true);
+    const invocation = getWorkspaceMenuStateStore(host).getState().invocation;
     expect(invocation).toMatchObject({
       kind: "pane",
       clientPoint: { x: 500, y: 300 },
@@ -129,10 +133,16 @@ describe("workspace menu invocation", () => {
   });
 
   it("selects an unselected section and snapshots the resulting selection", () => {
-    openWorkspaceSectionMenu("bravo", "context-menu", { x: 20, y: 30 }, owner);
+    openWorkspaceSectionMenu(
+      host,
+      "bravo",
+      "context-menu",
+      { x: 20, y: 30 },
+      owner,
+    );
 
-    expect(useActiveSections.getState().activeIds).toEqual(["bravo"]);
-    const invocation = useWorkspaceMenuState.getState().invocation;
+    expect(getActiveSectionsStore(host).getState().activeIds).toEqual(["bravo"]);
+    const invocation = getWorkspaceMenuStateStore(host).getState().invocation;
     expect(invocation).toMatchObject({
       kind: "section",
       initialFocus: "first",
@@ -147,10 +157,10 @@ describe("workspace menu invocation", () => {
   });
 
   it("preserves an existing multi-selection when invoking one of its sections", () => {
-    useActiveSections.setState({ activeIds: ["alpha", "bravo"] });
-    openWorkspaceSectionMenu("alpha", "outline", { x: 20, y: 30 }, owner);
+    getActiveSectionsStore(host).setState({ activeIds: ["alpha", "bravo"] });
+    openWorkspaceSectionMenu(host, "alpha", "outline", { x: 20, y: 30 }, owner);
 
-    const invocation = useWorkspaceMenuState.getState().invocation;
+    const invocation = getWorkspaceMenuStateStore(host).getState().invocation;
     expect(invocation).toMatchObject({
       kind: "section",
       surface: "outline",
@@ -162,9 +172,9 @@ describe("workspace menu invocation", () => {
   });
 
   it("marks header invocations and preserves their requested initial focus", () => {
-    openWorkspaceSectionHeaderMenu("alpha", { x: 20, y: 30 }, owner, "last");
+    openWorkspaceSectionHeaderMenu(host, "alpha", { x: 20, y: 30 }, owner, "last");
 
-    expect(useWorkspaceMenuState.getState().invocation).toMatchObject({
+    expect(getWorkspaceMenuStateStore(host).getState().invocation).toMatchObject({
       kind: "section",
       initialFocus: "last",
       surface: "header",
@@ -178,9 +188,15 @@ describe("workspace menu invocation", () => {
 
   it("always snapshots item context for the package delete action", () => {
     expect(
-      openWorkspaceItemMenu("alpha", "alpha-item", { x: 20, y: 30 }, owner),
+      openWorkspaceItemMenu(
+        host,
+        "alpha",
+        "alpha-item",
+        { x: 20, y: 30 },
+        owner,
+      ),
     ).toBe(true);
-    const invocation = useWorkspaceMenuState.getState().invocation;
+    const invocation = getWorkspaceMenuStateStore(host).getState().invocation;
     expect(invocation).toMatchObject({
       kind: "item",
       context: {

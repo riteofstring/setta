@@ -1,5 +1,6 @@
 import { useWorkspaceCommandState } from "../commands/workspaceCommandResolution";
 import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import {
   COMPACT_TOUCH_TARGET_PROPS,
   CONTROLS_DIVIDER_CLASS_NAME,
@@ -22,6 +23,7 @@ function WorkspaceToolbarContributionControl({
 }: {
   entry: WorkspaceToolbarEntry;
 }) {
+  const host = useWorkspaceHost();
   const Icon = entry.icon;
   // The package's own zoom controls stop at the zoom limits with nothing to say, so they use the
   // reference's real `disabled`. A command that refuses has a sentence, and a control has to stay
@@ -50,7 +52,7 @@ function WorkspaceToolbarContributionControl({
           ? {}
           : { "aria-describedby": getContributionDescriptionId(entry.key) })}
         {...COMPACT_TOUCH_TARGET_PROPS}
-        {...getWorkspaceTooltipHandlers({ content: entry.tooltip })}
+        {...getWorkspaceTooltipHandlers(host, { content: entry.tooltip })}
       >
         <span
           aria-hidden="true"
@@ -76,8 +78,9 @@ export function WorkspaceToolbarGroup({
 }: {
   placement: WorkspaceToolbarPlacement;
 }) {
+  const host = useWorkspaceHost();
   useWorkspaceCommandState();
-  const entries = resolveWorkspaceToolbarEntries(placement);
+  const entries = resolveWorkspaceToolbarEntries(host, placement);
   if (entries.length === 0) {
     return null;
   }

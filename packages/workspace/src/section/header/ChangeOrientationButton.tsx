@@ -8,6 +8,7 @@ import {
 } from "../../document/documentSelectors";
 import { toggleGroupOrientation } from "../../document/sectionMutations";
 import { useWorkspaceDocument } from "../../document/stores";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The reference's group-header `ChangeOrientationButton`: flips a group between vertical and
 // horizontal child flow.
@@ -18,6 +19,7 @@ type ChangeOrientationButtonProps = {
 export function ChangeOrientationButton({
   sectionId,
 }: ChangeOrientationButtonProps) {
+  const host = useWorkspaceHost();
   const isHorizontalOrientation = useWorkspaceDocument((x) => {
     const section = getSectionOrThrow(x, sectionId);
     return isGroupSection(section) && section.isHorizontalOrientation;
@@ -26,7 +28,7 @@ export function ChangeOrientationButton({
   return (
     <button
       className="nodrag justify-content-center me-1 flex inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-400 hover:text-setta-500 focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-400"
-      onClick={() => toggleGroupOrientation(sectionId)}
+      onClick={() => toggleGroupOrientation(host, sectionId)}
       aria-label={
         isHorizontalOrientation
           ? "Stack children vertically"

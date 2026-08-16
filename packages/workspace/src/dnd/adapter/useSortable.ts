@@ -9,7 +9,9 @@ import { useComputed } from "@dnd-kit/react/hooks";
 import { useSortable as useDndKitSortable } from "@dnd-kit/react/sortable";
 import { useContext, useEffect, useMemo, useRef } from "react";
 import { getSectionIsHorizontalOrientation } from "../../document/documentSelectors";
-import { useWorkspaceDocument } from "../../document/stores";
+import { getWorkspaceDocumentStore } from "../../document/stores";
+import { useWorkspaceHost } from "../../workspaceHostContext";
+import type { WorkspaceHost } from "../../workspaceHost";
 import { useDndProviderContext } from "./DndProviderContext";
 import { Context } from "./SortableContext";
 import { itemsEqual, rectSortingStrategy } from "./sorting";
@@ -52,6 +54,7 @@ export function useSortable({
   strategy: localStrategy,
   transition = DEFAULT_SORTABLE_TRANSITION,
 }: UseSortableArguments) {
+  const host = useWorkspaceHost();
   const {
     items,
     containerId,
@@ -76,7 +79,7 @@ export function useSortable({
     transition,
     shouldTrackSorting,
   );
-  const dragModifiers = getDragModifiers(isSortingMode, containerId);
+  const dragModifiers = getDragModifiers(host, isSortingMode, containerId);
   const data = useMemo(
     () => ({
       sortable: {
@@ -185,14 +188,18 @@ function getSortableTransition(
   return shouldTrackSorting ? (transition ?? null) : null;
 }
 
-function getDragModifiers(isSortingMode: boolean, containerId: string) {
+function getDragModifiers(
+  host: WorkspaceHost,
+  isSortingMode: boolean,
+  containerId: string,
+) {
   if (!isSortingMode) {
     return undefined;
   }
 
   const containerIsHorizontal =
-    containerId in useWorkspaceDocument.getState().sections &&
-    getSectionIsHorizontalOrientation(containerId);
+    containerId in getWorkspaceDocumentStore(host).getState().sections &&
+    getSectionIsHorizontalOrientation(host, containerId);
   return [
     containerIsHorizontal ? RestrictToHorizontalAxis : RestrictToVerticalAxis,
   ];

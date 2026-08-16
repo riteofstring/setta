@@ -26,6 +26,7 @@ import {
   WORKSPACE_INSPECTOR_ITEM_CONTROL_KINDS,
   type WorkspaceInspectorItemControlKind,
 } from "./workspaceInspectorItemDefaults";
+import { useWorkspaceHost } from "../workspaceHostContext";
 
 type WorkspaceItemInspectorProps = {
   section: WorkspaceSection;
@@ -56,7 +57,9 @@ function UnsupportedCustomItem({
   item: WorkspaceItem;
   section: WorkspaceSection;
 }) {
+  const host = useWorkspaceHost();
   const contribution = getRegisteredSectionKindOrThrow(
+    host,
     section.kind,
   ).renderInspector;
   if (contribution) {
@@ -87,11 +90,12 @@ function UnsupportedCustomItem({
 }
 
 function isControlKindAvailable(
+  host: ReturnType<typeof useWorkspaceHost>,
   sectionId: string,
   itemId: string,
   kind: WorkspaceInspectorItemControlKind,
 ): boolean {
-  const registration = getItemHandlerRegistration(sectionId, itemId);
+  const registration = getItemHandlerRegistration(host, sectionId, itemId);
   if (kind === "dropzone") {
     return registration?.kind === "dropzone";
   }
@@ -116,6 +120,7 @@ function ItemTypeField({
   onEscape: () => void;
   sectionId: string;
 }) {
+  const host = useWorkspaceHost();
   return (
     <div
       className="setta-workspace-inspector-field"
@@ -151,7 +156,7 @@ function ItemTypeField({
       >
         {WORKSPACE_INSPECTOR_ITEM_CONTROL_KINDS.map((kind) => (
           <option
-            disabled={!isControlKindAvailable(sectionId, itemId, kind)}
+            disabled={!isControlKindAvailable(host, sectionId, itemId, kind)}
             key={kind}
             value={kind}
           >
@@ -159,7 +164,7 @@ function ItemTypeField({
           </option>
         ))}
       </select>
-      {!isControlKindAvailable(sectionId, itemId, "dropzone") ? (
+      {!isControlKindAvailable(host, sectionId, itemId, "dropzone") ? (
         <p className="setta-workspace-inspector-help">
           Dropzone requires host handlers registered for this item.
         </p>
@@ -185,6 +190,7 @@ function ItemHelpTextField({
   sectionId: string;
   value: string | undefined;
 }) {
+  const host = useWorkspaceHost();
   const reactId = useId().replaceAll(":", "");
   const inputId = `setta-inspector-item-help-${reactId}`;
   const hintId = `${inputId}-hint`;
@@ -201,7 +207,7 @@ function ItemHelpTextField({
       return;
     }
     const nextHelpText = draft.trim().length === 0 ? null : draft;
-    setItemHelpText(sectionId, itemId, nextHelpText);
+    setItemHelpText(host, sectionId, itemId, nextHelpText);
     const resolvedLabel = itemLabel.trim() || itemId;
     onStatusChange(
       nextHelpText === null
@@ -270,6 +276,7 @@ function TypedItemInspector({
     presentation: NonNullable<WorkspaceItem["presentation"]>;
   };
 }) {
+  const host = useWorkspaceHost();
   const canEditStructure = useWorkspaceCapabilities(
     (state) => state.canEditStructure,
   );
@@ -279,13 +286,14 @@ function TypedItemInspector({
     if (control.kind === kind) {
       return;
     }
-    if (!isControlKindAvailable(section.id, item.id, kind)) {
+    if (!isControlKindAvailable(host, section.id, item.id, kind)) {
       throw new Error(
         `Item ${section.id}/${item.id} cannot use unavailable ${kind} handlers.`,
       );
     }
     const previousValue = control.kind === "group" ? "" : control.value;
     setItemPresentation(
+      host,
       section.id,
       item.id,
       createWorkspaceInspectorItemControl(kind, previousValue),
@@ -315,7 +323,7 @@ function TypedItemInspector({
               itemId={item.id}
               name={label}
               onNameChange={(nextLabel) => {
-                setItemLabel(section.id, item.id, nextLabel);
+                setItemLabel(host, section.id, item.id, nextLabel);
                 onStatusChange(
                   `Item label changed to ${nextLabel || "blank"}.`,
                 );
@@ -379,6 +387,7 @@ function TypedItemInspector({
 }
 
 export function WorkspaceItemInspector(props: WorkspaceItemInspectorProps) {
+  const host = useWorkspaceHost();
   return (
     <>
       {hasWorkspaceItemPresentation(props.item) ? (
@@ -390,8 +399,8 @@ export function WorkspaceItemInspector(props: WorkspaceItemInspectorProps) {
       )}
       <WorkspaceInspectorCommandActions
         contexts={[
-          createSectionCommandContext(props.section, [props.section]),
-          createItemCommandContext(props.section, props.item),
+          createSectionCommandContext(host, props.section, [props.section]),
+          createItemCommandContext(host, props.section, props.item),
         ]}
         focusKey="item-authoring-actions"
         onStatusChange={props.onStatusChange}

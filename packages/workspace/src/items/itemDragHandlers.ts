@@ -8,12 +8,12 @@ import type {
 } from "../dnd/adapter/types";
 import {
   addItemChild,
+  getItemDndChildrenStore,
   getItemDndParentByChild,
   getItemDndParentId,
   replaceItemsWithTemp,
   resetItemDndChildren,
   updateItemChildren,
-  useItemDndChildren,
 } from "../dnd/itemDndChildren";
 import {
   getItemDndId,
@@ -21,13 +21,13 @@ import {
   getTempItemDndId,
   resetItemDndState,
   setItemDndState,
-  useItemDndState,
+  getItemDndStateStore,
   type ItemListKey,
 } from "../dnd/itemDndState";
-import { useWorkspaceCapabilities } from "../document/capabilities";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import { getSectionItemTreeOrThrow } from "../document/documentSelectors";
 import { selectOnlyItem } from "../document/itemSelection";
-import { useItemSelectionMode } from "../document/itemSelectionMode";
+import { getItemSelectionModeStore } from "../document/itemSelectionMode";
 import {
   buildItemParentMap,
   buildItemTreeView,
@@ -38,7 +38,12 @@ import {
   resolveFullIndexForVisibleInsertion,
 } from "../document/itemTree";
 import { moveItems, orderItemIdsByParent } from "../document/moveItems";
-import { useWorkspaceDocument } from "../document/stores";
+import { getWorkspaceDocumentStore } from "../document/stores";
+import {
+  assertWorkspaceHostActive,
+  registerWorkspaceHostCleanup,
+} from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost";
 import {
   filterCollisionsForListKey,
   resolveItemPlaceholderMovePlan,
@@ -64,7 +69,9 @@ type ItemStartDragData = {
   itemId: string | null;
 };
 
-type ItemDndStoreState = ReturnType<typeof useItemDndState.getState>;
+type ItemDndStoreState = ReturnType<
+  ReturnType<typeof getItemDndStateStore>["getState"]
+>;
 type ActiveItemDndState = ItemDndStoreState & {
   activeId: string;
   sectionId: string;
@@ -86,25 +93,53 @@ type ItemDragOverResolution = {
   triggerDistCondition: boolean;
 };
 
-let lastResolvedOverId: string | null = null;
-let lastResolvedPastHalfway: boolean | null = null;
-let lastResolvedTriggerDistCondition: boolean | null = null;
 type ItemDragOverInput = Pick<DragMoveEvent, "active" | "collisions" | "over">;
-let pendingItemDragOver: ItemDragOverInput | null = null;
-let itemDragOverRaf: number | null = null;
+type ItemDragRuntime = {
+  itemDragOverRaf: number | null;
+  lastResolvedOverId: string | null;
+  lastResolvedPastHalfway: boolean | null;
+  lastResolvedTriggerDistCondition: boolean | null;
+  pendingItemDragOver: ItemDragOverInput | null;
+};
+
+const runtimesByHost = new WeakMap<WorkspaceHost, ItemDragRuntime>();
+
+function getItemDragRuntime(host: WorkspaceHost): ItemDragRuntime {
+  assertWorkspaceHostActive(host);
+  const existing = runtimesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const runtime: ItemDragRuntime = {
+    itemDragOverRaf: null,
+    lastResolvedOverId: null,
+    lastResolvedPastHalfway: null,
+    lastResolvedTriggerDistCondition: null,
+    pendingItemDragOver: null,
+  };
+  runtimesByHost.set(host, runtime);
+  registerWorkspaceHostCleanup(host, () => {
+    if (runtime.itemDragOverRaf !== null) {
+      cancelAnimationFrame(runtime.itemDragOverRaf);
+    }
+    runtimesByHost.delete(host);
+  });
+  return runtime;
+}
 
 export function handleItemDragStart(
+  host: WorkspaceHost,
   event: DragStartEvent,
   manager: DragDropManager | null,
 ) {
   const dragData = getItemDragData(event);
-  if (!dragData || !canStartItemDrag()) {
+  if (!dragData || !canStartItemDrag(host)) {
     return;
   }
   const { sectionId } = dragData;
 
   const itemTree = getSectionItemTreeOrThrow(
-    useWorkspaceDocument.getState(),
+    getWorkspaceDocumentStore(host).getState(),
     sectionId,
   );
   const activeId =
@@ -116,12 +151,12 @@ export function handleItemDragStart(
 
   // The filter abort runs before the selection collapse can commit, as the reference checks
   // its param filter before anything mutates.
-  const view = resolveItemListView(sectionId, activeId, dragData.listKey);
+  const view = resolveItemListView(host, sectionId, activeId, dragData.listKey);
   if (!view || view.filterActive) {
     return;
   }
 
-  const draggingIds = resolveDraggingItemIds({
+  const draggingIds = resolveDraggingItemIds(host, {
     sectionId,
     activeId,
     parentById,
@@ -144,10 +179,10 @@ export function handleItemDragStart(
     event.activeRect,
   );
 
-  updateItemChildren(tree.visibleChildrenByParent);
-  replaceItemsWithTemp(activeId, view.listKey, draggingIds);
+  updateItemChildren(host, tree.visibleChildrenByParent);
+  replaceItemsWithTemp(host, activeId, view.listKey, draggingIds);
 
-  setItemDndState({
+  setItemDndState(host, {
     activeId,
     sectionId,
     listKey: view.listKey,
@@ -159,36 +194,36 @@ export function handleItemDragStart(
     placeholderWidth: placeholderSize.width,
     placeholderHeight: placeholderSize.height,
   });
-  resetItemDragOverState();
+  resetItemDragOverState(host);
 }
 
-export function handleItemDragMove(event: DragMoveEvent) {
-  scheduleItemDragOver(event);
+export function handleItemDragMove(host: WorkspaceHost, event: DragMoveEvent) {
+  scheduleItemDragOver(host, event);
 }
 
-export function handleItemDragOver(event: DragOverEvent) {
-  scheduleItemDragOver(event);
+export function handleItemDragOver(host: WorkspaceHost, event: DragOverEvent) {
+  scheduleItemDragOver(host, event);
 }
 
-export function handleItemDragEnd() {
-  const itemState = useItemDndState.getState();
+export function handleItemDragEnd(host: WorkspaceHost) {
+  const itemState = getItemDndStateStore(host).getState();
   if (!hasActiveItemDragState(itemState)) {
-    deferItemDragReset();
+    deferItemDragReset(host);
     return;
   }
 
-  const dropTarget = resolveItemDragDropTarget(itemState);
+  const dropTarget = resolveItemDragDropTarget(host, itemState);
   if (isItemDragAbort(dropTarget)) {
-    deferItemDragReset();
+    deferItemDragReset(host);
     return;
   }
   const itemTree = getSectionItemTreeOrThrow(
-    useWorkspaceDocument.getState(),
+    getWorkspaceDocumentStore(host).getState(),
     itemState.sectionId,
   );
   const ordering = resolveItemDragOrdering(itemTree, itemState);
   if (isItemDragAbort(ordering)) {
-    deferItemDragReset();
+    deferItemDragReset(host);
     return;
   }
   if (
@@ -198,7 +233,7 @@ export function handleItemDragEnd() {
       new Set(ordering.orderedDraggingIds),
     )
   ) {
-    deferItemDragReset();
+    deferItemDragReset(host);
     return;
   }
 
@@ -219,28 +254,31 @@ export function handleItemDragEnd() {
       newIndex,
     })
   ) {
-    deferItemDragReset();
+    deferItemDragReset(host);
     return;
   }
 
-  moveItems({
+  moveItems(host, {
     sectionId: itemState.sectionId,
     itemIds: ordering.orderedDraggingIds,
     newParentId: dropTarget.newParentId,
     newIndex,
   });
-  deferItemDragReset();
+  deferItemDragReset(host);
 }
 
-export function handleItemDragCancel() {
-  deferItemDragReset();
+export function handleItemDragCancel(host: WorkspaceHost) {
+  deferItemDragReset(host);
 }
 
-function updateItemDragOver({ active, collisions, over }: ItemDragOverInput) {
+function updateItemDragOver(
+  host: WorkspaceHost,
+  { active, collisions, over }: ItemDragOverInput,
+) {
   if (!isItemDrag(active)) {
     return;
   }
-  const itemState = useItemDndState.getState();
+  const itemState = getItemDndStateStore(host).getState();
   if (!hasActiveItemDragState(itemState) || !collisions) {
     return;
   }
@@ -251,18 +289,18 @@ function updateItemDragOver({ active, collisions, over }: ItemDragOverInput) {
   if (!filteredCollisions || filteredCollisions.length === 0) {
     return;
   }
-  const resolution = resolveItemDragOverResolution({
+  const resolution = resolveItemDragOverResolution(host, {
     filteredCollisions,
     over,
     listKey: itemState.listKey,
     sectionId: itemState.sectionId,
     rootId: itemState.rootId,
   });
-  if (!resolution || !updateResolvedItemDragOverState(resolution)) {
+  if (!resolution || !updateResolvedItemDragOverState(host, resolution)) {
     return;
   }
 
-  const placeholderMove = resolveItemDragPlaceholderMove({
+  const placeholderMove = resolveItemDragPlaceholderMove(host, {
     activeId: itemState.activeId,
     listKey: itemState.listKey,
     parentById: itemState.parentById,
@@ -274,7 +312,7 @@ function updateItemDragOver({ active, collisions, over }: ItemDragOverInput) {
   if (!placeholderMove) {
     return;
   }
-  maybeMoveItemPlaceholder(placeholderMove);
+  maybeMoveItemPlaceholder(host, placeholderMove);
 }
 
 function hasActiveItemDragState(
@@ -285,7 +323,7 @@ function hasActiveItemDragState(
   );
 }
 
-function resolveDraggingItemIds({
+function resolveDraggingItemIds(host: WorkspaceHost, {
   sectionId,
   activeId,
   parentById,
@@ -297,7 +335,7 @@ function resolveDraggingItemIds({
   selectedItemIds: Array<string>;
 }) {
   if (!selectedItemIds.includes(activeId)) {
-    selectOnlyItem(sectionId, activeId);
+    selectOnlyItem(host, sectionId, activeId);
     return [activeId];
   }
 
@@ -312,7 +350,7 @@ function resolveDraggingItemIds({
 
   // The reference's multi-parent-selection toast stays application-side; the drag-only-the-
   // active-item fallback is unchanged.
-  selectOnlyItem(sectionId, activeId);
+  selectOnlyItem(host, sectionId, activeId);
   return [activeId];
 }
 
@@ -323,12 +361,13 @@ function isItemDragAbort<T>(
 }
 
 function resolveItemDragDropTarget(
+  host: WorkspaceHost,
   itemState: ActiveItemDndState,
 ): ItemDragDropTarget | ItemDragAbort {
   const tempId = getTempItemDndId(
     getItemDndId(itemState.activeId, itemState.listKey),
   );
-  const dndChildrenState = useItemDndChildren.getState();
+  const dndChildrenState = getItemDndChildrenStore(host).getState();
   const newParentId = dndChildrenState.y[tempId] ?? null;
   if (!newParentId) {
     return { reason: "no-parent" };
@@ -415,7 +454,7 @@ function isNoopItemDragMove({
   return currentIndex === newIndex;
 }
 
-function resolveItemDragOverResolution({
+function resolveItemDragOverResolution(host: WorkspaceHost, {
   filteredCollisions,
   over,
   listKey,
@@ -431,7 +470,7 @@ function resolveItemDragOverResolution({
   const resolvedOverId = resolveOverCollisionId(
     filteredCollisions,
     getOverIdForListKey(over, listKey),
-    getItemDndParentByChild(listKey),
+    getItemDndParentByChild(host, listKey),
   );
   const normalizedOverId = normalizeItemOverId(
     resolvedOverId ? String(resolvedOverId) : null,
@@ -462,26 +501,27 @@ function normalizeItemOverId(
   return overId === sectionId && rootId ? rootId : overId;
 }
 
-function updateResolvedItemDragOverState({
+function updateResolvedItemDragOverState(host: WorkspaceHost, {
   overItemId,
   pastHalfway,
   triggerDistCondition,
 }: ItemDragOverResolution) {
+  const runtime = getItemDragRuntime(host);
   if (
-    overItemId === lastResolvedOverId &&
-    pastHalfway === lastResolvedPastHalfway &&
-    triggerDistCondition === lastResolvedTriggerDistCondition
+    overItemId === runtime.lastResolvedOverId &&
+    pastHalfway === runtime.lastResolvedPastHalfway &&
+    triggerDistCondition === runtime.lastResolvedTriggerDistCondition
   ) {
     return false;
   }
 
-  lastResolvedOverId = overItemId;
-  lastResolvedPastHalfway = pastHalfway;
-  lastResolvedTriggerDistCondition = triggerDistCondition;
+  runtime.lastResolvedOverId = overItemId;
+  runtime.lastResolvedPastHalfway = pastHalfway;
+  runtime.lastResolvedTriggerDistCondition = triggerDistCondition;
   return true;
 }
 
-function resolveItemDragPlaceholderMove({
+function resolveItemDragPlaceholderMove(host: WorkspaceHost, {
   activeId,
   listKey,
   parentById,
@@ -499,7 +539,7 @@ function resolveItemDragPlaceholderMove({
   triggerDistCondition: boolean;
 }) {
   const tempId = getTempItemDndId(getItemDndId(activeId, listKey));
-  const newParentId = resolveItemDragParent({
+  const newParentId = resolveItemDragParent(host, {
     overId,
     parentById,
     draggingIds,
@@ -511,13 +551,13 @@ function resolveItemDragPlaceholderMove({
   return {
     tempId,
     overId,
-    oldParentId: getItemDndParentId(tempId) ?? null,
+    oldParentId: getItemDndParentId(host, tempId) ?? null,
     newParentId,
     pastHalfway,
   };
 }
 
-function resolveItemDragParent({
+function resolveItemDragParent(host: WorkspaceHost, {
   overId,
   parentById,
   draggingIds,
@@ -537,10 +577,10 @@ function resolveItemDragParent({
   if (triggerDistCondition) {
     return overId;
   }
-  return getItemDndParentId(overId) ?? overId;
+  return getItemDndParentId(host, overId) ?? overId;
 }
 
-function maybeMoveItemPlaceholder({
+function maybeMoveItemPlaceholder(host: WorkspaceHost, {
   tempId,
   overId,
   oldParentId,
@@ -553,7 +593,7 @@ function maybeMoveItemPlaceholder({
   newParentId: string;
   pastHalfway: boolean;
 }) {
-  const dndChildrenState = useItemDndChildren.getState();
+  const dndChildrenState = getItemDndChildrenStore(host).getState();
   const movePlan = resolveItemPlaceholderMovePlan({
     tempId,
     overId,
@@ -566,7 +606,7 @@ function maybeMoveItemPlaceholder({
     return;
   }
 
-  addItemChild(oldParentId, newParentId, tempId, movePlan.index);
+  addItemChild(host, oldParentId, newParentId, tempId, movePlan.index);
 }
 
 function getItemDragData(event: DragStartEvent): ItemStartDragData | null {
@@ -603,57 +643,60 @@ function getOverIdForListKey(
   return over.id;
 }
 
-function canStartItemDrag() {
-  if (!useItemSelectionMode.getState().isSelectingItems) {
+function canStartItemDrag(host: WorkspaceHost) {
+  if (!getItemSelectionModeStore(host).getState().isSelectingItems) {
     return false;
   }
-  return useWorkspaceCapabilities.getState().canEditStructure;
+  return getWorkspaceCapabilitiesStore(host).getState().canEditStructure;
 }
 
-export function resetItemDragState() {
-  resetScheduledItemDragOver();
-  resetItemDndChildren();
-  resetItemDndState();
-  resetItemDragOverState();
+export function resetItemDragState(host: WorkspaceHost) {
+  resetScheduledItemDragOver(host);
+  resetItemDndChildren(host);
+  resetItemDndState(host);
+  resetItemDragOverState(host);
 }
 
-export function deferItemDragReset() {
-  resetScheduledItemDragOver();
-  resetItemDragOverState();
-  setItemDndState({ pendingReset: true });
+export function deferItemDragReset(host: WorkspaceHost) {
+  resetScheduledItemDragOver(host);
+  resetItemDragOverState(host);
+  setItemDndState(host, { pendingReset: true });
 }
 
-function resetItemDragOverState() {
-  lastResolvedOverId = null;
-  lastResolvedPastHalfway = null;
-  lastResolvedTriggerDistCondition = null;
+function resetItemDragOverState(host: WorkspaceHost) {
+  const runtime = getItemDragRuntime(host);
+  runtime.lastResolvedOverId = null;
+  runtime.lastResolvedPastHalfway = null;
+  runtime.lastResolvedTriggerDistCondition = null;
 }
 
-function scheduleItemDragOver(event: ItemDragOverInput) {
-  pendingItemDragOver = {
+function scheduleItemDragOver(host: WorkspaceHost, event: ItemDragOverInput) {
+  const runtime = getItemDragRuntime(host);
+  runtime.pendingItemDragOver = {
     active: event.active,
     collisions: event.collisions,
     over: event.over,
   };
-  if (itemDragOverRaf !== null) {
+  if (runtime.itemDragOverRaf !== null) {
     return;
   }
-  itemDragOverRaf = requestAnimationFrame(() => {
-    itemDragOverRaf = null;
-    const nextEvent = pendingItemDragOver;
-    pendingItemDragOver = null;
+  runtime.itemDragOverRaf = requestAnimationFrame(() => {
+    runtime.itemDragOverRaf = null;
+    const nextEvent = runtime.pendingItemDragOver;
+    runtime.pendingItemDragOver = null;
     if (nextEvent) {
-      updateItemDragOver(nextEvent);
+      updateItemDragOver(host, nextEvent);
     }
   });
 }
 
-function resetScheduledItemDragOver() {
-  if (itemDragOverRaf !== null) {
-    cancelAnimationFrame(itemDragOverRaf);
-    itemDragOverRaf = null;
+function resetScheduledItemDragOver(host: WorkspaceHost) {
+  const runtime = getItemDragRuntime(host);
+  if (runtime.itemDragOverRaf !== null) {
+    cancelAnimationFrame(runtime.itemDragOverRaf);
+    runtime.itemDragOverRaf = null;
   }
-  pendingItemDragOver = null;
+  runtime.pendingItemDragOver = null;
 }
 
 function getCollisionTriggerDistCondition(

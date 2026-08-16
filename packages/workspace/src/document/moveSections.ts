@@ -3,18 +3,19 @@ import { notifyWorkspaceDocumentChange } from "./documentChangeCallback";
 import { getSectionOrThrow } from "./documentSelectors";
 import { createNodesMapFromDocumentChildren } from "./nodeProjection";
 import {
+  getActiveSectionsStore,
+  getNodeInternalsStore,
+  getWorkspaceDocumentStore,
   runWithAtomicallyPublishedWorkspaceStores,
-  useActiveSections,
-  useNodeInternals,
-  useWorkspaceDocument,
   type WorkspaceDocumentState,
 } from "./stores";
 import type { Position, WorkspaceSection } from "./types";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // The reference's single dnd commit funnel (`moveSectionsWithBackend`,
 // `state/actions/sections/moveSections.ts`) minus the app-only branches: the optimistic-op
-// plumbing and backend routes stay application-side (the document-change callback notifies the
-// host instead), and the code-section attached-terminal handling left with that feature. The
+// plumbing and backend routes stay application-side (the host publishes an updated snapshot
+// instead), and the code-section attached-terminal handling left with that feature. The
 // canonical document changes once per gesture, and the document, derived node geometry, and
 // selection publish atomically.
 
@@ -25,12 +26,10 @@ type MoveSectionsInput = {
   positionsById: Record<string, Position> | null;
 };
 
-export function moveSections({
-  sectionIds,
-  newParentId,
-  newIndex,
-  positionsById,
-}: MoveSectionsInput) {
+export function moveSections(
+  host: WorkspaceHost,
+  { sectionIds, newParentId, newIndex, positionsById }: MoveSectionsInput,
+) {
   if (sectionIds.length === 0) {
     return;
   }
@@ -38,8 +37,8 @@ export function moveSections({
   // node z-indices into the layout snapshot first so raises that have not reached a drag-end
   // layout commit survive the node-map rebuild below.
   const documentState = withNodeZIndicesMirrored(
-    useWorkspaceDocument.getState(),
-    useNodeInternals.getState().x,
+    getWorkspaceDocumentStore(host).getState(),
+    getNodeInternalsStore(host).getState().x,
   );
   const nextDocumentState =
     newParentId === null
@@ -52,22 +51,24 @@ export function moveSections({
         });
 
   const nextNodesMap = createNodesMapFromDocumentChildren(
+    host,
     nextDocumentState,
-    useNodeInternals.getState().x,
+    getNodeInternalsStore(host).getState().x,
   );
-  const activeSections = useActiveSections.getState();
+  const activeSections = getActiveSectionsStore(host).getState();
   runWithAtomicallyPublishedWorkspaceStores(
+    host,
     {
       document: nextDocumentState,
       nodeInternals: { x: nextNodesMap },
       activeSections,
     },
     () => {
-      useNodeInternals.setState({ x: nextNodesMap });
-      useWorkspaceDocument.setState(nextDocumentState);
+      getNodeInternalsStore(host).setState({ x: nextNodesMap });
+      getWorkspaceDocumentStore(host).setState(nextDocumentState);
     },
   );
-  notifyWorkspaceDocumentChange();
+  notifyWorkspaceDocumentChange(host);
 }
 
 function moveSectionsToPane({
@@ -229,7 +230,7 @@ function removeSectionsFromParentChildren(
 
 function withNodeZIndicesMirrored(
   documentState: WorkspaceDocumentState,
-  nodes: ReturnType<typeof useNodeInternals.getState>["x"],
+  nodes: ReturnType<ReturnType<typeof getNodeInternalsStore>["getState"]>["x"],
 ): WorkspaceDocumentState {
   const topLevelSections = { ...documentState.topLevelSections };
   let changed = false;

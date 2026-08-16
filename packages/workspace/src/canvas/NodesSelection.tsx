@@ -15,6 +15,7 @@ import { useWorkspaceCapabilities } from "../document/capabilities";
 import { getSectionOrThrow } from "../document/documentSelectors";
 import { useActiveSections, useWorkspaceDocument } from "../document/stores";
 import { NO_PAN_CLASS_NAME } from "../interaction";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import { useReactFlow } from "./store";
 import type { Rect } from "./types";
 import useDrag from "./useDrag";
@@ -22,6 +23,7 @@ import { updatePositions } from "./useUpdateNodePositions";
 import { arrowKeyDiffs } from "./wrapNode";
 
 function NodesSelectionComponent({ x, y, width, height }: Rect) {
+  const host = useWorkspaceHost();
   const transformString = useReactFlow(
     (s) =>
       `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
@@ -49,14 +51,14 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
   // While the free-move mode is held, the selection box hands its surface to the dnd drag
   // handle: the primary selected section activates from the box's hitbox element.
   useEffect(() => {
-    setSelectionDragPrimaryId(primarySelectionId);
-  }, [primarySelectionId]);
+    setSelectionDragPrimaryId(host, primarySelectionId);
+  }, [host, primarySelectionId]);
 
   useEffect(() => {
     return () => {
-      setSelectionDragPrimaryId(null);
+      setSelectionDragPrimaryId(host, null);
     };
-  }, []);
+  }, [host]);
 
   useDrag({
     nodeRef,
@@ -71,6 +73,7 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
       event.preventDefault();
       event.stopPropagation();
       openWorkspaceSelectionMenu(
+        host,
         getOwnerKeyboardMenuPoint(event.currentTarget),
         event.currentTarget,
       );
@@ -86,7 +89,7 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
       if (!diff) {
         throw new Error(`Missing arrow key diff for ${event.key}.`);
       }
-      updatePositions({
+      updatePositions(host, {
         x: diff.x,
         y: diff.y,
         isShiftPressed: event.shiftKey,
@@ -119,6 +122,7 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
           event.preventDefault();
           event.stopPropagation();
           openWorkspaceSelectionMenu(
+            host,
             { x: event.clientX, y: event.clientY },
             event.currentTarget,
           );
@@ -137,6 +141,7 @@ function NodesSelectionComponent({ x, y, width, height }: Rect) {
 }
 
 function NodesSelectionDragHandleComponent({ x, y, width, height }: Rect) {
+  const host = useWorkspaceHost();
   const transformString = useReactFlow(
     (s) =>
       `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
@@ -144,11 +149,11 @@ function NodesSelectionDragHandleComponent({ x, y, width, height }: Rect) {
   const nodeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setSelectionDragHandle(nodeRef.current);
+    setSelectionDragHandle(host, nodeRef.current);
     return () => {
-      setSelectionDragHandle(null);
+      setSelectionDragHandle(host, null);
     };
-  }, []);
+  }, [host]);
 
   return (
     <div

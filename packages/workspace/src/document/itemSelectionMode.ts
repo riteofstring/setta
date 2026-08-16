@@ -1,6 +1,9 @@
 import { createContext, useContext } from "react";
-import { createWithEqualityFn } from "zustand/traditional";
+import { createStore } from "zustand/vanilla";
 import { withResetFn } from "../state/storeUtils";
+import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
+import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // The reference's param-select mode (`isSelectingParams` on `useMisc`, held active by the
 // `paramSelect` shortcut through `activateParamSelect`/`deactivateParamSelect`): runtime
@@ -11,11 +14,40 @@ import { withResetFn } from "../state/storeUtils";
 
 export type ItemSelectionModeState = { isSelectingItems: boolean };
 
-export const useItemSelectionMode = createWithEqualityFn(
-  withResetFn<ItemSelectionModeState>(() => ({
+function createItemSelectionModeStore() {
+  return createStore(
+    withResetFn<ItemSelectionModeState>(() => ({
     isSelectingItems: false,
-  })),
-);
+    })),
+  );
+}
+
+const storesByHost = new WeakMap<
+  WorkspaceHost,
+  ReturnType<typeof createItemSelectionModeStore>
+>();
+
+export function getItemSelectionModeStore(host: WorkspaceHost) {
+  assertWorkspaceHostActive(host);
+  const existing = storesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const store = createItemSelectionModeStore();
+  storesByHost.set(host, store);
+  return store;
+}
+
+export function useItemSelectionMode<T>(
+  selector: (state: ItemSelectionModeState) => T,
+  equalityFn?: (left: T, right: T) => boolean,
+): T {
+  return useWorkspaceStore(
+    getItemSelectionModeStore(useWorkspaceHost()),
+    selector,
+    equalityFn,
+  );
+}
 
 // Canvas rows suppress their editors while item-selection mode owns pointer input. The Inspector
 // renders the editable item label in a separate configuration surface, so its subtree opts out
@@ -29,10 +61,10 @@ export function useItemSelectionModeForControl(): boolean {
   );
 }
 
-export function activateItemSelect() {
-  useItemSelectionMode.setState({ isSelectingItems: true });
+export function activateItemSelect(host: WorkspaceHost) {
+  getItemSelectionModeStore(host).setState({ isSelectingItems: true });
 }
 
-export function deactivateItemSelect() {
-  useItemSelectionMode.setState({ isSelectingItems: false });
+export function deactivateItemSelect(host: WorkspaceHost) {
+  getItemSelectionModeStore(host).setState({ isSelectingItems: false });
 }

@@ -45,6 +45,7 @@ import {
   type WorkspaceInspectorSelection,
 } from "./workspaceInspectorModel";
 import { WorkspaceItemInspector } from "./WorkspaceItemInspector";
+import { useWorkspaceHost } from "../workspaceHostContext";
 
 type WorkspaceInspectorProps = {
   initialFocusRef: RefObject<HTMLElement | null>;
@@ -270,6 +271,7 @@ function SectionSizeEditor({
   onStatusChange: (message: string) => void;
   section: WorkspaceSection;
 }) {
+  const host = useWorkspaceHost();
   const canEditLayout = useWorkspaceCapabilities(
     (state) => state.canEditLayout,
   );
@@ -308,7 +310,7 @@ function SectionSizeEditor({
       return;
     }
     setError(null);
-    persistSectionSizeChange(section.id, {
+    persistSectionSizeChange(host, section.id, {
       width: parsed.width,
       height: parsed.height,
     });
@@ -380,10 +382,12 @@ function SectionSizeEditor({
 }
 
 function SectionContribution({ section }: { section: WorkspaceSection }) {
+  const host = useWorkspaceHost();
   if (isGroupSection(section)) {
     return null;
   }
   const contribution = getRegisteredSectionKindOrThrow(
+    host,
     section.kind,
   ).renderInspector;
   if (contribution) {
@@ -420,6 +424,7 @@ function SectionInspector({
   sectionTagColorPalette: WorkspaceSectionTagColorPalette;
   section: WorkspaceSection;
 }) {
+  const host = useWorkspaceHost();
   const capabilities = useWorkspaceCapabilities((state) => state);
   return (
     <div
@@ -440,7 +445,7 @@ function SectionInspector({
         disabled={!capabilities.canEditStructure}
         focusKey="section-name"
         label="Name"
-        onCommit={(value) => setSectionName(section.id, value.trim())}
+        onCommit={(value) => setSectionName(host, section.id, value.trim())}
         onEscape={focusRoot}
         onStatusChange={onStatusChange}
         statusMessage={(value) =>
@@ -452,7 +457,7 @@ function SectionInspector({
         disabled={!capabilities.canEditStructure}
         focusKey="section-style"
         label="Style accent"
-        onCommit={(value) => setSectionStyleColor(section.id, value)}
+        onCommit={(value) => setSectionStyleColor(host, section.id, value)}
         onEscape={focusRoot}
         onStatusChange={onStatusChange}
         statusMessage={(value) =>
@@ -480,7 +485,7 @@ function SectionInspector({
           disabled={!capabilities.canEditLayout}
           onClick={() => {
             const nextLocked = !section.positionAndSizeLocked;
-            setSectionsPositionLocked([section.id], nextLocked);
+            setSectionsPositionLocked(host, [section.id], nextLocked);
             onStatusChange(
               nextLocked
                 ? "Section position and size locked."
@@ -495,7 +500,7 @@ function SectionInspector({
           aria-pressed={section.isMinimized}
           className="setta-workspace-inspector-toggle"
           onClick={() => {
-            toggleMinimized(section.id);
+            toggleMinimized(host, section.id);
             onStatusChange(
               section.isMinimized ? "Section expanded." : "Section minimized.",
             );
@@ -511,7 +516,7 @@ function SectionInspector({
               className="setta-workspace-inspector-toggle"
               disabled={!capabilities.canEditLayout}
               onClick={() => {
-                toggleGroupOrientation(section.id);
+                toggleGroupOrientation(host, section.id);
                 onStatusChange(
                   section.isHorizontalOrientation
                     ? "Group children now stack vertically."
@@ -530,7 +535,7 @@ function SectionInspector({
               }
               onClick={() => {
                 const nextOverflowMode = !section.overflowMode;
-                setGroupOverflowMode(section.id, nextOverflowMode);
+                setGroupOverflowMode(host, section.id, nextOverflowMode);
                 onStatusChange(
                   nextOverflowMode
                     ? "Bounded overflow enabled."
@@ -545,13 +550,13 @@ function SectionInspector({
         ) : null}
       </div>
       <WorkspaceInspectorCommandActions
-        contexts={[createSectionCommandContext(section, [section])]}
+        contexts={[createSectionCommandContext(host, section, [section])]}
         focusKey="section-actions"
         onStatusChange={onStatusChange}
         surface="inspector"
       />
       <WorkspaceInspectorCommandActions
-        contexts={[createSectionCommandContext(section, [section])]}
+        contexts={[createSectionCommandContext(host, section, [section])]}
         focusKey="item-authoring-actions"
         onStatusChange={onStatusChange}
         surface="inspector-parameters"
@@ -573,6 +578,7 @@ function MultipleSectionsInspector({
   onStatusChange: (message: string) => void;
   sections: Array<WorkspaceSection>;
 }) {
+  const host = useWorkspaceHost();
   const canEditLayout = useWorkspaceCapabilities(
     (state) => state.canEditLayout,
   );
@@ -603,7 +609,7 @@ function MultipleSectionsInspector({
         </span>
       </div>
       <WorkspaceInspectorCommandActions
-        contexts={[createSectionCommandContext(primarySection, sections)]}
+        contexts={[createSectionCommandContext(host, primarySection, sections)]}
         focusKey="section-actions"
         onStatusChange={onStatusChange}
         surface="inspector"
@@ -613,6 +619,7 @@ function MultipleSectionsInspector({
           onClick={() => {
             const nextLocked = lockState !== "locked";
             setSectionsPositionLocked(
+              host,
               sections.map((section) => section.id),
               nextLocked,
             );
@@ -650,6 +657,7 @@ function MultipleItemsInspector({
   onStatusChange: (message: string) => void;
   selection: Extract<WorkspaceInspectorSelection, { type: "multiple-items" }>;
 }) {
+  const host = useWorkspaceHost();
   return (
     <div
       className="setta-workspace-inspector-editor"
@@ -661,7 +669,7 @@ function MultipleItemsInspector({
       </div>
       <WorkspaceInspectorCommandActions
         contexts={[
-          createSectionCommandContext(selection.section, [selection.section]),
+          createSectionCommandContext(host, selection.section, [selection.section]),
         ]}
         focusKey="item-authoring-actions"
         onStatusChange={onStatusChange}

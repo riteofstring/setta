@@ -4,17 +4,20 @@ import {
   getSectionOrThrow,
 } from "./documentSelectors";
 import { getItemOrThrow } from "./itemTree";
-import { useWorkspaceDocument } from "./stores";
+import { getWorkspaceDocumentStore } from "./stores";
 import type { WorkspaceSectionData } from "./types";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // The custom-row persistence seam. Typed built-in rows use their dedicated label/value/kind/config
 // funnels; this replacement remains only for a host-rendered item's opaque JSON payload.
 export function setItemData(
+  host: WorkspaceHost,
   sectionId: string,
   itemId: string,
   data: WorkspaceSectionData,
 ): void {
-  const documentState = useWorkspaceDocument.getState();
+  const documentStore = getWorkspaceDocumentStore(host);
+  const documentState = documentStore.getState();
   const section = getSectionOrThrow(documentState, sectionId);
   const itemTree = getSectionItemTreeOrThrow(documentState, sectionId);
   const item = getItemOrThrow(itemTree, itemId);
@@ -28,7 +31,7 @@ export function setItemData(
       `Section ${sectionId} item ${itemId} has a built-in presentation; use its typed mutation funnels.`,
     );
   }
-  useWorkspaceDocument.setState({
+  documentStore.setState({
     sections: {
       ...documentState.sections,
       [sectionId]: {
@@ -40,5 +43,5 @@ export function setItemData(
       },
     },
   });
-  notifyWorkspaceDocumentChange();
+  notifyWorkspaceDocumentChange(host);
 }

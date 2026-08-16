@@ -12,13 +12,14 @@ import { useWorkspaceFocusScope } from "../focus/workspaceFocusScopes";
 import { ResponsiveMiniMap } from "../minimap/ResponsiveMiniMap";
 import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import { useCanvasViewportDocumentSync } from "./documentViewportSync";
 import FlowRenderer from "./FlowRenderer";
 import { useCanvasKeyActivations } from "./keyActivations";
 import NodeRenderer from "./NodeRenderer";
 import { useWorkspaceOptions } from "./options";
 import { useWorkspacePointerLocation } from "./pointerLocation";
-import { useReactFlow } from "./store";
+import { getReactFlowStore } from "./store";
 import Viewport from "./Viewport";
 import { WorkspaceBackground } from "./WorkspaceBackground";
 
@@ -47,6 +48,7 @@ const SCROLL_INIT = 5000;
 // stay with their excluded features; the reference canvas background is part of this visible slice.
 // Section bodies come from the host's registered section kinds, not from canvas props.
 export function WorkspaceCanvas() {
+  const host = useWorkspaceHost();
   const ref = useRef<HTMLDivElement>(null);
   const [initialized, setInitialized] = useState(false);
   const wrapperDimensions = useWrapperDivDimensions(ref);
@@ -82,7 +84,7 @@ export function WorkspaceCanvas() {
         style={wrapperStyle}
         className={`${workspaceScopeClassName} react-flow`}
         ref={ref}
-        onScroll={(e) => cancelOutScrolling(e, initialized)}
+        onScroll={(e) => cancelOutScrolling(host, e, initialized)}
       >
         {/* The purpose of this div is to allow us to set scrollTop and scrollLeft to a large initial value*/}
         {/* so that onScroll can be triggered in any direction. */}
@@ -110,11 +112,15 @@ export function WorkspaceCanvas() {
   );
 }
 
-function cancelOutScrolling(e: UIEvent<HTMLDivElement>, initialized: boolean) {
+function cancelOutScrolling(
+  host: ReturnType<typeof useWorkspaceHost>,
+  e: UIEvent<HTMLDivElement>,
+  initialized: boolean,
+) {
   if (!initialized) {
     return;
   }
-  const { d3Zoom, d3Selection, transform } = useReactFlow.getState();
+  const { d3Zoom, d3Selection, transform } = getReactFlowStore(host).getState();
   if (!d3Zoom || !d3Selection) {
     throw new Error("Canvas scrolled before the zoom pane initialized.");
   }
@@ -128,6 +134,7 @@ function cancelOutScrolling(e: UIEvent<HTMLDivElement>, initialized: boolean) {
 }
 
 function useWrapperDivDimensions(ref: RefObject<HTMLDivElement | null>) {
+  const host = useWorkspaceHost();
   const [wrapperDimensions, setWrapperDimensions] = useState({
     width: 0,
     height: 0,
@@ -148,7 +155,7 @@ function useWrapperDivDimensions(ref: RefObject<HTMLDivElement | null>) {
         setWrapperDimensions({ width, height });
 
         // Set canvas store state
-        useReactFlow.setState({
+        getReactFlowStore(host).setState({
           width: width || 500,
           height: height || 500,
         });
@@ -162,7 +169,7 @@ function useWrapperDivDimensions(ref: RefObject<HTMLDivElement | null>) {
         resizeObserver.disconnect();
       }
     };
-  }, [ref]);
+  }, [host, ref]);
 
   return wrapperDimensions;
 }

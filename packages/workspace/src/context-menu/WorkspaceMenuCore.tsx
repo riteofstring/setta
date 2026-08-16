@@ -11,6 +11,7 @@ import { createPortal } from "react-dom";
 import type { WorkspaceCommandIconProps } from "../commands/workspaceCommandTypes";
 import type { WorkspaceTextDirection } from "../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import {
   placeWorkspaceMenu,
   type WorkspaceMenuClientPoint,
@@ -76,6 +77,7 @@ export function WorkspaceMenuCore({
   kind,
   onKeyDownCapture,
 }: WorkspaceMenuCoreProps) {
+  const host = useWorkspaceHost();
   const contentRef = useRef<HTMLDivElement>(null);
   const initialFocusRef = useRef(initialFocus);
   const scopeClassName = useWorkspaceScopeClassName();
@@ -118,7 +120,7 @@ export function WorkspaceMenuCore({
       modal={false}
       onOpenChange={(open) => {
         if (!open) {
-          closeWorkspaceMenu();
+          closeWorkspaceMenu(host);
         }
       }}
       open={true}

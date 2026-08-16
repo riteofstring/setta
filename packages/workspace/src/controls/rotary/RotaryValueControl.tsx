@@ -17,6 +17,7 @@ import {
   type NumericControlConfig,
 } from "../numeric/numericControlConfig";
 import { handleSectionControlEscape } from "../sectionFocus";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 const ROTARY_START_DEG = -135;
 const ROTARY_END_DEG = 135;
@@ -53,6 +54,7 @@ export function RotaryValueControl({
   step,
   disabled = false,
 }: RotaryValueControlProps) {
+  const host = useWorkspaceHost();
   assertNumericControlConfig("RotaryValueControl", { min, max, step });
   const pointerIdRef = useRef<number | null>(null);
   const isSelectingItems = useItemSelectionModeForControl();
@@ -107,7 +109,7 @@ export function RotaryValueControl({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
-    if (handleSectionControlEscape(event, sectionId)) {
+    if (handleSectionControlEscape(host, event, sectionId)) {
       return;
     }
     if (isDisabled) {

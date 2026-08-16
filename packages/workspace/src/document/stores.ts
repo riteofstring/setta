@@ -1,5 +1,8 @@
-import { createWithEqualityFn } from "zustand/traditional";
+import { createStore, type StoreApi } from "zustand/vanilla";
 import { withResetFn } from "../state/storeUtils";
+import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
+import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost";
 import type {
   Node,
   TopLevelSectionLayout,
@@ -29,52 +32,66 @@ export type WorkspaceAppearanceState = {
   darkMode: boolean;
 };
 
-export const useWorkspaceDocument = createWithEqualityFn(
-  withResetFn<WorkspaceDocumentState>(() => ({
+function createWorkspaceDocumentStore() {
+  return createStore(
+    withResetFn<WorkspaceDocumentState>(() => ({
     sections: {},
     topLevelSections: {},
     viewport: null,
     parentSectionMap: {},
-  })),
-);
+    })),
+  );
+}
 
-export const useNodeInternals = createWithEqualityFn(
-  withResetFn<NodeInternalsState>(() => ({
+function createNodeInternalsStore() {
+  return createStore(
+    withResetFn<NodeInternalsState>(() => ({
     x: new Map(),
-  })),
-);
+    })),
+  );
+}
 
-export const useActiveSections = createWithEqualityFn(
-  withResetFn<ActiveSectionsState>(() => ({
+function createActiveSectionsStore() {
+  return createStore(
+    withResetFn<ActiveSectionsState>(() => ({
     activeIds: [],
-  })),
-);
+    })),
+  );
+}
 
-export const useWorkspaceAppearance = createWithEqualityFn(
-  withResetFn<WorkspaceAppearanceState>(() => ({
+function createWorkspaceAppearanceStore() {
+  return createStore(
+    withResetFn<WorkspaceAppearanceState>(() => ({
     colorMode: "light",
     darkMode: false,
-  })),
-);
+    })),
+  );
+}
 
 type AtomicallyPublishedWorkspaceStoreState = {
-  document: ReturnType<typeof useWorkspaceDocument.getState>;
-  nodeInternals: ReturnType<typeof useNodeInternals.getState>;
-  activeSections: ReturnType<typeof useActiveSections.getState>;
+  document: WorkspaceDocumentState;
+  nodeInternals: NodeInternalsState;
+  activeSections: ActiveSectionsState;
 };
 
-let stagedWorkspaceStorePublication: AtomicallyPublishedWorkspaceStoreState | null =
-  null;
+type WorkspaceStoreSet = {
+  activeSections: StoreApi<ActiveSectionsState & { reset: () => void }>;
+  appearance: StoreApi<WorkspaceAppearanceState & { reset: () => void }>;
+  document: StoreApi<WorkspaceDocumentState & { reset: () => void }>;
+  nodeInternals: StoreApi<NodeInternalsState & { reset: () => void }>;
+  stagedPublication: AtomicallyPublishedWorkspaceStoreState | null;
+};
+
+const storeSetsByHost = new WeakMap<WorkspaceHost, WorkspaceStoreSet>();
 
 function patchPublishedWorkspaceStoreGetState<TState>(
   store: { getState: () => TState },
   readRawState: () => TState,
-  getPublishedState: (
-    publication: AtomicallyPublishedWorkspaceStoreState,
-  ) => TState,
+  getPublishedState: (publication: AtomicallyPublishedWorkspaceStoreState) => TState,
+  getStagedPublication: () => AtomicallyPublishedWorkspaceStoreState | null,
 ) {
   store.getState = () => {
-    const publication = stagedWorkspaceStorePublication;
+    const publication = getStagedPublication();
     if (publication !== null) {
       return getPublishedState(publication);
     }
@@ -82,33 +99,118 @@ function patchPublishedWorkspaceStoreGetState<TState>(
   };
 }
 
-const readRawWorkspaceDocumentState =
-  useWorkspaceDocument.getState.bind(useWorkspaceDocument);
-const readRawNodeInternalsState =
-  useNodeInternals.getState.bind(useNodeInternals);
-const readRawActiveSectionsState =
-  useActiveSections.getState.bind(useActiveSections);
+function createWorkspaceStoreSet(): WorkspaceStoreSet {
+  const document = createWorkspaceDocumentStore();
+  const nodeInternals = createNodeInternalsStore();
+  const activeSections = createActiveSectionsStore();
+  const appearance = createWorkspaceAppearanceStore();
+  const stores: WorkspaceStoreSet = {
+    activeSections,
+    appearance,
+    document,
+    nodeInternals,
+    stagedPublication: null,
+  };
+  const readRawWorkspaceDocumentState = document.getState.bind(document);
+  const readRawNodeInternalsState = nodeInternals.getState.bind(nodeInternals);
+  const readRawActiveSectionsState = activeSections.getState.bind(activeSections);
+  patchPublishedWorkspaceStoreGetState(
+    document,
+    readRawWorkspaceDocumentState,
+    (publication) => publication.document,
+    () => stores.stagedPublication,
+  );
+  patchPublishedWorkspaceStoreGetState(
+    nodeInternals,
+    readRawNodeInternalsState,
+    (publication) => publication.nodeInternals,
+    () => stores.stagedPublication,
+  );
+  patchPublishedWorkspaceStoreGetState(
+    activeSections,
+    readRawActiveSectionsState,
+    (publication) => publication.activeSections,
+    () => stores.stagedPublication,
+  );
+  return stores;
+}
 
-patchPublishedWorkspaceStoreGetState(
-  useWorkspaceDocument,
-  readRawWorkspaceDocumentState,
-  (publication) => publication.document,
-);
-patchPublishedWorkspaceStoreGetState(
-  useNodeInternals,
-  readRawNodeInternalsState,
-  (publication) => publication.nodeInternals,
-);
-patchPublishedWorkspaceStoreGetState(
-  useActiveSections,
-  readRawActiveSectionsState,
-  (publication) => publication.activeSections,
-);
+function getWorkspaceStoreSet(host: WorkspaceHost): WorkspaceStoreSet {
+  assertWorkspaceHostActive(host);
+  const existing = storeSetsByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const stores = createWorkspaceStoreSet();
+  storeSetsByHost.set(host, stores);
+  return stores;
+}
+
+export function getWorkspaceDocumentStore(host: WorkspaceHost) {
+  return getWorkspaceStoreSet(host).document;
+}
+
+export function getNodeInternalsStore(host: WorkspaceHost) {
+  return getWorkspaceStoreSet(host).nodeInternals;
+}
+
+export function getActiveSectionsStore(host: WorkspaceHost) {
+  return getWorkspaceStoreSet(host).activeSections;
+}
+
+export function getWorkspaceAppearanceStore(host: WorkspaceHost) {
+  return getWorkspaceStoreSet(host).appearance;
+}
+
+export function useWorkspaceDocument<T>(
+  selector: (state: WorkspaceDocumentState) => T,
+  equalityFn?: (left: T, right: T) => boolean,
+): T {
+  return useWorkspaceStore(
+    getWorkspaceDocumentStore(useWorkspaceHost()),
+    selector,
+    equalityFn,
+  );
+}
+
+export function useNodeInternals<T>(
+  selector: (state: NodeInternalsState) => T,
+  equalityFn?: (left: T, right: T) => boolean,
+): T {
+  return useWorkspaceStore(
+    getNodeInternalsStore(useWorkspaceHost()),
+    selector,
+    equalityFn,
+  );
+}
+
+export function useActiveSections<T>(
+  selector: (state: ActiveSectionsState) => T,
+  equalityFn?: (left: T, right: T) => boolean,
+): T {
+  return useWorkspaceStore(
+    getActiveSectionsStore(useWorkspaceHost()),
+    selector,
+    equalityFn,
+  );
+}
+
+export function useWorkspaceAppearance<T>(
+  selector: (state: WorkspaceAppearanceState) => T,
+  equalityFn?: (left: T, right: T) => boolean,
+): T {
+  return useWorkspaceStore(
+    getWorkspaceAppearanceStore(useWorkspaceHost()),
+    selector,
+    equalityFn,
+  );
+}
 
 // Stages the next canonical state so any getState() read that fires while fn() publishes the
 // individual stores observes the document, derived node geometry, and selection together —
 // never a mid-publication mixture.
 export function runWithAtomicallyPublishedWorkspaceStores(
+  host: WorkspaceHost,
   nextState: {
     document: WorkspaceDocumentState;
     nodeInternals: NodeInternalsState;
@@ -116,21 +218,22 @@ export function runWithAtomicallyPublishedWorkspaceStores(
   },
   fn: () => void,
 ) {
-  const previousPublication = stagedWorkspaceStorePublication;
-  stagedWorkspaceStorePublication = {
-    document: { ...readRawWorkspaceDocumentState(), ...nextState.document },
+  const stores = getWorkspaceStoreSet(host);
+  const previousPublication = stores.stagedPublication;
+  stores.stagedPublication = {
+    document: { ...stores.document.getState(), ...nextState.document },
     nodeInternals: {
-      ...readRawNodeInternalsState(),
+      ...stores.nodeInternals.getState(),
       ...nextState.nodeInternals,
     },
     activeSections: {
-      ...readRawActiveSectionsState(),
+      ...stores.activeSections.getState(),
       ...nextState.activeSections,
     },
   };
   try {
     fn();
   } finally {
-    stagedWorkspaceStorePublication = previousPublication;
+    stores.stagedPublication = previousPublication;
   }
 }

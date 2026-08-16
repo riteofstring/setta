@@ -3,6 +3,7 @@ import { getActiveSectionIds } from "../document/activeSections";
 import type { NodeInternalsState } from "../document/stores";
 import type { Position } from "../document/types";
 import type { NodeDragItem } from "./types";
+import type { WorkspaceHost } from "../workspaceHost";
 
 export function hasSelector(
   target: Element,
@@ -22,11 +23,12 @@ export function hasSelector(
 
 // looks for all selected nodes and creates a NodeDragItem for each of them
 export function getDragItems(
+  host: WorkspaceHost,
   nodeInternals: NodeInternalsState["x"],
   mousePos: Position,
   nodeId?: string,
 ): Array<NodeDragItem> {
-  const activeSections = getActiveSectionIds();
+  const activeSections = getActiveSectionIds(host);
   const draggedNodeIsActive =
     nodeId !== undefined && activeSections.includes(nodeId);
   return Array.from(nodeInternals.values())

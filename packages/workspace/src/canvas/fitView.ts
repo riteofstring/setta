@@ -2,10 +2,12 @@ import { zoomIdentity } from "d3-zoom";
 import { resolveWorkspaceMotionDuration } from "../styles/motion";
 import { getD3Transition, getNodesBounds, getViewportForBounds } from "./graph";
 import { getNodes } from "./nodeInternalsActions";
-import { useWorkspaceOptions } from "./options";
-import { useReactFlow } from "./store";
+import { getWorkspaceOptionsStore } from "./options";
+import { getReactFlowStore } from "./store";
 import type { FitViewOptions, ReactFlowState } from "./types";
 import { getVisibleCanvasRect } from "./viewportInsets";
+import type { WorkspaceHost } from "../workspaceHost";
+import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
 
 type InternalFitViewOptions = {
   initial?: boolean;
@@ -50,8 +52,13 @@ function getFitViewRuntime(
   return { width, height, viewportInsets, d3Zoom, d3Selection };
 }
 
-function resolveFitViewZoomLimits(options: InternalFitViewOptions) {
-  const { minZoom, maxZoom, defaultZoomLevel } = useWorkspaceOptions.getState();
+function resolveFitViewZoomLimits(
+  host: WorkspaceHost,
+  options: InternalFitViewOptions,
+) {
+  const { minZoom, maxZoom, defaultZoomLevel } = getWorkspaceOptionsStore(
+    host,
+  ).getState();
   const resolvedMinZoom = options.minZoom ?? minZoom;
   const cappedMaxZoom = options.initial
     ? Math.min(options.maxZoom ?? maxZoom, defaultZoomLevel)
@@ -63,8 +70,11 @@ function resolveFitViewZoomLimits(options: InternalFitViewOptions) {
   };
 }
 
-function getTargetNodes(targetNodes?: FitViewOptions["nodes"]) {
-  const nodes = getNodes();
+function getTargetNodes(
+  host: WorkspaceHost,
+  targetNodes?: FitViewOptions["nodes"],
+) {
+  const nodes = getNodes(host);
   if (!targetNodes?.length) {
     return nodes;
   }
@@ -73,7 +83,7 @@ function getTargetNodes(targetNodes?: FitViewOptions["nodes"]) {
   return nodes.filter((node) => targetNodeIds.has(node.id));
 }
 
-function areNodesReadyForFitView(nodes: ReturnType<typeof getNodes>) {
+function areNodesReadyForFitView(nodes: Array<ReturnType<typeof getNodes>[number]>) {
   return nodes.length > 0 && nodes.every((node) => node.width && node.height);
 }
 
@@ -98,18 +108,24 @@ function applyFitViewTransform(
   runtime.d3Zoom.transform(runtime.d3Selection, nextTransform);
 }
 
-export function fitView(options: InternalFitViewOptions = {}) {
-  const runtime = getFitViewRuntime(useReactFlow.getState(), !!options.initial);
+export function fitView(
+  host: WorkspaceHost,
+  options: InternalFitViewOptions = {},
+) {
+  const runtime = getFitViewRuntime(
+    getReactFlowStore(host).getState(),
+    !!options.initial,
+  );
   if (!runtime) {
     return false;
   }
 
-  const nodes = getTargetNodes(options.nodes);
+  const nodes = getTargetNodes(host, options.nodes);
   if (!areNodesReadyForFitView(nodes)) {
     return false;
   }
 
-  const zoomLimits = resolveFitViewZoomLimits(options);
+  const zoomLimits = resolveFitViewZoomLimits(host, options);
   const viewport = getViewportForBounds(
     getNodesBounds(nodes),
     runtime.width,
@@ -128,22 +144,48 @@ export function fitView(options: InternalFitViewOptions = {}) {
 // Answers whether the view was actually fitted, so the keyboard binding knows whether it
 // consumed the keypress. An already-fit canvas declines, which is what the toolbar's active
 // fit-view button does when it is pressed again.
-export function onFitViewHandler(): boolean {
-  if (useReactFlow.getState().fitViewOnInit) {
+type FitViewTimerState = { timers: Set<ReturnType<typeof setTimeout>> };
+
+const timerStatesByHost = new WeakMap<WorkspaceHost, FitViewTimerState>();
+
+function getFitViewTimerState(host: WorkspaceHost): FitViewTimerState {
+  const existing = timerStatesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const state = { timers: new Set<ReturnType<typeof setTimeout>>() };
+  timerStatesByHost.set(host, state);
+  registerWorkspaceHostCleanup(host, () => {
+    for (const timer of state.timers) {
+      clearTimeout(timer);
+    }
+    state.timers.clear();
+    timerStatesByHost.delete(host);
+  });
+  return state;
+}
+
+export function onFitViewHandler(host: WorkspaceHost): boolean {
+  if (getReactFlowStore(host).getState().fitViewOnInit) {
     return false;
   }
   const duration = resolveWorkspaceMotionDuration(
-    useWorkspaceOptions.getState().transitionDuration,
+    getWorkspaceOptionsStore(host).getState().transitionDuration,
   );
-  const fitted = fitView({ duration });
+  const fitted = fitView(host, { duration });
   // Hack to set fitViewOnInit after transform is done.
   // If it gets set before the transform is done, then the
   // canvas viewport document-sync subscription will get
   // triggered and it will reset to fitViewOnInit
-  setTimeout(
-    () => useReactFlow.setState({ fitViewOnInit: true }),
+  const timerState = getFitViewTimerState(host);
+  const timer = setTimeout(
+    () => {
+      timerState.timers.delete(timer);
+      getReactFlowStore(host).setState({ fitViewOnInit: true });
+    },
     duration + 10,
   );
+  timerState.timers.add(timer);
   return fitted;
 }
 

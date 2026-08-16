@@ -1,12 +1,17 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
 import { getWorkspaceCreationCommands } from "./creationCommandStore";
 import { registerWorkspaceCreationCommands } from "./workspaceMenuRegistry";
 
-afterEach(() => {
-  registerWorkspaceCreationCommands([]);
-});
-
 describe("workspace creation command registry", () => {
+  let host: WorkspaceHost;
+
+  beforeEach(() => {
+    host = createWorkspaceHost();
+  });
+
+  afterEach(() => host.dispose());
+
   it("normalizes and replaces creation commands without retaining the caller array", () => {
     const createSection = vi.fn();
     const commands = [
@@ -18,36 +23,36 @@ describe("workspace creation command registry", () => {
       },
     ];
 
-    registerWorkspaceCreationCommands(commands);
+    registerWorkspaceCreationCommands(host, commands);
     commands.length = 0;
 
-    expect(getWorkspaceCreationCommands()).toEqual([
+    expect(getWorkspaceCreationCommands(host)).toEqual([
       expect.objectContaining({
         id: "host-note",
         label: "Host note",
         group: "Host",
       }),
     ]);
-    expect(Object.isFrozen(getWorkspaceCreationCommands()[0])).toBe(true);
+    expect(Object.isFrozen(getWorkspaceCreationCommands(host)[0])).toBe(true);
 
-    registerWorkspaceCreationCommands([]);
-    expect(getWorkspaceCreationCommands()).toEqual([]);
+    registerWorkspaceCreationCommands(host, []);
+    expect(getWorkspaceCreationCommands(host)).toEqual([]);
   });
 
   it("rejects malformed and duplicate creation definitions specifically", () => {
     expect(() =>
-      registerWorkspaceCreationCommands([
+      registerWorkspaceCreationCommands(host, [
         { id: "bad id", label: "Bad", group: "Host", createSection: vi.fn() },
       ]),
     ).toThrow(/invalid id/);
     expect(() =>
-      registerWorkspaceCreationCommands([
+      registerWorkspaceCreationCommands(host, [
         { id: "same", label: "One", group: "Host", createSection: vi.fn() },
         { id: "same", label: "Two", group: "Host", createSection: vi.fn() },
       ]),
     ).toThrow(/duplicate id same/);
     expect(() =>
-      registerWorkspaceCreationCommands([
+      registerWorkspaceCreationCommands(host, [
         {
           id: "empty-label",
           label: "  ",
@@ -62,7 +67,7 @@ describe("workspace creation command registry", () => {
   // rather than at the keypress that would never match it.
   it("rejects an unusable creation chord", () => {
     expect(() =>
-      registerWorkspaceCreationCommands([
+      registerWorkspaceCreationCommands(host, [
         {
           id: "blank-chord",
           label: "Blank",
@@ -73,7 +78,7 @@ describe("workspace creation command registry", () => {
       ]),
     ).toThrow(/chord must be a chord string or null/);
     expect(() =>
-      registerWorkspaceCreationCommands([
+      registerWorkspaceCreationCommands(host, [
         {
           id: "odd-chord",
           label: "Odd",
@@ -83,6 +88,6 @@ describe("workspace creation command registry", () => {
         },
       ]),
     ).toThrow(/unknown key grab/);
-    expect(getWorkspaceCreationCommands()).toEqual([]);
+    expect(getWorkspaceCreationCommands(host)).toEqual([]);
   });
 });

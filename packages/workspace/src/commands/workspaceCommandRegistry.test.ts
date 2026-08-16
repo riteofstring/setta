@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
 import {
   getWorkspaceCommandOrThrow,
   getWorkspaceCommands,
@@ -19,18 +20,22 @@ function hostCommand(
   } as WorkspaceCommandDefinition;
 }
 
-afterEach(() => {
-  registerWorkspaceCommands([]);
-});
-
 describe("workspace command registry", () => {
+  let host: WorkspaceHost;
+
+  beforeEach(() => {
+    host = createWorkspaceHost();
+  });
+
+  afterEach(() => host.dispose());
+
   it("offers package commands before host commands on each surface", () => {
-    registerWorkspaceCommands([
+    registerWorkspaceCommands(host, [
       hostCommand({ surfaces: ["context-menu", "header"] }),
     ]);
 
     expect(
-      getWorkspaceCommands("section", "header").map((command) => [
+      getWorkspaceCommands(host, "section", "header").map((command) => [
         command.origin,
         command.definition.id,
       ]),
@@ -40,28 +45,28 @@ describe("workspace command registry", () => {
       ["host", "host-report"],
     ]);
     expect(
-      getWorkspaceCommands("item", "context-menu").map(
+      getWorkspaceCommands(host, "item", "context-menu").map(
         (command) => command.definition.id,
       ),
     ).toEqual(["workspace.delete-item"]);
-    expect(getWorkspaceCommands("pane", "context-menu")).toEqual([]);
+    expect(getWorkspaceCommands(host, "pane", "context-menu")).toEqual([]);
   });
 
   it("replaces the previous host registration atomically", () => {
-    registerWorkspaceCommands([hostCommand()]);
-    registerWorkspaceCommands([
+    registerWorkspaceCommands(host, [hostCommand()]);
+    registerWorkspaceCommands(host, [
       hostCommand({ id: "host-second", label: "Second" }),
     ]);
 
     expect(
-      getWorkspaceCommands("section", "context-menu")
+      getWorkspaceCommands(host, "section", "context-menu")
         .filter((command) => command.origin === "host")
         .map((command) => command.definition.id),
     ).toEqual(["host-second"]);
 
-    registerWorkspaceCommands([]);
+    registerWorkspaceCommands(host, []);
     expect(
-      getWorkspaceCommands("section", "context-menu").every(
+      getWorkspaceCommands(host, "section", "context-menu").every(
         (command) => command.origin === "package",
       ),
     ).toBe(true);
@@ -69,51 +74,51 @@ describe("workspace command registry", () => {
 
   it("rejects invalid identity, scope, and surface registrations", () => {
     expect(() =>
-      registerWorkspaceCommands([hostCommand({ id: "bad id" })]),
+      registerWorkspaceCommands(host, [hostCommand({ id: "bad id" })]),
     ).toThrow(/invalid id/);
     expect(() =>
-      registerWorkspaceCommands([
+      registerWorkspaceCommands(host, [
         hostCommand({ id: "workspace.ungroup-sections" }),
       ]),
     ).toThrow(/reserved workspace\. package prefix/);
     expect(() =>
-      registerWorkspaceCommands([
+      registerWorkspaceCommands(host, [
         hostCommand({ id: "same" }),
         hostCommand({ id: "same" }),
       ]),
     ).toThrow(/duplicate id same/);
     expect(() =>
-      registerWorkspaceCommands([hostCommand({ label: "  " })]),
+      registerWorkspaceCommands(host, [hostCommand({ label: "  " })]),
     ).toThrow(/non-empty label/);
     expect(() =>
-      registerWorkspaceCommands([
+      registerWorkspaceCommands(host, [
         hostCommand({
           scope: "picture",
         } as unknown as Partial<WorkspaceCommandDefinition>),
       ]),
     ).toThrow(/unknown scope picture/);
     expect(() =>
-      registerWorkspaceCommands([hostCommand({ surfaces: [] })]),
+      registerWorkspaceCommands(host, [hostCommand({ surfaces: [] })]),
     ).toThrow(/at least one surface/);
     expect(() =>
-      registerWorkspaceCommands([
+      registerWorkspaceCommands(host, [
         hostCommand({ scope: "pane", surfaces: ["header"] }),
       ]),
     ).toThrow(/cannot use the header surface in the pane scope/);
     expect(() =>
-      registerWorkspaceCommands([
+      registerWorkspaceCommands(host, [
         hostCommand({ surfaces: ["context-menu", "context-menu"] }),
       ]),
     ).toThrow(/lists the context-menu surface twice/);
     expect(() =>
-      registerWorkspaceCommands([
+      registerWorkspaceCommands(host, [
         hostCommand({
           run: undefined,
         } as unknown as Partial<WorkspaceCommandDefinition>),
       ]),
     ).toThrow(/requires run/);
     expect(() =>
-      registerWorkspaceCommands([
+      registerWorkspaceCommands(host, [
         hostCommand({
           getDisabledReason: "never",
         } as unknown as Partial<WorkspaceCommandDefinition>),
@@ -122,11 +127,11 @@ describe("workspace command registry", () => {
   });
 
   it("fails clearly when a surface asks for an unknown command id", () => {
-    expect(() => getWorkspaceCommandOrThrow("workspace.missing")).toThrow(
+    expect(() => getWorkspaceCommandOrThrow(host, "workspace.missing")).toThrow(
       /workspace.missing is not registered/,
     );
     expect(
-      getWorkspaceCommandOrThrow("workspace.ungroup-sections").definition.label,
+      getWorkspaceCommandOrThrow(host, "workspace.ungroup-sections").definition.label,
     ).toBe("Ungroup");
   });
 });

@@ -10,10 +10,11 @@ import {
   getOwnerKeyboardMenuPoint,
   isWorkspaceMenuKeyboardEvent,
 } from "../context-menu/workspaceMenuOwnership";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import { applyActiveSectionChange } from "./activeSectionController";
 import { getNodesInside } from "./graph";
-import { useWorkspaceOptions } from "./options";
-import { useReactFlow } from "./store";
+import { getWorkspaceOptionsStore } from "./options";
+import { getReactFlowStore, useReactFlow } from "./store";
 import { containerStyle } from "./styles";
 import type { ReactFlowState } from "./types";
 import UserSelection from "./UserSelection";
@@ -39,13 +40,14 @@ const wrapHandler = (
 const selector = (s: ReactFlowState) => s.userSelectionActive;
 
 const Pane = memo(({ isSelecting, children }: PaneProps) => {
+  const host = useWorkspaceHost();
   const container = useRef<HTMLDivElement | null>(null);
   const prevSelectedNodesCount = useRef<number>(0);
   const containerBounds = useRef<DOMRect | undefined>(undefined);
   const userSelectionActive = useReactFlow(selector);
 
   const resetUserSelection = () => {
-    useReactFlow.setState({
+    getReactFlowStore(host).setState({
       userSelectionActive: false,
       userSelectionRect: null,
     });
@@ -54,14 +56,14 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
   };
 
   const onClick = () => {
-    applyActiveSectionChange({ interaction: "pane-click" });
-    useReactFlow.setState({
+    applyActiveSectionChange(host, { interaction: "pane-click" });
+    getReactFlowStore(host).setState({
       nodesSelectionDims: null,
     });
   };
 
   const onMouseDown = (event: ReactMouseEvent): void => {
-    const { domNode } = useReactFlow.getState();
+    const { domNode } = getReactFlowStore(host).getState();
     containerBounds.current = domNode?.getBoundingClientRect();
 
     if (
@@ -75,12 +77,12 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
 
     const { x, y } = getEventPosition(event, containerBounds.current);
 
-    applyActiveSectionChange({
+    applyActiveSectionChange(host, {
       interaction: "selection-rect",
       selectedIds: [],
     });
 
-    useReactFlow.setState({
+    getReactFlowStore(host).setState({
       userSelectionRect: {
         width: 0,
         height: 0,
@@ -93,12 +95,12 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
   };
 
   const onMouseMove = (event: ReactMouseEvent): void => {
-    const { userSelectionRect, transform } = useReactFlow.getState();
+    const { userSelectionRect, transform } = getReactFlowStore(host).getState();
     if (!isSelecting || !containerBounds.current || !userSelectionRect) {
       return;
     }
 
-    useReactFlow.setState({
+    getReactFlowStore(host).setState({
       userSelectionActive: true,
       nodesSelectionDims: null,
     });
@@ -116,20 +118,21 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
     };
 
     const selectedNodeIds = getNodesInside(
+      host,
       nextUserSelectRect,
       transform,
-      useWorkspaceOptions.getState().selectionMode === "partial",
+      getWorkspaceOptionsStore(host).getState().selectionMode === "partial",
     );
 
     if (prevSelectedNodesCount.current !== selectedNodeIds.length) {
       prevSelectedNodesCount.current = selectedNodeIds.length;
-      applyActiveSectionChange({
+      applyActiveSectionChange(host, {
         interaction: "selection-rect",
         selectedIds: selectedNodeIds,
       });
     }
 
-    useReactFlow.setState({
+    getReactFlowStore(host).setState({
       userSelectionRect: nextUserSelectRect,
     });
   };
@@ -138,7 +141,7 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
     if (event.button !== 0) {
       return;
     }
-    const { userSelectionRect } = useReactFlow.getState();
+    const { userSelectionRect } = getReactFlowStore(host).getState();
     // We only want to trigger click functions when in selection mode if
     // the user did not move the mouse.
     if (
@@ -149,16 +152,18 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
       onClick();
     }
 
-    useReactFlow
+    getReactFlowStore(host)
       .getState()
       .setNodesSelection(prevSelectedNodesCount.current, true);
     resetUserSelection();
   };
 
   const onMouseLeave = () => {
-    const { userSelectionRect } = useReactFlow.getState();
+    const { userSelectionRect } = getReactFlowStore(host).getState();
     if (userSelectionRect && userSelectionActive) {
-      useReactFlow.getState().setNodesSelection(prevSelectedNodesCount.current);
+      getReactFlowStore(host)
+        .getState()
+        .setNodesSelection(prevSelectedNodesCount.current);
     }
     resetUserSelection();
   };
@@ -170,6 +175,7 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
       event.target === event.currentTarget &&
       isWorkspaceMenuKeyboardEvent(event.nativeEvent) &&
       openWorkspacePaneMenu(
+        host,
         getOwnerKeyboardMenuPoint(event.currentTarget),
         event.currentTarget,
       )
@@ -189,6 +195,7 @@ const Pane = memo(({ isSelecting, children }: PaneProps) => {
     }
     if (
       !openWorkspacePaneMenu(
+        host,
         { x: event.clientX, y: event.clientY },
         event.currentTarget,
       )

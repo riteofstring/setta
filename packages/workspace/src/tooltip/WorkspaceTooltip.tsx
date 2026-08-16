@@ -7,13 +7,16 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { HiCheck, HiOutlineDuplicate } from "react-icons/hi";
-import { createWithEqualityFn } from "zustand/traditional";
+import { createStore, type StoreApi } from "zustand/vanilla";
 import { withResetFn } from "../state/storeUtils";
 import {
   getElementTextDirection,
   type WorkspaceTextDirection,
 } from "../styles/textDirection";
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
+import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
+import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // Main's reusable quick-info lifecycle: hold Q to reveal the staged pages, use the auxiliary
 // Q chords to navigate/copy/freeze, and keep a frozen box interactive until Escape closes it.
@@ -50,19 +53,57 @@ type WorkspaceTooltipState = {
   pages: ReadonlyArray<WorkspaceTooltipPage>;
 };
 
-export const useWorkspaceTooltip = createWithEqualityFn(
-  withResetFn<WorkspaceTooltipState>(() => ({
-    anchor: null,
-    copied: false,
-    direction: "ltr",
-    isEnabled: false,
-    isFrozen: false,
-    pageIndex: 0,
-    pages: [],
-  })),
-);
+type WorkspaceTooltipRuntime = {
+  focusBeforeFreeze: HTMLElement | null;
+  mouseLocation: WorkspaceTooltipAnchor;
+  store: StoreApi<WorkspaceTooltipState & { reset: () => void }>;
+};
 
-let focusBeforeFreeze: HTMLElement | null = null;
+const tooltipRuntimesByHost = new WeakMap<WorkspaceHost, WorkspaceTooltipRuntime>();
+
+function createWorkspaceTooltipRuntime(): WorkspaceTooltipRuntime {
+  return {
+    focusBeforeFreeze: null,
+    mouseLocation: { x: 0, y: 0 },
+    store: createStore(
+      withResetFn<WorkspaceTooltipState>(() => ({
+        anchor: null,
+        copied: false,
+        direction: "ltr",
+        isEnabled: false,
+        isFrozen: false,
+        pageIndex: 0,
+        pages: [],
+      })),
+    ),
+  };
+}
+
+function getWorkspaceTooltipRuntime(host: WorkspaceHost): WorkspaceTooltipRuntime {
+  assertWorkspaceHostActive(host);
+  const existing = tooltipRuntimesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const runtime = createWorkspaceTooltipRuntime();
+  tooltipRuntimesByHost.set(host, runtime);
+  return runtime;
+}
+
+export function getWorkspaceTooltipStore(host: WorkspaceHost) {
+  return getWorkspaceTooltipRuntime(host).store;
+}
+
+export function useWorkspaceTooltip<T>(
+  selector: (state: WorkspaceTooltipState) => T,
+  equalityFn?: (left: T, right: T) => boolean,
+): T {
+  return useWorkspaceStore(
+    getWorkspaceTooltipStore(useWorkspaceHost()),
+    selector,
+    equalityFn,
+  );
+}
 
 type WorkspaceTooltipHandlerOptions = WorkspaceTooltipPage & {
   stageOnFocus?: boolean;
@@ -82,14 +123,17 @@ type WorkspaceTooltipFocusHandlers = {
 };
 
 export function getWorkspaceTooltipHandlers(
+  host: WorkspaceHost,
   options: WorkspaceTooltipHandlerOptions & { stageOnFocus: true },
   ...additionalPages: Array<WorkspaceTooltipPage>
 ): WorkspaceTooltipMouseHandlers & WorkspaceTooltipFocusHandlers;
 export function getWorkspaceTooltipHandlers(
+  host: WorkspaceHost,
   options: WorkspaceTooltipHandlerOptions & { stageOnFocus?: false },
   ...additionalPages: Array<WorkspaceTooltipPage>
 ): WorkspaceTooltipMouseHandlers;
 export function getWorkspaceTooltipHandlers(
+  host: WorkspaceHost,
   options: WorkspaceTooltipHandlerOptions,
   ...additionalPages: Array<WorkspaceTooltipPage>
 ):
@@ -102,10 +146,11 @@ export function getWorkspaceTooltipHandlers(
     currentTarget: HTMLElement,
     anchor: WorkspaceTooltipAnchor | null,
   ) {
-    if (useWorkspaceTooltip.getState().isFrozen) {
+    const store = getWorkspaceTooltipStore(host);
+    if (store.getState().isFrozen) {
       return;
     }
-    useWorkspaceTooltip.setState({
+    store.setState({
       anchor,
       copied: false,
       direction: getElementTextDirection(currentTarget),
@@ -115,10 +160,11 @@ export function getWorkspaceTooltipHandlers(
   }
 
   function clearPages() {
-    if (useWorkspaceTooltip.getState().isFrozen) {
+    const store = getWorkspaceTooltipStore(host);
+    if (store.getState().isFrozen) {
       return;
     }
-    useWorkspaceTooltip.setState({
+    store.setState({
       anchor: null,
       copied: false,
       pageIndex: 0,
@@ -159,46 +205,49 @@ export function getWorkspaceTooltipHandlers(
   return stageOnFocus ? { ...mouseHandlers, onBlur, onFocus } : mouseHandlers;
 }
 
-export function enableWorkspaceTooltip() {
-  useWorkspaceTooltip.setState({ isEnabled: true });
+export function enableWorkspaceTooltip(host: WorkspaceHost) {
+  getWorkspaceTooltipStore(host).setState({ isEnabled: true });
 }
 
-export function disableWorkspaceTooltip() {
-  if (useWorkspaceTooltip.getState().isFrozen) {
+export function disableWorkspaceTooltip(host: WorkspaceHost) {
+  const store = getWorkspaceTooltipStore(host);
+  if (store.getState().isFrozen) {
     return;
   }
-  useWorkspaceTooltip.setState({
+  store.setState({
     copied: false,
     isEnabled: false,
     pageIndex: 0,
   });
 }
 
-export function freezeWorkspaceTooltip(): boolean {
-  const state = useWorkspaceTooltip.getState();
+export function freezeWorkspaceTooltip(host: WorkspaceHost): boolean {
+  const state = getWorkspaceTooltipStore(host).getState();
   if (!state.isEnabled || state.pages.length === 0) {
     return false;
   }
   if (state.isFrozen) {
     return true;
   }
-  focusBeforeFreeze =
+  getWorkspaceTooltipRuntime(host).focusBeforeFreeze =
     document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
-  useWorkspaceTooltip.setState({ isFrozen: true });
+  getWorkspaceTooltipStore(host).setState({ isFrozen: true });
   return true;
 }
 
-export function closeFrozenWorkspaceTooltip(): boolean {
-  if (!useWorkspaceTooltip.getState().isFrozen) {
+export function closeFrozenWorkspaceTooltip(host: WorkspaceHost): boolean {
+  const store = getWorkspaceTooltipStore(host);
+  if (!store.getState().isFrozen) {
     return false;
   }
   const surface = document.querySelector<HTMLElement>(TOOLTIP_SURFACE_SELECTOR);
   const shouldRestoreFocus = surface?.contains(document.activeElement) ?? false;
-  const focusTarget = focusBeforeFreeze;
-  focusBeforeFreeze = null;
-  useWorkspaceTooltip.setState({
+  const runtime = getWorkspaceTooltipRuntime(host);
+  const focusTarget = runtime.focusBeforeFreeze;
+  runtime.focusBeforeFreeze = null;
+  store.setState({
     anchor: null,
     copied: false,
     isEnabled: false,
@@ -212,41 +261,43 @@ export function closeFrozenWorkspaceTooltip(): boolean {
   return true;
 }
 
-function moveWorkspaceTooltipPage(delta: number): boolean {
-  const state = useWorkspaceTooltip.getState();
+function moveWorkspaceTooltipPage(host: WorkspaceHost, delta: number): boolean {
+  const store = getWorkspaceTooltipStore(host);
+  const state = store.getState();
   if (!state.isEnabled || state.pages.length === 0) {
     return false;
   }
   const pageIndex =
     (state.pageIndex + delta + state.pages.length) % state.pages.length;
-  useWorkspaceTooltip.setState({ copied: false, pageIndex });
+  store.setState({ copied: false, pageIndex });
   return true;
 }
 
-export function incrementWorkspaceTooltipPage(): boolean {
-  return moveWorkspaceTooltipPage(1);
+export function incrementWorkspaceTooltipPage(host: WorkspaceHost): boolean {
+  return moveWorkspaceTooltipPage(host, 1);
 }
 
-export function decrementWorkspaceTooltipPage(): boolean {
-  return moveWorkspaceTooltipPage(-1);
+export function decrementWorkspaceTooltipPage(host: WorkspaceHost): boolean {
+  return moveWorkspaceTooltipPage(host, -1);
 }
 
-export function copyWorkspaceTooltipPage(): boolean {
-  const state = useWorkspaceTooltip.getState();
+export function copyWorkspaceTooltipPage(host: WorkspaceHost): boolean {
+  const store = getWorkspaceTooltipStore(host);
+  const state = store.getState();
   const page = state.pages[state.pageIndex];
   const content = page?.content ?? page?.title;
   if (!state.isEnabled || !content || !navigator.clipboard) {
     return false;
   }
-  useWorkspaceTooltip.setState({ copied: true });
+  store.setState({ copied: true });
   void navigator.clipboard.writeText(content).then(undefined, () => {
-    useWorkspaceTooltip.setState({ copied: false });
+    store.setState({ copied: false });
   });
   return true;
 }
 
-export function getIsFrozenWorkspaceTooltipFocused(): boolean {
-  const state = useWorkspaceTooltip.getState();
+export function getIsFrozenWorkspaceTooltipFocused(host: WorkspaceHost): boolean {
+  const state = getWorkspaceTooltipStore(host).getState();
   if (!state.isEnabled || !state.isFrozen) {
     return false;
   }
@@ -254,33 +305,40 @@ export function getIsFrozenWorkspaceTooltipFocused(): boolean {
   return surface?.contains(document.activeElement) ?? false;
 }
 
-// The pointer is tracked globally so pressing Q can reveal a staged tooltip at the current
-// cursor before the pointer moves again.
-let mouseLocation = { x: 0, y: 0 };
-
-function useTrackMouseLocation() {
+function useTrackMouseLocation(host: WorkspaceHost) {
   useEffect(() => {
     function handleMouseMove(event: MouseEvent) {
-      mouseLocation = { x: event.clientX, y: event.clientY };
+      getWorkspaceTooltipRuntime(host).mouseLocation = {
+        x: event.clientX,
+        y: event.clientY,
+      };
     }
 
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
     return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
+  }, [host]);
 }
 
 export function WorkspaceTooltip() {
+  const host = useWorkspaceHost();
   const workspaceScopeClassName = useWorkspaceScopeClassName();
   const { anchor, copied, direction, isEnabled, isFrozen, pageIndex, pages } =
-    useWorkspaceTooltip();
+    useWorkspaceTooltip((state) => state);
   const page = pages[pageIndex];
   const [boxElement, setBoxElement] = useState<HTMLDivElement | null>(null);
   const positionRef = useRef({ x: 0, y: 0 });
   const [tooltipWidth, setTooltipWidth] = useState(INITIAL_TOOLTIP_WIDTH_PX);
-  useTrackMouseLocation();
-  useCopiedIndicator(copied);
+  useTrackMouseLocation(host);
+  useCopiedIndicator(host, copied);
   useFrozenTooltipFocus(boxElement, isFrozen);
-  useTooltipFollower({ anchor, boxElement, isEnabled, isFrozen, positionRef });
+  useTooltipFollower({
+    anchor,
+    boxElement,
+    host,
+    isEnabled,
+    isFrozen,
+    positionRef,
+  });
   useTooltipViewportContainment({
     boxElement,
     isEnabled,
@@ -302,6 +360,7 @@ export function WorkspaceTooltip() {
     <TooltipPortal
       boxRef={setBoxElement}
       copied={copied}
+      host={host}
       direction={direction}
       handleDragPointerDown={handleDragPointerDown}
       isFrozen={isFrozen}
@@ -349,16 +408,16 @@ function useTooltipViewportContainment({
   }, [boxElement, isEnabled, page, positionRef, tooltipWidth]);
 }
 
-function useCopiedIndicator(copied: boolean) {
+function useCopiedIndicator(host: WorkspaceHost, copied: boolean) {
   useEffect(() => {
     if (!copied) {
       return;
     }
     const timeout = window.setTimeout(() => {
-      useWorkspaceTooltip.setState({ copied: false });
+      getWorkspaceTooltipStore(host).setState({ copied: false });
     }, COPIED_INDICATOR_DURATION_MS);
     return () => window.clearTimeout(timeout);
-  }, [copied]);
+  }, [copied, host]);
 }
 
 function useFrozenTooltipFocus(
@@ -400,12 +459,14 @@ function setClampedTooltipPosition(
 function useTooltipFollower({
   anchor,
   boxElement,
+  host,
   isEnabled,
   isFrozen,
   positionRef,
 }: {
   anchor: WorkspaceTooltipAnchor | null;
   boxElement: HTMLDivElement | null;
+  host: WorkspaceHost;
   isEnabled: boolean;
   isFrozen: boolean;
   positionRef: PositionRef;
@@ -422,8 +483,8 @@ function useTooltipFollower({
     setClampedTooltipPosition(
       activeBox,
       positionRef,
-      mouseLocation.x + MOUSE_OFFSET_PX,
-      mouseLocation.y + MOUSE_OFFSET_PX,
+      getWorkspaceTooltipRuntime(host).mouseLocation.x + MOUSE_OFFSET_PX,
+      getWorkspaceTooltipRuntime(host).mouseLocation.y + MOUSE_OFFSET_PX,
     );
     function handleMouseMove(event: MouseEvent) {
       setClampedTooltipPosition(
@@ -435,7 +496,7 @@ function useTooltipFollower({
     }
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
     return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, [anchor, boxElement, isEnabled, isFrozen, positionRef]);
+  }, [anchor, boxElement, host, isEnabled, isFrozen, positionRef]);
 }
 
 function useFrozenTooltipDrag({
@@ -491,6 +552,7 @@ type TooltipPortalProps = {
   boxRef: (element: HTMLDivElement | null) => void;
   copied: boolean;
   direction: WorkspaceTextDirection;
+  host: WorkspaceHost;
   handleDragPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   isFrozen: boolean;
   page: WorkspaceTooltipPage;
@@ -506,6 +568,7 @@ function TooltipPortal({
   boxRef,
   copied,
   direction,
+  host,
   handleDragPointerDown,
   isFrozen,
   page,
@@ -520,6 +583,7 @@ function TooltipPortal({
     <TooltipSurface
       copied={copied}
       handleDragPointerDown={handleDragPointerDown}
+      host={host}
       isFrozen={isFrozen}
       page={page}
       pageCount={pageCount}
@@ -576,6 +640,7 @@ function TooltipPortal({
 function TooltipSurface({
   copied,
   handleDragPointerDown,
+  host,
   isFrozen,
   page,
   pageCount,
@@ -583,6 +648,7 @@ function TooltipSurface({
 }: {
   copied: boolean;
   handleDragPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  host: WorkspaceHost;
   isFrozen: boolean;
   page: WorkspaceTooltipPage;
   pageCount: number;
@@ -602,7 +668,7 @@ function TooltipSurface({
           onPointerDown={handleDragPointerDown}
         />
       ) : null}
-      {isFrozen ? <TooltipCopyButton copied={copied} /> : null}
+      {isFrozen ? <TooltipCopyButton copied={copied} host={host} /> : null}
       {page.title ? (
         <h3 className="break-words pb-1 pe-4 text-xs font-black uppercase text-setta-500 dark:text-setta-600">
           {page.title}
@@ -633,14 +699,20 @@ function TooltipSurface({
   );
 }
 
-function TooltipCopyButton({ copied }: { copied: boolean }) {
+function TooltipCopyButton({
+  copied,
+  host,
+}: {
+  copied: boolean;
+  host: WorkspaceHost;
+}) {
   return (
     <button
       aria-label={copied ? "Copied" : "Copy to clipboard"}
       className="absolute right-2 top-2 z-10 cursor-pointer rounded-lg p-1.5 text-setta-500 hover:bg-setta-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 dark:text-setta-400 dark:hover:bg-setta-800"
       onClick={(event) => {
         event.stopPropagation();
-        copyWorkspaceTooltipPage();
+        copyWorkspaceTooltipPage(host);
       }}
       type="button"
     >

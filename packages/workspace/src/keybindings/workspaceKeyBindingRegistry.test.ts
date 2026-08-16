@@ -1,8 +1,9 @@
 /* @vitest-environment jsdom */
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { registerWorkspaceCreationCommands } from "../context-menu/workspaceMenuRegistry";
 import type { WorkspaceSectionInput } from "../document/types";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
 import {
   getResolvedWorkspaceKeyBindings,
   getWorkspaceKeyBindingConflicts,
@@ -23,8 +24,10 @@ const creationSection: WorkspaceSectionInput = {
   children: [],
 };
 
+let host: WorkspaceHost;
+
 function registerCreationCommand(chord: string | null) {
-  registerWorkspaceCreationCommands([
+  registerWorkspaceCreationCommands(host, [
     {
       id: "host-note",
       label: "Host note",
@@ -43,7 +46,7 @@ vi.mock("../canvas/utils", async (importOriginal) => {
 });
 
 function getBinding(id: string) {
-  const binding = getWorkspaceKeyBindings().find(
+  const binding = getWorkspaceKeyBindings(host).find(
     (candidate) => candidate.id === id,
   );
   if (!binding) {
@@ -53,10 +56,13 @@ function getBinding(id: string) {
 }
 
 describe("workspace key bindings", () => {
+  beforeEach(() => {
+    host = createWorkspaceHost();
+  });
+
   afterEach(() => {
     mockIsMacOs = false;
-    registerWorkspaceKeyBindings([]);
-    registerWorkspaceCreationCommands([]);
+    host.dispose();
   });
 
   it("ships the reference's chords and takes each command's own label", () => {
@@ -120,11 +126,11 @@ describe("workspace key bindings", () => {
   });
 
   it("ships no conflicting default chords", () => {
-    expect(getWorkspaceKeyBindingConflicts([])).toEqual([]);
+    expect(getWorkspaceKeyBindingConflicts(host, [])).toEqual([]);
   });
 
   it("replaces the complete host set and leaves unnamed bindings on their defaults", () => {
-    registerWorkspaceKeyBindings([
+    registerWorkspaceKeyBindings(host, [
       { id: "workspace.lock-sections", chord: "Mod + Alt + L" },
     ]);
     expect(getBinding("workspace.lock-sections")).toMatchObject({
@@ -133,12 +139,12 @@ describe("workspace key bindings", () => {
     });
     expect(getBinding("workspace.group-sections").origin).toBe("default");
 
-    registerWorkspaceKeyBindings([]);
+    registerWorkspaceKeyBindings(host, []);
     expect(getBinding("workspace.lock-sections").chord).toBeNull();
   });
 
   it("unbinds an operation the host wants the chord back from", () => {
-    registerWorkspaceKeyBindings([
+    registerWorkspaceKeyBindings(host, [
       { id: "workspace.delete-sections", chord: null },
     ]);
     expect(getBinding("workspace.delete-sections")).toMatchObject({
@@ -146,7 +152,7 @@ describe("workspace key bindings", () => {
       origin: "host",
     });
     expect(
-      getResolvedWorkspaceKeyBindings(false).some(
+      getResolvedWorkspaceKeyBindings(host, false).some(
         (binding) => binding.definition.id === "workspace.delete-sections",
       ),
     ).toBe(false);
@@ -154,18 +160,18 @@ describe("workspace key bindings", () => {
 
   it("fails registration for an unknown operation, a repeated binding, or an unusable chord", () => {
     expect(() =>
-      registerWorkspaceKeyBindings([
+      registerWorkspaceKeyBindings(host, [
         { id: "workspace.run-code", chord: "Mod + Enter" },
       ]),
     ).toThrow(/is not a workspace operation/u);
     expect(() =>
-      registerWorkspaceKeyBindings([
+      registerWorkspaceKeyBindings(host, [
         { id: "workspace.lock-sections", chord: "Mod + Alt + L" },
         { id: "workspace.lock-sections", chord: "Mod + Alt + K" },
       ]),
     ).toThrow(/bound twice/u);
     expect(() =>
-      registerWorkspaceKeyBindings([
+      registerWorkspaceKeyBindings(host, [
         { id: "workspace.lock-sections", chord: "Mod + Grab" },
       ]),
     ).toThrow(/unknown key grab/u);
@@ -173,7 +179,7 @@ describe("workspace key bindings", () => {
 
   it("reports the bindings that would share a chord before it is registered", () => {
     const candidate = [{ id: "workspace.lock-sections", chord: "Mod + G" }];
-    expect(getWorkspaceKeyBindingConflicts(candidate)).toEqual([
+    expect(getWorkspaceKeyBindingConflicts(host, candidate)).toEqual([
       {
         chord: "Mod + G",
         chordLabel: "Ctrl + G",
@@ -181,7 +187,7 @@ describe("workspace key bindings", () => {
         reservedGesture: null,
       },
     ]);
-    expect(() => registerWorkspaceKeyBindings(candidate)).toThrow(
+    expect(() => registerWorkspaceKeyBindings(host, candidate)).toThrow(
       /Ctrl \+ G is claimed by workspace.group-sections, workspace.lock-sections/u,
     );
     expect(getBinding("workspace.lock-sections").chord).toBeNull();
@@ -192,7 +198,7 @@ describe("workspace key bindings", () => {
   // macOS the two are different keys and both bindings stay reachable.
   it("collides Mod with Ctrl only on the platform where they are one key", () => {
     const candidate = [{ id: "workspace.lock-sections", chord: "Ctrl + G" }];
-    expect(getWorkspaceKeyBindingConflicts(candidate)).toEqual([
+    expect(getWorkspaceKeyBindingConflicts(host, candidate)).toEqual([
       {
         chord: "Mod + G",
         chordLabel: "Ctrl + G",
@@ -200,20 +206,20 @@ describe("workspace key bindings", () => {
         reservedGesture: null,
       },
     ]);
-    expect(() => registerWorkspaceKeyBindings(candidate)).toThrow(
+    expect(() => registerWorkspaceKeyBindings(host, candidate)).toThrow(
       /Ctrl \+ G is claimed by workspace.group-sections, workspace.lock-sections/u,
     );
 
     mockIsMacOs = true;
-    expect(getWorkspaceKeyBindingConflicts(candidate)).toEqual([]);
-    registerWorkspaceKeyBindings(candidate);
+    expect(getWorkspaceKeyBindingConflicts(host, candidate)).toEqual([]);
+    registerWorkspaceKeyBindings(host, candidate);
     expect(getBinding("workspace.lock-sections").chordLabel).toBe("Ctrl + G");
     expect(getBinding("workspace.group-sections").chordLabel).toBe("⌘ + G");
   });
 
   it("refuses a chord a held interaction gesture already owns", () => {
     const candidate = [{ id: "workspace.lock-sections", chord: "Mod + Shift" }];
-    expect(getWorkspaceKeyBindingConflicts(candidate)).toEqual([
+    expect(getWorkspaceKeyBindingConflicts(host, candidate)).toEqual([
       {
         chord: "Mod + Shift",
         chordLabel: "Ctrl + Shift",
@@ -221,13 +227,13 @@ describe("workspace key bindings", () => {
         reservedGesture: "parameter selection",
       },
     ]);
-    expect(() => registerWorkspaceKeyBindings(candidate)).toThrow(
+    expect(() => registerWorkspaceKeyBindings(host, candidate)).toThrow(
       /reserved for parameter selection/u,
     );
   });
 
   it("frees a default chord once the host moves the operation off it", () => {
-    registerWorkspaceKeyBindings([
+    registerWorkspaceKeyBindings(host, [
       { id: "workspace.group-sections", chord: "Mod + Alt + G" },
       { id: "workspace.lock-sections", chord: "Mod + G" },
     ]);
@@ -236,8 +242,8 @@ describe("workspace key bindings", () => {
   });
 
   it("resolves the chord rules for the platform it dispatches on", () => {
-    const macOS = getResolvedWorkspaceKeyBindings(true);
-    const other = getResolvedWorkspaceKeyBindings(false);
+    const macOS = getResolvedWorkspaceKeyBindings(host, true);
+    const other = getResolvedWorkspaceKeyBindings(host, false);
     const macMoveUp = macOS.find(
       (binding) => binding.definition.id === "workspace.move-items-up",
     );
@@ -282,28 +288,32 @@ describe("workspace key bindings", () => {
       /Ctrl \+ G is claimed by workspace.group-sections, host-note/u,
     );
     expect(
-      getWorkspaceKeyBindings().some((binding) => binding.id === "host-note"),
+      getWorkspaceKeyBindings(host).some((binding) => binding.id === "host-note"),
     ).toBe(false);
   });
 
   it("rebinds and unbinds a creation command through the same host registration", () => {
     registerCreationCommand("N");
-    registerWorkspaceKeyBindings([{ id: "host-note", chord: "Mod + Alt + N" }]);
+    registerWorkspaceKeyBindings(host, [
+      { id: "host-note", chord: "Mod + Alt + N" },
+    ]);
     expect(getBinding("host-note")).toMatchObject({
       chord: "Mod + Alt + N",
       origin: "host",
     });
     expect(
-      getWorkspaceKeyBindingConflicts([{ id: "host-note", chord: "F" }]),
+      getWorkspaceKeyBindingConflicts(host, [{ id: "host-note", chord: "F" }]),
     ).toMatchObject([{ bindingIds: ["workspace.fit-view", "host-note"] }]);
-    registerWorkspaceKeyBindings([{ id: "host-note", chord: null }]);
+    registerWorkspaceKeyBindings(host, [{ id: "host-note", chord: null }]);
     expect(getBinding("host-note").chord).toBeNull();
   });
 
   it("fails when a replaced creation catalog drops a command the host rebound", () => {
     registerCreationCommand("N");
-    registerWorkspaceKeyBindings([{ id: "host-note", chord: "Mod + Alt + N" }]);
-    expect(() => registerWorkspaceCreationCommands([])).toThrow(
+    registerWorkspaceKeyBindings(host, [
+      { id: "host-note", chord: "Mod + Alt + N" },
+    ]);
+    expect(() => registerWorkspaceCreationCommands(host, [])).toThrow(
       /"host-note" is not a workspace operation/u,
     );
     expect(getBinding("host-note").chord).toBe("Mod + Alt + N");
@@ -313,7 +323,7 @@ describe("workspace key bindings", () => {
   // takes it back, which is what the reference's rules say about both chords.
   it("hands Mod+A to a caret but keeps Mod+Shift+A on every platform", () => {
     for (const macOS of [true, false]) {
-      const resolved = getResolvedWorkspaceKeyBindings(macOS);
+      const resolved = getResolvedWorkspaceKeyBindings(host, macOS);
       expect(
         resolved.find(
           (binding) => binding.definition.id === "workspace.select-all",

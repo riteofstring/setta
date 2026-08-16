@@ -10,6 +10,7 @@ import {
   focusSectionAfterEscape,
   handleSectionControlEscape,
 } from "../sectionFocus";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The item-controls milestone's color picker: the reference `ColorPickerInput` at the `ParamUI`
 // color presentation. With host-supplied choices it renders the recorded trigger — the rounded
@@ -139,6 +140,7 @@ function NativeColorPicker({
   onValueChange: (nextValue: string) => void;
   isDisabled: boolean;
 }) {
+  const host = useWorkspaceHost();
   return (
     <>
       <i
@@ -161,7 +163,7 @@ function NativeColorPicker({
         onChange={(e) => onValueChange(e.target.value)}
         className={NATIVE_INPUT_CLASS_NAME}
         disabled={isDisabled}
-        onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
+        onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
       />
     </>
   );
@@ -221,6 +223,7 @@ function ColorChoicesPicker({
   choices: Array<ColorValueChoice>;
   isDisabled: boolean;
 }) {
+  const host = useWorkspaceHost();
   const selectedItem = resolveSelectedChoice(choices, value);
   const selectedIndex = Math.max(
     choices.findIndex((choice) => choice.color === selectedItem.color),
@@ -292,7 +295,7 @@ function ColorChoicesPicker({
           }
           event.preventDefault();
           restoreSectionFocusAfterClose.current = false;
-          focusSectionAfterEscape(sectionId);
+          focusSectionAfterEscape(host, sectionId);
         },
       }}
       trigger={
@@ -304,7 +307,7 @@ function ColorChoicesPicker({
           aria-label={`${ariaLabel}: ${selectedItem.description}`}
           aria-expanded={isOpen}
           aria-haspopup="listbox"
-          onKeyDown={(event) => handleSectionControlEscape(event, sectionId)}
+          onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
         >
           <div
             aria-hidden="true"

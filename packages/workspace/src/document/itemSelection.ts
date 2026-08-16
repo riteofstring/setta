@@ -5,18 +5,24 @@ import {
   getSectionOrThrow,
 } from "./documentSelectors";
 import { getItemOrThrow } from "./itemTree";
-import { useWorkspaceDocument } from "./stores";
+import { getWorkspaceDocumentStore } from "./stores";
 import type { WorkspaceSection } from "./types";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // The reference's param selection primitives (`toggleParamSelected`/`unselectAllParams` in
 // `state/actions/sectionInfos.ts`, `selectOnlyParam` in `moveParams.ts`) minus the app-only
 // branches: the optimistic-op plumbing and per-toggle backend routes stay application-side —
-// the document-change callback notifies the host instead. Selection lives on the canonical
+// the host publishes an updated snapshot instead. Selection lives on the canonical
 // item tree, so a toggle is a canonical commit followed by the same active-section policy
 // decision the reference applies.
 
-export function toggleItemSelected(sectionId: string, itemId: string) {
-  const documentState = useWorkspaceDocument.getState();
+export function toggleItemSelected(
+  host: WorkspaceHost,
+  sectionId: string,
+  itemId: string,
+) {
+  const documentStore = getWorkspaceDocumentStore(host);
+  const documentState = documentStore.getState();
   const section = getSectionOrThrow(documentState, sectionId);
   const itemTree = getSectionItemTreeOrThrow(documentState, sectionId);
   getItemOrThrow(itemTree, itemId);
@@ -29,14 +35,14 @@ export function toggleItemSelected(sectionId: string, itemId: string) {
   const selectedItemIds = wasSelected
     ? itemTree.selectedItemIds.filter((id) => id !== itemId)
     : [...itemTree.selectedItemIds, itemId];
-  useWorkspaceDocument.setState({
+  documentStore.setState({
     sections: {
       ...documentState.sections,
       [sectionId]: { ...section, itemTree: { ...itemTree, selectedItemIds } },
     },
   });
-  notifyWorkspaceDocumentChange();
-  applyActiveSectionChange({
+  notifyWorkspaceDocumentChange(host);
+  applyActiveSectionChange(host, {
     interaction: wasSelected ? "item-unselect" : "item-select",
     sectionId,
   });
@@ -45,8 +51,13 @@ export function toggleItemSelected(sectionId: string, itemId: string) {
 // Replaces one section's item selection in a single canonical commit. `toggleItemSelected`
 // builds the same commit one row at a time; an operation that selects a whole set of rows at
 // once notifies the host once instead of once per row.
-export function setSelectedItems(sectionId: string, itemIds: Array<string>) {
-  const documentState = useWorkspaceDocument.getState();
+export function setSelectedItems(
+  host: WorkspaceHost,
+  sectionId: string,
+  itemIds: Array<string>,
+) {
+  const documentStore = getWorkspaceDocumentStore(host);
+  const documentState = documentStore.getState();
   const section = getSectionOrThrow(documentState, sectionId);
   const itemTree = getSectionItemTreeOrThrow(documentState, sectionId);
   for (const itemId of itemIds) {
@@ -60,7 +71,7 @@ export function setSelectedItems(sectionId: string, itemIds: Array<string>) {
   if (areItemIdListsEqual(itemTree.selectedItemIds, itemIds)) {
     return;
   }
-  useWorkspaceDocument.setState({
+  documentStore.setState({
     sections: {
       ...documentState.sections,
       [sectionId]: {
@@ -69,8 +80,8 @@ export function setSelectedItems(sectionId: string, itemIds: Array<string>) {
       },
     },
   });
-  notifyWorkspaceDocumentChange();
-  applyActiveSectionChange({ interaction: "item-select", sectionId });
+  notifyWorkspaceDocumentChange(host);
+  applyActiveSectionChange(host, { interaction: "item-select", sectionId });
 }
 
 function areItemIdListsEqual(
@@ -85,8 +96,9 @@ function areItemIdListsEqual(
 
 // Clears item selection across every section in one canonical commit; answers whether anything
 // was selected so callers (the reference's escape handling) can consume the keypress.
-export function unselectAllItems(): boolean {
-  const documentState = useWorkspaceDocument.getState();
+export function unselectAllItems(host: WorkspaceHost): boolean {
+  const documentStore = getWorkspaceDocumentStore(host);
+  const documentState = documentStore.getState();
   const sections: Record<string, WorkspaceSection> = {
     ...documentState.sections,
   };
@@ -104,14 +116,18 @@ export function unselectAllItems(): boolean {
   if (!changed) {
     return false;
   }
-  useWorkspaceDocument.setState({ sections });
-  notifyWorkspaceDocumentChange();
+  documentStore.setState({ sections });
+  notifyWorkspaceDocumentChange(host);
   return true;
 }
 
-export function selectOnlyItem(sectionId: string, itemId: string) {
+export function selectOnlyItem(
+  host: WorkspaceHost,
+  sectionId: string,
+  itemId: string,
+) {
   const itemTree = getSectionItemTreeOrThrow(
-    useWorkspaceDocument.getState(),
+    getWorkspaceDocumentStore(host).getState(),
     sectionId,
   );
   if (
@@ -120,6 +136,6 @@ export function selectOnlyItem(sectionId: string, itemId: string) {
   ) {
     return;
   }
-  unselectAllItems();
-  toggleItemSelected(sectionId, itemId);
+  unselectAllItems(host);
+  toggleItemSelected(host, sectionId, itemId);
 }

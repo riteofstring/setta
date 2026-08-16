@@ -1,5 +1,6 @@
 import { useDragDropMonitor } from "@dnd-kit/react";
 import { mapDragEvent, mapDragStartEvent } from "./dragEventMapping";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 import type {
   DragCancelEvent,
   DragEndEvent,
@@ -17,9 +18,10 @@ type DndMonitorHandlers = Partial<{
 }>;
 
 export function useDndMonitor(handlers: DndMonitorHandlers): void {
+  const host = useWorkspaceHost();
   useDragDropMonitor({
     onDragStart: (event, manager) => {
-      const mapped = mapDragStartEvent(event, manager);
+      const mapped = mapDragStartEvent(host, event, manager);
       if (!mapped) {
         return;
       }
@@ -27,7 +29,7 @@ export function useDndMonitor(handlers: DndMonitorHandlers): void {
       handlers.onDragStart?.(mapped);
     },
     onDragMove: (event, manager) => {
-      const mapped = mapDragEvent(event, manager);
+      const mapped = mapDragEvent(host, event, manager);
       if (!mapped) {
         return;
       }
@@ -35,7 +37,7 @@ export function useDndMonitor(handlers: DndMonitorHandlers): void {
       handlers.onDragMove?.(mapped);
     },
     onDragOver: (event, manager) => {
-      const mapped = mapDragEvent(event, manager);
+      const mapped = mapDragEvent(host, event, manager);
       if (!mapped) {
         return;
       }
@@ -43,7 +45,7 @@ export function useDndMonitor(handlers: DndMonitorHandlers): void {
       handlers.onDragOver?.(mapped);
     },
     onDragEnd: (event, manager) => {
-      const mapped = mapDragEvent(event, manager, event.canceled);
+      const mapped = mapDragEvent(host, event, manager, event.canceled);
       if (!mapped) {
         return;
       }

@@ -275,8 +275,8 @@ export type WorkspaceSectionInput = Omit<WorkspaceSection, "size"> & {
   size?: SectionSize;
 };
 
-// The controlled serializable workspace document: the canonical shape the document-change
-// callback and `getWorkspaceDocument` emit, and a valid `loadWorkspaceDocument` input. It
+// The controlled serializable workspace document: the canonical shape host snapshots and
+// subscriptions expose, and a valid `loadWorkspaceDocument` input. It
 // mirrors the reference's persisted project surface for the slice — structural sections,
 // top-level layout, camera, and selection (the reference persists selection through
 // `route_set_active_ids`).

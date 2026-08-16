@@ -2,14 +2,12 @@ import {
   createWorkspaceShellViewState,
   DEFAULT_SECTION_TAG_COLOR_PALETTE,
   deleteSelectedWorkspaceItems,
-  getWorkspaceDocument,
   insertWorkspaceItem,
-  loadWorkspaceDocument,
   setGroupOverflowMode,
   setSectionTagColor,
   setWorkspaceColorMode,
-  setWorkspaceDocumentChangeCallback,
   useWorkspaceAppearance,
+  useWorkspaceHost,
   WorkspaceShell,
   type WorkspaceItemDiagnosticRegistry,
   type WorkspaceSectionTagColorPalette,
@@ -29,11 +27,6 @@ import {
   PLAYGROUND_UPDATED_ITEM_DIAGNOSTICS,
   PlaygroundItemDiagnosticsProvider,
 } from "./sectionKinds";
-
-function toggleDarkMode() {
-  const next = !useWorkspaceAppearance.getState().darkMode;
-  setWorkspaceColorMode(next ? "dark" : "light");
-}
 
 type PlaygroundIconProps = {
   className?: string;
@@ -121,21 +114,20 @@ function PlaygroundMark() {
   );
 }
 
-// The host side of the document-change callback: every package-initiated canonical commit
-// (selection, move, resize, rename, flag toggles, delete, layout, viewport) invokes the
-// callback with the serializable document; a host re-load never does. The count lives in its
+// The host observes canonical snapshots through its subscription method. The count lives in its
 // own component so per-frame viewport notifications re-render this readout, not the canvas.
 function GroupOverflowModeToggle() {
+  const host = useWorkspaceHost();
   return (
     <button
       className="playground-menu-action"
       type="button"
       onClick={() => {
-        const group = getWorkspaceDocument().sections["root-group"];
+        const group = host.getSnapshot().sections["root-group"];
         if (!group) {
           throw new Error("The playground root group is unavailable.");
         }
-        setGroupOverflowMode(group.id, !group.overflowMode);
+        setGroupOverflowMode(host, group.id, !group.overflowMode);
       }}
     >
       <span>Root group overflow</span>
@@ -145,16 +137,18 @@ function GroupOverflowModeToggle() {
 }
 
 function SectionTagColorToggle() {
+  const host = useWorkspaceHost();
   return (
     <button
       className="playground-menu-action"
       type="button"
       onClick={() => {
-        const section = getWorkspaceDocument().sections["idle-leaf"];
+        const section = host.getSnapshot().sections["idle-leaf"];
         if (!section) {
           throw new Error("The playground idle leaf is unavailable.");
         }
         setSectionTagColor(
+          host,
           section.id,
           section.tagColor === null ? "#0f766e" : null,
         );
@@ -167,11 +161,12 @@ function SectionTagColorToggle() {
 }
 
 function HostParameterActions() {
+  const host = useWorkspaceHost();
   return (
     <>
       <button
         className="playground-menu-action"
-        onClick={() => insertWorkspaceItem("item-panel")}
+        onClick={() => insertWorkspaceItem(host, "item-panel")}
         type="button"
       >
         <span>Add parameter</span>
@@ -179,7 +174,7 @@ function HostParameterActions() {
       </button>
       <button
         className="playground-menu-action"
-        onClick={() => deleteSelectedWorkspaceItems("item-panel")}
+        onClick={() => deleteSelectedWorkspaceItems(host, "item-panel")}
         type="button"
       >
         <span>Delete selected parameter</span>
@@ -229,13 +224,13 @@ function HostParameterDiagnosticActions({
 }
 
 function DocumentChangeReadout() {
+  const host = useWorkspaceHost();
   const [documentChangeCount, setDocumentChangeCount] = useState(0);
   useEffect(() => {
-    setWorkspaceDocumentChangeCallback(() => {
+    return host.subscribe(() => {
       setDocumentChangeCount((count) => count + 1);
     });
-    return () => setWorkspaceDocumentChangeCallback(null);
-  }, []);
+  }, [host]);
   return (
     <span
       aria-label={`${documentChangeCount} document ${documentChangeCount === 1 ? "change" : "changes"} reported`}
@@ -254,10 +249,11 @@ function DocumentChangeReadout() {
 }
 
 function AppearanceToggle({ darkMode }: { darkMode: boolean }) {
+  const host = useWorkspaceHost();
   return (
     <button
       className="playground-toolbar-button"
-      onClick={toggleDarkMode}
+      onClick={() => setWorkspaceColorMode(host, darkMode ? "light" : "dark")}
       title={`Switch to ${darkMode ? "light" : "dark"} mode`}
       type="button"
     >
@@ -270,10 +266,11 @@ function AppearanceToggle({ darkMode }: { darkMode: boolean }) {
 }
 
 function ReloadDocumentButton() {
+  const host = useWorkspaceHost();
   return (
     <button
       className="playground-toolbar-button"
-      onClick={() => loadWorkspaceDocument(playgroundDocument)}
+      onClick={() => host.loadDocument(playgroundDocument)}
       title="Reload the playground document"
       type="button"
     >

@@ -1,16 +1,23 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
 import {
   getItemHandlerRegistration,
   registerItemHandlers,
 } from "./itemHandlerRegistry";
 
 describe("item handler registration", () => {
-  afterEach(() => registerItemHandlers([]));
+  let host: WorkspaceHost;
+
+  beforeEach(() => {
+    host = createWorkspaceHost();
+  });
+
+  afterEach(() => host.dispose());
 
   it("replaces handlers keyed by section and stable item id", () => {
     const onAccepted = vi.fn();
     const onRejected = vi.fn();
-    registerItemHandlers([
+    registerItemHandlers(host, [
       {
         sectionId: "panel",
         itemId: "dropzone",
@@ -25,15 +32,15 @@ describe("item handler registration", () => {
         onRevealSavedValue: vi.fn(),
       },
     ]);
-    expect(getItemHandlerRegistration("panel", "dropzone")).toMatchObject({
+    expect(getItemHandlerRegistration(host, "panel", "dropzone")).toMatchObject({
       kind: "dropzone",
       onAccepted,
       onRejected,
     });
-    expect(getItemHandlerRegistration("other-panel", "dropzone")).toBeNull();
+    expect(getItemHandlerRegistration(host, "other-panel", "dropzone")).toBeNull();
 
-    registerItemHandlers([]);
-    expect(getItemHandlerRegistration("panel", "dropzone")).toBeNull();
+    registerItemHandlers(host, []);
+    expect(getItemHandlerRegistration(host, "panel", "dropzone")).toBeNull();
   });
 
   it("rejects duplicate identities and malformed handlers", () => {
@@ -45,10 +52,10 @@ describe("item handler registration", () => {
       onRejected: vi.fn(),
     };
     expect(() =>
-      registerItemHandlers([registration, registration]),
+      registerItemHandlers(host, [registration, registration]),
     ).toThrowError("Duplicate item handler registration for panel/dropzone.");
     expect(() =>
-      registerItemHandlers([
+      registerItemHandlers(host, [
         {
           ...registration,
           onAccepted: null,
@@ -57,11 +64,11 @@ describe("item handler registration", () => {
     ).toThrowError(
       "Item handler panel/dropzone onAccepted must be a function.",
     );
-    expect(() => registerItemHandlers(null as never)).toThrowError(
+    expect(() => registerItemHandlers(host, null as never)).toThrowError(
       "Item handler registrations must be an array.",
     );
     expect(() =>
-      registerItemHandlers([
+      registerItemHandlers(host, [
         {
           sectionId: "panel",
           itemId: "dropzone",

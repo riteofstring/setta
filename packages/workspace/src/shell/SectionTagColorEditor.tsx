@@ -3,6 +3,7 @@ import { useWorkspaceCapabilities } from "../document/capabilities";
 import type { WorkspaceSection } from "../document/types";
 import type { WorkspaceSectionTagColorPalette } from "../section/sectionTagColors";
 import { setSectionTagColor } from "../section/tagColorAction";
+import { useWorkspaceHost } from "../workspaceHostContext";
 
 const RESET_BUTTON_CLASS_NAME =
   "rounded-full border border-setta-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-setta-600 shadow-sm hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-850";
@@ -47,6 +48,7 @@ export function SectionTagColorEditor({
   palette: WorkspaceSectionTagColorPalette;
   section: WorkspaceSection;
 }) {
+  const host = useWorkspaceHost();
   const canEditLayout = useWorkspaceCapabilities(
     (state) => state.canEditLayout,
   );
@@ -64,7 +66,7 @@ export function SectionTagColorEditor({
       : getTagColorDescription(palette, section.tagColor);
 
   function updateTagColor(tagColor: string | null): void {
-    setSectionTagColor(section.id, tagColor);
+    setSectionTagColor(host, section.id, tagColor);
     onStatusChange(
       tagColor === null
         ? "Section color tag cleared."

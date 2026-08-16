@@ -1,8 +1,9 @@
-import { useReactFlow } from "../canvas/store";
+import { getReactFlowStore } from "../canvas/store";
 import { getIsZoomRuntimeReady, setCenter } from "../canvas/viewportHelpers";
 import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes";
-import { useWorkspaceCapabilities } from "../document/capabilities";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import { insertWorkspaceSection } from "../document/insertWorkspaceSection";
+import type { WorkspaceHost } from "../workspaceHost";
 import { resolveWorkspaceEmptySpacePlacement } from "./emptySpacePlacement";
 
 // The reference times this one travel itself rather than through its transition-duration setting,
@@ -19,9 +20,10 @@ const CREATION_PAN_DURATION_MS = 200;
 // section in one atomic change, so the created section is already the single active, top-most
 // section when this returns and there is nothing to wait for.
 export function createWorkspaceSectionFromCommand(
+  host: WorkspaceHost,
   command: WorkspaceCreationCommand,
 ): boolean {
-  if (!useWorkspaceCapabilities.getState().canEditStructure) {
+  if (!getWorkspaceCapabilitiesStore(host).getState().canEditStructure) {
     return false;
   }
   const context = Object.freeze({ workspacePosition: null });
@@ -29,15 +31,15 @@ export function createWorkspaceSectionFromCommand(
     return false;
   }
   const section = command.createSection(context);
-  const placement = resolveWorkspaceEmptySpacePlacement(section);
-  insertWorkspaceSection(section, placement.position);
+  const placement = resolveWorkspaceEmptySpacePlacement(host, section);
+  insertWorkspaceSection(host, section, placement.position);
   // The reference's `centerViewportOnCreatedSection`: travel to the section at the zoom level the
   // canvas is already at, so creating something out of sight never rescales the workspace. A
   // canvas whose zoom pane has not initialized has nowhere to travel, exactly as keyboard focus
   // movement finds when it arrives that early.
-  if (placement.panTo && getIsZoomRuntimeReady()) {
-    setCenter(placement.panTo.x, placement.panTo.y, {
-      zoom: useReactFlow.getState().transform[2],
+  if (placement.panTo && getIsZoomRuntimeReady(host)) {
+    setCenter(host, placement.panTo.x, placement.panTo.y, {
+      zoom: getReactFlowStore(host).getState().transform[2],
       duration: CREATION_PAN_DURATION_MS,
     });
   }

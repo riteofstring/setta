@@ -1,46 +1,78 @@
 import { reprojectNodeStylesForAppearance } from "./nodeProjection";
 import {
-  useNodeInternals,
-  useWorkspaceAppearance,
-  useWorkspaceDocument,
+  getNodeInternalsStore,
+  getWorkspaceAppearanceStore,
+  getWorkspaceDocumentStore,
   type WorkspaceColorMode,
 } from "./stores";
+import type { WorkspaceHost } from "../workspaceHost";
+import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
 
 const SYSTEM_DARK_MODE_QUERY = "(prefers-color-scheme: dark)";
 
-let systemColorSchemeQuery: MediaQueryList | null = null;
-let systemColorSchemeListener: ((event: MediaQueryListEvent) => void) | null =
-  null;
+type AppearanceRuntime = {
+  removeHostCleanup: (() => void) | null;
+  systemColorSchemeListener: ((event: MediaQueryListEvent) => void) | null;
+  systemColorSchemeQuery: MediaQueryList | null;
+};
 
-function reprojectWorkspaceNodes() {
-  const documentState = useWorkspaceDocument.getState();
-  const currentNodes = useNodeInternals.getState().x;
+const appearanceRuntimesByHost = new WeakMap<WorkspaceHost, AppearanceRuntime>();
+
+function getAppearanceRuntime(host: WorkspaceHost): AppearanceRuntime {
+  const existing = appearanceRuntimesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const runtime: AppearanceRuntime = {
+    removeHostCleanup: null,
+    systemColorSchemeListener: null,
+    systemColorSchemeQuery: null,
+  };
+  runtime.removeHostCleanup = registerWorkspaceHostCleanup(host, () => {
+    stopSystemColorSchemeSync(host);
+    appearanceRuntimesByHost.delete(host);
+  });
+  appearanceRuntimesByHost.set(host, runtime);
+  return runtime;
+}
+
+function reprojectWorkspaceNodes(host: WorkspaceHost) {
+  const documentState = getWorkspaceDocumentStore(host).getState();
+  const nodeStore = getNodeInternalsStore(host);
+  const currentNodes = nodeStore.getState().x;
   const nextNodes = reprojectNodeStylesForAppearance(
+    host,
     documentState,
     currentNodes,
   );
   if (nextNodes !== currentNodes) {
-    useNodeInternals.setState({ x: nextNodes });
+    nodeStore.setState({ x: nextNodes });
   }
 }
 
-function publishAppearance(colorMode: WorkspaceColorMode, darkMode: boolean) {
-  const previousDarkMode = useWorkspaceAppearance.getState().darkMode;
-  useWorkspaceAppearance.setState({ colorMode, darkMode });
+function publishAppearance(
+  host: WorkspaceHost,
+  colorMode: WorkspaceColorMode,
+  darkMode: boolean,
+) {
+  const appearanceStore = getWorkspaceAppearanceStore(host);
+  const previousDarkMode = appearanceStore.getState().darkMode;
+  appearanceStore.setState({ colorMode, darkMode });
   if (darkMode !== previousDarkMode) {
-    reprojectWorkspaceNodes();
+    reprojectWorkspaceNodes(host);
   }
 }
 
-function stopSystemColorSchemeSync() {
-  if (systemColorSchemeQuery && systemColorSchemeListener) {
-    systemColorSchemeQuery.removeEventListener(
+function stopSystemColorSchemeSync(host: WorkspaceHost) {
+  const runtime = getAppearanceRuntime(host);
+  if (runtime.systemColorSchemeQuery && runtime.systemColorSchemeListener) {
+    runtime.systemColorSchemeQuery.removeEventListener(
       "change",
-      systemColorSchemeListener,
+      runtime.systemColorSchemeListener,
     );
   }
-  systemColorSchemeQuery = null;
-  systemColorSchemeListener = null;
+  runtime.systemColorSchemeQuery = null;
+  runtime.systemColorSchemeListener = null;
 }
 
 function getSystemColorSchemeQuery(): MediaQueryList {
@@ -64,22 +96,29 @@ function getSystemColorSchemeQuery(): MediaQueryList {
   return mediaQuery;
 }
 
-function startSystemColorSchemeSync(mediaQuery: MediaQueryList) {
+function startSystemColorSchemeSync(
+  host: WorkspaceHost,
+  mediaQuery: MediaQueryList,
+) {
+  const runtime = getAppearanceRuntime(host);
   const listener = (event: MediaQueryListEvent) => {
     if (
-      useWorkspaceAppearance.getState().colorMode === "system" &&
-      systemColorSchemeQuery === mediaQuery
+      getWorkspaceAppearanceStore(host).getState().colorMode === "system" &&
+      runtime.systemColorSchemeQuery === mediaQuery
     ) {
-      publishAppearance("system", event.matches);
+      publishAppearance(host, "system", event.matches);
     }
   };
   mediaQuery.addEventListener("change", listener);
-  systemColorSchemeQuery = mediaQuery;
-  systemColorSchemeListener = listener;
-  publishAppearance("system", mediaQuery.matches);
+  runtime.systemColorSchemeQuery = mediaQuery;
+  runtime.systemColorSchemeListener = listener;
+  publishAppearance(host, "system", mediaQuery.matches);
 }
 
-export function setWorkspaceColorMode(colorMode: WorkspaceColorMode): void {
+export function setWorkspaceColorMode(
+  host: WorkspaceHost,
+  colorMode: WorkspaceColorMode,
+): void {
   if (colorMode !== "light" && colorMode !== "dark" && colorMode !== "system") {
     throw new Error(`Unknown workspace color mode: ${String(colorMode)}.`);
   }
@@ -87,18 +126,10 @@ export function setWorkspaceColorMode(colorMode: WorkspaceColorMode): void {
     // Resolve support before replacing a working mode/listener so a rejected system request is
     // atomic from the consumer's perspective.
     const mediaQuery = getSystemColorSchemeQuery();
-    stopSystemColorSchemeSync();
-    startSystemColorSchemeSync(mediaQuery);
+    stopSystemColorSchemeSync(host);
+    startSystemColorSchemeSync(host, mediaQuery);
     return;
   }
-  stopSystemColorSchemeSync();
-  publishAppearance(colorMode, colorMode === "dark");
+  stopSystemColorSchemeSync(host);
+  publishAppearance(host, colorMode, colorMode === "dark");
 }
-
-// A direct store reset is useful in focused consumers/tests. It must not leave the process-level
-// system media listener alive after the state returns to its explicit-light initial value.
-useWorkspaceAppearance.subscribe((state) => {
-  if (state.colorMode !== "system") {
-    stopSystemColorSchemeSync();
-  }
-});

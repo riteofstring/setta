@@ -1,7 +1,8 @@
 import { useCallback } from "react";
 import { getSectionOrThrow } from "../document/documentSelectors";
-import { useWorkspaceDocument } from "../document/stores";
+import { getWorkspaceDocumentStore } from "../document/stores";
 import type { WorkspaceSection } from "../document/types";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import {
   NO_DRAG_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
@@ -56,11 +57,12 @@ export function WorkspaceTextSectionBody({
   section,
   choices,
 }: WorkspaceTextSectionBodyProps) {
+  const host = useWorkspaceHost();
   const data = parseWorkspaceTextSectionData(section.id, section.data, choices);
   return data.displayMode === "render" ? (
     <RenderedText data={data} />
   ) : (
-    <TextSectionEditor data={data} section={section} />
+    <TextSectionEditor data={data} host={host} section={section} />
   );
 }
 
@@ -95,9 +97,11 @@ function RenderedText({ data }: { data: WorkspaceTextSectionData }) {
 
 function TextSectionEditor({
   data,
+  host,
   section,
 }: {
   data: WorkspaceTextSectionData;
+  host: ReturnType<typeof useWorkspaceHost>;
   section: WorkspaceSection;
 }) {
   const sectionId = section.id;
@@ -108,10 +112,10 @@ function TextSectionEditor({
   const onChange = useCallback(
     (nextText: string) => {
       const liveSection = getSectionOrThrow(
-        useWorkspaceDocument.getState(),
+        getWorkspaceDocumentStore(host).getState(),
         sectionId,
       );
-      const liveData = getWorkspaceTextSectionData(sectionId);
+      const liveData = getWorkspaceTextSectionData(host, sectionId);
       if (
         liveData.readOnly ||
         liveSection.positionAndSizeLocked ||
@@ -119,9 +123,12 @@ function TextSectionEditor({
       ) {
         return;
       }
-      setWorkspaceTextSectionData(sectionId, { ...liveData, text: nextText });
+      setWorkspaceTextSectionData(host, sectionId, {
+        ...liveData,
+        text: nextText,
+      });
     },
-    [sectionId],
+    [host, sectionId],
   );
 
   return (

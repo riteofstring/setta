@@ -1,14 +1,16 @@
 /* @vitest-environment jsdom */
 
 import {
-  getWorkspaceDocument,
-  loadWorkspaceDocument,
+  createWorkspaceHost,
+  WorkspaceProvider,
+  type WorkspaceHost,
   type WorkspaceSection,
   type WorkspaceSectionData,
 } from "@setta/workspace";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { playgroundDocument } from "./playgroundDocument";
 import {
   commitPlaygroundMetaControlEditRequest,
@@ -21,8 +23,10 @@ import {
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+let workspaceHost: WorkspaceHost;
+
 function getMetaSection(sectionId: string): WorkspaceSection {
-  const section = getWorkspaceDocument().sections[sectionId];
+  const section = workspaceHost.getSnapshot().sections[sectionId];
   if (!section) {
     throw new Error(`The playground document lost meta section ${sectionId}.`);
   }
@@ -103,10 +107,10 @@ describe("the playground representative meta controls", () => {
   let host: HTMLDivElement;
   let root: Root;
 
-  beforeAll(registerPlaygroundSectionKinds);
-
   beforeEach(() => {
-    loadWorkspaceDocument(playgroundDocument);
+    workspaceHost = createWorkspaceHost();
+    registerPlaygroundSectionKinds(workspaceHost);
+    workspaceHost.loadDocument(playgroundDocument);
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -115,14 +119,19 @@ describe("the playground representative meta controls", () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     host.remove();
+    workspaceHost.dispose();
   });
 
   async function mount(sectionId: string) {
     await act(async () => {
       root.render(
-        createElement(MetaControlSectionBody, {
-          section: getMetaSection(sectionId),
-        }),
+        createElement(
+          WorkspaceProvider,
+          { host: workspaceHost },
+          createElement(MetaControlSectionBody, {
+            section: getMetaSection(sectionId),
+          }),
+        ),
       );
     });
   }
@@ -188,7 +197,7 @@ describe("the playground representative meta controls", () => {
     await act(async () => button?.click());
     expect(getMetaDataNumber("meta-button", "actionCount")).toBe(1);
 
-    commitPlaygroundMetaControlEditRequest("meta-button");
+    commitPlaygroundMetaControlEditRequest(workspaceHost, "meta-button");
     expect(getMetaDataNumber("meta-button", "editRequests")).toBe(1);
   });
 
@@ -287,7 +296,12 @@ describe("the playground representative meta controls", () => {
   });
 
   it("commits controlled values and dropzone metadata through host-owned section data", async () => {
-    commitPlaygroundMetaControlValue("meta-text", "text", "threshold");
+    commitPlaygroundMetaControlValue(
+      workspaceHost,
+      "meta-text",
+      "text",
+      "threshold",
+    );
     expect(getMetaDataString("meta-text", "value")).toBe("threshold");
 
     await mount("meta-switch");
@@ -322,13 +336,19 @@ describe("the playground representative meta controls", () => {
 
   it("fails specifically for an unknown host control kind", () => {
     expect(() =>
-      MetaControlSectionBody({
-        section: {
-          ...getMetaSection("meta-text"),
-          id: "meta-mystery",
-          data: { control: "mystery", showSectionTitle: false },
-        },
-      }),
+      renderToStaticMarkup(
+        createElement(
+          WorkspaceProvider,
+          { host: workspaceHost },
+          createElement(MetaControlSectionBody, {
+            section: {
+              ...getMetaSection("meta-text"),
+              id: "meta-mystery",
+              data: { control: "mystery", showSectionTitle: false },
+            },
+          }),
+        ),
+      ),
     ).toThrowError(
       "Meta control section meta-mystery names the unknown control mystery.",
     );

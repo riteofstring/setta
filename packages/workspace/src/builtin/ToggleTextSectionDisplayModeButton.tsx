@@ -1,6 +1,7 @@
 import { HiOutlineDocumentText, HiOutlinePencil } from "react-icons/hi";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import type { WorkspaceSection } from "../document/types";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import { getWorkspaceTooltipHandlers } from "../tooltip/WorkspaceTooltip";
 import {
   getWorkspaceTextSectionData,
@@ -36,6 +37,7 @@ export function ToggleTextSectionDisplayModeButton({
   choices: WorkspaceTextSectionChoices;
   section: WorkspaceSection;
 }) {
+  const host = useWorkspaceHost();
   const canEditLayout = useWorkspaceCapabilities((x) => x.canEditLayout);
   const { displayMode, format } = parseWorkspaceTextSectionData(
     section.id,
@@ -53,8 +55,8 @@ export function ToggleTextSectionDisplayModeButton({
     if (isDisabled) {
       return;
     }
-    setWorkspaceTextSectionData(section.id, {
-      ...getWorkspaceTextSectionData(section.id),
+    setWorkspaceTextSectionData(host, section.id, {
+      ...getWorkspaceTextSectionData(host, section.id),
       displayMode: nextDisplayMode,
     });
   }
@@ -78,7 +80,7 @@ export function ToggleTextSectionDisplayModeButton({
       onClick={onClick}
       title={label}
       type="button"
-      {...getWorkspaceTooltipHandlers({ content: label })}
+      {...getWorkspaceTooltipHandlers(host, { content: label })}
     >
       {isRenderMode ? (
         <HiOutlinePencil aria-hidden="true" className="h-3 w-3" />

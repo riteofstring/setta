@@ -1,5 +1,9 @@
-import { useWorkspaceDocument, type WorkspaceDocumentState } from "./stores";
+import {
+  getWorkspaceDocumentStore,
+  type WorkspaceDocumentState,
+} from "./stores";
 import type { WorkspaceSection, WorkspaceSectionItemTree } from "./types";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // The package equivalent of the reference's `SectionTypeEnum.Group`: groups are the one
 // package-owned section kind (nested children, orientation, group chrome). Every other kind is
@@ -67,13 +71,23 @@ export function getSectionChildren(
 // The reference resolves this through the variant indirection (`getSectionIsHorizontalOrientation`
 // in `state/actions/sectionInfos.ts`); the package reads the resolved section. Non-groups are
 // never horizontal, exactly as the reference answers for non-group section types.
-export function getSectionIsHorizontalOrientation(sectionId: string): boolean {
-  const section = getSectionOrThrow(useWorkspaceDocument.getState(), sectionId);
+export function getSectionIsHorizontalOrientation(
+  host: WorkspaceHost,
+  sectionId: string,
+): boolean {
+  const section = getSectionOrThrow(
+    getWorkspaceDocumentStore(host).getState(),
+    sectionId,
+  );
   return isGroupSection(section) && section.isHorizontalOrientation;
 }
 
-export function getHighestAncestor(sectionId: string): string {
-  const parentSectionMap = useWorkspaceDocument.getState().parentSectionMap;
+export function getHighestAncestor(
+  host: WorkspaceHost,
+  sectionId: string,
+): string {
+  const parentSectionMap = getWorkspaceDocumentStore(host).getState()
+    .parentSectionMap;
   let parentId = parentSectionMap[sectionId] ?? null;
   let highestAncestor = sectionId;
   while (parentId) {

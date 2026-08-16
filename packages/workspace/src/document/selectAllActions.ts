@@ -3,8 +3,9 @@ import { getActiveSectionIds, setActiveSectionIds } from "./activeSections";
 import { isGroupSection } from "./documentSelectors";
 import { setSelectedItems } from "./itemSelection";
 import { getItemOrThrow } from "./itemTree";
-import { useWorkspaceDocument } from "./stores";
+import { getWorkspaceDocumentStore } from "./stores";
 import type { WorkspaceSectionItemTree } from "./types";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // The reference's two select-all actions (`selectAll` and `setTopLevelNonGroupSectionsAsActive`
 // in `state/actions/activeSections.ts`) as canonical package operations. Both commit through the
@@ -37,13 +38,13 @@ function listVisibleItemIdsInTreeOrder(
 // The reference narrows select-all to the parameters of a single active section but never
 // finished the branch (it logs the resolved ids). The package implements it over the rows that
 // section is actually showing, and declines when it has none so the chord stays with the browser.
-function selectAllVisibleItems(sectionId: string): boolean {
+function selectAllVisibleItems(host: WorkspaceHost, sectionId: string): boolean {
   const itemTree =
-    useWorkspaceDocument.getState().sections[sectionId]?.itemTree;
+    getWorkspaceDocumentStore(host).getState().sections[sectionId]?.itemTree;
   if (!itemTree) {
     return false;
   }
-  const visibility = getSectionItemVisibility(sectionId);
+  const visibility = getSectionItemVisibility(host, sectionId);
   if (!visibility) {
     return false;
   }
@@ -54,26 +55,30 @@ function selectAllVisibleItems(sectionId: string): boolean {
   if (itemIds.length === 0) {
     return false;
   }
-  setSelectedItems(sectionId, itemIds);
+  setSelectedItems(host, sectionId, itemIds);
   return true;
 }
 
-export function selectAllInWorkspace(): boolean {
-  const activeIds = getActiveSectionIds();
+export function selectAllInWorkspace(host: WorkspaceHost): boolean {
+  const activeIds = getActiveSectionIds(host);
   const soleActiveId = activeIds.length === 1 ? activeIds[0] : undefined;
   if (soleActiveId !== undefined) {
-    return selectAllVisibleItems(soleActiveId);
+    return selectAllVisibleItems(host, soleActiveId);
   }
-  setActiveSectionIds(Object.keys(useWorkspaceDocument.getState().sections));
+  setActiveSectionIds(
+    host,
+    Object.keys(getWorkspaceDocumentStore(host).getState().sections),
+  );
   return true;
 }
 
 // The reference's companion action: every top-level section that is not a group, so a selection
 // covers the workspace's own sections without also carrying the containers around them. An empty
 // result clears the selection, exactly as the reference commits it.
-export function selectAllTopLevelNonGroupSections(): void {
-  const state = useWorkspaceDocument.getState();
+export function selectAllTopLevelNonGroupSections(host: WorkspaceHost): void {
+  const state = getWorkspaceDocumentStore(host).getState();
   setActiveSectionIds(
+    host,
     Object.keys(state.topLevelSections).filter((sectionId) => {
       const section = state.sections[sectionId];
       return section !== undefined && !isGroupSection(section);

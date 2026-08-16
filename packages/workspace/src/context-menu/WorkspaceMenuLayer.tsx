@@ -6,6 +6,8 @@ import {
 } from "../commands/workspaceCommandResolution";
 import type { WorkspaceCommandSurface } from "../commands/workspaceCommandTypes";
 import { useWorkspaceCapabilities } from "../document/capabilities";
+import { useWorkspaceHost } from "../workspaceHostContext";
+import type { WorkspaceHost } from "../workspaceHost";
 import { getWorkspaceCreationCommands } from "./creationCommandStore";
 import {
   WorkspaceActionMenu,
@@ -20,7 +22,10 @@ import { WorkspacePaneMenu } from "./WorkspacePaneMenu";
 
 // Menus render whatever the command registry offers for their surface: package commands first,
 // host commands in their own group, both invoked through the same execution path.
-function toMenuEntry(entry: WorkspaceCommandEntry): WorkspaceMenuEntry {
+function toMenuEntry(
+  host: WorkspaceHost,
+  entry: WorkspaceCommandEntry,
+): WorkspaceMenuEntry {
   return {
     id: entry.id,
     label: entry.label,
@@ -31,20 +36,21 @@ function toMenuEntry(entry: WorkspaceCommandEntry): WorkspaceMenuEntry {
       : { description: entry.disabledReason }),
     disabled: entry.disabled,
     onSelect: () => {
-      closeWorkspaceMenu();
+      closeWorkspaceMenu(host);
       entry.run();
     },
   };
 }
 
 function getMenuGroups(
+  host: WorkspaceHost,
   entries: ReadonlyArray<WorkspaceCommandEntry>,
 ): Array<{ entries: ReadonlyArray<WorkspaceMenuEntry> }> {
   const groups: Array<{ entries: ReadonlyArray<WorkspaceMenuEntry> }> = [];
   for (const origin of ["package", "host"] as const) {
     const originEntries = entries
       .filter((entry) => entry.origin === origin)
-      .map(toMenuEntry);
+      .map((entry) => toMenuEntry(host, entry));
     if (originEntries.length > 0) {
       groups.push({ entries: originEntries });
     }
@@ -70,6 +76,7 @@ function SectionActionMenu({
 }: {
   invocation: SectionMenuInvocation;
 }) {
+  const host = useWorkspaceHost();
   const entries = useWorkspaceCommandEntries(invocation.surface, [
     invocation.context,
   ]);
@@ -78,7 +85,7 @@ function SectionActionMenu({
       ariaLabel={getSectionMenuAriaLabel(invocation.surface)}
       clientPoint={invocation.clientPoint}
       direction={invocation.direction}
-      groups={getMenuGroups(entries)}
+      groups={getMenuGroups(host, entries)}
       initialFocus={invocation.initialFocus}
       invocationSequence={invocation.sequence}
       kind="section"
@@ -91,6 +98,7 @@ type ItemMenuInvocation = Extract<WorkspaceMenuInvocation, { kind: "item" }>;
 const ITEM_MENU_SURFACE: WorkspaceCommandSurface = "context-menu";
 
 function ItemActionMenu({ invocation }: { invocation: ItemMenuInvocation }) {
+  const host = useWorkspaceHost();
   const entries = useWorkspaceCommandEntries(ITEM_MENU_SURFACE, [
     invocation.context,
   ]);
@@ -99,7 +107,7 @@ function ItemActionMenu({ invocation }: { invocation: ItemMenuInvocation }) {
       ariaLabel="Workspace item actions"
       clientPoint={invocation.clientPoint}
       direction={invocation.direction}
-      groups={getMenuGroups(entries)}
+      groups={getMenuGroups(host, entries)}
       invocationSequence={invocation.sequence}
       kind="item"
     />
@@ -115,20 +123,22 @@ function PaneActionMenu({
   canEditStructure: boolean;
   invocation: PaneMenuInvocation;
 }) {
+  const host = useWorkspaceHost();
   const entries = useWorkspaceCommandEntries("context-menu", [
     invocation.context,
   ]);
   return (
     <WorkspacePaneMenu
-      actions={entries.map(toMenuEntry)}
+      actions={entries.map((entry) => toMenuEntry(host, entry))}
       canEditStructure={canEditStructure}
-      commands={getWorkspaceCreationCommands()}
+      commands={getWorkspaceCreationCommands(host)}
       invocation={invocation}
     />
   );
 }
 
 export function WorkspaceMenuLayer() {
+  const host = useWorkspaceHost();
   const invocation = useWorkspaceMenuState((state) => state.invocation);
   const canEditStructure = useWorkspaceCapabilities(
     (state) => state.canEditStructure,
@@ -139,13 +149,13 @@ export function WorkspaceMenuLayer() {
 
   useEffect(() => {
     if (viewportGestureActive) {
-      closeWorkspaceMenu(false);
+      closeWorkspaceMenu(host, false);
     }
-  }, [viewportGestureActive]);
+  }, [host, viewportGestureActive]);
 
   useEffect(() => {
-    return () => closeWorkspaceMenu(false);
-  }, []);
+    return () => closeWorkspaceMenu(host, false);
+  }, [host]);
 
   if (!invocation) {
     return null;

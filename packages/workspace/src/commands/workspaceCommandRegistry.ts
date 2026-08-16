@@ -11,6 +11,7 @@ import type {
   WorkspaceCommandSurface,
   WorkspacePackageCommandDefinition,
 } from "./workspaceCommandTypes";
+import type { WorkspaceHost } from "../workspaceHost";
 
 const COMMAND_ID_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]*$/u;
 const PACKAGE_COMMAND_PREFIX = "workspace.";
@@ -47,7 +48,16 @@ const packageCommands: ReadonlyArray<RegisteredWorkspaceCommand> =
     ),
   );
 
-let hostCommands: ReadonlyArray<RegisteredWorkspaceCommand> = [];
+const hostCommandsByHost = new WeakMap<
+  WorkspaceHost,
+  ReadonlyArray<RegisteredWorkspaceCommand>
+>();
+
+function getHostCommands(
+  host: WorkspaceHost,
+): ReadonlyArray<RegisteredWorkspaceCommand> {
+  return hostCommandsByHost.get(host) ?? [];
+}
 
 function assertCommandFunction(
   id: string,
@@ -158,6 +168,7 @@ function validateHostCommand(
 // catalog: a registration that would drop a contributed command, or stop offering the toolbar
 // surface, fails here rather than leaving a control that cannot resolve.
 export function registerWorkspaceCommands(
+  host: WorkspaceHost,
   commands: ReadonlyArray<WorkspaceCommandDefinition>,
 ): void {
   if (!Array.isArray(commands)) {
@@ -168,53 +179,70 @@ export function registerWorkspaceCommands(
     commands.map((command) => validateHostCommand(command, ids)),
   );
   assertWorkspaceToolbarContributions(
-    getWorkspaceToolbarContributions(),
+    getWorkspaceToolbarContributions(host),
     createWorkspaceToolbarCommandCatalog(
       [...packageCommands, ...validated].map((command) => command.definition),
-      getWorkspaceCreationCommands(),
+      getWorkspaceCreationCommands(host),
     ),
   );
-  hostCommands = validated;
-  commandsBySurfaceKey.clear();
+  hostCommandsByHost.set(host, validated);
+  getCommandsBySurfaceKey(host).clear();
 }
 
 // Section headers ask for their surface on every document change, so the composed per-surface list
 // is built once per registration instead of once per question.
-const commandsBySurfaceKey = new Map<
-  string,
-  ReadonlyArray<RegisteredWorkspaceCommand>
+const commandsBySurfaceKeyByHost = new WeakMap<
+  WorkspaceHost,
+  Map<string, ReadonlyArray<RegisteredWorkspaceCommand>>
 >();
 
+function getCommandsBySurfaceKey(
+  host: WorkspaceHost,
+): Map<string, ReadonlyArray<RegisteredWorkspaceCommand>> {
+  const existing = commandsBySurfaceKeyByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const cache = new Map<string, ReadonlyArray<RegisteredWorkspaceCommand>>();
+  commandsBySurfaceKeyByHost.set(host, cache);
+  return cache;
+}
+
 export function getWorkspaceCommands(
+  host: WorkspaceHost,
   scope: WorkspaceCommandScope,
   surface: WorkspaceCommandSurface,
 ): ReadonlyArray<RegisteredWorkspaceCommand> {
   const key = `${scope}:${surface}`;
-  const cached = commandsBySurfaceKey.get(key);
+  const cache = getCommandsBySurfaceKey(host);
+  const cached = cache.get(key);
   if (cached) {
     return cached;
   }
   const commands = Object.freeze(
-    [...packageCommands, ...hostCommands].filter(
+    [...packageCommands, ...getHostCommands(host)].filter(
       (command) =>
         command.definition.scope === scope &&
         command.definition.surfaces.includes(surface),
     ),
   );
-  commandsBySurfaceKey.set(key, commands);
+  cache.set(key, commands);
   return commands;
 }
 
 // Every registered command, in registration order, for the surfaces that address commands by id
 // instead of asking for a surface's set.
-export function listWorkspaceCommands(): ReadonlyArray<RegisteredWorkspaceCommand> {
-  return [...packageCommands, ...hostCommands];
+export function listWorkspaceCommands(
+  host: WorkspaceHost,
+): ReadonlyArray<RegisteredWorkspaceCommand> {
+  return [...packageCommands, ...getHostCommands(host)];
 }
 
 export function getWorkspaceCommandOrThrow(
+  host: WorkspaceHost,
   id: string,
 ): RegisteredWorkspaceCommand {
-  const command = listWorkspaceCommands().find(
+  const command = listWorkspaceCommands(host).find(
     (candidate) => candidate.definition.id === id,
   );
   if (!command) {

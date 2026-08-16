@@ -1,12 +1,13 @@
 import _ from "lodash";
 import type { MouseEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
-import { useCanvasGestures } from "../../canvas/gestureState";
+import { getCanvasGesturesStore } from "../../canvas/gestureState";
 import { useWorkspaceOptions } from "../../canvas/options";
 import { useShouldDisablePointerEvents } from "../../canvas/useShouldDisablePointerEvents";
 import { useWorkspaceCapabilities } from "../../document/capabilities";
 import { getSectionOrThrow } from "../../document/documentSelectors";
 import { useWorkspaceDocument } from "../../document/stores";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 import type { SectionSize } from "../../document/types";
 import {
   NO_PAN_CLASS_NAME,
@@ -104,6 +105,7 @@ export function CustomResizable({
   isMetaControl = false,
   children,
 }: CustomResizableProps) {
+  const host = useWorkspaceHost();
   const { minHeight, maxHeight, minWidth, maxWidth, heightSizeMode } =
     useSectionMinMaxDims(sectionId);
   const size = useWorkspaceDocument(
@@ -145,14 +147,14 @@ export function CustomResizable({
     });
     if (nextSize) {
       autoSizePromotedRef.current = true;
-      persistSectionSizeChange(sectionId, nextSize);
+      persistSectionSizeChange(host, sectionId, nextSize);
     }
   }
 
   function startResizeEvent(direction: ResizeHandleDirection) {
     if (isHeightResizeDirection(direction) && !resizeStartedRef.current) {
       resizeStartedRef.current = true;
-      setSectionResizeEvent(sectionId, "start");
+      setSectionResizeEvent(host, sectionId, "start");
     }
   }
 
@@ -161,7 +163,7 @@ export function CustomResizable({
     resizeStartedRef.current = false;
     autoSizePromotedRef.current = false;
     resizeAttemptedRef.current = false;
-    useCanvasGestures.setState({ mouseDownDraggingSection: true });
+    getCanvasGesturesStore(host).setState({ mouseDownDraggingSection: true });
   }
 
   function onResize(
@@ -189,9 +191,9 @@ export function CustomResizable({
 
   function finishResizeStop(shouldEmitResizeEnd: boolean) {
     if (shouldEmitResizeEnd) {
-      setSectionResizeEvent(sectionId, "end");
+      setSectionResizeEvent(host, sectionId, "end");
     }
-    useCanvasGestures.setState({ mouseDownDraggingSection: false });
+    getCanvasGesturesStore(host).setState({ mouseDownDraggingSection: false });
     resizeStartedRef.current = false;
     autoSizePromotedRef.current = false;
     resizeAttemptedRef.current = false;
@@ -229,7 +231,7 @@ export function CustomResizable({
       isDoubleClick,
     });
     const clampedSize = clampChangedSize({ changedSize, minHeight, minWidth });
-    persistSectionSizeChange(sectionId, clampedSize);
+    persistSectionSizeChange(host, sectionId, clampedSize);
     finishResizeStop(shouldEmitResizeEnd);
   }
 
@@ -238,7 +240,7 @@ export function CustomResizable({
       // This is projected document normalization rather than a user layout edit. Frozen main
       // enforces auto-only sizing even for locked/read-only sections so a control-kind change
       // cannot leave Slider, Dropdown, or Password at an unsupported manual height.
-      persistSectionSizeChange(sectionId, { height: "auto" });
+      persistSectionSizeChange(host, sectionId, { height: "auto" });
       return;
     }
     const nextSize = getAutoClampSize({ size, minHeight, minWidth });
@@ -248,7 +250,7 @@ export function CustomResizable({
     if (!canEditLayout || positionAndSizeLocked) {
       return;
     }
-    persistSectionSizeChange(sectionId, nextSize);
+    persistSectionSizeChange(host, sectionId, nextSize);
     // `size` is selected with deep equality, so its identity only changes with its contents.
   }, [
     minHeight,
@@ -258,6 +260,7 @@ export function CustomResizable({
     canEditLayout,
     positionAndSizeLocked,
     heightSizeMode,
+    host,
   ]);
 
   const heightResizable =

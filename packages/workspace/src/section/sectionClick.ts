@@ -1,17 +1,18 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { applyActiveSectionChange } from "../canvas/activeSectionController";
-import { useCanvasGestures } from "../canvas/gestureState";
+import { getCanvasGesturesStore } from "../canvas/gestureState";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "../interaction";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // Extracted from the reference's `Container/utils.tsx` (minus the app-only draw-area branch).
-export function getOnSectionClick(sectionId: string) {
+export function getOnSectionClick(host: WorkspaceHost, sectionId: string) {
   return (event: ReactMouseEvent) => {
     const target = event.target instanceof Element ? event.target : null;
     if (
       target?.closest(
         `button, [role="menuitem"], .${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`,
       ) ||
-      useCanvasGestures.getState().mouseDownDraggingSection
+      getCanvasGesturesStore(host).getState().mouseDownDraggingSection
     ) {
       // if a child button, menu item, or resizable is clicked,
       // or a section resize/drag is in progress,
@@ -19,6 +20,6 @@ export function getOnSectionClick(sectionId: string) {
       return;
     }
     event.stopPropagation(); // to prevent parent section from becoming active
-    applyActiveSectionChange({ interaction: "section-click", sectionId });
+    applyActiveSectionChange(host, { interaction: "section-click", sectionId });
   };
 }

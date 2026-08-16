@@ -1,26 +1,34 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
 import {
   addDndChild,
   removeDndChild,
   replaceDndSectionsWithTemp,
   updateDndChildren,
-  useDndChildren,
+  getDndChildrenStore,
 } from "./dndChildren";
 import { getDndSectionId } from "./dndIds";
 
 describe("dndChildren state", () => {
+  let host: WorkspaceHost;
+
   beforeEach(() => {
-    useDndChildren.getState().reset();
+    host = createWorkspaceHost();
+    getDndChildrenStore(host).getState().reset();
+  });
+
+  afterEach(() => {
+    host.dispose();
   });
 
   it("builds parent and reverse-child maps from section children", () => {
     // Validates map hydration from canonical parent->children input.
-    updateDndChildren({
+    updateDndChildren(host, {
       parentA: ["child1", "child2"],
       parentB: ["child3"],
     });
 
-    const state = useDndChildren.getState();
+    const state = getDndChildrenStore(host).getState();
     expect(state.x).toEqual({
       parentA: ["child1", "child2"],
       parentB: ["child3"],
@@ -34,14 +42,14 @@ describe("dndChildren state", () => {
 
   it("moves a child between parents at a specific index", () => {
     // Validates add operation performs remove + indexed insert + reverse map update.
-    updateDndChildren({
+    updateDndChildren(host, {
       parentA: ["child1", "child2"],
       parentB: ["child3"],
     });
 
-    addDndChild("parentA", "parentB", "child1", 1);
+    addDndChild(host, "parentA", "parentB", "child1", 1);
 
-    const state = useDndChildren.getState();
+    const state = getDndChildrenStore(host).getState();
     expect(state.x.parentA).toEqual(["child2"]);
     expect(state.x.parentB).toEqual(["child3", "child1"]);
     expect(state.y.child1).toBe("parentB");
@@ -49,13 +57,13 @@ describe("dndChildren state", () => {
 
   it("removes a child from its current parent", () => {
     // Validates removal updates both parent children and reverse map.
-    updateDndChildren({
+    updateDndChildren(host, {
       parentA: ["child1", "child2"],
     });
 
-    removeDndChild("child1");
+    removeDndChild(host, "child1");
 
-    const state = useDndChildren.getState();
+    const state = getDndChildrenStore(host).getState();
     expect(state.x.parentA).toEqual(["child2"]);
     expect(state.y.child1).toBeUndefined();
   });
@@ -63,15 +71,15 @@ describe("dndChildren state", () => {
   it("replaces dragged sections with a temporary placeholder", () => {
     // Validates grouped drag placeholder insertion and stale temp cleanup.
     const staleTempId = getDndSectionId("stale");
-    updateDndChildren({
+    updateDndChildren(host, {
       parentA: ["a", "b", "c"],
       parentB: [staleTempId],
     });
 
-    replaceDndSectionsWithTemp("active", ["b", "c"]);
+    replaceDndSectionsWithTemp(host, "active", ["b", "c"]);
 
     const tempId = getDndSectionId("active");
-    const state = useDndChildren.getState();
+    const state = getDndChildrenStore(host).getState();
     expect(state.x.parentA).toEqual(["a", tempId]);
     expect(state.x.parentB).toEqual([]);
     expect(state.y[tempId]).toBe("parentA");

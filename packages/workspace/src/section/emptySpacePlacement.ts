@@ -1,15 +1,19 @@
 import { getPaneRect } from "../canvas/graph";
-import { useReactFlow } from "../canvas/store";
+import { getReactFlowStore } from "../canvas/store";
 import { getMetaControlMinimumSize } from "../controls/meta/metaControlTypes";
 import { isGroupSection } from "../document/documentSelectors";
 import { getMetaControlPresentation } from "../document/sectionKindRegistry";
 import { resolveWorkspaceSectionSize } from "../document/sectionSize";
-import { useNodeInternals, useWorkspaceDocument } from "../document/stores";
+import {
+  getNodeInternalsStore,
+  getWorkspaceDocumentStore,
+} from "../document/stores";
 import type {
   Position,
   SectionSizeValue,
   WorkspaceSectionInput,
 } from "../document/types";
+import type { WorkspaceHost } from "../workspaceHost";
 import { SECTION_SIZING_POLICY } from "./resize/sizingPolicy";
 
 // Where a section goes when nobody pointed at a place for it. The reference sends this decision to
@@ -38,10 +42,13 @@ const PLACEMENT_PADDING = 24;
 const MINIMUM_GRID_STEP = 20;
 const MAXIMUM_GRID_STEP = 80;
 
-function resolveMinimumExtent(section: WorkspaceSectionInput): PlacementExtent {
+function resolveMinimumExtent(
+  host: WorkspaceHost,
+  section: WorkspaceSectionInput,
+): PlacementExtent {
   const presentation = isGroupSection(section)
     ? null
-    : getMetaControlPresentation(section);
+    : getMetaControlPresentation(host, section);
   const minimumSize = presentation
     ? getMetaControlMinimumSize(presentation.resolveControlKind(section))
     : null;
@@ -67,11 +74,12 @@ function resolveExtentDimension(
 }
 
 function resolveSectionExtent(
+  host: WorkspaceHost,
   section: WorkspaceSectionInput,
   measured: { width: number | null; height: number | null },
 ): PlacementExtent {
-  const size = resolveWorkspaceSectionSize(section);
-  const minimum = resolveMinimumExtent(section);
+  const size = resolveWorkspaceSectionSize(host, section);
+  const minimum = resolveMinimumExtent(host, section);
   return {
     width: resolveExtentDimension(measured.width, size.width, minimum.width),
     height: resolveExtentDimension(
@@ -84,16 +92,16 @@ function resolveSectionExtent(
 
 // The reference's `createTopLevelSectionLayoutDict`: the stored layout, with the canvas's own
 // measurements of anything it has already laid out written over it.
-function buildOccupiedRects(): Array<PlacementRect> {
-  const { sections, topLevelSections } = useWorkspaceDocument.getState();
-  const nodes = useNodeInternals.getState().x;
+function buildOccupiedRects(host: WorkspaceHost): Array<PlacementRect> {
+  const { sections, topLevelSections } = getWorkspaceDocumentStore(host).getState();
+  const nodes = getNodeInternalsStore(host).getState().x;
   return Object.entries(topLevelSections).flatMap(([sectionId, layout]) => {
     const section = sections[sectionId];
     if (!section) {
       return [];
     }
     const node = nodes.get(sectionId);
-    const extent = resolveSectionExtent(section, {
+    const extent = resolveSectionExtent(host, section, {
       width: node?.width ?? layout.w,
       height: node?.height ?? layout.h,
     });
@@ -101,12 +109,12 @@ function buildOccupiedRects(): Array<PlacementRect> {
   });
 }
 
-function getVisiblePaneRect(): PlacementRect | null {
-  const state = useReactFlow.getState();
+function getVisiblePaneRect(host: WorkspaceHost): PlacementRect | null {
+  const state = getReactFlowStore(host).getState();
   if (state.width <= 0 || state.height <= 0) {
     return null;
   }
-  const pane = getPaneRect(state);
+  const pane = getPaneRect(host, state);
   if (pane.width <= 0 || pane.height <= 0) {
     return null;
   }
@@ -314,12 +322,13 @@ function getPanTarget(
 }
 
 export function resolveWorkspaceEmptySpacePlacement(
+  host: WorkspaceHost,
   section: WorkspaceSectionInput,
 ): WorkspaceEmptySpacePlacement {
-  const extent = resolveSectionExtent(section, { width: null, height: null });
-  const minimum = resolveMinimumExtent(section);
-  const rects = buildOccupiedRects();
-  const pane = getVisiblePaneRect();
+  const extent = resolveSectionExtent(host, section, { width: null, height: null });
+  const minimum = resolveMinimumExtent(host, section);
+  const rects = buildOccupiedRects(host);
+  const pane = getVisiblePaneRect(host);
 
   // Without a measurable canvas there is no "visible" to prefer, so the search falls straight
   // through to the workspace's own layout and the canvas stays where it is.

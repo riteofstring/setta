@@ -5,8 +5,10 @@ import type { WorkspaceCommandIconProps } from "../commands/workspaceCommandType
 import { getWorkspaceCreationCommands } from "../context-menu/creationCommandStore";
 import type { WorkspaceCreationCommand } from "../context-menu/workspaceMenuTypes";
 import { useWorkspaceCapabilities } from "../document/capabilities";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import { createWorkspaceSectionFromCommand } from "../section/createSectionAction";
 import { getWorkspaceToolbarContributions } from "./workspaceToolbarContributions";
+import type { WorkspaceHost } from "../workspaceHost";
 import type {
   WorkspaceToolbarContribution,
   WorkspaceToolbarPlacement,
@@ -26,8 +28,11 @@ export type WorkspaceToolbarEntry = Readonly<{
   tooltip: string;
 }>;
 
-function getCreationCommandOrThrow(id: string): WorkspaceCreationCommand {
-  const command = getWorkspaceCreationCommands().find(
+function getCreationCommandOrThrow(
+  host: WorkspaceHost,
+  id: string,
+): WorkspaceCreationCommand {
+  const command = getWorkspaceCreationCommands(host).find(
     (candidate) => candidate.id === id,
   );
   if (!command) {
@@ -40,12 +45,13 @@ function getCreationCommandOrThrow(id: string): WorkspaceCreationCommand {
 // position: the creation operation resolves the empty space its section lands in, exactly as it
 // does for the chord that creates without a pointer.
 function resolveCreationEntry(
+  host: WorkspaceHost,
   contribution: WorkspaceToolbarContribution,
 ): WorkspaceToolbarEntry {
-  const command = getCreationCommandOrThrow(contribution.commandId);
+  const command = getCreationCommandOrThrow(host, contribution.commandId);
   const context = Object.freeze({ workspacePosition: null });
   const disabled =
-    !useWorkspaceCapabilities.getState().canEditStructure ||
+    !getWorkspaceCapabilitiesStore(host).getState().canEditStructure ||
     (command.isDisabled?.(context) ?? false);
   return Object.freeze({
     checked: null,
@@ -55,18 +61,19 @@ function resolveCreationEntry(
     key: `creation:${command.id}`,
     label: command.label,
     run: () => {
-      createWorkspaceSectionFromCommand(command);
+      createWorkspaceSectionFromCommand(host, command);
     },
     tooltip: contribution.description ?? command.label,
   });
 }
 
 function resolveCommandEntry(
+  host: WorkspaceHost,
   contribution: WorkspaceToolbarContribution,
 ): WorkspaceToolbarEntry {
   const entry = resolveWorkspaceCommandEntry(
     contribution.commandId,
-    createPaneCommandContext(null),
+    createPaneCommandContext(host, null),
   );
   return Object.freeze({
     checked: entry.checked,
@@ -85,11 +92,12 @@ function resolveCommandEntry(
 }
 
 export function resolveWorkspaceToolbarEntries(
+  host: WorkspaceHost,
   placement: WorkspaceToolbarPlacement,
 ): ReadonlyArray<WorkspaceToolbarEntry> {
-  return getWorkspaceToolbarContributions(placement).map((contribution) =>
+  return getWorkspaceToolbarContributions(host, placement).map((contribution) =>
     contribution.kind === "creation"
-      ? resolveCreationEntry(contribution)
-      : resolveCommandEntry(contribution),
+      ? resolveCreationEntry(host, contribution)
+      : resolveCommandEntry(host, contribution),
   );
 }

@@ -7,6 +7,7 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "../../interaction";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The developer-approved correction gives the shared meta action a conventional 16 px glyph in a
 // compact 24 px visible button. Its outboard 40 x 48 hit geometry remains unchanged, so increasing
@@ -22,7 +23,10 @@ export function MetaControlChrome({
   section: WorkspaceSection;
   onEdit: (section: WorkspaceSection) => void;
 }) {
-  const { canEditLayout, canEditStructure } = useWorkspaceCapabilities();
+  const host = useWorkspaceHost();
+  const { canEditLayout, canEditStructure } = useWorkspaceCapabilities(
+    (state) => state,
+  );
   const showDragHandle = canEditLayout && !section.positionAndSizeLocked;
 
   return (
@@ -42,7 +46,7 @@ export function MetaControlChrome({
             type="button"
             className={EDIT_TRIGGER_CLASS_NAME}
             onClick={() => onEdit(section)}
-            onKeyDown={(event) => handleSectionControlEscape(event, section.id)}
+            onKeyDown={(event) => handleSectionControlEscape(host, event, section.id)}
             disabled={!canEditStructure}
             aria-label={`Edit ${section.name.trim() || "meta control"}`}
             title="Edit meta control"

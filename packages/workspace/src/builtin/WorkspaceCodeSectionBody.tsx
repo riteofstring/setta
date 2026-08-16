@@ -1,7 +1,8 @@
 import { useCallback } from "react";
 import { getSectionOrThrow } from "../document/documentSelectors";
-import { useWorkspaceDocument } from "../document/stores";
+import { getWorkspaceDocumentStore } from "../document/stores";
 import type { WorkspaceSection } from "../document/types";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import {
   getWorkspaceCodeSectionData,
   setWorkspaceCodeSectionData,
@@ -25,6 +26,7 @@ export function WorkspaceCodeSectionBody({
   section,
   allowedLanguages,
 }: WorkspaceCodeSectionBodyProps) {
+  const host = useWorkspaceHost();
   const sectionId = section.id;
   const data = parseWorkspaceCodeSectionData(
     sectionId,
@@ -38,10 +40,10 @@ export function WorkspaceCodeSectionBody({
   const onChange = useCallback(
     (nextCode: string) => {
       const liveSection = getSectionOrThrow(
-        useWorkspaceDocument.getState(),
+        getWorkspaceDocumentStore(host).getState(),
         sectionId,
       );
-      const liveData = getWorkspaceCodeSectionData(sectionId);
+      const liveData = getWorkspaceCodeSectionData(host, sectionId);
       if (
         liveData.readOnly ||
         liveSection.positionAndSizeLocked ||
@@ -49,9 +51,12 @@ export function WorkspaceCodeSectionBody({
       ) {
         return;
       }
-      setWorkspaceCodeSectionData(sectionId, { ...liveData, code: nextCode });
+      setWorkspaceCodeSectionData(host, sectionId, {
+        ...liveData,
+        code: nextCode,
+      });
     },
-    [sectionId],
+    [host, sectionId],
   );
 
   return (

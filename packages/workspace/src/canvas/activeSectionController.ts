@@ -12,10 +12,11 @@ import {
   getHighestAncestor,
   getSectionHasSelectedItems,
 } from "../document/documentSelectors";
-import { useItemSelectionMode } from "../document/itemSelectionMode";
+import { getItemSelectionModeStore } from "../document/itemSelectionMode";
 import { setZIndices } from "../document/sectionZIndices";
-import { useWorkspaceDocument } from "../document/stores";
-import { useReactFlow } from "./store";
+import { getWorkspaceDocumentStore } from "../document/stores";
+import type { WorkspaceHost } from "../workspaceHost";
+import { getReactFlowStore } from "./store";
 
 // The reference controller also carries backend-sync options. Its param-toggle intents carry a
 // `hasSelectedParams` the policy never reads; the package item toggles drop it.
@@ -68,6 +69,7 @@ type ActiveSectionControllerResult = ActiveSectionPolicyResult & {
 };
 
 function buildPolicyContext(
+  host: WorkspaceHost,
   intent: ActiveSectionIntent,
   activeIds: Array<string>,
   isSelectingItems: boolean,
@@ -80,7 +82,7 @@ function buildPolicyContext(
       activeIds,
       isSelectingItems,
       hasSelectedItems: getSectionHasSelectedItems(
-        useWorkspaceDocument.getState(),
+        getWorkspaceDocumentStore(host).getState(),
         intent.sectionId,
       ),
       multiSelectionActive,
@@ -122,17 +124,20 @@ function buildPolicyContext(
 }
 
 export function applyActiveSectionChange(
+  host: WorkspaceHost,
   intent: ActiveSectionIntent,
 ): ActiveSectionControllerResult {
-  const activeIds = getActiveSectionIds();
-  const isSelectingItems = useItemSelectionMode.getState().isSelectingItems;
+  const activeIds = getActiveSectionIds(host);
+  const isSelectingItems = getItemSelectionModeStore(host).getState()
+    .isSelectingItems;
   const multiSelectionActive =
     intent.interaction === "section-click" &&
     intent.multiSelectionActive !== undefined
       ? intent.multiSelectionActive
-      : useReactFlow.getState().multiSelectionActive;
+      : getReactFlowStore(host).getState().multiSelectionActive;
 
   const context = buildPolicyContext(
+    host,
     intent,
     activeIds,
     isSelectingItems,
@@ -141,18 +146,18 @@ export function applyActiveSectionChange(
   const decision = resolveActiveSectionChange(context);
   const activeIdsChanged = !_.isEqual(activeIds, decision.nextActiveIds);
 
-  setActiveSectionIds(decision.nextActiveIds);
+  setActiveSectionIds(host, decision.nextActiveIds);
 
   if (decision.updateZIndex) {
     // A go-to targets a top-level section directly; a click or an input focus can land deep
     // inside one, so the reference raises the whole stack those two belong to.
     if (intent.interaction === "go-to") {
-      setZIndices([intent.sectionId]);
+      setZIndices(host, [intent.sectionId]);
     } else if (
       intent.interaction === "section-click" ||
       intent.interaction === "input-focus"
     ) {
-      setZIndices([getHighestAncestor(intent.sectionId)]);
+      setZIndices(host, [getHighestAncestor(host, intent.sectionId)]);
     }
   }
 

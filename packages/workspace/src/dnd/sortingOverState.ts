@@ -1,30 +1,53 @@
+import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost";
+
 type SortingOverState = {
   overId: string | null;
   pastHalfway: boolean | null;
 };
 
-const sortingOverStateByContainer: Record<string, SortingOverState> = {};
+const sortingOverStatesByHost = new WeakMap<
+  WorkspaceHost,
+  Record<string, SortingOverState>
+>();
+
+function getSortingOverStateByContainer(host: WorkspaceHost) {
+  assertWorkspaceHostActive(host);
+  const existing = sortingOverStatesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const state: Record<string, SortingOverState> = {};
+  sortingOverStatesByHost.set(host, state);
+  return state;
+}
 
 export function setSortingOverState(
+  host: WorkspaceHost,
   containerId: string,
   overId: string | null,
   pastHalfway: boolean | null,
 ): void {
-  sortingOverStateByContainer[containerId] = { overId, pastHalfway };
+  getSortingOverStateByContainer(host)[containerId] = { overId, pastHalfway };
 }
 
-export function clearSortingOverState(containerId: string): void {
-  delete sortingOverStateByContainer[containerId];
+export function clearSortingOverState(
+  host: WorkspaceHost,
+  containerId: string,
+): void {
+  delete getSortingOverStateByContainer(host)[containerId];
 }
 
-export function resetSortingOverState(): void {
-  for (const key of Object.keys(sortingOverStateByContainer)) {
-    delete sortingOverStateByContainer[key];
+export function resetSortingOverState(host: WorkspaceHost): void {
+  const state = getSortingOverStateByContainer(host);
+  for (const key of Object.keys(state)) {
+    delete state[key];
   }
 }
 
 export function getSortingOverState(
+  host: WorkspaceHost,
   containerId: string,
 ): SortingOverState | null {
-  return sortingOverStateByContainer[containerId] ?? null;
+  return getSortingOverStateByContainer(host)[containerId] ?? null;
 }

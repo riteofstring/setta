@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createWorkspaceHost, type WorkspaceHost } from "../workspaceHost";
 import { GROUP_SECTION_KIND } from "./documentSelectors";
 import {
   getMetaControlPresentation,
@@ -12,30 +13,36 @@ function makeDefinition(): SectionKindDefinition {
 }
 
 describe("sectionKindRegistry", () => {
+  let host: WorkspaceHost;
+
+  beforeEach(() => {
+    host = createWorkspaceHost();
+  });
+
   afterEach(() => {
-    registerSectionKinds({});
+    host.dispose();
   });
 
   it("returns the registered definition for a kind", () => {
     const leaf = makeDefinition();
-    registerSectionKinds({ leaf });
-    expect(getRegisteredSectionKindOrThrow("leaf")).toBe(leaf);
+    registerSectionKinds(host, { leaf });
+    expect(getRegisteredSectionKindOrThrow(host, "leaf")).toBe(leaf);
   });
 
   it("retains a typed host Inspector contribution", () => {
     const renderInspector = () => "Inspector content";
-    registerSectionKinds({
+    registerSectionKinds(host, {
       leaf: { renderContent: () => null, renderInspector },
     });
 
-    expect(getRegisteredSectionKindOrThrow("leaf").renderInspector).toBe(
+    expect(getRegisteredSectionKindOrThrow(host, "leaf").renderInspector).toBe(
       renderInspector,
     );
   });
 
   it("rejects a malformed Inspector contribution", () => {
     expect(() =>
-      registerSectionKinds({
+      registerSectionKinds(host, {
         leaf: { renderContent: () => null, renderInspector: "bad" },
       } as unknown as Record<string, SectionKindDefinition>),
     ).toThrowError(/renderInspector must be a function/);
@@ -43,11 +50,11 @@ describe("sectionKindRegistry", () => {
 
   it("retains only a callable ordinary item factory", () => {
     const createItem = () => ({ id: "item", children: [] });
-    registerSectionKinds({ leaf: { renderContent: () => null, createItem } });
-    expect(getRegisteredSectionKindOrThrow("leaf").createItem).toBe(createItem);
+    registerSectionKinds(host, { leaf: { renderContent: () => null, createItem } });
+    expect(getRegisteredSectionKindOrThrow(host, "leaf").createItem).toBe(createItem);
 
     expect(() =>
-      registerSectionKinds({
+      registerSectionKinds(host, {
         leaf: { renderContent: () => null, createItem: "bad" },
       } as unknown as Record<string, SectionKindDefinition>),
     ).toThrowError(/createItem must be a function/);
@@ -55,39 +62,39 @@ describe("sectionKindRegistry", () => {
 
   it("retains only a callable custom-item searchable-text contribution", () => {
     const getItemSearchableText = () => "search terms";
-    registerSectionKinds({
+    registerSectionKinds(host, {
       leaf: { renderContent: () => null, getItemSearchableText },
     });
-    expect(getRegisteredSectionKindOrThrow("leaf").getItemSearchableText).toBe(
+    expect(getRegisteredSectionKindOrThrow(host, "leaf").getItemSearchableText).toBe(
       getItemSearchableText,
     );
 
     expect(() =>
-      registerSectionKinds({
+      registerSectionKinds(host, {
         leaf: { renderContent: () => null, getItemSearchableText: "bad" },
       } as unknown as Record<string, SectionKindDefinition>),
     ).toThrowError(/getItemSearchableText must be a function/);
   });
 
   it("throws for an unregistered kind, naming it", () => {
-    registerSectionKinds({ leaf: makeDefinition() });
-    expect(() => getRegisteredSectionKindOrThrow("mystery")).toThrowError(
+    registerSectionKinds(host, { leaf: makeDefinition() });
+    expect(() => getRegisteredSectionKindOrThrow(host, "mystery")).toThrowError(
       /Section kind mystery is not registered/,
     );
   });
 
   it("replaces the whole registered set on re-registration", () => {
-    registerSectionKinds({ leaf: makeDefinition() });
-    registerSectionKinds({ note: makeDefinition() });
-    expect(getRegisteredSectionKindOrThrow("note")).toBeDefined();
-    expect(() => getRegisteredSectionKindOrThrow("leaf")).toThrowError(
+    registerSectionKinds(host, { leaf: makeDefinition() });
+    registerSectionKinds(host, { note: makeDefinition() });
+    expect(getRegisteredSectionKindOrThrow(host, "note")).toBeDefined();
+    expect(() => getRegisteredSectionKindOrThrow(host, "leaf")).toThrowError(
       /not registered/,
     );
   });
 
   it("refuses to register the package-owned group kind", () => {
     expect(() =>
-      registerSectionKinds({ [GROUP_SECTION_KIND]: makeDefinition() }),
+      registerSectionKinds(host, { [GROUP_SECTION_KIND]: makeDefinition() }),
     ).toThrowError(/package-owned/);
   });
 
@@ -97,15 +104,15 @@ describe("sectionKindRegistry", () => {
       resolveControlKind: () => "text" as const,
       onEdit: () => {},
     };
-    registerSectionKinds({
+    registerSectionKinds(host, {
       meta: { renderContent: () => null, presentation },
     });
-    expect(getMetaControlPresentation({ kind: "meta" })).toBe(presentation);
+    expect(getMetaControlPresentation(host, { kind: "meta" })).toBe(presentation);
   });
 
   it("rejects a competing host default for package-owned meta geometry", () => {
     expect(() =>
-      registerSectionKinds({
+      registerSectionKinds(host, {
         meta: {
           renderContent: () => null,
           defaultSize: { width: 900, height: 600 },
@@ -121,7 +128,7 @@ describe("sectionKindRegistry", () => {
 
   it("rejects a competing host content slot for package-owned meta placement", () => {
     expect(() =>
-      registerSectionKinds({
+      registerSectionKinds(host, {
         meta: {
           renderContent: () => null,
           contentClassName: "host-slot",
@@ -137,7 +144,7 @@ describe("sectionKindRegistry", () => {
 
   it("rejects an item factory on package-owned meta placement", () => {
     expect(() =>
-      registerSectionKinds({
+      registerSectionKinds(host, {
         meta: {
           renderContent: () => null,
           createItem: () => ({ id: "item", children: [] }),
@@ -153,7 +160,7 @@ describe("sectionKindRegistry", () => {
 
   it("rejects custom-item searchable text on package-owned meta placement", () => {
     expect(() =>
-      registerSectionKinds({
+      registerSectionKinds(host, {
         meta: {
           renderContent: () => null,
           getItemSearchableText: () => "search terms",
@@ -169,7 +176,7 @@ describe("sectionKindRegistry", () => {
 
   it("rejects header controls on package-owned meta placement", () => {
     expect(() =>
-      registerSectionKinds({
+      registerSectionKinds(host, {
         meta: {
           renderContent: () => null,
           renderHeaderControls: () => null,
@@ -185,7 +192,7 @@ describe("sectionKindRegistry", () => {
 
   it("rejects a non-function header control renderer", () => {
     expect(() =>
-      registerSectionKinds({
+      registerSectionKinds(host, {
         leaf: {
           renderContent: () => null,
           renderHeaderControls: "controls",
@@ -196,7 +203,7 @@ describe("sectionKindRegistry", () => {
 
   it("rejects unknown presentation discriminants instead of treating them as ordinary", () => {
     expect(() =>
-      registerSectionKinds({
+      registerSectionKinds(host, {
         mystery: {
           renderContent: () => null,
           presentation: { type: "floating" },
@@ -209,7 +216,7 @@ describe("sectionKindRegistry", () => {
 
   it("rejects missing meta-control callbacks during registration", () => {
     expect(() =>
-      registerSectionKinds({
+      registerSectionKinds(host, {
         meta: {
           renderContent: () => null,
           presentation: { type: "meta-control", onEdit: () => {} },

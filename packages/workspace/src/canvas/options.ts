@@ -1,5 +1,8 @@
-import { createWithEqualityFn } from "zustand/traditional";
+import { createStore } from "zustand/vanilla";
 import { withResetFn } from "../state/storeUtils";
+import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
+import { assertWorkspaceHostActive } from "../workspaceHostInternals";
+import type { WorkspaceHost } from "../workspaceHost";
 import type { PanOnScrollMode, SelectionMode } from "./types";
 
 export type WorkspaceGridPattern = "lines" | "dots" | "cross";
@@ -34,8 +37,9 @@ export type WorkspaceInteractionOptions = {
   minimapSide: MiniMapSide;
 };
 
-export const useWorkspaceOptions = createWithEqualityFn(
-  withResetFn<WorkspaceInteractionOptions>(() => ({
+function createWorkspaceOptionsStore() {
+  return createStore(
+    withResetFn<WorkspaceInteractionOptions>(() => ({
     panOnDrag: true,
     panOnScroll: true,
     panOnScrollSpeed: 1.0,
@@ -57,23 +61,53 @@ export const useWorkspaceOptions = createWithEqualityFn(
     selectionMode: "partial",
     showMinimap: true,
     minimapSide: "left",
-  })),
-);
+    })),
+  );
+}
+
+const storesByHost = new WeakMap<
+  WorkspaceHost,
+  ReturnType<typeof createWorkspaceOptionsStore>
+>();
+
+export function getWorkspaceOptionsStore(host: WorkspaceHost) {
+  assertWorkspaceHostActive(host);
+  const existing = storesByHost.get(host);
+  if (existing) {
+    return existing;
+  }
+  const store = createWorkspaceOptionsStore();
+  storesByHost.set(host, store);
+  return store;
+}
+
+export function useWorkspaceOptions<T>(
+  selector: (state: WorkspaceInteractionOptions) => T,
+  equalityFn?: (left: T, right: T) => boolean,
+): T {
+  return useWorkspaceStore(
+    getWorkspaceOptionsStore(useWorkspaceHost()),
+    selector,
+    equalityFn,
+  );
+}
 
 // The reference's `toggleSnapToGrid`/`toggleMiniMap`/`toggleMiniMapSide`
 // (`state/actions/localStorage.ts`) flip the same preferences on its localStorage store.
-export function toggleSnapToGrid() {
-  useWorkspaceOptions.setState((state) => ({ snapToGrid: !state.snapToGrid }));
+export function toggleSnapToGrid(host: WorkspaceHost) {
+  getWorkspaceOptionsStore(host).setState((state) => ({
+    snapToGrid: !state.snapToGrid,
+  }));
 }
 
-export function toggleMiniMap() {
-  useWorkspaceOptions.setState((state) => ({
+export function toggleMiniMap(host: WorkspaceHost) {
+  getWorkspaceOptionsStore(host).setState((state) => ({
     showMinimap: !state.showMinimap,
   }));
 }
 
-export function toggleMiniMapSide() {
-  useWorkspaceOptions.setState((state) => ({
+export function toggleMiniMapSide(host: WorkspaceHost) {
+  getWorkspaceOptionsStore(host).setState((state) => ({
     minimapSide: state.minimapSide === "left" ? "right" : "left",
   }));
 }

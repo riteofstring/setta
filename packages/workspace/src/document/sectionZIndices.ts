@@ -1,5 +1,6 @@
 import _ from "lodash";
-import { useNodeInternals, type NodeInternalsState } from "./stores";
+import { getNodeInternalsStore, type NodeInternalsState } from "./stores";
+import type { WorkspaceHost } from "../workspaceHost";
 
 function shouldNormalizeZIndices(
   nodeInternals: NodeInternalsState["x"],
@@ -78,14 +79,16 @@ function raiseNodeZIndices(
 }
 
 export function setZIndices(
+  host: WorkspaceHost,
   sectionIds: Array<string>,
   alwaysNormalize: boolean = false,
 ) {
-  const nodeInternals = useNodeInternals.getState().x;
+  const nodeStore = getNodeInternalsStore(host);
+  const nodeInternals = nodeStore.getState().x;
   const newValues = shouldNormalizeZIndices(nodeInternals, alwaysNormalize)
     ? normalizeNodeZIndices(nodeInternals, sectionIds)
     : raiseNodeZIndices(nodeInternals, sectionIds);
   if (newValues !== nodeInternals) {
-    useNodeInternals.setState({ x: newValues });
+    nodeStore.setState({ x: newValues });
   }
 }

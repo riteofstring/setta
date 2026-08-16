@@ -9,47 +9,71 @@ import {
   registerWorkspaceKeyBindings,
   registerWorkspaceToolbarContributions,
   ungroupSections,
+  useWorkspaceHost,
   WORKSPACE_CODE_SECTION_KIND,
   WORKSPACE_TEXT_SECTION_KIND,
   type WorkspaceCommandIconProps,
   type WorkspaceCreationContext,
   type WorkspaceKeyBinding,
+  type WorkspaceHost,
   type WorkspaceSectionInput,
 } from "@setta/workspace";
 import { useSyncExternalStore } from "react";
 
 const INITIAL_MENU_EXTENSION_STATUS = "No host menu action invoked.";
 
-let menuExtensionStatus = INITIAL_MENU_EXTENSION_STATUS;
-let toolbarHighlightEnabled = false;
-// Every host command reads one of these two values, so one version stands for "the state behind
-// this host's commands changed".
-let hostCommandStateVersion = 0;
-const menuExtensionListeners = new Set<() => void>();
+type PlaygroundHostCommandState = {
+  listeners: Set<() => void>;
+  menuExtensionStatus: string;
+  toolbarHighlightEnabled: boolean;
+  version: number;
+};
 
-function publishHostCommandState(): void {
-  hostCommandStateVersion += 1;
-  for (const listener of menuExtensionListeners) {
+const hostCommandStates = new WeakMap<WorkspaceHost, PlaygroundHostCommandState>();
+
+function getHostCommandState(host: WorkspaceHost): PlaygroundHostCommandState {
+  const existing = hostCommandStates.get(host);
+  if (existing) {
+    return existing;
+  }
+  const state: PlaygroundHostCommandState = {
+    listeners: new Set(),
+    menuExtensionStatus: INITIAL_MENU_EXTENSION_STATUS,
+    toolbarHighlightEnabled: false,
+    version: 0,
+  };
+  hostCommandStates.set(host, state);
+  return state;
+}
+
+function publishHostCommandState(host: WorkspaceHost): void {
+  const state = getHostCommandState(host);
+  state.version += 1;
+  for (const listener of state.listeners) {
     listener();
   }
 }
 
-function publishMenuExtensionStatus(status: string): void {
-  menuExtensionStatus = status;
-  publishHostCommandState();
+function publishMenuExtensionStatus(host: WorkspaceHost, status: string): void {
+  getHostCommandState(host).menuExtensionStatus = status;
+  publishHostCommandState(host);
 }
 
-function subscribeMenuExtensionStatus(listener: () => void): () => void {
-  menuExtensionListeners.add(listener);
-  return () => menuExtensionListeners.delete(listener);
+function subscribeMenuExtensionStatus(
+  host: WorkspaceHost,
+  listener: () => void,
+): () => void {
+  const state = getHostCommandState(host);
+  state.listeners.add(listener);
+  return () => state.listeners.delete(listener);
 }
 
-function getMenuExtensionStatus(): string {
-  return menuExtensionStatus;
+function getMenuExtensionStatus(host: WorkspaceHost): string {
+  return getHostCommandState(host).menuExtensionStatus;
 }
 
-function getHostCommandStateVersion(): number {
-  return hostCommandStateVersion;
+function getHostCommandStateVersion(host: WorkspaceHost): number {
+  return getHostCommandState(host).version;
 }
 
 // A contributed toolbar control paints host-owned command state, so the host re-renders the tree
@@ -57,10 +81,11 @@ function getHostCommandStateVersion(): number {
 // Subscribed where the workspace is mounted rather than inside the readout, which is a leaf beside
 // it and would repaint only itself.
 export function usePlaygroundHostCommandState(): void {
+  const host = useWorkspaceHost();
   useSyncExternalStore(
-    subscribeMenuExtensionStatus,
-    getHostCommandStateVersion,
-    getHostCommandStateVersion,
+    (listener) => subscribeMenuExtensionStatus(host, listener),
+    () => getHostCommandStateVersion(host),
+    () => getHostCommandStateVersion(host),
   );
 }
 
@@ -190,9 +215,9 @@ function createPlaygroundTextSection(
   };
 }
 
-export function registerPlaygroundMenuExtensions(): void {
+export function registerPlaygroundMenuExtensions(host: WorkspaceHost): void {
   // The chords are the reference's own creation defaults, "N" and "G", over this host's catalog.
-  registerWorkspaceCreationCommands([
+  registerWorkspaceCreationCommands(host, [
     {
       id: "playground-note",
       label: "Host note",
@@ -223,7 +248,7 @@ export function registerPlaygroundMenuExtensions(): void {
       createSection: createPlaygroundTextSection,
     },
   ]);
-  registerWorkspaceCommands([
+  registerWorkspaceCommands(host, [
     {
       id: "playground-pane-position",
       scope: "pane",
@@ -232,6 +257,7 @@ export function registerPlaygroundMenuExtensions(): void {
       run: (context) => {
         const position = context.workspacePosition;
         publishMenuExtensionStatus(
+          context.host,
           position
             ? `Pane action at ${Math.round(position.x)}, ${Math.round(position.y)}.`
             : "Pane action with no pointer position.",
@@ -246,11 +272,14 @@ export function registerPlaygroundMenuExtensions(): void {
       scope: "pane",
       surfaces: ["context-menu", "toolbar"],
       label: "Highlight host controls",
-      isChecked: () => toolbarHighlightEnabled,
-      run: () => {
-        toolbarHighlightEnabled = !toolbarHighlightEnabled;
+      isChecked: (context) =>
+        getHostCommandState(context.host).toolbarHighlightEnabled,
+      run: (context) => {
+        const state = getHostCommandState(context.host);
+        state.toolbarHighlightEnabled = !state.toolbarHighlightEnabled;
         publishMenuExtensionStatus(
-          `Host control highlight ${toolbarHighlightEnabled ? "on" : "off"}.`,
+          context.host,
+          `Host control highlight ${state.toolbarHighlightEnabled ? "on" : "off"}.`,
         );
       },
     },
@@ -259,11 +288,15 @@ export function registerPlaygroundMenuExtensions(): void {
       scope: "pane",
       surfaces: ["toolbar"],
       label: "Clear host action status",
-      getDisabledReason: () =>
-        menuExtensionStatus === INITIAL_MENU_EXTENSION_STATUS
+      getDisabledReason: (context) =>
+        getMenuExtensionStatus(context.host) === INITIAL_MENU_EXTENSION_STATUS
           ? "There is no host action status to clear yet."
           : null,
-      run: () => publishMenuExtensionStatus(INITIAL_MENU_EXTENSION_STATUS),
+      run: (context) =>
+        publishMenuExtensionStatus(
+          context.host,
+          INITIAL_MENU_EXTENSION_STATUS,
+        ),
     },
     {
       id: "playground-section-selection",
@@ -272,6 +305,7 @@ export function registerPlaygroundMenuExtensions(): void {
       label: "Report selection",
       run: (context) =>
         publishMenuExtensionStatus(
+          context.host,
           `Section action for ${context.section.name}; ${context.selectedSections.length} selected.`,
         ),
     },
@@ -291,8 +325,12 @@ export function registerPlaygroundMenuExtensions(): void {
           : null,
       getStatusMessage: () => "Selection ungrouped through the host action.",
       run: (context) => {
-        ungroupSections(context.selectedSections.map((section) => section.id));
+        ungroupSections(
+          context.host,
+          context.selectedSections.map((section) => section.id),
+        );
         publishMenuExtensionStatus(
+          context.host,
           "Selection ungrouped through the host action.",
         );
       },
@@ -304,6 +342,7 @@ export function registerPlaygroundMenuExtensions(): void {
       label: "Report item",
       run: (context) =>
         publishMenuExtensionStatus(
+          context.host,
           `Item action for ${context.section.name}/${context.item.id}.`,
         ),
     },
@@ -314,6 +353,7 @@ export function registerPlaygroundMenuExtensions(): void {
       label: "Report Outline row",
       run: (context) =>
         publishMenuExtensionStatus(
+          context.host,
           `Outline action for ${context.section.name}; ${context.selectedSections.length} selected.`,
         ),
     },
@@ -321,7 +361,7 @@ export function registerPlaygroundMenuExtensions(): void {
   // The creation control runs the same operation as the pane menu's "Host note" entry and the "N"
   // chord, so the toolbar creates in empty space and travels to the section when it had to land
   // out of sight.
-  registerWorkspaceToolbarContributions([
+  registerWorkspaceToolbarContributions(host, [
     {
       kind: "creation",
       commandId: "playground-note",
@@ -357,14 +397,15 @@ const CONFLICTING_KEY_BINDING: WorkspaceKeyBinding = {
   chord: "Mod + G",
 };
 
-export function registerPlaygroundKeyBindings(): void {
-  registerWorkspaceKeyBindings(PLAYGROUND_KEY_BINDINGS);
+export function registerPlaygroundKeyBindings(host: WorkspaceHost): void {
+  registerWorkspaceKeyBindings(host, PLAYGROUND_KEY_BINDINGS);
 }
 
 export function PlaygroundShortcutList() {
+  const host = useWorkspaceHost();
   return (
     <dl className="playground-guide-list">
-      {getWorkspaceKeyBindings().map((binding) => (
+      {getWorkspaceKeyBindings(host).map((binding) => (
         <div key={binding.id}>
           <dt>{binding.label}</dt>
           <dd>{binding.chordLabel ?? "Unbound"}</dd>
@@ -375,17 +416,19 @@ export function PlaygroundShortcutList() {
 }
 
 export function HostShortcutConflictAction() {
+  const host = useWorkspaceHost();
   return (
     <button
       className="playground-menu-action"
       onClick={() => {
-        const conflicts = getWorkspaceKeyBindingConflicts([
+        const conflicts = getWorkspaceKeyBindingConflicts(host, [
           ...PLAYGROUND_KEY_BINDINGS.filter(
             (binding) => binding.id !== CONFLICTING_KEY_BINDING.id,
           ),
           CONFLICTING_KEY_BINDING,
         ]);
         publishMenuExtensionStatus(
+          host,
           conflicts
             .map(
               (conflict) =>
@@ -403,10 +446,11 @@ export function HostShortcutConflictAction() {
 }
 
 export function PlaygroundMenuActionReadout() {
+  const host = useWorkspaceHost();
   const status = useSyncExternalStore(
-    subscribeMenuExtensionStatus,
-    getMenuExtensionStatus,
-    getMenuExtensionStatus,
+    (listener) => subscribeMenuExtensionStatus(host, listener),
+    () => getMenuExtensionStatus(host),
+    () => getMenuExtensionStatus(host),
   );
   return <span aria-live="polite">{status}</span>;
 }

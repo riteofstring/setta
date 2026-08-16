@@ -6,11 +6,12 @@ import {
   type PointerEventHandler,
   type RefObject,
 } from "react";
-import { useReactFlow } from "../canvas/store";
+import { getReactFlowStore } from "../canvas/store";
 import { getSectionItemTreeOrThrow } from "../document/documentSelectors";
 import { setItemColumnWidth } from "../document/itemColumnWidth";
 import { useWorkspaceDocument } from "../document/stores";
 import { getInlineDirectionSign } from "../styles/textDirection";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import {
   calculateBoundedItemColumnWidth,
   getDeepestItemDepth,
@@ -53,6 +54,7 @@ export function useItemColumnWidth(
   sectionId: string,
   outerRef: RefObject<HTMLDivElement | null>,
 ): ItemColumnResizeHandlers {
+  const host = useWorkspaceHost();
   const persistedColumnWidth = useWorkspaceDocument(
     (state) =>
       getSectionItemTreeOrThrow(state, sectionId).itemColumnWidth ?? null,
@@ -205,8 +207,8 @@ export function useItemColumnWidth(
     widthRef.current.isDragging = false;
     const rawWidth = getDefaultItemColumnWidth(containerWidth);
     setNewWidth(containerWidth, rawWidth);
-    setItemColumnWidth(sectionId, getItemColumnCssWidth(rawWidth));
-  }, [outerRef, sectionId, setNewWidth]);
+    setItemColumnWidth(host, sectionId, getItemColumnCssWidth(rawWidth));
+  }, [host, outerRef, sectionId, setNewWidth]);
 
   const onColumnResizeStart = useCallback<PointerEventHandler<HTMLDivElement>>(
     (event) => {
@@ -233,7 +235,7 @@ export function useItemColumnWidth(
       widthRef.current.isDragging = true;
 
       const applyPointerClientX = (clientX: number) => {
-        const scale = useReactFlow.getState().transform[2];
+        const scale = getReactFlowStore(host).getState().transform[2];
         const delta = ((clientX - startX) / scale) * inlineDirectionSign;
         const nextWidth = getBoundedWidth(startWidth + delta, containerWidth);
         widthRef.current.currentWidth = nextWidth;
@@ -290,7 +292,7 @@ export function useItemColumnWidth(
             (finalWidth / widthRef.current.containerWidth) * 100;
         }
         widthRef.current.isDragging = false;
-        setItemColumnWidth(sectionId, getItemColumnCssWidth(finalWidth));
+        setItemColumnWidth(host, sectionId, getItemColumnCssWidth(finalWidth));
       };
 
       dragListenersRef.current = {
@@ -301,7 +303,7 @@ export function useItemColumnWidth(
       window.addEventListener("pointerup", handlePointerFinish);
       window.addEventListener("pointercancel", handlePointerFinish);
     },
-    [applyWidth, getBoundedWidth, outerRef, sectionId, setNewWidth],
+    [applyWidth, getBoundedWidth, host, outerRef, sectionId, setNewWidth],
   );
 
   const onColumnResizeDoubleClick = useCallback<

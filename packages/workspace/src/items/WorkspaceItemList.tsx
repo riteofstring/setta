@@ -37,6 +37,7 @@ import {
   updateItemListView,
 } from "./itemListRegistry";
 import { useItemColumnWidth } from "./useItemColumnWidth";
+import { useWorkspaceHost } from "../workspaceHostContext";
 
 // The reference's `ParamDndList` as the registered item surface: the host mounts one list per
 // item area (the reference hard-codes its pinned/unpinned areas), names it with a list key,
@@ -180,6 +181,7 @@ export function WorkspaceItemList({
   isGroupItem = defaultIsGroupItem,
   itemDiagnostics,
 }: WorkspaceItemListProps) {
+  const host = useWorkspaceHost();
   const itemTree = useWorkspaceDocument((x) =>
     getSectionItemTreeOrThrow(x, sectionId),
   );
@@ -219,15 +221,15 @@ export function WorkspaceItemList({
   // registration in place, so re-renders never change the section's mount order.
   useEffect(() => {
     viewRef.current = view;
-    if (isItemListViewRegistered(sectionId, view.listKey)) {
-      updateItemListView(sectionId, view);
+    if (isItemListViewRegistered(host, sectionId, view.listKey)) {
+      updateItemListView(host, sectionId, view);
     }
-  }, [sectionId, view]);
+  }, [host, sectionId, view]);
 
   useEffect(() => {
-    registerItemListView(sectionId, viewRef.current);
-    return () => unregisterItemListView(sectionId, listKey);
-  }, [sectionId, listKey]);
+    registerItemListView(host, sectionId, viewRef.current);
+    return () => unregisterItemListView(host, sectionId, listKey);
+  }, [host, sectionId, listKey]);
 
   return (
     <ItemListProvider

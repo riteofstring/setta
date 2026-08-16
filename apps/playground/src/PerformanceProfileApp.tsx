@@ -1,5 +1,5 @@
 import {
-  loadWorkspaceDocument,
+  useWorkspaceHost,
   WorkspaceCanvas,
   WorkspaceControls,
   WorkspaceTooltip,
@@ -14,6 +14,7 @@ import {
 // minimap, tooltip, registered leaf renderer, compiled stylesheet, and host chrome as the normal
 // playground while removing unrelated control fixtures from the measured document.
 export function PerformanceProfileApp() {
+  const host = useWorkspaceHost();
   return (
     <main
       className="playground-shell flex h-screen min-w-0 flex-col p-8"
@@ -33,7 +34,7 @@ export function PerformanceProfileApp() {
           type="button"
           className="playground-action rounded-md border border-setta-200 px-2 py-1 text-xs text-setta-600 dark:border-setta-700 dark:text-setta-300"
           data-performance-profile-reset="true"
-          onClick={() => loadWorkspaceDocument(performanceProfileDocument)}
+          onClick={() => host.loadDocument(performanceProfileDocument)}
         >
           Reset profile
         </button>

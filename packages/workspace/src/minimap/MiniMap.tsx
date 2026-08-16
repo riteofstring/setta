@@ -12,14 +12,16 @@ import {
 import { shallow } from "zustand/shallow";
 import Panel from "../canvas/Panel";
 import { getNodesBounds, getPaneRect } from "../canvas/graph";
-import { useReactFlow } from "../canvas/store";
+import { getReactFlowStore, useReactFlow } from "../canvas/store";
 import type { CoordinateExtent, ReactFlowState, Rect } from "../canvas/types";
 import { getBoundsOfRects } from "../canvas/utils";
 import {
-  useActiveSections,
+  getActiveSectionsStore,
   useNodeInternals,
   type NodeInternalsState,
 } from "../document/stores";
+import { useWorkspaceHost } from "../workspaceHostContext";
+import type { WorkspaceHost } from "../workspaceHost";
 import type { Node, Position } from "../document/types";
 import {
   areMiniMapNodesRenderableInputsEqual,
@@ -147,9 +149,9 @@ export function syncSelectedMiniMapNodes(
 
 const selectNodes = (s: NodeInternalsState) => Array.from(s.x.values());
 
-function getSelector(nodes: Array<Node>) {
+function getSelector(host: WorkspaceHost, nodes: Array<Node>) {
   return (s: ReactFlowState): MiniMapSelector => {
-    const viewBB: Rect = getPaneRect(s);
+    const viewBB: Rect = getPaneRect(host, s);
 
     return {
       viewBB,
@@ -174,22 +176,25 @@ function isMouseMoveEvent(
   return sourceEvent?.type === "mousemove";
 }
 
-function getMiniMapPanState(): MiniMapPanState | null {
+function getMiniMapPanState(host: WorkspaceHost): MiniMapPanState | null {
   const { transform, d3Selection, d3Zoom, translateExtent, width, height } =
-    useReactFlow.getState();
+    getReactFlowStore(host).getState();
   if (!d3Selection || !d3Zoom) {
     return null;
   }
   return { transform, d3Selection, d3Zoom, translateExtent, width, height };
 }
 
-function createMiniMapPanHandler(viewScaleRef: { current: number }) {
+function createMiniMapPanHandler(
+  host: WorkspaceHost,
+  viewScaleRef: { current: number },
+) {
   return (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
     if (!isMouseMoveEvent(event.sourceEvent)) {
       return;
     }
 
-    const panState = getMiniMapPanState();
+    const panState = getMiniMapPanState(host);
     if (!panState) {
       return;
     }
@@ -220,10 +225,12 @@ function createMiniMapPanHandler(viewScaleRef: { current: number }) {
 }
 
 function bindMiniMapInteractions({
+  host,
   svg,
   pannable,
   viewScaleRef,
 }: {
+  host: WorkspaceHost;
   svg: SVGSVGElement | null;
   pannable: boolean;
   viewScaleRef: { current: number };
@@ -236,7 +243,7 @@ function bindMiniMapInteractions({
   const zoomBehavior = zoom<SVGSVGElement, unknown>();
 
   if (pannable) {
-    zoomBehavior.on("zoom", createMiniMapPanHandler(viewScaleRef));
+    zoomBehavior.on("zoom", createMiniMapPanHandler(host, viewScaleRef));
   }
 
   selection.call(zoomBehavior);
@@ -398,6 +405,7 @@ export function resolveMiniMapKeyboardPosition({
 }
 
 function MiniMap(props: MiniMapProps) {
+  const host = useWorkspaceHost();
   const {
     style,
     className,
@@ -424,7 +432,7 @@ function MiniMap(props: MiniMapProps) {
     selectNodes,
     areMiniMapNodesRenderableInputsEqual,
   );
-  const { boundingRect, viewBB } = useReactFlow(getSelector(nodes), shallow);
+  const { boundingRect, viewBB } = useReactFlow(getSelector(host, nodes), shallow);
   const elementWidth = getMiniMapDimension(style?.width, defaultWidth);
   const elementHeight = getMiniMapDimension(style?.height, defaultHeight);
 
@@ -440,11 +448,12 @@ function MiniMap(props: MiniMapProps) {
 
   useEffect(() => {
     return bindMiniMapInteractions({
+      host,
       svg: svgRef.current,
       pannable,
       viewScaleRef,
     });
-  }, [pannable]);
+  }, [host, pannable]);
 
   const onSvgClick = createMiniMapClickHandler(onClick);
   const minimapSvgProps = buildMinimapSvgProps({
@@ -561,16 +570,18 @@ function MiniMapSelectionSync({
 }: {
   svgRef?: RefObject<SVGSVGElement | null>;
 }) {
+  const host = useWorkspaceHost();
   useEffect(() => {
     const applySelection = (activeIds: Array<string>) => {
       syncSelectedMiniMapNodes(svgRef?.current, activeIds);
     };
 
-    applySelection(useActiveSections.getState().activeIds);
+    const activeSectionsStore = getActiveSectionsStore(host);
+    applySelection(activeSectionsStore.getState().activeIds);
 
     // The reference store carries the subscribeWithSelector middleware; the package store is
     // plain, so the listener applies the reference's equality check itself.
-    const unsubscribe = useActiveSections.subscribe((state, previousState) => {
+    const unsubscribe = activeSectionsStore.subscribe((state, previousState) => {
       if (!areStringArraysEqual(state.activeIds, previousState.activeIds)) {
         applySelection(state.activeIds);
       }
@@ -579,7 +590,7 @@ function MiniMapSelectionSync({
     let observer: MutationObserver | null = null;
     if (svgRef?.current && typeof MutationObserver !== "undefined") {
       observer = new MutationObserver(() => {
-        applySelection(useActiveSections.getState().activeIds);
+        applySelection(activeSectionsStore.getState().activeIds);
       });
       observer.observe(svgRef.current, {
         subtree: true,
@@ -593,7 +604,7 @@ function MiniMapSelectionSync({
       unsubscribe();
       observer?.disconnect();
     };
-  }, [svgRef]);
+  }, [host, svgRef]);
 
   return null;
 }

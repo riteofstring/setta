@@ -1,6 +1,7 @@
 import _ from "lodash";
 import { useEffect } from "react";
-import { useWorkspaceDocument } from "../document/stores";
+import { getWorkspaceDocumentStore, useWorkspaceDocument } from "../document/stores";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import { useDndMonitor, type Disabled } from "./adapter";
 import { useDndChildren } from "./dndChildren";
 import { setDndDisabled, useDndMode, useDndState } from "./dndState";
@@ -45,17 +46,18 @@ export function useHighlightDroppable({
 const defaultDisabledState: Disabled = { draggable: false, droppable: true };
 
 export function useDisableSortable(sectionId: string): Disabled {
+  const host = useWorkspaceHost();
   const { isSorting, isMovingFree } = useDndMode();
   const disabled = useDndState(
     (x) => x.disabled[sectionId] ?? defaultDisabledState,
   );
 
   useEffect(() => {
-    setDndDisabled(sectionId, defaultDisabledState);
-  }, [sectionId]);
+    setDndDisabled(host, sectionId, defaultDisabledState);
+  }, [host, sectionId]);
 
   function activeIdInAncestorSet(activeId: string) {
-    const state = useWorkspaceDocument.getState();
+    const state = getWorkspaceDocumentStore(host).getState();
     let parentId = state.parentSectionMap[sectionId];
     while (parentId) {
       if (activeId === parentId) {
@@ -67,7 +69,7 @@ export function useDisableSortable(sectionId: string): Disabled {
   }
 
   function resetDisabledState() {
-    setDndDisabled(sectionId, defaultDisabledState);
+    setDndDisabled(host, sectionId, defaultDisabledState);
   }
 
   function enableSort({
@@ -87,7 +89,7 @@ export function useDisableSortable(sectionId: string): Disabled {
         isSorting,
       })
     ) {
-      setDndDisabled(sectionId, { draggable: false, droppable: false });
+      setDndDisabled(host, sectionId, { draggable: false, droppable: false });
     }
   }
 

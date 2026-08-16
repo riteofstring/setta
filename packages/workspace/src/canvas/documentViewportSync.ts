@@ -2,10 +2,13 @@ import { zoomIdentity } from "d3-zoom";
 import _ from "lodash";
 import { useEffect } from "react";
 import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
-import { useWorkspaceDocument } from "../document/stores";
+import { getWorkspaceDocumentStore } from "../document/stores";
 import type { Viewport } from "../document/types";
+import { useWorkspaceHost } from "../workspaceHostContext";
+import type { WorkspaceHost } from "../workspaceHost";
 import { useWorkspaceOptions } from "./options";
-import { useReactFlow } from "./store";
+import { getWorkspaceOptionsStore } from "./options";
+import { getReactFlowStore } from "./store";
 import type { CoordinateExtent } from "./types";
 import { clamp } from "./utils";
 
@@ -14,10 +17,10 @@ import { clamp } from "./utils";
 // every transform change back into the canonical config while debouncing only the backend send.
 // The package keeps the same canonical mirror and notifies the host through the document-change
 // callback on each mirrored change.
-export function getInitialCanvasViewport(): Viewport {
-  const viewport = useWorkspaceDocument.getState().viewport;
+export function getInitialCanvasViewport(host: WorkspaceHost): Viewport {
+  const viewport = getWorkspaceDocumentStore(host).getState().viewport;
   if (viewport === null) {
-    useReactFlow.setState({
+    getReactFlowStore(host).setState({
       fitViewOnInit: true,
       fitViewOnInitDone: false,
       fitViewOnInitOptions: undefined,
@@ -28,7 +31,7 @@ export function getInitialCanvasViewport(): Viewport {
   // `applyViewportFromProjectState`: a re-mount after an unmounted-while-armed fit must not
   // complete that stale fit over the saved viewport. This runs before the viewport-sync
   // subscription mounts, so the flag writes cannot mirror into the document.
-  useReactFlow.setState({
+  getReactFlowStore(host).setState({
     fitViewOnInit: false,
     fitViewOnInitDone: true,
     fitViewOnInitOptions: undefined,
@@ -36,8 +39,9 @@ export function getInitialCanvasViewport(): Viewport {
   return viewport;
 }
 
-export function startCanvasViewportDocumentSync() {
-  return useReactFlow.subscribe(
+export function startCanvasViewportDocumentSync(host: WorkspaceHost) {
+  const reactFlowStore = getReactFlowStore(host);
+  return reactFlowStore.subscribe(
     (state) => ({
       transform: state.transform,
       fitViewOnInit: state.fitViewOnInit,
@@ -48,23 +52,24 @@ export function startCanvasViewportDocumentSync() {
         newState.fitViewOnInitDone &&
         (newState.fitViewOnInit || prevState.fitViewOnInit);
       if (autoFitTransition && newState.fitViewOnInit) {
-        useReactFlow.setState({ fitViewOnInit: false });
+        reactFlowStore.setState({ fitViewOnInit: false });
         return;
       }
       const [x, y, zoom] = newState.transform;
-      useWorkspaceDocument.setState({ viewport: { x, y, zoom } });
-      notifyWorkspaceDocumentChange();
+      getWorkspaceDocumentStore(host).setState({ viewport: { x, y, zoom } });
+      notifyWorkspaceDocumentChange(host);
     },
     { equalityFn: _.isEqual },
   );
 }
 
 export function useCanvasViewportDocumentSync() {
-  useEffect(() => startCanvasViewportDocumentSync(), []);
+  const host = useWorkspaceHost();
+  useEffect(() => startCanvasViewportDocumentSync(host), [host]);
 }
 
-function getMountedCanvasZoomRuntime() {
-  const { d3Zoom, d3Selection } = useReactFlow.getState();
+function getMountedCanvasZoomRuntime(host: WorkspaceHost) {
+  const { d3Zoom, d3Selection } = getReactFlowStore(host).getState();
   if (!d3Zoom || !d3Selection) {
     return null;
   }
@@ -77,11 +82,14 @@ function getMountedCanvasZoomRuntime() {
 // the sync mirror triggered by the flag flip lands in the outgoing document state, and the apply
 // after it. Both are no-ops when the canvas is not mounted: the mount path reads the loaded
 // document through `getInitialCanvasViewport`.
-export function armLoadedDocumentFitView(nextViewport: Viewport | null): void {
-  if (nextViewport !== null || getMountedCanvasZoomRuntime() === null) {
+export function armLoadedDocumentFitView(
+  host: WorkspaceHost,
+  nextViewport: Viewport | null,
+): void {
+  if (nextViewport !== null || getMountedCanvasZoomRuntime(host) === null) {
     return;
   }
-  useReactFlow.setState({
+  getReactFlowStore(host).setState({
     fitViewOnInit: true,
     fitViewOnInitDone: false,
     fitViewOnInitOptions: undefined,
@@ -89,17 +97,18 @@ export function armLoadedDocumentFitView(nextViewport: Viewport | null): void {
 }
 
 export function applyLoadedDocumentViewport(
+  host: WorkspaceHost,
   nextViewport: Viewport | null,
 ): void {
   if (nextViewport === null) {
     return;
   }
-  const runtime = getMountedCanvasZoomRuntime();
+  const runtime = getMountedCanvasZoomRuntime(host);
   if (runtime === null) {
     return;
   }
   // A loaded camera cancels any pending fit-on-init, as in the reference's saved-viewport branch.
-  useReactFlow.setState({
+  getReactFlowStore(host).setState({
     fitViewOnInit: false,
     fitViewOnInitDone: true,
     fitViewOnInitOptions: undefined,
@@ -108,8 +117,8 @@ export function applyLoadedDocumentViewport(
   // transform state directly for view-mode swaps), the package pushes the transform through
   // d3-zoom so the element's internal zoom state stays consistent with the store. The transform
   // is constrained exactly as the mount-time initialization constrains the initial viewport.
-  const { width, height, translateExtent } = useReactFlow.getState();
-  const { minZoom, maxZoom } = useWorkspaceOptions.getState();
+  const { width, height, translateExtent } = getReactFlowStore(host).getState();
+  const { minZoom, maxZoom } = getWorkspaceOptionsStore(host).getState();
   const nextTransform = zoomIdentity
     .translate(nextViewport.x, nextViewport.y)
     .scale(clamp(nextViewport.zoom, minZoom, maxZoom));

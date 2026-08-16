@@ -1,6 +1,11 @@
 /* @vitest-environment jsdom */
 
-import { WorkspaceControls } from "@setta/workspace";
+import {
+  createWorkspaceHost,
+  WorkspaceControls,
+  WorkspaceProvider,
+  type WorkspaceHost,
+} from "@setta/workspace";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -24,6 +29,7 @@ function PlaygroundToolbarHost() {
 describe("playground toolbar contributions", () => {
   let host: HTMLDivElement;
   let root: Root;
+  let workspaceHost: WorkspaceHost;
 
   function getControl(label: string): HTMLButtonElement {
     const button = host.querySelector<HTMLButtonElement>(
@@ -42,12 +48,19 @@ describe("playground toolbar contributions", () => {
   }
 
   beforeEach(async () => {
-    registerPlaygroundMenuExtensions();
+    workspaceHost = createWorkspaceHost();
+    registerPlaygroundMenuExtensions(workspaceHost);
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
     await act(async () => {
-      root.render(createElement(PlaygroundToolbarHost));
+      root.render(
+        createElement(
+          WorkspaceProvider,
+          { host: workspaceHost },
+          createElement(PlaygroundToolbarHost),
+        ),
+      );
     });
   });
 
@@ -56,6 +69,7 @@ describe("playground toolbar contributions", () => {
       root.unmount();
     });
     host.remove();
+    workspaceHost.dispose();
   });
 
   // One sequence, because the host's status and toggle live in the module the playground registers

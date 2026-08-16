@@ -1,18 +1,19 @@
-import { useReactFlow } from "../canvas/store";
-import { useWorkspaceCapabilities } from "../document/capabilities";
+import { getReactFlowStore } from "../canvas/store";
+import { getWorkspaceCapabilitiesStore } from "../document/capabilities";
 import { notifyWorkspaceDocumentChange } from "../document/documentChangeCallback";
 import { createNodesMapFromDocumentChildren } from "../document/nodeProjection";
 import {
   runWithAtomicallyPublishedWorkspaceStores,
-  useActiveSections,
-  useNodeInternals,
-  useWorkspaceDocument,
+  getActiveSectionsStore,
+  getNodeInternalsStore,
+  getWorkspaceDocumentStore,
 } from "../document/stores";
 import {
   prepareUngroupSections,
   type UngroupPromotedSectionMeasurement,
 } from "../document/ungroupSections";
-import { useSectionRefs } from "./sectionRefs";
+import { getSectionRefsStore } from "./sectionRefs";
+import type { WorkspaceHost } from "../workspaceHost";
 
 type UngroupFocusSurface = "canvas" | "outline";
 
@@ -22,9 +23,10 @@ type UngroupFocusPlan = {
 };
 
 function measurePromotedSection(
+  host: WorkspaceHost,
   sectionId: string,
 ): UngroupPromotedSectionMeasurement | null {
-  const section = useSectionRefs.getState().withNested[sectionId];
+  const section = getSectionRefsStore(host).getState().withNested[sectionId];
   if (!section || section.offsetWidth <= 0 || section.offsetHeight <= 0) {
     return null;
   }
@@ -40,6 +42,7 @@ function getOutlineItemId(element: HTMLElement): string | null {
 }
 
 function captureUngroupFocusPlan(
+  host: WorkspaceHost,
   groupIds: ReadonlyArray<string>,
 ): UngroupFocusPlan | null {
   if (
@@ -53,7 +56,7 @@ function captureUngroupFocusPlan(
   if (outlineItemId && groupIds.includes(outlineItemId)) {
     return { groupId: outlineItemId, surface: "outline" };
   }
-  const sectionRefs = useSectionRefs.getState();
+  const sectionRefs = getSectionRefsStore(host).getState();
   const groupId = groupIds.find((candidateId) =>
     sectionRefs.withNested[candidateId]?.contains(activeElement),
   );
@@ -73,6 +76,7 @@ function getOutlineFocusTarget(sectionId: string): HTMLElement | null {
 }
 
 function restoreUngroupFocus(
+  host: WorkspaceHost,
   plan: UngroupFocusPlan | null,
   targetSectionId: string | null,
 ): void {
@@ -93,7 +97,7 @@ function restoreUngroupFocus(
       return;
     }
     if (targetSectionId) {
-      const refs = useSectionRefs.getState();
+      const refs = getSectionRefsStore(host).getState();
       const target =
         refs.selfOnly[targetSectionId] ?? refs.withNested[targetSectionId];
       if (!target) {
@@ -104,7 +108,7 @@ function restoreUngroupFocus(
       target.focus({ preventScroll: true });
       return;
     }
-    const pane = useReactFlow
+    const pane = getReactFlowStore(host)
       .getState()
       .domNode?.querySelector<HTMLElement>(".react-flow__pane");
     if (!pane) {
@@ -119,40 +123,49 @@ function restoreUngroupFocus(
 // One public structural action owns validation, the canonical document replacement, derived
 // geometry, selection pruning, focus restoration, and the single host notification. Every package
 // action surface and direct host invocation routes through this function.
-export function ungroupSections(groupIds: ReadonlyArray<string>): void {
-  if (!useWorkspaceCapabilities.getState().canEditStructure) {
+export function ungroupSections(
+  host: WorkspaceHost,
+  groupIds: ReadonlyArray<string>,
+): void {
+  if (!getWorkspaceCapabilitiesStore(host).getState().canEditStructure) {
     throw new Error(
       "Ungrouping requires permission to edit workspace structure.",
     );
   }
-  const currentDocument = useWorkspaceDocument.getState();
-  const currentActiveSections = useActiveSections.getState();
+  const documentStore = getWorkspaceDocumentStore(host);
+  const nodeInternalsStore = getNodeInternalsStore(host);
+  const activeSectionsStore = getActiveSectionsStore(host);
+  const currentDocument = documentStore.getState();
+  const currentActiveSections = activeSectionsStore.getState();
   const prepared = prepareUngroupSections(
     currentDocument,
     currentActiveSections,
     groupIds,
-    measurePromotedSection,
+    (sectionId) => measurePromotedSection(host, sectionId),
   );
-  const focusPlan = captureUngroupFocusPlan(prepared.groupIds);
+  const focusPlan = captureUngroupFocusPlan(host, prepared.groupIds);
   const nextNodes = createNodesMapFromDocumentChildren(
+    host,
     prepared.document,
-    useNodeInternals.getState().x,
+    nodeInternalsStore.getState().x,
   );
   runWithAtomicallyPublishedWorkspaceStores(
+    host,
     {
       document: prepared.document,
       nodeInternals: { x: nextNodes },
       activeSections: prepared.activeSections,
     },
     () => {
-      useNodeInternals.setState({ x: nextNodes });
-      useWorkspaceDocument.setState(prepared.document);
-      useActiveSections.setState(prepared.activeSections);
+      nodeInternalsStore.setState({ x: nextNodes });
+      documentStore.setState(prepared.document);
+      activeSectionsStore.setState(prepared.activeSections);
     },
   );
-  useReactFlow.setState({ nodesSelectionDims: null });
-  notifyWorkspaceDocumentChange();
+  getReactFlowStore(host).setState({ nodesSelectionDims: null });
+  notifyWorkspaceDocumentChange(host);
   restoreUngroupFocus(
+    host,
     focusPlan,
     focusPlan
       ? (prepared.focusTargetByGroupId.get(focusPlan.groupId) ?? null)

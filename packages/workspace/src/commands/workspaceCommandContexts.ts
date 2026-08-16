@@ -12,6 +12,7 @@ import type {
   WorkspacePaneCommandContext,
   WorkspaceSectionCommandContext,
 } from "./workspaceCommandTypes";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // Document objects are replaced rather than mutated, so one detached snapshot per version serves
 // every command context that names it. Weak keys release the snapshot with the version it copied.
@@ -49,9 +50,11 @@ function getItemSnapshot(
 }
 
 export function createPaneCommandContext(
+  host: WorkspaceHost,
   workspacePosition: Position | null,
 ): WorkspacePaneCommandContext {
   return Object.freeze({
+    host,
     scope: "pane" as const,
     workspacePosition:
       workspacePosition === null
@@ -61,10 +64,12 @@ export function createPaneCommandContext(
 }
 
 export function createSectionCommandContext(
+  host: WorkspaceHost,
   section: WorkspaceSection,
   selectedSections: ReadonlyArray<WorkspaceSection>,
 ): WorkspaceSectionCommandContext {
   return Object.freeze({
+    host,
     scope: "section" as const,
     section: getSectionSnapshot(section),
     selectedSections: Object.freeze(selectedSections.map(getSectionSnapshot)),
@@ -72,10 +77,12 @@ export function createSectionCommandContext(
 }
 
 export function createItemCommandContext(
+  host: WorkspaceHost,
   section: WorkspaceSection,
   item: WorkspaceItem,
 ): WorkspaceItemCommandContext {
   return Object.freeze({
+    host,
     scope: "item" as const,
     section: getSectionSnapshot(section),
     item: getItemSnapshot(item),
@@ -86,7 +93,8 @@ export function createItemCommandContext(
 // section header trigger — can ask about the live section instead of detaching a snapshot for it.
 // Host callbacks always receive the detached contexts built above.
 export function createLiveSectionCommandContext(
+  host: WorkspaceHost,
   section: WorkspaceSection,
 ): WorkspaceSectionCommandContext {
-  return { scope: "section", section, selectedSections: [section] };
+  return { host, scope: "section", section, selectedSections: [section] };
 }

@@ -5,10 +5,11 @@ import {
   getTopLevelSectionIdsForDisplay,
 } from "./documentSelectors";
 import {
-  useWorkspaceAppearance,
+  getWorkspaceAppearanceStore,
   type NodeInternalsState,
   type WorkspaceDocumentState,
 } from "./stores";
+import type { WorkspaceHost } from "../workspaceHost";
 import type { Node, TopLevelSectionLayout, WorkspaceSection } from "./types";
 
 function getSectionNodeStyle(
@@ -44,10 +45,11 @@ function nodeStylesMatch(
 // Appearance changes are independent of canonical document projection. In particular, they must
 // not overwrite a live drag position or temporary z-index with the last committed layout values.
 export function reprojectNodeStylesForAppearance(
+  host: WorkspaceHost,
   state: WorkspaceDocumentState,
   nodes: NodeInternalsState["x"],
 ): Map<string, Node> {
-  const darkMode = useWorkspaceAppearance.getState().darkMode;
+  const darkMode = getWorkspaceAppearanceStore(host).getState().darkMode;
   let nextNodes = nodes;
 
   for (const [sectionId, node] of nodes) {
@@ -88,11 +90,12 @@ function buildTopLevelSectionNode(
 }
 
 export function createNodesMapFromDocumentChildren(
+  host: WorkspaceHost,
   state: WorkspaceDocumentState,
   nodes: NodeInternalsState["x"],
 ): Map<string, Node> {
   const nodesMap: Map<string, Node> = new Map();
-  const darkMode = useWorkspaceAppearance.getState().darkMode;
+  const darkMode = getWorkspaceAppearanceStore(host).getState().darkMode;
   for (const sectionId of getTopLevelSectionIdsForDisplay(state)) {
     const layout = state.topLevelSections[sectionId];
     if (!layout) {

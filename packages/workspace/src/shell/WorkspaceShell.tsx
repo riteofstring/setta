@@ -13,7 +13,7 @@ import {
 import { FiEdit3 } from "react-icons/fi";
 import { TbListTree } from "react-icons/tb";
 import { WorkspaceCanvas } from "../canvas/WorkspaceCanvas";
-import { useReactFlow } from "../canvas/store";
+import { getReactFlowStore, useReactFlow } from "../canvas/store";
 import { shiftWorkspaceMapForLeadingPane } from "../canvas/viewportHelpers";
 import {
   areViewportInsetsEqual,
@@ -26,6 +26,7 @@ import { useWorkspaceFocusVisibility } from "../styles/workspaceFocusVisibility"
 import { useWorkspaceScopeClassName } from "../styles/workspaceScope";
 import { WorkspaceControls } from "../toolbar/WorkspaceControls";
 import { WorkspaceTooltip } from "../tooltip/WorkspaceTooltip";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import { WorkspaceInspector } from "./WorkspaceInspector";
 import { WorkspaceOutline } from "./WorkspaceOutline";
 import { WorkspaceShellPane } from "./WorkspaceShellPane";
@@ -352,6 +353,7 @@ export function WorkspaceShell({
   trailingTabs,
   viewState,
 }: WorkspaceShellProps) {
+  const host = useWorkspaceHost();
   const scopeClassName = useWorkspaceScopeClassName();
   const outlineInitialFocusRef = useRef<HTMLElement>(null);
   const inspectorInitialFocusRef = useRef<HTMLElement>(null);
@@ -459,26 +461,26 @@ export function WorkspaceShell({
     ownedViewportInsetsRef.current = nextInsets;
     if (
       !areViewportInsetsEqual(
-        useReactFlow.getState().viewportInsets,
+        getReactFlowStore(host).getState().viewportInsets,
         nextInsets,
       )
     ) {
-      useReactFlow.setState({ viewportInsets: nextInsets });
+      getReactFlowStore(host).setState({ viewportInsets: nextInsets });
     }
-  }, [leadingViewportInset, trailingViewportInset]);
+  }, [host, leadingViewportInset, trailingViewportInset]);
 
   useEffect(
     () => () => {
       if (
         areViewportInsetsEqual(
-          useReactFlow.getState().viewportInsets,
+          getReactFlowStore(host).getState().viewportInsets,
           ownedViewportInsetsRef.current,
         )
       ) {
-        useReactFlow.setState({ viewportInsets: EMPTY_VIEWPORT_INSETS });
+        getReactFlowStore(host).setState({ viewportInsets: EMPTY_VIEWPORT_INSETS });
       }
     },
-    [],
+    [host],
   );
 
   function requireMeasuredWidth(): number {
@@ -557,10 +559,10 @@ export function WorkspaceShell({
     const widthDiff =
       nextLeadingTrueWidth - previousLeadingTrueWidthRef.current;
     if (leadingPaneShiftsCanvas && widthDiff !== 0) {
-      shiftWorkspaceMapForLeadingPane(widthDiff);
+      shiftWorkspaceMapForLeadingPane(host, widthDiff);
     }
     previousLeadingTrueWidthRef.current = nextLeadingTrueWidth;
-  }, [leadingPaneShiftsCanvas, viewState.leading]);
+  }, [host, leadingPaneShiftsCanvas, viewState.leading]);
 
   function registerTab(
     pane: WorkspaceShellPaneSide,

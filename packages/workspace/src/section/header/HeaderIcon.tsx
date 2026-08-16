@@ -1,6 +1,7 @@
 import { FaLayerGroup } from "react-icons/fa6";
 import { GROUP_SECTION_KIND } from "../../document/documentSelectors";
 import { getRegisteredSectionKindOrThrow } from "../../document/sectionKindRegistry";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 
 // The reference's `HeaderIcon` over the section-kind registry: the package-owned group icon,
 // the registered kind icon rendered with the reference's simple-icon treatment
@@ -25,6 +26,7 @@ export function HeaderIcon({
   sectionKind,
   hasSectionStyleTheme,
 }: HeaderIconProps) {
+  const host = useWorkspaceHost();
   const themedIconClassName = hasSectionStyleTheme
     ? themedHeaderIconClassName
     : null;
@@ -41,7 +43,7 @@ export function HeaderIcon({
     );
   }
 
-  const RegisteredIcon = getRegisteredSectionKindOrThrow(sectionKind).icon;
+  const RegisteredIcon = getRegisteredSectionKindOrThrow(host, sectionKind).icon;
   if (RegisteredIcon) {
     return (
       <RegisteredIcon

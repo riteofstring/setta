@@ -3,18 +3,19 @@ import { select } from "d3-selection";
 import type { MouseEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import { setZIndices } from "../document/sectionZIndices";
-import { useNodeInternals } from "../document/stores";
+import { getNodeInternalsStore } from "../document/stores";
 import type { Position } from "../document/types";
 import { NO_DRAG_CLASS_NAME } from "../interaction";
 import { getDragItems, hasSelector } from "./dragItems";
-import { useCanvasGestures } from "./gestureState";
+import { getCanvasGesturesStore } from "./gestureState";
 import {
   commitTopLevelLayoutToDocument,
   raiseTempZIndex,
   updateNodePositions,
 } from "./nodeInternalsActions";
-import { useWorkspaceOptions } from "./options";
-import { useReactFlow } from "./store";
+import { getWorkspaceOptionsStore } from "./options";
+import { getReactFlowStore } from "./store";
+import { useWorkspaceHost } from "../workspaceHostContext";
 import type { NodeDragItem, UseDragEvent } from "./types";
 import useGetPointerPosition from "./useGetPointerPosition";
 import { calcAutoPan, getEventPosition } from "./utils";
@@ -26,6 +27,7 @@ type UseDragParams = {
 };
 
 function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
+  const host = useWorkspaceHost();
   const [dragging, setDragging] = useState<boolean>(false);
   const dragItems = useRef<Array<NodeDragItem>>([]);
   const lastPos = useRef<{ x: number | null; y: number | null }>({
@@ -46,9 +48,9 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
 
       const updateNodes = ({ x, y }: Position, dragEnd = false) => {
         const { nodesSelectionDims, shiftNodesSelection, setNodesSelection } =
-          useReactFlow.getState();
+          getReactFlowStore(host).getState();
 
-        const { snapGrid, snapToGrid } = useWorkspaceOptions.getState();
+        const { snapGrid, snapToGrid } = getWorkspaceOptionsStore(host).getState();
 
         const lastX = lastPos.current.x;
         const lastY = lastPos.current.y;
@@ -87,7 +89,7 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
           return;
         }
 
-        updateNodePositions(dragItems.current);
+        updateNodePositions(host, dragItems.current);
         // When dragging a selection, nodeId is undefined.
         if (!nodeId && nodesSelectionDims) {
           if (dragEnd && snapToGrid) {
@@ -110,7 +112,7 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
         );
 
         if (xMovement !== 0 || yMovement !== 0) {
-          const { transform, panBy } = useReactFlow.getState();
+          const { transform, panBy } = getReactFlowStore(host).getState();
 
           const newX = (lastPos.current.x ?? 0) - xMovement / transform[2];
           const newY = (lastPos.current.y ?? 0) - yMovement / transform[2];
@@ -130,14 +132,14 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
       };
 
       const startDrag = (event: UseDragEvent) => {
-        const nodeInternals = useNodeInternals.getState().x;
+        const nodeInternals = getNodeInternalsStore(host).getState().x;
         dragStarted.current = true;
 
         const pointerPos = getPointerPosition(event);
         lastPos.current = pointerPos;
-        dragItems.current = getDragItems(nodeInternals, pointerPos, nodeId);
-        raiseTempZIndex(dragItems.current);
-        useCanvasGestures.setState({ mouseDownDraggingSection: true });
+        dragItems.current = getDragItems(host, nodeInternals, pointerPos, nodeId);
+        raiseTempZIndex(host, dragItems.current);
+        getCanvasGesturesStore(host).setState({ mouseDownDraggingSection: true });
       };
 
       const startAutoPanIfNeeded = (autoPanOnNodeDrag: boolean) => {
@@ -183,11 +185,12 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
         // The reference's drag end always normalizes: every completed drag densely renumbers
         // the nodes with the dragged ones on top before the layout commit.
         setZIndices(
+          host,
           dragItems.current.map((dragItem) => dragItem.id),
           true,
         );
         // The reference persists the finished gesture through its layout commit funnel here.
-        commitTopLevelLayoutToDocument();
+        commitTopLevelLayoutToDocument(host);
       };
 
       if (disabled) {
@@ -195,7 +198,7 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
       } else {
         const dragHandler = drag()
           .on("start", (event: UseDragEvent) => {
-            const { domNode, nodeDragThreshold } = useReactFlow.getState();
+            const { domNode, nodeDragThreshold } = getReactFlowStore(host).getState();
             if (nodeDragThreshold === 0) {
               startDrag(event);
             }
@@ -208,7 +211,7 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
           .on("drag", (event: UseDragEvent) => {
             const pointerPos = getPointerPosition(event);
             const { autoPanOnNodeDrag, nodeDragThreshold } =
-              useReactFlow.getState();
+              getReactFlowStore(host).getState();
 
             startAutoPanIfNeeded(autoPanOnNodeDrag);
             startDragOnceThresholdIsMet(event, pointerPos, nodeDragThreshold);
@@ -221,12 +224,12 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
             updateNodes(pointerPos);
           })
           .on("end", () => {
-            useCanvasGestures.setState({ mouseDownDraggingSection: false });
+            getCanvasGesturesStore(host).setState({ mouseDownDraggingSection: false });
             if (!dragStarted.current) {
               return;
             }
 
-            if (useWorkspaceOptions.getState().snapToGrid) {
+            if (getWorkspaceOptionsStore(host).getState().snapToGrid) {
               const lastX = lastPos.current.x;
               const lastY = lastPos.current.y;
               if (lastX === null || lastY === null) {
@@ -253,7 +256,7 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
         };
       }
     }
-  }, [nodeRef, disabled, nodeId, getPointerPosition]);
+  }, [host, nodeRef, disabled, nodeId, getPointerPosition]);
 
   return dragging;
 }

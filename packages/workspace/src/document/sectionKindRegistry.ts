@@ -6,6 +6,7 @@ import {
   cloneFrozenWorkspaceSnapshot,
   type WorkspaceSnapshot,
 } from "./workspaceSnapshot";
+import type { WorkspaceHost } from "../workspaceHost";
 
 // The registration half of the renderer seam: application-owned section kinds map to their
 // renderer and either ordinary header/default-size metadata or the direct-on-canvas presentation.
@@ -129,7 +130,16 @@ export type SectionKindDefinition = SectionKindBaseDefinition &
       }
   );
 
-let registeredSectionKinds: Record<string, SectionKindDefinition> = {};
+const registeredSectionKindsByHost = new WeakMap<
+  WorkspaceHost,
+  Record<string, SectionKindDefinition>
+>();
+
+function getRegisteredSectionKinds(
+  host: WorkspaceHost,
+): Record<string, SectionKindDefinition> {
+  return registeredSectionKindsByHost.get(host) ?? {};
+}
 
 function assertMetaControlPresentation(
   kind: string,
@@ -239,6 +249,7 @@ function assertSectionKindDefinition(
 // Replaces the registered kind set. Hosts register every kind once, before loading or
 // rendering documents that use them.
 export function registerSectionKinds(
+  host: WorkspaceHost,
   kinds: Record<string, SectionKindDefinition>,
 ): void {
   if (GROUP_SECTION_KIND in kinds) {
@@ -249,13 +260,14 @@ export function registerSectionKinds(
   for (const [kind, definition] of Object.entries(kinds)) {
     assertSectionKindDefinition(kind, definition);
   }
-  registeredSectionKinds = kinds;
+  registeredSectionKindsByHost.set(host, kinds);
 }
 
 export function getRegisteredSectionKindOrThrow(
+  host: WorkspaceHost,
   kind: string,
 ): SectionKindDefinition {
-  const definition = registeredSectionKinds[kind];
+  const definition = getRegisteredSectionKinds(host)[kind];
   if (!definition) {
     throw new Error(
       `Section kind ${kind} is not registered. Call registerSectionKinds with it before ` +
@@ -267,30 +279,33 @@ export function getRegisteredSectionKindOrThrow(
 
 // Groups are package-owned and register nothing, so they contribute no header controls.
 export function getSectionKindHeaderControls(
+  host: WorkspaceHost,
   kind: string,
 ): ((section: WorkspaceSection) => ReactNode) | null {
   if (kind === GROUP_SECTION_KIND) {
     return null;
   }
-  const definition = getRegisteredSectionKindOrThrow(kind);
+  const definition = getRegisteredSectionKindOrThrow(host, kind);
   return definition.presentation === undefined
     ? (definition.renderHeaderControls ?? null)
     : null;
 }
 
 export function getWorkspaceItemFactory(
+  host: WorkspaceHost,
   section: WorkspaceSection,
 ): WorkspaceItemFactory | null {
-  const definition = getRegisteredSectionKindOrThrow(section.kind);
+  const definition = getRegisteredSectionKindOrThrow(host, section.kind);
   return definition.presentation === undefined
     ? (definition.createItem ?? null)
     : null;
 }
 
 export function createWorkspaceItemFromFactory(
+  host: WorkspaceHost,
   section: WorkspaceSection,
 ): WorkspaceItem {
-  const factory = getWorkspaceItemFactory(section);
+  const factory = getWorkspaceItemFactory(host, section);
   if (!factory) {
     throw new Error(
       `Section kind ${section.kind} does not provide an item factory.`,
@@ -300,13 +315,14 @@ export function createWorkspaceItemFromFactory(
 }
 
 export function getWorkspaceItemSearchableText(
+  host: WorkspaceHost,
   section: WorkspaceSection,
   item: WorkspaceItem,
 ): string {
   if (item.presentation) {
     return item.presentation.label;
   }
-  const definition = getRegisteredSectionKindOrThrow(section.kind);
+  const definition = getRegisteredSectionKindOrThrow(host, section.kind);
   const getSearchableText =
     definition.presentation === undefined
       ? definition.getItemSearchableText
@@ -335,9 +351,11 @@ export function getWorkspaceItemSearchableText(
 }
 
 export function getMetaControlPresentation(
+  host: WorkspaceHost,
   section: Pick<WorkspaceSection, "kind">,
 ): MetaControlSectionPresentation | null {
   const presentation = getRegisteredSectionKindOrThrow(
+    host,
     section.kind,
   ).presentation;
   if (presentation === undefined) {

@@ -3,6 +3,7 @@ import type { Droppable } from "@dnd-kit/dom";
 import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import React, { useEffect, useId, useMemo, useRef } from "react";
+import { useWorkspaceHost } from "../../workspaceHostContext";
 import { getDndSectionId } from "../dndIds";
 import {
   clearSortingOverState,
@@ -488,6 +489,7 @@ function getRectsForSorting(
 }
 
 function useSortingOverStateSync(state: SortingOverSyncState): void {
+  const host = useWorkspaceHost();
   const {
     collisions,
     containerId,
@@ -504,11 +506,12 @@ function useSortingOverStateSync(state: SortingOverSyncState): void {
       !hasCollisions(collisions) ||
       !resolvedSortingOverId
     ) {
-      clearSortingOverState(containerId);
+      clearSortingOverState(host, containerId);
       return;
     }
 
     setSortingOverState(
+      host,
       containerId,
       resolvedSortingOverId,
       resolvedPastHalfway,
@@ -516,6 +519,7 @@ function useSortingOverStateSync(state: SortingOverSyncState): void {
   }, [
     collisions,
     containerId,
+    host,
     resolvedPastHalfway,
     resolvedSortingOverId,
     shouldTrackSorting,
