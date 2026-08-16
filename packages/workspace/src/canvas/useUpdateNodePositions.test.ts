@@ -37,7 +37,9 @@ function createNode(): Node {
 
 describe("updatePositions", () => {
   beforeEach(() => {
-    testWorkspace.nodeInternals.setState({ x: new Map([["leaf", createNode()]]) });
+    testWorkspace.nodeInternals.setState({
+      x: new Map([["leaf", createNode()]]),
+    });
     testWorkspace.activeSections.setState({ activeIds: ["leaf"] });
     testWorkspace.options.setState({ snapToGrid: false });
     testWorkspace.reactFlow.setState({ ...initialCanvasState });
@@ -56,7 +58,9 @@ describe("updatePositions", () => {
 
     updatePositions(testWorkspace.host, { x: 1, y: 0, isShiftPressed: false });
 
-    expect(testWorkspace.nodeInternals.getState().x.get("leaf")?.position).toEqual({
+    expect(
+      testWorkspace.nodeInternals.getState().x.get("leaf")?.position,
+    ).toEqual({
       x: 10,
       y: 20,
     });
@@ -64,7 +68,9 @@ describe("updatePositions", () => {
     testWorkspace.capabilities.setState({ canEditLayout: true });
     updatePositions(testWorkspace.host, { x: 1, y: 0, isShiftPressed: false });
 
-    expect(testWorkspace.nodeInternals.getState().x.get("leaf")?.position).toEqual({
+    expect(
+      testWorkspace.nodeInternals.getState().x.get("leaf")?.position,
+    ).toEqual({
       x: 15,
       y: 20,
     });

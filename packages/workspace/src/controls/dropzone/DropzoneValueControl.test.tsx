@@ -98,17 +98,19 @@ describe("DropzoneValueControl", () => {
     act(() => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<DropzoneValueControl
-          ariaLabel="Assets"
-          sectionId={SECTION_ID}
-          controlId={CONTROL_ID}
-          attachments={[]}
-          policy={POLICY}
-          onAccepted={() => {}}
-          onRejected={() => {}}
-          {...props}
-        />
-        }</WorkspaceTestProvider>,
+          {
+            <DropzoneValueControl
+              ariaLabel="Assets"
+              sectionId={SECTION_ID}
+              controlId={CONTROL_ID}
+              attachments={[]}
+              policy={POLICY}
+              onAccepted={() => {}}
+              onRejected={() => {}}
+              {...props}
+            />
+          }
+        </WorkspaceTestProvider>,
       );
     });
   }
@@ -386,7 +388,9 @@ describe("DropzoneValueControl", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    testWorkspace.sectionRefs.setState({
+      withNested: { [SECTION_ID]: sectionRoot },
+    });
     mount({ disabled: true, onServerFilePickerRequest: () => {} });
     expect(getFileInput().disabled).toBe(true);
     expect(getButton("Local file...").disabled).toBe(true);
@@ -407,7 +411,9 @@ describe("DropzoneValueControl", () => {
     });
     expect(document.activeElement).toBe(sectionRoot);
 
-    act(() => testWorkspace.itemSelectionMode.setState({ isSelectingItems: true }));
+    act(() =>
+      testWorkspace.itemSelectionMode.setState({ isSelectingItems: true }),
+    );
     expect(getFileInput().disabled).toBe(true);
     expect(getButton("Local file...").disabled).toBe(true);
     expect(getDropTarget().getAttribute("aria-disabled")).toBe("true");

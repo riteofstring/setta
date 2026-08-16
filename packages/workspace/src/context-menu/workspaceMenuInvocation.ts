@@ -45,7 +45,10 @@ function getWorkspacePosition(
   );
 }
 
-function getSelectedSectionContext(host: WorkspaceHost, sectionId: string): {
+function getSelectedSectionContext(
+  host: WorkspaceHost,
+  sectionId: string,
+): {
   section: WorkspaceSection;
   selectedSections: Array<WorkspaceSection>;
 } {

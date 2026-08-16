@@ -58,13 +58,16 @@ describe("WorkspaceTooltip", () => {
     });
     host = document.createElement("div");
     document.body.appendChild(host);
-    unregisterHostElement = registerWorkspaceHostElement(testWorkspace.host, host);
+    unregisterHostElement = registerWorkspaceHostElement(
+      testWorkspace.host,
+      host,
+    );
     root = createRoot(host);
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {createElement(WorkspaceTooltip)
-        }</WorkspaceTestProvider>,
+          {createElement(WorkspaceTooltip)}
+        </WorkspaceTestProvider>,
       );
     });
   });
@@ -81,7 +84,8 @@ describe("WorkspaceTooltip", () => {
   });
 
   it("stages and clears every page through the hover handlers", async () => {
-    const handlers = getWorkspaceTooltipHandlers(testWorkspace.host,
+    const handlers = getWorkspaceTooltipHandlers(
+      testWorkspace.host,
       { content: "Zoom in" },
       { content: "Use the wheel to zoom precisely.", title: "More" },
     );
@@ -143,7 +147,9 @@ describe("WorkspaceTooltip", () => {
     expect(getTooltipPortal()).toBeNull();
 
     await act(async () => {
-      getWorkspaceTooltipHandlers(testWorkspace.host, { content: "Fit view" }).onMouseEnter({
+      getWorkspaceTooltipHandlers(testWorkspace.host, {
+        content: "Fit view",
+      }).onMouseEnter({
         currentTarget: host,
       });
     });
@@ -186,7 +192,8 @@ describe("WorkspaceTooltip", () => {
 
   it("cycles paged content in both directions with wraparound", async () => {
     await act(async () => {
-      getWorkspaceTooltipHandlers(testWorkspace.host,
+      getWorkspaceTooltipHandlers(
+        testWorkspace.host,
         { content: "First page", title: "One" },
         { content: "Second page", title: "Two", tone: "info" },
       ).onMouseEnter({ currentTarget: host });
@@ -278,7 +285,9 @@ describe("WorkspaceTooltip", () => {
 
   it("portals to viewport coordinates and follows the pointer at a 10px offset", async () => {
     await act(async () => {
-      getWorkspaceTooltipHandlers(testWorkspace.host, { content: "Reset zoom" }).onMouseEnter({
+      getWorkspaceTooltipHandlers(testWorkspace.host, {
+        content: "Reset zoom",
+      }).onMouseEnter({
         currentTarget: host,
       });
       enableWorkspaceTooltip(testWorkspace.host);
@@ -298,11 +307,13 @@ describe("WorkspaceTooltip", () => {
   });
 
   it("keeps following the pointer after the staged row changes before paging", async () => {
-    const firstHandlers = getWorkspaceTooltipHandlers(testWorkspace.host,
+    const firstHandlers = getWorkspaceTooltipHandlers(
+      testWorkspace.host,
       { content: "First row diagnostic" },
       { content: "First row help" },
     );
-    const secondHandlers = getWorkspaceTooltipHandlers(testWorkspace.host,
+    const secondHandlers = getWorkspaceTooltipHandlers(
+      testWorkspace.host,
       { content: "Second row diagnostic" },
       { content: "Second row help" },
     );
@@ -342,7 +353,8 @@ describe("WorkspaceTooltip", () => {
     vi.stubGlobal("innerWidth", 1000);
     vi.stubGlobal("innerHeight", 800);
     await act(async () => {
-      getWorkspaceTooltipHandlers(testWorkspace.host,
+      getWorkspaceTooltipHandlers(
+        testWorkspace.host,
         { content: "Short first page" },
         { content: "A much taller second page" },
       ).onMouseEnter({ currentTarget: host });
@@ -389,7 +401,9 @@ describe("WorkspaceTooltip", () => {
     target.dir = "rtl";
 
     await act(async () => {
-      getWorkspaceTooltipHandlers(testWorkspace.host, { content: "Move minimap" }).onMouseEnter({
+      getWorkspaceTooltipHandlers(testWorkspace.host, {
+        content: "Move minimap",
+      }).onMouseEnter({
         currentTarget: target,
       });
       enableWorkspaceTooltip(testWorkspace.host);

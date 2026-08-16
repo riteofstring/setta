@@ -8,7 +8,10 @@ import {
   type WorkspaceDocumentSubscription,
 } from "./document/documentChangeCallback";
 import { loadWorkspaceDocument } from "./document/loadWorkspaceDocument";
-import type { WorkspaceDocument, WorkspaceDocumentInput } from "./document/types";
+import type {
+  WorkspaceDocument,
+  WorkspaceDocumentInput,
+} from "./document/types";
 
 // The public host is the single lifetime and document boundary for one workspace instance.
 // Package actions that are not host methods take this value explicitly; no module can discover a

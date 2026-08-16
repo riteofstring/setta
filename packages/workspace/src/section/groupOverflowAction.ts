@@ -76,8 +76,9 @@ function measureAutoGroupSize(
     return null;
   }
   return (
-    getSectionRefsStore(host).getState().withNested[sectionId]?.getBoundingClientRect() ??
-    null
+    getSectionRefsStore(host)
+      .getState()
+      .withNested[sectionId]?.getBoundingClientRect() ?? null
   );
 }
 

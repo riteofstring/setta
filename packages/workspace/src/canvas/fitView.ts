@@ -56,9 +56,8 @@ function resolveFitViewZoomLimits(
   host: WorkspaceHost,
   options: InternalFitViewOptions,
 ) {
-  const { minZoom, maxZoom, defaultZoomLevel } = getWorkspaceOptionsStore(
-    host,
-  ).getState();
+  const { minZoom, maxZoom, defaultZoomLevel } =
+    getWorkspaceOptionsStore(host).getState();
   const resolvedMinZoom = options.minZoom ?? minZoom;
   const cappedMaxZoom = options.initial
     ? Math.min(options.maxZoom ?? maxZoom, defaultZoomLevel)
@@ -83,7 +82,9 @@ function getTargetNodes(
   return nodes.filter((node) => targetNodeIds.has(node.id));
 }
 
-function areNodesReadyForFitView(nodes: Array<ReturnType<typeof getNodes>[number]>) {
+function areNodesReadyForFitView(
+  nodes: Array<ReturnType<typeof getNodes>[number]>,
+) {
   return nodes.length > 0 && nodes.every((node) => node.width && node.height);
 }
 
@@ -178,13 +179,10 @@ export function onFitViewHandler(host: WorkspaceHost): boolean {
   // canvas viewport document-sync subscription will get
   // triggered and it will reset to fitViewOnInit
   const timerState = getFitViewTimerState(host);
-  const timer = setTimeout(
-    () => {
-      timerState.timers.delete(timer);
-      getReactFlowStore(host).setState({ fitViewOnInit: true });
-    },
-    duration + 10,
-  );
+  const timer = setTimeout(() => {
+    timerState.timers.delete(timer);
+    getReactFlowStore(host).setState({ fitViewOnInit: true });
+  }, duration + 10);
   timerState.timers.add(timer);
   return fitted;
 }

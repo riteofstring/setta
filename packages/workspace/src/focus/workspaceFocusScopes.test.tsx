@@ -78,7 +78,9 @@ function appendButton(parent: HTMLElement, label: string): HTMLButtonElement {
 // Two leaf sections whose layout order is the reverse of the order they are appended in, so a
 // reading-order failure cannot pass by accident.
 function loadCanvasDocument() {
-  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       lower: {
@@ -143,8 +145,8 @@ describe("workspace focus scopes", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<ScopeHost scopeIds={scopeIds} />
-        }</WorkspaceTestProvider>,
+          {<ScopeHost scopeIds={scopeIds} />}
+        </WorkspaceTestProvider>,
       );
     });
   }
@@ -211,7 +213,9 @@ describe("workspace focus scopes", () => {
     await mountScopes(["leading-pane"]);
     const scopeRoot = requireElement(host, '[data-scope-root="leading-pane"]');
 
-    expect(focusWorkspaceScope(testWorkspace.host, "trailing-pane")).toBe(false);
+    expect(focusWorkspaceScope(testWorkspace.host, "trailing-pane")).toBe(
+      false,
+    );
     expect(focusWorkspaceScope(testWorkspace.host, "leading-pane")).toBe(false);
 
     appendButton(scopeRoot, "Disabled").disabled = true;
@@ -247,8 +251,8 @@ describe("workspace focus scopes", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<ScopeHost scopeIds={[]} />
-        }</WorkspaceTestProvider>,
+          {<ScopeHost scopeIds={[]} />}
+        </WorkspaceTestProvider>,
       );
     });
 

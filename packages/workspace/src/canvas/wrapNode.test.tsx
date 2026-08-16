@@ -43,7 +43,9 @@ vi.mock("../section/container/SectionContainer", () => ({
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 function loadTestDocument() {
-  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       leaf: {
@@ -93,12 +95,12 @@ describe("NodeWrapper", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(NodeWrapper, {
-          id: "leaf",
-          isDraggable: true,
-          resizeObserver: null,
-          visibility: "visible",
-        })
-        }</WorkspaceTestProvider>,
+            id: "leaf",
+            isDraggable: true,
+            resizeObserver: null,
+            visibility: "visible",
+          })}
+        </WorkspaceTestProvider>,
       );
     });
 

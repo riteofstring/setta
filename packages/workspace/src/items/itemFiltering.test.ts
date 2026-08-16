@@ -113,7 +113,8 @@ describe("package-owned item filtering", () => {
   it("leaves custom items unsearchable without an explicit contribution", () => {
     registerSectionKinds(host, { parameters: { renderContent: () => null } });
     expect(
-      filterWorkspaceSectionItems(host, makeSection(), "worker").matchingItemIds.size,
+      filterWorkspaceSectionItems(host, makeSection(), "worker").matchingItemIds
+        .size,
     ).toBe(0);
   });
 

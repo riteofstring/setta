@@ -23,10 +23,7 @@ import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
-import {
-  getWorkspaceDocument,
-
-} from "../document/documentChangeCallback";
+import { getWorkspaceDocument } from "../document/documentChangeCallback";
 import { getSectionOrThrow } from "../document/documentSelectors";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
@@ -190,8 +187,8 @@ describe("built-in code section body", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {createElement(CodeSectionHarness)
-        }</WorkspaceTestProvider>,
+          {createElement(CodeSectionHarness)}
+        </WorkspaceTestProvider>,
       );
     });
   }
@@ -214,7 +211,8 @@ describe("built-in code section body", () => {
   }
 
   function getSectionData(): WorkspaceCodeSectionData {
-    const data = getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]?.data;
+    const data = getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]
+      ?.data;
     return data as WorkspaceCodeSectionData;
   }
 

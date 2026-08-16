@@ -95,9 +95,10 @@ export function resolveWorkspaceToolbarEntries(
   host: WorkspaceHost,
   placement: WorkspaceToolbarPlacement,
 ): ReadonlyArray<WorkspaceToolbarEntry> {
-  return getWorkspaceToolbarContributions(host, placement).map((contribution) =>
-    contribution.kind === "creation"
-      ? resolveCreationEntry(host, contribution)
-      : resolveCommandEntry(host, contribution),
+  return getWorkspaceToolbarContributions(host, placement).map(
+    (contribution) =>
+      contribution.kind === "creation"
+        ? resolveCreationEntry(host, contribution)
+        : resolveCommandEntry(host, contribution),
   );
 }

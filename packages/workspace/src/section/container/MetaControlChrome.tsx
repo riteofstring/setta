@@ -46,7 +46,9 @@ export function MetaControlChrome({
             type="button"
             className={EDIT_TRIGGER_CLASS_NAME}
             onClick={() => onEdit(section)}
-            onKeyDown={(event) => handleSectionControlEscape(host, event, section.id)}
+            onKeyDown={(event) =>
+              handleSectionControlEscape(host, event, section.id)
+            }
             disabled={!canEditStructure}
             aria-label={`Edit ${section.name.trim() || "meta control"}`}
             title="Edit meta control"

@@ -43,7 +43,10 @@ export function HeaderIcon({
     );
   }
 
-  const RegisteredIcon = getRegisteredSectionKindOrThrow(host, sectionKind).icon;
+  const RegisteredIcon = getRegisteredSectionKindOrThrow(
+    host,
+    sectionKind,
+  ).icon;
   if (RegisteredIcon) {
     return (
       <RegisteredIcon

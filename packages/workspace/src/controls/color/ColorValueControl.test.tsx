@@ -74,14 +74,14 @@ describe("ColorValueControl", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(ColorValueControl, {
-          ariaLabel: "Accent color",
-          sectionId: SECTION_ID,
-          itemId: ITEM_ID,
-          value: "#22c55e",
-          onValueChange: () => {},
-          ...props,
-        })
-        }</WorkspaceTestProvider>,
+            ariaLabel: "Accent color",
+            sectionId: SECTION_ID,
+            itemId: ITEM_ID,
+            value: "#22c55e",
+            onValueChange: () => {},
+            ...props,
+          })}
+        </WorkspaceTestProvider>,
       );
     });
   }
@@ -237,7 +237,9 @@ describe("ColorValueControl", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    testWorkspace.sectionRefs.setState({
+      withNested: { [SECTION_ID]: sectionRoot },
+    });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     await mount({ choices: CHOICES });
@@ -287,7 +289,9 @@ describe("ColorValueControl", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    testWorkspace.sectionRefs.setState({
+      withNested: { [SECTION_ID]: sectionRoot },
+    });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     await mount({ choices: CHOICES });

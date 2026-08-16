@@ -239,18 +239,22 @@ describe("WorkspaceItemFilter", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<WorkspaceItemFilterProvider sectionId="panel">
-          <WorkspaceItemAuthoringToolbar sectionId="panel" />
-          <ItemDndContext>
-            <WorkspaceItemList
-              sectionId="panel"
-              listKey={LIST_KEY}
-              topLevelItemIds={itemTree.items[itemTree.rootId]?.children ?? []}
-              renderItem={renderCustomItem}
-            />
-          </ItemDndContext>
-        </WorkspaceItemFilterProvider>
-        }</WorkspaceTestProvider>,
+          {
+            <WorkspaceItemFilterProvider sectionId="panel">
+              <WorkspaceItemAuthoringToolbar sectionId="panel" />
+              <ItemDndContext>
+                <WorkspaceItemList
+                  sectionId="panel"
+                  listKey={LIST_KEY}
+                  topLevelItemIds={
+                    itemTree.items[itemTree.rootId]?.children ?? []
+                  }
+                  renderItem={renderCustomItem}
+                />
+              </ItemDndContext>
+            </WorkspaceItemFilterProvider>
+          }
+        </WorkspaceTestProvider>,
       );
     });
     const input = host.querySelector<HTMLInputElement>(
@@ -287,7 +291,8 @@ describe("WorkspaceItemFilter", () => {
       "1 matching parameter. 1 selected parameter is hidden by this filter.",
     );
     expect(
-      resolveItemListView(testWorkspace.host, "panel", "momentum", LIST_KEY)?.filterActive,
+      resolveItemListView(testWorkspace.host, "panel", "momentum", LIST_KEY)
+        ?.filterActive,
     ).toBe(true);
 
     expect(moveSelectedItemsDown(testWorkspace.host)).toBe(false);

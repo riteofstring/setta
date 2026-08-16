@@ -182,7 +182,9 @@ function SliderValueControlCore({
         <Slider.Thumb
           aria-label={ariaLabel}
           className={classes.thumbClassName}
-          onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
+          onKeyDown={(event) =>
+            handleSectionControlEscape(host, event, sectionId)
+          }
         />
       </Slider.Root>
       <SliderNumericField

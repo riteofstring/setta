@@ -60,17 +60,19 @@ describe("SliderValueControl", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<SliderValueControl
-          ariaLabel="Gain value"
-          sectionId={SECTION_ID}
-          value="5"
-          min={0}
-          max={10}
-          step={1}
-          onValueChange={() => {}}
-          {...props}
-        />
-        }</WorkspaceTestProvider>,
+          {
+            <SliderValueControl
+              ariaLabel="Gain value"
+              sectionId={SECTION_ID}
+              value="5"
+              min={0}
+              max={10}
+              step={1}
+              onValueChange={() => {}}
+              {...props}
+            />
+          }
+        </WorkspaceTestProvider>,
       );
     });
   }
@@ -264,7 +266,9 @@ describe("SliderValueControl", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    testWorkspace.sectionRefs.setState({
+      withNested: { [SECTION_ID]: sectionRoot },
+    });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     await mount();

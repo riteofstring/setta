@@ -1,12 +1,14 @@
 /* @vitest-environment jsdom */
 import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
-import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../../packages/workspace/test/workspaceTestHost";
+import {
+  createWorkspaceTestHost,
+  type WorkspaceTestHost,
+} from "../../../packages/workspace/test/workspaceTestHost";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
   testWorkspace = createWorkspaceTestHost();
 });
-
 
 import {
   createWorkspaceHost,
@@ -77,19 +79,21 @@ describe("the playground's built-in text section", () => {
         WORKSPACE_TEXT_SECTION_KIND,
       );
     }
-    expect(getWorkspaceTextSectionData(workspaceHost, RENDERED_SECTION_ID)).toMatchObject({
+    expect(
+      getWorkspaceTextSectionData(workspaceHost, RENDERED_SECTION_ID),
+    ).toMatchObject({
       format: "markdown",
       displayMode: "render",
       fontSizePx: 14,
       readOnly: false,
     });
-    expect(getWorkspaceTextSectionData(workspaceHost, SOURCE_SECTION_ID).displayMode).toBe(
-      "edit",
-    );
+    expect(
+      getWorkspaceTextSectionData(workspaceHost, SOURCE_SECTION_ID).displayMode,
+    ).toBe("edit");
     // Both fixtures carry the same source, so the gate can compare the two surfaces directly.
-    expect(getWorkspaceTextSectionData(workspaceHost, RENDERED_SECTION_ID).text).toBe(
-      getWorkspaceTextSectionData(workspaceHost, SOURCE_SECTION_ID).text,
-    );
+    expect(
+      getWorkspaceTextSectionData(workspaceHost, RENDERED_SECTION_ID).text,
+    ).toBe(getWorkspaceTextSectionData(workspaceHost, SOURCE_SECTION_ID).text);
   });
 
   it("authors every typed option from host Inspector UI", () => {
@@ -140,7 +144,9 @@ describe("the playground's built-in text section", () => {
       fontSizePx.dispatchEvent(new Event("input", { bubbles: true }));
     });
 
-    expect(getWorkspaceTextSectionData(workspaceHost, RENDERED_SECTION_ID)).toMatchObject({
+    expect(
+      getWorkspaceTextSectionData(workspaceHost, RENDERED_SECTION_ID),
+    ).toMatchObject({
       format: "plaintext",
       readOnly: true,
       fontSizePx: 20,
@@ -148,8 +154,8 @@ describe("the playground's built-in text section", () => {
   });
 
   it("refuses a typed read outside the built-in kind", () => {
-    expect(() => getWorkspaceTextSectionData(workspaceHost, "code-editor")).toThrow(
-      /is a setta\.code section, not a text section/u,
-    );
+    expect(() =>
+      getWorkspaceTextSectionData(workspaceHost, "code-editor"),
+    ).toThrow(/is a setta\.code section, not a text section/u);
   });
 });

@@ -486,7 +486,9 @@ export function WorkspaceShell({
           ownedViewportInsetsRef.current,
         )
       ) {
-        getReactFlowStore(host).setState({ viewportInsets: EMPTY_VIEWPORT_INSETS });
+        getReactFlowStore(host).setState({
+          viewportInsets: EMPTY_VIEWPORT_INSETS,
+        });
       }
     },
     [host],

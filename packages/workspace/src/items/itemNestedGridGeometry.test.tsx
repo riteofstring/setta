@@ -152,7 +152,9 @@ function renderRowContent(context: ItemRowRenderContext) {
 }
 
 function loadRejectedScene() {
-  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   // The rejected `options` group scene plus the reference's nested-root case: a non-group
   // row (`beta`) that carries a child, whose areas come from the stylesheet alone.
   const ids: Record<
@@ -259,17 +261,17 @@ describe("nested item grid geometry from the compiled stylesheet", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(
-          ItemDndContext,
-          null,
-          createElement(WorkspaceItemList, {
-            sectionId: "panel",
-            listKey: "main",
-            topLevelItemIds: ["item-alpha", "item-options", "item-beta"],
-            renderItem: renderRowContent,
-            isGroupItem,
-          }),
-        )
-        }</WorkspaceTestProvider>,
+            ItemDndContext,
+            null,
+            createElement(WorkspaceItemList, {
+              sectionId: "panel",
+              listKey: "main",
+              topLevelItemIds: ["item-alpha", "item-options", "item-beta"],
+              renderItem: renderRowContent,
+              isGroupItem,
+            }),
+          )}
+        </WorkspaceTestProvider>,
       );
     });
   });

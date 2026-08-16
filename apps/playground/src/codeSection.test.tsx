@@ -1,12 +1,14 @@
 /* @vitest-environment jsdom */
 import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
-import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../../packages/workspace/test/workspaceTestHost";
+import {
+  createWorkspaceTestHost,
+  type WorkspaceTestHost,
+} from "../../../packages/workspace/test/workspaceTestHost";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
   testWorkspace = createWorkspaceTestHost();
 });
-
 
 import {
   createWorkspaceHost,
@@ -73,16 +75,18 @@ describe("the playground's built-in code section", () => {
   it("composes with the host's own registered kinds", () => {
     const section = workspaceHost.getSnapshot().sections[SECTION_ID];
     expect(section?.kind).toBe(WORKSPACE_CODE_SECTION_KIND);
-    expect(getWorkspaceCodeSectionData(workspaceHost, SECTION_ID)).toMatchObject({
+    expect(
+      getWorkspaceCodeSectionData(workspaceHost, SECTION_ID),
+    ).toMatchObject({
       language: "python",
       lineNumbers: true,
       indentWidth: 4,
       readOnly: false,
       wrapLines: false,
     });
-    expect(getWorkspaceCodeSectionData(workspaceHost, SECTION_ID).code).toContain(
-      "def train(",
-    );
+    expect(
+      getWorkspaceCodeSectionData(workspaceHost, SECTION_ID).code,
+    ).toContain("def train(");
   });
 
   it("authors every typed option from host Inspector UI", () => {
@@ -137,7 +141,9 @@ describe("the playground's built-in code section", () => {
       indentWidth.dispatchEvent(new Event("input", { bubbles: true }));
     });
 
-    expect(getWorkspaceCodeSectionData(workspaceHost, SECTION_ID)).toMatchObject({
+    expect(
+      getWorkspaceCodeSectionData(workspaceHost, SECTION_ID),
+    ).toMatchObject({
       language: "yaml",
       wrapLines: true,
       lineNumbers: false,
@@ -146,8 +152,8 @@ describe("the playground's built-in code section", () => {
   });
 
   it("refuses a typed write that leaves the contract", () => {
-    expect(() => getWorkspaceCodeSectionData(workspaceHost, "item-panel")).toThrow(
-      /is a item-list section, not a code section/u,
-    );
+    expect(() =>
+      getWorkspaceCodeSectionData(workspaceHost, "item-panel"),
+    ).toThrow(/is a item-list section, not a code section/u);
   });
 });

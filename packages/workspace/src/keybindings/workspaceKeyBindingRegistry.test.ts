@@ -304,7 +304,9 @@ describe("workspace key bindings", () => {
       /Ctrl \+ G is claimed by workspace.group-sections, host-note/u,
     );
     expect(
-      getWorkspaceKeyBindings(host).some((binding) => binding.id === "host-note"),
+      getWorkspaceKeyBindings(host).some(
+        (binding) => binding.id === "host-note",
+      ),
     ).toBe(false);
   });
 

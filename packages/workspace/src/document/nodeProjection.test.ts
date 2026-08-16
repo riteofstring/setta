@@ -67,7 +67,8 @@ describe("createNodesMapFromDocumentChildren", () => {
   });
 
   it("projects a top-level section into a node", () => {
-    const nodes = createNodesMapFromDocumentChildren(testWorkspace.host,
+    const nodes = createNodesMapFromDocumentChildren(
+      testWorkspace.host,
       makeDocumentState(),
       new Map(),
     );
@@ -95,7 +96,11 @@ describe("createNodesMapFromDocumentChildren", () => {
       },
       parentSectionMap: { leaf: "parent" },
     });
-    const nodes = createNodesMapFromDocumentChildren(testWorkspace.host, state, new Map());
+    const nodes = createNodesMapFromDocumentChildren(
+      testWorkspace.host,
+      state,
+      new Map(),
+    );
     expect([...nodes.keys()]).toEqual(["parent"]);
   });
 
@@ -109,7 +114,8 @@ describe("createNodesMapFromDocumentChildren", () => {
       tempZIndex: 0,
       kind: "leaf",
     };
-    const nodes = createNodesMapFromDocumentChildren(testWorkspace.host,
+    const nodes = createNodesMapFromDocumentChildren(
+      testWorkspace.host,
       makeDocumentState(),
       new Map([["leaf", existing]]),
     );
@@ -125,13 +131,21 @@ describe("createNodesMapFromDocumentChildren", () => {
       sections: { leaf: makeSection("leaf", { styleColor: "#3b82f6" }) },
     });
 
-    const lightNodes = createNodesMapFromDocumentChildren(testWorkspace.host, state, new Map());
+    const lightNodes = createNodesMapFromDocumentChildren(
+      testWorkspace.host,
+      state,
+      new Map(),
+    );
     expect(lightNodes.get("leaf")?.style).toEqual({
       background: requireTheme("#3b82f6", false).bg,
     });
 
     testWorkspace.appearance.setState({ darkMode: true });
-    const darkNodes = createNodesMapFromDocumentChildren(testWorkspace.host, state, new Map());
+    const darkNodes = createNodesMapFromDocumentChildren(
+      testWorkspace.host,
+      state,
+      new Map(),
+    );
     expect(darkNodes.get("leaf")?.style).toEqual({
       background: requireTheme("#3b82f6", true).bg,
     });
@@ -150,7 +164,11 @@ describe("createNodesMapFromDocumentChildren", () => {
     const state = makeDocumentState({
       sections: { leaf: makeSection("leaf", { styleColor: "  " }) },
     });
-    const nodes = createNodesMapFromDocumentChildren(testWorkspace.host, state, new Map());
+    const nodes = createNodesMapFromDocumentChildren(
+      testWorkspace.host,
+      state,
+      new Map(),
+    );
     expect(nodes.get("leaf")?.style).toBeUndefined();
   });
 

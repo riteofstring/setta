@@ -56,28 +56,34 @@ afterEach(() => host.dispose());
 describe("resolveItemListView", () => {
   it("prefers the drag's list key when it shows the active item", () => {
     registerItemListView(host, "section", makeView("pinned", ["item-a"]));
-    registerItemListView(host, "section", makeView("unpinned", ["item-a", "item-b"]));
+    registerItemListView(
+      host,
+      "section",
+      makeView("unpinned", ["item-a", "item-b"]),
+    );
 
-    expect(resolveItemListView(host, "section", "item-a", "unpinned")?.listKey).toBe(
-      "unpinned",
-    );
-    expect(resolveItemListView(host, "section", "item-a", "pinned")?.listKey).toBe(
-      "pinned",
-    );
+    expect(
+      resolveItemListView(host, "section", "item-a", "unpinned")?.listKey,
+    ).toBe("unpinned");
+    expect(
+      resolveItemListView(host, "section", "item-a", "pinned")?.listKey,
+    ).toBe("pinned");
   });
 
   it("falls back through the section's other lists in mount order", () => {
     registerItemListView(host, "section", makeView("pinned", ["item-a"]));
     registerItemListView(host, "section", makeView("unpinned", ["item-b"]));
 
-    expect(resolveItemListView(host, "section", "item-b", "pinned")?.listKey).toBe(
-      "unpinned",
-    );
+    expect(
+      resolveItemListView(host, "section", "item-b", "pinned")?.listKey,
+    ).toBe("unpinned");
     expect(resolveItemListView(host, "section", "item-a", null)?.listKey).toBe(
       "pinned",
     );
     expect(resolveItemListView(host, "section", "item-c", "pinned")).toBeNull();
-    expect(resolveItemListView(host, "other-section", "item-a", "pinned")).toBeNull();
+    expect(
+      resolveItemListView(host, "other-section", "item-a", "pinned"),
+    ).toBeNull();
   });
 
   it("drops unregistered lists", () => {
@@ -91,7 +97,11 @@ describe("resolveItemListView", () => {
     registerItemListView(host, "section", makeView("pinned", ["item-a"]));
     registerItemListView(host, "section", makeView("unpinned", ["item-a"]));
 
-    updateItemListView(host, "section", makeView("pinned", ["item-a", "item-b"]));
+    updateItemListView(
+      host,
+      "section",
+      makeView("pinned", ["item-a", "item-b"]),
+    );
 
     // The fallback still resolves the first-mounted list, not the most recently updated one.
     expect(resolveItemListView(host, "section", "item-a", null)?.listKey).toBe(

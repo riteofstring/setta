@@ -137,7 +137,9 @@ describe("getBoundedGroupSize", () => {
 
 describe("setGroupOverflowMode", () => {
   beforeEach(() => {
-    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+    registerSectionKinds(testWorkspace.host, {
+      leaf: { renderContent: () => null },
+    });
     loadTestDocument();
     testWorkspace.sectionRefs.getState().reset();
     testWorkspace.capabilities.getState().reset();
@@ -188,10 +190,12 @@ describe("setGroupOverflowMode", () => {
     expect(reported[0]?.activeIds).toEqual(["group"]);
     // The minimap continues to use the already-matching measured node bounds until the canvas's
     // resize observer confirms the fixed DOM geometry; the document action never clears them.
-    expect(testWorkspace.nodeInternals.getState().x.get("group")).toMatchObject({
-      width: 368,
-      height: 242,
-    });
+    expect(testWorkspace.nodeInternals.getState().x.get("group")).toMatchObject(
+      {
+        width: 368,
+        height: 242,
+      },
+    );
   });
 
   it("keeps authored bounds when disabling and re-enabling a numeric group", () => {
@@ -231,27 +235,31 @@ describe("setGroupOverflowMode", () => {
     testWorkspace.host.subscribe(onDocumentChange);
     const originalSections = testWorkspace.document.getState().sections;
 
-    expect(() => setGroupOverflowMode(testWorkspace.host, "group", "bounded" as never)).toThrow(
-      /must be a boolean/,
-    );
-    expect(() => setGroupOverflowMode(testWorkspace.host, "leaf", true)).toThrow(/is not a group/);
-    expect(() => setGroupOverflowMode(testWorkspace.host, "missing", true)).toThrow(
-      /Unknown section missing/,
-    );
-    expect(() => setGroupOverflowMode(testWorkspace.host, "group", true)).toThrow(
-      /before its auto-sized surface/,
-    );
+    expect(() =>
+      setGroupOverflowMode(testWorkspace.host, "group", "bounded" as never),
+    ).toThrow(/must be a boolean/);
+    expect(() =>
+      setGroupOverflowMode(testWorkspace.host, "leaf", true),
+    ).toThrow(/is not a group/);
+    expect(() =>
+      setGroupOverflowMode(testWorkspace.host, "missing", true),
+    ).toThrow(/Unknown section missing/);
+    expect(() =>
+      setGroupOverflowMode(testWorkspace.host, "group", true),
+    ).toThrow(/before its auto-sized surface/);
 
     loadTestDocument({ positionAndSizeLocked: true });
     onDocumentChange.mockClear();
-    expect(() => setGroupOverflowMode(testWorkspace.host, "group", true)).toThrow(/is locked/);
+    expect(() =>
+      setGroupOverflowMode(testWorkspace.host, "group", true),
+    ).toThrow(/is locked/);
 
     loadTestDocument();
     onDocumentChange.mockClear();
     testWorkspace.capabilities.setState({ canEditLayout: false });
-    expect(() => setGroupOverflowMode(testWorkspace.host, "group", true)).toThrow(
-      /permission to edit workspace layout/,
-    );
+    expect(() =>
+      setGroupOverflowMode(testWorkspace.host, "group", true),
+    ).toThrow(/permission to edit workspace layout/);
 
     expect(onDocumentChange).not.toHaveBeenCalled();
     expect(originalSections["group"]?.overflowMode).toBe(false);

@@ -82,7 +82,10 @@ describe("insertWorkspaceSection", () => {
     const onChange = vi.fn<(document: WorkspaceDocument) => void>();
     testWorkspace.host.subscribe(onChange);
 
-    insertWorkspaceSection(testWorkspace.host, createSection("created"), { x: 125.5, y: -40 });
+    insertWorkspaceSection(testWorkspace.host, createSection("created"), {
+      x: 125.5,
+      y: -40,
+    });
 
     const state = testWorkspace.document.getState();
     expect(state.sections["created"]?.size).toEqual({
@@ -96,13 +99,17 @@ describe("insertWorkspaceSection", () => {
       h: 120,
       zIndex: 5,
     });
-    expect(testWorkspace.nodeInternals.getState().x.get("created")).toMatchObject({
+    expect(
+      testWorkspace.nodeInternals.getState().x.get("created"),
+    ).toMatchObject({
       position: { x: 125.5, y: -40 },
       width: 240,
       height: 120,
       zIndex: 5,
     });
-    expect(testWorkspace.activeSections.getState().activeIds).toEqual(["created"]);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual([
+      "created",
+    ]);
     expect(onChange).toHaveBeenCalledOnce();
   });
 
@@ -120,7 +127,10 @@ describe("insertWorkspaceSection", () => {
       });
     });
     try {
-      insertWorkspaceSection(testWorkspace.host, createSection("created"), { x: 0, y: 0 });
+      insertWorkspaceSection(testWorkspace.host, createSection("created"), {
+        x: 0,
+        y: 0,
+      });
     } finally {
       unsubscribe();
     }
@@ -129,16 +139,24 @@ describe("insertWorkspaceSection", () => {
 
   it("rejects duplicates, non-finite placement, and preclaimed children before mutation", () => {
     expect(() =>
-      insertWorkspaceSection(testWorkspace.host, createSection("existing"), { x: 0, y: 0 }),
-    ).toThrow(/duplicate workspace section existing/);
-    expect(() =>
-      insertWorkspaceSection(testWorkspace.host, createSection("invalid-position"), {
-        x: Number.NaN,
+      insertWorkspaceSection(testWorkspace.host, createSection("existing"), {
+        x: 0,
         y: 0,
       }),
+    ).toThrow(/duplicate workspace section existing/);
+    expect(() =>
+      insertWorkspaceSection(
+        testWorkspace.host,
+        createSection("invalid-position"),
+        {
+          x: Number.NaN,
+          y: 0,
+        },
+      ),
     ).toThrow(/finite position/);
     expect(() =>
-      insertWorkspaceSection(testWorkspace.host,
+      insertWorkspaceSection(
+        testWorkspace.host,
         createSection("parent", { children: ["existing"] }),
         { x: 0, y: 0 },
       ),

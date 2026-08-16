@@ -93,7 +93,8 @@ function resolveSectionExtent(
 // The reference's `createTopLevelSectionLayoutDict`: the stored layout, with the canvas's own
 // measurements of anything it has already laid out written over it.
 function buildOccupiedRects(host: WorkspaceHost): Array<PlacementRect> {
-  const { sections, topLevelSections } = getWorkspaceDocumentStore(host).getState();
+  const { sections, topLevelSections } =
+    getWorkspaceDocumentStore(host).getState();
   const nodes = getNodeInternalsStore(host).getState().x;
   return Object.entries(topLevelSections).flatMap(([sectionId, layout]) => {
     const section = sections[sectionId];
@@ -325,7 +326,10 @@ export function resolveWorkspaceEmptySpacePlacement(
   host: WorkspaceHost,
   section: WorkspaceSectionInput,
 ): WorkspaceEmptySpacePlacement {
-  const extent = resolveSectionExtent(host, section, { width: null, height: null });
+  const extent = resolveSectionExtent(host, section, {
+    width: null,
+    height: null,
+  });
   const minimum = resolveMinimumExtent(host, section);
   const rects = buildOccupiedRects(host);
   const pane = getVisiblePaneRect(host);

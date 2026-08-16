@@ -98,7 +98,8 @@ describe("dragEventMapping", () => {
       },
     };
 
-    const result = mapDragStartEvent(testWorkspace.host,
+    const result = mapDragStartEvent(
+      testWorkspace.host,
       {
         operation: {
           source: active as never,
@@ -159,7 +160,8 @@ describe("dragEventMapping", () => {
       },
     };
 
-    const resultFromDroppable = mapDragStartEvent(testWorkspace.host,
+    const resultFromDroppable = mapDragStartEvent(
+      testWorkspace.host,
       {
         operation: {
           source: active as never,
@@ -188,7 +190,8 @@ describe("dragEventMapping", () => {
       },
     };
 
-    const resultFromActiveRect = mapDragStartEvent(testWorkspace.host,
+    const resultFromActiveRect = mapDragStartEvent(
+      testWorkspace.host,
       {
         operation: {
           source: active as never,
@@ -215,7 +218,8 @@ describe("dragEventMapping", () => {
       },
     };
 
-    const result = mapDragEvent(testWorkspace.host,
+    const result = mapDragEvent(
+      testWorkspace.host,
       {
         operation: {
           source: null,
@@ -243,7 +247,8 @@ describe("dragEventMapping", () => {
       },
     };
 
-    const mapped = mapDragEvent(testWorkspace.host,
+    const mapped = mapDragEvent(
+      testWorkspace.host,
       {
         operation: {
           source: active as never,
@@ -296,7 +301,8 @@ describe("dragEventMapping", () => {
       },
     };
 
-    const mapped = mapDragEvent(testWorkspace.host,
+    const mapped = mapDragEvent(
+      testWorkspace.host,
       {
         operation: {
           source: active as never,

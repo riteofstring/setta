@@ -57,7 +57,9 @@ function makeSection(
 }
 
 beforeEach(() => {
-  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       leaf: makeSection("leaf"),
@@ -79,8 +81,7 @@ beforeEach(() => {
   });
 });
 
-afterEach(() => {
-});
+afterEach(() => {});
 
 describe("per-flag section mutations", () => {
   it("renames a section", () => {
@@ -103,9 +104,9 @@ describe("per-flag section mutations", () => {
 
   it("toggles minimization", () => {
     toggleMinimized(testWorkspace.host, "leaf");
-    expect(testWorkspace.document.getState().sections["leaf"]?.isMinimized).toBe(
-      true,
-    );
+    expect(
+      testWorkspace.document.getState().sections["leaf"]?.isMinimized,
+    ).toBe(true);
   });
 
   it("toggles group orientation", () => {
@@ -119,12 +120,15 @@ describe("per-flag section mutations", () => {
   it("refuses to write orientation onto a non-group, as the reference funnel does", () => {
     toggleGroupOrientation(testWorkspace.host, "leaf");
     expect(
-      testWorkspace.document.getState().sections["leaf"]?.isHorizontalOrientation,
+      testWorkspace.document.getState().sections["leaf"]
+        ?.isHorizontalOrientation,
     ).toBe(false);
   });
 
   it("throws for an unknown section", () => {
-    expect(() => setSectionName(testWorkspace.host, "missing", "x")).toThrow(/Unknown section/);
+    expect(() => setSectionName(testWorkspace.host, "missing", "x")).toThrow(
+      /Unknown section/,
+    );
   });
 
   it("normalizes a style accent and reprojects its live node", () => {
@@ -155,7 +159,8 @@ describe("per-flag section mutations", () => {
       testWorkspace.document.getState().sections["leaf"]?.positionAndSizeLocked,
     ).toBe(true);
     expect(
-      testWorkspace.document.getState().sections["leaf-b"]?.positionAndSizeLocked,
+      testWorkspace.document.getState().sections["leaf-b"]
+        ?.positionAndSizeLocked,
     ).toBe(true);
     expect(onChange).toHaveBeenCalledOnce();
   });
@@ -227,11 +232,17 @@ describe("groupSections", () => {
       "group",
     ]);
     expect(state.parentSectionMap["leaf"]).toBe("created-group");
-    expect(testWorkspace.activeSections.getState().activeIds).toEqual(["created-group"]);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual([
+      "created-group",
+    ]);
   });
 
   it("creates a child group at the first selected sibling", () => {
-    groupSections(testWorkspace.host, ["nested-b", "nested"], "created-nested-group");
+    groupSections(
+      testWorkspace.host,
+      ["nested-b", "nested"],
+      "created-nested-group",
+    );
 
     const state = testWorkspace.document.getState();
     expect(state.sections["group"]?.children).toEqual(["created-nested-group"]);
@@ -243,8 +254,8 @@ describe("groupSections", () => {
   });
 
   it("rejects selections whose sections do not share one parent", () => {
-    expect(() => groupSections(testWorkspace.host, ["leaf", "nested"], "invalid-group")).toThrow(
-      /share the same parent/,
-    );
+    expect(() =>
+      groupSections(testWorkspace.host, ["leaf", "nested"], "invalid-group"),
+    ).toThrow(/share the same parent/);
   });
 });

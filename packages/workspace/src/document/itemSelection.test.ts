@@ -85,7 +85,9 @@ const documentChangeSpy = vi.fn();
 
 describe("item selection", () => {
   beforeEach(() => {
-    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+    registerSectionKinds(testWorkspace.host, {
+      leaf: { renderContent: () => null },
+    });
     loadWorkspaceDocument(testWorkspace.host, {
       sections: {
         "section-a": makeSection("section-a", {
@@ -121,7 +123,9 @@ describe("item selection", () => {
   it("toggles selection on the canonical tree and activates the section during item mode", () => {
     toggleItemSelected(testWorkspace.host, "section-a", "a-1");
     expect(getSelectedItemIds("section-a")).toEqual(["a-1"]);
-    expect(testWorkspace.activeSections.getState().activeIds).toEqual(["section-a"]);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual([
+      "section-a",
+    ]);
     // One notification for the selection commit, one for the active-section commit — the
     // reference sends one toggle route and one active-ids route.
     expect(documentChangeSpy).toHaveBeenCalledTimes(2);
@@ -137,19 +141,21 @@ describe("item selection", () => {
 
     toggleItemSelected(testWorkspace.host, "section-a", "a-1");
     expect(getSelectedItemIds("section-a")).toEqual(["a-1"]);
-    expect(testWorkspace.activeSections.getState().activeIds).toEqual(["section-b"]);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual([
+      "section-b",
+    ]);
   });
 
   it("fails loudly for unknown items, the root item, and sections without items", () => {
-    expect(() => toggleItemSelected(testWorkspace.host, "section-a", "ghost")).toThrowError(
-      /Unknown item ghost/,
-    );
-    expect(() => toggleItemSelected(testWorkspace.host, "section-a", "item-root")).toThrowError(
-      /Cannot select the root item item-root/,
-    );
-    expect(() => toggleItemSelected(testWorkspace.host, "bare", "a-1")).toThrowError(
-      /Section bare has no item tree/,
-    );
+    expect(() =>
+      toggleItemSelected(testWorkspace.host, "section-a", "ghost"),
+    ).toThrowError(/Unknown item ghost/);
+    expect(() =>
+      toggleItemSelected(testWorkspace.host, "section-a", "item-root"),
+    ).toThrowError(/Cannot select the root item item-root/);
+    expect(() =>
+      toggleItemSelected(testWorkspace.host, "bare", "a-1"),
+    ).toThrowError(/Section bare has no item tree/);
   });
 
   it("clears selection across sections in one commit and reports whether anything changed", () => {

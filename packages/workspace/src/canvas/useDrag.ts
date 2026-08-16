@@ -50,7 +50,8 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
         const { nodesSelectionDims, shiftNodesSelection, setNodesSelection } =
           getReactFlowStore(host).getState();
 
-        const { snapGrid, snapToGrid } = getWorkspaceOptionsStore(host).getState();
+        const { snapGrid, snapToGrid } =
+          getWorkspaceOptionsStore(host).getState();
 
         const lastX = lastPos.current.x;
         const lastY = lastPos.current.y;
@@ -137,9 +138,16 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
 
         const pointerPos = getPointerPosition(event);
         lastPos.current = pointerPos;
-        dragItems.current = getDragItems(host, nodeInternals, pointerPos, nodeId);
+        dragItems.current = getDragItems(
+          host,
+          nodeInternals,
+          pointerPos,
+          nodeId,
+        );
         raiseTempZIndex(host, dragItems.current);
-        getCanvasGesturesStore(host).setState({ mouseDownDraggingSection: true });
+        getCanvasGesturesStore(host).setState({
+          mouseDownDraggingSection: true,
+        });
       };
 
       const startAutoPanIfNeeded = (autoPanOnNodeDrag: boolean) => {
@@ -198,7 +206,8 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
       } else {
         const dragHandler = drag()
           .on("start", (event: UseDragEvent) => {
-            const { domNode, nodeDragThreshold } = getReactFlowStore(host).getState();
+            const { domNode, nodeDragThreshold } =
+              getReactFlowStore(host).getState();
             if (nodeDragThreshold === 0) {
               startDrag(event);
             }
@@ -224,7 +233,9 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
             updateNodes(pointerPos);
           })
           .on("end", () => {
-            getCanvasGesturesStore(host).setState({ mouseDownDraggingSection: false });
+            getCanvasGesturesStore(host).setState({
+              mouseDownDraggingSection: false,
+            });
             if (!dragStarted.current) {
               return;
             }

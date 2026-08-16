@@ -89,7 +89,10 @@ export function setItemLabel(
       `Section ${sectionId} item ${itemId} label is not editable.`,
     );
   }
-  commitItemPresentation(host, sectionId, itemId, { ...item.presentation, label });
+  commitItemPresentation(host, sectionId, itemId, {
+    ...item.presentation,
+    label,
+  });
 }
 
 export function setItemHelpText(
@@ -110,7 +113,10 @@ export function setItemHelpText(
     commitItemPresentation(host, sectionId, itemId, presentation);
     return;
   }
-  commitItemPresentation(host, sectionId, itemId, { ...item.presentation, helpText });
+  commitItemPresentation(host, sectionId, itemId, {
+    ...item.presentation,
+    helpText,
+  });
 }
 
 export function setItemValue(
@@ -147,7 +153,10 @@ export function setItemPresentation(
     `Section ${sectionId} item ${itemId} control mutation`,
   );
   const { item } = getBuiltInItemState(host, sectionId, itemId);
-  commitItemPresentation(host, sectionId, itemId, { ...item.presentation, control });
+  commitItemPresentation(host, sectionId, itemId, {
+    ...item.presentation,
+    control,
+  });
 }
 
 export function setItemControlConfiguration(

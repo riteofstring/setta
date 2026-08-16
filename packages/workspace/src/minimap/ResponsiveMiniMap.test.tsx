@@ -80,8 +80,8 @@ describe("ResponsiveMiniMap", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<ResponsiveMiniMap />
-        }</WorkspaceTestProvider>,
+          {<ResponsiveMiniMap />}
+        </WorkspaceTestProvider>,
       );
     });
 
@@ -116,8 +116,8 @@ describe("ResponsiveMiniMap", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<ResponsiveMiniMap />
-        }</WorkspaceTestProvider>,
+          {<ResponsiveMiniMap />}
+        </WorkspaceTestProvider>,
       );
     });
 
@@ -134,8 +134,8 @@ describe("ResponsiveMiniMap", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<ResponsiveMiniMap />
-        }</WorkspaceTestProvider>,
+          {<ResponsiveMiniMap />}
+        </WorkspaceTestProvider>,
       );
     });
 
@@ -148,8 +148,8 @@ describe("ResponsiveMiniMap", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<WorkspaceCanvas />
-        }</WorkspaceTestProvider>,
+          {<WorkspaceCanvas />}
+        </WorkspaceTestProvider>,
       );
     });
 

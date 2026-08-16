@@ -43,8 +43,8 @@ describe("WorkspaceBackground", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {createElement(WorkspaceBackground)
-        }</WorkspaceTestProvider>,
+          {createElement(WorkspaceBackground)}
+        </WorkspaceTestProvider>,
       );
     });
   });
@@ -121,7 +121,10 @@ describe("WorkspaceBackground", () => {
     expect(host.querySelector(".react-flow__background")).toBeNull();
 
     await act(async () => {
-      testWorkspace.options.setState({ snapToGrid: true, showGridLines: false });
+      testWorkspace.options.setState({
+        snapToGrid: true,
+        showGridLines: false,
+      });
     });
     expect(host.querySelector(".react-flow__background")).toBeNull();
   });

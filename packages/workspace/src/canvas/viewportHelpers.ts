@@ -82,7 +82,10 @@ export function zoomIn(host: WorkspaceHost, options?: TransitionOptions): void {
   getZoomThrottleState(host).zoomIn(options);
 }
 
-export function zoomOut(host: WorkspaceHost, options?: TransitionOptions): void {
+export function zoomOut(
+  host: WorkspaceHost,
+  options?: TransitionOptions,
+): void {
   getZoomThrottleState(host).zoomOut(options);
 }
 
@@ -113,18 +116,23 @@ export function getIsZoomRuntimeReady(host: WorkspaceHost): boolean {
 export function getCanZoomIn(host: WorkspaceHost): boolean {
   return (
     getIsZoomRuntimeReady(host) &&
-    getReactFlowStore(host).getState().transform[2] < getZoomLimits(host).maxZoom
+    getReactFlowStore(host).getState().transform[2] <
+      getZoomLimits(host).maxZoom
   );
 }
 
 export function getCanZoomOut(host: WorkspaceHost): boolean {
   return (
     getIsZoomRuntimeReady(host) &&
-    getReactFlowStore(host).getState().transform[2] > getZoomLimits(host).minZoom
+    getReactFlowStore(host).getState().transform[2] >
+      getZoomLimits(host).minZoom
   );
 }
 
-function getZoomLimits(host: WorkspaceHost): { minZoom: number; maxZoom: number } {
+function getZoomLimits(host: WorkspaceHost): {
+  minZoom: number;
+  maxZoom: number;
+} {
   const { minZoom, maxZoom } = getWorkspaceOptionsStore(host).getState();
   return { minZoom, maxZoom };
 }
@@ -165,7 +173,10 @@ export function zoomToPointerLocation(host: WorkspaceHost): boolean {
   const { defaultZoomLevel, transitionDuration } =
     getWorkspaceOptionsStore(host).getState();
   const { x, y } = screenToFlowPosition(host, pointer);
-  setCenter(host, x, y, { zoom: defaultZoomLevel, duration: transitionDuration });
+  setCenter(host, x, y, {
+    zoom: defaultZoomLevel,
+    duration: transitionDuration,
+  });
   return true;
 }
 
@@ -246,7 +257,10 @@ export function shiftWorkspaceMapForLeadingPane(
 
 // The public counterpart of frozen main's Overview `goToSection`: fit one mounted section into
 // the actual canvas center, cap ordinary focus at 100%, and leave canonical selection untouched.
-export function focusWorkspaceSection(host: WorkspaceHost, sectionId: string): void {
+export function focusWorkspaceSection(
+  host: WorkspaceHost,
+  sectionId: string,
+): void {
   if (!getWorkspaceDocumentStore(host).getState().sections[sectionId]) {
     throw new Error(`Cannot focus unknown workspace section ${sectionId}.`);
   }

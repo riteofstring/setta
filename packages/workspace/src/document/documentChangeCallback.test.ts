@@ -85,13 +85,17 @@ describe("WorkspaceHost getSnapshot", () => {
     const snapshot = host.getSnapshot();
 
     host.loadDocument(makeDocument());
-    expect(getWorkspaceDocumentStore(host).getState().sections["leaf"]?.name).toBe("leaf");
+    expect(
+      getWorkspaceDocumentStore(host).getState().sections["leaf"]?.name,
+    ).toBe("leaf");
 
     host.loadDocument(snapshot);
-    expect(getWorkspaceDocumentStore(host).getState().sections["leaf"]?.name).toBe(
-      "Renamed leaf",
-    );
-    expect(getActiveSectionsStore(host).getState().activeIds).toEqual(["nested"]);
+    expect(
+      getWorkspaceDocumentStore(host).getState().sections["leaf"]?.name,
+    ).toBe("Renamed leaf");
+    expect(getActiveSectionsStore(host).getState().activeIds).toEqual([
+      "nested",
+    ]);
   });
 });
 

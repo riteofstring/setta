@@ -420,17 +420,20 @@ function getResolvedIntersectionRatio({
   return Number((verticalOverlap * activeRect.width).toFixed(4));
 }
 
-function getContainerIsHorizontal(host: WorkspaceHost, {
-  mode,
-  containerId,
-  activeData,
-  droppableData,
-}: {
-  mode: CollisionMode;
-  containerId?: string;
-  activeData: DndEntityData | null;
-  droppableData: DndEntityData | null;
-}): boolean {
+function getContainerIsHorizontal(
+  host: WorkspaceHost,
+  {
+    mode,
+    containerId,
+    activeData,
+    droppableData,
+  }: {
+    mode: CollisionMode;
+    containerId?: string;
+    activeData: DndEntityData | null;
+    droppableData: DndEntityData | null;
+  },
+): boolean {
   if (mode !== "section") {
     return false;
   }
@@ -533,19 +536,22 @@ function getBoostedIntersectionRatio({
     : intersectionRatio;
 }
 
-function getTriggerDistCondition(host: WorkspaceHost, {
-  activeId,
-  droppableData,
-  triggerDist,
-  containerIsHorizontal,
-  mode,
-}: {
-  activeId: string;
-  droppableData: DndEntityData | null;
-  triggerDist: number;
-  containerIsHorizontal: boolean;
-  mode: CollisionMode;
-}): boolean {
+function getTriggerDistCondition(
+  host: WorkspaceHost,
+  {
+    activeId,
+    droppableData,
+    triggerDist,
+    containerIsHorizontal,
+    mode,
+  }: {
+    activeId: string;
+    droppableData: DndEntityData | null;
+    triggerDist: number;
+    containerIsHorizontal: boolean;
+    mode: CollisionMode;
+  },
+): boolean {
   if (!droppableData) {
     return false;
   }

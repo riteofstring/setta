@@ -53,7 +53,9 @@ function makeSection(
 }
 
 function loadUngroupDocument(): void {
-  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       group: makeSection("group", "group", ["child-a", "child-b"]),

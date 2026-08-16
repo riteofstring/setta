@@ -57,7 +57,11 @@ function setupZoomRuntime() {
     translateBy,
   } as unknown as NonNullable<typeof initialCanvasState.d3Zoom>;
 
-  testWorkspace.reactFlow.setState({ ...initialCanvasState, d3Selection, d3Zoom });
+  testWorkspace.reactFlow.setState({
+    ...initialCanvasState,
+    d3Selection,
+    d3Zoom,
+  });
 
   return {
     d3Selection,
@@ -273,7 +277,9 @@ describe("viewport zoom helpers", () => {
       children: [],
     };
     testWorkspace.document.setState({ sections: { "section-a": section } });
-    testWorkspace.activeSections.setState({ activeIds: ["section-a", "section-b"] });
+    testWorkspace.activeSections.setState({
+      activeIds: ["section-a", "section-b"],
+    });
     testWorkspace.options.setState({ minZoom: 2, maxZoom: 10 });
     testWorkspace.reactFlow.setState({
       width: 800,
@@ -345,7 +351,9 @@ describe("viewport zoom helpers", () => {
       },
     });
 
-    expect(() => focusWorkspaceSection(testWorkspace.host, "section-a")).not.toThrow();
+    expect(() =>
+      focusWorkspaceSection(testWorkspace.host, "section-a"),
+    ).not.toThrow();
 
     const [, applied] = getFirstTransformCall(transform);
     expect(applied.k).toBe(1);
@@ -382,13 +390,15 @@ describe("viewport zoom helpers", () => {
   it("has nowhere to travel before the zoom pane initializes", () => {
     testWorkspace.reactFlow.setState({ width: 800, height: 600 });
 
-    expect(() => movePaneToIncludeElement(testWorkspace.host, elementAt(1000, 300))).not.toThrow();
+    expect(() =>
+      movePaneToIncludeElement(testWorkspace.host, elementAt(1000, 300)),
+    ).not.toThrow();
   });
 
   it("fails specifically for unknown and unmounted focus targets", () => {
-    expect(() => focusWorkspaceSection(testWorkspace.host, "missing")).toThrowError(
-      "Cannot focus unknown workspace section missing.",
-    );
+    expect(() =>
+      focusWorkspaceSection(testWorkspace.host, "missing"),
+    ).toThrowError("Cannot focus unknown workspace section missing.");
     testWorkspace.document.setState({
       sections: {
         known: {
@@ -406,7 +416,9 @@ describe("viewport zoom helpers", () => {
         },
       },
     });
-    expect(() => focusWorkspaceSection(testWorkspace.host, "known")).toThrowError(
+    expect(() =>
+      focusWorkspaceSection(testWorkspace.host, "known"),
+    ).toThrowError(
       "Cannot focus workspace section known before its canvas element mounted.",
     );
   });

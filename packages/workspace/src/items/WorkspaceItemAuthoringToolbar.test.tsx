@@ -137,8 +137,8 @@ describe("WorkspaceItemAuthoringToolbar", () => {
     await act(async () =>
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<WorkspaceItemAuthoringToolbar sectionId="panel" />
-        }</WorkspaceTestProvider>,
+          {<WorkspaceItemAuthoringToolbar sectionId="panel" />}
+        </WorkspaceTestProvider>,
       ),
     );
   }
@@ -230,7 +230,9 @@ describe("WorkspaceItemAuthoringToolbar", () => {
     await act(async () => root.unmount());
     root = createRoot(host);
     testWorkspace.itemDndState.getState().reset();
-    registerSectionKinds(testWorkspace.host, { items: { renderContent: () => null } });
+    registerSectionKinds(testWorkspace.host, {
+      items: { renderContent: () => null },
+    });
     await mount();
     expect(getButton(host, "Add parameter").disabled).toBe(true);
     expect(getButton(host, "Remove last parameter").disabled).toBe(false);

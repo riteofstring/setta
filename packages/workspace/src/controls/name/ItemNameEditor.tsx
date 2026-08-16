@@ -122,11 +122,7 @@ function getUnderlineClassName(
   return `single-cell-child ${layoutMargin} border-box self-end border-b border-setta-200/50 peer-focus-within/nameinput:border-blue-400 dark:border-setta-600/30 ${errorClassName}`;
 }
 
-function getElementIds(
-  hostId: string,
-  sectionId: string,
-  itemId: string,
-) {
+function getElementIds(hostId: string, sectionId: string, itemId: string) {
   return {
     dummyEditorId: `${hostId}-ItemNameInput-${sectionId}-${itemId}`,
     liveEditorId: `${hostId}-CodeMirror-${sectionId}-${itemId}-keyName`,

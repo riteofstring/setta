@@ -79,7 +79,9 @@ function makeItemTree(
 }
 
 function loadTestDocument(selectedItemIds: Array<string> = []) {
-  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: {
@@ -172,7 +174,8 @@ async function flushItemDragOver() {
 }
 
 function getPanelItemTree(): WorkspaceSectionItemTree {
-  const itemTree = testWorkspace.document.getState().sections["panel"]?.itemTree;
+  const itemTree =
+    testWorkspace.document.getState().sections["panel"]?.itemTree;
   if (!itemTree) {
     throw new Error("expected the panel section to carry an item tree");
   }
@@ -247,7 +250,9 @@ describe("item drag lifecycle", () => {
     handleItemDragStart(testWorkspace.host, makeStartEvent("item-a"), null);
     // The reference's multi-parent toast stays application-side; the fallback drags only the
     // active item and collapses the selection to it.
-    expect(testWorkspace.itemDndState.getState().draggingIds).toEqual(["item-a"]);
+    expect(testWorkspace.itemDndState.getState().draggingIds).toEqual([
+      "item-a",
+    ]);
     expect(getPanelItemTree().selectedItemIds).toEqual(["item-a"]);
   });
 
@@ -274,7 +279,8 @@ describe("item drag lifecycle", () => {
   it("reorders the placeholder within the parent from a past-halfway collision", async () => {
     handleItemDragStart(testWorkspace.host, makeStartEvent("item-a"), null);
 
-    handleItemDragMove(testWorkspace.host,
+    handleItemDragMove(
+      testWorkspace.host,
       makeMoveEvent([
         {
           id: getItemDndId("item-b", LIST_KEY),
@@ -321,7 +327,8 @@ describe("item drag lifecycle", () => {
     handleItemDragStart(testWorkspace.host, makeStartEvent("item-a"), null);
     changeCallback.mockClear();
 
-    handleItemDragMove(testWorkspace.host,
+    handleItemDragMove(
+      testWorkspace.host,
       makeMoveEvent([
         {
           id: getItemDndId("item-c", LIST_KEY),

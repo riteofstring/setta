@@ -88,8 +88,8 @@ describe("pointer location", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {createElement(PointerLocationHost)
-        }</WorkspaceTestProvider>,
+          {createElement(PointerLocationHost)}
+        </WorkspaceTestProvider>,
       );
     });
   });

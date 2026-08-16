@@ -79,7 +79,10 @@ export function SectionContainerCore({ sectionId }: { sectionId: string }) {
     ) {
       event.preventDefault();
       event.stopPropagation();
-      applyActiveSectionChange(host, { interaction: "section-click", sectionId });
+      applyActiveSectionChange(host, {
+        interaction: "section-click",
+        sectionId,
+      });
     }
   }
 

@@ -38,7 +38,10 @@ function listVisibleItemIdsInTreeOrder(
 // The reference narrows select-all to the parameters of a single active section but never
 // finished the branch (it logs the resolved ids). The package implements it over the rows that
 // section is actually showing, and declines when it has none so the chord stays with the browser.
-function selectAllVisibleItems(host: WorkspaceHost, sectionId: string): boolean {
+function selectAllVisibleItems(
+  host: WorkspaceHost,
+  sectionId: string,
+): boolean {
   const itemTree =
     getWorkspaceDocumentStore(host).getState().sections[sectionId]?.itemTree;
   if (!itemTree) {

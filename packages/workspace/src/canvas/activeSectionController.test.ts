@@ -121,7 +121,10 @@ describe("applyActiveSectionChange", () => {
       interaction: "section-click",
       sectionId: "group-a",
     });
-    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["leaf-b", "group-a"]);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual([
+      "leaf-b",
+      "group-a",
+    ]);
 
     applyActiveSectionChange(testWorkspace.host, {
       interaction: "section-click",
@@ -139,7 +142,10 @@ describe("applyActiveSectionChange", () => {
       sectionId: "group-a",
       multiSelectionActive: true,
     });
-    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["leaf-b", "group-a"]);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual([
+      "leaf-b",
+      "group-a",
+    ]);
 
     testWorkspace.reactFlow.setState({ multiSelectionActive: true });
     applyActiveSectionChange(testWorkspace.host, {
@@ -152,13 +158,19 @@ describe("applyActiveSectionChange", () => {
 
   it("clears the selection on a pane click without touching z-order", () => {
     testWorkspace.activeSections.setState({ activeIds: ["leaf-b"] });
-    const zBefore = testWorkspace.nodeInternals.getState().x.get("leaf-b")?.zIndex;
+    const zBefore = testWorkspace.nodeInternals
+      .getState()
+      .x.get("leaf-b")?.zIndex;
 
-    const result = applyActiveSectionChange(testWorkspace.host, { interaction: "pane-click" });
+    const result = applyActiveSectionChange(testWorkspace.host, {
+      interaction: "pane-click",
+    });
 
     expect(result.activeIdsChanged).toBe(true);
     expect(getActiveSectionIds(testWorkspace.host)).toEqual([]);
-    expect(testWorkspace.nodeInternals.getState().x.get("leaf-b")?.zIndex).toBe(zBefore);
+    expect(testWorkspace.nodeInternals.getState().x.get("leaf-b")?.zIndex).toBe(
+      zBefore,
+    );
   });
 
   it("applies marquee results verbatim", () => {
@@ -167,7 +179,10 @@ describe("applyActiveSectionChange", () => {
       selectedIds: ["group-a", "leaf-b"],
     });
 
-    expect(getActiveSectionIds(testWorkspace.host)).toEqual(["group-a", "leaf-b"]);
+    expect(getActiveSectionIds(testWorkspace.host)).toEqual([
+      "group-a",
+      "leaf-b",
+    ]);
   });
 
   it("routes section clicks through the item-mode branch using the document's item selection", () => {

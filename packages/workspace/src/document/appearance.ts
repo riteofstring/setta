@@ -16,7 +16,10 @@ type AppearanceRuntime = {
   systemColorSchemeQuery: MediaQueryList | null;
 };
 
-const appearanceRuntimesByHost = new WeakMap<WorkspaceHost, AppearanceRuntime>();
+const appearanceRuntimesByHost = new WeakMap<
+  WorkspaceHost,
+  AppearanceRuntime
+>();
 
 function getAppearanceRuntime(host: WorkspaceHost): AppearanceRuntime {
   const existing = appearanceRuntimesByHost.get(host);

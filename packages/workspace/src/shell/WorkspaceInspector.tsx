@@ -669,7 +669,9 @@ function MultipleItemsInspector({
       </div>
       <WorkspaceInspectorCommandActions
         contexts={[
-          createSectionCommandContext(host, selection.section, [selection.section]),
+          createSectionCommandContext(host, selection.section, [
+            selection.section,
+          ]),
         ]}
         focusKey="item-authoring-actions"
         onStatusChange={onStatusChange}

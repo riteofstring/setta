@@ -408,11 +408,7 @@ function ConsumerApp() {
             if (!group) {
               throw new Error("The packed notes group is unavailable.");
             }
-            setGroupOverflowMode(
-              workspaceHost,
-              group.id,
-              !group.overflowMode,
-            );
+            setGroupOverflowMode(workspaceHost, group.id, !group.overflowMode);
           }}
         >
           Toggle bounded notes group

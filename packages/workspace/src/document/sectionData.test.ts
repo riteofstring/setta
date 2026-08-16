@@ -26,7 +26,9 @@ import {
 } from "./stores";
 
 function loadTestDocument() {
-  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: {
@@ -63,7 +65,10 @@ describe("setSectionData", () => {
   it("replaces opaque section data and notifies the host once", () => {
     const onDocumentChange = vi.fn();
     testWorkspace.host.subscribe(onDocumentChange);
-    setSectionData(testWorkspace.host, "panel", { control: "text", value: "after" });
+    setSectionData(testWorkspace.host, "panel", {
+      control: "text",
+      value: "after",
+    });
 
     const panel = testWorkspace.document.getState().sections["panel"];
     expect(panel?.data).toEqual({ control: "text", value: "after" });
@@ -72,8 +77,8 @@ describe("setSectionData", () => {
   });
 
   it("fails loudly for an unknown section", () => {
-    expect(() => setSectionData(testWorkspace.host, "missing", {})).toThrowError(
-      "Unknown section missing.",
-    );
+    expect(() =>
+      setSectionData(testWorkspace.host, "missing", {}),
+    ).toThrowError("Unknown section missing.");
   });
 });

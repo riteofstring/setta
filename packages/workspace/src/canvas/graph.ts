@@ -108,7 +108,12 @@ export function getNodesInside(
   for (const node of nodeInternals.values()) {
     const isVisible = hasMeasuredNodeBounds(node)
       ? isNodeOverlappingWithRect(node, rectToLookInside, partially)
-      : isSectionOverlappingWithRect(host, node.id, rectToLookInside, partially);
+      : isSectionOverlappingWithRect(
+          host,
+          node.id,
+          rectToLookInside,
+          partially,
+        );
 
     if (isVisible) {
       visibleNodes.push(node.id);

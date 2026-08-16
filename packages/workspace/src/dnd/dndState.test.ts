@@ -55,13 +55,19 @@ describe("dndState", () => {
 
   it("tracks active drag metadata", () => {
     // Validates drag start state fields are persisted in the shared store.
-    setActiveDnd(host, "section-1", true, 300, 180, {
-      top: 10,
-      left: 20,
-      right: 320,
-      bottom: 190,
-      width: 300,
+    setActiveDnd(host, {
+      activeId: "section-1",
+      activeIsTopLevel: true,
+      activeRect: {
+        top: 10,
+        left: 20,
+        right: 320,
+        bottom: 190,
+        width: 300,
+        height: 180,
+      },
       height: 180,
+      width: 300,
     });
 
     const state = getDndStateStore(host).getState();
@@ -99,13 +105,19 @@ describe("dndState", () => {
   it("resets drag state while preserving disabled map", () => {
     // Validates hard reset keeps section-specific disabled settings.
     setDndDisabled(host, "section-1", { draggable: true, droppable: false });
-    setActiveDnd(host, "section-1", false, 200, 120, {
-      top: 0,
-      left: 0,
-      right: 200,
-      bottom: 120,
-      width: 200,
+    setActiveDnd(host, {
+      activeId: "section-1",
+      activeIsTopLevel: false,
+      activeRect: {
+        top: 0,
+        left: 0,
+        right: 200,
+        bottom: 120,
+        width: 200,
+        height: 120,
+      },
       height: 120,
+      width: 200,
     });
     activateDndSortingMode(host);
 

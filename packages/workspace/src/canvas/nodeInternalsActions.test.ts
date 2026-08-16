@@ -61,8 +61,7 @@ beforeEach(() => {
   testWorkspace.nodeInternals.getState().reset();
 });
 
-afterEach(() => {
-});
+afterEach(() => {});
 
 describe("node-internals publication", () => {
   it("publishes a moved node without replacing untouched node records", () => {

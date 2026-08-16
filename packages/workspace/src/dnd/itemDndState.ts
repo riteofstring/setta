@@ -36,17 +36,17 @@ type ItemDndState = {
 function createItemDndStateStore() {
   return createStore(
     withResetFn<ItemDndState>(() => ({
-    activeId: null,
-    sectionId: null,
-    listKey: null,
-    rootId: null,
-    draggingIds: [],
-    pendingReset: false,
-    parentById: {},
-    visibleChildrenByParent: {},
-    activeRect: null,
-    placeholderWidth: null,
-    placeholderHeight: null,
+      activeId: null,
+      sectionId: null,
+      listKey: null,
+      rootId: null,
+      draggingIds: [],
+      pendingReset: false,
+      parentById: {},
+      visibleChildrenByParent: {},
+      activeRect: null,
+      placeholderWidth: null,
+      placeholderHeight: null,
     })),
   );
 }

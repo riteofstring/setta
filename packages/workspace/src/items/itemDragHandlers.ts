@@ -323,17 +323,20 @@ function hasActiveItemDragState(
   );
 }
 
-function resolveDraggingItemIds(host: WorkspaceHost, {
-  sectionId,
-  activeId,
-  parentById,
-  selectedItemIds,
-}: {
-  sectionId: string;
-  activeId: string;
-  parentById: Record<string, string | null>;
-  selectedItemIds: Array<string>;
-}) {
+function resolveDraggingItemIds(
+  host: WorkspaceHost,
+  {
+    sectionId,
+    activeId,
+    parentById,
+    selectedItemIds,
+  }: {
+    sectionId: string;
+    activeId: string;
+    parentById: Record<string, string | null>;
+    selectedItemIds: Array<string>;
+  },
+) {
   if (!selectedItemIds.includes(activeId)) {
     selectOnlyItem(host, sectionId, activeId);
     return [activeId];
@@ -454,19 +457,22 @@ function isNoopItemDragMove({
   return currentIndex === newIndex;
 }
 
-function resolveItemDragOverResolution(host: WorkspaceHost, {
-  filteredCollisions,
-  over,
-  listKey,
-  sectionId,
-  rootId,
-}: {
-  filteredCollisions: NonNullable<DragOverEvent["collisions"]>;
-  over: DragOverEvent["over"];
-  listKey: ItemListKey;
-  sectionId: string;
-  rootId: string | null;
-}): ItemDragOverResolution | null {
+function resolveItemDragOverResolution(
+  host: WorkspaceHost,
+  {
+    filteredCollisions,
+    over,
+    listKey,
+    sectionId,
+    rootId,
+  }: {
+    filteredCollisions: NonNullable<DragOverEvent["collisions"]>;
+    over: DragOverEvent["over"];
+    listKey: ItemListKey;
+    sectionId: string;
+    rootId: string | null;
+  },
+): ItemDragOverResolution | null {
   const resolvedOverId = resolveOverCollisionId(
     filteredCollisions,
     getOverIdForListKey(over, listKey),
@@ -501,11 +507,10 @@ function normalizeItemOverId(
   return overId === sectionId && rootId ? rootId : overId;
 }
 
-function updateResolvedItemDragOverState(host: WorkspaceHost, {
-  overItemId,
-  pastHalfway,
-  triggerDistCondition,
-}: ItemDragOverResolution) {
+function updateResolvedItemDragOverState(
+  host: WorkspaceHost,
+  { overItemId, pastHalfway, triggerDistCondition }: ItemDragOverResolution,
+) {
   const runtime = getItemDragRuntime(host);
   if (
     overItemId === runtime.lastResolvedOverId &&
@@ -521,23 +526,26 @@ function updateResolvedItemDragOverState(host: WorkspaceHost, {
   return true;
 }
 
-function resolveItemDragPlaceholderMove(host: WorkspaceHost, {
-  activeId,
-  listKey,
-  parentById,
-  draggingIds,
-  overId,
-  pastHalfway,
-  triggerDistCondition,
-}: {
-  activeId: string;
-  listKey: ItemListKey;
-  parentById: Record<string, string | null>;
-  draggingIds: Array<string>;
-  overId: string;
-  pastHalfway: boolean;
-  triggerDistCondition: boolean;
-}) {
+function resolveItemDragPlaceholderMove(
+  host: WorkspaceHost,
+  {
+    activeId,
+    listKey,
+    parentById,
+    draggingIds,
+    overId,
+    pastHalfway,
+    triggerDistCondition,
+  }: {
+    activeId: string;
+    listKey: ItemListKey;
+    parentById: Record<string, string | null>;
+    draggingIds: Array<string>;
+    overId: string;
+    pastHalfway: boolean;
+    triggerDistCondition: boolean;
+  },
+) {
   const tempId = getTempItemDndId(getItemDndId(activeId, listKey));
   const newParentId = resolveItemDragParent(host, {
     overId,
@@ -557,17 +565,20 @@ function resolveItemDragPlaceholderMove(host: WorkspaceHost, {
   };
 }
 
-function resolveItemDragParent(host: WorkspaceHost, {
-  overId,
-  parentById,
-  draggingIds,
-  triggerDistCondition,
-}: {
-  overId: string;
-  parentById: Record<string, string | null>;
-  draggingIds: Array<string>;
-  triggerDistCondition: boolean;
-}) {
+function resolveItemDragParent(
+  host: WorkspaceHost,
+  {
+    overId,
+    parentById,
+    draggingIds,
+    triggerDistCondition,
+  }: {
+    overId: string;
+    parentById: Record<string, string | null>;
+    draggingIds: Array<string>;
+    triggerDistCondition: boolean;
+  },
+) {
   if (!Object.prototype.hasOwnProperty.call(parentById, overId)) {
     return null;
   }
@@ -580,19 +591,22 @@ function resolveItemDragParent(host: WorkspaceHost, {
   return getItemDndParentId(host, overId) ?? overId;
 }
 
-function maybeMoveItemPlaceholder(host: WorkspaceHost, {
-  tempId,
-  overId,
-  oldParentId,
-  newParentId,
-  pastHalfway,
-}: {
-  tempId: string;
-  overId: string;
-  oldParentId: string | null;
-  newParentId: string;
-  pastHalfway: boolean;
-}) {
+function maybeMoveItemPlaceholder(
+  host: WorkspaceHost,
+  {
+    tempId,
+    overId,
+    oldParentId,
+    newParentId,
+    pastHalfway,
+  }: {
+    tempId: string;
+    overId: string;
+    oldParentId: string | null;
+    newParentId: string;
+    pastHalfway: boolean;
+  },
+) {
   const dndChildrenState = getItemDndChildrenStore(host).getState();
   const movePlan = resolveItemPlaceholderMovePlan({
     tempId,

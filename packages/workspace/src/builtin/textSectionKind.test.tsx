@@ -121,8 +121,13 @@ describe("built-in text section registration", () => {
     registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection(),
     });
-    loadWorkspaceDocument(testWorkspace.host, makeDocument({ size: undefined }));
-    expect(getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]?.size).toEqual({
+    loadWorkspaceDocument(
+      testWorkspace.host,
+      makeDocument({ size: undefined }),
+    );
+    expect(
+      getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]?.size,
+    ).toEqual({
       width: 500,
       height: 150,
     });
@@ -134,8 +139,13 @@ describe("built-in text section registration", () => {
         defaultSize: { width: 320, height: 200 },
       }),
     });
-    loadWorkspaceDocument(testWorkspace.host, makeDocument({ size: undefined }));
-    expect(getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]?.size).toEqual({
+    loadWorkspaceDocument(
+      testWorkspace.host,
+      makeDocument({ size: undefined }),
+    );
+    expect(
+      getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]?.size,
+    ).toEqual({
       width: 320,
       height: 200,
     });
@@ -146,7 +156,10 @@ describe("built-in text section registration", () => {
       [WORKSPACE_TEXT_SECTION_KIND]: createWorkspaceTextSection(),
     });
     expect(() =>
-      loadWorkspaceDocument(testWorkspace.host, makeDocument({ data: { text: "notes" } })),
+      loadWorkspaceDocument(
+        testWorkspace.host,
+        makeDocument({ data: { text: "notes" } }),
+      ),
     ).toThrow(/Text section notes is missing its string format field/u);
   });
 
@@ -157,7 +170,8 @@ describe("built-in text section registration", () => {
       }),
     });
     expect(() =>
-      loadWorkspaceDocument(testWorkspace.host,
+      loadWorkspaceDocument(
+        testWorkspace.host,
         makeDocument({
           data: createWorkspaceTextSectionData({ format: "plaintext" }),
         }),
@@ -173,7 +187,8 @@ describe("built-in text section registration", () => {
     });
     loadWorkspaceDocument(testWorkspace.host, makeDocument());
     expect(() =>
-      setWorkspaceTextSectionData(testWorkspace.host,
+      setWorkspaceTextSectionData(
+        testWorkspace.host,
         SECTION_ID,
         createWorkspaceTextSectionData({ displayMode: "render" }),
       ),
@@ -181,10 +196,12 @@ describe("built-in text section registration", () => {
   });
 
   it("fails a document naming the kind when the host leaves the built-in out", () => {
-    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
-    expect(() => loadWorkspaceDocument(testWorkspace.host, makeDocument())).toThrow(
-      /Section kind setta\.text is not registered/u,
-    );
+    registerSectionKinds(testWorkspace.host, {
+      leaf: { renderContent: () => null },
+    });
+    expect(() =>
+      loadWorkspaceDocument(testWorkspace.host, makeDocument()),
+    ).toThrow(/Section kind setta\.text is not registered/u);
   });
 });
 
@@ -211,10 +228,10 @@ describe("built-in text section header", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(SectionHeader, {
-          sectionId: SECTION_ID,
-          hasSectionStyleTheme: false,
-        })
-        }</WorkspaceTestProvider>,
+            sectionId: SECTION_ID,
+            hasSectionStyleTheme: false,
+          })}
+        </WorkspaceTestProvider>,
       );
     });
   }
@@ -224,11 +241,11 @@ describe("built-in text section header", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(HeaderIcon, {
-          hasSectionStyleTheme: false,
-          sectionId: SECTION_ID,
-          sectionKind: WORKSPACE_TEXT_SECTION_KIND,
-        })
-        }</WorkspaceTestProvider>,
+            hasSectionStyleTheme: false,
+            sectionId: SECTION_ID,
+            sectionKind: WORKSPACE_TEXT_SECTION_KIND,
+          })}
+        </WorkspaceTestProvider>,
       );
     });
     return host.querySelector("svg path")?.getAttribute("d") ?? null;
@@ -242,7 +259,8 @@ describe("built-in text section header", () => {
     const plaintextPath = await renderIcon();
     expect(plaintextPath).not.toBeNull();
     await act(async () => {
-      setWorkspaceTextSectionData(testWorkspace.host,
+      setWorkspaceTextSectionData(
+        testWorkspace.host,
         SECTION_ID,
         createWorkspaceTextSectionData({ format: "markdown" }),
       );
@@ -267,7 +285,8 @@ describe("built-in text section header", () => {
         displayModes: ["render"],
       }),
     });
-    loadWorkspaceDocument(testWorkspace.host,
+    loadWorkspaceDocument(
+      testWorkspace.host,
       makeDocument({
         data: createWorkspaceTextSectionData({ displayMode: "render" }),
       }),

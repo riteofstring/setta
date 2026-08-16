@@ -79,9 +79,9 @@ describe("collision comparison", () => {
     const low = collision({ id: "low", intersectionRatio: 4 });
     const high = collision({ id: "high", intersectionRatio: 8 });
 
-    expect(
-      resolveOverCollision([low, high], EMPTY_PARENT_BY_CHILD)?.id,
-    ).toBe("high");
+    expect(resolveOverCollision([low, high], EMPTY_PARENT_BY_CHILD)?.id).toBe(
+      "high",
+    );
   });
 
   it("uses sortable trigger distance when both collisions are sortable", () => {
@@ -146,10 +146,8 @@ describe("collision comparison", () => {
     });
 
     expect(
-      resolveOverCollision(
-        [fartherPassed, nearerBefore],
-        EMPTY_PARENT_BY_CHILD,
-      )?.id,
+      resolveOverCollision([fartherPassed, nearerBefore], EMPTY_PARENT_BY_CHILD)
+        ?.id,
     ).toBe("nearer-before");
   });
 

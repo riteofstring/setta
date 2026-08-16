@@ -65,14 +65,16 @@ async function renderZoomPane(
   const root = createRoot(host);
   await act(async () => {
     root.render(
-        <WorkspaceTestProvider workspace={testWorkspace}>
-          {<div className="react-flow">
-        <ZoomPane {...zoomPaneOptions} {...overrides}>
-          <div />
-        </ZoomPane>
-      </div>
-        }</WorkspaceTestProvider>,
-      );
+      <WorkspaceTestProvider workspace={testWorkspace}>
+        {
+          <div className="react-flow">
+            <ZoomPane {...zoomPaneOptions} {...overrides}>
+              <div />
+            </ZoomPane>
+          </div>
+        }
+      </WorkspaceTestProvider>,
+    );
   });
 
   const renderer = host.querySelector(".react-flow__renderer");
@@ -341,7 +343,9 @@ describe("getViewportInteractionActiveValue", () => {
       wheelZoomTimeout,
     });
 
-    expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(false);
+    expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(
+      false,
+    );
     expect(testWorkspace.reactFlow.getState().paneDragging).toBe(false);
     expect(canvas.hasAttribute("data-viewport-interaction-active")).toBe(false);
   });
@@ -366,7 +370,9 @@ describe("getViewportInteractionActiveValue", () => {
         );
       });
       expect(testWorkspace.reactFlow.getState().transform).toEqual([-10, 0, 1]);
-      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(true);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(
+        true,
+      );
       expect(
         renderer.parentElement?.getAttribute(
           "data-viewport-interaction-active",
@@ -385,13 +391,17 @@ describe("getViewportInteractionActiveValue", () => {
       });
       expect(testWorkspace.reactFlow.getState().transform).toEqual([-10, 0, 1]);
       expect(manualEvent?.defaultPrevented).toBe(true);
-      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(true);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(
+        true,
+      );
       target.classList.remove("setta-manual-wheel");
 
       await act(async () => {
         vi.advanceTimersByTime(150);
       });
-      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(false);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(
+        false,
+      );
       expect(
         renderer.parentElement?.hasAttribute(
           "data-viewport-interaction-active",
@@ -409,7 +419,9 @@ describe("getViewportInteractionActiveValue", () => {
       });
       expect(testWorkspace.reactFlow.getState().transform).toEqual([-10, 0, 1]);
       expect(blockedEvent?.defaultPrevented).toBe(false);
-      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(false);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(
+        false,
+      );
 
       let paneEvent: WheelEvent | undefined;
       await act(async () => {
@@ -422,7 +434,9 @@ describe("getViewportInteractionActiveValue", () => {
       });
       expect(testWorkspace.reactFlow.getState().transform).toEqual([-20, 0, 1]);
       expect(paneEvent?.defaultPrevented).toBe(true);
-      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(true);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(
+        true,
+      );
     } finally {
       await act(async () => {
         root.unmount();
@@ -452,7 +466,9 @@ describe("getViewportInteractionActiveValue", () => {
       });
       expect(testWorkspace.reactFlow.getState().transform).toEqual([0, 0, 1]);
       expect(verticalEvent?.defaultPrevented).toBe(false);
-      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(false);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(
+        false,
+      );
 
       let horizontalEvent: WheelEvent | undefined;
       await act(async () => {
@@ -465,7 +481,9 @@ describe("getViewportInteractionActiveValue", () => {
       });
       expect(testWorkspace.reactFlow.getState().transform).toEqual([-20, 0, 1]);
       expect(horizontalEvent?.defaultPrevented).toBe(true);
-      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(true);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(
+        true,
+      );
     } finally {
       await act(async () => {
         root.unmount();
@@ -508,7 +526,9 @@ describe("getViewportInteractionActiveValue", () => {
       });
 
       expect(testWorkspace.reactFlow.getState().paneDragging).toBe(true);
-      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(true);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(
+        true,
+      );
 
       await act(async () => {
         renderer.dispatchEvent(
@@ -537,19 +557,25 @@ describe("getViewportInteractionActiveValue", () => {
 
       // Drag teardown should not clear the active wheel burst prematurely.
       expect(testWorkspace.reactFlow.getState().paneDragging).toBe(false);
-      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(true);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(
+        true,
+      );
 
       await act(async () => {
         vi.advanceTimersByTime(179);
       });
 
-      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(true);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(
+        true,
+      );
 
       await act(async () => {
         vi.advanceTimersByTime(1);
       });
 
-      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(false);
+      expect(testWorkspace.reactFlow.getState().viewportInteractionActive).toBe(
+        false,
+      );
     } finally {
       await act(async () => {
         root.unmount();
@@ -589,7 +615,9 @@ describe("getViewportInteractionActiveValue", () => {
     try {
       expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
       expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(true);
-      expect(testWorkspace.reactFlow.getState().transform).not.toEqual([0, 0, 1]);
+      expect(testWorkspace.reactFlow.getState().transform).not.toEqual([
+        0, 0, 1,
+      ]);
     } finally {
       await act(async () => {
         root.unmount();
@@ -635,7 +663,9 @@ describe("getViewportInteractionActiveValue", () => {
 
       expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
       expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(true);
-      expect(testWorkspace.reactFlow.getState().transform).not.toEqual([0, 0, 1]);
+      expect(testWorkspace.reactFlow.getState().transform).not.toEqual([
+        0, 0, 1,
+      ]);
     } finally {
       await act(async () => {
         root.unmount();

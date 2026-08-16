@@ -90,7 +90,9 @@ describe("workspace toolbar contributions", () => {
       contribution({ description: " Report the workspace " }),
     ]);
 
-    expect(getWorkspaceToolbarContributions(host, "before-viewport")).toHaveLength(1);
+    expect(
+      getWorkspaceToolbarContributions(host, "before-viewport"),
+    ).toHaveLength(1);
     expect(getWorkspaceToolbarContributions(host, "before-minimap")).toEqual([
       expect.objectContaining({
         commandId: toolbarCommand.id,
@@ -135,7 +137,10 @@ describe("workspace toolbar contributions", () => {
     registerWorkspaceCommands(host, [toolbarCommand]);
 
     expect(() =>
-      registerWorkspaceToolbarContributions(host, [contribution(), contribution()]),
+      registerWorkspaceToolbarContributions(host, [
+        contribution(),
+        contribution(),
+      ]),
     ).toThrow(/lists command host-toolbar-action twice/);
     expect(() =>
       registerWorkspaceToolbarContributions(host, [

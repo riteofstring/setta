@@ -116,19 +116,22 @@ function useTempItemPlaceholderStyle() {
   };
 }
 
-function createSortableStyle(host: WorkspaceHost, {
-  transform,
-  transition,
-  isDragging,
-  height,
-  width,
-}: {
-  transform: ReturnType<typeof useSortable>["transform"];
-  transition: ReturnType<typeof useSortable>["transition"];
-  isDragging: boolean;
-  height?: number;
-  width?: number;
-}): CSSProperties {
+function createSortableStyle(
+  host: WorkspaceHost,
+  {
+    transform,
+    transition,
+    isDragging,
+    height,
+    width,
+  }: {
+    transform: ReturnType<typeof useSortable>["transform"];
+    transition: ReturnType<typeof useSortable>["transition"];
+    isDragging: boolean;
+    height?: number;
+    width?: number;
+  },
+): CSSProperties {
   return {
     transform: transformToString(applyZoomToTransform(host, transform)),
     transition,
@@ -520,7 +523,11 @@ function RealItemRow({ itemId, isTopLevelWithPad = false }: ItemRowProps) {
       })} ${getWorkspaceItemDiagnosticRowClassName(highestDiagnosticSeverity)}`,
       hoverClassName: getItemHoverClassName(hasSectionStyleTheme),
       dndClassName: isDragging ? "opacity-80" : "",
-      dndStyle: createSortableStyle(host, { transform, transition, isDragging }),
+      dndStyle: createSortableStyle(host, {
+        transform,
+        transition,
+        isDragging,
+      }),
       hasDiagnostics: diagnostics.length > 0,
     },
     isTopLevelWithPad,

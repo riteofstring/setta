@@ -62,7 +62,9 @@ function leafSection(id: string, name: string) {
 // "top" and "bottom" are leaves stacked vertically with a group between them, so the reading
 // order is top, middle group, bottom regardless of the order they mounted in.
 function loadNavigationDocument() {
-  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       top: leafSection("top", "Top"),
@@ -120,13 +122,16 @@ describe("focusAdjacentTopLevelSection", () => {
     controls.clear();
     host = document.createElement("div");
     document.body.appendChild(host);
-    unregisterHostElement = registerWorkspaceHostElement(testWorkspace.host, host);
+    unregisterHostElement = registerWorkspaceHostElement(
+      testWorkspace.host,
+      host,
+    );
     root = createRoot(host);
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<CanvasScope />
-        }</WorkspaceTestProvider>,
+          {<CanvasScope />}
+        </WorkspaceTestProvider>,
       );
     });
     const mountedScope = host.querySelector<HTMLElement>(
@@ -229,7 +234,10 @@ describe("focusAdjacentTopLevelSection", () => {
 
   it("declines a target that has not mounted without changing the selection", () => {
     const bottom = mountSection("bottom", true);
-    testWorkspace.sectionRefs.setState({ withNested: { bottom }, selfOnly: { bottom } });
+    testWorkspace.sectionRefs.setState({
+      withNested: { bottom },
+      selfOnly: { bottom },
+    });
     testWorkspace.activeSections.setState({ activeIds: ["bottom"] });
 
     expect(focusAdjacentTopLevelSection(testWorkspace.host, 1)).toBe(false);
@@ -238,7 +246,10 @@ describe("focusAdjacentTopLevelSection", () => {
 
   it("falls back to the section container when a leaf offers no control", () => {
     const top = mountSection("top", false);
-    testWorkspace.sectionRefs.setState({ withNested: { top }, selfOnly: { top } });
+    testWorkspace.sectionRefs.setState({
+      withNested: { top },
+      selfOnly: { top },
+    });
 
     expect(focusAdjacentTopLevelSection(testWorkspace.host, 1)).toBe(true);
     expect(document.activeElement).toBe(top);

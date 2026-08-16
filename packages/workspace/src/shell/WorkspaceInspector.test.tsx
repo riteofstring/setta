@@ -19,7 +19,15 @@ afterEachWorkspaceTestHost(() => {
 
 import { act, createRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from "vitest";
 import { registerWorkspaceCommands } from "../commands/workspaceCommandRegistry";
 import { useWorkspaceCapabilities } from "../document/capabilities";
 import { useItemSelectionMode } from "../document/itemSelectionMode";
@@ -300,11 +308,13 @@ describe("WorkspaceInspector", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<WorkspaceInspector
-          initialFocusRef={initialFocusRef}
-          sectionTagColorPalette={sectionTagColorPalette}
-        />
-        }</WorkspaceTestProvider>,
+          {
+            <WorkspaceInspector
+              initialFocusRef={initialFocusRef}
+              sectionTagColorPalette={sectionTagColorPalette}
+            />
+          }
+        </WorkspaceTestProvider>,
       );
     });
     return initialFocusRef;
@@ -850,7 +860,8 @@ describe("WorkspaceInspector", () => {
       );
     });
     expect(
-      testWorkspace.document.getState().sections["alpha"]?.positionAndSizeLocked,
+      testWorkspace.document.getState().sections["alpha"]
+        ?.positionAndSizeLocked,
     ).toBe(true);
     expect(onChange).toHaveBeenCalledOnce();
 
@@ -981,7 +992,8 @@ describe("WorkspaceInspector", () => {
     expect(host.textContent).toContain("Host section inspector");
 
     await act(async () => {
-      loadWorkspaceDocument(testWorkspace.host,
+      loadWorkspaceDocument(
+        testWorkspace.host,
         createDocument(["custom-items"], {
           "custom-items": makeSection("custom-items", {
             kind: "custom",
@@ -1019,9 +1031,8 @@ describe("WorkspaceInspector", () => {
       }
     }).toThrow(TypeError);
     expect(
-      testWorkspace.document.getState().sections["custom-items"]?.itemTree?.items[
-        "opaque"
-      ]?.data,
+      testWorkspace.document.getState().sections["custom-items"]?.itemTree
+        ?.items["opaque"]?.data,
     ).toEqual({ value: "host" });
   });
 });

@@ -49,7 +49,10 @@ function WorkspaceOutlineKindIcon({ section }: { section: WorkspaceSection }) {
   if (section.kind === GROUP_SECTION_KIND) {
     return <FaLayerGroup />;
   }
-  const RegisteredIcon = getRegisteredSectionKindOrThrow(host, section.kind).icon;
+  const RegisteredIcon = getRegisteredSectionKindOrThrow(
+    host,
+    section.kind,
+  ).icon;
   return RegisteredIcon ? (
     <RegisteredIcon sectionId={section.id} />
   ) : (

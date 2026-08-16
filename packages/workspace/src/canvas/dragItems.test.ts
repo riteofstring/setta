@@ -48,7 +48,8 @@ describe("getDragItems", () => {
 
     setActiveSectionIds(testWorkspace.host, ["section-a", "section-b"]);
 
-    const dragItems = getDragItems(testWorkspace.host,
+    const dragItems = getDragItems(
+      testWorkspace.host,
       nodeInternals,
       { x: 200, y: 120 },
       "section-a",
@@ -69,7 +70,8 @@ describe("getDragItems", () => {
 
     setActiveSectionIds(testWorkspace.host, ["section-b"]);
 
-    const dragItems = getDragItems(testWorkspace.host,
+    const dragItems = getDragItems(
+      testWorkspace.host,
       nodeInternals,
       { x: 40, y: 40 },
       "section-a",
@@ -86,7 +88,10 @@ describe("getDragItems", () => {
 
     setActiveSectionIds(testWorkspace.host, ["section-b"]);
 
-    const dragItems = getDragItems(testWorkspace.host, nodeInternals, { x: 40, y: 40 });
+    const dragItems = getDragItems(testWorkspace.host, nodeInternals, {
+      x: 40,
+      y: 40,
+    });
 
     expect(dragItems.map((item) => item.id)).toEqual(["section-b"]);
   });

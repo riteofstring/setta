@@ -189,8 +189,8 @@ describe("WorkspaceShell", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<Harness onChange={onChange} />
-        }</WorkspaceTestProvider>,
+          {<Harness onChange={onChange} />}
+        </WorkspaceTestProvider>,
       );
     });
     await resizeShell(800);
@@ -598,8 +598,8 @@ describe("WorkspaceShell", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<Harness leadingPaneShiftsCanvas={false} onChange={onChange} />
-        }</WorkspaceTestProvider>,
+          {<Harness leadingPaneShiftsCanvas={false} onChange={onChange} />}
+        </WorkspaceTestProvider>,
       );
     });
     shiftWorkspaceMapForLeadingPane.mockClear();

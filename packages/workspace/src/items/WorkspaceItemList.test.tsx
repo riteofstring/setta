@@ -119,7 +119,9 @@ function makeItemTree(): WorkspaceSectionItemTree {
 }
 
 function loadTestDocument() {
-  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: {
@@ -277,22 +279,22 @@ describe("WorkspaceItemList", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(
-          "div",
-          { "data-section-id": "panel" },
-          createElement(
-            ItemDndContext,
-            null,
-            createElement(WorkspaceItemList, {
-              sectionId: "panel",
-              listKey: LIST_KEY,
-              topLevelItemIds: ["item-a", "item-group", "item-b"],
-              renderItem: renderRowContent,
-              isGroupItem,
-              ...props,
-            }),
-          ),
-        )
-        }</WorkspaceTestProvider>,
+            "div",
+            { "data-section-id": "panel" },
+            createElement(
+              ItemDndContext,
+              null,
+              createElement(WorkspaceItemList, {
+                sectionId: "panel",
+                listKey: LIST_KEY,
+                topLevelItemIds: ["item-a", "item-group", "item-b"],
+                renderItem: renderRowContent,
+                isGroupItem,
+                ...props,
+              }),
+            ),
+          )}
+        </WorkspaceTestProvider>,
       );
     });
   }
@@ -1094,31 +1096,38 @@ describe("WorkspaceItemList", () => {
 
   it("registers its list view while mounted", async () => {
     await mount();
-    expect(resolveItemListView(testWorkspace.host, "panel", "item-c", LIST_KEY)?.listKey).toBe(
-      LIST_KEY,
-    );
+    expect(
+      resolveItemListView(testWorkspace.host, "panel", "item-c", LIST_KEY)
+        ?.listKey,
+    ).toBe(LIST_KEY);
 
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {createElement(ItemDndContext, null)
-        }</WorkspaceTestProvider>,
+          {createElement(ItemDndContext, null)}
+        </WorkspaceTestProvider>,
       );
     });
-    expect(resolveItemListView(testWorkspace.host, "panel", "item-c", LIST_KEY)).toBeNull();
+    expect(
+      resolveItemListView(testWorkspace.host, "panel", "item-c", LIST_KEY),
+    ).toBeNull();
   });
 
   it("updates its registered view in place on re-render", async () => {
     await mount();
-    expect(resolveItemListView(testWorkspace.host, "panel", "item-c", LIST_KEY)?.listKey).toBe(
-      LIST_KEY,
-    );
+    expect(
+      resolveItemListView(testWorkspace.host, "panel", "item-c", LIST_KEY)
+        ?.listKey,
+    ).toBe(LIST_KEY);
 
     await mount({ visibleItemIds: ["item-a", "item-b"] });
-    expect(resolveItemListView(testWorkspace.host, "panel", "item-c", LIST_KEY)).toBeNull();
-    expect(resolveItemListView(testWorkspace.host, "panel", "item-a", LIST_KEY)?.listKey).toBe(
-      LIST_KEY,
-    );
+    expect(
+      resolveItemListView(testWorkspace.host, "panel", "item-c", LIST_KEY),
+    ).toBeNull();
+    expect(
+      resolveItemListView(testWorkspace.host, "panel", "item-a", LIST_KEY)
+        ?.listKey,
+    ).toBe(LIST_KEY);
   });
 
   it("toggles canonical selection from row clicks only in item-select mode", async () => {

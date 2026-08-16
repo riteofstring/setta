@@ -17,7 +17,10 @@ type SectionControlKeyboardEvent = {
 // canvas focus/fit helpers are a deferred capability. Every built-in control routes its Escape
 // here: moving focus to the section container blurs the live control, which restores the idle
 // presentation without unselecting the section.
-export function focusSectionAfterEscape(host: WorkspaceHost, sectionId: string) {
+export function focusSectionAfterEscape(
+  host: WorkspaceHost,
+  sectionId: string,
+) {
   const sectionRef = getSectionFocusElement(host, sectionId);
   if (!sectionRef) {
     return;

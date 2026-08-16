@@ -61,9 +61,14 @@ type WorkspaceKeyBindingRegistryState = {
   resolvedByPlatform: Map<boolean, ReadonlyArray<ResolvedWorkspaceKeyBinding>>;
 };
 
-const statesByHost = new WeakMap<WorkspaceHost, WorkspaceKeyBindingRegistryState>();
+const statesByHost = new WeakMap<
+  WorkspaceHost,
+  WorkspaceKeyBindingRegistryState
+>();
 
-function getRegistryState(host: WorkspaceHost): WorkspaceKeyBindingRegistryState {
+function getRegistryState(
+  host: WorkspaceHost,
+): WorkspaceKeyBindingRegistryState {
   const existing = statesByHost.get(host);
   if (existing) {
     return existing;
@@ -233,14 +238,19 @@ export function assertWorkspaceKeyBindingsForCreationCommands(
   creationCommands: ReadonlyArray<WorkspaceCreationCommand>,
 ): void {
   const state = getRegistryState(host);
-  const definitions = listWorkspaceKeyBindingDefinitions(host, creationCommands);
+  const definitions = listWorkspaceKeyBindingDefinitions(
+    host,
+    creationCommands,
+  );
   for (const id of state.hostChords.keys()) {
     assertKnownBindingId(id, definitions);
   }
   assertNoChordConflicts(buildChordAssignments(state.hostChords, definitions));
 }
 
-export function invalidateResolvedWorkspaceKeyBindings(host: WorkspaceHost): void {
+export function invalidateResolvedWorkspaceKeyBindings(
+  host: WorkspaceHost,
+): void {
   getRegistryState(host).resolvedByPlatform.clear();
 }
 
@@ -289,19 +299,18 @@ export function getResolvedWorkspaceKeyBindings(
     buildChordAssignments(
       state.hostChords,
       listWorkspaceKeyBindingDefinitions(host),
-    ).map(
-      (assignment) =>
-        Object.freeze({
-          chord: assignment.parsed,
-          definition: assignment.definition,
-          suppressesBrowserDefault: getChordSuppressesBrowserDefault(
-            assignment.parsed,
-          ),
-          yieldsToEditableTarget: getChordYieldsToEditableTarget(
-            assignment.parsed,
-            macOS,
-          ),
-        }),
+    ).map((assignment) =>
+      Object.freeze({
+        chord: assignment.parsed,
+        definition: assignment.definition,
+        suppressesBrowserDefault: getChordSuppressesBrowserDefault(
+          assignment.parsed,
+        ),
+        yieldsToEditableTarget: getChordYieldsToEditableTarget(
+          assignment.parsed,
+          macOS,
+        ),
+      }),
     ),
   );
   state.resolvedByPlatform.set(macOS, resolved);

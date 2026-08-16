@@ -25,9 +25,8 @@ function getModifiers(
   activeId: string | null,
 ) {
   if (isSorting && activeId) {
-    const parentId = getWorkspaceDocumentStore(host).getState().parentSectionMap[
-      activeId
-    ];
+    const parentId =
+      getWorkspaceDocumentStore(host).getState().parentSectionMap[activeId];
     if (parentId) {
       return getSectionIsHorizontalOrientation(host, parentId)
         ? [RestrictToHorizontalAxis]

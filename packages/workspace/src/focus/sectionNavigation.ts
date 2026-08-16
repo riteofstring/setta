@@ -63,7 +63,8 @@ function resolveSectionFocusTarget(
   host: WorkspaceHost,
   sectionId: string,
 ): HTMLElement | null {
-  const section = getWorkspaceDocumentStore(host).getState().sections[sectionId];
+  const section =
+    getWorkspaceDocumentStore(host).getState().sections[sectionId];
   if (!section) {
     throw new Error(`Cannot focus unknown workspace section ${sectionId}.`);
   }

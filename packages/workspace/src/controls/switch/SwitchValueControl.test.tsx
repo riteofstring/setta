@@ -63,13 +63,13 @@ describe("SwitchValueControl", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(SwitchValueControl, {
-          ariaLabel: "Enabled value",
-          sectionId: SECTION_ID,
-          value: "true",
-          onValueChange: () => {},
-          ...props,
-        })
-        }</WorkspaceTestProvider>,
+            ariaLabel: "Enabled value",
+            sectionId: SECTION_ID,
+            value: "true",
+            onValueChange: () => {},
+            ...props,
+          })}
+        </WorkspaceTestProvider>,
       );
     });
   }
@@ -150,7 +150,9 @@ describe("SwitchValueControl", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    testWorkspace.sectionRefs.setState({
+      withNested: { [SECTION_ID]: sectionRoot },
+    });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     await mount();

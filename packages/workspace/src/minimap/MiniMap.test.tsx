@@ -144,37 +144,39 @@ describe("syncSelectedMiniMapNodes", () => {
     try {
       await act(async () => {
         root.render(
-        <WorkspaceTestProvider workspace={testWorkspace}>
-          {<MinimapSvg
-            elementWidth={200}
-            elementHeight={150}
-            x={0}
-            y={0}
-            width={200}
-            height={150}
-            offset={0}
-            viewBB={{ x: 0, y: 0, width: 200, height: 150 }}
-            boundingRect={{ x: 0, y: 0, width: 200, height: 150 }}
-            maskColor="rgba(0, 0, 0, 0.1)"
-            maskStrokeColor="transparent"
-            maskStrokeWidth={0}
-            svgRef={svgRef}
-            nodes={[
-              {
-                id: "section-a",
-                position: { x: 10, y: 20 },
-                width: 100,
-                height: 80,
-                zIndex: 0,
-                tempZIndex: 0,
-                kind: "note",
-              },
-            ]}
-            nodeComponent={CustomNode}
-            enableSelectionSync
-          />
-        }</WorkspaceTestProvider>,
-      );
+          <WorkspaceTestProvider workspace={testWorkspace}>
+            {
+              <MinimapSvg
+                elementWidth={200}
+                elementHeight={150}
+                x={0}
+                y={0}
+                width={200}
+                height={150}
+                offset={0}
+                viewBB={{ x: 0, y: 0, width: 200, height: 150 }}
+                boundingRect={{ x: 0, y: 0, width: 200, height: 150 }}
+                maskColor="rgba(0, 0, 0, 0.1)"
+                maskStrokeColor="transparent"
+                maskStrokeWidth={0}
+                svgRef={svgRef}
+                nodes={[
+                  {
+                    id: "section-a",
+                    position: { x: 10, y: 20 },
+                    width: 100,
+                    height: 80,
+                    zIndex: 0,
+                    tempZIndex: 0,
+                    kind: "note",
+                  },
+                ]}
+                nodeComponent={CustomNode}
+                enableSelectionSync
+              />
+            }
+          </WorkspaceTestProvider>,
+        );
       });
 
       await act(async () => {

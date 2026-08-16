@@ -1,8 +1,5 @@
 import type { WorkspaceHost } from "../workspaceHost";
-import {
-  getActiveSectionsStore,
-  getWorkspaceDocumentStore,
-} from "./stores";
+import { getActiveSectionsStore, getWorkspaceDocumentStore } from "./stores";
 import type { WorkspaceDocument } from "./types";
 import { registerWorkspaceHostCleanup } from "../workspaceHostInternals";
 

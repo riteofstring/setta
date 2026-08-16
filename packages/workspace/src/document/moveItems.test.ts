@@ -68,7 +68,9 @@ function makeSection(
 }
 
 function loadTestDocument(childrenById: Record<string, Array<string>>) {
-  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       leaf: makeSection("leaf", { itemTree: makeItemTree(childrenById) }),
@@ -234,7 +236,9 @@ describe("moveItems", () => {
   });
 
   it("throws for sections without an item tree", () => {
-    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+    registerSectionKinds(testWorkspace.host, {
+      leaf: { renderContent: () => null },
+    });
     loadWorkspaceDocument(testWorkspace.host, {
       sections: { bare: makeSection("bare") },
       topLevelSections: { bare: { x: 0, y: 0, w: 224, h: 96, zIndex: 0 } },

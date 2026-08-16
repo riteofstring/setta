@@ -158,8 +158,7 @@ export function ItemNameErrorBubble({
   if (!errorMessage) {
     return null;
   }
-  const portalTarget =
-    document.getElementById(containerId) ?? document.body;
+  const portalTarget = document.getElementById(containerId) ?? document.body;
   return createPortal(
     <div
       id={errorId}

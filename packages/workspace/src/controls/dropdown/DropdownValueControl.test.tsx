@@ -62,13 +62,13 @@ describe("DropdownValueControl", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(DropdownValueControl, {
-          ariaLabel: "Choice value",
-          value: "Beta",
-          onValueChange: () => {},
-          choices: CHOICES,
-          ...props,
-        })
-        }</WorkspaceTestProvider>,
+            ariaLabel: "Choice value",
+            value: "Beta",
+            onValueChange: () => {},
+            choices: CHOICES,
+            ...props,
+          })}
+        </WorkspaceTestProvider>,
       );
     });
   }

@@ -86,8 +86,8 @@ export function getHighestAncestor(
   host: WorkspaceHost,
   sectionId: string,
 ): string {
-  const parentSectionMap = getWorkspaceDocumentStore(host).getState()
-    .parentSectionMap;
+  const parentSectionMap =
+    getWorkspaceDocumentStore(host).getState().parentSectionMap;
   let parentId = parentSectionMap[sectionId] ?? null;
   let highestAncestor = sectionId;
   while (parentId) {

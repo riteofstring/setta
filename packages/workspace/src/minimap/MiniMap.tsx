@@ -432,7 +432,10 @@ function MiniMap(props: MiniMapProps) {
     selectNodes,
     areMiniMapNodesRenderableInputsEqual,
   );
-  const { boundingRect, viewBB } = useReactFlow(getSelector(host, nodes), shallow);
+  const { boundingRect, viewBB } = useReactFlow(
+    getSelector(host, nodes),
+    shallow,
+  );
   const elementWidth = getMiniMapDimension(style?.width, defaultWidth);
   const elementHeight = getMiniMapDimension(style?.height, defaultHeight);
 
@@ -581,11 +584,13 @@ function MiniMapSelectionSync({
 
     // The reference store carries the subscribeWithSelector middleware; the package store is
     // plain, so the listener applies the reference's equality check itself.
-    const unsubscribe = activeSectionsStore.subscribe((state, previousState) => {
-      if (!areStringArraysEqual(state.activeIds, previousState.activeIds)) {
-        applySelection(state.activeIds);
-      }
-    });
+    const unsubscribe = activeSectionsStore.subscribe(
+      (state, previousState) => {
+        if (!areStringArraysEqual(state.activeIds, previousState.activeIds)) {
+          applySelection(state.activeIds);
+        }
+      },
+    );
 
     let observer: MutationObserver | null = null;
     if (svgRef?.current && typeof MutationObserver !== "undefined") {

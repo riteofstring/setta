@@ -56,7 +56,9 @@ describe("MetaControl", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    testWorkspace.sectionRefs.setState({ withNested: { "meta-button": sectionRoot } });
+    testWorkspace.sectionRefs.setState({
+      withNested: { "meta-button": sectionRoot },
+    });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     await mount({
@@ -82,11 +84,13 @@ describe("MetaControl", () => {
   });
 
   async function mount(props: MetaControlProps) {
-    await act(async () => root.render(
+    await act(async () =>
+      root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {createElement(MetaControl, props)
-        }</WorkspaceTestProvider>,
-      ));
+          {createElement(MetaControl, props)}
+        </WorkspaceTestProvider>,
+      ),
+    );
   }
 
   it("renders the full-area controlled Button with the frozen classes and optional title", async () => {

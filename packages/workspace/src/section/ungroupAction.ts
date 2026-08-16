@@ -89,6 +89,48 @@ function getOutlineFocusTarget(
   );
 }
 
+function restoreOutlineFocus(
+  plan: UngroupFocusPlan,
+  targetSectionId: string | null,
+): void {
+  const target = targetSectionId
+    ? plan.outlineRoot
+      ? getOutlineFocusTarget(plan.outlineRoot, targetSectionId)
+      : null
+    : (plan.outlineRoot ?? null);
+  if (!target) {
+    throw new Error("Cannot restore Outline focus after ungrouping.");
+  }
+  target.focus({ preventScroll: true });
+}
+
+function restoreCanvasFocus(
+  host: WorkspaceHost,
+  targetSectionId: string | null,
+): void {
+  if (targetSectionId) {
+    const refs = getSectionRefsStore(host).getState();
+    const target =
+      refs.selfOnly[targetSectionId] ?? refs.withNested[targetSectionId];
+    if (!target) {
+      throw new Error(
+        `Cannot restore focus to ungrouped section ${targetSectionId}.`,
+      );
+    }
+    target.focus({ preventScroll: true });
+    return;
+  }
+  const pane = getReactFlowStore(host)
+    .getState()
+    .domNode?.querySelector<HTMLElement>(".react-flow__pane");
+  if (!pane) {
+    throw new Error(
+      "Cannot restore focus after ungrouping without a mounted canvas pane.",
+    );
+  }
+  pane.focus({ preventScroll: true });
+}
+
 function restoreUngroupFocus(
   host: WorkspaceHost,
   plan: UngroupFocusPlan | null,
@@ -99,38 +141,10 @@ function restoreUngroupFocus(
   }
   requestAnimationFrame(() => {
     if (plan.surface === "outline") {
-      const target = targetSectionId
-        ? plan.outlineRoot
-          ? getOutlineFocusTarget(plan.outlineRoot, targetSectionId)
-          : null
-        : plan.outlineRoot ?? null;
-      if (!target) {
-        throw new Error("Cannot restore Outline focus after ungrouping.");
-      }
-      target.focus({ preventScroll: true });
+      restoreOutlineFocus(plan, targetSectionId);
       return;
     }
-    if (targetSectionId) {
-      const refs = getSectionRefsStore(host).getState();
-      const target =
-        refs.selfOnly[targetSectionId] ?? refs.withNested[targetSectionId];
-      if (!target) {
-        throw new Error(
-          `Cannot restore focus to ungrouped section ${targetSectionId}.`,
-        );
-      }
-      target.focus({ preventScroll: true });
-      return;
-    }
-    const pane = getReactFlowStore(host)
-      .getState()
-      .domNode?.querySelector<HTMLElement>(".react-flow__pane");
-    if (!pane) {
-      throw new Error(
-        "Cannot restore focus after ungrouping without a mounted canvas pane.",
-      );
-    }
-    pane.focus({ preventScroll: true });
+    restoreCanvasFocus(host, targetSectionId);
   });
 }
 

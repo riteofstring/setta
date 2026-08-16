@@ -91,7 +91,10 @@ export function runWorkspaceCommandById(
   id: string,
   context: WorkspaceCommandContext,
 ): WorkspaceCommandResult {
-  return runWorkspaceCommand(getWorkspaceCommandOrThrow(context.host, id), context);
+  return runWorkspaceCommand(
+    getWorkspaceCommandOrThrow(context.host, id),
+    context,
+  );
 }
 
 function toWorkspaceCommandEntry(

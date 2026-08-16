@@ -29,7 +29,10 @@ type PlaygroundHostCommandState = {
   version: number;
 };
 
-const hostCommandStates = new WeakMap<WorkspaceHost, PlaygroundHostCommandState>();
+const hostCommandStates = new WeakMap<
+  WorkspaceHost,
+  PlaygroundHostCommandState
+>();
 
 function getHostCommandState(host: WorkspaceHost): PlaygroundHostCommandState {
   const existing = hostCommandStates.get(host);
@@ -293,10 +296,7 @@ export function registerPlaygroundMenuExtensions(host: WorkspaceHost): void {
           ? "There is no host action status to clear yet."
           : null,
       run: (context) =>
-        publishMenuExtensionStatus(
-          context.host,
-          INITIAL_MENU_EXTENSION_STATUS,
-        ),
+        publishMenuExtensionStatus(context.host, INITIAL_MENU_EXTENSION_STATUS),
     },
     {
       id: "playground-section-selection",

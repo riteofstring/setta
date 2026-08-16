@@ -165,7 +165,9 @@ function PasswordInput({
         disabled={disabled}
         type={showPassword ? "text" : "password"}
         placeholder={placeholder}
-        onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
+        onKeyDown={(event) =>
+          handleSectionControlEscape(host, event, sectionId)
+        }
       />
       <button
         type="button"
@@ -173,7 +175,9 @@ function PasswordInput({
         aria-label={showPassword ? "Hide password" : "Show password"}
         className={getToggleClassName(disabled)}
         disabled={disabled}
-        onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
+        onKeyDown={(event) =>
+          handleSectionControlEscape(host, event, sectionId)
+        }
         data-setta-workspace-touch-target="compact"
       >
         {showPassword ? (

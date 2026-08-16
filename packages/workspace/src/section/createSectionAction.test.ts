@@ -108,7 +108,11 @@ describe("creating a section without a pointer", () => {
         defaultSize: { width: 240, height: 120 },
       },
     });
-    testWorkspace.reactFlow.setState({ ...initialCanvasState, width: 800, height: 600 });
+    testWorkspace.reactFlow.setState({
+      ...initialCanvasState,
+      width: 800,
+      height: 600,
+    });
   });
 
   afterEach(() => {
@@ -125,7 +129,9 @@ describe("creating a section without a pointer", () => {
     const onChange = vi.fn();
     testWorkspace.host.subscribe(onChange);
 
-    expect(createWorkspaceSectionFromCommand(testWorkspace.host, createCommand())).toBe(true);
+    expect(
+      createWorkspaceSectionFromCommand(testWorkspace.host, createCommand()),
+    ).toBe(true);
 
     expect(requestedPositions).toEqual([null]);
     expect(
@@ -142,7 +148,9 @@ describe("creating a section without a pointer", () => {
     loadWorkspace({ existing: { x: 2000, y: 2000 } });
     const transform = setupZoomRuntime();
 
-    expect(createWorkspaceSectionFromCommand(testWorkspace.host, createCommand())).toBe(true);
+    expect(
+      createWorkspaceSectionFromCommand(testWorkspace.host, createCommand()),
+    ).toBe(true);
 
     expect(
       testWorkspace.document.getState().topLevelSections.created,
@@ -166,7 +174,9 @@ describe("creating a section without a pointer", () => {
     loadWorkspace({});
     testWorkspace.capabilities.setState({ canEditStructure: false });
 
-    expect(createWorkspaceSectionFromCommand(testWorkspace.host, createCommand())).toBe(false);
+    expect(
+      createWorkspaceSectionFromCommand(testWorkspace.host, createCommand()),
+    ).toBe(false);
 
     expect(requestedPositions).toEqual([]);
     expect(testWorkspace.document.getState().sections.created).toBeUndefined();
@@ -176,7 +186,8 @@ describe("creating a section without a pointer", () => {
     loadWorkspace({});
 
     expect(
-      createWorkspaceSectionFromCommand(testWorkspace.host,
+      createWorkspaceSectionFromCommand(
+        testWorkspace.host,
         createCommand({ isDisabled: () => true }),
       ),
     ).toBe(false);

@@ -71,14 +71,16 @@ describe("DateValueControl and TimeValueControl", () => {
     act(() => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<DateValueControl
-          ariaLabel="Date value"
-          sectionId={SECTION_ID}
-          value="2026-12-31"
-          onValueChange={() => {}}
-          {...props}
-        />
-        }</WorkspaceTestProvider>,
+          {
+            <DateValueControl
+              ariaLabel="Date value"
+              sectionId={SECTION_ID}
+              value="2026-12-31"
+              onValueChange={() => {}}
+              {...props}
+            />
+          }
+        </WorkspaceTestProvider>,
       );
     });
   }
@@ -87,14 +89,16 @@ describe("DateValueControl and TimeValueControl", () => {
     act(() => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<TimeValueControl
-          ariaLabel="Time value"
-          sectionId={SECTION_ID}
-          value="13:05"
-          onValueChange={() => {}}
-          {...props}
-        />
-        }</WorkspaceTestProvider>,
+          {
+            <TimeValueControl
+              ariaLabel="Time value"
+              sectionId={SECTION_ID}
+              value="13:05"
+              onValueChange={() => {}}
+              {...props}
+            />
+          }
+        </WorkspaceTestProvider>,
       );
     });
   }
@@ -330,7 +334,9 @@ describe("DateValueControl and TimeValueControl", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    testWorkspace.sectionRefs.setState({
+      withNested: { [SECTION_ID]: sectionRoot },
+    });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     mountTime();
@@ -390,36 +396,30 @@ describe("DateValueControl and TimeValueControl", () => {
   it("fails specifically on invalid public configuration", () => {
     expect(() =>
       renderToStaticMarkup(
-        createElement(
-          WorkspaceTestProvider,
-          {
-            workspace: testWorkspace,
-            children: createElement(DateValueControl, {
-              ariaLabel: "Date value",
-              sectionId: SECTION_ID,
-              value: "",
-              onValueChange: () => {},
-              displayFormat: "ambiguous" as DateDisplayFormat,
-            }),
-          },
-        ),
+        createElement(WorkspaceTestProvider, {
+          workspace: testWorkspace,
+          children: createElement(DateValueControl, {
+            ariaLabel: "Date value",
+            sectionId: SECTION_ID,
+            value: "",
+            onValueChange: () => {},
+            displayFormat: "ambiguous" as DateDisplayFormat,
+          }),
+        }),
       ),
     ).toThrow("DateValueControl received invalid displayFormat: ambiguous.");
     expect(() =>
       renderToStaticMarkup(
-        createElement(
-          WorkspaceTestProvider,
-          {
-            workspace: testWorkspace,
-            children: createElement(TimeValueControl, {
-              ariaLabel: "Time value",
-              sectionId: SECTION_ID,
-              value: "",
-              onValueChange: () => {},
-              scale: 4,
-            }),
-          },
-        ),
+        createElement(WorkspaceTestProvider, {
+          workspace: testWorkspace,
+          children: createElement(TimeValueControl, {
+            ariaLabel: "Time value",
+            sectionId: SECTION_ID,
+            value: "",
+            onValueChange: () => {},
+            scale: 4,
+          }),
+        }),
       ),
     ).toThrow(
       "TimeValueControl received invalid scale: 4; expected 0.5 through 3.",

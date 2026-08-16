@@ -44,62 +44,68 @@ export const initialCanvasState: ReactFlowStore = {
 function createReactFlowStore(host: WorkspaceHost) {
   return createStore<ReactFlowState>()(
     subscribeWithSelector((set, get) => ({
-    ...initialCanvasState,
-    setNodesSelection: (selectedNodesCount, ignoreGrid = false) => {
-      set({
-        nodesSelectionDims:
-          selectedNodesCount > 1
-            ? getActiveSectionsBounds(host, ignoreGrid)
-            : null,
-      });
-    },
-    shiftNodesSelection: (delta) => {
-      set((state) => {
-        if (state.nodesSelectionDims === null) {
-          throw new Error(
-            "Cannot shift a nodes selection that has no dimensions.",
-          );
+      ...initialCanvasState,
+      setNodesSelection: (selectedNodesCount, ignoreGrid = false) => {
+        set({
+          nodesSelectionDims:
+            selectedNodesCount > 1
+              ? getActiveSectionsBounds(host, ignoreGrid)
+              : null,
+        });
+      },
+      shiftNodesSelection: (delta) => {
+        set((state) => {
+          if (state.nodesSelectionDims === null) {
+            throw new Error(
+              "Cannot shift a nodes selection that has no dimensions.",
+            );
+          }
+          return {
+            nodesSelectionDims: {
+              ...state.nodesSelectionDims,
+              x: state.nodesSelectionDims.x + delta.x,
+              y: state.nodesSelectionDims.y + delta.y,
+            },
+          };
+        });
+      },
+      panBy: (delta: Position): boolean => {
+        const {
+          transform,
+          width,
+          height,
+          d3Zoom,
+          d3Selection,
+          translateExtent,
+        } = get();
+
+        if (!d3Zoom || !d3Selection || (!delta.x && !delta.y)) {
+          return false;
         }
-        return {
-          nodesSelectionDims: {
-            ...state.nodesSelectionDims,
-            x: state.nodesSelectionDims.x + delta.x,
-            y: state.nodesSelectionDims.y + delta.y,
-          },
-        };
-      });
-    },
-    panBy: (delta: Position): boolean => {
-      const { transform, width, height, d3Zoom, d3Selection, translateExtent } =
-        get();
 
-      if (!d3Zoom || !d3Selection || (!delta.x && !delta.y)) {
-        return false;
-      }
+        const nextTransform = zoomIdentity
+          .translate(transform[0] + delta.x, transform[1] + delta.y)
+          .scale(transform[2]);
 
-      const nextTransform = zoomIdentity
-        .translate(transform[0] + delta.x, transform[1] + delta.y)
-        .scale(transform[2]);
+        const extent: CoordinateExtent = [
+          [0, 0],
+          [width, height],
+        ];
 
-      const extent: CoordinateExtent = [
-        [0, 0],
-        [width, height],
-      ];
+        const constrainedTransform = d3Zoom.constrain()(
+          nextTransform,
+          extent,
+          translateExtent,
+        );
+        d3Zoom.transform(d3Selection, constrainedTransform);
 
-      const constrainedTransform = d3Zoom.constrain()(
-        nextTransform,
-        extent,
-        translateExtent,
-      );
-      d3Zoom.transform(d3Selection, constrainedTransform);
+        const transformChanged =
+          transform[0] !== constrainedTransform.x ||
+          transform[1] !== constrainedTransform.y ||
+          transform[2] !== constrainedTransform.k;
 
-      const transformChanged =
-        transform[0] !== constrainedTransform.x ||
-        transform[1] !== constrainedTransform.y ||
-        transform[2] !== constrainedTransform.k;
-
-      return transformChanged;
-    },
+        return transformChanged;
+      },
     })),
   );
 }

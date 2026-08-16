@@ -17,7 +17,7 @@ export type ItemSelectionModeState = { isSelectingItems: boolean };
 function createItemSelectionModeStore() {
   return createStore(
     withResetFn<ItemSelectionModeState>(() => ({
-    isSelectingItems: false,
+      isSelectingItems: false,
     })),
   );
 }

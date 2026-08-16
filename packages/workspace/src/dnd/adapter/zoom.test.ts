@@ -31,7 +31,12 @@ describe("zoom adapter utilities", () => {
     testWorkspace.reactFlow.setState({ transform: [0, 0, 2] });
 
     expect(
-      applyZoomToTransform(testWorkspace.host, { x: 20, y: 10, scaleX: 1, scaleY: 1 }),
+      applyZoomToTransform(testWorkspace.host, {
+        x: 20,
+        y: 10,
+        scaleX: 1,
+        scaleY: 1,
+      }),
     ).toEqual({
       x: 10,
       y: 5,

@@ -1,6 +1,9 @@
 import { createStore } from "zustand/vanilla";
 import { withResetFn } from "../../state/storeUtils";
-import { useWorkspaceHost, useWorkspaceStore } from "../../workspaceHostContext";
+import {
+  useWorkspaceHost,
+  useWorkspaceStore,
+} from "../../workspaceHostContext";
 import { assertWorkspaceHostActive } from "../../workspaceHostInternals";
 import type { WorkspaceHost } from "../../workspaceHost";
 
@@ -12,9 +15,11 @@ type ResizeEventState = {
 };
 
 function createResizeEventStore() {
-  return createStore(withResetFn<ResizeEventState>(() => ({
-    resizeEvent: {},
-  })));
+  return createStore(
+    withResetFn<ResizeEventState>(() => ({
+      resizeEvent: {},
+    })),
+  );
 }
 
 const storesByHost = new WeakMap<

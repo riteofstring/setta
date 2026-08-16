@@ -74,7 +74,9 @@ function ViewportControls(props: {
   return (
     <>
       <button
-        onPointerDown={(event) => runZoomOnPointerDown(event, () => zoomIn(host))}
+        onPointerDown={(event) =>
+          runZoomOnPointerDown(event, () => zoomIn(host))
+        }
         onClick={(event) => runZoomOnNonPointerClick(event, () => zoomIn(host))}
         className={`react-flow__controls-zoomin ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
         aria-label="zoom in"
@@ -86,8 +88,12 @@ function ViewportControls(props: {
         <FaPlus {...DECORATIVE_ICON_PROPS} size={15} />
       </button>
       <button
-        onPointerDown={(event) => runZoomOnPointerDown(event, () => zoomOut(host))}
-        onClick={(event) => runZoomOnNonPointerClick(event, () => zoomOut(host))}
+        onPointerDown={(event) =>
+          runZoomOnPointerDown(event, () => zoomOut(host))
+        }
+        onClick={(event) =>
+          runZoomOnNonPointerClick(event, () => zoomOut(host))
+        }
         className={`react-flow__controls-zoomout ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
         aria-label="zoom out"
         disabled={props.minZoomReached}

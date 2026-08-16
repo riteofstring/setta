@@ -14,7 +14,10 @@ import {
 // header display-mode control, and any host UI over the same section go through these, so there
 // is one validated mutation path and one document change notification per edit.
 
-function getTextSection(host: WorkspaceHost, sectionId: string): WorkspaceSection {
+function getTextSection(
+  host: WorkspaceHost,
+  sectionId: string,
+): WorkspaceSection {
   const section = getSectionOrThrow(
     getWorkspaceDocumentStore(host).getState(),
     sectionId,

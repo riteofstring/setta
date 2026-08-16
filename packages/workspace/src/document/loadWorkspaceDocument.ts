@@ -68,7 +68,9 @@ function assertValidRegisteredSectionData(
     if (isGroupSection(section)) {
       continue;
     }
-    getRegisteredSectionKindOrThrow(host, section.kind).assertValidData?.(section);
+    getRegisteredSectionKindOrThrow(host, section.kind).assertValidData?.(
+      section,
+    );
   }
 }
 

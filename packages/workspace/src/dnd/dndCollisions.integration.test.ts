@@ -63,7 +63,8 @@ describe("dnd collision integration", () => {
       parent: ["child"],
     });
 
-    const mapped = mapDragEvent(testWorkspace.host,
+    const mapped = mapDragEvent(
+      testWorkspace.host,
       {
         operation: {
           source: {
@@ -103,7 +104,8 @@ describe("dnd collision integration", () => {
     const parentDndId = getItemDndId(parentId, listKey);
     const childDndId = getItemDndId(childId, listKey);
 
-    const mapped = mapDragEvent(testWorkspace.host,
+    const mapped = mapDragEvent(
+      testWorkspace.host,
       {
         operation: {
           source: {

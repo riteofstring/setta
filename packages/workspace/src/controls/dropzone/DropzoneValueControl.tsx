@@ -392,7 +392,9 @@ function DropzoneActionRow({
         type="button"
         className={CONTROL_BUTTON_CLASS_NAME}
         onClick={() => fileInputRef.current?.click()}
-        onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
+        onKeyDown={(event) =>
+          handleSectionControlEscape(host, event, sectionId)
+        }
         disabled={viewState.actionsBlocked}
         aria-describedby={errorDescriptionId}
       >
@@ -407,7 +409,9 @@ function DropzoneActionRow({
               remainingSlots: viewState.remainingSlots,
             })
           }
-          onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
+          onKeyDown={(event) =>
+            handleSectionControlEscape(host, event, sectionId)
+          }
           disabled={viewState.actionsBlocked}
           aria-describedby={errorDescriptionId}
         >

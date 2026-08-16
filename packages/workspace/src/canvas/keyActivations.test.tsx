@@ -118,7 +118,9 @@ function loadItemDocument(
   selectedItemIds: Array<string>,
   activeIds: Array<string> = ["panel"],
 ) {
-  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: {
@@ -151,7 +153,9 @@ function loadItemDocument(
 }
 
 function loadUngroupDocument(activeIds: Array<string> = ["group"]) {
-  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       group: {
@@ -221,13 +225,16 @@ describe("useCanvasKeyActivations", () => {
     host = document.createElement("div");
     host.tabIndex = -1;
     document.body.appendChild(host);
-    unregisterHostElement = registerWorkspaceHostElement(testWorkspace.host, host);
+    unregisterHostElement = registerWorkspaceHostElement(
+      testWorkspace.host,
+      host,
+    );
     root = createRoot(host);
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {createElement(KeyActivationsHost)
-        }</WorkspaceTestProvider>,
+          {createElement(KeyActivationsHost)}
+        </WorkspaceTestProvider>,
       );
     });
   });
@@ -276,11 +283,15 @@ describe("useCanvasKeyActivations", () => {
   it("activates multi-selection and zoom activation together on the mod key", async () => {
     await dispatchKey("keydown", "Control", { ctrlKey: true });
     expect(testWorkspace.reactFlow.getState().multiSelectionActive).toBe(true);
-    expect(testWorkspace.reactFlow.getState().zoomActivationKeyPressed).toBe(true);
+    expect(testWorkspace.reactFlow.getState().zoomActivationKeyPressed).toBe(
+      true,
+    );
 
     await dispatchKey("keyup", "Control");
     expect(testWorkspace.reactFlow.getState().multiSelectionActive).toBe(false);
-    expect(testWorkspace.reactFlow.getState().zoomActivationKeyPressed).toBe(false);
+    expect(testWorkspace.reactFlow.getState().zoomActivationKeyPressed).toBe(
+      false,
+    );
   });
 
   it("does not arm the marquee while Alt is held", async () => {
@@ -295,7 +306,9 @@ describe("useCanvasKeyActivations", () => {
     await dispatchKey("keydown", "Alt", { ctrlKey: true, altKey: true });
     expect(testWorkspace.dndState.getState().isSorting).toBe(true);
     expect(testWorkspace.reactFlow.getState().multiSelectionActive).toBe(false);
-    expect(testWorkspace.reactFlow.getState().zoomActivationKeyPressed).toBe(false);
+    expect(testWorkspace.reactFlow.getState().zoomActivationKeyPressed).toBe(
+      false,
+    );
   });
 
   it("ignores the marquee and multi-select keys while typing in an input", async () => {
@@ -335,24 +348,34 @@ describe("useCanvasKeyActivations", () => {
       window.dispatchEvent(new MouseEvent("mousemove", { ctrlKey: false }));
     });
     expect(testWorkspace.reactFlow.getState().multiSelectionActive).toBe(false);
-    expect(testWorkspace.reactFlow.getState().zoomActivationKeyPressed).toBe(false);
+    expect(testWorkspace.reactFlow.getState().zoomActivationKeyPressed).toBe(
+      false,
+    );
   });
 
   it("tracks the space pan activation key outside editable targets", async () => {
     await dispatchKey("keydown", " ", { code: "Space" });
-    expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(true);
+    expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(
+      true,
+    );
 
     await dispatchKey("keyup", " ", { code: "Space" });
-    expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(false);
+    expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(
+      false,
+    );
   });
 
   it("requires the exact space chord for the pan activation", async () => {
     await dispatchKey("keydown", " ", { code: "Space" });
-    expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(true);
+    expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(
+      true,
+    );
 
     // Another key joining the held Space releases the pan activation at once.
     await dispatchKey("keydown", "a", { code: "KeyA" });
-    expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(false);
+    expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(
+      false,
+    );
 
     await dispatchKey("keyup", "a", { code: "KeyA" });
     await dispatchKey("keyup", " ", { code: "Space" });
@@ -360,7 +383,9 @@ describe("useCanvasKeyActivations", () => {
     // A held non-modifier key keeps the pan chord from arming.
     await dispatchKey("keydown", "b", { code: "KeyB" });
     await dispatchKey("keydown", " ", { code: "Space" });
-    expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(false);
+    expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(
+      false,
+    );
   });
 
   it("ignores the space pan activation key while typing in an input", async () => {
@@ -368,7 +393,9 @@ describe("useCanvasKeyActivations", () => {
     host.appendChild(input);
 
     await dispatchKey("keydown", " ", { code: "Space", target: input });
-    expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(false);
+    expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(
+      false,
+    );
 
     input.remove();
   });
@@ -406,7 +433,8 @@ describe("useCanvasKeyActivations", () => {
 
   it("keeps Q active across page and copy chords", async () => {
     await act(async () => {
-      getWorkspaceTooltipHandlers(testWorkspace.host,
+      getWorkspaceTooltipHandlers(
+        testWorkspace.host,
         { content: "First page" },
         { content: "Second page" },
       ).onMouseEnter({ currentTarget: host });
@@ -430,7 +458,9 @@ describe("useCanvasKeyActivations", () => {
 
   it("freezes with Q+F and keeps the tooltip open after Q is released", async () => {
     await act(async () => {
-      getWorkspaceTooltipHandlers(testWorkspace.host, { content: "Freeze this" }).onMouseEnter({
+      getWorkspaceTooltipHandlers(testWorkspace.host, {
+        content: "Freeze this",
+      }).onMouseEnter({
         currentTarget: host,
       });
     });
@@ -452,7 +482,8 @@ describe("useCanvasKeyActivations", () => {
 
   it("gives a focused frozen tooltip page/copy keys and closes it with Escape", async () => {
     await act(async () => {
-      getWorkspaceTooltipHandlers(testWorkspace.host,
+      getWorkspaceTooltipHandlers(
+        testWorkspace.host,
         { content: "First frozen page" },
         { content: "Second frozen page" },
       ).onMouseEnter({ currentTarget: host });
@@ -482,7 +513,8 @@ describe("useCanvasKeyActivations", () => {
 
   it("leaves bare page and copy keys alone when focus is outside a frozen tooltip", async () => {
     await act(async () => {
-      getWorkspaceTooltipHandlers(testWorkspace.host,
+      getWorkspaceTooltipHandlers(
+        testWorkspace.host,
         { content: "First frozen page" },
         { content: "Second frozen page" },
       ).onMouseEnter({ currentTarget: host });
@@ -613,7 +645,9 @@ describe("useCanvasKeyActivations", () => {
       });
 
       expect(event.defaultPrevented).toBe(true);
-      expect(testWorkspace.document.getState().sections["leaf"]).toBeUndefined();
+      expect(
+        testWorkspace.document.getState().sections["leaf"],
+      ).toBeUndefined();
     });
 
     it("leaves Backspace to the caret while typing", async () => {
@@ -708,7 +742,9 @@ describe("useCanvasKeyActivations", () => {
       });
 
       expect(event.defaultPrevented).toBe(true);
-      expect(testWorkspace.activeSections.getState().activeIds).toEqual(["leaf"]);
+      expect(testWorkspace.activeSections.getState().activeIds).toEqual([
+        "leaf",
+      ]);
     });
 
     it("answers to the chord a host rebinds an operation to", async () => {
@@ -732,7 +768,9 @@ describe("useCanvasKeyActivations", () => {
         ctrlKey: true,
       });
       expect(hostChord.defaultPrevented).toBe(true);
-      expect(testWorkspace.document.getState().sections["group"]).toBeUndefined();
+      expect(
+        testWorkspace.document.getState().sections["group"],
+      ).toBeUndefined();
     });
   });
 
@@ -760,7 +798,9 @@ describe("useCanvasKeyActivations", () => {
     // Q owns its auxiliary chords: quick info freezes and the view stays where it is.
     it("freezes quick info on Q+F instead of fitting the view", async () => {
       await act(async () => {
-        getWorkspaceTooltipHandlers(testWorkspace.host, { content: "Freeze this" }).onMouseEnter({
+        getWorkspaceTooltipHandlers(testWorkspace.host, {
+          content: "Freeze this",
+        }).onMouseEnter({
           currentTarget: host,
         });
       });
@@ -811,7 +851,9 @@ describe("useCanvasKeyActivations", () => {
     });
 
     function registerNoteCommand() {
-      registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+      registerSectionKinds(testWorkspace.host, {
+        leaf: { renderContent: () => null },
+      });
       loadWorkspaceDocument(testWorkspace.host, {
         sections: {},
         topLevelSections: {},
@@ -854,7 +896,9 @@ describe("useCanvasKeyActivations", () => {
         x: 24,
         y: 24,
       });
-      expect(testWorkspace.activeSections.getState().activeIds).toEqual(["created"]);
+      expect(testWorkspace.activeSections.getState().activeIds).toEqual([
+        "created",
+      ]);
     });
 
     it("leaves the bare creation key to the caret while typing", async () => {
@@ -983,13 +1027,19 @@ describe("useCanvasKeyActivations", () => {
   it("activates the free-move mode while Alt is held alone", async () => {
     await act(async () => {
       host.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true, key: "Alt", altKey: true }),
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          key: "Alt",
+          altKey: true,
+        }),
       );
     });
     expect(testWorkspace.dndState.getState().isMovingFree).toBe(true);
 
     await act(async () => {
-      host.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "Alt" }));
+      host.dispatchEvent(
+        new KeyboardEvent("keyup", { bubbles: true, key: "Alt" }),
+      );
     });
     expect(testWorkspace.dndState.getState().pendingDeactivation).toBe(true);
   });
@@ -997,14 +1047,19 @@ describe("useCanvasKeyActivations", () => {
   it("switches from free-move to sorting when the mod key joins Alt", async () => {
     await act(async () => {
       host.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true, key: "Alt", altKey: true }),
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          key: "Alt",
+          altKey: true,
+        }),
       );
     });
     expect(testWorkspace.dndState.getState().isMovingFree).toBe(true);
 
     await act(async () => {
       host.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true,
+        new KeyboardEvent("keydown", {
+          bubbles: true,
           key: "Control",
           altKey: true,
           ctrlKey: true,
@@ -1020,7 +1075,11 @@ describe("useCanvasKeyActivations", () => {
     // engine only activates on keydown events.
     await act(async () => {
       host.dispatchEvent(
-        new KeyboardEvent("keyup", { bubbles: true, key: "Control", altKey: true }),
+        new KeyboardEvent("keyup", {
+          bubbles: true,
+          key: "Control",
+          altKey: true,
+        }),
       );
     });
     expect(testWorkspace.dndState.getState().pendingDeactivation).toBe(true);
@@ -1032,7 +1091,8 @@ describe("useCanvasKeyActivations", () => {
         new KeyboardEvent("keydown", { bubbles: true, key: "a", code: "KeyA" }),
       );
       host.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true,
+        new KeyboardEvent("keydown", {
+          bubbles: true,
           key: "Alt",
           code: "AltLeft",
           altKey: true,
@@ -1045,10 +1105,15 @@ describe("useCanvasKeyActivations", () => {
   it("does not re-activate a dnd mode from auto-repeat keydowns", async () => {
     await act(async () => {
       host.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true, key: "Alt", altKey: true }),
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          key: "Alt",
+          altKey: true,
+        }),
       );
       host.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true,
+        new KeyboardEvent("keydown", {
+          bubbles: true,
           key: "Control",
           altKey: true,
           ctrlKey: true,
@@ -1059,7 +1124,11 @@ describe("useCanvasKeyActivations", () => {
 
     await act(async () => {
       host.dispatchEvent(
-        new KeyboardEvent("keyup", { bubbles: true, key: "Control", altKey: true }),
+        new KeyboardEvent("keyup", {
+          bubbles: true,
+          key: "Control",
+          altKey: true,
+        }),
       );
     });
     expect(testWorkspace.dndState.getState().pendingDeactivation).toBe(true);
@@ -1068,7 +1137,8 @@ describe("useCanvasKeyActivations", () => {
     // activates from a repeat, so free move must not re-enter while Alt stays held.
     await act(async () => {
       host.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true,
+        new KeyboardEvent("keydown", {
+          bubbles: true,
           key: "Alt",
           altKey: true,
           repeat: true,
@@ -1082,10 +1152,15 @@ describe("useCanvasKeyActivations", () => {
   it("releases sorting on mouse movement without the mod key held", async () => {
     await act(async () => {
       host.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true, key: "Alt", altKey: true }),
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          key: "Alt",
+          altKey: true,
+        }),
       );
       host.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true,
+        new KeyboardEvent("keydown", {
+          bubbles: true,
           key: "Control",
           altKey: true,
           ctrlKey: true,
@@ -1114,13 +1189,21 @@ describe("useCanvasKeyActivations", () => {
     try {
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true, key: "a", code: "KeyA" }),
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "a",
+            code: "KeyA",
+          }),
         );
       });
       vi.setSystemTime(Date.now() + 150);
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true, key: "Alt", altKey: true }),
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "Alt",
+            altKey: true,
+          }),
         );
       });
       expect(testWorkspace.dndState.getState().isMovingFree).toBe(false);
@@ -1131,11 +1214,22 @@ describe("useCanvasKeyActivations", () => {
     // Releasing the key and freshly pressing Alt arms the chord again.
     await act(async () => {
       host.dispatchEvent(
-        new KeyboardEvent("keyup", { bubbles: true, key: "a", code: "KeyA", altKey: true }),
+        new KeyboardEvent("keyup", {
+          bubbles: true,
+          key: "a",
+          code: "KeyA",
+          altKey: true,
+        }),
       );
-      host.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "Alt" }));
       host.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true, key: "Alt", altKey: true }),
+        new KeyboardEvent("keyup", { bubbles: true, key: "Alt" }),
+      );
+      host.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          key: "Alt",
+          altKey: true,
+        }),
       );
     });
     expect(testWorkspace.dndState.getState().isMovingFree).toBe(true);
@@ -1173,7 +1267,11 @@ describe("useCanvasKeyActivations", () => {
   it("queues dnd deactivation on window blur", async () => {
     await act(async () => {
       host.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true, key: "Alt", altKey: true }),
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          key: "Alt",
+          altKey: true,
+        }),
       );
     });
     expect(testWorkspace.dndState.getState().isMovingFree).toBe(true);
@@ -1200,14 +1298,20 @@ describe("useCanvasKeyActivations", () => {
       window.dispatchEvent(new Event("blur"));
     });
     expect(testWorkspace.reactFlow.getState().multiSelectionActive).toBe(false);
-    expect(testWorkspace.reactFlow.getState().zoomActivationKeyPressed).toBe(false);
+    expect(testWorkspace.reactFlow.getState().zoomActivationKeyPressed).toBe(
+      false,
+    );
 
     await dispatchKey("keydown", " ", { code: "Space" });
-    expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(true);
+    expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(
+      true,
+    );
     await act(async () => {
       window.dispatchEvent(new Event("blur"));
     });
-    expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(false);
+    expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(
+      false,
+    );
 
     await dispatchKey("keydown", "q", { code: "KeyQ" });
     expect(testWorkspace.tooltip.getState().isEnabled).toBe(true);
@@ -1221,10 +1325,15 @@ describe("useCanvasKeyActivations", () => {
     async function pressChord() {
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true, key: "Shift", shiftKey: true }),
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "Shift",
+            shiftKey: true,
+          }),
         );
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true,
+          new KeyboardEvent("keydown", {
+            bubbles: true,
             key: "Control",
             ctrlKey: true,
             shiftKey: true,
@@ -1235,27 +1344,40 @@ describe("useCanvasKeyActivations", () => {
 
     it("activates item-select mode while Mod+Shift is held and releases on keyup", async () => {
       await pressChord();
-      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(true);
+      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(
+        true,
+      );
 
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keyup", { bubbles: true, key: "Shift", ctrlKey: true }),
+          new KeyboardEvent("keyup", {
+            bubbles: true,
+            key: "Shift",
+            ctrlKey: true,
+          }),
         );
       });
-      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(false);
+      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(
+        false,
+      );
     });
 
     it("clears and suppresses the exact-chord selection and multi-select states", async () => {
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true, key: "Shift", shiftKey: true }),
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "Shift",
+            shiftKey: true,
+          }),
         );
       });
       expect(testWorkspace.reactFlow.getState().selectionKeyPressed).toBe(true);
 
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true,
+          new KeyboardEvent("keydown", {
+            bubbles: true,
             key: "Control",
             ctrlKey: true,
             shiftKey: true,
@@ -1263,7 +1385,9 @@ describe("useCanvasKeyActivations", () => {
         );
       });
       const state = testWorkspace.reactFlow.getState();
-      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(true);
+      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(
+        true,
+      );
       expect(state.selectionKeyPressed).toBe(false);
       expect(state.multiSelectionActive).toBe(false);
       expect(state.zoomActivationKeyPressed).toBe(false);
@@ -1271,7 +1395,8 @@ describe("useCanvasKeyActivations", () => {
       // A repeat of the held Shift key must not re-arm the marquee while the chord holds.
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true,
+          new KeyboardEvent("keydown", {
+            bubbles: true,
             key: "Shift",
             ctrlKey: true,
             shiftKey: true,
@@ -1279,27 +1404,42 @@ describe("useCanvasKeyActivations", () => {
           }),
         );
       });
-      expect(testWorkspace.reactFlow.getState().selectionKeyPressed).toBe(false);
-      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(true);
+      expect(testWorkspace.reactFlow.getState().selectionKeyPressed).toBe(
+        false,
+      );
+      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(
+        true,
+      );
     });
 
     it("does not activate while a non-modifier key is held", async () => {
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true, key: "a", code: "KeyA" }),
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "a",
+            code: "KeyA",
+          }),
         );
       });
       await pressChord();
-      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(false);
+      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(
+        false,
+      );
     });
 
     it("does not activate from an auto-repeat keydown", async () => {
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true, key: "Shift", shiftKey: true }),
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "Shift",
+            shiftKey: true,
+          }),
         );
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true,
+          new KeyboardEvent("keydown", {
+            bubbles: true,
             key: "Control",
             ctrlKey: true,
             shiftKey: true,
@@ -1307,14 +1447,17 @@ describe("useCanvasKeyActivations", () => {
           }),
         );
       });
-      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(false);
+      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(
+        false,
+      );
     });
 
     it("releases when a non-modifier key joins the chord", async () => {
       await pressChord();
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true,
+          new KeyboardEvent("keydown", {
+            bubbles: true,
             key: "a",
             code: "KeyA",
             ctrlKey: true,
@@ -1322,13 +1465,19 @@ describe("useCanvasKeyActivations", () => {
           }),
         );
       });
-      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(false);
+      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(
+        false,
+      );
     });
 
     it("releases a held dnd mode when the chord's Shift joins, without entering item select", async () => {
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true, key: "Alt", altKey: true }),
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "Alt",
+            altKey: true,
+          }),
         );
       });
       expect(testWorkspace.dndState.getState().isMovingFree).toBe(true);
@@ -1338,7 +1487,8 @@ describe("useCanvasKeyActivations", () => {
       // its exact chord excludes Alt.
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true,
+          new KeyboardEvent("keydown", {
+            bubbles: true,
             key: "Shift",
             altKey: true,
             shiftKey: true,
@@ -1346,8 +1496,12 @@ describe("useCanvasKeyActivations", () => {
         );
       });
       expect(testWorkspace.dndState.getState().pendingDeactivation).toBe(true);
-      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(false);
-      expect(testWorkspace.reactFlow.getState().selectionKeyPressed).toBe(false);
+      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(
+        false,
+      );
+      expect(testWorkspace.reactFlow.getState().selectionKeyPressed).toBe(
+        false,
+      );
     });
 
     it("releases the chord on mouse movement without the mod key held", async () => {
@@ -1355,12 +1509,16 @@ describe("useCanvasKeyActivations", () => {
       await act(async () => {
         window.dispatchEvent(new MouseEvent("mousemove", { ctrlKey: true }));
       });
-      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(true);
+      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(
+        true,
+      );
 
       await act(async () => {
         window.dispatchEvent(new MouseEvent("mousemove", { ctrlKey: false }));
       });
-      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(false);
+      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(
+        false,
+      );
     });
 
     it("releases the chord on window blur", async () => {
@@ -1368,20 +1526,25 @@ describe("useCanvasKeyActivations", () => {
       await act(async () => {
         window.dispatchEvent(new Event("blur"));
       });
-      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(false);
+      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(
+        false,
+      );
     });
 
     it("does not arm the pan activation while a modifier is held", async () => {
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true,
+          new KeyboardEvent("keydown", {
+            bubbles: true,
             key: " ",
             code: "Space",
             ctrlKey: true,
           }),
         );
       });
-      expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(false);
+      expect(testWorkspace.reactFlow.getState().panActivationKeyPressed).toBe(
+        false,
+      );
     });
   });
 
@@ -1394,10 +1557,10 @@ describe("useCanvasKeyActivations", () => {
       root = createRoot(host);
       await act(async () => {
         root.render(
-        <WorkspaceTestProvider workspace={testWorkspace}>
-          {createElement(KeyActivationsHost)
-        }</WorkspaceTestProvider>,
-      );
+          <WorkspaceTestProvider workspace={testWorkspace}>
+            {createElement(KeyActivationsHost)}
+          </WorkspaceTestProvider>,
+        );
       });
     });
 
@@ -1408,59 +1571,97 @@ describe("useCanvasKeyActivations", () => {
     it("activates the item chord with Meta and not with Control", async () => {
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true, key: "Shift", shiftKey: true }),
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "Shift",
+            shiftKey: true,
+          }),
         );
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true,
+          new KeyboardEvent("keydown", {
+            bubbles: true,
             key: "Meta",
             metaKey: true,
             shiftKey: true,
           }),
         );
       });
-      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(true);
+      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(
+        true,
+      );
 
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keyup", { bubbles: true, key: "Meta", shiftKey: true }),
+          new KeyboardEvent("keyup", {
+            bubbles: true,
+            key: "Meta",
+            shiftKey: true,
+          }),
         );
-        host.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "Shift" }));
+        host.dispatchEvent(
+          new KeyboardEvent("keyup", { bubbles: true, key: "Shift" }),
+        );
       });
-      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(false);
+      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(
+        false,
+      );
 
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true,
+          new KeyboardEvent("keydown", {
+            bubbles: true,
             key: "Control",
             ctrlKey: true,
             shiftKey: true,
           }),
         );
       });
-      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(false);
+      expect(testWorkspace.itemSelectionMode.getState().isSelectingItems).toBe(
+        false,
+      );
     });
 
     it("clears swallowed held keys when Meta releases so chords can arm again", async () => {
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true, key: "a", code: "KeyA" }),
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "a",
+            code: "KeyA",
+          }),
         );
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true, key: "Meta", metaKey: true }),
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "Meta",
+            metaKey: true,
+          }),
         );
       });
-      expect(testWorkspace.reactFlow.getState().multiSelectionActive).toBe(false);
+      expect(testWorkspace.reactFlow.getState().multiSelectionActive).toBe(
+        false,
+      );
 
       // The keyup for "a" is swallowed while Meta is held; releasing Meta clears the held
       // set, so a fresh Meta press arms the chord.
       await act(async () => {
-        host.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "Meta" }));
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true, key: "Meta", metaKey: true }),
+          new KeyboardEvent("keyup", { bubbles: true, key: "Meta" }),
+        );
+        host.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "Meta",
+            metaKey: true,
+          }),
         );
       });
-      expect(testWorkspace.reactFlow.getState().multiSelectionActive).toBe(true);
-      expect(testWorkspace.reactFlow.getState().zoomActivationKeyPressed).toBe(true);
+      expect(testWorkspace.reactFlow.getState().multiSelectionActive).toBe(
+        true,
+      );
+      expect(testWorkspace.reactFlow.getState().zoomActivationKeyPressed).toBe(
+        true,
+      );
     });
 
     it("runs the ungroup command with Meta and Shift", async () => {
@@ -1479,28 +1680,41 @@ describe("useCanvasKeyActivations", () => {
       });
 
       expect(event.defaultPrevented).toBe(true);
-      expect(testWorkspace.document.getState().sections["group"]).toBeUndefined();
+      expect(
+        testWorkspace.document.getState().sections["group"],
+      ).toBeUndefined();
     });
 
     it("releases the mod-gated activations on mouse movement without Meta held", async () => {
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true, key: "Meta", metaKey: true }),
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "Meta",
+            metaKey: true,
+          }),
         );
       });
-      expect(testWorkspace.reactFlow.getState().multiSelectionActive).toBe(true);
+      expect(testWorkspace.reactFlow.getState().multiSelectionActive).toBe(
+        true,
+      );
 
       await act(async () => {
         window.dispatchEvent(new MouseEvent("mousemove", { metaKey: false }));
       });
-      expect(testWorkspace.reactFlow.getState().multiSelectionActive).toBe(false);
-      expect(testWorkspace.reactFlow.getState().zoomActivationKeyPressed).toBe(false);
+      expect(testWorkspace.reactFlow.getState().multiSelectionActive).toBe(
+        false,
+      );
+      expect(testWorkspace.reactFlow.getState().zoomActivationKeyPressed).toBe(
+        false,
+      );
     });
   });
 
   describe("item keyboard move shortcuts", () => {
     it("dispatches the offset moves on Alt+Arrow and allows repeats", async () => {
-      const firstPress = new KeyboardEvent("keydown", { bubbles: true,
+      const firstPress = new KeyboardEvent("keydown", {
+        bubbles: true,
         key: "ArrowDown",
         code: "ArrowDown",
         altKey: true,
@@ -1514,7 +1728,8 @@ describe("useCanvasKeyActivations", () => {
 
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true,
+          new KeyboardEvent("keydown", {
+            bubbles: true,
             key: "ArrowDown",
             code: "ArrowDown",
             altKey: true,
@@ -1526,10 +1741,15 @@ describe("useCanvasKeyActivations", () => {
 
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keyup", { bubbles: true, key: "ArrowDown", code: "ArrowDown" }),
+          new KeyboardEvent("keyup", {
+            bubbles: true,
+            key: "ArrowDown",
+            code: "ArrowDown",
+          }),
         );
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true,
+          new KeyboardEvent("keydown", {
+            bubbles: true,
             key: "ArrowUp",
             code: "ArrowUp",
             altKey: true,
@@ -1560,7 +1780,8 @@ describe("useCanvasKeyActivations", () => {
     it("requires the exact Alt chord with no other keys held", async () => {
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true,
+          new KeyboardEvent("keydown", {
+            bubbles: true,
             key: "ArrowDown",
             code: "ArrowDown",
             altKey: true,
@@ -1568,7 +1789,8 @@ describe("useCanvasKeyActivations", () => {
           }),
         );
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true,
+          new KeyboardEvent("keydown", {
+            bubbles: true,
             key: "ArrowDown",
             code: "ArrowDown",
             altKey: true,
@@ -1580,10 +1802,15 @@ describe("useCanvasKeyActivations", () => {
 
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true, key: "a", code: "KeyA" }),
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            key: "a",
+            code: "KeyA",
+          }),
         );
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true,
+          new KeyboardEvent("keydown", {
+            bubbles: true,
             key: "ArrowDown",
             code: "ArrowDown",
             altKey: true,
@@ -1595,7 +1822,8 @@ describe("useCanvasKeyActivations", () => {
 
     it("indents on Tab and unindents on Shift+Tab while the active section has selected items", async () => {
       loadItemDocument(["item-a"]);
-      const tabPress = new KeyboardEvent("keydown", { bubbles: true,
+      const tabPress = new KeyboardEvent("keydown", {
+        bubbles: true,
         key: "Tab",
         code: "Tab",
         cancelable: true,
@@ -1603,7 +1831,11 @@ describe("useCanvasKeyActivations", () => {
       await act(async () => {
         host.dispatchEvent(tabPress);
         host.dispatchEvent(
-          new KeyboardEvent("keyup", { bubbles: true, key: "Tab", code: "Tab" }),
+          new KeyboardEvent("keyup", {
+            bubbles: true,
+            key: "Tab",
+            code: "Tab",
+          }),
         );
       });
       expect(vi.mocked(indentSelectedItems)).toHaveBeenCalledTimes(1);
@@ -1611,7 +1843,8 @@ describe("useCanvasKeyActivations", () => {
 
       await act(async () => {
         host.dispatchEvent(
-          new KeyboardEvent("keydown", { bubbles: true,
+          new KeyboardEvent("keydown", {
+            bubbles: true,
             key: "Tab",
             code: "Tab",
             shiftKey: true,
@@ -1623,7 +1856,8 @@ describe("useCanvasKeyActivations", () => {
 
     it("leaves Tab alone without an active item selection", async () => {
       loadItemDocument(["item-a"], []);
-      const tabPress = new KeyboardEvent("keydown", { bubbles: true,
+      const tabPress = new KeyboardEvent("keydown", {
+        bubbles: true,
         key: "Tab",
         code: "Tab",
         cancelable: true,
@@ -1664,7 +1898,8 @@ describe("useCanvasKeyActivations", () => {
         visibleItemIds: new Set(["item-a"]),
         filterActive: true,
       });
-      const tabPress = new KeyboardEvent("keydown", { bubbles: true,
+      const tabPress = new KeyboardEvent("keydown", {
+        bubbles: true,
         key: "Tab",
         code: "Tab",
         cancelable: true,
@@ -1718,7 +1953,9 @@ describe("useCanvasKeyActivations", () => {
 
       await pressEscape(sectionNode);
       expect(getPanelSelection()).toEqual([]);
-      expect(testWorkspace.activeSections.getState().activeIds).toEqual(["panel"]);
+      expect(testWorkspace.activeSections.getState().activeIds).toEqual([
+        "panel",
+      ]);
 
       // Clearing the active selection blurs the focused element inside the section and
       // falls focus back to the document, as the reference's Escape handler does.
@@ -1733,7 +1970,9 @@ describe("useCanvasKeyActivations", () => {
     it("keeps the active selection when escape lands outside a section node", async () => {
       loadItemDocument([]);
       await pressEscape();
-      expect(testWorkspace.activeSections.getState().activeIds).toEqual(["panel"]);
+      expect(testWorkspace.activeSections.getState().activeIds).toEqual([
+        "panel",
+      ]);
     });
 
     it("ignores escape while typing in an input outside any section", async () => {

@@ -112,7 +112,10 @@ describe("empty-space placement", () => {
     setVisiblePane(800, 600);
 
     expect(
-      resolveWorkspaceEmptySpacePlacement(testWorkspace.host, createSectionInput("new", "sized")),
+      resolveWorkspaceEmptySpacePlacement(
+        testWorkspace.host,
+        createSectionInput("new", "sized"),
+      ),
     ).toEqual({
       position: { x: 24, y: 24 },
       panTo: null,
@@ -124,7 +127,10 @@ describe("empty-space placement", () => {
     setVisiblePane(800, 600);
 
     expect(
-      resolveWorkspaceEmptySpacePlacement(testWorkspace.host, createSectionInput("new", "sized")),
+      resolveWorkspaceEmptySpacePlacement(
+        testWorkspace.host,
+        createSectionInput("new", "sized"),
+      ),
     ).toEqual({
       position: { x: 264, y: 24 },
       panTo: null,
@@ -137,8 +143,10 @@ describe("empty-space placement", () => {
     setVisiblePane(800, 600);
 
     expect(
-      resolveWorkspaceEmptySpacePlacement(testWorkspace.host, createSectionInput("new", "sized"))
-        .position,
+      resolveWorkspaceEmptySpacePlacement(
+        testWorkspace.host,
+        createSectionInput("new", "sized"),
+      ).position,
     ).toEqual({ x: 424, y: 24 });
   });
 
@@ -149,12 +157,16 @@ describe("empty-space placement", () => {
     // A 1 px tall reservation fits the 32 px gap between the two padded sections; the sized
     // section below proves the same gap rejects a section that reserves its real height.
     expect(
-      resolveWorkspaceEmptySpacePlacement(testWorkspace.host, createSectionInput("new", "auto"))
-        .position,
+      resolveWorkspaceEmptySpacePlacement(
+        testWorkspace.host,
+        createSectionInput("new", "auto"),
+      ).position,
     ).toEqual({ x: 24, y: 144 });
     expect(
-      resolveWorkspaceEmptySpacePlacement(testWorkspace.host, createSectionInput("new", "sized"))
-        .position,
+      resolveWorkspaceEmptySpacePlacement(
+        testWorkspace.host,
+        createSectionInput("new", "sized"),
+      ).position,
     ).not.toEqual({ x: 24, y: 144 });
   });
 
@@ -165,7 +177,10 @@ describe("empty-space placement", () => {
     // Below the workspace rather than beside it: the reference prefers the side that keeps the
     // occupied area closest to square.
     expect(
-      resolveWorkspaceEmptySpacePlacement(testWorkspace.host, createSectionInput("new", "sized")),
+      resolveWorkspaceEmptySpacePlacement(
+        testWorkspace.host,
+        createSectionInput("new", "sized"),
+      ),
     ).toEqual({
       position: { x: 2000, y: 2144 },
       panTo: { x: 2200, y: 2204 },
@@ -176,7 +191,10 @@ describe("empty-space placement", () => {
     loadSections({ existing: { x: 2000, y: 2000 } });
 
     expect(
-      resolveWorkspaceEmptySpacePlacement(testWorkspace.host, createSectionInput("new", "sized")),
+      resolveWorkspaceEmptySpacePlacement(
+        testWorkspace.host,
+        createSectionInput("new", "sized"),
+      ),
     ).toEqual({
       position: { x: 2000, y: 2144 },
       panTo: null,

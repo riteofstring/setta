@@ -148,7 +148,8 @@ describe("workspace command registry", () => {
       /workspace.missing is not registered/,
     );
     expect(
-      getWorkspaceCommandOrThrow(host, "workspace.ungroup-sections").definition.label,
+      getWorkspaceCommandOrThrow(host, "workspace.ungroup-sections").definition
+        .label,
     ).toBe("Ungroup");
   });
 });

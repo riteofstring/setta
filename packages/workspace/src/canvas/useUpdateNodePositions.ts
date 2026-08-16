@@ -5,15 +5,19 @@ import { getNodes, updateNodePositions } from "./nodeInternalsActions";
 import { getWorkspaceOptionsStore } from "./options";
 import { getReactFlowStore } from "./store";
 
-export const updatePositions = (host: WorkspaceHost, params: {
-  x: number;
-  y: number;
-  isShiftPressed: boolean;
-}) => {
+export const updatePositions = (
+  host: WorkspaceHost,
+  params: {
+    x: number;
+    y: number;
+    isShiftPressed: boolean;
+  },
+) => {
   if (!getWorkspaceCapabilitiesStore(host).getState().canEditLayout) {
     return;
   }
-  const { nodesSelectionDims, shiftNodesSelection } = getReactFlowStore(host).getState();
+  const { nodesSelectionDims, shiftNodesSelection } =
+    getReactFlowStore(host).getState();
   const { snapGrid, snapToGrid } = getWorkspaceOptionsStore(host).getState();
   const activeSectionIds = getActiveSectionIds(host);
   const selectedNodes = getNodes(host).filter((n) =>

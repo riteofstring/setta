@@ -61,17 +61,19 @@ describe("RotaryValueControl", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<RotaryValueControl
-          ariaLabel="Mix value"
-          sectionId={SECTION_ID}
-          value="0.5"
-          min={0}
-          max={1}
-          step={0.1}
-          onValueChange={() => {}}
-          {...props}
-        />
-        }</WorkspaceTestProvider>,
+          {
+            <RotaryValueControl
+              ariaLabel="Mix value"
+              sectionId={SECTION_ID}
+              value="0.5"
+              min={0}
+              max={1}
+              step={0.1}
+              onValueChange={() => {}}
+              {...props}
+            />
+          }
+        </WorkspaceTestProvider>,
       );
     });
   }
@@ -262,7 +264,9 @@ describe("RotaryValueControl", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    testWorkspace.sectionRefs.setState({
+      withNested: { [SECTION_ID]: sectionRoot },
+    });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     await mount();

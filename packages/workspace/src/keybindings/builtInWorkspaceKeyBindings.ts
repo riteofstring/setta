@@ -50,7 +50,10 @@ export type WorkspaceKeyBindingDefinition = Readonly<{
 // A chord targets the active section selection, the same selection the section context menu and
 // the Inspector act on, and runs the command itself so the keyboard result cannot drift from the
 // pointer result.
-function runActiveSectionCommand(host: WorkspaceHost, commandId: string): boolean {
+function runActiveSectionCommand(
+  host: WorkspaceHost,
+  commandId: string,
+): boolean {
   const state = getWorkspaceDocumentStore(host).getState();
   const sections = getActiveSectionIds(host).flatMap((sectionId) => {
     const section = state.sections[sectionId];
@@ -76,7 +79,8 @@ function createSectionCommandBinding(
     defaultChord,
     allowRepeat: false,
     keepsChordWhenDeclined: false,
-    getLabel: () => getWorkspaceCommandOrThrow(host, commandId).definition.label,
+    getLabel: () =>
+      getWorkspaceCommandOrThrow(host, commandId).definition.label,
     run: () => runActiveSectionCommand(host, commandId),
   });
 }
@@ -122,7 +126,10 @@ function activeSectionHasSelectedItems(host: WorkspaceHost): boolean {
   if (!activeId) {
     return false;
   }
-  return getSectionHasSelectedItems(getWorkspaceDocumentStore(host).getState(), activeId);
+  return getSectionHasSelectedItems(
+    getWorkspaceDocumentStore(host).getState(),
+    activeId,
+  );
 }
 
 function activeSectionHasItemFilter(host: WorkspaceHost): boolean {
@@ -244,12 +251,8 @@ export function listBuiltInWorkspaceKeyBindings(
       "Shift + Tab",
       () => unindentSelectedItems(host),
     ),
-    createOperationBinding(
-      "workspace.fit-view",
-      "Fit view",
-      "F",
-      false,
-      () => onFitViewHandler(host),
+    createOperationBinding("workspace.fit-view", "Fit view", "F", false, () =>
+      onFitViewHandler(host),
     ),
     createOperationBinding(
       "workspace.zoom-in",

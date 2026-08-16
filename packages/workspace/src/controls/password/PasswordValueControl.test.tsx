@@ -57,14 +57,14 @@ describe("PasswordValueControl", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(PasswordValueControl, {
-          ariaLabel: "Password value",
-          sectionId: SECTION_ID,
-          itemId: ITEM_ID,
-          value: "secret",
-          onValueChange: () => {},
-          ...props,
-        })
-        }</WorkspaceTestProvider>,
+            ariaLabel: "Password value",
+            sectionId: SECTION_ID,
+            itemId: ITEM_ID,
+            value: "secret",
+            onValueChange: () => {},
+            ...props,
+          })}
+        </WorkspaceTestProvider>,
       );
     });
   }
@@ -162,7 +162,9 @@ describe("PasswordValueControl", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    testWorkspace.sectionRefs.setState({
+      withNested: { [SECTION_ID]: sectionRoot },
+    });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     mount({ savedValueAction: { pending: false, onReveal: () => {} } });

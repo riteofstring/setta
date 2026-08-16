@@ -78,7 +78,10 @@ describe("itemDndChildren state", () => {
       parentB: [staleTempId],
     });
 
-    replaceItemsWithTemp(testWorkspace.host, "active", "pinned", ["item-b", "item-c"]);
+    replaceItemsWithTemp(testWorkspace.host, "active", "pinned", [
+      "item-b",
+      "item-c",
+    ]);
 
     const tempId = getTempItemDndId(getItemDndId("active", "pinned"));
     const state = testWorkspace.itemDndChildren.getState();

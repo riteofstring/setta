@@ -127,13 +127,22 @@ describe("getNodesInside", () => {
       }),
     ]);
 
-    expect(getNodesInside(testWorkspace.host, { x: 0, y: 0, width: 150, height: 140 })).toEqual([
-      "section-a",
-    ]);
-    expect(getNodesInside(testWorkspace.host, { x: 0, y: 0, width: 400, height: 200 })).toEqual([
-      "section-a",
-      "section-b",
-    ]);
+    expect(
+      getNodesInside(testWorkspace.host, {
+        x: 0,
+        y: 0,
+        width: 150,
+        height: 140,
+      }),
+    ).toEqual(["section-a"]);
+    expect(
+      getNodesInside(testWorkspace.host, {
+        x: 0,
+        y: 0,
+        width: 400,
+        height: 200,
+      }),
+    ).toEqual(["section-a", "section-b"]);
   });
 
   it("respects partial-overlap mode", () => {
@@ -147,10 +156,20 @@ describe("getNodesInside", () => {
     ]);
 
     expect(
-      getNodesInside(testWorkspace.host, { x: 90, y: 70, width: 40, height: 40 }, [0, 0, 1], false),
+      getNodesInside(
+        testWorkspace.host,
+        { x: 90, y: 70, width: 40, height: 40 },
+        [0, 0, 1],
+        false,
+      ),
     ).toEqual([]);
     expect(
-      getNodesInside(testWorkspace.host, { x: 90, y: 70, width: 40, height: 40 }, [0, 0, 1], true),
+      getNodesInside(
+        testWorkspace.host,
+        { x: 90, y: 70, width: 40, height: 40 },
+        [0, 0, 1],
+        true,
+      ),
     ).toEqual(["section-a"]);
   });
 
@@ -164,7 +183,14 @@ describe("getNodesInside", () => {
       }),
     ]);
 
-    expect(getNodesInside(testWorkspace.host, { x: 0, y: 0, width: 500, height: 500 })).toEqual([]);
+    expect(
+      getNodesInside(testWorkspace.host, {
+        x: 0,
+        y: 0,
+        width: 500,
+        height: 500,
+      }),
+    ).toEqual([]);
   });
 
   it("treats zero-sized node internals without a DOM ref as unmeasured", () => {
@@ -183,7 +209,14 @@ describe("getNodesInside", () => {
       }),
     ]);
 
-    expect(getNodesInside(testWorkspace.host, { x: 0, y: 0, width: 200, height: 200 })).toEqual([]);
+    expect(
+      getNodesInside(testWorkspace.host, {
+        x: 0,
+        y: 0,
+        width: 200,
+        height: 200,
+      }),
+    ).toEqual([]);
   });
 
   it("falls back to section DOM bounds for unmeasured node internals", () => {
@@ -207,12 +240,22 @@ describe("getNodesInside", () => {
       },
     });
 
-    expect(getNodesInside(testWorkspace.host, { x: 30, y: 50, width: 140, height: 100 })).toEqual([
-      "section-a",
-    ]);
-    expect(getNodesInside(testWorkspace.host, { x: 500, y: 500, width: 10, height: 10 })).toEqual(
-      [],
-    );
+    expect(
+      getNodesInside(testWorkspace.host, {
+        x: 30,
+        y: 50,
+        width: 140,
+        height: 100,
+      }),
+    ).toEqual(["section-a"]);
+    expect(
+      getNodesInside(testWorkspace.host, {
+        x: 500,
+        y: 500,
+        width: 10,
+        height: 10,
+      }),
+    ).toEqual([]);
   });
 
   it("falls back to section DOM bounds when node internals have zero-sized geometry", () => {
@@ -236,9 +279,14 @@ describe("getNodesInside", () => {
       },
     });
 
-    expect(getNodesInside(testWorkspace.host, { x: 30, y: 50, width: 140, height: 100 })).toEqual([
-      "section-a",
-    ]);
+    expect(
+      getNodesInside(testWorkspace.host, {
+        x: 30,
+        y: 50,
+        width: 140,
+        height: 100,
+      }),
+    ).toEqual(["section-a"]);
   });
 
   it("falls back to nested section DOM geometry when a selectable section has no node internals entry", () => {
@@ -271,9 +319,14 @@ describe("getNodesInside", () => {
       },
     });
 
-    expect(getNodesInside(testWorkspace.host, { x: 350, y: 170, width: 140, height: 84 })).toEqual([
-      "group-child-a",
-    ]);
+    expect(
+      getNodesInside(testWorkspace.host, {
+        x: 350,
+        y: 170,
+        width: 140,
+        height: 84,
+      }),
+    ).toEqual(["group-child-a"]);
   });
 });
 
@@ -535,7 +588,9 @@ describe("getPaneRect", () => {
       viewportInsets: { top: 0, right: 100, bottom: 0, left: 200 },
     });
 
-    expect(getPaneRect(testWorkspace.host, testWorkspace.reactFlow.getState())).toEqual({
+    expect(
+      getPaneRect(testWorkspace.host, testWorkspace.reactFlow.getState()),
+    ).toEqual({
       x: 50,
       y: -25,
       width: 250,

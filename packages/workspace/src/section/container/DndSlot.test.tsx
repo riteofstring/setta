@@ -44,7 +44,10 @@ describe("DndSlot", () => {
     target.getBoundingClientRect = () =>
       ({ top: 40, left: 60, width: 200, height: 120 }) as DOMRect;
     document.body.append(host, target);
-    testWorkspace.sectionRefs.setState({ withNested: { target }, selfOnly: {} });
+    testWorkspace.sectionRefs.setState({
+      withNested: { target },
+      selfOnly: {},
+    });
     root = createRoot(host);
   });
 
@@ -63,12 +66,12 @@ describe("DndSlot", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(DndSlot, {
-          behaviorDropType: BehaviorDropTypeEnum.INVALID,
-          children: createElement("div", null, "section"),
-          isGroup: false,
-          sectionId: "target",
-        })
-        }</WorkspaceTestProvider>,
+            behaviorDropType: BehaviorDropTypeEnum.INVALID,
+            children: createElement("div", null, "section"),
+            isGroup: false,
+            sectionId: "target",
+          })}
+        </WorkspaceTestProvider>,
       );
     });
 

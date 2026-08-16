@@ -194,7 +194,9 @@ function getItemSelectionBase(host: WorkspaceHost): ItemSelectionBase | null {
   };
 }
 
-function getItemMovementContext(host: WorkspaceHost): ItemMovementContext | null {
+function getItemMovementContext(
+  host: WorkspaceHost,
+): ItemMovementContext | null {
   const base = getItemSelectionBase(host);
   if (!base) {
     return null;

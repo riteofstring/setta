@@ -1,4 +1,4 @@
-<!-- code-policy:managed:start -->
+# Repository Guidelines
 
 ## Shared engineering policy
 
@@ -13,6 +13,14 @@
   weaken the locked shared baseline.
 - Never add backward compatibility, legacy support, migrations, or transitional
   code unless the user explicitly asks for it.
+- An atomic public cutover is an externally visible contract, not a one-turn or
+  one-commit constraint. Use coherent private implementation batches when
+  helpful, but never commit a legacy compatibility surface or a partially
+  cut-over public API.
+- Always prefer the simplest principled solution that fully addresses the root
+  cause and remains maintainable long term. Never use speculative abstractions,
+  over-engineered designs, or workaround patches that leave the underlying
+  problem intact.
 - Pin direct dependencies and the package manager exactly. Use frozen lockfiles
   for normal setup; refresh them only during intentional dependency updates.
 - Before installing a dependency change, generate its candidate lockfile
@@ -36,23 +44,25 @@
 - Every module has a quick focused boundary suite. Recommended adds applicable
   quick and standard cross-module suites; full covers the complete declared
   product surface. Tests assert observable behavior and use temporary state.
+- Never write tautological tests that reproduce implementation logic instead of
+  verifying observable behavior.
 - Mutation and acceptance-mutation suites are optional, separately authorized
   hardening. When declared, they must run a real pinned engine and remain
   supplemental. Checked-in Gherkin must be executable. Do not use no-op,
-  pass-with-no-tests, coverage-only, or tautological tests as proof.
+  pass-with-no-tests, or coverage-only tests as proof.
 - When an agent review is requested or required, bind it to an explicit trusted
   base and exact candidate. Outside a clean-commit workflow, cover committed,
   staged, unstaged, and untracked changes so the review cannot miss worktree
   state.
 - Report agent review evidence in separate `Repository contract` and
   `Requested outcome` sections. Tie each concern to both its source instruction
-  or written objective and the affected file or hunk. Conflicts with checked-in project
-  instructions are actionable; general maintainability observations without
-  repository authority are recommendations. Local guidance prevails over
-  generic advice. Omit issues already reported by automated checks, and do not
-  turn the two sections into one approval score. If no written objective exists,
-  state that instead of inventing one. Agent review remains non-deterministic
-  evidence and cannot replace policy checks or human approval.
+  or written objective and the affected file or hunk. Conflicts with checked-in
+  project instructions are actionable; general maintainability observations
+  without repository authority are recommendations. Local guidance prevails
+  over generic advice. Omit issues already reported by automated checks, and do
+  not turn the two sections into one approval score. If no written objective
+  exists, state that instead of inventing one. Agent review remains
+  non-deterministic evidence and cannot replace policy checks or human approval.
 - Start autonomous edit/test work through one caller-scoped
   `code-policy task-session`. The caller selects named modules before the
   worker starts; reuse the one disposable worktree for dependency setup and
@@ -84,24 +94,3 @@
   remediation records; low severity by itself is not a justification. Protect
   `.code-policy.json` with required owner review. Do not add broad or silent
   ignores.
-
-<!-- code-policy:managed:end -->
-
-<!-- code-policy:project:start -->
-
-## Setta workspace package
-
-- This repository contains the standalone `@setta/workspace` TypeScript/React package and a
-  backend-free playground. It contains no application or backend implementation.
-- Package source lives in `packages/workspace/`; `apps/playground/` is the consumer;
-  package-focused tooling lives in `scripts/`; and accepted evidence lives in `docs/evidence/`.
-- Visual and interaction milestones use developer-accepted live evidence. Baselines are regression
-  locks for previously accepted behavior.
-- The distribution consists of compiled ESM, TypeScript declarations, source maps, and one scoped
-  stylesheet. React and React DOM are host-provided peers; consumers do not require Tailwind or
-  repository-specific configuration.
-- The public API excludes application and backend concepts, implementation stores, XYFlow and
-  dnd-kit internals, Tailwind names, and private selectors.
-- Publishing, public-repository creation, licensing, and the final package name remain undecided.
-
-<!-- code-policy:project:end -->

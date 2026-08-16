@@ -112,8 +112,13 @@ describe("built-in code section registration", () => {
     registerSectionKinds(testWorkspace.host, {
       [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection(),
     });
-    loadWorkspaceDocument(testWorkspace.host, makeDocument({ size: undefined }));
-    expect(getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]?.size).toEqual({
+    loadWorkspaceDocument(
+      testWorkspace.host,
+      makeDocument({ size: undefined }),
+    );
+    expect(
+      getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]?.size,
+    ).toEqual({
       width: 500,
       height: "auto",
     });
@@ -125,8 +130,13 @@ describe("built-in code section registration", () => {
         defaultSize: { width: 320, height: 200 },
       }),
     });
-    loadWorkspaceDocument(testWorkspace.host, makeDocument({ size: undefined }));
-    expect(getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]?.size).toEqual({
+    loadWorkspaceDocument(
+      testWorkspace.host,
+      makeDocument({ size: undefined }),
+    );
+    expect(
+      getWorkspaceDocument(testWorkspace.host).sections[SECTION_ID]?.size,
+    ).toEqual({
       width: 320,
       height: 200,
     });
@@ -137,7 +147,10 @@ describe("built-in code section registration", () => {
       [WORKSPACE_CODE_SECTION_KIND]: createWorkspaceCodeSection(),
     });
     expect(() =>
-      loadWorkspaceDocument(testWorkspace.host, makeDocument({ data: { code: "x = 1" } })),
+      loadWorkspaceDocument(
+        testWorkspace.host,
+        makeDocument({ data: { code: "x = 1" } }),
+      ),
     ).toThrow(/Code section code is missing its string language field/u);
   });
 
@@ -148,7 +161,8 @@ describe("built-in code section registration", () => {
       }),
     });
     expect(() =>
-      loadWorkspaceDocument(testWorkspace.host,
+      loadWorkspaceDocument(
+        testWorkspace.host,
         makeDocument({
           data: createWorkspaceCodeSectionData({ language: "bash" }),
         }),
@@ -164,7 +178,8 @@ describe("built-in code section registration", () => {
     });
     loadWorkspaceDocument(testWorkspace.host, makeDocument());
     expect(() =>
-      setWorkspaceCodeSectionData(testWorkspace.host,
+      setWorkspaceCodeSectionData(
+        testWorkspace.host,
         SECTION_ID,
         createWorkspaceCodeSectionData({ language: "yaml" }),
       ),
@@ -172,10 +187,12 @@ describe("built-in code section registration", () => {
   });
 
   it("fails a document naming the kind when the host leaves the built-in out", () => {
-    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
-    expect(() => loadWorkspaceDocument(testWorkspace.host, makeDocument())).toThrow(
-      /Section kind setta\.code is not registered/u,
-    );
+    registerSectionKinds(testWorkspace.host, {
+      leaf: { renderContent: () => null },
+    });
+    expect(() =>
+      loadWorkspaceDocument(testWorkspace.host, makeDocument()),
+    ).toThrow(/Section kind setta\.code is not registered/u);
   });
 });
 
@@ -202,11 +219,11 @@ describe("built-in code section header icon", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(HeaderIcon, {
-          hasSectionStyleTheme: false,
-          sectionId: SECTION_ID,
-          sectionKind: WORKSPACE_CODE_SECTION_KIND,
-        })
-        }</WorkspaceTestProvider>,
+            hasSectionStyleTheme: false,
+            sectionId: SECTION_ID,
+            sectionKind: WORKSPACE_CODE_SECTION_KIND,
+          })}
+        </WorkspaceTestProvider>,
       );
     });
     return host.querySelector("svg path")?.getAttribute("d") ?? null;
@@ -220,7 +237,8 @@ describe("built-in code section header icon", () => {
     const pythonPath = await renderIcon();
     expect(pythonPath).not.toBeNull();
     await act(async () => {
-      setWorkspaceCodeSectionData(testWorkspace.host,
+      setWorkspaceCodeSectionData(
+        testWorkspace.host,
         SECTION_ID,
         createWorkspaceCodeSectionData({ language: "bash" }),
       );
@@ -240,11 +258,11 @@ describe("built-in code section header icon", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(HeaderIcon, {
-          hasSectionStyleTheme: false,
-          sectionId: SECTION_ID,
-          sectionKind: WORKSPACE_CODE_SECTION_KIND,
-        })
-        }</WorkspaceTestProvider>,
+            hasSectionStyleTheme: false,
+            sectionId: SECTION_ID,
+            sectionKind: WORKSPACE_CODE_SECTION_KIND,
+          })}
+        </WorkspaceTestProvider>,
       );
     });
     expect(host.querySelector("[data-host-icon]")).not.toBeNull();

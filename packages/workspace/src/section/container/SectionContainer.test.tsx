@@ -231,7 +231,9 @@ describe("SectionContainer", () => {
 
   beforeEach(() => {
     registerWorkspaceCommands(testWorkspace.host, []);
-    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: renderSectionBody } });
+    registerSectionKinds(testWorkspace.host, {
+      leaf: { renderContent: renderSectionBody },
+    });
     loadTestDocument();
     host = document.createElement("div");
     document.body.appendChild(host);
@@ -264,11 +266,11 @@ describe("SectionContainer", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(
-          SectionDndContext,
-          null,
-          createElement(SectionHost, { sectionId }),
-        )
-        }</WorkspaceTestProvider>,
+            SectionDndContext,
+            null,
+            createElement(SectionHost, { sectionId }),
+          )}
+        </WorkspaceTestProvider>,
       );
     });
   }
@@ -322,12 +324,12 @@ describe("SectionContainer", () => {
     expect(bottomHandle.style.bottom).toBe("-8px");
 
     // The container registers both DOM refs for measurement fallbacks.
-    expect(testWorkspace.sectionRefs.getState().selfOnly["leaf"]).toBeInstanceOf(
-      HTMLElement,
-    );
-    expect(testWorkspace.sectionRefs.getState().withNested["leaf"]).toBeInstanceOf(
-      HTMLElement,
-    );
+    expect(
+      testWorkspace.sectionRefs.getState().selfOnly["leaf"],
+    ).toBeInstanceOf(HTMLElement);
+    expect(
+      testWorkspace.sectionRefs.getState().withNested["leaf"],
+    ).toBeInstanceOf(HTMLElement);
   });
 
   it("does not rewrite every section shell when viewport interaction starts", async () => {
@@ -761,16 +763,22 @@ describe("SectionContainer", () => {
     expect(scrollSurface.classList.contains("nowheel")).toBe(true);
 
     scrollSurface.scrollTop = 48;
-    await act(async () => setSectionName(testWorkspace.host, "nested", "Renamed nested section"));
+    await act(async () =>
+      setSectionName(testWorkspace.host, "nested", "Renamed nested section"),
+    );
     expect(getRequiredElement(groupRoot, ".overflow-auto")).toBe(scrollSurface);
     expect(scrollSurface.scrollTop).toBe(48);
 
-    await act(async () => setGroupOverflowMode(testWorkspace.host, "group", false));
+    await act(async () =>
+      setGroupOverflowMode(testWorkspace.host, "group", false),
+    );
     expect(groupRoot.dataset["groupOverflowMode"]).toBe("auto");
     expect(groupRoot.contains(scrollSurface)).toBe(true);
     expect(scrollSurface.scrollTop).toBe(48);
 
-    await act(async () => setGroupOverflowMode(testWorkspace.host, "group", true));
+    await act(async () =>
+      setGroupOverflowMode(testWorkspace.host, "group", true),
+    );
     expect(groupRoot.dataset["groupOverflowMode"]).toBe("bounded");
     expect(getRequiredElement(groupRoot, ".overflow-auto")).toBe(scrollSurface);
     expect(scrollSurface.scrollTop).toBe(48);
@@ -1125,12 +1133,12 @@ describe("SectionContainer", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(
-          SectionDndContext,
-          null,
-          createElement(SectionHost, { sectionId: "leaf" }),
-          createElement(SectionHost, { sectionId: "group" }),
-        )
-        }</WorkspaceTestProvider>,
+            SectionDndContext,
+            null,
+            createElement(SectionHost, { sectionId: "leaf" }),
+            createElement(SectionHost, { sectionId: "group" }),
+          )}
+        </WorkspaceTestProvider>,
       );
     });
     const leaf = host.querySelector<HTMLElement>('[data-section-id="leaf"]');

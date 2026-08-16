@@ -183,5 +183,7 @@ export function getItemHandlerRegistration(
   sectionId: string,
   itemId: string,
 ): WorkspaceItemHandlerRegistration | null {
-  return getRegistrations(host).get(getRegistrationKey(sectionId, itemId)) ?? null;
+  return (
+    getRegistrations(host).get(getRegistrationKey(sectionId, itemId)) ?? null
+  );
 }

@@ -61,7 +61,9 @@ export function isItemListViewRegistered(
   sectionId: string,
   listKey: ItemListKey,
 ): boolean {
-  return getRegisteredListViewsBySection(host).get(sectionId)?.has(listKey) ?? false;
+  return (
+    getRegisteredListViewsBySection(host).get(sectionId)?.has(listKey) ?? false
+  );
 }
 
 // Replaces a live registration in place: `Map.set` on an existing key keeps the section's

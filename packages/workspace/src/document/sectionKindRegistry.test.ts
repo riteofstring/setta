@@ -50,8 +50,12 @@ describe("sectionKindRegistry", () => {
 
   it("retains only a callable ordinary item factory", () => {
     const createItem = () => ({ id: "item", children: [] });
-    registerSectionKinds(host, { leaf: { renderContent: () => null, createItem } });
-    expect(getRegisteredSectionKindOrThrow(host, "leaf").createItem).toBe(createItem);
+    registerSectionKinds(host, {
+      leaf: { renderContent: () => null, createItem },
+    });
+    expect(getRegisteredSectionKindOrThrow(host, "leaf").createItem).toBe(
+      createItem,
+    );
 
     expect(() =>
       registerSectionKinds(host, {
@@ -65,9 +69,9 @@ describe("sectionKindRegistry", () => {
     registerSectionKinds(host, {
       leaf: { renderContent: () => null, getItemSearchableText },
     });
-    expect(getRegisteredSectionKindOrThrow(host, "leaf").getItemSearchableText).toBe(
-      getItemSearchableText,
-    );
+    expect(
+      getRegisteredSectionKindOrThrow(host, "leaf").getItemSearchableText,
+    ).toBe(getItemSearchableText);
 
     expect(() =>
       registerSectionKinds(host, {
@@ -107,7 +111,9 @@ describe("sectionKindRegistry", () => {
     registerSectionKinds(host, {
       meta: { renderContent: () => null, presentation },
     });
-    expect(getMetaControlPresentation(host, { kind: "meta" })).toBe(presentation);
+    expect(getMetaControlPresentation(host, { kind: "meta" })).toBe(
+      presentation,
+    );
   });
 
   it("rejects a competing host default for package-owned meta geometry", () => {

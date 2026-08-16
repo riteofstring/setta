@@ -49,9 +49,15 @@ import {
 } from "./items/itemListRegistry";
 import { getWorkspaceKeyBindings } from "./keybindings/workspaceKeyBindingRegistry";
 import { getSectionRefsStore } from "./section/sectionRefs";
-import { getResizeEventStore, setSectionResizeEvent } from "./section/resize/resizeEvents";
+import {
+  getResizeEventStore,
+  setSectionResizeEvent,
+} from "./section/resize/resizeEvents";
 import { getWorkspaceToolbarContributions } from "./toolbar/workspaceToolbarContributions";
-import { enableWorkspaceTooltip, getWorkspaceTooltipStore } from "./tooltip/WorkspaceTooltip";
+import {
+  enableWorkspaceTooltip,
+  getWorkspaceTooltipStore,
+} from "./tooltip/WorkspaceTooltip";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -92,7 +98,9 @@ function makeDocument(kind: string, name: string): WorkspaceDocumentInput {
   };
 }
 
-function makeItemHandler(kind: "password" | "dropzone"): WorkspaceItemHandlerRegistration {
+function makeItemHandler(
+  kind: "password" | "dropzone",
+): WorkspaceItemHandlerRegistration {
   if (kind === "password") {
     return {
       kind,
@@ -127,6 +135,24 @@ function HostProbe({ id }: { id: string }) {
 const renderedRoots: Array<{ container: HTMLDivElement; root: Root }> = [];
 const hostsToDispose: Array<WorkspaceHost> = [];
 
+function createLoadedHostPair(): {
+  alpha: WorkspaceHost;
+  beta: WorkspaceHost;
+} {
+  const alpha = createWorkspaceHost();
+  const beta = createWorkspaceHost();
+  hostsToDispose.push(alpha, beta);
+  registerSectionKinds(alpha, {
+    alpha: { renderContent: () => null },
+  });
+  registerSectionKinds(beta, {
+    beta: { renderContent: () => null },
+  });
+  alpha.loadDocument(makeDocument("alpha", "Alpha"));
+  beta.loadDocument(makeDocument("beta", "Beta"));
+  return { alpha, beta };
+}
+
 afterEach(() => {
   for (const { root, container } of renderedRoots.splice(0)) {
     act(() => root.unmount());
@@ -146,26 +172,13 @@ describe("WorkspaceHost", () => {
     );
   });
 
-  it("isolates overlapping documents, registries, transient state, subscriptions, and providers", () => {
-    const alpha = createWorkspaceHost();
-    const beta = createWorkspaceHost();
-    hostsToDispose.push(alpha, beta);
-
-    registerSectionKinds(alpha, {
-      alpha: { renderContent: () => null },
-    });
-    registerSectionKinds(beta, {
-      beta: { renderContent: () => null },
-    });
-    alpha.loadDocument(makeDocument("alpha", "Alpha"));
-    beta.loadDocument(makeDocument("beta", "Beta"));
+  it("isolates overlapping documents and item handlers", () => {
+    const { alpha, beta } = createLoadedHostPair();
     expect(
-      alpha.getSnapshot().sections[SECTION_ID]?.itemTree?.items[ITEM_ID]
-        ?.data,
+      alpha.getSnapshot().sections[SECTION_ID]?.itemTree?.items[ITEM_ID]?.data,
     ).toEqual({ owner: "Alpha" });
     expect(
-      beta.getSnapshot().sections[SECTION_ID]?.itemTree?.items[ITEM_ID]
-        ?.data,
+      beta.getSnapshot().sections[SECTION_ID]?.itemTree?.items[ITEM_ID]?.data,
     ).toEqual({ owner: "Beta" });
 
     registerItemHandlers(alpha, [makeItemHandler("password")]);
@@ -176,6 +189,10 @@ describe("WorkspaceHost", () => {
     expect(getItemHandlerRegistration(beta, SECTION_ID, ITEM_ID)?.kind).toBe(
       "dropzone",
     );
+  });
+
+  it("isolates commands, creation commands, toolbar entries, and key bindings", () => {
+    const { alpha, beta } = createLoadedHostPair();
 
     registerWorkspaceCommands(alpha, [
       {
@@ -207,7 +224,8 @@ describe("WorkspaceHost", () => {
         id: "alpha-create",
         label: "Alpha create",
         group: "Alpha",
-        createSection: () => makeDocument("alpha", "Created").sections[SECTION_ID]!,
+        createSection: () =>
+          makeDocument("alpha", "Created").sections[SECTION_ID]!,
       },
     ]);
     registerWorkspaceCreationCommands(beta, [
@@ -215,15 +233,16 @@ describe("WorkspaceHost", () => {
         id: "beta-create",
         label: "Beta create",
         group: "Beta",
-        createSection: () => makeDocument("beta", "Created").sections[SECTION_ID]!,
+        createSection: () =>
+          makeDocument("beta", "Created").sections[SECTION_ID]!,
       },
     ]);
-    expect(getWorkspaceCreationCommands(alpha).map((command) => command.id)).toEqual([
-      "alpha-create",
-    ]);
-    expect(getWorkspaceCreationCommands(beta).map((command) => command.id)).toEqual([
-      "beta-create",
-    ]);
+    expect(
+      getWorkspaceCreationCommands(alpha).map((command) => command.id),
+    ).toEqual(["alpha-create"]);
+    expect(
+      getWorkspaceCreationCommands(beta).map((command) => command.id),
+    ).toEqual(["beta-create"]);
 
     registerWorkspaceToolbarContributions(alpha, [
       {
@@ -261,6 +280,10 @@ describe("WorkspaceHost", () => {
         (binding) => binding.id === "workspace.lock-sections",
       )?.origin,
     ).not.toBe("host");
+  });
+
+  it("isolates transient runtime state", () => {
+    const { alpha, beta } = createLoadedHostPair();
 
     getWorkspaceCapabilitiesStore(alpha).setState({
       canEditLayout: false,
@@ -270,7 +293,13 @@ describe("WorkspaceHost", () => {
     getReactFlowStore(alpha).setState({ width: 320 });
     getCanvasGesturesStore(alpha).setState({ mouseDownDraggingSection: true });
     getDndChildrenStore(alpha).setState({ x: { root: [SECTION_ID] }, y: {} });
-    setActiveDnd(alpha, SECTION_ID, true, 160, 80, null);
+    setActiveDnd(alpha, {
+      activeId: SECTION_ID,
+      activeIsTopLevel: true,
+      activeRect: null,
+      height: 80,
+      width: 160,
+    });
     setItemDndState(alpha, { activeId: ITEM_ID });
     getSectionRefsStore(alpha).setState({ withNested: { [SECTION_ID]: null } });
     setSectionResizeEvent(alpha, SECTION_ID, "start");
@@ -292,6 +321,10 @@ describe("WorkspaceHost", () => {
     expect(getSectionRefsStore(beta).getState().withNested).toEqual({});
     expect(getResizeEventStore(beta).getState().resizeEvent).toEqual({});
     expect(getWorkspaceTooltipStore(beta).getState().isEnabled).toBe(false);
+  });
+
+  it("isolates item views, menus, subscriptions, and selection", () => {
+    const { alpha, beta } = createLoadedHostPair();
 
     registerItemListView(alpha, SECTION_ID, {
       listKey: "alpha-list",
@@ -305,12 +338,12 @@ describe("WorkspaceHost", () => {
       visibleItemIds: new Set([ITEM_ID]),
       filterActive: false,
     });
-    expect(resolveItemListView(alpha, SECTION_ID, ITEM_ID, "alpha-list")?.listKey).toBe(
-      "alpha-list",
-    );
-    expect(resolveItemListView(beta, SECTION_ID, ITEM_ID, "alpha-list")?.listKey).toBe(
-      "beta-list",
-    );
+    expect(
+      resolveItemListView(alpha, SECTION_ID, ITEM_ID, "alpha-list")?.listKey,
+    ).toBe("alpha-list");
+    expect(
+      resolveItemListView(beta, SECTION_ID, ITEM_ID, "alpha-list")?.listKey,
+    ).toBe("beta-list");
 
     const menuOwner = document.createElement("button");
     document.body.appendChild(menuOwner);
@@ -341,9 +374,9 @@ describe("WorkspaceHost", () => {
     expect(observedBeta).toEqual([]);
     expect(alpha.getSnapshot().activeIds).toEqual([SECTION_ID]);
     expect(beta.getSnapshot().activeIds).toEqual([]);
-    expect(getWorkspaceDocumentStore(beta).getState().sections[SECTION_ID]?.name).toBe(
-      "Beta",
-    );
+    expect(
+      getWorkspaceDocumentStore(beta).getState().sections[SECTION_ID]?.name,
+    ).toBe("Beta");
     unsubscribeAlpha();
     unsubscribeBeta();
 
@@ -354,6 +387,10 @@ describe("WorkspaceHost", () => {
     expect(
       beta.getSnapshot().sections[SECTION_ID]?.itemTree?.selectedItemIds,
     ).toEqual([]);
+  });
+
+  it("binds providers and appearance to their own host", () => {
+    const { alpha, beta } = createLoadedHostPair();
 
     setWorkspaceColorMode(alpha, "dark");
     setWorkspaceColorMode(beta, "light");
@@ -388,7 +425,10 @@ describe("WorkspaceHost", () => {
   });
 
   it("disposes one host's media-query listener without changing another host", () => {
-    const originalMatchMedia = Object.getOwnPropertyDescriptor(window, "matchMedia");
+    const originalMatchMedia = Object.getOwnPropertyDescriptor(
+      window,
+      "matchMedia",
+    );
     const queries: Array<{
       emit: (matches: boolean) => void;
       listeners: Set<(event: MediaQueryListEvent) => void>;
@@ -398,14 +438,19 @@ describe("WorkspaceHost", () => {
       configurable: true,
       value: vi.fn(() => {
         const listeners = new Set<(event: MediaQueryListEvent) => void>();
-        const remove = vi.fn((_: string, listener: (event: MediaQueryListEvent) => void) => {
-          listeners.delete(listener);
-        });
+        const remove = vi.fn(
+          (_: string, listener: (event: MediaQueryListEvent) => void) => {
+            listeners.delete(listener);
+          },
+        );
         const query = {
           matches: false,
           media: "(prefers-color-scheme: dark)",
           onchange: null,
-          addEventListener: (_: string, listener: (event: MediaQueryListEvent) => void) => {
+          addEventListener: (
+            _: string,
+            listener: (event: MediaQueryListEvent) => void,
+          ) => {
             listeners.add(listener);
           },
           removeEventListener: remove,

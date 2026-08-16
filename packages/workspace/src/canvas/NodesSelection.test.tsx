@@ -70,7 +70,9 @@ describe("NodesSelection context menu", () => {
 
   beforeEach(async () => {
     resetState();
-    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+    registerSectionKinds(testWorkspace.host, {
+      leaf: { renderContent: () => null },
+    });
     loadWorkspaceDocument(testWorkspace.host, {
       sections: {
         alpha: createSection("alpha"),
@@ -92,8 +94,8 @@ describe("NodesSelection context menu", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<NodesSelectionWrapper />
-        }</WorkspaceTestProvider>,
+          {<NodesSelectionWrapper />}
+        </WorkspaceTestProvider>,
       );
     });
   });

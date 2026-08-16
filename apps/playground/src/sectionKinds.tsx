@@ -464,9 +464,7 @@ function getItemDropzoneConfiguration(
   host: WorkspaceHost,
 ): WorkspaceDropzoneItemControlConfiguration {
   const item =
-    host.getSnapshot().sections["item-panel"]?.itemTree?.items[
-      "item-dropzone"
-    ];
+    host.getSnapshot().sections["item-panel"]?.itemTree?.items["item-dropzone"];
   const control = item?.presentation?.control;
   if (!control || control.kind !== "dropzone") {
     throw new Error(

@@ -29,7 +29,9 @@ import {
 // The custom-row persistence funnel: one canonical opaque-data replacement and one notification.
 
 function loadTestDocument() {
-  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: {
@@ -79,7 +81,10 @@ describe("setItemData", () => {
   it("replaces the item's opaque data and notifies the host once", () => {
     const onDocumentChange = vi.fn();
     testWorkspace.host.subscribe(onDocumentChange);
-    setItemData(testWorkspace.host, "panel", "item-a", { label: "alpha", value: "0.5" });
+    setItemData(testWorkspace.host, "panel", "item-a", {
+      label: "alpha",
+      value: "0.5",
+    });
     const itemTree = getSectionItemTreeOrThrow(
       testWorkspace.document.getState(),
       "panel",
@@ -93,9 +98,15 @@ describe("setItemData", () => {
   });
 
   it("fails loudly for an unknown section or item", () => {
-    expect(() => setItemData(testWorkspace.host, "missing", "item-a", {})).toThrow();
-    expect(() => setItemData(testWorkspace.host, "panel", "missing", {})).toThrow();
-    expect(() => setItemData(testWorkspace.host, "panel", "item-root", {})).toThrowError(
+    expect(() =>
+      setItemData(testWorkspace.host, "missing", "item-a", {}),
+    ).toThrow();
+    expect(() =>
+      setItemData(testWorkspace.host, "panel", "missing", {}),
+    ).toThrow();
+    expect(() =>
+      setItemData(testWorkspace.host, "panel", "item-root", {}),
+    ).toThrowError(
       "Section panel item item-root is the structural root and has no data.",
     );
   });
@@ -134,7 +145,9 @@ describe("setItemData", () => {
         },
       },
     });
-    expect(() => setItemData(testWorkspace.host, "panel", "item-a", {})).toThrowError(
+    expect(() =>
+      setItemData(testWorkspace.host, "panel", "item-a", {}),
+    ).toThrowError(
       "Section panel item item-a has a built-in presentation; use its typed mutation funnels.",
     );
   });

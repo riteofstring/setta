@@ -69,7 +69,9 @@ const documentChangeSpy = vi.fn();
 // "panel" nests "nested-child" under "nested", so tree order and subtree pruning are both
 // observable; "group" holds "grouped", and "bare" has no parameters at all.
 function loadSelectionDocument(activeIds: Array<string>) {
-  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   loadWorkspaceDocument(testWorkspace.host, {
     sections: {
       panel: makeSection("panel", {

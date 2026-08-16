@@ -337,10 +337,10 @@ async function renderReactiveMiniMap(element: JSX.Element): Promise<{
 
   await act(async () => {
     root.render(
-        <WorkspaceTestProvider workspace={testWorkspace}>
-          {<svg>{element}</svg>
-        }</WorkspaceTestProvider>,
-      );
+      <WorkspaceTestProvider workspace={testWorkspace}>
+        {<svg>{element}</svg>}
+      </WorkspaceTestProvider>,
+    );
   });
 
   return {

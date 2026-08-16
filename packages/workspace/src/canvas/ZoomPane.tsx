@@ -135,7 +135,10 @@ const isWheelEventType = (eventType: string): boolean => eventType === "wheel";
 const VIEWPORT_INTERACTION_ACTIVE_ATTRIBUTE =
   "data-viewport-interaction-active";
 
-function markViewportInteractionActive(host: WorkspaceHost, active: boolean): void {
+function markViewportInteractionActive(
+  host: WorkspaceHost,
+  active: boolean,
+): void {
   const canvas = getReactFlowStore(host).getState().domNode;
   if (!canvas) {
     return;
@@ -836,6 +839,7 @@ function useZoomWheelBehavior({
     d3Selection,
     d3Zoom,
     d3ZoomHandler,
+    host,
     isPanScrolling,
     isWheelZooming,
     isZoomingOrPanning,

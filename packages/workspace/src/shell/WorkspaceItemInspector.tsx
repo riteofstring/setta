@@ -128,10 +128,7 @@ function ItemTypeField({
       className="setta-workspace-inspector-field"
       data-inspector-focus-key="item-type"
     >
-      <label
-        className="setta-workspace-inspector-label"
-        htmlFor={inputId}
-      >
+      <label className="setta-workspace-inspector-label" htmlFor={inputId}>
         UI type
       </label>
       <select

@@ -31,8 +31,8 @@ type TempItemReplacementContext = {
 function createItemDndChildrenStore() {
   return createStore(
     withResetFn<ItemDndChildrenState>(() => ({
-    x: {}, // parent id to list of children
-    y: {}, // child id to parent id
+      x: {}, // parent id to list of children
+      y: {}, // child id to parent id
     })),
   );
 }

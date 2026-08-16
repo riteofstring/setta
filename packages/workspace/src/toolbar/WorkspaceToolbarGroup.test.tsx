@@ -119,8 +119,8 @@ describe("WorkspaceToolbarGroup", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {createElement(WorkspaceToolbarGroup, { placement })
-        }</WorkspaceTestProvider>,
+          {createElement(WorkspaceToolbarGroup, { placement })}
+        </WorkspaceTestProvider>,
       );
     });
   }
@@ -144,9 +144,17 @@ describe("WorkspaceToolbarGroup", () => {
         defaultSize: { width: 240, height: 120 },
       },
     });
-    registerWorkspaceCommands(testWorkspace.host, [reportCommand, toggleCommand, lockedCommand]);
+    registerWorkspaceCommands(testWorkspace.host, [
+      reportCommand,
+      toggleCommand,
+      lockedCommand,
+    ]);
     registerWorkspaceCreationCommands(testWorkspace.host, [creationCommand]);
-    testWorkspace.reactFlow.setState({ ...initialCanvasState, width: 800, height: 600 });
+    testWorkspace.reactFlow.setState({
+      ...initialCanvasState,
+      width: 800,
+      height: 600,
+    });
     loadWorkspaceDocument(testWorkspace.host, {
       sections: {},
       topLevelSections: {},
@@ -355,7 +363,9 @@ describe("WorkspaceToolbarGroup", () => {
         ? "Already reported."
         : null,
     );
-    registerWorkspaceCommands(testWorkspace.host, [{ ...reportCommand, getDisabledReason }]);
+    registerWorkspaceCommands(testWorkspace.host, [
+      { ...reportCommand, getDisabledReason },
+    ]);
     registerWorkspaceToolbarContributions(testWorkspace.host, [
       {
         kind: "command",

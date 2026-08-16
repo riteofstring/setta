@@ -22,10 +22,7 @@ import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialCanvasState, useReactFlow } from "../canvas/store";
-import {
-  getWorkspaceDocument,
-
-} from "../document/documentChangeCallback";
+import { getWorkspaceDocument } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
 import {
@@ -134,13 +131,15 @@ describe("built-in text section", () => {
   });
 
   async function mount(section: WorkspaceSectionInput = makeTextSection()) {
-    registerSectionKinds(testWorkspace.host, { [WORKSPACE_TEXT_SECTION_KIND]: definition });
+    registerSectionKinds(testWorkspace.host, {
+      [WORKSPACE_TEXT_SECTION_KIND]: definition,
+    });
     loadWorkspaceDocument(testWorkspace.host, makeDocument(section));
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {createElement(SectionHarness)
-        }</WorkspaceTestProvider>,
+          {createElement(SectionHarness)}
+        </WorkspaceTestProvider>,
       );
     });
   }

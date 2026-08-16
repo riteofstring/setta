@@ -220,7 +220,9 @@ function getStoredItemPresentation() {
 
 describe("typed workspace item presentations", () => {
   beforeEach(() => {
-    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+    registerSectionKinds(testWorkspace.host, {
+      leaf: { renderContent: () => null },
+    });
   });
 
   afterEach(() => {
@@ -257,7 +259,8 @@ describe("typed workspace item presentations", () => {
         ];
       }),
     );
-    loadWorkspaceDocument(testWorkspace.host,
+    loadWorkspaceDocument(
+      testWorkspace.host,
       makeDocument({ root: { id: "root", children: itemIds }, ...items }),
     );
     expect(
@@ -274,7 +277,8 @@ describe("typed workspace item presentations", () => {
       throw new Error("The typed-item fixture lost its text control.");
     }
     expect(() =>
-      loadWorkspaceDocument(testWorkspace.host,
+      loadWorkspaceDocument(
+        testWorkspace.host,
         makeDocument({
           root: { id: "root", children: ["item"] },
           item: {
@@ -293,7 +297,8 @@ describe("typed workspace item presentations", () => {
       "Section panel item item cannot contain both a built-in presentation and opaque data.",
     );
     expect(() =>
-      loadWorkspaceDocument(testWorkspace.host,
+      loadWorkspaceDocument(
+        testWorkspace.host,
         makeDocument({
           root: {
             id: "root",
@@ -310,7 +315,8 @@ describe("typed workspace item presentations", () => {
       "Section panel item root is the structural root and cannot contain row content.",
     );
     expect(() =>
-      loadWorkspaceDocument(testWorkspace.host,
+      loadWorkspaceDocument(
+        testWorkspace.host,
         makeDocument({
           root: { id: "root", children: [], data: { custom: true } },
         }),
@@ -319,14 +325,16 @@ describe("typed workspace item presentations", () => {
       "Section panel item root is the structural root and cannot contain row content.",
     );
     expect(() =>
-      loadWorkspaceDocument(testWorkspace.host,
+      loadWorkspaceDocument(
+        testWorkspace.host,
         makeSingleItemDocument({ kind: "mystery" } as never),
       ),
     ).toThrowError(
       "Section panel item item presentation.control names the unknown kind mystery.",
     );
     expect(() =>
-      loadWorkspaceDocument(testWorkspace.host,
+      loadWorkspaceDocument(
+        testWorkspace.host,
         makeSingleItemDocument(
           VALID_CONTROLS[1] as WorkspaceItemControlPresentation,
           42 as never,
@@ -336,7 +344,8 @@ describe("typed workspace item presentations", () => {
       "Section panel item item presentation.helpText must be a string.",
     );
     expect(() =>
-      loadWorkspaceDocument(testWorkspace.host,
+      loadWorkspaceDocument(
+        testWorkspace.host,
         makeSingleItemDocument(
           VALID_CONTROLS[1] as WorkspaceItemControlPresentation,
           undefined,
@@ -347,7 +356,8 @@ describe("typed workspace item presentations", () => {
       "Section panel item item presentation.labelEditable must be a boolean.",
     );
     expect(() =>
-      loadWorkspaceDocument(testWorkspace.host,
+      loadWorkspaceDocument(
+        testWorkspace.host,
         makeSingleItemDocument({
           kind: "slider",
           value: "0",
@@ -358,7 +368,8 @@ describe("typed workspace item presentations", () => {
       "Section panel item item presentation.control.configuration.min must be less than max.",
     );
     expect(() =>
-      loadWorkspaceDocument(testWorkspace.host,
+      loadWorkspaceDocument(
+        testWorkspace.host,
         makeSingleItemDocument({
           kind: "switch",
           value: "true",
@@ -372,7 +383,8 @@ describe("typed workspace item presentations", () => {
 
   it("rejects invalid type-specific choice, time, and dropzone options", () => {
     expect(() =>
-      loadWorkspaceDocument(testWorkspace.host,
+      loadWorkspaceDocument(
+        testWorkspace.host,
         makeSingleItemDocument({
           kind: "dropdown",
           value: "Alpha",
@@ -387,7 +399,8 @@ describe("typed workspace item presentations", () => {
       "Section panel item item presentation.control.configuration.choices cannot mix flat choices and choice groups.",
     );
     expect(() =>
-      loadWorkspaceDocument(testWorkspace.host,
+      loadWorkspaceDocument(
+        testWorkspace.host,
         makeSingleItemDocument({
           kind: "time",
           value: "13:45",
@@ -405,7 +418,8 @@ describe("typed workspace item presentations", () => {
       "Section panel item item presentation.control.configuration.scale must be between 0.5 and 3.",
     );
     expect(() =>
-      loadWorkspaceDocument(testWorkspace.host,
+      loadWorkspaceDocument(
+        testWorkspace.host,
         makeSingleItemDocument({
           kind: "dropzone",
           value: "",
@@ -428,7 +442,8 @@ describe("typed workspace item presentations", () => {
       "Section panel item item presentation.control.configuration.policy.maxFileBytes must be a positive safe integer.",
     );
     expect(() =>
-      loadWorkspaceDocument(testWorkspace.host,
+      loadWorkspaceDocument(
+        testWorkspace.host,
         makeSingleItemDocument({
           kind: "dropzone",
           value: "",
@@ -460,7 +475,10 @@ describe("typed workspace item presentations", () => {
     if (!codeControl || codeControl.kind !== "code") {
       throw new Error("The typed-item fixture lost its code control.");
     }
-    loadWorkspaceDocument(testWorkspace.host, makeSingleItemDocument(codeControl));
+    loadWorkspaceDocument(
+      testWorkspace.host,
+      makeSingleItemDocument(codeControl),
+    );
     const onDocumentChange = vi.fn();
     testWorkspace.host.subscribe(onDocumentChange);
 
@@ -471,7 +489,12 @@ describe("typed workspace item presentations", () => {
       control: { kind: "code" },
     });
 
-    setItemHelpText(testWorkspace.host, "panel", "item", "Runs before each retry.");
+    setItemHelpText(
+      testWorkspace.host,
+      "panel",
+      "item",
+      "Runs before each retry.",
+    );
     expect(onDocumentChange).toHaveBeenCalledTimes(2);
     expect(getStoredItemPresentation()).toMatchObject({
       label: "Renamed",
@@ -530,10 +553,15 @@ describe("typed workspace item presentations", () => {
   });
 
   it("fails stale or inapplicable mutations without publishing", () => {
-    loadWorkspaceDocument(testWorkspace.host, makeSingleItemDocument({ kind: "group" }));
+    loadWorkspaceDocument(
+      testWorkspace.host,
+      makeSingleItemDocument({ kind: "group" }),
+    );
     const onDocumentChange = vi.fn();
     testWorkspace.host.subscribe(onDocumentChange);
-    expect(() => setItemValue(testWorkspace.host, "panel", "item", "nope")).toThrowError(
+    expect(() =>
+      setItemValue(testWorkspace.host, "panel", "item", "nope"),
+    ).toThrowError(
       "Section panel item item is a group and has no controlled value.",
     );
     expect(() =>
@@ -559,11 +587,18 @@ describe("typed workspace item presentations", () => {
       }),
     ).toThrowError("Section panel item item is switch, not slider.");
     expect(() =>
-      setItemControlConfiguration(testWorkspace.host, "panel", "item", null as never),
+      setItemControlConfiguration(
+        testWorkspace.host,
+        "panel",
+        "item",
+        null as never,
+      ),
     ).toThrowError(
       "Section panel item item control-configuration mutation must be an object.",
     );
-    expect(() => setItemHelpText(testWorkspace.host, "panel", "item", 42 as never)).toThrowError(
+    expect(() =>
+      setItemHelpText(testWorkspace.host, "panel", "item", 42 as never),
+    ).toThrowError(
       "Section panel item item help text must be a string or null.",
     );
     expect(onDocumentChange).not.toHaveBeenCalled();
@@ -574,15 +609,16 @@ describe("typed workspace item presentations", () => {
     if (!codeControl || codeControl.kind !== "code") {
       throw new Error("The typed-item fixture lost its code control.");
     }
-    loadWorkspaceDocument(testWorkspace.host,
+    loadWorkspaceDocument(
+      testWorkspace.host,
       makeSingleItemDocument(codeControl, undefined, false),
     );
     const onDocumentChange = vi.fn();
     testWorkspace.host.subscribe(onDocumentChange);
 
-    expect(() => setItemLabel(testWorkspace.host, "panel", "item", "Renamed")).toThrowError(
-      "Section panel item item label is not editable.",
-    );
+    expect(() =>
+      setItemLabel(testWorkspace.host, "panel", "item", "Renamed"),
+    ).toThrowError("Section panel item item label is not editable.");
     expect(getStoredItemPresentation().label).toBe("Item");
     expect(onDocumentChange).not.toHaveBeenCalled();
   });

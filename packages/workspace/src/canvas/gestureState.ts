@@ -1,6 +1,5 @@
 import { createStore } from "zustand/vanilla";
 import { withResetFn } from "../state/storeUtils";
-import { useWorkspaceHost, useWorkspaceStore } from "../workspaceHostContext";
 import { assertWorkspaceHostActive } from "../workspaceHostInternals";
 import type { WorkspaceHost } from "../workspaceHost";
 
@@ -32,15 +31,4 @@ export function getCanvasGesturesStore(host: WorkspaceHost) {
   const store = createCanvasGesturesStore();
   storesByHost.set(host, store);
   return store;
-}
-
-export function useCanvasGestures<T>(
-  selector: (state: CanvasGestureState) => T,
-  equalityFn?: (left: T, right: T) => boolean,
-): T {
-  return useWorkspaceStore(
-    getCanvasGesturesStore(useWorkspaceHost()),
-    selector,
-    equalityFn,
-  );
 }

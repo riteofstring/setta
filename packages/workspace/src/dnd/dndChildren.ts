@@ -26,8 +26,8 @@ type ZustandDndChildren = {
 function createDndChildrenStore() {
   return createStore(
     withResetFn<ZustandDndChildren>(() => ({
-    x: {}, // parent id to list of children
-    y: {}, // child id to parent id
+      x: {}, // parent id to list of children
+      y: {}, // child id to parent id
     })),
   );
 }
@@ -209,8 +209,6 @@ export function getDisplayedSectionIdToChildren(
 export function manualDndChildrenReset(host: WorkspaceHost) {
   updateDndChildren(
     host,
-    getDisplayedSectionIdToChildren(
-      getWorkspaceDocumentStore(host).getState(),
-    ),
+    getDisplayedSectionIdToChildren(getWorkspaceDocumentStore(host).getState()),
   );
 }

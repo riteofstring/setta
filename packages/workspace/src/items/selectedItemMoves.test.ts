@@ -92,7 +92,9 @@ function loadPanel(
     register?: boolean;
   } = {},
 ) {
-  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   const itemTree = makeItemTree(childrenById, selectedItemIds);
   loadWorkspaceDocument(testWorkspace.host, {
     sections: { panel: makeSection("panel", itemTree) },
@@ -239,7 +241,9 @@ describe("selected item move gating", () => {
   });
 
   it("prefers the active section over document order when both hold selections", () => {
-    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+    registerSectionKinds(testWorkspace.host, {
+      leaf: { renderContent: () => null },
+    });
     const firstTree = makeItemTree({ "item-root": ["item-a", "item-b"] }, [
       "item-a",
     ]);

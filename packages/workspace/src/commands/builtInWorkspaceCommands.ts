@@ -78,13 +78,17 @@ function getLiveItemSection(
   );
 }
 
-function getStructureReason(host: WorkspaceSectionCommandContext["host"]): string | null {
+function getStructureReason(
+  host: WorkspaceSectionCommandContext["host"],
+): string | null {
   return getWorkspaceCapabilitiesStore(host).getState().canEditStructure
     ? null
     : STRUCTURE_REASON;
 }
 
-function getLayoutReason(host: WorkspaceSectionCommandContext["host"]): string | null {
+function getLayoutReason(
+  host: WorkspaceSectionCommandContext["host"],
+): string | null {
   return getWorkspaceCapabilitiesStore(host).getState().canEditLayout
     ? null
     : LAYOUT_REASON;
@@ -244,7 +248,8 @@ const ungroupSectionsCommand: WorkspacePackageCommandDefinition = {
     context.selectedSections.length === 1
       ? "Group ungrouped."
       : `${context.selectedSections.length} groups ungrouped.`,
-  run: (context) => ungroupSections(context.host, getSelectedSectionIds(context)),
+  run: (context) =>
+    ungroupSections(context.host, getSelectedSectionIds(context)),
 };
 
 const deleteSectionsCommand: WorkspacePackageCommandDefinition = {
@@ -283,7 +288,11 @@ const lockSectionsCommand: WorkspacePackageCommandDefinition = {
   getStatusMessage: (context) =>
     `${formatSectionCount(context.selectedSections.length, "section")} locked.`,
   run: (context) =>
-    setSectionsPositionLocked(context.host, getSelectedSectionIds(context), true),
+    setSectionsPositionLocked(
+      context.host,
+      getSelectedSectionIds(context),
+      true,
+    ),
 };
 
 const unlockSectionsCommand: WorkspacePackageCommandDefinition = {
@@ -297,7 +306,11 @@ const unlockSectionsCommand: WorkspacePackageCommandDefinition = {
   getStatusMessage: (context) =>
     `${formatSectionCount(context.selectedSections.length, "section")} unlocked.`,
   run: (context) =>
-    setSectionsPositionLocked(context.host, getSelectedSectionIds(context), false),
+    setSectionsPositionLocked(
+      context.host,
+      getSelectedSectionIds(context),
+      false,
+    ),
 };
 
 const insertItemCommand: WorkspacePackageCommandDefinition = {
@@ -356,7 +369,10 @@ const deleteSelectedItemsCommand: WorkspacePackageCommandDefinition = {
   isApplicable: (context) =>
     hasSectionItemTree(context) && getSelectedItemCount(context) > 1,
   getDisabledReason: (context) =>
-    getItemAuthoringReason(context.host, getLiveSectionTargets(context).section),
+    getItemAuthoringReason(
+      context.host,
+      getLiveSectionTargets(context).section,
+    ),
   getStatusMessage: (context) =>
     `${getSelectedItemCount(context)} parameters deleted.`,
   run: (context) => {

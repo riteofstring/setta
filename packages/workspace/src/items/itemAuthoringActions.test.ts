@@ -19,10 +19,7 @@ afterEachWorkspaceTestHost(() => {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setItemDndState, useItemDndState } from "../dnd/itemDndState";
 import { useWorkspaceCapabilities } from "../document/capabilities";
-import {
-  getWorkspaceDocument,
-
-} from "../document/documentChangeCallback";
+import { getWorkspaceDocument } from "../document/documentChangeCallback";
 import { loadWorkspaceDocument } from "../document/loadWorkspaceDocument";
 import type { WorkspaceItemFactoryContext } from "../document/sectionKindRegistry";
 import { registerSectionKinds } from "../document/sectionKindRegistry";
@@ -141,9 +138,7 @@ describe("item authoring actions", () => {
 
   it("calls the frozen host factory and atomically reports one selected insertion", () => {
     const notifications: Array<ReturnType<typeof getWorkspaceDocument>> = [];
-    testWorkspace.host.subscribe((document) =>
-      notifications.push(document),
-    );
+    testWorkspace.host.subscribe((document) => notifications.push(document));
 
     const inserted = insertWorkspaceItem(testWorkspace.host, "panel");
 
@@ -158,7 +153,9 @@ describe("item authoring actions", () => {
       selectedItemIds: ["created"],
       items: { root: { children: ["alpha", "beta", "created"] } },
     });
-    expect(testWorkspace.activeSections.getState().activeIds).toEqual(["panel"]);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual([
+      "panel",
+    ]);
     expect(notifications).toHaveLength(1);
     const notification = notifications[0];
     if (!notification) {
@@ -189,12 +186,16 @@ describe("item authoring actions", () => {
     const before = getWorkspaceDocument(testWorkspace.host);
 
     testWorkspace.capabilities.setState({ canEditStructure: false });
-    expect(() => insertWorkspaceItem(testWorkspace.host, "panel")).toThrow("requires permission");
+    expect(() => insertWorkspaceItem(testWorkspace.host, "panel")).toThrow(
+      "requires permission",
+    );
     expect(factoryContext).toBeNull();
 
     testWorkspace.capabilities.setState({ canEditStructure: true });
     setItemDndState(testWorkspace.host, { activeId: "alpha" });
-    expect(() => insertWorkspaceItem(testWorkspace.host, "panel")).toThrow("item drag is active");
+    expect(() => insertWorkspaceItem(testWorkspace.host, "panel")).toThrow(
+      "item drag is active",
+    );
     expect(factoryContext).toBeNull();
     expect(getWorkspaceDocument(testWorkspace.host)).toEqual(before);
     expect(onChange).not.toHaveBeenCalled();
@@ -217,8 +218,12 @@ describe("item authoring actions", () => {
     });
     const before = getWorkspaceDocument(testWorkspace.host);
 
-    expect(() => insertWorkspaceItem(testWorkspace.host, "panel")).toThrow("is locked");
-    expect(() => deleteWorkspaceItems(testWorkspace.host, "panel", ["alpha"])).toThrow("is locked");
+    expect(() => insertWorkspaceItem(testWorkspace.host, "panel")).toThrow(
+      "is locked",
+    );
+    expect(() =>
+      deleteWorkspaceItems(testWorkspace.host, "panel", ["alpha"]),
+    ).toThrow("is locked");
     expect(factoryContext).toBeNull();
     expect(getWorkspaceDocument(testWorkspace.host)).toEqual(before);
     expect(onChange).not.toHaveBeenCalled();
@@ -229,13 +234,15 @@ describe("item authoring actions", () => {
     testWorkspace.host.subscribe(onChange);
     const before = structuredClone(getWorkspaceDocument(testWorkspace.host));
 
-    expect(() => deleteWorkspaceItems(testWorkspace.host, "panel", ["alpha", "missing"])).toThrow(
-      "unknown item missing",
-    );
+    expect(() =>
+      deleteWorkspaceItems(testWorkspace.host, "panel", ["alpha", "missing"]),
+    ).toThrow("unknown item missing");
     expect(getWorkspaceDocument(testWorkspace.host)).toEqual(before);
     expect(onChange).not.toHaveBeenCalled();
 
-    expect(deleteSelectedWorkspaceItems(testWorkspace.host, "panel")).toEqual(["alpha"]);
+    expect(deleteSelectedWorkspaceItems(testWorkspace.host, "panel")).toEqual([
+      "alpha",
+    ]);
     expect(getPanelItemTree().selectedItemIds).toEqual(["beta"]);
     expect(onChange).toHaveBeenCalledOnce();
   });
@@ -250,7 +257,10 @@ describe("item authoring actions", () => {
     const focus = vi.spyOn(betaRow, "focus");
     section.append(deleteButton, betaRow);
     document.body.append(section);
-    testWorkspace.sectionRefs.setState({ selfOnly: { panel: section }, withNested: {} });
+    testWorkspace.sectionRefs.setState({
+      selfOnly: { panel: section },
+      withNested: {},
+    });
     deleteButton.focus();
 
     deleteSelectedWorkspaceItems(testWorkspace.host, "panel");

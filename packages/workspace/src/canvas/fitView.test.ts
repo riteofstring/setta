@@ -89,7 +89,9 @@ describe("fitView", () => {
     });
     setNodes([createNode({ id: "section-a", width: 100, height: 100 })]);
 
-    expect(fitView(testWorkspace.host, { initial: true, maxZoom: 3 })).toBe(true);
+    expect(fitView(testWorkspace.host, { initial: true, maxZoom: 3 })).toBe(
+      true,
+    );
 
     expect(transform).toHaveBeenCalledTimes(1);
     expect(transform).toHaveBeenCalledWith(
@@ -105,7 +107,9 @@ describe("fitView", () => {
       createNode({ id: "unmeasured", width: null, height: null }),
     ]);
 
-    expect(fitView(testWorkspace.host, { nodes: [{ id: "target" }] })).toBe(true);
+    expect(fitView(testWorkspace.host, { nodes: [{ id: "target" }] })).toBe(
+      true,
+    );
     expect(transform).toHaveBeenCalledTimes(1);
 
     transform.mockClear();

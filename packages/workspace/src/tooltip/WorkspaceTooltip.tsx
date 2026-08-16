@@ -62,7 +62,10 @@ type WorkspaceTooltipRuntime = {
   store: StoreApi<WorkspaceTooltipState & { reset: () => void }>;
 };
 
-const tooltipRuntimesByHost = new WeakMap<WorkspaceHost, WorkspaceTooltipRuntime>();
+const tooltipRuntimesByHost = new WeakMap<
+  WorkspaceHost,
+  WorkspaceTooltipRuntime
+>();
 
 function createWorkspaceTooltipRuntime(): WorkspaceTooltipRuntime {
   return {
@@ -83,7 +86,9 @@ function createWorkspaceTooltipRuntime(): WorkspaceTooltipRuntime {
   };
 }
 
-function getWorkspaceTooltipRuntime(host: WorkspaceHost): WorkspaceTooltipRuntime {
+function getWorkspaceTooltipRuntime(
+  host: WorkspaceHost,
+): WorkspaceTooltipRuntime {
   assertWorkspaceHostActive(host);
   const existing = tooltipRuntimesByHost.get(host);
   if (existing) {
@@ -234,7 +239,9 @@ export function freezeWorkspaceTooltip(host: WorkspaceHost): boolean {
     return true;
   }
   const activeElement =
-    document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
   getWorkspaceTooltipRuntime(host).focusBeforeFreeze =
     activeElement && isWorkspaceHostElement(host, activeElement)
       ? activeElement
@@ -302,7 +309,9 @@ export function copyWorkspaceTooltipPage(host: WorkspaceHost): boolean {
   return true;
 }
 
-export function getIsFrozenWorkspaceTooltipFocused(host: WorkspaceHost): boolean {
+export function getIsFrozenWorkspaceTooltipFocused(
+  host: WorkspaceHost,
+): boolean {
   const state = getWorkspaceTooltipStore(host).getState();
   if (!state.isEnabled || !state.isFrozen) {
     return false;

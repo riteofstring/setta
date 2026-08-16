@@ -93,7 +93,9 @@ describe("WorkspaceItemConfigurationEditor", () => {
     onChange = vi.fn();
     onEscape = vi.fn();
     onStatusChange = vi.fn();
-    registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+    registerSectionKinds(testWorkspace.host, {
+      leaf: { renderContent: () => null },
+    });
     testWorkspace.host.subscribe(onChange);
   });
 
@@ -147,23 +149,26 @@ describe("WorkspaceItemConfigurationEditor", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<WorkspaceItemConfigurationEditor
-          control={control}
-          disabled={false}
-          itemId="item"
-          onEscape={onEscape}
-          onStatusChange={onStatusChange}
-          sectionId="leaf"
-        />
-        }</WorkspaceTestProvider>,
+          {
+            <WorkspaceItemConfigurationEditor
+              control={control}
+              disabled={false}
+              itemId="item"
+              onEscape={onEscape}
+              onStatusChange={onStatusChange}
+              sectionId="leaf"
+            />
+          }
+        </WorkspaceTestProvider>,
       );
     });
   }
 
   function getStoredControl(): ValueControl {
     const control =
-      testWorkspace.document.getState().sections["leaf"]?.itemTree?.items["item"]
-        ?.presentation?.control;
+      testWorkspace.document.getState().sections["leaf"]?.itemTree?.items[
+        "item"
+      ]?.presentation?.control;
     if (!control || control.kind === "group") {
       throw new Error("Expected a stored value control.");
     }

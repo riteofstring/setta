@@ -35,10 +35,10 @@ export type WorkspaceAppearanceState = {
 function createWorkspaceDocumentStore() {
   return createStore(
     withResetFn<WorkspaceDocumentState>(() => ({
-    sections: {},
-    topLevelSections: {},
-    viewport: null,
-    parentSectionMap: {},
+      sections: {},
+      topLevelSections: {},
+      viewport: null,
+      parentSectionMap: {},
     })),
   );
 }
@@ -46,7 +46,7 @@ function createWorkspaceDocumentStore() {
 function createNodeInternalsStore() {
   return createStore(
     withResetFn<NodeInternalsState>(() => ({
-    x: new Map(),
+      x: new Map(),
     })),
   );
 }
@@ -54,7 +54,7 @@ function createNodeInternalsStore() {
 function createActiveSectionsStore() {
   return createStore(
     withResetFn<ActiveSectionsState>(() => ({
-    activeIds: [],
+      activeIds: [],
     })),
   );
 }
@@ -62,8 +62,8 @@ function createActiveSectionsStore() {
 function createWorkspaceAppearanceStore() {
   return createStore(
     withResetFn<WorkspaceAppearanceState>(() => ({
-    colorMode: "light",
-    darkMode: false,
+      colorMode: "light",
+      darkMode: false,
     })),
   );
 }
@@ -87,7 +87,9 @@ const storeSetsByHost = new WeakMap<WorkspaceHost, WorkspaceStoreSet>();
 function patchPublishedWorkspaceStoreGetState<TState>(
   store: { getState: () => TState },
   readRawState: () => TState,
-  getPublishedState: (publication: AtomicallyPublishedWorkspaceStoreState) => TState,
+  getPublishedState: (
+    publication: AtomicallyPublishedWorkspaceStoreState,
+  ) => TState,
   getStagedPublication: () => AtomicallyPublishedWorkspaceStoreState | null,
 ) {
   store.getState = () => {
@@ -113,7 +115,8 @@ function createWorkspaceStoreSet(): WorkspaceStoreSet {
   };
   const readRawWorkspaceDocumentState = document.getState.bind(document);
   const readRawNodeInternalsState = nodeInternals.getState.bind(nodeInternals);
-  const readRawActiveSectionsState = activeSections.getState.bind(activeSections);
+  const readRawActiveSectionsState =
+    activeSections.getState.bind(activeSections);
   patchPublishedWorkspaceStoreGetState(
     document,
     readRawWorkspaceDocumentState,

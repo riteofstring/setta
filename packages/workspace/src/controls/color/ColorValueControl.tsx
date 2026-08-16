@@ -162,7 +162,9 @@ function NativeColorPicker({
         onChange={(e) => onValueChange(e.target.value)}
         className={NATIVE_INPUT_CLASS_NAME}
         disabled={isDisabled}
-        onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
+        onKeyDown={(event) =>
+          handleSectionControlEscape(host, event, sectionId)
+        }
       />
     </>
   );
@@ -306,7 +308,9 @@ function ColorChoicesPicker({
           aria-label={`${ariaLabel}: ${selectedItem.description}`}
           aria-expanded={isOpen}
           aria-haspopup="listbox"
-          onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
+          onKeyDown={(event) =>
+            handleSectionControlEscape(host, event, sectionId)
+          }
         >
           <div
             aria-hidden="true"

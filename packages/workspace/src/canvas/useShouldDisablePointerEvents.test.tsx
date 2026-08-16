@@ -53,8 +53,8 @@ describe("useShouldDisablePointerEvents", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {createElement(Probe)
-        }</WorkspaceTestProvider>,
+          {createElement(Probe)}
+        </WorkspaceTestProvider>,
       );
     });
   });

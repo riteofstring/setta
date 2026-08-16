@@ -171,12 +171,14 @@ describe("WorkspaceMenuLayer", () => {
   });
 
   async function renderOpenPaneMenu(): Promise<void> {
-    expect(openWorkspacePaneMenu(testWorkspace.host, { x: 150, y: 100 }, owner)).toBe(true);
+    expect(
+      openWorkspacePaneMenu(testWorkspace.host, { x: 150, y: 100 }, owner),
+    ).toBe(true);
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<WorkspaceMenuLayer />
-        }</WorkspaceTestProvider>,
+          {<WorkspaceMenuLayer />}
+        </WorkspaceTestProvider>,
       );
     });
   }
@@ -245,9 +247,11 @@ describe("WorkspaceMenuLayer", () => {
     await act(async () => {
       item?.click();
     });
-    expect(testWorkspace.document.getState().sections["created"]?.data).toEqual({
-      body: "50,50",
-    });
+    expect(testWorkspace.document.getState().sections["created"]?.data).toEqual(
+      {
+        body: "50,50",
+      },
+    );
     expect(
       testWorkspace.document.getState().topLevelSections["created"],
     ).toMatchObject({
@@ -255,7 +259,9 @@ describe("WorkspaceMenuLayer", () => {
       y: 50,
       zIndex: 1,
     });
-    expect(testWorkspace.activeSections.getState().activeIds).toEqual(["created"]);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual([
+      "created",
+    ]);
     expect(testWorkspace.menuState.getState().invocation).toBeNull();
   });
 
@@ -291,13 +297,19 @@ describe("WorkspaceMenuLayer", () => {
     const onChange = vi.fn();
     testWorkspace.host.subscribe(onChange);
     expect(
-      openWorkspaceItemMenu(testWorkspace.host, "existing", "first", { x: 150, y: 100 }, owner),
+      openWorkspaceItemMenu(
+        testWorkspace.host,
+        "existing",
+        "first",
+        { x: 150, y: 100 },
+        owner,
+      ),
     ).toBe(true);
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<WorkspaceMenuLayer />
-        }</WorkspaceTestProvider>,
+          {<WorkspaceMenuLayer />}
+        </WorkspaceTestProvider>,
       );
     });
 
@@ -354,12 +366,18 @@ describe("WorkspaceMenuLayer", () => {
     ]);
     const onChange = vi.fn();
     testWorkspace.host.subscribe(onChange);
-    openWorkspaceItemMenu(testWorkspace.host, "existing", "first", { x: 150, y: 100 }, owner);
+    openWorkspaceItemMenu(
+      testWorkspace.host,
+      "existing",
+      "first",
+      { x: 150, y: 100 },
+      owner,
+    );
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<WorkspaceMenuLayer />
-        }</WorkspaceTestProvider>,
+          {<WorkspaceMenuLayer />}
+        </WorkspaceTestProvider>,
       );
     });
 
@@ -378,7 +396,8 @@ describe("WorkspaceMenuLayer", () => {
       deleteParameter?.click();
     });
     expect(
-      testWorkspace.document.getState().sections.existing?.itemTree?.items.first,
+      testWorkspace.document.getState().sections.existing?.itemTree?.items
+        .first,
     ).toBeDefined();
     expect(onChange).not.toHaveBeenCalled();
     expect(hostAction).not.toHaveBeenCalled();
@@ -389,7 +408,8 @@ describe("WorkspaceMenuLayer", () => {
       canEditStructure: false,
       canEditLayout: false,
     });
-    openWorkspaceSectionMenu(testWorkspace.host,
+    openWorkspaceSectionMenu(
+      testWorkspace.host,
       "existing",
       "context-menu",
       { x: 150, y: 100 },
@@ -398,8 +418,8 @@ describe("WorkspaceMenuLayer", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<WorkspaceMenuLayer />
-        }</WorkspaceTestProvider>,
+          {<WorkspaceMenuLayer />}
+        </WorkspaceTestProvider>,
       );
     });
 
@@ -420,8 +440,8 @@ describe("WorkspaceMenuLayer", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {null
-        }</WorkspaceTestProvider>,
+          {null}
+        </WorkspaceTestProvider>,
       );
     });
     expect(testWorkspace.menuState.getState().invocation).toBeNull();
@@ -430,7 +450,8 @@ describe("WorkspaceMenuLayer", () => {
   it("dismisses a section menu without deleting valid multi-selection geometry", async () => {
     const selectionBounds = { x: 10, y: 20, width: 300, height: 120 };
     testWorkspace.reactFlow.setState({ nodesSelectionDims: selectionBounds });
-    openWorkspaceSectionMenu(testWorkspace.host,
+    openWorkspaceSectionMenu(
+      testWorkspace.host,
       "existing",
       "context-menu",
       { x: 150, y: 100 },
@@ -439,8 +460,8 @@ describe("WorkspaceMenuLayer", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<WorkspaceMenuLayer />
-        }</WorkspaceTestProvider>,
+          {<WorkspaceMenuLayer />}
+        </WorkspaceTestProvider>,
       );
     });
 
@@ -457,7 +478,9 @@ describe("WorkspaceMenuLayer", () => {
     });
 
     expect(testWorkspace.menuState.getState().invocation).toBeNull();
-    expect(testWorkspace.reactFlow.getState().nodesSelectionDims).toEqual(selectionBounds);
+    expect(testWorkspace.reactFlow.getState().nodesSelectionDims).toEqual(
+      selectionBounds,
+    );
     expect(document.activeElement).toBe(owner);
   });
 
@@ -476,7 +499,8 @@ describe("WorkspaceMenuLayer", () => {
     });
     const onChange = vi.fn();
     testWorkspace.host.subscribe(onChange);
-    openWorkspaceSectionMenu(testWorkspace.host,
+    openWorkspaceSectionMenu(
+      testWorkspace.host,
       "existing",
       "context-menu",
       { x: 150, y: 100 },
@@ -485,8 +509,8 @@ describe("WorkspaceMenuLayer", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<WorkspaceMenuLayer />
-        }</WorkspaceTestProvider>,
+          {<WorkspaceMenuLayer />}
+        </WorkspaceTestProvider>,
       );
     });
 
@@ -512,7 +536,8 @@ describe("WorkspaceMenuLayer", () => {
         ?.positionAndSizeLocked,
     ).toBe(true);
     expect(
-      testWorkspace.document.getState().sections["locked"]?.positionAndSizeLocked,
+      testWorkspace.document.getState().sections["locked"]
+        ?.positionAndSizeLocked,
     ).toBe(true);
     expect(onChange).toHaveBeenCalledOnce();
   });
@@ -555,12 +580,18 @@ describe("WorkspaceMenuLayer", () => {
     ]);
     const onChange = vi.fn();
     testWorkspace.host.subscribe(onChange);
-    openWorkspaceSectionHeaderMenu(testWorkspace.host, "group", { x: 150, y: 100 }, owner, "last");
+    openWorkspaceSectionHeaderMenu(
+      testWorkspace.host,
+      "group",
+      { x: 150, y: 100 },
+      owner,
+      "last",
+    );
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<WorkspaceMenuLayer />
-        }</WorkspaceTestProvider>,
+          {<WorkspaceMenuLayer />}
+        </WorkspaceTestProvider>,
       );
     });
 
@@ -594,7 +625,12 @@ describe("WorkspaceMenuLayer", () => {
     expect(document.activeElement).toBe(owner);
 
     await act(async () => {
-      openWorkspaceSectionHeaderMenu(testWorkspace.host, "group", { x: 150, y: 100 }, owner);
+      openWorkspaceSectionHeaderMenu(
+        testWorkspace.host,
+        "group",
+        { x: 150, y: 100 },
+        owner,
+      );
     });
     const reopenedOverflow = document.body.querySelector<HTMLElement>(
       '[role="menuitemcheckbox"]',
@@ -611,7 +647,12 @@ describe("WorkspaceMenuLayer", () => {
     expect(document.activeElement).toBe(owner);
 
     await act(async () => {
-      openWorkspaceSectionHeaderMenu(testWorkspace.host, "group", { x: 150, y: 100 }, owner);
+      openWorkspaceSectionHeaderMenu(
+        testWorkspace.host,
+        "group",
+        { x: 150, y: 100 },
+        owner,
+      );
     });
     const checkedOverflow = document.body.querySelector<HTMLElement>(
       '[role="menuitemcheckbox"]',
@@ -662,12 +703,17 @@ describe("WorkspaceMenuLayer", () => {
     });
     const onChange = vi.fn();
     testWorkspace.host.subscribe(onChange);
-    openWorkspaceSectionHeaderMenu(testWorkspace.host, "group", { x: 150, y: 100 }, owner);
+    openWorkspaceSectionHeaderMenu(
+      testWorkspace.host,
+      "group",
+      { x: 150, y: 100 },
+      owner,
+    );
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<WorkspaceMenuLayer />
-        }</WorkspaceTestProvider>,
+          {<WorkspaceMenuLayer />}
+        </WorkspaceTestProvider>,
       );
     });
 
@@ -712,7 +758,8 @@ describe("WorkspaceMenuLayer", () => {
     });
     const onChange = vi.fn();
     testWorkspace.host.subscribe(onChange);
-    openWorkspaceSectionMenu(testWorkspace.host,
+    openWorkspaceSectionMenu(
+      testWorkspace.host,
       "group",
       "context-menu",
       { x: 150, y: 100 },
@@ -721,8 +768,8 @@ describe("WorkspaceMenuLayer", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<WorkspaceMenuLayer />
-        }</WorkspaceTestProvider>,
+          {<WorkspaceMenuLayer />}
+        </WorkspaceTestProvider>,
       );
     });
 
@@ -769,7 +816,8 @@ describe("WorkspaceMenuLayer", () => {
       viewport: { x: 0, y: 0, zoom: 1 },
       activeIds: ["group", "leaf"],
     });
-    openWorkspaceSectionMenu(testWorkspace.host,
+    openWorkspaceSectionMenu(
+      testWorkspace.host,
       "group",
       "context-menu",
       { x: 150, y: 100 },
@@ -778,8 +826,8 @@ describe("WorkspaceMenuLayer", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<WorkspaceMenuLayer />
-        }</WorkspaceTestProvider>,
+          {<WorkspaceMenuLayer />}
+        </WorkspaceTestProvider>,
       );
     });
 

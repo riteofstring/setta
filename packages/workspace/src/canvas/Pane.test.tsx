@@ -82,15 +82,20 @@ describe("Pane context-menu ownership", () => {
     canvas = document.createElement("div");
     canvas.getBoundingClientRect = () => createRect(100, 50, 800, 600);
     document.body.append(host, canvas);
-    testWorkspace.reactFlow.setState({ domNode: canvas, transform: [-200, 100, 2] });
+    testWorkspace.reactFlow.setState({
+      domNode: canvas,
+      transform: [-200, 100, 2],
+    });
     root = createRoot(host);
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<Pane isSelecting={false}>
-          <span data-testid="pane-child">Child</span>
-        </Pane>
-        }</WorkspaceTestProvider>,
+          {
+            <Pane isSelecting={false}>
+              <span data-testid="pane-child">Child</span>
+            </Pane>
+          }
+        </WorkspaceTestProvider>,
       );
     });
   });

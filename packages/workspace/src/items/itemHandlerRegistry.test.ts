@@ -49,12 +49,16 @@ describe("item handler registration", () => {
         onRevealSavedValue: vi.fn(),
       },
     ]);
-    expect(getItemHandlerRegistration(host, "panel", "dropzone")).toMatchObject({
-      kind: "dropzone",
-      onAccepted,
-      onRejected,
-    });
-    expect(getItemHandlerRegistration(host, "other-panel", "dropzone")).toBeNull();
+    expect(getItemHandlerRegistration(host, "panel", "dropzone")).toMatchObject(
+      {
+        kind: "dropzone",
+        onAccepted,
+        onRejected,
+      },
+    );
+    expect(
+      getItemHandlerRegistration(host, "other-panel", "dropzone"),
+    ).toBeNull();
 
     registerItemHandlers(host, []);
     expect(getItemHandlerRegistration(host, "panel", "dropzone")).toBeNull();

@@ -43,21 +43,21 @@ type ZustandDndState = {
 function createDndStateStore() {
   return createStore(
     withResetFn<ZustandDndState>(() => ({
-    activeId: null,
-    activeIsTopLevel: false,
-    overId: null,
-    triggerDistCondition: false,
-    isSorting: false,
-    isMovingFree: false,
-    pendingDeactivation: false,
-    disabled: {},
-    draggingIds: [],
-    draggingRectsById: null,
-    activeRect: null,
-    width: null,
-    height: null,
-    behaviorDropType: null,
-    times: {},
+      activeId: null,
+      activeIsTopLevel: false,
+      overId: null,
+      triggerDistCondition: false,
+      isSorting: false,
+      isMovingFree: false,
+      pendingDeactivation: false,
+      disabled: {},
+      draggingIds: [],
+      draggingRectsById: null,
+      activeRect: null,
+      width: null,
+      height: null,
+      behaviorDropType: null,
+      times: {},
     })),
   );
 }
@@ -91,19 +91,12 @@ export function useDndState<T>(
 
 export function setActiveDnd(
   host: WorkspaceHost,
-  id: string,
-  isTopLevel: boolean,
-  width: number,
-  height: number,
-  activeRect: ZustandDndState["activeRect"],
+  active: Pick<
+    ZustandDndState,
+    "activeId" | "activeIsTopLevel" | "activeRect" | "height" | "width"
+  >,
 ) {
-  getDndStateStore(host).setState({
-    activeId: id,
-    activeIsTopLevel: isTopLevel,
-    activeRect,
-    width,
-    height,
-  });
+  getDndStateStore(host).setState(active);
 }
 
 export function activateDndSortingMode(host: WorkspaceHost) {
@@ -123,9 +116,11 @@ export function activateDndMovingFreeMode(host: WorkspaceHost) {
 }
 
 function resetDndState(host: WorkspaceHost) {
-  getDndStateStore(host).getState().reset((api) => ({
-    disabled: (api.getState() as ZustandDndState).disabled,
-  }));
+  getDndStateStore(host)
+    .getState()
+    .reset((api) => ({
+      disabled: (api.getState() as ZustandDndState).disabled,
+    }));
   manualDndChildrenReset(host);
 }
 

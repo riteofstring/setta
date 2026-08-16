@@ -80,15 +80,15 @@ describe("TextValueEditor", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(TextValueEditor, {
-          ariaLabel: "Threshold value",
-          sectionId: SECTION_ID,
-          itemId: ITEM_ID,
-          value: "0.001",
-          language: "python",
-          onValueChange: () => {},
-          ...props,
-        })
-        }</WorkspaceTestProvider>,
+            ariaLabel: "Threshold value",
+            sectionId: SECTION_ID,
+            itemId: ITEM_ID,
+            value: "0.001",
+            language: "python",
+            onValueChange: () => {},
+            ...props,
+          })}
+        </WorkspaceTestProvider>,
       );
     });
   }
@@ -196,9 +196,7 @@ describe("TextValueEditor", () => {
         );
       });
 
-      expect(host.querySelector(`#${getDummyId()}`)?.textContent).toBe(
-        "0.001",
-      );
+      expect(host.querySelector(`#${getDummyId()}`)?.textContent).toBe("0.001");
       expect(host.querySelector(`#${secondDummyId}`)?.textContent).toBe(
         "0.002",
       );
@@ -226,7 +224,9 @@ describe("TextValueEditor", () => {
     // The dummy layer leaves once the live editor initializes.
     expect(host.querySelector(`#${getDummyId()}`)).toBeNull();
     // The input-focus intent made the owning section the single active section.
-    expect(testWorkspace.activeSections.getState().activeIds).toEqual([SECTION_ID]);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual([
+      SECTION_ID,
+    ]);
   });
 
   it("reports each document change once through the controlled value seam", async () => {
@@ -266,7 +266,9 @@ describe("TextValueEditor", () => {
     const sectionRoot = document.createElement("div");
     sectionRoot.tabIndex = -1;
     document.body.appendChild(sectionRoot);
-    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: sectionRoot } });
+    testWorkspace.sectionRefs.setState({
+      withNested: { [SECTION_ID]: sectionRoot },
+    });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     await mount();

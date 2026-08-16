@@ -9,7 +9,9 @@ type SelectionDragHandleState = {
 
 const statesByHost = new WeakMap<WorkspaceHost, SelectionDragHandleState>();
 
-function getSelectionDragHandleState(host: WorkspaceHost): SelectionDragHandleState {
+function getSelectionDragHandleState(
+  host: WorkspaceHost,
+): SelectionDragHandleState {
   assertWorkspaceHostActive(host);
   const existing = statesByHost.get(host);
   if (existing) {

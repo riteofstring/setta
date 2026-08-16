@@ -14,7 +14,10 @@ import {
 // host UI over the same section go through these, so there is one validated mutation path and one
 // document change notification per edit.
 
-function getCodeSection(host: WorkspaceHost, sectionId: string): WorkspaceSection {
+function getCodeSection(
+  host: WorkspaceHost,
+  sectionId: string,
+): WorkspaceSection {
   const section = getSectionOrThrow(
     getWorkspaceDocumentStore(host).getState(),
     sectionId,

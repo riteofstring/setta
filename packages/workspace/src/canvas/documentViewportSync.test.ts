@@ -62,17 +62,28 @@ describe("getInitialCanvasViewport", () => {
   it("returns the saved document camera without arming fit-on-init", () => {
     testWorkspace.document.setState({ viewport: { x: 12, y: -30, zoom: 1.5 } });
 
-    expect(getInitialCanvasViewport(testWorkspace.host)).toEqual({ x: 12, y: -30, zoom: 1.5 });
+    expect(getInitialCanvasViewport(testWorkspace.host)).toEqual({
+      x: 12,
+      y: -30,
+      zoom: 1.5,
+    });
     expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
   });
 
   it("normalizes stale armed fit flags in the saved-camera branch", () => {
     // An unmount while a fit was armed leaves the flags behind; the next mount with a saved
     // camera must not complete that stale fit over the saved viewport.
-    testWorkspace.reactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
+    testWorkspace.reactFlow.setState({
+      fitViewOnInit: true,
+      fitViewOnInitDone: false,
+    });
     testWorkspace.document.setState({ viewport: { x: 5, y: 6, zoom: 2 } });
 
-    expect(getInitialCanvasViewport(testWorkspace.host)).toEqual({ x: 5, y: 6, zoom: 2 });
+    expect(getInitialCanvasViewport(testWorkspace.host)).toEqual({
+      x: 5,
+      y: 6,
+      zoom: 2,
+    });
     expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(false);
     expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(true);
   });
@@ -80,7 +91,11 @@ describe("getInitialCanvasViewport", () => {
   it("arms fit-on-init at the identity camera when the document has no saved viewport", () => {
     expect(testWorkspace.document.getState().viewport).toBeNull();
 
-    expect(getInitialCanvasViewport(testWorkspace.host)).toEqual({ x: 0, y: 0, zoom: 1 });
+    expect(getInitialCanvasViewport(testWorkspace.host)).toEqual({
+      x: 0,
+      y: 0,
+      zoom: 1,
+    });
     expect(testWorkspace.reactFlow.getState().fitViewOnInit).toBe(true);
     expect(testWorkspace.reactFlow.getState().fitViewOnInitDone).toBe(false);
   });
@@ -167,9 +182,16 @@ describe("armLoadedDocumentFitView", () => {
 describe("applyLoadedDocumentViewport", () => {
   it("pushes the loaded camera through d3-zoom and cancels any pending fit", () => {
     const applied = mountFakeZoomRuntime();
-    testWorkspace.reactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
+    testWorkspace.reactFlow.setState({
+      fitViewOnInit: true,
+      fitViewOnInitDone: false,
+    });
 
-    applyLoadedDocumentViewport(testWorkspace.host, { x: 100, y: -50, zoom: 1.5 });
+    applyLoadedDocumentViewport(testWorkspace.host, {
+      x: 100,
+      y: -50,
+      zoom: 1.5,
+    });
 
     expect(applied).toHaveLength(1);
     expect(applied[0]).toMatchObject({ x: 100, y: -50, k: 1.5 });

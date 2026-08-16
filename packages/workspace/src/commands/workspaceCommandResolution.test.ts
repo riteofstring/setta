@@ -82,7 +82,8 @@ function contextFor(
   sectionId: string,
   selectedIds: Array<string> = [sectionId],
 ) {
-  return createSectionCommandContext(testWorkspace.host,
+  return createSectionCommandContext(
+    testWorkspace.host,
     getSection(sectionId),
     selectedIds.map((id) => getSection(id)),
   );

@@ -16,10 +16,7 @@ import { getItemDndChildrenStore } from "../src/dnd/itemDndChildren";
 import { getItemDndStateStore } from "../src/dnd/itemDndState";
 import { getResizeEventStore } from "../src/section/resize/resizeEvents";
 import { getSectionRefsStore } from "../src/section/sectionRefs";
-import {
-  createWorkspaceHost,
-  type WorkspaceHost,
-} from "../src/workspaceHost";
+import { createWorkspaceHost, type WorkspaceHost } from "../src/workspaceHost";
 import { WorkspaceProvider } from "../src/workspaceHostContext";
 import { getWorkspaceHostDomId } from "../src/workspaceHostInternals";
 import { getWorkspaceTooltipStore } from "../src/tooltip/WorkspaceTooltip";

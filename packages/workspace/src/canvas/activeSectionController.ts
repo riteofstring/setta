@@ -128,8 +128,8 @@ export function applyActiveSectionChange(
   intent: ActiveSectionIntent,
 ): ActiveSectionControllerResult {
   const activeIds = getActiveSectionIds(host);
-  const isSelectingItems = getItemSelectionModeStore(host).getState()
-    .isSelectingItems;
+  const isSelectingItems =
+    getItemSelectionModeStore(host).getState().isSelectingItems;
   const multiSelectionActive =
     intent.interaction === "section-click" &&
     intent.multiSelectionActive !== undefined

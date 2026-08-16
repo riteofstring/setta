@@ -1,12 +1,14 @@
 /* @vitest-environment jsdom */
 import { beforeEach as beforeEachWorkspaceTestHost } from "vitest";
-import { createWorkspaceTestHost, type WorkspaceTestHost } from "../../../packages/workspace/test/workspaceTestHost";
+import {
+  createWorkspaceTestHost,
+  type WorkspaceTestHost,
+} from "../../../packages/workspace/test/workspaceTestHost";
 
 let testWorkspace: WorkspaceTestHost;
 beforeEachWorkspaceTestHost(() => {
   testWorkspace = createWorkspaceTestHost();
 });
-
 
 import {
   createWorkspaceHost,
@@ -19,14 +21,7 @@ import {
 } from "@setta/workspace";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { playgroundDocument } from "./playgroundDocument";
 import {
   ItemListSectionBody,
@@ -102,8 +97,9 @@ function getDocumentItemValue(itemId: string): string | undefined {
 }
 
 function getDocumentItemLabel(itemId: string): string | undefined {
-  return workspaceHost.getSnapshot().sections["item-panel"]?.itemTree?.items[itemId]
-    ?.presentation?.label;
+  return workspaceHost.getSnapshot().sections["item-panel"]?.itemTree?.items[
+    itemId
+  ]?.presentation?.label;
 }
 
 function getDocumentDropzoneAttachmentNames(): Array<string> {
@@ -117,6 +113,15 @@ function getDocumentDropzoneAttachmentNames(): Array<string> {
   return control.configuration.attachments.map((attachment) => attachment.name);
 }
 
+function getItemNameElement(
+  container: ParentNode,
+  itemId: string,
+): HTMLElement | null {
+  return container.querySelector<HTMLElement>(
+    `[id$="-ItemNameInput-item-panel-${itemId}"]`,
+  );
+}
+
 function findRowByLabel(container: HTMLElement, label: string): HTMLElement {
   const items =
     workspaceHost.getSnapshot().sections["item-panel"]?.itemTree?.items ?? {};
@@ -124,9 +129,9 @@ function findRowByLabel(container: HTMLElement, label: string): HTMLElement {
     (item) => item.presentation?.label === label,
   )?.id;
   const row = itemId
-    ? document
-        .getElementById(`ItemNameInput-item-panel-${itemId}`)
-        ?.closest<HTMLElement>('[data-item-row="true"]')
+    ? getItemNameElement(container, itemId)?.closest<HTMLElement>(
+        '[data-item-row="true"]',
+      )
     : null;
   if (!row) {
     throw new Error(`No item row renders the label ${label}.`);
@@ -150,7 +155,9 @@ describe("the playground item renderer presentation contract", () => {
         createElement(
           WorkspaceProvider,
           { host: workspaceHost },
-          createElement(ItemListSectionBody, { section: getItemPanelSection() }),
+          createElement(ItemListSectionBody, {
+            section: getItemPanelSection(),
+          }),
         ),
       );
     });
@@ -168,9 +175,7 @@ describe("the playground item renderer presentation contract", () => {
 
   it("renders typed rows without a host renderer", () => {
     const leafRow = findRowByLabel(container, "alpha");
-    const label = document.getElementById(
-      "ItemNameInput-item-panel-item-alpha",
-    );
+    const label = getItemNameElement(container, "item-alpha");
     const valueLayers =
       leafRow.querySelectorAll<HTMLElement>('[role="textbox"]');
     const valueEditor = valueLayers[1];
@@ -182,7 +187,7 @@ describe("the playground item renderer presentation contract", () => {
     }
     expect(label.parentElement?.classList.contains("section-key")).toBe(true);
     expect(label.classList.contains("font-mono")).toBe(true);
-    expect(valueEditor.id).toBe("item-panel-item-alpha-ItemValueInput");
+    expect(valueEditor.id).toMatch(/-item-panel-item-alpha-ItemValueInput$/u);
     expect(valueEditor.textContent).toBe("0.001");
     for (const dummyClass of REFERENCE_VALUE_DUMMY_CLASSES) {
       expect(valueEditor.classList.contains(dummyClass)).toBe(true);
@@ -376,7 +381,7 @@ describe("the playground item renderer presentation contract", () => {
         "The password row does not mount its input and visibility toggle.",
       );
     }
-    expect(input.id).toBe("item-panel-item-password-PasswordValueInput");
+    expect(input.id).toMatch(/-item-panel-item-password-PasswordValueInput$/u);
     expect(input.getAttribute("aria-label")).toBe("password value");
     act(() => toggle.click());
     expect(
@@ -388,12 +393,12 @@ describe("the playground item renderer presentation contract", () => {
   it("renders the multiline row through the wrapped text editor path", () => {
     const textAreaRow = findRowByLabel(container, "textarea");
     const dummy = textAreaRow.querySelector<HTMLElement>(
-      "#item-panel-item-textarea-ItemValueInput",
+      '[id$="-item-panel-item-textarea-ItemValueInput"]',
     );
     if (!dummy) {
       throw new Error("The textarea row does not mount the idle text editor.");
     }
-    expect(dummy.id).toBe("item-panel-item-textarea-ItemValueInput");
+    expect(dummy.id).toMatch(/-item-panel-item-textarea-ItemValueInput$/u);
     expect(dummy.getAttribute("aria-label")).toBe("textarea value");
     expect(dummy.style.whiteSpace).toBe("break-spaces");
     expect(dummy.classList.contains("break-words")).toBe(true);
@@ -517,14 +522,12 @@ describe("the playground item renderer presentation contract", () => {
     if (!input) {
       throw new Error("The tint row does not mount the native color input.");
     }
-    expect(input.id).toBe("item-panel-item-tint-ColorValueInput");
+    expect(input.id).toMatch(/-item-panel-item-tint-ColorValueInput$/u);
     expect(input.value).toBe("#afbacf");
   });
 
   it("renders package-owned editable labels and commits through the label funnel", () => {
-    const dummy = document.getElementById(
-      "ItemNameInput-item-panel-item-rename",
-    );
+    const dummy = getItemNameElement(container, "item-rename");
     if (!dummy) {
       throw new Error(
         "The rename row does not mount the editable name control.",
@@ -542,19 +545,18 @@ describe("the playground item renderer presentation contract", () => {
     }
     expect(dummy.querySelector(".cm-line span")?.className).toMatch(/ͼ/);
 
-    act(() => setItemLabel(workspaceHost, "item-panel", "item-rename", "renamed"));
+    act(() =>
+      setItemLabel(workspaceHost, "item-panel", "item-rename", "renamed"),
+    );
     expect(getDocumentItemLabel("item-rename")).toBe("renamed");
-    expect(
-      document.getElementById("ItemNameInput-item-panel-item-rename")
-        ?.textContent,
-    ).toBe("renamed");
+    expect(getItemNameElement(container, "item-rename")?.textContent).toBe(
+      "renamed",
+    );
   });
 
   it("renders explicit groups with an editable spanning label", () => {
     const groupRow = findRowByLabel(container, "options");
-    const groupLabel = document.getElementById(
-      "ItemNameInput-item-panel-item-options",
-    );
+    const groupLabel = getItemNameElement(container, "item-options");
     if (!groupLabel) {
       throw new Error("The group row does not render its built-in label.");
     }
@@ -578,9 +580,7 @@ describe("the playground item renderer presentation contract", () => {
       );
       expect(staticLabel?.textContent).toBe(label);
       expect(staticLabel?.hasAttribute("tabindex")).toBe(false);
-      expect(
-        document.getElementById(`ItemNameInput-item-panel-${itemId}`),
-      ).toBeNull();
+      expect(getItemNameElement(container, itemId)).toBeNull();
       expect(
         row?.querySelector(`[aria-label="${label} value"]`),
       ).not.toBeNull();
@@ -686,15 +686,20 @@ describe("the playground item renderer presentation contract", () => {
       },
     });
     expect(
-      workspaceHost.getSnapshot().sections["item-panel"]?.itemTree?.selectedItemIds,
+      workspaceHost.getSnapshot().sections["item-panel"]?.itemTree
+        ?.selectedItemIds,
     ).toEqual([inserted.id]);
 
     let deletedItemIds: Array<string> = [];
     act(() => {
-      deletedItemIds = deleteSelectedWorkspaceItems(workspaceHost, "item-panel");
+      deletedItemIds = deleteSelectedWorkspaceItems(
+        workspaceHost,
+        "item-panel",
+      );
     });
     expect(deletedItemIds).toEqual([inserted.id]);
-    const itemTree = workspaceHost.getSnapshot().sections["item-panel"]?.itemTree;
+    const itemTree =
+      workspaceHost.getSnapshot().sections["item-panel"]?.itemTree;
     expect(itemTree?.items[inserted.id]).toBeUndefined();
     expect(itemTree?.selectedItemIds).toEqual(["item-rename"]);
   });

@@ -170,8 +170,8 @@ describe("WorkspaceOutline", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {<Harness onChange={onChange} />
-        }</WorkspaceTestProvider>,
+          {<Harness onChange={onChange} />}
+        </WorkspaceTestProvider>,
       );
     });
   });

@@ -312,7 +312,7 @@
       "id": "playground-section-kinds-parity-length",
       "check": "quality.fileLength",
       "path": "apps/playground/src/sectionKinds.tsx",
-      "subject": "1103",
+      "subject": "1125",
       "reason": "The sealed formatter exposed this backend-free playground registry above the shared limit; component tests cover it while responsibility-based extraction is completed without changing playground behavior.",
       "owner": "workspace-extraction",
       "expires": "2026-08-20"
@@ -321,7 +321,7 @@
       "id": "zoom-pane-parity-owner-length",
       "check": "quality.fileLength",
       "path": "packages/workspace/src/canvas/ZoomPane.tsx",
-      "subject": "1155",
+      "subject": "1196",
       "reason": "This extracted interaction owner is protected by canvas unit, component, and browser checks; split it without changing frozen-reference behavior before expiry.",
       "owner": "workspace-extraction",
       "expires": "2026-08-20"
@@ -330,7 +330,7 @@
       "id": "key-activations-parity-test-length",
       "check": "quality.fileLength",
       "path": "packages/workspace/src/canvas/keyActivations.test.tsx",
-      "subject": "1715",
+      "subject": "2002",
       "reason": "The sealed formatter exposed this regression matrix above the test-file limit; the executable assertions remain intact while the fixture and scenario groups are split without reducing coverage.",
       "owner": "workspace-extraction",
       "expires": "2026-08-20"
@@ -339,7 +339,7 @@
       "id": "date-time-control-parity-length",
       "check": "quality.fileLength",
       "path": "packages/workspace/src/controls/date-time/DateTimeValueControl.tsx",
-      "subject": "1113",
+      "subject": "1116",
       "reason": "The sealed formatter exposed this accepted date-time interaction owner above the shared limit; its component suite protects behavior while calendar responsibilities are extracted before expiry.",
       "owner": "workspace-extraction",
       "expires": "2026-08-20"
@@ -348,7 +348,7 @@
       "id": "drop-type-parity-owner-length",
       "check": "quality.fileLength",
       "path": "packages/workspace/src/dnd/useDropType.ts",
-      "subject": "1190",
+      "subject": "1318",
       "reason": "This extracted drag-and-drop owner is protected by focused and browser interaction checks; split it without changing frozen-reference behavior before expiry.",
       "owner": "workspace-extraction",
       "expires": "2026-08-20"

@@ -1,6 +1,9 @@
 import _ from "lodash";
 import { useEffect } from "react";
-import { getWorkspaceDocumentStore, useWorkspaceDocument } from "../document/stores";
+import {
+  getWorkspaceDocumentStore,
+  useWorkspaceDocument,
+} from "../document/stores";
 import { useWorkspaceHost } from "../workspaceHostContext";
 import { useDndMonitor, type Disabled } from "./adapter";
 import { useDndChildren } from "./dndChildren";

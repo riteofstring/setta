@@ -149,14 +149,17 @@ describe("workspace menu invocation", () => {
   });
 
   it("selects an unselected section and snapshots the resulting selection", () => {
-    openWorkspaceSectionMenu(host,
+    openWorkspaceSectionMenu(
+      host,
       "bravo",
       "context-menu",
       { x: 20, y: 30 },
       owner,
     );
 
-    expect(getActiveSectionsStore(host).getState().activeIds).toEqual(["bravo"]);
+    expect(getActiveSectionsStore(host).getState().activeIds).toEqual([
+      "bravo",
+    ]);
     const invocation = getWorkspaceMenuStateStore(host).getState().invocation;
     expect(invocation).toMatchObject({
       kind: "section",
@@ -187,9 +190,17 @@ describe("workspace menu invocation", () => {
   });
 
   it("marks header invocations and preserves their requested initial focus", () => {
-    openWorkspaceSectionHeaderMenu(host, "alpha", { x: 20, y: 30 }, owner, "last");
+    openWorkspaceSectionHeaderMenu(
+      host,
+      "alpha",
+      { x: 20, y: 30 },
+      owner,
+      "last",
+    );
 
-    expect(getWorkspaceMenuStateStore(host).getState().invocation).toMatchObject({
+    expect(
+      getWorkspaceMenuStateStore(host).getState().invocation,
+    ).toMatchObject({
       kind: "section",
       initialFocus: "last",
       surface: "header",
@@ -203,7 +214,8 @@ describe("workspace menu invocation", () => {
 
   it("always snapshots item context for the package delete action", () => {
     expect(
-      openWorkspaceItemMenu(host,
+      openWorkspaceItemMenu(
+        host,
         "alpha",
         "alpha-item",
         { x: 20, y: 30 },

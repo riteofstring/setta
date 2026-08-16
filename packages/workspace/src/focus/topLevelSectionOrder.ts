@@ -6,7 +6,9 @@ import type { WorkspaceHost } from "../workspaceHost";
 // order across the canvas is the saved layout itself — top to bottom, then left to right, with
 // the stacking order and finally the id deciding sections that share a position, so the order is
 // total and never depends on object key order.
-export function getOrderedTopLevelSectionIds(host: WorkspaceHost): Array<string> {
+export function getOrderedTopLevelSectionIds(
+  host: WorkspaceHost,
+): Array<string> {
   const state = getWorkspaceDocumentStore(host).getState();
   return getTopLevelSectionIdsForDisplay(state)
     .map((sectionId) => {

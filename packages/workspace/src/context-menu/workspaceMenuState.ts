@@ -62,12 +62,16 @@ type WorkspaceMenuStoreState = {
 };
 
 function createWorkspaceMenuStateStore() {
-  return createStore(withResetFn<WorkspaceMenuState>(() => ({ invocation: null })));
+  return createStore(
+    withResetFn<WorkspaceMenuState>(() => ({ invocation: null })),
+  );
 }
 
 const storesByHost = new WeakMap<WorkspaceHost, WorkspaceMenuStoreState>();
 
-function getWorkspaceMenuStoreState(host: WorkspaceHost): WorkspaceMenuStoreState {
+function getWorkspaceMenuStoreState(
+  host: WorkspaceHost,
+): WorkspaceMenuStoreState {
   assertWorkspaceHostActive(host);
   const existing = storesByHost.get(host);
   if (existing) {

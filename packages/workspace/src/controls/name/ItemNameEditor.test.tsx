@@ -87,14 +87,14 @@ describe("ItemNameEditor", () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
           {createElement(ItemNameEditor, {
-          sectionId: SECTION_ID,
-          itemId: ITEM_ID,
-          name: "rename_me",
-          language: "python",
-          onNameChange: () => {},
-          ...props,
-        })
-        }</WorkspaceTestProvider>,
+            sectionId: SECTION_ID,
+            itemId: ITEM_ID,
+            name: "rename_me",
+            language: "python",
+            onNameChange: () => {},
+            ...props,
+          })}
+        </WorkspaceTestProvider>,
       );
     });
   }
@@ -196,7 +196,9 @@ describe("ItemNameEditor", () => {
     expect(liveWrapper).not.toBeNull();
     expect(liveWrapper?.hasAttribute("tabindex")).toBe(false);
     expect(view.contentDOM.tabIndex).toBe(-1);
-    expect(testWorkspace.activeSections.getState().activeIds).toEqual([SECTION_ID]);
+    expect(testWorkspace.activeSections.getState().activeIds).toEqual([
+      SECTION_ID,
+    ]);
     await act(async () => {
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: "renamed" },
@@ -240,7 +242,9 @@ describe("ItemNameEditor", () => {
       '[data-item-name-layer-stack="true"] > span.single-cell-child',
     );
     expect(underline?.classList.contains("border-red-400")).toBe(true);
-    const bubble = sectionSurface.querySelector<HTMLElement>(`#${getErrorId()}`);
+    const bubble = sectionSurface.querySelector<HTMLElement>(
+      `#${getErrorId()}`,
+    );
     if (!bubble) {
       throw new Error("The duplicate-name error bubble did not render.");
     }
@@ -277,7 +281,9 @@ describe("ItemNameEditor", () => {
     const liveView = getLiveView();
     expect(liveView.state.doc.toString()).toBe("enabled");
     expect(liveView.contentDOM.getAttribute("aria-invalid")).toBe("true");
-    expect(liveView.contentDOM.getAttribute("aria-describedby")).toBe(getErrorId());
+    expect(liveView.contentDOM.getAttribute("aria-describedby")).toBe(
+      getErrorId(),
+    );
     expect(sectionSurface.querySelector(`#${getErrorId()}`)?.textContent).toBe(
       DUPLICATE_ERROR,
     );
@@ -290,7 +296,9 @@ describe("ItemNameEditor", () => {
     const focusTarget = document.createElement("div");
     focusTarget.tabIndex = -1;
     document.body.appendChild(focusTarget);
-    testWorkspace.sectionRefs.setState({ withNested: { [SECTION_ID]: focusTarget } });
+    testWorkspace.sectionRefs.setState({
+      withNested: { [SECTION_ID]: focusTarget },
+    });
     const documentEscape = vi.fn();
     document.addEventListener("keydown", documentEscape);
     const onBlur = vi.fn();

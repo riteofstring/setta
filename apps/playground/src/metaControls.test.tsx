@@ -234,8 +234,8 @@ describe("the playground representative meta controls", () => {
 
     await mount("meta-text");
     const dummy = getRequiredElement<HTMLElement>(
-      document,
-      "#meta-text-value-MetaControl",
+      host,
+      '[id$="-meta-text-value-MetaControl"]',
       "Text idle editor",
     );
     expect(dummy.getAttribute("aria-label")).toBe("Text value");
@@ -258,8 +258,8 @@ describe("the playground representative meta controls", () => {
     await mount("meta-textarea");
     expect(
       getRequiredElement<HTMLElement>(
-        document,
-        "#meta-textarea-value-MetaControl",
+        host,
+        '[id$="-meta-textarea-value-MetaControl"]',
         "TextArea idle editor",
       ).className,
     ).toContain("min-h-24");

@@ -59,7 +59,9 @@ function makeSection(spec: SectionSpec): WorkspaceSection {
 }
 
 function seedDocument(specs: Array<SectionSpec>) {
-  registerSectionKinds(testWorkspace.host, { leaf: { renderContent: () => null } });
+  registerSectionKinds(testWorkspace.host, {
+    leaf: { renderContent: () => null },
+  });
   const sections = Object.fromEntries(
     specs.map((spec) => [spec.id, makeSection(spec)]),
   );
@@ -135,7 +137,11 @@ describe("getBehaviorDropType", () => {
       { id: "dragged" },
     ]);
 
-    const behavior = getBehaviorDropType(testWorkspace.host, "dragged", "group");
+    const behavior = getBehaviorDropType(
+      testWorkspace.host,
+      "dragged",
+      "group",
+    );
 
     expect(behavior).not.toBe(BehaviorDropTypeEnum.INVALID);
     expect(behavior).toBeNull();
@@ -145,9 +151,9 @@ describe("getBehaviorDropType", () => {
     // Validates parent-kind guard for non-container section kinds.
     seedDocument([{ id: "leaf-parent" }, { id: "dragged" }]);
 
-    expect(getBehaviorDropType(testWorkspace.host, "dragged", "leaf-parent")).toBe(
-      BehaviorDropTypeEnum.INVALID,
-    );
+    expect(
+      getBehaviorDropType(testWorkspace.host, "dragged", "leaf-parent"),
+    ).toBe(BehaviorDropTypeEnum.INVALID);
   });
 
   it("rejects dropping into descendants of selected sections", () => {
@@ -188,7 +194,9 @@ describe("getOverId", () => {
 
   it("returns fallback over id when collisions are missing", () => {
     // Validates fallback behavior from raw over target.
-    expect(getOverId(testWorkspace.host, { id: "fallback" }, null)).toBe("fallback");
+    expect(getOverId(testWorkspace.host, { id: "fallback" }, null)).toBe(
+      "fallback",
+    );
     expect(getOverId(testWorkspace.host, null, null)).toBeNull();
   });
 

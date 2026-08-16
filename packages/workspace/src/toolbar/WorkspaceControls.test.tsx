@@ -44,8 +44,8 @@ describe("WorkspaceControls", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {createElement(WorkspaceControls)
-        }</WorkspaceTestProvider>,
+          {createElement(WorkspaceControls)}
+        </WorkspaceTestProvider>,
       );
     });
   });
@@ -152,8 +152,8 @@ describe("WorkspaceControls", () => {
     await act(async () => {
       root.render(
         <WorkspaceTestProvider workspace={testWorkspace}>
-          {createElement(WorkspaceControls)
-        }</WorkspaceTestProvider>,
+          {createElement(WorkspaceControls)}
+        </WorkspaceTestProvider>,
       );
     });
 

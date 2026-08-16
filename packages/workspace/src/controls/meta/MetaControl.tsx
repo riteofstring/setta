@@ -127,7 +127,9 @@ function ButtonControl({
           onClick={control.onAction}
           disabled={isDisabled}
           aria-busy={control.pending || undefined}
-          onKeyDown={(event) => handleSectionControlEscape(host, event, sectionId)}
+          onKeyDown={(event) =>
+            handleSectionControlEscape(host, event, sectionId)
+          }
           data-meta-control-kind="button"
         >
           {control.label}
