@@ -2,7 +2,9 @@
 
 ## Purpose and status
 
-**Status: Phase A is complete, including its audit corrections. Phase B has not started.**
+**Status: Phase A is complete, including its audit corrections. Phase B is under way: the browser
+walkthrough now asserts this correction, and its live run and developer visual acceptance are
+open.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
 Basedpyright, transport, or project semantics into `@setta/workspace`. The completed
@@ -451,6 +453,41 @@ it into this presentation plan.
 **Avoid rabbit holes:** verify the accepted callable flow and the exact changed workspace
 presentations. Do not audit unrelated sections, all responsive widths, every CodeMirror state,
 historical main parity, or speculative toolbar combinations.
+
+**Phase B walkthrough-assertion record.** The established browser walkthrough now carries this
+correction's assertions around the already-accepted product flow, and reads only public surfaces:
+the section's accessible group, the package's documented `data-workspace-item-toolbar` hook, the
+Args filter's accessible name and its `aria-describedby` status, and this app's own content root. No
+package-private class is selected, and no visual baseline or screenshot lock is checked in.
+
+`assertCallableFirstComposition` runs on the idle section and proves the callable editor precedes
+the Args toolbar, the toolbar precedes the parameter list, the declared mode is `filter-only`, the
+toolbar still labels the Args area, it exposes none of `Add parameter`, `Remove last parameter`, or
+`Delete selected parameters`, and the idle section renders neither provider prose nor an alert.
+`assertCallableEditorLeadsKeyboardOrder` proves that same order by keyboard. It activates the editor
+through the walkthrough's established `activateTextBox` path first, because focusing the idle layer
+swaps in the live editor and moves focus with it — tabbing before that settles would measure a
+control the user never had — and then one Tab lands on `Filter parameters` inside the toolbar.
+`assertArgsFilterRemainsOperable` runs after the diagnostic-clear step and proves the retained
+filter still operates on the app-projected parameter text: a non-matching query hides the `x` row
+and the filter status reads `0 matching parameters.`, the filtering toolbar still exposes no
+structural control, and `Clear parameter filter` restores the row and empties the field.
+
+The wrapper's single-Ctrl-C cleanup stays live evidence rather than a harness assertion. This suite
+deliberately owns its own backend, preview, and Chrome lifecycle and never invokes
+`scripts/run-python-canvas.sh`, and this correction changes nothing that script owns.
+
+Verification for this batch: this task worktree has no Go toolchain and no `code-policy` CLI, so the
+`python-canvas-browser` suite — which builds the Go backend before driving Chrome — could not be run
+here. The added assertions were checked by parsing every embedded browser expression and by reading
+the exact rendering code each selector depends on: the section group's accessible name in
+`SectionContainerCore`, the leading-content/toolbar/content order in `SectionContainerContent`, the
+mode attribute and structural-action names in `WorkspaceItemToolbar`, the filter label, clear
+control, and status wiring in `WorkspaceItemFilterControls`, and the app's content root and
+parameter control name in `CallableSection`. The Python Canvas frontend suite passes (35 tests) over
+the unchanged app, and the packaged boundary check passes. The live walkthrough run, the developer's
+visual acceptance of the composition, the accepted-candidate record, and the closing `test --changed`
+and `test-levels` steps this phase requires all remain open.
 
 ## Stop conditions
 

@@ -15,6 +15,12 @@ const backendRoot = path.join(appRoot, "backend");
 const chromeDefaultPath =
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const productionTimeoutMs = 30_000;
+// The Callable section is observed through public surfaces only: its accessible section group,
+// the package's one documented toolbar hook, and this app's own content root.
+const callableSectionSelector =
+  '[role="group"][aria-label^="Square Root section"]';
+const itemToolbarSelector = "[data-workspace-item-toolbar]";
+const callableContentSelector = ".python-canvas-callable-section";
 
 function run(command, arguments_, options = {}) {
   const result = spawnSync(command, arguments_, {
@@ -294,6 +300,20 @@ async function pressEnter(client) {
   await client.send("Input.dispatchKeyEvent", { ...params, type: "keyUp" });
 }
 
+async function pressTab(client) {
+  const params = {
+    code: "Tab",
+    key: "Tab",
+    nativeVirtualKeyCode: 9,
+    windowsVirtualKeyCode: 9,
+  };
+  await client.send("Input.dispatchKeyEvent", {
+    ...params,
+    type: "rawKeyDown",
+  });
+  await client.send("Input.dispatchKeyEvent", { ...params, type: "keyUp" });
+}
+
 async function selectAll(client) {
   const isMac = process.platform === "darwin";
   const modifier = isMac ? 4 : 2;
@@ -330,6 +350,225 @@ async function navigate(client, origin) {
   await loaded;
 }
 
+// The Args filter's own controls, resolved from its accessible name and required to belong to
+// the rendered toolbar. Nothing here reads package-private toolbar structure.
+const filterControlsScript = `(() => {
+  const toolbar = document.querySelector(${JSON.stringify(itemToolbarSelector)});
+  const label = Array.from(document.querySelectorAll("label")).find(
+    (candidate) => candidate.textContent?.trim() === "Filter parameters",
+  );
+  const input = label instanceof HTMLLabelElement ? label.control : null;
+  if (
+    !(toolbar instanceof HTMLElement) ||
+    !(input instanceof HTMLInputElement) ||
+    !toolbar.contains(input)
+  ) {
+    return null;
+  }
+  return {
+    input,
+    status: document.getElementById(input.getAttribute("aria-describedby") ?? ""),
+    toolbar,
+  };
+})()`;
+
+function withFilterControls(body) {
+  return `(() => {
+    const controls = ${filterControlsScript};
+    if (controls === null) {
+      return null;
+    }
+    ${body}
+  })()`;
+}
+
+function toolbarButtonNamesScript(toolbarExpression) {
+  return `Array.from(${toolbarExpression}.querySelectorAll("button"), (button) =>
+    button.getAttribute("aria-label") ?? button.textContent?.trim() ?? "",
+  )`;
+}
+
+// The corrected composition: the callable editor leads the section, the Args toolbar follows it in
+// the filter-only mode, the parameter list follows the toolbar, and an ordinary idle section says
+// nothing about the provider.
+async function assertCallableFirstComposition(client, callableLabel) {
+  const composition = await evaluate(
+    client,
+    `(() => {
+      const section = document.querySelector(${JSON.stringify(callableSectionSelector)});
+      const editor = section?.querySelector(${JSON.stringify(textBoxSelector(callableLabel))});
+      const toolbar = section?.querySelector(${JSON.stringify(itemToolbarSelector)});
+      const list = section?.querySelector(${JSON.stringify(callableContentSelector)});
+      if (
+        !(editor instanceof HTMLElement) ||
+        !(toolbar instanceof HTMLElement) ||
+        !(list instanceof HTMLElement)
+      ) {
+        return null;
+      }
+      const precedes = (first, second) =>
+        (first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+      return {
+        alertCount: section.querySelectorAll('[role="alert"]').length,
+        editorPrecedesToolbar: precedes(editor, toolbar),
+        mentionsProvider: section.textContent?.includes("Basedpyright") === true,
+        toolbarButtonNames: ${toolbarButtonNamesScript("toolbar")},
+        toolbarMode: toolbar.getAttribute("data-workspace-item-toolbar"),
+        toolbarPrecedesList: precedes(toolbar, list),
+        toolbarText: toolbar.textContent?.trim() ?? "",
+      };
+    })()`,
+  );
+  if (composition === null) {
+    throw new Error(
+      "The Square Root section did not render its callable editor, Args toolbar, and parameter list.",
+    );
+  }
+  if (!composition.editorPrecedesToolbar || !composition.toolbarPrecedesList) {
+    throw new Error(
+      "The Square Root section must render the callable editor, then the Args toolbar, then the parameter list.",
+    );
+  }
+  if (composition.toolbarMode !== "filter-only") {
+    throw new Error(
+      `The Args toolbar rendered in ${JSON.stringify(composition.toolbarMode)} instead of filter-only.`,
+    );
+  }
+  if (!composition.toolbarText.startsWith("Args")) {
+    throw new Error("The filter-only toolbar no longer labels the Args area.");
+  }
+  assertNoStructuralParameterControls(composition.toolbarButtonNames);
+  if (composition.mentionsProvider || composition.alertCount > 0) {
+    throw new Error(
+      "The idle Square Root section still renders provider-status prose.",
+    );
+  }
+}
+
+function assertNoStructuralParameterControls(names) {
+  const structuralNames = new Set([
+    "Add parameter",
+    "Remove last parameter",
+    "Delete selected parameters",
+  ]);
+  const unexpected = names.filter((name) => structuralNames.has(name));
+  if (unexpected.length > 0) {
+    throw new Error(
+      `The filter-only Args toolbar exposed unavailable controls: ${unexpected.join(", ")}.`,
+    );
+  }
+}
+
+// Rendered order alone would not prove the section reads correctly by keyboard, so Tab out of the
+// callable editor must land on the Args filter that follows it. The editor activates through the
+// walkthrough's established path first: focusing the idle layer swaps in the live editor and moves
+// focus with it, so tabbing before that settles would measure a control the user never had.
+async function assertCallableEditorLeadsKeyboardOrder(client, callableLabel) {
+  await waitFor(
+    client,
+    "enabled callable editor after initial provider work",
+    `(() => {
+      const control = document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))});
+      return control instanceof HTMLElement && control.getAttribute("aria-disabled") !== "true";
+    })()`,
+  );
+  await activateTextBox(client, callableLabel);
+  const callableFocused = await evaluate(
+    client,
+    `(() => {
+      const control = document.querySelector(${JSON.stringify(labeledSelector(callableLabel))});
+      return control instanceof HTMLElement && document.activeElement === control;
+    })()`,
+  );
+  if (!callableFocused) {
+    throw new Error("The callable editor could not hold keyboard focus.");
+  }
+  await pressTab(client);
+  const focused = await waitFor(
+    client,
+    "keyboard focus moving from the callable editor into the Args toolbar",
+    `(() => {
+      const active = document.activeElement;
+      if (
+        !(active instanceof HTMLElement) ||
+        active.closest(${JSON.stringify(itemToolbarSelector)}) === null
+      ) {
+        return null;
+      }
+      return {
+        name:
+          active.labels?.[0]?.textContent?.trim() ??
+          active.getAttribute("aria-label") ??
+          "",
+      };
+    })()`,
+  );
+  if (focused.name !== "Filter parameters") {
+    throw new Error(
+      `Tab from the callable editor reached ${JSON.stringify(focused.name)} instead of the Args filter.`,
+    );
+  }
+}
+
+// The retained filter still has to work, and it filters on the text the app projects for its own
+// opaque rows rather than on package-owned labels.
+async function assertArgsFilterRemainsOperable(client, parameterLabel) {
+  const focused = await evaluate(
+    client,
+    withFilterControls(`
+      controls.input.focus({ preventScroll: true });
+      return document.activeElement === controls.input;
+    `),
+  );
+  if (focused !== true) {
+    throw new Error(
+      "The filter-only Args toolbar did not expose a focusable parameter filter.",
+    );
+  }
+  await insertText(client, "zzz");
+  await waitFor(
+    client,
+    "the Args filter hiding a non-matching parameter",
+    withFilterControls(`
+      const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
+      return !(parameter instanceof HTMLElement) &&
+        controls.status?.textContent?.trim() === "0 matching parameters.";
+    `),
+  );
+  const names = await evaluate(
+    client,
+    withFilterControls(
+      `return ${toolbarButtonNamesScript("controls.toolbar")};`,
+    ),
+  );
+  if (names === null) {
+    throw new Error("The Args toolbar disappeared while filtering.");
+  }
+  assertNoStructuralParameterControls(names);
+  const cleared = await evaluate(
+    client,
+    `(() => {
+      const button = document.querySelector('[aria-label="Clear parameter filter"]');
+      if (!(button instanceof HTMLElement)) {
+        return false;
+      }
+      button.click();
+      return true;
+    })()`,
+  );
+  if (!cleared) {
+    throw new Error("The active Args filter exposed no clear control.");
+  }
+  await waitFor(
+    client,
+    "the cleared Args filter restoring the parameter row",
+    withFilterControls(`
+      const parameter = document.querySelector(${JSON.stringify(textBoxSelector(parameterLabel))});
+      return parameter instanceof HTMLElement && controls.input.value === "";
+    `),
+  );
+}
+
 async function runWalkthrough(client, backendOrigin) {
   const callableLabel = "Callable expression";
   const parameterLabel = "x expression";
@@ -345,6 +584,9 @@ async function runWalkthrough(client, backendOrigin) {
       return callable instanceof HTMLElement && generated instanceof HTMLElement && canvas instanceof HTMLElement;
     })()`,
   );
+
+  await assertCallableFirstComposition(client, callableLabel);
+  await assertCallableEditorLeadsKeyboardOrder(client, callableLabel);
 
   const generatedEditor = await evaluate(
     client,
@@ -475,6 +717,8 @@ async function runWalkthrough(client, backendOrigin) {
         generated?.textContent?.includes("missing_value") === false && cleared;
     })()`,
   );
+
+  await assertArgsFilterRemainsOperable(client, parameterLabel);
 }
 
 function assertCompletionDidNotMutateCanonicalProject(before, after) {
