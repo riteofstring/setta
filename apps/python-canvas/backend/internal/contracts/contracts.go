@@ -154,6 +154,13 @@ func (err ValidationError) Error() string {
 // Validate accepts only the current V1 document shape. It intentionally does
 // not interpret, migrate, or alias earlier or later shapes.
 func (snapshot ProjectSnapshotV1) Validate() error {
+	if err := snapshot.validateDocumentShape(); err != nil {
+		return err
+	}
+	return snapshot.validateDocumentContents()
+}
+
+func (snapshot ProjectSnapshotV1) validateDocumentShape() error {
 	if snapshot.Version != ProjectSnapshotVersionV1 {
 		return UnsupportedVersionError{Version: snapshot.Version}
 	}
@@ -163,11 +170,8 @@ func (snapshot ProjectSnapshotV1) Validate() error {
 	if snapshot.Project.Revision < 1 {
 		return ValidationError{Field: "project.revision", Problem: "must be at least 1"}
 	}
-	if snapshot.PythonTarget.Prefix == "" {
-		return ValidationError{Field: "pythonTarget.prefix", Problem: "must not be empty"}
-	}
-	if snapshot.PythonTarget.Suffix == "" {
-		return ValidationError{Field: "pythonTarget.suffix", Problem: "must not be empty"}
+	if err := validatePythonTarget(snapshot.PythonTarget); err != nil {
+		return err
 	}
 	if snapshot.Callables == nil {
 		return ValidationError{Field: "callables", Problem: "must be an array"}
@@ -187,10 +191,36 @@ func (snapshot ProjectSnapshotV1) Validate() error {
 	if err := validateProviderStatus(snapshot.ProviderStatus); err != nil {
 		return err
 	}
+	return nil
+}
 
+func validatePythonTarget(target PythonTargetV1) error {
+	if target.Prefix == "" {
+		return ValidationError{Field: "pythonTarget.prefix", Problem: "must not be empty"}
+	}
+	if target.Suffix == "" {
+		return ValidationError{Field: "pythonTarget.suffix", Problem: "must not be empty"}
+	}
+	return nil
+}
+
+func (snapshot ProjectSnapshotV1) validateDocumentContents() error {
 	targetIDs := map[string]struct{}{snapshot.Project.ID: {}}
 	parameterIDs := make(map[string]struct{}, len(snapshot.Parameters))
-	for index, parameter := range snapshot.Parameters {
+	if err := validateParameters(snapshot.Parameters, targetIDs, parameterIDs); err != nil {
+		return err
+	}
+	if err := validateCallables(snapshot.Callables, targetIDs, parameterIDs); err != nil {
+		return err
+	}
+	if err := validateSourceRanges(snapshot.GeneratedCode.SourceRanges, len(snapshot.GeneratedCode.Code), targetIDs); err != nil {
+		return err
+	}
+	return validateDiagnostics(snapshot.Diagnostics, targetIDs)
+}
+
+func validateParameters(parameters []ParameterV1, targetIDs map[string]struct{}, parameterIDs map[string]struct{}) error {
+	for index, parameter := range parameters {
 		field := fmt.Sprintf("parameters[%d]", index)
 		if err := requireStableID(field+".id", parameter.ID); err != nil {
 			return err
@@ -207,8 +237,11 @@ func (snapshot ProjectSnapshotV1) Validate() error {
 		targetIDs[parameter.ID] = struct{}{}
 		parameterIDs[parameter.ID] = struct{}{}
 	}
+	return nil
+}
 
-	for index, callable := range snapshot.Callables {
+func validateCallables(callables []CallableV1, targetIDs map[string]struct{}, parameterIDs map[string]struct{}) error {
+	for index, callable := range callables {
 		field := fmt.Sprintf("callables[%d]", index)
 		if err := requireStableID(field+".id", callable.ID); err != nil {
 			return err
@@ -222,32 +255,45 @@ func (snapshot ProjectSnapshotV1) Validate() error {
 		if callable.ParameterIDs == nil {
 			return ValidationError{Field: field + ".parameterIds", Problem: "must be an array"}
 		}
-		seenParameterIDs := make(map[string]struct{}, len(callable.ParameterIDs))
-		for parameterIndex, parameterID := range callable.ParameterIDs {
-			parameterField := fmt.Sprintf("%s.parameterIds[%d]", field, parameterIndex)
-			if err := requireStableID(parameterField, parameterID); err != nil {
-				return err
-			}
-			if _, exists := parameterIDs[parameterID]; !exists {
-				return ValidationError{Field: parameterField, Problem: "must reference a parameter"}
-			}
-			if _, exists := seenParameterIDs[parameterID]; exists {
-				return ValidationError{Field: parameterField, Problem: "must not be repeated"}
-			}
-			seenParameterIDs[parameterID] = struct{}{}
+		if err := validateCallableParameterIDs(field, callable.ParameterIDs, parameterIDs); err != nil {
+			return err
 		}
 		targetIDs[callable.ID] = struct{}{}
 	}
+	return nil
+}
 
-	for index, sourceRange := range snapshot.GeneratedCode.SourceRanges {
+func validateCallableParameterIDs(field string, ids []string, parameterIDs map[string]struct{}) error {
+	seenParameterIDs := make(map[string]struct{}, len(ids))
+	for parameterIndex, parameterID := range ids {
+		parameterField := fmt.Sprintf("%s.parameterIds[%d]", field, parameterIndex)
+		if err := requireStableID(parameterField, parameterID); err != nil {
+			return err
+		}
+		if _, exists := parameterIDs[parameterID]; !exists {
+			return ValidationError{Field: parameterField, Problem: "must reference a parameter"}
+		}
+		if _, exists := seenParameterIDs[parameterID]; exists {
+			return ValidationError{Field: parameterField, Problem: "must not be repeated"}
+		}
+		seenParameterIDs[parameterID] = struct{}{}
+	}
+	return nil
+}
+
+func validateSourceRanges(ranges []GeneratedSourceRangeV1, codeLength int, targetIDs map[string]struct{}) error {
+	for index, sourceRange := range ranges {
 		field := fmt.Sprintf("generatedCode.sourceRanges[%d]", index)
-		if err := validateSourceRange(field, sourceRange, len(snapshot.GeneratedCode.Code), targetIDs); err != nil {
+		if err := validateSourceRange(field, sourceRange, codeLength, targetIDs); err != nil {
 			return err
 		}
 	}
+	return nil
+}
 
-	diagnosticIDs := make(map[string]struct{}, len(snapshot.Diagnostics))
-	for index, diagnostic := range snapshot.Diagnostics {
+func validateDiagnostics(diagnostics []DiagnosticV1, targetIDs map[string]struct{}) error {
+	diagnosticIDs := make(map[string]struct{}, len(diagnostics))
+	for index, diagnostic := range diagnostics {
 		field := fmt.Sprintf("diagnostics[%d]", index)
 		if err := requireStableID(field+".id", diagnostic.ID); err != nil {
 			return err
@@ -266,7 +312,6 @@ func (snapshot ProjectSnapshotV1) Validate() error {
 		}
 		diagnosticIDs[diagnostic.ID] = struct{}{}
 	}
-
 	return nil
 }
 

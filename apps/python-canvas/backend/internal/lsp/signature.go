@@ -56,34 +56,32 @@ func utf16Substring(value string, start int, end int) string {
 	if start < 0 || end < start {
 		return ""
 	}
-	unitOffset := 0
-	startByte := -1
-	endByte := -1
-	for byteOffset, runeValue := range value {
-		if unitOffset == start && startByte == -1 {
-			startByte = byteOffset
-		}
-		if unitOffset == end && endByte == -1 {
-			endByte = byteOffset
-		}
-		unitOffset += utf16.RuneLen(runeValue)
-		if unitOffset > start && startByte == -1 {
-			return ""
-		}
-		if unitOffset > end && endByte == -1 {
-			return ""
-		}
+	startByte, foundStart := utf16ByteOffset(value, start)
+	if !foundStart {
+		return ""
 	}
-	if unitOffset == start && startByte == -1 {
-		startByte = len(value)
-	}
-	if unitOffset == end && endByte == -1 {
-		endByte = len(value)
-	}
-	if startByte == -1 || endByte == -1 || endByte < startByte {
+	endByte, foundEnd := utf16ByteOffset(value, end)
+	if !foundEnd || endByte < startByte {
 		return ""
 	}
 	return value[startByte:endByte]
+}
+
+func utf16ByteOffset(value string, target int) (int, bool) {
+	unitOffset := 0
+	for byteOffset, runeValue := range value {
+		if unitOffset == target {
+			return byteOffset, true
+		}
+		unitOffset += utf16.RuneLen(runeValue)
+		if unitOffset > target {
+			return 0, false
+		}
+	}
+	if unitOffset == target {
+		return len(value), true
+	}
+	return 0, false
 }
 
 func parseSignatureParameter(label string, positionalOnly bool, keywordOnly bool) (project.SignatureParameter, error) {

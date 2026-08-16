@@ -104,7 +104,7 @@ func (session *Session) Start(ctx context.Context) error {
 	}
 
 	session.mu.Lock()
-	if session.closed || session.closing {
+	if session.isClosingOrClosedLocked() {
 		session.mu.Unlock()
 		return ErrSessionClosed
 	}
@@ -212,7 +212,7 @@ func (session *Session) SynchronizeDocument(
 	}
 
 	session.mu.Lock()
-	if session.closed || session.closing {
+	if session.isClosingOrClosedLocked() {
 		session.mu.Unlock()
 		return ErrSessionClosed
 	}
@@ -230,26 +230,7 @@ func (session *Session) SynchronizeDocument(
 	}
 	session.mu.Unlock()
 
-	var params map[string]any
-	if alreadyOpen {
-		params = map[string]any{
-			"textDocument":   map[string]any{"uri": uri, "version": version},
-			"contentChanges": []map[string]string{{"text": content}},
-		}
-	} else {
-		params = map[string]any{
-			"textDocument": map[string]any{
-				"uri":        uri,
-				"languageId": languageID,
-				"version":    version,
-				"text":       content,
-			},
-		}
-	}
-	method := "textDocument/didOpen"
-	if alreadyOpen {
-		method = "textDocument/didChange"
-	}
+	method, params := documentSynchronizationNotification(alreadyOpen, uri, languageID, version, content)
 	if err := session.notify(method, params, false); err != nil {
 		session.mu.Lock()
 		if alreadyOpen {
@@ -266,6 +247,33 @@ func (session *Session) SynchronizeDocument(
 		return err
 	}
 	return nil
+}
+
+func (session *Session) isClosingOrClosedLocked() bool {
+	return session.closed || session.closing
+}
+
+func documentSynchronizationNotification(
+	alreadyOpen bool,
+	uri string,
+	languageID string,
+	version int,
+	content string,
+) (string, map[string]any) {
+	if alreadyOpen {
+		return "textDocument/didChange", map[string]any{
+			"textDocument":   map[string]any{"uri": uri, "version": version},
+			"contentChanges": []map[string]string{{"text": content}},
+		}
+	}
+	return "textDocument/didOpen", map[string]any{
+		"textDocument": map[string]any{
+			"uri":        uri,
+			"languageId": languageID,
+			"version":    version,
+			"text":       content,
+		},
+	}
 }
 
 func (session *Session) CloseDocument(path string) error {
@@ -347,16 +355,7 @@ func (session *Session) Close() error {
 	if stdin != nil {
 		_ = stdin.Close()
 	}
-	if command != nil && command.Process != nil {
-		waitDone := make(chan error, 1)
-		go func() { waitDone <- command.Wait() }()
-		select {
-		case <-shutdownContext.Done():
-			_ = command.Process.Kill()
-			<-waitDone
-		case <-waitDone:
-		}
-	}
+	waitForSessionProcess(command, shutdownContext)
 	if readerDone != nil {
 		<-readerDone
 	}
@@ -376,19 +375,26 @@ func (session *Session) Close() error {
 	return nil
 }
 
+func waitForSessionProcess(command *exec.Cmd, ctx context.Context) {
+	if command == nil || command.Process == nil {
+		return
+	}
+	waitDone := make(chan error, 1)
+	go func() { waitDone <- command.Wait() }()
+	select {
+	case <-ctx.Done():
+		_ = command.Process.Kill()
+		<-waitDone
+	case <-waitDone:
+	}
+}
+
 func (session *Session) call(ctx context.Context, method string, params any, result any, allowClosing bool) error {
-	if ctx == nil {
-		ctx = context.Background()
+	ctx = requestContext(ctx)
+	requestID, response, err := session.registerCall(allowClosing)
+	if err != nil {
+		return err
 	}
-	requestID := strconv.FormatUint(atomic.AddUint64(&session.requestID, 1), 10)
-	response := make(chan rpcEnvelope, 1)
-	session.mu.Lock()
-	if session.closed || !session.started || (session.closing && !allowClosing) {
-		session.mu.Unlock()
-		return ErrSessionClosed
-	}
-	session.pending[requestID] = response
-	session.mu.Unlock()
 
 	if err := session.writeEnvelope(map[string]any{
 		"jsonrpc": "2.0",
@@ -399,17 +405,46 @@ func (session *Session) call(ctx context.Context, method string, params any, res
 		session.removePending(requestID)
 		return err
 	}
+	return session.awaitCallResponse(ctx, method, requestID, response, result)
+}
 
-	timeout := session.options.RequestTimeout
-	if deadline, ok := ctx.Deadline(); ok {
-		remaining := time.Until(deadline)
-		if remaining <= 0 {
-			session.removePending(requestID)
-			return ctx.Err()
-		}
-		if remaining < timeout {
-			timeout = remaining
-		}
+func requestContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
+	return ctx
+}
+
+func (session *Session) registerCall(allowClosing bool) (string, chan rpcEnvelope, error) {
+	requestID := strconv.FormatUint(atomic.AddUint64(&session.requestID, 1), 10)
+	response := make(chan rpcEnvelope, 1)
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	if !session.acceptsCallLocked(allowClosing) {
+		return "", nil, ErrSessionClosed
+	}
+	session.pending[requestID] = response
+	return requestID, response, nil
+}
+
+func (session *Session) acceptsCallLocked(allowClosing bool) bool {
+	if session.closed || !session.started {
+		return false
+	}
+	return !session.closing || allowClosing
+}
+
+func (session *Session) awaitCallResponse(
+	ctx context.Context,
+	method string,
+	requestID string,
+	response <-chan rpcEnvelope,
+	result any,
+) error {
+	timeout, err := effectiveRequestTimeout(ctx, session.options.RequestTimeout)
+	if err != nil {
+		session.removePending(requestID)
+		return err
 	}
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
@@ -421,18 +456,42 @@ func (session *Session) call(ctx context.Context, method string, params any, res
 		session.removePending(requestID)
 		return fmt.Errorf("%w: %s", ErrRequestTimedOut, method)
 	case envelope := <-response:
-		session.removePending(requestID)
-		if envelope.Error != nil {
-			return fmt.Errorf("lsp: %s failed (%d): %s", method, envelope.Error.Code, envelope.Error.Message)
-		}
-		if result == nil || len(envelope.Result) == 0 || string(envelope.Result) == "null" {
-			return nil
-		}
-		if err := json.Unmarshal(envelope.Result, result); err != nil {
-			return fmt.Errorf("lsp: decode %s result: %w", method, err)
-		}
+		return session.decodeCallResponse(method, requestID, envelope, result)
+	}
+}
+
+func effectiveRequestTimeout(ctx context.Context, configured time.Duration) (time.Duration, error) {
+	deadline, hasDeadline := ctx.Deadline()
+	if !hasDeadline {
+		return configured, nil
+	}
+	remaining := time.Until(deadline)
+	if remaining <= 0 {
+		return 0, ctx.Err()
+	}
+	if remaining < configured {
+		return remaining, nil
+	}
+	return configured, nil
+}
+
+func (session *Session) decodeCallResponse(
+	method string,
+	requestID string,
+	envelope rpcEnvelope,
+	result any,
+) error {
+	session.removePending(requestID)
+	if envelope.Error != nil {
+		return fmt.Errorf("lsp: %s failed (%d): %s", method, envelope.Error.Code, envelope.Error.Message)
+	}
+	if result == nil || len(envelope.Result) == 0 || string(envelope.Result) == "null" {
 		return nil
 	}
+	if err := json.Unmarshal(envelope.Result, result); err != nil {
+		return fmt.Errorf("lsp: decode %s result: %w", method, err)
+	}
+	return nil
 }
 
 func (session *Session) notify(method string, params any, allowClosing bool) error {
@@ -547,15 +606,13 @@ func readEnvelope(reader *bufio.Reader) (rpcEnvelope, error) {
 		if line == "\r\n" || line == "\n" {
 			break
 		}
-		key, value, found := strings.Cut(strings.TrimSpace(line), ":")
-		if !found || !strings.EqualFold(strings.TrimSpace(key), "Content-Length") {
-			continue
+		parsed, found, err := contentLengthHeader(line)
+		if err != nil {
+			return rpcEnvelope{}, err
 		}
-		parsed, err := strconv.Atoi(strings.TrimSpace(value))
-		if err != nil || parsed < 0 {
-			return rpcEnvelope{}, fmt.Errorf("lsp: invalid content length %q", value)
+		if found {
+			contentLength = parsed
 		}
-		contentLength = parsed
 	}
 	if contentLength < 0 {
 		return rpcEnvelope{}, fmt.Errorf("lsp: response omitted Content-Length")
@@ -569,6 +626,18 @@ func readEnvelope(reader *bufio.Reader) (rpcEnvelope, error) {
 		return rpcEnvelope{}, fmt.Errorf("lsp: decode response: %w", err)
 	}
 	return envelope, nil
+}
+
+func contentLengthHeader(line string) (int, bool, error) {
+	key, value, found := strings.Cut(strings.TrimSpace(line), ":")
+	if !found || !strings.EqualFold(strings.TrimSpace(key), "Content-Length") {
+		return 0, false, nil
+	}
+	parsed, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || parsed < 0 {
+		return 0, false, fmt.Errorf("lsp: invalid content length %q", value)
+	}
+	return parsed, true, nil
 }
 
 func envelopeID(raw json.RawMessage) string {

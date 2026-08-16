@@ -39,8 +39,8 @@ func positionForByteOffset(content string, offset int) (Position, error) {
 // byteOffsetForPosition converts an LSP UTF-16 position back to a generated
 // source byte offset. A character position inside a surrogate pair is invalid.
 func byteOffsetForPosition(content string, position Position) (int, error) {
-	if position.Line < 0 || position.Character < 0 || !utf8.ValidString(content) {
-		return 0, ErrInvalidPosition
+	if err := validatePositionInput(content, position); err != nil {
+		return 0, err
 	}
 
 	line := 0
@@ -73,6 +73,19 @@ func byteOffsetForPosition(content string, position Position) (int, error) {
 		return len(content), nil
 	}
 	return 0, fmt.Errorf("%w: position %d:%d exceeds document", ErrInvalidPosition, position.Line, position.Character)
+}
+
+func validatePositionInput(content string, position Position) error {
+	if position.Line < 0 {
+		return ErrInvalidPosition
+	}
+	if position.Character < 0 {
+		return ErrInvalidPosition
+	}
+	if !utf8.ValidString(content) {
+		return ErrInvalidPosition
+	}
+	return nil
 }
 
 func byteOffsetsForRange(content string, sourceRange Range) (int, int, error) {

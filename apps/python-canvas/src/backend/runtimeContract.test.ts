@@ -57,7 +57,11 @@ describe("parseProjectSnapshotV1", () => {
           state: "ready",
         },
       }).providerStatus,
-    ).toEqual({ provider: "basedpyright", status: "available", state: "ready" });
+    ).toEqual({
+      provider: "basedpyright",
+      status: "available",
+      state: "ready",
+    });
 
     expect(
       parseProjectSnapshotV1({
@@ -68,7 +72,11 @@ describe("parseProjectSnapshotV1", () => {
           state: "pending",
         },
       }).providerStatus,
-    ).toEqual({ provider: "basedpyright", status: "available", state: "pending" });
+    ).toEqual({
+      provider: "basedpyright",
+      status: "available",
+      state: "pending",
+    });
 
     expect(
       parseProjectSnapshotV1({
@@ -79,7 +87,11 @@ describe("parseProjectSnapshotV1", () => {
           state: "failed",
         },
       }).providerStatus,
-    ).toEqual({ provider: "basedpyright", status: "unavailable", state: "failed" });
+    ).toEqual({
+      provider: "basedpyright",
+      status: "unavailable",
+      state: "failed",
+    });
   });
 
   it("rejects dangling IDs, invalid ranges, and dangling diagnostic targets", () => {

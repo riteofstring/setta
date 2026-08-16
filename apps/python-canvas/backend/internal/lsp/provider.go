@@ -130,19 +130,11 @@ func (provider *BasedpyrightProvider) ResolveCallableSignature(
 		return project.CallableSignature{}, fmt.Errorf("lsp: resolve signature position: %w", err)
 	}
 
-	snapshot, err := os.CreateTemp(provider.workspaceRoot, ".setta-signature-*.py")
+	snapshotPath, err := provider.createSignatureSnapshot(request.Code)
 	if err != nil {
-		return project.CallableSignature{}, fmt.Errorf("lsp: create signature snapshot: %w", err)
+		return project.CallableSignature{}, err
 	}
-	snapshotPath := snapshot.Name()
 	defer os.Remove(snapshotPath)
-	if _, err := snapshot.WriteString(request.Code); err != nil {
-		_ = snapshot.Close()
-		return project.CallableSignature{}, fmt.Errorf("lsp: write signature snapshot: %w", err)
-	}
-	if err := snapshot.Close(); err != nil {
-		return project.CallableSignature{}, fmt.Errorf("lsp: close signature snapshot: %w", err)
-	}
 
 	if err := provider.session.SynchronizeDocument(ctx, snapshotPath, "python", 1, request.Code, nil); err != nil {
 		return project.CallableSignature{}, err
@@ -162,6 +154,27 @@ func (provider *BasedpyrightProvider) ResolveCallableSignature(
 	}
 	closedDocument = true
 	return normalizeSignatureHelp(result)
+}
+
+func (provider *BasedpyrightProvider) createSignatureSnapshot(code string) (string, error) {
+	snapshot, err := os.CreateTemp(provider.workspaceRoot, ".setta-signature-*.py")
+	if err != nil {
+		return "", fmt.Errorf("lsp: create signature snapshot: %w", err)
+	}
+	snapshotPath := snapshot.Name()
+	defer func() {
+		if err != nil {
+			_ = os.Remove(snapshotPath)
+		}
+	}()
+	if _, err = snapshot.WriteString(code); err != nil {
+		_ = snapshot.Close()
+		return "", fmt.Errorf("lsp: write signature snapshot: %w", err)
+	}
+	if err = snapshot.Close(); err != nil {
+		return "", fmt.Errorf("lsp: close signature snapshot: %w", err)
+	}
+	return snapshotPath, nil
 }
 
 func (provider *BasedpyrightProvider) SynchronizeGeneratedDocument(

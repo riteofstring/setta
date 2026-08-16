@@ -244,16 +244,7 @@ func (store *Store) SetParameterExpression(
 
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	if store.closed {
-		return contracts.ProjectSnapshotV1{}, ErrStoreClosed
-	}
-	if projectID != initialProjectID {
-		return contracts.ProjectSnapshotV1{}, fmt.Errorf("%w: %q", ErrProjectNotFound, projectID)
-	}
-	if store.state.parameter == nil || parameterID != store.state.parameter.ID {
-		return contracts.ProjectSnapshotV1{}, fmt.Errorf("%w: %q", ErrParameterNotFound, parameterID)
-	}
-	if err := validateParameterExpression(expression); err != nil {
+	if err := store.validateSetParameterExpressionLocked(projectID, parameterID, expression); err != nil {
 		return contracts.ProjectSnapshotV1{}, err
 	}
 	if expression == store.state.parameter.Expression {
@@ -266,20 +257,32 @@ func (store *Store) SetParameterExpression(
 	if err := renderState(&candidate); err != nil {
 		return contracts.ProjectSnapshotV1{}, err
 	}
-	snapshot, err := candidate.validatedSnapshot()
-	if err != nil {
+	if _, err := candidate.validatedSnapshot(); err != nil {
 		return contracts.ProjectSnapshotV1{}, err
 	}
 	if err := store.writer.Write(candidate.rendered.Code); err != nil {
 		return contracts.ProjectSnapshotV1{}, fmt.Errorf("materialize generated Python: %w", err)
 	}
 	applyProviderSynchronization(context.Background(), store.provider, store.writer.Path(), &candidate)
-	snapshot, err = candidate.validatedSnapshot()
+	snapshot, err := candidate.validatedSnapshot()
 	if err != nil {
 		return contracts.ProjectSnapshotV1{}, err
 	}
 	store.state = candidate
 	return snapshot, nil
+}
+
+func (store *Store) validateSetParameterExpressionLocked(projectID string, parameterID string, expression string) error {
+	if store.closed {
+		return ErrStoreClosed
+	}
+	if projectID != initialProjectID {
+		return fmt.Errorf("%w: %q", ErrProjectNotFound, projectID)
+	}
+	if store.state.parameter == nil || parameterID != store.state.parameter.ID {
+		return fmt.Errorf("%w: %q", ErrParameterNotFound, parameterID)
+	}
+	return validateParameterExpression(expression)
 }
 
 // Close removes the temporary generated-file workspace and prevents further

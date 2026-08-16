@@ -132,8 +132,14 @@ function parseParameters(value: unknown): ParameterV1[] {
     return {
       id: readString(record.id, `${field}.id`),
       name: readString(record.name, `${field}.name`),
-      passingStyle: parsePassingStyle(record.passingStyle, `${field}.passingStyle`),
-      typeAnnotation: readString(record.typeAnnotation, `${field}.typeAnnotation`),
+      passingStyle: parsePassingStyle(
+        record.passingStyle,
+        `${field}.passingStyle`,
+      ),
+      typeAnnotation: readString(
+        record.typeAnnotation,
+        `${field}.typeAnnotation`,
+      ),
       default: readStringOrNull(record.default, `${field}.default`),
       authoredExpression: readString(
         record.authoredExpression,
@@ -160,7 +166,10 @@ function parseGeneratedCode(value: unknown): GeneratedCodeV1 {
   };
 }
 
-function parseSourceRange(value: unknown, index: number): GeneratedSourceRangeV1 {
+function parseSourceRange(
+  value: unknown,
+  index: number,
+): GeneratedSourceRangeV1 {
   const field = `generatedCode.sourceRanges[${index}]`;
   const record = readClosedRecord(value, field, ["targetId", "start", "end"]);
   return {
@@ -198,43 +207,73 @@ function parseProviderStatus(value: unknown): ProviderStatusV1 {
   const status = readString(record.status, "providerStatus.status");
   const state = readString(record.state, "providerStatus.state");
 
-  if (provider !== PROVIDER_BASEDPYRIGHT_V1) {
-    fail("providerStatus.provider", "is not supported by V1");
-  }
-  if (
-    status !== PROVIDER_AVAILABILITY_AVAILABLE_V1 &&
-    status !== PROVIDER_AVAILABILITY_UNAVAILABLE_V1
-  ) {
-    fail("providerStatus.status", "is not supported by V1");
-  }
-  if (
-    state !== PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1 &&
-    state !== PROVIDER_LIFECYCLE_STATE_READY_V1 &&
-    state !== PROVIDER_LIFECYCLE_STATE_PENDING_V1 &&
-    state !== PROVIDER_LIFECYCLE_STATE_FAILED_V1
-  ) {
-    fail("providerStatus.state", "is not supported by V1");
-  }
-  if (
-    (state === PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1 ||
-      state === PROVIDER_LIFECYCLE_STATE_FAILED_V1) &&
-    status !== PROVIDER_AVAILABILITY_UNAVAILABLE_V1
-  ) {
-    fail("providerStatus", "has an invalid availability/lifecycle combination");
-  }
-  if (
-    (state === PROVIDER_LIFECYCLE_STATE_READY_V1 ||
-      state === PROVIDER_LIFECYCLE_STATE_PENDING_V1) &&
-    status !== PROVIDER_AVAILABILITY_AVAILABLE_V1
-  ) {
-    fail("providerStatus", "has an invalid availability/lifecycle combination");
-  }
+  validateProvider(provider);
+  const availability = parseProviderAvailability(status);
+  const lifecycleState = parseProviderLifecycleState(state);
+  validateProviderStatusCombination(availability, lifecycleState);
 
   return {
     provider: PROVIDER_BASEDPYRIGHT_V1,
-    status,
-    state,
+    status: availability,
+    state: lifecycleState,
   };
+}
+
+function validateProvider(provider: string): void {
+  if (provider !== PROVIDER_BASEDPYRIGHT_V1) {
+    fail("providerStatus.provider", "is not supported by V1");
+  }
+}
+
+function parseProviderAvailability(value: string): ProviderStatusV1["status"] {
+  switch (value) {
+    case PROVIDER_AVAILABILITY_AVAILABLE_V1:
+      return PROVIDER_AVAILABILITY_AVAILABLE_V1;
+    case PROVIDER_AVAILABILITY_UNAVAILABLE_V1:
+      return PROVIDER_AVAILABILITY_UNAVAILABLE_V1;
+    default:
+      fail("providerStatus.status", "is not supported by V1");
+  }
+}
+
+function parseProviderLifecycleState(value: string): ProviderStatusV1["state"] {
+  switch (value) {
+    case PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1:
+      return PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1;
+    case PROVIDER_LIFECYCLE_STATE_READY_V1:
+      return PROVIDER_LIFECYCLE_STATE_READY_V1;
+    case PROVIDER_LIFECYCLE_STATE_PENDING_V1:
+      return PROVIDER_LIFECYCLE_STATE_PENDING_V1;
+    case PROVIDER_LIFECYCLE_STATE_FAILED_V1:
+      return PROVIDER_LIFECYCLE_STATE_FAILED_V1;
+    default:
+      fail("providerStatus.state", "is not supported by V1");
+  }
+}
+
+function validateProviderStatusCombination(
+  status: ProviderStatusV1["status"],
+  state: ProviderStatusV1["state"],
+): void {
+  switch (state) {
+    case PROVIDER_LIFECYCLE_STATE_NOT_STARTED_V1:
+    case PROVIDER_LIFECYCLE_STATE_FAILED_V1:
+      if (status !== PROVIDER_AVAILABILITY_UNAVAILABLE_V1) {
+        fail(
+          "providerStatus",
+          "has an invalid availability/lifecycle combination",
+        );
+      }
+      return;
+    case PROVIDER_LIFECYCLE_STATE_READY_V1:
+    case PROVIDER_LIFECYCLE_STATE_PENDING_V1:
+      if (status !== PROVIDER_AVAILABILITY_AVAILABLE_V1) {
+        fail(
+          "providerStatus",
+          "has an invalid availability/lifecycle combination",
+        );
+      }
+  }
 }
 
 function parsePassingStyle(
@@ -276,6 +315,21 @@ function parseDiagnosticSeverity(
 }
 
 function validateSnapshotRelationships(snapshot: ProjectSnapshotV1): void {
+  validateSnapshotRoot(snapshot);
+
+  const targetIds = new Set([snapshot.project.id]);
+  const parameterIds = new Set<string>();
+  validateParameters(snapshot.parameters, targetIds, parameterIds);
+  validateCallables(snapshot.callables, targetIds, parameterIds);
+  validateSourceRanges(
+    snapshot.generatedCode.sourceRanges,
+    targetIds,
+    new TextEncoder().encode(snapshot.generatedCode.code).length,
+  );
+  validateDiagnostics(snapshot.diagnostics, targetIds);
+}
+
+function validateSnapshotRoot(snapshot: ProjectSnapshotV1): void {
   requireStableId("project.id", snapshot.project.id);
   if (snapshot.project.revision < 1) {
     fail("project.revision", "must be at least 1");
@@ -286,11 +340,14 @@ function validateSnapshotRelationships(snapshot: ProjectSnapshotV1): void {
   if (snapshot.pythonTarget.suffix === "") {
     fail("pythonTarget.suffix", "must not be empty");
   }
+}
 
-  const targetIds = new Set([snapshot.project.id]);
-  const parameterIds = new Set<string>();
-
-  for (const [index, parameter] of snapshot.parameters.entries()) {
+function validateParameters(
+  parameters: ParameterV1[],
+  targetIds: Set<string>,
+  parameterIds: Set<string>,
+): void {
+  for (const [index, parameter] of parameters.entries()) {
     const field = `parameters[${index}]`;
     requireStableId(`${field}.id`, parameter.id);
     if (targetIds.has(parameter.id)) {
@@ -300,49 +357,81 @@ function validateSnapshotRelationships(snapshot: ProjectSnapshotV1): void {
     targetIds.add(parameter.id);
     parameterIds.add(parameter.id);
   }
+}
 
-  for (const [index, callable] of snapshot.callables.entries()) {
+function validateCallables(
+  callables: [CallableV1],
+  targetIds: Set<string>,
+  parameterIds: Set<string>,
+): void {
+  for (const [index, callable] of callables.entries()) {
     const field = `callables[${index}]`;
     requireStableId(`${field}.id`, callable.id);
     if (targetIds.has(callable.id)) {
       fail(`${field}.id`, "must be unique");
     }
     requireNonBlank(`${field}.name`, callable.name);
-
-    const callableParameterIds = new Set<string>();
-    for (const [parameterIndex, parameterId] of callable.parameterIds.entries()) {
-      const parameterField = `${field}.parameterIds[${parameterIndex}]`;
-      requireStableId(parameterField, parameterId);
-      if (!parameterIds.has(parameterId)) {
-        fail(parameterField, "must reference a parameter");
-      }
-      if (callableParameterIds.has(parameterId)) {
-        fail(parameterField, "must not be repeated");
-      }
-      callableParameterIds.add(parameterId);
-    }
+    validateCallableParameterIds(field, callable.parameterIds, parameterIds);
     targetIds.add(callable.id);
   }
+}
 
-  const codeLength = new TextEncoder().encode(snapshot.generatedCode.code).length;
-  for (const [index, sourceRange] of snapshot.generatedCode.sourceRanges.entries()) {
-    const field = `generatedCode.sourceRanges[${index}]`;
-    if (!targetIds.has(sourceRange.targetId)) {
-      fail(`${field}.targetId`, "must reference a stable target ID");
+function validateCallableParameterIds(
+  callableField: string,
+  ids: string[],
+  parameterIds: Set<string>,
+): void {
+  const callableParameterIds = new Set<string>();
+  for (const [parameterIndex, parameterId] of ids.entries()) {
+    const parameterField = `${callableField}.parameterIds[${parameterIndex}]`;
+    requireStableId(parameterField, parameterId);
+    if (!parameterIds.has(parameterId)) {
+      fail(parameterField, "must reference a parameter");
     }
-    if (sourceRange.start < 0) {
-      fail(`${field}.start`, "must not be negative");
+    if (callableParameterIds.has(parameterId)) {
+      fail(parameterField, "must not be repeated");
     }
-    if (sourceRange.end < sourceRange.start) {
-      fail(`${field}.end`, "must not precede start");
-    }
-    if (sourceRange.end > codeLength) {
-      fail(`${field}.end`, "must not exceed generated code length");
-    }
+    callableParameterIds.add(parameterId);
   }
+}
 
+function validateSourceRanges(
+  sourceRanges: GeneratedSourceRangeV1[],
+  targetIds: Set<string>,
+  codeLength: number,
+): void {
+  for (const [index, sourceRange] of sourceRanges.entries()) {
+    const field = `generatedCode.sourceRanges[${index}]`;
+    validateSourceRange(field, sourceRange, targetIds, codeLength);
+  }
+}
+
+function validateSourceRange(
+  field: string,
+  sourceRange: GeneratedSourceRangeV1,
+  targetIds: Set<string>,
+  codeLength: number,
+): void {
+  if (!targetIds.has(sourceRange.targetId)) {
+    fail(`${field}.targetId`, "must reference a stable target ID");
+  }
+  if (sourceRange.start < 0) {
+    fail(`${field}.start`, "must not be negative");
+  }
+  if (sourceRange.end < sourceRange.start) {
+    fail(`${field}.end`, "must not precede start");
+  }
+  if (sourceRange.end > codeLength) {
+    fail(`${field}.end`, "must not exceed generated code length");
+  }
+}
+
+function validateDiagnostics(
+  diagnostics: DiagnosticV1[],
+  targetIds: Set<string>,
+): void {
   const diagnosticIds = new Set<string>();
-  for (const [index, diagnostic] of snapshot.diagnostics.entries()) {
+  for (const [index, diagnostic] of diagnostics.entries()) {
     const field = `diagnostics[${index}]`;
     requireStableId(`${field}.id`, diagnostic.id);
     if (diagnosticIds.has(diagnostic.id)) {
@@ -361,29 +450,40 @@ function readClosedRecord(
   field: string,
   keys: readonly string[],
 ): Record<string, unknown> {
-  if (
-    value === null ||
-    typeof value !== "object" ||
-    Array.isArray(value) ||
-    (Object.getPrototypeOf(value) !== Object.prototype &&
-      Object.getPrototypeOf(value) !== null)
-  ) {
+  if (!isPlainRecord(value)) {
     fail(field, "must be an object");
   }
 
   const record = value as Record<string, unknown>;
-  const ownNames = Object.getOwnPropertyNames(record);
-  if (
-    Object.getOwnPropertySymbols(record).length !== 0 ||
-    ownNames.length !== keys.length ||
-    !keys.every((key) =>
-      Object.prototype.propertyIsEnumerable.call(record, key),
-    ) ||
-    !keys.every((key) => ownNames.includes(key))
-  ) {
+  if (!hasExactEnumerableKeys(record, keys)) {
     fail(field, "must contain exactly the V1 fields");
   }
   return record;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    (Object.getPrototypeOf(value) === Object.prototype ||
+      Object.getPrototypeOf(value) === null)
+  );
+}
+
+function hasExactEnumerableKeys(
+  record: Record<string, unknown>,
+  keys: readonly string[],
+): boolean {
+  const ownNames = Object.getOwnPropertyNames(record);
+  return (
+    Object.getOwnPropertySymbols(record).length === 0 &&
+    ownNames.length === keys.length &&
+    keys.every((key) =>
+      Object.prototype.propertyIsEnumerable.call(record, key),
+    ) &&
+    keys.every((key) => ownNames.includes(key))
+  );
 }
 
 function readArray<T>(

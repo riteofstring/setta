@@ -45,6 +45,11 @@ const (
 	ProviderDiagnosticSeverityInformation ProviderDiagnosticSeverity = "information"
 )
 
+type mappedProviderDiagnostic struct {
+	ProviderDiagnostic
+	targetID string
+}
+
 // GeneratedDocumentResult contains diagnostics for one exact document version
 // and the provider availability observed while waiting for that publication.
 type GeneratedDocumentResult struct {
@@ -102,37 +107,13 @@ func mapProviderDiagnostics(
 	ranges []codegen.SourceRange,
 	diagnostics []ProviderDiagnostic,
 ) []contracts.DiagnosticV1 {
-	type mappedDiagnostic struct {
-		ProviderDiagnostic
-		targetID string
-	}
-
-	mapped := make([]mappedDiagnostic, 0, len(diagnostics))
+	mapped := make([]mappedProviderDiagnostic, 0, len(diagnostics))
 	for _, diagnostic := range diagnostics {
-		if diagnostic.Start < 0 || diagnostic.End < diagnostic.Start || diagnostic.End > len(code) {
-			continue
-		}
-		severity, ok := contractDiagnosticSeverity(diagnostic.Severity)
+		mappedDiagnostic, ok := mapProviderDiagnostic(code, ranges, diagnostic)
 		if !ok {
 			continue
 		}
-		message := strings.TrimSpace(diagnostic.Message)
-		if message == "" {
-			continue
-		}
-		targetID, ok := sourceRangeTarget(diagnostic.Start, diagnostic.End, ranges)
-		if !ok {
-			continue
-		}
-		mapped = append(mapped, mappedDiagnostic{
-			ProviderDiagnostic: ProviderDiagnostic{
-				Start:    diagnostic.Start,
-				End:      diagnostic.End,
-				Severity: severity,
-				Message:  message,
-			},
-			targetID: targetID,
-		})
+		mapped = append(mapped, mappedDiagnostic)
 	}
 
 	sort.Slice(mapped, func(left, right int) bool {
@@ -164,6 +145,37 @@ func mapProviderDiagnostics(
 		})
 	}
 	return output
+}
+
+func mapProviderDiagnostic(
+	code string,
+	ranges []codegen.SourceRange,
+	diagnostic ProviderDiagnostic,
+) (mappedProviderDiagnostic, bool) {
+	if diagnostic.Start < 0 || diagnostic.End < diagnostic.Start || diagnostic.End > len(code) {
+		return mappedProviderDiagnostic{}, false
+	}
+	severity, ok := contractDiagnosticSeverity(diagnostic.Severity)
+	if !ok {
+		return mappedProviderDiagnostic{}, false
+	}
+	message := strings.TrimSpace(diagnostic.Message)
+	if message == "" {
+		return mappedProviderDiagnostic{}, false
+	}
+	targetID, ok := sourceRangeTarget(diagnostic.Start, diagnostic.End, ranges)
+	if !ok {
+		return mappedProviderDiagnostic{}, false
+	}
+	return mappedProviderDiagnostic{
+		ProviderDiagnostic: ProviderDiagnostic{
+			Start:    diagnostic.Start,
+			End:      diagnostic.End,
+			Severity: severity,
+			Message:  message,
+		},
+		targetID: targetID,
+	}, true
 }
 
 func contractDiagnosticSeverity(severity ProviderDiagnosticSeverity) (ProviderDiagnosticSeverity, bool) {
