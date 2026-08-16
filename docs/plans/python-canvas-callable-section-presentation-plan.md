@@ -4,10 +4,12 @@
 
 **Status: Phase A's structural cutover is complete, including its audit corrections. The Phase B
 candidate at `1217367302fe4d3213f01d9064dff0ce2eefce37` was rejected in developer visual review on
-2026-08-19. The first correction candidate at `84cf58de5bcb87c66189e148ea5394dce635413a`
-stabilizes the Callable field and makes Generated Python genuinely non-editable, but its generated
-paint was rejected in supervisor visual review: it fills the section's unused height and moves the
-badge away from the donor composition. Phase B remains open for that bounded correction.**
+2026-08-19, and the first correction candidate at `84cf58de5bcb87c66189e148ea5394dce635413a` was
+rejected in supervisor visual review for filling the section's unused height and moving the badge
+away from the donor composition. All four of Phase B's corrections are now implemented: the
+generated region is painted on the rendered document lines, so the block hugs the code and its
+badge is centred on the block's upper boundary. Phase B remains open for capture evidence,
+supervisor inspection, developer visual acceptance, and its closing test steps.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
 Basedpyright, transport, or project semantics into `@setta/workspace`. The completed
@@ -276,10 +278,7 @@ package root.
 Replace `WorkspaceCodeSectionData.readOnly` with one required discriminant:
 
 ```ts
-type WorkspaceCodeSectionMode =
-  | "editable"
-  | "read-only"
-  | "generated-output";
+type WorkspaceCodeSectionMode = "editable" | "read-only" | "generated-output";
 ```
 
 `editable` retains the ordinary authored editor. `read-only` retains ordinary Code-section paint
@@ -722,8 +721,7 @@ select cannot fit a boolean switch's line budget; its two Inspector contribution
 `sectionOptionInspectors.tsx` and the registry is now 926 lines. The browser walkthrough was already
 1098 lines against that same 1000-line limit with no exception — a finding the earlier Phase B
 commits could not see because the `code-policy` CLI was unavailable to them — so its process and
-page harnesses moved to `browser-processes.mjs` and `browser-page.mjs`, leaving the walkthrough at
-846. Both new files sit directly under paths the existing module globs already own, and
+page harnesses moved to `browser-processes.mjs` and `browser-page.mjs`, leaving the walkthrough at 846. Both new files sit directly under paths the existing module globs already own, and
 `.code-policy.json` is untouched.
 
 Proofs: `styles/generatedOutput.test.ts` pins the donor region, rail, badge, selection paint, and
@@ -759,11 +757,59 @@ committed as accepted evidence. The attempted capture additionally exposed a sel
 receipt error: amending the images into the commit hash recorded inside their metrics changes that
 hash forever. The next capture records the immutable corrected source commit and lands separately.
 
-What remains in this phase: replace the generated wrapper fill and corner badge with the donor's
-line-scoped generated block and centered badge; rerun all eight captures and commit their evidence
-against the immutable source candidate; obtain supervisor inspection and developer visual
-acceptance with its accepted-candidate record; then run this phase's closing
-`test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps.
+**Line-scoped generated block record.** The rejected wrapper fill and corner badge are replaced by
+main's own composition. `getSectionEditorExtensions` now compiles main's
+`getGenReadOnlyLineDecorations` for the `generated-output` presentation alone: one line decoration
+per rendered document line, carrying `data-workspace-generated-line` with that line's position in
+the block. Main marks the first and last line of a protected range inside an otherwise editable
+document; here the whole document is generated, so the marks run from the first line to the last,
+and a one-line document is `only` — both ends at once, which main's three-line minimum never has to
+answer for. The decorations are computed from the document alone, so they are rebuilt exactly when
+the host regenerates the code.
+
+`styles/generatedOutput.css` paints from those marks. Each line carries main's region behind its
+three-pixel rail through a `::before` that overlaps its neighbours by main's own two pixels, the
+block's ends carry the six-pixel rounded corners, and the badge is main's `::after` on the block's
+first line, centred on the block's upper boundary. The wrapper keeps only what belongs to the whole
+surface: the appearance colours the lines inherit, the reader's selection paint, and the
+keyboard-only focus cue. It no longer paints a region, a radius, or a badge, so a section taller
+than its generated document leaves that height on the ordinary Code-section surface.
+
+Two deliberate departures from a literal transcription, both forced by the whole-document case.
+Main reserves the badge's room with the blank separator line above its generated range and starts
+its region four fifths of the way down that line; a generated document has no line to spare and its
+bytes are canonical, so the region starts at the first line and the editor's own
+`padding-block-start` reserves the badge's space instead — CodeMirror offsets its gutters by that
+same content padding, so the line numbers stay on their lines. Main's `after-start` and
+`before-end` classes exist only to keep neighbouring regions out of that separator geometry; with
+the region hugging the first and last line they would decorate nothing, so they are not ported.
+Main's `not-allowed` cursor is not ported either: it marks the part of an editable document that
+refuses authoring, while this whole surface is a reader's, and its accepted behaviour is selecting
+and copying.
+
+Proofs: `styles/generatedOutput.test.ts` pins the line-scoped region, the overlap, the separately
+rounded ends, the centred badge and the padding that gives it room, and fails if the wrapper
+regains a background, a radius, or a badge; the code-section body suite reads the block through the
+documented per-line hook and proves an ordinary read-only section carries none, that the marks
+cover the whole document, and that they follow a host's regeneration from one line to three. In the
+production walkthrough the generated assertions now read the block's own region and badge, prove
+the badge's origin is the block's top edge and that it is centred on the block within three CSS
+px, and prove the block ends at least 100 CSS px above the fixed section's own bottom while the
+wrapper itself paints nothing — the exact pair of defects the supervisor rejected.
+
+Verification for this correction: `code-policy check` over the eight changed files reports one
+finding, `quality.deadCode` on `apps/python-canvas/vitest.setup.ts`; that finding reproduces on the
+unmodified trusted base, belongs to a file this correction does not touch, and its only remedies
+are deleting a live vitest setup file or editing protected `.code-policy.json` scope, so it is
+reported rather than folded into this presentation plan. The workspace suite passes (1176 tests
+across 142 files), as do the playground suite (43), the Python Canvas frontend suite (37), and the
+production browser walkthrough against the production builds, the real Go service, pinned
+Basedpyright, and headless Chrome at 1440x900 device scale 1.
+
+What remains in this phase: rerun all eight captures and commit their evidence against the
+immutable source candidate; obtain supervisor inspection and developer visual acceptance with its
+accepted-candidate record; then run this phase's closing `test --changed --base <trusted-base>` and
+`test-levels --base <trusted-base>` steps.
 
 ## Stop conditions
 

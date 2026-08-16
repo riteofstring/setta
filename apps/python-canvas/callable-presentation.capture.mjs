@@ -25,6 +25,7 @@ import {
   assertCallableFieldParity,
   assertDonorCallableFieldSurface,
   assertDonorGeneratedRegion,
+  assertGeneratedBlockHugsCode,
   assertNonEditingGeneratedText,
   callableFieldStateScript,
   donorCallableField,
@@ -205,6 +206,7 @@ async function captureGeneratedStates(client, appearance) {
     `The idle ${appearance} generated Python region`,
   );
   assertDonorGeneratedRegion(idle, appearance);
+  assertGeneratedBlockHugsCode(`The idle ${appearance}`, idle);
   assertNonEditingGeneratedText(`The idle ${appearance}`, idle);
   const idleCrop = await captureCrop(
     client,
@@ -223,6 +225,7 @@ async function captureGeneratedStates(client, appearance) {
     `The clicked ${appearance} generated Python region`,
   );
   assertDonorGeneratedRegion(clicked, appearance);
+  assertGeneratedBlockHugsCode(`The clicked ${appearance}`, clicked);
   assertNonEditingGeneratedText(`The clicked ${appearance}`, clicked);
   const clickedCrop = await captureCrop(
     client,

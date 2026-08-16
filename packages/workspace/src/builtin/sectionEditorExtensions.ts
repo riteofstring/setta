@@ -1,6 +1,11 @@
 import { indentUnit } from "@codemirror/language";
-import { EditorState, Prec, type Extension } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
+import {
+  EditorState,
+  Prec,
+  type Extension,
+  type Text,
+} from "@codemirror/state";
+import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 import {
   getTextValueLanguageExtensions,
   type WorkspaceEditorLanguage,
@@ -25,15 +30,57 @@ const GUTTER_LAYOUT_FIX = EditorView.baseTheme({
 // area; the other two are non-editable, and `generated-output` additionally paints the section as
 // machine-written output.
 export type WorkspaceSectionEditorPresentation =
-  | "editable"
-  | "read-only"
-  | "generated-output";
+  "editable" | "read-only" | "generated-output";
 
 export function isEditableSectionEditorPresentation(
   presentation: WorkspaceSectionEditorPresentation,
 ): boolean {
   return presentation === "editable";
 }
+
+// The reference's `getGenReadOnlyLineDecorations`: it marks every line of its protected range, and
+// marks that range's first and last line so the region can round its ends and hang its badge off
+// the block's upper boundary. The reference's range is one part of an otherwise editable document;
+// here the whole document is generated, so the same marks run from the document's first rendered
+// line to its last. Painting the editor's wrapper instead would fill the section's unused height
+// with generated colour and move the badge off the block, which is the presentation this replaces.
+//
+// This attribute is the package's public hook for observing or capturing the generated block. The
+// scoped stylesheet paints from it too, so the block's position vocabulary has one owner.
+const GENERATED_LINE_ATTRIBUTE = "data-workspace-generated-line";
+
+function getGeneratedLinePosition(lineNumber: number, lineCount: number) {
+  if (lineCount === 1) {
+    return "only";
+  }
+  if (lineNumber === 1) {
+    return "start";
+  }
+  return lineNumber === lineCount ? "end" : "middle";
+}
+
+function getGeneratedLineDecorations(doc: Text): DecorationSet {
+  return Decoration.set(
+    Array.from({ length: doc.lines }, (_unused, index) => {
+      const lineNumber = index + 1;
+      return Decoration.line({
+        attributes: {
+          [GENERATED_LINE_ATTRIBUTE]: getGeneratedLinePosition(
+            lineNumber,
+            doc.lines,
+          ),
+        },
+      }).range(doc.line(lineNumber).from);
+    }),
+  );
+}
+
+// The document is the only input, and a generated section's document is replaced wholesale when
+// its host regenerates it, so the marks are recomputed exactly then.
+const GENERATED_OUTPUT_LINES = EditorView.decorations.compute(
+  ["doc"],
+  (state) => getGeneratedLineDecorations(state.doc),
+);
 
 type SectionEditorExtensionsOptions = {
   // Plain text is the absence of a language pack rather than a mode of its own, exactly as the
@@ -72,6 +119,9 @@ export function getSectionEditorExtensions({
       EditorState.readOnly.of(true),
       EditorView.editable.of(false),
     );
+  }
+  if (presentation === "generated-output") {
+    extensions.push(GENERATED_OUTPUT_LINES);
   }
   // The editor owns Escape ahead of the workspace's own chords: the reference's code area
   // returns focus to its wrapper, and letting the same keypress continue would clear the

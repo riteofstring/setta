@@ -17,6 +17,17 @@ import {
 export const sectionFieldSelector = "[data-workspace-section-field]";
 export const generatedOutputSelector =
   '[data-workspace-section-editor="generated-output"]';
+// The block's own ends, through the package's documented per-line hook. A one-line generated
+// document is both ends at once.
+const generatedBlockStartSelector =
+  '[data-workspace-generated-line="start"], [data-workspace-generated-line="only"]';
+const generatedBlockEndSelector =
+  '[data-workspace-generated-line="end"], [data-workspace-generated-line="only"]';
+
+// The section is fixed at 390 CSS px and its generated document is eight short lines, so a block
+// that hugs the code leaves most of the section unpainted. The rejected candidate painted all of
+// it, and this is the margin that tells the two apart without pinning the document's own length.
+const unpaintedSectionHeightCssPx = 100;
 
 // The activation swap may move the field's own box by less than a device pixel of rounding, but
 // not by a layout step.
@@ -63,7 +74,8 @@ export const donorCallableField = {
 };
 
 // Frozen main's `GEN_CODE_READONLY_THEME`: the blue-tinted region behind a three-pixel leading
-// rail, six-pixel rounded ends, and the compact uppercase badge. Chromium expands the rail's
+// rail, six-pixel rounded ends, and the compact uppercase badge — painted per rendered line, so
+// these are the block's own values rather than the editor wrapper's. Chromium expands the rail's
 // double-position stop into its two computed stops.
 export const donorGeneratedOutput = {
   dark: {
@@ -91,6 +103,12 @@ export const donorGeneratedOutput = {
     },
   },
 };
+
+// Main hangs the badge off the generated block's own upper boundary, centred over the block, and
+// that placement is the same in both appearances. The rejected candidate pinned it to the top
+// corner of the editor wrapper instead. Chromium resolves a pseudo-element's inline start to used
+// pixels, so the centring is compared against the block's measured box rather than to "50%".
+const badgeCentreToleranceCssPx = 3;
 
 export function idleCallableSelector(callableLabel) {
   return `${textBoxSelector(callableLabel)}:not([contenteditable="true"])`;
@@ -168,23 +186,52 @@ export function callableFieldStateScript(textSelector) {
   })()`;
 }
 
-// The generated surface, its badge, and the text layer inside it, read through the package's
-// documented section-editor hook. Nothing here selects a package class.
+// The generated surface, the block painted on its lines, its badge, and the text layer inside it,
+// read through the package's documented section-editor and generated-line hooks. Nothing here
+// selects a package class.
 export const generatedOutputStateScript = `(() => {
   const surface = document.querySelector(${JSON.stringify(generatedOutputSelector)});
   const text = surface?.querySelector('[role="textbox"]');
-  if (!(surface instanceof HTMLElement) || !(text instanceof HTMLElement)) {
+  const blockStart = surface?.querySelector(${JSON.stringify(generatedBlockStartSelector)});
+  const blockEnd = [...(surface?.querySelectorAll(${JSON.stringify(generatedBlockEndSelector)}) ?? [])].pop();
+  if (
+    !(surface instanceof HTMLElement) ||
+    !(text instanceof HTMLElement) ||
+    !(blockStart instanceof HTMLElement) ||
+    !(blockEnd instanceof HTMLElement)
+  ) {
     return null;
   }
   const rect = surface.getBoundingClientRect();
+  const startRect = blockStart.getBoundingClientRect();
+  const endRect = blockEnd.getBoundingClientRect();
   const surfaceStyle = window.getComputedStyle(surface);
-  const badgeStyle = window.getComputedStyle(surface, "::after");
+  const regionStyle = window.getComputedStyle(blockStart, "::before");
+  const badgeStyle = window.getComputedStyle(blockStart, "::after");
   const textStyle = window.getComputedStyle(text);
   return {
     box: { height: rect.height, width: rect.width, x: rect.x, y: rect.y },
+    // The generated block itself: it starts on the document's first line and ends on its last.
+    block: {
+      bottom: endRect.bottom,
+      lineCount: surface.querySelectorAll("[data-workspace-generated-line]").length,
+      top: startRect.top,
+      width: startRect.width,
+    },
+    // The editor wrapper the rejected candidate painted instead of the lines.
+    wrapper: { backgroundImage: surfaceStyle.backgroundImage },
     region: {
-      backgroundImage: surfaceStyle.backgroundImage,
-      borderRadius: surfaceStyle.borderTopLeftRadius,
+      backgroundImage: regionStyle.backgroundImage,
+      borderRadius: regionStyle.borderTopLeftRadius,
+    },
+    // Where the region and the badge sit on the line they decorate.
+    placement: {
+      badgeInlineStart: badgeStyle.left,
+      badgeInsetBlockStart: badgeStyle.top,
+      badgeTransform: badgeStyle.transform,
+      regionInlineEnd: regionStyle.right,
+      regionInlineStart: regionStyle.left,
+      regionInsetBlockStart: regionStyle.top,
     },
     badge: {
       backgroundColor: badgeStyle.backgroundColor,
@@ -278,6 +325,67 @@ export function assertDonorGeneratedRegion(state, appearance) {
         `The ${appearance} generated Python badge rendered ${property} ${JSON.stringify(state.badge[property])} instead of the donor's ${JSON.stringify(expected)}.`,
       );
     }
+  }
+  assertDonorBadgePlacement(state, appearance);
+}
+
+function assertDonorBadgePlacement(state, appearance) {
+  const { placement } = state;
+  // The badge's own origin is the block's upper boundary, and the two-dimensional negative
+  // translation centres it there instead of hanging it below the edge.
+  if (placement.badgeInsetBlockStart !== placement.regionInsetBlockStart) {
+    throw new Error(
+      `The ${appearance} generated Python badge starts at ${JSON.stringify(placement.badgeInsetBlockStart)} while its block's top edge is at ${JSON.stringify(placement.regionInsetBlockStart)}.`,
+    );
+  }
+  const translation = /^matrix\(1, 0, 0, 1, (-?[\d.]+), (-?[\d.]+)\)$/u.exec(
+    placement.badgeTransform,
+  );
+  if (translation === null) {
+    throw new Error(
+      `The ${appearance} generated Python badge carried the transform ${JSON.stringify(placement.badgeTransform)} instead of centring itself on the block's boundary.`,
+    );
+  }
+  if (Number(translation[1]) >= 0 || Number(translation[2]) >= 0) {
+    throw new Error(
+      `The ${appearance} generated Python badge translated by ${translation[1]}, ${translation[2]}, so it hangs off its origin instead of centring on it.`,
+    );
+  }
+  const blockCentre =
+    (Number.parseFloat(placement.regionInlineStart) +
+      state.block.width -
+      Number.parseFloat(placement.regionInlineEnd)) /
+    2;
+  const drift = Math.abs(
+    Number.parseFloat(placement.badgeInlineStart) - blockCentre,
+  );
+  if (!Number.isFinite(drift) || drift > badgeCentreToleranceCssPx) {
+    throw new Error(
+      `The ${appearance} generated Python badge sits ${String(Math.round(drift))} CSS px from the centre of its block.`,
+    );
+  }
+}
+
+// The supervisor rejected a generated region that filled the section's unused height and put its
+// badge in the corner of the empty panel below the code. The region is painted on the rendered
+// lines, so the block ends with the document and the rest of the section keeps the ordinary
+// Code-section surface.
+export function assertGeneratedBlockHugsCode(stage, state) {
+  if (state.wrapper.backgroundImage !== "none") {
+    throw new Error(
+      `${stage} generated Python painted its editor wrapper ${JSON.stringify(state.wrapper.backgroundImage)} instead of its document lines.`,
+    );
+  }
+  if (state.block.lineCount < 2) {
+    throw new Error(
+      `${stage} generated Python marked ${String(state.block.lineCount)} generated lines, so its block is not the whole document.`,
+    );
+  }
+  const unpainted = state.box.y + state.box.height - state.block.bottom;
+  if (unpainted < unpaintedSectionHeightCssPx) {
+    throw new Error(
+      `${stage} generated block ended ${String(Math.round(unpainted))} CSS px above the section's own bottom, so it is filling height its document does not occupy.`,
+    );
   }
 }
 

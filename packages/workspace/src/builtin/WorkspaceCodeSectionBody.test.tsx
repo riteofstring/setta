@@ -94,6 +94,14 @@ globalThis.ResizeObserver =
 const SECTION_ID = "code";
 const definition = createWorkspaceCodeSection();
 
+// The generated block, read the way a consumer or a capture reads it: the package's documented
+// per-line hook, in rendered order.
+function getGeneratedLineMarks(view: EditorView): Array<string | null> {
+  return [...view.dom.querySelectorAll(".cm-line")].map((line) =>
+    line.getAttribute("data-workspace-generated-line"),
+  );
+}
+
 function makeCodeSection(
   data: Partial<WorkspaceCodeSectionData> = {},
   overrides: Partial<WorkspaceSectionInput> = {},
@@ -361,6 +369,7 @@ describe("built-in code section body", () => {
     expect(wrapper.classList.contains("setta-workspace-generated-output")).toBe(
       false,
     );
+    expect(getGeneratedLineMarks(view)).toStrictEqual([null, null, null]);
   });
 
   it("presents a generated section as read-only output rather than an editor", async () => {
@@ -382,6 +391,13 @@ describe("built-in code section body", () => {
     // kept the reference's focus fill under a pointer press.
     expect(view.dom.querySelector(".cm-activeLine")).toBeNull();
     expect(wrapper.className).not.toContain("focus:bg-blue-200/70");
+    // The second rejected candidate painted the flex-filling wrapper, so the region became an
+    // empty panel below the code. The generated block belongs to the rendered document lines.
+    expect(getGeneratedLineMarks(view)).toStrictEqual([
+      "start",
+      "middle",
+      "end",
+    ]);
     // Its text is still there to select and copy.
     expect(view.dom.textContent).toContain("alpha = 1");
     // Enter has no editing surface to reach, so it stays on the section's own focus target and
@@ -394,6 +410,32 @@ describe("built-in code section body", () => {
       );
     });
     expect(document.activeElement).toBe(wrapper);
+  });
+
+  it("marks the whole generated block when the host regenerates its document", async () => {
+    // The reference's range always spans at least three lines, so its start and end marks are
+    // never the same line. A whole generated document can be one line, and it can grow.
+    await mount(
+      makeCodeSection({ code: "state = None\n", mode: "generated-output" }),
+    );
+    expect(getGeneratedLineMarks(getView())).toStrictEqual(["start", "end"]);
+
+    await remount(
+      makeCodeSection({ code: "state = None", mode: "generated-output" }),
+    );
+    expect(getGeneratedLineMarks(getView())).toStrictEqual(["only"]);
+
+    await act(async () => {
+      setWorkspaceCodeSectionData(testWorkspace.host, SECTION_ID, {
+        ...getSectionData(),
+        code: "import math\n\nstate = math.sqrt(3)",
+      });
+    });
+    expect(getGeneratedLineMarks(getView())).toStrictEqual([
+      "start",
+      "middle",
+      "end",
+    ]);
   });
 
   it("makes a locked section read-only without turning it into generated output", async () => {

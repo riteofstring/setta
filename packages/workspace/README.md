@@ -589,14 +589,17 @@ Python, Bash, JavaScript, TypeScript, JSON, YAML, TOML, Markdown, and plain text
 copyable, and scrollable, and stop being editing surfaces rather than leaving a caret in one that
 refuses every keystroke: the wrapper stays the section's focus target, says it is read-only in its
 accessible name, and Enter no longer reaches into an editor. `generated-output` additionally paints
-the whole body as machine-written output — the reference's blue region, its leading rail, and its
-compact uppercase generated/read-only badge — and never shows a caret, an inner focus outline,
-active-line paint, or any repaint under a pointer press. Locking a section makes an `editable`
-section read-only; it never turns one into generated output. Both sections share that editor, so a
+every rendered document line as machine-written output — the reference's blue region, its leading
+rail, and its compact uppercase generated/read-only badge centred on the block's upper boundary —
+and never shows a caret, an inner focus outline, active-line paint, or any repaint under a pointer
+press. The block hugs the code, so a section taller than its generated document leaves the unused
+height on the ordinary Code-section surface. Locking a section makes an `editable` section
+read-only; it never turns one into generated output. Both sections share that editor, so a
 read-only or locked Text section is non-editable the same way. The rendered surface carries
-`data-workspace-section-editor` with the presentation it resolved to: that attribute is the one
-documented hook for observing or capturing it, and no editor class, inner structure, or CodeMirror
-internal is public.
+`data-workspace-section-editor` with the presentation it resolved to, and each line of a generated
+block carries `data-workspace-generated-line` with its position in that block (`start`, `middle`,
+`end`, or `only` for a one-line document): those two attributes are the documented hooks for
+observing or capturing it, and no editor class, inner structure, or CodeMirror internal is public.
 
 Registration options are how a host customizes them:
 

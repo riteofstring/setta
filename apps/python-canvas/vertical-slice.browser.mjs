@@ -24,6 +24,7 @@ import {
   assertCallableFieldParity,
   assertDonorCallableFieldSurface,
   assertDonorGeneratedRegion,
+  assertGeneratedBlockHugsCode,
   assertNonEditingGeneratedText,
   callableFieldStateScript,
   enterCallableField,
@@ -192,9 +193,10 @@ async function assertCallableFieldActivationParity(
   );
 }
 
-// The developer rejected the previous candidate because Generated Python was painted as an
-// ordinary editor whose still-editable content exposed a black caret line on click. Measure the
-// generated region idle, click it with a real pointer, and require the same non-editing surface.
+// The developer rejected one candidate because Generated Python was painted as an ordinary editor
+// whose still-editable content exposed a black caret line on click, and the supervisor rejected the
+// next because its region filled the section's unused height with a corner badge. Measure the
+// generated block idle, click it with a real pointer, and require the same non-editing surface.
 async function assertGeneratedOutputPresentation(client, generatedLabel) {
   const idle = await evaluate(client, generatedOutputStateScript);
   if (idle === null) {
@@ -203,6 +205,7 @@ async function assertGeneratedOutputPresentation(client, generatedLabel) {
     );
   }
   assertDonorGeneratedRegion(idle, walkthroughAppearance);
+  assertGeneratedBlockHugsCode("The idle", idle);
   assertNonEditingGeneratedText("The idle", idle);
 
   await clickElementCenter(
@@ -214,6 +217,7 @@ async function assertGeneratedOutputPresentation(client, generatedLabel) {
   if (clicked === null) {
     throw new Error("The clicked generated Python region lost its surface.");
   }
+  assertGeneratedBlockHugsCode("The clicked", clicked);
   assertNonEditingGeneratedText("The clicked", clicked);
   for (const [property, idleValue] of Object.entries(idle.region)) {
     if (clicked.region[property] !== idleValue) {
