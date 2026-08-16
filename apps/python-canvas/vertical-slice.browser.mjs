@@ -434,7 +434,7 @@ async function assertCallableFirstComposition(client, callableLabel) {
       `The Args toolbar rendered in ${JSON.stringify(composition.toolbarMode)} instead of filter-only.`,
     );
   }
-  if (!composition.toolbarText.startsWith("Args")) {
+  if (!composition.toolbarText.includes("Args")) {
     throw new Error("The filter-only toolbar no longer labels the Args area.");
   }
   assertNoStructuralParameterControls(composition.toolbarButtonNames);
@@ -459,11 +459,9 @@ function assertNoStructuralParameterControls(names) {
   }
 }
 
-// Rendered order alone would not prove the section reads correctly by keyboard, so Tab from the
-// enabled idle editor — the user-visible keyboard entry point — must land on the Args filter.
-// Do not route this through the walkthrough's `activateTextBox` handoff first: waiting for the
-// live layer here timed out against the running app, and the idle tab stop is the control this
-// order proof is about.
+// Rendered order alone would not prove the section reads correctly by keyboard. Start from the last
+// ordinary focus target before the callable field, enter the field with a real Tab key, and prove
+// its keyboard activation mounts the live editor before the next Tab reaches the Args filter.
 async function assertCallableEditorLeadsKeyboardOrder(client, callableLabel) {
   await waitFor(
     client,
@@ -473,20 +471,45 @@ async function assertCallableEditorLeadsKeyboardOrder(client, callableLabel) {
       return control instanceof HTMLElement && control.getAttribute("aria-disabled") !== "true";
     })()`,
   );
-  const callableFocused = await evaluate(
+  const precedingControlFocused = await evaluate(
     client,
     `(() => {
+      const section = document.querySelector(${JSON.stringify(callableSectionSelector)});
       const control = document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))});
-      if (!(control instanceof HTMLElement)) {
+      if (!(section instanceof HTMLElement) || !(control instanceof HTMLElement)) {
         return false;
       }
-      control.focus({ preventScroll: true });
-      return document.activeElement === control;
+      const focusable = Array.from(section.querySelectorAll(
+        'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      )).filter((candidate) =>
+        candidate instanceof HTMLElement &&
+        candidate !== control &&
+        candidate.getClientRects().length > 0 &&
+        (candidate.compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+      );
+      const preceding = focusable.at(-1);
+      if (!(preceding instanceof HTMLElement)) {
+        return false;
+      }
+      preceding.focus({ preventScroll: true });
+      return document.activeElement === preceding;
     })()`,
   );
-  if (!callableFocused) {
-    throw new Error("The callable editor could not receive keyboard focus.");
+  if (!precedingControlFocused) {
+    throw new Error(
+      "No focusable section control preceded the callable editor.",
+    );
   }
+  await pressTab(client);
+  await waitFor(
+    client,
+    "live callable editor activation through keyboard traversal",
+    `Array.from(document.querySelectorAll(${JSON.stringify(labeledSelector(callableLabel))})).some((control) =>
+      control instanceof HTMLElement &&
+      control.getAttribute("contenteditable") === "true" &&
+      document.activeElement === control
+    )`,
+  );
   await pressTab(client);
   const focused = await waitFor(
     client,

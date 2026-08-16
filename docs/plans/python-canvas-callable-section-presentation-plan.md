@@ -461,17 +461,20 @@ It reads only the section's accessible group, the documented toolbar-mode hook, 
 accessible wiring, and app-owned content: no package-private class is selected, and no visual
 baseline or screenshot lock is checked in.
 
-The keyboard assertion focuses the enabled idle editor — the user-visible tab stop — and proves one
-Tab lands on `Filter parameters`. After the existing callable, code-generation, and diagnostic flow,
-a nonmatching filter query hides the `x` row and reports zero matches; its clear control restores
-the row while the toolbar remains free of structural actions.
+The keyboard assertion starts from the last ordinary focus target preceding the callable field,
+dispatches a real Tab, waits for that keyboard entry to mount and focus the live editor, and proves
+the next Tab lands on `Filter parameters`. After the existing callable, code-generation, and
+diagnostic flow, a nonmatching filter query hides the `x` row and reports zero matches; its clear
+control restores the row while the toolbar remains free of structural actions. The Args label proof
+uses text containment and therefore does not depend on private ordering inside the toolbar.
 
-Running the suite corrected that keyboard assertion. Its first checked-in form drove the
-walkthrough's established `activateTextBox` handoff before tabbing, which held only when read
-against rendering code; against the running app, waiting for the live editor layer at that point in
-the section's life timed out and failed the suite. Focusing the idle tab stop the user actually
-reaches proves the same order and passes, so the assertion no longer depends on that handoff and its
-comment now says why.
+Running the suite also settled the earlier activation timeout. The first checked-in form focused the
+callable field programmatically and then waited for its live layer, and that wait timed out at this
+point in the walkthrough, so synthetic focus does not reliably mount the editor here. Real keyboard
+entry does: tabbing in from the preceding control mounts and focuses the live editor before the
+order assertion continues, and it exercises the traversal this assertion is about rather than a
+focus call no keyboard user makes. Two consecutive production walkthroughs pass with that path, so
+neither a product activation change nor a test-only retry is needed.
 
 The suite passes twice in a row against the production build, the real Go service built from the
 pinned toolchain this repository's locked Code Policy release carries, pinned Basedpyright, and
@@ -482,8 +485,11 @@ listening, and leaves no surviving backend, Basedpyright, or Vite process.
 
 That evidence also withdraws the earlier claim that this task worktree could not run the suite: the
 locked release carries the Go toolchain the wrapper already resolves outside `PATH`, and only the
-`code-policy` CLI itself is missing here. Developer visual acceptance, the accepted-candidate
-record, and this phase's closing `test --changed` and `test-levels` steps remain open.
+`code-policy` CLI itself is missing here. Because that CLI is missing, the declared suite commands
+ran directly, with the locked release's pinned Go on `PATH` for the ones that invoke `go`; the
+changed walkthrough's own module suite passes with them (35 Python Canvas frontend tests). Developer
+visual acceptance, the accepted-candidate record, and this phase's closing `test --changed` and
+`test-levels` steps remain open.
 
 ## Stop conditions
 
