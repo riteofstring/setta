@@ -28,6 +28,11 @@ const sectionFieldSelector = "[data-workspace-section-field]";
 export const callableSectionSelector =
   '[role="group"][aria-label^="Square Root section"]';
 export const itemToolbarSelector = "[data-workspace-item-toolbar]";
+// The canvas the scene is drawn in, by its own accessible role and name, and the popup the
+// completion state has to show whole.
+const workspaceCanvasSelector =
+  '[role="region"][aria-label="Workspace canvas"]';
+export const callableCompletionPopupSelector = '[role="listbox"]';
 // The card's own header landmark, and the app's own first parameter label below the toolbar.
 const sectionHeaderSelector = `${callableSectionSelector} header`;
 export const firstParameterSelector = ".python-canvas-parameter-label";
@@ -163,6 +168,11 @@ export const settledSectionCompositing = {
 // by the input having been dispatched.
 const zoomWheelDelta = -50;
 const minimumZoomedCardGrowth = 1.5;
+// An enlarged card has to stay inside the canvas it is drawn in, because a card that leaves it
+// rides under the application's own status strip and no complete image of it exists. The section's
+// selection stroke sits just outside its box, so containment allows for that stroke and for nothing
+// resembling a clipped header or parameter row.
+const cardInsideCanvasToleranceCssPx = 2;
 // The scene settles as soon as d3 applies the wheel, but the package's own gesture marker outlives
 // it by 180 ms. This is comfortably longer, so what the harness measures and captures is the
 // settled state rather than the tail of a gesture.
@@ -332,18 +342,27 @@ export const generatedDocumentStateScript = `(() => {
   };
 })()`;
 
-// The settled card at whatever zoom the scene is displayed at: its own box and the compositing
-// the package leaves on it. The card is the accessible group this app already reads, so nothing
-// here depends on a package-private section hook.
+// The settled card at whatever zoom the scene is displayed at: its own box, the canvas box it has
+// to stay inside, and the compositing the package leaves on it. The card is the accessible group
+// this app already reads and the canvas is its own accessible region, so nothing here depends on a
+// package-private hook.
 const settledSectionStateScript = `(() => {
   const section = document.querySelector(${JSON.stringify(callableSectionSelector)});
-  if (!(section instanceof HTMLElement)) {
+  const canvas = document.querySelector(${JSON.stringify(workspaceCanvasSelector)});
+  if (!(section instanceof HTMLElement) || !(canvas instanceof HTMLElement)) {
     return null;
   }
   const rect = section.getBoundingClientRect();
+  const canvasRect = canvas.getBoundingClientRect();
   const style = window.getComputedStyle(section);
   return {
     box: { height: rect.height, width: rect.width, x: rect.x, y: rect.y },
+    canvas: {
+      bottom: canvasRect.bottom,
+      left: canvasRect.left,
+      right: canvasRect.right,
+      top: canvasRect.top,
+    },
     compositing: {
       backfaceVisibility: style.backfaceVisibility,
       isolation: style.isolation,
@@ -365,7 +384,7 @@ const settledSectionStateScript = `(() => {
 export const callableCompletionPopupScript = `(() => {
   const section = document.querySelector(${JSON.stringify(callableSectionSelector)});
   const field = document.querySelector(${JSON.stringify(sectionFieldSelector)});
-  const popup = document.querySelector('[role="listbox"]');
+  const popup = document.querySelector(${JSON.stringify(callableCompletionPopupSelector)});
   if (
     !(section instanceof HTMLElement) ||
     !(field instanceof HTMLElement) ||
@@ -495,12 +514,18 @@ export function assertDonorSectionComposition(state, appearance) {
 // Enlarge the scene with the canvas's own pinch zoom, leave the pointer on the card the way a
 // person's hand does, and wait for the gesture to settle. The card's measured growth is what
 // proves the gesture arrived; nothing here asks the browser whether an input was delivered.
+//
+// The gesture is anchored on the callable field. The scene zoom keeps the point under the cursor
+// fixed, so the anchor decides where the enlarged card lands: anchoring on the card's own centre
+// pushed its header up out of the canvas and under the application's status strip, while the
+// field is the card's primary control and sits near its top, so the whole header-to-parameter
+// composition stays inside the canvas. Nothing about how the product itself zooms changes.
 export async function zoomCanvasOnCallableCard(client) {
   const before = await readSettledSectionState(client, "The unzoomed");
   const point = await elementCenter(
     client,
-    callableSectionSelector,
-    "The Square Root card",
+    sectionFieldSelector,
+    "The callable field",
   );
   await movePointerTo(client, point);
   await pinchZoomCanvas(client, point, zoomWheelDelta);
@@ -539,6 +564,29 @@ export async function readSettledSectionState(client, stage) {
     throw new Error(`${stage} Square Root card did not render.`);
   }
   return state;
+}
+
+// The complete card stays inside the canvas at whatever zoom it is displayed at. An enlarged card
+// that leaves it is not a state anything can photograph: the missing area sits under the
+// application's status strip, and a crop of what remains is a plausible-looking partial card.
+export function assertSettledCardIsInsideCanvas(stage, state) {
+  const clipped = Object.entries({
+    bottom: state.box.y + state.box.height - state.canvas.bottom,
+    left: state.canvas.left - state.box.x,
+    right: state.box.x + state.box.width - state.canvas.right,
+    top: state.canvas.top - state.box.y,
+  }).filter(([, overflow]) => overflow > cardInsideCanvasToleranceCssPx);
+  if (clipped.length > 0) {
+    const edges = clipped
+      .map(
+        ([edge, overflow]) =>
+          `${String(Math.round(overflow))} CSS px at its ${edge}`,
+      )
+      .join(", ");
+    throw new Error(
+      `${stage} Square Root card reaches outside the workspace canvas by ${edges}, so the complete card is not on screen to capture.`,
+    );
+  }
 }
 
 // A settled section carries no compositor layer of its own, hovered or not, so its text, icons,

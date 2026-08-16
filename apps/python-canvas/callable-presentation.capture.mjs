@@ -29,8 +29,10 @@ import {
   assertGeneratedBlockHugsCode,
   assertGeneratedRegionBoundsItsBody,
   assertNonEditingGeneratedText,
+  assertSettledCardIsInsideCanvas,
   assertSettledSectionIsNotPromoted,
   callableCompletionPopupScript,
+  callableCompletionPopupSelector,
   callableFieldStateScript,
   callableSectionSelector,
   callableSectionStateScript,
@@ -68,7 +70,11 @@ import {
 //
 // The crops are whole cards. The developer rejected an earlier bundle because its component
 // crops of the callable field hid the composition around them: the card's own padding, the gap
-// above the field, and the Args surface below it are exactly what the images have to show.
+// above the field, and the Args surface below it are exactly what the images have to show. The
+// supervisor then rejected the enlarged images for the same reason arrived at differently — the
+// gesture had pushed the card's header out of the canvas and the crop was truncated at the
+// viewport edge — so the enlarged sequence starts from a freshly loaded scene and no crop is ever
+// clamped into a plausible partial image.
 
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
 const evidenceRoot = path.resolve(
@@ -118,35 +124,63 @@ async function waitForCanonicalSectionState(client) {
   );
 }
 
-async function captureCrop(client, selector, description) {
-  const clip = await evaluate(
+// The crop covers every element it is given, plus the margin, and it is never clamped to the
+// viewport. The supervisor rejected an enlarged bundle whose cards had been truncated at the
+// viewport edge into plausible-looking partial images, so a subject that does not fit on screen is
+// a defect in the state being recorded and fails here instead of being photographed in part.
+async function captureCrop(client, selectors, description) {
+  const measured = await evaluate(
     client,
     `(() => {
-      const element = document.querySelector(${JSON.stringify(selector)});
-      if (!(element instanceof HTMLElement)) {
+      const elements = ${JSON.stringify(selectors)}.map((selector) => document.querySelector(selector));
+      if (!elements.every((element) => element instanceof HTMLElement)) {
         return null;
       }
-      const rect = element.getBoundingClientRect();
+      const boxes = elements.map((element) => element.getBoundingClientRect());
       const margin = ${String(cropMarginCssPx)};
-      const left = Math.max(0, rect.left + window.scrollX - margin);
-      const top = Math.max(0, rect.top + window.scrollY - margin);
+      const left = Math.min(...boxes.map((box) => box.left)) - margin;
+      const top = Math.min(...boxes.map((box) => box.top)) - margin;
+      const right = Math.max(...boxes.map((box) => box.right)) + margin;
+      const bottom = Math.max(...boxes.map((box) => box.bottom)) + margin;
       return {
-        height: Math.min(rect.height + margin * 2, window.innerHeight - top),
-        width: Math.min(rect.width + margin * 2, window.innerWidth - left),
-        x: left,
-        y: top,
+        clip: {
+          height: bottom - top,
+          width: right - left,
+          x: left + window.scrollX,
+          y: top + window.scrollY,
+        },
+        offscreen: Object.entries({
+          bottom: bottom - window.innerHeight,
+          left: -left,
+          right: right - window.innerWidth,
+          top: -top,
+        }).filter(([, overflow]) => overflow > 0.5),
       };
     })()`,
   );
-  if (clip === null || clip.width <= 0 || clip.height <= 0) {
+  if (measured === null) {
+    throw new Error(`${description} had no visible box to capture.`);
+  }
+  if (measured.offscreen.length > 0) {
+    const edges = measured.offscreen
+      .map(
+        ([edge, overflow]) =>
+          `${String(Math.round(overflow))} CSS px past its ${edge}`,
+      )
+      .join(", ");
+    throw new Error(
+      `${description} reaches outside the ${String(productionViewport.width)}x${String(productionViewport.height)} viewport by ${edges}, so no complete image of it exists to record.`,
+    );
+  }
+  if (measured.clip.width <= 0 || measured.clip.height <= 0) {
     throw new Error(`${description} had no visible box to capture.`);
   }
   const screenshot = await client.send("Page.captureScreenshot", {
     captureBeyondViewport: false,
-    clip: { ...clip, scale: 1 },
+    clip: { ...measured.clip, scale: 1 },
     format: "png",
   });
-  return { clip, png: Buffer.from(screenshot.data, "base64") };
+  return { clip: measured.clip, png: Buffer.from(screenshot.data, "base64") };
 }
 
 async function readSurfaceState(client, script, description) {
@@ -174,7 +208,7 @@ async function captureCallableStates(client, appearance) {
   assertDonorSectionComposition(composition, appearance);
   const idleCrop = await captureCrop(
     client,
-    callableSectionSelector,
+    [callableSectionSelector],
     `The idle ${appearance} Square Root card`,
   );
 
@@ -194,7 +228,7 @@ async function captureCallableStates(client, appearance) {
   assertDonorSectionComposition(focusedComposition, appearance);
   const focusedCrop = await captureCrop(
     client,
-    callableSectionSelector,
+    [callableSectionSelector],
     `The focused ${appearance} Square Root card`,
   );
 
@@ -224,12 +258,21 @@ async function captureCallableStates(client, appearance) {
 // completion popup open, where the section's clipping box cropped that popup to a horizontal line
 // across the pill. The card is recorded idle, focused, and with the popup showing, and the
 // section's settled compositing is recorded beside each image.
-async function captureZoomedStates(client, appearance) {
+async function captureZoomedStates(client, previewOrigin, appearance) {
+  // The enlarged sequence starts from the scene the service boots, not from whatever the 1x
+  // recordings above left focused, clicked, or selected: the gesture's landing place depends on
+  // where the card is when it arrives.
+  await navigate(client, previewOrigin);
+  await waitForCanonicalSectionState(client);
+
   const idleSection = await zoomCanvasOnCallableCard(client);
   assertSettledSectionIsNotPromoted(
     `The idle ${appearance} zoomed`,
     idleSection,
   );
+  // The complete enlarged card has to be on screen before anything photographs it: the rejected
+  // bundle's cards had ridden up under the application's status strip and were recorded in part.
+  assertSettledCardIsInsideCanvas(`The idle ${appearance} zoomed`, idleSection);
   const idleField = await readSurfaceState(
     client,
     callableFieldStateScript(idleCallableSelector(callableLabel)),
@@ -240,7 +283,7 @@ async function captureZoomedStates(client, appearance) {
   assertDonorCallableFieldSurface(idleField, appearance);
   const idleCrop = await captureCrop(
     client,
-    callableSectionSelector,
+    [callableSectionSelector],
     `The idle ${appearance} zoomed Square Root card`,
   );
 
@@ -264,9 +307,13 @@ async function captureZoomedStates(client, appearance) {
     `The focused ${appearance} zoomed`,
     focusedSection,
   );
+  assertSettledCardIsInsideCanvas(
+    `The focused ${appearance} zoomed`,
+    focusedSection,
+  );
   const focusedCrop = await captureCrop(
     client,
-    callableSectionSelector,
+    [callableSectionSelector],
     `The focused ${appearance} zoomed Square Root card`,
   );
 
@@ -282,9 +329,11 @@ async function captureZoomedStates(client, appearance) {
     `The ${appearance} zoomed completion popup`,
   );
   assertCompletionPopupEscapesTheSection(`The ${appearance} zoomed`, popup);
+  // The popup is joined to the card here, because this image has to show the whole list the
+  // rejected placement cropped down to a line across the pill.
   const completionCrop = await captureCrop(
     client,
-    callableSectionSelector,
+    [callableSectionSelector, callableCompletionPopupSelector],
     `The ${appearance} zoomed Square Root card with its completion popup`,
   );
 
@@ -326,7 +375,7 @@ async function captureGeneratedStates(client, appearance) {
   assertNonEditingGeneratedText(`The idle ${appearance}`, idle);
   const idleCrop = await captureCrop(
     client,
-    generatedDocumentSelector,
+    [generatedDocumentSelector],
     `The idle ${appearance} generated Python region`,
   );
 
@@ -346,7 +395,7 @@ async function captureGeneratedStates(client, appearance) {
   assertNonEditingGeneratedText(`The clicked ${appearance}`, clicked);
   const clickedCrop = await captureCrop(
     client,
-    generatedDocumentSelector,
+    [generatedDocumentSelector],
     `The clicked ${appearance} generated Python region`,
   );
 
@@ -402,7 +451,7 @@ async function capture(client, previewOrigin) {
     const callable = await captureCallableStates(client, appearance);
     const generated = await captureGeneratedStates(client, appearance);
     // Last, because the gesture enlarges the scene every state above is measured in.
-    const zoomed = await captureZoomedStates(client, appearance);
+    const zoomed = await captureZoomedStates(client, previewOrigin, appearance);
     for (const entry of callable) {
       writeCapture(records, "callable-section", appearance, entry);
     }

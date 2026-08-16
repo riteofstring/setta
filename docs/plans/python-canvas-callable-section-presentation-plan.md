@@ -1698,9 +1698,51 @@ production walkthrough and the frozen recommended profile, then start a fresh re
 against the exact corrected candidate. The supervisor must inspect the replacement images at full
 resolution before presenting them for developer acceptance.
 
-What remains in this phase: this bounded zoom-evidence correction and recapture; the fresh read-only
-review; the supervisor's inspection of the replacement fourteen images at full resolution;
-developer visual acceptance with its accepted-candidate record; and this phase's closing
+**Zoom-evidence correction record.** The rejected defect is in the harness and it is fixed there.
+`zoomCanvasOnCallableCard` anchors its ctrl-wheel gesture on the centre of the documented
+`data-workspace-section-field` surface rather than on the section's own centre. The scene zoom holds
+the point under the cursor fixed, so the anchor is what decides where the enlarged card lands; the
+field is the card's primary control and sits near its top, so the doubled composition stays inside
+the canvas instead of riding up under the application's status strip. How the product zooms is
+untouched — the same real ctrl-wheel event at the same delta, with the pointer still left resting on
+the settled card for the existing hovered compositing assertion.
+
+Containment is asserted now rather than assumed. The settled-state read carries the workspace
+canvas's own accessible region box beside the card's, and `assertSettledCardIsInsideCanvas` fails
+when the card reaches outside it by more than the 2 CSS px its selection stroke needs. The production
+walkthrough asserts it on the settled zoomed card and again after the zoomed edit round trip; the
+capture harness asserts it on the idle and focused zoomed states before it photographs either. The
+measured 2x growth and the settled unpromoted compositor values are unchanged and still proved.
+
+The capture harness can no longer file a plausible partial image. `captureCrop` takes the elements a
+state has to show, unions their boxes with the existing 8 CSS px margin, and refuses — naming each
+edge and its overflow — when that box reaches outside the 1440x900 viewport, where it previously
+clamped the crop to the viewport edge and recorded whatever was left. The completion state passes the
+popup beside the card, so that image holds the whole list rather than the part of it the card's own
+box happens to cover. Each appearance's enlarged sequence starts from a fresh production page load
+and the shipped canonical `math.sqrt` scene, because where the gesture lands depends on where the
+card is when it arrives.
+
+Verification for this batch: `code-policy check` over the changed files reports only the
+`quality.deadCode` finding on `apps/python-canvas/vitest.setup.ts` this plan already reports, over a
+file this batch does not touch; the `quality.format` finding on the harness file this batch edits was
+cleared with the policy-owned formatter. This task worktree started without installed dependencies,
+and a `check` run in that state also reports the `name` class members of
+`apps/python-canvas/src/backend/client.ts` and `runtimeContract.ts` as dead; those two are artefacts
+of Knip resolving an uninstalled tree and are gone once `pnpm install --frozen-lockfile` has run.
+`code-policy test --changed --base c5c494fba`
+passes, and the authorized `code-policy test --recommended --base c5c494fba` passes both suites it
+selects: the Python Canvas frontend focused suite (42 tests) and the production browser walkthrough
+against the production builds, the real Go service, pinned Basedpyright, and headless Chrome at
+1440x900 device scale 1. One negative control binds this fix: restoring the section-centre anchor
+fails the walkthrough with _The zoomed Square Root card reaches outside the workspace canvas by 37
+CSS px at its top, so the complete card is not on screen to capture_ — the exact clipping the
+supervisor rejected the images for.
+
+What remains in this phase: the recapture rendered from this batch's immutable source candidate and
+committed separately as decision 15 requires, replacing the rejected bundle and its clamping claim;
+the fresh read-only review; the supervisor's inspection of the replacement fourteen images at full
+resolution; developer visual acceptance with its accepted-candidate record; and this phase's closing
 `test --changed --base <trusted-base>` and `test-levels --base <trusted-base>` steps against the
 accepted candidate.
 

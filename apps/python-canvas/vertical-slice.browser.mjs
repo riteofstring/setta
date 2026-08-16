@@ -29,6 +29,7 @@ import {
   assertGeneratedBlockHugsCode,
   assertGeneratedRegionBoundsItsBody,
   assertNonEditingGeneratedText,
+  assertSettledCardIsInsideCanvas,
   assertSettledSectionIsNotPromoted,
   callableCompletionPopupScript,
   callableFieldStateScript,
@@ -405,6 +406,10 @@ async function assertGeneratedDocumentPresentation(client, generatedLabel) {
 async function assertSettledZoomPresentation(client, callableLabel) {
   const zoomed = await zoomCanvasOnCallableCard(client);
   assertSettledSectionIsNotPromoted("The zoomed", zoomed);
+  // The enlarged card is also the state the evidence photographs, so it has to be a state a
+  // photograph can hold: the complete header-to-parameter composition inside the canvas rather
+  // than partly under the application's status strip.
+  assertSettledCardIsInsideCanvas("The zoomed", zoomed);
 
   // The line was the top border of a completion popup the section's own box cropped, so the popup
   // is opened at that same enlarged zoom and measured against the field it belongs to.
@@ -428,10 +433,9 @@ async function assertSettledZoomPresentation(client, callableLabel) {
     callableLabel,
     shippedExample.callable,
   );
-  assertSettledSectionIsNotPromoted(
-    "The zoomed and edited",
-    await readSettledSectionState(client, "The zoomed and edited"),
-  );
+  const edited = await readSettledSectionState(client, "The zoomed and edited");
+  assertSettledSectionIsNotPromoted("The zoomed and edited", edited);
+  assertSettledCardIsInsideCanvas("The zoomed and edited", edited);
 }
 
 // Rendered order alone would not prove the section reads correctly by keyboard. Start from the last
