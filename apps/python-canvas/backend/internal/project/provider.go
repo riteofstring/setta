@@ -15,6 +15,7 @@ import (
 // generated document revision together.
 type LSPProvider interface {
 	ResolveCallableSignature(context.Context, SignatureRequest) (CallableSignature, error)
+	CompleteCallable(context.Context, CallableCompletionRequest) ([]CallableCompletionItem, error)
 	SynchronizeGeneratedDocument(context.Context, GeneratedDocumentRequest) (GeneratedDocumentResult, error)
 	Close() error
 }

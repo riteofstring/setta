@@ -307,7 +307,7 @@ of arbitrary malformed LSP payloads, unrelated CodeMirror behavior, or the rest 
 
 ### Phase A — read-only Go completion query and real Basedpyright proof
 
-- [ ] Read-only Go completion query and pinned Basedpyright proof complete
+- [x] Read-only Go completion query and pinned Basedpyright proof complete
 
 Implement the authoritative backend before the reusable editor consumer:
 
@@ -339,6 +339,16 @@ a new evidence subsystem.
 **Avoid rabbit holes:** test the real `math.sq` path, lock release, UTF-16 boundary behavior, and
 cleanup. Do not audit every LSP completion union, build resolve support, or expand diagnostics while
 proving this phase.
+
+**Recorded evidence (2026-08-18):** `code-policy test --module python-canvas-backend` passed
+(`python-canvas-backend-focused`; Go packages including `internal/project` and `internal/lsp`).
+`TestPinnedBasedpyrightCompletesCallableNameInCanonicalMathContext` started the pinned
+Basedpyright executable, asserted the captured `import math` canonical context, and found `sqrt`
+for `math.sq` without changing the snapshot or canonical generated file. Project proofs cover exact
+IDs, bounded single-line drafts, UTF-16 surrogate boundaries, provider failure, no mutation, and
+store-lock release before the provider wait. LSP proofs cover Unicode full-document positioning,
+normalization, and `didOpen`/completion/`didClose` plus temporary-file cleanup on success, provider
+failure, and caller cancellation.
 
 ### Phase B — atomic workspace consumer cutover
 

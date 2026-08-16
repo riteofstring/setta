@@ -392,6 +392,28 @@ func (session *Session) SignatureHelp(ctx context.Context, path string, position
 	return result, nil
 }
 
+func (session *Session) Completion(ctx context.Context, path string, position Position) (CompletionResult, error) {
+	if err := session.Start(ctx); err != nil {
+		return CompletionResult{}, err
+	}
+	uri, err := pathToURI(path)
+	if err != nil {
+		return CompletionResult{}, err
+	}
+	var result CompletionResult
+	err = session.call(ctx, "textDocument/completion", map[string]any{
+		"textDocument": map[string]string{"uri": uri},
+		"position":     position,
+		"context": map[string]any{
+			"triggerKind": 1,
+		},
+	}, &result, false)
+	if err != nil {
+		return CompletionResult{}, err
+	}
+	return result, nil
+}
+
 func (session *Session) Close() error {
 	if session == nil {
 		return nil

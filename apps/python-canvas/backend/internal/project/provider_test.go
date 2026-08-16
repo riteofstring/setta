@@ -108,12 +108,14 @@ func TestMapProviderDiagnosticsKeepsSameRangeDifferentSeverityIDsDistinct(t *tes
 }
 
 type recordingProvider struct {
-	resolver         signatureResolverFunc
-	pending          bool
-	syncErr          error
-	closed           bool
-	resolveCalls     int
-	synchronizeCalls int
+	resolver           signatureResolverFunc
+	completionResolver completionResolverFunc
+	pending            bool
+	syncErr            error
+	closed             bool
+	resolveCalls       int
+	completionCalls    int
+	synchronizeCalls   int
 }
 
 func (provider *recordingProvider) ResolveCallableSignature(
@@ -125,6 +127,17 @@ func (provider *recordingProvider) ResolveCallableSignature(
 		return provider.resolver(ctx, request)
 	}
 	return squareRootSignature(), nil
+}
+
+func (provider *recordingProvider) CompleteCallable(
+	ctx context.Context,
+	request CallableCompletionRequest,
+) ([]CallableCompletionItem, error) {
+	provider.completionCalls++
+	if provider.completionResolver != nil {
+		return provider.completionResolver(ctx, request)
+	}
+	return []CallableCompletionItem{}, nil
 }
 
 func (provider *recordingProvider) SynchronizeGeneratedDocument(

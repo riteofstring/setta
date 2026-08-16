@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -96,6 +97,73 @@ func TestPinnedBasedpyrightResolvesAndClearsMappedParameterDiagnostic(t *testing
 	}
 }
 
+func TestPinnedBasedpyrightCompletesCallableNameInCanonicalMathContext(t *testing.T) {
+	generatedFile, err := project.NewTemporaryGeneratedFile()
+	if err != nil {
+		t.Fatalf("NewTemporaryGeneratedFile() error = %v", err)
+	}
+	workspaceRoot := filepath.Dir(generatedFile.Path())
+	provider, err := NewBasedpyrightProvider(BasedpyrightOptions{
+		AppRoot:           appRootForIntegrationTest(t),
+		WorkspaceRoot:     workspaceRoot,
+		RequestTimeout:    20 * time.Second,
+		DiagnosticTimeout: 15 * time.Second,
+	})
+	if err != nil {
+		_ = generatedFile.Close()
+		t.Fatalf("NewBasedpyrightProvider() error = %v", err)
+	}
+	store, err := project.NewStoreWithProvider(generatedFile, provider)
+	if err != nil {
+		_ = provider.Close()
+		_ = generatedFile.Close()
+		t.Fatalf("NewStoreWithProvider() error = %v", err)
+	}
+	generatedPath := store.GeneratedFilePath()
+	defer func() {
+		if err := store.Close(); err != nil {
+			t.Fatalf("Close() error = %v", err)
+		}
+		if _, err := os.Stat(workspaceRoot); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("temporary workspace stat after Close() = %v, want removed", err)
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+	before := store.Snapshot()
+	if before.PythonTarget.Prefix != "import math" {
+		t.Fatalf("canonical Python prefix = %q, want import math", before.PythonTarget.Prefix)
+	}
+	beforeCode, err := os.ReadFile(generatedPath)
+	if err != nil {
+		t.Fatalf("read canonical generated file before completion: %v", err)
+	}
+	items, err := store.CompleteCallable(
+		ctx,
+		before.Project.ID,
+		before.Callables[0].ID,
+		"math.sq",
+		7,
+	)
+	if err != nil {
+		t.Fatalf("CompleteCallable(math.sq) error = %v", err)
+	}
+	if !hasCallableCompletion(items, "sqrt") {
+		t.Fatalf("math.sq completion items = %#v, want sqrt", items)
+	}
+	if after := store.Snapshot(); !reflect.DeepEqual(after, before) {
+		t.Fatalf("canonical snapshot changed after completion:\n got: %#v\nwant: %#v", after, before)
+	}
+	afterCode, err := os.ReadFile(generatedPath)
+	if err != nil {
+		t.Fatalf("read canonical generated file after completion: %v", err)
+	}
+	if string(afterCode) != string(beforeCode) {
+		t.Fatalf("canonical generated file changed after completion: got %q, want %q", afterCode, beforeCode)
+	}
+}
+
 func requireReadyBasedpyrightStatus(t *testing.T, status contracts.ProviderStatusV1) {
 	t.Helper()
 	if status.Provider != contracts.ProviderBasedpyrightV1 ||
@@ -108,6 +176,15 @@ func requireReadyBasedpyrightStatus(t *testing.T, status contracts.ProviderStatu
 func containsErrorForTarget(diagnostics []contracts.DiagnosticV1, targetID string) bool {
 	for _, diagnostic := range diagnostics {
 		if diagnostic.TargetID == targetID && diagnostic.Severity == contracts.DiagnosticSeverityErrorV1 {
+			return true
+		}
+	}
+	return false
+}
+
+func hasCallableCompletion(items []project.CallableCompletionItem, label string) bool {
+	for _, item := range items {
+		if item.Label == label && item.InsertText == label {
 			return true
 		}
 	}

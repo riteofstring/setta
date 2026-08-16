@@ -38,3 +38,12 @@ type SignatureInformation struct {
 type ParameterInformation struct {
 	Label json.RawMessage `json:"label"`
 }
+
+type CompletionResult struct {
+	Items []CompletionItem `json:"items"`
+}
+
+type CompletionItem struct {
+	Label      string `json:"label"`
+	InsertText string `json:"insertText,omitempty"`
+}
