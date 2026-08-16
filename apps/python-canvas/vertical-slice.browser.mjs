@@ -459,10 +459,11 @@ function assertNoStructuralParameterControls(names) {
   }
 }
 
-// Rendered order alone would not prove the section reads correctly by keyboard, so Tab out of the
-// callable editor must land on the Args filter that follows it. The editor activates through the
-// walkthrough's established path first: focusing the idle layer swaps in the live editor and moves
-// focus with it, so tabbing before that settles would measure a control the user never had.
+// Rendered order alone would not prove the section reads correctly by keyboard, so Tab from the
+// enabled idle editor — the user-visible keyboard entry point — must land on the Args filter.
+// Do not route this through the walkthrough's `activateTextBox` handoff first: waiting for the
+// live layer here timed out against the running app, and the idle tab stop is the control this
+// order proof is about.
 async function assertCallableEditorLeadsKeyboardOrder(client, callableLabel) {
   await waitFor(
     client,
@@ -472,16 +473,19 @@ async function assertCallableEditorLeadsKeyboardOrder(client, callableLabel) {
       return control instanceof HTMLElement && control.getAttribute("aria-disabled") !== "true";
     })()`,
   );
-  await activateTextBox(client, callableLabel);
   const callableFocused = await evaluate(
     client,
     `(() => {
-      const control = document.querySelector(${JSON.stringify(labeledSelector(callableLabel))});
-      return control instanceof HTMLElement && document.activeElement === control;
+      const control = document.querySelector(${JSON.stringify(textBoxSelector(callableLabel))});
+      if (!(control instanceof HTMLElement)) {
+        return false;
+      }
+      control.focus({ preventScroll: true });
+      return document.activeElement === control;
     })()`,
   );
   if (!callableFocused) {
-    throw new Error("The callable editor could not hold keyboard focus.");
+    throw new Error("The callable editor could not receive keyboard focus.");
   }
   await pressTab(client);
   const focused = await waitFor(

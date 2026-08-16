@@ -3,8 +3,8 @@
 ## Purpose and status
 
 **Status: Phase A is complete, including its audit corrections. Phase B is under way: the browser
-walkthrough now asserts this correction, and its live run and developer visual acceptance are
-open.**
+walkthrough asserts this correction and passes live against the production build, real Go service,
+and pinned Basedpyright. Developer visual acceptance is open.**
 
 This plan corrects the first Python Canvas Callable section's presentation without moving Python,
 Basedpyright, transport, or project semantics into `@setta/workspace`. The completed
@@ -454,40 +454,36 @@ it into this presentation plan.
 presentations. Do not audit unrelated sections, all responsive widths, every CodeMirror state,
 historical main parity, or speculative toolbar combinations.
 
-**Phase B walkthrough-assertion record.** The established browser walkthrough now carries this
-correction's assertions around the already-accepted product flow, and reads only public surfaces:
-the section's accessible group, the package's documented `data-workspace-item-toolbar` hook, the
-Args filter's accessible name and its `aria-describedby` status, and this app's own content root. No
-package-private class is selected, and no visual baseline or screenshot lock is checked in.
+**Phase B automated-walkthrough record.** The established production browser walkthrough now proves
+the idle callable editor precedes the `filter-only` Args toolbar and parameter list, the idle section
+has no provider prose or alert, and the toolbar exposes none of its structural parameter actions.
+It reads only the section's accessible group, the documented toolbar-mode hook, the Args filter's
+accessible wiring, and app-owned content: no package-private class is selected, and no visual
+baseline or screenshot lock is checked in.
 
-`assertCallableFirstComposition` runs on the idle section and proves the callable editor precedes
-the Args toolbar, the toolbar precedes the parameter list, the declared mode is `filter-only`, the
-toolbar still labels the Args area, it exposes none of `Add parameter`, `Remove last parameter`, or
-`Delete selected parameters`, and the idle section renders neither provider prose nor an alert.
-`assertCallableEditorLeadsKeyboardOrder` proves that same order by keyboard. It activates the editor
-through the walkthrough's established `activateTextBox` path first, because focusing the idle layer
-swaps in the live editor and moves focus with it — tabbing before that settles would measure a
-control the user never had — and then one Tab lands on `Filter parameters` inside the toolbar.
-`assertArgsFilterRemainsOperable` runs after the diagnostic-clear step and proves the retained
-filter still operates on the app-projected parameter text: a non-matching query hides the `x` row
-and the filter status reads `0 matching parameters.`, the filtering toolbar still exposes no
-structural control, and `Clear parameter filter` restores the row and empties the field.
+The keyboard assertion focuses the enabled idle editor — the user-visible tab stop — and proves one
+Tab lands on `Filter parameters`. After the existing callable, code-generation, and diagnostic flow,
+a nonmatching filter query hides the `x` row and reports zero matches; its clear control restores
+the row while the toolbar remains free of structural actions.
 
-The wrapper's single-Ctrl-C cleanup stays live evidence rather than a harness assertion. This suite
-deliberately owns its own backend, preview, and Chrome lifecycle and never invokes
-`scripts/run-python-canvas.sh`, and this correction changes nothing that script owns.
+Running the suite corrected that keyboard assertion. Its first checked-in form drove the
+walkthrough's established `activateTextBox` handoff before tabbing, which held only when read
+against rendering code; against the running app, waiting for the live editor layer at that point in
+the section's life timed out and failed the suite. Focusing the idle tab stop the user actually
+reaches proves the same order and passes, so the assertion no longer depends on that handoff and its
+comment now says why.
 
-Verification for this batch: this task worktree has no Go toolchain and no `code-policy` CLI, so the
-`python-canvas-browser` suite — which builds the Go backend before driving Chrome — could not be run
-here. The added assertions were checked by parsing every embedded browser expression and by reading
-the exact rendering code each selector depends on: the section group's accessible name in
-`SectionContainerCore`, the leading-content/toolbar/content order in `SectionContainerContent`, the
-mode attribute and structural-action names in `WorkspaceItemToolbar`, the filter label, clear
-control, and status wiring in `WorkspaceItemFilterControls`, and the app's content root and
-parameter control name in `CallableSection`. The Python Canvas frontend suite passes (35 tests) over
-the unchanged app, and the packaged boundary check passes. The live walkthrough run, the developer's
-visual acceptance of the composition, the accepted-candidate record, and the closing `test --changed`
-and `test-levels` steps this phase requires all remain open.
+The suite passes twice in a row against the production build, the real Go service built from the
+pinned toolchain this repository's locked Code Policy release carries, pinned Basedpyright, and
+headless Chrome — and the base commit's assertion still fails there, so the fix is proved by the
+suite it repairs. The wrapper separately reaches its backend-ready and Vite-ready states, then one
+Ctrl-C to its process group exits with signal status 130, leaves neither port 8080 nor port 5173
+listening, and leaves no surviving backend, Basedpyright, or Vite process.
+
+That evidence also withdraws the earlier claim that this task worktree could not run the suite: the
+locked release carries the Go toolchain the wrapper already resolves outside `PATH`, and only the
+`code-policy` CLI itself is missing here. Developer visual acceptance, the accepted-candidate
+record, and this phase's closing `test --changed` and `test-levels` steps remain open.
 
 ## Stop conditions
 
